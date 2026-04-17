@@ -11,16 +11,7 @@ export function defaultFormation(): Formation {
     id: crypto.randomUUID(),
     name: "フォーメーション 1",
     setPieces: [],
-    dancers: [
-      {
-        id: crypto.randomUUID(),
-        label: "?",
-        xPct: 50,
-        yPct: 50,
-        /** 既定は明るい白系（ステージ中央のマル） */
-        colorIndex: 8,
-      },
-    ],
+    dancers: [],
   };
 }
 
