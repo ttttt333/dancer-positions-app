@@ -2210,11 +2210,11 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                       style={{
                         display: "grid",
                         gridTemplateColumns:
-                          "auto minmax(27px, auto) minmax(27px, auto) auto minmax(0, 1.35fr) auto auto",
+                          "auto minmax(27px, auto) minmax(27px, auto) auto auto auto auto",
                         gap: "8px",
                         alignItems: "center",
                         width: "100%",
-                        minWidth: "min(100%, 640px)",
+                        minWidth: "min(100%, 560px)",
                       }}
                     >
                       <div
@@ -2387,6 +2387,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                           flexDirection: "column",
                           gap: "2px",
                           minWidth: 0,
+                          justifySelf: "start",
                         }}
                       >
                         <span
@@ -2396,62 +2397,27 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                             letterSpacing: "0.02em",
                           }}
                         >
-                          ページ
+                          {"\u00A0"}
                         </span>
-                        <div
+                        <button
+                          type="button"
+                          disabled={project.viewMode === "view"}
+                          title={`${fname}（${cueFormation?.dancers.length ?? 0}人） · 人数と多数のフォーメーション案から選び、このキューのページに反映します`}
                           style={{
-                            display: "flex",
-                            flexWrap: "wrap",
-                            gap: "6px",
-                            alignItems: "center",
-                            minWidth: 0,
+                            ...btnSecondary,
+                            padding: "6px 8px",
+                            fontSize: "11px",
+                            flexShrink: 0,
+                            whiteSpace: "nowrap",
+                          }}
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            onSelectedCueIdsChange([c.id]);
+                            onOpenFormationSuggestions?.(c.formationId);
                           }}
                         >
-                          <span
-                            aria-label={`参照中のフォーメーション: ${fname}`}
-                            title={`${fname}（${cueFormation?.dancers.length ?? 0}人） · ページの切替は右パネル「フォーメーション」から`}
-                            style={{
-                              flex: "1 1 80px",
-                              minWidth: 0,
-                              maxWidth: "100%",
-                              padding: "5px 8px",
-                              borderRadius: "6px",
-                              border: "1px solid #334155",
-                              background: "#020617",
-                              color: "#e2e8f0",
-                              fontSize: "12px",
-                              fontWeight: 600,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {fname}
-                            <span style={{ fontWeight: 500, color: "#64748b" }}>
-                              {" "}
-                              （{cueFormation?.dancers.length ?? 0}人）
-                            </span>
-                          </span>
-                          <button
-                            type="button"
-                            disabled={project.viewMode === "view"}
-                            title="人数と多数のフォーメーション案から選び、このキューのページ（フォーメーション）に反映します（ステージ上部と同じパネル）"
-                            style={{
-                              ...btnSecondary,
-                              padding: "6px 8px",
-                              fontSize: "11px",
-                              flexShrink: 0,
-                              whiteSpace: "nowrap",
-                            }}
-                            onClick={(ev) => {
-                              ev.stopPropagation();
-                              onSelectedCueIdsChange([c.id]);
-                              onOpenFormationSuggestions?.(c.formationId);
-                            }}
-                          >
-                            フォーメーション案
-                          </button>
-                        </div>
+                          フォーメーション案
+                        </button>
                       </div>
                       <div
                         style={{

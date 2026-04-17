@@ -22,18 +22,32 @@ function yPctPyramidRow(r: number, numRows: number, yUp = 20, yDn = 72): number 
 
 /**
  * ピラミッド等で行ごとに人数が違うとき、「どの行も隣接間隔は等しい」グリッド上に
- * 並べて x 位置を返す。最も広い行（maxCnt）がステージ幅 usableHalfWidth×2 に収まる。
- * 結果として、少人数の行ほど中心寄りに集まり、全体が本来のピラミッド形になる。
+ * 並べて x 位置を返す。
+ *
+ * 水平ステップは基本的に行の縦間隔（`yPctPyramidRow` と同じ範囲で割る）に合わせ、
+ * それより窮屈にはならない程度に下限、広げすぎないための上限（`maxHalfWidth`）を
+ * 設ける。これで少人数行ほど中心寄りに収まり、全体が正三角に近いピラミッドになる。
  */
 function xPctInPyramidGrid(
   j: number,
   cnt: number,
   maxCnt: number,
-  usableHalfWidth = 38
+  numRows: number,
+  /** yPctPyramidRow と同じ範囲（％） */
+  yRangePct = 52,
+  /** 中心からの最大片側幅（％）。大人数でも端まで行かない上限 */
+  maxHalfWidth = 32,
+  /** 行間との比。1 で正三角相当。少し詰めたい場合は 0.9 など */
+  aspect = 1
 ): number {
   if (cnt <= 1) return 50;
   if (maxCnt <= 1) return 50;
-  const step = (usableHalfWidth * 2) / (maxCnt - 1);
+  const rowSpacingY = numRows > 1 ? yRangePct / (numRows - 1) : yRangePct / 2;
+  /** 見た目を三角形に近づけるための水平間隔（縦行間隔と同等） */
+  const stepNatural = rowSpacingY * aspect;
+  /** 最も広い行が端に寄りすぎない上限 */
+  const stepCap = (maxHalfWidth * 2) / (maxCnt - 1);
+  const step = Math.min(stepNatural, stepCap);
   return 50 + (j - (cnt - 1) / 2) * step;
 }
 
@@ -329,7 +343,7 @@ export function dancersForLayoutPreset(n: number, preset: LayoutPresetId): Dance
         const cnt = rowCounts[r]!;
         const y = yPctPyramidRow(r, nr);
         for (let j = 0; j < cnt; j++) {
-          pushSpot(out, idx++, xPctInPyramidGrid(j, cnt, maxCnt), y);
+          pushSpot(out, idx++, xPctInPyramidGrid(j, cnt, maxCnt, nr), y);
         }
       }
       break;
@@ -343,7 +357,7 @@ export function dancersForLayoutPreset(n: number, preset: LayoutPresetId): Dance
         const cnt = rowCounts[r]!;
         const y = yPctPyramidRow(r, nr);
         for (let j = 0; j < cnt; j++) {
-          pushSpot(out, idx++, xPctInPyramidGrid(j, cnt, maxCnt), y);
+          pushSpot(out, idx++, xPctInPyramidGrid(j, cnt, maxCnt, nr), y);
         }
       }
       break;
@@ -359,7 +373,7 @@ export function dancersForLayoutPreset(n: number, preset: LayoutPresetId): Dance
         const cnt = rowCounts[r]!;
         const y = yPctPyramidRow(nr - 1 - r, nr);
         for (let j = 0; j < cnt; j++) {
-          pushSpot(out, idx++, xPctInPyramidGrid(j, cnt, maxCnt), y);
+          pushSpot(out, idx++, xPctInPyramidGrid(j, cnt, maxCnt, nr), y);
         }
       }
       break;
