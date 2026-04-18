@@ -1,12 +1,22 @@
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography";
 import {
   dancersWithPresetAndWingSurplus,
   LAYOUT_PRESET_OPTIONS,
   type LayoutPresetId,
 } from "../lib/formationLayouts";
+import {
+  dancersFromFormationBoxItem,
+  deleteFormationBoxItem,
+  listFormationBoxItems,
+  renameFormationBoxItem,
+  saveFormationToBox,
+  updateFormationBoxItem,
+  type FormationBoxItem,
+} from "../lib/formationBox";
 import { btnPrimary, btnSecondary } from "./StageBoard";
 import { FormationPresetThumb } from "./FormationPresetThumb";
+import { FormationBoxItemThumb } from "./FormationBoxItemThumb";
 
 type Props = {
   project: ChoreographyProjectJson;
@@ -43,6 +53,19 @@ export function FormationSuggestionPanel({
   /** §6 人数が増えたとき、既存メイン人数ぶんだけプリセットを敷き、超過を袖へ */
   const [surplusToWings, setSurplusToWings] = useState(true);
 
+  /** 形の箱（端末内に保存されたユーザ独自の立ち位置） */
+  const [boxItems, setBoxItems] = useState<FormationBoxItem[]>(() =>
+    listFormationBoxItems()
+  );
+  /** 箱からプレビュー中のアイテム id（現在ステージへの一時表示用） */
+  const [pendingBoxItemId, setPendingBoxItemId] = useState<string | null>(null);
+  /** 現在人数のみ表示するか、全件表示するか */
+  const [boxShowAllCounts, setBoxShowAllCounts] = useState(false);
+
+  const reloadBox = useCallback(() => {
+    setBoxItems(listFormationBoxItems());
+  }, []);
+
   const targetFormationId =
     formationTargetId != null &&
     project.formations.some((f) => f.id === formationTargetId)
@@ -56,6 +79,7 @@ export function FormationSuggestionPanel({
     const n = Math.max(1, Math.min(80, Math.max(1, raw)));
     setCount(n);
     setPendingPreset(null);
+    setPendingBoxItemId(null);
     onStagePreviewChange?.(null);
   }, [targetFormationId, project.formations, onStagePreviewChange]);
 
@@ -123,6 +147,7 @@ export function FormationSuggestionPanel({
   const pickPending = useCallback(
     (preset: LayoutPresetId) => {
       if (viewMode === "view") return;
+      setPendingBoxItemId(null);
       setPendingPreset(preset);
     },
     [viewMode]
@@ -130,8 +155,131 @@ export function FormationSuggestionPanel({
 
   const cancelPreview = useCallback(() => {
     setPendingPreset(null);
+    setPendingBoxItemId(null);
     onStagePreviewChange?.(null);
   }, [onStagePreviewChange]);
+
+  /** 形の箱: 現在のステージを保存 */
+  const saveCurrentToBox = useCallback(() => {
+    if (viewMode === "view") return;
+    const f = project.formations.find((x) => x.id === targetFormationId);
+    if (!f || f.dancers.length === 0) {
+      window.alert("保存する立ち位置がありません。");
+      return;
+    }
+    const suggested = `${f.dancers.length}人の形 ${
+      boxItems.filter((b) => b.dancerCount === f.dancers.length).length + 1
+    }`;
+    const name = window.prompt(
+      "形の箱に保存する名前（あとで変更可）",
+      suggested
+    );
+    if (name === null) return;
+    const result = saveFormationToBox(name.trim() || suggested, f.dancers);
+    if (result.ok) {
+      reloadBox();
+    } else {
+      window.alert(result.message);
+    }
+  }, [
+    viewMode,
+    project.formations,
+    targetFormationId,
+    boxItems,
+    reloadBox,
+  ]);
+
+  /** 形の箱: 指定アイテムのプレビュー開始 */
+  const pickBoxItemPreview = useCallback(
+    (item: FormationBoxItem) => {
+      if (viewMode === "view") return;
+      setPendingPreset(null);
+      setPendingBoxItemId(item.id);
+      setCount(item.dancerCount);
+      onStagePreviewChange?.(dancersFromFormationBoxItem(item));
+    },
+    [viewMode, onStagePreviewChange]
+  );
+
+  /** 形の箱: プレビュー中のアイテムを現在のフォーメーションに反映 */
+  const applyBoxItem = useCallback(
+    (item: FormationBoxItem) => {
+      if (viewMode === "view") return;
+      const dancers = dancersFromFormationBoxItem(item);
+      setProject((p) => ({
+        ...p,
+        formations: p.formations.map((f) =>
+          f.id === targetFormationId
+            ? { ...f, dancers, confirmedDancerCount: dancers.length }
+            : f
+        ),
+      }));
+      setPendingBoxItemId(null);
+      setPendingPreset(null);
+      onStagePreviewChange?.(null);
+      onAfterApply?.();
+    },
+    [
+      viewMode,
+      setProject,
+      targetFormationId,
+      onStagePreviewChange,
+      onAfterApply,
+    ]
+  );
+
+  const renameBoxItem = useCallback(
+    (item: FormationBoxItem) => {
+      const name = window.prompt("名前を変更", item.name);
+      if (name === null) return;
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      renameFormationBoxItem(item.id, trimmed);
+      reloadBox();
+    },
+    [reloadBox]
+  );
+
+  const deleteBoxItem = useCallback(
+    (item: FormationBoxItem) => {
+      const ok = window.confirm(
+        `「${item.name}」を形の箱から削除します。よろしいですか？`
+      );
+      if (!ok) return;
+      deleteFormationBoxItem(item.id);
+      if (pendingBoxItemId === item.id) {
+        setPendingBoxItemId(null);
+        onStagePreviewChange?.(null);
+      }
+      reloadBox();
+    },
+    [pendingBoxItemId, onStagePreviewChange, reloadBox]
+  );
+
+  /** 現在ステージで箱のアイテムを上書き */
+  const overwriteBoxItem = useCallback(
+    (item: FormationBoxItem) => {
+      if (viewMode === "view") return;
+      const f = project.formations.find((x) => x.id === targetFormationId);
+      if (!f || f.dancers.length === 0) return;
+      const ok = window.confirm(
+        `「${item.name}」を現在のステージ（${f.dancers.length}人）で上書きします。`
+      );
+      if (!ok) return;
+      const result = updateFormationBoxItem(item.id, f.dancers);
+      if (result.ok) {
+        reloadBox();
+      } else {
+        window.alert(result.message);
+      }
+    },
+    [viewMode, project.formations, targetFormationId, reloadBox]
+  );
+
+  const visibleBoxItems = useMemo(() => {
+    if (boxShowAllCounts) return boxItems;
+    return boxItems.filter((x) => x.dancerCount === nClamped);
+  }, [boxItems, boxShowAllCounts, nClamped]);
 
   const floatingFrame =
     variant === "floating"
@@ -283,6 +431,217 @@ export function FormationSuggestionPanel({
           WebkitOverflowScrolling: "touch",
         }}
       >
+        {/* §6 形の箱: ユーザが保存した立ち位置（端末横断・無期限） */}
+        <div
+          style={{
+            marginBottom: 12,
+            padding: "8px 8px 10px",
+            border: "1px solid #1e293b",
+            borderRadius: "10px",
+            background: "#0b1220",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "6px",
+              marginBottom: 8,
+            }}
+          >
+            <span
+              style={{
+                fontSize: "11px",
+                fontWeight: 700,
+                color: "#cbd5e1",
+                letterSpacing: "0.04em",
+              }}
+            >
+              形の箱
+            </span>
+            <span style={{ fontSize: "10px", color: "#64748b" }}>
+              {boxShowAllCounts
+                ? `全 ${boxItems.length} 件`
+                : `${nClamped}人の形 ${visibleBoxItems.length} 件 / 全 ${boxItems.length} 件`}
+            </span>
+            <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  padding: "3px 8px",
+                  fontSize: "11px",
+                }}
+                onClick={() => setBoxShowAllCounts((v) => !v)}
+                title="現在人数でフィルタ／すべて表示を切替"
+              >
+                {boxShowAllCounts ? "現人数のみ" : "すべて表示"}
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...btnPrimary,
+                  padding: "3px 10px",
+                  fontSize: "11px",
+                }}
+                disabled={viewMode === "view"}
+                onClick={saveCurrentToBox}
+                title="いまのステージの立ち位置を箱に保存"
+              >
+                現在を保存
+              </button>
+            </div>
+          </div>
+          {visibleBoxItems.length === 0 ? (
+            <p
+              style={{
+                margin: 0,
+                fontSize: "11px",
+                color: "#64748b",
+                lineHeight: 1.5,
+              }}
+            >
+              {boxItems.length === 0
+                ? "まだ形の箱は空です。ステージで並べた立ち位置を「現在を保存」で残しておくと、別のプロジェクトからでも呼び出せます。"
+                : `この人数の形はまだありません。「すべて表示」で他人数の形も見られます。`}
+            </p>
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+                gap: "6px",
+              }}
+            >
+              {visibleBoxItems.map((item) => {
+                const selected = pendingBoxItemId === item.id;
+                return (
+                  <div
+                    key={item.id}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "4px",
+                      padding: "6px 6px 5px",
+                      borderRadius: "8px",
+                      border: selected
+                        ? "1px solid #38bdf8"
+                        : "1px solid #1e293b",
+                      background: selected ? "#0c2942" : "#020617",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => pickBoxItemPreview(item)}
+                      disabled={viewMode === "view"}
+                      aria-pressed={selected}
+                      title={`${item.name}（${item.dancerCount}人）をプレビュー`}
+                      style={{
+                        appearance: "none",
+                        border: "none",
+                        background: "transparent",
+                        padding: 0,
+                        cursor: viewMode === "view" ? "not-allowed" : "pointer",
+                        color: selected ? "#bae6fd" : "#cbd5e1",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 4,
+                        alignItems: "stretch",
+                        textAlign: "left",
+                      }}
+                    >
+                      <FormationBoxItemThumb item={item} width={120} />
+                      <span
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: 600,
+                          lineHeight: 1.3,
+                          color: "inherit",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                        }}
+                      >
+                        {item.name}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: "10px",
+                          color: "#64748b",
+                        }}
+                      >
+                        {item.dancerCount}人
+                      </span>
+                    </button>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 3,
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <button
+                        type="button"
+                        style={{
+                          ...btnPrimary,
+                          padding: "2px 7px",
+                          fontSize: "10px",
+                          flex: "1 1 auto",
+                        }}
+                        disabled={viewMode === "view"}
+                        onClick={() => applyBoxItem(item)}
+                      >
+                        反映
+                      </button>
+                      <button
+                        type="button"
+                        style={{
+                          ...btnSecondary,
+                          padding: "2px 6px",
+                          fontSize: "10px",
+                        }}
+                        disabled={viewMode === "view"}
+                        onClick={() => overwriteBoxItem(item)}
+                        title="現在のステージで上書き保存"
+                      >
+                        上書
+                      </button>
+                      <button
+                        type="button"
+                        style={{
+                          ...btnSecondary,
+                          padding: "2px 6px",
+                          fontSize: "10px",
+                        }}
+                        onClick={() => renameBoxItem(item)}
+                        title="名前を変更"
+                      >
+                        改名
+                      </button>
+                      <button
+                        type="button"
+                        style={{
+                          ...btnSecondary,
+                          padding: "2px 6px",
+                          fontSize: "10px",
+                          color: "#f87171",
+                        }}
+                        onClick={() => deleteBoxItem(item)}
+                        title="削除"
+                      >
+                        削除
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         <div
           style={{
             display: "grid",
@@ -394,7 +753,10 @@ export function FormationSuggestionPanel({
         <button
           type="button"
           style={btnSecondary}
-          disabled={viewMode === "view" || pendingPreset == null}
+          disabled={
+            viewMode === "view" ||
+            (pendingPreset == null && pendingBoxItemId == null)
+          }
           onClick={cancelPreview}
         >
           プレビューをやめる
@@ -402,8 +764,18 @@ export function FormationSuggestionPanel({
         <button
           type="button"
           style={btnPrimary}
-          disabled={viewMode === "view" || pendingPreset == null}
-          onClick={() => pendingPreset && applyPreset(pendingPreset)}
+          disabled={
+            viewMode === "view" ||
+            (pendingPreset == null && pendingBoxItemId == null)
+          }
+          onClick={() => {
+            if (pendingBoxItemId) {
+              const item = boxItems.find((x) => x.id === pendingBoxItemId);
+              if (item) applyBoxItem(item);
+            } else if (pendingPreset) {
+              applyPreset(pendingPreset);
+            }
+          }}
         >
           この形で反映
         </button>

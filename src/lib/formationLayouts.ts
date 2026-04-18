@@ -14,133 +14,111 @@ function pushSpot(out: DancerSpot[], i: number, x: number, y: number) {
   });
 }
 
-/** 客席が下のとき: 行 r を奥→手前に yUp…yDn へ線形配置（0 始まり） */
+/**
+ * n 人を「一定の目安間隔」で等間隔に並べる座標列（％）。
+ *
+ * - 人数が少ないときはステージ端までは広げず、`preferredStepPct` 刻みで中央付近にまとめる。
+ * - 人数が増えて目安間隔だと `[minPct, maxPct]` の範囲を超える場合のみ、均等間隔のまま
+ *   範囲に収まるようステップを縮める（＝詰めて等間隔）。
+ *
+ * これで「2 人なら隣り合い、6 人でも隣り合い、20 人でも変わらず隣り合う」等、
+ * 人数に関わらず見た目の間隔が揃うようになる。
+ */
+function evenSpacingPositions(
+  n: number,
+  center: number,
+  preferredStepPct: number,
+  minPct: number,
+  maxPct: number
+): number[] {
+  if (n <= 0) return [];
+  if (n === 1) return [center];
+  const halfSpan = Math.min(center - minPct, maxPct - center);
+  const maxTotal = Math.max(0, halfSpan * 2);
+  const desiredTotal = preferredStepPct * (n - 1);
+  const step =
+    desiredTotal <= maxTotal ? preferredStepPct : maxTotal / (n - 1);
+  const start = center - (step * (n - 1)) / 2;
+  return Array.from({ length: n }, (_, i) => start + i * step);
+}
+
+/** ステージ横方向の目安間隔（％）。隣り合う立ち位置間の距離。 */
+const TARGET_STEP_X = 8;
+/** ステージ奥行きの目安間隔（％）。列間の距離。 */
+const TARGET_STEP_Y = 10;
+
+/**
+ * 客席が下のとき: 行 r を奥→手前に線形配置（0 始まり）。
+ *
+ * 列間隔は `TARGET_STEP_Y` を目安に固定し、人数が多くて範囲を超える場合のみ、
+ * `[yUp, yDn]` の範囲に収まるよう等間隔に縮める。少人数でも横一列に広がらず、
+ * 中央付近に列が密集するようになる。
+ */
 function yPctPyramidRow(r: number, numRows: number, yUp = 20, yDn = 72): number {
   if (numRows <= 1) return (yUp + yDn) / 2;
-  return yUp + (r / (numRows - 1)) * (yDn - yUp);
+  const center = (yUp + yDn) / 2;
+  const maxTotal = Math.max(0, yDn - yUp);
+  const desiredTotal = TARGET_STEP_Y * (numRows - 1);
+  const total = Math.min(desiredTotal, maxTotal);
+  const top = center - total / 2;
+  return top + (r / (numRows - 1)) * total;
 }
 
 /**
  * ピラミッド等で行ごとに人数が違うとき、「どの行も隣接間隔は等しい」グリッド上に
  * 並べて x 位置を返す。
  *
- * 水平ステップは基本的に行の縦間隔（`yPctPyramidRow` と同じ範囲で割る）に合わせ、
- * それより窮屈にはならない程度に下限、広げすぎないための上限（`maxHalfWidth`）を
- * 設ける。これで少人数行ほど中心寄りに収まり、全体が正三角に近いピラミッドになる。
+ * 水平ステップは `TARGET_STEP_X` を目安に固定し、多人数行で端に寄りすぎないための
+ * 上限（`maxHalfWidth` から算出）を設ける。これで人数が少ない行は中心寄りに、
+ * 多い行でも隣接同士は常に一定の近い間隔で並ぶようになる。
  */
 function xPctInPyramidGrid(
   j: number,
   cnt: number,
   maxCnt: number,
-  numRows: number,
-  /** yPctPyramidRow と同じ範囲（％） */
-  yRangePct = 52,
+  _numRows: number,
+  /** （使っていない：互換のため引数シグネチャ維持） */
+  _yRangePct = 52,
   /** 中心からの最大片側幅（％）。大人数でも端まで行かない上限 */
-  maxHalfWidth = 32,
-  /** 行間との比。1 で正三角相当。少し詰めたい場合は 0.9 など */
-  aspect = 1
+  maxHalfWidth = 32
 ): number {
   if (cnt <= 1) return 50;
   if (maxCnt <= 1) return 50;
-  const rowSpacingY = numRows > 1 ? yRangePct / (numRows - 1) : yRangePct / 2;
-  /** 見た目を三角形に近づけるための水平間隔（縦行間隔と同等） */
-  const stepNatural = rowSpacingY * aspect;
   /** 最も広い行が端に寄りすぎない上限 */
   const stepCap = (maxHalfWidth * 2) / (maxCnt - 1);
-  const step = Math.min(stepNatural, stepCap);
+  const step = Math.min(TARGET_STEP_X, stepCap);
   return 50 + (j - (cnt - 1) / 2) * step;
 }
 
-/** 単峰（手前に向かって一度広がり、狭まる）。例: 1,3,2,1 */
-function isUnimodalRowCounts(rows: number[]): boolean {
-  if (rows.length <= 1) return true;
-  let i = 1;
-  while (i < rows.length && rows[i]! >= rows[i - 1]!) i++;
-  while (i < rows.length && rows[i]! <= rows[i - 1]!) i++;
-  return i === rows.length;
-}
-
 /**
- * 奥（画面上端）に先端1人・客席側（y 大）の最前列も1人、のピラミッド行人数。
- * 奥→手前の行人数配列。手前列から敷くので、7 人は手前から 1・2・3・1 列＝奥から [1,3,2,1]。
+ * ピラミッド（先端が奥・1 番が客席側）の行人数（手前→奥の順）。
+ *
+ * 最前列は常に 1 人、そこから奥に向かって 1 行ずつ 1 人ずつ増やしていく：
+ *   - n = 1 → [1]
+ *   - n = 2 → [1, 1]
+ *   - n = 3 → [1, 2]       （手前 1、奥 2）
+ *   - n = 4 → [1, 2, 1]
+ *   - n = 5 → [1, 2, 2]
+ *   - n = 6 → [1, 2, 3]
+ *   - n = 7 → [1, 2, 3, 1]
+ *   - n = 8 → [1, 2, 3, 2]
+ *   - n = 9 → [1, 2, 3, 3]
+ *   - n = 10 → [1, 2, 3, 4]
+ *
+ * 行数 k が揃わない端数は、最奥行に残りの人数を入れる（広がりすぎず三角に近い形を保つ）。
  */
-function pyramidApexBackRowCounts(n: number): number[] {
+function pyramidFrontOneGrowingRowCounts(n: number): number[] {
   if (n <= 0) return [];
-  if (n === 1) return [1];
-  /**
-   * 7 人は参照形に固定（奥に7、手前に1、中列 4・5・6 と手前2列 2・3）。
-   * 汎用探索だと [1,2,2,2] のように最大列2の解が先に選ばれ、形が崩れるため。
-   */
-  if (n === 7) return [1, 3, 2, 1];
-
-  const candidates: number[][] = [];
-
-  function dfs(k: number, pos: number, sum: number, path: number[]) {
-    if (sum > n) return;
-    if (pos === k) {
-      if (
-        sum === n &&
-        path[0] === 1 &&
-        path[k - 1] === 1 &&
-        isUnimodalRowCounts(path)
-      ) {
-        candidates.push([...path]);
-      }
-      return;
-    }
-    if (pos === 0) {
-      path.push(1);
-      dfs(k, pos + 1, sum + 1, path);
-      path.pop();
-      return;
-    }
-    if (pos === k - 1) {
-      path.push(1);
-      dfs(k, pos + 1, sum + 1, path);
-      path.pop();
-      return;
-    }
-    for (let w = 1; w <= n - sum - 1; w++) {
-      path.push(w);
-      dfs(k, pos + 1, sum + w, path);
-      path.pop();
-    }
+  const rows: number[] = [];
+  let rem = n;
+  let w = 1;
+  while (rem > 0) {
+    const take = Math.min(w, rem);
+    rows.push(take);
+    rem -= take;
+    w += 1;
   }
-
-  for (let k = 2; k <= Math.min(n, 24); k++) {
-    dfs(k, 0, 0, []);
-  }
-
-  let viable =
-    n < 4
-      ? candidates
-      : candidates.filter((p) => Math.max(...p) >= 2);
-
-  /** 7 人以上で「最大列が 2 のまま4行以上」は帯状になりがちなので除外（7 は上で固定済み） */
-  if (n >= 8) {
-    const filtered = viable.filter(
-      (p) => !(p.length >= 4 && Math.max(...p) <= 2)
-    );
-    if (filtered.length > 0) viable = filtered;
-  }
-
-  if (viable.length === 0) {
-    return n >= 3 ? [1, n - 2, 1] : n === 2 ? [1, 1] : [n];
-  }
-
-  const peakIndex = (rows: number[]) => rows.indexOf(Math.max(...rows));
-  /** いちばん広い列が狭い形を優先 */
-  viable.sort((a, b) => {
-    const ma = Math.max(...a);
-    const mb = Math.max(...b);
-    if (ma !== mb) return ma - mb;
-    if (a.length !== b.length) return a.length - b.length;
-    const pa = peakIndex(a);
-    const pb = peakIndex(b);
-    if (pa !== pb) return pa - pb;
-    return a.join(",").localeCompare(b.join(","));
-  });
-  return viable[0]!;
+  return rows;
 }
 
 /** 手前が広い逆ピラミッド: 1, 2, …, k（三角数で厳密）＋余りは最前列に */
@@ -239,24 +217,18 @@ export function dancersForLayoutPreset(n: number, preset: LayoutPresetId): Dance
 
   switch (preset) {
     case "line": {
-      for (let i = 0; i < n; i++) {
-        const x = n === 1 ? 50 : 12 + ((76 * i) / (n - 1 || 1));
-        pushSpot(out, i, x, 44);
-      }
+      const xs = evenSpacingPositions(n, 50, TARGET_STEP_X, 8, 92);
+      xs.forEach((x, i) => pushSpot(out, i, x, 44));
       break;
     }
     case "line_front": {
-      for (let i = 0; i < n; i++) {
-        const x = n === 1 ? 50 : 10 + ((80 * i) / (n - 1 || 1));
-        pushSpot(out, i, x, 62 + Math.min(6, n * 0.15));
-      }
+      const xs = evenSpacingPositions(n, 50, TARGET_STEP_X, 10, 90);
+      xs.forEach((x, i) => pushSpot(out, i, x, 66));
       break;
     }
     case "line_back": {
-      for (let i = 0; i < n; i++) {
-        const x = n === 1 ? 50 : 12 + ((76 * i) / (n - 1 || 1));
-        pushSpot(out, i, x, 28);
-      }
+      const xs = evenSpacingPositions(n, 50, TARGET_STEP_X, 12, 88);
+      xs.forEach((x, i) => pushSpot(out, i, x, 24));
       break;
     }
     case "arc": {
@@ -303,12 +275,12 @@ export function dancersForLayoutPreset(n: number, preset: LayoutPresetId): Dance
     case "grid": {
       const cols = Math.ceil(Math.sqrt(n));
       const rows = Math.ceil(n / cols);
+      const xs = evenSpacingPositions(cols, 50, TARGET_STEP_X, 10, 90);
+      const ys = evenSpacingPositions(rows, 48, TARGET_STEP_Y, 16, 80);
       for (let i = 0; i < n; i++) {
         const row = Math.floor(i / cols);
         const col = i % cols;
-        const x = cols === 1 ? 50 : 18 + (col * (64 / (cols - 1 || 1)));
-        const y = rows === 1 ? 48 : 28 + (row * (44 / (rows - 1 || 1)));
-        pushSpot(out, i, x, y);
+        pushSpot(out, i, xs[col]!, ys[row]!);
       }
       break;
     }
@@ -334,16 +306,34 @@ export function dancersForLayoutPreset(n: number, preset: LayoutPresetId): Dance
       break;
     }
     case "pyramid": {
-      const rowCounts = pyramidApexBackRowCounts(n);
+      /** rowCounts[0] が最前列（客席側・y 大）。以降、奥へ 1 行ずつ。 */
+      const rowCounts = pyramidFrontOneGrowingRowCounts(n);
       const nr = rowCounts.length;
-      const maxCnt = Math.max(1, ...rowCounts);
+      /**
+       * 各行 r は「本来 (r+1) 人並ぶ幅」を占める想定で配置する。
+       * これで奥の行ほど横幅が広がり、実人数が仮想枠より少ない行では
+       * その枠の中に等間隔で均等配置されるため三角形のシルエットを保てる。
+       */
+      const maxVirtualW = nr;
+      const maxHalfWidth = 32;
+      const stepCap =
+        maxVirtualW > 1 ? (maxHalfWidth * 2) / (maxVirtualW - 1) : TARGET_STEP_X;
+      const step = Math.min(TARGET_STEP_X, stepCap);
       let idx = 0;
-      /** 手前列から敷く → ラベル 1 が客席側（y 大）の先頭行になる */
-      for (let r = nr - 1; r >= 0; r--) {
+      for (let r = 0; r < nr; r++) {
         const cnt = rowCounts[r]!;
-        const y = yPctPyramidRow(r, nr);
-        for (let j = 0; j < cnt; j++) {
-          pushSpot(out, idx++, xPctInPyramidGrid(j, cnt, maxCnt, nr), y);
+        const virtualW = r + 1;
+        const y = yPctPyramidRow(nr - 1 - r, nr);
+        /** 仮想枠の幅（％）。この行が本来並ぶ左右幅。 */
+        const span = step * (virtualW - 1);
+        if (cnt === 1) {
+          pushSpot(out, idx++, 50, y);
+        } else {
+          /** 実人数 cnt を仮想枠の中に等間隔で展開する */
+          for (let j = 0; j < cnt; j++) {
+            const x = 50 - span / 2 + (span / (cnt - 1)) * j;
+            pushSpot(out, idx++, x, y);
+          }
         }
       }
       break;
@@ -381,22 +371,24 @@ export function dancersForLayoutPreset(n: number, preset: LayoutPresetId): Dance
     case "stagger": {
       const rows = 2;
       const per = Math.ceil(n / rows);
+      const xs = evenSpacingPositions(per, 50, TARGET_STEP_X, 12, 88);
       for (let i = 0; i < n; i++) {
         const r = i % rows;
         const idx = Math.floor(i / rows);
-        const x = per <= 1 ? 50 : 14 + (idx * (72 / (per - 1 || 1))) + (r === 1 ? 8 : 0);
-        const y = r === 0 ? 38 : 54;
-        pushSpot(out, i, x, y);
+        const offset = r === 1 ? TARGET_STEP_X / 2 : 0;
+        pushSpot(out, i, (xs[idx] ?? 50) + offset, r === 0 ? 38 : 54);
       }
       break;
     }
     case "two_rows": {
       const front = Math.ceil(n / 2);
+      const back = n - front;
+      const xsFront = evenSpacingPositions(front, 50, TARGET_STEP_X, 10, 90);
+      const xsBack = evenSpacingPositions(back, 50, TARGET_STEP_X, 12, 88);
       for (let i = 0; i < n; i++) {
         const isFront = i < front;
         const idx = isFront ? i : i - front;
-        const len = isFront ? front : n - front;
-        const x = len <= 1 ? 50 : 12 + (idx * (76 / (len - 1 || 1)));
+        const x = isFront ? xsFront[idx]! : (xsBack[idx] ?? 50);
         const y = isFront ? 58 : 34;
         pushSpot(out, i, x, y);
       }
@@ -449,12 +441,12 @@ export function dancersForLayoutPreset(n: number, preset: LayoutPresetId): Dance
     case "columns_4": {
       const cols = Math.min(4, Math.max(1, n));
       const per = Math.ceil(n / cols);
+      const xs = evenSpacingPositions(cols, 50, TARGET_STEP_X, 14, 86);
+      const ys = evenSpacingPositions(per, 48, TARGET_STEP_Y, 16, 80);
       for (let i = 0; i < n; i++) {
         const c = i % cols;
         const r = Math.floor(i / cols);
-        const x = cols === 1 ? 50 : 18 + (c * (64 / (cols - 1 || 1)));
-        const y = per <= 1 ? 48 : 28 + (r * (44 / (per - 1 || 1)));
-        pushSpot(out, i, x, y);
+        pushSpot(out, i, xs[c]!, ys[r]!);
       }
       break;
     }
@@ -495,19 +487,24 @@ export function dancersForLayoutPreset(n: number, preset: LayoutPresetId): Dance
     }
     case "block_lr": {
       const leftN = Math.ceil(n / 2);
+      const rightN = n - leftN;
+      const cols = 2;
+      const leftRows = Math.ceil(leftN / cols);
+      const rightRows = Math.ceil(rightN / cols);
+      const xsLeft = evenSpacingPositions(cols, 28, TARGET_STEP_X, 10, 44);
+      const xsRight = evenSpacingPositions(cols, 72, TARGET_STEP_X, 56, 90);
+      const ysLeft = evenSpacingPositions(leftRows, 48, TARGET_STEP_Y, 20, 76);
+      const ysRight = evenSpacingPositions(rightRows, 48, TARGET_STEP_Y, 20, 76);
       for (let i = 0; i < n; i++) {
         if (i < leftN) {
-          const len = leftN;
-          const j = i;
-          const x = len <= 1 ? 32 : 18 + (j * (28 / (len - 1 || 1)));
-          const y = 36 + ((i % 3) * 10);
-          pushSpot(out, i, x, y);
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          pushSpot(out, i, xsLeft[col] ?? 28, ysLeft[row] ?? 48);
         } else {
           const j = i - leftN;
-          const len = n - leftN;
-          const x = len <= 1 ? 68 : 58 + (j * (28 / (len - 1 || 1)));
-          const y = 36 + ((j % 3) * 10);
-          pushSpot(out, i, x, y);
+          const col = j % cols;
+          const row = Math.floor(j / cols);
+          pushSpot(out, i, xsRight[col] ?? 72, ysRight[row] ?? 48);
         }
       }
       break;
@@ -515,11 +512,12 @@ export function dancersForLayoutPreset(n: number, preset: LayoutPresetId): Dance
     case "two_rows_dense_back": {
       const front = Math.max(1, Math.floor(n / 2));
       const back = n - front;
+      const xsFront = evenSpacingPositions(front, 50, TARGET_STEP_X, 12, 88);
+      const xsBack = evenSpacingPositions(back, 50, TARGET_STEP_X, 10, 90);
       for (let i = 0; i < n; i++) {
         const isFront = i < front;
         const idx = isFront ? i : i - front;
-        const len = isFront ? front : back;
-        const x = len <= 1 ? 50 : 12 + (idx * (76 / (len - 1 || 1)));
+        const x = isFront ? xsFront[idx]! : (xsBack[idx] ?? 50);
         const y = isFront ? 58 : 32;
         pushSpot(out, i, x, y);
       }
@@ -606,12 +604,14 @@ export function dancersForLayoutPreset(n: number, preset: LayoutPresetId): Dance
     }
     case "offset_triple": {
       const cols = Math.min(3, Math.max(1, n));
+      const per = Math.ceil(n / cols);
+      const xs = evenSpacingPositions(cols, 50, TARGET_STEP_X * 1.6, 20, 80);
+      const ys = evenSpacingPositions(per, 48, TARGET_STEP_Y, 18, 78);
       for (let i = 0; i < n; i++) {
         const col = i % cols;
         const row = Math.floor(i / cols);
-        const x = col === 0 ? 26 : col === 1 ? 50 : 74;
-        const y = 34 + row * 16 + (col === 1 ? 8 : 0);
-        pushSpot(out, i, x, y);
+        const offset = col === 1 ? TARGET_STEP_Y / 2 : 0;
+        pushSpot(out, i, xs[col]!, ys[row]! + offset);
       }
       break;
     }

@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import type { CSSProperties, Dispatch, RefObject, SetStateAction } from "react";
 import type { ChoreographyProjectJson, Cue, DancerSpot } from "../types/choreography";
 import {
@@ -28,16 +29,17 @@ import { dancersForLayoutPreset } from "../lib/formationLayouts";
 import {
   extractAudioBufferFromVideoFile,
   mimeForExtractedVideoAudio,
+  preloadFFmpeg,
 } from "../lib/extractVideoAudio";
 import { btnSecondary } from "./StageBoard";
 
 /** タイムライン上部ツールバー用（再生・波形周りの縦スペース節約） */
 const timelineToolbarBtn: CSSProperties = {
   ...btnSecondary,
-  padding: "5px 9px",
-  fontSize: "12px",
-  borderRadius: "6px",
-  lineHeight: 1.25,
+  padding: "3px 8px",
+  fontSize: "11px",
+  borderRadius: "5px",
+  lineHeight: 1.2,
 };
 
 export type TimelinePanelHandle = {
@@ -84,6 +86,15 @@ type Props = {
   wideWorkbench?: boolean;
   waveTimelineDockTop?: boolean;
   onWaveTimelineDockTopChange?: (next: boolean) => void;
+  /**
+   * タイムラインを画面上部ドック時のコンパクト表示。
+   * - 波形のズーム・振幅ツールバーを隠す
+   * - ＋キュー と キュー一覧 は `cueListPortalTarget` が指定されていれば
+   *   そこにポータルで描画する（右列に切り出すため）
+   */
+  compactTopDock?: boolean;
+  /** `compactTopDock` の時、キュー一覧を描画するポータル先 DOM 要素 */
+  cueListPortalTarget?: HTMLElement | null;
 };
 
 function clamp(n: number, lo: number, hi: number) {
@@ -91,9 +102,9 @@ function clamp(n: number, lo: number, hi: number) {
 }
 
 /** 波形キャンバス表示高さ（CSS px）。下枠ドラッグで変更 */
-const WAVE_CANVAS_H_MIN = 52;
+const WAVE_CANVAS_H_MIN = 24;
 const WAVE_CANVAS_H_MAX = 280;
-const WAVE_CANVAS_H_DEFAULT = 88;
+const WAVE_CANVAS_H_DEFAULT = 72;
 
 /** 再生中の目盛り・波形ビュー窓の微振れを抑える（約 33ms グリッド） */
 function quantizePlayheadForWaveView(sec: number): number {
@@ -408,11 +419,11 @@ const PlaybackRateSlider = memo(function PlaybackRateSlider({
         step={0.05}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        style={{ width: "88px", verticalAlign: "middle" }}
+        style={{ width: "70px", verticalAlign: "middle" }}
       />
       <span
         style={{
-          width: "38px",
+          width: "34px",
           textAlign: "right",
           fontVariantNumeric: "tabular-nums",
           fontFeatureSettings: '"tnum"',
@@ -452,6 +463,8 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       wideWorkbench = false,
       waveTimelineDockTop = false,
       onWaveTimelineDockTopChange,
+      compactTopDock = false,
+      cueListPortalTarget = null,
     },
     ref
   ) {
@@ -892,7 +905,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       const isVideo = f.type.startsWith("video/");
       if (isVideo) {
         const ok = window.confirm(
-          `動画「${f.name}」から音声を抽出します。\nMP4 / AVI / MOV / MKV / WMV などほとんどの形式に対応しています。初回利用時は FFmpeg コア（約 30MB）をダウンロードするため少しかかりますが、2 回目以降はキャッシュから即時起動します。\n著作権・利用範囲はご利用者の責任です。続行しますか？`
+          `動画「${f.name}」から音声を抽出します。\nMP4 / AVI / MOV / MKV / WMV などほとんどの形式に対応。AAC / MP3 / Opus などの一般的な音声は再エンコードせず demux するので、大容量の動画でも数秒〜十数秒で完了します。\nFFmpeg コア（約 30MB）はエディタ起動時と「音源」ボタンのホバー時点で先読み済みのはずなので、通常は読み込み待ちなしで抽出が始まります。\n著作権・利用範囲はご利用者の責任です。続行しますか？`
         );
         if (!ok) return;
       }
@@ -1815,7 +1828,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: "5px",
+          gap: "4px",
           minHeight: 0,
           flex: "1 1 auto",
           fontSize: "12px",
@@ -1882,9 +1895,9 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           style={{
             display: "flex",
             flexWrap: "wrap",
-            gap: "4px 6px",
+            gap: "3px 5px",
             alignItems: "center",
-            rowGap: "4px",
+            rowGap: "3px",
             contain: "layout",
           }}
         >
@@ -1895,6 +1908,17 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               display: "inline-block",
             }}
             title="楽曲または動画から音声を読み込み（MP4 / AVI / MOV / MKV / WMV 等に対応）"
+            onPointerEnter={() => {
+              /**
+               * マウスオーバー／フォーカス時点で FFmpeg を温めておく。
+               * ユーザがファイル選択ダイアログで迷っている間に初期化が進むため、
+               * 動画を選び終える頃には即抽出を始められる。
+               */
+              void preloadFFmpeg();
+            }}
+            onFocus={() => {
+              void preloadFFmpeg();
+            }}
           >
             音源
             <input
@@ -1902,6 +1926,10 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               accept="audio/*,video/*"
               style={{ display: "none" }}
               onChange={onPickAudio}
+              onClick={() => {
+                /** ダイアログ表示中に読み込みを走らせておく */
+                void preloadFFmpeg();
+              }}
             />
           </label>
           <button type="button" style={timelineToolbarBtn} onClick={togglePlay}>
@@ -1939,57 +1967,141 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             isPlaying={isPlaying}
             idleTimeSec={currentTime}
             durationSec={duration}
-            monoFontSizePx={13.5}
+            monoFontSizePx={13}
           />
           {onUndo && onRedo && (
             <>
               <div
                 style={{
                   width: "1px",
-                  height: "18px",
+                  height: "16px",
                   background: "#334155",
                   flexShrink: 0,
                 }}
                 aria-hidden
               />
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "3px",
-                  flexWrap: "wrap",
-                }}
+              <button
+                type="button"
+                style={timelineToolbarBtn}
+                disabled={undoDisabled}
+                title="編集を元に戻す（⌘Z / Ctrl+Z）"
+                aria-label="戻る"
+                onClick={() => onUndo()}
               >
-                <button
-                  type="button"
-                  style={timelineToolbarBtn}
-                  disabled={undoDisabled}
-                  title="編集を元に戻す（⌘Z / Ctrl+Z）"
-                  aria-label="元に戻す"
-                  onClick={() => onUndo()}
-                >
-                  ◀
-                </button>
-                <button
-                  type="button"
-                  style={timelineToolbarBtn}
-                  disabled={redoDisabled}
-                  title="やり直す（⌘⇧Z / Ctrl+Shift+Z）"
-                  aria-label="やり直す"
-                  onClick={() => onRedo()}
-                >
-                  ▶
-                </button>
-              </div>
+                戻る
+              </button>
+              <button
+                type="button"
+                style={timelineToolbarBtn}
+                disabled={redoDisabled}
+                title="やり直す（⌘⇧Z / Ctrl+Shift+Z）"
+                aria-label="進む"
+                onClick={() => onRedo()}
+              >
+                進む
+              </button>
             </>
           )}
+          <div
+            style={{
+              width: "1px",
+              height: "16px",
+              background: "#334155",
+              flexShrink: 0,
+            }}
+            aria-hidden
+          />
           <PlaybackRateSlider value={playbackRate} onChange={onPlaybackRateChange} />
+          {!compactTopDock && (
+            <>
+              <div
+                style={{
+                  width: "1px",
+                  height: "16px",
+                  background: "#334155",
+                  flexShrink: 0,
+                }}
+                aria-hidden
+              />
+              <button
+                type="button"
+                style={timelineToolbarBtn}
+                onClick={zoomFull}
+                disabled={duration <= 0}
+                title={`曲全体を波形に表示（現在: ${viewLabel}）`}
+              >
+                全体
+              </button>
+              <button
+                type="button"
+                style={timelineToolbarBtn}
+                onClick={zoomIn}
+                disabled={duration <= 0}
+                title={`拡大（現在: ${viewLabel}）`}
+              >
+                拡大
+              </button>
+              <button
+                type="button"
+                style={timelineToolbarBtn}
+                onClick={zoomOut}
+                disabled={duration <= 0 || viewPortion >= 1 - 1e-6}
+                title={`縮小（現在: ${viewLabel}）`}
+              >
+                縮小
+              </button>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "3px",
+                  color: "#94a3b8",
+                  fontSize: "11px",
+                }}
+                title={`波形の縦の振幅: ${(project.waveformAmplitudeScale ?? 1).toFixed(2)}×`}
+              >
+                振幅
+                <button
+                  type="button"
+                  style={{ ...timelineToolbarBtn, padding: "2px 7px", fontSize: "12px", lineHeight: 1 }}
+                  disabled={project.viewMode === "view"}
+                  title="波形の縦の振幅を下げる"
+                  onClick={() => {
+                    setProject((p) => {
+                      const cur = p.waveformAmplitudeScale ?? 1;
+                      const v =
+                        Math.round(Math.min(4, Math.max(0.25, cur - 0.08)) * 100) / 100;
+                      return { ...p, waveformAmplitudeScale: v };
+                    });
+                  }}
+                >
+                  −
+                </button>
+                <button
+                  type="button"
+                  style={{ ...timelineToolbarBtn, padding: "2px 7px", fontSize: "12px", lineHeight: 1 }}
+                  disabled={project.viewMode === "view"}
+                  title="波形の縦の振幅を上げる"
+                  onClick={() => {
+                    setProject((p) => {
+                      const cur = p.waveformAmplitudeScale ?? 1;
+                      const v =
+                        Math.round(Math.min(4, Math.max(0.25, cur + 0.08)) * 100) / 100;
+                      return { ...p, waveformAmplitudeScale: v };
+                    });
+                  }}
+                >
+                  ＋
+                </button>
+              </span>
+            </>
+          )}
           {wideWorkbench && onWaveTimelineDockTopChange ? (
             <>
               <div
                 style={{
                   width: "1px",
-                  height: "18px",
+                  height: "16px",
                   background: "#334155",
                   flexShrink: 0,
                 }}
@@ -2001,114 +2113,15 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                 disabled={project.viewMode === "view"}
                 title={
                   waveTimelineDockTop
-                    ? "タイムラインを右列の既定位置に戻す"
-                    : "タイムライン・波形・キュー一覧を画面上部の全幅行に移す"
+                    ? "波形と再生コントロールを右列の既定位置に戻す"
+                    : "波形と再生コントロールを画面上部の全幅行に移す（キュー一覧は右列に残ります）"
                 }
                 onClick={() => onWaveTimelineDockTopChange(!waveTimelineDockTop)}
               >
-                {waveTimelineDockTop ? "既定へ" : "上部へ"}
+                {waveTimelineDockTop ? "波形を元に戻す" : "波形を上部へ"}
               </button>
             </>
           ) : null}
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "3px 5px",
-            alignItems: "center",
-            rowGap: "3px",
-            fontSize: "11px",
-          }}
-        >
-          <span style={{ color: "#64748b", flexShrink: 0 }}>波形</span>
-          <button
-            type="button"
-            style={timelineToolbarBtn}
-            onClick={zoomFull}
-            disabled={duration <= 0}
-            title="曲全体を波形に表示"
-          >
-            全体
-          </button>
-          <button
-            type="button"
-            style={timelineToolbarBtn}
-            onClick={zoomIn}
-            disabled={duration <= 0}
-            title="拡大（表示時間幅を狭める）"
-          >
-            拡大
-          </button>
-          <button
-            type="button"
-            style={timelineToolbarBtn}
-            onClick={zoomOut}
-            disabled={duration <= 0 || viewPortion >= 1 - 1e-6}
-            title="縮小（表示時間幅を広げる）"
-          >
-            縮小
-          </button>
-          <span
-            style={{
-              color: "#64748b",
-              fontSize: "10px",
-              maxWidth: "min(220px, 36vw)",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-            title={viewLabel}
-          >
-            {viewLabel}
-          </span>
-          <span
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "4px",
-              color: "#94a3b8",
-              fontSize: "11px",
-            }}
-          >
-            振幅
-            <button
-              type="button"
-              style={{ ...timelineToolbarBtn, padding: "2px 8px", fontSize: "12px", lineHeight: 1 }}
-              disabled={project.viewMode === "view"}
-              title="波形の縦の振幅を下げる"
-              onClick={() => {
-                setProject((p) => {
-                  const cur = p.waveformAmplitudeScale ?? 1;
-                  const v =
-                    Math.round(Math.min(4, Math.max(0.25, cur - 0.08)) * 100) / 100;
-                  return { ...p, waveformAmplitudeScale: v };
-                });
-              }}
-            >
-              −
-            </button>
-            <button
-              type="button"
-              style={{ ...timelineToolbarBtn, padding: "2px 8px", fontSize: "12px", lineHeight: 1 }}
-              disabled={project.viewMode === "view"}
-              title="波形の縦の振幅を上げる"
-              onClick={() => {
-                setProject((p) => {
-                  const cur = p.waveformAmplitudeScale ?? 1;
-                  const v =
-                    Math.round(Math.min(4, Math.max(0.25, cur + 0.08)) * 100) / 100;
-                  return { ...p, waveformAmplitudeScale: v };
-                });
-              }}
-            >
-              ＋
-            </button>
-            <span style={{ color: "#64748b", fontVariantNumeric: "tabular-nums" }}>
-              {(project.waveformAmplitudeScale ?? 1).toFixed(2)}×
-            </span>
-          </span>
         </div>
         <div
           ref={waveContainerRef}
@@ -2125,8 +2138,8 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           <div
             style={{
               position: "relative",
-              height: "20px",
-              fontSize: "10px",
+              height: "16px",
+              fontSize: "9px",
               color: "#94a3b8",
               borderBottom: "1px solid #1e293b",
               fontVariantNumeric: "tabular-nums",
@@ -2200,6 +2213,9 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             }}
           />
         </div>
+        {(() => {
+          const cueListContent = (
+            <>
         <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
           <button
             type="button"
@@ -2591,6 +2607,12 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               })}
           </ul>
         </div>
+            </>
+          );
+          if (!compactTopDock) return cueListContent;
+          if (!cueListPortalTarget) return null;
+          return createPortal(cueListContent, cueListPortalTarget);
+        })()}
         <audio ref={audioRef} style={{ display: "none" }} controls={false} />
       </div>
     );

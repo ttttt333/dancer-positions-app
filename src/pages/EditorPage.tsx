@@ -19,6 +19,7 @@ import { TimelinePanel, type TimelinePanelHandle } from "../components/TimelineP
 import { InspectorPanel } from "../components/InspectorPanel";
 import { FormationSuggestionPanel } from "../components/FormationSuggestionPanel";
 import { createEmptyProject, tryMigrateFromLocalStorage } from "../lib/projectDefaults";
+import { preloadFFmpeg } from "../lib/extractVideoAudio";
 import { normalizeProject } from "../lib/normalizeProject";
 import { sortCuesByStart } from "../lib/cueInterval";
 import { dancersAtTime } from "../lib/interpolatePlayback";
@@ -111,6 +112,11 @@ export function EditorPage() {
   );
   /** §3 ワイド時: タイムライン・波形を画面上部の全幅行に移す */
   const [waveTimelineDockTop, setWaveTimelineDockTop] = useState(false);
+  /** `waveTimelineDockTop` 時にキュー一覧をポータルで描画する右列の DOM 要素 */
+  const [cueListPortalEl, setCueListPortalEl] =
+    useState<HTMLDivElement | null>(null);
+  /** 上部ドック時の上段（波形・再生）行の高さ（px）。null = 既定の `minmax(160px, min(28vh, 300px))` */
+  const [topDockRowPx, setTopDockRowPx] = useState<number | null>(null);
   const editorPaneRef = useRef<HTMLDivElement>(null);
   const stageSectionRef = useRef<HTMLElement>(null);
   const splitDragRef = useRef<{
@@ -118,11 +124,33 @@ export function EditorPage() {
     startX: number;
     startW: number;
   } | null>(null);
+  const topDockDragRef = useRef<{
+    pointerId: number;
+    startY: number;
+    startH: number;
+  } | null>(null);
 
   const historyRef = useRef<{ undo: string[]; redo: string[] }>({
     undo: [],
     redo: [],
   });
+
+  /**
+   * エディタを開いた時点でバックグラウンドで FFmpeg.wasm を温めておく。
+   * ユーザがあとで動画を選んだ時、初回でもコア/wasm は既にキャッシュ済みで即抽出に入れる。
+   */
+  useEffect(() => {
+    const idle: (cb: () => void) => number =
+      (window as unknown as { requestIdleCallback?: (cb: () => void) => number })
+        .requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 400));
+    const cancel: (id: number) => void =
+      (window as unknown as { cancelIdleCallback?: (id: number) => void })
+        .cancelIdleCallback ?? ((id: number) => window.clearTimeout(id));
+    const id = idle(() => {
+      void preloadFFmpeg();
+    });
+    return () => cancel(id);
+  }, []);
 
   useEffect(() => {
     if (projectId === "new" || !projectId) {
@@ -167,7 +195,10 @@ export function EditorPage() {
   }, []);
 
   useEffect(() => {
-    if (!wideEditorLayout) setWaveTimelineDockTop(false);
+    if (!wideEditorLayout) {
+      setWaveTimelineDockTop(false);
+      setTopDockRowPx(null);
+    }
   }, [wideEditorLayout]);
 
   useEffect(() => {
@@ -242,6 +273,66 @@ export function EditorPage() {
     splitDragRef.current = null;
     document.body.style.cursor = "";
     document.body.style.userSelect = "";
+  }, []);
+
+  const onTopDockResizeDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      const grid = editorPaneRef.current;
+      if (!grid) return;
+      e.preventDefault();
+      const gridRect = grid.getBoundingClientRect();
+      const topSection = grid.firstElementChild as HTMLElement | null;
+      const startH = topSection
+        ? topSection.getBoundingClientRect().height
+        : Math.max(160, gridRect.height * 0.28);
+      topDockDragRef.current = {
+        pointerId: e.pointerId,
+        startY: e.clientY,
+        startH,
+      };
+      e.currentTarget.setPointerCapture(e.pointerId);
+      document.body.style.cursor = "row-resize";
+      document.body.style.userSelect = "none";
+    },
+    []
+  );
+
+  const onTopDockResizeMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const d = topDockDragRef.current;
+      if (!d || e.pointerId !== d.pointerId) return;
+      const grid = editorPaneRef.current;
+      if (!grid) return;
+      const gridRect = grid.getBoundingClientRect();
+      const minH = 120;
+      const maxH = Math.max(minH, gridRect.height - 220);
+      const next = Math.round(
+        Math.min(maxH, Math.max(minH, d.startH + (e.clientY - d.startY)))
+      );
+      setTopDockRowPx(next);
+    },
+    []
+  );
+
+  const endTopDockResize = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const d = topDockDragRef.current;
+      if (!d || e.pointerId !== d.pointerId) return;
+      topDockDragRef.current = null;
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    },
+    []
+  );
+
+  const onTopDockResizeDoubleClick = useCallback(() => {
+    setTopDockRowPx(null);
   }, []);
 
   const editorGridColumns = wideEditorLayout
@@ -572,10 +663,12 @@ export function EditorPage() {
     if (!me || !project) return;
     setSaving(true);
     try {
+      const title =
+        project.pieceTitle?.trim() || projectName.trim() || "無題の作品";
       if (serverId != null) {
-        await projectApi.update(serverId, projectName, project);
+        await projectApi.update(serverId, title, project);
       } else {
-        const row = await projectApi.create(projectName, project);
+        const row = await projectApi.create(title, project);
         setServerId(row.id);
         navigate(`/editor/${row.id}`, { replace: true });
       }
@@ -636,6 +729,10 @@ export function EditorPage() {
       wideWorkbench={wideEditorLayout}
       waveTimelineDockTop={waveTimelineDockTop}
       onWaveTimelineDockTopChange={setWaveTimelineDockTop}
+      compactTopDock={wideEditorLayout && waveTimelineDockTop}
+      cueListPortalTarget={
+        wideEditorLayout && waveTimelineDockTop ? cueListPortalEl : null
+      }
     />
   );
 
@@ -653,156 +750,144 @@ export function EditorPage() {
       <header
         style={{
           display: "flex",
-          flexWrap: "wrap",
-          gap: "12px",
+          flexWrap: "nowrap",
+          gap: "10px",
           alignItems: "center",
-          padding: "12px 16px",
+          padding: "6px 12px",
           borderBottom: "1px solid #1e293b",
           background: "#020617",
+          minHeight: 0,
         }}
       >
-        <Link to="/" style={{ color: "#94a3b8", textDecoration: "none" }}>
-          ← 作品一覧
-        </Link>
-        <div
+        <Link
+          to="/"
+          title="作品一覧に戻る"
           style={{
-            flex: "1 1 480px",
-            minWidth: 0,
-            display: "flex",
-            flexDirection: "column",
+            display: "inline-flex",
+            alignItems: "center",
             gap: "8px",
-            padding: "8px 10px",
-            borderRadius: "10px",
-            border: "1px solid #1e293b",
-            background: "#0f172a",
-            maxHeight: "none",
-            overflowY: "visible",
+            textDecoration: "none",
+            flexShrink: 0,
           }}
         >
-          <div
+          <span
+            aria-hidden
             style={{
-              fontSize: "10px",
-              fontWeight: 600,
-              color: "#64748b",
-              letterSpacing: "0.04em",
-              textTransform: "uppercase",
-            }}
-          >
-            作品・舞台
-          </div>
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "10px",
+              display: "inline-flex",
               alignItems: "center",
+              justifyContent: "center",
+              width: 24,
+              height: 24,
+              borderRadius: 6,
+              background:
+                "linear-gradient(135deg, #6366f1 0%, #22d3ee 100%)",
+              color: "#020617",
+              fontWeight: 800,
+              fontSize: 13,
+              letterSpacing: "-0.02em",
+              boxShadow: "0 2px 6px rgba(99,102,241,0.35)",
             }}
           >
-            <input
-              type="text"
-              placeholder="作品名"
-              value={project.pieceTitle}
-              disabled={project.viewMode === "view"}
-              onChange={(e) =>
-                setProjectSafe((p) => ({ ...p, pieceTitle: e.target.value }))
-              }
-              style={{
-                flex: "1 1 200px",
-                minWidth: "160px",
-                padding: "8px 10px",
-                borderRadius: "8px",
-                border: "1px solid #334155",
-                background: "#020617",
-                color: "#e2e8f0",
-                fontSize: "15px",
-              }}
-            />
-            <label
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                fontSize: "12px",
-                color: "#94a3b8",
-                flexShrink: 0,
-              }}
-            >
-              人数
-              <input
-                type="number"
-                min={1}
-                max={200}
-                step={1}
-                placeholder="—"
-                title="作品の想定人数（メモ用。各フォーメーションの人数とは別です）"
-                disabled={project.viewMode === "view"}
-                value={project.pieceDancerCount ?? ""}
-                onChange={(e) => {
-                  const raw = e.target.value.trim();
-                  if (raw === "") {
-                    setProjectSafe((p) => ({ ...p, pieceDancerCount: null }));
-                    return;
-                  }
-                  const n = Number(raw);
-                  if (!Number.isFinite(n)) return;
-                  setProjectSafe((p) => ({
-                    ...p,
-                    pieceDancerCount: Math.max(1, Math.min(200, Math.floor(n))),
-                  }));
-                }}
-                style={{
-                  width: "64px",
-                  padding: "6px 8px",
-                  borderRadius: "6px",
-                  border: "1px solid #334155",
-                  background: "#020617",
-                  color: "#e2e8f0",
-                  fontSize: "13px",
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              />
-            </label>
-          </div>
-        </div>
+            CG
+          </span>
+          <span
+            style={{
+              fontSize: 15,
+              fontWeight: 700,
+              color: "#e2e8f0",
+              letterSpacing: "-0.01em",
+              whiteSpace: "nowrap",
+            }}
+          >
+            ChoreoGrid
+          </span>
+        </Link>
         <input
           type="text"
-          placeholder="保存名（サーバ）"
-          value={projectName}
-          onChange={(e) => setProjectName(e.target.value)}
+          placeholder="作品名"
+          aria-label="作品名"
+          value={project.pieceTitle}
+          disabled={project.viewMode === "view"}
+          onChange={(e) =>
+            setProjectSafe((p) => ({ ...p, pieceTitle: e.target.value }))
+          }
           style={{
-            width: "160px",
-            padding: "8px",
-            borderRadius: "8px",
+            flex: "1 1 auto",
+            minWidth: 0,
+            padding: "6px 10px",
+            borderRadius: "6px",
             border: "1px solid #334155",
             background: "#0f172a",
             color: "#e2e8f0",
+            fontSize: "14px",
+            fontWeight: 600,
           }}
         />
+        <label
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+            fontSize: "12px",
+            color: "#94a3b8",
+            flexShrink: 0,
+          }}
+        >
+          人数
+          <input
+            type="number"
+            min={1}
+            max={200}
+            step={1}
+            placeholder="—"
+            title="作品の想定人数（メモ用。各フォーメーションの人数とは別です）"
+            disabled={project.viewMode === "view"}
+            value={project.pieceDancerCount ?? ""}
+            onChange={(e) => {
+              const raw = e.target.value.trim();
+              if (raw === "") {
+                setProjectSafe((p) => ({ ...p, pieceDancerCount: null }));
+                return;
+              }
+              const n = Number(raw);
+              if (!Number.isFinite(n)) return;
+              setProjectSafe((p) => ({
+                ...p,
+                pieceDancerCount: Math.max(1, Math.min(200, Math.floor(n))),
+              }));
+            }}
+            style={{
+              width: "56px",
+              padding: "4px 6px",
+              borderRadius: "6px",
+              border: "1px solid #334155",
+              background: "#0f172a",
+              color: "#e2e8f0",
+              fontSize: "13px",
+              fontVariantNumeric: "tabular-nums",
+            }}
+          />
+        </label>
         {me ? (
           <button
             type="button"
-            style={btnSecondary}
+            style={{
+              ...btnSecondary,
+              padding: "6px 10px",
+              fontSize: "12px",
+              flexShrink: 0,
+            }}
             disabled={saving}
+            title={
+              serverId
+                ? "クラウドに上書き保存"
+                : "クラウドに新規保存（保存名は作品名を使用）"
+            }
             onClick={() => void saveToCloud()}
           >
-            {saving ? "保存中…" : serverId ? "クラウドに上書き" : "クラウドに保存"}
+            {saving ? "保存中…" : serverId ? "上書き保存" : "保存"}
           </button>
-        ) : (
-          <span style={{ fontSize: "12px", color: "#64748b" }}>ログインでクラウド保存</span>
-        )}
-        <span
-          style={{
-            fontSize: "11px",
-            color: "#64748b",
-            flex: "1 1 200px",
-            minWidth: "200px",
-          }}
-          title="ショートカット"
-        >
-          Space 再生/停止 · ⌘Z / Ctrl+Z 元に戻す · ⌘⇧Z やり直し · 波形は「全体表示／拡大／縮小」 ·
-          ワイド幅: タイムラインを画面上部へ ·
-          ステージ微調整: Shift+ドラッグで細かいグリッド · Alt+矢印（Shift+Alt でさらに細かく）
-        </span>
+        ) : null}
       </header>
 
       <div
@@ -814,7 +899,11 @@ export function EditorPage() {
           gridTemplateColumns: editorGridColumns,
           gridTemplateRows: wideEditorLayout
             ? waveDockTopRow
-              ? "minmax(200px, min(42vh, 440px)) minmax(0, 1fr)"
+              ? `${
+                  topDockRowPx != null
+                    ? `${topDockRowPx}px`
+                    : "minmax(160px, min(28vh, 300px))"
+                } 6px minmax(0, 1fr)`
               : "1fr"
             : "auto auto auto",
           gap: `${EDITOR_GRID_GAP_PX}px`,
@@ -839,19 +928,57 @@ export function EditorPage() {
             }}
           >
             <h2 style={{ margin: "0 0 8px", fontSize: "13px", color: "#94a3b8" }}>
-              タイムライン・楽曲
+              波形・再生
             </h2>
             <div style={{ flex: "1 1 auto", minHeight: 0, display: "flex", flexDirection: "column" }}>
               {timelinePanelEl}
             </div>
           </section>
         ) : null}
+        {waveDockTopRow ? (
+          <div
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="波形・再生エリアの高さを変更（ダブルクリックで既定に戻す）"
+            title="上下ドラッグで高さを調整（ダブルクリックで既定に戻す）"
+            onPointerDown={onTopDockResizeDown}
+            onPointerMove={onTopDockResizeMove}
+            onPointerUp={endTopDockResize}
+            onPointerCancel={endTopDockResize}
+            onDoubleClick={onTopDockResizeDoubleClick}
+            style={{
+              gridColumn: "1 / -1",
+              gridRow: 2,
+              cursor: "row-resize",
+              touchAction: "none",
+              userSelect: "none",
+              alignSelf: "stretch",
+              justifySelf: "stretch",
+              position: "relative",
+              zIndex: 2,
+            }}
+          >
+            <div
+              aria-hidden
+              style={{
+                position: "absolute",
+                left: 0,
+                right: 0,
+                top: "50%",
+                transform: "translateY(-50%)",
+                height: 2,
+                background: "#1e293b",
+                borderRadius: 1,
+              }}
+            />
+          </div>
+        ) : null}
         <div
           style={
             wideEditorLayout
               ? {
                   gridColumn: 1,
-                  gridRow: waveDockTopRow ? 2 : 1,
+                  gridRow: waveDockTopRow ? 3 : 1,
                   minWidth: 0,
                   minHeight: 0,
                   alignSelf: "stretch",
@@ -893,7 +1020,7 @@ export function EditorPage() {
             ...(wideEditorLayout
               ? {
                   gridColumn: 2,
-                  gridRow: waveDockTopRow ? 2 : 1,
+                  gridRow: waveDockTopRow ? 3 : 1,
                 }
               : {}),
           }}
@@ -1262,42 +1389,79 @@ export function EditorPage() {
               alignSelf: "stretch",
               zIndex: 2,
               gridColumn: 3,
-              gridRow: waveDockTopRow ? 2 : 1,
+              gridRow: waveDockTopRow ? 3 : 1,
             }}
           />
         ) : null}
 
         {wideEditorLayout && waveDockTopRow ? (
-          <section
+          <div
             style={{
               gridColumn: 4,
-              gridRow: 2,
-              background: "#020617",
-              border: "1px solid #1e293b",
-              borderRadius: "12px",
-              padding: "12px",
-              minHeight: 0,
-              minWidth: 0,
+              gridRow: 3,
               display: "flex",
               flexDirection: "column",
+              gap: "12px",
+              minHeight: 0,
+              minWidth: 0,
               overflow: "hidden",
             }}
           >
-            <h2 style={{ margin: "0 0 8px", fontSize: "13px", color: "#94a3b8" }}>
-              プロパティ
-            </h2>
-            <InspectorPanel
-              project={project}
-              setProject={setProjectSafe}
-              stageLayoutEditMode={false}
-              formationEditTargetId={
-                selectedCue?.formationId ?? project.activeFormationId
-              }
-              onInspectorFormationSelect={onInspectorFormationSelect}
-              selectedCue={selectedCue}
-              onLibraryHoverPreview={setStagePreviewDancers}
-            />
-          </section>
+            <section
+              style={{
+                background: "#020617",
+                border: "1px solid #1e293b",
+                borderRadius: "12px",
+                padding: "12px",
+                minHeight: 0,
+                flex: "1 1 55%",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+              }}
+            >
+              <h2 style={{ margin: "0 0 8px", fontSize: "13px", color: "#94a3b8" }}>
+                キュー一覧
+              </h2>
+              <div
+                ref={setCueListPortalEl}
+                style={{
+                  flex: "1 1 auto",
+                  minHeight: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              />
+            </section>
+            <section
+              style={{
+                background: "#020617",
+                border: "1px solid #1e293b",
+                borderRadius: "12px",
+                padding: "12px",
+                minHeight: 0,
+                flex: "1 1 45%",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+              }}
+            >
+              <h2 style={{ margin: "0 0 8px", fontSize: "13px", color: "#94a3b8" }}>
+                プロパティ
+              </h2>
+              <InspectorPanel
+                project={project}
+                setProject={setProjectSafe}
+                stageLayoutEditMode={false}
+                formationEditTargetId={
+                  selectedCue?.formationId ?? project.activeFormationId
+                }
+                onInspectorFormationSelect={onInspectorFormationSelect}
+                selectedCue={selectedCue}
+                onLibraryHoverPreview={setStagePreviewDancers}
+              />
+            </section>
+          </div>
         ) : (
           <div
             style={{
