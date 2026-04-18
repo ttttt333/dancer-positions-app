@@ -1602,6 +1602,7 @@ export function EditorPage() {
               compact={false}
               showHeading={false}
               embedded
+              onCommit={() => setStageInfoOpen(false)}
             />
           </div>
         </div>

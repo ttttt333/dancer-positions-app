@@ -1195,7 +1195,10 @@ export function StageBoard({
   const stageAspectRatio = hasStageDims ? `${outerWmm} / ${outerDmm}` : "4 / 3";
   const showShell = hasStageDims && (Smm > 0 || Bmm > 0);
 
-  /** センターに近い順に k=1,2,3…（左右の線は同じ番号）。xp は SVG / 観客席帯ラベル共通 */
+  /**
+   * センターに近い順に k=1,2,3…（左右の線は同じ番号）。xp は SVG / 観客席帯ラベル共通。
+   * 上手・下手が左右対称になるよう、丸めや定数オフセットは入れずに厳密な％値を使う。
+   */
   const guideLineDrawMarks = useMemo(() => {
     const interval = centerFieldGuideIntervalMm;
     if (interval == null || interval <= 0 || Wmm <= 0) return [];
@@ -1204,13 +1207,11 @@ export function StageBoard({
     let k = 1;
     const maxPairs = 200;
     while (k * interval <= half + 1e-9 && k <= maxPairs) {
-      const deltaPct = (k * interval / Wmm) * 100;
-      for (const x of [50 - deltaPct, 50 + deltaPct]) {
-        const xr = Number.isFinite(x)
-          ? Math.min(100, Math.max(0, Math.round(x * 2) / 2))
-          : x;
-        marks.push({ xp: xr + 0.5, k });
-      }
+      const deltaPct = ((k * interval) / Wmm) * 100;
+      const left = Math.min(100, Math.max(0, 50 - deltaPct));
+      const right = Math.min(100, Math.max(0, 50 + deltaPct));
+      marks.push({ xp: left, k });
+      marks.push({ xp: right, k });
       k++;
     }
     return marks;
@@ -1598,26 +1599,36 @@ export function StageBoard({
                 }}
                 aria-hidden
               >
-                {guideLineDrawMarks.map(({ xp, k }, i) => (
-                  <span
-                    key={`glabel-${i}-${k}-${xp}`}
-                    style={{
-                      position: "absolute",
-                      left: `${xp}%`,
-                      top: "2px",
-                      transform: "translateX(-50%)",
-                      fontSize: "9px",
-                      fontWeight: 700,
-                      color: "#fef3c7",
-                      textShadow:
-                        "0 0 3px rgba(15,23,42,0.95), 0 1px 1px rgba(0,0,0,0.75)",
-                      lineHeight: 1,
-                      fontFamily: "system-ui, sans-serif",
-                    }}
-                  >
-                    {k}
-                  </span>
-                ))}
+                {guideLineDrawMarks.map(({ xp, k }, i) => {
+                  /**
+                   * 端ギリギリ（xp≒0/100）のラベルは通常の中央寄せ（translateX(-50%)）だと
+                   * 半分が親コンテナの外にはみ出して見えない/欠ける。左右対称に全て出せる
+                   * よう、近い側の辺でラベルを寄せる transform に切り替える。
+                   */
+                  let transform = "translateX(-50%)";
+                  if (xp <= 1) transform = "translateX(0)";
+                  else if (xp >= 99) transform = "translateX(-100%)";
+                  return (
+                    <span
+                      key={`glabel-${i}-${k}-${xp}`}
+                      style={{
+                        position: "absolute",
+                        left: `${xp}%`,
+                        top: "2px",
+                        transform,
+                        fontSize: "9px",
+                        fontWeight: 700,
+                        color: "#fef3c7",
+                        textShadow:
+                          "0 0 3px rgba(15,23,42,0.95), 0 1px 1px rgba(0,0,0,0.75)",
+                        lineHeight: 1,
+                        fontFamily: "system-ui, sans-serif",
+                      }}
+                    >
+                      {k}
+                    </span>
+                  );
+                })}
               </div>
             )}
             {displaySetPieces.map((p) => {

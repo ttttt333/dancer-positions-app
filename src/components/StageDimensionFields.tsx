@@ -1,4 +1,4 @@
-import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import {
   formatMeterCmLabel,
@@ -18,6 +18,8 @@ type Props = {
   showHeading?: boolean;
   /** モーダル内など：外枠の枠線・背景を付けない */
   embedded?: boolean;
+  /** 「決定」押下後に呼ばれる。親ダイアログを閉じるなど用途に。 */
+  onCommit?: () => void;
 };
 
 function clampMm(mm: number): number {
@@ -35,6 +37,59 @@ function clampGuideIntervalToWidth(
   return Math.min(Math.max(1, Math.floor(intervalMm)), maxHalf);
 }
 
+type DraftField = { m: string; cm: string };
+type Draft = {
+  width: DraftField;
+  depth: DraftField;
+  side: DraftField;
+  back: DraftField;
+  guide: DraftField;
+};
+
+function mmToDraftField(mm: number | null | undefined): DraftField {
+  if (mm == null) return { m: "", cm: "" };
+  const u = mmToMeterCm(mm);
+  return { m: String(u.m), cm: String(u.cm) };
+}
+
+function draftFromProject(p: ChoreographyProjectJson): Draft {
+  return {
+    width: mmToDraftField(p.stageWidthMm),
+    depth: mmToDraftField(p.stageDepthMm),
+    side: mmToDraftField(p.sideStageMm),
+    back: mmToDraftField(p.backStageMm),
+    guide: mmToDraftField(p.centerFieldGuideIntervalMm),
+  };
+}
+
+/** m/cm 文字列から mm（>0）へ。空欄なら null を返す。 */
+function parseDraftFieldToMm(f: DraftField): number | null {
+  const mT = f.m.trim();
+  const cT = f.cm.trim();
+  if (mT === "" && cT === "") return null;
+  const m = mT === "" ? 0 : parseInt(mT, 10);
+  const cm = cT === "" ? 0 : parseInt(cT, 10);
+  if (!Number.isFinite(m) || !Number.isFinite(cm)) return null;
+  const mm = clampMm(mmFromMeterAndCm(m, cm));
+  return mm > 0 ? mm : null;
+}
+
+/** ドラフトの内容が現在のプロジェクトと異なるか */
+function draftDiffers(draft: Draft, project: ChoreographyProjectJson): boolean {
+  const wMm = parseDraftFieldToMm(draft.width);
+  const dMm = parseDraftFieldToMm(draft.depth);
+  const sMm = parseDraftFieldToMm(draft.side);
+  const bMm = parseDraftFieldToMm(draft.back);
+  const gMm = clampGuideIntervalToWidth(wMm, parseDraftFieldToMm(draft.guide));
+  return (
+    wMm !== (project.stageWidthMm ?? null) ||
+    dMm !== (project.stageDepthMm ?? null) ||
+    sMm !== (project.sideStageMm ?? null) ||
+    bMm !== (project.backStageMm ?? null) ||
+    gMm !== (project.centerFieldGuideIntervalMm ?? null)
+  );
+}
+
 export function StageDimensionFields({
   project,
   setProject,
@@ -42,119 +97,63 @@ export function StageDimensionFields({
   compact = false,
   showHeading = true,
   embedded = false,
+  onCommit,
 }: Props) {
-  const {
-    stageWidthMm,
-    stageDepthMm,
-    sideStageMm,
-    backStageMm,
-    centerFieldGuideIntervalMm,
-  } = project;
+  const [draft, setDraft] = useState<Draft>(() => draftFromProject(project));
 
-  const w = stageWidthMm != null ? mmToMeterCm(stageWidthMm) : null;
-  const d = stageDepthMm != null ? mmToMeterCm(stageDepthMm) : null;
-  const s = sideStageMm != null ? mmToMeterCm(sideStageMm) : null;
-  const b = backStageMm != null ? mmToMeterCm(backStageMm) : null;
-
-  const setWidth = (mStr: string, cmStr: string) => {
-    const mT = mStr.trim();
-    const cT = cmStr.trim();
-    if (mT === "" && cT === "") {
-      setProject((p) => ({
-        ...p,
-        stageWidthMm: null,
-        centerFieldGuideIntervalMm: null,
-      }));
-      return;
-    }
-    const m = mT === "" ? 0 : parseInt(mT, 10);
-    const cm = cT === "" ? 0 : parseInt(cT, 10);
-    if (!Number.isFinite(m) || !Number.isFinite(cm)) return;
-    const mm = clampMm(mmFromMeterAndCm(m, cm));
-    setProject((p) => ({
-      ...p,
-      stageWidthMm: mm > 0 ? mm : null,
-      centerFieldGuideIntervalMm: clampGuideIntervalToWidth(
-        mm > 0 ? mm : null,
-        p.centerFieldGuideIntervalMm
-      ),
-    }));
-  };
-
-  const setDepth = (mStr: string, cmStr: string) => {
-    const mT = mStr.trim();
-    const cT = cmStr.trim();
-    if (mT === "" && cT === "") {
-      setProject((p) => ({ ...p, stageDepthMm: null }));
-      return;
-    }
-    const m = mT === "" ? 0 : parseInt(mT, 10);
-    const cm = cT === "" ? 0 : parseInt(cT, 10);
-    if (!Number.isFinite(m) || !Number.isFinite(cm)) return;
-    const mm = clampMm(mmFromMeterAndCm(m, cm));
-    setProject((p) => ({ ...p, stageDepthMm: mm > 0 ? mm : null }));
-  };
-
-  const setSide = (mStr: string, cmStr: string) => {
-    const mT = mStr.trim();
-    const cT = cmStr.trim();
-    if (mT === "" && cT === "") {
-      setProject((p) => ({ ...p, sideStageMm: null }));
-      return;
-    }
-    const m = mT === "" ? 0 : parseInt(mT, 10);
-    const cm = cT === "" ? 0 : parseInt(cT, 10);
-    if (!Number.isFinite(m) || !Number.isFinite(cm)) return;
-    const mm = clampMm(mmFromMeterAndCm(m, cm));
-    setProject((p) => ({ ...p, sideStageMm: mm > 0 ? mm : null }));
-  };
-
-  const setBack = (mStr: string, cmStr: string) => {
-    const mT = mStr.trim();
-    const cT = cmStr.trim();
-    if (mT === "" && cT === "") {
-      setProject((p) => ({ ...p, backStageMm: null }));
-      return;
-    }
-    const m = mT === "" ? 0 : parseInt(mT, 10);
-    const cm = cT === "" ? 0 : parseInt(cT, 10);
-    if (!Number.isFinite(m) || !Number.isFinite(cm)) return;
-    const mm = clampMm(mmFromMeterAndCm(m, cm));
-    setProject((p) => ({ ...p, backStageMm: mm > 0 ? mm : null }));
-  };
-
-  /** センターからの場ミリ（m/cm）— 入力途中も保持するためローカル state */
-  const [guideM, setGuideM] = useState("");
-  const [guideCm, setGuideCm] = useState("");
-
+  /**
+   * project 側の値が外部要因（プロジェクト切替・初期化など）で変わったら
+   * ドラフトも追従させる。入力中の値はユーザ編集でしか変わらないので
+   * 完全に上書きして OK。
+   */
   useEffect(() => {
-    if (centerFieldGuideIntervalMm == null) {
-      setGuideM("");
-      setGuideCm("");
-    } else {
-      const u = mmToMeterCm(centerFieldGuideIntervalMm);
-      setGuideM(String(u.m));
-      setGuideCm(String(u.cm));
-    }
-  }, [centerFieldGuideIntervalMm]);
+    setDraft(draftFromProject(project));
+  }, [
+    project.stageWidthMm,
+    project.stageDepthMm,
+    project.sideStageMm,
+    project.backStageMm,
+    project.centerFieldGuideIntervalMm,
+  ]);
 
-  const commitGuideInterval = (mStr: string, cmStr: string) => {
-    const mT = mStr.trim();
-    const cT = cmStr.trim();
-    if (mT === "" && cT === "") {
-      setProject((p) => ({ ...p, centerFieldGuideIntervalMm: null }));
-      return;
-    }
-    const m = mT === "" ? 0 : parseInt(mT, 10);
-    const cm = cT === "" ? 0 : parseInt(cT, 10);
-    if (!Number.isFinite(m) || !Number.isFinite(cm)) return;
-    const mm = clampMm(mmFromMeterAndCm(m, cm));
-    if (mm <= 0) return;
+  const updateField = useCallback(
+    <K extends keyof Draft>(key: K, patch: Partial<DraftField>) => {
+      setDraft((d) => ({ ...d, [key]: { ...d[key], ...patch } }));
+    },
+    []
+  );
+
+  /** ドラフトから mm を割り出した「確定されたらこうなる」値（表示用） */
+  const previewMm = useMemo(() => {
+    const wMm = parseDraftFieldToMm(draft.width);
+    return {
+      width: wMm,
+      depth: parseDraftFieldToMm(draft.depth),
+      side: parseDraftFieldToMm(draft.side),
+      back: parseDraftFieldToMm(draft.back),
+      guide: clampGuideIntervalToWidth(wMm, parseDraftFieldToMm(draft.guide)),
+    };
+  }, [draft]);
+
+  const dirty = useMemo(() => draftDiffers(draft, project), [draft, project]);
+
+  const commit = useCallback(() => {
+    if (disabled) return;
+    const { width, depth, side, back, guide } = previewMm;
     setProject((p) => ({
       ...p,
-      centerFieldGuideIntervalMm: clampGuideIntervalToWidth(p.stageWidthMm, mm),
+      stageWidthMm: width,
+      stageDepthMm: depth,
+      sideStageMm: side,
+      backStageMm: back,
+      centerFieldGuideIntervalMm: guide,
     }));
-  };
+    onCommit?.();
+  }, [disabled, previewMm, setProject, onCommit]);
+
+  const reset = useCallback(() => {
+    setDraft(draftFromProject(project));
+  }, [project]);
 
   const inputStyle = {
     width: compact ? ("52px" as const) : ("64px" as const),
@@ -194,8 +193,9 @@ export function StageDimensionFields({
       ) : null}
       {!compact && (
         <p style={{ margin: "0 0 10px", fontSize: "10px", color: "#64748b", lineHeight: 1.45 }}>
-          メインの幅・奥行・サイド・バックは m / cm（センチは 0〜99、10 mm 単位）。変更はすぐステージの見た目と mm
-          表示に反映されます。
+          メインの幅・奥行・サイド・バックは m / cm（センチは 0〜99、10 mm 単位）。
+          <strong style={{ color: "#cbd5e1" }}>「決定」</strong>
+          を押すまでステージには反映されません。
         </p>
       )}
 
@@ -212,69 +212,69 @@ export function StageDimensionFields({
         }
       >
         <div style={compact ? {} : { marginBottom: rowGap }}>
-        <div style={{ fontSize: labelSize, color: "#64748b", marginBottom: "4px" }}>
-          メイン幅（上手〜下手）
+          <div style={{ fontSize: labelSize, color: "#64748b", marginBottom: "4px" }}>
+            メイン幅（上手〜下手）
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center" }}>
+            <input
+              type="number"
+              min={0}
+              max={999}
+              disabled={disabled}
+              placeholder="m"
+              value={draft.width.m}
+              onChange={(e) => updateField("width", { m: e.target.value })}
+              style={inputStyle}
+            />
+            <span style={{ fontSize: "12px", color: "#94a3b8" }}>m</span>
+            <input
+              type="number"
+              min={0}
+              max={99}
+              disabled={disabled}
+              placeholder="cm"
+              value={draft.width.cm}
+              onChange={(e) => updateField("width", { cm: e.target.value })}
+              style={inputStyleCm}
+            />
+            <span style={{ fontSize: "12px", color: "#94a3b8" }}>cm</span>
+            <span style={{ fontSize: compact ? "9px" : "10px", color: "#475569", marginLeft: "4px" }}>
+              → {previewMm.width != null ? `${previewMm.width} mm` : "未設定"}
+            </span>
+          </div>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center" }}>
-          <input
-            type="number"
-            min={0}
-            max={999}
-            disabled={disabled}
-            placeholder="m"
-            value={w ? String(w.m) : ""}
-            onChange={(e) => setWidth(e.target.value, w ? String(w.cm) : "")}
-            style={inputStyle}
-          />
-          <span style={{ fontSize: "12px", color: "#94a3b8" }}>m</span>
-          <input
-            type="number"
-            min={0}
-            max={99}
-            disabled={disabled}
-            placeholder="cm"
-            value={w ? String(w.cm) : ""}
-            onChange={(e) => setWidth(w ? String(w.m) : "", e.target.value)}
-            style={inputStyleCm}
-          />
-          <span style={{ fontSize: "12px", color: "#94a3b8" }}>cm</span>
-          <span style={{ fontSize: compact ? "9px" : "10px", color: "#475569", marginLeft: "4px" }}>
-            → {stageWidthMm != null ? `${stageWidthMm} mm` : "未設定"}
-          </span>
-        </div>
-      </div>
 
         <div>
-        <div style={{ fontSize: labelSize, color: "#64748b", marginBottom: "4px" }}>
-          メイン奥行（客席方向の深さ）
-        </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center" }}>
-          <input
-            type="number"
-            min={0}
-            max={999}
-            disabled={disabled}
-            placeholder="m"
-            value={d ? String(d.m) : ""}
-            onChange={(e) => setDepth(e.target.value, d ? String(d.cm) : "")}
-            style={inputStyle}
-          />
-          <span style={{ fontSize: "12px", color: "#94a3b8" }}>m</span>
-          <input
-            type="number"
-            min={0}
-            max={99}
-            disabled={disabled}
-            placeholder="cm"
-            value={d ? String(d.cm) : ""}
-            onChange={(e) => setDepth(d ? String(d.m) : "", e.target.value)}
-            style={inputStyleCm}
-          />
-          <span style={{ fontSize: "12px", color: "#94a3b8" }}>cm</span>
-          <span style={{ fontSize: compact ? "9px" : "10px", color: "#475569", marginLeft: "4px" }}>
-            → {stageDepthMm != null ? `${stageDepthMm} mm` : "未設定"}
-          </span>
-        </div>
+          <div style={{ fontSize: labelSize, color: "#64748b", marginBottom: "4px" }}>
+            メイン奥行（客席方向の深さ）
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center" }}>
+            <input
+              type="number"
+              min={0}
+              max={999}
+              disabled={disabled}
+              placeholder="m"
+              value={draft.depth.m}
+              onChange={(e) => updateField("depth", { m: e.target.value })}
+              style={inputStyle}
+            />
+            <span style={{ fontSize: "12px", color: "#94a3b8" }}>m</span>
+            <input
+              type="number"
+              min={0}
+              max={99}
+              disabled={disabled}
+              placeholder="cm"
+              value={draft.depth.cm}
+              onChange={(e) => updateField("depth", { cm: e.target.value })}
+              style={inputStyleCm}
+            />
+            <span style={{ fontSize: "12px", color: "#94a3b8" }}>cm</span>
+            <span style={{ fontSize: compact ? "9px" : "10px", color: "#475569", marginLeft: "4px" }}>
+              → {previewMm.depth != null ? `${previewMm.depth} mm` : "未設定"}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -295,8 +295,8 @@ export function StageDimensionFields({
               max={999}
               disabled={disabled}
               placeholder="m"
-              value={s ? String(s.m) : ""}
-              onChange={(e) => setSide(e.target.value, s ? String(s.cm) : "")}
+              value={draft.side.m}
+              onChange={(e) => updateField("side", { m: e.target.value })}
               style={{ ...inputStyle, width: "52px" }}
             />
             <span style={{ fontSize: "11px", color: "#94a3b8" }}>m</span>
@@ -306,14 +306,14 @@ export function StageDimensionFields({
               max={99}
               disabled={disabled}
               placeholder="cm"
-              value={s ? String(s.cm) : ""}
-              onChange={(e) => setSide(s ? String(s.m) : "", e.target.value)}
+              value={draft.side.cm}
+              onChange={(e) => updateField("side", { cm: e.target.value })}
               style={{ ...inputStyleCm, width: "48px" }}
             />
             <span style={{ fontSize: "11px", color: "#94a3b8" }}>cm</span>
           </div>
           <div style={{ fontSize: "9px", color: "#475569", marginTop: "4px" }}>
-            {sideStageMm != null ? formatMeterCmLabel(sideStageMm) : "—"}
+            {previewMm.side != null ? formatMeterCmLabel(previewMm.side) : "—"}
           </div>
         </div>
         <div>
@@ -325,8 +325,8 @@ export function StageDimensionFields({
               max={999}
               disabled={disabled}
               placeholder="m"
-              value={b ? String(b.m) : ""}
-              onChange={(e) => setBack(e.target.value, b ? String(b.cm) : "")}
+              value={draft.back.m}
+              onChange={(e) => updateField("back", { m: e.target.value })}
               style={{ ...inputStyle, width: "52px" }}
             />
             <span style={{ fontSize: "11px", color: "#94a3b8" }}>m</span>
@@ -336,14 +336,14 @@ export function StageDimensionFields({
               max={99}
               disabled={disabled}
               placeholder="cm"
-              value={b ? String(b.cm) : ""}
-              onChange={(e) => setBack(b ? String(b.m) : "", e.target.value)}
+              value={draft.back.cm}
+              onChange={(e) => updateField("back", { cm: e.target.value })}
               style={{ ...inputStyleCm, width: "48px" }}
             />
             <span style={{ fontSize: "11px", color: "#94a3b8" }}>cm</span>
           </div>
           <div style={{ fontSize: "9px", color: "#475569", marginTop: "4px" }}>
-            {backStageMm != null ? formatMeterCmLabel(backStageMm) : "—"}
+            {previewMm.back != null ? formatMeterCmLabel(previewMm.back) : "—"}
           </div>
         </div>
       </div>
@@ -359,12 +359,8 @@ export function StageDimensionFields({
             max={999}
             disabled={disabled}
             placeholder="m"
-            value={guideM}
-            onChange={(e) => {
-              const v = e.target.value;
-              setGuideM(v);
-              commitGuideInterval(v, guideCm);
-            }}
+            value={draft.guide.m}
+            onChange={(e) => updateField("guide", { m: e.target.value })}
             style={inputStyle}
           />
           <span style={{ fontSize: "12px", color: "#94a3b8" }}>m</span>
@@ -374,17 +370,13 @@ export function StageDimensionFields({
             max={99}
             disabled={disabled}
             placeholder="cm"
-            value={guideCm}
-            onChange={(e) => {
-              const v = e.target.value;
-              setGuideCm(v);
-              commitGuideInterval(guideM, v);
-            }}
+            value={draft.guide.cm}
+            onChange={(e) => updateField("guide", { cm: e.target.value })}
             style={inputStyleCm}
           />
           <span style={{ fontSize: "12px", color: "#94a3b8" }}>cm</span>
           <span style={{ fontSize: compact ? "9px" : "10px", color: "#475569", marginLeft: "4px" }}>
-            → {centerFieldGuideIntervalMm != null ? `${centerFieldGuideIntervalMm} mm` : "未設定"}
+            → {previewMm.guide != null ? `${previewMm.guide} mm` : "未設定"}
           </span>
         </div>
         {!compact && (
@@ -392,6 +384,53 @@ export function StageDimensionFields({
             この間隔でセンターから袖（メイン幅の左右端）まで等間隔の縦点線を表示します。メイン幅が入っていると半分以下に自動調整されます（未設定でも入力できます）。
           </p>
         )}
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: "8px",
+          marginTop: compact ? "8px" : "12px",
+          paddingTop: compact ? "6px" : "10px",
+          borderTop: "1px solid #1e293b",
+        }}
+      >
+        <button
+          type="button"
+          onClick={reset}
+          disabled={disabled || !dirty}
+          style={{
+            padding: compact ? "4px 10px" : "6px 14px",
+            fontSize: compact ? "11px" : "12px",
+            borderRadius: "6px",
+            border: "1px solid #334155",
+            background: "#0f172a",
+            color: dirty ? "#e2e8f0" : "#475569",
+            cursor: disabled || !dirty ? "not-allowed" : "pointer",
+          }}
+          title="直前に決定した値に戻す"
+        >
+          取消
+        </button>
+        <button
+          type="button"
+          onClick={commit}
+          disabled={disabled || !dirty}
+          style={{
+            padding: compact ? "4px 14px" : "6px 18px",
+            fontSize: compact ? "11px" : "12px",
+            fontWeight: 600,
+            borderRadius: "6px",
+            border: "1px solid #2563eb",
+            background: dirty && !disabled ? "#2563eb" : "#1e293b",
+            color: dirty && !disabled ? "#ffffff" : "#64748b",
+            cursor: disabled || !dirty ? "not-allowed" : "pointer",
+          }}
+          title={dirty ? "入力した値をステージに反映" : "変更はありません"}
+        >
+          決定
+        </button>
       </div>
     </div>
   );
