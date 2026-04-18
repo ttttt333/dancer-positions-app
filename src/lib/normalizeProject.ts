@@ -386,6 +386,10 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
       if (raw < 100 || raw > 3000) return undefined;
       return Math.round(raw);
     })(),
+    dancerLabelPosition: (() => {
+      const po = o as Partial<ChoreographyProjectJson>;
+      return po.dancerLabelPosition === "below" ? "below" : "inside";
+    })(),
     waveformAmplitudeScale: (() => {
       const po = o as Partial<ChoreographyProjectJson>;
       const raw = po.waveformAmplitudeScale;

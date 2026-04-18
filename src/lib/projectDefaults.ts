@@ -40,6 +40,7 @@ export function createEmptyProject(): ChoreographyProjectJson {
     snapGrid: false,
     gridStep: 2,
     dancerMarkerDiameterPx: 44,
+    dancerLabelPosition: "inside",
     viewMode: "edit",
     crews: [],
     audioAssetId: null,

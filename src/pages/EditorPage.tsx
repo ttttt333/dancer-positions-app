@@ -1413,6 +1413,43 @@ export function EditorPage() {
                   px
                 </span>
               </label>
+              <label
+                title="立ち位置の名前を○の中に出すか、○の下に出すかを切り替え"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  fontSize: "12px",
+                  color: "#94a3b8",
+                  cursor: project.viewMode === "view" ? "default" : "pointer",
+                  userSelect: "none",
+                }}
+              >
+                <span style={{ whiteSpace: "nowrap" }}>名前</span>
+                <select
+                  value={project.dancerLabelPosition ?? "inside"}
+                  disabled={project.viewMode === "view"}
+                  onChange={(e) =>
+                    setProjectSafe((p) => ({
+                      ...p,
+                      dancerLabelPosition:
+                        e.target.value === "below" ? "below" : "inside",
+                    }))
+                  }
+                  aria-label="立ち位置の名前の表示位置"
+                  style={{
+                    padding: "4px 6px",
+                    borderRadius: "6px",
+                    border: "1px solid #334155",
+                    background: "#0f172a",
+                    color: "#e2e8f0",
+                    fontSize: "12px",
+                  }}
+                >
+                  <option value="inside">○の中</option>
+                  <option value="below">○の下</option>
+                </select>
+              </label>
               <div
                 style={{
                   width: "1px",

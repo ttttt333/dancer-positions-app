@@ -177,6 +177,12 @@ export type ChoreographyProjectJson = {
    * 例: 500 → 50 cm。未指定（undefined）のときは従来の px 値を使う。
    */
   dancerMarkerDiameterMm?: number;
+  /**
+   * ダンサー印（○）に対する名前の表示位置。
+   * - "inside" : ○の中に名前を表示（既定。狭い盤面でもまとまる）
+   * - "below"  : ○の下に名前を表示（人物が視認しやすい・色印を活かしたい場合）
+   */
+  dancerLabelPosition?: "inside" | "below";
   viewMode: "edit" | "view";
   crews: Crew[];
   /** サーバに保存した楽曲アセット ID（未ログイン時は null） */

@@ -1,5 +1,5 @@
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type {
   ChoreographyProjectJson,
   DancerSpot,
@@ -210,9 +210,15 @@ export function StageBoard({
     viewMode,
     dancerMarkerDiameterPx,
     dancerMarkerDiameterMm,
+    dancerLabelPosition: rawDancerLabelPosition,
     hanamichiEnabled: hanamichiEnabledRaw,
     hanamichiDepthPct: hanamichiDepthRaw,
   } = project;
+  /**
+   * 立ち位置の名前を○の中に出すか、○の下に出すか。
+   * 既定は "inside"（従来動作）。プロジェクト未指定でも安全に動く。
+   */
+  const dancerLabelBelow = rawDancerLabelPosition === "below";
   /**
    * 場ミリ連動のグリッド間隔。
    * `gridSpacingMm` がセットされ `stageWidthMm` もあれば、mm ベースで実効％を計算。
@@ -2516,8 +2522,8 @@ export function StageBoard({
                 Math.min(22, Math.round(14 * (dMarkerPx / 44)))
               );
               return (
+              <Fragment key={d.id}>
               <button
-                key={d.id}
                 type="button"
                 data-dancer-id={d.id}
                 title={
@@ -2703,10 +2709,42 @@ export function StageBoard({
                       boxSizing: "border-box",
                     }}
                   />
-                ) : (
+                ) : dancerLabelBelow ? null : (
                   d.label || "?"
                 )}
               </button>
+              {dancerLabelBelow && editingDancerId !== d.id && (
+                <div
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    left: `${d.xPct}%`,
+                    /**
+                     * ○の中心から半径＋4px だけ下に置いて、印のすぐ下に名前を表示する。
+                     * `dMarkerPx` は当該ダンサーの実描画サイズなので、印の大きさが
+                     * 変わっても常に下端のすぐ下に追従する。
+                     */
+                    top: `calc(${d.yPct}% + ${Math.round(dMarkerPx / 2) + 4}px)`,
+                    transform: "translateX(-50%)",
+                    color: "#f8fafc",
+                    fontSize: `${Math.max(10, Math.min(15, dLabelFontPx - 1))}px`,
+                    fontWeight: 700,
+                    lineHeight: 1.1,
+                    whiteSpace: "nowrap",
+                    pointerEvents: "none",
+                    textShadow:
+                      "0 1px 2px rgba(0,0,0,0.85), 0 0 2px rgba(0,0,0,0.85)",
+                    userSelect: "none",
+                    zIndex: 4,
+                    maxWidth: "120px",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {d.label || "?"}
+                </div>
+              )}
+              </Fragment>
               );
             })}
             {primarySelectedDancer && !marquee && (() => {
