@@ -29,7 +29,12 @@ import {
   saveFormationToBox,
 } from "../lib/formationBox";
 import { dancersForLayoutPreset } from "../lib/formationLayouts";
-import { buildCrewFromCsv } from "../lib/crewCsvImport";
+import { buildCrewFromRows } from "../lib/crewCsvImport";
+import {
+  ROSTER_FILE_ACCEPT,
+  labelForKind,
+  parseRosterFile,
+} from "../lib/rosterFileImport";
 import type {
   ChoreographyProjectJson,
   DancerSpot,
@@ -626,42 +631,46 @@ export function EditorPage() {
   }, [project, selectedCue, setProjectSafe]);
 
   /**
-   * ステージ上部の「名簿取り込み」ボタンから CSV / TSV ファイルを選んで、
+   * ステージ上部の「名簿取り込み」ボタンから名簿ファイルを選んで、
    * 新しい名簿（Crew）として `project.crews` に追加する。
+   *
+   * 対応形式: CSV / TSV / TXT / XLSX / XLS / XLSM / ODS / HTML / PDF
    * - 1 列目に名前が入っていれば見出しなしでも取り込める。
-   * - 取り込み後は `InspectorPanel` の「メンバー（名簿）」から編集・現在の形への反映ができる。
+   * - XLSX や PDF など重いライブラリは選択時に動的読み込みされる。
+   * - PDF はレイアウト依存で結果が崩れることがあるため、取り込み後に確認を促す。
    */
   const importCrewCsvFromStageToolbar = useCallback(() => {
     if (!project || project.viewMode === "view") return;
     const input = document.createElement("input");
     input.type = "file";
-    input.accept =
-      ".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain";
-    input.onchange = () => {
+    input.accept = ROSTER_FILE_ACCEPT;
+    input.onchange = async () => {
       const f = input.files?.[0];
       if (!f) return;
-      const r = new FileReader();
-      r.onload = () => {
-        try {
-          const baseName = f.name.replace(/\.(csv|tsv|txt)$/i, "").trim();
-          const defaultName =
-            baseName || `名簿 ${(project.crews?.length ?? 0) + 1}`;
-          const crew = buildCrewFromCsv(defaultName, String(r.result ?? ""));
-          if (crew.members.length === 0) {
-            window.alert(
-              "名前らしき列が見つかりませんでした。\n1 列目に名前を入れるか、見出し行に「名前」「label」「name」などを含めてください。"
-            );
-            return;
-          }
-          setProjectSafe((p) => ({ ...p, crews: [...p.crews, crew] }));
-        } catch (e) {
+      try {
+        const result = await parseRosterFile(f);
+        const defaultName =
+          result.baseName || `名簿 ${(project.crews?.length ?? 0) + 1}`;
+        const crew = buildCrewFromRows(defaultName, result.rows);
+        if (crew.members.length === 0) {
           window.alert(
-            e instanceof Error ? e.message : "CSV の読み込みに失敗しました"
+            `${labelForKind(result.kind)} から名前らしき列を見つけられませんでした。\n` +
+              "1 列目に名前を入れるか、見出し行に「名前」「label」「name」などを含めてください。"
+          );
+          return;
+        }
+        setProjectSafe((p) => ({ ...p, crews: [...p.crews, crew] }));
+        if (result.notice) {
+          window.alert(
+            `${labelForKind(result.kind)} から ${crew.members.length} 名を取り込みました。\n\n` +
+              result.notice
           );
         }
-      };
-      r.onerror = () => window.alert("ファイルを読めませんでした");
-      r.readAsText(f, "UTF-8");
+      } catch (e) {
+        window.alert(
+          e instanceof Error ? e.message : "ファイルの読み込みに失敗しました"
+        );
+      }
     };
     input.click();
   }, [project, setProjectSafe]);

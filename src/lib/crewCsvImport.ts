@@ -57,7 +57,7 @@ function smartSplitFallback(text: string): string[][] {
   });
 }
 
-function dedupeRowsToMembers(rows: string[][]): CrewMember[] {
+export function dedupeRowsToMembers(rows: string[][]): CrewMember[] {
   if (rows.length === 0) return [];
 
   let nameIdx = 0;
@@ -112,6 +112,16 @@ export function parseCrewMembersFromCsv(text: string): CrewMember[] {
 /** 入力された名前と CSV テキストから新しい Crew を作る（id は生成、最大 80 人で打ち切り） */
 export function buildCrewFromCsv(name: string, csvText: string): Crew {
   const members = parseCrewMembersFromCsv(csvText).slice(0, 80);
+  return {
+    id: crypto.randomUUID(),
+    name: name.trim().slice(0, 60) || "新しい名簿",
+    members,
+  };
+}
+
+/** すでに行配列にパースされたデータ（XLSX / HTML / PDF など）から Crew を作る */
+export function buildCrewFromRows(name: string, rows: string[][]): Crew {
+  const members = dedupeRowsToMembers(rows).slice(0, 80);
   return {
     id: crypto.randomUUID(),
     name: name.trim().slice(0, 60) || "新しい名簿",
