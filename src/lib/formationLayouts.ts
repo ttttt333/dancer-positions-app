@@ -121,7 +121,23 @@ function pyramidFrontOneGrowingRowCounts(n: number): number[] {
   return rows;
 }
 
-/** 手前が広い逆ピラミッド: 1, 2, …, k（三角数で厳密）＋余りは最前列に */
+/**
+ * 手前が広い逆ピラミッド: 基本は三角数 [1, 2, …, k]。
+ *
+ * 余り人数は **最前列にだけ積む** のではなく **前側から 1 人ずつ、上の行へ** 順に
+ * 配っていく。こうすると人数が増えても形の幅（最前列の人数）がなだらかに増え、
+ * 横に広がりすぎずに三角形のシルエットを保てる。
+ *
+ * 例:
+ *   n=7  → [1,2,4]    (余1を最前列に)
+ *   n=8  → [1,3,4]    (余2を最前列とその後ろに)
+ *   n=9  → [2,3,4]    (余3を全列に)
+ *   n=10 → [1,2,3,4]  (三角数ぴったり)
+ *   n=11 → [1,2,3,5]
+ *   n=12 → [1,2,4,5]
+ *   n=13 → [1,3,4,5]
+ *   n=14 → [2,3,4,5]
+ */
 function pyramidNarrowFirstRowCounts(n: number): number[] {
   if (n <= 0) return [];
   if (n === 1) return [1];
@@ -130,7 +146,9 @@ function pyramidNarrowFirstRowCounts(n: number): number[] {
   const tri = (k * (k + 1)) / 2;
   const rem = n - tri;
   const rows = Array.from({ length: k }, (_, i) => i + 1);
-  if (rem > 0) rows[rows.length - 1]! += rem;
+  for (let i = 0; i < rem; i++) {
+    rows[k - 1 - i]! += 1;
+  }
   return rows;
 }
 
@@ -206,6 +224,67 @@ export const LAYOUT_PRESET_LABELS = Object.fromEntries(
 export const ALL_LAYOUT_PRESET_IDS: LayoutPresetId[] = LAYOUT_PRESET_OPTIONS.map(
   (o) => o.id
 );
+
+/**
+ * 番号割り当てルール（ユーザ指定）:
+ *
+ * - 必ず **客席に近い側（y が大きい側）** の列から順に番号を振る
+ * - **1列目（最前列）だけ** センター起点（中央 #1、左 #2、右 #3、さらに左 #4…）
+ * - **2列目以降は 左→右** の順に連番（左端が一番小さい番号）
+ *
+ * プリセットで生成した位置列の末尾で呼び、ラベルと配色を打ち直す。
+ */
+function relabelByAudienceCenterOut(dancers: DancerSpot[]): DancerSpot[] {
+  if (dancers.length <= 1) {
+    return dancers.map((d, i) => ({
+      ...d,
+      label: String(i + 1),
+      colorIndex: i % 9,
+    }));
+  }
+  /** 行（y）のグルーピング許容値（％）。目安間隔が 10% なので半分程度 */
+  const Y_EPS = 3;
+
+  const indexed = dancers.map((d, i) => ({ d, i }));
+  // y 降順で安定ソート（同じ y はとりあえず元順のまま）
+  indexed.sort((a, b) => b.d.yPct - a.d.yPct);
+
+  // 同じ y とみなせる範囲で行（row）にまとめる
+  const rows: { d: DancerSpot; i: number }[][] = [];
+  for (const it of indexed) {
+    const last = rows[rows.length - 1];
+    if (last && Math.abs(last[0]!.d.yPct - it.d.yPct) <= Y_EPS) {
+      last.push(it);
+    } else {
+      rows.push([it]);
+    }
+  }
+
+  const newLabelByIdx = new Array<number>(dancers.length).fill(0);
+  let seq = 1;
+  rows.forEach((row, rowIdx) => {
+    if (rowIdx === 0) {
+      // 最前列：センターから近い順、同距離なら左側を先
+      const sorted = [...row].sort((a, b) => {
+        const da = Math.abs(a.d.xPct - 50);
+        const db = Math.abs(b.d.xPct - 50);
+        if (Math.abs(da - db) > 0.5) return da - db;
+        return a.d.xPct - b.d.xPct;
+      });
+      for (const it of sorted) newLabelByIdx[it.i] = seq++;
+    } else {
+      // 2列目以降：左から順（x 昇順）
+      const sorted = [...row].sort((a, b) => a.d.xPct - b.d.xPct);
+      for (const it of sorted) newLabelByIdx[it.i] = seq++;
+    }
+  });
+
+  return dancers.map((d, i) => ({
+    ...d,
+    label: String(newLabelByIdx[i]),
+    colorIndex: (newLabelByIdx[i]! - 1) % 9,
+  }));
+}
 
 /**
  * n 人分の立ち位置（%）。
@@ -621,7 +700,11 @@ export function dancersForLayoutPreset(n: number, preset: LayoutPresetId): Dance
         pushSpot(out, i, x, 44);
       }
   }
-  return out;
+  /**
+   * 最後に「客席に近い側から・中央→左→右」ルールで番号を振り直す。
+   * これでプリセットの生成順に依存せず、どのフォーメーションでも一貫した番号になる。
+   */
+  return relabelByAudienceCenterOut(out);
 }
 
 /**
