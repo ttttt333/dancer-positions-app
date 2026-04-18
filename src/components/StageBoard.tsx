@@ -199,7 +199,8 @@ export function StageBoard({
     formations,
     activeFormationId,
     snapGrid,
-    gridStep,
+    gridStep: rawGridStep,
+    gridSpacingMm,
     audienceEdge,
     stageWidthMm,
     stageDepthMm,
@@ -208,20 +209,133 @@ export function StageBoard({
     centerFieldGuideIntervalMm,
     viewMode,
     dancerMarkerDiameterPx,
+    dancerMarkerDiameterMm,
     hanamichiEnabled: hanamichiEnabledRaw,
     hanamichiDepthPct: hanamichiDepthRaw,
   } = project;
+  /**
+   * 場ミリ連動のグリッド間隔。
+   * `gridSpacingMm` がセットされ `stageWidthMm` もあれば、mm ベースで実効％を計算。
+   * 無ければ保存済みの %（rawGridStep）をそのまま使う。
+   */
+  const gridStep = useMemo(() => {
+    if (
+      typeof gridSpacingMm === "number" &&
+      gridSpacingMm > 0 &&
+      typeof stageWidthMm === "number" &&
+      stageWidthMm > 0
+    ) {
+      const pct = (gridSpacingMm / stageWidthMm) * 100;
+      return Math.max(0.05, Math.min(50, pct));
+    }
+    return rawGridStep;
+  }, [gridSpacingMm, stageWidthMm, rawGridStep]);
   const hanamichiEnabled = hanamichiEnabledRaw ?? false;
   const hanamichiDepthPct = Math.min(36, Math.max(8, hanamichiDepthRaw ?? 14));
-
-  const baseMarkerPx = Math.max(
-    MARKER_PX_MIN,
-    Math.min(MARKER_PX_MAX, Math.round(dancerMarkerDiameterPx ?? 44))
+  /**
+   * 変形舞台（カスタム舞台形状）。設定されているときは舞台外を暗く表示し、
+   * 旧来の花道帯は隠す。
+   */
+  const stageShape = project.stageShape;
+  const stageShapeActive = stageShape != null && stageShape.presetId !== "rectangle";
+  const stageShapeSvgPoints = useMemo(
+    () =>
+      stageShapeActive
+        ? stageShape!.polygonPct
+            .map(([x, y]) => `${x.toFixed(3)},${y.toFixed(3)}`)
+            .join(" ")
+        : "",
+    [stageShapeActive, stageShape]
   );
-  /** サイズドラッグ中は draft 値を即時反映して手応えを出す（ドラッグ終了時に確定） */
+  /**
+   * 舞台外の暗幕: 外枠 (0,0 100,100) を時計回り、内側の多角形を（そのまま）
+   * 続けて描画して evenodd でくり抜く。くり抜かれた内側は何も塗られず、
+   * 外側だけ半透明の暗色で塗りつぶされるため舞台外が自然に暗く見える。
+   */
+  const stageShapeMaskPath = useMemo(() => {
+    if (!stageShapeActive || !stageShape) return "";
+    const outer = "M 0 0 L 100 0 L 100 100 L 0 100 Z";
+    const pts = stageShape.polygonPct;
+    if (pts.length < 3) return "";
+    const inner = pts
+      .map(([x, y], i) => `${i === 0 ? "M" : "L"} ${x.toFixed(3)} ${y.toFixed(3)}`)
+      .join(" ");
+    return `${outer} ${inner} Z`;
+  }, [stageShapeActive, stageShape]);
 
   /** メイン床（%座標・PNG のダンサー領域）。サイド/バック分割時は中央セルのみ */
   const stageMainFloorRef = useRef<HTMLDivElement>(null);
+  /**
+   * メイン床の実際の描画幅（px）。ResizeObserver で追跡し、
+   * 実寸指定の印サイズ計算に使う。舞台が回転しているときも正しく取得できる。
+   */
+  const [mainFloorPxWidth, setMainFloorPxWidth] = useState<number>(0);
+  useEffect(() => {
+    const el = stageMainFloorRef.current;
+    if (!el) return;
+    const update = () => {
+      const r = el.getBoundingClientRect();
+      setMainFloorPxWidth(Math.max(0, Math.round(r.width)));
+    };
+    update();
+    if (typeof ResizeObserver !== "undefined") {
+      const ro = new ResizeObserver(update);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  /**
+   * ダンサー印の基準ピクセル径。
+   *
+   * 優先順位:
+   * 1. `dancerMarkerDiameterMm` が明示されていればそれを実寸から px に換算。
+   * 2. そうでなくステージ幅（`stageWidthMm`）があれば、ステージ幅の一定割合
+   *    （≒ 4%）を自動の実寸として扱い、ステージサイズに連動して○を伸縮させる。
+   *    px スライダーの既定値（`DEFAULT_MARKER_DIAMETER_PX = 44`）からユーザーが
+   *    動かしていない場合のみ自動連動を優先する。動かしている（＝明示指定）なら
+   *    スライダーの px を尊重する。
+   * 3. 上記いずれも当てはまらなければ保存済みの px をそのまま使う。
+   */
+  const baseMarkerPx = useMemo(() => {
+    if (
+      typeof dancerMarkerDiameterMm === "number" &&
+      dancerMarkerDiameterMm > 0 &&
+      typeof stageWidthMm === "number" &&
+      stageWidthMm > 0 &&
+      mainFloorPxWidth > 0
+    ) {
+      const px = Math.round(
+        (dancerMarkerDiameterMm * mainFloorPxWidth) / stageWidthMm
+      );
+      return Math.max(MARKER_PX_MIN, Math.min(MARKER_PX_MAX, px));
+    }
+    const pxRaw = Math.round(dancerMarkerDiameterPx ?? 44);
+    /**
+     * スライダーの既定値 44 のままならユーザーは px を明示していないと見なし、
+     * ステージ幅に連動する自動サイズを採用する（写真のような按配になる目安）。
+     */
+    const isDefaultPx = pxRaw === 44;
+    if (
+      isDefaultPx &&
+      typeof stageWidthMm === "number" &&
+      stageWidthMm > 0 &&
+      mainFloorPxWidth > 0
+    ) {
+      /** ステージ幅の 4%。min 25cm / max 120cm で常識的な範囲にクランプ。 */
+      const implicitMm = Math.max(250, Math.min(1200, stageWidthMm * 0.04));
+      const px = Math.round((implicitMm * mainFloorPxWidth) / stageWidthMm);
+      return Math.max(MARKER_PX_MIN, Math.min(MARKER_PX_MAX, px));
+    }
+    return Math.max(MARKER_PX_MIN, Math.min(MARKER_PX_MAX, pxRaw));
+  }, [
+    dancerMarkerDiameterMm,
+    stageWidthMm,
+    mainFloorPxWidth,
+    dancerMarkerDiameterPx,
+  ]);
+  /** サイズドラッグ中は draft 値を即時反映して手応えを出す（ドラッグ終了時に確定） */
   const trashDockRef = useRef<HTMLDivElement>(null);
   const stageContextMenuRef = useRef<HTMLDivElement>(null);
   const trashHotRef = useRef(false);
@@ -249,6 +363,16 @@ export function StageBoard({
       }
     | null
   >(null);
+
+  /**
+   * ドラッグ中に表示するスナップ補助線。
+   * - `x`: 縦のガイド線（左右方向にセンター/他ダンサーと揃ったとき）
+   * - `y`: 横のガイド線（前後方向にセンター/他ダンサーと揃ったとき）
+   */
+  const [alignGuides, setAlignGuides] = useState<{
+    x: number | null;
+    y: number | null;
+  }>({ x: null, y: null });
 
   const [editingDancerId, setEditingDancerId] = useState<string | null>(null);
   /**
@@ -322,6 +446,51 @@ export function StageBoard({
     string,
     number
   > | null>(null);
+
+  /**
+   * ステージ枠の四隅ハンドルでステージ全体の寸法を変更するドラッグセッション。
+   *
+   * ローテーション（audienceEdge による舞台の回転）があっても正しく動かせるように、
+   * 画面中心座標・回転角・CSS 軸サイズ・反対コーナーのアンカー位置（CSS座標）を
+   * 開始時点で記録し、ポインタ位置を CSS 軸上に戻してから新寸法を計算する。
+   */
+  const stageResizeRef = useRef<
+    | {
+        /**
+         * ハンドルの種類。
+         * - "nw" / "ne" / "se" / "sw" … 四隅。横・奥の両方を同時に変更。
+         * - "n" / "s" … 上下の辺。奥行き（Dmm）のみ変更。
+         * - "e" / "w" … 左右の辺。横幅（Wmm）のみ変更。
+         */
+        handle: "nw" | "ne" | "se" | "sw" | "n" | "s" | "e" | "w";
+        /** 画面上のステージ中心（drag 開始時点） */
+        cx: number;
+        cy: number;
+        /** 回転角（度）。audienceEdge から算出した rot をそのまま使う */
+        rotDeg: number;
+        /** アンカー（対角コーナー）の CSS 座標系での位置（中心基準） */
+        anchorCssX: number;
+        anchorCssY: number;
+        /** 開始時点の要素 CSS 幅・高さ（px、回転前の axis） */
+        W0css: number;
+        H0css: number;
+        /** 開始時点の外枠寸法（mm）と側方/奥方の mm */
+        outerWmm0: number;
+        outerDmm0: number;
+        Smm: number;
+        Bmm: number;
+      }
+    | null
+  >(null);
+  /** ステージ枠ドラッグ中のライブプレビュー値（コミット前の W/D）。 */
+  const [stageResizeDraft, setStageResizeDraft] = useState<
+    | { stageWidthMm: number; stageDepthMm: number }
+    | null
+  >(null);
+  /** 現在カーソルが乗っているステージリサイズハンドル。ホバー時だけ少し大きくする。 */
+  const [hoveredStageHandle, setHoveredStageHandle] = useState<string | null>(
+    null
+  );
 
   /** ダンサー 1 人分の実効サイズ（px）。draft > 個別 sizePx > プロジェクト共通、の順で解決。 */
   const effectiveMarkerPx = useCallback(
@@ -459,6 +628,196 @@ export function StageBoard({
       }));
       setSelectedDancerIds((ids) => ids.filter((id) => id !== dancerId));
       setEditingDancerId((id) => (id === dancerId ? null : id));
+      setStageContextMenu(null);
+    },
+    [writeFormation, updateActiveFormation, viewMode, stageInteractionsEnabled]
+  );
+
+  /**
+   * ステージ枠の四隅ハンドルをつかんだら寸法ドラッグを開始する。
+   *
+   * - `stageWidthMm/stageDepthMm` が未設定のプロジェクトでも、
+   *   開始時に既定値（12m × 8m）を仮定してドラッグできる。
+   * - 舞台の客席方向 (audienceEdge) による回転を考慮し、
+   *   ポインタ位置を CSS 軸へ逆回転してから新寸法を計算する。
+   */
+  const onStageCornerResizeDown = useCallback(
+    (
+      handle: "nw" | "ne" | "se" | "sw" | "n" | "s" | "e" | "w",
+      e: ReactPointerEvent<HTMLDivElement>
+    ) => {
+      if (
+        viewMode === "view" ||
+        !stageInteractionsEnabled ||
+        Boolean(playbackDancers) ||
+        Boolean(previewDancers)
+      )
+        return;
+      if (e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const el = document.getElementById("stage-export-root");
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const rotDeg = (audienceRotationDeg(audienceEdge) + 180) % 360;
+      const is90 = rotDeg === 90 || rotDeg === 270;
+      const W0css = is90 ? rect.height : rect.width;
+      const H0css = is90 ? rect.width : rect.height;
+      /**
+       * アンカー（動かない側）の CSS 座標系での位置。
+       * 辺ハンドル（n/s/e/w）の場合、動かない軸は 0（中央）扱いにして
+       * onMove 側で「その軸は元のまま」ロジックと併用する。
+       */
+      const anchorCssX =
+        handle === "ne" || handle === "se" || handle === "e"
+          ? -W0css / 2
+          : handle === "nw" || handle === "sw" || handle === "w"
+          ? W0css / 2
+          : 0;
+      const anchorCssY =
+        handle === "sw" || handle === "se" || handle === "s"
+          ? -H0css / 2
+          : handle === "nw" || handle === "ne" || handle === "n"
+          ? H0css / 2
+          : 0;
+      const curW =
+        stageWidthMm != null && stageWidthMm > 0 ? stageWidthMm : 12000;
+      const curD =
+        stageDepthMm != null && stageDepthMm > 0 ? stageDepthMm : 8000;
+      const SmmStart = sideStageMm != null && sideStageMm > 0 ? sideStageMm : 0;
+      const BmmStart = backStageMm != null && backStageMm > 0 ? backStageMm : 0;
+      stageResizeRef.current = {
+        handle,
+        cx,
+        cy,
+        rotDeg,
+        anchorCssX,
+        anchorCssY,
+        W0css,
+        H0css,
+        outerWmm0: curW + 2 * SmmStart,
+        outerDmm0: curD + BmmStart,
+        Smm: SmmStart,
+        Bmm: BmmStart,
+      };
+      setStageResizeDraft({ stageWidthMm: curW, stageDepthMm: curD });
+      const target = e.currentTarget as HTMLDivElement;
+      try {
+        target.setPointerCapture?.(e.pointerId);
+      } catch {
+        /* noop */
+      }
+    },
+    [
+      viewMode,
+      stageInteractionsEnabled,
+      playbackDancers,
+      previewDancers,
+      audienceEdge,
+      stageWidthMm,
+      stageDepthMm,
+      sideStageMm,
+      backStageMm,
+    ]
+  );
+
+  /** ドラッグ中: ポインタ位置を CSS 軸へ戻し、対角アンカーからの距離で新寸法を算出。 */
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      const s = stageResizeRef.current;
+      if (!s) return;
+      const dx = e.clientX - s.cx;
+      const dy = e.clientY - s.cy;
+      const rad = (s.rotDeg * Math.PI) / 180;
+      /** 画面座標 → CSS 軸（rotate 前）へ逆回転。 */
+      const lx = dx * Math.cos(rad) + dy * Math.sin(rad);
+      const ly = -dx * Math.sin(rad) + dy * Math.cos(rad);
+      /**
+       * 辺ハンドル（n/s/e/w）の場合は担当軸だけを更新して、
+       * もう片方の寸法は元のまま維持する。コーナーの場合は両軸変更。
+       */
+      const affectsW =
+        s.handle === "e" ||
+        s.handle === "w" ||
+        s.handle === "nw" ||
+        s.handle === "ne" ||
+        s.handle === "se" ||
+        s.handle === "sw";
+      const affectsH =
+        s.handle === "n" ||
+        s.handle === "s" ||
+        s.handle === "nw" ||
+        s.handle === "ne" ||
+        s.handle === "se" ||
+        s.handle === "sw";
+      const newCssW = affectsW
+        ? Math.max(40, Math.abs(lx - s.anchorCssX))
+        : s.W0css;
+      const newCssH = affectsH
+        ? Math.max(40, Math.abs(ly - s.anchorCssY))
+        : s.H0css;
+      const newOuterWmm = (s.outerWmm0 * newCssW) / Math.max(1, s.W0css);
+      const newOuterDmm = (s.outerDmm0 * newCssH) / Math.max(1, s.H0css);
+      let newW = Math.round(newOuterWmm - 2 * s.Smm);
+      let newD = Math.round(newOuterDmm - s.Bmm);
+      newW = Math.min(60000, Math.max(2000, newW));
+      newD = Math.min(60000, Math.max(2000, newD));
+      setStageResizeDraft((prev) =>
+        prev &&
+        prev.stageWidthMm === newW &&
+        prev.stageDepthMm === newD
+          ? prev
+          : { stageWidthMm: newW, stageDepthMm: newD }
+      );
+    };
+    const onUp = () => {
+      const s = stageResizeRef.current;
+      if (!s) return;
+      stageResizeRef.current = null;
+      setStageResizeDraft((d) => {
+        if (d) {
+          const nextW = d.stageWidthMm;
+          const nextD = d.stageDepthMm;
+          setProject((p) => {
+            if (p.stageWidthMm === nextW && p.stageDepthMm === nextD) return p;
+            return { ...p, stageWidthMm: nextW, stageDepthMm: nextD };
+          });
+        }
+        return null;
+      });
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+  }, [setProject]);
+
+  /**
+   * 範囲選択でまとめた複数ダンサーを一括で削除する。
+   * ゴミ箱へ群ドロップしたときに使う。
+   */
+  const removeDancersByIds = useCallback(
+    (dancerIds: string[]) => {
+      if (
+        !writeFormation ||
+        viewMode === "view" ||
+        stageInteractionsEnabled === false ||
+        dancerIds.length === 0
+      )
+        return;
+      const removeSet = new Set(dancerIds);
+      updateActiveFormation((f) => ({
+        ...f,
+        dancers: f.dancers.filter((x) => !removeSet.has(x.id)),
+      }));
+      setSelectedDancerIds((ids) => ids.filter((id) => !removeSet.has(id)));
+      setEditingDancerId((id) => (id != null && removeSet.has(id) ? null : id));
       setStageContextMenu(null);
     },
     [writeFormation, updateActiveFormation, viewMode, stageInteractionsEnabled]
@@ -603,6 +962,69 @@ export function StageBoard({
       };
     },
     [snapGrid, quantizeCoord]
+  );
+
+  /**
+   * ドラッグ中の立ち位置を、他のダンサーや中央線に揃えて「ピタッ」と吸着させる。
+   * 表示用のガイド線（揃った x / y の値）も合わせて返す。
+   *
+   * @param xPct         現在の x（％）
+   * @param yPct         現在の y（％）
+   * @param excludeIds   スナップ対象から除外するダンサー ID（自分 or 群ドラッグ中の選択者）
+   * @param strong       Shift 等で一時的にスナップを無効化したい場合は false
+   */
+  const computeAlignmentSnap = useCallback(
+    (
+      xPct: number,
+      yPct: number,
+      excludeIds: ReadonlySet<string>,
+      strong: boolean
+    ): { xPct: number; yPct: number; guideX: number | null; guideY: number | null } => {
+      if (!strong) {
+        return { xPct, yPct, guideX: null, guideY: null };
+      }
+      /** 吸着する距離しきい値（％）。ステージの 1% 程度 */
+      const THRESHOLD = 0.9;
+      const dancers =
+        writeFormation?.dancers ?? activeFormation?.dancers ?? [];
+      /** 候補 x: 中央（50）＋他ダンサーの x */
+      const xCandidates: number[] = [50];
+      const yCandidates: number[] = [50];
+      for (const d of dancers) {
+        if (excludeIds.has(d.id)) continue;
+        xCandidates.push(d.xPct);
+        yCandidates.push(d.yPct);
+      }
+      let bestXDist = THRESHOLD;
+      let guideX: number | null = null;
+      let snappedX = xPct;
+      for (const cx of xCandidates) {
+        const dist = Math.abs(xPct - cx);
+        if (dist < bestXDist) {
+          bestXDist = dist;
+          guideX = cx;
+          snappedX = cx;
+        }
+      }
+      let bestYDist = THRESHOLD;
+      let guideY: number | null = null;
+      let snappedY = yPct;
+      for (const cy of yCandidates) {
+        const dist = Math.abs(yPct - cy);
+        if (dist < bestYDist) {
+          bestYDist = dist;
+          guideY = cy;
+          snappedY = cy;
+        }
+      }
+      return {
+        xPct: round2(snappedX),
+        yPct: round2(snappedY),
+        guideX,
+        guideY,
+      };
+    },
+    [writeFormation, activeFormation]
   );
 
   useEffect(() => {
@@ -911,23 +1333,96 @@ export function StageBoard({
         }
         const overTrash = hitTrashDropZone(e.clientX, e.clientY);
         setTrashHotIfChanged(overTrash);
-        if (overTrash) return;
+        if (overTrash) {
+          if (alignGuides.x !== null || alignGuides.y !== null) {
+            setAlignGuides({ x: null, y: null });
+          }
+          return;
+        }
+        /** 中央線・他ダンサーに近づいたら吸着し、揃っている方向をガイド線で示す */
+        const snapped = computeAlignmentSnap(
+          next.xPct,
+          next.yPct,
+          new Set([d.dancerId]),
+          !e.shiftKey
+        );
+        if (
+          snapped.guideX !== alignGuides.x ||
+          snapped.guideY !== alignGuides.y
+        ) {
+          setAlignGuides({ x: snapped.guideX, y: snapped.guideY });
+        }
         updateActiveFormation((f) => ({
           ...f,
           dancers: f.dancers.map((x) =>
             x.id === d.dancerId
-              ? { ...x, xPct: next.xPct, yPct: next.yPct }
+              ? { ...x, xPct: snapped.xPct, yPct: snapped.yPct }
               : x
           ),
         }));
         return;
       }
-      /** 2: 複数選択の一括移動 */
+      /** 2: 複数選択の一括移動（ゴミ箱一括削除付き） */
       const g = groupDragRef.current;
       if (g && g.mode === "move") {
-        const dxPct = ((e.clientX - g.startClientX) / g.floorWpx) * 100;
-        const dyPct = ((e.clientY - g.startClientY) / g.floorHpx) * 100;
+        let dxPct = ((e.clientX - g.startClientX) / g.floorWpx) * 100;
+        let dyPct = ((e.clientY - g.startClientY) / g.floorHpx) * 100;
         const idSet = new Set(g.ids);
+        /**
+         * 群移動中も「下端付近までドラッグしたらゴミ箱出現」を有効化する。
+         * 判定は群内ダンサー（移動後位置）のうち最も客席側（y が大きい）が
+         * 閾値を超えたとき、または単体ドラッグと挙動を揃えるためポインタの
+         * y が下端付近でも発火させる。
+         */
+        const floor = stageMainFloorRef.current;
+        let pointerYPct = 0;
+        if (floor) {
+          const rr = floor.getBoundingClientRect();
+          pointerYPct = ((e.clientY - rr.top) / rr.height) * 100;
+        }
+        let maxMovedYPct = 0;
+        for (const id of g.ids) {
+          const s = g.startPositions.get(id);
+          if (!s) continue;
+          const ny = clamp(s.yPct + dyPct, 2, 98);
+          if (ny > maxMovedYPct) maxMovedYPct = ny;
+        }
+        const reveal =
+          maxMovedYPct >= TRASH_REVEAL_Y_PCT ||
+          pointerYPct >= TRASH_REVEAL_Y_PCT;
+        if (reveal !== trashRevealActiveRef.current) {
+          trashRevealActiveRef.current = reveal;
+          setTrashUiVisible(reveal);
+        }
+        const overTrash = hitTrashDropZone(e.clientX, e.clientY);
+        setTrashHotIfChanged(overTrash);
+        if (overTrash) {
+          /** ゴミ箱ホバー中はダンサーを固定して追従させない（単体ドラッグと揃える） */
+          if (alignGuides.x !== null || alignGuides.y !== null) {
+            setAlignGuides({ x: null, y: null });
+          }
+          return;
+        }
+        /**
+         * 群移動では、選択範囲のアンカー（一人目）を代表として中央線や
+         * 他（選択外）ダンサーに吸着させ、群全体を同じデルタだけ動かす。
+         */
+        let guideX: number | null = null;
+        let guideY: number | null = null;
+        const leadId = g.ids[0];
+        const leadStart = leadId ? g.startPositions.get(leadId) : undefined;
+        if (leadStart && !e.shiftKey) {
+          const leadX = leadStart.xPct + dxPct;
+          const leadY = leadStart.yPct + dyPct;
+          const snapped = computeAlignmentSnap(leadX, leadY, idSet, true);
+          dxPct += snapped.xPct - leadX;
+          dyPct += snapped.yPct - leadY;
+          guideX = snapped.guideX;
+          guideY = snapped.guideY;
+        }
+        if (guideX !== alignGuides.x || guideY !== alignGuides.y) {
+          setAlignGuides({ x: guideX, y: guideY });
+        }
         updateActiveFormation((f) => ({
           ...f,
           dancers: f.dancers.map((x) => {
@@ -939,7 +1434,6 @@ export function StageBoard({
             return { ...x, xPct: round2(nx), yPct: round2(ny) };
           }),
         }));
-        setTrashHotIfChanged(false);
         return;
       }
       /** 3: 複数選択の群スケール（枠のハンドル） */
@@ -1026,7 +1520,15 @@ export function StageBoard({
         removeDancerById(d.dancerId);
       }
       dragRef.current = null;
-      /** 群ドラッグ終了 */
+      /** 群ドラッグ終了。move モードで最後にゴミ箱へドロップされていたら一括削除 */
+      const gUp = groupDragRef.current;
+      if (
+        gUp &&
+        gUp.mode === "move" &&
+        hitTrashDropZone(e.clientX, e.clientY)
+      ) {
+        removeDancersByIds(gUp.ids);
+      }
       groupDragRef.current = null;
       /** ○サイズ確定（選択中の各ダンサーに `sizePx` を保存する） */
       const m = markerResizeRef.current;
@@ -1092,6 +1594,7 @@ export function StageBoard({
       setTrashHotIfChanged(false);
       trashRevealActiveRef.current = false;
       setTrashUiVisible(false);
+      setAlignGuides({ x: null, y: null });
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -1106,11 +1609,15 @@ export function StageBoard({
     updateActiveFormation,
     hitTrashDropZone,
     removeDancerById,
+    removeDancersByIds,
     setTrashHotIfChanged,
     markerDiamDraft,
     setProject,
     writeFormation,
     activeFormation,
+    computeAlignmentSnap,
+    alignGuides.x,
+    alignGuides.y,
   ]);
 
   useEffect(() => {
@@ -1185,8 +1692,13 @@ export function StageBoard({
     onRequestLayoutEditFromStage();
   };
 
-  const Wmm = stageWidthMm != null && stageWidthMm > 0 ? stageWidthMm : 0;
-  const Dmm = stageDepthMm != null && stageDepthMm > 0 ? stageDepthMm : 0;
+  /**
+   * ドラッグ中はライブプレビュー用の draft を優先。確定するまで project は変えない。
+   */
+  const effStageWidthMm = stageResizeDraft?.stageWidthMm ?? stageWidthMm;
+  const effStageDepthMm = stageResizeDraft?.stageDepthMm ?? stageDepthMm;
+  const Wmm = effStageWidthMm != null && effStageWidthMm > 0 ? effStageWidthMm : 0;
+  const Dmm = effStageDepthMm != null && effStageDepthMm > 0 ? effStageDepthMm : 0;
   const Smm = sideStageMm != null && sideStageMm > 0 ? sideStageMm : 0;
   const Bmm = backStageMm != null && backStageMm > 0 ? backStageMm : 0;
   const hasStageDims = Wmm > 0 && Dmm > 0;
@@ -1349,16 +1861,16 @@ export function StageBoard({
           </div>
         </div>
       )}
-      {stageWidthMm != null && stageDepthMm != null && (
+      {effStageWidthMm != null && effStageDepthMm != null && (
         <div
           style={{
             fontSize: "10px",
-            color: "#94a3b8",
+            color: stageResizeDraft ? "#fbbf24" : "#94a3b8",
             textAlign: "center",
             lineHeight: 1.45,
           }}
         >
-          {formatStageMmSummary(stageWidthMm, stageDepthMm)}
+          {formatStageMmSummary(effStageWidthMm, effStageDepthMm)}
           {(Smm > 0 || Bmm > 0 || (centerFieldGuideIntervalMm != null && centerFieldGuideIntervalMm > 0)) && (
             <div style={{ marginTop: "4px", fontSize: "9px", color: "#64748b" }}>
               {Smm > 0 && <>サイド各 {formatMeterCmLabel(Smm)} · </>}
@@ -1382,11 +1894,18 @@ export function StageBoard({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          /**
+           * ステージ枠のリサイズハンドル（左右・上下）が枠より外に
+           * わずかに飛び出して配置されるため、padding で隠れないよう
+           * 少しだけ外側に余白を確保する。
+           */
+          padding: "12px",
           overflow: "hidden",
         }}
       >
         <div
           style={{
+            position: "relative",
             width: "100%",
             maxWidth: "640px",
             aspectRatio: stageAspectRatio,
@@ -1483,6 +2002,37 @@ export function StageBoard({
                   : { position: "relative", width: "100%", height: "100%" }),
               }}
             >
+            {stageShapeActive && stageShapeMaskPath && (
+              <svg
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  width: "100%",
+                  height: "100%",
+                  pointerEvents: "none",
+                  zIndex: 1,
+                }}
+              >
+                {/* 舞台外を暗くする（evenodd くり抜き） */}
+                <path
+                  d={stageShapeMaskPath}
+                  fill="rgba(2, 6, 23, 0.55)"
+                  fillRule="evenodd"
+                />
+                {/* 舞台エリアの輪郭線 */}
+                <polygon
+                  points={stageShapeSvgPoints}
+                  fill="none"
+                  stroke="rgba(94, 234, 212, 0.85)"
+                  strokeWidth="0.45"
+                  strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              </svg>
+            )}
             {snapGrid && (
               <svg
                 style={{
@@ -1564,7 +2114,54 @@ export function StageBoard({
                   vectorEffect="non-scaling-stroke"
                 />
               ))}
+              {/**
+               * ドラッグ中のスナップ補助線（前後・左右・センター等にピタッと揃ったとき）。
+               * 通常のガイド線より目立つ色で、ドラッグ中のみ表示する。
+               */}
+              {alignGuides.x != null && (
+                <line
+                  x1={alignGuides.x}
+                  y1="0"
+                  x2={alignGuides.x}
+                  y2="100"
+                  stroke="#22d3ee"
+                  strokeWidth="0.5"
+                  strokeDasharray="2 1.2"
+                  vectorEffect="non-scaling-stroke"
+                  opacity="0.95"
+                />
+              )}
+              {alignGuides.y != null && (
+                <line
+                  x1="0"
+                  y1={alignGuides.y}
+                  x2="100"
+                  y2={alignGuides.y}
+                  stroke="#22d3ee"
+                  strokeWidth="0.5"
+                  strokeDasharray="2 1.2"
+                  vectorEffect="non-scaling-stroke"
+                  opacity="0.95"
+                />
+              )}
             </svg>
+            <div
+              aria-label="ステージ センター前"
+              title="センター前（基準点）"
+              style={{
+                position: "absolute",
+                left: "50%",
+                bottom: "14%",
+                width: "8px",
+                height: "8px",
+                borderRadius: "50%",
+                background: "#ef4444",
+                boxShadow: "0 0 0 1px rgba(15,23,42,0.75)",
+                transform: "translate(-50%, 50%)",
+                pointerEvents: "none",
+                zIndex: 4,
+              }}
+            />
             <div
               style={{
                 position: "absolute",
@@ -2220,7 +2817,7 @@ export function StageBoard({
               </div>
             )}
             </div>
-            {hanamichiEnabled ? (
+            {hanamichiEnabled && !stageShapeActive ? (
               <div
                 style={{
                   flex: "0 0 auto",
@@ -2242,6 +2839,171 @@ export function StageBoard({
               </div>
             ) : null}
           </div>
+          {/*
+            ステージ枠のリサイズハンドル。
+            四隅（nw/ne/se/sw）は両軸を同時に、
+            辺（n/s/e/w）は担当軸だけを伸縮させる。
+          */}
+          {viewMode !== "view" &&
+            stageInteractionsEnabled &&
+            !playbackDancers &&
+            !previewDancers &&
+            (
+              [
+                "nw",
+                "ne",
+                "se",
+                "sw",
+                "n",
+                "s",
+                "e",
+                "w",
+              ] as const
+            ).map((h) => {
+              const isCorner =
+                h === "nw" || h === "ne" || h === "se" || h === "sw";
+              const cursor =
+                h === "nw" || h === "se"
+                  ? "nwse-resize"
+                  : h === "ne" || h === "sw"
+                  ? "nesw-resize"
+                  : h === "n" || h === "s"
+                  ? "ns-resize"
+                  : "ew-resize";
+              const isHover = hoveredStageHandle === h;
+              const isActive = Boolean(stageResizeDraft);
+              /**
+               * 当たり判定（hit area）。見た目は小さく保ちつつ、
+               * ここだけ大きめにしてドラッグできる範囲を広げる。
+               */
+              const hitSize: CSSProperties = isCorner
+                ? { width: 22, height: 22 }
+                : h === "n" || h === "s"
+                ? { width: 44, height: 18 }
+                : { width: 18, height: 44 };
+              /** 当たり判定を「辺 / 角」の中心に合わせる位置決め。 */
+              const hitPos: CSSProperties = (() => {
+                if (isCorner) {
+                  const isTop = h === "nw" || h === "ne";
+                  const isLeft = h === "nw" || h === "sw";
+                  return {
+                    ...(isTop ? { top: -11 } : { bottom: -11 }),
+                    ...(isLeft ? { left: -11 } : { right: -11 }),
+                  };
+                }
+                if (h === "n")
+                  return {
+                    top: -9,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                  };
+                if (h === "s")
+                  return {
+                    bottom: -9,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                  };
+                if (h === "w")
+                  return {
+                    left: -9,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                  };
+                return {
+                  right: -9,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                };
+              })();
+              /** 見た目（視覚インジケータ）のサイズ。 */
+              const dotSize: CSSProperties = isCorner
+                ? {
+                    width: isHover || isActive ? 12 : 8,
+                    height: isHover || isActive ? 12 : 8,
+                  }
+                : h === "n" || h === "s"
+                ? {
+                    width: isHover || isActive ? 24 : 16,
+                    height: isHover || isActive ? 8 : 5,
+                  }
+                : {
+                    width: isHover || isActive ? 8 : 5,
+                    height: isHover || isActive ? 24 : 16,
+                  };
+              const label = isCorner
+                ? "ステージサイズ変更"
+                : h === "n" || h === "s"
+                ? "ステージ奥行きを変更"
+                : "ステージ横幅を変更";
+              /**
+               * 通常はステージ枠（#334155）と同系の slate で溶け込ませ、
+               * ホバー/ドラッグ中はやや明るくして「触れる」ことをうっすら示す。
+               */
+              const bg = isActive
+                ? "#94a3b8"
+                : isHover
+                ? "#64748b"
+                : "#475569";
+              return (
+                <div
+                  key={`stage-resize-${h}`}
+                  role="presentation"
+                  aria-label={`${label}（${h}）`}
+                  title={
+                    isCorner
+                      ? "ドラッグでステージ全体のサイズを変更"
+                      : h === "n" || h === "s"
+                      ? "ドラッグで奥行き（前後）だけを変更"
+                      : "ドラッグで横幅（左右）だけを変更"
+                  }
+                  onPointerDown={(e) => onStageCornerResizeDown(h, e)}
+                  onPointerUp={(e) => {
+                    try {
+                      (e.currentTarget as HTMLDivElement).releasePointerCapture?.(
+                        e.pointerId
+                      );
+                    } catch {
+                      /* noop */
+                    }
+                  }}
+                  onPointerEnter={() => setHoveredStageHandle(h)}
+                  onPointerLeave={() =>
+                    setHoveredStageHandle((cur) => (cur === h ? null : cur))
+                  }
+                  style={{
+                    position: "absolute",
+                    zIndex: 20,
+                    ...hitSize,
+                    background: "transparent",
+                    cursor,
+                    touchAction: "none",
+                    boxSizing: "border-box",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    ...hitPos,
+                  }}
+                >
+                  <div
+                    aria-hidden
+                    style={{
+                      ...dotSize,
+                      borderRadius: 3,
+                      background: bg,
+                      border: "1px solid #1e293b",
+                      boxShadow:
+                        isHover || isActive
+                          ? "0 1px 4px rgba(0,0,0,0.45)"
+                          : "none",
+                      opacity: isActive ? 0.95 : isHover ? 0.9 : 0.6,
+                      transition:
+                        "width 120ms ease, height 120ms ease, background 120ms ease, opacity 120ms ease",
+                      pointerEvents: "none",
+                    }}
+                  />
+                </div>
+              );
+            })}
         </div>
       </div>
     </div>

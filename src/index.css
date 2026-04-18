@@ -11,3 +11,27 @@ body {
 #root {
   min-height: 100svh;
 }
+
+/**
+ * 波形を上部ドックに移したときのコンパクトツールバー。
+ * ボタン／セレクト／ラベルの padding とフォントサイズを縮めて 1 行に収める。
+ */
+.wave-dock-compact-toolbar button,
+.wave-dock-compact-toolbar label,
+.wave-dock-compact-toolbar select {
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
+  padding-left: 6px !important;
+  padding-right: 6px !important;
+  font-size: 10px !important;
+  line-height: 1.15 !important;
+  border-radius: 4px !important;
+}
+
+.wave-dock-compact-toolbar input[type="range"] {
+  height: 14px;
+}
+
+.wave-dock-compact-toolbar > div[aria-hidden] {
+  height: 12px !important;
+}

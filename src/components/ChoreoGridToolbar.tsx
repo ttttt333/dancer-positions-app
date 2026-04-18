@@ -1,10 +1,18 @@
 import { btnSecondary } from "./StageBoard";
 
 type Props = {
-  snapGrid: boolean;
+  /**
+   * 現在のスナップグリッド状態。呼び出し元との API 互換のため受け取るが、
+   * トグルの見た目は他ボタンと揃えるため強調表示には使わない。
+   */
+  snapGrid?: boolean;
   onToggleSnapGrid: () => void;
-  hanamichiEnabled: boolean;
-  onToggleHanamichi: () => void;
+  /**
+   * 変形舞台が設定されているかどうか。API 互換のため受け取るが強調表示には使わない。
+   */
+  stageShapeActive?: boolean;
+  /** 変形舞台ピッカーを開く */
+  onOpenStageShapePicker: () => void;
   /** 図形・色を選ぶ大道具追加ダイアログを開く */
   onOpenSetPiecePicker: () => void;
   onOpenShortcutsHelp: () => void;
@@ -16,10 +24,8 @@ type Props = {
  * ChoreoGrid 左端ツールバー（仕様の一部。書き出し等はヘッダ／インスペクタと併用）。
  */
 export function ChoreoGridToolbar({
-  snapGrid,
   onToggleSnapGrid,
-  hanamichiEnabled,
-  onToggleHanamichi,
+  onOpenStageShapePicker,
   onOpenSetPiecePicker,
   onOpenShortcutsHelp,
   onOpenExport,
@@ -64,8 +70,6 @@ export function ChoreoGridToolbar({
           fontSize: "11px",
           lineHeight: 1.2,
           width: "100%",
-          borderColor: snapGrid ? "#6366f1" : undefined,
-          color: snapGrid ? "#c7d2fe" : undefined,
         }}
         onClick={onToggleSnapGrid}
       >
@@ -74,19 +78,19 @@ export function ChoreoGridToolbar({
       <button
         type="button"
         disabled={disabled}
-        title="花道（客席側の帯）の表示"
+        title="変形舞台（花道・スラスト・台形など舞台の形をカスタマイズ）"
         style={{
           ...btnSecondary,
           padding: "6px 4px",
-          fontSize: "11px",
+          fontSize: "10px",
           lineHeight: 1.2,
           width: "100%",
-          borderColor: hanamichiEnabled ? "#0d9488" : undefined,
-          color: hanamichiEnabled ? "#99f6e4" : undefined,
         }}
-        onClick={onToggleHanamichi}
+        onClick={onOpenStageShapePicker}
       >
-        花道
+        変形
+        <br />
+        舞台
       </button>
       <button
         type="button"

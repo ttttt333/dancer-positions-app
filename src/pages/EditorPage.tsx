@@ -24,6 +24,12 @@ import { normalizeProject } from "../lib/normalizeProject";
 import { sortCuesByStart } from "../lib/cueInterval";
 import { dancersAtTime } from "../lib/interpolatePlayback";
 import { setPiecesAtTime } from "../lib/interpolateSetPieces";
+import {
+  listFormationBoxItemsByCount,
+  saveFormationToBox,
+} from "../lib/formationBox";
+import { dancersForLayoutPreset } from "../lib/formationLayouts";
+import { buildCrewFromCsv } from "../lib/crewCsvImport";
 import type {
   ChoreographyProjectJson,
   DancerSpot,
@@ -34,6 +40,7 @@ import {
   type SetPiecePickerSubmit,
 } from "../components/SetPiecePickerModal";
 import { ChoreoGridToolbar } from "../components/ChoreoGridToolbar";
+import { StageShapePicker } from "../components/StageShapePicker";
 import { ExportDialog } from "../components/ExportDialog";
 import { projectApi } from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -45,9 +52,9 @@ const EDITOR_WIDE_MIN_PX = 1280;
 /** メイン 4 列グリッドの列間（ステージ〜タイムラインのすき間に効く） */
 const EDITOR_GRID_GAP_PX = 6;
 /** ステージ列とタイムライン列の間のドラッグ幅 */
-const STAGE_RESIZER_PX = 6;
+const STAGE_RESIZER_PX = 4;
 const STAGE_COL_MIN_PX = 280;
-const TIMELINE_COL_MIN_PX = 300;
+const TIMELINE_COL_MIN_PX = 260;
 const TOOLBAR_COL_PX = 52;
 
 function readMaxStageWidthPx(gridEl: HTMLElement): number {
@@ -103,6 +110,8 @@ export function EditorPage() {
   const [stageInfoOpen, setStageInfoOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   const [setPiecePickerOpen, setSetPiecePickerOpen] = useState(false);
+  /** 変形舞台ピッカー（舞台形状のカスタマイズ） */
+  const [stageShapePickerOpen, setStageShapePickerOpen] = useState(false);
   /** ワイド時のみ。null = 既定の fr 比、数値 = ステージ列の幅（px） */
   const [stageColumnPx, setStageColumnPx] = useState<number | null>(null);
   const [wideEditorLayout, setWideEditorLayout] = useState(
@@ -305,8 +314,12 @@ export function EditorPage() {
       const grid = editorPaneRef.current;
       if (!grid) return;
       const gridRect = grid.getBoundingClientRect();
-      const minH = 120;
-      const maxH = Math.max(minH, gridRect.height - 220);
+      /**
+       * ユーザーが「波形を上の方までできるだけ縮めたい」ケース向けに、
+       * 最小高さはツールバー 1 行＋波形数 px が見える程度まで許可する。
+       */
+      const minH = 48;
+      const maxH = Math.max(minH, gridRect.height - 160);
       const next = Math.round(
         Math.min(maxH, Math.max(minH, d.startH + (e.clientY - d.startY)))
       );
@@ -337,7 +350,7 @@ export function EditorPage() {
 
   const editorGridColumns = wideEditorLayout
     ? stageColumnPx == null
-      ? `52px minmax(${STAGE_COL_MIN_PX}px, 1.25fr) ${STAGE_RESIZER_PX}px minmax(${TIMELINE_COL_MIN_PX}px, 1fr)`
+      ? `${TOOLBAR_COL_PX}px minmax(${STAGE_COL_MIN_PX}px, 2fr) ${STAGE_RESIZER_PX}px minmax(${TIMELINE_COL_MIN_PX}px, 1fr)`
       : `${TOOLBAR_COL_PX}px ${Math.round(stageColumnPx)}px ${STAGE_RESIZER_PX}px minmax(${TIMELINE_COL_MIN_PX}px, 1fr)`
     : "1fr";
 
@@ -570,6 +583,14 @@ export function EditorPage() {
     [selectedCueId, setProjectSafe]
   );
 
+  /**
+   * ＋ダンサーボタンで 1 人ずつ追加するときの配置ルール。
+   *
+   * - 1 人目はセンター前に立つ。
+   * - 以降はピラミッド（`pyramid` プリセット）が自然に広がる位置へ並べ直す。
+   * - 既存ダンサーの id / crewMemberId / note / sizePx は保持し、
+   *   位置・ラベル・色だけピラミッド順に合わせて更新する（重なり回避のため）。
+   */
   const addDancerFromStageToolbar = useCallback(() => {
     if (!project || project.viewMode === "view") return;
     const fid =
@@ -580,29 +601,70 @@ export function EditorPage() {
     setProjectSafe((p) => {
       const f = p.formations.find((x) => x.id === fid);
       if (!f) return p;
-      const n = f.dancers.length + 1;
+      const newCount = f.dancers.length + 1;
+      const layout = dancersForLayoutPreset(newCount, "pyramid");
+      const nextDancers: DancerSpot[] = layout.map((slot, i) => {
+        const existing = f.dancers[i];
+        if (existing) {
+          return {
+            ...existing,
+            label: slot.label,
+            xPct: slot.xPct,
+            yPct: slot.yPct,
+            colorIndex: slot.colorIndex,
+          };
+        }
+        return slot;
+      });
       return {
         ...p,
         formations: p.formations.map((fm) =>
-          fm.id === fid
-            ? {
-                ...fm,
-                dancers: [
-                  ...fm.dancers,
-                  {
-                    id: crypto.randomUUID(),
-                    label: String(n),
-                    xPct: 50,
-                    yPct: 40,
-                    colorIndex: n % 9,
-                  },
-                ],
-              }
-            : fm
+          fm.id === fid ? { ...fm, dancers: nextDancers } : fm
         ),
       };
     });
   }, [project, selectedCue, setProjectSafe]);
+
+  /**
+   * ステージ上部の「名簿取り込み」ボタンから CSV / TSV ファイルを選んで、
+   * 新しい名簿（Crew）として `project.crews` に追加する。
+   * - 1 列目に名前が入っていれば見出しなしでも取り込める。
+   * - 取り込み後は `InspectorPanel` の「メンバー（名簿）」から編集・現在の形への反映ができる。
+   */
+  const importCrewCsvFromStageToolbar = useCallback(() => {
+    if (!project || project.viewMode === "view") return;
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept =
+      ".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain";
+    input.onchange = () => {
+      const f = input.files?.[0];
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = () => {
+        try {
+          const baseName = f.name.replace(/\.(csv|tsv|txt)$/i, "").trim();
+          const defaultName =
+            baseName || `名簿 ${(project.crews?.length ?? 0) + 1}`;
+          const crew = buildCrewFromCsv(defaultName, String(r.result ?? ""));
+          if (crew.members.length === 0) {
+            window.alert(
+              "名前らしき列が見つかりませんでした。\n1 列目に名前を入れるか、見出し行に「名前」「label」「name」などを含めてください。"
+            );
+            return;
+          }
+          setProjectSafe((p) => ({ ...p, crews: [...p.crews, crew] }));
+        } catch (e) {
+          window.alert(
+            e instanceof Error ? e.message : "CSV の読み込みに失敗しました"
+          );
+        }
+      };
+      r.onerror = () => window.alert("ファイルを読めませんでした");
+      r.readAsText(f, "UTF-8");
+    };
+    input.click();
+  }, [project, setProjectSafe]);
 
   const openSetPiecePicker = useCallback(() => {
     if (!project || project.viewMode === "view") return;
@@ -612,6 +674,32 @@ export function EditorPage() {
       project.formations[0]?.id;
     if (!fid) return;
     setSetPiecePickerOpen(true);
+  }, [project, selectedCue]);
+
+  /**
+   * 現在ステージで見ている立ち位置をそのまま「形の箱」に保存する。
+   * 再生中や何もないステージでは無視される。
+   */
+  const saveStageToFormationBox = useCallback(() => {
+    if (!project || project.viewMode === "view") return;
+    const fid =
+      selectedCue?.formationId ??
+      project.formations.find((x) => x.id === project.activeFormationId)?.id ??
+      project.formations[0]?.id;
+    if (!fid) return;
+    const f = project.formations.find((x) => x.id === fid);
+    if (!f || f.dancers.length === 0) {
+      window.alert("保存する立ち位置がありません。");
+      return;
+    }
+    const already = listFormationBoxItemsByCount(f.dancers.length).length;
+    const suggested = `${f.dancers.length}人の形 ${already + 1}`;
+    const name = window.prompt("形の箱に保存する名前（あとで変更可）", suggested);
+    if (name === null) return;
+    const result = saveFormationToBox(name.trim() || suggested, f.dancers);
+    if (!result.ok) {
+      window.alert(result.message);
+    }
   }, [project, selectedCue]);
 
   const confirmAddSetPiece = useCallback(
@@ -902,8 +990,8 @@ export function EditorPage() {
               ? `${
                   topDockRowPx != null
                     ? `${topDockRowPx}px`
-                    : "minmax(160px, min(28vh, 300px))"
-                } 6px minmax(0, 1fr)`
+                    : "minmax(48px, min(18vh, 180px))"
+                } 4px minmax(0, 1fr)`
               : "1fr"
             : "auto auto auto",
           gap: `${EDITOR_GRID_GAP_PX}px`,
@@ -916,10 +1004,13 @@ export function EditorPage() {
             style={{
               gridColumn: "1 / -1",
               gridRow: 1,
-              background: "#020617",
-              border: "1px solid #1e293b",
-              borderRadius: "12px",
-              padding: "12px",
+              /**
+               * 上下の区切りは下段のセパレータ（1px 線）に任せて、
+               * 自分自身の枠・背景は描かない。スペースを最大限に確保するため。
+               */
+              background: "transparent",
+              border: "none",
+              padding: "4px 4px 0",
               minHeight: 0,
               minWidth: 0,
               display: "flex",
@@ -927,9 +1018,6 @@ export function EditorPage() {
               overflow: "hidden",
             }}
           >
-            <h2 style={{ margin: "0 0 8px", fontSize: "13px", color: "#94a3b8" }}>
-              波形・再生
-            </h2>
             <div style={{ flex: "1 1 auto", minHeight: 0, display: "flex", flexDirection: "column" }}>
               {timelinePanelEl}
             </div>
@@ -966,9 +1054,8 @@ export function EditorPage() {
                 right: 0,
                 top: "50%",
                 transform: "translateY(-50%)",
-                height: 2,
-                background: "#1e293b",
-                borderRadius: 1,
+                height: 1,
+                background: "#334155",
               }}
             />
           </div>
@@ -989,17 +1076,16 @@ export function EditorPage() {
         >
           <ChoreoGridToolbar
             snapGrid={project.snapGrid}
-            hanamichiEnabled={project.hanamichiEnabled ?? false}
+            stageShapeActive={
+              (project.stageShape != null &&
+                project.stageShape.presetId !== "rectangle") ||
+              (project.hanamichiEnabled ?? false)
+            }
             disabled={project.viewMode === "view"}
             onToggleSnapGrid={() =>
               setProjectSafe((p) => ({ ...p, snapGrid: !p.snapGrid }))
             }
-            onToggleHanamichi={() =>
-              setProjectSafe((p) => ({
-                ...p,
-                hanamichiEnabled: !(p.hanamichiEnabled ?? false),
-              }))
-            }
+            onOpenStageShapePicker={() => setStageShapePickerOpen(true)}
             onOpenSetPiecePicker={openSetPiecePicker}
             onOpenShortcutsHelp={() => setShortcutsHelpOpen(true)}
             onOpenExport={() => setExportDialogOpen(true)}
@@ -1028,17 +1114,26 @@ export function EditorPage() {
           <div
             style={{
               display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
+              flexDirection: "column",
+              gap: "6px",
               marginBottom: "8px",
-              gap: "8px",
             }}
           >
+            {/* 1 行目: タイトル／選択情報 + 主要アクション */}
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
+                justifyContent: "space-between",
                 gap: "8px",
+                flexWrap: "wrap",
+              }}
+            >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
                 flexWrap: "wrap",
                 minWidth: 0,
               }}
@@ -1174,6 +1269,19 @@ export function EditorPage() {
                 type="button"
                 style={{
                   ...btnSecondary,
+                  borderColor: "#14532d",
+                  color: "#bbf7d0",
+                }}
+                disabled={project.viewMode === "view"}
+                title="いまステージに並んでいる立ち位置をそのまま『形の箱』に保存します"
+                onClick={saveStageToFormationBox}
+              >
+                形を保存
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
                   ...(formationSuggestionOpen
                     ? { borderColor: "#6366f1", color: "#c7d2fe" }
                     : {}),
@@ -1200,6 +1308,63 @@ export function EditorPage() {
               >
                 ＋ダンサー
               </button>
+              <button
+                type="button"
+                style={btnSecondary}
+                disabled={project.viewMode === "view"}
+                title="CSV / TSV を選んで新しい名簿として取り込みます（1 列目または「名前」などの見出しを検出）"
+                onClick={() => importCrewCsvFromStageToolbar()}
+              >
+                名簿取り込み
+              </button>
+              <div
+                style={{
+                  width: "1px",
+                  height: "22px",
+                  background: "#334155",
+                  flexShrink: 0,
+                }}
+                aria-hidden
+              />
+              <div style={{ display: "flex", gap: "6px" }}>
+                <button
+                  type="button"
+                  style={{
+                    ...btnSecondary,
+                    ...(stageView === "2d"
+                      ? { borderColor: "#6366f1", color: "#c7d2fe" }
+                      : {}),
+                  }}
+                  onClick={() => setStageView("2d")}
+                >
+                  2D
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    ...btnSecondary,
+                    ...(stageView === "3d"
+                      ? { borderColor: "#6366f1", color: "#c7d2fe" }
+                      : {}),
+                  }}
+                  onClick={() => setStageView("3d")}
+                >
+                  3D
+                </button>
+              </div>
+            </div>
+            </div>
+            {/* 2 行目: 設定（印の直径 / グリッド / 実寸） */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "flex-end",
+                gap: "10px",
+                flexWrap: "wrap",
+                rowGap: "6px",
+              }}
+            >
               <label
                 style={{
                   display: "inline-flex",
@@ -1294,41 +1459,105 @@ export function EditorPage() {
                 <option value={5}>5%</option>
                 <option value={10}>10%</option>
               </select>
-              <div
+              <label
+                title={
+                  project.stageWidthMm != null && project.stageWidthMm > 0
+                    ? "実寸（メートル）で間隔を指定（ステージ幅に連動）"
+                    : "ステージ幅を設定すると実寸で指定できます"
+                }
                 style={{
-                  width: "1px",
-                  height: "22px",
-                  background: "#334155",
-                  flexShrink: 0,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  fontSize: "11px",
+                  color: "#94a3b8",
+                  userSelect: "none",
                 }}
-                aria-hidden
-              />
-              <div style={{ display: "flex", gap: "6px" }}>
-                <button
-                  type="button"
-                  style={{
-                    ...btnSecondary,
-                    ...(stageView === "2d"
-                      ? { borderColor: "#6366f1", color: "#c7d2fe" }
-                      : {}),
+              >
+                <span style={{ whiteSpace: "nowrap" }}>実寸</span>
+                <select
+                  value={project.gridSpacingMm ?? 0}
+                  disabled={
+                    project.viewMode === "view" ||
+                    !(project.stageWidthMm != null && project.stageWidthMm > 0)
+                  }
+                  onChange={(e) => {
+                    const mm = Number(e.target.value);
+                    setProjectSafe((p) => {
+                      if (!mm || mm <= 0) {
+                        return { ...p, gridSpacingMm: undefined };
+                      }
+                      return { ...p, gridSpacingMm: mm, snapGrid: true };
+                    });
                   }}
-                  onClick={() => setStageView("2d")}
-                >
-                  2D
-                </button>
-                <button
-                  type="button"
+                  aria-label="スナップ間隔（メートル）"
                   style={{
-                    ...btnSecondary,
-                    ...(stageView === "3d"
-                      ? { borderColor: "#6366f1", color: "#c7d2fe" }
-                      : {}),
+                    padding: "4px 6px",
+                    borderRadius: "6px",
+                    border: "1px solid #334155",
+                    background: "#0f172a",
+                    color: "#e2e8f0",
+                    fontSize: "12px",
                   }}
-                  onClick={() => setStageView("3d")}
                 >
-                  3D（簡易）
-                </button>
-              </div>
+                  <option value={0}>—</option>
+                  <option value={300}>30 cm</option>
+                  <option value={500}>50 cm</option>
+                  <option value={1000}>1 m</option>
+                  <option value={1500}>1.5 m</option>
+                  <option value={2000}>2 m</option>
+                  <option value={3000}>3 m</option>
+                </select>
+              </label>
+              <label
+                title={
+                  project.stageWidthMm != null && project.stageWidthMm > 0
+                    ? "○の直径を実寸（メートル）で指定（ステージ幅に連動）"
+                    : "ステージ幅を設定すると実寸で指定できます"
+                }
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  fontSize: "11px",
+                  color: "#94a3b8",
+                  userSelect: "none",
+                }}
+              >
+                <span style={{ whiteSpace: "nowrap" }}>○実寸</span>
+                <select
+                  value={project.dancerMarkerDiameterMm ?? 0}
+                  disabled={
+                    project.viewMode === "view" ||
+                    !(project.stageWidthMm != null && project.stageWidthMm > 0)
+                  }
+                  onChange={(e) => {
+                    const mm = Number(e.target.value);
+                    setProjectSafe((p) => {
+                      if (!mm || mm <= 0) {
+                        return { ...p, dancerMarkerDiameterMm: undefined };
+                      }
+                      return { ...p, dancerMarkerDiameterMm: mm };
+                    });
+                  }}
+                  aria-label="○の直径（メートル）"
+                  style={{
+                    padding: "4px 6px",
+                    borderRadius: "6px",
+                    border: "1px solid #334155",
+                    background: "#0f172a",
+                    color: "#e2e8f0",
+                    fontSize: "12px",
+                  }}
+                >
+                  <option value={0}>—</option>
+                  <option value={300}>30 cm</option>
+                  <option value={500}>50 cm</option>
+                  <option value={750}>75 cm</option>
+                  <option value={1000}>1 m</option>
+                  <option value={1500}>1.5 m</option>
+                </select>
+              </label>
             </div>
           </div>
           {stageView === "2d" ? (
@@ -1742,6 +1971,26 @@ export function EditorPage() {
         disabled={project.viewMode === "view"}
       />
 
+      <StageShapePicker
+        open={stageShapePickerOpen}
+        currentShape={project.stageShape}
+        legacyHanamichi={{
+          enabled: project.hanamichiEnabled ?? false,
+          depthPct: project.hanamichiDepthPct ?? 14,
+        }}
+        disabled={project.viewMode === "view"}
+        onClose={() => setStageShapePickerOpen(false)}
+        onConfirm={(shape) => {
+          setProjectSafe((p) => ({
+            ...p,
+            /** 新しい形を選んだときは旧仕様の花道フラグはオフに統一 */
+            hanamichiEnabled: false,
+            stageShape: shape,
+          }));
+          setStageShapePickerOpen(false);
+        }}
+      />
+
       {project ? (
         <ExportDialog
           open={exportDialogOpen}
@@ -1788,13 +2037,13 @@ export function EditorPage() {
           bottom: 0;
           left: 50%;
           transform: translateX(-50%);
-          width: 2px;
-          border-radius: 1px;
-          background: transparent;
+          width: 1px;
+          background: #334155;
           pointer-events: none;
+          transition: background 120ms ease;
         }
         .editor-pane-resizer:hover::after {
-          background: rgba(148, 163, 184, 0.55);
+          background: rgba(148, 163, 184, 0.75);
         }
       `}</style>
     </div>

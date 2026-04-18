@@ -7,6 +7,8 @@ import type {
   SavedSpotLayout,
   SetPiece,
   SetPieceKind,
+  StageShape,
+  StageShapePresetId,
 } from "../types/choreography";
 import { migrateCuesFromRaw } from "./cueInterval";
 import { createEmptyProject } from "./projectDefaults";
@@ -25,6 +27,68 @@ function clampPct(n: number, lo: number, hi: number) {
 }
 
 const SET_PIECE_KINDS = new Set<string>(["rect", "ellipse", "triangle"]);
+
+const STAGE_SHAPE_PRESET_IDS = new Set<string>([
+  "rectangle",
+  "hanamichi_front",
+  "apron_front",
+  "thrust",
+  "t_stage",
+  "trapezoid_narrow_back",
+  "trapezoid_narrow_front",
+  "hexagon",
+  "diamond",
+  "rounded",
+  "oval",
+  "corner_cut_fl",
+  "corner_cut_fr",
+  "custom",
+]);
+
+/**
+ * 変形舞台の形状を正規化する。
+ *
+ * - 未知の preset / 形の壊れたデータは undefined に落として rectangle 扱いへ。
+ * - polygonPct は 3 点以上の [x,y] ペアに限り採用し、各座標を 0〜100 に clamp。
+ * - params は数値のみを採用し、それ以外のキーは捨てる。
+ */
+function normalizeStageShape(raw: unknown): StageShape | undefined {
+  if (raw == null || typeof raw !== "object") return undefined;
+  const rec = raw as Record<string, unknown>;
+  const presetId = rec.presetId;
+  if (typeof presetId !== "string" || !STAGE_SHAPE_PRESET_IDS.has(presetId)) {
+    return undefined;
+  }
+  const poly = rec.polygonPct;
+  if (!Array.isArray(poly) || poly.length < 3) return undefined;
+  const polygonPct: [number, number][] = [];
+  for (const pt of poly) {
+    if (!Array.isArray(pt) || pt.length < 2) continue;
+    const x = Number(pt[0]);
+    const y = Number(pt[1]);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    polygonPct.push([clampPct(x, 0, 100), clampPct(y, 0, 100)]);
+  }
+  if (polygonPct.length < 3) return undefined;
+
+  let params: Record<string, number> | undefined;
+  if (rec.params && typeof rec.params === "object") {
+    const src = rec.params as Record<string, unknown>;
+    const out: Record<string, number> = {};
+    for (const [k, v] of Object.entries(src)) {
+      if (typeof v === "number" && Number.isFinite(v)) {
+        out[k] = v;
+      }
+    }
+    if (Object.keys(out).length > 0) params = out;
+  }
+
+  return {
+    presetId: presetId as StageShapePresetId,
+    polygonPct,
+    params,
+  };
+}
 
 function normalizeSetPieceKind(raw: unknown): SetPieceKind {
   return typeof raw === "string" && SET_PIECE_KINDS.has(raw)
@@ -262,6 +326,9 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
       if (typeof v !== "number" || !Number.isFinite(v)) return defaults.hanamichiDepthPct ?? 14;
       return Math.round(Math.min(36, Math.max(8, v)) * 10) / 10;
     })(),
+    stageShape: normalizeStageShape(
+      (o as Partial<ChoreographyProjectJson>).stageShape
+    ),
     centerFieldGuideIntervalMm: (() => {
       const po = o as Partial<ChoreographyProjectJson>;
       const raw = o as Record<string, unknown>;
@@ -298,11 +365,26 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
       o.trimEndSec === undefined ? defaults.trimEndSec : o.trimEndSec,
     snapGrid: o.snapGrid ?? defaults.snapGrid,
     gridStep: normalizeGridStep(o.gridStep),
+    gridSpacingMm: (() => {
+      const po = o as Partial<ChoreographyProjectJson>;
+      const raw = po.gridSpacingMm;
+      if (typeof raw !== "number" || !Number.isFinite(raw)) return undefined;
+      /** 100 mm 未満 or 20 m 超は無視（ほぼ誤入力） */
+      if (raw < 100 || raw > 20000) return undefined;
+      return Math.round(raw);
+    })(),
     dancerMarkerDiameterPx: (() => {
       const po = o as Partial<ChoreographyProjectJson>;
       const raw = po.dancerMarkerDiameterPx;
       if (typeof raw !== "number" || !Number.isFinite(raw)) return defaults.dancerMarkerDiameterPx;
       return Math.max(20, Math.min(120, Math.round(raw)));
+    })(),
+    dancerMarkerDiameterMm: (() => {
+      const po = o as Partial<ChoreographyProjectJson>;
+      const raw = po.dancerMarkerDiameterMm;
+      if (typeof raw !== "number" || !Number.isFinite(raw)) return undefined;
+      if (raw < 100 || raw > 3000) return undefined;
+      return Math.round(raw);
     })(),
     waveformAmplitudeScale: (() => {
       const po = o as Partial<ChoreographyProjectJson>;

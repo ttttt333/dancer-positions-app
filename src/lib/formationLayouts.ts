@@ -153,6 +153,27 @@ function pyramidNarrowFirstRowCounts(n: number): number[] {
 }
 
 /**
+ * 定番の「n 列均等配置」用に n 人を targetRows 個の列に割り振る。
+ *
+ * - 列数は `min(targetRows, n)` に制限（人数が少ないときは空の列を作らない）
+ * - `floor(n / rows)` を基準にし、余りは **奥側の列から 1 人ずつ** 足す
+ *   → 最前列（客席側）が等しいか少なめに保たれ、奥ほど見切れずバランスよく見える
+ *
+ * 戻り値は `counts[0]` が **最前列（客席側）**、末尾が **最奥列**。
+ */
+function evenRowCounts(n: number, targetRows: number): number[] {
+  if (n <= 0 || targetRows <= 0) return [];
+  const rows = Math.min(targetRows, n);
+  const base = Math.floor(n / rows);
+  const rem = n - base * rows;
+  const counts = new Array<number>(rows).fill(base);
+  for (let i = 0; i < rem; i++) {
+    counts[rows - 1 - i]! += 1;
+  }
+  return counts;
+}
+
+/**
  * 客席側（y 大）の列から埋める行人数: first, first+1, first+2, …（最後の列は余りのみ）。
  * rowCounts[0] が最前列（手前）。
  */
@@ -183,6 +204,11 @@ export const LAYOUT_PRESET_OPTIONS = [
     id: "front_stair_from_3",
     label: "段の列（手前3人→奥で列ごと+1人）",
   },
+  /** 定番の列フォーメーション（人数を n 列に均等分割） */
+  { id: "rows_3", label: "3列（均等）" },
+  { id: "rows_4", label: "4列（均等）" },
+  { id: "rows_5", label: "5列（均等）" },
+  { id: "rows_6", label: "6列（均等）" },
   /** そのほかの定番 */
   { id: "line", label: "横一列（中）" },
   { id: "line_front", label: "横一列（客席寄り・手前）" },
@@ -443,6 +469,33 @@ export function dancersForLayoutPreset(n: number, preset: LayoutPresetId): Dance
         const y = yPctPyramidRow(nr - 1 - r, nr);
         for (let j = 0; j < cnt; j++) {
           pushSpot(out, idx++, xPctInPyramidGrid(j, cnt, maxCnt, nr), y);
+        }
+      }
+      break;
+    }
+    case "rows_3":
+    case "rows_4":
+    case "rows_5":
+    case "rows_6": {
+      const target =
+        preset === "rows_3"
+          ? 3
+          : preset === "rows_4"
+            ? 4
+            : preset === "rows_5"
+              ? 5
+              : 6;
+      /** counts[0] が最前列（客席側）、末尾が最奥列。 */
+      const rowCounts = evenRowCounts(n, target);
+      const nr = rowCounts.length;
+      let idx = 0;
+      for (let r = 0; r < nr; r++) {
+        const cnt = rowCounts[r]!;
+        /** r=0 が手前（y 大）、r=nr-1 が奥（y 小）。 */
+        const y = yPctPyramidRow(nr - 1 - r, nr);
+        const xs = evenSpacingPositions(cnt, 50, TARGET_STEP_X, 8, 92);
+        for (let j = 0; j < cnt; j++) {
+          pushSpot(out, idx++, xs[j]!, y);
         }
       }
       break;

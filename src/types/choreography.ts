@@ -46,6 +46,43 @@ export type Formation = {
   confirmedDancerCount?: number;
 };
 
+/**
+ * 変形舞台のプリセット id。UI・保存・描画の識別子。
+ *
+ * 多角形（polygon）はメイン床（長方形）を [0,0]-[100,100] の % 座標として
+ * 生成する。原点 (0,0) は描画上の「奥・左」、(100,100) は「手前・右」。
+ * 客席方向 (audienceEdge) による回転は親コンテナ側で行うため、本プリセットは
+ * 常に「下が客席・上が奥」のフォーマットで正規化される。
+ */
+export type StageShapePresetId =
+  | "rectangle"
+  | "hanamichi_front"
+  | "apron_front"
+  | "thrust"
+  | "t_stage"
+  | "trapezoid_narrow_back"
+  | "trapezoid_narrow_front"
+  | "hexagon"
+  | "diamond"
+  | "rounded"
+  | "oval"
+  | "corner_cut_fl"
+  | "corner_cut_fr"
+  | "custom";
+
+/**
+ * 変形舞台（カスタム舞台形状）。
+ *
+ * `polygonPct` はメイン床の % 座標で表現された **閉じた多角形**。重複点は不要。
+ * `params` にはプリセット再計算用の調整値（奥行・幅など）を保存する。
+ * `kind: "custom"` のときは `polygonPct` を直接ユーザが編集できる将来拡張。
+ */
+export type StageShape = {
+  presetId: StageShapePresetId;
+  polygonPct: [number, number][];
+  params?: Record<string, number>;
+};
+
 export type CrewMember = {
   id: string;
   label: string;
@@ -97,10 +134,21 @@ export type ChoreographyProjectJson = {
    * 袖（左右端）まで点線を引く。未設定ならガイドなし。
    */
   centerFieldGuideIntervalMm: number | null;
-  /** 花道（客席側の細長ゾーン）を表示（§8） */
+  /** 花道（客席側の細長ゾーン）を表示（§8・旧仕様。stageShape 未設定時のみ使う） */
   hanamichiEnabled?: boolean;
   /** メイン＋花道の箱に対する花道の高さの割合（8〜36 程度） */
   hanamichiDepthPct?: number;
+  /**
+   * 変形舞台（カスタム舞台形状）。
+   *
+   * メイン床（ダンサーを配置できる長方形）を基準に、%座標の多角形で
+   * 「実際の舞台エリア」を示す。ダンサーの座標計算自体は長方形のまま変えず、
+   * 多角形の外側はステージ上で淡く暗くして「舞台外」として可視化する。
+   *
+   * 未設定（undefined）のときは長方形扱い。旧来の `hanamichiEnabled` が
+   * true だった場合はそちらが優先される（後方互換）。
+   */
+  stageShape?: StageShape;
   formations: Formation[];
   /** ユーザーが保存した立ち位置（プロジェクトに永続化） */
   savedSpotLayouts: SavedSpotLayout[];
@@ -111,8 +159,24 @@ export type ChoreographyProjectJson = {
   trimEndSec: number | null;
   snapGrid: boolean;
   gridStep: number;
+  /**
+   * スナップグリッドの間隔を実寸（mm）で指定。
+   *
+   * `stageWidthMm` と合わせて実効的な `gridStep`（%）を動的に算出するため、
+   * 値がセットされているときはこちらが優先される。
+   * 例: 1500 → 1.5 m 間隔。未指定（undefined）のときは従来の `gridStep`（%）を使う。
+   */
+  gridSpacingMm?: number;
   /** ステージ上のダンサー印（円）の直径（px）。全ダンサー共通の既定 */
   dancerMarkerDiameterPx: number;
+  /**
+   * ダンサー印の直径を実寸（mm）で指定。
+   *
+   * 値がセットされているときは `stageWidthMm` と実際の描画幅からピクセル径を
+   * 動的に計算し、`dancerMarkerDiameterPx` より優先される。
+   * 例: 500 → 50 cm。未指定（undefined）のときは従来の px 値を使う。
+   */
+  dancerMarkerDiameterMm?: number;
   viewMode: "edit" | "view";
   crews: Crew[];
   /** サーバに保存した楽曲アセット ID（未ログイン時は null） */

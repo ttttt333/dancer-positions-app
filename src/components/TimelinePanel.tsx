@@ -112,8 +112,6 @@ function quantizePlayheadForWaveView(sec: number): number {
   return Math.round(sec * 30) / 30;
 }
 
-const CUE_NAME_MAX = 80;
-
 /** 波形キャンバス上のキュー区間帯をクリック判定（CSS ピクセル座標） */
 function pickCueIdAtWave(
   clientX: number,
@@ -1828,10 +1826,10 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: "4px",
+          gap: compactTopDock ? "2px" : "4px",
           minHeight: 0,
           flex: "1 1 auto",
-          fontSize: "12px",
+          fontSize: compactTopDock ? "11px" : "12px",
         }}
       >
         {extractProgress && (
@@ -1892,13 +1890,22 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           </div>
         )}
         <div
+          className={compactTopDock ? "wave-dock-compact-toolbar" : undefined}
           style={{
             display: "flex",
-            flexWrap: "wrap",
-            gap: "3px 5px",
+            /**
+             * 上部ドック（コンパクト表示）ではツールバーを必ず 1 行に収め、
+             * 入りきらないときだけ横スクロールに逃がす。右パネルに置いたとき
+             * （通常表示）は従来どおり折り返して見やすさを優先する。
+             */
+            flexWrap: compactTopDock ? "nowrap" : "wrap",
+            overflowX: compactTopDock ? "auto" : "visible",
+            overflowY: "hidden",
+            gap: compactTopDock ? "2px 3px" : "3px 5px",
             alignItems: "center",
-            rowGap: "3px",
+            rowGap: compactTopDock ? "0" : "3px",
             contain: "layout",
+            scrollbarWidth: "thin",
           }}
         >
           <label
@@ -2050,50 +2057,6 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               >
                 縮小
               </button>
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "3px",
-                  color: "#94a3b8",
-                  fontSize: "11px",
-                }}
-                title={`波形の縦の振幅: ${(project.waveformAmplitudeScale ?? 1).toFixed(2)}×`}
-              >
-                振幅
-                <button
-                  type="button"
-                  style={{ ...timelineToolbarBtn, padding: "2px 7px", fontSize: "12px", lineHeight: 1 }}
-                  disabled={project.viewMode === "view"}
-                  title="波形の縦の振幅を下げる"
-                  onClick={() => {
-                    setProject((p) => {
-                      const cur = p.waveformAmplitudeScale ?? 1;
-                      const v =
-                        Math.round(Math.min(4, Math.max(0.25, cur - 0.08)) * 100) / 100;
-                      return { ...p, waveformAmplitudeScale: v };
-                    });
-                  }}
-                >
-                  −
-                </button>
-                <button
-                  type="button"
-                  style={{ ...timelineToolbarBtn, padding: "2px 7px", fontSize: "12px", lineHeight: 1 }}
-                  disabled={project.viewMode === "view"}
-                  title="波形の縦の振幅を上げる"
-                  onClick={() => {
-                    setProject((p) => {
-                      const cur = p.waveformAmplitudeScale ?? 1;
-                      const v =
-                        Math.round(Math.min(4, Math.max(0.25, cur + 0.08)) * 100) / 100;
-                      return { ...p, waveformAmplitudeScale: v };
-                    });
-                  }}
-                >
-                  ＋
-                </button>
-              </span>
             </>
           )}
           {wideWorkbench && onWaveTimelineDockTopChange ? (
@@ -2302,9 +2265,9 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                       style={{
                         display: "grid",
                         gridTemplateColumns:
-                          "auto minmax(27px, auto) minmax(27px, auto) auto auto auto auto",
+                          "auto minmax(27px, auto) minmax(27px, auto) auto auto auto",
                         gap: "8px",
-                        alignItems: "center",
+                        alignItems: "end",
                         width: "100%",
                         minWidth: "min(100%, 560px)",
                       }}
@@ -2514,93 +2477,55 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                       <div
                         style={{
                           display: "flex",
-                          gap: "6px",
-                          flexWrap: "nowrap",
-                          justifyContent: "flex-end",
-                          alignItems: "center",
+                          flexDirection: "column",
+                          gap: "2px",
+                          justifySelf: "end",
                         }}
                       >
-                        <button
-                          type="button"
-                          disabled={project.viewMode === "view"}
-                          title="同じ長さで複製"
-                          style={{ ...btnSecondary, padding: "6px 8px", fontSize: "11px" }}
-                          onClick={(ev) => {
-                            ev.stopPropagation();
-                            duplicateCueSameSettings(c);
+                        <span
+                          style={{
+                            fontSize: "9px",
+                            color: "#64748b",
+                            letterSpacing: "0.02em",
                           }}
                         >
-                          複製
-                        </button>
-                        <button
-                          type="button"
-                          disabled={project.viewMode === "view"}
-                          style={{ ...btnSecondary, padding: "6px 10px", fontSize: "12px" }}
-                          onClick={(ev) => {
-                            ev.stopPropagation();
-                            removeCue(c.id);
+                          {"\u00A0"}
+                        </span>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "6px",
+                            flexWrap: "nowrap",
+                            justifyContent: "flex-end",
+                            alignItems: "center",
                           }}
                         >
-                          削除
-                        </button>
+                          <button
+                            type="button"
+                            disabled={project.viewMode === "view"}
+                            title="同じ長さで複製"
+                            style={{ ...btnSecondary, padding: "6px 8px", fontSize: "11px" }}
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              duplicateCueSameSettings(c);
+                            }}
+                          >
+                            複製
+                          </button>
+                          <button
+                            type="button"
+                            disabled={project.viewMode === "view"}
+                            style={{ ...btnSecondary, padding: "6px 8px", fontSize: "11px" }}
+                            onClick={(ev) => {
+                              ev.stopPropagation();
+                              removeCue(c.id);
+                            }}
+                          >
+                            削除
+                          </button>
+                        </div>
                       </div>
                     </div>
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: "8px",
-                        alignItems: "center",
-                      }}
-                    >
-                      <input
-                        type="text"
-                        aria-label="キュー名"
-                        placeholder="キュー名"
-                        value={c.name ?? ""}
-                        maxLength={CUE_NAME_MAX}
-                        disabled={project.viewMode === "view"}
-                        onChange={(e) => {
-                          const v = e.target.value.slice(0, CUE_NAME_MAX);
-                          updateCue(c.id, {
-                            name: v === "" ? undefined : v,
-                          });
-                        }}
-                        style={{
-                          flex: "1 1 140px",
-                          minWidth: "100px",
-                          maxWidth: "280px",
-                          padding: "6px 10px",
-                          borderRadius: "6px",
-                          border: "1px solid #334155",
-                          background: "#020617",
-                          color: "#e2e8f0",
-                          fontSize: "13px",
-                          fontWeight: 600,
-                        }}
-                      />
-                      <input
-                        type="text"
-                        placeholder="メモ"
-                        value={c.note ?? ""}
-                        disabled={project.viewMode === "view"}
-                        onChange={(e) =>
-                          updateCue(c.id, {
-                            note: e.target.value === "" ? undefined : e.target.value,
-                          })
-                        }
-                        style={{
-                          flex: "1 1 200px",
-                          minWidth: "0",
-                          padding: "6px 10px",
-                          borderRadius: "6px",
-                          border: "1px solid #334155",
-                          background: "#020617",
-                          color: "#cbd5e1",
-                          fontSize: "12px",
-                        }}
-                      />
                     </div>
                   </li>
                 );
