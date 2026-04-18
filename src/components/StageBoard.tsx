@@ -2667,19 +2667,23 @@ export function StageBoard({
                             ),
                           }));
                         }
+                        /**
+                         * 名前の連動: 同じ人物（同じ id または同じ
+                         * crewMemberId）を持つダンサーを全フォーメーション
+                         * （＝全キュー）で同じ label に揃える。
+                         */
                         return {
                           ...p,
                           crews,
-                          formations: p.formations.map((f) =>
-                            f.id === fid
-                              ? {
-                                  ...f,
-                                  dancers: f.dancers.map((x) =>
-                                    x.id === dancerId ? { ...x, label } : x
-                                  ),
-                                }
-                              : f
-                          ),
+                          formations: p.formations.map((f) => ({
+                            ...f,
+                            dancers: f.dancers.map((x) =>
+                              x.id === dancerId ||
+                              (cmid && x.crewMemberId === cmid)
+                                ? { ...x, label }
+                                : x
+                            ),
+                          })),
                         };
                       });
                       setEditingDancerId(null);

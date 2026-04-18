@@ -264,19 +264,23 @@ export function InspectorPanel({
           ),
         }));
       }
+      /**
+       * 名前の連動: 同じ人物（同じ id または同じ crewMemberId）を持つダンサーを
+       * 全フォーメーション（＝全キュー）で同じ label に揃える。
+       * これでキューを追加してから別のキューで名前を変えても、各キューの
+       * 立ち位置に紐付く名前が常に同期する。
+       */
       return {
         ...p,
         crews,
-        formations: p.formations.map((f) =>
-          f.id === editFormationId
-            ? {
-                ...f,
-                dancers: f.dancers.map((d) =>
-                  d.id === id ? { ...d, label: value } : d
-                ),
-              }
-            : f
-        ),
+        formations: p.formations.map((f) => ({
+          ...f,
+          dancers: f.dancers.map((d) =>
+            d.id === id || (cmid && d.crewMemberId === cmid)
+              ? { ...d, label: value }
+              : d
+          ),
+        })),
       };
     });
   };
