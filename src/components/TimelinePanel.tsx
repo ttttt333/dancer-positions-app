@@ -460,6 +460,12 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
     /** 波形枠（目盛り＋キャンバス）。ホイール拡縮は passive: false で登録 */
     const waveContainerRef = useRef<HTMLDivElement>(null);
     const [peaks, setPeaks] = useState<number[] | null>(null);
+    /** 動画→音声抽出の進捗 UI 表示用 */
+    const [extractProgress, setExtractProgress] = useState<{
+      ratio: number;
+      stage: "decode" | "wasm" | "record" | "loading";
+      message?: string;
+    } | null>(null);
     const rafRef = useRef<number>(0);
     /** 再生中は親の currentTime を毎フレーム更新しない（全体レイアウトのブルブル防止） */
     const lastPlaybackStateEmitRef = useRef(0);
@@ -886,7 +892,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       const isVideo = f.type.startsWith("video/");
       if (isVideo) {
         const ok = window.confirm(
-          `動画「${f.name}」から音声を抽出します。\n対応形式ではブラウザが一発デコードし数秒で終わります。未対応（多くの MP4 等）のときだけ、従来どおり再生時間に近い録音になります。著作権・利用範囲はご利用者の責任です。続行しますか？`
+          `動画「${f.name}」から音声を抽出します。\nMP4 / AVI / MOV / MKV / WMV などほとんどの形式に対応しています。初回利用時は FFmpeg コア（約 30MB）をダウンロードするため少しかかりますが、2 回目以降はキャッシュから即時起動します。\n著作権・利用範囲はご利用者の責任です。続行しますか？`
         );
         if (!ok) return;
       }
@@ -906,10 +912,23 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       }
       let buf: ArrayBuffer;
       try {
-        buf = isVideo ? await extractAudioBufferFromVideoFile(f) : await f.arrayBuffer();
+        if (isVideo) {
+          setExtractProgress({ ratio: 0, stage: "decode", message: "抽出準備中…" });
+          buf = await extractAudioBufferFromVideoFile(f, (p) => {
+            setExtractProgress(p);
+          });
+        } else {
+          buf = await f.arrayBuffer();
+        }
       } catch (err) {
+        setExtractProgress(null);
         alert(err instanceof Error ? err.message : "読み込みに失敗しました");
         return;
+      } finally {
+        if (isVideo) {
+          /** 完了 or エラー直後は一瞬だけ 100% を見せてから消す */
+          setTimeout(() => setExtractProgress(null), 400);
+        }
       }
       const blob = new Blob([buf], {
         type: isVideo ? mimeForExtractedVideoAudio(buf) : f.type || "audio/mpeg",
@@ -1802,6 +1821,63 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           fontSize: "12px",
         }}
       >
+        {extractProgress && (
+          <div
+            role="status"
+            aria-live="polite"
+            style={{
+              position: "sticky",
+              top: 0,
+              zIndex: 12,
+              display: "flex",
+              flexDirection: "column",
+              gap: "4px",
+              padding: "6px 10px",
+              borderRadius: "8px",
+              background:
+                "linear-gradient(90deg, rgba(79,70,229,0.22), rgba(14,165,233,0.18))",
+              border: "1px solid rgba(99,102,241,0.5)",
+              color: "#e2e8f0",
+              fontSize: "12px",
+              fontWeight: 600,
+              boxShadow: "0 6px 20px rgba(15,23,42,0.35)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: "8px" }}>
+              <span>
+                {extractProgress.stage === "loading"
+                  ? "🔧"
+                  : extractProgress.stage === "decode"
+                    ? "⚡"
+                    : extractProgress.stage === "wasm"
+                      ? "🎛️"
+                      : "🎙️"}{" "}
+                {extractProgress.message ?? "音声を抽出中…"}
+              </span>
+              <span style={{ fontVariantNumeric: "tabular-nums", color: "#a5b4fc" }}>
+                {Math.round(extractProgress.ratio * 100)}%
+              </span>
+            </div>
+            <div
+              style={{
+                height: 6,
+                borderRadius: 3,
+                background: "rgba(15,23,42,0.6)",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  width: `${Math.max(2, Math.min(100, extractProgress.ratio * 100))}%`,
+                  height: "100%",
+                  background:
+                    "linear-gradient(90deg, #6366f1, #22d3ee)",
+                  transition: "width 160ms ease-out",
+                }}
+              />
+            </div>
+          </div>
+        )}
         <div
           style={{
             display: "flex",
@@ -1818,7 +1894,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               cursor: "pointer",
               display: "inline-block",
             }}
-            title="楽曲または動画から音声を読み込み"
+            title="楽曲または動画から音声を読み込み（MP4 / AVI / MOV / MKV / WMV 等に対応）"
           >
             音源
             <input

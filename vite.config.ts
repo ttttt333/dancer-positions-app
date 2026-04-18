@@ -32,6 +32,26 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,svg,woff2}"],
+        /** 大きめのチャンク（FFmpeg.wasm コア 等）もプリキャッシュ対象に含める */
+        maximumFileSizeToCacheInBytes: 40 * 1024 * 1024,
+        /**
+         * FFmpeg コアは CDN（unpkg）から fetch するので、起動後 HTTP キャッシュに載せる。
+         * 2 回目以降はネットワーク無しでも動く。
+         */
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/unpkg\.com\/@ffmpeg\/core@.*\/dist\/umd\/.*$/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "ffmpeg-core",
+              expiration: {
+                maxEntries: 4,
+                maxAgeSeconds: 60 * 60 * 24 * 365,
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
     }),
   ],

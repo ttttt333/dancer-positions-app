@@ -12,6 +12,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
     "html-to-image": "^1.11.13",
     "idb": "^8.0.3",
     "jspdf": "^4.2.1",
