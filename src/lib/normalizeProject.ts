@@ -373,6 +373,17 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
       if (raw < 100 || raw > 20000) return undefined;
       return Math.round(raw);
     })(),
+    dancerSpacingMm: (() => {
+      const po = o as Partial<ChoreographyProjectJson>;
+      const raw = po.dancerSpacingMm;
+      if (raw === null) return undefined;
+      if (typeof raw !== "number" || !Number.isFinite(raw)) {
+        return defaults.dancerSpacingMm;
+      }
+      /** 200 mm 未満 or 5 m 超は無視（ほぼ誤入力） */
+      if (raw < 200 || raw > 5000) return defaults.dancerSpacingMm;
+      return Math.round(raw);
+    })(),
     dancerMarkerDiameterPx: (() => {
       const po = o as Partial<ChoreographyProjectJson>;
       const raw = po.dancerMarkerDiameterPx;

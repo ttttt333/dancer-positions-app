@@ -167,6 +167,17 @@ export type ChoreographyProjectJson = {
    * 例: 1500 → 1.5 m 間隔。未指定（undefined）のときは従来の `gridStep`（%）を使う。
    */
   gridSpacingMm?: number;
+  /**
+   * 場ミリ規格＝隣同士のダンサー間隔（mm）。流派ごとの並べ方ルール。
+   *
+   * 値がセットされていてかつ `stageWidthMm` も設定されているとき、
+   * 「＋ダンサー」「フォーメーション案」「ドラッグ吸着」「規格ドット表示」が
+   * この間隔を基準に動作する。偶数人はセンターを「割って」 ±spacing/2 から並べ、
+   * 奇数人は 1 人をセンターに乗せて ±spacing で並べる（自動）。
+   * 例: 1500 → 1.5 m 間隔（割センター 75 cm）。
+   * 未指定（undefined）のときは従来の % ベース挙動。
+   */
+  dancerSpacingMm?: number;
   /** ステージ上のダンサー印（円）の直径（px）。全ダンサー共通の既定 */
   dancerMarkerDiameterPx: number;
   /**

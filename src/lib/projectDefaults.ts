@@ -39,6 +39,12 @@ export function createEmptyProject(): ChoreographyProjectJson {
     trimEndSec: null,
     snapGrid: false,
     gridStep: 2,
+    /**
+     * 場ミリ規格の既定は 1.5 m（割センター 75 cm）。stageWidthMm が未設定の
+     * うちは画面に効かない（％ベースのまま）が、ステージ寸法を入れた瞬間から
+     * この規格で「＋ダンサー」やフォーメーション案がズバッと整列する。
+     */
+    dancerSpacingMm: 1500,
     dancerMarkerDiameterPx: 44,
     dancerLabelPosition: "inside",
     viewMode: "edit",

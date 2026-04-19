@@ -11,6 +11,11 @@ import {
   formatStageMmSummary,
   mmToMeterCm,
 } from "../lib/stageDimensions";
+import {
+  dancerConventionGuideDotsPct,
+  isDancerSpacingActive,
+  snapXPctToConvention,
+} from "../lib/dancerSpacing";
 
 const DANCER_LABEL_MAX = 8;
 /** ドラッグ中、この y% 以上で下端ゴミ箱 UI を出す（客席＝下が大きい y） */
@@ -207,6 +212,7 @@ export function StageBoard({
     sideStageMm,
     backStageMm,
     centerFieldGuideIntervalMm,
+    dancerSpacingMm,
     viewMode,
     dancerMarkerDiameterPx,
     dancerMarkerDiameterMm,
@@ -962,12 +968,20 @@ export function StageBoard({
       const xPct = ((clientX - r.left) / r.width) * 100;
       const yPct = ((clientY - r.top) / r.height) * 100;
       const mode: SnapMode = snapGrid ? (shiftKey ? "fine" : "grid") : "free";
-      return {
-        xPct: quantizeCoord(xPct, mode),
-        yPct: quantizeCoord(yPct, mode),
-      };
+      let snappedX = quantizeCoord(xPct, mode);
+      const snappedY = quantizeCoord(yPct, mode);
+      /**
+       * 場ミリ規格が有効なときは「割センター / センター乗せ」のスロットに
+       * x を吸い付かせる（流派の 75 cm / 225 cm / 375 cm... 並びを再現）。
+       * 微調整したい時は Shift で抑止できる（fine モード）。
+       */
+      if (mode !== "fine" && isDancerSpacingActive(dancerSpacingMm, stageWidthMm)) {
+        const conv = snapXPctToConvention(snappedX, dancerSpacingMm, stageWidthMm);
+        if (conv != null) snappedX = round2(conv);
+      }
+      return { xPct: snappedX, yPct: snappedY };
     },
-    [snapGrid, quantizeCoord]
+    [snapGrid, quantizeCoord, dancerSpacingMm, stageWidthMm]
   );
 
   /**
@@ -1735,6 +1749,15 @@ export function StageBoard({
     return marks;
   }, [centerFieldGuideIntervalMm, Wmm]);
 
+  /**
+   * 場ミリ規格スロット（割センター / センター乗せ）の薄いドット列。
+   * 客席帯のすぐ上に横一列で並べ、流派の立ち位置基準を視覚化する。
+   */
+  const conventionGuideDots = useMemo(
+    () => dancerConventionGuideDotsPct(dancerSpacingMm, Wmm > 0 ? Wmm : null),
+    [dancerSpacingMm, Wmm]
+  );
+
   const stripShellStyle: CSSProperties = {
     display: "flex",
     alignItems: "center",
@@ -2117,6 +2140,22 @@ export function StageBoard({
                   stroke="rgba(251, 191, 36, 0.72)"
                   strokeWidth="0.4"
                   strokeDasharray="1.6 1.6"
+                  vectorEffect="non-scaling-stroke"
+                />
+              ))}
+              {/**
+               * 場ミリ規格スロットのドット（割 = 小さい点、乗せ = 少し大きい点）。
+               * 客席帯のすぐ上の細い帯に並べ、ステージ全体を汚さない。
+               */}
+              {conventionGuideDots.map(({ xPct, isMain }, i) => (
+                <circle
+                  key={`cdot-${i}-${xPct}`}
+                  cx={xPct}
+                  cy={84}
+                  r={isMain ? 0.55 : 0.4}
+                  fill={
+                    isMain ? "rgba(56, 189, 248, 0.78)" : "rgba(56, 189, 248, 0.5)"
+                  }
                   vectorEffect="non-scaling-stroke"
                 />
               ))}

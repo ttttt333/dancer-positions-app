@@ -109,10 +109,28 @@ class FormationBoxQuotaError extends Error {
   }
 }
 
+/**
+ * 形の箱が変わったときに `window` で発火するカスタムイベント名。
+ *
+ * `localStorage` の同一タブ書き込みでは `storage` イベントが飛ばないので、
+ * クイックバー等の購読側はこの名前で listener を張ると即座に最新化できる。
+ */
+export const FORMATION_BOX_CHANGE_EVENT = "formationBox:changed";
+
+function notifyChanged(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.dispatchEvent(new Event(FORMATION_BOX_CHANGE_EVENT));
+  } catch {
+    /** ブラウザによっては `Event` の生成でだけ落ちることがあるが致命ではないので無視 */
+  }
+}
+
 function writeAll(items: FormationBoxItem[]): void {
   if (typeof localStorage === "undefined") return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    notifyChanged();
   } catch (e) {
     /** DOMException: QuotaExceededError / NS_ERROR_DOM_QUOTA_REACHED 等 */
     const name = (e as { name?: string } | null)?.name ?? "";

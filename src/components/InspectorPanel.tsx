@@ -575,19 +575,74 @@ export function InspectorPanel({
 
   const applyCrewToFormation = (crew: Crew) => {
     if (!activeFormation || viewMode === "view") return;
-    const dancers = crew.members.map((m, i) => ({
-      id: crypto.randomUUID(),
-      label: m.label,
-      xPct: 18 + (i % 6) * 13,
-      yPct: 28 + Math.floor(i / 6) * 18,
-      colorIndex: m.colorIndex,
-      crewMemberId: m.id,
-    }));
+    /**
+     * 名簿の反映:
+     * 1. 既存ダンサーがあれば、その id と立ち位置を保ったまま順序通りに
+     *    名簿の identity（label / colorIndex / crewMemberId）を上書きする。
+     *    → 他キューと同じ id を共有しているので、別キューも自動的に同じ
+     *      crewMemberId / 名前に揃えられる（下記 propagate）。
+     * 2. 名簿の方が多い場合は、超過分のメンバーを新規ダンサーとして
+     *    既定のグリッド位置に追加する（active formation のみ）。
+     * 3. 他のフォーメーション（＝他キュー）でも、同じ id を持つダンサーは
+     *    名前・色・名簿リンクを反映する。位置はそのキューの値を保つ。
+     */
+    const old = activeFormation.dancers;
+    const dancers: DancerSpot[] = crew.members.map((m, i) => {
+      const existing = old[i];
+      if (existing) {
+        return {
+          ...existing,
+          label: m.label,
+          colorIndex: m.colorIndex,
+          crewMemberId: m.id,
+        };
+      }
+      return {
+        id: crypto.randomUUID(),
+        label: m.label,
+        xPct: 18 + (i % 6) * 13,
+        yPct: 28 + Math.floor(i / 6) * 18,
+        colorIndex: m.colorIndex,
+        crewMemberId: m.id,
+      };
+    });
+
+    /** 他フォーメーションへ伝播するための id → identity マップ */
+    const identityById = new Map<
+      string,
+      { label: string; colorIndex: number; crewMemberId: string }
+    >();
+    for (const d of dancers) {
+      if (d.crewMemberId) {
+        identityById.set(d.id, {
+          label: d.label,
+          colorIndex: d.colorIndex,
+          crewMemberId: d.crewMemberId,
+        });
+      }
+    }
+
     setProject((p) => ({
       ...p,
-      formations: p.formations.map((f) =>
-        f.id === editFormationId ? { ...f, dancers } : f
-      ),
+      formations: p.formations.map((f) => {
+        if (f.id === editFormationId) {
+          return { ...f, dancers };
+        }
+        return {
+          ...f,
+          dancers: f.dancers.map((d) => {
+            const ident = identityById.get(d.id);
+            return ident
+              ? {
+                  ...d,
+                  label: ident.label,
+                  colorIndex: ident.colorIndex,
+                  crewMemberId: ident.crewMemberId,
+                }
+              : d;
+          }),
+        };
+      }),
     }));
   };
 

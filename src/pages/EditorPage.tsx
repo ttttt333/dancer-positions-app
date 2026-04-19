@@ -29,6 +29,8 @@ import {
   saveFormationToBox,
 } from "../lib/formationBox";
 import { dancersForLayoutPreset } from "../lib/formationLayouts";
+import { DANCER_SPACING_PRESET_OPTIONS } from "../lib/dancerSpacing";
+import { QuickFormationBar } from "../components/QuickFormationBar";
 import { buildCrewFromRows } from "../lib/crewCsvImport";
 import {
   ROSTER_FILE_ACCEPT,
@@ -47,6 +49,7 @@ import {
 import { ChoreoGridToolbar } from "../components/ChoreoGridToolbar";
 import { StageShapePicker } from "../components/StageShapePicker";
 import { ExportDialog } from "../components/ExportDialog";
+import { FlowLibraryDialog } from "../components/FlowLibraryDialog";
 import { projectApi } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { btnSecondary } from "../components/StageBoard";
@@ -106,6 +109,7 @@ export function EditorPage() {
       ? null
       : selectedCueIds[selectedCueIds.length - 1]!;
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [flowLibraryOpen, setFlowLibraryOpen] = useState(false);
   const timelineRef = useRef<TimelinePanelHandle>(null);
   const [formationSuggestionOpen, setFormationSuggestionOpen] = useState(false);
   /** キュー行「フォーメーション案」から開いたときのみ。null のときは選択キュー／アクティブに従う */
@@ -417,6 +421,10 @@ export function EditorPage() {
         setExportDialogOpen(false);
         return;
       }
+      if (e.key === "Escape" && flowLibraryOpen) {
+        setFlowLibraryOpen(false);
+        return;
+      }
       if (e.key === "Escape" && shortcutsHelpOpen) {
         setShortcutsHelpOpen(false);
         return;
@@ -447,6 +455,7 @@ export function EditorPage() {
     stageInfoOpen,
     shortcutsHelpOpen,
     exportDialogOpen,
+    flowLibraryOpen,
   ]);
 
   const interpolatedDancers = useMemo(() => {
@@ -607,7 +616,10 @@ export function EditorPage() {
       const f = p.formations.find((x) => x.id === fid);
       if (!f) return p;
       const newCount = f.dancers.length + 1;
-      const layout = dancersForLayoutPreset(newCount, "pyramid");
+      const layout = dancersForLayoutPreset(newCount, "pyramid", {
+        dancerSpacingMm: p.dancerSpacingMm,
+        stageWidthMm: p.stageWidthMm,
+      });
       const nextDancers: DancerSpot[] = layout.map((slot, i) => {
         const existing = f.dancers[i];
         if (existing) {
@@ -1291,6 +1303,18 @@ export function EditorPage() {
                 type="button"
                 style={{
                   ...btnSecondary,
+                  borderColor: "#1e3a8a",
+                  color: "#bfdbfe",
+                }}
+                title="作ったキューの並び（立ち位置の流れ）を名前をつけて端末に保存・呼び出し"
+                onClick={() => setFlowLibraryOpen(true)}
+              >
+                フロー保存
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
                   ...(formationSuggestionOpen
                     ? { borderColor: "#6366f1", color: "#c7d2fe" }
                     : {}),
@@ -1558,6 +1582,108 @@ export function EditorPage() {
               <label
                 title={
                   project.stageWidthMm != null && project.stageWidthMm > 0
+                    ? "ダンサー隣同士の間隔（流派の場ミリ規格）。\n偶数人はセンターを「割って」±半 step、奇数人はセンター乗せで自動配置されます。\n「＋ダンサー」「フォーメーション案」「ドラッグ吸着」「規格ドット表示」が連動。"
+                    : "ステージ幅を設定すると流派の場ミリ規格を選べます"
+                }
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  fontSize: "11px",
+                  color: "#94a3b8",
+                  userSelect: "none",
+                }}
+              >
+                <span style={{ whiteSpace: "nowrap" }}>規格</span>
+                <select
+                  value={(() => {
+                    const v = project.dancerSpacingMm;
+                    if (v == null || v <= 0) return 0;
+                    return DANCER_SPACING_PRESET_OPTIONS.some((o) => o.mm === v)
+                      ? v
+                      : -1;
+                  })()}
+                  disabled={
+                    project.viewMode === "view" ||
+                    !(project.stageWidthMm != null && project.stageWidthMm > 0)
+                  }
+                  onChange={(e) => {
+                    const mm = Number(e.target.value);
+                    setProjectSafe((p) => {
+                      if (!mm || mm <= 0) {
+                        return { ...p, dancerSpacingMm: undefined };
+                      }
+                      return { ...p, dancerSpacingMm: mm };
+                    });
+                  }}
+                  aria-label="ダンサー隣同士の間隔（場ミリ規格）"
+                  style={{
+                    padding: "4px 6px",
+                    borderRadius: "6px",
+                    border: "1px solid #334155",
+                    background: "#0f172a",
+                    color: "#e2e8f0",
+                    fontSize: "12px",
+                  }}
+                >
+                  <option value={0}>—</option>
+                  {DANCER_SPACING_PRESET_OPTIONS.map((opt) => (
+                    <option key={opt.mm} value={opt.mm}>
+                      {opt.label}
+                    </option>
+                  ))}
+                  <option value={-1} disabled hidden>
+                    カスタム
+                  </option>
+                </select>
+                <input
+                  type="number"
+                  min={20}
+                  max={500}
+                  step={5}
+                  value={
+                    project.dancerSpacingMm != null && project.dancerSpacingMm > 0
+                      ? Math.round(project.dancerSpacingMm / 10)
+                      : ""
+                  }
+                  onChange={(e) => {
+                    const cm = Number(e.target.value);
+                    setProjectSafe((p) => {
+                      if (!Number.isFinite(cm) || cm <= 0) {
+                        return { ...p, dancerSpacingMm: undefined };
+                      }
+                      const mm = Math.max(200, Math.min(5000, Math.round(cm * 10)));
+                      return { ...p, dancerSpacingMm: mm };
+                    });
+                  }}
+                  disabled={
+                    project.viewMode === "view" ||
+                    !(project.stageWidthMm != null && project.stageWidthMm > 0)
+                  }
+                  placeholder="cm"
+                  aria-label="場ミリ規格をカスタム入力（cm）"
+                  title="cm 単位でカスタム指定。例: 150 → 1.5 m 間隔"
+                  style={{
+                    width: "52px",
+                    padding: "4px 6px",
+                    borderRadius: "6px",
+                    border: "1px solid #334155",
+                    background: "#0f172a",
+                    color: "#e2e8f0",
+                    fontSize: "12px",
+                    textAlign: "right",
+                  }}
+                />
+                <span
+                  style={{ fontSize: "10px", color: "#64748b", whiteSpace: "nowrap" }}
+                  aria-hidden
+                >
+                  cm
+                </span>
+              </label>
+              <label
+                title={
+                  project.stageWidthMm != null && project.stageWidthMm > 0
                     ? "○の直径を実寸（メートル）で指定（ステージ幅に連動）"
                     : "ステージ幅を設定すると実寸で指定できます"
                 }
@@ -1606,6 +1732,29 @@ export function EditorPage() {
               </label>
             </div>
           </div>
+          <QuickFormationBar
+            project={project}
+            setProject={setProjectSafe}
+            targetFormationId={
+              selectedCue?.formationId ?? project.activeFormationId
+            }
+            onPreviewChange={setStagePreviewDancers}
+            targetCueLabel={(() => {
+              if (!selectedCue) return null;
+              const trimmed = selectedCue.name?.trim();
+              if (trimmed) return `キュー「${trimmed}」`;
+              const sortedIdx = cuesSortedForStageJump.findIndex(
+                (c) => c.id === selectedCue.id
+              );
+              return sortedIdx >= 0
+                ? `キュー #${sortedIdx + 1}`
+                : "選択中のキュー";
+            })()}
+            disabled={
+              project.viewMode === "view" ||
+              (project.cues.length > 0 && !selectedCueId)
+            }
+          />
           {stageView === "2d" ? (
             <StageBoard
               project={project}
@@ -2044,6 +2193,16 @@ export function EditorPage() {
           project={project}
           projectName={projectName}
           stage2dVisible={stageView === "2d"}
+        />
+      ) : null}
+
+      {project ? (
+        <FlowLibraryDialog
+          open={flowLibraryOpen}
+          onClose={() => setFlowLibraryOpen(false)}
+          project={project}
+          setProject={setProjectSafe}
+          audioDurationSec={duration}
         />
       ) : null}
 

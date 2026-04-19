@@ -1,4 +1,19 @@
 import type { DancerSpot } from "../types/choreography";
+import {
+  FORMATION_REFERENCE_STEP_PCT,
+  rescaleSpotsForSpacing,
+} from "./dancerSpacing";
+
+/**
+ * 場ミリ規格を `dancersForLayoutPreset` / `dancersWithPresetAndWingSurplus`
+ * に渡すための共通オプション。両値そろっているときだけ規格適用される。
+ */
+export interface LayoutPresetOptions {
+  /** ダンサー間隔（mm）。`dancerSpacingMm` と同じ。 */
+  dancerSpacingMm?: number | null;
+  /** ステージ幅（mm）。`stageWidthMm` と同じ。 */
+  stageWidthMm?: number | null;
+}
 
 function clamp(n: number, lo: number, hi: number) {
   return Math.min(hi, Math.max(lo, n));
@@ -42,8 +57,14 @@ function evenSpacingPositions(
   return Array.from({ length: n }, (_, i) => start + i * step);
 }
 
-/** ステージ横方向の目安間隔（％）。隣り合う立ち位置間の距離。 */
-const TARGET_STEP_X = 8;
+/**
+ * ステージ横方向の目安間隔（％）。隣り合う立ち位置間の距離。
+ *
+ * 場ミリ規格（`dancerSpacingMm`）が指定されたときは、生成後に
+ * `rescaleSpotsForSpacing` で 50% を中心に等比拡大／縮小して規格に合わせる。
+ * `FORMATION_REFERENCE_STEP_PCT` と同値（場ミリ規格モジュール側の参照と一致）。
+ */
+const TARGET_STEP_X = FORMATION_REFERENCE_STEP_PCT;
 /** ステージ奥行きの目安間隔（％）。列間の距離。 */
 const TARGET_STEP_Y = 10;
 
@@ -315,8 +336,17 @@ function relabelByAudienceCenterOut(dancers: DancerSpot[]): DancerSpot[] {
 /**
  * n 人分の立ち位置（%）。
  * 画面下が観客席帯の UI に合わせ、y が大きいほど客席に近い（手前）とする。
+ *
+ * `opts.dancerSpacingMm` と `opts.stageWidthMm` の両方が指定されていれば、
+ * 最終結果をその場ミリ規格に合わせてセンターから等比拡大／縮小する
+ * （隣同士が指定 mm 間隔、偶数人は割センター、奇数人はセンター乗せ、
+ *  のあなたの流派ルール）。指定がないときは従来 % ベースの挙動。
  */
-export function dancersForLayoutPreset(n: number, preset: LayoutPresetId): DancerSpot[] {
+export function dancersForLayoutPreset(
+  n: number,
+  preset: LayoutPresetId,
+  opts?: LayoutPresetOptions
+): DancerSpot[] {
   if (n <= 0) return [];
   const out: DancerSpot[] = [];
 
@@ -754,10 +784,16 @@ export function dancersForLayoutPreset(n: number, preset: LayoutPresetId): Dance
       }
   }
   /**
-   * 最後に「客席に近い側から・中央→左→右」ルールで番号を振り直す。
-   * これでプリセットの生成順に依存せず、どのフォーメーションでも一貫した番号になる。
+   * 場ミリ規格があれば等比リスケール、その後に「客席に近い側から・中央→左→右」
+   * ルールで番号を振り直す（プリセットの生成順に依存しない一貫番号）。
    */
-  return relabelByAudienceCenterOut(out);
+  const scaled = rescaleSpotsForSpacing(
+    out,
+    opts?.dancerSpacingMm,
+    opts?.stageWidthMm,
+    TARGET_STEP_X
+  );
+  return relabelByAudienceCenterOut(scaled);
 }
 
 /**
@@ -801,20 +837,21 @@ export function dancersWithPresetAndWingSurplus(
   n: number,
   preset: LayoutPresetId,
   previousBodyCount: number,
-  enableWingSurplus: boolean
+  enableWingSurplus: boolean,
+  opts?: LayoutPresetOptions
 ): DancerSpot[] {
   const nn = Math.max(0, Math.min(80, Math.floor(n) || 0));
   if (nn <= 0) return [];
   const prev = Math.max(0, Math.floor(previousBodyCount) || 0);
   if (!enableWingSurplus || nn <= prev || prev < MIN_BODY_FOR_WING_SURPLUS) {
-    return dancersForLayoutPreset(nn, preset);
+    return dancersForLayoutPreset(nn, preset, opts);
   }
   const surplus = nn - prev;
   if (surplus > prev || surplus > MAX_WING_SURPLUS) {
-    return dancersForLayoutPreset(nn, preset);
+    return dancersForLayoutPreset(nn, preset, opts);
   }
   const core = Math.min(nn, prev);
-  const main = dancersForLayoutPreset(core, preset);
+  const main = dancersForLayoutPreset(core, preset, opts);
   const wings = wingSurplusSpots(surplus, core + 1);
   return [...main, ...wings];
 }

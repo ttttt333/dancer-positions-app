@@ -1389,7 +1389,10 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           const cur = fm.dancers.length;
           const n = Math.max(1, Math.min(80, cur + delta));
           if (n === cur) return p;
-          const dancers = dancersForLayoutPreset(n, "line");
+          const dancers = dancersForLayoutPreset(n, "line", {
+            dancerSpacingMm: p.dancerSpacingMm,
+            stageWidthMm: p.stageWidthMm,
+          });
           return {
             ...p,
             formations: p.formations.map((f) =>

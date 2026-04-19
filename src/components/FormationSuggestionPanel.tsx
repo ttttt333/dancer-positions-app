@@ -18,6 +18,38 @@ import { btnPrimary, btnSecondary } from "./StageBoard";
 import { FormationPresetThumb } from "./FormationPresetThumb";
 import { FormationBoxItemThumb } from "./FormationBoxItemThumb";
 
+/**
+ * プリセット / 形の箱から作った新しい立ち位置に、
+ * 既存のフォーメーションのダンサー識別子（id・名前・色・名簿リンク等）を
+ * 順序通りに引き継ぐ。
+ *
+ * これにより:
+ * - 既存ダンサーの id がそのまま残るので、他のキューにある同じ id の
+ *   ダンサーと連動が維持される（cloneFormationForNewCue が id を維持しているため）。
+ * - 名簿（Crew）に紐付いた crewMemberId と名前も保持される。
+ *
+ * 新しい立ち位置の方が多い場合（袖余りなど）、はみ出した分は新規生成された
+ * 識別子のまま残す。
+ */
+function transferIdentitiesByOrder(
+  newDancers: DancerSpot[],
+  oldDancers: DancerSpot[]
+): DancerSpot[] {
+  return newDancers.map((nd, i) => {
+    const od = oldDancers[i];
+    if (!od) return nd;
+    return {
+      ...nd,
+      id: od.id,
+      label: od.label,
+      colorIndex: od.colorIndex,
+      crewMemberId: od.crewMemberId,
+      sizePx: od.sizePx ?? nd.sizePx,
+      note: od.note ?? nd.note,
+    };
+  });
+}
+
 type Props = {
   project: ChoreographyProjectJson;
   setProject: React.Dispatch<React.SetStateAction<ChoreographyProjectJson>>;
@@ -101,7 +133,11 @@ export function FormationSuggestionPanel({
         nClamped,
         pendingPreset,
         previousBodyCount,
-        surplusToWings
+        surplusToWings,
+        {
+          dancerSpacingMm: project.dancerSpacingMm,
+          stageWidthMm: project.stageWidthMm,
+        }
       )
     );
   }, [
@@ -110,6 +146,8 @@ export function FormationSuggestionPanel({
     previousBodyCount,
     surplusToWings,
     onStagePreviewChange,
+    project.dancerSpacingMm,
+    project.stageWidthMm,
   ]);
 
   const applyPreset = useCallback(
@@ -121,7 +159,13 @@ export function FormationSuggestionPanel({
         f0 && f0.dancers.length > 0
           ? f0.confirmedDancerCount ?? f0.dancers.length
           : f0?.confirmedDancerCount ?? n;
-      const dancers = dancersWithPresetAndWingSurplus(n, preset, prev, surplusToWings);
+      const dancers = transferIdentitiesByOrder(
+        dancersWithPresetAndWingSurplus(n, preset, prev, surplusToWings, {
+          dancerSpacingMm: project.dancerSpacingMm,
+          stageWidthMm: project.stageWidthMm,
+        }),
+        f0?.dancers ?? []
+      );
       setProject((p) => ({
         ...p,
         formations: p.formations.map((f) =>
@@ -141,6 +185,8 @@ export function FormationSuggestionPanel({
       targetFormationId,
       surplusToWings,
       project.formations,
+      project.dancerSpacingMm,
+      project.stageWidthMm,
     ]
   );
 
@@ -205,7 +251,11 @@ export function FormationSuggestionPanel({
   const applyBoxItem = useCallback(
     (item: FormationBoxItem) => {
       if (viewMode === "view") return;
-      const dancers = dancersFromFormationBoxItem(item);
+      const f0 = project.formations.find((x) => x.id === targetFormationId);
+      const dancers = transferIdentitiesByOrder(
+        dancersFromFormationBoxItem(item),
+        f0?.dancers ?? []
+      );
       setProject((p) => ({
         ...p,
         formations: p.formations.map((f) =>
@@ -225,6 +275,7 @@ export function FormationSuggestionPanel({
       targetFormationId,
       onStagePreviewChange,
       onAfterApply,
+      project.formations,
     ]
   );
 
