@@ -4,6 +4,7 @@ import {
   formatMeterCmLabel,
   mmFromMeterAndCm,
   mmToMeterCm,
+  STAGE_MAIN_FLOOR_MM_MAX,
 } from "../lib/stageDimensions";
 import {
   deleteStagePreset,
@@ -14,7 +15,8 @@ import {
   type StagePresetItem,
 } from "../lib/stagePresets";
 
-const MAX_MM = 999_000;
+/** 幅・奥行・袖・バック・場ミリ印の入力上限（メイン床と同じオーダーで足りる） */
+const MAX_MM = STAGE_MAIN_FLOOR_MM_MAX;
 
 type Props = {
   project: ChoreographyProjectJson;

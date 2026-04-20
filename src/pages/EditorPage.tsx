@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type Dispatch,
   type SetStateAction,
 } from "react";
@@ -50,6 +51,7 @@ import { ChoreoGridToolbar } from "../components/ChoreoGridToolbar";
 import { StageShapePicker } from "../components/StageShapePicker";
 import { ExportDialog } from "../components/ExportDialog";
 import { FlowLibraryDialog } from "../components/FlowLibraryDialog";
+import { AddCueWithFormationDialog } from "../components/AddCueWithFormationDialog";
 import { projectApi } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { btnSecondary } from "../components/StageBoard";
@@ -110,6 +112,22 @@ export function EditorPage() {
       : selectedCueIds[selectedCueIds.length - 1]!;
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [flowLibraryOpen, setFlowLibraryOpen] = useState(false);
+  /** キュー追加 ＋ 形選択 ＋ 形の箱保存を 1 画面に統合したダイアログ */
+  const [addCueDialogOpen, setAddCueDialogOpen] = useState(false);
+  /**
+   * 旧「形変更」+「フォーメーション案」を統合した 1 つのパネル開閉フラグ。
+   * `formationSuggestionOpen` が true の時、画面右に
+   * - 上：FormationSuggestionPanel（人数別プリセット / 形の箱）
+   * - 下：QuickFormationBar（ワンタッチ切替＋プロジェクト保存スロット）
+   * を縦に並べた共通コンテナで表示する。
+   */
+  const [cuePagerListOpen, setCuePagerListOpen] = useState(false);
+  /**
+   * 右ペイン（キュー一覧／プロパティ）を畳んでステージを最大化するトグル。
+   * 畳んでも左の操作バー＋ステージは残り、ステージ上部のページャーから
+   * キュー切替は引き続き可能。狭いビューポート（!wideEditorLayout）では無効。
+   */
+  const [rightPaneCollapsed, setRightPaneCollapsed] = useState(false);
   const timelineRef = useRef<TimelinePanelHandle>(null);
   const [formationSuggestionOpen, setFormationSuggestionOpen] = useState(false);
   /** キュー行「フォーメーション案」から開いたときのみ。null のときは選択キュー／アクティブに従う */
@@ -358,9 +376,11 @@ export function EditorPage() {
   }, []);
 
   const editorGridColumns = wideEditorLayout
-    ? stageColumnPx == null
-      ? `${TOOLBAR_COL_PX}px minmax(${STAGE_COL_MIN_PX}px, 2fr) ${STAGE_RESIZER_PX}px minmax(${TIMELINE_COL_MIN_PX}px, 1fr)`
-      : `${TOOLBAR_COL_PX}px ${Math.round(stageColumnPx)}px ${STAGE_RESIZER_PX}px minmax(${TIMELINE_COL_MIN_PX}px, 1fr)`
+    ? rightPaneCollapsed
+      ? `${TOOLBAR_COL_PX}px 1fr`
+      : stageColumnPx == null
+        ? `${TOOLBAR_COL_PX}px minmax(${STAGE_COL_MIN_PX}px, 2fr) ${STAGE_RESIZER_PX}px minmax(${TIMELINE_COL_MIN_PX}px, 1fr)`
+        : `${TOOLBAR_COL_PX}px ${Math.round(stageColumnPx)}px ${STAGE_RESIZER_PX}px minmax(${TIMELINE_COL_MIN_PX}px, 1fr)`
     : "1fr";
 
   const setProjectSafe: Dispatch<SetStateAction<ChoreographyProjectJson>> = useCallback(
@@ -425,6 +445,10 @@ export function EditorPage() {
         setFlowLibraryOpen(false);
         return;
       }
+      if (e.key === "Escape" && cuePagerListOpen) {
+        setCuePagerListOpen(false);
+        return;
+      }
       if (e.key === "Escape" && shortcutsHelpOpen) {
         setShortcutsHelpOpen(false);
         return;
@@ -456,6 +480,7 @@ export function EditorPage() {
     shortcutsHelpOpen,
     exportDialogOpen,
     flowLibraryOpen,
+    cuePagerListOpen,
   ]);
 
   const interpolatedDancers = useMemo(() => {
@@ -493,8 +518,8 @@ export function EditorPage() {
     [project, cueIdsSig]
   );
 
-  const jumpToSortedCuePage = useCallback(
-    (idx: 0 | 1) => {
+  const jumpToCueByIdx = useCallback(
+    (idx: number) => {
       if (!project || project.viewMode === "view") return;
       const cue = cuesSortedForStageJump[idx];
       if (!cue) return;
@@ -820,10 +845,6 @@ export function EditorPage() {
       loggedIn={!!me}
       onStagePreviewChange={setStagePreviewDancers}
       onFormationChosenFromCueList={() => setIsPlaying(false)}
-      onOpenFormationSuggestions={(formationId) => {
-        setFormationSuggestionFormationId(formationId);
-        setFormationSuggestionOpen(true);
-      }}
       onUndo={undo}
       onRedo={redo}
       undoDisabled={
@@ -1162,60 +1183,258 @@ export function EditorPage() {
               <h2 style={{ margin: 0, fontSize: "13px", color: "#94a3b8" }}>
                 ステージ
               </h2>
-              {cuesSortedForStageJump.length > 0 ? (
-                <div
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "3px",
-                    flexShrink: 0,
-                  }}
-                  title="タイムライン上で先頭から 1 番目・2 番目のキュー（ページ）へ。再生は止まり、区間の頭に移ります。"
-                >
-                  <span
+              {cuesSortedForStageJump.length > 0 ? (() => {
+                const total = cuesSortedForStageJump.length;
+                const curIdx = selectedCueId
+                  ? cuesSortedForStageJump.findIndex(
+                      (c) => c.id === selectedCueId
+                    )
+                  : -1;
+                const cur = curIdx >= 0 ? cuesSortedForStageJump[curIdx] : null;
+                const canPrev =
+                  project.viewMode !== "view" && curIdx > 0;
+                const canNext =
+                  project.viewMode !== "view" &&
+                  curIdx >= 0 &&
+                  curIdx < total - 1;
+                const navBtnStyle = (enabled: boolean): CSSProperties => ({
+                  width: "26px",
+                  height: "26px",
+                  padding: 0,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: "6px",
+                  border: "1px solid #334155",
+                  background: "#0f172a",
+                  color: enabled ? "#cbd5e1" : "#475569",
+                  fontSize: "14px",
+                  lineHeight: 1,
+                  cursor: enabled ? "pointer" : "not-allowed",
+                  flexShrink: 0,
+                });
+                return (
+                  <div
                     style={{
-                      fontSize: "9px",
-                      color: "#64748b",
-                      fontWeight: 700,
-                      letterSpacing: "0.04em",
+                      position: "relative",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "4px",
+                      flexShrink: 0,
                     }}
+                    title="ステージのキュー（ページ）切替。タイムラインも区間の頭に移動します。"
                   >
-                    ページ
-                  </span>
-                  {([0, 1] as const).map((idx) => {
-                    const c = cuesSortedForStageJump[idx];
-                    const active = c && selectedCueId === c.id;
-                    return (
-                      <button
-                        key={idx}
-                        type="button"
-                        disabled={project.viewMode === "view" || !c}
-                        onClick={() => jumpToSortedCuePage(idx)}
+                    <button
+                      type="button"
+                      onClick={() => jumpToCueByIdx(curIdx - 1)}
+                      disabled={!canPrev}
+                      title="前のキューへ"
+                      aria-label="前のキューへ"
+                      style={navBtnStyle(canPrev)}
+                    >
+                      ◀
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCuePagerListOpen((v) => !v)}
+                      disabled={project.viewMode === "view"}
+                      aria-haspopup="listbox"
+                      aria-expanded={cuePagerListOpen}
+                      title={
+                        cur
+                          ? cur.name?.trim()
+                            ? `「${cur.name.trim()}」を編集中。クリックで全キュー一覧。`
+                            : "無名のキューを編集中。クリックで全キュー一覧。"
+                          : "クリックで全キュー一覧から選択"
+                      }
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        padding: "3px 9px",
+                        borderRadius: "8px",
+                        border: cur
+                          ? "1px solid #818cf8"
+                          : "1px solid #334155",
+                        background: cur ? "rgba(99,102,241,0.18)" : "#0f172a",
+                        color: cur ? "#e0e7ff" : "#94a3b8",
+                        fontSize: "12px",
+                        fontWeight: 700,
+                        cursor:
+                          project.viewMode === "view"
+                            ? "not-allowed"
+                            : "pointer",
+                        flexShrink: 0,
+                        minHeight: "26px",
+                        maxWidth: "240px",
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      <span
                         style={{
-                          fontSize: "10px",
-                          lineHeight: 1,
-                          minWidth: "22px",
-                          padding: "2px 5px",
-                          borderRadius: "5px",
-                          border: active
-                            ? "1px solid #818cf8"
-                            : "1px solid #334155",
-                          background: active ? "rgba(99, 102, 241, 0.2)" : "#0f172a",
-                          color: active ? "#e0e7ff" : "#94a3b8",
-                          cursor:
-                            project.viewMode === "view" || !c
-                              ? "not-allowed"
-                              : "pointer",
-                          fontWeight: 700,
-                          fontVariantNumeric: "tabular-nums",
+                          fontSize: "9px",
+                          color: cur ? "#c7d2fe" : "#64748b",
+                          letterSpacing: "0.04em",
                         }}
                       >
-                        {idx + 1}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
+                        キュー
+                      </span>
+                      <span style={{ whiteSpace: "nowrap" }}>
+                        {curIdx >= 0 ? curIdx + 1 : "—"} / {total}
+                      </span>
+                      {cur && cur.name?.trim() ? (
+                        <span
+                          style={{
+                            fontSize: "11px",
+                            fontWeight: 500,
+                            color: "#e2e8f0",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            maxWidth: "120px",
+                          }}
+                        >
+                          {cur.name.trim()}
+                        </span>
+                      ) : null}
+                      <span
+                        aria-hidden
+                        style={{
+                          fontSize: "9px",
+                          color: cur ? "#c7d2fe" : "#64748b",
+                          marginLeft: "1px",
+                        }}
+                      >
+                        ▾
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => jumpToCueByIdx(curIdx + 1)}
+                      disabled={!canNext}
+                      title="次のキューへ"
+                      aria-label="次のキューへ"
+                      style={navBtnStyle(canNext)}
+                    >
+                      ▶
+                    </button>
+                    {cuePagerListOpen ? (
+                      <>
+                        <div
+                          onClick={() => setCuePagerListOpen(false)}
+                          style={{
+                            position: "fixed",
+                            inset: 0,
+                            zIndex: 30,
+                          }}
+                          aria-hidden
+                        />
+                        <ul
+                          role="listbox"
+                          aria-label="キュー一覧"
+                          style={{
+                            position: "absolute",
+                            top: "calc(100% + 4px)",
+                            left: "30px",
+                            zIndex: 31,
+                            listStyle: "none",
+                            margin: 0,
+                            padding: "4px",
+                            maxHeight: "320px",
+                            minWidth: "240px",
+                            overflowY: "auto",
+                            background: "#0b1220",
+                            border: "1px solid #334155",
+                            borderRadius: "8px",
+                            boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
+                          }}
+                        >
+                          {cuesSortedForStageJump.map((c, i) => {
+                            const isCur = i === curIdx;
+                            const fname =
+                              project.formations.find(
+                                (f) => f.id === c.formationId
+                              )?.name ?? "";
+                            return (
+                              <li key={c.id}>
+                                <button
+                                  type="button"
+                                  role="option"
+                                  aria-selected={isCur}
+                                  onClick={() => {
+                                    jumpToCueByIdx(i);
+                                    setCuePagerListOpen(false);
+                                  }}
+                                  style={{
+                                    width: "100%",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "8px",
+                                    padding: "5px 8px",
+                                    border: "none",
+                                    borderRadius: "6px",
+                                    background: isCur
+                                      ? "rgba(99,102,241,0.22)"
+                                      : "transparent",
+                                    color: isCur ? "#e0e7ff" : "#cbd5e1",
+                                    fontSize: "12px",
+                                    cursor: "pointer",
+                                    textAlign: "left",
+                                    fontWeight: isCur ? 700 : 500,
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      minWidth: "22px",
+                                      fontVariantNumeric: "tabular-nums",
+                                      color: isCur ? "#a5b4fc" : "#64748b",
+                                      fontSize: "11px",
+                                      fontWeight: 700,
+                                    }}
+                                  >
+                                    {i + 1}
+                                  </span>
+                                  <span
+                                    style={{
+                                      flex: 1,
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                      whiteSpace: "nowrap",
+                                    }}
+                                  >
+                                    {c.name?.trim() ?? ""}
+                                    {fname ? (
+                                      <span
+                                        style={{
+                                          marginLeft: "6px",
+                                          color: "#64748b",
+                                          fontWeight: 400,
+                                          fontSize: "10px",
+                                        }}
+                                      >
+                                        · {fname}
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                  <span
+                                    style={{
+                                      fontSize: "10px",
+                                      color: "#64748b",
+                                      fontVariantNumeric: "tabular-nums",
+                                    }}
+                                  >
+                                    {Math.round(c.tStartSec)}s
+                                  </span>
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </>
+                    ) : null}
+                  </div>
+                );
+              })() : null}
               <button
                 type="button"
                 disabled={project.viewMode === "view"}
@@ -1237,11 +1456,84 @@ export function EditorPage() {
               >
                 ステージ情報
               </button>
-              {selectedCue ? (
-                <span style={{ fontSize: "11px", color: "#cbd5e1" }}>
-                  編集中のキュー: {selectedCue.name?.trim() || "（無名）"}
-                </span>
-              ) : project.cues.length === 0 ? (
+              {wideEditorLayout ? (
+                <button
+                  type="button"
+                  onClick={() => setRightPaneCollapsed((v) => !v)}
+                  aria-pressed={rightPaneCollapsed}
+                  aria-label={
+                    rightPaneCollapsed
+                      ? "キュー一覧／プロパティを表示"
+                      : "キュー一覧／プロパティを隠してステージを最大化"
+                  }
+                  title={
+                    rightPaneCollapsed
+                      ? "キュー一覧／プロパティを表示"
+                      : "キュー一覧／プロパティを隠してステージを最大化"
+                  }
+                  style={{
+                    fontSize: "11px",
+                    lineHeight: 1,
+                    padding: "4px 7px",
+                    borderRadius: "6px",
+                    border: rightPaneCollapsed
+                      ? "1px solid #14532d"
+                      : "1px solid #334155",
+                    background: rightPaneCollapsed
+                      ? "rgba(34,197,94,0.18)"
+                      : "#0f172a",
+                    color: rightPaneCollapsed ? "#bbf7d0" : "#94a3b8",
+                    cursor: "pointer",
+                    flexShrink: 0,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "3px",
+                  }}
+                >
+                  <svg
+                    viewBox="0 0 16 12"
+                    width="16"
+                    height="12"
+                    aria-hidden
+                    style={{ display: "block" }}
+                  >
+                    <circle cx="2.5" cy="2.5" r="1" fill="currentColor" />
+                    <line
+                      x1="5"
+                      y1="2.5"
+                      x2="13.5"
+                      y2="2.5"
+                      stroke="currentColor"
+                      strokeWidth="1.2"
+                      strokeLinecap="round"
+                    />
+                    <circle cx="2.5" cy="6" r="1" fill="currentColor" />
+                    <line
+                      x1="5"
+                      y1="6"
+                      x2="13.5"
+                      y2="6"
+                      stroke="currentColor"
+                      strokeWidth="1.2"
+                      strokeLinecap="round"
+                    />
+                    <circle cx="2.5" cy="9.5" r="1" fill="currentColor" />
+                    <line
+                      x1="5"
+                      y1="9.5"
+                      x2="13.5"
+                      y2="9.5"
+                      stroke="currentColor"
+                      strokeWidth="1.2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <span aria-hidden style={{ fontSize: "13px", lineHeight: 1, fontWeight: 700 }}>
+                    {rightPaneCollapsed ? "‹" : "›"}
+                  </span>
+                </button>
+              ) : null}
+              {project.cues.length === 0 ? (
                 <span style={{ fontSize: "11px", color: "#64748b" }}>
                   キューなし（フォーメーションを直接編集）
                 </span>
@@ -1290,14 +1582,85 @@ export function EditorPage() {
                 type="button"
                 style={{
                   ...btnSecondary,
-                  borderColor: "#14532d",
-                  color: "#bbf7d0",
+                  borderColor: "#0284c7",
+                  background: "#0ea5e9",
+                  color: "#0b1220",
+                  padding: "6px 10px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "5px",
+                  fontWeight: 700,
                 }}
                 disabled={project.viewMode === "view"}
-                title="いまステージに並んでいる立ち位置をそのまま『形の箱』に保存します"
+                title="＋キュー：人数と立ち位置の決め方（変更／複製／雛形／保存リスト）を選んで追加"
+                aria-label="新しいキューを追加"
+                onClick={() => setAddCueDialogOpen(true)}
+              >
+                <svg
+                  viewBox="0 0 22 14"
+                  width="22"
+                  height="14"
+                  aria-hidden
+                  style={{ display: "block" }}
+                >
+                  <path
+                    d="M3 7 L9 7 M6 4 L6 10"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  />
+                  <circle cx="13" cy="3" r="1.2" fill="currentColor" />
+                  <circle cx="17" cy="3" r="1.2" fill="currentColor" />
+                  <circle cx="12" cy="8" r="1.2" fill="currentColor" />
+                  <circle cx="15" cy="8" r="1.2" fill="currentColor" />
+                  <circle cx="18" cy="8" r="1.2" fill="currentColor" />
+                  <circle cx="13.5" cy="12" r="1" fill="currentColor" opacity="0.7" />
+                  <circle cx="16.5" cy="12" r="1" fill="currentColor" opacity="0.7" />
+                </svg>
+                <span style={{ fontSize: "12px", fontWeight: 700 }}>キュー</span>
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  borderColor: "#14532d",
+                  color: "#bbf7d0",
+                  padding: "6px 10px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "5px",
+                }}
+                disabled={project.viewMode === "view"}
+                title="形を保存：いまステージに並んでいる立ち位置をそのまま『形の箱』に保存します"
+                aria-label="この形を保存"
                 onClick={saveStageToFormationBox}
               >
-                形を保存
+                <svg
+                  viewBox="0 0 16 16"
+                  width="14"
+                  height="14"
+                  aria-hidden
+                  style={{ display: "block" }}
+                >
+                  <path
+                    d="M2.5 2.5 L11 2.5 L13.5 5 L13.5 13.5 L2.5 13.5 Z"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                    strokeLinejoin="round"
+                  />
+                  <rect x="5" y="2.5" width="5" height="3.6" fill="currentColor" />
+                  <rect
+                    x="4.5"
+                    y="9"
+                    width="7"
+                    height="4.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1"
+                  />
+                </svg>
+                <span style={{ fontSize: "12px", fontWeight: 600 }}>形</span>
               </button>
               <button
                 type="button"
@@ -1305,32 +1668,97 @@ export function EditorPage() {
                   ...btnSecondary,
                   borderColor: "#1e3a8a",
                   color: "#bfdbfe",
+                  padding: "6px 10px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "5px",
                 }}
-                title="作ったキューの並び（立ち位置の流れ）を名前をつけて端末に保存・呼び出し"
+                title="フロー保存：作ったキューの並び（立ち位置の流れ）を名前をつけて端末に保存・呼び出し"
+                aria-label="フローを保存"
                 onClick={() => setFlowLibraryOpen(true)}
               >
-                フロー保存
+                <svg
+                  viewBox="0 0 18 14"
+                  width="18"
+                  height="14"
+                  aria-hidden
+                  style={{ display: "block" }}
+                >
+                  <circle cx="2.5" cy="7" r="1.4" fill="currentColor" />
+                  <path
+                    d="M4 7 L7 7"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                  />
+                  <circle cx="9" cy="7" r="1.4" fill="currentColor" />
+                  <path
+                    d="M10.5 7 L13.5 7"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                  />
+                  <circle cx="15.5" cy="7" r="1.4" fill="currentColor" />
+                </svg>
+                <span style={{ fontSize: "12px", fontWeight: 600 }}>保存</span>
               </button>
               <button
                 type="button"
                 style={{
                   ...btnSecondary,
+                  padding: "6px 10px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "5px",
                   ...(formationSuggestionOpen
-                    ? { borderColor: "#6366f1", color: "#c7d2fe" }
-                    : {}),
+                    ? { borderColor: "#38bdf8", color: "#67e8f9" }
+                    : { borderColor: "#0ea5e9", color: "#bae6fd" }),
                 }}
                 disabled={project.viewMode === "view"}
-                title="右にパネルを開き、人数と多数のフォーメーション案（プリセット）から選べます（ステージはそのまま）"
+                title="形：このキューの立ち位置を、人数別プリセット・形の箱・保存スロットから一括で選び替え（右パネル）"
+                aria-label="形を選び替え"
+                aria-pressed={formationSuggestionOpen}
                 onClick={() =>
                   setFormationSuggestionOpen((v) => {
                     const next = !v;
-                    setFormationSuggestionFormationId(null);
-                    if (!next) setStagePreviewDancers(null);
+                    if (!next) {
+                      setFormationSuggestionFormationId(null);
+                      setStagePreviewDancers(null);
+                    }
                     return next;
                   })
                 }
               >
-                フォーメーション案
+                <svg
+                  viewBox="0 0 22 14"
+                  width="22"
+                  height="14"
+                  aria-hidden
+                  style={{ display: "block" }}
+                >
+                  <circle cx="4" cy="2.5" r="1.3" fill="currentColor" />
+                  <circle cx="2" cy="7" r="1.3" fill="currentColor" />
+                  <circle cx="6" cy="7" r="1.3" fill="currentColor" />
+                  <circle cx="0.5" cy="11.5" r="1.2" fill="currentColor" opacity="0.7" />
+                  <circle cx="7.5" cy="11.5" r="1.2" fill="currentColor" opacity="0.7" />
+                  <path
+                    d="M11 4.5 L19 4.5 M17.3 3 L19 4.5 L17.3 6"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                    fill="none"
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M19 9.5 L11 9.5 M12.7 8 L11 9.5 L12.7 11"
+                    stroke="currentColor"
+                    strokeWidth="1.3"
+                    fill="none"
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <span style={{ fontSize: "12px", fontWeight: 600 }}>形</span>
               </button>
               <button
                 type="button"
@@ -1732,29 +2160,6 @@ export function EditorPage() {
               </label>
             </div>
           </div>
-          <QuickFormationBar
-            project={project}
-            setProject={setProjectSafe}
-            targetFormationId={
-              selectedCue?.formationId ?? project.activeFormationId
-            }
-            onPreviewChange={setStagePreviewDancers}
-            targetCueLabel={(() => {
-              if (!selectedCue) return null;
-              const trimmed = selectedCue.name?.trim();
-              if (trimmed) return `キュー「${trimmed}」`;
-              const sortedIdx = cuesSortedForStageJump.findIndex(
-                (c) => c.id === selectedCue.id
-              );
-              return sortedIdx >= 0
-                ? `キュー #${sortedIdx + 1}`
-                : "選択中のキュー";
-            })()}
-            disabled={
-              project.viewMode === "view" ||
-              (project.cues.length > 0 && !selectedCueId)
-            }
-          />
           {stageView === "2d" ? (
             <StageBoard
               project={project}
@@ -1790,7 +2195,7 @@ export function EditorPage() {
           )}
         </section>
 
-        {wideEditorLayout ? (
+        {wideEditorLayout && !rightPaneCollapsed ? (
           <div
             className="editor-pane-resizer"
             role="separator"
@@ -1818,7 +2223,7 @@ export function EditorPage() {
           />
         ) : null}
 
-        {wideEditorLayout && waveDockTopRow ? (
+        {rightPaneCollapsed && wideEditorLayout ? null : wideEditorLayout && waveDockTopRow ? (
           <div
             style={{
               gridColumn: 4,
@@ -2206,27 +2611,109 @@ export function EditorPage() {
         />
       ) : null}
 
-      {formationSuggestionOpen && (
-        <FormationSuggestionPanel
+      {project ? (
+        <AddCueWithFormationDialog
+          open={addCueDialogOpen}
+          onClose={() => setAddCueDialogOpen(false)}
           project={project}
           setProject={setProjectSafe}
-          formationTargetId={
-            formationSuggestionFormationId ??
-            selectedCue?.formationId ??
-            project.activeFormationId
-          }
+          currentTimeSec={currentTime}
+          durationSec={duration}
           onStagePreviewChange={setStagePreviewDancers}
-          onClose={() => {
-            setFormationSuggestionOpen(false);
-            setFormationSuggestionFormationId(null);
-            setStagePreviewDancers(null);
-          }}
-          onAfterApply={() => {
-            setFormationSuggestionOpen(false);
-            setFormationSuggestionFormationId(null);
+          onCueCreated={(cueId, _startSec, meta) => {
+            setSelectedCueIds([cueId]);
+            setIsPlaying(false);
+            if (meta?.openFormationPanel && meta.formationId) {
+              setFormationSuggestionFormationId(meta.formationId);
+              setFormationSuggestionOpen(true);
+            }
           }}
         />
-      )}
+      ) : null}
+
+      {project && formationSuggestionOpen ? (
+        <div
+          style={{
+            position: "fixed",
+            top: "70px",
+            right: "12px",
+            bottom: "12px",
+            width: "min(380px, 40vw)",
+            maxWidth: "420px",
+            zIndex: 50,
+            display: "flex",
+            flexDirection: "column",
+            gap: "8px",
+            pointerEvents: "auto",
+          }}
+        >
+          {/* 上段: 人数別プリセット / 形の箱 */}
+          <div
+            style={{
+              flex: "1 1 0",
+              minHeight: 0,
+              display: "flex",
+              overflow: "hidden",
+            }}
+          >
+            <FormationSuggestionPanel
+              project={project}
+              setProject={setProjectSafe}
+              variant="embedded"
+              formationTargetId={
+                formationSuggestionFormationId ??
+                selectedCue?.formationId ??
+                project.activeFormationId
+              }
+              onStagePreviewChange={setStagePreviewDancers}
+              onClose={() => {
+                setFormationSuggestionOpen(false);
+                setFormationSuggestionFormationId(null);
+                setStagePreviewDancers(null);
+              }}
+              onAfterApply={() => {
+                setFormationSuggestionOpen(false);
+                setFormationSuggestionFormationId(null);
+              }}
+            />
+          </div>
+          {/* 下段: ワンタッチ切替＋プロジェクト保存スロット */}
+          <div
+            style={{
+              flex: "1 1 0",
+              minHeight: 0,
+              display: "flex",
+              overflow: "hidden",
+            }}
+          >
+            <QuickFormationBar
+              project={project}
+              setProject={setProjectSafe}
+              targetFormationId={
+                formationSuggestionFormationId ??
+                selectedCue?.formationId ??
+                project.activeFormationId
+              }
+              onPreviewChange={setStagePreviewDancers}
+              targetCueLabel={(() => {
+                if (!selectedCue) return null;
+                const trimmed = selectedCue.name?.trim();
+                if (trimmed) return `キュー「${trimmed}」`;
+                const sortedIdx = cuesSortedForStageJump.findIndex(
+                  (c) => c.id === selectedCue.id
+                );
+                return sortedIdx >= 0
+                  ? `キュー #${sortedIdx + 1}`
+                  : "選択中のキュー";
+              })()}
+              disabled={
+                project.viewMode === "view" ||
+                (project.cues.length > 0 && !selectedCueId)
+              }
+            />
+          </div>
+        </div>
+      ) : null}
 
       <style>{`
         @media (max-width: 1279px) {

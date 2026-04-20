@@ -10,6 +10,8 @@ import {
   formatMeterCmLabel,
   formatStageMmSummary,
   mmToMeterCm,
+  STAGE_MAIN_FLOOR_MM_MAX,
+  STAGE_MAIN_FLOOR_MM_MIN,
 } from "../lib/stageDimensions";
 import {
   dancerConventionGuideDotsPct,
@@ -737,6 +739,17 @@ export function StageBoard({
 
   /** ドラッグ中: ポインタ位置を CSS 軸へ戻し、対角アンカーからの距離で新寸法を算出。 */
   useEffect(() => {
+    /**
+     * ピクセル比 → mm 比。Shift 押下で「広い範囲まで」伸ばしやすくする（拡大を加速）。
+     * 縮小時は逆にやや鈍くして誤操作しにくくする。
+     */
+    const resizeRatioGain = (raw: number, shift: boolean): number => {
+      if (!Number.isFinite(raw) || raw <= 0) return raw;
+      if (!shift) return raw;
+      if (raw >= 1) return 1 + (raw - 1) * 2.35;
+      return 1 - (1 - raw) * 0.55;
+    };
+
     const onMove = (e: PointerEvent) => {
       const s = stageResizeRef.current;
       if (!s) return;
@@ -770,12 +783,18 @@ export function StageBoard({
       const newCssH = affectsH
         ? Math.max(40, Math.abs(ly - s.anchorCssY))
         : s.H0css;
-      const newOuterWmm = (s.outerWmm0 * newCssW) / Math.max(1, s.W0css);
-      const newOuterDmm = (s.outerDmm0 * newCssH) / Math.max(1, s.H0css);
+      const ratioW = affectsW
+        ? resizeRatioGain(newCssW / Math.max(1, s.W0css), e.shiftKey)
+        : 1;
+      const ratioH = affectsH
+        ? resizeRatioGain(newCssH / Math.max(1, s.H0css), e.shiftKey)
+        : 1;
+      const newOuterWmm = s.outerWmm0 * ratioW;
+      const newOuterDmm = s.outerDmm0 * ratioH;
       let newW = Math.round(newOuterWmm - 2 * s.Smm);
       let newD = Math.round(newOuterDmm - s.Bmm);
-      newW = Math.min(60000, Math.max(2000, newW));
-      newD = Math.min(60000, Math.max(2000, newD));
+      newW = Math.min(STAGE_MAIN_FLOOR_MM_MAX, Math.max(STAGE_MAIN_FLOOR_MM_MIN, newW));
+      newD = Math.min(STAGE_MAIN_FLOOR_MM_MAX, Math.max(STAGE_MAIN_FLOOR_MM_MIN, newD));
       setStageResizeDraft((prev) =>
         prev &&
         prev.stageWidthMm === newW &&
@@ -1936,7 +1955,7 @@ export function StageBoard({
           style={{
             position: "relative",
             width: "100%",
-            maxWidth: "640px",
+            maxWidth: "100%",
             aspectRatio: stageAspectRatio,
             transform: `rotate(${rot}deg)`,
             transformOrigin: "center center",
@@ -3012,10 +3031,10 @@ export function StageBoard({
                     height: isHover || isActive ? 24 : 16,
                   };
               const label = isCorner
-                ? "ステージサイズ変更"
+                ? "ステージサイズ変更（Shift で広範囲まで伸ばしやすく）"
                 : h === "n" || h === "s"
-                ? "ステージ奥行きを変更"
-                : "ステージ横幅を変更";
+                ? "ステージ奥行きを変更（Shift で感度アップ）"
+                : "ステージ横幅を変更（Shift で感度アップ）";
               /**
                * 通常はステージ枠（#334155）と同系の slate で溶け込ませ、
                * ホバー/ドラッグ中はやや明るくして「触れる」ことをうっすら示す。
@@ -3032,10 +3051,10 @@ export function StageBoard({
                   aria-label={`${label}（${h}）`}
                   title={
                     isCorner
-                      ? "ドラッグでステージ全体のサイズを変更"
+                      ? "ドラッグでステージ全体のサイズを変更。Shift を押しながらドラッグすると、同じ動きでより大きく伸ばせます（画面外までドラッグ可）"
                       : h === "n" || h === "s"
-                      ? "ドラッグで奥行き（前後）だけを変更"
-                      : "ドラッグで横幅（左右）だけを変更"
+                      ? "ドラッグで奥行き（前後）だけを変更。Shift で感度アップ"
+                      : "ドラッグで横幅（左右）だけを変更。Shift で感度アップ"
                   }
                   onPointerDown={(e) => onStageCornerResizeDown(h, e)}
                   onPointerUp={(e) => {

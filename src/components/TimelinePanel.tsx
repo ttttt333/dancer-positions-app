@@ -67,10 +67,6 @@ type Props = {
    * キュー一覧でページ切替などした直後。親で activeFormationId は既に更新済み想定。
    */
   onFormationChosenFromCueList?: () => void;
-  /**
-   * キュー行から「フォーメーション案」を開く。親は対象フォーメーション id を保持してパネルに渡す。
-   */
-  onOpenFormationSuggestions?: (formationId: string) => void;
   /** 編集の元に戻す（ステージツールバーの「戻る」と同じ） */
   onUndo?: () => void;
   /** 編集のやり直し（ステージの「進む」と同じ） */
@@ -89,7 +85,7 @@ type Props = {
   /**
    * タイムラインを画面上部ドック時のコンパクト表示。
    * - 波形のズーム・振幅ツールバーを隠す
-   * - ＋キュー と キュー一覧 は `cueListPortalTarget` が指定されていれば
+   * - キュー一覧は `cueListPortalTarget` が指定されていれば
    *   そこにポータルで描画する（右列に切り出すため）
    */
   compactTopDock?: boolean;
@@ -450,7 +446,6 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       loggedIn,
       onStagePreviewChange,
       onFormationChosenFromCueList,
-      onOpenFormationSuggestions,
       onUndo,
       onRedo,
       undoDisabled = true,
@@ -1248,11 +1243,6 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         onSelectedCueIdsChange,
       ]
     );
-
-    /** 現在の再生位置に区間キューを追加 */
-    const addCueAtCurrentTime = useCallback(() => {
-      addCueStartingAtTime(currentTime);
-    }, [addCueStartingAtTime, currentTime]);
 
     const onWaveDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
       if (project.viewMode === "view" || duration <= 0 || !peaks) return;
@@ -2088,6 +2078,40 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               </button>
             </>
           ) : null}
+          {waveTimelineDockTop && wideWorkbench && onWaveTimelineDockTopChange ? (
+            <div
+              style={{
+                marginLeft: "auto",
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                position: "sticky",
+                right: 0,
+                zIndex: 3,
+                paddingLeft: "10px",
+                background:
+                  "linear-gradient(90deg, transparent, #020617 28%, #020617)",
+              }}
+            >
+              <button
+                type="button"
+                style={{
+                  ...timelineToolbarBtn,
+                  fontWeight: 700,
+                  borderColor: "#64748b",
+                  color: "#f8fafc",
+                  padding: "3px 10px",
+                }}
+                disabled={project.viewMode === "view"}
+                title="画面上部の波形エリアを閉じ、タイムラインを右列の通常位置に戻します"
+                aria-label="上部の波形エリアを閉じる"
+                onClick={() => onWaveTimelineDockTopChange(false)}
+              >
+                ✕ 閉じる
+              </button>
+            </div>
+          ) : null}
         </div>
         <div
           ref={waveContainerRef}
@@ -2182,17 +2206,17 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         {(() => {
           const cueListContent = (
             <>
-        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
-          <button
-            type="button"
-            style={timelineToolbarBtn}
-            disabled={project.viewMode === "view" || formations.length === 0}
-            title="現在の再生位置に区間キューを追加"
-            onClick={addCueAtCurrentTime}
-          >
-            ＋キュー
-          </button>
-        </div>
+        <p
+          style={{
+            margin: "0 0 4px",
+            fontSize: "10px",
+            color: "#64748b",
+            lineHeight: 1.35,
+          }}
+        >
+          キューの追加は<strong style={{ color: "#94a3b8" }}>ステージ上部の「キュー」</strong>
+          から。波形をダブルクリックでも追加できます。
+        </p>
         <div
           style={{
             flex: "1 1 0%",
@@ -2268,7 +2292,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                       style={{
                         display: "grid",
                         gridTemplateColumns:
-                          "auto minmax(27px, auto) minmax(27px, auto) auto auto auto",
+                          "auto minmax(27px, auto) minmax(27px, auto) auto auto",
                         gap: "8px",
                         alignItems: "end",
                         width: "100%",
@@ -2439,44 +2463,6 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                       ) : (
                         <span style={{ color: "#64748b", fontSize: "11px" }}>—</span>
                       )}
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "2px",
-                          minWidth: 0,
-                          justifySelf: "start",
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: "9px",
-                            color: "#64748b",
-                            letterSpacing: "0.02em",
-                          }}
-                        >
-                          {"\u00A0"}
-                        </span>
-                        <button
-                          type="button"
-                          disabled={project.viewMode === "view"}
-                          title={`${fname}（${cueFormation?.dancers.length ?? 0}人） · 人数と多数のフォーメーション案から選び、このキューのページに反映します`}
-                          style={{
-                            ...btnSecondary,
-                            padding: "6px 8px",
-                            fontSize: "11px",
-                            flexShrink: 0,
-                            whiteSpace: "nowrap",
-                          }}
-                          onClick={(ev) => {
-                            ev.stopPropagation();
-                            onSelectedCueIdsChange([c.id]);
-                            onOpenFormationSuggestions?.(c.formationId);
-                          }}
-                        >
-                          フォーメーション案
-                        </button>
-                      </div>
                       <div
                         style={{
                           display: "flex",

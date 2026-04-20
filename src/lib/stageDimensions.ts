@@ -1,5 +1,13 @@
 /** 舞台寸法（内部は mm）。UI は m + cm（0–99）で編集 */
 
+/**
+ * メイン床の幅・奥行の許容範囲（mm）。
+ * - 枠ドラッグ（`StageBoard`）と寸法フォーム（`StageDimensionFields` の上限）を揃える。
+ * - 上限は約 1 km まで（体育館・イベントホール等の広い想定）。
+ */
+export const STAGE_MAIN_FLOOR_MM_MIN = 2000;
+export const STAGE_MAIN_FLOOR_MM_MAX = 999_000;
+
 export function mmFromMeterAndCm(meters: number, centimeters: number): number {
   const m = Math.max(0, Math.floor(meters));
   const c = Math.max(0, Math.min(99, Math.floor(centimeters)));

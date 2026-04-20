@@ -1,0 +1,933 @@
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
+import type { ChoreographyProjectJson, Cue, DancerSpot } from "../types/choreography";
+import {
+  cloneFormationForNewCue,
+  resolveCueIntervalNonOverlap,
+  sortCuesByStart,
+} from "../lib/cueInterval";
+import {
+  dancersForLayoutPreset,
+  LAYOUT_PRESET_OPTIONS,
+  LAYOUT_PRESET_LABELS,
+  type LayoutPresetId,
+} from "../lib/formationLayouts";
+import {
+  dancersFromFormationBoxItem,
+  FORMATION_BOX_CHANGE_EVENT,
+  listFormationBoxItems,
+} from "../lib/formationBox";
+import { FormationPresetThumb } from "./FormationPresetThumb";
+import { FormationBoxItemThumb } from "./FormationBoxItemThumb";
+
+/**
+ * ステージの「＋キュー」用の右側パネル。
+ * - 開始時刻
+ * - 人数（±）
+ * - 立ち位置の決め方（4 モード）＋雛形／保存リストの選択
+ */
+
+type AddMode = "edit_current" | "duplicate" | "template" | "saved";
+
+type Props = {
+  open: boolean;
+  onClose: () => void;
+  project: ChoreographyProjectJson;
+  setProject: React.Dispatch<React.SetStateAction<ChoreographyProjectJson>>;
+  currentTimeSec: number;
+  durationSec: number;
+  /**
+   * キュー作成後。`openFormationPanel` が true のときは、右の形編集パネルを
+   * このフォーメーション向けに開く（親が formationSuggestion を開く）。
+   */
+  onCueCreated?: (
+    cueId: string,
+    startSec: number,
+    meta?: { formationId: string; openFormationPanel: boolean }
+  ) => void;
+  onStagePreviewChange?: (dancers: DancerSpot[] | null) => void;
+};
+
+const PRESETS = LAYOUT_PRESET_OPTIONS;
+
+function formatSec(s: number): string {
+  if (!Number.isFinite(s) || s < 0) return "0:00.0";
+  const m = Math.floor(s / 60);
+  const sec = s - m * 60;
+  return `${m}:${sec.toFixed(1).padStart(4, "0")}`;
+}
+
+function parseTimeString(raw: string): number {
+  const s = raw.trim();
+  if (!s) return NaN;
+  if (s.includes(":")) {
+    const [mRaw, sRaw = "0"] = s.split(":");
+    const m = Number(mRaw);
+    const sec = Number(sRaw);
+    if (!Number.isFinite(m) || !Number.isFinite(sec)) return NaN;
+    return m * 60 + sec;
+  }
+  const n = Number(s);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+function transferIdentitiesByOrder(
+  newDancers: DancerSpot[],
+  oldDancers: DancerSpot[]
+): DancerSpot[] {
+  return newDancers.map((nd, i) => {
+    const od = oldDancers[i];
+    if (!od) return nd;
+    return {
+      ...nd,
+      id: od.id,
+      label: od.label,
+      colorIndex: od.colorIndex,
+      crewMemberId: od.crewMemberId,
+      sizePx: od.sizePx ?? nd.sizePx,
+      note: od.note ?? nd.note,
+    };
+  });
+}
+
+function activeFormationDancers(project: ChoreographyProjectJson): DancerSpot[] {
+  const f = project.formations.find((x) => x.id === project.activeFormationId);
+  return f ? f.dancers.map((d) => ({ ...d })) : [];
+}
+
+/** 人数 `targetN` に合わせて並びを伸縮（足りない分は横一列プリセットで補完） */
+function dancersForTargetCount(
+  base: DancerSpot[],
+  targetN: number,
+  spacing: { dancerSpacingMm?: number | null; stageWidthMm?: number | null }
+): DancerSpot[] {
+  if (!Number.isFinite(targetN) || targetN < 1) return [];
+  if (targetN === base.length) return base.map((d) => ({ ...d }));
+  if (targetN < base.length) return base.slice(0, targetN).map((d) => ({ ...d }));
+  const grown = dancersForLayoutPreset(targetN, "line", {
+    dancerSpacingMm: spacing.dancerSpacingMm ?? undefined,
+    stageWidthMm: spacing.stageWidthMm ?? undefined,
+  });
+  return transferIdentitiesByOrder(grown, base);
+}
+
+const panelShellStyle: CSSProperties = {
+  position: "fixed",
+  top: "70px",
+  right: "12px",
+  bottom: "12px",
+  width: "min(430px, 42vw)",
+  maxWidth: "460px",
+  zIndex: 52,
+  display: "flex",
+  flexDirection: "column",
+  pointerEvents: "auto",
+};
+
+const panelCardStyle: CSSProperties = {
+  flex: 1,
+  minHeight: 0,
+  width: "100%",
+  display: "flex",
+  flexDirection: "column",
+  background: "#0f172a",
+  border: "1px solid #334155",
+  borderRadius: "12px",
+  boxShadow: "0 20px 50px rgba(0,0,0,0.55)",
+  color: "#e2e8f0",
+  overflow: "hidden",
+};
+
+const headerStyle: CSSProperties = {
+  flexShrink: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "12px",
+  padding: "12px 16px",
+  borderBottom: "1px solid #1e293b",
+  background: "#0b1220",
+};
+
+const bodyStyle: CSSProperties = {
+  flex: "1 1 auto",
+  minHeight: 0,
+  overflowY: "auto",
+  padding: "14px 16px 10px",
+  display: "flex",
+  flexDirection: "column",
+  gap: "14px",
+};
+
+const footerStyle: CSSProperties = {
+  flexShrink: 0,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "flex-end",
+  gap: "10px",
+  padding: "10px 16px",
+  borderTop: "1px solid #1e293b",
+  background: "#0b1220",
+};
+
+const sectionLabelStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  fontSize: "12px",
+  fontWeight: 700,
+  color: "#94a3b8",
+  letterSpacing: "0.04em",
+  marginBottom: "6px",
+};
+
+const sectionNumberStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "20px",
+  height: "20px",
+  borderRadius: "50%",
+  background: "#1e293b",
+  color: "#e2e8f0",
+  fontSize: "11px",
+  fontWeight: 700,
+};
+
+const inputStyle: CSSProperties = {
+  padding: "6px 8px",
+  borderRadius: "6px",
+  border: "1px solid #334155",
+  background: "#0b1220",
+  color: "#e2e8f0",
+  fontSize: "13px",
+  lineHeight: 1.3,
+};
+
+const btnBase: CSSProperties = {
+  padding: "8px 14px",
+  borderRadius: "8px",
+  border: "1px solid #334155",
+  background: "#1e293b",
+  color: "#e2e8f0",
+  fontSize: "13px",
+  fontWeight: 600,
+  cursor: "pointer",
+  lineHeight: 1.2,
+};
+
+const btnPrimary: CSSProperties = {
+  ...btnBase,
+  borderColor: "#0284c7",
+  background: "#0ea5e9",
+  color: "#0b1220",
+};
+
+const modeCardBase: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-start",
+  gap: "4px",
+  padding: "10px 12px",
+  borderRadius: "10px",
+  border: "1px solid #334155",
+  background: "#0b1220",
+  color: "#e2e8f0",
+  fontSize: "12px",
+  cursor: "pointer",
+  textAlign: "left",
+  width: "100%",
+};
+
+const presetChipBase: CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: "4px",
+  padding: "8px 6px",
+  borderRadius: "10px",
+  border: "1px solid #334155",
+  background: "#0b1220",
+  color: "#e2e8f0",
+  fontSize: "11px",
+  cursor: "pointer",
+  minWidth: 72,
+};
+
+export function AddCueWithFormationDialog({
+  open,
+  onClose,
+  project,
+  setProject,
+  currentTimeSec,
+  durationSec,
+  onCueCreated,
+  onStagePreviewChange,
+}: Props) {
+  const { viewMode } = project;
+  const trimLo = project.trimStartSec;
+  const trimHi = project.trimEndSec ?? durationSec ?? 0;
+
+  const initialCount = useMemo(() => {
+    const f = project.formations.find((x) => x.id === project.activeFormationId);
+    const n = f?.dancers.length ?? 6;
+    return Math.max(1, Math.min(30, n));
+  }, [project.formations, project.activeFormationId]);
+
+  const [count, setCount] = useState(initialCount);
+  const [addMode, setAddMode] = useState<AddMode>("duplicate");
+  const [templatePresetId, setTemplatePresetId] = useState<LayoutPresetId | null>(null);
+  const [savedBoxId, setSavedBoxId] = useState<string | null>(null);
+  const [savedSlotId, setSavedSlotId] = useState<string | null>(null);
+
+  const [timeMode, setTimeMode] = useState<"now" | "custom">("now");
+  const [customTimeStr, setCustomTimeStr] = useState(() =>
+    formatSec(Math.max(trimLo, Math.min(trimHi, currentTimeSec)))
+  );
+
+  const [boxRev, setBoxRev] = useState(0);
+  const boxItems = useMemo(() => listFormationBoxItems(), [boxRev, open]);
+  useEffect(() => {
+    const handler = () => setBoxRev((r) => r + 1);
+    window.addEventListener(FORMATION_BOX_CHANGE_EVENT, handler);
+    return () => window.removeEventListener(FORMATION_BOX_CHANGE_EVENT, handler);
+  }, []);
+
+  const wasOpenRef = useRef(false);
+  useEffect(() => {
+    if (open && !wasOpenRef.current) {
+      setCount(initialCount);
+      setAddMode("duplicate");
+      setTemplatePresetId(PRESETS[0]?.id ?? null);
+      setSavedBoxId(null);
+      setSavedSlotId(null);
+      setTimeMode("now");
+      setCustomTimeStr(formatSec(Math.max(trimLo, Math.min(trimHi, currentTimeSec))));
+      setBoxRev((r) => r + 1);
+    }
+    wasOpenRef.current = open;
+  }, [open, initialCount, currentTimeSec, trimLo, trimHi]);
+
+  useEffect(() => {
+    if (addMode === "template" && templatePresetId == null && PRESETS[0]) {
+      setTemplatePresetId(PRESETS[0].id);
+    }
+  }, [addMode, templatePresetId]);
+
+  const closeAndCleanup = useCallback(() => {
+    onStagePreviewChange?.(null);
+    onClose();
+  }, [onClose, onStagePreviewChange]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        closeAndCleanup();
+      }
+    };
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () => window.removeEventListener("keydown", onKey, { capture: true } as EventListenerOptions);
+  }, [open, closeAndCleanup]);
+
+  const spacingOpts = useMemo(
+    () => ({
+      dancerSpacingMm: project.dancerSpacingMm,
+      stageWidthMm: project.stageWidthMm,
+    }),
+    [project.dancerSpacingMm, project.stageWidthMm]
+  );
+
+  const buildDancers = useCallback((): DancerSpot[] => {
+    const active = activeFormationDancers(project);
+    switch (addMode) {
+      case "edit_current":
+      case "duplicate":
+        return dancersForTargetCount(active, count, spacingOpts);
+      case "template": {
+        if (!templatePresetId) return [];
+        const raw = dancersForLayoutPreset(count, templatePresetId, {
+          dancerSpacingMm: spacingOpts.dancerSpacingMm ?? undefined,
+          stageWidthMm: spacingOpts.stageWidthMm ?? undefined,
+        });
+        return transferIdentitiesByOrder(raw, active);
+      }
+      case "saved": {
+        if (savedBoxId) {
+          const item = boxItems.find((b) => b.id === savedBoxId);
+          if (!item) return [];
+          return dancersForTargetCount(
+            dancersFromFormationBoxItem(item),
+            count,
+            spacingOpts
+          );
+        }
+        if (savedSlotId) {
+          const slot = project.savedSpotLayouts.find((s) => s.id === savedSlotId);
+          if (!slot) return [];
+          return dancersForTargetCount(
+            slot.dancers.map((d) => ({ ...d })),
+            count,
+            spacingOpts
+          );
+        }
+        return [];
+      }
+      default:
+        return [];
+    }
+  }, [
+    addMode,
+    count,
+    templatePresetId,
+    savedBoxId,
+    savedSlotId,
+    project,
+    boxItems,
+    spacingOpts,
+  ]);
+
+  useEffect(() => {
+    if (!open) {
+      onStagePreviewChange?.(null);
+      return;
+    }
+    const d = buildDancers();
+    onStagePreviewChange?.(d.length > 0 ? d : null);
+    return () => {
+      onStagePreviewChange?.(null);
+    };
+  }, [open, buildDancers, onStagePreviewChange]);
+
+  const canConfirm = useMemo(() => {
+    if (viewMode === "view") return false;
+    if (addMode === "saved" && !savedBoxId && !savedSlotId) return false;
+    if (addMode === "template" && !templatePresetId) return false;
+    return buildDancers().length > 0;
+  }, [viewMode, addMode, savedBoxId, savedSlotId, templatePresetId, buildDancers]);
+
+  const handleConfirm = useCallback(() => {
+    if (!canConfirm) return;
+    if (project.cues.length >= 100) {
+      window.alert("キューの上限（100）に達しています。");
+      return;
+    }
+
+    let t0Raw =
+      timeMode === "now" ? currentTimeSec : parseTimeString(customTimeStr);
+    if (!Number.isFinite(t0Raw)) {
+      window.alert("時刻の形式が正しくありません（例: 0:12.5 または 12.5）");
+      return;
+    }
+    t0Raw = Math.max(trimLo, Math.min(trimHi - 0.02, t0Raw));
+
+    const dancers = buildDancers();
+    if (dancers.length === 0) return;
+
+    const newCueId = crypto.randomUUID();
+    const newFmId = crypto.randomUUID();
+    let appliedT = 0;
+
+    setProject((p) => {
+      if (p.cues.length >= 100) return p;
+      const base = p.formations.find((x) => x.id === p.activeFormationId) ?? p.formations[0];
+      const baseTemplate = base
+        ? cloneFormationForNewCue(base)
+        : {
+            id: crypto.randomUUID(),
+            name: "フォーメーション",
+            dancers: [] as DancerSpot[],
+            setPieces: [],
+          };
+      const newFm = {
+        ...baseTemplate,
+        id: newFmId,
+        dancers,
+        confirmedDancerCount: dancers.length,
+      };
+
+      const d = durationSec || 1;
+      const hi = p.trimEndSec ?? d;
+      const lo = p.trimStartSec;
+      let t0 = Math.round(t0Raw * 100) / 100;
+      t0 = Math.max(lo, Math.min(hi - 0.02, t0));
+      let t1 = Math.min(hi, Math.round((t0 + 2) * 100) / 100);
+      if (t1 <= t0) t1 = Math.round((t0 + 0.5) * 100) / 100;
+      const resolved = resolveCueIntervalNonOverlap(p.cues, newCueId, t0, t1, lo, hi);
+      t0 = resolved.tStartSec;
+      t1 = resolved.tEndSec;
+      appliedT = t0;
+
+      const cue: Cue = {
+        id: newCueId,
+        tStartSec: t0,
+        tEndSec: t1,
+        formationId: newFm.id,
+      };
+
+      return {
+        ...p,
+        formations: [...p.formations, newFm],
+        cues: sortCuesByStart([...p.cues, cue]),
+        activeFormationId: newFm.id,
+      };
+    });
+
+    onStagePreviewChange?.(null);
+    onCueCreated?.(newCueId, appliedT, {
+      formationId: newFmId,
+      openFormationPanel: addMode === "edit_current",
+    });
+    onClose();
+  }, [
+    canConfirm,
+    project.cues.length,
+    timeMode,
+    currentTimeSec,
+    customTimeStr,
+    trimLo,
+    trimHi,
+    buildDancers,
+    setProject,
+    durationSec,
+    addMode,
+    onStagePreviewChange,
+    onCueCreated,
+    onClose,
+  ]);
+
+  if (!open) return null;
+
+  const dancers = buildDancers();
+  const dancerCountPreview = dancers.length;
+
+  const bumpCount = (delta: number) => {
+    setCount((c) => Math.max(1, Math.min(30, c + delta)));
+  };
+
+  const modeCards: {
+    mode: AddMode;
+    title: string;
+    desc: string;
+  }[] = [
+    {
+      mode: "edit_current",
+      title: "今の立ち位置を変更",
+      desc: "いまの形を複製した新しいキューを作り、右のパネルで編集を続けます",
+    },
+    {
+      mode: "duplicate",
+      title: "今の立ち位置を複製",
+      desc: "人数に合わせてコピー（増減は横一列で補完）",
+    },
+    {
+      mode: "template",
+      title: "雛形から選ぶ",
+      desc: "定番プリセットから人数分を配置",
+    },
+    {
+      mode: "saved",
+      title: "保存したリストから選ぶ",
+      desc: "形の箱・プロジェクトに保存した並びから選びます",
+    },
+  ];
+
+  return (
+    <div style={panelShellStyle} role="dialog" aria-modal="false" aria-label="新しいキューを追加">
+      <div style={panelCardStyle}>
+        <div style={headerStyle}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span
+              aria-hidden
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 28,
+                height: 28,
+                borderRadius: "8px",
+                background: "rgba(14,116,144,0.25)",
+                color: "#7dd3fc",
+                fontSize: "18px",
+                fontWeight: 700,
+              }}
+            >
+              ＋
+            </span>
+            <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.2 }}>
+              <strong style={{ fontSize: "15px" }}>新しいキュー</strong>
+              <span style={{ fontSize: "11px", color: "#94a3b8" }}>
+                ステージ上部からのみ表示（タイムライン側のボタンはありません）
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={closeAndCleanup}
+            aria-label="閉じる"
+            title="閉じる（Esc）"
+            style={{
+              padding: "4px 10px",
+              borderRadius: "6px",
+              background: "transparent",
+              border: "1px solid #334155",
+              color: "#94a3b8",
+              cursor: "pointer",
+              fontSize: "13px",
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        <div style={bodyStyle}>
+          <section>
+            <div style={sectionLabelStyle}>
+              <span style={sectionNumberStyle}>1</span>
+              開始時刻
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "10px 18px",
+                alignItems: "center",
+                paddingLeft: "26px",
+              }}
+            >
+              <label
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontSize: "13px",
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="radio"
+                  name="add-cue-time-mode"
+                  checked={timeMode === "now"}
+                  onChange={() => setTimeMode("now")}
+                />
+                現在の再生位置
+                <span
+                  style={{
+                    fontVariantNumeric: "tabular-nums",
+                    color: "#7dd3fc",
+                    fontSize: "12px",
+                  }}
+                >
+                  （{formatSec(Math.max(trimLo, Math.min(trimHi, currentTimeSec)))}）
+                </span>
+              </label>
+              <label
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontSize: "13px",
+                  cursor: "pointer",
+                }}
+              >
+                <input
+                  type="radio"
+                  name="add-cue-time-mode"
+                  checked={timeMode === "custom"}
+                  onChange={() => setTimeMode("custom")}
+                />
+                指定
+                <input
+                  type="text"
+                  value={customTimeStr}
+                  placeholder="0:00.0"
+                  onChange={(e) => setCustomTimeStr(e.target.value)}
+                  onFocus={() => setTimeMode("custom")}
+                  style={{
+                    ...inputStyle,
+                    width: "80px",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                />
+              </label>
+            </div>
+          </section>
+
+          <section>
+            <div style={sectionLabelStyle}>
+              <span style={sectionNumberStyle}>2</span>
+              人数
+            </div>
+            <div
+              style={{
+                paddingLeft: "26px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "10px",
+              }}
+            >
+              <button
+                type="button"
+                aria-label="人数を減らす"
+                disabled={viewMode === "view" || count <= 1}
+                onClick={() => bumpCount(-1)}
+                style={{
+                  ...btnBase,
+                  padding: "6px 14px",
+                  fontSize: "18px",
+                  lineHeight: 1,
+                  minWidth: "40px",
+                }}
+              >
+                −
+              </button>
+              <span
+                style={{
+                  fontVariantNumeric: "tabular-nums",
+                  fontWeight: 800,
+                  fontSize: "20px",
+                  color: "#f1f5f9",
+                  minWidth: "2.2em",
+                  textAlign: "center",
+                }}
+              >
+                {count}
+              </span>
+              <button
+                type="button"
+                aria-label="人数を増やす"
+                disabled={viewMode === "view" || count >= 30}
+                onClick={() => bumpCount(1)}
+                style={{
+                  ...btnBase,
+                  padding: "6px 14px",
+                  fontSize: "18px",
+                  lineHeight: 1,
+                  minWidth: "40px",
+                }}
+              >
+                ＋
+              </button>
+              <span style={{ fontSize: "11px", color: "#64748b" }}>1〜30 人</span>
+            </div>
+          </section>
+
+          <section>
+            <div style={sectionLabelStyle}>
+              <span style={sectionNumberStyle}>3</span>
+              立ち位置の決め方
+            </div>
+            <div
+              style={{
+                paddingLeft: "10px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+              }}
+            >
+              {modeCards.map(({ mode, title, desc }) => {
+                const active = addMode === mode;
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => {
+                      setAddMode(mode);
+                      if (mode !== "saved") {
+                        setSavedBoxId(null);
+                        setSavedSlotId(null);
+                      }
+                      if (mode === "template" && !templatePresetId && PRESETS[0]) {
+                        setTemplatePresetId(PRESETS[0].id);
+                      }
+                    }}
+                    style={{
+                      ...modeCardBase,
+                      borderColor: active ? "#38bdf8" : "#334155",
+                      borderWidth: active ? 2 : 1,
+                      background: active ? "#0e7490" : "#0b1220",
+                      color: active ? "#ecfeff" : "#e2e8f0",
+                    }}
+                  >
+                    <span style={{ fontWeight: 700, fontSize: "13px" }}>{title}</span>
+                    <span style={{ fontSize: "11px", opacity: 0.9, lineHeight: 1.35 }}>{desc}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {addMode === "template" ? (
+            <section>
+              <div style={sectionLabelStyle}>
+                <span style={sectionNumberStyle}>4</span>
+                雛形（プリセット）
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", paddingLeft: "10px" }}>
+                {PRESETS.map((p) => {
+                  const active = templatePresetId === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setTemplatePresetId(p.id)}
+                      title={p.label}
+                      style={{
+                        ...presetChipBase,
+                        borderColor: active ? "#38bdf8" : "#334155",
+                        borderWidth: active ? 2 : 1,
+                        background: active ? "#0e7490" : "#0b1220",
+                        color: active ? "#ecfeff" : "#e2e8f0",
+                      }}
+                    >
+                      <FormationPresetThumb preset={p.id} width={44} />
+                      <span style={{ fontSize: "11px", fontWeight: 600 }}>{p.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
+
+          {addMode === "saved" ? (
+            <section>
+              <div style={sectionLabelStyle}>
+                <span style={sectionNumberStyle}>4</span>
+                保存したリスト
+              </div>
+              <div
+                style={{
+                  paddingLeft: "10px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "12px",
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: "11px", color: "#94a3b8", marginBottom: "6px", fontWeight: 600 }}>
+                    形の箱
+                  </div>
+                  {boxItems.length === 0 ? (
+                    <span style={{ fontSize: "11px", color: "#64748b" }}>保存された形がありません</span>
+                  ) : (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                      {boxItems.map((item) => {
+                        const active = savedBoxId === item.id && savedSlotId === null;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => {
+                              setSavedBoxId(item.id);
+                              setSavedSlotId(null);
+                            }}
+                            title={`${item.name}（${item.dancerCount}人）`}
+                            style={{
+                              ...presetChipBase,
+                              borderColor: active ? "#38bdf8" : "#334155",
+                              borderWidth: active ? 2 : 1,
+                              background: active ? "#0e7490" : "#0b1220",
+                              maxWidth: 120,
+                            }}
+                          >
+                            <FormationBoxItemThumb item={item} width={44} />
+                            <span
+                              style={{
+                                fontSize: "11px",
+                                fontWeight: 600,
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                maxWidth: "100%",
+                              }}
+                            >
+                              {item.name}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <div style={{ fontSize: "11px", color: "#94a3b8", marginBottom: "6px", fontWeight: 600 }}>
+                    プロジェクトに保存した並び
+                  </div>
+                  {project.savedSpotLayouts.length === 0 ? (
+                    <span style={{ fontSize: "11px", color: "#64748b" }}>スロットに保存されていません</span>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                      {project.savedSpotLayouts.map((slot) => {
+                        const active = savedSlotId === slot.id;
+                        return (
+                          <button
+                            key={slot.id}
+                            type="button"
+                            onClick={() => {
+                              setSavedSlotId(slot.id);
+                              setSavedBoxId(null);
+                            }}
+                            style={{
+                              ...modeCardBase,
+                              padding: "8px 10px",
+                              borderColor: active ? "#38bdf8" : "#334155",
+                              borderWidth: active ? 2 : 1,
+                              background: active ? "#0e7490" : "#0b1220",
+                              width: "100%",
+                            }}
+                          >
+                            <span style={{ fontWeight: 600 }}>{slot.name}</span>
+                            <span style={{ fontSize: "10px", opacity: 0.85 }}>
+                              {slot.dancers.length} 人 · 保存時 {slot.savedAtCount ?? slot.dancers.length} 人
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+          ) : null}
+        </div>
+
+        <div style={footerStyle}>
+          <span style={{ marginRight: "auto", fontSize: "11px", color: "#64748b" }}>
+            {dancerCountPreview > 0 ? (
+              <>
+                プレビュー <strong style={{ color: "#cbd5e1" }}>{dancerCountPreview} 人</strong>
+                {addMode === "template" && templatePresetId ? (
+                  <> · {LAYOUT_PRESET_LABELS[templatePresetId]}</>
+                ) : null}
+              </>
+            ) : (
+              "条件を選んでください"
+            )}
+          </span>
+          <button type="button" onClick={closeAndCleanup} style={btnBase}>
+            キャンセル
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={!canConfirm}
+            style={{
+              ...btnPrimary,
+              opacity: !canConfirm ? 0.45 : 1,
+              cursor: !canConfirm ? "not-allowed" : "pointer",
+            }}
+          >
+            追加する
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

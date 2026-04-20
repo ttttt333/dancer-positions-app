@@ -214,9 +214,16 @@ function frontAudienceGrowingRowCounts(n: number, firstRow: number): number[] {
 
 /** UI 順・ラベル（id は dancersForLayoutPreset と一致させる） */
 export const LAYOUT_PRESET_OPTIONS = [
-  /** フォーメーション案で先に並べる推奨順 */
-  { id: "pyramid", label: "ピラミッド（先端が奥・1番が客席側）" },
-  { id: "pyramid_inverse", label: "逆ピラミッド（手前多→奥少）" },
+  /** ★ 推奨順（先頭ブロック）: ユーザ指定の並び */
+  { id: "line", label: "横一列" },
+  { id: "pyramid", label: "ピラミッド" },
+  { id: "pyramid_inverse", label: "逆ピラミッド" },
+  { id: "two_rows", label: "2列" },
+  { id: "rows_3", label: "3列" },
+  { id: "rows_4", label: "4列" },
+  { id: "rows_5", label: "5列" },
+  /** ─ ここから補助的なバリエーション ─ */
+  { id: "rows_6", label: "6列" },
   {
     id: "front_stair_from_2",
     label: "段の列（手前2人→奥で列ごと+1人）",
@@ -225,13 +232,6 @@ export const LAYOUT_PRESET_OPTIONS = [
     id: "front_stair_from_3",
     label: "段の列（手前3人→奥で列ごと+1人）",
   },
-  /** 定番の列フォーメーション（人数を n 列に均等分割） */
-  { id: "rows_3", label: "3列（均等）" },
-  { id: "rows_4", label: "4列（均等）" },
-  { id: "rows_5", label: "5列（均等）" },
-  { id: "rows_6", label: "6列（均等）" },
-  /** そのほかの定番 */
-  { id: "line", label: "横一列（中）" },
   { id: "line_front", label: "横一列（客席寄り・手前）" },
   { id: "line_back", label: "横一列（奥）" },
   { id: "arc", label: "円弧（客席向き）" },
@@ -240,7 +240,6 @@ export const LAYOUT_PRESET_OPTIONS = [
   { id: "grid", label: "グリッド" },
   { id: "diamond", label: "ひし形周り" },
   { id: "stagger", label: "千鳥（2段）" },
-  { id: "two_rows", label: "前後2列" },
   { id: "circle", label: "円周均等" },
   { id: "u_shape", label: "U字（客席向き）" },
   { id: "diagonal_se", label: "斜め（↘）" },
