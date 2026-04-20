@@ -47,6 +47,8 @@ const QUICK_PRESETS: { id: LayoutPresetId; label: string }[] = [
   { id: "line", label: "横一列" },
   { id: "pyramid", label: "ピラミッド" },
   { id: "pyramid_inverse", label: "逆ピラミッド" },
+  { id: "stagger", label: "千鳥" },
+  { id: "stagger_inverse", label: "逆千鳥" },
   { id: "two_rows", label: "2列" },
   { id: "rows_3", label: "3列" },
   { id: "rows_4", label: "4列" },
@@ -58,7 +60,6 @@ const QUICK_PRESETS: { id: LayoutPresetId; label: string }[] = [
   { id: "arc", label: "円弧" },
   { id: "diamond", label: "ひし形" },
   { id: "circle", label: "円周" },
-  { id: "stagger", label: "千鳥" },
   { id: "wedge", label: "楔" },
   { id: "block_lr", label: "左右ブロック" },
 ];

@@ -218,6 +218,8 @@ export const LAYOUT_PRESET_OPTIONS = [
   { id: "line", label: "横一列" },
   { id: "pyramid", label: "ピラミッド" },
   { id: "pyramid_inverse", label: "逆ピラミッド" },
+  { id: "stagger", label: "千鳥" },
+  { id: "stagger_inverse", label: "逆千鳥" },
   { id: "two_rows", label: "2列" },
   { id: "rows_3", label: "3列" },
   { id: "rows_4", label: "4列" },
@@ -239,7 +241,6 @@ export const LAYOUT_PRESET_OPTIONS = [
   { id: "vee", label: "V字" },
   { id: "grid", label: "グリッド" },
   { id: "diamond", label: "ひし形周り" },
-  { id: "stagger", label: "千鳥（2段）" },
   { id: "circle", label: "円周均等" },
   { id: "u_shape", label: "U字（客席向き）" },
   { id: "diagonal_se", label: "斜め（↘）" },
@@ -529,14 +530,17 @@ export function dancersForLayoutPreset(
       }
       break;
     }
-    case "stagger": {
+    case "stagger":
+    case "stagger_inverse": {
       const rows = 2;
       const per = Math.ceil(n / rows);
       const xs = evenSpacingPositions(per, 50, TARGET_STEP_X, 12, 88);
+      /** 千鳥: 手前列（客席寄り）を横にずらす。逆千鳥: 奥列をずらす。 */
+      const offsetRow = preset === "stagger" ? 1 : 0;
       for (let i = 0; i < n; i++) {
         const r = i % rows;
         const idx = Math.floor(i / rows);
-        const offset = r === 1 ? TARGET_STEP_X / 2 : 0;
+        const offset = r === offsetRow ? TARGET_STEP_X / 2 : 0;
         pushSpot(out, i, (xs[idx] ?? 50) + offset, r === 0 ? 38 : 54);
       }
       break;

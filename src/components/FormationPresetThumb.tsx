@@ -227,6 +227,15 @@ export function FormationPresetThumb({ preset, width = 36, className }: Props) {
         [64, 38],
       ];
       break;
+    case "stagger_inverse":
+      pts = [
+        [36, 22],
+        [64, 22],
+        [22, 38],
+        [50, 38],
+        [78, 38],
+      ];
+      break;
     case "two_rows":
       pts = [
         [22, 20],
