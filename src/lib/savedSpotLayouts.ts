@@ -23,9 +23,13 @@ export function dancersForCountFromSaved(
   const take = Math.min(cap, src.length);
   for (let i = 0; i < take; i++) {
     const d = src[i];
+    const label =
+      typeof d.label === "string" && d.label.trim() !== ""
+        ? d.label.trim().slice(0, 120)
+        : String(i + 1);
     out.push({
       id: crypto.randomUUID(),
-      label: String(i + 1),
+      label,
       xPct: clamp(d.xPct, 5, 95),
       yPct: clamp(d.yPct, 8, 92),
       colorIndex:
@@ -49,17 +53,23 @@ export function dancersForCountFromSaved(
 
 /** プロジェクトに保存する用（位置を保ち、id を振り直す） */
 export function snapshotDancersForPersist(dancers: DancerSpot[]): DancerSpot[] {
-  return dancers.map((d, i) => ({
-    id: crypto.randomUUID(),
-    label: String(i + 1),
-    xPct: clamp(d.xPct, 5, 95),
-    yPct: clamp(d.yPct, 8, 92),
-    colorIndex:
-      typeof d.colorIndex === "number" && Number.isFinite(d.colorIndex)
-        ? Math.floor(d.colorIndex) % 9
-        : i % 9,
-    ...(typeof d.crewMemberId === "string" && d.crewMemberId
-      ? { crewMemberId: d.crewMemberId }
-      : {}),
-  }));
+  return dancers.map((d, i) => {
+    const label =
+      typeof d.label === "string" && d.label.trim() !== ""
+        ? d.label.trim().slice(0, 120)
+        : String(i + 1);
+    return {
+      id: crypto.randomUUID(),
+      label,
+      xPct: clamp(d.xPct, 5, 95),
+      yPct: clamp(d.yPct, 8, 92),
+      colorIndex:
+        typeof d.colorIndex === "number" && Number.isFinite(d.colorIndex)
+          ? Math.floor(d.colorIndex) % 9
+          : i % 9,
+      ...(typeof d.crewMemberId === "string" && d.crewMemberId
+        ? { crewMemberId: d.crewMemberId }
+        : {}),
+    };
+  });
 }

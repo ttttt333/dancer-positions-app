@@ -19,6 +19,7 @@ import {
   dancersFromFormationBoxItem,
   FORMATION_BOX_CHANGE_EVENT,
   listFormationBoxItems,
+  mergeFormationBoxSnapshotWithStageIdentities,
   type FormationBoxItem,
 } from "../lib/formationBox";
 
@@ -235,10 +236,18 @@ export function QuickFormationBar({
   /** プレビューを正式に確定して、現在のフォーメーションに書き戻す。 */
   const apply = useCallback(() => {
     if (disabled || !targetFormation || !pendingDancers) return;
-    const dancers = transferIdentitiesByOrder(
-      pendingDancers,
-      targetFormation.dancers
-    );
+    const boxItem =
+      pending?.kind === "box"
+        ? listFormationBoxItems().find((b) => b.id === pending.itemId)
+        : undefined;
+    const dancers =
+      boxItem != null
+        ? mergeFormationBoxSnapshotWithStageIdentities(
+            pendingDancers,
+            targetFormation.dancers,
+            boxItem
+          )
+        : transferIdentitiesByOrder(pendingDancers, targetFormation.dancers);
     setProject((p) => ({
       ...p,
       formations: p.formations.map((f) =>
@@ -248,7 +257,14 @@ export function QuickFormationBar({
       ),
     }));
     clearPending();
-  }, [disabled, targetFormation, pendingDancers, setProject, clearPending]);
+  }, [
+    disabled,
+    targetFormation,
+    pendingDancers,
+    pending,
+    setProject,
+    clearPending,
+  ]);
 
   /** スロットへ「いまの立ち位置」を保存（既存があれば上書き確認） */
   const saveSlot = useCallback(

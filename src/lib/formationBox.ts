@@ -18,6 +18,10 @@ export type FormationBoxSpot = {
   yPct: number;
   /** 0..8 の色番号（なければ復元時に割り当て） */
   colorIndex?: number;
+  /** ステージ上の表示名（保存時に付与。未保存の旧データは未定義） */
+  label?: string;
+  /** メンバー名簿のメンバー id */
+  crewMemberId?: string;
 };
 
 export type FormationBoxItem = {
@@ -26,7 +30,7 @@ export type FormationBoxItem = {
   name: string;
   /** 保存時の人数。フィルタ表示に使う。 */
   dancerCount: number;
-  /** 位置情報のみ（ラベルやメンバー紐付けは持ち込まない） */
+  /** 座標に加え、各スポットの表示名・名簿紐付けを保持 */
   dancers: FormationBoxSpot[];
   createdAt: number;
   updatedAt: number;
@@ -65,6 +69,12 @@ function normalize(raw: FormationBoxItem): FormationBoxItem {
       };
       if (typeof d.colorIndex === "number" && Number.isFinite(d.colorIndex)) {
         normalized.colorIndex = Math.floor(d.colorIndex) % 9;
+      }
+      if (typeof d.label === "string" && d.label.trim()) {
+        normalized.label = d.label.trim().slice(0, 120);
+      }
+      if (typeof d.crewMemberId === "string" && d.crewMemberId) {
+        normalized.crewMemberId = d.crewMemberId;
       }
       return normalized;
     });
@@ -202,6 +212,12 @@ export function saveFormationToBox(
       if (typeof d.colorIndex === "number" && Number.isFinite(d.colorIndex)) {
         spot.colorIndex = Math.floor(d.colorIndex) % 9;
       }
+      if (typeof d.label === "string" && d.label.trim()) {
+        spot.label = d.label.trim().slice(0, 120);
+      }
+      if (typeof d.crewMemberId === "string" && d.crewMemberId) {
+        spot.crewMemberId = d.crewMemberId;
+      }
       return spot;
     }),
     createdAt: now,
@@ -277,6 +293,12 @@ export function updateFormationBoxItem(
                 ) {
                   spot.colorIndex = Math.floor(d.colorIndex) % 9;
                 }
+                if (typeof d.label === "string" && d.label.trim()) {
+                  spot.label = d.label.trim().slice(0, 120);
+                }
+                if (typeof d.crewMemberId === "string" && d.crewMemberId) {
+                  spot.crewMemberId = d.crewMemberId;
+                }
                 return spot;
               }),
               updatedAt: Date.now(),
@@ -302,22 +324,72 @@ export function updateFormationBoxItem(
 
 /**
  * 箱のアイテムを `DancerSpot[]` として復元。
- * - id / label / colorIndex は新規採番
+ * - id は新規採番（適用時に `mergeFormationBoxSnapshotWithStageIdentities` で既存に合わせる）
+ * - 保存済みの label / colorIndex / crewMemberId を反映。未保存の旧データは番号ラベル
  * - xPct/yPct はステージ可動域 [5..95] × [8..92] にクランプ
  */
 export function dancersFromFormationBoxItem(
   item: FormationBoxItem
 ): DancerSpot[] {
-  return item.dancers.map((d, i) => ({
-    id: crypto.randomUUID(),
-    label: String(i + 1),
-    xPct: clamp(d.xPct, 5, 95),
-    yPct: clamp(d.yPct, 8, 92),
-    colorIndex:
-      typeof d.colorIndex === "number" && Number.isFinite(d.colorIndex)
-        ? Math.floor(d.colorIndex) % 9
-        : i % 9,
-  }));
+  return item.dancers.map((d, i) => {
+    const label =
+      typeof d.label === "string" && d.label.trim() !== ""
+        ? d.label.trim().slice(0, 120)
+        : String(i + 1);
+    const spot: DancerSpot = {
+      id: crypto.randomUUID(),
+      label,
+      xPct: clamp(d.xPct, 5, 95),
+      yPct: clamp(d.yPct, 8, 92),
+      colorIndex:
+        typeof d.colorIndex === "number" && Number.isFinite(d.colorIndex)
+          ? Math.floor(d.colorIndex) % 9
+          : i % 9,
+    };
+    if (typeof d.crewMemberId === "string" && d.crewMemberId) {
+      spot.crewMemberId = d.crewMemberId;
+    }
+    return spot;
+  });
+}
+
+/**
+ * 形の箱から敷いた立ち位置に、いまステージ上の人物 id（他キューとの同一性）を載せつつ、
+ * **箱に保存されていた名前・色・名簿**を優先して反映する。
+ *
+ * 旧データ（スポットに label なし）は従来どおりステージ側の名前を優先する。
+ */
+export function mergeFormationBoxSnapshotWithStageIdentities(
+  restored: DancerSpot[],
+  stage: DancerSpot[],
+  item: FormationBoxItem
+): DancerSpot[] {
+  return restored.map((nd, i) => {
+    const od = stage[i];
+    const spot = item.dancers[i];
+    const hasSavedLabel =
+      spot &&
+      typeof spot.label === "string" &&
+      spot.label.trim() !== "";
+    const hasSavedCrew =
+      spot &&
+      typeof spot.crewMemberId === "string" &&
+      spot.crewMemberId.length > 0;
+
+    if (!od) {
+      return { ...nd };
+    }
+
+    return {
+      ...nd,
+      id: od.id,
+      label: hasSavedLabel ? nd.label : od.label,
+      colorIndex: hasSavedLabel ? nd.colorIndex : od.colorIndex,
+      crewMemberId: hasSavedCrew ? nd.crewMemberId : od.crewMemberId,
+      sizePx: od.sizePx ?? nd.sizePx,
+      note: od.note ?? nd.note,
+    };
+  });
 }
 
 /**

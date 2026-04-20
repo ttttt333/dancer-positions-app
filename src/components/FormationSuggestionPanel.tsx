@@ -9,6 +9,7 @@ import {
   dancersFromFormationBoxItem,
   deleteFormationBoxItem,
   listFormationBoxItems,
+  mergeFormationBoxSnapshotWithStageIdentities,
   renameFormationBoxItem,
   saveFormationToBox,
   updateFormationBoxItem,
@@ -252,9 +253,10 @@ export function FormationSuggestionPanel({
     (item: FormationBoxItem) => {
       if (viewMode === "view") return;
       const f0 = project.formations.find((x) => x.id === targetFormationId);
-      const dancers = transferIdentitiesByOrder(
+      const dancers = mergeFormationBoxSnapshotWithStageIdentities(
         dancersFromFormationBoxItem(item),
-        f0?.dancers ?? []
+        f0?.dancers ?? [],
+        item
       );
       setProject((p) => ({
         ...p,
