@@ -18,7 +18,6 @@ const Stage3DView = lazy(() =>
 );
 import { TimelinePanel, type TimelinePanelHandle } from "../components/TimelinePanel";
 import { InspectorPanel } from "../components/InspectorPanel";
-import { FormationSuggestionPanel } from "../components/FormationSuggestionPanel";
 import { createEmptyProject, tryMigrateFromLocalStorage } from "../lib/projectDefaults";
 import { preloadFFmpeg } from "../lib/extractVideoAudio";
 import { normalizeProject } from "../lib/normalizeProject";
@@ -31,7 +30,6 @@ import {
 } from "../lib/formationBox";
 import { dancersForLayoutPreset } from "../lib/formationLayouts";
 import { DANCER_SPACING_PRESET_OPTIONS } from "../lib/dancerSpacing";
-import { QuickFormationBar } from "../components/QuickFormationBar";
 import { buildCrewFromRows } from "../lib/crewCsvImport";
 import {
   ROSTER_FILE_ACCEPT,
@@ -114,13 +112,6 @@ export function EditorPage() {
   const [flowLibraryOpen, setFlowLibraryOpen] = useState(false);
   /** キュー追加 ＋ 形選択 ＋ 形の箱保存を 1 画面に統合したダイアログ */
   const [addCueDialogOpen, setAddCueDialogOpen] = useState(false);
-  /**
-   * 旧「形変更」+「フォーメーション案」を統合した 1 つのパネル開閉フラグ。
-   * `formationSuggestionOpen` が true の時、画面右に
-   * - 上：FormationSuggestionPanel（人数別プリセット / 形の箱）
-   * - 下：QuickFormationBar（ワンタッチ切替＋プロジェクト保存スロット）
-   * を縦に並べた共通コンテナで表示する。
-   */
   const [cuePagerListOpen, setCuePagerListOpen] = useState(false);
   /**
    * 右ペイン（キュー一覧／プロパティ）を畳んでステージを最大化するトグル。
@@ -129,11 +120,6 @@ export function EditorPage() {
    */
   const [rightPaneCollapsed, setRightPaneCollapsed] = useState(false);
   const timelineRef = useRef<TimelinePanelHandle>(null);
-  const [formationSuggestionOpen, setFormationSuggestionOpen] = useState(false);
-  /** キュー行「フォーメーション案」から開いたときのみ。null のときは選択キュー／アクティブに従う */
-  const [formationSuggestionFormationId, setFormationSuggestionFormationId] = useState<
-    string | null
-  >(null);
   const [stageInfoOpen, setStageInfoOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   const [setPiecePickerOpen, setSetPiecePickerOpen] = useState(false);
@@ -453,12 +439,6 @@ export function EditorPage() {
         setShortcutsHelpOpen(false);
         return;
       }
-      if (e.key === "Escape" && formationSuggestionOpen) {
-        setFormationSuggestionOpen(false);
-        setFormationSuggestionFormationId(null);
-        setStagePreviewDancers(null);
-        return;
-      }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
         e.preventDefault();
         if (e.shiftKey) redo();
@@ -475,7 +455,6 @@ export function EditorPage() {
   }, [
     redo,
     undo,
-    formationSuggestionOpen,
     stageInfoOpen,
     shortcutsHelpOpen,
     exportDialogOpen,
@@ -1704,64 +1683,6 @@ export function EditorPage() {
               </button>
               <button
                 type="button"
-                style={{
-                  ...btnSecondary,
-                  padding: "6px 10px",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "5px",
-                  ...(formationSuggestionOpen
-                    ? { borderColor: "#38bdf8", color: "#67e8f9" }
-                    : { borderColor: "#0ea5e9", color: "#bae6fd" }),
-                }}
-                disabled={project.viewMode === "view"}
-                title="形：このキューの立ち位置を、人数別プリセット・形の箱・保存スロットから一括で選び替え（右パネル）"
-                aria-label="形を選び替え"
-                aria-pressed={formationSuggestionOpen}
-                onClick={() =>
-                  setFormationSuggestionOpen((v) => {
-                    const next = !v;
-                    if (!next) {
-                      setFormationSuggestionFormationId(null);
-                      setStagePreviewDancers(null);
-                    }
-                    return next;
-                  })
-                }
-              >
-                <svg
-                  viewBox="0 0 22 14"
-                  width="22"
-                  height="14"
-                  aria-hidden
-                  style={{ display: "block" }}
-                >
-                  <circle cx="4" cy="2.5" r="1.3" fill="currentColor" />
-                  <circle cx="2" cy="7" r="1.3" fill="currentColor" />
-                  <circle cx="6" cy="7" r="1.3" fill="currentColor" />
-                  <circle cx="0.5" cy="11.5" r="1.2" fill="currentColor" opacity="0.7" />
-                  <circle cx="7.5" cy="11.5" r="1.2" fill="currentColor" opacity="0.7" />
-                  <path
-                    d="M11 4.5 L19 4.5 M17.3 3 L19 4.5 L17.3 6"
-                    stroke="currentColor"
-                    strokeWidth="1.3"
-                    fill="none"
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                  />
-                  <path
-                    d="M19 9.5 L11 9.5 M12.7 8 L11 9.5 L12.7 11"
-                    stroke="currentColor"
-                    strokeWidth="1.3"
-                    fill="none"
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <span style={{ fontSize: "12px", fontWeight: 600 }}>形</span>
-              </button>
-              <button
-                type="button"
                 style={btnSecondary}
                 disabled={project.viewMode === "view"}
                 title="選択中のフォーメーションにダンサーを1人追加（中央付近）"
@@ -2620,99 +2541,11 @@ export function EditorPage() {
           currentTimeSec={currentTime}
           durationSec={duration}
           onStagePreviewChange={setStagePreviewDancers}
-          onCueCreated={(cueId, _startSec, meta) => {
+          onCueCreated={(cueId) => {
             setSelectedCueIds([cueId]);
             setIsPlaying(false);
-            if (meta?.openFormationPanel && meta.formationId) {
-              setFormationSuggestionFormationId(meta.formationId);
-              setFormationSuggestionOpen(true);
-            }
           }}
         />
-      ) : null}
-
-      {project && formationSuggestionOpen ? (
-        <div
-          style={{
-            position: "fixed",
-            top: "70px",
-            right: "12px",
-            bottom: "12px",
-            width: "min(380px, 40vw)",
-            maxWidth: "420px",
-            zIndex: 50,
-            display: "flex",
-            flexDirection: "column",
-            gap: "8px",
-            pointerEvents: "auto",
-          }}
-        >
-          {/* 上段: 人数別プリセット / 形の箱 */}
-          <div
-            style={{
-              flex: "1 1 0",
-              minHeight: 0,
-              display: "flex",
-              overflow: "hidden",
-            }}
-          >
-            <FormationSuggestionPanel
-              project={project}
-              setProject={setProjectSafe}
-              variant="embedded"
-              formationTargetId={
-                formationSuggestionFormationId ??
-                selectedCue?.formationId ??
-                project.activeFormationId
-              }
-              onStagePreviewChange={setStagePreviewDancers}
-              onClose={() => {
-                setFormationSuggestionOpen(false);
-                setFormationSuggestionFormationId(null);
-                setStagePreviewDancers(null);
-              }}
-              onAfterApply={() => {
-                setFormationSuggestionOpen(false);
-                setFormationSuggestionFormationId(null);
-              }}
-            />
-          </div>
-          {/* 下段: ワンタッチ切替＋プロジェクト保存スロット */}
-          <div
-            style={{
-              flex: "1 1 0",
-              minHeight: 0,
-              display: "flex",
-              overflow: "hidden",
-            }}
-          >
-            <QuickFormationBar
-              project={project}
-              setProject={setProjectSafe}
-              targetFormationId={
-                formationSuggestionFormationId ??
-                selectedCue?.formationId ??
-                project.activeFormationId
-              }
-              onPreviewChange={setStagePreviewDancers}
-              targetCueLabel={(() => {
-                if (!selectedCue) return null;
-                const trimmed = selectedCue.name?.trim();
-                if (trimmed) return `キュー「${trimmed}」`;
-                const sortedIdx = cuesSortedForStageJump.findIndex(
-                  (c) => c.id === selectedCue.id
-                );
-                return sortedIdx >= 0
-                  ? `キュー #${sortedIdx + 1}`
-                  : "選択中のキュー";
-              })()}
-              disabled={
-                project.viewMode === "view" ||
-                (project.cues.length > 0 && !selectedCueId)
-              }
-            />
-          </div>
-        </div>
       ) : null}
 
       <style>{`

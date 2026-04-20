@@ -30,10 +30,10 @@ import { FormationBoxItemThumb } from "./FormationBoxItemThumb";
  * ステージの「＋キュー」用の右側パネル。
  * - 開始時刻
  * - 人数（±）
- * - 立ち位置の決め方（4 モード）＋雛形／保存リストの選択
+ * - 立ち位置について（4 モード）＋雛形／保存リストの選択
  */
 
-type AddMode = "edit_current" | "duplicate" | "template" | "saved";
+type AddMode = "template" | "saved" | "edit_current" | "duplicate";
 
 type Props = {
   open: boolean;
@@ -42,15 +42,8 @@ type Props = {
   setProject: React.Dispatch<React.SetStateAction<ChoreographyProjectJson>>;
   currentTimeSec: number;
   durationSec: number;
-  /**
-   * キュー作成後。`openFormationPanel` が true のときは、右の形編集パネルを
-   * このフォーメーション向けに開く（親が formationSuggestion を開く）。
-   */
-  onCueCreated?: (
-    cueId: string,
-    startSec: number,
-    meta?: { formationId: string; openFormationPanel: boolean }
-  ) => void;
+  /** キュー作成後（選択・再生停止などは親で処理） */
+  onCueCreated?: (cueId: string, startSec: number) => void;
   onStagePreviewChange?: (dancers: DancerSpot[] | null) => void;
 };
 
@@ -348,8 +341,8 @@ export function AddCueWithFormationDialog({
   const buildDancers = useCallback((): DancerSpot[] => {
     const active = activeFormationDancers(project);
     switch (addMode) {
-      case "edit_current":
       case "duplicate":
+      case "edit_current":
         return dancersForTargetCount(active, count, spacingOpts);
       case "template": {
         if (!templatePresetId) return [];
@@ -481,10 +474,7 @@ export function AddCueWithFormationDialog({
     });
 
     onStagePreviewChange?.(null);
-    onCueCreated?.(newCueId, appliedT, {
-      formationId: newFmId,
-      openFormationPanel: addMode === "edit_current",
-    });
+    onCueCreated?.(newCueId, appliedT);
     onClose();
   }, [
     canConfirm,
@@ -518,16 +508,6 @@ export function AddCueWithFormationDialog({
     desc: string;
   }[] = [
     {
-      mode: "edit_current",
-      title: "今の立ち位置を変更",
-      desc: "いまの形を複製した新しいキューを作り、右のパネルで編集を続けます",
-    },
-    {
-      mode: "duplicate",
-      title: "今の立ち位置を複製",
-      desc: "人数に合わせてコピー（増減は横一列で補完）",
-    },
-    {
       mode: "template",
       title: "雛形から選ぶ",
       desc: "定番プリセットから人数分を配置",
@@ -536,6 +516,16 @@ export function AddCueWithFormationDialog({
       mode: "saved",
       title: "保存したリストから選ぶ",
       desc: "形の箱・プロジェクトに保存した並びから選びます",
+    },
+    {
+      mode: "edit_current",
+      title: "今の立ち位置を変更",
+      desc: "いまの形を複製した新しいキューを作り、ステージやインスペクタで編集を続けます",
+    },
+    {
+      mode: "duplicate",
+      title: "今の立ち位置を複製",
+      desc: "人数に合わせてコピー（増減は横一列で補完）",
     },
   ];
 
@@ -722,7 +712,7 @@ export function AddCueWithFormationDialog({
           <section>
             <div style={sectionLabelStyle}>
               <span style={sectionNumberStyle}>3</span>
-              立ち位置の決め方
+              立ち位置について
             </div>
             <div
               style={{
