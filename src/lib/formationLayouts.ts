@@ -226,14 +226,16 @@ export const LAYOUT_PRESET_OPTIONS = [
   { id: "rows_5", label: "5列" },
   /** ─ ここから補助的なバリエーション ─ */
   { id: "rows_6", label: "6列" },
-  {
-    id: "front_stair_from_2",
-    label: "段の列（手前2人→奥で列ごと+1人）",
-  },
-  {
-    id: "front_stair_from_3",
-    label: "段の列（手前3人→奥で列ごと+1人）",
-  },
+  { id: "front_stair_from_2", label: "段の列（手前2人）" },
+  { id: "front_stair_from_3", label: "段の列（手前3人）" },
+  { id: "front_stair_from_4", label: "段の列（手前4人）" },
+  { id: "front_stair_from_5", label: "段の列（手前5人）" },
+  { id: "front_stair_from_6", label: "段の列（手前6人）" },
+  { id: "front_stair_from_7", label: "段の列（手前7人）" },
+  { id: "front_stair_from_8", label: "段の列（手前8人）" },
+  { id: "front_stair_from_9", label: "段の列（手前9人）" },
+  { id: "front_stair_from_10", label: "段の列（手前10人）" },
+  { id: "front_stair_from_11", label: "段の列（手前11人）" },
   { id: "line_front", label: "横一列（客席寄り・手前）" },
   { id: "line_back", label: "横一列（奥）" },
   { id: "arc", label: "円弧（客席向き）" },
@@ -488,9 +490,20 @@ export function dancersForLayoutPreset(
       break;
     }
     case "front_stair_from_2":
-    case "front_stair_from_3": {
-      const first = preset === "front_stair_from_2" ? 2 : 3;
-      const rowCounts = frontAudienceGrowingRowCounts(n, first);
+    case "front_stair_from_3":
+    case "front_stair_from_4":
+    case "front_stair_from_5":
+    case "front_stair_from_6":
+    case "front_stair_from_7":
+    case "front_stair_from_8":
+    case "front_stair_from_9":
+    case "front_stair_from_10":
+    case "front_stair_from_11": {
+      const first = parseInt(preset.replace("front_stair_from_", ""), 10);
+      const rowCounts = frontAudienceGrowingRowCounts(
+        n,
+        Math.max(2, Math.min(11, first))
+      );
       const nr = rowCounts.length;
       const maxCnt = Math.max(1, ...rowCounts);
       let idx = 0;
@@ -530,18 +543,66 @@ export function dancersForLayoutPreset(
       }
       break;
     }
-    case "stagger":
-    case "stagger_inverse": {
+    case "stagger": {
       const rows = 2;
       const per = Math.ceil(n / rows);
       const xs = evenSpacingPositions(per, 50, TARGET_STEP_X, 12, 88);
-      /** 千鳥: 手前列（客席寄り）を横にずらす。逆千鳥: 奥列をずらす。 */
-      const offsetRow = preset === "stagger" ? 1 : 0;
+      /** 千鳥: 手前列（客席寄り・y 大）を横に半ステップずらす */
       for (let i = 0; i < n; i++) {
         const r = i % rows;
-        const idx = Math.floor(i / rows);
-        const offset = r === offsetRow ? TARGET_STEP_X / 2 : 0;
-        pushSpot(out, i, (xs[idx] ?? 50) + offset, r === 0 ? 38 : 54);
+        const col = Math.floor(i / rows);
+        const offset = r === 1 ? TARGET_STEP_X / 2 : 0;
+        pushSpot(out, i, (xs[col] ?? 50) + offset, r === 0 ? 38 : 54);
+      }
+      break;
+    }
+    case "stagger_inverse": {
+      /**
+       * 逆千鳥（ユーザ基準図）:
+       * - 奥行（y 小）に `ceil(n/2)` 人を等間隔
+       * - 手前（y 大）に残りを、奥の隣同士の中点（隙間）に並べる（奇数 n で奥が 1 人多い）
+       * - 同人数のときは二段とも等間隔＋手前をハーフステップずらす
+       */
+      const yBack = 38;
+      const yFront = 54;
+      const nBack = Math.ceil(n / 2);
+      const nFront = n - nBack;
+
+      if (n === 1) {
+        pushSpot(out, 0, 50, yFront);
+        break;
+      }
+
+      const xsBack = evenSpacingPositions(nBack, 50, TARGET_STEP_X, 12, 88);
+      let idx = 0;
+      for (let j = 0; j < nBack; j++) {
+        pushSpot(out, idx++, xsBack[j]!, yBack);
+      }
+
+      if (nFront === 0) break;
+
+      let xsFront: number[];
+      if (nBack >= 2 && nFront <= nBack - 1) {
+        const nGap = nBack - 1;
+        const start = Math.max(0, Math.floor((nGap - nFront) / 2));
+        xsFront = [];
+        for (let j = 0; j < nFront; j++) {
+          const k = start + j;
+          xsFront.push((xsBack[k]! + xsBack[k + 1]!) / 2);
+        }
+      } else {
+        /** n_front === n_back（同数）など */
+        if (nBack === 1) {
+          xsFront = evenSpacingPositions(nFront, 50, TARGET_STEP_X, 12, 88);
+        } else {
+          const halfStep = (xsBack[1]! - xsBack[0]!) / 2;
+          const raw = evenSpacingPositions(nFront, 50, TARGET_STEP_X, 12, 88);
+          xsFront = raw.map((x) => x + halfStep);
+        }
+      }
+
+      for (let j = 0; j < nFront; j++) {
+        pushSpot(out, idx++, xsFront[j] ?? 50, yFront);
       }
       break;
     }

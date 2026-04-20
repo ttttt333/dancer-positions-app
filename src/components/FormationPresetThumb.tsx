@@ -10,6 +10,43 @@ type Props = {
 /** ステージ俯瞰イメージ（上＝奥、下＝客席帯） */
 const VB = "0 0 100 60";
 
+/** `frontAudienceGrowingRowCounts` と同じ段の増分（サムネ用の人数サンプル） */
+function growingStairRowCountsForThumb(n: number, firstRow: number): number[] {
+  const rows: number[] = [];
+  let rem = n;
+  let w = Math.max(1, Math.floor(firstRow));
+  while (rem > 0) {
+    const take = Math.min(w, rem);
+    rows.push(take);
+    rem -= take;
+    w += 1;
+  }
+  return rows;
+}
+
+function thumbPointsFrontStair(firstRow: number): readonly (readonly [number, number])[] {
+  const nSample = Math.min(16, Math.max(6, firstRow * 3));
+  const counts = growingStairRowCountsForThumb(nSample, firstRow);
+  const nr = counts.length;
+  const maxCnt = Math.max(1, ...counts);
+  const pts: [number, number][] = [];
+  const yFront = 50;
+  const yBack = 16;
+  for (let r = 0; r < nr; r++) {
+    const cnt = counts[r]!;
+    const y =
+      nr <= 1 ? yFront : yBack + ((nr - 1 - r) / (nr - 1)) * (yFront - yBack);
+    const step =
+      cnt <= 1 ? 0 : Math.min(14, (maxCnt > 1 ? 56 / (maxCnt - 1) : 14));
+    const span = cnt <= 1 ? 0 : step * (cnt - 1);
+    for (let j = 0; j < cnt; j++) {
+      const x = cnt === 1 ? 50 : 50 - span / 2 + j * step;
+      pts.push([Math.round(x * 10) / 10, Math.round(y * 10) / 10]);
+    }
+  }
+  return pts;
+}
+
 function Dots({ pts }: { pts: readonly (readonly [number, number])[] }) {
   return (
     <>
@@ -129,25 +166,19 @@ export function FormationPresetThumb({ preset, width = 36, className }: Props) {
       ];
       break;
     case "front_stair_from_2":
-      pts = [
-        [38, 48],
-        [62, 48],
-        [30, 34],
-        [50, 34],
-        [70, 34],
-        [50, 20],
-      ];
-      break;
     case "front_stair_from_3":
-      pts = [
-        [30, 48],
-        [50, 48],
-        [70, 48],
-        [40, 32],
-        [60, 32],
-        [50, 16],
-      ];
+    case "front_stair_from_4":
+    case "front_stair_from_5":
+    case "front_stair_from_6":
+    case "front_stair_from_7":
+    case "front_stair_from_8":
+    case "front_stair_from_9":
+    case "front_stair_from_10":
+    case "front_stair_from_11": {
+      const k = parseInt(preset.slice("front_stair_from_".length), 10);
+      pts = thumbPointsFrontStair(Math.max(2, Math.min(11, Number.isFinite(k) ? k : 2)));
       break;
+    }
     case "rows_3":
       pts = [
         [30, 46],
@@ -228,12 +259,15 @@ export function FormationPresetThumb({ preset, width = 36, className }: Props) {
       ];
       break;
     case "stagger_inverse":
+      /** 奥 4 + 手前 3（隙間）の示意 */
       pts = [
-        [36, 22],
-        [64, 22],
-        [22, 38],
-        [50, 38],
-        [78, 38],
+        [18, 16],
+        [40, 16],
+        [62, 16],
+        [84, 16],
+        [29, 30],
+        [51, 30],
+        [73, 30],
       ];
       break;
     case "two_rows":

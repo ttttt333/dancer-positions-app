@@ -125,15 +125,50 @@ export function Stage3DView({ dancers, markerDiameterPx = 44 }: Props) {
 
   return (
     <div
-      ref={mountRef}
       style={{
+        position: "relative",
         flex: 1,
         minHeight: "280px",
         width: "100%",
-        borderRadius: "12px",
-        overflow: "hidden",
-        border: "1px solid #334155",
+        display: "flex",
+        flexDirection: "column",
       }}
-    />
+    >
+      <div
+        ref={mountRef}
+        style={{
+          flex: "1 1 auto",
+          minHeight: 0,
+          width: "100%",
+          borderRadius: "12px",
+          overflow: "hidden",
+          border: "1px solid #334155",
+        }}
+      />
+      <div
+        aria-live="polite"
+        aria-label={`ステージ上 ${dancers.length} 人`}
+        title="いまステージに表示している人数"
+        style={{
+          position: "absolute",
+          top: 8,
+          right: 8,
+          zIndex: 2,
+          pointerEvents: "none",
+          padding: "4px 9px",
+          borderRadius: "8px",
+          border: "1px solid rgba(51, 65, 85, 0.95)",
+          background: "rgba(15, 23, 42, 0.88)",
+          color: "#e2e8f0",
+          fontSize: "12px",
+          fontWeight: 700,
+          fontVariantNumeric: "tabular-nums",
+          lineHeight: 1.2,
+          boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
+        }}
+      >
+        {dancers.length}人
+      </div>
+    </div>
   );
 }

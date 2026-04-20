@@ -7,7 +7,7 @@
  *   - HTML / HTM       … `DOMParser` で <table> または <li> を行配列に
  *   - PDF              … `pdfjs-dist` を動的 import してページごとに行を再構築
  *
- * すべて `string[][]`（行 × 列）で返すので、上位は `dedupeRowsToMembers` /
+ * すべて `string[][]`（行 × 列）で返すので、上位は `rowsToCrewMembers` /
  * `buildCrewFromRows` にそのまま渡せばメンバー一覧を作れる。
  *
  * 巨大ライブラリ（xlsx ≒ 350KB / pdfjs ≒ 1MB+）は動的 import なので、

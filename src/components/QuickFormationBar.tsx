@@ -529,7 +529,9 @@ export function QuickFormationBar({
           形の箱
         </SectionLabel>
         {boxItems.length === 0 ? (
-          <EmptyHint>形の箱はまだ空。ステージで「形を保存」を押すと貯まります</EmptyHint>
+          <EmptyHint>
+            形の箱はまだ空。ステージの「保存」→「作った立ち位置を保存」で貯まります
+          </EmptyHint>
         ) : (
           <ChipGrid>
             {boxItems.map((it) => {

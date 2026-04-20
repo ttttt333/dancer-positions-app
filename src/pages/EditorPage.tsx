@@ -30,17 +30,24 @@ import {
 } from "../lib/formationBox";
 import { dancersForLayoutPreset } from "../lib/formationLayouts";
 import { DANCER_SPACING_PRESET_OPTIONS } from "../lib/dancerSpacing";
-import { buildCrewFromRows } from "../lib/crewCsvImport";
+import {
+  buildCrewFromRows,
+  type RosterNameImportMode,
+} from "../lib/crewCsvImport";
 import {
   ROSTER_FILE_ACCEPT,
   labelForKind,
   parseRosterFile,
+  type RosterFileKind,
 } from "../lib/rosterFileImport";
 import type {
   ChoreographyProjectJson,
+  Crew,
   DancerSpot,
   SetPieceKind,
 } from "../types/choreography";
+import type { ImageSpotImportCommit } from "../lib/imageSpotImport";
+import { ImageSpotImportDialog } from "../components/ImageSpotImportDialog";
 import {
   SetPiecePickerModal,
   type SetPiecePickerSubmit,
@@ -50,6 +57,11 @@ import { StageShapePicker } from "../components/StageShapePicker";
 import { ExportDialog } from "../components/ExportDialog";
 import { FlowLibraryDialog } from "../components/FlowLibraryDialog";
 import { AddCueWithFormationDialog } from "../components/AddCueWithFormationDialog";
+import {
+  GATHER_TOWARD_OPTIONS,
+  gatherDancersToEdge,
+  type GatherToward,
+} from "../lib/gatherDancers";
 import { projectApi } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { btnSecondary } from "../components/StageBoard";
@@ -64,6 +76,9 @@ const STAGE_RESIZER_PX = 4;
 const STAGE_COL_MIN_PX = 280;
 const TIMELINE_COL_MIN_PX = 260;
 const TOOLBAR_COL_PX = 52;
+/** 右ペイン：タイムライン（またはキュー一覧）とプロパティの分割 */
+const RIGHT_STACK_FRAC_MIN = 0.22;
+const RIGHT_STACK_FRAC_MAX = 0.78;
 
 function readMaxStageWidthPx(gridEl: HTMLElement): number {
   const rect = gridEl.getBoundingClientRect();
@@ -120,7 +135,15 @@ export function EditorPage() {
    */
   const [rightPaneCollapsed, setRightPaneCollapsed] = useState(false);
   const timelineRef = useRef<TimelinePanelHandle>(null);
-  const [stageInfoOpen, setStageInfoOpen] = useState(false);
+  const [stageSettingsOpen, setStageSettingsOpen] = useState(false);
+  const [gatherMenuOpen, setGatherMenuOpen] = useState(false);
+  /** 保存メニュー（流れ / 立ち位置） */
+  const [saveMenuOpen, setSaveMenuOpen] = useState(false);
+  const [imageSpotImportOpen, setImageSpotImportOpen] = useState(false);
+  /**
+   * 右列スタック上段の高さ比率（タイムライン or キュー一覧）。null = 既定の flex 55% / 45%。
+   */
+  const [rightStackTopFrac, setRightStackTopFrac] = useState<number | null>(null);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   const [setPiecePickerOpen, setSetPiecePickerOpen] = useState(false);
   /** 変形舞台ピッカー（舞台形状のカスタマイズ） */
@@ -139,6 +162,15 @@ export function EditorPage() {
     useState<HTMLDivElement | null>(null);
   /** 上部ドック時の上段（波形・再生）行の高さ（px）。null = 既定の `minmax(160px, min(28vh, 300px))` */
   const [topDockRowPx, setTopDockRowPx] = useState<number | null>(null);
+  /** ステージ「名簿取り込み」: ファイル選択後の表示名モード確認 */
+  const [rosterImportDraft, setRosterImportDraft] = useState<{
+    rows: string[][];
+    baseName: string;
+    kind: RosterFileKind;
+    notice?: string;
+  } | null>(null);
+  const [rosterImportNameMode, setRosterImportNameMode] =
+    useState<RosterNameImportMode>("full");
   const editorPaneRef = useRef<HTMLDivElement>(null);
   const stageSectionRef = useRef<HTMLElement>(null);
   const splitDragRef = useRef<{
@@ -150,6 +182,13 @@ export function EditorPage() {
     pointerId: number;
     startY: number;
     startH: number;
+  } | null>(null);
+  const rightPaneStackRef = useRef<HTMLDivElement>(null);
+  const rightStackDragRef = useRef<{
+    pointerId: number;
+    startY: number;
+    startFrac: number;
+    stackH: number;
   } | null>(null);
 
   const historyRef = useRef<{ undo: string[]; redo: string[] }>({
@@ -361,6 +400,87 @@ export function EditorPage() {
     setTopDockRowPx(null);
   }, []);
 
+  const onRightStackResizeDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      const stack = rightPaneStackRef.current;
+      if (!stack) return;
+      e.preventDefault();
+      const stackH = stack.getBoundingClientRect().height;
+      if (stackH < 80) return;
+      const baseFrac = rightStackTopFrac ?? 0.55;
+      rightStackDragRef.current = {
+        pointerId: e.pointerId,
+        startY: e.clientY,
+        startFrac: baseFrac,
+        stackH,
+      };
+      e.currentTarget.setPointerCapture(e.pointerId);
+      document.body.style.cursor = "row-resize";
+      document.body.style.userSelect = "none";
+    },
+    [rightStackTopFrac]
+  );
+
+  const onRightStackResizeMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const d = rightStackDragRef.current;
+      if (!d || e.pointerId !== d.pointerId) return;
+      const dy = e.clientY - d.startY;
+      const next = Math.min(
+        RIGHT_STACK_FRAC_MAX,
+        Math.max(RIGHT_STACK_FRAC_MIN, d.startFrac - dy / d.stackH)
+      );
+      setRightStackTopFrac(next);
+    },
+    []
+  );
+
+  const endRightStackResize = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const d = rightStackDragRef.current;
+    if (!d || e.pointerId !== d.pointerId) return;
+    rightStackDragRef.current = null;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+  }, []);
+
+  const onRightStackResizeLostCapture = useCallback(() => {
+    rightStackDragRef.current = null;
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+  }, []);
+
+  const onRightStackResizeDoubleClick = useCallback(() => {
+    setRightStackTopFrac(null);
+  }, []);
+
+  const rightPaneTopSectionStyle = useMemo((): CSSProperties => {
+    if (rightStackTopFrac == null) {
+      return { flex: "1 1 55%", minHeight: 0, minWidth: 0 };
+    }
+    return {
+      flex: `${rightStackTopFrac} 1 0px`,
+      minHeight: 0,
+      minWidth: 0,
+    };
+  }, [rightStackTopFrac]);
+
+  const rightPaneBottomSectionStyle = useMemo((): CSSProperties => {
+    if (rightStackTopFrac == null) {
+      return { flex: "1 1 45%", minHeight: 0, minWidth: 0 };
+    }
+    return {
+      flex: `${1 - rightStackTopFrac} 1 0px`,
+      minHeight: 0,
+      minWidth: 0,
+    };
+  }, [rightStackTopFrac]);
+
   const editorGridColumns = wideEditorLayout
     ? rightPaneCollapsed
       ? `${TOOLBAR_COL_PX}px 1fr`
@@ -419,8 +539,20 @@ export function EditorPage() {
       ) {
         return;
       }
-      if (e.key === "Escape" && stageInfoOpen) {
-        setStageInfoOpen(false);
+      if (e.key === "Escape" && saveMenuOpen) {
+        setSaveMenuOpen(false);
+        return;
+      }
+      if (e.key === "Escape" && imageSpotImportOpen) {
+        setImageSpotImportOpen(false);
+        return;
+      }
+      if (e.key === "Escape" && gatherMenuOpen) {
+        setGatherMenuOpen(false);
+        return;
+      }
+      if (e.key === "Escape" && stageSettingsOpen) {
+        setStageSettingsOpen(false);
         return;
       }
       if (e.key === "Escape" && exportDialogOpen) {
@@ -439,6 +571,10 @@ export function EditorPage() {
         setShortcutsHelpOpen(false);
         return;
       }
+      if (e.key === "Escape" && rosterImportDraft) {
+        setRosterImportDraft(null);
+        return;
+      }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
         e.preventDefault();
         if (e.shiftKey) redo();
@@ -455,11 +591,15 @@ export function EditorPage() {
   }, [
     redo,
     undo,
-    stageInfoOpen,
+    saveMenuOpen,
+    imageSpotImportOpen,
+    gatherMenuOpen,
+    stageSettingsOpen,
     shortcutsHelpOpen,
     exportDialogOpen,
     flowLibraryOpen,
     cuePagerListOpen,
+    rosterImportDraft,
   ]);
 
   const interpolatedDancers = useMemo(() => {
@@ -601,6 +741,28 @@ export function EditorPage() {
     [selectedCueId, setProjectSafe]
   );
 
+  const applyGatherToward = useCallback(
+    (toward: GatherToward) => {
+      if (!project || project.viewMode === "view") return;
+      if (project.cues.length > 0 && !selectedCueId) return;
+      const fid = selectedCue?.formationId ?? project.activeFormationId;
+      setProjectSafe((p) => {
+        const f = p.formations.find((x) => x.id === fid);
+        if (!f?.dancers.length) return p;
+        return {
+          ...p,
+          formations: p.formations.map((x) =>
+            x.id === fid
+              ? { ...x, dancers: gatherDancersToEdge(x.dancers, toward) }
+              : x
+          ),
+        };
+      });
+      setGatherMenuOpen(false);
+    },
+    [project, selectedCueId, selectedCue, setProjectSafe]
+  );
+
   /**
    * ＋ダンサーボタンで 1 人ずつ追加するときの配置ルール。
    *
@@ -655,6 +817,39 @@ export function EditorPage() {
    * - XLSX や PDF など重いライブラリは選択時に動的読み込みされる。
    * - PDF はレイアウト依存で結果が崩れることがあるため、取り込み後に確認を促す。
    */
+  const commitImageSpotImport = useCallback(
+    (payload: ImageSpotImportCommit) => {
+      if (!project || project.viewMode === "view") return;
+      if (project.cues.length > 0 && !selectedCueId) return;
+      const fid = selectedCue?.formationId ?? project.activeFormationId;
+      setProjectSafe((p) => {
+        const fm = p.formations.find((x) => x.id === fid);
+        if (!fm) return p;
+        const crew: Crew = {
+          id: crypto.randomUUID(),
+          name: payload.crewName.trim().slice(0, 80) || "画像取込",
+          members: payload.rows.map((r) => r.member),
+        };
+        const newDancers: DancerSpot[] = payload.rows.map((r) => ({
+          id: crypto.randomUUID(),
+          label: r.member.label.slice(0, 14),
+          xPct: r.xPct,
+          yPct: r.yPct,
+          colorIndex: r.member.colorIndex % 9,
+          crewMemberId: r.member.id,
+        }));
+        return {
+          ...p,
+          crews: [...p.crews, crew],
+          formations: p.formations.map((f) =>
+            f.id === fid ? { ...f, dancers: [...f.dancers, ...newDancers] } : f
+          ),
+        };
+      });
+    },
+    [project, selectedCueId, selectedCue, setProjectSafe]
+  );
+
   const importCrewCsvFromStageToolbar = useCallback(() => {
     if (!project || project.viewMode === "view") return;
     const input = document.createElement("input");
@@ -667,21 +862,13 @@ export function EditorPage() {
         const result = await parseRosterFile(f);
         const defaultName =
           result.baseName || `名簿 ${(project.crews?.length ?? 0) + 1}`;
-        const crew = buildCrewFromRows(defaultName, result.rows);
-        if (crew.members.length === 0) {
-          window.alert(
-            `${labelForKind(result.kind)} から名前らしき列を見つけられませんでした。\n` +
-              "1 列目に名前を入れるか、見出し行に「名前」「label」「name」などを含めてください。"
-          );
-          return;
-        }
-        setProjectSafe((p) => ({ ...p, crews: [...p.crews, crew] }));
-        if (result.notice) {
-          window.alert(
-            `${labelForKind(result.kind)} から ${crew.members.length} 名を取り込みました。\n\n` +
-              result.notice
-          );
-        }
+        setRosterImportNameMode("full");
+        setRosterImportDraft({
+          rows: result.rows,
+          baseName: defaultName,
+          kind: result.kind,
+          notice: result.notice,
+        });
       } catch (e) {
         window.alert(
           e instanceof Error ? e.message : "ファイルの読み込みに失敗しました"
@@ -1417,10 +1604,10 @@ export function EditorPage() {
               <button
                 type="button"
                 disabled={project.viewMode === "view"}
-                title="メイン幅・奥行・サイド・バック・場ミリを編集"
+                title="舞台の大きさ・客席の位置・袖・バック・場ミリを編集"
                 aria-haspopup="dialog"
-                aria-expanded={stageInfoOpen}
-                onClick={() => setStageInfoOpen(true)}
+                aria-expanded={stageSettingsOpen}
+                onClick={() => setStageSettingsOpen(true)}
                 style={{
                   fontSize: "11px",
                   lineHeight: 1.2,
@@ -1433,8 +1620,111 @@ export function EditorPage() {
                   flexShrink: 0,
                 }}
               >
-                ステージ情報
+                ステージ設定
               </button>
+              {(() => {
+                const canGather =
+                  project.viewMode !== "view" &&
+                  (project.cues.length === 0 || Boolean(selectedCueId)) &&
+                  (project.formations.find(
+                    (x) => x.id === (selectedCue?.formationId ?? project.activeFormationId)
+                  )?.dancers.length ?? 0) > 0;
+                return (
+                  <div
+                    style={{
+                      position: "relative",
+                      display: "inline-flex",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      disabled={!canGather}
+                      title="全員を前・奥・上手・下手へ寄せて整列（行を分けて重なりにくくします）。元に戻すは「戻る」"
+                      aria-haspopup="menu"
+                      aria-expanded={gatherMenuOpen}
+                      onClick={() => setGatherMenuOpen((v) => !v)}
+                      style={{
+                        fontSize: "11px",
+                        lineHeight: 1.2,
+                        padding: "3px 8px",
+                        borderRadius: "6px",
+                        border: "1px solid #334155",
+                        background: "#0f172a",
+                        color: "#94a3b8",
+                        cursor: canGather ? "pointer" : "not-allowed",
+                      }}
+                    >
+                      寄せる
+                    </button>
+                    {gatherMenuOpen ? (
+                      <>
+                        <div
+                          onClick={() => setGatherMenuOpen(false)}
+                          style={{
+                            position: "fixed",
+                            inset: 0,
+                            zIndex: 30,
+                          }}
+                          aria-hidden
+                        />
+                        <div
+                          role="menu"
+                          aria-label="寄せる方向"
+                          style={{
+                            position: "absolute",
+                            top: "calc(100% + 4px)",
+                            left: 0,
+                            zIndex: 31,
+                            minWidth: "220px",
+                            padding: "6px",
+                            background: "#0b1220",
+                            border: "1px solid #334155",
+                            borderRadius: "8px",
+                            boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
+                          }}
+                        >
+                          {GATHER_TOWARD_OPTIONS.map((o) => (
+                            <button
+                              key={o.id}
+                              type="button"
+                              role="menuitem"
+                              onClick={() => applyGatherToward(o.id)}
+                              title={o.hint}
+                              style={{
+                                display: "block",
+                                width: "100%",
+                                textAlign: "left",
+                                padding: "8px 10px",
+                                marginBottom: "2px",
+                                borderRadius: "6px",
+                                border: "1px solid #1e293b",
+                                background: "#0f172a",
+                                color: "#e2e8f0",
+                                fontSize: "12px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <span style={{ fontWeight: 600 }}>{o.label}</span>
+                              <span
+                                style={{
+                                  display: "block",
+                                  marginTop: "2px",
+                                  fontSize: "10px",
+                                  color: "#64748b",
+                                  fontWeight: 400,
+                                }}
+                              >
+                                {o.hint}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    ) : null}
+                  </div>
+                );
+              })()}
               {wideEditorLayout ? (
                 <button
                   type="button"
@@ -1598,89 +1888,187 @@ export function EditorPage() {
                 </svg>
                 <span style={{ fontSize: "12px", fontWeight: 700 }}>キュー</span>
               </button>
-              <button
-                type="button"
-                style={{
-                  ...btnSecondary,
-                  borderColor: "#14532d",
-                  color: "#bbf7d0",
-                  padding: "6px 10px",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "5px",
-                }}
-                disabled={project.viewMode === "view"}
-                title="形を保存：いまステージに並んでいる立ち位置をそのまま『形の箱』に保存します"
-                aria-label="この形を保存"
-                onClick={saveStageToFormationBox}
-              >
-                <svg
-                  viewBox="0 0 16 16"
-                  width="14"
-                  height="14"
-                  aria-hidden
-                  style={{ display: "block" }}
-                >
-                  <path
-                    d="M2.5 2.5 L11 2.5 L13.5 5 L13.5 13.5 L2.5 13.5 Z"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.3"
-                    strokeLinejoin="round"
-                  />
-                  <rect x="5" y="2.5" width="5" height="3.6" fill="currentColor" />
-                  <rect
-                    x="4.5"
-                    y="9"
-                    width="7"
-                    height="4.5"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1"
-                  />
-                </svg>
-                <span style={{ fontSize: "12px", fontWeight: 600 }}>形</span>
-              </button>
-              <button
-                type="button"
-                style={{
-                  ...btnSecondary,
-                  borderColor: "#1e3a8a",
-                  color: "#bfdbfe",
-                  padding: "6px 10px",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "5px",
-                }}
-                title="フロー保存：作ったキューの並び（立ち位置の流れ）を名前をつけて端末に保存・呼び出し"
-                aria-label="フローを保存"
-                onClick={() => setFlowLibraryOpen(true)}
-              >
-                <svg
-                  viewBox="0 0 18 14"
-                  width="18"
-                  height="14"
-                  aria-hidden
-                  style={{ display: "block" }}
-                >
-                  <circle cx="2.5" cy="7" r="1.4" fill="currentColor" />
-                  <path
-                    d="M4 7 L7 7"
-                    stroke="currentColor"
-                    strokeWidth="1.2"
-                    strokeLinecap="round"
-                  />
-                  <circle cx="9" cy="7" r="1.4" fill="currentColor" />
-                  <path
-                    d="M10.5 7 L13.5 7"
-                    stroke="currentColor"
-                    strokeWidth="1.2"
-                    strokeLinecap="round"
-                  />
-                  <circle cx="15.5" cy="7" r="1.4" fill="currentColor" />
-                </svg>
-                <span style={{ fontSize: "12px", fontWeight: 600 }}>保存</span>
-              </button>
+              {(() => {
+                const editFid =
+                  selectedCue?.formationId ?? project.activeFormationId;
+                const editFormation = project.formations.find(
+                  (x) => x.id === editFid
+                );
+                const canSaveSpots =
+                  project.viewMode !== "view" &&
+                  (editFormation?.dancers.length ?? 0) > 0;
+                const saveSpotsHint =
+                  project.viewMode === "view"
+                    ? "閲覧モードでは使えません"
+                    : (editFormation?.dancers.length ?? 0) === 0
+                      ? "いまのフォーメーションにダンサーがいません"
+                      : "いまステージの形をそのまま「形の箱」に保存";
+                return (
+                  <div
+                    style={{
+                      position: "relative",
+                      display: "inline-flex",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      style={{
+                        ...btnSecondary,
+                        borderColor: "#1e3a8a",
+                        color: "#bfdbfe",
+                        padding: "6px 10px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "5px",
+                      }}
+                      title="流れ（キュー並び）か、いまの立ち位置（形の箱）を保存"
+                      aria-haspopup="menu"
+                      aria-expanded={saveMenuOpen}
+                      onClick={() => setSaveMenuOpen((v) => !v)}
+                    >
+                      <svg
+                        viewBox="0 0 18 14"
+                        width="18"
+                        height="14"
+                        aria-hidden
+                        style={{ display: "block" }}
+                      >
+                        <circle cx="2.5" cy="7" r="1.4" fill="currentColor" />
+                        <path
+                          d="M4 7 L7 7"
+                          stroke="currentColor"
+                          strokeWidth="1.2"
+                          strokeLinecap="round"
+                        />
+                        <circle cx="9" cy="7" r="1.4" fill="currentColor" />
+                        <path
+                          d="M10.5 7 L13.5 7"
+                          stroke="currentColor"
+                          strokeWidth="1.2"
+                          strokeLinecap="round"
+                        />
+                        <circle cx="15.5" cy="7" r="1.4" fill="currentColor" />
+                      </svg>
+                      <span style={{ fontSize: "12px", fontWeight: 600 }}>
+                        保存
+                      </span>
+                      <span
+                        aria-hidden
+                        style={{
+                          fontSize: "10px",
+                          color: "#93c5fd",
+                          marginLeft: "1px",
+                        }}
+                      >
+                        ▾
+                      </span>
+                    </button>
+                    {saveMenuOpen ? (
+                      <>
+                        <div
+                          onClick={() => setSaveMenuOpen(false)}
+                          style={{
+                            position: "fixed",
+                            inset: 0,
+                            zIndex: 30,
+                          }}
+                          aria-hidden
+                        />
+                        <div
+                          role="menu"
+                          aria-label="保存の種類"
+                          style={{
+                            position: "absolute",
+                            top: "calc(100% + 4px)",
+                            right: 0,
+                            zIndex: 31,
+                            minWidth: "260px",
+                            padding: "6px",
+                            background: "#0b1220",
+                            border: "1px solid #334155",
+                            borderRadius: "8px",
+                            boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
+                          }}
+                        >
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                              setSaveMenuOpen(false);
+                              setFlowLibraryOpen(true);
+                            }}
+                            style={{
+                              display: "block",
+                              width: "100%",
+                              textAlign: "left",
+                              padding: "8px 10px",
+                              marginBottom: "4px",
+                              borderRadius: "6px",
+                              border: "1px solid #1e3a8a",
+                              background: "#0f172a",
+                              color: "#e2e8f0",
+                              fontSize: "12px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <span style={{ fontWeight: 600 }}>
+                              今までの流れを保存
+                            </span>
+                            <span
+                              style={{
+                                display: "block",
+                                marginTop: "3px",
+                                fontSize: "10px",
+                                color: "#64748b",
+                                fontWeight: 400,
+                              }}
+                            >
+                              作ったキューの並び（立ち位置の流れ）を名前をつけて端末に保存・呼び出し
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            disabled={!canSaveSpots}
+                            onClick={() => {
+                              setSaveMenuOpen(false);
+                              saveStageToFormationBox();
+                            }}
+                            style={{
+                              display: "block",
+                              width: "100%",
+                              textAlign: "left",
+                              padding: "8px 10px",
+                              borderRadius: "6px",
+                              border: "1px solid #14532d",
+                              background: "#0f172a",
+                              color: "#e2e8f0",
+                              fontSize: "12px",
+                              cursor: canSaveSpots ? "pointer" : "not-allowed",
+                            }}
+                          >
+                            <span style={{ fontWeight: 600 }}>
+                              作った立ち位置を保存
+                            </span>
+                            <span
+                              style={{
+                                display: "block",
+                                marginTop: "3px",
+                                fontSize: "10px",
+                                color: "#64748b",
+                                fontWeight: 400,
+                              }}
+                            >
+                              {saveSpotsHint}
+                            </span>
+                          </button>
+                        </div>
+                      </>
+                    ) : null}
+                  </div>
+                );
+              })()}
               <button
                 type="button"
                 style={btnSecondary}
@@ -1698,6 +2086,22 @@ export function EditorPage() {
                 onClick={() => importCrewCsvFromStageToolbar()}
               >
                 名簿取り込み
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  borderColor: "#713f12",
+                  color: "#fde68a",
+                }}
+                disabled={
+                  project.viewMode === "view" ||
+                  (project.cues.length > 0 && !selectedCueId)
+                }
+                title="画像の文字と位置を読み取り、名簿に追加して選択中フォーメーションへ立ち位置として追加します"
+                onClick={() => setImageSpotImportOpen(true)}
+              >
+                画像から追加
               </button>
               <div
                 style={{
@@ -2146,12 +2550,13 @@ export function EditorPage() {
 
         {rightPaneCollapsed && wideEditorLayout ? null : wideEditorLayout && waveDockTopRow ? (
           <div
+            ref={rightPaneStackRef}
             style={{
               gridColumn: 4,
               gridRow: 3,
               display: "flex",
               flexDirection: "column",
-              gap: "12px",
+              gap: 0,
               minHeight: 0,
               minWidth: 0,
               overflow: "hidden",
@@ -2163,11 +2568,10 @@ export function EditorPage() {
                 border: "1px solid #1e293b",
                 borderRadius: "12px",
                 padding: "12px",
-                minHeight: 0,
-                flex: "1 1 55%",
                 display: "flex",
                 flexDirection: "column",
                 overflow: "hidden",
+                ...rightPaneTopSectionStyle,
               }}
             >
               <h2 style={{ margin: "0 0 8px", fontSize: "13px", color: "#94a3b8" }}>
@@ -2183,17 +2587,50 @@ export function EditorPage() {
                 }}
               />
             </section>
+            <div
+              role="separator"
+              aria-orientation="horizontal"
+              aria-label="キュー一覧とプロパティの高さを調整"
+              title="ドラッグで高さを変更（ダブルクリックで既定の割合に戻す）"
+              onPointerDown={onRightStackResizeDown}
+              onPointerMove={onRightStackResizeMove}
+              onPointerUp={endRightStackResize}
+              onPointerCancel={endRightStackResize}
+              onLostPointerCapture={onRightStackResizeLostCapture}
+              onDoubleClick={onRightStackResizeDoubleClick}
+              style={{
+                flexShrink: 0,
+                height: 4,
+                cursor: "row-resize",
+                touchAction: "none",
+                userSelect: "none",
+                position: "relative",
+                zIndex: 2,
+              }}
+            >
+              <div
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  height: 1,
+                  background: "#334155",
+                }}
+              />
+            </div>
             <section
               style={{
                 background: "#020617",
                 border: "1px solid #1e293b",
                 borderRadius: "12px",
                 padding: "12px",
-                minHeight: 0,
-                flex: "1 1 45%",
                 display: "flex",
                 flexDirection: "column",
                 overflow: "hidden",
+                ...rightPaneBottomSectionStyle,
               }}
             >
               <h2 style={{ margin: "0 0 8px", fontSize: "13px", color: "#94a3b8" }}>
@@ -2214,10 +2651,11 @@ export function EditorPage() {
           </div>
         ) : (
           <div
+            ref={rightPaneStackRef}
             style={{
               display: "flex",
               flexDirection: "column",
-              gap: "12px",
+              gap: 0,
               minHeight: 0,
               minWidth: 0,
               overflow: "hidden",
@@ -2232,11 +2670,10 @@ export function EditorPage() {
                 border: "1px solid #1e293b",
                 borderRadius: "12px",
                 padding: "12px",
-                minHeight: 0,
-                flex: "1 1 55%",
                 display: "flex",
                 flexDirection: "column",
                 overflow: "hidden",
+                ...rightPaneTopSectionStyle,
               }}
             >
               <h2 style={{ margin: "0 0 8px", fontSize: "13px", color: "#94a3b8" }}>
@@ -2246,17 +2683,50 @@ export function EditorPage() {
                 {timelinePanelEl}
               </div>
             </section>
+            <div
+              role="separator"
+              aria-orientation="horizontal"
+              aria-label="タイムラインとプロパティの高さを調整"
+              title="ドラッグで高さを変更（ダブルクリックで既定の割合に戻す）"
+              onPointerDown={onRightStackResizeDown}
+              onPointerMove={onRightStackResizeMove}
+              onPointerUp={endRightStackResize}
+              onPointerCancel={endRightStackResize}
+              onLostPointerCapture={onRightStackResizeLostCapture}
+              onDoubleClick={onRightStackResizeDoubleClick}
+              style={{
+                flexShrink: 0,
+                height: 4,
+                cursor: "row-resize",
+                touchAction: "none",
+                userSelect: "none",
+                position: "relative",
+                zIndex: 2,
+              }}
+            >
+              <div
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  height: 1,
+                  background: "#334155",
+                }}
+              />
+            </div>
             <section
               style={{
                 background: "#020617",
                 border: "1px solid #1e293b",
                 borderRadius: "12px",
                 padding: "12px",
-                minHeight: 0,
-                flex: "1 1 45%",
                 display: "flex",
                 flexDirection: "column",
                 overflow: "hidden",
+                ...rightPaneBottomSectionStyle,
               }}
             >
               <h2 style={{ margin: "0 0 8px", fontSize: "13px", color: "#94a3b8" }}>
@@ -2278,7 +2748,7 @@ export function EditorPage() {
         )}
       </div>
 
-      {stageInfoOpen ? (
+      {stageSettingsOpen ? (
         <div
           style={{
             position: "fixed",
@@ -2291,13 +2761,13 @@ export function EditorPage() {
             padding: "16px",
           }}
           onClick={(e) => {
-            if (e.target === e.currentTarget) setStageInfoOpen(false);
+            if (e.target === e.currentTarget) setStageSettingsOpen(false);
           }}
         >
           <div
             role="dialog"
             aria-modal="true"
-            aria-labelledby="stage-info-dialog-title"
+            aria-labelledby="stage-settings-dialog-title"
             onClick={(e) => e.stopPropagation()}
             style={{
               width: "100%",
@@ -2321,7 +2791,7 @@ export function EditorPage() {
               }}
             >
               <h3
-                id="stage-info-dialog-title"
+                id="stage-settings-dialog-title"
                 style={{
                   margin: 0,
                   fontSize: "15px",
@@ -2329,12 +2799,12 @@ export function EditorPage() {
                   color: "#e2e8f0",
                 }}
               >
-                舞台の大きさ（詳細）
+                ステージ設定
               </h3>
               <button
                 type="button"
                 aria-label="閉じる"
-                onClick={() => setStageInfoOpen(false)}
+                onClick={() => setStageSettingsOpen(false)}
                 style={{
                   ...btnSecondary,
                   fontSize: "18px",
@@ -2352,7 +2822,8 @@ export function EditorPage() {
               compact={false}
               showHeading={false}
               embedded
-              onCommit={() => setStageInfoOpen(false)}
+              showAudienceEdge
+              onCommit={() => setStageSettingsOpen(false)}
             />
           </div>
         </div>
@@ -2513,6 +2984,18 @@ export function EditorPage() {
       />
 
       {project ? (
+        <ImageSpotImportDialog
+          open={imageSpotImportOpen}
+          onClose={() => setImageSpotImportOpen(false)}
+          disabled={
+            project.viewMode === "view" ||
+            (project.cues.length > 0 && !selectedCueId)
+          }
+          onCommit={commitImageSpotImport}
+        />
+      ) : null}
+
+      {project ? (
         <ExportDialog
           open={exportDialogOpen}
           onClose={() => setExportDialogOpen(false)}
@@ -2546,6 +3029,159 @@ export function EditorPage() {
             setIsPlaying(false);
           }}
         />
+      ) : null}
+
+      {project && rosterImportDraft ? (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 60,
+            background: "rgba(0,0,0,0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "16px",
+          }}
+          role="presentation"
+          onClick={() => setRosterImportDraft(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="名簿取り込みの表示名"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(440px, 100%)",
+              borderRadius: "12px",
+              border: "1px solid #334155",
+              background: "#0f172a",
+              color: "#e2e8f0",
+              padding: "18px 20px",
+              boxShadow: "0 24px 60px rgba(0,0,0,0.5)",
+            }}
+          >
+            <div style={{ fontSize: "15px", fontWeight: 700, marginBottom: "8px" }}>
+              名簿を取り込みます
+            </div>
+            <p style={{ margin: "0 0 12px", fontSize: "12px", color: "#94a3b8", lineHeight: 1.5 }}>
+              {labelForKind(rosterImportDraft.kind)}「{rosterImportDraft.baseName}」
+              <br />
+              ステージ上の表示は最大 8 文字です。同じ名前が複数あるときは、苗字の先頭 1 文字を前に付けて区別します。
+              <br />
+              見出しに「出欠」「参加」「出席」などがあるとき、または氏名の左右の列が ○・参加・出席 などで埋まっているときは、その列で参加行だけを名簿に含めます。
+              見出しに「フリガナ」「読み」「セイ」「メイ」などがあり、読みに姓と名が分かるときは「名の読み」を表示のベースにし、苗字の読みの先頭 1 文字を付けた短い名前（例: さかい+たけし→さたけし）にします。
+            </p>
+            <div style={{ fontSize: "12px", fontWeight: 600, color: "#cbd5e1", marginBottom: "8px" }}>
+              表示名の取り込み方
+            </div>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "8px",
+                marginBottom: "8px",
+                cursor: "pointer",
+                fontSize: "13px",
+              }}
+            >
+              <input
+                type="radio"
+                name="roster-import-name-mode"
+                checked={rosterImportNameMode === "full"}
+                onChange={() => setRosterImportNameMode("full")}
+              />
+              <span>
+                <strong>フルネーム</strong>
+                <span style={{ display: "block", fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+                  姓＋名・氏名列などをそのまま短く表示（従来に近い）
+                </span>
+              </span>
+            </label>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "8px",
+                marginBottom: "16px",
+                cursor: "pointer",
+                fontSize: "13px",
+              }}
+            >
+              <input
+                type="radio"
+                name="roster-import-name-mode"
+                checked={rosterImportNameMode === "given_only"}
+                onChange={() => setRosterImportNameMode("given_only")}
+              />
+              <span>
+                <strong>名だけ</strong>
+                <span style={{ display: "block", fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+                  見出しに「姓」「名」列があると確実です。1 列だけのときは、先頭の漢字を除く簡易推定やスペース区切りの末尾を使います。
+                </span>
+              </span>
+            </label>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+              <button
+                type="button"
+                style={btnSecondary}
+                onClick={() => setRosterImportDraft(null)}
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  borderColor: "#0284c7",
+                  background: "#0ea5e9",
+                  color: "#0b1220",
+                  fontWeight: 600,
+                }}
+                onClick={() => {
+                  if (!project) return;
+                  const d = rosterImportDraft;
+                  let att = { excludedRows: 0, hadAttendanceColumn: false };
+                  const crew = buildCrewFromRows(d.baseName, d.rows, {
+                    nameMode: rosterImportNameMode,
+                    onAttendanceFiltered: (info) => {
+                      att = info;
+                    },
+                  });
+                  if (crew.members.length === 0) {
+                    let msg =
+                      `${labelForKind(d.kind)} から名前らしき列を見つけられませんでした。\n` +
+                      "1 列目に名前を入れるか、見出し行に「名前」「姓」「名」「label」「name」などを含めてください。";
+                    if (att.hadAttendanceColumn) {
+                      msg +=
+                        "\n\n出欠列は検出されましたが、参加（○・参加 など）と判定できる行がありませんでした。";
+                    }
+                    window.alert(msg);
+                    return;
+                  }
+                  setProjectSafe((p) => ({ ...p, crews: [...p.crews, crew] }));
+                  setRosterImportDraft(null);
+                  const attLine =
+                    att.hadAttendanceColumn && att.excludedRows > 0
+                      ? `\n（出欠で不参加・空欄など ${att.excludedRows} 行をスキップ）`
+                      : "";
+                  if (d.notice) {
+                    window.alert(
+                      `${labelForKind(d.kind)} から ${crew.members.length} 名を取り込みました。${attLine}\n\n` +
+                        d.notice
+                    );
+                  } else {
+                    window.alert(
+                      `${labelForKind(d.kind)} から ${crew.members.length} 名を取り込みました。${attLine}`
+                    );
+                  }
+                }}
+              >
+                取り込む
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       <style>{`

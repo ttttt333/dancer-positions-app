@@ -30,7 +30,7 @@ import { FormationBoxItemThumb } from "./FormationBoxItemThumb";
  * ステージの「＋キュー」用の右側パネル。
  * - 開始時刻
  * - 人数（±）
- * - 立ち位置について（4 モード）＋雛形／保存リストの選択
+ * - 立ち位置について（4 モード）＋雛形／保存リストの選択（「今の立ち位置を変更」でも雛形を選べる）
  */
 
 type AddMode = "template" | "saved" | "edit_current" | "duplicate";
@@ -227,7 +227,7 @@ const modeCardBase: CSSProperties = {
   flexDirection: "column",
   alignItems: "flex-start",
   gap: "4px",
-  padding: "10px 12px",
+  padding: "8px 10px",
   borderRadius: "10px",
   border: "1px solid #334155",
   background: "#0b1220",
@@ -236,6 +236,25 @@ const modeCardBase: CSSProperties = {
   cursor: "pointer",
   textAlign: "left",
   width: "100%",
+};
+
+/** 「立ち位置について」4 モード用（従来の約半分の高さ・説明は title / aria-label） */
+const addCueModePickStyle: CSSProperties = {
+  display: "flex",
+  flexDirection: "row",
+  alignItems: "center",
+  gap: "8px",
+  padding: "5px 10px",
+  borderRadius: "7px",
+  border: "1px solid #334155",
+  background: "#0b1220",
+  color: "#e2e8f0",
+  fontSize: "12px",
+  cursor: "pointer",
+  textAlign: "left",
+  width: "100%",
+  minHeight: 0,
+  lineHeight: 1.25,
 };
 
 const presetChipBase: CSSProperties = {
@@ -308,7 +327,11 @@ export function AddCueWithFormationDialog({
   }, [open, initialCount, currentTimeSec, trimLo, trimHi]);
 
   useEffect(() => {
-    if (addMode === "template" && templatePresetId == null && PRESETS[0]) {
+    if (
+      (addMode === "template" || addMode === "edit_current") &&
+      templatePresetId == null &&
+      PRESETS[0]
+    ) {
       setTemplatePresetId(PRESETS[0].id);
     }
   }, [addMode, templatePresetId]);
@@ -342,8 +365,8 @@ export function AddCueWithFormationDialog({
     const active = activeFormationDancers(project);
     switch (addMode) {
       case "duplicate":
-      case "edit_current":
         return dancersForTargetCount(active, count, spacingOpts);
+      case "edit_current":
       case "template": {
         if (!templatePresetId) return [];
         const raw = dancersForLayoutPreset(count, templatePresetId, {
@@ -402,7 +425,8 @@ export function AddCueWithFormationDialog({
   const canConfirm = useMemo(() => {
     if (viewMode === "view") return false;
     if (addMode === "saved" && !savedBoxId && !savedSlotId) return false;
-    if (addMode === "template" && !templatePresetId) return false;
+    if ((addMode === "template" || addMode === "edit_current") && !templatePresetId)
+      return false;
     return buildDancers().length > 0;
   }, [viewMode, addMode, savedBoxId, savedSlotId, templatePresetId, buildDancers]);
 
@@ -520,7 +544,7 @@ export function AddCueWithFormationDialog({
     {
       mode: "edit_current",
       title: "今の立ち位置を変更",
-      desc: "いまの形を複製した新しいキューを作り、ステージやインスペクタで編集を続けます",
+      desc: "新しいキュー用に雛形を選び、名簿の並び順はいまの形から引き継ぎます（あとからステージで微調整できます）",
     },
     {
       mode: "duplicate",
@@ -710,16 +734,16 @@ export function AddCueWithFormationDialog({
           </section>
 
           <section>
-            <div style={sectionLabelStyle}>
-              <span style={sectionNumberStyle}>3</span>
+            <div style={{ ...sectionLabelStyle, marginBottom: "4px" }}>
+              <span style={{ ...sectionNumberStyle, width: 18, height: 18, fontSize: "10px" }}>3</span>
               立ち位置について
             </div>
             <div
               style={{
-                paddingLeft: "10px",
+                paddingLeft: "8px",
                 display: "flex",
                 flexDirection: "column",
-                gap: "8px",
+                gap: "4px",
               }}
             >
               {modeCards.map(({ mode, title, desc }) => {
@@ -728,33 +752,50 @@ export function AddCueWithFormationDialog({
                   <button
                     key={mode}
                     type="button"
+                    title={desc}
+                    aria-label={`${title}。${desc}`}
                     onClick={() => {
                       setAddMode(mode);
                       if (mode !== "saved") {
                         setSavedBoxId(null);
                         setSavedSlotId(null);
                       }
-                      if (mode === "template" && !templatePresetId && PRESETS[0]) {
+                      if (
+                        (mode === "template" || mode === "edit_current") &&
+                        !templatePresetId &&
+                        PRESETS[0]
+                      ) {
                         setTemplatePresetId(PRESETS[0].id);
                       }
                     }}
                     style={{
-                      ...modeCardBase,
+                      ...addCueModePickStyle,
                       borderColor: active ? "#38bdf8" : "#334155",
                       borderWidth: active ? 2 : 1,
                       background: active ? "#0e7490" : "#0b1220",
                       color: active ? "#ecfeff" : "#e2e8f0",
                     }}
                   >
-                    <span style={{ fontWeight: 700, fontSize: "13px" }}>{title}</span>
-                    <span style={{ fontSize: "11px", opacity: 0.9, lineHeight: 1.35 }}>{desc}</span>
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        fontSize: "12px",
+                        flex: 1,
+                        minWidth: 0,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {title}
+                    </span>
                   </button>
                 );
               })}
             </div>
           </section>
 
-          {addMode === "template" ? (
+          {addMode === "template" || addMode === "edit_current" ? (
             <section>
               <div style={sectionLabelStyle}>
                 <span style={sectionNumberStyle}>4</span>
@@ -893,7 +934,7 @@ export function AddCueWithFormationDialog({
             {dancerCountPreview > 0 ? (
               <>
                 プレビュー <strong style={{ color: "#cbd5e1" }}>{dancerCountPreview} 人</strong>
-                {addMode === "template" && templatePresetId ? (
+                {(addMode === "template" || addMode === "edit_current") && templatePresetId ? (
                   <> · {LAYOUT_PRESET_LABELS[templatePresetId]}</>
                 ) : null}
               </>

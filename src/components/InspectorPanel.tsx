@@ -22,6 +22,7 @@ import {
 import {
   buildCrewFromCsv,
   fetchCsvFromGoogleSheetsUrl,
+  type RosterNameImportMode,
 } from "../lib/crewCsvImport";
 
 const FORMATION_NAME_MAX = 120;
@@ -86,6 +87,8 @@ export function InspectorPanel({
   const [addFromRosterPick, setAddFromRosterPick] = useState("");
   /** 名簿の CSV / Google スプレッドシート 取り込み UI 状態 */
   const [crewImportOpen, setCrewImportOpen] = useState(false);
+  const [crewImportNameMode, setCrewImportNameMode] =
+    useState<RosterNameImportMode>("full");
   const [crewImportName, setCrewImportName] = useState("");
   const [crewImportSheetUrl, setCrewImportSheetUrl] = useState("");
   const [crewImportBusy, setCrewImportBusy] = useState(false);
@@ -437,15 +440,26 @@ export function InspectorPanel({
   const finalizeCrewImport = (csvText: string) => {
     const baseName =
       crewImportName.trim() || `名簿 ${crews.length + 1}`;
-    const crew = buildCrewFromCsv(baseName, csvText);
+    let att = { excludedRows: 0, hadAttendanceColumn: false };
+    const crew = buildCrewFromCsv(baseName, csvText, {
+      nameMode: crewImportNameMode,
+      onAttendanceFiltered: (info) => {
+        att = info;
+      },
+    });
     if (crew.members.length === 0) {
-      setCrewImportError(
-        "名前らしき列が見つかりませんでした。1 列目に名前を入れるか、見出し行に「名前」「label」「name」などを入れてください。"
-      );
+      let msg =
+        "名前らしき列が見つかりませんでした。1 列目に名前を入れるか、見出し行に「名前」「label」「name」などを入れてください。";
+      if (att.hadAttendanceColumn) {
+        msg +=
+          " 出欠列はありましたが、参加（○・参加 など）と判定できる行がありませんでした。";
+      }
+      setCrewImportError(msg);
       return;
     }
     setProject((p) => ({ ...p, crews: [...p.crews, crew] }));
     setCrewImportOpen(false);
+    setCrewImportNameMode("full");
     setCrewImportName("");
     setCrewImportSheetUrl("");
     setCrewImportError(null);
@@ -777,7 +791,7 @@ export function InspectorPanel({
         作品名・想定人数は画面上部の
         <strong style={{ color: "#94a3b8" }}>「作品・舞台」</strong>
         欄で編集できます。舞台の寸法（メイン幅・奥行・袖・バック・場ミリ）は、中央ステージ見出し横の
-        <strong style={{ color: "#94a3b8" }}>「ステージ情報」</strong>
+        <strong style={{ color: "#94a3b8" }}>「ステージ設定」</strong>
         から開くダイアログで編集できます。
       </p>
 
@@ -846,7 +860,49 @@ export function InspectorPanel({
             <div style={{ fontSize: "12px", color: "#cbd5e1" }}>
               名簿として取り込みたい一覧（先頭列または「名前 / label / name」見出し）を、
               CSV ファイル または Google スプレッドシートの URL から読み込みます。
+              出欠は「出欠」などの見出し列に加え、氏名の左右の列が ○・参加 などのときも自動判定します。
+              「フリガナ」「読み」「セイ」「メイ」列があれば名の読み＋苗字読み 1 文字で短い表示名にします。
             </div>
+            <div style={{ fontSize: "11px", fontWeight: 600, color: "#94a3b8" }}>
+              表示名
+            </div>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "6px",
+                fontSize: "12px",
+                color: "#e2e8f0",
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="radio"
+                name="inspector-crew-import-name-mode"
+                checked={crewImportNameMode === "full"}
+                onChange={() => setCrewImportNameMode("full")}
+              />
+              フルネーム（姓＋名・氏名列をそのまま短く）
+            </label>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "6px",
+                fontSize: "12px",
+                color: "#e2e8f0",
+                cursor: "pointer",
+                marginBottom: "4px",
+              }}
+            >
+              <input
+                type="radio"
+                name="inspector-crew-import-name-mode"
+                checked={crewImportNameMode === "given_only"}
+                onChange={() => setCrewImportNameMode("given_only")}
+              />
+              名だけ（「姓」「名」列推奨。同名は苗字 1 文字を前置）
+            </label>
             <label
               style={{
                 display: "flex",

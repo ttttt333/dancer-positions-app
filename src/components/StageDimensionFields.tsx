@@ -28,6 +28,8 @@ type Props = {
   showHeading?: boolean;
   /** モーダル内など：外枠の枠線・背景を付けない */
   embedded?: boolean;
+  /** 客席の位置（画面の辺）を選ぶ UI を出す（ステージ設定ダイアログ用） */
+  showAudienceEdge?: boolean;
   /** 「決定」押下後に呼ばれる。親ダイアログを閉じるなど用途に。 */
   onCommit?: () => void;
 };
@@ -100,6 +102,14 @@ function draftDiffers(draft: Draft, project: ChoreographyProjectJson): boolean {
   );
 }
 
+const AUDIENCE_EDGE_OPTIONS: { value: ChoreographyProjectJson["audienceEdge"]; label: string }[] =
+  [
+    { value: "top", label: "上" },
+    { value: "right", label: "右" },
+    { value: "bottom", label: "下" },
+    { value: "left", label: "左" },
+  ];
+
 export function StageDimensionFields({
   project,
   setProject,
@@ -107,6 +117,7 @@ export function StageDimensionFields({
   compact = false,
   showHeading = true,
   embedded = false,
+  showAudienceEdge = false,
   onCommit,
 }: Props) {
   const [draft, setDraft] = useState<Draft>(() => draftFromProject(project));
@@ -203,7 +214,7 @@ export function StageDimensionFields({
     }
     const defaultName = `ステージ ${presets.length + 1}`;
     const name = window.prompt(
-      "ステージ情報の名前（あとで変更可）",
+      "保存プリセットの名前（あとで変更可）",
       defaultName
     );
     if (name === null) return;
@@ -316,6 +327,49 @@ export function StageDimensionFields({
           を押すまでステージには反映されません。
         </p>
       )}
+
+      {showAudienceEdge ? (
+        <label
+          style={{
+            display: "block",
+            marginBottom: rowGap,
+            fontSize: labelSize,
+            color: "#64748b",
+          }}
+        >
+          <span style={{ display: "block", marginBottom: "4px" }}>
+            客席の位置（画面に対して）
+          </span>
+          <select
+            value={project.audienceEdge}
+            disabled={disabled}
+            onChange={(e) =>
+              setProject((p) => ({
+                ...p,
+                audienceEdge: e.target.value as ChoreographyProjectJson["audienceEdge"],
+              }))
+            }
+            style={{
+              width: "100%",
+              padding: "8px 10px",
+              borderRadius: "8px",
+              border: "1px solid #334155",
+              background: "#0f172a",
+              color: "#e2e8f0",
+              fontSize: "13px",
+            }}
+          >
+            {AUDIENCE_EDGE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          <span style={{ display: "block", marginTop: "4px", fontSize: "9px", color: "#475569" }}>
+            すぐに 2D ステージの向きに反映されます（寸法は「決定」で反映）。
+          </span>
+        </label>
+      ) : null}
 
       <div
         style={
@@ -526,7 +580,7 @@ export function StageDimensionFields({
           }}
         >
           <div style={{ fontSize: compact ? "10px" : "11px", fontWeight: 600, color: "#94a3b8" }}>
-            保存済みステージ情報
+            保存済み寸法プリセット
           </div>
           <button
             type="button"
@@ -549,7 +603,7 @@ export function StageDimensionFields({
 
         {presets.length === 0 ? (
           <div style={{ fontSize: "10px", color: "#475569", padding: "6px 0" }}>
-            （保存されたステージ情報はまだありません）
+            （保存されたプリセットはまだありません）
           </div>
         ) : (
           <div
