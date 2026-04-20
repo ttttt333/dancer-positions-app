@@ -64,9 +64,17 @@ function buildMemoPdfDom(project: ChoreographyProjectJson): HTMLElement {
       );
     }
     for (const d of f.dancers) {
-      if (d.note?.trim()) {
+      const h =
+        typeof d.heightCm === "number" && Number.isFinite(d.heightCm)
+          ? ` · 身長 ${d.heightCm} cm`
+          : "";
+      if (d.note?.trim() || h) {
         parts.push(
-          `<p style="margin:6px 0 6px 12px;font-size:13px"><strong>${escMemoHtml(f.name)} / ${escMemoHtml(d.label)}</strong><br/><span style="white-space:pre-wrap">${escMemoHtml(d.note)}</span></p>`
+          `<p style="margin:6px 0 6px 12px;font-size:13px"><strong>${escMemoHtml(f.name)} / ${escMemoHtml(d.label)}</strong>${escMemoHtml(h)}<br/>${
+            d.note?.trim()
+              ? `<span style="white-space:pre-wrap">${escMemoHtml(d.note)}</span>`
+              : ""
+          }</p>`
         );
       }
     }

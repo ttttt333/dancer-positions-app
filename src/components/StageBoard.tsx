@@ -1,5 +1,5 @@
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ChoreographyProjectJson,
   DancerSpot,
@@ -18,8 +18,11 @@ import {
   isDancerSpacingActive,
   snapXPctToConvention,
 } from "../lib/dancerSpacing";
+import {
+  DancerQuickEditDialog,
+  type DancerQuickEditApply,
+} from "./DancerQuickEditDialog";
 
-const DANCER_LABEL_MAX = 8;
 /** ドラッグ中、この y% 以上で下端ゴミ箱 UI を出す（客席＝下が大きい y） */
 const TRASH_REVEAL_Y_PCT = 88;
 
@@ -388,7 +391,8 @@ export function StageBoard({
     y: number | null;
   }>({ x: null, y: null });
 
-  const [editingDancerId, setEditingDancerId] = useState<string | null>(null);
+  /** ダブルクリックで開く「名前・色・メモ」小窓の対象ダンサー id */
+  const [dancerQuickEditId, setDancerQuickEditId] = useState<string | null>(null);
   /**
    * ステージ上で選択中のダンサー ID（複数可）。
    * - 1 件なら Alt+矢印で微移動できる（従来の microNudgeDancerId の役割）。
@@ -532,17 +536,13 @@ export function StageBoard({
     | { kind: "setPiece"; clientX: number; clientY: number; pieceId: string }
     | null
   >(null);
-  const [editingLabelDraft, setEditingLabelDraft] = useState("");
-  const skipLabelCommitRef = useRef(false);
-  const labelInputRef = useRef<HTMLInputElement>(null);
-
   const formationIdForWrites =
     editFormationId != null && formations.some((f) => f.id === editFormationId)
       ? editFormationId
       : activeFormationId;
 
   useEffect(() => {
-    setEditingDancerId(null);
+    setDancerQuickEditId(null);
     setSelectedDancerIds([]);
     setStageContextMenu(null);
     setSelectedSetPieceId(null);
@@ -570,14 +570,6 @@ export function StageBoard({
       document.removeEventListener("keydown", onKey);
     };
   }, [stageContextMenu]);
-
-  useLayoutEffect(() => {
-    if (!editingDancerId) return;
-    const el = labelInputRef.current;
-    if (!el) return;
-    el.focus();
-    el.select();
-  }, [editingDancerId]);
 
   const activeFormation = useMemo(
     () => formations.find((f) => f.id === activeFormationId),
@@ -641,7 +633,7 @@ export function StageBoard({
         dancers: f.dancers.filter((x) => x.id !== dancerId),
       }));
       setSelectedDancerIds((ids) => ids.filter((id) => id !== dancerId));
-      setEditingDancerId((id) => (id === dancerId ? null : id));
+      setDancerQuickEditId((id) => (id === dancerId ? null : id));
       setStageContextMenu(null);
     },
     [writeFormation, updateActiveFormation, viewMode, stageInteractionsEnabled]
@@ -848,7 +840,7 @@ export function StageBoard({
         dancers: f.dancers.filter((x) => !removeSet.has(x.id)),
       }));
       setSelectedDancerIds((ids) => ids.filter((id) => !removeSet.has(id)));
-      setEditingDancerId((id) => (id != null && removeSet.has(id) ? null : id));
+      setDancerQuickEditId((id) => (id != null && removeSet.has(id) ? null : id));
       setStageContextMenu(null);
     },
     [writeFormation, updateActiveFormation, viewMode, stageInteractionsEnabled]
@@ -1153,7 +1145,7 @@ export function StageBoard({
     yPct: number
   ) => {
     if (e.button !== 0) return;
-    if (editingDancerId) return;
+    if (dancerQuickEditId) return;
     if (
       viewMode === "view" ||
       playbackDancers ||
@@ -1663,7 +1655,7 @@ export function StageBoard({
     const onKey = (e: KeyboardEvent) => {
       if (viewMode === "view") return;
       if (playbackDancers || previewDancers) return;
-      if (editingDancerId) return;
+      if (dancerQuickEditId) return;
       const t = e.target;
       if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement) return;
 
@@ -1708,7 +1700,7 @@ export function StageBoard({
     viewMode,
     playbackDancers,
     previewDancers,
-    editingDancerId,
+    dancerQuickEditId,
     selectedDancerIds,
     snapGrid,
     quantizeCoord,
@@ -1863,6 +1855,61 @@ export function StageBoard({
     viewMode,
     stageInteractionsEnabled,
   ]);
+
+  const quickEditDancer = useMemo(() => {
+    if (!dancerQuickEditId || !writeFormation) return null;
+    return (
+      writeFormation.dancers.find((x) => x.id === dancerQuickEditId) ?? null
+    );
+  }, [dancerQuickEditId, writeFormation]);
+
+  const applyDancerQuickEdit = useCallback(
+    (patch: DancerQuickEditApply) => {
+      if (!formationIdForWrites || !dancerQuickEditId) return;
+      setProject((p) => {
+        const form = p.formations.find((f) => f.id === formationIdForWrites);
+        const spot = form?.dancers.find((x) => x.id === dancerQuickEditId);
+        if (!form || !spot) return p;
+        const dancerId = spot.id;
+        const cmid = spot.crewMemberId;
+        const matches = (x: DancerSpot) =>
+          x.id === dancerId || Boolean(cmid && x.crewMemberId === cmid);
+
+        let crews = p.crews;
+        if (cmid) {
+          crews = p.crews.map((crew) => ({
+            ...crew,
+            members: crew.members.map((m) =>
+              m.id === cmid ? { ...m, label: patch.label } : m
+            ),
+          }));
+        }
+
+        return {
+          ...p,
+          crews,
+          formations: p.formations.map((f) => ({
+            ...f,
+            dancers: f.dancers.map((x) => {
+              if (!matches(x)) return x;
+              const { note: _n, heightCm: _h, ...base } = x;
+              return {
+                ...base,
+                label: patch.label,
+                colorIndex: patch.colorIndex % 9,
+                ...(patch.note ? { note: patch.note } : {}),
+                ...(typeof patch.heightCm === "number" &&
+                Number.isFinite(patch.heightCm)
+                  ? { heightCm: patch.heightCm }
+                  : {}),
+              };
+            }),
+          })),
+        };
+      });
+    },
+    [formationIdForWrites, dancerQuickEditId, setProject]
+  );
 
   let contextMenuStyle: CSSProperties | null = null;
   if (stageContextMenu) {
@@ -2614,7 +2661,7 @@ export function StageBoard({
                   !playbackOrPreview
                     ? [
                         mmLabel(d.xPct, d.yPct),
-                        "ダブルクリックで名前編集",
+                        "ダブルクリックで名前・色・メモ",
                         "右クリックで削除メニュー",
                         "下端へ寄せるとゴミ箱が出ます。そこへドロップで削除",
                         "Shift / Cmd / Ctrl+クリックで複数選択に追加",
@@ -2657,10 +2704,7 @@ export function StageBoard({
                     !stageInteractionsEnabled
                   )
                     return;
-                  setEditingLabelDraft(
-                    (d.label?.trim() ? d.label : "?").slice(0, DANCER_LABEL_MAX)
-                  );
-                  setEditingDancerId(d.id);
+                  setDancerQuickEditId(d.id);
                 }}
                 style={{
                   position: "absolute",
@@ -2674,7 +2718,7 @@ export function StageBoard({
                   height: `${dMarkerPx}px`,
                   borderRadius: "50%",
                   border:
-                    editingDancerId === d.id
+                    dancerQuickEditId === d.id
                       ? "2px solid rgba(99,102,241,0.95)"
                       : selectedDancerIds.includes(d.id)
                         ? selectedDancerIds.length >= 2
@@ -2687,7 +2731,7 @@ export function StageBoard({
                   fontWeight: 700,
                   fontSize: `${dLabelFontPx}px`,
                   cursor:
-                    editingDancerId === d.id
+                    dancerQuickEditId === d.id
                       ? "default"
                       : viewMode === "view" ||
                           playbackDancers ||
@@ -2711,97 +2755,9 @@ export function StageBoard({
                       : "auto",
                 }}
               >
-                {editingDancerId === d.id ? (
-                  <input
-                    ref={labelInputRef}
-                    type="text"
-                    value={editingLabelDraft}
-                    maxLength={DANCER_LABEL_MAX}
-                    aria-label="ダンサー名"
-                    onChange={(e) =>
-                      setEditingLabelDraft(e.target.value.slice(0, DANCER_LABEL_MAX))
-                    }
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onClick={(e) => e.stopPropagation()}
-                    onBlur={() => {
-                      if (skipLabelCommitRef.current) {
-                        skipLabelCommitRef.current = false;
-                        setEditingDancerId(null);
-                        return;
-                      }
-                      if (viewMode === "view") {
-                        setEditingDancerId(null);
-                        return;
-                      }
-                      const label =
-                        editingLabelDraft.trim().slice(0, DANCER_LABEL_MAX) || "?";
-                      const dancerId = d.id;
-                      setProject((p) => {
-                        const fid = formationIdForWrites;
-                        const form = p.formations.find((f) => f.id === fid);
-                        const spot = form?.dancers.find((x) => x.id === dancerId);
-                        if (!form || !spot) return p;
-                        const cmid = spot.crewMemberId;
-                        let crews = p.crews;
-                        if (cmid) {
-                          crews = p.crews.map((crew) => ({
-                            ...crew,
-                            members: crew.members.map((m) =>
-                              m.id === cmid ? { ...m, label } : m
-                            ),
-                          }));
-                        }
-                        /**
-                         * 名前の連動: 同じ人物（同じ id または同じ
-                         * crewMemberId）を持つダンサーを全フォーメーション
-                         * （＝全キュー）で同じ label に揃える。
-                         */
-                        return {
-                          ...p,
-                          crews,
-                          formations: p.formations.map((f) => ({
-                            ...f,
-                            dancers: f.dancers.map((x) =>
-                              x.id === dancerId ||
-                              (cmid && x.crewMemberId === cmid)
-                                ? { ...x, label }
-                                : x
-                            ),
-                          })),
-                        };
-                      });
-                      setEditingDancerId(null);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        (e.target as HTMLInputElement).blur();
-                      }
-                      if (e.key === "Escape") {
-                        skipLabelCommitRef.current = true;
-                        setEditingDancerId(null);
-                      }
-                    }}
-                    style={{
-                      width: `${Math.max(28, Math.round(dMarkerPx * 0.82))}px`,
-                      padding: "0 2px",
-                      margin: 0,
-                      border: "none",
-                      borderRadius: "4px",
-                      background: "rgba(255,255,255,0.92)",
-                      color: "#0f172a",
-                      fontSize: `${Math.max(9, Math.min(14, dLabelFontPx - 2))}px`,
-                      fontWeight: 700,
-                      textAlign: "center",
-                      lineHeight: 1.1,
-                      outline: "none",
-                      boxSizing: "border-box",
-                    }}
-                  />
-                ) : dancerLabelBelow ? null : (
-                  d.label || "?"
-                )}
+                {dancerLabelBelow ? null : d.label || "?"}
               </button>
-              {dancerLabelBelow && editingDancerId !== d.id && (
+              {dancerLabelBelow && (
                 <div
                   aria-hidden
                   style={{
@@ -3156,6 +3112,13 @@ export function StageBoard({
         </button>
       </div>
     )}
+    <DancerQuickEditDialog
+      open={Boolean(dancerQuickEditId && quickEditDancer)}
+      dancer={quickEditDancer}
+      viewMode={viewMode}
+      onClose={() => setDancerQuickEditId(null)}
+      onApply={applyDancerQuickEdit}
+    />
     </>
   );
 }

@@ -1,8 +1,10 @@
 import type {
+  AudienceEdge,
   ChoreographyProjectJson,
   Cue,
   DancerSpot,
   Formation,
+  StageShape,
 } from "../types/choreography";
 
 /**
@@ -14,6 +16,8 @@ import type {
  * - 保存先は `localStorage`。プロジェクト本体（.json）には載らないので、
  *   保存量は端末の容量次第（5MB 上限）。
  * - 任意で「秒数タイミング」も含められる。違う曲に当てるときはオフが既定。
+ * - 保存時点の **ステージ幅・奥行・場ミリ（dancerSpacingMm）・客席向き・変形舞台** なども
+ *   `stageSettings` として保持し、呼び出し時にキューとともに復元する（旧データは従来どおり）。
  */
 
 const STORAGE_KEY = "choreogrid_flow_library_v1";
@@ -51,6 +55,27 @@ export interface FlowCueSnapshot {
   formationIdRef: string;
 }
 
+/**
+ * フロー保存時点のステージ寸法・場ミリ・客席向きなど。
+ * 呼び出し時に現在プロジェクトより優先して復元する（旧フローに無い場合は復元しない）。
+ */
+export interface FlowStageSettingsSnapshot {
+  audienceEdge: AudienceEdge;
+  stageWidthMm: number | null;
+  stageDepthMm: number | null;
+  sideStageMm: number | null;
+  backStageMm: number | null;
+  centerFieldGuideIntervalMm: number | null;
+  dancerSpacingMm?: number;
+  gridSpacingMm?: number;
+  stageShape?: StageShape;
+  hanamichiEnabled?: boolean;
+  hanamichiDepthPct?: number;
+  dancerMarkerDiameterMm?: number;
+  snapGrid: boolean;
+  gridStep: number;
+}
+
 export interface FlowLibraryItem {
   id: string;
   name: string;
@@ -62,6 +87,8 @@ export interface FlowLibraryItem {
   cueCount: number;
   formations: FlowFormationSnapshot[];
   cues: FlowCueSnapshot[];
+  /** 保存時のステージ設定。未保存の旧データは undefined */
+  stageSettings?: FlowStageSettingsSnapshot;
   createdAt: number;
   updatedAt: number;
 }
@@ -83,6 +110,100 @@ function notifyChanged(): void {
 function clamp(n: number, lo: number, hi: number): number {
   if (!Number.isFinite(n)) return lo;
   return Math.min(hi, Math.max(lo, n));
+}
+
+function snapshotStageFromProject(
+  p: ChoreographyProjectJson
+): FlowStageSettingsSnapshot {
+  return {
+    audienceEdge: p.audienceEdge,
+    stageWidthMm: p.stageWidthMm,
+    stageDepthMm: p.stageDepthMm,
+    sideStageMm: p.sideStageMm ?? null,
+    backStageMm: p.backStageMm ?? null,
+    centerFieldGuideIntervalMm: p.centerFieldGuideIntervalMm ?? null,
+    dancerSpacingMm: p.dancerSpacingMm,
+    gridSpacingMm: p.gridSpacingMm,
+    stageShape: p.stageShape,
+    hanamichiEnabled: p.hanamichiEnabled,
+    hanamichiDepthPct: p.hanamichiDepthPct,
+    dancerMarkerDiameterMm: p.dancerMarkerDiameterMm,
+    snapGrid: p.snapGrid,
+    gridStep: p.gridStep,
+  };
+}
+
+/** localStorage から読んだ `stageSettings` を検証・正規化。不正なら undefined */
+function normalizeStageSettings(
+  raw: unknown
+): FlowStageSettingsSnapshot | undefined {
+  if (raw == null || typeof raw !== "object") return undefined;
+  const o = raw as Record<string, unknown>;
+  const edge = o.audienceEdge;
+  if (edge !== "top" && edge !== "bottom" && edge !== "left" && edge !== "right")
+    return undefined;
+  const mmOrNull = (v: unknown): number | null =>
+    typeof v === "number" && Number.isFinite(v) ? v : null;
+  return {
+    audienceEdge: edge,
+    stageWidthMm: mmOrNull(o.stageWidthMm),
+    stageDepthMm: mmOrNull(o.stageDepthMm),
+    sideStageMm: mmOrNull(o.sideStageMm),
+    backStageMm: mmOrNull(o.backStageMm),
+    centerFieldGuideIntervalMm: mmOrNull(o.centerFieldGuideIntervalMm),
+    ...(typeof o.dancerSpacingMm === "number" && Number.isFinite(o.dancerSpacingMm)
+      ? { dancerSpacingMm: o.dancerSpacingMm }
+      : {}),
+    ...(typeof o.gridSpacingMm === "number" && Number.isFinite(o.gridSpacingMm)
+      ? { gridSpacingMm: o.gridSpacingMm }
+      : {}),
+    ...(o.stageShape != null &&
+    typeof o.stageShape === "object" &&
+    !Array.isArray(o.stageShape)
+      ? { stageShape: o.stageShape as StageShape }
+      : {}),
+    ...(typeof o.hanamichiEnabled === "boolean"
+      ? { hanamichiEnabled: o.hanamichiEnabled }
+      : {}),
+    ...(typeof o.hanamichiDepthPct === "number" && Number.isFinite(o.hanamichiDepthPct)
+      ? { hanamichiDepthPct: clamp(o.hanamichiDepthPct, 8, 36) }
+      : {}),
+    ...(typeof o.dancerMarkerDiameterMm === "number" &&
+    Number.isFinite(o.dancerMarkerDiameterMm)
+      ? { dancerMarkerDiameterMm: o.dancerMarkerDiameterMm }
+      : {}),
+    snapGrid: typeof o.snapGrid === "boolean" ? o.snapGrid : false,
+    gridStep:
+      typeof o.gridStep === "number" && Number.isFinite(o.gridStep)
+        ? clamp(o.gridStep, 0.1, 50)
+        : 2,
+  };
+}
+
+/**
+ * フローに保存されていたステージ設定をプロジェクトへ上書き適用する。
+ */
+export function applyFlowStageSettingsToProject(
+  project: ChoreographyProjectJson,
+  stage: FlowStageSettingsSnapshot
+): ChoreographyProjectJson {
+  return {
+    ...project,
+    audienceEdge: stage.audienceEdge,
+    stageWidthMm: stage.stageWidthMm,
+    stageDepthMm: stage.stageDepthMm,
+    sideStageMm: stage.sideStageMm ?? null,
+    backStageMm: stage.backStageMm ?? null,
+    centerFieldGuideIntervalMm: stage.centerFieldGuideIntervalMm ?? null,
+    dancerSpacingMm: stage.dancerSpacingMm,
+    gridSpacingMm: stage.gridSpacingMm,
+    stageShape: stage.stageShape,
+    hanamichiEnabled: stage.hanamichiEnabled,
+    hanamichiDepthPct: stage.hanamichiDepthPct,
+    dancerMarkerDiameterMm: stage.dancerMarkerDiameterMm,
+    snapGrid: stage.snapGrid,
+    gridStep: stage.gridStep,
+  };
 }
 
 function isValidFormationSnap(x: unknown): x is FlowFormationSnapshot {
@@ -160,6 +281,8 @@ function normalize(raw: FlowLibraryItem): FlowLibraryItem {
     }));
   const dancerCount = formations[0]?.dancers.length ?? 0;
   const hasTiming = cues.some((c) => c.tStartSec != null && c.tEndSec != null);
+  const rawRec = raw as Record<string, unknown>;
+  const stageSettings = normalizeStageSettings(rawRec.stageSettings);
   return {
     id: raw.id,
     name: (raw.name || "").slice(0, MAX_NAME_LEN),
@@ -168,6 +291,7 @@ function normalize(raw: FlowLibraryItem): FlowLibraryItem {
     cueCount: cues.length,
     formations,
     cues,
+    ...(stageSettings ? { stageSettings } : {}),
     createdAt: typeof raw.createdAt === "number" ? raw.createdAt : Date.now(),
     updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : Date.now(),
   };
@@ -291,6 +415,7 @@ export function saveFlowFromProject(
     cueCount: cues.length,
     formations,
     cues,
+    stageSettings: snapshotStageFromProject(project),
     createdAt: now,
     updatedAt: now,
   };
@@ -395,6 +520,8 @@ export interface ExpandedFlow {
   formations: Formation[];
   cues: Cue[];
   activeFormationId: string;
+  /** フローにステージ設定が含まれるときのみ。呼び出し側でプロジェクトへマージ */
+  stageSettings: FlowStageSettingsSnapshot | null;
 }
 
 export function expandFlowToProject(
@@ -467,7 +594,11 @@ export function expandFlowToProject(
   }
 
   const activeFormationId = formations[0]?.id ?? "";
-  return { formations, cues: cuesOut, activeFormationId };
+  const stageSettings =
+    item.stageSettings != null
+      ? normalizeStageSettings(item.stageSettings) ?? null
+      : null;
+  return { formations, cues: cuesOut, activeFormationId, stageSettings };
 }
 
 /** バックアップ: フロー全件を JSON 文字列に */

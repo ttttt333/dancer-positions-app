@@ -170,6 +170,22 @@ export function InspectorPanel({
     }));
   };
 
+  const setDancerHeightCm = (dancerId: string, raw: string) => {
+    const t = raw.trim();
+    updateActiveFormation((f) => ({
+      ...f,
+      dancers: f.dancers.map((d) => {
+        if (d.id !== dancerId) return d;
+        if (t === "") return { ...d, heightCm: undefined };
+        const n = parseFloat(t.replace(/,/g, "."));
+        if (!Number.isFinite(n) || n <= 0 || n >= 300) {
+          return { ...d, heightCm: undefined };
+        }
+        return { ...d, heightCm: Math.round(n * 10) / 10 };
+      }),
+    }));
+  };
+
   const addDancer = () => {
     updateActiveFormation((f) => {
       const n = f.dancers.length + 1;
@@ -1595,9 +1611,32 @@ export function InspectorPanel({
             >
               削除
             </button>
+            <input
+              aria-label={`${d.label} の身長（cm）`}
+              title="舞台には表示されません"
+              placeholder="身長cm"
+              inputMode="decimal"
+              value={
+                typeof d.heightCm === "number" && Number.isFinite(d.heightCm)
+                  ? String(d.heightCm)
+                  : ""
+              }
+              disabled={viewMode === "view"}
+              onChange={(e) => setDancerHeightCm(d.id, e.target.value)}
+              style={{
+                width: "72px",
+                flexShrink: 0,
+                padding: "6px",
+                borderRadius: "6px",
+                border: "1px solid #334155",
+                background: "#020617",
+                color: "#cbd5e1",
+                fontSize: "11px",
+              }}
+            />
             <textarea
               aria-label={`${d.label} のメモ`}
-              placeholder="メモ（任意）"
+              placeholder="メモ（舞台に表示されません）"
               value={d.note ?? ""}
               disabled={viewMode === "view"}
               onChange={(e) => setDancerNote(d.id, e.target.value)}

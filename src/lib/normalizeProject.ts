@@ -175,6 +175,11 @@ function normalizeDancerSpot(raw: unknown, index: number): DancerSpot {
     typeof sizeRaw === "number" && Number.isFinite(sizeRaw)
       ? Math.max(20, Math.min(120, Math.round(sizeRaw)))
       : undefined;
+  const hRaw = d.heightCm;
+  const heightCm =
+    typeof hRaw === "number" && Number.isFinite(hRaw) && hRaw > 0 && hRaw < 300
+      ? Math.round(hRaw * 10) / 10
+      : undefined;
   return {
     id: typeof d.id === "string" && d.id ? d.id : randomId("d"),
     label: typeof d.label === "string" ? d.label : String(index + 1),
@@ -195,6 +200,7 @@ function normalizeDancerSpot(raw: unknown, index: number): DancerSpot {
       : {}),
     ...(note ? { note } : {}),
     ...(sizePx != null ? { sizePx } : {}),
+    ...(heightCm != null ? { heightCm } : {}),
   };
 }
 

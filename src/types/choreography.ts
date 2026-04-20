@@ -11,6 +11,10 @@ export type DancerSpot = {
   /** ダンサー単位メモ（§11） */
   note?: string;
   /**
+   * 身長（cm）。ステージ上には表示しない。任意。
+   */
+  heightCm?: number;
+  /**
    * このダンサーだけに上書きする印の直径（px）。
    * 未指定時はプロジェクト共通の `dancerMarkerDiameterPx` を使う。
    */

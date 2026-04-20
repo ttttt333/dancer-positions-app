@@ -85,6 +85,7 @@ function transferIdentitiesByOrder(
       crewMemberId: od.crewMemberId,
       sizePx: od.sizePx ?? nd.sizePx,
       note: od.note ?? nd.note,
+      heightCm: od.heightCm ?? nd.heightCm,
     };
   });
 }

@@ -9,6 +9,7 @@ import {
 import type { ChoreographyProjectJson } from "../types/choreography";
 import {
   FLOW_LIBRARY_CHANGE_EVENT,
+  applyFlowStageSettingsToProject,
   type FlowLibraryItem,
   deleteFlowItem,
   expandFlowToProject,
@@ -270,15 +271,23 @@ export function FlowLibraryDialog({
           audioDurationSec > 0 ? audioDurationSec : null,
         minCueLengthSec: 0.8,
       });
-      setProject((prev) => ({
-        ...prev,
-        formations: expanded.formations,
-        cues: expanded.cues,
-        activeFormationId: expanded.activeFormationId,
-      }));
+      setProject((prev) => {
+        let next: ChoreographyProjectJson = {
+          ...prev,
+          formations: expanded.formations,
+          cues: expanded.cues,
+          activeFormationId: expanded.activeFormationId,
+        };
+        if (expanded.stageSettings) {
+          next = applyFlowStageSettingsToProject(next, expanded.stageSettings);
+        }
+        return next;
+      });
       setFeedback({
         kind: "info",
-        text: `「${item.name}」を読み込みました（キュー ${expanded.cues.length}）。`,
+        text: `「${item.name}」を読み込みました（キュー ${expanded.cues.length}${
+          expanded.stageSettings ? "・保存時のステージ寸法・場ミリを復元" : ""
+        }）。`,
       });
       onClose();
     },
@@ -396,7 +405,7 @@ export function FlowLibraryDialog({
             lineHeight: 1.55,
           }}
         >
-          キュー順に並んだ「立ち位置の流れ」を名前付きで端末に保存し、別の曲やプロジェクトでも呼び出せます。
+          キュー順に並んだ「立ち位置の流れ」を名前付きで端末に保存し、別の曲やプロジェクトでも呼び出せます。保存時のステージ寸法・場ミリ・客席向き・変形舞台も一緒に記録され、呼び出し時に現在の設定より優先して復元されます（以前に保存したフローにその情報が無い場合は、キューと形だけが置き換わります）。
         </p>
 
         <section style={card}>
