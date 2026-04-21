@@ -19,6 +19,22 @@ import {
   snapXPctToConvention,
 } from "../lib/dancerSpacing";
 import {
+  lineUpByGradeAsc,
+  lineUpByGradeDesc,
+  lineUpByHeightAsc,
+  lineUpByHeightDesc,
+  lineUpBySkillLargeToBack,
+  lineUpBySkillSmallToBack,
+  permuteSlotsByGradeAsc,
+  permuteSlotsByGradeDesc,
+  permuteSlotsByHeightAsc,
+  permuteSlotsByHeightDesc,
+  permuteSlotsBySkillAsc,
+  permuteSlotsBySkillDesc,
+  resolveArrangeTargetIds,
+  rotateDancerRingOneStep,
+} from "../lib/stageSelectionArrange";
+import {
   DancerQuickEditDialog,
   type DancerQuickEditApply,
 } from "./DancerQuickEditDialog";
@@ -114,7 +130,11 @@ const GROUP_BOX_HANDLES: readonly {
   { h: "w", cursor: "ew-resize", pos: { left: 0, top: "50%", transform: "translate(-50%, -50%)" } },
 ];
 
-/** 群リサイズのハンドル方向からスケーリング係数と不動点（アンカー）を求める */
+/**
+ * 群リサイズのハンドルからスケール係数と不動点（アンカー）を求める。
+ * アンカーは常に選択ボックスの中心。ドラッグした辺／角が動く分だけ
+ * センターからの距離比で拡大縮小する（センター基準の間隔調整に向く）。
+ */
 function groupScaleForHandle(
   handle: GroupBoxHandle,
   startBox: { x0: number; y0: number; x1: number; y1: number },
@@ -122,39 +142,47 @@ function groupScaleForHandle(
   newY: number,
   keepAspect: boolean
 ): { sx: number; sy: number; ax: number; ay: number } {
-  const wx = Math.max(0.01, startBox.x1 - startBox.x0);
-  const wy = Math.max(0.01, startBox.y1 - startBox.y0);
-  /** 画面上の端 → スケール対象の辺を動かす。反対辺はアンカー（固定） */
-  let ax = (startBox.x0 + startBox.x1) / 2;
-  let ay = (startBox.y0 + startBox.y1) / 2;
+  const cx = (startBox.x0 + startBox.x1) / 2;
+  const cy = (startBox.y0 + startBox.y1) / 2;
+
   let sx = 1;
   let sy = 1;
   const touchesN = handle.includes("n");
   const touchesS = handle.includes("s");
   const touchesW = handle.includes("w");
   const touchesE = handle.includes("e");
+
+  const isCorner =
+    handle === "ne" ||
+    handle === "nw" ||
+    handle === "se" ||
+    handle === "sw";
+
+  /** 中心から当該辺までの距離（0 除算回避） */
+  const eastDen = Math.max(0.001, startBox.x1 - cx);
+  const westDen = Math.max(0.001, cx - startBox.x0);
+  const southDen = Math.max(0.001, startBox.y1 - cy);
+  const northDen = Math.max(0.001, cy - startBox.y0);
+
   if (touchesE) {
-    ax = startBox.x0;
-    sx = Math.max(0.05, (newX - startBox.x0) / wx);
+    sx = Math.max(0.05, (newX - cx) / eastDen);
   } else if (touchesW) {
-    ax = startBox.x1;
-    sx = Math.max(0.05, (startBox.x1 - newX) / wx);
+    sx = Math.max(0.05, (cx - newX) / westDen);
   }
   if (touchesS) {
-    ay = startBox.y0;
-    sy = Math.max(0.05, (newY - startBox.y0) / wy);
+    sy = Math.max(0.05, (newY - cy) / southDen);
   } else if (touchesN) {
-    ay = startBox.y1;
-    sy = Math.max(0.05, (startBox.y1 - newY) / wy);
+    sy = Math.max(0.05, (cy - newY) / northDen);
   }
+
   if (!touchesE && !touchesW) sx = keepAspect ? sy : 1;
   if (!touchesN && !touchesS) sy = keepAspect ? sx : 1;
-  if (keepAspect && (touchesE || touchesW) && (touchesN || touchesS)) {
+  if (keepAspect && isCorner) {
     const s = Math.max(sx, sy);
     sx = s;
     sy = s;
   }
-  return { sx, sy, ax, ay };
+  return { sx, sy, ax: cx, ay: cy };
 }
 
 function applySetPieceResizePct(
@@ -391,7 +419,7 @@ export function StageBoard({
     y: number | null;
   }>({ x: null, y: null });
 
-  /** ダブルクリックで開く「名前・色・メモ」小窓の対象ダンサー id */
+  /** ダブルクリックで開くメンバー編集ダイアログの対象ダンサー id */
   const [dancerQuickEditId, setDancerQuickEditId] = useState<string | null>(null);
   /**
    * ステージ上で選択中のダンサー ID（複数可）。
@@ -1863,6 +1891,39 @@ export function StageBoard({
     );
   }, [dancerQuickEditId, writeFormation]);
 
+  /** 名簿に紐づくときはメンバー側の身長・学年などをマージしてダイアログに出す */
+  const quickEditDancerForDialog = useMemo((): DancerSpot | null => {
+    if (!quickEditDancer) return null;
+    const cmid = quickEditDancer.crewMemberId;
+    if (!cmid) return quickEditDancer;
+    for (const c of project.crews) {
+      const m = c.members.find((x) => x.id === cmid);
+      if (m) {
+        const pick = (
+          spot: string | undefined,
+          crew: string | undefined
+        ): string | undefined =>
+          spot != null && spot.trim() !== "" ? spot : crew;
+        return {
+          ...quickEditDancer,
+          label:
+            quickEditDancer.label?.trim() !== ""
+              ? quickEditDancer.label
+              : m.label,
+          heightCm: quickEditDancer.heightCm ?? m.heightCm,
+          gradeLabel: pick(quickEditDancer.gradeLabel, m.gradeLabel),
+          genderLabel: pick(quickEditDancer.genderLabel, m.genderLabel),
+          skillRankLabel: pick(
+            quickEditDancer.skillRankLabel,
+            m.skillRankLabel
+          ),
+          note: pick(quickEditDancer.note, m.note),
+        };
+      }
+    }
+    return quickEditDancer;
+  }, [quickEditDancer, project.crews]);
+
   const applyDancerQuickEdit = useCallback(
     (patch: DancerQuickEditApply) => {
       if (!formationIdForWrites || !dancerQuickEditId) return;
@@ -1880,7 +1941,18 @@ export function StageBoard({
           crews = p.crews.map((crew) => ({
             ...crew,
             members: crew.members.map((m) =>
-              m.id === cmid ? { ...m, label: patch.label } : m
+              m.id === cmid
+                ? {
+                    ...m,
+                    label: patch.label.slice(0, 120),
+                    colorIndex: patch.colorIndex % 9,
+                    heightCm: patch.heightCm,
+                    gradeLabel: patch.gradeLabel,
+                    genderLabel: patch.genderLabel,
+                    skillRankLabel: patch.skillRankLabel,
+                    note: patch.note,
+                  }
+                : m
             ),
           }));
         }
@@ -1892,16 +1964,15 @@ export function StageBoard({
             ...f,
             dancers: f.dancers.map((x) => {
               if (!matches(x)) return x;
-              const { note: _n, heightCm: _h, ...base } = x;
               return {
-                ...base,
-                label: patch.label,
+                ...x,
+                label: patch.label.slice(0, 120),
                 colorIndex: patch.colorIndex % 9,
-                ...(patch.note ? { note: patch.note } : {}),
-                ...(typeof patch.heightCm === "number" &&
-                Number.isFinite(patch.heightCm)
-                  ? { heightCm: patch.heightCm }
-                  : {}),
+                note: patch.note,
+                heightCm: patch.heightCm,
+                gradeLabel: patch.gradeLabel,
+                genderLabel: patch.genderLabel,
+                skillRankLabel: patch.skillRankLabel,
               };
             }),
           })),
@@ -1911,11 +1982,66 @@ export function StageBoard({
     [formationIdForWrites, dancerQuickEditId, setProject]
   );
 
+  const applyDancerArrange = useCallback(
+    (
+      fn: (dancers: DancerSpot[], targetIds: string[]) => DancerSpot[]
+    ) => {
+      if (
+        !writeFormation ||
+        viewMode === "view" ||
+        stageInteractionsEnabled === false ||
+        playbackOrPreview
+      )
+        return;
+      if (!stageContextMenu || stageContextMenu.kind !== "dancer") return;
+      const targetIds = resolveArrangeTargetIds(
+        stageContextMenu.dancerId,
+        selectedDancerIds
+      );
+      updateActiveFormation((f) => ({
+        ...f,
+        dancers: fn(f.dancers, targetIds),
+      }));
+      setStageContextMenu(null);
+    },
+    [
+      writeFormation,
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+      stageContextMenu,
+      selectedDancerIds,
+      updateActiveFormation,
+    ]
+  );
+
+  /** 位置の形を保った入れ替え（2人以上必須） */
+  const applyPermuteArrange = useCallback(
+    (
+      fn: (dancers: DancerSpot[], targetIds: string[]) => DancerSpot[]
+    ) => {
+      if (!stageContextMenu || stageContextMenu.kind !== "dancer") return;
+      const targetIds = resolveArrangeTargetIds(
+        stageContextMenu.dancerId,
+        selectedDancerIds
+      );
+      if (targetIds.length < 2) {
+        window.alert(
+          "いまの立ち位置のままの並び替えは、対象を 2 人以上選んでください。"
+        );
+        setStageContextMenu(null);
+        return;
+      }
+      applyDancerArrange(fn);
+    },
+    [stageContextMenu, selectedDancerIds, applyDancerArrange]
+  );
+
   let contextMenuStyle: CSSProperties | null = null;
   if (stageContextMenu) {
     const pad = 8;
-    const mw = 132;
-    const mh = 52;
+    const mw = stageContextMenu.kind === "dancer" ? 268 : 132;
+    const mh = stageContextMenu.kind === "dancer" ? 640 : 52;
     const maxL =
       typeof window !== "undefined" ? window.innerWidth - mw - pad : stageContextMenu.clientX;
     const maxT =
@@ -2661,8 +2787,8 @@ export function StageBoard({
                   !playbackOrPreview
                     ? [
                         mmLabel(d.xPct, d.yPct),
-                        "ダブルクリックで名前・色・メモ",
-                        "右クリックで削除メニュー",
+                        "ダブルクリックで名前・身長・学年・性別・スキル・備考",
+                        "右クリックで削除・並べ替えメニュー",
                         "下端へ寄せるとゴミ箱が出ます。そこへドロップで削除",
                         "Shift / Cmd / Ctrl+クリックで複数選択に追加",
                         "空のステージをドラッグで範囲選択",
@@ -3090,31 +3216,347 @@ export function StageBoard({
       </div>
     </div>
     {stageContextMenu && contextMenuStyle && (
-      <div ref={stageContextMenuRef} style={contextMenuStyle}>
-        <button
-          type="button"
-          style={{
-            ...btnSecondary,
-            width: "100%",
-            borderColor: "#7f1d1d",
-            color: "#fecaca",
-            fontWeight: 600,
-          }}
-          onClick={() => {
-            if (stageContextMenu.kind === "dancer") {
-              removeDancerById(stageContextMenu.dancerId);
-            } else {
+      <div
+        ref={stageContextMenuRef}
+        style={contextMenuStyle}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {stageContextMenu.kind === "dancer" ? (
+          <>
+            <div
+              style={{
+                fontSize: "10px",
+                color: "#64748b",
+                marginBottom: "6px",
+                lineHeight: 1.35,
+              }}
+            >
+              範囲はドラッグで囲むか Shift+クリックで複数選択。
+              右クリックした印が選択に含まれるときは<strong style={{ color: "#94a3b8" }}> 選択全員</strong>が対象です。
+            </div>
+            <div
+              style={{
+                fontSize: "10px",
+                fontWeight: 600,
+                color: "#94a3b8",
+                margin: "4px 0 2px",
+              }}
+            >
+              いまの立ち位置のまま（印の形は変えず入れ替え）
+            </div>
+            <div
+              style={{
+                fontSize: "9px",
+                color: "#64748b",
+                marginBottom: "4px",
+                lineHeight: 1.35,
+              }}
+            >
+              左から・上（奥）からの順に空きを並べ、身長・学年・スキル順の人をその順に割り当てます（2人以上で有効）。
+            </div>
+            <button
+              type="button"
+              style={{
+                ...btnSecondary,
+                width: "100%",
+                fontSize: "11px",
+                padding: "5px 8px",
+                marginBottom: "4px",
+                textAlign: "left",
+              }}
+              onClick={() => applyPermuteArrange(permuteSlotsByHeightAsc)}
+            >
+              身長の低い順で位置を割り当て
+            </button>
+            <button
+              type="button"
+              style={{
+                ...btnSecondary,
+                width: "100%",
+                fontSize: "11px",
+                padding: "5px 8px",
+                marginBottom: "4px",
+                textAlign: "left",
+              }}
+              onClick={() => applyPermuteArrange(permuteSlotsByHeightDesc)}
+            >
+              身長の高い順で位置を割り当て
+            </button>
+            <button
+              type="button"
+              style={{
+                ...btnSecondary,
+                width: "100%",
+                fontSize: "11px",
+                padding: "5px 8px",
+                marginBottom: "4px",
+                textAlign: "left",
+              }}
+              onClick={() => applyPermuteArrange(permuteSlotsByGradeAsc)}
+            >
+              学年が若い順で位置を割り当て
+            </button>
+            <button
+              type="button"
+              style={{
+                ...btnSecondary,
+                width: "100%",
+                fontSize: "11px",
+                padding: "5px 8px",
+                marginBottom: "4px",
+                textAlign: "left",
+              }}
+              onClick={() => applyPermuteArrange(permuteSlotsByGradeDesc)}
+            >
+              学年が高い順で位置を割り当て
+            </button>
+            <button
+              type="button"
+              style={{
+                ...btnSecondary,
+                width: "100%",
+                fontSize: "11px",
+                padding: "5px 8px",
+                marginBottom: "4px",
+                textAlign: "left",
+              }}
+              onClick={() => applyPermuteArrange(permuteSlotsBySkillAsc)}
+            >
+              スキル数字が小さい順で位置を割り当て
+            </button>
+            <button
+              type="button"
+              style={{
+                ...btnSecondary,
+                width: "100%",
+                fontSize: "11px",
+                padding: "5px 8px",
+                marginBottom: "8px",
+                textAlign: "left",
+              }}
+              onClick={() => applyPermuteArrange(permuteSlotsBySkillDesc)}
+            >
+              スキル数字が大きい順で位置を割り当て
+            </button>
+            <div
+              style={{
+                fontSize: "10px",
+                fontWeight: 600,
+                color: "#94a3b8",
+                margin: "4px 0 2px",
+              }}
+            >
+              位置の入れ替え（2人以上）
+            </div>
+            <button
+              type="button"
+              style={{
+                ...btnSecondary,
+                width: "100%",
+                fontSize: "11px",
+                padding: "5px 8px",
+                marginBottom: "4px",
+                textAlign: "left",
+              }}
+              onClick={() => {
+                const ids = resolveArrangeTargetIds(
+                  stageContextMenu.dancerId,
+                  selectedDancerIds
+                );
+                if (ids.length < 2) {
+                  window.alert("右回りの入れ替えは、対象を 2 人以上選んでください。");
+                  setStageContextMenu(null);
+                  return;
+                }
+                applyDancerArrange((dancers, t) =>
+                  rotateDancerRingOneStep(dancers, t, "cw")
+                );
+              }}
+            >
+              右回りに 1 人分ずつ入れ替え
+            </button>
+            <button
+              type="button"
+              style={{
+                ...btnSecondary,
+                width: "100%",
+                fontSize: "11px",
+                padding: "5px 8px",
+                marginBottom: "8px",
+                textAlign: "left",
+              }}
+              onClick={() => {
+                const ids = resolveArrangeTargetIds(
+                  stageContextMenu.dancerId,
+                  selectedDancerIds
+                );
+                if (ids.length < 2) {
+                  window.alert("左回りの入れ替えは、対象を 2 人以上選んでください。");
+                  setStageContextMenu(null);
+                  return;
+                }
+                applyDancerArrange((dancers, t) =>
+                  rotateDancerRingOneStep(dancers, t, "ccw")
+                );
+              }}
+            >
+              左回りに 1 人分ずつ入れ替え
+            </button>
+            <div
+              style={{
+                fontSize: "10px",
+                fontWeight: 600,
+                color: "#94a3b8",
+                margin: "4px 0 2px",
+              }}
+            >
+              横一列（選択枠内の幅に収めます）
+            </div>
+            <button
+              type="button"
+              style={{
+                ...btnSecondary,
+                width: "100%",
+                fontSize: "11px",
+                padding: "5px 8px",
+                marginBottom: "4px",
+                textAlign: "left",
+              }}
+              onClick={() => applyDancerArrange(lineUpByHeightAsc)}
+            >
+              身長の低い順で並べる
+            </button>
+            <button
+              type="button"
+              style={{
+                ...btnSecondary,
+                width: "100%",
+                fontSize: "11px",
+                padding: "5px 8px",
+                marginBottom: "8px",
+                textAlign: "left",
+              }}
+              onClick={() => applyDancerArrange(lineUpByHeightDesc)}
+            >
+              身長の高い順で並べる
+            </button>
+            <div
+              style={{
+                fontSize: "10px",
+                fontWeight: 600,
+                color: "#94a3b8",
+                margin: "4px 0 2px",
+              }}
+            >
+              学年
+            </div>
+            <button
+              type="button"
+              style={{
+                ...btnSecondary,
+                width: "100%",
+                fontSize: "11px",
+                padding: "5px 8px",
+                marginBottom: "4px",
+                textAlign: "left",
+              }}
+              onClick={() => applyDancerArrange(lineUpByGradeAsc)}
+            >
+              学年が低い順（若い順）で並べる
+            </button>
+            <button
+              type="button"
+              style={{
+                ...btnSecondary,
+                width: "100%",
+                fontSize: "11px",
+                padding: "5px 8px",
+                marginBottom: "8px",
+                textAlign: "left",
+              }}
+              onClick={() => applyDancerArrange(lineUpByGradeDesc)}
+            >
+              学年が高い順で並べる
+            </button>
+            <div
+              style={{
+                fontSize: "10px",
+                fontWeight: 600,
+                color: "#94a3b8",
+                margin: "4px 0 2px",
+              }}
+            >
+              スキル（奥＝画面上側・手前＝客席側）
+            </div>
+            <button
+              type="button"
+              style={{
+                ...btnSecondary,
+                width: "100%",
+                fontSize: "11px",
+                padding: "5px 8px",
+                marginBottom: "4px",
+                textAlign: "left",
+              }}
+              onClick={() => applyDancerArrange(lineUpBySkillSmallToBack)}
+            >
+              スキル数字が小さい人を奥へ（縦一列）
+            </button>
+            <button
+              type="button"
+              style={{
+                ...btnSecondary,
+                width: "100%",
+                fontSize: "11px",
+                padding: "5px 8px",
+                marginBottom: "8px",
+                textAlign: "left",
+              }}
+              onClick={() => applyDancerArrange(lineUpBySkillLargeToBack)}
+            >
+              スキル数字が大きい人を奥へ（縦一列）
+            </button>
+            <button
+              type="button"
+              style={{
+                ...btnSecondary,
+                width: "100%",
+                borderColor: "#7f1d1d",
+                color: "#fecaca",
+                fontWeight: 600,
+                fontSize: "11px",
+                padding: "5px 8px",
+                marginTop: "4px",
+              }}
+              onClick={() => {
+                removeDancerById(stageContextMenu.dancerId);
+              }}
+            >
+              削除
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            style={{
+              ...btnSecondary,
+              width: "100%",
+              borderColor: "#7f1d1d",
+              color: "#fecaca",
+              fontWeight: 600,
+            }}
+            onClick={() => {
               removeSetPieceById(stageContextMenu.pieceId);
-            }
-          }}
-        >
-          削除
-        </button>
+            }}
+          >
+            削除
+          </button>
+        )}
       </div>
     )}
     <DancerQuickEditDialog
-      open={Boolean(dancerQuickEditId && quickEditDancer)}
-      dancer={quickEditDancer}
+      open={Boolean(dancerQuickEditId && quickEditDancerForDialog)}
+      dancer={quickEditDancerForDialog}
       viewMode={viewMode}
       onClose={() => setDancerQuickEditId(null)}
       onApply={applyDancerQuickEdit}

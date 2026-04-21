@@ -1,10 +1,14 @@
 import type {
+  AudienceEdge,
   ChoreographyProjectJson,
   Crew,
+  CrewMember,
   Cue,
   DancerSpot,
   Formation,
+  RosterStripSortMode,
   SavedSpotLayout,
+  SavedSpotStageSnapshot,
   SetPiece,
   SetPieceKind,
   StageShape,
@@ -201,6 +205,15 @@ function normalizeDancerSpot(raw: unknown, index: number): DancerSpot {
     ...(note ? { note } : {}),
     ...(sizePx != null ? { sizePx } : {}),
     ...(heightCm != null ? { heightCm } : {}),
+    ...(typeof d.gradeLabel === "string" && d.gradeLabel.trim()
+      ? { gradeLabel: d.gradeLabel.trim().slice(0, 32) }
+      : {}),
+    ...(typeof d.skillRankLabel === "string" && d.skillRankLabel.trim()
+      ? { skillRankLabel: d.skillRankLabel.trim().slice(0, 24) }
+      : {}),
+    ...(typeof d.genderLabel === "string" && d.genderLabel.trim()
+      ? { genderLabel: d.genderLabel.trim().slice(0, 32) }
+      : {}),
   };
 }
 
@@ -220,6 +233,61 @@ function normalizeGridStep(raw: unknown): number {
   return GRID_STEP_CHOICES.reduce((best, a) =>
     Math.abs(a - clamped) < Math.abs(best - clamped) ? a : best
   );
+}
+
+function numOrNullSnap(v: unknown): number | null {
+  if (typeof v !== "number" || !Number.isFinite(v)) return null;
+  return v;
+}
+
+function normalizeSavedSpotStageSnapshot(
+  raw: unknown,
+  defaults: ChoreographyProjectJson
+): SavedSpotStageSnapshot | undefined {
+  if (raw == null || typeof raw !== "object") return undefined;
+  const o = raw as Record<string, unknown>;
+  const ae = o.audienceEdge;
+  const audienceEdge: AudienceEdge =
+    ae === "top" || ae === "bottom" || ae === "left" || ae === "right"
+      ? ae
+      : defaults.audienceEdge;
+  const stageShape = normalizeStageShape(o.stageShape);
+  const dmp =
+    typeof o.dancerMarkerDiameterPx === "number" && Number.isFinite(o.dancerMarkerDiameterPx)
+      ? Math.max(4, Math.min(80, o.dancerMarkerDiameterPx))
+      : defaults.dancerMarkerDiameterPx;
+  const snap: SavedSpotStageSnapshot = {
+    audienceEdge,
+    stageWidthMm: numOrNullSnap(o.stageWidthMm),
+    stageDepthMm: numOrNullSnap(o.stageDepthMm),
+    sideStageMm: numOrNullSnap(o.sideStageMm),
+    backStageMm: numOrNullSnap(o.backStageMm),
+    centerFieldGuideIntervalMm: numOrNullSnap(o.centerFieldGuideIntervalMm),
+    hanamichiEnabled:
+      typeof o.hanamichiEnabled === "boolean" ? o.hanamichiEnabled : false,
+    hanamichiDepthPct:
+      typeof o.hanamichiDepthPct === "number" && Number.isFinite(o.hanamichiDepthPct)
+        ? Math.round(Math.min(36, Math.max(8, o.hanamichiDepthPct)) * 10) / 10
+        : 14,
+    stageShape: stageShape ?? undefined,
+    gridSpacingMm:
+      typeof o.gridSpacingMm === "number" && Number.isFinite(o.gridSpacingMm)
+        ? o.gridSpacingMm
+        : undefined,
+    gridStep:
+      typeof o.gridStep === "number" && Number.isFinite(o.gridStep)
+        ? normalizeGridStep(o.gridStep)
+        : defaults.gridStep,
+    snapGrid: typeof o.snapGrid === "boolean" ? o.snapGrid : defaults.snapGrid,
+    dancerSpacingMm: numOrNullSnap(o.dancerSpacingMm),
+    dancerMarkerDiameterPx: dmp,
+    dancerMarkerDiameterMm: numOrNullSnap(o.dancerMarkerDiameterMm) ?? undefined,
+    dancerLabelPosition:
+      o.dancerLabelPosition === "below" || o.dancerLabelPosition === "inside"
+        ? o.dancerLabelPosition
+        : defaults.dancerLabelPosition,
+  };
+  return snap;
 }
 
 export function normalizeProject(data: unknown): ChoreographyProjectJson {
@@ -261,12 +329,40 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
       members: Array.isArray(cr.members)
         ? cr.members
             .filter((m) => m != null && typeof m === "object")
-            .map((m) => ({
-              id: typeof m.id === "string" && m.id ? m.id : randomId("m"),
-              label: typeof m.label === "string" ? m.label : "?",
-              colorIndex:
-                typeof m.colorIndex === "number" ? m.colorIndex % 9 : 0,
-            }))
+            .map((m) => {
+              const mm = m as Record<string, unknown>;
+              const base: CrewMember = {
+                id: typeof m.id === "string" && m.id ? m.id : randomId("m"),
+                label: typeof m.label === "string" ? m.label : "?",
+                colorIndex:
+                  typeof m.colorIndex === "number" ? m.colorIndex % 9 : 0,
+              };
+              const hc = mm.heightCm;
+              if (
+                typeof hc === "number" &&
+                Number.isFinite(hc) &&
+                hc > 0 &&
+                hc < 300
+              ) {
+                base.heightCm = Math.round(hc * 10) / 10;
+              }
+              if (typeof mm.gradeLabel === "string" && mm.gradeLabel.trim()) {
+                base.gradeLabel = mm.gradeLabel.trim().slice(0, 32);
+              }
+              if (
+                typeof mm.skillRankLabel === "string" &&
+                mm.skillRankLabel.trim()
+              ) {
+                base.skillRankLabel = mm.skillRankLabel.trim().slice(0, 24);
+              }
+              if (typeof mm.genderLabel === "string" && mm.genderLabel.trim()) {
+                base.genderLabel = mm.genderLabel.trim().slice(0, 32);
+              }
+              if (typeof mm.note === "string" && mm.note.trim()) {
+                base.note = mm.note.trim().slice(0, 2000);
+              }
+              return base;
+            })
         : [],
     }));
   const savedLayoutsRaw = Array.isArray(
@@ -277,23 +373,26 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
   const savedSpotLayouts: SavedSpotLayout[] = savedLayoutsRaw
     .filter((sl) => sl != null && typeof sl === "object")
     .map((sl) => {
-      const dancersRaw = Array.isArray(sl.dancers) ? sl.dancers : [];
+      const slObj = sl as Record<string, unknown>;
+      const dancersRaw = Array.isArray(slObj.dancers) ? slObj.dancers : [];
       const dancers: DancerSpot[] = dancersRaw
         .filter((d) => d != null && typeof d === "object")
         .slice(0, 100)
         .map((d, i) => normalizeDancerSpot(d, i));
       const savedAtCount =
-        typeof sl.savedAtCount === "number" && Number.isFinite(sl.savedAtCount)
-          ? Math.max(1, Math.min(80, Math.floor(sl.savedAtCount)))
+        typeof slObj.savedAtCount === "number" && Number.isFinite(slObj.savedAtCount)
+          ? Math.max(1, Math.min(80, Math.floor(slObj.savedAtCount)))
           : Math.max(1, Math.min(80, dancers.length || 1));
+      const stageSnapshot = normalizeSavedSpotStageSnapshot(slObj.stageSnapshot, defaults);
       return {
-        id: typeof sl.id === "string" && sl.id ? sl.id : randomId("saved-layout"),
+        id: typeof slObj.id === "string" && slObj.id ? slObj.id : randomId("saved-layout"),
         name:
-          typeof sl.name === "string" && sl.name.trim()
-            ? sl.name.trim().slice(0, 120)
+          typeof slObj.name === "string" && slObj.name.trim()
+            ? slObj.name.trim().slice(0, 120)
             : "保存した立ち位置",
         savedAtCount,
         dancers,
+        ...(stageSnapshot ? { stageSnapshot } : {}),
       };
     });
 
@@ -414,6 +513,29 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
         return defaults.waveformAmplitudeScale ?? 1;
       }
       return Math.round(Math.min(4, Math.max(0.25, raw)) * 100) / 100;
+    })(),
+    rosterStripCollapsed:
+      typeof (o as Partial<ChoreographyProjectJson>).rosterStripCollapsed ===
+      "boolean"
+        ? (o as Partial<ChoreographyProjectJson>).rosterStripCollapsed
+        : undefined,
+    rosterHidesTimeline:
+      typeof (o as Partial<ChoreographyProjectJson>).rosterHidesTimeline ===
+      "boolean"
+        ? (o as Partial<ChoreographyProjectJson>).rosterHidesTimeline
+        : undefined,
+    rosterStripSortMode: ((): RosterStripSortMode | undefined => {
+      const m = (o as Partial<ChoreographyProjectJson>).rosterStripSortMode;
+      if (
+        m === "import" ||
+        m === "height_desc" ||
+        m === "height_asc" ||
+        m === "grade" ||
+        m === "skill"
+      ) {
+        return m;
+      }
+      return undefined;
     })(),
     viewMode: o.viewMode === "view" ? "view" : "edit",
   };

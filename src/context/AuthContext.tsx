@@ -9,7 +9,14 @@ import {
 import { authApi, getToken, setToken } from "../api/client";
 
 type Me = {
-  user: { id: number; email: string; entitlement_lifetime?: number };
+  user: {
+    id: number;
+    email: string;
+    entitlement_lifetime?: number;
+    stripe_customer_id?: string | null;
+    stripe_subscription_id?: string | null;
+    subscription_status?: string | null;
+  };
   adminOrganizations: { id: number; name: string }[];
   memberOrganizations: { id: number; name: string }[];
 };

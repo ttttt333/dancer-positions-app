@@ -10,7 +10,7 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { StageBoard } from "../components/StageBoard";
 import { StageDimensionFields } from "../components/StageDimensionFields";
 const Stage3DView = lazy(() =>
@@ -18,6 +18,7 @@ const Stage3DView = lazy(() =>
 );
 import { TimelinePanel, type TimelinePanelHandle } from "../components/TimelinePanel";
 import { InspectorPanel } from "../components/InspectorPanel";
+import { RosterTimelineStrip } from "../components/RosterTimelineStrip";
 import { createEmptyProject, tryMigrateFromLocalStorage } from "../lib/projectDefaults";
 import { preloadFFmpeg } from "../lib/extractVideoAudio";
 import { normalizeProject } from "../lib/normalizeProject";
@@ -28,7 +29,7 @@ import {
   listFormationBoxItemsByCount,
   saveFormationToBox,
 } from "../lib/formationBox";
-import { dancersForLayoutPreset } from "../lib/formationLayouts";
+import { pickSpotForAppendedDancer } from "../lib/dancerAppendPlacement";
 import { DANCER_SPACING_PRESET_OPTIONS } from "../lib/dancerSpacing";
 import {
   buildCrewFromRows,
@@ -65,6 +66,7 @@ import {
 import { projectApi } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { btnSecondary } from "../components/StageBoard";
+import { useYjsCollaboration } from "../hooks/useYjsCollaboration";
 
 const HISTORY_CAP = 80;
 
@@ -104,8 +106,10 @@ function readMaxStageWidthPx(gridEl: HTMLElement): number {
 export function EditorPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const { me } = useAuth();
-  const [project, setProject] = useState<ChoreographyProjectJson | null>(null);
+  const [searchParams] = useSearchParams();
+  const { me, ready: authReady } = useAuth();
+  const collabParam = searchParams.get("collab") === "1";
+  const [plainProject, setPlainProject] = useState<ChoreographyProjectJson | null>(null);
   const [projectName, setProjectName] = useState("無題の作品");
   const [serverId, setServerId] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -171,6 +175,10 @@ export function EditorPage() {
   } | null>(null);
   const [rosterImportNameMode, setRosterImportNameMode] =
     useState<RosterNameImportMode>("full");
+  /** 名簿取り込み確認ダイアログ: ファイル以外に手入力で追加するメンバー（各行が 1 名） */
+  const [rosterImportExtraNames, setRosterImportExtraNames] = useState<string[]>(
+    []
+  );
   const editorPaneRef = useRef<HTMLDivElement>(null);
   const stageSectionRef = useRef<HTMLElement>(null);
   const splitDragRef = useRef<{
@@ -196,6 +204,16 @@ export function EditorPage() {
     redo: [],
   });
 
+  const collabActive =
+    collabParam &&
+    !!me &&
+    serverId != null &&
+    projectId != null &&
+    projectId !== "new";
+
+  const yjsCollab = useYjsCollaboration(serverId, collabActive);
+  const project = collabActive ? yjsCollab.project : plainProject;
+
   /**
    * エディタを開いた時点でバックグラウンドで FFmpeg.wasm を温めておく。
    * ユーザがあとで動画を選んだ時、初回でもコア/wasm は既にキャッシュ済みで即抽出に入れる。
@@ -214,9 +232,10 @@ export function EditorPage() {
   }, []);
 
   useEffect(() => {
+    if (!authReady) return;
     if (projectId === "new" || !projectId) {
       const migrated = tryMigrateFromLocalStorage();
-      setProject(migrated ?? createEmptyProject());
+      setPlainProject(migrated ?? createEmptyProject());
       setServerId(null);
       setLoadError(null);
       historyRef.current = { undo: [], redo: [] };
@@ -227,6 +246,10 @@ export function EditorPage() {
       setLoadError("無効な ID");
       return;
     }
+    if (collabParam && !me) {
+      setLoadError("共同編集にはログインが必要です");
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
@@ -234,7 +257,11 @@ export function EditorPage() {
         if (cancelled) return;
         setServerId(row.id);
         setProjectName(row.name);
-        setProject(normalizeProject(row.json));
+        if (collabParam && me) {
+          setPlainProject(null);
+        } else {
+          setPlainProject(normalizeProject(row.json));
+        }
         setLoadError(null);
         historyRef.current = { undo: [], redo: [] };
       } catch (e) {
@@ -246,7 +273,7 @@ export function EditorPage() {
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, collabParam, me, authReady]);
 
   useEffect(() => {
     const mq = window.matchMedia(`(min-width: ${EDITOR_WIDE_MIN_PX}px)`);
@@ -489,9 +516,9 @@ export function EditorPage() {
         : `${TOOLBAR_COL_PX}px ${Math.round(stageColumnPx)}px ${STAGE_RESIZER_PX}px minmax(${TIMELINE_COL_MIN_PX}px, 1fr)`
     : "1fr";
 
-  const setProjectSafe: Dispatch<SetStateAction<ChoreographyProjectJson>> = useCallback(
-    (action) => {
-      setProject((prev) => {
+  const setProjectSafePlain: Dispatch<SetStateAction<ChoreographyProjectJson>> =
+    useCallback((action) => {
+      setPlainProject((prev) => {
         if (!prev) return prev;
         const next =
           typeof action === "function"
@@ -504,12 +531,16 @@ export function EditorPage() {
         redo.length = 0;
         return next;
       });
-    },
-    []
-  );
+    }, []);
 
-  const undo = useCallback(() => {
-    setProject((cur) => {
+  const setProjectSafe: Dispatch<SetStateAction<ChoreographyProjectJson>> =
+    useMemo(
+      () => (collabActive ? yjsCollab.setProjectSafe : setProjectSafePlain),
+      [collabActive, yjsCollab.setProjectSafe, setProjectSafePlain]
+    );
+
+  const undoPlain = useCallback(() => {
+    setPlainProject((cur) => {
       if (!cur) return cur;
       const { undo, redo } = historyRef.current;
       if (undo.length === 0) return cur;
@@ -519,8 +550,8 @@ export function EditorPage() {
     });
   }, []);
 
-  const redo = useCallback(() => {
-    setProject((cur) => {
+  const redoPlain = useCallback(() => {
+    setPlainProject((cur) => {
       if (!cur) return cur;
       const { undo, redo } = historyRef.current;
       if (redo.length === 0) return cur;
@@ -529,6 +560,16 @@ export function EditorPage() {
       return normalizeProject(JSON.parse(nextStr));
     });
   }, []);
+
+  const undo = useCallback(() => {
+    if (collabActive) yjsCollab.undo();
+    else undoPlain();
+  }, [collabActive, yjsCollab, undoPlain]);
+
+  const redo = useCallback(() => {
+    if (collabActive) yjsCollab.redo();
+    else redoPlain();
+  }, [collabActive, yjsCollab, redoPlain]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -573,6 +614,7 @@ export function EditorPage() {
       }
       if (e.key === "Escape" && rosterImportDraft) {
         setRosterImportDraft(null);
+        setRosterImportExtraNames([]);
         return;
       }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
@@ -764,12 +806,9 @@ export function EditorPage() {
   );
 
   /**
-   * ＋ダンサーボタンで 1 人ずつ追加するときの配置ルール。
-   *
-   * - 1 人目はセンター前に立つ。
-   * - 以降はピラミッド（`pyramid` プリセット）が自然に広がる位置へ並べ直す。
-   * - 既存ダンサーの id / crewMemberId / note / sizePx は保持し、
-   *   位置・ラベル・色だけピラミッド順に合わせて更新する（重なり回避のため）。
+   * ＋ダンサーボタンで 1 人ずつ追加。
+   * 既存の立ち位置・表示名は一切変えず、追加 1 人だけを
+   * 既存印から離れた空きに置く（ピラミッド全体の並べ替えはしない）。
    */
   const addDancerFromStageToolbar = useCallback(() => {
     if (!project || project.viewMode === "view") return;
@@ -781,28 +820,25 @@ export function EditorPage() {
     setProjectSafe((p) => {
       const f = p.formations.find((x) => x.id === fid);
       if (!f) return p;
-      const newCount = f.dancers.length + 1;
-      const layout = dancersForLayoutPreset(newCount, "pyramid", {
-        dancerSpacingMm: p.dancerSpacingMm,
-        stageWidthMm: p.stageWidthMm,
-      });
-      const nextDancers: DancerSpot[] = layout.map((slot, i) => {
-        const existing = f.dancers[i];
-        if (existing) {
-          return {
-            ...existing,
-            label: slot.label,
-            xPct: slot.xPct,
-            yPct: slot.yPct,
-            colorIndex: slot.colorIndex,
-          };
-        }
-        return slot;
-      });
+      const n = f.dancers.length;
+      const { xPct, yPct } = pickSpotForAppendedDancer(f.dancers);
+      const newDancer = {
+        id: crypto.randomUUID(),
+        label: String(n + 1),
+        xPct,
+        yPct,
+        colorIndex: n % 9,
+      };
       return {
         ...p,
         formations: p.formations.map((fm) =>
-          fm.id === fid ? { ...fm, dancers: nextDancers } : fm
+          fm.id === fid
+            ? {
+                ...fm,
+                dancers: [...f.dancers.map((d) => ({ ...d })), newDancer],
+                confirmedDancerCount: n + 1,
+              }
+            : fm
         ),
       };
     });
@@ -863,6 +899,7 @@ export function EditorPage() {
         const defaultName =
           result.baseName || `名簿 ${(project.crews?.length ?? 0) + 1}`;
         setRosterImportNameMode("full");
+        setRosterImportExtraNames([]);
         setRosterImportDraft({
           rows: result.rows,
           baseName: defaultName,
@@ -990,11 +1027,25 @@ export function EditorPage() {
     );
   }
 
+  if (collabActive && !yjsCollab.synced) {
+    return (
+      <div style={{ padding: 24, color: "#94a3b8" }}>
+        共同編集を同期しています…（Yjs）
+      </div>
+    );
+  }
+
   if (!project) {
     return <div style={{ padding: 24, color: "#94a3b8" }}>読み込み中…</div>;
   }
 
   const waveDockTopRow = wideEditorLayout && waveTimelineDockTop;
+  const hasRosterMembers = project.crews.some((c) => c.members.length > 0);
+  /** 名簿ストリップのみ表示しタイムライン列を隠す（取り込み直後や「メンバーを表示」から） */
+  const rosterOnlyMode =
+    project.rosterHidesTimeline === true && hasRosterMembers;
+  /** 上部に波形ドックを出すレイアウト（名簿専用モードではオフ） */
+  const showTopWaveDock = waveDockTopRow && !rosterOnlyMode;
 
   const timelinePanelEl = (
     <TimelinePanel
@@ -1014,10 +1065,16 @@ export function EditorPage() {
       onUndo={undo}
       onRedo={redo}
       undoDisabled={
-        project.viewMode === "view" || historyRef.current.undo.length === 0
+        project.viewMode === "view" ||
+        (collabActive
+          ? yjsCollab.undoStackSize === 0
+          : historyRef.current.undo.length === 0)
       }
       redoDisabled={
-        project.viewMode === "view" || historyRef.current.redo.length === 0
+        project.viewMode === "view" ||
+        (collabActive
+          ? yjsCollab.redoStackSize === 0
+          : historyRef.current.redo.length === 0)
       }
       selectedCueIds={selectedCueIds}
       onSelectedCueIdsChange={setSelectedCueIds}
@@ -1025,10 +1082,8 @@ export function EditorPage() {
       wideWorkbench={wideEditorLayout}
       waveTimelineDockTop={waveTimelineDockTop}
       onWaveTimelineDockTopChange={setWaveTimelineDockTop}
-      compactTopDock={wideEditorLayout && waveTimelineDockTop}
-      cueListPortalTarget={
-        wideEditorLayout && waveTimelineDockTop ? cueListPortalEl : null
-      }
+      compactTopDock={showTopWaveDock}
+      cueListPortalTarget={showTopWaveDock ? cueListPortalEl : null}
     />
   );
 
@@ -1194,7 +1249,7 @@ export function EditorPage() {
           display: "grid",
           gridTemplateColumns: editorGridColumns,
           gridTemplateRows: wideEditorLayout
-            ? waveDockTopRow
+            ? showTopWaveDock
               ? `${
                   topDockRowPx != null
                     ? `${topDockRowPx}px`
@@ -1207,7 +1262,7 @@ export function EditorPage() {
           minHeight: 0,
         }}
       >
-        {waveDockTopRow ? (
+        {showTopWaveDock ? (
           <section
             style={{
               gridColumn: "1 / -1",
@@ -1226,12 +1281,48 @@ export function EditorPage() {
               overflow: "hidden",
             }}
           >
+            {hasRosterMembers ? (
+              <div
+                style={{
+                  flexShrink: 0,
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  padding: "0 4px 6px",
+                }}
+              >
+                <button
+                  type="button"
+                  disabled={project.viewMode === "view"}
+                  title="右列で名簿一覧を表示し、タイムラインは隠します"
+                  onClick={() =>
+                    setProjectSafe((p) => ({
+                      ...p,
+                      rosterHidesTimeline: true,
+                      rosterStripCollapsed: false,
+                    }))
+                  }
+                  style={{
+                    fontSize: "11px",
+                    padding: "4px 10px",
+                    borderRadius: "8px",
+                    border: "1px solid #14532d",
+                    background: "#14532d",
+                    color: "#dcfce7",
+                    cursor:
+                      project.viewMode === "view" ? "not-allowed" : "pointer",
+                    fontWeight: 600,
+                  }}
+                >
+                  メンバーを表示
+                </button>
+              </div>
+            ) : null}
             <div style={{ flex: "1 1 auto", minHeight: 0, display: "flex", flexDirection: "column" }}>
               {timelinePanelEl}
             </div>
           </section>
         ) : null}
-        {waveDockTopRow ? (
+        {showTopWaveDock ? (
           <div
             role="separator"
             aria-orientation="horizontal"
@@ -1273,7 +1364,7 @@ export function EditorPage() {
             wideEditorLayout
               ? {
                   gridColumn: 1,
-                  gridRow: waveDockTopRow ? 3 : 1,
+                  gridRow: showTopWaveDock ? 3 : 1,
                   minWidth: 0,
                   minHeight: 0,
                   alignSelf: "stretch",
@@ -1314,7 +1405,7 @@ export function EditorPage() {
             ...(wideEditorLayout
               ? {
                   gridColumn: 2,
-                  gridRow: waveDockTopRow ? 3 : 1,
+                  gridRow: showTopWaveDock ? 3 : 1,
                 }
               : {}),
           }}
@@ -2112,7 +2203,14 @@ export function EditorPage() {
                 }}
                 aria-hidden
               />
-              <div style={{ display: "flex", gap: "6px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  gap: "6px",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                }}
+              >
                 <button
                   type="button"
                   style={{
@@ -2137,6 +2235,36 @@ export function EditorPage() {
                 >
                   3D
                 </button>
+                {hasRosterMembers ? (
+                  <button
+                    type="button"
+                    disabled={project.viewMode === "view"}
+                    title="右列で名簿一覧を表示し、タイムライン列は隠します"
+                    onClick={() =>
+                      setProjectSafe((p) => ({
+                        ...p,
+                        rosterHidesTimeline: true,
+                        rosterStripCollapsed: false,
+                      }))
+                    }
+                    style={{
+                      fontSize: "11px",
+                      padding: "4px 10px",
+                      borderRadius: "8px",
+                      border: "1px solid #14532d",
+                      background: "#14532d",
+                      color: "#dcfce7",
+                      cursor:
+                        project.viewMode === "view"
+                          ? "not-allowed"
+                          : "pointer",
+                      fontWeight: 600,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    メンバーを表示
+                  </button>
+                ) : null}
               </div>
             </div>
             </div>
@@ -2543,12 +2671,12 @@ export function EditorPage() {
               alignSelf: "stretch",
               zIndex: 2,
               gridColumn: 3,
-              gridRow: waveDockTopRow ? 3 : 1,
+              gridRow: showTopWaveDock ? 3 : 1,
             }}
           />
         ) : null}
 
-        {rightPaneCollapsed && wideEditorLayout ? null : wideEditorLayout && waveDockTopRow ? (
+        {rightPaneCollapsed && wideEditorLayout ? null : wideEditorLayout && showTopWaveDock ? (
           <div
             ref={rightPaneStackRef}
             style={{
@@ -2562,6 +2690,9 @@ export function EditorPage() {
               overflow: "hidden",
             }}
           >
+            {rosterOnlyMode ? (
+              <RosterTimelineStrip project={project} setProject={setProjectSafe} />
+            ) : null}
             <section
               style={{
                 background: "#020617",
@@ -2664,6 +2795,22 @@ export function EditorPage() {
                 : {}),
             }}
           >
+            {rosterOnlyMode ? (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  overflow: "hidden",
+                  ...rightPaneTopSectionStyle,
+                }}
+              >
+                <RosterTimelineStrip
+                  project={project}
+                  setProject={setProjectSafe}
+                />
+              </div>
+            ) : null}
+            {!rosterOnlyMode ? (
             <section
               style={{
                 background: "#020617",
@@ -2676,17 +2823,145 @@ export function EditorPage() {
                 ...rightPaneTopSectionStyle,
               }}
             >
-              <h2 style={{ margin: "0 0 8px", fontSize: "13px", color: "#94a3b8" }}>
-                タイムライン・楽曲
-              </h2>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "8px",
+                  marginBottom: "8px",
+                  flexShrink: 0,
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    minWidth: 0,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <h2
+                    style={{
+                      margin: 0,
+                      fontSize: "13px",
+                      color: "#94a3b8",
+                      flexShrink: 0,
+                    }}
+                  >
+                    タイムライン・楽曲
+                  </h2>
+                  <button
+                    type="button"
+                    style={{
+                      ...btnSecondary,
+                      borderColor: "#0284c7",
+                      background: "#0ea5e9",
+                      color: "#0b1220",
+                      padding: "5px 9px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "5px",
+                      fontWeight: 700,
+                      flexShrink: 0,
+                    }}
+                    disabled={project.viewMode === "view"}
+                    title="＋キュー：人数と立ち位置の決め方（変更／複製／雛形／保存リスト）を選んで追加"
+                    aria-label="新しいキューを追加"
+                    onClick={() => setAddCueDialogOpen(true)}
+                  >
+                    <svg
+                      viewBox="0 0 22 14"
+                      width="20"
+                      height="13"
+                      aria-hidden
+                      style={{ display: "block" }}
+                    >
+                      <path
+                        d="M3 7 L9 7 M6 4 L6 10"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                      />
+                      <circle cx="13" cy="3" r="1.2" fill="currentColor" />
+                      <circle cx="17" cy="3" r="1.2" fill="currentColor" />
+                      <circle cx="12" cy="8" r="1.2" fill="currentColor" />
+                      <circle cx="15" cy="8" r="1.2" fill="currentColor" />
+                      <circle cx="18" cy="8" r="1.2" fill="currentColor" />
+                      <circle cx="13.5" cy="12" r="1" fill="currentColor" opacity="0.7" />
+                      <circle cx="16.5" cy="12" r="1" fill="currentColor" opacity="0.7" />
+                    </svg>
+                    <span style={{ fontSize: "11px", fontWeight: 700 }}>キュー</span>
+                  </button>
+                  {wideEditorLayout ? (
+                    <button
+                      type="button"
+                      style={{
+                        ...btnSecondary,
+                        padding: "5px 9px",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        flexShrink: 0,
+                      }}
+                      disabled={project.viewMode === "view"}
+                      title={
+                        waveTimelineDockTop
+                          ? "波形と再生コントロールを右列の既定位置に戻す"
+                          : "波形と再生コントロールを画面上部の全幅行に移す（キュー一覧は右列に残ります）"
+                      }
+                      onClick={() =>
+                        setWaveTimelineDockTop(!waveTimelineDockTop)
+                      }
+                    >
+                      {waveTimelineDockTop
+                        ? "波形を元に戻す"
+                        : "波形を上部へ"}
+                    </button>
+                  ) : null}
+                </div>
+                {hasRosterMembers ? (
+                  <button
+                    type="button"
+                    disabled={project.viewMode === "view"}
+                    title="名簿一覧を表示し、タイムライン列は隠します"
+                    onClick={() =>
+                      setProjectSafe((p) => ({
+                        ...p,
+                        rosterHidesTimeline: true,
+                        rosterStripCollapsed: false,
+                      }))
+                    }
+                    style={{
+                      fontSize: "11px",
+                      padding: "4px 10px",
+                      borderRadius: "8px",
+                      border: "1px solid #14532d",
+                      background: "#14532d",
+                      color: "#dcfce7",
+                      cursor:
+                        project.viewMode === "view" ? "not-allowed" : "pointer",
+                      fontWeight: 600,
+                      flexShrink: 0,
+                    }}
+                  >
+                    メンバーを表示
+                  </button>
+                ) : null}
+              </div>
               <div style={{ flex: "1 1 auto", minHeight: 0, display: "flex", flexDirection: "column" }}>
                 {timelinePanelEl}
               </div>
             </section>
+            ) : null}
             <div
               role="separator"
               aria-orientation="horizontal"
-              aria-label="タイムラインとプロパティの高さを調整"
+              aria-label={
+                rosterOnlyMode
+                  ? "名簿とプロパティの高さを調整"
+                  : "タイムラインとプロパティの高さを調整"
+              }
               title="ドラッグで高さを変更（ダブルクリックで既定の割合に戻す）"
               onPointerDown={onRightStackResizeDown}
               onPointerMove={onRightStackResizeMove}
@@ -2918,7 +3193,7 @@ export function EditorPage() {
                 開いているダイアログを閉じる
               </li>
               <li>
-                波形: ツールバーの「全体表示」「拡大」「縮小」で表示範囲を変更
+                波形: 波形上でマウスホイール（またはトラックパッドの縦スクロール）で表示範囲を拡大・縮小
               </li>
               <li>
                 ステージ微調整:{" "}
@@ -3024,6 +3299,7 @@ export function EditorPage() {
           currentTimeSec={currentTime}
           durationSec={duration}
           onStagePreviewChange={setStagePreviewDancers}
+          onImportRoster={importCrewCsvFromStageToolbar}
           onCueCreated={(cueId) => {
             setSelectedCueIds([cueId]);
             setIsPlaying(false);
@@ -3044,7 +3320,10 @@ export function EditorPage() {
             padding: "16px",
           }}
           role="presentation"
-          onClick={() => setRosterImportDraft(null)}
+          onClick={() => {
+            setRosterImportDraft(null);
+            setRosterImportExtraNames([]);
+          }}
         >
           <div
             role="dialog"
@@ -3067,7 +3346,7 @@ export function EditorPage() {
             <p style={{ margin: "0 0 12px", fontSize: "12px", color: "#94a3b8", lineHeight: 1.5 }}>
               {labelForKind(rosterImportDraft.kind)}「{rosterImportDraft.baseName}」
               <br />
-              ステージ上の表示は最大 8 文字です。同じ名前が複数あるときは、苗字の先頭 1 文字を前に付けて区別します。
+              ステージ上の表示は最大 8 文字です。同じ名前が複数あるときは、該当する全員に苗字の先頭 1 文字を前に付けて区別します。
               <br />
               見出しに「出欠」「参加」「出席」などがあるとき、または氏名の左右の列が ○・参加・出席 などで埋まっているときは、その列で参加行だけを名簿に含めます。
               見出しに「フリガナ」「読み」「セイ」「メイ」などがあり、読みに姓と名が分かるときは「名の読み」を表示のベースにし、苗字の読みの先頭 1 文字を付けた短い名前（例: さかい+たけし→さたけし）にします。
@@ -3121,11 +3400,107 @@ export function EditorPage() {
                 </span>
               </span>
             </label>
+            <div
+              style={{
+                marginBottom: "14px",
+                paddingTop: "10px",
+                borderTop: "1px solid #334155",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: "#cbd5e1",
+                  marginBottom: "8px",
+                }}
+              >
+                ファイルにない人を追加（任意）
+              </div>
+              <p
+                style={{
+                  margin: "0 0 8px",
+                  fontSize: "11px",
+                  color: "#64748b",
+                  lineHeight: 1.45,
+                }}
+              >
+                取り込み後も名簿で編集できます。ここでは表示名だけを足せます。
+              </p>
+              {rosterImportExtraNames.map((extraName, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    marginBottom: "6px",
+                  }}
+                >
+                  <input
+                    type="text"
+                    value={extraName}
+                    placeholder="表示名"
+                    maxLength={120}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setRosterImportExtraNames((prev) =>
+                        prev.map((x, j) => (j === idx ? v : x))
+                      );
+                    }}
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      padding: "6px 8px",
+                      borderRadius: "6px",
+                      border: "1px solid #334155",
+                      background: "#020617",
+                      color: "#e2e8f0",
+                      fontSize: "12px",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    style={{
+                      ...btnSecondary,
+                      flexShrink: 0,
+                      fontSize: "11px",
+                      padding: "6px 8px",
+                    }}
+                    onClick={() =>
+                      setRosterImportExtraNames((prev) =>
+                        prev.filter((_, j) => j !== idx)
+                      )
+                    }
+                  >
+                    削除
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  fontSize: "12px",
+                  padding: "6px 10px",
+                  borderColor: "#0369a1",
+                  color: "#7dd3fc",
+                }}
+                onClick={() =>
+                  setRosterImportExtraNames((prev) => [...prev, ""])
+                }
+              >
+                ＋メンバーを追加
+              </button>
+            </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
               <button
                 type="button"
                 style={btnSecondary}
-                onClick={() => setRosterImportDraft(null)}
+                onClick={() => {
+                  setRosterImportDraft(null);
+                  setRosterImportExtraNames([]);
+                }}
               >
                 キャンセル
               </button>
@@ -3141,8 +3516,13 @@ export function EditorPage() {
                 onClick={() => {
                   if (!project) return;
                   const d = rosterImportDraft;
+                  const extraRows = rosterImportExtraNames
+                    .map((s) => s.trim())
+                    .filter((s) => s.length > 0)
+                    .map((label) => [label] as string[]);
+                  const mergedRows = [...d.rows, ...extraRows];
                   let att = { excludedRows: 0, hadAttendanceColumn: false };
-                  const crew = buildCrewFromRows(d.baseName, d.rows, {
+                  const crew = buildCrewFromRows(d.baseName, mergedRows, {
                     nameMode: rosterImportNameMode,
                     onAttendanceFiltered: (info) => {
                       att = info;
@@ -3159,8 +3539,14 @@ export function EditorPage() {
                     window.alert(msg);
                     return;
                   }
-                  setProjectSafe((p) => ({ ...p, crews: [...p.crews, crew] }));
+                  setProjectSafe((p) => ({
+                    ...p,
+                    crews: [...p.crews, crew],
+                    rosterStripCollapsed: false,
+                    rosterHidesTimeline: true,
+                  }));
                   setRosterImportDraft(null);
+                  setRosterImportExtraNames([]);
                   const attLine =
                     att.hadAttendanceColumn && att.excludedRows > 0
                       ? `\n（出欠で不参加・空欄など ${att.excludedRows} 行をスキップ）`

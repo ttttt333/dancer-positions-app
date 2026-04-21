@@ -68,6 +68,9 @@ export const authApi = {
         id: number;
         email: string;
         entitlement_lifetime?: number;
+        stripe_customer_id?: string | null;
+        stripe_subscription_id?: string | null;
+        subscription_status?: string | null;
       };
       adminOrganizations: { id: number; name: string }[];
       memberOrganizations: { id: number; name: string }[];
@@ -120,6 +123,12 @@ export const projectApi = {
     ),
   remove: (id: number) =>
     api<{ ok: boolean }>(`/api/projects/${id}`, { method: "DELETE" }),
+  /** オーナーのみ。メールで協作者を追加 */
+  addCollaborator: (projectId: number, email: string) =>
+    api<{ ok: boolean; userId: number }>(
+      `/api/projects/${projectId}/collaborators`,
+      { method: "POST", body: JSON.stringify({ email }) }
+    ),
 };
 
 export async function audioApiUpload(formData: FormData): Promise<{ id: number; mime: string }> {
@@ -137,6 +146,12 @@ export async function audioApiUpload(formData: FormData): Promise<{ id: number; 
 }
 
 export const billingApi = {
+  /** Stripe Checkout（サブスク）。レスポンスの url へリダイレクト */
+  createCheckoutSession: () =>
+    api<{ url: string }>("/api/billing/create-checkout-session", {
+      method: "POST",
+      body: "{}",
+    }),
   placeholderPurchase: () =>
     api<{ ok: boolean; message?: string }>("/api/billing/placeholder-purchase", {
       method: "POST",

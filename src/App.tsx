@@ -7,6 +7,7 @@ import { RegisterPage } from "./pages/RegisterPage";
 import { AdminMembershipPage } from "./pages/AdminMembershipPage";
 import { ApproveMembershipPage } from "./pages/ApproveMembershipPage";
 import { VideoPage } from "./pages/VideoPage";
+import { BillingCanceledPage, BillingSuccessPage } from "./pages/BillingPages";
 
 export default function App() {
   return (
@@ -19,6 +20,8 @@ export default function App() {
           <Route path="/admin/membership" element={<AdminMembershipPage />} />
           <Route path="/approve-membership" element={<ApproveMembershipPage />} />
           <Route path="/video" element={<VideoPage />} />
+          <Route path="/billing/success" element={<BillingSuccessPage />} />
+          <Route path="/billing/canceled" element={<BillingCanceledPage />} />
           <Route path="/editor/:projectId" element={<EditorPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

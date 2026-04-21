@@ -6,6 +6,7 @@ import type {
   CrewMember,
   Cue,
   DancerSpot,
+  RosterStripSortMode,
 } from "../types/choreography";
 import { defaultFormation } from "../lib/projectDefaults";
 import { normalizeProject } from "../lib/normalizeProject";
@@ -24,6 +25,10 @@ import {
   fetchCsvFromGoogleSheetsUrl,
   type RosterNameImportMode,
 } from "../lib/crewCsvImport";
+import {
+  captureStageSnapshot,
+  mergeStageSnapshotIntoProject,
+} from "../lib/savedSpotStageSnapshot";
 
 const FORMATION_NAME_MAX = 120;
 
@@ -135,6 +140,7 @@ export function InspectorPanel({
           name: name.trim().slice(0, 120) || "無題",
           savedAtCount: dancersCopy.length,
           dancers: dancersCopy,
+          stageSnapshot: captureStageSnapshot(p),
         },
       ].slice(0, 80),
     }));
@@ -147,12 +153,24 @@ export function InspectorPanel({
       return;
     }
     const fid = selectedCue.formationId;
-    setProject((p) => ({
-      ...p,
-      formations: p.formations.map((f) =>
-        f.id === fid ? { ...f, dancers: layout.dancers.map((d) => ({ ...d })) } : f
-      ),
-    }));
+    setProject((p) => {
+      let next: ChoreographyProjectJson = {
+        ...p,
+        formations: p.formations.map((f) =>
+          f.id === fid
+            ? {
+                ...f,
+                dancers: layout.dancers.map((d) => ({ ...d })),
+                confirmedDancerCount: layout.dancers.length,
+              }
+            : f
+        ),
+      };
+      if (layout.stageSnapshot) {
+        next = mergeStageSnapshotIntoProject(next, layout.stageSnapshot);
+      }
+      return next;
+    });
     onLibraryHoverPreview?.(null);
   };
 
@@ -170,20 +188,129 @@ export function InspectorPanel({
     }));
   };
 
+  const resolveLinkedMember = (d: DancerSpot): CrewMember | null => {
+    if (!d.crewMemberId) return null;
+    for (const c of crews) {
+      const m = c.members.find((x) => x.id === d.crewMemberId);
+      if (m) return m;
+    }
+    return null;
+  };
+
+  /** 身長・学年・スキルをステージ上のスポットと名簿メンバーの両方に反映（並び替えに使われる） */
+  const patchDancerRosterMeta = (
+    dancerId: string,
+    patch: {
+      heightCm?: number | undefined;
+      gradeLabel?: string | undefined;
+      skillRankLabel?: string | undefined;
+      genderLabel?: string | undefined;
+    }
+  ) => {
+    if (viewMode === "view") return;
+    setProject((p) => {
+      const f = p.formations.find((x) => x.id === editFormationId);
+      if (!f) return p;
+      const spot = f.dancers.find((x) => x.id === dancerId);
+      if (!spot) return p;
+
+      const gradeNorm =
+        patch.gradeLabel !== undefined
+          ? patch.gradeLabel.trim()
+            ? patch.gradeLabel.trim().slice(0, 32)
+            : undefined
+          : undefined;
+      const skillNorm =
+        patch.skillRankLabel !== undefined
+          ? patch.skillRankLabel.trim()
+            ? patch.skillRankLabel.trim().slice(0, 24)
+            : undefined
+          : undefined;
+      const genderNorm =
+        patch.genderLabel !== undefined
+          ? patch.genderLabel.trim()
+            ? patch.genderLabel.trim().slice(0, 32)
+            : undefined
+          : undefined;
+
+      let crewsNext = p.crews;
+      if (spot.crewMemberId) {
+        const mid = spot.crewMemberId;
+        crewsNext = p.crews.map((c) => ({
+          ...c,
+          members: c.members.map((m) => {
+            if (m.id !== mid) return m;
+            let nm = { ...m };
+            if ("heightCm" in patch) {
+              nm = { ...nm, heightCm: patch.heightCm };
+            }
+            if ("gradeLabel" in patch) {
+              nm = { ...nm, gradeLabel: gradeNorm };
+            }
+            if ("skillRankLabel" in patch) {
+              nm = { ...nm, skillRankLabel: skillNorm };
+            }
+            if ("genderLabel" in patch) {
+              nm = { ...nm, genderLabel: genderNorm };
+            }
+            return nm;
+          }),
+        }));
+      }
+
+      return {
+        ...p,
+        crews: crewsNext,
+        formations: p.formations.map((fm) =>
+          fm.id !== editFormationId
+            ? fm
+            : {
+                ...fm,
+                dancers: fm.dancers.map((d) => {
+                  if (d.id !== dancerId) return d;
+                  let nd = { ...d };
+                  if ("heightCm" in patch) {
+                    nd = { ...nd, heightCm: patch.heightCm };
+                  }
+                  if ("gradeLabel" in patch) {
+                    nd = { ...nd, gradeLabel: gradeNorm };
+                  }
+                  if ("skillRankLabel" in patch) {
+                    nd = { ...nd, skillRankLabel: skillNorm };
+                  }
+                  if ("genderLabel" in patch) {
+                    nd = { ...nd, genderLabel: genderNorm };
+                  }
+                  return nd;
+                }),
+              }
+        ),
+      };
+    });
+  };
+
   const setDancerHeightCm = (dancerId: string, raw: string) => {
     const t = raw.trim();
-    updateActiveFormation((f) => ({
-      ...f,
-      dancers: f.dancers.map((d) => {
-        if (d.id !== dancerId) return d;
-        if (t === "") return { ...d, heightCm: undefined };
-        const n = parseFloat(t.replace(/,/g, "."));
-        if (!Number.isFinite(n) || n <= 0 || n >= 300) {
-          return { ...d, heightCm: undefined };
-        }
-        return { ...d, heightCm: Math.round(n * 10) / 10 };
-      }),
-    }));
+    let heightCm: number | undefined;
+    if (t === "") heightCm = undefined;
+    else {
+      const n = parseFloat(t.replace(/,/g, "."));
+      if (!Number.isFinite(n) || n <= 0 || n >= 300) heightCm = undefined;
+      else heightCm = Math.round(n * 10) / 10;
+    }
+    patchDancerRosterMeta(dancerId, { heightCm });
+  };
+
+  const setDancerGradeLabel = (dancerId: string, raw: string) => {
+    patchDancerRosterMeta(dancerId, { gradeLabel: raw });
+  };
+
+  const setDancerSkillRankLabel = (dancerId: string, raw: string) => {
+    patchDancerRosterMeta(dancerId, { skillRankLabel: raw });
+  };
+
+  const setDancerGenderLabel = (dancerId: string, raw: string) => {
+    patchDancerRosterMeta(dancerId, { genderLabel: raw });
   };
 
   const addDancer = () => {
@@ -254,6 +381,13 @@ export function InspectorPanel({
             yPct: 40 + Math.floor(idx / 5) * 10,
             colorIndex: m.colorIndex % 9,
             crewMemberId: m.id,
+            ...(typeof m.heightCm === "number" ? { heightCm: m.heightCm } : {}),
+            ...(m.gradeLabel?.trim()
+              ? { gradeLabel: m.gradeLabel.trim().slice(0, 32) }
+              : {}),
+            ...(m.skillRankLabel?.trim()
+              ? { skillRankLabel: m.skillRankLabel.trim().slice(0, 24) }
+              : {}),
           },
         ],
       };
@@ -473,7 +607,12 @@ export function InspectorPanel({
       setCrewImportError(msg);
       return;
     }
-    setProject((p) => ({ ...p, crews: [...p.crews, crew] }));
+    setProject((p) => ({
+      ...p,
+      crews: [...p.crews, crew],
+      rosterStripCollapsed: false,
+      rosterHidesTimeline: true,
+    }));
     setCrewImportOpen(false);
     setCrewImportNameMode("full");
     setCrewImportName("");
@@ -878,6 +1017,8 @@ export function InspectorPanel({
               CSV ファイル または Google スプレッドシートの URL から読み込みます。
               出欠は「出欠」などの見出し列に加え、氏名の左右の列が ○・参加 などのときも自動判定します。
               「フリガナ」「読み」「セイ」「メイ」列があれば名の読み＋苗字読み 1 文字で短い表示名にします。
+              任意列: 「身長」「height」系（数値・cm 可）、「学年」（小学校・中学校・高校・大学・大人など）、
+              「スキル」「ランク」「スキルランク」「個人ランク」「レベル」など（数字は小さいほど上手が上位で並び替え）— 名簿の列に表示されます。
             </div>
             <div style={{ fontSize: "11px", fontWeight: 600, color: "#94a3b8" }}>
               表示名
@@ -917,7 +1058,7 @@ export function InspectorPanel({
                 checked={crewImportNameMode === "given_only"}
                 onChange={() => setCrewImportNameMode("given_only")}
               />
-              名だけ（「姓」「名」列推奨。同名は苗字 1 文字を前置）
+              名だけ（「姓」「名」列推奨。同名は全員に苗字 1 文字を前置）
             </label>
             <label
               style={{
@@ -1558,11 +1699,81 @@ export function InspectorPanel({
         </div>
       </details>
 
-      <div style={{ fontSize: "12px", fontWeight: 600, color: "#94a3b8" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "8px",
+          padding: "10px",
+          borderRadius: "10px",
+          border: "1px solid #1e293b",
+          background: "#020617",
+        }}
+      >
+        <div style={{ fontSize: "12px", fontWeight: 700, color: "#e2e8f0" }}>
+          ステージのメンバー（並び替え用データ）
+        </div>
+        <p style={{ margin: 0, fontSize: "10px", color: "#64748b", lineHeight: 1.45 }}>
+          身長・学年・スキルを入れると、タイムライン上の名簿の並び替えや「名簿の並びで再配置」と同じ基準に使われます。名簿と紐づいている場合は名簿側も更新されます。
+        </p>
+        <label
+          style={{
+            fontSize: "11px",
+            color: "#94a3b8",
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: "8px",
+          }}
+        >
+          名簿の並び替え基準
+          <select
+            value={
+              project.rosterStripSortMode === "import" ||
+              project.rosterStripSortMode === "height_desc" ||
+              project.rosterStripSortMode === "height_asc" ||
+              project.rosterStripSortMode === "grade" ||
+              project.rosterStripSortMode === "skill"
+                ? project.rosterStripSortMode
+                : "import"
+            }
+            onChange={(e) =>
+              setProject((p) => ({
+                ...p,
+                rosterStripSortMode: e.target.value as RosterStripSortMode,
+              }))
+            }
+            disabled={viewMode === "view"}
+            style={{
+              fontSize: "11px",
+              padding: "4px 8px",
+              borderRadius: "6px",
+              border: "1px solid #334155",
+              background: "#0f172a",
+              color: "#cbd5e1",
+              maxWidth: "100%",
+            }}
+          >
+            <option value="import">取り込み順</option>
+            <option value="height_desc">身長 高い順</option>
+            <option value="height_asc">身長 低い順</option>
+            <option value="grade">学年順</option>
+            <option value="skill">スキル順</option>
+          </select>
+        </label>
+      </div>
+
+      <div style={{ fontSize: "12px", fontWeight: 600, color: "#94a3b8", marginTop: "10px" }}>
         ダンサー一覧（現在の形）
       </div>
       <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-        {activeFormation?.dancers.map((d) => (
+        {activeFormation?.dancers.map((d) => {
+          const linked = resolveLinkedMember(d);
+          const hCm = d.heightCm ?? linked?.heightCm;
+          const gradeStr = d.gradeLabel ?? linked?.gradeLabel ?? "";
+          const genderStr = d.genderLabel ?? linked?.genderLabel ?? "";
+          const skillStr = d.skillRankLabel ?? linked?.skillRankLabel ?? "";
+          return (
           <li
             key={d.id}
             style={{
@@ -1613,16 +1824,71 @@ export function InspectorPanel({
             </button>
             <input
               aria-label={`${d.label} の身長（cm）`}
-              title="舞台には表示されません"
+              title="並び替え（身長順）に使います。舞台には表示されません。"
               placeholder="身長cm"
               inputMode="decimal"
               value={
-                typeof d.heightCm === "number" && Number.isFinite(d.heightCm)
-                  ? String(d.heightCm)
-                  : ""
+                typeof hCm === "number" && Number.isFinite(hCm) ? String(hCm) : ""
               }
               disabled={viewMode === "view"}
               onChange={(e) => setDancerHeightCm(d.id, e.target.value)}
+              style={{
+                width: "68px",
+                flexShrink: 0,
+                padding: "6px",
+                borderRadius: "6px",
+                border: "1px solid #334155",
+                background: "#020617",
+                color: "#cbd5e1",
+                fontSize: "11px",
+              }}
+            />
+            <input
+              aria-label={`${d.label} の学年`}
+              title="並び替え（学年順）に使います"
+              placeholder="学年"
+              value={gradeStr}
+              disabled={viewMode === "view"}
+              onChange={(e) => setDancerGradeLabel(d.id, e.target.value)}
+              maxLength={32}
+              style={{
+                width: "88px",
+                flexShrink: 0,
+                padding: "6px",
+                borderRadius: "6px",
+                border: "1px solid #334155",
+                background: "#020617",
+                color: "#cbd5e1",
+                fontSize: "11px",
+              }}
+            />
+            <input
+              aria-label={`${d.label} の性別`}
+              title="表示・名簿同期用"
+              placeholder="性別"
+              value={genderStr}
+              disabled={viewMode === "view"}
+              onChange={(e) => setDancerGenderLabel(d.id, e.target.value)}
+              maxLength={32}
+              style={{
+                width: "56px",
+                flexShrink: 0,
+                padding: "6px",
+                borderRadius: "6px",
+                border: "1px solid #334155",
+                background: "#020617",
+                color: "#cbd5e1",
+                fontSize: "11px",
+              }}
+            />
+            <input
+              aria-label={`${d.label} のスキル`}
+              title="並び替え（スキル順）に使います"
+              placeholder="スキル"
+              value={skillStr}
+              disabled={viewMode === "view"}
+              onChange={(e) => setDancerSkillRankLabel(d.id, e.target.value)}
+              maxLength={24}
               style={{
                 width: "72px",
                 flexShrink: 0,
@@ -1654,7 +1920,8 @@ export function InspectorPanel({
               }}
             />
           </li>
-        ))}
+          );
+        })}
       </ul>
     </div>
   );

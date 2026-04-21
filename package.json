@@ -23,7 +23,9 @@
     "react-router-dom": "^7.6.0",
     "tesseract.js": "^5.1.1",
     "three": "^0.183.2",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "y-websocket": "^3.0.0",
+    "yjs": "^13.6.30"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

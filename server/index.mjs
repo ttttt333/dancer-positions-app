@@ -8,6 +8,14 @@ import { randomBytes, createHash } from "crypto";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { mkdirSync, existsSync, createReadStream } from "fs";
+import http from "http";
+import { WebSocketServer } from "ws";
+import Stripe from "stripe";
+import {
+  setupWSConnection,
+  setContentInitializor,
+} from "@y/websocket-server/utils";
+import { applyProjectJsonToDoc } from "./yjsJson.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const JWT_SECRET = process.env.JWT_SECRET || "dev-only-change-in-production";
@@ -73,6 +81,22 @@ try {
   /* column exists */
 }
 
+try {
+  db.exec("ALTER TABLE users ADD COLUMN stripe_customer_id TEXT");
+} catch {
+  /* exists */
+}
+try {
+  db.exec("ALTER TABLE users ADD COLUMN stripe_subscription_id TEXT");
+} catch {
+  /* exists */
+}
+try {
+  db.exec("ALTER TABLE users ADD COLUMN subscription_status TEXT");
+} catch {
+  /* exists */
+}
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS audio_assets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -89,6 +113,13 @@ db.exec(`
     token_hash TEXT NOT NULL,
     expires_at TEXT NOT NULL,
     FOREIGN KEY (request_id) REFERENCES membership_requests(id)
+  );
+  CREATE TABLE IF NOT EXISTS project_collaborators (
+    project_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    PRIMARY KEY (project_id, user_id),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 `);
 
@@ -119,8 +150,108 @@ const upload = multer({
   limits: { fileSize: 80 * 1024 * 1024 },
 });
 
+const stripeSecret = process.env.STRIPE_SECRET_KEY || "";
+const stripe = stripeSecret ? new Stripe(stripeSecret) : null;
+const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID || "";
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
+
+setContentInitializor(async (ydoc) => {
+  const name = ydoc.name;
+  const m = /^project-(\d+)$/.exec(name);
+  if (!m) return;
+  const pid = Number(m[1]);
+  const row = db.prepare("SELECT json FROM projects WHERE id = ?").get(pid);
+  if (!row?.json) return;
+  try {
+    applyProjectJsonToDoc(ydoc, JSON.parse(row.json));
+  } catch (e) {
+    console.error("[yjs] init doc failed", e);
+  }
+});
+
+function canAccessProject(userId, projectId) {
+  const own = db
+    .prepare("SELECT 1 FROM projects WHERE id = ? AND user_id = ?")
+    .get(projectId, userId);
+  if (own) return true;
+  const c = db
+    .prepare(
+      "SELECT 1 FROM project_collaborators WHERE project_id = ? AND user_id = ?"
+    )
+    .get(projectId, userId);
+  return !!c;
+}
+
+function isProjectOwner(userId, projectId) {
+  const own = db
+    .prepare("SELECT 1 FROM projects WHERE id = ? AND user_id = ?")
+    .get(projectId, userId);
+  return !!own;
+}
+
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
+
+/** Stripe Webhook は raw body で署名検証する必要がある */
+app.post(
+  "/api/billing/webhook",
+  express.raw({ type: "application/json" }),
+  (req, res) => {
+    if (!stripe || !STRIPE_WEBHOOK_SECRET) {
+      return res.status(503).send("Stripe not configured");
+    }
+    const sig = req.headers["stripe-signature"];
+    let event;
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        sig,
+        STRIPE_WEBHOOK_SECRET
+      );
+    } catch (err) {
+      console.error("[stripe webhook]", err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+    try {
+      if (event.type === "checkout.session.completed") {
+        const s = event.data.object;
+        const uid = Number(s.client_reference_id);
+        if (Number.isFinite(uid) && uid > 0) {
+          if (s.customer) {
+            db.prepare(
+              "UPDATE users SET stripe_customer_id = ? WHERE id = ?"
+            ).run(String(s.customer), uid);
+          }
+          if (s.mode === "subscription" && s.subscription) {
+            db.prepare(
+              "UPDATE users SET stripe_subscription_id = ?, subscription_status = ? WHERE id = ?"
+            ).run(String(s.subscription), "active", uid);
+          }
+        }
+      } else if (event.type === "customer.subscription.updated") {
+        const sub = event.data.object;
+        const row = db
+          .prepare("SELECT id FROM users WHERE stripe_subscription_id = ?")
+          .get(sub.id);
+        if (row) {
+          db.prepare(
+            "UPDATE users SET subscription_status = ? WHERE id = ?"
+          ).run(sub.status, row.id);
+        }
+      } else if (event.type === "customer.subscription.deleted") {
+        const sub = event.data.object;
+        db.prepare(
+          "UPDATE users SET subscription_status = 'canceled', stripe_subscription_id = NULL WHERE stripe_subscription_id = ?"
+        ).run(sub.id);
+      }
+    } catch (e) {
+      console.error("[stripe webhook handler]", e);
+      return res.status(500).json({ error: "handler failed" });
+    }
+    res.json({ received: true });
+  }
+);
+
 app.use(express.json({ limit: "20mb" }));
 
 function authMiddleware(req, res, next) {
@@ -223,7 +354,12 @@ app.post("/api/auth/login", async (req, res) => {
 app.get("/api/auth/me", authMiddleware, requireAuth, (req, res) => {
   const user = db
     .prepare(
-      "SELECT id, email, COALESCE(entitlement_lifetime,0) AS entitlement_lifetime FROM users WHERE id = ?"
+      `SELECT id, email,
+        COALESCE(entitlement_lifetime,0) AS entitlement_lifetime,
+        stripe_customer_id,
+        stripe_subscription_id,
+        subscription_status
+       FROM users WHERE id = ?`
     )
     .get(req.userId);
   if (!user) return res.status(404).json({ error: "ユーザーが見つかりません" });
@@ -245,6 +381,40 @@ app.get("/api/auth/me", authMiddleware, requireAuth, (req, res) => {
     memberOrganizations: memberRows,
   });
 });
+
+/** Stripe Checkout（サブスクリプション）— STRIPE_PRICE_ID / APP_BASE が必要 */
+app.post(
+  "/api/billing/create-checkout-session",
+  authMiddleware,
+  requireAuth,
+  async (req, res) => {
+    if (!stripe || !STRIPE_PRICE_ID) {
+      return res.status(503).json({
+        error:
+          "Stripe が未設定です（STRIPE_SECRET_KEY と STRIPE_PRICE_ID）",
+      });
+    }
+    const user = db
+      .prepare("SELECT id, email FROM users WHERE id = ?")
+      .get(req.userId);
+    try {
+      const session = await stripe.checkout.sessions.create({
+        mode: "subscription",
+        line_items: [{ price: STRIPE_PRICE_ID, quantity: 1 }],
+        success_url: `${APP_BASE}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${APP_BASE}/billing/canceled`,
+        client_reference_id: String(user.id),
+        customer_email: user.email,
+      });
+      res.json({ url: session.url });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({
+        error: e instanceof Error ? e.message : "Checkout 作成に失敗しました",
+      });
+    }
+  }
+);
 
 /** Stripe 等と接続する前のプレースホルダ（買い切りフラグを手動で立てる想定） */
 app.post(
@@ -461,17 +631,23 @@ app.get("/api/audio/:id", authMiddleware, requireAuth, (req, res) => {
 app.get("/api/projects", authMiddleware, requireAuth, (req, res) => {
   const rows = db
     .prepare(
-      "SELECT id, name, updated_at FROM projects WHERE user_id = ? ORDER BY updated_at DESC"
+      `SELECT id, name, updated_at FROM (
+         SELECT p.id, p.name, p.updated_at FROM projects p WHERE p.user_id = @uid
+         UNION
+         SELECT p.id, p.name, p.updated_at FROM projects p
+         JOIN project_collaborators c ON c.project_id = p.id AND c.user_id = @uid
+       ) ORDER BY updated_at DESC`
     )
-    .all(req.userId);
+    .all({ uid: req.userId });
   res.json(rows);
 });
 
 app.get("/api/projects/:id", authMiddleware, requireAuth, (req, res) => {
   const id = Number(req.params.id);
-  const row = db
-    .prepare("SELECT * FROM projects WHERE id = ? AND user_id = ?")
-    .get(id, req.userId);
+  if (!canAccessProject(req.userId, id)) {
+    return res.status(404).json({ error: "見つかりません" });
+  }
+  const row = db.prepare("SELECT * FROM projects WHERE id = ?").get(id);
   if (!row) return res.status(404).json({ error: "見つかりません" });
   res.json({
     id: row.id,
@@ -498,11 +674,11 @@ app.post("/api/projects", authMiddleware, requireAuth, (req, res) => {
 
 app.put("/api/projects/:id", authMiddleware, requireAuth, (req, res) => {
   const id = Number(req.params.id);
-  const existing = db
-    .prepare("SELECT id FROM projects WHERE id = ? AND user_id = ?")
-    .get(id, req.userId);
-  if (!existing) return res.status(404).json({ error: "見つかりません" });
+  if (!canAccessProject(req.userId, id)) {
+    return res.status(404).json({ error: "見つかりません" });
+  }
   const current = db.prepare("SELECT name FROM projects WHERE id = ?").get(id);
+  if (!current) return res.status(404).json({ error: "見つかりません" });
   const name =
     req.body?.name != null
       ? String(req.body.name).slice(0, 200)
@@ -513,16 +689,45 @@ app.put("/api/projects/:id", authMiddleware, requireAuth, (req, res) => {
   }
   const now = new Date().toISOString();
   db.prepare(
-    "UPDATE projects SET name = ?, json = ?, updated_at = ? WHERE id = ? AND user_id = ?"
-  ).run(name, JSON.stringify(json), now, id, req.userId);
+    "UPDATE projects SET name = ?, json = ?, updated_at = ? WHERE id = ?"
+  ).run(name, JSON.stringify(json), now, id);
   res.json({ id, name, updated_at: now });
 });
 
+app.post(
+  "/api/projects/:id/collaborators",
+  authMiddleware,
+  requireAuth,
+  (req, res) => {
+    const id = Number(req.params.id);
+    if (!isProjectOwner(req.userId, id)) {
+      return res.status(403).json({ error: "オーナーのみ追加できます" });
+    }
+    const email = String(req.body?.email || "")
+      .trim()
+      .toLowerCase();
+    if (!email) return res.status(400).json({ error: "email が必要です" });
+    const u = db.prepare("SELECT id FROM users WHERE email = ?").get(email);
+    if (!u) return res.status(404).json({ error: "ユーザーが見つかりません" });
+    if (u.id === req.userId) {
+      return res.status(400).json({ error: "自分自身は不要です" });
+    }
+    db.prepare(
+      "INSERT OR IGNORE INTO project_collaborators (project_id, user_id) VALUES (?, ?)"
+    ).run(id, u.id);
+    res.json({ ok: true, userId: u.id });
+  }
+);
+
 app.delete("/api/projects/:id", authMiddleware, requireAuth, (req, res) => {
   const id = Number(req.params.id);
-  const r = db
-    .prepare("DELETE FROM projects WHERE id = ? AND user_id = ?")
-    .run(id, req.userId);
+  if (!isProjectOwner(req.userId, id)) {
+    return res.status(403).json({ error: "削除はオーナーのみです" });
+  }
+  const r = db.prepare("DELETE FROM projects WHERE id = ? AND user_id = ?").run(
+    id,
+    req.userId
+  );
   if (r.changes === 0) return res.status(404).json({ error: "見つかりません" });
   res.json({ ok: true });
 });
@@ -530,6 +735,42 @@ app.delete("/api/projects/:id", authMiddleware, requireAuth, (req, res) => {
 const dataDir = join(__dirname, "data");
 if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
 
-app.listen(PORT, () => {
-  console.log(`API http://127.0.0.1:${PORT}`);
+const httpServer = http.createServer(app);
+const wss = new WebSocketServer({ noServer: true });
+
+httpServer.on("upgrade", (request, socket, head) => {
+  const url = new URL(request.url || "/", "http://127.0.0.1");
+  const token = url.searchParams.get("token") || "";
+  let peerUserId = null;
+  try {
+    const p = jwt.verify(token, JWT_SECRET);
+    peerUserId = Number(p.sub);
+  } catch {
+    socket.destroy();
+    return;
+  }
+  if (!peerUserId) {
+    socket.destroy();
+    return;
+  }
+  const pathname = url.pathname.replace(/^\//, "").split("?")[0] || "";
+  const m = /^project-(\d+)$/.exec(pathname);
+  if (!m) {
+    socket.destroy();
+    return;
+  }
+  const projectId = Number(m[1]);
+  if (!canAccessProject(peerUserId, projectId)) {
+    socket.destroy();
+    return;
+  }
+  wss.handleUpgrade(request, socket, head, (ws) => {
+    wss.emit("connection", ws, request);
+  });
+});
+
+wss.on("connection", setupWSConnection);
+
+httpServer.listen(PORT, () => {
+  console.log(`API http://127.0.0.1:${PORT} (HTTP + Yjs WebSocket)`);
 });

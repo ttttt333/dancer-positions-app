@@ -262,6 +262,9 @@ export const LAYOUT_PRESET_OPTIONS = [
   { id: "spread_loose", label: "広く分散" },
   { id: "asymmetric_l", label: "アシンメ L字" },
   { id: "hollow_ring", label: "周辺リング" },
+  { id: "line_vertical", label: "縦一列（センター）" },
+  { id: "fan_back", label: "扇状（奥を頂点）" },
+  { id: "square_outline", label: "四角枠（周り）" },
 ] as const;
 
 export type LayoutPresetId = (typeof LAYOUT_PRESET_OPTIONS)[number]["id"];
@@ -273,6 +276,13 @@ export const LAYOUT_PRESET_LABELS = Object.fromEntries(
 export const ALL_LAYOUT_PRESET_IDS: LayoutPresetId[] = LAYOUT_PRESET_OPTIONS.map(
   (o) => o.id
 );
+
+/**
+ * 立ち位置クイックバー・名簿「未配置を一括でステージへ」で共通利用するプリセット一覧。
+ * キュー作成ダイアログ等の `LAYOUT_PRESET_OPTIONS` と同一の並び・種類。
+ */
+export const COMMON_QUICK_LAYOUT_PRESETS: { id: LayoutPresetId; label: string }[] =
+  LAYOUT_PRESET_OPTIONS.map((o) => ({ id: o.id, label: o.label }));
 
 /**
  * 番号割り当てルール（ユーザ指定）:
@@ -366,6 +376,46 @@ export function dancersForLayoutPreset(
     case "line_back": {
       const xs = evenSpacingPositions(n, 50, TARGET_STEP_X, 12, 88);
       xs.forEach((x, i) => pushSpot(out, i, x, 24));
+      break;
+    }
+    case "line_vertical": {
+      const ys = evenSpacingPositions(n, 48, TARGET_STEP_Y, 22, 78);
+      ys.forEach((y, i) => pushSpot(out, i, 50, y));
+      break;
+    }
+    case "fan_back": {
+      const apexX = 50;
+      const apexY = 22;
+      const sweep = Math.min(0.42 * Math.PI, 0.11 * Math.max(n, 3));
+      for (let i = 0; i < n; i++) {
+        const u = n === 1 ? 0.5 : i / (n - 1);
+        const ang = Math.PI / 2 - sweep + u * (2 * sweep);
+        const r = 28 + Math.min(8, n * 0.35);
+        pushSpot(out, i, apexX + r * Math.cos(ang), apexY + r * Math.sin(ang));
+      }
+      break;
+    }
+    case "square_outline": {
+      if (n === 1) {
+        pushSpot(out, 0, 50, 50);
+        break;
+      }
+      /** 軸そろえの四角（上辺＝奥）。周長に沿って等分 */
+      const verts: [number, number][] = [
+        [22, 22],
+        [78, 22],
+        [78, 78],
+        [22, 78],
+      ];
+      const edges = 4;
+      for (let i = 0; i < n; i++) {
+        const t = (i / n) * edges;
+        const seg = Math.floor(t) % edges;
+        const u = t - seg;
+        const a = verts[seg]!;
+        const b = verts[(seg + 1) % 4]!;
+        pushSpot(out, i, a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u);
+      }
       break;
     }
     case "arc": {
@@ -918,4 +968,28 @@ export function dancersWithPresetAndWingSurplus(
   const main = dancersForLayoutPreset(core, preset, opts);
   const wings = wingSurplusSpots(surplus, core + 1);
   return [...main, ...wings];
+}
+
+/**
+ * プリセットで得た座標に、既存の id / 表示 / 名簿紐付けを順番で上書きする。
+ * （クイックバー適用・名簿一括配置と同じ振る舞い）
+ */
+export function transferDancerIdentitiesByOrder(
+  positioned: DancerSpot[],
+  identitySource: DancerSpot[]
+): DancerSpot[] {
+  return positioned.map((nd, i) => {
+    const od = identitySource[i];
+    if (!od) return nd;
+    return {
+      ...nd,
+      id: od.id,
+      label: od.label,
+      colorIndex: od.colorIndex,
+      crewMemberId: od.crewMemberId,
+      sizePx: od.sizePx ?? nd.sizePx,
+      note: od.note ?? nd.note,
+      heightCm: od.heightCm ?? nd.heightCm,
+    };
+  });
 }

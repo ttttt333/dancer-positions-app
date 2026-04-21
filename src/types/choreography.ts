@@ -1,5 +1,13 @@
 export type AudienceEdge = "top" | "bottom" | "left" | "right";
 
+/** 名簿パネルの並び替え（プロジェクトに保存し、畳んでも維持） */
+export type RosterStripSortMode =
+  | "import"
+  | "height_desc"
+  | "height_asc"
+  | "grade"
+  | "skill";
+
 export type DancerSpot = {
   id: string;
   label: string;
@@ -14,6 +22,12 @@ export type DancerSpot = {
    * 身長（cm）。ステージ上には表示しない。任意。
    */
   heightCm?: number;
+  /** 学年など（名簿未紐付け時も並び替え・再配置に使用） */
+  gradeLabel?: string;
+  /** 性別などの表示ラベル（名簿と同期可） */
+  genderLabel?: string;
+  /** スキルランク表示（名簿未紐付け時も並び替え・再配置に使用） */
+  skillRankLabel?: string;
   /**
    * このダンサーだけに上書きする印の直径（px）。
    * 未指定時はプロジェクト共通の `dancerMarkerDiameterPx` を使う。
@@ -91,6 +105,16 @@ export type CrewMember = {
   id: string;
   label: string;
   colorIndex: number;
+  /** 身長（cm）。名簿取り込み・並び替え用 */
+  heightCm?: number;
+  /** 学年などの表示ラベル（例: 中2、高校1年） */
+  gradeLabel?: string;
+  /** 性別など（例: 男・女） */
+  genderLabel?: string;
+  /** ダンス等スキルランクの表示（例: A、上級） */
+  skillRankLabel?: string;
+  /** メンバー単位メモ（立ち位置の備考と同期する場合あり） */
+  note?: string;
 };
 
 export type Crew = {
@@ -112,6 +136,29 @@ export type Cue = {
   note?: string;
 };
 
+/**
+ * 立ち位置保存時に一緒に記録する舞台まわりの設定。
+ * 適用時はプロジェクト側の同種フィールドを上書きする。
+ */
+export type SavedSpotStageSnapshot = {
+  audienceEdge: AudienceEdge;
+  stageWidthMm: number | null;
+  stageDepthMm: number | null;
+  sideStageMm: number | null;
+  backStageMm: number | null;
+  centerFieldGuideIntervalMm: number | null;
+  hanamichiEnabled: boolean;
+  hanamichiDepthPct: number;
+  stageShape?: StageShape;
+  gridSpacingMm?: number;
+  gridStep: number;
+  snapGrid: boolean;
+  dancerSpacingMm: number | null;
+  dancerMarkerDiameterPx: number;
+  dancerMarkerDiameterMm?: number;
+  dancerLabelPosition?: "inside" | "below";
+};
+
 /** キュー追加ウィザード等で再利用する、名前付きの立ち位置スナップショット */
 export type SavedSpotLayout = {
   id: string;
@@ -119,6 +166,8 @@ export type SavedSpotLayout = {
   /** 保存時の人数（表示・参考用） */
   savedAtCount: number;
   dancers: DancerSpot[];
+  /** 保存時の舞台設定。未保存の旧データは undefined（適用時は現プロジェクトを維持） */
+  stageSnapshot?: SavedSpotStageSnapshot;
 };
 
 export type ChoreographyProjectJson = {
@@ -204,4 +253,16 @@ export type ChoreographyProjectJson = {
   audioAssetId: number | null;
   /** 波形の縦スケール（§3）。1＝既定、大きいほど振幅を強調 */
   waveformAmplitudeScale?: number;
+  /**
+   * タイムライン列の名簿ストリップを畳んで細いバーだけにする。
+   * 未指定は展開表示（従来どおり）。
+   */
+  rosterStripCollapsed?: boolean;
+  /**
+   * true のとき右列は名簿ストリップのみ表示し、タイムライン（上部波形ドック含む）は隠す。
+   * false / 未指定のときはタイムラインを表示し、名簿ストリップは出さない（「メンバーを表示」で true に戻す）。
+   */
+  rosterHidesTimeline?: boolean;
+  /** 名簿の並び替えモード（未指定は取り込み順） */
+  rosterStripSortMode?: RosterStripSortMode;
 };

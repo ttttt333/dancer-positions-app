@@ -1,4 +1,9 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import type { DancerSpot } from "../types/choreography";
 
 const DANCER_PALETTE = [
@@ -13,14 +18,20 @@ const DANCER_PALETTE = [
   "#f8fafc",
 ] as const;
 
-const LABEL_MAX = 8;
+const LABEL_MAX = 120;
 const NOTE_MAX = 2000;
+const GRADE_MAX = 32;
+const SKILL_MAX = 24;
+const GENDER_MAX = 32;
 
 export type DancerQuickEditApply = {
   label: string;
   colorIndex: number;
-  note: string | undefined;
   heightCm: number | undefined;
+  gradeLabel: string | undefined;
+  genderLabel: string | undefined;
+  skillRankLabel: string | undefined;
+  note: string | undefined;
 };
 
 type Props = {
@@ -32,8 +43,8 @@ type Props = {
 };
 
 /**
- * 立ち位置の丸をダブルクリックしたときの小さな編集窓。
- * 名前・色・身長・メモ（舞台非表示）。OK で確定。
+ * 立ち位置の丸をダブルクリックしたときの編集窓。
+ * 名前・身長・学年・性別・スキル・備考・印の色。名簿紐付け時は名簿側も更新。
  */
 export function DancerQuickEditDialog({
   open,
@@ -44,22 +55,25 @@ export function DancerQuickEditDialog({
 }: Props) {
   const [label, setLabel] = useState("");
   const [colorIndex, setColorIndex] = useState(0);
-  const [note, setNote] = useState("");
   const [heightStr, setHeightStr] = useState("");
+  const [gradeLabel, setGradeLabel] = useState("");
+  const [genderLabel, setGenderLabel] = useState("");
+  const [skillRankLabel, setSkillRankLabel] = useState("");
+  const [note, setNote] = useState("");
 
   useEffect(() => {
     if (!open || !dancer) return;
-    setLabel(
-      (dancer.label?.trim() ? dancer.label : "?").slice(0, LABEL_MAX)
-    );
+    setLabel((dancer.label ?? "").slice(0, LABEL_MAX));
     setColorIndex(dancer.colorIndex % 9);
-    setNote(dancer.note ?? "");
     setHeightStr(
       typeof dancer.heightCm === "number" && Number.isFinite(dancer.heightCm)
         ? String(dancer.heightCm)
         : ""
     );
-    /** open / 対象 id のみ。親の再レンダーで dancer 参照が変わっても入力中の下書きを潰さない */
+    setGradeLabel((dancer.gradeLabel ?? "").slice(0, GRADE_MAX));
+    setGenderLabel((dancer.genderLabel ?? "").slice(0, GENDER_MAX));
+    setSkillRankLabel((dancer.skillRankLabel ?? "").slice(0, SKILL_MAX));
+    setNote(dancer.note ?? "");
   }, [open, dancer?.id]);
 
   useEffect(() => {
@@ -76,9 +90,10 @@ export function DancerQuickEditDialog({
   const disabled = viewMode === "view";
 
   const commit = () => {
-    const labelTrim = label.trim().slice(0, LABEL_MAX) || "?";
+    const labelTrim = label.trim().slice(0, LABEL_MAX);
     const noteTrim = note.trim().slice(0, NOTE_MAX);
     const noteOut = noteTrim ? noteTrim : undefined;
+
     let heightCm: number | undefined;
     const h = parseFloat(heightStr.replace(/,/g, "."));
     if (heightStr.trim() !== "" && Number.isFinite(h) && h > 0 && h < 300) {
@@ -86,11 +101,19 @@ export function DancerQuickEditDialog({
     } else {
       heightCm = undefined;
     }
+
+    const g = gradeLabel.trim().slice(0, GRADE_MAX);
+    const gen = genderLabel.trim().slice(0, GENDER_MAX);
+    const sk = skillRankLabel.trim().slice(0, SKILL_MAX);
+
     onApply({
       label: labelTrim,
       colorIndex: colorIndex % 9,
-      note: noteOut,
       heightCm,
+      gradeLabel: g ? g : undefined,
+      genderLabel: gen ? gen : undefined,
+      skillRankLabel: sk ? sk : undefined,
+      note: noteOut,
     });
     onClose();
   };
@@ -107,8 +130,8 @@ export function DancerQuickEditDialog({
   };
 
   const card: CSSProperties = {
-    width: "min(320px, 100%)",
-    maxHeight: "min(90vh, 520px)",
+    width: "min(360px, 100%)",
+    maxHeight: "min(90vh, 640px)",
     overflow: "auto",
     background: "#0f172a",
     border: "1px solid #334155",
@@ -124,8 +147,7 @@ export function DancerQuickEditDialog({
     fontWeight: 600,
     color: "#94a3b8",
     marginBottom: "4px",
-    textTransform: "uppercase",
-    letterSpacing: "0.04em",
+    letterSpacing: "0.02em",
   };
 
   const inputStyle: CSSProperties = {
@@ -139,6 +161,12 @@ export function DancerQuickEditDialog({
     fontSize: "14px",
     outline: "none",
   };
+
+  const block = (key: string, children: ReactNode) => (
+    <div key={key} style={{ marginBottom: "12px" }}>
+      {children}
+    </div>
+  );
 
   return (
     <div
@@ -155,26 +183,114 @@ export function DancerQuickEditDialog({
           id="dancer-quick-edit-title"
           style={{ margin: "0 0 12px", fontSize: "15px", fontWeight: 700 }}
         >
-          立ち位置の設定
+          立ち位置のメンバー
         </h2>
 
-        <div style={{ marginBottom: "12px" }}>
-          <span style={labelStyle}>表示名（舞台）</span>
-          <input
-            type="text"
-            value={label}
-            disabled={disabled}
-            maxLength={LABEL_MAX}
-            onChange={(e) =>
-              setLabel(e.target.value.slice(0, LABEL_MAX))
-            }
-            style={inputStyle}
-            autoFocus
-          />
-        </div>
+        {block("name", (
+          <>
+            <span style={labelStyle}>名前</span>
+            <input
+              type="text"
+              value={label}
+              disabled={disabled}
+              maxLength={LABEL_MAX}
+              onChange={(e) =>
+                setLabel(e.target.value.slice(0, LABEL_MAX))
+              }
+              style={inputStyle}
+              autoFocus
+            />
+          </>
+        ))}
 
-        <div style={{ marginBottom: "12px" }}>
-          <span style={labelStyle}>色</span>
+        {block("height", (
+          <>
+            <span style={labelStyle}>身長（cm・舞台には表示しません）</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              placeholder="例: 162"
+              value={heightStr}
+              disabled={disabled}
+              onChange={(e) => setHeightStr(e.target.value)}
+              style={inputStyle}
+            />
+          </>
+        ))}
+
+        {block("grade", (
+          <>
+            <span style={labelStyle}>学年</span>
+            <input
+              type="text"
+              value={gradeLabel}
+              disabled={disabled}
+              maxLength={GRADE_MAX}
+              placeholder="例: 高校1年"
+              onChange={(e) =>
+                setGradeLabel(e.target.value.slice(0, GRADE_MAX))
+              }
+              style={inputStyle}
+            />
+          </>
+        ))}
+
+        {block("gender", (
+          <>
+            <span style={labelStyle}>性別</span>
+            <input
+              type="text"
+              value={genderLabel}
+              disabled={disabled}
+              maxLength={GENDER_MAX}
+              placeholder="例: 女・男"
+              onChange={(e) =>
+                setGenderLabel(e.target.value.slice(0, GENDER_MAX))
+              }
+              style={inputStyle}
+            />
+          </>
+        ))}
+
+        {block("skill", (
+          <>
+            <span style={labelStyle}>スキル</span>
+            <input
+              type="text"
+              value={skillRankLabel}
+              disabled={disabled}
+              maxLength={SKILL_MAX}
+              placeholder="例: 2・A"
+              onChange={(e) =>
+                setSkillRankLabel(e.target.value.slice(0, SKILL_MAX))
+              }
+              style={inputStyle}
+            />
+          </>
+        ))}
+
+        {block("note", (
+          <>
+            <span style={labelStyle}>備考（舞台には表示しません）</span>
+            <textarea
+              value={note}
+              disabled={disabled}
+              placeholder="メモ・注意事項など"
+              onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX))}
+              rows={3}
+              style={{
+                ...inputStyle,
+                resize: "vertical",
+                minHeight: "72px",
+                fontSize: "12px",
+                lineHeight: 1.45,
+              }}
+            />
+          </>
+        ))}
+
+        <div style={{ marginBottom: "14px" }}>
+          <span style={labelStyle}>印の色</span>
           <div
             style={{
               display: "flex",
@@ -206,37 +322,6 @@ export function DancerQuickEditDialog({
               />
             ))}
           </div>
-        </div>
-
-        <div style={{ marginBottom: "12px" }}>
-          <span style={labelStyle}>身長（cm・舞台には出しません）</span>
-          <input
-            type="text"
-            inputMode="decimal"
-            placeholder="例: 162"
-            value={heightStr}
-            disabled={disabled}
-            onChange={(e) => setHeightStr(e.target.value)}
-            style={inputStyle}
-          />
-        </div>
-
-        <div style={{ marginBottom: "14px" }}>
-          <span style={labelStyle}>メモ・備考（舞台には表示しません）</span>
-          <textarea
-            value={note}
-            disabled={disabled}
-            placeholder="靴・注意事項など"
-            onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX))}
-            rows={3}
-            style={{
-              ...inputStyle,
-              resize: "vertical",
-              minHeight: "72px",
-              fontSize: "12px",
-              lineHeight: 1.45,
-            }}
-          />
         </div>
 
         <div

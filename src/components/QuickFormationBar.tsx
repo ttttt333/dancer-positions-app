@@ -12,9 +12,15 @@ import type {
   SavedSpotLayout,
 } from "../types/choreography";
 import {
+  COMMON_QUICK_LAYOUT_PRESETS,
   dancersForLayoutPreset,
+  transferDancerIdentitiesByOrder,
   type LayoutPresetId,
 } from "../lib/formationLayouts";
+import {
+  captureStageSnapshot,
+  mergeStageSnapshotIntoProject,
+} from "../lib/savedSpotStageSnapshot";
 import {
   dancersFromFormationBoxItem,
   FORMATION_BOX_CHANGE_EVENT,
@@ -42,55 +48,8 @@ import {
  * 共有しているキューすべてに反映される（既存の編集モデルと同じ）。
  */
 
-/** 立ち位置のクイック呼び出しに出す定番プリセット（人数に依らず汎用的なもの） */
-const QUICK_PRESETS: { id: LayoutPresetId; label: string }[] = [
-  /** ★ 推奨順（先頭ブロック）: ユーザ指定の並び */
-  { id: "line", label: "横一列" },
-  { id: "pyramid", label: "ピラミッド" },
-  { id: "pyramid_inverse", label: "逆ピラミッド" },
-  { id: "stagger", label: "千鳥" },
-  { id: "stagger_inverse", label: "逆千鳥" },
-  { id: "two_rows", label: "2列" },
-  { id: "rows_3", label: "3列" },
-  { id: "rows_4", label: "4列" },
-  { id: "rows_5", label: "5列" },
-  /** ─ ここから補助バリエーション ─ */
-  { id: "line_front", label: "横（手前）" },
-  { id: "line_back", label: "横（奥）" },
-  { id: "vee", label: "V字" },
-  { id: "arc", label: "円弧" },
-  { id: "diamond", label: "ひし形" },
-  { id: "circle", label: "円周" },
-  { id: "wedge", label: "楔" },
-  { id: "block_lr", label: "左右ブロック" },
-];
-
 /** 1 プロジェクトに置けるクイックスロットの最大本数（背番号 1〜9） */
 const MAX_QUICK_SLOTS = 9;
-
-/**
- * 新しい立ち位置に乗り換えるとき、人物アイデンティティ（id / 名前 / メンバー紐付け）を
- * 順番ベースで引き継ぐ。FormationSuggestionPanel と同じ振る舞い。
- */
-function transferIdentitiesByOrder(
-  newDancers: DancerSpot[],
-  oldDancers: DancerSpot[]
-): DancerSpot[] {
-  return newDancers.map((nd, i) => {
-    const od = oldDancers[i];
-    if (!od) return nd;
-    return {
-      ...nd,
-      id: od.id,
-      label: od.label,
-      colorIndex: od.colorIndex,
-      crewMemberId: od.crewMemberId,
-      sizePx: od.sizePx ?? nd.sizePx,
-      note: od.note ?? nd.note,
-      heightCm: od.heightCm ?? nd.heightCm,
-    };
-  });
-}
 
 type PendingSource =
   | { kind: "preset"; presetId: LayoutPresetId; label: string }
@@ -241,22 +200,34 @@ export function QuickFormationBar({
       pending?.kind === "box"
         ? listFormationBoxItems().find((b) => b.id === pending.itemId)
         : undefined;
+    /** プロジェクトに保存したスロットは人数・名簿・座標をスナップショットどおり優先 */
     const dancers =
-      boxItem != null
-        ? mergeFormationBoxSnapshotWithStageIdentities(
-            pendingDancers,
-            targetFormation.dancers,
-            boxItem
-          )
-        : transferIdentitiesByOrder(pendingDancers, targetFormation.dancers);
-    setProject((p) => ({
-      ...p,
-      formations: p.formations.map((f) =>
-        f.id === targetFormation.id
-          ? { ...f, dancers, confirmedDancerCount: dancers.length }
-          : f
-      ),
-    }));
+      pending?.kind === "slot"
+        ? pendingDancers.map((d) => ({ ...d }))
+        : boxItem != null
+          ? mergeFormationBoxSnapshotWithStageIdentities(
+              pendingDancers,
+              targetFormation.dancers,
+              boxItem
+            )
+          : transferDancerIdentitiesByOrder(pendingDancers, targetFormation.dancers);
+    setProject((p) => {
+      let next: typeof p = {
+        ...p,
+        formations: p.formations.map((f) =>
+          f.id === targetFormation.id
+            ? { ...f, dancers, confirmedDancerCount: dancers.length }
+            : f
+        ),
+      };
+      if (pending?.kind === "slot") {
+        const slot = p.savedSpotLayouts.find((s) => s.id === pending.slotId);
+        if (slot?.stageSnapshot) {
+          next = mergeStageSnapshotIntoProject(next, slot.stageSnapshot);
+        }
+      }
+      return next;
+    });
     clearPending();
   }, [
     disabled,
@@ -286,6 +257,7 @@ export function QuickFormationBar({
         ...d,
       }));
       setProject((p) => {
+        const snap = captureStageSnapshot(p);
         const list = [...p.savedSpotLayouts];
         if (existingSlot) {
           const idx = list.findIndex((s) => s.id === existingSlot.id);
@@ -295,6 +267,7 @@ export function QuickFormationBar({
               name: trimmed,
               savedAtCount: dancersCopy.length,
               dancers: dancersCopy,
+              stageSnapshot: snap,
             };
           }
         } else {
@@ -303,6 +276,7 @@ export function QuickFormationBar({
             name: trimmed,
             savedAtCount: dancersCopy.length,
             dancers: dancersCopy,
+            stageSnapshot: snap,
           });
         }
         return { ...p, savedSpotLayouts: list.slice(0, MAX_QUICK_SLOTS * 2) };
@@ -509,7 +483,7 @@ export function QuickFormationBar({
       <div style={panelScrollAreaStyle}>
         <SectionLabel>定番</SectionLabel>
         <ChipGrid>
-          {QUICK_PRESETS.map((p) => {
+          {COMMON_QUICK_LAYOUT_PRESETS.map((p) => {
             const isActive =
               pending?.kind === "preset" && pending.presetId === p.id;
             return (

@@ -23,6 +23,7 @@ import {
   FORMATION_BOX_CHANGE_EVENT,
   listFormationBoxItems,
 } from "../lib/formationBox";
+import { mergeStageSnapshotIntoProject } from "../lib/savedSpotStageSnapshot";
 import { FormationPresetThumb } from "./FormationPresetThumb";
 import { FormationBoxItemThumb } from "./FormationBoxItemThumb";
 
@@ -30,7 +31,7 @@ import { FormationBoxItemThumb } from "./FormationBoxItemThumb";
  * ステージの「＋キュー」用の右側パネル。
  * - 開始時刻
  * - 人数（±）
- * - 立ち位置について（4 モード）＋雛形／保存リストの選択（「今の立ち位置を変更」でも雛形を選べる）
+ * - 立ち位置について（4 モード）＋名簿取り込み＋雛形／保存リストの選択（「今の立ち位置を変更」でも雛形を選べる）
  */
 
 type AddMode = "template" | "saved" | "edit_current" | "duplicate";
@@ -45,6 +46,8 @@ type Props = {
   /** キュー作成後（選択・再生停止などは親で処理） */
   onCueCreated?: (cueId: string, startSec: number) => void;
   onStagePreviewChange?: (dancers: DancerSpot[] | null) => void;
+  /** 名簿取り込み（ステージツールバーと同じ処理を親で実行） */
+  onImportRoster?: () => void;
 };
 
 const PRESETS = LAYOUT_PRESET_OPTIONS;
@@ -282,6 +285,7 @@ export function AddCueWithFormationDialog({
   durationSec,
   onCueCreated,
   onStagePreviewChange,
+  onImportRoster,
 }: Props) {
   const { viewMode } = project;
   const trimLo = project.trimStartSec;
@@ -306,6 +310,34 @@ export function AddCueWithFormationDialog({
 
   const [boxRev, setBoxRev] = useState(0);
   const boxItems = useMemo(() => listFormationBoxItems(), [boxRev, open]);
+  /** 保存リストから選んだときは人数 UI をいじらせず、保存時の人数に合わせる */
+  const savedLayoutLocked =
+    addMode === "saved" && (savedSlotId != null || savedBoxId != null);
+
+  useEffect(() => {
+    if (!open || addMode !== "saved") return;
+    if (savedSlotId) {
+      const slot = project.savedSpotLayouts.find((s) => s.id === savedSlotId);
+      if (slot) {
+        setCount(Math.max(1, Math.min(30, slot.dancers.length)));
+      }
+      return;
+    }
+    if (savedBoxId) {
+      const item = boxItems.find((b) => b.id === savedBoxId);
+      if (item) {
+        setCount(Math.max(1, Math.min(30, item.dancerCount)));
+      }
+    }
+  }, [
+    open,
+    addMode,
+    savedSlotId,
+    savedBoxId,
+    project.savedSpotLayouts,
+    boxItems,
+  ]);
+
   useEffect(() => {
     const handler = () => setBoxRev((r) => r + 1);
     window.addEventListener(FORMATION_BOX_CHANGE_EVENT, handler);
@@ -380,20 +412,14 @@ export function AddCueWithFormationDialog({
         if (savedBoxId) {
           const item = boxItems.find((b) => b.id === savedBoxId);
           if (!item) return [];
-          return dancersForTargetCount(
-            dancersFromFormationBoxItem(item),
-            count,
-            spacingOpts
-          );
+          /** 形の箱は保存時の人数・名簿・座標をそのまま優先 */
+          return dancersFromFormationBoxItem(item).map((d) => ({ ...d }));
         }
         if (savedSlotId) {
           const slot = project.savedSpotLayouts.find((s) => s.id === savedSlotId);
           if (!slot) return [];
-          return dancersForTargetCount(
-            slot.dancers.map((d) => ({ ...d })),
-            count,
-            spacingOpts
-          );
+          /** プロジェクト保存スロットは人数・メンバー・座標をスナップショットどおり */
+          return slot.dancers.map((d) => ({ ...d }));
         }
         return [];
       }
@@ -409,6 +435,7 @@ export function AddCueWithFormationDialog({
     project,
     boxItems,
     spacingOpts,
+    project.savedSpotLayouts,
   ]);
 
   useEffect(() => {
@@ -490,12 +517,19 @@ export function AddCueWithFormationDialog({
         formationId: newFm.id,
       };
 
-      return {
+      let proj: ChoreographyProjectJson = {
         ...p,
         formations: [...p.formations, newFm],
         cues: sortCuesByStart([...p.cues, cue]),
         activeFormationId: newFm.id,
       };
+      if (addMode === "saved" && savedSlotId) {
+        const slot = p.savedSpotLayouts.find((s) => s.id === savedSlotId);
+        if (slot?.stageSnapshot) {
+          proj = mergeStageSnapshotIntoProject(proj, slot.stageSnapshot);
+        }
+      }
+      return proj;
     });
 
     onStagePreviewChange?.(null);
@@ -516,6 +550,8 @@ export function AddCueWithFormationDialog({
     onStagePreviewChange,
     onCueCreated,
     onClose,
+    addMode,
+    savedSlotId,
   ]);
 
   if (!open) return null;
@@ -691,7 +727,7 @@ export function AddCueWithFormationDialog({
               <button
                 type="button"
                 aria-label="人数を減らす"
-                disabled={viewMode === "view" || count <= 1}
+                disabled={viewMode === "view" || count <= 1 || savedLayoutLocked}
                 onClick={() => bumpCount(-1)}
                 style={{
                   ...btnBase,
@@ -718,7 +754,7 @@ export function AddCueWithFormationDialog({
               <button
                 type="button"
                 aria-label="人数を増やす"
-                disabled={viewMode === "view" || count >= 30}
+                disabled={viewMode === "view" || count >= 30 || savedLayoutLocked}
                 onClick={() => bumpCount(1)}
                 style={{
                   ...btnBase,
@@ -730,7 +766,14 @@ export function AddCueWithFormationDialog({
               >
                 ＋
               </button>
-              <span style={{ fontSize: "11px", color: "#64748b" }}>1〜30 人</span>
+              <span style={{ fontSize: "11px", color: "#64748b" }}>
+                1〜30 人
+                {savedLayoutLocked ? (
+                  <span style={{ marginLeft: "8px", color: "#38bdf8" }}>
+                    （保存した並びの人数に固定）
+                  </span>
+                ) : null}
+              </span>
             </div>
           </section>
 
@@ -793,6 +836,40 @@ export function AddCueWithFormationDialog({
                   </button>
                 );
               })}
+              {onImportRoster ? (
+                <button
+                  type="button"
+                  title="CSV / TSV などを選び、新しい名簿として取り込みます（ステージ上部の名簿取り込みと同じ）"
+                  aria-label="名簿取り込み。CSV や TSV を選び新しい名簿として追加します"
+                  disabled={viewMode === "view"}
+                  onClick={() => {
+                    onClose();
+                    queueMicrotask(() => onImportRoster());
+                  }}
+                  style={{
+                    ...addCueModePickStyle,
+                    borderColor: "#334155",
+                    borderWidth: 1,
+                    background: "#0b1220",
+                    color: "#e2e8f0",
+                    marginTop: "2px",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontWeight: 700,
+                      fontSize: "12px",
+                      flex: 1,
+                      minWidth: 0,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    名簿取り込み
+                  </span>
+                </button>
+              ) : null}
             </div>
           </section>
 

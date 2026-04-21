@@ -3,6 +3,7 @@ import { toCanvas, toPng } from "html-to-image";
 import { jsPDF } from "jspdf";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { sortCuesByStart } from "../lib/cueInterval";
+import { playCompletionWoof } from "../lib/playCompletionWoof";
 import { btnSecondary } from "./StageBoard";
 
 const STAGE_ROOT_ID = "stage-export-root";
@@ -217,6 +218,7 @@ export function ExportDialog({
         if (wantPdf) await exportPdf(base, project, pdfIncludeMemos);
         if (wantVideo) await exportWebmStatic(base);
       }
+      playCompletionWoof();
       onClose();
     } catch (e) {
       alert(e instanceof Error ? e.message : "書き出しに失敗しました");

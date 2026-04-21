@@ -460,6 +460,35 @@ export function FormationPresetThumb({ preset, width = 36, className }: Props) {
         [50, 52],
       ];
       break;
+    case "line_vertical":
+      pts = [
+        [50, 14],
+        [50, 26],
+        [50, 38],
+        [50, 50],
+      ];
+      break;
+    case "fan_back":
+      pts = [
+        [50, 12],
+        [28, 28],
+        [40, 34],
+        [60, 34],
+        [72, 28],
+      ];
+      break;
+    case "square_outline":
+      pts = [
+        [22, 18],
+        [50, 18],
+        [78, 18],
+        [78, 36],
+        [78, 52],
+        [50, 52],
+        [22, 52],
+        [22, 36],
+      ];
+      break;
     default:
       pts = [
         [16, 28],

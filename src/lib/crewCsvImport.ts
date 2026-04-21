@@ -54,6 +54,66 @@ const COLOR_HEADER_KEYS = [
   "カラー",
 ];
 
+const HEIGHT_HEADER_KEYS = [
+  "height",
+  "heightcm",
+  "身長",
+  "身長cm",
+  "身長㎝",
+  "stature",
+];
+
+const GRADE_HEADER_KEYS = [
+  "grade",
+  "学年",
+  "年次",
+  "year",
+  "学齢",
+  "class",
+  "クラス",
+  "schoolyear",
+];
+
+const SKILL_RANK_HEADER_KEYS = [
+  "skill",
+  "rank",
+  "スキル",
+  "ランク",
+  "スキルランク",
+  "個人ランク",
+  "ダンス",
+  "ダンスランク",
+  "技能",
+  "レベル",
+  "順位",
+  "level",
+  "dancerank",
+];
+
+/** 「ダンス」単独の部分一致は「ダンス部」等にかぶるため、複合語だけ列挙 */
+const SKILL_RANK_HEADER_COMPOUNDS = [
+  "スキルランク",
+  "個人ランク",
+  "ダンスランク",
+  "ダンススキル",
+  "マイランク",
+];
+
+/**
+ * 正規化済み見出しがスキル／ランク列か。
+ * 完全一致に加え、「個人ランク」「スキルランク」のようにキーワードを含む列も拾う。
+ */
+function headerMatchesSkillRank(h: string): boolean {
+  if (SKILL_RANK_HEADER_KEYS.includes(h)) return true;
+  if (SKILL_RANK_HEADER_COMPOUNDS.some((sub) => h.includes(sub))) return true;
+  return SKILL_RANK_HEADER_KEYS.some((key) => {
+    if (key.length < 3) return false;
+    /** 「ダンス」単体の部分一致は除外（完全一致は上の includes で拾う） */
+    if (key === "ダンス") return false;
+    return h.includes(key);
+  });
+}
+
 /** 出欠・参加フラグ列（○＝参加など） */
 const ATTENDANCE_HEADER_KEYS = [
   "出欠",
@@ -199,7 +259,22 @@ type ParsedNameRow = {
   /** 名の読み（ひらがな寄せ）。あればこれを表示名のベースにする */
   givenReading: string;
   colorIndex: number;
+  heightCm?: number;
+  gradeLabel?: string;
+  skillRankLabel?: string;
 };
+
+/** 身長セル（162 / 162.5 / 162cm 等）を cm に正規化 */
+export function parseHeightCmCell(raw: string): number | undefined {
+  const t = raw
+    .replace(/,/g, ".")
+    .replace(/cm|㎝|ｃｍ|ＣＭ/gi, "")
+    .trim();
+  if (!t) return undefined;
+  const n = parseFloat(t);
+  if (!Number.isFinite(n) || n <= 0 || n >= 300) return undefined;
+  return Math.round(n * 10) / 10;
+}
 
 function parseHeaderRowIndices(headerNorm: string[]): {
   lastIdx: number;
@@ -210,6 +285,9 @@ function parseHeaderRowIndices(headerNorm: string[]): {
   readingCombinedIdx: number;
   readingLastIdx: number;
   readingFirstIdx: number;
+  heightIdx: number;
+  gradeIdx: number;
+  skillRankIdx: number;
   looksLikeHeader: boolean;
 } {
   const looksLikeHeader = headerNorm.some(
@@ -221,7 +299,10 @@ function parseHeaderRowIndices(headerNorm: string[]): {
       ATTENDANCE_HEADER_KEYS.includes(h) ||
       READING_COMBINED_HEADER_KEYS.includes(h) ||
       READING_LAST_HEADER_KEYS.includes(h) ||
-      READING_FIRST_HEADER_KEYS.includes(h)
+      READING_FIRST_HEADER_KEYS.includes(h) ||
+      HEIGHT_HEADER_KEYS.includes(h) ||
+      GRADE_HEADER_KEYS.includes(h) ||
+      headerMatchesSkillRank(h)
   );
   let lastIdx = -1;
   let firstIdx = -1;
@@ -231,6 +312,9 @@ function parseHeaderRowIndices(headerNorm: string[]): {
   let readingCombinedIdx = -1;
   let readingLastIdx = -1;
   let readingFirstIdx = -1;
+  let heightIdx = -1;
+  let gradeIdx = -1;
+  let skillRankIdx = -1;
   if (looksLikeHeader) {
     lastIdx = headerNorm.findIndex((h) => LAST_NAME_HEADER_KEYS.includes(h));
     firstIdx = headerNorm.findIndex((h) => FIRST_NAME_HEADER_KEYS.includes(h));
@@ -248,6 +332,9 @@ function parseHeaderRowIndices(headerNorm: string[]): {
     readingFirstIdx = headerNorm.findIndex((h) =>
       READING_FIRST_HEADER_KEYS.includes(h)
     );
+    heightIdx = headerNorm.findIndex((h) => HEIGHT_HEADER_KEYS.includes(h));
+    gradeIdx = headerNorm.findIndex((h) => GRADE_HEADER_KEYS.includes(h));
+    skillRankIdx = headerNorm.findIndex((h) => headerMatchesSkillRank(h));
   }
   return {
     lastIdx,
@@ -258,6 +345,9 @@ function parseHeaderRowIndices(headerNorm: string[]): {
     readingCombinedIdx,
     readingLastIdx,
     readingFirstIdx,
+    heightIdx,
+    gradeIdx,
+    skillRankIdx,
     looksLikeHeader,
   };
 }
@@ -469,31 +559,38 @@ function buildLabelsWithDuplicateHandling(
   for (const [, group] of groups) {
     group.sort((a, b) => a.order - b.order);
     const usedLocal = new Set<string>();
+    /** 同一 base が 2 人以上いるときは、全員に苗字（読み）先頭 1 文字を付けて区別する（1 人目だけ素の名、はやめる） */
+    const duplicateBase = group.length > 1;
+
     for (const it of group) {
-      let label = it.base;
-      if (usedLocal.has(label)) {
-        let pfx = it.prefix;
-        let candidate = sliceLabel(`${pfx}${it.base}`);
-        let extra = 0;
-        while (usedLocal.has(candidate) || usedGlobal.has(candidate)) {
-          extra += 1;
-          const famR = parsed[it.order]?.familyReading.trim() ?? "";
-          const fam = parsed[it.order]?.familyRaw.trim() ?? "";
-          if (famR.length > extra) {
-            pfx = famR.slice(0, extra + 1);
-          } else if (fam.length > extra) {
-            pfx = fam.slice(0, extra + 1);
-          } else {
-            pfx = `${it.prefix}${extra}`;
-          }
-          candidate = sliceLabel(`${pfx}${it.base}`);
-          if (extra > 12) {
-            candidate = sliceLabel(`${it.base}${it.order}`);
-            break;
-          }
-        }
-        label = candidate;
+      let pfx = it.prefix;
+      let candidate: string;
+      if (duplicateBase && pfx) {
+        candidate = sliceLabel(`${pfx}${it.base}`);
+      } else {
+        candidate = it.base;
       }
+
+      let extra = 0;
+      while (usedLocal.has(candidate) || usedGlobal.has(candidate)) {
+        extra += 1;
+        const famR = parsed[it.order]?.familyReading.trim() ?? "";
+        const fam = parsed[it.order]?.familyRaw.trim() ?? "";
+        if (famR.length > extra) {
+          pfx = famR.slice(0, extra + 1);
+        } else if (fam.length > extra) {
+          pfx = fam.slice(0, extra + 1);
+        } else {
+          pfx = `${it.prefix}${extra}`;
+        }
+        candidate = sliceLabel(`${pfx}${it.base}`);
+        if (extra > 12) {
+          candidate = sliceLabel(`${it.base}${it.order}`);
+          break;
+        }
+      }
+
+      const label = candidate;
       usedLocal.add(label);
       usedGlobal.add(label);
       out[it.order] = { label, colorIndex: it.colorIndex };
@@ -528,7 +625,7 @@ function smartSplitFallback(text: string): string[][] {
  * 行データから名簿メンバーを生成する。
  * - `full`: 姓＋名または氏名列のフル表記をそのまま短縮表示
  * - `given_only`: 「名」列があればそれのみ。単一列のときは先頭漢字を除く簡易推定やスペース区切りの末尾を使用
- * - 同一表示名が複数あるときは苗字の先頭 1 文字を前置（読み苗字があればその先頭、なければ漢字姓）
+ * - 同一表示名が複数あるときは、該当する全員に苗字の先頭 1 文字を前置（読み苗字があればその先頭、なければ漢字姓）
  * - フリガナ列があるときは名の読みを表示のベースにする（例: たけし が重複 → さたけし / なたけし）
  * - 出欠は見出し列に加え、氏名列の左右隣が ○・参加 等の列なら自動で参加行のみ抽出
  */
@@ -548,6 +645,9 @@ export function rowsToCrewMembers(
     readingCombinedIdx,
     readingLastIdx,
     readingFirstIdx,
+    heightIdx,
+    gradeIdx,
+    skillRankIdx,
     looksLikeHeader,
   } = parseHeaderRowIndices(headerNorm);
 
@@ -563,9 +663,18 @@ export function rowsToCrewMembers(
   }
 
   const skipForAdjacent = new Set(
-    [lastIdx, firstIdx, nameIdx, colorIdx, readingCombinedIdx, readingLastIdx, readingFirstIdx].filter(
-      (i) => i >= 0
-    )
+    [
+      lastIdx,
+      firstIdx,
+      nameIdx,
+      colorIdx,
+      readingCombinedIdx,
+      readingLastIdx,
+      readingFirstIdx,
+      heightIdx,
+      gradeIdx,
+      skillRankIdx,
+    ].filter((i) => i >= 0)
   );
   const nameColForAdjacent = nameIdx >= 0 ? nameIdx : fallbackNameCol;
   let effectiveAttendanceIdx = attendanceIdx;
@@ -618,6 +727,18 @@ export function rowsToCrewMembers(
     if (colorIdx < 0) {
       pr.colorIndex = memberCounter % 9;
     }
+    if (heightIdx >= 0) {
+      const h = parseHeightCmCell(row[heightIdx] ?? "");
+      if (h !== undefined) pr.heightCm = h;
+    }
+    if (gradeIdx >= 0) {
+      const g = (row[gradeIdx] ?? "").trim().slice(0, 32);
+      if (g) pr.gradeLabel = g;
+    }
+    if (skillRankIdx >= 0) {
+      const s = (row[skillRankIdx] ?? "").trim().slice(0, 24);
+      if (s) pr.skillRankLabel = s;
+    }
     memberCounter++;
     parsed.push(pr);
   }
@@ -633,11 +754,18 @@ export function rowsToCrewMembers(
   }
 
   const labeled = buildLabelsWithDuplicateHandling(parsed, nameMode);
-  const members = labeled.map((L) => ({
-    id: crypto.randomUUID(),
-    label: L.label,
-    colorIndex: L.colorIndex,
-  }));
+  const members = labeled.map((L, idx) => {
+    const pr = parsed[idx]!;
+    const m: CrewMember = {
+      id: crypto.randomUUID(),
+      label: L.label,
+      colorIndex: L.colorIndex,
+    };
+    if (typeof pr.heightCm === "number") m.heightCm = pr.heightCm;
+    if (pr.gradeLabel) m.gradeLabel = pr.gradeLabel;
+    if (pr.skillRankLabel) m.skillRankLabel = pr.skillRankLabel;
+    return m;
+  });
   opts?.onAttendanceFiltered?.({
     excludedRows: excludedByAttendance,
     hadAttendanceColumn: hadAttendance,

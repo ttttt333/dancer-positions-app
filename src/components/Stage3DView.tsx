@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { DancerSpot } from "../types/choreography";
 
 const PALETTE = [
@@ -11,6 +12,7 @@ type Api = {
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
+  controls: OrbitControls;
   meshes: THREE.Mesh[];
   geom: THREE.SphereGeometry;
   planeGeom: THREE.PlaneGeometry;
@@ -41,6 +43,13 @@ export function Stage3DView({ dancers, markerDiameterPx = 44 }: Props) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(w, h);
     el.appendChild(renderer.domElement);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.minDistance = 6;
+    controls.maxDistance = 42;
+    controls.maxPolarAngle = Math.PI * 0.495;
+    controls.target.set(0, 0, 0);
     const dl = new THREE.DirectionalLight(0xffffff, 0.95);
     dl.position.set(3, 18, 8);
     scene.add(dl);
@@ -58,6 +67,7 @@ export function Stage3DView({ dancers, markerDiameterPx = 44 }: Props) {
     const meshes: THREE.Mesh[] = [];
     let raf = 0;
     const loop = () => {
+      controls.update();
       renderer.render(scene, camera);
       raf = requestAnimationFrame(loop);
     };
@@ -66,6 +76,7 @@ export function Stage3DView({ dancers, markerDiameterPx = 44 }: Props) {
       scene,
       camera,
       renderer,
+      controls,
       meshes,
       geom,
       planeGeom,
@@ -83,6 +94,7 @@ export function Stage3DView({ dancers, markerDiameterPx = 44 }: Props) {
     return () => {
       ro.disconnect();
       cancelAnimationFrame(raf);
+      controls.dispose();
       meshes.forEach((m) => {
         (m.material as THREE.Material).dispose();
         scene.remove(m);

@@ -66,6 +66,16 @@ export function DashboardPage() {
     }
   };
 
+  const startStripeSubscription = async () => {
+    setJoinMsg("");
+    try {
+      const { url } = await billingApi.createCheckoutSession();
+      window.location.href = url;
+    } catch (e) {
+      setJoinMsg(e instanceof Error ? e.message : "Checkout を開始できませんでした");
+    }
+  };
+
   const del = async (id: number) => {
     if (!confirm("この作品を削除しますか？")) return;
     try {
@@ -142,6 +152,19 @@ export function DashboardPage() {
         {me ? (
           <>
             <span style={{ fontSize: "13px", color: "#94a3b8" }}>{me.user.email}</span>
+            {me.user.subscription_status ? (
+              <span style={{ fontSize: "12px", color: "#86efac" }}>
+                サブスク: {me.user.subscription_status}
+              </span>
+            ) : null}
+            <button
+              type="button"
+              style={btnSecondary}
+              title="Stripe でサブスクリプション（要 STRIPE_PRICE_ID）"
+              onClick={() => void startStripeSubscription()}
+            >
+              サブスク登録（Stripe）
+            </button>
             {me.adminOrganizations.length > 0 && (
               <Link to="/admin/membership" style={{ ...btnSecondary, textDecoration: "none" }}>
                 協会・承認
@@ -241,12 +264,21 @@ export function DashboardPage() {
                   borderBottom: "1px solid #1e293b",
                 }}
               >
-                <Link
-                  to={`/editor/${p.id}`}
-                  style={{ color: "#93c5fd", flex: 1, textDecoration: "none" }}
-                >
-                  {p.name}
-                </Link>
+                <div style={{ flex: 1, display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" }}>
+                  <Link
+                    to={`/editor/${p.id}`}
+                    style={{ color: "#93c5fd", textDecoration: "none" }}
+                  >
+                    {p.name}
+                  </Link>
+                  <Link
+                    to={`/editor/${p.id}?collab=1`}
+                    style={{ fontSize: "11px", color: "#64748b", textDecoration: "none" }}
+                    title="Yjs で共同編集（ログイン必須）"
+                  >
+                    共同編集
+                  </Link>
+                </div>
                 <span style={{ fontSize: "12px", color: "#64748b" }}>{p.updated_at}</span>
                 <button type="button" style={btnSecondary} onClick={() => void del(p.id)}>
                   削除
