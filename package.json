@@ -4,12 +4,15 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k \"npm run dev:server\" \"npm run dev:client\"",
+    "start": "npm run dev",
+    "dev": "concurrently -k -n api,vite \"npm run dev:server\" \"npm run dev:client\"",
     "dev:client": "vite --force",
+    "dev:vite": "vite --force --open",
     "dev:server": "node server/index.mjs",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview --host --open",
+    "open:app": "node scripts/open-app.mjs"
   },
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.15",

@@ -1,10 +1,66 @@
+import { execFileSync } from "node:child_process";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
+import type { Plugin, ViteDevServer } from "vite";
+
+/**
+ * 立ち位置アプリ（ChoreoGrid）をブラウザで確認しやすくする:
+ * 開発サーバー起動後に URL をターミナルへ表示し、可能なら既定ブラウザで開く。
+ * `npm run dev` で concurrently 経由でも Vite 内で動く。
+ * 自動オープンを止める: NO_OPEN=1 npm run dev
+ */
+function devOpenBrowserPlugin(): Plugin {
+  return {
+    name: "dev-open-browser",
+    apply: "serve",
+    configureServer(server: ViteDevServer) {
+      server.httpServer?.once("listening", () => {
+        const run = () => {
+          const port =
+            typeof server.config.server.port === "number"
+              ? server.config.server.port
+              : 5173;
+          const primary =
+            server.resolvedUrls?.local?.[0] ?? `http://127.0.0.1:${port}/`;
+          const network = server.resolvedUrls?.network?.[0];
+          const bar = "\n" + "━".repeat(62);
+          console.log(bar);
+          console.log(`  ChoreoGrid（立ち位置）を開く →  ${primary}`);
+          console.log(`     手動: 別ターミナルで npm run open:app でも開けます`);
+          if (network) {
+            console.log(`     （同一 LAN の別端末: ${network}）`);
+          }
+          console.log(bar + "\n");
+          if (process.env.NO_OPEN === "1") return;
+          try {
+            if (process.platform === "win32") {
+              execFileSync("cmd", ["/c", "start", "", primary], {
+                stdio: "ignore",
+                windowsHide: true,
+              });
+            } else if (process.platform === "darwin") {
+              execFileSync("open", [primary], { stdio: "ignore" });
+            } else {
+              execFileSync("xdg-open", [primary], { stdio: "ignore" });
+            }
+          } catch {
+            console.warn(
+              "[vite] ブラウザを自動で開けませんでした。上の URL をコピーするか npm run open:app を実行してください。"
+            );
+          }
+        };
+        /** resolvedUrls が遅い環境向けに少し待つ */
+        setTimeout(run, 450);
+      });
+    },
+  };
+}
 
 export default defineConfig({
   plugins: [
     react(),
+    devOpenBrowserPlugin(),
     VitePWA({
       registerType: "autoUpdate",
       /** 開発サーバーでは SW を登録しない（古いキャッシュ UI の防止） */
@@ -65,7 +121,8 @@ export default defineConfig({
     headers: {
       "Cache-Control": "no-store",
     },
-    open: true,
+    /** open は devOpenBrowserPlugin が担当（concurrently でも確実に開く） */
+    open: false,
     proxy: {
       "/api": {
         target: "http://127.0.0.1:3001",
