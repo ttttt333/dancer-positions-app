@@ -145,7 +145,7 @@ export function DashboardPage() {
                   fontSize: "10px",
                   fontWeight: 600,
                   letterSpacing: "0.14em",
-                  color: shell.textSubtle,
+                  color: shell.accent,
                   textTransform: "uppercase",
                 }}
               >

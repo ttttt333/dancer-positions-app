@@ -251,12 +251,14 @@ function CueTimeInput({
   disabled,
   onCommit,
   variant = "default",
+  ariaLabel,
 }: {
   timeSec: number;
   disabled: boolean;
   onCommit: (v: number) => void;
   /** キュー一覧の1行表示用（大きめ・強調色） */
   variant?: "default" | "cueRow";
+  ariaLabel?: string;
 }) {
   const isRow = variant === "cueRow";
   const [text, setText] = useState(() =>
@@ -288,8 +290,8 @@ function CueTimeInput({
       onKeyDown={(e) => {
         if (e.key === "Enter") (e.target as HTMLInputElement).blur();
       }}
-      aria-label="時刻"
-      placeholder="分:秒"
+      aria-label={ariaLabel ?? "時刻"}
+      placeholder={isRow ? "" : "分:秒"}
       style={{
         padding: isRow ? "2px 3px" : "6px 8px",
         borderRadius: "6px",
@@ -388,51 +390,6 @@ const PlaybackClockReadout = memo(function PlaybackClockReadout({
         {durPart}
       </span>
     </span>
-  );
-});
-
-/** 再生中の親再レンダー（currentTime）から隔離し、レイアウトの揺れを防ぐ */
-const PlaybackRateSlider = memo(function PlaybackRateSlider({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (rate: number) => void;
-}) {
-  return (
-    <label
-      style={{
-        color: "#94a3b8",
-        display: "flex",
-        alignItems: "center",
-        gap: tlPx(4),
-        flexShrink: 0,
-        fontSize: tlPx(11),
-      }}
-    >
-      速度
-      <input
-        type="range"
-        min={0.5}
-        max={2}
-        step={0.05}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        style={{ width: tlPx(70), verticalAlign: "middle" }}
-      />
-      <span
-        style={{
-          width: tlPx(34),
-          textAlign: "right",
-          fontVariantNumeric: "tabular-nums",
-          fontFeatureSettings: '"tnum"',
-          fontSize: tlPx(11),
-          color: "#cbd5e1",
-        }}
-      >
-        {value.toFixed(2)}×
-      </span>
-    </label>
   );
 });
 
@@ -1806,13 +1763,6 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       redraw();
     };
 
-    const onPlaybackRateChange = useCallback(
-      (r: number) => {
-        setProject((p) => ({ ...p, playbackRate: r }));
-      },
-      [setProject]
-    );
-
     return (
       <div
         style={{
@@ -1911,8 +1861,14 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               style={{
                 ...timelineToolbarBtn,
                 cursor: "pointer",
-                display: "inline-block",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: tlPx(32),
+                height: tlPx(28),
+                padding: 0,
               }}
+              aria-label="音源追加"
               title="楽曲または動画から音声を読み込み（MP4 / AVI / MOV / MKV / WMV 等に対応）"
               onPointerEnter={() => {
                 void preloadFFmpeg();
@@ -1921,7 +1877,15 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                 void preloadFFmpeg();
               }}
             >
-              音源追加
+              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden style={{ display: "block" }}>
+                <path
+                  d="M12 5v14M5 12h14"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
               <input
                 type="file"
                 accept="audio/*,video/*"
@@ -1932,10 +1896,6 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                 }}
               />
             </label>
-            <PlaybackRateSlider
-              value={playbackRate}
-              onChange={onPlaybackRateChange}
-            />
             {onUndo && onRedo && (
               <>
                 <div
@@ -1954,9 +1914,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                   title="編集を元に戻す（⌘Z / Ctrl+Z）"
                   aria-label="戻る"
                   onClick={() => onUndo()}
-                >
-                  戻る
-                </button>
+                />
                 <button
                   type="button"
                   style={timelineToolbarBtn}
@@ -1964,9 +1922,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                   title="やり直す（⌘⇧Z / Ctrl+Shift+Z）"
                   aria-label="進む"
                   onClick={() => onRedo()}
-                >
-                  進む
-                </button>
+                />
               </>
             )}
             {waveTimelineDockTop && wideWorkbench && onWaveTimelineDockTopChange ? (
@@ -1998,9 +1954,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                   title="画面上部の波形エリアを閉じ、タイムラインを右列の通常位置に戻します"
                   aria-label="上部の波形エリアを閉じる"
                   onClick={() => onWaveTimelineDockTopChange(false)}
-                >
-                  ✕ 閉じる
-                </button>
+                />
               </div>
             ) : null}
           </div>
@@ -2018,43 +1972,46 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               minWidth: 0,
             }}
           >
-            <button type="button" style={timelineToolbarBtn} onClick={togglePlay}>
-              {isPlaying ? "一時停止" : "再生"}
-            </button>
+            <button
+              type="button"
+              style={timelineToolbarBtn}
+              onClick={togglePlay}
+              aria-label={isPlaying ? "一時停止" : "再生"}
+              title={isPlaying ? "一時停止" : "再生"}
+            />
             <button
               type="button"
               style={timelineToolbarBtn}
               disabled={project.viewMode === "view" || duration <= 0}
               title="再生位置を 5 秒進める（トリム範囲内に収めます）"
+              aria-label="5秒進む"
               onClick={seekForward5Sec}
-            >
-              +5s
-            </button>
+            />
             <button
               type="button"
               style={timelineToolbarBtn}
               disabled={project.viewMode === "view" || duration <= 0}
               title="再生位置を 5 秒戻す（トリム範囲内に収めます）"
+              aria-label="5秒戻す"
               onClick={seekBackward5Sec}
-            >
-              -5s
-            </button>
+            />
             <button
               type="button"
               style={timelineToolbarBtn}
               disabled={project.viewMode === "view" || duration <= 0}
               title="再生を止め、先頭（トリム開始位置）に戻します"
+              aria-label="先頭へ"
               onClick={stopPlayback}
-            >
-              先頭
-            </button>
-            <PlaybackClockReadout
-              audioRef={audioRef}
-              isPlaying={isPlaying}
-              idleTimeSec={currentTime}
-              durationSec={duration}
-              monoFontSizePx={13 * TIMELINE_UI_SCALE}
             />
+            {!compactTopDock ? (
+              <PlaybackClockReadout
+                audioRef={audioRef}
+                isPlaying={isPlaying}
+                idleTimeSec={currentTime}
+                durationSec={duration}
+                monoFontSizePx={13 * TIMELINE_UI_SCALE}
+              />
+            ) : null}
           </div>
         </div>
         <div
@@ -2072,37 +2029,40 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           <div
             style={{
               position: "relative",
-              height: "16px",
+              height: compactTopDock ? 0 : "16px",
               fontSize: "9px",
               color: "#94a3b8",
-              borderBottom: "1px solid #1e293b",
+              borderBottom: compactTopDock ? "none" : "1px solid #1e293b",
               fontVariantNumeric: "tabular-nums",
               userSelect: "none",
+              overflow: "hidden",
             }}
+            aria-hidden
           >
-            {duration > 0 &&
-              waveRulerTicks(waveView.start, waveView.end, 10).map((tick) => {
-                const span = waveView.span;
-                const p = span > 0 ? ((tick - waveView.start) / span) * 100 : 0;
-                const pRounded = Math.round(p * 10000) / 10000;
-                return (
-                  <span
-                    key={tick}
-                    style={{
-                      position: "absolute",
-                      top: "3px",
-                      left: `${pRounded}%`,
-                      transform: "translate3d(-50%, 0, 0)",
-                      whiteSpace: "nowrap",
-                      pointerEvents: "none",
-                      fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-                      willChange: "transform",
-                    }}
-                  >
-                    {formatMmSs(tick)}
-                  </span>
-                );
-              })}
+            {!compactTopDock && duration > 0
+              ? waveRulerTicks(waveView.start, waveView.end, 10).map((tick) => {
+                  const span = waveView.span;
+                  const p = span > 0 ? ((tick - waveView.start) / span) * 100 : 0;
+                  const pRounded = Math.round(p * 10000) / 10000;
+                  return (
+                    <span
+                      key={tick}
+                      style={{
+                        position: "absolute",
+                        top: "3px",
+                        left: `${pRounded}%`,
+                        transform: "translate3d(-50%, 0, 0)",
+                        whiteSpace: "nowrap",
+                        pointerEvents: "none",
+                        fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                        willChange: "transform",
+                      }}
+                    >
+                      {formatMmSs(tick)}
+                    </span>
+                  );
+                })
+              : null}
           </div>
           <canvas
             ref={canvasRef}
@@ -2150,17 +2110,6 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         {(() => {
           const cueListContent = (
             <>
-        <p
-          style={{
-            margin: "0 0 4px",
-            fontSize: "10px",
-            color: "#64748b",
-            lineHeight: 1.35,
-          }}
-        >
-          キューの追加は<strong style={{ color: "#94a3b8" }}>ステージ上部の「キュー」</strong>
-          から。波形をダブルクリックでも追加できます。
-        </p>
         <div
           style={{
             flex: "1 1 0%",
@@ -2249,17 +2198,9 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                           flexDirection: "column",
                           gap: "2px",
                           alignItems: "flex-end",
+                          justifyContent: "flex-end",
                         }}
                       >
-                        <span
-                          style={{
-                            fontSize: "9px",
-                            color: "#64748b",
-                            letterSpacing: "0.02em",
-                          }}
-                        >
-                          #
-                        </span>
                         <span
                           aria-label={`キュー ${cueNum}`}
                           style={{
@@ -2276,17 +2217,9 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                         </span>
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                        <span
-                          style={{
-                            fontSize: "9px",
-                            color: "#64748b",
-                            letterSpacing: "0.02em",
-                          }}
-                        >
-                          開始
-                        </span>
                         <CueTimeInput
                           variant="cueRow"
+                          ariaLabel={`キュー${cueNum} 開始時刻`}
                           timeSec={c.tStartSec}
                           disabled={project.viewMode === "view"}
                           onCommit={(v) => {
@@ -2300,17 +2233,9 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                         />
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                        <span
-                          style={{
-                            fontSize: "9px",
-                            color: "#64748b",
-                            letterSpacing: "0.02em",
-                          }}
-                        >
-                          終了
-                        </span>
                         <CueTimeInput
                           variant="cueRow"
+                          ariaLabel={`キュー${cueNum} 終了時刻`}
                           timeSec={c.tEndSec}
                           disabled={project.viewMode === "view"}
                           onCommit={(v) => {
@@ -2331,17 +2256,9 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                             gap: "2px",
                             flexShrink: 0,
                             justifySelf: "start",
+                            justifyContent: "flex-end",
                           }}
                         >
-                          <span
-                            style={{
-                              fontSize: "9px",
-                              color: "#64748b",
-                              letterSpacing: "0.02em",
-                            }}
-                          >
-                            人数
-                          </span>
                           <div
                             title="人数を増減"
                             style={{
@@ -2413,17 +2330,9 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                           flexDirection: "column",
                           gap: "2px",
                           justifySelf: "end",
+                          justifyContent: "flex-end",
                         }}
                       >
-                        <span
-                          style={{
-                            fontSize: "9px",
-                            color: "#64748b",
-                            letterSpacing: "0.02em",
-                          }}
-                        >
-                          {"\u00A0"}
-                        </span>
                         <div
                           style={{
                             display: "flex",

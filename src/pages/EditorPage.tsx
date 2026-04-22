@@ -1736,39 +1736,7 @@ export function EditorPage() {
             }}
           >
             <section
-              style={{
-                ...panelCard,
-                padding: "10px",
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
-                flexShrink: 0,
-                minWidth: 0,
-                minHeight: 0,
-              }}
-            >
-              <ChoreoGridToolbar embedInPanel {...choreoToolbarSharedProps} />
-              {!rosterOnlyMode ? (
-                <button
-                  type="button"
-                  style={{
-                    ...btnSecondary,
-                    width: "100%",
-                    padding: "10px 12px",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    display: "flex",
-                    justifyContent: "center",
-                  }}
-                  disabled={project.viewMode === "view"}
-                  title="モーダルでキュー一覧を開きます"
-                  onClick={() => setCueListModalOpen(true)}
-                >
-                  キュー一覧を開く
-                </button>
-              ) : null}
-            </section>
-            <section
+              className="editor-right-tools-section"
               style={{
                 ...panelCard,
                 padding: "10px",
@@ -1777,10 +1745,44 @@ export function EditorPage() {
                 minWidth: 0,
                 display: "flex",
                 flexDirection: "column",
-                overflow: "auto",
+                overflow: "hidden",
               }}
             >
-              <EditorStageWorkbench key="stage-wb" layout="rail" {...stageWorkbenchProps} />
+              <div className="editor-right-tools-host">
+                <div className="editor-right-tools-tiles">
+                  <ChoreoGridToolbar
+                    embedInPanel
+                    tilesInRun
+                    {...choreoToolbarSharedProps}
+                  />
+                  {!rosterOnlyMode ? (
+                    <button
+                      type="button"
+                      className="editor-right-tool-sq"
+                      disabled={project.viewMode === "view"}
+                      title="モーダルでキュー一覧を開きます"
+                      aria-label="キュー一覧を開く"
+                      onClick={() => setCueListModalOpen(true)}
+                    >
+                      一覧
+                    </button>
+                  ) : null}
+                  <EditorStageWorkbench
+                    key="wb-tiles"
+                    layout="rail"
+                    railSurface="tiles"
+                    {...stageWorkbenchProps}
+                  />
+                </div>
+                <div className="editor-right-tools-meta">
+                  <EditorStageWorkbench
+                    key="wb-sliders"
+                    layout="rail"
+                    railSurface="sliders"
+                    {...stageWorkbenchProps}
+                  />
+                </div>
+              </div>
             </section>
             {rosterOnlyMode ? (
               <RosterTimelineStrip project={project} setProject={setProjectSafe} />
@@ -1801,21 +1803,9 @@ export function EditorPage() {
                 : {}),
             }}
           >
-            {wideEditorLayout && !showTopWaveDock ? (
-              <section
-                style={{
-                  flexShrink: 0,
-                  minWidth: 0,
-                  marginBottom: 8,
-                  ...panelCard,
-                  padding: "10px",
-                }}
-              >
-                <ChoreoGridToolbar embedInPanel {...choreoToolbarSharedProps} />
-              </section>
-            ) : null}
             {workbenchInRightRail ? (
               <section
+                className="editor-right-tools-section"
                 style={{
                   ...panelCard,
                   padding: "10px",
@@ -1824,11 +1814,35 @@ export function EditorPage() {
                   minWidth: 0,
                   display: "flex",
                   flexDirection: "column",
-                  overflow: rosterOnlyMode ? "auto" : "visible",
+                  overflow: rosterOnlyMode ? "auto" : "hidden",
                   marginBottom: rosterOnlyMode ? 0 : 8,
                 }}
               >
-                <EditorStageWorkbench key="stage-wb" layout="rail" {...stageWorkbenchProps} />
+                <div className="editor-right-tools-host">
+                  <div className="editor-right-tools-tiles">
+                    {wideEditorLayout && !showTopWaveDock ? (
+                      <ChoreoGridToolbar
+                        embedInPanel
+                        tilesInRun
+                        {...choreoToolbarSharedProps}
+                      />
+                    ) : null}
+                    <EditorStageWorkbench
+                      key="wb-tiles-2"
+                      layout="rail"
+                      railSurface="tiles"
+                      {...stageWorkbenchProps}
+                    />
+                  </div>
+                  <div className="editor-right-tools-meta">
+                    <EditorStageWorkbench
+                      key="wb-sliders-2"
+                      layout="rail"
+                      railSurface="sliders"
+                      {...stageWorkbenchProps}
+                    />
+                  </div>
+                </div>
               </section>
             ) : null}
             {rosterOnlyMode ? (

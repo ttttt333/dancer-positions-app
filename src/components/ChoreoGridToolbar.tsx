@@ -11,6 +11,8 @@ type Props = {
    * 外枠・背景を付けず、ボタンを縦に幅いっぱいに並べる。
    */
   embedInPanel?: boolean;
+  /** 右列タイル帯: aside を開き、ボタンを 48px 角に統一 */
+  tilesInRun?: boolean;
   snapGrid?: boolean;
   onToggleSnapGrid: () => void;
   stageGridLinesEnabled?: boolean;
@@ -163,6 +165,7 @@ function ToolbarIconButton({
   disabled,
   pressed,
   fullWidth,
+  square48,
   children,
 }: {
   title: string;
@@ -171,8 +174,12 @@ function ToolbarIconButton({
   pressed?: boolean;
   /** 右パネルなどで横いっぱいに並べる */
   fullWidth?: boolean;
+  /** 右列タイル用 48px 正方形 */
+  square48?: boolean;
   children: ReactNode;
 }) {
+  const w = square48 ? 48 : fullWidth ? "100%" : 42;
+  const h = square48 ? 48 : 42;
   return (
     <button
       type="button"
@@ -183,12 +190,12 @@ function ToolbarIconButton({
       onClick={onClick}
       style={{
         ...btnSecondary,
-        width: fullWidth ? "100%" : 42,
-        height: 42,
-        minWidth: fullWidth ? 0 : 42,
-        minHeight: 42,
-        padding: fullWidth ? "0 10px" : 0,
-        borderRadius: 10,
+        width: w,
+        height: h,
+        minWidth: square48 ? 48 : fullWidth ? 0 : 42,
+        minHeight: square48 ? 48 : 42,
+        padding: square48 ? 0 : fullWidth ? "0 10px" : 0,
+        borderRadius: square48 ? 10 : 10,
         display: "flex",
         alignItems: "center",
         justifyContent: fullWidth ? "flex-start" : "center",
@@ -210,6 +217,7 @@ function ToolbarIconButton({
 export function ChoreoGridToolbar({
   layout = "column",
   embedInPanel = false,
+  tilesInRun = false,
   onToggleSnapGrid,
   onToggleStageGridLines,
   stageGridLinesToggleDisabled = false,
@@ -223,12 +231,13 @@ export function ChoreoGridToolbar({
   stageShapeActive = false,
 }: Props) {
   const row = layout === "row" && !embedInPanel;
-  const fw = embedInPanel;
+  const fw = embedInPanel && !tilesInRun;
+  const sq = tilesInRun;
   return (
     <aside
       aria-label="ChoreoGrid ツール"
       style={{
-        display: "flex",
+        display: tilesInRun ? "contents" : "flex",
         flexDirection: embedInPanel ? "column" : row ? "row" : "column",
         flexWrap: row ? "wrap" : "nowrap",
         alignItems: embedInPanel ? "stretch" : row ? "flex-start" : "center",
@@ -255,6 +264,7 @@ export function ChoreoGridToolbar({
         disabled={disabled}
         pressed={snapGrid}
         fullWidth={fw}
+        square48={sq}
         onClick={onToggleSnapGrid}
       >
         <IconSnap active={snapGrid} />
@@ -269,6 +279,7 @@ export function ChoreoGridToolbar({
           disabled={disabled || stageGridLinesToggleDisabled}
           pressed={stageGridLinesEnabled}
           fullWidth={fw}
+          square48={sq}
           onClick={onToggleStageGridLines}
         >
           <IconGridLines on={stageGridLinesEnabled} />
@@ -279,6 +290,7 @@ export function ChoreoGridToolbar({
         disabled={disabled}
         pressed={stageShapeActive}
         fullWidth={fw}
+        square48={sq}
         onClick={onOpenStageShapePicker}
       >
         <IconStageShape active={stageShapeActive} />
@@ -287,6 +299,7 @@ export function ChoreoGridToolbar({
         title="大道具を追加（図形・色を選択）"
         disabled={disabled}
         fullWidth={fw}
+        square48={sq}
         onClick={onOpenSetPiecePicker}
       >
         <IconSetPiece />
@@ -295,6 +308,7 @@ export function ChoreoGridToolbar({
         title="書き出し（PNG / PDF / WebM / JSON）"
         disabled={disabled}
         fullWidth={fw}
+        square48={sq}
         onClick={onOpenExport}
       >
         <IconExport />
@@ -303,6 +317,7 @@ export function ChoreoGridToolbar({
         title="キーボードショートカット一覧"
         disabled={disabled}
         fullWidth={fw}
+        square48={sq}
         onClick={onOpenShortcutsHelp}
       >
         <IconHelp />

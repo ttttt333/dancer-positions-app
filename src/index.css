@@ -12,8 +12,13 @@ body {
   margin: 0;
   min-height: 100%;
   min-height: 100dvh;
-  background: #09090b;
-  color: #fafafa;
+  background: radial-gradient(
+      ellipse 130% 70% at 50% -28%,
+      rgba(212, 175, 55, 0.09),
+      transparent 52%
+    ),
+    #060606;
+  color: #faf7f0;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Sans",
     "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -46,4 +51,89 @@ body {
 
 .wave-dock-compact-toolbar > div[aria-hidden] {
   height: 12px !important;
+}
+
+/* 右列: 正方形タイルを縦に詰め、高さが足りないときは列方向の折り返しで 2 列相当に */
+.editor-right-tools-section {
+  container-type: size;
+  container-name: editor-right-tools;
+}
+
+.editor-right-tools-host {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 10px;
+}
+
+.editor-right-tools-tiles {
+  display: flex;
+  flex-flow: column wrap;
+  align-content: flex-start;
+  justify-content: flex-start;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: 100%;
+}
+
+@container editor-right-tools (max-height: 640px) {
+  .editor-right-tools-tiles {
+    max-height: min(52vh, 420px);
+  }
+}
+
+.editor-right-tools-meta {
+  flex: 0 0 auto;
+  width: 100%;
+  padding-top: 8px;
+  border-top: 1px solid rgba(212, 175, 55, 0.12);
+}
+
+.editor-right-tools-tiles button[type="button"] {
+  box-sizing: border-box;
+  min-width: 48px;
+  min-height: 48px;
+  width: 48px;
+  height: 48px;
+  padding: 2px 4px;
+  border-radius: 10px;
+  font-size: 9px;
+  line-height: 1.1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.editor-right-tools-tiles [role="menu"] button[type="button"],
+.editor-right-tools-tiles [role="listbox"] button[type="button"] {
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  min-height: 36px;
+  font-size: 12px;
+}
+
+.editor-right-tool-sq {
+  box-sizing: border-box;
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 2px;
+  border-radius: 10px;
+  font-size: 9px;
+  line-height: 1.1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  overflow: hidden;
 }

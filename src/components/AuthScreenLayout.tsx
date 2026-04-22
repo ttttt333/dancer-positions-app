@@ -19,7 +19,7 @@ function BrandMark() {
             fontSize: "11px",
             fontWeight: 600,
             letterSpacing: "0.18em",
-            color: shell.textSubtle,
+            color: shell.accent,
             textTransform: "uppercase",
           }}
         >
@@ -62,8 +62,9 @@ export function AuthScreenLayout({ title, subtitle, children }: Props) {
           position: "absolute",
           inset: 0,
           background: `
-            radial-gradient(ellipse 80% 50% at 50% -20%, ${shell.accentSoft}, transparent 55%),
-            linear-gradient(180deg, ${shell.bgChrome} 0%, ${shell.bgDeep} 45%, #050508 100%)
+            radial-gradient(ellipse 90% 55% at 50% -18%, ${shell.accentSoft}, transparent 52%),
+            radial-gradient(ellipse 55% 35% at 92% 102%, ${shell.rubySoft}, transparent 48%),
+            linear-gradient(180deg, ${shell.bgChrome} 0%, ${shell.bgDeep} 48%, #030302 100%)
           `,
           pointerEvents: "none",
         }}

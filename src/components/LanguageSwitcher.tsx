@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { btnSecondary } from "./stageButtonStyles";
+import { shell } from "../theme/choreoShell";
 import { useI18n } from "../i18n/I18nContext";
 import type { AppLocale } from "../i18n/types";
 import { isAppLocale } from "../i18n/types";
@@ -29,9 +30,9 @@ export function LanguageSwitcher({
           gap: 6,
           padding: "4px 8px",
           borderRadius: 10,
-          border: "1px solid #334155",
-          background: "rgba(15, 23, 42, 0.92)",
-          boxShadow: "0 4px 20px rgba(0,0,0,0.35)",
+          border: `1px solid ${shell.borderStrong}`,
+          background: "rgba(10, 9, 8, 0.92)",
+          boxShadow: `0 4px 22px rgba(0,0,0,0.45), 0 0 0 1px ${shell.brandGlow}`,
           backdropFilter: "blur(8px)",
         }
       : {

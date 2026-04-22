@@ -2939,7 +2939,7 @@ export function StageBoard({
               width: "100%",
               height: "100%",
               borderRadius: "16px",
-              border: `1.5px solid ${shell.accent}`,
+              border: `1.5px solid ${shell.ruby}`,
               overflow: "hidden",
               touchAction: "none",
               boxShadow: previewDancers?.length
@@ -3502,7 +3502,7 @@ export function StageBoard({
                 y1="0"
                 x2="50"
                 y2="100"
-                stroke={shell.accent}
+                stroke={shell.ruby}
                 strokeWidth="0.55"
                 vectorEffect="non-scaling-stroke"
                 opacity={0.92}
@@ -3512,7 +3512,7 @@ export function StageBoard({
                 y1="0.6"
                 x2="51.8"
                 y2="0.6"
-                stroke={shell.accent}
+                stroke={shell.ruby}
                 strokeWidth="0.5"
                 strokeLinecap="round"
                 vectorEffect="non-scaling-stroke"
@@ -3522,7 +3522,7 @@ export function StageBoard({
                 y1="99.4"
                 x2="51.8"
                 y2="99.4"
-                stroke={shell.accent}
+                stroke={shell.ruby}
                 strokeWidth="0.5"
                 strokeLinecap="round"
                 vectorEffect="non-scaling-stroke"
@@ -3627,7 +3627,7 @@ export function StageBoard({
                 width: "8px",
                 height: "8px",
                 borderRadius: "50%",
-                background: shell.accent,
+                background: shell.ruby,
                 boxShadow: `0 0 0 1px ${shell.bgDeep}`,
                 transform: "translate(-50%, 50%)",
                 pointerEvents: "none",
@@ -4211,7 +4211,7 @@ export function StageBoard({
                   top: `${selectionBox.y0}%`,
                   width: `${Math.max(0.01, selectionBox.x1 - selectionBox.x0)}%`,
                   height: `${Math.max(0.01, selectionBox.y1 - selectionBox.y0)}%`,
-                  border: `1px dashed ${shell.accent}`,
+                  border: `1px dashed ${shell.ruby}`,
                   borderRadius: 4,
                   background: "rgba(220, 38, 38, 0.05)",
                   pointerEvents: "none",
@@ -4272,7 +4272,7 @@ export function StageBoard({
                     height: 32,
                     borderRadius: "50%",
                     border: `2px solid ${shell.bgDeep}`,
-                    background: shell.accent,
+                    background: shell.ruby,
                     boxShadow: "0 2px 10px rgba(0,0,0,0.45)",
                     cursor: "grab",
                     touchAction: "none",
@@ -4486,7 +4486,7 @@ export function StageBoard({
                             ? "2px solid rgba(99,102,241,0.95)"
                             : selectedDancerIds.includes(d.id)
                               ? selectedDancerIds.length >= 2
-                                ? `2px solid ${shell.accent}`
+                                ? `2px solid ${shell.ruby}`
                                 : "2px solid rgba(251,191,36,0.92)"
                               : "2px solid rgba(255,255,255,0.35)",
                         backgroundColor:
@@ -4594,7 +4594,7 @@ export function StageBoard({
                         width: 28,
                         height: 28,
                         borderRadius: "50%",
-                        background: shell.accent,
+                        background: shell.ruby,
                         border: `2px solid ${shell.bgDeep}`,
                         boxShadow: "0 2px 10px rgba(0,0,0,0.45)",
                         cursor: "grab",

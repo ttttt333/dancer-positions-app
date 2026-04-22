@@ -46,6 +46,8 @@ export type EditorStageWorkbenchProps = {
   setFloorTextPlaceSession: Dispatch<SetStateAction<FloorTextPlaceSession | null>>;
   commitFloorTextPlace: () => void;
   hasRosterMembers: boolean;
+  /** 右列タイル用に 1 行目のみ／2 行目のみを出し分ける */
+  railSurface?: "tiles" | "sliders";
 };
 
 export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
@@ -89,7 +91,12 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
     setFloorTextPlaceSession,
     commitFloorTextPlace,
     hasRosterMembers,
+    railSurface,
   } = props;
+
+  const hideRow1 = Boolean(rail && railSurface === "sliders");
+  const hideRow2 = Boolean(rail && railSurface === "tiles");
+  const tileFlow = Boolean(rail && railSurface === "tiles");
 
   const rowOuter: CSSProperties = rail
     ? {
@@ -171,6 +178,18 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
         gap: "6px",
         marginBottom: "6px",
       };
+
+  const rootStyle: CSSProperties =
+    rail && railSurface
+      ? hideRow1 || hideRow2
+        ? { display: "contents" }
+        : rootOuter
+      : rootOuter;
+
+  const rowOuterStyle: CSSProperties = tileFlow ? { display: "contents" } : rowOuter;
+  const clusterStyle: CSSProperties = tileFlow ? { display: "contents" } : cluster;
+  const clusterEndStyle: CSSProperties = tileFlow ? { display: "contents" } : clusterEnd;
+
   const viewModeRow: CSSProperties = rail
     ? {
         display: "flex",
@@ -188,13 +207,12 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
       };
 
   return (
-    <div style={rootOuter}>
+    <div style={rootStyle}>
+      {!hideRow1 ? (
+      <>
       {/* 1 行目: タイトル／選択情報 + 主要アクション */}
-      <div style={rowOuter}>
-        <div style={cluster}>
-    <h2 style={{ margin: 0, fontSize: "13px", color: shell.textMuted, fontWeight: 600 }}>
-      ステージ
-    </h2>
+      <div style={rowOuterStyle}>
+        <div style={clusterStyle}>
     <button
       type="button"
       aria-haspopup="dialog"
@@ -252,12 +270,12 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
         <div
           style={{
             position: "relative",
-            display: rail ? "flex" : "inline-flex",
-            flexDirection: rail ? "column" : "row",
-            alignItems: rail ? "stretch" : "center",
+            display: "inline-flex",
+            flexDirection: tileFlow ? "row" : rail ? "column" : "row",
+            alignItems: "center",
             gap: "4px",
             flexShrink: 0,
-            width: rail ? "100%" : undefined,
+            width: tileFlow ? "auto" : rail ? "100%" : undefined,
           }}
           title="ステージのキュー（ページ）切替。タイムラインも区間の頭に移動します。"
         >
@@ -577,17 +595,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                     }}
                   >
                     <span style={{ fontWeight: 600 }}>{o.label}</span>
-                    <span
-                      style={{
-                        display: "block",
-                        marginTop: "2px",
-                        fontSize: "10px",
-                        color: "#64748b",
-                        fontWeight: 400,
-                      }}
-                    >
-                      {o.hint}
-                    </span>
                   </button>
                 ))}
               </div>
@@ -673,14 +680,9 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
         </span>
       </button>
     ) : null}
-    {project.cues.length === 0 ? (
-      <span style={{ fontSize: "11px", color: "#64748b" }}>
-        キューなし（フォーメーションを直接編集）
-      </span>
-    ) : null}
         </div>
         <div
-          style={clusterEnd}
+          style={clusterEndStyle}
           title="右のタイムラインでキューを選ぶと、その区間の立ち位置を編集します。再生中は区間の隙間のみ補間表示されます。"
         >
           {!rail ? (
@@ -764,12 +766,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
       const canSaveSpots =
         project.viewMode !== "view" &&
         (editFormation?.dancers.length ?? 0) > 0;
-      const saveSpotsHint =
-        project.viewMode === "view"
-          ? "閲覧モードでは使えません"
-          : (editFormation?.dancers.length ?? 0) === 0
-            ? "いまのフォーメーションにダンサーがいません"
-            : "いまステージの形をそのまま「形の箱」に保存";
       return (
         <div
           style={{
@@ -890,17 +886,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                   <span style={{ fontWeight: 600 }}>
                     このページの舞台設定を保存
                   </span>
-                  <span
-                    style={{
-                      display: "block",
-                      marginTop: "3px",
-                      fontSize: "10px",
-                      color: "#64748b",
-                      fontWeight: 400,
-                    }}
-                  >
-                    横幅・客席・変形舞台などをいまのフォーメーションに記録。キューを切替えると自動で保存・復元されます。
-                  </span>
                 </button>
                 <button
                   type="button"
@@ -926,17 +911,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                   <span style={{ fontWeight: 600 }}>
                     今までの流れを保存
                   </span>
-                  <span
-                    style={{
-                      display: "block",
-                      marginTop: "3px",
-                      fontSize: "10px",
-                      color: "#64748b",
-                      fontWeight: 400,
-                    }}
-                  >
-                    作ったキューの並び（立ち位置の流れ）を名前をつけて端末に保存・呼び出し
-                  </span>
                 </button>
                 <button
                   type="button"
@@ -961,17 +935,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                 >
                   <span style={{ fontWeight: 600 }}>
                     作った立ち位置を保存
-                  </span>
-                  <span
-                    style={{
-                      display: "block",
-                      marginTop: "3px",
-                      fontSize: "10px",
-                      color: "#64748b",
-                      fontWeight: 400,
-                    }}
-                  >
-                    {saveSpotsHint}
                   </span>
                 </button>
               </div>
@@ -1167,7 +1130,8 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               )
             }
             rows={2}
-            placeholder="舞台上に表示するテキスト"
+            aria-label="舞台上に表示するテキスト"
+            placeholder=""
             style={{
               flex: "1 1 220px",
               minWidth: "180px",
@@ -1181,47 +1145,37 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               resize: "vertical",
             }}
           />
-          <label
+          <input
+            type="number"
+            min={8}
+            max={56}
+            aria-label="床テキストのフォントサイズ（ピクセル）"
+            value={floorTextPlaceSession.fontSizePx}
+            onChange={(e) =>
+              setFloorTextPlaceSession((s) =>
+                s
+                  ? {
+                      ...s,
+                      fontSizePx: Math.round(
+                        Math.min(
+                          56,
+                          Math.max(8, Number(e.target.value) || 18)
+                        )
+                      ),
+                    }
+                  : s
+              )
+            }
             style={{
-              display: "inline-flex",
-              flexDirection: "column",
-              gap: "4px",
-              fontSize: "11px",
-              color: "#94a3b8",
+              width: "64px",
+              padding: "4px 6px",
+              borderRadius: "6px",
+              border: "1px solid #475569",
+              background: "#0f172a",
+              color: "#e2e8f0",
+              fontSize: "12px",
             }}
-          >
-            サイズ (px)
-            <input
-              type="number"
-              min={8}
-              max={56}
-              value={floorTextPlaceSession.fontSizePx}
-              onChange={(e) =>
-                setFloorTextPlaceSession((s) =>
-                  s
-                    ? {
-                        ...s,
-                        fontSizePx: Math.round(
-                          Math.min(
-                            56,
-                            Math.max(8, Number(e.target.value) || 18)
-                          )
-                        ),
-                      }
-                    : s
-                )
-              }
-              style={{
-                width: "64px",
-                padding: "4px 6px",
-                borderRadius: "6px",
-                border: "1px solid #475569",
-                background: "#0f172a",
-                color: "#e2e8f0",
-                fontSize: "12px",
-              }}
-            />
-          </label>
+          />
           <div
             style={{
               display: "flex",
@@ -1231,15 +1185,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               minWidth: "160px",
             }}
           >
-            <span
-              style={{
-                fontSize: "10px",
-                color: "#64748b",
-                lineHeight: 1.35,
-              }}
-            >
-              ステージの点線枠で内容を確認。床をクリックするか枠をドラッグして位置を決め、「完了」で設置します。
-            </span>
             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
               <button
                 type="button"
@@ -1271,6 +1216,10 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
     </div>
   </div>
   </div>
+      </>
+      ) : null}
+      {!hideRow2 ? (
+      <>
       {/* 2 行目: 印の直径・規格（グリッド・名前・客席は「設定」ボタンへ集約） */}
       <div style={row2Outer}>
     <label
@@ -1285,7 +1234,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
         userSelect: "none",
       }}
     >
-      <span style={{ whiteSpace: "nowrap" }}>印の直径</span>
       <input
         type="range"
         min={20}
@@ -1302,16 +1250,13 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
             dancerMarkerDiameterPx: Number(e.target.value),
           }))
         }
+        aria-valuetext={`${Math.max(
+          20,
+          Math.min(120, Math.round(project.dancerMarkerDiameterPx ?? 44))
+        )} ピクセル`}
         aria-label="ダンサー印の直径（ピクセル）"
         style={{ width: rail ? "100%" : "88px", verticalAlign: "middle" }}
       />
-      <span style={{ color: "#cbd5e1", minWidth: "38px", fontVariantNumeric: "tabular-nums" }}>
-        {Math.max(
-          20,
-          Math.min(120, Math.round(project.dancerMarkerDiameterPx ?? 44))
-        )}
-        px
-      </span>
     </label>
     {!rail ? (
       <div
@@ -1340,7 +1285,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
         userSelect: "none",
       }}
     >
-      <span style={{ whiteSpace: "nowrap" }}>規格</span>
       <select
         value={(() => {
           const v = project.dancerSpacingMm;
@@ -1407,7 +1351,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
           project.viewMode === "view" ||
           !(project.stageWidthMm != null && project.stageWidthMm > 0)
         }
-        placeholder="cm"
+        placeholder=""
         aria-label="場ミリ規格をカスタム入力（cm）"
         title="cm 単位でカスタム指定。例: 150 → 1.5 m 間隔"
         style={{
@@ -1421,12 +1365,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
           textAlign: "right",
         }}
       />
-      <span
-        style={{ fontSize: "10px", color: "#64748b", whiteSpace: "nowrap" }}
-        aria-hidden
-      >
-        cm
-      </span>
     </label>
     <label
       title={
@@ -1480,7 +1418,9 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
       </select>
     </label>
   </div>
-</div>
+      </>
+      ) : null}
+    </div>
   );
 
 }
