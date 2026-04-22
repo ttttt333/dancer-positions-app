@@ -53,6 +53,67 @@ body {
   height: 12px !important;
 }
 
+/* 上部波形ドック最小構成: 音源取込・再生の文字が潰れないように */
+.wave-dock-minimal-toolbar button,
+.wave-dock-minimal-toolbar label {
+  font-size: 12px !important;
+  line-height: 1.25 !important;
+  padding: 6px 14px !important;
+  min-height: 34px !important;
+}
+
+/* 右列タイル・スライダー行: ボタンと角ボタンの色を統一（可読性） */
+.editor-right-tools-tiles button[type="button"],
+.editor-right-tools-tiles .editor-right-tool-sq {
+  background: rgba(22, 21, 18, 0.98) !important;
+  border: 1px solid rgba(212, 175, 55, 0.28) !important;
+  color: #f5f0e6 !important;
+  font-weight: 600 !important;
+}
+
+.editor-right-tools-tiles button[type="button"]:disabled,
+.editor-right-tools-tiles .editor-right-tool-sq:disabled {
+  opacity: 0.42 !important;
+  color: #a8a29e !important;
+  border-color: rgba(212, 175, 55, 0.12) !important;
+}
+
+.editor-right-tools-tiles button[type="button"][aria-pressed="true"] {
+  border-color: rgba(212, 175, 55, 0.55) !important;
+  background: rgba(212, 175, 55, 0.14) !important;
+  color: #faf7f0 !important;
+}
+
+.editor-right-tools-tiles [role="menu"] button[type="button"],
+.editor-right-tools-tiles [role="listbox"] button[type="button"] {
+  background: rgba(16, 16, 14, 0.98) !important;
+  border: 1px solid rgba(212, 175, 55, 0.2) !important;
+  color: #f5f0e6 !important;
+}
+
+.editor-right-tools-meta button[type="button"] {
+  background: rgba(22, 21, 18, 0.96) !important;
+  border: 1px solid rgba(212, 175, 55, 0.24) !important;
+  color: #f5f0e6 !important;
+  font-weight: 500 !important;
+}
+
+.editor-right-tools-meta button[type="button"]:disabled {
+  opacity: 0.42 !important;
+  color: #a8a29e !important;
+}
+
+.editor-right-tools-meta input[type="range"] {
+  accent-color: #d4af37;
+}
+
+.editor-right-tools-meta input[type="number"],
+.editor-right-tools-meta select {
+  color: #f5f0e6 !important;
+  border-color: rgba(212, 175, 55, 0.22) !important;
+  background: rgba(10, 9, 8, 0.92) !important;
+}
+
 /* 右列: 正方形タイルを縦に詰め、高さが足りないときは列方向の折り返しで 2 列相当に */
 .editor-right-tools-section {
   container-type: size;

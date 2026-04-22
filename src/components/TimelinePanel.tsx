@@ -33,6 +33,7 @@ import {
 } from "../lib/extractVideoAudio";
 import { playCompletionWoof } from "../lib/playCompletionWoof";
 import { btnSecondary } from "./stageButtonStyles";
+import { shell } from "../theme/choreoShell";
 
 /** タイムライン上部ツールバー用（再生・波形周りの縦スペース節約） */
 const TIMELINE_UI_SCALE = 1.2;
@@ -46,6 +47,25 @@ const timelineToolbarBtn: CSSProperties = {
   fontSize: tlPx(11),
   borderRadius: tlPx(5),
   lineHeight: 1.2,
+};
+
+/** 上部ドック（コンパクト波形）では「音源取込」「再生／一時停止」のみ */
+const waveMinimalBtn: CSSProperties = {
+  ...btnSecondary,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: tlPx(6),
+  padding: `${tlPx(6)} ${tlPx(14)}`,
+  minHeight: tlPx(32),
+  fontSize: tlPx(12),
+  fontWeight: 600,
+  borderRadius: tlPx(6),
+  lineHeight: 1.2,
+  border: `1px solid ${shell.borderStrong}`,
+  background: shell.surfaceRaised,
+  color: shell.text,
+  flexShrink: 0,
 };
 
 export type TimelinePanelHandle = {
@@ -1832,7 +1852,11 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           </div>
         )}
         <div
-          className={compactTopDock ? "wave-dock-compact-toolbar" : undefined}
+          className={
+            compactTopDock
+              ? "wave-dock-compact-toolbar wave-dock-minimal-toolbar"
+              : undefined
+          }
           style={{
             display: "flex",
             flexDirection: "column",
@@ -1843,176 +1867,223 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             scrollbarWidth: "thin",
           }}
         >
-          {/** 1 行目: 音源追加 → 速度 → 戻る・進む（＋上部ドック時は右端に閉じる） */}
-          <div
-            style={{
-              display: "flex",
-              flexWrap: compactTopDock ? "nowrap" : "wrap",
-              overflowX: compactTopDock ? "auto" : "visible",
-              overflowY: "hidden",
-              gap: compactTopDock ? "2px 3px" : tlPx(5),
-              alignItems: "center",
-              rowGap: tlPx(3),
-              width: "100%",
-              minWidth: 0,
-            }}
-          >
-            <label
+          {compactTopDock ? (
+            <div
               style={{
-                ...timelineToolbarBtn,
-                cursor: "pointer",
-                display: "inline-flex",
+                display: "flex",
+                flexWrap: "nowrap",
                 alignItems: "center",
-                justifyContent: "center",
-                width: tlPx(32),
-                height: tlPx(28),
-                padding: 0,
-              }}
-              aria-label="音源追加"
-              title="楽曲または動画から音声を読み込み（MP4 / AVI / MOV / MKV / WMV 等に対応）"
-              onPointerEnter={() => {
-                void preloadFFmpeg();
-              }}
-              onFocus={() => {
-                void preloadFFmpeg();
+                gap: tlPx(8),
+                width: "100%",
+                minWidth: 0,
               }}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden style={{ display: "block" }}>
-                <path
-                  d="M12 5v14M5 12h14"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
-              <input
-                type="file"
-                accept="audio/*,video/*"
-                style={{ display: "none" }}
-                onChange={onPickAudio}
-                onClick={() => {
+              <label
+                style={{ ...waveMinimalBtn, cursor: "pointer" }}
+                aria-label="音源を取り込む"
+                title="楽曲または動画から音声を読み込み（MP4 / AVI / MOV / MKV / WMV 等に対応）"
+                onPointerEnter={() => {
                   void preloadFFmpeg();
                 }}
-              />
-            </label>
-            {onUndo && onRedo && (
-              <>
-                <div
-                  style={{
-                    width: "1px",
-                    height: tlPx(16),
-                    background: "#334155",
-                    flexShrink: 0,
+                onFocus={() => {
+                  void preloadFFmpeg();
+                }}
+              >
+                <span style={{ whiteSpace: "nowrap" }}>音源取込</span>
+                <input
+                  type="file"
+                  accept="audio/*,video/*"
+                  style={{ display: "none" }}
+                  onChange={onPickAudio}
+                  onClick={() => {
+                    void preloadFFmpeg();
                   }}
-                  aria-hidden
                 />
-                <button
-                  type="button"
-                  style={timelineToolbarBtn}
-                  disabled={undoDisabled}
-                  title="編集を元に戻す（⌘Z / Ctrl+Z）"
-                  aria-label="戻る"
-                  onClick={() => onUndo()}
-                />
-                <button
-                  type="button"
-                  style={timelineToolbarBtn}
-                  disabled={redoDisabled}
-                  title="やり直す（⌘⇧Z / Ctrl+Shift+Z）"
-                  aria-label="進む"
-                  onClick={() => onRedo()}
-                />
-              </>
-            )}
-            {waveTimelineDockTop && wideWorkbench && onWaveTimelineDockTopChange ? (
+              </label>
+              <button
+                type="button"
+                style={waveMinimalBtn}
+                onClick={togglePlay}
+                aria-label={isPlaying ? "一時停止" : "再生"}
+                title={isPlaying ? "一時停止" : "再生"}
+              >
+                {isPlaying ? "一時停止" : "再生"}
+              </button>
+            </div>
+          ) : (
+            <>
+              {/** 1 行目: 音源追加 → 戻る・進む（＋上部ドック時は右端に閉じる） */}
               <div
                 style={{
-                  marginLeft: "auto",
-                  flexShrink: 0,
                   display: "flex",
+                  flexWrap: "wrap",
+                  overflowX: "visible",
+                  overflowY: "hidden",
+                  gap: tlPx(5),
                   alignItems: "center",
-                  gap: tlPx(4),
-                  position: "sticky",
-                  right: 0,
-                  zIndex: 3,
-                  paddingLeft: tlPx(10),
-                  background:
-                    "linear-gradient(90deg, transparent, #020617 28%, #020617)",
+                  rowGap: tlPx(3),
+                  width: "100%",
+                  minWidth: 0,
+                }}
+              >
+                <label
+                  style={{
+                    ...timelineToolbarBtn,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: tlPx(32),
+                    height: tlPx(28),
+                    padding: 0,
+                  }}
+                  aria-label="音源追加"
+                  title="楽曲または動画から音声を読み込み（MP4 / AVI / MOV / MKV / WMV 等に対応）"
+                  onPointerEnter={() => {
+                    void preloadFFmpeg();
+                  }}
+                  onFocus={() => {
+                    void preloadFFmpeg();
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden style={{ display: "block" }}>
+                    <path
+                      d="M12 5v14M5 12h14"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <input
+                    type="file"
+                    accept="audio/*,video/*"
+                    style={{ display: "none" }}
+                    onChange={onPickAudio}
+                    onClick={() => {
+                      void preloadFFmpeg();
+                    }}
+                  />
+                </label>
+                {onUndo && onRedo && (
+                  <>
+                    <div
+                      style={{
+                        width: "1px",
+                        height: tlPx(16),
+                        background: "#334155",
+                        flexShrink: 0,
+                      }}
+                      aria-hidden
+                    />
+                    <button
+                      type="button"
+                      style={timelineToolbarBtn}
+                      disabled={undoDisabled}
+                      title="編集を元に戻す（⌘Z / Ctrl+Z）"
+                      aria-label="戻る"
+                      onClick={() => onUndo()}
+                    />
+                    <button
+                      type="button"
+                      style={timelineToolbarBtn}
+                      disabled={redoDisabled}
+                      title="やり直す（⌘⇧Z / Ctrl+Shift+Z）"
+                      aria-label="進む"
+                      onClick={() => onRedo()}
+                    />
+                  </>
+                )}
+                {waveTimelineDockTop && wideWorkbench && onWaveTimelineDockTopChange ? (
+                  <div
+                    style={{
+                      marginLeft: "auto",
+                      flexShrink: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: tlPx(4),
+                      position: "sticky",
+                      right: 0,
+                      zIndex: 3,
+                      paddingLeft: tlPx(10),
+                      background:
+                        "linear-gradient(90deg, transparent, #020617 28%, #020617)",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      style={{
+                        ...timelineToolbarBtn,
+                        fontWeight: 700,
+                        borderColor: "#64748b",
+                        color: "#f8fafc",
+                        padding: `${tlPx(3)} ${tlPx(10)}`,
+                      }}
+                      disabled={project.viewMode === "view"}
+                      title="画面上部の波形エリアを閉じ、タイムラインを右列の通常位置に戻します"
+                      aria-label="上部の波形エリアを閉じる"
+                      onClick={() => onWaveTimelineDockTopChange(false)}
+                    />
+                  </div>
+                ) : null}
+              </div>
+              {/** 2 行目: 再生・シーク → タイム表示 */}
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  overflowX: "visible",
+                  overflowY: "hidden",
+                  gap: tlPx(5),
+                  alignItems: "center",
+                  rowGap: tlPx(3),
+                  width: "100%",
+                  minWidth: 0,
                 }}
               >
                 <button
                   type="button"
-                  style={{
-                    ...timelineToolbarBtn,
-                    fontWeight: 700,
-                    borderColor: "#64748b",
-                    color: "#f8fafc",
-                    padding: `${tlPx(3)} ${tlPx(10)}`,
-                  }}
-                  disabled={project.viewMode === "view"}
-                  title="画面上部の波形エリアを閉じ、タイムラインを右列の通常位置に戻します"
-                  aria-label="上部の波形エリアを閉じる"
-                  onClick={() => onWaveTimelineDockTopChange(false)}
+                  style={timelineToolbarBtn}
+                  onClick={togglePlay}
+                  aria-label={isPlaying ? "一時停止" : "再生"}
+                  title={isPlaying ? "一時停止" : "再生"}
+                >
+                  {isPlaying ? "一時停止" : "再生"}
+                </button>
+                <button
+                  type="button"
+                  style={timelineToolbarBtn}
+                  disabled={project.viewMode === "view" || duration <= 0}
+                  title="再生位置を 5 秒進める（トリム範囲内に収めます）"
+                  aria-label="5秒進む"
+                  onClick={seekForward5Sec}
+                />
+                <button
+                  type="button"
+                  style={timelineToolbarBtn}
+                  disabled={project.viewMode === "view" || duration <= 0}
+                  title="再生位置を 5 秒戻す（トリム範囲内に収めます）"
+                  aria-label="5秒戻す"
+                  onClick={seekBackward5Sec}
+                />
+                <button
+                  type="button"
+                  style={timelineToolbarBtn}
+                  disabled={project.viewMode === "view" || duration <= 0}
+                  title="再生を止め、先頭（トリム開始位置）に戻します"
+                  aria-label="先頭へ"
+                  onClick={stopPlayback}
+                />
+                <PlaybackClockReadout
+                  audioRef={audioRef}
+                  isPlaying={isPlaying}
+                  idleTimeSec={currentTime}
+                  durationSec={duration}
+                  monoFontSizePx={13 * TIMELINE_UI_SCALE}
                 />
               </div>
-            ) : null}
-          </div>
-          {/** 2 行目: 再生・シーク → タイム表示 */}
-          <div
-            style={{
-              display: "flex",
-              flexWrap: compactTopDock ? "nowrap" : "wrap",
-              overflowX: compactTopDock ? "auto" : "visible",
-              overflowY: "hidden",
-              gap: compactTopDock ? "2px 3px" : tlPx(5),
-              alignItems: "center",
-              rowGap: tlPx(3),
-              width: "100%",
-              minWidth: 0,
-            }}
-          >
-            <button
-              type="button"
-              style={timelineToolbarBtn}
-              onClick={togglePlay}
-              aria-label={isPlaying ? "一時停止" : "再生"}
-              title={isPlaying ? "一時停止" : "再生"}
-            />
-            <button
-              type="button"
-              style={timelineToolbarBtn}
-              disabled={project.viewMode === "view" || duration <= 0}
-              title="再生位置を 5 秒進める（トリム範囲内に収めます）"
-              aria-label="5秒進む"
-              onClick={seekForward5Sec}
-            />
-            <button
-              type="button"
-              style={timelineToolbarBtn}
-              disabled={project.viewMode === "view" || duration <= 0}
-              title="再生位置を 5 秒戻す（トリム範囲内に収めます）"
-              aria-label="5秒戻す"
-              onClick={seekBackward5Sec}
-            />
-            <button
-              type="button"
-              style={timelineToolbarBtn}
-              disabled={project.viewMode === "view" || duration <= 0}
-              title="再生を止め、先頭（トリム開始位置）に戻します"
-              aria-label="先頭へ"
-              onClick={stopPlayback}
-            />
-            {!compactTopDock ? (
-              <PlaybackClockReadout
-                audioRef={audioRef}
-                isPlaying={isPlaying}
-                idleTimeSec={currentTime}
-                durationSec={duration}
-                monoFontSizePx={13 * TIMELINE_UI_SCALE}
-              />
-            ) : null}
-          </div>
+            </>
+          )}
         </div>
         <div
           ref={waveContainerRef}
