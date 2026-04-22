@@ -1637,6 +1637,7 @@ export function EditorPage() {
           {!workbenchInRightRail ? (
             <EditorStageWorkbench key="stage-wb" layout="stage" {...stageWorkbenchProps} />
           ) : null}
+          <div
             ref={stageBoardHostRef}
             style={{
               flex: 1,
