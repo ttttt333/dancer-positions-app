@@ -1,32 +1,201 @@
+import type { CSSProperties, ReactNode } from "react";
+import { shell } from "../theme/choreoShell";
 import { btnSecondary } from "./stageButtonStyles";
+import { ChoreoGridLogo } from "./ChoreoGridLogo";
 
 type Props = {
-  /**
-   * 現在のスナップグリッド状態。呼び出し元との API 互換のため受け取るが、
-   * トグルの見た目は他ボタンと揃えるため強調表示には使わない。
-   */
   snapGrid?: boolean;
   onToggleSnapGrid: () => void;
-  /** 実寸グリッド線の表示（ステージ幅・奥行 mm が必要） */
   stageGridLinesEnabled?: boolean;
   onToggleStageGridLines?: () => void;
-  /** 幅・奥行 mm が無いときなど、線表示トグルのみ無効化 */
   stageGridLinesToggleDisabled?: boolean;
-  /**
-   * 変形舞台が設定されているかどうか。API 互換のため受け取るが強調表示には使わない。
-   */
   stageShapeActive?: boolean;
-  /** 変形舞台ピッカーを開く */
   onOpenStageShapePicker: () => void;
-  /** 図形・色を選ぶ大道具追加ダイアログを開く */
   onOpenSetPiecePicker: () => void;
   onOpenShortcutsHelp: () => void;
   onOpenExport: () => void;
   disabled?: boolean;
 };
 
+const iconWrap: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "100%",
+  height: "100%",
+};
+
+function IconSnap({ active }: { active?: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" width={22} height={22} aria-hidden style={{ display: "block" }}>
+      <path
+        d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h6v6h-6v-6z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+        opacity={active ? 1 : 0.85}
+      />
+      <circle cx="12" cy="12" r="2.2" fill="currentColor" opacity={active ? 0.95 : 0.35} />
+    </svg>
+  );
+}
+
+function IconGridLines({ on }: { on?: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" width={22} height={22} aria-hidden style={{ display: "block" }}>
+      <rect
+        x="3"
+        y="4"
+        width="18"
+        height="16"
+        rx="2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        opacity={0.45}
+      />
+      {[7, 11, 15].map((y) => (
+        <line
+          key={y}
+          x1="5"
+          y1={y}
+          x2="19"
+          y2={y}
+          stroke="currentColor"
+          strokeWidth={on ? 1.8 : 1.2}
+          strokeLinecap="round"
+          opacity={on ? 1 : 0.55}
+        />
+      ))}
+    </svg>
+  );
+}
+
+function IconStageShape({ active }: { active?: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" width={22} height={22} aria-hidden style={{ display: "block" }}>
+      <path
+        d="M5 8 L12 4 L19 8 L17 18 H7 Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.65"
+        strokeLinejoin="round"
+        opacity={active ? 1 : 0.88}
+      />
+      <path
+        d="M4 20h16"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        opacity={0.35}
+      />
+    </svg>
+  );
+}
+
+function IconSetPiece() {
+  return (
+    <svg viewBox="0 0 24 24" width={22} height={22} aria-hidden style={{ display: "block" }}>
+      <rect
+        x="4"
+        y="6"
+        width="11"
+        height="11"
+        rx="1.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+      <ellipse cx="17" cy="11" rx="4" ry="5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function IconExport() {
+  return (
+    <svg viewBox="0 0 24 24" width={22} height={22} aria-hidden style={{ display: "block" }}>
+      <path
+        d="M12 5v10M8 9l4-4 4 4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.65"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M6 17h12"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        opacity={0.85}
+      />
+    </svg>
+  );
+}
+
+function IconHelp() {
+  return (
+    <svg viewBox="0 0 24 24" width={22} height={22} aria-hidden style={{ display: "block" }}>
+      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      <path
+        d="M9.8 9.2c0-1.2 1-2 2.2-2 1.35 0 2.3.85 2.3 2 0 1.9-2.5 1.7-2.5 3.4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <circle cx="12" cy="17.2" r="0.9" fill="currentColor" />
+    </svg>
+  );
+}
+
+function ToolbarIconButton({
+  title,
+  onClick,
+  disabled,
+  pressed,
+  children,
+}: {
+  title: string;
+  onClick: () => void;
+  disabled?: boolean;
+  pressed?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      title={title}
+      aria-label={title}
+      aria-pressed={pressed}
+      onClick={onClick}
+      style={{
+        ...btnSecondary,
+        width: 42,
+        height: 42,
+        minWidth: 42,
+        minHeight: 42,
+        padding: 0,
+        borderRadius: 10,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+        color: pressed ? shell.text : shell.textMuted,
+        borderColor: pressed ? `${shell.accent}cc` : undefined,
+        background: pressed ? shell.accentSoft : undefined,
+        boxShadow: pressed ? `0 0 0 1px ${shell.accentSoft}` : undefined,
+      }}
+    >
+      <span style={iconWrap}>{children}</span>
+    </button>
+  );
+}
+
 /**
- * ChoreoGrid 左端ツールバー（仕様の一部。書き出し等はヘッダ／インスペクタと併用）。
+ * ChoreoGrid 左端ツールバー（アイコン中心・title で補足）。
  */
 export function ChoreoGridToolbar({
   onToggleSnapGrid,
@@ -37,7 +206,9 @@ export function ChoreoGridToolbar({
   onOpenShortcutsHelp,
   onOpenExport,
   disabled = false,
+  snapGrid = false,
   stageGridLinesEnabled = false,
+  stageShapeActive = false,
 }: Props) {
   return (
     <aside
@@ -46,142 +217,71 @@ export function ChoreoGridToolbar({
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: 10,
-        padding: "10px 6px",
+        gap: 8,
+        padding: "8px 5px",
         background: "#020617",
         border: "1px solid #1e293b",
         borderRadius: "10px",
-        minWidth: 48,
-        maxWidth: 52,
+        minWidth: 54,
+        maxWidth: 58,
+        height: "100%",
+        boxSizing: "border-box",
       }}
     >
-      <div
-        style={{
-          fontSize: "9px",
-          fontWeight: 700,
-          letterSpacing: "0.06em",
-          color: "#64748b",
-          writingMode: "vertical-rl",
-          textOrientation: "mixed",
-          userSelect: "none",
-        }}
-      >
-        ChoreoGrid
+      <div aria-hidden style={{ flexShrink: 0, lineHeight: 0 }}>
+        <ChoreoGridLogo size={30} title="ChoreoGrid" />
       </div>
-      <button
-        type="button"
+      <ToolbarIconButton
+        title="スナップ（グリッドに吸着。実寸 1cm 線が使えるときはその線に沿います）"
         disabled={disabled}
-        title="立ち位置をグリッド（実寸 1cm 刻みが使えるときはその線）にスナップするか"
-        style={{
-          ...btnSecondary,
-          padding: "6px 4px",
-          fontSize: "11px",
-          lineHeight: 1.2,
-          width: "100%",
-        }}
+        pressed={snapGrid}
         onClick={onToggleSnapGrid}
       >
-        スナップ
-      </button>
+        <IconSnap active={snapGrid} />
+      </ToolbarIconButton>
       {onToggleStageGridLines ? (
-        <button
-          type="button"
-          disabled={disabled || stageGridLinesToggleDisabled}
+        <ToolbarIconButton
           title={
             stageGridLinesToggleDisabled
-              ? "ステージの幅・奥行（mm）を設定するとグリッド線を表示できます"
-              : "ステージ上に実寸のグリッド線を重ねる（スナップとは別）"
+              ? "幅・奥行（mm）を設定するとグリッド線を表示できます"
+              : "実寸グリッド線をステージ上に表示（スナップとは別）"
           }
-          style={{
-            ...btnSecondary,
-            padding: "6px 4px",
-            fontSize: "11px",
-            lineHeight: 1.2,
-            width: "100%",
-            borderColor: stageGridLinesEnabled
-              ? "rgba(56, 189, 248, 0.75)"
-              : undefined,
-            color: stageGridLinesEnabled ? "#bae6fd" : undefined,
-          }}
+          disabled={disabled || stageGridLinesToggleDisabled}
+          pressed={stageGridLinesEnabled}
           onClick={onToggleStageGridLines}
         >
-          線表示
-        </button>
+          <IconGridLines on={stageGridLinesEnabled} />
+        </ToolbarIconButton>
       ) : null}
-      <button
-        type="button"
+      <ToolbarIconButton
+        title="変形舞台（花道・スラスト・台形・手描きカスタムなど）"
         disabled={disabled}
-        title="変形舞台（花道・スラスト・台形など舞台の形をカスタマイズ）"
-        style={{
-          ...btnSecondary,
-          padding: "6px 4px",
-          fontSize: "10px",
-          lineHeight: 1.2,
-          width: "100%",
-        }}
+        pressed={stageShapeActive}
         onClick={onOpenStageShapePicker}
       >
-        変形
-        <br />
-        舞台
-      </button>
-      <button
-        type="button"
+        <IconStageShape active={stageShapeActive} />
+      </ToolbarIconButton>
+      <ToolbarIconButton
+        title="大道具を追加（図形・色を選択）"
         disabled={disabled}
-        title="選択中キュー（またはアクティブ）のフォーメーションに大道具を追加（図形・色を選べます）"
-        style={{
-          ...btnSecondary,
-          padding: "6px 4px",
-          fontSize: "11px",
-          lineHeight: 1.2,
-          width: "100%",
-        }}
         onClick={onOpenSetPiecePicker}
       >
-        大道具
-      </button>
-      <button
-        type="button"
+        <IconSetPiece />
+      </ToolbarIconButton>
+      <ToolbarIconButton
+        title="書き出し（PNG / PDF / WebM / JSON）"
         disabled={disabled}
-        title="書き出し（PNG / PDF / 動画 WebM / JSON）"
-        style={{
-          ...btnSecondary,
-          padding: "6px 4px",
-          fontSize: "10px",
-          lineHeight: 1.2,
-          width: "100%",
-        }}
         onClick={onOpenExport}
       >
-        書出
-      </button>
-      <button
-        type="button"
-        disabled={disabled}
+        <IconExport />
+      </ToolbarIconButton>
+      <ToolbarIconButton
         title="キーボードショートカット一覧"
-        style={{
-          ...btnSecondary,
-          padding: "6px 4px",
-          fontSize: "12px",
-          lineHeight: 1.2,
-          width: "100%",
-          fontWeight: 700,
-        }}
+        disabled={disabled}
         onClick={onOpenShortcutsHelp}
       >
-        ?
-      </button>
-      <div
-        style={{
-          fontSize: "9px",
-          color: "#475569",
-          textAlign: "center",
-          lineHeight: 1.35,
-          marginTop: 4,
-        }}
-      >
-        取り込みはヘッダ／右パネル
-      </div>
+        <IconHelp />
+      </ToolbarIconButton>
     </aside>
   );
 }

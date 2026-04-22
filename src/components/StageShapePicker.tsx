@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type { StageShape, StageShapePresetId } from "../types/choreography";
 import {
   buildStageShape,
   clonePolygonPct,
   defaultParamsFor,
   DEFAULT_STAGE_RECT_POLYGON,
+  polygonFromFreehandPct,
   polygonToSvgPoints,
   sanitizePolygonPct,
   STAGE_SHAPE_PRESETS,
@@ -105,6 +106,41 @@ export function StageShapePicker({
   const [customPoly, setCustomPoly] = useState<[number, number][]>(() =>
     clonePolygonPct(DEFAULT_STAGE_RECT_POLYGON)
   );
+  /** カスタム時：マウスなぞりで直線化して頂点に反映 */
+  const [sketchMode, setSketchMode] = useState(false);
+  const [sketchStroke, setSketchStroke] = useState<[number, number][]>([]);
+  const sketchStrokeRef = useRef<[number, number][]>([]);
+  const sketchSvgRef = useRef<SVGSVGElement | null>(null);
+
+  const clientToStagePct = useCallback(
+    (svg: SVGSVGElement, clientX: number, clientY: number): [number, number] => {
+      const pt = svg.createSVGPoint();
+      pt.x = clientX;
+      pt.y = clientY;
+      const ctm = svg.getScreenCTM();
+      if (!ctm) return [0, 0];
+      const loc = pt.matrixTransform(ctm.inverse());
+      const x = Math.min(100, Math.max(0, loc.x));
+      const y = Math.min(100, Math.max(0, loc.y));
+      return [x, y];
+    },
+    []
+  );
+
+  const flushSketchStroke = useCallback(() => {
+    const stroke = sketchStrokeRef.current;
+    sketchStrokeRef.current = [];
+    setSketchStroke([]);
+    if (stroke.length < 2) return;
+    const next = polygonFromFreehandPct(stroke, customPoly);
+    if (next && next.length >= 3) {
+      setCustomPoly(next);
+    } else {
+      window.alert(
+        "線が短いか、頂点が少なすぎます。もう少し長くなぞってください。"
+      );
+    }
+  }, [customPoly]);
 
   useEffect(() => {
     if (!open) return;
@@ -135,6 +171,14 @@ export function StageShapePicker({
   }, [open, currentShape, legacyHanamichi]);
 
   useEffect(() => {
+    if (!open) {
+      setSketchMode(false);
+      sketchStrokeRef.current = [];
+      setSketchStroke([]);
+    }
+  }, [open]);
+
+  useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -150,6 +194,9 @@ export function StageShapePicker({
     if (id === "custom") {
       setCustomPoly(clonePolygonPct(DEFAULT_STAGE_RECT_POLYGON));
     }
+    setSketchMode(false);
+    sketchStrokeRef.current = [];
+    setSketchStroke([]);
   }, []);
 
   /** 画面プレビュー用に現在の選択から polygon を組む */
@@ -376,11 +423,143 @@ export function StageShapePicker({
             }}
           >
             <div style={{ display: "flex", justifyContent: "center" }}>
-              <ShapeThumb
-                polygonPct={previewShape.polygonPct}
-                size={180}
-                highlight
-              />
+              {presetId === "custom" ? (
+                <div
+                  style={{
+                    width: "100%",
+                    maxWidth: 280,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                    alignItems: "stretch",
+                  }}
+                >
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      fontSize: "11px",
+                      color: "#cbd5e1",
+                      cursor: disabled ? "default" : "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={sketchMode}
+                      disabled={disabled}
+                      onChange={() => {
+                        setSketchMode((v) => !v);
+                        sketchStrokeRef.current = [];
+                        setSketchStroke([]);
+                      }}
+                    />
+                    なぞって直線入力（ドラッグで輪郭。既存の頂点付近で吸着）
+                  </label>
+                  <svg
+                    ref={sketchSvgRef}
+                    viewBox="0 0 100 100"
+                    width="100%"
+                    aria-label="カスタム舞台の輪郭プレビュー"
+                    style={{
+                      display: "block",
+                      borderRadius: 8,
+                      border: "1px solid #334155",
+                      background: "#020617",
+                      touchAction: sketchMode ? "none" : "auto",
+                      cursor: sketchMode ? "crosshair" : "default",
+                      maxHeight: "min(42vh, 280px)",
+                    }}
+                    onPointerDown={(e) => {
+                      if (!sketchMode || disabled) return;
+                      const svg = sketchSvgRef.current;
+                      if (!svg) return;
+                      e.preventDefault();
+                      const p = clientToStagePct(svg, e.clientX, e.clientY);
+                      sketchStrokeRef.current = [p];
+                      setSketchStroke([p]);
+                      (e.currentTarget as SVGSVGElement).setPointerCapture(
+                        e.pointerId
+                      );
+                    }}
+                    onPointerMove={(e) => {
+                      if (!sketchMode || disabled) return;
+                      const svg = sketchSvgRef.current;
+                      if (!svg) return;
+                      if (sketchStrokeRef.current.length === 0) return;
+                      const p = clientToStagePct(svg, e.clientX, e.clientY);
+                      const prev = sketchStrokeRef.current;
+                      const last = prev[prev.length - 1];
+                      if (
+                        last &&
+                        Math.hypot(p[0] - last[0], p[1] - last[1]) < 0.42
+                      ) {
+                        return;
+                      }
+                      sketchStrokeRef.current = [...prev, p];
+                      setSketchStroke([...sketchStrokeRef.current]);
+                    }}
+                    onPointerUp={(e) => {
+                      if (!sketchMode || disabled) return;
+                      try {
+                        (e.currentTarget as SVGSVGElement).releasePointerCapture(
+                          e.pointerId
+                        );
+                      } catch {
+                        /* not captured */
+                      }
+                      flushSketchStroke();
+                    }}
+                    onPointerCancel={(e) => {
+                      sketchStrokeRef.current = [];
+                      setSketchStroke([]);
+                      try {
+                        (e.currentTarget as SVGSVGElement).releasePointerCapture(
+                          e.pointerId
+                        );
+                      } catch {
+                        /* */
+                      }
+                    }}
+                  >
+                    <polygon
+                      points={polygonToSvgPoints(previewShape.polygonPct)}
+                      fill="rgba(99,102,241,0.28)"
+                      stroke="#c7d2fe"
+                      strokeWidth="1.2"
+                      strokeLinejoin="round"
+                    />
+                    <rect
+                      x="0"
+                      y="92"
+                      width="100"
+                      height="8"
+                      fill="#94a3b8"
+                      fillOpacity={0.12}
+                    />
+                    {sketchStroke.length >= 2 ? (
+                      <polyline
+                        fill="none"
+                        stroke="rgba(251, 191, 36, 0.95)"
+                        strokeWidth="1.1"
+                        strokeDasharray="2 2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        vectorEffect="non-scaling-stroke"
+                        points={sketchStroke
+                          .map(([x, y]) => `${x.toFixed(3)},${y.toFixed(3)}`)
+                          .join(" ")}
+                      />
+                    ) : null}
+                  </svg>
+                </div>
+              ) : (
+                <ShapeThumb
+                  polygonPct={previewShape.polygonPct}
+                  size={180}
+                  highlight
+                />
+              )}
             </div>
             <div
               style={{
@@ -489,6 +668,7 @@ export function StageShapePicker({
                   }}
                 >
                   上が奥・下が客席側の座標です。時計回りに並ぶ凸形を想定しています。
+                  上の「なぞって直線入力」をオンにすると、プレビュー枠内をドラッグして手書きできます。指を離すと折れ線に直線化し、既存の頂点の近くでは吸着してくっつきます。
                 </p>
                 <div
                   style={{

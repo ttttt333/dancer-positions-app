@@ -3,10 +3,14 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { authApi, getToken, setToken } from "../api/client";
+
+/** `/api/me` が返らないとき無限に「読み込み中」にならないようにする */
+const ME_REQUEST_TIMEOUT_MS = 12_000;
 
 type Me = {
   user: {
@@ -34,6 +38,7 @@ const AuthContext = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [me, setMe] = useState<Me | null>(null);
+  const refreshGeneration = useRef(0);
 
   const refresh = useCallback(async () => {
     if (!getToken()) {
@@ -41,14 +46,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setReady(true);
       return;
     }
+    const gen = ++refreshGeneration.current;
     try {
-      const m = await authApi.me();
+      const m = await Promise.race([
+        authApi.me(),
+        new Promise<never>((_, reject) => {
+          setTimeout(
+            () => reject(new Error("me timeout")),
+            ME_REQUEST_TIMEOUT_MS
+          );
+        }),
+      ]);
+      if (refreshGeneration.current !== gen) return;
       setMe(m);
     } catch {
+      if (refreshGeneration.current !== gen) return;
       setToken(null);
       setMe(null);
     } finally {
-      setReady(true);
+      if (refreshGeneration.current === gen) {
+        setReady(true);
+      }
     }
   }, []);
 

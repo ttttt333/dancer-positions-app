@@ -1,15 +1,42 @@
-import { useState } from "react";
+import type { CSSProperties } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { authApi } from "../api/client";
 import { useAuth } from "../context/AuthContext";
-import { btnPrimary } from "../components/stageButtonStyles";
+import { useI18n } from "../i18n/I18nContext";
+import { AuthScreenLayout } from "../components/AuthScreenLayout";
+import { btnAccent, inputField } from "../components/stageButtonStyles";
+import { shell } from "../theme/choreoShell";
+
+const labelStyle: CSSProperties = {
+  display: "block",
+  marginBottom: "14px",
+  fontSize: "12px",
+  fontWeight: 600,
+  color: shell.textMuted,
+  letterSpacing: "0.04em",
+};
+
+const inputStyle: CSSProperties = {
+  ...inputField,
+  display: "block",
+  width: "100%",
+  marginTop: "6px",
+  padding: "12px 14px",
+  boxSizing: "border-box",
+};
 
 export function RegisterPage() {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const { refresh } = useAuth();
+  const { refresh, me, ready } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (ready && me) navigate("/", { replace: true });
+  }, [ready, me, navigate]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,91 +45,52 @@ export function RegisterPage() {
       const { token } = await authApi.register(email, password);
       localStorage.setItem("auth_token", token);
       await refresh();
-      navigate("/");
+      navigate("/", { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラー");
     }
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#0f172a",
-        color: "#e2e8f0",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: "system-ui, sans-serif",
-        padding: 16,
-      }}
-    >
-      <form
-        onSubmit={submit}
-        style={{
-          width: "100%",
-          maxWidth: "360px",
-          background: "#020617",
-          padding: "24px",
-          borderRadius: "12px",
-          border: "1px solid #334155",
-        }}
-      >
-        <h1 style={{ margin: "0 0 8px", fontSize: "20px" }}>新規登録</h1>
-        <p style={{ fontSize: "12px", color: "#64748b", marginBottom: "16px" }}>
-          最初に登録したユーザーは「サンプル協会」の管理者になります。
-        </p>
-        <label style={{ display: "block", marginBottom: "12px", fontSize: "13px" }}>
-          メール
+    <AuthScreenLayout title={t("auth.registerTitle")} subtitle={t("auth.registerBlurb")}>
+      <form onSubmit={submit}>
+        <label style={labelStyle}>
+          {t("auth.email")}
           <input
             type="email"
             required
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            style={{
-              display: "block",
-              width: "100%",
-              marginTop: "4px",
-              padding: "10px",
-              borderRadius: "8px",
-              border: "1px solid #334155",
-              background: "#0f172a",
-              color: "#fff",
-            }}
+            style={inputStyle}
           />
         </label>
-        <label style={{ display: "block", marginBottom: "16px", fontSize: "13px" }}>
-          パスワード（6文字以上）
+        <label style={labelStyle}>
+          {t("auth.passwordMin")}
           <input
             type="password"
             required
             minLength={6}
+            autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            style={{
-              display: "block",
-              width: "100%",
-              marginTop: "4px",
-              padding: "10px",
-              borderRadius: "8px",
-              border: "1px solid #334155",
-              background: "#0f172a",
-              color: "#fff",
-            }}
+            style={inputStyle}
           />
         </label>
-        {error && (
-          <p style={{ color: "#f87171", fontSize: "13px", margin: "0 0 12px" }}>{error}</p>
-        )}
-        <button type="submit" style={{ ...btnPrimary, width: "100%" }}>
-          登録
+        {error ? (
+          <p style={{ color: "#fca5a5", fontSize: "13px", margin: "0 0 14px", lineHeight: 1.45 }}>
+            {error}
+          </p>
+        ) : null}
+        <button type="submit" style={{ ...btnAccent, width: "100%", padding: "12px 18px" }}>
+          {t("auth.registerSubmit")}
         </button>
-        <p style={{ marginTop: "16px", fontSize: "13px" }}>
-          <Link to="/login" style={{ color: "#93c5fd" }}>
-            ログインへ
+        <p style={{ marginTop: "22px", fontSize: "13px", textAlign: "center" }}>
+          <Link to="/login" style={{ color: shell.textMuted, fontWeight: 500, textDecoration: "none" }}>
+            {t("auth.loginInsteadLink")}
           </Link>
         </p>
       </form>
-    </div>
+    </AuthScreenLayout>
   );
 }

@@ -11,13 +11,12 @@ import {
   type SetStateAction,
 } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { StageBoard } from "../components/StageBoard";
+import { StageBoard, type FloorTextPlaceSession } from "../components/StageBoard";
 import { StageDimensionFields } from "../components/StageDimensionFields";
 const Stage3DView = lazy(() =>
   import("../components/Stage3DView").then((m) => ({ default: m.Stage3DView }))
 );
 import { TimelinePanel, type TimelinePanelHandle } from "../components/TimelinePanel";
-import { InspectorPanel } from "../components/InspectorPanel";
 import { RosterTimelineStrip } from "../components/RosterTimelineStrip";
 import { createEmptyProject, tryMigrateFromLocalStorage } from "../lib/projectDefaults";
 import { preloadFFmpeg } from "../lib/extractVideoAudio";
@@ -48,8 +47,6 @@ import type {
   DancerSpot,
   SetPieceKind,
 } from "../types/choreography";
-import type { ImageSpotImportCommit } from "../lib/imageSpotImport";
-import { ImageSpotImportDialog } from "../components/ImageSpotImportDialog";
 import {
   SetPiecePickerModal,
   type SetPiecePickerSubmit,
@@ -66,8 +63,14 @@ import {
 } from "../lib/gatherDancers";
 import { projectApi } from "../api/client";
 import { useAuth } from "../context/AuthContext";
-import { btnSecondary } from "../components/stageButtonStyles";
+import { useI18n } from "../i18n/I18nContext";
+import { btnAccent, btnSecondary, inputField } from "../components/stageButtonStyles";
+import { panelCard, shell } from "../theme/choreoShell";
 import { useYjsCollaboration } from "../hooks/useYjsCollaboration";
+import {
+  captureStageSnapshot,
+  mergeStageSnapshotIntoProject,
+} from "../lib/savedSpotStageSnapshot";
 
 const HISTORY_CAP = 80;
 
@@ -78,10 +81,9 @@ const EDITOR_GRID_GAP_PX = 6;
 const STAGE_RESIZER_PX = 4;
 const STAGE_COL_MIN_PX = 280;
 const TIMELINE_COL_MIN_PX = 260;
-const TOOLBAR_COL_PX = 52;
-/** 右ペイン：タイムライン（またはキュー一覧）とプロパティの分割 */
-const RIGHT_STACK_FRAC_MIN = 0.22;
-const RIGHT_STACK_FRAC_MAX = 0.78;
+/** 左アイコンツールバー列（ChoreoGridToolbar の実幅に合わせる） */
+const TOOLBAR_COL_PX = 58;
+/** 右ペイン：タイムライン（またはキュー一覧）の縦スタック */
 
 /** ステージ「設定」パネル：客席方向（`StageDimensionFields` と同じ 4 択） */
 const STAGE_AREA_AUDIENCE_OPTIONS: {
@@ -120,6 +122,7 @@ export function EditorPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { me, ready: authReady } = useAuth();
+  const { t } = useI18n();
   const collabParam = searchParams.get("collab") === "1";
   const [plainProject, setPlainProject] = useState<ChoreographyProjectJson | null>(null);
   const [projectName, setProjectName] = useState("無題の作品");
@@ -145,7 +148,7 @@ export function EditorPage() {
   const [addCueDialogOpen, setAddCueDialogOpen] = useState(false);
   const [cuePagerListOpen, setCuePagerListOpen] = useState(false);
   /**
-   * 右ペイン（キュー一覧／プロパティ）を畳んでステージを最大化するトグル。
+   * 右ペイン（キュー一覧／タイムライン）を畳んでステージを最大化するトグル。
    * 畳んでも左の操作バー＋ステージは残り、ステージ上部のページャーから
    * キュー切替は引き続き可能。狭いビューポート（!wideEditorLayout）では無効。
    */
@@ -155,11 +158,6 @@ export function EditorPage() {
   const [gatherMenuOpen, setGatherMenuOpen] = useState(false);
   /** 保存メニュー（流れ / 立ち位置） */
   const [saveMenuOpen, setSaveMenuOpen] = useState(false);
-  const [imageSpotImportOpen, setImageSpotImportOpen] = useState(false);
-  /**
-   * 右列スタック上段の高さ比率（タイムライン or キュー一覧）。null = 既定の flex 55% / 45%。
-   */
-  const [rightStackTopFrac, setRightStackTopFrac] = useState<number | null>(null);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   /** ステージ列ヘッダの「設定」：舞台・グリッド・名前・共有・ヒントを集約 */
   const [stageAreaSettingsOpen, setStageAreaSettingsOpen] = useState(false);
@@ -200,6 +198,9 @@ export function EditorPage() {
   /** 2D/3D ステージ床の表示領域（全画面 API の対象） */
   const stageBoardHostRef = useRef<HTMLDivElement>(null);
   const [stageBoardFullscreen, setStageBoardFullscreen] = useState(false);
+  /** ステージ床テキスト：ヘッダから入力→プレビュー→完了で設置 */
+  const [floorTextPlaceSession, setFloorTextPlaceSession] =
+    useState<FloorTextPlaceSession | null>(null);
   const splitDragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -211,12 +212,8 @@ export function EditorPage() {
     startH: number;
   } | null>(null);
   const rightPaneStackRef = useRef<HTMLDivElement>(null);
-  const rightStackDragRef = useRef<{
-    pointerId: number;
-    startY: number;
-    startFrac: number;
-    stackH: number;
-  } | null>(null);
+  /** 舞台設定の保存・復元に使う直前のフォーメーション id（キュー／アクティブ切替） */
+  const lastFormationIdForStageRef = useRef<string | null>(null);
 
   const historyRef = useRef<{ undo: string[]; redo: string[] }>({
     undo: [],
@@ -251,7 +248,7 @@ export function EditorPage() {
   }, []);
 
   useEffect(() => {
-    if (!authReady) return;
+    /** 新規は API・ログイン不要のため認証待ちを挟まず即表示（立ち上げ短縮） */
     if (projectId === "new" || !projectId) {
       const migrated = tryMigrateFromLocalStorage();
       setPlainProject(migrated ?? createEmptyProject());
@@ -260,17 +257,32 @@ export function EditorPage() {
       historyRef.current = { undo: [], redo: [] };
       return;
     }
+
     const id = Number(projectId);
     if (!Number.isFinite(id)) {
+      setPlainProject(null);
       setLoadError("無効な ID");
       return;
     }
-    if (collabParam && !me) {
-      setLoadError("共同編集にはログインが必要です");
-      return;
+
+    /** 共同編集だけ「未ログイン」と区別するために認証確定を待つ */
+    if (collabParam) {
+      if (!authReady) {
+        setPlainProject(null);
+        setLoadError(null);
+        return;
+      }
+      if (!me) {
+        setPlainProject(null);
+        setLoadError("共同編集にはログインが必要です");
+        return;
+      }
     }
+
     let cancelled = false;
     (async () => {
+      setPlainProject(null);
+      setLoadError(null);
       try {
         const row = await projectApi.get(id);
         if (cancelled) return;
@@ -474,86 +486,14 @@ export function EditorPage() {
     setTopDockRowPx(null);
   }, []);
 
-  const onRightStackResizeDown = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      if (e.button !== 0) return;
-      const stack = rightPaneStackRef.current;
-      if (!stack) return;
-      e.preventDefault();
-      const stackH = stack.getBoundingClientRect().height;
-      if (stackH < 80) return;
-      const baseFrac = rightStackTopFrac ?? 0.55;
-      rightStackDragRef.current = {
-        pointerId: e.pointerId,
-        startY: e.clientY,
-        startFrac: baseFrac,
-        stackH,
-      };
-      e.currentTarget.setPointerCapture(e.pointerId);
-      document.body.style.cursor = "row-resize";
-      document.body.style.userSelect = "none";
-    },
-    [rightStackTopFrac]
-  );
-
-  const onRightStackResizeMove = useCallback(
-    (e: React.PointerEvent<HTMLDivElement>) => {
-      const d = rightStackDragRef.current;
-      if (!d || e.pointerId !== d.pointerId) return;
-      const dy = e.clientY - d.startY;
-      const next = Math.min(
-        RIGHT_STACK_FRAC_MAX,
-        Math.max(RIGHT_STACK_FRAC_MIN, d.startFrac - dy / d.stackH)
-      );
-      setRightStackTopFrac(next);
-    },
+  const rightPaneTopSectionStyle = useMemo(
+    (): CSSProperties => ({
+      flex: 1,
+      minHeight: 0,
+      minWidth: 0,
+    }),
     []
   );
-
-  const endRightStackResize = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    const d = rightStackDragRef.current;
-    if (!d || e.pointerId !== d.pointerId) return;
-    rightStackDragRef.current = null;
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {
-      /* ignore */
-    }
-    document.body.style.cursor = "";
-    document.body.style.userSelect = "";
-  }, []);
-
-  const onRightStackResizeLostCapture = useCallback(() => {
-    rightStackDragRef.current = null;
-    document.body.style.cursor = "";
-    document.body.style.userSelect = "";
-  }, []);
-
-  const onRightStackResizeDoubleClick = useCallback(() => {
-    setRightStackTopFrac(null);
-  }, []);
-
-  const rightPaneTopSectionStyle = useMemo((): CSSProperties => {
-    if (rightStackTopFrac == null) {
-      return { flex: "1 1 55%", minHeight: 0, minWidth: 0 };
-    }
-    return {
-      flex: `${rightStackTopFrac} 1 0px`,
-      minHeight: 0,
-      minWidth: 0,
-    };
-  }, [rightStackTopFrac]);
-
-  const rightPaneBottomSectionStyle = useMemo((): CSSProperties => {
-    if (rightStackTopFrac == null) {
-      return { flex: "1 1 45%", minHeight: 0, minWidth: 0 };
-    }
-    return {
-      flex: `${1 - rightStackTopFrac} 1 0px`,
-      minHeight: 0,
-      minWidth: 0,
-    };
-  }, [rightStackTopFrac]);
 
   const editorGridColumns = wideEditorLayout
     ? rightPaneCollapsed
@@ -683,10 +623,6 @@ export function EditorPage() {
         setSaveMenuOpen(false);
         return;
       }
-      if (e.key === "Escape" && imageSpotImportOpen) {
-        setImageSpotImportOpen(false);
-        return;
-      }
       if (e.key === "Escape" && gatherMenuOpen) {
         setGatherMenuOpen(false);
         return;
@@ -737,7 +673,6 @@ export function EditorPage() {
     redo,
     undo,
     saveMenuOpen,
-    imageSpotImportOpen,
     gatherMenuOpen,
     stageAreaSettingsOpen,
     stageSettingsOpen,
@@ -782,6 +717,42 @@ export function EditorPage() {
     () => project?.cues.find((c) => c.id === selectedCueId) ?? null,
     [project, selectedCueId]
   );
+
+  useEffect(() => {
+    lastFormationIdForStageRef.current = null;
+  }, [projectId]);
+
+  /**
+   * フォーメーション（ページ）を切り替えたとき、直前ページの舞台設定を `stageSnapshot` に保存し、
+   * 次のページに保存済みがあればプロジェクトの舞台へ復元する。
+   */
+  useEffect(() => {
+    if (!project) return;
+    const nextId = selectedCue?.formationId ?? project.activeFormationId;
+    if (!nextId) return;
+    const prevId = lastFormationIdForStageRef.current;
+    if (prevId === nextId) return;
+
+    if (prevId !== null) {
+      setProjectSafe((p) => {
+        const snap = captureStageSnapshot(p);
+        const formations1 = p.formations.map((f) =>
+          f.id === prevId ? { ...f, stageSnapshot: snap } : f
+        );
+        const base: ChoreographyProjectJson = { ...p, formations: formations1 };
+        const nf = formations1.find((f) => f.id === nextId);
+        return nf?.stageSnapshot
+          ? mergeStageSnapshotIntoProject(base, nf.stageSnapshot)
+          : base;
+      });
+    } else {
+      const nf = project.formations.find((f) => f.id === nextId);
+      if (nf?.stageSnapshot) {
+        setProjectSafe((p) => mergeStageSnapshotIntoProject(p, nf.stageSnapshot));
+      }
+    }
+    lastFormationIdForStageRef.current = nextId;
+  }, [project, selectedCue, setProjectSafe]);
 
   const cueIdsSig =
     project?.cues
@@ -898,25 +869,84 @@ export function EditorPage() {
     browseFormationDancers,
   ]);
 
-  const onInspectorFormationSelect = useCallback(
-    (formationId: string) => {
-      setProjectSafe((p) => {
-        if (!selectedCueId) {
-          return { ...p, activeFormationId: formationId };
-        }
+  const onFloorTextPlaceSessionChange = useCallback((next: FloorTextPlaceSession) => {
+    setFloorTextPlaceSession(next);
+  }, []);
+
+  const commitFloorTextPlace = useCallback(() => {
+    if (!project || project.viewMode === "view") return;
+    if (project.cues.length > 0 && !selectedCueId) return;
+    if (!floorTextPlaceSession) return;
+    const text = floorTextPlaceSession.body.trim().slice(0, 400);
+    if (!text) {
+      window.alert("テキストを入力してください");
+      return;
+    }
+    const formationId = selectedCue?.formationId ?? project.activeFormationId;
+    const fs = Math.round(
+      Math.min(56, Math.max(8, floorTextPlaceSession.fontSizePx))
+    );
+    const fw =
+      Math.round(Math.min(900, Math.max(300, floorTextPlaceSession.fontWeight)) / 50) *
+      50;
+    setProjectSafe((p) => ({
+      ...p,
+      formations: p.formations.map((f) => {
+        if (f.id !== formationId) return f;
         return {
-          ...p,
-          activeFormationId: formationId,
-          cues: sortCuesByStart(
-            p.cues.map((c) =>
-              c.id === selectedCueId ? { ...c, formationId } : c
-            )
-          ),
+          ...f,
+          floorMarkup: [
+            ...(f.floorMarkup ?? []),
+            {
+              kind: "text" as const,
+              id: crypto.randomUUID(),
+              xPct: round2Pct(
+                Math.min(100, Math.max(0, floorTextPlaceSession.xPct))
+              ),
+              yPct: round2Pct(
+                Math.min(100, Math.max(0, floorTextPlaceSession.yPct))
+              ),
+              text,
+              color: "#fef08a",
+              fontSizePx: fs,
+              fontWeight: fw,
+            },
+          ],
         };
-      });
-    },
-    [selectedCueId, setProjectSafe]
-  );
+      }),
+    }));
+    setFloorTextPlaceSession(null);
+  }, [
+    project,
+    floorTextPlaceSession,
+    selectedCueId,
+    selectedCue,
+    setProjectSafe,
+  ]);
+
+  /**
+   * いまの立ち位置・床テキスト・フォーメーションメモは作品データにそのまま含まれる。
+   * ここでは横幅・客席・変形舞台などの「舞台設定」だけをこのページ用に明示保存する。
+   */
+  const saveCurrentPageStageSnapshot = useCallback(() => {
+    if (!project || project.viewMode === "view") return;
+    if (project.cues.length > 0 && !selectedCueId) return;
+    const fid = selectedCue?.formationId ?? project.activeFormationId;
+    if (!fid) return;
+    setProjectSafe((p) => {
+      const snap = captureStageSnapshot(p);
+      return {
+        ...p,
+        formations: p.formations.map((f) =>
+          f.id === fid ? { ...f, stageSnapshot: snap } : f
+        ),
+      };
+    });
+  }, [project, selectedCue, selectedCueId, setProjectSafe]);
+
+  useEffect(() => {
+    if (stageView === "3d") setFloorTextPlaceSession(null);
+  }, [stageView]);
 
   const applyGatherToward = useCallback(
     (toward: GatherToward) => {
@@ -988,39 +1018,6 @@ export function EditorPage() {
    * - XLSX や PDF など重いライブラリは選択時に動的読み込みされる。
    * - PDF はレイアウト依存で結果が崩れることがあるため、取り込み後に確認を促す。
    */
-  const commitImageSpotImport = useCallback(
-    (payload: ImageSpotImportCommit) => {
-      if (!project || project.viewMode === "view") return;
-      if (project.cues.length > 0 && !selectedCueId) return;
-      const fid = selectedCue?.formationId ?? project.activeFormationId;
-      setProjectSafe((p) => {
-        const fm = p.formations.find((x) => x.id === fid);
-        if (!fm) return p;
-        const crew: Crew = {
-          id: crypto.randomUUID(),
-          name: payload.crewName.trim().slice(0, 80) || "画像取込",
-          members: payload.rows.map((r) => r.member),
-        };
-        const newDancers: DancerSpot[] = payload.rows.map((r) => ({
-          id: crypto.randomUUID(),
-          label: r.member.label.slice(0, 14),
-          xPct: r.xPct,
-          yPct: r.yPct,
-          colorIndex: modDancerColorIndex(r.member.colorIndex),
-          crewMemberId: r.member.id,
-        }));
-        return {
-          ...p,
-          crews: [...p.crews, crew],
-          formations: p.formations.map((f) =>
-            f.id === fid ? { ...f, dancers: [...f.dancers, ...newDancers] } : f
-          ),
-        };
-      });
-    },
-    [project, selectedCueId, selectedCue, setProjectSafe]
-  );
-
   const importCrewCsvFromStageToolbar = useCallback(() => {
     if (!project || project.viewMode === "view") return;
     const input = document.createElement("input");
@@ -1225,10 +1222,15 @@ export function EditorPage() {
   return (
     <div
       style={{
-        minHeight: "100vh",
-        background: "#0f172a",
-        color: "#f8fafc",
-        fontFamily: "system-ui, sans-serif",
+        height: "100dvh",
+        minHeight: "100dvh",
+        maxHeight: "100dvh",
+        overflow: "hidden",
+        background: shell.bgDeep,
+        color: shell.text,
+        fontFamily:
+          "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        WebkitFontSmoothing: "antialiased",
         display: "flex",
         flexDirection: "column",
       }}
@@ -1239,19 +1241,22 @@ export function EditorPage() {
           flexWrap: "nowrap",
           gap: "10px",
           alignItems: "center",
-          padding: "6px 12px",
-          borderBottom: "1px solid #1e293b",
-          background: "#020617",
+          padding: "8px 10px",
+          paddingRight: 148,
+          borderBottom: `1px solid ${shell.border}`,
+          background: shell.bgChrome,
           minHeight: 0,
+          flexShrink: 0,
         }}
       >
         <Link
           to="/"
-          title="作品一覧に戻る"
+          title={t("editor.backTitle")}
+          aria-label={t("editor.backTitle")}
           style={{
             display: "inline-flex",
             alignItems: "center",
-            gap: "8px",
+            gap: "6px",
             textDecoration: "none",
             flexShrink: 0,
           }}
@@ -1259,53 +1264,49 @@ export function EditorPage() {
           <span
             aria-hidden
             style={{
+              fontSize: "17px",
+              fontWeight: 700,
+              color: shell.textMuted,
+              lineHeight: 1,
+            }}
+          >
+            ←
+          </span>
+          <span
+            aria-hidden
+            style={{
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
-              width: 24,
-              height: 24,
-              borderRadius: 6,
+              width: 26,
+              height: 26,
+              borderRadius: 7,
               background:
                 "linear-gradient(135deg, #6366f1 0%, #22d3ee 100%)",
               color: "#020617",
               fontWeight: 800,
-              fontSize: 13,
+              fontSize: 12,
               letterSpacing: "-0.02em",
               boxShadow: "0 2px 6px rgba(99,102,241,0.35)",
             }}
           >
             CG
           </span>
-          <span
-            style={{
-              fontSize: 15,
-              fontWeight: 700,
-              color: "#e2e8f0",
-              letterSpacing: "-0.01em",
-              whiteSpace: "nowrap",
-            }}
-          >
-            ChoreoGrid
-          </span>
         </Link>
         <input
           type="text"
-          placeholder="作品名"
-          aria-label="作品名"
+          placeholder={t("editor.pieceNamePh")}
+          aria-label={t("editor.pieceNamePh")}
           value={project.pieceTitle}
           disabled={project.viewMode === "view"}
           onChange={(e) =>
             setProjectSafe((p) => ({ ...p, pieceTitle: e.target.value }))
           }
           style={{
+            ...inputField,
             flex: "1 1 auto",
             minWidth: 0,
-            padding: "6px 10px",
-            borderRadius: "6px",
-            border: "1px solid #334155",
-            background: "#0f172a",
-            color: "#e2e8f0",
-            fontSize: "14px",
+            padding: "8px 12px",
             fontWeight: 600,
           }}
         />
@@ -1313,13 +1314,29 @@ export function EditorPage() {
           style={{
             display: "inline-flex",
             alignItems: "center",
-            gap: "6px",
-            fontSize: "12px",
-            color: "#94a3b8",
+            gap: "4px",
+            fontSize: "11px",
+            color: shell.textMuted,
             flexShrink: 0,
           }}
+          title={t("editor.headcount")}
         >
-          人数
+          <svg
+            width={14}
+            height={14}
+            viewBox="0 0 24 24"
+            aria-hidden
+            style={{ display: "block", opacity: 0.75 }}
+          >
+            <circle cx="12" cy="9" r="3.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
+            <path
+              d="M6 20c0-4 3.5-6 6-6s6 2 6 6"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+            />
+          </svg>
           <input
             type="number"
             min={1}
@@ -1343,13 +1360,9 @@ export function EditorPage() {
               }));
             }}
             style={{
+              ...inputField,
               width: "56px",
-              padding: "4px 6px",
-              borderRadius: "6px",
-              border: "1px solid #334155",
-              background: "#0f172a",
-              color: "#e2e8f0",
-              fontSize: "13px",
+              padding: "6px 8px",
               fontVariantNumeric: "tabular-nums",
             }}
           />
@@ -1358,20 +1371,54 @@ export function EditorPage() {
           <button
             type="button"
             style={{
-              ...btnSecondary,
-              padding: "6px 10px",
+              ...btnAccent,
+              padding: "7px 14px",
               fontSize: "12px",
               flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              ...(saving
+                ? { opacity: 0.65, cursor: "wait", boxShadow: "none" }
+                : {}),
             }}
             disabled={saving}
             title={
-              serverId
-                ? "クラウドに上書き保存"
-                : "クラウドに新規保存（保存名は作品名を使用）"
+              serverId ? t("editor.saveTitleOverwrite") : t("editor.saveTitleNew")
+            }
+            aria-label={
+              saving
+                ? t("editor.savingAria")
+                : serverId
+                  ? t("editor.saveTitleOverwrite")
+                  : t("editor.saveTitleNew")
             }
             onClick={() => void saveToCloud()}
           >
-            {saving ? "保存中…" : serverId ? "上書き保存" : "保存"}
+            <svg
+              viewBox="0 0 24 24"
+              width={16}
+              height={16}
+              aria-hidden
+              style={{ display: "block", opacity: 0.9 }}
+            >
+              <path
+                d="M6 4h9l3 3v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M8 11h8M8 15h5"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+              />
+            </svg>
+            <span>
+              {saving ? t("editor.saving") : serverId ? t("editor.saveOverwrite") : t("editor.save")}
+            </span>
           </button>
         ) : null}
       </header>
@@ -1393,8 +1440,9 @@ export function EditorPage() {
               : "1fr"
             : "auto auto auto",
           gap: `${EDITOR_GRID_GAP_PX}px`,
-          padding: "12px",
+          padding: "8px",
           minHeight: 0,
+          overflow: "hidden",
         }}
       >
         {showTopWaveDock ? (
@@ -1543,10 +1591,8 @@ export function EditorPage() {
         <section
           ref={stageSectionRef}
           style={{
-            background: "#020617",
-            border: "1px solid #1e293b",
-            borderRadius: "12px",
-            padding: "12px",
+            ...panelCard,
+            padding: "10px",
             minHeight: 0,
             minWidth: 0,
             display: "flex",
@@ -1587,7 +1633,7 @@ export function EditorPage() {
                 minWidth: 0,
               }}
             >
-              <h2 style={{ margin: 0, fontSize: "13px", color: "#94a3b8" }}>
+              <h2 style={{ margin: 0, fontSize: "13px", color: shell.textMuted, fontWeight: 600 }}>
                 ステージ
               </h2>
               <button
@@ -1996,13 +2042,13 @@ export function EditorPage() {
                   aria-pressed={rightPaneCollapsed}
                   aria-label={
                     rightPaneCollapsed
-                      ? "キュー一覧／プロパティを表示"
-                      : "キュー一覧／プロパティを隠してステージを最大化"
+                      ? "右列（キュー一覧・タイムライン）を表示"
+                      : "右列を隠してステージを最大化"
                   }
                   title={
                     rightPaneCollapsed
-                      ? "キュー一覧／プロパティを表示"
-                      : "キュー一覧／プロパティを隠してステージを最大化"
+                      ? "右列（キュー一覧・タイムライン）を表示"
+                      : "右列を隠してステージを最大化"
                   }
                   style={{
                     fontSize: "11px",
@@ -2258,6 +2304,50 @@ export function EditorPage() {
                           <button
                             type="button"
                             role="menuitem"
+                            disabled={
+                              project.viewMode === "view" ||
+                              (project.cues.length > 0 && !selectedCueId)
+                            }
+                            onClick={() => {
+                              setSaveMenuOpen(false);
+                              saveCurrentPageStageSnapshot();
+                            }}
+                            style={{
+                              display: "block",
+                              width: "100%",
+                              textAlign: "left",
+                              padding: "8px 10px",
+                              marginBottom: "4px",
+                              borderRadius: "6px",
+                              border: "1px solid #334155",
+                              background: "#0f172a",
+                              color: "#e2e8f0",
+                              fontSize: "12px",
+                              cursor:
+                                project.viewMode === "view" ||
+                                (project.cues.length > 0 && !selectedCueId)
+                                  ? "not-allowed"
+                                  : "pointer",
+                            }}
+                          >
+                            <span style={{ fontWeight: 600 }}>
+                              このページの舞台設定を保存
+                            </span>
+                            <span
+                              style={{
+                                display: "block",
+                                marginTop: "3px",
+                                fontSize: "10px",
+                                color: "#64748b",
+                                fontWeight: 400,
+                              }}
+                            >
+                              横幅・客席・変形舞台などをいまのフォーメーションに記録。キューを切替えると自動で保存・復元されます。
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            role="menuitem"
                             onClick={() => {
                               setSaveMenuOpen(false);
                               setFlowLibraryOpen(true);
@@ -2336,6 +2426,22 @@ export function EditorPage() {
               <button
                 type="button"
                 style={btnSecondary}
+                disabled={
+                  project.viewMode === "view" ||
+                  (project.cues.length > 0 && !selectedCueId)
+                }
+                title={
+                  project.cues.length > 0 && !selectedCueId
+                    ? "タイムラインでキューを選んでから保存できます"
+                    : "立ち位置・床のテキスト・メモは作品に常に含まれます。ここでは横幅・客席・変形舞台などの舞台設定を、このページ（フォーメーション）用に記録します。別ページへ切り替えるときも自動で保存・復元されます。"
+                }
+                onClick={() => saveCurrentPageStageSnapshot()}
+              >
+                ページ保存
+              </button>
+              <button
+                type="button"
+                style={btnSecondary}
                 disabled={project.viewMode === "view"}
                 title="選択中のフォーメーションにダンサーを1人追加（中央付近）"
                 onClick={() => addDancerFromStageToolbar()}
@@ -2350,22 +2456,6 @@ export function EditorPage() {
                 onClick={() => importCrewCsvFromStageToolbar()}
               >
                 名簿取り込み
-              </button>
-              <button
-                type="button"
-                style={{
-                  ...btnSecondary,
-                  borderColor: "#713f12",
-                  color: "#fde68a",
-                }}
-                disabled={
-                  project.viewMode === "view" ||
-                  (project.cues.length > 0 && !selectedCueId)
-                }
-                title="画像の文字と位置を読み取り、名簿に追加して選択中フォーメーションへ立ち位置として追加します"
-                onClick={() => setImageSpotImportOpen(true)}
-              >
-                画像から追加
               </button>
               <div
                 style={{
@@ -2432,6 +2522,47 @@ export function EditorPage() {
                 >
                   {stageBoardFullscreen ? "全画面終了" : "全画面"}
                 </button>
+                <button
+                  type="button"
+                  style={{
+                    ...btnSecondary,
+                    ...(floorTextPlaceSession
+                      ? { borderColor: "#38bdf8", color: "#e0f2fe" }
+                      : {}),
+                  }}
+                  disabled={
+                    project.viewMode === "view" ||
+                    stageView !== "2d" ||
+                    (project.cues.length > 0 && !selectedCueId)
+                  }
+                  title={
+                    stageView !== "2d"
+                      ? "床テキストは 2D 表示のときのみ使えます"
+                      : project.cues.length > 0 && !selectedCueId
+                        ? "タイムラインでキューを選んでから使えます"
+                        : floorTextPlaceSession
+                          ? "テキスト配置を終了します"
+                          : "舞台上のテキストを入力・プレビューし、完了で設置します"
+                  }
+                  onClick={() => {
+                    if (project.viewMode === "view") return;
+                    if (stageView !== "2d") return;
+                    if (project.cues.length > 0 && !selectedCueId) return;
+                    setFloorTextPlaceSession((cur) =>
+                      cur
+                        ? null
+                        : {
+                            body: "",
+                            fontSizePx: 18,
+                            fontWeight: 600,
+                            xPct: 50,
+                            yPct: 42,
+                          }
+                    );
+                  }}
+                >
+                  {floorTextPlaceSession ? "テキストやめる" : "テキスト"}
+                </button>
                 {hasRosterMembers ? (
                   <button
                     type="button"
@@ -2461,6 +2592,129 @@ export function EditorPage() {
                   >
                     メンバーを表示
                   </button>
+                ) : null}
+                {floorTextPlaceSession ? (
+                  <div
+                    style={{
+                      flexBasis: "100%",
+                      width: "100%",
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "10px",
+                      alignItems: "flex-end",
+                      paddingTop: "8px",
+                      marginTop: "4px",
+                      borderTop: "1px solid #334155",
+                    }}
+                  >
+                    <textarea
+                      value={floorTextPlaceSession.body}
+                      onChange={(e) =>
+                        setFloorTextPlaceSession((s) =>
+                          s ? { ...s, body: e.target.value } : s
+                        )
+                      }
+                      rows={2}
+                      placeholder="舞台上に表示するテキスト"
+                      style={{
+                        flex: "1 1 220px",
+                        minWidth: "180px",
+                        maxWidth: "520px",
+                        fontSize: "12px",
+                        padding: "6px 8px",
+                        borderRadius: "8px",
+                        border: "1px solid #475569",
+                        background: "#0f172a",
+                        color: "#e2e8f0",
+                        resize: "vertical",
+                      }}
+                    />
+                    <label
+                      style={{
+                        display: "inline-flex",
+                        flexDirection: "column",
+                        gap: "4px",
+                        fontSize: "11px",
+                        color: "#94a3b8",
+                      }}
+                    >
+                      サイズ (px)
+                      <input
+                        type="number"
+                        min={8}
+                        max={56}
+                        value={floorTextPlaceSession.fontSizePx}
+                        onChange={(e) =>
+                          setFloorTextPlaceSession((s) =>
+                            s
+                              ? {
+                                  ...s,
+                                  fontSizePx: Math.round(
+                                    Math.min(
+                                      56,
+                                      Math.max(8, Number(e.target.value) || 18)
+                                    )
+                                  ),
+                                }
+                              : s
+                          )
+                        }
+                        style={{
+                          width: "64px",
+                          padding: "4px 6px",
+                          borderRadius: "6px",
+                          border: "1px solid #475569",
+                          background: "#0f172a",
+                          color: "#e2e8f0",
+                          fontSize: "12px",
+                        }}
+                      />
+                    </label>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "6px",
+                        flex: "1 1 200px",
+                        minWidth: "160px",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "10px",
+                          color: "#64748b",
+                          lineHeight: 1.35,
+                        }}
+                      >
+                        ステージの点線枠で内容を確認。床をクリックするか枠をドラッグして位置を決め、「完了」で設置します。
+                      </span>
+                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                        <button
+                          type="button"
+                          onClick={() => commitFloorTextPlace()}
+                          style={{
+                            fontSize: "12px",
+                            fontWeight: 700,
+                            padding: "6px 14px",
+                            borderRadius: "8px",
+                            border: "1px solid #15803d",
+                            background: "#22c55e",
+                            color: "#052e16",
+                            cursor: "pointer",
+                          }}
+                        >
+                          完了
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFloorTextPlaceSession(null)}
+                          style={btnSecondary}
+                        >
+                          キャンセル
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 ) : null}
               </div>
             </div>
@@ -2637,7 +2891,7 @@ export function EditorPage() {
                   alignItems: "center",
                   gap: "4px",
                   fontSize: "11px",
-                  color: "#94a3b8",
+                  color: shell.textMuted,
                   userSelect: "none",
                 }}
               >
@@ -2661,9 +2915,9 @@ export function EditorPage() {
                   style={{
                     padding: "4px 6px",
                     borderRadius: "6px",
-                    border: "1px solid #334155",
-                    background: "#0f172a",
-                    color: "#e2e8f0",
+                    border: `1px solid ${shell.borderStrong}`,
+                    background: shell.surfaceRaised,
+                    color: shell.text,
                     fontSize: "12px",
                   }}
                 >
@@ -2687,7 +2941,7 @@ export function EditorPage() {
               flexDirection: "column",
               ...(stageBoardFullscreen
                 ? {
-                    background: "#020617",
+                    background: shell.bgDeep,
                     borderRadius: 8,
                   }
                 : {}),
@@ -2713,11 +2967,13 @@ export function EditorPage() {
                   project.viewMode !== "view" &&
                   (project.cues.length === 0 || Boolean(selectedCueId))
                 }
+                floorTextPlaceSession={floorTextPlaceSession}
+                onFloorTextPlaceSessionChange={onFloorTextPlaceSessionChange}
               />
             ) : (
               <Suspense
                 fallback={
-                  <div style={{ padding: 24, color: "#64748b", fontSize: "13px" }}>
+                  <div style={{ padding: 24, color: shell.textSubtle, fontSize: "13px" }}>
                     3D ビューを読み込み中…
                   </div>
                 }
@@ -2778,9 +3034,7 @@ export function EditorPage() {
             ) : null}
             <section
               style={{
-                background: "#020617",
-                border: "1px solid #1e293b",
-                borderRadius: "12px",
+                ...panelCard,
                 padding: "12px",
                 display: "flex",
                 flexDirection: "column",
@@ -2788,7 +3042,7 @@ export function EditorPage() {
                 ...rightPaneTopSectionStyle,
               }}
             >
-              <h2 style={{ margin: "0 0 8px", fontSize: "13px", color: "#94a3b8" }}>
+              <h2 style={{ margin: "0 0 8px", fontSize: "13px", color: shell.textMuted, fontWeight: 600 }}>
                 キュー一覧
               </h2>
               <div
@@ -2799,67 +3053,6 @@ export function EditorPage() {
                   display: "flex",
                   flexDirection: "column",
                 }}
-              />
-            </section>
-            <div
-              role="separator"
-              aria-orientation="horizontal"
-              aria-label="キュー一覧とプロパティの高さを調整"
-              title="ドラッグで高さを変更（ダブルクリックで既定の割合に戻す）"
-              onPointerDown={onRightStackResizeDown}
-              onPointerMove={onRightStackResizeMove}
-              onPointerUp={endRightStackResize}
-              onPointerCancel={endRightStackResize}
-              onLostPointerCapture={onRightStackResizeLostCapture}
-              onDoubleClick={onRightStackResizeDoubleClick}
-              style={{
-                flexShrink: 0,
-                height: 4,
-                cursor: "row-resize",
-                touchAction: "none",
-                userSelect: "none",
-                position: "relative",
-                zIndex: 2,
-              }}
-            >
-              <div
-                aria-hidden
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  right: 0,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  height: 1,
-                  background: "#334155",
-                }}
-              />
-            </div>
-            <section
-              style={{
-                background: "#020617",
-                border: "1px solid #1e293b",
-                borderRadius: "12px",
-                padding: "12px",
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden",
-                ...rightPaneBottomSectionStyle,
-              }}
-            >
-              <h2 style={{ margin: "0 0 8px", fontSize: "13px", color: "#94a3b8" }}>
-                プロパティ
-              </h2>
-              <InspectorPanel
-                project={project}
-                setProject={setProjectSafe}
-                stageLayoutEditMode={false}
-                formationEditTargetId={
-                  selectedCue?.formationId ?? project.activeFormationId
-                }
-                onInspectorFormationSelect={onInspectorFormationSelect}
-                selectedCue={selectedCue}
-                onLibraryHoverPreview={setStagePreviewDancers}
               />
             </section>
           </div>
@@ -2896,9 +3089,7 @@ export function EditorPage() {
             {!rosterOnlyMode ? (
             <section
               style={{
-                background: "#020617",
-                border: "1px solid #1e293b",
-                borderRadius: "12px",
+                ...panelCard,
                 padding: "12px",
                 display: "flex",
                 flexDirection: "column",
@@ -2929,7 +3120,8 @@ export function EditorPage() {
                     style={{
                       margin: 0,
                       fontSize: "13px",
-                      color: "#94a3b8",
+                      color: shell.textMuted,
+                      fontWeight: 600,
                       flexShrink: 0,
                     }}
                   >
@@ -3037,71 +3229,6 @@ export function EditorPage() {
               </div>
             </section>
             ) : null}
-            <div
-              role="separator"
-              aria-orientation="horizontal"
-              aria-label={
-                rosterOnlyMode
-                  ? "名簿とプロパティの高さを調整"
-                  : "タイムラインとプロパティの高さを調整"
-              }
-              title="ドラッグで高さを変更（ダブルクリックで既定の割合に戻す）"
-              onPointerDown={onRightStackResizeDown}
-              onPointerMove={onRightStackResizeMove}
-              onPointerUp={endRightStackResize}
-              onPointerCancel={endRightStackResize}
-              onLostPointerCapture={onRightStackResizeLostCapture}
-              onDoubleClick={onRightStackResizeDoubleClick}
-              style={{
-                flexShrink: 0,
-                height: 4,
-                cursor: "row-resize",
-                touchAction: "none",
-                userSelect: "none",
-                position: "relative",
-                zIndex: 2,
-              }}
-            >
-              <div
-                aria-hidden
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  right: 0,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  height: 1,
-                  background: "#334155",
-                }}
-              />
-            </div>
-            <section
-              style={{
-                background: "#020617",
-                border: "1px solid #1e293b",
-                borderRadius: "12px",
-                padding: "12px",
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden",
-                ...rightPaneBottomSectionStyle,
-              }}
-            >
-              <h2 style={{ margin: "0 0 8px", fontSize: "13px", color: "#94a3b8" }}>
-                プロパティ
-              </h2>
-              <InspectorPanel
-                project={project}
-                setProject={setProjectSafe}
-                stageLayoutEditMode={false}
-                formationEditTargetId={
-                  selectedCue?.formationId ?? project.activeFormationId
-                }
-                onInspectorFormationSelect={onInspectorFormationSelect}
-                selectedCue={selectedCue}
-                onLibraryHoverPreview={setStagePreviewDancers}
-              />
-            </section>
           </div>
         )}
       </div>
@@ -3886,18 +4013,6 @@ export function EditorPage() {
           setStageShapePickerOpen(false);
         }}
       />
-
-      {project ? (
-        <ImageSpotImportDialog
-          open={imageSpotImportOpen}
-          onClose={() => setImageSpotImportOpen(false)}
-          disabled={
-            project.viewMode === "view" ||
-            (project.cues.length > 0 && !selectedCueId)
-          }
-          onCommit={commitImageSpotImport}
-        />
-      ) : null}
 
       {project ? (
         <ExportDialog

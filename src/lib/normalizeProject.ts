@@ -144,7 +144,11 @@ function normalizeFloorMarkupArray(raw: unknown): StageFloorMarkup[] {
       const col = normalizeHexFill(r.color);
       if (col) item.color = col;
       const fs = Number(r.fontSizePx);
-      if (Number.isFinite(fs) && fs >= 8 && fs <= 32) item.fontSizePx = Math.round(fs);
+      if (Number.isFinite(fs) && fs >= 8 && fs <= 56) item.fontSizePx = Math.round(fs);
+      const fw = Number(r.fontWeight);
+      if (Number.isFinite(fw) && fw >= 300 && fw <= 900) {
+        item.fontWeight = Math.round(fw / 50) * 50;
+      }
       out.push(item);
       continue;
     }
@@ -387,8 +391,13 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
       ? o.formations.map((fm) => {
           const fmObj = fm as Record<string, unknown>;
           const base = fm as Formation;
+          const { stageSnapshot: _rawStageSnap, ...baseClean } = base;
+          const stageSnap = normalizeSavedSpotStageSnapshot(
+            fmObj.stageSnapshot,
+            defaults
+          );
           return {
-            ...base,
+            ...baseClean,
             note:
               typeof fm.note === "string" && fm.note.trim()
                 ? fm.note.trim().slice(0, 4000)
@@ -401,6 +410,7 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
             dancers: normalizeFormationDancers(fmObj.dancers),
             setPieces: normalizeSetPiecesArray(fmObj.setPieces),
             floorMarkup: normalizeFloorMarkupArray(fmObj.floorMarkup),
+            ...(stageSnap ? { stageSnapshot: stageSnap } : {}),
           };
         })
       : defaults.formations;

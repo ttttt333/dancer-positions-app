@@ -72,6 +72,8 @@ export type StageFloorTextMarkup = {
   /** #rrggbb */
   color?: string;
   fontSizePx?: number;
+  /** CSS font-weight（300〜900） */
+  fontWeight?: number;
 };
 
 /** ステージ床の手描き線（折れ線・% 座標） */
@@ -96,6 +98,12 @@ export type Formation = {
   floorMarkup?: StageFloorMarkup[];
   /** ダンサー向けメモ（フォーメーション単位） */
   note?: string;
+  /**
+   * このページ（フォーメーション）専用の舞台設定。
+   * 未指定のときはプロジェクト共通の舞台寸法・客席などをそのまま使う。
+   * キューを切り替えると直前のページの設定がここへ保存され、次のページに保存済みがあれば復元される。
+   */
+  stageSnapshot?: SavedSpotStageSnapshot;
   /** 「この人数で確定」したあと、プリセット適用の基準人数 */
   confirmedDancerCount?: number;
 };

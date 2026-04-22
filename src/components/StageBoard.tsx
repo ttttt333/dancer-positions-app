@@ -40,6 +40,7 @@ import {
   type DancerQuickEditApply,
 } from "./DancerQuickEditDialog";
 import { btnSecondary } from "./stageButtonStyles";
+import { shell } from "../theme/choreoShell";
 import {
   DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE,
   modDancerColorIndex,
@@ -52,6 +53,15 @@ const TRASH_REVEAL_Y_PCT = 88;
 const FACING_DELTA_PRESETS = [
   -90, -45, -30, -15, -5, 5, 15, 30, 45, 90,
 ] as const;
+
+/** ヘッダ「テキスト」から床へ置く前のプレビュー（親が状態を持つ） */
+export type FloorTextPlaceSession = {
+  body: string;
+  fontSizePx: number;
+  fontWeight: number;
+  xPct: number;
+  yPct: number;
+};
 
 type Props = {
   project: ChoreographyProjectJson;
@@ -84,6 +94,9 @@ type Props = {
   /** 再生中にステージ床（ダンサー以外）を押したら停止（§5） */
   isPlaying?: boolean;
   onStopPlaybackRequest?: () => void;
+  /** 床テキストを置くウィザード中（プレビュー座標・本文は親が保持） */
+  floorTextPlaceSession?: FloorTextPlaceSession | null;
+  onFloorTextPlaceSessionChange?: (next: FloorTextPlaceSession) => void;
 };
 
 function clamp(n: number, min: number, max: number) {
@@ -131,6 +144,39 @@ const GROUP_BOX_HANDLES: readonly {
   { h: "sw", cursor: "nesw-resize", pos: { left: 0, bottom: 0, transform: "translate(-50%, 50%)" } },
   { h: "w", cursor: "ew-resize", pos: { left: 0, top: "50%", transform: "translate(-50%, -50%)" } },
 ];
+
+/** 回転ハンドル内の白い矢印アイコン（参照アプリの円形リフレッシュに近い形） */
+function RotateHandleGlyph({ size = 13 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+      style={{ display: "block" }}
+    >
+      <path
+        d="M12 4.5v3m0 9v3M4.5 12H2m20 0h-2.5"
+        stroke="#ffffff"
+        strokeWidth="1.85"
+        strokeLinecap="round"
+      />
+      <path
+        d="M7 7.5c1.6-1.85 3.95-3 6.5-3a8 8 0 0 1 8 8"
+        stroke="#ffffff"
+        strokeWidth="1.85"
+        strokeLinecap="round"
+      />
+      <path
+        d="M17 16.5c-1.6 1.85-3.95 3-6.5 3a8 8 0 0 1-8-8"
+        stroke="#ffffff"
+        strokeWidth="1.85"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
 
 /**
  * 群リサイズのハンドルからスケール係数と不動点（アンカー）を求める。
@@ -236,6 +282,8 @@ export function StageBoard({
   browseFloorMarkup = null,
   isPlaying = false,
   onStopPlaybackRequest,
+  floorTextPlaceSession = null,
+  onFloorTextPlaceSessionChange,
 }: Props) {
   const {
     formations,
@@ -446,6 +494,30 @@ export function StageBoard({
     lastClientX: number;
     lastClientY: number;
   } | null>(null);
+  /** 設置済み床テキストのドラッグ移動 */
+  const floorMarkupTextDragRef = useRef<{
+    id: string;
+    startClientX: number;
+    startClientY: number;
+    startXPct: number;
+    startYPct: number;
+  } | null>(null);
+  /** 置き場所プレビューをドラッグ中 */
+  const floorTextPlaceDragRef = useRef<{
+    startClientX: number;
+    startClientY: number;
+    startXPct: number;
+    startYPct: number;
+    session: FloorTextPlaceSession;
+  } | null>(null);
+  /** 床テキストツール：入力内容と次に置くときの書式 */
+  const [floorTextDraft, setFloorTextDraft] = useState({
+    body: "",
+    fontSizePx: 18,
+    fontWeight: 600,
+  });
+  /** 選択中の床テキスト id（スライダー・本文はこの項目を更新、空床クリックで移動） */
+  const [floorTextEditId, setFloorTextEditId] = useState<string | null>(null);
   /** ドラッグ中のマーキー（範囲選択の四角）。pct 座標で親床内を示す */
   const [marquee, setMarquee] = useState<{
     startXPct: number;
@@ -509,6 +581,26 @@ export function StageBoard({
     string,
     number
   > | null>(null);
+  /**
+   * 回転ハンドルドラッグ中の向きプレビュー（選択中の各 ID → 度）。
+   * ポインターアップでプロジェクトに確定するまで `facingDeg` 表示に使う。
+   */
+  const [markerFacingDraft, setMarkerFacingDraft] = useState<Map<
+    string,
+    number
+  > | null>(null);
+  const markerRotateRef = useRef<
+    | {
+        centerClientX: number;
+        centerClientY: number;
+        startPointerAngle: number;
+        startFacings: Map<string, number>;
+        ids: string[];
+      }
+    | null
+  >(null);
+  /** `markerFacingDraft` と同内容をポインターアップで確実に読むため */
+  const markerFacingDraftRef = useRef<Map<string, number> | null>(null);
 
   /**
    * ステージ枠の四隅ハンドルでステージ全体の寸法を変更するドラッグセッション。
@@ -595,6 +687,20 @@ export function StageBoard({
     [markerDiamDraft, baseMarkerPx]
   );
 
+  /** 回転ドラッグ中はドラフト、それ以外は `facingDeg`（未設定は 0）。 */
+  const effectiveFacingDeg = useCallback(
+    (d: DancerSpot): number => {
+      const fd = markerFacingDraft?.get(d.id);
+      if (typeof fd === "number" && Number.isFinite(fd)) return fd;
+      const raw =
+        typeof d.facingDeg === "number" && Number.isFinite(d.facingDeg)
+          ? d.facingDeg
+          : 0;
+      return raw;
+    },
+    [markerFacingDraft]
+  );
+
   /** ゴミ箱ドロップゾーン上でダンサーをドラッグ中 */
   const [trashHot, setTrashHot] = useState(false);
   /** マルを下端付近まで下げたときだけゴミ箱 UI を出す */
@@ -626,11 +732,18 @@ export function StageBoard({
     marqueeSessionRef.current = null;
     groupDragRef.current = null;
     markerResizeRef.current = null;
+    markerRotateRef.current = null;
+    markerFacingDraftRef.current = null;
+    floorMarkupTextDragRef.current = null;
+    floorTextPlaceDragRef.current = null;
     setMarkerDiamDraft(null);
+    setMarkerFacingDraft(null);
     setDragGhostById(null);
     setFloorMarkupTool(null);
     floorLineSessionRef.current = null;
     setFloorLineDraft(null);
+    setFloorTextDraft({ body: "", fontSizePx: 18, fontWeight: 600 });
+    setFloorTextEditId(null);
   }, [formationIdForWrites]);
 
   useEffect(() => {
@@ -668,31 +781,6 @@ export function StageBoard({
     activeFormation?.dancers ??
     [];
 
-  /**
-   * いまステージに載っているダンサー集合と id が一致するフォーメーション。
-   * メモはこのフォーメーションの `note` を表示する（再生・閲覧でも共有の注意事項として見える）。
-   */
-  const visibleFormation = useMemo(() => {
-    if (displayDancers.length === 0) {
-      return writeFormation ?? activeFormation ?? null;
-    }
-    const want = new Set(displayDancers.map((d) => d.id));
-    for (const f of formations) {
-      if (f.dancers.length !== want.size) continue;
-      const got = new Set(f.dancers.map((d) => d.id));
-      if (got.size !== want.size) continue;
-      let ok = true;
-      for (const id of want) {
-        if (!got.has(id)) {
-          ok = false;
-          break;
-        }
-      }
-      if (ok) return f;
-    }
-    return writeFormation ?? activeFormation ?? null;
-  }, [displayDancers, formations, writeFormation, activeFormation]);
-
   const displaySetPieces: SetPiece[] =
     previewDancers != null && previewDancers.length > 0
       ? writeFormation?.setPieces ?? []
@@ -710,29 +798,6 @@ export function StageBoard({
         [];
 
   const playbackOrPreview = Boolean(playbackDancers || previewDancers);
-
-  const stageMemoReadOnly =
-    viewMode === "view" ||
-    !stageInteractionsEnabled ||
-    Boolean(playbackDancers) ||
-    Boolean(previewDancers);
-
-  const commitStageFormationNote = useCallback(
-    (raw: string) => {
-      if (stageMemoReadOnly) return;
-      const f = visibleFormation;
-      if (!f) return;
-      const note = raw.trim() ? raw.trim().slice(0, 4000) : undefined;
-      const fid = f.id;
-      setProject((p) => ({
-        ...p,
-        formations: p.formations.map((fm) =>
-          fm.id === fid ? { ...fm, note } : fm
-        ),
-      }));
-    },
-    [visibleFormation, stageMemoReadOnly, setProject]
-  );
 
   const setPiecesEditable =
     viewMode !== "view" &&
@@ -756,6 +821,17 @@ export function StageBoard({
     },
     [writeFormation, formationIdForWrites, setProject, viewMode, stageInteractionsEnabled]
   );
+
+  useEffect(() => {
+    if (floorMarkupTool !== "text") setFloorTextEditId(null);
+  }, [floorMarkupTool]);
+
+  /** ヘッダからの床テキスト配置中はステージ内の旧テキストツールと競合しないよう解除 */
+  useEffect(() => {
+    if (!floorTextPlaceSession) return;
+    setFloorMarkupTool(null);
+    setFloorTextEditId(null);
+  }, [floorTextPlaceSession]);
 
   const removeFloorMarkupById = useCallback(
     (id: string) => {
@@ -1590,6 +1666,69 @@ export function StageBoard({
     setMarkerDiamDraft(new Map(startSizes));
   };
 
+  /**
+   * 代表ダンサー上の丸い回転ハンドル → ポインタ周りの角で選択中全員の向きを変える。
+   * 角度は代表の床面中心を軸にしたカーソル角の差分で決める（複数選択でも同じ差分）。
+   */
+  const handlePointerDownMarkerRotate = (e: ReactPointerEvent) => {
+    if (e.button !== 0) return;
+    if (
+      viewMode === "view" ||
+      playbackDancers ||
+      previewDancers ||
+      !stageInteractionsEnabled
+    )
+      return;
+    if (selectedDancerIds.length < 1) return;
+    e.stopPropagation();
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    const floorEl = stageMainFloorRef.current;
+    if (!floorEl) return;
+    const rect = floorEl.getBoundingClientRect();
+    const dancers =
+      writeFormation?.dancers ?? activeFormation?.dancers ?? [];
+    let centerClientX: number;
+    let centerClientY: number;
+    if (selectedDancerIds.length >= 2 && selectionBox) {
+      const cxPct = (selectionBox.x0 + selectionBox.x1) / 2;
+      const cyPct = (selectionBox.y0 + selectionBox.y1) / 2;
+      centerClientX = rect.left + (cxPct / 100) * rect.width;
+      centerClientY = rect.top + (cyPct / 100) * rect.height;
+    } else {
+      const primaryId = selectedDancerIds[0]!;
+      const primary = dancers.find((x) => x.id === primaryId);
+      if (!primary) return;
+      centerClientX = rect.left + (primary.xPct / 100) * rect.width;
+      centerClientY = rect.top + (primary.yPct / 100) * rect.height;
+    }
+    const startPointerAngle = Math.atan2(
+      e.clientY - centerClientY,
+      e.clientX - centerClientX
+    );
+    const startFacings = new Map<string, number>();
+    for (const id of selectedDancerIds) {
+      const d = dancers.find((x) => x.id === id);
+      if (!d) continue;
+      const cur =
+        typeof d.facingDeg === "number" && Number.isFinite(d.facingDeg)
+          ? d.facingDeg
+          : 0;
+      startFacings.set(id, normalizeDancerFacingDeg(cur));
+    }
+    if (startFacings.size === 0) return;
+    markerRotateRef.current = {
+      centerClientX,
+      centerClientY,
+      startPointerAngle,
+      startFacings,
+      ids: [...selectedDancerIds],
+    };
+    const initFacing = new Map(startFacings);
+    markerFacingDraftRef.current = initFacing;
+    setMarkerFacingDraft(initFacing);
+  };
+
   /** 空ステージを押したら範囲選択を始める（および選択のクリア） */
   const handlePointerDownFloor = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
@@ -1605,22 +1744,52 @@ export function StageBoard({
     if (target.closest("[data-dancer-id]")) return;
     if (target.closest("[data-set-piece-id]")) return;
     if (target.closest("[data-group-box-handle]")) return;
+    if (target.closest("[data-group-rotate-handle]")) return;
     if (target.closest("[data-marker-resize-handle]")) return;
+    if (target.closest("[data-marker-rotate-handle]")) return;
     const el = stageMainFloorRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
     const xPct = clamp(((e.clientX - r.left) / r.width) * 100, 0, 100);
     const yPct = clamp(((e.clientY - r.top) / r.height) * 100, 0, 100);
 
+    if (
+      floorTextPlaceSession &&
+      onFloorTextPlaceSessionChange &&
+      setPiecesEditable &&
+      writeFormation
+    ) {
+      if (target.closest("[data-floor-markup]")) return;
+      if (target.closest("[data-floor-text-place-preview]")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      onFloorTextPlaceSessionChange({
+        ...floorTextPlaceSession,
+        xPct: round2(xPct),
+        yPct: round2(yPct),
+      });
+      return;
+    }
+
     if (setPiecesEditable && writeFormation && floorMarkupTool === "text") {
       if (target.closest("[data-floor-markup]")) return;
       e.preventDefault();
       e.stopPropagation();
-      const raw = window.prompt(
-        "ステージに表示するコメント（空欄でキャンセル）",
-        ""
-      );
-      if (raw == null || !raw.trim()) return;
+      const fs = Math.round(clamp(floorTextDraft.fontSizePx, 8, 56));
+      const fw = Math.round(clamp(floorTextDraft.fontWeight, 300, 900) / 50) * 50;
+      if (floorTextEditId) {
+        updateActiveFormation((f) => ({
+          ...f,
+          floorMarkup: (f.floorMarkup ?? []).map((m) =>
+            m.id === floorTextEditId && m.kind === "text"
+              ? { ...m, xPct: round2(xPct), yPct: round2(yPct), fontSizePx: fs, fontWeight: fw }
+              : m
+          ),
+        }));
+        return;
+      }
+      const t = floorTextDraft.body.trim();
+      if (!t) return;
       updateActiveFormation((f) => ({
         ...f,
         floorMarkup: [
@@ -1630,12 +1799,15 @@ export function StageBoard({
             id: crypto.randomUUID(),
             xPct: round2(xPct),
             yPct: round2(yPct),
-            text: raw.trim().slice(0, 400),
+            text: t.slice(0, 400),
             color: "#fef08a",
-            fontSizePx: 13,
+            fontSizePx: fs,
+            fontWeight: fw,
           },
         ],
       }));
+      setFloorTextDraft((d) => ({ ...d, body: "" }));
+      setFloorTextEditId(null);
       return;
     }
 
@@ -1714,6 +1886,37 @@ export function StageBoard({
               : x
           ),
         }));
+        return;
+      }
+      /** 1b: 床に置いたテキストの移動 */
+      const fmd = floorMarkupTextDragRef.current;
+      if (fmd) {
+        const floor = stageMainFloorRef.current;
+        if (!floor) return;
+        const rr = floor.getBoundingClientRect();
+        const dxPct = ((e.clientX - fmd.startClientX) / rr.width) * 100;
+        const dyPct = ((e.clientY - fmd.startClientY) / rr.height) * 100;
+        const nx = round2(clamp(fmd.startXPct + dxPct, 0, 100));
+        const ny = round2(clamp(fmd.startYPct + dyPct, 0, 100));
+        updateActiveFormation((f) => ({
+          ...f,
+          floorMarkup: (f.floorMarkup ?? []).map((x) =>
+            x.id === fmd.id && x.kind === "text" ? { ...x, xPct: nx, yPct: ny } : x
+          ),
+        }));
+        return;
+      }
+      /** 1c: ヘッダから置くテキストのプレビュー位置ドラッグ */
+      const ftpd = floorTextPlaceDragRef.current;
+      if (ftpd && onFloorTextPlaceSessionChange) {
+        const floor = stageMainFloorRef.current;
+        if (!floor) return;
+        const rr = floor.getBoundingClientRect();
+        const dxPct = ((e.clientX - ftpd.startClientX) / rr.width) * 100;
+        const dyPct = ((e.clientY - ftpd.startClientY) / rr.height) * 100;
+        const nx = round2(clamp(ftpd.startXPct + dxPct, 0, 100));
+        const ny = round2(clamp(ftpd.startYPct + dyPct, 0, 100));
+        onFloorTextPlaceSessionChange({ ...ftpd.session, xPct: nx, yPct: ny });
         return;
       }
       /** 2: 複数選択の一括移動（ゴミ箱一括削除付き） */
@@ -1829,7 +2032,28 @@ export function StageBoard({
         setTrashHotIfChanged(false);
         return;
       }
-      /** 4: 代表ダンサー右下の○サイズハンドル（選択中の全員に同じ差分を適用） */
+      /** 4: 向き（丸い回転ハンドル）— 代表位置を軸にカーソル角の差分で全員同じ回転 */
+      const rot = markerRotateRef.current;
+      if (rot) {
+        const curAngle = Math.atan2(
+          e.clientY - rot.centerClientY,
+          e.clientX - rot.centerClientX
+        );
+        let deltaRad = curAngle - rot.startPointerAngle;
+        while (deltaRad > Math.PI) deltaRad -= 2 * Math.PI;
+        while (deltaRad < -Math.PI) deltaRad += 2 * Math.PI;
+        const deltaDeg = (deltaRad * 180) / Math.PI;
+        const draft = new Map<string, number>();
+        for (const id of rot.ids) {
+          const s = rot.startFacings.get(id) ?? 0;
+          draft.set(id, normalizeDancerFacingDeg(s + deltaDeg));
+        }
+        markerFacingDraftRef.current = draft;
+        setMarkerFacingDraft(draft);
+        setTrashHotIfChanged(false);
+        return;
+      }
+      /** 5: 代表ダンサー右下の○サイズハンドル（選択中の全員に同じ差分を適用） */
       const m = markerResizeRef.current;
       if (m) {
         const dx = e.clientX - m.startClientX;
@@ -1845,7 +2069,7 @@ export function StageBoard({
         setTrashHotIfChanged(false);
         return;
       }
-      /** 5: マーキー（範囲選択） */
+      /** 6: マーキー（範囲選択） */
       const mq = marqueeSessionRef.current;
       if (mq) {
         const el = stageMainFloorRef.current;
@@ -1874,6 +2098,8 @@ export function StageBoard({
         removeDancerById(d.dancerId);
       }
       dragRef.current = null;
+      floorMarkupTextDragRef.current = null;
+      floorTextPlaceDragRef.current = null;
       /** 群ドラッグ終了。move モードで最後にゴミ箱へドロップされていたら一括削除 */
       const gUp = groupDragRef.current;
       if (
@@ -1884,6 +2110,42 @@ export function StageBoard({
         removeDancersByIds(gUp.ids);
       }
       groupDragRef.current = null;
+      /** 向きドラッグ確定 */
+      const rotUp = markerRotateRef.current;
+      const facingDraftSnap = markerFacingDraftRef.current;
+      if (rotUp && facingDraftSnap && facingDraftSnap.size > 0) {
+        let changed = false;
+        for (const id of rotUp.ids) {
+          const a = normalizeDancerFacingDeg(rotUp.startFacings.get(id) ?? 0);
+          const b = normalizeDancerFacingDeg(facingDraftSnap.get(id) ?? a);
+          if (a !== b) {
+            changed = true;
+            break;
+          }
+        }
+        if (changed) {
+          const nextFacing = new Map(facingDraftSnap);
+          setProject((p) => ({
+            ...p,
+            formations: p.formations.map((f) =>
+              f.id === formationIdForWrites
+                ? {
+                    ...f,
+                    dancers: f.dancers.map((x) => {
+                      if (!nextFacing.has(x.id)) return x;
+                      const deg = normalizeDancerFacingDeg(nextFacing.get(x.id)!);
+                      const { facingDeg: _fd, ...rest } = x;
+                      return deg === 0 ? rest : { ...rest, facingDeg: deg };
+                    }),
+                  }
+                : f
+            ),
+          }));
+        }
+      }
+      markerRotateRef.current = null;
+      markerFacingDraftRef.current = null;
+      setMarkerFacingDraft(null);
       /** ○サイズ確定（選択中の各ダンサーに `sizePx` を保存する） */
       const m = markerResizeRef.current;
       if (m && markerDiamDraft && markerDiamDraft.size > 0) {
@@ -1974,6 +2236,7 @@ export function StageBoard({
     alignGuides.x,
     alignGuides.y,
     formationIdForWrites,
+    onFloorTextPlaceSessionChange,
   ]);
 
   useEffect(() => {
@@ -1998,6 +2261,8 @@ export function StageBoard({
         setFloorMarkupTool(null);
         floorLineSessionRef.current = null;
         setFloorLineDraft(null);
+        setFloorTextDraft({ body: "", fontSizePx: 18, fontWeight: 600 });
+        setFloorTextEditId(null);
         return;
       }
       /** 選択中が 1 件以上なら Alt+矢印で微移動。複数選択時は群全体を動かす。 */
@@ -2113,9 +2378,9 @@ export function StageBoard({
     textAlign: "center" as const,
     fontSize: "10px",
     lineHeight: 1.35,
-    color: "#64748b",
-    background: "linear-gradient(135deg, #0f172a 0%, #1e293b 45%, #0f172a 100%)",
-    border: "1px solid rgba(71,85,105,0.35)",
+    color: shell.textMuted,
+    background: `linear-gradient(135deg, ${shell.surfaceRaised} 0%, ${shell.surface} 45%, ${shell.surfaceRaised} 100%)`,
+    border: `1px solid ${shell.border}`,
     minWidth: 0,
     minHeight: 0,
     padding: "4px",
@@ -2128,8 +2393,7 @@ export function StageBoard({
     minWidth: 0,
     minHeight: 0,
     overflow: "hidden",
-    background:
-      "linear-gradient(180deg, #1e293b 0%, #0f172a 55%, #020617 100%)",
+    background: `linear-gradient(180deg, #0f1729 0%, #0a0f18 42%, ${shell.bgDeep} 100%)`,
   };
 
   const mmLabel = (xPct: number, yPct: number) => {
@@ -2674,8 +2938,8 @@ export function StageBoard({
               position: "relative",
               width: "100%",
               height: "100%",
-              borderRadius: "12px",
-              border: "1px solid #334155",
+              borderRadius: "16px",
+              border: `1.5px solid ${shell.accent}`,
               overflow: "hidden",
               touchAction: "none",
               boxShadow: previewDancers?.length
@@ -2722,7 +2986,7 @@ export function StageBoard({
                   ? {
                       gridTemplateRows: Bmm > 0 ? `${Bmm}fr ${Dmm}fr` : `${Dmm}fr`,
                       gridTemplateColumns: Smm > 0 ? `${Smm}fr ${Wmm}fr ${Smm}fr` : `${Wmm}fr`,
-                      background: "#020617",
+                      background: shell.bgDeep,
                     }
                   : {
                       background:
@@ -2736,10 +3000,10 @@ export function StageBoard({
                   ...stripShellStyle,
                   gridColumn: "1 / -1",
                   gridRow: 1,
-                  borderBottom: "1px solid #334155",
+                  borderBottom: `1px solid ${shell.border}`,
                 }}
               >
-                バックステージ
+                舞台裏
                 <br />
                 {formatMeterCmLabel(Bmm)}
               </div>
@@ -2750,7 +3014,7 @@ export function StageBoard({
                   ...stripShellStyle,
                   gridColumn: 1,
                   gridRow: Bmm > 0 ? 2 : 1,
-                  borderRight: "1px solid #334155",
+                  borderRight: `1px solid ${shell.border}`,
                 }}
               >
                 サイド
@@ -2784,133 +3048,324 @@ export function StageBoard({
             >
             {setPiecesEditable && (
               <div
-                role="toolbar"
-                aria-label="床にコメントや線を追加"
+                onPointerDown={(e) => e.stopPropagation()}
                 style={{
                   position: "absolute",
                   top: 6,
                   left: 6,
-                  zIndex: 36,
+                  right: 6,
+                  zIndex: 37,
                   display: "flex",
-                  flexWrap: "wrap",
-                  gap: 6,
-                  alignItems: "center",
-                  padding: "4px 8px",
-                  borderRadius: "8px",
-                  border: "1px solid #334155",
-                  background: "rgba(15, 23, 42, 0.92)",
-                  boxShadow: "0 2px 10px rgba(0,0,0,0.25)",
+                  flexDirection: "column",
+                  gap: 8,
+                  maxWidth: "calc(100% - 12px)",
                 }}
               >
-                <span
+                <div
+                  role="toolbar"
+                  aria-label="ステージ床テキスト"
                   style={{
-                    fontSize: "9px",
-                    color: "#64748b",
-                    fontWeight: 700,
-                    letterSpacing: "0.06em",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 8,
+                    padding: "8px 10px",
+                    borderRadius: "8px",
+                    border: "1px solid #334155",
+                    background: "rgba(15, 23, 42, 0.95)",
+                    boxShadow: "0 2px 10px rgba(0,0,0,0.25)",
                   }}
                 >
-                  床
-                </span>
-                <button
-                  type="button"
-                  title="クリックした位置にコメント（Esc で終了）"
-                  onClick={() =>
-                    setFloorMarkupTool((t) => (t === "text" ? null : "text"))
-                  }
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                      gap: 8,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "10px",
+                        color: "#94a3b8",
+                        fontWeight: 700,
+                        letterSpacing: "0.06em",
+                      }}
+                    >
+                      テキスト
+                    </span>
+                    <button
+                      type="button"
+                      title="文面とサイズを指定し、床をクリックして配置（Esc で終了）"
+                      onClick={() => {
+                        setFloorMarkupTool((t) => {
+                          if (t === "text") {
+                            setFloorTextEditId(null);
+                            return null;
+                          }
+                          return "text";
+                        });
+                      }}
+                      style={{
+                        ...btnSecondary,
+                        padding: "4px 10px",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        borderColor:
+                          floorMarkupTool === "text"
+                            ? "rgba(99,102,241,0.9)"
+                            : undefined,
+                        color: floorMarkupTool === "text" ? "#e0e7ff" : undefined,
+                      }}
+                    >
+                      書き込み
+                    </button>
+                    {floorMarkupTool === "text" && floorTextEditId ? (
+                      <button
+                        type="button"
+                        title="選択を解除し、新しいテキストを置けるようにします"
+                        onClick={() => setFloorTextEditId(null)}
+                        style={{
+                          ...btnSecondary,
+                          padding: "4px 8px",
+                          fontSize: "11px",
+                        }}
+                      >
+                        新規へ
+                      </button>
+                    ) : null}
+                  </div>
+                  {floorMarkupTool === "text" ? (
+                    <>
+                      <textarea
+                        value={floorTextDraft.body}
+                        onChange={(e) => {
+                          const body = e.target.value;
+                          setFloorTextDraft((d) => ({ ...d, body }));
+                          if (floorTextEditId) {
+                            updateActiveFormation((f) => ({
+                              ...f,
+                              floorMarkup: (f.floorMarkup ?? []).map((m) =>
+                                m.id === floorTextEditId && m.kind === "text"
+                                  ? { ...m, text: body.slice(0, 400) }
+                                  : m
+                              ),
+                            }));
+                          }
+                        }}
+                        rows={2}
+                        placeholder="ステージに表示する文言…"
+                        style={{
+                          width: "100%",
+                          resize: "vertical",
+                          minHeight: 44,
+                          boxSizing: "border-box",
+                          borderRadius: 6,
+                          border: "1px solid #475569",
+                          background: "#0f172a",
+                          color: "#e2e8f0",
+                          fontSize: 13,
+                          padding: "6px 8px",
+                          fontFamily: "system-ui, sans-serif",
+                        }}
+                      />
+                      <div
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          alignItems: "center",
+                          gap: "12px 16px",
+                          fontSize: "11px",
+                          color: "#cbd5e1",
+                        }}
+                      >
+                        <label
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                          }}
+                        >
+                          サイズ {floorTextDraft.fontSizePx}px
+                          <input
+                            type="range"
+                            min={8}
+                            max={56}
+                            value={floorTextDraft.fontSizePx}
+                            onChange={(e) => {
+                              const fontSizePx = Number(e.target.value);
+                              setFloorTextDraft((d) => ({ ...d, fontSizePx }));
+                              if (floorTextEditId) {
+                                updateActiveFormation((f) => ({
+                                  ...f,
+                                  floorMarkup: (f.floorMarkup ?? []).map((m) =>
+                                    m.id === floorTextEditId && m.kind === "text"
+                                      ? {
+                                          ...m,
+                                          fontSizePx: Math.round(
+                                            clamp(fontSizePx, 8, 56)
+                                          ),
+                                        }
+                                      : m
+                                  ),
+                                }));
+                              }
+                            }}
+                          />
+                        </label>
+                        <label
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                          }}
+                        >
+                          太さ {floorTextDraft.fontWeight}
+                          <input
+                            type="range"
+                            min={300}
+                            max={900}
+                            step={50}
+                            value={floorTextDraft.fontWeight}
+                            onChange={(e) => {
+                              const fontWeight = Number(e.target.value);
+                              setFloorTextDraft((d) => ({ ...d, fontWeight }));
+                              if (floorTextEditId) {
+                                const fw =
+                                  Math.round(clamp(fontWeight, 300, 900) / 50) *
+                                  50;
+                                updateActiveFormation((f) => ({
+                                  ...f,
+                                  floorMarkup: (f.floorMarkup ?? []).map((m) =>
+                                    m.id === floorTextEditId && m.kind === "text"
+                                      ? { ...m, fontWeight: fw }
+                                      : m
+                                  ),
+                                }));
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "10px",
+                          lineHeight: 1.4,
+                          color: "#64748b",
+                        }}
+                      >
+                        {floorTextEditId
+                          ? "空の床をクリックで位置を移動。サイズ・太さはスライダーで変更できます。"
+                          : "本文を入力してから床をクリックで配置。既存の床テキストをクリックすると編集できます。"}
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+                <div
+                  role="toolbar"
+                  aria-label="床に線を引く・消す"
                   style={{
-                    ...btnSecondary,
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 6,
+                    alignItems: "center",
                     padding: "4px 8px",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    borderColor:
-                      floorMarkupTool === "text"
-                        ? "rgba(99,102,241,0.9)"
-                        : undefined,
-                    color: floorMarkupTool === "text" ? "#e0e7ff" : undefined,
+                    borderRadius: "8px",
+                    border: "1px solid #334155",
+                    background: "rgba(15, 23, 42, 0.92)",
+                    boxShadow: "0 2px 10px rgba(0,0,0,0.25)",
                   }}
                 >
-                  メモ
-                </button>
-                <button
-                  type="button"
-                  title="ドラッグで線（手描きの折れ線・Esc で終了）"
-                  onClick={() =>
-                    setFloorMarkupTool((t) => (t === "line" ? null : "line"))
-                  }
-                  style={{
-                    ...btnSecondary,
-                    padding: "4px 8px",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    borderColor:
-                      floorMarkupTool === "line"
-                        ? "rgba(99,102,241,0.9)"
-                        : undefined,
-                    color: floorMarkupTool === "line" ? "#e0e7ff" : undefined,
-                  }}
-                >
-                  線
-                </button>
-                <button
-                  type="button"
-                  title="コメントや線をタップして削除"
-                  onClick={() =>
-                    setFloorMarkupTool((t) => (t === "erase" ? null : "erase"))
-                  }
-                  style={{
-                    ...btnSecondary,
-                    padding: "4px 8px",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    borderColor:
-                      floorMarkupTool === "erase"
-                        ? "rgba(248,113,113,0.85)"
-                        : undefined,
-                    color: floorMarkupTool === "erase" ? "#fecaca" : undefined,
-                  }}
-                >
-                  消す
-                </button>
-                {floorMarkupTool ? (
+                  <span
+                    style={{
+                      fontSize: "9px",
+                      color: "#64748b",
+                      fontWeight: 700,
+                      letterSpacing: "0.06em",
+                    }}
+                  >
+                    床
+                  </span>
                   <button
                     type="button"
-                    title="ツールを終了（Esc でも可）"
-                    onClick={() => {
-                      setFloorMarkupTool(null);
-                      floorLineSessionRef.current = null;
-                      setFloorLineDraft(null);
-                    }}
+                    title="ドラッグで線（手描きの折れ線・Esc で終了）"
+                    onClick={() =>
+                      setFloorMarkupTool((t) => (t === "line" ? null : "line"))
+                    }
                     style={{
                       ...btnSecondary,
                       padding: "4px 8px",
                       fontSize: "11px",
+                      fontWeight: 600,
+                      borderColor:
+                        floorMarkupTool === "line"
+                          ? "rgba(99,102,241,0.9)"
+                          : undefined,
+                      color: floorMarkupTool === "line" ? "#e0e7ff" : undefined,
                     }}
                   >
-                    完了
+                    線
                   </button>
+                  <button
+                    type="button"
+                    title="コメントや線をタップして削除"
+                    onClick={() =>
+                      setFloorMarkupTool((t) => (t === "erase" ? null : "erase"))
+                    }
+                    style={{
+                      ...btnSecondary,
+                      padding: "4px 8px",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      borderColor:
+                        floorMarkupTool === "erase"
+                          ? "rgba(248,113,113,0.85)"
+                          : undefined,
+                      color: floorMarkupTool === "erase" ? "#fecaca" : undefined,
+                    }}
+                  >
+                    消す
+                  </button>
+                  {floorMarkupTool ? (
+                    <button
+                      type="button"
+                      title="ツールを終了（Esc でも可）"
+                      onClick={() => {
+                        setFloorMarkupTool(null);
+                        floorLineSessionRef.current = null;
+                        setFloorLineDraft(null);
+                        setFloorTextEditId(null);
+                        setFloorTextDraft({
+                          body: "",
+                          fontSizePx: 18,
+                          fontWeight: 600,
+                        });
+                      }}
+                      style={{
+                        ...btnSecondary,
+                        padding: "4px 8px",
+                        fontSize: "11px",
+                      }}
+                    >
+                      完了
+                    </button>
+                  ) : null}
+                </div>
+                {floorMarkupTool === "line" || floorMarkupTool === "erase" ? (
+                  <div
+                    style={{
+                      fontSize: "10px",
+                      lineHeight: 1.35,
+                      color: "#94a3b8",
+                    }}
+                  >
+                    {floorMarkupTool === "line" &&
+                      "床で押したまま動かして線を描きます"}
+                    {floorMarkupTool === "erase" &&
+                      "削除したいメモや線をタップ"}
+                  </div>
                 ) : null}
               </div>
             )}
-            {floorMarkupTool ? (
-              <div
-                style={{
-                  position: "absolute",
-                  top: 44,
-                  left: 6,
-                  zIndex: 36,
-                  maxWidth: "min(280px, 88%)",
-                  fontSize: "10px",
-                  lineHeight: 1.35,
-                  color: "#94a3b8",
-                  pointerEvents: "none",
-                }}
-              >
-                {floorMarkupTool === "text" && "床をクリックしてコメントを入力"}
-                {floorMarkupTool === "line" && "床で押したまま動かして線を描きます"}
-                {floorMarkupTool === "erase" && "削除したいメモや線をタップ"}
-              </div>
-            ) : null}
             {stageShapeActive && stageShapeMaskPath && (
               <svg
                 viewBox="0 0 100 100"
@@ -3011,13 +3466,65 @@ export function StageBoard({
               }}
               aria-hidden
             >
+              {(() => {
+                const lines: JSX.Element[] = [];
+                for (let i = 1; i < 10; i++) {
+                  const g = i * 10;
+                  lines.push(
+                    <line
+                      key={`bg-v-${i}`}
+                      x1={g}
+                      y1="0"
+                      x2={g}
+                      y2="100"
+                      stroke="rgba(228, 228, 231, 0.12)"
+                      strokeWidth="0.28"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  );
+                  lines.push(
+                    <line
+                      key={`bg-h-${i}`}
+                      x1="0"
+                      y1={g}
+                      x2="100"
+                      y2={g}
+                      stroke="rgba(228, 228, 231, 0.1)"
+                      strokeWidth="0.28"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  );
+                }
+                return lines;
+              })()}
               <line
                 x1="50"
                 y1="0"
                 x2="50"
                 y2="100"
-                stroke="rgba(248, 250, 252, 0.28)"
-                strokeWidth="0.35"
+                stroke={shell.accent}
+                strokeWidth="0.55"
+                vectorEffect="non-scaling-stroke"
+                opacity={0.92}
+              />
+              <line
+                x1="48.2"
+                y1="0.6"
+                x2="51.8"
+                y2="0.6"
+                stroke={shell.accent}
+                strokeWidth="0.5"
+                strokeLinecap="round"
+                vectorEffect="non-scaling-stroke"
+              />
+              <line
+                x1="48.2"
+                y1="99.4"
+                x2="51.8"
+                y2="99.4"
+                stroke={shell.accent}
+                strokeWidth="0.5"
+                strokeLinecap="round"
                 vectorEffect="non-scaling-stroke"
               />
               <line
@@ -3025,8 +3532,8 @@ export function StageBoard({
                 y1="50"
                 x2="100"
                 y2="50"
-                stroke="rgba(248, 250, 252, 0.28)"
-                strokeWidth="0.35"
+                stroke="rgba(248, 250, 252, 0.18)"
+                strokeWidth="0.32"
                 vectorEffect="non-scaling-stroke"
               />
               {guideLineDrawMarks.map(({ xp, k }, i) => (
@@ -3089,6 +3596,27 @@ export function StageBoard({
                 />
               )}
             </svg>
+            {!(showShell && Bmm > 0) ? (
+              <div
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  paddingTop: "6px",
+                  textAlign: "center",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  letterSpacing: "0.14em",
+                  color: shell.textMuted,
+                  pointerEvents: "none",
+                  zIndex: 4,
+                  textShadow: "0 1px 3px rgba(0,0,0,0.75)",
+                }}
+              >
+                舞台裏
+              </div>
+            ) : null}
             <div
               aria-label="ステージ センター前"
               title="センター前（基準点）"
@@ -3099,8 +3627,8 @@ export function StageBoard({
                 width: "8px",
                 height: "8px",
                 borderRadius: "50%",
-                background: "#ef4444",
-                boxShadow: "0 0 0 1px rgba(15,23,42,0.75)",
+                background: shell.accent,
+                boxShadow: `0 0 0 1px ${shell.bgDeep}`,
                 transform: "translate(-50%, 50%)",
                 pointerEvents: "none",
                 zIndex: 4,
@@ -3114,18 +3642,63 @@ export function StageBoard({
                 bottom: 0,
                 height: "14%",
                 background:
-                  "linear-gradient(180deg, transparent, rgba(15,23,42,0.85))",
-                borderTop: "1px solid rgba(71,85,105,0.6)",
+                  "linear-gradient(180deg, transparent, rgba(9,9,11,0.9))",
+                borderTop: `1px solid ${shell.border}`,
                 display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "12px",
-                color: "#64748b",
+                flexDirection: "column",
+                alignItems: "stretch",
+                justifyContent: "flex-end",
+                paddingBottom: "5px",
                 pointerEvents: "none",
                 zIndex: 3,
               }}
             >
-              観客席
+              <div
+                aria-hidden
+                style={{
+                  position: "relative",
+                  width: "100%",
+                  height: "16px",
+                  marginBottom: "2px",
+                }}
+              >
+                {Array.from({ length: 19 }, (_, i) => {
+                  const n = Math.abs(i - 9);
+                  const leftPct = (i / 18) * 100;
+                  let transform = "translateX(-50%)";
+                  if (i === 0) transform = "translateX(0)";
+                  if (i === 18) transform = "translateX(-100%)";
+                  return (
+                    <span
+                      key={`stage-scale-${i}`}
+                      style={{
+                        position: "absolute",
+                        left: `${leftPct}%`,
+                        top: 0,
+                        transform,
+                        fontSize: "9px",
+                        fontWeight: 700,
+                        fontVariantNumeric: "tabular-nums",
+                        color: shell.textSubtle,
+                        lineHeight: 1,
+                        fontFamily: "system-ui, sans-serif",
+                      }}
+                    >
+                      {n}
+                    </span>
+                  );
+                })}
+              </div>
+              <div
+                style={{
+                  textAlign: "center",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: shell.textMuted,
+                }}
+              >
+                客席
+              </div>
             </div>
             {guideLineDrawMarks.length > 0 && (
               <div
@@ -3249,18 +3822,59 @@ export function StageBoard({
                 </svg>
                 {displayFloorMarkup.map((m) => {
                   if (m.kind !== "text") return null;
-                  const fs = Math.max(8, Math.min(28, m.fontSizePx ?? 13));
+                  const fs = Math.max(8, Math.min(56, m.fontSizePx ?? 18));
+                  const fw = Math.round(
+                    clamp(m.fontWeight ?? 600, 300, 900) / 50
+                  ) * 50;
+                  const textHit =
+                    setPiecesEditable &&
+                    !playbackOrPreview &&
+                    !floorTextPlaceSession &&
+                    (floorMarkupTool === "text" ||
+                      floorMarkupTool === "erase" ||
+                      floorMarkupTool === null);
+                  const textMoveGrab =
+                    setPiecesEditable &&
+                    !playbackOrPreview &&
+                    !floorTextPlaceSession &&
+                    floorMarkupTool === null;
                   return (
                     <div
                       key={m.id}
                       data-floor-markup="text"
                       data-fmark-id={m.id}
                       onPointerDown={(e) => {
-                        if (floorMarkupTool !== "erase" || !setPiecesEditable)
+                        if (floorMarkupTool === "erase" && setPiecesEditable) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          removeFloorMarkupById(m.id);
                           return;
-                        e.preventDefault();
-                        e.stopPropagation();
-                        removeFloorMarkupById(m.id);
+                        }
+                        if (floorMarkupTool === "text" && setPiecesEditable) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setFloorTextEditId(m.id);
+                          setFloorTextDraft({
+                            body: m.text,
+                            fontSizePx: Math.round(clamp(m.fontSizePx ?? 18, 8, 56)),
+                            fontWeight: fw,
+                          });
+                          return;
+                        }
+                        if (textMoveGrab) {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          (e.currentTarget as HTMLElement).setPointerCapture(
+                            e.pointerId
+                          );
+                          floorMarkupTextDragRef.current = {
+                            id: m.id,
+                            startClientX: e.clientX,
+                            startClientY: e.clientY,
+                            startXPct: m.xPct,
+                            startYPct: m.yPct,
+                          };
+                        }
                       }}
                       style={{
                         position: "absolute",
@@ -3272,26 +3886,88 @@ export function StageBoard({
                         borderRadius: "6px",
                         fontSize: fs,
                         lineHeight: 1.25,
-                        fontWeight: 600,
+                        fontWeight: fw,
                         color: m.color ?? "#fef3c7",
                         textShadow:
                           "0 0 2px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.65)",
                         whiteSpace: "pre-wrap",
                         wordBreak: "break-word",
-                        pointerEvents:
-                          floorMarkupTool === "erase" && setPiecesEditable
-                            ? "auto"
-                            : "none",
+                        outline:
+                          floorMarkupTool === "text" && floorTextEditId === m.id
+                            ? "2px solid rgba(129, 140, 248, 0.95)"
+                            : undefined,
+                        outlineOffset: 2,
+                        pointerEvents: textHit ? "auto" : "none",
                         cursor:
                           floorMarkupTool === "erase" && setPiecesEditable
                             ? "pointer"
-                            : "default",
+                            : floorMarkupTool === "text" && setPiecesEditable
+                              ? "pointer"
+                              : textMoveGrab
+                                ? "grab"
+                                : "default",
                       }}
                     >
                       {m.text}
                     </div>
                   );
                 })}
+                {floorTextPlaceSession &&
+                setPiecesEditable &&
+                !playbackOrPreview &&
+                onFloorTextPlaceSessionChange ? (
+                  <div
+                    data-floor-text-place-preview
+                    role="presentation"
+                    title="ドラッグで位置を調整。空いた床をクリックしても移動できます。"
+                    onPointerDown={(e) => {
+                      if (e.button !== 0) return;
+                      e.preventDefault();
+                      e.stopPropagation();
+                      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                      floorTextPlaceDragRef.current = {
+                        startClientX: e.clientX,
+                        startClientY: e.clientY,
+                        startXPct: floorTextPlaceSession.xPct,
+                        startYPct: floorTextPlaceSession.yPct,
+                        session: { ...floorTextPlaceSession },
+                      };
+                    }}
+                    style={{
+                      position: "absolute",
+                      left: `${floorTextPlaceSession.xPct}%`,
+                      top: `${floorTextPlaceSession.yPct}%`,
+                      transform: "translate(-50%, -100%)",
+                      maxWidth: "42%",
+                      padding: "4px 8px",
+                      borderRadius: "8px",
+                      fontSize: Math.max(
+                        8,
+                        Math.min(56, Math.round(floorTextPlaceSession.fontSizePx))
+                      ),
+                      lineHeight: 1.25,
+                      fontWeight:
+                        Math.round(
+                          clamp(floorTextPlaceSession.fontWeight, 300, 900) / 50
+                        ) * 50,
+                      color: "#fef08a",
+                      textShadow:
+                        "0 0 2px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.65)",
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                      outline: "2px dashed rgba(56, 189, 248, 0.95)",
+                      outlineOffset: 2,
+                      pointerEvents: "auto",
+                      cursor: "grab",
+                      zIndex: 8,
+                      background: "rgba(15, 23, 42, 0.35)",
+                    }}
+                  >
+                    {floorTextPlaceSession.body.trim()
+                      ? floorTextPlaceSession.body
+                      : "（テキストを入力）"}
+                  </div>
+                ) : null}
               </div>
             )}
             {displaySetPieces.map((p) => {
@@ -3535,9 +4211,9 @@ export function StageBoard({
                   top: `${selectionBox.y0}%`,
                   width: `${Math.max(0.01, selectionBox.x1 - selectionBox.x0)}%`,
                   height: `${Math.max(0.01, selectionBox.y1 - selectionBox.y0)}%`,
-                  border: "1px dashed rgba(167, 139, 250, 0.9)",
+                  border: `1px dashed ${shell.accent}`,
                   borderRadius: 4,
-                  background: "rgba(99, 102, 241, 0.07)",
+                  background: "rgba(220, 38, 38, 0.05)",
                   pointerEvents: "none",
                   zIndex: 6,
                   boxSizing: "border-box",
@@ -3559,22 +4235,60 @@ export function StageBoard({
                     }
                     style={{
                       position: "absolute",
-                      width: 11,
-                      height: 11,
+                      width: 10,
+                      height: 10,
                       borderRadius: 2,
-                      background: "rgba(167, 139, 250, 0.95)",
-                      border: "1px solid #0f172a",
+                      background: "#f4f4f5",
+                      border: "1px solid rgba(0,0,0,0.38)",
                       zIndex: 7,
                       boxSizing: "border-box",
                       touchAction: "none",
                       pointerEvents: "auto",
                       cursor,
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
                       ...pos,
                     }}
                   />
                 ))}
               </div>
             )}
+            {selectionBox &&
+              selectedDancerIds.length >= 2 &&
+              !playbackOrPreview &&
+              viewMode !== "view" &&
+              stageInteractionsEnabled && (
+                <button
+                  type="button"
+                  data-group-rotate-handle
+                  aria-label="選択メンバーの向きを回転"
+                  title={`選択中の ${selectedDancerIds.length} 人の向きをドラッグで同じだけ回転（枠の中心を軸）`}
+                  onPointerDown={handlePointerDownMarkerRotate}
+                  style={{
+                    position: "absolute",
+                    left: `${(selectionBox.x0 + selectionBox.x1) / 2}%`,
+                    top: `calc(${selectionBox.y1}% + 12px)`,
+                    transform: "translateX(-50%)",
+                    width: 32,
+                    height: 32,
+                    borderRadius: "50%",
+                    border: `2px solid ${shell.bgDeep}`,
+                    background: shell.accent,
+                    boxShadow: "0 2px 10px rgba(0,0,0,0.45)",
+                    cursor: "grab",
+                    touchAction: "none",
+                    pointerEvents: "auto",
+                    zIndex: 8,
+                    padding: 0,
+                    margin: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxSizing: "border-box",
+                  }}
+                >
+                  <RotateHandleGlyph size={14} />
+                </button>
+              )}
             {dragGhostById &&
               dragGhostById.size > 0 &&
               !playbackOrPreview &&
@@ -3596,11 +4310,7 @@ export function StageBoard({
                 const circleLabel = dancerLabelBelow
                   ? (d.markerBadge?.trim() || String(di + 1)).slice(0, 3)
                   : d.label || "?";
-                const facingRaw =
-                  typeof d.facingDeg === "number" && Number.isFinite(d.facingDeg)
-                    ? d.facingDeg
-                    : 0;
-                const facing = normalizeDancerFacingDeg(facingRaw);
+                const facing = normalizeDancerFacingDeg(effectiveFacingDeg(d));
                 const labelOffsetPx = Math.round(dMarkerPx / 2) + 4;
                 const pivotTransform = `translate(-50%, -50%) rotate(${facing}deg)`;
                 return (
@@ -3685,11 +4395,7 @@ export function StageBoard({
               const circleLabel = dancerLabelBelow
                 ? (d.markerBadge?.trim() || String(di + 1)).slice(0, 3)
                 : d.label || "?";
-              const facingRaw =
-                typeof d.facingDeg === "number" && Number.isFinite(d.facingDeg)
-                  ? d.facingDeg
-                  : 0;
-              const facing = normalizeDancerFacingDeg(facingRaw);
+              const facing = normalizeDancerFacingDeg(effectiveFacingDeg(d));
               const labelOffsetPx = Math.round(dMarkerPx / 2) + 4;
               const pivotTransform = playbackOrPreview
                 ? `translate3d(-50%, -50%, 0) rotate(${facing}deg)`
@@ -3780,7 +4486,7 @@ export function StageBoard({
                             ? "2px solid rgba(99,102,241,0.95)"
                             : selectedDancerIds.includes(d.id)
                               ? selectedDancerIds.length >= 2
-                                ? "2px solid rgba(167,139,250,0.95)"
+                                ? `2px solid ${shell.accent}`
                                 : "2px solid rgba(251,191,36,0.92)"
                               : "2px solid rgba(255,255,255,0.35)",
                         backgroundColor:
@@ -3848,38 +4554,84 @@ export function StageBoard({
             })}
             {primarySelectedDancer && !marquee && (() => {
               const pMarkerPx = effectiveMarkerPx(primarySelectedDancer);
-              const tip =
+              const pFacing = normalizeDancerFacingDeg(
+                effectiveFacingDeg(primarySelectedDancer)
+              );
+              const resizeTip =
                 selectedDancerIds.length >= 2
                   ? `選択中の ${selectedDancerIds.length} 人の ○ サイズを一括変更（現 ${pMarkerPx}px・ドラッグで変更）`
                   : `○のサイズ（${pMarkerPx}px）・ドラッグで変更`;
+              const rotateTip =
+                selectedDancerIds.length >= 2
+                  ? `選択中の ${selectedDancerIds.length} 人の向きをドラッグで同じだけ回転（現在 ${pFacing}°）`
+                  : `向きをドラッグで変更（現在 ${pFacing}°）`;
+              const rim = Math.round(pMarkerPx / 2 + 6);
               return (
-              <div
-                data-marker-resize-handle
-                role="presentation"
-                aria-hidden
-                title={tip}
-                onPointerDown={handlePointerDownMarkerResize}
-                style={{
-                  position: "absolute",
-                  left: `${primarySelectedDancer.xPct}%`,
-                  top: `${primarySelectedDancer.yPct}%`,
-                  /** ○の右下 45° 外側にオフセット（pMarkerPx/2 + ちょい余白） */
-                  transform: `translate(calc(${pMarkerPx * 0.35}px), calc(${
-                    pMarkerPx * 0.35
-                  }px))`,
-                  width: 12,
-                  height: 12,
-                  borderRadius: 3,
-                  background: "#fbbf24",
-                  border: "1px solid #0f172a",
-                  boxShadow: "0 2px 6px rgba(0,0,0,0.45)",
-                  cursor: "nwse-resize",
-                  touchAction: "none",
-                  zIndex: 9,
-                  pointerEvents: "auto",
-                  boxSizing: "border-box",
-                }}
-              />
+                <div
+                  role="presentation"
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    left: `${primarySelectedDancer.xPct}%`,
+                    top: `${primarySelectedDancer.yPct}%`,
+                    transform: `translate(-50%, -50%) rotate(${pFacing}deg)`,
+                    width: 0,
+                    height: 0,
+                    zIndex: 9,
+                    pointerEvents: "none",
+                  }}
+                >
+                  {selectedDancerIds.length < 2 ? (
+                    <div
+                      data-marker-rotate-handle
+                      title={rotateTip}
+                      onPointerDown={handlePointerDownMarkerRotate}
+                      style={{
+                        position: "absolute",
+                        left: "50%",
+                        top: `calc(50% + ${rim}px)`,
+                        transform: "translate(-50%, -50%)",
+                        width: 28,
+                        height: 28,
+                        borderRadius: "50%",
+                        background: shell.accent,
+                        border: `2px solid ${shell.bgDeep}`,
+                        boxShadow: "0 2px 10px rgba(0,0,0,0.45)",
+                        cursor: "grab",
+                        touchAction: "none",
+                        pointerEvents: "auto",
+                        boxSizing: "border-box",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        userSelect: "none",
+                      }}
+                    >
+                      <RotateHandleGlyph size={13} />
+                    </div>
+                  ) : null}
+                  <div
+                    data-marker-resize-handle
+                    title={resizeTip}
+                    onPointerDown={handlePointerDownMarkerResize}
+                    style={{
+                      position: "absolute",
+                      left: `calc(50% + ${Math.round(pMarkerPx * 0.35)}px)`,
+                      top: `calc(50% + ${Math.round(pMarkerPx * 0.35)}px)`,
+                      transform: "translate(-50%, -50%)",
+                      width: 12,
+                      height: 12,
+                      borderRadius: 3,
+                      background: "#fbbf24",
+                      border: "1px solid #0f172a",
+                      boxShadow: "0 2px 6px rgba(0,0,0,0.45)",
+                      cursor: "nwse-resize",
+                      touchAction: "none",
+                      pointerEvents: "auto",
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </div>
               );
             })()}
             {tapStageToEditLayout && (
@@ -3903,7 +4655,7 @@ export function StageBoard({
                   ...stripShellStyle,
                   gridColumn: 3,
                   gridRow: Bmm > 0 ? 2 : 1,
-                  borderLeft: "1px solid #334155",
+                  borderLeft: `1px solid ${shell.border}`,
                 }}
               >
                 サイド
@@ -3973,75 +4725,6 @@ export function StageBoard({
                 }}
               >
                 花道
-              </div>
-            ) : null}
-            {visibleFormation ? (
-              <div
-                style={{
-                  flex: "0 0 auto",
-                  borderTop: "1px solid #334155",
-                  padding: "8px 10px 10px",
-                  background: "rgba(2, 6, 23, 0.94)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "6px",
-                  minHeight: 0,
-                }}
-              >
-                <label
-                  htmlFor="stage-formation-memo"
-                  style={{
-                    fontSize: "10px",
-                    fontWeight: 600,
-                    color: "#94a3b8",
-                    letterSpacing: "0.04em",
-                  }}
-                >
-                  ステージメモ（立ち位置の注意・共有）
-                </label>
-                {stageMemoReadOnly ? (
-                  <div
-                    id="stage-formation-memo"
-                    role="note"
-                    style={{
-                      fontSize: "12px",
-                      lineHeight: 1.45,
-                      color: "#e2e8f0",
-                      whiteSpace: "pre-wrap",
-                      wordBreak: "break-word",
-                      minHeight: "2.5em",
-                      maxHeight: "120px",
-                      overflowY: "auto",
-                    }}
-                  >
-                    {(visibleFormation.note ?? "").trim() !== ""
-                      ? visibleFormation.note
-                      : "（メモはまだありません）"}
-                  </div>
-                ) : (
-                  <textarea
-                    id="stage-formation-memo"
-                    value={visibleFormation.note ?? ""}
-                    onChange={(e) => commitStageFormationNote(e.target.value)}
-                    placeholder="例：中央センター寄り／前列は膝まで／移動は客席から見て右から など"
-                    rows={3}
-                    style={{
-                      width: "100%",
-                      resize: "vertical",
-                      minHeight: "56px",
-                      maxHeight: "140px",
-                      fontSize: "12px",
-                      lineHeight: 1.45,
-                      padding: "8px 10px",
-                      borderRadius: "8px",
-                      border: "1px solid #475569",
-                      background: "#020617",
-                      color: "#f1f5f9",
-                      boxSizing: "border-box",
-                      fontFamily: "inherit",
-                    }}
-                  />
-                )}
               </div>
             ) : null}
           </div>

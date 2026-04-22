@@ -1,4 +1,6 @@
+import { Fragment } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { AuthProvider } from "./context/AuthContext";
 import { DashboardPage } from "./pages/DashboardPage";
 import { EditorPage } from "./pages/EditorPage";
@@ -12,7 +14,9 @@ import { BillingCanceledPage, BillingSuccessPage } from "./pages/BillingPages";
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
+      <Fragment>
+        <LanguageSwitcher variant="floating" />
+        <AuthProvider>
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/login" element={<LoginPage />} />
@@ -25,7 +29,8 @@ export default function App() {
           <Route path="/editor/:projectId" element={<EditorPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </AuthProvider>
+        </AuthProvider>
+      </Fragment>
     </BrowserRouter>
   );
 }

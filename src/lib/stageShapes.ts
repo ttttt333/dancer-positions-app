@@ -406,6 +406,138 @@ export const DEFAULT_STAGE_RECT_POLYGON: [number, number][] = [
   [0, 100],
 ];
 
+/** 手書きを直線の折れ線にする RDP のしきい値（% 座標） */
+export const STAGE_SHAPE_SKETCH_EPSILON_PCT = 3.35;
+/** 既存の頂点・ストローク端に吸着する距離（%） */
+export const STAGE_SHAPE_SKETCH_SNAP_PCT = 4.25;
+
+function dedupeConsecutivePct(
+  pts: readonly [number, number][],
+  minDist: number
+): [number, number][] {
+  const out: [number, number][] = [];
+  for (const p of pts) {
+    const last = out[out.length - 1];
+    if (!last || Math.hypot(p[0] - last[0], p[1] - last[1]) >= minDist) {
+      out.push([p[0], p[1]]);
+    }
+  }
+  return out;
+}
+
+function pointToSegmentDistance(
+  px: number,
+  py: number,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number
+): number {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len2 = dx * dx + dy * dy;
+  if (len2 < 1e-12) return Math.hypot(px - x1, py - y1);
+  let t = ((px - x1) * dx + (py - y1) * dy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  const qx = x1 + t * dx;
+  const qy = y1 + t * dy;
+  return Math.hypot(px - qx, py - qy);
+}
+
+/**
+ * 手書きポリラインを Douglas–Peucker で直線の折れ線に簡略化する（0〜100% 座標）。
+ */
+export function simplifyPolylinePct(
+  pts: readonly [number, number][],
+  epsilonPct: number
+): [number, number][] {
+  if (pts.length < 3) {
+    return pts.length === 0 ? [] : clonePolygonPct(pts as [number, number][]);
+  }
+  const first = pts[0]!;
+  const last = pts[pts.length - 1]!;
+  let maxDist = 0;
+  let maxIdx = 0;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const p = pts[i]!;
+    const d = pointToSegmentDistance(
+      p[0],
+      p[1],
+      first[0],
+      first[1],
+      last[0],
+      last[1]
+    );
+    if (d > maxDist) {
+      maxDist = d;
+      maxIdx = i;
+    }
+  }
+  if (maxDist < epsilonPct) {
+    return [first, last];
+  }
+  const left = simplifyPolylinePct(pts.slice(0, maxIdx + 1), epsilonPct);
+  const right = simplifyPolylinePct(pts.slice(maxIdx), epsilonPct);
+  return [...left.slice(0, -1), ...right];
+}
+
+function ensureAtLeastThreeVertices(
+  simplified: [number, number][],
+  originalDense: readonly [number, number][]
+): [number, number][] {
+  if (simplified.length >= 3) return simplified;
+  if (simplified.length === 2 && originalDense.length >= 3) {
+    const a = simplified[0]!;
+    const b = simplified[1]!;
+    const midIdx = Math.floor(originalDense.length / 2);
+    const m = originalDense[midIdx]!;
+    return [a, [m[0], m[1]] as [number, number], b];
+  }
+  return simplified;
+}
+
+/**
+ * 手書きストロークから舞台輪郭用の頂点列を作る。
+ * 直線化（RDP）のあと、既存の多角形の頂点・ストロークの両端に近い点へ吸着する。
+ */
+export function polygonFromFreehandPct(
+  rawSketch: readonly [number, number][],
+  anchorPolygon: readonly [number, number][],
+  epsilonPct: number = STAGE_SHAPE_SKETCH_EPSILON_PCT,
+  snapThresholdPct: number = STAGE_SHAPE_SKETCH_SNAP_PCT
+): [number, number][] | null {
+  if (rawSketch.length < 2) return null;
+  let pts = dedupeConsecutivePct(rawSketch, 0.38);
+  if (pts.length < 2) return null;
+  let simplified = simplifyPolylinePct(pts, epsilonPct);
+  simplified = dedupeConsecutivePct(simplified, 0.22);
+  if (simplified.length < 2) return null;
+  simplified = ensureAtLeastThreeVertices(simplified, pts);
+  if (simplified.length < 3) return null;
+
+  const anchors: [number, number][] = [];
+  for (const p of anchorPolygon) {
+    anchors.push([clamp(p[0], 0, 100), clamp(p[1], 0, 100)]);
+  }
+
+  const th2 = snapThresholdPct * snapThresholdPct;
+  const snapped = simplified.map(([x, y]) => {
+    let bx = x;
+    let by = y;
+    let bestD2 = Infinity;
+    for (const [ax, ay] of anchors) {
+      const d2 = (x - ax) ** 2 + (y - ay) ** 2;
+      if (d2 <= th2 && d2 < bestD2) {
+        bestD2 = d2;
+        bx = ax;
+        by = ay;
+      }
+    }
+    return [bx, by] as [number, number];
+  });
+  return sanitizePolygonPct(snapped);
+}
+
 export function clonePolygonPct(
   pts: readonly [number, number][]
 ): [number, number][] {

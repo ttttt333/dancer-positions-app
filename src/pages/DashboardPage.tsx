@@ -1,10 +1,24 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useI18n } from "../i18n/I18nContext";
 import { billingApi, orgApi, projectApi } from "../api/client";
-import { btnPrimary, btnSecondary } from "../components/stageButtonStyles";
+import { ChoreoGridLogo } from "../components/ChoreoGridLogo";
+import { btnAccent, btnSecondary } from "../components/stageButtonStyles";
+import { panelCard, shell } from "../theme/choreoShell";
+
+function formatUpdatedAt(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  } catch {
+    return iso;
+  }
+}
 
 export function DashboardPage() {
+  const { t } = useI18n();
   const { ready, me, logout, refresh } = useAuth();
   const [projects, setProjects] = useState<
     { id: number; name: string; updated_at: string }[]
@@ -32,33 +46,33 @@ export function DashboardPage() {
           setOrgs(olist);
         }
       } catch (e) {
-        if (!c) setError(e instanceof Error ? e.message : "一覧取得失敗");
+        if (!c) setError(e instanceof Error ? e.message : t("dashboard.listError"));
       }
     })();
     return () => {
       c = true;
     };
-  }, [me]);
+  }, [me, t]);
 
   const requestJoin = async (oid: number) => {
     setJoinMsg("");
     setDevApprovalUrl(null);
     try {
       const res = await orgApi.requestMembership(oid);
-      setJoinMsg("申請を送信しました。管理者の承認をお待ちください。");
+      setJoinMsg(t("dashboard.joinSent"));
       if (import.meta.env.DEV && res.devApprovalUrl) {
         setDevApprovalUrl(res.devApprovalUrl);
       }
       await refresh();
     } catch (e) {
-      setJoinMsg(e instanceof Error ? e.message : "申請に失敗しました");
+      setJoinMsg(e instanceof Error ? e.message : t("dashboard.joinFail"));
     }
   };
 
   const devPurchase = async () => {
     try {
       const r = await billingApi.placeholderPurchase();
-      setJoinMsg(r.message ?? "買い切りフラグを有効にしました（開発）");
+      setJoinMsg(r.message ?? t("dashboard.devPurchaseOk"));
       setDevApprovalUrl(null);
       await refresh();
     } catch (e) {
@@ -72,226 +86,290 @@ export function DashboardPage() {
       const { url } = await billingApi.createCheckoutSession();
       window.location.href = url;
     } catch (e) {
-      setJoinMsg(e instanceof Error ? e.message : "Checkout を開始できませんでした");
+      setJoinMsg(e instanceof Error ? e.message : t("dashboard.checkoutFail"));
     }
   };
 
   const del = async (id: number) => {
-    if (!confirm("この作品を削除しますか？")) return;
+    if (!confirm(t("dashboard.deleteConfirm"))) return;
     try {
       await projectApi.remove(id);
       setProjects((p) => p.filter((x) => x.id !== id));
     } catch (e) {
-      alert(e instanceof Error ? e.message : "削除失敗");
+      alert(e instanceof Error ? e.message : t("dashboard.deleteFail"));
     }
   };
 
-  const topBar = (
-    <div
-      style={{
-        width: "100%",
-        padding: "12px 16px",
-        borderBottom: "1px solid #1e293b",
-        background: "#020617",
-        boxSizing: "border-box",
-      }}
-    >
-      <div style={{ maxWidth: "900px", margin: "0 auto" }}>
-        <Link
-          to="/"
-          style={{
-            color: "#94a3b8",
-            textDecoration: "none",
-            fontSize: "14px",
-          }}
-        >
-          ← 作品一覧
-        </Link>
-      </div>
-    </div>
-  );
-
   if (!ready) {
     return (
-      <div style={{ minHeight: "100vh", background: "#0f172a", color: "#94a3b8" }}>
-        {topBar}
-        <div style={{ padding: 24, maxWidth: "900px", margin: "0 auto" }}>読み込み中…</div>
+      <div
+        style={{
+          minHeight: "100dvh",
+          background: shell.bgDeep,
+          color: shell.textMuted,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontFamily: "system-ui, sans-serif",
+          WebkitFontSmoothing: "antialiased",
+        }}
+      >
+        {t("common.loading")}
       </div>
     );
+  }
+
+  if (!me) {
+    return <Navigate to="/login" replace />;
   }
 
   return (
     <div
       style={{
-        minHeight: "100vh",
-        background: "#0f172a",
-        color: "#e2e8f0",
-        fontFamily: "system-ui, sans-serif",
+        minHeight: "100dvh",
+        background: shell.bgDeep,
+        color: shell.text,
+        fontFamily:
+          'system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Sans", "Noto Sans JP", sans-serif',
+        WebkitFontSmoothing: "antialiased",
       }}
     >
-      {topBar}
-      <div
-        style={{
-          padding: "24px",
-          maxWidth: "900px",
-          margin: "0 auto",
-        }}
-      >
       <header
         style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "12px",
-          alignItems: "center",
-          marginBottom: "24px",
+          borderBottom: `1px solid ${shell.border}`,
+          background: shell.bgChrome,
+          padding: "14px 20px",
         }}
       >
-        <h1 style={{ margin: 0, fontSize: "22px", flex: "1 1 auto" }}>
-          ChoreoGrid
-        </h1>
-        {me ? (
-          <>
-            <span style={{ fontSize: "13px", color: "#94a3b8" }}>{me.user.email}</span>
+        <div
+          style={{
+            maxWidth: 960,
+            margin: "0 auto",
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: "12px 16px",
+            justifyContent: "space-between",
+          }}
+        >
+          <Link
+            to="/"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              textDecoration: "none",
+              color: shell.text,
+            }}
+          >
+            <ChoreoGridLogo size={40} title="ChoreoGrid" />
+            <span>
+              <span
+                style={{
+                  display: "block",
+                  fontSize: "10px",
+                  fontWeight: 600,
+                  letterSpacing: "0.14em",
+                  color: shell.textSubtle,
+                  textTransform: "uppercase",
+                }}
+              >
+                ChoreoGrid
+              </span>
+              <span style={{ fontSize: "16px", fontWeight: 700 }}>{t("dashboard.heroTitle")}</span>
+            </span>
+          </Link>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+            <span style={{ fontSize: "12px", color: shell.textMuted }}>{me.user.email}</span>
             {me.user.subscription_status ? (
-              <span style={{ fontSize: "12px", color: "#86efac" }}>
-                サブスク: {me.user.subscription_status}
+              <span style={{ fontSize: "11px", color: "#86efac" }}>
+                {t("dashboard.subscription")}: {me.user.subscription_status}
               </span>
             ) : null}
             <button
               type="button"
-              style={btnSecondary}
+              style={{ ...btnSecondary, padding: "6px 12px", fontSize: "12px" }}
               title="Stripe でサブスクリプション（要 STRIPE_PRICE_ID）"
               onClick={() => void startStripeSubscription()}
             >
-              サブスク登録（Stripe）
+              {t("dashboard.subscriptionStripe")}
             </button>
             {me.adminOrganizations.length > 0 && (
-              <Link to="/admin/membership" style={{ ...btnSecondary, textDecoration: "none" }}>
-                協会・承認
+              <Link
+                to="/admin/membership"
+                style={{ ...btnSecondary, padding: "6px 12px", fontSize: "12px", textDecoration: "none" }}
+              >
+                {t("dashboard.orgAdmin")}
               </Link>
             )}
-            <Link to="/video" style={{ ...btnSecondary, textDecoration: "none" }}>
-              動画モジュール
+            <Link
+              to="/video"
+              style={{ ...btnSecondary, padding: "6px 12px", fontSize: "12px", textDecoration: "none" }}
+            >
+              {t("dashboard.videoModule")}
             </Link>
             {import.meta.env.DEV && (
-              <button type="button" style={btnSecondary} onClick={() => void devPurchase()}>
-                Dev: 買い切りフラグ
+              <button type="button" style={{ ...btnSecondary, padding: "6px 12px", fontSize: "12px" }} onClick={() => void devPurchase()}>
+                {t("dashboard.devLifetime")}
               </button>
             )}
-            <button type="button" style={btnSecondary} onClick={logout}>
-              ログアウト
+            <button type="button" style={{ ...btnSecondary, padding: "6px 12px", fontSize: "12px" }} onClick={logout}>
+              {t("dashboard.logout")}
             </button>
-          </>
-        ) : (
-          <>
-            <Link to="/login" style={{ ...btnSecondary, textDecoration: "none" }}>
-              ログイン
-            </Link>
-            <Link to="/register" style={{ ...btnPrimary, textDecoration: "none" }}>
-              新規登録
-            </Link>
-          </>
-        )}
+          </div>
+        </div>
       </header>
 
-      <p style={{ color: "#94a3b8", fontSize: "14px", marginBottom: "20px" }}>
-        デスクトップの広い画面での利用を想定しています。新規作品はブラウザのみでも編集できます。ログイン後はサーバに保存できます。
-      </p>
-
-      <div style={{ marginBottom: "20px" }}>
-        <Link to="/editor/new" style={{ ...btnPrimary, textDecoration: "none", display: "inline-block" }}>
-          新規作品を開く
-        </Link>
-      </div>
-
-      {me && orgs.length > 0 && (
-        <section style={{ marginBottom: "24px" }}>
-          <h2 style={{ fontSize: "16px", color: "#94a3b8", marginBottom: "8px" }}>
-            協会への参加
-          </h2>
-          <p style={{ fontSize: "13px", color: "#64748b", marginBottom: "8px" }}>
-            所属:{" "}
-            {me.memberOrganizations.length
-              ? me.memberOrganizations.map((o) => o.name).join(", ")
-              : "なし（未承認または未申請）"}
-          </p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-            {orgs.map((o) => (
-              <button
-                key={o.id}
-                type="button"
-                style={btnSecondary}
-                onClick={() => void requestJoin(o.id)}
-              >
-                「{o.name}」に参加申請
-              </button>
-            ))}
-          </div>
-          {joinMsg && (
-            <p style={{ fontSize: "13px", color: "#86efac", marginTop: "8px" }}>{joinMsg}</p>
-          )}
-          {devApprovalUrl && (
-            <p
-              style={{
-                fontSize: "11px",
-                color: "#94a3b8",
-                marginTop: "8px",
-                wordBreak: "break-all",
-                fontFamily: "ui-monospace, monospace",
-              }}
-            >
-              開発用承認 URL: {devApprovalUrl}
+      <main style={{ maxWidth: 960, margin: "0 auto", padding: "28px 20px 48px" }}>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "flex-end",
+            justifyContent: "space-between",
+            gap: "16px 24px",
+            marginBottom: "28px",
+          }}
+        >
+          <div style={{ minWidth: 0, flex: "1 1 240px" }}>
+            <h1 style={{ margin: 0, fontSize: "26px", fontWeight: 700, letterSpacing: "-0.03em" }}>
+              {t("dashboard.libraryHeading")}
+            </h1>
+            <p style={{ margin: "10px 0 0", fontSize: "14px", lineHeight: 1.55, color: shell.textMuted }}>
+              {t("dashboard.subtitle")}
             </p>
-          )}
-        </section>
-      )}
+          </div>
+          <Link
+            to="/editor/new"
+            style={{
+              ...btnAccent,
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "12px 22px",
+              fontSize: "14px",
+              flexShrink: 0,
+            }}
+          >
+            {t("dashboard.newProject")}
+          </Link>
+        </div>
 
-      {me && (
-        <>
-          <h2 style={{ fontSize: "16px", color: "#94a3b8", marginBottom: "12px" }}>
-            クラウドの作品
-          </h2>
-          {error && <p style={{ color: "#f87171" }}>{error}</p>}
-          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-            {projects.map((p) => (
-              <li
-                key={p.id}
+        {orgs.length > 0 && (
+          <section style={{ ...panelCard, padding: "18px 20px", marginBottom: 24 }}>
+            <h2 style={{ margin: "0 0 8px", fontSize: "13px", fontWeight: 600, color: shell.textMuted }}>
+              {t("dashboard.joinSection")}
+            </h2>
+            <p style={{ fontSize: "12px", color: shell.textSubtle, margin: "0 0 10px" }}>
+              {t("dashboard.memberOf")}:{" "}
+              {me.memberOrganizations.length
+                ? me.memberOrganizations.map((o) => o.name).join(", ")
+                : t("dashboard.noneMembers")}
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {orgs.map((o) => (
+                <button key={o.id} type="button" style={btnSecondary} onClick={() => void requestJoin(o.id)}>
+                  {t("dashboard.requestJoin", { name: o.name })}
+                </button>
+              ))}
+            </div>
+            {joinMsg ? (
+              <p style={{ fontSize: "12px", color: "#86efac", marginTop: "10px", marginBottom: 0 }}>{joinMsg}</p>
+            ) : null}
+            {devApprovalUrl ? (
+              <p
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "12px",
-                  padding: "12px 0",
-                  borderBottom: "1px solid #1e293b",
+                  fontSize: "11px",
+                  color: shell.textMuted,
+                  marginTop: "8px",
+                  marginBottom: 0,
+                  wordBreak: "break-all",
+                  fontFamily: "ui-monospace, monospace",
                 }}
               >
-                <div style={{ flex: 1, display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" }}>
-                  <Link
-                    to={`/editor/${p.id}`}
-                    style={{ color: "#93c5fd", textDecoration: "none" }}
-                  >
-                    {p.name}
-                  </Link>
+                {t("dashboard.devApprovalUrl")}: {devApprovalUrl}
+              </p>
+            ) : null}
+          </section>
+        )}
+
+        <h2 style={{ margin: "0 0 14px", fontSize: "12px", fontWeight: 600, letterSpacing: "0.12em", color: shell.textSubtle }}>
+          {t("dashboard.cloudWorks")}
+        </h2>
+        {error ? <p style={{ color: "#fca5a5", marginBottom: 16 }}>{error}</p> : null}
+
+        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 12 }}>
+          {projects.map((p) => (
+            <li key={p.id} style={{ ...panelCard, padding: 0, overflow: "hidden" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "stretch",
+                  gap: 0,
+                }}
+              >
+                <Link
+                  to={`/editor/${p.id}`}
+                  style={{
+                    flex: "1 1 200px",
+                    padding: "18px 20px",
+                    textDecoration: "none",
+                    color: shell.text,
+                    minWidth: 0,
+                  }}
+                >
+                  <div style={{ fontSize: "16px", fontWeight: 600, marginBottom: 6 }}>{p.name}</div>
+                  <div style={{ fontSize: "12px", color: shell.textMuted }}>
+                    {t("dashboard.updatedLabel")}: {formatUpdatedAt(p.updated_at)}
+                  </div>
+                </Link>
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "12px 16px",
+                    borderLeft: `1px solid ${shell.border}`,
+                    background: "rgba(0,0,0,0.15)",
+                  }}
+                >
                   <Link
                     to={`/editor/${p.id}?collab=1`}
-                    style={{ fontSize: "11px", color: "#64748b", textDecoration: "none" }}
-                    title="Yjs で共同編集（ログイン必須）"
+                    style={{ ...btnSecondary, fontSize: "12px", padding: "6px 12px", textDecoration: "none" }}
+                    title={t("dashboard.collabHint")}
                   >
-                    共同編集
+                    {t("dashboard.collab")}
                   </Link>
+                  <button type="button" style={{ ...btnSecondary, fontSize: "12px", padding: "6px 12px" }} onClick={() => void del(p.id)}>
+                    {t("dashboard.delete")}
+                  </button>
                 </div>
-                <span style={{ fontSize: "12px", color: "#64748b" }}>{p.updated_at}</span>
-                <button type="button" style={btnSecondary} onClick={() => void del(p.id)}>
-                  削除
-                </button>
-              </li>
-            ))}
-          </ul>
-          {projects.length === 0 && !error && (
-            <p style={{ color: "#64748b", fontSize: "14px" }}>まだありません</p>
-          )}
-        </>
-      )}
-      </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+
+        {projects.length === 0 && !error ? (
+          <div style={{ ...panelCard, padding: "36px 24px", textAlign: "center", marginTop: 8 }}>
+            <p style={{ margin: 0, fontSize: "14px", color: shell.textMuted, lineHeight: 1.6 }}>{t("dashboard.emptyProjects")}</p>
+            <Link
+              to="/editor/new"
+              style={{
+                ...btnAccent,
+                marginTop: 20,
+                textDecoration: "none",
+                display: "inline-flex",
+                padding: "10px 20px",
+              }}
+            >
+              {t("dashboard.newProject")}
+            </Link>
+          </div>
+        ) : null}
+      </main>
     </div>
   );
 }
