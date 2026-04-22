@@ -1,4 +1,9 @@
-import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
+import type {
+  CSSProperties,
+  Dispatch,
+  PointerEvent as ReactPointerEvent,
+  SetStateAction,
+} from "react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ChoreographyProjectJson,
@@ -97,6 +102,13 @@ type Props = {
   /** 床テキストを置くウィザード中（プレビュー座標・本文は親が保持） */
   floorTextPlaceSession?: FloorTextPlaceSession | null;
   onFloorTextPlaceSessionChange?: (next: FloorTextPlaceSession) => void;
+  /** 親と共有する床マークアップツール（未指定なら内部 state） */
+  floorMarkupTool?: null | "text" | "line" | "erase";
+  onFloorMarkupToolChange?: Dispatch<
+    SetStateAction<null | "text" | "line" | "erase">
+  >;
+  /** true のときステージ左上のテキスト／線トグル帯を出さず、編集 UI のみ出す */
+  hideFloorMarkupFloatingToolbars?: boolean;
 };
 
 function clamp(n: number, min: number, max: number) {
@@ -284,6 +296,9 @@ export function StageBoard({
   onStopPlaybackRequest,
   floorTextPlaceSession = null,
   onFloorTextPlaceSessionChange,
+  floorMarkupTool: floorMarkupToolProp,
+  onFloorMarkupToolChange,
+  hideFloorMarkupFloatingToolbars = false,
 }: Props) {
   const {
     formations,
@@ -481,10 +496,17 @@ export function StageBoard({
    */
   const [selectedDancerIds, setSelectedDancerIds] = useState<string[]>([]);
   const [selectedSetPieceId, setSelectedSetPieceId] = useState<string | null>(null);
-  /** 床にコメント／線を追加するときのツール（Esc で解除） */
-  const [floorMarkupTool, setFloorMarkupTool] = useState<
+  /** 床にコメント／線を追加するときのツール（Esc で解除）。親指定時は制御モード */
+  const [floorMarkupToolUncontrolled, setFloorMarkupToolUncontrolled] = useState<
     null | "text" | "line" | "erase"
   >(null);
+  const markupControlled = typeof onFloorMarkupToolChange === "function";
+  const floorMarkupTool = markupControlled
+    ? (floorMarkupToolProp as null | "text" | "line" | "erase")
+    : floorMarkupToolUncontrolled;
+  const setFloorMarkupTool = markupControlled
+    ? onFloorMarkupToolChange!
+    : setFloorMarkupToolUncontrolled;
   /** 線ツール：ドラッグ中の頂点列プレビュー */
   const [floorLineDraft, setFloorLineDraft] = useState<[number, number][] | null>(
     null
@@ -3061,6 +3083,7 @@ export function StageBoard({
                   maxWidth: "calc(100% - 12px)",
                 }}
               >
+                {!hideFloorMarkupFloatingToolbars ? (
                 <div
                   role="toolbar"
                   aria-label="ステージ床テキスト"
@@ -3362,6 +3385,233 @@ export function StageBoard({
                       "床で押したまま動かして線を描きます"}
                     {floorMarkupTool === "erase" &&
                       "削除したいメモや線をタップ"}
+                  </div>
+                ) : null}
+                ) : null}
+                {hideFloorMarkupFloatingToolbars && floorMarkupTool === "text" ? (
+                  <div
+                    onPointerDown={(e) => e.stopPropagation()}
+                    style={{
+                      position: "absolute",
+                      bottom: 8,
+                      left: 8,
+                      right: 8,
+                      zIndex: 37,
+                      maxHeight: "42%",
+                      overflow: "auto",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8,
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #334155",
+                      background: "rgba(15, 23, 42, 0.96)",
+                      boxShadow: "0 -4px 18px rgba(0,0,0,0.35)",
+                    }}
+                  >
+                    {floorTextEditId ? (
+                      <button
+                        type="button"
+                        title="選択を解除し、新しいテキストを置けるようにします"
+                        onClick={() => setFloorTextEditId(null)}
+                        style={{
+                          ...btnSecondary,
+                          padding: "4px 10px",
+                          fontSize: "11px",
+                          alignSelf: "flex-start",
+                        }}
+                      >
+                        新規へ
+                      </button>
+                    ) : null}
+                    <textarea
+                      value={floorTextDraft.body}
+                      onChange={(e) => {
+                        const body = e.target.value;
+                        setFloorTextDraft((d) => ({ ...d, body }));
+                        if (floorTextEditId) {
+                          updateActiveFormation((f) => ({
+                            ...f,
+                            floorMarkup: (f.floorMarkup ?? []).map((m) =>
+                              m.id === floorTextEditId && m.kind === "text"
+                                ? { ...m, text: body.slice(0, 400) }
+                                : m
+                            ),
+                          }));
+                        }
+                      }}
+                      rows={2}
+                      placeholder="ステージに表示する文言…"
+                      style={{
+                        width: "100%",
+                        resize: "vertical",
+                        minHeight: 44,
+                        boxSizing: "border-box",
+                        borderRadius: 6,
+                        border: "1px solid #475569",
+                        background: "#0f172a",
+                        color: "#e2e8f0",
+                        fontSize: 13,
+                        padding: "6px 8px",
+                        fontFamily: "system-ui, sans-serif",
+                      }}
+                    />
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        alignItems: "center",
+                        gap: "12px 16px",
+                        fontSize: "11px",
+                        color: "#cbd5e1",
+                      }}
+                    >
+                      <label
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        サイズ {floorTextDraft.fontSizePx}px
+                        <input
+                          type="range"
+                          min={8}
+                          max={56}
+                          value={floorTextDraft.fontSizePx}
+                          onChange={(e) => {
+                            const fontSizePx = Number(e.target.value);
+                            setFloorTextDraft((d) => ({ ...d, fontSizePx }));
+                            if (floorTextEditId) {
+                              updateActiveFormation((f) => ({
+                                ...f,
+                                floorMarkup: (f.floorMarkup ?? []).map((m) =>
+                                  m.id === floorTextEditId && m.kind === "text"
+                                    ? {
+                                        ...m,
+                                        fontSizePx: Math.round(
+                                          clamp(fontSizePx, 8, 56)
+                                        ),
+                                      }
+                                    : m
+                                ),
+                              }));
+                            }
+                          }}
+                        />
+                      </label>
+                      <label
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        太さ {floorTextDraft.fontWeight}
+                        <input
+                          type="range"
+                          min={300}
+                          max={900}
+                          step={50}
+                          value={floorTextDraft.fontWeight}
+                          onChange={(e) => {
+                            const fontWeight = Number(e.target.value);
+                            setFloorTextDraft((d) => ({ ...d, fontWeight }));
+                            if (floorTextEditId) {
+                              const fw =
+                                Math.round(clamp(fontWeight, 300, 900) / 50) * 50;
+                              updateActiveFormation((f) => ({
+                                ...f,
+                                floorMarkup: (f.floorMarkup ?? []).map((m) =>
+                                  m.id === floorTextEditId && m.kind === "text"
+                                    ? { ...m, fontWeight: fw }
+                                    : m
+                                ),
+                              }));
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                    <button
+                      type="button"
+                      title="ツールを終了（Esc でも可）"
+                      onClick={() => {
+                        setFloorMarkupTool(null);
+                        setFloorTextEditId(null);
+                        setFloorTextDraft({
+                          body: "",
+                          fontSizePx: 18,
+                          fontWeight: 600,
+                        });
+                      }}
+                      style={{
+                        ...btnSecondary,
+                        padding: "6px 12px",
+                        fontSize: "12px",
+                        alignSelf: "flex-end",
+                      }}
+                    >
+                      完了
+                    </button>
+                  </div>
+                ) : null}
+                {hideFloorMarkupFloatingToolbars &&
+                (floorMarkupTool === "line" || floorMarkupTool === "erase") ? (
+                  <div
+                    onPointerDown={(e) => e.stopPropagation()}
+                    style={{
+                      position: "absolute",
+                      bottom: 8,
+                      left: 8,
+                      right: 8,
+                      zIndex: 37,
+                      display: "flex",
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "8px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #334155",
+                      background: "rgba(15, 23, 42, 0.94)",
+                      boxShadow: "0 -4px 18px rgba(0,0,0,0.35)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "11px",
+                        color: "#94a3b8",
+                        flex: "1 1 180px",
+                        lineHeight: 1.35,
+                      }}
+                    >
+                      {floorMarkupTool === "line" &&
+                        "床で押したまま動かして線を描きます"}
+                      {floorMarkupTool === "erase" &&
+                        "削除したいメモや線をタップ"}
+                    </span>
+                    <button
+                      type="button"
+                      title="ツールを終了（Esc でも可）"
+                      onClick={() => {
+                        setFloorMarkupTool(null);
+                        floorLineSessionRef.current = null;
+                        setFloorLineDraft(null);
+                        setFloorTextEditId(null);
+                        setFloorTextDraft({
+                          body: "",
+                          fontSizePx: 18,
+                          fontWeight: 600,
+                        });
+                      }}
+                      style={{
+                        ...btnSecondary,
+                        padding: "6px 12px",
+                        fontSize: "12px",
+                      }}
+                    >
+                      完了
+                    </button>
                   </div>
                 ) : null}
               </div>

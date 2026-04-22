@@ -53,13 +53,10 @@ body {
   height: 12px !important;
 }
 
-/* 上部波形ドック最小構成: 音源取込・再生の文字が潰れないように */
-.wave-dock-minimal-toolbar button,
-.wave-dock-minimal-toolbar label {
-  font-size: 12px !important;
-  line-height: 1.25 !important;
-  padding: 6px 14px !important;
-  min-height: 34px !important;
+/* 上部ドック: 波形直前の現在時刻／総時間 */
+.wave-compact-time-above-wave {
+  font-variant-numeric: tabular-nums;
+  color: #f5f0e6;
 }
 
 /* 右列タイル・スライダー行: ボタンと角ボタンの色を統一（可読性） */
@@ -91,29 +88,6 @@ body {
   color: #f5f0e6 !important;
 }
 
-.editor-right-tools-meta button[type="button"] {
-  background: rgba(22, 21, 18, 0.96) !important;
-  border: 1px solid rgba(212, 175, 55, 0.24) !important;
-  color: #f5f0e6 !important;
-  font-weight: 500 !important;
-}
-
-.editor-right-tools-meta button[type="button"]:disabled {
-  opacity: 0.42 !important;
-  color: #a8a29e !important;
-}
-
-.editor-right-tools-meta input[type="range"] {
-  accent-color: #d4af37;
-}
-
-.editor-right-tools-meta input[type="number"],
-.editor-right-tools-meta select {
-  color: #f5f0e6 !important;
-  border-color: rgba(212, 175, 55, 0.22) !important;
-  background: rgba(10, 9, 8, 0.92) !important;
-}
-
 /* 右列: 正方形タイルを縦に詰め、高さが足りないときは列方向の折り返しで 2 列相当に */
 .editor-right-tools-section {
   container-type: size;
@@ -130,16 +104,18 @@ body {
 
 .editor-right-tools-tiles {
   display: flex;
-  flex-flow: column wrap;
-  align-content: flex-start;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: center;
   justify-content: flex-start;
-  gap: 8px;
+  gap: 7px;
   flex: 1 1 auto;
   min-height: 0;
   height: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   width: 100%;
+  padding: 2px 0 6px;
 }
 
 @container editor-right-tools (max-height: 640px) {
@@ -148,53 +124,120 @@ body {
   }
 }
 
-.editor-right-tools-meta {
-  flex: 0 0 auto;
-  width: 100%;
-  padding-top: 8px;
-  border-top: 1px solid rgba(212, 175, 55, 0.12);
+/**
+ * 右列タイル内のボタン（インラインの btnSecondary より優先して 48px 角に収める）
+ */
+.editor-right-tools-tiles button[type="button"] {
+  box-sizing: border-box !important;
+  min-width: 48px !important;
+  min-height: 48px !important;
+  width: 48px !important;
+  height: 48px !important;
+  max-width: 48px !important;
+  padding: 3px 3px !important;
+  border-radius: 10px !important;
+  font-size: 7.5px !important;
+  line-height: 1.12 !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  display: inline-flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  overflow: hidden !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+  white-space: normal !important;
 }
 
-.editor-right-tools-tiles button[type="button"] {
-  box-sizing: border-box;
-  min-width: 48px;
-  min-height: 48px;
-  width: 48px;
-  height: 48px;
-  padding: 2px 4px;
-  border-radius: 10px;
-  font-size: 9px;
-  line-height: 1.1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  overflow: hidden;
-  word-break: break-word;
+.editor-right-tools-tiles button[type="button"] svg {
+  flex-shrink: 0 !important;
+  width: 18px !important;
+  height: 18px !important;
+  max-width: 100% !important;
+  max-height: 22px !important;
+}
+
+.editor-right-tools-tiles button[type="button"] > span {
+  font-size: 7.5px !important;
+  line-height: 1.12 !important;
+  font-weight: 600 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: normal !important;
+  word-break: break-word !important;
 }
 
 .editor-right-tools-tiles [role="menu"] button[type="button"],
 .editor-right-tools-tiles [role="listbox"] button[type="button"] {
-  width: 100%;
-  min-width: 0;
-  height: auto;
-  min-height: 36px;
-  font-size: 12px;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: auto !important;
+  min-height: 36px !important;
+  font-size: 12px !important;
+  line-height: 1.25 !important;
+  padding: 8px 10px !important;
+  flex-direction: row !important;
+  white-space: nowrap !important;
+  justify-content: flex-start !important;
+}
+
+.editor-right-tools-tiles [role="menu"] button[type="button"] svg,
+.editor-right-tools-tiles [role="listbox"] button[type="button"] svg {
+  width: auto !important;
+  height: auto !important;
+  max-height: none !important;
+}
+
+.editor-right-tools-tiles [role="menu"] button[type="button"] > span,
+.editor-right-tools-tiles [role="listbox"] button[type="button"] > span {
+  font-size: inherit !important;
+  white-space: nowrap !important;
+}
+
+.editor-right-cue-pager > button:first-child,
+.editor-right-cue-pager > button:last-child {
+  font-size: 15px !important;
+  line-height: 1 !important;
+  flex-direction: row !important;
+  white-space: nowrap !important;
+  word-break: normal !important;
+  overflow-wrap: normal !important;
+  padding: 0 !important;
 }
 
 .editor-right-tool-sq {
   box-sizing: border-box;
-  width: 48px;
-  height: 48px;
-  min-width: 48px;
-  min-height: 48px;
-  padding: 2px;
-  border-radius: 10px;
-  font-size: 9px;
-  line-height: 1.1;
-  display: inline-flex;
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px !important;
+  min-height: 48px !important;
+  max-width: 48px !important;
+  padding: 3px 3px !important;
+  border-radius: 10px !important;
+  font-size: 7.5px !important;
+  line-height: 1.12 !important;
+  font-weight: 600 !important;
+  display: inline-flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  overflow: hidden !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+  white-space: normal !important;
+}
+
+/* キュー ◀ / 一覧 / ▶ の縦ブロックは中で幅を使う（子ボタンは上記から除外しない） */
+.editor-right-cue-pager {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  text-align: center;
-  overflow: hidden;
+  gap: 6px;
+  width: 48px;
+  flex-shrink: 0;
 }

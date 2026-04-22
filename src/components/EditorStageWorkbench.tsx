@@ -4,8 +4,6 @@ import type { FloorTextPlaceSession } from "../components/StageBoard";
 import { btnSecondary } from "../components/stageButtonStyles";
 import { shell } from "../theme/choreoShell";
 import { GATHER_TOWARD_OPTIONS, type GatherToward } from "../lib/gatherDancers";
-import { DANCER_SPACING_PRESET_OPTIONS } from "../lib/dancerSpacing";
-
 export type EditorStageWorkbenchProps = {
   layout: "stage" | "rail";
   project: ChoreographyProjectJson;
@@ -46,8 +44,8 @@ export type EditorStageWorkbenchProps = {
   setFloorTextPlaceSession: Dispatch<SetStateAction<FloorTextPlaceSession | null>>;
   commitFloorTextPlace: () => void;
   hasRosterMembers: boolean;
-  /** 右列タイル用に 1 行目のみ／2 行目のみを出し分ける */
-  railSurface?: "tiles" | "sliders";
+  /** true のとき「テキスト」（床プレビュー配置）ボタンとその入力帯を出さない */
+  hideFloorTextToolbar?: boolean;
 };
 
 export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
@@ -91,12 +89,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
     setFloorTextPlaceSession,
     commitFloorTextPlace,
     hasRosterMembers,
-    railSurface,
   } = props;
-
-  const hideRow1 = Boolean(rail && railSurface === "sliders");
-  const hideRow2 = Boolean(rail && railSurface === "tiles");
-  const tileFlow = Boolean(rail && railSurface === "tiles");
 
   const rowOuter: CSSProperties = rail
     ? {
@@ -146,23 +139,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
         flexWrap: "wrap",
         justifyContent: "flex-end",
       };
-  const row2Outer: CSSProperties = rail
-    ? {
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "stretch",
-        gap: 10,
-        width: "100%",
-        minWidth: 0,
-      }
-    : {
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "flex-end",
-        gap: "10px",
-        flexWrap: "wrap",
-        rowGap: "6px",
-      };
   const rootOuter: CSSProperties = rail
     ? {
         display: "flex",
@@ -179,16 +155,12 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
         marginBottom: "6px",
       };
 
-  const rootStyle: CSSProperties =
-    rail && railSurface
-      ? hideRow1 || hideRow2
-        ? { display: "contents" }
-        : rootOuter
-      : rootOuter;
+  /** 右列ホスト内では子を親の flex グリッドに直接参加させる */
+  const rootStyle: CSSProperties = rail ? { display: "contents" } : rootOuter;
 
-  const rowOuterStyle: CSSProperties = tileFlow ? { display: "contents" } : rowOuter;
-  const clusterStyle: CSSProperties = tileFlow ? { display: "contents" } : cluster;
-  const clusterEndStyle: CSSProperties = tileFlow ? { display: "contents" } : clusterEnd;
+  const rowOuterStyle: CSSProperties = rail ? { display: "contents" } : rowOuter;
+  const clusterStyle: CSSProperties = rail ? { display: "contents" } : cluster;
+  const clusterEndStyle: CSSProperties = rail ? { display: "contents" } : clusterEnd;
 
   const viewModeRow: CSSProperties = rail
     ? {
@@ -208,8 +180,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
 
   return (
     <div style={rootStyle}>
-      {!hideRow1 ? (
-      <>
       {/* 1 行目: タイトル／選択情報 + 主要アクション */}
       <div style={rowOuterStyle}>
         <div style={clusterStyle}>
@@ -250,32 +220,52 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
         project.viewMode !== "view" &&
         curIdx >= 0 &&
         curIdx < total - 1;
-      const navBtnStyle = (enabled: boolean): CSSProperties => ({
-        width: "26px",
-        height: "26px",
-        padding: 0,
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        borderRadius: "6px",
-        border: "1px solid #334155",
-        background: "#0f172a",
-        color: enabled ? "#cbd5e1" : "#475569",
-        fontSize: "14px",
-        lineHeight: 1,
-        cursor: enabled ? "pointer" : "not-allowed",
-        flexShrink: 0,
-      });
+      const navBtnStyle = (enabled: boolean): CSSProperties =>
+        rail
+          ? {
+              width: "48px",
+              height: "48px",
+              padding: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: "8px",
+              border: "1px solid #334155",
+              background: "#0f172a",
+              color: enabled ? "#cbd5e1" : "#475569",
+              fontSize: "15px",
+              lineHeight: 1,
+              flexDirection: "row",
+              cursor: enabled ? "pointer" : "not-allowed",
+              flexShrink: 0,
+            }
+          : {
+              width: "26px",
+              height: "26px",
+              padding: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: "6px",
+              border: "1px solid #334155",
+              background: "#0f172a",
+              color: enabled ? "#cbd5e1" : "#475569",
+              fontSize: "14px",
+              lineHeight: 1,
+              cursor: enabled ? "pointer" : "not-allowed",
+              flexShrink: 0,
+            };
       return (
         <div
+          className={rail ? "editor-right-cue-pager" : undefined}
           style={{
             position: "relative",
             display: "inline-flex",
-            flexDirection: tileFlow ? "row" : rail ? "column" : "row",
+            flexDirection: rail ? "column" : "row",
             alignItems: "center",
-            gap: "4px",
+            gap: rail ? "6px" : "4px",
             flexShrink: 0,
-            width: tileFlow ? "auto" : rail ? "100%" : undefined,
+            width: rail ? 48 : undefined,
           }}
           title="ステージのキュー（ページ）切替。タイムラインも区間の頭に移動します。"
         >
@@ -302,51 +292,99 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                   : "無名のキューを編集中。クリックで全キュー一覧。"
                 : "クリックで全キュー一覧から選択"
             }
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              padding: "3px 9px",
-              borderRadius: "8px",
-              border: cur
-                ? "1px solid #818cf8"
-                : "1px solid #334155",
-              background: cur ? "rgba(99,102,241,0.18)" : "#0f172a",
-              color: cur ? "#e0e7ff" : "#94a3b8",
-              fontSize: "12px",
-              fontWeight: 700,
-              cursor:
-                project.viewMode === "view"
-                  ? "not-allowed"
-                  : "pointer",
-              flexShrink: 0,
-              minHeight: "26px",
-              maxWidth: "240px",
-              fontVariantNumeric: "tabular-nums",
-            }}
+            style={
+              rail
+                ? {
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "1px",
+                    width: "48px",
+                    height: "48px",
+                    maxWidth: "48px",
+                    padding: "4px 2px",
+                    borderRadius: "8px",
+                    border: cur
+                      ? "1px solid #818cf8"
+                      : "1px solid #334155",
+                    background: cur ? "rgba(99,102,241,0.18)" : "#0f172a",
+                    color: cur ? "#e0e7ff" : "#94a3b8",
+                    fontSize: "7px",
+                    fontWeight: 700,
+                    lineHeight: 1.1,
+                    cursor:
+                      project.viewMode === "view"
+                        ? "not-allowed"
+                        : "pointer",
+                    flexShrink: 0,
+                    fontVariantNumeric: "tabular-nums",
+                    textAlign: "center",
+                    overflow: "hidden",
+                    wordBreak: "break-word",
+                  }
+                : {
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "3px 9px",
+                    borderRadius: "8px",
+                    border: cur
+                      ? "1px solid #818cf8"
+                      : "1px solid #334155",
+                    background: cur ? "rgba(99,102,241,0.18)" : "#0f172a",
+                    color: cur ? "#e0e7ff" : "#94a3b8",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    cursor:
+                      project.viewMode === "view"
+                        ? "not-allowed"
+                        : "pointer",
+                    flexShrink: 0,
+                    minHeight: "26px",
+                    maxWidth: "240px",
+                    fontVariantNumeric: "tabular-nums",
+                  }
+            }
           >
             <span
               style={{
-                fontSize: "9px",
+                fontSize: rail ? "6.5px" : "9px",
                 color: cur ? "#c7d2fe" : "#64748b",
-                letterSpacing: "0.04em",
+                letterSpacing: rail ? 0 : "0.04em",
+                lineHeight: 1.1,
               }}
             >
               キュー
             </span>
-            <span style={{ whiteSpace: "nowrap" }}>
+            <span
+              style={
+                rail
+                  ? {
+                      whiteSpace: "normal",
+                      textAlign: "center",
+                      lineHeight: 1.1,
+                    }
+                  : { whiteSpace: "nowrap" }
+              }
+            >
               {curIdx >= 0 ? curIdx + 1 : "—"} / {total}
             </span>
             {cur && cur.name?.trim() ? (
               <span
                 style={{
-                  fontSize: "11px",
+                  fontSize: rail ? "6.5px" : "11px",
                   fontWeight: 500,
                   color: "#e2e8f0",
                   overflow: "hidden",
+                  display: rail ? "-webkit-box" : undefined,
+                  WebkitLineClamp: rail ? 2 : undefined,
+                  WebkitBoxOrient: rail ? "vertical" : undefined,
                   textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  maxWidth: "120px",
+                  whiteSpace: rail ? "normal" : "nowrap",
+                  maxWidth: rail ? "100%" : "120px",
+                  lineHeight: 1.08,
+                  textAlign: "center",
                 }}
               >
                 {cur.name.trim()}
@@ -355,9 +393,10 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
             <span
               aria-hidden
               style={{
-                fontSize: "9px",
+                fontSize: rail ? "6px" : "9px",
                 color: cur ? "#c7d2fe" : "#64748b",
-                marginLeft: "1px",
+                marginLeft: rail ? 0 : "1px",
+                lineHeight: 1,
               }}
             >
               ▾
@@ -1108,7 +1147,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
           メンバーを表示
         </button>
       ) : null}
-      {floorTextPlaceSession ? (
+      {!hideFloorTextToolbar && floorTextPlaceSession ? (
         <div
           style={{
             flexBasis: "100%",
@@ -1216,210 +1255,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
     </div>
   </div>
   </div>
-      </>
-      ) : null}
-      {!hideRow2 ? (
-      <>
-      {/* 2 行目: 印の直径・規格（グリッド・名前・客席は「設定」ボタンへ集約） */}
-      <div style={row2Outer}>
-    <label
-      style={{
-        display: rail ? "flex" : "inline-flex",
-        flexDirection: rail ? "column" : "row",
-        alignItems: rail ? "stretch" : "center",
-        gap: "6px",
-        fontSize: "12px",
-        color: "#94a3b8",
-        cursor: project.viewMode === "view" ? "default" : "pointer",
-        userSelect: "none",
-      }}
-    >
-      <input
-        type="range"
-        min={20}
-        max={120}
-        step={1}
-        value={Math.max(
-          20,
-          Math.min(120, Math.round(project.dancerMarkerDiameterPx ?? 44))
-        )}
-        disabled={project.viewMode === "view"}
-        onChange={(e) =>
-          setProjectSafe((p) => ({
-            ...p,
-            dancerMarkerDiameterPx: Number(e.target.value),
-          }))
-        }
-        aria-valuetext={`${Math.max(
-          20,
-          Math.min(120, Math.round(project.dancerMarkerDiameterPx ?? 44))
-        )} ピクセル`}
-        aria-label="ダンサー印の直径（ピクセル）"
-        style={{ width: rail ? "100%" : "88px", verticalAlign: "middle" }}
-      />
-    </label>
-    {!rail ? (
-      <div
-        style={{
-          width: "1px",
-          height: "22px",
-          background: "#334155",
-          flexShrink: 0,
-        }}
-        aria-hidden
-      />
-    ) : null}
-    <label
-      title={
-        project.stageWidthMm != null && project.stageWidthMm > 0
-          ? "ダンサー隣同士の間隔（流派の場ミリ規格）。\n偶数人はセンターを「割って」±半 step、奇数人はセンター乗せで自動配置されます。\n「＋ダンサー」「フォーメーション案」「ドラッグ吸着」「規格ドット表示」が連動。"
-          : "ステージ幅を設定すると流派の場ミリ規格を選べます"
-      }
-      style={{
-        display: rail ? "flex" : "inline-flex",
-        flexDirection: rail ? "column" : "row",
-        alignItems: rail ? "stretch" : "center",
-        gap: "4px",
-        fontSize: "11px",
-        color: "#94a3b8",
-        userSelect: "none",
-      }}
-    >
-      <select
-        value={(() => {
-          const v = project.dancerSpacingMm;
-          if (v == null || v <= 0) return 0;
-          return DANCER_SPACING_PRESET_OPTIONS.some((o) => o.mm === v)
-            ? v
-            : -1;
-        })()}
-        disabled={
-          project.viewMode === "view" ||
-          !(project.stageWidthMm != null && project.stageWidthMm > 0)
-        }
-        onChange={(e) => {
-          const mm = Number(e.target.value);
-          setProjectSafe((p) => {
-            if (!mm || mm <= 0) {
-              return { ...p, dancerSpacingMm: undefined };
-            }
-            return { ...p, dancerSpacingMm: mm };
-          });
-        }}
-        aria-label="ダンサー隣同士の間隔（場ミリ規格）"
-        style={{
-          width: rail ? "100%" : undefined,
-          padding: "4px 6px",
-          borderRadius: "6px",
-          border: "1px solid #334155",
-          background: "#0f172a",
-          color: "#e2e8f0",
-          fontSize: "12px",
-        }}
-      >
-        <option value={0}>—</option>
-        {DANCER_SPACING_PRESET_OPTIONS.map((opt) => (
-          <option key={opt.mm} value={opt.mm}>
-            {opt.label}
-          </option>
-        ))}
-        <option value={-1} disabled hidden>
-          カスタム
-        </option>
-      </select>
-      <input
-        type="number"
-        min={20}
-        max={500}
-        step={5}
-        value={
-          project.dancerSpacingMm != null && project.dancerSpacingMm > 0
-            ? Math.round(project.dancerSpacingMm / 10)
-            : ""
-        }
-        onChange={(e) => {
-          const cm = Number(e.target.value);
-          setProjectSafe((p) => {
-            if (!Number.isFinite(cm) || cm <= 0) {
-              return { ...p, dancerSpacingMm: undefined };
-            }
-            const mm = Math.max(200, Math.min(5000, Math.round(cm * 10)));
-            return { ...p, dancerSpacingMm: mm };
-          });
-        }}
-        disabled={
-          project.viewMode === "view" ||
-          !(project.stageWidthMm != null && project.stageWidthMm > 0)
-        }
-        placeholder=""
-        aria-label="場ミリ規格をカスタム入力（cm）"
-        title="cm 単位でカスタム指定。例: 150 → 1.5 m 間隔"
-        style={{
-          width: "52px",
-          padding: "4px 6px",
-          borderRadius: "6px",
-          border: "1px solid #334155",
-          background: "#0f172a",
-          color: "#e2e8f0",
-          fontSize: "12px",
-          textAlign: "right",
-        }}
-      />
-    </label>
-    <label
-      title={
-        project.stageWidthMm != null && project.stageWidthMm > 0
-          ? "○の直径を実寸（メートル）で指定（ステージ幅に連動）"
-          : "ステージ幅を設定すると実寸で指定できます"
-      }
-      style={{
-        display: rail ? "flex" : "inline-flex",
-        flexDirection: rail ? "column" : "row",
-        alignItems: rail ? "stretch" : "center",
-        gap: "4px",
-        fontSize: "11px",
-        color: shell.textMuted,
-        userSelect: "none",
-      }}
-    >
-      <span style={{ whiteSpace: "nowrap" }}>○実寸</span>
-      <select
-        value={project.dancerMarkerDiameterMm ?? 0}
-        disabled={
-          project.viewMode === "view" ||
-          !(project.stageWidthMm != null && project.stageWidthMm > 0)
-        }
-        onChange={(e) => {
-          const mm = Number(e.target.value);
-          setProjectSafe((p) => {
-            if (!mm || mm <= 0) {
-              return { ...p, dancerMarkerDiameterMm: undefined };
-            }
-            return { ...p, dancerMarkerDiameterMm: mm };
-          });
-        }}
-        aria-label="○の直径（メートル）"
-        style={{
-          width: rail ? "100%" : undefined,
-          padding: "4px 6px",
-          borderRadius: "6px",
-          border: `1px solid ${shell.borderStrong}`,
-          background: shell.surfaceRaised,
-          color: shell.text,
-          fontSize: "12px",
-        }}
-      >
-        <option value={0}>—</option>
-        <option value={300}>30 cm</option>
-        <option value={500}>50 cm</option>
-        <option value={750}>75 cm</option>
-        <option value={1000}>1 m</option>
-        <option value={1500}>1.5 m</option>
-      </select>
-    </label>
-  </div>
-      </>
-      ) : null}
     </div>
   );
 

@@ -81,6 +81,61 @@ const HISTORY_CAP = 80;
 const EDITOR_WIDE_MIN_PX = 1280;
 /** メイン 4 列グリッドの列間（ステージ〜タイムラインのすき間に効く） */
 const EDITOR_GRID_GAP_PX = 6;
+
+/** 上部波形ドック直下：音源取込・再生・戻る／進む（エディタグリッド内） */
+const editorTopWaveToolbarChrome: CSSProperties = {
+  display: "flex",
+  flexWrap: "nowrap",
+  alignItems: "center",
+  gap: 8,
+  padding: "4px 8px 8px",
+  flexShrink: 0,
+  minWidth: 0,
+  borderBottom: `1px solid ${shell.border}`,
+  background: shell.bgChrome,
+};
+
+const editorTopWaveTextBtn: CSSProperties = {
+  ...btnSecondary,
+  padding: "6px 14px",
+  minHeight: 32,
+  fontSize: 12,
+  fontWeight: 600,
+  borderRadius: 6,
+  border: `1px solid ${shell.borderStrong}`,
+  background: shell.surfaceRaised,
+  color: shell.text,
+  flexShrink: 0,
+  cursor: "pointer",
+};
+
+const editorTopWaveArrowBtn: CSSProperties = {
+  ...btnSecondary,
+  width: 32,
+  height: 32,
+  minWidth: 32,
+  padding: 0,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: 15,
+  lineHeight: 1,
+  borderRadius: 6,
+  border: `1px solid ${shell.borderStrong}`,
+  background: shell.surfaceRaised,
+  color: shell.text,
+  flexShrink: 0,
+  cursor: "pointer",
+};
+
+/** 床テキスト／線ツール（上部波形バー用の正方形） */
+const editorTopWaveFloorSqBtn: CSSProperties = {
+  ...editorTopWaveArrowBtn,
+  width: 36,
+  height: 36,
+  minWidth: 36,
+  borderRadius: 8,
+};
 /** ステージ列とタイムライン列の間のドラッグ幅 */
 const STAGE_RESIZER_PX = 4;
 const STAGE_COL_MIN_PX = 280;
@@ -109,12 +164,15 @@ function readMaxStageWidthPx(gridEl: HTMLElement): number {
     parseFloat(cs.gap) ||
     EDITOR_GRID_GAP_PX;
   const gapsBetween3Cols = 2 * gap;
-  return (
-    rect.width -
-    padX -
-    gapsBetween3Cols -
-    STAGE_RESIZER_PX -
-    TIMELINE_COL_MIN_PX
+  /** リサイザ除く左右2列＋中央ギャップぶんの内側幅 */
+  const inner =
+    rect.width - padX - gapsBetween3Cols - STAGE_RESIZER_PX;
+  /** 画面左約2/3をステージ上限とし、右1/3にコントロール列を確保 */
+  const maxByTwoThirds = Math.floor(inner * (2 / 3));
+  const maxByTimelineMin = inner - TIMELINE_COL_MIN_PX;
+  return Math.max(
+    STAGE_COL_MIN_PX,
+    Math.min(maxByTwoThirds, maxByTimelineMin)
   );
 }
 
@@ -201,6 +259,10 @@ export function EditorPage() {
   /** ステージ床テキスト：ヘッダから入力→プレビュー→完了で設置 */
   const [floorTextPlaceSession, setFloorTextPlaceSession] =
     useState<FloorTextPlaceSession | null>(null);
+  /** ステージ床の直接書き込み（テキスト／線）。上部バーと StageBoard で共有 */
+  const [floorMarkupTool, setFloorMarkupTool] = useState<
+    null | "text" | "line" | "erase"
+  >(null);
   const splitDragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -858,6 +920,23 @@ export function EditorPage() {
     return f?.floorMarkup ?? null;
   }, [project, isPlaying, stagePreviewDancers, selectedCue, currentTime]);
 
+  const stageFloorMarkupEditable = Boolean(
+    project &&
+      project.viewMode !== "view" &&
+      (project.cues.length === 0 || Boolean(selectedCueId)) &&
+      stageView === "2d" &&
+      !playbackDancersForStage &&
+      !(stagePreviewDancers && stagePreviewDancers.length > 0)
+  );
+
+  useEffect(() => {
+    if (!wideEditorLayout) setFloorMarkupTool(null);
+  }, [wideEditorLayout]);
+
+  useEffect(() => {
+    if (stageView !== "2d") setFloorMarkupTool(null);
+  }, [stageView]);
+
   const dancersFor3d = useMemo(() => {
     if (!project) return [];
     if (stagePreviewDancers?.length) return stagePreviewDancers;
@@ -1298,6 +1377,7 @@ export function EditorPage() {
     setFloorTextPlaceSession,
     commitFloorTextPlace,
     hasRosterMembers,
+    hideFloorTextToolbar: showTopWaveDock,
   };
 
   return (
@@ -1550,6 +1630,73 @@ export function EditorPage() {
                 </button>
               </div>
             ) : null}
+            <div
+              className="editor-top-wave-toolbar"
+              style={editorTopWaveToolbarChrome}
+            >
+              <button
+                type="button"
+                style={{
+                  ...editorTopWaveTextBtn,
+                  cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
+                  opacity: project.viewMode === "view" ? 0.5 : 1,
+                }}
+                disabled={project.viewMode === "view"}
+                title="楽曲または動画から音声を読み込み（MP4 / AVI / MOV / MKV / WMV 等に対応）"
+                aria-label="音源を取り込む"
+                onPointerEnter={() => {
+                  void preloadFFmpeg();
+                }}
+                onClick={() => {
+                  void preloadFFmpeg();
+                  timelineRef.current?.openAudioImport();
+                }}
+              >
+                音源取込
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...editorTopWaveTextBtn,
+                  cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
+                  opacity: project.viewMode === "view" ? 0.5 : 1,
+                }}
+                disabled={project.viewMode === "view"}
+                title={isPlaying ? "一時停止" : "再生"}
+                aria-label={isPlaying ? "一時停止" : "再生"}
+                onClick={() => timelineRef.current?.togglePlay()}
+              >
+                {isPlaying ? "一時停止" : "再生"}
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...editorTopWaveArrowBtn,
+                  cursor: stageUndoDisabled ? "not-allowed" : "pointer",
+                  opacity: stageUndoDisabled ? 0.45 : 1,
+                }}
+                disabled={stageUndoDisabled}
+                title="編集を元に戻す（⌘Z / Ctrl+Z）"
+                aria-label="元に戻す"
+                onClick={() => undo()}
+              >
+                ◀
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...editorTopWaveArrowBtn,
+                  cursor: stageRedoDisabled ? "not-allowed" : "pointer",
+                  opacity: stageRedoDisabled ? 0.45 : 1,
+                }}
+                disabled={stageRedoDisabled}
+                title="やり直す（⌘⇧Z / Ctrl+Shift+Z）"
+                aria-label="やり直す"
+                onClick={() => redo()}
+              >
+                ▶
+              </button>
+            </div>
             <div style={{ flex: "1 1 auto", minHeight: 0, display: "flex", flexDirection: "column" }}>
               {timelinePanelEl}
             </div>
@@ -1675,6 +1822,9 @@ export function EditorPage() {
                 }
                 floorTextPlaceSession={floorTextPlaceSession}
                 onFloorTextPlaceSessionChange={onFloorTextPlaceSessionChange}
+                floorMarkupTool={floorMarkupTool}
+                onFloorMarkupToolChange={setFloorMarkupTool}
+                hideFloorMarkupFloatingToolbars={showTopWaveDock}
               />
             ) : (
               <Suspense
@@ -1770,15 +1920,6 @@ export function EditorPage() {
                   <EditorStageWorkbench
                     key="wb-tiles"
                     layout="rail"
-                    railSurface="tiles"
-                    {...stageWorkbenchProps}
-                  />
-                </div>
-                <div className="editor-right-tools-meta">
-                  <EditorStageWorkbench
-                    key="wb-sliders"
-                    layout="rail"
-                    railSurface="sliders"
                     {...stageWorkbenchProps}
                   />
                 </div>
@@ -1830,15 +1971,6 @@ export function EditorPage() {
                     <EditorStageWorkbench
                       key="wb-tiles-2"
                       layout="rail"
-                      railSurface="tiles"
-                      {...stageWorkbenchProps}
-                    />
-                  </div>
-                  <div className="editor-right-tools-meta">
-                    <EditorStageWorkbench
-                      key="wb-sliders-2"
-                      layout="rail"
-                      railSurface="sliders"
                       {...stageWorkbenchProps}
                     />
                   </div>

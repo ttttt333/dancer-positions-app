@@ -49,31 +49,14 @@ const timelineToolbarBtn: CSSProperties = {
   lineHeight: 1.2,
 };
 
-/** 上部ドック（コンパクト波形）では「音源取込」「再生／一時停止」のみ */
-const waveMinimalBtn: CSSProperties = {
-  ...btnSecondary,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: tlPx(6),
-  padding: `${tlPx(6)} ${tlPx(14)}`,
-  minHeight: tlPx(32),
-  fontSize: tlPx(12),
-  fontWeight: 600,
-  borderRadius: tlPx(6),
-  lineHeight: 1.2,
-  border: `1px solid ${shell.borderStrong}`,
-  background: shell.surfaceRaised,
-  color: shell.text,
-  flexShrink: 0,
-};
-
 export type TimelinePanelHandle = {
   togglePlay: () => void;
   /** 仕様 §5: 再生中ステージクリックなどと同じ「停止」（一時停止＋先頭付近へ） */
   stopPlayback: () => void;
   /** 再生を止め、トリム内に収めて `tSec` へシーク（ステージのキュー切替用） */
   pauseAndSeekToSec: (tSec: number) => void;
+  /** 音源ファイル選択ダイアログを開く（エディタ上部ツールバー用） */
+  openAudioImport: () => void;
 };
 
 type Props = {
@@ -178,7 +161,7 @@ function pickCueIdAtWave(
   return best?.id ?? null;
 }
 
-const CUE_EDGE_GRAB_PX = 10;
+const CUE_EDGE_GRAB_PX = 14;
 type CueDragEdgeMode = "move" | "start" | "end";
 
 /** 帯上のクリックが開始端／終了端／移動のいずれか（§3） */
@@ -235,14 +218,18 @@ function hitPlayheadStripForScrub(
   viewStart: number,
   viewSpan: number,
   playheadSec: number,
-  durationSec: number
+  durationSec: number,
+  viewPortion: number
 ): boolean {
   if (durationSec <= 0 || viewSpan <= 0) return false;
   const r = canvas.getBoundingClientRect();
   const w = r.width;
   if (w <= 0) return false;
   const x = clientX - r.left;
-  const xPlay = ((playheadSec - viewStart) / viewSpan) * w;
+  const zoomed = viewPortion < 1 - 1e-9;
+  const xPlay = zoomed
+    ? WAVE_PLAYHEAD_X_FRAC * w
+    : ((playheadSec - viewStart) / viewSpan) * w;
   return Math.abs(x - xPlay) <= PLAYHEAD_SCRUB_HALF_WIDTH_PX;
 }
 
@@ -260,6 +247,32 @@ function computeViewRange(
   const span = Math.max(0.08, durationSec * viewPortion);
   const start = clamp(
     centerTime - span / 2,
+    0,
+    Math.max(0, durationSec - span)
+  );
+  return { start, end: start + span, span };
+}
+
+/**
+ * ズーム時は再生位置がキャンバス左寄りの固定ラインに来るよう窓を合わせ、
+ * 波形だけが流れる。全表示時は従来どおり `computeViewRange` と同じ。
+ */
+const WAVE_PLAYHEAD_X_FRAC = 0.11;
+
+function getWaveViewForDraw(
+  durationSec: number,
+  viewPortion: number,
+  anchorTimeSec: number
+): { start: number; end: number; span: number } {
+  if (!Number.isFinite(durationSec) || durationSec <= 0) {
+    return { start: 0, end: 1, span: 1 };
+  }
+  if (viewPortion >= 1 - 1e-9) {
+    return computeViewRange(durationSec, viewPortion, anchorTimeSec);
+  }
+  const span = Math.max(0.08, durationSec * viewPortion);
+  const start = clamp(
+    anchorTimeSec - WAVE_PLAYHEAD_X_FRAC * span,
     0,
     Math.max(0, durationSec - span)
   );
@@ -444,6 +457,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
     ref
   ) {
     const audioRef = useRef<HTMLAudioElement>(null);
+    const audioFileInputRef = useRef<HTMLInputElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     /** 波形枠（目盛り＋キャンバス）。ホイール拡縮は passive: false で登録 */
     const waveContainerRef = useRef<HTMLDivElement>(null);
@@ -531,6 +545,11 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       pointerId: number;
       wasPlaying: boolean;
     } | null>(null);
+    /** 波形上のキュー帯ホバー（端＝リサイズ、中央＝移動の視覚ヒント用） */
+    const waveHoverCueRef = useRef<{
+      cueId: string;
+      mode: CueDragEdgeMode;
+    } | null>(null);
 
     const playheadGridSec = useMemo(
       () => (isPlaying ? quantizePlayheadForWaveView(currentTime) : currentTime),
@@ -538,7 +557,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
     );
 
     const waveView = useMemo(
-      () => computeViewRange(duration, viewPortion, playheadGridSec),
+      () => getWaveViewForDraw(duration, viewPortion, playheadGridSec),
       [duration, viewPortion, playheadGridSec]
     );
 
@@ -560,7 +579,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       const tGrid = isPlayingForWaveRef.current
         ? quantizePlayheadForWaveView(playheadTime)
         : playheadTime;
-      const { start: viewStart, span: viewSpan } = computeViewRange(d, vp, tGrid);
+      const { start: viewStart, span: viewSpan } = getWaveViewForDraw(d, vp, tGrid);
       const viewEnd = viewStart + viewSpan;
       lastWaveDrawRangeRef.current = { viewStart, viewSpan };
 
@@ -619,16 +638,34 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           const width = Math.max(3, Math.abs(x2 - x1));
           const isDrag = dragCueId === cue.id;
           const isSel = selectedCueIdsRef.current.includes(cue.id);
+          const hover = waveHoverCueRef.current;
+          const isHover =
+            hover?.cueId === cue.id && (!dragCueId || dragCueId !== cue.id);
+          const hoverStart = isHover && hover.mode === "start";
+          const hoverEnd = isHover && hover.mode === "end";
           const bh = isDrag ? 24 : 20;
-          g.fillStyle = isDrag ? "rgba(253, 224, 71, 0.65)" : "rgba(252, 211, 77, 0.45)";
+          g.fillStyle = isDrag ? "rgba(253, 224, 71, 0.55)" : "rgba(252, 211, 77, 0.38)";
           g.fillRect(left, mid - bh / 2, width, bh);
-          g.strokeStyle = "rgba(15, 23, 42, 0.75)";
-          g.lineWidth = 1;
+          g.strokeStyle = isSel ? "rgba(255,255,255,0.98)" : "rgba(255,255,255,0.88)";
+          g.lineWidth = isSel ? 2.5 : 2;
+          if (isHover) g.lineWidth = Math.max(g.lineWidth, 2.75);
           g.strokeRect(left + 0.5, mid - bh / 2 + 0.5, width - 1, bh - 1);
-          if (isSel && !isDrag) {
-            g.strokeStyle = "rgba(248, 250, 252, 0.9)";
-            g.lineWidth = 2;
-            g.strokeRect(left - 1, mid - bh / 2 - 1, width + 2, bh + 2);
+          if (hoverStart || hoverEnd) {
+            g.strokeStyle = "#ffffff";
+            g.lineWidth = 3;
+            g.lineCap = "butt";
+            if (hoverStart) {
+              g.beginPath();
+              g.moveTo(left + 0.5, mid - bh / 2 - 1);
+              g.lineTo(left + 0.5, mid + bh / 2 + 1);
+              g.stroke();
+            }
+            if (hoverEnd) {
+              g.beginPath();
+              g.moveTo(left + width - 0.5, mid - bh / 2 - 1);
+              g.lineTo(left + width - 0.5, mid + bh / 2 + 1);
+              g.stroke();
+            }
           }
         }
       }
@@ -653,9 +690,17 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       }
 
       if (d > 0 && viewSpan > 0) {
-        let xPlay = ((playheadTime - viewStart) / viewSpan) * w;
-        if (Number.isFinite(xPlay)) {
-          xPlay = Math.min(w, Math.max(0, Math.round(xPlay * 2) / 2));
+        const zoomed = vp < 1 - 1e-9;
+        let xPlay: number;
+        if (zoomed) {
+          xPlay = WAVE_PLAYHEAD_X_FRAC * w;
+        } else {
+          xPlay = ((playheadTime - viewStart) / viewSpan) * w;
+          if (Number.isFinite(xPlay)) {
+            xPlay = Math.min(w, Math.max(0, Math.round(xPlay * 2) / 2));
+          } else {
+            xPlay = 0;
+          }
         }
         g.strokeStyle = "#f472b6";
         g.lineWidth = 2;
@@ -948,7 +993,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       let viewSpan = lastWaveDrawRangeRef.current.viewSpan;
       if (viewSpan <= 0) {
         const vp = viewPortion;
-        const gv = computeViewRange(d, vp, currentTime);
+        const gv = getWaveViewForDraw(d, vp, currentTime);
         viewStart = gv.start;
         viewSpan = gv.span;
       }
@@ -991,7 +1036,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       let viewStart = lastWaveDrawRangeRef.current.viewStart;
       let viewSpan = lastWaveDrawRangeRef.current.viewSpan;
       if (viewSpan <= 0) {
-        const gv = computeViewRange(duration, viewPortion, currentTime);
+        const gv = getWaveViewForDraw(duration, viewPortion, currentTime);
         viewStart = gv.start;
         viewSpan = gv.span;
       }
@@ -1141,10 +1186,20 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       [setCurrentTime, setIsPlaying]
     );
 
+    const openAudioImport = useCallback(() => {
+      void preloadFFmpeg();
+      audioFileInputRef.current?.click();
+    }, []);
+
     useImperativeHandle(
       ref,
-      () => ({ togglePlay, stopPlayback, pauseAndSeekToSec }),
-      [togglePlay, stopPlayback, pauseAndSeekToSec]
+      () => ({
+        togglePlay,
+        stopPlayback,
+        pauseAndSeekToSec,
+        openAudioImport,
+      }),
+      [togglePlay, stopPlayback, pauseAndSeekToSec, openAudioImport]
     );
 
     useEffect(() => {
@@ -1228,7 +1283,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       let viewStart = lastWaveDrawRangeRef.current.viewStart;
       let viewSpan = lastWaveDrawRangeRef.current.viewSpan;
       if (viewSpan <= 0) {
-        const gv = computeViewRange(duration, viewPortion, currentTime);
+        const gv = getWaveViewForDraw(duration, viewPortion, currentTime);
         viewStart = gv.start;
         viewSpan = gv.span;
       }
@@ -1416,6 +1471,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       if (cueId) {
         e.preventDefault();
         e.stopPropagation();
+        waveHoverCueRef.current = null;
         const cue = cues.find((x) => x.id === cueId);
         if (!cue) return;
 
@@ -1564,11 +1620,13 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           viewStart,
           viewSpan,
           playheadSecForHit,
-          duration
+          duration,
+          viewPortionRef.current
         )
       ) {
         e.preventDefault();
         e.stopPropagation();
+        waveHoverCueRef.current = null;
         const wasPlaying = !audioEl.paused;
         playheadScrubDragRef.current = {
           pointerId: e.pointerId,
@@ -1629,6 +1687,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
 
       e.preventDefault();
       e.stopPropagation();
+      waveHoverCueRef.current = null;
       emptyWaveDragRef.current = {
         pointerId: e.pointerId,
         startClientX: e.clientX,
@@ -1783,6 +1842,71 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       redraw();
     };
 
+    const onWaveCanvasPointerMove = (
+      e: React.PointerEvent<HTMLCanvasElement>
+    ) => {
+      if (project.viewMode === "view" || duration <= 0 || !peaks) return;
+      if (
+        cueDragRef.current ||
+        playheadScrubDragRef.current ||
+        emptyWaveDragRef.current
+      ) {
+        return;
+      }
+      if (e.buttons !== 0) return;
+      const cnv = canvasRef.current;
+      if (!cnv) return;
+      const { viewStart, viewSpan } = lastWaveDrawRangeRef.current;
+      if (viewSpan <= 0) return;
+      const hit = pickCueDragKindAtWave(
+        e.clientX,
+        e.clientY,
+        cnv,
+        cues,
+        viewStart,
+        viewSpan,
+        cueDragPreviewRangeRef.current
+      );
+      const prev = waveHoverCueRef.current;
+      if (prev?.cueId === hit?.cueId && prev?.mode === hit?.mode) return;
+      waveHoverCueRef.current = hit;
+      const cur =
+        hit?.mode === "start" || hit?.mode === "end"
+          ? "ew-resize"
+          : hit
+            ? "move"
+            : "pointer";
+      cnv.style.cursor = cur;
+      let tRedraw = currentTimePropRef.current;
+      const au = audioRef.current;
+      if (
+        isPlayingForWaveRef.current &&
+        au &&
+        !au.paused &&
+        Number.isFinite(au.currentTime)
+      ) {
+        tRedraw = au.currentTime;
+      }
+      drawWaveformAt(tRedraw);
+    };
+
+    const onWaveCanvasPointerLeave = () => {
+      waveHoverCueRef.current = null;
+      const cnv = canvasRef.current;
+      if (cnv) cnv.style.cursor = duration > 0 ? "pointer" : "default";
+      let tRedraw = currentTimePropRef.current;
+      const au = audioRef.current;
+      if (
+        isPlayingForWaveRef.current &&
+        au &&
+        !au.paused &&
+        Number.isFinite(au.currentTime)
+      ) {
+        tRedraw = au.currentTime;
+      }
+      drawWaveformAt(tRedraw);
+    };
+
     return (
       <div
         style={{
@@ -1794,6 +1918,17 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           fontSize: compactTopDock ? tlPx(11) : tlPx(12),
         }}
       >
+        <input
+          ref={audioFileInputRef}
+          id="choreogrid-timeline-audio-file"
+          type="file"
+          accept="audio/*,video/*"
+          style={{ display: "none" }}
+          onChange={onPickAudio}
+          onClick={() => {
+            void preloadFFmpeg();
+          }}
+        />
         {extractProgress && (
           <div
             role="status"
@@ -1851,66 +1986,18 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             </div>
           </div>
         )}
-        <div
-          className={
-            compactTopDock
-              ? "wave-dock-compact-toolbar wave-dock-minimal-toolbar"
-              : undefined
-          }
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: compactTopDock ? tlPx(2) : tlPx(4),
-            minWidth: 0,
-            width: "100%",
-            contain: "layout",
-            scrollbarWidth: "thin",
-          }}
-        >
-          {compactTopDock ? (
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "nowrap",
-                alignItems: "center",
-                gap: tlPx(8),
-                width: "100%",
-                minWidth: 0,
-              }}
-            >
-              <label
-                style={{ ...waveMinimalBtn, cursor: "pointer" }}
-                aria-label="音源を取り込む"
-                title="楽曲または動画から音声を読み込み（MP4 / AVI / MOV / MKV / WMV 等に対応）"
-                onPointerEnter={() => {
-                  void preloadFFmpeg();
-                }}
-                onFocus={() => {
-                  void preloadFFmpeg();
-                }}
-              >
-                <span style={{ whiteSpace: "nowrap" }}>音源取込</span>
-                <input
-                  type="file"
-                  accept="audio/*,video/*"
-                  style={{ display: "none" }}
-                  onChange={onPickAudio}
-                  onClick={() => {
-                    void preloadFFmpeg();
-                  }}
-                />
-              </label>
-              <button
-                type="button"
-                style={waveMinimalBtn}
-                onClick={togglePlay}
-                aria-label={isPlaying ? "一時停止" : "再生"}
-                title={isPlaying ? "一時停止" : "再生"}
-              >
-                {isPlaying ? "一時停止" : "再生"}
-              </button>
-            </div>
-          ) : (
+        {!compactTopDock ? (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: tlPx(4),
+              minWidth: 0,
+              width: "100%",
+              contain: "layout",
+              scrollbarWidth: "thin",
+            }}
+          >
             <>
               {/** 1 行目: 音源追加 → 戻る・進む（＋上部ドック時は右端に閉じる） */}
               <div
@@ -1927,6 +2014,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                 }}
               >
                 <label
+                  htmlFor="choreogrid-timeline-audio-file"
                   style={{
                     ...timelineToolbarBtn,
                     cursor: "pointer",
@@ -1955,15 +2043,6 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                       strokeLinecap="round"
                     />
                   </svg>
-                  <input
-                    type="file"
-                    accept="audio/*,video/*"
-                    style={{ display: "none" }}
-                    onChange={onPickAudio}
-                    onClick={() => {
-                      void preloadFFmpeg();
-                    }}
-                  />
                 </label>
                 {onUndo && onRedo && (
                   <>
@@ -2083,8 +2162,32 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                 />
               </div>
             </>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div
+            className="wave-compact-time-above-wave"
+            style={{
+              display: "flex",
+              flexWrap: "nowrap",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              gap: tlPx(8),
+              width: "100%",
+              minWidth: 0,
+              padding: `${tlPx(2)} ${tlPx(4)} ${tlPx(4)}`,
+              borderBottom: `1px solid ${shell.border}`,
+              flexShrink: 0,
+            }}
+          >
+            <PlaybackClockReadout
+              audioRef={audioRef}
+              isPlaying={isPlaying}
+              idleTimeSec={currentTime}
+              durationSec={duration}
+              monoFontSizePx={12 * TIMELINE_UI_SCALE}
+            />
+          </div>
+        )}
         <div
           ref={waveContainerRef}
           title="波形上でマウスホイール（またはトラックパッドの縦スクロール）で時間軸の拡大・縮小。下の枠線付近をドラッグすると波形の縦の高さを変えられます。"
@@ -2100,17 +2203,17 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           <div
             style={{
               position: "relative",
-              height: compactTopDock ? 0 : "16px",
+              height: "16px",
               fontSize: "9px",
               color: "#94a3b8",
-              borderBottom: compactTopDock ? "none" : "1px solid #1e293b",
+              borderBottom: "1px solid #1e293b",
               fontVariantNumeric: "tabular-nums",
               userSelect: "none",
               overflow: "hidden",
             }}
             aria-hidden
           >
-            {!compactTopDock && duration > 0
+            {duration > 0
               ? waveRulerTicks(waveView.start, waveView.end, 10).map((tick) => {
                   const span = waveView.span;
                   const p = span > 0 ? ((tick - waveView.start) / span) * 100 : 0;
@@ -2146,6 +2249,8 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             onDoubleClick={onWaveDoubleClick}
             onContextMenu={onWaveContextMenu}
             onPointerDown={onWaveCanvasPointerDown}
+            onPointerMove={onWaveCanvasPointerMove}
+            onPointerLeave={onWaveCanvasPointerLeave}
             style={{
               display: "block",
               width: "100%",
