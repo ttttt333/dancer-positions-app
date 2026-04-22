@@ -6,6 +6,7 @@ import type {
   Formation,
   StageShape,
 } from "../types/choreography";
+import { modDancerColorIndex } from "./dancerColorPalette";
 
 /**
  * 「フローライブラリ」— 1 曲ぶんの **立ち位置の流れ**（フォーメーション群＋キュー順）を
@@ -74,6 +75,8 @@ export interface FlowStageSettingsSnapshot {
   dancerMarkerDiameterMm?: number;
   snapGrid: boolean;
   gridStep: number;
+  stageGridLinesEnabled?: boolean;
+  stageGridLineSpacingMm?: number;
 }
 
 export interface FlowLibraryItem {
@@ -130,6 +133,8 @@ function snapshotStageFromProject(
     dancerMarkerDiameterMm: p.dancerMarkerDiameterMm,
     snapGrid: p.snapGrid,
     gridStep: p.gridStep,
+    stageGridLinesEnabled: p.stageGridLinesEnabled,
+    stageGridLineSpacingMm: p.stageGridLineSpacingMm,
   };
 }
 
@@ -177,6 +182,13 @@ function normalizeStageSettings(
       typeof o.gridStep === "number" && Number.isFinite(o.gridStep)
         ? clamp(o.gridStep, 0.1, 50)
         : 2,
+    ...(typeof o.stageGridLinesEnabled === "boolean"
+      ? { stageGridLinesEnabled: o.stageGridLinesEnabled }
+      : {}),
+    ...(typeof o.stageGridLineSpacingMm === "number" &&
+    Number.isFinite(o.stageGridLineSpacingMm)
+      ? { stageGridLineSpacingMm: clamp(o.stageGridLineSpacingMm, 5, 5000) }
+      : {}),
   };
 }
 
@@ -203,6 +215,12 @@ export function applyFlowStageSettingsToProject(
     dancerMarkerDiameterMm: stage.dancerMarkerDiameterMm,
     snapGrid: stage.snapGrid,
     gridStep: stage.gridStep,
+    ...(stage.stageGridLinesEnabled !== undefined
+      ? { stageGridLinesEnabled: stage.stageGridLinesEnabled }
+      : {}),
+    ...(stage.stageGridLineSpacingMm !== undefined
+      ? { stageGridLineSpacingMm: stage.stageGridLineSpacingMm }
+      : {}),
   };
 }
 
@@ -247,7 +265,7 @@ function normalize(raw: FlowLibraryItem): FlowLibraryItem {
           xPct: clamp(d.xPct, 0, 100),
           yPct: clamp(d.yPct, 0, 100),
           ...(typeof d.colorIndex === "number" && Number.isFinite(d.colorIndex)
-            ? { colorIndex: Math.floor(d.colorIndex) % 9 }
+            ? { colorIndex: modDancerColorIndex(Math.floor(d.colorIndex)) }
             : {}),
           ...(typeof d.note === "string" && d.note.trim()
             ? { note: d.note.slice(0, 2000) }
@@ -381,7 +399,7 @@ export function saveFlowFromProject(
           xPct: clamp(d.xPct, 0, 100),
           yPct: clamp(d.yPct, 0, 100),
           ...(typeof d.colorIndex === "number" && Number.isFinite(d.colorIndex)
-            ? { colorIndex: Math.floor(d.colorIndex) % 9 }
+            ? { colorIndex: modDancerColorIndex(Math.floor(d.colorIndex)) }
             : {}),
           ...(d.note ? { note: d.note.slice(0, 2000) } : {}),
         })),
@@ -549,7 +567,9 @@ export function expandFlowToProject(
       xPct: d.xPct,
       yPct: d.yPct,
       colorIndex:
-        typeof d.colorIndex === "number" ? d.colorIndex : i % 9,
+        typeof d.colorIndex === "number"
+          ? modDancerColorIndex(d.colorIndex)
+          : modDancerColorIndex(i),
       ...(d.note ? { note: d.note } : {}),
     })),
   }));

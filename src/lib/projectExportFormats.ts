@@ -1,4 +1,5 @@
 import type { AudienceEdge, ChoreographyProjectJson } from "../types/choreography";
+import { modDancerColorIndex } from "./dancerColorPalette";
 import { sortCuesByStart } from "./cueInterval";
 import { formatMmSs, parseMmSsFlexible } from "./timeFormat";
 import { formatMeterCmLabel, formatStageMmSummary } from "./stageDimensions";
@@ -478,7 +479,7 @@ export function importProjectFromChoreogridCsv(
         d.label = label.slice(0, 8) || d.label;
         d.xPct = Math.min(98, Math.max(2, xPct));
         d.yPct = Math.min(98, Math.max(2, yPct));
-        d.colorIndex = colorIndex % 9;
+        d.colorIndex = modDancerColorIndex(colorIndex);
         d.note = note || undefined;
         d.crewMemberId = crewMemberId || undefined;
       }

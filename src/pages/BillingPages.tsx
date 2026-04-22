@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { btnSecondary } from "../components/StageBoard";
+import { btnSecondary } from "../components/stageButtonStyles";
 
 export function BillingSuccessPage() {
   return (

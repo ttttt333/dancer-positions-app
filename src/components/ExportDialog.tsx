@@ -4,7 +4,7 @@ import { jsPDF } from "jspdf";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { sortCuesByStart } from "../lib/cueInterval";
 import { playCompletionWoof } from "../lib/playCompletionWoof";
-import { btnSecondary } from "./StageBoard";
+import { btnSecondary } from "./stageButtonStyles";
 
 const STAGE_ROOT_ID = "stage-export-root";
 

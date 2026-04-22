@@ -1,5 +1,6 @@
 import type { DancerSpot } from "../types/choreography";
 import { dancersForLayoutPreset, wingSurplusSpots } from "./formationLayouts";
+import { modDancerColorIndex } from "./dancerColorPalette";
 
 function clamp(n: number, lo: number, hi: number) {
   return Math.min(hi, Math.max(lo, n));
@@ -34,8 +35,8 @@ export function dancersForCountFromSaved(
       yPct: clamp(d.yPct, 8, 92),
       colorIndex:
         typeof d.colorIndex === "number" && Number.isFinite(d.colorIndex)
-          ? Math.floor(d.colorIndex) % 9
-          : i % 9,
+          ? modDancerColorIndex(Math.floor(d.colorIndex))
+          : modDancerColorIndex(i),
       ...(typeof d.crewMemberId === "string" && d.crewMemberId
         ? { crewMemberId: d.crewMemberId }
         : {}),
@@ -65,8 +66,8 @@ export function snapshotDancersForPersist(dancers: DancerSpot[]): DancerSpot[] {
       yPct: clamp(d.yPct, 8, 92),
       colorIndex:
         typeof d.colorIndex === "number" && Number.isFinite(d.colorIndex)
-          ? Math.floor(d.colorIndex) % 9
-          : i % 9,
+          ? modDancerColorIndex(Math.floor(d.colorIndex))
+          : modDancerColorIndex(i),
       ...(typeof d.crewMemberId === "string" && d.crewMemberId
         ? { crewMemberId: d.crewMemberId }
         : {}),

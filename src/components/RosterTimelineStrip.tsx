@@ -24,21 +24,12 @@ import {
   skillSortKey,
   sortStandaloneDancerSpots,
 } from "../lib/rosterSortKeys";
+import {
+  DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE,
+  modDancerColorIndex,
+} from "../lib/dancerColorPalette";
 
 export type { RosterStripSortMode };
-
-/** StageBoard の DANCER_PALETTE と同じ（名簿チップの背景） */
-const DANCER_PALETTE = [
-  "#38bdf8",
-  "#a78bfa",
-  "#f472b6",
-  "#34d399",
-  "#fbbf24",
-  "#fb923c",
-  "#2dd4bf",
-  "#e879f9",
-  "#f8fafc",
-] as const;
 
 type FlatRow = {
   crewId: string;
@@ -366,7 +357,7 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
                   {
                     id: crypto.randomUUID(),
                     label: String(crew.members.length + 1),
-                    colorIndex: crew.members.length % 9,
+                    colorIndex: modDancerColorIndex(crew.members.length),
                   },
                 ],
               }
@@ -417,7 +408,7 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
                       label: m.label.slice(0, 8),
                       xPct: 50 + (idx % 5) * 5,
                       yPct: 40 + Math.floor(idx / 5) * 10,
-                      colorIndex: m.colorIndex % 9,
+                      colorIndex: modDancerColorIndex(m.colorIndex),
                       crewMemberId: m.id,
                       ...(typeof m.heightCm === "number"
                         ? { heightCm: m.heightCm }
@@ -465,7 +456,7 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
               label: m.label.slice(0, 8),
               xPct: 50,
               yPct: 40,
-              colorIndex: m.colorIndex % 9,
+              colorIndex: modDancerColorIndex(m.colorIndex),
               crewMemberId: m.id,
               ...(typeof m.heightCm === "number" ? { heightCm: m.heightCm } : {}),
               ...(m.gradeLabel?.trim()
@@ -579,7 +570,7 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
   if (flatRows.length === 0) return null;
 
   const chipBg = (m: CrewMember) =>
-    DANCER_PALETTE[m.colorIndex % DANCER_PALETTE.length];
+    DANCER_PALETTE[modDancerColorIndex(m.colorIndex)];
 
   if (collapsed) {
     return (

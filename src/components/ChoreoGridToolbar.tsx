@@ -1,4 +1,4 @@
-import { btnSecondary } from "./StageBoard";
+import { btnSecondary } from "./stageButtonStyles";
 
 type Props = {
   /**
@@ -7,6 +7,11 @@ type Props = {
    */
   snapGrid?: boolean;
   onToggleSnapGrid: () => void;
+  /** 実寸グリッド線の表示（ステージ幅・奥行 mm が必要） */
+  stageGridLinesEnabled?: boolean;
+  onToggleStageGridLines?: () => void;
+  /** 幅・奥行 mm が無いときなど、線表示トグルのみ無効化 */
+  stageGridLinesToggleDisabled?: boolean;
   /**
    * 変形舞台が設定されているかどうか。API 互換のため受け取るが強調表示には使わない。
    */
@@ -25,11 +30,14 @@ type Props = {
  */
 export function ChoreoGridToolbar({
   onToggleSnapGrid,
+  onToggleStageGridLines,
+  stageGridLinesToggleDisabled = false,
   onOpenStageShapePicker,
   onOpenSetPiecePicker,
   onOpenShortcutsHelp,
   onOpenExport,
   disabled = false,
+  stageGridLinesEnabled = false,
 }: Props) {
   return (
     <aside
@@ -63,7 +71,7 @@ export function ChoreoGridToolbar({
       <button
         type="button"
         disabled={disabled}
-        title="スナップグリッドの表示・切替（ステージのチェックボックスと同期）"
+        title="立ち位置をグリッド（実寸 1cm 刻みが使えるときはその線）にスナップするか"
         style={{
           ...btnSecondary,
           padding: "6px 4px",
@@ -73,8 +81,33 @@ export function ChoreoGridToolbar({
         }}
         onClick={onToggleSnapGrid}
       >
-        グリッド
+        スナップ
       </button>
+      {onToggleStageGridLines ? (
+        <button
+          type="button"
+          disabled={disabled || stageGridLinesToggleDisabled}
+          title={
+            stageGridLinesToggleDisabled
+              ? "ステージの幅・奥行（mm）を設定するとグリッド線を表示できます"
+              : "ステージ上に実寸のグリッド線を重ねる（スナップとは別）"
+          }
+          style={{
+            ...btnSecondary,
+            padding: "6px 4px",
+            fontSize: "11px",
+            lineHeight: 1.2,
+            width: "100%",
+            borderColor: stageGridLinesEnabled
+              ? "rgba(56, 189, 248, 0.75)"
+              : undefined,
+            color: stageGridLinesEnabled ? "#bae6fd" : undefined,
+          }}
+          onClick={onToggleStageGridLines}
+        >
+          線表示
+        </button>
+      ) : null}
       <button
         type="button"
         disabled={disabled}

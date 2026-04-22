@@ -1,11 +1,16 @@
 #!/usr/bin/env node
 /**
- * 開発中の既定 URL を既定ブラウザで開く（サーバー起動後に手動実行用）。
- * 使い方: npm run open:app
+ * 既定ブラウザでアプリ URL を開く。
+ * - 開発（Vite）: npm run open:app  → http://127.0.0.1:5173/
+ * - 本番ビルド後（Express が dist を配信）: npm run open:prod → http://127.0.0.1:3001/
+ * 上書き: OPEN_URL=… npm run open:app（本番は npm run open:prod）
  */
 import { execFileSync } from "node:child_process";
 
-const url = process.env.DEV_URL ?? "http://127.0.0.1:5173/";
+const url =
+  process.env.OPEN_URL ??
+  process.env.DEV_URL ??
+  "http://127.0.0.1:5173/";
 
 try {
   if (process.platform === "win32") {

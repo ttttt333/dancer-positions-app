@@ -38,21 +38,18 @@ import {
   DancerQuickEditDialog,
   type DancerQuickEditApply,
 } from "./DancerQuickEditDialog";
+import { btnSecondary } from "./stageButtonStyles";
+import {
+  DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE,
+  modDancerColorIndex,
+  normalizeDancerFacingDeg,
+} from "../lib/dancerColorPalette";
 
 /** ドラッグ中、この y% 以上で下端ゴミ箱 UI を出す（客席＝下が大きい y） */
 const TRASH_REVEAL_Y_PCT = 88;
 
-const DANCER_PALETTE = [
-  "#38bdf8",
-  "#a78bfa",
-  "#f472b6",
-  "#34d399",
-  "#fbbf24",
-  "#fb923c",
-  "#2dd4bf",
-  "#e879f9",
-  /** 写真の既定マルに近い白 */
-  "#f8fafc",
+const FACING_DELTA_PRESETS = [
+  -90, -45, -30, -15, -5, 5, 15, 30, 45, 90,
 ] as const;
 
 type Props = {
@@ -533,6 +530,31 @@ export function StageBoard({
     | { stageWidthMm: number; stageDepthMm: number }
     | null
   >(null);
+  /**
+   * 幅・奥行（mm）がそろっているとき、縦横それぞれ `stageGridLineSpacingMm`（既定 10＝1cm）
+   * に相当するスナップ刻み（%）。ドラフト中の寸法も反映。
+   */
+  const mmSnapGrid = useMemo(() => {
+    const W = (stageResizeDraft?.stageWidthMm ?? stageWidthMm) ?? null;
+    const D = (stageResizeDraft?.stageDepthMm ?? stageDepthMm) ?? null;
+    if (W == null || D == null || W <= 0 || D <= 0) return null;
+    const raw = project.stageGridLineSpacingMm;
+    const spacing =
+      typeof raw === "number" && Number.isFinite(raw)
+        ? Math.min(5000, Math.max(5, Math.round(raw)))
+        : 10;
+    return {
+      stepXPct: (spacing / W) * 100,
+      stepYPct: (spacing / D) * 100,
+      spacingMm: spacing,
+    };
+  }, [
+    stageResizeDraft?.stageWidthMm,
+    stageResizeDraft?.stageDepthMm,
+    stageWidthMm,
+    stageDepthMm,
+    project.stageGridLineSpacingMm,
+  ]);
   /** 現在カーソルが乗っているステージリサイズハンドル。ホバー時だけ少し大きくする。 */
   const [hoveredStageHandle, setHoveredStageHandle] = useState<string | null>(
     null
@@ -616,6 +638,31 @@ export function StageBoard({
     activeFormation?.dancers ??
     [];
 
+  /**
+   * いまステージに載っているダンサー集合と id が一致するフォーメーション。
+   * メモはこのフォーメーションの `note` を表示する（再生・閲覧でも共有の注意事項として見える）。
+   */
+  const visibleFormation = useMemo(() => {
+    if (displayDancers.length === 0) {
+      return writeFormation ?? activeFormation ?? null;
+    }
+    const want = new Set(displayDancers.map((d) => d.id));
+    for (const f of formations) {
+      if (f.dancers.length !== want.size) continue;
+      const got = new Set(f.dancers.map((d) => d.id));
+      if (got.size !== want.size) continue;
+      let ok = true;
+      for (const id of want) {
+        if (!got.has(id)) {
+          ok = false;
+          break;
+        }
+      }
+      if (ok) return f;
+    }
+    return writeFormation ?? activeFormation ?? null;
+  }, [displayDancers, formations, writeFormation, activeFormation]);
+
   const displaySetPieces: SetPiece[] =
     previewDancers != null && previewDancers.length > 0
       ? writeFormation?.setPieces ?? []
@@ -625,6 +672,30 @@ export function StageBoard({
         [];
 
   const playbackOrPreview = Boolean(playbackDancers || previewDancers);
+
+  const stageMemoReadOnly =
+    viewMode === "view" ||
+    !stageInteractionsEnabled ||
+    Boolean(playbackDancers) ||
+    Boolean(previewDancers);
+
+  const commitStageFormationNote = useCallback(
+    (raw: string) => {
+      if (stageMemoReadOnly) return;
+      const f = visibleFormation;
+      if (!f) return;
+      const note = raw.trim() ? raw.trim().slice(0, 4000) : undefined;
+      const fid = f.id;
+      setProject((p) => ({
+        ...p,
+        formations: p.formations.map((fm) =>
+          fm.id === fid ? { ...fm, note } : fm
+        ),
+      }));
+    },
+    [visibleFormation, stageMemoReadOnly, setProject]
+  );
+
   const setPiecesEditable =
     viewMode !== "view" &&
     stageInteractionsEnabled &&
@@ -989,14 +1060,21 @@ export function StageBoard({
   }, []);
 
   const quantizeCoord = useCallback(
-    (v: number, mode: SnapMode) => {
+    (v: number, axis: "x" | "y", mode: SnapMode) => {
       const c = clamp(v, 2, 98);
       if (mode === "free" || !snapGrid) return round2(c);
+      if (mmSnapGrid && mode !== "free") {
+        const base =
+          axis === "x" ? mmSnapGrid.stepXPct : mmSnapGrid.stepYPct;
+        const useStep =
+          mode === "fine" ? Math.max(0.05, base / 4) : base;
+        return round2(clamp(Math.round(c / useStep) * useStep, 2, 98));
+      }
       const step =
         mode === "fine" ? Math.max(0.25, gridStep / 4) : gridStep;
       return round2(clamp(Math.round(c / step) * step, 2, 98));
     },
-    [snapGrid, gridStep]
+    [snapGrid, gridStep, mmSnapGrid]
   );
 
   const pxToPct = useCallback(
@@ -1007,8 +1085,8 @@ export function StageBoard({
       const xPct = ((clientX - r.left) / r.width) * 100;
       const yPct = ((clientY - r.top) / r.height) * 100;
       const mode: SnapMode = snapGrid ? (shiftKey ? "fine" : "grid") : "free";
-      let snappedX = quantizeCoord(xPct, mode);
-      const snappedY = quantizeCoord(yPct, mode);
+      let snappedX = quantizeCoord(xPct, "x", mode);
+      const snappedY = quantizeCoord(yPct, "y", mode);
       /**
        * 場ミリ規格が有効なときは「割センター / センター乗せ」のスロットに
        * x を吸い付かせる（流派の 75 cm / 225 cm / 375 cm... 並びを再現）。
@@ -1020,7 +1098,7 @@ export function StageBoard({
       }
       return { xPct: snappedX, yPct: snappedY };
     },
-    [snapGrid, quantizeCoord, dancerSpacingMm, stageWidthMm]
+    [snapGrid, quantizeCoord, dancerSpacingMm, stageWidthMm, mmSnapGrid]
   );
 
   /**
@@ -1111,14 +1189,17 @@ export function StageBoard({
       }
       const dxPct = ((e.clientX - d.startClientX) / d.floorWpx) * 100;
       const dyPct = ((e.clientY - d.startClientY) / d.floorHpx) * 100;
-      const snapDim = (v: number) => {
+      const snapDim = (axis: "x" | "y", v: number) => {
         let c = clamp(v, 0, 100);
-        if (snapGrid) {
-          const step = e.shiftKey
-            ? Math.max(0.25, gridStep / 4)
-            : gridStep;
+        if (!snapGrid) return round2(c);
+        if (mmSnapGrid) {
+          const base = axis === "x" ? mmSnapGrid.stepXPct : mmSnapGrid.stepYPct;
+          const step = e.shiftKey ? Math.max(0.05, base / 4) : base;
           c = clamp(Math.round(c / step) * step, 0, 100);
+          return round2(c);
         }
+        const step = e.shiftKey ? Math.max(0.25, gridStep / 4) : gridStep;
+        c = clamp(Math.round(c / step) * step, 0, 100);
         return round2(c);
       };
       const raw = applySetPieceResizePct(
@@ -1130,10 +1211,10 @@ export function StageBoard({
         dxPct,
         dyPct
       );
-      let xPct = snapDim(raw.xPct);
-      let yPct = snapDim(raw.yPct);
-      let wPct = snapDim(raw.wPct);
-      let hPct = snapDim(raw.hPct);
+      let xPct = snapDim("x", raw.xPct);
+      let yPct = snapDim("y", raw.yPct);
+      let wPct = snapDim("x", raw.wPct);
+      let hPct = snapDim("y", raw.hPct);
       wPct = Math.max(MIN_SET_PIECE_W_PCT, Math.min(wPct, 100 - xPct));
       hPct = Math.max(MIN_SET_PIECE_H_PCT, Math.min(hPct, 100 - yPct));
       xPct = clamp(xPct, 0, 100 - wPct);
@@ -1164,7 +1245,7 @@ export function StageBoard({
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
     };
-  }, [pxToPct, snapGrid, gridStep, updateActiveFormation]);
+  }, [pxToPct, snapGrid, gridStep, updateActiveFormation, mmSnapGrid]);
 
   const handlePointerDownDancer = (
     e: ReactPointerEvent,
@@ -1702,8 +1783,8 @@ export function StageBoard({
       const afterSnap = (nx: number, ny: number) => {
         const mode: SnapMode = snapGrid ? "fine" : "free";
         return {
-          xPct: quantizeCoord(nx, mode),
-          yPct: quantizeCoord(ny, mode),
+          xPct: quantizeCoord(nx, "x", mode),
+          yPct: quantizeCoord(ny, "y", mode),
         };
       };
       const idSet = new Set(selectedDancerIds);
@@ -1733,6 +1814,7 @@ export function StageBoard({
     snapGrid,
     quantizeCoord,
     updateActiveFormation,
+    mmSnapGrid,
   ]);
 
   /** 客席の辺に応じた向きに、さらに 180° 回して「舞台の正面」を反対側から見る */
@@ -1945,7 +2027,7 @@ export function StageBoard({
                 ? {
                     ...m,
                     label: patch.label.slice(0, 120),
-                    colorIndex: patch.colorIndex % 9,
+                    colorIndex: modDancerColorIndex(patch.colorIndex),
                     heightCm: patch.heightCm,
                     gradeLabel: patch.gradeLabel,
                     genderLabel: patch.genderLabel,
@@ -1967,12 +2049,15 @@ export function StageBoard({
               return {
                 ...x,
                 label: patch.label.slice(0, 120),
-                colorIndex: patch.colorIndex % 9,
+                colorIndex: modDancerColorIndex(patch.colorIndex),
                 note: patch.note,
                 heightCm: patch.heightCm,
                 gradeLabel: patch.gradeLabel,
                 genderLabel: patch.genderLabel,
                 skillRankLabel: patch.skillRankLabel,
+                markerBadge: patch.markerBadge?.trim()
+                  ? patch.markerBadge.trim().slice(0, 3)
+                  : undefined,
               };
             }),
           })),
@@ -1980,6 +2065,216 @@ export function StageBoard({
       });
     },
     [formationIdForWrites, dancerQuickEditId, setProject]
+  );
+
+  /** 範囲選択・Shift 複数選択の対象に、印の色を一括で当てる（名簿紐付け時は名簿の色も同期） */
+  const applyBulkColorToDancerIds = useCallback(
+    (targetIds: string[], colorIndex: number) => {
+      if (!formationIdForWrites || targetIds.length === 0) return;
+      if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
+        return;
+      const ci = modDancerColorIndex(colorIndex);
+      const idSet = new Set(targetIds);
+      setProject((p) => {
+        const crewIds = new Set<string>();
+        const form = p.formations.find((f) => f.id === formationIdForWrites);
+        if (!form) return p;
+        for (const d of form.dancers) {
+          if (!idSet.has(d.id)) continue;
+          if (d.crewMemberId) crewIds.add(d.crewMemberId);
+        }
+        const crews = p.crews.map((crew) => ({
+          ...crew,
+          members: crew.members.map((m) =>
+            crewIds.has(m.id) ? { ...m, colorIndex: ci } : m
+          ),
+        }));
+        return {
+          ...p,
+          crews,
+          formations: p.formations.map((f) => {
+            if (f.id !== formationIdForWrites) return f;
+            return {
+              ...f,
+              dancers: f.dancers.map((d) =>
+                idSet.has(d.id) ? { ...d, colorIndex: ci } : d
+              ),
+            };
+          }),
+        };
+      });
+    },
+    [
+      formationIdForWrites,
+      setProject,
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+    ]
+  );
+
+  /**
+   * 名前を○の下にしているとき、選択した全員の○内表示をフォーメーション順で連番にする。
+   */
+  const applyBulkMarkerSequence = useCallback(
+    (targetIds: string[], startNum: number) => {
+      if (!formationIdForWrites || targetIds.length === 0) return;
+      if (
+        !dancerLabelBelow ||
+        viewMode === "view" ||
+        !stageInteractionsEnabled ||
+        playbackOrPreview
+      )
+        return;
+      if (!Number.isFinite(startNum)) return;
+      let n = Math.floor(startNum);
+      const idSet = new Set(targetIds);
+      setProject((p) => {
+        const form = p.formations.find((f) => f.id === formationIdForWrites);
+        if (!form) return p;
+        const ordered = form.dancers.filter((d) => idSet.has(d.id));
+        if (ordered.length === 0) return p;
+        const idToBadge = new Map<string, string>();
+        for (const d of ordered) {
+          idToBadge.set(d.id, String(n).slice(0, 3));
+          n += 1;
+        }
+        return {
+          ...p,
+          formations: p.formations.map((f) => {
+            if (f.id !== formationIdForWrites) return f;
+            return {
+              ...f,
+              dancers: f.dancers.map((d) => {
+                const b = idToBadge.get(d.id);
+                if (b === undefined) return d;
+                return { ...d, markerBadge: b };
+              }),
+            };
+          }),
+        };
+      });
+    },
+    [
+      formationIdForWrites,
+      setProject,
+      dancerLabelBelow,
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+    ]
+  );
+
+  /** 名前を○の下にしているとき、選択した全員の○内表示を同じ文字列にする。 */
+  const applyBulkMarkerSame = useCallback(
+    (targetIds: string[], badgeRaw: string) => {
+      if (!formationIdForWrites || targetIds.length === 0) return;
+      if (
+        !dancerLabelBelow ||
+        viewMode === "view" ||
+        !stageInteractionsEnabled ||
+        playbackOrPreview
+      )
+        return;
+      const badge = badgeRaw.trim().slice(0, 3);
+      if (!badge) return;
+      const idSet = new Set(targetIds);
+      setProject((p) => ({
+        ...p,
+        formations: p.formations.map((f) => {
+          if (f.id !== formationIdForWrites) return f;
+          return {
+            ...f,
+            dancers: f.dancers.map((d) =>
+              idSet.has(d.id) ? { ...d, markerBadge: badge } : d
+            ),
+          };
+        }),
+      }));
+    },
+    [
+      formationIdForWrites,
+      setProject,
+      dancerLabelBelow,
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+    ]
+  );
+
+  const applyBulkFacingDelta = useCallback(
+    (targetIds: string[], deltaDeg: number) => {
+      if (!formationIdForWrites || targetIds.length === 0) return;
+      if (
+        viewMode === "view" ||
+        !stageInteractionsEnabled ||
+        playbackOrPreview
+      )
+        return;
+      if (!Number.isFinite(deltaDeg)) return;
+      const idSet = new Set(targetIds);
+      setProject((p) => ({
+        ...p,
+        formations: p.formations.map((f) => {
+          if (f.id !== formationIdForWrites) return f;
+          return {
+            ...f,
+            dancers: f.dancers.map((d) => {
+              if (!idSet.has(d.id)) return d;
+              const cur =
+                typeof d.facingDeg === "number" && Number.isFinite(d.facingDeg)
+                  ? d.facingDeg
+                  : 0;
+              const next = normalizeDancerFacingDeg(cur + deltaDeg);
+              const { facingDeg: _fd, ...rest } = d;
+              return next === 0 ? rest : { ...rest, facingDeg: next };
+            }),
+          };
+        }),
+      }));
+    },
+    [
+      formationIdForWrites,
+      setProject,
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+    ]
+  );
+
+  const applyBulkFacingAbsolute = useCallback(
+    (targetIds: string[], deg: number) => {
+      if (!formationIdForWrites || targetIds.length === 0) return;
+      if (
+        viewMode === "view" ||
+        !stageInteractionsEnabled ||
+        playbackOrPreview
+      )
+        return;
+      const idSet = new Set(targetIds);
+      const next = normalizeDancerFacingDeg(deg);
+      setProject((p) => ({
+        ...p,
+        formations: p.formations.map((f) => {
+          if (f.id !== formationIdForWrites) return f;
+          return {
+            ...f,
+            dancers: f.dancers.map((d) => {
+              if (!idSet.has(d.id)) return d;
+              const { facingDeg: _fd, ...rest } = d;
+              return next === 0 ? rest : { ...rest, facingDeg: next };
+            }),
+          };
+        }),
+      }));
+    },
+    [
+      formationIdForWrites,
+      setProject,
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+    ]
   );
 
   const applyDancerArrange = useCallback(
@@ -2041,7 +2336,7 @@ export function StageBoard({
   if (stageContextMenu) {
     const pad = 8;
     const mw = stageContextMenu.kind === "dancer" ? 268 : 132;
-    const mh = stageContextMenu.kind === "dancer" ? 640 : 52;
+    const mh = stageContextMenu.kind === "dancer" ? 720 : 52;
     const maxL =
       typeof window !== "undefined" ? window.innerWidth - mw - pad : stageContextMenu.clientX;
     const maxT =
@@ -2113,8 +2408,10 @@ export function StageBoard({
           flex: 1,
           minHeight: "280px",
           display: "flex",
+          flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
+          gap: "8px",
           /**
            * ステージ枠のリサイズハンドル（左右・上下）が枠より外に
            * わずかに飛び出して配置されるため、padding で隠れないよう
@@ -2280,43 +2577,62 @@ export function StageBoard({
                 />
               </svg>
             )}
-            {snapGrid && (
-              <svg
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  width: "100%",
-                  height: "100%",
-                  pointerEvents: "none",
-                  opacity: 0.35,
-                }}
-                preserveAspectRatio="none"
-              >
-                {Array.from(
-                  { length: Math.floor(100 / gridStep) + 1 },
-                  (_, i) => i * gridStep
-                ).map((g) => (
-                  <g key={g}>
-                    <line
-                      x1={`${g}%`}
-                      y1="0%"
-                      x2={`${g}%`}
-                      y2="100%"
-                      stroke="#475569"
-                      strokeWidth="0.5"
-                    />
-                    <line
-                      x1="0%"
-                      y1={`${g}%`}
-                      x2="100%"
-                      y2={`${g}%`}
-                      stroke="#475569"
-                      strokeWidth="0.5"
-                    />
-                  </g>
-                ))}
-              </svg>
-            )}
+            {(project.stageGridLinesEnabled ?? false) &&
+              mmSnapGrid != null && (
+                <svg
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    width: "100%",
+                    height: "100%",
+                    pointerEvents: "none",
+                    opacity: 0.36,
+                  }}
+                  preserveAspectRatio="none"
+                  aria-hidden
+                >
+                  {(() => {
+                    const MAX = 120;
+                    const { stepXPct, stepYPct } = mmSnapGrid;
+                    let sx = 1;
+                    while (Math.ceil(100 / (stepXPct * sx)) > MAX) sx++;
+                    let sy = 1;
+                    while (Math.ceil(100 / (stepYPct * sy)) > MAX) sy++;
+                    const nodes: JSX.Element[] = [];
+                    for (let i = 0; i * stepXPct * sx <= 100 + 1e-9; i++) {
+                      const g = round2(Math.min(100, i * stepXPct * sx));
+                      nodes.push(
+                        <line
+                          key={`v-${i}-${sx}`}
+                          x1={`${g}%`}
+                          y1="0%"
+                          x2={`${g}%`}
+                          y2="100%"
+                          stroke="#64748b"
+                          strokeWidth="0.35"
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      );
+                    }
+                    for (let j = 0; j * stepYPct * sy <= 100 + 1e-9; j++) {
+                      const g = round2(Math.min(100, j * stepYPct * sy));
+                      nodes.push(
+                        <line
+                          key={`h-${j}-${sy}`}
+                          x1="0%"
+                          y1={`${g}%`}
+                          x2="100%"
+                          y2={`${g}%`}
+                          stroke="#64748b"
+                          strokeWidth="0.35"
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      );
+                    }
+                    return nodes;
+                  })()}
+                </svg>
+              )}
             <svg
               viewBox="0 0 100 100"
               preserveAspectRatio="none"
@@ -2772,149 +3088,173 @@ export function StageBoard({
                 ))}
               </div>
             )}
-            {displayDancers.map((d) => {
+            {displayDancers.map((d, di) => {
               const dMarkerPx = effectiveMarkerPx(d);
               const dLabelFontPx = Math.max(
                 10,
                 Math.min(22, Math.round(14 * (dMarkerPx / 44)))
               );
+              const circleLabel = dancerLabelBelow
+                ? (d.markerBadge?.trim() || String(di + 1)).slice(0, 3)
+                : d.label || "?";
+              const facingRaw =
+                typeof d.facingDeg === "number" && Number.isFinite(d.facingDeg)
+                  ? d.facingDeg
+                  : 0;
+              const facing = normalizeDancerFacingDeg(facingRaw);
+              const labelOffsetPx = Math.round(dMarkerPx / 2) + 4;
+              const pivotTransform = playbackOrPreview
+                ? `translate3d(-50%, -50%, 0) rotate(${facing}deg)`
+                : `translate(-50%, -50%) rotate(${facing}deg)`;
               return (
-              <Fragment key={d.id}>
-              <button
-                type="button"
-                data-dancer-id={d.id}
-                title={
-                  !playbackOrPreview
-                    ? [
-                        mmLabel(d.xPct, d.yPct),
-                        "ダブルクリックで名前・身長・学年・性別・スキル・備考",
-                        "右クリックで削除・並べ替えメニュー",
-                        "下端へ寄せるとゴミ箱が出ます。そこへドロップで削除",
-                        "Shift / Cmd / Ctrl+クリックで複数選択に追加",
-                        "空のステージをドラッグで範囲選択",
-                        snapGrid ? "Shift+ドラッグで細かいグリッドにスナップ" : null,
-                        "Alt+矢印で微移動（Shift+Altでさらに細かく）",
-                        "Alt+クリックで重なった印の背面へ切替（§10）",
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")
-                    : mmLabel(d.xPct, d.yPct) || undefined
-                }
-                onPointerDown={(e) =>
-                  handlePointerDownDancer(e, d.id, d.xPct, d.yPct)
-                }
-                onContextMenu={(e) => {
-                  if (
-      viewMode === "view" ||
-      playbackDancers ||
-      previewDancers ||
-      !stageInteractionsEnabled
-    )
-      return;
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setStageContextMenu({
-                    kind: "dancer",
-                    clientX: e.clientX,
-                    clientY: e.clientY,
-                    dancerId: d.id,
-                  });
-                }}
-                onDoubleClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (
-                    viewMode === "view" ||
-                    playbackDancers ||
-                    previewDancers ||
-                    !stageInteractionsEnabled
-                  )
-                    return;
-                  setDancerQuickEditId(d.id);
-                }}
-                style={{
-                  position: "absolute",
-                  left: `${d.xPct}%`,
-                  top: `${d.yPct}%`,
-                  transform: playbackOrPreview
-                    ? "translate3d(-50%, -50%, 0)"
-                    : "translate(-50%, -50%)",
-                  willChange: playbackOrPreview ? "transform" : undefined,
-                  width: `${dMarkerPx}px`,
-                  height: `${dMarkerPx}px`,
-                  borderRadius: "50%",
-                  border:
-                    dancerQuickEditId === d.id
-                      ? "2px solid rgba(99,102,241,0.95)"
-                      : selectedDancerIds.includes(d.id)
-                        ? selectedDancerIds.length >= 2
-                          ? "2px solid rgba(167,139,250,0.95)"
-                          : "2px solid rgba(251,191,36,0.92)"
-                        : "2px solid rgba(255,255,255,0.35)",
-                  backgroundColor:
-                    DANCER_PALETTE[d.colorIndex % DANCER_PALETTE.length],
-                  color: "#0f172a",
-                  fontWeight: 700,
-                  fontSize: `${dLabelFontPx}px`,
-                  cursor:
-                    dancerQuickEditId === d.id
-                      ? "default"
-                      : viewMode === "view" ||
+                <Fragment key={d.id}>
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: `${d.xPct}%`,
+                      top: `${d.yPct}%`,
+                      transform: pivotTransform,
+                      width: 0,
+                      height: 0,
+                      zIndex: 4,
+                      pointerEvents: "none",
+                      willChange: playbackOrPreview ? "transform" : undefined,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      data-dancer-id={d.id}
+                      title={
+                        !playbackOrPreview
+                          ? [
+                              mmLabel(d.xPct, d.yPct),
+                              "ダブルクリックで名前・身長・学年・性別・スキル・備考",
+                              "右クリックで削除・並べ替えメニュー",
+                              "下端へ寄せるとゴミ箱が出ます。そこへドロップで削除",
+                              "Shift / Cmd / Ctrl+クリックで複数選択に追加",
+                              "空のステージをドラッグで範囲選択",
+                              snapGrid
+                                ? "Shift+ドラッグで細かいグリッドにスナップ"
+                                : null,
+                              "Alt+矢印で微移動（Shift+Altでさらに細かく）",
+                              "Alt+クリックで重なった印の背面へ切替（§10）",
+                              facing !== 0
+                                ? `向き ${facing}°（下のツールで一括変更可）`
+                                : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")
+                          : mmLabel(d.xPct, d.yPct) || undefined
+                      }
+                      onPointerDown={(e) =>
+                        handlePointerDownDancer(e, d.id, d.xPct, d.yPct)
+                      }
+                      onContextMenu={(e) => {
+                        if (
+                          viewMode === "view" ||
                           playbackDancers ||
                           previewDancers ||
                           !stageInteractionsEnabled
-                        ? "default"
-                        : "grab",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  boxShadow: "0 4px 14px rgba(0,0,0,0.35)",
-                  padding: 0,
-                  userSelect: "none",
-                  zIndex: 4,
-                  pointerEvents:
-                    viewMode === "view" ||
-                    playbackDancers ||
-                    previewDancers ||
-                    !stageInteractionsEnabled
-                      ? "none"
-                      : "auto",
-                }}
-              >
-                {dancerLabelBelow ? null : d.label || "?"}
-              </button>
-              {dancerLabelBelow && (
-                <div
-                  aria-hidden
-                  style={{
-                    position: "absolute",
-                    left: `${d.xPct}%`,
-                    /**
-                     * ○の中心から半径＋4px だけ下に置いて、印のすぐ下に名前を表示する。
-                     * `dMarkerPx` は当該ダンサーの実描画サイズなので、印の大きさが
-                     * 変わっても常に下端のすぐ下に追従する。
-                     */
-                    top: `calc(${d.yPct}% + ${Math.round(dMarkerPx / 2) + 4}px)`,
-                    transform: "translateX(-50%)",
-                    color: "#f8fafc",
-                    fontSize: `${Math.max(10, Math.min(15, dLabelFontPx - 1))}px`,
-                    fontWeight: 700,
-                    lineHeight: 1.1,
-                    whiteSpace: "nowrap",
-                    pointerEvents: "none",
-                    textShadow:
-                      "0 1px 2px rgba(0,0,0,0.85), 0 0 2px rgba(0,0,0,0.85)",
-                    userSelect: "none",
-                    zIndex: 4,
-                    maxWidth: "120px",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                >
-                  {d.label || "?"}
-                </div>
-              )}
-              </Fragment>
+                        )
+                          return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setStageContextMenu({
+                          kind: "dancer",
+                          clientX: e.clientX,
+                          clientY: e.clientY,
+                          dancerId: d.id,
+                        });
+                      }}
+                      onDoubleClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (
+                          viewMode === "view" ||
+                          playbackDancers ||
+                          previewDancers ||
+                          !stageInteractionsEnabled
+                        )
+                          return;
+                        setDancerQuickEditId(d.id);
+                      }}
+                      style={{
+                        position: "absolute",
+                        left: "50%",
+                        top: "50%",
+                        transform: "translate(-50%, -50%)",
+                        width: `${dMarkerPx}px`,
+                        height: `${dMarkerPx}px`,
+                        borderRadius: "50%",
+                        border:
+                          dancerQuickEditId === d.id
+                            ? "2px solid rgba(99,102,241,0.95)"
+                            : selectedDancerIds.includes(d.id)
+                              ? selectedDancerIds.length >= 2
+                                ? "2px solid rgba(167,139,250,0.95)"
+                                : "2px solid rgba(251,191,36,0.92)"
+                              : "2px solid rgba(255,255,255,0.35)",
+                        backgroundColor:
+                          DANCER_PALETTE[modDancerColorIndex(d.colorIndex)],
+                        color: "#0f172a",
+                        fontWeight: 700,
+                        fontSize: `${dLabelFontPx}px`,
+                        cursor:
+                          dancerQuickEditId === d.id
+                            ? "default"
+                            : viewMode === "view" ||
+                                playbackDancers ||
+                                previewDancers ||
+                                !stageInteractionsEnabled
+                              ? "default"
+                              : "grab",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        boxShadow: "0 4px 14px rgba(0,0,0,0.35)",
+                        padding: 0,
+                        userSelect: "none",
+                        pointerEvents:
+                          viewMode === "view" ||
+                          playbackDancers ||
+                          previewDancers ||
+                          !stageInteractionsEnabled
+                            ? "none"
+                            : "auto",
+                      }}
+                    >
+                      {circleLabel}
+                    </button>
+                    {dancerLabelBelow && (
+                      <div
+                        aria-hidden
+                        style={{
+                          position: "absolute",
+                          left: "50%",
+                          top: "50%",
+                          transform: `translate(-50%, calc(-50% + ${labelOffsetPx}px))`,
+                          color: "#f8fafc",
+                          fontSize: `${Math.max(
+                            10,
+                            Math.min(15, dLabelFontPx - 1)
+                          )}px`,
+                          fontWeight: 700,
+                          lineHeight: 1.1,
+                          whiteSpace: "nowrap",
+                          pointerEvents: "none",
+                          textShadow:
+                            "0 1px 2px rgba(0,0,0,0.85), 0 0 2px rgba(0,0,0,0.85)",
+                          userSelect: "none",
+                          maxWidth: "120px",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {d.label || "?"}
+                      </div>
+                    )}
+                  </div>
+                </Fragment>
               );
             })}
             {primarySelectedDancer && !marquee && (() => {
@@ -3044,6 +3384,75 @@ export function StageBoard({
                 }}
               >
                 花道
+              </div>
+            ) : null}
+            {visibleFormation ? (
+              <div
+                style={{
+                  flex: "0 0 auto",
+                  borderTop: "1px solid #334155",
+                  padding: "8px 10px 10px",
+                  background: "rgba(2, 6, 23, 0.94)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "6px",
+                  minHeight: 0,
+                }}
+              >
+                <label
+                  htmlFor="stage-formation-memo"
+                  style={{
+                    fontSize: "10px",
+                    fontWeight: 600,
+                    color: "#94a3b8",
+                    letterSpacing: "0.04em",
+                  }}
+                >
+                  ステージメモ（立ち位置の注意・共有）
+                </label>
+                {stageMemoReadOnly ? (
+                  <div
+                    id="stage-formation-memo"
+                    role="note"
+                    style={{
+                      fontSize: "12px",
+                      lineHeight: 1.45,
+                      color: "#e2e8f0",
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                      minHeight: "2.5em",
+                      maxHeight: "120px",
+                      overflowY: "auto",
+                    }}
+                  >
+                    {(visibleFormation.note ?? "").trim() !== ""
+                      ? visibleFormation.note
+                      : "（メモはまだありません）"}
+                  </div>
+                ) : (
+                  <textarea
+                    id="stage-formation-memo"
+                    value={visibleFormation.note ?? ""}
+                    onChange={(e) => commitStageFormationNote(e.target.value)}
+                    placeholder="例：中央センター寄り／前列は膝まで／移動は客席から見て右から など"
+                    rows={3}
+                    style={{
+                      width: "100%",
+                      resize: "vertical",
+                      minHeight: "56px",
+                      maxHeight: "140px",
+                      fontSize: "12px",
+                      lineHeight: 1.45,
+                      padding: "8px 10px",
+                      borderRadius: "8px",
+                      border: "1px solid #475569",
+                      background: "#020617",
+                      color: "#f1f5f9",
+                      boxSizing: "border-box",
+                      fontFamily: "inherit",
+                    }}
+                  />
+                )}
               </div>
             ) : null}
           </div>
@@ -3213,6 +3622,250 @@ export function StageBoard({
               );
             })}
         </div>
+        {selectedDancerIds.length >= 1 &&
+          viewMode !== "view" &&
+          stageInteractionsEnabled &&
+          !playbackOrPreview &&
+          !previewDancers && (
+            <div
+              style={{
+                flexShrink: 0,
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+                width: "100%",
+                maxWidth: "min(100%, 440px)",
+              }}
+            >
+              <div
+                role="toolbar"
+                aria-label="選択した立ち位置の色を一括変更"
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  gap: "8px",
+                  width: "100%",
+                  padding: "8px 10px",
+                  borderRadius: "10px",
+                  border: "1px solid #334155",
+                  background: "rgba(15, 23, 42, 0.96)",
+                  boxSizing: "border-box",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    color: "#94a3b8",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  選択中 {selectedDancerIds.length} 人の色
+                </span>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
+                  {DANCER_PALETTE.map((hex, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      title={`色を一括で ${i + 1} に変更`}
+                      onClick={() =>
+                        applyBulkColorToDancerIds(selectedDancerIds, i)
+                      }
+                      style={{
+                        width: 26,
+                        height: 26,
+                        borderRadius: 6,
+                        border:
+                          primarySelectedDancer &&
+                          modDancerColorIndex(primarySelectedDancer.colorIndex) ===
+                          i
+                            ? "2px solid #fbbf24"
+                            : "1px solid #1e293b",
+                        background: hex,
+                        cursor: "pointer",
+                        padding: 0,
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div
+                role="toolbar"
+                aria-label="選択した立ち位置の印の向き"
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  gap: "6px",
+                  width: "100%",
+                  padding: "8px 10px",
+                  borderRadius: "10px",
+                  border: "1px solid #334155",
+                  background: "rgba(15, 23, 42, 0.96)",
+                  boxSizing: "border-box",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    color: "#94a3b8",
+                    width: "100%",
+                  }}
+                >
+                  選択中の向き（印・名前を 0〜359° まわす）
+                </span>
+                {FACING_DELTA_PRESETS.map((deg) => (
+                  <button
+                    key={deg}
+                    type="button"
+                    title={
+                      deg < 0
+                        ? `選択全員の向きを反時計回りに ${-deg}°`
+                        : `選択全員の向きを時計回りに ${deg}°`
+                    }
+                    onClick={() =>
+                      applyBulkFacingDelta(selectedDancerIds, deg)
+                    }
+                    style={{
+                      ...btnSecondary,
+                      padding: "4px 8px",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {deg > 0 ? `+${deg}` : `${deg}`}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  title="選択全員の向きを 0° に戻す"
+                  onClick={() =>
+                    applyBulkFacingAbsolute(selectedDancerIds, 0)
+                  }
+                  style={{
+                    ...btnSecondary,
+                    padding: "4px 10px",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                  }}
+                >
+                  0°
+                </button>
+                <button
+                  type="button"
+                  title="選択全員を同じ絶対角度にする（0〜359）"
+                  onClick={() => {
+                    const raw = window.prompt(
+                      "向きの角度（0〜359 の整数）。選択した全員を同じ絶対角度にします。",
+                      "0"
+                    );
+                    if (raw == null || raw.trim() === "") return;
+                    const v = Number.parseInt(raw.trim(), 10);
+                    if (!Number.isFinite(v)) {
+                      window.alert("整数として読めませんでした。");
+                      return;
+                    }
+                    applyBulkFacingAbsolute(selectedDancerIds, v);
+                  }}
+                  style={{
+                    ...btnSecondary,
+                    padding: "4px 10px",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                  }}
+                >
+                  角度を指定…
+                </button>
+              </div>
+              {dancerLabelBelow && (
+                <div
+                  role="toolbar"
+                  aria-label="選択した立ち位置の○内番号を連番で振る"
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    gap: "8px",
+                    width: "100%",
+                    padding: "8px 10px",
+                    borderRadius: "10px",
+                    border: "1px solid #334155",
+                    background: "rgba(15, 23, 42, 0.96)",
+                    boxSizing: "border-box",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      color: "#94a3b8",
+                      whiteSpace: "nowrap",
+                      width: "100%",
+                    }}
+                  >
+                    ○内の番号（名前は下）
+                  </span>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "6px",
+                      alignItems: "center",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      title="フォーメーション内の並び順で、選択した全員に連番を振ります"
+                      onClick={() => {
+                        const raw = window.prompt(
+                          "開始番号（整数）を入力してください。選択した全員に、その順で連番が○の中に入ります。",
+                          "1"
+                        );
+                        if (raw == null || raw.trim() === "") return;
+                        const v = Number.parseInt(raw.trim(), 10);
+                        if (!Number.isFinite(v)) {
+                          window.alert("整数として読めませんでした。");
+                          return;
+                        }
+                        applyBulkMarkerSequence(selectedDancerIds, v);
+                      }}
+                      style={{
+                        ...btnSecondary,
+                        padding: "6px 12px",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                      }}
+                    >
+                      連番で振る…
+                    </button>
+                    <button
+                      type="button"
+                      title="選択した全員の○の中を、同じ数字・略号にします（最大3文字）"
+                      onClick={() => {
+                        const raw = window.prompt(
+                          "全員の○の中に同じ内容を入れます（数字・略号、最大3文字）。空欄はキャンセルです。",
+                          "1"
+                        );
+                        if (raw == null || raw.trim() === "") return;
+                        applyBulkMarkerSame(selectedDancerIds, raw);
+                      }}
+                      style={{
+                        ...btnSecondary,
+                        padding: "6px 12px",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                      }}
+                    >
+                      全員同じ番号…
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
       </div>
     </div>
     {stageContextMenu && contextMenuStyle && (
@@ -3234,6 +3887,216 @@ export function StageBoard({
               範囲はドラッグで囲むか Shift+クリックで複数選択。
               右クリックした印が選択に含まれるときは<strong style={{ color: "#94a3b8" }}> 選択全員</strong>が対象です。
             </div>
+            <div
+              style={{
+                fontSize: "10px",
+                fontWeight: 600,
+                color: "#94a3b8",
+                margin: "8px 0 4px",
+              }}
+            >
+              印の色（上と同じ対象に一括）
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "5px",
+                marginBottom: "10px",
+              }}
+            >
+              {DANCER_PALETTE.map((hex, i) => (
+                <button
+                  key={`cm-color-${i}`}
+                  type="button"
+                  title={`色 ${i + 1} に一括変更`}
+                  onClick={() => {
+                    if (stageContextMenu.kind !== "dancer") return;
+                    const ids = resolveArrangeTargetIds(
+                      stageContextMenu.dancerId,
+                      selectedDancerIds
+                    );
+                    applyBulkColorToDancerIds(ids, i);
+                    setStageContextMenu(null);
+                  }}
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 6,
+                    border: "1px solid #1e293b",
+                    background: hex,
+                    cursor: "pointer",
+                    padding: 0,
+                    boxSizing: "border-box",
+                  }}
+                />
+              ))}
+            </div>
+            <div
+              style={{
+                fontSize: "10px",
+                fontWeight: 600,
+                color: "#94a3b8",
+                margin: "8px 0 4px",
+              }}
+            >
+              印の向き（0〜359°・相対・一括）
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "4px",
+                marginBottom: "10px",
+              }}
+            >
+              {FACING_DELTA_PRESETS.map((deg) => (
+                <button
+                  key={`cm-facing-${deg}`}
+                  type="button"
+                  style={{
+                    ...btnSecondary,
+                    padding: "3px 6px",
+                    fontSize: "10px",
+                    fontWeight: 600,
+                  }}
+                  onClick={() => {
+                    if (stageContextMenu.kind !== "dancer") return;
+                    const ids = resolveArrangeTargetIds(
+                      stageContextMenu.dancerId,
+                      selectedDancerIds
+                    );
+                    applyBulkFacingDelta(ids, deg);
+                    setStageContextMenu(null);
+                  }}
+                >
+                  {deg > 0 ? `+${deg}` : `${deg}`}
+                </button>
+              ))}
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  padding: "3px 8px",
+                  fontSize: "10px",
+                  fontWeight: 600,
+                }}
+                onClick={() => {
+                  if (stageContextMenu.kind !== "dancer") return;
+                  const ids = resolveArrangeTargetIds(
+                    stageContextMenu.dancerId,
+                    selectedDancerIds
+                  );
+                  applyBulkFacingAbsolute(ids, 0);
+                  setStageContextMenu(null);
+                }}
+              >
+                0°
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  padding: "3px 8px",
+                  fontSize: "10px",
+                  fontWeight: 600,
+                }}
+                onClick={() => {
+                  if (stageContextMenu.kind !== "dancer") return;
+                  const ids = resolveArrangeTargetIds(
+                    stageContextMenu.dancerId,
+                    selectedDancerIds
+                  );
+                  const raw = window.prompt(
+                    "向き（0〜359 の整数）。選択全員を同じ絶対角度にします。",
+                    "0"
+                  );
+                  if (raw == null || raw.trim() === "") return;
+                  const v = Number.parseInt(raw.trim(), 10);
+                  if (!Number.isFinite(v)) {
+                    window.alert("整数として読めませんでした。");
+                    return;
+                  }
+                  applyBulkFacingAbsolute(ids, v);
+                  setStageContextMenu(null);
+                }}
+              >
+                指定…
+              </button>
+            </div>
+            {dancerLabelBelow ? (
+              <>
+                <div
+                  style={{
+                    fontSize: "10px",
+                    fontWeight: 600,
+                    color: "#94a3b8",
+                    margin: "8px 0 4px",
+                  }}
+                >
+                  ○内の番号（名前は○の下）
+                </div>
+                <button
+                  type="button"
+                  style={{
+                    ...btnSecondary,
+                    width: "100%",
+                    fontSize: "11px",
+                    padding: "5px 8px",
+                    marginBottom: "4px",
+                    textAlign: "left",
+                  }}
+                  onClick={() => {
+                    if (stageContextMenu.kind !== "dancer") return;
+                    const ids = resolveArrangeTargetIds(
+                      stageContextMenu.dancerId,
+                      selectedDancerIds
+                    );
+                    const raw = window.prompt(
+                      "開始番号（整数）。対象全員に、フォーメーション順で連番を○の中に入れます。",
+                      "1"
+                    );
+                    if (raw == null || raw.trim() === "") return;
+                    const v = Number.parseInt(raw.trim(), 10);
+                    if (!Number.isFinite(v)) {
+                      window.alert("整数として読めませんでした。");
+                      return;
+                    }
+                    applyBulkMarkerSequence(ids, v);
+                    setStageContextMenu(null);
+                  }}
+                >
+                  選択対象に連番を振る…
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    ...btnSecondary,
+                    width: "100%",
+                    fontSize: "11px",
+                    padding: "5px 8px",
+                    marginBottom: "10px",
+                    textAlign: "left",
+                  }}
+                  onClick={() => {
+                    if (stageContextMenu.kind !== "dancer") return;
+                    const ids = resolveArrangeTargetIds(
+                      stageContextMenu.dancerId,
+                      selectedDancerIds
+                    );
+                    const raw = window.prompt(
+                      "全員の○の中を同じ内容にします（最大3文字）。空欄はキャンセルです。",
+                      "1"
+                    );
+                    if (raw == null || raw.trim() === "") return;
+                    applyBulkMarkerSame(ids, raw);
+                    setStageContextMenu(null);
+                  }}
+                >
+                  全員同じ番号にする…
+                </button>
+              </>
+            ) : null}
             <div
               style={{
                 fontSize: "10px",
@@ -3564,24 +4427,3 @@ export function StageBoard({
     </>
   );
 }
-
-export const btnPrimary: CSSProperties = {
-  padding: "8px 14px",
-  borderRadius: "999px",
-  border: "none",
-  background: "linear-gradient(135deg, #4f46e5, #ec4899)",
-  color: "white",
-  fontWeight: 600,
-  fontSize: "13px",
-  cursor: "pointer",
-};
-
-export const btnSecondary: CSSProperties = {
-  padding: "8px 12px",
-  borderRadius: "8px",
-  border: "1px solid #475569",
-  backgroundColor: "#0f172a",
-  color: "#e2e8f0",
-  fontSize: "13px",
-  cursor: "pointer",
-};

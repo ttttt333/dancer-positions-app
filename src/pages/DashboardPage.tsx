@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { billingApi, orgApi, projectApi } from "../api/client";
-import { btnPrimary, btnSecondary } from "../components/StageBoard";
+import { btnPrimary, btnSecondary } from "../components/stageButtonStyles";
 
 export function DashboardPage() {
   const { ready, me, logout, refresh } = useAuth();

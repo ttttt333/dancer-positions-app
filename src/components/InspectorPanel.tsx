@@ -10,7 +10,7 @@ import type {
 } from "../types/choreography";
 import { defaultFormation } from "../lib/projectDefaults";
 import { normalizeProject } from "../lib/normalizeProject";
-import { btnPrimary, btnSecondary } from "./StageBoard";
+import { btnPrimary, btnSecondary } from "./stageButtonStyles";
 import {
   PROJECT_EXPORT_FORMAT_OPTIONS,
   type ProjectExportFormatId,
@@ -29,20 +29,12 @@ import {
   captureStageSnapshot,
   mergeStageSnapshotIntoProject,
 } from "../lib/savedSpotStageSnapshot";
+import {
+  DANCER_COLOR_PALETTE_HEX as MEMBER_COLOR_SWATCHES,
+  modDancerColorIndex,
+} from "../lib/dancerColorPalette";
 
 const FORMATION_NAME_MAX = 120;
-
-/** StageBoard の DANCER_PALETTE と同じ（名簿の色チップ表示用） */
-const MEMBER_COLOR_SWATCHES = [
-  "#38bdf8",
-  "#a78bfa",
-  "#f472b6",
-  "#34d399",
-  "#fbbf24",
-  "#fb923c",
-  "#2dd4bf",
-  "#e879f9",
-] as const;
 
 type Props = {
   project: ChoreographyProjectJson;
@@ -325,7 +317,7 @@ export function InspectorPanel({
             label: String(n),
             xPct: 50,
             yPct: 40,
-            colorIndex: n % 9,
+            colorIndex: modDancerColorIndex(n),
           },
         ],
       };
@@ -379,7 +371,7 @@ export function InspectorPanel({
             label: m.label.slice(0, 8),
             xPct: 50 + (idx % 5) * 5,
             yPct: 40 + Math.floor(idx / 5) * 10,
-            colorIndex: m.colorIndex % 9,
+            colorIndex: modDancerColorIndex(m.colorIndex),
             crewMemberId: m.id,
             ...(typeof m.heightCm === "number" ? { heightCm: m.heightCm } : {}),
             ...(m.gradeLabel?.trim()
@@ -687,7 +679,7 @@ export function InspectorPanel({
                 {
                   id: crypto.randomUUID(),
                   label: String(c.members.length + 1),
-                  colorIndex: c.members.length % 9,
+                  colorIndex: modDancerColorIndex(c.members.length),
                 },
               ],
             }
@@ -1237,7 +1229,7 @@ export function InspectorPanel({
                       borderRadius: "50%",
                       flexShrink: 0,
                       background:
-                        MEMBER_COLOR_SWATCHES[m.colorIndex % MEMBER_COLOR_SWATCHES.length],
+                        MEMBER_COLOR_SWATCHES[modDancerColorIndex(m.colorIndex)],
                       border: "1px solid rgba(148,163,184,0.35)",
                     }}
                   />
@@ -1368,7 +1360,7 @@ export function InspectorPanel({
         </summary>
         <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "10px" }}>
           <label style={{ fontSize: "11px", color: "#94a3b8" }}>
-            フォーメーションメモ
+            フォーメーションメモ（2D ステージの下にも表示・共有できます）
             <textarea
               value={activeFormation?.note ?? ""}
               disabled={viewMode === "view" || !activeFormation}
@@ -1485,13 +1477,16 @@ export function InspectorPanel({
         ))}
 
       <label style={{ fontSize: "11px", color: "#94a3b8", display: "block" }}>
-        フォーメーションメモ
+        フォーメーションメモ（2D ステージの下にも表示）
         <textarea
           value={activeFormation?.note ?? ""}
           onChange={(e) =>
             updateActiveFormation((f) => ({
               ...f,
-              note: e.target.value === "" ? undefined : e.target.value,
+              note:
+                e.target.value === ""
+                  ? undefined
+                  : e.target.value.slice(0, 4000),
             }))
           }
           disabled={viewMode === "view"}

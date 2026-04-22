@@ -32,7 +32,7 @@ import {
   preloadFFmpeg,
 } from "../lib/extractVideoAudio";
 import { playCompletionWoof } from "../lib/playCompletionWoof";
-import { btnSecondary } from "./StageBoard";
+import { btnSecondary } from "./stageButtonStyles";
 
 /** タイムライン上部ツールバー用（再生・波形周りの縦スペース節約） */
 const TIMELINE_UI_SCALE = 1.2;

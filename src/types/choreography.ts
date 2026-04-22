@@ -11,8 +11,18 @@ export type RosterStripSortMode =
 export type DancerSpot = {
   id: string;
   label: string;
+  /**
+   * 名前を○の下に出すとき、○の中に表示する数字・略号（最大 3 文字）。
+   * 未指定のときは、フォーメーション内の並びで 1 からの番号を表示する（見た目のみ）。
+   */
+  markerBadge?: string;
   xPct: number;
   yPct: number;
+  /**
+   * 印（と名前）の向き。0＝既定、時計回りに最大 359。
+   * 座標 (xPct,yPct) は変えず、表示だけ回す。
+   */
+  facingDeg?: number;
   colorIndex: number;
   /** メンバー名簿のメンバー id（反映時のみ。ステージで名前変更と名簿を同期） */
   crewMemberId?: string;
@@ -153,6 +163,8 @@ export type SavedSpotStageSnapshot = {
   gridSpacingMm?: number;
   gridStep: number;
   snapGrid: boolean;
+  stageGridLinesEnabled?: boolean;
+  stageGridLineSpacingMm?: number;
   dancerSpacingMm: number | null;
   dancerMarkerDiameterPx: number;
   dancerMarkerDiameterMm?: number;
@@ -212,6 +224,16 @@ export type ChoreographyProjectJson = {
   trimEndSec: number | null;
   snapGrid: boolean;
   gridStep: number;
+  /**
+   * ステージ上に実寸グリッド線を重ねて表示する（幅・奥行 mm と線間隔が必要）。
+   * `snapGrid`（スナップ）とは独立。
+   */
+  stageGridLinesEnabled?: boolean;
+  /**
+   * グリッド線の間隔（mm）。既定は 10（1 cm）。`stageGridLinesEnabled` 表示と、
+   * 幅・奥行がそろっているときのスナップ（`snapGrid`）の優先間隔に使う。
+   */
+  stageGridLineSpacingMm?: number;
   /**
    * スナップグリッドの間隔を実寸（mm）で指定。
    *

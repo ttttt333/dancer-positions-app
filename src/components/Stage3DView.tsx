@@ -2,11 +2,10 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { DancerSpot } from "../types/choreography";
-
-const PALETTE = [
-  0x38bdf8, 0xa78bfa, 0xf472b6, 0x34d399, 0xfbbf24, 0xfb923c, 0x2dd4bf, 0xe879f9,
-  0xf8fafc,
-];
+import {
+  DANCER_COLOR_PALETTE_THREE as PALETTE,
+  modDancerColorIndex,
+} from "../lib/dancerColorPalette";
 
 type Api = {
   scene: THREE.Scene;
@@ -124,7 +123,7 @@ export function Stage3DView({ dancers, markerDiameterPx = 44 }: Props) {
     api.geom = geom;
     dancers.forEach((d) => {
       const mat = new THREE.MeshStandardMaterial({
-        color: PALETTE[d.colorIndex % PALETTE.length],
+        color: PALETTE[modDancerColorIndex(d.colorIndex)],
         roughness: 0.35,
         metalness: 0.12,
       });

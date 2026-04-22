@@ -8,6 +8,7 @@
  */
 import type { Crew, CrewMember } from "../types/choreography";
 import { parseCsvToRows } from "./projectExportFormats";
+import { modDancerColorIndex } from "./dancerColorPalette";
 
 const NAME_HEADER_KEYS = [
   "name",
@@ -486,7 +487,7 @@ function rowToParsedName(
   let colorIndex = 0;
   if (colorIdx >= 0) {
     const n = parseInt((row[colorIdx] ?? "").trim(), 10);
-    if (Number.isFinite(n)) colorIndex = ((n % 9) + 9) % 9;
+    if (Number.isFinite(n)) colorIndex = modDancerColorIndex(n);
   }
   return {
     fullRaw,
@@ -725,7 +726,7 @@ export function rowsToCrewMembers(
     pr.familyReading = rp.familyReading;
     pr.givenReading = rp.givenReading;
     if (colorIdx < 0) {
-      pr.colorIndex = memberCounter % 9;
+      pr.colorIndex = modDancerColorIndex(memberCounter);
     }
     if (heightIdx >= 0) {
       const h = parseHeightCmCell(row[heightIdx] ?? "");

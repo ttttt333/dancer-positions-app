@@ -1,19 +1,12 @@
 import type { DancerSpot } from "../types/choreography";
+import {
+  DANCER_COLOR_PALETTE_HEX as PALETTE,
+  modDancerColorIndex,
+  normalizeDancerFacingDeg,
+} from "../lib/dancerColorPalette";
 
 const VB_W = 100;
 const VB_H = 60;
-
-const PALETTE = [
-  "#38bdf8",
-  "#a78bfa",
-  "#f472b6",
-  "#34d399",
-  "#fbbf24",
-  "#fb923c",
-  "#2dd4bf",
-  "#e879f9",
-  "#f8fafc",
-] as const;
 
 type Props = {
   dancers: DancerSpot[];
@@ -81,17 +74,26 @@ export function FormationShapeThumb({ dancers, width = 36, className }: Props) {
         stroke="#1e293b"
         strokeWidth={0.75}
       />
-      {dancers.map((d) => (
-        <circle
-          key={d.id}
-          cx={mapX(d.xPct)}
-          cy={mapY(d.yPct)}
-          r={3.1}
-          fill={PALETTE[d.colorIndex % PALETTE.length]}
-          stroke="rgba(15,23,42,0.65)"
-          strokeWidth={0.45}
-        />
-      ))}
+      {dancers.map((d) => {
+        const cx = mapX(d.xPct);
+        const cy = mapY(d.yPct);
+        const rot =
+          typeof d.facingDeg === "number" && Number.isFinite(d.facingDeg)
+            ? normalizeDancerFacingDeg(d.facingDeg)
+            : 0;
+        return (
+          <circle
+            key={d.id}
+            cx={cx}
+            cy={cy}
+            r={3.1}
+            fill={PALETTE[modDancerColorIndex(d.colorIndex)]}
+            stroke="rgba(15,23,42,0.65)"
+            strokeWidth={0.45}
+            transform={rot !== 0 ? `rotate(${rot}, ${cx}, ${cy})` : undefined}
+          />
+        );
+      })}
     </svg>
   );
 }

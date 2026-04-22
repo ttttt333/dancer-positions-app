@@ -39,6 +39,9 @@ export function createEmptyProject(): ChoreographyProjectJson {
     trimEndSec: null,
     snapGrid: false,
     gridStep: 2,
+    stageGridLinesEnabled: false,
+    /** グリッド線・実寸スナップの既定間隔（1 cm） */
+    stageGridLineSpacingMm: 10,
     /**
      * 場ミリ規格の既定は 1.5 m（割センター 75 cm）。stageWidthMm が未設定の
      * うちは画面に効かない（％ベースのまま）が、ステージ寸法を入れた瞬間から

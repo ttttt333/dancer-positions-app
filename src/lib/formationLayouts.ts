@@ -3,6 +3,7 @@ import {
   FORMATION_REFERENCE_STEP_PCT,
   rescaleSpotsForSpacing,
 } from "./dancerSpacing";
+import { modDancerColorIndex } from "./dancerColorPalette";
 
 /**
  * 場ミリ規格を `dancersForLayoutPreset` / `dancersWithPresetAndWingSurplus`
@@ -25,7 +26,7 @@ function pushSpot(out: DancerSpot[], i: number, x: number, y: number) {
     label: String(i + 1),
     xPct: clamp(x, 5, 95),
     yPct: clamp(y, 8, 92),
-    colorIndex: i % 9,
+    colorIndex: modDancerColorIndex(i),
   });
 }
 
@@ -298,7 +299,7 @@ function relabelByAudienceCenterOut(dancers: DancerSpot[]): DancerSpot[] {
     return dancers.map((d, i) => ({
       ...d,
       label: String(i + 1),
-      colorIndex: i % 9,
+      colorIndex: modDancerColorIndex(i),
     }));
   }
   /** 行（y）のグルーピング許容値（％）。目安間隔が 10% なので半分程度 */
@@ -341,7 +342,7 @@ function relabelByAudienceCenterOut(dancers: DancerSpot[]): DancerSpot[] {
   return dancers.map((d, i) => ({
     ...d,
     label: String(newLabelByIdx[i]),
-    colorIndex: (newLabelByIdx[i]! - 1) % 9,
+    colorIndex: modDancerColorIndex(newLabelByIdx[i]! - 1),
   }));
 }
 
@@ -928,7 +929,7 @@ export function wingSurplusSpots(extra: number, firstLabelNumber: number): Dance
       label: String(firstLabelNumber + j),
       xPct: clamp(xPct, 5, 95),
       yPct: clamp(yPct, 10, 90),
-      colorIndex: i % 9,
+      colorIndex: modDancerColorIndex(i),
     });
   }
   return out;

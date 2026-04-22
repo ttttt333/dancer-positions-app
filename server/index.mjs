@@ -8,6 +8,7 @@ import { randomBytes, createHash } from "crypto";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { mkdirSync, existsSync, createReadStream } from "fs";
+import { networkInterfaces } from "os";
 import http from "http";
 import { WebSocketServer } from "ws";
 import Stripe from "stripe";
@@ -22,7 +23,10 @@ const JWT_SECRET = process.env.JWT_SECRET || "dev-only-change-in-production";
 const PORT = Number(process.env.PORT) || 3001;
 const APP_BASE = process.env.APP_BASE || "http://127.0.0.1:5173";
 
-const dbPath = join(__dirname, "data.sqlite");
+/** 本番では永続ボリュームをマウントしたパス（例: Fly.io の /data） */
+const dataRoot = process.env.DATA_DIR || __dirname;
+if (!existsSync(dataRoot)) mkdirSync(dataRoot, { recursive: true });
+const dbPath = join(dataRoot, "data.sqlite");
 const db = new Database(dbPath);
 
 db.exec(`
@@ -130,7 +134,7 @@ if (countOrgs.c === 0) {
   ).run("サンプル協会", new Date().toISOString());
 }
 
-const uploadsRoot = join(__dirname, "data", "uploads");
+const uploadsRoot = join(dataRoot, "data", "uploads");
 if (!existsSync(uploadsRoot)) mkdirSync(uploadsRoot, { recursive: true });
 
 const storage = multer.diskStorage({
@@ -190,6 +194,7 @@ function isProjectOwner(userId, projectId) {
 }
 
 const app = express();
+app.set("trust proxy", 1);
 app.use(cors({ origin: true, credentials: true }));
 
 /** Stripe Webhook は raw body で署名検証する必要がある */
@@ -732,8 +737,18 @@ app.delete("/api/projects/:id", authMiddleware, requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
-const dataDir = join(__dirname, "data");
-if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
+const distPath = join(__dirname, "..", "dist");
+const hasDist = existsSync(join(distPath, "index.html"));
+if (hasDist) {
+  app.use(express.static(distPath));
+  app.use((req, res, next) => {
+    if (req.path.startsWith("/api")) return next();
+    if (req.method !== "GET" && req.method !== "HEAD") return next();
+    res.sendFile(join(distPath, "index.html"), (err) => {
+      if (err) next(err);
+    });
+  });
+}
 
 const httpServer = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
@@ -771,6 +786,43 @@ httpServer.on("upgrade", (request, socket, head) => {
 
 wss.on("connection", setupWSConnection);
 
-httpServer.listen(PORT, () => {
-  console.log(`API http://127.0.0.1:${PORT} (HTTP + Yjs WebSocket)`);
+function firstLanUrl(port) {
+  const nets = networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name] ?? []) {
+      const v4 = net.family === "IPv4" || net.family === 4;
+      if (v4 && !net.internal) {
+        return `http://${net.address}:${port}/`;
+      }
+    }
+  }
+  return null;
+}
+
+httpServer.listen(PORT, "0.0.0.0", () => {
+  const primary = `http://127.0.0.1:${PORT}/`;
+  const lan = firstLanUrl(PORT);
+  const bar = "\n" + "━".repeat(62);
+  console.log(
+    `Listening on 0.0.0.0:${PORT} (HTTP + WebSocket; SPA=${hasDist ? "yes" : "no"})`
+  );
+  if (hasDist) {
+    console.log(bar);
+    console.log(`  ChoreoGrid（ブラウザで開く）→  ${primary}`);
+    if (lan) {
+      console.log(`     同一 LAN の別端末: ${lan}`);
+    }
+    console.log(`     手動: npm run open:prod（別ターミナル）`);
+    console.log(bar + "\n");
+  } else {
+    console.log(bar);
+    console.log(
+      "  フロント未ビルド（dist なし）— API のみです。ブラウザで UI を見るには:"
+    );
+    console.log(`     npm run dev  →  ${APP_BASE.replace(/\/$/, "")}/ （Vite + プロキシ）`);
+    console.log(
+      "     または npm run build && npm run start:prod でこのポートに SPA を載せます。"
+    );
+    console.log(bar + "\n");
+  }
 });

@@ -5,20 +5,13 @@ import {
   type ReactNode,
 } from "react";
 import type { DancerSpot } from "../types/choreography";
-
-const DANCER_PALETTE = [
-  "#38bdf8",
-  "#a78bfa",
-  "#f472b6",
-  "#34d399",
-  "#fbbf24",
-  "#fb923c",
-  "#2dd4bf",
-  "#e879f9",
-  "#f8fafc",
-] as const;
+import {
+  DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE,
+  modDancerColorIndex,
+} from "../lib/dancerColorPalette";
 
 const LABEL_MAX = 120;
+const MARKER_BADGE_MAX = 3;
 const NOTE_MAX = 2000;
 const GRADE_MAX = 32;
 const SKILL_MAX = 24;
@@ -26,6 +19,8 @@ const GENDER_MAX = 32;
 
 export type DancerQuickEditApply = {
   label: string;
+  /** 名前を○の下に出すときの○内表示（最大 3 文字） */
+  markerBadge: string | undefined;
   colorIndex: number;
   heightCm: number | undefined;
   gradeLabel: string | undefined;
@@ -54,6 +49,7 @@ export function DancerQuickEditDialog({
   onApply,
 }: Props) {
   const [label, setLabel] = useState("");
+  const [markerBadge, setMarkerBadge] = useState("");
   const [colorIndex, setColorIndex] = useState(0);
   const [heightStr, setHeightStr] = useState("");
   const [gradeLabel, setGradeLabel] = useState("");
@@ -64,7 +60,8 @@ export function DancerQuickEditDialog({
   useEffect(() => {
     if (!open || !dancer) return;
     setLabel((dancer.label ?? "").slice(0, LABEL_MAX));
-    setColorIndex(dancer.colorIndex % 9);
+    setMarkerBadge((dancer.markerBadge ?? "").slice(0, MARKER_BADGE_MAX));
+    setColorIndex(modDancerColorIndex(dancer.colorIndex));
     setHeightStr(
       typeof dancer.heightCm === "number" && Number.isFinite(dancer.heightCm)
         ? String(dancer.heightCm)
@@ -74,7 +71,7 @@ export function DancerQuickEditDialog({
     setGenderLabel((dancer.genderLabel ?? "").slice(0, GENDER_MAX));
     setSkillRankLabel((dancer.skillRankLabel ?? "").slice(0, SKILL_MAX));
     setNote(dancer.note ?? "");
-  }, [open, dancer?.id]);
+  }, [open, dancer]);
 
   useEffect(() => {
     if (!open) return;
@@ -105,10 +102,12 @@ export function DancerQuickEditDialog({
     const g = gradeLabel.trim().slice(0, GRADE_MAX);
     const gen = genderLabel.trim().slice(0, GENDER_MAX);
     const sk = skillRankLabel.trim().slice(0, SKILL_MAX);
+    const badgeTrim = markerBadge.trim().slice(0, MARKER_BADGE_MAX);
 
     onApply({
       label: labelTrim,
-      colorIndex: colorIndex % 9,
+      markerBadge: badgeTrim ? badgeTrim : undefined,
+      colorIndex: modDancerColorIndex(colorIndex),
       heightCm,
       gradeLabel: g ? g : undefined,
       genderLabel: gen ? gen : undefined,
@@ -199,6 +198,25 @@ export function DancerQuickEditDialog({
               }
               style={inputStyle}
               autoFocus
+            />
+          </>
+        ))}
+
+        {block("marker", (
+          <>
+            <span style={labelStyle}>
+              ○の中の数字・略号（名前を「○の下」にしたときだけステージの丸に出ます）
+            </span>
+            <input
+              type="text"
+              value={markerBadge}
+              disabled={disabled}
+              maxLength={MARKER_BADGE_MAX}
+              placeholder="例: 1  A  12"
+              onChange={(e) =>
+                setMarkerBadge(e.target.value.slice(0, MARKER_BADGE_MAX))
+              }
+              style={inputStyle}
             />
           </>
         ))}

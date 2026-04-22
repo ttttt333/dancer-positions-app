@@ -1,4 +1,5 @@
 import type { CrewMember } from "../types/choreography";
+import { modDancerColorIndex } from "./dancerColorPalette";
 
 export type OcrSpotRow = {
   /** UI 用の一時 id */
@@ -291,7 +292,7 @@ export function buildCommitFromRows(
     const member: CrewMember = {
       id: crypto.randomUUID(),
       label,
-      colorIndex: color % 9,
+      colorIndex: modDancerColorIndex(color),
     };
     color++;
     out.push({

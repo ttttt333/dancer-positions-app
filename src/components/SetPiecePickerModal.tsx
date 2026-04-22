@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import type { SetPieceKind } from "../types/choreography";
-import { btnSecondary } from "./StageBoard";
+import { btnSecondary } from "./stageButtonStyles";
 
 export type SetPiecePickerSubmit = {
   kind: SetPieceKind;

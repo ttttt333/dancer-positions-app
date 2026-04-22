@@ -1,4 +1,5 @@
 import type { DancerSpot } from "../types/choreography";
+import { modDancerColorIndex } from "./dancerColorPalette";
 
 /**
  * 「形の箱（Formation Box）」— ブラウザ内に保存されるユーザ独自の立ち位置ライブラリ。
@@ -16,7 +17,7 @@ const MAX_DANCERS = 80;
 export type FormationBoxSpot = {
   xPct: number;
   yPct: number;
-  /** 0..8 の色番号（なければ復元時に割り当て） */
+  /** 色パレット番号（なければ復元時に割り当て） */
   colorIndex?: number;
   /** ステージ上の表示名（保存時に付与。未保存の旧データは未定義） */
   label?: string;
@@ -68,7 +69,7 @@ function normalize(raw: FormationBoxItem): FormationBoxItem {
         yPct: clamp(d.yPct, 0, 100),
       };
       if (typeof d.colorIndex === "number" && Number.isFinite(d.colorIndex)) {
-        normalized.colorIndex = Math.floor(d.colorIndex) % 9;
+        normalized.colorIndex = modDancerColorIndex(Math.floor(d.colorIndex));
       }
       if (typeof d.label === "string" && d.label.trim()) {
         normalized.label = d.label.trim().slice(0, 120);
@@ -210,7 +211,7 @@ export function saveFormationToBox(
         yPct: clamp(d.yPct, 0, 100),
       };
       if (typeof d.colorIndex === "number" && Number.isFinite(d.colorIndex)) {
-        spot.colorIndex = Math.floor(d.colorIndex) % 9;
+        spot.colorIndex = modDancerColorIndex(Math.floor(d.colorIndex));
       }
       if (typeof d.label === "string" && d.label.trim()) {
         spot.label = d.label.trim().slice(0, 120);
@@ -291,7 +292,7 @@ export function updateFormationBoxItem(
                   typeof d.colorIndex === "number" &&
                   Number.isFinite(d.colorIndex)
                 ) {
-                  spot.colorIndex = Math.floor(d.colorIndex) % 9;
+                  spot.colorIndex = modDancerColorIndex(Math.floor(d.colorIndex));
                 }
                 if (typeof d.label === "string" && d.label.trim()) {
                   spot.label = d.label.trim().slice(0, 120);
@@ -343,8 +344,8 @@ export function dancersFromFormationBoxItem(
       yPct: clamp(d.yPct, 8, 92),
       colorIndex:
         typeof d.colorIndex === "number" && Number.isFinite(d.colorIndex)
-          ? Math.floor(d.colorIndex) % 9
-          : i % 9,
+          ? modDancerColorIndex(Math.floor(d.colorIndex))
+          : modDancerColorIndex(i),
     };
     if (typeof d.crewMemberId === "string" && d.crewMemberId) {
       spot.crewMemberId = d.crewMemberId;

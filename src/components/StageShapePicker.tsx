@@ -7,7 +7,7 @@ import {
   STAGE_SHAPE_PRESETS,
   STAGE_SHAPE_PRESET_MAP,
 } from "../lib/stageShapes";
-import { btnPrimary, btnSecondary } from "./StageBoard";
+import { btnPrimary, btnSecondary } from "./stageButtonStyles";
 
 type Props = {
   open: boolean;

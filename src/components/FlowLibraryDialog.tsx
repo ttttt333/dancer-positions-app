@@ -20,7 +20,7 @@ import {
   renameFlowItem,
   saveFlowFromProject,
 } from "../lib/flowLibrary";
-import { btnSecondary } from "./StageBoard";
+import { btnSecondary } from "./stageButtonStyles";
 
 type Props = {
   open: boolean;

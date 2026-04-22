@@ -15,7 +15,7 @@ import {
   updateFormationBoxItem,
   type FormationBoxItem,
 } from "../lib/formationBox";
-import { btnPrimary, btnSecondary } from "./StageBoard";
+import { btnPrimary, btnSecondary } from "./stageButtonStyles";
 import { FormationPresetThumb } from "./FormationPresetThumb";
 import { FormationBoxItemThumb } from "./FormationBoxItemThumb";
 

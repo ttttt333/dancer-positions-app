@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { authApi } from "../api/client";
 import { useAuth } from "../context/AuthContext";
-import { btnPrimary } from "../components/StageBoard";
+import { btnPrimary } from "../components/stageButtonStyles";
 
 export function LoginPage() {
   const [email, setEmail] = useState("");

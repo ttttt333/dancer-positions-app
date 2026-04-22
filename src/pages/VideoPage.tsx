@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
-import { btnSecondary } from "../components/StageBoard";
+import { btnSecondary } from "../components/stageButtonStyles";
 
 type VideoRow = {
   id: string;

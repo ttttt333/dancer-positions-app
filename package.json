@@ -10,9 +10,11 @@
     "dev:vite": "vite --force --open",
     "dev:server": "node server/index.mjs",
     "build": "tsc -b && vite build",
+    "start:prod": "node server/index.mjs",
     "lint": "eslint .",
     "preview": "vite preview --host --open",
-    "open:app": "node scripts/open-app.mjs"
+    "open:app": "node scripts/open-app.mjs",
+    "open:prod": "OPEN_URL=http://127.0.0.1:3001/ node scripts/open-app.mjs"
   },
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.15",

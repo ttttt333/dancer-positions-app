@@ -1,0 +1,28 @@
+# Fly.io 向けの例（任意）。無料枠でもクレジットカード登録が求められることが多いです。
+# 「完全無料のみ」の手順は README の「完全無料だけ」を参照してください。
+# https://fly.io/docs/about/pricing/
+
+app = "choreogrid-app"
+primary_region = "nrt"
+
+[build]
+
+[env]
+  DATA_DIR = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[[mounts]]
+  source = "choreogrid_data"
+  destination = "/data"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

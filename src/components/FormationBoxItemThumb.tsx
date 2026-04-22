@@ -12,7 +12,7 @@ const VB = "0 0 100 60";
 
 /**
  * ユーザが保存した立ち位置のサムネイル。
- * プロジェクトが使っている色番号（0..8）に沿って点を塗り分ける。
+ * 現在は単色の点（色番号は箱のメタでは保持）。
  */
 export function FormationBoxItemThumb({ item, width = 40, className }: Props) {
   const h = Math.round((width * 60) / 100);

@@ -22,6 +22,7 @@ import { RosterTimelineStrip } from "../components/RosterTimelineStrip";
 import { createEmptyProject, tryMigrateFromLocalStorage } from "../lib/projectDefaults";
 import { preloadFFmpeg } from "../lib/extractVideoAudio";
 import { normalizeProject } from "../lib/normalizeProject";
+import { modDancerColorIndex } from "../lib/dancerColorPalette";
 import { sortCuesByStart } from "../lib/cueInterval";
 import { dancersAtTime } from "../lib/interpolatePlayback";
 import { setPiecesAtTime } from "../lib/interpolateSetPieces";
@@ -65,7 +66,7 @@ import {
 } from "../lib/gatherDancers";
 import { projectApi } from "../api/client";
 import { useAuth } from "../context/AuthContext";
-import { btnSecondary } from "../components/StageBoard";
+import { btnSecondary } from "../components/stageButtonStyles";
 import { useYjsCollaboration } from "../hooks/useYjsCollaboration";
 
 const HISTORY_CAP = 80;
@@ -827,7 +828,7 @@ export function EditorPage() {
         label: String(n + 1),
         xPct,
         yPct,
-        colorIndex: n % 9,
+        colorIndex: modDancerColorIndex(n),
       };
       return {
         ...p,
@@ -871,7 +872,7 @@ export function EditorPage() {
           label: r.member.label.slice(0, 14),
           xPct: r.xPct,
           yPct: r.yPct,
-          colorIndex: r.member.colorIndex % 9,
+          colorIndex: modDancerColorIndex(r.member.colorIndex),
           crewMemberId: r.member.id,
         }));
         return {
@@ -1375,6 +1376,7 @@ export function EditorPage() {
         >
           <ChoreoGridToolbar
             snapGrid={project.snapGrid}
+            stageGridLinesEnabled={project.stageGridLinesEnabled ?? false}
             stageShapeActive={
               (project.stageShape != null &&
                 project.stageShape.presetId !== "rectangle") ||
@@ -1383,6 +1385,20 @@ export function EditorPage() {
             disabled={project.viewMode === "view"}
             onToggleSnapGrid={() =>
               setProjectSafe((p) => ({ ...p, snapGrid: !p.snapGrid }))
+            }
+            onToggleStageGridLines={() =>
+              setProjectSafe((p) => ({
+                ...p,
+                stageGridLinesEnabled: !(p.stageGridLinesEnabled ?? false),
+              }))
+            }
+            stageGridLinesToggleDisabled={
+              !(
+                project.stageWidthMm != null &&
+                project.stageWidthMm > 0 &&
+                project.stageDepthMm != null &&
+                project.stageDepthMm > 0
+              )
             }
             onOpenStageShapePicker={() => setStageShapePickerOpen(true)}
             onOpenSetPiecePicker={openSetPiecePicker}
@@ -2268,7 +2284,7 @@ export function EditorPage() {
               </div>
             </div>
             </div>
-            {/* 2 行目: 設定（印の直径 / グリッド / 実寸） */}
+            {/* 2 行目: 設定（印の直径 / スナップ・グリッド線 / 実寸） */}
             <div
               style={{
                 display: "flex",
@@ -2319,7 +2335,7 @@ export function EditorPage() {
                 </span>
               </label>
               <label
-                title="立ち位置の名前を○の中に出すか、○の下に出すかを切り替え"
+                title="○の中: 名前のみ。○の下: 名前は下、○の中は番号（連番はステージ下の「連番で振る」または各メンバーの編集）"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -2383,7 +2399,7 @@ export function EditorPage() {
                     setProjectSafe((p) => ({ ...p, snapGrid: e.target.checked }))
                   }
                 />
-                グリッド
+                スナップ
               </label>
               <select
                 value={project.gridStep}
@@ -2394,7 +2410,7 @@ export function EditorPage() {
                   }))
                 }
                 disabled={!project.snapGrid || project.viewMode === "view"}
-                aria-label="グリッド間隔（%）"
+                aria-label="スナップ間隔（%・実寸グリッドが無いとき）"
                 style={{
                   padding: "4px 8px",
                   borderRadius: "6px",
@@ -2459,6 +2475,102 @@ export function EditorPage() {
                   <option value={2000}>2 m</option>
                   <option value={3000}>3 m</option>
                 </select>
+              </label>
+              <label
+                title={
+                  project.stageWidthMm != null &&
+                  project.stageWidthMm > 0 &&
+                  project.stageDepthMm != null &&
+                  project.stageDepthMm > 0
+                    ? "ステージ上に縦横のグリッド線を重ねます（スナップとは別）。間隔は cm 単位で縦横同じ。"
+                    : "ステージの幅・奥行（mm）を設定するとグリッド線を表示できます"
+                }
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "5px",
+                  fontSize: "12px",
+                  color: "#94a3b8",
+                  cursor: project.viewMode === "view" ? "default" : "pointer",
+                  userSelect: "none",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={project.stageGridLinesEnabled ?? false}
+                  disabled={
+                    project.viewMode === "view" ||
+                    !(
+                      project.stageWidthMm != null &&
+                      project.stageWidthMm > 0 &&
+                      project.stageDepthMm != null &&
+                      project.stageDepthMm > 0
+                    )
+                  }
+                  onChange={(e) =>
+                    setProjectSafe((p) => ({
+                      ...p,
+                      stageGridLinesEnabled: e.target.checked,
+                    }))
+                  }
+                />
+                グリッド線
+              </label>
+              <label
+                title="縦横ともこの間隔（cm）で線を引きます。スナップONのときは同じ間隔に吸着します（幅・奥行 mm 設定時）。"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  fontSize: "11px",
+                  color: "#94a3b8",
+                  userSelect: "none",
+                }}
+              >
+                <span style={{ whiteSpace: "nowrap" }}>線間隔</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={500}
+                  step={1}
+                  value={Math.max(
+                    1,
+                    Math.min(
+                      500,
+                      Math.round((project.stageGridLineSpacingMm ?? 10) / 10)
+                    )
+                  )}
+                  disabled={
+                    project.viewMode === "view" ||
+                    !(
+                      project.stageWidthMm != null &&
+                      project.stageWidthMm > 0 &&
+                      project.stageDepthMm != null &&
+                      project.stageDepthMm > 0
+                    )
+                  }
+                  onChange={(e) => {
+                    const cm = Number(e.target.value);
+                    if (!Number.isFinite(cm)) return;
+                    const clampedCm = Math.max(1, Math.min(500, Math.round(cm)));
+                    setProjectSafe((p) => ({
+                      ...p,
+                      stageGridLineSpacingMm: clampedCm * 10,
+                    }));
+                  }}
+                  aria-label="グリッド線の間隔（cm）"
+                  style={{
+                    width: "52px",
+                    padding: "4px 6px",
+                    borderRadius: "6px",
+                    border: "1px solid #334155",
+                    background: "#0f172a",
+                    color: "#e2e8f0",
+                    fontSize: "12px",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                />
+                <span style={{ color: "#64748b" }}>cm</span>
               </label>
               <label
                 title={
@@ -3198,7 +3310,7 @@ export function EditorPage() {
               <li>
                 ステージ微調整:{" "}
                 <strong style={{ color: "#e2e8f0" }}>Shift+ドラッグ</strong>{" "}
-                で細かいグリッドにスナップ（グリッドON時）
+                で細かいグリッドにスナップ（スナップON時。幅・奥行ありなら実寸グリッド）
               </li>
               <li>
                 <strong style={{ color: "#e2e8f0" }}>Alt+矢印</strong>{" "}

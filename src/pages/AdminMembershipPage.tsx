@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { orgApi } from "../api/client";
-import { btnSecondary } from "../components/StageBoard";
+import { btnSecondary } from "../components/stageButtonStyles";
 
 export function AdminMembershipPage() {
   const { me, refresh } = useAuth();

@@ -16,6 +16,7 @@ import type {
 } from "../types/choreography";
 import { migrateCuesFromRaw } from "./cueInterval";
 import { createEmptyProject } from "./projectDefaults";
+import { modDancerColorIndex, normalizeDancerFacingDeg } from "./dancerColorPalette";
 
 function randomId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 11)}`;
@@ -165,7 +166,7 @@ function normalizeDancerSpot(raw: unknown, index: number): DancerSpot {
       label: String(index + 1),
       xPct: 50,
       yPct: 50,
-      colorIndex: index % 9,
+      colorIndex: modDancerColorIndex(index),
     };
   }
   const d = raw as Record<string, unknown>;
@@ -184,6 +185,17 @@ function normalizeDancerSpot(raw: unknown, index: number): DancerSpot {
     typeof hRaw === "number" && Number.isFinite(hRaw) && hRaw > 0 && hRaw < 300
       ? Math.round(hRaw * 10) / 10
       : undefined;
+  const mbRaw = d.markerBadge;
+  const markerBadge =
+    typeof mbRaw === "string" && mbRaw.trim()
+      ? mbRaw.trim().slice(0, 3)
+      : undefined;
+  const fdRaw = d.facingDeg;
+  let facingDeg: number | undefined;
+  if (typeof fdRaw === "number" && Number.isFinite(fdRaw)) {
+    const m = normalizeDancerFacingDeg(fdRaw);
+    if (m !== 0) facingDeg = m;
+  }
   return {
     id: typeof d.id === "string" && d.id ? d.id : randomId("d"),
     label: typeof d.label === "string" ? d.label : String(index + 1),
@@ -197,8 +209,8 @@ function normalizeDancerSpot(raw: unknown, index: number): DancerSpot {
         : 50,
     colorIndex:
       typeof d.colorIndex === "number" && Number.isFinite(d.colorIndex)
-        ? Math.floor(d.colorIndex) % 9
-        : index % 9,
+        ? modDancerColorIndex(Math.floor(d.colorIndex))
+        : modDancerColorIndex(index),
     ...(typeof d.crewMemberId === "string" && d.crewMemberId
       ? { crewMemberId: d.crewMemberId }
       : {}),
@@ -214,6 +226,8 @@ function normalizeDancerSpot(raw: unknown, index: number): DancerSpot {
     ...(typeof d.genderLabel === "string" && d.genderLabel.trim()
       ? { genderLabel: d.genderLabel.trim().slice(0, 32) }
       : {}),
+    ...(markerBadge ? { markerBadge } : {}),
+    ...(facingDeg != null ? { facingDeg } : {}),
   };
 }
 
@@ -279,6 +293,19 @@ function normalizeSavedSpotStageSnapshot(
         ? normalizeGridStep(o.gridStep)
         : defaults.gridStep,
     snapGrid: typeof o.snapGrid === "boolean" ? o.snapGrid : defaults.snapGrid,
+    stageGridLinesEnabled:
+      typeof o.stageGridLinesEnabled === "boolean"
+        ? o.stageGridLinesEnabled
+        : defaults.stageGridLinesEnabled,
+    stageGridLineSpacingMm: (() => {
+      const raw = o.stageGridLineSpacingMm;
+      if (typeof raw !== "number" || !Number.isFinite(raw)) {
+        return defaults.stageGridLineSpacingMm;
+      }
+      const r = Math.round(raw);
+      if (r < 5 || r > 5000) return defaults.stageGridLineSpacingMm;
+      return r;
+    })(),
     dancerSpacingMm: numOrNullSnap(o.dancerSpacingMm),
     dancerMarkerDiameterPx: dmp,
     dancerMarkerDiameterMm: numOrNullSnap(o.dancerMarkerDiameterMm) ?? undefined,
@@ -335,7 +362,9 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
                 id: typeof m.id === "string" && m.id ? m.id : randomId("m"),
                 label: typeof m.label === "string" ? m.label : "?",
                 colorIndex:
-                  typeof m.colorIndex === "number" ? m.colorIndex % 9 : 0,
+                  typeof m.colorIndex === "number"
+                    ? modDancerColorIndex(m.colorIndex)
+                    : 0,
               };
               const hc = mm.heightCm;
               if (
@@ -470,6 +499,20 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
       o.trimEndSec === undefined ? defaults.trimEndSec : o.trimEndSec,
     snapGrid: o.snapGrid ?? defaults.snapGrid,
     gridStep: normalizeGridStep(o.gridStep),
+    stageGridLinesEnabled:
+      typeof o.stageGridLinesEnabled === "boolean"
+        ? o.stageGridLinesEnabled
+        : defaults.stageGridLinesEnabled,
+    stageGridLineSpacingMm: (() => {
+      const po = o as Partial<ChoreographyProjectJson>;
+      const raw = po.stageGridLineSpacingMm;
+      if (typeof raw !== "number" || !Number.isFinite(raw)) {
+        return defaults.stageGridLineSpacingMm;
+      }
+      const r = Math.round(raw);
+      if (r < 5 || r > 5000) return defaults.stageGridLineSpacingMm;
+      return r;
+    })(),
     gridSpacingMm: (() => {
       const po = o as Partial<ChoreographyProjectJson>;
       const raw = po.gridSpacingMm;
