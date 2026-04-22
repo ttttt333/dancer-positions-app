@@ -47,6 +47,8 @@ export const TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "auth.passwordMin": "パスワード（6文字以上）",
     "auth.registerSubmit": "登録",
     "auth.loginInsteadLink": "ログインへ",
+    "auth.postLoginMeFailed":
+      "アカウントは作成できましたが、セッション情報の取得に失敗しました。API が同じサイトで動いているか確認し、再度お試しください。",
     "editor.backTitle": "ライブラリへ戻る",
     "editor.pieceNamePh": "作品名",
     "editor.headcount": "人数",
@@ -101,6 +103,8 @@ export const TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "auth.passwordMin": "Password (6+ characters)",
     "auth.registerSubmit": "Create account",
     "auth.loginInsteadLink": "Log in instead",
+    "auth.postLoginMeFailed":
+      "Your account was created, but loading your session failed. Make sure the API is reachable from this site (same origin or correct proxy), then try again.",
     "editor.backTitle": "Back to library",
     "editor.pieceNamePh": "Project name",
     "editor.headcount": "Headcount",
@@ -155,6 +159,8 @@ export const TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "auth.passwordMin": "비밀번호(6자 이상)",
     "auth.registerSubmit": "등록",
     "auth.loginInsteadLink": "로그인으로",
+    "auth.postLoginMeFailed":
+      "계정은 만들어졌지만 세션 정보를 불러오지 못했습니다. API 주소와 네트워크를 확인한 뒤 다시 시도해 주세요.",
     "editor.backTitle": "라이브러리로",
     "editor.pieceNamePh": "작품명",
     "editor.headcount": "인원",
@@ -209,6 +215,8 @@ export const TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "auth.passwordMin": "密码（至少 6 位）",
     "auth.registerSubmit": "注册",
     "auth.loginInsteadLink": "去登录",
+    "auth.postLoginMeFailed":
+      "账号已创建，但加载会话失败。请确认 API 可从本站访问后重试。",
     "editor.backTitle": "返回资料库",
     "editor.pieceNamePh": "作品名称",
     "editor.headcount": "人数",

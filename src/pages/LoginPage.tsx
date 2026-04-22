@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { authApi } from "../api/client";
+import { authApi, setToken } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
 import { AuthScreenLayout } from "../components/AuthScreenLayout";
@@ -31,7 +31,7 @@ export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const { refresh, me, ready } = useAuth();
+  const { me, ready, setAuth, logout } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -43,9 +43,15 @@ export function LoginPage() {
     setError("");
     try {
       const { token } = await authApi.login(email, password);
-      localStorage.setItem("auth_token", token);
-      await refresh();
-      navigate("/", { replace: true });
+      setToken(token);
+      try {
+        const m = await authApi.me();
+        setAuth(token, m);
+        navigate("/", { replace: true });
+      } catch {
+        logout();
+        setError(t("auth.postLoginMeFailed"));
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラー");
     }

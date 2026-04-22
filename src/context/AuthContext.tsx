@@ -28,7 +28,8 @@ type Me = {
 type AuthState = {
   ready: boolean;
   me: Me | null;
-  refresh: () => Promise<void>;
+  /** 成功時 true。失敗時はトークンを消すので false（呼び出し側でエラー表示に使える） */
+  refresh: () => Promise<boolean>;
   logout: () => void;
   setAuth: (token: string, me: Me) => void;
 };
@@ -40,11 +41,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
   const refreshGeneration = useRef(0);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<boolean> => {
     if (!getToken()) {
       setMe(null);
       setReady(true);
-      return;
+      return false;
     }
     const gen = ++refreshGeneration.current;
     try {
@@ -57,12 +58,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           );
         }),
       ]);
-      if (refreshGeneration.current !== gen) return;
+      if (refreshGeneration.current !== gen) return false;
       setMe(m);
+      return true;
     } catch {
-      if (refreshGeneration.current !== gen) return;
+      if (refreshGeneration.current !== gen) return false;
       setToken(null);
       setMe(null);
+      return false;
     } finally {
       if (refreshGeneration.current === gen) {
         setReady(true);
