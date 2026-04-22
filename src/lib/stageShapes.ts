@@ -99,7 +99,19 @@ export const STAGE_SHAPE_PRESETS: readonly StageShapePresetOption[] = [
   {
     id: "diamond",
     label: "ダイヤ（菱形）",
-    description: "四方向に頂点を持つ菱形の舞台。",
+    description:
+      "四方向に頂点を持つ菱形の舞台。手前・奥方向の幅（客席側の広がり）を変えられます。",
+    paramDefs: [
+      {
+        key: "breadthPct",
+        label: "左右の広がり",
+        min: 40,
+        max: 100,
+        step: 1,
+        default: 100,
+        unit: "%",
+      },
+    ],
   },
   {
     id: "rounded",
@@ -112,7 +124,28 @@ export const STAGE_SHAPE_PRESETS: readonly StageShapePresetOption[] = [
   {
     id: "oval",
     label: "楕円（円形舞台）",
-    description: "楕円形のアリーナ／円形劇場向け舞台。",
+    description:
+      "楕円形のアリーナ／円形劇場向け舞台。横・縦の半径をそれぞれ変えて扁平楕円にもできます。",
+    paramDefs: [
+      {
+        key: "radiusXPct",
+        label: "左右の半径",
+        min: 15,
+        max: 50,
+        step: 1,
+        default: 50,
+        unit: "%",
+      },
+      {
+        key: "radiusYPct",
+        label: "前後の半径",
+        min: 15,
+        max: 50,
+        step: 1,
+        default: 50,
+        unit: "%",
+      },
+    ],
   },
   {
     id: "corner_cut_fl",
@@ -129,6 +162,12 @@ export const STAGE_SHAPE_PRESETS: readonly StageShapePresetOption[] = [
     paramDefs: [
       { key: "cornerPct", label: "角落としの幅", min: 10, max: 50, step: 1, default: 26, unit: "%" },
     ],
+  },
+  {
+    id: "custom",
+    label: "カスタム（頂点で形を作る）",
+    description:
+      "長方形の四隅を基準に、頂点の座標（%）を編集して任意の凸形に近い形を作れます。3 点以上が必要です。",
   },
 ];
 
@@ -281,13 +320,17 @@ export function buildStageShapePolygon(
         [0, c],
       ];
     }
-    case "diamond":
+    case "diamond": {
+      /** 客席側（y=100）付近の横幅。100＝頂点が左右端、小さいほど細い菱形。 */
+      const breadth = p("breadthPct");
+      const half = breadth / 2;
       return [
         [50, 0],
-        [100, 50],
+        [50 + half, 50],
         [50, 100],
-        [0, 50],
+        [50 - half, 50],
       ];
+    }
     case "rounded": {
       /** 角丸：四隅をそれぞれ 6 分割の近似円弧でつなぐ多角形。 */
       const r = p("radiusPct");
@@ -312,12 +355,14 @@ export function buildStageShapePolygon(
       return pts;
     }
     case "oval": {
-      /** 楕円（x 半径 50, y 半径 50 の 32-gon 近似） */
+      /** 楕円（中心 50,50・半径は params で可変の 32 角近似） */
+      const rx = p("radiusXPct");
+      const ry = p("radiusYPct");
       const STEPS = 32;
       const pts: [number, number][] = [];
       for (let i = 0; i < STEPS; i++) {
         const a = (i / STEPS) * Math.PI * 2 - Math.PI / 2;
-        pts.push([50 + Math.cos(a) * 50, 50 + Math.sin(a) * 50]);
+        pts.push([50 + Math.cos(a) * rx, 50 + Math.sin(a) * ry]);
       }
       return pts;
     }
@@ -343,6 +388,7 @@ export function buildStageShapePolygon(
       ];
     }
     case "custom":
+      /** 一覧サムネ・初期値用の長方形。実データは `StageShape.polygonPct` を直接編集する。 */
       return [
         [0, 0],
         [100, 0],
@@ -350,6 +396,34 @@ export function buildStageShapePolygon(
         [0, 100],
       ];
   }
+}
+
+/** メイン床の既定長方形（奥左上原点・手前右下 (100,100)） */
+export const DEFAULT_STAGE_RECT_POLYGON: [number, number][] = [
+  [0, 0],
+  [100, 0],
+  [100, 100],
+  [0, 100],
+];
+
+export function clonePolygonPct(
+  pts: readonly [number, number][]
+): [number, number][] {
+  return pts.map(([x, y]) => [x, y] as [number, number]);
+}
+
+/** 各座標を 0〜100 に収め、3 未満なら長方形にフォールバック。 */
+export function sanitizePolygonPct(
+  pts: readonly [number, number][]
+): [number, number][] {
+  const out: [number, number][] = [];
+  for (const pair of pts) {
+    if (!Array.isArray(pair) || pair.length < 2) continue;
+    const x = clamp(Number(pair[0]), 0, 100);
+    const y = clamp(Number(pair[1]), 0, 100);
+    if (Number.isFinite(x) && Number.isFinite(y)) out.push([x, y]);
+  }
+  return out.length >= 3 ? out : clonePolygonPct(DEFAULT_STAGE_RECT_POLYGON);
 }
 
 /**

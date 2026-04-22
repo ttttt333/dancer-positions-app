@@ -1,4 +1,5 @@
 import type { Cue, Formation, SetPiece } from "../types/choreography";
+import { cloneFloorMarkupWithNewIds } from "./floorMarkup";
 
 export function sortCuesByStart(cues: Cue[]): Cue[] {
   return [...cues].sort((a, b) => a.tStartSec - b.tStartSec || a.tEndSec - b.tEndSec);
@@ -107,8 +108,10 @@ export function cloneFormationForNewCue(f: Formation): Formation {
     ...p,
     id: crypto.randomUUID(),
   }));
+  const floorMarkup = cloneFloorMarkupWithNewIds(f.floorMarkup);
+  const { floorMarkup: _omitFm, ...rest } = f;
   return {
-    ...f,
+    ...rest,
     id: crypto.randomUUID(),
     name:
       f.name.trim().length > 0
@@ -116,6 +119,7 @@ export function cloneFormationForNewCue(f: Formation): Formation {
         : "フォーメーション",
     dancers: f.dancers.map((d) => ({ ...d })),
     setPieces: pieces,
+    ...(floorMarkup?.length ? { floorMarkup } : {}),
   };
 }
 

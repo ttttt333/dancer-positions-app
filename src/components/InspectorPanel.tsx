@@ -8,6 +8,7 @@ import type {
   DancerSpot,
   RosterStripSortMode,
 } from "../types/choreography";
+import { cloneFloorMarkupWithNewIds } from "../lib/floorMarkup";
 import { defaultFormation } from "../lib/projectDefaults";
 import { normalizeProject } from "../lib/normalizeProject";
 import { btnPrimary, btnSecondary } from "./stageButtonStyles";
@@ -443,6 +444,7 @@ export function InspectorPanel({
   const duplicateFormation = () => {
     if (!activeFormation) return;
     setProject((p) => {
+      const fm = cloneFloorMarkupWithNewIds(activeFormation.floorMarkup);
       const copy = {
         ...activeFormation,
         id: crypto.randomUUID(),
@@ -454,6 +456,8 @@ export function InspectorPanel({
           yPct: Math.min(98, d.yPct + 3),
         })),
       };
+      if (fm?.length) copy.floorMarkup = fm;
+      else delete copy.floorMarkup;
       return {
         ...p,
         formations: [...p.formations, copy],

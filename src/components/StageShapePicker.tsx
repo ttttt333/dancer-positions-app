@@ -2,8 +2,11 @@ import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import type { StageShape, StageShapePresetId } from "../types/choreography";
 import {
   buildStageShape,
+  clonePolygonPct,
   defaultParamsFor,
+  DEFAULT_STAGE_RECT_POLYGON,
   polygonToSvgPoints,
+  sanitizePolygonPct,
   STAGE_SHAPE_PRESETS,
   STAGE_SHAPE_PRESET_MAP,
 } from "../lib/stageShapes";
@@ -98,6 +101,10 @@ export function StageShapePicker({
   const [presetId, setPresetId] = useState<StageShapePresetId>("rectangle");
   /** 編集中の params（プリセット別） */
   const [params, setParams] = useState<Record<string, number>>({});
+  /** presetId === "custom" のときの頂点列（%）。決定時にそのまま保存する。 */
+  const [customPoly, setCustomPoly] = useState<[number, number][]>(() =>
+    clonePolygonPct(DEFAULT_STAGE_RECT_POLYGON)
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -108,6 +115,11 @@ export function StageShapePicker({
         ...defaultParamsFor(currentShape.presetId),
         ...(currentShape.params ?? {}),
       });
+      if (currentShape.presetId === "custom") {
+        setCustomPoly(sanitizePolygonPct(currentShape.polygonPct));
+      } else {
+        setCustomPoly(clonePolygonPct(DEFAULT_STAGE_RECT_POLYGON));
+      }
     } else if (legacyHanamichi?.enabled) {
       /** 旧仕様の花道ありプロジェクトは、UI 上は花道プリセット選択状態で開く */
       setPresetId("hanamichi_front");
@@ -118,6 +130,7 @@ export function StageShapePicker({
     } else {
       setPresetId("rectangle");
       setParams({});
+      setCustomPoly(clonePolygonPct(DEFAULT_STAGE_RECT_POLYGON));
     }
   }, [open, currentShape, legacyHanamichi]);
 
@@ -134,13 +147,21 @@ export function StageShapePicker({
   const selectPreset = useCallback((id: StageShapePresetId) => {
     setPresetId(id);
     setParams(defaultParamsFor(id));
+    if (id === "custom") {
+      setCustomPoly(clonePolygonPct(DEFAULT_STAGE_RECT_POLYGON));
+    }
   }, []);
 
   /** 画面プレビュー用に現在の選択から polygon を組む */
-  const previewShape = useMemo(
-    () => buildStageShape(presetId, params),
-    [presetId, params]
-  );
+  const previewShape = useMemo(() => {
+    if (presetId === "custom") {
+      return {
+        presetId: "custom" as const,
+        polygonPct: sanitizePolygonPct(customPoly),
+      };
+    }
+    return buildStageShape(presetId, params);
+  }, [presetId, params, customPoly]);
 
   const paramDefs = STAGE_SHAPE_PRESET_MAP[presetId]?.paramDefs ?? [];
 
@@ -148,10 +169,19 @@ export function StageShapePicker({
     if (disabled) return;
     if (presetId === "rectangle") {
       onConfirm(undefined);
-    } else {
-      onConfirm(buildStageShape(presetId, params));
+      return;
     }
-  }, [disabled, presetId, params, onConfirm]);
+    if (presetId === "custom") {
+      const poly = sanitizePolygonPct(customPoly);
+      if (poly.length < 3) {
+        window.alert("カスタム形状には頂点が 3 つ以上必要です。");
+        return;
+      }
+      onConfirm({ presetId: "custom", polygonPct: poly });
+      return;
+    }
+    onConfirm(buildStageShape(presetId, params));
+  }, [disabled, presetId, params, customPoly, onConfirm]);
 
   /** 選択しているプリセットの情報 */
   const selectedInfo = STAGE_SHAPE_PRESET_MAP[presetId];
@@ -236,8 +266,8 @@ export function StageShapePicker({
             lineHeight: 1.5,
           }}
         >
-          プリセットを選んでから必要に応じて寸法を調整し、「決定」で反映します。
-          舞台外となる部分はステージ上で薄暗く表示されます。
+          プリセットを選んでから寸法スライダーや頂点（カスタム）で調整し、「決定」で反映します。
+          菱形・楕円は横幅・縦幅を細かく変えられます。舞台外は薄暗く表示されます。
         </p>
 
         <div
@@ -429,6 +459,177 @@ export function StageShapePicker({
                     </label>
                   );
                 })}
+              </div>
+            )}
+
+            {presetId === "custom" && (
+              <div
+                style={{
+                  marginTop: "10px",
+                  borderTop: "1px solid #1e293b",
+                  paddingTop: "10px",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    color: "#a5b4fc",
+                    marginBottom: "8px",
+                  }}
+                >
+                  頂点（ステージ内の位置・0〜100%）
+                </div>
+                <p
+                  style={{
+                    margin: "0 0 8px",
+                    fontSize: "10px",
+                    color: "#64748b",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  上が奥・下が客席側の座標です。時計回りに並ぶ凸形を想定しています。
+                </p>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "6px",
+                    maxHeight: "200px",
+                    overflowY: "auto",
+                  }}
+                >
+                  {customPoly.map((pt, idx) => (
+                    <div
+                      key={`cv-${idx}`}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "22px 1fr 1fr 28px",
+                        gap: "6px",
+                        alignItems: "center",
+                        fontSize: "11px",
+                        color: "#94a3b8",
+                      }}
+                    >
+                      <span style={{ fontVariantNumeric: "tabular-nums" }}>
+                        {idx + 1}
+                      </span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={0.5}
+                        value={pt[0]}
+                        disabled={disabled}
+                        aria-label={`頂点${idx + 1}の左右位置%`}
+                        onChange={(e) => {
+                          const v = Number(e.target.value);
+                          if (!Number.isFinite(v)) return;
+                          setCustomPoly((prev) => {
+                            const next = [...prev];
+                            const row = next[idx];
+                            if (!row) return prev;
+                            next[idx] = [v, row[1]] as [number, number];
+                            return next;
+                          });
+                        }}
+                        style={{
+                          padding: "4px 6px",
+                          borderRadius: "6px",
+                          border: "1px solid #334155",
+                          background: "#0f172a",
+                          color: "#e2e8f0",
+                          fontSize: "11px",
+                        }}
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={0.5}
+                        value={pt[1]}
+                        disabled={disabled}
+                        aria-label={`頂点${idx + 1}の前後位置%`}
+                        onChange={(e) => {
+                          const v = Number(e.target.value);
+                          if (!Number.isFinite(v)) return;
+                          setCustomPoly((prev) => {
+                            const next = [...prev];
+                            const row = next[idx];
+                            if (!row) return prev;
+                            next[idx] = [row[0], v] as [number, number];
+                            return next;
+                          });
+                        }}
+                        style={{
+                          padding: "4px 6px",
+                          borderRadius: "6px",
+                          border: "1px solid #334155",
+                          background: "#0f172a",
+                          color: "#e2e8f0",
+                          fontSize: "11px",
+                        }}
+                      />
+                      <button
+                        type="button"
+                        disabled={disabled || customPoly.length <= 3}
+                        title="この頂点を削除（3 点以上必要）"
+                        onClick={() =>
+                          setCustomPoly((prev) =>
+                            prev.length <= 3
+                              ? prev
+                              : prev.filter((_, j) => j !== idx)
+                          )
+                        }
+                        style={{
+                          ...btnSecondary,
+                          padding: "2px 0",
+                          fontSize: "10px",
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "8px",
+                    marginTop: "10px",
+                  }}
+                >
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() =>
+                      setCustomPoly((prev) => {
+                        if (prev.length < 1)
+                          return clonePolygonPct(DEFAULT_STAGE_RECT_POLYGON);
+                        const a = prev[prev.length - 1]!;
+                        const b = prev[0]!;
+                        const mx = (a[0] + b[0]) / 2;
+                        const my = (a[1] + b[1]) / 2;
+                        return [...prev, [mx, my] as [number, number]];
+                      })
+                    }
+                    style={{ ...btnSecondary, fontSize: "11px", padding: "6px 10px" }}
+                  >
+                    頂点を追加
+                  </button>
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() =>
+                      setCustomPoly(clonePolygonPct(DEFAULT_STAGE_RECT_POLYGON))
+                    }
+                    style={{ ...btnSecondary, fontSize: "11px", padding: "6px 10px" }}
+                  >
+                    長方形に戻す
+                  </button>
+                </div>
               </div>
             )}
           </div>

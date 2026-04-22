@@ -62,12 +62,38 @@ export type SetPiece = {
   interpolateInGaps?: boolean;
 };
 
+/** ステージ床に重ねるテキストコメント（% 座標・フォーメーション単位） */
+export type StageFloorTextMarkup = {
+  id: string;
+  kind: "text";
+  xPct: number;
+  yPct: number;
+  text: string;
+  /** #rrggbb */
+  color?: string;
+  fontSizePx?: number;
+};
+
+/** ステージ床の手描き線（折れ線・% 座標） */
+export type StageFloorLineMarkup = {
+  id: string;
+  kind: "line";
+  /** 少なくとも 2 頂点 */
+  pointsPct: [number, number][];
+  color?: string;
+  widthPx?: number;
+};
+
+export type StageFloorMarkup = StageFloorTextMarkup | StageFloorLineMarkup;
+
 export type Formation = {
   id: string;
   name: string;
   dancers: DancerSpot[];
   /** 大道具（フォーメーションスナップショットに含める） */
   setPieces?: SetPiece[];
+  /** 床に重ねるコメント・線（書き込み・エクスポート対象） */
+  floorMarkup?: StageFloorMarkup[];
   /** ダンサー向けメモ（フォーメーション単位） */
   note?: string;
   /** 「この人数で確定」したあと、プリセット適用の基準人数 */

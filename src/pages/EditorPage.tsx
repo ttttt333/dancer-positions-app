@@ -25,7 +25,7 @@ import { normalizeProject } from "../lib/normalizeProject";
 import { modDancerColorIndex } from "../lib/dancerColorPalette";
 import { sortCuesByStart } from "../lib/cueInterval";
 import { dancersAtTime } from "../lib/interpolatePlayback";
-import { setPiecesAtTime } from "../lib/interpolateSetPieces";
+import { floorMarkupAtTime, setPiecesAtTime } from "../lib/interpolateSetPieces";
 import {
   listFormationBoxItemsByCount,
   saveFormationToBox,
@@ -82,6 +82,17 @@ const TOOLBAR_COL_PX = 52;
 /** 右ペイン：タイムライン（またはキュー一覧）とプロパティの分割 */
 const RIGHT_STACK_FRAC_MIN = 0.22;
 const RIGHT_STACK_FRAC_MAX = 0.78;
+
+/** ステージ「設定」パネル：客席方向（`StageDimensionFields` と同じ 4 択） */
+const STAGE_AREA_AUDIENCE_OPTIONS: {
+  value: ChoreographyProjectJson["audienceEdge"];
+  label: string;
+}[] = [
+  { value: "top", label: "上" },
+  { value: "right", label: "右" },
+  { value: "bottom", label: "下" },
+  { value: "left", label: "左" },
+];
 
 function readMaxStageWidthPx(gridEl: HTMLElement): number {
   const rect = gridEl.getBoundingClientRect();
@@ -150,6 +161,10 @@ export function EditorPage() {
    */
   const [rightStackTopFrac, setRightStackTopFrac] = useState<number | null>(null);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
+  /** ステージ列ヘッダの「設定」：舞台・グリッド・名前・共有・ヒントを集約 */
+  const [stageAreaSettingsOpen, setStageAreaSettingsOpen] = useState(false);
+  const [shareLinkCopiedFlash, setShareLinkCopiedFlash] = useState(false);
+  const shareCopiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [setPiecePickerOpen, setSetPiecePickerOpen] = useState(false);
   /** 変形舞台ピッカー（舞台形状のカスタマイズ） */
   const [stageShapePickerOpen, setStageShapePickerOpen] = useState(false);
@@ -182,6 +197,9 @@ export function EditorPage() {
   );
   const editorPaneRef = useRef<HTMLDivElement>(null);
   const stageSectionRef = useRef<HTMLElement>(null);
+  /** 2D/3D ステージ床の表示領域（全画面 API の対象） */
+  const stageBoardHostRef = useRef<HTMLDivElement>(null);
+  const [stageBoardFullscreen, setStageBoardFullscreen] = useState(false);
   const splitDragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -289,6 +307,34 @@ export function EditorPage() {
       setTopDockRowPx(null);
     }
   }, [wideEditorLayout]);
+
+  useEffect(() => {
+    const syncFs = () => {
+      const el = stageBoardHostRef.current;
+      if (!el) {
+        setStageBoardFullscreen(false);
+        return;
+      }
+      const doc = document as Document & {
+        webkitFullscreenElement?: Element | null;
+      };
+      const fs =
+        document.fullscreenElement === el || doc.webkitFullscreenElement === el;
+      setStageBoardFullscreen(Boolean(fs));
+    };
+    document.addEventListener("fullscreenchange", syncFs);
+    document.addEventListener(
+      "webkitfullscreenchange",
+      syncFs as EventListener
+    );
+    return () => {
+      document.removeEventListener("fullscreenchange", syncFs);
+      document.removeEventListener(
+        "webkitfullscreenchange",
+        syncFs as EventListener
+      );
+    };
+  }, []);
 
   useEffect(() => {
     if (!wideEditorLayout) {
@@ -572,6 +618,58 @@ export function EditorPage() {
     else redoPlain();
   }, [collabActive, yjsCollab, redoPlain]);
 
+  const copyEditorShareLink = useCallback(async () => {
+    if (typeof window === "undefined") return;
+    const url = window.location.href;
+    try {
+      await navigator.clipboard.writeText(url);
+      if (shareCopiedTimerRef.current) clearTimeout(shareCopiedTimerRef.current);
+      setShareLinkCopiedFlash(true);
+      shareCopiedTimerRef.current = setTimeout(() => {
+        setShareLinkCopiedFlash(false);
+        shareCopiedTimerRef.current = null;
+      }, 2200);
+    } catch {
+      try {
+        window.prompt("次の URL をコピーしてください", url);
+      } catch {
+        /** ignore */
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (shareCopiedTimerRef.current) clearTimeout(shareCopiedTimerRef.current);
+    };
+  }, []);
+
+  const toggleStageBoardFullscreen = useCallback(() => {
+    const el = stageBoardHostRef.current;
+    if (!el) return;
+    const doc = document as Document & {
+      fullscreenElement?: Element | null;
+      webkitFullscreenElement?: Element | null;
+      exitFullscreen?: () => Promise<void>;
+      webkitExitFullscreen?: () => Promise<void>;
+    };
+    const isFs =
+      doc.fullscreenElement === el || doc.webkitFullscreenElement === el;
+    if (isFs) {
+      if (typeof doc.exitFullscreen === "function") void doc.exitFullscreen();
+      else if (typeof doc.webkitExitFullscreen === "function")
+        void doc.webkitExitFullscreen();
+      return;
+    }
+    const anyEl = el as HTMLElement & {
+      requestFullscreen?: () => Promise<void>;
+      webkitRequestFullscreen?: () => void;
+    };
+    if (typeof anyEl.requestFullscreen === "function") void anyEl.requestFullscreen();
+    else if (typeof anyEl.webkitRequestFullscreen === "function")
+      anyEl.webkitRequestFullscreen();
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (
@@ -591,6 +689,10 @@ export function EditorPage() {
       }
       if (e.key === "Escape" && gatherMenuOpen) {
         setGatherMenuOpen(false);
+        return;
+      }
+      if (e.key === "Escape" && stageAreaSettingsOpen) {
+        setStageAreaSettingsOpen(false);
         return;
       }
       if (e.key === "Escape" && stageSettingsOpen) {
@@ -637,6 +739,7 @@ export function EditorPage() {
     saveMenuOpen,
     imageSpotImportOpen,
     gatherMenuOpen,
+    stageAreaSettingsOpen,
     stageSettingsOpen,
     shortcutsHelpOpen,
     exportDialogOpen,
@@ -658,6 +761,16 @@ export function EditorPage() {
   const interpolatedSetPieces = useMemo(() => {
     if (!project || project.cues.length === 0) return null;
     return setPiecesAtTime(
+      currentTime,
+      project.cues,
+      project.formations,
+      project.activeFormationId
+    );
+  }, [project, currentTime]);
+
+  const interpolatedFloorMarkup = useMemo(() => {
+    if (!project || project.cues.length === 0) return null;
+    return floorMarkupAtTime(
       currentTime,
       project.cues,
       project.formations,
@@ -711,6 +824,8 @@ export function EditorPage() {
 
   const playbackSetPiecesForStage = !isPlaying ? null : interpolatedSetPieces;
 
+  const playbackFloorMarkupForStage = !isPlaying ? null : interpolatedFloorMarkup;
+
   const browseFormationDancers = useMemo(() => {
     if (!project || isPlaying) return null;
     if (stagePreviewDancers && stagePreviewDancers.length > 0) return null;
@@ -747,6 +862,25 @@ export function EditorPage() {
     }
     const f = project.formations.find((x) => x.id === project.activeFormationId);
     return f?.setPieces ?? null;
+  }, [project, isPlaying, stagePreviewDancers, selectedCue, currentTime]);
+
+  const browseFloorMarkup = useMemo(() => {
+    if (!project || isPlaying) return null;
+    if (stagePreviewDancers && stagePreviewDancers.length > 0) return null;
+    if (selectedCue) {
+      const f = project.formations.find((x) => x.id === selectedCue.formationId);
+      return f?.floorMarkup ?? null;
+    }
+    if (project.cues.length > 0) {
+      return floorMarkupAtTime(
+        currentTime,
+        project.cues,
+        project.formations,
+        project.activeFormationId
+      );
+    }
+    const f = project.formations.find((x) => x.id === project.activeFormationId);
+    return f?.floorMarkup ?? null;
   }, [project, isPlaying, stagePreviewDancers, selectedCue, currentTime]);
 
   const dancersFor3d = useMemo(() => {
@@ -1456,6 +1590,29 @@ export function EditorPage() {
               <h2 style={{ margin: 0, fontSize: "13px", color: "#94a3b8" }}>
                 ステージ
               </h2>
+              <button
+                type="button"
+                aria-haspopup="dialog"
+                aria-expanded={stageAreaSettingsOpen}
+                disabled={project.viewMode === "view"}
+                title="舞台・客席・グリッド・名前の出し方・この URL の共有・ショートカット"
+                onClick={() => setStageAreaSettingsOpen(true)}
+                style={{
+                  fontSize: "11px",
+                  lineHeight: 1.2,
+                  padding: "4px 10px",
+                  borderRadius: "6px",
+                  border: "1px solid #475569",
+                  background: "#1e293b",
+                  color: "#e2e8f0",
+                  cursor:
+                    project.viewMode === "view" ? "not-allowed" : "pointer",
+                  fontWeight: 600,
+                  flexShrink: 0,
+                }}
+              >
+                設定
+              </button>
               {cuesSortedForStageJump.length > 0 ? (() => {
                 const total = cuesSortedForStageJump.length;
                 const curIdx = selectedCueId
@@ -2251,6 +2408,30 @@ export function EditorPage() {
                 >
                   3D
                 </button>
+                <button
+                  type="button"
+                  style={{
+                    ...btnSecondary,
+                    ...(stageBoardFullscreen
+                      ? {
+                          borderColor: "rgba(34,197,94,0.75)",
+                          color: "#bbf7d0",
+                        }
+                      : {}),
+                  }}
+                  disabled={project.viewMode === "view"}
+                  title={
+                    stageBoardFullscreen
+                      ? "全画面を終了（Esc でも終了できます）"
+                      : "ステージの表示エリアだけをブラウザ全画面にします（2D / 3D どちらでも可）"
+                  }
+                  onClick={() => {
+                    if (project.viewMode === "view") return;
+                    void toggleStageBoardFullscreen();
+                  }}
+                >
+                  {stageBoardFullscreen ? "全画面終了" : "全画面"}
+                </button>
                 {hasRosterMembers ? (
                   <button
                     type="button"
@@ -2284,7 +2465,7 @@ export function EditorPage() {
               </div>
             </div>
             </div>
-            {/* 2 行目: 設定（印の直径 / スナップ・グリッド線 / 実寸） */}
+            {/* 2 行目: 印の直径・規格（グリッド・名前・客席は「設定」ボタンへ集約） */}
             <div
               style={{
                 display: "flex",
@@ -2334,43 +2515,6 @@ export function EditorPage() {
                   px
                 </span>
               </label>
-              <label
-                title="○の中: 名前のみ。○の下: 名前は下、○の中は番号（連番はステージ下の「連番で振る」または各メンバーの編集）"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  fontSize: "12px",
-                  color: "#94a3b8",
-                  cursor: project.viewMode === "view" ? "default" : "pointer",
-                  userSelect: "none",
-                }}
-              >
-                <span style={{ whiteSpace: "nowrap" }}>名前</span>
-                <select
-                  value={project.dancerLabelPosition ?? "inside"}
-                  disabled={project.viewMode === "view"}
-                  onChange={(e) =>
-                    setProjectSafe((p) => ({
-                      ...p,
-                      dancerLabelPosition:
-                        e.target.value === "below" ? "below" : "inside",
-                    }))
-                  }
-                  aria-label="立ち位置の名前の表示位置"
-                  style={{
-                    padding: "4px 6px",
-                    borderRadius: "6px",
-                    border: "1px solid #334155",
-                    background: "#0f172a",
-                    color: "#e2e8f0",
-                    fontSize: "12px",
-                  }}
-                >
-                  <option value="inside">○の中</option>
-                  <option value="below">○の下</option>
-                </select>
-              </label>
               <div
                 style={{
                   width: "1px",
@@ -2380,198 +2524,6 @@ export function EditorPage() {
                 }}
                 aria-hidden
               />
-              <label
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "5px",
-                  fontSize: "12px",
-                  color: "#94a3b8",
-                  cursor: project.viewMode === "view" ? "default" : "pointer",
-                  userSelect: "none",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={project.snapGrid}
-                  disabled={project.viewMode === "view"}
-                  onChange={(e) =>
-                    setProjectSafe((p) => ({ ...p, snapGrid: e.target.checked }))
-                  }
-                />
-                スナップ
-              </label>
-              <select
-                value={project.gridStep}
-                onChange={(e) =>
-                  setProjectSafe((p) => ({
-                    ...p,
-                    gridStep: Number(e.target.value),
-                  }))
-                }
-                disabled={!project.snapGrid || project.viewMode === "view"}
-                aria-label="スナップ間隔（%・実寸グリッドが無いとき）"
-                style={{
-                  padding: "4px 8px",
-                  borderRadius: "6px",
-                  border: "1px solid #334155",
-                  background: "#0f172a",
-                  color: "#e2e8f0",
-                  fontSize: "12px",
-                }}
-              >
-                <option value={0.5}>0.5%</option>
-                <option value={1}>1%</option>
-                <option value={2}>2%</option>
-                <option value={5}>5%</option>
-                <option value={10}>10%</option>
-              </select>
-              <label
-                title={
-                  project.stageWidthMm != null && project.stageWidthMm > 0
-                    ? "実寸（メートル）で間隔を指定（ステージ幅に連動）"
-                    : "ステージ幅を設定すると実寸で指定できます"
-                }
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  fontSize: "11px",
-                  color: "#94a3b8",
-                  userSelect: "none",
-                }}
-              >
-                <span style={{ whiteSpace: "nowrap" }}>実寸</span>
-                <select
-                  value={project.gridSpacingMm ?? 0}
-                  disabled={
-                    project.viewMode === "view" ||
-                    !(project.stageWidthMm != null && project.stageWidthMm > 0)
-                  }
-                  onChange={(e) => {
-                    const mm = Number(e.target.value);
-                    setProjectSafe((p) => {
-                      if (!mm || mm <= 0) {
-                        return { ...p, gridSpacingMm: undefined };
-                      }
-                      return { ...p, gridSpacingMm: mm, snapGrid: true };
-                    });
-                  }}
-                  aria-label="スナップ間隔（メートル）"
-                  style={{
-                    padding: "4px 6px",
-                    borderRadius: "6px",
-                    border: "1px solid #334155",
-                    background: "#0f172a",
-                    color: "#e2e8f0",
-                    fontSize: "12px",
-                  }}
-                >
-                  <option value={0}>—</option>
-                  <option value={300}>30 cm</option>
-                  <option value={500}>50 cm</option>
-                  <option value={1000}>1 m</option>
-                  <option value={1500}>1.5 m</option>
-                  <option value={2000}>2 m</option>
-                  <option value={3000}>3 m</option>
-                </select>
-              </label>
-              <label
-                title={
-                  project.stageWidthMm != null &&
-                  project.stageWidthMm > 0 &&
-                  project.stageDepthMm != null &&
-                  project.stageDepthMm > 0
-                    ? "ステージ上に縦横のグリッド線を重ねます（スナップとは別）。間隔は cm 単位で縦横同じ。"
-                    : "ステージの幅・奥行（mm）を設定するとグリッド線を表示できます"
-                }
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "5px",
-                  fontSize: "12px",
-                  color: "#94a3b8",
-                  cursor: project.viewMode === "view" ? "default" : "pointer",
-                  userSelect: "none",
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={project.stageGridLinesEnabled ?? false}
-                  disabled={
-                    project.viewMode === "view" ||
-                    !(
-                      project.stageWidthMm != null &&
-                      project.stageWidthMm > 0 &&
-                      project.stageDepthMm != null &&
-                      project.stageDepthMm > 0
-                    )
-                  }
-                  onChange={(e) =>
-                    setProjectSafe((p) => ({
-                      ...p,
-                      stageGridLinesEnabled: e.target.checked,
-                    }))
-                  }
-                />
-                グリッド線
-              </label>
-              <label
-                title="縦横ともこの間隔（cm）で線を引きます。スナップONのときは同じ間隔に吸着します（幅・奥行 mm 設定時）。"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "4px",
-                  fontSize: "11px",
-                  color: "#94a3b8",
-                  userSelect: "none",
-                }}
-              >
-                <span style={{ whiteSpace: "nowrap" }}>線間隔</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={500}
-                  step={1}
-                  value={Math.max(
-                    1,
-                    Math.min(
-                      500,
-                      Math.round((project.stageGridLineSpacingMm ?? 10) / 10)
-                    )
-                  )}
-                  disabled={
-                    project.viewMode === "view" ||
-                    !(
-                      project.stageWidthMm != null &&
-                      project.stageWidthMm > 0 &&
-                      project.stageDepthMm != null &&
-                      project.stageDepthMm > 0
-                    )
-                  }
-                  onChange={(e) => {
-                    const cm = Number(e.target.value);
-                    if (!Number.isFinite(cm)) return;
-                    const clampedCm = Math.max(1, Math.min(500, Math.round(cm)));
-                    setProjectSafe((p) => ({
-                      ...p,
-                      stageGridLineSpacingMm: clampedCm * 10,
-                    }));
-                  }}
-                  aria-label="グリッド線の間隔（cm）"
-                  style={{
-                    width: "52px",
-                    padding: "4px 6px",
-                    borderRadius: "6px",
-                    border: "1px solid #334155",
-                    background: "#0f172a",
-                    color: "#e2e8f0",
-                    fontSize: "12px",
-                    fontVariantNumeric: "tabular-nums",
-                  }}
-                />
-                <span style={{ color: "#64748b" }}>cm</span>
-              </label>
               <label
                 title={
                   project.stageWidthMm != null && project.stageWidthMm > 0
@@ -2725,39 +2677,58 @@ export function EditorPage() {
               </label>
             </div>
           </div>
-          {stageView === "2d" ? (
-            <StageBoard
-              project={project}
-              setProject={setProjectSafe}
-              playbackDancers={playbackDancersForStage}
-              browseFormationDancers={browseFormationDancers}
-              previewDancers={stagePreviewDancers}
-              playbackSetPieces={playbackSetPiecesForStage}
-              browseSetPieces={browseSetPieces}
-              isPlaying={isPlaying}
-              onStopPlaybackRequest={onStopPlaybackFromStage}
-              editFormationId={
-                selectedCue?.formationId ?? project.activeFormationId
-              }
-              stageInteractionsEnabled={
-                project.viewMode !== "view" &&
-                (project.cues.length === 0 || Boolean(selectedCueId))
-              }
-            />
-          ) : (
-            <Suspense
-              fallback={
-                <div style={{ padding: 24, color: "#64748b", fontSize: "13px" }}>
-                  3D ビューを読み込み中…
-                </div>
-              }
-            >
-              <Stage3DView
-                dancers={dancersFor3d}
-                markerDiameterPx={project.dancerMarkerDiameterPx ?? 44}
+          <div
+            ref={stageBoardHostRef}
+            style={{
+              flex: 1,
+              minHeight: 0,
+              minWidth: 0,
+              display: "flex",
+              flexDirection: "column",
+              ...(stageBoardFullscreen
+                ? {
+                    background: "#020617",
+                    borderRadius: 8,
+                  }
+                : {}),
+            }}
+          >
+            {stageView === "2d" ? (
+              <StageBoard
+                project={project}
+                setProject={setProjectSafe}
+                playbackDancers={playbackDancersForStage}
+                browseFormationDancers={browseFormationDancers}
+                previewDancers={stagePreviewDancers}
+                playbackSetPieces={playbackSetPiecesForStage}
+                browseSetPieces={browseSetPieces}
+                playbackFloorMarkup={playbackFloorMarkupForStage}
+                browseFloorMarkup={browseFloorMarkup}
+                isPlaying={isPlaying}
+                onStopPlaybackRequest={onStopPlaybackFromStage}
+                editFormationId={
+                  selectedCue?.formationId ?? project.activeFormationId
+                }
+                stageInteractionsEnabled={
+                  project.viewMode !== "view" &&
+                  (project.cues.length === 0 || Boolean(selectedCueId))
+                }
               />
-            </Suspense>
-          )}
+            ) : (
+              <Suspense
+                fallback={
+                  <div style={{ padding: 24, color: "#64748b", fontSize: "13px" }}>
+                    3D ビューを読み込み中…
+                  </div>
+                }
+              >
+                <Stage3DView
+                  dancers={dancersFor3d}
+                  markerDiameterPx={project.dancerMarkerDiameterPx ?? 44}
+                />
+              </Suspense>
+            )}
+          </div>
         </section>
 
         {wideEditorLayout && !rightPaneCollapsed ? (
@@ -3135,6 +3106,539 @@ export function EditorPage() {
         )}
       </div>
 
+      {stageAreaSettingsOpen ? (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 61,
+            background: "rgba(15, 23, 42, 0.78)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "16px",
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setStageAreaSettingsOpen(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="stage-area-settings-title"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              maxWidth: "440px",
+              maxHeight: "min(90vh, 640px)",
+              overflow: "auto",
+              background: "#0f172a",
+              borderRadius: "12px",
+              border: "1px solid #334155",
+              padding: "16px 18px 18px",
+              boxShadow: "0 24px 64px rgba(0, 0, 0, 0.5)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "12px",
+                marginBottom: "14px",
+              }}
+            >
+              <h3
+                id="stage-area-settings-title"
+                style={{
+                  margin: 0,
+                  fontSize: "15px",
+                  fontWeight: 600,
+                  color: "#e2e8f0",
+                }}
+              >
+                ステージまわりの設定
+              </h3>
+              <button
+                type="button"
+                aria-label="閉じる"
+                onClick={() => setStageAreaSettingsOpen(false)}
+                style={{
+                  ...btnSecondary,
+                  fontSize: "18px",
+                  lineHeight: 1,
+                  padding: "4px 12px",
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div
+              style={{
+                borderBottom: "1px solid #1e293b",
+                paddingBottom: "14px",
+                marginBottom: "14px",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  color: "#64748b",
+                  letterSpacing: "0.06em",
+                  marginBottom: "8px",
+                }}
+              >
+                舞台設定
+              </div>
+              <p style={{ margin: "0 0 10px", fontSize: "12px", color: "#94a3b8", lineHeight: 1.5 }}>
+                幅・奥行・袖・バック・場ミリ・プリセットは専用ダイアログで編集します。
+              </p>
+              <button
+                type="button"
+                disabled={project.viewMode === "view"}
+                onClick={() => {
+                  setStageAreaSettingsOpen(false);
+                  setStageSettingsOpen(true);
+                }}
+                style={{
+                  ...btnSecondary,
+                  width: "100%",
+                  padding: "10px 12px",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                }}
+              >
+                舞台の寸法・袖・バックを開く…
+              </button>
+            </div>
+
+            <div
+              style={{
+                borderBottom: "1px solid #1e293b",
+                paddingBottom: "14px",
+                marginBottom: "14px",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  color: "#64748b",
+                  letterSpacing: "0.06em",
+                  marginBottom: "8px",
+                }}
+              >
+                客席の位置
+              </div>
+              <p style={{ margin: "0 0 8px", fontSize: "11px", color: "#64748b", lineHeight: 1.45 }}>
+                画面のどの辺を客席側としてステージを回転表示するか（詳細は上の「舞台の寸法」でも変更可）。
+              </p>
+              <select
+                value={project.audienceEdge}
+                disabled={project.viewMode === "view"}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (
+                    v !== "top" &&
+                    v !== "bottom" &&
+                    v !== "left" &&
+                    v !== "right"
+                  )
+                    return;
+                  setProjectSafe((p) => ({ ...p, audienceEdge: v }));
+                }}
+                aria-label="客席のある画面の辺"
+                style={{
+                  width: "100%",
+                  padding: "8px 10px",
+                  borderRadius: "8px",
+                  border: "1px solid #334155",
+                  background: "#020617",
+                  color: "#e2e8f0",
+                  fontSize: "13px",
+                }}
+              >
+                {STAGE_AREA_AUDIENCE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    客席：画面の{o.label}側
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div
+              style={{
+                borderBottom: "1px solid #1e293b",
+                paddingBottom: "14px",
+                marginBottom: "14px",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  color: "#64748b",
+                  letterSpacing: "0.06em",
+                  marginBottom: "8px",
+                }}
+              >
+                グリッド
+              </div>
+              <div style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "8px" }}>
+                立ち位置をグリッドに合わせる
+              </div>
+              <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+                <button
+                  type="button"
+                  disabled={project.viewMode === "view"}
+                  onClick={() =>
+                    setProjectSafe((p) => ({ ...p, snapGrid: true }))
+                  }
+                  style={{
+                    flex: 1,
+                    padding: "8px 10px",
+                    borderRadius: "8px",
+                    border:
+                      project.snapGrid
+                        ? "1px solid rgba(99,102,241,0.9)"
+                        : "1px solid #334155",
+                    background: project.snapGrid
+                      ? "rgba(99,102,241,0.22)"
+                      : "#020617",
+                    color: project.snapGrid ? "#e0e7ff" : "#94a3b8",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor:
+                      project.viewMode === "view" ? "not-allowed" : "pointer",
+                  }}
+                >
+                  合わせる
+                </button>
+                <button
+                  type="button"
+                  disabled={project.viewMode === "view"}
+                  onClick={() =>
+                    setProjectSafe((p) => ({ ...p, snapGrid: false }))
+                  }
+                  style={{
+                    flex: 1,
+                    padding: "8px 10px",
+                    borderRadius: "8px",
+                    border:
+                      !project.snapGrid
+                        ? "1px solid rgba(148,163,184,0.85)"
+                        : "1px solid #334155",
+                    background: !project.snapGrid ? "#334155" : "#020617",
+                    color: !project.snapGrid ? "#f8fafc" : "#94a3b8",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor:
+                      project.viewMode === "view" ? "not-allowed" : "pointer",
+                  }}
+                >
+                  合わせない
+                </button>
+              </div>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "11px",
+                  color: "#94a3b8",
+                  marginBottom: "4px",
+                }}
+              >
+                スナップ刻み（幅・奥行 mm があるときは実寸グリッド優先。無いときは %）
+              </label>
+              <select
+                value={project.gridStep}
+                disabled={!project.snapGrid || project.viewMode === "view"}
+                onChange={(e) =>
+                  setProjectSafe((p) => ({
+                    ...p,
+                    gridStep: Number(e.target.value),
+                  }))
+                }
+                style={{
+                  width: "100%",
+                  marginBottom: "10px",
+                  padding: "6px 10px",
+                  borderRadius: "6px",
+                  border: "1px solid #334155",
+                  background: "#020617",
+                  color: "#e2e8f0",
+                  fontSize: "12px",
+                }}
+              >
+                <option value={0.5}>0.5% 刻み</option>
+                <option value={1}>1% 刻み</option>
+                <option value={2}>2% 刻み</option>
+                <option value={5}>5% 刻み</option>
+                <option value={10}>10% 刻み</option>
+              </select>
+              <label
+                style={{
+                  display: "block",
+                  fontSize: "11px",
+                  color: "#94a3b8",
+                  marginBottom: "4px",
+                }}
+              >
+                実寸スナップの幅基準（ステージ幅 mm 設定時）
+              </label>
+              <select
+                value={project.gridSpacingMm ?? 0}
+                disabled={
+                  project.viewMode === "view" ||
+                  !(project.stageWidthMm != null && project.stageWidthMm > 0)
+                }
+                onChange={(e) => {
+                  const mm = Number(e.target.value);
+                  setProjectSafe((p) => {
+                    if (!mm || mm <= 0) {
+                      return { ...p, gridSpacingMm: undefined };
+                    }
+                    return { ...p, gridSpacingMm: mm, snapGrid: true };
+                  });
+                }}
+                style={{
+                  width: "100%",
+                  marginBottom: "12px",
+                  padding: "6px 10px",
+                  borderRadius: "6px",
+                  border: "1px solid #334155",
+                  background: "#020617",
+                  color: "#e2e8f0",
+                  fontSize: "12px",
+                }}
+              >
+                <option value={0}>実寸スナップ：なし</option>
+                <option value={300}>30 cm</option>
+                <option value={500}>50 cm</option>
+                <option value={1000}>1 m</option>
+                <option value={1500}>1.5 m</option>
+                <option value={2000}>2 m</option>
+                <option value={3000}>3 m</option>
+              </select>
+              <div style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "6px" }}>
+                グリッド線（表示のみ・スナップとは別）
+              </div>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  fontSize: "12px",
+                  color: "#cbd5e1",
+                  marginBottom: "8px",
+                  cursor: project.viewMode === "view" ? "default" : "pointer",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={project.stageGridLinesEnabled ?? false}
+                  disabled={
+                    project.viewMode === "view" ||
+                    !(
+                      project.stageWidthMm != null &&
+                      project.stageWidthMm > 0 &&
+                      project.stageDepthMm != null &&
+                      project.stageDepthMm > 0
+                    )
+                  }
+                  onChange={(e) =>
+                    setProjectSafe((p) => ({
+                      ...p,
+                      stageGridLinesEnabled: e.target.checked,
+                    }))
+                  }
+                />
+                線を表示する
+              </label>
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  fontSize: "12px",
+                  color: "#94a3b8",
+                  flexWrap: "wrap",
+                }}
+              >
+                <span>線の間隔（縦横・cm）</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={500}
+                  step={1}
+                  value={Math.max(
+                    1,
+                    Math.min(
+                      500,
+                      Math.round((project.stageGridLineSpacingMm ?? 10) / 10)
+                    )
+                  )}
+                  disabled={
+                    project.viewMode === "view" ||
+                    !(
+                      project.stageWidthMm != null &&
+                      project.stageWidthMm > 0 &&
+                      project.stageDepthMm != null &&
+                      project.stageDepthMm > 0
+                    )
+                  }
+                  onChange={(e) => {
+                    const cm = Number(e.target.value);
+                    if (!Number.isFinite(cm)) return;
+                    const clampedCm = Math.max(1, Math.min(500, Math.round(cm)));
+                    setProjectSafe((p) => ({
+                      ...p,
+                      stageGridLineSpacingMm: clampedCm * 10,
+                    }));
+                  }}
+                  aria-label="グリッド線の間隔（cm）"
+                  style={{
+                    width: "56px",
+                    padding: "4px 8px",
+                    borderRadius: "6px",
+                    border: "1px solid #334155",
+                    background: "#020617",
+                    color: "#e2e8f0",
+                    fontSize: "12px",
+                  }}
+                />
+              </label>
+            </div>
+
+            <div
+              style={{
+                borderBottom: "1px solid #1e293b",
+                paddingBottom: "14px",
+                marginBottom: "14px",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  color: "#64748b",
+                  letterSpacing: "0.06em",
+                  marginBottom: "8px",
+                }}
+              >
+                立ち位置の名前
+              </div>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button
+                  type="button"
+                  disabled={project.viewMode === "view"}
+                  onClick={() =>
+                    setProjectSafe((p) => ({ ...p, dancerLabelPosition: "inside" }))
+                  }
+                  style={{
+                    flex: 1,
+                    padding: "8px 10px",
+                    borderRadius: "8px",
+                    border:
+                      (project.dancerLabelPosition ?? "inside") === "inside"
+                        ? "1px solid rgba(99,102,241,0.9)"
+                        : "1px solid #334155",
+                    background:
+                      (project.dancerLabelPosition ?? "inside") === "inside"
+                        ? "rgba(99,102,241,0.22)"
+                        : "#020617",
+                    color:
+                      (project.dancerLabelPosition ?? "inside") === "inside"
+                        ? "#e0e7ff"
+                        : "#94a3b8",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor:
+                      project.viewMode === "view" ? "not-allowed" : "pointer",
+                  }}
+                >
+                  ○の中に名前
+                </button>
+                <button
+                  type="button"
+                  disabled={project.viewMode === "view"}
+                  onClick={() =>
+                    setProjectSafe((p) => ({ ...p, dancerLabelPosition: "below" }))
+                  }
+                  style={{
+                    flex: 1,
+                    padding: "8px 10px",
+                    borderRadius: "8px",
+                    border:
+                      project.dancerLabelPosition === "below"
+                        ? "1px solid rgba(99,102,241,0.9)"
+                        : "1px solid #334155",
+                    background:
+                      project.dancerLabelPosition === "below"
+                        ? "rgba(99,102,241,0.22)"
+                        : "#020617",
+                    color:
+                      project.dancerLabelPosition === "below"
+                        ? "#e0e7ff"
+                        : "#94a3b8",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor:
+                      project.viewMode === "view" ? "not-allowed" : "pointer",
+                  }}
+                >
+                  ○の下に名前
+                </button>
+              </div>
+              <p style={{ margin: "8px 0 0", fontSize: "10px", color: "#64748b", lineHeight: 1.45 }}>
+                ○の下のときは印の中は番号（連番は右クリックメニューや各メンバー編集）。
+              </p>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => void copyEditorShareLink()}
+                style={{
+                  ...btnSecondary,
+                  width: "100%",
+                  padding: "10px 12px",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                }}
+              >
+                {shareLinkCopiedFlash
+                  ? "URL をコピーしました"
+                  : "この画面の URL を共有（コピー）"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setStageAreaSettingsOpen(false);
+                  setShortcutsHelpOpen(true);
+                }}
+                style={{
+                  ...btnSecondary,
+                  width: "100%",
+                  padding: "10px 12px",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                }}
+              >
+                ショートカット・ヒントを開く
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {stageSettingsOpen ? (
         <div
           style={{
@@ -3313,9 +3817,22 @@ export function EditorPage() {
                 で細かいグリッドにスナップ（スナップON時。幅・奥行ありなら実寸グリッド）
               </li>
               <li>
+                <strong style={{ color: "#e2e8f0" }}>⌘D / Ctrl+D</strong>{" "}
+                ステージで選択中のメンバーを複製（名簿紐付けは外れます）
+              </li>
+              <li>
+                ドラッグ移動中、<strong style={{ color: "#e2e8f0" }}>移動前の位置</strong>
+                を薄い印で重ね表示します（指を離すと消えます）
+              </li>
+              <li>
                 <strong style={{ color: "#e2e8f0" }}>Alt+矢印</strong>{" "}
                 で選択ダンサーを微移動（<strong style={{ color: "#e2e8f0" }}>Shift+Alt</strong>{" "}
                 でさらに細かく）
+              </li>
+              <li>
+                ステージ見出しの <strong style={{ color: "#e2e8f0" }}>全画面</strong>{" "}
+                で床表示だけをブラウザ全画面に（<strong style={{ color: "#e2e8f0" }}>Esc</strong>{" "}
+                または「全画面終了」で戻る）
               </li>
               <li>
                 <strong style={{ color: "#e2e8f0" }}>再生中にステージ</strong>{" "}

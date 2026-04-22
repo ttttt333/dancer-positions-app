@@ -11,6 +11,7 @@ import type {
   SavedSpotStageSnapshot,
   SetPiece,
   SetPieceKind,
+  StageFloorMarkup,
   StageShape,
   StageShapePresetId,
 } from "../types/choreography";
@@ -32,6 +33,8 @@ function clampPct(n: number, lo: number, hi: number) {
 }
 
 const SET_PIECE_KINDS = new Set<string>(["rect", "ellipse", "triangle"]);
+
+const FLOOR_MARKUP_CAP = 48;
 
 const STAGE_SHAPE_PRESET_IDS = new Set<string>([
   "rectangle",
@@ -112,6 +115,64 @@ function normalizeHexFill(raw: unknown): string | undefined {
     return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
   }
   return undefined;
+}
+
+function normalizeFloorMarkupArray(raw: unknown): StageFloorMarkup[] {
+  if (!Array.isArray(raw)) return [];
+  const out: StageFloorMarkup[] = [];
+  for (const row of raw) {
+    if (out.length >= FLOOR_MARKUP_CAP) break;
+    if (!row || typeof row !== "object") continue;
+    const r = row as Record<string, unknown>;
+    const kind = r.kind;
+    const id = typeof r.id === "string" && r.id ? r.id : randomId("fmark");
+    if (kind === "text") {
+      const text =
+        typeof r.text === "string" && r.text.trim()
+          ? r.text.trim().slice(0, 400)
+          : "";
+      if (!text) continue;
+      const xPct = Math.round(clampPct(Number(r.xPct), 0, 100) * 100) / 100;
+      const yPct = Math.round(clampPct(Number(r.yPct), 0, 100) * 100) / 100;
+      const item: StageFloorMarkup = {
+        id,
+        kind: "text",
+        xPct,
+        yPct,
+        text,
+      };
+      const col = normalizeHexFill(r.color);
+      if (col) item.color = col;
+      const fs = Number(r.fontSizePx);
+      if (Number.isFinite(fs) && fs >= 8 && fs <= 32) item.fontSizePx = Math.round(fs);
+      out.push(item);
+      continue;
+    }
+    if (kind === "line") {
+      const poly = r.pointsPct;
+      if (!Array.isArray(poly) || poly.length < 2) continue;
+      const pts: [number, number][] = [];
+      for (const pr of poly) {
+        if (pts.length >= 200) break;
+        if (!Array.isArray(pr) || pr.length < 2) continue;
+        const x = Math.round(clampPct(Number(pr[0]), 0, 100) * 100) / 100;
+        const y = Math.round(clampPct(Number(pr[1]), 0, 100) * 100) / 100;
+        if (Number.isFinite(x) && Number.isFinite(y)) pts.push([x, y]);
+      }
+      if (pts.length < 2) continue;
+      const item: StageFloorMarkup = {
+        id,
+        kind: "line",
+        pointsPct: pts,
+      };
+      const col = normalizeHexFill(r.color);
+      if (col) item.color = col;
+      const w = Number(r.widthPx);
+      if (Number.isFinite(w) && w >= 1 && w <= 16) item.widthPx = Math.round(w);
+      out.push(item);
+    }
+  }
+  return out;
 }
 
 function normalizeSetPiecesArray(raw: unknown): SetPiece[] {
@@ -339,6 +400,7 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
                 : undefined,
             dancers: normalizeFormationDancers(fmObj.dancers),
             setPieces: normalizeSetPiecesArray(fmObj.setPieces),
+            floorMarkup: normalizeFloorMarkupArray(fmObj.floorMarkup),
           };
         })
       : defaults.formations;

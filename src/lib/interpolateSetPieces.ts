@@ -1,4 +1,4 @@
-import type { Cue, Formation, SetPiece } from "../types/choreography";
+import type { Cue, Formation, SetPiece, StageFloorMarkup } from "../types/choreography";
 import { sortCuesByStart } from "./cueInterval";
 
 function formationById(
@@ -110,4 +110,55 @@ export function setPiecesAtTime(
   }
 
   return [...(fb?.setPieces ?? [])];
+}
+
+/**
+ * 再生時刻 t における床マーク（コメント・線）。区間内はそのフォーメーションのデータ、
+ * ギャップでは補間せず alpha に応じて前後どちらか一方を表示する。
+ */
+export function floorMarkupAtTime(
+  t: number,
+  cues: Cue[],
+  formations: Formation[],
+  fallbackFormationId: string
+): StageFloorMarkup[] {
+  const sorted = sortCuesByStart(cues);
+  const fb = formationById(formations, fallbackFormationId);
+
+  if (sorted.length === 0) {
+    return [...(fb?.floorMarkup ?? [])];
+  }
+
+  const first = sorted[0];
+  if (t < first.tStartSec) {
+    const f = formationById(formations, first.formationId);
+    return [...(f?.floorMarkup ?? fb?.floorMarkup ?? [])];
+  }
+
+  for (let i = 0; i < sorted.length; i++) {
+    const cur = sorted[i];
+    if (t >= cur.tStartSec && t <= cur.tEndSec) {
+      const f = formationById(formations, cur.formationId);
+      return [...(f?.floorMarkup ?? [])];
+    }
+    const next = sorted[i + 1];
+    if (next && t > cur.tEndSec && t < next.tStartSec) {
+      const f0 = formationById(formations, cur.formationId);
+      const f1 = formationById(formations, next.formationId);
+      const g0 = cur.tEndSec;
+      const g1 = next.tStartSec;
+      const span = g1 - g0;
+      const alpha = span > 1e-6 ? (t - g0) / span : 1;
+      const pick = alpha < 0.5 ? f0 : f1;
+      return [...(pick?.floorMarkup ?? [])];
+    }
+  }
+
+  const last = sorted[sorted.length - 1];
+  if (t > last.tEndSec) {
+    const f = formationById(formations, last.formationId);
+    return [...(f?.floorMarkup ?? [])];
+  }
+
+  return [...(fb?.floorMarkup ?? [])];
 }
