@@ -77,33 +77,6 @@ export const authApi = {
     }>("/api/auth/me"),
 };
 
-export const orgApi = {
-  list: () => api<{ id: number; name: string }[]>("/api/organizations"),
-  requestMembership: (orgId: number) =>
-    api<{
-      id: number;
-      status: string;
-      devApprovalUrl?: string;
-    }>("/api/membership-requests", {
-      method: "POST",
-      body: JSON.stringify({ orgId }),
-    }),
-  pendingRequests: (orgId: number) =>
-    api<{ id: number; user_id: number; created_at: string; email: string }[]>(
-      `/api/membership-requests/pending?orgId=${orgId}`
-    ),
-  approve: (requestId: number) =>
-    api<{ ok: boolean }>(`/api/membership-requests/${requestId}/approve`, {
-      method: "POST",
-      body: "{}",
-    }),
-  reject: (requestId: number) =>
-    api<{ ok: boolean }>(`/api/membership-requests/${requestId}/reject`, {
-      method: "POST",
-      body: "{}",
-    }),
-};
-
 export const projectApi = {
   list: () =>
     api<{ id: number; name: string; updated_at: string }[]>("/api/projects"),

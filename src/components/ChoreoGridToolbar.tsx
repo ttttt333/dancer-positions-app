@@ -4,6 +4,8 @@ import { btnSecondary } from "./stageButtonStyles";
 import { ChoreoGridLogo } from "./ChoreoGridLogo";
 
 type Props = {
+  /** 既定は縦（旧左列）。右列に置くときは row */
+  layout?: "column" | "row";
   snapGrid?: boolean;
   onToggleSnapGrid: () => void;
   stageGridLinesEnabled?: boolean;
@@ -198,6 +200,7 @@ function ToolbarIconButton({
  * ChoreoGrid 左端ツールバー（アイコン中心・title で補足）。
  */
 export function ChoreoGridToolbar({
+  layout = "column",
   onToggleSnapGrid,
   onToggleStageGridLines,
   stageGridLinesToggleDisabled = false,
@@ -210,21 +213,25 @@ export function ChoreoGridToolbar({
   stageGridLinesEnabled = false,
   stageShapeActive = false,
 }: Props) {
+  const row = layout === "row";
   return (
     <aside
       aria-label="ChoreoGrid ツール"
       style={{
         display: "flex",
-        flexDirection: "column",
+        flexDirection: row ? "row" : "column",
+        flexWrap: row ? "wrap" : "nowrap",
         alignItems: "center",
+        justifyContent: row ? "flex-start" : "center",
         gap: 8,
-        padding: "8px 5px",
-        background: "#020617",
-        border: "1px solid #1e293b",
-        borderRadius: "10px",
-        minWidth: 54,
-        maxWidth: 58,
-        height: "100%",
+        padding: row ? "8px 10px" : "8px 5px",
+        background: shell.surface,
+        border: `1px solid ${shell.border}`,
+        borderRadius: row ? "14px" : "14px",
+        minWidth: row ? 0 : 54,
+        maxWidth: row ? "100%" : 58,
+        width: row ? "100%" : undefined,
+        height: row ? "auto" : "100%",
         boxSizing: "border-box",
       }}
     >

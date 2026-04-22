@@ -6,8 +6,6 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { EditorPage } from "./pages/EditorPage";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
-import { AdminMembershipPage } from "./pages/AdminMembershipPage";
-import { ApproveMembershipPage } from "./pages/ApproveMembershipPage";
 import { VideoPage } from "./pages/VideoPage";
 import { BillingCanceledPage, BillingSuccessPage } from "./pages/BillingPages";
 
@@ -21,8 +19,6 @@ export default function App() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          <Route path="/admin/membership" element={<AdminMembershipPage />} />
-          <Route path="/approve-membership" element={<ApproveMembershipPage />} />
           <Route path="/video" element={<VideoPage />} />
           <Route path="/billing/success" element={<BillingSuccessPage />} />
           <Route path="/billing/canceled" element={<BillingCanceledPage />} />

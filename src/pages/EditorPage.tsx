@@ -81,8 +81,6 @@ const EDITOR_GRID_GAP_PX = 6;
 const STAGE_RESIZER_PX = 4;
 const STAGE_COL_MIN_PX = 280;
 const TIMELINE_COL_MIN_PX = 260;
-/** 左アイコンツールバー列（ChoreoGridToolbar の実幅に合わせる） */
-const TOOLBAR_COL_PX = 58;
 /** 右ペイン：タイムライン（またはキュー一覧）の縦スタック */
 
 /** ステージ「設定」パネル：客席方向（`StageDimensionFields` と同じ 4 択） */
@@ -106,12 +104,11 @@ function readMaxStageWidthPx(gridEl: HTMLElement): number {
     parseFloat(cs.rowGap) ||
     parseFloat(cs.gap) ||
     EDITOR_GRID_GAP_PX;
-  const gapsBetween4Cols = 3 * gap;
+  const gapsBetween3Cols = 2 * gap;
   return (
     rect.width -
     padX -
-    gapsBetween4Cols -
-    TOOLBAR_COL_PX -
+    gapsBetween3Cols -
     STAGE_RESIZER_PX -
     TIMELINE_COL_MIN_PX
   );
@@ -148,8 +145,8 @@ export function EditorPage() {
   const [addCueDialogOpen, setAddCueDialogOpen] = useState(false);
   const [cuePagerListOpen, setCuePagerListOpen] = useState(false);
   /**
-   * 右ペイン（キュー一覧／タイムライン）を畳んでステージを最大化するトグル。
-   * 畳んでも左の操作バー＋ステージは残り、ステージ上部のページャーから
+   * 右ペイン（タイムライン／右ツール列）を畳んでステージを最大化するトグル。
+   * 畳んでもステージ上にグリッド用ツールバーが出るほか、ステージ上部のページャーから
    * キュー切替は引き続き可能。狭いビューポート（!wideEditorLayout）では無効。
    */
   const [rightPaneCollapsed, setRightPaneCollapsed] = useState(false);
@@ -173,9 +170,8 @@ export function EditorPage() {
       typeof window !== "undefined" &&
       window.matchMedia(`(min-width: ${EDITOR_WIDE_MIN_PX}px)`).matches
   );
-  /** §3 ワイド時: タイムライン・波形を画面上部の全幅行に移す */
-  const [waveTimelineDockTop, setWaveTimelineDockTop] = useState(false);
-  /** `waveTimelineDockTop` 時にキュー一覧をポータルで描画する右列の DOM 要素 */
+  /** ワイド＋タイムライン表示時: キュー一覧モーダルの開閉（一覧本体はポータルで描画） */
+  const [cueListModalOpen, setCueListModalOpen] = useState(false);
   const [cueListPortalEl, setCueListPortalEl] =
     useState<HTMLDivElement | null>(null);
   /** 上部ドック時の上段（波形・再生）行の高さ（px）。null = 既定の `minmax(160px, min(28vh, 300px))` */
@@ -315,7 +311,6 @@ export function EditorPage() {
 
   useEffect(() => {
     if (!wideEditorLayout) {
-      setWaveTimelineDockTop(false);
       setTopDockRowPx(null);
     }
   }, [wideEditorLayout]);
@@ -497,10 +492,10 @@ export function EditorPage() {
 
   const editorGridColumns = wideEditorLayout
     ? rightPaneCollapsed
-      ? `${TOOLBAR_COL_PX}px 1fr`
+      ? "1fr"
       : stageColumnPx == null
-        ? `${TOOLBAR_COL_PX}px minmax(${STAGE_COL_MIN_PX}px, 2fr) ${STAGE_RESIZER_PX}px minmax(${TIMELINE_COL_MIN_PX}px, 1fr)`
-        : `${TOOLBAR_COL_PX}px ${Math.round(stageColumnPx)}px ${STAGE_RESIZER_PX}px minmax(${TIMELINE_COL_MIN_PX}px, 1fr)`
+        ? `minmax(${STAGE_COL_MIN_PX}px, 2fr) ${STAGE_RESIZER_PX}px minmax(${TIMELINE_COL_MIN_PX}px, 1fr)`
+        : `${Math.round(stageColumnPx)}px ${STAGE_RESIZER_PX}px minmax(${TIMELINE_COL_MIN_PX}px, 1fr)`
     : "1fr";
 
   const setProjectSafePlain: Dispatch<SetStateAction<ChoreographyProjectJson>> =
@@ -643,6 +638,10 @@ export function EditorPage() {
         setFlowLibraryOpen(false);
         return;
       }
+      if (e.key === "Escape" && cueListModalOpen) {
+        setCueListModalOpen(false);
+        return;
+      }
       if (e.key === "Escape" && cuePagerListOpen) {
         setCuePagerListOpen(false);
         return;
@@ -681,6 +680,7 @@ export function EditorPage() {
     flowLibraryOpen,
     cuePagerListOpen,
     rosterImportDraft,
+    cueListModalOpen,
   ]);
 
   const interpolatedDancers = useMemo(() => {
@@ -1171,13 +1171,39 @@ export function EditorPage() {
     return <div style={{ padding: 24, color: "#94a3b8" }}>読み込み中…</div>;
   }
 
-  const waveDockTopRow = wideEditorLayout && waveTimelineDockTop;
   const hasRosterMembers = project.crews.some((c) => c.members.length > 0);
   /** 名簿ストリップのみ表示しタイムライン列を隠す（取り込み直後や「メンバーを表示」から） */
   const rosterOnlyMode =
     project.rosterHidesTimeline === true && hasRosterMembers;
-  /** 上部に波形ドックを出すレイアウト（名簿専用モードではオフ） */
-  const showTopWaveDock = waveDockTopRow && !rosterOnlyMode;
+  /** ワイド時は波形・再生を上部に固定（名簿専用モードでは従来の下段タイムライン） */
+  const showTopWaveDock = wideEditorLayout && !rosterOnlyMode;
+
+  const choreoToolbarSharedProps = {
+    snapGrid: project.snapGrid,
+    stageGridLinesEnabled: project.stageGridLinesEnabled ?? false,
+    stageShapeActive:
+      (project.stageShape != null &&
+        project.stageShape.presetId !== "rectangle") ||
+      (project.hanamichiEnabled ?? false),
+    disabled: project.viewMode === "view",
+    onToggleSnapGrid: () =>
+      setProjectSafe((p) => ({ ...p, snapGrid: !p.snapGrid })),
+    onToggleStageGridLines: () =>
+      setProjectSafe((p) => ({
+        ...p,
+        stageGridLinesEnabled: !(p.stageGridLinesEnabled ?? false),
+      })),
+    stageGridLinesToggleDisabled: !(
+      project.stageWidthMm != null &&
+      project.stageWidthMm > 0 &&
+      project.stageDepthMm != null &&
+      project.stageDepthMm > 0
+    ),
+    onOpenStageShapePicker: () => setStageShapePickerOpen(true),
+    onOpenSetPiecePicker: openSetPiecePicker,
+    onOpenShortcutsHelp: () => setShortcutsHelpOpen(true),
+    onOpenExport: () => setExportDialogOpen(true),
+  };
 
   const timelinePanelEl = (
     <TimelinePanel
@@ -1212,8 +1238,6 @@ export function EditorPage() {
       onSelectedCueIdsChange={setSelectedCueIds}
       formationIdForNewCue={selectedCue?.formationId ?? project.activeFormationId}
       wideWorkbench={wideEditorLayout}
-      waveTimelineDockTop={waveTimelineDockTop}
-      onWaveTimelineDockTopChange={setWaveTimelineDockTop}
       compactTopDock={showTopWaveDock}
       cueListPortalTarget={showTopWaveDock ? cueListPortalEl : null}
     />
@@ -1542,52 +1566,17 @@ export function EditorPage() {
             />
           </div>
         ) : null}
-        <div
-          style={
-            wideEditorLayout
-              ? {
-                  gridColumn: 1,
-                  gridRow: showTopWaveDock ? 3 : 1,
-                  minWidth: 0,
-                  minHeight: 0,
-                  alignSelf: "stretch",
-                  display: "flex",
-                }
-              : undefined
-          }
-        >
-          <ChoreoGridToolbar
-            snapGrid={project.snapGrid}
-            stageGridLinesEnabled={project.stageGridLinesEnabled ?? false}
-            stageShapeActive={
-              (project.stageShape != null &&
-                project.stageShape.presetId !== "rectangle") ||
-              (project.hanamichiEnabled ?? false)
-            }
-            disabled={project.viewMode === "view"}
-            onToggleSnapGrid={() =>
-              setProjectSafe((p) => ({ ...p, snapGrid: !p.snapGrid }))
-            }
-            onToggleStageGridLines={() =>
-              setProjectSafe((p) => ({
-                ...p,
-                stageGridLinesEnabled: !(p.stageGridLinesEnabled ?? false),
-              }))
-            }
-            stageGridLinesToggleDisabled={
-              !(
-                project.stageWidthMm != null &&
-                project.stageWidthMm > 0 &&
-                project.stageDepthMm != null &&
-                project.stageDepthMm > 0
-              )
-            }
-            onOpenStageShapePicker={() => setStageShapePickerOpen(true)}
-            onOpenSetPiecePicker={openSetPiecePicker}
-            onOpenShortcutsHelp={() => setShortcutsHelpOpen(true)}
-            onOpenExport={() => setExportDialogOpen(true)}
-          />
-        </div>
+        {!wideEditorLayout ? (
+          <div
+            style={{
+              minWidth: 0,
+              minHeight: 0,
+              display: "flex",
+            }}
+          >
+            <ChoreoGridToolbar {...choreoToolbarSharedProps} />
+          </div>
+        ) : null}
         <section
           ref={stageSectionRef}
           style={{
@@ -1600,12 +1589,23 @@ export function EditorPage() {
             overflow: "hidden",
             ...(wideEditorLayout
               ? {
-                  gridColumn: 2,
+                  gridColumn: 1,
                   gridRow: showTopWaveDock ? 3 : 1,
                 }
               : {}),
           }}
         >
+          {wideEditorLayout && rightPaneCollapsed ? (
+            <div
+              style={{
+                marginBottom: "10px",
+                flexShrink: 0,
+                minWidth: 0,
+              }}
+            >
+              <ChoreoGridToolbar layout="row" {...choreoToolbarSharedProps} />
+            </div>
+          ) : null}
           <div
             style={{
               display: "flex",
@@ -3009,7 +3009,7 @@ export function EditorPage() {
               justifySelf: "stretch",
               alignSelf: "stretch",
               zIndex: 2,
-              gridColumn: 3,
+              gridColumn: 2,
               gridRow: showTopWaveDock ? 3 : 1,
             }}
           />
@@ -3019,42 +3019,49 @@ export function EditorPage() {
           <div
             ref={rightPaneStackRef}
             style={{
-              gridColumn: 4,
+              gridColumn: 3,
               gridRow: 3,
               display: "flex",
               flexDirection: "column",
-              gap: 0,
+              gap: 8,
               minHeight: 0,
               minWidth: 0,
               overflow: "hidden",
+              padding: "2px 0 0",
             }}
           >
+            <div
+              style={{
+                flexShrink: 0,
+                minWidth: 0,
+                ...panelCard,
+                padding: "8px 10px",
+              }}
+            >
+              <ChoreoGridToolbar layout="row" {...choreoToolbarSharedProps} />
+            </div>
             {rosterOnlyMode ? (
               <RosterTimelineStrip project={project} setProject={setProjectSafe} />
             ) : null}
-            <section
-              style={{
-                ...panelCard,
-                padding: "12px",
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden",
-                ...rightPaneTopSectionStyle,
-              }}
-            >
-              <h2 style={{ margin: "0 0 8px", fontSize: "13px", color: shell.textMuted, fontWeight: 600 }}>
-                キュー一覧
-              </h2>
-              <div
-                ref={setCueListPortalEl}
+            {!rosterOnlyMode ? (
+              <button
+                type="button"
                 style={{
-                  flex: "1 1 auto",
-                  minHeight: 0,
-                  display: "flex",
-                  flexDirection: "column",
+                  ...btnSecondary,
+                  flexShrink: 0,
+                  alignSelf: "stretch",
+                  padding: "10px 12px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  justifyContent: "center",
                 }}
-              />
-            </section>
+                disabled={project.viewMode === "view"}
+                title="右側のパネルでキュー一覧を開きます"
+                onClick={() => setCueListModalOpen(true)}
+              >
+                キュー一覧を開く
+              </button>
+            ) : null}
           </div>
         ) : (
           <div
@@ -3067,10 +3074,23 @@ export function EditorPage() {
               minWidth: 0,
               overflow: "hidden",
               ...(wideEditorLayout
-                ? { gridColumn: 4, gridRow: 1 }
+                ? { gridColumn: 3, gridRow: 1 }
                 : {}),
             }}
           >
+            {wideEditorLayout && !showTopWaveDock ? (
+              <div
+                style={{
+                  flexShrink: 0,
+                  minWidth: 0,
+                  marginBottom: 8,
+                  ...panelCard,
+                  padding: "8px 10px",
+                }}
+              >
+                <ChoreoGridToolbar layout="row" {...choreoToolbarSharedProps} />
+              </div>
+            ) : null}
             {rosterOnlyMode ? (
               <div
                 style={{
@@ -3169,31 +3189,6 @@ export function EditorPage() {
                     </svg>
                     <span style={{ fontSize: "11px", fontWeight: 700 }}>キュー</span>
                   </button>
-                  {wideEditorLayout ? (
-                    <button
-                      type="button"
-                      style={{
-                        ...btnSecondary,
-                        padding: "5px 9px",
-                        fontSize: "11px",
-                        fontWeight: 600,
-                        flexShrink: 0,
-                      }}
-                      disabled={project.viewMode === "view"}
-                      title={
-                        waveTimelineDockTop
-                          ? "波形と再生コントロールを右列の既定位置に戻す"
-                          : "波形と再生コントロールを画面上部の全幅行に移す（キュー一覧は右列に残ります）"
-                      }
-                      onClick={() =>
-                        setWaveTimelineDockTop(!waveTimelineDockTop)
-                      }
-                    >
-                      {waveTimelineDockTop
-                        ? "波形を元に戻す"
-                        : "波形を上部へ"}
-                    </button>
-                  ) : null}
                 </div>
                 {hasRosterMembers ? (
                   <button
@@ -3232,6 +3227,98 @@ export function EditorPage() {
           </div>
         )}
       </div>
+
+      {showTopWaveDock ? (
+        <>
+          {cueListModalOpen ? (
+            <div
+              role="presentation"
+              onClick={() => setCueListModalOpen(false)}
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 2190,
+                background: "rgba(15, 23, 42, 0.55)",
+              }}
+            />
+          ) : null}
+          <div
+            style={{
+              position: "fixed",
+              ...(cueListModalOpen
+                ? {
+                    top: "7vh",
+                    right: 14,
+                    width: "min(440px, calc(100vw - 28px))",
+                    maxHeight: "86vh",
+                    zIndex: 2200,
+                    borderRadius: 12,
+                    border: `1px solid ${shell.border}`,
+                    background: shell.surface,
+                    overflow: "hidden",
+                    display: "flex",
+                    flexDirection: "column",
+                    boxShadow: "0 24px 64px rgba(0, 0, 0, 0.45)",
+                  }
+                : {
+                    left: -32000,
+                    top: 0,
+                    width: 400,
+                    height: 520,
+                    overflow: "hidden",
+                    opacity: 0,
+                    pointerEvents: "none",
+                    zIndex: -1,
+                    display: "flex",
+                    flexDirection: "column",
+                  }),
+            }}
+          >
+            {cueListModalOpen ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 8,
+                  padding: "10px 12px",
+                  borderBottom: `1px solid ${shell.border}`,
+                  flexShrink: 0,
+                }}
+              >
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: "14px",
+                    fontWeight: 600,
+                    color: shell.text,
+                  }}
+                >
+                  キュー一覧
+                </h2>
+                <button
+                  type="button"
+                  aria-label="閉じる"
+                  onClick={() => setCueListModalOpen(false)}
+                  style={{ ...btnSecondary, padding: "4px 10px" }}
+                >
+                  閉じる
+                </button>
+              </div>
+            ) : null}
+            <div
+              ref={setCueListPortalEl}
+              style={{
+                flex: "1 1 auto",
+                minHeight: 240,
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+              }}
+            />
+          </div>
+        </>
+      ) : null}
 
       {stageAreaSettingsOpen ? (
         <div

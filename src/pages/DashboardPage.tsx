@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
-import { billingApi, orgApi, projectApi } from "../api/client";
+import { billingApi, projectApi } from "../api/client";
 import { ChoreoGridLogo } from "../components/ChoreoGridLogo";
 import { btnAccent, btnSecondary } from "../components/stageButtonStyles";
 import { panelCard, shell } from "../theme/choreoShell";
@@ -23,28 +23,19 @@ export function DashboardPage() {
   const [projects, setProjects] = useState<
     { id: number; name: string; updated_at: string }[]
   >([]);
-  const [orgs, setOrgs] = useState<{ id: number; name: string }[]>([]);
   const [error, setError] = useState("");
-  const [joinMsg, setJoinMsg] = useState("");
-  const [devApprovalUrl, setDevApprovalUrl] = useState<string | null>(null);
+  const [accountNotice, setAccountNotice] = useState("");
 
   useEffect(() => {
     if (!me) {
       setProjects([]);
-      setOrgs([]);
       return;
     }
     let c = false;
     (async () => {
       try {
-        const [list, olist] = await Promise.all([
-          projectApi.list(),
-          orgApi.list(),
-        ]);
-        if (!c) {
-          setProjects(list);
-          setOrgs(olist);
-        }
+        const list = await projectApi.list();
+        if (!c) setProjects(list);
       } catch (e) {
         if (!c) setError(e instanceof Error ? e.message : t("dashboard.listError"));
       }
@@ -54,39 +45,23 @@ export function DashboardPage() {
     };
   }, [me, t]);
 
-  const requestJoin = async (oid: number) => {
-    setJoinMsg("");
-    setDevApprovalUrl(null);
-    try {
-      const res = await orgApi.requestMembership(oid);
-      setJoinMsg(t("dashboard.joinSent"));
-      if (import.meta.env.DEV && res.devApprovalUrl) {
-        setDevApprovalUrl(res.devApprovalUrl);
-      }
-      await refresh();
-    } catch (e) {
-      setJoinMsg(e instanceof Error ? e.message : t("dashboard.joinFail"));
-    }
-  };
-
   const devPurchase = async () => {
     try {
       const r = await billingApi.placeholderPurchase();
-      setJoinMsg(r.message ?? t("dashboard.devPurchaseOk"));
-      setDevApprovalUrl(null);
+      setAccountNotice(r.message ?? t("dashboard.devPurchaseOk"));
       await refresh();
     } catch (e) {
-      setJoinMsg(e instanceof Error ? e.message : "失敗しました");
+      setAccountNotice(e instanceof Error ? e.message : "失敗しました");
     }
   };
 
   const startStripeSubscription = async () => {
-    setJoinMsg("");
+    setAccountNotice("");
     try {
       const { url } = await billingApi.createCheckoutSession();
       window.location.href = url;
     } catch (e) {
-      setJoinMsg(e instanceof Error ? e.message : t("dashboard.checkoutFail"));
+      setAccountNotice(e instanceof Error ? e.message : t("dashboard.checkoutFail"));
     }
   };
 
@@ -194,14 +169,6 @@ export function DashboardPage() {
             >
               {t("dashboard.subscriptionStripe")}
             </button>
-            {me.adminOrganizations.length > 0 && (
-              <Link
-                to="/admin/membership"
-                style={{ ...btnSecondary, padding: "6px 12px", fontSize: "12px", textDecoration: "none" }}
-              >
-                {t("dashboard.orgAdmin")}
-              </Link>
-            )}
             <Link
               to="/video"
               style={{ ...btnSecondary, padding: "6px 12px", fontSize: "12px", textDecoration: "none" }}
@@ -256,43 +223,11 @@ export function DashboardPage() {
           </Link>
         </div>
 
-        {orgs.length > 0 && (
-          <section style={{ ...panelCard, padding: "18px 20px", marginBottom: 24 }}>
-            <h2 style={{ margin: "0 0 8px", fontSize: "13px", fontWeight: 600, color: shell.textMuted }}>
-              {t("dashboard.joinSection")}
-            </h2>
-            <p style={{ fontSize: "12px", color: shell.textSubtle, margin: "0 0 10px" }}>
-              {t("dashboard.memberOf")}:{" "}
-              {me.memberOrganizations.length
-                ? me.memberOrganizations.map((o) => o.name).join(", ")
-                : t("dashboard.noneMembers")}
-            </p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {orgs.map((o) => (
-                <button key={o.id} type="button" style={btnSecondary} onClick={() => void requestJoin(o.id)}>
-                  {t("dashboard.requestJoin", { name: o.name })}
-                </button>
-              ))}
-            </div>
-            {joinMsg ? (
-              <p style={{ fontSize: "12px", color: "#86efac", marginTop: "10px", marginBottom: 0 }}>{joinMsg}</p>
-            ) : null}
-            {devApprovalUrl ? (
-              <p
-                style={{
-                  fontSize: "11px",
-                  color: shell.textMuted,
-                  marginTop: "8px",
-                  marginBottom: 0,
-                  wordBreak: "break-all",
-                  fontFamily: "ui-monospace, monospace",
-                }}
-              >
-                {t("dashboard.devApprovalUrl")}: {devApprovalUrl}
-              </p>
-            ) : null}
-          </section>
-        )}
+        {accountNotice ? (
+          <p style={{ fontSize: "13px", color: shell.textMuted, marginBottom: 20, lineHeight: 1.5 }}>
+            {accountNotice}
+          </p>
+        ) : null}
 
         <h2 style={{ margin: "0 0 14px", fontSize: "12px", fontWeight: 600, letterSpacing: "0.12em", color: shell.textSubtle }}>
           {t("dashboard.cloudWorks")}
