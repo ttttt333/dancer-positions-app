@@ -30,7 +30,6 @@ import {
   saveFormationToBox,
 } from "../lib/formationBox";
 import { pickSpotForAppendedDancer } from "../lib/dancerAppendPlacement";
-import { DANCER_SPACING_PRESET_OPTIONS } from "../lib/dancerSpacing";
 import {
   buildCrewFromRows,
   type RosterNameImportMode,
@@ -139,7 +138,11 @@ const editorTopWaveFloorSqBtn: CSSProperties = {
 /** ステージ列とタイムライン列の間のドラッグ幅 */
 const STAGE_RESIZER_PX = 4;
 const STAGE_COL_MIN_PX = 280;
-const TIMELINE_COL_MIN_PX = 260;
+/** 波形が右列にあるときのタイムライン列の最小幅 */
+const TIMELINE_FULL_COL_MIN_PX = 240;
+/** 上部ドック時：右列はツール帯のみなので幅を抑える */
+const RIGHT_TOOLS_RAIL_MIN_PX = 152;
+const RIGHT_TOOLS_RAIL_MAX_PX = 210;
 /** 右ペイン：タイムライン（またはキュー一覧）の縦スタック */
 
 /** ステージ「設定」パネル：客席方向（`StageDimensionFields` と同じ 4 択） */
@@ -153,7 +156,10 @@ const STAGE_AREA_AUDIENCE_OPTIONS: {
   { value: "left", label: "左" },
 ];
 
-function readMaxStageWidthPx(gridEl: HTMLElement): number {
+function readMaxStageWidthPx(
+  gridEl: HTMLElement,
+  minRightColPx: number = TIMELINE_FULL_COL_MIN_PX
+): number {
   const rect = gridEl.getBoundingClientRect();
   const cs = getComputedStyle(gridEl);
   const padX =
@@ -169,7 +175,7 @@ function readMaxStageWidthPx(gridEl: HTMLElement): number {
     rect.width - padX - gapsBetween3Cols - STAGE_RESIZER_PX;
   /** 画面左約2/3をステージ上限とし、右1/3にコントロール列を確保 */
   const maxByTwoThirds = Math.floor(inner * (2 / 3));
-  const maxByTimelineMin = inner - TIMELINE_COL_MIN_PX;
+  const maxByTimelineMin = inner - minRightColPx;
   return Math.max(
     STAGE_COL_MIN_PX,
     Math.min(maxByTwoThirds, maxByTimelineMin)
@@ -291,6 +297,18 @@ export function EditorPage() {
 
   const yjsCollab = useYjsCollaboration(serverId, collabActive);
   const project = collabActive ? yjsCollab.project : plainProject;
+
+  /** 上部波形ドック時は右列を狭くする（未ロード時は false で右列を広めに確保） */
+  const showTopWaveDockForGrid =
+    !!project &&
+    wideEditorLayout &&
+    !(
+      project.rosterHidesTimeline === true &&
+      project.crews.some((c) => c.members.length > 0)
+    );
+  const minRightColForStageSplitPx = showTopWaveDockForGrid
+    ? RIGHT_TOOLS_RAIL_MIN_PX
+    : TIMELINE_FULL_COL_MIN_PX;
 
   /**
    * エディタを開いた時点でバックグラウンドで FFmpeg.wasm を温めておく。
@@ -419,7 +437,7 @@ export function EditorPage() {
         if (cur == null) return cur;
         const grid = editorPaneRef.current;
         if (!grid) return cur;
-        const maxW = readMaxStageWidthPx(grid);
+        const maxW = readMaxStageWidthPx(grid, minRightColForStageSplitPx);
         const minW = STAGE_COL_MIN_PX;
         if (!Number.isFinite(maxW)) return cur;
         if (maxW < minW) return Math.max(minW, Math.round(maxW));
@@ -428,7 +446,7 @@ export function EditorPage() {
     };
     window.addEventListener("resize", clamp);
     return () => window.removeEventListener("resize", clamp);
-  }, [wideEditorLayout]);
+  }, [wideEditorLayout, minRightColForStageSplitPx]);
 
   const onSplitPointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -455,14 +473,14 @@ export function EditorPage() {
     if (!d || e.pointerId !== d.pointerId) return;
     const grid = editorPaneRef.current;
     if (!grid) return;
-    let maxW = readMaxStageWidthPx(grid);
+    let maxW = readMaxStageWidthPx(grid, minRightColForStageSplitPx);
     const minW = STAGE_COL_MIN_PX;
     if (!Number.isFinite(maxW) || maxW < minW) maxW = minW;
     const next = Math.round(
       Math.min(maxW, Math.max(minW, d.startW + (e.clientX - d.startX)))
     );
     setStageColumnPx(next);
-  }, []);
+  }, [minRightColForStageSplitPx]);
 
   const endSplitDrag = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const d = splitDragRef.current;
@@ -556,13 +574,22 @@ export function EditorPage() {
     []
   );
 
-  const editorGridColumns = wideEditorLayout
-    ? rightPaneCollapsed
-      ? "1fr"
-      : stageColumnPx == null
-        ? `minmax(${STAGE_COL_MIN_PX}px, 2fr) ${STAGE_RESIZER_PX}px minmax(${TIMELINE_COL_MIN_PX}px, 1fr)`
-        : `${Math.round(stageColumnPx)}px ${STAGE_RESIZER_PX}px minmax(${TIMELINE_COL_MIN_PX}px, 1fr)`
-    : "1fr";
+  const editorGridColumns = useMemo(() => {
+    if (!wideEditorLayout) return "1fr";
+    if (rightPaneCollapsed) return "1fr";
+    const rightTrack = showTopWaveDockForGrid
+      ? `minmax(${RIGHT_TOOLS_RAIL_MIN_PX}px, ${RIGHT_TOOLS_RAIL_MAX_PX}px)`
+      : `minmax(${TIMELINE_FULL_COL_MIN_PX}px, 1fr)`;
+    if (stageColumnPx == null) {
+      return `minmax(${STAGE_COL_MIN_PX}px, 2fr) ${STAGE_RESIZER_PX}px ${rightTrack}`;
+    }
+    return `${Math.round(stageColumnPx)}px ${STAGE_RESIZER_PX}px ${rightTrack}`;
+  }, [
+    wideEditorLayout,
+    rightPaneCollapsed,
+    stageColumnPx,
+    showTopWaveDockForGrid,
+  ]);
 
   const setProjectSafePlain: Dispatch<SetStateAction<ChoreographyProjectJson>> =
     useCallback((action) => {
@@ -1889,7 +1916,7 @@ export function EditorPage() {
               className="editor-right-tools-section"
               style={{
                 ...panelCard,
-                padding: "10px",
+                padding: "6px 5px",
                 flex: "1 1 auto",
                 minHeight: 0,
                 minWidth: 0,
@@ -1949,7 +1976,7 @@ export function EditorPage() {
                 className="editor-right-tools-section"
                 style={{
                   ...panelCard,
-                  padding: "10px",
+                  padding: "6px 5px",
                   flex: rosterOnlyMode ? "1 1 auto" : "0 0 auto",
                   minHeight: rosterOnlyMode ? 0 : undefined,
                   minWidth: 0,

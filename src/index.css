@@ -124,6 +124,21 @@ body {
   }
 }
 
+/* 右列が狭いとき（上部波形ドック時など）、48px 角内に収まるようラベルを一段小さく */
+@container editor-right-tools (max-width: 220px) {
+  .editor-right-tools-tiles button[type="button"] {
+    font-size: 6.5px !important;
+  }
+
+  .editor-right-tools-tiles button[type="button"] > span {
+    font-size: 6.5px !important;
+  }
+
+  .editor-right-tool-sq {
+    font-size: 6.5px !important;
+  }
+}
+
 /**
  * 右列タイル内のボタン（インラインの btnSecondary より優先して 48px 角に収める）
  */
