@@ -2639,6 +2639,16 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                   type="button"
                   style={timelineToolbarBtn}
                   disabled={project.viewMode === "view" || duration <= 0}
+                  title="再生を止め、先頭（トリム開始位置）に戻します"
+                  aria-label="先頭へ"
+                  onClick={stopPlayback}
+                >
+                  先頭
+                </button>
+                <button
+                  type="button"
+                  style={timelineToolbarBtn}
+                  disabled={project.viewMode === "view" || duration <= 0}
                   title="再生位置を 5 秒進める（トリム範囲内に収めます）"
                   aria-label="5秒進む"
                   onClick={seekForward5Sec}
@@ -2650,14 +2660,6 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                   title="再生位置を 5 秒戻す（トリム範囲内に収めます）"
                   aria-label="5秒戻す"
                   onClick={seekBackward5Sec}
-                />
-                <button
-                  type="button"
-                  style={timelineToolbarBtn}
-                  disabled={project.viewMode === "view" || duration <= 0}
-                  title="再生を止め、先頭（トリム開始位置）に戻します"
-                  aria-label="先頭へ"
-                  onClick={stopPlayback}
                 />
                 <PlaybackClockReadout
                   audioRef={audioRef}
@@ -2710,6 +2712,22 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                 title={isPlaying ? "一時停止" : "再生"}
               >
                 {isPlaying ? "一時停止" : "再生"}
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...timelineToolbarBtn,
+                  padding: `${tlPx(4)} ${tlPx(10)}`,
+                  minHeight: tlPx(28),
+                  fontWeight: 600,
+                  flexShrink: 0,
+                }}
+                disabled={project.viewMode === "view" || duration <= 0}
+                title="再生を止め、先頭（トリム開始位置）に戻します"
+                aria-label="先頭へ"
+                onClick={stopPlayback}
+              >
+                先頭
               </button>
               <PlaybackClockReadout
                 audioRef={audioRef}
