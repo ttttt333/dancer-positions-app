@@ -49,14 +49,22 @@ const timelineToolbarBtn: CSSProperties = {
   lineHeight: 1.2,
 };
 
-/** 上部ドック用：細い円枠＋金色の巻き戻し系矢印（Redo は左右反転） */
-const WAVE_HISTORY_GOLD = "#d4af37";
+/** 上部ドック用：細い円枠＋白の巻き戻し系矢印（Redo は左右反転） */
+const WAVE_HISTORY_ARROW = "rgba(255, 255, 255, 0.96)";
 const WAVE_HISTORY_RING = "rgba(148, 163, 184, 0.55)";
+const WAVE_HISTORY_ICON_PX = 27; /* 18 の 1.5 倍 */
+const WAVE_HISTORY_ARROW_STROKE = 2.75;
 
 function WaveHistoryRoundIcon({ kind }: { kind: "undo" | "redo" }) {
   const mirror = kind === "redo";
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden style={{ display: "block" }}>
+    <svg
+      width={WAVE_HISTORY_ICON_PX}
+      height={WAVE_HISTORY_ICON_PX}
+      viewBox="0 0 24 24"
+      aria-hidden
+      style={{ display: "block" }}
+    >
       <g transform={mirror ? "translate(24 0) scale(-1 1)" : undefined}>
         <circle
           cx="12"
@@ -64,20 +72,20 @@ function WaveHistoryRoundIcon({ kind }: { kind: "undo" | "redo" }) {
           r="10"
           fill="none"
           stroke={WAVE_HISTORY_RING}
-          strokeWidth="1.05"
+          strokeWidth="1.15"
         />
         <path
           fill="none"
-          stroke={WAVE_HISTORY_GOLD}
-          strokeWidth="2.05"
+          stroke={WAVE_HISTORY_ARROW}
+          strokeWidth={WAVE_HISTORY_ARROW_STROKE}
           strokeLinecap="round"
           strokeLinejoin="round"
           d="m9 14-5-5 5-5"
         />
         <path
           fill="none"
-          stroke={WAVE_HISTORY_GOLD}
-          strokeWidth="2.05"
+          stroke={WAVE_HISTORY_ARROW}
+          strokeWidth={WAVE_HISTORY_ARROW_STROKE}
           strokeLinecap="round"
           strokeLinejoin="round"
           d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"
@@ -2334,9 +2342,9 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                 <button
                   type="button"
                   style={{
-                    width: tlPx(32),
-                    height: tlPx(32),
-                    minWidth: tlPx(32),
+                    width: tlPx(48),
+                    height: tlPx(48),
+                    minWidth: tlPx(48),
                     padding: 0,
                     borderRadius: "50%",
                     border: "none",
@@ -2360,9 +2368,9 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                 <button
                   type="button"
                   style={{
-                    width: tlPx(32),
-                    height: tlPx(32),
-                    minWidth: tlPx(32),
+                    width: tlPx(48),
+                    height: tlPx(48),
+                    minWidth: tlPx(48),
                     padding: 0,
                     borderRadius: "50%",
                     border: "none",
