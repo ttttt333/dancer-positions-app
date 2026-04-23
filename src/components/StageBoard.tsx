@@ -170,6 +170,28 @@ function linePctSquareEndpoints(
   };
 }
 
+/** ドラッグの進行方向（px）を最寄りの 45° に合わせ、その軸系で 45° 間隔の 8 本の補助線を床 % 上に生成 */
+function buildMotion45GuideSegments(
+  cxPct: number,
+  cyPct: number,
+  dxPx: number,
+  dyPx: number
+): { x1: number; y1: number; x2: number; y2: number; k: number }[] {
+  const h = Math.hypot(dxPx, dyPx);
+  if (h < 2.5) return [];
+  const step = Math.PI / 4;
+  const base = Math.round(Math.atan2(dyPx, dxPx) / step) * step;
+  const out: { x1: number; y1: number; x2: number; y2: number; k: number }[] = [];
+  for (let k = 0; k < 8; k++) {
+    const a = base + k * step;
+    const ux = Math.cos(a);
+    const uy = Math.sin(a);
+    const seg = linePctSquareEndpoints(cxPct, cyPct, ux, uy);
+    if (seg) out.push({ ...seg, k });
+  }
+  return out;
+}
+
 function resolveSetPieceFill(p: SetPiece): string {
   const c = p.fillColor?.trim();
   if (c && /^#[0-9a-fA-F]{6}$/i.test(c)) return c.toLowerCase();
@@ -516,6 +538,8 @@ export function StageBoard({
     dancerId: string;
     offsetXPx: number;
     offsetYPx: number;
+    startXPct: number;
+    startYPct: number;
   } | null>(null);
   const setPieceDragRef = useRef<
     | {
@@ -546,6 +570,10 @@ export function StageBoard({
     x: number | null;
     y: number | null;
   }>({ x: null, y: null });
+  /** ダンサー移動ドラッグ中のみ：進行方向に合わせた 45° 刻みの放射補助線 */
+  const [drag45GuideSegs, setDrag45GuideSegs] = useState<
+    { x1: number; y1: number; x2: number; y2: number; k: number }[]
+  >([]);
 
   /** ダブルクリックで開くメンバー編集ダイアログの対象ダンサー id */
   const [dancerQuickEditId, setDancerQuickEditId] = useState<string | null>(null);
@@ -1698,6 +1726,8 @@ export function StageBoard({
         dancerId,
         offsetXPx: e.clientX - cx,
         offsetYPx: e.clientY - cy,
+        startXPct: xPct,
+        startYPct: yPct,
       };
       setDragGhostById(new Map([[dancerId, { xPct, yPct }]]));
       return;
@@ -1805,7 +1835,7 @@ export function StageBoard({
   };
 
   /**
-   * 回転ハンドル：選択が 1 人のときのみ向きをドラッグで変更（複数選択時は UI なし）。
+   * 回転ハンドル：1 人は印まわりのハンドルで向きのみ。2 人以上は枠下のグループハンドルで位置＋向きを剛体回転。
    */
   const handlePointerDownMarkerRotate = (e: ReactPointerEvent<HTMLElement>) => {
     if (e.button !== 0) return;
@@ -2029,6 +2059,7 @@ export function StageBoard({
           if (alignGuides.x !== null || alignGuides.y !== null) {
             setAlignGuides({ x: null, y: null });
           }
+          setDrag45GuideSegs([]);
           return;
         }
         /** 中央線・他ダンサーに近づいたら吸着し、揃っている方向をガイド線で示す */
@@ -2043,6 +2074,23 @@ export function StageBoard({
           snapped.guideY !== alignGuides.y
         ) {
           setAlignGuides({ x: snapped.guideX, y: snapped.guideY });
+        }
+        const dr0 = dragRef.current;
+        const floorEl0 = stageMainFloorRef.current;
+        if (dr0 && floorEl0) {
+          const rr0 = floorEl0.getBoundingClientRect();
+          const dxPx0 =
+            ((snapped.xPct - dr0.startXPct) / 100) * rr0.width;
+          const dyPx0 =
+            ((snapped.yPct - dr0.startYPct) / 100) * rr0.height;
+          setDrag45GuideSegs(
+            buildMotion45GuideSegments(
+              snapped.xPct,
+              snapped.yPct,
+              dxPx0,
+              dyPx0
+            )
+          );
         }
         updateActiveFormation((f) => ({
           ...f,
@@ -2124,6 +2172,7 @@ export function StageBoard({
           if (alignGuides.x !== null || alignGuides.y !== null) {
             setAlignGuides({ x: null, y: null });
           }
+          setDrag45GuideSegs([]);
           return;
         }
         /**
@@ -2145,6 +2194,29 @@ export function StageBoard({
         }
         if (guideX !== alignGuides.x || guideY !== alignGuides.y) {
           setAlignGuides({ x: guideX, y: guideY });
+        }
+        let bx0 = Infinity;
+        let bx1 = -Infinity;
+        let by0 = Infinity;
+        let by1 = -Infinity;
+        for (const id of g.ids) {
+          const s = g.startPositions.get(id);
+          if (!s) continue;
+          const nx = clamp(s.xPct + dxPct, 2, 98);
+          const ny = clamp(s.yPct + dyPct, 2, 98);
+          if (nx < bx0) bx0 = nx;
+          if (nx > bx1) bx1 = nx;
+          if (ny < by0) by0 = ny;
+          if (ny > by1) by1 = ny;
+        }
+        if (Number.isFinite(bx0) && bx1 >= bx0 && by1 >= by0) {
+          const cxg = (bx0 + bx1) / 2;
+          const cyg = (by0 + by1) / 2;
+          const dxPxG = (dxPct / 100) * g.floorWpx;
+          const dyPxG = (dyPct / 100) * g.floorHpx;
+          setDrag45GuideSegs(
+            buildMotion45GuideSegments(cxg, cyg, dxPxG, dyPxG)
+          );
         }
         updateActiveFormation((f) => ({
           ...f,
@@ -2448,6 +2520,7 @@ export function StageBoard({
       trashRevealActiveRef.current = false;
       setTrashUiVisible(false);
       setAlignGuides({ x: null, y: null });
+      setDrag45GuideSegs([]);
       setDragGhostById(null);
       setBulkHideDancerGlyphs(false);
       setGroupRotateGuideDeltaDeg(null);
@@ -2702,30 +2775,6 @@ export function StageBoard({
     viewMode,
     markerGroupPosDraft,
   ]);
-
-  /** 複数選択（範囲枠あり）時：選択 bbox 中心から 45° 刻みの補助線（床面 % 座標） */
-  const selection45GuideSegments = useMemo(() => {
-    if (!selectionBox || playbackOrPreview || viewMode === "view" || marquee)
-      return [];
-    const cx = (selectionBox.x0 + selectionBox.x1) / 2;
-    const cy = (selectionBox.y0 + selectionBox.y1) / 2;
-    const dirs: [number, number][] = [
-      [1, 0],
-      [1, 1],
-      [0, 1],
-      [-1, 1],
-      [-1, 0],
-      [-1, -1],
-      [0, -1],
-      [1, -1],
-    ];
-    const out: { x1: number; y1: number; x2: number; y2: number; k: number }[] = [];
-    dirs.forEach((d, k) => {
-      const seg = linePctSquareEndpoints(cx, cy, d[0], d[1]);
-      if (seg) out.push({ ...seg, k });
-    });
-    return out;
-  }, [selectionBox, playbackOrPreview, viewMode, marquee]);
 
   /** 選択中の代表ダンサー（先頭）の座標。○サイズハンドルをその右下に置く。 */
   const primarySelectedDancer = useMemo(() => {
@@ -4142,9 +4191,9 @@ export function StageBoard({
                   opacity="0.95"
                 />
               )}
-              {selection45GuideSegments.map((s) => (
+              {drag45GuideSegs.map((s, i) => (
                 <line
-                  key={`sg45-${s.k}`}
+                  key={`dg45-${s.k}-${i}`}
                   x1={s.x1}
                   y1={s.y1}
                   x2={s.x2}
@@ -4845,6 +4894,43 @@ export function StageBoard({
                 ))}
               </div>
             )}
+            {selectionBox &&
+              selectedDancerIds.length >= 2 &&
+              !playbackOrPreview &&
+              viewMode !== "view" &&
+              stageInteractionsEnabled && (
+                <button
+                  type="button"
+                  data-group-rotate-handle
+                  aria-label="選択メンバーを枠の中心まわりに回転（立ち位置と向き）"
+                  title={`選択中の ${selectedDancerIds.length} 人を、枠の中心を軸に図形ごと回転（立ち位置と向きが一緒にまわります）`}
+                  onPointerDown={handlePointerDownMarkerRotate}
+                  style={{
+                    position: "absolute",
+                    left: `${(selectionBox.x0 + selectionBox.x1) / 2}%`,
+                    top: `calc(${selectionBox.y1}% + 12px)`,
+                    transform: "translateX(-50%)",
+                    width: 32,
+                    height: 32,
+                    borderRadius: "50%",
+                    border: `2px solid ${shell.bgDeep}`,
+                    background: shell.ruby,
+                    boxShadow: "0 2px 10px rgba(0,0,0,0.45)",
+                    cursor: "grab",
+                    touchAction: "none",
+                    pointerEvents: "auto",
+                    zIndex: 12,
+                    padding: 0,
+                    margin: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxSizing: "border-box",
+                  }}
+                >
+                  <RotateHandleGlyph size={14} />
+                </button>
+              )}
             {dragGhostById &&
               dragGhostById.size > 0 &&
               !playbackOrPreview &&
@@ -5175,7 +5261,7 @@ export function StageBoard({
                     transform: `translate(-50%, -50%) rotate(${pFacing}deg)`,
                     width: 0,
                     height: 0,
-                    zIndex: 9,
+                    zIndex: 14,
                     pointerEvents: "none",
                   }}
                 >
@@ -5499,7 +5585,8 @@ export function StageBoard({
               flexShrink: 0,
               width: "100%",
               maxWidth: "min(100%, 440px)",
-              minHeight: 252,
+              /** 未選択時は高さを取らずステージを広く。選択後は最低限だけ確保し内容が増えたら伸びる */
+              minHeight: selectedDancerIds.length >= 1 ? 132 : 0,
               display: "flex",
               flexDirection: "column",
               justifyContent: "flex-end",

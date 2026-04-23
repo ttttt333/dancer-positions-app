@@ -153,8 +153,8 @@ export function WorkbenchCuePager({
               ? {
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: "6px",
-                  padding: "4px 10px",
+                  gap: cur && cur.name?.trim() ? "6px" : "0",
+                  padding: "4px 8px",
                   minHeight: "34px",
                   borderRadius: "8px",
                   border: cur ? "1px solid #818cf8" : "1px solid #475569",
@@ -164,7 +164,7 @@ export function WorkbenchCuePager({
                   fontWeight: 700,
                   cursor: "default",
                   flexShrink: 0,
-                  maxWidth: "200px",
+                  maxWidth: "160px",
                   fontVariantNumeric: "tabular-nums",
                 }
               : {
@@ -186,16 +186,18 @@ export function WorkbenchCuePager({
                 }
         }
       >
-        <span
-          style={{
-            fontSize: isRail ? "6.5px" : isCorner ? "10px" : "9px",
-            color: cur ? "#c7d2fe" : "#64748b",
-            letterSpacing: isRail ? 0 : "0.04em",
-            lineHeight: 1.1,
-          }}
-        >
-          キュー
-        </span>
+        {!isCorner ? (
+          <span
+            style={{
+              fontSize: isRail ? "6.5px" : "9px",
+              color: cur ? "#c7d2fe" : "#64748b",
+              letterSpacing: isRail ? 0 : "0.04em",
+              lineHeight: 1.1,
+            }}
+          >
+            キュー
+          </span>
+        ) : null}
         <span
           style={
             isRail

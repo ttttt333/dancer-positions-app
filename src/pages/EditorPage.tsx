@@ -1752,29 +1752,29 @@ export function EditorPage() {
                 flexDirection: "column",
               }}
             >
+              {/*
+                キュー・2D/3D は床と重ねない（絶対配置＋高 z-index だと回転ハンドルが隠れる）。
+                ステージ列の右上に、床の上の一行として並べる。
+              */}
               <div
                 style={{
-                  position: "absolute",
-                  top: 2,
-                  right: 4,
-                  zIndex: 40,
+                  flexShrink: 0,
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "flex-end",
                   gap: 6,
-                  pointerEvents: "none",
+                  padding: "0 2px 6px",
+                  minWidth: 0,
                 }}
               >
                 {cuesSortedForStageJump.length > 0 ? (
-                  <div style={{ pointerEvents: "auto" }}>
-                    <WorkbenchCuePager
-                      variant="stageCorner"
-                      project={project}
-                      cuesSortedForStageJump={cuesSortedForStageJump}
-                      selectedCueId={selectedCueId}
-                      jumpToCueByIdx={jumpToCueByIdx}
-                    />
-                  </div>
+                  <WorkbenchCuePager
+                    variant="stageCorner"
+                    project={project}
+                    cuesSortedForStageJump={cuesSortedForStageJump}
+                    selectedCueId={selectedCueId}
+                    jumpToCueByIdx={jumpToCueByIdx}
+                  />
                 ) : null}
                 <div
                   role="group"
@@ -1783,7 +1783,6 @@ export function EditorPage() {
                     display: "flex",
                     flexDirection: "row",
                     gap: 4,
-                    pointerEvents: "auto",
                     flexShrink: 0,
                   }}
                 >
