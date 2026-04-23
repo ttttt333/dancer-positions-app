@@ -604,7 +604,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
           minWidth: 0,
         }}
       >
-        <div className="editor-right-tools-row-top3">
+        <div className="editor-right-tools-grid-3">
           <button
             type="button"
             className="editor-right-tool-sq"
@@ -886,7 +886,9 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                   style={{
                     position: "absolute",
                     top: "calc(100% + 4px)",
-                    right: 0,
+                    left: "50%",
+                    right: "auto",
+                    transform: "translateX(-50%)",
                     zIndex: 31,
                     minWidth: "240px",
                     padding: "6px",

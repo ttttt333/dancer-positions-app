@@ -103,8 +103,10 @@ body {
   overflow: hidden;
 }
 
-/* 右レール: 上段は 3 列（48×3 + 列間 8×2 = 160px）— 中段も同じトラック幅で中央揃え */
-.editor-right-tools-row-top3 {
+/* 右レール: 48×48 タイルを 3 列で折り返し（48×3 + 列間 8×2 = 160px トラック） */
+.editor-right-tools-grid-3,
+.editor-right-tools-col-ordered,
+.editor-right-tools-col-rest {
   display: grid;
   grid-template-columns: repeat(3, 48px);
   column-gap: 8px;
@@ -116,26 +118,10 @@ body {
   box-sizing: border-box;
 }
 
-.editor-right-tools-col-ordered {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 7px;
-  width: min(160px, 100%);
-  margin-inline: auto;
-  box-sizing: border-box;
-}
-
 .editor-right-tools-col-rest {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 7px;
-  width: 100%;
   padding-top: 6px;
   margin-top: 2px;
   border-top: 1px solid #1e293b;
-  box-sizing: border-box;
 }
 
 .editor-right-rail-stack {
@@ -148,24 +134,32 @@ body {
   align-items: center;
 }
 
-/* 2D / 3D / 全画面 / メンバー: 48px タイルを 2 列で揃える */
+/* 2D / 3D / 全画面 / メンバー: 3 列グリッド（4 個目は下段中央） */
 .editor-right-tools-view-mode-grid {
   display: grid;
-  grid-template-columns: repeat(2, 48px);
-  gap: 6px;
+  grid-template-columns: repeat(3, 48px);
+  column-gap: 8px;
+  row-gap: 7px;
   justify-content: center;
   width: min(160px, 100%);
   margin-inline: auto;
   box-sizing: border-box;
 }
 
-/* 「その他保存」だけを上段タイルと同じ 48px 幅で中央に */
+.editor-right-tools-view-mode-grid > :last-child:nth-child(4) {
+  grid-column: 1 / -1;
+  justify-self: center;
+}
+
+/* 「その他保存」: 3 列ブロックの 1 行として中央に */
 .editor-right-tools-save-wrap {
   position: relative;
   display: flex;
   justify-content: center;
-  width: 48px;
-  margin-inline: auto;
+  grid-column: 1 / -1;
+  width: 100%;
+  max-width: 160px;
+  justify-self: center;
   flex-shrink: 0;
 }
 

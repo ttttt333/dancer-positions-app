@@ -76,8 +76,8 @@ function round2Pct(n: number): number {
 const EDITOR_WIDE_MIN_PX = 1280;
 /** メイン 4 列グリッドの列間（ステージ〜タイムラインのすき間に効く） */
 const EDITOR_GRID_GAP_PX = 6;
-/** 再生・波形・タイムライン列をまとめて上へ詰める（物理的な目安で約 1.5cm） */
-const EDITOR_PLAYBACK_LAYOUT_SHIFT_UP = "1.5cm";
+/** 再生・波形・タイムライン列をまとめて上へ詰める（物理的な目安で約 0.5cm。以前 1.5cm から 1cm 下げた） */
+const EDITOR_PLAYBACK_LAYOUT_SHIFT_UP = "0.5cm";
 
 /** ステージ列とタイムライン列の間のドラッグ幅 */
 const STAGE_RESIZER_PX = 4;
