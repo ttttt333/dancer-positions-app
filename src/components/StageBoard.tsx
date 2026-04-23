@@ -761,6 +761,18 @@ export function StageBoard({
    */
   const [showStageDancerColorToolbar, setShowStageDancerColorToolbar] =
     useState(false);
+  /**
+   * 複数の一括移動・枠スケール・剛体回転ドラッグ中は、選択メンバーの○内番号と名前を隠す。
+   */
+  const [bulkHideDancerGlyphs, setBulkHideDancerGlyphs] = useState(false);
+  /** 群の剛体回転ドラッグ中の補助線（開始時のポインタ角＝ラジアン） */
+  const [groupRotateSpokeBaseRad, setGroupRotateSpokeBaseRad] = useState<
+    number | null
+  >(null);
+  /** 群剛体回転ドラッグ中の累積回転角（度）— 補助線の強調と表示用 */
+  const [groupRotateGuideDeltaDeg, setGroupRotateGuideDeltaDeg] = useState<
+    number | null
+  >(null);
   const formationIdForWrites =
     editFormationId != null && formations.some((f) => f.id === editFormationId)
       ? editFormationId
@@ -790,6 +802,9 @@ export function StageBoard({
     setFloorTextDraft({ body: "", fontSizePx: 18, fontWeight: 600 });
     setFloorTextEditId(null);
     setShowStageDancerColorToolbar(false);
+    setBulkHideDancerGlyphs(false);
+    setGroupRotateSpokeBaseRad(null);
+    setGroupRotateGuideDeltaDeg(null);
   }, [formationIdForWrites]);
 
   useEffect(() => {
@@ -1644,6 +1659,7 @@ export function StageBoard({
       floorWpx: r.width,
       floorHpx: r.height,
     };
+    setBulkHideDancerGlyphs(true);
     setDragGhostById(new Map(startPositions));
   };
 
@@ -1686,6 +1702,7 @@ export function StageBoard({
       floorWpx: r.width,
       floorHpx: r.height,
     };
+    setBulkHideDancerGlyphs(true);
   };
 
   /**
@@ -1800,9 +1817,15 @@ export function StageBoard({
       const initPos = new Map(startPositions);
       markerGroupPosDraftRef.current = initPos;
       setMarkerGroupPosDraft(initPos);
+      setBulkHideDancerGlyphs(true);
+      setGroupRotateSpokeBaseRad(startPointerAngle);
+      setGroupRotateGuideDeltaDeg(0);
     } else {
       markerGroupPosDraftRef.current = null;
       setMarkerGroupPosDraft(null);
+      setBulkHideDancerGlyphs(false);
+      setGroupRotateSpokeBaseRad(null);
+      setGroupRotateGuideDeltaDeg(null);
     }
   };
 
@@ -2129,6 +2152,9 @@ export function StageBoard({
         }
         markerFacingDraftRef.current = draft;
         setMarkerFacingDraft(draft);
+        if (rot.mode === "groupRigid") {
+          setGroupRotateGuideDeltaDeg(deltaDeg);
+        }
         if (
           rot.mode === "groupRigid" &&
           rot.startPositions &&
@@ -2357,6 +2383,9 @@ export function StageBoard({
       setTrashUiVisible(false);
       setAlignGuides({ x: null, y: null });
       setDragGhostById(null);
+      setBulkHideDancerGlyphs(false);
+      setGroupRotateSpokeBaseRad(null);
+      setGroupRotateGuideDeltaDeg(null);
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -2400,6 +2429,10 @@ export function StageBoard({
       }
 
       if (e.key === "Escape") {
+        groupDragRef.current = null;
+        markerRotateRef.current = null;
+        markerFacingDraftRef.current = null;
+        markerGroupPosDraftRef.current = null;
         setSelectedDancerIds([]);
         setMarquee(null);
         marqueeSessionRef.current = null;
@@ -2408,6 +2441,12 @@ export function StageBoard({
         setFloorLineDraft(null);
         setFloorTextDraft({ body: "", fontSizePx: 18, fontWeight: 600 });
         setFloorTextEditId(null);
+        setDragGhostById(null);
+        setMarkerFacingDraft(null);
+        setMarkerGroupPosDraft(null);
+        setBulkHideDancerGlyphs(false);
+        setGroupRotateSpokeBaseRad(null);
+        setGroupRotateGuideDeltaDeg(null);
         return;
       }
       /** 選択中が 1 件以上なら Alt+矢印で微移動。複数選択時は群全体を動かす。 */
@@ -4581,6 +4620,101 @@ export function StageBoard({
                 </div>
               );
             })}
+            {selectionBox &&
+              groupRotateSpokeBaseRad != null &&
+              groupRotateGuideDeltaDeg != null &&
+              !playbackOrPreview &&
+              viewMode !== "view" && (
+                <>
+                  <svg
+                    aria-hidden
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      width: "100%",
+                      height: "100%",
+                      pointerEvents: "none",
+                      zIndex: 8,
+                      overflow: "visible",
+                    }}
+                    viewBox="0 0 100 100"
+                    preserveAspectRatio="none"
+                  >
+                    {(() => {
+                      const cx = (selectionBox.x0 + selectionBox.x1) / 2;
+                      const cy = (selectionBox.y0 + selectionBox.y1) / 2;
+                      const base = groupRotateSpokeBaseRad;
+                      const R = 160;
+                      const snapK =
+                        ((Math.round(groupRotateGuideDeltaDeg / 45) % 8) + 8) %
+                        8;
+                      const lines: ReactElement[] = [];
+                      for (let k = 0; k < 8; k++) {
+                        const a = base + (k * Math.PI) / 4;
+                        const x2 = cx + Math.cos(a) * R;
+                        const y2 = cy + Math.sin(a) * R;
+                        const isSnap = k === snapK;
+                        lines.push(
+                          <line
+                            key={k}
+                            x1={cx}
+                            y1={cy}
+                            x2={x2}
+                            y2={y2}
+                            stroke={
+                              isSnap
+                                ? "rgba(251, 191, 36, 0.9)"
+                                : "rgba(148, 163, 184, 0.28)"
+                            }
+                            strokeWidth={isSnap ? 0.42 : 0.16}
+                            vectorEffect="non-scaling-stroke"
+                          />
+                        );
+                      }
+                      const curA =
+                        base + (groupRotateGuideDeltaDeg * Math.PI) / 180;
+                      const x3 = cx + Math.cos(curA) * R;
+                      const y3 = cy + Math.sin(curA) * R;
+                      lines.push(
+                        <line
+                          key="cur"
+                          x1={cx}
+                          y1={cy}
+                          x2={x3}
+                          y2={y3}
+                          stroke="rgba(248, 113, 113, 0.82)"
+                          strokeWidth={0.38}
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      );
+                      return <g>{lines}</g>;
+                    })()}
+                  </svg>
+                  <div
+                    aria-hidden
+                    style={{
+                      position: "absolute",
+                      left: `${(selectionBox.x0 + selectionBox.x1) / 2}%`,
+                      top: `${(selectionBox.y0 + selectionBox.y1) / 2}%`,
+                      transform: "translate(-50%, calc(-50% - 18px))",
+                      padding: "3px 8px",
+                      borderRadius: "6px",
+                      border: "1px solid rgba(51, 65, 85, 0.95)",
+                      background: "rgba(15, 23, 42, 0.92)",
+                      color: "#e2e8f0",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      fontVariantNumeric: "tabular-nums",
+                      pointerEvents: "none",
+                      zIndex: 9,
+                      whiteSpace: "nowrap",
+                      boxShadow: "0 2px 10px rgba(0,0,0,0.4)",
+                    }}
+                  >
+                    {Math.round(groupRotateGuideDeltaDeg)}°
+                  </div>
+                </>
+              )}
             {marquee && (
               <div
                 aria-hidden
@@ -4696,6 +4830,11 @@ export function StageBoard({
                     (x) => x.id === ghostId
                   ) ?? null;
                 if (!d) return null;
+                const hideGlyph =
+                  bulkHideDancerGlyphs &&
+                  !playbackOrPreview &&
+                  selectedDancerIds.length >= 2 &&
+                  selectedDancerIds.includes(ghostId);
                 const dMarkerPx = effectiveMarkerPx(d);
                 const dLabelFontPx = Math.max(
                   10,
@@ -4713,6 +4852,7 @@ export function StageBoard({
                 const halfMarker = dMarkerPx / 2;
                 const wedgeW = Math.max(3, Math.round(dMarkerPx * 0.11));
                 const wedgeH = Math.max(5, Math.round(dMarkerPx * 0.17));
+                const labelUnrotateDeg = -(rot + facing);
                 return (
                   <Fragment key={`drag-ghost-${ghostId}`}>
                     <div
@@ -4754,31 +4894,35 @@ export function StageBoard({
                           userSelect: "none",
                         }}
                       >
-                        <span
-                          aria-hidden
-                          style={{
-                            position: "absolute",
-                            left: "50%",
-                            top: Math.max(2, Math.round(dMarkerPx * 0.07)),
-                            transform: "translateX(-50%)",
-                            width: 0,
-                            height: 0,
-                            borderLeft: `${wedgeW}px solid transparent`,
-                            borderRight: `${wedgeW}px solid transparent`,
-                            borderBottom: `${wedgeH}px solid rgba(15, 23, 42, 0.9)`,
-                            pointerEvents: "none",
-                          }}
-                        />
-                        {circleLabel}
+                        {!hideGlyph ? (
+                          <>
+                            <span
+                              aria-hidden
+                              style={{
+                                position: "absolute",
+                                left: "50%",
+                                top: Math.max(2, Math.round(dMarkerPx * 0.07)),
+                                transform: "translateX(-50%)",
+                                width: 0,
+                                height: 0,
+                                borderLeft: `${wedgeW}px solid transparent`,
+                                borderRight: `${wedgeW}px solid transparent`,
+                                borderBottom: `${wedgeH}px solid rgba(15, 23, 42, 0.9)`,
+                                pointerEvents: "none",
+                              }}
+                            />
+                            {circleLabel}
+                          </>
+                        ) : null}
                       </div>
-                      {dancerLabelBelow && (
+                      {dancerLabelBelow && !hideGlyph && (
                         <div
                           aria-hidden
                           style={{
                             position: "absolute",
                             left: "50%",
                             top: "50%",
-                            transform: `translate(-50%, calc(-50% + ${labelOffsetPx}px))`,
+                            transform: `translate(-50%, calc(-50% + ${labelOffsetPx}px)) rotate(${labelUnrotateDeg}deg)`,
                             color: "#f8fafc",
                             fontSize: `${Math.max(
                               10,
@@ -4809,6 +4953,11 @@ export function StageBoard({
                 10,
                 Math.min(22, Math.round(14 * (dMarkerPx / 44)))
               );
+              const hideGlyph =
+                bulkHideDancerGlyphs &&
+                !playbackOrPreview &&
+                selectedDancerIds.length >= 2 &&
+                selectedDancerIds.includes(d.id);
               const circleLabel = dancerLabelBelow
                 ? (d.markerBadge?.trim() || String(di + 1)).slice(0, 3)
                 : d.label || "?";
@@ -4820,6 +4969,8 @@ export function StageBoard({
               const halfMarker = dMarkerPx / 2;
               const wedgeW = Math.max(3, Math.round(dMarkerPx * 0.11));
               const wedgeH = Math.max(5, Math.round(dMarkerPx * 0.17));
+              /** ○下の名前を画面に対して水平に（舞台の客席向き回転＋印の向きを打ち消す） */
+              const labelUnrotateDeg = -(rot + facing);
               return (
                 <Fragment key={d.id}>
                   <div
@@ -4941,31 +5092,35 @@ export function StageBoard({
                             : "auto",
                       }}
                     >
-                      <span
-                        aria-hidden
-                        style={{
-                          position: "absolute",
-                          left: "50%",
-                          top: Math.max(2, Math.round(dMarkerPx * 0.07)),
-                          transform: "translateX(-50%)",
-                          width: 0,
-                          height: 0,
-                          borderLeft: `${wedgeW}px solid transparent`,
-                          borderRight: `${wedgeW}px solid transparent`,
-                          borderBottom: `${wedgeH}px solid rgba(15, 23, 42, 0.9)`,
-                          pointerEvents: "none",
-                        }}
-                      />
-                      {circleLabel}
+                      {!hideGlyph ? (
+                        <>
+                          <span
+                            aria-hidden
+                            style={{
+                              position: "absolute",
+                              left: "50%",
+                              top: Math.max(2, Math.round(dMarkerPx * 0.07)),
+                              transform: "translateX(-50%)",
+                              width: 0,
+                              height: 0,
+                              borderLeft: `${wedgeW}px solid transparent`,
+                              borderRight: `${wedgeW}px solid transparent`,
+                              borderBottom: `${wedgeH}px solid rgba(15, 23, 42, 0.9)`,
+                              pointerEvents: "none",
+                            }}
+                          />
+                          {circleLabel}
+                        </>
+                      ) : null}
                     </button>
-                    {dancerLabelBelow && (
+                    {dancerLabelBelow && !hideGlyph && (
                       <div
                         aria-hidden
                         style={{
                           position: "absolute",
                           left: "50%",
                           top: "50%",
-                          transform: `translate(-50%, calc(-50% + ${labelOffsetPx}px))`,
+                          transform: `translate(-50%, calc(-50% + ${labelOffsetPx}px)) rotate(${labelUnrotateDeg}deg)`,
                           color: "#f8fafc",
                           fontSize: `${Math.max(
                             10,
