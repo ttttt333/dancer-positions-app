@@ -741,6 +741,12 @@ export function StageBoard({
     | { kind: "setPiece"; clientX: number; clientY: number; pieceId: string }
     | null
   >(null);
+  /**
+   * ステージ直下の「選択中の色」一括ツールバー。
+   * 左クリックで選んだだけでは出さず、ステージ上のダンサーを右クリックしたあとだけ表示する。
+   */
+  const [showStageDancerColorToolbar, setShowStageDancerColorToolbar] =
+    useState(false);
   const formationIdForWrites =
     editFormationId != null && formations.some((f) => f.id === editFormationId)
       ? editFormationId
@@ -767,7 +773,12 @@ export function StageBoard({
     setFloorLineDraft(null);
     setFloorTextDraft({ body: "", fontSizePx: 18, fontWeight: 600 });
     setFloorTextEditId(null);
+    setShowStageDancerColorToolbar(false);
   }, [formationIdForWrites]);
+
+  useEffect(() => {
+    setShowStageDancerColorToolbar(false);
+  }, [selectedDancerIds.join(",")]);
 
   useEffect(() => {
     if (!stageContextMenu) return;
@@ -4574,6 +4585,9 @@ export function StageBoard({
                 const facing = normalizeDancerFacingDeg(effectiveFacingDeg(d));
                 const labelOffsetPx = Math.round(dMarkerPx / 2) + 4;
                 const pivotTransform = `translate(-50%, -50%) rotate(${facing}deg)`;
+                const halfMarker = dMarkerPx / 2;
+                const wedgeW = Math.max(3, Math.round(dMarkerPx * 0.11));
+                const wedgeH = Math.max(5, Math.round(dMarkerPx * 0.17));
                 return (
                   <Fragment key={`drag-ghost-${ghostId}`}>
                     <div
@@ -4583,6 +4597,7 @@ export function StageBoard({
                         left: `${pos.xPct}%`,
                         top: `${pos.yPct}%`,
                         transform: pivotTransform,
+                        transformOrigin: "center center",
                         width: 0,
                         height: 0,
                         zIndex: 3,
@@ -4596,7 +4611,8 @@ export function StageBoard({
                           position: "absolute",
                           left: "50%",
                           top: "50%",
-                          transform: "translate(-50%, -50%)",
+                          marginLeft: -halfMarker,
+                          marginTop: -halfMarker,
                           width: `${dMarkerPx}px`,
                           height: `${dMarkerPx}px`,
                           borderRadius: "50%",
@@ -4613,6 +4629,21 @@ export function StageBoard({
                           userSelect: "none",
                         }}
                       >
+                        <span
+                          aria-hidden
+                          style={{
+                            position: "absolute",
+                            left: "50%",
+                            top: Math.max(2, Math.round(dMarkerPx * 0.07)),
+                            transform: "translateX(-50%)",
+                            width: 0,
+                            height: 0,
+                            borderLeft: `${wedgeW}px solid transparent`,
+                            borderRight: `${wedgeW}px solid transparent`,
+                            borderBottom: `${wedgeH}px solid rgba(15, 23, 42, 0.9)`,
+                            pointerEvents: "none",
+                          }}
+                        />
                         {circleLabel}
                       </div>
                       {dancerLabelBelow && (
@@ -4661,6 +4692,9 @@ export function StageBoard({
               const pivotTransform = playbackOrPreview
                 ? `translate3d(-50%, -50%, 0) rotate(${facing}deg)`
                 : `translate(-50%, -50%) rotate(${facing}deg)`;
+              const halfMarker = dMarkerPx / 2;
+              const wedgeW = Math.max(3, Math.round(dMarkerPx * 0.11));
+              const wedgeH = Math.max(5, Math.round(dMarkerPx * 0.17));
               return (
                 <Fragment key={d.id}>
                   <div
@@ -4669,6 +4703,7 @@ export function StageBoard({
                       left: `${d.xPct}%`,
                       top: `${d.yPct}%`,
                       transform: pivotTransform,
+                      transformOrigin: "center center",
                       width: 0,
                       height: 0,
                       zIndex: 4,
@@ -4715,6 +4750,7 @@ export function StageBoard({
                           return;
                         e.preventDefault();
                         e.stopPropagation();
+                        setShowStageDancerColorToolbar(true);
                         setStageContextMenu({
                           kind: "dancer",
                           clientX: e.clientX,
@@ -4738,7 +4774,8 @@ export function StageBoard({
                         position: "absolute",
                         left: "50%",
                         top: "50%",
-                        transform: "translate(-50%, -50%)",
+                        marginLeft: -halfMarker,
+                        marginTop: -halfMarker,
                         width: `${dMarkerPx}px`,
                         height: `${dMarkerPx}px`,
                         borderRadius: "50%",
@@ -4779,6 +4816,21 @@ export function StageBoard({
                             : "auto",
                       }}
                     >
+                      <span
+                        aria-hidden
+                        style={{
+                          position: "absolute",
+                          left: "50%",
+                          top: Math.max(2, Math.round(dMarkerPx * 0.07)),
+                          transform: "translateX(-50%)",
+                          width: 0,
+                          height: 0,
+                          borderLeft: `${wedgeW}px solid transparent`,
+                          borderRight: `${wedgeW}px solid transparent`,
+                          borderBottom: `${wedgeH}px solid rgba(15, 23, 42, 0.9)`,
+                          pointerEvents: "none",
+                        }}
+                      />
                       {circleLabel}
                     </button>
                     {dancerLabelBelow && (
@@ -5170,60 +5222,62 @@ export function StageBoard({
                 maxWidth: "min(100%, 440px)",
               }}
             >
-              <div
-                role="toolbar"
-                aria-label="選択した立ち位置の色を一括変更"
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                  gap: "8px",
-                  width: "100%",
-                  padding: "8px 10px",
-                  borderRadius: "10px",
-                  border: "1px solid #334155",
-                  background: "rgba(15, 23, 42, 0.96)",
-                  boxSizing: "border-box",
-                }}
-              >
-                <span
+              {showStageDancerColorToolbar ? (
+                <div
+                  role="toolbar"
+                  aria-label="選択した立ち位置の色を一括変更"
                   style={{
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    color: "#94a3b8",
-                    whiteSpace: "nowrap",
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    gap: "8px",
+                    width: "100%",
+                    padding: "8px 10px",
+                    borderRadius: "10px",
+                    border: "1px solid #334155",
+                    background: "rgba(15, 23, 42, 0.96)",
+                    boxSizing: "border-box",
                   }}
                 >
-                  選択中 {selectedDancerIds.length} 人の色
-                </span>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
-                  {DANCER_PALETTE.map((hex, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      title={`色を一括で ${i + 1} に変更`}
-                      onClick={() =>
-                        applyBulkColorToDancerIds(selectedDancerIds, i)
-                      }
-                      style={{
-                        width: 26,
-                        height: 26,
-                        borderRadius: 6,
-                        border:
-                          primarySelectedDancer &&
-                          modDancerColorIndex(primarySelectedDancer.colorIndex) ===
-                          i
-                            ? "2px solid #fbbf24"
-                            : "1px solid #1e293b",
-                        background: hex,
-                        cursor: "pointer",
-                        padding: 0,
-                        boxSizing: "border-box",
-                      }}
-                    />
-                  ))}
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      color: "#94a3b8",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    選択中 {selectedDancerIds.length} 人の色
+                  </span>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
+                    {DANCER_PALETTE.map((hex, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        title={`色を一括で ${i + 1} に変更`}
+                        onClick={() =>
+                          applyBulkColorToDancerIds(selectedDancerIds, i)
+                        }
+                        style={{
+                          width: 26,
+                          height: 26,
+                          borderRadius: 6,
+                          border:
+                            primarySelectedDancer &&
+                            modDancerColorIndex(primarySelectedDancer.colorIndex) ===
+                            i
+                              ? "2px solid #fbbf24"
+                              : "1px solid #1e293b",
+                          background: hex,
+                          cursor: "pointer",
+                          padding: 0,
+                          boxSizing: "border-box",
+                        }}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
+              ) : null}
               <div
                 role="toolbar"
                 aria-label="選択した立ち位置の印の向き"

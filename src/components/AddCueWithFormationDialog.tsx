@@ -117,11 +117,14 @@ function dancersForTargetCount(
 
 const panelShellStyle: CSSProperties = {
   position: "fixed",
-  top: "70px",
-  right: "12px",
-  bottom: "12px",
-  width: "min(430px, 42vw)",
-  maxWidth: "460px",
+  top: "max(56px, calc(env(safe-area-inset-top, 0px) + 52px))",
+  right: "max(12px, env(safe-area-inset-right, 0px))",
+  bottom: "max(12px, env(safe-area-inset-bottom, 0px))",
+  left: "max(12px, env(safe-area-inset-left, 0px))",
+  width: "auto",
+  maxWidth:
+    "min(460px, calc(100vw - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)))",
+  marginLeft: "auto",
   zIndex: 52,
   display: "flex",
   flexDirection: "column",

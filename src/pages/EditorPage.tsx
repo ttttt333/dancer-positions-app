@@ -47,7 +47,6 @@ import {
 } from "../components/SetPiecePickerModal";
 import { ChoreoGridToolbar } from "../components/ChoreoGridToolbar";
 import {
-  EditorStageCueDock,
   EditorStageWorkbench,
   WorkbenchCuePager,
   type EditorStageWorkbenchProps,
@@ -156,7 +155,6 @@ export function EditorPage() {
   const [flowLibraryOpen, setFlowLibraryOpen] = useState(false);
   /** キュー追加 ＋ 形選択 ＋ 形の箱保存を 1 画面に統合したダイアログ */
   const [addCueDialogOpen, setAddCueDialogOpen] = useState(false);
-  const [cuePagerListOpen, setCuePagerListOpen] = useState(false);
   /**
    * 右ペイン（タイムライン／右ツール列）を畳んでステージを最大化するトグル。
    * 畳んでもステージ上にグリッド用ツールバーが出るほか、ステージ上部のページャーから
@@ -685,10 +683,6 @@ export function EditorPage() {
         setCueListModalOpen(false);
         return;
       }
-      if (e.key === "Escape" && cuePagerListOpen) {
-        setCuePagerListOpen(false);
-        return;
-      }
       if (e.key === "Escape" && shortcutsHelpOpen) {
         setShortcutsHelpOpen(false);
         return;
@@ -720,7 +714,6 @@ export function EditorPage() {
     shortcutsHelpOpen,
     exportDialogOpen,
     flowLibraryOpen,
-    cuePagerListOpen,
     rosterImportDraft,
     cueListModalOpen,
   ]);
@@ -1205,12 +1198,6 @@ export function EditorPage() {
     project.rosterHidesTimeline === true && hasRosterMembers;
   /** ワイド時は波形・再生を上部に固定（名簿専用モードでは従来の下段タイムライン） */
   const showTopWaveDock = wideEditorLayout && !rosterOnlyMode;
-  /** ステージ右縁〜右列の間にキュー一覧を常時表示（上部波形ドック時のみ） */
-  const showStageCueDock =
-    showTopWaveDock &&
-    wideEditorLayout &&
-    !rightPaneCollapsed &&
-    cuesSortedForStageJump.length > 0;
 
   const choreoToolbarSharedProps = {
     snapGrid: project.snapGrid,
@@ -1347,15 +1334,20 @@ export function EditorPage() {
         WebkitFontSmoothing: "antialiased",
         display: "flex",
         flexDirection: "column",
+        paddingLeft: "env(safe-area-inset-left, 0px)",
+        paddingRight: "env(safe-area-inset-right, 0px)",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+        boxSizing: "border-box",
       }}
     >
       <header
         style={{
           display: "flex",
-          flexWrap: "nowrap",
+          flexWrap: "wrap",
           gap: "8px",
           alignItems: "center",
-          padding: "4px 8px",
+          padding:
+            "max(4px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) 4px max(8px, env(safe-area-inset-left, 0px))",
           borderBottom: `1px solid ${shell.border}`,
           background: shell.bgChrome,
           minHeight: 0,
@@ -1523,7 +1515,8 @@ export function EditorPage() {
               : "1fr"
             : "auto auto auto",
           gap: `${EDITOR_GRID_GAP_PX}px`,
-          padding: "6px",
+          padding:
+            "6px max(6px, env(safe-area-inset-right, 0px)) 6px max(6px, env(safe-area-inset-left, 0px))",
           marginTop: `calc(-1 * ${EDITOR_PLAYBACK_LAYOUT_SHIFT_UP})`,
           minHeight: 0,
           overflow: "hidden",
@@ -1692,7 +1685,7 @@ export function EditorPage() {
                 flexDirection: "column",
               }}
             >
-              {cuesSortedForStageJump.length > 0 && !showStageCueDock ? (
+              {cuesSortedForStageJump.length > 0 ? (
                 <div
                   style={{
                     position: "absolute",
@@ -1708,8 +1701,6 @@ export function EditorPage() {
                     cuesSortedForStageJump={cuesSortedForStageJump}
                     selectedCueId={selectedCueId}
                     jumpToCueByIdx={jumpToCueByIdx}
-                    cuePagerListOpen={cuePagerListOpen}
-                    setCuePagerListOpen={setCuePagerListOpen}
                   />
                 </div>
               ) : null}
@@ -1773,14 +1764,6 @@ export function EditorPage() {
                 )}
               </div>
             </div>
-            {showStageCueDock ? (
-              <EditorStageCueDock
-                project={project}
-                cuesSortedForStageJump={cuesSortedForStageJump}
-                selectedCueId={selectedCueId}
-                jumpToCueByIdx={jumpToCueByIdx}
-              />
-            ) : null}
           </div>
         </section>
 

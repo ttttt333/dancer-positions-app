@@ -22,8 +22,8 @@ export function LanguageSwitcher({
     variant === "floating"
       ? {
           position: "fixed",
-          top: 10,
-          right: 10,
+          top: "max(10px, env(safe-area-inset-top, 0px))",
+          right: "max(10px, env(safe-area-inset-right, 0px))",
           zIndex: 40,
           display: "flex",
           alignItems: "center",

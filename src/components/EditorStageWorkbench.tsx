@@ -17,8 +17,6 @@ export type WorkbenchCuePagerProps = {
   cuesSortedForStageJump: Cue[];
   selectedCueId: string | null;
   jumpToCueByIdx: (idx: number) => void;
-  cuePagerListOpen: boolean;
-  setCuePagerListOpen: Dispatch<SetStateAction<boolean>>;
 };
 
 export function WorkbenchCuePager({
@@ -27,8 +25,6 @@ export function WorkbenchCuePager({
   cuesSortedForStageJump,
   selectedCueId,
   jumpToCueByIdx,
-  cuePagerListOpen,
-  setCuePagerListOpen,
 }: WorkbenchCuePagerProps) {
   if (cuesSortedForStageJump.length === 0) return null;
   const isRail = variant === "rail";
@@ -117,18 +113,15 @@ export function WorkbenchCuePager({
       >
         ◀
       </button>
-      <button
-        type="button"
-        onClick={() => setCuePagerListOpen((v) => !v)}
-        disabled={project.viewMode === "view"}
-        aria-haspopup="listbox"
-        aria-expanded={cuePagerListOpen}
+      <div
+        role="status"
+        aria-label={`キュー ${curIdx >= 0 ? curIdx + 1 : "未選択"} / ${total}`}
         title={
           cur
             ? cur.name?.trim()
-              ? `「${cur.name.trim()}」を編集中。クリックで全キュー一覧。`
-              : "無名のキューを編集中。クリックで全キュー一覧。"
-            : "クリックで全キュー一覧から選択"
+              ? `「${cur.name.trim()}」を編集中`
+              : "無名のキューを編集中"
+            : "タイムラインなどからキューを選択"
         }
         style={
           isRail
@@ -149,8 +142,7 @@ export function WorkbenchCuePager({
                 fontSize: "7px",
                 fontWeight: 700,
                 lineHeight: 1.1,
-                cursor:
-                  project.viewMode === "view" ? "not-allowed" : "pointer",
+                cursor: "default",
                 flexShrink: 0,
                 fontVariantNumeric: "tabular-nums",
                 textAlign: "center",
@@ -170,8 +162,7 @@ export function WorkbenchCuePager({
                   color: cur ? "#e0e7ff" : "#94a3b8",
                   fontSize: "12px",
                   fontWeight: 700,
-                  cursor:
-                    project.viewMode === "view" ? "not-allowed" : "pointer",
+                  cursor: "default",
                   flexShrink: 0,
                   maxWidth: "200px",
                   fontVariantNumeric: "tabular-nums",
@@ -187,8 +178,7 @@ export function WorkbenchCuePager({
                   color: cur ? "#e0e7ff" : "#94a3b8",
                   fontSize: "12px",
                   fontWeight: 700,
-                  cursor:
-                    project.viewMode === "view" ? "not-allowed" : "pointer",
+                  cursor: "default",
                   flexShrink: 0,
                   minHeight: "26px",
                   maxWidth: "240px",
@@ -222,7 +212,7 @@ export function WorkbenchCuePager({
         {cur && cur.name?.trim() ? (
           <span
             style={{
-              fontSize: rail ? "6.5px" : "11px",
+              fontSize: isRail ? "6.5px" : "11px",
               fontWeight: 500,
               color: "#e2e8f0",
               overflow: "hidden",
@@ -239,18 +229,7 @@ export function WorkbenchCuePager({
             {cur.name.trim()}
           </span>
         ) : null}
-        <span
-          aria-hidden
-          style={{
-            fontSize: rail ? "6px" : "9px",
-            color: cur ? "#c7d2fe" : "#64748b",
-            marginLeft: isRail ? 0 : "1px",
-            lineHeight: 1,
-          }}
-        >
-          ▾
-        </span>
-      </button>
+      </div>
       <button
         type="button"
         onClick={() => jumpToCueByIdx(curIdx + 1)}
@@ -283,121 +262,6 @@ export function WorkbenchCuePager({
           次のキュー
         </button>
       ) : null}
-      {cuePagerListOpen ? (
-        <>
-          <div
-            onClick={() => setCuePagerListOpen(false)}
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: isCorner ? 100 : 30,
-            }}
-            aria-hidden
-          />
-          <ul
-            role="listbox"
-            aria-label="キュー一覧"
-            style={{
-              position: "absolute",
-              top: "calc(100% + 4px)",
-              ...(isCorner
-                ? { right: 0, left: "auto" }
-                : { left: isRail ? 0 : "30px", right: "auto" }),
-              zIndex: isCorner ? 101 : 31,
-              listStyle: "none",
-              margin: 0,
-              padding: "4px",
-              maxHeight: "320px",
-              minWidth: "240px",
-              overflowY: "auto",
-              background: "#0b1220",
-              border: "1px solid #334155",
-              borderRadius: "8px",
-              boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
-            }}
-          >
-            {cuesSortedForStageJump.map((c, i) => {
-              const isCur = i === curIdx;
-              const fname =
-                project.formations.find((f) => f.id === c.formationId)?.name ??
-                "";
-              return (
-                <li key={c.id}>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={isCur}
-                    onClick={() => {
-                      jumpToCueByIdx(i);
-                      setCuePagerListOpen(false);
-                    }}
-                    style={{
-                      width: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      padding: "5px 8px",
-                      border: "none",
-                      borderRadius: "6px",
-                      background: isCur
-                        ? "rgba(99,102,241,0.22)"
-                        : "transparent",
-                      color: isCur ? "#e0e7ff" : "#cbd5e1",
-                      fontSize: "12px",
-                      cursor: "pointer",
-                      textAlign: "left",
-                      fontWeight: isCur ? 700 : 500,
-                    }}
-                  >
-                    <span
-                      style={{
-                        minWidth: "22px",
-                        fontVariantNumeric: "tabular-nums",
-                        color: isCur ? "#a5b4fc" : "#64748b",
-                        fontSize: "11px",
-                        fontWeight: 700,
-                      }}
-                    >
-                      {i + 1}
-                    </span>
-                    <span
-                      style={{
-                        flex: 1,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {c.name?.trim() ?? ""}
-                      {fname ? (
-                        <span
-                          style={{
-                            marginLeft: "6px",
-                            color: "#64748b",
-                            fontWeight: 400,
-                            fontSize: "10px",
-                          }}
-                        >
-                          · {fname}
-                        </span>
-                      ) : null}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: "10px",
-                        color: "#64748b",
-                        fontVariantNumeric: "tabular-nums",
-                      }}
-                    >
-                      {Math.round(c.tStartSec)}s
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </>
-      ) : null}
     </div>
   );
   if (isCorner) {
@@ -420,232 +284,6 @@ export function WorkbenchCuePager({
     );
   }
   return core;
-}
-
-export type EditorStageCueDockProps = {
-  project: ChoreographyProjectJson;
-  cuesSortedForStageJump: Cue[];
-  selectedCueId: string | null;
-  jumpToCueByIdx: (idx: number) => void;
-};
-
-/**
- * ワイド＋上部波形ドック時: ステージ右端〜右列の間の帯に常時表示するキュー一覧＋ページ送り。
- */
-export function EditorStageCueDock({
-  project,
-  cuesSortedForStageJump,
-  selectedCueId,
-  jumpToCueByIdx,
-}: EditorStageCueDockProps) {
-  if (cuesSortedForStageJump.length === 0) return null;
-  const total = cuesSortedForStageJump.length;
-  const curIdx = selectedCueId
-    ? cuesSortedForStageJump.findIndex((c) => c.id === selectedCueId)
-    : -1;
-  const cur = curIdx >= 0 ? cuesSortedForStageJump[curIdx]! : null;
-  const canPrev = project.viewMode !== "view" && curIdx > 0;
-  const canNext =
-    project.viewMode !== "view" && curIdx >= 0 && curIdx < total - 1;
-
-  const navBtn = (enabled: boolean): CSSProperties => ({
-    width: "32px",
-    height: "32px",
-    padding: 0,
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: "8px",
-    border: "1px solid #475569",
-    background: "#0f172a",
-    color: enabled ? "#e2e8f0" : "#475569",
-    fontSize: "15px",
-    lineHeight: 1,
-    cursor: enabled ? "pointer" : "not-allowed",
-    flexShrink: 0,
-  });
-
-  return (
-    <aside
-      aria-label="キュー一覧（ステージ横）"
-      style={{
-        width: "min(248px, max(176px, 22vw))",
-        flexShrink: 0,
-        minHeight: 0,
-        display: "flex",
-        flexDirection: "column",
-        borderLeft: "1px solid #334155",
-        background: "rgba(15, 23, 42, 0.96)",
-        borderRadius: "0 10px 10px 0",
-        overflow: "hidden",
-        boxSizing: "border-box",
-      }}
-    >
-      <div
-        style={{
-          flexShrink: 0,
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          padding: "8px 6px",
-          borderBottom: "1px solid #1e293b",
-        }}
-      >
-        <button
-          type="button"
-          onClick={() => jumpToCueByIdx(curIdx - 1)}
-          disabled={!canPrev}
-          title="前のキューへ"
-          aria-label="前のキューへ"
-          style={navBtn(canPrev)}
-        >
-          ◀
-        </button>
-        <div
-          style={{
-            flex: 1,
-            minWidth: 0,
-            textAlign: "center",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "10px",
-              color: "#94a3b8",
-              fontWeight: 600,
-              letterSpacing: "0.06em",
-            }}
-          >
-            キュー
-          </div>
-          <div
-            style={{
-              fontVariantNumeric: "tabular-nums",
-              fontWeight: 700,
-              fontSize: "12px",
-              color: "#e2e8f0",
-              lineHeight: 1.2,
-            }}
-          >
-            {curIdx >= 0 ? curIdx + 1 : "—"} / {total}
-          </div>
-          {cur?.name?.trim() ? (
-            <div
-              style={{
-                marginTop: "2px",
-                fontSize: "10px",
-                color: "#94a3b8",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-              title={cur.name.trim()}
-            >
-              {cur.name.trim()}
-            </div>
-          ) : null}
-        </div>
-        <button
-          type="button"
-          onClick={() => jumpToCueByIdx(curIdx + 1)}
-          disabled={!canNext}
-          title="次のキューへ"
-          aria-label="次のキューへ"
-          style={navBtn(canNext)}
-        >
-          ▶
-        </button>
-      </div>
-      <ul
-        role="listbox"
-        aria-label="キューを選択"
-        style={{
-          flex: 1,
-          minHeight: 0,
-          overflowY: "auto",
-          listStyle: "none",
-          margin: 0,
-          padding: "6px 6px 10px",
-        }}
-      >
-        {cuesSortedForStageJump.map((c, i) => {
-          const isCur = i === curIdx;
-          const fname =
-            project.formations.find((f) => f.id === c.formationId)?.name ?? "";
-          return (
-            <li key={c.id} style={{ marginBottom: "2px" }}>
-              <button
-                type="button"
-                role="option"
-                aria-selected={isCur}
-                disabled={project.viewMode === "view"}
-                onClick={() => jumpToCueByIdx(i)}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "6px 8px",
-                  border: "none",
-                  borderRadius: "6px",
-                  background: isCur ? "rgba(99,102,241,0.22)" : "transparent",
-                  color: isCur ? "#e0e7ff" : "#cbd5e1",
-                  fontSize: "12px",
-                  cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
-                  textAlign: "left",
-                  fontWeight: isCur ? 700 : 500,
-                }}
-              >
-                <span
-                  style={{
-                    minWidth: "20px",
-                    fontVariantNumeric: "tabular-nums",
-                    color: isCur ? "#a5b4fc" : "#64748b",
-                    fontSize: "11px",
-                    fontWeight: 700,
-                  }}
-                >
-                  {i + 1}
-                </span>
-                <span
-                  style={{
-                    flex: 1,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {c.name?.trim() ?? "（無名）"}
-                  {fname ? (
-                    <span
-                      style={{
-                        marginLeft: "4px",
-                        color: "#64748b",
-                        fontWeight: 400,
-                        fontSize: "10px",
-                      }}
-                    >
-                      · {fname}
-                    </span>
-                  ) : null}
-                </span>
-                <span
-                  style={{
-                    fontSize: "10px",
-                    color: "#64748b",
-                    fontVariantNumeric: "tabular-nums",
-                    flexShrink: 0,
-                  }}
-                >
-                  {Math.round(c.tStartSec)}s
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </aside>
-  );
 }
 
 export type EditorStageWorkbenchProps = {

@@ -6,12 +6,15 @@
 
 html {
   height: 100%;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
   min-height: 100%;
   min-height: 100dvh;
+  min-height: -webkit-fill-available;
   background: radial-gradient(
       ellipse 130% 70% at 50% -28%,
       rgba(212, 175, 55, 0.09),
@@ -27,6 +30,15 @@ body {
 #root {
   min-height: 100%;
   min-height: 100dvh;
+  min-height: -webkit-fill-available;
+}
+
+/* 狭い画面で横スクロールが出ないよう抑える（position: fixed は維持） */
+@media (max-width: 768px) {
+  html,
+  body {
+    overflow-x: clip;
+  }
 }
 
 /**

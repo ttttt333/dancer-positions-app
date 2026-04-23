@@ -124,7 +124,7 @@ export function LibraryPage() {
             display: "flex",
             alignItems: "center",
             justifyContent: "flex-start",
-            paddingLeft: LIBRARY_GUTTER,
+            paddingLeft: `max(${LIBRARY_GUTTER}, env(safe-area-inset-left, 0px))`,
           }}
         >
           {t("common.loading")}
@@ -159,7 +159,7 @@ export function LibraryPage() {
       <header
         style={{
           ...libraryGlassHeader,
-          padding: `14px ${LIBRARY_GUTTER}`,
+          padding: `max(14px, env(safe-area-inset-top, 0px)) max(${LIBRARY_GUTTER}, env(safe-area-inset-right, 0px)) 14px max(${LIBRARY_GUTTER}, env(safe-area-inset-left, 0px))`,
         }}
       >
         <div
@@ -243,7 +243,7 @@ export function LibraryPage() {
           display: "flex",
           justifyContent: "flex-start",
           alignItems: "stretch",
-          padding: `28px ${LIBRARY_GUTTER} 56px ${LIBRARY_GUTTER}`,
+          padding: `28px max(${LIBRARY_GUTTER}, env(safe-area-inset-right, 0px)) max(56px, env(safe-area-inset-bottom, 0px)) max(${LIBRARY_GUTTER}, env(safe-area-inset-left, 0px))`,
           boxSizing: "border-box",
         }}
       >

@@ -91,7 +91,8 @@ export function AuthScreenLayout({ title, subtitle, children }: Props) {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: "24px 16px",
+          padding:
+            "max(24px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(24px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))",
         }}
       >
         <div
@@ -99,7 +100,7 @@ export function AuthScreenLayout({ title, subtitle, children }: Props) {
             width: "100%",
             maxWidth: 400,
             ...panelCard,
-            padding: "32px 28px",
+            padding: "clamp(22px, 5vw, 32px) clamp(16px, 5vw, 28px)",
             boxShadow: "0 24px 80px rgba(0,0,0,0.55)",
           }}
         >

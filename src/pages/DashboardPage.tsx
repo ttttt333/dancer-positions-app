@@ -113,7 +113,8 @@ export function DashboardPage() {
         style={{
           borderBottom: `1px solid ${shell.border}`,
           background: shell.bgChrome,
-          padding: "14px 20px",
+          padding:
+            "max(14px, env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-right, 0px)) 14px max(20px, env(safe-area-inset-left, 0px))",
         }}
       >
         <div
@@ -187,7 +188,14 @@ export function DashboardPage() {
         </div>
       </header>
 
-      <main style={{ maxWidth: 960, margin: "0 auto", padding: "28px 20px 48px" }}>
+      <main
+        style={{
+          maxWidth: 960,
+          margin: "0 auto",
+          padding:
+            "28px max(20px, env(safe-area-inset-right, 0px)) 48px max(20px, env(safe-area-inset-left, 0px))",
+        }}
+      >
         {isDemoSessionToken() ? (
           <div
             style={{
