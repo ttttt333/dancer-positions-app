@@ -166,10 +166,13 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
   const viewModeRow: CSSProperties = rail
     ? {
         display: "flex",
-        flexDirection: "column",
-        alignItems: "stretch",
-        gap: 8,
-        width: "100%",
+        flexDirection: "row",
+        flexWrap: "wrap",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+        width: "auto",
+        maxWidth: "100%",
         minWidth: 0,
       }
     : {

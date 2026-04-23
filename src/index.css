@@ -88,7 +88,7 @@ body {
   color: #f5f0e6 !important;
 }
 
-/* 右列: 正方形タイルを縦に詰め、高さが足りないときは列方向の折り返しで 2 列相当に */
+/* 右列: 48px タイルを 2 列で折り返し、縦スクロールなし（はみ出しは非表示） */
 .editor-right-tools-section {
   container-type: size;
   container-name: editor-right-tools;
@@ -100,28 +100,30 @@ body {
   flex: 1 1 auto;
   min-height: 0;
   gap: 10px;
+  overflow: hidden;
 }
 
 .editor-right-tools-tiles {
   display: flex;
-  flex-direction: column;
-  flex-wrap: nowrap;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 7px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  align-items: flex-start;
+  justify-content: center;
+  column-gap: 8px;
+  row-gap: 7px;
   flex: 1 1 auto;
   min-height: 0;
-  height: 100%;
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: hidden;
   width: 100%;
-  padding: 2px 0 6px;
+  padding: 2px 4px 6px;
+  box-sizing: border-box;
 }
 
-@container editor-right-tools (max-height: 640px) {
-  .editor-right-tools-tiles {
-    max-height: min(52vh, 420px);
-  }
+/* 折り返し時も子が列幅を食い破らないよう（display:contents 由来のブロック用） */
+.editor-right-tools-tiles > * {
+  max-width: 100%;
 }
 
 /* 右列が狭いとき（上部波形ドック時など）、48px 角内に収まるようラベルを一段小さく */

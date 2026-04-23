@@ -1,6 +1,15 @@
 /** 本番ログイン前の暫定利用。`refresh` は API を呼ばずダミーユーザーを復元する */
 export const DEMO_SESSION_TOKEN = "__choreogrid_demo_session__";
 
+export function getToken(): string | null {
+  return localStorage.getItem("auth_token");
+}
+
+export function setToken(token: string | null) {
+  if (token) localStorage.setItem("auth_token", token);
+  else localStorage.removeItem("auth_token");
+}
+
 export function isDemoSessionToken(): boolean {
   return getToken() === DEMO_SESSION_TOKEN;
 }
@@ -13,15 +22,6 @@ function apiBaseUrl(): string {
 }
 
 const base = apiBaseUrl();
-
-export function getToken(): string | null {
-  return localStorage.getItem("auth_token");
-}
-
-export function setToken(token: string | null) {
-  if (token) localStorage.setItem("auth_token", token);
-  else localStorage.removeItem("auth_token");
-}
 
 const HTML_OR_TEXT_API_HINT =
   "サーバーが JSON ではなく HTML やテキストを返しました（多くの場合、本番で API が同じドメインにありません）。Vercel の環境変数に VITE_API_BASE_URL（例: https://あなたのAPIのホスト）を設定し、再デプロイしてください。";

@@ -100,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const logout = useCallback(() => {
+    refreshGeneration.current += 1;
     setToken(null);
     setMe(null);
   }, []);
@@ -110,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const skipLoginForNow = useCallback(() => {
+    refreshGeneration.current += 1;
     setToken(DEMO_SESSION_TOKEN);
     setMe(DEMO_ME);
     setReady(true);
