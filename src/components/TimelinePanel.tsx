@@ -296,9 +296,14 @@ function pickCueDragKindAtWave(
   return { cueId: id, mode };
 }
 
-const PLAYHEAD_SCRUB_HALF_WIDTH_PX = 10;
+/** 再生ヘッド縦線のドラッグ・クリック用ヒット幅（片側 CSS px）。狭いと掴みにくいので広め */
+const PLAYHEAD_SCRUB_HALF_WIDTH_PX = 16;
 
-/** 再生ヘッド（ピンク縦線）付近をドラッグしてシーク試聴するためのヒット（CSS ピクセル） */
+/** 目盛り行〜波形にかけて再生位置線を少しはみ出して見せる（CSS px） */
+const PLAYHEAD_LINE_BLEED_TOP_CSS = 14;
+const PLAYHEAD_LINE_BLEED_BOTTOM_CSS = 8;
+
+/** 再生ヘッド（縦線）付近をドラッグしてシーク試聴するためのヒット（CSS ピクセル） */
 function hitPlayheadStripForScrub(
   clientX: number,
   canvas: HTMLCanvasElement,
@@ -546,6 +551,8 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
     const audioRef = useRef<HTMLAudioElement>(null);
     const audioFileInputRef = useRef<HTMLInputElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    /** 目盛り〜波形にはみ出す再生位置線（キャンバス座標と同期、pointer-events なし） */
+    const playheadLineOverlayRef = useRef<HTMLDivElement>(null);
     /** 波形枠（目盛り＋キャンバス）。ホイール拡縮は passive: false で登録 */
     const waveContainerRef = useRef<HTMLDivElement>(null);
     const [peaks, setPeaks] = useState<number[] | null>(null);
@@ -864,6 +871,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         }
       }
 
+      const lineEl = playheadLineOverlayRef.current;
       if (d > 0 && viewSpan > 0) {
         const zoomed = vp < 1 - 1e-9;
         let xPlay: number;
@@ -877,13 +885,20 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             xPlay = 0;
           }
         }
-        g.strokeStyle = "#f472b6";
-        g.lineWidth = 2;
+        g.strokeStyle = "#ef4444";
+        g.lineWidth = 2.5;
         g.lineCap = "butt";
         g.beginPath();
         g.moveTo(xPlay + 0.5, 0);
         g.lineTo(xPlay + 0.5, h);
         g.stroke();
+        if (lineEl) {
+          const pct = ((xPlay + 0.5) / w) * 100;
+          lineEl.style.display = "block";
+          lineEl.style.left = `${pct}%`;
+        }
+      } else if (lineEl) {
+        lineEl.style.display = "none";
       }
     }, []);
 
@@ -1728,16 +1743,6 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       const c = canvasRef.current;
       if (!c) return;
       const { viewStart, viewSpan } = lastWaveDrawRangeRef.current;
-      const cueHit = pickCueDragKindAtWave(
-        e.clientX,
-        e.clientY,
-        c,
-        cues,
-        viewStart,
-        viewSpan,
-        null
-      );
-      const cueId = cueHit?.cueId ?? null;
 
       const trimLo = trimStartSec;
       const trimHi = trimEndSec ?? duration;
@@ -1762,6 +1767,102 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         }
         drawWaveformAt(tRedraw);
       };
+
+      /** 縦の再生位置線は細いので、キュー帯より先にヒットさせてドラッグシークしやすくする */
+      const audioEl = audioRef.current;
+      let playheadSecForHit = currentTimePropRef.current;
+      if (
+        isPlayingForWaveRef.current &&
+        audioEl &&
+        !audioEl.paused &&
+        Number.isFinite(audioEl.currentTime)
+      ) {
+        playheadSecForHit = quantizePlayheadForWaveView(audioEl.currentTime);
+      }
+      if (
+        audioEl?.src &&
+        viewSpan > 0 &&
+        hitPlayheadStripForScrub(
+          e.clientX,
+          c,
+          viewStart,
+          viewSpan,
+          playheadSecForHit,
+          duration,
+          viewPortionRef.current
+        )
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        waveHoverCueRef.current = null;
+        const wasPlaying = !audioEl.paused;
+        playheadScrubDragRef.current = {
+          pointerId: e.pointerId,
+          wasPlaying,
+        };
+        const t0 = timeFromClientX(e.clientX);
+        audioEl.currentTime = t0;
+        setCurrentTime(Math.round(t0 * 1000) / 1000);
+        if (!wasPlaying) {
+          void audioEl.play().catch(() => {
+            /* 試聴できない環境では無視 */
+          });
+        }
+        const capturePid = e.pointerId;
+        c.setPointerCapture(capturePid);
+
+        const onPhMove = (ev: PointerEvent) => {
+          if (ev.pointerId !== capturePid || !playheadScrubDragRef.current) return;
+          const au = audioRef.current;
+          if (!au) return;
+          const t = timeFromClientX(ev.clientX);
+          au.currentTime = t;
+          setCurrentTime(Math.round(t * 1000) / 1000);
+          drawWaveformAt(t);
+        };
+
+        const onPhUp = (ev: PointerEvent) => {
+          if (ev.pointerId !== capturePid || !playheadScrubDragRef.current) return;
+          window.removeEventListener("pointermove", onPhMove);
+          window.removeEventListener("pointerup", onPhUp);
+          window.removeEventListener("pointercancel", onPhUp);
+          try {
+            c.releasePointerCapture(ev.pointerId);
+          } catch {
+            /* ignore */
+          }
+          const drag = playheadScrubDragRef.current;
+          playheadScrubDragRef.current = null;
+          suppressNextWaveSeekRef.current = true;
+          const au = audioRef.current;
+          if (au) {
+            const tEnd = timeFromClientX(ev.clientX);
+            au.currentTime = tEnd;
+            setCurrentTime(Math.round(tEnd * 1000) / 1000);
+            if (!drag.wasPlaying) {
+              au.pause();
+            }
+          }
+          redraw();
+        };
+
+        window.addEventListener("pointermove", onPhMove);
+        window.addEventListener("pointerup", onPhUp);
+        window.addEventListener("pointercancel", onPhUp);
+        drawWaveformAt(t0);
+        return;
+      }
+
+      const cueHit = pickCueDragKindAtWave(
+        e.clientX,
+        e.clientY,
+        c,
+        cues,
+        viewStart,
+        viewSpan,
+        null
+      );
+      const cueId = cueHit?.cueId ?? null;
 
       if (cueId) {
         e.preventDefault();
@@ -1893,90 +1994,6 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         window.addEventListener("pointerup", onUp);
         window.addEventListener("pointercancel", onUp);
         redraw();
-        return;
-      }
-
-      const audioEl = audioRef.current;
-      let playheadSecForHit = currentTimePropRef.current;
-      if (
-        isPlayingForWaveRef.current &&
-        audioEl &&
-        !audioEl.paused &&
-        Number.isFinite(audioEl.currentTime)
-      ) {
-        playheadSecForHit = quantizePlayheadForWaveView(audioEl.currentTime);
-      }
-      if (
-        audioEl?.src &&
-        viewSpan > 0 &&
-        hitPlayheadStripForScrub(
-          e.clientX,
-          c,
-          viewStart,
-          viewSpan,
-          playheadSecForHit,
-          duration,
-          viewPortionRef.current
-        )
-      ) {
-        e.preventDefault();
-        e.stopPropagation();
-        waveHoverCueRef.current = null;
-        const wasPlaying = !audioEl.paused;
-        playheadScrubDragRef.current = {
-          pointerId: e.pointerId,
-          wasPlaying,
-        };
-        const t0 = timeFromClientX(e.clientX);
-        audioEl.currentTime = t0;
-        setCurrentTime(Math.round(t0 * 1000) / 1000);
-        if (!wasPlaying) {
-          void audioEl.play().catch(() => {
-            /* 試聴できない環境では無視 */
-          });
-        }
-        const capturePid = e.pointerId;
-        c.setPointerCapture(capturePid);
-
-        const onPhMove = (ev: PointerEvent) => {
-          if (ev.pointerId !== capturePid || !playheadScrubDragRef.current) return;
-          const au = audioRef.current;
-          if (!au) return;
-          const t = timeFromClientX(ev.clientX);
-          au.currentTime = t;
-          setCurrentTime(Math.round(t * 1000) / 1000);
-          drawWaveformAt(t);
-        };
-
-        const onPhUp = (ev: PointerEvent) => {
-          if (ev.pointerId !== capturePid || !playheadScrubDragRef.current) return;
-          window.removeEventListener("pointermove", onPhMove);
-          window.removeEventListener("pointerup", onPhUp);
-          window.removeEventListener("pointercancel", onPhUp);
-          try {
-            c.releasePointerCapture(ev.pointerId);
-          } catch {
-            /* ignore */
-          }
-          const drag = playheadScrubDragRef.current;
-          playheadScrubDragRef.current = null;
-          suppressNextWaveSeekRef.current = true;
-          const au = audioRef.current;
-          if (au) {
-            const tEnd = timeFromClientX(ev.clientX);
-            au.currentTime = tEnd;
-            setCurrentTime(Math.round(tEnd * 1000) / 1000);
-            if (!drag.wasPlaying) {
-              au.pause();
-            }
-          }
-          redraw();
-        };
-
-        window.addEventListener("pointermove", onPhMove);
-        window.addEventListener("pointerup", onPhUp);
-        window.addEventListener("pointercancel", onPhUp);
-        drawWaveformAt(t0);
         return;
       }
 
@@ -2153,6 +2170,43 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       if (!cnv) return;
       const { viewStart, viewSpan } = lastWaveDrawRangeRef.current;
       if (viewSpan <= 0) return;
+      const auHit = audioRef.current;
+      let phSec = currentTimePropRef.current;
+      if (
+        isPlayingForWaveRef.current &&
+        auHit &&
+        !auHit.paused &&
+        Number.isFinite(auHit.currentTime)
+      ) {
+        phSec = quantizePlayheadForWaveView(auHit.currentTime);
+      }
+      if (
+        auHit?.src &&
+        hitPlayheadStripForScrub(
+          e.clientX,
+          cnv,
+          viewStart,
+          viewSpan,
+          phSec,
+          duration,
+          viewPortionRef.current
+        )
+      ) {
+        waveHoverCueRef.current = null;
+        cnv.style.cursor = "col-resize";
+        let tRedraw = currentTimePropRef.current;
+        const au = audioRef.current;
+        if (
+          isPlayingForWaveRef.current &&
+          au &&
+          !au.paused &&
+          Number.isFinite(au.currentTime)
+        ) {
+          tRedraw = au.currentTime;
+        }
+        drawWaveformAt(tRedraw);
+        return;
+      }
       const hit = pickCueDragKindAtWave(
         e.clientX,
         e.clientY,
@@ -2794,82 +2848,107 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         )}
         <div
           ref={waveContainerRef}
-          title="波形上でマウスホイール（またはトラックパッドの縦スクロール）で時間軸の拡大・縮小。下の枠線付近をドラッグすると波形の縦の高さを変えられます。"
+          title="波形上でマウスホイール（またはトラックパッドの縦スクロール）で時間軸の拡大・縮小。下の枠線付近をドラッグすると波形の縦の高さを変えられます。赤い縦線付近をドラッグすると再生位置を移動できます。"
           style={{
             width: "100%",
             borderRadius: "6px",
             border: "1px solid #334155",
-            overflow: "hidden",
+            overflowX: "hidden",
+            overflowY: "visible",
             background: "#020617",
             position: "relative",
           }}
         >
-          <div
-            style={{
-              position: "relative",
-              height: compactTopDock ? "13px" : "16px",
-              fontSize: compactTopDock ? "8px" : "9px",
-              color: "#94a3b8",
-              borderBottom: "1px solid #1e293b",
-              fontVariantNumeric: "tabular-nums",
-              userSelect: "none",
-              overflow: "hidden",
-            }}
-            aria-hidden
-          >
-            {duration > 0
-              ? waveRulerTicks(waveView.start, waveView.end, 10).map((tick) => {
-                  const span = waveView.span;
-                  const p = span > 0 ? ((tick - waveView.start) / span) * 100 : 0;
-                  const pRounded = Math.round(p * 10000) / 10000;
-                  return (
-                    <span
-                      key={tick}
-                      style={{
-                        position: "absolute",
-                        top: compactTopDock ? "2px" : "3px",
-                        left: `${pRounded}%`,
-                        transform: "translate3d(-50%, 0, 0)",
-                        whiteSpace: "nowrap",
-                        pointerEvents: "none",
-                        fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-                        willChange: "transform",
-                      }}
-                    >
-                      {formatMmSs(tick)}
-                    </span>
-                  );
-                })
-              : null}
+          <div style={{ position: "relative", width: "100%" }}>
+            <div
+              style={{
+                position: "relative",
+                height: compactTopDock ? "13px" : "16px",
+                fontSize: compactTopDock ? "8px" : "9px",
+                color: "#94a3b8",
+                borderBottom: "1px solid #1e293b",
+                fontVariantNumeric: "tabular-nums",
+                userSelect: "none",
+                overflow: "hidden",
+              }}
+              aria-hidden
+            >
+              {duration > 0
+                ? waveRulerTicks(waveView.start, waveView.end, 10).map((tick) => {
+                    const span = waveView.span;
+                    const p = span > 0 ? ((tick - waveView.start) / span) * 100 : 0;
+                    const pRounded = Math.round(p * 10000) / 10000;
+                    return (
+                      <span
+                        key={tick}
+                        style={{
+                          position: "absolute",
+                          top: compactTopDock ? "2px" : "3px",
+                          left: `${pRounded}%`,
+                          transform: "translate3d(-50%, 0, 0)",
+                          whiteSpace: "nowrap",
+                          pointerEvents: "none",
+                          fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                          willChange: "transform",
+                        }}
+                      >
+                        {formatMmSs(tick)}
+                      </span>
+                    );
+                  })
+                : null}
+            </div>
+            <canvas
+              ref={canvasRef}
+              width={800}
+              height={waveCanvasCssH * 2}
+              tabIndex={0}
+              role="application"
+              aria-label="楽曲波形・キュー区間"
+              onClick={onWaveClick}
+              onDoubleClick={onWaveDoubleClick}
+              onContextMenu={onWaveContextMenu}
+              onPointerDown={onWaveCanvasPointerDown}
+              onPointerMove={onWaveCanvasPointerMove}
+              onPointerLeave={onWaveCanvasPointerLeave}
+              style={{
+                display: "block",
+                width: "100%",
+                height: `${waveCanvasCssH}px`,
+                cursor: duration > 0 ? "pointer" : "default",
+                touchAction: "none",
+                outline: "none",
+              }}
+              onFocus={(ev) => {
+                ev.currentTarget.style.boxShadow = "inset 0 0 0 1px rgba(129, 140, 248, 0.6)";
+              }}
+              onBlur={(ev) => {
+                ev.currentTarget.style.boxShadow = "none";
+              }}
+            />
+            <div
+              ref={playheadLineOverlayRef}
+              aria-hidden
+              style={{
+                position: "absolute",
+                pointerEvents: "none",
+                display: "none",
+                left: "0%",
+                transform: "translateX(-50%)",
+                top:
+                  (compactTopDock ? 13 : 16) - PLAYHEAD_LINE_BLEED_TOP_CSS,
+                height:
+                  PLAYHEAD_LINE_BLEED_TOP_CSS +
+                  waveCanvasCssH +
+                  PLAYHEAD_LINE_BLEED_BOTTOM_CSS,
+                width: 3,
+                background: "#ef4444",
+                borderRadius: 1,
+                boxShadow: "0 0 5px rgba(239, 68, 68, 0.55)",
+                zIndex: 2,
+              }}
+            />
           </div>
-          <canvas
-            ref={canvasRef}
-            width={800}
-            height={waveCanvasCssH * 2}
-            tabIndex={0}
-            role="application"
-            aria-label="楽曲波形・キュー区間"
-            onClick={onWaveClick}
-            onDoubleClick={onWaveDoubleClick}
-            onContextMenu={onWaveContextMenu}
-            onPointerDown={onWaveCanvasPointerDown}
-            onPointerMove={onWaveCanvasPointerMove}
-            onPointerLeave={onWaveCanvasPointerLeave}
-            style={{
-              display: "block",
-              width: "100%",
-              height: `${waveCanvasCssH}px`,
-              cursor: duration > 0 ? "pointer" : "default",
-              touchAction: "none",
-              outline: "none",
-            }}
-            onFocus={(ev) => {
-              ev.currentTarget.style.boxShadow = "inset 0 0 0 1px rgba(129, 140, 248, 0.6)";
-            }}
-            onBlur={(ev) => {
-              ev.currentTarget.style.boxShadow = "none";
-            }}
-          />
           <div
             role="separator"
             aria-orientation="horizontal"
@@ -2948,7 +3027,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                       borderBottom: "1px solid #1e293b",
                       borderLeft:
                         selectedCueIds.includes(c.id)
-                          ? "3px solid #f472b6"
+                          ? "3px solid #ef4444"
                           : "3px solid transparent",
                       paddingLeft: "8px",
                       cursor: "pointer",

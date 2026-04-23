@@ -4852,7 +4852,11 @@ export function StageBoard({
                 const halfMarker = dMarkerPx / 2;
                 const wedgeW = Math.max(3, Math.round(dMarkerPx * 0.11));
                 const wedgeH = Math.max(5, Math.round(dMarkerPx * 0.17));
-                const labelUnrotateDeg = -(rot + facing);
+                /** 舞台の客席向き回転＋印の向きを打ち消し、画面に対して水平に */
+                const screenUnrotateDeg = -(rot + facing);
+                const belowNameFontPx = Math.max(10, Math.min(15, dLabelFontPx - 1));
+                const belowLabelOriginYpx =
+                  -labelOffsetPx + Math.round((belowNameFontPx * 1.12) / 2);
                 return (
                   <Fragment key={`drag-ghost-${ghostId}`}>
                     <div
@@ -4911,7 +4915,19 @@ export function StageBoard({
                                 pointerEvents: "none",
                               }}
                             />
-                            {circleLabel}
+                            <span
+                              style={{
+                                position: "relative",
+                                zIndex: 1,
+                                display: "inline-flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                transform: `rotate(${screenUnrotateDeg}deg)`,
+                                transformOrigin: "center center",
+                              }}
+                            >
+                              {circleLabel}
+                            </span>
                           </>
                         ) : null}
                       </div>
@@ -4922,12 +4938,10 @@ export function StageBoard({
                             position: "absolute",
                             left: "50%",
                             top: "50%",
-                            transform: `translate(-50%, calc(-50% + ${labelOffsetPx}px)) rotate(${labelUnrotateDeg}deg)`,
+                            transform: `translate(-50%, calc(-50% + ${labelOffsetPx}px)) rotate(${screenUnrotateDeg}deg)`,
+                            transformOrigin: `50% ${belowLabelOriginYpx}px`,
                             color: "#f8fafc",
-                            fontSize: `${Math.max(
-                              10,
-                              Math.min(15, dLabelFontPx - 1)
-                            )}px`,
+                            fontSize: `${belowNameFontPx}px`,
                             fontWeight: 700,
                             lineHeight: 1.1,
                             whiteSpace: "nowrap",
@@ -4969,8 +4983,11 @@ export function StageBoard({
               const halfMarker = dMarkerPx / 2;
               const wedgeW = Math.max(3, Math.round(dMarkerPx * 0.11));
               const wedgeH = Math.max(5, Math.round(dMarkerPx * 0.17));
-              /** ○下の名前を画面に対して水平に（舞台の客席向き回転＋印の向きを打ち消す） */
-              const labelUnrotateDeg = -(rot + facing);
+              /** 舞台の客席向き回転＋印の向きを打ち消し、画面に対して水平に */
+              const screenUnrotateDeg = -(rot + facing);
+              const belowNameFontPx = Math.max(10, Math.min(15, dLabelFontPx - 1));
+              const belowLabelOriginYpx =
+                -labelOffsetPx + Math.round((belowNameFontPx * 1.12) / 2);
               return (
                 <Fragment key={d.id}>
                   <div
@@ -5109,7 +5126,19 @@ export function StageBoard({
                               pointerEvents: "none",
                             }}
                           />
-                          {circleLabel}
+                          <span
+                            style={{
+                              position: "relative",
+                              zIndex: 1,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              transform: `rotate(${screenUnrotateDeg}deg)`,
+                              transformOrigin: "center center",
+                            }}
+                          >
+                            {circleLabel}
+                          </span>
                         </>
                       ) : null}
                     </button>
@@ -5120,12 +5149,10 @@ export function StageBoard({
                           position: "absolute",
                           left: "50%",
                           top: "50%",
-                          transform: `translate(-50%, calc(-50% + ${labelOffsetPx}px)) rotate(${labelUnrotateDeg}deg)`,
+                          transform: `translate(-50%, calc(-50% + ${labelOffsetPx}px)) rotate(${screenUnrotateDeg}deg)`,
+                          transformOrigin: `50% ${belowLabelOriginYpx}px`,
                           color: "#f8fafc",
-                          fontSize: `${Math.max(
-                            10,
-                            Math.min(15, dLabelFontPx - 1)
-                          )}px`,
+                          fontSize: `${belowNameFontPx}px`,
                           fontWeight: 700,
                           lineHeight: 1.1,
                           whiteSpace: "nowrap",
