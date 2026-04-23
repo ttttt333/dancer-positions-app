@@ -151,6 +151,39 @@ function clamp(n: number, lo: number, hi: number) {
   return Math.min(hi, Math.max(lo, n));
 }
 
+/**
+ * 波形の左右に余白を取り、内側に縮小して描く・座標変換する。
+ * 端のサンプルや縦ストロークが枠から僅かにはみ出して見えるのを抑える（音源取込直後の全長表示でも収まりやすくする）。
+ */
+const WAVE_X_INSET_FRAC = 0.035;
+
+function waveTimeToExtentX(
+  tSec: number,
+  viewStart: number,
+  viewSpan: number,
+  extentPx: number
+): number {
+  if (viewSpan <= 0 || extentPx <= 0) return 0;
+  const pad = extentPx * WAVE_X_INSET_FRAC;
+  const inner = extentPx - 2 * pad;
+  const f = clamp((tSec - viewStart) / viewSpan, 0, 1);
+  return pad + f * inner;
+}
+
+function waveExtentXToTime(
+  xPx: number,
+  viewStart: number,
+  viewSpan: number,
+  extentPx: number
+): number {
+  if (viewSpan <= 0 || extentPx <= 0) return viewStart;
+  const pad = extentPx * WAVE_X_INSET_FRAC;
+  const inner = extentPx - 2 * pad;
+  if (inner <= 1e-6) return viewStart;
+  const f = clamp((xPx - pad) / inner, 0, 1);
+  return viewStart + f * viewSpan;
+}
+
 /** 波形キャンバス表示高さ（CSS px）。下枠ドラッグで変更 */
 const WAVE_CANVAS_H_MIN = 24;
 const WAVE_CANVAS_H_MAX = 280;
@@ -195,8 +228,8 @@ function pickCueIdAtWave(
         ? dragPreview.tEnd
         : cue.tEndSec;
     if (te < viewStart || ts > viewEnd) continue;
-    const x1 = ((Math.max(ts, viewStart) - viewStart) / viewSpan) * w;
-    const x2 = ((Math.min(te, viewEnd) - viewStart) / viewSpan) * w;
+    const x1 = waveTimeToExtentX(Math.max(ts, viewStart), viewStart, viewSpan, w);
+    const x2 = waveTimeToExtentX(Math.min(te, viewEnd), viewStart, viewSpan, w);
     const left = Math.min(x1, x2);
     const right = Math.max(x1, x2);
     const pad = 3;
@@ -247,8 +280,8 @@ function pickCueDragKindAtWave(
   const barHalfH = 14;
   if (y < mid - barHalfH || y > mid + barHalfH) return null;
   const viewEnd = viewStart + viewSpan;
-  const x1 = ((Math.max(ts, viewStart) - viewStart) / viewSpan) * w;
-  const x2 = ((Math.min(te, viewEnd) - viewStart) / viewSpan) * w;
+  const x1 = waveTimeToExtentX(Math.max(ts, viewStart), viewStart, viewSpan, w);
+  const x2 = waveTimeToExtentX(Math.min(te, viewEnd), viewStart, viewSpan, w);
   const left = Math.min(x1, x2);
   const right = Math.max(x1, x2);
   let mode: CueDragEdgeMode = "move";
@@ -277,7 +310,7 @@ function hitPlayheadStripForScrub(
   const zoomed = viewPortion < 1 - 1e-9;
   const xPlay = zoomed
     ? WAVE_PLAYHEAD_X_FRAC * w
-    : ((playheadSec - viewStart) / viewSpan) * w;
+    : waveTimeToExtentX(playheadSec, viewStart, viewSpan, w);
   return Math.abs(x - xPlay) <= PLAYHEAD_SCRUB_HALF_WIDTH_PX;
 }
 
@@ -637,14 +670,14 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       g.fillRect(0, 0, w, h);
 
       if (d > 0 && trimS > 0) {
-        const xTrim = ((trimS - viewStart) / viewSpan) * w;
+        const xTrim = waveTimeToExtentX(trimS, viewStart, viewSpan, w);
         if (xTrim > 0 && xTrim < w) {
           g.fillStyle = "rgba(15,23,42,0.55)";
           g.fillRect(0, 0, xTrim, h);
         }
       }
       if (d > 0 && trimE != null && trimE < d) {
-        const xTrim = ((trimE - viewStart) / viewSpan) * w;
+        const xTrim = waveTimeToExtentX(trimE, viewStart, viewSpan, w);
         if (xTrim > 0 && xTrim < w) {
           g.fillStyle = "rgba(15,23,42,0.55)";
           g.fillRect(xTrim, 0, w - xTrim, h);
@@ -660,10 +693,10 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         const t =
           pk.length <= 1 ? d / 2 : (i / (pk.length - 1)) * d;
         if (t < viewStart || t > viewEnd) return;
-        const x = ((t - viewStart) / viewSpan) * w;
+        const x = waveTimeToExtentX(t, viewStart, viewSpan, w);
         if (x < -1 || x > w + 1) return;
         const amp = waveAmpRef.current;
-        const ph = Math.min(h * 0.48, ((p * h) / 2) * amp);
+        const ph = Math.min(h * 0.45, ((p * h) / 2) * amp);
         g.beginPath();
         g.moveTo(x, mid - ph);
         g.lineTo(x, mid + ph);
@@ -752,8 +785,8 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             te = dragPrev.tEnd;
           }
           if (te < viewStart || ts > viewEnd) continue;
-          const x1 = ((Math.max(ts, viewStart) - viewStart) / viewSpan) * w;
-          const x2 = ((Math.min(te, viewEnd) - viewStart) / viewSpan) * w;
+          const x1 = waveTimeToExtentX(Math.max(ts, viewStart), viewStart, viewSpan, w);
+          const x2 = waveTimeToExtentX(Math.min(te, viewEnd), viewStart, viewSpan, w);
           const left = Math.min(x1, x2);
           const width = Math.max(3, Math.abs(x2 - x1));
           const isDrag = dragCueId === cue.id;
@@ -779,8 +812,8 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         let te = newPrev.tEnd;
         if (te < ts) [ts, te] = [te, ts];
         if (te >= viewStart && ts <= viewEnd) {
-          const x1 = ((Math.max(ts, viewStart) - viewStart) / viewSpan) * w;
-          const x2 = ((Math.min(te, viewEnd) - viewStart) / viewSpan) * w;
+          const x1 = waveTimeToExtentX(Math.max(ts, viewStart), viewStart, viewSpan, w);
+          const x2 = waveTimeToExtentX(Math.min(te, viewEnd), viewStart, viewSpan, w);
           const left = Math.min(x1, x2);
           const width = Math.max(3, Math.abs(x2 - x1));
           const inset = 0.5;
@@ -821,7 +854,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         if (zoomed) {
           xPlay = WAVE_PLAYHEAD_X_FRAC * w;
         } else {
-          xPlay = ((playheadTime - viewStart) / viewSpan) * w;
+          xPlay = waveTimeToExtentX(playheadTime, viewStart, viewSpan, w);
           if (Number.isFinite(xPlay)) {
             xPlay = Math.min(w, Math.max(0, Math.round(xPlay * 2) / 2));
           } else {
@@ -1149,7 +1182,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       }
       const r = c.getBoundingClientRect();
       const x = e.clientX - r.left;
-      const t = viewStart + (x / r.width) * viewSpan;
+      const t = waveExtentXToTime(x, viewStart, viewSpan, r.width);
       const clamped = Math.max(trimStartSec, Math.min(trimEndSec ?? duration, t));
       a.currentTime = clamped;
       setCurrentTime(clamped);
@@ -1416,7 +1449,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       if (viewSpan <= 0) return;
       const r = c.getBoundingClientRect();
       const x = e.clientX - r.left;
-      const t = viewStart + (x / r.width) * viewSpan;
+      const t = waveExtentXToTime(x, viewStart, viewSpan, r.width);
       const clamped = Math.max(trimStartSec, Math.min(trimEndSec ?? duration, t));
       e.preventDefault();
       e.stopPropagation();
@@ -1576,7 +1609,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       const timeFromClientX = (clientX: number) => {
         const r = c.getBoundingClientRect();
         const x = clientX - r.left;
-        const t = viewStart + (x / r.width) * viewSpan;
+        const t = waveExtentXToTime(x, viewStart, viewSpan, r.width);
         return Math.max(trimLo, Math.min(trimHi, t));
       };
 
@@ -1874,7 +1907,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               const ww = rr.width;
               if (ww > 0) {
                 const xUp = ev.clientX - rr.left;
-                let tSeek = viewStart + (xUp / ww) * viewSpan;
+                let tSeek = waveExtentXToTime(xUp, viewStart, viewSpan, ww);
                 tSeek = Math.max(st.trimLo, Math.min(st.trimHi, tSeek));
                 const au = audioRef.current;
                 if (au) {
