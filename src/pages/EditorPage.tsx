@@ -76,7 +76,7 @@ const EDITOR_WIDE_MIN_PX = 1280;
 /** メイン 4 列グリッドの列間（ステージ〜タイムラインのすき間に効く） */
 const EDITOR_GRID_GAP_PX = 6;
 
-/** 上部波形ドック直下：音源取込・再生・戻る／進む（エディタグリッド内） */
+/** 上部波形ドック直下：再生・戻る／進む（音源取込は右列タイルへ） */
 const editorTopWaveToolbarChrome: CSSProperties = {
   display: "flex",
   flexWrap: "nowrap",
@@ -1651,26 +1651,6 @@ export function EditorPage() {
                   opacity: project.viewMode === "view" ? 0.5 : 1,
                 }}
                 disabled={project.viewMode === "view"}
-                title="楽曲または動画から音声を読み込み（MP4 / AVI / MOV / MKV / WMV 等に対応）"
-                aria-label="音源を取り込む"
-                onPointerEnter={() => {
-                  void preloadFFmpeg();
-                }}
-                onClick={() => {
-                  void preloadFFmpeg();
-                  timelineRef.current?.openAudioImport();
-                }}
-              >
-                音源取込
-              </button>
-              <button
-                type="button"
-                style={{
-                  ...editorTopWaveTextBtn,
-                  cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
-                  opacity: project.viewMode === "view" ? 0.5 : 1,
-                }}
-                disabled={project.viewMode === "view"}
                 title={isPlaying ? "一時停止" : "再生"}
                 aria-label={isPlaying ? "一時停止" : "再生"}
                 onClick={() => timelineRef.current?.togglePlay()}
@@ -1909,6 +1889,23 @@ export function EditorPage() {
             >
               <div className="editor-right-tools-host">
                 <div className="editor-right-tools-tiles">
+                  <button
+                    type="button"
+                    className="editor-right-tool-sq"
+                    disabled={project.viewMode === "view"}
+                    title="楽曲または動画から音声を読み込み（MP4 / AVI / MOV / MKV / WMV 等に対応）"
+                    aria-label="音源を取り込む"
+                    onPointerEnter={() => {
+                      void preloadFFmpeg();
+                    }}
+                    onClick={() => {
+                      void preloadFFmpeg();
+                      timelineRef.current?.openAudioImport();
+                    }}
+                  >
+                    <span>音源</span>
+                    <span>取込</span>
+                  </button>
                   <ChoreoGridToolbar
                     embedInPanel
                     tilesInRun
