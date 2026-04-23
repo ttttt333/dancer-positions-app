@@ -1,12 +1,62 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import { isDemoSessionToken, projectApi } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
 import { ChoreoGridLogo } from "../components/ChoreoGridLogo";
 import { btnAccent, btnSecondary } from "../components/stageButtonStyles";
-import { panelCard, shell } from "../theme/choreoShell";
+import { shell } from "../theme/choreoShell";
 import { tryMigrateFromLocalStorage } from "../lib/projectDefaults";
+
+/** 左カラムとヘッダの水平インセット */
+const LIBRARY_GUTTER = "clamp(16px, 4vw, 44px)";
+
+/** 奥行き:エディタの床のような薄いグリッド＋ライト（ルートでは裏にエディタは積めないため演出） */
+const libraryBackdropLayer: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  zIndex: 0,
+  pointerEvents: "none",
+  background: `
+    radial-gradient(ellipse 70% 52% at 76% 46%, rgba(212, 175, 55, 0.1), transparent 54%),
+    linear-gradient(118deg, rgba(5, 5, 6, 0.2) 0%, rgba(6, 6, 8, 0.72) 36%, rgba(8, 7, 10, 0.35) 100%),
+    repeating-linear-gradient(90deg, rgba(212, 175, 55, 0.05) 0 1px, transparent 1px 52px),
+    repeating-linear-gradient(0deg, rgba(212, 175, 55, 0.04) 0 1px, transparent 1px 52px),
+    ${shell.bgDeep}
+  `,
+};
+
+/** 右側に薄い「ステージ枠」で次ページを連想させる */
+const libraryStagePeekLayer: CSSProperties = {
+  position: "absolute",
+  top: "7%",
+  right: "4%",
+  bottom: "9%",
+  left: "44%",
+  zIndex: 0,
+  pointerEvents: "none",
+  borderRadius: "20px",
+  border: "1px solid rgba(212, 175, 55, 0.14)",
+  background:
+    "linear-gradient(168deg, rgba(24, 22, 18, 0.18) 0%, rgba(8, 8, 10, 0.42) 100%)",
+  boxShadow: "inset 0 0 100px rgba(0,0,0,0.45)",
+  opacity: 0.9,
+};
+
+const libraryGlassHeader: CSSProperties = {
+  background: "rgba(10, 9, 8, 0.62)",
+  backdropFilter: "blur(14px)",
+  WebkitBackdropFilter: "blur(14px)",
+  borderBottom: `1px solid ${shell.border}`,
+};
+
+const libraryGlassPanel: CSSProperties = {
+  background: "rgba(14, 13, 11, 0.55)",
+  border: `1px solid ${shell.borderStrong}`,
+  borderRadius: "14px",
+  backdropFilter: "blur(12px)",
+  WebkitBackdropFilter: "blur(12px)",
+};
 
 function formatUpdatedAt(iso: string): string {
   try {
@@ -56,17 +106,29 @@ export function LibraryPage() {
     return (
       <div
         style={{
+          position: "relative",
           minHeight: "100dvh",
-          background: shell.bgDeep,
+          overflow: "hidden",
           color: shell.textMuted,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
           fontFamily: "system-ui, sans-serif",
           WebkitFontSmoothing: "antialiased",
         }}
       >
-        {t("common.loading")}
+        <div style={libraryBackdropLayer} aria-hidden />
+        <div style={libraryStagePeekLayer} aria-hidden />
+        <div
+          style={{
+            position: "relative",
+            zIndex: 1,
+            minHeight: "100dvh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-start",
+            paddingLeft: LIBRARY_GUTTER,
+          }}
+        >
+          {t("common.loading")}
+        </div>
       </div>
     );
   }
@@ -74,25 +136,35 @@ export function LibraryPage() {
   return (
     <div
       style={{
+        position: "relative",
         minHeight: "100dvh",
-        background: shell.bgDeep,
+        overflow: "hidden",
         color: shell.text,
         fontFamily:
           'system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Sans", "Noto Sans JP", sans-serif',
         WebkitFontSmoothing: "antialiased",
       }}
     >
+      <div style={libraryBackdropLayer} aria-hidden />
+      <div style={libraryStagePeekLayer} aria-hidden />
+      <div
+        style={{
+          position: "relative",
+          zIndex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minHeight: "100dvh",
+        }}
+      >
       <header
         style={{
-          borderBottom: `1px solid ${shell.border}`,
-          background: shell.bgChrome,
-          padding: "14px 20px",
+          ...libraryGlassHeader,
+          padding: `14px ${LIBRARY_GUTTER}`,
         }}
       >
         <div
           style={{
-            maxWidth: 720,
-            margin: "0 auto",
+            width: "100%",
             display: "flex",
             flexWrap: "wrap",
             alignItems: "center",
@@ -165,135 +237,172 @@ export function LibraryPage() {
         </div>
       </header>
 
-      <main style={{ maxWidth: 720, margin: "0 auto", padding: "24px 20px 48px" }}>
-        <p style={{ margin: "0 0 22px", fontSize: "14px", lineHeight: 1.55, color: shell.textMuted }}>
-          {t("library.pageSubtitle")}
-        </p>
-
-        {isDemoSessionToken() ? (
-          <div
+      <main
+        style={{
+          flex: 1,
+          display: "flex",
+          justifyContent: "flex-start",
+          alignItems: "stretch",
+          padding: `28px ${LIBRARY_GUTTER} 56px ${LIBRARY_GUTTER}`,
+          boxSizing: "border-box",
+        }}
+      >
+        <div
+          style={{
+            width: "min(100%, 520px)",
+            maxWidth: 520,
+            marginRight: "auto",
+          }}
+        >
+          <p
             style={{
-              ...panelCard,
-              padding: "12px 14px",
-              marginBottom: 20,
-              border: "1px solid rgba(234, 179, 8, 0.45)",
-              background: "rgba(234, 179, 8, 0.08)",
-              color: "#fef3c7",
-              fontSize: "13px",
-              lineHeight: 1.5,
+              margin: "0 0 22px",
+              fontSize: "14px",
+              lineHeight: 1.55,
+              color: shell.textMuted,
+              textAlign: "left",
             }}
           >
-            {t("dashboard.demoSessionBanner")}
-          </div>
-        ) : null}
+            {t("library.pageSubtitle")}
+          </p>
 
-        <section style={{ marginBottom: 28 }}>
-          <Link
-            to="/editor/new"
-            style={{
-              ...btnAccent,
-              textDecoration: "none",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "14px 24px",
-              fontSize: "15px",
-              width: "100%",
-              boxSizing: "border-box",
-            }}
-          >
-            {t("library.newWork")}
-          </Link>
-        </section>
+          {isDemoSessionToken() ? (
+            <div
+              style={{
+                ...libraryGlassPanel,
+                padding: "12px 14px",
+                marginBottom: 20,
+                border: "1px solid rgba(234, 179, 8, 0.42)",
+                background: "rgba(234, 179, 8, 0.12)",
+                color: "#fef3c7",
+                fontSize: "13px",
+                lineHeight: 1.5,
+              }}
+            >
+              {t("dashboard.demoSessionBanner")}
+            </div>
+          ) : null}
 
-        {legacyProject ? (
           <section style={{ marginBottom: 28 }}>
+            <Link
+              to="/editor/new"
+              style={{
+                ...btnAccent,
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "14px 24px",
+                fontSize: "15px",
+                width: "100%",
+                boxSizing: "border-box",
+              }}
+            >
+              {t("library.newWork")}
+            </Link>
+          </section>
+
+          {legacyProject ? (
+            <section style={{ marginBottom: 28 }}>
+              <h2
+                style={{
+                  margin: "0 0 10px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  letterSpacing: "0.12em",
+                  color: shell.textSubtle,
+                  textAlign: "left",
+                }}
+              >
+                {t("library.browserDataTitle")}
+              </h2>
+              <div style={{ ...libraryGlassPanel, padding: "18px 20px" }}>
+                <p style={{ margin: "0 0 14px", fontSize: "14px", color: shell.textMuted, lineHeight: 1.55 }}>
+                  {t("library.browserDataDesc")}
+                </p>
+                <Link
+                  to="/editor/new"
+                  style={{
+                    ...btnSecondary,
+                    textDecoration: "none",
+                    display: "inline-flex",
+                    padding: "10px 18px",
+                    fontSize: "13px",
+                  }}
+                >
+                  {t("library.openBrowserData")}
+                </Link>
+              </div>
+            </section>
+          ) : null}
+
+          <section>
             <h2
               style={{
-                margin: "0 0 10px",
+                margin: "0 0 14px",
                 fontSize: "12px",
                 fontWeight: 600,
                 letterSpacing: "0.12em",
                 color: shell.textSubtle,
+                textAlign: "left",
               }}
             >
-              {t("library.browserDataTitle")}
+              {t("library.cloudSection")}
             </h2>
-            <div style={{ ...panelCard, padding: "18px 20px" }}>
-              <p style={{ margin: "0 0 14px", fontSize: "14px", color: shell.textMuted, lineHeight: 1.55 }}>
-                {t("library.browserDataDesc")}
-              </p>
-              <Link
-                to="/editor/new"
+
+            {!me ? (
+              <div style={{ ...libraryGlassPanel, padding: "22px 20px" }}>
+                <p style={{ margin: 0, fontSize: "14px", color: shell.textMuted, lineHeight: 1.55 }}>
+                  {t("library.needLoginForCloud")}
+                </p>
+              </div>
+            ) : null}
+
+            {me && error ? <p style={{ color: "#fca5a5", marginBottom: 16 }}>{error}</p> : null}
+
+            {me ? (
+              <ul
                 style={{
-                  ...btnSecondary,
-                  textDecoration: "none",
-                  display: "inline-flex",
-                  padding: "10px 18px",
-                  fontSize: "13px",
+                  listStyle: "none",
+                  padding: 0,
+                  margin: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 12,
                 }}
               >
-                {t("library.openBrowserData")}
-              </Link>
-            </div>
+                {projects.map((p) => (
+                  <li key={p.id} style={{ ...libraryGlassPanel, padding: 0, overflow: "hidden" }}>
+                    <Link
+                      to={`/editor/${p.id}`}
+                      style={{
+                        display: "block",
+                        padding: "18px 20px",
+                        textDecoration: "none",
+                        color: shell.text,
+                      }}
+                    >
+                      <div style={{ fontSize: "16px", fontWeight: 600, marginBottom: 6 }}>{p.name}</div>
+                      <div style={{ fontSize: "12px", color: shell.textMuted }}>
+                        {t("dashboard.updatedLabel")}: {formatUpdatedAt(p.updated_at)}
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
+            {me && projects.length === 0 && !error ? (
+              <div style={{ ...libraryGlassPanel, padding: "28px 20px", textAlign: "left" }}>
+                <p style={{ margin: 0, fontSize: "14px", color: shell.textMuted, lineHeight: 1.6 }}>
+                  {t("library.emptyCloud")}
+                </p>
+              </div>
+            ) : null}
           </section>
-        ) : null}
-
-        <section>
-          <h2
-            style={{
-              margin: "0 0 14px",
-              fontSize: "12px",
-              fontWeight: 600,
-              letterSpacing: "0.12em",
-              color: shell.textSubtle,
-            }}
-          >
-            {t("library.cloudSection")}
-          </h2>
-
-          {!me ? (
-            <div style={{ ...panelCard, padding: "22px 20px" }}>
-              <p style={{ margin: 0, fontSize: "14px", color: shell.textMuted, lineHeight: 1.55 }}>
-                {t("library.needLoginForCloud")}
-              </p>
-            </div>
-          ) : null}
-
-          {me && error ? <p style={{ color: "#fca5a5", marginBottom: 16 }}>{error}</p> : null}
-
-          {me ? (
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 12 }}>
-              {projects.map((p) => (
-                <li key={p.id} style={{ ...panelCard, padding: 0, overflow: "hidden" }}>
-                  <Link
-                    to={`/editor/${p.id}`}
-                    style={{
-                      display: "block",
-                      padding: "18px 20px",
-                      textDecoration: "none",
-                      color: shell.text,
-                    }}
-                  >
-                    <div style={{ fontSize: "16px", fontWeight: 600, marginBottom: 6 }}>{p.name}</div>
-                    <div style={{ fontSize: "12px", color: shell.textMuted }}>
-                      {t("dashboard.updatedLabel")}: {formatUpdatedAt(p.updated_at)}
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-
-          {me && projects.length === 0 && !error ? (
-            <div style={{ ...panelCard, padding: "28px 20px", textAlign: "center" }}>
-              <p style={{ margin: 0, fontSize: "14px", color: shell.textMuted, lineHeight: 1.6 }}>
-                {t("library.emptyCloud")}
-              </p>
-            </div>
-          ) : null}
-        </section>
+        </div>
       </main>
+      </div>
     </div>
   );
 }
