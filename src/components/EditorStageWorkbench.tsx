@@ -45,6 +45,8 @@ export type EditorStageWorkbenchProps = {
   hasRosterMembers: boolean;
   /** true のとき「テキスト」（床プレビュー配置）ボタンとその入力帯を出さない */
   hideFloorTextToolbar?: boolean;
+  /** true のとき右レールの「戻る」「進む」を出さない（上部ドックと重複しないため） */
+  hideUndoRedoInRail?: boolean;
 };
 
 export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
@@ -89,6 +91,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
     commitFloorTextPlace,
     hasRosterMembers,
     hideFloorTextToolbar = false,
+    hideUndoRedoInRail = false,
   } = props;
 
   const rowOuter: CSSProperties = rail
@@ -738,26 +741,30 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               aria-hidden
             />
           ) : null}
-    <button
-      type="button"
-      style={btnSecondary}
-      disabled={project.viewMode === "view" || stageUndoDisabled}
-      title="編集を元に戻す（⌘Z / Ctrl+Z）"
-      aria-label="元に戻す"
-      onClick={() => undo()}
-    >
-      戻る
-    </button>
-    <button
-      type="button"
-      style={btnSecondary}
-      disabled={project.viewMode === "view" || stageRedoDisabled}
-      title="やり直す（⌘⇧Z / Ctrl+Shift+Z）"
-      aria-label="やり直す"
-      onClick={() => redo()}
-    >
-      進む
-    </button>
+    {!hideUndoRedoInRail ? (
+      <>
+        <button
+          type="button"
+          style={btnSecondary}
+          disabled={project.viewMode === "view" || stageUndoDisabled}
+          title="編集を元に戻す（⌘Z / Ctrl+Z）"
+          aria-label="元に戻す"
+          onClick={() => undo()}
+        >
+          戻る
+        </button>
+        <button
+          type="button"
+          style={btnSecondary}
+          disabled={project.viewMode === "view" || stageRedoDisabled}
+          title="やり直す（⌘⇧Z / Ctrl+Shift+Z）"
+          aria-label="やり直す"
+          onClick={() => redo()}
+        >
+          進む
+        </button>
+      </>
+    ) : null}
     <button
       type="button"
       style={{

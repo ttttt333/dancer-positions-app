@@ -49,6 +49,44 @@ const timelineToolbarBtn: CSSProperties = {
   lineHeight: 1.2,
 };
 
+/** 上部ドック用：細い円枠＋金色の巻き戻し系矢印（Redo は左右反転） */
+const WAVE_HISTORY_GOLD = "#d4af37";
+const WAVE_HISTORY_RING = "rgba(148, 163, 184, 0.55)";
+
+function WaveHistoryRoundIcon({ kind }: { kind: "undo" | "redo" }) {
+  const mirror = kind === "redo";
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden style={{ display: "block" }}>
+      <g transform={mirror ? "translate(24 0) scale(-1 1)" : undefined}>
+        <circle
+          cx="12"
+          cy="12"
+          r="10"
+          fill="none"
+          stroke={WAVE_HISTORY_RING}
+          strokeWidth="1.05"
+        />
+        <path
+          fill="none"
+          stroke={WAVE_HISTORY_GOLD}
+          strokeWidth="2.05"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="m9 14-5-5 5-5"
+        />
+        <path
+          fill="none"
+          stroke={WAVE_HISTORY_GOLD}
+          strokeWidth="2.05"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"
+        />
+      </g>
+    </svg>
+  );
+}
+
 export type TimelinePanelHandle = {
   togglePlay: () => void;
   /** 仕様 §5: 再生中ステージクリックなどと同じ「停止」（一時停止＋先頭付近へ） */
@@ -2259,39 +2297,14 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               background: shell.bgChrome,
             }}
           >
-            {onUndo ? (
-              <button
-                type="button"
-                style={{
-                  ...timelineToolbarBtn,
-                  width: tlPx(30),
-                  height: tlPx(28),
-                  minWidth: tlPx(30),
-                  padding: 0,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: tlPx(14),
-                  flexShrink: 0,
-                }}
-                disabled={undoDisabled}
-                title="編集を元に戻す（⌘Z / Ctrl+Z）"
-                aria-label="元に戻す"
-                onClick={() => onUndo()}
-              >
-                ◀
-              </button>
-            ) : (
-              <div style={{ width: tlPx(30), flexShrink: 0 }} aria-hidden />
-            )}
+            <div style={{ flex: 1, minWidth: 0 }} aria-hidden />
             <div
               style={{
-                flex: 1,
-                minWidth: 0,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 gap: tlPx(6),
+                flexShrink: 0,
               }}
             >
               <button
@@ -2317,32 +2330,60 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                 durationSec={duration}
                 monoFontSizePx={12 * TIMELINE_UI_SCALE}
               />
+              {onUndo ? (
+                <button
+                  type="button"
+                  style={{
+                    width: tlPx(32),
+                    height: tlPx(32),
+                    minWidth: tlPx(32),
+                    padding: 0,
+                    borderRadius: "50%",
+                    border: "none",
+                    background: "transparent",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    cursor: undoDisabled ? "not-allowed" : "pointer",
+                    opacity: undoDisabled ? 0.42 : 1,
+                  }}
+                  disabled={undoDisabled}
+                  title="編集を元に戻す（⌘Z / Ctrl+Z）"
+                  aria-label="元に戻す"
+                  onClick={() => onUndo()}
+                >
+                  <WaveHistoryRoundIcon kind="undo" />
+                </button>
+              ) : null}
+              {onRedo ? (
+                <button
+                  type="button"
+                  style={{
+                    width: tlPx(32),
+                    height: tlPx(32),
+                    minWidth: tlPx(32),
+                    padding: 0,
+                    borderRadius: "50%",
+                    border: "none",
+                    background: "transparent",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    cursor: redoDisabled ? "not-allowed" : "pointer",
+                    opacity: redoDisabled ? 0.42 : 1,
+                  }}
+                  disabled={redoDisabled}
+                  title="やり直す（⌘⇧Z / Ctrl+Shift+Z）"
+                  aria-label="やり直す"
+                  onClick={() => onRedo()}
+                >
+                  <WaveHistoryRoundIcon kind="redo" />
+                </button>
+              ) : null}
             </div>
-            {onRedo ? (
-              <button
-                type="button"
-                style={{
-                  ...timelineToolbarBtn,
-                  width: tlPx(30),
-                  height: tlPx(28),
-                  minWidth: tlPx(30),
-                  padding: 0,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: tlPx(14),
-                  flexShrink: 0,
-                }}
-                disabled={redoDisabled}
-                title="やり直す（⌘⇧Z / Ctrl+Shift+Z）"
-                aria-label="やり直す"
-                onClick={() => onRedo()}
-              >
-                ▶
-              </button>
-            ) : (
-              <div style={{ width: tlPx(30), flexShrink: 0 }} aria-hidden />
-            )}
+            <div style={{ flex: 1, minWidth: 0 }} aria-hidden />
           </div>
         )}
         <div

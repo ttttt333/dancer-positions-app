@@ -1341,6 +1341,7 @@ export function EditorPage() {
     commitFloorTextPlace,
     hasRosterMembers,
     hideFloorTextToolbar: showTopWaveDock,
+    hideUndoRedoInRail: showTopWaveDock,
   };
 
   return (
