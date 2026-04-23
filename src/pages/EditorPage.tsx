@@ -76,52 +76,6 @@ const EDITOR_WIDE_MIN_PX = 1280;
 /** メイン 4 列グリッドの列間（ステージ〜タイムラインのすき間に効く） */
 const EDITOR_GRID_GAP_PX = 6;
 
-/** 上部波形ドック直下：再生・戻る／進む（音源取込は右列タイルへ） */
-const editorTopWaveToolbarChrome: CSSProperties = {
-  display: "flex",
-  flexWrap: "nowrap",
-  alignItems: "center",
-  gap: 8,
-  padding: "4px 8px 8px",
-  flexShrink: 0,
-  minWidth: 0,
-  borderBottom: `1px solid ${shell.border}`,
-  background: shell.bgChrome,
-};
-
-const editorTopWaveTextBtn: CSSProperties = {
-  ...btnSecondary,
-  padding: "6px 14px",
-  minHeight: 32,
-  fontSize: 12,
-  fontWeight: 600,
-  borderRadius: 6,
-  border: `1px solid ${shell.borderStrong}`,
-  background: shell.surfaceRaised,
-  color: shell.text,
-  flexShrink: 0,
-  cursor: "pointer",
-};
-
-const editorTopWaveArrowBtn: CSSProperties = {
-  ...btnSecondary,
-  width: 32,
-  height: 32,
-  minWidth: 32,
-  padding: 0,
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: 15,
-  lineHeight: 1,
-  borderRadius: 6,
-  border: `1px solid ${shell.borderStrong}`,
-  background: shell.surfaceRaised,
-  color: shell.text,
-  flexShrink: 0,
-  cursor: "pointer",
-};
-
 /** ステージ列とタイムライン列の間のドラッグ幅 */
 const STAGE_RESIZER_PX = 4;
 const STAGE_COL_MIN_PX = 280;
@@ -1574,7 +1528,7 @@ export function EditorPage() {
               ? `${
                   topDockRowPx != null
                     ? `${topDockRowPx}px`
-                    : "minmax(48px, min(18vh, 180px))"
+                    : "minmax(40px, min(16vh, 160px))"
                 } 4px minmax(0, 1fr)`
               : "1fr"
             : "auto auto auto",
@@ -1595,7 +1549,7 @@ export function EditorPage() {
                */
               background: "transparent",
               border: "none",
-              padding: "2px 4px 0",
+              padding: "0 4px 0",
               minHeight: 0,
               minWidth: 0,
               display: "flex",
@@ -1609,7 +1563,7 @@ export function EditorPage() {
                   flexShrink: 0,
                   display: "flex",
                   justifyContent: "flex-end",
-                  padding: "0 4px 4px",
+                  padding: "0 4px 2px",
                 }}
               >
                 <button
@@ -1639,53 +1593,6 @@ export function EditorPage() {
                 </button>
               </div>
             ) : null}
-            <div
-              className="editor-top-wave-toolbar"
-              style={editorTopWaveToolbarChrome}
-            >
-              <button
-                type="button"
-                style={{
-                  ...editorTopWaveTextBtn,
-                  cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
-                  opacity: project.viewMode === "view" ? 0.5 : 1,
-                }}
-                disabled={project.viewMode === "view"}
-                title={isPlaying ? "一時停止" : "再生"}
-                aria-label={isPlaying ? "一時停止" : "再生"}
-                onClick={() => timelineRef.current?.togglePlay()}
-              >
-                {isPlaying ? "一時停止" : "再生"}
-              </button>
-              <button
-                type="button"
-                style={{
-                  ...editorTopWaveArrowBtn,
-                  cursor: stageUndoDisabled ? "not-allowed" : "pointer",
-                  opacity: stageUndoDisabled ? 0.45 : 1,
-                }}
-                disabled={stageUndoDisabled}
-                title="編集を元に戻す（⌘Z / Ctrl+Z）"
-                aria-label="元に戻す"
-                onClick={() => undo()}
-              >
-                ◀
-              </button>
-              <button
-                type="button"
-                style={{
-                  ...editorTopWaveArrowBtn,
-                  cursor: stageRedoDisabled ? "not-allowed" : "pointer",
-                  opacity: stageRedoDisabled ? 0.45 : 1,
-                }}
-                disabled={stageRedoDisabled}
-                title="やり直す（⌘⇧Z / Ctrl+Shift+Z）"
-                aria-label="やり直す"
-                onClick={() => redo()}
-              >
-                ▶
-              </button>
-            </div>
             <div style={{ flex: "1 1 auto", minHeight: 0, display: "flex", flexDirection: "column" }}>
               {timelinePanelEl}
             </div>

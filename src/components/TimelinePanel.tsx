@@ -1912,7 +1912,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: compactTopDock ? tlPx(2) : tlPx(4),
+          gap: compactTopDock ? 0 : tlPx(4),
           minHeight: 0,
           flex: "1 1 auto",
           fontSize: compactTopDock ? tlPx(11) : tlPx(12),
@@ -2170,22 +2170,99 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               display: "flex",
               flexWrap: "nowrap",
               alignItems: "center",
-              justifyContent: "flex-end",
-              gap: tlPx(8),
+              gap: tlPx(4),
               width: "100%",
               minWidth: 0,
-              padding: `${tlPx(2)} ${tlPx(4)} ${tlPx(4)}`,
+              padding: `${tlPx(0)} ${tlPx(6)} ${tlPx(2)}`,
               borderBottom: `1px solid ${shell.border}`,
               flexShrink: 0,
+              background: shell.bgChrome,
             }}
           >
-            <PlaybackClockReadout
-              audioRef={audioRef}
-              isPlaying={isPlaying}
-              idleTimeSec={currentTime}
-              durationSec={duration}
-              monoFontSizePx={12 * TIMELINE_UI_SCALE}
-            />
+            {onUndo ? (
+              <button
+                type="button"
+                style={{
+                  ...timelineToolbarBtn,
+                  width: tlPx(30),
+                  height: tlPx(28),
+                  minWidth: tlPx(30),
+                  padding: 0,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: tlPx(14),
+                  flexShrink: 0,
+                }}
+                disabled={undoDisabled}
+                title="編集を元に戻す（⌘Z / Ctrl+Z）"
+                aria-label="元に戻す"
+                onClick={() => onUndo()}
+              >
+                ◀
+              </button>
+            ) : (
+              <div style={{ width: tlPx(30), flexShrink: 0 }} aria-hidden />
+            )}
+            <div
+              style={{
+                flex: 1,
+                minWidth: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: tlPx(6),
+              }}
+            >
+              <button
+                type="button"
+                style={{
+                  ...timelineToolbarBtn,
+                  padding: `${tlPx(4)} ${tlPx(12)}`,
+                  minHeight: tlPx(28),
+                  fontWeight: 600,
+                  flexShrink: 0,
+                }}
+                disabled={project.viewMode === "view"}
+                onClick={togglePlay}
+                aria-label={isPlaying ? "一時停止" : "再生"}
+                title={isPlaying ? "一時停止" : "再生"}
+              >
+                {isPlaying ? "一時停止" : "再生"}
+              </button>
+              <PlaybackClockReadout
+                audioRef={audioRef}
+                isPlaying={isPlaying}
+                idleTimeSec={currentTime}
+                durationSec={duration}
+                monoFontSizePx={12 * TIMELINE_UI_SCALE}
+              />
+            </div>
+            {onRedo ? (
+              <button
+                type="button"
+                style={{
+                  ...timelineToolbarBtn,
+                  width: tlPx(30),
+                  height: tlPx(28),
+                  minWidth: tlPx(30),
+                  padding: 0,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: tlPx(14),
+                  flexShrink: 0,
+                }}
+                disabled={redoDisabled}
+                title="やり直す（⌘⇧Z / Ctrl+Shift+Z）"
+                aria-label="やり直す"
+                onClick={() => onRedo()}
+              >
+                ▶
+              </button>
+            ) : (
+              <div style={{ width: tlPx(30), flexShrink: 0 }} aria-hidden />
+            )}
           </div>
         )}
         <div
@@ -2203,8 +2280,8 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           <div
             style={{
               position: "relative",
-              height: "16px",
-              fontSize: "9px",
+              height: compactTopDock ? "13px" : "16px",
+              fontSize: compactTopDock ? "8px" : "9px",
               color: "#94a3b8",
               borderBottom: "1px solid #1e293b",
               fontVariantNumeric: "tabular-nums",
@@ -2223,7 +2300,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                       key={tick}
                       style={{
                         position: "absolute",
-                        top: "3px",
+                        top: compactTopDock ? "2px" : "3px",
                         left: `${pRounded}%`,
                         transform: "translate3d(-50%, 0, 0)",
                         whiteSpace: "nowrap",
