@@ -1805,8 +1805,7 @@ export function StageBoard({
   };
 
   /**
-   * 回転ハンドル：1 人は向きのみ。2 人以上＋選択枠ありは、枠の中心まわりに
-   * 立ち位置もまとめて剛体回転（向きも同じ差分）。
+   * 回転ハンドル：選択が 1 人のときのみ向きをドラッグで変更（複数選択時は UI なし）。
    */
   const handlePointerDownMarkerRotate = (e: ReactPointerEvent<HTMLElement>) => {
     if (e.button !== 0) return;
@@ -4150,11 +4149,15 @@ export function StageBoard({
                   y1={s.y1}
                   x2={s.x2}
                   y2={s.y2}
-                  stroke="rgba(196, 181, 253, 0.72)"
-                  strokeWidth="0.36"
-                  strokeDasharray="2.4 2"
+                  stroke="rgba(255, 255, 255, 0.95)"
+                  strokeWidth="0.62"
+                  strokeDasharray="3.2 2.2"
                   vectorEffect="non-scaling-stroke"
-                  opacity={0.9}
+                  opacity={1}
+                  style={{
+                    filter:
+                      "drop-shadow(0 0 1px rgba(0,0,0,0.9)) drop-shadow(0 0 3px rgba(0,0,0,0.55))",
+                  }}
                 />
               ))}
             </svg>
@@ -4842,43 +4845,6 @@ export function StageBoard({
                 ))}
               </div>
             )}
-            {selectionBox &&
-              selectedDancerIds.length >= 2 &&
-              !playbackOrPreview &&
-              viewMode !== "view" &&
-              stageInteractionsEnabled && (
-                <button
-                  type="button"
-                  data-group-rotate-handle
-                  aria-label="選択メンバーの向きを回転"
-                  title={`選択中の ${selectedDancerIds.length} 人を、枠の中心を軸に図形ごと回転（立ち位置と向きが一緒にまわります）`}
-                  onPointerDown={handlePointerDownMarkerRotate}
-                  style={{
-                    position: "absolute",
-                    left: `${(selectionBox.x0 + selectionBox.x1) / 2}%`,
-                    top: `calc(${selectionBox.y1}% + 12px)`,
-                    transform: "translateX(-50%)",
-                    width: 32,
-                    height: 32,
-                    borderRadius: "50%",
-                    border: `2px solid ${shell.bgDeep}`,
-                    background: shell.ruby,
-                    boxShadow: "0 2px 10px rgba(0,0,0,0.45)",
-                    cursor: "grab",
-                    touchAction: "none",
-                    pointerEvents: "auto",
-                    zIndex: 8,
-                    padding: 0,
-                    margin: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    boxSizing: "border-box",
-                  }}
-                >
-                  <RotateHandleGlyph size={14} />
-                </button>
-              )}
             {dragGhostById &&
               dragGhostById.size > 0 &&
               !playbackOrPreview &&
@@ -5196,10 +5162,7 @@ export function StageBoard({
                 selectedDancerIds.length >= 2
                   ? `選択中の ${selectedDancerIds.length} 人の ○ サイズを一括変更（現 ${pMarkerPx}px・ドラッグで変更）`
                   : `○のサイズ（${pMarkerPx}px）・ドラッグで変更`;
-              const rotateTip =
-                selectedDancerIds.length >= 2
-                  ? `選択中の ${selectedDancerIds.length} 人を図形ごと回転（枠の中心・現在 ${pFacing}°）`
-                  : `向きをドラッグで変更（現在 ${pFacing}°）`;
+              const rotateTip = `向きをドラッグで変更（現在 ${pFacing}°）`;
               const rim = Math.round(pMarkerPx / 2 + 6);
               return (
                 <div
@@ -5608,6 +5571,7 @@ export function StageBoard({
                   </div>
                 </div>
               ) : null}
+              {selectedDancerIds.length < 2 ? (
               <div
                 role="toolbar"
                 aria-label="選択した立ち位置の印の向き"
@@ -5697,6 +5661,7 @@ export function StageBoard({
                   角度を指定…
                 </button>
               </div>
+              ) : null}
               {dancerLabelBelow && (
                 <div
                   role="toolbar"

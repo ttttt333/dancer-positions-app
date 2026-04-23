@@ -10,7 +10,13 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import { StageBoard, type FloorTextPlaceSession } from "../components/StageBoard";
 import { StageDimensionFields } from "../components/StageDimensionFields";
 const Stage3DView = lazy(() =>
@@ -131,6 +137,7 @@ function readMaxStageWidthPx(
 export function EditorPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { me, ready: authReady } = useAuth();
   const { t } = useI18n();
@@ -140,6 +147,9 @@ export function EditorPage() {
   const [serverId, setServerId] = useState<number | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  /** 初回クラウド保存直後の GET をスキップ（画面を空にしない） */
+  const skipNextProjectFetchRef = useRef<number | null>(null);
+  const [cloudSaveDialogOpen, setCloudSaveDialogOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -307,6 +317,35 @@ export function EditorPage() {
       }
     }
 
+    if (skipNextProjectFetchRef.current === id) {
+      skipNextProjectFetchRef.current = null;
+      return;
+    }
+
+    type NavSeed = {
+      editorSeed?: ChoreographyProjectJson;
+      editorSeedProjectId?: number;
+    };
+    const nav = (location.state ?? null) as NavSeed | null;
+    if (
+      !collabParam &&
+      nav?.editorSeed &&
+      nav.editorSeedProjectId === id
+    ) {
+      const seeded = normalizeProject(nav.editorSeed);
+      setPlainProject(seeded);
+      setServerId(id);
+      const title = seeded.pieceTitle?.trim() || "無題の作品";
+      setProjectName(title);
+      setLoadError(null);
+      skipNextProjectFetchRef.current = id;
+      navigate(
+        { pathname: location.pathname, search: location.search },
+        { replace: true, state: {} }
+      );
+      return;
+    }
+
     let cancelled = false;
     (async () => {
       setPlainProject(null);
@@ -332,7 +371,16 @@ export function EditorPage() {
     return () => {
       cancelled = true;
     };
-  }, [projectId, collabParam, me, authReady]);
+  }, [
+    projectId,
+    collabParam,
+    me,
+    authReady,
+    location.state,
+    location.pathname,
+    location.search,
+    navigate,
+  ]);
 
   useEffect(() => {
     const mq = window.matchMedia(`(min-width: ${EDITOR_WIDE_MIN_PX}px)`);
@@ -662,6 +710,10 @@ export function EditorPage() {
       ) {
         return;
       }
+      if (e.key === "Escape" && cloudSaveDialogOpen) {
+        setCloudSaveDialogOpen(false);
+        return;
+      }
       if (e.key === "Escape" && saveMenuOpen) {
         setSaveMenuOpen(false);
         return;
@@ -711,6 +763,7 @@ export function EditorPage() {
   }, [
     redo,
     undo,
+    cloudSaveDialogOpen,
     saveMenuOpen,
     stageAreaSettingsOpen,
     stageSettingsOpen,
@@ -1152,8 +1205,9 @@ export function EditorPage() {
     timelineRef.current?.stopPlayback();
   }, []);
 
-  const saveToCloud = useCallback(async () => {
+  const performCloudSave = useCallback(async () => {
     if (!me || !project) return;
+    setCloudSaveDialogOpen(false);
     setSaving(true);
     try {
       const title =
@@ -1162,8 +1216,15 @@ export function EditorPage() {
         await projectApi.update(serverId, title, project);
       } else {
         const row = await projectApi.create(title, project);
+        const seeded = normalizeProject(project);
         setServerId(row.id);
-        navigate(`/editor/${row.id}`, { replace: true });
+        navigate(`/editor/${row.id}`, {
+          replace: true,
+          state: {
+            editorSeed: seeded,
+            editorSeedProjectId: row.id,
+          },
+        });
       }
     } catch (e) {
       alert(e instanceof Error ? e.message : "保存に失敗しました");
@@ -1471,7 +1532,7 @@ export function EditorPage() {
                   ? t("editor.saveTitleOverwrite")
                   : t("editor.saveTitleNew")
             }
-            onClick={() => void saveToCloud()}
+            onClick={() => setCloudSaveDialogOpen(true)}
           >
             <svg
               viewBox="0 0 24 24"
@@ -1691,25 +1752,79 @@ export function EditorPage() {
                 flexDirection: "column",
               }}
             >
-              {cuesSortedForStageJump.length > 0 ? (
+              <div
+                style={{
+                  position: "absolute",
+                  top: 2,
+                  right: 4,
+                  zIndex: 40,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "flex-end",
+                  gap: 6,
+                  pointerEvents: "none",
+                }}
+              >
+                {cuesSortedForStageJump.length > 0 ? (
+                  <div style={{ pointerEvents: "auto" }}>
+                    <WorkbenchCuePager
+                      variant="stageCorner"
+                      project={project}
+                      cuesSortedForStageJump={cuesSortedForStageJump}
+                      selectedCueId={selectedCueId}
+                      jumpToCueByIdx={jumpToCueByIdx}
+                    />
+                  </div>
+                ) : null}
                 <div
+                  role="group"
+                  aria-label="ステージを 2D または 3D で表示"
                   style={{
-                    position: "absolute",
-                    top: 2,
-                    right: 4,
-                    zIndex: 40,
+                    display: "flex",
+                    flexDirection: "row",
+                    gap: 4,
                     pointerEvents: "auto",
+                    flexShrink: 0,
                   }}
                 >
-                  <WorkbenchCuePager
-                    variant="stageCorner"
-                    project={project}
-                    cuesSortedForStageJump={cuesSortedForStageJump}
-                    selectedCueId={selectedCueId}
-                    jumpToCueByIdx={jumpToCueByIdx}
-                  />
+                  <button
+                    type="button"
+                    style={{
+                      ...btnSecondary,
+                      padding: "3px 8px",
+                      fontSize: "10px",
+                      fontWeight: 700,
+                      lineHeight: 1.2,
+                      borderRadius: 6,
+                      ...(stageView === "2d"
+                        ? { borderColor: "#6366f1", color: "#c7d2fe" }
+                        : {}),
+                    }}
+                    title="平面の編集ステージ"
+                    onClick={() => setStageView("2d")}
+                  >
+                    2D
+                  </button>
+                  <button
+                    type="button"
+                    style={{
+                      ...btnSecondary,
+                      padding: "3px 8px",
+                      fontSize: "10px",
+                      fontWeight: 700,
+                      lineHeight: 1.2,
+                      borderRadius: 6,
+                      ...(stageView === "3d"
+                        ? { borderColor: "#6366f1", color: "#c7d2fe" }
+                        : {}),
+                    }}
+                    title="簡易 3D プレビュー"
+                    onClick={() => setStageView("3d")}
+                  >
+                    3D
+                  </button>
                 </div>
-              ) : null}
+              </div>
               <div
                 ref={stageBoardHostRef}
                 style={{
@@ -2890,6 +3005,89 @@ export function EditorPage() {
           setStageShapePickerOpen(false);
         }}
       />
+
+      {cloudSaveDialogOpen && me && project ? (
+        <div
+          role="presentation"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 85,
+            background: "rgba(2, 6, 23, 0.72)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "max(16px, env(safe-area-inset-top))",
+            boxSizing: "border-box",
+          }}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setCloudSaveDialogOpen(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cloud-save-dialog-title"
+            style={{
+              ...panelCard,
+              maxWidth: 440,
+              width: "100%",
+              padding: "20px 22px 22px",
+              boxSizing: "border-box",
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <h2
+              id="cloud-save-dialog-title"
+              style={{
+                margin: "0 0 12px",
+                fontSize: "17px",
+                fontWeight: 700,
+                color: "#f1f5f9",
+              }}
+            >
+              {t("editor.cloudSaveTitle")}
+            </h2>
+            <p
+              style={{
+                margin: "0 0 20px",
+                fontSize: "13px",
+                lineHeight: 1.6,
+                color: "#94a3b8",
+              }}
+            >
+              {serverId != null
+                ? t("editor.cloudSaveBodyOverwrite")
+                : t("editor.cloudSaveBodyNew")}
+            </p>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 10,
+                justifyContent: "flex-end",
+              }}
+            >
+              <button
+                type="button"
+                style={{ ...btnSecondary, padding: "8px 16px", fontSize: "13px" }}
+                disabled={saving}
+                onClick={() => setCloudSaveDialogOpen(false)}
+              >
+                {t("editor.cloudSaveNo")}
+              </button>
+              <button
+                type="button"
+                style={{ ...btnAccent, padding: "8px 16px", fontSize: "13px" }}
+                disabled={saving}
+                onClick={() => void performCloudSave()}
+              >
+                {saving ? t("editor.saving") : t("editor.cloudSaveYes")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {project ? (
         <ExportDialog

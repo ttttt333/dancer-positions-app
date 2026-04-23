@@ -146,21 +146,16 @@ body {
   align-items: center;
 }
 
-/* 2D / 3D / 全画面 / メンバー: 3 列グリッド（4 個目は下段中央） */
+/* 全画面 / メンバー表示: 2 列（ステージ上で 2D・3D を切替） */
 .editor-right-tools-view-mode-grid {
   display: grid;
-  grid-template-columns: repeat(3, 48px);
+  grid-template-columns: repeat(2, 48px);
   column-gap: 8px;
   row-gap: 7px;
   justify-content: center;
-  width: min(160px, 100%);
+  width: min(120px, 100%);
   margin-inline: auto;
   box-sizing: border-box;
-}
-
-.editor-right-tools-view-mode-grid > :last-child:nth-child(4) {
-  grid-column: 1 / -1;
-  justify-self: center;
 }
 
 /* 「その他保存」: 3 列ブロックの 1 行として中央に */

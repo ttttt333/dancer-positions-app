@@ -77,6 +77,13 @@ export const TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "editor.savingAria": "保存中",
     "editor.saveTitleNew": "クラウドに新規保存（保存名は作品名を使用）",
     "editor.saveTitleOverwrite": "クラウドに上書き保存",
+    "editor.cloudSaveTitle": "クラウドに保存しますか？",
+    "editor.cloudSaveBodyNew":
+      "いま編集中の内容をサーバーに書き込みます。初回保存のあとアドレスに作品 ID が付きますが、編集内容はそのまま続けられます。「保存しない」を選ぶと何も送信せずに閉じます。",
+    "editor.cloudSaveBodyOverwrite":
+      "いまの内容でクラウド上のこの作品を上書きしますか？「保存しない」を選ぶと何も送信しません。",
+    "editor.cloudSaveYes": "保存する",
+    "editor.cloudSaveNo": "保存しない",
   },
   en: {
     "lang.label": "Language",
@@ -151,6 +158,13 @@ export const TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "editor.savingAria": "Saving",
     "editor.saveTitleNew": "Save to cloud (uses project name)",
     "editor.saveTitleOverwrite": "Overwrite on cloud",
+    "editor.cloudSaveTitle": "Save to the cloud?",
+    "editor.cloudSaveBodyNew":
+      "Your current edits will be uploaded. The first save adds a project ID to the URL; your work continues as-is. Choose “Don’t save” to close without sending anything.",
+    "editor.cloudSaveBodyOverwrite":
+      "Overwrite this cloud project with your current edits? Choose “Don’t save” to close without sending.",
+    "editor.cloudSaveYes": "Save",
+    "editor.cloudSaveNo": "Don’t save",
   },
   ko: {
     "lang.label": "언어",
@@ -225,6 +239,13 @@ export const TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "editor.savingAria": "저장 중",
     "editor.saveTitleNew": "클라우드에 새로 저장(작품명 사용)",
     "editor.saveTitleOverwrite": "클라우드에 덮어쓰기",
+    "editor.cloudSaveTitle": "클라우드에 저장할까요?",
+    "editor.cloudSaveBodyNew":
+      "지금 편집 중인 내용을 서버에 올립니다. 처음 저장하면 주소에 작품 ID가 붙지만 편집은 그대로 이어집니다. 「저장 안 함」을 누르면 전송하지 않고 닫습니다.",
+    "editor.cloudSaveBodyOverwrite":
+      "지금 내용으로 클라우드의 이 작품을 덮어쓸까요? 「저장 안 함」이면 전송하지 않습니다.",
+    "editor.cloudSaveYes": "저장",
+    "editor.cloudSaveNo": "저장 안 함",
   },
   zh: {
     "lang.label": "语言",
@@ -297,5 +318,12 @@ export const TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "editor.savingAria": "保存中",
     "editor.saveTitleNew": "保存到云端（使用作品名）",
     "editor.saveTitleOverwrite": "覆盖保存到云端",
+    "editor.cloudSaveTitle": "要保存到云端吗？",
+    "editor.cloudSaveBodyNew":
+      "将把当前编辑内容上传到服务器。首次保存后地址会带上作品 ID，编辑会无缝继续。选「不保存」则关闭且不发送。",
+    "editor.cloudSaveBodyOverwrite":
+      "要用当前内容覆盖云端中的此作品吗？选「不保存」则不发送。",
+    "editor.cloudSaveYes": "保存",
+    "editor.cloudSaveNo": "不保存",
   },
 };

@@ -782,32 +782,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               className="editor-right-tool-sq"
               style={{
                 ...btnSecondary,
-                ...(stageView === "2d"
-                  ? { borderColor: "#6366f1", color: "#c7d2fe" }
-                  : {}),
-              }}
-              onClick={() => setStageView("2d")}
-            >
-              2D
-            </button>
-            <button
-              type="button"
-              className="editor-right-tool-sq"
-              style={{
-                ...btnSecondary,
-                ...(stageView === "3d"
-                  ? { borderColor: "#6366f1", color: "#c7d2fe" }
-                  : {}),
-              }}
-              onClick={() => setStageView("3d")}
-            >
-              3D
-            </button>
-            <button
-              type="button"
-              className="editor-right-tool-sq"
-              style={{
-                ...btnSecondary,
                 ...(stageBoardFullscreen
                   ? {
                       borderColor: "rgba(34,197,94,0.75)",
@@ -1351,30 +1325,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
       />
     ) : null}
     <div style={viewModeRow}>
-      <button
-        type="button"
-        style={{
-          ...btnSecondary,
-          ...(stageView === "2d"
-            ? { borderColor: "#6366f1", color: "#c7d2fe" }
-            : {}),
-        }}
-        onClick={() => setStageView("2d")}
-      >
-        2D
-      </button>
-      <button
-        type="button"
-        style={{
-          ...btnSecondary,
-          ...(stageView === "3d"
-            ? { borderColor: "#6366f1", color: "#c7d2fe" }
-            : {}),
-        }}
-        onClick={() => setStageView("3d")}
-      >
-        3D
-      </button>
       <button
         type="button"
         style={{
