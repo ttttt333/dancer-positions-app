@@ -44,6 +44,8 @@ type Props = {
   setProject: React.Dispatch<React.SetStateAction<ChoreographyProjectJson>>;
   currentTimeSec: number;
   durationSec: number;
+  /** タイムライン／ステージのキュー切替で選ばれているキュー（「今の立ち位置を変更」用） */
+  selectedCueId?: string | null;
   /** キュー作成後（選択・再生停止などは親で処理） */
   onCueCreated?: (cueId: string, startSec: number) => void;
   onStagePreviewChange?: (dancers: DancerSpot[] | null) => void;
@@ -287,6 +289,7 @@ export function AddCueWithFormationDialog({
   setProject,
   currentTimeSec,
   durationSec,
+  selectedCueId = null,
   onCueCreated,
   onStagePreviewChange,
   onImportRoster,
@@ -456,14 +459,50 @@ export function AddCueWithFormationDialog({
 
   const canConfirm = useMemo(() => {
     if (viewMode === "view") return false;
+    if (addMode === "edit_current" && !selectedCueId) return false;
     if (addMode === "saved" && !savedBoxId && !savedSlotId) return false;
     if ((addMode === "template" || addMode === "edit_current") && !templatePresetId)
       return false;
     return buildDancers().length > 0;
-  }, [viewMode, addMode, savedBoxId, savedSlotId, templatePresetId, buildDancers]);
+  }, [viewMode, addMode, selectedCueId, savedBoxId, savedSlotId, templatePresetId, buildDancers]);
 
   const handleConfirm = useCallback(() => {
     if (!canConfirm) return;
+
+    /** 「今の立ち位置を変更」＝新規キューは作らず、選択中キューのフォーメーションだけ置き換える */
+    if (addMode === "edit_current") {
+      const cueId = selectedCueId;
+      if (!cueId) {
+        window.alert(
+          "変更するキューを選んでください（タイムラインまたはステージ上のキュー切替）。"
+        );
+        return;
+      }
+      const dancers = buildDancers();
+      if (dancers.length === 0) return;
+      setProject((p) => {
+        const cue = p.cues.find((c) => c.id === cueId);
+        if (!cue) return p;
+        const fid = cue.formationId;
+        return {
+          ...p,
+          formations: p.formations.map((f) =>
+            f.id === fid
+              ? {
+                  ...f,
+                  dancers,
+                  confirmedDancerCount: dancers.length,
+                }
+              : f
+          ),
+          activeFormationId: fid,
+        };
+      });
+      onStagePreviewChange?.(null);
+      onClose();
+      return;
+    }
+
     if (project.cues.length >= 100) {
       window.alert("キューの上限（100）に達しています。");
       return;
@@ -566,6 +605,7 @@ export function AddCueWithFormationDialog({
     onCueCreated,
     onClose,
     savedSlotId,
+    selectedCueId,
   ]);
 
   if (!open) return null;
@@ -595,7 +635,7 @@ export function AddCueWithFormationDialog({
     {
       mode: "edit_current",
       title: "今の立ち位置を変更",
-      desc: "新しいキュー用に雛形を選び、名簿の並び順はいまの形から引き継ぎます（あとからステージで微調整できます）",
+      desc: "選択中のキューのみ：雛形で立ち位置を置き換え、名簿の並び順はいまの形から引き継ぎます（新しいキューは追加しません）",
     },
     {
       mode: "duplicate",

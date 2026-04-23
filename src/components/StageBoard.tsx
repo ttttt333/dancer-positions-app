@@ -126,6 +126,50 @@ function round2(v: number) {
   return Math.round(v * 100) / 100;
 }
 
+/** ステージ床 0〜100% 正方形と直線の交点から、中心を通る弦の両端を求める（複数選択の 45° 補助線用） */
+function linePctSquareEndpoints(
+  cx: number,
+  cy: number,
+  ux: number,
+  uy: number
+): { x1: number; y1: number; x2: number; y2: number } | null {
+  const hu = Math.hypot(ux, uy);
+  if (hu < 1e-9) return null;
+  const nx = ux / hu;
+  const ny = uy / hu;
+  const ts: number[] = [];
+  const pushT = (t: number) => {
+    const x = cx + t * nx;
+    const y = cy + t * ny;
+    if (x < -1e-4 || x > 100 + 1e-4 || y < -1e-4 || y > 100 + 1e-4) return;
+    const onEdge =
+      Math.abs(x) <= 1e-3 ||
+      Math.abs(x - 100) <= 1e-3 ||
+      Math.abs(y) <= 1e-3 ||
+      Math.abs(y - 100) <= 1e-3;
+    if (!onEdge) return;
+    ts.push(t);
+  };
+  if (Math.abs(nx) > 1e-9) {
+    pushT((0 - cx) / nx);
+    pushT((100 - cx) / nx);
+  }
+  if (Math.abs(ny) > 1e-9) {
+    pushT((0 - cy) / ny);
+    pushT((100 - cy) / ny);
+  }
+  if (ts.length < 2) return null;
+  const tLo = Math.min(...ts);
+  const tHi = Math.max(...ts);
+  if (tHi - tLo < 1e-6) return null;
+  return {
+    x1: round2(cx + tLo * nx),
+    y1: round2(cy + tLo * ny),
+    x2: round2(cx + tHi * nx),
+    y2: round2(cy + tHi * ny),
+  };
+}
+
 function resolveSetPieceFill(p: SetPiece): string {
   const c = p.fillColor?.trim();
   if (c && /^#[0-9a-fA-F]{6}$/i.test(c)) return c.toLowerCase();
@@ -2517,6 +2561,13 @@ export function StageBoard({
   /** 客席の辺に応じた向きに、さらに 180° 回して「舞台の正面」を反対側から見る */
   const rot = (audienceRotationDeg(audienceEdge) + 180) % 360;
 
+  /** 床下の一括ツールバー用。常に高さを確保してコンテナクエリの高さが選択で変わらないようにする */
+  const canStageBulkTools =
+    viewMode !== "view" &&
+    stageInteractionsEnabled &&
+    !playbackOrPreview &&
+    !previewDancers;
+
   const tapStageToEditLayout =
     viewMode === "edit" &&
     !!playbackDancers &&
@@ -2652,6 +2703,30 @@ export function StageBoard({
     viewMode,
     markerGroupPosDraft,
   ]);
+
+  /** 複数選択（範囲枠あり）時：選択 bbox 中心から 45° 刻みの補助線（床面 % 座標） */
+  const selection45GuideSegments = useMemo(() => {
+    if (!selectionBox || playbackOrPreview || viewMode === "view" || marquee)
+      return [];
+    const cx = (selectionBox.x0 + selectionBox.x1) / 2;
+    const cy = (selectionBox.y0 + selectionBox.y1) / 2;
+    const dirs: [number, number][] = [
+      [1, 0],
+      [1, 1],
+      [0, 1],
+      [-1, 1],
+      [-1, 0],
+      [-1, -1],
+      [0, -1],
+      [1, -1],
+    ];
+    const out: { x1: number; y1: number; x2: number; y2: number; k: number }[] = [];
+    dirs.forEach((d, k) => {
+      const seg = linePctSquareEndpoints(cx, cy, d[0], d[1]);
+      if (seg) out.push({ ...seg, k });
+    });
+    return out;
+  }, [selectionBox, playbackOrPreview, viewMode, marquee]);
 
   /** 選択中の代表ダンサー（先頭）の座標。○サイズハンドルをその右下に置く。 */
   const primarySelectedDancer = useMemo(() => {
@@ -3131,7 +3206,7 @@ export function StageBoard({
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center",
+          justifyContent: "flex-start",
           gap: "6px",
           /**
            * ステージ枠のリサイズハンドル（左右・上下）が枠より外に
@@ -3140,11 +3215,27 @@ export function StageBoard({
            */
           padding: "8px",
           overflow: "hidden",
-          /** 舞台全体（外枠アスペクト）をこの領域に収めるためのコンテナクエリ */
-          containerType: "size",
-          containerName: "stage-board-fit",
         }}
       >
+        {/*
+          コンテナクエリは「舞台ブロック」だけにかける。
+          下の一括ツールバーを同じ CQ 親に置くと、選択の有無で cqb が変わり
+          範囲選択直後に舞台がわずらかに動いて見える。
+        */}
+        <div
+          style={{
+            flex: "1 1 0%",
+            minHeight: 0,
+            minWidth: 0,
+            width: "100%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            containerType: "size",
+            containerName: "stage-board-fit",
+          }}
+        >
         <div
           style={{
             position: "relative",
@@ -3156,7 +3247,7 @@ export function StageBoard({
             aspectRatio: stageAspectRatio,
             transform: `rotate(${rot}deg)`,
             transformOrigin: "center center",
-            transition: "transform 0.2s ease, aspect-ratio 0.2s ease",
+            transition: "transform 0.2s ease",
           }}
         >
           <div
@@ -4052,6 +4143,20 @@ export function StageBoard({
                   opacity="0.95"
                 />
               )}
+              {selection45GuideSegments.map((s) => (
+                <line
+                  key={`sg45-${s.k}`}
+                  x1={s.x1}
+                  y1={s.y1}
+                  x2={s.x2}
+                  y2={s.y2}
+                  stroke="rgba(196, 181, 253, 0.72)"
+                  strokeWidth="0.36"
+                  strokeDasharray="2.4 2"
+                  vectorEffect="non-scaling-stroke"
+                  opacity={0.9}
+                />
+              ))}
             </svg>
             {!(showShell && Bmm > 0) ? (
               <div
@@ -4801,8 +4906,6 @@ export function StageBoard({
                 const labelOffsetPx = Math.round(dMarkerPx / 2) + 4;
                 const pivotTransform = `translate(-50%, -50%) rotate(${facing}deg)`;
                 const halfMarker = dMarkerPx / 2;
-                const wedgeW = Math.max(3, Math.round(dMarkerPx * 0.11));
-                const wedgeH = Math.max(5, Math.round(dMarkerPx * 0.17));
                 /** 舞台の客席向き回転＋印の向きを打ち消し、画面に対して水平に */
                 const screenUnrotateDeg = -(rot + facing);
                 const belowNameFontPx = markerBelowLabelFontPx(dLabelFontPx);
@@ -4850,36 +4953,19 @@ export function StageBoard({
                         }}
                       >
                         {!hideGlyph ? (
-                          <>
-                            <span
-                              aria-hidden
-                              style={{
-                                position: "absolute",
-                                left: "50%",
-                                top: Math.max(2, Math.round(dMarkerPx * 0.07)),
-                                transform: "translateX(-50%)",
-                                width: 0,
-                                height: 0,
-                                borderLeft: `${wedgeW}px solid transparent`,
-                                borderRight: `${wedgeW}px solid transparent`,
-                                borderBottom: `${wedgeH}px solid rgba(15, 23, 42, 0.9)`,
-                                pointerEvents: "none",
-                              }}
-                            />
-                            <span
-                              style={{
-                                position: "relative",
-                                zIndex: 1,
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                transform: `rotate(${screenUnrotateDeg}deg)`,
-                                transformOrigin: "center center",
-                              }}
-                            >
-                              {circleLabel}
-                            </span>
-                          </>
+                          <span
+                            style={{
+                              position: "relative",
+                              zIndex: 1,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              transform: `rotate(${screenUnrotateDeg}deg)`,
+                              transformOrigin: "center center",
+                            }}
+                          >
+                            {circleLabel}
+                          </span>
                         ) : null}
                       </div>
                       {dancerLabelBelow && !hideGlyph && (
@@ -4929,8 +5015,6 @@ export function StageBoard({
                 ? `translate3d(-50%, -50%, 0) rotate(${facing}deg)`
                 : `translate(-50%, -50%) rotate(${facing}deg)`;
               const halfMarker = dMarkerPx / 2;
-              const wedgeW = Math.max(3, Math.round(dMarkerPx * 0.11));
-              const wedgeH = Math.max(5, Math.round(dMarkerPx * 0.17));
               /** 舞台の客席向き回転＋印の向きを打ち消し、画面に対して水平に */
               const screenUnrotateDeg = -(rot + facing);
               const belowNameFontPx = markerBelowLabelFontPx(dLabelFontPx);
@@ -5058,36 +5142,19 @@ export function StageBoard({
                       }}
                     >
                       {!hideGlyph ? (
-                        <>
-                          <span
-                            aria-hidden
-                            style={{
-                              position: "absolute",
-                              left: "50%",
-                              top: Math.max(2, Math.round(dMarkerPx * 0.07)),
-                              transform: "translateX(-50%)",
-                              width: 0,
-                              height: 0,
-                              borderLeft: `${wedgeW}px solid transparent`,
-                              borderRight: `${wedgeW}px solid transparent`,
-                              borderBottom: `${wedgeH}px solid rgba(15, 23, 42, 0.9)`,
-                              pointerEvents: "none",
-                            }}
-                          />
-                          <span
-                            style={{
-                              position: "relative",
-                              zIndex: 1,
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              transform: `rotate(${screenUnrotateDeg}deg)`,
-                              transformOrigin: "center center",
-                            }}
-                          >
-                            {circleLabel}
-                          </span>
-                        </>
+                        <span
+                          style={{
+                            position: "relative",
+                            zIndex: 1,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            transform: `rotate(${screenUnrotateDeg}deg)`,
+                            transformOrigin: "center center",
+                          }}
+                        >
+                          {circleLabel}
+                        </span>
                       ) : null}
                     </button>
                     {dancerLabelBelow && !hideGlyph && (
@@ -5462,11 +5529,20 @@ export function StageBoard({
               );
             })}
         </div>
-        {selectedDancerIds.length >= 1 &&
-          viewMode !== "view" &&
-          stageInteractionsEnabled &&
-          !playbackOrPreview &&
-          !previewDancers && (
+        </div>
+        {canStageBulkTools ? (
+          <div
+            style={{
+              flexShrink: 0,
+              width: "100%",
+              maxWidth: "min(100%, 440px)",
+              minHeight: 252,
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "flex-end",
+            }}
+          >
+            {selectedDancerIds.length >= 1 ? (
             <div
               style={{
                 flexShrink: 0,
@@ -5474,7 +5550,6 @@ export function StageBoard({
                 flexDirection: "column",
                 gap: "8px",
                 width: "100%",
-                maxWidth: "min(100%, 440px)",
               }}
             >
               {showStageDancerColorToolbar ? (
@@ -5707,7 +5782,9 @@ export function StageBoard({
                 </div>
               )}
             </div>
-          )}
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
     {stageContextMenu && contextMenuStyle && (

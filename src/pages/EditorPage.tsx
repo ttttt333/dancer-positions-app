@@ -2919,6 +2919,7 @@ export function EditorPage() {
           setProject={setProjectSafe}
           currentTimeSec={currentTime}
           durationSec={duration}
+          selectedCueId={selectedCueId}
           onStagePreviewChange={setStagePreviewDancers}
           onImportRoster={importCrewCsvFromStageToolbar}
           onCueCreated={(cueId, startSec) => {
