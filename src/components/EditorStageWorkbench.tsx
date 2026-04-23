@@ -1,16 +1,15 @@
 import type { CSSProperties, Dispatch, SetStateAction } from "react";
-import type { ChoreographyCue, ChoreographyProjectJson } from "../types/choreography";
+import type { ChoreographyProjectJson, Cue } from "../types/choreography";
 import type { FloorTextPlaceSession } from "../components/StageBoard";
 import { btnSecondary } from "../components/stageButtonStyles";
-import { shell } from "../theme/choreoShell";
 import { GATHER_TOWARD_OPTIONS, type GatherToward } from "../lib/gatherDancers";
 export type EditorStageWorkbenchProps = {
   layout: "stage" | "rail";
   project: ChoreographyProjectJson;
   setProjectSafe: Dispatch<SetStateAction<ChoreographyProjectJson>>;
-  cuesSortedForStageJump: ChoreographyCue[];
+  cuesSortedForStageJump: Cue[];
   selectedCueId: string | null;
-  selectedCue: ChoreographyCue | null;
+  selectedCue: Cue | null;
   jumpToCueByIdx: (idx: number) => void;
   cuePagerListOpen: boolean;
   setCuePagerListOpen: Dispatch<SetStateAction<boolean>>;

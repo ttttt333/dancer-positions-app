@@ -40,12 +40,7 @@ import {
   parseRosterFile,
   type RosterFileKind,
 } from "../lib/rosterFileImport";
-import type {
-  ChoreographyProjectJson,
-  Crew,
-  DancerSpot,
-  SetPieceKind,
-} from "../types/choreography";
+import type { ChoreographyProjectJson, DancerSpot, SetPieceKind } from "../types/choreography";
 import {
   SetPiecePickerModal,
   type SetPiecePickerSubmit,
@@ -59,11 +54,7 @@ import { StageShapePicker } from "../components/StageShapePicker";
 import { ExportDialog } from "../components/ExportDialog";
 import { FlowLibraryDialog } from "../components/FlowLibraryDialog";
 import { AddCueWithFormationDialog } from "../components/AddCueWithFormationDialog";
-import {
-  GATHER_TOWARD_OPTIONS,
-  gatherDancersToEdge,
-  type GatherToward,
-} from "../lib/gatherDancers";
+import { gatherDancersToEdge, type GatherToward } from "../lib/gatherDancers";
 import { projectApi } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
@@ -76,6 +67,10 @@ import {
 } from "../lib/savedSpotStageSnapshot";
 
 const HISTORY_CAP = 80;
+
+function round2Pct(n: number): number {
+  return Math.round(n * 100) / 100;
+}
 
 const EDITOR_WIDE_MIN_PX = 1280;
 /** メイン 4 列グリッドの列間（ステージ〜タイムラインのすき間に効く） */
@@ -127,14 +122,6 @@ const editorTopWaveArrowBtn: CSSProperties = {
   cursor: "pointer",
 };
 
-/** 床テキスト／線ツール（上部波形バー用の正方形） */
-const editorTopWaveFloorSqBtn: CSSProperties = {
-  ...editorTopWaveArrowBtn,
-  width: 36,
-  height: 36,
-  minWidth: 36,
-  borderRadius: 8,
-};
 /** ステージ列とタイムライン列の間のドラッグ幅 */
 const STAGE_RESIZER_PX = 4;
 const STAGE_COL_MIN_PX = 280;
@@ -950,15 +937,6 @@ export function EditorPage() {
     const f = project.formations.find((x) => x.id === project.activeFormationId);
     return f?.floorMarkup ?? null;
   }, [project, isPlaying, stagePreviewDancers, selectedCue, currentTime]);
-
-  const stageFloorMarkupEditable = Boolean(
-    project &&
-      project.viewMode !== "view" &&
-      (project.cues.length === 0 || Boolean(selectedCueId)) &&
-      stageView === "2d" &&
-      !playbackDancersForStage &&
-      !(stagePreviewDancers && stagePreviewDancers.length > 0)
-  );
 
   useEffect(() => {
     if (!wideEditorLayout) setFloorMarkupTool(null);

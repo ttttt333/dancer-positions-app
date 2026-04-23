@@ -2,6 +2,7 @@ import type {
   CSSProperties,
   Dispatch,
   PointerEvent as ReactPointerEvent,
+  ReactElement,
   SetStateAction,
 } from "react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -1331,7 +1332,7 @@ export function StageBoard({
     (v: number, axis: "x" | "y", mode: SnapMode) => {
       const c = clamp(v, 2, 98);
       if (mode === "free" || !snapGrid) return round2(c);
-      if (mmSnapGrid && mode !== "free") {
+      if (mmSnapGrid) {
         const base =
           axis === "x" ? mmSnapGrid.stepXPct : mmSnapGrid.stepYPct;
         const useStep =
@@ -3670,7 +3671,7 @@ export function StageBoard({
                     while (Math.ceil(100 / (stepXPct * sx)) > MAX) sx++;
                     let sy = 1;
                     while (Math.ceil(100 / (stepYPct * sy)) > MAX) sy++;
-                    const nodes: JSX.Element[] = [];
+                    const nodes: ReactElement[] = [];
                     for (let i = 0; i * stepXPct * sx <= 100 + 1e-9; i++) {
                       const g = round2(Math.min(100, i * stepXPct * sx));
                       nodes.push(
@@ -3719,7 +3720,7 @@ export function StageBoard({
               aria-hidden
             >
               {(() => {
-                const lines: JSX.Element[] = [];
+                const lines: ReactElement[] = [];
                 for (let i = 1; i < 10; i++) {
                   const g = i * 10;
                   lines.push(

@@ -241,12 +241,6 @@ function guessGivenFromFullCell(full: string): string {
   return stripped.trim() || t;
 }
 
-function familyPrefixChar(familyRaw: string, fullRaw: string): string {
-  const f = familyRaw.trim();
-  if (f) return firstGrapheme(f);
-  return firstGrapheme(fullRaw);
-}
-
 function sliceLabel(s: string): string {
   return s.trim().slice(0, MEMBER_LABEL_MAX);
 }

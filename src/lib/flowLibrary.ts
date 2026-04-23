@@ -299,7 +299,7 @@ function normalize(raw: FlowLibraryItem): FlowLibraryItem {
     }));
   const dancerCount = formations[0]?.dancers.length ?? 0;
   const hasTiming = cues.some((c) => c.tStartSec != null && c.tEndSec != null);
-  const rawRec = raw as Record<string, unknown>;
+  const rawRec = raw as unknown as Record<string, unknown>;
   const stageSettings = normalizeStageSettings(rawRec.stageSettings);
   return {
     id: raw.id,
