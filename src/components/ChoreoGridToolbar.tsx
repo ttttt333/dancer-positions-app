@@ -3,7 +3,21 @@ import { shell } from "../theme/choreoShell";
 import { btnSecondary } from "./stageButtonStyles";
 import { ChoreoGridLogo } from "./ChoreoGridLogo";
 
-type Props = {
+export type ChoreoGridToolbarCoreProps = {
+  snapGrid?: boolean;
+  onToggleSnapGrid: () => void;
+  onToggleStageGridLines?: () => void;
+  stageGridLinesToggleDisabled?: boolean;
+  stageGridLinesEnabled?: boolean;
+  stageShapeActive?: boolean;
+  onOpenStageShapePicker: () => void;
+  onOpenSetPiecePicker: () => void;
+  onOpenShortcutsHelp: () => void;
+  onOpenExport: () => void;
+  disabled?: boolean;
+};
+
+type Props = ChoreoGridToolbarCoreProps & {
   /** 既定は縦（旧左列）。右列に置くときは row */
   layout?: "column" | "row";
   /**
@@ -13,6 +27,10 @@ type Props = {
   embedInPanel?: boolean;
   /** 右列タイル帯: aside を開き、ボタンを 48px 角に統一 */
   tilesInRun?: boolean;
+  /**
+   * 右列の並べ替え用: この1種類だけを 48px タイルで出す（`embedInPanel`+`tilesInRun` と併用）
+   */
+  singleTile?: "snap" | "gridLines" | "stageShape" | "setPiece" | "export" | "help";
   snapGrid?: boolean;
   onToggleSnapGrid: () => void;
   stageGridLinesEnabled?: boolean;
@@ -218,6 +236,7 @@ export function ChoreoGridToolbar({
   layout = "column",
   embedInPanel = false,
   tilesInRun = false,
+  singleTile,
   onToggleSnapGrid,
   onToggleStageGridLines,
   stageGridLinesToggleDisabled = false,
@@ -233,6 +252,100 @@ export function ChoreoGridToolbar({
   const row = layout === "row" && !embedInPanel;
   const fw = embedInPanel && !tilesInRun;
   const sq = tilesInRun;
+
+  if (singleTile && embedInPanel && tilesInRun) {
+    const d = disabled ?? false;
+    switch (singleTile) {
+      case "snap":
+        return (
+          <aside aria-label="ChoreoGrid ツール" style={{ display: "contents" }}>
+            <ToolbarIconButton
+              title="スナップ（グリッドに吸着。実寸 1cm 線が使えるときはその線に沿います）"
+              disabled={d}
+              pressed={snapGrid}
+              square48
+              onClick={onToggleSnapGrid}
+            >
+              <IconSnap active={snapGrid} />
+            </ToolbarIconButton>
+          </aside>
+        );
+      case "gridLines":
+        return onToggleStageGridLines ? (
+          <aside aria-label="ChoreoGrid ツール" style={{ display: "contents" }}>
+            <ToolbarIconButton
+              title={
+                stageGridLinesToggleDisabled
+                  ? "幅・奥行（mm）を設定するとグリッド線を表示できます"
+                  : "実寸グリッド線をステージ上に表示（スナップとは別）"
+              }
+              disabled={d || !!stageGridLinesToggleDisabled}
+              pressed={stageGridLinesEnabled}
+              square48
+              onClick={onToggleStageGridLines}
+            >
+              <IconGridLines on={stageGridLinesEnabled} />
+            </ToolbarIconButton>
+          </aside>
+        ) : null;
+      case "stageShape":
+        return (
+          <aside aria-label="ChoreoGrid ツール" style={{ display: "contents" }}>
+            <ToolbarIconButton
+              title="変形舞台（花道・スラスト・台形・手描きカスタムなど）"
+              disabled={d}
+              pressed={stageShapeActive}
+              square48
+              onClick={onOpenStageShapePicker}
+            >
+              <IconStageShape active={stageShapeActive} />
+            </ToolbarIconButton>
+          </aside>
+        );
+      case "setPiece":
+        return (
+          <aside aria-label="ChoreoGrid ツール" style={{ display: "contents" }}>
+            <ToolbarIconButton
+              title="大道具を追加（図形・色を選択）"
+              disabled={d}
+              square48
+              onClick={onOpenSetPiecePicker}
+            >
+              <IconSetPiece />
+            </ToolbarIconButton>
+          </aside>
+        );
+      case "export":
+        return (
+          <aside aria-label="ChoreoGrid ツール" style={{ display: "contents" }}>
+            <ToolbarIconButton
+              title="書き出し（PNG / PDF / WebM / JSON）"
+              disabled={d}
+              square48
+              onClick={onOpenExport}
+            >
+              <IconExport />
+            </ToolbarIconButton>
+          </aside>
+        );
+      case "help":
+        return (
+          <aside aria-label="ChoreoGrid ツール" style={{ display: "contents" }}>
+            <ToolbarIconButton
+              title="キーボードショートカット一覧"
+              disabled={d}
+              square48
+              onClick={onOpenShortcutsHelp}
+            >
+              <IconHelp />
+            </ToolbarIconButton>
+          </aside>
+        );
+      default:
+        return null;
+    }
+  }
+
   return (
     <aside
       aria-label="ChoreoGrid ツール"

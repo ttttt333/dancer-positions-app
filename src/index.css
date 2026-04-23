@@ -103,6 +103,40 @@ body {
   overflow: hidden;
 }
 
+/* 右レール: 上段は 3 列グリッド（舞台設定・＋キュー・＋ダンサー） */
+.editor-right-tools-row-top3 {
+  display: grid;
+  grid-template-columns: repeat(3, 48px);
+  column-gap: 8px;
+  row-gap: 7px;
+  justify-content: flex-start;
+  align-content: flex-start;
+  width: 100%;
+}
+
+.editor-right-tools-col-ordered {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+}
+
+.editor-right-tools-col-rest {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding-top: 6px;
+  margin-top: 2px;
+  border-top: 1px solid #1e293b;
+}
+
+.editor-right-rail-stack {
+  min-width: 0;
+}
+
 .editor-right-tools-tiles {
   display: flex;
   flex-direction: row;

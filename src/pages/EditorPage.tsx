@@ -1342,6 +1342,16 @@ export function EditorPage() {
     hasRosterMembers,
     hideFloorTextToolbar: showTopWaveDock,
     hideUndoRedoInRail: showTopWaveDock,
+    choreoToolbarProps: choreoToolbarSharedProps,
+    onOpenCueListModal: showTopWaveDock
+      ? () => setCueListModalOpen(true)
+      : undefined,
+    onOpenAudioImport: () => {
+      timelineRef.current?.openAudioImport();
+    },
+    onPreloadFfmpegForAudio: () => {
+      void preloadFFmpeg();
+    },
   };
 
   return (
@@ -1797,40 +1807,6 @@ export function EditorPage() {
             >
               <div className="editor-right-tools-host">
                 <div className="editor-right-tools-tiles">
-                  <button
-                    type="button"
-                    className="editor-right-tool-sq"
-                    disabled={project.viewMode === "view"}
-                    title="楽曲または動画から音声を読み込み（MP4 / AVI / MOV / MKV / WMV 等に対応）"
-                    aria-label="音源を取り込む"
-                    onPointerEnter={() => {
-                      void preloadFFmpeg();
-                    }}
-                    onClick={() => {
-                      void preloadFFmpeg();
-                      timelineRef.current?.openAudioImport();
-                    }}
-                  >
-                    <span>音源</span>
-                    <span>取込</span>
-                  </button>
-                  <ChoreoGridToolbar
-                    embedInPanel
-                    tilesInRun
-                    {...choreoToolbarSharedProps}
-                  />
-                  {!rosterOnlyMode ? (
-                    <button
-                      type="button"
-                      className="editor-right-tool-sq"
-                      disabled={project.viewMode === "view"}
-                      title="モーダルでキュー一覧を開きます"
-                      aria-label="キュー一覧を開く"
-                      onClick={() => setCueListModalOpen(true)}
-                    >
-                      一覧
-                    </button>
-                  ) : null}
                   <EditorStageWorkbench
                     key="wb-tiles"
                     layout="rail"
@@ -1875,13 +1851,6 @@ export function EditorPage() {
               >
                 <div className="editor-right-tools-host">
                   <div className="editor-right-tools-tiles">
-                    {wideEditorLayout && !showTopWaveDock ? (
-                      <ChoreoGridToolbar
-                        embedInPanel
-                        tilesInRun
-                        {...choreoToolbarSharedProps}
-                      />
-                    ) : null}
                     <EditorStageWorkbench
                       key="wb-tiles-2"
                       layout="rail"

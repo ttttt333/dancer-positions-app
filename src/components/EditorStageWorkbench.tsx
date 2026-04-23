@@ -1,8 +1,344 @@
-import type { CSSProperties, Dispatch, SetStateAction } from "react";
+import type { CSSProperties, ComponentProps, Dispatch, SetStateAction } from "react";
 import type { ChoreographyProjectJson, Cue } from "../types/choreography";
 import type { FloorTextPlaceSession } from "../components/StageBoard";
 import { btnSecondary } from "../components/stageButtonStyles";
 import { GATHER_TOWARD_OPTIONS, type GatherToward } from "../lib/gatherDancers";
+import { ChoreoGridToolbar } from "./ChoreoGridToolbar";
+
+export type EditorWorkbenchChoreoToolbarProps = Omit<
+  ComponentProps<typeof ChoreoGridToolbar>,
+  "layout" | "embedInPanel" | "tilesInRun" | "singleTile"
+>;
+
+type WorkbenchCuePagerProps = {
+  rail: boolean;
+  project: ChoreographyProjectJson;
+  cuesSortedForStageJump: Cue[];
+  selectedCueId: string | null;
+  jumpToCueByIdx: (idx: number) => void;
+  cuePagerListOpen: boolean;
+  setCuePagerListOpen: Dispatch<SetStateAction<boolean>>;
+};
+
+function WorkbenchCuePager({
+  rail,
+  project,
+  cuesSortedForStageJump,
+  selectedCueId,
+  jumpToCueByIdx,
+  cuePagerListOpen,
+  setCuePagerListOpen,
+}: WorkbenchCuePagerProps) {
+  if (cuesSortedForStageJump.length === 0) return null;
+  const total = cuesSortedForStageJump.length;
+  const curIdx = selectedCueId
+    ? cuesSortedForStageJump.findIndex((c) => c.id === selectedCueId)
+    : -1;
+  const cur = curIdx >= 0 ? cuesSortedForStageJump[curIdx] : null;
+  const canPrev = project.viewMode !== "view" && curIdx > 0;
+  const canNext =
+    project.viewMode !== "view" && curIdx >= 0 && curIdx < total - 1;
+  const navBtnStyle = (enabled: boolean): CSSProperties =>
+    rail
+      ? {
+          width: "48px",
+          height: "48px",
+          padding: 0,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: "8px",
+          border: "1px solid #334155",
+          background: "#0f172a",
+          color: enabled ? "#cbd5e1" : "#475569",
+          fontSize: "15px",
+          lineHeight: 1,
+          flexDirection: "row",
+          cursor: enabled ? "pointer" : "not-allowed",
+          flexShrink: 0,
+        }
+      : {
+          width: "26px",
+          height: "26px",
+          padding: 0,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: "6px",
+          border: "1px solid #334155",
+          background: "#0f172a",
+          color: enabled ? "#cbd5e1" : "#475569",
+          fontSize: "14px",
+          lineHeight: 1,
+          cursor: enabled ? "pointer" : "not-allowed",
+          flexShrink: 0,
+        };
+  return (
+    <div
+      className={rail ? "editor-right-cue-pager" : undefined}
+      style={{
+        position: "relative",
+        display: "inline-flex",
+        flexDirection: rail ? "column" : "row",
+        alignItems: "center",
+        gap: rail ? "6px" : "4px",
+        flexShrink: 0,
+        width: rail ? 48 : undefined,
+      }}
+      title="ステージのキュー（ページ）切替。タイムラインも区間の頭に移動します。"
+    >
+      <button
+        type="button"
+        onClick={() => jumpToCueByIdx(curIdx - 1)}
+        disabled={!canPrev}
+        title="前のキューへ"
+        aria-label="前のキューへ"
+        style={navBtnStyle(canPrev)}
+      >
+        ◀
+      </button>
+      <button
+        type="button"
+        onClick={() => setCuePagerListOpen((v) => !v)}
+        disabled={project.viewMode === "view"}
+        aria-haspopup="listbox"
+        aria-expanded={cuePagerListOpen}
+        title={
+          cur
+            ? cur.name?.trim()
+              ? `「${cur.name.trim()}」を編集中。クリックで全キュー一覧。`
+              : "無名のキューを編集中。クリックで全キュー一覧。"
+            : "クリックで全キュー一覧から選択"
+        }
+        style={
+          rail
+            ? {
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "1px",
+                width: "48px",
+                height: "48px",
+                maxWidth: "48px",
+                padding: "4px 2px",
+                borderRadius: "8px",
+                border: cur ? "1px solid #818cf8" : "1px solid #334155",
+                background: cur ? "rgba(99,102,241,0.18)" : "#0f172a",
+                color: cur ? "#e0e7ff" : "#94a3b8",
+                fontSize: "7px",
+                fontWeight: 700,
+                lineHeight: 1.1,
+                cursor:
+                  project.viewMode === "view" ? "not-allowed" : "pointer",
+                flexShrink: 0,
+                fontVariantNumeric: "tabular-nums",
+                textAlign: "center",
+                overflow: "hidden",
+                wordBreak: "break-word",
+              }
+            : {
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "3px 9px",
+                borderRadius: "8px",
+                border: cur ? "1px solid #818cf8" : "1px solid #334155",
+                background: cur ? "rgba(99,102,241,0.18)" : "#0f172a",
+                color: cur ? "#e0e7ff" : "#94a3b8",
+                fontSize: "12px",
+                fontWeight: 700,
+                cursor:
+                  project.viewMode === "view" ? "not-allowed" : "pointer",
+                flexShrink: 0,
+                minHeight: "26px",
+                maxWidth: "240px",
+                fontVariantNumeric: "tabular-nums",
+              }
+        }
+      >
+        <span
+          style={{
+            fontSize: rail ? "6.5px" : "9px",
+            color: cur ? "#c7d2fe" : "#64748b",
+            letterSpacing: rail ? 0 : "0.04em",
+            lineHeight: 1.1,
+          }}
+        >
+          キュー
+        </span>
+        <span
+          style={
+            rail
+              ? {
+                  whiteSpace: "normal",
+                  textAlign: "center",
+                  lineHeight: 1.1,
+                }
+              : { whiteSpace: "nowrap" }
+          }
+        >
+          {curIdx >= 0 ? curIdx + 1 : "—"} / {total}
+        </span>
+        {cur && cur.name?.trim() ? (
+          <span
+            style={{
+              fontSize: rail ? "6.5px" : "11px",
+              fontWeight: 500,
+              color: "#e2e8f0",
+              overflow: "hidden",
+              display: rail ? "-webkit-box" : undefined,
+              WebkitLineClamp: rail ? 2 : undefined,
+              WebkitBoxOrient: rail ? "vertical" : undefined,
+              textOverflow: "ellipsis",
+              whiteSpace: rail ? "normal" : "nowrap",
+              maxWidth: rail ? "100%" : "120px",
+              lineHeight: 1.08,
+              textAlign: "center",
+            }}
+          >
+            {cur.name.trim()}
+          </span>
+        ) : null}
+        <span
+          aria-hidden
+          style={{
+            fontSize: rail ? "6px" : "9px",
+            color: cur ? "#c7d2fe" : "#64748b",
+            marginLeft: rail ? 0 : "1px",
+            lineHeight: 1,
+          }}
+        >
+          ▾
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={() => jumpToCueByIdx(curIdx + 1)}
+        disabled={!canNext}
+        title="次のキューへ"
+        aria-label="次のキューへ"
+        style={navBtnStyle(canNext)}
+      >
+        ▶
+      </button>
+      {cuePagerListOpen ? (
+        <>
+          <div
+            onClick={() => setCuePagerListOpen(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 30,
+            }}
+            aria-hidden
+          />
+          <ul
+            role="listbox"
+            aria-label="キュー一覧"
+            style={{
+              position: "absolute",
+              top: "calc(100% + 4px)",
+              left: rail ? 0 : "30px",
+              zIndex: 31,
+              listStyle: "none",
+              margin: 0,
+              padding: "4px",
+              maxHeight: "320px",
+              minWidth: "240px",
+              overflowY: "auto",
+              background: "#0b1220",
+              border: "1px solid #334155",
+              borderRadius: "8px",
+              boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
+            }}
+          >
+            {cuesSortedForStageJump.map((c, i) => {
+              const isCur = i === curIdx;
+              const fname =
+                project.formations.find((f) => f.id === c.formationId)?.name ??
+                "";
+              return (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={isCur}
+                    onClick={() => {
+                      jumpToCueByIdx(i);
+                      setCuePagerListOpen(false);
+                    }}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      padding: "5px 8px",
+                      border: "none",
+                      borderRadius: "6px",
+                      background: isCur
+                        ? "rgba(99,102,241,0.22)"
+                        : "transparent",
+                      color: isCur ? "#e0e7ff" : "#cbd5e1",
+                      fontSize: "12px",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      fontWeight: isCur ? 700 : 500,
+                    }}
+                  >
+                    <span
+                      style={{
+                        minWidth: "22px",
+                        fontVariantNumeric: "tabular-nums",
+                        color: isCur ? "#a5b4fc" : "#64748b",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {i + 1}
+                    </span>
+                    <span
+                      style={{
+                        flex: 1,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {c.name?.trim() ?? ""}
+                      {fname ? (
+                        <span
+                          style={{
+                            marginLeft: "6px",
+                            color: "#64748b",
+                            fontWeight: 400,
+                            fontSize: "10px",
+                          }}
+                        >
+                          · {fname}
+                        </span>
+                      ) : null}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "10px",
+                        color: "#64748b",
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {Math.round(c.tStartSec)}s
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
 export type EditorStageWorkbenchProps = {
   layout: "stage" | "rail";
   project: ChoreographyProjectJson;
@@ -47,6 +383,14 @@ export type EditorStageWorkbenchProps = {
   hideFloorTextToolbar?: boolean;
   /** true のとき右レールの「戻る」「進む」を出さない（上部ドックと重複しないため） */
   hideUndoRedoInRail?: boolean;
+  /** 右レール用: ChoreoGrid の単体タイルに渡すプロップ */
+  choreoToolbarProps?: EditorWorkbenchChoreoToolbarProps;
+  /** 上部ドック時など: モーダルでキュー一覧を開く */
+  onOpenCueListModal?: () => void;
+  /** タイムラインの音源取込を開く */
+  onOpenAudioImport?: () => void;
+  /** 音源ボタンホバーで FFmpeg 先読み */
+  onPreloadFfmpegForAudio?: () => void;
 };
 
 export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
@@ -92,6 +436,10 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
     hasRosterMembers,
     hideFloorTextToolbar = false,
     hideUndoRedoInRail = false,
+    choreoToolbarProps,
+    onOpenCueListModal,
+    onOpenAudioImport,
+    onPreloadFfmpegForAudio,
   } = props;
 
   const rowOuter: CSSProperties = rail
@@ -184,6 +532,687 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
         flexWrap: "wrap",
       };
 
+  if (rail) {
+    const choreo = choreoToolbarProps;
+    const editFidR = selectedCue?.formationId ?? project.activeFormationId;
+    const editFormationR = project.formations.find((x) => x.id === editFidR);
+    const canSaveSpotsR =
+      project.viewMode !== "view" &&
+      (editFormationR?.dancers.length ?? 0) > 0;
+    const canGatherR =
+      project.viewMode !== "view" &&
+      (project.cues.length === 0 || Boolean(selectedCueId)) &&
+      (project.formations.find(
+        (x) => x.id === (selectedCue?.formationId ?? project.activeFormationId)
+      )?.dancers.length ?? 0) > 0;
+
+    return (
+      <div
+        className="editor-right-rail-stack"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+          width: "100%",
+          minWidth: 0,
+        }}
+      >
+        <div className="editor-right-tools-row-top3">
+          <button
+            type="button"
+            className="editor-right-tool-sq"
+            aria-haspopup="dialog"
+            aria-expanded={stageAreaSettingsOpen}
+            disabled={project.viewMode === "view"}
+            title="舞台・客席・グリッド・名前の出し方・この URL の共有・ショートカット"
+            onClick={() => setStageAreaSettingsOpen(true)}
+          >
+            <span>舞台</span>
+            <span>設定</span>
+          </button>
+          <button
+            type="button"
+            className="editor-right-tool-sq"
+            style={{
+              ...btnSecondary,
+              borderColor: "#0284c7",
+              background: "#0ea5e9",
+              color: "#0b1220",
+            }}
+            disabled={project.viewMode === "view"}
+            title="＋キュー：人数と立ち位置の決め方（変更／複製／雛形／保存リスト）を選んで追加"
+            aria-label="新しいキューを追加"
+            onClick={() => setAddCueDialogOpen(true)}
+          >
+            <svg
+              viewBox="0 0 22 14"
+              width="18"
+              height="12"
+              aria-hidden
+              style={{ display: "block" }}
+            >
+              <path
+                d="M3 7 L9 7 M6 4 L6 10"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+              />
+              <circle cx="13" cy="3" r="1.2" fill="currentColor" />
+              <circle cx="17" cy="3" r="1.2" fill="currentColor" />
+              <circle cx="12" cy="8" r="1.2" fill="currentColor" />
+              <circle cx="15" cy="8" r="1.2" fill="currentColor" />
+              <circle cx="18" cy="8" r="1.2" fill="currentColor" />
+              <circle cx="13.5" cy="12" r="1" fill="currentColor" opacity="0.7" />
+              <circle cx="16.5" cy="12" r="1" fill="currentColor" opacity="0.7" />
+            </svg>
+            <span>＋キュー</span>
+          </button>
+          <button
+            type="button"
+            className="editor-right-tool-sq"
+            style={btnSecondary}
+            disabled={project.viewMode === "view"}
+            title="選択中のフォーメーションにダンサーを1人追加（中央付近）"
+            onClick={() => addDancerFromStageToolbar()}
+          >
+            <span>＋</span>
+            <span>ダンサー</span>
+          </button>
+        </div>
+
+        <div className="editor-right-tools-col-ordered">
+          {onOpenCueListModal ? (
+            <button
+              type="button"
+              className="editor-right-tool-sq"
+              disabled={project.viewMode === "view"}
+              title="モーダルでキュー一覧を開きます"
+              aria-label="キュー一覧を開く"
+              onClick={() => onOpenCueListModal()}
+            >
+              <span>キュー</span>
+              <span>一覧</span>
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="editor-right-tool-sq"
+            style={{
+              ...btnSecondary,
+              borderColor: "#14532d",
+              color: "#dcfce7",
+            }}
+            disabled={project.viewMode === "view" || !canSaveSpotsR}
+            title="形の箱に今の立ち位置を保存"
+            onClick={() => saveStageToFormationBox()}
+          >
+            <span>立ち位置</span>
+            <span>保存</span>
+          </button>
+          <button
+            type="button"
+            className="editor-right-tool-sq"
+            style={btnSecondary}
+            disabled={project.viewMode === "view"}
+            title="今までの流れをフローライブラリに保存"
+            onClick={() => setFlowLibraryOpen(true)}
+          >
+            <span>ライブラリ</span>
+            <span>に保存</span>
+          </button>
+          {!hideFloorTextToolbar ? (
+            <button
+              type="button"
+              className="editor-right-tool-sq"
+              style={{
+                ...btnSecondary,
+                ...(floorTextPlaceSession
+                  ? { borderColor: "#38bdf8", color: "#e0f2fe" }
+                  : {}),
+              }}
+              disabled={
+                project.viewMode === "view" ||
+                stageView !== "2d" ||
+                (project.cues.length > 0 && !selectedCueId)
+              }
+              title={
+                stageView !== "2d"
+                  ? "床テキストは 2D 表示のときのみ使えます"
+                  : project.cues.length > 0 && !selectedCueId
+                    ? "タイムラインでキューを選んでから使えます"
+                    : floorTextPlaceSession
+                      ? "テキスト配置を終了します"
+                      : "舞台上のテキストを入力・プレビューし、完了で設置します"
+              }
+              onClick={() => {
+                if (project.viewMode === "view") return;
+                if (stageView !== "2d") return;
+                if (project.cues.length > 0 && !selectedCueId) return;
+                setFloorTextPlaceSession((cur) =>
+                  cur
+                    ? null
+                    : {
+                        body: "",
+                        fontSizePx: 18,
+                        fontWeight: 600,
+                        xPct: 50,
+                        yPct: 42,
+                      }
+                );
+              }}
+            >
+              <span>テキスト</span>
+              <span>追加</span>
+            </button>
+          ) : null}
+          {choreo ? (
+            <>
+              <ChoreoGridToolbar
+                embedInPanel
+                tilesInRun
+                singleTile="setPiece"
+                {...choreo}
+              />
+              <ChoreoGridToolbar
+                embedInPanel
+                tilesInRun
+                singleTile="stageShape"
+                {...choreo}
+              />
+            </>
+          ) : null}
+          <button
+            type="button"
+            className="editor-right-tool-sq"
+            style={btnSecondary}
+            disabled={project.viewMode === "view"}
+            title="CSV / TSV を選んで新しい名簿として取り込みます（1 列目または「名前」などの見出しを検出）"
+            onClick={() => importCrewCsvFromStageToolbar()}
+          >
+            <span>名簿</span>
+            <span>取込</span>
+          </button>
+          {choreo ? (
+            <ChoreoGridToolbar
+              embedInPanel
+              tilesInRun
+              singleTile="export"
+              {...choreo}
+            />
+          ) : null}
+          {onOpenAudioImport ? (
+            <button
+              type="button"
+              className="editor-right-tool-sq"
+              disabled={project.viewMode === "view"}
+              title="楽曲または動画から音声を読み込み（MP4 / AVI / MOV / MKV / WMV 等に対応）"
+              aria-label="音源を取り込む"
+              onPointerEnter={() => onPreloadFfmpegForAudio?.()}
+              onClick={() => onOpenAudioImport()}
+            >
+              <span>音源</span>
+              <span>取込</span>
+            </button>
+          ) : null}
+        </div>
+
+        <div className="editor-right-tools-col-rest">
+          <WorkbenchCuePager
+            rail
+            project={project}
+            cuesSortedForStageJump={cuesSortedForStageJump}
+            selectedCueId={selectedCueId}
+            jumpToCueByIdx={jumpToCueByIdx}
+            cuePagerListOpen={cuePagerListOpen}
+            setCuePagerListOpen={setCuePagerListOpen}
+          />
+          <button
+            type="button"
+            className="editor-right-tool-sq"
+            style={btnSecondary}
+            disabled={project.viewMode === "view"}
+            title="舞台の大きさ・客席の位置・袖・バック・場ミリを編集"
+            aria-haspopup="dialog"
+            aria-expanded={stageSettingsOpen}
+            onClick={() => setStageSettingsOpen(true)}
+          >
+            <span>ステージ</span>
+            <span>寸法</span>
+          </button>
+          <div
+            style={{
+              position: "relative",
+              display: "inline-flex",
+              flexShrink: 0,
+              justifyContent: "center",
+              width: "100%",
+            }}
+          >
+            <button
+              type="button"
+              className="editor-right-tool-sq"
+              style={btnSecondary}
+              disabled={!canGatherR}
+              title="全員を前・奥・上手・下手へ寄せて整列（行を分けて重なりにくくします）。元に戻すは「戻る」"
+              aria-haspopup="menu"
+              aria-expanded={gatherMenuOpen}
+              onClick={() => setGatherMenuOpen((v) => !v)}
+            >
+              寄せる
+            </button>
+            {gatherMenuOpen ? (
+              <>
+                <div
+                  onClick={() => setGatherMenuOpen(false)}
+                  style={{
+                    position: "fixed",
+                    inset: 0,
+                    zIndex: 30,
+                  }}
+                  aria-hidden
+                />
+                <div
+                  role="menu"
+                  aria-label="寄せる方向"
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 4px)",
+                    left: 0,
+                    zIndex: 31,
+                    minWidth: "220px",
+                    padding: "6px",
+                    background: "#0b1220",
+                    border: "1px solid #334155",
+                    borderRadius: "8px",
+                    boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
+                  }}
+                >
+                  {GATHER_TOWARD_OPTIONS.map((o) => (
+                    <button
+                      key={o.id}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => applyGatherToward(o.id)}
+                      title={o.hint}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        textAlign: "left",
+                        padding: "8px 10px",
+                        marginBottom: "2px",
+                        borderRadius: "6px",
+                        border: "1px solid #1e293b",
+                        background: "#0f172a",
+                        color: "#e2e8f0",
+                        fontSize: "12px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <span style={{ fontWeight: 600 }}>{o.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : null}
+          </div>
+          {wideEditorLayout ? (
+            <button
+              type="button"
+              className="editor-right-tool-sq"
+              style={btnSecondary}
+              onClick={() => setRightPaneCollapsed((v) => !v)}
+              aria-pressed={rightPaneCollapsed}
+              aria-label={
+                rightPaneCollapsed
+                  ? "右列（キュー一覧・タイムライン）を表示"
+                  : "右列を隠してステージを最大化"
+              }
+              title={
+                rightPaneCollapsed
+                  ? "右列（キュー一覧・タイムライン）を表示"
+                  : "右列を隠してステージを最大化"
+              }
+            >
+              <span>{rightPaneCollapsed ? "右列" : "拡大"}</span>
+              <span>{rightPaneCollapsed ? "表示" : "›"}</span>
+            </button>
+          ) : null}
+          {!hideUndoRedoInRail ? (
+            <>
+              <button
+                type="button"
+                className="editor-right-tool-sq"
+                style={btnSecondary}
+                disabled={project.viewMode === "view" || stageUndoDisabled}
+                title="編集を元に戻す（⌘Z / Ctrl+Z）"
+                aria-label="元に戻す"
+                onClick={() => undo()}
+              >
+                戻る
+              </button>
+              <button
+                type="button"
+                className="editor-right-tool-sq"
+                style={btnSecondary}
+                disabled={project.viewMode === "view" || stageRedoDisabled}
+                title="やり直す（⌘⇧Z / Ctrl+Shift+Z）"
+                aria-label="やり直す"
+                onClick={() => redo()}
+              >
+                進む
+              </button>
+            </>
+          ) : null}
+          <div
+            style={{
+              position: "relative",
+              display: "inline-flex",
+              flexShrink: 0,
+              justifyContent: "center",
+              width: "100%",
+            }}
+          >
+            <button
+              type="button"
+              className="editor-right-tool-sq"
+              style={{
+                ...btnSecondary,
+                borderColor: "#1e3a8a",
+                color: "#bfdbfe",
+              }}
+              title="このページの舞台設定を保存"
+              aria-haspopup="menu"
+              aria-expanded={saveMenuOpen}
+              onClick={() => setSaveMenuOpen((v) => !v)}
+            >
+              <span>その他</span>
+              <span>保存</span>
+            </button>
+            {saveMenuOpen ? (
+              <>
+                <div
+                  onClick={() => setSaveMenuOpen(false)}
+                  style={{
+                    position: "fixed",
+                    inset: 0,
+                    zIndex: 30,
+                  }}
+                  aria-hidden
+                />
+                <div
+                  role="menu"
+                  aria-label="保存の種類"
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 4px)",
+                    right: 0,
+                    zIndex: 31,
+                    minWidth: "240px",
+                    padding: "6px",
+                    background: "#0b1220",
+                    border: "1px solid #334155",
+                    borderRadius: "8px",
+                    boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
+                  }}
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={
+                      project.viewMode === "view" ||
+                      (project.cues.length > 0 && !selectedCueId)
+                    }
+                    onClick={() => {
+                      setSaveMenuOpen(false);
+                      saveCurrentPageStageSnapshot();
+                    }}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "8px 10px",
+                      borderRadius: "6px",
+                      border: "1px solid #334155",
+                      background: "#0f172a",
+                      color: "#e2e8f0",
+                      fontSize: "12px",
+                      cursor:
+                        project.viewMode === "view" ||
+                        (project.cues.length > 0 && !selectedCueId)
+                          ? "not-allowed"
+                          : "pointer",
+                    }}
+                  >
+                    <span style={{ fontWeight: 600 }}>
+                      このページの舞台設定を保存
+                    </span>
+                  </button>
+                </div>
+              </>
+            ) : null}
+          </div>
+          <div style={viewModeRow}>
+            <button
+              type="button"
+              className="editor-right-tool-sq"
+              style={{
+                ...btnSecondary,
+                ...(stageView === "2d"
+                  ? { borderColor: "#6366f1", color: "#c7d2fe" }
+                  : {}),
+              }}
+              onClick={() => setStageView("2d")}
+            >
+              2D
+            </button>
+            <button
+              type="button"
+              className="editor-right-tool-sq"
+              style={{
+                ...btnSecondary,
+                ...(stageView === "3d"
+                  ? { borderColor: "#6366f1", color: "#c7d2fe" }
+                  : {}),
+              }}
+              onClick={() => setStageView("3d")}
+            >
+              3D
+            </button>
+            <button
+              type="button"
+              className="editor-right-tool-sq"
+              style={{
+                ...btnSecondary,
+                ...(stageBoardFullscreen
+                  ? {
+                      borderColor: "rgba(34,197,94,0.75)",
+                      color: "#bbf7d0",
+                    }
+                  : {}),
+              }}
+              disabled={project.viewMode === "view"}
+              title={
+                stageBoardFullscreen
+                  ? "全画面を終了（Esc でも終了できます）"
+                  : "ステージの表示エリアだけをブラウザ全画面にします（2D / 3D どちらでも可）"
+              }
+              onClick={() => {
+                if (project.viewMode === "view") return;
+                void toggleStageBoardFullscreen();
+              }}
+            >
+              {stageBoardFullscreen ? (
+                <>
+                  <span>全画面</span>
+                  <span>終了</span>
+                </>
+              ) : (
+                <>
+                  <span>全</span>
+                  <span>画面</span>
+                </>
+              )}
+            </button>
+            {hasRosterMembers ? (
+              <button
+                type="button"
+                className="editor-right-tool-sq"
+                disabled={project.viewMode === "view"}
+                title="右列で名簿一覧を表示し、タイムライン列は隠します"
+                onClick={() =>
+                  setProjectSafe((p) => ({
+                    ...p,
+                    rosterHidesTimeline: true,
+                    rosterStripCollapsed: false,
+                  }))
+                }
+                style={{
+                  ...btnSecondary,
+                  borderColor: "#14532d",
+                  background: "#14532d",
+                  color: "#dcfce7",
+                  cursor:
+                    project.viewMode === "view" ? "not-allowed" : "pointer",
+                }}
+              >
+                <span>メンバー</span>
+                <span>表示</span>
+              </button>
+            ) : null}
+          </div>
+          {choreo ? (
+            <ChoreoGridToolbar
+              embedInPanel
+              tilesInRun
+              singleTile="snap"
+              {...choreo}
+            />
+          ) : null}
+          {choreo && choreo.onToggleStageGridLines ? (
+            <ChoreoGridToolbar
+              embedInPanel
+              tilesInRun
+              singleTile="gridLines"
+              {...choreo}
+            />
+          ) : null}
+          {choreo ? (
+            <ChoreoGridToolbar
+              embedInPanel
+              tilesInRun
+              singleTile="help"
+              {...choreo}
+            />
+          ) : null}
+        </div>
+        {!hideFloorTextToolbar && floorTextPlaceSession ? (
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "10px",
+              alignItems: "flex-end",
+              paddingTop: "8px",
+              marginTop: "4px",
+              borderTop: "1px solid #334155",
+              width: "100%",
+            }}
+          >
+            <textarea
+              value={floorTextPlaceSession.body}
+              onChange={(e) =>
+                setFloorTextPlaceSession((s) =>
+                  s ? { ...s, body: e.target.value } : s
+                )
+              }
+              rows={2}
+              aria-label="舞台上に表示するテキスト"
+              placeholder=""
+              style={{
+                flex: "1 1 220px",
+                minWidth: "180px",
+                maxWidth: "520px",
+                fontSize: "12px",
+                padding: "6px 8px",
+                borderRadius: "8px",
+                border: "1px solid #475569",
+                background: "#0f172a",
+                color: "#e2e8f0",
+                resize: "vertical",
+              }}
+            />
+            <input
+              type="number"
+              min={8}
+              max={56}
+              aria-label="床テキストのフォントサイズ（ピクセル）"
+              value={floorTextPlaceSession.fontSizePx}
+              onChange={(e) =>
+                setFloorTextPlaceSession((s) =>
+                  s
+                    ? {
+                        ...s,
+                        fontSizePx: Math.round(
+                          Math.min(
+                            56,
+                            Math.max(8, Number(e.target.value) || 18)
+                          )
+                        ),
+                      }
+                    : s
+                )
+              }
+              style={{
+                width: "64px",
+                padding: "4px 6px",
+                borderRadius: "6px",
+                border: "1px solid #475569",
+                background: "#0f172a",
+                color: "#e2e8f0",
+                fontSize: "12px",
+              }}
+            />
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
+                flex: "1 1 200px",
+                minWidth: "160px",
+              }}
+            >
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={() => commitFloorTextPlace()}
+                  style={{
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    padding: "6px 14px",
+                    borderRadius: "8px",
+                    border: "1px solid #15803d",
+                    background: "#22c55e",
+                    color: "#052e16",
+                    cursor: "pointer",
+                  }}
+                >
+                  完了
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFloorTextPlaceSession(null)}
+                  style={btnSecondary}
+                >
+                  キャンセル
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div style={rootStyle}>
       {/* 1 行目: タイトル／選択情報 + 主要アクション */}
@@ -210,331 +1239,17 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
         flexShrink: 0,
       }}
     >
-      設定
+      舞台設定
     </button>
-    {cuesSortedForStageJump.length > 0 ? (() => {
-      const total = cuesSortedForStageJump.length;
-      const curIdx = selectedCueId
-        ? cuesSortedForStageJump.findIndex(
-            (c) => c.id === selectedCueId
-          )
-        : -1;
-      const cur = curIdx >= 0 ? cuesSortedForStageJump[curIdx] : null;
-      const canPrev =
-        project.viewMode !== "view" && curIdx > 0;
-      const canNext =
-        project.viewMode !== "view" &&
-        curIdx >= 0 &&
-        curIdx < total - 1;
-      const navBtnStyle = (enabled: boolean): CSSProperties =>
-        rail
-          ? {
-              width: "48px",
-              height: "48px",
-              padding: 0,
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: "8px",
-              border: "1px solid #334155",
-              background: "#0f172a",
-              color: enabled ? "#cbd5e1" : "#475569",
-              fontSize: "15px",
-              lineHeight: 1,
-              flexDirection: "row",
-              cursor: enabled ? "pointer" : "not-allowed",
-              flexShrink: 0,
-            }
-          : {
-              width: "26px",
-              height: "26px",
-              padding: 0,
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              borderRadius: "6px",
-              border: "1px solid #334155",
-              background: "#0f172a",
-              color: enabled ? "#cbd5e1" : "#475569",
-              fontSize: "14px",
-              lineHeight: 1,
-              cursor: enabled ? "pointer" : "not-allowed",
-              flexShrink: 0,
-            };
-      return (
-        <div
-          className={rail ? "editor-right-cue-pager" : undefined}
-          style={{
-            position: "relative",
-            display: "inline-flex",
-            flexDirection: rail ? "column" : "row",
-            alignItems: "center",
-            gap: rail ? "6px" : "4px",
-            flexShrink: 0,
-            width: rail ? 48 : undefined,
-          }}
-          title="ステージのキュー（ページ）切替。タイムラインも区間の頭に移動します。"
-        >
-          <button
-            type="button"
-            onClick={() => jumpToCueByIdx(curIdx - 1)}
-            disabled={!canPrev}
-            title="前のキューへ"
-            aria-label="前のキューへ"
-            style={navBtnStyle(canPrev)}
-          >
-            ◀
-          </button>
-          <button
-            type="button"
-            onClick={() => setCuePagerListOpen((v) => !v)}
-            disabled={project.viewMode === "view"}
-            aria-haspopup="listbox"
-            aria-expanded={cuePagerListOpen}
-            title={
-              cur
-                ? cur.name?.trim()
-                  ? `「${cur.name.trim()}」を編集中。クリックで全キュー一覧。`
-                  : "無名のキューを編集中。クリックで全キュー一覧。"
-                : "クリックで全キュー一覧から選択"
-            }
-            style={
-              rail
-                ? {
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "1px",
-                    width: "48px",
-                    height: "48px",
-                    maxWidth: "48px",
-                    padding: "4px 2px",
-                    borderRadius: "8px",
-                    border: cur
-                      ? "1px solid #818cf8"
-                      : "1px solid #334155",
-                    background: cur ? "rgba(99,102,241,0.18)" : "#0f172a",
-                    color: cur ? "#e0e7ff" : "#94a3b8",
-                    fontSize: "7px",
-                    fontWeight: 700,
-                    lineHeight: 1.1,
-                    cursor:
-                      project.viewMode === "view"
-                        ? "not-allowed"
-                        : "pointer",
-                    flexShrink: 0,
-                    fontVariantNumeric: "tabular-nums",
-                    textAlign: "center",
-                    overflow: "hidden",
-                    wordBreak: "break-word",
-                  }
-                : {
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    padding: "3px 9px",
-                    borderRadius: "8px",
-                    border: cur
-                      ? "1px solid #818cf8"
-                      : "1px solid #334155",
-                    background: cur ? "rgba(99,102,241,0.18)" : "#0f172a",
-                    color: cur ? "#e0e7ff" : "#94a3b8",
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    cursor:
-                      project.viewMode === "view"
-                        ? "not-allowed"
-                        : "pointer",
-                    flexShrink: 0,
-                    minHeight: "26px",
-                    maxWidth: "240px",
-                    fontVariantNumeric: "tabular-nums",
-                  }
-            }
-          >
-            <span
-              style={{
-                fontSize: rail ? "6.5px" : "9px",
-                color: cur ? "#c7d2fe" : "#64748b",
-                letterSpacing: rail ? 0 : "0.04em",
-                lineHeight: 1.1,
-              }}
-            >
-              キュー
-            </span>
-            <span
-              style={
-                rail
-                  ? {
-                      whiteSpace: "normal",
-                      textAlign: "center",
-                      lineHeight: 1.1,
-                    }
-                  : { whiteSpace: "nowrap" }
-              }
-            >
-              {curIdx >= 0 ? curIdx + 1 : "—"} / {total}
-            </span>
-            {cur && cur.name?.trim() ? (
-              <span
-                style={{
-                  fontSize: rail ? "6.5px" : "11px",
-                  fontWeight: 500,
-                  color: "#e2e8f0",
-                  overflow: "hidden",
-                  display: rail ? "-webkit-box" : undefined,
-                  WebkitLineClamp: rail ? 2 : undefined,
-                  WebkitBoxOrient: rail ? "vertical" : undefined,
-                  textOverflow: "ellipsis",
-                  whiteSpace: rail ? "normal" : "nowrap",
-                  maxWidth: rail ? "100%" : "120px",
-                  lineHeight: 1.08,
-                  textAlign: "center",
-                }}
-              >
-                {cur.name.trim()}
-              </span>
-            ) : null}
-            <span
-              aria-hidden
-              style={{
-                fontSize: rail ? "6px" : "9px",
-                color: cur ? "#c7d2fe" : "#64748b",
-                marginLeft: rail ? 0 : "1px",
-                lineHeight: 1,
-              }}
-            >
-              ▾
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => jumpToCueByIdx(curIdx + 1)}
-            disabled={!canNext}
-            title="次のキューへ"
-            aria-label="次のキューへ"
-            style={navBtnStyle(canNext)}
-          >
-            ▶
-          </button>
-          {cuePagerListOpen ? (
-            <>
-              <div
-                onClick={() => setCuePagerListOpen(false)}
-                style={{
-                  position: "fixed",
-                  inset: 0,
-                  zIndex: 30,
-                }}
-                aria-hidden
-              />
-              <ul
-                role="listbox"
-                aria-label="キュー一覧"
-                style={{
-                  position: "absolute",
-                  top: "calc(100% + 4px)",
-                  left: "30px",
-                  zIndex: 31,
-                  listStyle: "none",
-                  margin: 0,
-                  padding: "4px",
-                  maxHeight: "320px",
-                  minWidth: "240px",
-                  overflowY: "auto",
-                  background: "#0b1220",
-                  border: "1px solid #334155",
-                  borderRadius: "8px",
-                  boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
-                }}
-              >
-                {cuesSortedForStageJump.map((c, i) => {
-                  const isCur = i === curIdx;
-                  const fname =
-                    project.formations.find(
-                      (f) => f.id === c.formationId
-                    )?.name ?? "";
-                  return (
-                    <li key={c.id}>
-                      <button
-                        type="button"
-                        role="option"
-                        aria-selected={isCur}
-                        onClick={() => {
-                          jumpToCueByIdx(i);
-                          setCuePagerListOpen(false);
-                        }}
-                        style={{
-                          width: "100%",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "8px",
-                          padding: "5px 8px",
-                          border: "none",
-                          borderRadius: "6px",
-                          background: isCur
-                            ? "rgba(99,102,241,0.22)"
-                            : "transparent",
-                          color: isCur ? "#e0e7ff" : "#cbd5e1",
-                          fontSize: "12px",
-                          cursor: "pointer",
-                          textAlign: "left",
-                          fontWeight: isCur ? 700 : 500,
-                        }}
-                      >
-                        <span
-                          style={{
-                            minWidth: "22px",
-                            fontVariantNumeric: "tabular-nums",
-                            color: isCur ? "#a5b4fc" : "#64748b",
-                            fontSize: "11px",
-                            fontWeight: 700,
-                          }}
-                        >
-                          {i + 1}
-                        </span>
-                        <span
-                          style={{
-                            flex: 1,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {c.name?.trim() ?? ""}
-                          {fname ? (
-                            <span
-                              style={{
-                                marginLeft: "6px",
-                                color: "#64748b",
-                                fontWeight: 400,
-                                fontSize: "10px",
-                              }}
-                            >
-                              · {fname}
-                            </span>
-                          ) : null}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: "10px",
-                            color: "#64748b",
-                            fontVariantNumeric: "tabular-nums",
-                          }}
-                        >
-                          {Math.round(c.tStartSec)}s
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </>
-          ) : null}
-        </div>
-      );
-    })() : null}
+    <WorkbenchCuePager
+      rail={rail}
+      project={project}
+      cuesSortedForStageJump={cuesSortedForStageJump}
+      selectedCueId={selectedCueId}
+      jumpToCueByIdx={jumpToCueByIdx}
+      cuePagerListOpen={cuePagerListOpen}
+      setCuePagerListOpen={setCuePagerListOpen}
+    />
     <button
       type="button"
       disabled={project.viewMode === "view"}
@@ -807,14 +1522,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
       <span style={{ fontSize: "12px", fontWeight: 700 }}>キュー</span>
     </button>
     {(() => {
-      const editFid =
-        selectedCue?.formationId ?? project.activeFormationId;
-      const editFormation = project.formations.find(
-        (x) => x.id === editFid
-      );
-      const canSaveSpots =
-        project.viewMode !== "view" &&
-        (editFormation?.dancers.length ?? 0) > 0;
       return (
         <div
           style={{
@@ -834,7 +1541,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               alignItems: "center",
               gap: "5px",
             }}
-            title="流れ（キュー並び）か、いまの立ち位置（形の箱）を保存"
+            title="このページの舞台設定をスナップショットとして保存"
             aria-haspopup="menu"
             aria-expanded={saveMenuOpen}
             onClick={() => setSaveMenuOpen((v) => !v)}
@@ -936,56 +1643,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                     このページの舞台設定を保存
                   </span>
                 </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setSaveMenuOpen(false);
-                    setFlowLibraryOpen(true);
-                  }}
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    textAlign: "left",
-                    padding: "8px 10px",
-                    marginBottom: "4px",
-                    borderRadius: "6px",
-                    border: "1px solid #1e3a8a",
-                    background: "#0f172a",
-                    color: "#e2e8f0",
-                    fontSize: "12px",
-                    cursor: "pointer",
-                  }}
-                >
-                  <span style={{ fontWeight: 600 }}>
-                    今までの流れを保存
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={!canSaveSpots}
-                  onClick={() => {
-                    setSaveMenuOpen(false);
-                    saveStageToFormationBox();
-                  }}
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    textAlign: "left",
-                    padding: "8px 10px",
-                    borderRadius: "6px",
-                    border: "1px solid #14532d",
-                    background: "#0f172a",
-                    color: "#e2e8f0",
-                    fontSize: "12px",
-                    cursor: canSaveSpots ? "pointer" : "not-allowed",
-                  }}
-                >
-                  <span style={{ fontWeight: 600 }}>
-                    作った立ち位置を保存
-                  </span>
-                </button>
               </div>
             </>
           ) : null}
@@ -995,18 +1652,11 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
     <button
       type="button"
       style={btnSecondary}
-      disabled={
-        project.viewMode === "view" ||
-        (project.cues.length > 0 && !selectedCueId)
-      }
-      title={
-        project.cues.length > 0 && !selectedCueId
-          ? "タイムラインでキューを選んでから保存できます"
-          : "立ち位置・床のテキスト・メモは作品に常に含まれます。ここでは横幅・客席・変形舞台などの舞台設定を、このページ（フォーメーション）用に記録します。別ページへ切り替えるときも自動で保存・復元されます。"
-      }
-      onClick={() => saveCurrentPageStageSnapshot()}
+      disabled={project.viewMode === "view"}
+      title="今までの流れ（フォーメーションとキュー）をフローライブラリに保存します"
+      onClick={() => setFlowLibraryOpen(true)}
     >
-      ページ保存
+      ライブラリに保存
     </button>
     <button
       type="button"
