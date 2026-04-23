@@ -89,6 +89,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
     setFloorTextPlaceSession,
     commitFloorTextPlace,
     hasRosterMembers,
+    hideFloorTextToolbar = false,
   } = props;
 
   const rowOuter: CSSProperties = rail
@@ -1147,6 +1148,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
           メンバーを表示
         </button>
       ) : null}
+    </div>
       {!hideFloorTextToolbar && floorTextPlaceSession ? (
         <div
           style={{
@@ -1254,8 +1256,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
       ) : null}
     </div>
   </div>
-  </div>
-    </div>
+</div>
   );
 
 }
