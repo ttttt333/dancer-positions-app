@@ -578,24 +578,12 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
   const clusterStyle: CSSProperties = rail ? { display: "contents" } : cluster;
   const clusterEndStyle: CSSProperties = rail ? { display: "contents" } : clusterEnd;
 
-  const viewModeRow: CSSProperties = rail
-    ? {
-        display: "flex",
-        flexDirection: "row",
-        flexWrap: "wrap",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 6,
-        width: "auto",
-        maxWidth: "100%",
-        minWidth: 0,
-      }
-    : {
-        display: "flex",
-        gap: "6px",
-        alignItems: "center",
-        flexWrap: "wrap",
-      };
+  const viewModeRow: CSSProperties = {
+    display: "flex",
+    gap: "6px",
+    alignItems: "center",
+    flexWrap: "wrap",
+  };
 
   if (rail) {
     const choreo = choreoToolbarProps;
@@ -864,15 +852,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               </button>
             </>
           ) : null}
-          <div
-            style={{
-              position: "relative",
-              display: "inline-flex",
-              flexShrink: 0,
-              justifyContent: "center",
-              width: "100%",
-            }}
-          >
+          <div className="editor-right-tools-save-wrap">
             <button
               type="button"
               className="editor-right-tool-sq"
@@ -952,7 +932,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               </>
             ) : null}
           </div>
-          <div style={viewModeRow}>
+          <div className="editor-right-tools-view-mode-grid">
             <button
               type="button"
               className="editor-right-tool-sq"

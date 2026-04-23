@@ -103,15 +103,17 @@ body {
   overflow: hidden;
 }
 
-/* 右レール: 上段は 3 列グリッド（舞台設定・＋キュー・＋ダンサー） */
+/* 右レール: 上段は 3 列（48×3 + 列間 8×2 = 160px）— 中段も同じトラック幅で中央揃え */
 .editor-right-tools-row-top3 {
   display: grid;
   grid-template-columns: repeat(3, 48px);
   column-gap: 8px;
   row-gap: 7px;
-  justify-content: flex-start;
+  justify-content: center;
   align-content: flex-start;
-  width: 100%;
+  width: min(160px, 100%);
+  margin-inline: auto;
+  box-sizing: border-box;
 }
 
 .editor-right-tools-col-ordered {
@@ -119,7 +121,9 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 7px;
-  width: 100%;
+  width: min(160px, 100%);
+  margin-inline: auto;
+  box-sizing: border-box;
 }
 
 .editor-right-tools-col-rest {
@@ -131,19 +135,47 @@ body {
   padding-top: 6px;
   margin-top: 2px;
   border-top: 1px solid #1e293b;
+  box-sizing: border-box;
 }
 
 .editor-right-rail-stack {
   min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 2D / 3D / 全画面 / メンバー: 48px タイルを 2 列で揃える */
+.editor-right-tools-view-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 48px);
+  gap: 6px;
+  justify-content: center;
+  width: min(160px, 100%);
+  margin-inline: auto;
+  box-sizing: border-box;
+}
+
+/* 「その他保存」だけを上段タイルと同じ 48px 幅で中央に */
+.editor-right-tools-save-wrap {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  width: 48px;
+  margin-inline: auto;
+  flex-shrink: 0;
 }
 
 .editor-right-tools-tiles {
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-content: flex-start;
-  align-items: flex-start;
-  justify-content: center;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-content: stretch;
+  align-items: stretch;
+  justify-content: flex-start;
   column-gap: 8px;
   row-gap: 7px;
   flex: 1 1 auto;
