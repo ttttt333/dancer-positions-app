@@ -17,6 +17,10 @@ import {
   resolveCueIntervalNonOverlap,
   sortCuesByStart,
 } from "../lib/cueInterval";
+import {
+  listFormationBoxItemsByCount,
+  saveFormationToBox,
+} from "../lib/formationBox";
 import { fetchAuthorizedAudioBlobUrl, getToken, audioApiUpload } from "../api/client";
 import {
   formatMmSs,
@@ -624,6 +628,16 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       active: boolean;
     } | null>(null);
     const suppressNextWaveSeekRef = useRef(false);
+    /** 波形上のキュー右クリック: メニュー位置と対象 id */
+    const [waveCueMenu, setWaveCueMenu] = useState<{
+      cueId: string;
+      clientX: number;
+      clientY: number;
+    } | null>(null);
+    /** メニューで選んだ操作の最終確認 */
+    const [waveCueConfirm, setWaveCueConfirm] = useState<
+      null | { kind: "duplicate" | "formationBox"; cueId: string }
+    >(null);
     const playheadScrubDragRef = useRef<{
       pointerId: number;
       wasPlaying: boolean;
@@ -943,6 +957,17 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
     }, [project.viewMode, setProject, onSelectedCueIdsChange]);
 
     useEffect(() => {
+      if (!waveCueMenu && !waveCueConfirm) return;
+      const onKey = (e: KeyboardEvent) => {
+        if (e.key !== "Escape") return;
+        setWaveCueConfirm(null);
+        setWaveCueMenu(null);
+      };
+      window.addEventListener("keydown", onKey);
+      return () => window.removeEventListener("keydown", onKey);
+    }, [waveCueMenu, waveCueConfirm]);
+
+    useEffect(() => {
       const a = audioRef.current;
       if (!a) return;
       a.playbackRate = playbackRate;
@@ -1212,11 +1237,9 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       if (!id) return;
       e.preventDefault();
       e.stopPropagation();
-      setProject((p) => ({
-        ...p,
-        cues: sortCuesByStart(p.cues.filter((x) => x.id !== id)),
-      }));
-      onSelectedCueIdsChange((prev) => prev.filter((x) => x !== id));
+      onSelectedCueIdsChange([id]);
+      setWaveCueConfirm(null);
+      setWaveCueMenu({ cueId: id, clientX: e.clientX, clientY: e.clientY });
     };
 
     useEffect(() => {
@@ -1557,6 +1580,101 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         onFormationChosenFromCueList,
         onSelectedCueIdsChange,
       ]
+    );
+
+    /**
+     * 波形から: 指定キューの直後に、同じ長さ・同じ立ち位置の複製を置く（区間は非重複に調整）。
+     */
+    const duplicateCueAfterSource = useCallback(
+      (source: Cue) => {
+        if (project.viewMode === "view") return;
+        const newCueId = crypto.randomUUID();
+        let appliedT = 0;
+        setProject((p) => {
+          if (p.cues.length >= 100) return p;
+          const srcFm = p.formations.find((f) => f.id === source.formationId);
+          if (!srcFm) return p;
+          const newFm = cloneFormationForNewCue(srcFm);
+          const d = durationRef.current || 1;
+          const trimHi = p.trimEndSec ?? d;
+          const trimLo = p.trimStartSec;
+          const dur = Math.max(0.02, source.tEndSec - source.tStartSec);
+          let t0 = Math.round(source.tEndSec * 100) / 100;
+          let t1 = Math.round((t0 + dur) * 100) / 100;
+          if (t1 > trimHi) {
+            t1 = trimHi;
+            t0 = Math.round((t1 - dur) * 100) / 100;
+          }
+          if (t0 < trimLo) {
+            t0 = trimLo;
+            t1 = Math.round(Math.min(trimHi, t0 + dur) * 100) / 100;
+          }
+          const resolved = resolveCueIntervalNonOverlap(
+            p.cues,
+            newCueId,
+            t0,
+            t1,
+            trimLo,
+            trimHi
+          );
+          t0 = resolved.tStartSec;
+          t1 = resolved.tEndSec;
+          appliedT = t0;
+          const newCue: Cue = {
+            id: newCueId,
+            tStartSec: t0,
+            tEndSec: t1,
+            formationId: newFm.id,
+            name: source.name,
+            note: source.note,
+          };
+          return {
+            ...p,
+            formations: [...p.formations, newFm],
+            cues: sortCuesByStart([...p.cues, newCue]),
+            activeFormationId: newFm.id,
+          };
+        });
+        const a = audioRef.current;
+        const trimHi = project.trimEndSec ?? durationRef.current;
+        if (a && Number.isFinite(appliedT)) {
+          a.currentTime = Math.max(
+            project.trimStartSec,
+            Math.min(trimHi, appliedT)
+          );
+        }
+        setCurrentTime(appliedT);
+        onSelectedCueIdsChange([newCueId]);
+        onFormationChosenFromCueList?.();
+      },
+      [
+        project.viewMode,
+        project.trimStartSec,
+        project.trimEndSec,
+        setProject,
+        setCurrentTime,
+        onFormationChosenFromCueList,
+        onSelectedCueIdsChange,
+      ]
+    );
+
+    const saveCueFormationToBoxList = useCallback(
+      (cueId: string) => {
+        const c = project.cues.find((x) => x.id === cueId);
+        if (!c) return;
+        const f = project.formations.find((x) => x.id === c.formationId);
+        if (!f || f.dancers.length === 0) {
+          window.alert("保存する立ち位置がありません。");
+          return;
+        }
+        const already = listFormationBoxItemsByCount(f.dancers.length).length;
+        const suggested = `${f.dancers.length}人の形 ${already + 1}`;
+        const result = saveFormationToBox(suggested, f.dancers);
+        if (!result.ok) {
+          window.alert(result.message);
+        }
+      },
+      [project.cues, project.formations]
     );
 
     /** キュー行の人数カウンター用。立ち位置は中央一列プリセットで即更新（共有形は全キューで共通） */
@@ -2066,7 +2184,218 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       drawWaveformAt(tRedraw);
     };
 
+    const waveCueMenuPanel =
+      waveCueMenu && !waveCueConfirm ? (
+        <>
+          <button
+            type="button"
+            aria-label="メニューを閉じる"
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 2498,
+              border: "none",
+              background: "transparent",
+              cursor: "default",
+            }}
+            onClick={() => setWaveCueMenu(null)}
+          />
+          <div
+            role="menu"
+            aria-label="キューの操作"
+            style={{
+              position: "fixed",
+              left: Math.max(
+                8,
+                Math.min(waveCueMenu.clientX, (typeof window !== "undefined" ? window.innerWidth : 800) - 228)
+              ),
+              top: Math.max(
+                8,
+                Math.min(waveCueMenu.clientY, (typeof window !== "undefined" ? window.innerHeight : 600) - 8)
+              ),
+              zIndex: 2499,
+              minWidth: "200px",
+              maxWidth: "min(280px, calc(100vw - 16px))",
+              padding: "8px",
+              borderRadius: "10px",
+              border: `1px solid ${shell.border}`,
+              background: shell.surface,
+              boxShadow: "0 16px 48px rgba(0,0,0,0.45)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "11px",
+                color: "#94a3b8",
+                marginBottom: "8px",
+                lineHeight: 1.45,
+              }}
+            >
+              このキューについて
+            </div>
+            <button
+              type="button"
+              role="menuitem"
+              style={{
+                ...btnSecondary,
+                display: "block",
+                width: "100%",
+                textAlign: "left",
+                marginBottom: "6px",
+                fontSize: "12px",
+                padding: "8px 10px",
+              }}
+              onClick={() => {
+                setWaveCueMenu(null);
+                setWaveCueConfirm({ kind: "duplicate", cueId: waveCueMenu.cueId });
+              }}
+            >
+              複製する
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              style={{
+                ...btnSecondary,
+                display: "block",
+                width: "100%",
+                textAlign: "left",
+                marginBottom: "6px",
+                fontSize: "12px",
+                padding: "8px 10px",
+              }}
+              onClick={() => {
+                setWaveCueMenu(null);
+                setWaveCueConfirm({
+                  kind: "formationBox",
+                  cueId: waveCueMenu.cueId,
+                });
+              }}
+            >
+              立ち位置リストに追加
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              style={{
+                ...btnSecondary,
+                display: "block",
+                width: "100%",
+                textAlign: "center",
+                fontSize: "12px",
+                padding: "6px 10px",
+                color: "#94a3b8",
+              }}
+              onClick={() => setWaveCueMenu(null)}
+            >
+              キャンセル
+            </button>
+          </div>
+        </>
+      ) : null;
+
+    const waveCueConfirmPanel = waveCueConfirm ? (
+      <>
+        <button
+          type="button"
+          aria-label="確認を閉じる"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 2500,
+            border: "none",
+            background: "rgba(2, 6, 23, 0.35)",
+            cursor: "pointer",
+          }}
+          onClick={() => setWaveCueConfirm(null)}
+        />
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="wave-cue-confirm-title"
+          style={{
+            position: "fixed",
+            left: "50%",
+            top: "50%",
+            transform: "translate(-50%, -50%)",
+            zIndex: 2501,
+            width: "min(360px, calc(100vw - 32px))",
+            padding: "18px 20px",
+            borderRadius: "12px",
+            border: `1px solid ${shell.border}`,
+            background: shell.surface,
+            boxShadow: "0 24px 64px rgba(0,0,0,0.5)",
+          }}
+          onClick={(ev) => ev.stopPropagation()}
+        >
+          <h3
+            id="wave-cue-confirm-title"
+            style={{
+              margin: "0 0 10px",
+              fontSize: "15px",
+              fontWeight: 600,
+              color: "#e2e8f0",
+            }}
+          >
+            {waveCueConfirm.kind === "duplicate" ? "キューを複製" : "立ち位置リストへ"}
+          </h3>
+          <p
+            style={{
+              margin: "0 0 16px",
+              fontSize: "13px",
+              color: "#cbd5e1",
+              lineHeight: 1.55,
+            }}
+          >
+            {waveCueConfirm.kind === "duplicate"
+              ? "同じ立ち位置の別区間として、波形上の直後あたりに複製します。"
+              : "このキューの立ち位置を「形の箱」（立ち位置リスト）に追加します。名前は人数に応じて自動で付けます。"}
+          </p>
+          <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+            <button
+              type="button"
+              style={{
+                ...btnSecondary,
+                padding: "8px 16px",
+                fontSize: "13px",
+                minWidth: "88px",
+              }}
+              onClick={() => setWaveCueConfirm(null)}
+            >
+              いいえ
+            </button>
+            <button
+              type="button"
+              style={{
+                ...btnSecondary,
+                padding: "8px 16px",
+                fontSize: "13px",
+                minWidth: "88px",
+                borderColor: "#6366f1",
+                color: "#e0e7ff",
+                fontWeight: 600,
+              }}
+              onClick={() => {
+                const cue = cues.find((c) => c.id === waveCueConfirm.cueId);
+                if (cue) {
+                  if (waveCueConfirm.kind === "duplicate") {
+                    duplicateCueAfterSource(cue);
+                  } else {
+                    saveCueFormationToBoxList(waveCueConfirm.cueId);
+                  }
+                }
+                setWaveCueConfirm(null);
+              }}
+            >
+              はい
+            </button>
+          </div>
+        </div>
+      </>
+    ) : null;
+
     return (
+      <>
       <div
         style={{
           display: "flex",
@@ -2797,6 +3126,9 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         })()}
         <audio ref={audioRef} style={{ display: "none" }} controls={false} />
       </div>
+      {waveCueMenuPanel}
+      {waveCueConfirmPanel}
+      </>
     );
   }
 );

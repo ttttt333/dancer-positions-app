@@ -48,13 +48,14 @@ import {
 import { ChoreoGridToolbar } from "../components/ChoreoGridToolbar";
 import {
   EditorStageWorkbench,
+  WorkbenchCuePager,
   type EditorStageWorkbenchProps,
 } from "../components/EditorStageWorkbench";
 import { StageShapePicker } from "../components/StageShapePicker";
+import { EditorSideSheet } from "../components/EditorSideSheet";
 import { ExportDialog } from "../components/ExportDialog";
 import { FlowLibraryDialog } from "../components/FlowLibraryDialog";
 import { AddCueWithFormationDialog } from "../components/AddCueWithFormationDialog";
-import { gatherDancersToEdge, type GatherToward } from "../lib/gatherDancers";
 import { projectApi } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
@@ -75,6 +76,8 @@ function round2Pct(n: number): number {
 const EDITOR_WIDE_MIN_PX = 1280;
 /** メイン 4 列グリッドの列間（ステージ〜タイムラインのすき間に効く） */
 const EDITOR_GRID_GAP_PX = 6;
+/** 再生・波形・タイムライン列をまとめて上へ詰める（物理的な目安で約 1.5cm） */
+const EDITOR_PLAYBACK_LAYOUT_SHIFT_UP = "1.5cm";
 
 /** ステージ列とタイムライン列の間のドラッグ幅 */
 const STAGE_RESIZER_PX = 4;
@@ -161,7 +164,6 @@ export function EditorPage() {
   const [rightPaneCollapsed, setRightPaneCollapsed] = useState(false);
   const timelineRef = useRef<TimelinePanelHandle>(null);
   const [stageSettingsOpen, setStageSettingsOpen] = useState(false);
-  const [gatherMenuOpen, setGatherMenuOpen] = useState(false);
   /** 保存メニュー（流れ / 立ち位置） */
   const [saveMenuOpen, setSaveMenuOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
@@ -656,10 +658,6 @@ export function EditorPage() {
         setSaveMenuOpen(false);
         return;
       }
-      if (e.key === "Escape" && gatherMenuOpen) {
-        setGatherMenuOpen(false);
-        return;
-      }
       if (e.key === "Escape" && stageAreaSettingsOpen) {
         setStageAreaSettingsOpen(false);
         return;
@@ -710,7 +708,6 @@ export function EditorPage() {
     redo,
     undo,
     saveMenuOpen,
-    gatherMenuOpen,
     stageAreaSettingsOpen,
     stageSettingsOpen,
     shortcutsHelpOpen,
@@ -993,28 +990,6 @@ export function EditorPage() {
   useEffect(() => {
     if (stageView === "3d") setFloorTextPlaceSession(null);
   }, [stageView]);
-
-  const applyGatherToward = useCallback(
-    (toward: GatherToward) => {
-      if (!project || project.viewMode === "view") return;
-      if (project.cues.length > 0 && !selectedCueId) return;
-      const fid = selectedCue?.formationId ?? project.activeFormationId;
-      setProjectSafe((p) => {
-        const f = p.formations.find((x) => x.id === fid);
-        if (!f?.dancers.length) return p;
-        return {
-          ...p,
-          formations: p.formations.map((x) =>
-            x.id === fid
-              ? { ...x, dancers: gatherDancersToEdge(x.dancers, toward) }
-              : x
-          ),
-        };
-      });
-      setGatherMenuOpen(false);
-    },
-    [project, selectedCueId, selectedCue, setProjectSafe]
-  );
 
   /**
    * ＋ダンサーボタンで 1 人ずつ追加。
@@ -1304,19 +1279,10 @@ export function EditorPage() {
   const stageWorkbenchProps: Omit<EditorStageWorkbenchProps, "layout"> = {
     project,
     setProjectSafe,
-    cuesSortedForStageJump,
     selectedCueId,
     selectedCue: selectedCue ?? null,
-    jumpToCueByIdx,
-    cuePagerListOpen,
-    setCuePagerListOpen,
     stageAreaSettingsOpen,
     setStageAreaSettingsOpen,
-    stageSettingsOpen,
-    setStageSettingsOpen,
-    gatherMenuOpen,
-    setGatherMenuOpen,
-    applyGatherToward,
     rightPaneCollapsed,
     setRightPaneCollapsed,
     wideEditorLayout,
@@ -1545,6 +1511,7 @@ export function EditorPage() {
             : "auto auto auto",
           gap: `${EDITOR_GRID_GAP_PX}px`,
           padding: "6px",
+          marginTop: `calc(-1 * ${EDITOR_PLAYBACK_LAYOUT_SHIFT_UP})`,
           minHeight: 0,
           overflow: "hidden",
         }}
@@ -1692,21 +1659,52 @@ export function EditorPage() {
             <EditorStageWorkbench key="stage-wb" layout="stage" {...stageWorkbenchProps} />
           ) : null}
           <div
-            ref={stageBoardHostRef}
             style={{
+              position: "relative",
               flex: 1,
               minHeight: 0,
               minWidth: 0,
               display: "flex",
               flexDirection: "column",
-              ...(stageBoardFullscreen
-                ? {
-                    background: shell.bgDeep,
-                    borderRadius: 8,
-                  }
-                : {}),
             }}
           >
+            {cuesSortedForStageJump.length > 0 ? (
+              <div
+                style={{
+                  position: "absolute",
+                  top: 2,
+                  right: 4,
+                  zIndex: 40,
+                  pointerEvents: "auto",
+                }}
+              >
+                <WorkbenchCuePager
+                  variant="stageCorner"
+                  project={project}
+                  cuesSortedForStageJump={cuesSortedForStageJump}
+                  selectedCueId={selectedCueId}
+                  jumpToCueByIdx={jumpToCueByIdx}
+                  cuePagerListOpen={cuePagerListOpen}
+                  setCuePagerListOpen={setCuePagerListOpen}
+                />
+              </div>
+            ) : null}
+            <div
+              ref={stageBoardHostRef}
+              style={{
+                flex: 1,
+                minHeight: 0,
+                minWidth: 0,
+                display: "flex",
+                flexDirection: "column",
+                ...(stageBoardFullscreen
+                  ? {
+                      background: shell.bgDeep,
+                      borderRadius: 8,
+                    }
+                  : {}),
+              }}
+            >
             {stageView === "2d" ? (
               <StageBoard
                 project={project}
@@ -1747,6 +1745,7 @@ export function EditorPage() {
                 />
               </Suspense>
             )}
+            </div>
           </div>
         </section>
 
@@ -2000,128 +1999,96 @@ export function EditorPage() {
       {showTopWaveDock ? (
         <>
           {cueListModalOpen ? (
-            <div
-              role="presentation"
-              onClick={() => setCueListModalOpen(false)}
-              style={{
-                position: "fixed",
-                inset: 0,
-                zIndex: 2190,
-                background: "rgba(15, 23, 42, 0.55)",
-              }}
-            />
-          ) : null}
-          <div
-            style={{
-              position: "fixed",
-              ...(cueListModalOpen
-                ? {
-                    top: "7vh",
-                    right: 14,
-                    width: "min(440px, calc(100vw - 28px))",
-                    maxHeight: "86vh",
-                    zIndex: 2200,
-                    borderRadius: 12,
-                    border: `1px solid ${shell.border}`,
-                    background: shell.surface,
-                    overflow: "hidden",
-                    display: "flex",
-                    flexDirection: "column",
-                    boxShadow: "0 24px 64px rgba(0, 0, 0, 0.45)",
-                  }
-                : {
-                    left: -32000,
-                    top: 0,
-                    width: 400,
-                    height: 520,
-                    overflow: "hidden",
-                    opacity: 0,
-                    pointerEvents: "none",
-                    zIndex: -1,
-                    display: "flex",
-                    flexDirection: "column",
-                  }),
-            }}
-          >
-            {cueListModalOpen ? (
+            <EditorSideSheet
+              open
+              zIndex={2200}
+              width="min(440px, calc(100vw - 28px))"
+              onClose={() => setCueListModalOpen(false)}
+              ariaLabelledBy="cue-list-modal-title"
+            >
               <div
                 style={{
                   display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 8,
-                  padding: "10px 12px",
-                  borderBottom: `1px solid ${shell.border}`,
-                  flexShrink: 0,
+                  flexDirection: "column",
+                  height: "100%",
+                  minHeight: 0,
+                  background: shell.surface,
                 }}
               >
-                <h2
+                <div
                   style={{
-                    margin: 0,
-                    fontSize: "14px",
-                    fontWeight: 600,
-                    color: shell.text,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                    padding: "10px 12px",
+                    borderBottom: `1px solid ${shell.border}`,
+                    flexShrink: 0,
                   }}
                 >
-                  キュー一覧
-                </h2>
-                <button
-                  type="button"
-                  aria-label="閉じる"
-                  onClick={() => setCueListModalOpen(false)}
-                  style={{ ...btnSecondary, padding: "4px 10px" }}
-                >
-                  閉じる
-                </button>
+                  <h2
+                    id="cue-list-modal-title"
+                    style={{
+                      margin: 0,
+                      fontSize: "14px",
+                      fontWeight: 600,
+                      color: shell.text,
+                    }}
+                  >
+                    キュー一覧
+                  </h2>
+                  <button
+                    type="button"
+                    aria-label="閉じる"
+                    onClick={() => setCueListModalOpen(false)}
+                    style={{ ...btnSecondary, padding: "4px 10px" }}
+                  >
+                    閉じる
+                  </button>
+                </div>
+                <div
+                  ref={setCueListPortalEl}
+                  style={{
+                    flex: "1 1 auto",
+                    minHeight: 240,
+                    display: "flex",
+                    flexDirection: "column",
+                    overflow: "hidden",
+                  }}
+                />
               </div>
-            ) : null}
+            </EditorSideSheet>
+          ) : (
             <div
               ref={setCueListPortalEl}
+              aria-hidden
               style={{
-                flex: "1 1 auto",
-                minHeight: 240,
+                position: "fixed",
+                left: -32000,
+                top: 0,
+                width: 400,
+                height: 520,
+                overflow: "hidden",
+                opacity: 0,
+                pointerEvents: "none",
+                zIndex: -1,
                 display: "flex",
                 flexDirection: "column",
-                overflow: "hidden",
               }}
             />
-          </div>
+          )}
         </>
       ) : null}
 
       {stageAreaSettingsOpen ? (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 61,
-            background: "rgba(15, 23, 42, 0.78)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "16px",
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setStageAreaSettingsOpen(false);
-          }}
+        <EditorSideSheet
+          open
+          zIndex={61}
+          width="min(440px, 44vw)"
+          onClose={() => setStageAreaSettingsOpen(false)}
+          ariaLabelledBy="stage-area-settings-title"
         >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="stage-area-settings-title"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: "440px",
-              maxHeight: "min(90vh, 640px)",
-              overflow: "auto",
-              background: "#0f172a",
-              borderRadius: "12px",
-              border: "1px solid #334155",
-              padding: "16px 18px 18px",
-              boxShadow: "0 24px 64px rgba(0, 0, 0, 0.5)",
-            }}
-          >
+          <div style={{ padding: "16px 18px 18px" }}>
             <div
               style={{
                 display: "flex",
@@ -2619,42 +2586,18 @@ export function EditorPage() {
               </button>
             </div>
           </div>
-        </div>
+        </EditorSideSheet>
       ) : null}
 
       {stageSettingsOpen ? (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 60,
-            background: "rgba(15, 23, 42, 0.75)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "16px",
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setStageSettingsOpen(false);
-          }}
+        <EditorSideSheet
+          open
+          zIndex={60}
+          width="min(520px, 46vw)"
+          onClose={() => setStageSettingsOpen(false)}
+          ariaLabelledBy="stage-settings-dialog-title"
         >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="stage-settings-dialog-title"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: "520px",
-              maxHeight: "min(90vh, 680px)",
-              overflow: "auto",
-              background: "#0f172a",
-              borderRadius: "12px",
-              border: "1px solid #334155",
-              padding: "16px 18px 18px",
-              boxShadow: "0 24px 64px rgba(0, 0, 0, 0.5)",
-            }}
-          >
+          <div style={{ padding: "16px 18px 18px" }}>
             <div
               style={{
                 display: "flex",
@@ -2700,42 +2643,18 @@ export function EditorPage() {
               onCommit={() => setStageSettingsOpen(false)}
             />
           </div>
-        </div>
+        </EditorSideSheet>
       ) : null}
 
       {shortcutsHelpOpen ? (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 60,
-            background: "rgba(15, 23, 42, 0.75)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "16px",
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setShortcutsHelpOpen(false);
-          }}
+        <EditorSideSheet
+          open
+          zIndex={60}
+          width="min(480px, 42vw)"
+          onClose={() => setShortcutsHelpOpen(false)}
+          ariaLabelledBy="shortcuts-dialog-title"
         >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="shortcuts-dialog-title"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "100%",
-              maxWidth: "480px",
-              maxHeight: "min(88vh, 560px)",
-              overflow: "auto",
-              background: "#0f172a",
-              borderRadius: "12px",
-              border: "1px solid #334155",
-              padding: "16px 18px 18px",
-              boxShadow: "0 24px 64px rgba(0, 0, 0, 0.5)",
-            }}
-          >
+          <div style={{ padding: "16px 18px 18px", maxHeight: "min(88vh, 560px)", overflow: "auto" }}>
             <div
               style={{
                 display: "flex",
@@ -2832,6 +2751,13 @@ export function EditorPage() {
                 で一括削除（Undo 可）
               </li>
               <li>
+                タイムライン: 波形上のキューを{" "}
+                <strong style={{ color: "#e2e8f0" }}>右クリック</strong>
+                →「複製する」「立ち位置リストに追加」のあと{" "}
+                <strong style={{ color: "#e2e8f0" }}>はい</strong>／
+                <strong style={{ color: "#e2e8f0" }}>いいえ</strong>で確定
+              </li>
+              <li>
                 タイムライン: 動画ファイルから <strong style={{ color: "#e2e8f0" }}>音声抽出</strong>（再生時間ぶんかかります）
                 ・波形の <strong style={{ color: "#e2e8f0" }}>振幅 ±</strong> / 枠の下辺ドラッグで波形の高さ
               </li>
@@ -2840,7 +2766,7 @@ export function EditorPage() {
               </li>
             </ul>
           </div>
-        </div>
+        </EditorSideSheet>
       ) : null}
 
       <SetPiecePickerModal
@@ -2908,39 +2834,21 @@ export function EditorPage() {
       ) : null}
 
       {project && rosterImportDraft ? (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 60,
-            background: "rgba(0,0,0,0.55)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "16px",
-          }}
-          role="presentation"
-          onClick={() => {
+        <EditorSideSheet
+          open
+          zIndex={60}
+          width="min(440px, 46vw)"
+          onClose={() => {
             setRosterImportDraft(null);
             setRosterImportExtraNames([]);
           }}
+          ariaLabelledBy="roster-import-dialog-title"
         >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="名簿取り込みの表示名"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "min(440px, 100%)",
-              borderRadius: "12px",
-              border: "1px solid #334155",
-              background: "#0f172a",
-              color: "#e2e8f0",
-              padding: "18px 20px",
-              boxShadow: "0 24px 60px rgba(0,0,0,0.5)",
-            }}
-          >
-            <div style={{ fontSize: "15px", fontWeight: 700, marginBottom: "8px" }}>
+          <div style={{ padding: "18px 20px" }}>
+            <div
+              id="roster-import-dialog-title"
+              style={{ fontSize: "15px", fontWeight: 700, marginBottom: "8px" }}
+            >
               名簿を取り込みます
             </div>
             <p style={{ margin: "0 0 12px", fontSize: "12px", color: "#94a3b8", lineHeight: 1.5 }}>
@@ -3167,7 +3075,7 @@ export function EditorPage() {
               </button>
             </div>
           </div>
-        </div>
+        </EditorSideSheet>
       ) : null}
 
       <style>{`

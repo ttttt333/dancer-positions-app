@@ -21,6 +21,7 @@ import {
   saveFlowFromProject,
 } from "../lib/flowLibrary";
 import { btnSecondary } from "./stageButtonStyles";
+import { EditorSideSheet } from "./EditorSideSheet";
 
 type Props = {
   open: boolean;
@@ -330,35 +331,17 @@ export function FlowLibraryDialog({
   const canSave = cuesCount > 0 && formCount > 0;
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 70,
-        background: "rgba(15, 23, 42, 0.78)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "16px",
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !busy) onClose();
-      }}
+    <EditorSideSheet
+      open
+      zIndex={70}
+      width="min(640px, 54vw)"
+      blockDismiss={busy}
+      onClose={onClose}
+      ariaLabelledBy="flow-lib-title"
     >
       <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="flow-lib-title"
-        onClick={(e) => e.stopPropagation()}
         style={{
-          width: "100%",
-          maxWidth: "640px",
-          maxHeight: "88vh",
-          background: "#0f172a",
-          borderRadius: "12px",
-          border: "1px solid #334155",
           padding: "16px 18px 18px",
-          boxShadow: "0 24px 64px rgba(0,0,0,0.5)",
           display: "flex",
           flexDirection: "column",
           gap: "12px",
@@ -697,6 +680,6 @@ export function FlowLibraryDialog({
           </button>
         </div>
       </div>
-    </div>
+    </EditorSideSheet>
   );
 }

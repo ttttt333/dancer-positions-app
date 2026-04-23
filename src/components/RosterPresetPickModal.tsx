@@ -9,6 +9,7 @@ import {
   dancersForLayoutPreset,
   type LayoutPresetId,
 } from "../lib/formationLayouts";
+import { EditorSideSheet } from "./EditorSideSheet";
 
 type Props = {
   open: boolean;
@@ -76,36 +77,18 @@ export function RosterPresetPickModal({
   if (!open) return null;
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 85,
-        background: "rgba(15, 23, 42, 0.82)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "16px",
-      }}
-      role="presentation"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+    <EditorSideSheet
+      open
+      zIndex={85}
+      width="min(520px, 48vw)"
+      onClose={onClose}
+      ariaLabelledBy="roster-preset-modal-title"
     >
       <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="roster-preset-modal-title"
-        onClick={(e) => e.stopPropagation()}
         style={{
-          width: "min(520px, 100%)",
-          maxHeight: "min(85vh, 640px)",
           display: "flex",
           flexDirection: "column",
-          background: "#0f172a",
-          border: "1px solid #334155",
-          borderRadius: "12px",
-          boxShadow: "0 24px 64px rgba(0,0,0,0.55)",
+          maxHeight: "min(85vh, 640px)",
           overflow: "hidden",
         }}
       >
@@ -284,7 +267,7 @@ export function RosterPresetPickModal({
           </div>
         </div>
       </div>
-    </div>
+    </EditorSideSheet>
   );
 }
 

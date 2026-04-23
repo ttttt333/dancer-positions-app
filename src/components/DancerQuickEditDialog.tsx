@@ -9,6 +9,7 @@ import {
   DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE,
   modDancerColorIndex,
 } from "../lib/dancerColorPalette";
+import { EditorSideSheet } from "./EditorSideSheet";
 
 const LABEL_MAX = 120;
 const MARKER_BADGE_MAX = 3;
@@ -117,29 +118,6 @@ export function DancerQuickEditDialog({
     onClose();
   };
 
-  const backdrop: CSSProperties = {
-    position: "fixed",
-    inset: 0,
-    zIndex: 80,
-    background: "rgba(2, 6, 23, 0.55)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "16px",
-  };
-
-  const card: CSSProperties = {
-    width: "min(360px, 100%)",
-    maxHeight: "min(90vh, 640px)",
-    overflow: "auto",
-    background: "#0f172a",
-    border: "1px solid #334155",
-    borderRadius: "12px",
-    boxShadow: "0 24px 60px rgba(0,0,0,0.55)",
-    padding: "14px 16px",
-    color: "#e2e8f0",
-  };
-
   const labelStyle: CSSProperties = {
     display: "block",
     fontSize: "11px",
@@ -168,16 +146,19 @@ export function DancerQuickEditDialog({
   );
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="dancer-quick-edit-title"
-      style={backdrop}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+    <EditorSideSheet
+      open
+      zIndex={80}
+      width="min(360px, 44vw)"
+      onClose={onClose}
+      ariaLabelledBy="dancer-quick-edit-title"
     >
-      <div style={card} onClick={(e) => e.stopPropagation()}>
+      <div
+        style={{
+          padding: "14px 16px",
+          color: "#e2e8f0",
+        }}
+      >
         <h2
           id="dancer-quick-edit-title"
           style={{ margin: "0 0 12px", fontSize: "15px", fontWeight: 700 }}
@@ -384,6 +365,6 @@ export function DancerQuickEditDialog({
           </button>
         </div>
       </div>
-    </div>
+    </EditorSideSheet>
   );
 }

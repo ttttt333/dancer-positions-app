@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import type { SetPieceKind } from "../types/choreography";
 import { btnSecondary } from "./stageButtonStyles";
+import { EditorSideSheet } from "./EditorSideSheet";
 
 export type SetPiecePickerSubmit = {
   kind: SetPieceKind;
@@ -121,36 +122,14 @@ export function SetPiecePickerModal({
   ];
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 65,
-        background: "rgba(15, 23, 42, 0.78)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "16px",
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+    <EditorSideSheet
+      open
+      zIndex={65}
+      width="min(420px, 44vw)"
+      onClose={onClose}
+      ariaLabelledBy={titleId}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: "100%",
-          maxWidth: "420px",
-          background: "#0f172a",
-          borderRadius: "12px",
-          border: "1px solid #334155",
-          padding: "16px 18px 18px",
-          boxShadow: "0 24px 64px rgba(0, 0, 0, 0.5)",
-        }}
-      >
+      <div style={{ padding: "16px 18px 18px" }}>
         <div
           style={{
             display: "flex",
@@ -335,6 +314,6 @@ export function SetPiecePickerModal({
           </button>
         </div>
       </div>
-    </div>
+    </EditorSideSheet>
   );
 }

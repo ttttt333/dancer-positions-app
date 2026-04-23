@@ -2,7 +2,6 @@ import type { CSSProperties, ComponentProps, Dispatch, SetStateAction } from "re
 import type { ChoreographyProjectJson, Cue } from "../types/choreography";
 import type { FloorTextPlaceSession } from "../components/StageBoard";
 import { btnSecondary } from "../components/stageButtonStyles";
-import { GATHER_TOWARD_OPTIONS, type GatherToward } from "../lib/gatherDancers";
 import { ChoreoGridToolbar } from "./ChoreoGridToolbar";
 
 export type EditorWorkbenchChoreoToolbarProps = Omit<
@@ -10,8 +9,10 @@ export type EditorWorkbenchChoreoToolbarProps = Omit<
   "layout" | "embedInPanel" | "tilesInRun" | "singleTile"
 >;
 
-type WorkbenchCuePagerProps = {
-  rail: boolean;
+export type WorkbenchCuePagerVariant = "rail" | "inline" | "stageCorner";
+
+export type WorkbenchCuePagerProps = {
+  variant: WorkbenchCuePagerVariant;
   project: ChoreographyProjectJson;
   cuesSortedForStageJump: Cue[];
   selectedCueId: string | null;
@@ -20,8 +21,8 @@ type WorkbenchCuePagerProps = {
   setCuePagerListOpen: Dispatch<SetStateAction<boolean>>;
 };
 
-function WorkbenchCuePager({
-  rail,
+export function WorkbenchCuePager({
+  variant,
   project,
   cuesSortedForStageJump,
   selectedCueId,
@@ -30,6 +31,8 @@ function WorkbenchCuePager({
   setCuePagerListOpen,
 }: WorkbenchCuePagerProps) {
   if (cuesSortedForStageJump.length === 0) return null;
+  const isRail = variant === "rail";
+  const isCorner = variant === "stageCorner";
   const total = cuesSortedForStageJump.length;
   const curIdx = selectedCueId
     ? cuesSortedForStageJump.findIndex((c) => c.id === selectedCueId)
@@ -39,7 +42,7 @@ function WorkbenchCuePager({
   const canNext =
     project.viewMode !== "view" && curIdx >= 0 && curIdx < total - 1;
   const navBtnStyle = (enabled: boolean): CSSProperties =>
-    rail
+    isRail
       ? {
           width: "48px",
           height: "48px",
@@ -57,35 +60,52 @@ function WorkbenchCuePager({
           cursor: enabled ? "pointer" : "not-allowed",
           flexShrink: 0,
         }
-      : {
-          width: "26px",
-          height: "26px",
-          padding: 0,
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          borderRadius: "6px",
-          border: "1px solid #334155",
-          background: "#0f172a",
-          color: enabled ? "#cbd5e1" : "#475569",
-          fontSize: "14px",
-          lineHeight: 1,
-          cursor: enabled ? "pointer" : "not-allowed",
-          flexShrink: 0,
-        };
-  return (
+      : isCorner
+        ? {
+            width: "34px",
+            height: "34px",
+            padding: 0,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: "8px",
+            border: "1px solid #475569",
+            background: "#0f172a",
+            color: enabled ? "#e2e8f0" : "#475569",
+            fontSize: "16px",
+            lineHeight: 1,
+            cursor: enabled ? "pointer" : "not-allowed",
+            flexShrink: 0,
+          }
+        : {
+            width: "26px",
+            height: "26px",
+            padding: 0,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: "6px",
+            border: "1px solid #334155",
+            background: "#0f172a",
+            color: enabled ? "#cbd5e1" : "#475569",
+            fontSize: "14px",
+            lineHeight: 1,
+            cursor: enabled ? "pointer" : "not-allowed",
+            flexShrink: 0,
+          };
+  const core = (
     <div
-      className={rail ? "editor-right-cue-pager" : undefined}
+      className={isRail ? "editor-right-cue-pager" : undefined}
       style={{
         position: "relative",
         display: "inline-flex",
-        flexDirection: rail ? "column" : "row",
+        flexDirection: isRail ? "column" : "row",
         alignItems: "center",
-        gap: rail ? "6px" : "4px",
+        gap: isRail ? "6px" : isCorner ? "6px" : "4px",
         flexShrink: 0,
-        width: rail ? 48 : undefined,
+        width: isRail ? 48 : undefined,
       }}
-      title="ステージのキュー（ページ）切替。タイムラインも区間の頭に移動します。"
+      title="ステージのキュー（ページ）切替。波形の再生位置も区間の頭に移動します。"
     >
       <button
         type="button"
@@ -111,7 +131,7 @@ function WorkbenchCuePager({
             : "クリックで全キュー一覧から選択"
         }
         style={
-          rail
+          isRail
             ? {
                 display: "flex",
                 flexDirection: "column",
@@ -137,31 +157,50 @@ function WorkbenchCuePager({
                 overflow: "hidden",
                 wordBreak: "break-word",
               }
-            : {
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                padding: "3px 9px",
-                borderRadius: "8px",
-                border: cur ? "1px solid #818cf8" : "1px solid #334155",
-                background: cur ? "rgba(99,102,241,0.18)" : "#0f172a",
-                color: cur ? "#e0e7ff" : "#94a3b8",
-                fontSize: "12px",
-                fontWeight: 700,
-                cursor:
-                  project.viewMode === "view" ? "not-allowed" : "pointer",
-                flexShrink: 0,
-                minHeight: "26px",
-                maxWidth: "240px",
-                fontVariantNumeric: "tabular-nums",
-              }
+            : isCorner
+              ? {
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "4px 10px",
+                  minHeight: "34px",
+                  borderRadius: "8px",
+                  border: cur ? "1px solid #818cf8" : "1px solid #475569",
+                  background: cur ? "rgba(99,102,241,0.22)" : "#0f172a",
+                  color: cur ? "#e0e7ff" : "#94a3b8",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  cursor:
+                    project.viewMode === "view" ? "not-allowed" : "pointer",
+                  flexShrink: 0,
+                  maxWidth: "200px",
+                  fontVariantNumeric: "tabular-nums",
+                }
+              : {
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "3px 9px",
+                  borderRadius: "8px",
+                  border: cur ? "1px solid #818cf8" : "1px solid #334155",
+                  background: cur ? "rgba(99,102,241,0.18)" : "#0f172a",
+                  color: cur ? "#e0e7ff" : "#94a3b8",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  cursor:
+                    project.viewMode === "view" ? "not-allowed" : "pointer",
+                  flexShrink: 0,
+                  minHeight: "26px",
+                  maxWidth: "240px",
+                  fontVariantNumeric: "tabular-nums",
+                }
         }
       >
         <span
           style={{
-            fontSize: rail ? "6.5px" : "9px",
+            fontSize: isRail ? "6.5px" : isCorner ? "10px" : "9px",
             color: cur ? "#c7d2fe" : "#64748b",
-            letterSpacing: rail ? 0 : "0.04em",
+            letterSpacing: isRail ? 0 : "0.04em",
             lineHeight: 1.1,
           }}
         >
@@ -169,7 +208,7 @@ function WorkbenchCuePager({
         </span>
         <span
           style={
-            rail
+            isRail
               ? {
                   whiteSpace: "normal",
                   textAlign: "center",
@@ -187,12 +226,12 @@ function WorkbenchCuePager({
               fontWeight: 500,
               color: "#e2e8f0",
               overflow: "hidden",
-              display: rail ? "-webkit-box" : undefined,
-              WebkitLineClamp: rail ? 2 : undefined,
-              WebkitBoxOrient: rail ? "vertical" : undefined,
+              display: isRail ? "-webkit-box" : undefined,
+              WebkitLineClamp: isRail ? 2 : undefined,
+              WebkitBoxOrient: isRail ? "vertical" : undefined,
               textOverflow: "ellipsis",
-              whiteSpace: rail ? "normal" : "nowrap",
-              maxWidth: rail ? "100%" : "120px",
+              whiteSpace: isRail ? "normal" : "nowrap",
+              maxWidth: isRail ? "100%" : isCorner ? "140px" : "120px",
               lineHeight: 1.08,
               textAlign: "center",
             }}
@@ -205,7 +244,7 @@ function WorkbenchCuePager({
           style={{
             fontSize: rail ? "6px" : "9px",
             color: cur ? "#c7d2fe" : "#64748b",
-            marginLeft: rail ? 0 : "1px",
+            marginLeft: isRail ? 0 : "1px",
             lineHeight: 1,
           }}
         >
@@ -222,6 +261,28 @@ function WorkbenchCuePager({
       >
         ▶
       </button>
+      {isCorner ? (
+        <button
+          type="button"
+          disabled={!canNext}
+          title="次のキューへ（波形の位置も先頭へ）"
+          onClick={() => jumpToCueByIdx(curIdx + 1)}
+          style={{
+            ...btnSecondary,
+            marginLeft: "2px",
+            padding: "0 12px",
+            height: "34px",
+            fontSize: "12px",
+            fontWeight: 600,
+            borderRadius: "8px",
+            flexShrink: 0,
+            opacity: canNext ? 1 : 0.45,
+            cursor: canNext ? "pointer" : "not-allowed",
+          }}
+        >
+          次のキュー
+        </button>
+      ) : null}
       {cuePagerListOpen ? (
         <>
           <div
@@ -229,7 +290,7 @@ function WorkbenchCuePager({
             style={{
               position: "fixed",
               inset: 0,
-              zIndex: 30,
+              zIndex: isCorner ? 100 : 30,
             }}
             aria-hidden
           />
@@ -239,8 +300,10 @@ function WorkbenchCuePager({
             style={{
               position: "absolute",
               top: "calc(100% + 4px)",
-              left: rail ? 0 : "30px",
-              zIndex: 31,
+              ...(isCorner
+                ? { right: 0, left: "auto" }
+                : { left: isRail ? 0 : "30px", right: "auto" }),
+              zIndex: isCorner ? 101 : 31,
               listStyle: "none",
               margin: 0,
               padding: "4px",
@@ -337,25 +400,36 @@ function WorkbenchCuePager({
       ) : null}
     </div>
   );
+  if (isCorner) {
+    return (
+      <div
+        style={{
+          display: "inline-flex",
+          alignItems: "stretch",
+          padding: "6px 8px",
+          borderRadius: "12px",
+          border: "1px solid rgba(148, 163, 184, 0.35)",
+          background: "rgba(15, 23, 42, 0.92)",
+          boxShadow: "0 10px 28px rgba(0,0,0,0.45)",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
+        }}
+      >
+        {core}
+      </div>
+    );
+  }
+  return core;
 }
 
 export type EditorStageWorkbenchProps = {
   layout: "stage" | "rail";
   project: ChoreographyProjectJson;
   setProjectSafe: Dispatch<SetStateAction<ChoreographyProjectJson>>;
-  cuesSortedForStageJump: Cue[];
   selectedCueId: string | null;
   selectedCue: Cue | null;
-  jumpToCueByIdx: (idx: number) => void;
-  cuePagerListOpen: boolean;
-  setCuePagerListOpen: Dispatch<SetStateAction<boolean>>;
   stageAreaSettingsOpen: boolean;
   setStageAreaSettingsOpen: Dispatch<SetStateAction<boolean>>;
-  stageSettingsOpen: boolean;
-  setStageSettingsOpen: Dispatch<SetStateAction<boolean>>;
-  gatherMenuOpen: boolean;
-  setGatherMenuOpen: Dispatch<SetStateAction<boolean>>;
-  applyGatherToward: (toward: GatherToward) => void;
   rightPaneCollapsed: boolean;
   setRightPaneCollapsed: Dispatch<SetStateAction<boolean>>;
   wideEditorLayout: boolean;
@@ -398,19 +472,10 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
   const {
     project,
     setProjectSafe,
-    cuesSortedForStageJump,
     selectedCueId,
     selectedCue,
-    jumpToCueByIdx,
-    cuePagerListOpen,
-    setCuePagerListOpen,
     stageAreaSettingsOpen,
     setStageAreaSettingsOpen,
-    stageSettingsOpen,
-    setStageSettingsOpen,
-    gatherMenuOpen,
-    setGatherMenuOpen,
-    applyGatherToward,
     rightPaneCollapsed,
     setRightPaneCollapsed,
     wideEditorLayout,
@@ -539,12 +604,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
     const canSaveSpotsR =
       project.viewMode !== "view" &&
       (editFormationR?.dancers.length ?? 0) > 0;
-    const canGatherR =
-      project.viewMode !== "view" &&
-      (project.cues.length === 0 || Boolean(selectedCueId)) &&
-      (project.formations.find(
-        (x) => x.id === (selectedCue?.formationId ?? project.activeFormationId)
-      )?.dancers.length ?? 0) > 0;
 
     return (
       <div
@@ -757,104 +816,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
         </div>
 
         <div className="editor-right-tools-col-rest">
-          <WorkbenchCuePager
-            rail
-            project={project}
-            cuesSortedForStageJump={cuesSortedForStageJump}
-            selectedCueId={selectedCueId}
-            jumpToCueByIdx={jumpToCueByIdx}
-            cuePagerListOpen={cuePagerListOpen}
-            setCuePagerListOpen={setCuePagerListOpen}
-          />
-          <button
-            type="button"
-            className="editor-right-tool-sq"
-            style={btnSecondary}
-            disabled={project.viewMode === "view"}
-            title="舞台の大きさ・客席の位置・袖・バック・場ミリを編集"
-            aria-haspopup="dialog"
-            aria-expanded={stageSettingsOpen}
-            onClick={() => setStageSettingsOpen(true)}
-          >
-            <span>ステージ</span>
-            <span>寸法</span>
-          </button>
-          <div
-            style={{
-              position: "relative",
-              display: "inline-flex",
-              flexShrink: 0,
-              justifyContent: "center",
-              width: "100%",
-            }}
-          >
-            <button
-              type="button"
-              className="editor-right-tool-sq"
-              style={btnSecondary}
-              disabled={!canGatherR}
-              title="全員を前・奥・上手・下手へ寄せて整列（行を分けて重なりにくくします）。元に戻すは「戻る」"
-              aria-haspopup="menu"
-              aria-expanded={gatherMenuOpen}
-              onClick={() => setGatherMenuOpen((v) => !v)}
-            >
-              寄せる
-            </button>
-            {gatherMenuOpen ? (
-              <>
-                <div
-                  onClick={() => setGatherMenuOpen(false)}
-                  style={{
-                    position: "fixed",
-                    inset: 0,
-                    zIndex: 30,
-                  }}
-                  aria-hidden
-                />
-                <div
-                  role="menu"
-                  aria-label="寄せる方向"
-                  style={{
-                    position: "absolute",
-                    top: "calc(100% + 4px)",
-                    left: 0,
-                    zIndex: 31,
-                    minWidth: "220px",
-                    padding: "6px",
-                    background: "#0b1220",
-                    border: "1px solid #334155",
-                    borderRadius: "8px",
-                    boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
-                  }}
-                >
-                  {GATHER_TOWARD_OPTIONS.map((o) => (
-                    <button
-                      key={o.id}
-                      type="button"
-                      role="menuitem"
-                      onClick={() => applyGatherToward(o.id)}
-                      title={o.hint}
-                      style={{
-                        display: "block",
-                        width: "100%",
-                        textAlign: "left",
-                        padding: "8px 10px",
-                        marginBottom: "2px",
-                        borderRadius: "6px",
-                        border: "1px solid #1e293b",
-                        background: "#0f172a",
-                        color: "#e2e8f0",
-                        fontSize: "12px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <span style={{ fontWeight: 600 }}>{o.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </>
-            ) : null}
-          </div>
           {wideEditorLayout ? (
             <button
               type="button"
@@ -1241,128 +1202,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
     >
       舞台設定
     </button>
-    <WorkbenchCuePager
-      rail={rail}
-      project={project}
-      cuesSortedForStageJump={cuesSortedForStageJump}
-      selectedCueId={selectedCueId}
-      jumpToCueByIdx={jumpToCueByIdx}
-      cuePagerListOpen={cuePagerListOpen}
-      setCuePagerListOpen={setCuePagerListOpen}
-    />
-    <button
-      type="button"
-      disabled={project.viewMode === "view"}
-      title="舞台の大きさ・客席の位置・袖・バック・場ミリを編集"
-      aria-haspopup="dialog"
-      aria-expanded={stageSettingsOpen}
-      onClick={() => setStageSettingsOpen(true)}
-      style={{
-        fontSize: "11px",
-        lineHeight: 1.2,
-        padding: "3px 8px",
-        borderRadius: "6px",
-        border: "1px solid #334155",
-        background: "#0f172a",
-        color: "#94a3b8",
-        cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
-        flexShrink: 0,
-      }}
-    >
-      ステージ設定
-    </button>
-    {(() => {
-      const canGather =
-        project.viewMode !== "view" &&
-        (project.cues.length === 0 || Boolean(selectedCueId)) &&
-        (project.formations.find(
-          (x) => x.id === (selectedCue?.formationId ?? project.activeFormationId)
-        )?.dancers.length ?? 0) > 0;
-      return (
-        <div
-          style={{
-            position: "relative",
-            display: "inline-flex",
-            flexShrink: 0,
-          }}
-        >
-          <button
-            type="button"
-            disabled={!canGather}
-            title="全員を前・奥・上手・下手へ寄せて整列（行を分けて重なりにくくします）。元に戻すは「戻る」"
-            aria-haspopup="menu"
-            aria-expanded={gatherMenuOpen}
-            onClick={() => setGatherMenuOpen((v) => !v)}
-            style={{
-              fontSize: "11px",
-              lineHeight: 1.2,
-              padding: "3px 8px",
-              borderRadius: "6px",
-              border: "1px solid #334155",
-              background: "#0f172a",
-              color: "#94a3b8",
-              cursor: canGather ? "pointer" : "not-allowed",
-            }}
-          >
-            寄せる
-          </button>
-          {gatherMenuOpen ? (
-            <>
-              <div
-                onClick={() => setGatherMenuOpen(false)}
-                style={{
-                  position: "fixed",
-                  inset: 0,
-                  zIndex: 30,
-                }}
-                aria-hidden
-              />
-              <div
-                role="menu"
-                aria-label="寄せる方向"
-                style={{
-                  position: "absolute",
-                  top: "calc(100% + 4px)",
-                  left: 0,
-                  zIndex: 31,
-                  minWidth: "220px",
-                  padding: "6px",
-                  background: "#0b1220",
-                  border: "1px solid #334155",
-                  borderRadius: "8px",
-                  boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
-                }}
-              >
-                {GATHER_TOWARD_OPTIONS.map((o) => (
-                  <button
-                    key={o.id}
-                    type="button"
-                    role="menuitem"
-                    onClick={() => applyGatherToward(o.id)}
-                    title={o.hint}
-                    style={{
-                      display: "block",
-                      width: "100%",
-                      textAlign: "left",
-                      padding: "8px 10px",
-                      marginBottom: "2px",
-                      borderRadius: "6px",
-                      border: "1px solid #1e293b",
-                      background: "#0f172a",
-                      color: "#e2e8f0",
-                      fontSize: "12px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <span style={{ fontWeight: 600 }}>{o.label}</span>
-                  </button>
-                ))}
-              </div>
-            </>
-          ) : null}
-        </div>
-      );
-    })()}
     {wideEditorLayout ? (
       <button
         type="button"

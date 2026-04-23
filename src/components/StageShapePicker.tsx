@@ -12,6 +12,7 @@ import {
   STAGE_SHAPE_PRESET_MAP,
 } from "../lib/stageShapes";
 import { btnPrimary, btnSecondary } from "./stageButtonStyles";
+import { EditorSideSheet } from "./EditorSideSheet";
 
 type Props = {
   open: boolean;
@@ -236,35 +237,16 @@ export function StageShapePicker({
   if (!open) return null;
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 65,
-        background: "rgba(15, 23, 42, 0.78)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "16px",
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+    <EditorSideSheet
+      open
+      zIndex={65}
+      width="min(760px, 96vw)"
+      onClose={onClose}
+      ariaLabelledBy={titleId}
     >
       <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        onClick={(e) => e.stopPropagation()}
         style={{
-          width: "100%",
-          maxWidth: "760px",
-          maxHeight: "92vh",
-          background: "#0f172a",
-          borderRadius: "12px",
-          border: "1px solid #334155",
           padding: "16px 18px 18px",
-          boxShadow: "0 24px 64px rgba(0, 0, 0, 0.5)",
           display: "flex",
           flexDirection: "column",
           minHeight: 0,
@@ -863,6 +845,6 @@ export function StageShapePicker({
           </div>
         </div>
       </div>
-    </div>
+    </EditorSideSheet>
   );
 }

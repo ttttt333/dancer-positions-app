@@ -5,6 +5,7 @@ import type { ChoreographyProjectJson } from "../types/choreography";
 import { sortCuesByStart } from "../lib/cueInterval";
 import { playCompletionWoof } from "../lib/playCompletionWoof";
 import { btnSecondary } from "./stageButtonStyles";
+import { EditorSideSheet } from "./EditorSideSheet";
 
 const STAGE_ROOT_ID = "stage-export-root";
 
@@ -269,36 +270,15 @@ export function ExportDialog({
   );
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 70,
-        background: "rgba(15, 23, 42, 0.78)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "16px",
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !busy) onClose();
-      }}
+    <EditorSideSheet
+      open
+      zIndex={70}
+      width="min(440px, 46vw)"
+      blockDismiss={busy}
+      onClose={onClose}
+      ariaLabelledBy="export-dialog-title"
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="export-dialog-title"
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: "100%",
-          maxWidth: "440px",
-          background: "#0f172a",
-          borderRadius: "12px",
-          border: "1px solid #334155",
-          padding: "18px 20px 20px",
-          boxShadow: "0 24px 64px rgba(0,0,0,0.5)",
-        }}
-      >
+      <div style={{ padding: "18px 20px 20px" }}>
         <div
           style={{
             display: "flex",
@@ -384,6 +364,6 @@ export function ExportDialog({
           </button>
         </div>
       </div>
-    </div>
+    </EditorSideSheet>
   );
 }
