@@ -256,3 +256,9 @@ body {
   width: 48px;
   flex-shrink: 0;
 }
+
+/* モバイル編集レイアウトデモ（MobileFormationEditorLayout） */
+.mobile-formation-editor-root {
+  -webkit-tap-highlight-color: transparent;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}

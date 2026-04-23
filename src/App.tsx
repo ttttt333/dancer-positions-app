@@ -8,6 +8,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { VideoPage } from "./pages/VideoPage";
 import { BillingCanceledPage, BillingSuccessPage } from "./pages/BillingPages";
+import { MobileFormationEditorDemoPage } from "./pages/MobileFormationEditorDemoPage";
 
 export default function App() {
   return (
@@ -23,6 +24,10 @@ export default function App() {
           <Route path="/billing/success" element={<BillingSuccessPage />} />
           <Route path="/billing/canceled" element={<BillingCanceledPage />} />
           <Route path="/editor/:projectId" element={<EditorPage />} />
+          <Route
+            path="/demo/mobile-formation-editor"
+            element={<MobileFormationEditorDemoPage />}
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </AuthProvider>
