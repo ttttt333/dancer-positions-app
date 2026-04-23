@@ -1517,7 +1517,10 @@ export function EditorPage() {
           gap: `${EDITOR_GRID_GAP_PX}px`,
           padding:
             "6px max(6px, env(safe-area-inset-right, 0px)) 6px max(6px, env(safe-area-inset-left, 0px))",
-          marginTop: `calc(-1 * ${EDITOR_PLAYBACK_LAYOUT_SHIFT_UP})`,
+          /** 狭い画面では負のマージンを付けない（レイアウト再計算・はみ出しを抑えスマホで滑らかに） */
+          marginTop: wideEditorLayout
+            ? `calc(-1 * ${EDITOR_PLAYBACK_LAYOUT_SHIFT_UP})`
+            : 0,
           minHeight: 0,
           overflow: "hidden",
         }}
@@ -3104,6 +3107,7 @@ export function EditorPage() {
           .editor-three-pane {
             grid-template-columns: 1fr !important;
             grid-template-rows: auto auto auto !important;
+            overscroll-behavior: contain;
           }
         }
         .editor-pane-resizer::after {

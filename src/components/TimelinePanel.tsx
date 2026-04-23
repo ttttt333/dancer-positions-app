@@ -902,6 +902,49 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       }
     }, []);
 
+    /**
+     * スマホ等では表示幅に合わせてビットマップ幅を抑え、常時 800px 描画より GPU/CPU 負荷を下げる。
+     * ワイド時は従来どおり DPR 上限 2。
+     */
+    useLayoutEffect(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const syncBitmapSize = () => {
+        const rect = canvas.getBoundingClientRect();
+        const cssW = rect.width;
+        if (cssW <= 2) return;
+        const dpr =
+          typeof window !== "undefined"
+            ? Math.min(window.devicePixelRatio || 1, wideWorkbench ? 2 : 1.35)
+            : 1;
+        const bw = Math.max(280, Math.min(1600, Math.round(cssW * dpr)));
+        const bh = Math.round(waveCanvasCssHRef.current * 2);
+        if (canvas.width !== bw || canvas.height !== bh) {
+          canvas.width = bw;
+          canvas.height = bh;
+        }
+        const pk = peaksRef.current;
+        if (!pk) return;
+        const a = audioRef.current;
+        const tRedraw =
+          isPlayingForWaveRef.current &&
+          a &&
+          !a.paused &&
+          Number.isFinite(a.currentTime)
+            ? a.currentTime
+            : currentTimePropRef.current;
+        drawWaveformAt(tRedraw);
+      };
+
+      syncBitmapSize();
+      const ro = new ResizeObserver(() => {
+        syncBitmapSize();
+      });
+      ro.observe(canvas);
+      return () => ro.disconnect();
+    }, [wideWorkbench, waveCanvasCssH, drawWaveformAt, peaks]);
+
     useEffect(() => {
       if (isPlaying) return;
       drawWaveformAt(currentTime);
@@ -2900,8 +2943,6 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             </div>
             <canvas
               ref={canvasRef}
-              width={800}
-              height={waveCanvasCssH * 2}
               tabIndex={0}
               role="application"
               aria-label="楽曲波形・キュー区間"
