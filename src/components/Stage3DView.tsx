@@ -6,6 +6,11 @@ import {
   DANCER_COLOR_PALETTE_THREE as PALETTE,
   modDancerColorIndex,
 } from "../lib/dancerColorPalette";
+import {
+  DEFAULT_DANCER_MARKER_DIAMETER_PX,
+  MARKER_DIAMETER_PX_MAX,
+  MARKER_DIAMETER_PX_MIN,
+} from "../lib/projectDefaults";
 
 type Api = {
   scene: THREE.Scene;
@@ -20,11 +25,14 @@ type Api = {
 
 type Props = {
   dancers: DancerSpot[];
-  /** 2D ステージのダンサー印と揃えた見た目用（既定 44） */
+  /** 2D ステージのダンサー印と揃えた見た目用（既定は projectDefaults と同じ） */
   markerDiameterPx?: number;
 };
 
-export function Stage3DView({ dancers, markerDiameterPx = 44 }: Props) {
+export function Stage3DView({
+  dancers,
+  markerDiameterPx = DEFAULT_DANCER_MARKER_DIAMETER_PX,
+}: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<Api | null>(null);
 
@@ -116,8 +124,12 @@ export function Stage3DView({ dancers, markerDiameterPx = 44 }: Props) {
       scene.remove(m);
     });
     meshes.length = 0;
-    const clampD = Math.max(20, Math.min(120, Math.round(markerDiameterPx)));
-    const r0 = 0.28 * (clampD / 44);
+    const clampD = Math.max(
+      MARKER_DIAMETER_PX_MIN,
+      Math.min(MARKER_DIAMETER_PX_MAX, Math.round(markerDiameterPx))
+    );
+    const r0 =
+      0.28 * (clampD / DEFAULT_DANCER_MARKER_DIAMETER_PX);
     api.geom.dispose();
     const geom = new THREE.SphereGeometry(r0, 20, 20);
     api.geom = geom;

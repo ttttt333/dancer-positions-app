@@ -7,6 +7,7 @@ import type {
   StageShape,
 } from "../types/choreography";
 import { modDancerColorIndex } from "./dancerColorPalette";
+import { clampStageGridAxisMm, parseAudienceEdge } from "./projectDefaults";
 
 /**
  * 「フローライブラリ」— 1 曲ぶんの **立ち位置の流れ**（フォーメーション群＋キュー順）を
@@ -77,6 +78,8 @@ export interface FlowStageSettingsSnapshot {
   gridStep: number;
   stageGridLinesEnabled?: boolean;
   stageGridLineSpacingMm?: number;
+  stageGridSpacingWidthMm?: number;
+  stageGridSpacingDepthMm?: number;
 }
 
 export interface FlowLibraryItem {
@@ -135,6 +138,8 @@ function snapshotStageFromProject(
     gridStep: p.gridStep,
     stageGridLinesEnabled: p.stageGridLinesEnabled,
     stageGridLineSpacingMm: p.stageGridLineSpacingMm,
+    stageGridSpacingWidthMm: p.stageGridSpacingWidthMm ?? p.stageGridLineSpacingMm,
+    stageGridSpacingDepthMm: p.stageGridSpacingDepthMm ?? p.stageGridLineSpacingMm,
   };
 }
 
@@ -144,13 +149,12 @@ function normalizeStageSettings(
 ): FlowStageSettingsSnapshot | undefined {
   if (raw == null || typeof raw !== "object") return undefined;
   const o = raw as Record<string, unknown>;
-  const edge = o.audienceEdge;
-  if (edge !== "top" && edge !== "bottom" && edge !== "left" && edge !== "right")
-    return undefined;
+  const audienceEdge = parseAudienceEdge(o.audienceEdge);
+  if (audienceEdge === undefined) return undefined;
   const mmOrNull = (v: unknown): number | null =>
     typeof v === "number" && Number.isFinite(v) ? v : null;
   return {
-    audienceEdge: edge,
+    audienceEdge,
     stageWidthMm: mmOrNull(o.stageWidthMm),
     stageDepthMm: mmOrNull(o.stageDepthMm),
     sideStageMm: mmOrNull(o.sideStageMm),
@@ -185,10 +189,16 @@ function normalizeStageSettings(
     ...(typeof o.stageGridLinesEnabled === "boolean"
       ? { stageGridLinesEnabled: o.stageGridLinesEnabled }
       : {}),
-    ...(typeof o.stageGridLineSpacingMm === "number" &&
-    Number.isFinite(o.stageGridLineSpacingMm)
-      ? { stageGridLineSpacingMm: clamp(o.stageGridLineSpacingMm, 5, 5000) }
-      : {}),
+    ...(() => {
+      const legacy = clampStageGridAxisMm(o.stageGridLineSpacingMm, 10);
+      const w = clampStageGridAxisMm(o.stageGridSpacingWidthMm, legacy);
+      const d = clampStageGridAxisMm(o.stageGridSpacingDepthMm, legacy);
+      return {
+        stageGridLineSpacingMm: w,
+        stageGridSpacingWidthMm: w,
+        stageGridSpacingDepthMm: d,
+      };
+    })(),
   };
 }
 
@@ -199,6 +209,22 @@ export function applyFlowStageSettingsToProject(
   project: ChoreographyProjectJson,
   stage: FlowStageSettingsSnapshot
 ): ChoreographyProjectJson {
+  const legacy = clampStageGridAxisMm(
+    stage.stageGridLineSpacingMm ?? project.stageGridLineSpacingMm,
+    10
+  );
+  const w = clampStageGridAxisMm(
+    stage.stageGridSpacingWidthMm ??
+      stage.stageGridLineSpacingMm ??
+      project.stageGridSpacingWidthMm,
+    legacy
+  );
+  const d = clampStageGridAxisMm(
+    stage.stageGridSpacingDepthMm ??
+      stage.stageGridLineSpacingMm ??
+      project.stageGridSpacingDepthMm,
+    legacy
+  );
   return {
     ...project,
     audienceEdge: stage.audienceEdge,
@@ -218,9 +244,9 @@ export function applyFlowStageSettingsToProject(
     ...(stage.stageGridLinesEnabled !== undefined
       ? { stageGridLinesEnabled: stage.stageGridLinesEnabled }
       : {}),
-    ...(stage.stageGridLineSpacingMm !== undefined
-      ? { stageGridLineSpacingMm: stage.stageGridLineSpacingMm }
-      : {}),
+    stageGridLineSpacingMm: w,
+    stageGridSpacingWidthMm: w,
+    stageGridSpacingDepthMm: d,
   };
 }
 

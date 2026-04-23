@@ -37,10 +37,17 @@ export const PROJECT_EXPORT_FORMAT_OPTIONS: {
 
 const AUD_JA: Record<AudienceEdge, string> = {
   top: "上",
-  right: "右",
   bottom: "下",
-  left: "左",
 };
+
+/** CSV「作品」ブロックの客席ラベル → audienceEdge（旧「左」「右」は下に読み替え） */
+function audienceEdgeFromCsvLabel(v: string): AudienceEdge | undefined {
+  const t = v.trim();
+  if (t === "上") return "top";
+  if (t === "下") return "bottom";
+  if (t === "左" || t === "右") return "bottom";
+  return undefined;
+}
 
 function safeBaseName(title: string): string {
   const t = title.replace(/[/\\?%*:|"<>]/g, "_").trim().slice(0, 80);
@@ -335,13 +342,6 @@ ${inner}
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-const AUD_JA_REV: Record<string, AudienceEdge> = {
-  上: "top",
-  右: "right",
-  下: "bottom",
-  左: "left",
-};
-
 /** RFC 4180 風の 1 行パース（ダブルクォート・エスケープ） */
 export function parseCsvRow(line: string): string[] {
   const cells: string[] = [];
@@ -420,8 +420,9 @@ export function importProjectFromChoreogridCsv(
         const n = parseInt(v, 10);
         next.pieceDancerCount = Number.isFinite(n) ? n : null;
       }
-      if (k === "客席の位置" && v in AUD_JA_REV) {
-        next.audienceEdge = AUD_JA_REV[v]!;
+      if (k === "客席の位置") {
+        const ae = audienceEdgeFromCsvLabel(v);
+        if (ae !== undefined) next.audienceEdge = ae;
       }
     }
     if (sec === "フォーメーション" && row.length >= 5) {

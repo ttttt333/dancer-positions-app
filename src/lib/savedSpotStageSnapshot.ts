@@ -24,7 +24,9 @@ export function captureStageSnapshot(
     gridStep: p.gridStep,
     snapGrid: p.snapGrid,
     stageGridLinesEnabled: p.stageGridLinesEnabled ?? false,
-    stageGridLineSpacingMm: p.stageGridLineSpacingMm ?? 10,
+    stageGridLineSpacingMm: p.stageGridLineSpacingMm ?? p.stageGridSpacingWidthMm ?? 10,
+    stageGridSpacingWidthMm: p.stageGridSpacingWidthMm ?? p.stageGridLineSpacingMm ?? 10,
+    stageGridSpacingDepthMm: p.stageGridSpacingDepthMm ?? p.stageGridLineSpacingMm ?? 10,
     dancerSpacingMm: p.dancerSpacingMm ?? null,
     dancerMarkerDiameterPx: p.dancerMarkerDiameterPx,
     dancerMarkerDiameterMm: p.dancerMarkerDiameterMm,
@@ -63,7 +65,14 @@ export function mergeStageSnapshotIntoProject(
     gridStep: snap.gridStep,
     snapGrid: snap.snapGrid,
     stageGridLinesEnabled: snap.stageGridLinesEnabled ?? false,
-    stageGridLineSpacingMm: snap.stageGridLineSpacingMm ?? 10,
+    stageGridLineSpacingMm:
+      snap.stageGridLineSpacingMm ??
+      snap.stageGridSpacingWidthMm ??
+      10,
+    stageGridSpacingWidthMm:
+      snap.stageGridSpacingWidthMm ?? snap.stageGridLineSpacingMm ?? 10,
+    stageGridSpacingDepthMm:
+      snap.stageGridSpacingDepthMm ?? snap.stageGridLineSpacingMm ?? 10,
     dancerSpacingMm: snap.dancerSpacingMm ?? undefined,
     dancerMarkerDiameterPx: snap.dancerMarkerDiameterPx,
     dancerMarkerDiameterMm: snap.dancerMarkerDiameterMm,

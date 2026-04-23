@@ -240,28 +240,6 @@ export function WorkbenchCuePager({
       >
         ▶
       </button>
-      {isCorner ? (
-        <button
-          type="button"
-          disabled={!canNext}
-          title="次のキューへ（波形の位置も先頭へ）"
-          onClick={() => jumpToCueByIdx(curIdx + 1)}
-          style={{
-            ...btnSecondary,
-            marginLeft: "2px",
-            padding: "0 12px",
-            height: "34px",
-            fontSize: "12px",
-            fontWeight: 600,
-            borderRadius: "8px",
-            flexShrink: 0,
-            opacity: canNext ? 1 : 0.45,
-            cursor: canNext ? "pointer" : "not-allowed",
-          }}
-        >
-          次のキュー
-        </button>
-      ) : null}
     </div>
   );
   if (isCorner) {

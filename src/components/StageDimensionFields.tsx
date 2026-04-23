@@ -105,9 +105,7 @@ function draftDiffers(draft: Draft, project: ChoreographyProjectJson): boolean {
 const AUDIENCE_EDGE_OPTIONS: { value: ChoreographyProjectJson["audienceEdge"]; label: string }[] =
   [
     { value: "top", label: "上" },
-    { value: "right", label: "右" },
     { value: "bottom", label: "下" },
-    { value: "left", label: "左" },
   ];
 
 export function StageDimensionFields({

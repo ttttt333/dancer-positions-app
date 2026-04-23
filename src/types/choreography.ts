@@ -1,4 +1,5 @@
-export type AudienceEdge = "top" | "bottom" | "left" | "right";
+/** 客席は画面の上辺または下辺のみ（旧 JSON の left/right は読み込み時に正規化される） */
+export type AudienceEdge = "top" | "bottom";
 
 /** 名簿パネルの並び替え（プロジェクトに保存し、畳んでも維持） */
 export type RosterStripSortMode =
@@ -198,7 +199,12 @@ export type SavedSpotStageSnapshot = {
   gridStep: number;
   snapGrid: boolean;
   stageGridLinesEnabled?: boolean;
+  /** 旧データ互換：縦線（幅方向）間隔と同じ意味で正規化時に維持 */
   stageGridLineSpacingMm?: number;
+  /** 縦線（幅 mm 方向）の間隔 mm。1〜100 cm */
+  stageGridSpacingWidthMm?: number;
+  /** 横線（奥行 mm 方向）の間隔 mm。1〜100 cm */
+  stageGridSpacingDepthMm?: number;
   dancerSpacingMm: number | null;
   dancerMarkerDiameterPx: number;
   dancerMarkerDiameterMm?: number;
@@ -264,10 +270,14 @@ export type ChoreographyProjectJson = {
    */
   stageGridLinesEnabled?: boolean;
   /**
-   * グリッド線の間隔（mm）。既定は 10（1 cm）。`stageGridLinesEnabled` 表示と、
-   * 幅・奥行がそろっているときのスナップ（`snapGrid`）の優先間隔に使う。
+   * 旧単一値互換（mm）。正規化後は縦線間隔 `stageGridSpacingWidthMm` と同じ。
+   * 表示・スナップは `stageGridSpacingWidthMm` / `stageGridSpacingDepthMm` を優先。
    */
   stageGridLineSpacingMm?: number;
+  /** 縦に引く線の間隔＝ステージ幅方向の実寸（mm）。1〜100 cm */
+  stageGridSpacingWidthMm?: number;
+  /** 横に引く線の間隔＝ステージ奥行方向の実寸（mm）。1〜100 cm */
+  stageGridSpacingDepthMm?: number;
   /**
    * スナップグリッドの間隔を実寸（mm）で指定。
    *

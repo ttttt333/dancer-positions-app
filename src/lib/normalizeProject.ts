@@ -16,7 +16,13 @@ import type {
   StageShapePresetId,
 } from "../types/choreography";
 import { migrateCuesFromRaw } from "./cueInterval";
-import { createEmptyProject } from "./projectDefaults";
+import {
+  clampStageGridAxisMm,
+  createEmptyProject,
+  MARKER_DIAMETER_PX_MAX,
+  MARKER_DIAMETER_PX_MIN,
+  migrateAudienceEdge,
+} from "./projectDefaults";
 import { modDancerColorIndex, normalizeDancerFacingDeg } from "./dancerColorPalette";
 
 function randomId(prefix: string) {
@@ -325,15 +331,18 @@ function normalizeSavedSpotStageSnapshot(
 ): SavedSpotStageSnapshot | undefined {
   if (raw == null || typeof raw !== "object") return undefined;
   const o = raw as Record<string, unknown>;
-  const ae = o.audienceEdge;
-  const audienceEdge: AudienceEdge =
-    ae === "top" || ae === "bottom" || ae === "left" || ae === "right"
-      ? ae
-      : defaults.audienceEdge;
+  const audienceEdge = migrateAudienceEdge(o.audienceEdge, defaults.audienceEdge);
   const stageShape = normalizeStageShape(o.stageShape);
   const dmp =
     typeof o.dancerMarkerDiameterPx === "number" && Number.isFinite(o.dancerMarkerDiameterPx)
-      ? Math.max(4, Math.min(80, o.dancerMarkerDiameterPx))
+      ? (() => {
+          const r = Math.round(o.dancerMarkerDiameterPx);
+          if (r === 44) return defaults.dancerMarkerDiameterPx;
+          return Math.max(
+            MARKER_DIAMETER_PX_MIN,
+            Math.min(MARKER_DIAMETER_PX_MAX, r)
+          );
+        })()
       : defaults.dancerMarkerDiameterPx;
   const snap: SavedSpotStageSnapshot = {
     audienceEdge,
@@ -362,14 +371,16 @@ function normalizeSavedSpotStageSnapshot(
       typeof o.stageGridLinesEnabled === "boolean"
         ? o.stageGridLinesEnabled
         : defaults.stageGridLinesEnabled,
-    stageGridLineSpacingMm: (() => {
-      const raw = o.stageGridLineSpacingMm;
-      if (typeof raw !== "number" || !Number.isFinite(raw)) {
-        return defaults.stageGridLineSpacingMm;
-      }
-      const r = Math.round(raw);
-      if (r < 5 || r > 5000) return defaults.stageGridLineSpacingMm;
-      return r;
+    ...(() => {
+      const fb = defaults.stageGridLineSpacingMm ?? 10;
+      const legacy = clampStageGridAxisMm(o.stageGridLineSpacingMm, fb);
+      const w = clampStageGridAxisMm(o.stageGridSpacingWidthMm, legacy);
+      const d = clampStageGridAxisMm(o.stageGridSpacingDepthMm, legacy);
+      return {
+        stageGridSpacingWidthMm: w,
+        stageGridSpacingDepthMm: d,
+        stageGridLineSpacingMm: w,
+      };
     })(),
     dancerSpacingMm: numOrNullSnap(o.dancerSpacingMm),
     dancerMarkerDiameterPx: dmp,
@@ -514,7 +525,7 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
       if (n < 1 || n > 200) return null;
       return n;
     })(),
-    audienceEdge: o.audienceEdge ?? defaults.audienceEdge,
+    audienceEdge: migrateAudienceEdge(o.audienceEdge, defaults.audienceEdge),
     stageWidthMm:
       o.stageWidthMm === undefined ? defaults.stageWidthMm : o.stageWidthMm,
     stageDepthMm:
@@ -575,15 +586,17 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
       typeof o.stageGridLinesEnabled === "boolean"
         ? o.stageGridLinesEnabled
         : defaults.stageGridLinesEnabled,
-    stageGridLineSpacingMm: (() => {
+    ...(() => {
       const po = o as Partial<ChoreographyProjectJson>;
-      const raw = po.stageGridLineSpacingMm;
-      if (typeof raw !== "number" || !Number.isFinite(raw)) {
-        return defaults.stageGridLineSpacingMm;
-      }
-      const r = Math.round(raw);
-      if (r < 5 || r > 5000) return defaults.stageGridLineSpacingMm;
-      return r;
+      const fb = defaults.stageGridLineSpacingMm ?? 10;
+      const legacy = clampStageGridAxisMm(po.stageGridLineSpacingMm, fb);
+      const w = clampStageGridAxisMm(po.stageGridSpacingWidthMm, legacy);
+      const d = clampStageGridAxisMm(po.stageGridSpacingDepthMm, legacy);
+      return {
+        stageGridSpacingWidthMm: w,
+        stageGridSpacingDepthMm: d,
+        stageGridLineSpacingMm: w,
+      };
     })(),
     gridSpacingMm: (() => {
       const po = o as Partial<ChoreographyProjectJson>;
@@ -607,8 +620,15 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
     dancerMarkerDiameterPx: (() => {
       const po = o as Partial<ChoreographyProjectJson>;
       const raw = po.dancerMarkerDiameterPx;
-      if (typeof raw !== "number" || !Number.isFinite(raw)) return defaults.dancerMarkerDiameterPx;
-      return Math.max(20, Math.min(120, Math.round(raw)));
+      if (typeof raw !== "number" || !Number.isFinite(raw)) {
+        return defaults.dancerMarkerDiameterPx;
+      }
+      const r = Math.round(raw);
+      if (r === 44) return defaults.dancerMarkerDiameterPx;
+      return Math.max(
+        MARKER_DIAMETER_PX_MIN,
+        Math.min(MARKER_DIAMETER_PX_MAX, r)
+      );
     })(),
     dancerMarkerDiameterMm: (() => {
       const po = o as Partial<ChoreographyProjectJson>;

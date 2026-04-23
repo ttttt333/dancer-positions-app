@@ -18,7 +18,11 @@ const Stage3DView = lazy(() =>
 );
 import { TimelinePanel, type TimelinePanelHandle } from "../components/TimelinePanel";
 import { RosterTimelineStrip } from "../components/RosterTimelineStrip";
-import { createEmptyProject, tryMigrateFromLocalStorage } from "../lib/projectDefaults";
+import {
+  createEmptyProject,
+  DEFAULT_DANCER_MARKER_DIAMETER_PX,
+  tryMigrateFromLocalStorage,
+} from "../lib/projectDefaults";
 import { preloadFFmpeg } from "../lib/extractVideoAudio";
 import { normalizeProject } from "../lib/normalizeProject";
 import { modDancerColorIndex } from "../lib/dancerColorPalette";
@@ -89,17 +93,20 @@ const RIGHT_TOOLS_RAIL_MIN_PX = 152;
 const RIGHT_TOOLS_RAIL_MAX_PX = 210;
 /** 右ペイン：タイムライン（またはキュー一覧）の縦スタック */
 
-/** ステージ「設定」パネル：客席方向（`StageDimensionFields` と同じ 4 択） */
+/** ステージ「設定」パネル：客席は画面上辺・下辺のみ */
 const STAGE_AREA_AUDIENCE_OPTIONS: {
   value: ChoreographyProjectJson["audienceEdge"];
   label: string;
 }[] = [
   { value: "top", label: "上" },
-  { value: "right", label: "右" },
   { value: "bottom", label: "下" },
-  { value: "left", label: "左" },
 ];
 
+/**
+ * ステージ列の最大幅（px）。
+ * 右列の最小幅＋列間ギャップ＋リサイザを除いた残りまで許可する。
+ * （旧: 画面幅の 2/3 上限があり、2fr レイアウトより狭くなりドラッグ直後に幅が跳ぶ原因になっていた）
+ */
 function readMaxStageWidthPx(
   gridEl: HTMLElement,
   minRightColPx: number = TIMELINE_FULL_COL_MIN_PX
@@ -114,16 +121,11 @@ function readMaxStageWidthPx(
     parseFloat(cs.gap) ||
     EDITOR_GRID_GAP_PX;
   const gapsBetween3Cols = 2 * gap;
-  /** リサイザ除く左右2列＋中央ギャップぶんの内側幅 */
+  /** ステージ＋列間ギャップ＋リサイザ＋右列で使える横方向の余白 */
   const inner =
     rect.width - padX - gapsBetween3Cols - STAGE_RESIZER_PX;
-  /** 画面左約2/3をステージ上限とし、右1/3にコントロール列を確保 */
-  const maxByTwoThirds = Math.floor(inner * (2 / 3));
-  const maxByTimelineMin = inner - minRightColPx;
-  return Math.max(
-    STAGE_COL_MIN_PX,
-    Math.min(maxByTwoThirds, maxByTimelineMin)
-  );
+  const maxStage = inner - minRightColPx;
+  return Math.max(STAGE_COL_MIN_PX, Math.floor(maxStage));
 }
 
 export function EditorPage() {
@@ -390,6 +392,7 @@ export function EditorPage() {
         return Math.min(maxW, Math.max(minW, cur));
       });
     };
+    clamp();
     window.addEventListener("resize", clamp);
     return () => window.removeEventListener("resize", clamp);
   }, [wideEditorLayout, minRightColForStageSplitPx]);
@@ -1761,7 +1764,10 @@ export function EditorPage() {
                   >
                     <Stage3DView
                       dancers={dancersFor3d}
-                      markerDiameterPx={project.dancerMarkerDiameterPx ?? 44}
+                      markerDiameterPx={
+                        project.dancerMarkerDiameterPx ??
+                        DEFAULT_DANCER_MARKER_DIAMETER_PX
+                      }
                     />
                   </Suspense>
                 )}
@@ -2105,18 +2111,18 @@ export function EditorPage() {
         <EditorSideSheet
           open
           zIndex={61}
-          width="min(440px, 44vw)"
+          width="min(440px, calc(100vw - 16px))"
           onClose={() => setStageAreaSettingsOpen(false)}
           ariaLabelledBy="stage-area-settings-title"
         >
-          <div style={{ padding: "16px 18px 18px" }}>
+          <div style={{ padding: "12px 14px 14px" }}>
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
                 gap: "12px",
-                marginBottom: "14px",
+                marginBottom: "10px",
               }}
             >
               <h3
@@ -2148,8 +2154,8 @@ export function EditorPage() {
             <div
               style={{
                 borderBottom: "1px solid #1e293b",
-                paddingBottom: "14px",
-                marginBottom: "14px",
+                paddingBottom: "10px",
+                marginBottom: "10px",
               }}
             >
               <div
@@ -2158,17 +2164,15 @@ export function EditorPage() {
                   fontWeight: 700,
                   color: "#64748b",
                   letterSpacing: "0.06em",
-                  marginBottom: "8px",
+                  marginBottom: "6px",
                 }}
               >
                 舞台設定
               </div>
-              <p style={{ margin: "0 0 10px", fontSize: "12px", color: "#94a3b8", lineHeight: 1.5 }}>
-                幅・奥行・袖・バック・場ミリ・プリセットは専用ダイアログで編集します。
-              </p>
               <button
                 type="button"
                 disabled={project.viewMode === "view"}
+                title="幅・奥行・袖・バック・場ミリ・プリセットは専用ダイアログで編集します。"
                 onClick={() => {
                   setStageAreaSettingsOpen(false);
                   setStageSettingsOpen(true);
@@ -2188,8 +2192,8 @@ export function EditorPage() {
             <div
               style={{
                 borderBottom: "1px solid #1e293b",
-                paddingBottom: "14px",
-                marginBottom: "14px",
+                paddingBottom: "10px",
+                marginBottom: "10px",
               }}
             >
               <div
@@ -2198,29 +2202,21 @@ export function EditorPage() {
                   fontWeight: 700,
                   color: "#64748b",
                   letterSpacing: "0.06em",
-                  marginBottom: "8px",
+                  marginBottom: "6px",
                 }}
               >
                 客席の位置
               </div>
-              <p style={{ margin: "0 0 8px", fontSize: "11px", color: "#64748b", lineHeight: 1.45 }}>
-                画面のどの辺を客席側としてステージを回転表示するか（詳細は上の「舞台の寸法」でも変更可）。
-              </p>
               <select
+                title="画面上辺または下辺のどちらを客席としてステージを回転表示するか。詳細は「舞台の寸法」でも変更できます。"
                 value={project.audienceEdge}
                 disabled={project.viewMode === "view"}
                 onChange={(e) => {
                   const v = e.target.value;
-                  if (
-                    v !== "top" &&
-                    v !== "bottom" &&
-                    v !== "left" &&
-                    v !== "right"
-                  )
-                    return;
+                  if (v !== "top" && v !== "bottom") return;
                   setProjectSafe((p) => ({ ...p, audienceEdge: v }));
                 }}
-                aria-label="客席のある画面の辺"
+                aria-label="客席のある画面の上または下"
                 style={{
                   width: "100%",
                   padding: "8px 10px",
@@ -2242,8 +2238,8 @@ export function EditorPage() {
             <div
               style={{
                 borderBottom: "1px solid #1e293b",
-                paddingBottom: "14px",
-                marginBottom: "14px",
+                paddingBottom: "10px",
+                marginBottom: "10px",
               }}
             >
               <div
@@ -2252,15 +2248,18 @@ export function EditorPage() {
                   fontWeight: 700,
                   color: "#64748b",
                   letterSpacing: "0.06em",
-                  marginBottom: "8px",
+                  marginBottom: "6px",
                 }}
               >
                 グリッド
               </div>
-              <div style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "8px" }}>
-                立ち位置をグリッドに合わせる
+              <div
+                style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "6px" }}
+                title="立ち位置をグリッドに吸着するか"
+              >
+                スナップ
               </div>
-              <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+              <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
                 <button
                   type="button"
                   disabled={project.viewMode === "view"}
@@ -2312,88 +2311,216 @@ export function EditorPage() {
                   合わせない
                 </button>
               </div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: "11px",
-                  color: "#94a3b8",
-                  marginBottom: "4px",
-                }}
-              >
-                スナップ刻み（幅・奥行 mm があるときは実寸グリッド優先。無いときは %）
-              </label>
-              <select
-                value={project.gridStep}
-                disabled={!project.snapGrid || project.viewMode === "view"}
-                onChange={(e) =>
-                  setProjectSafe((p) => ({
-                    ...p,
-                    gridStep: Number(e.target.value),
-                  }))
-                }
-                style={{
-                  width: "100%",
-                  marginBottom: "10px",
-                  padding: "6px 10px",
-                  borderRadius: "6px",
-                  border: "1px solid #334155",
-                  background: "#020617",
-                  color: "#e2e8f0",
-                  fontSize: "12px",
-                }}
-              >
-                <option value={0.5}>0.5% 刻み</option>
-                <option value={1}>1% 刻み</option>
-                <option value={2}>2% 刻み</option>
-                <option value={5}>5% 刻み</option>
-                <option value={10}>10% 刻み</option>
-              </select>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: "11px",
-                  color: "#94a3b8",
-                  marginBottom: "4px",
-                }}
-              >
-                実寸スナップの幅基準（ステージ幅 mm 設定時）
-              </label>
-              <select
-                value={project.gridSpacingMm ?? 0}
-                disabled={
-                  project.viewMode === "view" ||
-                  !(project.stageWidthMm != null && project.stageWidthMm > 0)
-                }
-                onChange={(e) => {
-                  const mm = Number(e.target.value);
-                  setProjectSafe((p) => {
-                    if (!mm || mm <= 0) {
-                      return { ...p, gridSpacingMm: undefined };
+              {!(
+                project.stageWidthMm != null &&
+                project.stageWidthMm > 0 &&
+                project.stageDepthMm != null &&
+                project.stageDepthMm > 0
+              ) ? (
+                <p
+                  style={{
+                    margin: "0 0 10px",
+                    fontSize: "11px",
+                    color: "#64748b",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  メインの幅・奥行（mm）を入れると、下の<strong style={{ color: "#cbd5e1" }}>縦線・横線の間隔（1〜100
+                  cm）</strong>で実寸グリッドとスナップが使えます。
+                </p>
+              ) : (
+                <p
+                  style={{
+                    margin: "0 0 10px",
+                    fontSize: "11px",
+                    color: "#64748b",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  <strong style={{ color: "#cbd5e1" }}>縦線</strong>は幅方向、
+                  <strong style={{ color: "#cbd5e1" }}>横線</strong>
+                  は奥行方向の間隔です。スナップ ON のとき同じ刻みに吸着します（各 1〜100 cm）。
+                </p>
+              )}
+              {!(
+                project.stageWidthMm != null &&
+                project.stageWidthMm > 0 &&
+                project.stageDepthMm != null &&
+                project.stageDepthMm > 0
+              ) ? (
+                <>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: "11px",
+                      color: "#94a3b8",
+                      marginBottom: "3px",
+                    }}
+                    title="幅・奥行 mm が未設定のときだけ、％でスナップします。"
+                  >
+                    幅・奥行がないときのスナップ（％刻み）
+                  </label>
+                  <select
+                    value={project.gridStep}
+                    disabled={!project.snapGrid || project.viewMode === "view"}
+                    onChange={(e) =>
+                      setProjectSafe((p) => ({
+                        ...p,
+                        gridStep: Number(e.target.value),
+                      }))
                     }
-                    return { ...p, gridSpacingMm: mm, snapGrid: true };
-                  });
-                }}
-                style={{
-                  width: "100%",
-                  marginBottom: "12px",
-                  padding: "6px 10px",
-                  borderRadius: "6px",
-                  border: "1px solid #334155",
-                  background: "#020617",
-                  color: "#e2e8f0",
-                  fontSize: "12px",
-                }}
+                    style={{
+                      width: "100%",
+                      marginBottom: "12px",
+                      padding: "6px 10px",
+                      borderRadius: "6px",
+                      border: "1px solid #334155",
+                      background: "#020617",
+                      color: "#e2e8f0",
+                      fontSize: "12px",
+                    }}
+                  >
+                    <option value={0.5}>0.5% 刻み</option>
+                    <option value={1}>1% 刻み</option>
+                    <option value={2}>2% 刻み</option>
+                    <option value={5}>5% 刻み</option>
+                    <option value={10}>10% 刻み</option>
+                  </select>
+                </>
+              ) : null}
+              {project.stageWidthMm != null &&
+              project.stageWidthMm > 0 &&
+              project.stageDepthMm != null &&
+              project.stageDepthMm > 0 ? (
+                <>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: "11px",
+                      color: "#94a3b8",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    縦線の間隔（幅の方向）
+                    <span
+                      style={{
+                        display: "block",
+                        marginTop: "4px",
+                        fontSize: "10px",
+                        color: "#475569",
+                      }}
+                    >
+                      1〜100 cm（上下に伸びる線）
+                    </span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      step={1}
+                      value={Math.max(
+                        1,
+                        Math.min(
+                          100,
+                          Math.round(
+                            (project.stageGridSpacingWidthMm ??
+                              project.stageGridLineSpacingMm ??
+                              10) / 10
+                          )
+                        )
+                      )}
+                      disabled={project.viewMode === "view"}
+                      onChange={(e) => {
+                        const cm = Number(e.target.value);
+                        if (!Number.isFinite(cm)) return;
+                        const c = Math.max(1, Math.min(100, Math.round(cm)));
+                        const mm = c * 10;
+                        setProjectSafe((p) => ({
+                          ...p,
+                          stageGridSpacingWidthMm: mm,
+                          stageGridLineSpacingMm: mm,
+                        }));
+                      }}
+                      aria-label="縦線の間隔（センチ）"
+                      style={{
+                        width: "100%",
+                        marginTop: "6px",
+                        marginBottom: "10px",
+                        padding: "6px 10px",
+                        borderRadius: "6px",
+                        border: "1px solid #334155",
+                        background: "#020617",
+                        color: "#e2e8f0",
+                        fontSize: "12px",
+                      }}
+                    />
+                  </label>
+                  <label
+                    style={{
+                      display: "block",
+                      fontSize: "11px",
+                      color: "#94a3b8",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    横線の間隔（奥行の方向）
+                    <span
+                      style={{
+                        display: "block",
+                        marginTop: "4px",
+                        fontSize: "10px",
+                        color: "#475569",
+                      }}
+                    >
+                      1〜100 cm（左右に伸びる線）
+                    </span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      step={1}
+                      value={Math.max(
+                        1,
+                        Math.min(
+                          100,
+                          Math.round(
+                            (project.stageGridSpacingDepthMm ??
+                              project.stageGridLineSpacingMm ??
+                              10) / 10
+                          )
+                        )
+                      )}
+                      disabled={project.viewMode === "view"}
+                      onChange={(e) => {
+                        const cm = Number(e.target.value);
+                        if (!Number.isFinite(cm)) return;
+                        const c = Math.max(1, Math.min(100, Math.round(cm)));
+                        const mm = c * 10;
+                        setProjectSafe((p) => ({
+                          ...p,
+                          stageGridSpacingDepthMm: mm,
+                        }));
+                      }}
+                      aria-label="横線の間隔（センチ）"
+                      style={{
+                        width: "100%",
+                        marginTop: "6px",
+                        marginBottom: "12px",
+                        padding: "6px 10px",
+                        borderRadius: "6px",
+                        border: "1px solid #334155",
+                        background: "#020617",
+                        color: "#e2e8f0",
+                        fontSize: "12px",
+                      }}
+                    />
+                  </label>
+                </>
+              ) : null}
+              <div
+                style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "4px" }}
+                title="実寸のガイド線を表示します。上の縦線・横線の間隔に従います。"
               >
-                <option value={0}>実寸スナップ：なし</option>
-                <option value={300}>30 cm</option>
-                <option value={500}>50 cm</option>
-                <option value={1000}>1 m</option>
-                <option value={1500}>1.5 m</option>
-                <option value={2000}>2 m</option>
-                <option value={3000}>3 m</option>
-              </select>
-              <div style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "6px" }}>
-                グリッド線（表示のみ・スナップとは別）
+                ガイド線
               </div>
               <label
                 style={{
@@ -2427,66 +2554,13 @@ export function EditorPage() {
                 />
                 線を表示する
               </label>
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  fontSize: "12px",
-                  color: "#94a3b8",
-                  flexWrap: "wrap",
-                }}
-              >
-                <span>線の間隔（縦横・cm）</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={500}
-                  step={1}
-                  value={Math.max(
-                    1,
-                    Math.min(
-                      500,
-                      Math.round((project.stageGridLineSpacingMm ?? 10) / 10)
-                    )
-                  )}
-                  disabled={
-                    project.viewMode === "view" ||
-                    !(
-                      project.stageWidthMm != null &&
-                      project.stageWidthMm > 0 &&
-                      project.stageDepthMm != null &&
-                      project.stageDepthMm > 0
-                    )
-                  }
-                  onChange={(e) => {
-                    const cm = Number(e.target.value);
-                    if (!Number.isFinite(cm)) return;
-                    const clampedCm = Math.max(1, Math.min(500, Math.round(cm)));
-                    setProjectSafe((p) => ({
-                      ...p,
-                      stageGridLineSpacingMm: clampedCm * 10,
-                    }));
-                  }}
-                  aria-label="グリッド線の間隔（cm）"
-                  style={{
-                    width: "56px",
-                    padding: "4px 8px",
-                    borderRadius: "6px",
-                    border: "1px solid #334155",
-                    background: "#020617",
-                    color: "#e2e8f0",
-                    fontSize: "12px",
-                  }}
-                />
-              </label>
             </div>
 
             <div
               style={{
                 borderBottom: "1px solid #1e293b",
-                paddingBottom: "14px",
-                marginBottom: "14px",
+                paddingBottom: "10px",
+                marginBottom: "10px",
               }}
             >
               <div
@@ -2495,12 +2569,15 @@ export function EditorPage() {
                   fontWeight: 700,
                   color: "#64748b",
                   letterSpacing: "0.06em",
-                  marginBottom: "8px",
+                  marginBottom: "6px",
                 }}
               >
                 立ち位置の名前
               </div>
-              <div style={{ display: "flex", gap: "8px" }}>
+              <div
+                style={{ display: "flex", gap: "8px" }}
+                title="○の下では印の中は番号。連番は右クリックメニューや各メンバー編集で変更できます。"
+              >
                 <button
                   type="button"
                   disabled={project.viewMode === "view"}
@@ -2562,16 +2639,13 @@ export function EditorPage() {
                   ○の下に名前
                 </button>
               </div>
-              <p style={{ margin: "8px 0 0", fontSize: "10px", color: "#64748b", lineHeight: 1.45 }}>
-                ○の下のときは印の中は番号（連番は右クリックメニューや各メンバー編集）。
-              </p>
             </div>
 
             <div
               style={{
                 display: "flex",
                 flexDirection: "column",
-                gap: "10px",
+                gap: "8px",
               }}
             >
               <button

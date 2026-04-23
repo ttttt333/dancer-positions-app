@@ -12,7 +12,13 @@ import type {
   SetPiece,
   StageFloorMarkup,
 } from "../types/choreography";
-import { audienceRotationDeg } from "../lib/projectDefaults";
+import {
+  audienceRotationDeg,
+  clampStageGridAxisMm,
+  DEFAULT_DANCER_MARKER_DIAMETER_PX,
+  MARKER_DIAMETER_PX_MAX as MARKER_PX_MAX,
+  MARKER_DIAMETER_PX_MIN as MARKER_PX_MIN,
+} from "../lib/projectDefaults";
 import {
   formatMeterCmLabel,
   formatStageMmSummary,
@@ -140,8 +146,18 @@ type GroupBoxHandle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 const MIN_SET_PIECE_W_PCT = 2.5;
 const MIN_SET_PIECE_H_PCT = 2.5;
 
-const MARKER_PX_MIN = 20;
-const MARKER_PX_MAX = 120;
+/** ○内ラベル用フォント（px）。印が大きいほど比例して大きく */
+function markerCircleLabelFontPx(markerPx: number): number {
+  return Math.max(
+    11,
+    Math.min(26, Math.round(16 * (markerPx / DEFAULT_DANCER_MARKER_DIAMETER_PX)))
+  );
+}
+
+/** ○の下に出す名前用（○内よりやや小さめ） */
+function markerBelowLabelFontPx(circleLabelPx: number): number {
+  return Math.max(11, Math.min(19, circleLabelPx - 1));
+}
 
 const GROUP_BOX_HANDLES: readonly {
   h: GroupBoxHandle;
@@ -406,8 +422,8 @@ export function StageBoard({
    * 1. `dancerMarkerDiameterMm` が明示されていればそれを実寸から px に換算。
    * 2. そうでなくステージ幅（`stageWidthMm`）があれば、ステージ幅の一定割合
    *    （≒ 4%）を自動の実寸として扱い、ステージサイズに連動して○を伸縮させる。
-   *    px スライダーの既定値（`DEFAULT_MARKER_DIAMETER_PX = 44`）からユーザーが
-   *    動かしていない場合のみ自動連動を優先する。動かしている（＝明示指定）なら
+   *    px の既定値（`DEFAULT_DANCER_MARKER_DIAMETER_PX`）のままならユーザーが
+   *    動かしていないと見なし自動連動を優先する。動かしている（＝明示指定）なら
    *    スライダーの px を尊重する。
    * 3. 上記いずれも当てはまらなければ保存済みの px をそのまま使う。
    */
@@ -424,20 +440,20 @@ export function StageBoard({
       );
       return Math.max(MARKER_PX_MIN, Math.min(MARKER_PX_MAX, px));
     }
-    const pxRaw = Math.round(dancerMarkerDiameterPx ?? 44);
+    const pxRaw = Math.round(dancerMarkerDiameterPx ?? DEFAULT_DANCER_MARKER_DIAMETER_PX);
     /**
-     * スライダーの既定値 44 のままならユーザーは px を明示していないと見なし、
+     * 既定 px のままならユーザーは px を明示していないと見なし、
      * ステージ幅に連動する自動サイズを採用する（写真のような按配になる目安）。
      */
-    const isDefaultPx = pxRaw === 44;
+    const isDefaultPx = pxRaw === DEFAULT_DANCER_MARKER_DIAMETER_PX;
     if (
       isDefaultPx &&
       typeof stageWidthMm === "number" &&
       stageWidthMm > 0 &&
       mainFloorPxWidth > 0
     ) {
-      /** ステージ幅の 4%。min 25cm / max 120cm で常識的な範囲にクランプ。 */
-      const implicitMm = Math.max(250, Math.min(1200, stageWidthMm * 0.04));
+      /** ステージ幅の約 5.5%。min 32cm / max 130cm で常識的な範囲にクランプ。 */
+      const implicitMm = Math.max(320, Math.min(1300, stageWidthMm * 0.055));
       const px = Math.round((implicitMm * mainFloorPxWidth) / stageWidthMm);
       return Math.max(MARKER_PX_MIN, Math.min(MARKER_PX_MAX, px));
     }
@@ -680,22 +696,25 @@ export function StageBoard({
     | null
   >(null);
   /**
-   * 幅・奥行（mm）がそろっているとき、縦横それぞれ `stageGridLineSpacingMm`（既定 10＝1cm）
-   * に相当するスナップ刻み（%）。ドラフト中の寸法も反映。
+   * 幅・奥行（mm）がそろっているとき、縦線＝幅方向・横線＝奥行方向の実寸間隔から
+   * スナップ刻み（幅・奥行 mm ごとの %）を算出。ドラフト中の寸法も反映。
    */
   const mmSnapGrid = useMemo(() => {
     const W = (stageResizeDraft?.stageWidthMm ?? stageWidthMm) ?? null;
     const D = (stageResizeDraft?.stageDepthMm ?? stageDepthMm) ?? null;
     if (W == null || D == null || W <= 0 || D <= 0) return null;
-    const raw = project.stageGridLineSpacingMm;
-    const spacing =
-      typeof raw === "number" && Number.isFinite(raw)
-        ? Math.min(5000, Math.max(5, Math.round(raw)))
+    const legacy =
+      typeof project.stageGridLineSpacingMm === "number" &&
+      Number.isFinite(project.stageGridLineSpacingMm)
+        ? project.stageGridLineSpacingMm
         : 10;
+    const spacingW = clampStageGridAxisMm(project.stageGridSpacingWidthMm, legacy);
+    const spacingD = clampStageGridAxisMm(project.stageGridSpacingDepthMm, legacy);
     return {
-      stepXPct: (spacing / W) * 100,
-      stepYPct: (spacing / D) * 100,
-      spacingMm: spacing,
+      stepXPct: (spacingW / W) * 100,
+      stepYPct: (spacingD / D) * 100,
+      spacingWidthMm: spacingW,
+      spacingDepthMm: spacingD,
     };
   }, [
     stageResizeDraft?.stageWidthMm,
@@ -703,6 +722,8 @@ export function StageBoard({
     stageWidthMm,
     stageDepthMm,
     project.stageGridLineSpacingMm,
+    project.stageGridSpacingWidthMm,
+    project.stageGridSpacingDepthMm,
   ]);
   /** 現在カーソルが乗っているステージリサイズハンドル。ホバー時だけ少し大きくする。 */
   const [hoveredStageHandle, setHoveredStageHandle] = useState<string | null>(
@@ -4769,10 +4790,7 @@ export function StageBoard({
                   selectedDancerIds.length >= 2 &&
                   selectedDancerIds.includes(ghostId);
                 const dMarkerPx = effectiveMarkerPx(d);
-                const dLabelFontPx = Math.max(
-                  10,
-                  Math.min(22, Math.round(14 * (dMarkerPx / 44)))
-                );
+                const dLabelFontPx = markerCircleLabelFontPx(dMarkerPx);
                 const list = writeFormation?.dancers ?? activeFormation?.dancers ?? [];
                 const diRaw = list.findIndex((x) => x.id === ghostId);
                 const di = diRaw >= 0 ? diRaw : 0;
@@ -4787,7 +4805,7 @@ export function StageBoard({
                 const wedgeH = Math.max(5, Math.round(dMarkerPx * 0.17));
                 /** 舞台の客席向き回転＋印の向きを打ち消し、画面に対して水平に */
                 const screenUnrotateDeg = -(rot + facing);
-                const belowNameFontPx = Math.max(10, Math.min(15, dLabelFontPx - 1));
+                const belowNameFontPx = markerBelowLabelFontPx(dLabelFontPx);
                 const belowLabelOriginYpx =
                   -labelOffsetPx + Math.round((belowNameFontPx * 1.12) / 2);
                 return (
@@ -4896,10 +4914,7 @@ export function StageBoard({
               })}
             {dancersForStageMarkers.map((d, di) => {
               const dMarkerPx = effectiveMarkerPx(d);
-              const dLabelFontPx = Math.max(
-                10,
-                Math.min(22, Math.round(14 * (dMarkerPx / 44)))
-              );
+              const dLabelFontPx = markerCircleLabelFontPx(dMarkerPx);
               const hideGlyph =
                 bulkHideDancerGlyphs &&
                 !playbackOrPreview &&
@@ -4918,7 +4933,7 @@ export function StageBoard({
               const wedgeH = Math.max(5, Math.round(dMarkerPx * 0.17));
               /** 舞台の客席向き回転＋印の向きを打ち消し、画面に対して水平に */
               const screenUnrotateDeg = -(rot + facing);
-              const belowNameFontPx = Math.max(10, Math.min(15, dLabelFontPx - 1));
+              const belowNameFontPx = markerBelowLabelFontPx(dLabelFontPx);
               const belowLabelOriginYpx =
                 -labelOffsetPx + Math.round((belowNameFontPx * 1.12) / 2);
               return (
