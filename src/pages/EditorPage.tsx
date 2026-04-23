@@ -140,7 +140,7 @@ const STAGE_RESIZER_PX = 4;
 const STAGE_COL_MIN_PX = 280;
 /** 波形が右列にあるときのタイムライン列の最小幅 */
 const TIMELINE_FULL_COL_MIN_PX = 240;
-/** 上部ドック時：右列はツール帯のみなので幅を抑える */
+/** 上部ドック時：右列はツール帯のみなので幅を抑える（グリッドは minmax(MIN, MAX)） */
 const RIGHT_TOOLS_RAIL_MIN_PX = 152;
 const RIGHT_TOOLS_RAIL_MAX_PX = 210;
 /** 右ペイン：タイムライン（またはキュー一覧）の縦スタック */
@@ -298,7 +298,10 @@ export function EditorPage() {
   const yjsCollab = useYjsCollaboration(serverId, collabActive);
   const project = collabActive ? yjsCollab.project : plainProject;
 
-  /** 上部波形ドック時は右列を狭くする（未ロード時は false で右列を広めに確保） */
+  /**
+   * 上部波形ドック時は右列を狭くする（未ロード時は false で右列を広めに確保）。
+   * 下の `showTopWaveDock`（`!project` チェック後）と同条件になるよう揃えている。
+   */
   const showTopWaveDockForGrid =
     !!project &&
     wideEditorLayout &&
@@ -306,8 +309,9 @@ export function EditorPage() {
       project.rosterHidesTimeline === true &&
       project.crews.some((c) => c.members.length > 0)
     );
+  /** 右列 minmax の最大幅ぶんをステージ上限から控除（152 だけだと右が 210 のときに溢れうる） */
   const minRightColForStageSplitPx = showTopWaveDockForGrid
-    ? RIGHT_TOOLS_RAIL_MIN_PX
+    ? RIGHT_TOOLS_RAIL_MAX_PX
     : TIMELINE_FULL_COL_MIN_PX;
 
   /**
