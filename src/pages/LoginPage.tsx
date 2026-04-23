@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { authApi, setToken } from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -59,6 +59,7 @@ export function LoginPage() {
 
   return (
     <AuthScreenLayout title={t("auth.loginTitle")} subtitle={t("auth.loginTagline")}>
+      <Fragment>
       <form onSubmit={submit}>
         <label style={labelStyle}>
           {t("auth.email")}
@@ -133,6 +134,26 @@ export function LoginPage() {
           <span style={{ fontSize: "12px", color: shell.textSubtle }}>{t("auth.loginFooterHint")}</span>
         </p>
       </form>
+      <Link
+        to="/library"
+        style={{
+          ...btnAccent,
+          width: "100%",
+          marginTop: 20,
+          padding: "12px 18px",
+          fontSize: "14px",
+          fontWeight: 700,
+          textDecoration: "none",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxSizing: "border-box",
+          textAlign: "center",
+        }}
+      >
+        {t("auth.toLibrary")}
+      </Link>
+      </Fragment>
     </AuthScreenLayout>
   );
 }

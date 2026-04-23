@@ -1262,7 +1262,7 @@ export function EditorPage() {
     return (
       <div style={{ padding: 24, color: "#f87171" }}>
         {loadError}{" "}
-        <Link to="/" style={{ color: "#93c5fd" }}>
+        <Link to="/library" style={{ color: "#93c5fd" }}>
           戻る
         </Link>
       </div>
@@ -1437,7 +1437,7 @@ export function EditorPage() {
         }}
       >
         <Link
-          to="/"
+          to="/library"
           title={t("editor.backTitle")}
           aria-label={t("editor.backTitle")}
           style={{
