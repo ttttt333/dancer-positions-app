@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
-import { billingApi, projectApi } from "../api/client";
+import { billingApi, isDemoSessionToken, projectApi } from "../api/client";
 import { ChoreoGridLogo } from "../components/ChoreoGridLogo";
 import { btnAccent, btnSecondary } from "../components/stageButtonStyles";
 import { panelCard, shell } from "../theme/choreoShell";
@@ -188,6 +188,22 @@ export function DashboardPage() {
       </header>
 
       <main style={{ maxWidth: 960, margin: "0 auto", padding: "28px 20px 48px" }}>
+        {isDemoSessionToken() ? (
+          <div
+            style={{
+              ...panelCard,
+              padding: "12px 14px",
+              marginBottom: 20,
+              border: "1px solid rgba(234, 179, 8, 0.45)",
+              background: "rgba(234, 179, 8, 0.08)",
+              color: "#fef3c7",
+              fontSize: "13px",
+              lineHeight: 1.5,
+            }}
+          >
+            {t("dashboard.demoSessionBanner")}
+          </div>
+        ) : null}
         <div
           style={{
             display: "flex",

@@ -7,7 +7,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { authApi, getToken, setToken } from "../api/client";
+import {
+  authApi,
+  DEMO_SESSION_TOKEN,
+  getToken,
+  isDemoSessionToken,
+  setToken,
+} from "../api/client";
 
 /** `/api/me` が返らないとき無限に「読み込み中」にならないようにする */
 const ME_REQUEST_TIMEOUT_MS = 12_000;
@@ -32,9 +38,20 @@ type AuthState = {
   refresh: () => Promise<boolean>;
   logout: () => void;
   setAuth: (token: string, me: Me) => void;
+  /** ログイン・API 未接続でもライブラリへ進む（暫定。後から本ログインに差し替え可能） */
+  skipLoginForNow: () => void;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
+
+const DEMO_ME: Me = {
+  user: {
+    id: 0,
+    email: "demo@local",
+  },
+  adminOrganizations: [],
+  memberOrganizations: [],
+};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
@@ -46,6 +63,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setMe(null);
       setReady(true);
       return false;
+    }
+    if (isDemoSessionToken()) {
+      setMe(DEMO_ME);
+      setReady(true);
+      return true;
     }
     const gen = ++refreshGeneration.current;
     try {
@@ -87,9 +109,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMe(m);
   }, []);
 
+  const skipLoginForNow = useCallback(() => {
+    setToken(DEMO_SESSION_TOKEN);
+    setMe(DEMO_ME);
+    setReady(true);
+  }, []);
+
   return (
     <AuthContext.Provider
-      value={{ ready, me, refresh, logout, setAuth }}
+      value={{ ready, me, refresh, logout, setAuth, skipLoginForNow }}
     >
       {children}
     </AuthContext.Provider>

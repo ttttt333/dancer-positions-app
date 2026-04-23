@@ -5,7 +5,7 @@ import { authApi, setToken } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
 import { AuthScreenLayout } from "../components/AuthScreenLayout";
-import { btnAccent, inputField } from "../components/stageButtonStyles";
+import { btnAccent, btnSecondary, inputField } from "../components/stageButtonStyles";
 import { shell } from "../theme/choreoShell";
 
 const labelStyle: CSSProperties = {
@@ -31,7 +31,7 @@ export function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const { me, ready, setAuth, logout } = useAuth();
+  const { me, ready, setAuth, logout, skipLoginForNow } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -91,6 +91,33 @@ export function RegisterPage() {
         <button type="submit" style={{ ...btnAccent, width: "100%", padding: "12px 18px" }}>
           {t("auth.registerSubmit")}
         </button>
+        <button
+          type="button"
+          style={{
+            ...btnSecondary,
+            width: "100%",
+            marginTop: 12,
+            padding: "10px 16px",
+            fontSize: "13px",
+          }}
+          onClick={() => {
+            skipLoginForNow();
+            navigate("/", { replace: true });
+          }}
+        >
+          {t("auth.skipLoginButton")}
+        </button>
+        <p
+          style={{
+            marginTop: 10,
+            fontSize: "11px",
+            lineHeight: 1.45,
+            color: shell.textSubtle,
+            textAlign: "center",
+          }}
+        >
+          {t("auth.skipLoginNote")}
+        </p>
         <p style={{ marginTop: "22px", fontSize: "13px", textAlign: "center" }}>
           <Link to="/login" style={{ color: shell.textMuted, fontWeight: 500, textDecoration: "none" }}>
             {t("auth.loginInsteadLink")}

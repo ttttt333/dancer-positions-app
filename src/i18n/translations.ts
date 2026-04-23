@@ -49,6 +49,11 @@ export const TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "auth.loginInsteadLink": "ログインへ",
     "auth.postLoginMeFailed":
       "アカウントは作成できましたが、セッション情報の取得に失敗しました。API が同じサイトで動いているか確認し、再度お試しください。",
+    "auth.skipLoginButton": "とりあえず進む（ライブラリへ）",
+    "auth.skipLoginNote":
+      "ログイン・API はあとから接続できます。クラウドの一覧は空ですが、新規作成で編集に進めます。",
+    "dashboard.demoSessionBanner":
+      "デモ表示中: 本ログイン前のためクラウド一覧は使えません。「ログアウト」で通常のログイン画面に戻れます。",
     "editor.backTitle": "ライブラリへ戻る",
     "editor.pieceNamePh": "作品名",
     "editor.headcount": "人数",
@@ -105,6 +110,11 @@ export const TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "auth.loginInsteadLink": "Log in instead",
     "auth.postLoginMeFailed":
       "Your account was created, but loading your session failed. Make sure the API is reachable from this site (same origin or correct proxy), then try again.",
+    "auth.skipLoginButton": "Continue without signing in (library)",
+    "auth.skipLoginNote":
+      "You can hook up login/API later. The cloud list is empty; use New project to open the editor.",
+    "dashboard.demoSessionBanner":
+      "Demo session: cloud list is unavailable until login/API is connected. Use Log out to return to the sign-in screen.",
     "editor.backTitle": "Back to library",
     "editor.pieceNamePh": "Project name",
     "editor.headcount": "Headcount",
@@ -161,6 +171,11 @@ export const TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "auth.loginInsteadLink": "로그인으로",
     "auth.postLoginMeFailed":
       "계정은 만들어졌지만 세션 정보를 불러오지 못했습니다. API 주소와 네트워크를 확인한 뒤 다시 시도해 주세요.",
+    "auth.skipLoginButton": "로그인 없이 진행(라이브러리)",
+    "auth.skipLoginNote":
+      "로그인/API는 나중에 연결할 수 있습니다. 클라우드 목록은 비어 있으며 새로 만들기로 편집할 수 있습니다.",
+    "dashboard.demoSessionBanner":
+      "데모: 로그인/API 연결 전이라 클라우드 목록을 사용할 수 없습니다. 로그아웃으로 로그인 화면으로 돌아갑니다.",
     "editor.backTitle": "라이브러리로",
     "editor.pieceNamePh": "작품명",
     "editor.headcount": "인원",
@@ -217,6 +232,10 @@ export const TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "auth.loginInsteadLink": "去登录",
     "auth.postLoginMeFailed":
       "账号已创建，但加载会话失败。请确认 API 可从本站访问后重试。",
+    "auth.skipLoginButton": "暂不登录，进入资料库",
+    "auth.skipLoginNote": "登录与 API 可稍后接入。云列表为空，可通过新建进入编辑。",
+    "dashboard.demoSessionBanner":
+      "演示中：尚未连接登录/API，无法使用云列表。退出登录可返回登录页。",
     "editor.backTitle": "返回资料库",
     "editor.pieceNamePh": "作品名称",
     "editor.headcount": "人数",

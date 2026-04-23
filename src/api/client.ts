@@ -1,4 +1,18 @@
-const base = "";
+/** 本番ログイン前の暫定利用。`refresh` は API を呼ばずダミーユーザーを復元する */
+export const DEMO_SESSION_TOKEN = "__choreogrid_demo_session__";
+
+export function isDemoSessionToken(): boolean {
+  return getToken() === DEMO_SESSION_TOKEN;
+}
+
+/** 本番で API が別ホストのとき `VITE_API_BASE_URL`（末尾スラッシュなし） */
+function apiBaseUrl(): string {
+  const raw = import.meta.env.VITE_API_BASE_URL as string | undefined;
+  if (raw == null || String(raw).trim() === "") return "";
+  return String(raw).trim().replace(/\/+$/, "");
+}
+
+const base = apiBaseUrl();
 
 export function getToken(): string | null {
   return localStorage.getItem("auth_token");
@@ -9,11 +23,42 @@ export function setToken(token: string | null) {
   else localStorage.removeItem("auth_token");
 }
 
+const HTML_OR_TEXT_API_HINT =
+  "サーバーが JSON ではなく HTML やテキストを返しました（多くの場合、本番で API が同じドメインにありません）。Vercel の環境変数に VITE_API_BASE_URL（例: https://あなたのAPIのホスト）を設定し、再デプロイしてください。";
+
+function parseApiJsonBody(text: string, res: Response): Record<string, unknown> {
+  const trimmed = text.trimStart();
+  if (trimmed === "") return {};
+  if (
+    trimmed.startsWith("<") ||
+    /^The\s/i.test(trimmed) ||
+    /^Not\s/i.test(trimmed) ||
+    /^<!DOCTYPE/i.test(trimmed)
+  ) {
+    throw new Error(HTML_OR_TEXT_API_HINT);
+  }
+  try {
+    return JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    throw new Error(
+      `API の応答を JSON として解釈できませんでした（HTTP ${res.status}）。VITE_API_BASE_URL の設定を確認してください。`
+    );
+  }
+}
+
 async function api<T>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
   const token = getToken();
+  /** デモセッションではクラウド一覧だけ空配列で返し、JSON エラーを避ける */
+  if (
+    isDemoSessionToken() &&
+    path === "/api/projects" &&
+    (options.method === undefined || options.method === "GET")
+  ) {
+    return [] as T;
+  }
   const headers: HeadersInit = {
     "Content-Type": "application/json",
     ...(options.headers as object),
@@ -21,11 +66,16 @@ async function api<T>(
   if (token) {
     (headers as Record<string, string>).Authorization = `Bearer ${token}`;
   }
-  const res = await fetch(`${base}${path}`, { ...options, headers });
+  const url = `${base}${path}`;
+  const res = await fetch(url, { ...options, headers });
   const text = await res.text();
-  const data = text ? JSON.parse(text) : {};
+  const data = parseApiJsonBody(text, res);
   if (!res.ok) {
-    throw new Error(data.error || res.statusText || "API error");
+    const msg =
+      typeof data.error === "string" && data.error
+        ? data.error
+        : res.statusText || "API error";
+    throw new Error(msg);
   }
   return data as T;
 }
@@ -113,8 +163,14 @@ export async function audioApiUpload(formData: FormData): Promise<{ id: number; 
     body: formData,
   });
   const text = await res.text();
-  const data = text ? JSON.parse(text) : {};
-  if (!res.ok) throw new Error(data.error || res.statusText || "アップロード失敗");
+  const data = parseApiJsonBody(text, res);
+  if (!res.ok) {
+    throw new Error(
+      (typeof data.error === "string" && data.error) ||
+        res.statusText ||
+        "アップロード失敗"
+    );
+  }
   return data as { id: number; mime: string };
 }
 
