@@ -1743,7 +1743,7 @@ export function StageBoard({
    * 回転ハンドル：1 人は向きのみ。2 人以上＋選択枠ありは、枠の中心まわりに
    * 立ち位置もまとめて剛体回転（向きも同じ差分）。
    */
-  const handlePointerDownMarkerRotate = (e: ReactPointerEvent) => {
+  const handlePointerDownMarkerRotate = (e: ReactPointerEvent<HTMLElement>) => {
     if (e.button !== 0) return;
     if (
       viewMode === "view" ||
@@ -1755,8 +1755,7 @@ export function StageBoard({
     if (selectedDancerIds.length < 1) return;
     e.stopPropagation();
     e.preventDefault();
-    const rotateHandleEl = e.currentTarget as HTMLElement;
-    rotateHandleEl.setPointerCapture(e.pointerId);
+    const rotateHandleEl = e.currentTarget;
     const floorEl = stageMainFloorRef.current;
     if (!floorEl) return;
     const rect = floorEl.getBoundingClientRect();
@@ -1785,10 +1784,7 @@ export function StageBoard({
     const hr = rotateHandleEl.getBoundingClientRect();
     const handleCenterX = hr.left + hr.width / 2;
     const handleCenterY = hr.top + hr.height / 2;
-    const startPointerAngle = Math.atan2(
-      handleCenterY - centerClientY,
-      handleCenterX - centerClientX
-    );
+    const startPointerAngle = Math.atan2(handleCenterY - centerClientY, handleCenterX - centerClientX);
     const startFacings = new Map<string, number>();
     const startPositions = new Map<string, { xPct: number; yPct: number }>();
     for (const id of selectedDancerIds) {
@@ -1804,6 +1800,11 @@ export function StageBoard({
       }
     }
     if (startFacings.size === 0) return;
+    try {
+      rotateHandleEl.setPointerCapture(e.pointerId);
+    } catch {
+      /* capture 不可時も window の pointermove で回転は継続 */
+    }
     markerRotateRef.current = {
       centerClientX,
       centerClientY,
