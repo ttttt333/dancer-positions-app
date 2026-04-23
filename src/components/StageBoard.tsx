@@ -619,11 +619,25 @@ export function StageBoard({
         startPointerAngle: number;
         startFacings: Map<string, number>;
         ids: string[];
+        /** 2 人以上＋選択枠あり：位置もまとめて回す。1 人は向きのみ。 */
+        mode: "facing" | "groupRigid";
+        startPositions?: Map<string, { xPct: number; yPct: number }>;
       }
     | null
   >(null);
   /** `markerFacingDraft` と同内容をポインターアップで確実に読むため */
   const markerFacingDraftRef = useRef<Map<string, number> | null>(null);
+  /**
+   * 複数選択の回転ドラッグ中のみ：各 ID の仮 `xPct` / `yPct`（選択枠中心まわりの剛体回転）。
+   */
+  const [markerGroupPosDraft, setMarkerGroupPosDraft] = useState<Map<
+    string,
+    { xPct: number; yPct: number }
+  > | null>(null);
+  const markerGroupPosDraftRef = useRef<Map<
+    string,
+    { xPct: number; yPct: number }
+  > | null>(null);
 
   /**
    * ステージ枠の四隅ハンドルでステージ全体の寸法を変更するドラッグセッション。
@@ -763,10 +777,12 @@ export function StageBoard({
     markerResizeRef.current = null;
     markerRotateRef.current = null;
     markerFacingDraftRef.current = null;
+    markerGroupPosDraftRef.current = null;
     floorMarkupTextDragRef.current = null;
     floorTextPlaceDragRef.current = null;
     setMarkerDiamDraft(null);
     setMarkerFacingDraft(null);
+    setMarkerGroupPosDraft(null);
     setDragGhostById(null);
     setFloorMarkupTool(null);
     floorLineSessionRef.current = null;
@@ -814,6 +830,17 @@ export function StageBoard({
     browseFormationDancers ??
     activeFormation?.dancers ??
     [];
+
+  /** 群の剛体回転ドラッグ中は仮座標で上書き（印の位置表示用） */
+  const dancersForStageMarkers = useMemo(() => {
+    const base = displayDancers;
+    if (!markerGroupPosDraft || markerGroupPosDraft.size === 0) return base;
+    return base.map((d) => {
+      const o = markerGroupPosDraft.get(d.id);
+      if (!o) return d;
+      return { ...d, xPct: o.xPct, yPct: o.yPct };
+    });
+  }, [displayDancers, markerGroupPosDraft]);
 
   const displaySetPieces: SetPiece[] =
     previewDancers != null && previewDancers.length > 0
@@ -1701,8 +1728,8 @@ export function StageBoard({
   };
 
   /**
-   * 代表ダンサー上の丸い回転ハンドル → ポインタ周りの角で選択中全員の向きを変える。
-   * 角度は代表の床面中心を軸にしたカーソル角の差分で決める（複数選択でも同じ差分）。
+   * 回転ハンドル：1 人は向きのみ。2 人以上＋選択枠ありは、枠の中心まわりに
+   * 立ち位置もまとめて剛体回転（向きも同じ差分）。
    */
   const handlePointerDownMarkerRotate = (e: ReactPointerEvent) => {
     if (e.button !== 0) return;
@@ -1724,9 +1751,11 @@ export function StageBoard({
       writeFormation?.dancers ?? activeFormation?.dancers ?? [];
     let centerClientX: number;
     let centerClientY: number;
-    if (selectedDancerIds.length >= 2 && selectionBox) {
-      const cxPct = (selectionBox.x0 + selectionBox.x1) / 2;
-      const cyPct = (selectionBox.y0 + selectionBox.y1) / 2;
+    const groupRigid =
+      selectedDancerIds.length >= 2 && selectionBox != null;
+    if (groupRigid) {
+      const cxPct = (selectionBox!.x0 + selectionBox!.x1) / 2;
+      const cyPct = (selectionBox!.y0 + selectionBox!.y1) / 2;
       centerClientX = rect.left + (cxPct / 100) * rect.width;
       centerClientY = rect.top + (cyPct / 100) * rect.height;
     } else {
@@ -1741,6 +1770,7 @@ export function StageBoard({
       e.clientX - centerClientX
     );
     const startFacings = new Map<string, number>();
+    const startPositions = new Map<string, { xPct: number; yPct: number }>();
     for (const id of selectedDancerIds) {
       const d = dancers.find((x) => x.id === id);
       if (!d) continue;
@@ -1749,6 +1779,9 @@ export function StageBoard({
           ? d.facingDeg
           : 0;
       startFacings.set(id, normalizeDancerFacingDeg(cur));
+      if (groupRigid) {
+        startPositions.set(id, { xPct: d.xPct, yPct: d.yPct });
+      }
     }
     if (startFacings.size === 0) return;
     markerRotateRef.current = {
@@ -1757,10 +1790,20 @@ export function StageBoard({
       startPointerAngle,
       startFacings,
       ids: [...selectedDancerIds],
+      mode: groupRigid ? "groupRigid" : "facing",
+      ...(groupRigid ? { startPositions } : {}),
     };
     const initFacing = new Map(startFacings);
     markerFacingDraftRef.current = initFacing;
     setMarkerFacingDraft(initFacing);
+    if (groupRigid) {
+      const initPos = new Map(startPositions);
+      markerGroupPosDraftRef.current = initPos;
+      setMarkerGroupPosDraft(initPos);
+    } else {
+      markerGroupPosDraftRef.current = null;
+      setMarkerGroupPosDraft(null);
+    }
   };
 
   /** 空ステージを押したら範囲選択を始める（および選択のクリア） */
@@ -2066,7 +2109,7 @@ export function StageBoard({
         setTrashHotIfChanged(false);
         return;
       }
-      /** 4: 向き（丸い回転ハンドル）— 代表位置を軸にカーソル角の差分で全員同じ回転 */
+      /** 4: 向き（丸い回転ハンドル）— 1 人は向きのみ。複数は枠中心まわりに位置＋向きを剛体回転 */
       const rot = markerRotateRef.current;
       if (rot) {
         const curAngle = Math.atan2(
@@ -2077,6 +2120,8 @@ export function StageBoard({
         while (deltaRad > Math.PI) deltaRad -= 2 * Math.PI;
         while (deltaRad < -Math.PI) deltaRad += 2 * Math.PI;
         const deltaDeg = (deltaRad * 180) / Math.PI;
+        const cos = Math.cos(deltaRad);
+        const sin = Math.sin(deltaRad);
         const draft = new Map<string, number>();
         for (const id of rot.ids) {
           const s = rot.startFacings.get(id) ?? 0;
@@ -2084,6 +2129,39 @@ export function StageBoard({
         }
         markerFacingDraftRef.current = draft;
         setMarkerFacingDraft(draft);
+        if (
+          rot.mode === "groupRigid" &&
+          rot.startPositions &&
+          rot.startPositions.size > 0
+        ) {
+          const floor = stageMainFloorRef.current;
+          if (floor) {
+            const r = floor.getBoundingClientRect();
+            const w = r.width;
+            const h = r.height;
+            if (w > 0 && h > 0) {
+              const draftPos = new Map<string, { xPct: number; yPct: number }>();
+              for (const id of rot.ids) {
+                const s = rot.startPositions.get(id);
+                if (!s) continue;
+                const px0 = r.left + (s.xPct / 100) * w;
+                const py0 = r.top + (s.yPct / 100) * h;
+                const vx = px0 - rot.centerClientX;
+                const vy = py0 - rot.centerClientY;
+                const px1 = rot.centerClientX + vx * cos - vy * sin;
+                const py1 = rot.centerClientY + vx * sin + vy * cos;
+                const nxPct = clamp(((px1 - r.left) / w) * 100, 2, 98);
+                const nyPct = clamp(((py1 - r.top) / h) * 100, 2, 98);
+                draftPos.set(id, {
+                  xPct: round2(nxPct),
+                  yPct: round2(nyPct),
+                });
+              }
+              markerGroupPosDraftRef.current = draftPos;
+              setMarkerGroupPosDraft(draftPos);
+            }
+          }
+        }
         setTrashHotIfChanged(false);
         return;
       }
@@ -2144,21 +2222,41 @@ export function StageBoard({
         removeDancersByIds(gUp.ids);
       }
       groupDragRef.current = null;
-      /** 向きドラッグ確定 */
+      /** 向き／複数時は位置も含む回転ドラッグの確定 */
       const rotUp = markerRotateRef.current;
       const facingDraftSnap = markerFacingDraftRef.current;
+      const posDraftSnap = markerGroupPosDraftRef.current;
       if (rotUp && facingDraftSnap && facingDraftSnap.size > 0) {
-        let changed = false;
+        let facingChanged = false;
         for (const id of rotUp.ids) {
           const a = normalizeDancerFacingDeg(rotUp.startFacings.get(id) ?? 0);
           const b = normalizeDancerFacingDeg(facingDraftSnap.get(id) ?? a);
           if (a !== b) {
-            changed = true;
+            facingChanged = true;
             break;
           }
         }
-        if (changed) {
-          const nextFacing = new Map(facingDraftSnap);
+        let posChanged = false;
+        if (
+          rotUp.mode === "groupRigid" &&
+          rotUp.startPositions &&
+          posDraftSnap &&
+          posDraftSnap.size > 0
+        ) {
+          for (const id of rotUp.ids) {
+            const a = rotUp.startPositions.get(id);
+            const b = posDraftSnap.get(id);
+            if (
+              a &&
+              b &&
+              (a.xPct !== b.xPct || a.yPct !== b.yPct)
+            ) {
+              posChanged = true;
+              break;
+            }
+          }
+        }
+        if (facingChanged || posChanged) {
           setProject((p) => ({
             ...p,
             formations: p.formations.map((f) =>
@@ -2166,10 +2264,21 @@ export function StageBoard({
                 ? {
                     ...f,
                     dancers: f.dancers.map((x) => {
-                      if (!nextFacing.has(x.id)) return x;
-                      const deg = normalizeDancerFacingDeg(nextFacing.get(x.id)!);
-                      const { facingDeg: _fd, ...rest } = x;
-                      return deg === 0 ? rest : { ...rest, facingDeg: deg };
+                      if (!rotUp.ids.includes(x.id)) return x;
+                      let next: DancerSpot = { ...x };
+                      if (posDraftSnap?.has(x.id)) {
+                        const pr = posDraftSnap.get(x.id)!;
+                        next = { ...next, xPct: pr.xPct, yPct: pr.yPct };
+                      }
+                      if (facingDraftSnap.has(x.id)) {
+                        const deg = normalizeDancerFacingDeg(
+                          facingDraftSnap.get(x.id)!
+                        );
+                        const { facingDeg: _fd, ...rest } = next;
+                        next =
+                          deg === 0 ? rest : { ...rest, facingDeg: deg };
+                      }
+                      return next;
                     }),
                   }
                 : f
@@ -2179,7 +2288,9 @@ export function StageBoard({
       }
       markerRotateRef.current = null;
       markerFacingDraftRef.current = null;
+      markerGroupPosDraftRef.current = null;
       setMarkerFacingDraft(null);
+      setMarkerGroupPosDraft(null);
       /** ○サイズ確定（選択中の各ダンサーに `sizePx` を保存する） */
       const m = markerResizeRef.current;
       if (m && markerDiamDraft && markerDiamDraft.size > 0) {
@@ -2458,10 +2569,12 @@ export function StageBoard({
     let x1 = -Infinity;
     let y1 = -Infinity;
     for (const d of ds) {
-      if (d.xPct < x0) x0 = d.xPct;
-      if (d.yPct < y0) y0 = d.yPct;
-      if (d.xPct > x1) x1 = d.xPct;
-      if (d.yPct > y1) y1 = d.yPct;
+      const ox = markerGroupPosDraft?.get(d.id)?.xPct ?? d.xPct;
+      const oy = markerGroupPosDraft?.get(d.id)?.yPct ?? d.yPct;
+      if (ox < x0) x0 = ox;
+      if (oy < y0) y0 = oy;
+      if (ox > x1) x1 = ox;
+      if (oy > y1) y1 = oy;
     }
     if (
       !Number.isFinite(x0) ||
@@ -2471,7 +2584,14 @@ export function StageBoard({
     )
       return null;
     return { x0, y0, x1, y1 };
-  }, [selectedDancerIds, writeFormation, activeFormation, playbackOrPreview, viewMode]);
+  }, [
+    selectedDancerIds,
+    writeFormation,
+    activeFormation,
+    playbackOrPreview,
+    viewMode,
+    markerGroupPosDraft,
+  ]);
 
   /** 選択中の代表ダンサー（先頭）の座標。○サイズハンドルをその右下に置く。 */
   const primarySelectedDancer = useMemo(() => {
@@ -2481,7 +2601,11 @@ export function StageBoard({
     if (selectedDancerIds.length < 1) return null;
     const ds = writeFormation?.dancers ?? activeFormation?.dancers ?? [];
     const id = selectedDancerIds[0]!;
-    return ds.find((x) => x.id === id) ?? null;
+    const base = ds.find((x) => x.id === id) ?? null;
+    if (!base) return null;
+    const pos = markerGroupPosDraft?.get(id);
+    if (!pos) return base;
+    return { ...base, xPct: pos.xPct, yPct: pos.yPct };
   }, [
     selectedDancerIds,
     writeFormation,
@@ -2489,6 +2613,7 @@ export function StageBoard({
     playbackOrPreview,
     viewMode,
     stageInteractionsEnabled,
+    markerGroupPosDraft,
   ]);
 
   const quickEditDancer = useMemo(() => {
@@ -4533,7 +4658,7 @@ export function StageBoard({
                   type="button"
                   data-group-rotate-handle
                   aria-label="選択メンバーの向きを回転"
-                  title={`選択中の ${selectedDancerIds.length} 人の向きをドラッグで同じだけ回転（枠の中心を軸）`}
+                  title={`選択中の ${selectedDancerIds.length} 人を、枠の中心を軸に図形ごと回転（立ち位置と向きが一緒にまわります）`}
                   onPointerDown={handlePointerDownMarkerRotate}
                   style={{
                     position: "absolute",
@@ -4678,7 +4803,7 @@ export function StageBoard({
                   </Fragment>
                 );
               })}
-            {displayDancers.map((d, di) => {
+            {dancersForStageMarkers.map((d, di) => {
               const dMarkerPx = effectiveMarkerPx(d);
               const dLabelFontPx = Math.max(
                 10,
@@ -4876,7 +5001,7 @@ export function StageBoard({
                   : `○のサイズ（${pMarkerPx}px）・ドラッグで変更`;
               const rotateTip =
                 selectedDancerIds.length >= 2
-                  ? `選択中の ${selectedDancerIds.length} 人の向きをドラッグで同じだけ回転（現在 ${pFacing}°）`
+                  ? `選択中の ${selectedDancerIds.length} 人を図形ごと回転（枠の中心・現在 ${pFacing}°）`
                   : `向きをドラッグで変更（現在 ${pFacing}°）`;
               const rim = Math.round(pMarkerPx / 2 + 6);
               return (
