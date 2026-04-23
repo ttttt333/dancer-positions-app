@@ -627,6 +627,76 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       const cueList = cuesRef.current;
       const dragCueId = cueDragRef.current?.cueId ?? null;
       const dragPrev = cueDragPreviewRangeRef.current;
+      /** 波形枠いっぱいのキュー帯：内側透明・金枠。上下辺の左右端だけ太くして端リサイズしやすくする */
+      const drawWaveCueChrome = (
+        left: number,
+        width: number,
+        opts: {
+          isDrag: boolean;
+          isSel: boolean;
+          hoverStart: boolean;
+          hoverEnd: boolean;
+          isHover: boolean;
+        }
+      ) => {
+        const inset = 0.5;
+        const top = inset;
+        const boxH = h - inset * 2;
+        const edgeSeg = Math.min(18, Math.max(6, width * 0.14));
+        const baseLw = opts.isSel ? 1.75 : opts.isDrag ? 1.65 : 1.35;
+        const gold =
+          opts.isSel || opts.isDrag
+            ? "rgba(234, 200, 95, 0.98)"
+            : opts.isHover
+              ? "rgba(212, 175, 55, 0.92)"
+              : "rgba(212, 175, 55, 0.82)";
+        const goldEdge =
+          opts.hoverStart || opts.hoverEnd
+            ? "rgba(250, 230, 160, 0.98)"
+            : gold;
+
+        g.strokeStyle = gold;
+        g.lineWidth = baseLw;
+        g.lineJoin = "miter";
+        g.lineCap = "butt";
+        g.strokeRect(left + inset, top, width - inset * 2, boxH);
+
+        g.strokeStyle = goldEdge;
+        g.lineWidth = 3.25;
+        g.beginPath();
+        g.moveTo(left + inset, top);
+        g.lineTo(left + inset + Math.min(edgeSeg, width * 0.45), top);
+        g.stroke();
+        g.beginPath();
+        g.moveTo(left + width - inset - Math.min(edgeSeg, width * 0.45), top);
+        g.lineTo(left + width - inset, top);
+        g.stroke();
+        g.beginPath();
+        g.moveTo(left + inset, top + boxH);
+        g.lineTo(left + inset + Math.min(edgeSeg, width * 0.45), top + boxH);
+        g.stroke();
+        g.beginPath();
+        g.moveTo(left + width - inset - Math.min(edgeSeg, width * 0.45), top + boxH);
+        g.lineTo(left + width - inset, top + boxH);
+        g.stroke();
+
+        g.strokeStyle = goldEdge;
+        g.lineWidth = opts.hoverStart || opts.hoverEnd ? 3.6 : 2.4;
+        g.lineCap = "butt";
+        if (opts.hoverStart) {
+          g.beginPath();
+          g.moveTo(left + inset, top);
+          g.lineTo(left + inset, top + boxH);
+          g.stroke();
+        }
+        if (opts.hoverEnd) {
+          g.beginPath();
+          g.moveTo(left + width - inset, top);
+          g.lineTo(left + width - inset, top + boxH);
+          g.stroke();
+        }
+      };
+
       if (d > 0 && viewSpan > 0 && cueList.length > 0) {
         for (const cue of cueList) {
           let ts = cue.tStartSec;
@@ -647,30 +717,13 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             hover?.cueId === cue.id && (!dragCueId || dragCueId !== cue.id);
           const hoverStart = isHover && hover.mode === "start";
           const hoverEnd = isHover && hover.mode === "end";
-          const bh = isDrag ? 24 : 20;
-          g.fillStyle = isDrag ? "rgba(253, 224, 71, 0.55)" : "rgba(252, 211, 77, 0.38)";
-          g.fillRect(left, mid - bh / 2, width, bh);
-          g.strokeStyle = isSel ? "rgba(255,255,255,0.98)" : "rgba(255,255,255,0.88)";
-          g.lineWidth = isSel ? 2.5 : 2;
-          if (isHover) g.lineWidth = Math.max(g.lineWidth, 2.75);
-          g.strokeRect(left + 0.5, mid - bh / 2 + 0.5, width - 1, bh - 1);
-          if (hoverStart || hoverEnd) {
-            g.strokeStyle = "#ffffff";
-            g.lineWidth = 3;
-            g.lineCap = "butt";
-            if (hoverStart) {
-              g.beginPath();
-              g.moveTo(left + 0.5, mid - bh / 2 - 1);
-              g.lineTo(left + 0.5, mid + bh / 2 + 1);
-              g.stroke();
-            }
-            if (hoverEnd) {
-              g.beginPath();
-              g.moveTo(left + width - 0.5, mid - bh / 2 - 1);
-              g.lineTo(left + width - 0.5, mid + bh / 2 + 1);
-              g.stroke();
-            }
-          }
+          drawWaveCueChrome(left, width, {
+            isDrag,
+            isSel,
+            hoverStart,
+            hoverEnd,
+            isHover,
+          });
         }
       }
 
@@ -684,12 +737,35 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           const x2 = ((Math.min(te, viewEnd) - viewStart) / viewSpan) * w;
           const left = Math.min(x1, x2);
           const width = Math.max(3, Math.abs(x2 - x1));
-          const bh = 22;
-          g.fillStyle = "rgba(45, 212, 191, 0.42)";
-          g.fillRect(left, mid - bh / 2, width, bh);
-          g.strokeStyle = "rgba(15, 23, 42, 0.65)";
-          g.lineWidth = 1;
-          g.strokeRect(left + 0.5, mid - bh / 2 + 0.5, width - 1, bh - 1);
+          const inset = 0.5;
+          const top = inset;
+          const boxH = h - inset * 2;
+          const edgeSeg = Math.min(18, Math.max(6, width * 0.14));
+          const teal = "rgba(45, 212, 191, 0.88)";
+          const tealHi = "rgba(110, 231, 210, 0.95)";
+          g.strokeStyle = teal;
+          g.lineWidth = 1.35;
+          g.lineJoin = "miter";
+          g.lineCap = "butt";
+          g.strokeRect(left + inset, top, width - inset * 2, boxH);
+          g.strokeStyle = tealHi;
+          g.lineWidth = 3.1;
+          g.beginPath();
+          g.moveTo(left + inset, top);
+          g.lineTo(left + inset + Math.min(edgeSeg, width * 0.45), top);
+          g.stroke();
+          g.beginPath();
+          g.moveTo(left + width - inset - Math.min(edgeSeg, width * 0.45), top);
+          g.lineTo(left + width - inset, top);
+          g.stroke();
+          g.beginPath();
+          g.moveTo(left + inset, top + boxH);
+          g.lineTo(left + inset + Math.min(edgeSeg, width * 0.45), top + boxH);
+          g.stroke();
+          g.beginPath();
+          g.moveTo(left + width - inset - Math.min(edgeSeg, width * 0.45), top + boxH);
+          g.lineTo(left + width - inset, top + boxH);
+          g.stroke();
         }
       }
 
