@@ -3084,6 +3084,7 @@ export function StageBoard({
                 }}
               >
                 {!hideFloorMarkupFloatingToolbars ? (
+                <>
                 <div
                   role="toolbar"
                   aria-label="ステージ床テキスト"
@@ -3387,6 +3388,7 @@ export function StageBoard({
                       "削除したいメモや線をタップ"}
                   </div>
                 ) : null}
+                </>
                 ) : null}
                 {hideFloorMarkupFloatingToolbars && floorMarkupTool === "text" ? (
                   <div
