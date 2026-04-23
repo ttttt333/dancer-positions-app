@@ -2875,7 +2875,7 @@ export function StageBoard({
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: "8px",
+        gap: "6px",
         minHeight: 0,
         flex: 1,
         width: "100%",
@@ -2929,26 +2929,34 @@ export function StageBoard({
       <div
         style={{
           flex: 1,
-          minHeight: "280px",
+          minHeight: 0,
+          minWidth: 0,
+          width: "100%",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          gap: "8px",
+          gap: "6px",
           /**
            * ステージ枠のリサイズハンドル（左右・上下）が枠より外に
            * わずかに飛び出して配置されるため、padding で隠れないよう
            * 少しだけ外側に余白を確保する。
            */
-          padding: "12px",
+          padding: "8px",
           overflow: "hidden",
+          /** 舞台全体（外枠アスペクト）をこの領域に収めるためのコンテナクエリ */
+          containerType: "size",
+          containerName: "stage-board-fit",
         }}
       >
         <div
           style={{
             position: "relative",
-            width: "100%",
+            width: hasStageDims
+              ? `min(100cqi, calc(100cqb * (${outerWmm}) / (${outerDmm})))`
+              : "min(100cqi, calc(100cqb * 4 / 3))",
             maxWidth: "100%",
+            maxHeight: "100%",
             aspectRatio: stageAspectRatio,
             transform: `rotate(${rot}deg)`,
             transformOrigin: "center center",

@@ -1528,7 +1528,7 @@ export function EditorPage() {
               ? `${
                   topDockRowPx != null
                     ? `${topDockRowPx}px`
-                    : "minmax(40px, min(16vh, 160px))"
+                    : "minmax(34px, min(13vh, 148px))"
                 } 4px minmax(0, 1fr)`
               : "1fr"
             : "auto auto auto",
@@ -1650,7 +1650,7 @@ export function EditorPage() {
           ref={stageSectionRef}
           style={{
             ...panelCard,
-            padding: "10px",
+            padding: "8px",
             minHeight: 0,
             minWidth: 0,
             display: "flex",
