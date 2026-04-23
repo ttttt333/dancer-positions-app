@@ -765,11 +765,7 @@ export function StageBoard({
    * 複数の一括移動・枠スケール・剛体回転ドラッグ中は、選択メンバーの○内番号と名前を隠す。
    */
   const [bulkHideDancerGlyphs, setBulkHideDancerGlyphs] = useState(false);
-  /** 群の剛体回転ドラッグ中の補助線（開始時のポインタ角＝ラジアン） */
-  const [groupRotateSpokeBaseRad, setGroupRotateSpokeBaseRad] = useState<
-    number | null
-  >(null);
-  /** 群剛体回転ドラッグ中の累積回転角（度）— 補助線の強調と表示用 */
+  /** 群剛体回転ドラッグ中の累積回転角（度）— 角度バッジ表示用 */
   const [groupRotateGuideDeltaDeg, setGroupRotateGuideDeltaDeg] = useState<
     number | null
   >(null);
@@ -803,7 +799,6 @@ export function StageBoard({
     setFloorTextEditId(null);
     setShowStageDancerColorToolbar(false);
     setBulkHideDancerGlyphs(false);
-    setGroupRotateSpokeBaseRad(null);
     setGroupRotateGuideDeltaDeg(null);
   }, [formationIdForWrites]);
 
@@ -1818,13 +1813,11 @@ export function StageBoard({
       markerGroupPosDraftRef.current = initPos;
       setMarkerGroupPosDraft(initPos);
       setBulkHideDancerGlyphs(true);
-      setGroupRotateSpokeBaseRad(startPointerAngle);
       setGroupRotateGuideDeltaDeg(0);
     } else {
       markerGroupPosDraftRef.current = null;
       setMarkerGroupPosDraft(null);
       setBulkHideDancerGlyphs(false);
-      setGroupRotateSpokeBaseRad(null);
       setGroupRotateGuideDeltaDeg(null);
     }
   };
@@ -2384,7 +2377,6 @@ export function StageBoard({
       setAlignGuides({ x: null, y: null });
       setDragGhostById(null);
       setBulkHideDancerGlyphs(false);
-      setGroupRotateSpokeBaseRad(null);
       setGroupRotateGuideDeltaDeg(null);
     };
     window.addEventListener("pointermove", onMove);
@@ -2445,7 +2437,6 @@ export function StageBoard({
         setMarkerFacingDraft(null);
         setMarkerGroupPosDraft(null);
         setBulkHideDancerGlyphs(false);
-        setGroupRotateSpokeBaseRad(null);
         setGroupRotateGuideDeltaDeg(null);
         return;
       }
@@ -4621,99 +4612,32 @@ export function StageBoard({
               );
             })}
             {selectionBox &&
-              groupRotateSpokeBaseRad != null &&
               groupRotateGuideDeltaDeg != null &&
               !playbackOrPreview &&
               viewMode !== "view" && (
-                <>
-                  <svg
-                    aria-hidden
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      width: "100%",
-                      height: "100%",
-                      pointerEvents: "none",
-                      zIndex: 8,
-                      overflow: "visible",
-                    }}
-                    viewBox="0 0 100 100"
-                    preserveAspectRatio="none"
-                  >
-                    {(() => {
-                      const cx = (selectionBox.x0 + selectionBox.x1) / 2;
-                      const cy = (selectionBox.y0 + selectionBox.y1) / 2;
-                      const base = groupRotateSpokeBaseRad;
-                      const R = 160;
-                      const snapK =
-                        ((Math.round(groupRotateGuideDeltaDeg / 45) % 8) + 8) %
-                        8;
-                      const lines: ReactElement[] = [];
-                      for (let k = 0; k < 8; k++) {
-                        const a = base + (k * Math.PI) / 4;
-                        const x2 = cx + Math.cos(a) * R;
-                        const y2 = cy + Math.sin(a) * R;
-                        const isSnap = k === snapK;
-                        lines.push(
-                          <line
-                            key={k}
-                            x1={cx}
-                            y1={cy}
-                            x2={x2}
-                            y2={y2}
-                            stroke={
-                              isSnap
-                                ? "rgba(251, 191, 36, 0.9)"
-                                : "rgba(148, 163, 184, 0.28)"
-                            }
-                            strokeWidth={isSnap ? 0.42 : 0.16}
-                            vectorEffect="non-scaling-stroke"
-                          />
-                        );
-                      }
-                      const curA =
-                        base + (groupRotateGuideDeltaDeg * Math.PI) / 180;
-                      const x3 = cx + Math.cos(curA) * R;
-                      const y3 = cy + Math.sin(curA) * R;
-                      lines.push(
-                        <line
-                          key="cur"
-                          x1={cx}
-                          y1={cy}
-                          x2={x3}
-                          y2={y3}
-                          stroke="rgba(248, 113, 113, 0.82)"
-                          strokeWidth={0.38}
-                          vectorEffect="non-scaling-stroke"
-                        />
-                      );
-                      return <g>{lines}</g>;
-                    })()}
-                  </svg>
-                  <div
-                    aria-hidden
-                    style={{
-                      position: "absolute",
-                      left: `${(selectionBox.x0 + selectionBox.x1) / 2}%`,
-                      top: `${(selectionBox.y0 + selectionBox.y1) / 2}%`,
-                      transform: "translate(-50%, calc(-50% - 18px))",
-                      padding: "3px 8px",
-                      borderRadius: "6px",
-                      border: "1px solid rgba(51, 65, 85, 0.95)",
-                      background: "rgba(15, 23, 42, 0.92)",
-                      color: "#e2e8f0",
-                      fontSize: "11px",
-                      fontWeight: 700,
-                      fontVariantNumeric: "tabular-nums",
-                      pointerEvents: "none",
-                      zIndex: 9,
-                      whiteSpace: "nowrap",
-                      boxShadow: "0 2px 10px rgba(0,0,0,0.4)",
-                    }}
-                  >
-                    {Math.round(groupRotateGuideDeltaDeg)}°
-                  </div>
-                </>
+                <div
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    left: `${(selectionBox.x0 + selectionBox.x1) / 2}%`,
+                    top: `${(selectionBox.y0 + selectionBox.y1) / 2}%`,
+                    transform: "translate(-50%, calc(-50% - 18px))",
+                    padding: "3px 8px",
+                    borderRadius: "6px",
+                    border: "1px solid rgba(51, 65, 85, 0.95)",
+                    background: "rgba(15, 23, 42, 0.92)",
+                    color: "#e2e8f0",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    fontVariantNumeric: "tabular-nums",
+                    pointerEvents: "none",
+                    zIndex: 9,
+                    whiteSpace: "nowrap",
+                    boxShadow: "0 2px 10px rgba(0,0,0,0.4)",
+                  }}
+                >
+                  {Math.round(groupRotateGuideDeltaDeg)}°
+                </div>
               )}
             {marquee && (
               <div
