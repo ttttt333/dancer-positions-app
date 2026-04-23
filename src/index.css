@@ -198,18 +198,18 @@ body {
   max-width: 100%;
 }
 
-/* 右列が狭いとき（上部波形ドック時など）、48px 角内に収まるようラベルを一段小さく */
+/* 右列が狭いとき（上部波形ドック時など）、やや小さくするが可読性は維持 */
 @container editor-right-tools (max-width: 220px) {
   .editor-right-tools-tiles button[type="button"] {
-    font-size: 6.5px !important;
+    font-size: 8.5px !important;
   }
 
   .editor-right-tools-tiles button[type="button"] > span {
-    font-size: 6.5px !important;
+    font-size: 8.5px !important;
   }
 
   .editor-right-tool-sq {
-    font-size: 6.5px !important;
+    font-size: 8.5px !important;
   }
 }
 
@@ -223,16 +223,17 @@ body {
   width: 48px !important;
   height: 48px !important;
   max-width: 48px !important;
-  padding: 3px 3px !important;
+  padding: 1px 2px !important;
   border-radius: 10px !important;
-  font-size: 7.5px !important;
-  line-height: 1.12 !important;
+  font-size: 10px !important;
+  line-height: 1.08 !important;
   font-weight: 600 !important;
-  letter-spacing: 0 !important;
+  letter-spacing: -0.01em !important;
   display: inline-flex !important;
   flex-direction: column !important;
   align-items: center !important;
   justify-content: center !important;
+  gap: 0 !important;
   text-align: center !important;
   overflow: hidden !important;
   word-break: break-word !important;
@@ -242,15 +243,15 @@ body {
 
 .editor-right-tools-tiles button[type="button"] svg {
   flex-shrink: 0 !important;
-  width: 18px !important;
-  height: 18px !important;
-  max-width: 100% !important;
-  max-height: 22px !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: 16px !important;
+  max-height: 14px !important;
 }
 
 .editor-right-tools-tiles button[type="button"] > span {
-  font-size: 7.5px !important;
-  line-height: 1.12 !important;
+  font-size: 10px !important;
+  line-height: 1.08 !important;
   font-weight: 600 !important;
   max-width: 100% !important;
   overflow: hidden !important;
@@ -305,15 +306,17 @@ body {
   min-width: 48px !important;
   min-height: 48px !important;
   max-width: 48px !important;
-  padding: 3px 3px !important;
+  padding: 1px 2px !important;
   border-radius: 10px !important;
-  font-size: 7.5px !important;
-  line-height: 1.12 !important;
+  font-size: 10px !important;
+  line-height: 1.08 !important;
   font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
   display: inline-flex !important;
   flex-direction: column !important;
   align-items: center !important;
   justify-content: center !important;
+  gap: 0 !important;
   text-align: center !important;
   overflow: hidden !important;
   word-break: break-word !important;

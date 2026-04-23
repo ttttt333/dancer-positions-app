@@ -1755,7 +1755,8 @@ export function StageBoard({
     if (selectedDancerIds.length < 1) return;
     e.stopPropagation();
     e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    const rotateHandleEl = e.currentTarget as HTMLElement;
+    rotateHandleEl.setPointerCapture(e.pointerId);
     const floorEl = stageMainFloorRef.current;
     if (!floorEl) return;
     const rect = floorEl.getBoundingClientRect();
@@ -1777,9 +1778,16 @@ export function StageBoard({
       centerClientX = rect.left + (primary.xPct / 100) * rect.width;
       centerClientY = rect.top + (primary.yPct / 100) * rect.height;
     }
+    /**
+     * クリック位置ではなく回転マーク（ボタン）の幾何中心からの角度を基準にする。
+     * マーク内の多少のズレで 45° グリッドやガイドの基準が歪まないようにする。
+     */
+    const hr = rotateHandleEl.getBoundingClientRect();
+    const handleCenterX = hr.left + hr.width / 2;
+    const handleCenterY = hr.top + hr.height / 2;
     const startPointerAngle = Math.atan2(
-      e.clientY - centerClientY,
-      e.clientX - centerClientX
+      handleCenterY - centerClientY,
+      handleCenterX - centerClientX
     );
     const startFacings = new Map<string, number>();
     const startPositions = new Map<string, { xPct: number; yPct: number }>();
