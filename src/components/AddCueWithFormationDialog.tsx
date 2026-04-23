@@ -9,6 +9,7 @@ import {
 import type { ChoreographyProjectJson, Cue, DancerSpot } from "../types/choreography";
 import {
   cloneFormationForNewCue,
+  MIN_CUE_DURATION_SEC,
   resolveCueIntervalNonOverlap,
   sortCuesByStart,
 } from "../lib/cueInterval";
@@ -508,6 +509,17 @@ export function AddCueWithFormationDialog({
       const resolved = resolveCueIntervalNonOverlap(p.cues, newCueId, t0, t1, lo, hi);
       t0 = resolved.tStartSec;
       t1 = resolved.tEndSec;
+      if (!Number.isFinite(t0) || !Number.isFinite(t1)) {
+        t0 = lo;
+        t1 = Math.min(hi, Math.round((lo + MIN_CUE_DURATION_SEC) * 100) / 100);
+      }
+      if (t1 < t0 + MIN_CUE_DURATION_SEC - 1e-9) {
+        t1 = Math.round((t0 + MIN_CUE_DURATION_SEC) * 100) / 100;
+        if (t1 > hi) {
+          t1 = hi;
+          t0 = Math.round((Math.max(lo, t1 - MIN_CUE_DURATION_SEC)) * 100) / 100;
+        }
+      }
       appliedT = t0;
 
       const cue: Cue = {
@@ -550,7 +562,6 @@ export function AddCueWithFormationDialog({
     onStagePreviewChange,
     onCueCreated,
     onClose,
-    addMode,
     savedSlotId,
   ]);
 

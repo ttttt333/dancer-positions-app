@@ -14,6 +14,7 @@ import type { CSSProperties, Dispatch, RefObject, SetStateAction } from "react";
 import type { ChoreographyProjectJson, Cue, DancerSpot } from "../types/choreography";
 import {
   cloneFormationForNewCue,
+  MIN_CUE_DURATION_SEC,
   resolveCueIntervalNonOverlap,
   sortCuesByStart,
 } from "../lib/cueInterval";
@@ -1421,6 +1422,22 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           );
           t0 = resolved.tStartSec;
           t1 = resolved.tEndSec;
+          if (!Number.isFinite(t0) || !Number.isFinite(t1)) {
+            t0 = trimLo;
+            t1 = Math.min(
+              trimHi,
+              Math.round((trimLo + MIN_CUE_DURATION_SEC) * 100) / 100
+            );
+          }
+          if (t1 < t0 + MIN_CUE_DURATION_SEC - 1e-9) {
+            t1 = Math.round((t0 + MIN_CUE_DURATION_SEC) * 100) / 100;
+            if (t1 > trimHi) {
+              t1 = trimHi;
+              t0 = Math.round(
+                (Math.max(trimLo, t1 - MIN_CUE_DURATION_SEC)) * 100
+              ) / 100;
+            }
+          }
           appliedT = t0;
           const cue: Cue = {
             id: newCueId,

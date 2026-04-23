@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
 import { shell } from "../theme/choreoShell";
 import { btnSecondary } from "./stageButtonStyles";
 import { ChoreoGridLogo } from "./ChoreoGridLogo";
@@ -258,7 +258,7 @@ export function ChoreoGridToolbar({
     switch (singleTile) {
       case "snap":
         return (
-          <aside aria-label="ChoreoGrid ツール" style={{ display: "contents" }}>
+          <Fragment>
             <ToolbarIconButton
               title="スナップ（グリッドに吸着。実寸 1cm 線が使えるときはその線に沿います）"
               disabled={d}
@@ -268,11 +268,11 @@ export function ChoreoGridToolbar({
             >
               <IconSnap active={snapGrid} />
             </ToolbarIconButton>
-          </aside>
+          </Fragment>
         );
       case "gridLines":
         return onToggleStageGridLines ? (
-          <aside aria-label="ChoreoGrid ツール" style={{ display: "contents" }}>
+          <Fragment>
             <ToolbarIconButton
               title={
                 stageGridLinesToggleDisabled
@@ -286,11 +286,11 @@ export function ChoreoGridToolbar({
             >
               <IconGridLines on={stageGridLinesEnabled} />
             </ToolbarIconButton>
-          </aside>
+          </Fragment>
         ) : null;
       case "stageShape":
         return (
-          <aside aria-label="ChoreoGrid ツール" style={{ display: "contents" }}>
+          <Fragment>
             <ToolbarIconButton
               title="変形舞台（花道・スラスト・台形・手描きカスタムなど）"
               disabled={d}
@@ -300,11 +300,11 @@ export function ChoreoGridToolbar({
             >
               <IconStageShape active={stageShapeActive} />
             </ToolbarIconButton>
-          </aside>
+          </Fragment>
         );
       case "setPiece":
         return (
-          <aside aria-label="ChoreoGrid ツール" style={{ display: "contents" }}>
+          <Fragment>
             <ToolbarIconButton
               title="大道具を追加（図形・色を選択）"
               disabled={d}
@@ -313,11 +313,11 @@ export function ChoreoGridToolbar({
             >
               <IconSetPiece />
             </ToolbarIconButton>
-          </aside>
+          </Fragment>
         );
       case "export":
         return (
-          <aside aria-label="ChoreoGrid ツール" style={{ display: "contents" }}>
+          <Fragment>
             <ToolbarIconButton
               title="書き出し（PNG / PDF / WebM / JSON）"
               disabled={d}
@@ -326,11 +326,11 @@ export function ChoreoGridToolbar({
             >
               <IconExport />
             </ToolbarIconButton>
-          </aside>
+          </Fragment>
         );
       case "help":
         return (
-          <aside aria-label="ChoreoGrid ツール" style={{ display: "contents" }}>
+          <Fragment>
             <ToolbarIconButton
               title="キーボードショートカット一覧"
               disabled={d}
@@ -339,7 +339,7 @@ export function ChoreoGridToolbar({
             >
               <IconHelp />
             </ToolbarIconButton>
-          </aside>
+          </Fragment>
         );
       default:
         return null;

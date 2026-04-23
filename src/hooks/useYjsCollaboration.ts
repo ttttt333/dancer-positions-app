@@ -133,7 +133,13 @@ export function useYjsCollaboration(
               prev
             )
           : action;
-      if (JSON.stringify(next) === JSON.stringify(prev)) return;
+      let unchanged = false;
+      try {
+        unchanged = JSON.stringify(next) === JSON.stringify(prev);
+      } catch {
+        unchanged = false;
+      }
+      if (unchanged) return;
       const { undo, redo } = historyRef.current;
       if (undo.length >= HISTORY_CAP) undo.shift();
       undo.push(JSON.stringify(prev));

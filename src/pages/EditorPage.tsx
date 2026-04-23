@@ -47,6 +47,7 @@ import {
 } from "../components/SetPiecePickerModal";
 import { ChoreoGridToolbar } from "../components/ChoreoGridToolbar";
 import {
+  EditorStageCueDock,
   EditorStageWorkbench,
   WorkbenchCuePager,
   type EditorStageWorkbenchProps,
@@ -546,7 +547,13 @@ export function EditorPage() {
           typeof action === "function"
             ? (action as (p: ChoreographyProjectJson) => ChoreographyProjectJson)(prev)
             : action;
-        if (JSON.stringify(next) === JSON.stringify(prev)) return prev;
+        let unchanged = false;
+        try {
+          unchanged = JSON.stringify(next) === JSON.stringify(prev);
+        } catch {
+          unchanged = false;
+        }
+        if (unchanged) return prev;
         const { undo, redo } = historyRef.current;
         if (undo.length >= HISTORY_CAP) undo.shift();
         undo.push(JSON.stringify(prev));
@@ -1198,6 +1205,12 @@ export function EditorPage() {
     project.rosterHidesTimeline === true && hasRosterMembers;
   /** ワイド時は波形・再生を上部に固定（名簿専用モードでは従来の下段タイムライン） */
   const showTopWaveDock = wideEditorLayout && !rosterOnlyMode;
+  /** ステージ右縁〜右列の間にキュー一覧を常時表示（上部波形ドック時のみ） */
+  const showStageCueDock =
+    showTopWaveDock &&
+    wideEditorLayout &&
+    !rightPaneCollapsed &&
+    cuesSortedForStageJump.length > 0;
 
   const choreoToolbarSharedProps = {
     snapGrid: project.snapGrid,
@@ -1660,92 +1673,114 @@ export function EditorPage() {
           ) : null}
           <div
             style={{
-              position: "relative",
               flex: 1,
               minHeight: 0,
               minWidth: 0,
               display: "flex",
-              flexDirection: "column",
+              flexDirection: "row",
+              alignItems: "stretch",
+              gap: 0,
             }}
           >
-            {cuesSortedForStageJump.length > 0 ? (
-              <div
-                style={{
-                  position: "absolute",
-                  top: 2,
-                  right: 4,
-                  zIndex: 40,
-                  pointerEvents: "auto",
-                }}
-              >
-                <WorkbenchCuePager
-                  variant="stageCorner"
-                  project={project}
-                  cuesSortedForStageJump={cuesSortedForStageJump}
-                  selectedCueId={selectedCueId}
-                  jumpToCueByIdx={jumpToCueByIdx}
-                  cuePagerListOpen={cuePagerListOpen}
-                  setCuePagerListOpen={setCuePagerListOpen}
-                />
-              </div>
-            ) : null}
             <div
-              ref={stageBoardHostRef}
               style={{
+                position: "relative",
                 flex: 1,
                 minHeight: 0,
                 minWidth: 0,
                 display: "flex",
                 flexDirection: "column",
-                ...(stageBoardFullscreen
-                  ? {
-                      background: shell.bgDeep,
-                      borderRadius: 8,
-                    }
-                  : {}),
               }}
             >
-            {stageView === "2d" ? (
-              <StageBoard
-                project={project}
-                setProject={setProjectSafe}
-                playbackDancers={playbackDancersForStage}
-                browseFormationDancers={browseFormationDancers}
-                previewDancers={stagePreviewDancers}
-                playbackSetPieces={playbackSetPiecesForStage}
-                browseSetPieces={browseSetPieces}
-                playbackFloorMarkup={playbackFloorMarkupForStage}
-                browseFloorMarkup={browseFloorMarkup}
-                isPlaying={isPlaying}
-                onStopPlaybackRequest={onStopPlaybackFromStage}
-                editFormationId={
-                  selectedCue?.formationId ?? project.activeFormationId
-                }
-                stageInteractionsEnabled={
-                  project.viewMode !== "view" &&
-                  (project.cues.length === 0 || Boolean(selectedCueId))
-                }
-                floorTextPlaceSession={floorTextPlaceSession}
-                onFloorTextPlaceSessionChange={onFloorTextPlaceSessionChange}
-                floorMarkupTool={floorMarkupTool}
-                onFloorMarkupToolChange={setFloorMarkupTool}
-                hideFloorMarkupFloatingToolbars={showTopWaveDock}
-              />
-            ) : (
-              <Suspense
-                fallback={
-                  <div style={{ padding: 24, color: shell.textSubtle, fontSize: "13px" }}>
-                    3D ビューを読み込み中…
-                  </div>
-                }
+              {cuesSortedForStageJump.length > 0 && !showStageCueDock ? (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 2,
+                    right: 4,
+                    zIndex: 40,
+                    pointerEvents: "auto",
+                  }}
+                >
+                  <WorkbenchCuePager
+                    variant="stageCorner"
+                    project={project}
+                    cuesSortedForStageJump={cuesSortedForStageJump}
+                    selectedCueId={selectedCueId}
+                    jumpToCueByIdx={jumpToCueByIdx}
+                    cuePagerListOpen={cuePagerListOpen}
+                    setCuePagerListOpen={setCuePagerListOpen}
+                  />
+                </div>
+              ) : null}
+              <div
+                ref={stageBoardHostRef}
+                style={{
+                  flex: 1,
+                  minHeight: 0,
+                  minWidth: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  ...(stageBoardFullscreen
+                    ? {
+                        background: shell.bgDeep,
+                        borderRadius: 8,
+                      }
+                    : {}),
+                }}
               >
-                <Stage3DView
-                  dancers={dancersFor3d}
-                  markerDiameterPx={project.dancerMarkerDiameterPx ?? 44}
-                />
-              </Suspense>
-            )}
+                {stageView === "2d" ? (
+                  <StageBoard
+                    project={project}
+                    setProject={setProjectSafe}
+                    playbackDancers={playbackDancersForStage}
+                    browseFormationDancers={browseFormationDancers}
+                    previewDancers={stagePreviewDancers}
+                    playbackSetPieces={playbackSetPiecesForStage}
+                    browseSetPieces={browseSetPieces}
+                    playbackFloorMarkup={playbackFloorMarkupForStage}
+                    browseFloorMarkup={browseFloorMarkup}
+                    isPlaying={isPlaying}
+                    onStopPlaybackRequest={onStopPlaybackFromStage}
+                    editFormationId={
+                      selectedCue?.formationId ?? project.activeFormationId
+                    }
+                    stageInteractionsEnabled={
+                      project.viewMode !== "view" &&
+                      (project.cues.length === 0 || Boolean(selectedCueId))
+                    }
+                    floorTextPlaceSession={floorTextPlaceSession}
+                    onFloorTextPlaceSessionChange={onFloorTextPlaceSessionChange}
+                    floorMarkupTool={floorMarkupTool}
+                    onFloorMarkupToolChange={setFloorMarkupTool}
+                    hideFloorMarkupFloatingToolbars={showTopWaveDock}
+                  />
+                ) : (
+                  <Suspense
+                    fallback={
+                      <div
+                        style={{ padding: 24, color: shell.textSubtle, fontSize: "13px" }}
+                      >
+                        3D ビューを読み込み中…
+                      </div>
+                    }
+                  >
+                    <Stage3DView
+                      dancers={dancersFor3d}
+                      markerDiameterPx={project.dancerMarkerDiameterPx ?? 44}
+                    />
+                  </Suspense>
+                )}
+              </div>
             </div>
+            {showStageCueDock ? (
+              <EditorStageCueDock
+                project={project}
+                cuesSortedForStageJump={cuesSortedForStageJump}
+                selectedCueId={selectedCueId}
+                jumpToCueByIdx={jumpToCueByIdx}
+              />
+            ) : null}
           </div>
         </section>
 
@@ -2826,9 +2861,12 @@ export function EditorPage() {
           durationSec={duration}
           onStagePreviewChange={setStagePreviewDancers}
           onImportRoster={importCrewCsvFromStageToolbar}
-          onCueCreated={(cueId) => {
+          onCueCreated={(cueId, startSec) => {
             setSelectedCueIds([cueId]);
             setIsPlaying(false);
+            if (typeof startSec === "number" && Number.isFinite(startSec)) {
+              timelineRef.current?.pauseAndSeekToSec(startSec);
+            }
           }}
         />
       ) : null}
