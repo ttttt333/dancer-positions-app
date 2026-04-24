@@ -36,6 +36,9 @@ type Props = {
   viewMode: "edit" | "view";
   onClose: () => void;
   onApply: (patch: DancerQuickEditApply) => void;
+  /** 渡したときだけ表示。ステージの「名前の表示」と同じプロジェクト設定を即時変更 */
+  dancerLabelPosition?: "inside" | "below";
+  onDancerLabelPositionChange?: (v: "inside" | "below") => void;
 };
 
 /**
@@ -48,6 +51,8 @@ export function DancerQuickEditDialog({
   viewMode,
   onClose,
   onApply,
+  dancerLabelPosition,
+  onDancerLabelPositionChange,
 }: Props) {
   const [label, setLabel] = useState("");
   const [markerBadge, setMarkerBadge] = useState("");
@@ -182,6 +187,77 @@ export function DancerQuickEditDialog({
             />
           </>
         ))}
+
+        {dancerLabelPosition != null && onDancerLabelPositionChange
+          ? block("namePlace", (
+              <>
+                <span style={labelStyle}>名前の表示（全体の見え方）</span>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "8px",
+                    width: "100%",
+                  }}
+                  title="○の下では印の中は番号・略号。連番は右クリックメニューなどで変更できます。"
+                >
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => onDancerLabelPositionChange("inside")}
+                    style={{
+                      flex: 1,
+                      padding: "8px 10px",
+                      borderRadius: "8px",
+                      border:
+                        dancerLabelPosition === "inside"
+                          ? "1px solid rgba(99,102,241,0.9)"
+                          : "1px solid #334155",
+                      background:
+                        dancerLabelPosition === "inside"
+                          ? "rgba(99,102,241,0.22)"
+                          : "#020617",
+                      color:
+                        dancerLabelPosition === "inside"
+                          ? "#e0e7ff"
+                          : "#94a3b8",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      cursor: disabled ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    ○の中に名前
+                  </button>
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => onDancerLabelPositionChange("below")}
+                    style={{
+                      flex: 1,
+                      padding: "8px 10px",
+                      borderRadius: "8px",
+                      border:
+                        dancerLabelPosition === "below"
+                          ? "1px solid rgba(99,102,241,0.9)"
+                          : "1px solid #334155",
+                      background:
+                        dancerLabelPosition === "below"
+                          ? "rgba(99,102,241,0.22)"
+                          : "#020617",
+                      color:
+                        dancerLabelPosition === "below"
+                          ? "#e0e7ff"
+                          : "#94a3b8",
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      cursor: disabled ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    ○の下に名前
+                  </button>
+                </div>
+              </>
+            ))
+          : null}
 
         {block("marker", (
           <>

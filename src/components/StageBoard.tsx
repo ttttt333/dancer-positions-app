@@ -581,7 +581,7 @@ export function StageBoard({
     x: number | null;
     y: number | null;
   }>({ x: null, y: null });
-  /** ダンサー移動ドラッグ中のみ：進行方向に合わせた 45° 刻みの放射補助線 */
+  /** 複数一括移動ドラッグ中のみ：進行方向に合わせた 45° 刻みの放射補助線（単体移動では出さない） */
   const [drag45GuideSegs, setDrag45GuideSegs] = useState<
     { x1: number; y1: number; x2: number; y2: number; k: number }[]
   >([]);
@@ -1740,6 +1740,7 @@ export function StageBoard({
         startXPct: xPct,
         startYPct: yPct,
       };
+      setDrag45GuideSegs([]);
       setDragGhostById(new Map([[dancerId, { xPct, yPct }]]));
       return;
     }
@@ -2086,23 +2087,7 @@ export function StageBoard({
         ) {
           setAlignGuides({ x: snapped.guideX, y: snapped.guideY });
         }
-        const dr0 = dragRef.current;
-        const floorEl0 = stageMainFloorRef.current;
-        if (dr0 && floorEl0) {
-          const rr0 = floorEl0.getBoundingClientRect();
-          const dxPx0 =
-            ((snapped.xPct - dr0.startXPct) / 100) * rr0.width;
-          const dyPx0 =
-            ((snapped.yPct - dr0.startYPct) / 100) * rr0.height;
-          setDrag45GuideSegs(
-            buildMotion45GuideSegments(
-              snapped.xPct,
-              snapped.yPct,
-              dxPx0,
-              dyPx0
-            )
-          );
-        }
+        /** 単体移動では 45° 放射補助線は出さない（群移動のみ）。スナップの縦横線は従来どおり */
         updateActiveFormation((f) => ({
           ...f,
           dancers: f.dancers.map((x) =>
@@ -2650,10 +2635,8 @@ export function StageBoard({
     stageInteractionsEnabled &&
     !playbackOrPreview &&
     !previewDancers;
-  /** ○内連番などは右クリックメニューのみ。ここが空のときは床下バー用の min-height を取らない */
-  const reserveStageBulkToolbarHeight =
-    selectedDancerIds.length >= 1 &&
-    (showStageDancerColorToolbar || selectedDancerIds.length < 2);
+  /** 選択中は名前表示の切替を常に出す。色バーは右クリック後のみ */
+  const reserveStageBulkToolbarHeight = selectedDancerIds.length >= 1;
 
   const tapStageToEditLayout =
     viewMode === "edit" &&
@@ -5652,6 +5635,121 @@ export function StageBoard({
                 width: "100%",
               }}
             >
+              <div
+                role="toolbar"
+                aria-label="立ち位置の名前を○の中か下に表示するか"
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "6px",
+                  width: "100%",
+                  padding: "8px 10px",
+                  borderRadius: "10px",
+                  border: "1px solid #334155",
+                  background: "rgba(15, 23, 42, 0.96)",
+                  boxSizing: "border-box",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    color: "#94a3b8",
+                    width: "100%",
+                  }}
+                >
+                  名前の表示（全体の見え方）
+                </span>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "6px",
+                    width: "100%",
+                  }}
+                  title="プロジェクト全体の表示。印の中は名前か番号（○の下モード時）。"
+                >
+                  <button
+                    type="button"
+                    disabled={
+                      viewMode === "view" ||
+                      !stageInteractionsEnabled ||
+                      Boolean(playbackDancers) ||
+                      Boolean(previewDancers)
+                    }
+                    onClick={() =>
+                      setProject((p) => ({ ...p, dancerLabelPosition: "inside" }))
+                    }
+                    style={{
+                      flex: 1,
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border:
+                        (rawDancerLabelPosition ?? "inside") === "inside"
+                          ? "1px solid rgba(99,102,241,0.9)"
+                          : "1px solid #334155",
+                      background:
+                        (rawDancerLabelPosition ?? "inside") === "inside"
+                          ? "rgba(99,102,241,0.22)"
+                          : "#020617",
+                      color:
+                        (rawDancerLabelPosition ?? "inside") === "inside"
+                          ? "#e0e7ff"
+                          : "#94a3b8",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      cursor:
+                        viewMode === "view" ||
+                        !stageInteractionsEnabled ||
+                        playbackDancers ||
+                        previewDancers
+                          ? "not-allowed"
+                          : "pointer",
+                    }}
+                  >
+                    ○の中に名前
+                  </button>
+                  <button
+                    type="button"
+                    disabled={
+                      viewMode === "view" ||
+                      !stageInteractionsEnabled ||
+                      Boolean(playbackDancers) ||
+                      Boolean(previewDancers)
+                    }
+                    onClick={() =>
+                      setProject((p) => ({ ...p, dancerLabelPosition: "below" }))
+                    }
+                    style={{
+                      flex: 1,
+                      padding: "6px 8px",
+                      borderRadius: "8px",
+                      border:
+                        rawDancerLabelPosition === "below"
+                          ? "1px solid rgba(99,102,241,0.9)"
+                          : "1px solid #334155",
+                      background:
+                        rawDancerLabelPosition === "below"
+                          ? "rgba(99,102,241,0.22)"
+                          : "#020617",
+                      color:
+                        rawDancerLabelPosition === "below"
+                          ? "#e0e7ff"
+                          : "#94a3b8",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      cursor:
+                        viewMode === "view" ||
+                        !stageInteractionsEnabled ||
+                        playbackDancers ||
+                        previewDancers
+                          ? "not-allowed"
+                          : "pointer",
+                    }}
+                  >
+                    ○の下に名前
+                  </button>
+                </div>
+              </div>
               {showStageDancerColorToolbar ? (
                 <div
                   role="toolbar"
@@ -6412,6 +6510,12 @@ export function StageBoard({
       viewMode={viewMode}
       onClose={() => setDancerQuickEditId(null)}
       onApply={applyDancerQuickEdit}
+      dancerLabelPosition={
+        rawDancerLabelPosition === "below" ? "below" : "inside"
+      }
+      onDancerLabelPositionChange={(v) =>
+        setProject((p) => ({ ...p, dancerLabelPosition: v }))
+      }
     />
     </>
   );
