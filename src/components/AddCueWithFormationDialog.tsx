@@ -305,7 +305,8 @@ export function AddCueWithFormationDialog({
   }, [project.formations, project.activeFormationId]);
 
   const [count, setCount] = useState(initialCount);
-  const [addMode, setAddMode] = useState<AddMode>("duplicate");
+  /** 開いた直後は未選択（ステップ3）。ユーザーがモードを選ぶまでプレビュー・確定はできない */
+  const [addMode, setAddMode] = useState<AddMode | null>(null);
   const [templatePresetId, setTemplatePresetId] = useState<LayoutPresetId | null>(null);
   const [savedBoxId, setSavedBoxId] = useState<string | null>(null);
   const [savedSlotId, setSavedSlotId] = useState<string | null>(null);
@@ -355,8 +356,8 @@ export function AddCueWithFormationDialog({
   useEffect(() => {
     if (open && !wasOpenRef.current) {
       setCount(initialCount);
-      setAddMode("duplicate");
-      setTemplatePresetId(PRESETS[0]?.id ?? null);
+      setAddMode(null);
+      setTemplatePresetId(null);
       setSavedBoxId(null);
       setSavedSlotId(null);
       setTimeMode("now");
@@ -402,6 +403,7 @@ export function AddCueWithFormationDialog({
   );
 
   const buildDancers = useCallback((): DancerSpot[] => {
+    if (addMode == null) return [];
     const active = activeFormationDancers(project);
     switch (addMode) {
       case "duplicate":
@@ -459,6 +461,7 @@ export function AddCueWithFormationDialog({
 
   const canConfirm = useMemo(() => {
     if (viewMode === "view") return false;
+    if (addMode == null) return false;
     if (addMode === "edit_current" && !selectedCueId) return false;
     if (addMode === "saved" && !savedBoxId && !savedSlotId) return false;
     if ((addMode === "template" || addMode === "edit_current") && !templatePresetId)
@@ -468,6 +471,7 @@ export function AddCueWithFormationDialog({
 
   const handleConfirm = useCallback(() => {
     if (!canConfirm) return;
+    if (addMode == null) return;
 
     /** 「今の立ち位置を変更」＝新規キューは作らず、選択中キューのフォーメーションだけ置き換える */
     if (addMode === "edit_current") {
