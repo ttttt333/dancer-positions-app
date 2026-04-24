@@ -75,6 +75,8 @@ export type StageFloorTextMarkup = {
   fontSizePx?: number;
   /** CSS font-weight（300〜900） */
   fontWeight?: number;
+   /** CSS font-family */
+  fontFamily?: string;   // 
 };
 
 /** ステージ床の手描き線（折れ線・% 座標） */
