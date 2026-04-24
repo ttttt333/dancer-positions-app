@@ -1105,6 +1105,11 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
     const decodePeaksFromBuffer = useCallback(async (buf: ArrayBuffer) => {
       const ctx = new AudioContext();
       const audioBuf = await ctx.decodeAudioData(buf.slice(0));
+      /** `<audio>` の loadedmetadata より確実。立ち位置→後から音源のとき duration が 0 のままだと波形が一切描画されない */
+      const durSec = audioBuf.duration;
+      if (Number.isFinite(durSec) && durSec > 0) {
+        setDuration(durSec);
+      }
       const ch = audioBuf.getChannelData(0);
       const len = 400;
       const block = Math.floor(ch.length / len) || 1;
@@ -1119,7 +1124,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       const max = Math.max(...out, 1e-6);
       setPeaks(out.map((x) => x / max));
       await ctx.close();
-    }, []);
+    }, [setDuration]);
 
     useEffect(() => {
       const aid = project.audioAssetId;
