@@ -83,12 +83,19 @@ function transferIdentitiesByOrder(
   return newDancers.map((nd, i) => {
     const od = oldDancers[i];
     if (!od) return nd;
+    const markerBadge =
+      od.crewMemberId
+        ? ""
+        : od.markerBadge !== undefined
+          ? od.markerBadge
+          : nd.markerBadge;
     return {
       ...nd,
       id: od.id,
       label: od.label,
       colorIndex: od.colorIndex,
       crewMemberId: od.crewMemberId,
+      markerBadge,
       sizePx: od.sizePx ?? nd.sizePx,
       note: od.note ?? nd.note,
       heightCm: od.heightCm ?? nd.heightCm,

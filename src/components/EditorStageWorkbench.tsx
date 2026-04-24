@@ -16,7 +16,15 @@ export type WorkbenchCuePagerProps = {
   project: ChoreographyProjectJson;
   cuesSortedForStageJump: Cue[];
   selectedCueId: string | null;
-  jumpToCueByIdx: (idx: number) => void;
+  /**
+   * ページインデックス。`includeRosterSlot` のとき 0 = 名簿ページ、1..n = ソート済みキュー n-1。
+   * 名簿なしのときはキュー index のみ。
+   */
+  jumpToPagerSlot: (slotIdx: number) => void;
+  /** true のとき先頭スロットが名簿（タイムラインを隠す画面） */
+  includeRosterSlot?: boolean;
+  /** `project.rosterHidesTimeline` — 名簿ページがアクティブ */
+  rosterTimelineHidden?: boolean;
 };
 
 export function WorkbenchCuePager({
@@ -24,19 +32,45 @@ export function WorkbenchCuePager({
   project,
   cuesSortedForStageJump,
   selectedCueId,
-  jumpToCueByIdx,
+  jumpToPagerSlot,
+  includeRosterSlot = false,
+  rosterTimelineHidden = false,
 }: WorkbenchCuePagerProps) {
-  if (cuesSortedForStageJump.length === 0) return null;
   const isRail = variant === "rail";
   const isCorner = variant === "stageCorner";
-  const total = cuesSortedForStageJump.length;
-  const curIdx = selectedCueId
+  const total = includeRosterSlot
+    ? cuesSortedForStageJump.length + 1
+    : cuesSortedForStageJump.length;
+  if (total <= 0) return null;
+
+  const cueIdx = selectedCueId
     ? cuesSortedForStageJump.findIndex((c) => c.id === selectedCueId)
     : -1;
-  const cur = curIdx >= 0 ? cuesSortedForStageJump[curIdx] : null;
-  const canPrev = project.viewMode !== "view" && curIdx > 0;
+  let slotIdx: number;
+  if (includeRosterSlot) {
+    if (rosterTimelineHidden) slotIdx = 0;
+    else if (cueIdx >= 0) slotIdx = cueIdx + 1;
+    else slotIdx = -1;
+  } else {
+    slotIdx = cueIdx;
+  }
+
+  const cur =
+    includeRosterSlot && slotIdx === 0
+      ? null
+      : includeRosterSlot && slotIdx > 0
+        ? cuesSortedForStageJump[slotIdx - 1] ?? null
+        : !includeRosterSlot && slotIdx >= 0
+          ? cuesSortedForStageJump[slotIdx] ?? null
+          : null;
+
+  const rosterPageActive = includeRosterSlot && slotIdx === 0;
+  const pageHighlight =
+    rosterPageActive || (slotIdx >= 0 && cur != null && !rosterPageActive);
+
+  const canPrev = project.viewMode !== "view" && slotIdx > 0;
   const canNext =
-    project.viewMode !== "view" && curIdx >= 0 && curIdx < total - 1;
+    project.viewMode !== "view" && slotIdx >= 0 && slotIdx < total - 1;
   const navBtnStyle = (enabled: boolean): CSSProperties =>
     isRail
       ? {
@@ -101,27 +135,33 @@ export function WorkbenchCuePager({
         flexShrink: 0,
         width: isRail ? 48 : undefined,
       }}
-      title="ステージのキュー（ページ）切替。波形の再生位置も区間の頭に移動します。"
+      title="ステージのキュー（ページ）切替。名簿があるとき先頭は名簿。波形の再生位置も区間の頭に移動します。"
     >
       <button
         type="button"
-        onClick={() => jumpToCueByIdx(curIdx - 1)}
+        onClick={() => jumpToPagerSlot(slotIdx - 1)}
         disabled={!canPrev}
-        title="前のキューへ"
-        aria-label="前のキューへ"
+        title={includeRosterSlot && slotIdx === 1 ? "名簿ページへ" : "前のページへ"}
+        aria-label={includeRosterSlot && slotIdx === 1 ? "名簿ページへ" : "前のページへ"}
         style={navBtnStyle(canPrev)}
       >
         ◀
       </button>
       <div
         role="status"
-        aria-label={`キュー ${curIdx >= 0 ? curIdx + 1 : "未選択"} / ${total}`}
+        aria-label={
+          rosterPageActive
+            ? `名簿 1 / ${total}`
+            : `ページ ${slotIdx >= 0 ? slotIdx + 1 : "未選択"} / ${total}`
+        }
         title={
-          cur
-            ? cur.name?.trim()
-              ? `「${cur.name.trim()}」を編集中`
-              : "無名のキューを編集中"
-            : "タイムラインなどからキューを選択"
+          rosterPageActive
+            ? "名簿メンバーの配置・並び替え"
+            : cur
+              ? cur.name?.trim()
+                ? `「${cur.name.trim()}」を編集中`
+                : "無名のキューを編集中"
+              : "タイムラインなどからキューを選択"
         }
         style={
           isRail
@@ -136,9 +176,9 @@ export function WorkbenchCuePager({
                 maxWidth: "48px",
                 padding: "4px 2px",
                 borderRadius: "8px",
-                border: cur ? "1px solid #818cf8" : "1px solid #334155",
-                background: cur ? "rgba(99,102,241,0.18)" : "#0f172a",
-                color: cur ? "#e0e7ff" : "#94a3b8",
+                border: pageHighlight ? "1px solid #818cf8" : "1px solid #334155",
+                background: pageHighlight ? "rgba(99,102,241,0.18)" : "#0f172a",
+                color: pageHighlight ? "#e0e7ff" : "#94a3b8",
                 fontSize: "7px",
                 fontWeight: 700,
                 lineHeight: 1.1,
@@ -153,13 +193,14 @@ export function WorkbenchCuePager({
               ? {
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: cur && cur.name?.trim() ? "6px" : "0",
+                  gap:
+                    (rosterPageActive || (cur && cur.name?.trim())) ? "6px" : "0",
                   padding: "4px 8px",
                   minHeight: "34px",
                   borderRadius: "8px",
-                  border: cur ? "1px solid #818cf8" : "1px solid #475569",
-                  background: cur ? "rgba(99,102,241,0.22)" : "#0f172a",
-                  color: cur ? "#e0e7ff" : "#94a3b8",
+                  border: pageHighlight ? "1px solid #818cf8" : "1px solid #475569",
+                  background: pageHighlight ? "rgba(99,102,241,0.22)" : "#0f172a",
+                  color: pageHighlight ? "#e0e7ff" : "#94a3b8",
                   fontSize: "12px",
                   fontWeight: 700,
                   cursor: "default",
@@ -173,9 +214,9 @@ export function WorkbenchCuePager({
                   gap: "6px",
                   padding: "3px 9px",
                   borderRadius: "8px",
-                  border: cur ? "1px solid #818cf8" : "1px solid #334155",
-                  background: cur ? "rgba(99,102,241,0.18)" : "#0f172a",
-                  color: cur ? "#e0e7ff" : "#94a3b8",
+                  border: pageHighlight ? "1px solid #818cf8" : "1px solid #334155",
+                  background: pageHighlight ? "rgba(99,102,241,0.18)" : "#0f172a",
+                  color: pageHighlight ? "#e0e7ff" : "#94a3b8",
                   fontSize: "12px",
                   fontWeight: 700,
                   cursor: "default",
@@ -190,7 +231,7 @@ export function WorkbenchCuePager({
           <span
             style={{
               fontSize: isRail ? "6.5px" : "9px",
-              color: cur ? "#c7d2fe" : "#64748b",
+              color: pageHighlight ? "#c7d2fe" : "#64748b",
               letterSpacing: isRail ? 0 : "0.04em",
               lineHeight: 1.1,
             }}
@@ -209,9 +250,25 @@ export function WorkbenchCuePager({
               : { whiteSpace: "nowrap" }
           }
         >
-          {curIdx >= 0 ? curIdx + 1 : "—"} / {total}
+          {slotIdx >= 0 ? slotIdx + 1 : "—"} / {total}
         </span>
-        {cur && cur.name?.trim() ? (
+        {rosterPageActive ? (
+          <span
+            style={{
+              fontSize: isRail ? "6.5px" : "11px",
+              fontWeight: 600,
+              color: "#e2e8f0",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: isRail ? "normal" : "nowrap",
+              maxWidth: isRail ? "100%" : isCorner ? "140px" : "120px",
+              lineHeight: 1.08,
+              textAlign: "center",
+            }}
+          >
+            名簿
+          </span>
+        ) : cur && cur.name?.trim() ? (
           <span
             style={{
               fontSize: isRail ? "6.5px" : "11px",
@@ -234,10 +291,18 @@ export function WorkbenchCuePager({
       </div>
       <button
         type="button"
-        onClick={() => jumpToCueByIdx(curIdx + 1)}
+        onClick={() => jumpToPagerSlot(slotIdx + 1)}
         disabled={!canNext}
-        title="次のキューへ"
-        aria-label="次のキューへ"
+        title={
+          includeRosterSlot && slotIdx === 0
+            ? "次のキューへ"
+            : "次のページへ"
+        }
+        aria-label={
+          includeRosterSlot && slotIdx === 0
+            ? "次のキューへ"
+            : "次のページへ"
+        }
         style={navBtnStyle(canNext)}
       >
         ▶
@@ -577,7 +642,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               }}
             >
               <span>テキスト</span>
-              <span>追加</span>
             </button>
           ) : null}
           {choreo ? (

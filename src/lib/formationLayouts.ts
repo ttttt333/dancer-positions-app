@@ -982,12 +982,20 @@ export function transferDancerIdentitiesByOrder(
   return positioned.map((nd, i) => {
     const od = identitySource[i];
     if (!od) return nd;
+    /** 名簿紐付け時は「○の下に名前・○内は空」（StageBoard の below モード＋ markerBadge 空） */
+    const markerBadge =
+      od.crewMemberId
+        ? ""
+        : od.markerBadge !== undefined
+          ? od.markerBadge
+          : nd.markerBadge;
     return {
       ...nd,
       id: od.id,
       label: od.label,
       colorIndex: od.colorIndex,
       crewMemberId: od.crewMemberId,
+      markerBadge,
       sizePx: od.sizePx ?? nd.sizePx,
       note: od.note ?? nd.note,
       heightCm: od.heightCm ?? nd.heightCm,

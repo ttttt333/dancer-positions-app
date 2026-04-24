@@ -297,15 +297,10 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
     [project.viewMode, setProject]
   );
 
-  /** 名簿からメンバーを削除。ステージ上の印は残し `crewMemberId` のみ解除（インスペクタと同じ） */
+  /** 名簿からメンバーを削除。ステージ上の印は残し `crewMemberId` のみ解除（インスペクタと同じ）。Undo で取り消し可 */
   const removeMemberFromRoster = useCallback(
-    (crewId: string, memberId: string, labelHint: string) => {
+    (crewId: string, memberId: string) => {
       if (project.viewMode === "view") return;
-      const label = labelHint.trim().slice(0, 60) || "このメンバー";
-      const ok = window.confirm(
-        `「${label}」を名簿から削除しますか？\n\nステージに立ち位置がある場合は、名簿との紐づけだけ外れます（印は残ります）。`
-      );
-      if (!ok) return;
       setProject((p) => ({
         ...p,
         crews: p.crews.map((c) =>
@@ -399,6 +394,7 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
         const m = row.member;
         return {
           ...p,
+          dancerLabelPosition: "below",
           formations: p.formations.map((fm) =>
             fm.id !== f.id
               ? fm
@@ -408,7 +404,8 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
                     ...fm.dancers,
                     {
                       id: crypto.randomUUID(),
-                      label: m.label.slice(0, 8),
+                      label: m.label.trim().slice(0, 120) || "?",
+                      markerBadge: "",
                       xPct: 50 + (idx % 5) * 5,
                       yPct: 40 + Math.floor(idx / 5) * 10,
                       colorIndex: modDancerColorIndex(m.colorIndex),
@@ -456,7 +453,8 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
             const m = row.member;
             return {
               id: crypto.randomUUID(),
-              label: m.label.slice(0, 8),
+              label: m.label.trim().slice(0, 120) || "?",
+              markerBadge: "",
               xPct: 50,
               yPct: 40,
               colorIndex: modDancerColorIndex(m.colorIndex),
@@ -475,6 +473,7 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
         const merged = transferDancerIdentitiesByOrder(positioned, placeholders);
         return {
           ...p,
+          dancerLabelPosition: "below",
           formations: p.formations.map((fm) =>
             fm.id === f.id
               ? {
@@ -541,7 +540,8 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
           const m = row.member;
           return {
             id: crypto.randomUUID(),
-            label: m.label.slice(0, 8),
+            label: m.label.trim().slice(0, 120) || "?",
+            markerBadge: "",
             xPct: 50,
             yPct: 40,
             colorIndex: modDancerColorIndex(m.colorIndex),
@@ -564,6 +564,7 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
       const merged = transferDancerIdentitiesByOrder(positioned, placeholders);
       return {
         ...p,
+        dancerLabelPosition: "below",
         rosterHidesTimeline: false,
         formations: p.formations.map((fm) =>
           fm.id === f.id
@@ -626,6 +627,7 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
         const merged = transferDancerIdentitiesByOrder(positioned, placeholders);
         return {
           ...p,
+          dancerLabelPosition: "below",
           formations: p.formations.map((fm) =>
             fm.id === f.id
               ? {
@@ -766,8 +768,10 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
             style={{
               display: "flex",
               alignItems: "center",
-              justifyContent: "space-between",
+              justifyContent: "flex-start",
+              flexWrap: "wrap",
               gap: "8px",
+              rowGap: "6px",
               minWidth: 0,
               width: "100%",
             }}
@@ -783,55 +787,48 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
             >
               名簿
             </span>
-            <div
+            <button
+              type="button"
+              onClick={confirmRosterAndReturnToTimeline}
+              disabled={project.viewMode === "view"}
+              title="未配置のメンバーを3列の形でステージに置き、この名簿一覧を閉じてタイムラインを表示します（別の形にしたい場合は「未配置を一括でステージへ」）"
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
+                fontSize: "11px",
+                padding: "4px 12px",
+                borderRadius: "8px",
+                border: "1px solid #4f46e5",
+                background: "#4338ca",
+                color: "#eef2ff",
+                cursor:
+                  project.viewMode === "view" ? "not-allowed" : "pointer",
+                whiteSpace: "nowrap",
+                fontWeight: 700,
+                lineHeight: 1.2,
                 flexShrink: 0,
               }}
             >
-              <button
-                type="button"
-                onClick={confirmRosterAndReturnToTimeline}
-                disabled={project.viewMode === "view"}
-                title="未配置のメンバーを3列の形でステージに置き、この名簿一覧を閉じてタイムラインを表示します（別の形にしたい場合は「未配置を一括でステージへ」）"
-                style={{
-                  fontSize: "11px",
-                  padding: "4px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid #4f46e5",
-                  background: "#4338ca",
-                  color: "#eef2ff",
-                  cursor:
-                    project.viewMode === "view" ? "not-allowed" : "pointer",
-                  whiteSpace: "nowrap",
-                  fontWeight: 700,
-                  lineHeight: 1.2,
-                }}
-              >
-                決定
-              </button>
-              <button
-                type="button"
-                onClick={toggleCollapsed}
-                title="名簿パネルを隠して細いバーだけにします"
-                style={{
-                  fontSize: "10px",
-                  padding: "2px 8px",
-                  borderRadius: "6px",
-                  border: "1px solid #f9a8d4",
-                  background: "#fce7f3",
-                  color: "#831843",
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                  fontWeight: 600,
-                  lineHeight: 1.2,
-                }}
-              >
-                隠す
-              </button>
-            </div>
+              決定
+            </button>
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              title="名簿パネルを隠して細いバーだけにします"
+              style={{
+                fontSize: "10px",
+                padding: "2px 8px",
+                borderRadius: "6px",
+                border: "1px solid #f9a8d4",
+                background: "#fce7f3",
+                color: "#831843",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                fontWeight: 600,
+                lineHeight: 1.2,
+                flexShrink: 0,
+              }}
+            >
+              隠す
+            </button>
           </div>
           <div
             style={{
@@ -1216,8 +1213,8 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
                   <button
                     type="button"
                     disabled={vm}
-                    onClick={() => removeMemberFromRoster(row.crewId, m.id, m.label)}
-                    title="名簿から削除（ステージの印は残り、名簿リンクのみ外します）"
+                    onClick={() => removeMemberFromRoster(row.crewId, m.id)}
+                    title="名簿からすぐ削除（ステージの印は残り名簿リンクのみ外す。取り消しは戻る）"
                     style={{
                       fontSize: `${tableBtnFs}px`,
                       padding: "0 5px",
@@ -1240,7 +1237,7 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
           })}
         </div>
         <div style={{ fontSize: "9px", color: "#64748b", flexShrink: 0, lineHeight: 1.3, marginTop: "1px" }}>
-          上部の「メンバー追加」で行を足せます。表示名・身長・学年・スキルを編集したうえで「追加」、「削除」で名簿から除外できます。並び順は上のプルダウンまたは雛形モーダル内で選べます。約{" "}
+          上部の「メンバー追加」で行を足せます。表示名・身長・学年・スキルを編集したうえで「追加」、「削除」で名簿からすぐ除外できます（取り消しは戻る）。並び順は上のプルダウンまたは雛形モーダル内で選べます。約{" "}
           {ROWS_PER_PAGE} 行が収まるよう行高を調整しています。
         </div>
       </div>
@@ -1534,8 +1531,8 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
                   <button
                     type="button"
                     disabled={vm}
-                    onClick={() => removeMemberFromRoster(row.crewId, m.id, m.label)}
-                    title="名簿から削除（ステージの印は残り、名簿リンクのみ外します）"
+                    onClick={() => removeMemberFromRoster(row.crewId, m.id)}
+                    title="名簿からすぐ削除（ステージの印は残り名簿リンクのみ外す。取り消しは戻る）"
                     style={{
                       fontSize: "11px",
                       padding: "4px 8px",

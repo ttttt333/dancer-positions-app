@@ -813,6 +813,36 @@ export function EditorPage() {
     [project, cuesSortedForStageJump, setProjectSafe]
   );
 
+  /** ステージ右上ページャ: 名簿があるとき slot 0 = 名簿、1.. = キュー順 */
+  const jumpToPagerSlot = useCallback(
+    (slotIdx: number) => {
+      if (!project || project.viewMode === "view") return;
+      const hasRoster = project.crews.some((c) => c.members.length > 0);
+      if (!hasRoster) {
+        jumpToCueByIdx(slotIdx);
+        return;
+      }
+      if (slotIdx === 0) {
+        setProjectSafe((p) => ({
+          ...p,
+          rosterHidesTimeline: true,
+          rosterStripCollapsed: false,
+        }));
+        return;
+      }
+      const cue = cuesSortedForStageJump[slotIdx - 1];
+      if (!cue) return;
+      timelineRef.current?.pauseAndSeekToSec(cue.tStartSec);
+      setSelectedCueIds([cue.id]);
+      setProjectSafe((p) => ({
+        ...p,
+        rosterHidesTimeline: false,
+        activeFormationId: cue.formationId,
+      }));
+    },
+    [project, cuesSortedForStageJump, jumpToCueByIdx, setProjectSafe]
+  );
+
   useEffect(() => {
     if (!project) return;
     if (project.cues.length === 0) {
@@ -1288,7 +1318,8 @@ export function EditorPage() {
     setFloorTextPlaceSession,
     commitFloorTextPlace,
     hasRosterMembers,
-    hideFloorTextToolbar: showTopWaveDock,
+    /** 右列でもステージ床テキストを配置できるように常に出す（上部ドック時も非表示にしない） */
+    hideFloorTextToolbar: false,
     hideUndoRedoInRail: showTopWaveDock,
     choreoToolbarProps: choreoToolbarSharedProps,
     onOpenCueListModal: showTopWaveDock
@@ -1685,13 +1716,15 @@ export function EditorPage() {
                   minWidth: 0,
                 }}
               >
-                {cuesSortedForStageJump.length > 0 ? (
+                {cuesSortedForStageJump.length > 0 || hasRosterMembers ? (
                   <WorkbenchCuePager
                     variant="stageCorner"
                     project={project}
                     cuesSortedForStageJump={cuesSortedForStageJump}
                     selectedCueId={selectedCueId}
-                    jumpToCueByIdx={jumpToCueByIdx}
+                    jumpToPagerSlot={jumpToPagerSlot}
+                    includeRosterSlot={hasRosterMembers}
+                    rosterTimelineHidden={project.rosterHidesTimeline === true}
                   />
                 ) : null}
                 <div
