@@ -250,7 +250,7 @@ export function WorkbenchCuePager({
         style={{
           display: "inline-flex",
           alignItems: "stretch",
-          padding: "6px 8px",
+          padding: "4px 6px",
           borderRadius: "12px",
           border: "1px solid rgba(148, 163, 184, 0.35)",
           background: "rgba(15, 23, 42, 0.92)",
@@ -411,8 +411,8 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
     : {
         display: "flex",
         flexDirection: "column",
-        gap: "6px",
-        marginBottom: "6px",
+        gap: "4px",
+        marginBottom: "4px",
       };
 
   /** 右列ホスト内では子を親の flex グリッドに直接参加させる */

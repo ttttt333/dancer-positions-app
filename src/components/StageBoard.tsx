@@ -3194,7 +3194,7 @@ export function StageBoard({
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: "6px",
+        gap: "4px",
         minHeight: 0,
         flex: 1,
         width: "100%",
@@ -3222,15 +3222,15 @@ export function StageBoard({
       {effStageWidthMm != null && effStageDepthMm != null && (
         <div
           style={{
-            fontSize: "10px",
+            fontSize: "9px",
             color: stageResizeDraft ? "#fbbf24" : "#94a3b8",
             textAlign: "center",
-            lineHeight: 1.45,
+            lineHeight: 1.25,
           }}
         >
           {formatStageMmSummary(effStageWidthMm, effStageDepthMm)}
           {(Smm > 0 || Bmm > 0 || (centerFieldGuideIntervalMm != null && centerFieldGuideIntervalMm > 0)) && (
-            <div style={{ marginTop: "4px", fontSize: "9px", color: "#64748b" }}>
+            <div style={{ marginTop: "2px", fontSize: "8px", color: "#64748b" }}>
               {Smm > 0 && <>サイド各 {formatMeterCmLabel(Smm)} · </>}
               {Bmm > 0 && <>バック {formatMeterCmLabel(Bmm)} · </>}
               {centerFieldGuideIntervalMm != null && centerFieldGuideIntervalMm > 0 && (() => {
@@ -3255,13 +3255,13 @@ export function StageBoard({
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "flex-start",
-          gap: "6px",
+          gap: "4px",
           /**
            * ステージ枠のリサイズハンドル（左右・上下）が枠より外に
            * わずかに飛び出して配置されるため、padding で隠れないよう
            * 少しだけ外側に余白を確保する。
            */
-          padding: "8px",
+          padding: "5px",
           overflow: "hidden",
         }}
       >

@@ -1701,7 +1701,7 @@ export function EditorPage() {
           ref={stageSectionRef}
           style={{
             ...panelCard,
-            padding: "8px",
+            padding: "5px",
             minHeight: 0,
             minWidth: 0,
             display: "flex",
@@ -1719,8 +1719,8 @@ export function EditorPage() {
             <section
               style={{
                 ...panelCard,
-                padding: "10px",
-                marginBottom: "10px",
+                padding: "8px",
+                marginBottom: "6px",
                 flexShrink: 0,
                 minWidth: 0,
               }}
@@ -1762,8 +1762,8 @@ export function EditorPage() {
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "flex-end",
-                  gap: 6,
-                  padding: "0 2px 6px",
+                  gap: 4,
+                  padding: "0 2px 3px",
                   minWidth: 0,
                 }}
               >
