@@ -225,6 +225,17 @@ function markerBelowLabelFontPx(circleLabelPx: number): number {
   return Math.max(11, Math.min(19, circleLabelPx - 1));
 }
 
+/**
+ * 「名前は○の下」モードの○内表示。
+ * `markerBadge === ""` は意図的な空欄（並び順による連番フォールバックなし）。
+ */
+function dancerCircleInnerBelowLabel(d: DancerSpot, formationIndex: number): string {
+  if (d.markerBadge === "") return "";
+  const t = d.markerBadge?.trim();
+  if (t) return t.slice(0, 3);
+  return String(formationIndex + 1);
+}
+
 const GROUP_BOX_HANDLES: readonly {
   h: GroupBoxHandle;
   cursor: string;
@@ -2639,6 +2650,10 @@ export function StageBoard({
     stageInteractionsEnabled &&
     !playbackOrPreview &&
     !previewDancers;
+  /** ○内連番などは右クリックメニューのみ。ここが空のときは床下バー用の min-height を取らない */
+  const reserveStageBulkToolbarHeight =
+    selectedDancerIds.length >= 1 &&
+    (showStageDancerColorToolbar || selectedDancerIds.length < 2);
 
   const tapStageToEditLayout =
     viewMode === "edit" &&
@@ -3020,6 +3035,41 @@ export function StageBoard({
             ...f,
             dancers: f.dancers.map((d) =>
               idSet.has(d.id) ? { ...d, markerBadge: badge } : d
+            ),
+          };
+        }),
+      }));
+    },
+    [
+      formationIdForWrites,
+      setProject,
+      dancerLabelBelow,
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+    ]
+  );
+
+  /** 「名前は○の下」のとき、選択メンバーの○内を空欄（連番フォールバックなし）にする */
+  const applyBulkMarkerClear = useCallback(
+    (targetIds: string[]) => {
+      if (!formationIdForWrites || targetIds.length === 0) return;
+      if (
+        !dancerLabelBelow ||
+        viewMode === "view" ||
+        !stageInteractionsEnabled ||
+        playbackOrPreview
+      )
+        return;
+      const idSet = new Set(targetIds);
+      setProject((p) => ({
+        ...p,
+        formations: p.formations.map((f) => {
+          if (f.id !== formationIdForWrites) return f;
+          return {
+            ...f,
+            dancers: f.dancers.map((d) =>
+              idSet.has(d.id) ? { ...d, markerBadge: "" } : d
             ),
           };
         }),
@@ -4952,7 +5002,7 @@ export function StageBoard({
                 const diRaw = list.findIndex((x) => x.id === ghostId);
                 const di = diRaw >= 0 ? diRaw : 0;
                 const circleLabel = dancerLabelBelow
-                  ? (d.markerBadge?.trim() || String(di + 1)).slice(0, 3)
+                  ? dancerCircleInnerBelowLabel(d, di)
                   : d.label || "?";
                 const facing = normalizeDancerFacingDeg(effectiveFacingDeg(d));
                 const labelOffsetPx = Math.round(dMarkerPx / 2) + 4;
@@ -5059,7 +5109,7 @@ export function StageBoard({
                 selectedDancerIds.length >= 2 &&
                 selectedDancerIds.includes(d.id);
               const circleLabel = dancerLabelBelow
-                ? (d.markerBadge?.trim() || String(di + 1)).slice(0, 3)
+                ? dancerCircleInnerBelowLabel(d, di)
                 : d.label || "?";
               const facing = normalizeDancerFacingDeg(effectiveFacingDeg(d));
               const labelOffsetPx = Math.round(dMarkerPx / 2) + 4;
@@ -5585,8 +5635,8 @@ export function StageBoard({
               flexShrink: 0,
               width: "100%",
               maxWidth: "min(100%, 440px)",
-              /** 未選択時は高さを取らずステージを広く。選択後は最低限だけ確保し内容が増えたら伸びる */
-              minHeight: selectedDancerIds.length >= 1 ? 132 : 0,
+              /** 未選択時は高さを取らずステージを広く。色バー／単体の向きバーがあるときだけ確保 */
+              minHeight: reserveStageBulkToolbarHeight ? 132 : 0,
               display: "flex",
               flexDirection: "column",
               justifyContent: "flex-end",
@@ -5749,90 +5799,6 @@ export function StageBoard({
                 </button>
               </div>
               ) : null}
-              {dancerLabelBelow && (
-                <div
-                  role="toolbar"
-                  aria-label="選択した立ち位置の○内番号を連番で振る"
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    alignItems: "center",
-                    gap: "8px",
-                    width: "100%",
-                    padding: "8px 10px",
-                    borderRadius: "10px",
-                    border: "1px solid #334155",
-                    background: "rgba(15, 23, 42, 0.96)",
-                    boxSizing: "border-box",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "11px",
-                      fontWeight: 600,
-                      color: "#94a3b8",
-                      whiteSpace: "nowrap",
-                      width: "100%",
-                    }}
-                  >
-                    ○内の番号（名前は下）
-                  </span>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "6px",
-                      alignItems: "center",
-                    }}
-                  >
-                    <button
-                      type="button"
-                      title="フォーメーション内の並び順で、選択した全員に連番を振ります"
-                      onClick={() => {
-                        const raw = window.prompt(
-                          "開始番号（整数）を入力してください。選択した全員に、その順で連番が○の中に入ります。",
-                          "1"
-                        );
-                        if (raw == null || raw.trim() === "") return;
-                        const v = Number.parseInt(raw.trim(), 10);
-                        if (!Number.isFinite(v)) {
-                          window.alert("整数として読めませんでした。");
-                          return;
-                        }
-                        applyBulkMarkerSequence(selectedDancerIds, v);
-                      }}
-                      style={{
-                        ...btnSecondary,
-                        padding: "6px 12px",
-                        fontSize: "12px",
-                        fontWeight: 600,
-                      }}
-                    >
-                      連番で振る…
-                    </button>
-                    <button
-                      type="button"
-                      title="選択した全員の○の中を、同じ数字・略号にします（最大3文字）"
-                      onClick={() => {
-                        const raw = window.prompt(
-                          "全員の○の中に同じ内容を入れます（数字・略号、最大3文字）。空欄はキャンセルです。",
-                          "1"
-                        );
-                        if (raw == null || raw.trim() === "") return;
-                        applyBulkMarkerSame(selectedDancerIds, raw);
-                      }}
-                      style={{
-                        ...btnSecondary,
-                        padding: "6px 12px",
-                        fontSize: "12px",
-                        fontWeight: 600,
-                      }}
-                    >
-                      全員同じ番号…
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
             ) : null}
           </div>
@@ -6074,7 +6040,7 @@ export function StageBoard({
                     width: "100%",
                     fontSize: "11px",
                     padding: "5px 8px",
-                    marginBottom: "10px",
+                    marginBottom: "4px",
                     textAlign: "left",
                   }}
                   onClick={() => {
@@ -6084,7 +6050,7 @@ export function StageBoard({
                       selectedDancerIds
                     );
                     const raw = window.prompt(
-                      "全員の○の中を同じ内容にします（最大3文字）。空欄はキャンセルです。",
+                      "全員の○の中を同じ内容にします（最大3文字）。キャンセルは閉じるだけです。",
                       "1"
                     );
                     if (raw == null || raw.trim() === "") return;
@@ -6093,6 +6059,30 @@ export function StageBoard({
                   }}
                 >
                   全員同じ番号にする…
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    ...btnSecondary,
+                    width: "100%",
+                    fontSize: "11px",
+                    padding: "5px 8px",
+                    marginBottom: "10px",
+                    textAlign: "left",
+                  }}
+                  title="右クリックした印を含む選択メンバー全員の○内を空にします（名前は○の下のまま）"
+                  onClick={() => {
+                    if (stageContextMenu.kind !== "dancer") return;
+                    const ids = resolveArrangeTargetIds(
+                      stageContextMenu.dancerId,
+                      selectedDancerIds
+                    );
+                    if (ids.length === 0) return;
+                    applyBulkMarkerClear(ids);
+                    setStageContextMenu(null);
+                  }}
+                >
+                  ○の中を空欄にする（選択の全員）
                 </button>
               </>
             ) : null}

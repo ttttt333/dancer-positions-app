@@ -257,10 +257,13 @@ function normalizeDancerSpot(raw: unknown, index: number): DancerSpot {
       ? Math.round(hRaw * 10) / 10
       : undefined;
   const mbRaw = d.markerBadge;
+  /** 空文字は「○内を空欄」と保存するための明示値（trim だけでは undefined に落とさない） */
   const markerBadge =
-    typeof mbRaw === "string" && mbRaw.trim()
-      ? mbRaw.trim().slice(0, 3)
-      : undefined;
+    mbRaw === ""
+      ? ""
+      : typeof mbRaw === "string" && mbRaw.trim()
+        ? mbRaw.trim().slice(0, 3)
+        : undefined;
   const fdRaw = d.facingDeg;
   let facingDeg: number | undefined;
   if (typeof fdRaw === "number" && Number.isFinite(fdRaw)) {
@@ -297,7 +300,7 @@ function normalizeDancerSpot(raw: unknown, index: number): DancerSpot {
     ...(typeof d.genderLabel === "string" && d.genderLabel.trim()
       ? { genderLabel: d.genderLabel.trim().slice(0, 32) }
       : {}),
-    ...(markerBadge ? { markerBadge } : {}),
+    ...(markerBadge !== undefined ? { markerBadge } : {}),
     ...(facingDeg != null ? { facingDeg } : {}),
   };
 }
