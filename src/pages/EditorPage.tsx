@@ -2866,9 +2866,9 @@ export function EditorPage() {
               <li>
                 タイムライン: 波形上のキューを{" "}
                 <strong style={{ color: "#e2e8f0" }}>右クリック</strong>
-                →「複製する」「立ち位置リストに追加」のあと{" "}
+                →「複製する」「立ち位置リストに追加」は{" "}
                 <strong style={{ color: "#e2e8f0" }}>はい</strong>／
-                <strong style={{ color: "#e2e8f0" }}>いいえ</strong>で確定
+                <strong style={{ color: "#e2e8f0" }}>いいえ</strong>で確定。「削除」はその場でキューを削除（Undo 可）
               </li>
               <li>
                 タイムライン: 動画ファイルから <strong style={{ color: "#e2e8f0" }}>音声抽出</strong>（再生時間ぶんかかります）

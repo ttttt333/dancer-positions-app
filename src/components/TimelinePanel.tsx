@@ -2327,15 +2327,21 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               position: "fixed",
               left: Math.max(
                 8,
-                Math.min(waveCueMenu.clientX, (typeof window !== "undefined" ? window.innerWidth : 800) - 228)
+                Math.min(
+                  waveCueMenu.clientX,
+                  (typeof window !== "undefined" ? window.innerWidth : 800) - 240
+                )
               ),
               top: Math.max(
                 8,
-                Math.min(waveCueMenu.clientY, (typeof window !== "undefined" ? window.innerHeight : 600) - 8)
+                Math.min(
+                  waveCueMenu.clientY,
+                  (typeof window !== "undefined" ? window.innerHeight : 600) - 150
+                )
               ),
               zIndex: 2499,
-              minWidth: "200px",
-              maxWidth: "min(280px, calc(100vw - 16px))",
+              minWidth: "220px",
+              maxWidth: "min(300px, calc(100vw - 16px))",
               padding: "8px",
               borderRadius: "10px",
               border: `1px solid ${shell.border}`,
@@ -2343,19 +2349,10 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               boxShadow: "0 16px 48px rgba(0,0,0,0.45)",
             }}
           >
-            <div
-              style={{
-                fontSize: "11px",
-                color: "#94a3b8",
-                marginBottom: "8px",
-                lineHeight: 1.45,
-              }}
-            >
-              このキューについて
-            </div>
             <button
               type="button"
               role="menuitem"
+              disabled={project.viewMode === "view"}
               style={{
                 ...btnSecondary,
                 display: "block",
@@ -2364,8 +2361,10 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                 marginBottom: "6px",
                 fontSize: "12px",
                 padding: "8px 10px",
+                cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
               }}
               onClick={() => {
+                if (project.viewMode === "view") return;
                 setWaveCueMenu(null);
                 setWaveCueConfirm({ kind: "duplicate", cueId: waveCueMenu.cueId });
               }}
@@ -2375,6 +2374,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             <button
               type="button"
               role="menuitem"
+              disabled={project.viewMode === "view"}
               style={{
                 ...btnSecondary,
                 display: "block",
@@ -2383,8 +2383,10 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                 marginBottom: "6px",
                 fontSize: "12px",
                 padding: "8px 10px",
+                cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
               }}
               onClick={() => {
+                if (project.viewMode === "view") return;
                 setWaveCueMenu(null);
                 setWaveCueConfirm({
                   kind: "formationBox",
@@ -2397,18 +2399,25 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             <button
               type="button"
               role="menuitem"
+              disabled={project.viewMode === "view"}
               style={{
                 ...btnSecondary,
                 display: "block",
                 width: "100%",
-                textAlign: "center",
+                textAlign: "left",
                 fontSize: "12px",
-                padding: "6px 10px",
-                color: "#94a3b8",
+                padding: "8px 10px",
+                borderColor: "rgba(248, 113, 113, 0.55)",
+                color: "#fecaca",
+                cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
               }}
-              onClick={() => setWaveCueMenu(null)}
+              onClick={() => {
+                if (project.viewMode === "view") return;
+                removeCue(waveCueMenu.cueId);
+                setWaveCueMenu(null);
+              }}
             >
-              キャンセル
+              削除
             </button>
           </div>
         </>
