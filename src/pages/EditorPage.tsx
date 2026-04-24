@@ -196,6 +196,8 @@ export function EditorPage() {
     useState<HTMLDivElement | null>(null);
   /** 上部ドック時の上段（波形・再生）行の高さ（px）。null = 既定の `minmax(160px, min(28vh, 300px))` */
   const [topDockRowPx, setTopDockRowPx] = useState<number | null>(null);
+  /** `showTopWaveDock` の直前値（早期 return の前でもフック順を一定にするため ref はここで保持） */
+  const prevShowTopWaveDockRef = useRef<boolean | undefined>(undefined);
   /** ステージ「名簿取り込み」: ファイル選択後の表示名モード確認 */
   const [rosterImportDraft, setRosterImportDraft] = useState<{
     rows: string[][];
@@ -262,6 +264,14 @@ export function EditorPage() {
   const minRightColForStageSplitPx = showTopWaveDockForGrid
     ? RIGHT_TOOLS_RAIL_MAX_PX
     : TIMELINE_FULL_COL_MIN_PX;
+
+  /** 名簿モード終了などで上部ドックが復帰したとき、手動リサイズ幅を捨てて波形エリアの高さを既定に戻す */
+  useEffect(() => {
+    if (prevShowTopWaveDockRef.current === false && showTopWaveDockForGrid) {
+      setTopDockRowPx(null);
+    }
+    prevShowTopWaveDockRef.current = showTopWaveDockForGrid;
+  }, [showTopWaveDockForGrid]);
 
   /**
    * エディタを開いた時点でバックグラウンドで FFmpeg.wasm を温めておく。
@@ -1178,15 +1188,6 @@ export function EditorPage() {
     project.rosterHidesTimeline === true && hasRosterMembers;
   /** ワイド時は波形・再生を上部に固定（名簿専用モードでは従来の下段タイムライン） */
   const showTopWaveDock = wideEditorLayout && !rosterOnlyMode;
-
-  /** 名簿モード終了などで上部ドックが復帰したとき、手動リサイズ幅を捨てて波形エリアの高さを既定に戻す */
-  const prevShowTopWaveDockRef = useRef<boolean | undefined>(undefined);
-  useEffect(() => {
-    if (prevShowTopWaveDockRef.current === false && showTopWaveDock) {
-      setTopDockRowPx(null);
-    }
-    prevShowTopWaveDockRef.current = showTopWaveDock;
-  }, [showTopWaveDock]);
 
   const choreoToolbarSharedProps = {
     snapGrid: project.snapGrid,
