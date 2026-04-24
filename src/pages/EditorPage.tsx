@@ -2606,7 +2606,7 @@ export function EditorPage() {
               </div>
               <div
                 style={{ display: "flex", gap: "8px" }}
-                title="○の下では印の中は番号。連番は右クリックメニューやメンバー編集で変更。名前の○の中／下の切替はこのパネルだけです。"
+                title="○の下では印の中は番号など。ステージでメンバーを右クリックしても同じ切替と○内（空白・連番・同じ数字）が選べます。"
               >
                 <button
                   type="button"

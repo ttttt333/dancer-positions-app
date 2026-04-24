@@ -122,72 +122,6 @@ function round2(v: number) {
   return Math.round(v * 100) / 100;
 }
 
-/** ステージ床 0〜100% 正方形と直線の交点から、中心を通る弦の両端を求める（複数選択の 45° 補助線用） */
-function linePctSquareEndpoints(
-  cx: number,
-  cy: number,
-  ux: number,
-  uy: number
-): { x1: number; y1: number; x2: number; y2: number } | null {
-  const hu = Math.hypot(ux, uy);
-  if (hu < 1e-9) return null;
-  const nx = ux / hu;
-  const ny = uy / hu;
-  const ts: number[] = [];
-  const pushT = (t: number) => {
-    const x = cx + t * nx;
-    const y = cy + t * ny;
-    if (x < -1e-4 || x > 100 + 1e-4 || y < -1e-4 || y > 100 + 1e-4) return;
-    const onEdge =
-      Math.abs(x) <= 1e-3 ||
-      Math.abs(x - 100) <= 1e-3 ||
-      Math.abs(y) <= 1e-3 ||
-      Math.abs(y - 100) <= 1e-3;
-    if (!onEdge) return;
-    ts.push(t);
-  };
-  if (Math.abs(nx) > 1e-9) {
-    pushT((0 - cx) / nx);
-    pushT((100 - cx) / nx);
-  }
-  if (Math.abs(ny) > 1e-9) {
-    pushT((0 - cy) / ny);
-    pushT((100 - cy) / ny);
-  }
-  if (ts.length < 2) return null;
-  const tLo = Math.min(...ts);
-  const tHi = Math.max(...ts);
-  if (tHi - tLo < 1e-6) return null;
-  return {
-    x1: round2(cx + tLo * nx),
-    y1: round2(cy + tLo * ny),
-    x2: round2(cx + tHi * nx),
-    y2: round2(cy + tHi * ny),
-  };
-}
-
-/** ドラッグの進行方向（px）を最寄りの 45° に合わせ、その軸系で 45° 間隔の 8 本の補助線を床 % 上に生成 */
-function buildMotion45GuideSegments(
-  cxPct: number,
-  cyPct: number,
-  dxPx: number,
-  dyPx: number
-): { x1: number; y1: number; x2: number; y2: number; k: number }[] {
-  const h = Math.hypot(dxPx, dyPx);
-  if (h < 2.5) return [];
-  const step = Math.PI / 4;
-  const base = Math.round(Math.atan2(dyPx, dxPx) / step) * step;
-  const out: { x1: number; y1: number; x2: number; y2: number; k: number }[] = [];
-  for (let k = 0; k < 8; k++) {
-    const a = base + k * step;
-    const ux = Math.cos(a);
-    const uy = Math.sin(a);
-    const seg = linePctSquareEndpoints(cxPct, cyPct, ux, uy);
-    if (seg) out.push({ ...seg, k });
-  }
-  return out;
-}
-
 function resolveSetPieceFill(p: SetPiece): string {
   const c = p.fillColor?.trim();
   if (c && /^#[0-9a-fA-F]{6}$/i.test(c)) return c.toLowerCase();
@@ -577,10 +511,6 @@ export function StageBoard({
     x: number | null;
     y: number | null;
   }>({ x: null, y: null });
-  /** 複数一括移動ドラッグ中のみ：進行方向に合わせた 45° 刻みの放射補助線（単体移動では出さない） */
-  const [drag45GuideSegs, setDrag45GuideSegs] = useState<
-    { x1: number; y1: number; x2: number; y2: number; k: number }[]
-  >([]);
 
   /** ダブルクリックで開くメンバー編集ダイアログの対象ダンサー id */
   const [dancerQuickEditId, setDancerQuickEditId] = useState<string | null>(null);
@@ -1736,7 +1666,6 @@ export function StageBoard({
         startXPct: xPct,
         startYPct: yPct,
       };
-      setDrag45GuideSegs([]);
       setDragGhostById(new Map([[dancerId, { xPct, yPct }]]));
       return;
     }
@@ -2067,7 +1996,6 @@ export function StageBoard({
           if (alignGuides.x !== null || alignGuides.y !== null) {
             setAlignGuides({ x: null, y: null });
           }
-          setDrag45GuideSegs([]);
           return;
         }
         /** 中央線・他ダンサーに近づいたら吸着し、揃っている方向をガイド線で示す */
@@ -2083,7 +2011,6 @@ export function StageBoard({
         ) {
           setAlignGuides({ x: snapped.guideX, y: snapped.guideY });
         }
-        /** 単体移動では 45° 放射補助線は出さない（群移動のみ）。スナップの縦横線は従来どおり */
         updateActiveFormation((f) => ({
           ...f,
           dancers: f.dancers.map((x) =>
@@ -2164,7 +2091,6 @@ export function StageBoard({
           if (alignGuides.x !== null || alignGuides.y !== null) {
             setAlignGuides({ x: null, y: null });
           }
-          setDrag45GuideSegs([]);
           return;
         }
         /**
@@ -2186,29 +2112,6 @@ export function StageBoard({
         }
         if (guideX !== alignGuides.x || guideY !== alignGuides.y) {
           setAlignGuides({ x: guideX, y: guideY });
-        }
-        let bx0 = Infinity;
-        let bx1 = -Infinity;
-        let by0 = Infinity;
-        let by1 = -Infinity;
-        for (const id of g.ids) {
-          const s = g.startPositions.get(id);
-          if (!s) continue;
-          const nx = clamp(s.xPct + dxPct, 2, 98);
-          const ny = clamp(s.yPct + dyPct, 2, 98);
-          if (nx < bx0) bx0 = nx;
-          if (nx > bx1) bx1 = nx;
-          if (ny < by0) by0 = ny;
-          if (ny > by1) by1 = ny;
-        }
-        if (Number.isFinite(bx0) && bx1 >= bx0 && by1 >= by0) {
-          const cxg = (bx0 + bx1) / 2;
-          const cyg = (by0 + by1) / 2;
-          const dxPxG = (dxPct / 100) * g.floorWpx;
-          const dyPxG = (dyPct / 100) * g.floorHpx;
-          setDrag45GuideSegs(
-            buildMotion45GuideSegments(cxg, cyg, dxPxG, dyPxG)
-          );
         }
         updateActiveFormation((f) => ({
           ...f,
@@ -2512,7 +2415,6 @@ export function StageBoard({
       trashRevealActiveRef.current = false;
       setTrashUiVisible(false);
       setAlignGuides({ x: null, y: null });
-      setDrag45GuideSegs([]);
       setDragGhostById(null);
       setBulkHideDancerGlyphs(false);
       setGroupRotateGuideDeltaDeg(null);
@@ -3122,8 +3024,8 @@ export function StageBoard({
   let contextMenuStyle: CSSProperties | null = null;
   if (stageContextMenu) {
     const pad = 8;
-    const mw = stageContextMenu.kind === "dancer" ? 268 : 132;
-    const mh = stageContextMenu.kind === "dancer" ? 780 : 52;
+    const mw = stageContextMenu.kind === "dancer" ? 288 : 132;
+    const mh = stageContextMenu.kind === "dancer" ? 860 : 52;
     const maxL =
       typeof window !== "undefined" ? window.innerWidth - mw - pad : stageContextMenu.clientX;
     const maxT =
@@ -4145,24 +4047,6 @@ export function StageBoard({
                   opacity="0.95"
                 />
               )}
-              {drag45GuideSegs.map((s, i) => (
-                <line
-                  key={`dg45-${s.k}-${i}`}
-                  x1={s.x1}
-                  y1={s.y1}
-                  x2={s.x2}
-                  y2={s.y2}
-                  stroke="rgba(255, 255, 255, 0.95)"
-                  strokeWidth="0.62"
-                  strokeDasharray="3.2 2.2"
-                  vectorEffect="non-scaling-stroke"
-                  opacity={1}
-                  style={{
-                    filter:
-                      "drop-shadow(0 0 1px rgba(0,0,0,0.9)) drop-shadow(0 0 3px rgba(0,0,0,0.55))",
-                  }}
-                />
-              ))}
             </svg>
             {!(showShell && Bmm > 0) ? (
               <div
@@ -5662,6 +5546,115 @@ export function StageBoard({
                 margin: "8px 0 4px",
               }}
             >
+              名前の表示（プロジェクト全体）
+            </div>
+            <div
+              style={{
+                display: "flex",
+                gap: "6px",
+                marginBottom: "4px",
+              }}
+              title="ステージ上のすべての印に共通します。メニュー「ステージまわりの設定」でも同じ項目を変えられます。"
+            >
+              <button
+                type="button"
+                disabled={
+                  viewMode === "view" ||
+                  !stageInteractionsEnabled ||
+                  Boolean(playbackDancers) ||
+                  Boolean(previewDancers)
+                }
+                onClick={() => {
+                  setProject((p) => ({ ...p, dancerLabelPosition: "inside" }));
+                }}
+                style={{
+                  flex: 1,
+                  padding: "6px 8px",
+                  borderRadius: "8px",
+                  border:
+                    (rawDancerLabelPosition ?? "inside") === "inside"
+                      ? "1px solid rgba(99,102,241,0.9)"
+                      : "1px solid #334155",
+                  background:
+                    (rawDancerLabelPosition ?? "inside") === "inside"
+                      ? "rgba(99,102,241,0.22)"
+                      : "#020617",
+                  color:
+                    (rawDancerLabelPosition ?? "inside") === "inside"
+                      ? "#e0e7ff"
+                      : "#94a3b8",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  cursor:
+                    viewMode === "view" ||
+                    !stageInteractionsEnabled ||
+                    playbackDancers ||
+                    previewDancers
+                      ? "not-allowed"
+                      : "pointer",
+                }}
+              >
+                丸の内に名前
+              </button>
+              <button
+                type="button"
+                disabled={
+                  viewMode === "view" ||
+                  !stageInteractionsEnabled ||
+                  Boolean(playbackDancers) ||
+                  Boolean(previewDancers)
+                }
+                onClick={() => {
+                  setProject((p) => ({ ...p, dancerLabelPosition: "below" }));
+                }}
+                style={{
+                  flex: 1,
+                  padding: "6px 8px",
+                  borderRadius: "8px",
+                  border:
+                    rawDancerLabelPosition === "below"
+                      ? "1px solid rgba(99,102,241,0.9)"
+                      : "1px solid #334155",
+                  background:
+                    rawDancerLabelPosition === "below"
+                      ? "rgba(99,102,241,0.22)"
+                      : "#020617",
+                  color:
+                    rawDancerLabelPosition === "below"
+                      ? "#e0e7ff"
+                      : "#94a3b8",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  cursor:
+                    viewMode === "view" ||
+                    !stageInteractionsEnabled ||
+                    playbackDancers ||
+                    previewDancers
+                      ? "not-allowed"
+                      : "pointer",
+                }}
+              >
+                丸の下に名前
+              </button>
+            </div>
+            <div
+              style={{
+                fontSize: "9px",
+                color: "#64748b",
+                marginBottom: "10px",
+                lineHeight: 1.35,
+              }}
+            >
+              名前を丸の下にすると、丸の内は番号など（下の「丸の内の表示」）だけが印に出ます。
+            </div>
+            <div
+              style={{
+                fontSize: "10px",
+                fontWeight: 600,
+                color: "#94a3b8",
+                margin: "8px 0 4px",
+              }}
+            >
               印の色（上と同じ対象に一括）
             </div>
             <div
@@ -5699,20 +5692,26 @@ export function StageBoard({
                 />
               ))}
             </div>
+            <div
+              style={{
+                fontSize: "10px",
+                fontWeight: 600,
+                color: "#94a3b8",
+                margin: "8px 0 4px",
+              }}
+            >
+              丸の内の表示（名前を丸の下にするとき）
+            </div>
             {dancerLabelBelow ? (
               <>
-                <div
-                  style={{
-                    fontSize: "10px",
-                    fontWeight: 600,
-                    color: "#94a3b8",
-                    margin: "8px 0 4px",
-                  }}
-                >
-                  ○内の番号（名前は○の下）
-                </div>
                 <button
                   type="button"
+                  disabled={
+                    viewMode === "view" ||
+                    !stageInteractionsEnabled ||
+                    Boolean(playbackDancers) ||
+                    Boolean(previewDancers)
+                  }
                   style={{
                     ...btnSecondary,
                     width: "100%",
@@ -5721,6 +5720,37 @@ export function StageBoard({
                     marginBottom: "4px",
                     textAlign: "left",
                   }}
+                  title="選択した全員の丸の内を空にします（連番の自動表示もしません）"
+                  onClick={() => {
+                    if (stageContextMenu.kind !== "dancer") return;
+                    const ids = resolveArrangeTargetIds(
+                      stageContextMenu.dancerId,
+                      selectedDancerIds
+                    );
+                    if (ids.length === 0) return;
+                    applyBulkMarkerClear(ids);
+                    setStageContextMenu(null);
+                  }}
+                >
+                  丸の内は空白
+                </button>
+                <button
+                  type="button"
+                  disabled={
+                    viewMode === "view" ||
+                    !stageInteractionsEnabled ||
+                    Boolean(playbackDancers) ||
+                    Boolean(previewDancers)
+                  }
+                  style={{
+                    ...btnSecondary,
+                    width: "100%",
+                    fontSize: "11px",
+                    padding: "5px 8px",
+                    marginBottom: "4px",
+                    textAlign: "left",
+                  }}
+                  title="フォーメーション内の並び順で、開始番号から連番を丸の内に入れます"
                   onClick={() => {
                     if (stageContextMenu.kind !== "dancer") return;
                     const ids = resolveArrangeTargetIds(
@@ -5728,7 +5758,7 @@ export function StageBoard({
                       selectedDancerIds
                     );
                     const raw = window.prompt(
-                      "開始番号（整数）。対象全員に、フォーメーション順で連番を○の中に入れます。",
+                      "連番の開始番号（整数）。選択した全員に、フォーメーション順で丸の内に入れます。",
                       "1"
                     );
                     if (raw == null || raw.trim() === "") return;
@@ -5741,37 +5771,16 @@ export function StageBoard({
                     setStageContextMenu(null);
                   }}
                 >
-                  選択対象に連番を振る…
+                  丸の内は連番…
                 </button>
                 <button
                   type="button"
-                  style={{
-                    ...btnSecondary,
-                    width: "100%",
-                    fontSize: "11px",
-                    padding: "5px 8px",
-                    marginBottom: "4px",
-                    textAlign: "left",
-                  }}
-                  onClick={() => {
-                    if (stageContextMenu.kind !== "dancer") return;
-                    const ids = resolveArrangeTargetIds(
-                      stageContextMenu.dancerId,
-                      selectedDancerIds
-                    );
-                    const raw = window.prompt(
-                      "全員の○の中を同じ内容にします（最大3文字）。キャンセルは閉じるだけです。",
-                      "1"
-                    );
-                    if (raw == null || raw.trim() === "") return;
-                    applyBulkMarkerSame(ids, raw);
-                    setStageContextMenu(null);
-                  }}
-                >
-                  全員同じ番号にする…
-                </button>
-                <button
-                  type="button"
+                  disabled={
+                    viewMode === "view" ||
+                    !stageInteractionsEnabled ||
+                    Boolean(playbackDancers) ||
+                    Boolean(previewDancers)
+                  }
                   style={{
                     ...btnSecondary,
                     width: "100%",
@@ -5780,22 +5789,37 @@ export function StageBoard({
                     marginBottom: "10px",
                     textAlign: "left",
                   }}
-                  title="右クリックした印を含む選択メンバー全員の○内を空にします（名前は○の下のまま）"
+                  title="選択した全員の丸の内を同じ文字にします（最大3文字）"
                   onClick={() => {
                     if (stageContextMenu.kind !== "dancer") return;
                     const ids = resolveArrangeTargetIds(
                       stageContextMenu.dancerId,
                       selectedDancerIds
                     );
-                    if (ids.length === 0) return;
-                    applyBulkMarkerClear(ids);
+                    const raw = window.prompt(
+                      "全員の丸の内を同じ内容にします（最大3文字）。",
+                      "1"
+                    );
+                    if (raw == null || raw.trim() === "") return;
+                    applyBulkMarkerSame(ids, raw);
                     setStageContextMenu(null);
                   }}
                 >
-                  ○の中を空欄にする（選択の全員）
+                  丸の内は全員同じ数字…
                 </button>
               </>
-            ) : null}
+            ) : (
+              <div
+                style={{
+                  fontSize: "9px",
+                  color: "#64748b",
+                  marginBottom: "10px",
+                  lineHeight: 1.35,
+                }}
+              >
+                上で「丸の下に名前」を選ぶと、空白・連番・全員同じを選べます。
+              </div>
+            )}
             <div
               style={{
                 fontSize: "10px",
