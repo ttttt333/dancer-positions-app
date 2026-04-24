@@ -1179,6 +1179,15 @@ export function EditorPage() {
   /** ワイド時は波形・再生を上部に固定（名簿専用モードでは従来の下段タイムライン） */
   const showTopWaveDock = wideEditorLayout && !rosterOnlyMode;
 
+  /** 名簿モード終了などで上部ドックが復帰したとき、手動リサイズ幅を捨てて波形エリアの高さを既定に戻す */
+  const prevShowTopWaveDockRef = useRef<boolean | undefined>(undefined);
+  useEffect(() => {
+    if (prevShowTopWaveDockRef.current === false && showTopWaveDock) {
+      setTopDockRowPx(null);
+    }
+    prevShowTopWaveDockRef.current = showTopWaveDock;
+  }, [showTopWaveDock]);
+
   const choreoToolbarSharedProps = {
     snapGrid: project.snapGrid,
     stageGridLinesEnabled: project.stageGridLinesEnabled ?? false,
@@ -1516,7 +1525,7 @@ export function EditorPage() {
               overflow: "hidden",
             }}
           >
-            {hasRosterMembers ? (
+            {hasRosterMembers && !project.rosterHidesTimeline ? (
               <div
                 style={{
                   flexShrink: 0,
@@ -1833,30 +1842,13 @@ export function EditorPage() {
               overflow: "hidden",
             }}
           >
-            {rosterOnlyMode ? (
-              <div
-                style={{
-                  flex: "1 1 auto",
-                  minHeight: 0,
-                  minWidth: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden",
-                }}
-              >
-                <RosterTimelineStrip
-                  project={project}
-                  setProject={setProjectSafe}
-                />
-              </div>
-            ) : null}
             <section
               className="editor-right-tools-section"
               style={{
                 ...panelCard,
                 padding: "6px 5px",
-                flex: rosterOnlyMode ? "0 0 auto" : "1 1 auto",
-                minHeight: rosterOnlyMode ? undefined : 0,
+                flex: "1 1 auto",
+                minHeight: 0,
                 minWidth: 0,
                 display: "flex",
                 flexDirection: "column",
@@ -2015,7 +2007,7 @@ export function EditorPage() {
                     <span style={{ fontSize: "11px", fontWeight: 700 }}>キュー</span>
                   </button>
                 </div>
-                {hasRosterMembers ? (
+                {hasRosterMembers && !project.rosterHidesTimeline ? (
                   <button
                     type="button"
                     disabled={project.viewMode === "view"}

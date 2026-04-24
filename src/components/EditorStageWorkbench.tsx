@@ -658,7 +658,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               </button>
             </>
           ) : null}
-          {hasRosterMembers ? (
+          {hasRosterMembers && !project.rosterHidesTimeline ? (
             <div className="editor-right-tools-view-mode-grid">
               <button
                 type="button"
@@ -1008,7 +1008,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
       >
         {floorTextPlaceSession ? "テキストやめる" : "テキスト"}
       </button>
-      {hasRosterMembers ? (
+      {hasRosterMembers && !project.rosterHidesTimeline ? (
         <button
           type="button"
           disabled={project.viewMode === "view"}
