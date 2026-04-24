@@ -69,8 +69,12 @@ export function WorkbenchCuePager({
     rosterPageActive || (slotIdx >= 0 && cur != null && !rosterPageActive);
 
   const canPrev = project.viewMode !== "view" && slotIdx > 0;
+  /** 未選択（slotIdx === -1）のときも「次」で先頭キューへ入れる（波形クリックで選択が空になったあとなど） */
   const canNext =
-    project.viewMode !== "view" && slotIdx >= 0 && slotIdx < total - 1;
+    project.viewMode !== "view" &&
+    (slotIdx < 0
+      ? cuesSortedForStageJump.length > 0
+      : slotIdx >= 0 && slotIdx < total - 1);
   const navBtnStyle = (enabled: boolean): CSSProperties =>
     isRail
       ? {
@@ -291,7 +295,11 @@ export function WorkbenchCuePager({
       </div>
       <button
         type="button"
-        onClick={() => jumpToPagerSlot(slotIdx + 1)}
+        onClick={() =>
+          jumpToPagerSlot(
+            slotIdx < 0 ? (includeRosterSlot ? 1 : 0) : slotIdx + 1
+          )
+        }
         disabled={!canNext}
         title={
           includeRosterSlot && slotIdx === 0

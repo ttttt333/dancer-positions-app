@@ -28,6 +28,7 @@ import {
   DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE,
   modDancerColorIndex,
 } from "../lib/dancerColorPalette";
+import { dancerMarkerDiameterAfterRosterImport } from "../lib/projectDefaults";
 
 export type { RosterStripSortMode };
 
@@ -395,6 +396,9 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
         return {
           ...p,
           dancerLabelPosition: "below",
+          dancerMarkerDiameterPx: dancerMarkerDiameterAfterRosterImport(
+            p.dancerMarkerDiameterPx
+          ),
           formations: p.formations.map((fm) =>
             fm.id !== f.id
               ? fm
@@ -474,6 +478,9 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
         return {
           ...p,
           dancerLabelPosition: "below",
+          dancerMarkerDiameterPx: dancerMarkerDiameterAfterRosterImport(
+            p.dancerMarkerDiameterPx
+          ),
           formations: p.formations.map((fm) =>
             fm.id === f.id
               ? {
@@ -565,6 +572,9 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
       return {
         ...p,
         dancerLabelPosition: "below",
+        dancerMarkerDiameterPx: dancerMarkerDiameterAfterRosterImport(
+          p.dancerMarkerDiameterPx
+        ),
         rosterHidesTimeline: false,
         formations: p.formations.map((fm) =>
           fm.id === f.id
@@ -628,6 +638,9 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
         return {
           ...p,
           dancerLabelPosition: "below",
+          dancerMarkerDiameterPx: dancerMarkerDiameterAfterRosterImport(
+            p.dancerMarkerDiameterPx
+          ),
           formations: p.formations.map((fm) =>
             fm.id === f.id
               ? {

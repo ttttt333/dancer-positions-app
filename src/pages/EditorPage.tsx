@@ -27,6 +27,7 @@ import { RosterTimelineStrip } from "../components/RosterTimelineStrip";
 import {
   createEmptyProject,
   DEFAULT_DANCER_MARKER_DIAMETER_PX,
+  dancerMarkerDiameterAfterRosterImport,
   tryMigrateFromLocalStorage,
 } from "../lib/projectDefaults";
 import { preloadFFmpeg } from "../lib/extractVideoAudio";
@@ -248,6 +249,60 @@ export function EditorPage() {
 
   const yjsCollab = useYjsCollaboration(serverId, collabActive);
   const project = collabActive ? yjsCollab.project : plainProject;
+
+  /** ドラッグ中は毎フレーム積まない。離したときだけ 1 手分を積む（StageBoard の立ち位置ドラッグ用） */
+  const gestureHistoryDepthRef = useRef(0);
+  const gestureHistoryBaselineRef = useRef<string | null>(null);
+  const skipNextHistoryPushRef = useRef(false);
+  const projectForHistoryRef = useRef<ChoreographyProjectJson | null>(null);
+  if (project) {
+    projectForHistoryRef.current = project;
+  }
+
+  const cancelGestureHistory = useCallback(() => {
+    gestureHistoryDepthRef.current = 0;
+    gestureHistoryBaselineRef.current = null;
+  }, []);
+
+  const beginGestureHistory = useCallback(() => {
+    if (collabActive) return;
+    gestureHistoryDepthRef.current += 1;
+    if (
+      gestureHistoryDepthRef.current === 1 &&
+      projectForHistoryRef.current != null
+    ) {
+      gestureHistoryBaselineRef.current = JSON.stringify(
+        projectForHistoryRef.current
+      );
+    }
+  }, [collabActive]);
+
+  const endGestureHistory = useCallback(() => {
+    if (collabActive) return;
+    if (gestureHistoryDepthRef.current <= 0) return;
+    gestureHistoryDepthRef.current -= 1;
+    if (gestureHistoryDepthRef.current !== 0) return;
+    const baseline = gestureHistoryBaselineRef.current;
+    gestureHistoryBaselineRef.current = null;
+    if (!baseline) return;
+    const cur = projectForHistoryRef.current;
+    if (!cur) return;
+    let curStr: string;
+    try {
+      curStr = JSON.stringify(cur);
+    } catch {
+      return;
+    }
+    if (curStr === baseline) return;
+    const { undo, redo } = historyRef.current;
+    if (undo.length >= HISTORY_CAP) undo.shift();
+    undo.push(baseline);
+    redo.length = 0;
+  }, [collabActive]);
+
+  const markHistorySkipNextPush = useCallback(() => {
+    skipNextHistoryPushRef.current = true;
+  }, []);
 
   /**
    * 上部波形ドック時は右列を狭くする（未ロード時は false で右列を広めに確保）。
@@ -507,9 +562,9 @@ export function EditorPage() {
       const gridRect = grid.getBoundingClientRect();
       /**
        * ユーザーが「波形を上の方までできるだけ縮めたい」ケース向けに、
-       * 最小高さはツールバー 1 行＋波形数 px が見える程度まで許可する。
+       * 最小高さはコンパクト再生行＋ルーラー＋波形が潰れない程度まで許可する。
        */
-      const minH = 48;
+      const minH = 100;
       const maxH = Math.max(minH, gridRect.height - 160);
       const next = Math.round(
         Math.min(maxH, Math.max(minH, d.startH + (e.clientY - d.startY)))
@@ -580,6 +635,13 @@ export function EditorPage() {
           unchanged = false;
         }
         if (unchanged) return prev;
+        if (skipNextHistoryPushRef.current) {
+          skipNextHistoryPushRef.current = false;
+          return next;
+        }
+        if (gestureHistoryDepthRef.current > 0) {
+          return next;
+        }
         const { undo, redo } = historyRef.current;
         if (undo.length >= HISTORY_CAP) undo.shift();
         undo.push(JSON.stringify(prev));
@@ -806,9 +868,10 @@ export function EditorPage() {
       if (!project || project.viewMode === "view") return;
       const cue = cuesSortedForStageJump[idx];
       if (!cue) return;
-      timelineRef.current?.pauseAndSeekToSec(cue.tStartSec);
+      /** 先に選択と activeFormation を確定してからシークする（順序逆だとステージ・一覧と再生位置が一瞬ずれる） */
       setSelectedCueIds([cue.id]);
       setProjectSafe((p) => ({ ...p, activeFormationId: cue.formationId }));
+      timelineRef.current?.pauseAndSeekToSec(cue.tStartSec);
     },
     [project, cuesSortedForStageJump, setProjectSafe]
   );
@@ -832,13 +895,13 @@ export function EditorPage() {
       }
       const cue = cuesSortedForStageJump[slotIdx - 1];
       if (!cue) return;
-      timelineRef.current?.pauseAndSeekToSec(cue.tStartSec);
       setSelectedCueIds([cue.id]);
       setProjectSafe((p) => ({
         ...p,
         rosterHidesTimeline: false,
         activeFormationId: cue.formationId,
       }));
+      timelineRef.current?.pauseAndSeekToSec(cue.tStartSec);
     },
     [project, cuesSortedForStageJump, jumpToCueByIdx, setProjectSafe]
   );
@@ -851,7 +914,16 @@ export function EditorPage() {
     }
     setSelectedCueIds((ids) => {
       const valid = ids.filter((id) => project.cues.some((c) => c.id === id));
-      if (valid.length > 0) return valid;
+      if (valid.length > 0) {
+        const seen = new Set<string>();
+        const deduped: string[] = [];
+        for (const id of valid) {
+          if (seen.has(id)) continue;
+          seen.add(id);
+          deduped.push(id);
+        }
+        return deduped;
+      }
       const first = sortCuesByStart(project.cues)[0]?.id;
       return first ? [first] : [];
     });
@@ -1523,7 +1595,7 @@ export function EditorPage() {
               ? `${
                   topDockRowPx != null
                     ? `${topDockRowPx}px`
-                    : "minmax(34px, min(13vh, 148px))"
+                    : "minmax(96px, min(22vh, 220px))"
                 } 4px minmax(0, 1fr)`
               : "1fr"
             : "auto auto auto",
@@ -1809,6 +1881,18 @@ export function EditorPage() {
                     floorMarkupTool={floorMarkupTool}
                     onFloorMarkupToolChange={setFloorMarkupTool}
                     hideFloorMarkupFloatingToolbars={showTopWaveDock}
+                    onGestureHistoryBegin={
+                      collabActive ? undefined : beginGestureHistory
+                    }
+                    onGestureHistoryEnd={
+                      collabActive ? undefined : endGestureHistory
+                    }
+                    onGestureHistoryCancel={
+                      collabActive ? undefined : cancelGestureHistory
+                    }
+                    markHistorySkipNextPush={
+                      collabActive ? undefined : markHistorySkipNextPush
+                    }
                   />
                 ) : (
                   <Suspense
@@ -3285,6 +3369,9 @@ export function EditorPage() {
                     crews: [...p.crews, crew],
                     rosterStripCollapsed: false,
                     rosterHidesTimeline: true,
+                    dancerMarkerDiameterPx: dancerMarkerDiameterAfterRosterImport(
+                      p.dancerMarkerDiameterPx
+                    ),
                   }));
                   setRosterImportDraft(null);
                   setRosterImportExtraNames([]);

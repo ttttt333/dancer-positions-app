@@ -1,8 +1,18 @@
-import type { Cue, Formation, SetPiece } from "../types/choreography";
+import type {
+  ChoreographyProjectJson,
+  Cue,
+  Formation,
+  SetPiece,
+} from "../types/choreography";
 import { cloneFloorMarkupWithNewIds } from "./floorMarkup";
 
 export function sortCuesByStart(cues: Cue[]): Cue[] {
-  return [...cues].sort((a, b) => a.tStartSec - b.tStartSec || a.tEndSec - b.tEndSec);
+  return [...cues].sort(
+    (a, b) =>
+      a.tStartSec - b.tStartSec ||
+      a.tEndSec - b.tEndSec ||
+      a.id.localeCompare(b.id)
+  );
 }
 
 function randomId(prefix: string) {
@@ -125,6 +135,71 @@ export function cloneFormationForNewCue(f: Formation): Formation {
 
 /** タイムライン上の区間の最短長（秒）。ドラッグ・入力と揃える */
 export const MIN_CUE_DURATION_SEC = 0.05;
+
+/** 音源未確定時に区間解決へ渡す仮の曲長（秒）— 極端に短い trim に潰れないようにする */
+export const PLACEHOLDER_TIMELINE_CAP_SEC = 600;
+
+/** 音源取り込み後に極短区間へ伸ばす目標長（秒） */
+export const DEFAULT_CUE_SPAN_WITH_AUDIO_SEC = 5;
+
+/** これ未満の長さは無音時タイムラインで潰れた区間とみなし、音源取り込み後に伸ばす */
+export const SHORT_CUE_EXPANSION_THRESHOLD_SEC = 2;
+
+/**
+ * 音源が入ったあと、無音時（仮 1 秒幅など）に作られた極短いキューを約 5 秒相当まで広げる。
+ * 波形上でドラッグ・端リサイズできる幅を確保する。
+ */
+export function expandShortCuesAfterAudioLoad(
+  project: ChoreographyProjectJson,
+  trackDurationSec: number
+): ChoreographyProjectJson {
+  if (!Number.isFinite(trackDurationSec) || trackDurationSec < 8) {
+    return project;
+  }
+  const trimLo = project.trimStartSec;
+  const trimHi = project.trimEndSec ?? trackDurationSec;
+  if (!Number.isFinite(trimHi) || trimHi - trimLo < MIN_CUE_DURATION_SEC * 2) {
+    return project;
+  }
+  let cues = sortCuesByStart(project.cues.map((c) => ({ ...c })));
+  let anyExpanded = false;
+  for (let guard = 0; guard < 24; guard++) {
+    let passChanged = false;
+    for (let i = 0; i < cues.length; i++) {
+      const c = cues[i]!;
+      const span = c.tEndSec - c.tStartSec;
+      if (span >= SHORT_CUE_EXPANSION_THRESHOLD_SEC - 1e-9) {
+        continue;
+      }
+      const t0 = c.tStartSec;
+      const desiredEnd = Math.min(trimHi, t0 + DEFAULT_CUE_SPAN_WITH_AUDIO_SEC);
+      if (desiredEnd - t0 < MIN_CUE_DURATION_SEC - 1e-9) {
+        continue;
+      }
+      const r = resolveCueIntervalNonOverlap(
+        cues,
+        c.id,
+        t0,
+        desiredEnd,
+        trimLo,
+        trimHi
+      );
+      if (
+        Math.abs(r.tEndSec - c.tEndSec) > 1e-4 ||
+        Math.abs(r.tStartSec - c.tStartSec) > 1e-4
+      ) {
+        cues[i] = { ...c, tStartSec: r.tStartSec, tEndSec: r.tEndSec };
+        passChanged = true;
+        anyExpanded = true;
+      }
+    }
+    if (!passChanged) break;
+  }
+  if (!anyExpanded) {
+    return project;
+  }
+  return { ...project, cues: sortCuesByStart(cues) };
+}
 
 type FreeSeg = { a: number; b: number };
 

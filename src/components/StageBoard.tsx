@@ -61,6 +61,8 @@ import {
 
 /** ドラッグ中、この y% 以上で下端ゴミ箱 UI を出す（客席＝下が大きい y） */
 const TRASH_REVEAL_Y_PCT = 88;
+/** 床テキスト: これ未満の移動は「タップして編集」、超えたらドラッグ移動 */
+const FLOOR_TEXT_TAP_DRAG_THRESHOLD_PX = 6;
 
 /** ヘッダ「テキスト」から床へ置く前のプレビュー（親が状態を持つ） */
 export type FloorTextPlaceSession = {
@@ -112,6 +114,13 @@ type Props = {
   >;
   /** true のときステージ左上のテキスト／線トグル帯を出さず、編集 UI のみ出す */
   hideFloorMarkupFloatingToolbars?: boolean;
+  /** 立ち位置ドラッグ中は履歴に積まず、離したとき 1 手にまとめる（親の undo 用） */
+  onGestureHistoryBegin?: () => void;
+  onGestureHistoryEnd?: () => void;
+  /** フォーメーション切替などドラッグ中断時に深度だけリセット */
+  onGestureHistoryCancel?: () => void;
+  /** ゴミ箱ドロップ直後の 1 回だけ、次の setProject で undo に積まない */
+  markHistorySkipNextPush?: () => void;
 };
 
 function clamp(n: number, min: number, max: number) {
@@ -153,6 +162,27 @@ function markerCircleLabelFontPx(markerPx: number): number {
 /** ○の下に出す名前用（○内よりやや小さめ） */
 function markerBelowLabelFontPx(circleLabelPx: number): number {
   return Math.max(11, Math.min(19, circleLabelPx - 1));
+}
+
+/** ○下端と名前のあいだを、舞台横幅に対してこの mm ぶん広げる */
+const DANCER_NAME_BELOW_EXTRA_GAP_MM = 3;
+
+function dancerNameBelowClearanceExtraPx(
+  stageWidthMm: number | null | undefined,
+  mainFloorPxWidth: number
+): number {
+  if (
+    typeof stageWidthMm === "number" &&
+    stageWidthMm > 0 &&
+    mainFloorPxWidth > 0
+  ) {
+    return Math.max(
+      1,
+      Math.round((DANCER_NAME_BELOW_EXTRA_GAP_MM * mainFloorPxWidth) / stageWidthMm)
+    );
+  }
+  /** ステージ幅未設定時は CSS 96dpi 相当で約 3mm の px */
+  return Math.max(8, Math.round((DANCER_NAME_BELOW_EXTRA_GAP_MM * 96) / 25.4));
 }
 
 /**
@@ -323,6 +353,10 @@ export function StageBoard({
   floorMarkupTool: floorMarkupToolProp,
   onFloorMarkupToolChange,
   hideFloorMarkupFloatingToolbars = false,
+  onGestureHistoryBegin,
+  onGestureHistoryEnd,
+  onGestureHistoryCancel,
+  markHistorySkipNextPush,
 }: Props) {
   const {
     formations,
@@ -471,6 +505,10 @@ export function StageBoard({
     mainFloorPxWidth,
     dancerMarkerDiameterPx,
   ]);
+  const nameBelowClearanceExtraPx = useMemo(
+    () => dancerNameBelowClearanceExtraPx(stageWidthMm, mainFloorPxWidth),
+    [stageWidthMm, mainFloorPxWidth]
+  );
   /** サイズドラッグ中は draft 値を即時反映して手応えを出す（ドラッグ終了時に確定） */
   const trashDockRef = useRef<HTMLDivElement>(null);
   const stageContextMenuRef = useRef<HTMLDivElement>(null);
@@ -549,6 +587,21 @@ export function StageBoard({
     startClientY: number;
     startXPct: number;
     startYPct: number;
+  } | null>(null);
+  /**
+   * ツール未選択時: テキスト上でポインタダウンした直後はここに保持し、
+   * 微小移動ならタップ（編集モードへ）、それ以上ならドラッグ移動に切り替える。
+   */
+  const floorTextTapOrDragRef = useRef<{
+    id: string;
+    text: string;
+    fontSizePx: number;
+    fontWeight: number;
+    startClientX: number;
+    startClientY: number;
+    startXPct: number;
+    startYPct: number;
+    pointerId: number;
   } | null>(null);
   /** 置き場所プレビューをドラッグ中 */
   const floorTextPlaceDragRef = useRef<{
@@ -783,6 +836,7 @@ export function StageBoard({
   const [stageContextMenu, setStageContextMenu] = useState<
     | { kind: "dancer"; clientX: number; clientY: number; dancerId: string }
     | { kind: "setPiece"; clientX: number; clientY: number; pieceId: string }
+    | { kind: "floorText"; clientX: number; clientY: number; markupId: string }
     | null
   >(null);
   /**
@@ -805,6 +859,7 @@ export function StageBoard({
       : activeFormationId;
 
   useEffect(() => {
+    onGestureHistoryCancel?.();
     setDancerQuickEditId(null);
     setSelectedDancerIds([]);
     setStageContextMenu(null);
@@ -817,6 +872,7 @@ export function StageBoard({
     markerFacingDraftRef.current = null;
     markerGroupPosDraftRef.current = null;
     floorMarkupTextDragRef.current = null;
+    floorTextTapOrDragRef.current = null;
     floorTextPlaceDragRef.current = null;
     setMarkerDiamDraft(null);
     setMarkerFacingDraft(null);
@@ -830,7 +886,7 @@ export function StageBoard({
     setShowStageDancerColorToolbar(false);
     setBulkHideDancerGlyphs(false);
     setGroupRotateGuideDeltaDeg(null);
-  }, [formationIdForWrites]);
+  }, [formationIdForWrites, onGestureHistoryCancel]);
 
   useEffect(() => {
     setShowStageDancerColorToolbar(false);
@@ -932,7 +988,18 @@ export function StageBoard({
     if (!floorTextPlaceSession) return;
     setFloorMarkupTool(null);
     setFloorTextEditId(null);
+    floorTextTapOrDragRef.current = null;
   }, [floorTextPlaceSession]);
+
+  /** 床テキストが削除されたあと、編集中 id が残らないようにする */
+  useEffect(() => {
+    if (!floorTextEditId || !writeFormation) return;
+    const fm = writeFormation.floorMarkup ?? [];
+    if (!fm.some((x) => x.id === floorTextEditId && x.kind === "text")) {
+      setFloorTextEditId(null);
+      setFloorTextDraft({ body: "", fontSizePx: 18, fontWeight: 600 });
+    }
+  }, [writeFormation, floorTextEditId]);
 
   const removeFloorMarkupById = useCallback(
     (id: string) => {
@@ -1667,6 +1734,7 @@ export function StageBoard({
         startYPct: yPct,
       };
       setDragGhostById(new Map([[dancerId, { xPct, yPct }]]));
+      onGestureHistoryBegin?.();
       return;
     }
     /** 複数選択の一括移動: 各ダンサーの初期位置を覚えておき、差分だけ一斉に動かす */
@@ -1688,6 +1756,7 @@ export function StageBoard({
     };
     setBulkHideDancerGlyphs(true);
     setDragGhostById(new Map(startPositions));
+    onGestureHistoryBegin?.();
   };
 
   /** 複数選択の bounding box リサイズ開始 */
@@ -1730,6 +1799,7 @@ export function StageBoard({
       floorHpx: r.height,
     };
     setBulkHideDancerGlyphs(true);
+    onGestureHistoryBegin?.();
   };
 
   /**
@@ -2021,7 +2091,45 @@ export function StageBoard({
         }));
         return;
       }
-      /** 1b: 床に置いたテキストの移動 */
+      /** 1ba: ツールなし時 — テキスト上のタップ vs ドラッグ移動 */
+      const tapOr = floorTextTapOrDragRef.current;
+      if (
+        tapOr &&
+        e.pointerId === tapOr.pointerId &&
+        !floorMarkupTextDragRef.current
+      ) {
+        const dist = Math.hypot(
+          e.clientX - tapOr.startClientX,
+          e.clientY - tapOr.startClientY
+        );
+        if (dist > FLOOR_TEXT_TAP_DRAG_THRESHOLD_PX) {
+          floorMarkupTextDragRef.current = {
+            id: tapOr.id,
+            startClientX: tapOr.startClientX,
+            startClientY: tapOr.startClientY,
+            startXPct: tapOr.startXPct,
+            startYPct: tapOr.startYPct,
+          };
+          floorTextTapOrDragRef.current = null;
+          const floor = stageMainFloorRef.current;
+          if (floor) {
+            const rr = floor.getBoundingClientRect();
+            const dxPct = ((e.clientX - tapOr.startClientX) / rr.width) * 100;
+            const dyPct = ((e.clientY - tapOr.startClientY) / rr.height) * 100;
+            const nx = round2(clamp(tapOr.startXPct + dxPct, 0, 100));
+            const ny = round2(clamp(tapOr.startYPct + dyPct, 0, 100));
+            const tid = tapOr.id;
+            updateActiveFormation((f) => ({
+              ...f,
+              floorMarkup: (f.floorMarkup ?? []).map((x) =>
+                x.id === tid && x.kind === "text" ? { ...x, xPct: nx, yPct: ny } : x
+              ),
+            }));
+          }
+        }
+        return;
+      }
+      /** 1b: 床に置いたテキストの移動（下端でゴミ箱表示・ドロップで削除） */
       const fmd = floorMarkupTextDragRef.current;
       if (fmd) {
         const floor = stageMainFloorRef.current;
@@ -2031,6 +2139,17 @@ export function StageBoard({
         const dyPct = ((e.clientY - fmd.startClientY) / rr.height) * 100;
         const nx = round2(clamp(fmd.startXPct + dxPct, 0, 100));
         const ny = round2(clamp(fmd.startYPct + dyPct, 0, 100));
+        const pointerYPct = ((e.clientY - rr.top) / rr.height) * 100;
+        const reveal = ny >= TRASH_REVEAL_Y_PCT || pointerYPct >= TRASH_REVEAL_Y_PCT;
+        if (reveal !== trashRevealActiveRef.current) {
+          trashRevealActiveRef.current = reveal;
+          setTrashUiVisible(reveal);
+        }
+        const overTrash = hitTrashDropZone(e.clientX, e.clientY);
+        setTrashHotIfChanged(overTrash);
+        if (overTrash) {
+          return;
+        }
         updateActiveFormation((f) => ({
           ...f,
           floorMarkup: (f.floorMarkup ?? []).map((x) =>
@@ -2264,22 +2383,55 @@ export function StageBoard({
       setTrashHotIfChanged(false);
     };
     const onUp = (e: PointerEvent) => {
-      const d = dragRef.current;
-      if (d && hitTrashDropZone(e.clientX, e.clientY)) {
-        removeDancerById(d.dancerId);
+      const tapUp = floorTextTapOrDragRef.current;
+      if (tapUp && e.pointerId === tapUp.pointerId) {
+        floorTextTapOrDragRef.current = null;
+        const dist = Math.hypot(
+          e.clientX - tapUp.startClientX,
+          e.clientY - tapUp.startClientY
+        );
+        if (dist <= FLOOR_TEXT_TAP_DRAG_THRESHOLD_PX && setPiecesEditable) {
+          setFloorMarkupTool("text");
+          setFloorTextEditId(tapUp.id);
+          setFloorTextDraft({
+            body: tapUp.text,
+            fontSizePx: tapUp.fontSizePx,
+            fontWeight: tapUp.fontWeight,
+          });
+        }
       }
-      dragRef.current = null;
-      floorMarkupTextDragRef.current = null;
-      floorTextPlaceDragRef.current = null;
-      /** 群ドラッグ終了。move モードで最後にゴミ箱へドロップされていたら一括削除 */
-      const gUp = groupDragRef.current;
+      const floorTextDragEnd = floorMarkupTextDragRef.current;
       if (
+        floorTextDragEnd &&
+        hitTrashDropZone(e.clientX, e.clientY)
+      ) {
+        onGestureHistoryEnd?.();
+        markHistorySkipNextPush?.();
+        removeFloorMarkupById(floorTextDragEnd.id);
+      }
+      const d = dragRef.current;
+      const gUp = groupDragRef.current;
+      if (d && hitTrashDropZone(e.clientX, e.clientY)) {
+        onGestureHistoryEnd?.();
+        markHistorySkipNextPush?.();
+        removeDancerById(d.dancerId);
+      } else if (
         gUp &&
         gUp.mode === "move" &&
         hitTrashDropZone(e.clientX, e.clientY)
       ) {
+        onGestureHistoryEnd?.();
+        markHistorySkipNextPush?.();
         removeDancersByIds(gUp.ids);
+      } else if (
+        d != null ||
+        (gUp != null && (gUp.mode === "move" || gUp.mode === "scale"))
+      ) {
+        onGestureHistoryEnd?.();
       }
+      dragRef.current = null;
+      floorMarkupTextDragRef.current = null;
+      floorTextPlaceDragRef.current = null;
       groupDragRef.current = null;
       /** 向き／複数時は位置も含む回転ドラッグの確定 */
       const rotUp = markerRotateRef.current;
@@ -2433,6 +2585,7 @@ export function StageBoard({
     hitTrashDropZone,
     removeDancerById,
     removeDancersByIds,
+    removeFloorMarkupById,
     setTrashHotIfChanged,
     markerDiamDraft,
     setProject,
@@ -2443,6 +2596,10 @@ export function StageBoard({
     alignGuides.y,
     formationIdForWrites,
     onFloorTextPlaceSessionChange,
+    setFloorMarkupTool,
+    setPiecesEditable,
+    onGestureHistoryEnd,
+    markHistorySkipNextPush,
   ]);
 
   useEffect(() => {
@@ -2465,6 +2622,8 @@ export function StageBoard({
         markerRotateRef.current = null;
         markerFacingDraftRef.current = null;
         markerGroupPosDraftRef.current = null;
+        floorMarkupTextDragRef.current = null;
+        floorTextTapOrDragRef.current = null;
         setSelectedDancerIds([]);
         setMarquee(null);
         marqueeSessionRef.current = null;
@@ -3024,8 +3183,18 @@ export function StageBoard({
   let contextMenuStyle: CSSProperties | null = null;
   if (stageContextMenu) {
     const pad = 8;
-    const mw = stageContextMenu.kind === "dancer" ? 288 : 132;
-    const mh = stageContextMenu.kind === "dancer" ? 860 : 52;
+    const mw =
+      stageContextMenu.kind === "dancer"
+        ? 252
+        : stageContextMenu.kind === "floorText"
+          ? 168
+          : 132;
+    const mh =
+      stageContextMenu.kind === "dancer"
+        ? 380
+        : stageContextMenu.kind === "floorText"
+          ? 88
+          : 52;
     const maxL =
       typeof window !== "undefined" ? window.innerWidth - mw - pad : stageContextMenu.clientX;
     const maxT =
@@ -3036,8 +3205,11 @@ export function StageBoard({
       top: Math.max(pad, Math.min(stageContextMenu.clientY, maxT)),
       zIndex: 10000,
       minWidth: `${mw}px`,
-      padding: "6px",
-      borderRadius: "10px",
+      maxHeight:
+        stageContextMenu.kind === "dancer" ? "min(72vh, 520px)" : undefined,
+      overflowY: stageContextMenu.kind === "dancer" ? "auto" : undefined,
+      padding: "5px",
+      borderRadius: "8px",
       border: "1px solid #475569",
       background: "#0f172a",
       boxShadow: "0 12px 40px rgba(0,0,0,0.45)",
@@ -4295,6 +4467,34 @@ export function StageBoard({
                       key={m.id}
                       data-floor-markup="text"
                       data-fmark-id={m.id}
+                      title={
+                        textMoveGrab
+                          ? "短くタップで文面・サイズを編集。長くドラッグで移動。下端のゴミ箱へドロップで削除。右クリックでも削除"
+                          : floorMarkupTool === "text"
+                            ? "タップで選択して編集。右クリックで削除"
+                            : floorMarkupTool === "erase"
+                              ? "タップで削除"
+                              : undefined
+                      }
+                      onContextMenu={(e) => {
+                        if (
+                          viewMode === "view" ||
+                          !setPiecesEditable ||
+                          playbackOrPreview ||
+                          previewDancers ||
+                          !textHit
+                        ) {
+                          return;
+                        }
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setStageContextMenu({
+                          kind: "floorText",
+                          clientX: e.clientX,
+                          clientY: e.clientY,
+                          markupId: m.id,
+                        });
+                      }}
                       onPointerDown={(e) => {
                         if (floorMarkupTool === "erase" && setPiecesEditable) {
                           e.preventDefault();
@@ -4319,12 +4519,16 @@ export function StageBoard({
                           (e.currentTarget as HTMLElement).setPointerCapture(
                             e.pointerId
                           );
-                          floorMarkupTextDragRef.current = {
+                          floorTextTapOrDragRef.current = {
                             id: m.id,
+                            text: m.text,
+                            fontSizePx: Math.round(clamp(m.fontSizePx ?? 18, 8, 56)),
+                            fontWeight: fw,
                             startClientX: e.clientX,
                             startClientY: e.clientY,
                             startXPct: m.xPct,
                             startYPct: m.yPct,
+                            pointerId: e.pointerId,
                           };
                         }
                       }}
@@ -4793,7 +4997,8 @@ export function StageBoard({
                   ? dancerCircleInnerBelowLabel(d, di)
                   : d.label || "?";
                 const facing = normalizeDancerFacingDeg(effectiveFacingDeg(d));
-                const labelOffsetPx = Math.round(dMarkerPx / 2) + 4;
+                const labelOffsetPx =
+                  Math.round(dMarkerPx / 2) + 4 + nameBelowClearanceExtraPx;
                 const pivotTransform = `translate(-50%, -50%) rotate(${facing}deg)`;
                 const halfMarker = dMarkerPx / 2;
                 /** 舞台の客席向き回転＋印の向きを打ち消し、画面に対して水平に */
@@ -4900,7 +5105,8 @@ export function StageBoard({
                 ? dancerCircleInnerBelowLabel(d, di)
                 : d.label || "?";
               const facing = normalizeDancerFacingDeg(effectiveFacingDeg(d));
-              const labelOffsetPx = Math.round(dMarkerPx / 2) + 4;
+              const labelOffsetPx =
+                Math.round(dMarkerPx / 2) + 4 + nameBelowClearanceExtraPx;
               const pivotTransform = playbackOrPreview
                 ? `translate3d(-50%, -50%, 0) rotate(${facing}deg)`
                 : `translate(-50%, -50%) rotate(${facing}deg)`;
@@ -5189,7 +5395,7 @@ export function StageBoard({
               <div
                 ref={trashDockRef}
                 role="region"
-                aria-label="ダンサーの印をここにドラッグして離すと削除されます"
+                aria-label="ダンサーの印や床のテキストをここにドラッグして離すと削除されます"
                 onContextMenu={(e) => e.preventDefault()}
                 style={{
                   position: "absolute",
@@ -5224,7 +5430,7 @@ export function StageBoard({
                 <span style={{ fontSize: "22px", lineHeight: 1 }} aria-hidden>
                   🗑
                 </span>
-                <span>ドラッグ＆ドロップで削除</span>
+                <span>印・床テキストをドロップで削除</span>
               </div>
             )}
             </div>
@@ -5501,60 +5707,103 @@ export function StageBoard({
           <>
             <div
               style={{
-                fontSize: "10px",
+                fontSize: "9px",
                 color: "#64748b",
-                marginBottom: "6px",
-                lineHeight: 1.35,
+                marginBottom: "5px",
+                lineHeight: 1.3,
               }}
             >
-              範囲はドラッグで囲むか Shift+クリックで複数選択。
-              右クリックした印が選択に含まれるときは<strong style={{ color: "#94a3b8" }}> 選択全員</strong>が対象です。
+              Shift+クリック／範囲ドラッグで複数選択。右クリック印が選択に含まれるときは
+              <strong style={{ color: "#94a3b8" }}>選択全員</strong>が対象。
             </div>
-            <button
-              type="button"
-              disabled={
-                viewMode === "view" ||
-                !stageInteractionsEnabled ||
-                Boolean(playbackDancers) ||
-                Boolean(previewDancers)
-              }
-              title="選択中のメンバーと同じ設定で複製（少し位置をずらす）"
-              onClick={() => {
-                if (stageContextMenu.kind !== "dancer") return;
-                const ids = resolveArrangeTargetIds(
-                  stageContextMenu.dancerId,
-                  selectedDancerIds
-                );
-                duplicateDancerIds(ids);
-              }}
-              style={{
-                ...btnSecondary,
-                width: "100%",
-                marginBottom: "10px",
-                padding: "8px 10px",
-                fontSize: "12px",
-                fontWeight: 600,
-              }}
-            >
-              複製（⌘D / Ctrl+D）
-            </button>
             <div
               style={{
-                fontSize: "10px",
-                fontWeight: 600,
-                color: "#94a3b8",
-                margin: "8px 0 4px",
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "4px",
+                marginBottom: "6px",
               }}
             >
-              名前の表示（プロジェクト全体）
+              <button
+                type="button"
+                disabled={
+                  viewMode === "view" ||
+                  !stageInteractionsEnabled ||
+                  Boolean(playbackDancers) ||
+                  Boolean(previewDancers)
+                }
+                title="選択中のメンバーと同じ設定で複製（少し位置をずらす）"
+                onClick={() => {
+                  if (stageContextMenu.kind !== "dancer") return;
+                  const ids = resolveArrangeTargetIds(
+                    stageContextMenu.dancerId,
+                    selectedDancerIds
+                  );
+                  duplicateDancerIds(ids);
+                }}
+                style={{
+                  ...btnSecondary,
+                  width: "100%",
+                  padding: "5px 6px",
+                  fontSize: "10px",
+                  fontWeight: 600,
+                }}
+              >
+                複製（⌘D）
+              </button>
+              <button
+                type="button"
+                disabled={
+                  viewMode === "view" ||
+                  !stageInteractionsEnabled ||
+                  Boolean(playbackDancers) ||
+                  Boolean(previewDancers)
+                }
+                title="右クリック印が選択に含まれるときは選択全員を削除します"
+                onClick={() => {
+                  if (stageContextMenu.kind !== "dancer") return;
+                  const ids = resolveArrangeTargetIds(
+                    stageContextMenu.dancerId,
+                    selectedDancerIds
+                  );
+                  if (ids.length === 0) return;
+                  const msg =
+                    ids.length === 1
+                      ? "この立ち位置を削除しますか？"
+                      : `選択中の ${ids.length} 人の立ち位置を削除しますか？`;
+                  if (!window.confirm(msg)) return;
+                  removeDancersByIds(ids);
+                }}
+                style={{
+                  ...btnSecondary,
+                  width: "100%",
+                  borderColor: "#7f1d1d",
+                  color: "#fecaca",
+                  padding: "5px 6px",
+                  fontSize: "10px",
+                  fontWeight: 600,
+                }}
+              >
+                削除
+              </button>
+            </div>
+            <div
+              style={{
+                fontSize: "9px",
+                fontWeight: 600,
+                color: "#94a3b8",
+                margin: "4px 0 2px",
+              }}
+            >
+              名前の表示（全体）
             </div>
             <div
               style={{
                 display: "flex",
-                gap: "6px",
-                marginBottom: "4px",
+                gap: "4px",
+                marginBottom: "3px",
               }}
-              title="ステージ上のすべての印に共通します。メニュー「ステージまわりの設定」でも同じ項目を変えられます。"
+              title="ステージ上のすべての印に共通。ステージまわりの設定でも変更可。"
             >
               <button
                 type="button"
@@ -5569,8 +5818,8 @@ export function StageBoard({
                 }}
                 style={{
                   flex: 1,
-                  padding: "6px 8px",
-                  borderRadius: "8px",
+                  padding: "4px 6px",
+                  borderRadius: "6px",
                   border:
                     (rawDancerLabelPosition ?? "inside") === "inside"
                       ? "1px solid rgba(99,102,241,0.9)"
@@ -5583,7 +5832,7 @@ export function StageBoard({
                     (rawDancerLabelPosition ?? "inside") === "inside"
                       ? "#e0e7ff"
                       : "#94a3b8",
-                  fontSize: "11px",
+                  fontSize: "10px",
                   fontWeight: 600,
                   cursor:
                     viewMode === "view" ||
@@ -5594,7 +5843,7 @@ export function StageBoard({
                       : "pointer",
                 }}
               >
-                丸の内に名前
+                丸の内
               </button>
               <button
                 type="button"
@@ -5609,8 +5858,8 @@ export function StageBoard({
                 }}
                 style={{
                   flex: 1,
-                  padding: "6px 8px",
-                  borderRadius: "8px",
+                  padding: "4px 6px",
+                  borderRadius: "6px",
                   border:
                     rawDancerLabelPosition === "below"
                       ? "1px solid rgba(99,102,241,0.9)"
@@ -5623,7 +5872,7 @@ export function StageBoard({
                     rawDancerLabelPosition === "below"
                       ? "#e0e7ff"
                       : "#94a3b8",
-                  fontSize: "11px",
+                  fontSize: "10px",
                   fontWeight: 600,
                   cursor:
                     viewMode === "view" ||
@@ -5634,35 +5883,35 @@ export function StageBoard({
                       : "pointer",
                 }}
               >
-                丸の下に名前
+                丸の下
               </button>
             </div>
             <div
               style={{
-                fontSize: "9px",
+                fontSize: "8px",
                 color: "#64748b",
-                marginBottom: "10px",
-                lineHeight: 1.35,
+                marginBottom: "5px",
+                lineHeight: 1.3,
               }}
             >
-              名前を丸の下にすると、丸の内は番号など（下の「丸の内の表示」）だけが印に出ます。
+              「丸の下」時は印には番号などのみ（下の「丸の内」で指定）。
             </div>
             <div
               style={{
-                fontSize: "10px",
+                fontSize: "9px",
                 fontWeight: 600,
                 color: "#94a3b8",
-                margin: "8px 0 4px",
+                margin: "2px 0 2px",
               }}
             >
-              印の色（上と同じ対象に一括）
+              印の色（選択に一括）
             </div>
             <div
               style={{
                 display: "flex",
                 flexWrap: "wrap",
-                gap: "5px",
-                marginBottom: "10px",
+                gap: "3px",
+                marginBottom: "5px",
               }}
             >
               {DANCER_PALETTE.map((hex, i) => (
@@ -5680,9 +5929,9 @@ export function StageBoard({
                     setStageContextMenu(null);
                   }}
                   style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: 6,
+                    width: 22,
+                    height: 22,
+                    borderRadius: 5,
                     border: "1px solid #1e293b",
                     background: hex,
                     cursor: "pointer",
@@ -5694,16 +5943,23 @@ export function StageBoard({
             </div>
             <div
               style={{
-                fontSize: "10px",
+                fontSize: "9px",
                 fontWeight: 600,
                 color: "#94a3b8",
-                margin: "8px 0 4px",
+                margin: "2px 0 2px",
               }}
             >
-              丸の内の表示（名前を丸の下にするとき）
+              丸の内（名前を丸の下のとき）
             </div>
             {dancerLabelBelow ? (
-              <>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr 1fr",
+                  gap: "3px",
+                  marginBottom: "5px",
+                }}
+              >
                 <button
                   type="button"
                   disabled={
@@ -5715,12 +5971,11 @@ export function StageBoard({
                   style={{
                     ...btnSecondary,
                     width: "100%",
-                    fontSize: "11px",
-                    padding: "5px 8px",
-                    marginBottom: "4px",
-                    textAlign: "left",
+                    fontSize: "9px",
+                    padding: "4px 4px",
+                    textAlign: "center",
                   }}
-                  title="選択した全員の丸の内を空にします（連番の自動表示もしません）"
+                  title="丸の内を空に（連番も出しません）"
                   onClick={() => {
                     if (stageContextMenu.kind !== "dancer") return;
                     const ids = resolveArrangeTargetIds(
@@ -5732,7 +5987,7 @@ export function StageBoard({
                     setStageContextMenu(null);
                   }}
                 >
-                  丸の内は空白
+                  空白
                 </button>
                 <button
                   type="button"
@@ -5745,12 +6000,11 @@ export function StageBoard({
                   style={{
                     ...btnSecondary,
                     width: "100%",
-                    fontSize: "11px",
-                    padding: "5px 8px",
-                    marginBottom: "4px",
-                    textAlign: "left",
+                    fontSize: "9px",
+                    padding: "4px 4px",
+                    textAlign: "center",
                   }}
-                  title="フォーメーション内の並び順で、開始番号から連番を丸の内に入れます"
+                  title="並び順で連番を丸の内に"
                   onClick={() => {
                     if (stageContextMenu.kind !== "dancer") return;
                     const ids = resolveArrangeTargetIds(
@@ -5758,7 +6012,7 @@ export function StageBoard({
                       selectedDancerIds
                     );
                     const raw = window.prompt(
-                      "連番の開始番号（整数）。選択した全員に、フォーメーション順で丸の内に入れます。",
+                      "連番の開始番号（整数）。フォーメーション順で丸の内に入れます。",
                       "1"
                     );
                     if (raw == null || raw.trim() === "") return;
@@ -5771,7 +6025,7 @@ export function StageBoard({
                     setStageContextMenu(null);
                   }}
                 >
-                  丸の内は連番…
+                  連番…
                 </button>
                 <button
                   type="button"
@@ -5784,12 +6038,11 @@ export function StageBoard({
                   style={{
                     ...btnSecondary,
                     width: "100%",
-                    fontSize: "11px",
-                    padding: "5px 8px",
-                    marginBottom: "10px",
-                    textAlign: "left",
+                    fontSize: "9px",
+                    padding: "4px 4px",
+                    textAlign: "center",
                   }}
-                  title="選択した全員の丸の内を同じ文字にします（最大3文字）"
+                  title="全員同じ文字（最大3文字）"
                   onClick={() => {
                     if (stageContextMenu.kind !== "dancer") return;
                     const ids = resolveArrangeTargetIds(
@@ -5797,7 +6050,7 @@ export function StageBoard({
                       selectedDancerIds
                     );
                     const raw = window.prompt(
-                      "全員の丸の内を同じ内容にします（最大3文字）。",
+                      "全員の丸の内を同じ内容に（最大3文字）。",
                       "1"
                     );
                     if (raw == null || raw.trim() === "") return;
@@ -5805,305 +6058,364 @@ export function StageBoard({
                     setStageContextMenu(null);
                   }}
                 >
-                  丸の内は全員同じ数字…
+                  同じ…
                 </button>
-              </>
+              </div>
             ) : (
               <div
                 style={{
-                  fontSize: "9px",
+                  fontSize: "8px",
                   color: "#64748b",
-                  marginBottom: "10px",
-                  lineHeight: 1.35,
+                  marginBottom: "5px",
+                  lineHeight: 1.3,
                 }}
               >
-                上で「丸の下に名前」を選ぶと、空白・連番・全員同じを選べます。
+                「丸の下」を選ぶと空白・連番・同じを指定できます。
               </div>
             )}
             <div
               style={{
-                fontSize: "10px",
+                fontSize: "9px",
                 fontWeight: 600,
                 color: "#94a3b8",
-                margin: "4px 0 2px",
+                margin: "3px 0 1px",
               }}
             >
-              いまの立ち位置のまま（印の形は変えず入れ替え）
+              位置のまま入替（2人以上）
+            </div>
+            <div
+              style={{
+                fontSize: "8px",
+                color: "#64748b",
+                marginBottom: "3px",
+                lineHeight: 1.25,
+              }}
+            >
+              印の形は変えず、身長・学年・スキル順に人だけ割当。
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "3px",
+                marginBottom: "5px",
+              }}
+            >
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  width: "100%",
+                  fontSize: "9px",
+                  padding: "4px 5px",
+                  textAlign: "center",
+                }}
+                title="身長の低い順で位置を割り当て"
+                onClick={() => applyPermuteArrange(permuteSlotsByHeightAsc)}
+              >
+                身長 低→高
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  width: "100%",
+                  fontSize: "9px",
+                  padding: "4px 5px",
+                  textAlign: "center",
+                }}
+                title="身長の高い順で位置を割り当て"
+                onClick={() => applyPermuteArrange(permuteSlotsByHeightDesc)}
+              >
+                身長 高→低
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  width: "100%",
+                  fontSize: "9px",
+                  padding: "4px 5px",
+                  textAlign: "center",
+                }}
+                title="学年が若い順で位置を割り当て"
+                onClick={() => applyPermuteArrange(permuteSlotsByGradeAsc)}
+              >
+                学年 低→高
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  width: "100%",
+                  fontSize: "9px",
+                  padding: "4px 5px",
+                  textAlign: "center",
+                }}
+                title="学年が高い順で位置を割り当て"
+                onClick={() => applyPermuteArrange(permuteSlotsByGradeDesc)}
+              >
+                学年 高→低
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  width: "100%",
+                  fontSize: "9px",
+                  padding: "4px 5px",
+                  textAlign: "center",
+                }}
+                title="スキル数字が小さい順で位置を割り当て"
+                onClick={() => applyPermuteArrange(permuteSlotsBySkillAsc)}
+              >
+                スキル 小→大
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  width: "100%",
+                  fontSize: "9px",
+                  padding: "4px 5px",
+                  textAlign: "center",
+                }}
+                title="スキル数字が大きい順で位置を割り当て"
+                onClick={() => applyPermuteArrange(permuteSlotsBySkillDesc)}
+              >
+                スキル 大→小
+              </button>
             </div>
             <div
               style={{
                 fontSize: "9px",
-                color: "#64748b",
-                marginBottom: "4px",
-                lineHeight: 1.35,
-              }}
-            >
-              左から・上（奥）からの順に空きを並べ、身長・学年・スキル順の人をその順に割り当てます（2人以上で有効）。
-            </div>
-            <button
-              type="button"
-              style={{
-                ...btnSecondary,
-                width: "100%",
-                fontSize: "11px",
-                padding: "5px 8px",
-                marginBottom: "4px",
-                textAlign: "left",
-              }}
-              onClick={() => applyPermuteArrange(permuteSlotsByHeightAsc)}
-            >
-              身長の低い順で位置を割り当て
-            </button>
-            <button
-              type="button"
-              style={{
-                ...btnSecondary,
-                width: "100%",
-                fontSize: "11px",
-                padding: "5px 8px",
-                marginBottom: "4px",
-                textAlign: "left",
-              }}
-              onClick={() => applyPermuteArrange(permuteSlotsByHeightDesc)}
-            >
-              身長の高い順で位置を割り当て
-            </button>
-            <button
-              type="button"
-              style={{
-                ...btnSecondary,
-                width: "100%",
-                fontSize: "11px",
-                padding: "5px 8px",
-                marginBottom: "4px",
-                textAlign: "left",
-              }}
-              onClick={() => applyPermuteArrange(permuteSlotsByGradeAsc)}
-            >
-              学年が若い順で位置を割り当て
-            </button>
-            <button
-              type="button"
-              style={{
-                ...btnSecondary,
-                width: "100%",
-                fontSize: "11px",
-                padding: "5px 8px",
-                marginBottom: "4px",
-                textAlign: "left",
-              }}
-              onClick={() => applyPermuteArrange(permuteSlotsByGradeDesc)}
-            >
-              学年が高い順で位置を割り当て
-            </button>
-            <button
-              type="button"
-              style={{
-                ...btnSecondary,
-                width: "100%",
-                fontSize: "11px",
-                padding: "5px 8px",
-                marginBottom: "4px",
-                textAlign: "left",
-              }}
-              onClick={() => applyPermuteArrange(permuteSlotsBySkillAsc)}
-            >
-              スキル数字が小さい順で位置を割り当て
-            </button>
-            <button
-              type="button"
-              style={{
-                ...btnSecondary,
-                width: "100%",
-                fontSize: "11px",
-                padding: "5px 8px",
-                marginBottom: "8px",
-                textAlign: "left",
-              }}
-              onClick={() => applyPermuteArrange(permuteSlotsBySkillDesc)}
-            >
-              スキル数字が大きい順で位置を割り当て
-            </button>
-            <div
-              style={{
-                fontSize: "10px",
                 fontWeight: 600,
                 color: "#94a3b8",
-                margin: "4px 0 2px",
+                margin: "2px 0 1px",
               }}
             >
               位置の入れ替え（2人以上）
             </div>
-            <button
-              type="button"
-              style={{
-                ...btnSecondary,
-                width: "100%",
-                fontSize: "11px",
-                padding: "5px 8px",
-                marginBottom: "4px",
-                textAlign: "left",
-              }}
-              onClick={() => {
-                const ids = resolveArrangeTargetIds(
-                  stageContextMenu.dancerId,
-                  selectedDancerIds
-                );
-                if (ids.length < 2) {
-                  window.alert("右回りの入れ替えは、対象を 2 人以上選んでください。");
-                  setStageContextMenu(null);
-                  return;
-                }
-                applyDancerArrange((dancers, t) =>
-                  rotateDancerRingOneStep(dancers, t, "cw")
-                );
-              }}
-            >
-              右回りに 1 人分ずつ入れ替え
-            </button>
-            <button
-              type="button"
-              style={{
-                ...btnSecondary,
-                width: "100%",
-                fontSize: "11px",
-                padding: "5px 8px",
-                marginBottom: "8px",
-                textAlign: "left",
-              }}
-              onClick={() => {
-                const ids = resolveArrangeTargetIds(
-                  stageContextMenu.dancerId,
-                  selectedDancerIds
-                );
-                if (ids.length < 2) {
-                  window.alert("左回りの入れ替えは、対象を 2 人以上選んでください。");
-                  setStageContextMenu(null);
-                  return;
-                }
-                applyDancerArrange((dancers, t) =>
-                  rotateDancerRingOneStep(dancers, t, "ccw")
-                );
-              }}
-            >
-              左回りに 1 人分ずつ入れ替え
-            </button>
             <div
               style={{
-                fontSize: "10px",
-                fontWeight: 600,
-                color: "#94a3b8",
-                margin: "4px 0 2px",
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "3px",
+                marginBottom: "5px",
               }}
             >
-              横一列（選択枠内の幅に収めます）
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  width: "100%",
+                  fontSize: "9px",
+                  padding: "4px 5px",
+                  textAlign: "center",
+                }}
+                onClick={() => {
+                  const ids = resolveArrangeTargetIds(
+                    stageContextMenu.dancerId,
+                    selectedDancerIds
+                  );
+                  if (ids.length < 2) {
+                    window.alert("右回りの入れ替えは、対象を 2 人以上選んでください。");
+                    setStageContextMenu(null);
+                    return;
+                  }
+                  applyDancerArrange((dancers, t) =>
+                    rotateDancerRingOneStep(dancers, t, "cw")
+                  );
+                }}
+              >
+                右回り 1 人
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  width: "100%",
+                  fontSize: "9px",
+                  padding: "4px 5px",
+                  textAlign: "center",
+                }}
+                onClick={() => {
+                  const ids = resolveArrangeTargetIds(
+                    stageContextMenu.dancerId,
+                    selectedDancerIds
+                  );
+                  if (ids.length < 2) {
+                    window.alert("左回りの入れ替えは、対象を 2 人以上選んでください。");
+                    setStageContextMenu(null);
+                    return;
+                  }
+                  applyDancerArrange((dancers, t) =>
+                    rotateDancerRingOneStep(dancers, t, "ccw")
+                  );
+                }}
+              >
+                左回り 1 人
+              </button>
+            </div>
+            <div
+              style={{
+                fontSize: "9px",
+                fontWeight: 600,
+                color: "#94a3b8",
+                margin: "2px 0 1px",
+              }}
+            >
+              横一列（選択枠内）
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "3px",
+                marginBottom: "5px",
+              }}
+            >
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  width: "100%",
+                  fontSize: "9px",
+                  padding: "4px 5px",
+                  textAlign: "center",
+                }}
+                onClick={() => applyDancerArrange(lineUpByHeightAsc)}
+              >
+                身長 低→高
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  width: "100%",
+                  fontSize: "9px",
+                  padding: "4px 5px",
+                  textAlign: "center",
+                }}
+                onClick={() => applyDancerArrange(lineUpByHeightDesc)}
+              >
+                身長 高→低
+              </button>
+            </div>
+            <div
+              style={{
+                fontSize: "9px",
+                fontWeight: 600,
+                color: "#94a3b8",
+                margin: "2px 0 1px",
+              }}
+            >
+              学年（横一列）
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "3px",
+                marginBottom: "5px",
+              }}
+            >
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  width: "100%",
+                  fontSize: "9px",
+                  padding: "4px 5px",
+                  textAlign: "center",
+                }}
+                title="学年が低い順（若い順）で並べる"
+                onClick={() => applyDancerArrange(lineUpByGradeAsc)}
+              >
+                低（若）→高
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  width: "100%",
+                  fontSize: "9px",
+                  padding: "4px 5px",
+                  textAlign: "center",
+                }}
+                onClick={() => applyDancerArrange(lineUpByGradeDesc)}
+              >
+                高→低
+              </button>
+            </div>
+            <div
+              style={{
+                fontSize: "9px",
+                fontWeight: 600,
+                color: "#94a3b8",
+                margin: "2px 0 1px",
+              }}
+            >
+              スキル縦一列（奥＝上・手前＝客席）
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "3px",
+                marginBottom: "2px",
+              }}
+            >
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  width: "100%",
+                  fontSize: "9px",
+                  padding: "4px 5px",
+                  textAlign: "center",
+                }}
+                title="スキル数字が小さい人を奥へ（縦一列）"
+                onClick={() => applyDancerArrange(lineUpBySkillSmallToBack)}
+              >
+                小→奥
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  width: "100%",
+                  fontSize: "9px",
+                  padding: "4px 5px",
+                  textAlign: "center",
+                }}
+                title="スキル数字が大きい人を奥へ（縦一列）"
+                onClick={() => applyDancerArrange(lineUpBySkillLargeToBack)}
+              >
+                大→奥
+              </button>
+            </div>
+          </>
+        ) : stageContextMenu.kind === "floorText" ? (
+          <>
+            <div
+              style={{
+                fontSize: "9px",
+                color: "#94a3b8",
+                marginBottom: "6px",
+                lineHeight: 1.35,
+              }}
+            >
+              床に置いたテキスト
             </div>
             <button
               type="button"
-              style={{
-                ...btnSecondary,
-                width: "100%",
-                fontSize: "11px",
-                padding: "5px 8px",
-                marginBottom: "4px",
-                textAlign: "left",
-              }}
-              onClick={() => applyDancerArrange(lineUpByHeightAsc)}
-            >
-              身長の低い順で並べる
-            </button>
-            <button
-              type="button"
-              style={{
-                ...btnSecondary,
-                width: "100%",
-                fontSize: "11px",
-                padding: "5px 8px",
-                marginBottom: "8px",
-                textAlign: "left",
-              }}
-              onClick={() => applyDancerArrange(lineUpByHeightDesc)}
-            >
-              身長の高い順で並べる
-            </button>
-            <div
-              style={{
-                fontSize: "10px",
-                fontWeight: 600,
-                color: "#94a3b8",
-                margin: "4px 0 2px",
-              }}
-            >
-              学年
-            </div>
-            <button
-              type="button"
-              style={{
-                ...btnSecondary,
-                width: "100%",
-                fontSize: "11px",
-                padding: "5px 8px",
-                marginBottom: "4px",
-                textAlign: "left",
-              }}
-              onClick={() => applyDancerArrange(lineUpByGradeAsc)}
-            >
-              学年が低い順（若い順）で並べる
-            </button>
-            <button
-              type="button"
-              style={{
-                ...btnSecondary,
-                width: "100%",
-                fontSize: "11px",
-                padding: "5px 8px",
-                marginBottom: "8px",
-                textAlign: "left",
-              }}
-              onClick={() => applyDancerArrange(lineUpByGradeDesc)}
-            >
-              学年が高い順で並べる
-            </button>
-            <div
-              style={{
-                fontSize: "10px",
-                fontWeight: 600,
-                color: "#94a3b8",
-                margin: "4px 0 2px",
-              }}
-            >
-              スキル（奥＝画面上側・手前＝客席側）
-            </div>
-            <button
-              type="button"
-              style={{
-                ...btnSecondary,
-                width: "100%",
-                fontSize: "11px",
-                padding: "5px 8px",
-                marginBottom: "4px",
-                textAlign: "left",
-              }}
-              onClick={() => applyDancerArrange(lineUpBySkillSmallToBack)}
-            >
-              スキル数字が小さい人を奥へ（縦一列）
-            </button>
-            <button
-              type="button"
-              style={{
-                ...btnSecondary,
-                width: "100%",
-                fontSize: "11px",
-                padding: "5px 8px",
-                marginBottom: "8px",
-                textAlign: "left",
-              }}
-              onClick={() => applyDancerArrange(lineUpBySkillLargeToBack)}
-            >
-              スキル数字が大きい人を奥へ（縦一列）
-            </button>
-            <button
-              type="button"
+              disabled={
+                viewMode === "view" ||
+                !setPiecesEditable ||
+                Boolean(playbackDancers) ||
+                Boolean(previewDancers)
+              }
               style={{
                 ...btnSecondary,
                 width: "100%",
@@ -6111,14 +6423,15 @@ export function StageBoard({
                 color: "#fecaca",
                 fontWeight: 600,
                 fontSize: "11px",
-                padding: "5px 8px",
-                marginTop: "4px",
+                padding: "6px 8px",
               }}
               onClick={() => {
-                removeDancerById(stageContextMenu.dancerId);
+                if (stageContextMenu.kind !== "floorText") return;
+                removeFloorMarkupById(stageContextMenu.markupId);
+                setStageContextMenu(null);
               }}
             >
-              削除
+              テキストを削除
             </button>
           </>
         ) : (

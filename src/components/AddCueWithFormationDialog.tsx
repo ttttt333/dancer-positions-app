@@ -9,7 +9,9 @@ import {
 import type { ChoreographyProjectJson, Cue, DancerSpot } from "../types/choreography";
 import {
   cloneFormationForNewCue,
+  DEFAULT_CUE_SPAN_WITH_AUDIO_SEC,
   MIN_CUE_DURATION_SEC,
+  PLACEHOLDER_TIMELINE_CAP_SEC,
   resolveCueIntervalNonOverlap,
   sortCuesByStart,
 } from "../lib/cueInterval";
@@ -303,7 +305,9 @@ export function AddCueWithFormationDialog({
 }: Props) {
   const { viewMode } = project;
   const trimLo = project.trimStartSec;
-  const trimHi = project.trimEndSec ?? durationSec ?? 0;
+  const timelineCap =
+    durationSec > 0 ? durationSec : PLACEHOLDER_TIMELINE_CAP_SEC;
+  const trimHi = project.trimEndSec ?? timelineCap;
 
   const initialCount = useMemo(() => {
     const f = project.formations.find((x) => x.id === project.activeFormationId);
@@ -552,12 +556,15 @@ export function AddCueWithFormationDialog({
         confirmedDancerCount: dancers.length,
       };
 
-      const d = durationSec || 1;
+      const d = durationSec > 0 ? durationSec : PLACEHOLDER_TIMELINE_CAP_SEC;
       const hi = p.trimEndSec ?? d;
       const lo = p.trimStartSec;
       let t0 = Math.round(t0Raw * 100) / 100;
       t0 = Math.max(lo, Math.min(hi - 0.02, t0));
-      let t1 = Math.min(hi, Math.round((t0 + 2) * 100) / 100);
+      let t1 = Math.min(
+        hi,
+        Math.round((t0 + DEFAULT_CUE_SPAN_WITH_AUDIO_SEC) * 100) / 100
+      );
       if (t1 <= t0) t1 = Math.round((t0 + 0.5) * 100) / 100;
       const resolved = resolveCueIntervalNonOverlap(p.cues, newCueId, t0, t1, lo, hi);
       t0 = resolved.tStartSec;

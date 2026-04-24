@@ -14,7 +14,10 @@ import type { CSSProperties, Dispatch, RefObject, SetStateAction } from "react";
 import type { ChoreographyProjectJson, Cue, DancerSpot } from "../types/choreography";
 import {
   cloneFormationForNewCue,
+  DEFAULT_CUE_SPAN_WITH_AUDIO_SEC,
+  expandShortCuesAfterAudioLoad,
   MIN_CUE_DURATION_SEC,
+  PLACEHOLDER_TIMELINE_CAP_SEC,
   resolveCueIntervalNonOverlap,
   sortCuesByStart,
 } from "../lib/cueInterval";
@@ -195,7 +198,7 @@ const WAVE_CANVAS_H_MAX = 280;
 /** 既定は従来の約半分（上部ドック内で波形が収まりやすい） */
 const WAVE_CANVAS_H_DEFAULT = 36;
 /** 上部ドック時はさらにコンパクト */
-const WAVE_CANVAS_H_COMPACT_DOCK = 28;
+const WAVE_CANVAS_H_COMPACT_DOCK = 44;
 
 /** 再生中の目盛り・波形ビュー窓の微振れを抑える（約 33ms グリッド） */
 function quantizePlayheadForWaveView(sec: number): number {
@@ -605,8 +608,11 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       formations,
     } = project;
 
-    const cuesRef = useRef<Cue[]>(cues);
-    cuesRef.current = cues;
+    /** ステージページャ・一覧番号・波形ヒットを常に同じ時間順（＋ id タイブレーク）に揃える */
+    const cuesSorted = useMemo(() => sortCuesByStart(cues), [cues]);
+
+    const cuesRef = useRef<Cue[]>(cuesSorted);
+    cuesRef.current = cuesSorted;
 
     const lastWaveDrawRangeRef = useRef({ viewStart: 0, viewSpan: 1 });
     const cueDragRef = useRef<{
@@ -957,7 +963,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       trimStartSec,
       trimEndSec,
       isPlaying,
-      cues,
+      cuesSorted,
       selectedCueIds,
       project.waveformAmplitudeScale,
       waveCanvasCssH,
@@ -985,7 +991,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       duration,
       trimStartSec,
       trimEndSec,
-      cues,
+      cuesSorted,
       selectedCueIds,
       project.waveformAmplitudeScale,
       waveCanvasCssH,
@@ -994,6 +1000,14 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
     useEffect(() => {
       setViewPortion(1);
     }, [peaks]);
+
+    /** 右列→上部ドックへ切り替えた直後など、波形高さが既定より小さいままだと帯が潰れて見えなくなるのを防ぐ */
+    useEffect(() => {
+      if (!compactTopDock) return;
+      setWaveCanvasCssH((h) =>
+        Math.min(WAVE_CANVAS_H_MAX, Math.max(h, WAVE_CANVAS_H_COMPACT_DOCK))
+      );
+    }, [compactTopDock]);
 
     useEffect(() => {
       const onKey = (e: KeyboardEvent) => {
@@ -1038,7 +1052,10 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       if (!a) return;
       const onMeta = () => {
         const dur = a.duration;
-        if (Number.isFinite(dur)) setDuration(dur);
+        if (Number.isFinite(dur) && dur > 0) {
+          setDuration(dur);
+          setProject((p) => expandShortCuesAfterAudioLoad(p, dur));
+        }
       };
       const onPlay = () => setIsPlaying(true);
       const onPause = () => setIsPlaying(false);
@@ -1050,7 +1067,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         a.removeEventListener("play", onPlay);
         a.removeEventListener("pause", onPause);
       };
-    }, [setDuration, setIsPlaying]);
+    }, [setDuration, setIsPlaying, setProject]);
 
     const tick = useCallback(() => {
       const a = audioRef.current;
@@ -1109,6 +1126,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       const durSec = audioBuf.duration;
       if (Number.isFinite(durSec) && durSec > 0) {
         setDuration(durSec);
+        setProject((p) => expandShortCuesAfterAudioLoad(p, durSec));
       }
       const ch = audioBuf.getChannelData(0);
       const len = 400;
@@ -1124,7 +1142,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       const max = Math.max(...out, 1e-6);
       setPeaks(out.map((x) => x / max));
       await ctx.close();
-    }, [setDuration]);
+    }, [setDuration, setProject]);
 
     useEffect(() => {
       const aid = project.audioAssetId;
@@ -1248,12 +1266,12 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       }
       if (viewSpan <= 0) return;
       const hitId =
-        peaks != null && cues.length > 0
+        peaks != null && cuesSorted.length > 0
           ? pickCueIdAtWave(
               e.clientX,
               e.clientY,
               c,
-              cues,
+              cuesSorted,
               viewStart,
               viewSpan,
               cueDragPreviewRangeRef.current
@@ -1294,7 +1312,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         e.clientX,
         e.clientY,
         c,
-        cues,
+        cuesSorted,
         viewStart,
         viewSpan,
         cueDragPreviewRangeRef.current
@@ -1468,12 +1486,18 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             p.formations[0];
           if (!sourceF) return p;
           const newFm = cloneFormationForNewCue(sourceF);
-          const d = durationRef.current || 1;
+          const d =
+            durationRef.current > 0
+              ? durationRef.current
+              : PLACEHOLDER_TIMELINE_CAP_SEC;
           const trimHi = p.trimEndSec ?? d;
           const trimLo = p.trimStartSec;
           let t0 = Math.round(t0Raw * 100) / 100;
           t0 = Math.max(trimLo, Math.min(trimHi - 0.02, t0));
-          let t1 = Math.min(trimHi, Math.round((t0 + 2) * 100) / 100);
+          let t1 = Math.min(
+            trimHi,
+            Math.round((t0 + DEFAULT_CUE_SPAN_WITH_AUDIO_SEC) * 100) / 100
+          );
           if (t1 <= t0) t1 = Math.round((t0 + 0.5) * 100) / 100;
           const resolved = resolveCueIntervalNonOverlap(
             p.cues,
@@ -1516,10 +1540,14 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           };
         });
         const a = audioRef.current;
+        const seekCap =
+          durationRef.current > 0
+            ? durationRef.current
+            : PLACEHOLDER_TIMELINE_CAP_SEC;
         if (a && Number.isFinite(appliedT)) {
           a.currentTime = Math.max(
             trimStartSec,
-            Math.min(trimEndSec ?? durationRef.current, appliedT)
+            Math.min(trimEndSec ?? seekCap, appliedT)
           );
         }
         setCurrentTime(appliedT);
@@ -1577,7 +1605,11 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           if (!cur) return p;
           const ns = patch.tStartSec ?? cur.tStartSec;
           const ne = patch.tEndSec ?? cur.tEndSec;
-          const trimHi = p.trimEndSec ?? durationRef.current;
+          const trimHi =
+            p.trimEndSec ??
+            (durationRef.current > 0
+              ? durationRef.current
+              : PLACEHOLDER_TIMELINE_CAP_SEC);
           const r = resolveCueIntervalNonOverlap(
             p.cues,
             id,
@@ -1608,7 +1640,10 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           const srcFm = p.formations.find((f) => f.id === source.formationId);
           if (!srcFm) return p;
           const newFm = cloneFormationForNewCue(srcFm);
-          const d = durationRef.current || 1;
+          const d =
+            durationRef.current > 0
+              ? durationRef.current
+              : PLACEHOLDER_TIMELINE_CAP_SEC;
           const trimHi = p.trimEndSec ?? d;
           const trimLo = p.trimStartSec;
           let t0 = Math.max(trimLo, Math.min(trimHi - 0.02, appliedT));
@@ -1641,10 +1676,14 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           };
         });
         const a = audioRef.current;
+        const cap =
+          durationRef.current > 0
+            ? durationRef.current
+            : PLACEHOLDER_TIMELINE_CAP_SEC;
         if (a && Number.isFinite(appliedT)) {
           a.currentTime = Math.max(
             project.trimStartSec,
-            Math.min(project.trimEndSec ?? durationRef.current, appliedT)
+            Math.min(project.trimEndSec ?? cap, appliedT)
           );
         }
         setCurrentTime(appliedT);
@@ -1676,7 +1715,10 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           const srcFm = p.formations.find((f) => f.id === source.formationId);
           if (!srcFm) return p;
           const newFm = cloneFormationForNewCue(srcFm);
-          const d = durationRef.current || 1;
+          const d =
+            durationRef.current > 0
+              ? durationRef.current
+              : PLACEHOLDER_TIMELINE_CAP_SEC;
           const trimHi = p.trimEndSec ?? d;
           const trimLo = p.trimStartSec;
           const dur = Math.max(0.02, source.tEndSec - source.tStartSec);
@@ -1717,7 +1759,11 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           };
         });
         const a = audioRef.current;
-        const trimHi = project.trimEndSec ?? durationRef.current;
+        const cap =
+          durationRef.current > 0
+            ? durationRef.current
+            : PLACEHOLDER_TIMELINE_CAP_SEC;
+        const trimHi = project.trimEndSec ?? cap;
         if (a && Number.isFinite(appliedT)) {
           a.currentTime = Math.max(
             project.trimStartSec,
@@ -1905,7 +1951,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         e.clientX,
         e.clientY,
         c,
-        cues,
+        cuesSorted,
         viewStart,
         viewSpan,
         null
@@ -1916,7 +1962,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         e.preventDefault();
         e.stopPropagation();
         waveHoverCueRef.current = null;
-        const cue = cues.find((x) => x.id === cueId);
+        const cue = cuesSorted.find((x) => x.id === cueId);
         if (!cue) return;
 
         onSelectedCueIdsChange([cueId]);
@@ -2014,7 +2060,11 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             const ns = preview.tStart;
             const ne = preview.tEnd;
             setProject((p) => {
-              const trimHi = p.trimEndSec ?? durationRef.current;
+              const trimHi =
+                p.trimEndSec ??
+                (durationRef.current > 0
+                  ? durationRef.current
+                  : PLACEHOLDER_TIMELINE_CAP_SEC);
               const r = resolveCueIntervalNonOverlap(
                 p.cues,
                 cid,
@@ -2140,7 +2190,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             }
           }
           if (te > ts && ts >= st.trimLo && te <= st.trimHi) {
-            if (cues.length >= 100 || formations.length === 0) {
+            if (cuesSorted.length >= 100 || formations.length === 0) {
               redraw();
               return;
             }
@@ -2182,10 +2232,14 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               };
             });
             const a = audioRef.current;
+            const seekCapEmpty =
+              durationRef.current > 0
+                ? durationRef.current
+                : PLACEHOLDER_TIMELINE_CAP_SEC;
             if (a && Number.isFinite(appliedT)) {
               a.currentTime = Math.max(
                 trimStartSec,
-                Math.min(trimEndSec ?? durationRef.current, appliedT)
+                Math.min(trimEndSec ?? seekCapEmpty, appliedT)
               );
             }
             setCurrentTime(appliedT);
@@ -2259,7 +2313,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         e.clientX,
         e.clientY,
         cnv,
-        cues,
+        cuesSorted,
         viewStart,
         viewSpan,
         cueDragPreviewRangeRef.current
@@ -2505,7 +2559,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                 fontWeight: 600,
               }}
               onClick={() => {
-                const cue = cues.find((c) => c.id === waveCueConfirm.cueId);
+                const cue = cuesSorted.find((c) => c.id === waveCueConfirm.cueId);
                 if (cue) {
                   if (waveCueConfirm.kind === "duplicate") {
                     duplicateCueAfterSource(cue);
@@ -2851,9 +2905,9 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                 <button
                   type="button"
                   style={{
-                    width: tlPx(48),
-                    height: tlPx(48),
-                    minWidth: tlPx(48),
+                    width: tlPx(40),
+                    height: tlPx(40),
+                    minWidth: tlPx(40),
                     padding: 0,
                     borderRadius: "50%",
                     border: "none",
@@ -2877,9 +2931,9 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                 <button
                   type="button"
                   style={{
-                    width: tlPx(48),
-                    height: tlPx(48),
-                    minWidth: tlPx(48),
+                    width: tlPx(40),
+                    height: tlPx(40),
+                    minWidth: tlPx(40),
                     padding: 0,
                     borderRadius: "50%",
                     border: "none",
@@ -2914,6 +2968,8 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             overflowY: "visible",
             background: "#020617",
             position: "relative",
+            /** 上部ドック内で兄弟 flex と競合して高さ 0 近くまで潰れ、波形が消えるのを防ぐ */
+            flexShrink: 0,
           }}
         >
           <div style={{ position: "relative", width: "100%" }}>
@@ -3034,7 +3090,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           }}
         >
           <ul style={{ listStyle: "none", margin: 0, padding: 0, flex: "1 1 auto", minHeight: 0 }}>
-            {sortCuesByStart(cues).map((c, sortedIdx) => {
+            {cuesSorted.map((c, sortedIdx) => {
                 const cueNum = sortedIdx + 1;
                 const fname =
                   formations.find((f) => f.id === c.formationId)?.name ?? "?";
