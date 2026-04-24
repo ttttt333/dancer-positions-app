@@ -62,10 +62,6 @@ import {
 /** ドラッグ中、この y% 以上で下端ゴミ箱 UI を出す（客席＝下が大きい y） */
 const TRASH_REVEAL_Y_PCT = 88;
 
-const FACING_DELTA_PRESETS = [
-  -90, -45, -30, -15, -5, 5, 15, 30, 45, 90,
-] as const;
-
 /** ヘッダ「テキスト」から床へ置く前のプレビュー（親が状態を持つ） */
 export type FloorTextPlaceSession = {
   body: string;
@@ -2635,8 +2631,8 @@ export function StageBoard({
     stageInteractionsEnabled &&
     !playbackOrPreview &&
     !previewDancers;
-  /** 選択中は名前表示の切替を常に出す。色バーは右クリック後のみ */
-  const reserveStageBulkToolbarHeight = selectedDancerIds.length >= 1;
+  /** 右クリック後の色一括バーがあるときだけ下余白を確保（名前・向きの帯はステージまわりの設定に集約） */
+  const reserveStageBulkToolbarHeight = showStageDancerColorToolbar;
 
   const tapStageToEditLayout =
     viewMode === "edit" &&
@@ -3062,81 +3058,6 @@ export function StageBoard({
       formationIdForWrites,
       setProject,
       dancerLabelBelow,
-      viewMode,
-      stageInteractionsEnabled,
-      playbackOrPreview,
-    ]
-  );
-
-  const applyBulkFacingDelta = useCallback(
-    (targetIds: string[], deltaDeg: number) => {
-      if (!formationIdForWrites || targetIds.length === 0) return;
-      if (
-        viewMode === "view" ||
-        !stageInteractionsEnabled ||
-        playbackOrPreview
-      )
-        return;
-      if (!Number.isFinite(deltaDeg)) return;
-      const idSet = new Set(targetIds);
-      setProject((p) => ({
-        ...p,
-        formations: p.formations.map((f) => {
-          if (f.id !== formationIdForWrites) return f;
-          return {
-            ...f,
-            dancers: f.dancers.map((d) => {
-              if (!idSet.has(d.id)) return d;
-              const cur =
-                typeof d.facingDeg === "number" && Number.isFinite(d.facingDeg)
-                  ? d.facingDeg
-                  : 0;
-              const next = normalizeDancerFacingDeg(cur + deltaDeg);
-              const { facingDeg: _fd, ...rest } = d;
-              return next === 0 ? rest : { ...rest, facingDeg: next };
-            }),
-          };
-        }),
-      }));
-    },
-    [
-      formationIdForWrites,
-      setProject,
-      viewMode,
-      stageInteractionsEnabled,
-      playbackOrPreview,
-    ]
-  );
-
-  const applyBulkFacingAbsolute = useCallback(
-    (targetIds: string[], deg: number) => {
-      if (!formationIdForWrites || targetIds.length === 0) return;
-      if (
-        viewMode === "view" ||
-        !stageInteractionsEnabled ||
-        playbackOrPreview
-      )
-        return;
-      const idSet = new Set(targetIds);
-      const next = normalizeDancerFacingDeg(deg);
-      setProject((p) => ({
-        ...p,
-        formations: p.formations.map((f) => {
-          if (f.id !== formationIdForWrites) return f;
-          return {
-            ...f,
-            dancers: f.dancers.map((d) => {
-              if (!idSet.has(d.id)) return d;
-              const { facingDeg: _fd, ...rest } = d;
-              return next === 0 ? rest : { ...rest, facingDeg: next };
-            }),
-          };
-        }),
-      }));
-    },
-    [
-      formationIdForWrites,
-      setProject,
       viewMode,
       stageInteractionsEnabled,
       playbackOrPreview,
@@ -5140,8 +5061,8 @@ export function StageBoard({
                               "⌘D / Ctrl+D で選択メンバーを複製",
                               "Alt+クリックで重なった印の背面へ切替（§10）",
                               facing !== 0
-                                ? `向き ${facing}°（下のツールで一括変更可）`
-                                : null,
+                                ? `向き ${facing}°（印の下の丸ハンドルをドラッグで変更）`
+                                : "印の下の丸いハンドルで向きを変更",
                             ]
                               .filter(Boolean)
                               .join(" · ")
@@ -5618,203 +5539,23 @@ export function StageBoard({
               flexShrink: 0,
               width: "100%",
               maxWidth: "min(100%, 440px)",
-              /** 未選択時は高さを取らずステージを広く。色バー／単体の向きバーがあるときだけ確保 */
-              minHeight: reserveStageBulkToolbarHeight ? 132 : 0,
+              /** 未選択時は高さを取らずステージを広く。色一括バーがあるときだけ確保 */
+              minHeight: reserveStageBulkToolbarHeight ? 88 : 0,
               display: "flex",
               flexDirection: "column",
               justifyContent: "flex-end",
             }}
           >
-            {selectedDancerIds.length >= 1 ? (
-            <div
-              style={{
-                flexShrink: 0,
-                display: "flex",
-                flexDirection: "column",
-                gap: "8px",
-                width: "100%",
-              }}
-            >
+            {selectedDancerIds.length >= 1 && showStageDancerColorToolbar ? (
               <div
                 role="toolbar"
-                aria-label="立ち位置の名前を○の中か下に表示するか"
+                aria-label="選択した立ち位置の色を一括変更"
                 style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "6px",
-                  width: "100%",
-                  padding: "8px 10px",
-                  borderRadius: "10px",
-                  border: "1px solid #334155",
-                  background: "rgba(15, 23, 42, 0.96)",
-                  boxSizing: "border-box",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    color: "#94a3b8",
-                    width: "100%",
-                  }}
-                >
-                  名前の表示（全体の見え方）
-                </span>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "6px",
-                    width: "100%",
-                  }}
-                  title="プロジェクト全体の表示。印の中は名前か番号（○の下モード時）。"
-                >
-                  <button
-                    type="button"
-                    disabled={
-                      viewMode === "view" ||
-                      !stageInteractionsEnabled ||
-                      Boolean(playbackDancers) ||
-                      Boolean(previewDancers)
-                    }
-                    onClick={() =>
-                      setProject((p) => ({ ...p, dancerLabelPosition: "inside" }))
-                    }
-                    style={{
-                      flex: 1,
-                      padding: "6px 8px",
-                      borderRadius: "8px",
-                      border:
-                        (rawDancerLabelPosition ?? "inside") === "inside"
-                          ? "1px solid rgba(99,102,241,0.9)"
-                          : "1px solid #334155",
-                      background:
-                        (rawDancerLabelPosition ?? "inside") === "inside"
-                          ? "rgba(99,102,241,0.22)"
-                          : "#020617",
-                      color:
-                        (rawDancerLabelPosition ?? "inside") === "inside"
-                          ? "#e0e7ff"
-                          : "#94a3b8",
-                      fontSize: "11px",
-                      fontWeight: 600,
-                      cursor:
-                        viewMode === "view" ||
-                        !stageInteractionsEnabled ||
-                        playbackDancers ||
-                        previewDancers
-                          ? "not-allowed"
-                          : "pointer",
-                    }}
-                  >
-                    ○の中に名前
-                  </button>
-                  <button
-                    type="button"
-                    disabled={
-                      viewMode === "view" ||
-                      !stageInteractionsEnabled ||
-                      Boolean(playbackDancers) ||
-                      Boolean(previewDancers)
-                    }
-                    onClick={() =>
-                      setProject((p) => ({ ...p, dancerLabelPosition: "below" }))
-                    }
-                    style={{
-                      flex: 1,
-                      padding: "6px 8px",
-                      borderRadius: "8px",
-                      border:
-                        rawDancerLabelPosition === "below"
-                          ? "1px solid rgba(99,102,241,0.9)"
-                          : "1px solid #334155",
-                      background:
-                        rawDancerLabelPosition === "below"
-                          ? "rgba(99,102,241,0.22)"
-                          : "#020617",
-                      color:
-                        rawDancerLabelPosition === "below"
-                          ? "#e0e7ff"
-                          : "#94a3b8",
-                      fontSize: "11px",
-                      fontWeight: 600,
-                      cursor:
-                        viewMode === "view" ||
-                        !stageInteractionsEnabled ||
-                        playbackDancers ||
-                        previewDancers
-                          ? "not-allowed"
-                          : "pointer",
-                    }}
-                  >
-                    ○の下に名前
-                  </button>
-                </div>
-              </div>
-              {showStageDancerColorToolbar ? (
-                <div
-                  role="toolbar"
-                  aria-label="選択した立ち位置の色を一括変更"
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    alignItems: "center",
-                    gap: "8px",
-                    width: "100%",
-                    padding: "8px 10px",
-                    borderRadius: "10px",
-                    border: "1px solid #334155",
-                    background: "rgba(15, 23, 42, 0.96)",
-                    boxSizing: "border-box",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "11px",
-                      fontWeight: 600,
-                      color: "#94a3b8",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    選択中 {selectedDancerIds.length} 人の色
-                  </span>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
-                    {DANCER_PALETTE.map((hex, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        title={`色を一括で ${i + 1} に変更`}
-                        onClick={() =>
-                          applyBulkColorToDancerIds(selectedDancerIds, i)
-                        }
-                        style={{
-                          width: 26,
-                          height: 26,
-                          borderRadius: 6,
-                          border:
-                            primarySelectedDancer &&
-                            modDancerColorIndex(primarySelectedDancer.colorIndex) ===
-                            i
-                              ? "2px solid #fbbf24"
-                              : "1px solid #1e293b",
-                          background: hex,
-                          cursor: "pointer",
-                          padding: 0,
-                          boxSizing: "border-box",
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-              {selectedDancerIds.length < 2 ? (
-              <div
-                role="toolbar"
-                aria-label="選択した立ち位置の印の向き"
-                style={{
+                  flexShrink: 0,
                   display: "flex",
                   flexWrap: "wrap",
                   alignItems: "center",
-                  gap: "6px",
+                  gap: "8px",
                   width: "100%",
                   padding: "8px 10px",
                   borderRadius: "10px",
@@ -5828,76 +5569,39 @@ export function StageBoard({
                     fontSize: "11px",
                     fontWeight: 600,
                     color: "#94a3b8",
-                    width: "100%",
+                    whiteSpace: "nowrap",
                   }}
                 >
-                  選択中の向き（印・名前を 0〜359° まわす）
+                  選択中 {selectedDancerIds.length} 人の色
                 </span>
-                {FACING_DELTA_PRESETS.map((deg) => (
-                  <button
-                    key={deg}
-                    type="button"
-                    title={
-                      deg < 0
-                        ? `選択全員の向きを反時計回りに ${-deg}°`
-                        : `選択全員の向きを時計回りに ${deg}°`
-                    }
-                    onClick={() =>
-                      applyBulkFacingDelta(selectedDancerIds, deg)
-                    }
-                    style={{
-                      ...btnSecondary,
-                      padding: "4px 8px",
-                      fontSize: "11px",
-                      fontWeight: 600,
-                    }}
-                  >
-                    {deg > 0 ? `+${deg}` : `${deg}`}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  title="選択全員の向きを 0° に戻す"
-                  onClick={() =>
-                    applyBulkFacingAbsolute(selectedDancerIds, 0)
-                  }
-                  style={{
-                    ...btnSecondary,
-                    padding: "4px 10px",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                  }}
-                >
-                  0°
-                </button>
-                <button
-                  type="button"
-                  title="選択全員を同じ絶対角度にする（0〜359）"
-                  onClick={() => {
-                    const raw = window.prompt(
-                      "向きの角度（0〜359 の整数）。選択した全員を同じ絶対角度にします。",
-                      "0"
-                    );
-                    if (raw == null || raw.trim() === "") return;
-                    const v = Number.parseInt(raw.trim(), 10);
-                    if (!Number.isFinite(v)) {
-                      window.alert("整数として読めませんでした。");
-                      return;
-                    }
-                    applyBulkFacingAbsolute(selectedDancerIds, v);
-                  }}
-                  style={{
-                    ...btnSecondary,
-                    padding: "4px 10px",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                  }}
-                >
-                  角度を指定…
-                </button>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
+                  {DANCER_PALETTE.map((hex, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      title={`色を一括で ${i + 1} に変更`}
+                      onClick={() =>
+                        applyBulkColorToDancerIds(selectedDancerIds, i)
+                      }
+                      style={{
+                        width: 26,
+                        height: 26,
+                        borderRadius: 6,
+                        border:
+                          primarySelectedDancer &&
+                          modDancerColorIndex(primarySelectedDancer.colorIndex) ===
+                          i
+                            ? "2px solid #fbbf24"
+                            : "1px solid #1e293b",
+                        background: hex,
+                        cursor: "pointer",
+                        padding: 0,
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  ))}
+                </div>
               </div>
-              ) : null}
-            </div>
             ) : null}
           </div>
         ) : null}
@@ -5994,98 +5698,6 @@ export function StageBoard({
                   }}
                 />
               ))}
-            </div>
-            <div
-              style={{
-                fontSize: "10px",
-                fontWeight: 600,
-                color: "#94a3b8",
-                margin: "8px 0 4px",
-              }}
-            >
-              印の向き（0〜359°・相対・一括）
-            </div>
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "4px",
-                marginBottom: "10px",
-              }}
-            >
-              {FACING_DELTA_PRESETS.map((deg) => (
-                <button
-                  key={`cm-facing-${deg}`}
-                  type="button"
-                  style={{
-                    ...btnSecondary,
-                    padding: "3px 6px",
-                    fontSize: "10px",
-                    fontWeight: 600,
-                  }}
-                  onClick={() => {
-                    if (stageContextMenu.kind !== "dancer") return;
-                    const ids = resolveArrangeTargetIds(
-                      stageContextMenu.dancerId,
-                      selectedDancerIds
-                    );
-                    applyBulkFacingDelta(ids, deg);
-                    setStageContextMenu(null);
-                  }}
-                >
-                  {deg > 0 ? `+${deg}` : `${deg}`}
-                </button>
-              ))}
-              <button
-                type="button"
-                style={{
-                  ...btnSecondary,
-                  padding: "3px 8px",
-                  fontSize: "10px",
-                  fontWeight: 600,
-                }}
-                onClick={() => {
-                  if (stageContextMenu.kind !== "dancer") return;
-                  const ids = resolveArrangeTargetIds(
-                    stageContextMenu.dancerId,
-                    selectedDancerIds
-                  );
-                  applyBulkFacingAbsolute(ids, 0);
-                  setStageContextMenu(null);
-                }}
-              >
-                0°
-              </button>
-              <button
-                type="button"
-                style={{
-                  ...btnSecondary,
-                  padding: "3px 8px",
-                  fontSize: "10px",
-                  fontWeight: 600,
-                }}
-                onClick={() => {
-                  if (stageContextMenu.kind !== "dancer") return;
-                  const ids = resolveArrangeTargetIds(
-                    stageContextMenu.dancerId,
-                    selectedDancerIds
-                  );
-                  const raw = window.prompt(
-                    "向き（0〜359 の整数）。選択全員を同じ絶対角度にします。",
-                    "0"
-                  );
-                  if (raw == null || raw.trim() === "") return;
-                  const v = Number.parseInt(raw.trim(), 10);
-                  if (!Number.isFinite(v)) {
-                    window.alert("整数として読めませんでした。");
-                    return;
-                  }
-                  applyBulkFacingAbsolute(ids, v);
-                  setStageContextMenu(null);
-                }}
-              >
-                指定…
-              </button>
             </div>
             {dancerLabelBelow ? (
               <>
@@ -6510,12 +6122,6 @@ export function StageBoard({
       viewMode={viewMode}
       onClose={() => setDancerQuickEditId(null)}
       onApply={applyDancerQuickEdit}
-      dancerLabelPosition={
-        rawDancerLabelPosition === "below" ? "below" : "inside"
-      }
-      onDancerLabelPositionChange={(v) =>
-        setProject((p) => ({ ...p, dancerLabelPosition: v }))
-      }
     />
     </>
   );

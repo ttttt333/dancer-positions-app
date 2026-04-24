@@ -175,8 +175,6 @@ export function EditorPage() {
   const [rightPaneCollapsed, setRightPaneCollapsed] = useState(false);
   const timelineRef = useRef<TimelinePanelHandle>(null);
   const [stageSettingsOpen, setStageSettingsOpen] = useState(false);
-  /** 保存メニュー（流れ / 立ち位置） */
-  const [saveMenuOpen, setSaveMenuOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   /** ステージ列ヘッダの「設定」：舞台・グリッド・名前・共有・ヒントを集約 */
   const [stageAreaSettingsOpen, setStageAreaSettingsOpen] = useState(false);
@@ -213,9 +211,6 @@ export function EditorPage() {
   );
   const editorPaneRef = useRef<HTMLDivElement>(null);
   const stageSectionRef = useRef<HTMLElement>(null);
-  /** 2D/3D ステージ床の表示領域（全画面 API の対象） */
-  const stageBoardHostRef = useRef<HTMLDivElement>(null);
-  const [stageBoardFullscreen, setStageBoardFullscreen] = useState(false);
   /** ステージ床テキスト：ヘッダから入力→プレビュー→完了で設置 */
   const [floorTextPlaceSession, setFloorTextPlaceSession] =
     useState<FloorTextPlaceSession | null>(null);
@@ -394,34 +389,6 @@ export function EditorPage() {
       setTopDockRowPx(null);
     }
   }, [wideEditorLayout]);
-
-  useEffect(() => {
-    const syncFs = () => {
-      const el = stageBoardHostRef.current;
-      if (!el) {
-        setStageBoardFullscreen(false);
-        return;
-      }
-      const doc = document as Document & {
-        webkitFullscreenElement?: Element | null;
-      };
-      const fs =
-        document.fullscreenElement === el || doc.webkitFullscreenElement === el;
-      setStageBoardFullscreen(Boolean(fs));
-    };
-    document.addEventListener("fullscreenchange", syncFs);
-    document.addEventListener(
-      "webkitfullscreenchange",
-      syncFs as EventListener
-    );
-    return () => {
-      document.removeEventListener("fullscreenchange", syncFs);
-      document.removeEventListener(
-        "webkitfullscreenchange",
-        syncFs as EventListener
-      );
-    };
-  }, []);
 
   useEffect(() => {
     if (!wideEditorLayout) {
@@ -675,32 +642,6 @@ export function EditorPage() {
     };
   }, []);
 
-  const toggleStageBoardFullscreen = useCallback(() => {
-    const el = stageBoardHostRef.current;
-    if (!el) return;
-    const doc = document as Document & {
-      fullscreenElement?: Element | null;
-      webkitFullscreenElement?: Element | null;
-      exitFullscreen?: () => Promise<void>;
-      webkitExitFullscreen?: () => Promise<void>;
-    };
-    const isFs =
-      doc.fullscreenElement === el || doc.webkitFullscreenElement === el;
-    if (isFs) {
-      if (typeof doc.exitFullscreen === "function") void doc.exitFullscreen();
-      else if (typeof doc.webkitExitFullscreen === "function")
-        void doc.webkitExitFullscreen();
-      return;
-    }
-    const anyEl = el as HTMLElement & {
-      requestFullscreen?: () => Promise<void>;
-      webkitRequestFullscreen?: () => void;
-    };
-    if (typeof anyEl.requestFullscreen === "function") void anyEl.requestFullscreen();
-    else if (typeof anyEl.webkitRequestFullscreen === "function")
-      anyEl.webkitRequestFullscreen();
-  }, []);
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (
@@ -712,10 +653,6 @@ export function EditorPage() {
       }
       if (e.key === "Escape" && cloudSaveDialogOpen) {
         setCloudSaveDialogOpen(false);
-        return;
-      }
-      if (e.key === "Escape" && saveMenuOpen) {
-        setSaveMenuOpen(false);
         return;
       }
       if (e.key === "Escape" && stageAreaSettingsOpen) {
@@ -764,7 +701,6 @@ export function EditorPage() {
     redo,
     undo,
     cloudSaveDialogOpen,
-    saveMenuOpen,
     stageAreaSettingsOpen,
     stageSettingsOpen,
     shortcutsHelpOpen,
@@ -1022,26 +958,6 @@ export function EditorPage() {
     selectedCue,
     setProjectSafe,
   ]);
-
-  /**
-   * いまの立ち位置・床テキスト・フォーメーションメモは作品データにそのまま含まれる。
-   * ここでは横幅・客席・変形舞台などの「舞台設定」だけをこのページ用に明示保存する。
-   */
-  const saveCurrentPageStageSnapshot = useCallback(() => {
-    if (!project || project.viewMode === "view") return;
-    if (project.cues.length > 0 && !selectedCueId) return;
-    const fid = selectedCue?.formationId ?? project.activeFormationId;
-    if (!fid) return;
-    setProjectSafe((p) => {
-      const snap = captureStageSnapshot(p);
-      return {
-        ...p,
-        formations: p.formations.map((f) =>
-          f.id === fid ? { ...f, stageSnapshot: snap } : f
-        ),
-      };
-    });
-  }, [project, selectedCue, selectedCueId, setProjectSafe]);
 
   useEffect(() => {
     if (stageView === "3d") setFloorTextPlaceSession(null);
@@ -1347,25 +1263,17 @@ export function EditorPage() {
     selectedCue: selectedCue ?? null,
     stageAreaSettingsOpen,
     setStageAreaSettingsOpen,
-    rightPaneCollapsed,
-    setRightPaneCollapsed,
-    wideEditorLayout,
     stageUndoDisabled,
     stageRedoDisabled,
     undo,
     redo,
     setAddCueDialogOpen,
-    saveMenuOpen,
-    setSaveMenuOpen,
-    saveCurrentPageStageSnapshot,
     saveStageToFormationBox,
     setFlowLibraryOpen,
     addDancerFromStageToolbar,
     importCrewCsvFromStageToolbar,
     stageView,
     setStageView,
-    stageBoardFullscreen,
-    toggleStageBoardFullscreen,
     floorTextPlaceSession,
     setFloorTextPlaceSession,
     commitFloorTextPlace,
@@ -1825,19 +1733,12 @@ export function EditorPage() {
                 </div>
               </div>
               <div
-                ref={stageBoardHostRef}
                 style={{
                   flex: 1,
                   minHeight: 0,
                   minWidth: 0,
                   display: "flex",
                   flexDirection: "column",
-                  ...(stageBoardFullscreen
-                    ? {
-                        background: shell.bgDeep,
-                        borderRadius: 8,
-                      }
-                    : {}),
                 }}
               >
                 {stageView === "2d" ? (
@@ -1932,13 +1833,30 @@ export function EditorPage() {
               overflow: "hidden",
             }}
           >
+            {rosterOnlyMode ? (
+              <div
+                style={{
+                  flex: "1 1 auto",
+                  minHeight: 0,
+                  minWidth: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  overflow: "hidden",
+                }}
+              >
+                <RosterTimelineStrip
+                  project={project}
+                  setProject={setProjectSafe}
+                />
+              </div>
+            ) : null}
             <section
               className="editor-right-tools-section"
               style={{
                 ...panelCard,
                 padding: "6px 5px",
-                flex: "1 1 auto",
-                minHeight: 0,
+                flex: rosterOnlyMode ? "0 0 auto" : "1 1 auto",
+                minHeight: rosterOnlyMode ? undefined : 0,
                 minWidth: 0,
                 display: "flex",
                 flexDirection: "column",
@@ -1955,9 +1873,6 @@ export function EditorPage() {
                 </div>
               </div>
             </section>
-            {rosterOnlyMode ? (
-              <RosterTimelineStrip project={project} setProject={setProjectSafe} />
-            ) : null}
           </div>
         ) : (
           <div
@@ -1974,18 +1889,34 @@ export function EditorPage() {
                 : {}),
             }}
           >
+            {rosterOnlyMode ? (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  overflow: "hidden",
+                  flex: "1 1 auto",
+                  minHeight: 0,
+                  ...rightPaneTopSectionStyle,
+                }}
+              >
+                <RosterTimelineStrip
+                  project={project}
+                  setProject={setProjectSafe}
+                />
+              </div>
+            ) : null}
             {workbenchInRightRail ? (
               <section
                 className="editor-right-tools-section"
                 style={{
                   ...panelCard,
                   padding: "6px 5px",
-                  flex: rosterOnlyMode ? "1 1 auto" : "0 0 auto",
-                  minHeight: rosterOnlyMode ? 0 : undefined,
+                  flex: "0 0 auto",
                   minWidth: 0,
                   display: "flex",
                   flexDirection: "column",
-                  overflow: rosterOnlyMode ? "auto" : "hidden",
+                  overflow: "hidden",
                   marginBottom: rosterOnlyMode ? 0 : 8,
                 }}
               >
@@ -1999,21 +1930,6 @@ export function EditorPage() {
                   </div>
                 </div>
               </section>
-            ) : null}
-            {rosterOnlyMode ? (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden",
-                  ...rightPaneTopSectionStyle,
-                }}
-              >
-                <RosterTimelineStrip
-                  project={project}
-                  setProject={setProjectSafe}
-                />
-              </div>
             ) : null}
             {!rosterOnlyMode ? (
             <section
@@ -2690,7 +2606,7 @@ export function EditorPage() {
               </div>
               <div
                 style={{ display: "flex", gap: "8px" }}
-                title="○の下では印の中は番号。連番は右クリックメニューや各メンバー編集で変更できます。"
+                title="○の下では印の中は番号。連番は右クリックメニューやメンバー編集で変更。名前の○の中／下の切替はこのパネルだけです。"
               >
                 <button
                   type="button"
@@ -2939,11 +2855,6 @@ export function EditorPage() {
                 <strong style={{ color: "#e2e8f0" }}>Alt+矢印</strong>{" "}
                 で選択ダンサーを微移動（<strong style={{ color: "#e2e8f0" }}>Shift+Alt</strong>{" "}
                 でさらに細かく）
-              </li>
-              <li>
-                ステージ見出しの <strong style={{ color: "#e2e8f0" }}>全画面</strong>{" "}
-                で床表示だけをブラウザ全画面に（<strong style={{ color: "#e2e8f0" }}>Esc</strong>{" "}
-                または「全画面終了」で戻る）
               </li>
               <li>
                 <strong style={{ color: "#e2e8f0" }}>再生中にステージ</strong>{" "}

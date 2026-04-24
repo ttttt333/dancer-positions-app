@@ -274,25 +274,17 @@ export type EditorStageWorkbenchProps = {
   selectedCue: Cue | null;
   stageAreaSettingsOpen: boolean;
   setStageAreaSettingsOpen: Dispatch<SetStateAction<boolean>>;
-  rightPaneCollapsed: boolean;
-  setRightPaneCollapsed: Dispatch<SetStateAction<boolean>>;
-  wideEditorLayout: boolean;
   stageUndoDisabled: boolean;
   stageRedoDisabled: boolean;
   undo: () => void;
   redo: () => void;
   setAddCueDialogOpen: Dispatch<SetStateAction<boolean>>;
-  saveMenuOpen: boolean;
-  setSaveMenuOpen: Dispatch<SetStateAction<boolean>>;
-  saveCurrentPageStageSnapshot: () => void;
   saveStageToFormationBox: () => void;
   setFlowLibraryOpen: Dispatch<SetStateAction<boolean>>;
   addDancerFromStageToolbar: () => void;
   importCrewCsvFromStageToolbar: () => void;
   stageView: "2d" | "3d";
   setStageView: Dispatch<SetStateAction<"2d" | "3d">>;
-  stageBoardFullscreen: boolean;
-  toggleStageBoardFullscreen: () => void;
   floorTextPlaceSession: FloorTextPlaceSession | null;
   setFloorTextPlaceSession: Dispatch<SetStateAction<FloorTextPlaceSession | null>>;
   commitFloorTextPlace: () => void;
@@ -320,25 +312,17 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
     selectedCue,
     stageAreaSettingsOpen,
     setStageAreaSettingsOpen,
-    rightPaneCollapsed,
-    setRightPaneCollapsed,
-    wideEditorLayout,
     stageUndoDisabled,
     stageRedoDisabled,
     undo,
     redo,
     setAddCueDialogOpen,
-    saveMenuOpen,
-    setSaveMenuOpen,
-    saveCurrentPageStageSnapshot,
     saveStageToFormationBox,
     setFlowLibraryOpen,
     addDancerFromStageToolbar,
     importCrewCsvFromStageToolbar,
     stageView,
     setStageView,
-    stageBoardFullscreen,
-    toggleStageBoardFullscreen,
     floorTextPlaceSession,
     setFloorTextPlaceSession,
     commitFloorTextPlace,
@@ -648,28 +632,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
         </div>
 
         <div className="editor-right-tools-col-rest">
-          {wideEditorLayout ? (
-            <button
-              type="button"
-              className="editor-right-tool-sq"
-              style={btnSecondary}
-              onClick={() => setRightPaneCollapsed((v) => !v)}
-              aria-pressed={rightPaneCollapsed}
-              aria-label={
-                rightPaneCollapsed
-                  ? "右列（キュー一覧・タイムライン）を表示"
-                  : "右列を隠してステージを最大化"
-              }
-              title={
-                rightPaneCollapsed
-                  ? "右列（キュー一覧・タイムライン）を表示"
-                  : "右列を隠してステージを最大化"
-              }
-            >
-              <span>{rightPaneCollapsed ? "右列" : "拡大"}</span>
-              <span>{rightPaneCollapsed ? "表示" : "›"}</span>
-            </button>
-          ) : null}
           {!hideUndoRedoInRail ? (
             <>
               <button
@@ -696,125 +658,8 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               </button>
             </>
           ) : null}
-          <div className="editor-right-tools-save-wrap">
-            <button
-              type="button"
-              className="editor-right-tool-sq"
-              style={{
-                ...btnSecondary,
-                borderColor: "#1e3a8a",
-                color: "#bfdbfe",
-              }}
-              title="このページの舞台設定を保存"
-              aria-haspopup="menu"
-              aria-expanded={saveMenuOpen}
-              onClick={() => setSaveMenuOpen((v) => !v)}
-            >
-              <span>その他</span>
-              <span>保存</span>
-            </button>
-            {saveMenuOpen ? (
-              <>
-                <div
-                  onClick={() => setSaveMenuOpen(false)}
-                  style={{
-                    position: "fixed",
-                    inset: 0,
-                    zIndex: 30,
-                  }}
-                  aria-hidden
-                />
-                <div
-                  role="menu"
-                  aria-label="保存の種類"
-                  style={{
-                    position: "absolute",
-                    top: "calc(100% + 4px)",
-                    left: "50%",
-                    right: "auto",
-                    transform: "translateX(-50%)",
-                    zIndex: 31,
-                    minWidth: "240px",
-                    padding: "6px",
-                    background: "#0b1220",
-                    border: "1px solid #334155",
-                    borderRadius: "8px",
-                    boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
-                  }}
-                >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    disabled={
-                      project.viewMode === "view" ||
-                      (project.cues.length > 0 && !selectedCueId)
-                    }
-                    onClick={() => {
-                      setSaveMenuOpen(false);
-                      saveCurrentPageStageSnapshot();
-                    }}
-                    style={{
-                      display: "block",
-                      width: "100%",
-                      textAlign: "left",
-                      padding: "8px 10px",
-                      borderRadius: "6px",
-                      border: "1px solid #334155",
-                      background: "#0f172a",
-                      color: "#e2e8f0",
-                      fontSize: "12px",
-                      cursor:
-                        project.viewMode === "view" ||
-                        (project.cues.length > 0 && !selectedCueId)
-                          ? "not-allowed"
-                          : "pointer",
-                    }}
-                  >
-                    <span style={{ fontWeight: 600 }}>
-                      このページの舞台設定を保存
-                    </span>
-                  </button>
-                </div>
-              </>
-            ) : null}
-          </div>
-          <div className="editor-right-tools-view-mode-grid">
-            <button
-              type="button"
-              className="editor-right-tool-sq"
-              style={{
-                ...btnSecondary,
-                ...(stageBoardFullscreen
-                  ? {
-                      borderColor: "rgba(34,197,94,0.75)",
-                      color: "#bbf7d0",
-                    }
-                  : {}),
-              }}
-              disabled={project.viewMode === "view"}
-              title={
-                stageBoardFullscreen
-                  ? "全画面を終了（Esc でも終了できます）"
-                  : "ステージの表示エリアだけをブラウザ全画面にします（2D / 3D どちらでも可）"
-              }
-              onClick={() => {
-                if (project.viewMode === "view") return;
-                void toggleStageBoardFullscreen();
-              }}
-            >
-              {stageBoardFullscreen ? (
-                <>
-                  <span>全画面</span>
-                  <span>終了</span>
-                </>
-              ) : (
-                <>
-                  <span>全</span>
-                  <span>画面</span>
-                </>
-              )}
-            </button>
-            {hasRosterMembers ? (
+          {hasRosterMembers ? (
+            <div className="editor-right-tools-view-mode-grid">
               <button
                 type="button"
                 className="editor-right-tool-sq"
@@ -839,8 +684,8 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                 <span>メンバー</span>
                 <span>表示</span>
               </button>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
           {choreo ? (
             <ChoreoGridToolbar
               embedInPanel
@@ -1002,83 +847,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
     >
       舞台設定
     </button>
-    {wideEditorLayout ? (
-      <button
-        type="button"
-        onClick={() => setRightPaneCollapsed((v) => !v)}
-        aria-pressed={rightPaneCollapsed}
-        aria-label={
-          rightPaneCollapsed
-            ? "右列（キュー一覧・タイムライン）を表示"
-            : "右列を隠してステージを最大化"
-        }
-        title={
-          rightPaneCollapsed
-            ? "右列（キュー一覧・タイムライン）を表示"
-            : "右列を隠してステージを最大化"
-        }
-        style={{
-          fontSize: "11px",
-          lineHeight: 1,
-          padding: "4px 7px",
-          borderRadius: "6px",
-          border: rightPaneCollapsed
-            ? "1px solid #14532d"
-            : "1px solid #334155",
-          background: rightPaneCollapsed
-            ? "rgba(34,197,94,0.18)"
-            : "#0f172a",
-          color: rightPaneCollapsed ? "#bbf7d0" : "#94a3b8",
-          cursor: "pointer",
-          flexShrink: 0,
-          display: "inline-flex",
-          alignItems: "center",
-          gap: "3px",
-        }}
-      >
-        <svg
-          viewBox="0 0 16 12"
-          width="16"
-          height="12"
-          aria-hidden
-          style={{ display: "block" }}
-        >
-          <circle cx="2.5" cy="2.5" r="1" fill="currentColor" />
-          <line
-            x1="5"
-            y1="2.5"
-            x2="13.5"
-            y2="2.5"
-            stroke="currentColor"
-            strokeWidth="1.2"
-            strokeLinecap="round"
-          />
-          <circle cx="2.5" cy="6" r="1" fill="currentColor" />
-          <line
-            x1="5"
-            y1="6"
-            x2="13.5"
-            y2="6"
-            stroke="currentColor"
-            strokeWidth="1.2"
-            strokeLinecap="round"
-          />
-          <circle cx="2.5" cy="9.5" r="1" fill="currentColor" />
-          <line
-            x1="5"
-            y1="9.5"
-            x2="13.5"
-            y2="9.5"
-            stroke="currentColor"
-            strokeWidth="1.2"
-            strokeLinecap="round"
-          />
-        </svg>
-        <span aria-hidden style={{ fontSize: "13px", lineHeight: 1, fontWeight: 700 }}>
-          {rightPaneCollapsed ? "‹" : "›"}
-        </span>
-      </button>
-    ) : null}
         </div>
         <div
           style={clusterEndStyle}
@@ -1160,134 +928,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
       </svg>
       <span style={{ fontSize: "12px", fontWeight: 700 }}>キュー</span>
     </button>
-    {(() => {
-      return (
-        <div
-          style={{
-            position: "relative",
-            display: "inline-flex",
-            flexShrink: 0,
-          }}
-        >
-          <button
-            type="button"
-            style={{
-              ...btnSecondary,
-              borderColor: "#1e3a8a",
-              color: "#bfdbfe",
-              padding: "6px 10px",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "5px",
-            }}
-            title="このページの舞台設定をスナップショットとして保存"
-            aria-haspopup="menu"
-            aria-expanded={saveMenuOpen}
-            onClick={() => setSaveMenuOpen((v) => !v)}
-          >
-            <svg
-              viewBox="0 0 18 14"
-              width="18"
-              height="14"
-              aria-hidden
-              style={{ display: "block" }}
-            >
-              <circle cx="2.5" cy="7" r="1.4" fill="currentColor" />
-              <path
-                d="M4 7 L7 7"
-                stroke="currentColor"
-                strokeWidth="1.2"
-                strokeLinecap="round"
-              />
-              <circle cx="9" cy="7" r="1.4" fill="currentColor" />
-              <path
-                d="M10.5 7 L13.5 7"
-                stroke="currentColor"
-                strokeWidth="1.2"
-                strokeLinecap="round"
-              />
-              <circle cx="15.5" cy="7" r="1.4" fill="currentColor" />
-            </svg>
-            <span style={{ fontSize: "12px", fontWeight: 600 }}>
-              保存
-            </span>
-            <span
-              aria-hidden
-              style={{
-                fontSize: "10px",
-                color: "#93c5fd",
-                marginLeft: "1px",
-              }}
-            >
-              ▾
-            </span>
-          </button>
-          {saveMenuOpen ? (
-            <>
-              <div
-                onClick={() => setSaveMenuOpen(false)}
-                style={{
-                  position: "fixed",
-                  inset: 0,
-                  zIndex: 30,
-                }}
-                aria-hidden
-              />
-              <div
-                role="menu"
-                aria-label="保存の種類"
-                style={{
-                  position: "absolute",
-                  top: "calc(100% + 4px)",
-                  right: 0,
-                  zIndex: 31,
-                  minWidth: "260px",
-                  padding: "6px",
-                  background: "#0b1220",
-                  border: "1px solid #334155",
-                  borderRadius: "8px",
-                  boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
-                }}
-              >
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={
-                    project.viewMode === "view" ||
-                    (project.cues.length > 0 && !selectedCueId)
-                  }
-                  onClick={() => {
-                    setSaveMenuOpen(false);
-                    saveCurrentPageStageSnapshot();
-                  }}
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    textAlign: "left",
-                    padding: "8px 10px",
-                    marginBottom: "4px",
-                    borderRadius: "6px",
-                    border: "1px solid #334155",
-                    background: "#0f172a",
-                    color: "#e2e8f0",
-                    fontSize: "12px",
-                    cursor:
-                      project.viewMode === "view" ||
-                      (project.cues.length > 0 && !selectedCueId)
-                        ? "not-allowed"
-                        : "pointer",
-                  }}
-                >
-                  <span style={{ fontWeight: 600 }}>
-                    このページの舞台設定を保存
-                  </span>
-                </button>
-              </div>
-            </>
-          ) : null}
-        </div>
-      );
-    })()}
     <button
       type="button"
       style={btnSecondary}
@@ -1327,30 +967,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
       />
     ) : null}
     <div style={viewModeRow}>
-      <button
-        type="button"
-        style={{
-          ...btnSecondary,
-          ...(stageBoardFullscreen
-            ? {
-                borderColor: "rgba(34,197,94,0.75)",
-                color: "#bbf7d0",
-              }
-            : {}),
-        }}
-        disabled={project.viewMode === "view"}
-        title={
-          stageBoardFullscreen
-            ? "全画面を終了（Esc でも終了できます）"
-            : "ステージの表示エリアだけをブラウザ全画面にします（2D / 3D どちらでも可）"
-        }
-        onClick={() => {
-          if (project.viewMode === "view") return;
-          void toggleStageBoardFullscreen();
-        }}
-      >
-        {stageBoardFullscreen ? "全画面終了" : "全画面"}
-      </button>
       <button
         type="button"
         style={{

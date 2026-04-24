@@ -91,6 +91,9 @@ type Props = {
  */
 const ROWS_PER_PAGE = 30;
 
+/** 名簿「決定」で未配置を一括ステージへ置くときの雛形（「未配置を一括でステージへ」と同じロジック） */
+const DEFAULT_ROSTER_CONFIRM_PRESET: LayoutPresetId = "rows_3";
+
 export function RosterTimelineStrip({ project, setProject }: Props) {
   const listScrollRef = useRef<HTMLDivElement>(null);
   const [rowHeightPx, setRowHeightPx] = useState(26);
@@ -487,6 +490,94 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
     [activeFormation, project.viewMode, setProject, sortedRows]
   );
 
+  /** 未配置をデフォルト雛形で一括配置し、名簿専用画面を終了してタイムラインを再表示する */
+  const confirmRosterAndReturnToTimeline = useCallback(() => {
+    if (project.viewMode === "view") return;
+    setProject((p) => {
+      if (p.viewMode === "view") return p;
+      const f = p.formations.find((x) => x.id === p.activeFormationId);
+      if (!f) return { ...p, rosterHidesTimeline: false };
+
+      let order = 0;
+      const flat: FlatRow[] = [];
+      for (const crew of p.crews) {
+        for (const m of crew.members) {
+          flat.push({
+            crewId: crew.id,
+            crewName: crew.name,
+            member: m,
+            importOrder: order++,
+          });
+        }
+      }
+      const rawMode = p.rosterStripSortMode;
+      const mode: RosterStripSortMode =
+        rawMode === "import" ||
+        rawMode === "height_desc" ||
+        rawMode === "height_asc" ||
+        rawMode === "grade" ||
+        rawMode === "skill"
+          ? rawMode
+          : "import";
+      const sorted = sortRows(flat, mode);
+
+      const on = new Set(
+        f.dancers.map((d) => d.crewMemberId).filter(Boolean) as string[]
+      );
+      const toAdd = sorted.filter((r) => !on.has(r.member.id));
+      if (toAdd.length === 0) {
+        return { ...p, rosterHidesTimeline: false };
+      }
+
+      const existing = [...f.dancers];
+      const total = existing.length + toAdd.length;
+      const opts = {
+        dancerSpacingMm: p.dancerSpacingMm,
+        stageWidthMm: p.stageWidthMm,
+      };
+      const placeholders: DancerSpot[] = [
+        ...existing,
+        ...toAdd.map((row) => {
+          const m = row.member;
+          return {
+            id: crypto.randomUUID(),
+            label: m.label.slice(0, 8),
+            xPct: 50,
+            yPct: 40,
+            colorIndex: modDancerColorIndex(m.colorIndex),
+            crewMemberId: m.id,
+            ...(typeof m.heightCm === "number" ? { heightCm: m.heightCm } : {}),
+            ...(m.gradeLabel?.trim()
+              ? { gradeLabel: m.gradeLabel.trim().slice(0, 32) }
+              : {}),
+            ...(m.skillRankLabel?.trim()
+              ? { skillRankLabel: m.skillRankLabel.trim().slice(0, 24) }
+              : {}),
+          };
+        }),
+      ];
+      const positioned = dancersForLayoutPreset(
+        total,
+        DEFAULT_ROSTER_CONFIRM_PRESET,
+        opts
+      );
+      const merged = transferDancerIdentitiesByOrder(positioned, placeholders);
+      return {
+        ...p,
+        rosterHidesTimeline: false,
+        formations: p.formations.map((fm) =>
+          fm.id === f.id
+            ? {
+                ...fm,
+                dancers: merged,
+                confirmedDancerCount: merged.length,
+              }
+            : fm
+        ),
+      };
+    });
+  }, [project.viewMode, setProject]);
+
   /**
    * 名簿の並び替え順に名簿メンバーを並べ替え、続けて名簿外の立ち位置を後ろに付け、雛形で敷き直す。
    */
@@ -692,26 +783,55 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
             >
               名簿
             </span>
-            <button
-              type="button"
-              onClick={toggleCollapsed}
-              title="名簿パネルを隠して細いバーだけにします"
+            <div
               style={{
-                fontSize: "10px",
-                padding: "2px 8px",
-                borderRadius: "6px",
-                border: "1px solid #f9a8d4",
-                background: "#fce7f3",
-                color: "#831843",
-                cursor: "pointer",
-                whiteSpace: "nowrap",
-                fontWeight: 600,
-                lineHeight: 1.2,
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
                 flexShrink: 0,
               }}
             >
-              隠す
-            </button>
+              <button
+                type="button"
+                onClick={confirmRosterAndReturnToTimeline}
+                disabled={project.viewMode === "view"}
+                title="未配置のメンバーを3列の形でステージに置き、この名簿一覧を閉じてタイムラインを表示します（別の形にしたい場合は「未配置を一括でステージへ」）"
+                style={{
+                  fontSize: "11px",
+                  padding: "4px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid #4f46e5",
+                  background: "#4338ca",
+                  color: "#eef2ff",
+                  cursor:
+                    project.viewMode === "view" ? "not-allowed" : "pointer",
+                  whiteSpace: "nowrap",
+                  fontWeight: 700,
+                  lineHeight: 1.2,
+                }}
+              >
+                決定
+              </button>
+              <button
+                type="button"
+                onClick={toggleCollapsed}
+                title="名簿パネルを隠して細いバーだけにします"
+                style={{
+                  fontSize: "10px",
+                  padding: "2px 8px",
+                  borderRadius: "6px",
+                  border: "1px solid #f9a8d4",
+                  background: "#fce7f3",
+                  color: "#831843",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  fontWeight: 600,
+                  lineHeight: 1.2,
+                }}
+              >
+                隠す
+              </button>
+            </div>
           </div>
           <div
             style={{
