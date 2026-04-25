@@ -75,10 +75,10 @@ export type StageFloorTextMarkup = {
   fontSizePx?: number;
   /** CSS font-weight（300〜900） */
   fontWeight?: number;
-  /** 折り返し幅の上限（床幅に対する %）。未指定は表示で約 42 */
-  maxWidthPct?: number;
-  /** CSS font-family（カンマ区切りスタックをそのまま保存可） */
+  /** CSS font-family（未指定時は表示側の既定ゴシック） */
   fontFamily?: string;
+  /** 表示スケール（1＝既定）。角ドラッグで変更 */
+  scale?: number;
 };
 
 /** ステージ床の手描き線（折れ線・% 座標） */

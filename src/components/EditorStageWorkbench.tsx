@@ -1,11 +1,6 @@
 import type { CSSProperties, ComponentProps, Dispatch, SetStateAction } from "react";
 import type { ChoreographyProjectJson, Cue } from "../types/choreography";
-import {
-  FLOOR_TEXT_COLOR_SWATCHES,
-  FLOOR_TEXT_DEFAULT_FONT_FAMILY,
-  FLOOR_TEXT_FONT_PRESETS,
-  type FloorTextPlaceSession,
-} from "../components/StageBoard";
+import type { FloorTextPlaceSession } from "../components/StageBoard";
 import { btnSecondary } from "../components/stageButtonStyles";
 import { ChoreoGridToolbar } from "./ChoreoGridToolbar";
 
@@ -651,7 +646,9 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                         xPct: 50,
                         yPct: 42,
                         color: "#fef08a",
-                        fontFamily: FLOOR_TEXT_DEFAULT_FONT_FAMILY,
+                        fontFamily:
+                          "system-ui, -apple-system, 'Segoe UI', sans-serif",
+                        scale: 1,
                       }
                 );
               }}
@@ -826,79 +823,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                 resize: "vertical",
               }}
             />
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                alignItems: "center",
-                gap: "8px",
-                flex: "1 1 100%",
-              }}
-            >
-              <span style={{ fontSize: 11, color: "#94a3b8" }}>色</span>
-              {FLOOR_TEXT_COLOR_SWATCHES.map((hex) => (
-                <button
-                  key={hex}
-                  type="button"
-                  title={hex}
-                  onClick={() =>
-                    setFloorTextPlaceSession((s) =>
-                      s ? { ...s, color: hex } : s
-                    )
-                  }
-                  style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: 4,
-                    border:
-                      (floorTextPlaceSession.color ?? "#fef08a") === hex
-                        ? "2px solid #e2e8f0"
-                        : "1px solid #334155",
-                    background: hex,
-                    padding: 0,
-                    cursor: "pointer",
-                    boxSizing: "border-box",
-                  }}
-                />
-              ))}
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  fontSize: 11,
-                  color: "#cbd5e1",
-                }}
-              >
-                フォント
-                <select
-                  value={
-                    floorTextPlaceSession.fontFamily ??
-                    FLOOR_TEXT_DEFAULT_FONT_FAMILY
-                  }
-                  onChange={(e) =>
-                    setFloorTextPlaceSession((s) =>
-                      s ? { ...s, fontFamily: e.target.value } : s
-                    )
-                  }
-                  style={{
-                    maxWidth: 200,
-                    fontSize: 11,
-                    padding: "4px 6px",
-                    borderRadius: 6,
-                    border: "1px solid #475569",
-                    background: "#0f172a",
-                    color: "#e2e8f0",
-                  }}
-                >
-                  {FLOOR_TEXT_FONT_PRESETS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
             <input
               type="number"
               min={8}
@@ -1155,7 +1079,9 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                   xPct: 50,
                   yPct: 42,
                   color: "#fef08a",
-                  fontFamily: FLOOR_TEXT_DEFAULT_FONT_FAMILY,
+                  fontFamily:
+                    "system-ui, -apple-system, 'Segoe UI', sans-serif",
+                  scale: 1,
                 }
           );
         }}
@@ -1230,79 +1156,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               resize: "vertical",
             }}
           />
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              gap: "8px",
-              flex: "1 1 100%",
-            }}
-          >
-            <span style={{ fontSize: 11, color: "#94a3b8" }}>色</span>
-            {FLOOR_TEXT_COLOR_SWATCHES.map((hex) => (
-              <button
-                key={hex}
-                type="button"
-                title={hex}
-                onClick={() =>
-                  setFloorTextPlaceSession((s) =>
-                    s ? { ...s, color: hex } : s
-                  )
-                }
-                style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 4,
-                  border:
-                    (floorTextPlaceSession.color ?? "#fef08a") === hex
-                      ? "2px solid #e2e8f0"
-                      : "1px solid #334155",
-                  background: hex,
-                  padding: 0,
-                  cursor: "pointer",
-                  boxSizing: "border-box",
-                }}
-              />
-            ))}
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                fontSize: 11,
-                color: "#cbd5e1",
-              }}
-            >
-              フォント
-              <select
-                value={
-                  floorTextPlaceSession.fontFamily ??
-                  FLOOR_TEXT_DEFAULT_FONT_FAMILY
-                }
-                onChange={(e) =>
-                  setFloorTextPlaceSession((s) =>
-                    s ? { ...s, fontFamily: e.target.value } : s
-                  )
-                }
-                style={{
-                  maxWidth: 200,
-                  fontSize: 11,
-                  padding: "4px 6px",
-                  borderRadius: 6,
-                  border: "1px solid #475569",
-                  background: "#0f172a",
-                  color: "#e2e8f0",
-                }}
-              >
-                {FLOOR_TEXT_FONT_PRESETS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
           <input
             type="number"
             min={8}

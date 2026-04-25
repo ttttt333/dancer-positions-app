@@ -66,23 +66,17 @@ function evenSpacingPositions(
  * `FORMATION_REFERENCE_STEP_PCT` と同値（場ミリ規格モジュール側の参照と一致）。
  */
 const TARGET_STEP_X = FORMATION_REFERENCE_STEP_PCT;
-/**
- * ステージ奥行きの目安間隔（％）。列間の距離。
- * 名簿取り込み後の「名前は○の下」では、○＋名前で縦にかなり占めるため 10% だと
- * 段同士が重なりやすい。14% 前後を目安にする。
- */
-const TARGET_STEP_Y = 14;
+/** ステージ奥行きの目安間隔（％）。列間の距離。 */
+const TARGET_STEP_Y = 10;
 
 /**
  * 客席が下のとき: 行 r を奥→手前に線形配置（0 始まり）。
  *
- * 列間隔は `TARGET_STEP_Y`（％）を目安に固定し、人数が多くて範囲を超える場合のみ、
+ * 列間隔は `TARGET_STEP_Y` を目安に固定し、人数が多くて範囲を超える場合のみ、
  * `[yUp, yDn]` の範囲に収まるよう等間隔に縮める。少人数でも横一列に広がらず、
  * 中央付近に列が密集するようになる。
- *
- * `yUp` / `yDn` は「○の下に名前」を想定し、上下に少し余白を残した帯にする。
  */
-function yPctPyramidRow(r: number, numRows: number, yUp = 16, yDn = 78): number {
+function yPctPyramidRow(r: number, numRows: number, yUp = 20, yDn = 72): number {
   if (numRows <= 1) return (yUp + yDn) / 2;
   const center = (yUp + yDn) / 2;
   const maxTotal = Math.max(0, yDn - yUp);
@@ -308,8 +302,8 @@ function relabelByAudienceCenterOut(dancers: DancerSpot[]): DancerSpot[] {
       colorIndex: modDancerColorIndex(i),
     }));
   }
-  /** 行（y）のグルーピング許容値（％）。列間隔が広いプリセットでも同じ行にまとまるよう少し余裕 */
-  const Y_EPS = 4;
+  /** 行（y）のグルーピング許容値（％）。目安間隔が 10% なので半分程度 */
+  const Y_EPS = 3;
 
   const indexed = dancers.map((d, i) => ({ d, i }));
   // y 降順で安定ソート（同じ y はとりあえず元順のまま）
@@ -593,8 +587,7 @@ export function dancersForLayoutPreset(
         const cnt = rowCounts[r]!;
         /** r=0 が手前（y 大）、r=nr-1 が奥（y 小）。 */
         const y = yPctPyramidRow(nr - 1 - r, nr);
-        /** 長い表示名が横にはみ出しにくいよう、横方向の余白をやや広げる */
-        const xs = evenSpacingPositions(cnt, 50, TARGET_STEP_X, 5, 95);
+        const xs = evenSpacingPositions(cnt, 50, TARGET_STEP_X, 8, 92);
         for (let j = 0; j < cnt; j++) {
           pushSpot(out, idx++, xs[j]!, y);
         }
@@ -610,8 +603,7 @@ export function dancersForLayoutPreset(
         const r = i % rows;
         const col = Math.floor(i / rows);
         const offset = r === 1 ? TARGET_STEP_X / 2 : 0;
-        /** 奥行きを確保（名前が○の下のときの重なり防止） */
-        pushSpot(out, i, (xs[col] ?? 50) + offset, r === 0 ? 30 : 60);
+        pushSpot(out, i, (xs[col] ?? 50) + offset, r === 0 ? 38 : 54);
       }
       break;
     }
@@ -622,8 +614,8 @@ export function dancersForLayoutPreset(
        * - 手前（y 大）に残りを、奥の隣同士の中点（隙間）に並べる（奇数 n で奥が 1 人多い）
        * - 同人数のときは二段とも等間隔＋手前をハーフステップずらす
        */
-      const yBack = 30;
-      const yFront = 60;
+      const yBack = 38;
+      const yFront = 54;
       const nBack = Math.ceil(n / 2);
       const nFront = n - nBack;
 
@@ -674,7 +666,7 @@ export function dancersForLayoutPreset(
         const isFront = i < front;
         const idx = isFront ? i : i - front;
         const x = isFront ? xsFront[idx]! : (xsBack[idx] ?? 50);
-        const y = isFront ? 62 : 28;
+        const y = isFront ? 58 : 34;
         pushSpot(out, i, x, y);
       }
       break;
@@ -803,7 +795,7 @@ export function dancersForLayoutPreset(
         const isFront = i < front;
         const idx = isFront ? i : i - front;
         const x = isFront ? xsFront[idx]! : (xsBack[idx] ?? 50);
-        const y = isFront ? 62 : 26;
+        const y = isFront ? 58 : 32;
         pushSpot(out, i, x, y);
       }
       break;

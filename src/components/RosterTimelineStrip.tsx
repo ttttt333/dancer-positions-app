@@ -403,11 +403,6 @@ export function RosterTimelineStrip({
         if (!f) return p;
         const idx = f.dancers.length;
         const m = row.member;
-        /** 1 人ずつ載せるときの暫定位置（○下の名前が重なりにくいよう列間を広げる） */
-        const col = idx % 6;
-        const row = Math.floor(idx / 6);
-        const xPct = Math.round(Math.min(94, Math.max(6, 20 + col * 12)));
-        const yPct = Math.round(Math.min(86, Math.max(14, 24 + row * 14)));
         return {
           ...p,
           dancerLabelPosition: "below",
@@ -425,8 +420,8 @@ export function RosterTimelineStrip({
                       id: crypto.randomUUID(),
                       label: m.label.trim().slice(0, 120) || "?",
                       markerBadge: "",
-                      xPct,
-                      yPct,
+                      xPct: 50 + (idx % 5) * 5,
+                      yPct: 40 + Math.floor(idx / 5) * 10,
                       colorIndex: modDancerColorIndex(m.colorIndex),
                       crewMemberId: m.id,
                       ...(typeof m.heightCm === "number"

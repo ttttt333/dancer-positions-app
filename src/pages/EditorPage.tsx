@@ -17,11 +17,7 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
-import {
-  FLOOR_TEXT_DEFAULT_FONT_FAMILY,
-  StageBoard,
-  type FloorTextPlaceSession,
-} from "../components/StageBoard";
+import { StageBoard, type FloorTextPlaceSession } from "../components/StageBoard";
 import { StageDimensionFields } from "../components/StageDimensionFields";
 const Stage3DView = lazy(() =>
   import("../components/Stage3DView").then((m) => ({ default: m.Stage3DView }))
@@ -1049,6 +1045,19 @@ export function EditorPage() {
     const fw =
       Math.round(Math.min(900, Math.max(300, floorTextPlaceSession.fontWeight)) / 50) *
       50;
+    const rawCol = floorTextPlaceSession.color?.trim();
+    const color =
+      rawCol && /^#[0-9a-fA-F]{6}$/i.test(rawCol)
+        ? rawCol.toLowerCase()
+        : "#fef08a";
+    const fontFamily =
+      (floorTextPlaceSession.fontFamily ?? "").trim() ||
+      "system-ui, -apple-system, 'Segoe UI', sans-serif";
+    const sc = floorTextPlaceSession.scale;
+    const scale =
+      typeof sc === "number" && Number.isFinite(sc) && sc > 0
+        ? Math.min(8, Math.max(0.2, sc))
+        : 1;
     setProjectSafe((p) => ({
       ...p,
       formations: p.formations.map((f) => {
@@ -1067,12 +1076,11 @@ export function EditorPage() {
                 Math.min(100, Math.max(0, floorTextPlaceSession.yPct))
               ),
               text,
-              color: floorTextPlaceSession.color ?? "#fef08a",
+              color,
+              fontFamily,
+              scale,
               fontSizePx: fs,
               fontWeight: fw,
-              fontFamily:
-                floorTextPlaceSession.fontFamily ?? FLOOR_TEXT_DEFAULT_FONT_FAMILY,
-              maxWidthPct: 42,
             },
           ],
         };
