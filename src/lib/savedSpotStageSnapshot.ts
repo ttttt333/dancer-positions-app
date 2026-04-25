@@ -44,6 +44,9 @@ function cloneStageShape(s: StageShape): StageShape {
 
 /**
  * 保存した舞台スナップショットをプロジェクトに上書き適用する。
+ *
+ * スナップショットに `null` の mm フィールドがある場合、**プロジェクト側の既存値は維持**する。
+ * （未設定のまま保存されたスナップで、取り込み後に設定したステージ寸法が消えないようにする）
  */
 export function mergeStageSnapshotIntoProject(
   p: ChoreographyProjectJson,
@@ -53,15 +56,17 @@ export function mergeStageSnapshotIntoProject(
   return {
     ...p,
     audienceEdge: snap.audienceEdge,
-    stageWidthMm: snap.stageWidthMm,
-    stageDepthMm: snap.stageDepthMm,
-    sideStageMm: snap.sideStageMm,
-    backStageMm: snap.backStageMm,
-    centerFieldGuideIntervalMm: snap.centerFieldGuideIntervalMm,
+    ...(snap.stageWidthMm != null ? { stageWidthMm: snap.stageWidthMm } : {}),
+    ...(snap.stageDepthMm != null ? { stageDepthMm: snap.stageDepthMm } : {}),
+    ...(snap.sideStageMm != null ? { sideStageMm: snap.sideStageMm } : {}),
+    ...(snap.backStageMm != null ? { backStageMm: snap.backStageMm } : {}),
+    ...(snap.centerFieldGuideIntervalMm != null
+      ? { centerFieldGuideIntervalMm: snap.centerFieldGuideIntervalMm }
+      : {}),
     hanamichiEnabled: snap.hanamichiEnabled,
     hanamichiDepthPct: snap.hanamichiDepthPct,
-    stageShape: snap.stageShape ? cloneStageShape(snap.stageShape) : undefined,
-    gridSpacingMm: snap.gridSpacingMm,
+    ...(snap.stageShape ? { stageShape: cloneStageShape(snap.stageShape) } : {}),
+    ...(snap.gridSpacingMm != null ? { gridSpacingMm: snap.gridSpacingMm } : {}),
     gridStep: snap.gridStep,
     snapGrid: snap.snapGrid,
     stageGridLinesEnabled: snap.stageGridLinesEnabled ?? false,
@@ -73,9 +78,13 @@ export function mergeStageSnapshotIntoProject(
       snap.stageGridSpacingWidthMm ?? snap.stageGridLineSpacingMm ?? 10,
     stageGridSpacingDepthMm:
       snap.stageGridSpacingDepthMm ?? snap.stageGridLineSpacingMm ?? 10,
-    dancerSpacingMm: snap.dancerSpacingMm ?? undefined,
+    ...(snap.dancerSpacingMm != null ? { dancerSpacingMm: snap.dancerSpacingMm } : {}),
     dancerMarkerDiameterPx: snap.dancerMarkerDiameterPx,
-    dancerMarkerDiameterMm: snap.dancerMarkerDiameterMm,
-    dancerLabelPosition: snap.dancerLabelPosition,
+    ...(snap.dancerMarkerDiameterMm != null
+      ? { dancerMarkerDiameterMm: snap.dancerMarkerDiameterMm }
+      : {}),
+    ...(snap.dancerLabelPosition
+      ? { dancerLabelPosition: snap.dancerLabelPosition }
+      : {}),
   };
 }

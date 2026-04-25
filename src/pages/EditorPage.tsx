@@ -92,7 +92,8 @@ const EDITOR_PLAYBACK_LAYOUT_SHIFT_UP = "0.5cm";
 
 /** ステージ列とタイムライン列の間のドラッグ幅 */
 const STAGE_RESIZER_PX = 4;
-const STAGE_COL_MIN_PX = 280;
+/** 右列タイムラインとの分割時のステージ列の最小幅（狭すぎると編集しづらい） */
+const STAGE_COL_MIN_PX = 340;
 /** 波形が右列にあるときのタイムライン列の最小幅 */
 const TIMELINE_FULL_COL_MIN_PX = 240;
 /** 上部ドック時：右列はツール帯のみなので幅を抑える（グリッドは minmax(MIN, MAX)） */

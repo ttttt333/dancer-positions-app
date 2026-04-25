@@ -43,6 +43,21 @@ import { playCompletionWoof } from "../lib/playCompletionWoof";
 import { btnSecondary } from "./stageButtonStyles";
 import { shell } from "../theme/choreoShell";
 
+/**
+ * サーバ `audioAssetId` 用の署名付き Blob URL。TimelinePanel が名簿モード等でアンマウントされても
+ * 同じ id なら再利用し、再フェッチ失敗や revoke 競合で音が消えるのを防ぐ。
+ */
+let persistedServerAudioBlobUrl: string | null = null;
+let persistedServerAudioAssetId: number | null = null;
+
+function revokePersistedServerAudioBlob() {
+  if (persistedServerAudioBlobUrl) {
+    URL.revokeObjectURL(persistedServerAudioBlobUrl);
+    persistedServerAudioBlobUrl = null;
+    persistedServerAudioAssetId = null;
+  }
+}
+
 /** タイムライン上部ツールバー用（再生・波形周りの縦スペース節約） */
 const TIMELINE_UI_SCALE = 1.2;
 function tlPx(n: number): string {
@@ -1147,17 +1162,55 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
 
     useEffect(() => {
       const aid = project.audioAssetId;
-      if (aid == null || !getToken()) return;
+      if (aid == null || !getToken()) {
+        if (aid == null) {
+          revokePersistedServerAudioBlob();
+        }
+        return;
+      }
+      if (
+        persistedServerAudioAssetId != null &&
+        persistedServerAudioAssetId !== aid
+      ) {
+        revokePersistedServerAudioBlob();
+      }
       let cancelled = false;
       (async () => {
         try {
+          const reuseUrl =
+            persistedServerAudioAssetId === aid
+              ? persistedServerAudioBlobUrl
+              : null;
+          if (reuseUrl) {
+            const cur = blobUrlRef.current;
+            if (cur && cur !== reuseUrl) {
+              URL.revokeObjectURL(cur);
+            }
+            blobUrlRef.current = reuseUrl;
+            const a0 = audioRef.current;
+            if (a0) {
+              a0.src = reuseUrl;
+              a0.load();
+            }
+            const res = await fetch(`/api/audio/${aid}`, {
+              headers: { Authorization: `Bearer ${getToken()}` },
+            });
+            const buf = await res.arrayBuffer();
+            if (!cancelled) await decodePeaksFromBuffer(buf);
+            return;
+          }
+
           const url = await fetchAuthorizedAudioBlobUrl(aid);
           if (cancelled) {
             URL.revokeObjectURL(url);
             return;
           }
-          if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
+          if (blobUrlRef.current && blobUrlRef.current !== persistedServerAudioBlobUrl) {
+            URL.revokeObjectURL(blobUrlRef.current);
+          }
           blobUrlRef.current = url;
+          persistedServerAudioBlobUrl = url;
+          persistedServerAudioAssetId = aid;
           const a = audioRef.current;
           if (a) {
             a.src = url;
@@ -1226,7 +1279,14 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         type: isVideo ? mimeForExtractedVideoAudio(buf) : f.type || "audio/mpeg",
       });
       const url = URL.createObjectURL(blob);
-      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
+      if (blobUrlRef.current) {
+        const cur = blobUrlRef.current;
+        if (cur === persistedServerAudioBlobUrl) {
+          revokePersistedServerAudioBlob();
+        } else {
+          URL.revokeObjectURL(cur);
+        }
+      }
       blobUrlRef.current = url;
       const a = audioRef.current;
       if (a) {
