@@ -17,7 +17,11 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
-import { StageBoard, type FloorTextPlaceSession } from "../components/StageBoard";
+import {
+  FLOOR_TEXT_DEFAULT_FONT_FAMILY,
+  StageBoard,
+  type FloorTextPlaceSession,
+} from "../components/StageBoard";
 import { StageDimensionFields } from "../components/StageDimensionFields";
 const Stage3DView = lazy(() =>
   import("../components/Stage3DView").then((m) => ({ default: m.Stage3DView }))
@@ -906,6 +910,15 @@ export function EditorPage() {
     [project, cuesSortedForStageJump, jumpToCueByIdx, setProjectSafe]
   );
 
+  /** 名簿「決定」直後に最新の jumpToPagerSlot で先頭キューへ飛ばす */
+  const jumpToPagerSlotRef = useRef(jumpToPagerSlot);
+  jumpToPagerSlotRef.current = jumpToPagerSlot;
+  const onRosterConfirmReturnToTimeline = useCallback(() => {
+    queueMicrotask(() => {
+      jumpToPagerSlotRef.current(1);
+    });
+  }, []);
+
   useEffect(() => {
     if (!project) return;
     if (project.cues.length === 0) {
@@ -1054,9 +1067,12 @@ export function EditorPage() {
                 Math.min(100, Math.max(0, floorTextPlaceSession.yPct))
               ),
               text,
-              color: "#fef08a",
+              color: floorTextPlaceSession.color ?? "#fef08a",
               fontSizePx: fs,
               fontWeight: fw,
+              fontFamily:
+                floorTextPlaceSession.fontFamily ?? FLOOR_TEXT_DEFAULT_FONT_FAMILY,
+              maxWidthPct: 42,
             },
           ],
         };
@@ -2013,6 +2029,7 @@ export function EditorPage() {
                 <RosterTimelineStrip
                   project={project}
                   setProject={setProjectSafe}
+                  onConfirmReturnToTimeline={onRosterConfirmReturnToTimeline}
                 />
               </div>
             ) : null}

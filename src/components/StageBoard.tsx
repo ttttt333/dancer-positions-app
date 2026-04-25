@@ -64,6 +64,34 @@ const TRASH_REVEAL_Y_PCT = 88;
 /** 床テキスト: これ未満の移動は「タップして編集」、超えたらドラッグ移動 */
 const FLOOR_TEXT_TAP_DRAG_THRESHOLD_PX = 6;
 
+/** 既定の日本語向きサンセリフ（未指定データの表示にも使う） */
+export const FLOOR_TEXT_DEFAULT_FONT_FAMILY =
+  '"Hiragino Sans","Hiragino Kaku Gothic ProN",Meiryo,"Noto Sans JP",sans-serif';
+
+export const FLOOR_TEXT_FONT_PRESETS: { value: string; label: string }[] = [
+  { value: FLOOR_TEXT_DEFAULT_FONT_FAMILY, label: "ゴシック" },
+  {
+    value: '"Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif',
+    label: "明朝",
+  },
+  {
+    value: 'ui-rounded,"Hiragino Maru Gothic ProN",Meiryo,sans-serif',
+    label: "丸ゴ",
+  },
+  { value: "system-ui,-apple-system,sans-serif", label: "システム" },
+];
+
+export const FLOOR_TEXT_COLOR_SWATCHES = [
+  "#fef08a",
+  "#fca5a5",
+  "#93c5fd",
+  "#86efac",
+  "#ffffff",
+  "#e2e8f0",
+  "#f472b6",
+  "#67e8f9",
+];
+
 /** ヘッダ「テキスト」から床へ置く前のプレビュー（親が状態を持つ） */
 export type FloorTextPlaceSession = {
   body: string;
@@ -71,6 +99,9 @@ export type FloorTextPlaceSession = {
   fontWeight: number;
   xPct: number;
   yPct: number;
+  /** #rrggbb */
+  color?: string;
+  fontFamily?: string;
 };
 
 type Props = {
@@ -165,7 +196,7 @@ function markerBelowLabelFontPx(circleLabelPx: number): number {
 }
 
 /** ○下端と名前のあいだを、舞台横幅に対してこの mm ぶん広げる */
-const DANCER_NAME_BELOW_EXTRA_GAP_MM = 3;
+const DANCER_NAME_BELOW_EXTRA_GAP_MM = 1.5;
 
 function dancerNameBelowClearanceExtraPx(
   stageWidthMm: number | null | undefined,
@@ -181,8 +212,8 @@ function dancerNameBelowClearanceExtraPx(
       Math.round((DANCER_NAME_BELOW_EXTRA_GAP_MM * mainFloorPxWidth) / stageWidthMm)
     );
   }
-  /** ステージ幅未設定時は CSS 96dpi 相当で約 3mm の px */
-  return Math.max(8, Math.round((DANCER_NAME_BELOW_EXTRA_GAP_MM * 96) / 25.4));
+  /** ステージ幅未設定時は CSS 96dpi 相当で約 1.5mm の px */
+  return Math.max(1, Math.round((DANCER_NAME_BELOW_EXTRA_GAP_MM * 96) / 25.4));
 }
 
 /**
@@ -597,6 +628,9 @@ export function StageBoard({
     text: string;
     fontSizePx: number;
     fontWeight: number;
+    color: string;
+    fontFamily: string;
+    maxWidthPct: number;
     startClientX: number;
     startClientY: number;
     startXPct: number;
@@ -611,14 +645,34 @@ export function StageBoard({
     startYPct: number;
     session: FloorTextPlaceSession;
   } | null>(null);
+  /** 床テキストの角リサイズ中 */
+  const floorTextResizeRef = useRef<{
+    markupId: string;
+    corner: "nw" | "ne" | "sw" | "se";
+    startClientX: number;
+    startClientY: number;
+    startFontSizePx: number;
+    startMaxWidthPct: number;
+    pointerId: number;
+  } | null>(null);
   /** 床テキストツール：入力内容と次に置くときの書式 */
   const [floorTextDraft, setFloorTextDraft] = useState({
     body: "",
     fontSizePx: 18,
     fontWeight: 600,
+    color: "#fef08a",
+    fontFamily: FLOOR_TEXT_DEFAULT_FONT_FAMILY,
   });
   /** 選択中の床テキスト id（スライダー・本文はこの項目を更新、空床クリックで移動） */
   const [floorTextEditId, setFloorTextEditId] = useState<string | null>(null);
+  /** ツールなし時の選択（枠・角ハンドル・色フォントバー） */
+  const [floorTextSelectedId, setFloorTextSelectedId] = useState<string | null>(
+    null
+  );
+  /** ダブルクリックでその場編集するテキスト id */
+  const [floorTextInlineEditId, setFloorTextInlineEditId] = useState<string | null>(
+    null
+  );
   /** ドラッグ中のマーキー（範囲選択の四角）。pct 座標で親床内を示す */
   const [marquee, setMarquee] = useState<{
     startXPct: number;
@@ -881,8 +935,16 @@ export function StageBoard({
     setFloorMarkupTool(null);
     floorLineSessionRef.current = null;
     setFloorLineDraft(null);
-    setFloorTextDraft({ body: "", fontSizePx: 18, fontWeight: 600 });
+    setFloorTextDraft({
+      body: "",
+      fontSizePx: 18,
+      fontWeight: 600,
+      color: "#fef08a",
+      fontFamily: FLOOR_TEXT_DEFAULT_FONT_FAMILY,
+    });
     setFloorTextEditId(null);
+    setFloorTextSelectedId(null);
+    setFloorTextInlineEditId(null);
     setShowStageDancerColorToolbar(false);
     setBulkHideDancerGlyphs(false);
     setGroupRotateGuideDeltaDeg(null);
@@ -956,6 +1018,11 @@ export function StageBoard({
 
   const playbackOrPreview = Boolean(playbackDancers || previewDancers);
 
+  /** 床テキストの色・フォント・サイズを反映するマークアップ id（書き込みツールの編集対象 or ツールなし時の選択） */
+  const floorTextStyleTargetId =
+    floorTextEditId ??
+    (floorMarkupTool === null ? floorTextSelectedId : null);
+
   const setPiecesEditable =
     viewMode !== "view" &&
     stageInteractionsEnabled &&
@@ -981,6 +1048,10 @@ export function StageBoard({
 
   useEffect(() => {
     if (floorMarkupTool !== "text") setFloorTextEditId(null);
+    if (floorMarkupTool === "erase" || floorMarkupTool === "line") {
+      setFloorTextSelectedId(null);
+      setFloorTextInlineEditId(null);
+    }
   }, [floorMarkupTool]);
 
   /** ヘッダからの床テキスト配置中はステージ内の旧テキストツールと競合しないよう解除 */
@@ -991,15 +1062,29 @@ export function StageBoard({
     floorTextTapOrDragRef.current = null;
   }, [floorTextPlaceSession]);
 
-  /** 床テキストが削除されたあと、編集中 id が残らないようにする */
+  /** 床テキストが削除されたあと、編集中・選択 id が残らないようにする */
   useEffect(() => {
-    if (!floorTextEditId || !writeFormation) return;
+    if (!writeFormation) return;
     const fm = writeFormation.floorMarkup ?? [];
-    if (!fm.some((x) => x.id === floorTextEditId && x.kind === "text")) {
+    const exists = (id: string | null) =>
+      id != null && fm.some((x) => x.id === id && x.kind === "text");
+    if (floorTextEditId && !exists(floorTextEditId)) {
       setFloorTextEditId(null);
-      setFloorTextDraft({ body: "", fontSizePx: 18, fontWeight: 600 });
+      setFloorTextDraft({
+        body: "",
+        fontSizePx: 18,
+        fontWeight: 600,
+        color: "#fef08a",
+        fontFamily: FLOOR_TEXT_DEFAULT_FONT_FAMILY,
+      });
     }
-  }, [writeFormation, floorTextEditId]);
+    if (floorTextSelectedId && !exists(floorTextSelectedId)) {
+      setFloorTextSelectedId(null);
+    }
+    if (floorTextInlineEditId && !exists(floorTextInlineEditId)) {
+      setFloorTextInlineEditId(null);
+    }
+  }, [writeFormation, floorTextEditId, floorTextSelectedId, floorTextInlineEditId]);
 
   const removeFloorMarkupById = useCallback(
     (id: string) => {
@@ -1950,6 +2035,7 @@ export function StageBoard({
     if (target.closest("[data-group-rotate-handle]")) return;
     if (target.closest("[data-marker-resize-handle]")) return;
     if (target.closest("[data-marker-rotate-handle]")) return;
+    if (target.closest("[data-floor-text-resize-handle]")) return;
     const el = stageMainFloorRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
@@ -1985,7 +2071,16 @@ export function StageBoard({
           ...f,
           floorMarkup: (f.floorMarkup ?? []).map((m) =>
             m.id === floorTextEditId && m.kind === "text"
-              ? { ...m, xPct: round2(xPct), yPct: round2(yPct), fontSizePx: fs, fontWeight: fw }
+              ? {
+                  ...m,
+                  xPct: round2(xPct),
+                  yPct: round2(yPct),
+                  fontSizePx: fs,
+                  fontWeight: fw,
+                  color: floorTextDraft.color,
+                  fontFamily: floorTextDraft.fontFamily,
+                  maxWidthPct: m.maxWidthPct ?? 42,
+                }
               : m
           ),
         }));
@@ -2003,9 +2098,11 @@ export function StageBoard({
             xPct: round2(xPct),
             yPct: round2(yPct),
             text: t.slice(0, 400),
-            color: "#fef08a",
+            color: floorTextDraft.color,
             fontSizePx: fs,
             fontWeight: fw,
+            fontFamily: floorTextDraft.fontFamily,
+            maxWidthPct: 42,
           },
         ],
       }));
@@ -2042,6 +2139,8 @@ export function StageBoard({
     };
     if (!additive) setSelectedDancerIds([]);
     setSelectedSetPieceId(null);
+    setFloorTextSelectedId(null);
+    setFloorTextInlineEditId(null);
   };
 
   useEffect(() => {
@@ -2154,6 +2253,32 @@ export function StageBoard({
           ...f,
           floorMarkup: (f.floorMarkup ?? []).map((x) =>
             x.id === fmd.id && x.kind === "text" ? { ...x, xPct: nx, yPct: ny } : x
+          ),
+        }));
+        return;
+      }
+      /** 1bb: 床テキストの角リサイズ（フォントサイズと折り返し幅） */
+      const ftr = floorTextResizeRef.current;
+      if (ftr && e.pointerId === ftr.pointerId) {
+        const dx = e.clientX - ftr.startClientX;
+        const dy = e.clientY - ftr.startClientY;
+        let fontDelta = 0;
+        if (ftr.corner === "se") fontDelta = (dx + dy) * 0.1;
+        else if (ftr.corner === "ne") fontDelta = (dx - dy) * 0.1;
+        else if (ftr.corner === "sw") fontDelta = (-dx + dy) * 0.1;
+        else fontDelta = (-dx - dy) * 0.1;
+        const nextFs = Math.round(
+          clamp(ftr.startFontSizePx + fontDelta, 8, 56)
+        );
+        const nextMw = Math.round(
+          clamp(ftr.startMaxWidthPct + fontDelta * 0.35, 12, 88) * 10
+        ) / 10;
+        updateActiveFormation((f) => ({
+          ...f,
+          floorMarkup: (f.floorMarkup ?? []).map((x) =>
+            x.id === ftr.markupId && x.kind === "text"
+              ? { ...x, fontSizePx: nextFs, maxWidthPct: nextMw }
+              : x
           ),
         }));
         return;
@@ -2391,12 +2516,14 @@ export function StageBoard({
           e.clientY - tapUp.startClientY
         );
         if (dist <= FLOOR_TEXT_TAP_DRAG_THRESHOLD_PX && setPiecesEditable) {
-          setFloorMarkupTool("text");
-          setFloorTextEditId(tapUp.id);
+          setFloorTextInlineEditId(null);
+          setFloorTextSelectedId(tapUp.id);
           setFloorTextDraft({
             body: tapUp.text,
             fontSizePx: tapUp.fontSizePx,
             fontWeight: tapUp.fontWeight,
+            color: tapUp.color,
+            fontFamily: tapUp.fontFamily,
           });
         }
       }
@@ -2432,6 +2559,7 @@ export function StageBoard({
       dragRef.current = null;
       floorMarkupTextDragRef.current = null;
       floorTextPlaceDragRef.current = null;
+      floorTextResizeRef.current = null;
       groupDragRef.current = null;
       /** 向き／複数時は位置も含む回転ドラッグの確定 */
       const rotUp = markerRotateRef.current;
@@ -2630,8 +2758,16 @@ export function StageBoard({
         setFloorMarkupTool(null);
         floorLineSessionRef.current = null;
         setFloorLineDraft(null);
-        setFloorTextDraft({ body: "", fontSizePx: 18, fontWeight: 600 });
+        setFloorTextDraft({
+          body: "",
+          fontSizePx: 18,
+          fontWeight: 600,
+          color: "#fef08a",
+          fontFamily: FLOOR_TEXT_DEFAULT_FONT_FAMILY,
+        });
         setFloorTextEditId(null);
+        setFloorTextSelectedId(null);
+        setFloorTextInlineEditId(null);
         setDragGhostById(null);
         setMarkerFacingDraft(null);
         setMarkerGroupPosDraft(null);
@@ -3537,11 +3673,12 @@ export function StageBoard({
                         onChange={(e) => {
                           const body = e.target.value;
                           setFloorTextDraft((d) => ({ ...d, body }));
-                          if (floorTextEditId) {
+                          const tid = floorTextStyleTargetId;
+                          if (tid) {
                             updateActiveFormation((f) => ({
                               ...f,
                               floorMarkup: (f.floorMarkup ?? []).map((m) =>
-                                m.id === floorTextEditId && m.kind === "text"
+                                m.id === tid && m.kind === "text"
                                   ? { ...m, text: body.slice(0, 400) }
                                   : m
                               ),
@@ -3590,11 +3727,12 @@ export function StageBoard({
                             onChange={(e) => {
                               const fontSizePx = Number(e.target.value);
                               setFloorTextDraft((d) => ({ ...d, fontSizePx }));
-                              if (floorTextEditId) {
+                              const tid = floorTextStyleTargetId;
+                              if (tid) {
                                 updateActiveFormation((f) => ({
                                   ...f,
                                   floorMarkup: (f.floorMarkup ?? []).map((m) =>
-                                    m.id === floorTextEditId && m.kind === "text"
+                                    m.id === tid && m.kind === "text"
                                       ? {
                                           ...m,
                                           fontSizePx: Math.round(
@@ -3625,14 +3763,15 @@ export function StageBoard({
                             onChange={(e) => {
                               const fontWeight = Number(e.target.value);
                               setFloorTextDraft((d) => ({ ...d, fontWeight }));
-                              if (floorTextEditId) {
+                              const tid = floorTextStyleTargetId;
+                              if (tid) {
                                 const fw =
                                   Math.round(clamp(fontWeight, 300, 900) / 50) *
                                   50;
                                 updateActiveFormation((f) => ({
                                   ...f,
                                   floorMarkup: (f.floorMarkup ?? []).map((m) =>
-                                    m.id === floorTextEditId && m.kind === "text"
+                                    m.id === tid && m.kind === "text"
                                       ? { ...m, fontWeight: fw }
                                       : m
                                   ),
@@ -3640,6 +3779,94 @@ export function StageBoard({
                               }
                             }}
                           />
+                        </label>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            alignItems: "center",
+                            gap: 6,
+                          }}
+                        >
+                          <span style={{ color: "#94a3b8" }}>色</span>
+                          {FLOOR_TEXT_COLOR_SWATCHES.map((hex) => (
+                            <button
+                              key={hex}
+                              type="button"
+                              title={hex}
+                              onClick={() => {
+                                setFloorTextDraft((d) => ({ ...d, color: hex }));
+                                const tid = floorTextStyleTargetId;
+                                if (tid) {
+                                  updateActiveFormation((f) => ({
+                                    ...f,
+                                    floorMarkup: (f.floorMarkup ?? []).map(
+                                      (m) =>
+                                        m.id === tid && m.kind === "text"
+                                          ? { ...m, color: hex }
+                                          : m
+                                    ),
+                                  }));
+                                }
+                              }}
+                              style={{
+                                width: 22,
+                                height: 22,
+                                borderRadius: 4,
+                                border:
+                                  floorTextDraft.color === hex
+                                    ? "2px solid #e2e8f0"
+                                    : "1px solid #334155",
+                                background: hex,
+                                padding: 0,
+                                cursor: "pointer",
+                                boxSizing: "border-box",
+                              }}
+                            />
+                          ))}
+                        </div>
+                        <label
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                          }}
+                        >
+                          フォント
+                          <select
+                            value={floorTextDraft.fontFamily}
+                            onChange={(e) => {
+                              const fontFamily = e.target.value;
+                              setFloorTextDraft((d) => ({ ...d, fontFamily }));
+                              const tid = floorTextStyleTargetId;
+                              if (tid) {
+                                updateActiveFormation((f) => ({
+                                  ...f,
+                                  floorMarkup: (f.floorMarkup ?? []).map(
+                                    (m) =>
+                                      m.id === tid && m.kind === "text"
+                                        ? { ...m, fontFamily }
+                                        : m
+                                  ),
+                                }));
+                              }
+                            }}
+                            style={{
+                              maxWidth: 200,
+                              fontSize: 11,
+                              padding: "4px 6px",
+                              borderRadius: 6,
+                              border: "1px solid #475569",
+                              background: "#0f172a",
+                              color: "#e2e8f0",
+                            }}
+                          >
+                            {FLOOR_TEXT_FONT_PRESETS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
                         </label>
                       </div>
                       <div
@@ -3650,7 +3877,7 @@ export function StageBoard({
                         }}
                       >
                         {floorTextEditId
-                          ? "空の床をクリックで位置を移動。サイズ・太さはスライダーで変更できます。"
+                          ? "空の床をクリックで位置を移動。サイズ・色・フォントはここまたは枠の角で変更できます。"
                           : "本文を入力してから床をクリックで配置。既存の床テキストをクリックすると編集できます。"}
                       </div>
                     </>
@@ -3734,6 +3961,8 @@ export function StageBoard({
                           body: "",
                           fontSizePx: 18,
                           fontWeight: 600,
+                          color: "#fef08a",
+                          fontFamily: FLOOR_TEXT_DEFAULT_FONT_FAMILY,
                         });
                       }}
                       style={{
@@ -3803,11 +4032,12 @@ export function StageBoard({
                       onChange={(e) => {
                         const body = e.target.value;
                         setFloorTextDraft((d) => ({ ...d, body }));
-                        if (floorTextEditId) {
+                        const tid = floorTextStyleTargetId;
+                        if (tid) {
                           updateActiveFormation((f) => ({
                             ...f,
                             floorMarkup: (f.floorMarkup ?? []).map((m) =>
-                              m.id === floorTextEditId && m.kind === "text"
+                              m.id === tid && m.kind === "text"
                                 ? { ...m, text: body.slice(0, 400) }
                                 : m
                             ),
@@ -3856,11 +4086,12 @@ export function StageBoard({
                           onChange={(e) => {
                             const fontSizePx = Number(e.target.value);
                             setFloorTextDraft((d) => ({ ...d, fontSizePx }));
-                            if (floorTextEditId) {
+                            const tid = floorTextStyleTargetId;
+                            if (tid) {
                               updateActiveFormation((f) => ({
                                 ...f,
                                 floorMarkup: (f.floorMarkup ?? []).map((m) =>
-                                  m.id === floorTextEditId && m.kind === "text"
+                                  m.id === tid && m.kind === "text"
                                     ? {
                                         ...m,
                                         fontSizePx: Math.round(
@@ -3891,13 +4122,14 @@ export function StageBoard({
                           onChange={(e) => {
                             const fontWeight = Number(e.target.value);
                             setFloorTextDraft((d) => ({ ...d, fontWeight }));
-                            if (floorTextEditId) {
+                            const tid = floorTextStyleTargetId;
+                            if (tid) {
                               const fw =
                                 Math.round(clamp(fontWeight, 300, 900) / 50) * 50;
                               updateActiveFormation((f) => ({
                                 ...f,
                                 floorMarkup: (f.floorMarkup ?? []).map((m) =>
-                                  m.id === floorTextEditId && m.kind === "text"
+                                  m.id === tid && m.kind === "text"
                                     ? { ...m, fontWeight: fw }
                                     : m
                                 ),
@@ -3905,6 +4137,92 @@ export function StageBoard({
                             }
                           }}
                         />
+                      </label>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          alignItems: "center",
+                          gap: 6,
+                        }}
+                      >
+                        <span style={{ color: "#94a3b8" }}>色</span>
+                        {FLOOR_TEXT_COLOR_SWATCHES.map((hex) => (
+                          <button
+                            key={hex}
+                            type="button"
+                            title={hex}
+                            onClick={() => {
+                              setFloorTextDraft((d) => ({ ...d, color: hex }));
+                              const tid = floorTextStyleTargetId;
+                              if (tid) {
+                                updateActiveFormation((f) => ({
+                                  ...f,
+                                  floorMarkup: (f.floorMarkup ?? []).map((m) =>
+                                    m.id === tid && m.kind === "text"
+                                      ? { ...m, color: hex }
+                                      : m
+                                  ),
+                                }));
+                              }
+                            }}
+                            style={{
+                              width: 22,
+                              height: 22,
+                              borderRadius: 4,
+                              border:
+                                floorTextDraft.color === hex
+                                  ? "2px solid #e2e8f0"
+                                  : "1px solid #334155",
+                              background: hex,
+                              padding: 0,
+                              cursor: "pointer",
+                              boxSizing: "border-box",
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <label
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        フォント
+                        <select
+                          value={floorTextDraft.fontFamily}
+                          onChange={(e) => {
+                            const fontFamily = e.target.value;
+                            setFloorTextDraft((d) => ({ ...d, fontFamily }));
+                            const tid = floorTextStyleTargetId;
+                            if (tid) {
+                              updateActiveFormation((f) => ({
+                                ...f,
+                                floorMarkup: (f.floorMarkup ?? []).map((m) =>
+                                  m.id === tid && m.kind === "text"
+                                    ? { ...m, fontFamily }
+                                    : m
+                                ),
+                              }));
+                            }
+                          }}
+                          style={{
+                            maxWidth: 200,
+                            fontSize: 11,
+                            padding: "4px 6px",
+                            borderRadius: 6,
+                            border: "1px solid #475569",
+                            background: "#0f172a",
+                            color: "#e2e8f0",
+                          }}
+                        >
+                          {FLOOR_TEXT_FONT_PRESETS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
                       </label>
                     </div>
                     <button
@@ -3917,6 +4235,8 @@ export function StageBoard({
                           body: "",
                           fontSizePx: 18,
                           fontWeight: 600,
+                          color: "#fef08a",
+                          fontFamily: FLOOR_TEXT_DEFAULT_FONT_FAMILY,
                         });
                       }}
                       style={{
@@ -3976,6 +4296,8 @@ export function StageBoard({
                           body: "",
                           fontSizePx: 18,
                           fontWeight: 600,
+                          color: "#fef08a",
+                          fontFamily: FLOOR_TEXT_DEFAULT_FONT_FAMILY,
                         });
                       }}
                       style={{
@@ -3985,6 +4307,143 @@ export function StageBoard({
                       }}
                     >
                       完了
+                    </button>
+                  </div>
+                ) : null}
+                {floorTextStyleTargetId &&
+                floorMarkupTool === null &&
+                !floorTextPlaceSession ? (
+                  <div
+                    onPointerDown={(e) => e.stopPropagation()}
+                    role="toolbar"
+                    aria-label="床テキストの書式"
+                    style={{
+                      position: "absolute",
+                      bottom: 8,
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      zIndex: 38,
+                      display: "flex",
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "8px 12px",
+                      borderRadius: 10,
+                      border: "1px solid #334155",
+                      background: "rgba(15, 23, 42, 0.96)",
+                      boxShadow: "0 -4px 18px rgba(0,0,0,0.35)",
+                      maxWidth: "min(560px, calc(100% - 24px))",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 11,
+                        color: "#94a3b8",
+                        fontWeight: 700,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      選択中のテキスト
+                    </span>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
+                      {FLOOR_TEXT_COLOR_SWATCHES.map((hex) => (
+                        <button
+                          key={hex}
+                          type="button"
+                          title={hex}
+                          onClick={() => {
+                            setFloorTextDraft((d) => ({ ...d, color: hex }));
+                            const tid = floorTextStyleTargetId;
+                            if (tid) {
+                              updateActiveFormation((f) => ({
+                                ...f,
+                                floorMarkup: (f.floorMarkup ?? []).map((m) =>
+                                  m.id === tid && m.kind === "text"
+                                    ? { ...m, color: hex }
+                                    : m
+                                ),
+                              }));
+                            }
+                          }}
+                          style={{
+                            width: 22,
+                            height: 22,
+                            borderRadius: 4,
+                            border:
+                              floorTextDraft.color === hex
+                                ? "2px solid #e2e8f0"
+                                : "1px solid #334155",
+                            background: hex,
+                            padding: 0,
+                            cursor: "pointer",
+                            boxSizing: "border-box",
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        fontSize: 11,
+                        color: "#cbd5e1",
+                      }}
+                    >
+                      フォント
+                      <select
+                        value={floorTextDraft.fontFamily}
+                        onChange={(e) => {
+                          const fontFamily = e.target.value;
+                          setFloorTextDraft((d) => ({ ...d, fontFamily }));
+                          const tid = floorTextStyleTargetId;
+                          if (tid) {
+                            updateActiveFormation((f) => ({
+                              ...f,
+                              floorMarkup: (f.floorMarkup ?? []).map((m) =>
+                                m.id === tid && m.kind === "text"
+                                  ? { ...m, fontFamily }
+                                  : m
+                              ),
+                            }));
+                          }
+                        }}
+                        style={{
+                          maxWidth: 180,
+                          fontSize: 11,
+                          padding: "4px 6px",
+                          borderRadius: 6,
+                          border: "1px solid #475569",
+                          background: "#0f172a",
+                          color: "#e2e8f0",
+                        }}
+                      >
+                        {FLOOR_TEXT_FONT_PRESETS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button
+                      type="button"
+                      title="テキストの選択を解除"
+                      onClick={() => setFloorTextSelectedId(null)}
+                      style={{
+                        ...btnSecondary,
+                        padding: "4px 10px",
+                        fontSize: 11,
+                        marginLeft: "auto",
+                      }}
+                    >
+                      選択解除
                     </button>
                   </div>
                 ) : null}
@@ -4506,10 +4965,15 @@ export function StageBoard({
                           e.preventDefault();
                           e.stopPropagation();
                           setFloorTextEditId(m.id);
+                          setFloorTextSelectedId(m.id);
+                          setFloorTextInlineEditId(null);
                           setFloorTextDraft({
                             body: m.text,
                             fontSizePx: Math.round(clamp(m.fontSizePx ?? 18, 8, 56)),
                             fontWeight: fw,
+                            color: m.color ?? "#fef08a",
+                            fontFamily:
+                              m.fontFamily ?? FLOOR_TEXT_DEFAULT_FONT_FAMILY,
                           });
                           return;
                         }
@@ -4524,6 +4988,10 @@ export function StageBoard({
                             text: m.text,
                             fontSizePx: Math.round(clamp(m.fontSizePx ?? 18, 8, 56)),
                             fontWeight: fw,
+                            color: m.color ?? "#fef08a",
+                            fontFamily:
+                              m.fontFamily ?? FLOOR_TEXT_DEFAULT_FONT_FAMILY,
+                            maxWidthPct: m.maxWidthPct ?? 42,
                             startClientX: e.clientX,
                             startClientY: e.clientY,
                             startXPct: m.xPct,
@@ -4532,39 +5000,294 @@ export function StageBoard({
                           };
                         }
                       }}
-                      style={{
-                        position: "absolute",
-                        left: `${m.xPct}%`,
-                        top: `${m.yPct}%`,
-                        transform: "translate(-50%, -100%)",
-                        maxWidth: "42%",
-                        padding: "2px 6px",
-                        borderRadius: "6px",
-                        fontSize: fs,
-                        lineHeight: 1.25,
-                        fontWeight: fw,
-                        color: m.color ?? "#fef3c7",
-                        textShadow:
-                          "0 0 2px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.65)",
-                        whiteSpace: "pre-wrap",
-                        wordBreak: "break-word",
-                        outline:
-                          floorMarkupTool === "text" && floorTextEditId === m.id
-                            ? "2px solid rgba(129, 140, 248, 0.95)"
-                            : undefined,
-                        outlineOffset: 2,
-                        pointerEvents: textHit ? "auto" : "none",
-                        cursor:
-                          floorMarkupTool === "erase" && setPiecesEditable
-                            ? "pointer"
-                            : floorMarkupTool === "text" && setPiecesEditable
-                              ? "pointer"
-                              : textMoveGrab
-                                ? "grab"
-                                : "default",
-                      }}
                     >
-                      {m.text}
+                      {(() => {
+                        const mw = m.maxWidthPct ?? 42;
+                        const col = m.color ?? "#fef3c7";
+                        const ff =
+                          m.fontFamily ?? FLOOR_TEXT_DEFAULT_FONT_FAMILY;
+                        const selected =
+                          floorTextSelectedId === m.id ||
+                          (floorMarkupTool === "text" &&
+                            floorTextEditId === m.id);
+                        const showHandles =
+                          selected &&
+                          setPiecesEditable &&
+                          !playbackOrPreview &&
+                          floorMarkupTool !== "erase" &&
+                          floorTextInlineEditId !== m.id;
+                        const handleDown = (
+                          ev: React.PointerEvent,
+                          corner: "nw" | "ne" | "sw" | "se"
+                        ) => {
+                          ev.preventDefault();
+                          ev.stopPropagation();
+                          floorTextResizeRef.current = {
+                            markupId: m.id,
+                            corner,
+                            startClientX: ev.clientX,
+                            startClientY: ev.clientY,
+                            startFontSizePx: fs,
+                            startMaxWidthPct: mw,
+                            pointerId: ev.pointerId,
+                          };
+                        };
+                        const textBlockStyle: CSSProperties = {
+                          position: "relative",
+                          padding: "2px 6px",
+                          borderRadius: "6px",
+                          fontSize: fs,
+                          lineHeight: 1.25,
+                          fontWeight: fw,
+                          color: col,
+                          fontFamily: ff,
+                          textShadow:
+                            "0 0 2px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.65)",
+                          whiteSpace: "pre-wrap",
+                          wordBreak: "break-word",
+                          boxSizing: "border-box",
+                          width: "100%",
+                          outline:
+                            floorMarkupTool === "text" && floorTextEditId === m.id
+                              ? "2px solid rgba(129, 140, 248, 0.95)"
+                              : selected
+                                ? "2px solid rgba(129, 140, 248, 0.75)"
+                                : undefined,
+                          outlineOffset: 2,
+                          cursor:
+                            floorMarkupTool === "erase" && setPiecesEditable
+                              ? "pointer"
+                              : floorMarkupTool === "text" && setPiecesEditable
+                                ? "pointer"
+                                : textMoveGrab
+                                  ? "grab"
+                                  : "default",
+                        };
+                        const cornerBtn = (
+                          corner: "nw" | "ne" | "sw" | "se",
+                          pos: CSSProperties
+                        ) => (
+                          <button
+                            key={corner}
+                            type="button"
+                            data-floor-text-resize-handle
+                            aria-label={`テキストを${corner}から拡大縮小`}
+                            onPointerDown={(ev) => handleDown(ev, corner)}
+                            style={{
+                              position: "absolute",
+                              width: 11,
+                              height: 11,
+                              margin: 0,
+                              padding: 0,
+                              borderRadius: 2,
+                              border: "1px solid #1e293b",
+                              background: "#e2e8f0",
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.45)",
+                              cursor:
+                                corner === "nw" || corner === "se"
+                                  ? "nwse-resize"
+                                  : "nesw-resize",
+                              touchAction: "none",
+                              zIndex: 3,
+                              ...pos,
+                            }}
+                          />
+                        );
+                        return (
+                          <div
+                            key={m.id}
+                            style={{
+                              position: "absolute",
+                              left: `${m.xPct}%`,
+                              top: `${m.yPct}%`,
+                              transform: "translate(-50%, -100%)",
+                              maxWidth: `${mw}%`,
+                              zIndex: floorTextInlineEditId === m.id ? 16 : 6,
+                              pointerEvents: textHit ? "auto" : "none",
+                            }}
+                          >
+                            {floorTextInlineEditId === m.id ? (
+                              <textarea
+                                autoFocus
+                                value={floorTextDraft.body}
+                                onChange={(ev) => {
+                                  const body = ev.target.value;
+                                  setFloorTextDraft((d) => ({ ...d, body }));
+                                  updateActiveFormation((f) => ({
+                                    ...f,
+                                    floorMarkup: (f.floorMarkup ?? []).map((x) =>
+                                      x.id === m.id && x.kind === "text"
+                                        ? { ...x, text: body.slice(0, 400) }
+                                        : x
+                                    ),
+                                  }));
+                                }}
+                                onKeyDown={(ev) => {
+                                  if (ev.key === "Escape") {
+                                    ev.stopPropagation();
+                                    setFloorTextInlineEditId(null);
+                                  }
+                                }}
+                                onBlur={() => setFloorTextInlineEditId(null)}
+                                rows={Math.min(
+                                  8,
+                                  Math.max(2, m.text.split("\n").length + 1)
+                                )}
+                                style={{
+                                  ...textBlockStyle,
+                                  width: "100%",
+                                  minHeight: 44,
+                                  resize: "vertical",
+                                  background: "rgba(15,23,42,0.92)",
+                                  color: col,
+                                  fontFamily: ff,
+                                  fontSize: fs,
+                                  fontWeight: fw,
+                                }}
+                              />
+                            ) : (
+                              <div
+                                data-floor-markup="text"
+                                data-fmark-id={m.id}
+                                title={
+                                  textMoveGrab
+                                    ? "タップで選択（枠の角で大きさ変更）。ダブルクリックでその場で編集。ドラッグで移動。"
+                                    : floorMarkupTool === "text"
+                                      ? "タップで選択して編集。右クリックで削除"
+                                      : floorMarkupTool === "erase"
+                                        ? "タップで削除"
+                                        : undefined
+                                }
+                                onContextMenu={(e) => {
+                                  if (
+                                    viewMode === "view" ||
+                                    !setPiecesEditable ||
+                                    playbackOrPreview ||
+                                    previewDancers ||
+                                    !textHit
+                                  ) {
+                                    return;
+                                  }
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setStageContextMenu({
+                                    kind: "floorText",
+                                    clientX: e.clientX,
+                                    clientY: e.clientY,
+                                    markupId: m.id,
+                                  });
+                                }}
+                                onDoubleClick={(e) => {
+                                  if (
+                                    !textHit ||
+                                    viewMode === "view" ||
+                                    !setPiecesEditable ||
+                                    floorMarkupTool === "erase"
+                                  ) {
+                                    return;
+                                  }
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setFloorTextSelectedId(m.id);
+                                  setFloorTextInlineEditId(m.id);
+                                  setFloorTextDraft({
+                                    body: m.text,
+                                    fontSizePx: Math.round(
+                                      clamp(m.fontSizePx ?? 18, 8, 56)
+                                    ),
+                                    fontWeight: fw,
+                                    color: m.color ?? "#fef08a",
+                                    fontFamily:
+                                      m.fontFamily ??
+                                      FLOOR_TEXT_DEFAULT_FONT_FAMILY,
+                                  });
+                                }}
+                                onPointerDown={(e) => {
+                                  if (
+                                    floorMarkupTool === "erase" &&
+                                    setPiecesEditable
+                                  ) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    removeFloorMarkupById(m.id);
+                                    return;
+                                  }
+                                  if (
+                                    floorMarkupTool === "text" &&
+                                    setPiecesEditable
+                                  ) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setFloorTextEditId(m.id);
+                                    setFloorTextSelectedId(m.id);
+                                    setFloorTextInlineEditId(null);
+                                    setFloorTextDraft({
+                                      body: m.text,
+                                      fontSizePx: Math.round(
+                                        clamp(m.fontSizePx ?? 18, 8, 56)
+                                      ),
+                                      fontWeight: fw,
+                                      color: m.color ?? "#fef08a",
+                                      fontFamily:
+                                        m.fontFamily ??
+                                        FLOOR_TEXT_DEFAULT_FONT_FAMILY,
+                                    });
+                                    return;
+                                  }
+                                  if (textMoveGrab) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    (
+                                      e.currentTarget as HTMLElement
+                                    ).setPointerCapture(e.pointerId);
+                                    floorTextTapOrDragRef.current = {
+                                      id: m.id,
+                                      text: m.text,
+                                      fontSizePx: Math.round(
+                                        clamp(m.fontSizePx ?? 18, 8, 56)
+                                      ),
+                                      fontWeight: fw,
+                                      color: m.color ?? "#fef08a",
+                                      fontFamily:
+                                        m.fontFamily ??
+                                        FLOOR_TEXT_DEFAULT_FONT_FAMILY,
+                                      maxWidthPct: m.maxWidthPct ?? 42,
+                                      startClientX: e.clientX,
+                                      startClientY: e.clientY,
+                                      startXPct: m.xPct,
+                                      startYPct: m.yPct,
+                                      pointerId: e.pointerId,
+                                    };
+                                  }
+                                }}
+                                style={textBlockStyle}
+                              >
+                                {m.text}
+                                {showHandles ? (
+                                  <>
+                                    {cornerBtn("nw", {
+                                      left: -6,
+                                      top: -6,
+                                    })}
+                                    {cornerBtn("ne", {
+                                      right: -6,
+                                      top: -6,
+                                    })}
+                                    {cornerBtn("sw", {
+                                      left: -6,
+                                      bottom: -6,
+                                    })}
+                                    {cornerBtn("se", {
+                                      right: -6,
+                                      bottom: -6,
+                                    })}
+                                  </>
+                                ) : null}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })}
@@ -4606,7 +5329,10 @@ export function StageBoard({
                         Math.round(
                           clamp(floorTextPlaceSession.fontWeight, 300, 900) / 50
                         ) * 50,
-                      color: "#fef08a",
+                      color: floorTextPlaceSession.color ?? "#fef08a",
+                      fontFamily:
+                        floorTextPlaceSession.fontFamily ??
+                        FLOOR_TEXT_DEFAULT_FONT_FAMILY,
                       textShadow:
                         "0 0 2px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.65)",
                       whiteSpace: "pre-wrap",

@@ -29,6 +29,7 @@ import {
   modDancerColorIndex,
 } from "../lib/dancerColorPalette";
 import { dancerMarkerDiameterAfterRosterImport } from "../lib/projectDefaults";
+import { sortCuesByStart } from "../lib/cueInterval";
 
 export type { RosterStripSortMode };
 
@@ -84,6 +85,11 @@ type Props = {
   setProject: React.Dispatch<
     React.SetStateAction<ChoreographyProjectJson>
   >;
+  /**
+   * 名簿「決定」でタイムラインに戻った直後に呼ぶ。
+   * 親で先頭キュー（ページャ 1）へ切り替え・シークする。
+   */
+  onConfirmReturnToTimeline?: () => void;
 };
 
 /**
@@ -95,7 +101,11 @@ const ROWS_PER_PAGE = 30;
 /** 名簿「決定」で未配置を一括ステージへ置くときの雛形（「未配置を一括でステージへ」と同じロジック） */
 const DEFAULT_ROSTER_CONFIRM_PRESET: LayoutPresetId = "rows_3";
 
-export function RosterTimelineStrip({ project, setProject }: Props) {
+export function RosterTimelineStrip({
+  project,
+  setProject,
+  onConfirmReturnToTimeline,
+}: Props) {
   const listScrollRef = useRef<HTMLDivElement>(null);
   const [rowHeightPx, setRowHeightPx] = useState(26);
   /** 雛形選択モーダル: 未配置一括 / 名簿並びで再配置 */
@@ -501,8 +511,13 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
     if (project.viewMode === "view") return;
     setProject((p) => {
       if (p.viewMode === "view") return p;
-      const f = p.formations.find((x) => x.id === p.activeFormationId);
-      if (!f) return { ...p, rosterHidesTimeline: false };
+      /** キューがあれば先頭キューのフォーメーションへ確定（名簿モード中の編集を 1 ページ目に反映） */
+      const firstCue = sortCuesByStart(p.cues)[0];
+      const targetFid = firstCue?.formationId ?? p.activeFormationId;
+      const f = p.formations.find((x) => x.id === targetFid);
+      if (!f) {
+        return { ...p, rosterHidesTimeline: false, activeFormationId: targetFid };
+      }
 
       let order = 0;
       const flat: FlatRow[] = [];
@@ -532,7 +547,11 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
       );
       const toAdd = sorted.filter((r) => !on.has(r.member.id));
       if (toAdd.length === 0) {
-        return { ...p, rosterHidesTimeline: false };
+        return {
+          ...p,
+          rosterHidesTimeline: false,
+          activeFormationId: targetFid,
+        };
       }
 
       const existing = [...f.dancers];
@@ -571,6 +590,7 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
       const merged = transferDancerIdentitiesByOrder(positioned, placeholders);
       return {
         ...p,
+        activeFormationId: targetFid,
         dancerLabelPosition: "below",
         dancerMarkerDiameterPx: dancerMarkerDiameterAfterRosterImport(
           p.dancerMarkerDiameterPx
@@ -587,7 +607,8 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
         ),
       };
     });
-  }, [project.viewMode, setProject]);
+    onConfirmReturnToTimeline?.();
+  }, [project.viewMode, setProject, onConfirmReturnToTimeline]);
 
   /**
    * 名簿の並び替え順に名簿メンバーを並べ替え、続けて名簿外の立ち位置を後ろに付け、雛形で敷き直す。
@@ -804,7 +825,7 @@ export function RosterTimelineStrip({ project, setProject }: Props) {
               type="button"
               onClick={confirmRosterAndReturnToTimeline}
               disabled={project.viewMode === "view"}
-              title="未配置のメンバーを3列の形でステージに置き、この名簿一覧を閉じてタイムラインを表示します（別の形にしたい場合は「未配置を一括でステージへ」）"
+              title="未配置のメンバーを3列の形でステージに置き、先頭キュー（タイムライン 1 ページ目）のフォーメーションに確定してタイムラインへ戻ります（別の形にしたい場合は「未配置を一括でステージへ」）"
               style={{
                 fontSize: "11px",
                 padding: "4px 12px",

@@ -155,6 +155,15 @@ function normalizeFloorMarkupArray(raw: unknown): StageFloorMarkup[] {
       if (Number.isFinite(fw) && fw >= 300 && fw <= 900) {
         item.fontWeight = Math.round(fw / 50) * 50;
       }
+      const mwp = Number(r.maxWidthPct);
+      if (Number.isFinite(mwp) && mwp >= 8 && mwp <= 95) {
+        (item as { maxWidthPct?: number }).maxWidthPct =
+          Math.round(clampPct(mwp, 8, 95) * 10) / 10;
+      }
+      if (typeof r.fontFamily === "string") {
+        const ff = r.fontFamily.trim().slice(0, 240);
+        if (ff) (item as { fontFamily?: string }).fontFamily = ff;
+      }
       out.push(item);
       continue;
     }
