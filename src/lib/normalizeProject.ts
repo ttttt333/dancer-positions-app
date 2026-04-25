@@ -155,6 +155,14 @@ function normalizeFloorMarkupArray(raw: unknown): StageFloorMarkup[] {
       if (Number.isFinite(fw) && fw >= 300 && fw <= 900) {
         item.fontWeight = Math.round(fw / 50) * 50;
       }
+      if (typeof r.fontFamily === "string") {
+        const ff = r.fontFamily.trim().slice(0, 240);
+        if (ff) item.fontFamily = ff;
+      }
+      const sc = Number(r.scale);
+      if (Number.isFinite(sc) && sc > 0) {
+        item.scale = Math.min(8, Math.max(0.2, Math.round(sc * 1000) / 1000));
+      }
       out.push(item);
       continue;
     }
