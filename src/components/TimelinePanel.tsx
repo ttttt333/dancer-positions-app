@@ -569,6 +569,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
     /** 再生中は親の currentTime を毎フレーム更新しない（全体レイアウトのブルブル防止） */
     const lastPlaybackStateEmitRef = useRef(0);
     const wasPlayingRef = useRef(false);
+    /** アンマウント時に revoke しない（名簿取り込みでタイムラインが外れても音源 URL を無効化しない）。差し替えは fetch / ファイル選択側で行う */
     const blobUrlRef = useRef<string | null>(null);
     /** 1 = 曲全体表示。小さいほど拡大（見える時間幅が狭い） */
     const [viewPortion, setViewPortion] = useState(1);
@@ -1175,15 +1176,6 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         cancelled = true;
       };
     }, [project.audioAssetId, decodePeaksFromBuffer]);
-
-    useEffect(() => {
-      return () => {
-        if (blobUrlRef.current) {
-          URL.revokeObjectURL(blobUrlRef.current);
-          blobUrlRef.current = null;
-        }
-      };
-    }, []);
 
     const onPickAudio = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const f = e.target.files?.[0];
