@@ -1074,9 +1074,7 @@ export function EditorPage() {
             {
               kind: "text" as const,
               id: crypto.randomUUID(),
-              ...(floorTextPlaceSession.layer === "screen"
-                ? { layer: "screen" as const }
-                : {}),
+              layer: "screen" as const,
               xPct: round2Pct(
                 Math.min(100, Math.max(0, floorTextPlaceSession.xPct))
               ),
@@ -1788,7 +1786,7 @@ export function EditorPage() {
           {!workbenchInRightRail ? (
             <div
               style={
-                floorTextPlaceSession?.layer === "screen"
+                floorTextPlaceSession
                   ? {
                       position: "relative",
                       zIndex: 130,
@@ -2009,7 +2007,7 @@ export function EditorPage() {
               minHeight: 0,
               minWidth: 0,
               overflow: "hidden",
-              ...(floorTextPlaceSession?.layer === "screen"
+              ...(floorTextPlaceSession
                 ? { position: "relative" as const, zIndex: 140 }
                 : {}),
             }}
@@ -2051,7 +2049,7 @@ export function EditorPage() {
               ...(wideEditorLayout
                 ? { gridColumn: 3, gridRow: 1 }
                 : {}),
-              ...(floorTextPlaceSession?.layer === "screen"
+              ...(floorTextPlaceSession
                 ? { position: "relative" as const, zIndex: 140 }
                 : {}),
             }}

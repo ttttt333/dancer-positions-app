@@ -77,8 +77,6 @@ export type FloorTextPlaceSession = {
   fontFamily?: string;
   /** 設置後の床テキスト scale（既定 1） */
   scale?: number;
-  /** 省略時はステージ床。`screen` は編集画面全体を基準にした % 座標 */
-  layer?: "stage" | "screen";
 };
 
 type Props = {
@@ -116,8 +114,8 @@ type Props = {
   floorTextPlaceSession?: FloorTextPlaceSession | null;
   onFloorTextPlaceSessionChange?: (next: FloorTextPlaceSession) => void;
   /**
-   * `layer: "screen"` のテキストを重ねる DOM（編集グリッドのルートなど `position: relative`）。
-   * 未指定時は画面テキストは描画されない。
+   * 編集画面全体に重ねるテキスト（screen レイヤー）と配置プレビューの基準 DOM（`position: relative`）。
+   * 未指定時は画面テキストは描画されず、プレビューはステージ上にのみ出ます。
    */
   viewportTextOverlayRoot?: HTMLElement | null;
   /** 親と共有する床マークアップツール（未指定なら内部 state） */
@@ -146,10 +144,6 @@ function round2(v: number) {
 
 function floorTextLayer(m: StageFloorTextMarkup): "stage" | "screen" {
   return m.layer === "screen" ? "screen" : "stage";
-}
-
-function placeSessionLayer(s: FloorTextPlaceSession): "stage" | "screen" {
-  return s.layer === "screen" ? "screen" : "stage";
 }
 
 function resolveSetPieceFill(p: SetPiece): string {
@@ -1160,15 +1154,7 @@ export function StageBoard({
     const root = viewportTextOverlayRoot;
     const sess = floorTextPlaceSession;
     const onChange = onFloorTextPlaceSessionChange;
-    if (
-      !sess ||
-      !onChange ||
-      placeSessionLayer(sess) !== "screen" ||
-      !root ||
-      !setPiecesEditable ||
-      !writeFormation
-    )
-      return;
+    if (!sess || !onChange || !root || !setPiecesEditable || !writeFormation) return;
     const onPointerDownCapture = (e: PointerEvent) => {
       if (e.button !== 0) return;
       const t = e.target;
@@ -2183,14 +2169,7 @@ export function StageBoard({
       if (target.closest("[data-floor-text-place-preview]")) return;
       e.preventDefault();
       e.stopPropagation();
-      const psl = placeSessionLayer(floorTextPlaceSession);
-      if (psl === "stage") {
-        onFloorTextPlaceSessionChange({
-          ...floorTextPlaceSession,
-          xPct: round2(xPct),
-          yPct: round2(yPct),
-        });
-      } else if (viewportTextOverlayRoot) {
+      if (viewportTextOverlayRoot) {
         const rr = viewportTextOverlayRoot.getBoundingClientRect();
         const vx = clamp(((e.clientX - rr.left) / rr.width) * 100, 0, 100);
         const vy = clamp(((e.clientY - rr.top) / rr.height) * 100, 0, 100);
@@ -2198,6 +2177,12 @@ export function StageBoard({
           ...floorTextPlaceSession,
           xPct: round2(vx),
           yPct: round2(vy),
+        });
+      } else {
+        onFloorTextPlaceSessionChange({
+          ...floorTextPlaceSession,
+          xPct: round2(xPct),
+          yPct: round2(yPct),
         });
       }
       return;
@@ -2247,23 +2232,34 @@ export function StageBoard({
       const col = floorTextDraftColorHex(floorTextDraft.color);
       const fam =
         (floorTextDraft.fontFamily ?? "").trim() || FLOOR_TEXT_DEFAULT_FONT;
+      const root = viewportTextOverlayRoot;
+      const newText: StageFloorTextMarkup = {
+        kind: "text",
+        id: crypto.randomUUID(),
+        xPct: round2(xPct),
+        yPct: round2(yPct),
+        text: t.slice(0, 400),
+        color: col,
+        fontFamily: fam,
+        scale: 1,
+        fontSizePx: fs,
+        fontWeight: fw,
+      };
+      if (root) {
+        const rr = root.getBoundingClientRect();
+        if (rr.width > 0 && rr.height > 0) {
+          newText.layer = "screen";
+          newText.xPct = round2(
+            clamp(((e.clientX - rr.left) / rr.width) * 100, 0, 100)
+          );
+          newText.yPct = round2(
+            clamp(((e.clientY - rr.top) / rr.height) * 100, 0, 100)
+          );
+        }
+      }
       updateActiveFormation((f) => ({
         ...f,
-        floorMarkup: [
-          ...(f.floorMarkup ?? []),
-          {
-            kind: "text",
-            id: crypto.randomUUID(),
-            xPct: round2(xPct),
-            yPct: round2(yPct),
-            text: t.slice(0, 400),
-            color: col,
-            fontFamily: fam,
-            scale: 1,
-            fontSizePx: fs,
-            fontWeight: fw,
-          },
-        ],
+        floorMarkup: [...(f.floorMarkup ?? []), newText],
       }));
       setFloorTextDraft((d) => ({ ...d, body: "" }));
       setFloorTextEditId(null);
@@ -2444,10 +2440,7 @@ export function StageBoard({
       /** 1c: ヘッダから置くテキストのプレビュー位置ドラッグ */
       const ftpd = floorTextPlaceDragRef.current;
       if (ftpd && onFloorTextPlaceSessionChange) {
-        const rectEl =
-          placeSessionLayer(ftpd.session) === "screen" && viewportTextOverlayRoot
-            ? viewportTextOverlayRoot
-            : stageMainFloorRef.current;
+        const rectEl = viewportTextOverlayRoot ?? stageMainFloorRef.current;
         if (!rectEl) return;
         const rr = rectEl.getBoundingClientRect();
         const dxPct = ((e.clientX - ftpd.startClientX) / rr.width) * 100;
@@ -3868,9 +3861,7 @@ export function StageBoard({
   const screenTextPortalEl =
     viewportTextOverlayRoot &&
     typeof document !== "undefined" &&
-    (screenFloorTexts.length > 0 ||
-      (floorTextPlaceSession &&
-        placeSessionLayer(floorTextPlaceSession) === "screen"))
+    (screenFloorTexts.length > 0 || floorTextPlaceSession)
       ? createPortal(
           <div
             style={{
@@ -3882,7 +3873,6 @@ export function StageBoard({
           >
             {screenFloorTexts.map((m) => renderOneFloorTextMarkup(m, "screen"))}
             {floorTextPlaceSession &&
-            placeSessionLayer(floorTextPlaceSession) === "screen" &&
             setPiecesEditable &&
             !playbackOrPreview &&
             onFloorTextPlaceSessionChange ? (
@@ -5360,7 +5350,7 @@ export function StageBoard({
                   return renderOneFloorTextMarkup(m, "stage");
                 })}
                 {floorTextPlaceSession &&
-                placeSessionLayer(floorTextPlaceSession) !== "screen" &&
+                !viewportTextOverlayRoot &&
                 setPiecesEditable &&
                 !playbackOrPreview &&
                 onFloorTextPlaceSessionChange ? (
