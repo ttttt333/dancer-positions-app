@@ -87,6 +87,8 @@ function round2Pct(n: number): number {
 const EDITOR_WIDE_MIN_PX = 1280;
 /** メイン 4 列グリッドの列間（ステージ〜タイムラインのすき間に効く） */
 const EDITOR_GRID_GAP_PX = 6;
+/** 上部波形ドック行の既定高さ（px）。未保存時のグリッド行にそのまま使う */
+const TOP_DOCK_HEIGHT_PX = 80;
 /** 再生・波形・タイムライン列をまとめて上へ詰める（物理的な目安で約 0.5cm。以前 1.5cm から 1cm 下げた） */
 const EDITOR_PLAYBACK_LAYOUT_SHIFT_UP = "0.5cm";
 
@@ -108,14 +110,9 @@ const RIGHT_TOOLS_RAIL_MAX_PX = 210;
 const STAGE_COL_FR_DEFAULT = 82;
 const RIGHT_RAIL_FR_DEFAULT = 18;
 
-/**
- * 上部波形ドック行の高さの許容範囲。
- * 以前は 96px まで許可しており、保存値が小さいと再生・波形が潰れて 2 枚目のようになる。
- */
-const TOP_DOCK_ROW_MIN_PX = 168;
-const TOP_DOCK_ROW_MAX_PX = 560;
-/** 手動リサイズをリセットしたとき・未保存時の行高（波形は薄めの帯、ただし操作可能な下限は維持） */
-const TOP_DOCK_ROW_DEFAULT_CSS = `minmax(${TOP_DOCK_ROW_MIN_PX}px, min(14vh, 220px))`;
+/** 上部波形ドック行の高さの許容範囲（保存・ドラッグ・clamp と readStored の 60〜200 と一致） */
+const TOP_DOCK_ROW_MIN_PX = 60;
+const TOP_DOCK_ROW_MAX_PX = 200;
 
 function clampTopDockRowPx(n: number): number {
   return Math.min(
@@ -124,7 +121,7 @@ function clampTopDockRowPx(n: number): number {
   );
 }
 
-/** 波形行の高さ・ステージ〜右列の幅分割を端末に覚えさせる（v2: 既定列比を参照レイアウトに合わせた） */
+/** 波形行の高さ・ステージ〜右列の幅分割を端末に覚えさせる */
 const EDITOR_LAYOUT_STORAGE_KEY = "dancer-positions.editorLayout.v2";
 const EDITOR_LAYOUT_LEGACY_STORAGE_KEY = "dancer-positions.editorLayout.v1";
 
@@ -153,8 +150,8 @@ function readStoredEditorLayout(): {
     const td =
       typeof o.topDockRowPx === "number" &&
       Number.isFinite(o.topDockRowPx) &&
-      o.topDockRowPx >= TOP_DOCK_ROW_MIN_PX &&
-      o.topDockRowPx <= TOP_DOCK_ROW_MAX_PX
+      o.topDockRowPx >= 60 &&
+      o.topDockRowPx <= 200
         ? Math.round(o.topDockRowPx)
         : null;
     if (!rawCurrent && rawLegacy) {
@@ -680,8 +677,8 @@ export function EditorPage() {
        * ユーザーが「波形を上の方までできるだけ縮めたい」ケース向けに、
        * 最小高さはコンパクト再生行＋ルーラー＋波形が潰れない程度まで許可する。
        */
-      const minH = TOP_DOCK_ROW_MIN_PX;
-      const maxH = Math.max(minH, gridRect.height - 160);
+      const minH = 60;
+      const maxH = Math.max(minH, Math.min(200, gridRect.height - 300));
       const next = clampTopDockRowPx(
         Math.min(maxH, Math.max(minH, d.startH + (e.clientY - d.startY)))
       );
@@ -1446,8 +1443,8 @@ export function EditorPage() {
       ? showTopWaveDock
         ? `${
             topDockRowPx != null
-              ? `${clampTopDockRowPx(topDockRowPx)}px`
-              : TOP_DOCK_ROW_DEFAULT_CSS
+              ? `${topDockRowPx}px`
+              : `${TOP_DOCK_HEIGHT_PX}px`
           } 4px minmax(0, 1fr)`
         : "1fr"
       : "auto auto auto";
