@@ -12,6 +12,7 @@ import type {
   SetPiece,
   SetPieceKind,
   StageFloorMarkup,
+  StageFloorTextMarkup,
   StageShape,
   StageShapePresetId,
 } from "../types/choreography";
@@ -140,13 +141,15 @@ function normalizeFloorMarkupArray(raw: unknown): StageFloorMarkup[] {
       if (!text) continue;
       const xPct = Math.round(clampPct(Number(r.xPct), 0, 100) * 100) / 100;
       const yPct = Math.round(clampPct(Number(r.yPct), 0, 100) * 100) / 100;
-      const item: StageFloorMarkup = {
+      const item: StageFloorTextMarkup = {
         id,
         kind: "text",
         xPct,
         yPct,
         text,
       };
+      const lyr = r.layer;
+      if (lyr === "screen") item.layer = "screen";
       const col = normalizeHexFill(r.color);
       if (col) item.color = col;
       const fs = Number(r.fontSizePx);

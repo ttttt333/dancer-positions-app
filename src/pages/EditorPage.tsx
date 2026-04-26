@@ -214,6 +214,10 @@ export function EditorPage() {
     []
   );
   const editorPaneRef = useRef<HTMLDivElement>(null);
+  /** 画面テキスト用ポータルの基準（グリッド root）。ref だけだと初回描画後に再レンダーされないため state 併用 */
+  const [editorSurfaceEl, setEditorSurfaceEl] = useState<HTMLDivElement | null>(
+    null
+  );
   const stageSectionRef = useRef<HTMLElement>(null);
   /** ステージ床テキスト：ヘッダから入力→プレビュー→完了で設置 */
   const [floorTextPlaceSession, setFloorTextPlaceSession] =
@@ -1070,6 +1074,9 @@ export function EditorPage() {
             {
               kind: "text" as const,
               id: crypto.randomUUID(),
+              ...(floorTextPlaceSession.layer === "screen"
+                ? { layer: "screen" as const }
+                : {}),
               xPct: round2Pct(
                 Math.min(100, Math.max(0, floorTextPlaceSession.xPct))
               ),
@@ -1609,9 +1616,13 @@ export function EditorPage() {
       </header>
 
       <div
-        ref={editorPaneRef}
+        ref={(el) => {
+          editorPaneRef.current = el;
+          setEditorSurfaceEl((prev) => (prev === el ? prev : el));
+        }}
         className="editor-three-pane"
         style={{
+          position: "relative",
           flex: 1,
           display: "grid",
           gridTemplateColumns: editorGridColumns,
@@ -1775,7 +1786,21 @@ export function EditorPage() {
             </section>
           ) : null}
           {!workbenchInRightRail ? (
-            <EditorStageWorkbench key="stage-wb" layout="stage" {...stageWorkbenchProps} />
+            <div
+              style={
+                floorTextPlaceSession?.layer === "screen"
+                  ? {
+                      position: "relative",
+                      zIndex: 130,
+                      flexShrink: 0,
+                      minWidth: 0,
+                      width: "100%",
+                    }
+                  : { flexShrink: 0, minWidth: 0, width: "100%" }
+              }
+            >
+              <EditorStageWorkbench key="stage-wb" layout="stage" {...stageWorkbenchProps} />
+            </div>
           ) : null}
           <div
             style={{
@@ -1918,6 +1943,7 @@ export function EditorPage() {
                     markHistorySkipNextPush={
                       collabActive ? undefined : markHistorySkipNextPush
                     }
+                    viewportTextOverlayRoot={editorSurfaceEl}
                   />
                 ) : (
                   <Suspense
@@ -1983,6 +2009,9 @@ export function EditorPage() {
               minHeight: 0,
               minWidth: 0,
               overflow: "hidden",
+              ...(floorTextPlaceSession?.layer === "screen"
+                ? { position: "relative" as const, zIndex: 140 }
+                : {}),
             }}
           >
             <section
@@ -2021,6 +2050,9 @@ export function EditorPage() {
               overflow: "hidden",
               ...(wideEditorLayout
                 ? { gridColumn: 3, gridRow: 1 }
+                : {}),
+              ...(floorTextPlaceSession?.layer === "screen"
+                ? { position: "relative" as const, zIndex: 140 }
                 : {}),
             }}
           >

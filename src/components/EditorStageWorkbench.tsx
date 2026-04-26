@@ -630,7 +630,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                     ? "タイムラインでキューを選んでから使えます"
                     : floorTextPlaceSession
                       ? "テキスト配置を終了します"
-                      : "舞台上のテキストを入力・プレビューし、完了で設置します"
+                      : "テキストを入力し、ステージ上または画面全体に設置します"
               }
               onClick={() => {
                 if (project.viewMode === "view") return;
@@ -643,6 +643,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                         body: "",
                         fontSizePx: 18,
                         fontWeight: 600,
+                        layer: "stage",
                         xPct: 50,
                         yPct: 42,
                         color: "#fef08a",
@@ -800,6 +801,92 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               width: "100%",
             }}
           >
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 8,
+                alignItems: "center",
+                width: "100%",
+              }}
+            >
+              <span style={{ fontSize: 11, color: "#94a3b8", flexShrink: 0 }}>
+                配置先
+              </span>
+              <div
+                style={{
+                  display: "inline-flex",
+                  borderRadius: 8,
+                  border: "1px solid #334155",
+                  overflow: "hidden",
+                  flexShrink: 0,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFloorTextPlaceSession((s) =>
+                      s
+                        ? {
+                            ...s,
+                            layer: "stage",
+                            xPct: 50,
+                            yPct: 42,
+                          }
+                        : s
+                    )
+                  }
+                  style={{
+                    fontSize: 11,
+                    padding: "5px 12px",
+                    border: "none",
+                    cursor: "pointer",
+                    background:
+                      (floorTextPlaceSession.layer ?? "stage") === "stage"
+                        ? "#0ea5e9"
+                        : "#0f172a",
+                    color:
+                      (floorTextPlaceSession.layer ?? "stage") === "stage"
+                        ? "#0b1220"
+                        : "#94a3b8",
+                  }}
+                >
+                  ステージ
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFloorTextPlaceSession((s) =>
+                      s
+                        ? {
+                            ...s,
+                            layer: "screen",
+                            xPct: 50,
+                            yPct: 22,
+                          }
+                        : s
+                    )
+                  }
+                  style={{
+                    fontSize: 11,
+                    padding: "5px 12px",
+                    border: "none",
+                    borderLeft: "1px solid #334155",
+                    cursor: "pointer",
+                    background:
+                      floorTextPlaceSession.layer === "screen"
+                        ? "#0ea5e9"
+                        : "#0f172a",
+                    color:
+                      floorTextPlaceSession.layer === "screen"
+                        ? "#0b1220"
+                        : "#94a3b8",
+                  }}
+                >
+                  画面全体
+                </button>
+              </div>
+            </div>
             <textarea
               value={floorTextPlaceSession.body}
               onChange={(e) =>
@@ -808,7 +895,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                 )
               }
               rows={2}
-              aria-label="舞台上に表示するテキスト"
+              aria-label="ステージまたは編集画面に表示するテキスト"
               placeholder=""
               style={{
                 flex: "1 1 220px",
@@ -1063,7 +1150,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               ? "タイムラインでキューを選んでから使えます"
               : floorTextPlaceSession
                 ? "テキスト配置を終了します"
-                : "舞台上のテキストを入力・プレビューし、完了で設置します"
+                : "テキストを入力し、ステージ上または画面全体に設置します"
         }
         onClick={() => {
           if (project.viewMode === "view") return;
@@ -1076,6 +1163,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                   body: "",
                   fontSizePx: 18,
                   fontWeight: 600,
+                  layer: "stage",
                   xPct: 50,
                   yPct: 42,
                   color: "#fef08a",
@@ -1133,6 +1221,92 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
             borderTop: "1px solid #334155",
           }}
         >
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 8,
+              alignItems: "center",
+              width: "100%",
+            }}
+          >
+            <span style={{ fontSize: 11, color: "#94a3b8", flexShrink: 0 }}>
+              配置先
+            </span>
+            <div
+              style={{
+                display: "inline-flex",
+                borderRadius: 8,
+                border: "1px solid #334155",
+                overflow: "hidden",
+                flexShrink: 0,
+              }}
+            >
+              <button
+                type="button"
+                onClick={() =>
+                  setFloorTextPlaceSession((s) =>
+                    s
+                      ? {
+                          ...s,
+                          layer: "stage",
+                          xPct: 50,
+                          yPct: 42,
+                        }
+                      : s
+                  )
+                }
+                style={{
+                  fontSize: 11,
+                  padding: "5px 12px",
+                  border: "none",
+                  cursor: "pointer",
+                  background:
+                    (floorTextPlaceSession.layer ?? "stage") === "stage"
+                      ? "#0ea5e9"
+                      : "#0f172a",
+                  color:
+                    (floorTextPlaceSession.layer ?? "stage") === "stage"
+                      ? "#0b1220"
+                      : "#94a3b8",
+                }}
+              >
+                ステージ
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setFloorTextPlaceSession((s) =>
+                    s
+                      ? {
+                          ...s,
+                          layer: "screen",
+                          xPct: 50,
+                          yPct: 22,
+                        }
+                      : s
+                  )
+                }
+                style={{
+                  fontSize: 11,
+                  padding: "5px 12px",
+                  border: "none",
+                  borderLeft: "1px solid #334155",
+                  cursor: "pointer",
+                  background:
+                    floorTextPlaceSession.layer === "screen"
+                      ? "#0ea5e9"
+                      : "#0f172a",
+                  color:
+                    floorTextPlaceSession.layer === "screen"
+                      ? "#0b1220"
+                      : "#94a3b8",
+                }}
+              >
+                画面全体
+              </button>
+            </div>
+          </div>
           <textarea
             value={floorTextPlaceSession.body}
             onChange={(e) =>
@@ -1141,7 +1315,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               )
             }
             rows={2}
-            aria-label="舞台上に表示するテキスト"
+            aria-label="ステージまたは編集画面に表示するテキスト"
             placeholder=""
             style={{
               flex: "1 1 220px",

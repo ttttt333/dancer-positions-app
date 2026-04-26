@@ -67,6 +67,10 @@ export type SetPiece = {
 export type StageFloorTextMarkup = {
   id: string;
   kind: "text";
+  /**
+   * 座標の基準。省略または "stage" = 舞台床（従来）。`screen` = 編集画面全体（タイムライン列など含む）の矩形に対する %。
+   */
+  layer?: "stage" | "screen";
   xPct: number;
   yPct: number;
   text: string;

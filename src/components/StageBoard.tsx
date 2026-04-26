@@ -77,6 +77,8 @@ export type FloorTextPlaceSession = {
   fontFamily?: string;
   /** 設置後の床テキスト scale（既定 1） */
   scale?: number;
+  /** 省略時はステージ床。`screen` は編集画面全体を基準にした % 座標 */
+  layer?: "stage" | "screen";
 };
 
 type Props = {
@@ -113,6 +115,11 @@ type Props = {
   /** 床テキストを置くウィザード中（プレビュー座標・本文は親が保持） */
   floorTextPlaceSession?: FloorTextPlaceSession | null;
   onFloorTextPlaceSessionChange?: (next: FloorTextPlaceSession) => void;
+  /**
+   * `layer: "screen"` のテキストを重ねる DOM（編集グリッドのルートなど `position: relative`）。
+   * 未指定時は画面テキストは描画されない。
+   */
+  viewportTextOverlayRoot?: HTMLElement | null;
   /** 親と共有する床マークアップツール（未指定なら内部 state） */
   floorMarkupTool?: null | "text" | "line" | "erase";
   onFloorMarkupToolChange?: Dispatch<
@@ -135,6 +142,14 @@ function clamp(n: number, min: number, max: number) {
 
 function round2(v: number) {
   return Math.round(v * 100) / 100;
+}
+
+function floorTextLayer(m: StageFloorTextMarkup): "stage" | "screen" {
+  return m.layer === "screen" ? "screen" : "stage";
+}
+
+function placeSessionLayer(s: FloorTextPlaceSession): "stage" | "screen" {
+  return s.layer === "screen" ? "screen" : "stage";
 }
 
 function resolveSetPieceFill(p: SetPiece): string {
@@ -455,6 +470,7 @@ export function StageBoard({
   onStopPlaybackRequest,
   floorTextPlaceSession = null,
   onFloorTextPlaceSessionChange,
+  viewportTextOverlayRoot = null,
   floorMarkupTool: floorMarkupToolProp,
   onFloorMarkupToolChange,
   hideFloorMarkupFloatingToolbars = false,
@@ -692,6 +708,7 @@ export function StageBoard({
     startClientY: number;
     startXPct: number;
     startYPct: number;
+    layer: "stage" | "screen";
   } | null>(null);
   /**
    * ツール未選択時: テキスト上でポインタダウンした直後はここに保持し、
@@ -709,6 +726,7 @@ export function StageBoard({
     startXPct: number;
     startYPct: number;
     pointerId: number;
+    layer: "stage" | "screen";
   } | null>(null);
   /** 床テキスト枠の角ドラッグで scale を変える */
   const floorTextResizeDragRef = useRef<{
@@ -1079,6 +1097,14 @@ export function StageBoard({
         writeFormation?.floorMarkup ??
         [];
 
+  const screenFloorTexts = useMemo((): StageFloorTextMarkup[] => {
+    const out: StageFloorTextMarkup[] = [];
+    for (const m of displayFloorMarkup) {
+      if (m.kind === "text" && floorTextLayer(m) === "screen") out.push(m);
+    }
+    return out;
+  }, [displayFloorMarkup]);
+
   /** 床テキストのその場編集 textarea は親の scale と見た目を揃える */
   const floorTextInlineMarkupScale = useMemo(() => {
     const id = floorTextInlineRect?.id;
@@ -1128,6 +1154,50 @@ export function StageBoard({
     setFloorTextEditId(null);
     floorTextTapOrDragRef.current = null;
   }, [floorTextPlaceSession]);
+
+  /** 画面全体配置: 編集グリッド上の空所クリックでプレビュー位置を更新（入力欄・ボタンは除外） */
+  useEffect(() => {
+    const root = viewportTextOverlayRoot;
+    const sess = floorTextPlaceSession;
+    const onChange = onFloorTextPlaceSessionChange;
+    if (
+      !sess ||
+      !onChange ||
+      placeSessionLayer(sess) !== "screen" ||
+      !root ||
+      !setPiecesEditable ||
+      !writeFormation
+    )
+      return;
+    const onPointerDownCapture = (e: PointerEvent) => {
+      if (e.button !== 0) return;
+      const t = e.target;
+      if (!(t instanceof Element)) return;
+      if (!root.contains(t)) return;
+      if (
+        t.closest(
+          "button, input, textarea, select, option, a[href], [role='dialog'], [role='menu'], [data-floor-text-place-preview], [data-floor-text-box], [data-floor-markup]"
+        )
+      )
+        return;
+      if (t.closest("[data-dancer-id], [data-set-piece-id]")) return;
+      const r = root.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) return;
+      e.preventDefault();
+      const xPct = round2(clamp(((e.clientX - r.left) / r.width) * 100, 0, 100));
+      const yPct = round2(clamp(((e.clientY - r.top) / r.height) * 100, 0, 100));
+      onChange({ ...sess, xPct, yPct });
+    };
+    window.addEventListener("pointerdown", onPointerDownCapture, true);
+    return () =>
+      window.removeEventListener("pointerdown", onPointerDownCapture, true);
+  }, [
+    floorTextPlaceSession,
+    onFloorTextPlaceSessionChange,
+    viewportTextOverlayRoot,
+    setPiecesEditable,
+    writeFormation,
+  ]);
 
   /** 床テキストが削除されたあと、編集中 id が残らないようにする */
   useEffect(() => {
@@ -2113,11 +2183,23 @@ export function StageBoard({
       if (target.closest("[data-floor-text-place-preview]")) return;
       e.preventDefault();
       e.stopPropagation();
-      onFloorTextPlaceSessionChange({
-        ...floorTextPlaceSession,
-        xPct: round2(xPct),
-        yPct: round2(yPct),
-      });
+      const psl = placeSessionLayer(floorTextPlaceSession);
+      if (psl === "stage") {
+        onFloorTextPlaceSessionChange({
+          ...floorTextPlaceSession,
+          xPct: round2(xPct),
+          yPct: round2(yPct),
+        });
+      } else if (viewportTextOverlayRoot) {
+        const rr = viewportTextOverlayRoot.getBoundingClientRect();
+        const vx = clamp(((e.clientX - rr.left) / rr.width) * 100, 0, 100);
+        const vy = clamp(((e.clientY - rr.top) / rr.height) * 100, 0, 100);
+        onFloorTextPlaceSessionChange({
+          ...floorTextPlaceSession,
+          xPct: round2(vx),
+          yPct: round2(vy),
+        });
+      }
       return;
     }
 
@@ -2131,14 +2213,25 @@ export function StageBoard({
         const col = floorTextDraftColorHex(floorTextDraft.color);
         const fam =
           (floorTextDraft.fontFamily ?? "").trim() || FLOOR_TEXT_DEFAULT_FONT;
+        const editMk = writeFormation.floorMarkup?.find(
+          (x): x is StageFloorTextMarkup =>
+            x.id === floorTextEditId && x.kind === "text"
+        );
+        const editLayer = editMk ? floorTextLayer(editMk) : "stage";
+        const rr =
+          editLayer === "screen" && viewportTextOverlayRoot
+            ? viewportTextOverlayRoot.getBoundingClientRect()
+            : r;
+        const mx = clamp(((e.clientX - rr.left) / rr.width) * 100, 0, 100);
+        const my = clamp(((e.clientY - rr.top) / rr.height) * 100, 0, 100);
         updateActiveFormation((f) => ({
           ...f,
           floorMarkup: (f.floorMarkup ?? []).map((m) =>
             m.id === floorTextEditId && m.kind === "text"
               ? {
                   ...m,
-                  xPct: round2(xPct),
-                  yPct: round2(yPct),
+                  xPct: round2(mx),
+                  yPct: round2(my),
                   fontSizePx: fs,
                   fontWeight: fw,
                   color: col,
@@ -2292,11 +2385,15 @@ export function StageBoard({
             startClientY: tapOr.startClientY,
             startXPct: tapOr.startXPct,
             startYPct: tapOr.startYPct,
+            layer: tapOr.layer,
           };
           floorTextTapOrDragRef.current = null;
-          const floor = stageMainFloorRef.current;
-          if (floor) {
-            const rr = floor.getBoundingClientRect();
+          const rectEl =
+            tapOr.layer === "screen" && viewportTextOverlayRoot
+              ? viewportTextOverlayRoot
+              : stageMainFloorRef.current;
+          if (rectEl) {
+            const rr = rectEl.getBoundingClientRect();
             const dxPct = ((e.clientX - tapOr.startClientX) / rr.width) * 100;
             const dyPct = ((e.clientY - tapOr.startClientY) / rr.height) * 100;
             const nx = round2(clamp(tapOr.startXPct + dxPct, 0, 100));
@@ -2315,9 +2412,12 @@ export function StageBoard({
       /** 1b: 床に置いたテキストの移動（下端でゴミ箱表示・ドロップで削除） */
       const fmd = floorMarkupTextDragRef.current;
       if (fmd) {
-        const floor = stageMainFloorRef.current;
-        if (!floor) return;
-        const rr = floor.getBoundingClientRect();
+        const rectEl =
+          fmd.layer === "screen" && viewportTextOverlayRoot
+            ? viewportTextOverlayRoot
+            : stageMainFloorRef.current;
+        if (!rectEl) return;
+        const rr = rectEl.getBoundingClientRect();
         const dxPct = ((e.clientX - fmd.startClientX) / rr.width) * 100;
         const dyPct = ((e.clientY - fmd.startClientY) / rr.height) * 100;
         const nx = round2(clamp(fmd.startXPct + dxPct, 0, 100));
@@ -2344,9 +2444,12 @@ export function StageBoard({
       /** 1c: ヘッダから置くテキストのプレビュー位置ドラッグ */
       const ftpd = floorTextPlaceDragRef.current;
       if (ftpd && onFloorTextPlaceSessionChange) {
-        const floor = stageMainFloorRef.current;
-        if (!floor) return;
-        const rr = floor.getBoundingClientRect();
+        const rectEl =
+          placeSessionLayer(ftpd.session) === "screen" && viewportTextOverlayRoot
+            ? viewportTextOverlayRoot
+            : stageMainFloorRef.current;
+        if (!rectEl) return;
+        const rr = rectEl.getBoundingClientRect();
         const dxPct = ((e.clientX - ftpd.startClientX) / rr.width) * 100;
         const dyPct = ((e.clientY - ftpd.startClientY) / rr.height) * 100;
         const nx = round2(clamp(ftpd.startXPct + dxPct, 0, 100));
@@ -2785,6 +2888,7 @@ export function StageBoard({
     setPiecesEditable,
     onGestureHistoryEnd,
     markHistorySkipNextPush,
+    viewportTextOverlayRoot,
   ]);
 
   useEffect(() => {
@@ -3402,8 +3506,467 @@ export function StageBoard({
     };
   }
 
+  function renderOneFloorTextMarkup(
+    m: StageFloorTextMarkup,
+    coordLayer: "stage" | "screen"
+  ): ReactElement {
+    const fs = Math.max(8, Math.min(56, m.fontSizePx ?? 18));
+    const fw =
+      Math.round(clamp(m.fontWeight ?? 600, 300, 900) / 50) * 50;
+    const textHit =
+      setPiecesEditable &&
+      !playbackOrPreview &&
+      !floorTextPlaceSession &&
+      (floorMarkupTool === "text" ||
+        floorMarkupTool === "erase" ||
+        floorMarkupTool === null);
+    const textMoveGrab =
+      setPiecesEditable &&
+      !playbackOrPreview &&
+      !floorTextPlaceSession &&
+      floorMarkupTool === null;
+    const sc = floorTextMarkupScale(m);
+    const selected = selectedFloorTextId === m.id;
+    const editingInlineHere = floorTextInlineRect?.id === m.id;
+    const showChrome =
+      selected &&
+      textHit &&
+      floorMarkupTool !== "erase" &&
+      setPiecesEditable &&
+      !editingInlineHere;
+    const fontCss = floorTextFontCss(m);
+    const colorHex = floorTextColorHex(m);
+    const beginFloorTextResize = (
+      ev: ReactPointerEvent<HTMLDivElement>,
+      handle: FloorTextCornerHandle,
+      boxEl: HTMLDivElement | null
+    ) => {
+      if (!setPiecesEditable || !boxEl) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      const rect = boxEl.getBoundingClientRect();
+      let ax: number;
+      let ay: number;
+      if (handle === "se") {
+        ax = rect.left;
+        ay = rect.top;
+      } else if (handle === "nw") {
+        ax = rect.right;
+        ay = rect.bottom;
+      } else if (handle === "ne") {
+        ax = rect.left;
+        ay = rect.bottom;
+      } else {
+        ax = rect.right;
+        ay = rect.top;
+      }
+      const d0 = Math.max(
+        14,
+        Math.hypot(ev.clientX - ax, ev.clientY - ay)
+      );
+      floorTextResizeDragRef.current = {
+        id: m.id,
+        anchorX: ax,
+        anchorY: ay,
+        startDist: d0,
+        startScale: floorTextMarkupScale(m),
+        pointerId: ev.pointerId,
+      };
+      try {
+        (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId);
+      } catch {
+        /* noop */
+      }
+    };
+    const handleCursor = (h: FloorTextCornerHandle) =>
+      h === "nw" || h === "se" ? "nwse-resize" : "nesw-resize";
+    return (
+      <div
+        key={m.id}
+        data-floor-text-box
+        data-floor-markup="text"
+        data-fmark-id={m.id}
+        title={
+          coordLayer === "screen"
+            ? "編集画面（タイムラインなど含む）上のテキスト。タップで選択、ダブルクリックで編集、長くドラッグで移動。右クリックで削除"
+            : textMoveGrab
+              ? "タップで選択（枠と色・フォント）。ダブルクリックでその場に編集。長くドラッグで移動。右クリックで削除"
+              : floorMarkupTool === "text"
+                ? "タップで選択。ダブルクリックでその場に編集。右クリックで削除"
+                : floorMarkupTool === "erase"
+                  ? "タップで削除"
+                  : undefined
+        }
+        onContextMenu={(e) => {
+          if (
+            viewMode === "view" ||
+            !setPiecesEditable ||
+            playbackOrPreview ||
+            previewDancers ||
+            !textHit
+          ) {
+            return;
+          }
+          e.preventDefault();
+          e.stopPropagation();
+          setStageContextMenu({
+            kind: "floorText",
+            clientX: e.clientX,
+            clientY: e.clientY,
+            markupId: m.id,
+          });
+        }}
+        onDoubleClick={(e) => {
+          if (
+            viewMode === "view" ||
+            !setPiecesEditable ||
+            playbackOrPreview ||
+            previewDancers ||
+            !textHit ||
+            floorMarkupTool === "erase"
+          ) {
+            return;
+          }
+          e.preventDefault();
+          e.stopPropagation();
+          const r = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+          setFloorTextInlineRect({
+            id: m.id,
+            left: r.left,
+            top: r.top,
+            width: Math.max(140, r.width),
+            height: Math.max(40, r.height),
+          });
+          setFloorMarkupTool("text");
+          setFloorTextEditId(m.id);
+          setSelectedFloorTextId(m.id);
+          setFloorTextDraft({
+            body: m.text,
+            fontSizePx: Math.round(clamp(m.fontSizePx ?? 18, 8, 56)),
+            fontWeight: fw,
+            color: colorHex,
+            fontFamily: fontCss,
+          });
+        }}
+        onPointerDown={(e) => {
+          if ((e.target as HTMLElement).closest("[data-floor-text-resize-handle]")) {
+            return;
+          }
+          if (floorMarkupTool === "erase" && setPiecesEditable) {
+            e.preventDefault();
+            e.stopPropagation();
+            removeFloorMarkupById(m.id);
+            return;
+          }
+          if (floorMarkupTool === "text" && setPiecesEditable) {
+            e.preventDefault();
+            e.stopPropagation();
+            setFloorTextEditId(m.id);
+            setSelectedFloorTextId(m.id);
+            setFloorTextDraft({
+              body: m.text,
+              fontSizePx: Math.round(clamp(m.fontSizePx ?? 18, 8, 56)),
+              fontWeight: fw,
+              color: colorHex,
+              fontFamily: fontCss,
+            });
+            return;
+          }
+          if (textMoveGrab) {
+            e.preventDefault();
+            e.stopPropagation();
+            (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+            floorTextTapOrDragRef.current = {
+              id: m.id,
+              text: m.text,
+              fontSizePx: Math.round(clamp(m.fontSizePx ?? 18, 8, 56)),
+              fontWeight: fw,
+              color: colorHex,
+              fontFamily: fontCss,
+              startClientX: e.clientX,
+              startClientY: e.clientY,
+              startXPct: m.xPct,
+              startYPct: m.yPct,
+              pointerId: e.pointerId,
+              layer: coordLayer,
+            };
+          }
+        }}
+        style={{
+          position: "absolute",
+          left: `${m.xPct}%`,
+          top: `${m.yPct}%`,
+          transform: `translate(-50%, -100%) scale(${sc})`,
+          transformOrigin: "50% 100%",
+          maxWidth: coordLayer === "screen" ? "min(42vw, 520px)" : "42%",
+          padding: "2px 6px",
+          borderRadius: "6px",
+          fontSize: fs,
+          lineHeight: 1.25,
+          fontWeight: fw,
+          fontFamily: fontCss,
+          color: m.color ?? "#fef3c7",
+          textShadow:
+            "0 0 2px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.65)",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+          outline:
+            !editingInlineHere &&
+            floorMarkupTool === "text" &&
+            floorTextEditId === m.id
+              ? "2px solid rgba(129, 140, 248, 0.95)"
+              : undefined,
+          outlineOffset: 2,
+          opacity: editingInlineHere ? 0 : 1,
+          pointerEvents: editingInlineHere ? "none" : textHit ? "auto" : "none",
+          cursor:
+            floorMarkupTool === "erase" && setPiecesEditable
+              ? "pointer"
+              : floorMarkupTool === "text" && setPiecesEditable
+                ? "pointer"
+                : textMoveGrab
+                  ? "grab"
+                  : "default",
+          boxSizing: "border-box",
+        }}
+      >
+        <span style={{ display: "block" }}>{m.text}</span>
+        {showChrome ? (
+          <>
+            <div
+              aria-hidden
+              style={{
+                position: "absolute",
+                inset: -6,
+                border: "2px solid rgba(129, 140, 248, 0.95)",
+                borderRadius: 6,
+                pointerEvents: "none",
+                zIndex: 1,
+              }}
+            />
+            {(["nw", "ne", "sw", "se"] as FloorTextCornerHandle[]).map((h) => (
+              <div
+                key={h}
+                role="presentation"
+                data-floor-text-resize-handle={h}
+                onPointerDown={(ev) =>
+                  beginFloorTextResize(
+                    ev,
+                    h,
+                    ev.currentTarget.parentElement as HTMLDivElement
+                  )
+                }
+                style={{
+                  position: "absolute",
+                  width: 10,
+                  height: 10,
+                  borderRadius: 2,
+                  background: "#a5b4fc",
+                  border: "1px solid #0f172a",
+                  zIndex: 3,
+                  pointerEvents: "auto",
+                  cursor: handleCursor(h),
+                  boxSizing: "border-box",
+                  ...(h === "nw"
+                    ? { left: -5, top: -5 }
+                    : h === "ne"
+                      ? { right: -5, top: -5 }
+                      : h === "sw"
+                        ? { left: -5, bottom: -5 }
+                        : { right: -5, bottom: -5 }),
+                }}
+              />
+            ))}
+          </>
+        ) : null}
+        {showChrome && floorMarkupTool === null ? (
+          <div
+            role="toolbar"
+            aria-label={
+              coordLayer === "screen" ? "画面テキストの色とフォント" : "床テキストの色とフォント"
+            }
+            onPointerDown={(ev) => ev.stopPropagation()}
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: "100%",
+              transform: "translate(-50%, 8px)",
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: 6,
+              padding: "4px 6px",
+              borderRadius: 8,
+              border: "1px solid #475569",
+              background: "rgba(15, 23, 42, 0.96)",
+              zIndex: 4,
+              pointerEvents: "auto",
+              minWidth: 120,
+            }}
+          >
+            <input
+              type="color"
+              aria-label="文字色"
+              title="文字色"
+              value={colorHex}
+              onChange={(ev) => {
+                const v = ev.target.value;
+                updateActiveFormation((f) => ({
+                  ...f,
+                  floorMarkup: (f.floorMarkup ?? []).map((x) =>
+                    x.id === m.id && x.kind === "text" ? { ...x, color: v } : x
+                  ),
+                }));
+              }}
+              style={{
+                width: 28,
+                height: 22,
+                padding: 0,
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+              }}
+            />
+            <select
+              aria-label="フォント"
+              title="フォント"
+              value={
+                FLOOR_TEXT_FONT_OPTIONS.some((o) => o.value === fontCss)
+                  ? fontCss
+                  : FLOOR_TEXT_FONT_OPTIONS[0]!.value
+              }
+              onChange={(ev) => {
+                const v = ev.target.value;
+                updateActiveFormation((f) => ({
+                  ...f,
+                  floorMarkup: (f.floorMarkup ?? []).map((x) =>
+                    x.id === m.id && x.kind === "text" ? { ...x, fontFamily: v } : x
+                  ),
+                }));
+              }}
+              style={{
+                fontSize: 10,
+                maxWidth: 118,
+                borderRadius: 4,
+                border: "1px solid #334155",
+                background: "#020617",
+                color: "#e2e8f0",
+              }}
+            >
+              {FLOOR_TEXT_FONT_OPTIONS.map((o) => (
+                <option key={o.id} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  const screenTextPortalEl =
+    viewportTextOverlayRoot &&
+    typeof document !== "undefined" &&
+    (screenFloorTexts.length > 0 ||
+      (floorTextPlaceSession &&
+        placeSessionLayer(floorTextPlaceSession) === "screen"))
+      ? createPortal(
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              pointerEvents: "none",
+              zIndex: 55,
+            }}
+          >
+            {screenFloorTexts.map((m) => renderOneFloorTextMarkup(m, "screen"))}
+            {floorTextPlaceSession &&
+            placeSessionLayer(floorTextPlaceSession) === "screen" &&
+            setPiecesEditable &&
+            !playbackOrPreview &&
+            onFloorTextPlaceSessionChange ? (
+              <div
+                data-floor-text-place-preview
+                role="presentation"
+                title="ドラッグで位置を調整。編集画面の空所をクリックしても移動できます。"
+                onPointerDown={(e) => {
+                  if (e.button !== 0) return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                  floorTextPlaceDragRef.current = {
+                    startClientX: e.clientX,
+                    startClientY: e.clientY,
+                    startXPct: floorTextPlaceSession.xPct,
+                    startYPct: floorTextPlaceSession.yPct,
+                    session: { ...floorTextPlaceSession },
+                  };
+                }}
+                style={{
+                  position: "absolute",
+                  left: `${floorTextPlaceSession.xPct}%`,
+                  top: `${floorTextPlaceSession.yPct}%`,
+                  transform: `translate(-50%, -100%) scale(${(() => {
+                    const s = floorTextPlaceSession.scale;
+                    if (
+                      typeof s === "number" &&
+                      Number.isFinite(s) &&
+                      s > 0
+                    ) {
+                      return Math.min(8, Math.max(0.2, s));
+                    }
+                    return 1;
+                  })()})`,
+                  transformOrigin: "50% 100%",
+                  maxWidth: "min(42vw, 520px)",
+                  padding: "4px 8px",
+                  borderRadius: "8px",
+                  fontSize: Math.max(
+                    8,
+                    Math.min(56, Math.round(floorTextPlaceSession.fontSizePx))
+                  ),
+                  lineHeight: 1.25,
+                  fontWeight:
+                    Math.round(
+                      clamp(floorTextPlaceSession.fontWeight, 300, 900) / 50
+                    ) * 50,
+                  fontFamily:
+                    (floorTextPlaceSession.fontFamily ?? "").trim() ||
+                    FLOOR_TEXT_DEFAULT_FONT,
+                  color: floorTextColorHex({
+                    kind: "text",
+                    id: "_preview",
+                    xPct: 0,
+                    yPct: 0,
+                    text: "",
+                    color: floorTextPlaceSession.color,
+                  }),
+                  textShadow:
+                    "0 0 2px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.65)",
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                  outline: "2px dashed rgba(56, 189, 248, 0.95)",
+                  outlineOffset: 2,
+                  pointerEvents: "auto",
+                  cursor: "grab",
+                  zIndex: 8,
+                  background: "rgba(15, 23, 42, 0.35)",
+                }}
+              >
+                {floorTextPlaceSession.body.trim()
+                  ? floorTextPlaceSession.body
+                  : "（テキストを入力）"}
+              </div>
+            ) : null}
+          </div>,
+          viewportTextOverlayRoot
+        )
+      : null;
+
   return (
     <>
+    {screenTextPortalEl}
     <div
       style={{
         display: "flex",
@@ -4793,371 +5356,11 @@ export function StageBoard({
                 </svg>
                 {displayFloorMarkup.map((m) => {
                   if (m.kind !== "text") return null;
-                  const fs = Math.max(8, Math.min(56, m.fontSizePx ?? 18));
-                  const fw = Math.round(
-                    clamp(m.fontWeight ?? 600, 300, 900) / 50
-                  ) * 50;
-                  const textHit =
-                    setPiecesEditable &&
-                    !playbackOrPreview &&
-                    !floorTextPlaceSession &&
-                    (floorMarkupTool === "text" ||
-                      floorMarkupTool === "erase" ||
-                      floorMarkupTool === null);
-                  const textMoveGrab =
-                    setPiecesEditable &&
-                    !playbackOrPreview &&
-                    !floorTextPlaceSession &&
-                    floorMarkupTool === null;
-                  const sc = floorTextMarkupScale(m);
-                  const selected = selectedFloorTextId === m.id;
-                  const editingInlineHere = floorTextInlineRect?.id === m.id;
-                  const showChrome =
-                    selected &&
-                    textHit &&
-                    floorMarkupTool !== "erase" &&
-                    setPiecesEditable &&
-                    !editingInlineHere;
-                  const fontCss = floorTextFontCss(m);
-                  const colorHex = floorTextColorHex(m);
-                  const beginFloorTextResize = (
-                    ev: React.PointerEvent<HTMLDivElement>,
-                    handle: FloorTextCornerHandle,
-                    boxEl: HTMLDivElement | null
-                  ) => {
-                    if (!setPiecesEditable || !boxEl) return;
-                    ev.preventDefault();
-                    ev.stopPropagation();
-                    const rect = boxEl.getBoundingClientRect();
-                    let ax: number;
-                    let ay: number;
-                    if (handle === "se") {
-                      ax = rect.left;
-                      ay = rect.top;
-                    } else if (handle === "nw") {
-                      ax = rect.right;
-                      ay = rect.bottom;
-                    } else if (handle === "ne") {
-                      ax = rect.left;
-                      ay = rect.bottom;
-                    } else {
-                      ax = rect.right;
-                      ay = rect.top;
-                    }
-                    const d0 = Math.max(
-                      14,
-                      Math.hypot(ev.clientX - ax, ev.clientY - ay)
-                    );
-                    floorTextResizeDragRef.current = {
-                      id: m.id,
-                      anchorX: ax,
-                      anchorY: ay,
-                      startDist: d0,
-                      startScale: floorTextMarkupScale(m),
-                      pointerId: ev.pointerId,
-                    };
-                    try {
-                      (ev.currentTarget as HTMLElement).setPointerCapture(
-                        ev.pointerId
-                      );
-                    } catch {
-                      /* noop */
-                    }
-                  };
-                  const handleCursor = (h: FloorTextCornerHandle) =>
-                    h === "nw" || h === "se" ? "nwse-resize" : "nesw-resize";
-                  return (
-                    <div
-                      key={m.id}
-                      data-floor-text-box
-                      data-floor-markup="text"
-                      data-fmark-id={m.id}
-                      title={
-                        textMoveGrab
-                          ? "タップで選択（枠と色・フォント）。ダブルクリックでその場に編集。長くドラッグで移動。右クリックで削除"
-                          : floorMarkupTool === "text"
-                            ? "タップで選択。ダブルクリックでその場に編集。右クリックで削除"
-                            : floorMarkupTool === "erase"
-                              ? "タップで削除"
-                              : undefined
-                      }
-                      onContextMenu={(e) => {
-                        if (
-                          viewMode === "view" ||
-                          !setPiecesEditable ||
-                          playbackOrPreview ||
-                          previewDancers ||
-                          !textHit
-                        ) {
-                          return;
-                        }
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setStageContextMenu({
-                          kind: "floorText",
-                          clientX: e.clientX,
-                          clientY: e.clientY,
-                          markupId: m.id,
-                        });
-                      }}
-                      onDoubleClick={(e) => {
-                        if (
-                          viewMode === "view" ||
-                          !setPiecesEditable ||
-                          playbackOrPreview ||
-                          previewDancers ||
-                          !textHit ||
-                          floorMarkupTool === "erase"
-                        ) {
-                          return;
-                        }
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const r = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-                        setFloorTextInlineRect({
-                          id: m.id,
-                          left: r.left,
-                          top: r.top,
-                          width: Math.max(140, r.width),
-                          height: Math.max(40, r.height),
-                        });
-                        setFloorMarkupTool("text");
-                        setFloorTextEditId(m.id);
-                        setSelectedFloorTextId(m.id);
-                        setFloorTextDraft({
-                          body: m.text,
-                          fontSizePx: Math.round(clamp(m.fontSizePx ?? 18, 8, 56)),
-                          fontWeight: fw,
-                          color: colorHex,
-                          fontFamily: fontCss,
-                        });
-                      }}
-                      onPointerDown={(e) => {
-                        if ((e.target as HTMLElement).closest("[data-floor-text-resize-handle]")) {
-                          return;
-                        }
-                        if (floorMarkupTool === "erase" && setPiecesEditable) {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          removeFloorMarkupById(m.id);
-                          return;
-                        }
-                        if (floorMarkupTool === "text" && setPiecesEditable) {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setFloorTextEditId(m.id);
-                          setSelectedFloorTextId(m.id);
-                          setFloorTextDraft({
-                            body: m.text,
-                            fontSizePx: Math.round(clamp(m.fontSizePx ?? 18, 8, 56)),
-                            fontWeight: fw,
-                            color: colorHex,
-                            fontFamily: fontCss,
-                          });
-                          return;
-                        }
-                        if (textMoveGrab) {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          (e.currentTarget as HTMLElement).setPointerCapture(
-                            e.pointerId
-                          );
-                          floorTextTapOrDragRef.current = {
-                            id: m.id,
-                            text: m.text,
-                            fontSizePx: Math.round(clamp(m.fontSizePx ?? 18, 8, 56)),
-                            fontWeight: fw,
-                            color: colorHex,
-                            fontFamily: fontCss,
-                            startClientX: e.clientX,
-                            startClientY: e.clientY,
-                            startXPct: m.xPct,
-                            startYPct: m.yPct,
-                            pointerId: e.pointerId,
-                          };
-                        }
-                      }}
-                      style={{
-                        position: "absolute",
-                        left: `${m.xPct}%`,
-                        top: `${m.yPct}%`,
-                        transform: `translate(-50%, -100%) scale(${sc})`,
-                        transformOrigin: "50% 100%",
-                        maxWidth: "42%",
-                        padding: "2px 6px",
-                        borderRadius: "6px",
-                        fontSize: fs,
-                        lineHeight: 1.25,
-                        fontWeight: fw,
-                        fontFamily: fontCss,
-                        color: m.color ?? "#fef3c7",
-                        textShadow:
-                          "0 0 2px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.65)",
-                        whiteSpace: "pre-wrap",
-                        wordBreak: "break-word",
-                        outline:
-                          !editingInlineHere &&
-                          floorMarkupTool === "text" &&
-                          floorTextEditId === m.id
-                            ? "2px solid rgba(129, 140, 248, 0.95)"
-                            : undefined,
-                        outlineOffset: 2,
-                        opacity: editingInlineHere ? 0 : 1,
-                        pointerEvents: editingInlineHere
-                          ? "none"
-                          : textHit
-                            ? "auto"
-                            : "none",
-                        cursor:
-                          floorMarkupTool === "erase" && setPiecesEditable
-                            ? "pointer"
-                            : floorMarkupTool === "text" && setPiecesEditable
-                              ? "pointer"
-                              : textMoveGrab
-                                ? "grab"
-                                : "default",
-                        boxSizing: "border-box",
-                      }}
-                    >
-                      <span style={{ display: "block" }}>{m.text}</span>
-                      {showChrome ? (
-                        <>
-                          <div
-                            aria-hidden
-                            style={{
-                              position: "absolute",
-                              inset: -6,
-                              border: "2px solid rgba(129, 140, 248, 0.95)",
-                              borderRadius: 6,
-                              pointerEvents: "none",
-                              zIndex: 1,
-                            }}
-                          />
-                          {(
-                            ["nw", "ne", "sw", "se"] as FloorTextCornerHandle[]
-                          ).map((h) => (
-                            <div
-                              key={h}
-                              role="presentation"
-                              data-floor-text-resize-handle={h}
-                              onPointerDown={(ev) =>
-                                beginFloorTextResize(
-                                  ev,
-                                  h,
-                                  ev.currentTarget.parentElement as HTMLDivElement
-                                )
-                              }
-                              style={{
-                                position: "absolute",
-                                width: 10,
-                                height: 10,
-                                borderRadius: 2,
-                                background: "#a5b4fc",
-                                border: "1px solid #0f172a",
-                                zIndex: 3,
-                                pointerEvents: "auto",
-                                cursor: handleCursor(h),
-                                boxSizing: "border-box",
-                                ...(h === "nw"
-                                  ? { left: -5, top: -5 }
-                                  : h === "ne"
-                                    ? { right: -5, top: -5 }
-                                    : h === "sw"
-                                      ? { left: -5, bottom: -5 }
-                                      : { right: -5, bottom: -5 }),
-                              }}
-                            />
-                          ))}
-                        </>
-                      ) : null}
-                      {showChrome && floorMarkupTool === null ? (
-                        <div
-                          role="toolbar"
-                          aria-label="床テキストの色とフォント"
-                          onPointerDown={(ev) => ev.stopPropagation()}
-                          style={{
-                            position: "absolute",
-                            left: "50%",
-                            top: "100%",
-                            transform: "translate(-50%, 8px)",
-                            display: "flex",
-                            flexWrap: "wrap",
-                            alignItems: "center",
-                            gap: 6,
-                            padding: "4px 6px",
-                            borderRadius: 8,
-                            border: "1px solid #475569",
-                            background: "rgba(15, 23, 42, 0.96)",
-                            zIndex: 4,
-                            pointerEvents: "auto",
-                            minWidth: 120,
-                          }}
-                        >
-                          <input
-                            type="color"
-                            aria-label="文字色"
-                            title="文字色"
-                            value={colorHex}
-                            onChange={(ev) => {
-                              const v = ev.target.value;
-                              updateActiveFormation((f) => ({
-                                ...f,
-                                floorMarkup: (f.floorMarkup ?? []).map((x) =>
-                                  x.id === m.id && x.kind === "text"
-                                    ? { ...x, color: v }
-                                    : x
-                                ),
-                              }));
-                            }}
-                            style={{
-                              width: 28,
-                              height: 22,
-                              padding: 0,
-                              border: "none",
-                              background: "transparent",
-                              cursor: "pointer",
-                            }}
-                          />
-                          <select
-                            aria-label="フォント"
-                            title="フォント"
-                            value={
-                              FLOOR_TEXT_FONT_OPTIONS.some((o) => o.value === fontCss)
-                                ? fontCss
-                                : FLOOR_TEXT_FONT_OPTIONS[0]!.value
-                            }
-                            onChange={(ev) => {
-                              const v = ev.target.value;
-                              updateActiveFormation((f) => ({
-                                ...f,
-                                floorMarkup: (f.floorMarkup ?? []).map((x) =>
-                                  x.id === m.id && x.kind === "text"
-                                    ? { ...x, fontFamily: v }
-                                    : x
-                                ),
-                              }));
-                            }}
-                            style={{
-                              fontSize: 10,
-                              maxWidth: 118,
-                              borderRadius: 4,
-                              border: "1px solid #334155",
-                              background: "#020617",
-                              color: "#e2e8f0",
-                            }}
-                          >
-                            {FLOOR_TEXT_FONT_OPTIONS.map((o) => (
-                              <option key={o.id} value={o.value}>
-                                {o.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      ) : null}
-                    </div>
-                  );
+                  if (floorTextLayer(m) === "screen") return null;
+                  return renderOneFloorTextMarkup(m, "stage");
                 })}
                 {floorTextPlaceSession &&
+                placeSessionLayer(floorTextPlaceSession) !== "screen" &&
                 setPiecesEditable &&
                 !playbackOrPreview &&
                 onFloorTextPlaceSessionChange ? (
@@ -7016,7 +7219,7 @@ export function StageBoard({
                 lineHeight: 1.35,
               }}
             >
-              床に置いたテキスト
+              テキスト
             </div>
             <button
               type="button"
