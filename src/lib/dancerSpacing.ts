@@ -213,13 +213,27 @@ export function rawHorizontalDistanceFromStageCenterMm(
   return Math.abs(((xPct - 50) / 100) * stageWidthMm);
 }
 
-/** mm → cm を 0.1 単位で丸め、整数なら小数点なし。 */
+/** ○内「センターからの距離」表示用。センターからの水平距離を 5cm 刻みの整数（cm）に丸める。 */
 export function formatCenterDistanceCmFine(mmFromCenter: number): string {
   const cm = mmFromCenter / 10;
-  const v = Math.round(cm * 10) / 10;
+  const v = Math.round(cm / 5) * 5;
   if (!Number.isFinite(v)) return "0";
-  if (Number.isInteger(v)) return String(v);
-  return v.toFixed(1);
+  return String(Math.max(0, v));
+}
+
+/** ドラッグ等: ステージ横幅センターからの水平距離が `gridMm` の倍数になるよう xPct を丸める。 */
+export function snapXPctToCenterDistanceMmGrid(
+  xPct: number,
+  stageWidthMm: number,
+  gridMm: number = 50
+): number {
+  if (!(stageWidthMm > 0) || !(gridMm > 0)) return xPct;
+  const distMm = Math.abs(((xPct - 50) / 100) * stageWidthMm);
+  const snappedDist = Math.round(distMm / gridMm) * gridMm;
+  const sign = xPct >= 50 ? 1 : -1;
+  const xMmFromLeft = stageWidthMm / 2 + sign * snappedDist;
+  const newPct = (xMmFromLeft / stageWidthMm) * 100;
+  return clampPct(newPct, 2, 98);
 }
 
 /**

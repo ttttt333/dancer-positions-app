@@ -1,5 +1,7 @@
 import type { DancerSpot } from "../types/choreography";
 import {
+  dancerStepPctFromSpacingMm,
+  dancerXPositionsPctForCount,
   FORMATION_REFERENCE_STEP_PCT,
   rescaleSpotsForSpacing,
 } from "./dancerSpacing";
@@ -368,21 +370,53 @@ export function dancersForLayoutPreset(
 ): DancerSpot[] {
   if (n <= 0) return [];
   const out: DancerSpot[] = [];
+  /** 横一列系で場ミリから直接敷いたとき、`rescaleSpotsForSpacing` の参照％を実ステップに合わせる */
+  let lineSpacingReferencePct: number | null = null;
 
   switch (preset) {
     case "line": {
-      const xs = evenSpacingPositions(n, 50, TARGET_STEP_X, 8, 92);
-      xs.forEach((x, i) => pushSpot(out, i, x, 44));
+      const stepPct = dancerStepPctFromSpacingMm(
+        opts?.dancerSpacingMm,
+        opts?.stageWidthMm
+      );
+      if (stepPct != null && stepPct > 0) {
+        const xs = dancerXPositionsPctForCount(n, stepPct);
+        xs.forEach((x, i) => pushSpot(out, i, x, 44));
+        lineSpacingReferencePct = stepPct;
+      } else {
+        const xs = evenSpacingPositions(n, 50, TARGET_STEP_X, 8, 92);
+        xs.forEach((x, i) => pushSpot(out, i, x, 44));
+      }
       break;
     }
     case "line_front": {
-      const xs = evenSpacingPositions(n, 50, TARGET_STEP_X, 10, 90);
-      xs.forEach((x, i) => pushSpot(out, i, x, 66));
+      const stepPct = dancerStepPctFromSpacingMm(
+        opts?.dancerSpacingMm,
+        opts?.stageWidthMm
+      );
+      if (stepPct != null && stepPct > 0) {
+        const xs = dancerXPositionsPctForCount(n, stepPct);
+        xs.forEach((x, i) => pushSpot(out, i, x, 66));
+        lineSpacingReferencePct = stepPct;
+      } else {
+        const xs = evenSpacingPositions(n, 50, TARGET_STEP_X, 10, 90);
+        xs.forEach((x, i) => pushSpot(out, i, x, 66));
+      }
       break;
     }
     case "line_back": {
-      const xs = evenSpacingPositions(n, 50, TARGET_STEP_X, 12, 88);
-      xs.forEach((x, i) => pushSpot(out, i, x, 24));
+      const stepPct = dancerStepPctFromSpacingMm(
+        opts?.dancerSpacingMm,
+        opts?.stageWidthMm
+      );
+      if (stepPct != null && stepPct > 0) {
+        const xs = dancerXPositionsPctForCount(n, stepPct);
+        xs.forEach((x, i) => pushSpot(out, i, x, 24));
+        lineSpacingReferencePct = stepPct;
+      } else {
+        const xs = evenSpacingPositions(n, 50, TARGET_STEP_X, 12, 88);
+        xs.forEach((x, i) => pushSpot(out, i, x, 24));
+      }
       break;
     }
     case "line_vertical": {
@@ -910,11 +944,12 @@ export function dancersForLayoutPreset(
    * 場ミリ規格があれば等比リスケール、その後に「客席に近い側から・中央→左→右」
    * ルールで番号を振り直す（プリセットの生成順に依存しない一貫番号）。
    */
+  const refPct = lineSpacingReferencePct ?? TARGET_STEP_X;
   const scaled = rescaleSpotsForSpacing(
     out,
     opts?.dancerSpacingMm,
     opts?.stageWidthMm,
-    TARGET_STEP_X
+    refPct
   );
   return relabelByAudienceCenterOut(scaled);
 }

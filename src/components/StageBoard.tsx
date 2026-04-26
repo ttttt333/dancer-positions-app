@@ -29,9 +29,8 @@ import {
 import {
   dancerConventionGuideDotsPct,
   formatCenterDistanceCmFine,
-  isDancerSpacingActive,
   rawHorizontalDistanceFromStageCenterMm,
-  snapXPctToConvention,
+  snapXPctToCenterDistanceMmGrid,
 } from "../lib/dancerSpacing";
 import {
   lineUpByGradeAsc,
@@ -347,7 +346,7 @@ type CircleInnerLabelOpts = {
 /**
  * 「名前は○の下」モードの○内表示。
  * `markerBadge === ""` は意図的な空欄（並び順による連番フォールバックなし）。
- * `markerBadgeSource === "centerDistance"` のときは毎回、印の中心からセンターまでを 0.1cm 単位で表示。
+ * `markerBadgeSource === "centerDistance"` のときは毎回、印の中心からセンターまでを 5cm 刻みの整数（cm）で表示。
  */
 function dancerCircleInnerBelowLabel(
   d: DancerSpot,
@@ -1798,7 +1797,13 @@ export function StageBoard({
   );
 
   const pxToPct = useCallback(
-    (clientX: number, clientY: number, shiftKey: boolean) => {
+    (
+      clientX: number,
+      clientY: number,
+      shiftKey: boolean,
+      /** ダンサー印のドラッグ時のみ true。大道具などは false のまま。 */
+      snapHorizontalCenter50mm = false
+    ) => {
       const el = stageMainFloorRef.current;
       if (!el) return null;
       const r = el.getBoundingClientRect();
@@ -1808,17 +1813,27 @@ export function StageBoard({
       let snappedX = quantizeCoord(xPct, "x", mode);
       const snappedY = quantizeCoord(yPct, "y", mode);
       /**
-       * 場ミリ規格が有効なときは「割センター / センター乗せ」のスロットに
-       * x を吸い付かせる（流派の 75 cm / 225 cm / 375 cm... 並びを再現）。
-       * 微調整したい時は Shift で抑止できる（fine モード）。
+       * ダンサー移動時: センターからの水平距離が 5cm（50mm）刻みになるよう x を丸める。
+       * Shift 押下時は抑止。大道具の移動では使わない。
        */
-      if (mode !== "fine" && isDancerSpacingActive(dancerSpacingMm, stageWidthMm)) {
-        const conv = snapXPctToConvention(snappedX, dancerSpacingMm, stageWidthMm);
-        if (conv != null) snappedX = round2(conv);
+      const widthMm = (stageResizeDraft?.stageWidthMm ?? stageWidthMm) ?? null;
+      if (
+        snapHorizontalCenter50mm &&
+        !shiftKey &&
+        typeof widthMm === "number" &&
+        widthMm > 0
+      ) {
+        snappedX = round2(snapXPctToCenterDistanceMmGrid(snappedX, widthMm, 50));
       }
       return { xPct: snappedX, yPct: snappedY };
     },
-    [snapGrid, quantizeCoord, dancerSpacingMm, stageWidthMm, mmSnapGrid]
+    [
+      snapGrid,
+      quantizeCoord,
+      stageWidthMm,
+      mmSnapGrid,
+      stageResizeDraft?.stageWidthMm,
+    ]
   );
 
   /**
@@ -2410,7 +2425,8 @@ export function StageBoard({
         const next = pxToPct(
           e.clientX - d.offsetXPx,
           e.clientY - d.offsetYPx,
-          e.shiftKey
+          e.shiftKey,
+          true
         );
         if (!next) return;
         const reveal = next.yPct >= TRASH_REVEAL_Y_PCT;
@@ -3031,12 +3047,22 @@ export function StageBoard({
       if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(dk)) return;
       e.preventDefault();
       const stepPx = e.shiftKey ? 0.05 : 0.25;
+      const shiftFine = e.shiftKey;
       const afterSnap = (nx: number, ny: number) => {
         const mode: SnapMode = snapGrid ? "fine" : "free";
-        return {
-          xPct: quantizeCoord(nx, "x", mode),
-          yPct: quantizeCoord(ny, "y", mode),
-        };
+        let xPct = quantizeCoord(nx, "x", mode);
+        const yPct = quantizeCoord(ny, "y", mode);
+        if (
+          !shiftFine &&
+          typeof stageWidthMm === "number" &&
+          stageWidthMm > 0 &&
+          (dk === "ArrowLeft" || dk === "ArrowRight")
+        ) {
+          xPct = round2(
+            snapXPctToCenterDistanceMmGrid(xPct, stageWidthMm, 50)
+          );
+        }
+        return { xPct, yPct };
       };
       const idSet = new Set(selectedDancerIds);
       updateActiveFormation((f) => ({
@@ -3067,6 +3093,7 @@ export function StageBoard({
     updateActiveFormation,
     mmSnapGrid,
     duplicateDancerIds,
+    stageWidthMm,
   ]);
 
   /** 客席の辺に応じた向きに、さらに 180° 回して「舞台の正面」を反対側から見る */
@@ -3517,7 +3544,7 @@ export function StageBoard({
 
   /**
    * 「名前は○の下」のとき、○内を「センターからの距離」モードにする。
-   * 印の中心 x と現在のステージ幅から毎回 0.1cm 単位で表示するので、隣同士間隔や横幅を変えても数字が追従する。
+   * 印の中心 x と現在のステージ幅から毎回 5cm 刻みの整数（cm）で表示するので、隣同士間隔や横幅を変えても数字が追従する。
    */
   const applyBulkMarkerCenterDistance = useCallback(
     (targetIds: string[]) => {
@@ -7045,7 +7072,7 @@ export function StageBoard({
                     lineHeight: 1.25,
                   }}
                   title={
-                    "印の中心（○の中心）からステージ横幅のセンターまでの水平距離を、0.1cm 単位の数字だけ丸の内に表示します。隣同士の間隔（場ミリ）やステージ幅を変えると、その場で数字が更新されます。"
+                    "印の中心（○の中心）からステージ横幅のセンターまでの水平距離を、5cm 刻みの整数（cm）だけ丸の内に表示します。隣同士の間隔（場ミリ）やステージ幅を変えると、その場で数字が更新されます。ダンサー印の横ドラッグは 5cm 刻み（Shift で抑止）です。"
                   }
                   onClick={() => {
                     if (stageContextMenu.kind !== "dancer") return;
