@@ -323,6 +323,19 @@ export function AddCueWithFormationDialog({
   const [savedBoxId, setSavedBoxId] = useState<string | null>(null);
   const [savedSlotId, setSavedSlotId] = useState<string | null>(null);
 
+  const removeSavedSpotLayout = useCallback(
+    (slotId: string, slotName: string) => {
+      if (viewMode === "view") return;
+      if (!window.confirm(`「${slotName}」を立ち位置リストから削除しますか？`)) return;
+      setProject((p) => ({
+        ...p,
+        savedSpotLayouts: p.savedSpotLayouts.filter((s) => s.id !== slotId),
+      }));
+      setSavedSlotId((cur) => (cur === slotId ? null : cur));
+    },
+    [viewMode, setProject]
+  );
+
   const [timeMode, setTimeMode] = useState<"now" | "custom">("now");
   const [customTimeStr, setCustomTimeStr] = useState(() =>
     formatSec(Math.max(trimLo, Math.min(trimHi, currentTimeSec)))
@@ -1065,31 +1078,61 @@ export function AddCueWithFormationDialog({
                   {project.savedSpotLayouts.length === 0 ? (
                     <span style={{ fontSize: "11px", color: "#64748b" }}>スロットに保存されていません</span>
                   ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                       {project.savedSpotLayouts.map((slot) => {
                         const active = savedSlotId === slot.id;
                         return (
-                          <button
+                          <div
                             key={slot.id}
-                            type="button"
-                            onClick={() => {
-                              setSavedSlotId(slot.id);
-                              setSavedBoxId(null);
-                            }}
                             style={{
-                              ...modeCardBase,
-                              padding: "8px 10px",
-                              borderColor: active ? "#38bdf8" : "#334155",
-                              borderWidth: active ? 2 : 1,
-                              background: active ? "#0e7490" : "#0b1220",
-                              width: "100%",
+                              display: "flex",
+                              gap: "6px",
+                              alignItems: "stretch",
                             }}
                           >
-                            <span style={{ fontWeight: 600 }}>{slot.name}</span>
-                            <span style={{ fontSize: "10px", opacity: 0.85 }}>
-                              {slot.dancers.length} 人 · 保存時 {slot.savedAtCount ?? slot.dancers.length} 人
-                            </span>
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSavedSlotId(slot.id);
+                                setSavedBoxId(null);
+                              }}
+                              style={{
+                                ...modeCardBase,
+                                flex: 1,
+                                minWidth: 0,
+                                padding: "8px 10px",
+                                borderColor: active ? "#38bdf8" : "#334155",
+                                borderWidth: active ? 2 : 1,
+                                background: active ? "#0e7490" : "#0b1220",
+                                textAlign: "left",
+                              }}
+                            >
+                              <span style={{ fontWeight: 600 }}>{slot.name}</span>
+                              <span style={{ fontSize: "10px", opacity: 0.85, display: "block" }}>
+                                {slot.dancers.length} 人 · 保存時 {slot.savedAtCount ?? slot.dancers.length} 人
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              disabled={viewMode === "view"}
+                              title="この保存をリストから削除"
+                              aria-label={`${slot.name} を削除`}
+                              onClick={() => removeSavedSpotLayout(slot.id, slot.name)}
+                              style={{
+                                ...btnBase,
+                                flexShrink: 0,
+                                padding: "6px 10px",
+                                fontSize: "11px",
+                                fontWeight: 600,
+                                color: "#fecaca",
+                                borderColor: "#7f1d1d",
+                                background: "#450a0a",
+                                alignSelf: "stretch",
+                              }}
+                            >
+                              削除
+                            </button>
+                          </div>
                         );
                       })}
                     </div>

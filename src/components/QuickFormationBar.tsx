@@ -634,6 +634,85 @@ export function QuickFormationBar({
             );
           })}
         </ChipGrid>
+        {project.savedSpotLayouts.length > MAX_QUICK_SLOTS ? (
+          <>
+            <SectionLabel>
+              10件目以降の保存（{project.savedSpotLayouts.length - MAX_QUICK_SLOTS}）
+            </SectionLabel>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
+                maxHeight: 160,
+                overflowY: "auto",
+                paddingRight: "2px",
+              }}
+            >
+              {project.savedSpotLayouts.slice(MAX_QUICK_SLOTS).map((slot) => {
+                const isActive =
+                  pending?.kind === "slot" && pending.slotId === slot.id;
+                return (
+                  <div
+                    key={`slot-overflow-${slot.id}`}
+                    style={{
+                      display: "flex",
+                      alignItems: "stretch",
+                      gap: "6px",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => pickSlot(slot)}
+                      disabled={hardDisabled}
+                      title={`${slot.name}（${slot.savedAtCount} 人）をプレビュー`}
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "flex-start",
+                        gap: "2px",
+                        padding: "6px 8px",
+                        borderRadius: "8px",
+                        border: isActive
+                          ? "1px solid #38bdf8"
+                          : "1px solid #334155",
+                        background: isActive ? "#0c4a6e" : "#0f172a",
+                        color: "#e2e8f0",
+                        fontSize: "11px",
+                        cursor: hardDisabled ? "not-allowed" : "pointer",
+                        textAlign: "left",
+                      }}
+                    >
+                      <span style={{ fontWeight: 700 }}>{slot.name}</span>
+                      <span style={{ fontSize: "10px", color: "#94a3b8" }}>
+                        {slot.dancers.length} 人
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteSlot(slot)}
+                      disabled={hardDisabled}
+                      title="この保存を削除"
+                      aria-label={`${slot.name} を削除`}
+                      style={{
+                        ...slotDeleteBtnStyle,
+                        position: "static",
+                        width: "28px",
+                        height: "auto",
+                        alignSelf: "stretch",
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        ) : null}
       </div>
     </div>
   );
