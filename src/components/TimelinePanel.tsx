@@ -916,12 +916,12 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           if (!b) continue;
           const hasRoute = Boolean(next.gapApproachFromPrev);
           g.fillStyle = hasRoute
-            ? "rgba(248, 250, 252, 0.97)"
-            : "rgba(248, 250, 252, 0.88)";
+            ? "rgba(186, 230, 253, 0.32)"
+            : "rgba(248, 250, 252, 0.16)";
           g.fillRect(b.left, b.top, b.width, b.height);
           g.strokeStyle = hasRoute
-            ? "rgba(59, 130, 246, 0.55)"
-            : "rgba(148, 163, 184, 0.5)";
+            ? "rgba(59, 130, 246, 0.38)"
+            : "rgba(226, 232, 240, 0.28)";
           g.lineWidth = 1;
           g.strokeRect(b.left + 0.5, b.top + 0.5, b.width - 1, b.height - 1);
         }

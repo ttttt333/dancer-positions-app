@@ -13,6 +13,9 @@ const BUMP_SHIMOTE_X = -11;
 /** 遠回り: 全員が中間で手前へ膨らむ量 */
 const BUMP_DETOUR_Y = 14;
 
+/** 始点・終点がほぼ同じ（％座標のユークリッド距離）なら経路を使わず固定 */
+const STATIONARY_EPS_PCT = 0.055;
+
 export const VALID_GAP_APPROACH_ROUTES: readonly GapApproachRoute[] = [
   "linear",
   "kamite_half_via_audience",
@@ -113,6 +116,10 @@ function pairXY(
   medX: number,
   medY: number
 ): { x: number; y: number } {
+  if (Math.hypot(ax - bx, ay - by) < STATIONARY_EPS_PCT) {
+    return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
+  }
+
   const mx = (ax + bx) / 2;
   const my = (ay + by) / 2;
 
