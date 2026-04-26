@@ -3655,7 +3655,12 @@ export function EditorPage() {
                     ...p,
                     crews: [...p.crews, crew],
                     rosterStripCollapsed: false,
-                    rosterHidesTimeline: true,
+                    /**
+                     * 取込直後に true にすると `rosterOnlyMode` になり上部波形ドックと
+                     * 右列タイムラインの両方から TimelinePanel が外れ、Blob 音源が消える。
+                     * 名簿一覧は「メンバーを表示」またはページャで切り替え可能にする。
+                     */
+                    rosterHidesTimeline: false,
                     dancerMarkerDiameterPx: dancerMarkerDiameterAfterRosterImport(
                       p.dancerMarkerDiameterPx
                     ),
