@@ -1933,7 +1933,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       [project.viewMode, setProject]
     );
 
-    /** 波形上の秒数目盛り行: クリックで再生線をその位置へ移し、停止中はそこから再生 */
+    /** 波形上の秒数目盛り行: クリックで再生線のみ移動（一時停止中は自動再生しない） */
     const onWaveRulerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
       if (e.button !== 0) return;
       if (project.viewMode === "view" || duration <= 0 || !peaks) return;
@@ -1961,15 +1961,9 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       };
 
       e.preventDefault();
-      const wasPlaying = !audioEl.paused;
       const t = timeFromClientX(e.clientX);
       audioEl.currentTime = t;
       setCurrentTime(Math.round(t * 1000) / 1000);
-      if (!wasPlaying) {
-        void audioEl.play().catch(() => {
-          /* 試聴できない環境では無視 */
-        });
-      }
       drawWaveformAt(t);
     };
 
@@ -2039,11 +2033,6 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         const t0 = timeFromClientX(e.clientX);
         audioEl.currentTime = t0;
         setCurrentTime(Math.round(t0 * 1000) / 1000);
-        if (!wasPlaying) {
-          void audioEl.play().catch(() => {
-            /* 試聴できない環境では無視 */
-          });
-        }
         const capturePid = e.pointerId;
         c.setPointerCapture(capturePid);
 
@@ -3137,7 +3126,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         )}
         <div
           ref={waveContainerRef}
-          title="波形上でマウスホイール（またはトラックパッドの縦スクロール）で時間軸の拡大・縮小。上の秒数目盛りをクリックするとその位置へ移動し、停止中はそこから再生します。下の枠線付近をドラッグすると波形の縦の高さを変えられます。赤い縦線付近をドラッグすると再生位置を移動できます。"
+          title="波形上でマウスホイール（またはトラックパッドの縦スクロール）で時間軸の拡大・縮小。上の秒数目盛りをクリックすると再生位置だけ移動します（一時停止中は再生ボタンやスペースキーで再生）。下の枠線付近をドラッグすると波形の縦の高さを変えられます。赤い縦線付近をドラッグすると再生位置を移動できます。"
           style={{
             width: "100%",
             borderRadius: "6px",
@@ -3174,7 +3163,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               }}
               aria-label={
                 duration > 0
-                  ? "秒数目盛り。クリックで再生位置を移動し、停止中はその位置から再生します。"
+                  ? "秒数目盛り。クリックで再生位置を移動します（一時停止のままです）。"
                   : undefined
               }
             >
