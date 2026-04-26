@@ -17,7 +17,6 @@ import {
   cloneFormationForNewCue,
   DEFAULT_CUE_SPAN_WITH_AUDIO_SEC,
   expandShortCuesAfterAudioLoad,
-  findCueGapContainingTime,
   MIN_CUE_DURATION_SEC,
   PLACEHOLDER_TIMELINE_CAP_SEC,
   resolveCueIntervalNonOverlap,
@@ -362,8 +361,95 @@ function pickCueDragKindAtWave(
   const right = Math.max(x1, x2);
   let mode: CueDragEdgeMode = "move";
   if (x <= left + CUE_EDGE_GRAB_PX) mode = "start";
-  else if (x >= right - CUE_EDGE_GRAB_PX) mode = "end";
+  else   if (x >= right - CUE_EDGE_GRAB_PX) mode = "end";
   return { cueId: id, mode };
+}
+
+/** 狭い時間ギャップでもタップしやすいよう、白い接続ブロックの最小幅 */
+const GAP_LINK_MIN_WIDTH_PX = 6;
+
+/**
+ * 前キュー終了〜次キュー開始のギャップを、波形上のピクセル矩形に変換（幅に下限）。
+ * キュー帯（金枠）と同じ縦位置・高さ。
+ */
+function gapConnectorPixelBounds(
+  prevEndSec: number,
+  nextStartSec: number,
+  viewStart: number,
+  viewSpan: number,
+  viewEnd: number,
+  w: number,
+  h: number
+): { left: number; width: number; top: number; height: number } | null {
+  if (!(viewSpan > 0) || nextStartSec <= prevEndSec + 1e-4) return null;
+  const gx0 = Math.max(prevEndSec, viewStart);
+  const gx1 = Math.min(nextStartSec, viewEnd);
+  if (gx1 <= gx0) return null;
+  const x1 = waveTimeToExtentX(gx0, viewStart, viewSpan, w);
+  const x2 = waveTimeToExtentX(gx1, viewStart, viewSpan, w);
+  let gl = Math.min(x1, x2);
+  let gr = Math.max(x1, x2);
+  if (gr - gl < GAP_LINK_MIN_WIDTH_PX) {
+    const c = (gl + gr) / 2;
+    gl = c - GAP_LINK_MIN_WIDTH_PX / 2;
+    gr = c + GAP_LINK_MIN_WIDTH_PX / 2;
+  }
+  const inset = 0.5;
+  const top = inset;
+  const height = h - inset * 2;
+  gl = Math.max(0, gl);
+  gr = Math.min(w, gr);
+  const width = gr - gl;
+  if (width < 1) return null;
+  return { left: gl, width, top, height };
+}
+
+/** 白いギャップ接続ブロック上をクリックしたか → 経路設定の対象は「次のキュー」 */
+function pickGapLinkAtWave(
+  clientX: number,
+  clientY: number,
+  canvas: HTMLCanvasElement,
+  cueList: Cue[],
+  viewStart: number,
+  viewSpan: number,
+  dragPreview: { cueId: string; tStart: number; tEnd: number } | null
+): { nextCueId: string } | null {
+  if (viewSpan <= 0 || cueList.length < 2) return null;
+  const sortedList = sortCuesByStart(cueList);
+  const r = canvas.getBoundingClientRect();
+  const px = clientX - r.left;
+  const py = clientY - r.top;
+  const w = r.width;
+  const h = r.height;
+  if (w <= 0 || h <= 0) return null;
+  const viewEnd = viewStart + viewSpan;
+  for (let i = 0; i < sortedList.length - 1; i++) {
+    const prev = sortedList[i]!;
+    const next = sortedList[i + 1]!;
+    let prevEnd = prev.tEndSec;
+    let nextStart = next.tStartSec;
+    if (dragPreview && dragPreview.cueId === prev.id) prevEnd = dragPreview.tEnd;
+    if (dragPreview && dragPreview.cueId === next.id) nextStart = dragPreview.tStart;
+    const b = gapConnectorPixelBounds(
+      prevEnd,
+      nextStart,
+      viewStart,
+      viewSpan,
+      viewEnd,
+      w,
+      h
+    );
+    if (!b) continue;
+    if (
+      px >= b.left &&
+      px <= b.left + b.width &&
+      py >= b.top &&
+      py <= b.top + b.height
+    ) {
+      return { nextCueId: next.id };
+    }
+  }
+  return null;
 }
 
 /** 再生ヘッド縦線のドラッグ・クリック用ヒット幅（片側 CSS px）。狭いと掴みにくいので広め */
@@ -807,6 +893,40 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       });
 
       const cueList = cuesRef.current;
+      /** キューとキューの間を白いブロックで常時表示（右クリックで入り方メニュー） */
+      if (d > 0 && viewSpan > 0 && cueList.length >= 2) {
+        const sortedWave = sortCuesByStart(cueList);
+        const dragPrevDraw = cueDragPreviewRangeRef.current;
+        for (let i = 0; i < sortedWave.length - 1; i++) {
+          const prev = sortedWave[i]!;
+          const next = sortedWave[i + 1]!;
+          let prevEnd = prev.tEndSec;
+          let nextStart = next.tStartSec;
+          if (dragPrevDraw && dragPrevDraw.cueId === prev.id) prevEnd = dragPrevDraw.tEnd;
+          if (dragPrevDraw && dragPrevDraw.cueId === next.id) nextStart = dragPrevDraw.tStart;
+          const b = gapConnectorPixelBounds(
+            prevEnd,
+            nextStart,
+            viewStart,
+            viewSpan,
+            viewEnd,
+            w,
+            h
+          );
+          if (!b) continue;
+          const hasRoute = Boolean(next.gapApproachFromPrev);
+          g.fillStyle = hasRoute
+            ? "rgba(248, 250, 252, 0.97)"
+            : "rgba(248, 250, 252, 0.88)";
+          g.fillRect(b.left, b.top, b.width, b.height);
+          g.strokeStyle = hasRoute
+            ? "rgba(59, 130, 246, 0.55)"
+            : "rgba(148, 163, 184, 0.5)";
+          g.lineWidth = 1;
+          g.strokeRect(b.left + 0.5, b.top + 0.5, b.width - 1, b.height - 1);
+        }
+      }
+
       const dragCueId = cueDragRef.current?.cueId ?? null;
       const dragPrev = cueDragPreviewRangeRef.current;
       /** 波形枠いっぱいのキュー帯：内側透明・金枠。上下辺の左右端だけ太くして端リサイズしやすくする */
@@ -1409,15 +1529,23 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         cuesSorted.length >= 2 &&
         project.viewMode !== "view"
       ) {
-        const gap = findCueGapContainingTime(clamped, cuesSorted);
-        if (gap) {
+        const gapHit = pickGapLinkAtWave(
+          e.clientX,
+          e.clientY,
+          c,
+          cuesSorted,
+          viewStart,
+          viewSpan,
+          cueDragPreviewRangeRef.current
+        );
+        if (gapHit) {
           setWaveCueMenu(null);
           setGapRouteMenu({
-            nextCueId: gap.next.id,
+            nextCueId: gapHit.nextCueId,
             clientX: e.clientX,
             clientY: e.clientY,
           });
-          onSelectedCueIdsChange([gap.next.id]);
+          onSelectedCueIdsChange([gapHit.nextCueId]);
           return;
         }
       }
@@ -1455,22 +1583,23 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         setWaveCueMenu({ cueId: id, clientX: e.clientX, clientY: e.clientY });
         return;
       }
-      const rr = c.getBoundingClientRect();
-      const xx = e.clientX - rr.left;
-      const tGap = waveExtentXToTime(xx, viewStart, viewSpan, rr.width);
-      const clampedGap = Math.max(
-        trimStartSec,
-        Math.min(trimEndSec ?? duration, tGap)
+      const gapLink = pickGapLinkAtWave(
+        e.clientX,
+        e.clientY,
+        c,
+        cuesSorted,
+        viewStart,
+        viewSpan,
+        cueDragPreviewRangeRef.current
       );
-      const gapHit = findCueGapContainingTime(clampedGap, cuesSorted);
-      if (!gapHit) return;
+      if (!gapLink) return;
       e.preventDefault();
       e.stopPropagation();
       setWaveCueMenu(null);
       setWaveCueConfirm(null);
-      onSelectedCueIdsChange([gapHit.next.id]);
+      onSelectedCueIdsChange([gapLink.nextCueId]);
       setGapRouteMenu({
-        nextCueId: gapHit.next.id,
+        nextCueId: gapLink.nextCueId,
         clientX: e.clientX,
         clientY: e.clientY,
       });
@@ -2719,7 +2848,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                 lineHeight: 1.35,
               }}
             >
-              直前のキュー終了〜このキュー開始の間の動き方（再生の補間）。上手＝画面右（x
+              金枠のキュー同士の間の白いブロック上で開きます。直前のキュー終了〜このキュー開始の動き方（再生の補間）。上手＝画面右（x
               大）、客席側＝手前（y 大）。
             </div>
             {GAP_APPROACH_OPTIONS.map((opt) => (
@@ -3315,7 +3444,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         )}
         <div
           ref={waveContainerRef}
-          title="波形上でマウスホイール（またはトラックパッドの縦スクロール）で時間軸の拡大・縮小。上の秒数目盛りをクリックすると再生位置だけ移動します（一時停止中は再生ボタンやスペースキーで再生）。下の枠線付近をドラッグすると波形の縦の高さを変えられます。赤い縦線付近をドラッグすると再生位置を移動できます。キューとキューの隙間（区間外）を右クリックするか Alt+クリックすると、その先のキューへの立ち位置の入り方を選べます。"
+          title="波形上でマウスホイール（またはトラックパッドの縦スクロール）で時間軸の拡大・縮小。上の秒数目盛りをクリックすると再生位置だけ移動します（一時停止中は再生ボタンやスペースキーで再生）。下の枠線付近をドラッグすると波形の縦の高さを変えられます。赤い縦線付近をドラッグすると再生位置を移動できます。金枠のキュー同士の間に出る白いブロックを右クリックするか Alt+クリックすると、その先のキューへの立ち位置の入り方を選べます。"
           style={{
             width: "100%",
             borderRadius: "6px",
