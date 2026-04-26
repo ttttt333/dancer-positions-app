@@ -27,7 +27,6 @@ import {
   STAGE_MAIN_FLOOR_MM_MIN,
 } from "../lib/stageDimensions";
 import {
-  dancerConventionGuideDotsPct,
   formatCenterDistanceCmFine,
   rawHorizontalDistanceFromStageCenterMm,
   snapXPctToCenterDistanceMmGrid,
@@ -3158,15 +3157,6 @@ export function StageBoard({
     return marks;
   }, [centerFieldGuideIntervalMm, Wmm]);
 
-  /**
-   * 場ミリ規格スロット（割センター / センター乗せ）の薄いドット列。
-   * 客席帯のすぐ上に横一列で並べ、流派の立ち位置基準を視覚化する。
-   */
-  const conventionGuideDots = useMemo(
-    () => dancerConventionGuideDotsPct(dancerSpacingMm, Wmm > 0 ? Wmm : null),
-    [dancerSpacingMm, Wmm]
-  );
-
   const stripShellStyle: CSSProperties = {
     display: "flex",
     alignItems: "center",
@@ -5254,22 +5244,6 @@ export function StageBoard({
                 />
               ))}
               {/**
-               * 場ミリ規格スロットのドット（割 = 小さい点、乗せ = 少し大きい点）。
-               * 客席帯のすぐ上の細い帯に並べ、ステージ全体を汚さない。
-               */}
-              {conventionGuideDots.map(({ xPct, isMain }, i) => (
-                <circle
-                  key={`cdot-${i}-${xPct}`}
-                  cx={xPct}
-                  cy={84}
-                  r={isMain ? 0.55 : 0.4}
-                  fill={
-                    isMain ? "rgba(56, 189, 248, 0.78)" : "rgba(56, 189, 248, 0.5)"
-                  }
-                  vectorEffect="non-scaling-stroke"
-                />
-              ))}
-              {/**
                * ドラッグ中のスナップ補助線（前後・左右・センター等にピタッと揃ったとき）。
                * 通常のガイド線より目立つ色で、ドラッグ中のみ表示する。
                */}
@@ -5356,43 +5330,7 @@ export function StageBoard({
                 pointerEvents: "none",
                 zIndex: 3,
               }}
-            >
-              <div
-                aria-hidden
-                style={{
-                  position: "relative",
-                  width: "100%",
-                  height: "16px",
-                  marginBottom: "2px",
-                }}
               >
-                {Array.from({ length: 19 }, (_, i) => {
-                  const n = Math.abs(i - 9);
-                  const leftPct = (i / 18) * 100;
-                  let transform = "translateX(-50%)";
-                  if (i === 0) transform = "translateX(0)";
-                  if (i === 18) transform = "translateX(-100%)";
-                  return (
-                    <span
-                      key={`stage-scale-${i}`}
-                      style={{
-                        position: "absolute",
-                        left: `${leftPct}%`,
-                        top: 0,
-                        transform,
-                        fontSize: "9px",
-                        fontWeight: 700,
-                        fontVariantNumeric: "tabular-nums",
-                        color: shell.textSubtle,
-                        lineHeight: 1,
-                        fontFamily: "system-ui, sans-serif",
-                      }}
-                    >
-                      {n}
-                    </span>
-                  );
-                })}
-              </div>
               <div
                 style={{
                   textAlign: "center",
