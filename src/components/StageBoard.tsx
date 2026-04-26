@@ -23,8 +23,6 @@ import {
 } from "../lib/projectDefaults";
 import {
   formatMeterCmLabel,
-  formatStageMmSummary,
-  mmToMeterCm,
   STAGE_MAIN_FLOOR_MM_MAX,
   STAGE_MAIN_FLOOR_MM_MIN,
 } from "../lib/stageDimensions";
@@ -3961,7 +3959,7 @@ export function StageBoard({
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: "4px",
+        gap: 0,
         minHeight: 0,
         flex: 1,
         width: "100%",
@@ -3986,32 +3984,6 @@ export function StageBoard({
           </div>
         </div>
       )}
-      {effStageWidthMm != null && effStageDepthMm != null && (
-        <div
-          style={{
-            fontSize: "9px",
-            color: stageResizeDraft ? "#fbbf24" : "#94a3b8",
-            textAlign: "center",
-            lineHeight: 1.25,
-          }}
-        >
-          {formatStageMmSummary(effStageWidthMm, effStageDepthMm)}
-          {(Smm > 0 || Bmm > 0 || (centerFieldGuideIntervalMm != null && centerFieldGuideIntervalMm > 0)) && (
-            <div style={{ marginTop: "2px", fontSize: "8px", color: "#64748b" }}>
-              {Smm > 0 && <>サイド各 {formatMeterCmLabel(Smm)} · </>}
-              {Bmm > 0 && <>バック {formatMeterCmLabel(Bmm)} · </>}
-              {centerFieldGuideIntervalMm != null && centerFieldGuideIntervalMm > 0 && (() => {
-                const u = mmToMeterCm(centerFieldGuideIntervalMm);
-                return (
-                  <>
-                    センターからの場ミリ {u.m} m {u.cm} cm（{centerFieldGuideIntervalMm} mm）
-                  </>
-                );
-              })()}
-            </div>
-          )}
-        </div>
-      )}
       <div
         style={{
           flex: 1,
@@ -4022,7 +3994,7 @@ export function StageBoard({
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "flex-start",
-          gap: "4px",
+          gap: 0,
           /**
            * ステージ枠のリサイズハンドル（左右・上下）が枠より外に
            * わずかに飛び出して配置されるため、padding で隠れないよう
