@@ -59,6 +59,7 @@ import {
   modDancerColorIndex,
   normalizeDancerFacingDeg,
 } from "../lib/dancerColorPalette";
+import { sliceMarkerBadgeForStorage } from "../lib/markerBadge";
 
 /**
  * 先頭キュー用フォーメーションから印を消したあと、名簿紐付きなら名簿からも外す。
@@ -342,11 +343,27 @@ function dancerNameBelowClearanceExtraPx(
 function centerDistanceSnapStepMm(p: {
   centerFieldGuideIntervalMm: number | null;
   dancerSpacingMm?: number | null;
+  stageGridSpacingWidthMm?: number | null;
+  stageGridLineSpacingMm?: number | null;
+  gridSpacingMm?: number | null;
 }): number | null {
   const g = p.centerFieldGuideIntervalMm;
   if (typeof g === "number" && Number.isFinite(g) && g > 0) return g / 2;
   const d = p.dancerSpacingMm;
   if (typeof d === "number" && Number.isFinite(d) && d > 0) return d / 2;
+  const gw =
+    typeof p.stageGridSpacingWidthMm === "number" &&
+    Number.isFinite(p.stageGridSpacingWidthMm) &&
+    p.stageGridSpacingWidthMm > 0
+      ? p.stageGridSpacingWidthMm
+      : typeof p.stageGridLineSpacingMm === "number" &&
+          Number.isFinite(p.stageGridLineSpacingMm) &&
+          p.stageGridLineSpacingMm > 0
+        ? p.stageGridLineSpacingMm
+        : null;
+  if (gw != null) return gw;
+  const grid = p.gridSpacingMm;
+  if (typeof grid === "number" && Number.isFinite(grid) && grid > 0) return grid;
   return null;
 }
 
@@ -382,11 +399,8 @@ function markerBadgeFromCenterDistanceCm(
  */
 function dancerCircleInnerBelowLabel(d: DancerSpot, formationIndex: number): string {
   if (d.markerBadge === "") return "";
-  const t = d.markerBadge?.trim();
-  if (t) {
-    if (/^\d+$/.test(t)) return t.slice(0, 4);
-    return t.slice(0, 3);
-  }
+  const stored = sliceMarkerBadgeForStorage(d.markerBadge);
+  if (stored) return stored;
   return String(formationIndex + 1);
 }
 
@@ -3348,9 +3362,7 @@ export function StageBoard({
                 gradeLabel: patch.gradeLabel,
                 genderLabel: patch.genderLabel,
                 skillRankLabel: patch.skillRankLabel,
-                markerBadge: patch.markerBadge?.trim()
-                  ? patch.markerBadge.trim().slice(0, 3)
-                  : undefined,
+                markerBadge: sliceMarkerBadgeForStorage(patch.markerBadge),
               };
             }),
           })),
@@ -3469,7 +3481,7 @@ export function StageBoard({
         playbackOrPreview
       )
         return;
-      const badge = badgeRaw.trim().slice(0, 3);
+      const badge = sliceMarkerBadgeForStorage(badgeRaw) ?? "";
       if (!badge) return;
       const idSet = new Set(targetIds);
       setProject((p) => ({
@@ -3559,21 +3571,29 @@ export function StageBoard({
         return;
       }
       const idSet = new Set(targetIds);
-      setProject((p) => ({
-        ...p,
-        formations: p.formations.map((f) => {
-          if (f.id !== formationIdForWrites) return f;
-          return {
-            ...f,
-            dancers: f.dancers.map((d) => {
-              if (!idSet.has(d.id)) return d;
-              const xPct = markerGroupPosDraft?.get(d.id)?.xPct ?? d.xPct;
-              const badge = markerBadgeFromCenterDistanceCm(xPct, Wmm, stepMm);
-              return { ...d, markerBadge: badge };
-            }),
-          };
-        }),
-      }));
+      setProject((p) => {
+        const stepInner = centerDistanceSnapStepMm(p);
+        if (stepInner == null || !(stepInner > 0)) return p;
+        return {
+          ...p,
+          formations: p.formations.map((f) => {
+            if (f.id !== formationIdForWrites) return f;
+            return {
+              ...f,
+              dancers: f.dancers.map((d) => {
+                if (!idSet.has(d.id)) return d;
+                const xPct = markerGroupPosDraft?.get(d.id)?.xPct ?? d.xPct;
+                const badge = markerBadgeFromCenterDistanceCm(
+                  xPct,
+                  Wmm,
+                  stepInner
+                );
+                return { ...d, markerBadge: badge };
+              }),
+            };
+          }),
+        };
+      });
     },
     [
       formationIdForWrites,

@@ -9,10 +9,10 @@ import {
   DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE,
   modDancerColorIndex,
 } from "../lib/dancerColorPalette";
+import { sliceMarkerBadgeForStorage } from "../lib/markerBadge";
 import { EditorSideSheet } from "./EditorSideSheet";
 
 const LABEL_MAX = 120;
-const MARKER_BADGE_MAX = 3;
 const NOTE_MAX = 2000;
 const GRADE_MAX = 32;
 const SKILL_MAX = 24;
@@ -20,7 +20,7 @@ const GENDER_MAX = 32;
 
 export type DancerQuickEditApply = {
   label: string;
-  /** 名前を○の下に出すときの○内表示（最大 3 文字） */
+  /** 名前を○の下に出すときの○内表示（数字のみ最大 4、その他は 3 文字） */
   markerBadge: string | undefined;
   colorIndex: number;
   heightCm: number | undefined;
@@ -61,7 +61,7 @@ export function DancerQuickEditDialog({
   useEffect(() => {
     if (!open || !dancer) return;
     setLabel((dancer.label ?? "").slice(0, LABEL_MAX));
-    setMarkerBadge((dancer.markerBadge ?? "").slice(0, MARKER_BADGE_MAX));
+    setMarkerBadge(sliceMarkerBadgeForStorage(dancer.markerBadge) ?? "");
     setColorIndex(modDancerColorIndex(dancer.colorIndex));
     setHeightStr(
       typeof dancer.heightCm === "number" && Number.isFinite(dancer.heightCm)
@@ -103,7 +103,7 @@ export function DancerQuickEditDialog({
     const g = gradeLabel.trim().slice(0, GRADE_MAX);
     const gen = genderLabel.trim().slice(0, GENDER_MAX);
     const sk = skillRankLabel.trim().slice(0, SKILL_MAX);
-    const badgeTrim = markerBadge.trim().slice(0, MARKER_BADGE_MAX);
+    const badgeTrim = sliceMarkerBadgeForStorage(markerBadge) ?? "";
 
     onApply({
       label: labelTrim,
@@ -192,10 +192,10 @@ export function DancerQuickEditDialog({
               type="text"
               value={markerBadge}
               disabled={disabled}
-              maxLength={MARKER_BADGE_MAX}
-              placeholder="例: 1  A  12"
+              maxLength={4}
+              placeholder="例: 1  A  12  150"
               onChange={(e) =>
-                setMarkerBadge(e.target.value.slice(0, MARKER_BADGE_MAX))
+                setMarkerBadge(sliceMarkerBadgeForStorage(e.target.value) ?? "")
               }
               style={inputStyle}
             />

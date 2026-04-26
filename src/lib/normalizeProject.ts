@@ -25,6 +25,7 @@ import {
   migrateAudienceEdge,
 } from "./projectDefaults";
 import { modDancerColorIndex, normalizeDancerFacingDeg } from "./dancerColorPalette";
+import { sliceMarkerBadgeForStorage } from "./markerBadge";
 
 function randomId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 11)}`;
@@ -268,13 +269,8 @@ function normalizeDancerSpot(raw: unknown, index: number): DancerSpot {
       ? Math.round(hRaw * 10) / 10
       : undefined;
   const mbRaw = d.markerBadge;
-  /** 空文字は「○内を空欄」と保存するための明示値（trim だけでは undefined に落とさない） */
-  const markerBadge =
-    mbRaw === ""
-      ? ""
-      : typeof mbRaw === "string" && mbRaw.trim()
-        ? mbRaw.trim().slice(0, 3)
-        : undefined;
+  /** 数字のみはセンター距離など 4 桁まで（それ以外は 3 文字）。`markerBadge.ts` と揃える */
+  const markerBadge = sliceMarkerBadgeForStorage(mbRaw);
   const fdRaw = d.facingDeg;
   let facingDeg: number | undefined;
   if (typeof fdRaw === "number" && Number.isFinite(fdRaw)) {

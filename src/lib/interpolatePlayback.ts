@@ -47,6 +47,8 @@ function lerpFormations(
           : alpha < 0.5
             ? a.sizePx
             : b.sizePx;
+      const markerBadge =
+        alpha < 0.5 ? a.markerBadge : b.markerBadge;
       out.push({
         id: a.id,
         label: alpha < 0.5 ? a.label : b.label,
@@ -57,6 +59,7 @@ function lerpFormations(
           alpha < 0.5 ? a.crewMemberId ?? undefined : b.crewMemberId ?? undefined,
         ...(note ? { note } : {}),
         ...(typeof sizePx === "number" ? { sizePx } : {}),
+        ...(markerBadge !== undefined ? { markerBadge } : {}),
       });
     } else if (a) {
       out.push({ ...a });
