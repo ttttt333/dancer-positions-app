@@ -87,8 +87,12 @@ function round2Pct(n: number): number {
 const EDITOR_WIDE_MIN_PX = 1280;
 /** メイン 4 列グリッドの列間（ステージ〜タイムラインのすき間に効く） */
 const EDITOR_GRID_GAP_PX = 6;
-/** 上部波形ドック行の既定高さ（px）。未保存時のグリッド行にそのまま使う */
+/** 上部波形ドック行の既定高さ（px）。可変シェル時の未保存グリッド行に使う */
 const TOP_DOCK_HEIGHT_PX = 80;
+/** ワイド＋上部波形時の固定シェル：波形行の外枠高さ（コンテンツで伸びない） */
+const EDITOR_SHELL_TOP_WAVE_PX = 120;
+/** ワイド＋上部波形時の固定シェル：右ツール列の幅（内部のみ縦スクロール） */
+const EDITOR_SHELL_RIGHT_PANEL_PX = 300;
 /** 再生・波形・タイムライン列をまとめて上へ詰める（物理的な目安で約 0.5cm。以前 1.5cm から 1cm 下げた） */
 const EDITOR_PLAYBACK_LAYOUT_SHIFT_UP = "0.5cm";
 
@@ -392,10 +396,15 @@ export function EditorPage() {
       project.rosterHidesTimeline === true &&
       project.crews.some((c) => c.members.length > 0)
     );
-  /** 右列 minmax の最大幅ぶんをステージ上限から控除（152 だけだと右が 210 のときに溢れうる） */
-  const minRightColForStageSplitPx = showTopWaveDockForGrid
-    ? RIGHT_TOOLS_RAIL_MAX_PX
-    : TIMELINE_FULL_COL_MIN_PX;
+  /** 上部波形＋ステージ＋右列の「枠だけ固定」レイアウト（拡大モードではオフ） */
+  const editorFixedWaveDockLayout =
+    showTopWaveDockForGrid && !stageZenFullscreen;
+  /** 右列 minmax の最大幅ぶんをステージ上限から控除 */
+  const minRightColForStageSplitPx = editorFixedWaveDockLayout
+    ? EDITOR_SHELL_RIGHT_PANEL_PX
+    : showTopWaveDockForGrid
+      ? RIGHT_TOOLS_RAIL_MAX_PX
+      : TIMELINE_FULL_COL_MIN_PX;
 
   /** 名簿モード終了などで上部ドックが復帰したとき、手動リサイズ幅を捨てて波形エリアの高さを既定に戻す */
   useEffect(() => {
@@ -552,7 +561,7 @@ export function EditorPage() {
     clamp();
     window.addEventListener("resize", clamp);
     return () => window.removeEventListener("resize", clamp);
-  }, [wideEditorLayout, minRightColForStageSplitPx]);
+  }, [wideEditorLayout, minRightColForStageSplitPx, editorFixedWaveDockLayout]);
 
   useEffect(() => {
     if (!wideEditorLayout || typeof window === "undefined") return;
@@ -719,6 +728,9 @@ export function EditorPage() {
   const editorGridColumns = useMemo(() => {
     if (!wideEditorLayout) return "1fr";
     if (rightPaneCollapsed) return "1fr";
+    if (editorFixedWaveDockLayout) {
+      return `minmax(${STAGE_COL_MIN_PX}px, 1fr) ${STAGE_RESIZER_PX}px ${EDITOR_SHELL_RIGHT_PANEL_PX}px`;
+    }
     const rightTrackFullTimeline = `minmax(${TIMELINE_FULL_COL_MIN_PX}px, 1fr)`;
     const rightTrackRailFixed = `minmax(${RIGHT_TOOLS_RAIL_MIN_PX}px, ${RIGHT_TOOLS_RAIL_MAX_PX}px)`;
     const rightTrackRailProportional = `clamp(${RIGHT_TOOLS_RAIL_MIN_PX}px, ${RIGHT_RAIL_FR_DEFAULT}fr, ${RIGHT_TOOLS_RAIL_MAX_PX}px)`;
@@ -737,6 +749,7 @@ export function EditorPage() {
     rightPaneCollapsed,
     stageColumnPx,
     showTopWaveDockForGrid,
+    editorFixedWaveDockLayout,
   ]);
 
   const setProjectSafePlain: Dispatch<SetStateAction<ChoreographyProjectJson>> =
@@ -1441,11 +1454,13 @@ export function EditorPage() {
     ? "1fr"
     : wideEditorLayout
       ? showTopWaveDock
-        ? `${
-            topDockRowPx != null
-              ? `${topDockRowPx}px`
-              : `${TOP_DOCK_HEIGHT_PX}px`
-          } 4px minmax(0, 1fr)`
+        ? editorFixedWaveDockLayout
+          ? `${EDITOR_SHELL_TOP_WAVE_PX}px 4px minmax(0, 1fr)`
+          : `${
+              topDockRowPx != null
+                ? `${topDockRowPx}px`
+                : `${TOP_DOCK_HEIGHT_PX}px`
+            } 4px minmax(0, 1fr)`
         : "1fr"
       : "auto auto auto";
 
@@ -1575,6 +1590,8 @@ export function EditorPage() {
   return (
     <div
       style={{
+        width: "100%",
+        maxWidth: "100vw",
         height: "100dvh",
         minHeight: "100dvh",
         maxHeight: "100dvh",
@@ -1785,11 +1802,18 @@ export function EditorPage() {
               background: "transparent",
               border: "none",
               padding: "0 4px 0",
-              minHeight: 0,
               minWidth: 0,
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",
+              flexShrink: 0,
+              ...(editorFixedWaveDockLayout
+                ? {
+                    height: EDITOR_SHELL_TOP_WAVE_PX,
+                    minHeight: EDITOR_SHELL_TOP_WAVE_PX,
+                    maxHeight: EDITOR_SHELL_TOP_WAVE_PX,
+                  }
+                : { minHeight: 0 }),
             }}
           >
             {hasRosterMembers && !project.rosterHidesTimeline ? (
@@ -1828,7 +1852,15 @@ export function EditorPage() {
                 </button>
               </div>
             ) : null}
-            <div style={{ flex: "1 1 auto", minHeight: 0, display: "flex", flexDirection: "column" }}>
+            <div
+              style={{
+                flex: "1 1 auto",
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
+                ...(editorFixedWaveDockLayout ? { overflow: "auto" as const } : {}),
+              }}
+            >
               {timelinePanelEl}
             </div>
           </section>
@@ -1839,21 +1871,31 @@ export function EditorPage() {
             aria-orientation="horizontal"
             aria-label="波形・再生エリアの高さを変更（ダブルクリックで既定に戻す）"
             title="上下ドラッグで高さを調整（ダブルクリックで既定に戻す）"
-            onPointerDown={onTopDockResizeDown}
-            onPointerMove={onTopDockResizeMove}
-            onPointerUp={endTopDockResize}
-            onPointerCancel={endTopDockResize}
-            onDoubleClick={onTopDockResizeDoubleClick}
+            onPointerDown={
+              editorFixedWaveDockLayout ? undefined : onTopDockResizeDown
+            }
+            onPointerMove={
+              editorFixedWaveDockLayout ? undefined : onTopDockResizeMove
+            }
+            onPointerUp={editorFixedWaveDockLayout ? undefined : endTopDockResize}
+            onPointerCancel={
+              editorFixedWaveDockLayout ? undefined : endTopDockResize
+            }
+            onDoubleClick={
+              editorFixedWaveDockLayout ? undefined : onTopDockResizeDoubleClick
+            }
             style={{
               gridColumn: "1 / -1",
               gridRow: 2,
-              cursor: "row-resize",
+              cursor: editorFixedWaveDockLayout ? "default" : "row-resize",
               touchAction: "none",
               userSelect: "none",
               alignSelf: "stretch",
               justifySelf: "stretch",
               position: "relative",
               zIndex: 2,
+              flexShrink: 0,
+              pointerEvents: editorFixedWaveDockLayout ? "none" : "auto",
             }}
           >
             <div
@@ -1888,6 +1930,7 @@ export function EditorPage() {
             padding: "5px",
             minHeight: 0,
             minWidth: 0,
+            position: "relative",
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
@@ -2123,7 +2166,10 @@ export function EditorPage() {
           </div>
         </section>
 
-        {wideEditorLayout && !rightPaneCollapsed && !stageZenLayout ? (
+        {wideEditorLayout &&
+        !rightPaneCollapsed &&
+        !stageZenLayout &&
+        !editorFixedWaveDockLayout ? (
           <div
             className="editor-pane-resizer"
             role="separator"
@@ -2162,7 +2208,13 @@ export function EditorPage() {
               gap: 8,
               minHeight: 0,
               minWidth: 0,
-              overflow: "hidden",
+              flexShrink: 0,
+              ...(editorFixedWaveDockLayout
+                ? {
+                    overflowX: "hidden" as const,
+                    overflowY: "auto" as const,
+                  }
+                : { overflow: "hidden" }),
               ...(floorTextPlaceSession
                 ? { position: "relative" as const, zIndex: 140 }
                 : {}),
