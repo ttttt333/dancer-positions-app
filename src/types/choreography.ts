@@ -17,6 +17,11 @@ export type DancerSpot = {
    * 未指定のときは、フォーメーション内の並びで 1 からの番号を表示する（見た目のみ）。
    */
   markerBadge?: string;
+  /**
+   * `centerDistance` のときは `markerBadge` より優先し、印の中心と現在のステージ幅から
+   * センターまでの距離を毎回算出（0.1cm 単位）。隣同士間隔を変えても表示が追従する。
+   */
+  markerBadgeSource?: "centerDistance";
   xPct: number;
   yPct: number;
   /**

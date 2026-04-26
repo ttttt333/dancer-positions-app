@@ -997,6 +997,9 @@ export function transferDancerIdentitiesByOrder(
         : od.markerBadge !== undefined
           ? od.markerBadge
           : nd.markerBadge;
+    const markerBadgeSource = od.crewMemberId
+      ? undefined
+      : od.markerBadgeSource;
     return {
       ...nd,
       id: od.id,
@@ -1004,6 +1007,7 @@ export function transferDancerIdentitiesByOrder(
       colorIndex: od.colorIndex,
       crewMemberId: od.crewMemberId,
       markerBadge,
+      markerBadgeSource,
       sizePx: od.sizePx ?? nd.sizePx,
       note: od.note ?? nd.note,
       heightCm: od.heightCm ?? nd.heightCm,

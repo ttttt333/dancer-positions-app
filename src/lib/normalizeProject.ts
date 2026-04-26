@@ -271,6 +271,9 @@ function normalizeDancerSpot(raw: unknown, index: number): DancerSpot {
   const mbRaw = d.markerBadge;
   /** 数字のみはセンター距離など 4 桁まで（それ以外は 3 文字）。`markerBadge.ts` と揃える */
   const markerBadge = sliceMarkerBadgeForStorage(mbRaw);
+  const mbsRaw = d.markerBadgeSource;
+  const markerBadgeSource =
+    mbsRaw === "centerDistance" ? ("centerDistance" as const) : undefined;
   const fdRaw = d.facingDeg;
   let facingDeg: number | undefined;
   if (typeof fdRaw === "number" && Number.isFinite(fdRaw)) {
@@ -308,6 +311,7 @@ function normalizeDancerSpot(raw: unknown, index: number): DancerSpot {
       ? { genderLabel: d.genderLabel.trim().slice(0, 32) }
       : {}),
     ...(markerBadge !== undefined ? { markerBadge } : {}),
+    ...(markerBadgeSource ? { markerBadgeSource } : {}),
     ...(facingDeg != null ? { facingDeg } : {}),
   };
 }

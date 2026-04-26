@@ -45,6 +45,9 @@ function transferIdentitiesByOrder(
         : od.markerBadge !== undefined
           ? od.markerBadge
           : nd.markerBadge;
+    const markerBadgeSource = od.crewMemberId
+      ? undefined
+      : od.markerBadgeSource;
     return {
       ...nd,
       id: od.id,
@@ -52,6 +55,7 @@ function transferIdentitiesByOrder(
       colorIndex: od.colorIndex,
       crewMemberId: od.crewMemberId,
       markerBadge,
+      markerBadgeSource,
       sizePx: od.sizePx ?? nd.sizePx,
       note: od.note ?? nd.note,
       heightCm: od.heightCm ?? nd.heightCm,

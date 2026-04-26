@@ -202,6 +202,27 @@ export function gridWidthCenterDistanceMmFromMarkerCenter(
 }
 
 /**
+ * 印の中心 xPct からステージ横幅センターまでの水平距離（mm、非負）。
+ * 規格スロットには寄せず、実寸のまま（○内「センター距離」自動表示用）。
+ */
+export function rawHorizontalDistanceFromStageCenterMm(
+  xPct: number,
+  stageWidthMm: number
+): number {
+  if (!(stageWidthMm > 0)) return 0;
+  return Math.abs(((xPct - 50) / 100) * stageWidthMm);
+}
+
+/** mm → cm を 0.1 単位で丸め、整数なら小数点なし。 */
+export function formatCenterDistanceCmFine(mmFromCenter: number): string {
+  const cm = mmFromCenter / 10;
+  const v = Math.round(cm * 10) / 10;
+  if (!Number.isFinite(v)) return "0";
+  if (Number.isInteger(v)) return String(v);
+  return v.toFixed(1);
+}
+
+/**
  * ステージ上に「規格スロット」のドットを薄く可視化するための座標列（％）。
  *
  * `maxAbsHalfStep` 個までセンターから両側に並べる（端を超えるものは間引く）。

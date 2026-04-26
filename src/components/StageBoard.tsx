@@ -27,11 +27,10 @@ import {
   STAGE_MAIN_FLOOR_MM_MIN,
 } from "../lib/stageDimensions";
 import {
-  conventionCenterDistanceMmFromMarkerCenter,
   dancerConventionGuideDotsPct,
-  gridWidthCenterDistanceMmFromMarkerCenter,
-  guideHalfStepCenterDistanceMmFromMarkerCenter,
+  formatCenterDistanceCmFine,
   isDancerSpacingActive,
+  rawHorizontalDistanceFromStageCenterMm,
   snapXPctToConvention,
 } from "../lib/dancerSpacing";
 import {
@@ -339,101 +338,33 @@ function dancerNameBelowClearanceExtraPx(
   return Math.max(1, Math.round((DANCER_NAME_BELOW_EXTRA_GAP_MM * 96) / 25.4));
 }
 
-type CenterDistanceProjectSlice = Pick<
-  ChoreographyProjectJson,
-  | "dancerSpacingMm"
-  | "centerFieldGuideIntervalMm"
-  | "stageGridSpacingWidthMm"
-  | "stageGridLineSpacingMm"
-  | "gridSpacingMm"
->;
-
-/** ○内「センターからの距離」を出せるか（横幅 mm と参照格子のいずれか）。 */
-function canComputeCenterDistanceBadge(
-  p: CenterDistanceProjectSlice,
-  stageWidthMm: number
-): boolean {
-  if (!(stageWidthMm > 0)) return false;
-  if (isDancerSpacingActive(p.dancerSpacingMm, stageWidthMm)) return true;
-  const g = p.centerFieldGuideIntervalMm;
-  if (typeof g === "number" && Number.isFinite(g) && g > 0) return true;
-  const gw =
-    typeof p.stageGridSpacingWidthMm === "number" &&
-    Number.isFinite(p.stageGridSpacingWidthMm) &&
-    p.stageGridSpacingWidthMm > 0
-      ? p.stageGridSpacingWidthMm
-      : typeof p.stageGridLineSpacingMm === "number" &&
-          Number.isFinite(p.stageGridLineSpacingMm) &&
-          p.stageGridLineSpacingMm > 0
-        ? p.stageGridLineSpacingMm
-        : null;
-  if (gw != null) return true;
-  const grid = p.gridSpacingMm;
-  return typeof grid === "number" && Number.isFinite(grid) && grid > 0;
-}
-
-/**
- * 印の中心 xPct を基準に、場ミリ規格スロット（最優先）→場ミリ縦ガイドの半格子→横幅グリッドの順で
- * センターからの水平距離を求め、cm の整数だけ（単位なし）を返す。
- */
-function markerBadgeCenterDistanceCmFromXPct(
-  xPct: number,
-  stageWidthMm: number,
-  p: CenterDistanceProjectSlice
-): string {
-  if (!(stageWidthMm > 0)) return "";
-  if (isDancerSpacingActive(p.dancerSpacingMm, stageWidthMm)) {
-    const mm = conventionCenterDistanceMmFromMarkerCenter(
-      xPct,
-      p.dancerSpacingMm!,
-      stageWidthMm
-    );
-    if (mm != null) return String(Math.round(mm / 10));
-  }
-  const g = p.centerFieldGuideIntervalMm;
-  if (typeof g === "number" && Number.isFinite(g) && g > 0) {
-    const mm = guideHalfStepCenterDistanceMmFromMarkerCenter(
-      xPct,
-      g,
-      stageWidthMm
-    );
-    return String(Math.round(mm / 10));
-  }
-  const gw =
-    typeof p.stageGridSpacingWidthMm === "number" &&
-    Number.isFinite(p.stageGridSpacingWidthMm) &&
-    p.stageGridSpacingWidthMm > 0
-      ? p.stageGridSpacingWidthMm
-      : typeof p.stageGridLineSpacingMm === "number" &&
-          Number.isFinite(p.stageGridLineSpacingMm) &&
-          p.stageGridLineSpacingMm > 0
-        ? p.stageGridLineSpacingMm
-        : null;
-  if (gw != null) {
-    const mm = gridWidthCenterDistanceMmFromMarkerCenter(
-      xPct,
-      gw,
-      stageWidthMm
-    );
-    return String(Math.round(mm / 10));
-  }
-  const grid = p.gridSpacingMm;
-  if (typeof grid === "number" && Number.isFinite(grid) && grid > 0) {
-    const mm = gridWidthCenterDistanceMmFromMarkerCenter(
-      xPct,
-      grid,
-      stageWidthMm
-    );
-    return String(Math.round(mm / 10));
-  }
-  return "";
-}
+type CircleInnerLabelOpts = {
+  /** 印の中心の横幅％（ドラフト中は仮位置） */
+  effXPct: number;
+  stageWidthMm: number;
+};
 
 /**
  * 「名前は○の下」モードの○内表示。
  * `markerBadge === ""` は意図的な空欄（並び順による連番フォールバックなし）。
+ * `markerBadgeSource === "centerDistance"` のときは毎回、印の中心からセンターまでを 0.1cm 単位で表示。
  */
-function dancerCircleInnerBelowLabel(d: DancerSpot, formationIndex: number): string {
+function dancerCircleInnerBelowLabel(
+  d: DancerSpot,
+  formationIndex: number,
+  opts?: CircleInnerLabelOpts | null
+): string {
+  if (
+    d.markerBadgeSource === "centerDistance" &&
+    opts &&
+    opts.stageWidthMm > 0
+  ) {
+    const mm = rawHorizontalDistanceFromStageCenterMm(
+      opts.effXPct,
+      opts.stageWidthMm
+    );
+    return formatCenterDistanceCmFine(mm);
+  }
   if (d.markerBadge === "") return "";
   const stored = sliceMarkerBadgeForStorage(d.markerBadge);
   if (stored) return stored;
@@ -3389,6 +3320,7 @@ export function StageBoard({
             ...f,
             dancers: f.dancers.map((x) => {
               if (!matches(x)) return x;
+              const slicedBadge = sliceMarkerBadgeForStorage(patch.markerBadge);
               return {
                 ...x,
                 label: patch.label.slice(0, 120),
@@ -3398,7 +3330,8 @@ export function StageBoard({
                 gradeLabel: patch.gradeLabel,
                 genderLabel: patch.genderLabel,
                 skillRankLabel: patch.skillRankLabel,
-                markerBadge: sliceMarkerBadgeForStorage(patch.markerBadge),
+                markerBadge: slicedBadge,
+                ...(slicedBadge ? { markerBadgeSource: undefined } : {}),
               };
             }),
           })),
@@ -3489,7 +3422,7 @@ export function StageBoard({
               dancers: f.dancers.map((d) => {
                 const b = idToBadge.get(d.id);
                 if (b === undefined) return d;
-                return { ...d, markerBadge: b };
+                return { ...d, markerBadge: b, markerBadgeSource: undefined };
               }),
             };
           }),
@@ -3527,7 +3460,9 @@ export function StageBoard({
           return {
             ...f,
             dancers: f.dancers.map((d) =>
-              idSet.has(d.id) ? { ...d, markerBadge: badge } : d
+              idSet.has(d.id)
+                ? { ...d, markerBadge: badge, markerBadgeSource: undefined }
+                : d
             ),
           };
         }),
@@ -3562,7 +3497,9 @@ export function StageBoard({
           return {
             ...f,
             dancers: f.dancers.map((d) =>
-              idSet.has(d.id) ? { ...d, markerBadge: "" } : d
+              idSet.has(d.id)
+                ? { ...d, markerBadge: "", markerBadgeSource: undefined }
+                : d
             ),
           };
         }),
@@ -3579,8 +3516,8 @@ export function StageBoard({
   );
 
   /**
-   * 「名前は○の下」のとき、印の中心（xPct）を場ミリ規格スロットへ寄せたうえで
-   * センターからの距離（cm・数字のみ）を○内に入れる。隣同士間隔を変えると格子も追従。
+   * 「名前は○の下」のとき、○内を「センターからの距離」モードにする。
+   * 印の中心 x と現在のステージ幅から毎回 0.1cm 単位で表示するので、隣同士間隔や横幅を変えても数字が追従する。
    */
   const applyBulkMarkerCenterDistance = useCallback(
     (targetIds: string[]) => {
@@ -3599,16 +3536,10 @@ export function StageBoard({
         );
         return;
       }
-      if (!canComputeCenterDistanceBadge(project, Wmm)) {
-        window.alert(
-          "「隣同士の間隔（場ミリ規格）」「センターからの場ミリ」、または横幅グリッド間隔のいずれかが必要です。舞台設定を確認してください。"
-        );
-        return;
-      }
       const idSet = new Set(targetIds);
       setProject((p) => {
         const WInner = effStageWidthMm ?? p.stageWidthMm ?? 0;
-        if (!(WInner > 0) || !canComputeCenterDistanceBadge(p, WInner)) return p;
+        if (!(WInner > 0)) return p;
         return {
           ...p,
           formations: p.formations.map((f) => {
@@ -3617,13 +3548,11 @@ export function StageBoard({
               ...f,
               dancers: f.dancers.map((d) => {
                 if (!idSet.has(d.id)) return d;
-                const xPct = markerGroupPosDraft?.get(d.id)?.xPct ?? d.xPct;
-                const badge = markerBadgeCenterDistanceCmFromXPct(
-                  xPct,
-                  WInner,
-                  p
-                );
-                return { ...d, markerBadge: badge };
+                return {
+                  ...d,
+                  markerBadgeSource: "centerDistance",
+                  markerBadge: "",
+                };
               }),
             };
           }),
@@ -3637,9 +3566,7 @@ export function StageBoard({
       viewMode,
       stageInteractionsEnabled,
       playbackOrPreview,
-      project,
       effStageWidthMm,
-      markerGroupPosDraft,
     ]
   );
 
@@ -6022,8 +5949,13 @@ export function StageBoard({
                 const list = writeFormation?.dancers ?? activeFormation?.dancers ?? [];
                 const diRaw = list.findIndex((x) => x.id === ghostId);
                 const di = diRaw >= 0 ? diRaw : 0;
+                const ghostLabelWmm = effStageWidthMm ?? 0;
+                const circleInnerOptsGhost =
+                  ghostLabelWmm > 0
+                    ? { effXPct: pos.xPct, stageWidthMm: ghostLabelWmm }
+                    : undefined;
                 const circleLabel = dancerLabelBelow
-                  ? dancerCircleInnerBelowLabel(d, di)
+                  ? dancerCircleInnerBelowLabel(d, di, circleInnerOptsGhost)
                   : d.label || "?";
                 const facing = normalizeDancerFacingDeg(effectiveFacingDeg(d));
                 const labelOffsetPx =
@@ -6130,8 +6062,13 @@ export function StageBoard({
                 !playbackOrPreview &&
                 selectedDancerIds.length >= 2 &&
                 selectedDancerIds.includes(d.id);
+              const markerLabelWmm = effStageWidthMm ?? 0;
+              const circleInnerOptsMarker =
+                markerLabelWmm > 0
+                  ? { effXPct: d.xPct, stageWidthMm: markerLabelWmm }
+                  : undefined;
               const circleLabel = dancerLabelBelow
-                ? dancerCircleInnerBelowLabel(d, di)
+                ? dancerCircleInnerBelowLabel(d, di, circleInnerOptsMarker)
                 : d.label || "?";
               const facing = normalizeDancerFacingDeg(effectiveFacingDeg(d));
               const labelOffsetPx =
@@ -7108,7 +7045,7 @@ export function StageBoard({
                     lineHeight: 1.25,
                   }}
                   title={
-                    "印の中心（○の中心）を基準に、隣同士の間隔（場ミリ規格）のスロットへ寄せた位置からセンターまでの距離を cm の数字だけ丸の内に入れます。規格が未設定のときは「センターからの場ミリ」の半格子、なければ横幅グリッド間隔で寄せます。"
+                    "印の中心（○の中心）からステージ横幅のセンターまでの水平距離を、0.1cm 単位の数字だけ丸の内に表示します。隣同士の間隔（場ミリ）やステージ幅を変えると、その場で数字が更新されます。"
                   }
                   onClick={() => {
                     if (stageContextMenu.kind !== "dancer") return;
