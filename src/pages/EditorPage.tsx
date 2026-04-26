@@ -102,11 +102,20 @@ const RIGHT_TOOLS_RAIL_MAX_PX = 210;
 /** 右ペイン：タイムライン（またはキュー一覧）の縦スタック */
 
 /**
+ * ワイド＋上部波形ドック時の既定の列比（参照 UI：ステージが広く右レールは画面幅の約 1/6 前後）。
+ * `stageColumnPx` が未保存のときだけ `fr`＋`clamp` で使う（手動幅保存時は固定 px 列に戻す）。
+ */
+const STAGE_COL_FR_DEFAULT = 82;
+const RIGHT_RAIL_FR_DEFAULT = 18;
+
+/**
  * 上部波形ドック行の高さの許容範囲。
  * 以前は 96px まで許可しており、保存値が小さいと再生・波形が潰れて 2 枚目のようになる。
  */
 const TOP_DOCK_ROW_MIN_PX = 168;
 const TOP_DOCK_ROW_MAX_PX = 560;
+/** 手動リサイズをリセットしたとき・未保存時の行高（波形は薄めの帯、ただし操作可能な下限は維持） */
+const TOP_DOCK_ROW_DEFAULT_CSS = `minmax(${TOP_DOCK_ROW_MIN_PX}px, min(14vh, 220px))`;
 
 function clampTopDockRowPx(n: number): number {
   return Math.min(
@@ -115,8 +124,9 @@ function clampTopDockRowPx(n: number): number {
   );
 }
 
-/** 波形行の高さ・ステージ〜右列の幅分割を端末に覚えさせる */
-const EDITOR_LAYOUT_STORAGE_KEY = "dancer-positions.editorLayout.v1";
+/** 波形行の高さ・ステージ〜右列の幅分割を端末に覚えさせる（v2: 既定列比を参照レイアウトに合わせた） */
+const EDITOR_LAYOUT_STORAGE_KEY = "dancer-positions.editorLayout.v2";
+const EDITOR_LAYOUT_LEGACY_STORAGE_KEY = "dancer-positions.editorLayout.v1";
 
 function readStoredEditorLayout(): {
   stageColumnPx: number | null;
@@ -126,7 +136,9 @@ function readStoredEditorLayout(): {
     return { stageColumnPx: null, topDockRowPx: null };
   }
   try {
-    const raw = window.localStorage.getItem(EDITOR_LAYOUT_STORAGE_KEY);
+    const rawCurrent = window.localStorage.getItem(EDITOR_LAYOUT_STORAGE_KEY);
+    const rawLegacy = window.localStorage.getItem(EDITOR_LAYOUT_LEGACY_STORAGE_KEY);
+    const raw = rawCurrent ?? rawLegacy;
     if (!raw) return { stageColumnPx: null, topDockRowPx: null };
     const o = JSON.parse(raw) as {
       stageColumnPx?: unknown;
@@ -145,6 +157,13 @@ function readStoredEditorLayout(): {
       o.topDockRowPx <= TOP_DOCK_ROW_MAX_PX
         ? Math.round(o.topDockRowPx)
         : null;
+    if (!rawCurrent && rawLegacy) {
+      try {
+        window.localStorage.setItem(EDITOR_LAYOUT_STORAGE_KEY, raw);
+      } catch {
+        /* 移行失敗は無視 */
+      }
+    }
     return { stageColumnPx: sc, topDockRowPx: td };
   } catch {
     return { stageColumnPx: null, topDockRowPx: null };
@@ -703,12 +722,18 @@ export function EditorPage() {
   const editorGridColumns = useMemo(() => {
     if (!wideEditorLayout) return "1fr";
     if (rightPaneCollapsed) return "1fr";
-    const rightTrack = showTopWaveDockForGrid
-      ? `minmax(${RIGHT_TOOLS_RAIL_MIN_PX}px, ${RIGHT_TOOLS_RAIL_MAX_PX}px)`
-      : `minmax(${TIMELINE_FULL_COL_MIN_PX}px, 1fr)`;
+    const rightTrackFullTimeline = `minmax(${TIMELINE_FULL_COL_MIN_PX}px, 1fr)`;
+    const rightTrackRailFixed = `minmax(${RIGHT_TOOLS_RAIL_MIN_PX}px, ${RIGHT_TOOLS_RAIL_MAX_PX}px)`;
+    const rightTrackRailProportional = `clamp(${RIGHT_TOOLS_RAIL_MIN_PX}px, ${RIGHT_RAIL_FR_DEFAULT}fr, ${RIGHT_TOOLS_RAIL_MAX_PX}px)`;
     if (stageColumnPx == null) {
-      return `minmax(${STAGE_COL_MIN_PX}px, 2fr) ${STAGE_RESIZER_PX}px ${rightTrack}`;
+      if (showTopWaveDockForGrid) {
+        return `minmax(${STAGE_COL_MIN_PX}px, ${STAGE_COL_FR_DEFAULT}fr) ${STAGE_RESIZER_PX}px ${rightTrackRailProportional}`;
+      }
+      return `minmax(${STAGE_COL_MIN_PX}px, 2fr) ${STAGE_RESIZER_PX}px ${rightTrackFullTimeline}`;
     }
+    const rightTrack = showTopWaveDockForGrid
+      ? rightTrackRailFixed
+      : rightTrackFullTimeline;
     return `${Math.round(stageColumnPx)}px ${STAGE_RESIZER_PX}px ${rightTrack}`;
   }, [
     wideEditorLayout,
@@ -1422,7 +1447,7 @@ export function EditorPage() {
         ? `${
             topDockRowPx != null
               ? `${clampTopDockRowPx(topDockRowPx)}px`
-              : `minmax(${TOP_DOCK_ROW_MIN_PX}px, min(28vh, 300px))`
+              : TOP_DOCK_ROW_DEFAULT_CSS
           } 4px minmax(0, 1fr)`
         : "1fr"
       : "auto auto auto";
