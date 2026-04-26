@@ -4008,6 +4008,8 @@ export function StageBoard({
           コンテナクエリは「舞台ブロック」だけにかける。
           下の一括ツールバーを同じ CQ 親に置くと、選択の有無で cqb が変わり
           範囲選択直後に舞台がわずらかに動いて見える。
+          列 flex の alignItems:center だけだと、環境によって狭い枠が左寄りに見えるため、
+          その内側で row + justifyContent:center を挟んで常に中央に置く。
         */}
         <div
           style={{
@@ -4017,14 +4019,29 @@ export function StageBoard({
             width: "100%",
             display: "flex",
             flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            containerType: "size",
-            containerName: "stage-board-fit",
+            alignItems: "stretch",
+            justifyContent: "flex-start",
+            gap: 0,
           }}
         >
+          <div
+            style={{
+              flex: "1 1 0%",
+              minHeight: 0,
+              minWidth: 0,
+              width: "100%",
+              display: "flex",
+              flexDirection: "row",
+              justifyContent: "center",
+              alignItems: "center",
+              alignSelf: "stretch",
+              containerType: "size",
+              containerName: "stage-board-fit",
+            }}
+          >
         <div
           style={{
+            flexShrink: 0,
             position: "relative",
             width: hasStageDims
               ? `min(100cqi, calc(100cqb * (${outerWmm}) / (${outerDmm})))`
@@ -6396,6 +6413,7 @@ export function StageBoard({
                 </div>
               );
             })}
+        </div>
         </div>
         </div>
         {canStageBulkTools ? (
