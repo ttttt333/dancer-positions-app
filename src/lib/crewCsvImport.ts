@@ -167,7 +167,7 @@ const READING_FIRST_HEADER_KEYS = [
 const MEMBER_LABEL_MAX = 8;
 
 /** 名簿取り込み時の表示名の作り方 */
-export type RosterNameImportMode = "full" | "given_only";
+export type RosterNameImportMode = "full" | "given_only" | "family_only";
 
 export type CrewImportOptions = {
   nameMode?: RosterNameImportMode;
@@ -239,6 +239,25 @@ function guessGivenFromFullCell(full: string): string {
     ""
   );
   return stripped.trim() || t;
+}
+
+/**
+ * 単一セルから「苗字」寄りの短い表示を推定（スペース区切りは先頭を苗字とみなす）。
+ * 漢字のみのときは先頭の漢字ブロック（最大 4 文字）を苗字とみなす。
+ */
+function guessFamilyFromFullCell(full: string): string {
+  const t = full.trim();
+  if (!t) return "";
+  if (/\s/u.test(t)) {
+    const parts = t.split(/\s+/u).filter(Boolean);
+    if (parts.length >= 2) return parts[0] ?? "";
+    return parts[0] ?? t;
+  }
+  const m = t.match(
+    /^[\u3005\u3007\u303b\u3400-\u4dbf\u4e00-\u9fff々〆]{1,4}/u
+  );
+  if (m) return m[0];
+  return firstGrapheme(t);
 }
 
 function sliceLabel(s: string): string {
@@ -504,10 +523,33 @@ function buildLabelsWithDuplicateHandling(
     order: number;
   };
   const items: Item[] = parsed.map((p, order) => {
-    if (p.familyReading.trim() && p.givenReading.trim()) {
-      const full = `${firstGrapheme(p.familyReading)}${p.givenReading.trim()}`;
+    const famR = p.familyReading.trim();
+    const gvnR = p.givenReading.trim();
+    const famK = p.familyRaw.trim();
+    const gvnK = p.givenRaw.trim();
+
+    if (famR && gvnR) {
+      if (nameMode === "full") {
+        const full = `${firstGrapheme(famR)}${gvnR}`;
+        return {
+          base: sliceLabel(full),
+          prefix: "",
+          colorIndex: p.colorIndex,
+          order,
+        };
+      }
+      if (nameMode === "family_only") {
+        const raw = famK || famR;
+        return {
+          base: sliceLabel(raw),
+          prefix: "",
+          colorIndex: p.colorIndex,
+          order,
+        };
+      }
+      const raw = gvnK || gvnR;
       return {
-        base: sliceLabel(full),
+        base: sliceLabel(raw),
         prefix: "",
         colorIndex: p.colorIndex,
         order,
@@ -516,18 +558,27 @@ function buildLabelsWithDuplicateHandling(
 
     let baseRaw: string;
     if (p.givenReading.trim()) {
-      baseRaw = p.givenReading.trim();
+      baseRaw =
+        nameMode === "family_only"
+          ? famK || guessFamilyFromFullCell(p.fullRaw) || p.fullRaw.trim()
+          : p.givenReading.trim();
     } else {
       const givenDisplay =
-        p.familyRaw && p.givenRaw
-          ? p.givenRaw
+        famK && gvnK
+          ? gvnK
           : nameMode === "given_only"
             ? guessGivenFromFullCell(p.fullRaw)
             : p.fullRaw;
-      baseRaw =
-        nameMode === "full"
-          ? p.fullRaw
-          : givenDisplay.trim() || p.fullRaw.trim();
+      if (nameMode === "full") {
+        baseRaw = p.fullRaw.trim();
+      } else if (nameMode === "family_only") {
+        baseRaw =
+          famK && gvnK
+            ? famK
+            : guessFamilyFromFullCell(p.fullRaw) || p.fullRaw.trim();
+      } else {
+        baseRaw = givenDisplay.trim() || p.fullRaw.trim();
+      }
     }
     const base = sliceLabel(baseRaw);
     const prefixSource = p.familyReading.trim()
@@ -618,8 +669,9 @@ function smartSplitFallback(text: string): string[][] {
 
 /**
  * 行データから名簿メンバーを生成する。
- * - `full`: 姓＋名または氏名列のフル表記をそのまま短縮表示
+ * - `full`: 姓＋名または氏名列のフル表記をそのまま短縮表示（フリガナが姓・名で分かるときは従来どおり短い読み表記）
  * - `given_only`: 「名」列があればそれのみ。単一列のときは先頭漢字を除く簡易推定やスペース区切りの末尾を使用
+ * - `family_only`: 「姓」列があればそれのみ。単一列のときは先頭漢字ブロックやスペース区切りの先頭を使用
  * - 同一表示名が複数あるときは、該当する全員に苗字の先頭 1 文字を前置（読み苗字があればその先頭、なければ漢字姓）
  * - フリガナ列があるときは名の読みを表示のベースにする（例: たけし が重複 → さたけし / なたけし）
  * - 出欠は見出し列に加え、氏名列の左右隣が ○・参加 等の列なら自動で参加行のみ抽出

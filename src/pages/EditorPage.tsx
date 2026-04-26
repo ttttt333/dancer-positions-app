@@ -101,6 +101,42 @@ const RIGHT_TOOLS_RAIL_MIN_PX = 152;
 const RIGHT_TOOLS_RAIL_MAX_PX = 210;
 /** 右ペイン：タイムライン（またはキュー一覧）の縦スタック */
 
+/** 波形行の高さ・ステージ〜右列の幅分割を端末に覚えさせる */
+const EDITOR_LAYOUT_STORAGE_KEY = "dancer-positions.editorLayout.v1";
+
+function readStoredEditorLayout(): {
+  stageColumnPx: number | null;
+  topDockRowPx: number | null;
+} {
+  if (typeof window === "undefined") {
+    return { stageColumnPx: null, topDockRowPx: null };
+  }
+  try {
+    const raw = window.localStorage.getItem(EDITOR_LAYOUT_STORAGE_KEY);
+    if (!raw) return { stageColumnPx: null, topDockRowPx: null };
+    const o = JSON.parse(raw) as {
+      stageColumnPx?: unknown;
+      topDockRowPx?: unknown;
+    };
+    const sc =
+      typeof o.stageColumnPx === "number" &&
+      Number.isFinite(o.stageColumnPx) &&
+      o.stageColumnPx >= STAGE_COL_MIN_PX
+        ? o.stageColumnPx
+        : null;
+    const td =
+      typeof o.topDockRowPx === "number" &&
+      Number.isFinite(o.topDockRowPx) &&
+      o.topDockRowPx >= 96 &&
+      o.topDockRowPx <= 560
+        ? o.topDockRowPx
+        : null;
+    return { stageColumnPx: sc, topDockRowPx: td };
+  } catch {
+    return { stageColumnPx: null, topDockRowPx: null };
+  }
+}
+
 /** ステージ「設定」パネル：客席は画面上辺・下辺のみ */
 const STAGE_AREA_AUDIENCE_OPTIONS: {
   value: ChoreographyProjectJson["audienceEdge"];
@@ -186,7 +222,9 @@ export function EditorPage() {
   /** 変形舞台ピッカー（舞台形状のカスタマイズ） */
   const [stageShapePickerOpen, setStageShapePickerOpen] = useState(false);
   /** ワイド時のみ。null = 既定の fr 比、数値 = ステージ列の幅（px） */
-  const [stageColumnPx, setStageColumnPx] = useState<number | null>(null);
+  const [stageColumnPx, setStageColumnPx] = useState<number | null>(() => {
+    return readStoredEditorLayout().stageColumnPx;
+  });
   const [wideEditorLayout, setWideEditorLayout] = useState(
     () =>
       typeof window !== "undefined" &&
@@ -197,7 +235,11 @@ export function EditorPage() {
   const [cueListPortalEl, setCueListPortalEl] =
     useState<HTMLDivElement | null>(null);
   /** 上部ドック時の上段（波形・再生）行の高さ（px）。null = 既定の `minmax(160px, min(28vh, 300px))` */
-  const [topDockRowPx, setTopDockRowPx] = useState<number | null>(null);
+  const [topDockRowPx, setTopDockRowPx] = useState<number | null>(() => {
+    return readStoredEditorLayout().topDockRowPx;
+  });
+  /** ステージのみ全画面（波形・右列・ステージ上の補助行を隠す） */
+  const [stageZenFullscreen, setStageZenFullscreen] = useState(false);
   /** `showTopWaveDock` の直前値（早期 return の前でもフック順を一定にするため ref はここで保持） */
   const prevShowTopWaveDockRef = useRef<boolean | undefined>(undefined);
   /** ステージ「名簿取り込み」: ファイル選択後の表示名モード確認 */
@@ -481,6 +523,36 @@ export function EditorPage() {
     window.addEventListener("resize", clamp);
     return () => window.removeEventListener("resize", clamp);
   }, [wideEditorLayout, minRightColForStageSplitPx]);
+
+  useEffect(() => {
+    if (!wideEditorLayout || typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        EDITOR_LAYOUT_STORAGE_KEY,
+        JSON.stringify({ stageColumnPx, topDockRowPx })
+      );
+    } catch {
+      /* ストレージ不可 */
+    }
+  }, [wideEditorLayout, stageColumnPx, topDockRowPx]);
+
+  useEffect(() => {
+    if (!stageZenFullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setStageZenFullscreen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [stageZenFullscreen]);
+
+  useEffect(() => {
+    if (!wideEditorLayout && stageZenFullscreen) {
+      setStageZenFullscreen(false);
+    }
+  }, [wideEditorLayout, stageZenFullscreen]);
 
   const onSplitPointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -1320,6 +1392,24 @@ export function EditorPage() {
     project.rosterHidesTimeline === true && hasRosterMembers;
   /** ワイド時は波形・再生を上部に固定（名簿専用モードでは従来の下段タイムライン） */
   const showTopWaveDock = wideEditorLayout && !rosterOnlyMode;
+  /** ステージのみ全画面（ワイド時のみ有効） */
+  const stageZenLayout = wideEditorLayout && stageZenFullscreen;
+
+  const editorPaneGridTemplateRows = stageZenLayout
+    ? "1fr"
+    : wideEditorLayout
+      ? showTopWaveDock
+        ? `${
+            topDockRowPx != null
+              ? `${topDockRowPx}px`
+              : "minmax(96px, min(22vh, 220px))"
+          } 4px minmax(0, 1fr)`
+        : "1fr"
+      : "auto auto auto";
+
+  const editorPaneGridTemplateColumns = stageZenLayout
+    ? "1fr"
+    : editorGridColumns;
 
   const choreoToolbarSharedProps = {
     snapGrid: project.snapGrid,
@@ -1433,6 +1523,11 @@ export function EditorPage() {
     onPreloadFfmpegForAudio: () => {
       void preloadFFmpeg();
     },
+    onEnterStageZen: () => {
+      setFloorTextPlaceSession(null);
+      setStageZenFullscreen(true);
+    },
+    stageZenEligible: showTopWaveDock && !rightPaneCollapsed,
   };
 
   return (
@@ -1623,16 +1718,8 @@ export function EditorPage() {
           position: "relative",
           flex: 1,
           display: "grid",
-          gridTemplateColumns: editorGridColumns,
-          gridTemplateRows: wideEditorLayout
-            ? showTopWaveDock
-              ? `${
-                  topDockRowPx != null
-                    ? `${topDockRowPx}px`
-                    : "minmax(96px, min(22vh, 220px))"
-                } 4px minmax(0, 1fr)`
-              : "1fr"
-            : "auto auto auto",
+          gridTemplateColumns: editorPaneGridTemplateColumns,
+          gridTemplateRows: editorPaneGridTemplateRows,
           gap: `${EDITOR_GRID_GAP_PX}px`,
           padding:
             "6px max(6px, env(safe-area-inset-right, 0px)) 6px max(6px, env(safe-area-inset-left, 0px))",
@@ -1644,7 +1731,7 @@ export function EditorPage() {
           overflow: "hidden",
         }}
       >
-        {showTopWaveDock ? (
+        {showTopWaveDock && !stageZenLayout ? (
           <section
             style={{
               gridColumn: "1 / -1",
@@ -1704,7 +1791,7 @@ export function EditorPage() {
             </div>
           </section>
         ) : null}
-        {showTopWaveDock ? (
+        {showTopWaveDock && !stageZenLayout ? (
           <div
             role="separator"
             aria-orientation="horizontal"
@@ -1764,12 +1851,39 @@ export function EditorPage() {
             overflow: "hidden",
             ...(wideEditorLayout
               ? {
-                  gridColumn: 1,
-                  gridRow: showTopWaveDock ? 3 : 1,
+                  gridColumn: stageZenLayout ? "1 / -1" : 1,
+                  gridRow: stageZenLayout
+                    ? "1 / -1"
+                    : showTopWaveDock
+                      ? 3
+                      : 1,
+                  ...(stageZenLayout
+                    ? { position: "relative" as const }
+                    : {}),
                 }
               : {}),
           }}
         >
+          {stageZenLayout ? (
+            <button
+              type="button"
+              onClick={() => setStageZenFullscreen(false)}
+              style={{
+                position: "absolute",
+                top: 8,
+                right: 10,
+                zIndex: 200,
+                ...btnSecondary,
+                padding: "6px 12px",
+                fontSize: "12px",
+                fontWeight: 700,
+              }}
+              title="ステージ拡大を終了（Esc でも戻ります）"
+              aria-label="縮小して通常表示に戻す"
+            >
+              縮小
+            </button>
+          ) : null}
           {wideEditorLayout && rightPaneCollapsed ? (
             <section
               style={{
@@ -1783,7 +1897,7 @@ export function EditorPage() {
               <ChoreoGridToolbar embedInPanel {...choreoToolbarSharedProps} />
             </section>
           ) : null}
-          {!workbenchInRightRail ? (
+          {!workbenchInRightRail && !stageZenLayout ? (
             <div
               style={
                 floorTextPlaceSession
@@ -1828,7 +1942,7 @@ export function EditorPage() {
               <div
                 style={{
                   flexShrink: 0,
-                  display: "flex",
+                  display: stageZenLayout ? "none" : "flex",
                   flexDirection: "column",
                   alignItems: "flex-end",
                   gap: 4,
@@ -1967,7 +2081,7 @@ export function EditorPage() {
           </div>
         </section>
 
-        {wideEditorLayout && !rightPaneCollapsed ? (
+        {wideEditorLayout && !rightPaneCollapsed && !stageZenLayout ? (
           <div
             className="editor-pane-resizer"
             role="separator"
@@ -1995,7 +2109,7 @@ export function EditorPage() {
           />
         ) : null}
 
-        {rightPaneCollapsed && wideEditorLayout ? null : wideEditorLayout && showTopWaveDock ? (
+        {stageZenLayout ? null : rightPaneCollapsed && wideEditorLayout ? null : wideEditorLayout && showTopWaveDock ? (
           <div
             ref={rightPaneStackRef}
             style={{
@@ -3230,7 +3344,7 @@ export function EditorPage() {
               ステージ上の表示は最大 8 文字です。同じ名前が複数あるときは、該当する全員に苗字の先頭 1 文字を前に付けて区別します。
               <br />
               見出しに「出欠」「参加」「出席」などがあるとき、または氏名の左右の列が ○・参加・出席 などで埋まっているときは、その列で参加行だけを名簿に含めます。
-              見出しに「フリガナ」「読み」「セイ」「メイ」などがあり、読みに姓と名が分かるときは「名の読み」を表示のベースにし、苗字の読みの先頭 1 文字を付けた短い名前（例: さかい+たけし→さたけし）にします。
+              見出しに「フリガナ」「読み」「セイ」「メイ」などがあり、読みに姓と名が分かるときは、下の「表示名の取り込み方」に応じてフル（例: さたけし）・苗字（姓の漢字またはセイ）・名前（名の漢字またはメイ）を選べます。
             </p>
             <div style={{ fontSize: "12px", fontWeight: 600, color: "#cbd5e1", marginBottom: "8px" }}>
               表示名の取り込み方
@@ -3263,6 +3377,29 @@ export function EditorPage() {
                 display: "flex",
                 alignItems: "flex-start",
                 gap: "8px",
+                marginBottom: "8px",
+                cursor: "pointer",
+                fontSize: "13px",
+              }}
+            >
+              <input
+                type="radio"
+                name="roster-import-name-mode"
+                checked={rosterImportNameMode === "family_only"}
+                onChange={() => setRosterImportNameMode("family_only")}
+              />
+              <span>
+                <strong>苗字だけ</strong>
+                <span style={{ display: "block", fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+                  「姓」列があればそれのみ。1 列だけのときは先頭の漢字ブロックや、スペース区切りの先頭を苗字とみなします。
+                </span>
+              </span>
+            </label>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "8px",
                 marginBottom: "16px",
                 cursor: "pointer",
                 fontSize: "13px",
@@ -3275,7 +3412,7 @@ export function EditorPage() {
                 onChange={() => setRosterImportNameMode("given_only")}
               />
               <span>
-                <strong>名だけ</strong>
+                <strong>名前だけ</strong>
                 <span style={{ display: "block", fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
                   見出しに「姓」「名」列があると確実です。1 列だけのときは、先頭の漢字を除く簡易推定やスペース区切りの末尾を使います。
                 </span>

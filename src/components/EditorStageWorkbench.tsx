@@ -374,6 +374,10 @@ export type EditorStageWorkbenchProps = {
   onOpenAudioImport?: () => void;
   /** 音源ボタンホバーで FFmpeg 先読み */
   onPreloadFfmpegForAudio?: () => void;
+  /** ステージのみ全画面（波形・右列を隠す） */
+  onEnterStageZen?: () => void;
+  /** true のとき右レールに「拡大」を表示 */
+  stageZenEligible?: boolean;
 };
 
 export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
@@ -406,6 +410,8 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
     onOpenCueListModal,
     onOpenAudioImport,
     onPreloadFfmpegForAudio,
+    onEnterStageZen,
+    stageZenEligible = false,
   } = props;
 
   const rowOuter: CSSProperties = rail
@@ -785,6 +791,19 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               singleTile="help"
               {...choreo}
             />
+          ) : null}
+          {stageZenEligible && onEnterStageZen ? (
+            <button
+              type="button"
+              className="editor-right-tool-sq"
+              style={btnSecondary}
+              disabled={project.viewMode === "view"}
+              title="波形と右メニューを隠してステージだけを大きく表示（Esc で戻る）"
+              aria-label="ステージを拡大表示"
+              onClick={() => onEnterStageZen()}
+            >
+              <span>拡大</span>
+            </button>
           ) : null}
         </div>
         {!hideFloorTextToolbar && floorTextPlaceSession ? (
