@@ -336,13 +336,57 @@ function dancerNameBelowClearanceExtraPx(
 }
 
 /**
+ * 場ミリ（縦ガイド間隔）または場ミリ規格から、センターからの「1段」＝半間隔（mm）。
+ * 例: 1500mm → 750mm（75cm 刻みのラベル）。
+ */
+function centerDistanceSnapStepMm(p: {
+  centerFieldGuideIntervalMm: number | null;
+  dancerSpacingMm?: number | null;
+}): number | null {
+  const g = p.centerFieldGuideIntervalMm;
+  if (typeof g === "number" && Number.isFinite(g) && g > 0) return g / 2;
+  const d = p.dancerSpacingMm;
+  if (typeof d === "number" && Number.isFinite(d) && d > 0) return d / 2;
+  return null;
+}
+
+/** メイン床幅方向のセンター（横幅の中央）からの水平距離（mm）。 */
+function horizontalDistanceFromStageCenterMm(
+  xPct: number,
+  stageWidthMm: number
+): number {
+  const xMm = (xPct / 100) * stageWidthMm;
+  const cMm = stageWidthMm / 2;
+  return Math.abs(xMm - cMm);
+}
+
+/**
+ * センターからの距離（cm、単位なし表示用の数字文字列）。
+ * `stepMm` は `centerDistanceSnapStepMm` の戻り値（例: 750）。
+ */
+function markerBadgeFromCenterDistanceCm(
+  xPct: number,
+  stageWidthMm: number,
+  stepMm: number
+): string {
+  if (!(stageWidthMm > 0) || !(stepMm > 0)) return "";
+  const distMm = horizontalDistanceFromStageCenterMm(xPct, stageWidthMm);
+  const n = Math.round(distMm / stepMm);
+  const snappedMm = n * stepMm;
+  return String(Math.round(snappedMm / 10));
+}
+
+/**
  * 「名前は○の下」モードの○内表示。
  * `markerBadge === ""` は意図的な空欄（並び順による連番フォールバックなし）。
  */
 function dancerCircleInnerBelowLabel(d: DancerSpot, formationIndex: number): string {
   if (d.markerBadge === "") return "";
   const t = d.markerBadge?.trim();
-  if (t) return t.slice(0, 3);
+  if (t) {
+    if (/^\d+$/.test(t)) return t.slice(0, 4);
+    return t.slice(0, 3);
+  }
   return String(formationIndex + 1);
 }
 
@@ -3483,6 +3527,64 @@ export function StageBoard({
       viewMode,
       stageInteractionsEnabled,
       playbackOrPreview,
+    ]
+  );
+
+  /**
+   * 「名前は○の下」のとき、各印の横幅位置からセンターまでの距離（cm・数字のみ）を○内に入れる。
+   * 刻みは「センターからの場ミリ」の半分、なければ場ミリ規格（隣同士間隔）の半分。
+   */
+  const applyBulkMarkerCenterDistance = useCallback(
+    (targetIds: string[]) => {
+      if (!formationIdForWrites || targetIds.length === 0) return;
+      if (
+        !dancerLabelBelow ||
+        viewMode === "view" ||
+        !stageInteractionsEnabled ||
+        playbackOrPreview
+      )
+        return;
+      const Wmm = effStageWidthMm ?? 0;
+      if (!(Wmm > 0)) {
+        window.alert(
+          "ステージの横幅（メイン床の幅）が未設定のため、センターからの距離を入れられません。舞台設定で幅を入れてください。"
+        );
+        return;
+      }
+      const stepMm = centerDistanceSnapStepMm(project);
+      if (stepMm == null || !(stepMm > 0)) {
+        window.alert(
+          "「センターからの場ミリ」または場ミリ規格（隣同士の間隔）が未設定です。舞台設定で入れてからお試しください。"
+        );
+        return;
+      }
+      const idSet = new Set(targetIds);
+      setProject((p) => ({
+        ...p,
+        formations: p.formations.map((f) => {
+          if (f.id !== formationIdForWrites) return f;
+          return {
+            ...f,
+            dancers: f.dancers.map((d) => {
+              if (!idSet.has(d.id)) return d;
+              const xPct = markerGroupPosDraft?.get(d.id)?.xPct ?? d.xPct;
+              const badge = markerBadgeFromCenterDistanceCm(xPct, Wmm, stepMm);
+              return { ...d, markerBadge: badge };
+            }),
+          };
+        }),
+      }));
+    },
+    [
+      formationIdForWrites,
+      setProject,
+      dancerLabelBelow,
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+      project,
+      effStageWidthMm,
+      markerGroupPosDraft,
     ]
   );
 
@@ -6933,6 +7035,39 @@ export function StageBoard({
                 >
                   同じ…
                 </button>
+                <button
+                  type="button"
+                  disabled={
+                    viewMode === "view" ||
+                    !stageInteractionsEnabled ||
+                    Boolean(playbackDancers) ||
+                    Boolean(previewDancers)
+                  }
+                  style={{
+                    ...btnSecondary,
+                    gridColumn: "1 / -1",
+                    width: "100%",
+                    fontSize: "9px",
+                    padding: "5px 4px",
+                    textAlign: "center",
+                    lineHeight: 1.25,
+                  }}
+                  title={
+                    "各印の横幅位置からセンターまでの距離を、cm の数字だけ丸の内に入れます（0・75・150…）。刻みは「センターからの場ミリ」の半分が優先され、未設定なら場ミリ規格（隣同士の間隔）の半分を使います。"
+                  }
+                  onClick={() => {
+                    if (stageContextMenu.kind !== "dancer") return;
+                    const ids = resolveArrangeTargetIds(
+                      stageContextMenu.dancerId,
+                      selectedDancerIds
+                    );
+                    if (ids.length === 0) return;
+                    applyBulkMarkerCenterDistance(ids);
+                    setStageContextMenu(null);
+                  }}
+                >
+                  センターからの距離
+                </button>
               </div>
             ) : (
               <div
@@ -6943,7 +7078,7 @@ export function StageBoard({
                   lineHeight: 1.3,
                 }}
               >
-                「丸の下」を選ぶと空白・連番・同じを指定できます。
+                「丸の下」を選ぶと空白・連番・同じ・センターからの距離を指定できます。
               </div>
             )}
             <div
