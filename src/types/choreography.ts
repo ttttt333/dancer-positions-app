@@ -181,6 +181,20 @@ export type Crew = {
   members: CrewMember[];
 };
 
+/**
+ * 直前のキュー終了〜このキュー開始のギャップでの立ち位置の寄り方。
+ * 上手＝画面右（x が大きい方）、下手＝画面左。客席側＝y が大きい（手前）。
+ */
+export type GapApproachRoute =
+  | "linear"
+  | "kamite_half_via_audience"
+  | "shimote_half_via_audience"
+  | "kamite_half_via_upstage"
+  | "shimote_half_via_upstage"
+  | "front_half_via_kamite"
+  | "front_half_via_shimote"
+  | "detour_bulge";
+
 /** タイムライン上の区間キュー（区間内は立ち位置一定。区間の隙間のみ補間）。 */
 export type Cue = {
   id: string;
@@ -192,6 +206,11 @@ export type Cue = {
   /** 一覧・識別用の短い名前（任意） */
   name?: string;
   note?: string;
+  /**
+   * このキューに入る直前のギャップ（前キュー tEnd 〜 この tStart）での移動経路。
+   * 先頭キューでは無視される。未指定は線形補間。
+   */
+  gapApproachFromPrev?: GapApproachRoute;
 };
 
 /**

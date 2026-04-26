@@ -17,11 +17,13 @@ import {
   cloneFormationForNewCue,
   DEFAULT_CUE_SPAN_WITH_AUDIO_SEC,
   expandShortCuesAfterAudioLoad,
+  findCueGapContainingTime,
   MIN_CUE_DURATION_SEC,
   PLACEHOLDER_TIMELINE_CAP_SEC,
   resolveCueIntervalNonOverlap,
   sortCuesByStart,
 } from "../lib/cueInterval";
+import { GAP_APPROACH_OPTIONS } from "../lib/gapDancerInterpolation";
 import {
   listFormationBoxItemsByCount,
   saveFormationToBox,
@@ -715,6 +717,12 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       clientX: number;
       clientY: number;
     } | null>(null);
+    /** キュー間ギャップ上の右クリック等: 次のキュー id とメニュー座標 */
+    const [gapRouteMenu, setGapRouteMenu] = useState<{
+      nextCueId: string;
+      clientX: number;
+      clientY: number;
+    } | null>(null);
     /** メニューで選んだ操作の最終確認 */
     const [waveCueConfirm, setWaveCueConfirm] = useState<
       null | { kind: "duplicate" | "formationBox"; cueId: string }
@@ -1097,15 +1105,16 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
     }, [project.viewMode, setProject, onSelectedCueIdsChange]);
 
     useEffect(() => {
-      if (!waveCueMenu && !waveCueConfirm) return;
+      if (!waveCueMenu && !waveCueConfirm && !gapRouteMenu) return;
       const onKey = (e: KeyboardEvent) => {
         if (e.key !== "Escape") return;
         setWaveCueConfirm(null);
         setWaveCueMenu(null);
+        setGapRouteMenu(null);
       };
       window.addEventListener("keydown", onKey);
       return () => window.removeEventListener("keydown", onKey);
-    }, [waveCueMenu, waveCueConfirm]);
+    }, [waveCueMenu, waveCueConfirm, gapRouteMenu]);
 
     useEffect(() => {
       const a = audioRef.current;
@@ -1394,6 +1403,24 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       const x = e.clientX - r.left;
       const t = waveExtentXToTime(x, viewStart, viewSpan, r.width);
       const clamped = Math.max(trimStartSec, Math.min(trimEndSec ?? duration, t));
+      if (
+        e.altKey &&
+        peaks != null &&
+        cuesSorted.length >= 2 &&
+        project.viewMode !== "view"
+      ) {
+        const gap = findCueGapContainingTime(clamped, cuesSorted);
+        if (gap) {
+          setWaveCueMenu(null);
+          setGapRouteMenu({
+            nextCueId: gap.next.id,
+            clientX: e.clientX,
+            clientY: e.clientY,
+          });
+          onSelectedCueIdsChange([gap.next.id]);
+          return;
+        }
+      }
       a.currentTime = clamped;
       setCurrentTime(clamped);
     };
@@ -1419,12 +1446,34 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         viewSpan,
         cueDragPreviewRangeRef.current
       );
-      if (!id) return;
+      if (id) {
+        e.preventDefault();
+        e.stopPropagation();
+        setGapRouteMenu(null);
+        onSelectedCueIdsChange([id]);
+        setWaveCueConfirm(null);
+        setWaveCueMenu({ cueId: id, clientX: e.clientX, clientY: e.clientY });
+        return;
+      }
+      const rr = c.getBoundingClientRect();
+      const xx = e.clientX - rr.left;
+      const tGap = waveExtentXToTime(xx, viewStart, viewSpan, rr.width);
+      const clampedGap = Math.max(
+        trimStartSec,
+        Math.min(trimEndSec ?? duration, tGap)
+      );
+      const gapHit = findCueGapContainingTime(clampedGap, cuesSorted);
+      if (!gapHit) return;
       e.preventDefault();
       e.stopPropagation();
-      onSelectedCueIdsChange([id]);
+      setWaveCueMenu(null);
       setWaveCueConfirm(null);
-      setWaveCueMenu({ cueId: id, clientX: e.clientX, clientY: e.clientY });
+      onSelectedCueIdsChange([gapHit.next.id]);
+      setGapRouteMenu({
+        nextCueId: gapHit.next.id,
+        clientX: e.clientX,
+        clientY: e.clientY,
+      });
     };
 
     useEffect(() => {
@@ -1769,6 +1818,9 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             formationId: newFm.id,
             name: source.name,
             note: source.note,
+            ...(source.gapApproachFromPrev
+              ? { gapApproachFromPrev: source.gapApproachFromPrev }
+              : {}),
           };
           return {
             ...p,
@@ -1852,6 +1904,9 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             formationId: newFm.id,
             name: source.name,
             note: source.note,
+            ...(source.gapApproachFromPrev
+              ? { gapApproachFromPrev: source.gapApproachFromPrev }
+              : {}),
           };
           return {
             ...p,
@@ -2608,6 +2663,140 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         </>
       ) : null;
 
+    const gapRouteMenuPanel =
+      gapRouteMenu && !waveCueConfirm ? (
+        <>
+          <button
+            type="button"
+            aria-label="経路メニューを閉じる"
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 2498,
+              border: "none",
+              background: "transparent",
+              cursor: "default",
+            }}
+            onClick={() => setGapRouteMenu(null)}
+          />
+          <div
+            role="menu"
+            aria-label="キュー間の立ち位置の入り方"
+            style={{
+              position: "fixed",
+              left: Math.max(
+                8,
+                Math.min(
+                  gapRouteMenu.clientX,
+                  (typeof window !== "undefined" ? window.innerWidth : 800) - 320
+                )
+              ),
+              top: Math.max(
+                8,
+                Math.min(
+                  gapRouteMenu.clientY,
+                  (typeof window !== "undefined" ? window.innerHeight : 600) - 120
+                )
+              ),
+              zIndex: 2499,
+              width: "min(300px, calc(100vw - 16px))",
+              maxHeight: "min(72vh, 520px)",
+              overflowY: "auto",
+              padding: "10px",
+              borderRadius: "10px",
+              border: `1px solid ${shell.border}`,
+              background: shell.surface,
+              boxShadow: "0 16px 48px rgba(0,0,0,0.45)",
+            }}
+            onClick={(ev) => ev.stopPropagation()}
+          >
+            <div
+              style={{
+                fontSize: "11px",
+                fontWeight: 600,
+                color: "#94a3b8",
+                marginBottom: "8px",
+                lineHeight: 1.35,
+              }}
+            >
+              直前のキュー終了〜このキュー開始の間の動き方（再生の補間）。上手＝画面右（x
+              大）、客席側＝手前（y 大）。
+            </div>
+            {GAP_APPROACH_OPTIONS.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                role="menuitem"
+                disabled={project.viewMode === "view"}
+                style={{
+                  ...btnSecondary,
+                  display: "block",
+                  width: "100%",
+                  textAlign: "left",
+                  marginBottom: "5px",
+                  fontSize: "11px",
+                  padding: "7px 8px",
+                  lineHeight: 1.35,
+                  whiteSpace: "normal",
+                  cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
+                }}
+                onClick={() => {
+                  const nextId = gapRouteMenu.nextCueId;
+                  setGapRouteMenu(null);
+                  if (project.viewMode === "view") return;
+                  setProject((p) => ({
+                    ...p,
+                    cues: sortCuesByStart(
+                      p.cues.map((c) =>
+                        c.id === nextId
+                          ? {
+                              ...c,
+                              gapApproachFromPrev:
+                                opt.id === "linear" ? undefined : opt.id,
+                            }
+                          : c
+                      )
+                    ),
+                  }));
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              role="menuitem"
+              disabled={project.viewMode === "view"}
+              style={{
+                ...btnSecondary,
+                display: "block",
+                width: "100%",
+                textAlign: "left",
+                marginTop: "4px",
+                fontSize: "11px",
+                padding: "7px 8px",
+                cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
+              }}
+              onClick={() => {
+                const nextId = gapRouteMenu.nextCueId;
+                setGapRouteMenu(null);
+                if (project.viewMode === "view") return;
+                setProject((p) => ({
+                  ...p,
+                  cues: sortCuesByStart(
+                    p.cues.map((c) =>
+                      c.id === nextId ? { ...c, gapApproachFromPrev: undefined } : c
+                    )
+                  ),
+                }));
+              }}
+            >
+              設定をクリア（線形のみ）
+            </button>
+          </div>
+        </>
+      ) : null;
+
     const waveCueConfirmPanel = waveCueConfirm ? (
       <>
         <button
@@ -3126,7 +3315,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         )}
         <div
           ref={waveContainerRef}
-          title="波形上でマウスホイール（またはトラックパッドの縦スクロール）で時間軸の拡大・縮小。上の秒数目盛りをクリックすると再生位置だけ移動します（一時停止中は再生ボタンやスペースキーで再生）。下の枠線付近をドラッグすると波形の縦の高さを変えられます。赤い縦線付近をドラッグすると再生位置を移動できます。"
+          title="波形上でマウスホイール（またはトラックパッドの縦スクロール）で時間軸の拡大・縮小。上の秒数目盛りをクリックすると再生位置だけ移動します（一時停止中は再生ボタンやスペースキーで再生）。下の枠線付近をドラッグすると波形の縦の高さを変えられます。赤い縦線付近をドラッグすると再生位置を移動できます。キューとキューの隙間（区間外）を右クリックするか Alt+クリックすると、その先のキューへの立ち位置の入り方を選べます。"
           style={{
             width: "100%",
             borderRadius: "6px",
@@ -3535,6 +3724,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         <audio ref={audioRef} style={{ display: "none" }} controls={false} />
       </div>
       {waveCueMenuPanel}
+      {gapRouteMenuPanel}
       {waveCueConfirmPanel}
       </>
     );

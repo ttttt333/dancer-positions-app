@@ -2,9 +2,11 @@ import type {
   ChoreographyProjectJson,
   Cue,
   Formation,
+  GapApproachRoute,
   SetPiece,
 } from "../types/choreography";
 import { cloneFloorMarkupWithNewIds } from "./floorMarkup";
+import { parseGapApproachRoute } from "./gapDancerInterpolation";
 
 export function sortCuesByStart(cues: Cue[]): Cue[] {
   return [...cues].sort(
@@ -27,6 +29,7 @@ type RawCue = Record<string, unknown> & {
   tEndSec?: unknown;
   name?: unknown;
   note?: unknown;
+  gapApproachFromPrev?: unknown;
 };
 
 /**
@@ -46,6 +49,7 @@ export function migrateCuesFromRaw(
     tEnd: number | null;
     name?: string;
     note?: string;
+    gapFromPrev?: GapApproachRoute;
   }[] = [];
 
   for (const raw of cuesRaw) {
@@ -83,6 +87,7 @@ export function migrateCuesFromRaw(
           : null,
       name,
       note,
+      gapFromPrev: parseGapApproachRoute(c.gapApproachFromPrev),
     });
   }
 
@@ -108,9 +113,28 @@ export function migrateCuesFromRaw(
       formationId: row.formationId,
       name: row.name,
       note: row.note,
+      ...(i > 0 && row.gapFromPrev
+        ? { gapApproachFromPrev: row.gapFromPrev }
+        : {}),
     });
   }
   return sortCuesByStart(out);
+}
+
+/** 時刻 t が「前キュー終了〜次キュー開始」の隙間内ならその前後のキューを返す */
+export function findCueGapContainingTime(
+  tSec: number,
+  cues: Cue[]
+): { prev: Cue; next: Cue } | null {
+  const sorted = sortCuesByStart(cues);
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const prev = sorted[i]!;
+    const next = sorted[i + 1]!;
+    const g0 = prev.tEndSec;
+    const g1 = next.tStartSec;
+    if (tSec > g0 && tSec < g1 && g1 - g0 > 1e-4) return { prev, next };
+  }
+  return null;
 }
 
 export function cloneFormationForNewCue(f: Formation): Formation {
