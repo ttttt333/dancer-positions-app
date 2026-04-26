@@ -65,6 +65,12 @@ function tlPx(n: number): string {
   return `${Math.round(n * TIMELINE_UI_SCALE * 10) / 10}px`;
 }
 
+/**
+ * 再生ツールバー左右レール（左＝ロゴ領域、右＝同幅のダミーでバランス）。
+ * 中央を `minmax(0,1fr)` にし、再生・時計を画面中央付近に固定する。
+ */
+const TIMELINE_BRAND_RAIL_CSS = "clamp(200px, 28vw, 340px)";
+
 const timelineToolbarBtn: CSSProperties = {
   ...btnSecondary,
   padding: `${tlPx(3)} ${tlPx(8)}`,
@@ -119,7 +125,7 @@ function WaveHistoryRoundIcon({ kind }: { kind: "undo" | "redo" }) {
   );
 }
 
-/** 上部ツールバー左：ブランドバナー（作品一覧へ） */
+/** 上部ツールバー左レール内：バナーをスロットいっぱいに表示（作品一覧へ） */
 function ChoreoGridHeaderBrand({ compact }: { compact?: boolean }) {
   return (
     <Link
@@ -127,14 +133,18 @@ function ChoreoGridHeaderBrand({ compact }: { compact?: boolean }) {
       title="作品一覧へ"
       aria-label="CHOREOGRID（作品一覧へ）"
       style={{
+        boxSizing: "border-box",
         display: "flex",
         alignItems: "center",
+        justifyContent: "center",
+        width: "100%",
+        height: "100%",
+        minHeight: compact ? tlPx(30) : tlPx(34),
         flexShrink: 0,
-        minWidth: 0,
-        maxWidth: compact ? "min(200px, 36vw)" : "min(260px, 44vw)",
         textDecoration: "none",
         borderRadius: tlPx(6),
         overflow: "hidden",
+        padding: compact ? `${tlPx(1)} ${tlPx(2)}` : `${tlPx(2)} ${tlPx(3)}`,
       }}
     >
       <img
@@ -143,11 +153,11 @@ function ChoreoGridHeaderBrand({ compact }: { compact?: boolean }) {
         width={640}
         height={160}
         style={{
-          height: compact ? tlPx(22) : tlPx(26),
-          width: "auto",
-          maxWidth: "100%",
+          width: "100%",
+          height: "100%",
+          maxHeight: compact ? tlPx(32) : tlPx(40),
           objectFit: "contain",
-          objectPosition: "left center",
+          objectPosition: "center center",
           display: "block",
           filter:
             "drop-shadow(0 0 12px rgba(168, 85, 247, 0.35)) drop-shadow(0 0 18px rgba(34, 211, 238, 0.2))",
@@ -2869,12 +2879,12 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                   </div>
                 ) : null}
               </div>
-              {/** 2 行目: 左ブランド／中央に再生・シーク（画像の有無で位置がズレないよう 1fr | auto | 1fr） */}
+              {/** 2 行目: 左右同幅レール＋中央 1fr（レール内でロゴを大きく、再生は幾何中央固定） */}
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "minmax(0, 1fr) auto minmax(0, 1fr)",
-                  alignItems: "center",
+                  gridTemplateColumns: `${TIMELINE_BRAND_RAIL_CSS} minmax(0, 1fr) ${TIMELINE_BRAND_RAIL_CSS}`,
+                  alignItems: "stretch",
                   columnGap: tlPx(6),
                   width: "100%",
                   minWidth: 0,
@@ -2884,11 +2894,11 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               >
                 <div
                   style={{
-                    display: "flex",
-                    justifyContent: "flex-start",
-                    alignItems: "center",
                     minWidth: 0,
+                    maxWidth: "100%",
                     overflow: "hidden",
+                    display: "flex",
+                    alignItems: "stretch",
                   }}
                 >
                   <ChoreoGridHeaderBrand />
@@ -2902,6 +2912,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                     gap: tlPx(5),
                     rowGap: tlPx(3),
                     flexShrink: 0,
+                    minWidth: 0,
                   }}
                 >
                   <button
@@ -2956,8 +2967,8 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             className="wave-compact-time-above-wave"
             style={{
               display: "grid",
-              gridTemplateColumns: "minmax(0, 1fr) auto minmax(0, 1fr)",
-              alignItems: "center",
+              gridTemplateColumns: `${TIMELINE_BRAND_RAIL_CSS} minmax(0, 1fr) ${TIMELINE_BRAND_RAIL_CSS}`,
+              alignItems: "stretch",
               columnGap: tlPx(6),
               width: "100%",
               minWidth: 0,
@@ -2969,11 +2980,11 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           >
             <div
               style={{
-                display: "flex",
-                justifyContent: "flex-start",
-                alignItems: "center",
                 minWidth: 0,
+                maxWidth: "100%",
                 overflow: "hidden",
+                display: "flex",
+                alignItems: "stretch",
               }}
             >
               <ChoreoGridHeaderBrand compact />
@@ -2986,6 +2997,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                 justifyContent: "center",
                 gap: tlPx(6),
                 flexShrink: 0,
+                minWidth: 0,
               }}
             >
               <button
