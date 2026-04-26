@@ -182,6 +182,43 @@ const FLOOR_TEXT_FONT_OPTIONS: readonly { id: string; label: string; value: stri
       label: "等幅",
       value: "ui-monospace, SFMono-Regular, Menlo, monospace",
     },
+    {
+      id: "rounded",
+      label: "丸ゴシック",
+      value:
+        "'Hiragino Maru Gothic ProN', 'Yu Marui Gothic', 'Hiragino Sans', sans-serif",
+    },
+    {
+      id: "yugothic",
+      label: "游ゴシック",
+      value: "'Yu Gothic UI', 'Yu Gothic', 'Meiryo UI', Meiryo, sans-serif",
+    },
+    {
+      id: "meiryo",
+      label: "Meiryo",
+      value: "Meiryo, 'Yu Gothic UI', 'Hiragino Sans', sans-serif",
+    },
+    {
+      id: "bizud",
+      label: "BIZ UD",
+      value: "'BIZ UDGothic', 'BIZ UDPGothic', 'Noto Sans JP', Meiryo, sans-serif",
+    },
+    {
+      id: "impact",
+      label: "英字・太字",
+      value: "Impact, 'Arial Black', 'Helvetica Neue', sans-serif",
+    },
+    {
+      id: "serif_en",
+      label: "英字セリフ",
+      value: "Georgia, 'Times New Roman', 'Noto Serif JP', serif",
+    },
+    {
+      id: "script",
+      label: "筆記体風",
+      value:
+        "'Brush Script MT', 'Segoe Script', 'Snell Roundhand', 'Hannotate SC', cursive",
+    },
   ];
 
 const EMPTY_FLOOR_TEXT_DRAFT = {
@@ -1041,6 +1078,16 @@ export function StageBoard({
         browseFloorMarkup ??
         writeFormation?.floorMarkup ??
         [];
+
+  /** 床テキストのその場編集 textarea は親の scale と見た目を揃える */
+  const floorTextInlineMarkupScale = useMemo(() => {
+    const id = floorTextInlineRect?.id;
+    if (!id) return 1;
+    const mk = displayFloorMarkup.find(
+      (x): x is StageFloorTextMarkup => x.kind === "text" && x.id === id
+    );
+    return mk ? floorTextMarkupScale(mk) : 1;
+  }, [displayFloorMarkup, floorTextInlineRect?.id]);
 
   const playbackOrPreview = Boolean(playbackDancers || previewDancers);
 
@@ -4764,11 +4811,13 @@ export function StageBoard({
                     floorMarkupTool === null;
                   const sc = floorTextMarkupScale(m);
                   const selected = selectedFloorTextId === m.id;
+                  const editingInlineHere = floorTextInlineRect?.id === m.id;
                   const showChrome =
                     selected &&
                     textHit &&
                     floorMarkupTool !== "erase" &&
-                    setPiecesEditable;
+                    setPiecesEditable &&
+                    !editingInlineHere;
                   const fontCss = floorTextFontCss(m);
                   const colorHex = floorTextColorHex(m);
                   const beginFloorTextResize = (
@@ -4947,11 +4996,18 @@ export function StageBoard({
                         whiteSpace: "pre-wrap",
                         wordBreak: "break-word",
                         outline:
-                          floorMarkupTool === "text" && floorTextEditId === m.id
+                          !editingInlineHere &&
+                          floorMarkupTool === "text" &&
+                          floorTextEditId === m.id
                             ? "2px solid rgba(129, 140, 248, 0.95)"
                             : undefined,
                         outlineOffset: 2,
-                        pointerEvents: textHit ? "auto" : "none",
+                        opacity: editingInlineHere ? 0 : 1,
+                        pointerEvents: editingInlineHere
+                          ? "none"
+                          : textHit
+                            ? "auto"
+                            : "none",
                         cursor:
                           floorMarkupTool === "erase" && setPiecesEditable
                             ? "pointer"
@@ -4963,15 +5019,7 @@ export function StageBoard({
                         boxSizing: "border-box",
                       }}
                     >
-                      <span
-                        style={{
-                          display: "block",
-                          opacity:
-                            floorTextInlineRect?.id === m.id ? 0 : 1,
-                        }}
-                      >
-                        {m.text}
-                      </span>
+                      <span style={{ display: "block" }}>{m.text}</span>
                       {showChrome ? (
                         <>
                           <div
@@ -7057,14 +7105,21 @@ export function StageBoard({
               margin: 0,
               padding: "4px 8px",
               borderRadius: 6,
-              border: "2px solid rgba(129, 140, 248, 0.95)",
+              border: "1px solid rgba(129, 140, 248, 0.85)",
+              boxShadow: "0 0 0 1px rgba(15, 23, 42, 0.6), 0 8px 24px rgba(0,0,0,0.35)",
               background: "rgba(15, 23, 42, 0.97)",
               color: floorTextDraftColorHex(floorTextDraft.color),
               fontFamily: floorTextDraft.fontFamily,
-              fontSize: floorTextDraft.fontSizePx,
+              fontSize: Math.round(
+                clamp(
+                  floorTextDraft.fontSizePx * floorTextInlineMarkupScale,
+                  8,
+                  96
+                )
+              ),
               fontWeight: floorTextDraft.fontWeight,
               lineHeight: 1.25,
-              resize: "both",
+              resize: "none",
               textShadow:
                 "0 0 2px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.65)",
               whiteSpace: "pre-wrap",
