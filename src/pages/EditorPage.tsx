@@ -101,6 +101,20 @@ const RIGHT_TOOLS_RAIL_MIN_PX = 152;
 const RIGHT_TOOLS_RAIL_MAX_PX = 210;
 /** 右ペイン：タイムライン（またはキュー一覧）の縦スタック */
 
+/**
+ * 上部波形ドック行の高さの許容範囲。
+ * 以前は 96px まで許可しており、保存値が小さいと再生・波形が潰れて 2 枚目のようになる。
+ */
+const TOP_DOCK_ROW_MIN_PX = 168;
+const TOP_DOCK_ROW_MAX_PX = 560;
+
+function clampTopDockRowPx(n: number): number {
+  return Math.min(
+    TOP_DOCK_ROW_MAX_PX,
+    Math.max(TOP_DOCK_ROW_MIN_PX, Math.round(n))
+  );
+}
+
 /** 波形行の高さ・ステージ〜右列の幅分割を端末に覚えさせる */
 const EDITOR_LAYOUT_STORAGE_KEY = "dancer-positions.editorLayout.v1";
 
@@ -127,9 +141,9 @@ function readStoredEditorLayout(): {
     const td =
       typeof o.topDockRowPx === "number" &&
       Number.isFinite(o.topDockRowPx) &&
-      o.topDockRowPx >= 96 &&
-      o.topDockRowPx <= 560
-        ? o.topDockRowPx
+      o.topDockRowPx >= TOP_DOCK_ROW_MIN_PX &&
+      o.topDockRowPx <= TOP_DOCK_ROW_MAX_PX
+        ? Math.round(o.topDockRowPx)
         : null;
     return { stageColumnPx: sc, topDockRowPx: td };
   } catch {
@@ -529,7 +543,13 @@ export function EditorPage() {
     try {
       window.localStorage.setItem(
         EDITOR_LAYOUT_STORAGE_KEY,
-        JSON.stringify({ stageColumnPx, topDockRowPx })
+        JSON.stringify({
+          stageColumnPx,
+          topDockRowPx:
+            topDockRowPx == null
+              ? null
+              : clampTopDockRowPx(topDockRowPx),
+        })
       );
     } catch {
       /* ストレージ不可 */
@@ -641,9 +661,9 @@ export function EditorPage() {
        * ユーザーが「波形を上の方までできるだけ縮めたい」ケース向けに、
        * 最小高さはコンパクト再生行＋ルーラー＋波形が潰れない程度まで許可する。
        */
-      const minH = 100;
+      const minH = TOP_DOCK_ROW_MIN_PX;
       const maxH = Math.max(minH, gridRect.height - 160);
-      const next = Math.round(
+      const next = clampTopDockRowPx(
         Math.min(maxH, Math.max(minH, d.startH + (e.clientY - d.startY)))
       );
       setTopDockRowPx(next);
@@ -1401,8 +1421,8 @@ export function EditorPage() {
       ? showTopWaveDock
         ? `${
             topDockRowPx != null
-              ? `${topDockRowPx}px`
-              : "minmax(96px, min(22vh, 220px))"
+              ? `${clampTopDockRowPx(topDockRowPx)}px`
+              : `minmax(${TOP_DOCK_ROW_MIN_PX}px, min(28vh, 300px))`
           } 4px minmax(0, 1fr)`
         : "1fr"
       : "auto auto auto";
