@@ -345,6 +345,12 @@ export function EditorPage() {
     projectForHistoryRef.current = project;
   }
 
+  /** `jumpToPagerSlot` が名簿取り込み直後などで古い `project` を参照しないようにする */
+  const projectPagerRef = useRef<ChoreographyProjectJson | null>(null);
+  if (project) {
+    projectPagerRef.current = project;
+  }
+
   const cancelGestureHistory = useCallback(() => {
     gestureHistoryDepthRef.current = 0;
     gestureHistoryBaselineRef.current = null;
@@ -1016,31 +1022,40 @@ export function EditorPage() {
   /** ステージ右上ページャ: 名簿があるとき slot 0 = 名簿、1.. = キュー順 */
   const jumpToPagerSlot = useCallback(
     (slotIdx: number) => {
-      if (!project || project.viewMode === "view") return;
-      const hasRoster = project.crews.some((c) => c.members.length > 0);
+      const p = projectPagerRef.current;
+      if (!p || p.viewMode === "view") return;
+      const cuesSorted = sortCuesByStart(p.cues);
+      const hasRoster = p.crews.some((c) => c.members.length > 0);
       if (!hasRoster) {
-        jumpToCueByIdx(slotIdx);
+        const cue = cuesSorted[slotIdx];
+        if (!cue) return;
+        setSelectedCueIds([cue.id]);
+        setProjectSafe((prev) => ({
+          ...prev,
+          activeFormationId: cue.formationId,
+        }));
+        timelineRef.current?.pauseAndSeekToSec(cue.tStartSec);
         return;
       }
       if (slotIdx === 0) {
-        setProjectSafe((p) => ({
-          ...p,
+        setProjectSafe((prev) => ({
+          ...prev,
           rosterHidesTimeline: true,
           rosterStripCollapsed: false,
         }));
         return;
       }
-      const cue = cuesSortedForStageJump[slotIdx - 1];
+      const cue = cuesSorted[slotIdx - 1];
       if (!cue) return;
       setSelectedCueIds([cue.id]);
-      setProjectSafe((p) => ({
-        ...p,
+      setProjectSafe((prev) => ({
+        ...prev,
         rosterHidesTimeline: false,
         activeFormationId: cue.formationId,
       }));
       timelineRef.current?.pauseAndSeekToSec(cue.tStartSec);
     },
-    [project, cuesSortedForStageJump, jumpToCueByIdx, setProjectSafe]
+    [setProjectSafe]
   );
 
   /** 名簿「決定」直後に最新の jumpToPagerSlot で先頭キューへ飛ばす */

@@ -68,6 +68,17 @@ export function WorkbenchCuePager({
   const pageHighlight =
     rosterPageActive || (slotIdx >= 0 && cur != null && !rosterPageActive);
 
+  const cueCount = cuesSortedForStageJump.length;
+  /** 名簿スロットありのとき、先頭キューは一覧の「1」と同じくページ表示も 1 始まり（0=名簿は別表示） */
+  const pagerFractionLabel =
+    rosterPageActive && includeRosterSlot
+      ? `名簿 / ${total}`
+      : slotIdx >= 0
+        ? includeRosterSlot
+          ? `${slotIdx} / ${cueCount}`
+          : `${slotIdx + 1} / ${total}`
+        : `— / ${total}`;
+
   const canPrev = project.viewMode !== "view" && slotIdx > 0;
   /** 未選択（slotIdx === -1）のときも「次」で先頭キューへ入れる（波形クリックで選択が空になったあとなど） */
   const canNext =
@@ -155,8 +166,10 @@ export function WorkbenchCuePager({
         role="status"
         aria-label={
           rosterPageActive
-            ? `名簿 1 / ${total}`
-            : `ページ ${slotIdx >= 0 ? slotIdx + 1 : "未選択"} / ${total}`
+            ? `名簿ページ、全 ${total} ページ`
+            : includeRosterSlot && slotIdx > 0
+              ? `キュー ${slotIdx} / ${cueCount}`
+              : `ページ ${slotIdx >= 0 ? slotIdx + 1 : "未選択"} / ${total}`
         }
         title={
           rosterPageActive
@@ -231,7 +244,7 @@ export function WorkbenchCuePager({
                 }
         }
       >
-        {!isCorner ? (
+        {!isCorner && !rosterPageActive ? (
           <span
             style={{
               fontSize: isRail ? "6.5px" : "9px",
@@ -254,25 +267,9 @@ export function WorkbenchCuePager({
               : { whiteSpace: "nowrap" }
           }
         >
-          {slotIdx >= 0 ? slotIdx + 1 : "—"} / {total}
+          {pagerFractionLabel}
         </span>
-        {rosterPageActive ? (
-          <span
-            style={{
-              fontSize: isRail ? "6.5px" : isCorner ? "9px" : "11px",
-              fontWeight: 600,
-              color: "#e2e8f0",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: isRail ? "normal" : "nowrap",
-              maxWidth: isRail ? "100%" : isCorner ? "72px" : "120px",
-              lineHeight: 1.08,
-              textAlign: "center",
-            }}
-          >
-            名簿
-          </span>
-        ) : cur && cur.name?.trim() ? (
+        {rosterPageActive ? null : cur && cur.name?.trim() ? (
           <span
             style={{
               fontSize: isRail ? "6.5px" : isCorner ? "9px" : "11px",
