@@ -136,7 +136,8 @@ const panelShellStyle: CSSProperties = {
   maxWidth:
     "min(460px, calc(100vw - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)))",
   marginLeft: "auto",
-  zIndex: 52,
+  /** 言語スイッチャー（z40）や他オーバーレイより手前に固定し、フッターの決定が隠れないようにする */
+  zIndex: 200,
   display: "flex",
   flexDirection: "column",
   pointerEvents: "auto",
@@ -419,7 +420,23 @@ export function AddCueWithFormationDialog({
     switch (addMode) {
       case "duplicate":
         return dancersForTargetCount(active, count, spacingOpts);
-      case "edit_current":
+      case "edit_current": {
+        if (!templatePresetId) return [];
+        const cue = selectedCueId
+          ? project.cues.find((c) => c.id === selectedCueId)
+          : undefined;
+        const fid = cue?.formationId;
+        const baseDancers = fid
+          ? (project.formations.find((f) => f.id === fid)?.dancers ?? []).map(
+              (d) => ({ ...d })
+            )
+          : active;
+        const raw = dancersForLayoutPreset(count, templatePresetId, {
+          dancerSpacingMm: spacingOpts.dancerSpacingMm ?? undefined,
+          stageWidthMm: spacingOpts.stageWidthMm ?? undefined,
+        });
+        return transferIdentitiesByOrder(raw, baseDancers);
+      }
       case "template": {
         if (!templatePresetId) return [];
         const raw = dancersForLayoutPreset(count, templatePresetId, {
@@ -452,6 +469,7 @@ export function AddCueWithFormationDialog({
     templatePresetId,
     savedBoxId,
     savedSlotId,
+    selectedCueId,
     project,
     boxItems,
     spacingOpts,
@@ -480,8 +498,12 @@ export function AddCueWithFormationDialog({
     return buildDancers().length > 0;
   }, [viewMode, addMode, selectedCueId, savedBoxId, savedSlotId, templatePresetId, buildDancers]);
 
+  /** クリック直前の最新値で確定可否を見る（クロージャが古いと押しても無反応になるのを防ぐ） */
+  const canConfirmRef = useRef(canConfirm);
+  canConfirmRef.current = canConfirm;
+
   const handleConfirm = useCallback(() => {
-    if (!canConfirm) return;
+    if (!canConfirmRef.current) return;
     if (addMode == null) return;
 
     /** 「今の立ち位置を変更」＝新規キューは作らず、選択中キューのフォーメーションだけ置き換える */
@@ -608,7 +630,6 @@ export function AddCueWithFormationDialog({
     onCueCreated?.(newCueId, appliedT);
     onClose();
   }, [
-    canConfirm,
     project.cues.length,
     timeMode,
     currentTimeSec,
