@@ -1080,7 +1080,7 @@ export function AddCueWithFormationDialog({
         </div>
 
         <div style={footerStyle}>
-          <span style={{ marginRight: "auto", fontSize: "11px", color: "#64748b" }}>
+          <span style={{ marginRight: "auto", fontSize: "11px", color: "#64748b", minWidth: 0 }}>
             {dancerCountPreview > 0 ? (
               <>
                 プレビュー <strong style={{ color: "#cbd5e1" }}>{dancerCountPreview} 人</strong>
@@ -1092,21 +1092,37 @@ export function AddCueWithFormationDialog({
               "条件を選んでください"
             )}
           </span>
-          <button type="button" onClick={closeAndCleanup} style={btnBase}>
-            キャンセル
-          </button>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={!canConfirm}
+          <div
             style={{
-              ...btnPrimary,
-              opacity: !canConfirm ? 0.45 : 1,
-              cursor: !canConfirm ? "not-allowed" : "pointer",
+              display: "flex",
+              flexWrap: "nowrap",
+              alignItems: "center",
+              gap: "10px",
+              flexShrink: 0,
             }}
           >
-            追加する
-          </button>
+            <button type="button" onClick={closeAndCleanup} style={btnBase}>
+              キャンセル
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirm}
+              disabled={!canConfirm}
+              aria-label={
+                addMode === "edit_current"
+                  ? "決定して選択中キューの立ち位置を反映"
+                  : "キューを追加"
+              }
+              style={{
+                ...btnPrimary,
+                opacity: !canConfirm ? 0.45 : 1,
+                cursor: !canConfirm ? "not-allowed" : "pointer",
+                minWidth: addMode === "edit_current" ? "88px" : undefined,
+              }}
+            >
+              {addMode === "edit_current" ? "決定" : "追加する"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
