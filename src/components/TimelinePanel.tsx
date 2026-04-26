@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { Link } from "react-router-dom";
 import { createPortal } from "react-dom";
 import type { CSSProperties, Dispatch, RefObject, SetStateAction } from "react";
 import type { ChoreographyProjectJson, Cue, DancerSpot } from "../types/choreography";
@@ -115,6 +116,45 @@ function WaveHistoryRoundIcon({ kind }: { kind: "undo" | "redo" }) {
         />
       </g>
     </svg>
+  );
+}
+
+/** 上部ツールバー左：ブランドバナー（作品一覧へ） */
+function ChoreoGridHeaderBrand({ compact }: { compact?: boolean }) {
+  return (
+    <Link
+      to="/library"
+      title="作品一覧へ"
+      aria-label="CHOREOGRID（作品一覧へ）"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        flexShrink: 1,
+        minWidth: 0,
+        maxWidth: compact ? "min(220px, 40vw)" : "min(280px, 50vw)",
+        textDecoration: "none",
+        borderRadius: tlPx(6),
+        overflow: "hidden",
+      }}
+    >
+      <img
+        src={`${import.meta.env.BASE_URL}choreogrid-header-banner.png`}
+        alt="CHOREOGRID"
+        width={640}
+        height={160}
+        style={{
+          height: compact ? tlPx(22) : tlPx(26),
+          width: "auto",
+          maxWidth: "100%",
+          objectFit: "contain",
+          objectPosition: "left center",
+          display: "block",
+          filter:
+            "drop-shadow(0 0 12px rgba(168, 85, 247, 0.35)) drop-shadow(0 0 18px rgba(34, 211, 238, 0.2))",
+        }}
+        draggable={false}
+      />
+    </Link>
   );
 }
 
@@ -2829,7 +2869,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                   </div>
                 ) : null}
               </div>
-              {/** 2 行目: 再生・シーク → タイム表示 */}
+              {/** 2 行目: ブランド → 再生・シーク → タイム表示 */}
               <div
                 style={{
                   display: "flex",
@@ -2843,6 +2883,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                   minWidth: 0,
                 }}
               >
+                <ChoreoGridHeaderBrand />
                 <button
                   type="button"
                   style={timelineToolbarBtn}
@@ -2904,7 +2945,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               background: shell.bgChrome,
             }}
           >
-            <div style={{ flex: 1, minWidth: 0 }} aria-hidden />
+            <ChoreoGridHeaderBrand compact />
             <div
               style={{
                 display: "flex",
@@ -3017,7 +3058,11 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             borderRadius: "6px",
             border: "1px solid #334155",
             overflowX: "hidden",
-            overflowY: "visible",
+            /**
+             * 上部ドック固定シェルでは `visible` だと再生ヘッドのはみ出しが祖先の
+             * スクロール可能領域を膨らませ、縦スクロールバーで波形が切れたように見える。
+             */
+            overflowY: compactTopDock ? "hidden" : "visible",
             background: "#020617",
             position: "relative",
             /** 上部ドック内で兄弟 flex と競合して高さ 0 近くまで潰れ、波形が消えるのを防ぐ */

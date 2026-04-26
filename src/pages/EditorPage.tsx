@@ -89,8 +89,13 @@ const EDITOR_WIDE_MIN_PX = 1280;
 const EDITOR_GRID_GAP_PX = 6;
 /** 上部波形ドック行の既定高さ（px）。可変シェル時の未保存グリッド行に使う */
 const TOP_DOCK_HEIGHT_PX = 80;
-/** ワイド＋上部波形時の固定シェル：波形行の外枠高さ（コンテンツで伸びない） */
-const EDITOR_SHELL_TOP_WAVE_PX = 120;
+/**
+ * ワイド＋上部波形時の固定シェル：波形行の外枠高さのベース（px）。
+ * コンパクトツールバー＋目盛り＋波形の合計に合わせ、CHOREOGRID バー分の余白を含む。
+ */
+const EDITOR_SHELL_TOP_WAVE_BASE_PX = 136;
+/** 名簿ありで上部に「メンバーを表示」行を出すとき、ベースに足す高さ（px） */
+const EDITOR_SHELL_TOP_WAVE_ROSTER_ROW_PX = 40;
 /** ワイド＋上部波形時の固定シェル：右ツール列の幅（内部のみ縦スクロール） */
 const EDITOR_SHELL_RIGHT_PANEL_PX = 300;
 /** 再生・波形・タイムライン列をまとめて上へ詰める（物理的な目安で約 0.5cm。以前 1.5cm から 1cm 下げた） */
@@ -1449,13 +1454,19 @@ export function EditorPage() {
   const showTopWaveDock = wideEditorLayout && !rosterOnlyMode;
   /** ステージのみ全画面（ワイド時のみ有効） */
   const stageZenLayout = wideEditorLayout && stageZenFullscreen;
+  /** 固定シェル時：名簿行の有無で上部ドックの確保高さを変え、波形が切れないようにする */
+  const editorShellTopWavePx =
+    EDITOR_SHELL_TOP_WAVE_BASE_PX +
+    (hasRosterMembers && project.rosterHidesTimeline !== true
+      ? EDITOR_SHELL_TOP_WAVE_ROSTER_ROW_PX
+      : 0);
 
   const editorPaneGridTemplateRows = stageZenLayout
     ? "1fr"
     : wideEditorLayout
       ? showTopWaveDock
         ? editorFixedWaveDockLayout
-          ? `${EDITOR_SHELL_TOP_WAVE_PX}px 4px minmax(0, 1fr)`
+          ? `${editorShellTopWavePx}px 4px minmax(0, 1fr)`
           : `${
               topDockRowPx != null
                 ? `${topDockRowPx}px`
@@ -1809,9 +1820,9 @@ export function EditorPage() {
               flexShrink: 0,
               ...(editorFixedWaveDockLayout
                 ? {
-                    height: EDITOR_SHELL_TOP_WAVE_PX,
-                    minHeight: EDITOR_SHELL_TOP_WAVE_PX,
-                    maxHeight: EDITOR_SHELL_TOP_WAVE_PX,
+                    height: editorShellTopWavePx,
+                    minHeight: editorShellTopWavePx,
+                    maxHeight: editorShellTopWavePx,
                   }
                 : { minHeight: 0 }),
             }}
@@ -1858,7 +1869,13 @@ export function EditorPage() {
                 minHeight: 0,
                 display: "flex",
                 flexDirection: "column",
-                ...(editorFixedWaveDockLayout ? { overflow: "auto" as const } : {}),
+                /**
+                 * 固定シェルでは `auto` だと名簿行＋ツールバー＋波形で縦スクロールが出て
+                 * 波形が切れたように見える。高さは `editorShellTopWavePx` で確保済みのため hidden。
+                 */
+                ...(editorFixedWaveDockLayout
+                  ? { overflow: "hidden" as const }
+                  : {}),
               }}
             >
               {timelinePanelEl}
