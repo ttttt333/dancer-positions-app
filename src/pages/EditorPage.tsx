@@ -19,6 +19,11 @@ import {
 } from "react-router-dom";
 import { StageBoard, type FloorTextPlaceSession } from "../components/StageBoard";
 import { StageDimensionFields } from "../components/StageDimensionFields";
+import {
+  mmFromMeterAndCm,
+  mmToMeterCm,
+  STAGE_MAIN_FLOOR_MM_MAX,
+} from "../lib/stageDimensions";
 const Stage3DView = lazy(() =>
   import("../components/Stage3DView").then((m) => ({ default: m.Stage3DView }))
 );
@@ -185,6 +190,54 @@ const STAGE_AREA_AUDIENCE_OPTIONS: {
   { value: "bottom", label: "下" },
 ];
 
+type StageAreaMeterCmDraft = { m: string; cm: string };
+
+function clampStageMainMm(mm: number): number {
+  if (!Number.isFinite(mm) || mm <= 0) return 0;
+  return Math.min(STAGE_MAIN_FLOOR_MM_MAX, Math.round(mm));
+}
+
+function mmToMeterCmDraft(mm: number | null | undefined): StageAreaMeterCmDraft {
+  if (mm == null || mm <= 0) return { m: "", cm: "" };
+  const u = mmToMeterCm(clampStageMainMm(mm));
+  return { m: String(u.m), cm: String(u.cm) };
+}
+
+/** 空欄なら null（未設定）。cm は 0〜99（10 mm 刻み） */
+function parseMeterCmDraftToMm(d: StageAreaMeterCmDraft): number | null {
+  const mT = d.m.trim();
+  const cT = d.cm.trim();
+  if (mT === "" && cT === "") return null;
+  const m = mT === "" ? 0 : parseInt(mT, 10);
+  const cm = cT === "" ? 0 : parseInt(cT, 10);
+  if (!Number.isFinite(m) || !Number.isFinite(cm)) return null;
+  const mm = clampStageMainMm(mmFromMeterAndCm(m, cm));
+  return mm > 0 ? mm : null;
+}
+
+const STAGE_AREA_DIM_ROWS: {
+  key: "width" | "depth" | "side";
+  title: string;
+}[] = [
+  { key: "width", title: "幅（上手〜下手）" },
+  { key: "depth", title: "奥行き（客席方向の広さ）" },
+  { key: "side", title: "サイドステージ（片側）" },
+];
+
+const STAGE_AREA_DIM_INPUT: CSSProperties = {
+  width: "64px",
+  padding: "6px 8px",
+  borderRadius: "6px",
+  border: "1px solid #334155",
+  background: "#0f172a",
+  color: "#e2e8f0",
+  fontSize: "13px",
+};
+const STAGE_AREA_DIM_INPUT_CM: CSSProperties = {
+  ...STAGE_AREA_DIM_INPUT,
+  width: "52px",
+};
+
 /**
  * ステージ列の最大幅（px）。
  * 右列の最小幅＋列間ギャップ＋リサイザを除いた残りまで許可する。
@@ -255,6 +308,18 @@ export function EditorPage() {
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   /** ステージ列ヘッダの「設定」：舞台・グリッド・名前・共有・ヒントを集約 */
   const [stageAreaSettingsOpen, setStageAreaSettingsOpen] = useState(false);
+  const [stageAreaDimDraft, setStageAreaDimDraft] = useState<{
+    width: StageAreaMeterCmDraft;
+    depth: StageAreaMeterCmDraft;
+    side: StageAreaMeterCmDraft;
+  }>({
+    width: { m: "", cm: "" },
+    depth: { m: "", cm: "" },
+    side: { m: "", cm: "" },
+  });
+  const stageAreaDimDraftRef = useRef(stageAreaDimDraft);
+  stageAreaDimDraftRef.current = stageAreaDimDraft;
+  const prevStageAreaOpenRef = useRef(false);
   const [shareLinkCopiedFlash, setShareLinkCopiedFlash] = useState(false);
   const shareCopiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [setPiecePickerOpen, setSetPiecePickerOpen] = useState(false);
@@ -799,6 +864,59 @@ export function EditorPage() {
       [collabActive, yjsCollab.setProjectSafe, setProjectSafePlain]
     );
 
+  const flushStageAreaDimensionRow = useCallback(
+    (key: "width" | "depth" | "side") => {
+      if (!project || project.viewMode === "view") return;
+      const mm = parseMeterCmDraftToMm(stageAreaDimDraftRef.current[key]);
+      const patch =
+        key === "width"
+          ? { stageWidthMm: mm }
+          : key === "depth"
+            ? { stageDepthMm: mm }
+            : { sideStageMm: mm };
+      setProjectSafe((p) => ({ ...p, ...patch }));
+      setStageAreaDimDraft((d) => ({
+        ...d,
+        [key]: mmToMeterCmDraft(mm),
+      }));
+    },
+    [project, setProjectSafe]
+  );
+
+  const commitAllStageAreaDimsFromDraft = useCallback(() => {
+    if (!project || project.viewMode === "view") return;
+    const d = stageAreaDimDraftRef.current;
+    const w = parseMeterCmDraftToMm(d.width);
+    const depthMm = parseMeterCmDraftToMm(d.depth);
+    const s = parseMeterCmDraftToMm(d.side);
+    setProjectSafe((p) => ({
+      ...p,
+      stageWidthMm: w,
+      stageDepthMm: depthMm,
+      sideStageMm: s,
+    }));
+    setStageAreaDimDraft({
+      width: mmToMeterCmDraft(w),
+      depth: mmToMeterCmDraft(depthMm),
+      side: mmToMeterCmDraft(s),
+    });
+  }, [project, setProjectSafe]);
+
+  useEffect(() => {
+    if (!project) {
+      prevStageAreaOpenRef.current = false;
+      return;
+    }
+    if (stageAreaSettingsOpen && !prevStageAreaOpenRef.current) {
+      setStageAreaDimDraft({
+        width: mmToMeterCmDraft(project.stageWidthMm),
+        depth: mmToMeterCmDraft(project.stageDepthMm),
+        side: mmToMeterCmDraft(project.sideStageMm),
+      });
+    }
+    prevStageAreaOpenRef.current = stageAreaSettingsOpen;
+  }, [stageAreaSettingsOpen, project]);
+
   const undoPlain = useCallback(() => {
     setPlainProject((cur) => {
       if (!cur) return cur;
@@ -871,6 +989,7 @@ export function EditorPage() {
         return;
       }
       if (e.key === "Escape" && stageAreaSettingsOpen) {
+        commitAllStageAreaDimsFromDraft();
         setStageAreaSettingsOpen(false);
         return;
       }
@@ -915,6 +1034,7 @@ export function EditorPage() {
   }, [
     redo,
     undo,
+    commitAllStageAreaDimsFromDraft,
     cloudSaveDialogOpen,
     stageAreaSettingsOpen,
     stageSettingsOpen,
@@ -2552,7 +2672,10 @@ export function EditorPage() {
           open
           zIndex={61}
           width="min(440px, calc(100vw - 16px))"
-          onClose={() => setStageAreaSettingsOpen(false)}
+          onClose={() => {
+            commitAllStageAreaDimsFromDraft();
+            setStageAreaSettingsOpen(false);
+          }}
           ariaLabelledBy="stage-area-settings-title"
         >
           <div style={{ padding: "12px 14px 14px" }}>
@@ -2579,7 +2702,10 @@ export function EditorPage() {
               <button
                 type="button"
                 aria-label="閉じる"
-                onClick={() => setStageAreaSettingsOpen(false)}
+                onClick={() => {
+                  commitAllStageAreaDimsFromDraft();
+                  setStageAreaSettingsOpen(false);
+                }}
                 style={{
                   ...btnSecondary,
                   fontSize: "18px",
@@ -2607,48 +2733,10 @@ export function EditorPage() {
                   marginBottom: "6px",
                 }}
               >
-                舞台設定
-              </div>
-              <button
-                type="button"
-                disabled={project.viewMode === "view"}
-                title="幅・奥行・袖・バック・場ミリ・プリセットは専用ダイアログで編集します。"
-                onClick={() => {
-                  setStageAreaSettingsOpen(false);
-                  setStageSettingsOpen(true);
-                }}
-                style={{
-                  ...btnSecondary,
-                  width: "100%",
-                  padding: "10px 12px",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                }}
-              >
-                舞台の寸法・袖・バックを開く…
-              </button>
-            </div>
-
-            <div
-              style={{
-                borderBottom: "1px solid #1e293b",
-                paddingBottom: "10px",
-                marginBottom: "10px",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: "11px",
-                  fontWeight: 700,
-                  color: "#64748b",
-                  letterSpacing: "0.06em",
-                  marginBottom: "6px",
-                }}
-              >
                 客席の位置
               </div>
               <select
-                title="画面上辺または下辺のどちらを客席としてステージを回転表示するか。詳細は「舞台の寸法」でも変更できます。"
+                title="画面上辺または下辺のどちらを客席としてステージを回転表示するか"
                 value={project.audienceEdge}
                 disabled={project.viewMode === "view"}
                 onChange={(e) => {
@@ -2673,6 +2761,114 @@ export function EditorPage() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div
+              style={{
+                borderBottom: "1px solid #1e293b",
+                paddingBottom: "10px",
+                marginBottom: "10px",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  color: "#64748b",
+                  letterSpacing: "0.06em",
+                  marginBottom: "8px",
+                }}
+              >
+                舞台の寸法
+              </div>
+              <p
+                style={{
+                  margin: "0 0 10px",
+                  fontSize: "10px",
+                  color: "#64748b",
+                  lineHeight: 1.45,
+                }}
+              >
+                m と cm（0〜99）で入力。フォーカスが外れるとステージに反映されます。空欄にするとその項目は未設定です。
+              </p>
+              {STAGE_AREA_DIM_ROWS.map((row) => (
+                <div key={row.key} style={{ marginBottom: "12px" }}>
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "#94a3b8",
+                      marginBottom: "6px",
+                    }}
+                  >
+                    {row.title}
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "6px",
+                      alignItems: "center",
+                    }}
+                  >
+                    <input
+                      type="number"
+                      min={0}
+                      max={999}
+                      disabled={project.viewMode === "view"}
+                      placeholder="m"
+                      value={stageAreaDimDraft[row.key].m}
+                      onChange={(e) =>
+                        setStageAreaDimDraft((d) => ({
+                          ...d,
+                          [row.key]: { ...d[row.key], m: e.target.value },
+                        }))
+                      }
+                      onBlur={() => flushStageAreaDimensionRow(row.key)}
+                      aria-label={`${row.title} メートル`}
+                      style={STAGE_AREA_DIM_INPUT}
+                    />
+                    <span style={{ fontSize: "12px", color: "#94a3b8" }}>m</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={99}
+                      disabled={project.viewMode === "view"}
+                      placeholder="cm"
+                      value={stageAreaDimDraft[row.key].cm}
+                      onChange={(e) =>
+                        setStageAreaDimDraft((d) => ({
+                          ...d,
+                          [row.key]: { ...d[row.key], cm: e.target.value },
+                        }))
+                      }
+                      onBlur={() => flushStageAreaDimensionRow(row.key)}
+                      aria-label={`${row.title} センチ`}
+                      style={STAGE_AREA_DIM_INPUT_CM}
+                    />
+                    <span style={{ fontSize: "12px", color: "#94a3b8" }}>cm</span>
+                  </div>
+                </div>
+              ))}
+              <button
+                type="button"
+                disabled={project.viewMode === "view"}
+                title="バックステージ・場ミリ・変形プリセット・寸法プリセットなど"
+                onClick={() => {
+                  commitAllStageAreaDimsFromDraft();
+                  setStageAreaSettingsOpen(false);
+                  setStageSettingsOpen(true);
+                }}
+                style={{
+                  ...btnSecondary,
+                  width: "100%",
+                  marginTop: "4px",
+                  padding: "8px 12px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                }}
+              >
+                バック・場ミリ・プリセット（詳細）…
+              </button>
             </div>
 
             <div
