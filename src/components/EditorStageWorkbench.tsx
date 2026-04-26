@@ -96,17 +96,17 @@ export function WorkbenchCuePager({
         }
       : isCorner
         ? {
-            width: "34px",
-            height: "34px",
+            width: "24px",
+            height: "24px",
             padding: 0,
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
-            borderRadius: "8px",
+            borderRadius: "6px",
             border: "1px solid #475569",
             background: "#0f172a",
             color: enabled ? "#e2e8f0" : "#475569",
-            fontSize: "16px",
+            fontSize: "12px",
             lineHeight: 1,
             cursor: enabled ? "pointer" : "not-allowed",
             flexShrink: 0,
@@ -135,7 +135,7 @@ export function WorkbenchCuePager({
         display: "inline-flex",
         flexDirection: isRail ? "column" : "row",
         alignItems: "center",
-        gap: isRail ? "6px" : isCorner ? "6px" : "4px",
+        gap: isRail ? "6px" : isCorner ? "3px" : "4px",
         flexShrink: 0,
         width: isRail ? 48 : undefined,
       }}
@@ -198,18 +198,18 @@ export function WorkbenchCuePager({
                   display: "inline-flex",
                   alignItems: "center",
                   gap:
-                    (rosterPageActive || (cur && cur.name?.trim())) ? "6px" : "0",
-                  padding: "4px 8px",
-                  minHeight: "34px",
-                  borderRadius: "8px",
+                    (rosterPageActive || (cur && cur.name?.trim())) ? "4px" : "0",
+                  padding: "2px 5px",
+                  minHeight: "22px",
+                  borderRadius: "6px",
                   border: pageHighlight ? "1px solid #818cf8" : "1px solid #475569",
                   background: pageHighlight ? "rgba(99,102,241,0.22)" : "#0f172a",
                   color: pageHighlight ? "#e0e7ff" : "#94a3b8",
-                  fontSize: "12px",
+                  fontSize: "10px",
                   fontWeight: 700,
                   cursor: "default",
                   flexShrink: 0,
-                  maxWidth: "160px",
+                  maxWidth: "112px",
                   fontVariantNumeric: "tabular-nums",
                 }
               : {
@@ -259,13 +259,13 @@ export function WorkbenchCuePager({
         {rosterPageActive ? (
           <span
             style={{
-              fontSize: isRail ? "6.5px" : "11px",
+              fontSize: isRail ? "6.5px" : isCorner ? "9px" : "11px",
               fontWeight: 600,
               color: "#e2e8f0",
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: isRail ? "normal" : "nowrap",
-              maxWidth: isRail ? "100%" : isCorner ? "140px" : "120px",
+              maxWidth: isRail ? "100%" : isCorner ? "72px" : "120px",
               lineHeight: 1.08,
               textAlign: "center",
             }}
@@ -275,7 +275,7 @@ export function WorkbenchCuePager({
         ) : cur && cur.name?.trim() ? (
           <span
             style={{
-              fontSize: isRail ? "6.5px" : "11px",
+              fontSize: isRail ? "6.5px" : isCorner ? "9px" : "11px",
               fontWeight: 500,
               color: "#e2e8f0",
               overflow: "hidden",
@@ -284,7 +284,7 @@ export function WorkbenchCuePager({
               WebkitBoxOrient: isRail ? "vertical" : undefined,
               textOverflow: "ellipsis",
               whiteSpace: isRail ? "normal" : "nowrap",
-              maxWidth: isRail ? "100%" : isCorner ? "140px" : "120px",
+              maxWidth: isRail ? "100%" : isCorner ? "72px" : "120px",
               lineHeight: 1.08,
               textAlign: "center",
             }}
@@ -323,13 +323,13 @@ export function WorkbenchCuePager({
         style={{
           display: "inline-flex",
           alignItems: "stretch",
-          padding: "4px 6px",
-          borderRadius: "12px",
-          border: "1px solid rgba(148, 163, 184, 0.35)",
-          background: "rgba(15, 23, 42, 0.92)",
-          boxShadow: "0 10px 28px rgba(0,0,0,0.45)",
-          backdropFilter: "blur(8px)",
-          WebkitBackdropFilter: "blur(8px)",
+          padding: "2px 4px",
+          borderRadius: "8px",
+          border: "1px solid rgba(148, 163, 184, 0.3)",
+          background: "rgba(15, 23, 42, 0.88)",
+          boxShadow: "0 4px 14px rgba(0,0,0,0.35)",
+          backdropFilter: "blur(6px)",
+          WebkitBackdropFilter: "blur(6px)",
         }}
       >
         {core}
@@ -741,32 +741,30 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
             </>
           ) : null}
           {hasRosterMembers && !project.rosterHidesTimeline ? (
-            <div className="editor-right-tools-view-mode-grid">
-              <button
-                type="button"
-                className="editor-right-tool-sq"
-                disabled={project.viewMode === "view"}
-                title="右列で名簿一覧を表示し、タイムライン列は隠します"
-                onClick={() =>
-                  setProjectSafe((p) => ({
-                    ...p,
-                    rosterHidesTimeline: true,
-                    rosterStripCollapsed: false,
-                  }))
-                }
-                style={{
-                  ...btnSecondary,
-                  borderColor: "#14532d",
-                  background: "#14532d",
-                  color: "#dcfce7",
-                  cursor:
-                    project.viewMode === "view" ? "not-allowed" : "pointer",
-                }}
-              >
-                <span>メンバー</span>
-                <span>表示</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              className="editor-right-tool-sq"
+              disabled={project.viewMode === "view"}
+              title="右列で名簿一覧を表示し、タイムライン列は隠します"
+              onClick={() =>
+                setProjectSafe((p) => ({
+                  ...p,
+                  rosterHidesTimeline: true,
+                  rosterStripCollapsed: false,
+                }))
+              }
+              style={{
+                ...btnSecondary,
+                borderColor: "#14532d",
+                background: "#14532d",
+                color: "#dcfce7",
+                cursor:
+                  project.viewMode === "view" ? "not-allowed" : "pointer",
+              }}
+            >
+              <span>メンバー</span>
+              <span>表示</span>
+            </button>
           ) : null}
           {choreo ? (
             <ChoreoGridToolbar

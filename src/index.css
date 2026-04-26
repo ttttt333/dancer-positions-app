@@ -146,18 +146,6 @@ body {
   align-items: center;
 }
 
-/* 全画面 / メンバー表示: 2 列（ステージ上で 2D・3D を切替） */
-.editor-right-tools-view-mode-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 48px);
-  column-gap: 8px;
-  row-gap: 7px;
-  justify-content: center;
-  width: min(120px, 100%);
-  margin-inline: auto;
-  box-sizing: border-box;
-}
-
 /* 「その他保存」: 3 列ブロックの 1 行として中央に */
 .editor-right-tools-save-wrap {
   position: relative;

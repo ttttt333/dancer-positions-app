@@ -2030,21 +2030,33 @@ export function EditorPage() {
                   display: stageZenLayout ? "none" : "flex",
                   flexDirection: "column",
                   alignItems: "flex-end",
-                  gap: 4,
-                  padding: "0 2px 3px",
+                  gap: 3,
+                  padding: "0 2px 2px",
                   minWidth: 0,
+                  maxWidth: "100%",
+                  pointerEvents: "auto",
                 }}
               >
                 {cuesSortedForStageJump.length > 0 || hasRosterMembers ? (
-                  <WorkbenchCuePager
-                    variant="stageCorner"
-                    project={project}
-                    cuesSortedForStageJump={cuesSortedForStageJump}
-                    selectedCueId={selectedCueId}
-                    jumpToPagerSlot={jumpToPagerSlot}
-                    includeRosterSlot={hasRosterMembers}
-                    rosterTimelineHidden={project.rosterHidesTimeline === true}
-                  />
+                  <div
+                    style={{
+                      flexShrink: 0,
+                      maxWidth: "min(200px, 100%)",
+                      lineHeight: 0,
+                    }}
+                  >
+                    <WorkbenchCuePager
+                      variant="stageCorner"
+                      project={project}
+                      cuesSortedForStageJump={cuesSortedForStageJump}
+                      selectedCueId={selectedCueId}
+                      jumpToPagerSlot={jumpToPagerSlot}
+                      includeRosterSlot={hasRosterMembers}
+                      rosterTimelineHidden={
+                        project.rosterHidesTimeline === true
+                      }
+                    />
+                  </div>
                 ) : null}
                 <div
                   role="group"
@@ -2052,7 +2064,7 @@ export function EditorPage() {
                   style={{
                     display: "flex",
                     flexDirection: "row",
-                    gap: 4,
+                    gap: 3,
                     flexShrink: 0,
                   }}
                 >
@@ -2060,11 +2072,11 @@ export function EditorPage() {
                     type="button"
                     style={{
                       ...btnSecondary,
-                      padding: "3px 8px",
-                      fontSize: "10px",
+                      padding: "2px 6px",
+                      fontSize: "9px",
                       fontWeight: 700,
                       lineHeight: 1.2,
-                      borderRadius: 6,
+                      borderRadius: 5,
                       ...(stageView === "2d"
                         ? { borderColor: "#6366f1", color: "#c7d2fe" }
                         : {}),
@@ -2078,11 +2090,11 @@ export function EditorPage() {
                     type="button"
                     style={{
                       ...btnSecondary,
-                      padding: "3px 8px",
-                      fontSize: "10px",
+                      padding: "2px 6px",
+                      fontSize: "9px",
                       fontWeight: 700,
                       lineHeight: 1.2,
-                      borderRadius: 6,
+                      borderRadius: 5,
                       ...(stageView === "3d"
                         ? { borderColor: "#6366f1", color: "#c7d2fe" }
                         : {}),
@@ -2319,76 +2331,67 @@ export function EditorPage() {
               <div
                 style={{
                   display: "flex",
+                  flexWrap: "wrap",
                   alignItems: "center",
-                  justifyContent: "space-between",
                   gap: "8px",
+                  rowGap: "6px",
                   marginBottom: "8px",
                   flexShrink: 0,
                 }}
               >
-                <div
+                <h2
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    minWidth: 0,
-                    flexWrap: "wrap",
+                    margin: 0,
+                    fontSize: "13px",
+                    color: shell.textMuted,
+                    fontWeight: 600,
+                    flexShrink: 0,
                   }}
                 >
-                  <h2
-                    style={{
-                      margin: 0,
-                      fontSize: "13px",
-                      color: shell.textMuted,
-                      fontWeight: 600,
-                      flexShrink: 0,
-                    }}
+                  タイムライン・楽曲
+                </h2>
+                <button
+                  type="button"
+                  style={{
+                    ...btnSecondary,
+                    borderColor: "#0284c7",
+                    background: "#0ea5e9",
+                    color: "#0b1220",
+                    padding: "5px 9px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "5px",
+                    fontWeight: 700,
+                    flexShrink: 0,
+                  }}
+                  disabled={project.viewMode === "view"}
+                  title="＋キュー：人数と立ち位置の決め方（変更／複製／雛形／保存リスト）を選んで追加"
+                  aria-label="新しいキューを追加"
+                  onClick={() => setAddCueDialogOpen(true)}
+                >
+                  <svg
+                    viewBox="0 0 22 14"
+                    width="20"
+                    height="13"
+                    aria-hidden
+                    style={{ display: "block" }}
                   >
-                    タイムライン・楽曲
-                  </h2>
-                  <button
-                    type="button"
-                    style={{
-                      ...btnSecondary,
-                      borderColor: "#0284c7",
-                      background: "#0ea5e9",
-                      color: "#0b1220",
-                      padding: "5px 9px",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "5px",
-                      fontWeight: 700,
-                      flexShrink: 0,
-                    }}
-                    disabled={project.viewMode === "view"}
-                    title="＋キュー：人数と立ち位置の決め方（変更／複製／雛形／保存リスト）を選んで追加"
-                    aria-label="新しいキューを追加"
-                    onClick={() => setAddCueDialogOpen(true)}
-                  >
-                    <svg
-                      viewBox="0 0 22 14"
-                      width="20"
-                      height="13"
-                      aria-hidden
-                      style={{ display: "block" }}
-                    >
-                      <path
-                        d="M3 7 L9 7 M6 4 L6 10"
-                        stroke="currentColor"
-                        strokeWidth="1.6"
-                        strokeLinecap="round"
-                      />
-                      <circle cx="13" cy="3" r="1.2" fill="currentColor" />
-                      <circle cx="17" cy="3" r="1.2" fill="currentColor" />
-                      <circle cx="12" cy="8" r="1.2" fill="currentColor" />
-                      <circle cx="15" cy="8" r="1.2" fill="currentColor" />
-                      <circle cx="18" cy="8" r="1.2" fill="currentColor" />
-                      <circle cx="13.5" cy="12" r="1" fill="currentColor" opacity="0.7" />
-                      <circle cx="16.5" cy="12" r="1" fill="currentColor" opacity="0.7" />
-                    </svg>
-                    <span style={{ fontSize: "11px", fontWeight: 700 }}>キュー</span>
-                  </button>
-                </div>
+                    <path
+                      d="M3 7 L9 7 M6 4 L6 10"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                    />
+                    <circle cx="13" cy="3" r="1.2" fill="currentColor" />
+                    <circle cx="17" cy="3" r="1.2" fill="currentColor" />
+                    <circle cx="12" cy="8" r="1.2" fill="currentColor" />
+                    <circle cx="15" cy="8" r="1.2" fill="currentColor" />
+                    <circle cx="18" cy="8" r="1.2" fill="currentColor" />
+                    <circle cx="13.5" cy="12" r="1" fill="currentColor" opacity="0.7" />
+                    <circle cx="16.5" cy="12" r="1" fill="currentColor" opacity="0.7" />
+                  </svg>
+                  <span style={{ fontSize: "11px", fontWeight: 700 }}>キュー</span>
+                </button>
                 {hasRosterMembers && !project.rosterHidesTimeline ? (
                   <button
                     type="button"
@@ -2412,6 +2415,7 @@ export function EditorPage() {
                         project.viewMode === "view" ? "not-allowed" : "pointer",
                       fontWeight: 600,
                       flexShrink: 0,
+                      marginLeft: "auto",
                     }}
                   >
                     メンバーを表示
@@ -3651,20 +3655,39 @@ export function EditorPage() {
                     window.alert(msg);
                     return;
                   }
-                  setProjectSafe((p) => ({
-                    ...p,
-                    crews: [...p.crews, crew],
-                    rosterStripCollapsed: false,
-                    /**
-                     * 取込直後に true にすると `rosterOnlyMode` になり上部波形ドックと
-                     * 右列タイムラインの両方から TimelinePanel が外れ、Blob 音源が消える。
-                     * 名簿一覧は「メンバーを表示」またはページャで切り替え可能にする。
-                     */
-                    rosterHidesTimeline: false,
-                    dancerMarkerDiameterPx: dancerMarkerDiameterAfterRosterImport(
-                      p.dancerMarkerDiameterPx
-                    ),
-                  }));
+                  setProjectSafe((p) => {
+                    const sorted = sortCuesByStart(p.cues);
+                    const firstCue = sorted[0];
+                    const nextCues =
+                      firstCue &&
+                      firstCue.formationId !== p.activeFormationId
+                        ? p.cues.map((c) =>
+                            c.id === firstCue.id
+                              ? { ...c, formationId: p.activeFormationId }
+                              : c
+                          )
+                        : p.cues;
+                    return {
+                      ...p,
+                      crews: [...p.crews, crew],
+                      cues: nextCues,
+                      rosterStripCollapsed: false,
+                      /**
+                       * 取込直後に true にすると `rosterOnlyMode` になり上部波形ドックと
+                       * 右列タイムラインの両方から TimelinePanel が外れ、Blob 音源が消える。
+                       * 名簿一覧は「メンバーを表示」またはページャで切り替え可能にする。
+                       */
+                      rosterHidesTimeline: false,
+                      dancerMarkerDiameterPx:
+                        dancerMarkerDiameterAfterRosterImport(
+                          p.dancerMarkerDiameterPx
+                        ),
+                    };
+                  });
+                  /** 先頭キュー（ページ 1）を選択し、いまのステージの形と同期 */
+                  window.setTimeout(() => {
+                    jumpToPagerSlotRef.current(1);
+                  }, 0);
                   setRosterImportDraft(null);
                   setRosterImportExtraNames([]);
                   const attLine =
