@@ -1933,6 +1933,46 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       [project.viewMode, setProject]
     );
 
+    /** 波形上の秒数目盛り行: クリックで再生線をその位置へ移し、停止中はそこから再生 */
+    const onWaveRulerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      if (project.viewMode === "view" || duration <= 0 || !peaks) return;
+      const c = canvasRef.current;
+      if (!c) return;
+      let viewStart = lastWaveDrawRangeRef.current.viewStart;
+      let viewSpan = lastWaveDrawRangeRef.current.viewSpan;
+      if (viewSpan <= 0) {
+        const gv = getWaveViewForDraw(duration, viewPortion, currentTime);
+        viewStart = gv.start;
+        viewSpan = gv.span;
+      }
+      if (viewSpan <= 0) return;
+      const audioEl = audioRef.current;
+      if (!audioEl?.src) return;
+
+      const trimLo = trimStartSec;
+      const trimHi = trimEndSec ?? duration;
+
+      const timeFromClientX = (clientX: number) => {
+        const r = c.getBoundingClientRect();
+        const x = clientX - r.left;
+        const t = waveExtentXToTime(x, viewStart, viewSpan, r.width);
+        return Math.max(trimLo, Math.min(trimHi, t));
+      };
+
+      e.preventDefault();
+      const wasPlaying = !audioEl.paused;
+      const t = timeFromClientX(e.clientX);
+      audioEl.currentTime = t;
+      setCurrentTime(Math.round(t * 1000) / 1000);
+      if (!wasPlaying) {
+        void audioEl.play().catch(() => {
+          /* 試聴できない環境では無視 */
+        });
+      }
+      drawWaveformAt(t);
+    };
+
     const onWaveCanvasPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (e.button !== 0) return;
       if (project.viewMode === "view" || duration <= 0 || !peaks) return;
@@ -3097,7 +3137,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         )}
         <div
           ref={waveContainerRef}
-          title="波形上でマウスホイール（またはトラックパッドの縦スクロール）で時間軸の拡大・縮小。下の枠線付近をドラッグすると波形の縦の高さを変えられます。赤い縦線付近をドラッグすると再生位置を移動できます。"
+          title="波形上でマウスホイール（またはトラックパッドの縦スクロール）で時間軸の拡大・縮小。上の秒数目盛りをクリックするとその位置へ移動し、停止中はそこから再生します。下の枠線付近をドラッグすると波形の縦の高さを変えられます。赤い縦線付近をドラッグすると再生位置を移動できます。"
           style={{
             width: "100%",
             borderRadius: "6px",
@@ -3116,6 +3156,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         >
           <div style={{ position: "relative", width: "100%" }}>
             <div
+              onPointerDown={onWaveRulerPointerDown}
               style={{
                 position: "relative",
                 height: compactTopDock ? "13px" : "16px",
@@ -3125,8 +3166,17 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                 fontVariantNumeric: "tabular-nums",
                 userSelect: "none",
                 overflow: "hidden",
+                cursor:
+                  duration > 0 && peaks && project.viewMode !== "view"
+                    ? "pointer"
+                    : "default",
+                touchAction: "none",
               }}
-              aria-hidden
+              aria-label={
+                duration > 0
+                  ? "秒数目盛り。クリックで再生位置を移動し、停止中はその位置から再生します。"
+                  : undefined
+              }
             >
               {duration > 0
                 ? waveRulerTicks(waveView.start, waveView.end, 10).map((tick) => {
@@ -3136,6 +3186,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                     return (
                       <span
                         key={tick}
+                        aria-hidden
                         style={{
                           position: "absolute",
                           top: compactTopDock ? "2px" : "3px",
