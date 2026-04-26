@@ -47,6 +47,7 @@ import {
   resolveArrangeTargetIds,
   rotateDancerRingOneStep,
 } from "../lib/stageSelectionArrange";
+import { sortCuesByStart } from "../lib/cueInterval";
 import {
   DancerQuickEditDialog,
   type DancerQuickEditApply,
@@ -58,6 +59,43 @@ import {
   modDancerColorIndex,
   normalizeDancerFacingDeg,
 } from "../lib/dancerColorPalette";
+
+/**
+ * 先頭キュー用フォーメーションから印を消したあと、名簿紐付きなら名簿からも外す。
+ * 他フォーメーションの印は残し、同じ crewMemberId のリンクだけ解除する（名簿の「削除」と同様）。
+ */
+function syncRosterAfterRemovingLinkedMembersFromFirstCue(
+  p: ChoreographyProjectJson,
+  editedFormationId: string,
+  removedSpots: DancerSpot[]
+): ChoreographyProjectJson {
+  if (removedSpots.length === 0) return p;
+  const sorted = sortCuesByStart(p.cues);
+  const first = sorted[0];
+  if (!first || first.formationId !== editedFormationId) return p;
+
+  const memberIds = new Set<string>();
+  for (const d of removedSpots) {
+    if (d.crewMemberId) memberIds.add(d.crewMemberId);
+  }
+  if (memberIds.size === 0) return p;
+
+  return {
+    ...p,
+    crews: p.crews.map((c) => ({
+      ...c,
+      members: c.members.filter((m) => !memberIds.has(m.id)),
+    })),
+    formations: p.formations.map((f) => ({
+      ...f,
+      dancers: f.dancers.map((d) =>
+        d.crewMemberId && memberIds.has(d.crewMemberId)
+          ? { ...d, crewMemberId: undefined }
+          : d
+      ),
+    })),
+  };
+}
 
 /** ドラッグ中、この y% 以上で下端ゴミ箱 UI を出す（客席＝下が大きい y） */
 const TRASH_REVEAL_Y_PCT = 88;
@@ -1285,15 +1323,36 @@ export function StageBoard({
         stageInteractionsEnabled === false
       )
         return;
-      updateActiveFormation((f) => ({
-        ...f,
-        dancers: f.dancers.filter((x) => x.id !== dancerId),
-      }));
+      const spot = writeFormation.dancers.find((x) => x.id === dancerId);
+      setProject((p) => {
+        let next: ChoreographyProjectJson = {
+          ...p,
+          formations: p.formations.map((f) =>
+            f.id === formationIdForWrites
+              ? { ...f, dancers: f.dancers.filter((x) => x.id !== dancerId) }
+              : f
+          ),
+        };
+        if (spot) {
+          next = syncRosterAfterRemovingLinkedMembersFromFirstCue(
+            next,
+            formationIdForWrites,
+            [spot]
+          );
+        }
+        return next;
+      });
       setSelectedDancerIds((ids) => ids.filter((id) => id !== dancerId));
       setDancerQuickEditId((id) => (id === dancerId ? null : id));
       setStageContextMenu(null);
     },
-    [writeFormation, updateActiveFormation, viewMode, stageInteractionsEnabled]
+    [
+      writeFormation,
+      formationIdForWrites,
+      setProject,
+      viewMode,
+      stageInteractionsEnabled,
+    ]
   );
 
   /** 選択（または右クリック対象）のメンバーを複製し、少しずらして追加。新しい印だけ選択する。 */
@@ -1549,15 +1608,36 @@ export function StageBoard({
       )
         return;
       const removeSet = new Set(dancerIds);
-      updateActiveFormation((f) => ({
-        ...f,
-        dancers: f.dancers.filter((x) => !removeSet.has(x.id)),
-      }));
+      const removedSpots = writeFormation.dancers.filter((x) =>
+        removeSet.has(x.id)
+      );
+      setProject((p) => {
+        let next: ChoreographyProjectJson = {
+          ...p,
+          formations: p.formations.map((f) =>
+            f.id === formationIdForWrites
+              ? { ...f, dancers: f.dancers.filter((x) => !removeSet.has(x.id)) }
+              : f
+          ),
+        };
+        next = syncRosterAfterRemovingLinkedMembersFromFirstCue(
+          next,
+          formationIdForWrites,
+          removedSpots
+        );
+        return next;
+      });
       setSelectedDancerIds((ids) => ids.filter((id) => !removeSet.has(id)));
       setDancerQuickEditId((id) => (id != null && removeSet.has(id) ? null : id));
       setStageContextMenu(null);
     },
-    [writeFormation, updateActiveFormation, viewMode, stageInteractionsEnabled]
+    [
+      writeFormation,
+      formationIdForWrites,
+      setProject,
+      viewMode,
+      stageInteractionsEnabled,
+    ]
   );
 
   const removeSetPieceById = useCallback(
