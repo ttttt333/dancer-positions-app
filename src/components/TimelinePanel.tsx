@@ -129,9 +129,9 @@ function ChoreoGridHeaderBrand({ compact }: { compact?: boolean }) {
       style={{
         display: "flex",
         alignItems: "center",
-        flexShrink: 1,
+        flexShrink: 0,
         minWidth: 0,
-        maxWidth: compact ? "min(220px, 40vw)" : "min(280px, 50vw)",
+        maxWidth: compact ? "min(200px, 36vw)" : "min(260px, 44vw)",
         textDecoration: "none",
         borderRadius: tlPx(6),
         overflow: "hidden",
@@ -2869,63 +2869,85 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                   </div>
                 ) : null}
               </div>
-              {/** 2 行目: ブランド → 再生・シーク → タイム表示 */}
+              {/** 2 行目: 左ブランド／中央に再生・シーク（画像の有無で位置がズレないよう 1fr | auto | 1fr） */}
               <div
                 style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  overflowX: "visible",
-                  overflowY: "hidden",
-                  gap: tlPx(5),
+                  display: "grid",
+                  gridTemplateColumns: "minmax(0, 1fr) auto minmax(0, 1fr)",
                   alignItems: "center",
-                  rowGap: tlPx(3),
+                  columnGap: tlPx(6),
                   width: "100%",
                   minWidth: 0,
+                  overflowX: "hidden",
+                  overflowY: "hidden",
                 }}
               >
-                <ChoreoGridHeaderBrand />
-                <button
-                  type="button"
-                  style={timelineToolbarBtn}
-                  onClick={togglePlay}
-                  aria-label={isPlaying ? "一時停止" : "再生"}
-                  title={isPlaying ? "一時停止" : "再生"}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-start",
+                    alignItems: "center",
+                    minWidth: 0,
+                    overflow: "hidden",
+                  }}
                 >
-                  {isPlaying ? "一時停止" : "再生"}
-                </button>
-                <button
-                  type="button"
-                  style={timelineToolbarBtn}
-                  disabled={project.viewMode === "view" || duration <= 0}
-                  title="再生を止め、先頭（トリム開始位置）に戻します"
-                  aria-label="先頭へ"
-                  onClick={stopPlayback}
+                  <ChoreoGridHeaderBrand />
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: tlPx(5),
+                    rowGap: tlPx(3),
+                    flexShrink: 0,
+                  }}
                 >
-                  先頭
-                </button>
-                <button
-                  type="button"
-                  style={timelineToolbarBtn}
-                  disabled={project.viewMode === "view" || duration <= 0}
-                  title="再生位置を 5 秒進める（トリム範囲内に収めます）"
-                  aria-label="5秒進む"
-                  onClick={seekForward5Sec}
-                />
-                <button
-                  type="button"
-                  style={timelineToolbarBtn}
-                  disabled={project.viewMode === "view" || duration <= 0}
-                  title="再生位置を 5 秒戻す（トリム範囲内に収めます）"
-                  aria-label="5秒戻す"
-                  onClick={seekBackward5Sec}
-                />
-                <PlaybackClockReadout
-                  audioRef={audioRef}
-                  isPlaying={isPlaying}
-                  idleTimeSec={currentTime}
-                  durationSec={duration}
-                  monoFontSizePx={13 * TIMELINE_UI_SCALE}
-                />
+                  <button
+                    type="button"
+                    style={timelineToolbarBtn}
+                    onClick={togglePlay}
+                    aria-label={isPlaying ? "一時停止" : "再生"}
+                    title={isPlaying ? "一時停止" : "再生"}
+                  >
+                    {isPlaying ? "一時停止" : "再生"}
+                  </button>
+                  <button
+                    type="button"
+                    style={timelineToolbarBtn}
+                    disabled={project.viewMode === "view" || duration <= 0}
+                    title="再生を止め、先頭（トリム開始位置）に戻します"
+                    aria-label="先頭へ"
+                    onClick={stopPlayback}
+                  >
+                    先頭
+                  </button>
+                  <button
+                    type="button"
+                    style={timelineToolbarBtn}
+                    disabled={project.viewMode === "view" || duration <= 0}
+                    title="再生位置を 5 秒進める（トリム範囲内に収めます）"
+                    aria-label="5秒進む"
+                    onClick={seekForward5Sec}
+                  />
+                  <button
+                    type="button"
+                    style={timelineToolbarBtn}
+                    disabled={project.viewMode === "view" || duration <= 0}
+                    title="再生位置を 5 秒戻す（トリム範囲内に収めます）"
+                    aria-label="5秒戻す"
+                    onClick={seekBackward5Sec}
+                  />
+                  <PlaybackClockReadout
+                    audioRef={audioRef}
+                    isPlaying={isPlaying}
+                    idleTimeSec={currentTime}
+                    durationSec={duration}
+                    monoFontSizePx={13 * TIMELINE_UI_SCALE}
+                  />
+                </div>
+                <div aria-hidden style={{ minWidth: 0 }} />
               </div>
             </>
           </div>
@@ -2933,10 +2955,10 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           <div
             className="wave-compact-time-above-wave"
             style={{
-              display: "flex",
-              flexWrap: "nowrap",
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1fr) auto minmax(0, 1fr)",
               alignItems: "center",
-              gap: tlPx(4),
+              columnGap: tlPx(6),
               width: "100%",
               minWidth: 0,
               padding: `${tlPx(0)} ${tlPx(6)} ${tlPx(2)}`,
@@ -2945,10 +2967,21 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               background: shell.bgChrome,
             }}
           >
-            <ChoreoGridHeaderBrand compact />
             <div
               style={{
                 display: "flex",
+                justifyContent: "flex-start",
+                alignItems: "center",
+                minWidth: 0,
+                overflow: "hidden",
+              }}
+            >
+              <ChoreoGridHeaderBrand compact />
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "nowrap",
                 alignItems: "center",
                 justifyContent: "center",
                 gap: tlPx(6),
@@ -3047,7 +3080,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                 </button>
               ) : null}
             </div>
-            <div style={{ flex: 1, minWidth: 0 }} aria-hidden />
+            <div aria-hidden style={{ minWidth: 0 }} />
           </div>
         )}
         <div
