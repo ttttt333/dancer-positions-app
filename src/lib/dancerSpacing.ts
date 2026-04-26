@@ -154,6 +154,54 @@ export function snapXPctToConvention(
 }
 
 /**
+ * 印の中心 xPct（床面の基準点＝○の中心）を、場ミリ規格の横一列スロットへ寄せたあと、
+ * ステージ横幅のセンターからの水平距離（mm、0 以上）。
+ *
+ * `snapXPctToConvention` と同じ半 step 量子化（常に最近傍スロット。吸着距離制限なし）。
+ * 隣同士の間隔（`dancerSpacingMm`）を変えれば格子も自動で追従する。
+ */
+export function conventionCenterDistanceMmFromMarkerCenter(
+  xPct: number,
+  dancerSpacingMm: number,
+  stageWidthMm: number
+): number | null {
+  if (!isDancerSpacingActive(dancerSpacingMm, stageWidthMm)) return null;
+  const stepPct = dancerStepPctFromSpacingMm(dancerSpacingMm, stageWidthMm)!;
+  const halfStep = stepPct / 2;
+  const k = Math.round((xPct - 50) / halfStep);
+  const snappedXPct = clampPct(50 + k * halfStep, 2, 98);
+  return Math.abs(((snappedXPct - 50) / 100) * stageWidthMm);
+}
+
+/**
+ * 「センターからの場ミリ」の半間隔（縦ガイドの「割」相当）の格子へ寄せた距離（mm）。
+ * 規格スロットが無いときのフォールバック用。
+ */
+export function guideHalfStepCenterDistanceMmFromMarkerCenter(
+  xPct: number,
+  centerFieldGuideIntervalMm: number,
+  stageWidthMm: number
+): number {
+  const half = centerFieldGuideIntervalMm / 2;
+  if (!(half > 0) || !(stageWidthMm > 0)) return 0;
+  const distMm = Math.abs(((xPct - 50) / 100) * stageWidthMm);
+  const k = Math.round(distMm / half);
+  return k * half;
+}
+
+/** 横幅グリッド実寸（mm）の格子へ寄せた距離（mm）。 */
+export function gridWidthCenterDistanceMmFromMarkerCenter(
+  xPct: number,
+  gridMm: number,
+  stageWidthMm: number
+): number {
+  if (!(gridMm > 0) || !(stageWidthMm > 0)) return 0;
+  const distMm = Math.abs(((xPct - 50) / 100) * stageWidthMm);
+  const k = Math.round(distMm / gridMm);
+  return Math.max(0, k * gridMm);
+}
+
+/**
  * ステージ上に「規格スロット」のドットを薄く可視化するための座標列（％）。
  *
  * `maxAbsHalfStep` 個までセンターから両側に並べる（端を超えるものは間引く）。
