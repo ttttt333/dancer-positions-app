@@ -5,7 +5,15 @@ import type {
   ReactElement,
   SetStateAction,
 } from "react";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 import type {
   ChoreographyProjectJson,
@@ -3316,6 +3324,35 @@ export function StageBoard({
   const outerDmm = Dmm + Bmm;
   const stageAspectRatio = hasStageDims ? `${outerWmm} / ${outerDmm}` : "4 / 3";
   const showShell = hasStageDims && (Smm > 0 || Bmm > 0);
+
+  /**
+   * 寸法・回転・ドラフト変更直後は、コンテナクエリ＋aspect-ratio の確定が 1 フレーム遅れる
+   * 環境があり、ResizeObserver だけだと床幅 0 のままになることがある。
+   * その場合マーカー描画やヒット領域が極端に崩れ、真っ暗に近い見え方になるため layout 後に再計測する。
+   */
+  useLayoutEffect(() => {
+    const el = stageMainFloorRef.current;
+    if (!el) return;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      const nw = Math.max(0, Math.round(r.width));
+      setMainFloorPxWidth((w) => (w === nw ? w : nw));
+    };
+    measure();
+    const id = requestAnimationFrame(() => {
+      measure();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [
+    Wmm,
+    Dmm,
+    Smm,
+    Bmm,
+    rot,
+    showShell,
+    stageResizeDraft?.stageWidthMm,
+    stageResizeDraft?.stageDepthMm,
+  ]);
 
   /**
    * センターに近い順に k=1,2,3…（左右の線は同じ番号）。xp は SVG / 観客席帯ラベル共通。

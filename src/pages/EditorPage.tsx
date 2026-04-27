@@ -921,6 +921,7 @@ export function EditorPage() {
           typeof action === "function"
             ? (action as (p: ChoreographyProjectJson) => ChoreographyProjectJson)(prev)
             : action;
+        if (next === prev) return prev;
         let unchanged = false;
         try {
           unchanged = JSON.stringify(next) === JSON.stringify(prev);

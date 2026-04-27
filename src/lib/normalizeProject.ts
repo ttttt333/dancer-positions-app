@@ -72,6 +72,10 @@ const STAGE_SHAPE_PRESET_IDS = new Set<string>([
  * - polygonPct は 3 点以上の [x,y] ペアに限り採用し、各座標を 0〜100 に clamp。
  * - params は数値のみを採用し、それ以外のキーは捨てる。
  */
+/** 壊れた／異常に大きな JSON でも正規化でフリーズしないよう上限を付ける */
+const STAGE_SHAPE_POLYGON_MAX_POINTS = 512;
+const STAGE_SHAPE_POLYGON_MAX_SCAN = 4096;
+
 function normalizeStageShape(raw: unknown): StageShape | undefined {
   if (raw == null || typeof raw !== "object") return undefined;
   const rec = raw as Record<string, unknown>;
@@ -82,7 +86,10 @@ function normalizeStageShape(raw: unknown): StageShape | undefined {
   const poly = rec.polygonPct;
   if (!Array.isArray(poly) || poly.length < 3) return undefined;
   const polygonPct: [number, number][] = [];
+  let scanned = 0;
   for (const pt of poly) {
+    if (polygonPct.length >= STAGE_SHAPE_POLYGON_MAX_POINTS) break;
+    if (scanned++ >= STAGE_SHAPE_POLYGON_MAX_SCAN) break;
     if (!Array.isArray(pt) || pt.length < 2) continue;
     const x = Number(pt[0]);
     const y = Number(pt[1]);
