@@ -5587,11 +5587,28 @@ export function StageBoard({
                   mmSnapGrid != null &&
                   (() => {
                     const MAX = 120;
+                    const K = Math.max(2, MAX - 2);
                     const { stepXPct, stepYPct } = mmSnapGrid;
-                    let sx = 1;
-                    while (Math.ceil(50 / (stepXPct * sx)) + 2 > MAX) sx++;
-                    let sy = 1;
-                    while (Math.ceil(50 / (stepYPct * sy)) + 2 > MAX) sy++;
+                    if (
+                      !Number.isFinite(stepXPct) ||
+                      !Number.isFinite(stepYPct) ||
+                      stepXPct <= 0 ||
+                      stepYPct <= 0
+                    ) {
+                      return [];
+                    }
+                    /**
+                     * センター基準の線本数を抑えるためのスケール。
+                     * 旧実装の while は step が極小のとき回数が爆発し UI がフリーズした。
+                     */
+                    const sx = Math.max(
+                      1,
+                      Math.min(50_000, Math.ceil(50 / (K * stepXPct)))
+                    );
+                    const sy = Math.max(
+                      1,
+                      Math.min(50_000, Math.ceil(50 / (K * stepYPct)))
+                    );
                     const nodes: ReactElement[] = [];
                     const stepX = stepXPct * sx;
                     const stepY = stepYPct * sy;
