@@ -479,6 +479,17 @@ export function EditorPage() {
     projectPagerRef.current = project;
   }
 
+  /**
+   * クラウド保存は確認ダイアログ経由で非同期に走るため、`useCallback` が掴む `project` が
+   * 編集前のスナップショットのまま残ることがある。保存直前は常に ref の最新値を送る。
+   */
+  const projectSaveRef = useRef<ChoreographyProjectJson | null>(null);
+  if (project) {
+    projectSaveRef.current = project;
+  } else {
+    projectSaveRef.current = null;
+  }
+
   const cancelGestureHistory = useCallback(() => {
     gestureHistoryDepthRef.current = 0;
     gestureHistoryBaselineRef.current = null;
@@ -1616,22 +1627,36 @@ export function EditorPage() {
   }, []);
 
   const performCloudSave = useCallback(async () => {
-    if (!me || !project) return;
+    if (!me) return;
+    const live = projectSaveRef.current;
+    if (!live) return;
     setCloudSaveDialogOpen(false);
     setSaving(true);
     try {
+      let json: ChoreographyProjectJson;
+      try {
+        json = normalizeProject(
+          JSON.parse(JSON.stringify(live)) as ChoreographyProjectJson
+        );
+      } catch {
+        alert(
+          "作品データの保存用コピーを作れませんでした。ページを再読み込みしてから再度お試しください。"
+        );
+        return;
+      }
       const title =
-        project.pieceTitle?.trim() || projectName.trim() || "無題の作品";
+        json.pieceTitle?.trim() || projectName.trim() || "無題の作品";
+      const body: ChoreographyProjectJson = { ...json, pieceTitle: title };
       if (serverId != null) {
-        await projectApi.update(serverId, title, project);
+        await projectApi.update(serverId, title, body);
+        setProjectName(title);
       } else {
-        const row = await projectApi.create(title, project);
-        const seeded = normalizeProject(project);
+        const row = await projectApi.create(title, body);
         setServerId(row.id);
         navigate(`/editor/${row.id}`, {
           replace: true,
           state: {
-            editorSeed: seeded,
+            editorSeed: body,
             editorSeedProjectId: row.id,
           },
         });
@@ -1641,7 +1666,7 @@ export function EditorPage() {
     } finally {
       setSaving(false);
     }
-  }, [me, project, projectName, serverId, navigate]);
+  }, [me, projectName, serverId, navigate]);
 
   if (loadError) {
     return (

@@ -15,7 +15,7 @@ const STATIONARY_EPS_PCT = 0.055;
 
 /**
  * ギャップ経路の法線オフセット（％）。印直径から「接触しない最小寄り」を推定する。
- * ステージ実幅 px は再生時に未保持のため、やや大きめの参照幅で % に換算し上限で抑える。
+ * ステージ実幅 px は再生時に未保持のため参照幅で % に換算。係数は小さめでスレスレ寄り。
  */
 function gapPassingSeparationPct(from: DancerSpot[], to: DancerSpot[]): number {
   let maxD = DEFAULT_DANCER_MARKER_DIAMETER_PX;
@@ -41,11 +41,11 @@ function gapPassingSeparationPct(from: DancerSpot[], to: DancerSpot[]): number {
       );
     }
   }
-  const stageRefWpx = 720;
+  const stageRefWpx = 920;
   const diameterAsPct = (maxD / stageRefWpx) * 100;
-  const pad = 0.26;
-  const tight = 0.58 * diameterAsPct + pad;
-  return Math.min(12, Math.max(2.72, tight));
+  const pad = 0.12;
+  const tight = 0.4 * diameterAsPct + pad;
+  return Math.min(11, Math.max(2.22, tight));
 }
 
 export const VALID_GAP_APPROACH_ROUTES: readonly GapApproachRoute[] = [

@@ -390,10 +390,10 @@ export type FlowSaveResult =
   | { ok: false; reason: "empty" | "quota" | "unknown"; message: string };
 
 /**
- * 現在のプロジェクト状態を新規フローとして保存。
- * 同名のフローも別レコードになる（重複は呼び出し側で制御してもよい）。
+ * プロジェクトからフロー 1 件を構築するのみ（localStorage には書かない）。
+ * 新規保存・上書きの両方で使い、上書きでは余計な一時レコードを挟まない。
  */
-export function saveFlowFromProject(
+function buildFlowLibraryItemFromProject(
   name: string,
   project: ChoreographyProjectJson,
   opts: { includeTiming: boolean }
@@ -451,9 +451,10 @@ export function saveFlowFromProject(
       formationIdRef: c.formationId,
     }));
   const now = Date.now();
+  const existingCount = safeParseAll().length;
   const item: FlowLibraryItem = {
     id: crypto.randomUUID(),
-    name: trimmed || `フロー ${listFlowLibraryItems().length + 1}`,
+    name: trimmed || `フロー ${existingCount + 1}`,
     hasTiming: opts.includeTiming,
     dancerCount: formations[0]?.dancers.length ?? 0,
     cueCount: cues.length,
@@ -463,11 +464,25 @@ export function saveFlowFromProject(
     createdAt: now,
     updatedAt: now,
   };
+  return { ok: true, item };
+}
+
+/**
+ * 現在のプロジェクト状態を新規フローとして保存。
+ * 同名のフローも別レコードになる（重複は呼び出し側で制御してもよい）。
+ */
+export function saveFlowFromProject(
+  name: string,
+  project: ChoreographyProjectJson,
+  opts: { includeTiming: boolean }
+): FlowSaveResult {
+  const built = buildFlowLibraryItemFromProject(name, project, opts);
+  if (!built.ok) return built;
   const cur = safeParseAll();
-  cur.unshift(item);
+  cur.unshift(built.item);
   try {
     writeAll(cur);
-    return { ok: true, item };
+    return built;
   } catch (e) {
     if (e instanceof FlowLibraryQuotaError) {
       return { ok: false, reason: "quota", message: e.message };
@@ -498,7 +513,7 @@ export function overwriteFlowFromProject(
       message: "上書き対象のフローが見つかりませんでした。",
     };
   }
-  const fresh = saveFlowFromProject(target.name, project, opts);
+  const fresh = buildFlowLibraryItemFromProject(target.name, project, opts);
   if (!fresh.ok) return fresh;
   const next = cur.map((x) =>
     x.id === id
