@@ -32,6 +32,10 @@ type Props = {
   ) => void;
   /** 楽曲の総尺（秒）。タイミングを置換しないとき、キューを等間隔で配り直す基準。 */
   audioDurationSec: number;
+  /** フロー保存時に波形ピークを同梱する（タイムラインから取得） */
+  getWavePeaks?: () => number[] | null;
+  /** フロー読み込み後に波形を即復元（秒尺つき） */
+  onRestoreWaveform?: (peaks: number[], durationSec?: number) => void;
 };
 
 const card: CSSProperties = {
@@ -142,6 +146,8 @@ export function FlowLibraryDialog({
   project,
   setProject,
   audioDurationSec,
+  getWavePeaks,
+  onRestoreWaveform,
 }: Props) {
   const [items, setItems] = useState<FlowLibraryItem[]>([]);
   const [name, setName] = useState("");
@@ -195,7 +201,11 @@ export function FlowLibraryDialog({
       return;
     }
     setBusy(true);
-    const r = saveFlowFromProject(trimmed, project, { includeTiming });
+    const r = saveFlowFromProject(trimmed, project, {
+      includeTiming,
+      wavePeaks: getWavePeaks?.() ?? null,
+      audioDurationSec: audioDurationSec > 0 ? audioDurationSec : null,
+    });
     setBusy(false);
     if (!r.ok) {
       setFeedback({ kind: "error", text: r.message });
@@ -206,13 +216,17 @@ export function FlowLibraryDialog({
       text: `「${r.item.name}」を保存しました（キュー ${r.item.cueCount} / 形 ${r.item.formations.length}）。`,
     });
     refresh();
-  }, [name, project, includeTiming, refresh]);
+  }, [name, project, includeTiming, refresh, getWavePeaks, audioDurationSec]);
 
   const doOverwrite = useCallback(
     (id: string, label: string) => {
       if (!confirm(`「${label}」を現在のステージ内容で上書きします。よろしいですか？`)) return;
       setBusy(true);
-      const r = overwriteFlowFromProject(id, project, { includeTiming });
+      const r = overwriteFlowFromProject(id, project, {
+        includeTiming,
+        wavePeaks: getWavePeaks?.() ?? null,
+        audioDurationSec: audioDurationSec > 0 ? audioDurationSec : null,
+      });
       setBusy(false);
       if (!r.ok) {
         setFeedback({ kind: "error", text: r.message });
@@ -221,7 +235,7 @@ export function FlowLibraryDialog({
       setFeedback({ kind: "info", text: `「${r.item.name}」を上書きしました。` });
       refresh();
     },
-    [project, includeTiming, refresh]
+    [project, includeTiming, refresh, getWavePeaks, audioDurationSec]
   );
 
   const doDelete = useCallback(
@@ -282,17 +296,60 @@ export function FlowLibraryDialog({
         if (expanded.stageSettings) {
           next = applyFlowStageSettingsToProject(next, expanded.stageSettings);
         }
+        if (expanded.memento) {
+          const m = expanded.memento;
+          next = {
+            ...next,
+            crews: m.crews,
+            savedSpotLayouts: m.savedSpotLayouts,
+            ...(m.rosterStripSortMode != null
+              ? { rosterStripSortMode: m.rosterStripSortMode }
+              : {}),
+            ...(m.rosterHidesTimeline !== undefined
+              ? { rosterHidesTimeline: m.rosterHidesTimeline }
+              : {}),
+            ...(m.rosterStripCollapsed !== undefined
+              ? { rosterStripCollapsed: m.rosterStripCollapsed }
+              : {}),
+            pieceDancerCount: m.pieceDancerCount,
+            ...(m.dancerLabelPosition === "inside" || m.dancerLabelPosition === "below"
+              ? { dancerLabelPosition: m.dancerLabelPosition }
+              : {}),
+            ...(typeof m.dancerMarkerDiameterPx === "number" &&
+            Number.isFinite(m.dancerMarkerDiameterPx)
+              ? { dancerMarkerDiameterPx: m.dancerMarkerDiameterPx }
+              : {}),
+            audioAssetId: m.audioAssetId,
+            playbackRate: m.playbackRate,
+            trimStartSec: m.trimStartSec,
+            trimEndSec: m.trimEndSec,
+            ...(m.waveformAmplitudeScale != null &&
+            Number.isFinite(m.waveformAmplitudeScale)
+              ? { waveformAmplitudeScale: m.waveformAmplitudeScale }
+              : {}),
+          };
+        }
         return next;
       });
+      const restoreDur =
+        expanded.memento?.audioDurationSec != null &&
+        expanded.memento.audioDurationSec > 0
+          ? expanded.memento.audioDurationSec
+          : audioDurationSec > 0
+            ? audioDurationSec
+            : undefined;
+      if (expanded.memento?.wavePeaks?.length) {
+        onRestoreWaveform?.(expanded.memento.wavePeaks, restoreDur);
+      }
       setFeedback({
         kind: "info",
         text: `「${item.name}」を読み込みました（キュー ${expanded.cues.length}${
-          expanded.stageSettings ? "・保存時のステージ寸法・場ミリを復元" : ""
-        }）。`,
+          expanded.stageSettings ? "・ステージ寸法" : ""
+        }${expanded.memento ? "・名簿・立ち位置リスト・音源設定" : ""}）。`,
       });
       onClose();
     },
-    [audioDurationSec, setProject, onClose]
+    [audioDurationSec, setProject, onClose, onRestoreWaveform]
   );
 
   const doExportJson = useCallback(() => {

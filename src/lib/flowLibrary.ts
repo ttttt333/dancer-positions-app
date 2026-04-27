@@ -1,12 +1,17 @@
 import type {
   AudienceEdge,
   ChoreographyProjectJson,
+  Crew,
   Cue,
   DancerSpot,
   Formation,
+  GapApproachRoute,
+  RosterStripSortMode,
+  SavedSpotLayout,
   StageShape,
 } from "../types/choreography";
 import { modDancerColorIndex } from "./dancerColorPalette";
+import { parseGapApproachRoute } from "./gapDancerInterpolation";
 import { clampStageGridAxisMm, parseAudienceEdge } from "./projectDefaults";
 
 /**
@@ -55,6 +60,8 @@ export interface FlowCueSnapshot {
   tStartSec: number | null;
   tEndSec: number | null;
   formationIdRef: string;
+  /** 前キュー終了〜このキュー開始のギャップでの移動経路（旧ライブラリのみ簡易キューに含む） */
+  gapApproachFromPrev?: GapApproachRoute;
 }
 
 /**
@@ -80,6 +87,32 @@ export interface FlowStageSettingsSnapshot {
   stageGridLineSpacingMm?: number;
   stageGridSpacingWidthMm?: number;
   stageGridSpacingDepthMm?: number;
+  dancerLabelPosition?: "inside" | "below";
+  dancerMarkerDiameterPx?: number;
+}
+
+/**
+ * フローに同梱する名簿・立ち位置リスト・音源・波形など（bundleVersion 2）。
+ * 旧フローには無く、読み込み時は省略される。
+ */
+export interface FlowLibraryMemento {
+  crews: Crew[];
+  savedSpotLayouts: SavedSpotLayout[];
+  rosterStripSortMode?: RosterStripSortMode;
+  rosterHidesTimeline?: boolean;
+  rosterStripCollapsed?: boolean;
+  pieceDancerCount: number | null;
+  dancerLabelPosition?: "inside" | "below";
+  dancerMarkerDiameterPx?: number;
+  /** 保存時の楽曲尺（秒）。波形復元・等間隔再配置の目安 */
+  audioDurationSec?: number;
+  audioAssetId: number | null;
+  playbackRate: number;
+  trimStartSec: number;
+  trimEndSec: number | null;
+  waveformAmplitudeScale?: number;
+  /** タイムライン描画用の正規化ピーク（長さは通常 400） */
+  wavePeaks?: number[];
 }
 
 export interface FlowLibraryItem {
@@ -97,6 +130,13 @@ export interface FlowLibraryItem {
   stageSettings?: FlowStageSettingsSnapshot;
   createdAt: number;
   updatedAt: number;
+  /** 2 = formationsFull / cuesFull / memento を含む完全バンドル */
+  bundleVersion?: 2;
+  /** フォーメーション完全形（大道具・床マークアップ・スナップショット含む） */
+  formationsFull?: Formation[];
+  /** キュー完全形（元 id・移動経路を保持） */
+  cuesFull?: Cue[];
+  memento?: FlowLibraryMemento;
 }
 
 /**
@@ -116,6 +156,56 @@ function notifyChanged(): void {
 function clamp(n: number, lo: number, hi: number): number {
   if (!Number.isFinite(n)) return lo;
   return Math.min(hi, Math.max(lo, n));
+}
+
+const MAX_WAVE_PEAKS_LEN = 8000;
+
+function deepCloneJson<T>(x: T): T {
+  return JSON.parse(JSON.stringify(x)) as T;
+}
+
+function trimWavePeaks(peaks: number[] | null | undefined): number[] | undefined {
+  if (!peaks?.length) return undefined;
+  const arr = peaks.filter((n) => typeof n === "number" && Number.isFinite(n));
+  if (!arr.length) return undefined;
+  if (arr.length > MAX_WAVE_PEAKS_LEN) return arr.slice(0, MAX_WAVE_PEAKS_LEN);
+  return arr;
+}
+
+export type FlowSaveOpts = {
+  includeTiming: boolean;
+  /** タイムラインが保持している波形ピーク（保存時点） */
+  wavePeaks?: number[] | null;
+  /** 保存時の楽曲尺（秒）。フロー復元時の波形・等間隔配置に使用 */
+  audioDurationSec?: number | null;
+};
+
+function buildMementoFromProject(
+  project: ChoreographyProjectJson,
+  opts: FlowSaveOpts
+): FlowLibraryMemento {
+  return {
+    crews: deepCloneJson(project.crews ?? []),
+    savedSpotLayouts: deepCloneJson(project.savedSpotLayouts ?? []),
+    rosterStripSortMode: project.rosterStripSortMode,
+    rosterHidesTimeline: project.rosterHidesTimeline,
+    rosterStripCollapsed: project.rosterStripCollapsed,
+    pieceDancerCount: project.pieceDancerCount ?? null,
+    dancerLabelPosition: project.dancerLabelPosition,
+    dancerMarkerDiameterPx: project.dancerMarkerDiameterPx,
+    audioDurationSec:
+      opts.audioDurationSec != null &&
+      Number.isFinite(opts.audioDurationSec) &&
+      opts.audioDurationSec > 0
+        ? opts.audioDurationSec
+        : undefined,
+    audioAssetId: project.audioAssetId,
+    playbackRate: project.playbackRate,
+    trimStartSec: project.trimStartSec,
+    trimEndSec: project.trimEndSec,
+    waveformAmplitudeScale: project.waveformAmplitudeScale,
+    wavePeaks: trimWavePeaks(opts.wavePeaks ?? undefined),
+  };
 }
 
 function snapshotStageFromProject(
@@ -140,6 +230,13 @@ function snapshotStageFromProject(
     stageGridLineSpacingMm: p.stageGridLineSpacingMm,
     stageGridSpacingWidthMm: p.stageGridSpacingWidthMm ?? p.stageGridLineSpacingMm,
     stageGridSpacingDepthMm: p.stageGridSpacingDepthMm ?? p.stageGridLineSpacingMm,
+    ...(p.dancerLabelPosition === "inside" || p.dancerLabelPosition === "below"
+      ? { dancerLabelPosition: p.dancerLabelPosition }
+      : {}),
+    ...(typeof p.dancerMarkerDiameterPx === "number" &&
+    Number.isFinite(p.dancerMarkerDiameterPx)
+      ? { dancerMarkerDiameterPx: p.dancerMarkerDiameterPx }
+      : {}),
   };
 }
 
@@ -199,6 +296,13 @@ function normalizeStageSettings(
         stageGridSpacingDepthMm: d,
       };
     })(),
+    ...(o.dancerLabelPosition === "inside" || o.dancerLabelPosition === "below"
+      ? { dancerLabelPosition: o.dancerLabelPosition }
+      : {}),
+    ...(typeof o.dancerMarkerDiameterPx === "number" &&
+    Number.isFinite(o.dancerMarkerDiameterPx)
+      ? { dancerMarkerDiameterPx: o.dancerMarkerDiameterPx }
+      : {}),
   };
 }
 
@@ -247,6 +351,13 @@ export function applyFlowStageSettingsToProject(
     stageGridLineSpacingMm: w,
     stageGridSpacingWidthMm: w,
     stageGridSpacingDepthMm: d,
+    ...(stage.dancerLabelPosition === "inside" || stage.dancerLabelPosition === "below"
+      ? { dancerLabelPosition: stage.dancerLabelPosition }
+      : {}),
+    ...(typeof stage.dancerMarkerDiameterPx === "number" &&
+    Number.isFinite(stage.dancerMarkerDiameterPx)
+      ? { dancerMarkerDiameterPx: stage.dancerMarkerDiameterPx }
+      : {}),
   };
 }
 
@@ -269,16 +380,170 @@ function isValidCueSnap(x: unknown): x is FlowCueSnapshot {
 function isValidItem(x: unknown): x is FlowLibraryItem {
   if (typeof x !== "object" || x === null) return false;
   const o = x as Record<string, unknown>;
-  return (
-    typeof o.id === "string" &&
-    typeof o.name === "string" &&
+  const hasLegacy =
     Array.isArray(o.formations) &&
-    Array.isArray(o.cues)
-  );
+    o.formations.length > 0 &&
+    Array.isArray(o.cues) &&
+    o.cues.length > 0;
+  const hasFull =
+    Array.isArray(o.formationsFull) &&
+    o.formationsFull.length > 0 &&
+    Array.isArray(o.cuesFull) &&
+    o.cuesFull.length > 0;
+  return typeof o.id === "string" && typeof o.name === "string" && (hasLegacy || hasFull);
+}
+
+const ROSTER_SORT_MODES: readonly RosterStripSortMode[] = [
+  "import",
+  "height_desc",
+  "height_asc",
+  "grade",
+  "skill",
+];
+
+function normalizeMementoFromRaw(raw: unknown): FlowLibraryMemento | undefined {
+  if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const o = raw as Record<string, unknown>;
+  if (!Array.isArray(o.crews) || !Array.isArray(o.savedSpotLayouts)) return undefined;
+  const pr =
+    typeof o.playbackRate === "number" && Number.isFinite(o.playbackRate)
+      ? o.playbackRate
+      : 1;
+  const ts =
+    typeof o.trimStartSec === "number" && Number.isFinite(o.trimStartSec)
+      ? o.trimStartSec
+      : 0;
+  const te =
+    o.trimEndSec == null
+      ? null
+      : typeof o.trimEndSec === "number" && Number.isFinite(o.trimEndSec)
+        ? o.trimEndSec
+        : null;
+  const aid =
+    typeof o.audioAssetId === "number" && Number.isFinite(o.audioAssetId)
+      ? o.audioAssetId
+      : null;
+  try {
+    const sortRaw = o.rosterStripSortMode;
+    const rosterStripSortMode =
+      typeof sortRaw === "string" && (ROSTER_SORT_MODES as readonly string[]).includes(sortRaw)
+        ? (sortRaw as RosterStripSortMode)
+        : undefined;
+    return {
+      crews: deepCloneJson(o.crews) as Crew[],
+      savedSpotLayouts: deepCloneJson(o.savedSpotLayouts) as SavedSpotLayout[],
+      ...(rosterStripSortMode ? { rosterStripSortMode } : {}),
+      rosterHidesTimeline:
+        typeof o.rosterHidesTimeline === "boolean" ? o.rosterHidesTimeline : undefined,
+      rosterStripCollapsed:
+        typeof o.rosterStripCollapsed === "boolean" ? o.rosterStripCollapsed : undefined,
+      pieceDancerCount:
+        typeof o.pieceDancerCount === "number" && Number.isFinite(o.pieceDancerCount)
+          ? o.pieceDancerCount
+          : null,
+      dancerLabelPosition:
+        o.dancerLabelPosition === "inside" || o.dancerLabelPosition === "below"
+          ? o.dancerLabelPosition
+          : undefined,
+      dancerMarkerDiameterPx:
+        typeof o.dancerMarkerDiameterPx === "number" &&
+        Number.isFinite(o.dancerMarkerDiameterPx)
+          ? o.dancerMarkerDiameterPx
+          : undefined,
+      audioDurationSec:
+        typeof o.audioDurationSec === "number" &&
+        Number.isFinite(o.audioDurationSec) &&
+        o.audioDurationSec > 0
+          ? o.audioDurationSec
+          : undefined,
+      audioAssetId: aid,
+      playbackRate: pr,
+      trimStartSec: ts,
+      trimEndSec: te,
+      waveformAmplitudeScale:
+        typeof o.waveformAmplitudeScale === "number" &&
+        Number.isFinite(o.waveformAmplitudeScale)
+          ? o.waveformAmplitudeScale
+          : undefined,
+      wavePeaks: trimWavePeaks(o.wavePeaks as number[] | undefined),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function normalizeBundleFromRaw(raw: FlowLibraryItem): {
+  bundleVersion?: 2;
+  formationsFull?: Formation[];
+  cuesFull?: Cue[];
+  memento?: FlowLibraryMemento;
+} {
+  const o = raw as unknown as Record<string, unknown>;
+  const ff = o.formationsFull;
+  const cf = o.cuesFull;
+  let formationsFull: Formation[] | undefined;
+  let cuesFull: Cue[] | undefined;
+  if (Array.isArray(ff) && ff.length > 0) {
+    try {
+      formationsFull = deepCloneJson(ff as Formation[]);
+    } catch {
+      formationsFull = undefined;
+    }
+  }
+  if (Array.isArray(cf) && cf.length > 0) {
+    try {
+      cuesFull = deepCloneJson(cf as Cue[]);
+    } catch {
+      cuesFull = undefined;
+    }
+  }
+  const memento = normalizeMementoFromRaw(o.memento);
+  if (formationsFull?.length && cuesFull?.length) {
+    return {
+      bundleVersion: 2,
+      formationsFull,
+      cuesFull,
+      ...(memento ? { memento } : {}),
+    };
+  }
+  return {};
 }
 
 function normalize(raw: FlowLibraryItem): FlowLibraryItem {
-  const formations = (raw.formations ?? [])
+  const srcForm: FlowFormationSnapshot[] =
+    raw.formations && raw.formations.length > 0
+      ? raw.formations
+      : raw.formationsFull && raw.formationsFull.length > 0
+        ? raw.formationsFull.map((f) => ({
+            id: f.id,
+            name: (f.name || "").slice(0, MAX_NAME_LEN),
+            dancers: f.dancers.slice(0, MAX_DANCERS_PER_FORM).map((d) => ({
+              label: d.label,
+              xPct: d.xPct,
+              yPct: d.yPct,
+              ...(typeof d.colorIndex === "number" && Number.isFinite(d.colorIndex)
+                ? { colorIndex: modDancerColorIndex(Math.floor(d.colorIndex)) }
+                : {}),
+              ...(d.note ? { note: d.note.slice(0, 2000) } : {}),
+            })),
+          }))
+        : [];
+  const srcCuesBase: FlowCueSnapshot[] =
+    raw.cues && raw.cues.length > 0
+      ? raw.cues
+      : raw.cuesFull && raw.cuesFull.length > 0
+        ? raw.cuesFull.map((c) => ({
+            id: c.id,
+            name: c.name,
+            note: c.note,
+            tStartSec: c.tStartSec,
+            tEndSec: c.tEndSec,
+            formationIdRef: c.formationId,
+            ...(c.gapApproachFromPrev ? { gapApproachFromPrev: c.gapApproachFromPrev } : {}),
+          }))
+        : [];
+
+  const formations = (srcForm as unknown[])
     .filter(isValidFormationSnap)
     .slice(0, MAX_FORMATIONS)
     .map((f, i) => ({
@@ -299,30 +564,38 @@ function normalize(raw: FlowLibraryItem): FlowLibraryItem {
         })),
     }));
   const formationIds = new Set(formations.map((f) => f.id));
-  const cues = (raw.cues ?? [])
+  const cues = (srcCuesBase as unknown[])
     .filter(isValidCueSnap)
     .slice(0, MAX_CUES)
-    .filter((c) => formationIds.has(c.formationIdRef))
-    .map((c, i) => ({
-      id: c.id || `c${i}`,
-      name:
-        typeof c.name === "string" && c.name.trim()
-          ? c.name.slice(0, MAX_NAME_LEN)
-          : undefined,
-      note:
-        typeof c.note === "string" && c.note.trim()
-          ? c.note.slice(0, 2000)
-          : undefined,
-      tStartSec:
-        typeof c.tStartSec === "number" && Number.isFinite(c.tStartSec)
-          ? c.tStartSec
-          : null,
-      tEndSec:
-        typeof c.tEndSec === "number" && Number.isFinite(c.tEndSec)
-          ? c.tEndSec
-          : null,
-      formationIdRef: c.formationIdRef,
-    }));
+    .filter((c) => formationIds.has((c as FlowCueSnapshot).formationIdRef))
+    .map((c0, i) => {
+      const c = c0 as FlowCueSnapshot;
+      const rawCue = c as unknown as Record<string, unknown>;
+      const gap =
+        c.gapApproachFromPrev ??
+        parseGapApproachRoute(rawCue.gapApproachFromPrev);
+      return {
+        id: c.id || `c${i}`,
+        name:
+          typeof c.name === "string" && c.name.trim()
+            ? c.name.slice(0, MAX_NAME_LEN)
+            : undefined,
+        note:
+          typeof c.note === "string" && c.note.trim()
+            ? c.note.slice(0, 2000)
+            : undefined,
+        tStartSec:
+          typeof c.tStartSec === "number" && Number.isFinite(c.tStartSec)
+            ? c.tStartSec
+            : null,
+        tEndSec:
+          typeof c.tEndSec === "number" && Number.isFinite(c.tEndSec)
+            ? c.tEndSec
+            : null,
+        formationIdRef: c.formationIdRef,
+        ...(gap ? { gapApproachFromPrev: gap } : {}),
+      };
+    });
   const dancerCount = formations[0]?.dancers.length ?? 0;
   const hasTiming = cues.some((c) => c.tStartSec != null && c.tEndSec != null);
   const rawRec = raw as unknown as Record<string, unknown>;
@@ -338,6 +611,7 @@ function normalize(raw: FlowLibraryItem): FlowLibraryItem {
     ...(stageSettings ? { stageSettings } : {}),
     createdAt: typeof raw.createdAt === "number" ? raw.createdAt : Date.now(),
     updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : Date.now(),
+    ...normalizeBundleFromRaw(raw),
   };
 }
 
@@ -396,7 +670,7 @@ export type FlowSaveResult =
 function buildFlowLibraryItemFromProject(
   name: string,
   project: ChoreographyProjectJson,
-  opts: { includeTiming: boolean }
+  opts: FlowSaveOpts
 ): FlowSaveResult {
   const trimmed = (name || "").trim().slice(0, MAX_NAME_LEN);
   if (!project.formations.length || !project.cues.length) {
@@ -437,10 +711,17 @@ function buildFlowLibraryItemFromProject(
       message: "キューに紐付く形（フォーメーション）が見つかりません。",
     };
   }
-  const cues: FlowCueSnapshot[] = cuesSorted
+  const formationsFull: Formation[] = project.formations
+    .filter((f) => usedFormationIds.has(f.id))
+    .slice(0, MAX_FORMATIONS)
+    .map((f) => deepCloneJson(f));
+  const cuesFull: Cue[] = cuesSorted
     .slice(0, MAX_CUES)
-    .map((c) => ({
-      id: crypto.randomUUID(),
+    .map((c) => deepCloneJson(c));
+  const cues: FlowCueSnapshot[] = cuesSorted.slice(0, MAX_CUES).map((c) => {
+    const gap = c.gapApproachFromPrev;
+    return {
+      id: c.id,
       name:
         typeof c.name === "string" && c.name.trim()
           ? c.name.slice(0, MAX_NAME_LEN)
@@ -449,9 +730,12 @@ function buildFlowLibraryItemFromProject(
       tStartSec: opts.includeTiming ? c.tStartSec : null,
       tEndSec: opts.includeTiming ? c.tEndSec : null,
       formationIdRef: c.formationId,
-    }));
+      ...(gap ? { gapApproachFromPrev: gap } : {}),
+    };
+  });
   const now = Date.now();
   const existingCount = safeParseAll().length;
+  const memento = buildMementoFromProject(project, opts);
   const item: FlowLibraryItem = {
     id: crypto.randomUUID(),
     name: trimmed || `フロー ${existingCount + 1}`,
@@ -463,6 +747,10 @@ function buildFlowLibraryItemFromProject(
     stageSettings: snapshotStageFromProject(project),
     createdAt: now,
     updatedAt: now,
+    bundleVersion: 2,
+    formationsFull,
+    cuesFull,
+    memento,
   };
   return { ok: true, item };
 }
@@ -474,7 +762,7 @@ function buildFlowLibraryItemFromProject(
 export function saveFlowFromProject(
   name: string,
   project: ChoreographyProjectJson,
-  opts: { includeTiming: boolean }
+  opts: FlowSaveOpts
 ): FlowSaveResult {
   const built = buildFlowLibraryItemFromProject(name, project, opts);
   if (!built.ok) return built;
@@ -502,7 +790,7 @@ export function saveFlowFromProject(
 export function overwriteFlowFromProject(
   id: string,
   project: ChoreographyProjectJson,
-  opts: { includeTiming: boolean }
+  opts: FlowSaveOpts
 ): FlowSaveResult {
   const cur = safeParseAll();
   const target = cur.find((x) => x.id === id);
@@ -581,6 +869,8 @@ export interface ExpandedFlow {
   activeFormationId: string;
   /** フローにステージ設定が含まれるときのみ。呼び出し側でプロジェクトへマージ */
   stageSettings: FlowStageSettingsSnapshot | null;
+  /** bundleVersion 2 の名簿・立ち位置リスト・音源・波形など */
+  memento?: FlowLibraryMemento;
 }
 
 export function expandFlowToProject(
@@ -593,6 +883,43 @@ export function expandFlowToProject(
     minCueLengthSec?: number;
   }
 ): ExpandedFlow {
+  if (
+    item.bundleVersion === 2 &&
+    item.formationsFull &&
+    item.formationsFull.length > 0 &&
+    item.cuesFull &&
+    item.cuesFull.length > 0
+  ) {
+    const formations = deepCloneJson(item.formationsFull);
+    let cues: Cue[] = deepCloneJson(item.cuesFull);
+    const fids = new Set(formations.map((f) => f.id));
+    cues = cues.filter((c) => fids.has(c.formationId));
+    const useTiming = opts.replaceTiming && item.hasTiming;
+    if (!useTiming) {
+      const total = Math.max(
+        Math.max(0.5, opts.minCueLengthSec ?? 1) * cues.length,
+        opts.totalDurationSec && opts.totalDurationSec > 0
+          ? opts.totalDurationSec
+          : Math.max(2, cues.length)
+      );
+      const step = total / cues.length;
+      cues.forEach((c, i) => {
+        c.tStartSec = step * i;
+        c.tEndSec = step * (i + 1);
+      });
+    }
+    const activeFormationId =
+      formations.find((f) => f.id === cues[0]?.formationId)?.id ??
+      formations[0]?.id ??
+      "";
+    const stageSettings =
+      item.stageSettings != null
+        ? normalizeStageSettings(item.stageSettings) ?? null
+        : null;
+    const memento = item.memento ? deepCloneJson(item.memento) : undefined;
+    return { formations, cues, activeFormationId, stageSettings, memento };
+  }
+
   /** id を新規採番（プロジェクト側の既存 id と衝突しないように） */
   const idMap = new Map<string, string>();
   for (const f of item.formations) {
@@ -623,7 +950,7 @@ export function expandFlowToProject(
       return null as unknown as Cue;
     }
     return {
-      id: crypto.randomUUID(),
+      id: typeof c.id === "string" && c.id ? c.id : crypto.randomUUID(),
       tStartSec:
         useTiming && c.tStartSec != null ? c.tStartSec : i,
       tEndSec:
@@ -633,6 +960,9 @@ export function expandFlowToProject(
       formationId: fid,
       ...(c.name ? { name: c.name } : {}),
       ...(c.note ? { note: c.note } : {}),
+      ...(c.gapApproachFromPrev
+        ? { gapApproachFromPrev: c.gapApproachFromPrev }
+        : {}),
     };
   });
 

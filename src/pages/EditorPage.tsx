@@ -3897,6 +3897,10 @@ export function EditorPage() {
           project={project}
           setProject={setProjectSafe}
           audioDurationSec={duration}
+          getWavePeaks={() => timelineRef.current?.getWavePeaksSnapshot() ?? null}
+          onRestoreWaveform={(peaks, dur) => {
+            timelineRef.current?.restoreWavePeaks(peaks, dur);
+          }}
         />
       ) : null}
 

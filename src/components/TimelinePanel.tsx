@@ -177,6 +177,10 @@ export type TimelinePanelHandle = {
   pauseAndSeekToSec: (tSec: number) => void;
   /** 音源ファイル選択ダイアログを開く（エディタ上部ツールバー用） */
   openAudioImport: () => void;
+  /** フローライブラリ保存用。現在の波形ピーク（無ければ null） */
+  getWavePeaksSnapshot: () => number[] | null;
+  /** フロー読み込み後に保存済みピークを即反映（decode を待たない） */
+  restoreWavePeaks: (peaks: number[], durationSec?: number) => void;
 };
 
 type Props = {
@@ -1736,6 +1740,24 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       audioFileInputRef.current?.click();
     }, []);
 
+    const getWavePeaksSnapshot = useCallback((): number[] | null => {
+      const p = peaksRef.current;
+      if (!p || p.length === 0) return null;
+      return [...p];
+    }, []);
+
+    const restoreWavePeaks = useCallback(
+      (peaks: number[], durationSec?: number) => {
+        if (peaks.length > 0) {
+          setPeaks([...peaks]);
+        }
+        if (durationSec != null && Number.isFinite(durationSec) && durationSec > 0) {
+          setDuration(durationSec);
+        }
+      },
+      []
+    );
+
     useImperativeHandle(
       ref,
       () => ({
@@ -1743,8 +1765,17 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         stopPlayback,
         pauseAndSeekToSec,
         openAudioImport,
+        getWavePeaksSnapshot,
+        restoreWavePeaks,
       }),
-      [togglePlay, stopPlayback, pauseAndSeekToSec, openAudioImport]
+      [
+        togglePlay,
+        stopPlayback,
+        pauseAndSeekToSec,
+        openAudioImport,
+        getWavePeaksSnapshot,
+        restoreWavePeaks,
+      ]
     );
 
     useEffect(() => {
