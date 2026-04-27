@@ -224,11 +224,11 @@ const STAGE_AREA_DIM_ROWS: {
   key: "width" | "depth" | "side" | "back" | "guide";
   title: string;
 }[] = [
-  { key: "width", title: "幅（上手〜下手）" },
-  { key: "depth", title: "奥行き（客席方向の広さ）" },
+  { key: "width", title: "メイン幅（上手〜下手）" },
+  { key: "depth", title: "奥行（客席方向）" },
   { key: "side", title: "サイド（片側）" },
-  { key: "back", title: "バックステージ" },
-  { key: "guide", title: "センターからの場ミリ" },
+  { key: "back", title: "バック" },
+  { key: "guide", title: "場ミリ（センターから）" },
 ];
 
 /** 場ミリはメイン幅の半分以下（`StageDimensionFields` と同じ） */
@@ -293,17 +293,23 @@ function projectToStageAreaDraft(p: ChoreographyProjectJson): StageAreaSettingsD
 }
 
 const STAGE_AREA_DIM_INPUT: CSSProperties = {
-  width: "64px",
-  padding: "6px 8px",
-  borderRadius: "6px",
+  width: "52px",
+  padding: "4px 6px",
+  borderRadius: "5px",
   border: "1px solid #334155",
   background: "#0f172a",
   color: "#e2e8f0",
-  fontSize: "13px",
+  fontSize: "12px",
 };
 const STAGE_AREA_DIM_INPUT_CM: CSSProperties = {
   ...STAGE_AREA_DIM_INPUT,
-  width: "52px",
+  width: "44px",
+};
+
+const STAGE_AREA_SHEET_SECTION: CSSProperties = {
+  borderBottom: "1px solid #1e293b",
+  paddingBottom: "6px",
+  marginBottom: "6px",
 };
 
 /**
@@ -1591,8 +1597,23 @@ export function EditorPage() {
       if (!fid) return;
       const pieceId = crypto.randomUUID();
       const kind: SetPieceKind = opts.kind;
-      const wPct = kind === "ellipse" ? 20 : 24;
-      const hPct = kind === "ellipse" ? 20 : 18;
+      const onScreen = Boolean(opts.placeOnEditorSurface);
+      const wPct = onScreen
+        ? kind === "ellipse"
+          ? 12
+          : 14
+        : kind === "ellipse"
+          ? 20
+          : 24;
+      const hPct = onScreen
+        ? kind === "ellipse"
+          ? 12
+          : 11
+        : kind === "ellipse"
+          ? 20
+          : 18;
+      const xPct = onScreen ? 8 : 38;
+      const yPct = onScreen ? 10 : 32;
       setProjectSafe((p) => ({
         ...p,
         formations: p.formations.map((fm) =>
@@ -1606,10 +1627,11 @@ export function EditorPage() {
                     kind,
                     fillColor: opts.fillColor,
                     label: `大道具${(fm.setPieces?.length ?? 0) + 1}`,
-                    xPct: 38,
-                    yPct: 32,
+                    xPct,
+                    yPct,
                     wPct,
                     hPct,
+                    ...(onScreen ? { layer: "screen" as const } : {}),
                     interpolateInGaps: false,
                   },
                 ],
@@ -2871,21 +2893,21 @@ export function EditorPage() {
           onClose={() => setStageAreaSettingsOpen(false)}
           ariaLabelledBy="stage-area-settings-title"
         >
-          <div style={{ padding: "12px 14px 14px" }}>
+          <div style={{ padding: "8px 10px 10px" }}>
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                gap: "12px",
-                marginBottom: "10px",
+                gap: "8px",
+                marginBottom: "6px",
               }}
             >
               <h3
                 id="stage-area-settings-title"
                 style={{
                   margin: 0,
-                  fontSize: "15px",
+                  fontSize: "14px",
                   fontWeight: 600,
                   color: "#e2e8f0",
                 }}
@@ -2898,29 +2920,23 @@ export function EditorPage() {
                 onClick={() => setStageAreaSettingsOpen(false)}
                 style={{
                   ...btnSecondary,
-                  fontSize: "18px",
+                  fontSize: "16px",
                   lineHeight: 1,
-                  padding: "4px 12px",
+                  padding: "2px 10px",
                 }}
               >
                 ×
               </button>
             </div>
 
-            <div
-              style={{
-                borderBottom: "1px solid #1e293b",
-                paddingBottom: "10px",
-                marginBottom: "10px",
-              }}
-            >
+            <div style={STAGE_AREA_SHEET_SECTION}>
               <div
                 style={{
-                  fontSize: "11px",
+                  fontSize: "10px",
                   fontWeight: 700,
                   color: "#64748b",
-                  letterSpacing: "0.06em",
-                  marginBottom: "6px",
+                  letterSpacing: "0.05em",
+                  marginBottom: "4px",
                 }}
               >
                 客席の位置
@@ -2940,12 +2956,12 @@ export function EditorPage() {
                 aria-label="客席のある画面の上または下"
                 style={{
                   width: "100%",
-                  padding: "8px 10px",
-                  borderRadius: "8px",
+                  padding: "5px 8px",
+                  borderRadius: "6px",
                   border: "1px solid #334155",
                   background: "#020617",
                   color: "#e2e8f0",
-                  fontSize: "13px",
+                  fontSize: "12px",
                 }}
               >
                 {STAGE_AREA_AUDIENCE_OPTIONS.map((o) => (
@@ -2956,186 +2972,190 @@ export function EditorPage() {
               </select>
             </div>
 
-            <div
-              style={{
-                borderBottom: "1px solid #1e293b",
-                paddingBottom: "10px",
-                marginBottom: "10px",
-              }}
-            >
+            <div style={STAGE_AREA_SHEET_SECTION}>
               <div
                 style={{
-                  fontSize: "11px",
+                  fontSize: "10px",
                   fontWeight: 700,
                   color: "#64748b",
-                  letterSpacing: "0.06em",
-                  marginBottom: "8px",
+                  letterSpacing: "0.05em",
+                  marginBottom: "2px",
                 }}
               >
                 舞台の寸法
               </div>
               <p
                 style={{
-                  margin: "0 0 10px",
+                  margin: "0 0 6px",
                   fontSize: "10px",
                   color: "#64748b",
-                  lineHeight: 1.45,
+                  lineHeight: 1.35,
                 }}
               >
-                m と cm（0〜99）で入力。空欄は未設定。
-                <strong style={{ color: "#cbd5e1" }}>「決定」</strong>
-                でステージに反映されます。
+                m・cm（空欄＝未設定）。<strong style={{ color: "#cbd5e1" }}>決定</strong>で反映。
               </p>
               {STAGE_AREA_DIM_ROWS.map((row) => (
-                <div key={row.key} style={{ marginBottom: "12px" }}>
-                  <div
+                <div
+                  key={row.key}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "minmax(0,1fr) auto auto auto auto auto",
+                    gap: "4px",
+                    alignItems: "center",
+                    marginBottom: "4px",
+                  }}
+                >
+                  <span
                     style={{
-                      fontSize: "12px",
+                      fontSize: "11px",
                       color: "#94a3b8",
-                      marginBottom: "6px",
+                      lineHeight: 1.25,
+                      minWidth: 0,
                     }}
                   >
                     {row.title}
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      flexWrap: "wrap",
-                      gap: "6px",
-                      alignItems: "center",
-                    }}
-                  >
-                    <input
-                      type="number"
-                      min={0}
-                      max={999}
-                      disabled={project.viewMode === "view"}
-                      placeholder="m"
-                      value={stageAreaSettingsDraft[row.key].m}
-                      onChange={(e) =>
-                        setStageAreaSettingsDraft((d) => ({
-                          ...d,
-                          [row.key]: { ...d[row.key], m: e.target.value },
-                        }))
-                      }
-                      aria-label={`${row.title} メートル`}
-                      style={STAGE_AREA_DIM_INPUT}
-                    />
-                    <span style={{ fontSize: "12px", color: "#94a3b8" }}>m</span>
-                    <input
-                      type="number"
-                      min={0}
-                      max={99}
-                      disabled={project.viewMode === "view"}
-                      placeholder="cm"
-                      value={stageAreaSettingsDraft[row.key].cm}
-                      onChange={(e) =>
-                        setStageAreaSettingsDraft((d) => ({
-                          ...d,
-                          [row.key]: { ...d[row.key], cm: e.target.value },
-                        }))
-                      }
-                      aria-label={`${row.title} センチ`}
-                      style={STAGE_AREA_DIM_INPUT_CM}
-                    />
-                    <span style={{ fontSize: "12px", color: "#94a3b8" }}>cm</span>
-                  </div>
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={999}
+                    disabled={project.viewMode === "view"}
+                    placeholder="m"
+                    value={stageAreaSettingsDraft[row.key].m}
+                    onChange={(e) =>
+                      setStageAreaSettingsDraft((d) => ({
+                        ...d,
+                        [row.key]: { ...d[row.key], m: e.target.value },
+                      }))
+                    }
+                    aria-label={`${row.title} メートル`}
+                    style={STAGE_AREA_DIM_INPUT}
+                  />
+                  <span style={{ fontSize: "10px", color: "#64748b" }}>m</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={99}
+                    disabled={project.viewMode === "view"}
+                    placeholder="cm"
+                    value={stageAreaSettingsDraft[row.key].cm}
+                    onChange={(e) =>
+                      setStageAreaSettingsDraft((d) => ({
+                        ...d,
+                        [row.key]: { ...d[row.key], cm: e.target.value },
+                      }))
+                    }
+                    aria-label={`${row.title} センチ`}
+                    style={STAGE_AREA_DIM_INPUT_CM}
+                  />
+                  <span style={{ fontSize: "10px", color: "#64748b" }}>cm</span>
                 </div>
               ))}
-              <div style={{ marginBottom: "10px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "6px",
+                  alignItems: "flex-end",
+                  marginTop: "6px",
+                  marginBottom: "6px",
+                }}
+              >
                 <label
                   style={{
-                    display: "block",
-                    fontSize: "11px",
+                    flex: "1 1 140px",
+                    minWidth: 0,
+                    fontSize: "10px",
                     fontWeight: 700,
                     color: "#64748b",
-                    letterSpacing: "0.06em",
-                    marginBottom: "6px",
+                    letterSpacing: "0.04em",
                   }}
                 >
-                  保存済みの舞台設定から呼び出す
+                  保存済みから読込
+                  <select
+                    key={stageAreaPresetSelectNonce}
+                    defaultValue=""
+                    disabled={
+                      project.viewMode === "view" || stageAreaPresetList.length === 0
+                    }
+                    title="端末に保存した寸法セットを入力欄に読み込み（決定で反映）"
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      if (!id) return;
+                      const item = stageAreaPresetList.find((x) => x.id === id);
+                      if (!item) return;
+                      setStageAreaSettingsDraft((d) => ({
+                        ...d,
+                        width: mmToMeterCmDraft(item.stageWidthMm),
+                        depth: mmToMeterCmDraft(item.stageDepthMm),
+                        side: mmToMeterCmDraft(item.sideStageMm),
+                        back: mmToMeterCmDraft(item.backStageMm),
+                        guide: mmToMeterCmDraft(item.centerFieldGuideIntervalMm),
+                      }));
+                      setStageAreaPresetSelectNonce((n) => n + 1);
+                    }}
+                    style={{
+                      width: "100%",
+                      marginTop: "3px",
+                      padding: "5px 8px",
+                      borderRadius: "6px",
+                      border: "1px solid #334155",
+                      background: "#020617",
+                      color: "#e2e8f0",
+                      fontSize: "11px",
+                    }}
+                  >
+                    <option value="">
+                      {stageAreaPresetList.length === 0
+                        ? "（なし）"
+                        : "選ぶ…"}
+                    </option>
+                    {stageAreaPresetList.map((pr) => (
+                      <option key={pr.id} value={pr.id}>
+                        {pr.name}
+                      </option>
+                    ))}
+                  </select>
                 </label>
-                <select
-                  key={stageAreaPresetSelectNonce}
-                  defaultValue=""
-                  disabled={project.viewMode === "view" || stageAreaPresetList.length === 0}
-                  title="端末に保存した寸法セットをこの画面の入力欄に読み込みます（決定で反映）"
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    if (!id) return;
-                    const item = stageAreaPresetList.find((x) => x.id === id);
-                    if (!item) return;
-                    setStageAreaSettingsDraft((d) => ({
-                      ...d,
-                      width: mmToMeterCmDraft(item.stageWidthMm),
-                      depth: mmToMeterCmDraft(item.stageDepthMm),
-                      side: mmToMeterCmDraft(item.sideStageMm),
-                      back: mmToMeterCmDraft(item.backStageMm),
-                      guide: mmToMeterCmDraft(item.centerFieldGuideIntervalMm),
-                    }));
-                    setStageAreaPresetSelectNonce((n) => n + 1);
+                <button
+                  type="button"
+                  disabled={project.viewMode === "view"}
+                  title="現在の入力を名前付きで保存"
+                  onClick={() => {
+                    if (project.viewMode === "view") return;
+                    const d = stageAreaSettingsDraftRef.current;
+                    const dims = {
+                      stageWidthMm: parseMeterCmDraftToMm(d.width),
+                      stageDepthMm: parseMeterCmDraftToMm(d.depth),
+                      sideStageMm: parseMeterCmDraftToMm(d.side),
+                      backStageMm: parseMeterCmDraftToMm(d.back),
+                      centerFieldGuideIntervalMm: parseMeterCmDraftToMm(d.guide),
+                    };
+                    const defaultName = `舞台 ${stageAreaPresetList.length + 1}`;
+                    const name = window.prompt("保存する名前", defaultName);
+                    if (name === null) return;
+                    const result = saveStagePreset(name.trim() || defaultName, dims);
+                    if (!result.ok) {
+                      window.alert(result.message);
+                      return;
+                    }
+                    setStageAreaPresetList(listStagePresets());
                   }}
                   style={{
-                    width: "100%",
-                    padding: "8px 10px",
-                    borderRadius: "8px",
-                    border: "1px solid #334155",
-                    background: "#020617",
-                    color: "#e2e8f0",
-                    fontSize: "13px",
+                    ...btnSecondary,
+                    flex: "0 0 auto",
+                    padding: "6px 10px",
+                    fontSize: "11px",
+                    fontWeight: 600,
                   }}
                 >
-                  <option value="">
-                    {stageAreaPresetList.length === 0
-                      ? "（保存済みがありません）"
-                      : "選んで読み込む…"}
-                  </option>
-                  {stageAreaPresetList.map((pr) => (
-                    <option key={pr.id} value={pr.id}>
-                      {pr.name}
-                    </option>
-                  ))}
-                </select>
+                  名前で保存
+                </button>
               </div>
               <button
                 type="button"
                 disabled={project.viewMode === "view"}
-                title="現在の入力欄の寸法（幅〜場ミリ）を名前付きで保存します"
-                onClick={() => {
-                  if (project.viewMode === "view") return;
-                  const d = stageAreaSettingsDraftRef.current;
-                  const dims = {
-                    stageWidthMm: parseMeterCmDraftToMm(d.width),
-                    stageDepthMm: parseMeterCmDraftToMm(d.depth),
-                    sideStageMm: parseMeterCmDraftToMm(d.side),
-                    backStageMm: parseMeterCmDraftToMm(d.back),
-                    centerFieldGuideIntervalMm: parseMeterCmDraftToMm(d.guide),
-                  };
-                  const defaultName = `舞台 ${stageAreaPresetList.length + 1}`;
-                  const name = window.prompt("保存する名前", defaultName);
-                  if (name === null) return;
-                  const result = saveStagePreset(name.trim() || defaultName, dims);
-                  if (!result.ok) {
-                    window.alert(result.message);
-                    return;
-                  }
-                  setStageAreaPresetList(listStagePresets());
-                }}
-                style={{
-                  ...btnSecondary,
-                  width: "100%",
-                  marginBottom: "8px",
-                  padding: "8px 12px",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                }}
-              >
-                名前をつけて保存
-              </button>
-              <button
-                type="button"
-                disabled={project.viewMode === "view"}
-                title="変形舞台・花道・印の実寸など。いまの入力は「決定」で反映してから開くと安全です。"
+                title="変形舞台・花道など（決定後に開くのが安全）"
                 onClick={() => {
                   applyStageAreaSettingsDraft();
                   setStageAreaSettingsOpen(false);
@@ -3144,132 +3164,126 @@ export function EditorPage() {
                 style={{
                   ...btnSecondary,
                   width: "100%",
-                  padding: "8px 12px",
-                  fontSize: "12px",
+                  padding: "6px 10px",
+                  fontSize: "11px",
                   fontWeight: 600,
                 }}
               >
-                舞台形状・花道・その他の詳細…
+                形状・花道・詳細設定…
               </button>
             </div>
 
-            <div
-              style={{
-                borderBottom: "1px solid #1e293b",
-                paddingBottom: "10px",
-                marginBottom: "10px",
-              }}
-            >
+            <div style={STAGE_AREA_SHEET_SECTION}>
               <div
                 style={{
-                  fontSize: "11px",
-                  fontWeight: 700,
-                  color: "#64748b",
-                  letterSpacing: "0.06em",
-                  marginBottom: "6px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "8px",
+                  marginBottom: "4px",
                 }}
               >
-                グリッド
-              </div>
-              <div
-                style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "6px" }}
-                title="立ち位置をグリッドに吸着するか"
-              >
-                スナップ
-              </div>
-              <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
-                <button
-                  type="button"
-                  disabled={project.viewMode === "view"}
-                  onClick={() =>
-                    setStageAreaSettingsDraft((d) => ({ ...d, snapGrid: true }))
-                  }
+                <span
                   style={{
-                    flex: 1,
-                    padding: "8px 10px",
-                    borderRadius: "8px",
-                    border:
-                      stageAreaSettingsDraft.snapGrid
-                        ? "1px solid rgba(99,102,241,0.9)"
-                        : "1px solid #334155",
-                    background: stageAreaSettingsDraft.snapGrid
-                      ? "rgba(99,102,241,0.22)"
-                      : "#020617",
-                    color: stageAreaSettingsDraft.snapGrid ? "#e0e7ff" : "#94a3b8",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    cursor:
-                      project.viewMode === "view" ? "not-allowed" : "pointer",
+                    fontSize: "10px",
+                    fontWeight: 700,
+                    color: "#64748b",
+                    letterSpacing: "0.05em",
                   }}
                 >
-                  合わせる
-                </button>
-                <button
-                  type="button"
-                  disabled={project.viewMode === "view"}
-                  onClick={() =>
-                    setStageAreaSettingsDraft((d) => ({ ...d, snapGrid: false }))
-                  }
-                  style={{
-                    flex: 1,
-                    padding: "8px 10px",
-                    borderRadius: "8px",
-                    border:
-                      !stageAreaSettingsDraft.snapGrid
-                        ? "1px solid rgba(148,163,184,0.85)"
-                        : "1px solid #334155",
-                    background: !stageAreaSettingsDraft.snapGrid
-                      ? "#334155"
-                      : "#020617",
-                    color: !stageAreaSettingsDraft.snapGrid ? "#f8fafc" : "#94a3b8",
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    cursor:
-                      project.viewMode === "view" ? "not-allowed" : "pointer",
-                  }}
-                >
-                  合わせない
-                </button>
+                  グリッド
+                </span>
+                <div style={{ display: "flex", gap: "6px", flex: "1 1 auto", justifyContent: "flex-end" }}>
+                  <button
+                    type="button"
+                    disabled={project.viewMode === "view"}
+                    onClick={() =>
+                      setStageAreaSettingsDraft((d) => ({ ...d, snapGrid: true }))
+                    }
+                    style={{
+                      flex: "0 1 88px",
+                      padding: "5px 8px",
+                      borderRadius: "6px",
+                      border:
+                        stageAreaSettingsDraft.snapGrid
+                          ? "1px solid rgba(99,102,241,0.9)"
+                          : "1px solid #334155",
+                      background: stageAreaSettingsDraft.snapGrid
+                        ? "rgba(99,102,241,0.22)"
+                        : "#020617",
+                      color: stageAreaSettingsDraft.snapGrid ? "#e0e7ff" : "#94a3b8",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      cursor:
+                        project.viewMode === "view" ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    スナップON
+                  </button>
+                  <button
+                    type="button"
+                    disabled={project.viewMode === "view"}
+                    onClick={() =>
+                      setStageAreaSettingsDraft((d) => ({ ...d, snapGrid: false }))
+                    }
+                    style={{
+                      flex: "0 1 88px",
+                      padding: "5px 8px",
+                      borderRadius: "6px",
+                      border:
+                        !stageAreaSettingsDraft.snapGrid
+                          ? "1px solid rgba(148,163,184,0.85)"
+                          : "1px solid #334155",
+                      background: !stageAreaSettingsDraft.snapGrid
+                        ? "#334155"
+                        : "#020617",
+                      color: !stageAreaSettingsDraft.snapGrid ? "#f8fafc" : "#94a3b8",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      cursor:
+                        project.viewMode === "view" ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    OFF
+                  </button>
+                </div>
               </div>
               {!stageAreaDraftHasMainFloor ? (
                 <p
                   style={{
-                    margin: "0 0 10px",
-                    fontSize: "11px",
+                    margin: "0 0 4px",
+                    fontSize: "10px",
                     color: "#64748b",
-                    lineHeight: 1.45,
+                    lineHeight: 1.35,
                   }}
                 >
-                  メインの幅・奥行を入れると、下の<strong style={{ color: "#cbd5e1" }}>縦線・横線の間隔（1〜100
-                  cm）</strong>で実寸グリッドとスナップが使えます。
+                  幅・奥行入力後、<strong style={{ color: "#cbd5e1" }}>縦／横 cm</strong>
+                  で実寸スナップ・線間隔が使えます。
                 </p>
               ) : (
                 <p
                   style={{
-                    margin: "0 0 10px",
-                    fontSize: "11px",
+                    margin: "0 0 4px",
+                    fontSize: "10px",
                     color: "#64748b",
-                    lineHeight: 1.45,
+                    lineHeight: 1.35,
                   }}
                 >
-                  <strong style={{ color: "#cbd5e1" }}>縦線</strong>は幅方向、
-                  <strong style={{ color: "#cbd5e1" }}>横線</strong>
-                  は奥行方向の間隔です。スナップ ON のとき同じ刻みに吸着します（各 1〜100 cm）。
+                  <strong style={{ color: "#cbd5e1" }}>縦</strong>＝幅方向、
+                  <strong style={{ color: "#cbd5e1" }}>横</strong>＝奥行。各 1〜100 cm。
                 </p>
               )}
               {!stageAreaDraftHasMainFloor ? (
-                <>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: "11px",
-                      color: "#94a3b8",
-                      marginBottom: "3px",
-                    }}
-                    title="幅・奥行が未設定のときだけ、％でスナップします。"
-                  >
-                    幅・奥行がないときのスナップ（％刻み）
-                  </label>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "10px",
+                    color: "#94a3b8",
+                    marginBottom: "2px",
+                  }}
+                  title="幅・奥行が未設定のときだけ、％でスナップします。"
+                >
+                  寸法なし時の％刻み
                   <select
                     value={stageAreaSettingsDraft.gridStep}
                     disabled={!stageAreaSettingsDraft.snapGrid || project.viewMode === "view"}
@@ -3281,44 +3295,35 @@ export function EditorPage() {
                     }
                     style={{
                       width: "100%",
-                      marginBottom: "12px",
-                      padding: "6px 10px",
-                      borderRadius: "6px",
+                      marginTop: "3px",
+                      marginBottom: "6px",
+                      padding: "4px 8px",
+                      borderRadius: "5px",
                       border: "1px solid #334155",
                       background: "#020617",
                       color: "#e2e8f0",
-                      fontSize: "12px",
+                      fontSize: "11px",
                     }}
                   >
-                    <option value={0.5}>0.5% 刻み</option>
-                    <option value={1}>1% 刻み</option>
-                    <option value={2}>2% 刻み</option>
-                    <option value={5}>5% 刻み</option>
-                    <option value={10}>10% 刻み</option>
+                    <option value={0.5}>0.5%</option>
+                    <option value={1}>1%</option>
+                    <option value={2}>2%</option>
+                    <option value={5}>5%</option>
+                    <option value={10}>10%</option>
                   </select>
-                </>
+                </label>
               ) : null}
               {stageAreaDraftHasMainFloor ? (
-                <>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: "11px",
-                      color: "#94a3b8",
-                      marginBottom: "4px",
-                    }}
-                  >
-                    縦線の間隔（cm）
-                    <span
-                      style={{
-                        display: "block",
-                        marginTop: "4px",
-                        fontSize: "10px",
-                        color: "#475569",
-                      }}
-                    >
-                      1〜100 cm（幅の方向・上下に伸びる線）
-                    </span>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: "6px",
+                    marginBottom: "6px",
+                  }}
+                >
+                  <label style={{ fontSize: "10px", color: "#94a3b8" }}>
+                    縦線間隔（cm）
                     <input
                       type="number"
                       min={1}
@@ -3338,36 +3343,18 @@ export function EditorPage() {
                       aria-label="縦線の間隔（センチ）"
                       style={{
                         width: "100%",
-                        marginTop: "6px",
-                        marginBottom: "10px",
-                        padding: "6px 10px",
-                        borderRadius: "6px",
+                        marginTop: "3px",
+                        padding: "4px 8px",
+                        borderRadius: "5px",
                         border: "1px solid #334155",
                         background: "#020617",
                         color: "#e2e8f0",
-                        fontSize: "12px",
+                        fontSize: "11px",
                       }}
                     />
                   </label>
-                  <label
-                    style={{
-                      display: "block",
-                      fontSize: "11px",
-                      color: "#94a3b8",
-                      marginBottom: "4px",
-                    }}
-                  >
-                    横線の間隔（cm）
-                    <span
-                      style={{
-                        display: "block",
-                        marginTop: "4px",
-                        fontSize: "10px",
-                        color: "#475569",
-                      }}
-                    >
-                      1〜100 cm（奥行の方向・左右に伸びる線）
-                    </span>
+                  <label style={{ fontSize: "10px", color: "#94a3b8" }}>
+                    横線間隔（cm）
                     <input
                       type="number"
                       min={1}
@@ -3387,35 +3374,29 @@ export function EditorPage() {
                       aria-label="横線の間隔（センチ）"
                       style={{
                         width: "100%",
-                        marginTop: "6px",
-                        marginBottom: "12px",
-                        padding: "6px 10px",
-                        borderRadius: "6px",
+                        marginTop: "3px",
+                        padding: "4px 8px",
+                        borderRadius: "5px",
                         border: "1px solid #334155",
                         background: "#020617",
                         color: "#e2e8f0",
-                        fontSize: "12px",
+                        fontSize: "11px",
                       }}
                     />
                   </label>
-                </>
+                </div>
               ) : null}
-              <div
-                style={{ fontSize: "12px", color: "#94a3b8", marginBottom: "4px" }}
-                title="実寸のガイド線を表示します。縦線・横線の間隔に従います。"
-              >
-                グリッド線
-              </div>
               <label
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "8px",
-                  fontSize: "12px",
+                  gap: "6px",
+                  fontSize: "11px",
                   color: "#cbd5e1",
-                  marginBottom: "8px",
+                  marginBottom: 0,
                   cursor: project.viewMode === "view" ? "default" : "pointer",
                 }}
+                title="実寸のガイド線を表示（幅・奥行と縦横間隔が必要）"
               >
                 <input
                   type="checkbox"
@@ -3428,31 +3409,25 @@ export function EditorPage() {
                     }))
                   }
                 />
-                グリッド線を表示する
+                グリッド線を表示
               </label>
             </div>
 
-            <div
-              style={{
-                borderBottom: "1px solid #1e293b",
-                paddingBottom: "10px",
-                marginBottom: "10px",
-              }}
-            >
+            <div style={STAGE_AREA_SHEET_SECTION}>
               <div
                 style={{
-                  fontSize: "11px",
+                  fontSize: "10px",
                   fontWeight: 700,
                   color: "#64748b",
-                  letterSpacing: "0.06em",
-                  marginBottom: "6px",
+                  letterSpacing: "0.05em",
+                  marginBottom: "4px",
                 }}
               >
                 立ち位置の名前
               </div>
               <div
-                style={{ display: "flex", gap: "8px" }}
-                title="○の外では印の中は番号など。ステージでメンバーを右クリックしても同様の設定が選べます。"
+                style={{ display: "flex", gap: "6px" }}
+                title="印の右クリックでも同様に選べます。"
               >
                 <button
                   type="button"
@@ -3465,8 +3440,8 @@ export function EditorPage() {
                   }
                   style={{
                     flex: 1,
-                    padding: "8px 10px",
-                    borderRadius: "8px",
+                    padding: "5px 8px",
+                    borderRadius: "6px",
                     border:
                       stageAreaSettingsDraft.dancerLabelPosition === "inside"
                         ? "1px solid rgba(99,102,241,0.9)"
@@ -3479,13 +3454,13 @@ export function EditorPage() {
                       stageAreaSettingsDraft.dancerLabelPosition === "inside"
                         ? "#e0e7ff"
                         : "#94a3b8",
-                    fontSize: "12px",
+                    fontSize: "11px",
                     fontWeight: 600,
                     cursor:
                       project.viewMode === "view" ? "not-allowed" : "pointer",
                   }}
                 >
-                  ○の中に名前
+                  ○の中
                 </button>
                 <button
                   type="button"
@@ -3498,8 +3473,8 @@ export function EditorPage() {
                   }
                   style={{
                     flex: 1,
-                    padding: "8px 10px",
-                    borderRadius: "8px",
+                    padding: "5px 8px",
+                    borderRadius: "6px",
                     border:
                       stageAreaSettingsDraft.dancerLabelPosition === "below"
                         ? "1px solid rgba(99,102,241,0.9)"
@@ -3512,13 +3487,13 @@ export function EditorPage() {
                       stageAreaSettingsDraft.dancerLabelPosition === "below"
                         ? "#e0e7ff"
                         : "#94a3b8",
-                    fontSize: "12px",
+                    fontSize: "11px",
                     fontWeight: 600,
                     cursor:
                       project.viewMode === "view" ? "not-allowed" : "pointer",
                   }}
                 >
-                  ○の外に名前
+                  ○の外
                 </button>
               </div>
             </div>
@@ -3526,8 +3501,8 @@ export function EditorPage() {
             <div
               style={{
                 display: "flex",
-                gap: "10px",
-                marginBottom: "12px",
+                gap: "8px",
+                marginBottom: "6px",
               }}
             >
               <button
@@ -3540,8 +3515,8 @@ export function EditorPage() {
                 style={{
                   ...btnAccent,
                   flex: 1,
-                  padding: "10px 12px",
-                  fontSize: "13px",
+                  padding: "7px 10px",
+                  fontSize: "12px",
                   fontWeight: 600,
                 }}
               >
@@ -3553,8 +3528,8 @@ export function EditorPage() {
                 style={{
                   ...btnSecondary,
                   flex: 1,
-                  padding: "10px 12px",
-                  fontSize: "13px",
+                  padding: "7px 10px",
+                  fontSize: "12px",
                   fontWeight: 600,
                 }}
               >
@@ -3565,8 +3540,8 @@ export function EditorPage() {
             <div
               style={{
                 display: "flex",
-                flexDirection: "column",
-                gap: "8px",
+                flexWrap: "wrap",
+                gap: "6px",
               }}
             >
               <button
@@ -3574,15 +3549,15 @@ export function EditorPage() {
                 onClick={() => void copyEditorShareLink()}
                 style={{
                   ...btnSecondary,
-                  width: "100%",
-                  padding: "10px 12px",
-                  fontSize: "13px",
+                  flex: "1 1 160px",
+                  padding: "6px 8px",
+                  fontSize: "11px",
                   fontWeight: 600,
                 }}
               >
                 {shareLinkCopiedFlash
                   ? "URL をコピーしました"
-                  : "この画面の URL を共有（コピー）"}
+                  : "URL を共有（コピー）"}
               </button>
               <button
                 type="button"
@@ -3592,13 +3567,13 @@ export function EditorPage() {
                 }}
                 style={{
                   ...btnSecondary,
-                  width: "100%",
-                  padding: "10px 12px",
-                  fontSize: "13px",
+                  flex: "1 1 160px",
+                  padding: "6px 8px",
+                  fontSize: "11px",
                   fontWeight: 600,
                 }}
               >
-                ショートカット・ヒントを開く
+                ショートカット・ヒント
               </button>
             </div>
           </div>
@@ -3752,9 +3727,9 @@ export function EditorPage() {
                 のダンサー以外をクリック → 再生停止（先頭付近へ）
               </li>
               <li>
-                大道具: ツールバー「大道具」から図形・色を選んで追加。削除は{" "}
-                <strong style={{ color: "#e2e8f0" }}>Delete / Backspace</strong>（選択中）または{" "}
-                <strong style={{ color: "#e2e8f0" }}>右クリック → 削除</strong>
+                大道具: ツールバー「大道具」から追加。モーダルで{" "}
+                <strong style={{ color: "#e2e8f0" }}>編集画面全体に配置</strong>を選ぶとタイムライン周りにも置けます。
+                選択中は青い丸ハンドルで回転（Shift で15°刻み）。右クリックで床／画面の切替や削除。
               </li>
               <li>
                 タイムライン: 波形で <strong style={{ color: "#e2e8f0" }}>⌘／Ctrl+クリック</strong>{" "}

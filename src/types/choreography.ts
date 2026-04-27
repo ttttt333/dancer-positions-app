@@ -62,6 +62,13 @@ export type SetPiece = {
   yPct: number;
   wPct: number;
   hPct: number;
+  /**
+   * 座標の基準。省略または "stage" = メイン床の %。
+   * `screen` = 編集画面（タイムライン列などを含むエディタ面）全体の %。
+   */
+  layer?: "stage" | "screen";
+  /** 時計回りの回転（度）。省略時 0 */
+  rotationDeg?: number;
   /** 塗り色（#rrggbb）。未指定の旧データは表示側でスレート系の既定色 */
   fillColor?: string;
   /** true のときキュー間ギャップで座標を線形補間（§4） */

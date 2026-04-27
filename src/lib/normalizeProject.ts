@@ -223,6 +223,13 @@ function normalizeSetPiecesArray(raw: unknown): SetPiece[] {
         100
       ) * 100
     ) / 100;
+    const lyr = r.layer;
+    const rotRaw = r.rotationDeg;
+    let rotationDeg: number | undefined;
+    if (typeof rotRaw === "number" && Number.isFinite(rotRaw)) {
+      rotationDeg =
+        Math.round(Math.max(-36000, Math.min(36000, rotRaw)) * 100) / 100;
+    }
     const piece: SetPiece = {
       id,
       kind,
@@ -236,6 +243,8 @@ function normalizeSetPiecesArray(raw: unknown): SetPiece[] {
       hPct,
       interpolateInGaps: r.interpolateInGaps === true,
     };
+    if (lyr === "screen") piece.layer = "screen";
+    if (rotationDeg !== undefined) piece.rotationDeg = rotationDeg;
     if (fillColor) piece.fillColor = fillColor;
     out.push(piece);
   }

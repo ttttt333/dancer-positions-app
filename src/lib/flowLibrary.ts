@@ -159,6 +159,83 @@ function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n));
 }
 
+function roundCueSec(v: number): number {
+  return Math.round(v * 100) / 100;
+}
+
+function cuesHaveValidAbsoluteTimeline(
+  cues: readonly { tStartSec: number; tEndSec: number }[]
+): boolean {
+  return (
+    cues.length > 0 &&
+    cues.every(
+      (c) =>
+        Number.isFinite(c.tStartSec) &&
+        Number.isFinite(c.tEndSec) &&
+        c.tEndSec > c.tStartSec + 1e-9
+    )
+  );
+}
+
+/**
+ * 目標の総尺に合わせてキュー区間をスケールする。区間長とキュー間ギャップの比率を維持する。
+ * 無効なタイムラインのときだけ従来どおり等間隔に割る。
+ */
+function rescaleCueTimelinePreservingGaps(
+  cues: Cue[],
+  opts: {
+    totalDurationSec?: number | null;
+    minCueLengthSec?: number;
+  }
+): void {
+  if (cues.length === 0) return;
+  const minLen = Math.max(0.05, opts.minCueLengthSec ?? 0.8);
+  if (!cuesHaveValidAbsoluteTimeline(cues)) {
+    const total = Math.max(
+      minLen * cues.length,
+      opts.totalDurationSec != null &&
+        opts.totalDurationSec > 0 &&
+        Number.isFinite(opts.totalDurationSec)
+        ? opts.totalDurationSec
+        : Math.max(2, cues.length)
+    );
+    const step = total / cues.length;
+    cues.forEach((c, i) => {
+      c.tStartSec = roundCueSec(step * i);
+      c.tEndSec = roundCueSec(step * (i + 1));
+    });
+    return;
+  }
+  const sorted = [...cues].sort((a, b) => a.tStartSec - b.tStartSec);
+  const lo = sorted[0]!.tStartSec;
+  const hi = sorted[sorted.length - 1]!.tEndSec;
+  const srcSpan = Math.max(1e-6, hi - lo);
+  let target =
+    opts.totalDurationSec != null &&
+    opts.totalDurationSec > 0 &&
+    Number.isFinite(opts.totalDurationSec)
+      ? opts.totalDurationSec
+      : srcSpan;
+  const minNeed = minLen * cues.length;
+  target = Math.max(target, minNeed);
+  const scale = target / srcSpan;
+  for (const c of cues) {
+    c.tStartSec = roundCueSec((c.tStartSec - lo) * scale);
+    c.tEndSec = roundCueSec((c.tEndSec - lo) * scale);
+  }
+  sorted.sort((a, b) => a.tStartSec - b.tStartSec);
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i - 1]!;
+    const cur = sorted[i]!;
+    if (cur.tStartSec < prev.tEndSec - 1e-6) {
+      cur.tStartSec = prev.tEndSec;
+    }
+    if (cur.tEndSec <= cur.tStartSec + 1e-6) {
+      cur.tEndSec = roundCueSec(cur.tStartSec + minLen);
+    }
+  }
+}
+
 const MAX_WAVE_PEAKS_LEN = 8000;
 
 function deepCloneJson<T>(x: T): T {
@@ -174,6 +251,9 @@ function trimWavePeaks(peaks: number[] | null | undefined): number[] | undefined
 }
 
 export type FlowSaveOpts = {
+  /**
+   * 互換用。現在はキュー秒は常に `cues` / `cuesFull` の両方に保存する（true 相当）。
+   */
   includeTiming: boolean;
   /** タイムラインが保持している波形ピーク（保存時点） */
   wavePeaks?: number[] | null;
@@ -606,6 +686,7 @@ function normalizeBundleFromRaw(raw: FlowLibraryItem): {
 }
 
 function normalize(raw: FlowLibraryItem): FlowLibraryItem {
+  const rawRec = raw as unknown as Record<string, unknown>;
   const srcForm: FlowFormationSnapshot[] =
     raw.formations && raw.formations.length > 0
       ? raw.formations
@@ -693,8 +774,26 @@ function normalize(raw: FlowLibraryItem): FlowLibraryItem {
       };
     });
   const dancerCount = formations[0]?.dancers.length ?? 0;
-  const hasTiming = cues.some((c) => c.tStartSec != null && c.tEndSec != null);
-  const rawRec = raw as unknown as Record<string, unknown>;
+  const fullCuesRaw = rawRec.cuesFull;
+  const hasTimingFromFull =
+    Array.isArray(fullCuesRaw) &&
+    fullCuesRaw.length > 0 &&
+    (fullCuesRaw as { tStartSec: number; tEndSec: number }[]).every(
+      (c) =>
+        typeof c === "object" &&
+        c !== null &&
+        Number.isFinite(c.tStartSec) &&
+        Number.isFinite(c.tEndSec) &&
+        c.tEndSec > c.tStartSec + 1e-9
+    );
+  const hasTiming =
+    hasTimingFromFull ||
+    cues.some(
+      (c) =>
+        typeof c.tStartSec === "number" &&
+        typeof c.tEndSec === "number" &&
+        c.tEndSec > c.tStartSec
+    );
   const stageSettings = normalizeStageSettings(rawRec.stageSettings);
   return {
     id: raw.id,
@@ -823,19 +922,23 @@ function buildFlowLibraryItemFromProject(
           ? c.name.slice(0, MAX_NAME_LEN)
           : undefined,
       note: c.note ? c.note.slice(0, 2000) : undefined,
-      tStartSec: opts.includeTiming ? c.tStartSec : null,
-      tEndSec: opts.includeTiming ? c.tEndSec : null,
+      /** 一覧プレビュー用。`cuesFull` と同じ秒（旧「秒数オフ」で null になっていたのをやめる） */
+      tStartSec: c.tStartSec,
+      tEndSec: c.tEndSec,
       formationIdRef: c.formationId,
       ...(gap ? { gapApproachFromPrev: gap } : {}),
     };
   });
+  const hasTimingFromCues =
+    cuesSorted.length > 0 && cuesHaveValidAbsoluteTimeline(cuesSorted);
   const now = Date.now();
   const existingCount = safeParseAll().length;
   const memento = buildMementoFromProject(project, opts);
   const item: FlowLibraryItem = {
     id: crypto.randomUUID(),
     name: trimmed || `フロー ${existingCount + 1}`,
-    hasTiming: opts.includeTiming,
+    /** バンドル版では常に実タイムラインに基づく（旧「秒数オフ」で hasTiming だけ false になる不整合を防ぐ） */
+    hasTiming: hasTimingFromCues,
     dancerCount: formations[0]?.dancers.length ?? 0,
     cueCount: cues.length,
     formations,
@@ -992,16 +1095,9 @@ export function expandFlowToProject(
     cues = cues.filter((c) => fids.has(c.formationId));
     const useTiming = opts.replaceTiming && item.hasTiming;
     if (!useTiming) {
-      const total = Math.max(
-        Math.max(0.5, opts.minCueLengthSec ?? 1) * cues.length,
-        opts.totalDurationSec && opts.totalDurationSec > 0
-          ? opts.totalDurationSec
-          : Math.max(2, cues.length)
-      );
-      const step = total / cues.length;
-      cues.forEach((c, i) => {
-        c.tStartSec = step * i;
-        c.tEndSec = step * (i + 1);
+      rescaleCueTimelinePreservingGaps(cues, {
+        totalDurationSec: opts.totalDurationSec,
+        minCueLengthSec: opts.minCueLengthSec ?? 0.8,
       });
     }
     const activeFormationId =
@@ -1062,21 +1158,10 @@ export function expandFlowToProject(
     };
   });
 
-  /**
-   * タイミング置換しない場合は、`totalDurationSec` の範囲に等間隔で配り直す。
-   * 区間の隙間ができないよう、cue.tEnd と次の cue.tStart は隣接させる。
-   */
   if (!useTiming) {
-    const total = Math.max(
-      Math.max(0.5, opts.minCueLengthSec ?? 1) * cuesOut.length,
-      opts.totalDurationSec && opts.totalDurationSec > 0
-        ? opts.totalDurationSec
-        : Math.max(2, cuesOut.length)
-    );
-    const step = total / cuesOut.length;
-    cuesOut.forEach((c, i) => {
-      c.tStartSec = step * i;
-      c.tEndSec = step * (i + 1);
+    rescaleCueTimelinePreservingGaps(cuesOut, {
+      totalDurationSec: opts.totalDurationSec,
+      minCueLengthSec: opts.minCueLengthSec ?? 0.8,
     });
   }
 

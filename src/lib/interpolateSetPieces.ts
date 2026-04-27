@@ -12,13 +12,28 @@ function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t;
 }
 
+/** 最短経路で角度（度）を補間 */
+function lerpAngleDeg(a: number, b: number, t: number): number {
+  let da = b - a;
+  while (da > 180) da -= 360;
+  while (da < -180) da += 360;
+  return a + da * t;
+}
+
+function setPieceRotationDeg(p: SetPiece): number {
+  const r = p.rotationDeg;
+  return typeof r === "number" && Number.isFinite(r) ? r : 0;
+}
+
 function roundPiece(p: SetPiece): SetPiece {
+  const rot = setPieceRotationDeg(p);
   return {
     ...p,
     xPct: Math.round(p.xPct * 100) / 100,
     yPct: Math.round(p.yPct * 100) / 100,
     wPct: Math.round(p.wPct * 100) / 100,
     hPct: Math.round(p.hPct * 100) / 100,
+    rotationDeg: Math.round(rot * 100) / 100,
   };
 }
 
@@ -41,10 +56,16 @@ function lerpSetPiecesAtIndex(
           kind: alpha < 0.5 ? a.kind : b.kind,
           label: alpha < 0.5 ? a.label : b.label,
           fillColor: alpha < 0.5 ? a.fillColor : b.fillColor,
+          layer: alpha < 0.5 ? a.layer : b.layer,
           xPct: lerp(a.xPct, b.xPct, alpha),
           yPct: lerp(a.yPct, b.yPct, alpha),
           wPct: lerp(a.wPct, b.wPct, alpha),
           hPct: lerp(a.hPct, b.hPct, alpha),
+          rotationDeg: lerpAngleDeg(
+            setPieceRotationDeg(a),
+            setPieceRotationDeg(b),
+            alpha
+          ),
           interpolateInGaps: true,
         })
       );

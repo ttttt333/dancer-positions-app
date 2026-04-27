@@ -152,7 +152,7 @@ export function FlowLibraryDialog({
 }: Props) {
   const [items, setItems] = useState<FlowLibraryItem[]>([]);
   const [name, setName] = useState("");
-  const [includeTiming, setIncludeTiming] = useState(false);
+  /** 軽量キュー配列に秒を載せるか。バンドルでは cuesFull に常にフル秒が入る */
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<{
     kind: "info" | "error";
@@ -203,7 +203,7 @@ export function FlowLibraryDialog({
     }
     setBusy(true);
     const r = saveFlowFromProject(trimmed, project, {
-      includeTiming,
+      includeTiming: true,
       wavePeaks: getWavePeaks?.() ?? null,
       audioDurationSec: audioDurationSec > 0 ? audioDurationSec : null,
     });
@@ -217,14 +217,14 @@ export function FlowLibraryDialog({
       text: `「${r.item.name}」を保存しました（キュー ${r.item.cueCount} / 形 ${r.item.formations.length}）。`,
     });
     refresh();
-  }, [name, project, includeTiming, refresh, getWavePeaks, audioDurationSec]);
+  }, [name, project, refresh, getWavePeaks, audioDurationSec]);
 
   const doOverwrite = useCallback(
     (id: string, label: string) => {
       if (!confirm(`「${label}」を現在のステージ内容で上書きします。よろしいですか？`)) return;
       setBusy(true);
       const r = overwriteFlowFromProject(id, project, {
-        includeTiming,
+        includeTiming: true,
         wavePeaks: getWavePeaks?.() ?? null,
         audioDurationSec: audioDurationSec > 0 ? audioDurationSec : null,
       });
@@ -236,7 +236,7 @@ export function FlowLibraryDialog({
       setFeedback({ kind: "info", text: `「${r.item.name}」を上書きしました。` });
       refresh();
     },
-    [project, includeTiming, refresh, getWavePeaks, audioDurationSec]
+    [project, refresh, getWavePeaks, audioDurationSec]
   );
 
   const doDelete = useCallback(
@@ -343,8 +343,12 @@ export function FlowLibraryDialog({
           : audioDurationSec > 0
             ? audioDurationSec
             : undefined;
-      if (expanded.memento?.wavePeaks?.length) {
-        onRestoreWaveform?.(expanded.memento.wavePeaks, restoreDur);
+      const peaks = expanded.memento?.wavePeaks;
+      if (peaks?.length) {
+        /** setProject 後にコミットさせ、音源 effect と競合しにくくする */
+        queueMicrotask(() => {
+          onRestoreWaveform?.(peaks, restoreDur);
+        });
       }
       setFeedback({
         kind: "info",
@@ -491,27 +495,6 @@ export function FlowLibraryDialog({
               {busy ? "保存中…" : "新規保存"}
             </button>
           </div>
-          <label
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              fontSize: "12px",
-              color: "#cbd5e1",
-              cursor: canSave ? "pointer" : "not-allowed",
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={includeTiming}
-              onChange={(e) => setIncludeTiming(e.target.checked)}
-              disabled={busy || !canSave}
-            />
-            キューの秒数（タイミング）も保存する
-            <span style={{ color: "#64748b" }}>
-              ・別の曲で使うときはオフ推奨
-            </span>
-          </label>
           {!canSave ? (
             <p
               style={{

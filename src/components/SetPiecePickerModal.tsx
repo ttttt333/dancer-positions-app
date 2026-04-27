@@ -6,6 +6,8 @@ import { EditorSideSheet } from "./EditorSideSheet";
 export type SetPiecePickerSubmit = {
   kind: SetPieceKind;
   fillColor: string;
+  /** true のとき編集画面全体（タイムライン列など含む）の % 座標で配置 */
+  placeOnEditorSurface?: boolean;
 };
 
 const PRESET_COLORS = [
@@ -91,11 +93,13 @@ export function SetPiecePickerModal({
   const titleId = useId();
   const [kind, setKind] = useState<SetPieceKind>("rect");
   const [fillColor, setFillColor] = useState(DEFAULT_COLOR);
+  const [placeOnEditorSurface, setPlaceOnEditorSurface] = useState(false);
 
   useEffect(() => {
     if (open) {
       setKind("rect");
       setFillColor(DEFAULT_COLOR);
+      setPlaceOnEditorSurface(false);
     }
   }, [open]);
 
@@ -110,8 +114,12 @@ export function SetPiecePickerModal({
 
   const submit = useCallback(() => {
     if (disabled) return;
-    onConfirm({ kind, fillColor: fillColor.trim().toLowerCase() });
-  }, [disabled, kind, fillColor, onConfirm]);
+    onConfirm({
+      kind,
+      fillColor: fillColor.trim().toLowerCase(),
+      placeOnEditorSurface,
+    });
+  }, [disabled, kind, fillColor, placeOnEditorSurface, onConfirm]);
 
   if (!open) return null;
 
@@ -166,7 +174,8 @@ export function SetPiecePickerModal({
         </div>
 
         <p style={{ margin: "0 0 12px", fontSize: "12px", color: "#94a3b8", lineHeight: 1.5 }}>
-          図形と色を選んでからステージに配置します。楕円は配置後に枠をドラッグして伸ばせます。
+          図形と色を選んで配置します。楕円は配置後に枠をドラッグして伸ばせます。選択中は上の丸い
+          ハンドルで回転できます。
         </p>
 
         <div style={{ marginBottom: "14px" }}>
@@ -288,6 +297,34 @@ export function SetPiecePickerModal({
           </label>
         </div>
 
+        <label
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "10px",
+            marginBottom: "16px",
+            fontSize: "12px",
+            color: "#cbd5e1",
+            lineHeight: 1.45,
+            cursor: disabled ? "not-allowed" : "pointer",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={placeOnEditorSurface}
+            disabled={disabled}
+            onChange={(e) => setPlaceOnEditorSurface(e.target.checked)}
+            style={{ marginTop: 3, flexShrink: 0 }}
+          />
+          <span>
+            <strong style={{ color: "#e2e8f0" }}>編集画面全体に配置</strong>
+            <br />
+            <span style={{ fontSize: "11px", color: "#94a3b8" }}>
+              タイムラインや右列の上にも置けます（未チェック時はメイン床のみ）。
+            </span>
+          </span>
+        </label>
+
         <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
           <button
             type="button"
@@ -310,7 +347,7 @@ export function SetPiecePickerModal({
               background: "rgba(99, 102, 241, 0.35)",
             }}
           >
-            ステージに追加
+            追加
           </button>
         </div>
       </div>
