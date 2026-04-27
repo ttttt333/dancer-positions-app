@@ -1,20 +1,52 @@
 import type { DancerSpot, GapApproachRoute } from "../types/choreography";
+import {
+  DEFAULT_DANCER_MARKER_DIAMETER_PX,
+  MARKER_DIAMETER_PX_MAX,
+  MARKER_DIAMETER_PX_MIN,
+} from "./projectDefaults";
 
 const CLAMP_X_LO = 2;
 const CLAMP_X_HI = 98;
 const CLAMP_Y_LO = 2;
 const CLAMP_Y_HI = 98;
 
-/** 客席側（手前）へ寄せる量（％）。奥は負方向 */
-const BUMP_AUDIENCE_Y = 12;
-const BUMP_UPSTAGE_Y = -11;
-const BUMP_KAMITE_X = 11;
-const BUMP_SHIMOTE_X = -11;
-/** 遠回り: 全員が中間で手前へ膨らむ量 */
-const BUMP_DETOUR_Y = 14;
-
 /** 始点・終点がほぼ同じ（％座標のユークリッド距離）なら経路を使わず固定 */
 const STATIONARY_EPS_PCT = 0.055;
+
+/**
+ * ギャップ経路の法線オフセット（％）。印直径から「接触しない最小寄り」を推定する。
+ * ステージ実幅 px は再生時に未保持のため、やや大きめの参照幅で % に換算し上限で抑える。
+ */
+function gapPassingSeparationPct(from: DancerSpot[], to: DancerSpot[]): number {
+  let maxD = DEFAULT_DANCER_MARKER_DIAMETER_PX;
+  for (const d of from) {
+    if (typeof d.sizePx === "number" && Number.isFinite(d.sizePx)) {
+      maxD = Math.max(
+        maxD,
+        Math.min(
+          MARKER_DIAMETER_PX_MAX,
+          Math.max(MARKER_DIAMETER_PX_MIN, d.sizePx)
+        )
+      );
+    }
+  }
+  for (const d of to) {
+    if (typeof d.sizePx === "number" && Number.isFinite(d.sizePx)) {
+      maxD = Math.max(
+        maxD,
+        Math.min(
+          MARKER_DIAMETER_PX_MAX,
+          Math.max(MARKER_DIAMETER_PX_MIN, d.sizePx)
+        )
+      );
+    }
+  }
+  const stageRefWpx = 720;
+  const diameterAsPct = (maxD / stageRefWpx) * 100;
+  const pad = 0.26;
+  const tight = 0.58 * diameterAsPct + pad;
+  return Math.min(12, Math.max(2.72, tight));
+}
 
 export const VALID_GAP_APPROACH_ROUTES: readonly GapApproachRoute[] = [
   "linear",
@@ -114,7 +146,8 @@ function pairXY(
   alpha: number,
   route: GapApproachRoute,
   medX: number,
-  medY: number
+  medY: number,
+  sepPct: number
 ): { x: number; y: number } {
   if (Math.hypot(ax - bx, ay - by) < STATIONARY_EPS_PCT) {
     return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
@@ -128,13 +161,13 @@ function pairXY(
   }
 
   if (route === "detour_bulge") {
-    const p = piecewise2(ax, ay, bx, by, mx, my + BUMP_DETOUR_Y, alpha);
+    const p = piecewise2(ax, ay, bx, by, mx, my + sepPct, alpha);
     return clampXY(p.x, p.y);
   }
 
   if (route === "kamite_half_via_audience") {
     if (ax >= medX) {
-      const p = piecewise2(ax, ay, bx, by, mx, my + BUMP_AUDIENCE_Y, alpha);
+      const p = piecewise2(ax, ay, bx, by, mx, my + sepPct, alpha);
       return clampXY(p.x, p.y);
     }
     return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
@@ -142,7 +175,7 @@ function pairXY(
 
   if (route === "shimote_half_via_audience") {
     if (ax < medX) {
-      const p = piecewise2(ax, ay, bx, by, mx, my + BUMP_AUDIENCE_Y, alpha);
+      const p = piecewise2(ax, ay, bx, by, mx, my + sepPct, alpha);
       return clampXY(p.x, p.y);
     }
     return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
@@ -150,7 +183,7 @@ function pairXY(
 
   if (route === "kamite_half_via_upstage") {
     if (ax >= medX) {
-      const p = piecewise2(ax, ay, bx, by, mx, my + BUMP_UPSTAGE_Y, alpha);
+      const p = piecewise2(ax, ay, bx, by, mx, my - sepPct, alpha);
       return clampXY(p.x, p.y);
     }
     return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
@@ -158,7 +191,7 @@ function pairXY(
 
   if (route === "shimote_half_via_upstage") {
     if (ax < medX) {
-      const p = piecewise2(ax, ay, bx, by, mx, my + BUMP_UPSTAGE_Y, alpha);
+      const p = piecewise2(ax, ay, bx, by, mx, my - sepPct, alpha);
       return clampXY(p.x, p.y);
     }
     return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
@@ -166,7 +199,7 @@ function pairXY(
 
   if (route === "front_half_via_kamite") {
     if (ay >= medY) {
-      const p = piecewise2(ax, ay, bx, by, mx + BUMP_KAMITE_X, my, alpha);
+      const p = piecewise2(ax, ay, bx, by, mx + sepPct, my, alpha);
       return clampXY(p.x, p.y);
     }
     return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
@@ -174,7 +207,7 @@ function pairXY(
 
   if (route === "front_half_via_shimote") {
     if (ay >= medY) {
-      const p = piecewise2(ax, ay, bx, by, mx + BUMP_SHIMOTE_X, my, alpha);
+      const p = piecewise2(ax, ay, bx, by, mx - sepPct, my, alpha);
       return clampXY(p.x, p.y);
     }
     return clampXY(lerpN(ax, bx, alpha), lerpN(ay, by, alpha));
@@ -197,6 +230,7 @@ export function lerpDancersAcrossGap(
   const ys = from.map((d) => d.yPct);
   const medX = median(xs);
   const medY = median(ys);
+  const sepPct = gapPassingSeparationPct(from, to);
 
   const n = Math.max(from.length, to.length);
   const out: DancerSpot[] = [];
@@ -227,7 +261,17 @@ export function lerpDancersAcrossGap(
       const markerBadgeSource =
         alpha < 0.5 ? a.markerBadgeSource : b.markerBadgeSource;
 
-      const xy = pairXY(a.xPct, a.yPct, b.xPct, b.yPct, alpha, r, medX, medY);
+      const xy = pairXY(
+        a.xPct,
+        a.yPct,
+        b.xPct,
+        b.yPct,
+        alpha,
+        r,
+        medX,
+        medY,
+        sepPct
+      );
 
       out.push({
         id: a.id,
