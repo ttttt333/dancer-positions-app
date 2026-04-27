@@ -93,13 +93,14 @@ export function SetPiecePickerModal({
   const titleId = useId();
   const [kind, setKind] = useState<SetPieceKind>("rect");
   const [fillColor, setFillColor] = useState(DEFAULT_COLOR);
-  const [placeOnEditorSurface, setPlaceOnEditorSurface] = useState(false);
+  /** 床テキストと同様、既定は編集画面全体（タイムライン列・右パネル上も含む）基準の % 座標 */
+  const [placeOnEditorSurface, setPlaceOnEditorSurface] = useState(true);
 
   useEffect(() => {
     if (open) {
       setKind("rect");
       setFillColor(DEFAULT_COLOR);
-      setPlaceOnEditorSurface(false);
+      setPlaceOnEditorSurface(true);
     }
   }, [open]);
 
@@ -317,10 +318,10 @@ export function SetPiecePickerModal({
             style={{ marginTop: 3, flexShrink: 0 }}
           />
           <span>
-            <strong style={{ color: "#e2e8f0" }}>編集画面全体に配置</strong>
+            <strong style={{ color: "#e2e8f0" }}>編集画面全体に配置</strong>（既定）
             <br />
             <span style={{ fontSize: "11px", color: "#94a3b8" }}>
-              タイムラインや右列の上にも置けます（未チェック時はメイン床のみ）。
+              床テキストと同じく、タイムライン列や右パネルの上も % 座標で置けます。チェックを外すとメイン床の範囲だけになります。
             </span>
           </span>
         </label>

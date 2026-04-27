@@ -22,6 +22,14 @@ import type { DancerSpot } from "../types/choreography";
  */
 export const FORMATION_REFERENCE_STEP_PCT = 8;
 
+/**
+ * メイン床を基準にした印の中心（xPct / yPct）の許容範囲。
+ * 従来の 2〜98% より広げ、翼・花道・客席手前など「床パネルの外」にも置けるようにする。
+ * （保存・正規化・ドラッグの clamp をこの範囲で揃える）
+ */
+export const DANCER_STAGE_POSITION_PCT_LO = -45;
+export const DANCER_STAGE_POSITION_PCT_HI = 145;
+
 export interface DancerSpacingPresetOption {
   /** select の value 用に mm をそのまま */
   mm: number;
@@ -150,7 +158,7 @@ export function snapXPctToConvention(
   const snapped = 50 + k * halfStep;
   const limit = maxDistancePct ?? halfStep;
   if (Math.abs(snapped - xPct) > limit) return null;
-  return clampPct(snapped, 2, 98);
+  return clampPct(snapped, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI);
 }
 
 /**
@@ -169,7 +177,11 @@ export function conventionCenterDistanceMmFromMarkerCenter(
   const stepPct = dancerStepPctFromSpacingMm(dancerSpacingMm, stageWidthMm)!;
   const halfStep = stepPct / 2;
   const k = Math.round((xPct - 50) / halfStep);
-  const snappedXPct = clampPct(50 + k * halfStep, 2, 98);
+  const snappedXPct = clampPct(
+    50 + k * halfStep,
+    DANCER_STAGE_POSITION_PCT_LO,
+    DANCER_STAGE_POSITION_PCT_HI
+  );
   return Math.abs(((snappedXPct - 50) / 100) * stageWidthMm);
 }
 
@@ -233,7 +245,7 @@ export function snapXPctToCenterDistanceMmGrid(
   const sign = xPct >= 50 ? 1 : -1;
   const xMmFromLeft = stageWidthMm / 2 + sign * snappedDist;
   const newPct = (xMmFromLeft / stageWidthMm) * 100;
-  return clampPct(newPct, 2, 98);
+  return clampPct(newPct, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI);
 }
 
 /**

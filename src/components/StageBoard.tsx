@@ -27,6 +27,8 @@ import {
   STAGE_MAIN_FLOOR_MM_MIN,
 } from "../lib/stageDimensions";
 import {
+  DANCER_STAGE_POSITION_PCT_HI,
+  DANCER_STAGE_POSITION_PCT_LO,
   formatCenterDistanceCmFine,
   rawHorizontalDistanceFromStageCenterMm,
   snapXPctToCenterDistanceMmGrid,
@@ -1454,8 +1456,12 @@ export function StageBoard({
           ...d,
           id: nid,
           label,
-          xPct: round2(clamp(d.xPct + 2.5, 2, 98)),
-          yPct: round2(clamp(d.yPct + 2.5, 2, 98)),
+          xPct: round2(
+            clamp(d.xPct + 2.5, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI)
+          ),
+          yPct: round2(
+            clamp(d.yPct + 2.5, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI)
+          ),
           crewMemberId: undefined,
           markerBadge: undefined,
         };
@@ -1865,18 +1871,30 @@ export function StageBoard({
 
   const quantizeCoord = useCallback(
     (v: number, axis: "x" | "y", mode: SnapMode) => {
-      const c = clamp(v, 2, 98);
+      const c = clamp(v, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI);
       if (mode === "free" || !snapGrid) return round2(c);
       if (mmSnapGrid) {
         const base =
           axis === "x" ? mmSnapGrid.stepXPct : mmSnapGrid.stepYPct;
         const useStep =
           mode === "fine" ? Math.max(0.05, base / 4) : base;
-        return round2(clamp(Math.round(c / useStep) * useStep, 2, 98));
+        return round2(
+          clamp(
+            Math.round(c / useStep) * useStep,
+            DANCER_STAGE_POSITION_PCT_LO,
+            DANCER_STAGE_POSITION_PCT_HI
+          )
+        );
       }
       const step =
         mode === "fine" ? Math.max(0.25, gridStep / 4) : gridStep;
-      return round2(clamp(Math.round(c / step) * step, 2, 98));
+      return round2(
+        clamp(
+          Math.round(c / step) * step,
+          DANCER_STAGE_POSITION_PCT_LO,
+          DANCER_STAGE_POSITION_PCT_HI
+        )
+      );
     },
     [snapGrid, gridStep, mmSnapGrid]
   );
@@ -2759,8 +2777,16 @@ export function StageBoard({
             if (!idSet.has(x.id)) return x;
             const s = g.startPositions.get(x.id);
             if (!s) return x;
-            const nx = clamp(s.xPct + dxPct, 2, 98);
-            const ny = clamp(s.yPct + dyPct, 2, 98);
+            const nx = clamp(
+              s.xPct + dxPct,
+              DANCER_STAGE_POSITION_PCT_LO,
+              DANCER_STAGE_POSITION_PCT_HI
+            );
+            const ny = clamp(
+              s.yPct + dyPct,
+              DANCER_STAGE_POSITION_PCT_LO,
+              DANCER_STAGE_POSITION_PCT_HI
+            );
             return { ...x, xPct: round2(nx), yPct: round2(ny) };
           }),
         }));
@@ -2797,8 +2823,16 @@ export function StageBoard({
             if (!idSet.has(x.id)) return x;
             const s = g.startPositions.get(x.id);
             if (!s) return x;
-            const nx = clamp(ax + (s.xPct - ax) * sx, 2, 98);
-            const ny = clamp(ay + (s.yPct - ay) * sy, 2, 98);
+            const nx = clamp(
+              ax + (s.xPct - ax) * sx,
+              DANCER_STAGE_POSITION_PCT_LO,
+              DANCER_STAGE_POSITION_PCT_HI
+            );
+            const ny = clamp(
+              ay + (s.yPct - ay) * sy,
+              DANCER_STAGE_POSITION_PCT_LO,
+              DANCER_STAGE_POSITION_PCT_HI
+            );
             return { ...x, xPct: round2(nx), yPct: round2(ny) };
           }),
         }));
@@ -2849,8 +2883,16 @@ export function StageBoard({
                 const vy = py0 - rot.centerClientY;
                 const px1 = rot.centerClientX + vx * cos - vy * sin;
                 const py1 = rot.centerClientY + vx * sin + vy * cos;
-                const nxPct = clamp(((px1 - r.left) / w) * 100, 2, 98);
-                const nyPct = clamp(((py1 - r.top) / h) * 100, 2, 98);
+                const nxPct = clamp(
+                  ((px1 - r.left) / w) * 100,
+                  DANCER_STAGE_POSITION_PCT_LO,
+                  DANCER_STAGE_POSITION_PCT_HI
+                );
+                const nyPct = clamp(
+                  ((py1 - r.top) / h) * 100,
+                  DANCER_STAGE_POSITION_PCT_LO,
+                  DANCER_STAGE_POSITION_PCT_HI
+                );
                 draftPos.set(id, {
                   xPct: round2(nxPct),
                   yPct: round2(nyPct),
@@ -3310,7 +3352,9 @@ export function StageBoard({
     height: "100%",
     minWidth: 0,
     minHeight: 0,
-    overflow: "hidden",
+    /** 編集時は印を床パネルの外（翼・花道側）にも描けるよう、再生・閲覧モードだけ従来どおり clip */
+    overflow:
+      viewMode === "view" || playbackOrPreview ? "hidden" : "visible",
     background: `linear-gradient(180deg, #0f1729 0%, #0a0f18 42%, ${shell.bgDeep} 100%)`,
   };
 

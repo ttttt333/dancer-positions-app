@@ -12,6 +12,10 @@ import type {
   StageShape,
 } from "../types/choreography";
 import { modDancerColorIndex } from "./dancerColorPalette";
+import {
+  DANCER_STAGE_POSITION_PCT_HI,
+  DANCER_STAGE_POSITION_PCT_LO,
+} from "./dancerSpacing";
 import { parseGapApproachRoute } from "./gapDancerInterpolation";
 import { clampStageGridAxisMm, parseAudienceEdge } from "./projectDefaults";
 
@@ -730,8 +734,8 @@ function normalize(raw: FlowLibraryItem): FlowLibraryItem {
         .slice(0, MAX_DANCERS_PER_FORM)
         .map((d, j) => ({
           label: (d.label || String(j + 1)).slice(0, 32),
-          xPct: clamp(d.xPct, 0, 100),
-          yPct: clamp(d.yPct, 0, 100),
+          xPct: clamp(d.xPct, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI),
+          yPct: clamp(d.yPct, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI),
           ...(typeof d.colorIndex === "number" && Number.isFinite(d.colorIndex)
             ? { colorIndex: modDancerColorIndex(Math.floor(d.colorIndex)) }
             : {}),
@@ -891,8 +895,8 @@ function buildFlowLibraryItemFromProject(
         .slice(0, MAX_DANCERS_PER_FORM)
         .map((d) => ({
           label: d.label,
-          xPct: clamp(d.xPct, 0, 100),
-          yPct: clamp(d.yPct, 0, 100),
+          xPct: clamp(d.xPct, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI),
+          yPct: clamp(d.yPct, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI),
           ...(typeof d.colorIndex === "number" && Number.isFinite(d.colorIndex)
             ? { colorIndex: modDancerColorIndex(Math.floor(d.colorIndex)) }
             : {}),

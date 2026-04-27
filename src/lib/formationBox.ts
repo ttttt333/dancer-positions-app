@@ -1,5 +1,9 @@
 import type { DancerSpot } from "../types/choreography";
 import { modDancerColorIndex } from "./dancerColorPalette";
+import {
+  DANCER_STAGE_POSITION_PCT_HI,
+  DANCER_STAGE_POSITION_PCT_LO,
+} from "./dancerSpacing";
 
 /**
  * 「形の箱（Formation Box）」— ブラウザ内に保存されるユーザ独自の立ち位置ライブラリ。
@@ -65,8 +69,8 @@ function normalize(raw: FormationBoxItem): FormationBoxItem {
     .slice(0, MAX_DANCERS)
     .map((d) => {
       const normalized: FormationBoxSpot = {
-        xPct: clamp(d.xPct, 0, 100),
-        yPct: clamp(d.yPct, 0, 100),
+        xPct: clamp(d.xPct, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI),
+        yPct: clamp(d.yPct, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI),
       };
       if (typeof d.colorIndex === "number" && Number.isFinite(d.colorIndex)) {
         normalized.colorIndex = modDancerColorIndex(Math.floor(d.colorIndex));
@@ -207,8 +211,8 @@ export function saveFormationToBox(
     dancerCount: clean.length,
     dancers: clean.map((d) => {
       const spot: FormationBoxSpot = {
-        xPct: clamp(d.xPct, 0, 100),
-        yPct: clamp(d.yPct, 0, 100),
+        xPct: clamp(d.xPct, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI),
+        yPct: clamp(d.yPct, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI),
       };
       if (typeof d.colorIndex === "number" && Number.isFinite(d.colorIndex)) {
         spot.colorIndex = modDancerColorIndex(Math.floor(d.colorIndex));
@@ -285,8 +289,16 @@ export function updateFormationBoxItem(
               dancerCount: clean.length,
               dancers: clean.map((d) => {
                 const spot: FormationBoxSpot = {
-                  xPct: clamp(d.xPct, 0, 100),
-                  yPct: clamp(d.yPct, 0, 100),
+                  xPct: clamp(
+                    d.xPct,
+                    DANCER_STAGE_POSITION_PCT_LO,
+                    DANCER_STAGE_POSITION_PCT_HI
+                  ),
+                  yPct: clamp(
+                    d.yPct,
+                    DANCER_STAGE_POSITION_PCT_LO,
+                    DANCER_STAGE_POSITION_PCT_HI
+                  ),
                 };
                 if (
                   typeof d.colorIndex === "number" &&
@@ -327,7 +339,7 @@ export function updateFormationBoxItem(
  * 箱のアイテムを `DancerSpot[]` として復元。
  * - id は新規採番（適用時に `mergeFormationBoxSnapshotWithStageIdentities` で既存に合わせる）
  * - 保存済みの label / colorIndex / crewMemberId を反映。未保存の旧データは番号ラベル
- * - xPct/yPct はステージ可動域 [5..95] × [8..92] にクランプ
+ * - xPct/yPct はメイン床の可動域（`dancerSpacing` の定数）にクランプ
  */
 export function dancersFromFormationBoxItem(
   item: FormationBoxItem
@@ -340,8 +352,8 @@ export function dancersFromFormationBoxItem(
     const spot: DancerSpot = {
       id: crypto.randomUUID(),
       label,
-      xPct: clamp(d.xPct, 5, 95),
-      yPct: clamp(d.yPct, 8, 92),
+      xPct: clamp(d.xPct, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI),
+      yPct: clamp(d.yPct, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI),
       colorIndex:
         typeof d.colorIndex === "number" && Number.isFinite(d.colorIndex)
           ? modDancerColorIndex(Math.floor(d.colorIndex))

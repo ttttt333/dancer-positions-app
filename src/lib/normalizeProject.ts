@@ -24,6 +24,10 @@ import {
   MARKER_DIAMETER_PX_MIN,
   migrateAudienceEdge,
 } from "./projectDefaults";
+import {
+  DANCER_STAGE_POSITION_PCT_HI,
+  DANCER_STAGE_POSITION_PCT_LO,
+} from "./dancerSpacing";
 import { modDancerColorIndex, normalizeDancerFacingDeg } from "./dancerColorPalette";
 import { sliceMarkerBadgeForStorage } from "./markerBadge";
 
@@ -294,11 +298,11 @@ function normalizeDancerSpot(raw: unknown, index: number): DancerSpot {
     label: typeof d.label === "string" ? d.label : String(index + 1),
     xPct:
       typeof d.xPct === "number" && Number.isFinite(d.xPct)
-        ? clampPct(d.xPct, 0, 100)
+        ? clampPct(d.xPct, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI)
         : 50,
     yPct:
       typeof d.yPct === "number" && Number.isFinite(d.yPct)
-        ? clampPct(d.yPct, 0, 100)
+        ? clampPct(d.yPct, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI)
         : 50,
     colorIndex:
       typeof d.colorIndex === "number" && Number.isFinite(d.colorIndex)
