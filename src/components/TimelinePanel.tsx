@@ -369,7 +369,7 @@ function pickCueDragKindAtWave(
   return { cueId: id, mode };
 }
 
-/** 狭い時間ギャップでもタップしやすいよう、白い接続ブロックの最小幅 */
+/** 狭い時間ギャップでもタップしやすいよう、接続ブロック矩形の最小幅 */
 const GAP_LINK_MIN_WIDTH_PX = 6;
 
 /**
@@ -408,7 +408,7 @@ function gapConnectorPixelBounds(
   return { left: gl, width, top, height };
 }
 
-/** 白いギャップ接続ブロック上をクリックしたか → 経路設定の対象は「次のキュー」 */
+/** 波形上のキュー間ギャップ矩形をクリックしたか → 経路設定の対象は「次のキュー」 */
 function pickGapLinkAtWave(
   clientX: number,
   clientY: number,
@@ -897,7 +897,10 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       });
 
       const cueList = cuesRef.current;
-      /** キューとキューの間を白いブロックで常時表示（右クリックで入り方メニュー） */
+      /**
+       * キューとキューの間のギャップを常時表示（右クリックで入り方メニュー）。
+       * 直線補間はほぼ透明の白、経路ありは黄系で差をはっきりさせる。
+       */
       if (d > 0 && viewSpan > 0 && cueList.length >= 2) {
         const sortedWave = sortCuesByStart(cueList);
         const dragPrevDraw = cueDragPreviewRangeRef.current;
@@ -918,14 +921,15 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             h
           );
           if (!b) continue;
-          const hasRoute = Boolean(next.gapApproachFromPrev);
-          g.fillStyle = hasRoute
-            ? "rgba(186, 230, 253, 0.32)"
-            : "rgba(248, 250, 252, 0.16)";
+          const nonLinearGapRoute = Boolean(next.gapApproachFromPrev);
+          if (nonLinearGapRoute) {
+            g.fillStyle = "rgba(250, 204, 21, 0.45)";
+            g.strokeStyle = "rgba(180, 83, 9, 0.9)";
+          } else {
+            g.fillStyle = "rgba(255, 255, 255, 0.07)";
+            g.strokeStyle = "rgba(248, 250, 252, 0.22)";
+          }
           g.fillRect(b.left, b.top, b.width, b.height);
-          g.strokeStyle = hasRoute
-            ? "rgba(59, 130, 246, 0.38)"
-            : "rgba(226, 232, 240, 0.28)";
           g.lineWidth = 1;
           g.strokeRect(b.left + 0.5, b.top + 0.5, b.width - 1, b.height - 1);
         }

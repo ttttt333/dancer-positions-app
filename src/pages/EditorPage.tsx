@@ -1720,7 +1720,7 @@ export function EditorPage() {
                 : `${TOP_DOCK_HEIGHT_PX}px`
             } 4px minmax(0, 1fr)`
         : "1fr"
-      : "auto auto auto";
+      : "auto auto auto auto";
 
   const editorPaneGridTemplateColumns = stageZenLayout
     ? "1fr"
@@ -2049,87 +2049,6 @@ export function EditorPage() {
         }}
       >
         {showTopWaveDock && !stageZenLayout ? (
-          <section
-            style={{
-              gridColumn: "1 / -1",
-              gridRow: 1,
-              /**
-               * 上下の区切りは下段のセパレータ（1px 線）に任せて、
-               * 自分自身の枠・背景は描かない。スペースを最大限に確保するため。
-               */
-              background: "transparent",
-              border: "none",
-              padding: "0 4px 0",
-              minWidth: 0,
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-              flexShrink: 0,
-              ...(editorFixedWaveDockLayout
-                ? {
-                    height: editorShellTopWavePx,
-                    minHeight: editorShellTopWavePx,
-                    maxHeight: editorShellTopWavePx,
-                  }
-                : { minHeight: 0 }),
-            }}
-          >
-            {hasRosterMembers && !project.rosterHidesTimeline ? (
-              <div
-                style={{
-                  flexShrink: 0,
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  padding: "0 4px 2px",
-                }}
-              >
-                <button
-                  type="button"
-                  disabled={project.viewMode === "view"}
-                  title="右列で名簿一覧を表示し、タイムラインは隠します"
-                  onClick={() =>
-                    setProjectSafe((p) => ({
-                      ...p,
-                      rosterHidesTimeline: true,
-                      rosterStripCollapsed: false,
-                    }))
-                  }
-                  style={{
-                    fontSize: "11px",
-                    padding: "4px 10px",
-                    borderRadius: "8px",
-                    border: "1px solid #14532d",
-                    background: "#14532d",
-                    color: "#dcfce7",
-                    cursor:
-                      project.viewMode === "view" ? "not-allowed" : "pointer",
-                    fontWeight: 600,
-                  }}
-                >
-                  メンバーを表示
-                </button>
-              </div>
-            ) : null}
-            <div
-              style={{
-                flex: "1 1 auto",
-                minHeight: 0,
-                display: "flex",
-                flexDirection: "column",
-                /**
-                 * 固定シェルでは `auto` だと名簿行＋ツールバー＋波形で縦スクロールが出て
-                 * 波形が切れたように見える。高さは `editorShellTopWavePx` で確保済みのため hidden。
-                 */
-                ...(editorFixedWaveDockLayout
-                  ? { overflow: "hidden" as const }
-                  : {}),
-              }}
-            >
-              {timelinePanelEl}
-            </div>
-          </section>
-        ) : null}
-        {showTopWaveDock && !stageZenLayout ? (
           <div
             role="separator"
             aria-orientation="horizontal"
@@ -2182,6 +2101,7 @@ export function EditorPage() {
               minWidth: 0,
               minHeight: 0,
               display: "flex",
+              gridRow: 1,
             }}
           >
             <ChoreoGridToolbar {...choreoToolbarSharedProps} />
@@ -2210,7 +2130,7 @@ export function EditorPage() {
                     ? { position: "relative" as const }
                     : {}),
                 }
-              : {}),
+              : { gridRow: 2 }),
           }}
         >
           {stageZenLayout ? (
@@ -2442,6 +2362,260 @@ export function EditorPage() {
           </div>
         </section>
 
+        {/*
+          タイムラインは常にこの 1 ブロックだけにマウントする（ワイド⇔狭いで別ブランチに置くと
+          TimelinePanel が再マウントされ、波形・音源の内部状態が消える）。
+          グリッド行だけワイド時は 1 行目、狭いときはステージの下（3 行目）に固定する。
+        */}
+        {!stageZenLayout ? (
+          <section
+            style={{
+              gridColumn:
+                wideEditorLayout && showTopWaveDock ? "1 / -1" : 1,
+              gridRow: wideEditorLayout && showTopWaveDock ? 1 : 3,
+              ...(wideEditorLayout && showTopWaveDock
+                ? {
+                    background: "transparent",
+                    border: "none",
+                    padding: "0 4px 0",
+                    minWidth: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    overflow: "hidden",
+                    flexShrink: 0,
+                    ...(editorFixedWaveDockLayout
+                      ? {
+                          height: editorShellTopWavePx,
+                          minHeight: editorShellTopWavePx,
+                          maxHeight: editorShellTopWavePx,
+                        }
+                      : { minHeight: 0 }),
+                  }
+                : {
+                    ...panelCard,
+                    padding: rosterOnlyMode ? "8px 10px" : "12px",
+                    display: "flex",
+                    flexDirection: "column",
+                    overflow: "hidden",
+                    minHeight: 0,
+                    ...(rosterOnlyMode
+                      ? {
+                          flex: "0 0 auto",
+                          maxHeight: "min(42vh, 380px)",
+                          flexShrink: 0,
+                        }
+                      : rightPaneTopSectionStyle),
+                  }),
+            }}
+          >
+            {wideEditorLayout &&
+            showTopWaveDock &&
+            hasRosterMembers &&
+            !project.rosterHidesTimeline ? (
+              <div
+                style={{
+                  flexShrink: 0,
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  padding: "0 4px 2px",
+                }}
+              >
+                <button
+                  type="button"
+                  disabled={project.viewMode === "view"}
+                  title="右列で名簿一覧を表示し、タイムラインは隠します"
+                  onClick={() =>
+                    setProjectSafe((p) => ({
+                      ...p,
+                      rosterHidesTimeline: true,
+                      rosterStripCollapsed: false,
+                    }))
+                  }
+                  style={{
+                    fontSize: "11px",
+                    padding: "4px 10px",
+                    borderRadius: "8px",
+                    border: "1px solid #14532d",
+                    background: "#14532d",
+                    color: "#dcfce7",
+                    cursor:
+                      project.viewMode === "view" ? "not-allowed" : "pointer",
+                    fontWeight: 600,
+                  }}
+                >
+                  メンバーを表示
+                </button>
+              </div>
+            ) : null}
+            {!wideEditorLayout ? (
+              rosterOnlyMode ? (
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    gap: "8px",
+                    marginBottom: "6px",
+                    flexShrink: 0,
+                  }}
+                >
+                  <h2
+                    style={{
+                      margin: 0,
+                      fontSize: "12px",
+                      color: shell.textMuted,
+                      fontWeight: 600,
+                      flexShrink: 0,
+                    }}
+                  >
+                    波形・再生
+                  </h2>
+                  <button
+                    type="button"
+                    disabled={project.viewMode === "view"}
+                    title="右列でタイムライン・楽曲を全面表示する"
+                    onClick={() => {
+                      setProjectSafe((p) => ({ ...p, rosterHidesTimeline: false }));
+                      onRosterConfirmReturnToTimeline();
+                    }}
+                    style={{
+                      ...btnSecondary,
+                      fontSize: "11px",
+                      padding: "4px 10px",
+                      marginLeft: "auto",
+                      flexShrink: 0,
+                    }}
+                  >
+                    タイムラインを全表示
+                  </button>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "center",
+                    gap: "8px",
+                    rowGap: "6px",
+                    marginBottom: "8px",
+                    flexShrink: 0,
+                  }}
+                >
+                  <h2
+                    style={{
+                      margin: 0,
+                      fontSize: "13px",
+                      color: shell.textMuted,
+                      fontWeight: 600,
+                      flexShrink: 0,
+                    }}
+                  >
+                    タイムライン・楽曲
+                  </h2>
+                  <button
+                    type="button"
+                    style={{
+                      ...btnSecondary,
+                      borderColor: "#0284c7",
+                      background: "#0ea5e9",
+                      color: "#0b1220",
+                      padding: "5px 9px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "5px",
+                      fontWeight: 700,
+                      flexShrink: 0,
+                    }}
+                    disabled={project.viewMode === "view"}
+                    title="＋キュー：人数と立ち位置の決め方（変更／複製／雛形／保存リスト）を選んで追加"
+                    aria-label="新しいキューを追加"
+                    onClick={() => setAddCueDialogOpen(true)}
+                  >
+                    <svg
+                      viewBox="0 0 22 14"
+                      width="20"
+                      height="13"
+                      aria-hidden
+                      style={{ display: "block" }}
+                    >
+                      <path
+                        d="M3 7 L9 7 M6 4 L6 10"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                      />
+                      <circle cx="13" cy="3" r="1.2" fill="currentColor" />
+                      <circle cx="17" cy="3" r="1.2" fill="currentColor" />
+                      <circle cx="12" cy="8" r="1.2" fill="currentColor" />
+                      <circle cx="15" cy="8" r="1.2" fill="currentColor" />
+                      <circle cx="18" cy="8" r="1.2" fill="currentColor" />
+                      <circle
+                        cx="13.5"
+                        cy="12"
+                        r="1"
+                        fill="currentColor"
+                        opacity="0.7"
+                      />
+                      <circle
+                        cx="16.5"
+                        cy="12"
+                        r="1"
+                        fill="currentColor"
+                        opacity="0.7"
+                      />
+                    </svg>
+                    <span style={{ fontSize: "11px", fontWeight: 700 }}>キュー</span>
+                  </button>
+                  {hasRosterMembers && !project.rosterHidesTimeline ? (
+                    <button
+                      type="button"
+                      disabled={project.viewMode === "view"}
+                      title="名簿一覧を表示し、タイムライン列は隠します"
+                      onClick={() =>
+                        setProjectSafe((p) => ({
+                          ...p,
+                          rosterHidesTimeline: true,
+                          rosterStripCollapsed: false,
+                        }))
+                      }
+                      style={{
+                        fontSize: "11px",
+                        padding: "4px 10px",
+                        borderRadius: "8px",
+                        border: "1px solid #14532d",
+                        background: "#14532d",
+                        color: "#dcfce7",
+                        cursor:
+                          project.viewMode === "view" ? "not-allowed" : "pointer",
+                        fontWeight: 600,
+                        flexShrink: 0,
+                        marginLeft: "auto",
+                      }}
+                    >
+                      メンバーを表示
+                    </button>
+                  ) : null}
+                </div>
+              )
+            ) : null}
+            <div
+              style={{
+                flex: "1 1 auto",
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
+                ...(wideEditorLayout &&
+                showTopWaveDock &&
+                editorFixedWaveDockLayout
+                  ? { overflow: "hidden" as const }
+                  : {}),
+              }}
+            >
+              {timelinePanelEl}
+            </div>
+          </section>
+        ) : null}
+
         {wideEditorLayout &&
         !rightPaneCollapsed &&
         !stageZenLayout &&
@@ -2552,7 +2726,7 @@ export function EditorPage() {
               overflow: "hidden",
               ...(wideEditorLayout
                 ? { gridColumn: 3, gridRow: 1 }
-                : {}),
+                : { gridRow: 4 }),
               ...(floorTextPlaceSession
                 ? { position: "relative" as const, zIndex: 140 }
                 : {}),
@@ -2601,171 +2775,6 @@ export function EditorPage() {
                 </div>
               </section>
             ) : null}
-            <section
-              style={{
-                ...panelCard,
-                padding: rosterOnlyMode ? "8px 10px" : "12px",
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden",
-                ...(rosterOnlyMode
-                  ? {
-                      /** 名簿モードでは縦の固定割合を取らず、内容＋上限だけで波形エリアの高さにする */
-                      flex: "0 0 auto",
-                      maxHeight: "min(42vh, 380px)",
-                      flexShrink: 0,
-                    }
-                  : rightPaneTopSectionStyle),
-              }}
-            >
-              {rosterOnlyMode ? (
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    alignItems: "center",
-                    gap: "8px",
-                    marginBottom: "6px",
-                    flexShrink: 0,
-                  }}
-                >
-                  <h2
-                    style={{
-                      margin: 0,
-                      fontSize: "12px",
-                      color: shell.textMuted,
-                      fontWeight: 600,
-                      flexShrink: 0,
-                    }}
-                  >
-                    波形・再生
-                  </h2>
-                  <button
-                    type="button"
-                    disabled={project.viewMode === "view"}
-                    title="右列でタイムライン・楽曲を全面表示する"
-                    onClick={() => {
-                      setProjectSafe((p) => ({ ...p, rosterHidesTimeline: false }));
-                      onRosterConfirmReturnToTimeline();
-                    }}
-                    style={{
-                      ...btnSecondary,
-                      fontSize: "11px",
-                      padding: "4px 10px",
-                      marginLeft: "auto",
-                      flexShrink: 0,
-                    }}
-                  >
-                    タイムラインを全表示
-                  </button>
-                </div>
-              ) : (
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    alignItems: "center",
-                    gap: "8px",
-                    rowGap: "6px",
-                    marginBottom: "8px",
-                    flexShrink: 0,
-                  }}
-                >
-                  <h2
-                    style={{
-                      margin: 0,
-                      fontSize: "13px",
-                      color: shell.textMuted,
-                      fontWeight: 600,
-                      flexShrink: 0,
-                    }}
-                  >
-                    タイムライン・楽曲
-                  </h2>
-                  <button
-                    type="button"
-                    style={{
-                      ...btnSecondary,
-                      borderColor: "#0284c7",
-                      background: "#0ea5e9",
-                      color: "#0b1220",
-                      padding: "5px 9px",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "5px",
-                      fontWeight: 700,
-                      flexShrink: 0,
-                    }}
-                    disabled={project.viewMode === "view"}
-                    title="＋キュー：人数と立ち位置の決め方（変更／複製／雛形／保存リスト）を選んで追加"
-                    aria-label="新しいキューを追加"
-                    onClick={() => setAddCueDialogOpen(true)}
-                  >
-                    <svg
-                      viewBox="0 0 22 14"
-                      width="20"
-                      height="13"
-                      aria-hidden
-                      style={{ display: "block" }}
-                    >
-                      <path
-                        d="M3 7 L9 7 M6 4 L6 10"
-                        stroke="currentColor"
-                        strokeWidth="1.6"
-                        strokeLinecap="round"
-                      />
-                      <circle cx="13" cy="3" r="1.2" fill="currentColor" />
-                      <circle cx="17" cy="3" r="1.2" fill="currentColor" />
-                      <circle cx="12" cy="8" r="1.2" fill="currentColor" />
-                      <circle cx="15" cy="8" r="1.2" fill="currentColor" />
-                      <circle cx="18" cy="8" r="1.2" fill="currentColor" />
-                      <circle cx="13.5" cy="12" r="1" fill="currentColor" opacity="0.7" />
-                      <circle cx="16.5" cy="12" r="1" fill="currentColor" opacity="0.7" />
-                    </svg>
-                    <span style={{ fontSize: "11px", fontWeight: 700 }}>キュー</span>
-                  </button>
-                  {hasRosterMembers && !project.rosterHidesTimeline ? (
-                    <button
-                      type="button"
-                      disabled={project.viewMode === "view"}
-                      title="名簿一覧を表示し、タイムライン列は隠します"
-                      onClick={() =>
-                        setProjectSafe((p) => ({
-                          ...p,
-                          rosterHidesTimeline: true,
-                          rosterStripCollapsed: false,
-                        }))
-                      }
-                      style={{
-                        fontSize: "11px",
-                        padding: "4px 10px",
-                        borderRadius: "8px",
-                        border: "1px solid #14532d",
-                        background: "#14532d",
-                        color: "#dcfce7",
-                        cursor:
-                          project.viewMode === "view" ? "not-allowed" : "pointer",
-                        fontWeight: 600,
-                        flexShrink: 0,
-                        marginLeft: "auto",
-                      }}
-                    >
-                      メンバーを表示
-                    </button>
-                  ) : null}
-                </div>
-              )}
-              <div
-                style={{
-                  flex: "1 1 auto",
-                  minHeight: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                }}
-              >
-                {timelinePanelEl}
-              </div>
-            </section>
           </div>
         )}
       </div>

@@ -98,10 +98,21 @@ function syncRosterAfterRemovingLinkedMembersFromFirstCue(
   };
 }
 
-/** ドラッグ中、この y% 以上で下端ゴミ箱 UI を出す（客席＝下が大きい y） */
-const TRASH_REVEAL_Y_PCT = 88;
-/** ドラッグ中、この x% 以下で左端ゴミ箱 UI を出す（上手＝画面右は x 大、左端は x 小） */
-const TRASH_REVEAL_X_PCT = 12;
+/**
+ * ドラッグ削除のゴミ箱はステージ外（画面左端の固定帯）のみ。
+ * 帯の幅は CSS `clamp(72px, 8.5vw, 140px)` と同じ式で hit 判定と揃える。
+ */
+function trashViewportStripWidthPx(viewportWidth: number): number {
+  const raw = viewportWidth * 0.085;
+  return Math.max(72, Math.min(140, raw));
+}
+
+function pointerInViewportTrashRevealZone(clientX: number): boolean {
+  if (typeof window === "undefined") return false;
+  const w = window.innerWidth;
+  if (w <= 0) return false;
+  return clientX <= trashViewportStripWidthPx(w);
+}
 /** 床テキスト: これ未満の移動は「タップして編集」、超えたらドラッグ移動 */
 const FLOOR_TEXT_TAP_DRAG_THRESHOLD_PX = 6;
 
@@ -686,8 +697,8 @@ export function StageBoard({
     [stageWidthMm, mainFloorPxWidth]
   );
   /** サイズドラッグ中は draft 値を即時反映して手応えを出す（ドラッグ終了時に確定） */
-  const trashDockRef = useRef<HTMLDivElement>(null);
-  const trashDockLeftRef = useRef<HTMLDivElement>(null);
+  /** 画面左端のゴミ箱帯（`position: fixed` で body に portal） */
+  const trashDockViewportRef = useRef<HTMLDivElement>(null);
   const stageContextMenuRef = useRef<HTMLDivElement>(null);
   const trashHotRef = useRef(false);
   const dragRef = useRef<{
@@ -1019,7 +1030,7 @@ export function StageBoard({
 
   /** ゴミ箱ドロップゾーン上でダンサーをドラッグ中 */
   const [trashHot, setTrashHot] = useState(false);
-  /** マルを下端付近まで下げたときだけゴミ箱 UI を出す */
+  /** ポインタが画面左端付近まで来たときだけゴミ箱 UI を出す */
   const [trashUiVisible, setTrashUiVisible] = useState(false);
   const trashRevealActiveRef = useRef(false);
   /**
@@ -1755,52 +1766,25 @@ export function StageBoard({
 
   const hitTrashDropZone = useCallback((clientX: number, clientY: number) => {
     if (!trashRevealActiveRef.current) return false;
-    const dockBottom = trashDockRef.current;
-    if (dockBottom) {
-      const r = dockBottom.getBoundingClientRect();
-      if (
+    const dock = trashDockViewportRef.current;
+    if (dock) {
+      const r = dock.getBoundingClientRect();
+      return (
         clientX >= r.left &&
         clientX <= r.right &&
         clientY >= r.top &&
         clientY <= r.bottom
-      ) {
-        return true;
-      }
+      );
     }
-    const dockLeft = trashDockLeftRef.current;
-    if (dockLeft) {
-      const r = dockLeft.getBoundingClientRect();
-      if (
-        clientX >= r.left &&
-        clientX <= r.right &&
-        clientY >= r.top &&
-        clientY <= r.bottom
-      ) {
-        return true;
-      }
-    }
-    const floor = stageMainFloorRef.current;
-    if (!floor) return false;
-    const r = floor.getBoundingClientRect();
-    const boxW = Math.min(118, Math.max(92, r.width * 0.34));
-    const boxH = 76;
-    const leftZoneLeft = r.left + 10;
-    const leftZoneTop = r.top + (r.height - boxH) / 2;
-    if (
-      clientX >= leftZoneLeft &&
-      clientX <= leftZoneLeft + boxW &&
-      clientY >= leftZoneTop &&
-      clientY <= leftZoneTop + boxH
-    ) {
-      return true;
-    }
-    const bottomLeft = r.left + (r.width - boxW) / 2;
-    const bottomTop = r.bottom - boxH - 10;
+    if (typeof window === "undefined") return false;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const strip = trashViewportStripWidthPx(w);
     return (
-      clientX >= bottomLeft &&
-      clientX <= bottomLeft + boxW &&
-      clientY >= bottomTop &&
-      clientY <= r.bottom - 4
+      clientX >= 0 &&
+      clientX <= strip &&
+      clientY >= 0 &&
+      clientY <= h
     );
   }, []);
 
@@ -2289,7 +2273,7 @@ export function StageBoard({
       !stageInteractionsEnabled
     )
       return;
-    /** ダンサー／大道具／ハンドル／ゴミ箱以外の床面のときだけ反応 */
+    /** ダンサー／大道具／ハンドル以外の床面のときだけ反応（削除ゴミ箱は画面左オーバーレイ） */
     const target = e.target as HTMLElement;
     if (target.closest("[data-dancer-id]")) return;
     if (target.closest("[data-set-piece-id]")) return;
@@ -2445,7 +2429,7 @@ export function StageBoard({
 
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
-      /** 1: 単一ダンサーのドラッグ（下端・左端ゴミ箱で削除） */
+      /** 1: 単一ダンサーのドラッグ（画面左端のゴミ箱帯へドロップで削除） */
       const d = dragRef.current;
       if (d) {
         const next = pxToPct(
@@ -2455,19 +2439,7 @@ export function StageBoard({
           true
         );
         if (!next) return;
-        const floorEl = stageMainFloorRef.current;
-        let pointerXPct = 0;
-        let pointerYPct = 0;
-        if (floorEl) {
-          const rr = floorEl.getBoundingClientRect();
-          pointerXPct = ((e.clientX - rr.left) / rr.width) * 100;
-          pointerYPct = ((e.clientY - rr.top) / rr.height) * 100;
-        }
-        const reveal =
-          next.yPct >= TRASH_REVEAL_Y_PCT ||
-          next.xPct <= TRASH_REVEAL_X_PCT ||
-          pointerYPct >= TRASH_REVEAL_Y_PCT ||
-          pointerXPct <= TRASH_REVEAL_X_PCT;
+        const reveal = pointerInViewportTrashRevealZone(e.clientX);
         if (reveal !== trashRevealActiveRef.current) {
           trashRevealActiveRef.current = reveal;
           setTrashUiVisible(reveal);
@@ -2562,7 +2534,7 @@ export function StageBoard({
         }
         return;
       }
-      /** 1b: 床に置いたテキストの移動（下端・左端でゴミ箱表示・ドロップで削除） */
+      /** 1b: 床に置いたテキストの移動（画面左端でゴミ箱表示・ドロップで削除） */
       const fmd = floorMarkupTextDragRef.current;
       if (fmd) {
         const rectEl =
@@ -2575,13 +2547,7 @@ export function StageBoard({
         const dyPct = ((e.clientY - fmd.startClientY) / rr.height) * 100;
         const nx = round2(clamp(fmd.startXPct + dxPct, 0, 100));
         const ny = round2(clamp(fmd.startYPct + dyPct, 0, 100));
-        const pointerYPct = ((e.clientY - rr.top) / rr.height) * 100;
-        const pointerXPct = ((e.clientX - rr.left) / rr.width) * 100;
-        const reveal =
-          ny >= TRASH_REVEAL_Y_PCT ||
-          pointerYPct >= TRASH_REVEAL_Y_PCT ||
-          nx <= TRASH_REVEAL_X_PCT ||
-          pointerXPct <= TRASH_REVEAL_X_PCT;
+        const reveal = pointerInViewportTrashRevealZone(e.clientX);
         if (reveal !== trashRevealActiveRef.current) {
           trashRevealActiveRef.current = reveal;
           setTrashUiVisible(reveal);
@@ -2618,34 +2584,8 @@ export function StageBoard({
         let dxPct = ((e.clientX - g.startClientX) / g.floorWpx) * 100;
         let dyPct = ((e.clientY - g.startClientY) / g.floorHpx) * 100;
         const idSet = new Set(g.ids);
-        /**
-         * 群移動中も「下端または左端付近までドラッグしたらゴミ箱出現」を有効化する。
-         * 判定は群内の最も客席側（y 最大）・最も画面左（x 最小）と、
-         * ポインタが下端／左端付近のとき。
-         */
-        const floor = stageMainFloorRef.current;
-        let pointerYPct = 0;
-        let pointerXPct = 0;
-        if (floor) {
-          const rr = floor.getBoundingClientRect();
-          pointerYPct = ((e.clientY - rr.top) / rr.height) * 100;
-          pointerXPct = ((e.clientX - rr.left) / rr.width) * 100;
-        }
-        let maxMovedYPct = 0;
-        let minMovedXPct = 100;
-        for (const id of g.ids) {
-          const s = g.startPositions.get(id);
-          if (!s) continue;
-          const ny = clamp(s.yPct + dyPct, 2, 98);
-          if (ny > maxMovedYPct) maxMovedYPct = ny;
-          const nx = clamp(s.xPct + dxPct, 2, 98);
-          if (nx < minMovedXPct) minMovedXPct = nx;
-        }
-        const reveal =
-          maxMovedYPct >= TRASH_REVEAL_Y_PCT ||
-          pointerYPct >= TRASH_REVEAL_Y_PCT ||
-          minMovedXPct <= TRASH_REVEAL_X_PCT ||
-          pointerXPct <= TRASH_REVEAL_X_PCT;
+        /** 群移動中もポインタが画面左端付近ならゴミ箱 UI を出す */
+        const reveal = pointerInViewportTrashRevealZone(e.clientX);
         if (reveal !== trashRevealActiveRef.current) {
           trashRevealActiveRef.current = reveal;
           setTrashUiVisible(reveal);
@@ -3147,6 +3087,14 @@ export function StageBoard({
 
   /** 客席の辺に応じた向きに、さらに 180° 回して「舞台の正面」を反対側から見る */
   const rot = (audienceRotationDeg(audienceEdge) + 180) % 360;
+  /**
+   * 客席を画面上にしたとき `rot` が 180° になり、帯ラベル・場ミリ数字が上下逆さまに見える。
+   * 人数バッジと同様に、文字だけ画面に対して正立させる（transformOrigin で辺に固定）。
+   */
+  const labelScreenKeepUpright = (origin: string): CSSProperties =>
+    rot % 360 !== 0
+      ? { transform: `rotate(${-rot}deg)`, transformOrigin: origin }
+      : {};
 
   /** 床下の一括ツールバー用。常に高さを確保してコンテナクエリの高さが選択で変わらないようにする */
   const canStageBulkTools =
@@ -4351,6 +4299,7 @@ export function StageBoard({
               <div
                 style={{
                   ...stripShellStyle,
+                  ...labelScreenKeepUpright("center center"),
                   gridColumn: "1 / -1",
                   gridRow: 1,
                   borderBottom: `1px solid ${shell.border}`,
@@ -4365,6 +4314,7 @@ export function StageBoard({
               <div
                 style={{
                   ...stripShellStyle,
+                  ...labelScreenKeepUpright("center center"),
                   gridColumn: 1,
                   gridRow: Bmm > 0 ? 2 : 1,
                   borderRight: `1px solid ${shell.border}`,
@@ -5150,7 +5100,7 @@ export function StageBoard({
                     width: "100%",
                     height: "100%",
                     pointerEvents: "none",
-                    opacity: 0.36,
+                    opacity: 0.52,
                   }}
                   preserveAspectRatio="none"
                   aria-hidden
@@ -5172,8 +5122,8 @@ export function StageBoard({
                           y1="0%"
                           x2={`${g}%`}
                           y2="100%"
-                          stroke="#64748b"
-                          strokeWidth="0.35"
+                          stroke="#475569"
+                          strokeWidth="0.42"
                           vectorEffect="non-scaling-stroke"
                         />
                       );
@@ -5187,8 +5137,8 @@ export function StageBoard({
                           y1={`${g}%`}
                           x2="100%"
                           y2={`${g}%`}
-                          stroke="#64748b"
-                          strokeWidth="0.35"
+                          stroke="#475569"
+                          strokeWidth="0.42"
                           vectorEffect="non-scaling-stroke"
                         />
                       );
@@ -5210,76 +5160,6 @@ export function StageBoard({
               }}
               aria-hidden
             >
-              {(() => {
-                const lines: ReactElement[] = [];
-                for (let i = 1; i < 10; i++) {
-                  const g = i * 10;
-                  lines.push(
-                    <line
-                      key={`bg-v-${i}`}
-                      x1={g}
-                      y1="0"
-                      x2={g}
-                      y2="100"
-                      stroke="rgba(228, 228, 231, 0.12)"
-                      strokeWidth="0.28"
-                      vectorEffect="non-scaling-stroke"
-                    />
-                  );
-                  lines.push(
-                    <line
-                      key={`bg-h-${i}`}
-                      x1="0"
-                      y1={g}
-                      x2="100"
-                      y2={g}
-                      stroke="rgba(228, 228, 231, 0.1)"
-                      strokeWidth="0.28"
-                      vectorEffect="non-scaling-stroke"
-                    />
-                  );
-                }
-                return lines;
-              })()}
-              <line
-                x1="50"
-                y1="0"
-                x2="50"
-                y2="100"
-                stroke={shell.ruby}
-                strokeWidth="0.55"
-                vectorEffect="non-scaling-stroke"
-                opacity={0.92}
-              />
-              <line
-                x1="48.2"
-                y1="0.6"
-                x2="51.8"
-                y2="0.6"
-                stroke={shell.ruby}
-                strokeWidth="0.5"
-                strokeLinecap="round"
-                vectorEffect="non-scaling-stroke"
-              />
-              <line
-                x1="48.2"
-                y1="99.4"
-                x2="51.8"
-                y2="99.4"
-                stroke={shell.ruby}
-                strokeWidth="0.5"
-                strokeLinecap="round"
-                vectorEffect="non-scaling-stroke"
-              />
-              <line
-                x1="0"
-                y1="50"
-                x2="100"
-                y2="50"
-                stroke="rgba(248, 250, 252, 0.18)"
-                strokeWidth="0.32"
-                vectorEffect="non-scaling-stroke"
-              />
               {guideLineDrawMarks.map(({ xp, k }, i) => (
                 <line
                   key={`gm-${i}-${k}-${xp}`}
@@ -5340,6 +5220,7 @@ export function StageBoard({
                   pointerEvents: "none",
                   zIndex: 4,
                   textShadow: "0 1px 3px rgba(0,0,0,0.75)",
+                  ...labelScreenKeepUpright("top center"),
                 }}
               >
                 舞台裏
@@ -5379,6 +5260,7 @@ export function StageBoard({
                 paddingBottom: "5px",
                 pointerEvents: "none",
                 zIndex: 3,
+                ...labelScreenKeepUpright("bottom center"),
               }}
               >
               <div
@@ -5402,6 +5284,7 @@ export function StageBoard({
                   height: "14%",
                   pointerEvents: "none",
                   zIndex: 4,
+                  ...labelScreenKeepUpright("bottom center"),
                 }}
                 aria-hidden
               >
@@ -6122,7 +6005,7 @@ export function StageBoard({
                               mmLabel(d.xPct, d.yPct),
                               "ダブルクリックで名前・身長・学年・性別・スキル・備考",
                               "右クリックで削除・並べ替えメニュー",
-                              "下端または左端へ寄せるとゴミ箱が出ます。そこへドロップで削除",
+                              "ポインタを画面の左端へ寄せるとゴミ箱が出ます。そこへドロップで削除",
                               "Shift / Cmd / Ctrl+クリックで複数選択に追加",
                               "空のステージをドラッグで範囲選択",
                               snapGrid
@@ -6362,6 +6245,7 @@ export function StageBoard({
               <div
                 style={{
                   ...stripShellStyle,
+                  ...labelScreenKeepUpright("center center"),
                   gridColumn: 3,
                   gridRow: Bmm > 0 ? 2 : 1,
                   borderLeft: `1px solid ${shell.border}`,
@@ -6371,90 +6255,6 @@ export function StageBoard({
                 <br />
                 {formatMeterCmLabel(Smm)}
               </div>
-            )}
-            {showTrashDrop && (
-              <>
-                <div
-                  ref={trashDockLeftRef}
-                  role="region"
-                  aria-label="左のゴミ箱へドラッグして離すと印や床テキストを削除できます"
-                  onContextMenu={(e) => e.preventDefault()}
-                  style={{
-                    position: "absolute",
-                    left: "10px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    zIndex: 30,
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "4px",
-                    width: "min(118px, 34%)",
-                    minHeight: "64px",
-                    padding: "8px 6px",
-                    borderRadius: "10px",
-                    border: `2px dashed ${
-                      trashHot ? "rgba(248,113,113,0.95)" : "rgba(100,116,139,0.8)"
-                    }`,
-                    background: trashHot
-                      ? "rgba(127,29,29,0.62)"
-                      : "rgba(15,23,42,0.88)",
-                    color: "#e2e8f0",
-                    fontSize: "9px",
-                    lineHeight: 1.3,
-                    textAlign: "center",
-                    pointerEvents: "none",
-                    boxShadow: "0 4px 18px rgba(0,0,0,0.4)",
-                    userSelect: "none",
-                  }}
-                >
-                  <span style={{ fontSize: "22px", lineHeight: 1 }} aria-hidden>
-                    🗑
-                  </span>
-                  <span>左へドロップで削除</span>
-                </div>
-                <div
-                  ref={trashDockRef}
-                  role="region"
-                  aria-label="下のゴミ箱へドラッグして離すと印や床テキストを削除できます"
-                  onContextMenu={(e) => e.preventDefault()}
-                  style={{
-                    position: "absolute",
-                    left: "50%",
-                    bottom: "10px",
-                    transform: "translateX(-50%)",
-                    zIndex: 30,
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "4px",
-                    width: "min(118px, 34%)",
-                    minHeight: "64px",
-                    padding: "8px 6px",
-                    borderRadius: "10px",
-                    border: `2px dashed ${
-                      trashHot ? "rgba(248,113,113,0.95)" : "rgba(100,116,139,0.8)"
-                    }`,
-                    background: trashHot
-                      ? "rgba(127,29,29,0.62)"
-                      : "rgba(15,23,42,0.88)",
-                    color: "#e2e8f0",
-                    fontSize: "9px",
-                    lineHeight: 1.3,
-                    textAlign: "center",
-                    pointerEvents: "none",
-                    boxShadow: "0 4px 18px rgba(0,0,0,0.4)",
-                    userSelect: "none",
-                  }}
-                >
-                  <span style={{ fontSize: "22px", lineHeight: 1 }} aria-hidden>
-                    🗑
-                  </span>
-                  <span>下へドロップで削除</span>
-                </div>
-              </>
             )}
             </div>
             {hanamichiEnabled && !stageShapeActive ? (
@@ -7573,6 +7373,54 @@ export function StageBoard({
               wordBreak: "break-word",
             }}
           />,
+          document.body
+        )
+      : null}
+    {showTrashDrop && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            ref={trashDockViewportRef}
+            role="region"
+            aria-label="画面の左端へドラッグして離すと印や床テキストを削除できます"
+            onContextMenu={(e) => e.preventDefault()}
+            style={{
+              position: "fixed",
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: "clamp(72px, 8.5vw, 140px)",
+              zIndex: 200000,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "6px",
+              padding: "10px 6px",
+              boxSizing: "border-box",
+              borderRight: `2px dashed ${
+                trashHot ? "rgba(248,113,113,0.95)" : "rgba(100,116,139,0.75)"
+              }`,
+              background: trashHot
+                ? "rgba(127,29,29,0.55)"
+                : "linear-gradient(90deg, rgba(15,23,42,0.92), rgba(15,23,42,0.45))",
+              color: "#e2e8f0",
+              fontSize: "10px",
+              lineHeight: 1.35,
+              textAlign: "center",
+              pointerEvents: "none",
+              userSelect: "none",
+              boxShadow: "4px 0 24px rgba(0,0,0,0.35)",
+            }}
+          >
+            <span style={{ fontSize: "26px", lineHeight: 1 }} aria-hidden>
+              🗑
+            </span>
+            <span>
+              画面の左へ
+              <br />
+              ドロップで削除
+            </span>
+          </div>,
           document.body
         )
       : null}

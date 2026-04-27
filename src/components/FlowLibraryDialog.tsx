@@ -10,6 +10,7 @@ import type { ChoreographyProjectJson } from "../types/choreography";
 import {
   FLOW_LIBRARY_CHANGE_EVENT,
   applyFlowStageSettingsToProject,
+  ensureCrewsFromFormationsIfEmpty,
   type FlowLibraryItem,
   deleteFlowItem,
   expandFlowToProject,
@@ -293,6 +294,10 @@ export function FlowLibraryDialog({
           cues: expanded.cues,
           activeFormationId: expanded.activeFormationId,
         };
+        /** memento 無し（旧フロー）のときは名簿を残さず、下で印から名簿を組み立てる */
+        if (!expanded.memento) {
+          next = { ...next, crews: [] };
+        }
         if (expanded.stageSettings) {
           next = applyFlowStageSettingsToProject(next, expanded.stageSettings);
         }
@@ -329,7 +334,7 @@ export function FlowLibraryDialog({
               : {}),
           };
         }
-        return next;
+        return ensureCrewsFromFormationsIfEmpty(next);
       });
       const restoreDur =
         expanded.memento?.audioDurationSec != null &&

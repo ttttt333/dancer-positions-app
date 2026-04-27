@@ -2,6 +2,7 @@ import type {
   AudienceEdge,
   ChoreographyProjectJson,
   Crew,
+  CrewMember,
   Cue,
   DancerSpot,
   Formation,
@@ -361,6 +362,97 @@ export function applyFlowStageSettingsToProject(
   };
 }
 
+function crewMemberFromSpot(d: DancerSpot, memberId: string): CrewMember {
+  const label = (d.label || "").trim().slice(0, 120) || "?";
+  return {
+    id: memberId,
+    label,
+    colorIndex: modDancerColorIndex(
+      typeof d.colorIndex === "number" && Number.isFinite(d.colorIndex)
+        ? Math.floor(d.colorIndex)
+        : 0
+    ),
+    ...(typeof d.heightCm === "number" && Number.isFinite(d.heightCm)
+      ? { heightCm: d.heightCm }
+      : {}),
+    ...(d.gradeLabel?.trim()
+      ? { gradeLabel: d.gradeLabel.trim().slice(0, 32) }
+      : {}),
+    ...(d.genderLabel?.trim()
+      ? { genderLabel: d.genderLabel.trim().slice(0, 32) }
+      : {}),
+    ...(d.skillRankLabel?.trim()
+      ? { skillRankLabel: d.skillRankLabel.trim().slice(0, 24) }
+      : {}),
+    ...(d.note?.trim() ? { note: d.note.trim().slice(0, 2000) } : {}),
+  };
+}
+
+/**
+ * 名簿にメンバーが 1 人もいないとき、ステージ上の印から名簿を補完する。
+ * - 印に `crewMemberId` があるのに名簿が空（memento 欠落・手編集 JSON 等）→ その id で行を復元
+ * - どの印にも紐付けが無い → アクティブ形の並びで 1 行ずつ作成し、人数が同じ他形へ同じ id を割当
+ *
+ * フローライブラリ呼び出し直後など、メンバー一覧が空になるのを防ぐ。
+ */
+export function ensureCrewsFromFormationsIfEmpty(
+  project: ChoreographyProjectJson
+): ChoreographyProjectJson {
+  if (project.crews.some((c) => c.members.length > 0)) return project;
+
+  const active = project.formations.find((f) => f.id === project.activeFormationId);
+  if (!active || active.dancers.length === 0) return project;
+
+  const idToSpot = new Map<string, DancerSpot>();
+  const orderedFormations: Formation[] = [];
+  orderedFormations.push(active);
+  for (const f of project.formations) {
+    if (f.id !== active.id) orderedFormations.push(f);
+  }
+  for (const f of orderedFormations) {
+    for (const d of f.dancers) {
+      if (d.crewMemberId && !idToSpot.has(d.crewMemberId)) {
+        idToSpot.set(d.crewMemberId, d);
+      }
+    }
+  }
+
+  if (idToSpot.size > 0) {
+    const members = [...idToSpot.entries()].map(([id, d]) =>
+      crewMemberFromSpot(d, id)
+    );
+    return {
+      ...project,
+      crews: [{ id: crypto.randomUUID(), name: "名簿", members }],
+    };
+  }
+
+  const memberIds: string[] = [];
+  const members: CrewMember[] = [];
+  for (let i = 0; i < active.dancers.length; i++) {
+    const mid = crypto.randomUUID();
+    memberIds.push(mid);
+    members.push(crewMemberFromSpot(active.dancers[i], mid));
+  }
+
+  const formations = project.formations.map((f) => {
+    if (f.dancers.length !== active.dancers.length) return f;
+    return {
+      ...f,
+      dancers: f.dancers.map((d, i) => ({
+        ...d,
+        crewMemberId: memberIds[i],
+      })),
+    };
+  });
+
+  return {
+    ...project,
+    crews: [{ id: crypto.randomUUID(), name: "名簿", members }],
+    formations,
+  };
+}
+
 function isValidFormationSnap(x: unknown): x is FlowFormationSnapshot {
   if (typeof x !== "object" || x === null) return false;
   const o = x as Record<string, unknown>;
@@ -404,7 +496,11 @@ const ROSTER_SORT_MODES: readonly RosterStripSortMode[] = [
 function normalizeMementoFromRaw(raw: unknown): FlowLibraryMemento | undefined {
   if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return undefined;
   const o = raw as Record<string, unknown>;
-  if (!Array.isArray(o.crews) || !Array.isArray(o.savedSpotLayouts)) return undefined;
+  if (!Array.isArray(o.crews)) return undefined;
+  /** 旧エクスポート等で `savedSpotLayouts` が欠ける場合も名簿だけは復元する */
+  const savedSpotLayouts: SavedSpotLayout[] = Array.isArray(o.savedSpotLayouts)
+    ? deepCloneJson(o.savedSpotLayouts)
+    : [];
   const pr =
     typeof o.playbackRate === "number" && Number.isFinite(o.playbackRate)
       ? o.playbackRate
@@ -431,7 +527,7 @@ function normalizeMementoFromRaw(raw: unknown): FlowLibraryMemento | undefined {
         : undefined;
     return {
       crews: deepCloneJson(o.crews) as Crew[],
-      savedSpotLayouts: deepCloneJson(o.savedSpotLayouts) as SavedSpotLayout[],
+      savedSpotLayouts,
       ...(rosterStripSortMode ? { rosterStripSortMode } : {}),
       rosterHidesTimeline:
         typeof o.rosterHidesTimeline === "boolean" ? o.rosterHidesTimeline : undefined,
