@@ -324,7 +324,12 @@ export function FlowLibraryDialog({
             Number.isFinite(m.dancerMarkerDiameterPx)
               ? { dancerMarkerDiameterPx: m.dancerMarkerDiameterPx }
               : {}),
-            audioAssetId: m.audioAssetId,
+            /**
+             * memento の `audioAssetId: null` は「保存時にサーバ音源が無かった」ことが多く、
+             * ここで上書きすると既に読み込んでいるサーバ Blob を revoke しただけで `<audio>` が死 URLのままになり再生不能になる。
+             * 数値が入っているときだけフロー側の id を採用する。
+             */
+            audioAssetId: m.audioAssetId ?? prev.audioAssetId,
             playbackRate: m.playbackRate,
             trimStartSec: m.trimStartSec,
             trimEndSec: m.trimEndSec,

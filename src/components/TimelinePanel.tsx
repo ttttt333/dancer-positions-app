@@ -1351,7 +1351,19 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       const aid = project.audioAssetId;
       if (aid == null || !getToken()) {
         if (aid == null) {
+          const hadServerBlobAttached =
+            blobUrlRef.current != null &&
+            blobUrlRef.current === persistedServerAudioBlobUrl;
           revokePersistedServerAudioBlob();
+          if (hadServerBlobAttached) {
+            blobUrlRef.current = null;
+            const aClear = audioRef.current;
+            if (aClear) {
+              aClear.pause();
+              aClear.removeAttribute("src");
+              aClear.load();
+            }
+          }
         }
         return;
       }
