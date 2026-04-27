@@ -1222,6 +1222,12 @@ export function StageBoard({
   }, [displayFloorMarkup, floorTextInlineRect?.id]);
 
   const playbackOrPreview = Boolean(playbackDancers || previewDancers);
+  /**
+   * 閲覧・再生プレビュー時は従来どおり clip（PNG は #stage-export-root をそのまま capture）。
+   * 編集時は親子の overflow を外し、床の外に置いた印が消えないようにする。
+   */
+  const clipStageHostedOverflow =
+    viewMode === "view" || playbackOrPreview;
 
   const setPiecesEditable =
     viewMode !== "view" &&
@@ -3353,8 +3359,7 @@ export function StageBoard({
     minWidth: 0,
     minHeight: 0,
     /** 編集時は印を床パネルの外（翼・花道側）にも描けるよう、再生・閲覧モードだけ従来どおり clip */
-    overflow:
-      viewMode === "view" || playbackOrPreview ? "hidden" : "visible",
+    overflow: clipStageHostedOverflow ? "hidden" : "visible",
     background: `linear-gradient(180deg, #0f1729 0%, #0a0f18 42%, ${shell.bgDeep} 100%)`,
   };
 
@@ -4607,7 +4612,7 @@ export function StageBoard({
            * 少しだけ外側に余白を確保する。
            */
           padding: "5px",
-          overflow: "hidden",
+          overflow: clipStageHostedOverflow ? "hidden" : "visible",
         }}
       >
         {/*
@@ -4668,7 +4673,7 @@ export function StageBoard({
               height: "100%",
               borderRadius: "16px",
               border: `1.5px solid ${shell.ruby}`,
-              overflow: "hidden",
+              overflow: clipStageHostedOverflow ? "hidden" : "visible",
               touchAction: "none",
               boxShadow: previewDancers?.length
                 ? "0 0 0 2px rgba(167,139,250,0.65), 0 12px 40px rgba(0,0,0,0.35)"
@@ -4708,7 +4713,7 @@ export function StageBoard({
                 flex: "1 1 auto",
                 minHeight: 0,
                 position: "relative",
-                overflow: "hidden",
+                overflow: clipStageHostedOverflow ? "hidden" : "visible",
                 display: showShell ? "grid" : "block",
                 ...(showShell
                   ? {

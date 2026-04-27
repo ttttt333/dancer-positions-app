@@ -267,8 +267,8 @@ const WAVE_CANVAS_H_MIN = 24;
 const WAVE_CANVAS_H_MAX = 280;
 /** 既定は従来の約半分（上部ドック内で波形が収まりやすい） */
 const WAVE_CANVAS_H_DEFAULT = 36;
-/** 上部ドック時はさらにコンパクト */
-const WAVE_CANVAS_H_COMPACT_DOCK = 44;
+/** 上部ドック時はさらにコンパクト（約 5mm 分、既定波形を低くしてステージの縦を確保） */
+const WAVE_CANVAS_H_COMPACT_DOCK = 25;
 
 /** 再生中の目盛り・波形ビュー窓の微振れを抑える（約 33ms グリッド） */
 function quantizePlayheadForWaveView(sec: number): number {
@@ -3366,6 +3366,8 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               columnGap: tlPx(6),
               width: "100%",
               minWidth: 0,
+              /** 再生・先頭などを約 5mm 上に（波形との間の圧縮と合わせてステージ側へ寄せる） */
+              marginTop: "calc(-1 * 5mm)",
               padding: `${tlPx(0)} ${tlPx(6)} ${tlPx(2)}`,
               borderBottom: `1px solid ${shell.border}`,
               flexShrink: 0,

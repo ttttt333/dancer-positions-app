@@ -97,19 +97,19 @@ function round2Pct(n: number): number {
 const EDITOR_WIDE_MIN_PX = 1280;
 /** メイン 4 列グリッドの列間（ステージ〜タイムラインのすき間に効く） */
 const EDITOR_GRID_GAP_PX = 6;
-/** 上部波形ドック行の既定高さ（px）。可変シェル時の未保存グリッド行に使う */
-const TOP_DOCK_HEIGHT_PX = 80;
+/** 上部波形ドック行の既定高さ（px）。可変シェル時の未保存グリッド行に使う（波形を約 5mm 相当低く） */
+const TOP_DOCK_HEIGHT_PX = 62;
 /**
  * ワイド＋上部波形時の固定シェル：波形行の外枠高さのベース（px）。
  * コンパクトツールバー＋目盛り＋波形の合計に合わせ、CHOREOGRID バー分の余白を含む。
  */
-const EDITOR_SHELL_TOP_WAVE_BASE_PX = 136;
+const EDITOR_SHELL_TOP_WAVE_BASE_PX = 117;
 /** 名簿ありで上部に「メンバーを表示」行を出すとき、ベースに足す高さ（px） */
 const EDITOR_SHELL_TOP_WAVE_ROSTER_ROW_PX = 40;
 /** ワイド＋上部波形時の固定シェル：右ツール列の幅（内部のみ縦スクロール） */
 const EDITOR_SHELL_RIGHT_PANEL_PX = 300;
-/** 再生・波形・タイムライン列をまとめて上へ詰める（物理的な目安で約 0.5cm。以前 1.5cm から 1cm 下げた） */
-const EDITOR_PLAYBACK_LAYOUT_SHIFT_UP = "0.5cm";
+/** 再生・波形・タイムライン列をまとめて上へ詰める（約 0.5cm + 5mm。ステージ列の 1fr を上方向に確保） */
+const EDITOR_PLAYBACK_LAYOUT_SHIFT_UP = "calc(0.5cm + 5mm)";
 
 /** ステージ列とタイムライン列の間のドラッグ幅 */
 const STAGE_RESIZER_PX = 4;
@@ -2061,7 +2061,7 @@ export function EditorPage() {
           gridTemplateRows: editorPaneGridTemplateRows,
           gap: `${EDITOR_GRID_GAP_PX}px`,
           padding:
-            "6px max(6px, env(safe-area-inset-right, 0px)) 6px max(6px, env(safe-area-inset-left, 0px))",
+            "6px max(6px, env(safe-area-inset-right, 0px)) calc(max(8px, 2cm) + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
           /** 狭い画面では負のマージンを付けない（レイアウト再計算・はみ出しを抑えスマホで滑らかに） */
           marginTop: wideEditorLayout
             ? `calc(-1 * ${EDITOR_PLAYBACK_LAYOUT_SHIFT_UP})`
