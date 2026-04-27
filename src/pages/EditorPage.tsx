@@ -95,21 +95,22 @@ function round2Pct(n: number): number {
 }
 
 const EDITOR_WIDE_MIN_PX = 1280;
-/** メイン 4 列グリッドの列間（ステージ〜タイムラインのすき間に効く） */
-const EDITOR_GRID_GAP_PX = 6;
-/** 上部波形ドック行の既定高さ（px）。可変シェル時の未保存グリッド行に使う（波形を約 5mm 相当低く） */
+/** メイン 3 列グリッドの列間・行間（参照スクリーンショットの段間に合わせる） */
+const EDITOR_GRID_GAP_PX = 10;
+/** 上部波形ドック行の既定高さ（px）。可変シェル時の未保存グリッド行に使う */
 const TOP_DOCK_HEIGHT_PX = 62;
 /**
  * ワイド＋上部波形時の固定シェル：波形行の外枠高さのベース（px）。
- * コンパクトツールバー＋目盛り＋波形の合計に合わせ、CHOREOGRID バー分の余白を含む。
+ * 参照 UI（波形帯が画面高の約 1/10 前後）に合わせた既定。
  */
-const EDITOR_SHELL_TOP_WAVE_BASE_PX = 117;
+const EDITOR_SHELL_TOP_WAVE_BASE_PX = 110;
 /** 名簿ありで上部に「メンバーを表示」行を出すとき、ベースに足す高さ（px） */
 const EDITOR_SHELL_TOP_WAVE_ROSTER_ROW_PX = 40;
-/** ワイド＋上部波形時の固定シェル：右ツール列の幅（内部のみ縦スクロール） */
-const EDITOR_SHELL_RIGHT_PANEL_PX = 300;
-/** 再生・波形・タイムライン列をまとめて上へ詰める（約 0.5cm + 5mm + 1cm。ステージ列の 1fr を上方向に確保） */
-const EDITOR_PLAYBACK_LAYOUT_SHIFT_UP = "calc(0.5cm + 5mm + 1cm)";
+/**
+ * 再生・波形・タイムライン列をまとめて上へ詰める。
+ * 参照スクリーンショット（ヘッダと再生行が切れず、ステージブロックがやや上）のバランス。
+ */
+const EDITOR_PLAYBACK_LAYOUT_SHIFT_UP = "calc(1.45cm + 3mm)";
 
 /** ステージ列とタイムライン列の間のドラッグ幅 */
 const STAGE_RESIZER_PX = 4;
@@ -123,11 +124,11 @@ const RIGHT_TOOLS_RAIL_MAX_PX = 210;
 /** 右ペイン：タイムライン（またはキュー一覧）の縦スタック */
 
 /**
- * ワイド＋上部波形ドック時の既定の列比（参照 UI：ステージが広く右レールは画面幅の約 1/6 前後）。
- * `stageColumnPx` が未保存のときだけ `fr`＋`clamp` で使う（手動幅保存時は固定 px 列に戻す）。
+ * ワイド＋上部波形固定シェル時の既定の列比（参照 UI：ステージ約 80%・右アクション列約 20%）。
+ * `stageColumnPx` が未保存のときは `minmax(MIN, Nfr)` でこの比を再現する。
  */
-const STAGE_COL_FR_DEFAULT = 82;
-const RIGHT_RAIL_FR_DEFAULT = 18;
+const STAGE_COL_FR_DEFAULT = 80;
+const RIGHT_RAIL_FR_DEFAULT = 20;
 
 /** 上部波形ドック行の高さの許容範囲（保存・ドラッグ・clamp と readStored と一致） */
 const TOP_DOCK_ROW_MIN_PX = 60;
@@ -884,9 +885,8 @@ export function EditorPage() {
     if (!wideEditorLayout) return "1fr";
     if (rightPaneCollapsed) return "1fr";
     if (editorFixedWaveDockLayout) {
-      const rightFixedShell = `minmax(${RIGHT_TOOLS_RAIL_MIN_PX}px, ${EDITOR_SHELL_RIGHT_PANEL_PX}px)`;
       if (stageColumnPx == null) {
-        return `minmax(${STAGE_COL_MIN_PX}px, 1fr) ${STAGE_RESIZER_PX}px ${rightFixedShell}`;
+        return `minmax(${STAGE_COL_MIN_PX}px, ${STAGE_COL_FR_DEFAULT}fr) ${STAGE_RESIZER_PX}px minmax(${RIGHT_TOOLS_RAIL_MIN_PX}px, ${RIGHT_RAIL_FR_DEFAULT}fr)`;
       }
       return `${Math.round(stageColumnPx)}px ${STAGE_RESIZER_PX}px minmax(${RIGHT_TOOLS_RAIL_MIN_PX}px, 1fr)`;
     }
@@ -2407,7 +2407,7 @@ export function EditorPage() {
                 ? {
                     background: "transparent",
                     border: "none",
-                    padding: "0 4px 0",
+                    padding: "0 4px 6px",
                     minWidth: 0,
                     display: "flex",
                     flexDirection: "column",
