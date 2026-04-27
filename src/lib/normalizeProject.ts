@@ -352,6 +352,33 @@ function numOrNullSnap(v: unknown): number | null {
   return v;
 }
 
+function migrateStageGridLineAxes(
+  o: Record<string, unknown>,
+  legacyDefault: boolean
+): {
+  stageGridLinesVerticalEnabled: boolean;
+  stageGridLinesHorizontalEnabled: boolean;
+  stageGridLinesEnabled: boolean;
+} {
+  const legacy =
+    typeof o.stageGridLinesEnabled === "boolean"
+      ? o.stageGridLinesEnabled
+      : legacyDefault;
+  const v =
+    typeof o.stageGridLinesVerticalEnabled === "boolean"
+      ? o.stageGridLinesVerticalEnabled
+      : legacy;
+  const h =
+    typeof o.stageGridLinesHorizontalEnabled === "boolean"
+      ? o.stageGridLinesHorizontalEnabled
+      : legacy;
+  return {
+    stageGridLinesVerticalEnabled: v,
+    stageGridLinesHorizontalEnabled: h,
+    stageGridLinesEnabled: v || h,
+  };
+}
+
 function normalizeSavedSpotStageSnapshot(
   raw: unknown,
   defaults: ChoreographyProjectJson
@@ -393,11 +420,11 @@ function normalizeSavedSpotStageSnapshot(
       typeof o.gridStep === "number" && Number.isFinite(o.gridStep)
         ? normalizeGridStep(o.gridStep)
         : defaults.gridStep,
-    snapGrid: typeof o.snapGrid === "boolean" ? o.snapGrid : defaults.snapGrid,
-    stageGridLinesEnabled:
-      typeof o.stageGridLinesEnabled === "boolean"
-        ? o.stageGridLinesEnabled
-        : defaults.stageGridLinesEnabled,
+    snapGrid: false,
+    ...migrateStageGridLineAxes(
+      o,
+      defaults.stageGridLinesEnabled ?? false
+    ),
     ...(() => {
       const fb = defaults.stageGridLineSpacingMm ?? 10;
       const legacy = clampStageGridAxisMm(o.stageGridLineSpacingMm, fb);
@@ -607,12 +634,12 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
       typeof o.trimStartSec === "number" ? o.trimStartSec : defaults.trimStartSec,
     trimEndSec:
       o.trimEndSec === undefined ? defaults.trimEndSec : o.trimEndSec,
-    snapGrid: o.snapGrid ?? defaults.snapGrid,
+    snapGrid: false,
     gridStep: normalizeGridStep(o.gridStep),
-    stageGridLinesEnabled:
-      typeof o.stageGridLinesEnabled === "boolean"
-        ? o.stageGridLinesEnabled
-        : defaults.stageGridLinesEnabled,
+    ...migrateStageGridLineAxes(
+      o as Record<string, unknown>,
+      defaults.stageGridLinesEnabled ?? false
+    ),
     ...(() => {
       const po = o as Partial<ChoreographyProjectJson>;
       const fb = defaults.stageGridLineSpacingMm ?? 10;

@@ -767,22 +767,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
             <ChoreoGridToolbar
               embedInPanel
               tilesInRun
-              singleTile="snap"
-              {...choreo}
-            />
-          ) : null}
-          {choreo && choreo.onToggleStageGridLines ? (
-            <ChoreoGridToolbar
-              embedInPanel
-              tilesInRun
-              singleTile="gridLines"
-              {...choreo}
-            />
-          ) : null}
-          {choreo ? (
-            <ChoreoGridToolbar
-              embedInPanel
-              tilesInRun
               singleTile="help"
               {...choreo}
             />

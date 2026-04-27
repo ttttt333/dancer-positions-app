@@ -340,14 +340,14 @@ function floorTextDraftColorHex(
 /** ○内ラベル用フォント（px）。印が大きいほど比例して大きく */
 function markerCircleLabelFontPx(markerPx: number): number {
   return Math.max(
-    11,
-    Math.min(26, Math.round(16 * (markerPx / DEFAULT_DANCER_MARKER_DIAMETER_PX)))
+    14,
+    Math.min(34, Math.round(19 * (markerPx / DEFAULT_DANCER_MARKER_DIAMETER_PX)))
   );
 }
 
 /** ○の下に出す名前用（○内よりやや小さめ） */
 function markerBelowLabelFontPx(circleLabelPx: number): number {
-  return Math.max(11, Math.min(19, circleLabelPx - 1));
+  return Math.max(12, Math.min(24, circleLabelPx));
 }
 
 /** ○下端と名前のあいだを、舞台横幅に対してこの mm ぶん広げる */
@@ -1024,6 +1024,8 @@ export function StageBoard({
     project.stageGridSpacingWidthMm,
     project.stageGridSpacingDepthMm,
   ]);
+  const showStageMmGridOverlay =
+    mmSnapGrid != null && (stageGridLinesVertical || stageGridLinesHorizontal);
   /** 現在カーソルが乗っているステージリサイズハンドル。ホバー時だけ少し大きくする。 */
   const [hoveredStageHandle, setHoveredStageHandle] = useState<string | null>(
     null
@@ -4671,8 +4673,6 @@ export function StageBoard({
               position: "relative",
               width: "100%",
               height: "100%",
-              borderRadius: "16px",
-              border: `1.5px solid ${shell.ruby}`,
               overflow: clipStageHostedOverflow ? "hidden" : "visible",
               touchAction: "none",
               boxShadow: previewDancers?.length
@@ -4758,6 +4758,44 @@ export function StageBoard({
               </div>
             )}
             <div
+              style={{
+                minWidth: 0,
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
+                position: "relative",
+                ...(showShell
+                  ? {
+                      gridColumn: Smm > 0 ? 2 : 1,
+                      gridRow: Bmm > 0 ? 2 : 1,
+                      ...(Smm === 0 && Bmm > 0 ? { gridColumn: "1 / -1" } : {}),
+                    }
+                  : { position: "relative", width: "100%", height: "100%" }),
+              }}
+            >
+            {!(showShell && Bmm > 0) ? (
+              <div
+                style={{
+                  flex: "0 0 22px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  textAlign: "center",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  letterSpacing: "0.14em",
+                  color: shell.textMuted,
+                  pointerEvents: "none",
+                  userSelect: "none",
+                  ...labelScreenKeepUpright("top center"),
+                }}
+              >
+                舞台裏
+              </div>
+            ) : (
+              <div style={{ flex: "0 0 0px", height: 0, overflow: "hidden" }} aria-hidden />
+            )}
+            <div
               ref={stageMainFloorRef}
               onPointerDownCapture={(e) => {
                 if (!isPlaying || !onStopPlaybackRequest || e.button !== 0) return;
@@ -4769,16 +4807,15 @@ export function StageBoard({
               onPointerDown={handlePointerDownFloor}
               style={{
                 ...mainFloorStyle,
+                flex: "1 1 0%",
+                minHeight: 0,
+                position: "relative",
+                width: "100%",
+                borderRadius: "14px",
+                border: `1.5px solid ${shell.ruby}`,
                 background: showShell
                   ? (mainFloorStyle.background as string)
                   : "transparent",
-                ...(showShell
-                  ? {
-                      gridColumn: Smm > 0 ? 2 : 1,
-                      gridRow: Bmm > 0 ? 2 : 1,
-                      ...(Smm === 0 && Bmm > 0 ? { gridColumn: "1 / -1" } : {}),
-                    }
-                  : { position: "relative", width: "100%", height: "100%" }),
               }}
             >
             {setPiecesEditable && (
@@ -5523,62 +5560,121 @@ export function StageBoard({
                 />
               </svg>
             )}
-            {(project.stageGridLinesEnabled ?? false) &&
-              mmSnapGrid != null && (
-                <svg
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    width: "100%",
-                    height: "100%",
-                    pointerEvents: "none",
-                    opacity: 0.52,
-                  }}
-                  preserveAspectRatio="none"
-                  aria-hidden
-                >
-                  {(() => {
+            {hasStageDims && (
+              <svg
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  width: "100%",
+                  height: "100%",
+                  pointerEvents: "none",
+                  opacity: showStageMmGridOverlay ? 0.52 : 1,
+                  zIndex: 1,
+                }}
+                preserveAspectRatio="none"
+                aria-hidden
+              >
+                <line
+                  x1="50%"
+                  y1="0%"
+                  x2="50%"
+                  y2="100%"
+                  stroke="rgba(251, 191, 36, 0.92)"
+                  strokeWidth="0.55"
+                  vectorEffect="non-scaling-stroke"
+                />
+                {showStageMmGridOverlay &&
+                  mmSnapGrid != null &&
+                  (() => {
                     const MAX = 120;
                     const { stepXPct, stepYPct } = mmSnapGrid;
                     let sx = 1;
-                    while (Math.ceil(100 / (stepXPct * sx)) > MAX) sx++;
+                    while (Math.ceil(50 / (stepXPct * sx)) + 2 > MAX) sx++;
                     let sy = 1;
-                    while (Math.ceil(100 / (stepYPct * sy)) > MAX) sy++;
+                    while (Math.ceil(50 / (stepYPct * sy)) + 2 > MAX) sy++;
                     const nodes: ReactElement[] = [];
-                    for (let i = 0; i * stepXPct * sx <= 100 + 1e-9; i++) {
-                      const g = round2(Math.min(100, i * stepXPct * sx));
-                      nodes.push(
-                        <line
-                          key={`v-${i}-${sx}`}
-                          x1={`${g}%`}
-                          y1="0%"
-                          x2={`${g}%`}
-                          y2="100%"
-                          stroke="#475569"
-                          strokeWidth="0.42"
-                          vectorEffect="non-scaling-stroke"
-                        />
-                      );
+                    const stepX = stepXPct * sx;
+                    const stepY = stepYPct * sy;
+                    if (stageGridLinesVertical) {
+                      for (let k = 1; k <= MAX; k++) {
+                        const off = k * stepX;
+                        const r = 50 + off;
+                        const l = 50 - off;
+                        if (r > 100 + 1e-6 && l < -1e-6) break;
+                        if (r <= 100 + 1e-6 && Math.abs(r - 50) > 0.02) {
+                          const g = round2(Math.min(100, r));
+                          nodes.push(
+                            <line
+                              key={`v+${k}-${sx}`}
+                              x1={`${g}%`}
+                              y1="0%"
+                              x2={`${g}%`}
+                              y2="100%"
+                              stroke="#475569"
+                              strokeWidth="0.42"
+                              vectorEffect="non-scaling-stroke"
+                            />
+                          );
+                        }
+                        if (l >= -1e-6 && Math.abs(l - 50) > 0.02) {
+                          const g = round2(Math.max(0, l));
+                          nodes.push(
+                            <line
+                              key={`v-${k}-${sx}`}
+                              x1={`${g}%`}
+                              y1="0%"
+                              x2={`${g}%`}
+                              y2="100%"
+                              stroke="#475569"
+                              strokeWidth="0.42"
+                              vectorEffect="non-scaling-stroke"
+                            />
+                          );
+                        }
+                      }
                     }
-                    for (let j = 0; j * stepYPct * sy <= 100 + 1e-9; j++) {
-                      const g = round2(Math.min(100, j * stepYPct * sy));
-                      nodes.push(
-                        <line
-                          key={`h-${j}-${sy}`}
-                          x1="0%"
-                          y1={`${g}%`}
-                          x2="100%"
-                          y2={`${g}%`}
-                          stroke="#475569"
-                          strokeWidth="0.42"
-                          vectorEffect="non-scaling-stroke"
-                        />
-                      );
+                    if (stageGridLinesHorizontal) {
+                      for (let k = 1; k <= MAX; k++) {
+                        const off = k * stepY;
+                        const b = 50 + off;
+                        const t = 50 - off;
+                        if (b > 100 + 1e-6 && t < -1e-6) break;
+                        if (b <= 100 + 1e-6 && Math.abs(b - 50) > 0.02) {
+                          const g = round2(Math.min(100, b));
+                          nodes.push(
+                            <line
+                              key={`h+${k}-${sy}`}
+                              x1="0%"
+                              y1={`${g}%`}
+                              x2="100%"
+                              y2={`${g}%`}
+                              stroke="#475569"
+                              strokeWidth="0.42"
+                              vectorEffect="non-scaling-stroke"
+                            />
+                          );
+                        }
+                        if (t >= -1e-6 && Math.abs(t - 50) > 0.02) {
+                          const g = round2(Math.max(0, t));
+                          nodes.push(
+                            <line
+                              key={`h-${k}-${sy}`}
+                              x1="0%"
+                              y1={`${g}%`}
+                              x2="100%"
+                              y2={`${g}%`}
+                              stroke="#475569"
+                              strokeWidth="0.42"
+                              vectorEffect="non-scaling-stroke"
+                            />
+                          );
+                        }
+                      }
                     }
                     return nodes;
                   })()}
-                </svg>
-              )}
+              </svg>
+            )}
             <svg
               viewBox="0 0 100 100"
               preserveAspectRatio="none"
@@ -5636,35 +5732,13 @@ export function StageBoard({
                 />
               )}
             </svg>
-            {!(showShell && Bmm > 0) ? (
-              <div
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  right: 0,
-                  top: 0,
-                  paddingTop: "6px",
-                  textAlign: "center",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                  letterSpacing: "0.14em",
-                  color: shell.textMuted,
-                  pointerEvents: "none",
-                  zIndex: 4,
-                  textShadow: "0 1px 3px rgba(0,0,0,0.75)",
-                  ...labelScreenKeepUpright("top center"),
-                }}
-              >
-                舞台裏
-              </div>
-            ) : null}
             <div
               aria-label="ステージ センター前"
               title="センター前（基準点）"
               style={{
                 position: "absolute",
                 left: "50%",
-                bottom: "14%",
+                bottom: "10%",
                 width: "8px",
                 height: "8px",
                 borderRadius: "50%",
@@ -5675,83 +5749,6 @@ export function StageBoard({
                 zIndex: 4,
               }}
             />
-            <div
-              style={{
-                position: "absolute",
-                left: 0,
-                right: 0,
-                bottom: 0,
-                height: "14%",
-                background:
-                  "linear-gradient(180deg, transparent, rgba(9,9,11,0.9))",
-                borderTop: `1px solid ${shell.border}`,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "stretch",
-                justifyContent: "flex-end",
-                paddingBottom: "5px",
-                pointerEvents: "none",
-                zIndex: 3,
-                ...labelScreenKeepUpright("bottom center"),
-              }}
-              >
-              <div
-                style={{
-                  textAlign: "center",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  color: shell.textMuted,
-                }}
-              >
-                客席
-              </div>
-            </div>
-            {guideLineDrawMarks.length > 0 && (
-              <div
-                style={{
-                  position: "absolute",
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: "14%",
-                  pointerEvents: "none",
-                  zIndex: 4,
-                  ...labelScreenKeepUpright("bottom center"),
-                }}
-                aria-hidden
-              >
-                {guideLineDrawMarks.map(({ xp, k }, i) => {
-                  /**
-                   * 端ギリギリ（xp≒0/100）のラベルは通常の中央寄せ（translateX(-50%)）だと
-                   * 半分が親コンテナの外にはみ出して見えない/欠ける。左右対称に全て出せる
-                   * よう、近い側の辺でラベルを寄せる transform に切り替える。
-                   */
-                  let transform = "translateX(-50%)";
-                  if (xp <= 1) transform = "translateX(0)";
-                  else if (xp >= 99) transform = "translateX(-100%)";
-                  return (
-                    <span
-                      key={`glabel-${i}-${k}-${xp}`}
-                      style={{
-                        position: "absolute",
-                        left: `${xp}%`,
-                        top: "2px",
-                        transform,
-                        fontSize: "9px",
-                        fontWeight: 700,
-                        color: "#fef3c7",
-                        textShadow:
-                          "0 0 3px rgba(15,23,42,0.95), 0 1px 1px rgba(0,0,0,0.75)",
-                        lineHeight: 1,
-                        fontFamily: "system-ui, sans-serif",
-                      }}
-                    >
-                      {k}
-                    </span>
-                  );
-                })}
-              </div>
-            )}
             {(displayFloorMarkup.length > 0 || floorLineDraft) && (
               <div
                 style={{
@@ -6025,8 +6022,8 @@ export function StageBoard({
                     left: `${(selectionBox.x0 + selectionBox.x1) / 2}%`,
                     top: `calc(${selectionBox.y1}% + 12px)`,
                     transform: "translateX(-50%)",
-                    width: 32,
-                    height: 32,
+                    width: 36,
+                    height: 36,
                     borderRadius: "50%",
                     border: `2px solid ${shell.bgDeep}`,
                     background: shell.ruby,
@@ -6043,7 +6040,7 @@ export function StageBoard({
                     boxSizing: "border-box",
                   }}
                 >
-                  <RotateHandleGlyph size={14} />
+                  <RotateHandleGlyph size={17} />
                 </button>
               )}
             {dragGhostById &&
@@ -6402,8 +6399,8 @@ export function StageBoard({
                         left: "50%",
                         top: `calc(50% + ${rim}px)`,
                         transform: "translate(-50%, -50%)",
-                        width: 28,
-                        height: 28,
+                        width: 34,
+                        height: 34,
                         borderRadius: "50%",
                         background: shell.ruby,
                         border: `2px solid ${shell.bgDeep}`,
@@ -6418,7 +6415,7 @@ export function StageBoard({
                         userSelect: "none",
                       }}
                     >
-                      <RotateHandleGlyph size={13} />
+                      <RotateHandleGlyph size={17} />
                     </div>
                   ) : null}
                   <div
@@ -6459,6 +6456,69 @@ export function StageBoard({
                 }}
               />
             )}
+            </div>
+            <div
+              style={{
+                flex: "0 0 auto",
+                minHeight: guideLineDrawMarks.length > 0 ? 40 : 26,
+                position: "relative",
+                width: "100%",
+                pointerEvents: "none",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "stretch",
+                justifyContent: "center",
+                gap: 4,
+                paddingTop: 2,
+                ...labelScreenKeepUpright("bottom center"),
+              }}
+            >
+              {guideLineDrawMarks.length > 0 ? (
+                <div
+                  style={{
+                    position: "relative",
+                    height: 18,
+                    width: "100%",
+                  }}
+                >
+                  {guideLineDrawMarks.map(({ xp, k }, i) => {
+                    let transform = "translateX(-50%)";
+                    if (xp <= 1) transform = "translateX(0)";
+                    else if (xp >= 99) transform = "translateX(-100%)";
+                    return (
+                      <span
+                        key={`glabel-out-${i}-${k}-${xp}`}
+                        style={{
+                          position: "absolute",
+                          left: `${xp}%`,
+                          top: 0,
+                          transform,
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          color: "#fef3c7",
+                          textShadow:
+                            "0 0 3px rgba(15,23,42,0.95), 0 1px 1px rgba(0,0,0,0.75)",
+                          lineHeight: 1,
+                          fontFamily: "system-ui, sans-serif",
+                        }}
+                      >
+                        {k}
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : null}
+              <div
+                style={{
+                  textAlign: "center",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: shell.textMuted,
+                }}
+              >
+                客席
+              </div>
+            </div>
             </div>
             {showShell && Smm > 0 && (
               <div

@@ -249,9 +249,9 @@ type StageAreaSettingsDraft = {
   side: StageAreaMeterCmDraft;
   back: StageAreaMeterCmDraft;
   guide: StageAreaMeterCmDraft;
-  snapGrid: boolean;
   gridStep: number;
-  stageGridLinesEnabled: boolean;
+  stageGridLinesVerticalEnabled: boolean;
+  stageGridLinesHorizontalEnabled: boolean;
   gridWidthCm: number;
   gridDepthCm: number;
   dancerLabelPosition: "inside" | "below";
@@ -265,9 +265,9 @@ function emptyStageAreaSettingsDraft(): StageAreaSettingsDraft {
     side: { m: "", cm: "" },
     back: { m: "", cm: "" },
     guide: { m: "", cm: "" },
-    snapGrid: true,
     gridStep: 1,
-    stageGridLinesEnabled: false,
+    stageGridLinesVerticalEnabled: false,
+    stageGridLinesHorizontalEnabled: false,
     gridWidthCm: 1,
     gridDepthCm: 1,
     dancerLabelPosition: "inside",
@@ -284,9 +284,11 @@ function projectToStageAreaDraft(p: ChoreographyProjectJson): StageAreaSettingsD
     side: mmToMeterCmDraft(p.sideStageMm),
     back: mmToMeterCmDraft(p.backStageMm),
     guide: mmToMeterCmDraft(p.centerFieldGuideIntervalMm),
-    snapGrid: p.snapGrid,
     gridStep: p.gridStep,
-    stageGridLinesEnabled: p.stageGridLinesEnabled ?? false,
+    stageGridLinesVerticalEnabled:
+      p.stageGridLinesVerticalEnabled ?? p.stageGridLinesEnabled ?? false,
+    stageGridLinesHorizontalEnabled:
+      p.stageGridLinesHorizontalEnabled ?? p.stageGridLinesEnabled ?? false,
     gridWidthCm: Math.max(1, Math.min(100, Math.round(gridWmm / 10))),
     gridDepthCm: Math.max(1, Math.min(100, Math.round(gridDmm / 10))),
     dancerLabelPosition: p.dancerLabelPosition ?? "inside",
@@ -967,9 +969,12 @@ export function EditorPage() {
       sideStageMm: s,
       backStageMm: b,
       centerFieldGuideIntervalMm: g,
-      snapGrid: d.snapGrid,
+      snapGrid: false,
       gridStep: d.gridStep,
-      stageGridLinesEnabled: d.stageGridLinesEnabled,
+      stageGridLinesVerticalEnabled: d.stageGridLinesVerticalEnabled,
+      stageGridLinesHorizontalEnabled: d.stageGridLinesHorizontalEnabled,
+      stageGridLinesEnabled:
+        d.stageGridLinesVerticalEnabled || d.stageGridLinesHorizontalEnabled,
       stageGridSpacingWidthMm: gw,
       stageGridLineSpacingMm: gw,
       stageGridSpacingDepthMm: gd,
@@ -1007,9 +1012,12 @@ export function EditorPage() {
       sideStageMm: s,
       backStageMm: b,
       centerFieldGuideIntervalMm: g,
-      snapGrid: d.snapGrid,
+      snapGrid: false,
       gridStep: d.gridStep,
-      stageGridLinesEnabled: d.stageGridLinesEnabled,
+      stageGridLinesVerticalEnabled: d.stageGridLinesVerticalEnabled,
+      stageGridLinesHorizontalEnabled: d.stageGridLinesHorizontalEnabled,
+      stageGridLinesEnabled:
+        d.stageGridLinesVerticalEnabled || d.stageGridLinesHorizontalEnabled,
       stageGridSpacingWidthMm: gw,
       stageGridLineSpacingMm: gw,
       stageGridSpacingDepthMm: gd,
@@ -1762,26 +1770,11 @@ export function EditorPage() {
     : editorGridColumns;
 
   const choreoToolbarSharedProps = {
-    snapGrid: project.snapGrid,
-    stageGridLinesEnabled: project.stageGridLinesEnabled ?? false,
     stageShapeActive:
       (project.stageShape != null &&
         project.stageShape.presetId !== "rectangle") ||
       (project.hanamichiEnabled ?? false),
     disabled: project.viewMode === "view",
-    onToggleSnapGrid: () =>
-      setProjectSafe((p) => ({ ...p, snapGrid: !p.snapGrid })),
-    onToggleStageGridLines: () =>
-      setProjectSafe((p) => ({
-        ...p,
-        stageGridLinesEnabled: !(p.stageGridLinesEnabled ?? false),
-      })),
-    stageGridLinesToggleDisabled: !(
-      project.stageWidthMm != null &&
-      project.stageWidthMm > 0 &&
-      project.stageDepthMm != null &&
-      project.stageDepthMm > 0
-    ),
     onOpenStageShapePicker: () => setStageShapePickerOpen(true),
     onOpenSetPiecePicker: openSetPiecePicker,
     onOpenShortcutsHelp: () => setShortcutsHelpOpen(true),
@@ -3176,77 +3169,14 @@ export function EditorPage() {
             <div style={STAGE_AREA_SHEET_SECTION}>
               <div
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "8px",
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  color: "#64748b",
+                  letterSpacing: "0.05em",
                   marginBottom: "4px",
                 }}
               >
-                <span
-                  style={{
-                    fontSize: "10px",
-                    fontWeight: 700,
-                    color: "#64748b",
-                    letterSpacing: "0.05em",
-                  }}
-                >
-                  グリッド
-                </span>
-                <div style={{ display: "flex", gap: "6px", flex: "1 1 auto", justifyContent: "flex-end" }}>
-                  <button
-                    type="button"
-                    disabled={project.viewMode === "view"}
-                    onClick={() =>
-                      setStageAreaSettingsDraft((d) => ({ ...d, snapGrid: true }))
-                    }
-                    style={{
-                      flex: "0 1 88px",
-                      padding: "5px 8px",
-                      borderRadius: "6px",
-                      border:
-                        stageAreaSettingsDraft.snapGrid
-                          ? "1px solid rgba(99,102,241,0.9)"
-                          : "1px solid #334155",
-                      background: stageAreaSettingsDraft.snapGrid
-                        ? "rgba(99,102,241,0.22)"
-                        : "#020617",
-                      color: stageAreaSettingsDraft.snapGrid ? "#e0e7ff" : "#94a3b8",
-                      fontSize: "11px",
-                      fontWeight: 600,
-                      cursor:
-                        project.viewMode === "view" ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    スナップON
-                  </button>
-                  <button
-                    type="button"
-                    disabled={project.viewMode === "view"}
-                    onClick={() =>
-                      setStageAreaSettingsDraft((d) => ({ ...d, snapGrid: false }))
-                    }
-                    style={{
-                      flex: "0 1 88px",
-                      padding: "5px 8px",
-                      borderRadius: "6px",
-                      border:
-                        !stageAreaSettingsDraft.snapGrid
-                          ? "1px solid rgba(148,163,184,0.85)"
-                          : "1px solid #334155",
-                      background: !stageAreaSettingsDraft.snapGrid
-                        ? "#334155"
-                        : "#020617",
-                      color: !stageAreaSettingsDraft.snapGrid ? "#f8fafc" : "#94a3b8",
-                      fontSize: "11px",
-                      fontWeight: 600,
-                      cursor:
-                        project.viewMode === "view" ? "not-allowed" : "pointer",
-                    }}
-                  >
-                    OFF
-                  </button>
-                </div>
+                グリッド
               </div>
               {!stageAreaDraftHasMainFloor ? (
                 <p
@@ -3258,7 +3188,7 @@ export function EditorPage() {
                   }}
                 >
                   幅・奥行入力後、<strong style={{ color: "#cbd5e1" }}>縦／横 cm</strong>
-                  で実寸スナップ・線間隔が使えます。
+                  で実寸の線間隔と表示を使えます。
                 </p>
               ) : (
                 <p
@@ -3270,7 +3200,7 @@ export function EditorPage() {
                   }}
                 >
                   <strong style={{ color: "#cbd5e1" }}>縦</strong>＝幅方向、
-                  <strong style={{ color: "#cbd5e1" }}>横</strong>＝奥行。各 1〜100 cm。
+                  <strong style={{ color: "#cbd5e1" }}>横</strong>＝奥行。各 1〜100 cm（数字は直接入力可）。
                 </p>
               )}
               {!stageAreaDraftHasMainFloor ? (
@@ -3281,12 +3211,12 @@ export function EditorPage() {
                     color: "#94a3b8",
                     marginBottom: "2px",
                   }}
-                  title="幅・奥行が未設定のときだけ、％でスナップします。"
+                  title="幅・奥行が未設定のときの％刻み（参考用）"
                 >
                   寸法なし時の％刻み
                   <select
                     value={stageAreaSettingsDraft.gridStep}
-                    disabled={!stageAreaSettingsDraft.snapGrid || project.viewMode === "view"}
+                    disabled={project.viewMode === "view"}
                     onChange={(e) =>
                       setStageAreaSettingsDraft((d) => ({
                         ...d,
@@ -3325,15 +3255,20 @@ export function EditorPage() {
                   <label style={{ fontSize: "10px", color: "#94a3b8" }}>
                     縦線間隔（cm）
                     <input
-                      type="number"
-                      min={1}
-                      max={100}
-                      step={1}
-                      value={stageAreaSettingsDraft.gridWidthCm}
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={String(stageAreaSettingsDraft.gridWidthCm)}
                       disabled={project.viewMode === "view"}
                       onChange={(e) => {
-                        const cm = Number(e.target.value);
-                        if (!Number.isFinite(cm)) return;
+                        const cm = Number(e.target.value.replace(/[^\d.]/g, ""));
+                        if (!Number.isFinite(cm)) {
+                          setStageAreaSettingsDraft((d) => ({
+                            ...d,
+                            gridWidthCm: 1,
+                          }));
+                          return;
+                        }
                         const c = Math.max(1, Math.min(100, Math.round(cm)));
                         setStageAreaSettingsDraft((d) => ({
                           ...d,
@@ -3356,15 +3291,20 @@ export function EditorPage() {
                   <label style={{ fontSize: "10px", color: "#94a3b8" }}>
                     横線間隔（cm）
                     <input
-                      type="number"
-                      min={1}
-                      max={100}
-                      step={1}
-                      value={stageAreaSettingsDraft.gridDepthCm}
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={String(stageAreaSettingsDraft.gridDepthCm)}
                       disabled={project.viewMode === "view"}
                       onChange={(e) => {
-                        const cm = Number(e.target.value);
-                        if (!Number.isFinite(cm)) return;
+                        const cm = Number(e.target.value.replace(/[^\d.]/g, ""));
+                        if (!Number.isFinite(cm)) {
+                          setStageAreaSettingsDraft((d) => ({
+                            ...d,
+                            gridDepthCm: 1,
+                          }));
+                          return;
+                        }
                         const c = Math.max(1, Math.min(100, Math.round(cm)));
                         setStageAreaSettingsDraft((d) => ({
                           ...d,
@@ -3386,31 +3326,63 @@ export function EditorPage() {
                   </label>
                 </div>
               ) : null}
-              <label
+              <div
                 style={{
                   display: "flex",
-                  alignItems: "center",
+                  flexDirection: "column",
                   gap: "6px",
-                  fontSize: "11px",
-                  color: "#cbd5e1",
-                  marginBottom: 0,
-                  cursor: project.viewMode === "view" ? "default" : "pointer",
+                  marginTop: "4px",
                 }}
-                title="実寸のガイド線を表示（幅・奥行と縦横間隔が必要）"
               >
-                <input
-                  type="checkbox"
-                  checked={stageAreaSettingsDraft.stageGridLinesEnabled}
-                  disabled={project.viewMode === "view" || !stageAreaDraftHasMainFloor}
-                  onChange={(e) =>
-                    setStageAreaSettingsDraft((d) => ({
-                      ...d,
-                      stageGridLinesEnabled: e.target.checked,
-                    }))
-                  }
-                />
-                グリッド線を表示
-              </label>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    fontSize: "11px",
+                    color: "#cbd5e1",
+                    cursor: project.viewMode === "view" ? "default" : "pointer",
+                  }}
+                  title="幅方向（画面上では縦に走る線）"
+                >
+                  <input
+                    type="checkbox"
+                    checked={stageAreaSettingsDraft.stageGridLinesVerticalEnabled}
+                    disabled={project.viewMode === "view" || !stageAreaDraftHasMainFloor}
+                    onChange={(e) =>
+                      setStageAreaSettingsDraft((d) => ({
+                        ...d,
+                        stageGridLinesVerticalEnabled: e.target.checked,
+                      }))
+                    }
+                  />
+                  縦線（幅方向のグリッド）を表示
+                </label>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    fontSize: "11px",
+                    color: "#cbd5e1",
+                    cursor: project.viewMode === "view" ? "default" : "pointer",
+                  }}
+                  title="奥行方向（画面上では横に走る線）"
+                >
+                  <input
+                    type="checkbox"
+                    checked={stageAreaSettingsDraft.stageGridLinesHorizontalEnabled}
+                    disabled={project.viewMode === "view" || !stageAreaDraftHasMainFloor}
+                    onChange={(e) =>
+                      setStageAreaSettingsDraft((d) => ({
+                        ...d,
+                        stageGridLinesHorizontalEnabled: e.target.checked,
+                      }))
+                    }
+                  />
+                  横線（奥行方向のグリッド）を表示
+                </label>
+              </div>
             </div>
 
             <div style={STAGE_AREA_SHEET_SECTION}>

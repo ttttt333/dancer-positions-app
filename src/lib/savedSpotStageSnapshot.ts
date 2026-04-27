@@ -22,8 +22,14 @@ export function captureStageSnapshot(
     stageShape: p.stageShape ? cloneStageShape(p.stageShape) : undefined,
     gridSpacingMm: p.gridSpacingMm,
     gridStep: p.gridStep,
-    snapGrid: p.snapGrid,
-    stageGridLinesEnabled: p.stageGridLinesEnabled ?? false,
+    snapGrid: false,
+    stageGridLinesEnabled:
+      (p.stageGridLinesVerticalEnabled ?? p.stageGridLinesEnabled ?? false) ||
+      (p.stageGridLinesHorizontalEnabled ?? p.stageGridLinesEnabled ?? false),
+    stageGridLinesVerticalEnabled:
+      p.stageGridLinesVerticalEnabled ?? p.stageGridLinesEnabled ?? false,
+    stageGridLinesHorizontalEnabled:
+      p.stageGridLinesHorizontalEnabled ?? p.stageGridLinesEnabled ?? false,
     stageGridLineSpacingMm: p.stageGridLineSpacingMm ?? p.stageGridSpacingWidthMm ?? 10,
     stageGridSpacingWidthMm: p.stageGridSpacingWidthMm ?? p.stageGridLineSpacingMm ?? 10,
     stageGridSpacingDepthMm: p.stageGridSpacingDepthMm ?? p.stageGridLineSpacingMm ?? 10,
@@ -68,8 +74,14 @@ export function mergeStageSnapshotIntoProject(
     ...(snap.stageShape ? { stageShape: cloneStageShape(snap.stageShape) } : {}),
     ...(snap.gridSpacingMm != null ? { gridSpacingMm: snap.gridSpacingMm } : {}),
     gridStep: snap.gridStep,
-    snapGrid: snap.snapGrid,
-    stageGridLinesEnabled: snap.stageGridLinesEnabled ?? false,
+    snapGrid: false,
+    stageGridLinesVerticalEnabled:
+      snap.stageGridLinesVerticalEnabled ?? snap.stageGridLinesEnabled ?? false,
+    stageGridLinesHorizontalEnabled:
+      snap.stageGridLinesHorizontalEnabled ?? snap.stageGridLinesEnabled ?? false,
+    stageGridLinesEnabled:
+      (snap.stageGridLinesVerticalEnabled ?? snap.stageGridLinesEnabled ?? false) ||
+      (snap.stageGridLinesHorizontalEnabled ?? snap.stageGridLinesEnabled ?? false),
     stageGridLineSpacingMm:
       snap.stageGridLineSpacingMm ??
       snap.stageGridSpacingWidthMm ??

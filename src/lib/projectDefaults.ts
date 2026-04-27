@@ -62,6 +62,8 @@ export function createEmptyProject(): ChoreographyProjectJson {
     snapGrid: false,
     gridStep: 2,
     stageGridLinesEnabled: false,
+    stageGridLinesVerticalEnabled: false,
+    stageGridLinesHorizontalEnabled: false,
     /** 旧単一フィールド互換：縦線間隔（幅方向）と同じ値を入れる */
     stageGridLineSpacingMm: 10,
     /** 縦に引くグリッド線の間隔＝幅方向の実寸（mm）。1〜100 cm */

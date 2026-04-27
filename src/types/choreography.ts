@@ -236,8 +236,17 @@ export type SavedSpotStageSnapshot = {
   stageShape?: StageShape;
   gridSpacingMm?: number;
   gridStep: number;
+  /** 互換のため残す。正規化後は常に false（スナップ UI 廃止） */
   snapGrid: boolean;
+  /**
+   * 旧: 縦横まとめて表示。未指定時は `stageGridLinesVerticalEnabled` /
+   * `stageGridLinesHorizontalEnabled` の OR で推定。
+   */
   stageGridLinesEnabled?: boolean;
+  /** 幅方向（画面上の縦線）のグリッド線を表示 */
+  stageGridLinesVerticalEnabled?: boolean;
+  /** 奥行方向（画面上の横線）のグリッド線を表示 */
+  stageGridLinesHorizontalEnabled?: boolean;
   /** 旧データ互換：縦線（幅方向）間隔と同じ意味で正規化時に維持 */
   stageGridLineSpacingMm?: number;
   /** 縦線（幅 mm 方向）の間隔 mm。1〜100 cm */
@@ -304,10 +313,13 @@ export type ChoreographyProjectJson = {
   snapGrid: boolean;
   gridStep: number;
   /**
-   * ステージ上に実寸グリッド線を重ねて表示する（幅・奥行 mm と線間隔が必要）。
-   * `snapGrid`（スナップ）とは独立。
+   * ステージ上に実寸グリッド線を重ねて表示（幅・奥行 mm と線間隔が必要）。
+   * 縦線のみ・横線のみは `stageGridLinesVerticalEnabled` /
+   * `stageGridLinesHorizontalEnabled`。旧データの `stageGridLinesEnabled` から正規化。
    */
   stageGridLinesEnabled?: boolean;
+  stageGridLinesVerticalEnabled?: boolean;
+  stageGridLinesHorizontalEnabled?: boolean;
   /**
    * 旧単一値互換（mm）。正規化後は縦線間隔 `stageGridSpacingWidthMm` と同じ。
    * 表示・スナップは `stageGridSpacingWidthMm` / `stageGridSpacingDepthMm` を優先。

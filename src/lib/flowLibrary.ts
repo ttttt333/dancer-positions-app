@@ -89,6 +89,8 @@ export interface FlowStageSettingsSnapshot {
   snapGrid: boolean;
   gridStep: number;
   stageGridLinesEnabled?: boolean;
+  stageGridLinesVerticalEnabled?: boolean;
+  stageGridLinesHorizontalEnabled?: boolean;
   stageGridLineSpacingMm?: number;
   stageGridSpacingWidthMm?: number;
   stageGridSpacingDepthMm?: number;
@@ -309,9 +311,15 @@ function snapshotStageFromProject(
     hanamichiEnabled: p.hanamichiEnabled,
     hanamichiDepthPct: p.hanamichiDepthPct,
     dancerMarkerDiameterMm: p.dancerMarkerDiameterMm,
-    snapGrid: p.snapGrid,
+    snapGrid: false,
     gridStep: p.gridStep,
-    stageGridLinesEnabled: p.stageGridLinesEnabled,
+    stageGridLinesEnabled:
+      (p.stageGridLinesVerticalEnabled ?? p.stageGridLinesEnabled ?? false) ||
+      (p.stageGridLinesHorizontalEnabled ?? p.stageGridLinesEnabled ?? false),
+    stageGridLinesVerticalEnabled:
+      p.stageGridLinesVerticalEnabled ?? p.stageGridLinesEnabled ?? false,
+    stageGridLinesHorizontalEnabled:
+      p.stageGridLinesHorizontalEnabled ?? p.stageGridLinesEnabled ?? false,
     stageGridLineSpacingMm: p.stageGridLineSpacingMm,
     stageGridSpacingWidthMm: p.stageGridSpacingWidthMm ?? p.stageGridLineSpacingMm,
     stageGridSpacingDepthMm: p.stageGridSpacingDepthMm ?? p.stageGridLineSpacingMm,
@@ -363,13 +371,19 @@ function normalizeStageSettings(
     Number.isFinite(o.dancerMarkerDiameterMm)
       ? { dancerMarkerDiameterMm: o.dancerMarkerDiameterMm }
       : {}),
-    snapGrid: typeof o.snapGrid === "boolean" ? o.snapGrid : false,
+    snapGrid: false,
     gridStep:
       typeof o.gridStep === "number" && Number.isFinite(o.gridStep)
         ? clamp(o.gridStep, 0.1, 50)
         : 2,
     ...(typeof o.stageGridLinesEnabled === "boolean"
       ? { stageGridLinesEnabled: o.stageGridLinesEnabled }
+      : {}),
+    ...(typeof o.stageGridLinesVerticalEnabled === "boolean"
+      ? { stageGridLinesVerticalEnabled: o.stageGridLinesVerticalEnabled }
+      : {}),
+    ...(typeof o.stageGridLinesHorizontalEnabled === "boolean"
+      ? { stageGridLinesHorizontalEnabled: o.stageGridLinesHorizontalEnabled }
       : {}),
     ...(() => {
       const legacy = clampStageGridAxisMm(o.stageGridLineSpacingMm, 10);
@@ -428,11 +442,34 @@ export function applyFlowStageSettingsToProject(
     hanamichiEnabled: stage.hanamichiEnabled,
     hanamichiDepthPct: stage.hanamichiDepthPct,
     dancerMarkerDiameterMm: stage.dancerMarkerDiameterMm,
-    snapGrid: stage.snapGrid,
+    snapGrid: false,
     gridStep: stage.gridStep,
-    ...(stage.stageGridLinesEnabled !== undefined
-      ? { stageGridLinesEnabled: stage.stageGridLinesEnabled }
-      : {}),
+    ...(stage.stageGridLinesVerticalEnabled !== undefined ||
+    stage.stageGridLinesHorizontalEnabled !== undefined
+      ? {
+          stageGridLinesVerticalEnabled:
+            stage.stageGridLinesVerticalEnabled ??
+            stage.stageGridLinesEnabled ??
+            false,
+          stageGridLinesHorizontalEnabled:
+            stage.stageGridLinesHorizontalEnabled ??
+            stage.stageGridLinesEnabled ??
+            false,
+          stageGridLinesEnabled:
+            (stage.stageGridLinesVerticalEnabled ??
+              stage.stageGridLinesEnabled ??
+              false) ||
+            (stage.stageGridLinesHorizontalEnabled ??
+              stage.stageGridLinesEnabled ??
+              false),
+        }
+      : stage.stageGridLinesEnabled !== undefined
+        ? {
+            stageGridLinesEnabled: stage.stageGridLinesEnabled,
+            stageGridLinesVerticalEnabled: stage.stageGridLinesEnabled,
+            stageGridLinesHorizontalEnabled: stage.stageGridLinesEnabled,
+          }
+        : {}),
     stageGridLineSpacingMm: w,
     stageGridSpacingWidthMm: w,
     stageGridSpacingDepthMm: d,

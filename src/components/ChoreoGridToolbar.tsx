@@ -5,7 +5,8 @@ import { ChoreoGridLogo } from "./ChoreoGridLogo";
 
 export type ChoreoGridToolbarCoreProps = {
   snapGrid?: boolean;
-  onToggleSnapGrid: () => void;
+  /** 未指定のときはスナップボタンを出さない（機能廃止） */
+  onToggleSnapGrid?: () => void;
   onToggleStageGridLines?: () => void;
   stageGridLinesToggleDisabled?: boolean;
   stageGridLinesEnabled?: boolean;
@@ -32,7 +33,7 @@ type Props = ChoreoGridToolbarCoreProps & {
    */
   singleTile?: "snap" | "gridLines" | "stageShape" | "setPiece" | "export" | "help";
   snapGrid?: boolean;
-  onToggleSnapGrid: () => void;
+  onToggleSnapGrid?: () => void;
   stageGridLinesEnabled?: boolean;
   onToggleStageGridLines?: () => void;
   stageGridLinesToggleDisabled?: boolean;
@@ -237,7 +238,7 @@ export function ChoreoGridToolbar({
   embedInPanel = false,
   tilesInRun = false,
   singleTile,
-  onToggleSnapGrid,
+  onToggleSnapGrid: onToggleSnapGridProp,
   onToggleStageGridLines,
   stageGridLinesToggleDisabled = false,
   onOpenStageShapePicker,
@@ -249,6 +250,7 @@ export function ChoreoGridToolbar({
   stageGridLinesEnabled = false,
   stageShapeActive = false,
 }: Props) {
+  const onToggleSnapGrid = onToggleSnapGridProp;
   const row = layout === "row" && !embedInPanel;
   const fw = embedInPanel && !tilesInRun;
   const sq = tilesInRun;
@@ -257,7 +259,7 @@ export function ChoreoGridToolbar({
     const d = disabled ?? false;
     switch (singleTile) {
       case "snap":
-        return (
+        return onToggleSnapGrid ? (
           <Fragment>
             <ToolbarIconButton
               title="スナップ（グリッドに吸着。実寸 1cm 線が使えるときはその線に沿います）"
@@ -269,7 +271,7 @@ export function ChoreoGridToolbar({
               <IconSnap active={snapGrid} />
             </ToolbarIconButton>
           </Fragment>
-        );
+        ) : null;
       case "gridLines":
         return onToggleStageGridLines ? (
           <Fragment>
@@ -372,16 +374,18 @@ export function ChoreoGridToolbar({
           <ChoreoGridLogo size={30} title="ChoreoGrid" />
         </div>
       ) : null}
-      <ToolbarIconButton
-        title="スナップ（グリッドに吸着。実寸 1cm 線が使えるときはその線に沿います）"
-        disabled={disabled}
-        pressed={snapGrid}
-        fullWidth={fw}
-        square48={sq}
-        onClick={onToggleSnapGrid}
-      >
-        <IconSnap active={snapGrid} />
-      </ToolbarIconButton>
+      {onToggleSnapGrid ? (
+        <ToolbarIconButton
+          title="スナップ（グリッドに吸着。実寸 1cm 線が使えるときはその線に沿います）"
+          disabled={disabled}
+          pressed={snapGrid}
+          fullWidth={fw}
+          square48={sq}
+          onClick={onToggleSnapGrid}
+        >
+          <IconSnap active={snapGrid} />
+        </ToolbarIconButton>
+      ) : null}
       {onToggleStageGridLines ? (
         <ToolbarIconButton
           title={
