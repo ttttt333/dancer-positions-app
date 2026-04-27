@@ -2502,8 +2502,9 @@ export function EditorPage() {
                   display: "flex",
                   flexDirection: "column",
                   overflow: "hidden",
-                  flex: "1 1 52%",
-                  minHeight: 120,
+                  /** 名簿モードでは右列の縦スペースの大半をメンバー表に使う（ツールは下で内容分のみ） */
+                  flex: "1 1 0",
+                  minHeight: 0,
                   ...panelCard,
                   padding: "6px 5px",
                 }}
@@ -2520,8 +2521,8 @@ export function EditorPage() {
               style={{
                 ...panelCard,
                 padding: "6px 5px",
-                flex: rosterOnlyMode ? "1 1 48%" : "1 1 auto",
-                minHeight: rosterOnlyMode ? 100 : 0,
+                flex: rosterOnlyMode ? "0 0 auto" : "1 1 auto",
+                minHeight: 0,
                 minWidth: 0,
                 display: "flex",
                 flexDirection: "column",
@@ -2563,7 +2564,7 @@ export function EditorPage() {
                   display: "flex",
                   flexDirection: "column",
                   overflow: "hidden",
-                  flex: "1 1 auto",
+                  flex: "1 1 0",
                   minHeight: 0,
                   ...rightPaneTopSectionStyle,
                 }}
@@ -2609,8 +2610,8 @@ export function EditorPage() {
                 overflow: "hidden",
                 ...(rosterOnlyMode
                   ? {
-                      flex: "0 1 45%",
-                      minHeight: 160,
+                      /** 名簿モードでは縦の固定割合を取らず、内容＋上限だけで波形エリアの高さにする */
+                      flex: "0 0 auto",
                       maxHeight: "min(42vh, 380px)",
                       flexShrink: 0,
                     }
