@@ -3366,8 +3366,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               columnGap: tlPx(6),
               width: "100%",
               minWidth: 0,
-              /** 再生・先頭などを約 5mm 上に（波形との間の圧縮と合わせてステージ側へ寄せる） */
-              marginTop: "calc(-1 * 5mm)",
+              marginTop: 0,
               padding: `${tlPx(0)} ${tlPx(6)} ${tlPx(2)}`,
               borderBottom: `1px solid ${shell.border}`,
               flexShrink: 0,

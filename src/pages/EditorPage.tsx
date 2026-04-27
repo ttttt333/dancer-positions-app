@@ -108,8 +108,8 @@ const EDITOR_SHELL_TOP_WAVE_BASE_PX = 117;
 const EDITOR_SHELL_TOP_WAVE_ROSTER_ROW_PX = 40;
 /** ワイド＋上部波形時の固定シェル：右ツール列の幅（内部のみ縦スクロール） */
 const EDITOR_SHELL_RIGHT_PANEL_PX = 300;
-/** 再生・波形・タイムライン列をまとめて上へ詰める（約 0.5cm + 5mm。ステージ列の 1fr を上方向に確保） */
-const EDITOR_PLAYBACK_LAYOUT_SHIFT_UP = "calc(0.5cm + 5mm)";
+/** 再生・波形・タイムライン列をまとめて上へ詰める（約 0.5cm + 5mm + 1cm。ステージ列の 1fr を上方向に確保） */
+const EDITOR_PLAYBACK_LAYOUT_SHIFT_UP = "calc(0.5cm + 5mm + 1cm)";
 
 /** ステージ列とタイムライン列の間のドラッグ幅 */
 const STAGE_RESIZER_PX = 4;
@@ -129,9 +129,9 @@ const RIGHT_TOOLS_RAIL_MAX_PX = 210;
 const STAGE_COL_FR_DEFAULT = 82;
 const RIGHT_RAIL_FR_DEFAULT = 18;
 
-/** 上部波形ドック行の高さの許容範囲（保存・ドラッグ・clamp と readStored の 60〜200 と一致） */
+/** 上部波形ドック行の高さの許容範囲（保存・ドラッグ・clamp と readStored と一致） */
 const TOP_DOCK_ROW_MIN_PX = 60;
-const TOP_DOCK_ROW_MAX_PX = 200;
+const TOP_DOCK_ROW_MAX_PX = 480;
 
 function clampTopDockRowPx(n: number): number {
   return Math.min(
@@ -169,8 +169,8 @@ function readStoredEditorLayout(): {
     const td =
       typeof o.topDockRowPx === "number" &&
       Number.isFinite(o.topDockRowPx) &&
-      o.topDockRowPx >= 60 &&
-      o.topDockRowPx <= 200
+      o.topDockRowPx >= TOP_DOCK_ROW_MIN_PX &&
+      o.topDockRowPx <= TOP_DOCK_ROW_MAX_PX
         ? Math.round(o.topDockRowPx)
         : null;
     if (!rawCurrent && rawLegacy) {
@@ -434,6 +434,8 @@ export function EditorPage() {
     null
   );
   const stageSectionRef = useRef<HTMLElement>(null);
+  /** ワイド＋上部波形時のグリッド 1 行目（再生・波形ブロック）。高さドラッグの計測用 */
+  const topDockSectionRef = useRef<HTMLElement | null>(null);
   /** ステージ床テキスト：ヘッダから入力→プレビュー→完了で設置 */
   const [floorTextPlaceSession, setFloorTextPlaceSession] =
     useState<FloorTextPlaceSession | null>(null);
@@ -549,9 +551,9 @@ export function EditorPage() {
   /** 上部波形＋ステージ＋右列の「枠だけ固定」レイアウト（拡大モードではオフ） */
   const editorFixedWaveDockLayout =
     showTopWaveDockForGrid && !stageZenFullscreen;
-  /** 右列 minmax の最大幅ぶんをステージ上限から控除 */
+  /** 右列の最小幅ぶんをステージ上限から控除（固定シェルでも分割ドラッグ可能にしたためレール最小を使う） */
   const minRightColForStageSplitPx = editorFixedWaveDockLayout
-    ? EDITOR_SHELL_RIGHT_PANEL_PX
+    ? RIGHT_TOOLS_RAIL_MIN_PX
     : showTopWaveDockForGrid
       ? RIGHT_TOOLS_RAIL_MAX_PX
       : TIMELINE_FULL_COL_MIN_PX;
@@ -809,7 +811,7 @@ export function EditorPage() {
       if (!grid) return;
       e.preventDefault();
       const gridRect = grid.getBoundingClientRect();
-      const topSection = grid.firstElementChild as HTMLElement | null;
+      const topSection = topDockSectionRef.current;
       const startH = topSection
         ? topSection.getBoundingClientRect().height
         : Math.max(160, gridRect.height * 0.28);
@@ -836,8 +838,11 @@ export function EditorPage() {
        * ユーザーが「波形を上の方までできるだけ縮めたい」ケース向けに、
        * 最小高さはコンパクト再生行＋ルーラー＋波形が潰れない程度まで許可する。
        */
-      const minH = 60;
-      const maxH = Math.max(minH, Math.min(200, gridRect.height - 300));
+      const minH = TOP_DOCK_ROW_MIN_PX;
+      const maxH = Math.max(
+        minH,
+        Math.min(TOP_DOCK_ROW_MAX_PX, gridRect.height - 200)
+      );
       const next = clampTopDockRowPx(
         Math.min(maxH, Math.max(minH, d.startH + (e.clientY - d.startY)))
       );
@@ -879,7 +884,11 @@ export function EditorPage() {
     if (!wideEditorLayout) return "1fr";
     if (rightPaneCollapsed) return "1fr";
     if (editorFixedWaveDockLayout) {
-      return `minmax(${STAGE_COL_MIN_PX}px, 1fr) ${STAGE_RESIZER_PX}px ${EDITOR_SHELL_RIGHT_PANEL_PX}px`;
+      const rightFixedShell = `minmax(${RIGHT_TOOLS_RAIL_MIN_PX}px, ${EDITOR_SHELL_RIGHT_PANEL_PX}px)`;
+      if (stageColumnPx == null) {
+        return `minmax(${STAGE_COL_MIN_PX}px, 1fr) ${STAGE_RESIZER_PX}px ${rightFixedShell}`;
+      }
+      return `${Math.round(stageColumnPx)}px ${STAGE_RESIZER_PX}px minmax(${RIGHT_TOOLS_RAIL_MIN_PX}px, 1fr)`;
     }
     const rightTrackFullTimeline = `minmax(${TIMELINE_FULL_COL_MIN_PX}px, 1fr)`;
     const rightTrackRailFixed = `minmax(${RIGHT_TOOLS_RAIL_MIN_PX}px, ${RIGHT_TOOLS_RAIL_MAX_PX}px)`;
@@ -1735,7 +1744,11 @@ export function EditorPage() {
     : wideEditorLayout
       ? showTopWaveDock
         ? editorFixedWaveDockLayout
-          ? `${editorShellTopWavePx}px 4px minmax(0, 1fr)`
+          ? `${
+              topDockRowPx != null
+                ? clampTopDockRowPx(topDockRowPx)
+                : editorShellTopWavePx
+            }px 4px minmax(0, 1fr)`
           : `${
               topDockRowPx != null
                 ? `${topDockRowPx}px`
@@ -2076,23 +2089,15 @@ export function EditorPage() {
             aria-orientation="horizontal"
             aria-label="波形・再生エリアの高さを変更（ダブルクリックで既定に戻す）"
             title="上下ドラッグで高さを調整（ダブルクリックで既定に戻す）"
-            onPointerDown={
-              editorFixedWaveDockLayout ? undefined : onTopDockResizeDown
-            }
-            onPointerMove={
-              editorFixedWaveDockLayout ? undefined : onTopDockResizeMove
-            }
-            onPointerUp={editorFixedWaveDockLayout ? undefined : endTopDockResize}
-            onPointerCancel={
-              editorFixedWaveDockLayout ? undefined : endTopDockResize
-            }
-            onDoubleClick={
-              editorFixedWaveDockLayout ? undefined : onTopDockResizeDoubleClick
-            }
+            onPointerDown={onTopDockResizeDown}
+            onPointerMove={onTopDockResizeMove}
+            onPointerUp={endTopDockResize}
+            onPointerCancel={endTopDockResize}
+            onDoubleClick={onTopDockResizeDoubleClick}
             style={{
               gridColumn: "1 / -1",
               gridRow: 2,
-              cursor: editorFixedWaveDockLayout ? "default" : "row-resize",
+              cursor: "row-resize",
               touchAction: "none",
               userSelect: "none",
               alignSelf: "stretch",
@@ -2100,7 +2105,7 @@ export function EditorPage() {
               position: "relative",
               zIndex: 2,
               flexShrink: 0,
-              pointerEvents: editorFixedWaveDockLayout ? "none" : "auto",
+              pointerEvents: "auto",
             }}
           >
             <div
@@ -2391,6 +2396,9 @@ export function EditorPage() {
         */}
         {!stageZenLayout ? (
           <section
+            ref={(el) => {
+              topDockSectionRef.current = el;
+            }}
             style={{
               gridColumn:
                 wideEditorLayout && showTopWaveDock ? "1 / -1" : 1,
@@ -2403,15 +2411,9 @@ export function EditorPage() {
                     minWidth: 0,
                     display: "flex",
                     flexDirection: "column",
-                    overflow: "hidden",
+                    overflow: "visible",
                     flexShrink: 0,
-                    ...(editorFixedWaveDockLayout
-                      ? {
-                          height: editorShellTopWavePx,
-                          minHeight: editorShellTopWavePx,
-                          maxHeight: editorShellTopWavePx,
-                        }
-                      : { minHeight: 0 }),
+                    minHeight: 0,
                   }
                 : {
                     ...panelCard,
@@ -2626,10 +2628,11 @@ export function EditorPage() {
                 minHeight: 0,
                 display: "flex",
                 flexDirection: "column",
-                ...(wideEditorLayout &&
-                showTopWaveDock &&
-                editorFixedWaveDockLayout
-                  ? { overflow: "hidden" as const }
+                ...(wideEditorLayout && showTopWaveDock
+                  ? {
+                      overflowX: "hidden" as const,
+                      overflowY: "auto" as const,
+                    }
                   : {}),
               }}
             >
@@ -2638,10 +2641,7 @@ export function EditorPage() {
           </section>
         ) : null}
 
-        {wideEditorLayout &&
-        !rightPaneCollapsed &&
-        !stageZenLayout &&
-        !editorFixedWaveDockLayout ? (
+        {wideEditorLayout && !rightPaneCollapsed && !stageZenLayout ? (
           <div
             className="editor-pane-resizer"
             role="separator"
