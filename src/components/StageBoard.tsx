@@ -1184,6 +1184,23 @@ export function StageBoard({
     });
   }, [displayDancers, markerGroupPosDraft]);
 
+  /**
+   * ドラッグゴースト描画は pointermove ごとに走るため、
+   * ghostId -> dancer / index を先に Map 化して find 系の線形探索を避ける。
+   */
+  const stageDancersForLookup = useMemo(
+    () => writeFormation?.dancers ?? activeFormation?.dancers ?? [],
+    [writeFormation?.dancers, activeFormation?.dancers]
+  );
+  const stageDancerById = useMemo(
+    () => new Map(stageDancersForLookup.map((d) => [d.id, d] as const)),
+    [stageDancersForLookup]
+  );
+  const stageDancerIndexById = useMemo(
+    () => new Map(stageDancersForLookup.map((d, i) => [d.id, i] as const)),
+    [stageDancersForLookup]
+  );
+
   const displaySetPieces: SetPiece[] =
     previewDancers != null && previewDancers.length > 0
       ? writeFormation?.setPieces ?? []
@@ -2593,6 +2610,35 @@ export function StageBoard({
   };
 
   useEffect(() => {
+    let queuedFormationUpdater:
+      | ((f: NonNullable<typeof writeFormation>) => NonNullable<typeof writeFormation>)
+      | null = null;
+    let queuedFormationRafId: number | null = null;
+
+    const flushQueuedFormationUpdate = () => {
+      if (!queuedFormationUpdater) return;
+      const updater = queuedFormationUpdater;
+      queuedFormationUpdater = null;
+      if (queuedFormationRafId != null) {
+        cancelAnimationFrame(queuedFormationRafId);
+        queuedFormationRafId = null;
+      }
+      updateActiveFormation(updater);
+    };
+
+    const queueFormationUpdate = (
+      updater: (f: NonNullable<typeof writeFormation>) => NonNullable<typeof writeFormation>
+    ) => {
+      queuedFormationUpdater = updater;
+      if (queuedFormationRafId != null) return;
+      queuedFormationRafId = requestAnimationFrame(() => {
+        queuedFormationRafId = null;
+        const nextUpdater = queuedFormationUpdater;
+        queuedFormationUpdater = null;
+        if (nextUpdater) updateActiveFormation(nextUpdater);
+      });
+    };
+
     const onMove = (e: PointerEvent) => {
       /** 1: 単一ダンサーのドラッグ（画面左端のゴミ箱帯へドロップで削除） */
       const d = dragRef.current;
@@ -2630,7 +2676,7 @@ export function StageBoard({
         ) {
           setAlignGuides({ x: snapped.guideX, y: snapped.guideY });
         }
-        updateActiveFormation((f) => ({
+        queueFormationUpdate((f) => ({
           ...f,
           dancers: f.dancers.map((x) =>
             x.id === d.dancerId
@@ -2649,7 +2695,7 @@ export function StageBoard({
         );
         const ratio = clamp(nd / fr.startDist, 0.12, 14);
         const nextScale = clamp(fr.startScale * ratio, 0.2, 8);
-        updateActiveFormation((f) => ({
+        queueFormationUpdate((f) => ({
           ...f,
           floorMarkup: (f.floorMarkup ?? []).map((x) =>
             x.id === fr.id && x.kind === "text" ? { ...x, scale: nextScale } : x
@@ -2689,7 +2735,7 @@ export function StageBoard({
             const nx = round2(clamp(tapOr.startXPct + dxPct, 0, 100));
             const ny = round2(clamp(tapOr.startYPct + dyPct, 0, 100));
             const tid = tapOr.id;
-            updateActiveFormation((f) => ({
+            queueFormationUpdate((f) => ({
               ...f,
               floorMarkup: (f.floorMarkup ?? []).map((x) =>
                 x.id === tid && x.kind === "text" ? { ...x, xPct: nx, yPct: ny } : x
@@ -2722,7 +2768,7 @@ export function StageBoard({
         if (overTrash) {
           return;
         }
-        updateActiveFormation((f) => ({
+        queueFormationUpdate((f) => ({
           ...f,
           floorMarkup: (f.floorMarkup ?? []).map((x) =>
             x.id === fmd.id && x.kind === "text" ? { ...x, xPct: nx, yPct: ny } : x
@@ -2822,7 +2868,7 @@ export function StageBoard({
         if (guideX !== alignGuides.x || guideY !== alignGuides.y) {
           setAlignGuides({ x: guideX, y: guideY });
         }
-        updateActiveFormation((f) => ({
+        queueFormationUpdate((f) => ({
           ...f,
           dancers: f.dancers.map((x) => {
             if (!idSet.has(x.id)) return x;
@@ -2868,7 +2914,7 @@ export function StageBoard({
           keepAspect
         );
         const idSet = new Set(g.ids);
-        updateActiveFormation((f) => ({
+        queueFormationUpdate((f) => ({
           ...f,
           dancers: f.dancers.map((x) => {
             if (!idSet.has(x.id)) return x;
@@ -2997,6 +3043,7 @@ export function StageBoard({
       setTrashHotIfChanged(false);
     };
     const onUp = (e: PointerEvent) => {
+      flushQueuedFormationUpdate();
       const tapUp = floorTextTapOrDragRef.current;
       if (tapUp && e.pointerId === tapUp.pointerId) {
         floorTextTapOrDragRef.current = null;
@@ -3191,6 +3238,11 @@ export function StageBoard({
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onUp);
     return () => {
+      if (queuedFormationRafId != null) {
+        cancelAnimationFrame(queuedFormationRafId);
+        queuedFormationRafId = null;
+      }
+      queuedFormationUpdater = null;
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
@@ -6391,10 +6443,7 @@ export function StageBoard({
               !playbackOrPreview &&
               viewMode !== "view" &&
               [...dragGhostById.entries()].map(([ghostId, pos]) => {
-                const d =
-                  (writeFormation?.dancers ?? activeFormation?.dancers ?? []).find(
-                    (x) => x.id === ghostId
-                  ) ?? null;
+                const d = stageDancerById.get(ghostId) ?? null;
                 if (!d) return null;
                 const hideGlyph =
                   bulkHideDancerGlyphs &&
@@ -6403,8 +6452,7 @@ export function StageBoard({
                   selectedDancerIds.includes(ghostId);
                 const dMarkerPx = effectiveMarkerPx(d);
                 const dLabelFontPx = markerCircleLabelFontPx(dMarkerPx);
-                const list = writeFormation?.dancers ?? activeFormation?.dancers ?? [];
-                const diRaw = list.findIndex((x) => x.id === ghostId);
+                const diRaw = stageDancerIndexById.get(ghostId) ?? -1;
                 const di = diRaw >= 0 ? diRaw : 0;
                 const ghostLabelWmm = effStageWidthMm ?? 0;
                 const circleInnerOptsGhost =

@@ -678,6 +678,854 @@ const PlaybackClockReadout = memo(function PlaybackClockReadout({
   );
 });
 
+type UseWaveCanvasRendererArgs = {
+  canvasRef: RefObject<HTMLCanvasElement>;
+  playheadLineOverlayRef: RefObject<HTMLDivElement>;
+  audioRef: RefObject<HTMLAudioElement>;
+  peaksRef: RefObject<number[] | null>;
+  durationRef: RefObject<number>;
+  viewPortionRef: RefObject<number>;
+  trimRef: RefObject<{ start: number; end: number | null }>;
+  cuesRef: RefObject<Cue[]>;
+  cueDragRef: RefObject<{ cueId: string } | null>;
+  cueDragPreviewRangeRef: RefObject<{ cueId: string; tStart: number; tEnd: number } | null>;
+  newCueRangePreviewRef: RefObject<{ tStart: number; tEnd: number } | null>;
+  selectedCueIdsRef: RefObject<string[]>;
+  waveHoverCueRef: RefObject<{ cueId: string; mode: CueDragEdgeMode } | null>;
+  waveAmpRef: RefObject<number>;
+  lastWaveDrawRangeRef: RefObject<{ viewStart: number; viewSpan: number }>;
+  isPlayingForWaveRef: RefObject<boolean>;
+  currentTimePropRef: RefObject<number>;
+  wideWorkbench: boolean;
+  waveCanvasCssH: number;
+  peaks: number[] | null;
+  currentTime: number;
+  isPlaying: boolean;
+  duration: number;
+  viewPortion: number;
+  trimStartSec: number;
+  trimEndSec: number | null;
+  cuesSorted: Cue[];
+  selectedCueIds: string[];
+  waveformAmplitudeScale?: number;
+};
+
+function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
+  const {
+    canvasRef,
+    playheadLineOverlayRef,
+    audioRef,
+    peaksRef,
+    durationRef,
+    viewPortionRef,
+    trimRef,
+    cuesRef,
+    cueDragRef,
+    cueDragPreviewRangeRef,
+    newCueRangePreviewRef,
+    selectedCueIdsRef,
+    waveHoverCueRef,
+    waveAmpRef,
+    lastWaveDrawRangeRef,
+    isPlayingForWaveRef,
+    currentTimePropRef,
+    wideWorkbench,
+    waveCanvasCssH,
+    peaks,
+    currentTime,
+    isPlaying,
+    duration,
+    viewPortion,
+    trimStartSec,
+    trimEndSec,
+    cuesSorted,
+    selectedCueIds,
+    waveformAmplitudeScale,
+  } = args;
+
+  const drawWaveformAt = useCallback(
+    (playheadTime: number) => {
+      const c = canvasRef.current;
+      const pk = peaksRef.current;
+      const d = durationRef.current;
+      const vp = viewPortionRef.current;
+      const { start: trimS, end: trimE } = trimRef.current;
+      if (!c || !pk) return;
+      const w = c.width;
+      const h = c.height;
+      const g = c.getContext("2d");
+      if (!g) return;
+      const tGrid = isPlayingForWaveRef.current
+        ? quantizePlayheadForWaveView(playheadTime)
+        : playheadTime;
+      const { start: viewStart, span: viewSpan } = getWaveViewForDraw(d, vp, tGrid);
+      const viewEnd = viewStart + viewSpan;
+      lastWaveDrawRangeRef.current = { viewStart, viewSpan };
+      g.fillStyle = "#0f172a";
+      g.fillRect(0, 0, w, h);
+      if (d > 0 && trimS > 0) {
+        const xTrim = waveTimeToExtentX(trimS, viewStart, viewSpan, w);
+        if (xTrim > 0 && xTrim < w) {
+          g.fillStyle = "rgba(15,23,42,0.55)";
+          g.fillRect(0, 0, xTrim, h);
+        }
+      }
+      if (d > 0 && trimE != null && trimE < d) {
+        const xTrim = waveTimeToExtentX(trimE, viewStart, viewSpan, w);
+        if (xTrim > 0 && xTrim < w) {
+          g.fillStyle = "rgba(15,23,42,0.55)";
+          g.fillRect(xTrim, 0, w - xTrim, h);
+        }
+      }
+      g.strokeStyle = "#6366f1";
+      g.lineWidth = 1;
+      const mid = h / 2;
+      pk.forEach((p, i) => {
+        if (d <= 0 || viewSpan <= 0) return;
+        const t = pk.length <= 1 ? d / 2 : (i / (pk.length - 1)) * d;
+        if (t < viewStart || t > viewEnd) return;
+        const x = waveTimeToExtentX(t, viewStart, viewSpan, w);
+        if (x < -1 || x > w + 1) return;
+        const ph = Math.min(h * 0.45, ((p * h) / 2) * waveAmpRef.current);
+        g.beginPath();
+        g.moveTo(x, mid - ph);
+        g.lineTo(x, mid + ph);
+        g.stroke();
+      });
+      const cueList = cuesRef.current;
+      if (d > 0 && viewSpan > 0 && cueList.length >= 2) {
+        const sortedWave = sortCuesByStart(cueList);
+        const dragPrevDraw = cueDragPreviewRangeRef.current;
+        for (let i = 0; i < sortedWave.length - 1; i++) {
+          const prev = sortedWave[i]!;
+          const next = sortedWave[i + 1]!;
+          let prevEnd = prev.tEndSec;
+          let nextStart = next.tStartSec;
+          if (dragPrevDraw && dragPrevDraw.cueId === prev.id) prevEnd = dragPrevDraw.tEnd;
+          if (dragPrevDraw && dragPrevDraw.cueId === next.id) nextStart = dragPrevDraw.tStart;
+          const b = gapConnectorPixelBounds(
+            prevEnd,
+            nextStart,
+            viewStart,
+            viewSpan,
+            viewEnd,
+            w,
+            h
+          );
+          if (!b) continue;
+          const nonLinearGapRoute = Boolean(next.gapApproachFromPrev);
+          if (nonLinearGapRoute) {
+            g.fillStyle = "rgba(250, 204, 21, 0.45)";
+            g.strokeStyle = "rgba(180, 83, 9, 0.9)";
+          } else {
+            g.fillStyle = "rgba(255, 255, 255, 0.07)";
+            g.strokeStyle = "rgba(248, 250, 252, 0.22)";
+          }
+          g.fillRect(b.left, b.top, b.width, b.height);
+          g.lineWidth = 1;
+          g.strokeRect(b.left + 0.5, b.top + 0.5, b.width - 1, b.height - 1);
+        }
+      }
+      const dragCueId = cueDragRef.current?.cueId ?? null;
+      const dragPrev = cueDragPreviewRangeRef.current;
+      const drawWaveCueChrome = (
+        left: number,
+        width: number,
+        opts: {
+          isDrag: boolean;
+          isSel: boolean;
+          hoverStart: boolean;
+          hoverEnd: boolean;
+          isHover: boolean;
+        }
+      ) => {
+        const inset = 0.5;
+        const top = inset;
+        const boxH = h - inset * 2;
+        const edgeSeg = Math.min(18, Math.max(6, width * 0.14));
+        const baseLw = opts.isSel ? 1.75 : opts.isDrag ? 1.65 : 1.35;
+        const gold =
+          opts.isSel || opts.isDrag
+            ? "rgba(234, 200, 95, 0.98)"
+            : opts.isHover
+              ? "rgba(212, 175, 55, 0.92)"
+              : "rgba(212, 175, 55, 0.82)";
+        const goldEdge = opts.hoverStart || opts.hoverEnd ? "rgba(250, 230, 160, 0.98)" : gold;
+        g.strokeStyle = gold;
+        g.lineWidth = baseLw;
+        g.lineJoin = "miter";
+        g.lineCap = "butt";
+        g.strokeRect(left + inset, top, width - inset * 2, boxH);
+        g.strokeStyle = goldEdge;
+        g.lineWidth = 3.25;
+        g.beginPath();
+        g.moveTo(left + inset, top);
+        g.lineTo(left + inset + Math.min(edgeSeg, width * 0.45), top);
+        g.stroke();
+        g.beginPath();
+        g.moveTo(left + width - inset - Math.min(edgeSeg, width * 0.45), top);
+        g.lineTo(left + width - inset, top);
+        g.stroke();
+        g.beginPath();
+        g.moveTo(left + inset, top + boxH);
+        g.lineTo(left + inset + Math.min(edgeSeg, width * 0.45), top + boxH);
+        g.stroke();
+        g.beginPath();
+        g.moveTo(left + width - inset - Math.min(edgeSeg, width * 0.45), top + boxH);
+        g.lineTo(left + width - inset, top + boxH);
+        g.stroke();
+        g.strokeStyle = goldEdge;
+        g.lineWidth = opts.hoverStart || opts.hoverEnd ? 3.6 : 2.4;
+        g.lineCap = "butt";
+        if (opts.hoverStart) {
+          g.beginPath();
+          g.moveTo(left + inset, top);
+          g.lineTo(left + inset, top + boxH);
+          g.stroke();
+        }
+        if (opts.hoverEnd) {
+          g.beginPath();
+          g.moveTo(left + width - inset, top);
+          g.lineTo(left + width - inset, top + boxH);
+          g.stroke();
+        }
+      };
+      if (d > 0 && viewSpan > 0 && cueList.length > 0) {
+        for (const cue of cueList) {
+          let ts = cue.tStartSec;
+          let te = cue.tEndSec;
+          if (dragPrev && dragPrev.cueId === cue.id) {
+            ts = dragPrev.tStart;
+            te = dragPrev.tEnd;
+          }
+          if (te < viewStart || ts > viewEnd) continue;
+          const x1 = waveTimeToExtentX(Math.max(ts, viewStart), viewStart, viewSpan, w);
+          const x2 = waveTimeToExtentX(Math.min(te, viewEnd), viewStart, viewSpan, w);
+          const left = Math.min(x1, x2);
+          const width = Math.max(3, Math.abs(x2 - x1));
+          const isDrag = dragCueId === cue.id;
+          const isSel = selectedCueIdsRef.current.includes(cue.id);
+          const hover = waveHoverCueRef.current;
+          const isHover = hover?.cueId === cue.id && (!dragCueId || dragCueId !== cue.id);
+          drawWaveCueChrome(left, width, {
+            isDrag,
+            isSel,
+            hoverStart: isHover && hover.mode === "start",
+            hoverEnd: isHover && hover.mode === "end",
+            isHover,
+          });
+        }
+      }
+      const newPrev = newCueRangePreviewRef.current;
+      if (d > 0 && viewSpan > 0 && newPrev) {
+        let ts = newPrev.tStart;
+        let te = newPrev.tEnd;
+        if (te < ts) [ts, te] = [te, ts];
+        if (te >= viewStart && ts <= viewEnd) {
+          const x1 = waveTimeToExtentX(Math.max(ts, viewStart), viewStart, viewSpan, w);
+          const x2 = waveTimeToExtentX(Math.min(te, viewEnd), viewStart, viewSpan, w);
+          const left = Math.min(x1, x2);
+          const width = Math.max(3, Math.abs(x2 - x1));
+          const inset = 0.5;
+          const top = inset;
+          const boxH = h - inset * 2;
+          const edgeSeg = Math.min(18, Math.max(6, width * 0.14));
+          const teal = "rgba(45, 212, 191, 0.88)";
+          const tealHi = "rgba(110, 231, 210, 0.95)";
+          g.strokeStyle = teal;
+          g.lineWidth = 1.35;
+          g.lineJoin = "miter";
+          g.lineCap = "butt";
+          g.strokeRect(left + inset, top, width - inset * 2, boxH);
+          g.strokeStyle = tealHi;
+          g.lineWidth = 3.1;
+          g.beginPath();
+          g.moveTo(left + inset, top);
+          g.lineTo(left + inset + Math.min(edgeSeg, width * 0.45), top);
+          g.stroke();
+          g.beginPath();
+          g.moveTo(left + width - inset - Math.min(edgeSeg, width * 0.45), top);
+          g.lineTo(left + width - inset, top);
+          g.stroke();
+          g.beginPath();
+          g.moveTo(left + inset, top + boxH);
+          g.lineTo(left + inset + Math.min(edgeSeg, width * 0.45), top + boxH);
+          g.stroke();
+          g.beginPath();
+          g.moveTo(left + width - inset - Math.min(edgeSeg, width * 0.45), top + boxH);
+          g.lineTo(left + width - inset, top + boxH);
+          g.stroke();
+        }
+      }
+      const lineEl = playheadLineOverlayRef.current;
+      if (d > 0 && viewSpan > 0) {
+        const zoomed = vp < 1 - 1e-9;
+        let xPlay = zoomed
+          ? WAVE_PLAYHEAD_X_FRAC * w
+          : waveTimeToExtentX(playheadTime, viewStart, viewSpan, w);
+        if (!zoomed) {
+          xPlay = Number.isFinite(xPlay)
+            ? Math.min(w, Math.max(0, Math.round(xPlay * 2) / 2))
+            : 0;
+        }
+        g.strokeStyle = "#ef4444";
+        g.lineWidth = 2.5;
+        g.lineCap = "butt";
+        g.beginPath();
+        g.moveTo(xPlay + 0.5, 0);
+        g.lineTo(xPlay + 0.5, h);
+        g.stroke();
+        if (lineEl) {
+          lineEl.style.display = "block";
+          lineEl.style.left = `${((xPlay + 0.5) / w) * 100}%`;
+        }
+      } else if (lineEl) {
+        lineEl.style.display = "none";
+      }
+    },
+    [
+      canvasRef,
+      peaksRef,
+      durationRef,
+      viewPortionRef,
+      trimRef,
+      isPlayingForWaveRef,
+      lastWaveDrawRangeRef,
+      waveAmpRef,
+      cuesRef,
+      cueDragPreviewRangeRef,
+      cueDragRef,
+      selectedCueIdsRef,
+      waveHoverCueRef,
+      newCueRangePreviewRef,
+      playheadLineOverlayRef,
+    ]
+  );
+
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const syncBitmapSize = () => {
+      const rect = canvas.getBoundingClientRect();
+      const cssW = rect.width;
+      if (cssW <= 2) return;
+      const dpr =
+        typeof window !== "undefined"
+          ? Math.min(window.devicePixelRatio || 1, wideWorkbench ? 2 : 1.35)
+          : 1;
+      const bw = Math.max(280, Math.min(1600, Math.round(cssW * dpr)));
+      const bh = Math.round(waveCanvasCssH * 2);
+      if (canvas.width !== bw || canvas.height !== bh) {
+        canvas.width = bw;
+        canvas.height = bh;
+      }
+      if (!peaksRef.current) return;
+      const a = audioRef.current;
+      const tRedraw =
+        isPlayingForWaveRef.current && a && !a.paused && Number.isFinite(a.currentTime)
+          ? a.currentTime
+          : currentTimePropRef.current;
+      drawWaveformAt(tRedraw);
+    };
+    syncBitmapSize();
+    const ro = new ResizeObserver(() => syncBitmapSize());
+    ro.observe(canvas);
+    return () => ro.disconnect();
+  }, [
+    canvasRef,
+    peaksRef,
+    audioRef,
+    isPlayingForWaveRef,
+    currentTimePropRef,
+    drawWaveformAt,
+    wideWorkbench,
+    waveCanvasCssH,
+    peaks,
+  ]);
+
+  useEffect(() => {
+    if (isPlaying) return;
+    drawWaveformAt(currentTime);
+  }, [
+    isPlaying,
+    currentTime,
+    drawWaveformAt,
+    peaks,
+    duration,
+    viewPortion,
+    trimStartSec,
+    trimEndSec,
+    cuesSorted,
+    selectedCueIds,
+    waveformAmplitudeScale,
+    waveCanvasCssH,
+  ]);
+
+  useEffect(() => {
+    if (!isPlaying || !peaks) return;
+    let id = 0;
+    const paint = () => {
+      const a = audioRef.current;
+      const t =
+        a && !a.paused && Number.isFinite(a.currentTime)
+          ? a.currentTime
+          : currentTimePropRef.current;
+      drawWaveformAt(t);
+      id = requestAnimationFrame(paint);
+    };
+    id = requestAnimationFrame(paint);
+    return () => cancelAnimationFrame(id);
+  }, [
+    isPlaying,
+    peaks,
+    drawWaveformAt,
+    viewPortion,
+    duration,
+    trimStartSec,
+    trimEndSec,
+    cuesSorted,
+    selectedCueIds,
+    waveformAmplitudeScale,
+    waveCanvasCssH,
+    audioRef,
+    currentTimePropRef,
+  ]);
+
+  return { drawWaveformAt };
+}
+
+type UseWaveCanvasPointerDragArgs = {
+  projectViewMode: ChoreographyProjectJson["viewMode"];
+  duration: number;
+  peaks: number[] | null;
+  canvasRef: RefObject<HTMLCanvasElement>;
+  lastWaveDrawRangeRef: RefObject<{ viewStart: number; viewSpan: number }>;
+  trimStartSec: number;
+  trimEndSec: number | null;
+  currentTimePropRef: RefObject<number>;
+  audioRef: RefObject<HTMLAudioElement>;
+  isPlayingForWaveRef: RefObject<boolean>;
+  viewPortionRef: RefObject<number>;
+  drawWaveformAt: (playheadTime: number) => void;
+  cuesSorted: Cue[];
+  cuesRef: RefObject<Cue[]>;
+  cueDragRef: RefObject<{
+    pointerId: number;
+    cueId: string;
+    mode: CueDragEdgeMode;
+    moved: boolean;
+    grabOffset: number;
+    origStart: number;
+    origEnd: number;
+  } | null>;
+  cueDragPreviewRangeRef: RefObject<{ cueId: string; tStart: number; tEnd: number } | null>;
+  playheadScrubDragRef: RefObject<{ pointerId: number; wasPlaying: boolean } | null>;
+  emptyWaveDragRef: RefObject<{
+    pointerId: number;
+    startClientX: number;
+    startT: number;
+    trimLo: number;
+    trimHi: number;
+    active: boolean;
+  } | null>;
+  newCueRangePreviewRef: RefObject<{ tStart: number; tEnd: number } | null>;
+  waveHoverCueRef: RefObject<{ cueId: string; mode: CueDragEdgeMode } | null>;
+  setCurrentTime: (t: number) => void;
+  onSelectedCueIdsChange: Dispatch<SetStateAction<string[]>>;
+  suppressNextWaveSeekRef: RefObject<boolean>;
+  setProject: React.Dispatch<React.SetStateAction<ChoreographyProjectJson>>;
+  durationRef: RefObject<number>;
+  formationIdForNewCue: string;
+  formations: ChoreographyProjectJson["formations"];
+  onFormationChosenFromCueList?: () => void;
+};
+
+function useWaveCanvasPointerDrag({
+  projectViewMode,
+  duration,
+  peaks,
+  canvasRef,
+  lastWaveDrawRangeRef,
+  trimStartSec,
+  trimEndSec,
+  currentTimePropRef,
+  audioRef,
+  isPlayingForWaveRef,
+  viewPortionRef,
+  drawWaveformAt,
+  cuesSorted,
+  cuesRef,
+  cueDragRef,
+  cueDragPreviewRangeRef,
+  playheadScrubDragRef,
+  emptyWaveDragRef,
+  newCueRangePreviewRef,
+  waveHoverCueRef,
+  setCurrentTime,
+  onSelectedCueIdsChange,
+  suppressNextWaveSeekRef,
+  setProject,
+  durationRef,
+  formationIdForNewCue,
+  formations,
+  onFormationChosenFromCueList,
+}: UseWaveCanvasPointerDragArgs) {
+  return useCallback(
+    (e: React.PointerEvent<HTMLCanvasElement>) => {
+      if (e.button !== 0) return;
+      if (projectViewMode === "view" || duration <= 0 || !peaks) return;
+      const c = canvasRef.current;
+      if (!c) return;
+      const { viewStart, viewSpan } = lastWaveDrawRangeRef.current;
+      const trimLo = trimStartSec;
+      const trimHi = trimEndSec ?? duration;
+      const timeFromClientX = (clientX: number) => {
+        const r = c.getBoundingClientRect();
+        const x = clientX - r.left;
+        const t = waveExtentXToTime(x, viewStart, viewSpan, r.width);
+        return Math.max(trimLo, Math.min(trimHi, t));
+      };
+      const redraw = () => {
+        let tRedraw = currentTimePropRef.current;
+        const a = audioRef.current;
+        if (isPlayingForWaveRef.current && a && !a.paused && Number.isFinite(a.currentTime)) {
+          tRedraw = a.currentTime;
+        }
+        drawWaveformAt(tRedraw);
+      };
+
+      const audioEl = audioRef.current;
+      let playheadSecForHit = currentTimePropRef.current;
+      if (
+        isPlayingForWaveRef.current &&
+        audioEl &&
+        !audioEl.paused &&
+        Number.isFinite(audioEl.currentTime)
+      ) {
+        playheadSecForHit = quantizePlayheadForWaveView(audioEl.currentTime);
+      }
+      if (
+        audioEl?.src &&
+        viewSpan > 0 &&
+        hitPlayheadStripForScrub(
+          e.clientX,
+          c,
+          viewStart,
+          viewSpan,
+          playheadSecForHit,
+          duration,
+          viewPortionRef.current
+        )
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        waveHoverCueRef.current = null;
+        const wasPlaying = !audioEl.paused;
+        playheadScrubDragRef.current = { pointerId: e.pointerId, wasPlaying };
+        const t0 = timeFromClientX(e.clientX);
+        audioEl.currentTime = t0;
+        setCurrentTime(Math.round(t0 * 1000) / 1000);
+        const capturePid = e.pointerId;
+        c.setPointerCapture(capturePid);
+        const onPhMove = (ev: PointerEvent) => {
+          if (ev.pointerId !== capturePid || !playheadScrubDragRef.current) return;
+          const au = audioRef.current;
+          if (!au) return;
+          const t = timeFromClientX(ev.clientX);
+          au.currentTime = t;
+          setCurrentTime(Math.round(t * 1000) / 1000);
+          drawWaveformAt(t);
+        };
+        const onPhUp = (ev: PointerEvent) => {
+          if (ev.pointerId !== capturePid || !playheadScrubDragRef.current) return;
+          window.removeEventListener("pointermove", onPhMove);
+          window.removeEventListener("pointerup", onPhUp);
+          window.removeEventListener("pointercancel", onPhUp);
+          try {
+            c.releasePointerCapture(ev.pointerId);
+          } catch {}
+          const drag = playheadScrubDragRef.current;
+          playheadScrubDragRef.current = null;
+          suppressNextWaveSeekRef.current = true;
+          const au = audioRef.current;
+          if (au) {
+            const tEnd = timeFromClientX(ev.clientX);
+            au.currentTime = tEnd;
+            setCurrentTime(Math.round(tEnd * 1000) / 1000);
+            if (!drag.wasPlaying) au.pause();
+          }
+          redraw();
+        };
+        window.addEventListener("pointermove", onPhMove);
+        window.addEventListener("pointerup", onPhUp);
+        window.addEventListener("pointercancel", onPhUp);
+        drawWaveformAt(t0);
+        return;
+      }
+
+      const cueHit = pickCueDragKindAtWave(
+        e.clientX,
+        e.clientY,
+        c,
+        cuesSorted,
+        viewStart,
+        viewSpan,
+        null
+      );
+      const cueId = cueHit?.cueId ?? null;
+      if (cueId) {
+        e.preventDefault();
+        e.stopPropagation();
+        waveHoverCueRef.current = null;
+        const cue = cuesSorted.find((x) => x.id === cueId);
+        if (!cue) return;
+        onSelectedCueIdsChange([cueId]);
+        const pointerT0 = timeFromClientX(e.clientX);
+        const mode = cueHit?.mode ?? "move";
+        const grabOffset = pointerT0 - cue.tStartSec;
+        cueDragRef.current = {
+          pointerId: e.pointerId,
+          cueId,
+          mode,
+          moved: false,
+          grabOffset,
+          origStart: cue.tStartSec,
+          origEnd: cue.tEndSec,
+        };
+        cueDragPreviewRangeRef.current = { cueId, tStart: cue.tStartSec, tEnd: cue.tEndSec };
+        c.setPointerCapture(e.pointerId);
+        const MIN_CUE_DUR = 0.05;
+        const onMove = (ev: PointerEvent) => {
+          if (ev.pointerId !== e.pointerId || !cueDragRef.current) return;
+          cueDragRef.current.moved = true;
+          const drag = cueDragRef.current;
+          const cur = timeFromClientX(ev.clientX);
+          let ns = drag.origStart;
+          let ne = drag.origEnd;
+          if (drag.mode === "move") {
+            const dur = drag.origEnd - drag.origStart;
+            ns = cur - drag.grabOffset;
+            ne = ns + dur;
+            if (ne > trimHi) {
+              ne = trimHi;
+              ns = ne - dur;
+            }
+            if (ns < trimLo) {
+              ns = trimLo;
+              ne = ns + dur;
+            }
+            if (ne <= ns) ne = ns + MIN_CUE_DUR;
+          } else if (drag.mode === "start") {
+            ns = Math.round(cur * 100) / 100;
+            ns = Math.max(trimLo, Math.min(ns, drag.origEnd - MIN_CUE_DUR));
+            ne = drag.origEnd;
+          } else {
+            ne = Math.round(cur * 100) / 100;
+            ne = Math.min(trimHi, Math.max(ne, drag.origStart + MIN_CUE_DUR));
+            ns = drag.origStart;
+          }
+          ns = Math.round(ns * 100) / 100;
+          ne = Math.round(ne * 100) / 100;
+          const resolved = resolveCueIntervalNonOverlap(cuesRef.current, cueId, ns, ne, trimLo, trimHi);
+          cueDragPreviewRangeRef.current = {
+            cueId,
+            tStart: resolved.tStartSec,
+            tEnd: resolved.tEndSec,
+          };
+          redraw();
+        };
+        const onUp = (ev: PointerEvent) => {
+          if (ev.pointerId !== e.pointerId || !cueDragRef.current) return;
+          window.removeEventListener("pointermove", onMove);
+          window.removeEventListener("pointerup", onUp);
+          window.removeEventListener("pointercancel", onUp);
+          try {
+            c.releasePointerCapture(ev.pointerId);
+          } catch {}
+          const drag = cueDragRef.current;
+          cueDragRef.current = null;
+          const preview = cueDragPreviewRangeRef.current;
+          cueDragPreviewRangeRef.current = null;
+          suppressNextWaveSeekRef.current = true;
+          if (!drag) return;
+          const { cueId: cid, moved, origStart, origEnd } = drag;
+          onSelectedCueIdsChange([cid]);
+          if (
+            preview &&
+            Number.isFinite(preview.tStart) &&
+            Number.isFinite(preview.tEnd) &&
+            moved &&
+            (Math.abs(preview.tStart - origStart) > 1e-4 || Math.abs(preview.tEnd - origEnd) > 1e-4)
+          ) {
+            const ns = preview.tStart;
+            const ne = preview.tEnd;
+            setProject((p) => {
+              const trimHiNow =
+                p.trimEndSec ??
+                (durationRef.current > 0 ? durationRef.current : PLACEHOLDER_TIMELINE_CAP_SEC);
+              const r = resolveCueIntervalNonOverlap(p.cues, cid, ns, ne, p.trimStartSec, trimHiNow);
+              return {
+                ...p,
+                cues: sortCuesByStart(
+                  p.cues.map((x) => (x.id === cid ? { ...x, tStartSec: r.tStartSec, tEndSec: r.tEndSec } : x))
+                ),
+              };
+            });
+          }
+          redraw();
+        };
+        window.addEventListener("pointermove", onMove);
+        window.addEventListener("pointerup", onUp);
+        window.addEventListener("pointercancel", onUp);
+        redraw();
+        return;
+      }
+
+      e.preventDefault();
+      e.stopPropagation();
+      waveHoverCueRef.current = null;
+      emptyWaveDragRef.current = {
+        pointerId: e.pointerId,
+        startClientX: e.clientX,
+        startT: timeFromClientX(e.clientX),
+        trimLo,
+        trimHi,
+        active: false,
+      };
+      newCueRangePreviewRef.current = null;
+      c.setPointerCapture(e.pointerId);
+      const onEmptyMove = (ev: PointerEvent) => {
+        const st = emptyWaveDragRef.current;
+        if (!st || ev.pointerId !== st.pointerId) return;
+        if (!st.active) {
+          if (Math.abs(ev.clientX - st.startClientX) < 5) return;
+          st.active = true;
+        }
+        const tCur = timeFromClientX(ev.clientX);
+        const t0 = st.startT;
+        newCueRangePreviewRef.current = { tStart: Math.min(t0, tCur), tEnd: Math.max(t0, tCur) };
+        redraw();
+      };
+      const onEmptyUp = (ev: PointerEvent) => {
+        if (ev.pointerId !== e.pointerId || !emptyWaveDragRef.current) return;
+        window.removeEventListener("pointermove", onEmptyMove);
+        window.removeEventListener("pointerup", onEmptyUp);
+        window.removeEventListener("pointercancel", onEmptyUp);
+        try {
+          c.releasePointerCapture(ev.pointerId);
+        } catch {}
+        const st = emptyWaveDragRef.current;
+        emptyWaveDragRef.current = null;
+        const preview = newCueRangePreviewRef.current;
+        newCueRangePreviewRef.current = null;
+        if (st?.active) suppressNextWaveSeekRef.current = true;
+        if (st && !st.active && audioRef.current?.src && durationRef.current > 0) {
+          const cnv = canvasRef.current;
+          if (cnv) {
+            const { viewStart: vs, viewSpan: vsp } = lastWaveDrawRangeRef.current;
+            if (vsp > 0) {
+              const rr = cnv.getBoundingClientRect();
+              if (rr.width > 0) {
+                let tSeek = waveExtentXToTime(ev.clientX - rr.left, vs, vsp, rr.width);
+                tSeek = Math.max(st.trimLo, Math.min(st.trimHi, tSeek));
+                const au = audioRef.current;
+                if (au) {
+                  au.currentTime = tSeek;
+                  setCurrentTime(tSeek);
+                }
+                onSelectedCueIdsChange([]);
+                suppressNextWaveSeekRef.current = true;
+                redraw();
+              }
+            }
+          }
+        }
+        if (st?.active && preview && Number.isFinite(preview.tStart) && Number.isFinite(preview.tEnd)) {
+          let ts = Math.round(Math.min(preview.tStart, preview.tEnd) * 100) / 100;
+          let te = Math.round(Math.max(preview.tStart, preview.tEnd) * 100) / 100;
+          if (te - ts < 0.1) {
+            te = Math.round(Math.min(st.trimHi, ts + 0.1) * 100) / 100;
+            if (te <= ts) ts = Math.round(Math.max(st.trimLo, te - 0.1) * 100) / 100;
+          }
+          if (te > ts && ts >= st.trimLo && te <= st.trimHi) {
+            if (cuesSorted.length >= 100 || formations.length === 0) {
+              redraw();
+              return;
+            }
+            const newCueId = crypto.randomUUID();
+            const rNew = resolveCueIntervalNonOverlap(cuesRef.current, newCueId, ts, te, st.trimLo, st.trimHi);
+            const tsFinal = rNew.tStartSec;
+            const teFinal = rNew.tEndSec;
+            if (teFinal <= tsFinal + 1e-9) {
+              redraw();
+              return;
+            }
+            const appliedT = tsFinal;
+            setProject((p) => {
+              if (p.cues.length >= 100) return p;
+              if (p.cues.some((c0) => c0.id === newCueId)) return p;
+              const sourceF = p.formations.find((f) => f.id === formationIdForNewCue) ?? p.formations[0];
+              if (!sourceF) return p;
+              const newFm = cloneFormationForNewCue(sourceF);
+              const cue: Cue = { id: newCueId, tStartSec: tsFinal, tEndSec: teFinal, formationId: newFm.id };
+              return {
+                ...p,
+                formations: [...p.formations, newFm],
+                cues: sortCuesByStart([...p.cues, cue]),
+                activeFormationId: newFm.id,
+              };
+            });
+            const a = audioRef.current;
+            const seekCapEmpty =
+              durationRef.current > 0 ? durationRef.current : PLACEHOLDER_TIMELINE_CAP_SEC;
+            if (a && Number.isFinite(appliedT)) {
+              a.currentTime = Math.max(trimStartSec, Math.min(trimEndSec ?? seekCapEmpty, appliedT));
+            }
+            setCurrentTime(appliedT);
+            onSelectedCueIdsChange([newCueId]);
+            onFormationChosenFromCueList?.();
+          }
+        }
+        redraw();
+      };
+      window.addEventListener("pointermove", onEmptyMove);
+      window.addEventListener("pointerup", onEmptyUp);
+      window.addEventListener("pointercancel", onEmptyUp);
+      redraw();
+    },
+    [
+      projectViewMode,
+      duration,
+      peaks,
+      canvasRef,
+      lastWaveDrawRangeRef,
+      trimStartSec,
+      trimEndSec,
+      currentTimePropRef,
+      audioRef,
+      isPlayingForWaveRef,
+      viewPortionRef,
+      drawWaveformAt,
+      cuesSorted,
+      waveHoverCueRef,
+      playheadScrubDragRef,
+      setCurrentTime,
+      suppressNextWaveSeekRef,
+      onSelectedCueIdsChange,
+      cueDragRef,
+      cueDragPreviewRangeRef,
+      cuesRef,
+      setProject,
+      durationRef,
+      emptyWaveDragRef,
+      newCueRangePreviewRef,
+      formations.length,
+      formationIdForNewCue,
+      onFormationChosenFromCueList,
+    ]
+  );
+}
+
 export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
   function TimelinePanel(
     {
@@ -854,364 +1702,37 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
     const isPlayingForWaveRef = useRef(isPlaying);
     isPlayingForWaveRef.current = isPlaying;
 
-    const drawWaveformAt = useCallback((playheadTime: number) => {
-      const c = canvasRef.current;
-      const pk = peaksRef.current;
-      const d = durationRef.current;
-      const vp = viewPortionRef.current;
-      const { start: trimS, end: trimE } = trimRef.current;
-      if (!c || !pk) return;
-      const w = c.width;
-      const h = c.height;
-      const g = c.getContext("2d");
-      if (!g) return;
-
-      const tGrid = isPlayingForWaveRef.current
-        ? quantizePlayheadForWaveView(playheadTime)
-        : playheadTime;
-      const { start: viewStart, span: viewSpan } = getWaveViewForDraw(d, vp, tGrid);
-      const viewEnd = viewStart + viewSpan;
-      lastWaveDrawRangeRef.current = { viewStart, viewSpan };
-
-      g.fillStyle = "#0f172a";
-      g.fillRect(0, 0, w, h);
-
-      if (d > 0 && trimS > 0) {
-        const xTrim = waveTimeToExtentX(trimS, viewStart, viewSpan, w);
-        if (xTrim > 0 && xTrim < w) {
-          g.fillStyle = "rgba(15,23,42,0.55)";
-          g.fillRect(0, 0, xTrim, h);
-        }
-      }
-      if (d > 0 && trimE != null && trimE < d) {
-        const xTrim = waveTimeToExtentX(trimE, viewStart, viewSpan, w);
-        if (xTrim > 0 && xTrim < w) {
-          g.fillStyle = "rgba(15,23,42,0.55)";
-          g.fillRect(xTrim, 0, w - xTrim, h);
-        }
-      }
-
-      g.strokeStyle = "#6366f1";
-      g.lineWidth = 1;
-      const mid = h / 2;
-      /** peaks は decode 時に曲全体を等分したビン。時刻 t はファイル上の絶対秒 */
-      pk.forEach((p, i) => {
-        if (d <= 0 || viewSpan <= 0) return;
-        const t =
-          pk.length <= 1 ? d / 2 : (i / (pk.length - 1)) * d;
-        if (t < viewStart || t > viewEnd) return;
-        const x = waveTimeToExtentX(t, viewStart, viewSpan, w);
-        if (x < -1 || x > w + 1) return;
-        const amp = waveAmpRef.current;
-        const ph = Math.min(h * 0.45, ((p * h) / 2) * amp);
-        g.beginPath();
-        g.moveTo(x, mid - ph);
-        g.lineTo(x, mid + ph);
-        g.stroke();
-      });
-
-      const cueList = cuesRef.current;
-      /**
-       * キューとキューの間のギャップを常時表示（右クリックで入り方メニュー）。
-       * 直線補間はほぼ透明の白、経路ありは黄系で差をはっきりさせる。
-       */
-      if (d > 0 && viewSpan > 0 && cueList.length >= 2) {
-        const sortedWave = sortCuesByStart(cueList);
-        const dragPrevDraw = cueDragPreviewRangeRef.current;
-        for (let i = 0; i < sortedWave.length - 1; i++) {
-          const prev = sortedWave[i]!;
-          const next = sortedWave[i + 1]!;
-          let prevEnd = prev.tEndSec;
-          let nextStart = next.tStartSec;
-          if (dragPrevDraw && dragPrevDraw.cueId === prev.id) prevEnd = dragPrevDraw.tEnd;
-          if (dragPrevDraw && dragPrevDraw.cueId === next.id) nextStart = dragPrevDraw.tStart;
-          const b = gapConnectorPixelBounds(
-            prevEnd,
-            nextStart,
-            viewStart,
-            viewSpan,
-            viewEnd,
-            w,
-            h
-          );
-          if (!b) continue;
-          const nonLinearGapRoute = Boolean(next.gapApproachFromPrev);
-          if (nonLinearGapRoute) {
-            g.fillStyle = "rgba(250, 204, 21, 0.45)";
-            g.strokeStyle = "rgba(180, 83, 9, 0.9)";
-          } else {
-            g.fillStyle = "rgba(255, 255, 255, 0.07)";
-            g.strokeStyle = "rgba(248, 250, 252, 0.22)";
-          }
-          g.fillRect(b.left, b.top, b.width, b.height);
-          g.lineWidth = 1;
-          g.strokeRect(b.left + 0.5, b.top + 0.5, b.width - 1, b.height - 1);
-        }
-      }
-
-      const dragCueId = cueDragRef.current?.cueId ?? null;
-      const dragPrev = cueDragPreviewRangeRef.current;
-      /** 波形枠いっぱいのキュー帯：内側透明・金枠。上下辺の左右端だけ太くして端リサイズしやすくする */
-      const drawWaveCueChrome = (
-        left: number,
-        width: number,
-        opts: {
-          isDrag: boolean;
-          isSel: boolean;
-          hoverStart: boolean;
-          hoverEnd: boolean;
-          isHover: boolean;
-        }
-      ) => {
-        const inset = 0.5;
-        const top = inset;
-        const boxH = h - inset * 2;
-        const edgeSeg = Math.min(18, Math.max(6, width * 0.14));
-        const baseLw = opts.isSel ? 1.75 : opts.isDrag ? 1.65 : 1.35;
-        const gold =
-          opts.isSel || opts.isDrag
-            ? "rgba(234, 200, 95, 0.98)"
-            : opts.isHover
-              ? "rgba(212, 175, 55, 0.92)"
-              : "rgba(212, 175, 55, 0.82)";
-        const goldEdge =
-          opts.hoverStart || opts.hoverEnd
-            ? "rgba(250, 230, 160, 0.98)"
-            : gold;
-
-        g.strokeStyle = gold;
-        g.lineWidth = baseLw;
-        g.lineJoin = "miter";
-        g.lineCap = "butt";
-        g.strokeRect(left + inset, top, width - inset * 2, boxH);
-
-        g.strokeStyle = goldEdge;
-        g.lineWidth = 3.25;
-        g.beginPath();
-        g.moveTo(left + inset, top);
-        g.lineTo(left + inset + Math.min(edgeSeg, width * 0.45), top);
-        g.stroke();
-        g.beginPath();
-        g.moveTo(left + width - inset - Math.min(edgeSeg, width * 0.45), top);
-        g.lineTo(left + width - inset, top);
-        g.stroke();
-        g.beginPath();
-        g.moveTo(left + inset, top + boxH);
-        g.lineTo(left + inset + Math.min(edgeSeg, width * 0.45), top + boxH);
-        g.stroke();
-        g.beginPath();
-        g.moveTo(left + width - inset - Math.min(edgeSeg, width * 0.45), top + boxH);
-        g.lineTo(left + width - inset, top + boxH);
-        g.stroke();
-
-        g.strokeStyle = goldEdge;
-        g.lineWidth = opts.hoverStart || opts.hoverEnd ? 3.6 : 2.4;
-        g.lineCap = "butt";
-        if (opts.hoverStart) {
-          g.beginPath();
-          g.moveTo(left + inset, top);
-          g.lineTo(left + inset, top + boxH);
-          g.stroke();
-        }
-        if (opts.hoverEnd) {
-          g.beginPath();
-          g.moveTo(left + width - inset, top);
-          g.lineTo(left + width - inset, top + boxH);
-          g.stroke();
-        }
-      };
-
-      if (d > 0 && viewSpan > 0 && cueList.length > 0) {
-        for (const cue of cueList) {
-          let ts = cue.tStartSec;
-          let te = cue.tEndSec;
-          if (dragPrev && dragPrev.cueId === cue.id) {
-            ts = dragPrev.tStart;
-            te = dragPrev.tEnd;
-          }
-          if (te < viewStart || ts > viewEnd) continue;
-          const x1 = waveTimeToExtentX(Math.max(ts, viewStart), viewStart, viewSpan, w);
-          const x2 = waveTimeToExtentX(Math.min(te, viewEnd), viewStart, viewSpan, w);
-          const left = Math.min(x1, x2);
-          const width = Math.max(3, Math.abs(x2 - x1));
-          const isDrag = dragCueId === cue.id;
-          const isSel = selectedCueIdsRef.current.includes(cue.id);
-          const hover = waveHoverCueRef.current;
-          const isHover =
-            hover?.cueId === cue.id && (!dragCueId || dragCueId !== cue.id);
-          const hoverStart = isHover && hover.mode === "start";
-          const hoverEnd = isHover && hover.mode === "end";
-          drawWaveCueChrome(left, width, {
-            isDrag,
-            isSel,
-            hoverStart,
-            hoverEnd,
-            isHover,
-          });
-        }
-      }
-
-      const newPrev = newCueRangePreviewRef.current;
-      if (d > 0 && viewSpan > 0 && newPrev) {
-        let ts = newPrev.tStart;
-        let te = newPrev.tEnd;
-        if (te < ts) [ts, te] = [te, ts];
-        if (te >= viewStart && ts <= viewEnd) {
-          const x1 = waveTimeToExtentX(Math.max(ts, viewStart), viewStart, viewSpan, w);
-          const x2 = waveTimeToExtentX(Math.min(te, viewEnd), viewStart, viewSpan, w);
-          const left = Math.min(x1, x2);
-          const width = Math.max(3, Math.abs(x2 - x1));
-          const inset = 0.5;
-          const top = inset;
-          const boxH = h - inset * 2;
-          const edgeSeg = Math.min(18, Math.max(6, width * 0.14));
-          const teal = "rgba(45, 212, 191, 0.88)";
-          const tealHi = "rgba(110, 231, 210, 0.95)";
-          g.strokeStyle = teal;
-          g.lineWidth = 1.35;
-          g.lineJoin = "miter";
-          g.lineCap = "butt";
-          g.strokeRect(left + inset, top, width - inset * 2, boxH);
-          g.strokeStyle = tealHi;
-          g.lineWidth = 3.1;
-          g.beginPath();
-          g.moveTo(left + inset, top);
-          g.lineTo(left + inset + Math.min(edgeSeg, width * 0.45), top);
-          g.stroke();
-          g.beginPath();
-          g.moveTo(left + width - inset - Math.min(edgeSeg, width * 0.45), top);
-          g.lineTo(left + width - inset, top);
-          g.stroke();
-          g.beginPath();
-          g.moveTo(left + inset, top + boxH);
-          g.lineTo(left + inset + Math.min(edgeSeg, width * 0.45), top + boxH);
-          g.stroke();
-          g.beginPath();
-          g.moveTo(left + width - inset - Math.min(edgeSeg, width * 0.45), top + boxH);
-          g.lineTo(left + width - inset, top + boxH);
-          g.stroke();
-        }
-      }
-
-      const lineEl = playheadLineOverlayRef.current;
-      if (d > 0 && viewSpan > 0) {
-        const zoomed = vp < 1 - 1e-9;
-        let xPlay: number;
-        if (zoomed) {
-          xPlay = WAVE_PLAYHEAD_X_FRAC * w;
-        } else {
-          xPlay = waveTimeToExtentX(playheadTime, viewStart, viewSpan, w);
-          if (Number.isFinite(xPlay)) {
-            xPlay = Math.min(w, Math.max(0, Math.round(xPlay * 2) / 2));
-          } else {
-            xPlay = 0;
-          }
-        }
-        g.strokeStyle = "#ef4444";
-        g.lineWidth = 2.5;
-        g.lineCap = "butt";
-        g.beginPath();
-        g.moveTo(xPlay + 0.5, 0);
-        g.lineTo(xPlay + 0.5, h);
-        g.stroke();
-        if (lineEl) {
-          const pct = ((xPlay + 0.5) / w) * 100;
-          lineEl.style.display = "block";
-          lineEl.style.left = `${pct}%`;
-        }
-      } else if (lineEl) {
-        lineEl.style.display = "none";
-      }
-    }, []);
-
-    /**
-     * スマホ等では表示幅に合わせてビットマップ幅を抑え、常時 800px 描画より GPU/CPU 負荷を下げる。
-     * ワイド時は従来どおり DPR 上限 2。
-     */
-    useLayoutEffect(() => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-
-      const syncBitmapSize = () => {
-        const rect = canvas.getBoundingClientRect();
-        const cssW = rect.width;
-        if (cssW <= 2) return;
-        const dpr =
-          typeof window !== "undefined"
-            ? Math.min(window.devicePixelRatio || 1, wideWorkbench ? 2 : 1.35)
-            : 1;
-        const bw = Math.max(280, Math.min(1600, Math.round(cssW * dpr)));
-        const bh = Math.round(waveCanvasCssHRef.current * 2);
-        if (canvas.width !== bw || canvas.height !== bh) {
-          canvas.width = bw;
-          canvas.height = bh;
-        }
-        const pk = peaksRef.current;
-        if (!pk) return;
-        const a = audioRef.current;
-        const tRedraw =
-          isPlayingForWaveRef.current &&
-          a &&
-          !a.paused &&
-          Number.isFinite(a.currentTime)
-            ? a.currentTime
-            : currentTimePropRef.current;
-        drawWaveformAt(tRedraw);
-      };
-
-      syncBitmapSize();
-      const ro = new ResizeObserver(() => {
-        syncBitmapSize();
-      });
-      ro.observe(canvas);
-      return () => ro.disconnect();
-    }, [wideWorkbench, waveCanvasCssH, drawWaveformAt, peaks]);
-
-    useEffect(() => {
-      if (isPlaying) return;
-      drawWaveformAt(currentTime);
-    }, [
+    const { drawWaveformAt } = useWaveCanvasRenderer({
+      canvasRef,
+      playheadLineOverlayRef,
+      audioRef,
+      peaksRef,
+      durationRef,
+      viewPortionRef,
+      trimRef,
+      cuesRef,
+      cueDragRef,
+      cueDragPreviewRangeRef,
+      newCueRangePreviewRef,
+      selectedCueIdsRef,
+      waveHoverCueRef,
+      waveAmpRef,
+      lastWaveDrawRangeRef,
+      isPlayingForWaveRef,
+      currentTimePropRef,
+      wideWorkbench,
+      waveCanvasCssH,
+      peaks,
       currentTime,
-      drawWaveformAt,
-      peaks,
+      isPlaying,
       duration,
       viewPortion,
       trimStartSec,
       trimEndSec,
-      isPlaying,
       cuesSorted,
       selectedCueIds,
-      project.waveformAmplitudeScale,
-      waveCanvasCssH,
-    ]);
-
-    useEffect(() => {
-      if (!isPlaying || !peaks) return;
-      let id = 0;
-      const paint = () => {
-        const a = audioRef.current;
-        const t =
-          a && !a.paused && Number.isFinite(a.currentTime)
-            ? a.currentTime
-            : currentTimePropRef.current;
-        drawWaveformAt(t);
-        id = requestAnimationFrame(paint);
-      };
-      id = requestAnimationFrame(paint);
-      return () => cancelAnimationFrame(id);
-    }, [
-      isPlaying,
-      peaks,
-      drawWaveformAt,
-      viewPortion,
-      duration,
-      trimStartSec,
-      trimEndSec,
-      cuesSorted,
-      selectedCueIds,
-      project.waveformAmplitudeScale,
-      waveCanvasCssH,
-    ]);
+      waveformAmplitudeScale: project.waveformAmplitudeScale,
+    });
 
     useEffect(() => {
       setViewPortion(1);
@@ -2212,425 +2733,36 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       drawWaveformAt(t);
     };
 
-    const onWaveCanvasPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-      if (e.button !== 0) return;
-      if (project.viewMode === "view" || duration <= 0 || !peaks) return;
-      const c = canvasRef.current;
-      if (!c) return;
-      const { viewStart, viewSpan } = lastWaveDrawRangeRef.current;
-
-      const trimLo = trimStartSec;
-      const trimHi = trimEndSec ?? duration;
-
-      const timeFromClientX = (clientX: number) => {
-        const r = c.getBoundingClientRect();
-        const x = clientX - r.left;
-        const t = waveExtentXToTime(x, viewStart, viewSpan, r.width);
-        return Math.max(trimLo, Math.min(trimHi, t));
-      };
-
-      const redraw = () => {
-        let tRedraw = currentTimePropRef.current;
-        const a = audioRef.current;
-        if (
-          isPlayingForWaveRef.current &&
-          a &&
-          !a.paused &&
-          Number.isFinite(a.currentTime)
-        ) {
-          tRedraw = a.currentTime;
-        }
-        drawWaveformAt(tRedraw);
-      };
-
-      /** 縦の再生位置線は細いので、キュー帯より先にヒットさせてドラッグシークしやすくする */
-      const audioEl = audioRef.current;
-      let playheadSecForHit = currentTimePropRef.current;
-      if (
-        isPlayingForWaveRef.current &&
-        audioEl &&
-        !audioEl.paused &&
-        Number.isFinite(audioEl.currentTime)
-      ) {
-        playheadSecForHit = quantizePlayheadForWaveView(audioEl.currentTime);
-      }
-      if (
-        audioEl?.src &&
-        viewSpan > 0 &&
-        hitPlayheadStripForScrub(
-          e.clientX,
-          c,
-          viewStart,
-          viewSpan,
-          playheadSecForHit,
-          duration,
-          viewPortionRef.current
-        )
-      ) {
-        e.preventDefault();
-        e.stopPropagation();
-        waveHoverCueRef.current = null;
-        const wasPlaying = !audioEl.paused;
-        playheadScrubDragRef.current = {
-          pointerId: e.pointerId,
-          wasPlaying,
-        };
-        const t0 = timeFromClientX(e.clientX);
-        audioEl.currentTime = t0;
-        setCurrentTime(Math.round(t0 * 1000) / 1000);
-        const capturePid = e.pointerId;
-        c.setPointerCapture(capturePid);
-
-        const onPhMove = (ev: PointerEvent) => {
-          if (ev.pointerId !== capturePid || !playheadScrubDragRef.current) return;
-          const au = audioRef.current;
-          if (!au) return;
-          const t = timeFromClientX(ev.clientX);
-          au.currentTime = t;
-          setCurrentTime(Math.round(t * 1000) / 1000);
-          drawWaveformAt(t);
-        };
-
-        const onPhUp = (ev: PointerEvent) => {
-          if (ev.pointerId !== capturePid || !playheadScrubDragRef.current) return;
-          window.removeEventListener("pointermove", onPhMove);
-          window.removeEventListener("pointerup", onPhUp);
-          window.removeEventListener("pointercancel", onPhUp);
-          try {
-            c.releasePointerCapture(ev.pointerId);
-          } catch {
-            /* ignore */
-          }
-          const drag = playheadScrubDragRef.current;
-          playheadScrubDragRef.current = null;
-          suppressNextWaveSeekRef.current = true;
-          const au = audioRef.current;
-          if (au) {
-            const tEnd = timeFromClientX(ev.clientX);
-            au.currentTime = tEnd;
-            setCurrentTime(Math.round(tEnd * 1000) / 1000);
-            if (!drag.wasPlaying) {
-              au.pause();
-            }
-          }
-          redraw();
-        };
-
-        window.addEventListener("pointermove", onPhMove);
-        window.addEventListener("pointerup", onPhUp);
-        window.addEventListener("pointercancel", onPhUp);
-        drawWaveformAt(t0);
-        return;
-      }
-
-      const cueHit = pickCueDragKindAtWave(
-        e.clientX,
-        e.clientY,
-        c,
-        cuesSorted,
-        viewStart,
-        viewSpan,
-        null
-      );
-      const cueId = cueHit?.cueId ?? null;
-
-      if (cueId) {
-        e.preventDefault();
-        e.stopPropagation();
-        waveHoverCueRef.current = null;
-        const cue = cuesSorted.find((x) => x.id === cueId);
-        if (!cue) return;
-
-        onSelectedCueIdsChange([cueId]);
-        const pointerT0 = timeFromClientX(e.clientX);
-        const mode = cueHit?.mode ?? "move";
-        const grabOffset = pointerT0 - cue.tStartSec;
-        cueDragRef.current = {
-          pointerId: e.pointerId,
-          cueId,
-          mode,
-          moved: false,
-          grabOffset,
-          origStart: cue.tStartSec,
-          origEnd: cue.tEndSec,
-        };
-        cueDragPreviewRangeRef.current = {
-          cueId,
-          tStart: cue.tStartSec,
-          tEnd: cue.tEndSec,
-        };
-        c.setPointerCapture(e.pointerId);
-
-        const MIN_CUE_DUR = 0.05;
-        const onMove = (ev: PointerEvent) => {
-          if (ev.pointerId !== e.pointerId || !cueDragRef.current) return;
-          cueDragRef.current.moved = true;
-          const drag = cueDragRef.current;
-          const cur = timeFromClientX(ev.clientX);
-          let ns = drag.origStart;
-          let ne = drag.origEnd;
-          if (drag.mode === "move") {
-            const dur = drag.origEnd - drag.origStart;
-            ns = cur - drag.grabOffset;
-            ne = ns + dur;
-            if (ne > trimHi) {
-              ne = trimHi;
-              ns = ne - dur;
-            }
-            if (ns < trimLo) {
-              ns = trimLo;
-              ne = ns + dur;
-            }
-            if (ne <= ns) ne = ns + MIN_CUE_DUR;
-          } else if (drag.mode === "start") {
-            ns = Math.round(cur * 100) / 100;
-            ns = Math.max(trimLo, Math.min(ns, drag.origEnd - MIN_CUE_DUR));
-            ne = drag.origEnd;
-          } else {
-            ne = Math.round(cur * 100) / 100;
-            ne = Math.min(trimHi, Math.max(ne, drag.origStart + MIN_CUE_DUR));
-            ns = drag.origStart;
-          }
-          ns = Math.round(ns * 100) / 100;
-          ne = Math.round(ne * 100) / 100;
-          const resolved = resolveCueIntervalNonOverlap(
-            cuesRef.current,
-            cueId,
-            ns,
-            ne,
-            trimLo,
-            trimHi
-          );
-          ns = resolved.tStartSec;
-          ne = resolved.tEndSec;
-          cueDragPreviewRangeRef.current = { cueId, tStart: ns, tEnd: ne };
-          redraw();
-        };
-
-        const onUp = (ev: PointerEvent) => {
-          if (ev.pointerId !== e.pointerId || !cueDragRef.current) return;
-          window.removeEventListener("pointermove", onMove);
-          window.removeEventListener("pointerup", onUp);
-          window.removeEventListener("pointercancel", onUp);
-          try {
-            c.releasePointerCapture(ev.pointerId);
-          } catch {
-            /* ignore */
-          }
-          const drag = cueDragRef.current;
-          cueDragRef.current = null;
-          const preview = cueDragPreviewRangeRef.current;
-          cueDragPreviewRangeRef.current = null;
-          suppressNextWaveSeekRef.current = true;
-          if (!drag) return;
-          const { cueId: cid, moved, origStart, origEnd } = drag;
-          onSelectedCueIdsChange([cid]);
-          if (
-            preview &&
-            Number.isFinite(preview.tStart) &&
-            Number.isFinite(preview.tEnd) &&
-            moved &&
-            (Math.abs(preview.tStart - origStart) > 1e-4 ||
-              Math.abs(preview.tEnd - origEnd) > 1e-4)
-          ) {
-            const ns = preview.tStart;
-            const ne = preview.tEnd;
-            setProject((p) => {
-              const trimHi =
-                p.trimEndSec ??
-                (durationRef.current > 0
-                  ? durationRef.current
-                  : PLACEHOLDER_TIMELINE_CAP_SEC);
-              const r = resolveCueIntervalNonOverlap(
-                p.cues,
-                cid,
-                ns,
-                ne,
-                p.trimStartSec,
-                trimHi
-              );
-              return {
-                ...p,
-                cues: sortCuesByStart(
-                  p.cues.map((x) =>
-                    x.id === cid
-                      ? { ...x, tStartSec: r.tStartSec, tEndSec: r.tEndSec }
-                      : x
-                  )
-                ),
-              };
-            });
-          }
-          redraw();
-        };
-
-        window.addEventListener("pointermove", onMove);
-        window.addEventListener("pointerup", onUp);
-        window.addEventListener("pointercancel", onUp);
-        redraw();
-        return;
-      }
-
-      e.preventDefault();
-      e.stopPropagation();
-      waveHoverCueRef.current = null;
-      emptyWaveDragRef.current = {
-        pointerId: e.pointerId,
-        startClientX: e.clientX,
-        startT: timeFromClientX(e.clientX),
-        trimLo,
-        trimHi,
-        active: false,
-      };
-      newCueRangePreviewRef.current = null;
-      c.setPointerCapture(e.pointerId);
-
-      const onEmptyMove = (ev: PointerEvent) => {
-        const st = emptyWaveDragRef.current;
-        if (!st || ev.pointerId !== st.pointerId) return;
-        if (!st.active) {
-          if (Math.abs(ev.clientX - st.startClientX) < 5) return;
-          st.active = true;
-        }
-        const tCur = timeFromClientX(ev.clientX);
-        const t0 = st.startT;
-        newCueRangePreviewRef.current = {
-          tStart: Math.min(t0, tCur),
-          tEnd: Math.max(t0, tCur),
-        };
-        redraw();
-      };
-
-      const onEmptyUp = (ev: PointerEvent) => {
-        if (ev.pointerId !== e.pointerId || !emptyWaveDragRef.current) return;
-        window.removeEventListener("pointermove", onEmptyMove);
-        window.removeEventListener("pointerup", onEmptyUp);
-        window.removeEventListener("pointercancel", onEmptyUp);
-        try {
-          c.releasePointerCapture(ev.pointerId);
-        } catch {
-          /* ignore */
-        }
-        const st = emptyWaveDragRef.current;
-        emptyWaveDragRef.current = null;
-        const preview = newCueRangePreviewRef.current;
-        newCueRangePreviewRef.current = null;
-
-        if (st?.active) {
-          suppressNextWaveSeekRef.current = true;
-        }
-
-        if (
-          st &&
-          !st.active &&
-          audioRef.current?.src &&
-          durationRef.current > 0
-        ) {
-          const cnv = canvasRef.current;
-          if (cnv) {
-            const { viewStart, viewSpan } = lastWaveDrawRangeRef.current;
-            if (viewSpan > 0) {
-              const rr = cnv.getBoundingClientRect();
-              const ww = rr.width;
-              if (ww > 0) {
-                const xUp = ev.clientX - rr.left;
-                let tSeek = waveExtentXToTime(xUp, viewStart, viewSpan, ww);
-                tSeek = Math.max(st.trimLo, Math.min(st.trimHi, tSeek));
-                const au = audioRef.current;
-                if (au) {
-                  au.currentTime = tSeek;
-                  setCurrentTime(tSeek);
-                }
-                onSelectedCueIdsChange([]);
-                suppressNextWaveSeekRef.current = true;
-                redraw();
-              }
-            }
-          }
-        }
-
-        if (
-          st?.active &&
-          preview &&
-          Number.isFinite(preview.tStart) &&
-          Number.isFinite(preview.tEnd)
-        ) {
-          let ts = Math.min(preview.tStart, preview.tEnd);
-          let te = Math.max(preview.tStart, preview.tEnd);
-          ts = Math.round(ts * 100) / 100;
-          te = Math.round(te * 100) / 100;
-          if (te - ts < 0.1) {
-            te = Math.round(Math.min(st.trimHi, ts + 0.1) * 100) / 100;
-            if (te <= ts) {
-              ts = Math.round(Math.max(st.trimLo, te - 0.1) * 100) / 100;
-            }
-          }
-          if (te > ts && ts >= st.trimLo && te <= st.trimHi) {
-            if (cuesSorted.length >= 100 || formations.length === 0) {
-              redraw();
-              return;
-            }
-            const newCueId = crypto.randomUUID();
-            const rNew = resolveCueIntervalNonOverlap(
-              cuesRef.current,
-              newCueId,
-              ts,
-              te,
-              st.trimLo,
-              st.trimHi
-            );
-            const tsFinal = rNew.tStartSec;
-            const teFinal = rNew.tEndSec;
-            if (teFinal <= tsFinal + 1e-9) {
-              redraw();
-              return;
-            }
-            const appliedT = tsFinal;
-            setProject((p) => {
-              if (p.cues.length >= 100) return p;
-              if (p.cues.some((c) => c.id === newCueId)) return p;
-              const sourceF =
-                p.formations.find((f) => f.id === formationIdForNewCue) ??
-                p.formations[0];
-              if (!sourceF) return p;
-              const newFm = cloneFormationForNewCue(sourceF);
-              const cue: Cue = {
-                id: newCueId,
-                tStartSec: tsFinal,
-                tEndSec: teFinal,
-                formationId: newFm.id,
-              };
-              return {
-                ...p,
-                formations: [...p.formations, newFm],
-                cues: sortCuesByStart([...p.cues, cue]),
-                activeFormationId: newFm.id,
-              };
-            });
-            const a = audioRef.current;
-            const seekCapEmpty =
-              durationRef.current > 0
-                ? durationRef.current
-                : PLACEHOLDER_TIMELINE_CAP_SEC;
-            if (a && Number.isFinite(appliedT)) {
-              a.currentTime = Math.max(
-                trimStartSec,
-                Math.min(trimEndSec ?? seekCapEmpty, appliedT)
-              );
-            }
-            setCurrentTime(appliedT);
-            onSelectedCueIdsChange([newCueId]);
-            onFormationChosenFromCueList?.();
-          }
-        }
-        redraw();
-      };
-
-      window.addEventListener("pointermove", onEmptyMove);
-      window.addEventListener("pointerup", onEmptyUp);
-      window.addEventListener("pointercancel", onEmptyUp);
-      redraw();
-    };
+    const onWaveCanvasPointerDown = useWaveCanvasPointerDrag({
+      projectViewMode: project.viewMode,
+      duration,
+      peaks,
+      canvasRef,
+      lastWaveDrawRangeRef,
+      trimStartSec,
+      trimEndSec,
+      currentTimePropRef,
+      audioRef,
+      isPlayingForWaveRef,
+      viewPortionRef,
+      drawWaveformAt,
+      cuesSorted,
+      cuesRef,
+      cueDragRef,
+      cueDragPreviewRangeRef,
+      playheadScrubDragRef,
+      emptyWaveDragRef,
+      newCueRangePreviewRef,
+      waveHoverCueRef,
+      setCurrentTime,
+      onSelectedCueIdsChange,
+      suppressNextWaveSeekRef,
+      setProject,
+      durationRef,
+      formationIdForNewCue,
+      formations,
+      onFormationChosenFromCueList,
+    });
 
     const onWaveCanvasPointerMove = (
       e: React.PointerEvent<HTMLCanvasElement>

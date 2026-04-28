@@ -1,5 +1,6 @@
 import {
   lazy,
+  memo,
   Suspense,
   useCallback,
   useEffect,
@@ -8,6 +9,8 @@ import {
   useState,
   type CSSProperties,
   type Dispatch,
+  type MutableRefObject,
+  type ReactNode,
   type SetStateAction,
 } from "react";
 import {
@@ -326,6 +329,468 @@ const STAGE_AREA_SHEET_SECTION: CSSProperties = {
   paddingBottom: "6px",
   marginBottom: "6px",
 };
+
+type StageAreaSettingsSheetProps = {
+  stageAreaSettingsOpen: boolean;
+  onClose: () => void;
+  children: ReactNode;
+};
+
+const StageAreaSettingsSheet = memo(function StageAreaSettingsSheet({
+  stageAreaSettingsOpen,
+  onClose,
+  children,
+}: StageAreaSettingsSheetProps) {
+  if (!stageAreaSettingsOpen) return null;
+  return (
+    <EditorSideSheet
+      open
+      zIndex={61}
+      width="min(440px, calc(100vw - 16px))"
+      onClose={onClose}
+      ariaLabelledBy="stage-area-settings-title"
+    >
+      {children}
+    </EditorSideSheet>
+  );
+});
+
+type StageAreaDimensionRowsProps = {
+  disabled: boolean;
+  draft: StageAreaSettingsDraft;
+  onChangeDraft: Dispatch<SetStateAction<StageAreaSettingsDraft>>;
+};
+
+const StageAreaDimensionRows = memo(function StageAreaDimensionRows({
+  disabled,
+  draft,
+  onChangeDraft,
+}: StageAreaDimensionRowsProps) {
+  return (
+    <>
+      {STAGE_AREA_DIM_ROWS.map((row) => (
+        <div
+          key={row.key}
+          style={{
+            display: "grid",
+            gridTemplateColumns: "minmax(0,1fr) auto auto auto auto auto",
+            gap: "4px",
+            alignItems: "center",
+            marginBottom: "4px",
+          }}
+        >
+          <span
+            style={{
+              fontSize: "11px",
+              color: "#94a3b8",
+              lineHeight: 1.25,
+              minWidth: 0,
+            }}
+          >
+            {row.title}
+          </span>
+          <input
+            type="number"
+            min={0}
+            max={999}
+            disabled={disabled}
+            placeholder="m"
+            value={draft[row.key].m}
+            onChange={(e) =>
+              onChangeDraft((d) => ({
+                ...d,
+                [row.key]: { ...d[row.key], m: e.target.value },
+              }))
+            }
+            aria-label={`${row.title} メートル`}
+            style={STAGE_AREA_DIM_INPUT}
+          />
+          <span style={{ fontSize: "10px", color: "#64748b" }}>m</span>
+          <input
+            type="number"
+            min={0}
+            max={99}
+            disabled={disabled}
+            placeholder="cm"
+            value={draft[row.key].cm}
+            onChange={(e) =>
+              onChangeDraft((d) => ({
+                ...d,
+                [row.key]: { ...d[row.key], cm: e.target.value },
+              }))
+            }
+            aria-label={`${row.title} センチ`}
+            style={STAGE_AREA_DIM_INPUT_CM}
+          />
+          <span style={{ fontSize: "10px", color: "#64748b" }}>cm</span>
+        </div>
+      ))}
+    </>
+  );
+});
+
+type StageAreaPresetBlockProps = {
+  disabled: boolean;
+  stageAreaPresetSelectNonce: number;
+  stageAreaPresetList: StagePresetItem[];
+  onChangeDraft: Dispatch<SetStateAction<StageAreaSettingsDraft>>;
+  onBumpPresetNonce: () => void;
+  onSavePreset: () => void;
+};
+
+const StageAreaPresetBlock = memo(function StageAreaPresetBlock({
+  disabled,
+  stageAreaPresetSelectNonce,
+  stageAreaPresetList,
+  onChangeDraft,
+  onBumpPresetNonce,
+  onSavePreset,
+}: StageAreaPresetBlockProps) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: "6px",
+        alignItems: "flex-end",
+        marginTop: "6px",
+        marginBottom: "6px",
+      }}
+    >
+      <label
+        style={{
+          flex: "1 1 140px",
+          minWidth: 0,
+          fontSize: "10px",
+          fontWeight: 700,
+          color: "#64748b",
+          letterSpacing: "0.04em",
+        }}
+      >
+        保存済みから読込
+        <select
+          key={stageAreaPresetSelectNonce}
+          defaultValue=""
+          disabled={disabled || stageAreaPresetList.length === 0}
+          title="端末に保存した寸法セットを入力欄に読み込み（決定で反映）"
+          onChange={(e) => {
+            const id = e.target.value;
+            if (!id) return;
+            const item = stageAreaPresetList.find((x) => x.id === id);
+            if (!item) return;
+            onChangeDraft((d) => ({
+              ...d,
+              width: mmToMeterCmDraft(item.stageWidthMm),
+              depth: mmToMeterCmDraft(item.stageDepthMm),
+              side: mmToMeterCmDraft(item.sideStageMm),
+              back: mmToMeterCmDraft(item.backStageMm),
+              guide: mmToMeterCmDraft(item.centerFieldGuideIntervalMm),
+            }));
+            onBumpPresetNonce();
+          }}
+          style={{
+            width: "100%",
+            marginTop: "3px",
+            padding: "5px 8px",
+            borderRadius: "6px",
+            border: "1px solid #334155",
+            background: "#020617",
+            color: "#e2e8f0",
+            fontSize: "11px",
+          }}
+        >
+          <option value="">{stageAreaPresetList.length === 0 ? "（なし）" : "選ぶ…"}</option>
+          {stageAreaPresetList.map((pr) => (
+            <option key={pr.id} value={pr.id}>
+              {pr.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button
+        type="button"
+        disabled={disabled}
+        title="現在の入力を名前付きで保存"
+        onClick={onSavePreset}
+        style={{
+          ...btnSecondary,
+          flex: "0 0 auto",
+          padding: "6px 10px",
+          fontSize: "11px",
+          fontWeight: 600,
+        }}
+      >
+        名前で保存
+      </button>
+    </div>
+  );
+});
+
+type StageAreaGridStepControlProps = {
+  disabled: boolean;
+  gridStep: number;
+  onChangeDraft: Dispatch<SetStateAction<StageAreaSettingsDraft>>;
+};
+
+const StageAreaGridStepControl = memo(function StageAreaGridStepControl({
+  disabled,
+  gridStep,
+  onChangeDraft,
+}: StageAreaGridStepControlProps) {
+  return (
+    <label
+      style={{
+        display: "block",
+        fontSize: "10px",
+        color: "#94a3b8",
+        marginBottom: "2px",
+      }}
+      title="幅・奥行が未設定のときの％刻み（参考用）"
+    >
+      寸法なし時の％刻み
+      <select
+        value={gridStep}
+        disabled={disabled}
+        onChange={(e) =>
+          onChangeDraft((d) => ({
+            ...d,
+            gridStep: Number(e.target.value),
+          }))
+        }
+        style={{
+          width: "100%",
+          marginTop: "3px",
+          marginBottom: "6px",
+          padding: "4px 8px",
+          borderRadius: "5px",
+          border: "1px solid #334155",
+          background: "#020617",
+          color: "#e2e8f0",
+          fontSize: "11px",
+        }}
+      >
+        <option value={0.5}>0.5%</option>
+        <option value={1}>1%</option>
+        <option value={2}>2%</option>
+        <option value={5}>5%</option>
+        <option value={10}>10%</option>
+      </select>
+    </label>
+  );
+});
+
+type StageAreaGridSpacingControlsProps = {
+  disabled: boolean;
+  gridWidthCmInput: string;
+  gridDepthCmInput: string;
+  onStageGridCmInput: (axis: "width" | "depth", raw: string) => void;
+  commitStageGridCmInput: (axis: "width" | "depth") => void;
+  startGridNudgeRepeat: (axis: "width" | "depth", delta: number) => void;
+  stopGridNudgeRepeat: () => void;
+  nudgeStageGridCm: (axis: "width" | "depth", delta: number) => void;
+  gridNudgeDidRepeatRef: MutableRefObject<boolean>;
+};
+
+const StageAreaGridSpacingControls = memo(function StageAreaGridSpacingControls({
+  disabled,
+  gridWidthCmInput,
+  gridDepthCmInput,
+  onStageGridCmInput,
+  commitStageGridCmInput,
+  startGridNudgeRepeat,
+  stopGridNudgeRepeat,
+  nudgeStageGridCm,
+  gridNudgeDidRepeatRef,
+}: StageAreaGridSpacingControlsProps) {
+  const renderInput = (axis: "width" | "depth", label: string, value: string) => (
+    <label style={{ fontSize: "10px", color: "#94a3b8" }}>
+      {label}
+      <div
+        style={{
+          marginTop: "3px",
+          display: "grid",
+          gridTemplateColumns: "1fr 28px 28px",
+          gap: "4px",
+          alignItems: "center",
+        }}
+      >
+        <input
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          value={value}
+          disabled={disabled}
+          onChange={(e) => onStageGridCmInput(axis, e.target.value)}
+          onBlur={() => commitStageGridCmInput(axis)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commitStageGridCmInput(axis);
+            }
+          }}
+          aria-label={`${label}（センチ）`}
+          style={{
+            width: "100%",
+            padding: "4px 8px",
+            borderRadius: "5px",
+            border: "1px solid #334155",
+            background: "#020617",
+            color: "#e2e8f0",
+            fontSize: "11px",
+            textAlign: "center",
+          }}
+        />
+        <button
+          type="button"
+          disabled={disabled}
+          onPointerDown={(e) => {
+            if (disabled) return;
+            e.preventDefault();
+            startGridNudgeRepeat(axis, -1);
+          }}
+          onPointerUp={stopGridNudgeRepeat}
+          onPointerCancel={stopGridNudgeRepeat}
+          onPointerLeave={stopGridNudgeRepeat}
+          onClick={() => {
+            if (disabled) return;
+            if (gridNudgeDidRepeatRef.current) {
+              gridNudgeDidRepeatRef.current = false;
+              return;
+            }
+            nudgeStageGridCm(axis, -1);
+          }}
+          style={{
+            ...btnSecondary,
+            padding: "3px 0",
+            fontSize: "12px",
+            fontWeight: 700,
+            lineHeight: 1.1,
+          }}
+        >
+          −
+        </button>
+        <button
+          type="button"
+          disabled={disabled}
+          onPointerDown={(e) => {
+            if (disabled) return;
+            e.preventDefault();
+            startGridNudgeRepeat(axis, 1);
+          }}
+          onPointerUp={stopGridNudgeRepeat}
+          onPointerCancel={stopGridNudgeRepeat}
+          onPointerLeave={stopGridNudgeRepeat}
+          onClick={() => {
+            if (disabled) return;
+            if (gridNudgeDidRepeatRef.current) {
+              gridNudgeDidRepeatRef.current = false;
+              return;
+            }
+            nudgeStageGridCm(axis, 1);
+          }}
+          style={{
+            ...btnSecondary,
+            padding: "3px 0",
+            fontSize: "12px",
+            fontWeight: 700,
+            lineHeight: 1.1,
+          }}
+        >
+          ＋
+        </button>
+      </div>
+    </label>
+  );
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: "6px",
+        marginBottom: "6px",
+      }}
+    >
+      {renderInput("width", "縦線間隔（cm）", gridWidthCmInput)}
+      {renderInput("depth", "横線間隔（cm）", gridDepthCmInput)}
+    </div>
+  );
+});
+
+type StageAreaGridVisibilityTogglesProps = {
+  disabled: boolean;
+  hasMainFloor: boolean;
+  verticalEnabled: boolean;
+  horizontalEnabled: boolean;
+  onChangeDraft: Dispatch<SetStateAction<StageAreaSettingsDraft>>;
+};
+
+const StageAreaGridVisibilityToggles = memo(function StageAreaGridVisibilityToggles({
+  disabled,
+  hasMainFloor,
+  verticalEnabled,
+  horizontalEnabled,
+  onChangeDraft,
+}: StageAreaGridVisibilityTogglesProps) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "6px",
+        marginTop: "4px",
+      }}
+    >
+      <label
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          fontSize: "11px",
+          color: "#cbd5e1",
+          cursor: disabled ? "default" : "pointer",
+        }}
+        title="幅方向（画面上では縦に走る線）"
+      >
+        <input
+          type="checkbox"
+          checked={verticalEnabled}
+          disabled={disabled || !hasMainFloor}
+          onChange={(e) =>
+            onChangeDraft((d) => ({
+              ...d,
+              stageGridLinesVerticalEnabled: e.target.checked,
+            }))
+          }
+        />
+        縦線（幅方向のグリッド）を表示
+      </label>
+      <label
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          fontSize: "11px",
+          color: "#cbd5e1",
+          cursor: disabled ? "default" : "pointer",
+        }}
+        title="奥行方向（画面上では横に走る線）"
+      >
+        <input
+          type="checkbox"
+          checked={horizontalEnabled}
+          disabled={disabled || !hasMainFloor}
+          onChange={(e) =>
+            onChangeDraft((d) => ({
+              ...d,
+              stageGridLinesHorizontalEnabled: e.target.checked,
+            }))
+          }
+        />
+        横線（奥行方向のグリッド）を表示
+      </label>
+    </div>
+  );
+});
 
 /**
  * ステージ列の最大幅（px）。
@@ -3348,12 +3813,9 @@ export function EditorPage() {
       ) : null}
 
       {stageAreaSettingsOpen ? (
-        <EditorSideSheet
-          open
-          zIndex={61}
-          width="min(440px, calc(100vw - 16px))"
+        <StageAreaSettingsSheet
+          stageAreaSettingsOpen={stageAreaSettingsOpen}
           onClose={() => setStageAreaSettingsOpen(false)}
-          ariaLabelledBy="stage-area-settings-title"
         >
           <div style={{ padding: "8px 10px 10px" }}>
             <div
@@ -3456,164 +3918,38 @@ export function EditorPage() {
               >
                 m・cm（空欄＝未設定）。<strong style={{ color: "#cbd5e1" }}>決定</strong>で反映。
               </p>
-              {STAGE_AREA_DIM_ROWS.map((row) => (
-                <div
-                  key={row.key}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "minmax(0,1fr) auto auto auto auto auto",
-                    gap: "4px",
-                    alignItems: "center",
-                    marginBottom: "4px",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "11px",
-                      color: "#94a3b8",
-                      lineHeight: 1.25,
-                      minWidth: 0,
-                    }}
-                  >
-                    {row.title}
-                  </span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={999}
-                    disabled={project.viewMode === "view"}
-                    placeholder="m"
-                    value={stageAreaSettingsDraft[row.key].m}
-                    onChange={(e) =>
-                      setStageAreaSettingsDraft((d) => ({
-                        ...d,
-                        [row.key]: { ...d[row.key], m: e.target.value },
-                      }))
-                    }
-                    aria-label={`${row.title} メートル`}
-                    style={STAGE_AREA_DIM_INPUT}
-                  />
-                  <span style={{ fontSize: "10px", color: "#64748b" }}>m</span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={99}
-                    disabled={project.viewMode === "view"}
-                    placeholder="cm"
-                    value={stageAreaSettingsDraft[row.key].cm}
-                    onChange={(e) =>
-                      setStageAreaSettingsDraft((d) => ({
-                        ...d,
-                        [row.key]: { ...d[row.key], cm: e.target.value },
-                      }))
-                    }
-                    aria-label={`${row.title} センチ`}
-                    style={STAGE_AREA_DIM_INPUT_CM}
-                  />
-                  <span style={{ fontSize: "10px", color: "#64748b" }}>cm</span>
-                </div>
-              ))}
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: "6px",
-                  alignItems: "flex-end",
-                  marginTop: "6px",
-                  marginBottom: "6px",
+              <StageAreaDimensionRows
+                disabled={project.viewMode === "view"}
+                draft={stageAreaSettingsDraft}
+                onChangeDraft={setStageAreaSettingsDraft}
+              />
+              <StageAreaPresetBlock
+                disabled={project.viewMode === "view"}
+                stageAreaPresetSelectNonce={stageAreaPresetSelectNonce}
+                stageAreaPresetList={stageAreaPresetList}
+                onChangeDraft={setStageAreaSettingsDraft}
+                onBumpPresetNonce={() => setStageAreaPresetSelectNonce((n) => n + 1)}
+                onSavePreset={() => {
+                  if (project.viewMode === "view") return;
+                  const d = stageAreaSettingsDraftRef.current;
+                  const dims = {
+                    stageWidthMm: parseMeterCmDraftToMm(d.width),
+                    stageDepthMm: parseMeterCmDraftToMm(d.depth),
+                    sideStageMm: parseMeterCmDraftToMm(d.side),
+                    backStageMm: parseMeterCmDraftToMm(d.back),
+                    centerFieldGuideIntervalMm: parseMeterCmDraftToMm(d.guide),
+                  };
+                  const defaultName = `舞台 ${stageAreaPresetList.length + 1}`;
+                  const name = window.prompt("保存する名前", defaultName);
+                  if (name === null) return;
+                  const result = saveStagePreset(name.trim() || defaultName, dims);
+                  if (!result.ok) {
+                    window.alert(result.message);
+                    return;
+                  }
+                  setStageAreaPresetList(listStagePresets());
                 }}
-              >
-                <label
-                  style={{
-                    flex: "1 1 140px",
-                    minWidth: 0,
-                    fontSize: "10px",
-                    fontWeight: 700,
-                    color: "#64748b",
-                    letterSpacing: "0.04em",
-                  }}
-                >
-                  保存済みから読込
-                  <select
-                    key={stageAreaPresetSelectNonce}
-                    defaultValue=""
-                    disabled={
-                      project.viewMode === "view" || stageAreaPresetList.length === 0
-                    }
-                    title="端末に保存した寸法セットを入力欄に読み込み（決定で反映）"
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      if (!id) return;
-                      const item = stageAreaPresetList.find((x) => x.id === id);
-                      if (!item) return;
-                      setStageAreaSettingsDraft((d) => ({
-                        ...d,
-                        width: mmToMeterCmDraft(item.stageWidthMm),
-                        depth: mmToMeterCmDraft(item.stageDepthMm),
-                        side: mmToMeterCmDraft(item.sideStageMm),
-                        back: mmToMeterCmDraft(item.backStageMm),
-                        guide: mmToMeterCmDraft(item.centerFieldGuideIntervalMm),
-                      }));
-                      setStageAreaPresetSelectNonce((n) => n + 1);
-                    }}
-                    style={{
-                      width: "100%",
-                      marginTop: "3px",
-                      padding: "5px 8px",
-                      borderRadius: "6px",
-                      border: "1px solid #334155",
-                      background: "#020617",
-                      color: "#e2e8f0",
-                      fontSize: "11px",
-                    }}
-                  >
-                    <option value="">
-                      {stageAreaPresetList.length === 0
-                        ? "（なし）"
-                        : "選ぶ…"}
-                    </option>
-                    {stageAreaPresetList.map((pr) => (
-                      <option key={pr.id} value={pr.id}>
-                        {pr.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <button
-                  type="button"
-                  disabled={project.viewMode === "view"}
-                  title="現在の入力を名前付きで保存"
-                  onClick={() => {
-                    if (project.viewMode === "view") return;
-                    const d = stageAreaSettingsDraftRef.current;
-                    const dims = {
-                      stageWidthMm: parseMeterCmDraftToMm(d.width),
-                      stageDepthMm: parseMeterCmDraftToMm(d.depth),
-                      sideStageMm: parseMeterCmDraftToMm(d.side),
-                      backStageMm: parseMeterCmDraftToMm(d.back),
-                      centerFieldGuideIntervalMm: parseMeterCmDraftToMm(d.guide),
-                    };
-                    const defaultName = `舞台 ${stageAreaPresetList.length + 1}`;
-                    const name = window.prompt("保存する名前", defaultName);
-                    if (name === null) return;
-                    const result = saveStagePreset(name.trim() || defaultName, dims);
-                    if (!result.ok) {
-                      window.alert(result.message);
-                      return;
-                    }
-                    setStageAreaPresetList(listStagePresets());
-                  }}
-                  style={{
-                    ...btnSecondary,
-                    flex: "0 0 auto",
-                    padding: "6px 10px",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                  }}
-                >
-                  名前で保存
-                </button>
-              </div>
+              />
               <button
                 type="button"
                 disabled={project.viewMode === "view"}
@@ -3673,315 +4009,32 @@ export function EditorPage() {
                 </p>
               )}
               {!stageAreaDraftHasMainFloor ? (
-                <label
-                  style={{
-                    display: "block",
-                    fontSize: "10px",
-                    color: "#94a3b8",
-                    marginBottom: "2px",
-                  }}
-                  title="幅・奥行が未設定のときの％刻み（参考用）"
-                >
-                  寸法なし時の％刻み
-                  <select
-                    value={stageAreaSettingsDraft.gridStep}
-                    disabled={project.viewMode === "view"}
-                    onChange={(e) =>
-                      setStageAreaSettingsDraft((d) => ({
-                        ...d,
-                        gridStep: Number(e.target.value),
-                      }))
-                    }
-                    style={{
-                      width: "100%",
-                      marginTop: "3px",
-                      marginBottom: "6px",
-                      padding: "4px 8px",
-                      borderRadius: "5px",
-                      border: "1px solid #334155",
-                      background: "#020617",
-                      color: "#e2e8f0",
-                      fontSize: "11px",
-                    }}
-                  >
-                    <option value={0.5}>0.5%</option>
-                    <option value={1}>1%</option>
-                    <option value={2}>2%</option>
-                    <option value={5}>5%</option>
-                    <option value={10}>10%</option>
-                  </select>
-                </label>
+                <StageAreaGridStepControl
+                  disabled={project.viewMode === "view"}
+                  gridStep={stageAreaSettingsDraft.gridStep}
+                  onChangeDraft={setStageAreaSettingsDraft}
+                />
               ) : null}
               {stageAreaDraftHasMainFloor ? (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: "6px",
-                    marginBottom: "6px",
-                  }}
-                >
-                  <label style={{ fontSize: "10px", color: "#94a3b8" }}>
-                    縦線間隔（cm）
-                    <div
-                      style={{
-                        marginTop: "3px",
-                        display: "grid",
-                        gridTemplateColumns: "1fr 28px 28px",
-                        gap: "4px",
-                        alignItems: "center",
-                      }}
-                    >
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={gridWidthCmInput}
-                        disabled={project.viewMode === "view"}
-                        onChange={(e) => onStageGridCmInput("width", e.target.value)}
-                        onBlur={() => commitStageGridCmInput("width")}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            commitStageGridCmInput("width");
-                          }
-                        }}
-                        aria-label="縦線の間隔（センチ）"
-                        style={{
-                          width: "100%",
-                          padding: "4px 8px",
-                          borderRadius: "5px",
-                          border: "1px solid #334155",
-                          background: "#020617",
-                          color: "#e2e8f0",
-                          fontSize: "11px",
-                          textAlign: "center",
-                        }}
-                      />
-                      <button
-                        type="button"
-                        disabled={project.viewMode === "view"}
-                        onPointerDown={(e) => {
-                          if (project.viewMode === "view") return;
-                          e.preventDefault();
-                          startGridNudgeRepeat("width", -1);
-                        }}
-                        onPointerUp={stopGridNudgeRepeat}
-                        onPointerCancel={stopGridNudgeRepeat}
-                        onPointerLeave={stopGridNudgeRepeat}
-                        onClick={() => {
-                          if (project.viewMode === "view") return;
-                          if (gridNudgeDidRepeatRef.current) {
-                            gridNudgeDidRepeatRef.current = false;
-                            return;
-                          }
-                          nudgeStageGridCm("width", -1);
-                        }}
-                        title="縦線間隔を 1cm 小さく"
-                        aria-label="縦線間隔を 1cm 小さく"
-                        style={{
-                          ...btnSecondary,
-                          padding: "3px 0",
-                          fontSize: "12px",
-                          fontWeight: 700,
-                          lineHeight: 1.1,
-                        }}
-                      >
-                        −
-                      </button>
-                      <button
-                        type="button"
-                        disabled={project.viewMode === "view"}
-                        onPointerDown={(e) => {
-                          if (project.viewMode === "view") return;
-                          e.preventDefault();
-                          startGridNudgeRepeat("width", 1);
-                        }}
-                        onPointerUp={stopGridNudgeRepeat}
-                        onPointerCancel={stopGridNudgeRepeat}
-                        onPointerLeave={stopGridNudgeRepeat}
-                        onClick={() => {
-                          if (project.viewMode === "view") return;
-                          if (gridNudgeDidRepeatRef.current) {
-                            gridNudgeDidRepeatRef.current = false;
-                            return;
-                          }
-                          nudgeStageGridCm("width", 1);
-                        }}
-                        title="縦線間隔を 1cm 大きく"
-                        aria-label="縦線間隔を 1cm 大きく"
-                        style={{
-                          ...btnSecondary,
-                          padding: "3px 0",
-                          fontSize: "12px",
-                          fontWeight: 700,
-                          lineHeight: 1.1,
-                        }}
-                      >
-                        ＋
-                      </button>
-                    </div>
-                  </label>
-                  <label style={{ fontSize: "10px", color: "#94a3b8" }}>
-                    横線間隔（cm）
-                    <div
-                      style={{
-                        marginTop: "3px",
-                        display: "grid",
-                        gridTemplateColumns: "1fr 28px 28px",
-                        gap: "4px",
-                        alignItems: "center",
-                      }}
-                    >
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={gridDepthCmInput}
-                        disabled={project.viewMode === "view"}
-                        onChange={(e) => onStageGridCmInput("depth", e.target.value)}
-                        onBlur={() => commitStageGridCmInput("depth")}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            commitStageGridCmInput("depth");
-                          }
-                        }}
-                        aria-label="横線の間隔（センチ）"
-                        style={{
-                          width: "100%",
-                          padding: "4px 8px",
-                          borderRadius: "5px",
-                          border: "1px solid #334155",
-                          background: "#020617",
-                          color: "#e2e8f0",
-                          fontSize: "11px",
-                          textAlign: "center",
-                        }}
-                      />
-                      <button
-                        type="button"
-                        disabled={project.viewMode === "view"}
-                        onPointerDown={(e) => {
-                          if (project.viewMode === "view") return;
-                          e.preventDefault();
-                          startGridNudgeRepeat("depth", -1);
-                        }}
-                        onPointerUp={stopGridNudgeRepeat}
-                        onPointerCancel={stopGridNudgeRepeat}
-                        onPointerLeave={stopGridNudgeRepeat}
-                        onClick={() => {
-                          if (project.viewMode === "view") return;
-                          if (gridNudgeDidRepeatRef.current) {
-                            gridNudgeDidRepeatRef.current = false;
-                            return;
-                          }
-                          nudgeStageGridCm("depth", -1);
-                        }}
-                        title="横線間隔を 1cm 小さく"
-                        aria-label="横線間隔を 1cm 小さく"
-                        style={{
-                          ...btnSecondary,
-                          padding: "3px 0",
-                          fontSize: "12px",
-                          fontWeight: 700,
-                          lineHeight: 1.1,
-                        }}
-                      >
-                        −
-                      </button>
-                      <button
-                        type="button"
-                        disabled={project.viewMode === "view"}
-                        onPointerDown={(e) => {
-                          if (project.viewMode === "view") return;
-                          e.preventDefault();
-                          startGridNudgeRepeat("depth", 1);
-                        }}
-                        onPointerUp={stopGridNudgeRepeat}
-                        onPointerCancel={stopGridNudgeRepeat}
-                        onPointerLeave={stopGridNudgeRepeat}
-                        onClick={() => {
-                          if (project.viewMode === "view") return;
-                          if (gridNudgeDidRepeatRef.current) {
-                            gridNudgeDidRepeatRef.current = false;
-                            return;
-                          }
-                          nudgeStageGridCm("depth", 1);
-                        }}
-                        title="横線間隔を 1cm 大きく"
-                        aria-label="横線間隔を 1cm 大きく"
-                        style={{
-                          ...btnSecondary,
-                          padding: "3px 0",
-                          fontSize: "12px",
-                          fontWeight: 700,
-                          lineHeight: 1.1,
-                        }}
-                      >
-                        ＋
-                      </button>
-                    </div>
-                  </label>
-                </div>
+                <StageAreaGridSpacingControls
+                  disabled={project.viewMode === "view"}
+                  gridWidthCmInput={gridWidthCmInput}
+                  gridDepthCmInput={gridDepthCmInput}
+                  onStageGridCmInput={onStageGridCmInput}
+                  commitStageGridCmInput={commitStageGridCmInput}
+                  startGridNudgeRepeat={startGridNudgeRepeat}
+                  stopGridNudgeRepeat={stopGridNudgeRepeat}
+                  nudgeStageGridCm={nudgeStageGridCm}
+                  gridNudgeDidRepeatRef={gridNudgeDidRepeatRef}
+                />
               ) : null}
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "6px",
-                  marginTop: "4px",
-                }}
-              >
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    fontSize: "11px",
-                    color: "#cbd5e1",
-                    cursor: project.viewMode === "view" ? "default" : "pointer",
-                  }}
-                  title="幅方向（画面上では縦に走る線）"
-                >
-                  <input
-                    type="checkbox"
-                    checked={stageAreaSettingsDraft.stageGridLinesVerticalEnabled}
-                    disabled={project.viewMode === "view" || !stageAreaDraftHasMainFloor}
-                    onChange={(e) =>
-                      setStageAreaSettingsDraft((d) => ({
-                        ...d,
-                        stageGridLinesVerticalEnabled: e.target.checked,
-                      }))
-                    }
-                  />
-                  縦線（幅方向のグリッド）を表示
-                </label>
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    fontSize: "11px",
-                    color: "#cbd5e1",
-                    cursor: project.viewMode === "view" ? "default" : "pointer",
-                  }}
-                  title="奥行方向（画面上では横に走る線）"
-                >
-                  <input
-                    type="checkbox"
-                    checked={stageAreaSettingsDraft.stageGridLinesHorizontalEnabled}
-                    disabled={project.viewMode === "view" || !stageAreaDraftHasMainFloor}
-                    onChange={(e) =>
-                      setStageAreaSettingsDraft((d) => ({
-                        ...d,
-                        stageGridLinesHorizontalEnabled: e.target.checked,
-                      }))
-                    }
-                  />
-                  横線（奥行方向のグリッド）を表示
-                </label>
-              </div>
+              <StageAreaGridVisibilityToggles
+                disabled={project.viewMode === "view"}
+                hasMainFloor={stageAreaDraftHasMainFloor}
+                verticalEnabled={stageAreaSettingsDraft.stageGridLinesVerticalEnabled}
+                horizontalEnabled={stageAreaSettingsDraft.stageGridLinesHorizontalEnabled}
+                onChangeDraft={setStageAreaSettingsDraft}
+              />
             </div>
 
             <div style={STAGE_AREA_SHEET_SECTION}>
@@ -4148,7 +4201,7 @@ export function EditorPage() {
               </button>
             </div>
           </div>
-        </EditorSideSheet>
+        </StageAreaSettingsSheet>
       ) : null}
 
       {stageSettingsOpen ? (
