@@ -29,7 +29,11 @@ import {
   modDancerColorIndex,
 } from "../lib/dancerColorPalette";
 import { dancerMarkerDiameterAfterRosterImport } from "../lib/projectDefaults";
-import { sortCuesByStart } from "../lib/cueInterval";
+import {
+  DEFAULT_CUE_SPAN_WITH_AUDIO_SEC,
+  MIN_CUE_DURATION_SEC,
+  sortCuesByStart,
+} from "../lib/cueInterval";
 
 export type { RosterStripSortMode };
 
@@ -511,12 +515,36 @@ export function RosterTimelineStrip({
     if (project.viewMode === "view") return;
     setProject((p) => {
       if (p.viewMode === "view") return p;
-      /** キューがあれば先頭キューのフォーメーションへ確定（名簿モード中の編集を 1 ページ目に反映） */
-      const firstCue = sortCuesByStart(p.cues)[0];
+      /**
+       * キューがあれば先頭キューのフォーメーションへ確定（名簿モード中の編集を 1 ページ目に反映）。
+       * まだキューが無い新規プロジェクトでも、名簿→立ち位置→決定だけで「キュー一覧に載る」よう
+       * 先頭キューを自動で 1 つ作る。
+       */
+      const sortedCues = sortCuesByStart(p.cues);
+      const firstCue = sortedCues[0];
       const targetFid = firstCue?.formationId ?? p.activeFormationId;
+      const ensuredCues =
+        firstCue != null
+          ? p.cues
+          : [
+              {
+                id: crypto.randomUUID(),
+                tStartSec: 0,
+                tEndSec: Math.max(
+                  MIN_CUE_DURATION_SEC,
+                  DEFAULT_CUE_SPAN_WITH_AUDIO_SEC
+                ),
+                formationId: targetFid,
+              },
+            ];
       const f = p.formations.find((x) => x.id === targetFid);
       if (!f) {
-        return { ...p, rosterHidesTimeline: false, activeFormationId: targetFid };
+        return {
+          ...p,
+          cues: ensuredCues,
+          rosterHidesTimeline: false,
+          activeFormationId: targetFid,
+        };
       }
 
       let order = 0;
@@ -549,6 +577,7 @@ export function RosterTimelineStrip({
       if (toAdd.length === 0) {
         return {
           ...p,
+          cues: ensuredCues,
           rosterHidesTimeline: false,
           activeFormationId: targetFid,
         };
@@ -590,6 +619,7 @@ export function RosterTimelineStrip({
       const merged = transferDancerIdentitiesByOrder(positioned, placeholders);
       return {
         ...p,
+        cues: ensuredCues,
         activeFormationId: targetFid,
         dancerLabelPosition: "below",
         dancerMarkerDiameterPx: dancerMarkerDiameterAfterRosterImport(
