@@ -1980,19 +1980,19 @@ export function StageBoard({
   );
 
   /**
-   * ドラッグ中の立ち位置を、他のダンサーや中央線に揃えて「ピタッ」と吸着させる。
-   * 表示用のガイド線（揃った x / y の値）も合わせて返す。
+   * ドラッグ中の立ち位置を、ステージのセンター線（x=50 / y=50）にだけ揃えて吸着させる。
+   * 他ダンサー座標への吸着・ガイドは行わない。
    *
    * @param xPct         現在の x（％）
    * @param yPct         現在の y（％）
-   * @param excludeIds   スナップ対象から除外するダンサー ID（自分 or 群ドラッグ中の選択者）
+   * @param _excludeIds  互換のため残す（センター専用のため未使用）
    * @param strong       Shift 等で一時的にスナップを無効化したい場合は false
    */
   const computeAlignmentSnap = useCallback(
     (
       xPct: number,
       yPct: number,
-      excludeIds: ReadonlySet<string>,
+      _excludeIds: ReadonlySet<string>,
       strong: boolean
     ): { xPct: number; yPct: number; guideX: number | null; guideY: number | null } => {
       if (!strong) {
@@ -2000,16 +2000,9 @@ export function StageBoard({
       }
       /** 吸着する距離しきい値（％）。ステージの 1% 程度 */
       const THRESHOLD = 0.9;
-      const dancers =
-        writeFormation?.dancers ?? activeFormation?.dancers ?? [];
-      /** 候補 x: 中央（50）＋他ダンサーの x */
+      /** センターのみ（他ダンサーは候補に含めない） */
       const xCandidates: number[] = [50];
       const yCandidates: number[] = [50];
-      for (const d of dancers) {
-        if (excludeIds.has(d.id)) continue;
-        xCandidates.push(d.xPct);
-        yCandidates.push(d.yPct);
-      }
       let bestXDist = THRESHOLD;
       let guideX: number | null = null;
       let snappedX = xPct;
@@ -2039,7 +2032,7 @@ export function StageBoard({
         guideY,
       };
     },
-    [writeFormation, activeFormation]
+    []
   );
 
   useEffect(() => {
@@ -2756,7 +2749,7 @@ export function StageBoard({
         let dxPct = ((e.clientX - g.startClientX) / g.floorWpx) * 100;
         let dyPct = ((e.clientY - g.startClientY) / g.floorHpx) * 100;
         const idSet = new Set(g.ids);
-        const CENTER_X_PCT = 50;
+        const STAGE_CENTER_PCT = 50;
         const CENTER_GUIDE_EPS = 0.02;
         /** 群移動中もポインタが画面左端付近ならゴミ箱 UI を出す */
         const reveal = pointerInViewportTrashRevealZone(e.clientX);
@@ -2774,8 +2767,7 @@ export function StageBoard({
           return;
         }
         /**
-         * 群移動では、選択範囲のアンカー（一人目）を代表として中央線や
-         * 他（選択外）ダンサーに吸着させ、群全体を同じデルタだけ動かす。
+         * 群移動では先頭を代表にセンター線（50%）へだけ吸着し、全体を同じデルタで動かす。
          */
         let guideX: number | null = null;
         let guideY: number | null = null;
@@ -2791,8 +2783,7 @@ export function StageBoard({
           guideY = snapped.guideY;
         }
         /**
-         * 複数一括移動では「先頭アンカー」だけでなく、選択中の誰かが
-         * センター線（x=50）に乗ったときにも縦ガイドを出す。
+         * 先頭がセンターにいなくても、選択中の誰かがセンター線上ならガイドを出す。
          */
         if (guideX == null) {
           for (const id of g.ids) {
@@ -2805,8 +2796,25 @@ export function StageBoard({
                 DANCER_STAGE_POSITION_PCT_HI
               )
             );
-            if (Math.abs(nx - CENTER_X_PCT) <= CENTER_GUIDE_EPS) {
-              guideX = CENTER_X_PCT;
+            if (Math.abs(nx - STAGE_CENTER_PCT) <= CENTER_GUIDE_EPS) {
+              guideX = STAGE_CENTER_PCT;
+              break;
+            }
+          }
+        }
+        if (guideY == null) {
+          for (const id of g.ids) {
+            const s = g.startPositions.get(id);
+            if (!s) continue;
+            const ny = round2(
+              clamp(
+                s.yPct + dyPct,
+                DANCER_STAGE_POSITION_PCT_LO,
+                DANCER_STAGE_POSITION_PCT_HI
+              )
+            );
+            if (Math.abs(ny - STAGE_CENTER_PCT) <= CENTER_GUIDE_EPS) {
+              guideY = STAGE_CENTER_PCT;
               break;
             }
           }
