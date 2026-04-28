@@ -3336,11 +3336,37 @@ export function EditorPage() {
                       style={{
                         marginTop: "3px",
                         display: "grid",
-                        gridTemplateColumns: "28px 1fr 28px",
+                        gridTemplateColumns: "1fr 28px 28px",
                         gap: "4px",
                         alignItems: "center",
                       }}
                     >
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={gridWidthCmInput}
+                        disabled={project.viewMode === "view"}
+                        onChange={(e) => onStageGridCmInput("width", e.target.value)}
+                        onBlur={() => commitStageGridCmInput("width")}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            commitStageGridCmInput("width");
+                          }
+                        }}
+                        aria-label="縦線の間隔（センチ）"
+                        style={{
+                          width: "100%",
+                          padding: "4px 8px",
+                          borderRadius: "5px",
+                          border: "1px solid #334155",
+                          background: "#020617",
+                          color: "#e2e8f0",
+                          fontSize: "11px",
+                          textAlign: "center",
+                        }}
+                      />
                       <button
                         type="button"
                         disabled={project.viewMode === "view"}
@@ -3372,32 +3398,6 @@ export function EditorPage() {
                       >
                         −
                       </button>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={gridWidthCmInput}
-                        disabled={project.viewMode === "view"}
-                        onChange={(e) => onStageGridCmInput("width", e.target.value)}
-                        onBlur={() => commitStageGridCmInput("width")}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            commitStageGridCmInput("width");
-                          }
-                        }}
-                        aria-label="縦線の間隔（センチ）"
-                        style={{
-                          width: "100%",
-                          padding: "4px 8px",
-                          borderRadius: "5px",
-                          border: "1px solid #334155",
-                          background: "#020617",
-                          color: "#e2e8f0",
-                          fontSize: "11px",
-                          textAlign: "center",
-                        }}
-                      />
                       <button
                         type="button"
                         disabled={project.viewMode === "view"}
@@ -3437,11 +3437,37 @@ export function EditorPage() {
                       style={{
                         marginTop: "3px",
                         display: "grid",
-                        gridTemplateColumns: "28px 1fr 28px",
+                        gridTemplateColumns: "1fr 28px 28px",
                         gap: "4px",
                         alignItems: "center",
                       }}
                     >
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={gridDepthCmInput}
+                        disabled={project.viewMode === "view"}
+                        onChange={(e) => onStageGridCmInput("depth", e.target.value)}
+                        onBlur={() => commitStageGridCmInput("depth")}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            commitStageGridCmInput("depth");
+                          }
+                        }}
+                        aria-label="横線の間隔（センチ）"
+                        style={{
+                          width: "100%",
+                          padding: "4px 8px",
+                          borderRadius: "5px",
+                          border: "1px solid #334155",
+                          background: "#020617",
+                          color: "#e2e8f0",
+                          fontSize: "11px",
+                          textAlign: "center",
+                        }}
+                      />
                       <button
                         type="button"
                         disabled={project.viewMode === "view"}
@@ -3473,32 +3499,6 @@ export function EditorPage() {
                       >
                         −
                       </button>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={gridDepthCmInput}
-                        disabled={project.viewMode === "view"}
-                        onChange={(e) => onStageGridCmInput("depth", e.target.value)}
-                        onBlur={() => commitStageGridCmInput("depth")}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            commitStageGridCmInput("depth");
-                          }
-                        }}
-                        aria-label="横線の間隔（センチ）"
-                        style={{
-                          width: "100%",
-                          padding: "4px 8px",
-                          borderRadius: "5px",
-                          border: "1px solid #334155",
-                          background: "#020617",
-                          color: "#e2e8f0",
-                          fontSize: "11px",
-                          textAlign: "center",
-                        }}
-                      />
                       <button
                         type="button"
                         disabled={project.viewMode === "view"}
