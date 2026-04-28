@@ -279,6 +279,13 @@ function clampGridSpacingCm(raw: number): number {
   return Math.max(1, Math.min(100, Math.round(raw)));
 }
 
+function parseGridSpacingInput(raw: string): number {
+  const normalized = raw
+    .replace(/[０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0))
+    .replace(/[^\d]/g, "");
+  return Number(normalized);
+}
+
 function projectToStageAreaDraft(p: ChoreographyProjectJson): StageAreaSettingsDraft {
   const gridWmm = p.stageGridSpacingWidthMm ?? p.stageGridLineSpacingMm ?? 10;
   const gridDmm = p.stageGridSpacingDepthMm ?? p.stageGridLineSpacingMm ?? 10;
@@ -997,19 +1004,18 @@ export function EditorPage() {
   }, [stageAreaSettingsDraft.width, stageAreaSettingsDraft.depth]);
 
   const onStageGridCmInput = useCallback((axis: "width" | "depth", raw: string) => {
-    const cleaned = raw.replace(/[^\d]/g, "");
-    if (axis === "width") setGridWidthCmInput(cleaned);
-    else setGridDepthCmInput(cleaned);
+    if (axis === "width") setGridWidthCmInput(raw);
+    else setGridDepthCmInput(raw);
   }, []);
 
   const commitStageGridCmInput = useCallback((axis: "width" | "depth") => {
     if (axis === "width") {
-      const next = clampGridSpacingCm(Number(gridWidthCmInput));
+      const next = clampGridSpacingCm(parseGridSpacingInput(gridWidthCmInput));
       setStageAreaSettingsDraft((d) => ({ ...d, gridWidthCm: next }));
       setGridWidthCmInput(String(next));
       return;
     }
-    const next = clampGridSpacingCm(Number(gridDepthCmInput));
+    const next = clampGridSpacingCm(parseGridSpacingInput(gridDepthCmInput));
     setStageAreaSettingsDraft((d) => ({ ...d, gridDepthCm: next }));
     setGridDepthCmInput(String(next));
   }, [gridDepthCmInput, gridWidthCmInput]);
