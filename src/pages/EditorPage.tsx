@@ -1013,6 +1013,38 @@ export function EditorPage() {
     });
   }, []);
 
+  const gridNudgeTimeoutRef = useRef<number | null>(null);
+  const gridNudgeIntervalRef = useRef<number | null>(null);
+  const gridNudgeDidRepeatRef = useRef(false);
+
+  const stopGridNudgeRepeat = useCallback(() => {
+    if (gridNudgeTimeoutRef.current != null) {
+      window.clearTimeout(gridNudgeTimeoutRef.current);
+      gridNudgeTimeoutRef.current = null;
+    }
+    if (gridNudgeIntervalRef.current != null) {
+      window.clearInterval(gridNudgeIntervalRef.current);
+      gridNudgeIntervalRef.current = null;
+    }
+  }, []);
+
+  const startGridNudgeRepeat = useCallback(
+    (axis: "width" | "depth", delta: number) => {
+      stopGridNudgeRepeat();
+      gridNudgeDidRepeatRef.current = false;
+      gridNudgeTimeoutRef.current = window.setTimeout(() => {
+        gridNudgeDidRepeatRef.current = true;
+        nudgeStageGridCm(axis, delta);
+        gridNudgeIntervalRef.current = window.setInterval(() => {
+          nudgeStageGridCm(axis, delta);
+        }, 70);
+      }, 260);
+    },
+    [nudgeStageGridCm, stopGridNudgeRepeat]
+  );
+
+  useEffect(() => stopGridNudgeRepeat, [stopGridNudgeRepeat]);
+
   /**
    * 「ステージまわりの設定」表示中はドラフト（グリッド線のON/OFF・間隔・寸法など）を
    * メインの StageBoard に反映し、決定前でもステージ上でプレビューできるようにする。
@@ -3291,7 +3323,22 @@ export function EditorPage() {
                       <button
                         type="button"
                         disabled={project.viewMode === "view"}
-                        onClick={() => nudgeStageGridCm("width", -1)}
+                        onPointerDown={(e) => {
+                          if (project.viewMode === "view") return;
+                          e.preventDefault();
+                          startGridNudgeRepeat("width", -1);
+                        }}
+                        onPointerUp={stopGridNudgeRepeat}
+                        onPointerCancel={stopGridNudgeRepeat}
+                        onPointerLeave={stopGridNudgeRepeat}
+                        onClick={() => {
+                          if (project.viewMode === "view") return;
+                          if (gridNudgeDidRepeatRef.current) {
+                            gridNudgeDidRepeatRef.current = false;
+                            return;
+                          }
+                          nudgeStageGridCm("width", -1);
+                        }}
                         title="縦線間隔を 1cm 小さく"
                         aria-label="縦線間隔を 1cm 小さく"
                         style={{
@@ -3326,7 +3373,22 @@ export function EditorPage() {
                       <button
                         type="button"
                         disabled={project.viewMode === "view"}
-                        onClick={() => nudgeStageGridCm("width", 1)}
+                        onPointerDown={(e) => {
+                          if (project.viewMode === "view") return;
+                          e.preventDefault();
+                          startGridNudgeRepeat("width", 1);
+                        }}
+                        onPointerUp={stopGridNudgeRepeat}
+                        onPointerCancel={stopGridNudgeRepeat}
+                        onPointerLeave={stopGridNudgeRepeat}
+                        onClick={() => {
+                          if (project.viewMode === "view") return;
+                          if (gridNudgeDidRepeatRef.current) {
+                            gridNudgeDidRepeatRef.current = false;
+                            return;
+                          }
+                          nudgeStageGridCm("width", 1);
+                        }}
                         title="縦線間隔を 1cm 大きく"
                         aria-label="縦線間隔を 1cm 大きく"
                         style={{
@@ -3355,7 +3417,22 @@ export function EditorPage() {
                       <button
                         type="button"
                         disabled={project.viewMode === "view"}
-                        onClick={() => nudgeStageGridCm("depth", -1)}
+                        onPointerDown={(e) => {
+                          if (project.viewMode === "view") return;
+                          e.preventDefault();
+                          startGridNudgeRepeat("depth", -1);
+                        }}
+                        onPointerUp={stopGridNudgeRepeat}
+                        onPointerCancel={stopGridNudgeRepeat}
+                        onPointerLeave={stopGridNudgeRepeat}
+                        onClick={() => {
+                          if (project.viewMode === "view") return;
+                          if (gridNudgeDidRepeatRef.current) {
+                            gridNudgeDidRepeatRef.current = false;
+                            return;
+                          }
+                          nudgeStageGridCm("depth", -1);
+                        }}
                         title="横線間隔を 1cm 小さく"
                         aria-label="横線間隔を 1cm 小さく"
                         style={{
@@ -3390,7 +3467,22 @@ export function EditorPage() {
                       <button
                         type="button"
                         disabled={project.viewMode === "view"}
-                        onClick={() => nudgeStageGridCm("depth", 1)}
+                        onPointerDown={(e) => {
+                          if (project.viewMode === "view") return;
+                          e.preventDefault();
+                          startGridNudgeRepeat("depth", 1);
+                        }}
+                        onPointerUp={stopGridNudgeRepeat}
+                        onPointerCancel={stopGridNudgeRepeat}
+                        onPointerLeave={stopGridNudgeRepeat}
+                        onClick={() => {
+                          if (project.viewMode === "view") return;
+                          if (gridNudgeDidRepeatRef.current) {
+                            gridNudgeDidRepeatRef.current = false;
+                            return;
+                          }
+                          nudgeStageGridCm("depth", 1);
+                        }}
                         title="横線間隔を 1cm 大きく"
                         aria-label="横線間隔を 1cm 大きく"
                         style={{
