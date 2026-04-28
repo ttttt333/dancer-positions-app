@@ -508,7 +508,6 @@ export function AddCueWithFormationDialog({
   const canConfirm = useMemo(() => {
     if (viewMode === "view") return false;
     if (addMode == null) return false;
-    if (addMode === "edit_current" && !selectedCueId) return false;
     if (addMode === "saved" && !savedBoxId && !savedSlotId) return false;
     if ((addMode === "template" || addMode === "edit_current") && !templatePresetId)
       return false;
@@ -523,15 +522,13 @@ export function AddCueWithFormationDialog({
     if (!canConfirmRef.current) return;
     if (addMode == null) return;
 
-    /** 「今の立ち位置を変更」＝新規キューは作らず、選択中キューのフォーメーションだけ置き換える */
-    if (addMode === "edit_current") {
+    /**
+     * 「今の立ち位置を変更」
+     * - 選択中キューがある: 新規キューは作らず、そのキューのフォーメーションだけ置き換える
+     * - 選択中キューがない（例: 追加直後）: 変更先が無いので、このまま新規キュー追加へフォールバック
+     */
+    if (addMode === "edit_current" && selectedCueId) {
       const cueId = selectedCueId;
-      if (!cueId) {
-        window.alert(
-          "変更するキューを選んでください（タイムラインまたはステージ上のキュー切替）。"
-        );
-        return;
-      }
       const dancers = buildDancers();
       if (dancers.length === 0) return;
       setProject((p) => {
@@ -1177,7 +1174,7 @@ export function AddCueWithFormationDialog({
               onClick={handleConfirm}
               disabled={!canConfirm}
               aria-label={
-                addMode === "edit_current"
+                addMode === "edit_current" && selectedCueId
                   ? "決定して選択中キューの立ち位置を反映"
                   : "キューを追加"
               }
@@ -1185,10 +1182,11 @@ export function AddCueWithFormationDialog({
                 ...btnPrimary,
                 opacity: !canConfirm ? 0.45 : 1,
                 cursor: !canConfirm ? "not-allowed" : "pointer",
-                minWidth: addMode === "edit_current" ? "88px" : undefined,
+                minWidth:
+                  addMode === "edit_current" && selectedCueId ? "88px" : undefined,
               }}
             >
-              {addMode === "edit_current" ? "決定" : "追加する"}
+              {addMode === "edit_current" && selectedCueId ? "決定" : "追加する"}
             </button>
           </div>
         </div>
