@@ -4318,11 +4318,11 @@ export function StageBoard({
     );
   }
 
-  function renderOneSetPieceBlock(
+  const renderOneSetPieceBlock = useCallback((
     p: SetPiece,
     /** 編集画面ポータル上では床テキストより前面に出す */
     coord: "stage" | "screen" = "stage"
-  ): ReactElement {
+  ): ReactElement => {
     const fill = resolveSetPieceFill(p);
     const rotDeg = setPieceRotationDegDisplay(p);
     const selectedSp = selectedSetPieceId === p.id && setPiecesEditable;
@@ -4562,7 +4562,252 @@ export function StageBoard({
         ) : null}
       </div>
     );
-  }
+  }, [
+    selectedSetPieceId,
+    setPiecesEditable,
+    snapGrid,
+    viewMode,
+    playbackOrPreview,
+    shell.bgDeep,
+    handlePointerDownSetPiece,
+    handlePointerDownSetPieceResize,
+    handlePointerDownSetPieceRotate,
+    setSelectedSetPieceId,
+    setStageContextMenu,
+    updateActiveFormation,
+  ]);
+
+  const stageSetPieceElements = useMemo(
+    () => stageSetPieces.map((p) => renderOneSetPieceBlock(p)),
+    [stageSetPieces, renderOneSetPieceBlock]
+  );
+
+  const screenSetPieceElements = useMemo(
+    () => screenSetPieces.map((p) => renderOneSetPieceBlock(p, "screen")),
+    [screenSetPieces, renderOneSetPieceBlock]
+  );
+
+  const stageDancerMarkerElements = useMemo(
+    () =>
+      dancersForStageMarkers.map((d, di) => {
+        const dMarkerPx = effectiveMarkerPx(d);
+        const dLabelFontPx = markerCircleLabelFontPx(dMarkerPx);
+        const hideGlyph =
+          bulkHideDancerGlyphs &&
+          !playbackOrPreview &&
+          selectedDancerIds.length >= 2 &&
+          selectedDancerIds.includes(d.id);
+        const markerLabelWmm = effStageWidthMm ?? 0;
+        const circleInnerOptsMarker =
+          markerLabelWmm > 0
+            ? { effXPct: d.xPct, stageWidthMm: markerLabelWmm }
+            : undefined;
+        const circleLabel = dancerLabelBelow
+          ? dancerCircleInnerBelowLabel(d, di, circleInnerOptsMarker)
+          : d.label || "?";
+        const facing = normalizeDancerFacingDeg(effectiveFacingDeg(d));
+        const labelOffsetPx =
+          Math.round(dMarkerPx / 2) + 4 + nameBelowClearanceExtraPx;
+        const pivotTransform = playbackOrPreview
+          ? `translate3d(-50%, -50%, 0) rotate(${facing}deg)`
+          : `translate(-50%, -50%) rotate(${facing}deg)`;
+        const halfMarker = dMarkerPx / 2;
+        /** 舞台の客席向き回転＋印の向きを打ち消し、画面に対して水平に */
+        const screenUnrotateDeg = -(rot + facing);
+        const belowNameFontPx = markerBelowLabelFontPx(dLabelFontPx);
+        const belowLabelOriginYpx =
+          -labelOffsetPx + Math.round((belowNameFontPx * 1.12) / 2);
+        return (
+          <Fragment key={d.id}>
+            <div
+              style={{
+                position: "absolute",
+                left: `${d.xPct}%`,
+                top: `${d.yPct}%`,
+                transform: pivotTransform,
+                transformOrigin: "center center",
+                width: 0,
+                height: 0,
+                zIndex: 4,
+                pointerEvents: "none",
+                willChange: playbackOrPreview ? "transform" : undefined,
+              }}
+            >
+              <button
+                type="button"
+                data-dancer-id={d.id}
+                title={
+                  !playbackOrPreview
+                    ? [
+                        mmLabel(d.xPct, d.yPct),
+                        "ダブルクリックで名前・身長・学年・性別・スキル・備考",
+                        "右クリックで削除・並べ替えメニュー",
+                        "ポインタを画面の左端へ寄せるとゴミ箱が出ます。そこへドロップで削除",
+                        "Shift / Cmd / Ctrl+クリックで複数選択に追加",
+                        "空のステージをドラッグで範囲選択",
+                        snapGrid
+                          ? "Shift+ドラッグで細かいグリッドにスナップ"
+                          : null,
+                        "Alt+矢印で微移動（Shift+Altでさらに細かく）",
+                        "⌘D / Ctrl+D で選択メンバーを複製",
+                        "Alt+クリックで重なった印の背面へ切替（§10）",
+                        facing !== 0
+                          ? `向き ${facing}°（印の下の丸ハンドルをドラッグで変更）`
+                          : "印の下の丸いハンドルで向きを変更",
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")
+                    : mmLabel(d.xPct, d.yPct) || undefined
+                }
+                onPointerDown={(e) =>
+                  handlePointerDownDancer(e, d.id, d.xPct, d.yPct)
+                }
+                onContextMenu={(e) => {
+                  if (
+                    viewMode === "view" ||
+                    playbackDancers ||
+                    previewDancers ||
+                    !stageInteractionsEnabled
+                  )
+                    return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowStageDancerColorToolbar(true);
+                  setStageContextMenu({
+                    kind: "dancer",
+                    clientX: e.clientX,
+                    clientY: e.clientY,
+                    dancerId: d.id,
+                  });
+                }}
+                onDoubleClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (
+                    viewMode === "view" ||
+                    playbackDancers ||
+                    previewDancers ||
+                    !stageInteractionsEnabled
+                  )
+                    return;
+                  setDancerQuickEditId(d.id);
+                }}
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "50%",
+                  marginLeft: -halfMarker,
+                  marginTop: -halfMarker,
+                  width: `${dMarkerPx}px`,
+                  height: `${dMarkerPx}px`,
+                  borderRadius: "50%",
+                  border:
+                    dancerQuickEditId === d.id
+                      ? "2px solid rgba(99,102,241,0.95)"
+                      : selectedDancerIds.includes(d.id)
+                        ? selectedDancerIds.length >= 2
+                          ? `2px solid ${shell.ruby}`
+                          : "2px solid rgba(251,191,36,0.92)"
+                        : "2px solid rgba(255,255,255,0.35)",
+                  backgroundColor:
+                    DANCER_PALETTE[modDancerColorIndex(d.colorIndex)],
+                  color: "#0f172a",
+                  fontWeight: 700,
+                  fontSize: `${dLabelFontPx}px`,
+                  cursor:
+                    dancerQuickEditId === d.id
+                      ? "default"
+                      : viewMode === "view" ||
+                          playbackDancers ||
+                          previewDancers ||
+                          !stageInteractionsEnabled
+                        ? "default"
+                        : "grab",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 4px 14px rgba(0,0,0,0.35)",
+                  padding: 0,
+                  userSelect: "none",
+                  pointerEvents:
+                    viewMode === "view" ||
+                    playbackDancers ||
+                    previewDancers ||
+                    !stageInteractionsEnabled
+                      ? "none"
+                      : "auto",
+                }}
+              >
+                {!hideGlyph ? (
+                  <span
+                    style={{
+                      position: "relative",
+                      zIndex: 1,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transform: `rotate(${screenUnrotateDeg}deg)`,
+                      transformOrigin: "center center",
+                    }}
+                  >
+                    {circleLabel}
+                  </span>
+                ) : null}
+              </button>
+              {dancerLabelBelow && !hideGlyph && (
+                <div
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    left: "50%",
+                    top: "50%",
+                    transform: `translate(-50%, calc(-50% + ${labelOffsetPx}px)) rotate(${screenUnrotateDeg}deg)`,
+                    transformOrigin: `50% ${belowLabelOriginYpx}px`,
+                    color: "#f8fafc",
+                    fontSize: `${belowNameFontPx}px`,
+                    fontWeight: 700,
+                    lineHeight: 1.1,
+                    whiteSpace: "nowrap",
+                    pointerEvents: "none",
+                    textShadow:
+                      "0 1px 2px rgba(0,0,0,0.85), 0 0 2px rgba(0,0,0,0.85)",
+                    userSelect: "none",
+                    maxWidth: "120px",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {d.label || "?"}
+                </div>
+              )}
+            </div>
+          </Fragment>
+        );
+      }),
+    [
+      dancersForStageMarkers,
+      effectiveMarkerPx,
+      bulkHideDancerGlyphs,
+      playbackOrPreview,
+      selectedDancerIds,
+      effStageWidthMm,
+      dancerLabelBelow,
+      nameBelowClearanceExtraPx,
+      rot,
+      mmLabel,
+      snapGrid,
+      handlePointerDownDancer,
+      viewMode,
+      playbackDancers,
+      previewDancers,
+      stageInteractionsEnabled,
+      shell.ruby,
+      dancerQuickEditId,
+      setShowStageDancerColorToolbar,
+      setStageContextMenu,
+      setDancerQuickEditId,
+    ]
+  );
 
   const screenTextPortalEl =
     viewportTextOverlayRoot &&
@@ -4580,7 +4825,7 @@ export function StageBoard({
             }}
           >
             {screenFloorTexts.map((m) => renderOneFloorTextMarkup(m, "screen"))}
-            {screenSetPieces.map((p) => renderOneSetPieceBlock(p, "screen"))}
+            {screenSetPieceElements}
             {floorTextPlaceSession &&
             setPiecesEditable &&
             !playbackOrPreview &&
@@ -6007,7 +6252,7 @@ export function StageBoard({
                 ) : null}
               </div>
             )}
-            {stageSetPieces.map((p) => renderOneSetPieceBlock(p))}
+            {stageSetPieceElements}
             {selectionBox &&
               groupRotateGuideDeltaDeg != null &&
               !playbackOrPreview &&
@@ -6266,201 +6511,7 @@ export function StageBoard({
                   </Fragment>
                 );
               })}
-            {dancersForStageMarkers.map((d, di) => {
-              const dMarkerPx = effectiveMarkerPx(d);
-              const dLabelFontPx = markerCircleLabelFontPx(dMarkerPx);
-              const hideGlyph =
-                bulkHideDancerGlyphs &&
-                !playbackOrPreview &&
-                selectedDancerIds.length >= 2 &&
-                selectedDancerIds.includes(d.id);
-              const markerLabelWmm = effStageWidthMm ?? 0;
-              const circleInnerOptsMarker =
-                markerLabelWmm > 0
-                  ? { effXPct: d.xPct, stageWidthMm: markerLabelWmm }
-                  : undefined;
-              const circleLabel = dancerLabelBelow
-                ? dancerCircleInnerBelowLabel(d, di, circleInnerOptsMarker)
-                : d.label || "?";
-              const facing = normalizeDancerFacingDeg(effectiveFacingDeg(d));
-              const labelOffsetPx =
-                Math.round(dMarkerPx / 2) + 4 + nameBelowClearanceExtraPx;
-              const pivotTransform = playbackOrPreview
-                ? `translate3d(-50%, -50%, 0) rotate(${facing}deg)`
-                : `translate(-50%, -50%) rotate(${facing}deg)`;
-              const halfMarker = dMarkerPx / 2;
-              /** 舞台の客席向き回転＋印の向きを打ち消し、画面に対して水平に */
-              const screenUnrotateDeg = -(rot + facing);
-              const belowNameFontPx = markerBelowLabelFontPx(dLabelFontPx);
-              const belowLabelOriginYpx =
-                -labelOffsetPx + Math.round((belowNameFontPx * 1.12) / 2);
-              return (
-                <Fragment key={d.id}>
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: `${d.xPct}%`,
-                      top: `${d.yPct}%`,
-                      transform: pivotTransform,
-                      transformOrigin: "center center",
-                      width: 0,
-                      height: 0,
-                      zIndex: 4,
-                      pointerEvents: "none",
-                      willChange: playbackOrPreview ? "transform" : undefined,
-                    }}
-                  >
-                    <button
-                      type="button"
-                      data-dancer-id={d.id}
-                      title={
-                        !playbackOrPreview
-                          ? [
-                              mmLabel(d.xPct, d.yPct),
-                              "ダブルクリックで名前・身長・学年・性別・スキル・備考",
-                              "右クリックで削除・並べ替えメニュー",
-                              "ポインタを画面の左端へ寄せるとゴミ箱が出ます。そこへドロップで削除",
-                              "Shift / Cmd / Ctrl+クリックで複数選択に追加",
-                              "空のステージをドラッグで範囲選択",
-                              snapGrid
-                                ? "Shift+ドラッグで細かいグリッドにスナップ"
-                                : null,
-                              "Alt+矢印で微移動（Shift+Altでさらに細かく）",
-                              "⌘D / Ctrl+D で選択メンバーを複製",
-                              "Alt+クリックで重なった印の背面へ切替（§10）",
-                              facing !== 0
-                                ? `向き ${facing}°（印の下の丸ハンドルをドラッグで変更）`
-                                : "印の下の丸いハンドルで向きを変更",
-                            ]
-                              .filter(Boolean)
-                              .join(" · ")
-                          : mmLabel(d.xPct, d.yPct) || undefined
-                      }
-                      onPointerDown={(e) =>
-                        handlePointerDownDancer(e, d.id, d.xPct, d.yPct)
-                      }
-                      onContextMenu={(e) => {
-                        if (
-                          viewMode === "view" ||
-                          playbackDancers ||
-                          previewDancers ||
-                          !stageInteractionsEnabled
-                        )
-                          return;
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setShowStageDancerColorToolbar(true);
-                        setStageContextMenu({
-                          kind: "dancer",
-                          clientX: e.clientX,
-                          clientY: e.clientY,
-                          dancerId: d.id,
-                        });
-                      }}
-                      onDoubleClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        if (
-                          viewMode === "view" ||
-                          playbackDancers ||
-                          previewDancers ||
-                          !stageInteractionsEnabled
-                        )
-                          return;
-                        setDancerQuickEditId(d.id);
-                      }}
-                      style={{
-                        position: "absolute",
-                        left: "50%",
-                        top: "50%",
-                        marginLeft: -halfMarker,
-                        marginTop: -halfMarker,
-                        width: `${dMarkerPx}px`,
-                        height: `${dMarkerPx}px`,
-                        borderRadius: "50%",
-                        border:
-                          dancerQuickEditId === d.id
-                            ? "2px solid rgba(99,102,241,0.95)"
-                            : selectedDancerIds.includes(d.id)
-                              ? selectedDancerIds.length >= 2
-                                ? `2px solid ${shell.ruby}`
-                                : "2px solid rgba(251,191,36,0.92)"
-                              : "2px solid rgba(255,255,255,0.35)",
-                        backgroundColor:
-                          DANCER_PALETTE[modDancerColorIndex(d.colorIndex)],
-                        color: "#0f172a",
-                        fontWeight: 700,
-                        fontSize: `${dLabelFontPx}px`,
-                        cursor:
-                          dancerQuickEditId === d.id
-                            ? "default"
-                            : viewMode === "view" ||
-                                playbackDancers ||
-                                previewDancers ||
-                                !stageInteractionsEnabled
-                              ? "default"
-                              : "grab",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        boxShadow: "0 4px 14px rgba(0,0,0,0.35)",
-                        padding: 0,
-                        userSelect: "none",
-                        pointerEvents:
-                          viewMode === "view" ||
-                          playbackDancers ||
-                          previewDancers ||
-                          !stageInteractionsEnabled
-                            ? "none"
-                            : "auto",
-                      }}
-                    >
-                      {!hideGlyph ? (
-                        <span
-                          style={{
-                            position: "relative",
-                            zIndex: 1,
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            transform: `rotate(${screenUnrotateDeg}deg)`,
-                            transformOrigin: "center center",
-                          }}
-                        >
-                          {circleLabel}
-                        </span>
-                      ) : null}
-                    </button>
-                    {dancerLabelBelow && !hideGlyph && (
-                      <div
-                        aria-hidden
-                        style={{
-                          position: "absolute",
-                          left: "50%",
-                          top: "50%",
-                          transform: `translate(-50%, calc(-50% + ${labelOffsetPx}px)) rotate(${screenUnrotateDeg}deg)`,
-                          transformOrigin: `50% ${belowLabelOriginYpx}px`,
-                          color: "#f8fafc",
-                          fontSize: `${belowNameFontPx}px`,
-                          fontWeight: 700,
-                          lineHeight: 1.1,
-                          whiteSpace: "nowrap",
-                          pointerEvents: "none",
-                          textShadow:
-                            "0 1px 2px rgba(0,0,0,0.85), 0 0 2px rgba(0,0,0,0.85)",
-                          userSelect: "none",
-                          maxWidth: "120px",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {d.label || "?"}
-                      </div>
-                    )}
-                  </div>
-                </Fragment>
-              );
-            })}
+            {stageDancerMarkerElements}
             {primarySelectedDancer && !marquee && (() => {
               const pMarkerPx = effectiveMarkerPx(primarySelectedDancer);
               const pFacing = normalizeDancerFacingDeg(
