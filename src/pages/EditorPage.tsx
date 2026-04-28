@@ -274,6 +274,11 @@ function emptyStageAreaSettingsDraft(): StageAreaSettingsDraft {
   };
 }
 
+function clampGridSpacingCm(raw: number): number {
+  if (!Number.isFinite(raw)) return 1;
+  return Math.max(1, Math.min(100, Math.round(raw)));
+}
+
 function projectToStageAreaDraft(p: ChoreographyProjectJson): StageAreaSettingsDraft {
   const gridWmm = p.stageGridSpacingWidthMm ?? p.stageGridLineSpacingMm ?? 10;
   const gridDmm = p.stageGridSpacingDepthMm ?? p.stageGridLineSpacingMm ?? 10;
@@ -289,8 +294,8 @@ function projectToStageAreaDraft(p: ChoreographyProjectJson): StageAreaSettingsD
       p.stageGridLinesVerticalEnabled ?? p.stageGridLinesEnabled ?? false,
     stageGridLinesHorizontalEnabled:
       p.stageGridLinesHorizontalEnabled ?? p.stageGridLinesEnabled ?? false,
-    gridWidthCm: Math.max(1, Math.min(100, Math.round(gridWmm / 10))),
-    gridDepthCm: Math.max(1, Math.min(100, Math.round(gridDmm / 10))),
+    gridWidthCm: clampGridSpacingCm(gridWmm / 10),
+    gridDepthCm: clampGridSpacingCm(gridDmm / 10),
     dancerLabelPosition: p.dancerLabelPosition ?? "inside",
   };
 }
@@ -988,6 +993,25 @@ export function EditorPage() {
     const d = parseMeterCmDraftToMm(stageAreaSettingsDraft.depth);
     return w != null && w > 0 && d != null && d > 0;
   }, [stageAreaSettingsDraft.width, stageAreaSettingsDraft.depth]);
+
+  const onStageGridCmInput = useCallback(
+    (axis: "width" | "depth", raw: string) => {
+      const cm = Number(raw.replace(/[^\d.]/g, ""));
+      const next = clampGridSpacingCm(cm);
+      setStageAreaSettingsDraft((d) =>
+        axis === "width" ? { ...d, gridWidthCm: next } : { ...d, gridDepthCm: next }
+      );
+    },
+    []
+  );
+
+  const nudgeStageGridCm = useCallback((axis: "width" | "depth", delta: number) => {
+    setStageAreaSettingsDraft((d) => {
+      const base = axis === "width" ? d.gridWidthCm : d.gridDepthCm;
+      const next = clampGridSpacingCm(base + delta);
+      return axis === "width" ? { ...d, gridWidthCm: next } : { ...d, gridDepthCm: next };
+    });
+  }, []);
 
   /**
    * 「ステージまわりの設定」表示中はドラフト（グリッド線のON/OFF・間隔・寸法など）を
@@ -3255,75 +3279,131 @@ export function EditorPage() {
                 >
                   <label style={{ fontSize: "10px", color: "#94a3b8" }}>
                     縦線間隔（cm）
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={String(stageAreaSettingsDraft.gridWidthCm)}
-                      disabled={project.viewMode === "view"}
-                      onChange={(e) => {
-                        const cm = Number(e.target.value.replace(/[^\d.]/g, ""));
-                        if (!Number.isFinite(cm)) {
-                          setStageAreaSettingsDraft((d) => ({
-                            ...d,
-                            gridWidthCm: 1,
-                          }));
-                          return;
-                        }
-                        const c = Math.max(1, Math.min(100, Math.round(cm)));
-                        setStageAreaSettingsDraft((d) => ({
-                          ...d,
-                          gridWidthCm: c,
-                        }));
-                      }}
-                      aria-label="縦線の間隔（センチ）"
+                    <div
                       style={{
-                        width: "100%",
                         marginTop: "3px",
-                        padding: "4px 8px",
-                        borderRadius: "5px",
-                        border: "1px solid #334155",
-                        background: "#020617",
-                        color: "#e2e8f0",
-                        fontSize: "11px",
+                        display: "grid",
+                        gridTemplateColumns: "28px 1fr 28px",
+                        gap: "4px",
+                        alignItems: "center",
                       }}
-                    />
+                    >
+                      <button
+                        type="button"
+                        disabled={project.viewMode === "view"}
+                        onClick={() => nudgeStageGridCm("width", -1)}
+                        title="縦線間隔を 1cm 小さく"
+                        aria-label="縦線間隔を 1cm 小さく"
+                        style={{
+                          ...btnSecondary,
+                          padding: "3px 0",
+                          fontSize: "12px",
+                          fontWeight: 700,
+                          lineHeight: 1.1,
+                        }}
+                      >
+                        −
+                      </button>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={String(stageAreaSettingsDraft.gridWidthCm)}
+                        disabled={project.viewMode === "view"}
+                        onChange={(e) => onStageGridCmInput("width", e.target.value)}
+                        aria-label="縦線の間隔（センチ）"
+                        style={{
+                          width: "100%",
+                          padding: "4px 8px",
+                          borderRadius: "5px",
+                          border: "1px solid #334155",
+                          background: "#020617",
+                          color: "#e2e8f0",
+                          fontSize: "11px",
+                          textAlign: "center",
+                        }}
+                      />
+                      <button
+                        type="button"
+                        disabled={project.viewMode === "view"}
+                        onClick={() => nudgeStageGridCm("width", 1)}
+                        title="縦線間隔を 1cm 大きく"
+                        aria-label="縦線間隔を 1cm 大きく"
+                        style={{
+                          ...btnSecondary,
+                          padding: "3px 0",
+                          fontSize: "12px",
+                          fontWeight: 700,
+                          lineHeight: 1.1,
+                        }}
+                      >
+                        ＋
+                      </button>
+                    </div>
                   </label>
                   <label style={{ fontSize: "10px", color: "#94a3b8" }}>
                     横線間隔（cm）
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      value={String(stageAreaSettingsDraft.gridDepthCm)}
-                      disabled={project.viewMode === "view"}
-                      onChange={(e) => {
-                        const cm = Number(e.target.value.replace(/[^\d.]/g, ""));
-                        if (!Number.isFinite(cm)) {
-                          setStageAreaSettingsDraft((d) => ({
-                            ...d,
-                            gridDepthCm: 1,
-                          }));
-                          return;
-                        }
-                        const c = Math.max(1, Math.min(100, Math.round(cm)));
-                        setStageAreaSettingsDraft((d) => ({
-                          ...d,
-                          gridDepthCm: c,
-                        }));
-                      }}
-                      aria-label="横線の間隔（センチ）"
+                    <div
                       style={{
-                        width: "100%",
                         marginTop: "3px",
-                        padding: "4px 8px",
-                        borderRadius: "5px",
-                        border: "1px solid #334155",
-                        background: "#020617",
-                        color: "#e2e8f0",
-                        fontSize: "11px",
+                        display: "grid",
+                        gridTemplateColumns: "28px 1fr 28px",
+                        gap: "4px",
+                        alignItems: "center",
                       }}
-                    />
+                    >
+                      <button
+                        type="button"
+                        disabled={project.viewMode === "view"}
+                        onClick={() => nudgeStageGridCm("depth", -1)}
+                        title="横線間隔を 1cm 小さく"
+                        aria-label="横線間隔を 1cm 小さく"
+                        style={{
+                          ...btnSecondary,
+                          padding: "3px 0",
+                          fontSize: "12px",
+                          fontWeight: 700,
+                          lineHeight: 1.1,
+                        }}
+                      >
+                        −
+                      </button>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={String(stageAreaSettingsDraft.gridDepthCm)}
+                        disabled={project.viewMode === "view"}
+                        onChange={(e) => onStageGridCmInput("depth", e.target.value)}
+                        aria-label="横線の間隔（センチ）"
+                        style={{
+                          width: "100%",
+                          padding: "4px 8px",
+                          borderRadius: "5px",
+                          border: "1px solid #334155",
+                          background: "#020617",
+                          color: "#e2e8f0",
+                          fontSize: "11px",
+                          textAlign: "center",
+                        }}
+                      />
+                      <button
+                        type="button"
+                        disabled={project.viewMode === "view"}
+                        onClick={() => nudgeStageGridCm("depth", 1)}
+                        title="横線間隔を 1cm 大きく"
+                        aria-label="横線間隔を 1cm 大きく"
+                        style={{
+                          ...btnSecondary,
+                          padding: "3px 0",
+                          fontSize: "12px",
+                          fontWeight: 700,
+                          lineHeight: 1.1,
+                        }}
+                      >
+                        ＋
+                      </button>
+                    </div>
                   </label>
                 </div>
               ) : null}
