@@ -2756,6 +2756,8 @@ export function StageBoard({
         let dxPct = ((e.clientX - g.startClientX) / g.floorWpx) * 100;
         let dyPct = ((e.clientY - g.startClientY) / g.floorHpx) * 100;
         const idSet = new Set(g.ids);
+        const CENTER_X_PCT = 50;
+        const CENTER_GUIDE_EPS = 0.02;
         /** 群移動中もポインタが画面左端付近ならゴミ箱 UI を出す */
         const reveal = pointerInViewportTrashRevealZone(e.clientX);
         if (reveal !== trashRevealActiveRef.current) {
@@ -2787,6 +2789,27 @@ export function StageBoard({
           dyPct += snapped.yPct - leadY;
           guideX = snapped.guideX;
           guideY = snapped.guideY;
+        }
+        /**
+         * 複数一括移動では「先頭アンカー」だけでなく、選択中の誰かが
+         * センター線（x=50）に乗ったときにも縦ガイドを出す。
+         */
+        if (guideX == null) {
+          for (const id of g.ids) {
+            const s = g.startPositions.get(id);
+            if (!s) continue;
+            const nx = round2(
+              clamp(
+                s.xPct + dxPct,
+                DANCER_STAGE_POSITION_PCT_LO,
+                DANCER_STAGE_POSITION_PCT_HI
+              )
+            );
+            if (Math.abs(nx - CENTER_X_PCT) <= CENTER_GUIDE_EPS) {
+              guideX = CENTER_X_PCT;
+              break;
+            }
+          }
         }
         if (guideX !== alignGuides.x || guideY !== alignGuides.y) {
           setAlignGuides({ x: guideX, y: guideY });
