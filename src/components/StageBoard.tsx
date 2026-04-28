@@ -595,6 +595,14 @@ export function StageBoard({
     hanamichiEnabled: hanamichiEnabledRaw,
     hanamichiDepthPct: hanamichiDepthRaw,
   } = project;
+  const stageGridLinesVertical =
+    project.stageGridLinesVerticalEnabled ??
+    project.stageGridLinesEnabled ??
+    false;
+  const stageGridLinesHorizontal =
+    project.stageGridLinesHorizontalEnabled ??
+    project.stageGridLinesEnabled ??
+    false;
   /**
    * 立ち位置の名前を○の中に出すか、○の下に出すか。
    * 既定は "inside"（従来動作）。プロジェクト未指定でも安全に動く。
@@ -657,22 +665,6 @@ export function StageBoard({
    * 実寸指定の印サイズ計算に使う。舞台が回転しているときも正しく取得できる。
    */
   const [mainFloorPxWidth, setMainFloorPxWidth] = useState<number>(0);
-  useEffect(() => {
-    const el = stageMainFloorRef.current;
-    if (!el) return;
-    const update = () => {
-      const r = el.getBoundingClientRect();
-      setMainFloorPxWidth(Math.max(0, Math.round(r.width)));
-    };
-    update();
-    if (typeof ResizeObserver !== "undefined") {
-      const ro = new ResizeObserver(update);
-      ro.observe(el);
-      return () => ro.disconnect();
-    }
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, []);
   /**
    * ダンサー印の基準ピクセル径。
    *
@@ -997,6 +989,10 @@ export function StageBoard({
       }
     | null
   >(null);
+  /** コーナーリサイズの最新 mm（rAF で state に反映するため）。ポインタアップで確定にも使う。 */
+  const stageResizeLastMmRef = useRef<{ w: number; d: number } | null>(null);
+  /** setStageResizeDraft を 1 フレームにまとめ、ドラッグ中の過剰再レンダーを防ぐ */
+  const stageResizeDraftRafRef = useRef<number | null>(null);
   /** ステージ枠ドラッグ中のライブプレビュー値（コミット前の W/D）。 */
   const [stageResizeDraft, setStageResizeDraft] = useState<
     | { stageWidthMm: number; stageDepthMm: number }
@@ -1577,6 +1573,7 @@ export function StageBoard({
         Smm: SmmStart,
         Bmm: BmmStart,
       };
+      stageResizeLastMmRef.current = { w: curW, d: curD };
       setStageResizeDraft({ stageWidthMm: curW, stageDepthMm: curD });
       const target = e.currentTarget as HTMLDivElement;
       try {
@@ -1656,28 +1653,35 @@ export function StageBoard({
       let newD = Math.round(newOuterDmm - s.Bmm);
       newW = Math.min(STAGE_MAIN_FLOOR_MM_MAX, Math.max(STAGE_MAIN_FLOOR_MM_MIN, newW));
       newD = Math.min(STAGE_MAIN_FLOOR_MM_MAX, Math.max(STAGE_MAIN_FLOOR_MM_MIN, newD));
-      setStageResizeDraft((prev) =>
-        prev &&
-        prev.stageWidthMm === newW &&
-        prev.stageDepthMm === newD
-          ? prev
-          : { stageWidthMm: newW, stageDepthMm: newD }
-      );
+      stageResizeLastMmRef.current = { w: newW, d: newD };
+      if (stageResizeDraftRafRef.current !== null) return;
+      stageResizeDraftRafRef.current = requestAnimationFrame(() => {
+        stageResizeDraftRafRef.current = null;
+        const p = stageResizeLastMmRef.current;
+        if (!p) return;
+        setStageResizeDraft((prev) =>
+          prev &&
+          prev.stageWidthMm === p.w &&
+          prev.stageDepthMm === p.d
+            ? prev
+            : { stageWidthMm: p.w, stageDepthMm: p.d }
+        );
+      });
     };
     const onUp = () => {
+      if (stageResizeDraftRafRef.current !== null) {
+        cancelAnimationFrame(stageResizeDraftRafRef.current);
+        stageResizeDraftRafRef.current = null;
+      }
       const s = stageResizeRef.current;
-      if (!s) return;
+      const last = stageResizeLastMmRef.current;
+      stageResizeLastMmRef.current = null;
       stageResizeRef.current = null;
-      setStageResizeDraft((d) => {
-        if (d) {
-          const nextW = d.stageWidthMm;
-          const nextD = d.stageDepthMm;
-          setProject((p) => {
-            if (p.stageWidthMm === nextW && p.stageDepthMm === nextD) return p;
-            return { ...p, stageWidthMm: nextW, stageDepthMm: nextD };
-          });
-        }
-        return null;
+      setStageResizeDraft(null);
+      if (!s || !last) return;
+      setProject((p) => {
+        if (p.stageWidthMm === last.w && p.stageDepthMm === last.d) return p;
+        return { ...p, stageWidthMm: last.w, stageDepthMm: last.d };
       });
     };
     window.addEventListener("pointermove", onMove);
@@ -3326,23 +3330,49 @@ export function StageBoard({
   const showShell = hasStageDims && (Smm > 0 || Bmm > 0);
 
   /**
-   * 寸法・回転・ドラフト変更直後は、コンテナクエリ＋aspect-ratio の確定が 1 フレーム遅れる
-   * 環境があり、ResizeObserver だけだと床幅 0 のままになることがある。
-   * その場合マーカー描画やヒット領域が極端に崩れ、真っ暗に近い見え方になるため layout 後に再計測する。
+   * メイン床の実 px 幅を追跡する。
+   * - `transform` 付き祖先では `offsetParent` 判定で誤ってスキップしない（以前は真っ暗／固まりの原因になり得た）。
+   * - 寸法・回転・ドラフト変更時に ResizeObserver を張り直し、aspect-ratio 確定後は rAF で再計測する。
    */
   useLayoutEffect(() => {
     const el = stageMainFloorRef.current;
     if (!el) return;
+
     const measure = () => {
       const r = el.getBoundingClientRect();
       const nw = Math.max(0, Math.round(r.width));
-      setMainFloorPxWidth((w) => (w === nw ? w : nw));
+      setMainFloorPxWidth((w) => {
+        if (nw === 0 && w > 0) return w;
+        return w === nw ? w : nw;
+      });
     };
+
     measure();
-    const id = requestAnimationFrame(() => {
+    let layoutRafCanceled = false;
+    const layoutRaf1 = requestAnimationFrame(() => {
+      if (layoutRafCanceled) return;
       measure();
+      requestAnimationFrame(() => {
+        if (layoutRafCanceled) return;
+        measure();
+      });
     });
-    return () => cancelAnimationFrame(id);
+
+    const ro =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => {
+            measure();
+          })
+        : null;
+    ro?.observe(el);
+    window.addEventListener("resize", measure);
+
+    return () => {
+      layoutRafCanceled = true;
+      cancelAnimationFrame(layoutRaf1);
+      ro?.disconnect();
+      window.removeEventListener("resize", measure);
+    };
   }, [
     Wmm,
     Dmm,
