@@ -832,9 +832,23 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       [currentTime, isPlaying]
     );
 
+    /**
+     * 再生中のズーム操作では親 `currentTime` 反映が 1 テンポ遅れることがあり、
+     * 波形窓の基準だけ古い時刻で再計算されると赤バーが相対的にズレて見える。
+     * そのため再生中は audio 要素の現在時刻を優先して、ズーム基準を常に実再生位置に合わせる。
+     */
+    const waveViewAnchorSec = useMemo(() => {
+      if (!isPlaying) return playheadGridSec;
+      const a = audioRef.current;
+      if (a && !a.paused && Number.isFinite(a.currentTime)) {
+        return quantizePlayheadForWaveView(a.currentTime);
+      }
+      return playheadGridSec;
+    }, [isPlaying, playheadGridSec, viewPortion]);
+
     const waveView = useMemo(
-      () => getWaveViewForDraw(duration, viewPortion, playheadGridSec),
-      [duration, viewPortion, playheadGridSec]
+      () => getWaveViewForDraw(duration, viewPortion, waveViewAnchorSec),
+      [duration, viewPortion, waveViewAnchorSec]
     );
 
     const isPlayingForWaveRef = useRef(isPlaying);
