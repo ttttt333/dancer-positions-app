@@ -359,7 +359,7 @@ function markerBelowLabelFontPx(circleLabelPx: number): number {
 }
 
 /** ○下端と名前のあいだを、舞台横幅に対してこの mm ぶん広げる */
-const DANCER_NAME_BELOW_EXTRA_GAP_MM = 3.5;
+const DANCER_NAME_BELOW_EXTRA_GAP_MM = 5.5;
 
 function dancerNameBelowClearanceExtraPx(
   stageWidthMm: number | null | undefined,
@@ -6569,8 +6569,6 @@ export function StageBoard({
                 selectedDancerIds.length >= 2
                   ? `選択中の ${selectedDancerIds.length} 人の ○ サイズを一括変更（現 ${pMarkerPx}px・ドラッグで変更）`
                   : `○のサイズ（${pMarkerPx}px）・ドラッグで変更`;
-              const rotateTip = `向きをドラッグで変更（現在 ${pFacing}°）`;
-              const rim = Math.round(pMarkerPx / 2 + 6);
               return (
                 <div
                   role="presentation"
@@ -6586,35 +6584,6 @@ export function StageBoard({
                     pointerEvents: "none",
                   }}
                 >
-                  {selectedDancerIds.length < 2 ? (
-                    <div
-                      data-marker-rotate-handle
-                      title={rotateTip}
-                      onPointerDown={handlePointerDownMarkerRotate}
-                      style={{
-                        position: "absolute",
-                        left: "50%",
-                        top: `calc(50% + ${rim}px)`,
-                        transform: "translate(-50%, -50%)",
-                        width: 34,
-                        height: 34,
-                        borderRadius: "50%",
-                        background: shell.ruby,
-                        border: `2px solid ${shell.bgDeep}`,
-                        boxShadow: "0 2px 10px rgba(0,0,0,0.45)",
-                        cursor: "grab",
-                        touchAction: "none",
-                        pointerEvents: "auto",
-                        boxSizing: "border-box",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        userSelect: "none",
-                      }}
-                    >
-                      <RotateHandleGlyph size={17} />
-                    </div>
-                  ) : null}
                   <div
                     data-marker-resize-handle
                     title={resizeTip}
