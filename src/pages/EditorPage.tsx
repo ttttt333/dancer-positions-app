@@ -392,6 +392,8 @@ export function EditorPage() {
   const [stageAreaSettingsOpen, setStageAreaSettingsOpen] = useState(false);
   const [stageAreaSettingsDraft, setStageAreaSettingsDraft] =
     useState<StageAreaSettingsDraft>(emptyStageAreaSettingsDraft);
+  const [gridWidthCmInput, setGridWidthCmInput] = useState<string>("1");
+  const [gridDepthCmInput, setGridDepthCmInput] = useState<string>("1");
   const stageAreaSettingsDraftRef = useRef(stageAreaSettingsDraft);
   stageAreaSettingsDraftRef.current = stageAreaSettingsDraft;
   const [stageAreaPresetList, setStageAreaPresetList] = useState<StagePresetItem[]>([]);
@@ -994,21 +996,30 @@ export function EditorPage() {
     return w != null && w > 0 && d != null && d > 0;
   }, [stageAreaSettingsDraft.width, stageAreaSettingsDraft.depth]);
 
-  const onStageGridCmInput = useCallback(
-    (axis: "width" | "depth", raw: string) => {
-      const cm = Number(raw.replace(/[^\d.]/g, ""));
-      const next = clampGridSpacingCm(cm);
-      setStageAreaSettingsDraft((d) =>
-        axis === "width" ? { ...d, gridWidthCm: next } : { ...d, gridDepthCm: next }
-      );
-    },
-    []
-  );
+  const onStageGridCmInput = useCallback((axis: "width" | "depth", raw: string) => {
+    const cleaned = raw.replace(/[^\d]/g, "");
+    if (axis === "width") setGridWidthCmInput(cleaned);
+    else setGridDepthCmInput(cleaned);
+  }, []);
+
+  const commitStageGridCmInput = useCallback((axis: "width" | "depth") => {
+    if (axis === "width") {
+      const next = clampGridSpacingCm(Number(gridWidthCmInput));
+      setStageAreaSettingsDraft((d) => ({ ...d, gridWidthCm: next }));
+      setGridWidthCmInput(String(next));
+      return;
+    }
+    const next = clampGridSpacingCm(Number(gridDepthCmInput));
+    setStageAreaSettingsDraft((d) => ({ ...d, gridDepthCm: next }));
+    setGridDepthCmInput(String(next));
+  }, [gridDepthCmInput, gridWidthCmInput]);
 
   const nudgeStageGridCm = useCallback((axis: "width" | "depth", delta: number) => {
     setStageAreaSettingsDraft((d) => {
       const base = axis === "width" ? d.gridWidthCm : d.gridDepthCm;
       const next = clampGridSpacingCm(base + delta);
+      if (axis === "width") setGridWidthCmInput(String(next));
+      else setGridDepthCmInput(String(next));
       return axis === "width" ? { ...d, gridWidthCm: next } : { ...d, gridDepthCm: next };
     });
   }, []);
@@ -1044,6 +1055,10 @@ export function EditorPage() {
   );
 
   useEffect(() => stopGridNudgeRepeat, [stopGridNudgeRepeat]);
+  useEffect(() => {
+    setGridWidthCmInput(String(stageAreaSettingsDraft.gridWidthCm));
+    setGridDepthCmInput(String(stageAreaSettingsDraft.gridDepthCm));
+  }, [stageAreaSettingsDraft.gridWidthCm, stageAreaSettingsDraft.gridDepthCm]);
 
   /**
    * 「ステージまわりの設定」表示中はドラフト（グリッド線のON/OFF・間隔・寸法など）を
@@ -3355,9 +3370,16 @@ export function EditorPage() {
                         type="text"
                         inputMode="numeric"
                         pattern="[0-9]*"
-                        value={String(stageAreaSettingsDraft.gridWidthCm)}
+                        value={gridWidthCmInput}
                         disabled={project.viewMode === "view"}
                         onChange={(e) => onStageGridCmInput("width", e.target.value)}
+                        onBlur={() => commitStageGridCmInput("width")}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            commitStageGridCmInput("width");
+                          }
+                        }}
                         aria-label="縦線の間隔（センチ）"
                         style={{
                           width: "100%",
@@ -3449,9 +3471,16 @@ export function EditorPage() {
                         type="text"
                         inputMode="numeric"
                         pattern="[0-9]*"
-                        value={String(stageAreaSettingsDraft.gridDepthCm)}
+                        value={gridDepthCmInput}
                         disabled={project.viewMode === "view"}
                         onChange={(e) => onStageGridCmInput("depth", e.target.value)}
+                        onBlur={() => commitStageGridCmInput("depth")}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            commitStageGridCmInput("depth");
+                          }
+                        }}
                         aria-label="横線の間隔（センチ）"
                         style={{
                           width: "100%",
