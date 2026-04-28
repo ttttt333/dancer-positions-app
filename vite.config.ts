@@ -90,6 +90,10 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,ico,svg,woff2}"],
         /** 大きめのチャンク（FFmpeg.wasm コア 等）もプリキャッシュ対象に含める */
         maximumFileSizeToCacheInBytes: 40 * 1024 * 1024,
+        /** SPA ルート直アクセス時も index.html を返す */
+        navigateFallback: "/index.html",
+        /** API はフォールバック対象外 */
+        navigateFallbackDenylist: [/^\/api/],
         /**
          * FFmpeg コアは CDN（unpkg）から fetch するので、起動後 HTTP キャッシュに載せる。
          * 2 回目以降はネットワーク無しでも動く。
