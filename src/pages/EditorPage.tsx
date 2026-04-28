@@ -1272,9 +1272,19 @@ export function EditorPage() {
     );
   }, [project, currentTime]);
 
+  const formationById = useMemo(() => {
+    if (!project) return new Map<string, (typeof project.formations)[number]>();
+    return new Map(project.formations.map((f) => [f.id, f] as const));
+  }, [project]);
+
+  const cueById = useMemo(() => {
+    if (!project) return new Map<string, (typeof project.cues)[number]>();
+    return new Map(project.cues.map((c) => [c.id, c] as const));
+  }, [project]);
+
   const selectedCue = useMemo(
-    () => project?.cues.find((c) => c.id === selectedCueId) ?? null,
-    [project, selectedCueId]
+    () => (selectedCueId ? cueById.get(selectedCueId) ?? null : null),
+    [selectedCueId, cueById]
   );
 
   useEffect(() => {
@@ -1305,13 +1315,13 @@ export function EditorPage() {
           : base;
       });
     } else {
-      const nf = project.formations.find((f) => f.id === nextId);
+      const nf = formationById.get(nextId);
       if (nf?.stageSnapshot) {
         setProjectSafe((p) => mergeStageSnapshotIntoProject(p, nf.stageSnapshot));
       }
     }
     lastFormationIdForStageRef.current = nextId;
-  }, [project, selectedCue, setProjectSafe]);
+  }, [project, selectedCue, formationById, setProjectSafe]);
 
   const cueIdsSig =
     project?.cues
@@ -1391,7 +1401,7 @@ export function EditorPage() {
       return;
     }
     setSelectedCueIds((ids) => {
-      const valid = ids.filter((id) => project.cues.some((c) => c.id === id));
+      const valid = ids.filter((id) => cueById.has(id));
       if (valid.length > 0) {
         const seen = new Set<string>();
         const deduped: string[] = [];
@@ -1402,10 +1412,10 @@ export function EditorPage() {
         }
         return deduped;
       }
-      const first = sortCuesByStart(project.cues)[0]?.id;
+      const first = cuesSortedForStageJump[0]?.id;
       return first ? [first] : [];
     });
-  }, [project, cueIdsSig]);
+  }, [project, cueIdsSig, cueById, cuesSortedForStageJump]);
 
   /** 再生中のみ補間表示 */
   const playbackDancersForStage = !isPlaying ? null : interpolatedDancers;
@@ -1418,7 +1428,7 @@ export function EditorPage() {
     if (!project || isPlaying) return null;
     if (stagePreviewDancers && stagePreviewDancers.length > 0) return null;
     if (selectedCue) {
-      const f = project.formations.find((x) => x.id === selectedCue.formationId);
+      const f = formationById.get(selectedCue.formationId);
       return f?.dancers ?? null;
     }
     if (project.cues.length > 0) {
@@ -1429,15 +1439,15 @@ export function EditorPage() {
         project.activeFormationId
       );
     }
-    const f = project.formations.find((x) => x.id === project.activeFormationId);
+    const f = formationById.get(project.activeFormationId);
     return f?.dancers ?? null;
-  }, [project, isPlaying, stagePreviewDancers, selectedCue, currentTime]);
+  }, [project, isPlaying, stagePreviewDancers, selectedCue, currentTime, formationById]);
 
   const browseSetPieces = useMemo(() => {
     if (!project || isPlaying) return null;
     if (stagePreviewDancers && stagePreviewDancers.length > 0) return null;
     if (selectedCue) {
-      const f = project.formations.find((x) => x.id === selectedCue.formationId);
+      const f = formationById.get(selectedCue.formationId);
       return f?.setPieces ?? null;
     }
     if (project.cues.length > 0) {
@@ -1448,15 +1458,15 @@ export function EditorPage() {
         project.activeFormationId
       );
     }
-    const f = project.formations.find((x) => x.id === project.activeFormationId);
+    const f = formationById.get(project.activeFormationId);
     return f?.setPieces ?? null;
-  }, [project, isPlaying, stagePreviewDancers, selectedCue, currentTime]);
+  }, [project, isPlaying, stagePreviewDancers, selectedCue, currentTime, formationById]);
 
   const browseFloorMarkup = useMemo(() => {
     if (!project || isPlaying) return null;
     if (stagePreviewDancers && stagePreviewDancers.length > 0) return null;
     if (selectedCue) {
-      const f = project.formations.find((x) => x.id === selectedCue.formationId);
+      const f = formationById.get(selectedCue.formationId);
       return f?.floorMarkup ?? null;
     }
     if (project.cues.length > 0) {
@@ -1467,9 +1477,9 @@ export function EditorPage() {
         project.activeFormationId
       );
     }
-    const f = project.formations.find((x) => x.id === project.activeFormationId);
+    const f = formationById.get(project.activeFormationId);
     return f?.floorMarkup ?? null;
-  }, [project, isPlaying, stagePreviewDancers, selectedCue, currentTime]);
+  }, [project, isPlaying, stagePreviewDancers, selectedCue, currentTime, formationById]);
 
   useEffect(() => {
     if (!wideEditorLayout) setFloorMarkupTool(null);
@@ -1484,7 +1494,7 @@ export function EditorPage() {
     if (stagePreviewDancers?.length) return stagePreviewDancers;
     if (interpolatedDancers && isPlaying) return interpolatedDancers;
     if (browseFormationDancers?.length) return browseFormationDancers;
-    const f = project.formations.find((x) => x.id === project.activeFormationId);
+    const f = formationById.get(project.activeFormationId);
     return f?.dancers ?? [];
   }, [
     project,
@@ -1492,6 +1502,7 @@ export function EditorPage() {
     isPlaying,
     stagePreviewDancers,
     browseFormationDancers,
+    formationById,
   ]);
 
   const onFloorTextPlaceSessionChange = useCallback((next: FloorTextPlaceSession) => {
@@ -1950,6 +1961,386 @@ export function EditorPage() {
     },
     stageZenEligible: showTopWaveDock && !rightPaneCollapsed,
   };
+
+  const handleAddCueCreated = useCallback(
+    (cueId: string, startSec: number) => {
+      setSelectedCueIds([cueId]);
+      setIsPlaying(false);
+      if (typeof startSec === "number" && Number.isFinite(startSec)) {
+        timelineRef.current?.pauseAndSeekToSec(startSec);
+      }
+    },
+    []
+  );
+
+  const exportDialogEl = useMemo(
+    () =>
+      project ? (
+        <ExportDialog
+          open={exportDialogOpen}
+          onClose={() => setExportDialogOpen(false)}
+          project={project}
+          projectName={projectName}
+          stage2dVisible={stageView === "2d"}
+        />
+      ) : null,
+    [project, exportDialogOpen, projectName, stageView]
+  );
+
+  const flowLibraryDialogEl = useMemo(
+    () =>
+      project ? (
+        <FlowLibraryDialog
+          open={flowLibraryOpen}
+          onClose={() => setFlowLibraryOpen(false)}
+          project={project}
+          setProject={setProjectSafe}
+          audioDurationSec={duration}
+          getWavePeaks={() => timelineRef.current?.getWavePeaksSnapshot() ?? null}
+          onRestoreWaveform={(peaks, dur) => {
+            timelineRef.current?.restoreWavePeaks(peaks, dur);
+          }}
+        />
+      ) : null,
+    [project, flowLibraryOpen, setProjectSafe, duration]
+  );
+
+  const addCueDialogEl = useMemo(
+    () =>
+      project ? (
+        <AddCueWithFormationDialog
+          open={addCueDialogOpen}
+          onClose={() => setAddCueDialogOpen(false)}
+          project={project}
+          setProject={setProjectSafe}
+          currentTimeSec={currentTime}
+          durationSec={duration}
+          selectedCueId={selectedCueId}
+          onStagePreviewChange={setStagePreviewDancers}
+          onImportRoster={importCrewCsvFromStageToolbar}
+          onCueCreated={handleAddCueCreated}
+        />
+      ) : null,
+    [
+      project,
+      addCueDialogOpen,
+      setProjectSafe,
+      currentTime,
+      duration,
+      selectedCueId,
+      importCrewCsvFromStageToolbar,
+      handleAddCueCreated,
+    ]
+  );
+
+  const rosterImportSheetEl = useMemo(
+    () =>
+      project && rosterImportDraft ? (
+        <EditorSideSheet
+          open
+          zIndex={60}
+          width="min(440px, 46vw)"
+          onClose={() => {
+            setRosterImportDraft(null);
+            setRosterImportExtraNames([]);
+          }}
+          ariaLabelledBy="roster-import-dialog-title"
+        >
+          <div style={{ padding: "18px 20px" }}>
+            <div
+              id="roster-import-dialog-title"
+              style={{ fontSize: "15px", fontWeight: 700, marginBottom: "8px" }}
+            >
+              名簿を取り込みます
+            </div>
+            <p style={{ margin: "0 0 12px", fontSize: "12px", color: "#94a3b8", lineHeight: 1.5 }}>
+              {labelForKind(rosterImportDraft.kind)}「{rosterImportDraft.baseName}」
+              <br />
+              ステージ上の表示は最大 8 文字です。同じ名前が複数あるときは、該当する全員に苗字の先頭 1 文字を前に付けて区別します。
+              <br />
+              見出しに「出欠」「参加」「出席」などがあるとき、または氏名の左右の列が ○・参加・出席 などで埋まっているときは、その列で参加行だけを名簿に含めます。
+              見出しに「フリガナ」「読み」「セイ」「メイ」などがあり、読みに姓と名が分かるときは、下の「表示名の取り込み方」に応じてフル（例: さたけし）・苗字（姓の漢字またはセイ）・名前（名の漢字またはメイ）を選べます。
+            </p>
+            <div style={{ fontSize: "12px", fontWeight: 600, color: "#cbd5e1", marginBottom: "8px" }}>
+              表示名の取り込み方
+            </div>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "8px",
+                marginBottom: "8px",
+                cursor: "pointer",
+                fontSize: "13px",
+              }}
+            >
+              <input
+                type="radio"
+                name="roster-import-name-mode"
+                checked={rosterImportNameMode === "full"}
+                onChange={() => setRosterImportNameMode("full")}
+              />
+              <span>
+                <strong>フルネーム</strong>
+                <span style={{ display: "block", fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+                  姓＋名・氏名列などをそのまま短く表示（従来に近い）
+                </span>
+              </span>
+            </label>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "8px",
+                marginBottom: "8px",
+                cursor: "pointer",
+                fontSize: "13px",
+              }}
+            >
+              <input
+                type="radio"
+                name="roster-import-name-mode"
+                checked={rosterImportNameMode === "family_only"}
+                onChange={() => setRosterImportNameMode("family_only")}
+              />
+              <span>
+                <strong>苗字だけ</strong>
+                <span style={{ display: "block", fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+                  「姓」列があればそれのみ。1 列だけのときは先頭の漢字ブロックや、スペース区切りの先頭を苗字とみなします。
+                </span>
+              </span>
+            </label>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "8px",
+                marginBottom: "16px",
+                cursor: "pointer",
+                fontSize: "13px",
+              }}
+            >
+              <input
+                type="radio"
+                name="roster-import-name-mode"
+                checked={rosterImportNameMode === "given_only"}
+                onChange={() => setRosterImportNameMode("given_only")}
+              />
+              <span>
+                <strong>名前だけ</strong>
+                <span style={{ display: "block", fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+                  見出しに「姓」「名」列があると確実です。1 列だけのときは、先頭の漢字を除く簡易推定やスペース区切りの末尾を使います。
+                </span>
+              </span>
+            </label>
+            <div
+              style={{
+                marginBottom: "14px",
+                paddingTop: "10px",
+                borderTop: "1px solid #334155",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  color: "#cbd5e1",
+                  marginBottom: "8px",
+                }}
+              >
+                ファイルにない人を追加（任意）
+              </div>
+              <p
+                style={{
+                  margin: "0 0 8px",
+                  fontSize: "11px",
+                  color: "#64748b",
+                  lineHeight: 1.45,
+                }}
+              >
+                取り込み後も名簿で編集できます。ここでは表示名だけを足せます。
+              </p>
+              {rosterImportExtraNames.map((extraName, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    marginBottom: "6px",
+                  }}
+                >
+                  <input
+                    type="text"
+                    value={extraName}
+                    placeholder="表示名"
+                    maxLength={120}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setRosterImportExtraNames((prev) =>
+                        prev.map((x, j) => (j === idx ? v : x))
+                      );
+                    }}
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      padding: "6px 8px",
+                      borderRadius: "6px",
+                      border: "1px solid #334155",
+                      background: "#020617",
+                      color: "#e2e8f0",
+                      fontSize: "12px",
+                    }}
+                  />
+                  <button
+                    type="button"
+                    style={{
+                      ...btnSecondary,
+                      flexShrink: 0,
+                      fontSize: "11px",
+                      padding: "6px 8px",
+                    }}
+                    onClick={() =>
+                      setRosterImportExtraNames((prev) =>
+                        prev.filter((_, j) => j !== idx)
+                      )
+                    }
+                  >
+                    削除
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  fontSize: "12px",
+                  padding: "6px 10px",
+                  borderColor: "#0369a1",
+                  color: "#7dd3fc",
+                }}
+                onClick={() =>
+                  setRosterImportExtraNames((prev) => [...prev, ""])
+                }
+              >
+                ＋メンバーを追加
+              </button>
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
+              <button
+                type="button"
+                style={btnSecondary}
+                onClick={() => {
+                  setRosterImportDraft(null);
+                  setRosterImportExtraNames([]);
+                }}
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  borderColor: "#0284c7",
+                  background: "#0ea5e9",
+                  color: "#0b1220",
+                  fontWeight: 600,
+                }}
+                onClick={() => {
+                  if (!project) return;
+                  const d = rosterImportDraft;
+                  const extraRows = rosterImportExtraNames
+                    .map((s) => s.trim())
+                    .filter((s) => s.length > 0)
+                    .map((label) => [label] as string[]);
+                  const mergedRows = [...d.rows, ...extraRows];
+                  let att = { excludedRows: 0, hadAttendanceColumn: false };
+                  const crew = buildCrewFromRows(d.baseName, mergedRows, {
+                    nameMode: rosterImportNameMode,
+                    onAttendanceFiltered: (info) => {
+                      att = info;
+                    },
+                  });
+                  if (crew.members.length === 0) {
+                    let msg =
+                      `${labelForKind(d.kind)} から名前らしき列を見つけられませんでした。\n` +
+                      "1 列目に名前を入れるか、見出し行に「名前」「姓」「名」「label」「name」などを含めてください。";
+                    if (att.hadAttendanceColumn) {
+                      msg +=
+                        "\n\n出欠列は検出されましたが、参加（○・参加 など）と判定できる行がありませんでした。";
+                    }
+                    window.alert(msg);
+                    return;
+                  }
+                  setProjectSafe((p) => {
+                    const sorted = sortCuesByStart(p.cues);
+                    const firstCue = sorted[0];
+                    const nextCues =
+                      firstCue &&
+                      firstCue.formationId !== p.activeFormationId
+                        ? p.cues.map((c) =>
+                            c.id === firstCue.id
+                              ? { ...c, formationId: p.activeFormationId }
+                              : c
+                          )
+                        : p.cues;
+                    return {
+                      ...p,
+                      crews: [...p.crews, crew],
+                      cues: nextCues,
+                      rosterStripCollapsed: false,
+                      /**
+                       * 名簿取り込み直後はタイムライン全面表示のままにし、
+                       * 波形用 TimelinePanel をアンマウントしない（ワイドでは常に上部ドック）。
+                       * 名簿一覧は「メンバーを表示」またはページャで切り替え可能。
+                       */
+                      rosterHidesTimeline: false,
+                      dancerMarkerDiameterPx:
+                        dancerMarkerDiameterAfterRosterImport(
+                          p.dancerMarkerDiameterPx
+                        ),
+                    };
+                  });
+                  /** 先頭キュー（ページ 1）を選択し、いまのステージの形と同期 */
+                  window.setTimeout(() => {
+                    jumpToPagerSlotRef.current(1);
+                  }, 0);
+                  setRosterImportDraft(null);
+                  setRosterImportExtraNames([]);
+                  const attLine =
+                    att.hadAttendanceColumn && att.excludedRows > 0
+                      ? `\n（出欠で不参加・空欄など ${att.excludedRows} 行をスキップ）`
+                      : "";
+                  if (d.notice) {
+                    window.alert(
+                      `${labelForKind(d.kind)} から ${crew.members.length} 名を取り込みました。${attLine}\n\n` +
+                        d.notice
+                    );
+                  } else {
+                    window.alert(
+                      `${labelForKind(d.kind)} から ${crew.members.length} 名を取り込みました。${attLine}`
+                    );
+                  }
+                }}
+              >
+                取り込む
+              </button>
+            </div>
+          </div>
+        </EditorSideSheet>
+      ) : null,
+    [
+      project,
+      rosterImportDraft,
+      rosterImportNameMode,
+      rosterImportExtraNames,
+      setProjectSafe,
+      setRosterImportDraft,
+      setRosterImportNameMode,
+      setRosterImportExtraNames,
+      btnSecondary,
+    ]
+  );
 
   return (
     <div
@@ -4045,345 +4436,11 @@ export function EditorPage() {
         </div>
       ) : null}
 
-      {project ? (
-        <ExportDialog
-          open={exportDialogOpen}
-          onClose={() => setExportDialogOpen(false)}
-          project={project}
-          projectName={projectName}
-          stage2dVisible={stageView === "2d"}
-        />
-      ) : null}
+      {exportDialogEl}
+      {flowLibraryDialogEl}
+      {addCueDialogEl}
 
-      {project ? (
-        <FlowLibraryDialog
-          open={flowLibraryOpen}
-          onClose={() => setFlowLibraryOpen(false)}
-          project={project}
-          setProject={setProjectSafe}
-          audioDurationSec={duration}
-          getWavePeaks={() => timelineRef.current?.getWavePeaksSnapshot() ?? null}
-          onRestoreWaveform={(peaks, dur) => {
-            timelineRef.current?.restoreWavePeaks(peaks, dur);
-          }}
-        />
-      ) : null}
-
-      {project ? (
-        <AddCueWithFormationDialog
-          open={addCueDialogOpen}
-          onClose={() => setAddCueDialogOpen(false)}
-          project={project}
-          setProject={setProjectSafe}
-          currentTimeSec={currentTime}
-          durationSec={duration}
-          selectedCueId={selectedCueId}
-          onStagePreviewChange={setStagePreviewDancers}
-          onImportRoster={importCrewCsvFromStageToolbar}
-          onCueCreated={(cueId, startSec) => {
-            setSelectedCueIds([cueId]);
-            setIsPlaying(false);
-            if (typeof startSec === "number" && Number.isFinite(startSec)) {
-              timelineRef.current?.pauseAndSeekToSec(startSec);
-            }
-          }}
-        />
-      ) : null}
-
-      {project && rosterImportDraft ? (
-        <EditorSideSheet
-          open
-          zIndex={60}
-          width="min(440px, 46vw)"
-          onClose={() => {
-            setRosterImportDraft(null);
-            setRosterImportExtraNames([]);
-          }}
-          ariaLabelledBy="roster-import-dialog-title"
-        >
-          <div style={{ padding: "18px 20px" }}>
-            <div
-              id="roster-import-dialog-title"
-              style={{ fontSize: "15px", fontWeight: 700, marginBottom: "8px" }}
-            >
-              名簿を取り込みます
-            </div>
-            <p style={{ margin: "0 0 12px", fontSize: "12px", color: "#94a3b8", lineHeight: 1.5 }}>
-              {labelForKind(rosterImportDraft.kind)}「{rosterImportDraft.baseName}」
-              <br />
-              ステージ上の表示は最大 8 文字です。同じ名前が複数あるときは、該当する全員に苗字の先頭 1 文字を前に付けて区別します。
-              <br />
-              見出しに「出欠」「参加」「出席」などがあるとき、または氏名の左右の列が ○・参加・出席 などで埋まっているときは、その列で参加行だけを名簿に含めます。
-              見出しに「フリガナ」「読み」「セイ」「メイ」などがあり、読みに姓と名が分かるときは、下の「表示名の取り込み方」に応じてフル（例: さたけし）・苗字（姓の漢字またはセイ）・名前（名の漢字またはメイ）を選べます。
-            </p>
-            <div style={{ fontSize: "12px", fontWeight: 600, color: "#cbd5e1", marginBottom: "8px" }}>
-              表示名の取り込み方
-            </div>
-            <label
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: "8px",
-                marginBottom: "8px",
-                cursor: "pointer",
-                fontSize: "13px",
-              }}
-            >
-              <input
-                type="radio"
-                name="roster-import-name-mode"
-                checked={rosterImportNameMode === "full"}
-                onChange={() => setRosterImportNameMode("full")}
-              />
-              <span>
-                <strong>フルネーム</strong>
-                <span style={{ display: "block", fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
-                  姓＋名・氏名列などをそのまま短く表示（従来に近い）
-                </span>
-              </span>
-            </label>
-            <label
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: "8px",
-                marginBottom: "8px",
-                cursor: "pointer",
-                fontSize: "13px",
-              }}
-            >
-              <input
-                type="radio"
-                name="roster-import-name-mode"
-                checked={rosterImportNameMode === "family_only"}
-                onChange={() => setRosterImportNameMode("family_only")}
-              />
-              <span>
-                <strong>苗字だけ</strong>
-                <span style={{ display: "block", fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
-                  「姓」列があればそれのみ。1 列だけのときは先頭の漢字ブロックや、スペース区切りの先頭を苗字とみなします。
-                </span>
-              </span>
-            </label>
-            <label
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: "8px",
-                marginBottom: "16px",
-                cursor: "pointer",
-                fontSize: "13px",
-              }}
-            >
-              <input
-                type="radio"
-                name="roster-import-name-mode"
-                checked={rosterImportNameMode === "given_only"}
-                onChange={() => setRosterImportNameMode("given_only")}
-              />
-              <span>
-                <strong>名前だけ</strong>
-                <span style={{ display: "block", fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
-                  見出しに「姓」「名」列があると確実です。1 列だけのときは、先頭の漢字を除く簡易推定やスペース区切りの末尾を使います。
-                </span>
-              </span>
-            </label>
-            <div
-              style={{
-                marginBottom: "14px",
-                paddingTop: "10px",
-                borderTop: "1px solid #334155",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  color: "#cbd5e1",
-                  marginBottom: "8px",
-                }}
-              >
-                ファイルにない人を追加（任意）
-              </div>
-              <p
-                style={{
-                  margin: "0 0 8px",
-                  fontSize: "11px",
-                  color: "#64748b",
-                  lineHeight: 1.45,
-                }}
-              >
-                取り込み後も名簿で編集できます。ここでは表示名だけを足せます。
-              </p>
-              {rosterImportExtraNames.map((extraName, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    marginBottom: "6px",
-                  }}
-                >
-                  <input
-                    type="text"
-                    value={extraName}
-                    placeholder="表示名"
-                    maxLength={120}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setRosterImportExtraNames((prev) =>
-                        prev.map((x, j) => (j === idx ? v : x))
-                      );
-                    }}
-                    style={{
-                      flex: 1,
-                      minWidth: 0,
-                      padding: "6px 8px",
-                      borderRadius: "6px",
-                      border: "1px solid #334155",
-                      background: "#020617",
-                      color: "#e2e8f0",
-                      fontSize: "12px",
-                    }}
-                  />
-                  <button
-                    type="button"
-                    style={{
-                      ...btnSecondary,
-                      flexShrink: 0,
-                      fontSize: "11px",
-                      padding: "6px 8px",
-                    }}
-                    onClick={() =>
-                      setRosterImportExtraNames((prev) =>
-                        prev.filter((_, j) => j !== idx)
-                      )
-                    }
-                  >
-                    削除
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                style={{
-                  ...btnSecondary,
-                  fontSize: "12px",
-                  padding: "6px 10px",
-                  borderColor: "#0369a1",
-                  color: "#7dd3fc",
-                }}
-                onClick={() =>
-                  setRosterImportExtraNames((prev) => [...prev, ""])
-                }
-              >
-                ＋メンバーを追加
-              </button>
-            </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px" }}>
-              <button
-                type="button"
-                style={btnSecondary}
-                onClick={() => {
-                  setRosterImportDraft(null);
-                  setRosterImportExtraNames([]);
-                }}
-              >
-                キャンセル
-              </button>
-              <button
-                type="button"
-                style={{
-                  ...btnSecondary,
-                  borderColor: "#0284c7",
-                  background: "#0ea5e9",
-                  color: "#0b1220",
-                  fontWeight: 600,
-                }}
-                onClick={() => {
-                  if (!project) return;
-                  const d = rosterImportDraft;
-                  const extraRows = rosterImportExtraNames
-                    .map((s) => s.trim())
-                    .filter((s) => s.length > 0)
-                    .map((label) => [label] as string[]);
-                  const mergedRows = [...d.rows, ...extraRows];
-                  let att = { excludedRows: 0, hadAttendanceColumn: false };
-                  const crew = buildCrewFromRows(d.baseName, mergedRows, {
-                    nameMode: rosterImportNameMode,
-                    onAttendanceFiltered: (info) => {
-                      att = info;
-                    },
-                  });
-                  if (crew.members.length === 0) {
-                    let msg =
-                      `${labelForKind(d.kind)} から名前らしき列を見つけられませんでした。\n` +
-                      "1 列目に名前を入れるか、見出し行に「名前」「姓」「名」「label」「name」などを含めてください。";
-                    if (att.hadAttendanceColumn) {
-                      msg +=
-                        "\n\n出欠列は検出されましたが、参加（○・参加 など）と判定できる行がありませんでした。";
-                    }
-                    window.alert(msg);
-                    return;
-                  }
-                  setProjectSafe((p) => {
-                    const sorted = sortCuesByStart(p.cues);
-                    const firstCue = sorted[0];
-                    const nextCues =
-                      firstCue &&
-                      firstCue.formationId !== p.activeFormationId
-                        ? p.cues.map((c) =>
-                            c.id === firstCue.id
-                              ? { ...c, formationId: p.activeFormationId }
-                              : c
-                          )
-                        : p.cues;
-                    return {
-                      ...p,
-                      crews: [...p.crews, crew],
-                      cues: nextCues,
-                      rosterStripCollapsed: false,
-                      /**
-                       * 名簿取り込み直後はタイムライン全面表示のままにし、
-                       * 波形用 TimelinePanel をアンマウントしない（ワイドでは常に上部ドック）。
-                       * 名簿一覧は「メンバーを表示」またはページャで切り替え可能。
-                       */
-                      rosterHidesTimeline: false,
-                      dancerMarkerDiameterPx:
-                        dancerMarkerDiameterAfterRosterImport(
-                          p.dancerMarkerDiameterPx
-                        ),
-                    };
-                  });
-                  /** 先頭キュー（ページ 1）を選択し、いまのステージの形と同期 */
-                  window.setTimeout(() => {
-                    jumpToPagerSlotRef.current(1);
-                  }, 0);
-                  setRosterImportDraft(null);
-                  setRosterImportExtraNames([]);
-                  const attLine =
-                    att.hadAttendanceColumn && att.excludedRows > 0
-                      ? `\n（出欠で不参加・空欄など ${att.excludedRows} 行をスキップ）`
-                      : "";
-                  if (d.notice) {
-                    window.alert(
-                      `${labelForKind(d.kind)} から ${crew.members.length} 名を取り込みました。${attLine}\n\n` +
-                        d.notice
-                    );
-                  } else {
-                    window.alert(
-                      `${labelForKind(d.kind)} から ${crew.members.length} 名を取り込みました。${attLine}`
-                    );
-                  }
-                }}
-              >
-                取り込む
-              </button>
-            </div>
-          </div>
-        </EditorSideSheet>
-      ) : null}
+      {rosterImportSheetEl}
 
       <style>{`
         @media (max-width: 1279px) {
