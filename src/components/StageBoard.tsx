@@ -5816,23 +5816,6 @@ export function StageBoard({
                 />
               )}
             </svg>
-            <div
-              aria-label="ステージ センター前"
-              title="センター前（基準点）"
-              style={{
-                position: "absolute",
-                left: "50%",
-                bottom: "10%",
-                width: "8px",
-                height: "8px",
-                borderRadius: "50%",
-                background: shell.ruby,
-                boxShadow: `0 0 0 1px ${shell.bgDeep}`,
-                transform: "translate(-50%, 50%)",
-                pointerEvents: "none",
-                zIndex: 4,
-              }}
-            />
             {(displayFloorMarkup.length > 0 || floorLineDraft) && (
               <div
                 style={{
@@ -6557,6 +6540,24 @@ export function StageBoard({
                 ...labelScreenKeepUpright("bottom center"),
               }}
             >
+              <div
+                aria-label="ステージ センター前"
+                title="センター前（基準点・枠の外側）"
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  /** 床ブロック直下＝赤枠の客席側ギリギリの外（帯の上端に合わせる） */
+                  top: 0,
+                  width: "8px",
+                  height: "8px",
+                  borderRadius: "50%",
+                  background: shell.ruby,
+                  boxShadow: `0 0 0 1px ${shell.bgDeep}`,
+                  transform: "translate(-50%, -50%)",
+                  pointerEvents: "none",
+                  zIndex: 4,
+                }}
+              />
               {guideLineDrawMarks.length > 0 ? (
                 <div
                   style={{

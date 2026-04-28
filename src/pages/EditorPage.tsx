@@ -110,7 +110,7 @@ const EDITOR_SHELL_TOP_WAVE_ROSTER_ROW_PX = 40;
  * 再生・波形・タイムライン列をまとめて上へ詰める。
  * 参照スクリーンショット（ヘッダと再生行が切れず、ステージブロックがやや上）のバランス。
  */
-const EDITOR_PLAYBACK_LAYOUT_SHIFT_UP = "calc(1.45cm + 3mm)";
+const EDITOR_PLAYBACK_LAYOUT_SHIFT_UP = "calc(1.45cm + 3mm - 1cm)";
 
 /** ステージ列とタイムライン列の間のドラッグ幅 */
 const STAGE_RESIZER_PX = 4;
