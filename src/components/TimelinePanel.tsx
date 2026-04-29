@@ -2741,6 +2741,55 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       ]
     );
 
+    /**
+     * 赤い再生バー（currentTime）の位置でキューを前後 2 つに分割する。
+     * - 前半: 元キューの tStartSec → currentTime（元フォーメーションをそのまま保持）
+     * - 後半: currentTime → 元キューの tEndSec（フォーメーションを複製して独立させる）
+     */
+    const splitCueAtPlayhead = useCallback(
+      (cueId: string) => {
+        if (project.viewMode === "view") return;
+        const splitAt = Math.round(currentTime * 1000) / 1000;
+        setProject((p) => {
+          const orig = p.cues.find((c) => c.id === cueId);
+          if (!orig) return p;
+          if (splitAt <= orig.tStartSec + 0.02 || splitAt >= orig.tEndSec - 0.02) return p;
+          const srcFm = p.formations.find((f) => f.id === orig.formationId);
+          if (!srcFm) return p;
+          const newFm = cloneFormationForNewCue(srcFm);
+          const newCue: Cue = {
+            id: crypto.randomUUID(),
+            tStartSec: splitAt,
+            tEndSec: orig.tEndSec,
+            formationId: newFm.id,
+            name: orig.name,
+            note: orig.note,
+            ...(orig.gapApproachFromPrev
+              ? { gapApproachFromPrev: orig.gapApproachFromPrev }
+              : {}),
+          };
+          const updatedCues = p.cues.map((c) =>
+            c.id === cueId ? { ...c, tEndSec: splitAt } : c
+          );
+          return {
+            ...p,
+            formations: [...p.formations, newFm],
+            cues: sortCuesByStart([...updatedCues, newCue]),
+            activeFormationId: orig.formationId,
+          };
+        });
+        onSelectedCueIdsChange([cueId]);
+        onFormationChosenFromCueList?.();
+      },
+      [
+        project.viewMode,
+        currentTime,
+        setProject,
+        onSelectedCueIdsChange,
+        onFormationChosenFromCueList,
+      ]
+    );
+
     const saveCueFormationToBoxList = useCallback(
       (cueId: string) => {
         const c = project.cues.find((x) => x.id === cueId);
@@ -2954,6 +3003,14 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       drawWaveformAt(tRedraw);
     };
 
+    const waveCueMenuTargetCue = waveCueMenu
+      ? project.cues.find((c) => c.id === waveCueMenu.cueId)
+      : undefined;
+    const canSplitAtPlayhead =
+      !!waveCueMenuTargetCue &&
+      currentTime > waveCueMenuTargetCue.tStartSec + 0.02 &&
+      currentTime < waveCueMenuTargetCue.tEndSec - 0.02;
+
     const waveCueMenuPanel =
       waveCueMenu && !waveCueConfirm ? (
         <>
@@ -2999,6 +3056,32 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               boxShadow: "0 16px 48px rgba(0,0,0,0.45)",
             }}
           >
+            <button
+              type="button"
+              role="menuitem"
+              disabled={project.viewMode === "view" || !canSplitAtPlayhead}
+              style={{
+                ...btnSecondary,
+                display: "block",
+                width: "100%",
+                textAlign: "left",
+                marginBottom: "6px",
+                fontSize: "12px",
+                padding: "8px 10px",
+                cursor:
+                  project.viewMode === "view" || !canSplitAtPlayhead
+                    ? "not-allowed"
+                    : "pointer",
+                opacity: canSplitAtPlayhead ? 1 : 0.4,
+              }}
+              onClick={() => {
+                if (project.viewMode === "view" || !canSplitAtPlayhead) return;
+                splitCueAtPlayhead(waveCueMenu.cueId);
+                setWaveCueMenu(null);
+              }}
+            >
+              ✂️ ここで分割（赤いバーの位置）
+            </button>
             <button
               type="button"
               role="menuitem"
