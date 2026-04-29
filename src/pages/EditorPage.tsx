@@ -2875,7 +2875,7 @@ export function EditorPage() {
           </span>
         </Link>
         <ChoreoCoreLogo
-          height={32}
+          height={40}
           title="ChoreoCore"
           style={{ flexShrink: 0, marginLeft: 4 }}
         />

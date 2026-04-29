@@ -6,19 +6,12 @@ import App from "./App.tsx";
 import { I18nProvider } from "./i18n/I18nContext";
 
 /** 本番のみ SW を登録。
- * registerType: "prompt" = autoUpdate の controllerchange→reload リスナーなし。
- * onNeedRefresh: 新しい SW を SKIP_WAITING で即時有効化し、300ms 後に 1 回だけリロード。
- * リロード後は新 SW がアクティブ → onNeedRefresh は再発火しない → ループなし。
+ * registerType: "autoUpdate" モードで vite-plugin-pwa が
+ * SKIP_WAITING + controllerchange→reload を自動処理する。
+ * カスタムコールバックは不要（二重リロードの原因になるため削除）。
  */
 if (import.meta.env.PROD) {
-  registerSW({
-    onNeedRefresh() {
-      navigator.serviceWorker.getRegistrations().then((regs) => {
-        regs.forEach((r) => r.waiting?.postMessage({ type: "SKIP_WAITING" }));
-      });
-      setTimeout(() => window.location.reload(), 300);
-    },
-  });
+  registerSW();
 }
 
 createRoot(document.getElementById("root")!).render(

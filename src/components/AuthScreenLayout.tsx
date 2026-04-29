@@ -9,11 +9,14 @@ function BrandMark() {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: 6,
-        marginBottom: 20,
+        marginBottom: 24,
       }}
     >
-      <ChoreoCoreLogo height={52} title="ChoreoCore" />
+      <ChoreoCoreLogo
+        height={80}
+        title="ChoreoCore"
+        style={{ width: "100%", height: "auto", maxHeight: 100 }}
+      />
     </div>
   );
 }

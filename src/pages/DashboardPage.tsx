@@ -138,7 +138,7 @@ export function DashboardPage() {
               color: shell.text,
             }}
           >
-            <ChoreoCoreLogo height={36} title="ChoreoCore" />
+            <ChoreoCoreLogo height={52} title="ChoreoCore" />
           </Link>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
             <span style={{ fontSize: "12px", color: shell.textMuted }}>{me.user.email}</span>
