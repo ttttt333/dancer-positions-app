@@ -2,10 +2,10 @@ import type { CSSProperties, ComponentProps, Dispatch, SetStateAction } from "re
 import type { ChoreographyProjectJson, Cue } from "../types/choreography";
 import type { FloorTextPlaceSession } from "../components/StageBoard";
 import { btnSecondary } from "../components/stageButtonStyles";
-import { ChoreoGridToolbar } from "./ChoreoGridToolbar";
+import { ChoreoCoreToolbar } from "./ChoreoCoreToolbar";
 
 export type EditorWorkbenchChoreoToolbarProps = Omit<
-  ComponentProps<typeof ChoreoGridToolbar>,
+  ComponentProps<typeof ChoreoCoreToolbar>,
   "layout" | "embedInPanel" | "tilesInRun" | "singleTile"
 >;
 
@@ -363,7 +363,7 @@ export type EditorStageWorkbenchProps = {
   hideFloorTextToolbar?: boolean;
   /** true のとき右レールの「戻る」「進む」を出さない（上部ドックと重複しないため） */
   hideUndoRedoInRail?: boolean;
-  /** 右レール用: ChoreoGrid の単体タイルに渡すプロップ */
+  /** 右レール用: ChoreoCore の単体タイルに渡すプロップ */
   choreoToolbarProps?: EditorWorkbenchChoreoToolbarProps;
   /** 上部ドック時など: モーダルでキュー一覧を開く */
   onOpenCueListModal?: () => void;
@@ -607,13 +607,13 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
           ) : null}
           {choreo ? (
             <>
-              <ChoreoGridToolbar
+              <ChoreoCoreToolbar
                 embedInPanel
                 tilesInRun
                 singleTile="setPiece"
                 {...choreo}
               />
-              <ChoreoGridToolbar
+              <ChoreoCoreToolbar
                 embedInPanel
                 tilesInRun
                 singleTile="stageShape"
@@ -633,7 +633,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
             <span>取込</span>
           </button>
           {choreo ? (
-            <ChoreoGridToolbar
+            <ChoreoCoreToolbar
               embedInPanel
               tilesInRun
               singleTile="export"
@@ -641,7 +641,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
             />
           ) : null}
           {choreo ? (
-            <ChoreoGridToolbar
+            <ChoreoCoreToolbar
               embedInPanel
               tilesInRun
               singleTile="help"

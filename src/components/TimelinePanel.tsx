@@ -127,7 +127,7 @@ function WaveHistoryRoundIcon({ kind }: { kind: "undo" | "redo" }) {
 }
 
 /** 上部ツールバー左レール内：バナーをスロットいっぱいに表示（作品一覧へ） */
-function ChoreoGridHeaderBrand({ compact }: { compact?: boolean }) {
+function ChoreoCoreHeaderBrand({ compact }: { compact?: boolean }) {
   return (
     <Link
       to="/library"
@@ -206,7 +206,7 @@ type Props = {
   onRedo?: () => void;
   undoDisabled?: boolean;
   redoDisabled?: boolean;
-  /** ChoreoGrid: 波形・一覧で選択中のキュー（複数可）。書き込み先は末尾を主として使う想定。 */
+  /** ChoreoCore: 波形・一覧で選択中のキュー（複数可）。書き込み先は末尾を主として使う想定。 */
   selectedCueIds: string[];
   onSelectedCueIdsChange: Dispatch<SetStateAction<string[]>>;
   /** 「現在位置にキュー追加」時に複製する元フォーメーション */
@@ -3441,7 +3441,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                     alignItems: "stretch",
                   }}
                 >
-                  <ChoreoGridHeaderBrand />
+                  <ChoreoCoreHeaderBrand />
                 </div>
                 <div
                   style={{
@@ -3528,7 +3528,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                 alignItems: "stretch",
               }}
             >
-              <ChoreoGridHeaderBrand compact />
+              <ChoreoCoreHeaderBrand compact />
             </div>
             <div
               style={{

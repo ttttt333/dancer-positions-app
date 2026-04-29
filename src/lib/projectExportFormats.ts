@@ -390,7 +390,7 @@ type LegacyCueRow = {
 };
 
 /**
- * §12 / §13: ChoreoGrid が書き出した CSV（UTF-8・BOM 可）を現在の作品へマージする。
+ * §12 / §13: ChoreoCore が書き出した CSV（UTF-8・BOM 可）を現在の作品へマージする。
  * フォーメーションは名前一致、キューは id 列があれば id、なければ並び順で上書き。
  */
 export function importProjectFromChoreogridCsv(

@@ -33,7 +33,7 @@ type RawCue = Record<string, unknown> & {
 };
 
 /**
- * 旧 timeSec キュー → ChoreoGrid 区間キュー（tStart / tEnd）。
+ * 旧 timeSec キュー → ChoreoCore 区間キュー（tStart / tEnd）。
  */
 export function migrateCuesFromRaw(
   cuesRaw: unknown[],

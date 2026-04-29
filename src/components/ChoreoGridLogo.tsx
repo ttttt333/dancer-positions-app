@@ -1,43 +1,39 @@
-import { shell } from "../theme/choreoShell";
-
-export type ChoreoGridLogoProps = {
-  /** 表示サイズ（正方形、px） */
-  size?: number;
-  /** スクリーンリーダー用。未指定時は "ChoreoGrid" */
-  title?: string;
-  className?: string;
-};
-
 const BRAND_LOGO_SRC = "/brand-logo.png";
 
+export type ChoreoCoreLogoProps = {
+  /** ロゴの高さ（px）。幅はアスペクト比に従い自動 */
+  height?: number;
+  /** スクリーンリーダー用ラベル */
+  title?: string;
+  className?: string;
+  style?: React.CSSProperties;
+};
+
+import type React from "react";
+
 /**
- * アプリのブランドロゴ（`public/brand-logo.png`）。
+ * ChoreoCore ブランドロゴ（横長画像）。
+ * height だけ指定すれば幅は自動調整される。
  */
-export function ChoreoGridLogo({
-  size = 44,
-  title = "ChoreoGrid",
+export function ChoreoCoreLogo({
+  height = 36,
+  title = "ChoreoCore",
   className,
-}: ChoreoGridLogoProps) {
+  style,
+}: ChoreoCoreLogoProps) {
   return (
     <img
       className={className}
       src={BRAND_LOGO_SRC}
-      alt=""
-      width={size}
-      height={size}
-      role="img"
-      aria-label={title}
+      alt={title}
+      height={height}
       decoding="async"
       style={{
         display: "block",
-        borderRadius: "50%",
-        objectFit: "cover",
-        boxSizing: "border-box",
-        boxShadow: [
-          `0 0 0 1px ${shell.brandRing}`,
-          "0 4px 22px rgba(0,0,0,0.55)",
-          `0 0 32px ${shell.brandGlow}`,
-        ].join(", "),
+        width: "auto",
+        height: `${height}px`,
+        objectFit: "contain",
+        ...style,
       }}
     />
   );

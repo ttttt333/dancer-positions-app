@@ -51,7 +51,7 @@ export type DancerSpot = {
   sizePx?: number;
 };
 
-/** 大道具（ChoreoGrid §9）。バウンディングボックス内の図形。 */
+/** 大道具（ChoreoCore §9）。バウンディングボックス内の図形。 */
 export type SetPieceKind = "rect" | "ellipse" | "triangle";
 
 export type SetPiece = {
@@ -271,7 +271,7 @@ export type SavedSpotLayout = {
 };
 
 export type ChoreographyProjectJson = {
-  /** 3 = ChoreoGrid 区間キュー（tStart/tEnd）。2 も読み込み時に正規化で 3 相当に変換。 */
+  /** 3 = ChoreoCore 区間キュー（tStart/tEnd）。2 も読み込み時に正規化で 3 相当に変換。 */
   version: 2 | 3;
   pieceTitle: string;
   /** 作品の想定人数（メモ・共有用。フォーメーション編集ロジックとは独立） */

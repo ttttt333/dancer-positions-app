@@ -5,7 +5,7 @@ import { VitePWA } from "vite-plugin-pwa";
 import type { Plugin, ViteDevServer } from "vite";
 
 /**
- * 立ち位置アプリ（ChoreoGrid）をブラウザで確認しやすくする:
+ * 立ち位置アプリ（ChoreoCore）をブラウザで確認しやすくする:
  * 開発サーバー起動後に URL をターミナルへ表示し、可能なら既定ブラウザで開く。
  * `npm run dev` で concurrently 経由でも Vite 内で動く。
  * 自動オープンを止める: NO_OPEN=1 npm run dev
@@ -26,7 +26,7 @@ function devOpenBrowserPlugin(): Plugin {
           const network = server.resolvedUrls?.network?.[0];
           const bar = "\n" + "━".repeat(62);
           console.log(bar);
-          console.log(`  ChoreoGrid（立ち位置）を開く →  ${primary}`);
+          console.log(`  ChoreoCore（立ち位置）を開く →  ${primary}`);
           console.log(`     手動: 別ターミナルで npm run open:app でも開けます`);
           if (network) {
             console.log(`     （同一 LAN の別端末: ${network}）`);
@@ -69,8 +69,8 @@ export default defineConfig({
       },
       includeAssets: ["favicon.svg"],
       manifest: {
-        name: "ChoreoGrid",
-        short_name: "ChoreoGrid",
+        name: "ChoreoCore",
+        short_name: "ChoreoCore",
         description: "楽曲タイムラインと立ち位置の同期、協会向け会員制ツール（β）",
         start_url: "/",
         display: "standalone",

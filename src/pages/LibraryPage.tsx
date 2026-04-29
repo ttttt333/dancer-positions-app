@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { isDemoSessionToken, projectApi } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
-import { ChoreoGridLogo } from "../components/ChoreoGridLogo";
+import { ChoreoCoreLogo } from "../components/ChoreoCoreLogo";
 import { btnAccent, btnSecondary } from "../components/stageButtonStyles";
 import { shell } from "../theme/choreoShell";
 import { tryMigrateFromLocalStorage } from "../lib/projectDefaults";
@@ -182,7 +182,7 @@ export function LibraryPage() {
               color: shell.text,
             }}
           >
-            <ChoreoGridLogo size={40} title="ChoreoGrid" />
+            <ChoreoCoreLogo size={40} title="ChoreoCore" />
             <span>
               <span
                 style={{
@@ -194,7 +194,7 @@ export function LibraryPage() {
                   textTransform: "uppercase",
                 }}
               >
-                ChoreoGrid
+                ChoreoCore
               </span>
               <span style={{ fontSize: "15px", fontWeight: 700 }}>{t("library.pageTitle")}</span>
             </span>

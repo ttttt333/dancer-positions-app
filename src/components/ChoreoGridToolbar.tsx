@@ -1,9 +1,9 @@
 import { Fragment, type CSSProperties, type ReactNode } from "react";
 import { shell } from "../theme/choreoShell";
 import { btnSecondary } from "./stageButtonStyles";
-import { ChoreoGridLogo } from "./ChoreoGridLogo";
+import { ChoreoCoreLogo } from "./ChoreoCoreLogo";
 
-export type ChoreoGridToolbarCoreProps = {
+export type ChoreoCoreToolbarCoreProps = {
   snapGrid?: boolean;
   /** 未指定のときはスナップボタンを出さない（機能廃止） */
   onToggleSnapGrid?: () => void;
@@ -18,7 +18,7 @@ export type ChoreoGridToolbarCoreProps = {
   disabled?: boolean;
 };
 
-type Props = ChoreoGridToolbarCoreProps & {
+type Props = ChoreoCoreToolbarCoreProps & {
   /** 既定は縦（旧左列）。右列に置くときは row */
   layout?: "column" | "row";
   /**
@@ -231,9 +231,9 @@ function ToolbarIconButton({
 }
 
 /**
- * ChoreoGrid 左端ツールバー（アイコン中心・title で補足）。
+ * ChoreoCore 左端ツールバー（アイコン中心・title で補足）。
  */
-export function ChoreoGridToolbar({
+export function ChoreoCoreToolbar({
   layout = "column",
   embedInPanel = false,
   tilesInRun = false,
@@ -350,7 +350,7 @@ export function ChoreoGridToolbar({
 
   return (
     <aside
-      aria-label="ChoreoGrid ツール"
+      aria-label="ChoreoCore ツール"
       style={{
         display: tilesInRun ? "contents" : "flex",
         flexDirection: embedInPanel ? "column" : row ? "row" : "column",
@@ -371,7 +371,7 @@ export function ChoreoGridToolbar({
     >
       {!embedInPanel ? (
         <div aria-hidden style={{ flexShrink: 0, lineHeight: 0 }}>
-          <ChoreoGridLogo size={30} title="ChoreoGrid" />
+          <ChoreoCoreLogo height={28} title="ChoreoCore" />
         </div>
       ) : null}
       {onToggleSnapGrid ? (

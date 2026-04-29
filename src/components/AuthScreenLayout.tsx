@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ChoreoGridLogo } from "./ChoreoGridLogo";
+import { ChoreoCoreLogo } from "./ChoreoCoreLogo";
 import { panelCard, shell } from "../theme/choreoShell";
 
 function BrandMark() {
@@ -7,28 +7,13 @@ function BrandMark() {
     <div
       style={{
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
-        gap: 12,
+        gap: 6,
         marginBottom: 20,
       }}
     >
-      <ChoreoGridLogo size={48} title="ChoreoGrid" />
-      <div>
-        <div
-          style={{
-            fontSize: "11px",
-            fontWeight: 600,
-            letterSpacing: "0.18em",
-            color: shell.accent,
-            textTransform: "uppercase",
-          }}
-        >
-          ChoreoGrid
-        </div>
-        <div style={{ fontSize: "17px", fontWeight: 700, color: shell.text, marginTop: 2 }}>
-          Studio
-        </div>
-      </div>
+      <ChoreoCoreLogo height={52} title="ChoreoCore" />
     </div>
   );
 }

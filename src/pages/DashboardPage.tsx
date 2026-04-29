@@ -3,7 +3,7 @@ import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
 import { billingApi, isDemoSessionToken, projectApi } from "../api/client";
-import { ChoreoGridLogo } from "../components/ChoreoGridLogo";
+import { ChoreoCoreLogo } from "../components/ChoreoCoreLogo";
 import { btnAccent, btnSecondary } from "../components/stageButtonStyles";
 import { panelCard, shell } from "../theme/choreoShell";
 
@@ -138,22 +138,7 @@ export function DashboardPage() {
               color: shell.text,
             }}
           >
-            <ChoreoGridLogo size={40} title="ChoreoGrid" />
-            <span>
-              <span
-                style={{
-                  display: "block",
-                  fontSize: "10px",
-                  fontWeight: 600,
-                  letterSpacing: "0.14em",
-                  color: shell.accent,
-                  textTransform: "uppercase",
-                }}
-              >
-                ChoreoGrid
-              </span>
-              <span style={{ fontSize: "16px", fontWeight: 700 }}>{t("dashboard.heroTitle")}</span>
-            </span>
+            <ChoreoCoreLogo height={36} title="ChoreoCore" />
           </Link>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
             <span style={{ fontSize: "12px", color: shell.textMuted }}>{me.user.email}</span>

@@ -20,6 +20,7 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
+import { ChoreoCoreLogo } from "../components/ChoreoGridLogo";
 import { StageBoard, type FloorTextPlaceSession } from "../components/StageBoard";
 import { StageDimensionFields } from "../components/StageDimensionFields";
 import {
@@ -69,7 +70,7 @@ import {
   SetPiecePickerModal,
   type SetPiecePickerSubmit,
 } from "../components/SetPiecePickerModal";
-import { ChoreoGridToolbar } from "../components/ChoreoGridToolbar";
+import { ChoreoCoreToolbar } from "../components/ChoreoCoreToolbar";
 import {
   EditorStageWorkbench,
   WorkbenchCuePager,
@@ -841,7 +842,7 @@ export function EditorPage() {
   const [stagePreviewDancers, setStagePreviewDancers] = useState<DancerSpot[] | null>(
     null
   );
-  /** ChoreoGrid: 編集対象のキュー（ステージ・プリセット・インスペクタの書き込み先） */
+  /** ChoreoCore: 編集対象のキュー（ステージ・プリセット・インスペクタの書き込み先） */
   const [selectedCueIds, setSelectedCueIds] = useState<string[]>([]);
   const selectedCueId =
     selectedCueIds.length === 0
@@ -2873,6 +2874,11 @@ export function EditorPage() {
             〉
           </span>
         </Link>
+        <ChoreoCoreLogo
+          height={32}
+          title="ChoreoCore"
+          style={{ flexShrink: 0, marginLeft: 4 }}
+        />
         <div style={{ flex: "1 1 auto", minWidth: 8 }} aria-hidden />
         <label
           style={{
@@ -3058,7 +3064,7 @@ export function EditorPage() {
               gridRow: 1,
             }}
           >
-            <ChoreoGridToolbar {...choreoToolbarSharedProps} />
+            <ChoreoCoreToolbar {...choreoToolbarSharedProps} />
           </div>
         ) : null}
         <section
@@ -3117,7 +3123,7 @@ export function EditorPage() {
                 minWidth: 0,
               }}
             >
-              <ChoreoGridToolbar embedInPanel {...choreoToolbarSharedProps} />
+              <ChoreoCoreToolbar embedInPanel {...choreoToolbarSharedProps} />
             </section>
           ) : null}
           {!workbenchInRightRail && !stageZenLayout ? (
