@@ -71,6 +71,9 @@ import {
 } from "../lib/dancerColorPalette";
 import { sliceMarkerBadgeForStorage } from "../lib/markerBadge";
 
+/** 範囲／複数選択枠の下の回転マーク：枠下辺（y1）からの距離（大きいほど離れる） */
+const GROUP_ROTATE_HANDLE_OFFSET_BELOW_PX = 32;
+
 /**
  * 先頭キュー用フォーメーションから印を消したあと、名簿紐付きなら名簿からも外す。
  * 他フォーメーションの印は残し、同じ crewMemberId のリンクだけ解除する（名簿の「削除」と同様）。
@@ -6448,7 +6451,7 @@ export function StageBoard({
                   style={{
                     position: "absolute",
                     left: `${(selectionBox.x0 + selectionBox.x1) / 2}%`,
-                    top: `calc(${selectionBox.y1}% + 12px)`,
+                    top: `calc(${selectionBox.y1}% + ${GROUP_ROTATE_HANDLE_OFFSET_BELOW_PX}px)`,
                     transform: "translateX(-50%)",
                     width: 36,
                     height: 36,
