@@ -79,15 +79,15 @@ export default defineConfig({
         lang: "ja",
         icons: [
           {
-            src: "/favicon.svg",
-            sizes: "any",
-            type: "image/svg+xml",
-            purpose: "any",
+            src: "/brand-logo.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any maskable",
           },
         ],
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,svg,woff2}"],
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         /** 大きめのチャンク（FFmpeg.wasm コア 等）もプリキャッシュ対象に含める */
         maximumFileSizeToCacheInBytes: 40 * 1024 * 1024,
         /** SPA ルート直アクセス時も index.html を返す */
