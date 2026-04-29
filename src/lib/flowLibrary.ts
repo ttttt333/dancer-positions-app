@@ -18,7 +18,11 @@ import {
 } from "./dancerSpacing";
 import { parseGapApproachRoute } from "./gapDancerInterpolation";
 import { clampStageGridAxisMm, parseAudienceEdge } from "./projectDefaults";
-import { deleteFlowLibraryAudio } from "./flowLibraryLocalAudio";
+import {
+  deleteFlowLibraryAudio,
+  getFlowLibraryAudio,
+  putFlowLibraryAudio,
+} from "./flowLibraryLocalAudio";
 
 /**
  * 「フローライブラリ」— 1 曲ぶんの **立ち位置の流れ**（フォーメーション群＋キュー順）を
@@ -126,6 +130,11 @@ export interface FlowLibraryMemento {
    * サーバ `audioAssetId` が無いプロジェクト向け。フロー JSON バックアップではキーだけが出る点に注意。
    */
   flowEmbeddedAudioKey?: string;
+  /**
+   * JSON バックアップ取り専用。`flowEmbeddedAudioKey` の内容を再現する（localStorage には持たない）。
+   */
+  flowEmbeddedAudioBase64?: string;
+  flowEmbeddedAudioMimeType?: string;
 }
 
 export interface FlowLibraryItem {
@@ -697,6 +706,14 @@ function normalizeMementoFromRaw(raw: unknown): FlowLibraryMemento | undefined {
       ...(typeof o.flowEmbeddedAudioKey === "string" && o.flowEmbeddedAudioKey.length > 0
         ? { flowEmbeddedAudioKey: o.flowEmbeddedAudioKey }
         : {}),
+      ...(typeof o.flowEmbeddedAudioBase64 === "string" && o.flowEmbeddedAudioBase64.length > 0
+        ? {
+            flowEmbeddedAudioBase64: o.flowEmbeddedAudioBase64,
+            ...(typeof o.flowEmbeddedAudioMimeType === "string" && o.flowEmbeddedAudioMimeType
+              ? { flowEmbeddedAudioMimeType: o.flowEmbeddedAudioMimeType }
+              : {}),
+          }
+        : {}),
     };
   } catch {
     return undefined;
@@ -887,10 +904,75 @@ class FlowLibraryQuotaError extends Error {
   }
 }
 
+function uint8ToBase64(bytes: Uint8Array): string {
+  let s = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    const end = Math.min(i + 0x8000, bytes.length);
+    for (let j = i; j < end; j++) {
+      s += String.fromCharCode(bytes[j]!);
+    }
+  }
+  return btoa(s);
+}
+
+function base64ToUint8Array(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const n = bin.length;
+  const out = new Uint8Array(n);
+  for (let i = 0; i < n; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+/**
+ * localStorage には Base64 を載せない（JSON 取り込み直後の一時データを落とす）
+ */
+function stripMementoForLocalStorage(
+  m: FlowLibraryMemento | undefined
+): FlowLibraryMemento | undefined {
+  if (!m) return m;
+  if (m.flowEmbeddedAudioBase64 == null && m.flowEmbeddedAudioMimeType == null) {
+    return m;
+  }
+  const { flowEmbeddedAudioBase64: _b, flowEmbeddedAudioMimeType: _t, ...rest } = m;
+  return rest;
+}
+
+function stripItemForLocalStorage(it: FlowLibraryItem): FlowLibraryItem {
+  const m = stripMementoForLocalStorage(it.memento);
+  if (m === it.memento) return it;
+  return { ...it, memento: m as FlowLibraryMemento };
+}
+
+async function rehydrateEmbeddedAudioFromJsonItems(
+  items: FlowLibraryItem[]
+): Promise<FlowLibraryItem[]> {
+  const out: FlowLibraryItem[] = [];
+  for (const it of items) {
+    const m0 = it.memento;
+    const b64 = m0?.flowEmbeddedAudioBase64;
+    if (typeof b64 === "string" && b64.length > 0) {
+      const mime = m0?.flowEmbeddedAudioMimeType || "application/octet-stream";
+      const bytes = base64ToUint8Array(b64);
+      const blob = new Blob([bytes], { type: mime });
+      const newKey = crypto.randomUUID();
+      await putFlowLibraryAudio(newKey, blob);
+      const m: FlowLibraryMemento = { ...m0 };
+      delete (m as Record<string, unknown>).flowEmbeddedAudioBase64;
+      delete (m as Record<string, unknown>).flowEmbeddedAudioMimeType;
+      m.flowEmbeddedAudioKey = newKey;
+      out.push({ ...it, memento: m });
+    } else {
+      out.push(it);
+    }
+  }
+  return out;
+}
+
 function writeAll(items: FlowLibraryItem[]): void {
   if (typeof localStorage === "undefined") return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    const stripped = items.map(stripItemForLocalStorage);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stripped));
     notifyChanged();
   } catch (e) {
     const name = (e as { name?: string } | null)?.name ?? "";
@@ -1241,7 +1323,7 @@ export function expandFlowToProject(
   return { formations, cues: cuesOut, activeFormationId, stageSettings };
 }
 
-/** バックアップ: フロー全件を JSON 文字列に */
+/** バックアップ: フロー全件を JSON 文字列に（音源は含まない。`exportFlowLibraryJsonAsync` を推奨） */
 export function exportFlowLibraryJson(): string {
   return JSON.stringify(
     { version: 1, items: listFlowLibraryItems() },
@@ -1250,13 +1332,45 @@ export function exportFlowLibraryJson(): string {
   );
 }
 
-/** 取り込み: JSON テキストから取り込み（重複は ID マージ・新しい方を採用） */
-export function importFlowLibraryJson(text: string): {
+/**
+ * バックアップ: フロー全件 + 各フローの同梱ローカル音源（IndexedDB）を Base64 で JSON に含める。
+ * 別端末・別ブラウザで取り込んでも音が再生できる。
+ */
+export async function exportFlowLibraryJsonAsync(): Promise<string> {
+  const items = listFlowLibraryItems();
+  const enriched = await Promise.all(
+    items.map(async (it) => {
+      const k = it.memento?.flowEmbeddedAudioKey;
+      if (!k) return it;
+      const blob = await getFlowLibraryAudio(k);
+      if (!blob || blob.size === 0) return it;
+      const ab = await blob.arrayBuffer();
+      const b64 = uint8ToBase64(new Uint8Array(ab));
+      return {
+        ...it,
+        memento: {
+          ...it.memento!,
+          flowEmbeddedAudioKey: k,
+          flowEmbeddedAudioBase64: b64,
+          flowEmbeddedAudioMimeType: blob.type || "audio/mpeg",
+        },
+      };
+    })
+  );
+  return JSON.stringify(
+    { version: 1, items: enriched, embeddedLocalAudio: true as const },
+    null,
+    2
+  );
+}
+
+/** 取り込み: JSON テキストから取り込み（`flowEmbeddedAudioBase64` がある場合は IndexedDB に復元） */
+export async function importFlowLibraryJsonAsync(text: string): Promise<{
   added: number;
   updated: number;
   skipped: number;
   message?: string;
-} {
+}> {
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -1274,9 +1388,18 @@ export function importFlowLibraryJson(text: string): {
       : Array.isArray(parsed)
         ? (parsed as unknown[])
         : [];
-  const valid: FlowLibraryItem[] = items
-    .filter(isValidItem)
-    .map(normalize);
+  let valid: FlowLibraryItem[] = items.filter(isValidItem).map(normalize);
+  try {
+    valid = await rehydrateEmbeddedAudioFromJsonItems(valid);
+  } catch (e) {
+    return {
+      added: 0,
+      updated: 0,
+      skipped: 0,
+      message:
+        e instanceof Error ? e.message : "同梱音源の復元中にエラーが発生しました。",
+    };
+  }
   const cur = safeParseAll();
   const byId = new Map(cur.map((x) => [x.id, x]));
   let added = 0;

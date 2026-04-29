@@ -14,8 +14,8 @@ import {
   type FlowLibraryItem,
   deleteFlowItem,
   expandFlowToProject,
-  exportFlowLibraryJson,
-  importFlowLibraryJson,
+  exportFlowLibraryJsonAsync,
+  importFlowLibraryJsonAsync,
   listFlowLibraryItems,
   overwriteFlowFromProject,
   renameFlowItem,
@@ -428,14 +428,29 @@ export function FlowLibraryDialog({
     [audioDurationSec, setProject, onClose, onRestoreWaveform]
   );
 
-  const doExportJson = useCallback(() => {
-    const text = exportFlowLibraryJson();
-    const blob = new Blob([text], { type: "application/json;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `choreogrid-flows-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+  const doExportJson = useCallback(async () => {
+    setBusy(true);
+    setFeedback(null);
+    try {
+      const text = await exportFlowLibraryJsonAsync();
+      const blob = new Blob([text], { type: "application/json;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `choreocore-flows-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      setFeedback({
+        kind: "info",
+        text: "JSON をダウンロードしました（同梱したローカル音源が含まれる場合があります）。",
+      });
+    } catch (e) {
+      setFeedback({
+        kind: "error",
+        text: e instanceof Error ? e.message : "エクスポートに失敗しました。",
+      });
+    } finally {
+      setBusy(false);
+    }
   }, []);
 
   const onPickFile: React.ChangeEventHandler<HTMLInputElement> = useCallback(
@@ -443,17 +458,32 @@ export function FlowLibraryDialog({
       const f = e.target.files?.[0];
       e.target.value = "";
       if (!f) return;
-      void f.text().then((text) => {
-        const r = importFlowLibraryJson(text);
-        if (r.message) {
-          setFeedback({ kind: "error", text: r.message });
-          return;
+      void f.text().then(async (text) => {
+        setBusy(true);
+        setFeedback(null);
+        try {
+          const r = await importFlowLibraryJsonAsync(text);
+          if (r.message) {
+            setFeedback({ kind: "error", text: r.message });
+            return;
+          }
+          setFeedback({
+            kind: "info",
+            text: `取り込み完了：追加 ${r.added}・更新 ${r.updated}・スキップ ${r.skipped}${
+              text.includes('"flowEmbeddedAudioBase64"')
+                ? "（同梱音源をこのブラウザに復元しました）"
+                : ""
+            }。`,
+          });
+          refresh();
+        } catch (e) {
+          setFeedback({
+            kind: "error",
+            text: e instanceof Error ? e.message : "取り込みに失敗しました。",
+          });
+        } finally {
+          setBusy(false);
         }
-        setFeedback({
-          kind: "info",
-          text: `取り込み完了：追加 ${r.added}・更新 ${r.updated}・スキップ ${r.skipped}`,
-        });
-        refresh();
       });
     },
     [refresh]
