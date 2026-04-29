@@ -2705,7 +2705,7 @@ export function EditorPage() {
       wideWorkbench={wideEditorLayout}
       compactTopDock={showTopWaveDock}
       cueListPortalTarget={showTopWaveDock ? cueListPortalEl : null}
-      onSave={saveStageToFormationBox}
+      onSave={() => setFlowLibraryOpen(true)}
     />
   );
 
