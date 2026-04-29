@@ -233,8 +233,14 @@ export const LAYOUT_PRESET_OPTIONS = [
   { id: "rows_3", label: "3列" },
   { id: "rows_4", label: "4列" },
   { id: "rows_5", label: "5列" },
-  /** ─ ここから補助的なバリエーション ─ */
+  /** ─ 列系 ─ */
   { id: "rows_6", label: "6列" },
+  { id: "rows_7", label: "7列" },
+  { id: "rows_8", label: "8列" },
+  { id: "stagger_3", label: "3段千鳥" },
+  { id: "offset_triple", label: "3列オフセット" },
+  { id: "two_rows_dense_back", label: "2列（前少・奥多）" },
+  /** ─ 段の列 ─ */
   { id: "front_stair_from_2", label: "段の列（手前2人）" },
   { id: "front_stair_from_3", label: "段の列（手前3人）" },
   { id: "front_stair_from_4", label: "段の列（手前4人）" },
@@ -245,35 +251,56 @@ export const LAYOUT_PRESET_OPTIONS = [
   { id: "front_stair_from_9", label: "段の列（手前9人）" },
   { id: "front_stair_from_10", label: "段の列（手前10人）" },
   { id: "front_stair_from_11", label: "段の列（手前11人）" },
+  /** ─ 直線・対角線 ─ */
   { id: "line_front", label: "横一列（客席寄り・手前）" },
   { id: "line_back", label: "横一列（奥）" },
-  { id: "arc", label: "円弧（客席向き）" },
-  { id: "arc_tight", label: "円弧（狭い）" },
-  { id: "vee", label: "V字" },
-  { id: "grid", label: "グリッド" },
-  { id: "diamond", label: "ひし形周り" },
-  { id: "circle", label: "円周均等" },
-  { id: "u_shape", label: "U字（客席向き）" },
+  { id: "line_vertical", label: "縦一列（センター）" },
   { id: "diagonal_se", label: "斜め（↘）" },
   { id: "diagonal_ne", label: "斜め（↗）" },
-  { id: "columns_4", label: "4列縦並び" },
-  { id: "wedge", label: "楔（手前先端）" },
-  { id: "block_lr", label: "左右ブロック" },
-  { id: "two_rows_dense_back", label: "2列（前少・奥多）" },
-  { id: "inverse_vee", label: "逆V字（奥に先端）" },
-  { id: "offset_triple", label: "3列オフセット" },
   { id: "stairs_diag", label: "階段状" },
-  /** 個性的・バリエーション */
+  { id: "zigzag", label: "ジグザグ" },
+  /** ─ グリッド・縦列 ─ */
+  { id: "grid", label: "グリッド" },
+  { id: "columns_4", label: "4列縦並び" },
+  { id: "columns_5", label: "5列縦並び" },
+  { id: "columns_6", label: "6列縦並び" },
+  /** ─ ピラミッド・V字系 ─ */
+  { id: "vee", label: "V字" },
+  { id: "inverse_vee", label: "逆V字（奥に先端）" },
+  { id: "wedge", label: "楔（手前先端）" },
+  { id: "fan_back", label: "扇状（奥を頂点）" },
+  { id: "hourglass", label: "砂時計（前後広・中狭）" },
+  { id: "bowtie", label: "蝶ネクタイ" },
+  { id: "arrow_back", label: "矢印（奥向き）" },
+  { id: "arrow_front", label: "矢印（手前向き）" },
+  /** ─ 弧・円形 ─ */
+  { id: "arc", label: "円弧（客席向き）" },
+  { id: "arc_tight", label: "円弧（狭い）" },
+  { id: "circle", label: "円周均等" },
+  { id: "hollow_ring", label: "周辺リング" },
+  { id: "double_ring", label: "二重リング" },
+  { id: "u_shape", label: "U字（客席向き）" },
+  { id: "double_arc", label: "二重弧（客席向き）" },
+  { id: "concentric", label: "同心グループ（中+外）" },
+  /** ─ グループ分け・3分割 ─ */
+  { id: "block_lr", label: "左右ブロック" },
+  { id: "block_3", label: "3ブロック（左・中・右）" },
+  { id: "block_3_depth", label: "3グループ（前・中・奥）" },
+  { id: "three_clusters", label: "3密集（前+左奥+右奥）" },
+  { id: "wing_spread", label: "翼形（中央+左右ウィング）" },
+  { id: "cross_split", label: "十字グループ" },
+  /** ─ 幾何形・枠形 ─ */
+  { id: "diamond", label: "ひし形周り" },
+  { id: "square_outline", label: "四角枠（周り）" },
+  { id: "cross", label: "十字形" },
+  { id: "x_shape", label: "X字形" },
+  /** ─ 個性的・アート系 ─ */
   { id: "scatter", label: "ランダム風（固定パターン）" },
   { id: "spiral", label: "螺旋" },
   { id: "wave", label: "波型ライン" },
   { id: "cluster_tight", label: "密集（センター）" },
   { id: "spread_loose", label: "広く分散" },
   { id: "asymmetric_l", label: "アシンメ L字" },
-  { id: "hollow_ring", label: "周辺リング" },
-  { id: "line_vertical", label: "縦一列（センター）" },
-  { id: "fan_back", label: "扇状（奥を頂点）" },
-  { id: "square_outline", label: "四角枠（周り）" },
 ] as const;
 
 export type LayoutPresetId = (typeof LAYOUT_PRESET_OPTIONS)[number]["id"];
@@ -931,6 +958,269 @@ export function dancersForLayoutPreset(
         const row = Math.floor(i / cols);
         const offset = col === 1 ? TARGET_STEP_Y / 2 : 0;
         pushSpot(out, i, xs[col]!, ys[row]! + offset);
+      }
+      break;
+    }
+    case "rows_7":
+    case "rows_8": {
+      const target = preset === "rows_7" ? 7 : 8;
+      const rowCounts = evenRowCounts(n, target);
+      const nr = rowCounts.length;
+      let idx = 0;
+      for (let r = 0; r < nr; r++) {
+        const cnt = rowCounts[r]!;
+        const y = yPctPyramidRow(nr - 1 - r, nr);
+        const xs = evenSpacingPositions(cnt, 50, TARGET_STEP_X, 5, 95);
+        for (let j = 0; j < cnt; j++) pushSpot(out, idx++, xs[j]!, y);
+      }
+      break;
+    }
+    case "stagger_3": {
+      /** 3段千鳥: 奥・中・手前の3段をそれぞれ半ステップずらしながら */
+      const rows = 3;
+      const per = Math.ceil(n / rows);
+      const xs = evenSpacingPositions(per, 50, TARGET_STEP_X, 10, 90);
+      const ys = [25, 48, 71];
+      for (let i = 0; i < n; i++) {
+        const r = i % rows;
+        const col = Math.floor(i / rows);
+        const offset = r === 1 ? TARGET_STEP_X / 2 : r === 2 ? TARGET_STEP_X : 0;
+        pushSpot(out, i, (xs[col] ?? 50) + offset, ys[r]!);
+      }
+      break;
+    }
+    case "columns_5":
+    case "columns_6": {
+      const cols = preset === "columns_5" ? 5 : 6;
+      const actualCols = Math.min(cols, Math.max(1, n));
+      const per = Math.ceil(n / actualCols);
+      const xs = evenSpacingPositions(actualCols, 50, TARGET_STEP_X, 10, 90);
+      const ys = evenSpacingPositions(per, 48, TARGET_STEP_Y, 16, 80);
+      for (let i = 0; i < n; i++) {
+        const c = i % actualCols;
+        const r = Math.floor(i / actualCols);
+        pushSpot(out, i, xs[c]!, ys[r]!);
+      }
+      break;
+    }
+    case "zigzag": {
+      /** ジグザグ: 横一列を前後に交互にずらしながら配置 */
+      for (let i = 0; i < n; i++) {
+        const u = n === 1 ? 0.5 : i / (n - 1);
+        const x = 14 + u * 72;
+        const y = 48 + (i % 2 === 0 ? -12 : 12);
+        pushSpot(out, i, x, y);
+      }
+      break;
+    }
+    case "block_3": {
+      /** 3ブロック横（左・中・右）: 1/3ずつ3つのグループに縦に積む */
+      const sizes = [Math.ceil(n / 3), Math.ceil((n - Math.ceil(n / 3)) / 2), n - Math.ceil(n / 3) - Math.ceil((n - Math.ceil(n / 3)) / 2)];
+      const centers = [22, 50, 78];
+      let idx = 0;
+      for (let g = 0; g < 3; g++) {
+        const cnt = Math.max(0, sizes[g]!);
+        const rows = Math.ceil(cnt / 2);
+        const ys = evenSpacingPositions(Math.max(1, rows), 48, TARGET_STEP_Y * 0.9, 20, 76);
+        for (let k = 0; k < cnt; k++) {
+          const col = k % 2;
+          const row = Math.floor(k / 2);
+          const xOff = (col === 0 ? -TARGET_STEP_X / 2 : TARGET_STEP_X / 2);
+          pushSpot(out, idx++, centers[g]! + xOff, ys[row] ?? 48);
+        }
+      }
+      break;
+    }
+    case "block_3_depth": {
+      /** 3グループ（前・中・奥）: 深さ方向に3分割、各グループは横一列 */
+      const sizeF = Math.ceil(n / 3);
+      const sizeM = Math.ceil((n - sizeF) / 2);
+      const sizeB = n - sizeF - sizeM;
+      const groups = [
+        { cnt: Math.max(0, sizeF), y: 72 },
+        { cnt: Math.max(0, sizeM), y: 48 },
+        { cnt: Math.max(0, sizeB), y: 24 },
+      ];
+      let idx = 0;
+      for (const g of groups) {
+        const xs = evenSpacingPositions(Math.max(1, g.cnt), 50, TARGET_STEP_X, 10, 90);
+        for (let k = 0; k < g.cnt; k++) pushSpot(out, idx++, xs[k]!, g.y);
+      }
+      break;
+    }
+    case "three_clusters": {
+      /** 3密集グループ（前中央・左奥・右奥）: 三角形に配置した3つの密集体 */
+      const clusterCenters: [number, number][] = [[50, 74], [22, 24], [78, 24]];
+      for (let i = 0; i < n; i++) {
+        const g = i % 3;
+        const k = Math.floor(i / 3);
+        const [cx, cy] = clusterCenters[g]!;
+        /** 各クラスターは螺旋状に広がる */
+        const ang = k * 2.4;
+        const r = k === 0 ? 0 : 3 + k * 2.5;
+        pushSpot(out, i, cx + r * Math.cos(ang), cy + r * Math.sin(ang) * 0.7);
+      }
+      break;
+    }
+    case "wing_spread": {
+      /** 翼形（センター縦列 + 左右ウィング） */
+      const centerN = Math.max(1, Math.round(n * 0.34));
+      const wingN = n - centerN;
+      const leftN = Math.ceil(wingN / 2);
+      const rightN = wingN - leftN;
+      let idx = 0;
+      /** センター縦列 */
+      const ysC = evenSpacingPositions(centerN, 48, TARGET_STEP_Y, 20, 76);
+      for (let k = 0; k < centerN; k++) pushSpot(out, idx++, 50, ysC[k]!);
+      /** 左ウィング: 斜め上に広がる */
+      for (let k = 0; k < leftN; k++) {
+        const t = leftN <= 1 ? 0.5 : k / (leftN - 1);
+        pushSpot(out, idx++, 22 + t * 18, 44 + t * 22);
+      }
+      /** 右ウィング */
+      for (let k = 0; k < rightN; k++) {
+        const t = rightN <= 1 ? 0.5 : k / (rightN - 1);
+        pushSpot(out, idx++, 78 - t * 18, 44 + t * 22);
+      }
+      break;
+    }
+    case "cross_split": {
+      /** 十字グループ: 前・奥・左・右・中央の5方向グループ */
+      const perGroup = Math.max(1, Math.floor(n / 5));
+      const remainder = n - perGroup * 5;
+      const groupSizes = [perGroup + (remainder > 0 ? 1 : 0), perGroup + (remainder > 1 ? 1 : 0), perGroup + (remainder > 2 ? 1 : 0), perGroup + (remainder > 3 ? 1 : 0), n - (perGroup + (remainder > 0 ? 1 : 0)) - (perGroup + (remainder > 1 ? 1 : 0)) - (perGroup + (remainder > 2 ? 1 : 0)) - (perGroup + (remainder > 3 ? 1 : 0))];
+      const groupCenters: [number, number][] = [[50, 74], [50, 24], [18, 48], [82, 48], [50, 48]];
+      let idx = 0;
+      for (let g = 0; g < 5; g++) {
+        const cnt = Math.max(0, groupSizes[g]!);
+        const [cx, cy] = groupCenters[g]!;
+        const ys = evenSpacingPositions(Math.max(1, cnt), cy, TARGET_STEP_Y * 0.7, cy - 10, cy + 10);
+        for (let k = 0; k < cnt; k++) pushSpot(out, idx++, cx, ys[k] ?? cy);
+      }
+      break;
+    }
+    case "double_arc": {
+      /** 二重弧（内側・外側）: 前半は内側弧、後半は外側弧 */
+      const innerN = Math.ceil(n / 2);
+      const outerN = n - innerN;
+      for (let i = 0; i < innerN; i++) {
+        const u = innerN === 1 ? 0.5 : i / (innerN - 1);
+        const a = Math.PI * 0.25 + u * Math.PI * 0.5;
+        pushSpot(out, i, 50 + 18 * Math.cos(a), 60 - 18 * Math.sin(a));
+      }
+      for (let i = 0; i < outerN; i++) {
+        const u = outerN === 1 ? 0.5 : i / (outerN - 1);
+        const a = Math.PI * 0.15 + u * Math.PI * 0.7;
+        pushSpot(out, innerN + i, 50 + 32 * Math.cos(a), 62 - 32 * Math.sin(a));
+      }
+      break;
+    }
+    case "double_ring": {
+      /** 二重リング（内外2円）: 前半は内側、後半は外側 */
+      const innerN = Math.ceil(n / 2);
+      const outerN = n - innerN;
+      for (let i = 0; i < innerN; i++) {
+        const ang = (i / Math.max(innerN, 1)) * Math.PI * 2 - Math.PI / 2;
+        pushSpot(out, i, 50 + 16 * Math.cos(ang), 50 + 13 * Math.sin(ang));
+      }
+      for (let i = 0; i < outerN; i++) {
+        const ang = (i / Math.max(outerN, 1)) * Math.PI * 2 - Math.PI / 2;
+        pushSpot(out, innerN + i, 50 + 30 * Math.cos(ang), 50 + 24 * Math.sin(ang));
+      }
+      break;
+    }
+    case "concentric": {
+      /** 同心グループ（中央密集 + 外周リング） */
+      const coreN = Math.max(1, Math.round(n * 0.3));
+      const ringN = n - coreN;
+      /** 中央は螺旋状に密集 */
+      for (let i = 0; i < coreN; i++) {
+        const ang = i * 2.4;
+        const r = i === 0 ? 0 : 4 + i * 2.2;
+        pushSpot(out, i, 50 + r * Math.cos(ang), 50 + r * Math.sin(ang) * 0.72);
+      }
+      /** 外周はリング */
+      for (let i = 0; i < ringN; i++) {
+        const ang = (i / Math.max(ringN, 1)) * Math.PI * 2 - Math.PI / 2;
+        pushSpot(out, coreN + i, 50 + 30 * Math.cos(ang), 50 + 23 * Math.sin(ang));
+      }
+      break;
+    }
+    case "cross": {
+      /** 十字形（横バー + 縦バー） */
+      const hN = Math.ceil(n / 2);
+      const vN = n - hN;
+      const xs = evenSpacingPositions(hN, 50, TARGET_STEP_X, 10, 90);
+      for (let i = 0; i < hN; i++) pushSpot(out, i, xs[i]!, 50);
+      const ys = evenSpacingPositions(vN, 48, TARGET_STEP_Y * 0.9, 20, 76);
+      for (let i = 0; i < vN; i++) pushSpot(out, hN + i, 50, ys[i]!);
+      break;
+    }
+    case "x_shape": {
+      /** X字形（右下がり対角線 + 右上がり対角線） */
+      const lineA = Math.ceil(n / 2);
+      const lineB = n - lineA;
+      for (let i = 0; i < lineA; i++) {
+        const u = lineA === 1 ? 0.5 : i / (lineA - 1);
+        pushSpot(out, i, 20 + u * 60, 25 + u * 50);
+      }
+      for (let i = 0; i < lineB; i++) {
+        const u = lineB === 1 ? 0.5 : i / (lineB - 1);
+        pushSpot(out, lineA + i, 20 + u * 60, 75 - u * 50);
+      }
+      break;
+    }
+    case "hourglass": {
+      /** 砂時計（前後は広く・中央は狭い）: 3行で前行多め・中央少なめ・奥行多め */
+      const frontN = Math.ceil(n * 0.4);
+      const midN = Math.max(1, Math.floor(n * 0.2));
+      const backN = n - frontN - midN;
+      const rows = [
+        { cnt: frontN, y: 72 },
+        { cnt: midN, y: 48 },
+        { cnt: Math.max(0, backN), y: 24 },
+      ];
+      let idx = 0;
+      for (const row of rows) {
+        const xs = evenSpacingPositions(Math.max(1, row.cnt), 50, TARGET_STEP_X, 10, 90);
+        for (let k = 0; k < row.cnt; k++) pushSpot(out, idx++, xs[k]!, row.y);
+      }
+      break;
+    }
+    case "bowtie": {
+      /** 蝶ネクタイ（2つの三角形が中央で接触: 左三角手前 + 右三角手前） */
+      const leftN = Math.ceil(n / 2);
+      const rightN = n - leftN;
+      for (let i = 0; i < leftN; i++) {
+        const u = leftN === 1 ? 0.5 : i / (leftN - 1);
+        /** 左三角: 先端が中央（50, 48）→ 左端に広がる */
+        pushSpot(out, i, 50 - u * 28, 48 - u * 24 + (i % 2) * 8);
+      }
+      for (let i = 0; i < rightN; i++) {
+        const u = rightN === 1 ? 0.5 : i / (rightN - 1);
+        pushSpot(out, leftN + i, 50 + u * 28, 48 - u * 24 + (i % 2) * 8);
+      }
+      break;
+    }
+    case "arrow_back": {
+      /** 矢印（奥向き）: 先端が奥・手前に広がる */
+      if (n === 1) { pushSpot(out, 0, 50, 50); break; }
+      pushSpot(out, 0, 50, 18);
+      const rest = n - 1;
+      for (let i = 0; i < rest; i++) {
+        const u = rest === 1 ? 0.5 : i / (rest - 1);
+        pushSpot(out, i + 1, 18 + u * 64, 38 + Math.abs(u - 0.5) * 36);
+      }
+      break;
+    }
+    case "arrow_front": {
+      /** 矢印（手前向き）: 先端が手前・奥に広がる */
+      if (n === 1) { pushSpot(out, 0, 50, 50); break; }
+      pushSpot(out, 0, 50, 80);
+      const rest = n - 1;
+      for (let i = 0; i < rest; i++) {
+        const u = rest === 1 ? 0.5 : i / (rest - 1);
+        pushSpot(out, i + 1, 18 + u * 64, 60 - Math.abs(u - 0.5) * 36);
       }
       break;
     }
