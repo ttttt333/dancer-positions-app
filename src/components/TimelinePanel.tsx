@@ -1248,6 +1248,10 @@ function useWaveCanvasPointerDrag({
         const t0 = timeFromClientX(e.clientX);
         audioEl.currentTime = t0;
         setCurrentTime(Math.round(t0 * 1000) / 1000);
+        /** スクラブ中は常に再生して音を出す */
+        if (audioEl.paused) {
+          audioEl.play().catch(() => {});
+        }
         const capturePid = e.pointerId;
         c.setPointerCapture(capturePid);
         const onPhMove = (ev: PointerEvent) => {
@@ -1275,6 +1279,7 @@ function useWaveCanvasPointerDrag({
             const tEnd = timeFromClientX(ev.clientX);
             au.currentTime = tEnd;
             setCurrentTime(Math.round(tEnd * 1000) / 1000);
+            /** ドラッグ前に止まっていたら再生も止める */
             if (!drag.wasPlaying) au.pause();
           }
           redraw();
