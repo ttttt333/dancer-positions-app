@@ -541,13 +541,17 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
           <button
             type="button"
             className="editor-right-tool-sq"
-            style={btnSecondary}
-            disabled={project.viewMode === "view"}
-            title="選択中のフォーメーションにダンサーを1人追加（中央付近）"
-            onClick={() => addDancerFromStageToolbar()}
+            style={{
+              ...btnSecondary,
+              borderColor: "#14532d",
+              color: "#dcfce7",
+            }}
+            disabled={project.viewMode === "view" || !canSaveSpotsR}
+            title="形の箱に今の立ち位置を保存"
+            onClick={() => saveStageToFormationBox()}
           >
-            <span>＋</span>
-            <span>ダンサー</span>
+            <span>立ち位置</span>
+            <span>保存</span>
           </button>
         </div>
 
@@ -568,17 +572,13 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
           <button
             type="button"
             className="editor-right-tool-sq"
-            style={{
-              ...btnSecondary,
-              borderColor: "#14532d",
-              color: "#dcfce7",
-            }}
-            disabled={project.viewMode === "view" || !canSaveSpotsR}
-            title="形の箱に今の立ち位置を保存"
-            onClick={() => saveStageToFormationBox()}
+            style={btnSecondary}
+            disabled={project.viewMode === "view"}
+            title="選択中のフォーメーションにメンバーを1人追加（中央付近）"
+            onClick={() => addDancerFromStageToolbar()}
           >
-            <span>立ち位置</span>
-            <span>保存</span>
+            <span>＋</span>
+            <span>メンバー</span>
           </button>
           <button
             type="button"
@@ -995,10 +995,10 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
       type="button"
       style={btnSecondary}
       disabled={project.viewMode === "view"}
-      title="選択中のフォーメーションにダンサーを1人追加（中央付近）"
+      title="選択中のフォーメーションにメンバーを1人追加（中央付近）"
       onClick={() => addDancerFromStageToolbar()}
     >
-      ＋ダンサー
+      ＋メンバー
     </button>
     <button
       type="button"
