@@ -265,10 +265,10 @@ function waveExtentXToTime(
 /** 波形キャンバス表示高さ（CSS px）。下枠ドラッグで変更 */
 const WAVE_CANVAS_H_MIN = 24;
 const WAVE_CANVAS_H_MAX = 280;
-/** 既定は従来の約半分（上部ドック内で波形が収まりやすい） */
-const WAVE_CANVAS_H_DEFAULT = 36;
-/** 上部ドック時はさらにコンパクト（約 5mm 分、既定波形を低くしてステージの縦を確保） */
-const WAVE_CANVAS_H_COMPACT_DOCK = 25;
+/** 既定を大きめに（ユーザー要望） */
+const WAVE_CANVAS_H_DEFAULT = 80;
+/** 上部ドック時は少し控えめ */
+const WAVE_CANVAS_H_COMPACT_DOCK = 60;
 
 /** 再生中の目盛り・波形ビュー窓の微振れを抑える（約 33ms グリッド） */
 function quantizePlayheadForWaveView(sec: number): number {
