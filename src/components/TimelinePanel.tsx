@@ -2431,6 +2431,18 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       return [...p];
     }, []);
 
+    const restoreWavePeaks = useCallback(
+      (peaks: number[], durationSec?: number) => {
+        if (peaks.length > 0) {
+          setPeaks([...peaks]);
+        }
+        if (durationSec != null && Number.isFinite(durationSec) && durationSec > 0) {
+          setDuration(durationSec);
+        }
+      },
+      []
+    );
+
     const getCurrentAudioBlobForFlowLibrary = useCallback(async (): Promise<Blob | null> => {
       const a = audioRef.current;
       if (!a?.src) return null;
