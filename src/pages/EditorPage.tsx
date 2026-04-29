@@ -45,10 +45,7 @@ import { modDancerColorIndex } from "../lib/dancerColorPalette";
 import { sortCuesByStart } from "../lib/cueInterval";
 import { dancersAtTime } from "../lib/interpolatePlayback";
 import { floorMarkupAtTime, setPiecesAtTime } from "../lib/interpolateSetPieces";
-import {
-  listFormationBoxItemsByCount,
-  saveFormationToBox,
-} from "../lib/formationBox";
+import { FormationBoxManagerDialog } from "../components/FormationBoxManagerDialog";
 import {
   listStagePresets,
   saveStagePreset,
@@ -850,6 +847,8 @@ export function EditorPage() {
       : selectedCueIds[selectedCueIds.length - 1]!;
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [flowLibraryOpen, setFlowLibraryOpen] = useState(false);
+  /** 立ち位置保存ボタンから開く管理ダイアログ */
+  const [formationBoxManagerOpen, setFormationBoxManagerOpen] = useState(false);
   /** キュー追加 ＋ 形選択 ＋ 形の箱保存を 1 画面に統合したダイアログ */
   const [addCueDialogOpen, setAddCueDialogOpen] = useState(false);
   /**
@@ -2119,30 +2118,12 @@ export function EditorPage() {
   }, [project, selectedCue]);
 
   /**
-   * 現在ステージで見ている立ち位置をそのまま「形の箱」に保存する。
-   * 再生中や何もないステージでは無視される。
+   * 「立ち位置保存」ボタン押下 → 管理ダイアログを開く。
    */
   const saveStageToFormationBox = useCallback(() => {
     if (!project || project.viewMode === "view") return;
-    const fid =
-      selectedCue?.formationId ??
-      project.formations.find((x) => x.id === project.activeFormationId)?.id ??
-      project.formations[0]?.id;
-    if (!fid) return;
-    const f = project.formations.find((x) => x.id === fid);
-    if (!f || f.dancers.length === 0) {
-      window.alert("保存する立ち位置がありません。");
-      return;
-    }
-    const already = listFormationBoxItemsByCount(f.dancers.length).length;
-    const suggested = `${f.dancers.length}人の形 ${already + 1}`;
-    const name = window.prompt("形の箱に保存する名前（あとで変更可）", suggested);
-    if (name === null) return;
-    const result = saveFormationToBox(name.trim() || suggested, f.dancers);
-    if (!result.ok) {
-      window.alert(result.message);
-    }
-  }, [project, selectedCue]);
+    setFormationBoxManagerOpen(true);
+  }, [project]);
 
   const confirmAddSetPiece = useCallback(
     (opts: SetPiecePickerSubmit) => {
@@ -2287,6 +2268,25 @@ export function EditorPage() {
         />
       ) : null,
     [project, flowLibraryOpen, setProjectSafe, duration]
+  );
+
+  /** 立ち位置管理ダイアログに渡す現在のダンサー */
+  const formationBoxCurrentDancers = useMemo((): DancerSpot[] => {
+    if (!project) return [];
+    const fid =
+      selectedCue?.formationId ??
+      project.formations.find((x) => x.id === project.activeFormationId)?.id ??
+      project.formations[0]?.id;
+    if (!fid) return [];
+    return project.formations.find((x) => x.id === fid)?.dancers ?? [];
+  }, [project, selectedCue]);
+
+  const formationBoxManagerDialogEl = (
+    <FormationBoxManagerDialog
+      open={formationBoxManagerOpen}
+      onClose={() => setFormationBoxManagerOpen(false)}
+      currentDancers={formationBoxCurrentDancers}
+    />
   );
 
   const addCueDialogEl = useMemo(
@@ -4455,6 +4455,7 @@ export function EditorPage() {
       {exportDialogEl}
       {flowLibraryDialogEl}
       {addCueDialogEl}
+      {formationBoxManagerDialogEl}
 
       {rosterImportSheetEl}
 
