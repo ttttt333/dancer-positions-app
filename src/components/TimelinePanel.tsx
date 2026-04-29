@@ -223,6 +223,8 @@ type Props = {
   compactTopDock?: boolean;
   /** `compactTopDock` の時、キュー一覧を描画するポータル先 DOM 要素 */
   cueListPortalTarget?: HTMLElement | null;
+  /** 上部ツールバーの「保存」ボタン押下コールバック（立ち位置保存ダイアログを開く） */
+  onSave?: () => void;
 };
 
 function clamp(n: number, lo: number, hi: number) {
@@ -1583,6 +1585,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       onWaveTimelineDockTopChange,
       compactTopDock = false,
       cueListPortalTarget = null,
+      onSave,
     },
     ref
   ) {
@@ -3593,6 +3596,18 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                   >
                     先頭
                   </button>
+                  {onSave && (
+                    <button
+                      type="button"
+                      style={timelineToolbarBtn}
+                      disabled={project.viewMode === "view"}
+                      title="立ち位置をライブラリに保存"
+                      aria-label="保存"
+                      onClick={onSave}
+                    >
+                      保存
+                    </button>
+                  )}
                   <button
                     type="button"
                     style={timelineToolbarBtn}
@@ -3692,6 +3707,24 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               >
                 先頭
               </button>
+              {onSave && (
+                <button
+                  type="button"
+                  style={{
+                    ...timelineToolbarBtn,
+                    padding: `${tlPx(4)} ${tlPx(10)}`,
+                    minHeight: tlPx(28),
+                    fontWeight: 600,
+                    flexShrink: 0,
+                  }}
+                  disabled={project.viewMode === "view"}
+                  title="立ち位置をライブラリに保存"
+                  aria-label="保存"
+                  onClick={onSave}
+                >
+                  保存
+                </button>
+              )}
               <PlaybackClockReadout
                 audioRef={audioRef}
                 isPlaying={isPlaying}
