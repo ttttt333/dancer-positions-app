@@ -18,6 +18,7 @@ import {
 } from "./dancerSpacing";
 import { parseGapApproachRoute } from "./gapDancerInterpolation";
 import { clampStageGridAxisMm, parseAudienceEdge } from "./projectDefaults";
+import { deleteFlowLibraryAudio } from "./flowLibraryLocalAudio";
 
 /**
  * 「フローライブラリ」— 1 曲ぶんの **立ち位置の流れ**（フォーメーション群＋キュー順）を
@@ -120,6 +121,11 @@ export interface FlowLibraryMemento {
   waveformAmplitudeScale?: number;
   /** タイムライン描画用の正規化ピーク（長さは通常 400） */
   wavePeaks?: number[];
+  /**
+   * IndexedDB（`flowLibraryLocalAudio`）に保存したローカル音源のキー。
+   * サーバ `audioAssetId` が無いプロジェクト向け。フロー JSON バックアップではキーだけが出る点に注意。
+   */
+  flowEmbeddedAudioKey?: string;
 }
 
 export interface FlowLibraryItem {
@@ -265,6 +271,8 @@ export type FlowSaveOpts = {
   wavePeaks?: number[] | null;
   /** 保存時の楽曲尺（秒）。フロー復元時の波形・等間隔配置に使用 */
   audioDurationSec?: number | null;
+  /** ローカル取り込み音源を IndexedDB に同梱したときのキー */
+  flowEmbeddedAudioKey?: string | null;
 };
 
 function buildMementoFromProject(
@@ -292,6 +300,9 @@ function buildMementoFromProject(
     trimEndSec: project.trimEndSec,
     waveformAmplitudeScale: project.waveformAmplitudeScale,
     wavePeaks: trimWavePeaks(opts.wavePeaks ?? undefined),
+    ...(opts.flowEmbeddedAudioKey
+      ? { flowEmbeddedAudioKey: opts.flowEmbeddedAudioKey }
+      : {}),
   };
 }
 
@@ -683,6 +694,9 @@ function normalizeMementoFromRaw(raw: unknown): FlowLibraryMemento | undefined {
           ? o.waveformAmplitudeScale
           : undefined,
       wavePeaks: trimWavePeaks(o.wavePeaks as number[] | undefined),
+      ...(typeof o.flowEmbeddedAudioKey === "string" && o.flowEmbeddedAudioKey.length > 0
+        ? { flowEmbeddedAudioKey: o.flowEmbeddedAudioKey }
+        : {}),
     };
   } catch {
     return undefined;
@@ -1043,6 +1057,11 @@ export function overwriteFlowFromProject(
   }
   const fresh = buildFlowLibraryItemFromProject(target.name, project, opts);
   if (!fresh.ok) return fresh;
+  const oldEmb = target.memento?.flowEmbeddedAudioKey;
+  const newEmb = fresh.item.memento?.flowEmbeddedAudioKey;
+  if (oldEmb && oldEmb !== newEmb) {
+    void deleteFlowLibraryAudio(oldEmb);
+  }
   const next = cur.map((x) =>
     x.id === id
       ? {
@@ -1088,9 +1107,17 @@ export function renameFlowItem(id: string, name: string): boolean {
 
 export function deleteFlowItem(id: string): void {
   try {
-    writeAll(safeParseAll().filter((x) => x.id !== id));
+    const cur = safeParseAll();
+    const target = cur.find((x) => x.id === id);
+    const oldKey = target?.memento?.flowEmbeddedAudioKey;
+    if (oldKey) void deleteFlowLibraryAudio(oldKey);
+    writeAll(cur.filter((x) => x.id !== id));
   } catch {
-    /** 削除はサイズ縮小のみなので基本失敗しない */
+    try {
+      writeAll(safeParseAll().filter((x) => x.id !== id));
+    } catch {
+      /** 一部環境で失敗しても致命ではない */
+    }
   }
 }
 

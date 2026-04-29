@@ -28,6 +28,7 @@ import {
   saveFormationToBox,
 } from "../lib/formationBox";
 import { fetchAuthorizedAudioBlobUrl, getToken, audioApiUpload } from "../api/client";
+import { getFlowLibraryAudio } from "../lib/flowLibraryLocalAudio";
 import {
   formatMmSs,
   formatMmSsClock,
@@ -181,6 +182,10 @@ export type TimelinePanelHandle = {
   getWavePeaksSnapshot: () => number[] | null;
   /** フロー読み込み後に保存済みピークを即反映（decode を待たない） */
   restoreWavePeaks: (peaks: number[], durationSec?: number) => void;
+  /**
+   * フロー保存: 現在 `<audio>` の音源を Blob 化（未設定・取得失敗時は null）
+   */
+  getCurrentAudioBlobForFlowLibrary: () => Promise<Blob | null>;
 };
 
 type Props = {
@@ -2031,10 +2036,46 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       };
     }, [project.audioAssetId, decodePeaksFromBuffer]);
 
+    useEffect(() => {
+      if (project.audioAssetId != null) return;
+      const flowKey = project.flowLocalAudioKey;
+      if (typeof flowKey !== "string" || flowKey.length === 0) return;
+      let cancelled = false;
+      (async () => {
+        try {
+          const blob = await getFlowLibraryAudio(flowKey);
+          if (cancelled || !blob || blob.size === 0) return;
+          const url = URL.createObjectURL(blob);
+          if (blobUrlRef.current) {
+            const cur = blobUrlRef.current;
+            if (cur === persistedServerAudioBlobUrl) {
+              revokePersistedServerAudioBlob();
+            } else {
+              URL.revokeObjectURL(cur);
+            }
+          }
+          blobUrlRef.current = url;
+          const a = audioRef.current;
+          if (a) {
+            a.src = url;
+            a.load();
+          }
+          const buf = await blob.arrayBuffer();
+          if (!cancelled) await decodePeaksFromBuffer(buf);
+        } catch (e) {
+          console.error(e);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [project.audioAssetId, project.flowLocalAudioKey, decodePeaksFromBuffer]);
+
     const onPickAudio = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const f = e.target.files?.[0];
       e.target.value = "";
       if (!f) return;
+      setProject((p) => ({ ...p, flowLocalAudioKey: null }));
       const isVideo = f.type.startsWith("video/");
       if (isVideo) {
         const ok = window.confirm(
@@ -2048,13 +2089,13 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           fd.append("file", f);
           fd.append("projectId", String(serverProjectId));
           const { id } = await audioApiUpload(fd);
-          setProject((p) => ({ ...p, audioAssetId: id }));
+          setProject((p) => ({ ...p, audioAssetId: id, flowLocalAudioKey: null }));
         } catch (err) {
           alert(err instanceof Error ? err.message : "サーバへのアップロードに失敗しました");
         }
       }
       if (loggedIn && serverProjectId != null && isVideo) {
-        setProject((p) => ({ ...p, audioAssetId: null }));
+        setProject((p) => ({ ...p, audioAssetId: null, flowLocalAudioKey: null }));
       }
       let buf: ArrayBuffer;
       try {
@@ -2390,17 +2431,17 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       return [...p];
     }, []);
 
-    const restoreWavePeaks = useCallback(
-      (peaks: number[], durationSec?: number) => {
-        if (peaks.length > 0) {
-          setPeaks([...peaks]);
-        }
-        if (durationSec != null && Number.isFinite(durationSec) && durationSec > 0) {
-          setDuration(durationSec);
-        }
-      },
-      []
-    );
+    const getCurrentAudioBlobForFlowLibrary = useCallback(async (): Promise<Blob | null> => {
+      const a = audioRef.current;
+      if (!a?.src) return null;
+      try {
+        const res = await fetch(a.src);
+        if (!res.ok) return null;
+        return await res.blob();
+      } catch {
+        return null;
+      }
+    }, []);
 
     useImperativeHandle(
       ref,
@@ -2411,6 +2452,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         openAudioImport,
         getWavePeaksSnapshot,
         restoreWavePeaks,
+        getCurrentAudioBlobForFlowLibrary,
       }),
       [
         togglePlay,
@@ -2419,6 +2461,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         openAudioImport,
         getWavePeaksSnapshot,
         restoreWavePeaks,
+        getCurrentAudioBlobForFlowLibrary,
       ]
     );
 

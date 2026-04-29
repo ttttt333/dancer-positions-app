@@ -81,6 +81,7 @@ export function createEmptyProject(): ChoreographyProjectJson {
     viewMode: "edit",
     crews: [],
     audioAssetId: null,
+    flowLocalAudioKey: null,
     waveformAmplitudeScale: 1,
   };
 }

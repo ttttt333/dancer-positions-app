@@ -21,6 +21,7 @@ import {
   renameFlowItem,
   saveFlowFromProject,
 } from "../lib/flowLibrary";
+import { deleteFlowLibraryAudio, putFlowLibraryAudio } from "../lib/flowLibraryLocalAudio";
 import { btnSecondary } from "./stageButtonStyles";
 import { EditorSideSheet } from "./EditorSideSheet";
 
@@ -37,6 +38,11 @@ type Props = {
   getWavePeaks?: () => number[] | null;
   /** フロー読み込み後に波形を即復元（秒尺つき） */
   onRestoreWaveform?: (peaks: number[], durationSec?: number) => void;
+  /**
+   * フロー保存用: 現在 `<audio>` に出ている音源（blob URL 等）を取得。
+   * サーバ音源のみのときは呼び出し元で null を返してよい（memento の audioAssetId だけで足りる）
+   */
+  getAudioBlobForFlowLibrary?: () => Promise<Blob | null>;
 };
 
 const card: CSSProperties = {
@@ -149,6 +155,7 @@ export function FlowLibraryDialog({
   audioDurationSec,
   getWavePeaks,
   onRestoreWaveform,
+  getAudioBlobForFlowLibrary,
 }: Props) {
   const [items, setItems] = useState<FlowLibraryItem[]>([]);
   const [name, setName] = useState("");
@@ -195,48 +202,88 @@ export function FlowLibraryDialog({
     return active?.dancers.length ?? 0;
   }, [project.formations, project.activeFormationId]);
 
-  const doSave = useCallback(() => {
+  const doSave = useCallback(async () => {
     const trimmed = name.trim();
     if (!trimmed) {
       setFeedback({ kind: "error", text: "名前を入力してください。" });
       return;
     }
     setBusy(true);
-    const r = saveFlowFromProject(trimmed, project, {
-      includeTiming: true,
-      wavePeaks: getWavePeaks?.() ?? null,
-      audioDurationSec: audioDurationSec > 0 ? audioDurationSec : null,
-    });
-    setBusy(false);
-    if (!r.ok) {
-      setFeedback({ kind: "error", text: r.message });
-      return;
-    }
-    setFeedback({
-      kind: "info",
-      text: `「${r.item.name}」を保存しました（キュー ${r.item.cueCount} / 形 ${r.item.formations.length}）。`,
-    });
-    refresh();
-  }, [name, project, refresh, getWavePeaks, audioDurationSec]);
-
-  const doOverwrite = useCallback(
-    (id: string, label: string) => {
-      if (!confirm(`「${label}」を現在のステージ内容で上書きします。よろしいですか？`)) return;
-      setBusy(true);
-      const r = overwriteFlowFromProject(id, project, {
+    let flowEmbeddedAudioKey: string | null = null;
+    try {
+      if (project.audioAssetId == null && getAudioBlobForFlowLibrary) {
+        const b = await getAudioBlobForFlowLibrary();
+        if (b && b.size > 0) {
+          const k = crypto.randomUUID();
+          await putFlowLibraryAudio(k, b);
+          flowEmbeddedAudioKey = k;
+        }
+      }
+      const r = saveFlowFromProject(trimmed, project, {
         includeTiming: true,
         wavePeaks: getWavePeaks?.() ?? null,
         audioDurationSec: audioDurationSec > 0 ? audioDurationSec : null,
+        flowEmbeddedAudioKey: flowEmbeddedAudioKey ?? null,
       });
-      setBusy(false);
       if (!r.ok) {
+        if (flowEmbeddedAudioKey) void deleteFlowLibraryAudio(flowEmbeddedAudioKey);
         setFeedback({ kind: "error", text: r.message });
         return;
       }
-      setFeedback({ kind: "info", text: `「${r.item.name}」を上書きしました。` });
+      setFeedback({
+        kind: "info",
+        text: `「${r.item.name}」を保存しました（キュー ${r.item.cueCount} / 形 ${r.item.formations.length}）。`,
+      });
       refresh();
+    } catch (e) {
+      if (flowEmbeddedAudioKey) void deleteFlowLibraryAudio(flowEmbeddedAudioKey);
+      setFeedback({
+        kind: "error",
+        text: e instanceof Error ? e.message : "保存中にエラーが発生しました。",
+      });
+    } finally {
+      setBusy(false);
+    }
+  }, [name, project, refresh, getWavePeaks, getAudioBlobForFlowLibrary, audioDurationSec]);
+
+  const doOverwrite = useCallback(
+    async (id: string, label: string) => {
+      if (!confirm(`「${label}」を現在のステージ内容で上書きします。よろしいですか？`)) return;
+      setBusy(true);
+      let flowEmbeddedAudioKey: string | null = null;
+      try {
+        if (project.audioAssetId == null && getAudioBlobForFlowLibrary) {
+          const b = await getAudioBlobForFlowLibrary();
+          if (b && b.size > 0) {
+            const k = crypto.randomUUID();
+            await putFlowLibraryAudio(k, b);
+            flowEmbeddedAudioKey = k;
+          }
+        }
+        const r = overwriteFlowFromProject(id, project, {
+          includeTiming: true,
+          wavePeaks: getWavePeaks?.() ?? null,
+          audioDurationSec: audioDurationSec > 0 ? audioDurationSec : null,
+          flowEmbeddedAudioKey: flowEmbeddedAudioKey ?? null,
+        });
+        if (!r.ok) {
+          if (flowEmbeddedAudioKey) void deleteFlowLibraryAudio(flowEmbeddedAudioKey);
+          setFeedback({ kind: "error", text: r.message });
+          return;
+        }
+        setFeedback({ kind: "info", text: `「${r.item.name}」を上書きしました。` });
+        refresh();
+      } catch (e) {
+        if (flowEmbeddedAudioKey) void deleteFlowLibraryAudio(flowEmbeddedAudioKey);
+        setFeedback({
+          kind: "error",
+          text: e instanceof Error ? e.message : "上書き中にエラーが発生しました。",
+        });
+      } finally {
+        setBusy(false);
+      }
     },
-    [project, refresh, getWavePeaks, audioDurationSec]
+    [project, refresh, getWavePeaks, getAudioBlobForFlowLibrary, audioDurationSec]
   );
 
   const doDelete = useCallback(
@@ -303,6 +350,10 @@ export function FlowLibraryDialog({
         }
         if (expanded.memento) {
           const m = expanded.memento;
+          const embedKey =
+            typeof m.flowEmbeddedAudioKey === "string" && m.flowEmbeddedAudioKey.length > 0
+              ? m.flowEmbeddedAudioKey
+              : null;
           next = {
             ...next,
             crews: m.crews,
@@ -324,12 +375,23 @@ export function FlowLibraryDialog({
             Number.isFinite(m.dancerMarkerDiameterPx)
               ? { dancerMarkerDiameterPx: m.dancerMarkerDiameterPx }
               : {}),
-            /**
-             * memento の `audioAssetId: null` は「保存時にサーバ音源が無かった」ことが多く、
-             * ここで上書きすると既に読み込んでいるサーバ Blob を revoke しただけで `<audio>` が死 URLのままになり再生不能になる。
-             * 数値が入っているときだけフロー側の id を採用する。
-             */
-            audioAssetId: m.audioAssetId ?? prev.audioAssetId,
+            ...(embedKey
+              ? {
+                  audioAssetId: null,
+                  flowLocalAudioKey: embedKey,
+                }
+              : {
+                  /**
+                   * memento の `audioAssetId: null` は「保存時にサーバ音源が無かった」ことが多く、
+                   * ここで上書きすると既に読み込んでいるサーバ Blob を revoke しただけで `<audio>` が死 URLのままになり再生不能になる。
+                   * 数値が入っているときだけフロー側の id を採用する。
+                   */
+                  audioAssetId:
+                    typeof m.audioAssetId === "number" && Number.isFinite(m.audioAssetId)
+                      ? m.audioAssetId
+                      : prev.audioAssetId,
+                  flowLocalAudioKey: null,
+                }),
             playbackRate: m.playbackRate,
             trimStartSec: m.trimStartSec,
             trimEndSec: m.trimEndSec,

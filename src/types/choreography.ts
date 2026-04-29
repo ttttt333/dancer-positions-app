@@ -368,6 +368,11 @@ export type ChoreographyProjectJson = {
   crews: Crew[];
   /** サーバに保存した楽曲アセット ID（未ログイン時は null） */
   audioAssetId: number | null;
+  /**
+   * フローライブラリから復元したローカル音源（IndexedDB `flowLibraryLocalAudio` のキー）。
+   * サーバ `audioAssetId` より後段で、未設定のときだけ `<audio>` に反映する。
+   */
+  flowLocalAudioKey?: string | null;
   /** 波形の縦スケール（§3）。1＝既定、大きいほど振幅を強調 */
   waveformAmplitudeScale?: number;
   /**

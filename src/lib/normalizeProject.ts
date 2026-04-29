@@ -635,6 +635,12 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
         : o.audioAssetId === null
           ? null
           : defaults.audioAssetId,
+    flowLocalAudioKey:
+      typeof o.flowLocalAudioKey === "string" && o.flowLocalAudioKey.length > 0
+        ? o.flowLocalAudioKey
+        : o.flowLocalAudioKey === null
+          ? null
+          : defaults.flowLocalAudioKey,
     playbackRate:
       typeof o.playbackRate === "number" ? o.playbackRate : defaults.playbackRate,
     trimStartSec:

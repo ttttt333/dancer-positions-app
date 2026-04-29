@@ -2265,6 +2265,9 @@ export function EditorPage() {
           onRestoreWaveform={(peaks, dur) => {
             timelineRef.current?.restoreWavePeaks(peaks, dur);
           }}
+          getAudioBlobForFlowLibrary={() =>
+            timelineRef.current?.getCurrentAudioBlobForFlowLibrary() ?? Promise.resolve(null)
+          }
         />
       ) : null,
     [project, flowLibraryOpen, setProjectSafe, duration]
