@@ -6381,10 +6381,18 @@ export function StageBoard({
                 data-group-box
                 style={{
                   position: "absolute",
-                  left: `${selectionBox.x0}%`,
-                  top: `${selectionBox.y0}%`,
-                  width: `${Math.max(0.01, selectionBox.x1 - selectionBox.x0)}%`,
-                  height: `${Math.max(0.01, selectionBox.y1 - selectionBox.y0)}%`,
+                  /** 円の端からさらに外側にはみ出させる（マーカー半径 + 14px） */
+                  ...(() => {
+                    const r = primarySelectedDancer
+                      ? Math.round(effectiveMarkerPx(primarySelectedDancer) / 2) + 14
+                      : Math.round(DEFAULT_DANCER_MARKER_DIAMETER_PX / 2) + 14;
+                    return {
+                      left: `calc(${selectionBox.x0}% - ${r}px)`,
+                      top: `calc(${selectionBox.y0}% - ${r}px)`,
+                      width: `calc(${Math.max(0.01, selectionBox.x1 - selectionBox.x0)}% + ${r * 2}px)`,
+                      height: `calc(${Math.max(0.01, selectionBox.y1 - selectionBox.y0)}% + ${r * 2}px)`,
+                    };
+                  })(),
                   border: `1px dashed ${shell.ruby}`,
                   borderRadius: 4,
                   background: "rgba(220, 38, 38, 0.05)",
@@ -6595,7 +6603,8 @@ export function StageBoard({
                   ? `選択中の ${selectedDancerIds.length} 人の ○ サイズを一括変更（現 ${pMarkerPx}px・ドラッグで変更）`
                   : `○のサイズ（${pMarkerPx}px）・ドラッグで変更`;
               const rotateTip = `向きをドラッグで変更（現在 ${pFacing}°）`;
-              const rim = Math.round(pMarkerPx / 2 + 6);
+              /** 円の端から外側に出す距離（px） */
+              const handleOffset = Math.round(pMarkerPx / 2) + 14;
               return (
                 <div
                   role="presentation"
@@ -6618,8 +6627,8 @@ export function StageBoard({
                     onPointerDown={handlePointerDownMarkerResize}
                     style={{
                       position: "absolute",
-                      left: `calc(50% + ${Math.round(pMarkerPx * 0.35)}px)`,
-                      top: `calc(50% + ${Math.round(pMarkerPx * 0.35)}px)`,
+                      left: `calc(50% + ${handleOffset}px)`,
+                      top: `calc(50% + ${handleOffset}px)`,
                       transform: "translate(-50%, -50%)",
                       width: 12,
                       height: 12,
