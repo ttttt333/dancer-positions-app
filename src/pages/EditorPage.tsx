@@ -2712,6 +2712,17 @@ export function EditorPage({
     ]
   );
 
+  const studentViewerFocusForStage = useMemo(() => {
+    if (choreoPublicView) {
+      if (!choreoStudentPick) return null;
+      return studentPickToStageFocus(choreoStudentPick);
+    }
+    if (editorViewerPreviewPick) {
+      return studentPickToStageFocus(editorViewerPreviewPick);
+    }
+    return null;
+  }, [choreoPublicView, choreoStudentPick, editorViewerPreviewPick]);
+
   if (loadError) {
     return (
       <div style={{ padding: 24, color: "#f87171" }}>
@@ -2774,17 +2785,6 @@ export function EditorPage({
       );
     }
   }
-
-  const studentViewerFocusForStage = useMemo(() => {
-    if (choreoPublicView) {
-      if (!choreoStudentPick) return null;
-      return studentPickToStageFocus(choreoStudentPick);
-    }
-    if (editorViewerPreviewPick) {
-      return studentPickToStageFocus(editorViewerPreviewPick);
-    }
-    return null;
-  }, [choreoPublicView, choreoStudentPick, editorViewerPreviewPick]);
 
   const stageBoardProject = projectForStageBoard!;
 
