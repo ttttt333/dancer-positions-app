@@ -640,53 +640,13 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               {...choreo}
             />
           ) : null}
-          {!hideFloorTextToolbar ? (
-            <button
-              type="button"
-              className="editor-right-tool-sq"
-              style={{
-                ...btnSecondary,
-                ...(floorTextPlaceSession
-                  ? { borderColor: "#38bdf8", color: "#e0f2fe" }
-                  : {}),
-              }}
-              disabled={
-                project.viewMode === "view" ||
-                stageView !== "2d" ||
-                (project.cues.length > 0 && !selectedCueId)
-              }
-              title={
-                stageView !== "2d"
-                  ? "床テキストは 2D 表示のときのみ使えます"
-                  : project.cues.length > 0 && !selectedCueId
-                    ? "タイムラインでキューを選んでから使えます"
-                    : floorTextPlaceSession
-                      ? "テキスト配置を終了します"
-                      : "編集画面の好きな位置にテキストを置きます（ドラッグ・空所クリックで移動）"
-              }
-              onClick={() => {
-                if (project.viewMode === "view") return;
-                if (stageView !== "2d") return;
-                if (project.cues.length > 0 && !selectedCueId) return;
-                setFloorTextPlaceSession((cur) =>
-                  cur
-                    ? null
-                    : {
-                        body: "",
-                        fontSizePx: 18,
-                        fontWeight: 600,
-                        xPct: 50,
-                        yPct: 22,
-                        color: "#fef08a",
-                        fontFamily:
-                          "system-ui, -apple-system, 'Segoe UI', sans-serif",
-                        scale: 1,
-                      }
-                );
-              }}
-            >
-              <span>テキスト</span>
-            </button>
+          {choreo ? (
+            <ChoreoGridToolbar
+              embedInPanel
+              tilesInRun
+              singleTile="help"
+              {...choreo}
+            />
           ) : null}
         </div>
 
@@ -743,13 +703,53 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               <span>表示</span>
             </button>
           ) : null}
-          {choreo ? (
-            <ChoreoGridToolbar
-              embedInPanel
-              tilesInRun
-              singleTile="help"
-              {...choreo}
-            />
+          {!hideFloorTextToolbar ? (
+            <button
+              type="button"
+              className="editor-right-tool-sq"
+              style={{
+                ...btnSecondary,
+                ...(floorTextPlaceSession
+                  ? { borderColor: "#38bdf8", color: "#e0f2fe" }
+                  : {}),
+              }}
+              disabled={
+                project.viewMode === "view" ||
+                stageView !== "2d" ||
+                (project.cues.length > 0 && !selectedCueId)
+              }
+              title={
+                stageView !== "2d"
+                  ? "床テキストは 2D 表示のときのみ使えます"
+                  : project.cues.length > 0 && !selectedCueId
+                    ? "タイムラインでキューを選んでから使えます"
+                    : floorTextPlaceSession
+                      ? "テキスト配置を終了します"
+                      : "編集画面の好きな位置にテキストを置きます（ドラッグ・空所クリックで移動）"
+              }
+              onClick={() => {
+                if (project.viewMode === "view") return;
+                if (stageView !== "2d") return;
+                if (project.cues.length > 0 && !selectedCueId) return;
+                setFloorTextPlaceSession((cur) =>
+                  cur
+                    ? null
+                    : {
+                        body: "",
+                        fontSizePx: 18,
+                        fontWeight: 600,
+                        xPct: 50,
+                        yPct: 22,
+                        color: "#fef08a",
+                        fontFamily:
+                          "system-ui, -apple-system, 'Segoe UI', sans-serif",
+                        scale: 1,
+                      }
+                );
+              }}
+            >
+              <span>テキスト</span>
+            </button>
           ) : null}
           {stageZenEligible && onEnterStageZen ? (
             <button
