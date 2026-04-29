@@ -5,18 +5,12 @@ import "./index.css";
 import App from "./App.tsx";
 import { I18nProvider } from "./i18n/I18nContext";
 
-/** 開発中に古い SW が残ると真っ白・更新不能になることがあるため本番のみ登録
- * registerType: "prompt" を使用 → 自動リロードなし。新 SW は即時スキップで
- * サイレント有効化し、次回ページロード時に新コンテンツが適用される。
+/** 本番のみ SW を登録。registerType: "autoUpdate" により新しい SW が
+ * 自動インストール・有効化され、デプロイ後に 1 回だけページが更新される。
+ * immediate: true は付けない（毎ページロードでの強制チェックを避ける）。
  */
 if (import.meta.env.PROD) {
-  registerSW({
-    onNeedRefresh() {
-      navigator.serviceWorker.getRegistrations().then((regs) => {
-        regs.forEach((r) => r.waiting?.postMessage({ type: "SKIP_WAITING" }));
-      });
-    },
-  });
+  registerSW();
 }
 
 createRoot(document.getElementById("root")!).render(
