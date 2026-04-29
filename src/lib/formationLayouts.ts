@@ -264,6 +264,10 @@ export const LAYOUT_PRESET_OPTIONS = [
   { id: "columns_4", label: "4列縦並び" },
   { id: "columns_5", label: "5列縦並び" },
   { id: "columns_6", label: "6列縦並び" },
+  { id: "columns_7", label: "7列縦並び" },
+  { id: "columns_8", label: "8列縦並び" },
+  { id: "columns_9", label: "9列縦並び" },
+  { id: "columns_10", label: "10列縦並び" },
   /** ─ ピラミッド・V字系 ─ */
   { id: "vee", label: "V字" },
   { id: "inverse_vee", label: "逆V字（奥に先端）" },
@@ -319,6 +323,125 @@ export const ALL_LAYOUT_PRESET_IDS: LayoutPresetId[] = LAYOUT_PRESET_OPTIONS.map
  */
 export const COMMON_QUICK_LAYOUT_PRESETS: { id: LayoutPresetId; label: string }[] =
   LAYOUT_PRESET_OPTIONS.map((o) => ({ id: o.id, label: o.label }));
+
+/**
+ * 雛形選択 UI で使うカテゴリ定義。
+ * キュー追加ダイアログ・名簿プリセットモーダルで共有。
+ */
+export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
+  {
+    label: "▲ ピラミッド・V字系",
+    ids: [
+      "pyramid",
+      "pyramid_inverse",
+      "vee",
+      "inverse_vee",
+      "wedge",
+      "fan_back",
+      "hourglass",
+      "bowtie",
+      "arrow_back",
+      "arrow_front",
+    ],
+  },
+  {
+    label: "🟦 複数列・千鳥",
+    ids: [
+      "two_rows",
+      "rows_3",
+      "rows_4",
+      "rows_5",
+      "rows_6",
+      "rows_7",
+      "rows_8",
+      "stagger",
+      "stagger_inverse",
+      "stagger_3",
+      "two_rows_dense_back",
+      "offset_triple",
+    ],
+  },
+  {
+    label: "📐 段の列（客席側から増える）",
+    ids: [
+      "front_stair_from_2",
+      "front_stair_from_3",
+      "front_stair_from_4",
+      "front_stair_from_5",
+      "front_stair_from_6",
+      "front_stair_from_7",
+      "front_stair_from_8",
+      "front_stair_from_9",
+      "front_stair_from_10",
+      "front_stair_from_11",
+    ],
+  },
+  {
+    label: "➖ 直線・対角線",
+    ids: [
+      "line",
+      "line_front",
+      "line_back",
+      "line_vertical",
+      "diagonal_se",
+      "diagonal_ne",
+      "stairs_diag",
+      "zigzag",
+    ],
+  },
+  {
+    label: "⬜ グリッド・縦列",
+    ids: [
+      "grid",
+      "columns_4",
+      "columns_5",
+      "columns_6",
+      "columns_7",
+      "columns_8",
+      "columns_9",
+      "columns_10",
+    ],
+  },
+  {
+    label: "🌐 弧・円形",
+    ids: [
+      "arc",
+      "arc_tight",
+      "double_arc",
+      "circle",
+      "hollow_ring",
+      "double_ring",
+      "u_shape",
+      "concentric",
+    ],
+  },
+  {
+    label: "🔀 グループ分け・3分割",
+    ids: [
+      "block_lr",
+      "block_3",
+      "block_3_depth",
+      "three_clusters",
+      "wing_spread",
+      "cross_split",
+    ],
+  },
+  {
+    label: "✴️ 幾何形・枠形",
+    ids: ["diamond", "square_outline", "cross", "x_shape"],
+  },
+  {
+    label: "🎨 個性・アート系",
+    ids: [
+      "scatter",
+      "spiral",
+      "wave",
+      "cluster_tight",
+      "spread_loose",
+      "asymmetric_l",
+    ],
+  },
+];
 
 /**
  * 番号割り当てルール（ユーザ指定）:
@@ -990,11 +1113,21 @@ export function dancersForLayoutPreset(
       break;
     }
     case "columns_5":
-    case "columns_6": {
-      const cols = preset === "columns_5" ? 5 : 6;
+    case "columns_6":
+    case "columns_7":
+    case "columns_8":
+    case "columns_9":
+    case "columns_10": {
+      const cols =
+        preset === "columns_5" ? 5
+        : preset === "columns_6" ? 6
+        : preset === "columns_7" ? 7
+        : preset === "columns_8" ? 8
+        : preset === "columns_9" ? 9
+        : 10;
       const actualCols = Math.min(cols, Math.max(1, n));
       const per = Math.ceil(n / actualCols);
-      const xs = evenSpacingPositions(actualCols, 50, TARGET_STEP_X, 10, 90);
+      const xs = evenSpacingPositions(actualCols, 50, TARGET_STEP_X, 8, 92);
       const ys = evenSpacingPositions(per, 48, TARGET_STEP_Y, 16, 80);
       for (let i = 0; i < n; i++) {
         const c = i % actualCols;

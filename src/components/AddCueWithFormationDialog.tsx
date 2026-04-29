@@ -19,6 +19,7 @@ import {
   dancersForLayoutPreset,
   LAYOUT_PRESET_OPTIONS,
   LAYOUT_PRESET_LABELS,
+  PRESET_CATEGORIES,
   type LayoutPresetId,
 } from "../lib/formationLayouts";
 import {
@@ -27,7 +28,6 @@ import {
   listFormationBoxItems,
 } from "../lib/formationBox";
 import { mergeStageSnapshotIntoProject } from "../lib/savedSpotStageSnapshot";
-import { FormationPresetThumb } from "./FormationPresetThumb";
 import { FormationBoxItemThumb } from "./FormationBoxItemThumb";
 
 /**
@@ -281,20 +281,31 @@ const addCueModePickStyle: CSSProperties = {
   lineHeight: 1.25,
 };
 
-const presetChipBase: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  gap: "4px",
-  padding: "8px 6px",
-  borderRadius: "10px",
-  border: "1px solid #334155",
-  background: "#0b1220",
-  color: "#e2e8f0",
-  fontSize: "11px",
-  cursor: "pointer",
-  minWidth: 72,
-};
+/** カテゴリグリッド用サムネイル（名簿モーダルの SpotThumb と同等） */
+function SpotThumb({ dancers }: { dancers: { xPct: number; yPct: number }[] }) {
+  const radius = dancers.length >= 12 ? 2.4 : dancers.length >= 6 ? 3.0 : 3.4;
+  return (
+    <svg
+      viewBox="0 0 100 60"
+      width={46}
+      height={28}
+      aria-hidden
+      style={{ display: "block", color: "#cbd5e1" }}
+    >
+      <rect x="0" y="48" width="100" height="12" fill="currentColor" fillOpacity={0.14} rx="2" />
+      {dancers.map((d, i) => (
+        <circle
+          key={i}
+          cx={Math.max(4, Math.min(96, d.xPct))}
+          cy={2 + (Math.max(0, Math.min(100, d.yPct)) / 100) * 56}
+          r={radius}
+          fill="currentColor"
+          fillOpacity={0.9}
+        />
+      ))}
+    </svg>
+  );
+}
 
 export function AddCueWithFormationDialog({
   open,
@@ -380,6 +391,23 @@ export function AddCueWithFormationDialog({
     window.addEventListener(FORMATION_BOX_CHANGE_EVENT, handler);
     return () => window.removeEventListener(FORMATION_BOX_CHANGE_EVENT, handler);
   }, []);
+
+  /** カテゴリごとのプリセットサムネイル（count と spacing に依存） */
+  const presetCategoryPreviews = useMemo(
+    () =>
+      PRESET_CATEGORIES.map((cat) => ({
+        ...cat,
+        items: cat.ids.map((id) => ({
+          id,
+          label: LAYOUT_PRESET_LABELS[id] ?? id,
+          dancers: dancersForLayoutPreset(Math.max(1, count), id, {
+            dancerSpacingMm: project.dancerSpacingMm ?? undefined,
+            stageWidthMm: project.stageWidthMm ?? undefined,
+          }),
+        })),
+      })),
+    [count, project.dancerSpacingMm, project.stageWidthMm]
+  );
 
   const wasOpenRef = useRef(false);
   useEffect(() => {
@@ -986,28 +1014,70 @@ export function AddCueWithFormationDialog({
                 <span style={sectionNumberStyle}>4</span>
                 雛形（プリセット）
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", paddingLeft: "10px" }}>
-                {PRESETS.map((p) => {
-                  const active = templatePresetId === p.id;
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setTemplatePresetId(p.id)}
-                      title={p.label}
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px", paddingLeft: "4px" }}>
+                {presetCategoryPreviews.map((cat) => (
+                  <div key={cat.label}>
+                    {/* カテゴリラベル */}
+                    <div
                       style={{
-                        ...presetChipBase,
-                        borderColor: active ? "#38bdf8" : "#334155",
-                        borderWidth: active ? 2 : 1,
-                        background: active ? "#0e7490" : "#0b1220",
-                        color: active ? "#ecfeff" : "#e2e8f0",
+                        fontSize: "10px",
+                        fontWeight: 700,
+                        color: "#64748b",
+                        letterSpacing: "0.04em",
+                        marginBottom: "5px",
+                        paddingLeft: "2px",
                       }}
                     >
-                      <FormationPresetThumb preset={p.id} width={44} />
-                      <span style={{ fontSize: "11px", fontWeight: 600 }}>{p.label}</span>
-                    </button>
-                  );
-                })}
+                      {cat.label}
+                    </div>
+                    {/* プリセットグリッド */}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
+                      {cat.items.map((item) => {
+                        const active = templatePresetId === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => setTemplatePresetId(item.id)}
+                            title={item.label}
+                            style={{
+                              flexShrink: 0,
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              gap: "3px",
+                              padding: "5px 6px 6px",
+                              borderRadius: "8px",
+                              border: active ? "2px solid #6366f1" : "1px solid #1e293b",
+                              background: active ? "#1e1b4b" : "#0f172a",
+                              cursor: "pointer",
+                              minWidth: "52px",
+                              maxWidth: "76px",
+                              boxShadow: active ? "0 0 0 1px rgba(99,102,241,0.5)" : "none",
+                              transition: "border-color 0.12s, background 0.12s",
+                            }}
+                          >
+                            <SpotThumb dancers={item.dancers} />
+                            <span
+                              style={{
+                                fontSize: "9.5px",
+                                color: "#cbd5e1",
+                                width: "100%",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                whiteSpace: "nowrap",
+                                lineHeight: 1.2,
+                                textAlign: "center",
+                              }}
+                            >
+                              {item.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </section>
           ) : null}
