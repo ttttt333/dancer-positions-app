@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 const BRAND_LOGO_SRC = "/brand-logo.png";
 
 export type ChoreoCoreLogoProps = {
@@ -6,10 +8,8 @@ export type ChoreoCoreLogoProps = {
   /** スクリーンリーダー用ラベル */
   title?: string;
   className?: string;
-  style?: React.CSSProperties;
+  style?: CSSProperties;
 };
-
-import type React from "react";
 
 /**
  * ChoreoCore ブランドロゴ（横長画像）。
