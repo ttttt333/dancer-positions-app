@@ -265,10 +265,10 @@ function waveExtentXToTime(
 /** 波形キャンバス表示高さ（CSS px）。下枠ドラッグで変更 */
 const WAVE_CANVAS_H_MIN = 24;
 const WAVE_CANVAS_H_MAX = 280;
-/** 既定を大きめに（ユーザー要望） */
-const WAVE_CANVAS_H_DEFAULT = 80;
-/** 上部ドック時は少し控えめ */
-const WAVE_CANVAS_H_COMPACT_DOCK = 60;
+/** 既定は従来の約半分（上部ドック内で波形が収まりやすい） */
+const WAVE_CANVAS_H_DEFAULT = 36;
+/** 上部ドック時はさらにコンパクト（約 5mm 分、既定波形を低くしてステージの縦を確保） */
+const WAVE_CANVAS_H_COMPACT_DOCK = 25;
 
 /** 再生中の目盛り・波形ビュー窓の微振れを抑える（約 33ms グリッド） */
 function quantizePlayheadForWaveView(sec: number): number {
@@ -480,9 +480,16 @@ function hitPlayheadStripForScrub(
   if (w <= 0) return false;
   const x = clientX - r.left;
   const zoomed = viewPortion < 1 - 1e-9;
-  const xPlay = zoomed
-    ? WAVE_PLAYHEAD_X_FRAC * w
-    : waveTimeToExtentX(playheadSec, viewStart, viewSpan, w);
+  let xPlay: number;
+  if (zoomed) {
+    const unclamped = playheadSec - WAVE_PLAYHEAD_X_FRAC * viewSpan;
+    const isClamped = unclamped < 0 || unclamped > Math.max(0, durationSec - viewSpan) - 1e-9;
+    xPlay = isClamped
+      ? waveTimeToExtentX(playheadSec, viewStart, viewSpan, w)
+      : WAVE_PLAYHEAD_X_FRAC * w;
+  } else {
+    xPlay = waveTimeToExtentX(playheadSec, viewStart, viewSpan, w);
+  }
   return Math.abs(x - xPlay) <= PLAYHEAD_SCRUB_HALF_WIDTH_PX;
 }
 
@@ -961,14 +968,22 @@ function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
       const lineEl = playheadLineOverlayRef.current;
       if (d > 0 && viewSpan > 0) {
         const zoomed = vp < 1 - 1e-9;
-        let xPlay = zoomed
-          ? WAVE_PLAYHEAD_X_FRAC * w
-          : waveTimeToExtentX(playheadTime, viewStart, viewSpan, w);
-        if (!zoomed) {
-          xPlay = Number.isFinite(xPlay)
-            ? Math.min(w, Math.max(0, Math.round(xPlay * 2) / 2))
-            : 0;
+        let xPlay: number;
+        if (zoomed) {
+          /** ズーム時はビューがクランプされているかチェック。
+           * クランプされていない場合はバーを固定位置に、
+           * クランプされている（先頭・末尾付近）場合は実際の時刻位置で描画 */
+          const unclamped = tGrid - WAVE_PLAYHEAD_X_FRAC * viewSpan;
+          const isClamped = unclamped < 0 || unclamped > Math.max(0, d - viewSpan) - 1e-9;
+          xPlay = isClamped
+            ? waveTimeToExtentX(playheadTime, viewStart, viewSpan, w)
+            : WAVE_PLAYHEAD_X_FRAC * w;
+        } else {
+          xPlay = waveTimeToExtentX(playheadTime, viewStart, viewSpan, w);
         }
+        xPlay = Number.isFinite(xPlay)
+          ? Math.min(w, Math.max(0, Math.round(xPlay * 2) / 2))
+          : 0;
         g.strokeStyle = "#ef4444";
         g.lineWidth = 2.5;
         g.lineCap = "butt";
