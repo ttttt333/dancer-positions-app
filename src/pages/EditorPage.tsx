@@ -2260,173 +2260,6 @@ export function EditorPage() {
       setSaving(false);
     }
   }, [me, projectName, serverId, navigate]);
-
-  if (loadError) {
-    return (
-      <div style={{ padding: 24, color: "#f87171" }}>
-        {loadError}{" "}
-        <Link to="/library" style={{ color: "#93c5fd" }}>
-          戻る
-        </Link>
-      </div>
-    );
-  }
-
-  if (collabActive && !yjsCollab.synced) {
-    return (
-      <div style={{ padding: 24, color: "#94a3b8" }}>
-        共同編集を同期しています…（Yjs）
-      </div>
-    );
-  }
-
-  if (!project) {
-    return <div style={{ padding: 24, color: "#94a3b8" }}>読み込み中…</div>;
-  }
-
-  const stageBoardProject = projectForStageBoard!;
-
-  const hasRosterMembers = project.crews.some((c) => c.members.length > 0);
-  /** 名簿ストリップのみ表示しタイムライン列を隠す（取り込み直後や「メンバーを表示」から） */
-  const rosterOnlyMode =
-    project.rosterHidesTimeline === true && hasRosterMembers;
-  /** ワイド時は常に上部に波形・再生を固定（名簿モードでも TimelinePanel を外さない） */
-  const showTopWaveDock = wideEditorLayout;
-  /** ステージのみ全画面（ワイド時のみ有効） */
-  const stageZenLayout = wideEditorLayout && stageZenFullscreen;
-  /** 固定シェル時：名簿行の有無で上部ドックの確保高さを変え、波形が切れないようにする */
-  const editorShellTopWavePx =
-    EDITOR_SHELL_TOP_WAVE_BASE_PX +
-    (hasRosterMembers && project.rosterHidesTimeline !== true
-      ? EDITOR_SHELL_TOP_WAVE_ROSTER_ROW_PX
-      : 0);
-
-  const editorPaneGridTemplateRows = stageZenLayout
-    ? "1fr"
-    : wideEditorLayout
-      ? showTopWaveDock
-        ? editorFixedWaveDockLayout
-          ? `${
-              topDockRowPx != null
-                ? clampTopDockRowPx(topDockRowPx)
-                : editorShellTopWavePx
-            }px 4px minmax(0, 1fr)`
-          : `${
-              topDockRowPx != null
-                ? `${topDockRowPx}px`
-                : `${TOP_DOCK_HEIGHT_PX}px`
-            } 4px minmax(0, 1fr)`
-        : "1fr"
-      : "auto auto auto auto";
-
-  const editorPaneGridTemplateColumns = stageZenLayout
-    ? "1fr"
-    : editorGridColumns;
-
-  const choreoToolbarSharedProps = {
-    stageShapeActive:
-      (project.stageShape != null &&
-        project.stageShape.presetId !== "rectangle") ||
-      (project.hanamichiEnabled ?? false),
-    disabled: project.viewMode === "view",
-    onOpenStageShapePicker: () => setStageShapePickerOpen(true),
-    onOpenSetPiecePicker: openSetPiecePicker,
-    onOpenShortcutsHelp: () => setShortcutsHelpOpen(true),
-    onOpenExport: () => setExportDialogOpen(true),
-  };
-
-  const timelinePanelEl = (
-    <TimelinePanel
-      ref={timelineRef}
-      project={project}
-      setProject={setProjectSafe}
-      currentTime={currentTime}
-      setCurrentTime={setCurrentTime}
-      isPlaying={isPlaying}
-      setIsPlaying={setIsPlaying}
-      duration={duration}
-      setDuration={setDuration}
-      serverProjectId={serverId}
-      loggedIn={!!me}
-      onStagePreviewChange={setStagePreviewDancers}
-      onFormationChosenFromCueList={() => setIsPlaying(false)}
-      onUndo={undo}
-      onRedo={redo}
-      undoDisabled={
-        project.viewMode === "view" ||
-        (collabActive
-          ? yjsCollab.undoStackSize === 0
-          : historyRef.current.undo.length === 0)
-      }
-      redoDisabled={
-        project.viewMode === "view" ||
-        (collabActive
-          ? yjsCollab.redoStackSize === 0
-          : historyRef.current.redo.length === 0)
-      }
-      selectedCueIds={selectedCueIds}
-      onSelectedCueIdsChange={setSelectedCueIds}
-      formationIdForNewCue={selectedCue?.formationId ?? project.activeFormationId}
-      wideWorkbench={wideEditorLayout}
-      compactTopDock={showTopWaveDock}
-      cueListPortalTarget={showTopWaveDock ? cueListPortalEl : null}
-    />
-  );
-
-  const stageUndoDisabled =
-    project.viewMode === "view" ||
-    (collabActive
-      ? yjsCollab.undoStackSize === 0
-      : historyRef.current.undo.length === 0);
-  const stageRedoDisabled =
-    project.viewMode === "view" ||
-    (collabActive
-      ? yjsCollab.redoStackSize === 0
-      : historyRef.current.redo.length === 0);
-  const workbenchInRightRail = wideEditorLayout && !rightPaneCollapsed;
-
-  const stageWorkbenchProps: Omit<EditorStageWorkbenchProps, "layout"> = {
-    project,
-    setProjectSafe,
-    selectedCueId,
-    selectedCue: selectedCue ?? null,
-    stageAreaSettingsOpen,
-    setStageAreaSettingsOpen,
-    stageUndoDisabled,
-    stageRedoDisabled,
-    undo,
-    redo,
-    setAddCueDialogOpen,
-    saveStageToFormationBox,
-    setFlowLibraryOpen,
-    addDancerFromStageToolbar,
-    importCrewCsvFromStageToolbar,
-    stageView,
-    setStageView,
-    floorTextPlaceSession,
-    setFloorTextPlaceSession,
-    commitFloorTextPlace,
-    hasRosterMembers,
-    /** 右列でもステージ床テキストを配置できるように常に出す（上部ドック時も非表示にしない） */
-    hideFloorTextToolbar: false,
-    hideUndoRedoInRail: showTopWaveDock,
-    choreoToolbarProps: choreoToolbarSharedProps,
-    onOpenCueListModal: showTopWaveDock
-      ? () => setCueListModalOpen(true)
-      : undefined,
-    onOpenAudioImport: () => {
-      timelineRef.current?.openAudioImport();
-    },
-    onPreloadFfmpegForAudio: () => {
-      void preloadFFmpeg();
-    },
-    onEnterStageZen: () => {
-      setFloorTextPlaceSession(null);
-      setStageZenFullscreen(true);
-    },
-    stageZenEligible: showTopWaveDock && !rightPaneCollapsed,
-  };
-
   const handleAddCueCreated = useCallback(
     (cueId: string, startSec: number) => {
       setSelectedCueIds([cueId]);
@@ -2806,6 +2639,173 @@ export function EditorPage() {
       btnSecondary,
     ]
   );
+
+  if (loadError) {
+    return (
+      <div style={{ padding: 24, color: "#f87171" }}>
+        {loadError}{" "}
+        <Link to="/library" style={{ color: "#93c5fd" }}>
+          戻る
+        </Link>
+      </div>
+    );
+  }
+
+  if (collabActive && !yjsCollab.synced) {
+    return (
+      <div style={{ padding: 24, color: "#94a3b8" }}>
+        共同編集を同期しています…（Yjs）
+      </div>
+    );
+  }
+
+  if (!project) {
+    return <div style={{ padding: 24, color: "#94a3b8" }}>読み込み中…</div>;
+  }
+
+  const stageBoardProject = projectForStageBoard!;
+
+  const hasRosterMembers = project.crews.some((c) => c.members.length > 0);
+  /** 名簿ストリップのみ表示しタイムライン列を隠す（取り込み直後や「メンバーを表示」から） */
+  const rosterOnlyMode =
+    project.rosterHidesTimeline === true && hasRosterMembers;
+  /** ワイド時は常に上部に波形・再生を固定（名簿モードでも TimelinePanel を外さない） */
+  const showTopWaveDock = wideEditorLayout;
+  /** ステージのみ全画面（ワイド時のみ有効） */
+  const stageZenLayout = wideEditorLayout && stageZenFullscreen;
+  /** 固定シェル時：名簿行の有無で上部ドックの確保高さを変え、波形が切れないようにする */
+  const editorShellTopWavePx =
+    EDITOR_SHELL_TOP_WAVE_BASE_PX +
+    (hasRosterMembers && project.rosterHidesTimeline !== true
+      ? EDITOR_SHELL_TOP_WAVE_ROSTER_ROW_PX
+      : 0);
+
+  const editorPaneGridTemplateRows = stageZenLayout
+    ? "1fr"
+    : wideEditorLayout
+      ? showTopWaveDock
+        ? editorFixedWaveDockLayout
+          ? `${
+              topDockRowPx != null
+                ? clampTopDockRowPx(topDockRowPx)
+                : editorShellTopWavePx
+            }px 4px minmax(0, 1fr)`
+          : `${
+              topDockRowPx != null
+                ? `${topDockRowPx}px`
+                : `${TOP_DOCK_HEIGHT_PX}px`
+            } 4px minmax(0, 1fr)`
+        : "1fr"
+      : "auto auto auto auto";
+
+  const editorPaneGridTemplateColumns = stageZenLayout
+    ? "1fr"
+    : editorGridColumns;
+
+  const choreoToolbarSharedProps = {
+    stageShapeActive:
+      (project.stageShape != null &&
+        project.stageShape.presetId !== "rectangle") ||
+      (project.hanamichiEnabled ?? false),
+    disabled: project.viewMode === "view",
+    onOpenStageShapePicker: () => setStageShapePickerOpen(true),
+    onOpenSetPiecePicker: openSetPiecePicker,
+    onOpenShortcutsHelp: () => setShortcutsHelpOpen(true),
+    onOpenExport: () => setExportDialogOpen(true),
+  };
+
+  const timelinePanelEl = (
+    <TimelinePanel
+      ref={timelineRef}
+      project={project}
+      setProject={setProjectSafe}
+      currentTime={currentTime}
+      setCurrentTime={setCurrentTime}
+      isPlaying={isPlaying}
+      setIsPlaying={setIsPlaying}
+      duration={duration}
+      setDuration={setDuration}
+      serverProjectId={serverId}
+      loggedIn={!!me}
+      onStagePreviewChange={setStagePreviewDancers}
+      onFormationChosenFromCueList={() => setIsPlaying(false)}
+      onUndo={undo}
+      onRedo={redo}
+      undoDisabled={
+        project.viewMode === "view" ||
+        (collabActive
+          ? yjsCollab.undoStackSize === 0
+          : historyRef.current.undo.length === 0)
+      }
+      redoDisabled={
+        project.viewMode === "view" ||
+        (collabActive
+          ? yjsCollab.redoStackSize === 0
+          : historyRef.current.redo.length === 0)
+      }
+      selectedCueIds={selectedCueIds}
+      onSelectedCueIdsChange={setSelectedCueIds}
+      formationIdForNewCue={selectedCue?.formationId ?? project.activeFormationId}
+      wideWorkbench={wideEditorLayout}
+      compactTopDock={showTopWaveDock}
+      cueListPortalTarget={showTopWaveDock ? cueListPortalEl : null}
+    />
+  );
+
+  const stageUndoDisabled =
+    project.viewMode === "view" ||
+    (collabActive
+      ? yjsCollab.undoStackSize === 0
+      : historyRef.current.undo.length === 0);
+  const stageRedoDisabled =
+    project.viewMode === "view" ||
+    (collabActive
+      ? yjsCollab.redoStackSize === 0
+      : historyRef.current.redo.length === 0);
+  const workbenchInRightRail = wideEditorLayout && !rightPaneCollapsed;
+
+  const stageWorkbenchProps: Omit<EditorStageWorkbenchProps, "layout"> = {
+    project,
+    setProjectSafe,
+    selectedCueId,
+    selectedCue: selectedCue ?? null,
+    stageAreaSettingsOpen,
+    setStageAreaSettingsOpen,
+    stageUndoDisabled,
+    stageRedoDisabled,
+    undo,
+    redo,
+    setAddCueDialogOpen,
+    saveStageToFormationBox,
+    setFlowLibraryOpen,
+    addDancerFromStageToolbar,
+    importCrewCsvFromStageToolbar,
+    stageView,
+    setStageView,
+    floorTextPlaceSession,
+    setFloorTextPlaceSession,
+    commitFloorTextPlace,
+    hasRosterMembers,
+    /** 右列でもステージ床テキストを配置できるように常に出す（上部ドック時も非表示にしない） */
+    hideFloorTextToolbar: false,
+    hideUndoRedoInRail: showTopWaveDock,
+    choreoToolbarProps: choreoToolbarSharedProps,
+    onOpenCueListModal: showTopWaveDock
+      ? () => setCueListModalOpen(true)
+      : undefined,
+    onOpenAudioImport: () => {
+      timelineRef.current?.openAudioImport();
+    },
+    onPreloadFfmpegForAudio: () => {
+      void preloadFFmpeg();
+    },
+    onEnterStageZen: () => {
+      setFloorTextPlaceSession(null);
+      setStageZenFullscreen(true);
+    },
+    stageZenEligible: showTopWaveDock && !rightPaneCollapsed,
+  };
+
 
   return (
     <div
