@@ -5,12 +5,19 @@ import "./index.css";
 import App from "./App.tsx";
 import { I18nProvider } from "./i18n/I18nContext";
 
-/** 本番のみ SW を登録。registerType: "autoUpdate" により新しい SW が
- * 自動インストール・有効化され、デプロイ後に 1 回だけページが更新される。
- * immediate: true は付けない（毎ページロードでの強制チェックを避ける）。
+/** 本番のみ SW を登録。
+ * registerType: "prompt" = controllerchange→reload リスナーを生成しない。
+ * 新しい SW が待機中になったら SKIP_WAITING でサイレント有効化するだけで、
+ * ページを強制リロードしない。ユーザーは次の自然なページ読み込み時に新コンテンツを取得。
  */
 if (import.meta.env.PROD) {
-  registerSW();
+  registerSW({
+    onNeedRefresh() {
+      navigator.serviceWorker.getRegistrations().then((regs) => {
+        regs.forEach((r) => r.waiting?.postMessage({ type: "SKIP_WAITING" }));
+      });
+    },
+  });
 }
 
 createRoot(document.getElementById("root")!).render(
