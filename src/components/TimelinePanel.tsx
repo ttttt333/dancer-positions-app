@@ -474,7 +474,9 @@ function hitPlayheadStripForScrub(
   viewSpan: number,
   playheadSec: number,
   durationSec: number,
-  viewPortion: number
+  viewPortion: number,
+  /** カーソル中心ズーム（waveViewStartOverride）が有効かどうか */
+  isStartOverride = false
 ): boolean {
   if (durationSec <= 0 || viewSpan <= 0) return false;
   const r = canvas.getBoundingClientRect();
@@ -483,7 +485,7 @@ function hitPlayheadStripForScrub(
   const x = clientX - r.left;
   const zoomed = viewPortion < 1 - 1e-9;
   let xPlay: number;
-  if (zoomed) {
+  if (zoomed && !isStartOverride) {
     const unclamped = playheadSec - WAVE_PLAYHEAD_X_FRAC * viewSpan;
     const isClamped = unclamped < 0 || unclamped > Math.max(0, durationSec - viewSpan) - 1e-9;
     xPlay = isClamped
@@ -980,16 +982,16 @@ function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
       if (d > 0 && viewSpan > 0) {
         const zoomed = vp < 1 - 1e-9;
         let xPlay: number;
-        if (zoomed) {
-          /** ズーム時はビューがクランプされているかチェック。
-           * クランプされていない場合はバーを固定位置に、
-           * クランプされている（先頭・末尾付近）場合は実際の時刻位置で描画 */
+        if (zoomed && startOverride === null) {
+          /** 再生追従モード（カーソルズームなし）: ビューはプレイヘッド追従なので
+           * クランプ有無でバー位置を切り替える */
           const unclamped = tGrid - WAVE_PLAYHEAD_X_FRAC * viewSpan;
           const isClamped = unclamped < 0 || unclamped > Math.max(0, d - viewSpan) - 1e-9;
           xPlay = isClamped
             ? waveTimeToExtentX(playheadTime, viewStart, viewSpan, w)
             : WAVE_PLAYHEAD_X_FRAC * w;
         } else {
+          /** カーソル中心ズーム中 or 非ズーム: バーは実際の時刻位置で描画 */
           xPlay = waveTimeToExtentX(playheadTime, viewStart, viewSpan, w);
         }
         xPlay = Number.isFinite(xPlay)
@@ -1127,6 +1129,7 @@ type UseWaveCanvasPointerDragArgs = {
   peaks: number[] | null;
   canvasRef: RefObject<HTMLCanvasElement>;
   lastWaveDrawRangeRef: RefObject<{ viewStart: number; viewSpan: number }>;
+  waveViewStartOverrideRef: RefObject<number | null>;
   trimStartSec: number;
   trimEndSec: number | null;
   currentTimePropRef: RefObject<number>;
@@ -1173,6 +1176,7 @@ function useWaveCanvasPointerDrag({
   peaks,
   canvasRef,
   lastWaveDrawRangeRef,
+  waveViewStartOverrideRef,
   trimStartSec,
   trimEndSec,
   currentTimePropRef,
@@ -1241,7 +1245,8 @@ function useWaveCanvasPointerDrag({
           viewSpan,
           playheadSecForHit,
           duration,
-          viewPortionRef.current
+          viewPortionRef.current,
+          waveViewStartOverrideRef.current !== null
         )
       ) {
         e.preventDefault();
@@ -2876,6 +2881,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       peaks,
       canvasRef,
       lastWaveDrawRangeRef,
+      waveViewStartOverrideRef,
       trimStartSec,
       trimEndSec,
       currentTimePropRef,
@@ -2936,7 +2942,8 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           viewSpan,
           phSec,
           duration,
-          viewPortionRef.current
+          viewPortionRef.current,
+          waveViewStartOverrideRef.current !== null
         )
       ) {
         waveHoverCueRef.current = null;
