@@ -62,7 +62,7 @@ export default defineConfig({
     react(),
     devOpenBrowserPlugin(),
     VitePWA({
-      registerType: "autoUpdate",
+      registerType: "prompt",
       /** 開発サーバーでは SW を登録しない（古いキャッシュ UI の防止） */
       devOptions: {
         enabled: false,
