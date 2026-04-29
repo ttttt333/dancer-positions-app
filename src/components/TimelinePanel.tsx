@@ -3669,6 +3669,36 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                 >
                   <button
                     type="button"
+                    style={{
+                      ...timelineToolbarBtn,
+                      fontSize: tlPx(10),
+                      padding: `${tlPx(3)} ${tlPx(7)}`,
+                      letterSpacing: "0.01em",
+                    }}
+                    disabled={project.viewMode === "view" || duration <= 0}
+                    title="5 秒戻す"
+                    aria-label="5秒戻す"
+                    onClick={seekBackward5Sec}
+                  >
+                    «5s
+                  </button>
+                  <button
+                    type="button"
+                    style={{
+                      ...timelineToolbarBtn,
+                      fontSize: tlPx(10),
+                      padding: `${tlPx(3)} ${tlPx(7)}`,
+                      letterSpacing: "0.01em",
+                    }}
+                    disabled={project.viewMode === "view" || duration <= 0}
+                    title="5 秒進む"
+                    aria-label="5秒進む"
+                    onClick={seekForward5Sec}
+                  >
+                    5s»
+                  </button>
+                  <button
+                    type="button"
                     style={timelineToolbarBtn}
                     onClick={togglePlay}
                     aria-label={isPlaying ? "一時停止" : "再生"}
@@ -3698,22 +3728,6 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                       保存
                     </button>
                   )}
-                  <button
-                    type="button"
-                    style={timelineToolbarBtn}
-                    disabled={project.viewMode === "view" || duration <= 0}
-                    title="再生位置を 5 秒進める（トリム範囲内に収めます）"
-                    aria-label="5秒進む"
-                    onClick={seekForward5Sec}
-                  />
-                  <button
-                    type="button"
-                    style={timelineToolbarBtn}
-                    disabled={project.viewMode === "view" || duration <= 0}
-                    title="再生位置を 5 秒戻す（トリム範囲内に収めます）"
-                    aria-label="5秒戻す"
-                    onClick={seekBackward5Sec}
-                  />
                   <PlaybackClockReadout
                     audioRef={audioRef}
                     isPlaying={isPlaying}
@@ -3765,6 +3779,40 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                 minWidth: 0,
               }}
             >
+              <button
+                type="button"
+                style={{
+                  ...timelineToolbarBtn,
+                  padding: `${tlPx(3)} ${tlPx(7)}`,
+                  minHeight: tlPx(24),
+                  fontSize: tlPx(10),
+                  letterSpacing: "0.01em",
+                  flexShrink: 0,
+                }}
+                disabled={project.viewMode === "view" || duration <= 0}
+                title="5 秒戻す"
+                aria-label="5秒戻す"
+                onClick={seekBackward5Sec}
+              >
+                «5s
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...timelineToolbarBtn,
+                  padding: `${tlPx(3)} ${tlPx(7)}`,
+                  minHeight: tlPx(24),
+                  fontSize: tlPx(10),
+                  letterSpacing: "0.01em",
+                  flexShrink: 0,
+                }}
+                disabled={project.viewMode === "view" || duration <= 0}
+                title="5 秒進む"
+                aria-label="5秒進む"
+                onClick={seekForward5Sec}
+              >
+                5s»
+              </button>
               <button
                 type="button"
                 style={{
