@@ -611,6 +611,55 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
             <span>ライブラリ</span>
             <span>に保存</span>
           </button>
+          {onOpenAudioImport ? (
+            <button
+              type="button"
+              className="editor-right-tool-sq"
+              disabled={project.viewMode === "view"}
+              title="楽曲または動画から音声を読み込み（MP4 / AVI / MOV / MKV / WMV 等に対応）"
+              aria-label="音源を取り込む"
+              onPointerEnter={() => onPreloadFfmpegForAudio?.()}
+              onClick={() => onOpenAudioImport()}
+            >
+              <span>音源</span>
+              <span>取込</span>
+            </button>
+          ) : null}
+          {choreo ? (
+            <>
+              <ChoreoGridToolbar
+                embedInPanel
+                tilesInRun
+                singleTile="setPiece"
+                {...choreo}
+              />
+              <ChoreoGridToolbar
+                embedInPanel
+                tilesInRun
+                singleTile="stageShape"
+                {...choreo}
+              />
+            </>
+          ) : null}
+          <button
+            type="button"
+            className="editor-right-tool-sq"
+            style={btnSecondary}
+            disabled={project.viewMode === "view"}
+            title="CSV / TSV を選んで新しい名簿として取り込みます（1 列目または「名前」などの見出しを検出）"
+            onClick={() => importCrewCsvFromStageToolbar()}
+          >
+            <span>名簿</span>
+            <span>取込</span>
+          </button>
+          {choreo ? (
+            <ChoreoGridToolbar
+              embedInPanel
+              tilesInRun
+              singleTile="export"
+              {...choreo}
+            />
+          ) : null}
           {!hideFloorTextToolbar ? (
             <button
               type="button"
@@ -657,55 +706,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               }}
             >
               <span>テキスト</span>
-            </button>
-          ) : null}
-          {choreo ? (
-            <>
-              <ChoreoGridToolbar
-                embedInPanel
-                tilesInRun
-                singleTile="setPiece"
-                {...choreo}
-              />
-              <ChoreoGridToolbar
-                embedInPanel
-                tilesInRun
-                singleTile="stageShape"
-                {...choreo}
-              />
-            </>
-          ) : null}
-          <button
-            type="button"
-            className="editor-right-tool-sq"
-            style={btnSecondary}
-            disabled={project.viewMode === "view"}
-            title="CSV / TSV を選んで新しい名簿として取り込みます（1 列目または「名前」などの見出しを検出）"
-            onClick={() => importCrewCsvFromStageToolbar()}
-          >
-            <span>名簿</span>
-            <span>取込</span>
-          </button>
-          {choreo ? (
-            <ChoreoGridToolbar
-              embedInPanel
-              tilesInRun
-              singleTile="export"
-              {...choreo}
-            />
-          ) : null}
-          {onOpenAudioImport ? (
-            <button
-              type="button"
-              className="editor-right-tool-sq"
-              disabled={project.viewMode === "view"}
-              title="楽曲または動画から音声を読み込み（MP4 / AVI / MOV / MKV / WMV 等に対応）"
-              aria-label="音源を取り込む"
-              onPointerEnter={() => onPreloadFfmpegForAudio?.()}
-              onClick={() => onOpenAudioImport()}
-            >
-              <span>音源</span>
-              <span>取込</span>
             </button>
           ) : null}
         </div>
