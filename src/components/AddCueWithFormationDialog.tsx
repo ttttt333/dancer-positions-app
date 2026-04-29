@@ -262,6 +262,23 @@ const modeCardBase: CSSProperties = {
   width: "100%",
 };
 
+/** 雛形グリッドのボタンと同系の、形の箱用コンパクトチップ */
+const presetChipBase: CSSProperties = {
+  flexShrink: 0,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  gap: "3px",
+  padding: "5px 6px 6px",
+  borderRadius: "8px",
+  border: "1px solid #1e293b",
+  background: "#0f172a",
+  cursor: "pointer",
+  minWidth: "52px",
+  boxShadow: "none",
+  transition: "border-color 0.12s, background 0.12s",
+};
+
 /** 「立ち位置について」4 モード用（従来の約半分の高さ・説明は title / aria-label） */
 const addCueModePickStyle: CSSProperties = {
   display: "flex",
