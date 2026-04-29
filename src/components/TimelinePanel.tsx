@@ -294,7 +294,8 @@ function pickCueIdAtWave(
   const h = r.height;
   if (w <= 0) return null;
   const mid = h / 2;
-  const barHalfH = 14;
+  /** waveform 高さに比例して当たり判定を広げる（最低 14px、最大で canvas 全体） */
+  const barHalfH = Math.max(14, Math.floor(h * 0.46));
   const viewEnd = viewStart + viewSpan;
   let best: { id: string; dist: number } | null = null;
   for (const cue of cueList) {
@@ -311,8 +312,8 @@ function pickCueIdAtWave(
     const x2 = waveTimeToExtentX(Math.min(te, viewEnd), viewStart, viewSpan, w);
     const left = Math.min(x1, x2);
     const right = Math.max(x1, x2);
-    const pad = 3;
-    if (x < left - pad || x > right + pad) continue;
+    /** 枠の外では反応しない（pad=0）- 視覚的な枠とぴったり一致させる */
+    if (x < left || x > right) continue;
     if (y < mid - barHalfH || y > mid + barHalfH) continue;
     const cx = clamp(x, left, right);
     const dist = Math.abs(x - cx) + Math.abs(y - mid) * 0.05;
@@ -356,7 +357,7 @@ function pickCueDragKindAtWave(
   const w = r.width;
   if (w <= 0) return null;
   const mid = r.height / 2;
-  const barHalfH = 14;
+  const barHalfH = Math.max(14, Math.floor(r.height * 0.46));
   if (y < mid - barHalfH || y > mid + barHalfH) return null;
   const viewEnd = viewStart + viewSpan;
   const x1 = waveTimeToExtentX(Math.max(ts, viewStart), viewStart, viewSpan, w);
