@@ -561,26 +561,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
           </button>
         </div>
 
-        {onOpenShareLinks ? (
-          <button
-            type="button"
-            className="editor-right-tool-sq"
-            style={{
-              ...btnSecondary,
-              borderColor: "rgba(14, 165, 233, 0.55)",
-              color: "#e0f2fe",
-              width: "100%",
-              minHeight: 48,
-            }}
-            disabled={shareLinksButtonDisabled}
-            title="共同編集・生徒用閲覧の URL をコピー"
-            onClick={onOpenShareLinks}
-          >
-            <span>共有</span>
-            <span>URL</span>
-          </button>
-        ) : null}
-
         <div className="editor-right-tools-col-ordered">
           {onOpenCueListModal ? (
             <button
@@ -895,6 +875,26 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
             </div>
           </div>
         ) : null}
+        {onOpenShareLinks ? (
+          <button
+            type="button"
+            className="editor-right-tool-sq"
+            style={{
+              ...btnSecondary,
+              borderColor: "rgba(14, 165, 233, 0.55)",
+              color: "#e0f2fe",
+              width: "100%",
+              minHeight: 48,
+              marginTop: 4,
+            }}
+            disabled={shareLinksButtonDisabled}
+            title="共同編集・生徒用閲覧の URL をコピー"
+            onClick={onOpenShareLinks}
+          >
+            <span>共有</span>
+            <span>URL</span>
+          </button>
+        ) : null}
       </div>
     );
   }
@@ -1035,20 +1035,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
     >
       名簿取り込み
     </button>
-    {onOpenShareLinks ? (
-      <button
-        type="button"
-        style={{
-          ...btnSecondary,
-          borderColor: "rgba(14, 165, 233, 0.5)",
-        }}
-        disabled={shareLinksButtonDisabled}
-        title="共同編集・生徒用閲覧の URL をコピー"
-        onClick={onOpenShareLinks}
-      >
-        共有URL
-      </button>
-    ) : null}
     {!rail ? (
       <div
         style={{
@@ -1242,6 +1228,37 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
           </div>
         </div>
       ) : null}
+    {onOpenShareLinks && !rail ? (
+      <div
+        style={{
+          flexBasis: "100%",
+          width: "100%",
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          gap: 8,
+          marginTop: 4,
+          paddingTop: 8,
+          borderTop: "1px solid #334155",
+        }}
+      >
+        <button
+          type="button"
+          style={{
+            ...btnSecondary,
+            borderColor: "rgba(14, 165, 233, 0.5)",
+            padding: "6px 12px",
+            fontSize: 12,
+            fontWeight: 600,
+          }}
+          disabled={shareLinksButtonDisabled}
+          title="共同編集・生徒用閲覧の URL をコピー"
+          onClick={onOpenShareLinks}
+        >
+          共有URL
+        </button>
+      </div>
+    ) : null}
     </div>
   </div>
 </div>

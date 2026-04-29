@@ -3103,40 +3103,7 @@ export function EditorPage({
           </button>
         ) : null}
       </header>
-      ) : (
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            gap: 10,
-            padding:
-              "max(8px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px)) 8px max(10px, env(safe-area-inset-left, 0px))",
-            borderBottom: `1px solid ${shell.border}`,
-            background: shell.bgChrome,
-            flexShrink: 0,
-          }}
-        >
-          <span style={{ fontSize: 20 }} aria-hidden>
-            🎵
-          </span>
-          <span style={{ fontWeight: 700, color: "#e2e8f0", fontSize: 15 }}>
-            {(project.pieceTitle || "無題の作品").trim()} - 閲覧
-          </span>
-          <div style={{ flex: 1, minWidth: 8 }} aria-hidden />
-          <Link
-            to="/library"
-            style={{
-              ...btnSecondary,
-              textDecoration: "none",
-              fontSize: 12,
-              fontWeight: 600,
-            }}
-          >
-            閉じる
-          </Link>
-        </div>
-      )}
+      ) : null}
 
       <div
         ref={(el) => {
@@ -3154,7 +3121,7 @@ export function EditorPage({
           padding:
             "6px max(6px, env(safe-area-inset-right, 0px)) calc(max(8px, 2cm) + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
           paddingBottom: choreoPublicView && choreoStudentPick
-            ? "calc(max(8px, 2cm) + 56px + env(safe-area-inset-bottom, 0px))"
+            ? "calc(max(8px, 2cm) + 104px + env(safe-area-inset-bottom, 0px))"
             : undefined,
           /** 狭い画面では負のマージンを付けない（レイアウト再計算・はみ出しを抑えスマホで滑らかに） */
           marginTop: wideEditorLayout
@@ -4771,39 +4738,6 @@ export function EditorPage({
       ) : null}
 
       {choreoPublicView && choreoStudentPick ? (
-        <button
-          type="button"
-          onClick={() => setChoreoMemberSheetOpen(true)}
-          style={{
-            position: "fixed",
-            right: 0,
-            top: "max(100px, 26dvh)",
-            zIndex: 86,
-            ...btnSecondary,
-            borderRadius: "10px 0 0 10px",
-            borderRight: "none",
-            width: 44,
-            minHeight: 64,
-            padding: "6px 4px",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 2,
-            fontSize: 11,
-            fontWeight: 700,
-            lineHeight: 1.2,
-            color: "#e2e8f0",
-            boxShadow: "-2px 2px 10px rgba(0,0,0,0.3)",
-          }}
-          title="誰の立ち位置を大きく表示するかを選び直す"
-        >
-          <span>パート</span>
-          <span>を選ぶ</span>
-        </button>
-      ) : null}
-
-      {choreoPublicView && choreoStudentPick ? (
         <div
           style={{
             position: "fixed",
@@ -4812,35 +4746,81 @@ export function EditorPage({
             bottom: 0,
             zIndex: 90,
             display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            gap: 12,
-            padding:
-              "10px 14px calc(10px + env(safe-area-inset-bottom, 0px)) 14px",
+            flexDirection: "column",
             borderTop: `1px solid ${shell.border}`,
-            background: "rgba(15, 23, 42, 0.97)",
+            background: "rgba(15, 23, 42, 0.98)",
             boxShadow: "0 -4px 20px rgba(0,0,0,0.35)",
+            paddingBottom: "env(safe-area-inset-bottom, 0px)",
           }}
         >
-          <span style={{ fontSize: 14, color: "#e2e8f0" }}>
-            👤{" "}
-            {choreoStudentPick.kind === "all"
-              ? "全員"
-              : `${choreoStudentPick.label} さん`}{" "}
-            のパート表示中
-          </span>
-          <button
-            type="button"
-            onClick={() => setChoreoMemberSheetOpen(true)}
+          <div
             style={{
-              ...btnSecondary,
-              marginLeft: "auto",
-              fontSize: 12,
-              fontWeight: 600,
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: 8,
+              padding: "8px 14px 6px",
+              borderBottom: `1px solid ${shell.border}`,
             }}
           >
-            メンバーを変える
-          </button>
+            <span style={{ fontSize: 18 }} aria-hidden>
+              🎵
+            </span>
+            <span
+              style={{
+                fontWeight: 700,
+                color: "#e2e8f0",
+                fontSize: 14,
+                lineHeight: 1.25,
+                flex: "1 1 120px",
+                minWidth: 0,
+              }}
+            >
+              {(project.pieceTitle || "無題の作品").trim()} - 閲覧
+            </span>
+            <Link
+              to="/library"
+              style={{
+                ...btnSecondary,
+                textDecoration: "none",
+                fontSize: 12,
+                fontWeight: 600,
+                flexShrink: 0,
+              }}
+            >
+              閉じる
+            </Link>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: 10,
+              padding: "10px 14px 12px",
+            }}
+          >
+            <span style={{ fontSize: 14, color: "#e2e8f0" }}>
+              👤{" "}
+              {choreoStudentPick.kind === "all"
+                ? "全員"
+                : `${choreoStudentPick.label} さん`}{" "}
+              のパート表示中
+            </span>
+            <button
+              type="button"
+              onClick={() => setChoreoMemberSheetOpen(true)}
+              style={{
+                ...btnSecondary,
+                marginLeft: "auto",
+                fontSize: 12,
+                fontWeight: 600,
+              }}
+              title="誰の立ち位置を大きく表示するかを選び直す"
+            >
+              パートを選ぶ
+            </button>
+          </div>
         </div>
       ) : null}
 
