@@ -7,12 +7,12 @@ import type {
 const LEGACY_KEY = "dance_stage_positions_v1";
 
 /** プロジェクト既定のダンサー印直径（px）。「未変更」判定にも使う */
-export const DEFAULT_DANCER_MARKER_DIAMETER_PX = 56;
+export const DEFAULT_DANCER_MARKER_DIAMETER_PX = 36;
 /**
  * 名簿取り込み〜名簿からステージへ載せる直後の印直径（px）。
- * 既定の 56 より一回り小さく、名簿一覧で多数表示したときの見た目に合わせる。
+ * 既定より一回り小さく、名簿一覧で多数表示したときの見た目に合わせる。
  */
-export const ROSTER_IMPORT_MARKER_DIAMETER_PX = 38;
+export const ROSTER_IMPORT_MARKER_DIAMETER_PX = 26;
 
 /** 名簿フローで印を小さくする。ユーザーが既に直径を変えているときは維持 */
 export function dancerMarkerDiameterAfterRosterImport(
