@@ -702,6 +702,8 @@ type UseWaveCanvasRendererArgs = {
   waveHoverCueRef: RefObject<{ cueId: string; mode: CueDragEdgeMode } | null>;
   waveAmpRef: RefObject<number>;
   lastWaveDrawRangeRef: RefObject<{ viewStart: number; viewSpan: number }>;
+  /** カーソル位置ズーム用: null でなければ viewStart をこの値で固定 */
+  waveViewStartOverrideRef: RefObject<number | null>;
   isPlayingForWaveRef: RefObject<boolean>;
   currentTimePropRef: RefObject<number>;
   wideWorkbench: boolean;
@@ -735,6 +737,7 @@ function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
     waveHoverCueRef,
     waveAmpRef,
     lastWaveDrawRangeRef,
+    waveViewStartOverrideRef,
     isPlayingForWaveRef,
     currentTimePropRef,
     wideWorkbench,
@@ -766,7 +769,11 @@ function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
       const tGrid = isPlayingForWaveRef.current
         ? quantizePlayheadForWaveView(playheadTime)
         : playheadTime;
-      const { start: viewStart, span: viewSpan } = getWaveViewForDraw(d, vp, tGrid);
+      const startOverride = waveViewStartOverrideRef.current;
+      const { start: viewStart, span: viewSpan } =
+        startOverride !== null && d > 0
+          ? { start: startOverride, span: Math.max(0.08, d * vp) }
+          : getWaveViewForDraw(d, vp, tGrid);
       const viewEnd = viewStart + viewSpan;
       lastWaveDrawRangeRef.current = { viewStart, viewSpan };
       g.fillStyle = "#0f172a";
@@ -1637,6 +1644,11 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
     cuesRef.current = cuesSorted;
 
     const lastWaveDrawRangeRef = useRef({ viewStart: 0, viewSpan: 1 });
+
+    /** カーソル位置基準ズーム用: 波形表示ウィンドウの開始時刻オーバーライド（null=プレイヘッド追従） */
+    const [waveViewStartOverride, setWaveViewStartOverride] = useState<number | null>(null);
+    const waveViewStartOverrideRef = useRef<number | null>(null);
+    waveViewStartOverrideRef.current = waveViewStartOverride;
     const cueDragRef = useRef<{
       pointerId: number;
       cueId: string;
@@ -1710,10 +1722,13 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       return playheadGridSec;
     }, [isPlaying, playheadGridSec, viewPortion]);
 
-    const waveView = useMemo(
-      () => getWaveViewForDraw(duration, viewPortion, waveViewAnchorSec),
-      [duration, viewPortion, waveViewAnchorSec]
-    );
+    const waveView = useMemo(() => {
+      if (waveViewStartOverride !== null && duration > 0) {
+        const span = Math.max(0.08, duration * viewPortion);
+        return { start: waveViewStartOverride, end: waveViewStartOverride + span, span };
+      }
+      return getWaveViewForDraw(duration, viewPortion, waveViewAnchorSec);
+    }, [duration, viewPortion, waveViewAnchorSec, waveViewStartOverride]);
 
     const isPlayingForWaveRef = useRef(isPlaying);
     isPlayingForWaveRef.current = isPlaying;
@@ -1734,6 +1749,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       waveHoverCueRef,
       waveAmpRef,
       lastWaveDrawRangeRef,
+      waveViewStartOverrideRef,
       isPlayingForWaveRef,
       currentTimePropRef,
       wideWorkbench,
@@ -1752,7 +1768,26 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
 
     useEffect(() => {
       setViewPortion(1);
+      setWaveViewStartOverride(null);
     }, [peaks]);
+
+    /** 再生開始時はオーバーライドを解除してプレイヘッド追従に戻す */
+    useEffect(() => {
+      if (isPlaying) setWaveViewStartOverride(null);
+    }, [isPlaying]);
+
+    /** プレイヘッドがオーバーライドのビュー範囲外に出たら追従に戻す */
+    useEffect(() => {
+      if (waveViewStartOverride === null || duration <= 0) return;
+      const span = Math.max(0.08, duration * viewPortion);
+      const margin = span * 0.15;
+      if (
+        playheadGridSec < waveViewStartOverride - margin ||
+        playheadGridSec > waveViewStartOverride + span + margin
+      ) {
+        setWaveViewStartOverride(null);
+      }
+    }, [playheadGridSec, waveViewStartOverride, duration, viewPortion]);
 
     /** 右列→上部ドックへ切り替えた直後など、波形高さが既定より小さいままだと帯が潰れて見えなくなるのを防ぐ */
     useEffect(() => {
@@ -2180,15 +2215,40 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       const el = waveContainerRef.current;
       if (!el) return;
       const onWheel = (e: WheelEvent) => {
-        if (durationRef.current <= 0) return;
+        const d = durationRef.current;
+        if (d <= 0) return;
         e.preventDefault();
         const dy = e.deltaY;
         if (dy === 0) return;
         /** deltaY>0 で縮小（見える時間幅↑）、<0 で拡大。トラックパッドの細かい delta に追従 */
         const mult = Math.exp(dy * 0.00115);
+
+        /** カーソル位置の横方向割合（0〜1）を求めてズームの軸とする */
+        const rect = el.getBoundingClientRect();
+        const cursorFrac =
+          rect.width > 0
+            ? Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+            : 0.5;
+
+        /** 現在の viewStart/viewSpan を取得（最後に描画された範囲） */
+        const { viewStart, viewSpan } = lastWaveDrawRangeRef.current;
+
+        /** カーソル位置が示す時刻 */
+        const tCursor = viewStart + cursorFrac * viewSpan;
+
         setViewPortion((p) => {
-          const next = p * mult;
-          return Math.min(1, Math.max(0.025, next));
+          const newVp = Math.min(1, Math.max(0.025, p * mult));
+          const newSpan = Math.max(0.08, d * newVp);
+
+          if (newVp >= 1 - 1e-9) {
+            /** 完全ズームアウト → オーバーライド解除 */
+            setWaveViewStartOverride(null);
+          } else {
+            /** カーソル位置を軸に新しい viewStart を計算してオーバーライド */
+            const newStart = Math.max(0, Math.min(d - newSpan, tCursor - cursorFrac * newSpan));
+            setWaveViewStartOverride(newStart);
+          }
+          return newVp;
         });
       };
       el.addEventListener("wheel", onWheel, { passive: false });
