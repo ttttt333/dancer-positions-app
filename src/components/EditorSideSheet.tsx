@@ -80,7 +80,8 @@ export function EditorSideSheet({
           style={{
             flex: 1,
             minHeight: 0,
-            overflow: "auto",
+            overflowY: "auto",
+            overflowX: "hidden",
             WebkitOverflowScrolling: "touch",
           }}
         >

@@ -2338,39 +2338,34 @@ export function EditorPage() {
         <EditorSideSheet
           open
           zIndex={60}
-          width="min(440px, 46vw)"
+          width="min(320px, 90vw)"
           onClose={() => {
             setRosterImportDraft(null);
             setRosterImportExtraNames([]);
           }}
           ariaLabelledBy="roster-import-dialog-title"
         >
-          <div style={{ padding: "18px 20px" }}>
+          <div style={{ padding: "14px 16px" }}>
             <div
               id="roster-import-dialog-title"
-              style={{ fontSize: "15px", fontWeight: 700, marginBottom: "8px" }}
+              style={{ fontSize: "14px", fontWeight: 700, marginBottom: "6px" }}
             >
               名簿を取り込みます
             </div>
-            <p style={{ margin: "0 0 12px", fontSize: "12px", color: "#94a3b8", lineHeight: 1.5 }}>
-              {labelForKind(rosterImportDraft.kind)}「{rosterImportDraft.baseName}」
-              <br />
-              ステージ上の表示は最大 8 文字です。同じ名前が複数あるときは、該当する全員に苗字の先頭 1 文字を前に付けて区別します。
-              <br />
-              見出しに「出欠」「参加」「出席」などがあるとき、または氏名の左右の列が ○・参加・出席 などで埋まっているときは、その列で参加行だけを名簿に含めます。
-              見出しに「フリガナ」「読み」「セイ」「メイ」などがあり、読みに姓と名が分かるときは、下の「表示名の取り込み方」に応じてフル（例: さたけし）・苗字（姓の漢字またはセイ）・名前（名の漢字またはメイ）を選べます。
+            <p style={{ margin: "0 0 10px", fontSize: "11px", color: "#94a3b8", lineHeight: 1.45, wordBreak: "break-all" }}>
+              ステージ表示は最大8文字。同名の場合は苗字の頭1文字を自動付加。「出欠」列があれば参加行のみ取込。フリガナ列があれば下の設定で表示名を選択できます。
             </p>
-            <div style={{ fontSize: "12px", fontWeight: 600, color: "#cbd5e1", marginBottom: "8px" }}>
+            <div style={{ fontSize: "11px", fontWeight: 600, color: "#cbd5e1", marginBottom: "6px" }}>
               表示名の取り込み方
             </div>
             <label
               style={{
                 display: "flex",
-                alignItems: "flex-start",
-                gap: "8px",
-                marginBottom: "8px",
+                alignItems: "center",
+                gap: "6px",
+                marginBottom: "6px",
                 cursor: "pointer",
-                fontSize: "13px",
+                fontSize: "12px",
               }}
             >
               <input
@@ -2379,21 +2374,16 @@ export function EditorPage() {
                 checked={rosterImportNameMode === "full"}
                 onChange={() => setRosterImportNameMode("full")}
               />
-              <span>
-                <strong>フルネーム</strong>
-                <span style={{ display: "block", fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
-                  姓＋名・氏名列などをそのまま短く表示（従来に近い）
-                </span>
-              </span>
+              <span><strong>フルネーム</strong><span style={{ color: "#64748b", marginLeft: 4 }}>（姓＋名）</span></span>
             </label>
             <label
               style={{
                 display: "flex",
-                alignItems: "flex-start",
-                gap: "8px",
-                marginBottom: "8px",
+                alignItems: "center",
+                gap: "6px",
+                marginBottom: "6px",
                 cursor: "pointer",
-                fontSize: "13px",
+                fontSize: "12px",
               }}
             >
               <input
@@ -2402,21 +2392,16 @@ export function EditorPage() {
                 checked={rosterImportNameMode === "family_only"}
                 onChange={() => setRosterImportNameMode("family_only")}
               />
-              <span>
-                <strong>苗字だけ</strong>
-                <span style={{ display: "block", fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
-                  「姓」列があればそれのみ。1 列だけのときは先頭の漢字ブロックや、スペース区切りの先頭を苗字とみなします。
-                </span>
-              </span>
+              <span><strong>苗字だけ</strong><span style={{ color: "#64748b", marginLeft: 4 }}>（姓のみ）</span></span>
             </label>
             <label
               style={{
                 display: "flex",
-                alignItems: "flex-start",
-                gap: "8px",
-                marginBottom: "16px",
+                alignItems: "center",
+                gap: "6px",
+                marginBottom: "12px",
                 cursor: "pointer",
-                fontSize: "13px",
+                fontSize: "12px",
               }}
             >
               <input
@@ -2425,40 +2410,25 @@ export function EditorPage() {
                 checked={rosterImportNameMode === "given_only"}
                 onChange={() => setRosterImportNameMode("given_only")}
               />
-              <span>
-                <strong>名前だけ</strong>
-                <span style={{ display: "block", fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
-                  見出しに「姓」「名」列があると確実です。1 列だけのときは、先頭の漢字を除く簡易推定やスペース区切りの末尾を使います。
-                </span>
-              </span>
+              <span><strong>名前だけ</strong><span style={{ color: "#64748b", marginLeft: 4 }}>（名のみ）</span></span>
             </label>
             <div
               style={{
-                marginBottom: "14px",
-                paddingTop: "10px",
+                marginBottom: "12px",
+                paddingTop: "8px",
                 borderTop: "1px solid #334155",
               }}
             >
               <div
                 style={{
-                  fontSize: "12px",
+                  fontSize: "11px",
                   fontWeight: 600,
                   color: "#cbd5e1",
-                  marginBottom: "8px",
+                  marginBottom: "6px",
                 }}
               >
-                ファイルにない人を追加（任意）
+                メンバーを追加（任意）
               </div>
-              <p
-                style={{
-                  margin: "0 0 8px",
-                  fontSize: "11px",
-                  color: "#64748b",
-                  lineHeight: 1.45,
-                }}
-              >
-                取り込み後も名簿で編集できます。ここでは表示名だけを足せます。
-              </p>
               {rosterImportExtraNames.map((extraName, idx) => (
                 <div
                   key={idx}
