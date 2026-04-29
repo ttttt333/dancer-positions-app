@@ -1049,22 +1049,7 @@ export function EditorPage() {
     prevShowTopWaveDockRef.current = showTopWaveDockForGrid;
   }, [showTopWaveDockForGrid]);
 
-  /**
-   * エディタを開いた時点でバックグラウンドで FFmpeg.wasm を温めておく。
-   * ユーザがあとで動画を選んだ時、初回でもコア/wasm は既にキャッシュ済みで即抽出に入れる。
-   */
-  useEffect(() => {
-    const idle: (cb: () => void) => number =
-      (window as unknown as { requestIdleCallback?: (cb: () => void) => number })
-        .requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 400));
-    const cancel: (id: number) => void =
-      (window as unknown as { cancelIdleCallback?: (id: number) => void })
-        .cancelIdleCallback ?? ((id: number) => window.clearTimeout(id));
-    const id = idle(() => {
-      void preloadFFmpeg();
-    });
-    return () => cancel(id);
-  }, []);
+  /** FFmpeg.wasm は音源取り込みボタン押下時のみロードする（バックグラウンド自動 DL だとタブのスピナーが常時表示されてしまうため削除） */
 
   useEffect(() => {
     /** 新規は API・ログイン不要のため認証待ちを挟まず即表示（立ち上げ短縮） */
