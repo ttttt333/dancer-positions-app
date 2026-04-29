@@ -96,13 +96,24 @@ import {
 } from "../lib/savedSpotStageSnapshot";
 import { getViewRosterEntries } from "../lib/viewRoster";
 import {
-  ChoreoMemberPickerPanel,
   ChoreoStudentViewGate,
   type StudentPick,
 } from "../components/ChoreoStudentViewGate";
 import { ShareLinksSheetContent } from "../components/ShareLinksSheetContent";
+import { ViewerModeSheetContent } from "../components/ViewerModeSheetContent";
 
 const HISTORY_CAP = 80;
+
+function studentPickToStageFocus(
+  p: StudentPick
+):
+  | { kind: "all" }
+  | { kind: "one"; crewMemberId: string; label: string } {
+  if (p.kind === "all") {
+    return { kind: "all" };
+  }
+  return { kind: "one", crewMemberId: p.id, label: p.label };
+}
 
 function round2Pct(n: number): number {
   return Math.round(n * 100) / 100;
@@ -896,6 +907,10 @@ export function EditorPage({
   const [choreoStoredPick, setChoreoStoredPick] = useState<StudentPick | null>(null);
   const [shareLinksOpen, setShareLinksOpen] = useState(false);
   const [choreoMemberSheetOpen, setChoreoMemberSheetOpen] = useState(false);
+  /** 編集画面: 生徒用閲覧と同じ「一人強調」をプレビュー */
+  const [editorViewerSheetOpen, setEditorViewerSheetOpen] = useState(false);
+  const [editorViewerPreviewPick, setEditorViewerPreviewPick] =
+    useState<StudentPick | null>(null);
   const [setPiecePickerOpen, setSetPiecePickerOpen] = useState(false);
   /** 変形舞台ピッカー（舞台形状のカスタマイズ） */
   const [stageShapePickerOpen, setStageShapePickerOpen] = useState(false);
@@ -2760,16 +2775,16 @@ export function EditorPage({
     }
   }
 
-  const studentViewerFocusForStage =
-    choreoPublicView && choreoStudentPick
-      ? choreoStudentPick.kind === "all"
-        ? { kind: "all" as const }
-        : {
-            kind: "one" as const,
-            crewMemberId: choreoStudentPick.id,
-            label: choreoStudentPick.label,
-          }
-      : null;
+  const studentViewerFocusForStage = useMemo(() => {
+    if (choreoPublicView) {
+      if (!choreoStudentPick) return null;
+      return studentPickToStageFocus(choreoStudentPick);
+    }
+    if (editorViewerPreviewPick) {
+      return studentPickToStageFocus(editorViewerPreviewPick);
+    }
+    return null;
+  }, [choreoPublicView, choreoStudentPick, editorViewerPreviewPick]);
 
   const stageBoardProject = projectForStageBoard!;
 
@@ -4698,7 +4713,25 @@ export function EditorPage({
           zIndex={88}
           width="min(400px, 92vw)"
         >
-          <div style={{ padding: "8px 12px 8px 16px", display: "flex", justifyContent: "flex-end" }}>
+          <div
+            style={{
+              padding: "8px 16px 0",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <h3
+              style={{
+                margin: 0,
+                fontSize: 16,
+                fontWeight: 700,
+                color: "#e2e8f0",
+              }}
+            >
+              閲覧モード
+            </h3>
             <button
               type="button"
               aria-label="閉じる"
@@ -4714,10 +4747,11 @@ export function EditorPage({
             </button>
           </div>
           <div style={{ padding: "0 16px 20px" }}>
-            <ChoreoMemberPickerPanel
+            <ViewerModeSheetContent
+              variant="public"
+              pieceTitle={project.pieceTitle}
               entries={getViewRosterEntries(project)}
-              heading="誰のパートを光らせますか？"
-              subheading="名前を選ぶとその人の印を大きく表示し、他は控えめに表示します。全員表示を選ぶと同じ大きさです。"
+              canCapture2d={stageView === "2d"}
               onPick={(p) => {
                 setChoreoStudentPick(p);
                 if (viewerLocalStorageKey) {
@@ -4735,6 +4769,128 @@ export function EditorPage({
             />
           </div>
         </EditorSideSheet>
+      ) : null}
+
+      {!choreoPublicView && project ? (
+        <EditorSideSheet
+          open={editorViewerSheetOpen}
+          onClose={() => setEditorViewerSheetOpen(false)}
+          zIndex={88}
+          width="min(400px, 92vw)"
+        >
+          <div
+            style={{
+              padding: "8px 16px 0",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+            }}
+          >
+            <h3
+              style={{
+                margin: 0,
+                fontSize: 16,
+                fontWeight: 700,
+                color: "#e2e8f0",
+              }}
+            >
+              閲覧プレビュー
+            </h3>
+            <button
+              type="button"
+              aria-label="閉じる"
+              onClick={() => setEditorViewerSheetOpen(false)}
+              style={{
+                ...btnSecondary,
+                fontSize: 18,
+                lineHeight: 1,
+                padding: "4px 12px",
+              }}
+            >
+              ×
+            </button>
+          </div>
+          <div style={{ padding: "0 16px 20px" }}>
+            <ViewerModeSheetContent
+              variant="editor"
+              pieceTitle={project.pieceTitle}
+              entries={getViewRosterEntries(project)}
+              canCapture2d={stageView === "2d"}
+              onPick={(p) => {
+                setEditorViewerPreviewPick(p);
+                setEditorViewerSheetOpen(false);
+              }}
+              onClearEditorPreview={() => setEditorViewerPreviewPick(null)}
+            />
+          </div>
+        </EditorSideSheet>
+      ) : null}
+
+      {!choreoPublicView && project ? (
+        <button
+          type="button"
+          onClick={() => setEditorViewerSheetOpen(true)}
+          style={{
+            position: "fixed",
+            right: "max(10px, env(safe-area-inset-right, 0px))",
+            bottom: "calc(20px + env(safe-area-inset-bottom, 0px))",
+            zIndex: 92,
+            width: 58,
+            minHeight: 58,
+            padding: "6px 6px",
+            borderRadius: "50%",
+            border: "1px solid #7dd3fc",
+            background: "linear-gradient(160deg, #075985, #0ea5e9)",
+            color: "#f0f9ff",
+            fontWeight: 800,
+            fontSize: 12,
+            lineHeight: 1.15,
+            cursor: "pointer",
+            boxShadow: "0 4px 18px rgba(0,0,0,0.5)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+          }}
+          title="閲覧：表示する人を一人に強調。再生で曲に合わせて確認。画像の保存・共有"
+        >
+          閲覧
+        </button>
+      ) : null}
+
+      {choreoPublicView && choreoStudentPick ? (
+        <button
+          type="button"
+          onClick={() => setChoreoMemberSheetOpen(true)}
+          style={{
+            position: "fixed",
+            right: "max(8px, env(safe-area-inset-right, 0px))",
+            bottom: "calc(116px + env(safe-area-inset-bottom, 0px))",
+            zIndex: 92,
+            width: 58,
+            minHeight: 58,
+            padding: "6px 6px",
+            borderRadius: "50%",
+            border: "1px solid #7dd3fc",
+            background: "linear-gradient(160deg, #075985, #0ea5e9)",
+            color: "#f0f9ff",
+            fontWeight: 800,
+            fontSize: 12,
+            lineHeight: 1.15,
+            cursor: "pointer",
+            boxShadow: "0 4px 18px rgba(0,0,0,0.5)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+          }}
+          title="閲覧：表示する人の変更。立ち位置の画像を保存・共有"
+        >
+          閲覧
+        </button>
       ) : null}
 
       {choreoPublicView && choreoStudentPick ? (
