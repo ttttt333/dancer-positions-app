@@ -2684,6 +2684,93 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       ]
     );
 
+    const duplicateCueAtTimelineEnd = useCallback(
+      (source: Cue) => {
+        if (project.viewMode === "view") return;
+        const newCueId = crypto.randomUUID();
+        let appliedT = 0;
+        setProject((p) => {
+          if (p.cues.length >= 100) return p;
+          const srcFm = p.formations.find((f) => f.id === source.formationId);
+          if (!srcFm) return p;
+          const newFm = cloneFormationForNewCue(srcFm);
+          const d =
+            durationRef.current > 0
+              ? durationRef.current
+              : PLACEHOLDER_TIMELINE_CAP_SEC;
+          const trimHi = p.trimEndSec ?? d;
+          const trimLo = p.trimStartSec;
+          const dur = Math.max(0.02, source.tEndSec - source.tStartSec);
+          const maxEnd = p.cues.length
+            ? Math.max(...p.cues.map((c) => c.tEndSec))
+            : trimLo;
+          let t0 = Math.round(maxEnd * 100) / 100;
+          if (t0 < trimLo) t0 = trimLo;
+          let t1 = Math.round((t0 + dur) * 100) / 100;
+          if (t1 > trimHi) {
+            t1 = trimHi;
+            t0 = Math.round((t1 - dur) * 100) / 100;
+          }
+          if (t0 < trimLo) {
+            t0 = trimLo;
+            t1 = Math.round(Math.min(trimHi, t0 + dur) * 100) / 100;
+          }
+          const resolved = resolveCueIntervalNonOverlap(
+            p.cues,
+            newCueId,
+            t0,
+            t1,
+            trimLo,
+            trimHi
+          );
+          t0 = resolved.tStartSec;
+          t1 = resolved.tEndSec;
+          appliedT = t0;
+          const newCue: Cue = {
+            id: newCueId,
+            tStartSec: t0,
+            tEndSec: t1,
+            formationId: newFm.id,
+            name: source.name,
+            note: source.note,
+            ...(source.gapApproachFromPrev
+              ? { gapApproachFromPrev: source.gapApproachFromPrev }
+              : {}),
+          };
+          return {
+            ...p,
+            formations: [...p.formations, newFm],
+            cues: sortCuesByStart([...p.cues, newCue]),
+            activeFormationId: newFm.id,
+          };
+        });
+        const a = audioRef.current;
+        const cap =
+          durationRef.current > 0
+            ? durationRef.current
+            : PLACEHOLDER_TIMELINE_CAP_SEC;
+        const trimHigh = project.trimEndSec ?? cap;
+        if (a && Number.isFinite(appliedT)) {
+          a.currentTime = Math.max(
+            project.trimStartSec,
+            Math.min(trimHigh, appliedT)
+          );
+        }
+        setCurrentTime(appliedT);
+        onSelectedCueIdsChange([newCueId]);
+        onFormationChosenFromCueList?.();
+      },
+      [
+        project.viewMode,
+        project.trimStartSec,
+        project.trimEndSec,
+        setProject,
+        setCurrentTime,
+        onFormationChosenFromCueList,
+        onSelectedCueIdsChange,
+      ]
+    );
+
     /**
      * 波形から: 指定キューの直後に、同じ長さ・同じ立ち位置の複製を置く（区間は非重複に調整）。
      */
@@ -3407,9 +3494,74 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             }}
           >
             {waveCueConfirm.kind === "duplicate"
-              ? "同じ立ち位置の別区間として、波形上の直後あたりに複製します。"
+              ? "同じ立ち位置の区間を複製します。置き場所を選んでください。"
               : "このキューの立ち位置を「形の箱」（立ち位置リスト）に追加します。名前は人数に応じて自動で付けます。"}
           </p>
+          {waveCueConfirm.kind === "duplicate" ? (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+                marginBottom: "12px",
+              }}
+            >
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  padding: "9px 14px",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  textAlign: "left",
+                  width: "100%",
+                  borderColor: "#6366f1",
+                  color: "#e0e7ff",
+                }}
+                onClick={() => {
+                  const cue = cuesSorted.find(
+                    (c) => c.id === waveCueConfirm.cueId
+                  );
+                  if (cue) duplicateCueAfterSource(cue);
+                  setWaveCueConfirm(null);
+                }}
+              >
+                このキューの直後
+                <span
+                  style={{ display: "block", fontSize: "11px", fontWeight: 500, color: "#a5b4fc", marginTop: "3px" }}
+                >
+                  金枠の右（波形の次の区間）に、すぐ近くに追加
+                </span>
+              </button>
+              <button
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  padding: "9px 14px",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  textAlign: "left",
+                  width: "100%",
+                  borderColor: "#0ea5e9",
+                  color: "#e0f2fe",
+                }}
+                onClick={() => {
+                  const cue = cuesSorted.find(
+                    (c) => c.id === waveCueConfirm.cueId
+                  );
+                  if (cue) duplicateCueAtTimelineEnd(cue);
+                  setWaveCueConfirm(null);
+                }}
+              >
+                タイムラインの最後
+                <span
+                  style={{ display: "block", fontSize: "11px", fontWeight: 500, color: "#7dd3fc", marginTop: "3px" }}
+                >
+                  最後のキュー終了位置の直後（全体の末尾）に追加
+                </span>
+              </button>
+            </div>
+          ) : null}
           <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
             <button
               type="button"
@@ -3421,8 +3573,9 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               }}
               onClick={() => setWaveCueConfirm(null)}
             >
-              いいえ
+              キャンセル
             </button>
+            {waveCueConfirm.kind === "formationBox" ? (
             <button
               type="button"
               style={{
@@ -3435,19 +3588,13 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
                 fontWeight: 600,
               }}
               onClick={() => {
-                const cue = cuesSorted.find((c) => c.id === waveCueConfirm.cueId);
-                if (cue) {
-                  if (waveCueConfirm.kind === "duplicate") {
-                    duplicateCueAfterSource(cue);
-                  } else {
-                    saveCueFormationToBoxList(waveCueConfirm.cueId);
-                  }
-                }
+                saveCueFormationToBoxList(waveCueConfirm.cueId);
                 setWaveCueConfirm(null);
               }}
             >
-              はい
+              追加する
             </button>
+            ) : null}
           </div>
         </div>
       </>

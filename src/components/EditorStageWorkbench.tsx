@@ -379,6 +379,10 @@ export type EditorStageWorkbenchProps = {
   onOpenShareLinks?: () => void;
   /** 共有ボタンをグレーアウト（未保存など） */
   shareLinksButtonDisabled?: boolean;
+  /** 右レール: 生徒用閲覧同様のメンバー強調＋共有（編集・/view 共通） */
+  onOpenViewerMode?: () => void;
+  /** 閲覧を開けないとき（通常は使わない） */
+  viewerModeButtonDisabled?: boolean;
 };
 
 export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
@@ -415,6 +419,8 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
     stageZenEligible = false,
     onOpenShareLinks,
     shareLinksButtonDisabled = false,
+    onOpenViewerMode,
+    viewerModeButtonDisabled = false,
   } = props;
 
   const rowOuter: CSSProperties = rail
@@ -770,6 +776,24 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               <span>拡大</span>
             </button>
           ) : null}
+          {onOpenViewerMode ? (
+            <button
+              type="button"
+              className="editor-right-tool-sq"
+              style={{
+                ...btnSecondary,
+                background: "rgba(186, 230, 253, 0.1)",
+                borderColor: "rgba(56, 189, 248, 0.4)",
+                color: "#e0f2fe",
+              }}
+              disabled={viewerModeButtonDisabled}
+              title="表示する人を一人に強調。再生の確認とステージ画像の保存・共有"
+              aria-label="閲覧モード（メンバー別の強調）"
+              onClick={() => onOpenViewerMode()}
+            >
+              <span>閲覧</span>
+            </button>
+          ) : null}
         </div>
         {!hideFloorTextToolbar && floorTextPlaceSession ? (
           <div
@@ -1120,6 +1144,29 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
           }}
         >
           メンバーを表示
+        </button>
+      ) : null}
+      {!rail && onOpenViewerMode ? (
+        <button
+          type="button"
+          disabled={viewerModeButtonDisabled}
+          title="表示する人を一人に強調。再生の確認とステージ画像の保存・共有"
+          onClick={() => onOpenViewerMode()}
+          style={{
+            ...btnSecondary,
+            background: "rgba(186, 230, 253, 0.1)",
+            borderColor: "rgba(56, 189, 248, 0.4)",
+            color: "#e0f2fe",
+            fontSize: "11px",
+            padding: "4px 10px",
+            borderRadius: "8px",
+            fontWeight: 600,
+            whiteSpace: "nowrap",
+            cursor: viewerModeButtonDisabled ? "not-allowed" : "pointer",
+            opacity: viewerModeButtonDisabled ? 0.5 : 1,
+          }}
+        >
+          閲覧
         </button>
       ) : null}
     </div>

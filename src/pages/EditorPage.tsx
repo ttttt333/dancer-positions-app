@@ -2930,6 +2930,9 @@ export function EditorPage({
     stageZenEligible: showTopWaveDock && !rightPaneCollapsed,
     onOpenShareLinks: choreoPublicView ? undefined : () => setShareLinksOpen(true),
     shareLinksButtonDisabled: serverId == null,
+    onOpenViewerMode: choreoPublicView
+      ? () => setChoreoMemberSheetOpen(true)
+      : () => setEditorViewerSheetOpen(true),
   };
 
 
@@ -4825,72 +4828,6 @@ export function EditorPage({
             />
           </div>
         </EditorSideSheet>
-      ) : null}
-
-      {!choreoPublicView && project ? (
-        <button
-          type="button"
-          onClick={() => setEditorViewerSheetOpen(true)}
-          style={{
-            position: "fixed",
-            right: "max(10px, env(safe-area-inset-right, 0px))",
-            bottom: "calc(20px + env(safe-area-inset-bottom, 0px))",
-            zIndex: 92,
-            width: 58,
-            minHeight: 58,
-            padding: "6px 6px",
-            borderRadius: "50%",
-            border: "1px solid #7dd3fc",
-            background: "linear-gradient(160deg, #075985, #0ea5e9)",
-            color: "#f0f9ff",
-            fontWeight: 800,
-            fontSize: 12,
-            lineHeight: 1.15,
-            cursor: "pointer",
-            boxShadow: "0 4px 18px rgba(0,0,0,0.5)",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            textAlign: "center",
-          }}
-          title="閲覧：表示する人を一人に強調。再生で曲に合わせて確認。画像の保存・共有"
-        >
-          閲覧
-        </button>
-      ) : null}
-
-      {choreoPublicView && choreoStudentPick ? (
-        <button
-          type="button"
-          onClick={() => setChoreoMemberSheetOpen(true)}
-          style={{
-            position: "fixed",
-            right: "max(8px, env(safe-area-inset-right, 0px))",
-            bottom: "calc(116px + env(safe-area-inset-bottom, 0px))",
-            zIndex: 92,
-            width: 58,
-            minHeight: 58,
-            padding: "6px 6px",
-            borderRadius: "50%",
-            border: "1px solid #7dd3fc",
-            background: "linear-gradient(160deg, #075985, #0ea5e9)",
-            color: "#f0f9ff",
-            fontWeight: 800,
-            fontSize: 12,
-            lineHeight: 1.15,
-            cursor: "pointer",
-            boxShadow: "0 4px 18px rgba(0,0,0,0.5)",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            textAlign: "center",
-          }}
-          title="閲覧：表示する人の変更。立ち位置の画像を保存・共有"
-        >
-          閲覧
-        </button>
       ) : null}
 
       {choreoPublicView && choreoStudentPick ? (
