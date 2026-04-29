@@ -478,27 +478,14 @@ function hitPlayheadStripForScrub(
   viewStart: number,
   viewSpan: number,
   playheadSec: number,
-  durationSec: number,
-  viewPortion: number,
-  /** カーソル中心ズーム（waveViewStartOverride）が有効かどうか */
-  isStartOverride = false
+  durationSec: number
 ): boolean {
   if (durationSec <= 0 || viewSpan <= 0) return false;
   const r = canvas.getBoundingClientRect();
   const w = r.width;
   if (w <= 0) return false;
   const x = clientX - r.left;
-  const zoomed = viewPortion < 1 - 1e-9;
-  let xPlay: number;
-  if (zoomed && !isStartOverride) {
-    const unclamped = playheadSec - WAVE_PLAYHEAD_X_FRAC * viewSpan;
-    const isClamped = unclamped < 0 || unclamped > Math.max(0, durationSec - viewSpan) - 1e-9;
-    xPlay = isClamped
-      ? waveTimeToExtentX(playheadSec, viewStart, viewSpan, w)
-      : WAVE_PLAYHEAD_X_FRAC * w;
-  } else {
-    xPlay = waveTimeToExtentX(playheadSec, viewStart, viewSpan, w);
-  }
+  const xPlay = waveTimeToExtentX(playheadSec, viewStart, viewSpan, w);
   return Math.abs(x - xPlay) <= PLAYHEAD_SCRUB_HALF_WIDTH_PX;
 }
 
@@ -775,16 +762,13 @@ function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
       const h = c.height;
       const g = c.getContext("2d");
       if (!g) return;
-      const tGrid = isPlayingForWaveRef.current
-        ? quantizePlayheadForWaveView(playheadTime)
-        : playheadTime;
-      /** 再生中はオーバーライドを無視してプレイヘッド追従 */
+      /** 窓＋赤バーは同じ `playheadTime` で揃え、左インセット付き time→X と常に一致させる */
       const startOverride =
         !isPlayingForWaveRef.current ? waveViewStartOverrideRef.current : null;
       const { start: viewStart, span: viewSpan } =
         startOverride !== null && d > 0
           ? { start: startOverride, span: Math.max(0.08, d * vp) }
-          : getWaveViewForDraw(d, vp, tGrid);
+          : getWaveViewForDraw(d, vp, playheadTime);
       const viewEnd = viewStart + viewSpan;
       lastWaveDrawRangeRef.current = { viewStart, viewSpan };
       g.fillStyle = "#0f172a";
@@ -985,20 +969,7 @@ function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
       }
       const lineEl = playheadLineOverlayRef.current;
       if (d > 0 && viewSpan > 0) {
-        const zoomed = vp < 1 - 1e-9;
-        let xPlay: number;
-        if (zoomed && startOverride === null) {
-          /** 再生追従モード（カーソルズームなし）: ビューはプレイヘッド追従なので
-           * クランプ有無でバー位置を切り替える */
-          const unclamped = tGrid - WAVE_PLAYHEAD_X_FRAC * viewSpan;
-          const isClamped = unclamped < 0 || unclamped > Math.max(0, d - viewSpan) - 1e-9;
-          xPlay = isClamped
-            ? waveTimeToExtentX(playheadTime, viewStart, viewSpan, w)
-            : WAVE_PLAYHEAD_X_FRAC * w;
-        } else {
-          /** カーソル中心ズーム中 or 非ズーム: バーは実際の時刻位置で描画 */
-          xPlay = waveTimeToExtentX(playheadTime, viewStart, viewSpan, w);
-        }
+        let xPlay = waveTimeToExtentX(playheadTime, viewStart, viewSpan, w);
         xPlay = Number.isFinite(xPlay)
           ? Math.min(w, Math.max(0, Math.round(xPlay * 2) / 2))
           : 0;
@@ -1238,7 +1209,7 @@ function useWaveCanvasPointerDrag({
         !audioEl.paused &&
         Number.isFinite(audioEl.currentTime)
       ) {
-        playheadSecForHit = quantizePlayheadForWaveView(audioEl.currentTime);
+        playheadSecForHit = audioEl.currentTime;
       }
       if (
         audioEl?.src &&
@@ -1249,9 +1220,7 @@ function useWaveCanvasPointerDrag({
           viewStart,
           viewSpan,
           playheadSecForHit,
-          duration,
-          viewPortionRef.current,
-          waveViewStartOverrideRef.current !== null
+          duration
         )
       ) {
         e.preventDefault();
@@ -1737,7 +1706,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       if (!isPlaying) return playheadGridSec;
       const a = audioRef.current;
       if (a && !a.paused && Number.isFinite(a.currentTime)) {
-        return quantizePlayheadForWaveView(a.currentTime);
+        return a.currentTime;
       }
       return playheadGridSec;
     }, [isPlaying, playheadGridSec, viewPortion]);
@@ -2986,7 +2955,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         !auHit.paused &&
         Number.isFinite(auHit.currentTime)
       ) {
-        phSec = quantizePlayheadForWaveView(auHit.currentTime);
+        phSec = auHit.currentTime;
       }
       if (
         auHit?.src &&
@@ -2996,9 +2965,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           viewStart,
           viewSpan,
           phSec,
-          duration,
-          viewPortionRef.current,
-          waveViewStartOverrideRef.current !== null
+          duration
         )
       ) {
         waveHoverCueRef.current = null;

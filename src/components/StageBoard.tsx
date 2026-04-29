@@ -195,6 +195,10 @@ type Props = {
   onGestureHistoryCancel?: () => void;
   /** ゴミ箱ドロップ直後の 1 回だけ、次の setProject で undo に積まない */
   markHistorySkipNextPush?: () => void;
+  /**
+   * 生徒向け閲覧: 1 人を大きく強調し、他を薄くする。未指定は全員同じ濃さ。
+   */
+  studentViewerFocus?: null | { kind: "all" } | { kind: "one"; crewMemberId: string; label: string };
 };
 
 function clamp(n: number, min: number, max: number) {
@@ -577,6 +581,7 @@ export function StageBoard({
   onGestureHistoryEnd,
   onGestureHistoryCancel,
   markHistorySkipNextPush,
+  studentViewerFocus = null,
 }: Props) {
   const {
     formations,
@@ -4697,6 +4702,18 @@ export function StageBoard({
         const belowNameFontPx = markerBelowLabelFontPx(dLabelFontPx);
         const belowLabelOriginYpx =
           -labelOffsetPx + Math.round((belowNameFontPx * 1.12) / 2);
+        const isStudentHighlight = (() => {
+          if (!studentViewerFocus || studentViewerFocus.kind === "all") {
+            return true;
+          }
+          const { crewMemberId, label } = studentViewerFocus;
+          if (d.crewMemberId && d.crewMemberId === crewMemberId) return true;
+          if ((d.label ?? "").trim() === (label ?? "").trim()) return true;
+          return false;
+        })();
+        const onePersonMode =
+          studentViewerFocus != null && studentViewerFocus.kind === "one";
+        const zMark = onePersonMode && isStudentHighlight ? 8 : 4;
         return (
           <Fragment key={d.id}>
             <div
@@ -4708,9 +4725,11 @@ export function StageBoard({
                 transformOrigin: "center center",
                 width: 0,
                 height: 0,
-                zIndex: 4,
+                zIndex: zMark,
                 pointerEvents: "none",
                 willChange: playbackOrPreview ? "transform" : undefined,
+                opacity: onePersonMode && !isStudentHighlight ? 0.38 : 1,
+                transition: "opacity 200ms ease",
               }}
             >
               <button
@@ -4806,7 +4825,12 @@ export function StageBoard({
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  boxShadow: "0 4px 14px rgba(0,0,0,0.35)",
+                  boxShadow: onePersonMode && isStudentHighlight
+                    ? "0 0 0 2px rgba(250, 204, 21, 0.95), 0 4px 18px rgba(0,0,0,0.5)"
+                    : "0 4px 14px rgba(0,0,0,0.35)",
+                  transform: onePersonMode && isStudentHighlight
+                    ? "scale(1.12)"
+                    : "scale(1)",
                   padding: 0,
                   userSelect: "none",
                   pointerEvents:
@@ -4886,6 +4910,7 @@ export function StageBoard({
       setShowStageDancerColorToolbar,
       setStageContextMenu,
       setDancerQuickEditId,
+      studentViewerFocus,
     ]
   );
 

@@ -103,6 +103,10 @@ export default function App() {
             <Route path="/billing/canceled" element={<BillingCanceledPage />} />
             <Route path="/editor/:projectId" element={<EditorPage />} />
             <Route
+              path="/view/:projectId"
+              element={<EditorPage choreoPublicView />}
+            />
+            <Route
               path="/demo/mobile-formation-editor"
               element={<MobileFormationEditorDemoPage />}
             />

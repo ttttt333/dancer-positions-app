@@ -62,7 +62,13 @@ import {
   parseRosterFile,
   type RosterFileKind,
 } from "../lib/rosterFileImport";
-import type { ChoreographyProjectJson, DancerSpot, SetPieceKind } from "../types/choreography";
+import type {
+  ChoreographyProjectJson,
+  Cue,
+  DancerSpot,
+  Formation,
+  SetPieceKind,
+} from "../types/choreography";
 import {
   SetPiecePickerModal,
   type SetPiecePickerSubmit,
@@ -88,6 +94,11 @@ import {
   captureStageSnapshot,
   mergeStageSnapshotIntoProject,
 } from "../lib/savedSpotStageSnapshot";
+import { getViewRosterEntries } from "../lib/viewRoster";
+import {
+  ChoreoStudentViewGate,
+  type StudentPick,
+} from "../components/ChoreoStudentViewGate";
 
 const HISTORY_CAP = 80;
 
@@ -816,14 +827,18 @@ function readMaxStageWidthPx(
   return Math.max(STAGE_COL_MIN_PX, Math.floor(maxStage));
 }
 
-export function EditorPage() {
+export function EditorPage({
+  choreoPublicView = false,
+}: {
+  choreoPublicView?: boolean;
+} = {}) {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const { me, ready: authReady } = useAuth();
   const { t } = useI18n();
-  const collabParam = searchParams.get("collab") === "1";
+  const collabParam = searchParams.get("collab") === "1" && !choreoPublicView;
   const [plainProject, setPlainProject] = useState<ChoreographyProjectJson | null>(null);
   const [projectName, setProjectName] = useState("無題の作品");
   const [serverId, setServerId] = useState<number | null>(null);
@@ -873,6 +888,12 @@ export function EditorPage() {
   const prevStageAreaOpenRef = useRef(false);
   const [shareLinkCopiedFlash, setShareLinkCopiedFlash] = useState(false);
   const shareCopiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [choreoViewLinkCopiedFlash, setChoreoViewLinkCopiedFlash] = useState(false);
+  const choreoViewLinkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** 生徒向け /view ルート: メンバー選択後の閲覧 */
+  const [choreoStudentPick, setChoreoStudentPick] = useState<StudentPick | null>(null);
+  const [choreoGatePhase, setChoreoGatePhase] = useState<"remind" | "pick">("pick");
+  const [choreoStoredPick, setChoreoStoredPick] = useState<StudentPick | null>(null);
   const [setPiecePickerOpen, setSetPiecePickerOpen] = useState(false);
   /** 変形舞台ピッカー（舞台形状のカスタマイズ） */
   const [stageShapePickerOpen, setStageShapePickerOpen] = useState(false);
@@ -953,6 +974,62 @@ export function EditorPage() {
 
   const yjsCollab = useYjsCollaboration(serverId, collabActive);
   const project = collabActive ? yjsCollab.project : plainProject;
+
+  const viewerLocalStorageKey = useMemo(
+    () =>
+      choreoPublicView && serverId != null
+        ? `choreoViewerMemberV1:${serverId}`
+        : null,
+    [choreoPublicView, serverId]
+  );
+
+  const storageRemindHandledRef = useRef(false);
+  useEffect(() => {
+    storageRemindHandledRef.current = false;
+  }, [viewerLocalStorageKey]);
+
+  useEffect(() => {
+    if (choreoPublicView) {
+      setRightPaneCollapsed(true);
+    }
+  }, [choreoPublicView]);
+
+  useEffect(() => {
+    if (!choreoPublicView || !viewerLocalStorageKey) return;
+    if (choreoStudentPick != null) return;
+    if (storageRemindHandledRef.current) return;
+    try {
+      const raw = localStorage.getItem(viewerLocalStorageKey);
+      if (!raw) {
+        storageRemindHandledRef.current = true;
+        return;
+      }
+      const parsed = JSON.parse(raw) as {
+        kind?: string;
+        id?: string;
+        label?: string;
+      };
+      if (parsed.kind === "all") {
+        setChoreoStoredPick({ kind: "all" });
+        setChoreoGatePhase("remind");
+      } else if (
+        parsed.kind === "member" &&
+        typeof parsed.id === "string" &&
+        typeof parsed.label === "string"
+      ) {
+        setChoreoStoredPick({
+          kind: "member",
+          id: parsed.id,
+          label: parsed.label,
+        });
+        setChoreoGatePhase("remind");
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      storageRemindHandledRef.current = true;
+    }
+  }, [choreoPublicView, viewerLocalStorageKey, choreoStudentPick]);
 
   /** ドラッグ中は毎フレーム積まない。離したときだけ 1 手分を積む（StageBoard の立ち位置ドラッグ用） */
   const gestureHistoryDepthRef = useRef(0);
@@ -1120,10 +1197,13 @@ export function EditorPage() {
         if (cancelled) return;
         setServerId(row.id);
         setProjectName(row.name);
+        const baseJson = normalizeProject(row.json);
         if (collabParam && me) {
           setPlainProject(null);
         } else {
-          setPlainProject(normalizeProject(row.json));
+          setPlainProject(
+            choreoPublicView ? { ...baseJson, viewMode: "view" } : baseJson
+          );
         }
         setLoadError(null);
         historyRef.current = { undo: [], redo: [] };
@@ -1145,6 +1225,7 @@ export function EditorPage() {
     location.pathname,
     location.search,
     navigate,
+    choreoPublicView,
   ]);
 
   useEffect(() => {
@@ -1348,6 +1429,10 @@ export function EditorPage() {
   );
 
   const editorGridColumns = useMemo(() => {
+    if (choreoPublicView) {
+      if (!wideEditorLayout) return "1fr";
+      return "1fr";
+    }
     if (!wideEditorLayout) return "1fr";
     if (rightPaneCollapsed) return "1fr";
     if (editorFixedWaveDockLayout) {
@@ -1375,6 +1460,7 @@ export function EditorPage() {
     stageColumnPx,
     showTopWaveDockForGrid,
     editorFixedWaveDockLayout,
+    choreoPublicView,
   ]);
 
   const setProjectSafePlain: Dispatch<SetStateAction<ChoreographyProjectJson>> =
@@ -1598,6 +1684,32 @@ export function EditorPage() {
     else redoPlain();
   }, [collabActive, yjsCollab, redoPlain]);
 
+  const copyChoreoViewLink = useCallback(async () => {
+    if (typeof window === "undefined") return;
+    if (serverId == null) {
+      window.alert("先に作品を保存して、クラウドの作品 ID を取得してください。");
+      return;
+    }
+    const url = `${window.location.origin}/view/${serverId}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      if (choreoViewLinkTimerRef.current) {
+        clearTimeout(choreoViewLinkTimerRef.current);
+      }
+      setChoreoViewLinkCopiedFlash(true);
+      choreoViewLinkTimerRef.current = setTimeout(() => {
+        setChoreoViewLinkCopiedFlash(false);
+        choreoViewLinkTimerRef.current = null;
+      }, 2200);
+    } catch {
+      try {
+        window.prompt("次の閲覧用 URL をコピーしてください", url);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [serverId]);
+
   const copyEditorShareLink = useCallback(async () => {
     if (typeof window === "undefined") return;
     const url = window.location.href;
@@ -1621,6 +1733,9 @@ export function EditorPage() {
   useEffect(() => {
     return () => {
       if (shareCopiedTimerRef.current) clearTimeout(shareCopiedTimerRef.current);
+      if (choreoViewLinkTimerRef.current) {
+        clearTimeout(choreoViewLinkTimerRef.current);
+      }
     };
   }, []);
 
@@ -1723,12 +1838,12 @@ export function EditorPage() {
   }, [project, currentTime]);
 
   const formationById = useMemo(() => {
-    if (!project) return new Map<string, (typeof project.formations)[number]>();
+    if (!project) return new Map<string, Formation>();
     return new Map(project.formations.map((f) => [f.id, f] as const));
   }, [project]);
 
   const cueById = useMemo(() => {
-    if (!project) return new Map<string, (typeof project.cues)[number]>();
+    if (!project) return new Map<string, Cue>();
     return new Map(project.cues.map((c) => [c.id, c] as const));
   }, [project]);
 
@@ -2622,6 +2737,57 @@ export function EditorPage() {
     return <div style={{ padding: 24, color: "#94a3b8" }}>読み込み中…</div>;
   }
 
+  if (choreoPublicView) {
+    if (choreoStudentPick == null) {
+      if (choreoGatePhase === "remind" && choreoStoredPick) {
+        return (
+          <ChoreoStudentViewGate
+            pieceTitle={project.pieceTitle}
+            entries={getViewRosterEntries(project)}
+            gateMode="remind"
+            lastPick={choreoStoredPick}
+            onRemindContinue={() => {
+              setChoreoStudentPick(choreoStoredPick);
+            }}
+            onRemindChooseOther={() => {
+              setChoreoGatePhase("pick");
+              setChoreoStoredPick(null);
+            }}
+            onPick={() => {}}
+          />
+        );
+      }
+      return (
+        <ChoreoStudentViewGate
+          pieceTitle={project.pieceTitle}
+          entries={getViewRosterEntries(project)}
+          gateMode="pick"
+          onPick={(p) => {
+            setChoreoStudentPick(p);
+            if (viewerLocalStorageKey) {
+              try {
+                localStorage.setItem(viewerLocalStorageKey, JSON.stringify(p));
+              } catch {
+                /* ignore */
+              }
+            }
+          }}
+        />
+      );
+    }
+  }
+
+  const studentViewerFocusForStage =
+    choreoPublicView && choreoStudentPick
+      ? choreoStudentPick.kind === "all"
+        ? { kind: "all" as const }
+        : {
+            kind: "one" as const,
+            crewMemberId: choreoStudentPick.id,
+            label: choreoStudentPick.label,
+          }
+      : null;
+
   const stageBoardProject = projectForStageBoard!;
 
   const hasRosterMembers = project.crews.some((c) => c.members.length > 0);
@@ -2789,6 +2955,7 @@ export function EditorPage() {
         boxSizing: "border-box",
       }}
     >
+      {!choreoPublicView ? (
       <header
         style={{
           display: "flex",
@@ -2951,6 +3118,40 @@ export function EditorPage() {
           </button>
         ) : null}
       </header>
+      ) : (
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: 10,
+            padding:
+              "max(8px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px)) 8px max(10px, env(safe-area-inset-left, 0px))",
+            borderBottom: `1px solid ${shell.border}`,
+            background: shell.bgChrome,
+            flexShrink: 0,
+          }}
+        >
+          <span style={{ fontSize: 20 }} aria-hidden>
+            🎵
+          </span>
+          <span style={{ fontWeight: 700, color: "#e2e8f0", fontSize: 15 }}>
+            {(project.pieceTitle || "無題の作品").trim()} - 閲覧
+          </span>
+          <div style={{ flex: 1, minWidth: 8 }} aria-hidden />
+          <Link
+            to="/library"
+            style={{
+              ...btnSecondary,
+              textDecoration: "none",
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            閉じる
+          </Link>
+        </div>
+      )}
 
       <div
         ref={(el) => {
@@ -2967,6 +3168,9 @@ export function EditorPage() {
           gap: `${EDITOR_GRID_GAP_PX}px`,
           padding:
             "6px max(6px, env(safe-area-inset-right, 0px)) calc(max(8px, 2cm) + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
+          paddingBottom: choreoPublicView && choreoStudentPick
+            ? "calc(max(8px, 2cm) + 56px + env(safe-area-inset-bottom, 0px))"
+            : undefined,
           /** 狭い画面では負のマージンを付けない（レイアウト再計算・はみ出しを抑えスマホで滑らかに） */
           marginTop: wideEditorLayout
             ? `calc(-1 * ${EDITOR_PLAYBACK_LAYOUT_SHIFT_UP})`
@@ -3014,7 +3218,7 @@ export function EditorPage() {
             />
           </div>
         ) : null}
-        {!wideEditorLayout ? (
+        {!wideEditorLayout && !choreoPublicView ? (
           <div
             style={{
               minWidth: 0,
@@ -3256,6 +3460,7 @@ export function EditorPage() {
                       collabActive ? undefined : markHistorySkipNextPush
                     }
                     viewportTextOverlayRoot={editorSurfaceEl}
+                    studentViewerFocus={studentViewerFocusForStage}
                   />
                 ) : (
                   <Suspense
@@ -4152,6 +4357,25 @@ export function EditorPage() {
               </button>
               <button
                 type="button"
+                onClick={() => void copyChoreoViewLink()}
+                disabled={!serverId}
+                title="生徒用の閲覧 URL（同じアカウントにログインした生徒に共有します）"
+                style={{
+                  ...btnSecondary,
+                  flex: "1 1 160px",
+                  padding: "6px 8px",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  borderColor: !serverId ? "rgba(51, 65, 85, 0.6)" : "rgba(56, 189, 248, 0.55)",
+                  opacity: !serverId ? 0.5 : 1,
+                }}
+              >
+                {choreoViewLinkCopiedFlash
+                  ? "閲覧 URL をコピーしました"
+                  : "閲覧リンクを発行（コピー）"}
+              </button>
+              <button
+                type="button"
                 onClick={() => {
                   setStageAreaSettingsOpen(false);
                   setShortcutsHelpOpen(true);
@@ -4462,6 +4686,51 @@ export function EditorPage() {
       {formationBoxManagerDialogEl}
 
       {rosterImportSheetEl}
+
+      {choreoPublicView && choreoStudentPick ? (
+        <div
+          style={{
+            position: "fixed",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 90,
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: 12,
+            padding:
+              "10px 14px calc(10px + env(safe-area-inset-bottom, 0px)) 14px",
+            borderTop: `1px solid ${shell.border}`,
+            background: "rgba(15, 23, 42, 0.97)",
+            boxShadow: "0 -4px 20px rgba(0,0,0,0.35)",
+          }}
+        >
+          <span style={{ fontSize: 14, color: "#e2e8f0" }}>
+            👤{" "}
+            {choreoStudentPick.kind === "all"
+              ? "全員"
+              : `${choreoStudentPick.label} さん`}{" "}
+            のパート表示中
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setChoreoStudentPick(null);
+              setChoreoGatePhase("pick");
+              setChoreoStoredPick(null);
+            }}
+            style={{
+              ...btnSecondary,
+              marginLeft: "auto",
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            メンバーを変える
+          </button>
+        </div>
+      ) : null}
 
       <style>{`
         @media (max-width: 1279px) {
