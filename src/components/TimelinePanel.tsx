@@ -2982,6 +2982,23 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             >
               削除
             </button>
+            <div style={{ borderTop: `1px solid ${shell.border}`, margin: "6px 0 4px" }} />
+            <button
+              type="button"
+              role="menuitem"
+              style={{
+                ...btnSecondary,
+                display: "block",
+                width: "100%",
+                textAlign: "center",
+                fontSize: "12px",
+                padding: "8px 10px",
+                color: "#94a3b8",
+              }}
+              onClick={() => setWaveCueMenu(null)}
+            >
+              キャンセル
+            </button>
           </div>
         </>
       ) : null;
@@ -3115,6 +3132,23 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               }}
             >
               設定をクリア（線形のみ）
+            </button>
+            <div style={{ borderTop: `1px solid ${shell.border}`, margin: "6px 0 4px" }} />
+            <button
+              type="button"
+              role="menuitem"
+              style={{
+                ...btnSecondary,
+                display: "block",
+                width: "100%",
+                textAlign: "center",
+                fontSize: "11px",
+                padding: "7px 8px",
+                color: "#94a3b8",
+              }}
+              onClick={() => setGapRouteMenu(null)}
+            >
+              キャンセル
             </button>
           </div>
         </>
