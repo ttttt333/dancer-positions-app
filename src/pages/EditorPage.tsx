@@ -96,9 +96,11 @@ import {
 } from "../lib/savedSpotStageSnapshot";
 import { getViewRosterEntries } from "../lib/viewRoster";
 import {
+  ChoreoMemberPickerPanel,
   ChoreoStudentViewGate,
   type StudentPick,
 } from "../components/ChoreoStudentViewGate";
+import { ShareLinksSheetContent } from "../components/ShareLinksSheetContent";
 
 const HISTORY_CAP = 80;
 
@@ -888,12 +890,12 @@ export function EditorPage({
   const prevStageAreaOpenRef = useRef(false);
   const [shareLinkCopiedFlash, setShareLinkCopiedFlash] = useState(false);
   const shareCopiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [choreoViewLinkCopiedFlash, setChoreoViewLinkCopiedFlash] = useState(false);
-  const choreoViewLinkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** 生徒向け /view ルート: メンバー選択後の閲覧 */
   const [choreoStudentPick, setChoreoStudentPick] = useState<StudentPick | null>(null);
   const [choreoGatePhase, setChoreoGatePhase] = useState<"remind" | "pick">("pick");
   const [choreoStoredPick, setChoreoStoredPick] = useState<StudentPick | null>(null);
+  const [shareLinksOpen, setShareLinksOpen] = useState(false);
+  const [choreoMemberSheetOpen, setChoreoMemberSheetOpen] = useState(false);
   const [setPiecePickerOpen, setSetPiecePickerOpen] = useState(false);
   /** 変形舞台ピッカー（舞台形状のカスタマイズ） */
   const [stageShapePickerOpen, setStageShapePickerOpen] = useState(false);
@@ -982,6 +984,16 @@ export function EditorPage({
         : null,
     [choreoPublicView, serverId]
   );
+
+  const shareLinksUrls = useMemo(() => {
+    if (serverId == null) return { collab: "", view: "" };
+    if (typeof window === "undefined") return { collab: "", view: "" };
+    const o = window.location.origin;
+    return {
+      collab: `${o}/editor/${serverId}?collab=1`,
+      view: `${o}/view/${serverId}`,
+    };
+  }, [serverId]);
 
   const storageRemindHandledRef = useRef(false);
   useEffect(() => {
@@ -1684,32 +1696,6 @@ export function EditorPage({
     else redoPlain();
   }, [collabActive, yjsCollab, redoPlain]);
 
-  const copyChoreoViewLink = useCallback(async () => {
-    if (typeof window === "undefined") return;
-    if (serverId == null) {
-      window.alert("先に作品を保存して、クラウドの作品 ID を取得してください。");
-      return;
-    }
-    const url = `${window.location.origin}/view/${serverId}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      if (choreoViewLinkTimerRef.current) {
-        clearTimeout(choreoViewLinkTimerRef.current);
-      }
-      setChoreoViewLinkCopiedFlash(true);
-      choreoViewLinkTimerRef.current = setTimeout(() => {
-        setChoreoViewLinkCopiedFlash(false);
-        choreoViewLinkTimerRef.current = null;
-      }, 2200);
-    } catch {
-      try {
-        window.prompt("次の閲覧用 URL をコピーしてください", url);
-      } catch {
-        /* ignore */
-      }
-    }
-  }, [serverId]);
-
   const copyEditorShareLink = useCallback(async () => {
     if (typeof window === "undefined") return;
     const url = window.location.href;
@@ -1733,9 +1719,6 @@ export function EditorPage({
   useEffect(() => {
     return () => {
       if (shareCopiedTimerRef.current) clearTimeout(shareCopiedTimerRef.current);
-      if (choreoViewLinkTimerRef.current) {
-        clearTimeout(choreoViewLinkTimerRef.current);
-      }
     };
   }, []);
 
@@ -2930,6 +2913,8 @@ export function EditorPage({
       setStageZenFullscreen(true);
     },
     stageZenEligible: showTopWaveDock && !rightPaneCollapsed,
+    onOpenShareLinks: choreoPublicView ? undefined : () => setShareLinksOpen(true),
+    shareLinksButtonDisabled: serverId == null,
   };
 
 
@@ -4357,22 +4342,21 @@ export function EditorPage({
               </button>
               <button
                 type="button"
-                onClick={() => void copyChoreoViewLink()}
-                disabled={!serverId}
-                title="生徒用の閲覧 URL（同じアカウントにログインした生徒に共有します）"
+                onClick={() => {
+                  setStageAreaSettingsOpen(false);
+                  setShareLinksOpen(true);
+                }}
                 style={{
                   ...btnSecondary,
                   flex: "1 1 160px",
                   padding: "6px 8px",
                   fontSize: "11px",
                   fontWeight: 600,
-                  borderColor: !serverId ? "rgba(51, 65, 85, 0.6)" : "rgba(56, 189, 248, 0.55)",
-                  opacity: !serverId ? 0.5 : 1,
+                  borderColor: "rgba(14, 165, 233, 0.5)",
                 }}
+                title="共同編集用・生徒用閲覧用の URL をまとめてコピー"
               >
-                {choreoViewLinkCopiedFlash
-                  ? "閲覧 URL をコピーしました"
-                  : "閲覧リンクを発行（コピー）"}
+                共同編集・閲覧URL
               </button>
               <button
                 type="button"
@@ -4687,6 +4671,138 @@ export function EditorPage({
 
       {rosterImportSheetEl}
 
+      {!choreoPublicView ? (
+        <EditorSideSheet
+          open={shareLinksOpen}
+          onClose={() => setShareLinksOpen(false)}
+          zIndex={75}
+          width="min(440px, 92vw)"
+          ariaLabelledBy="share-links-panel-title"
+        >
+          <div style={{ padding: "16px 18px 22px" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                marginBottom: 4,
+              }}
+            >
+              <h3
+                id="share-links-panel-title"
+                style={{
+                  margin: 0,
+                  fontSize: 16,
+                  fontWeight: 700,
+                  color: "#e2e8f0",
+                }}
+              >
+                ファイル共有
+              </h3>
+              <button
+                type="button"
+                aria-label="閉じる"
+                onClick={() => setShareLinksOpen(false)}
+                style={{
+                  ...btnSecondary,
+                  fontSize: 18,
+                  lineHeight: 1,
+                  padding: "4px 12px",
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <ShareLinksSheetContent
+              collabUrl={shareLinksUrls.collab}
+              viewUrl={shareLinksUrls.view}
+              hasServerId={serverId != null}
+              onClose={() => setShareLinksOpen(false)}
+            />
+          </div>
+        </EditorSideSheet>
+      ) : null}
+
+      {choreoPublicView && project ? (
+        <EditorSideSheet
+          open={choreoMemberSheetOpen}
+          onClose={() => setChoreoMemberSheetOpen(false)}
+          zIndex={88}
+          width="min(400px, 92vw)"
+        >
+          <div style={{ padding: "8px 12px 8px 16px", display: "flex", justifyContent: "flex-end" }}>
+            <button
+              type="button"
+              aria-label="閉じる"
+              onClick={() => setChoreoMemberSheetOpen(false)}
+              style={{
+                ...btnSecondary,
+                fontSize: 18,
+                lineHeight: 1,
+                padding: "4px 12px",
+              }}
+            >
+              ×
+            </button>
+          </div>
+          <div style={{ padding: "0 16px 20px" }}>
+            <ChoreoMemberPickerPanel
+              entries={getViewRosterEntries(project)}
+              heading="誰のパートを光らせますか？"
+              subheading="名前を選ぶとその人の印を大きく表示し、他は控えめに表示します。全員表示を選ぶと同じ大きさです。"
+              onPick={(p) => {
+                setChoreoStudentPick(p);
+                if (viewerLocalStorageKey) {
+                  try {
+                    localStorage.setItem(
+                      viewerLocalStorageKey,
+                      JSON.stringify(p)
+                    );
+                  } catch {
+                    /* ignore */
+                  }
+                }
+                setChoreoMemberSheetOpen(false);
+              }}
+            />
+          </div>
+        </EditorSideSheet>
+      ) : null}
+
+      {choreoPublicView && choreoStudentPick ? (
+        <button
+          type="button"
+          onClick={() => setChoreoMemberSheetOpen(true)}
+          style={{
+            position: "fixed",
+            right: 0,
+            top: "max(100px, 26dvh)",
+            zIndex: 86,
+            ...btnSecondary,
+            borderRadius: "10px 0 0 10px",
+            borderRight: "none",
+            width: 44,
+            minHeight: 64,
+            padding: "6px 4px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 2,
+            fontSize: 11,
+            fontWeight: 700,
+            lineHeight: 1.2,
+            color: "#e2e8f0",
+            boxShadow: "-2px 2px 10px rgba(0,0,0,0.3)",
+          }}
+          title="誰の立ち位置を大きく表示するかを選び直す"
+        >
+          <span>パート</span>
+          <span>を選ぶ</span>
+        </button>
+      ) : null}
+
       {choreoPublicView && choreoStudentPick ? (
         <div
           style={{
@@ -4715,11 +4831,7 @@ export function EditorPage({
           </span>
           <button
             type="button"
-            onClick={() => {
-              setChoreoStudentPick(null);
-              setChoreoGatePhase("pick");
-              setChoreoStoredPick(null);
-            }}
+            onClick={() => setChoreoMemberSheetOpen(true)}
             style={{
               ...btnSecondary,
               marginLeft: "auto",

@@ -375,6 +375,10 @@ export type EditorStageWorkbenchProps = {
   onEnterStageZen?: () => void;
   /** true のとき右レールに「拡大」を表示 */
   stageZenEligible?: boolean;
+  /** ファイル共有（共同編集 URL / 閲覧 URL）のシートを開く */
+  onOpenShareLinks?: () => void;
+  /** 共有ボタンをグレーアウト（未保存など） */
+  shareLinksButtonDisabled?: boolean;
 };
 
 export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
@@ -409,6 +413,8 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
     onPreloadFfmpegForAudio,
     onEnterStageZen,
     stageZenEligible = false,
+    onOpenShareLinks,
+    shareLinksButtonDisabled = false,
   } = props;
 
   const rowOuter: CSSProperties = rail
@@ -554,6 +560,26 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
             <span>保存</span>
           </button>
         </div>
+
+        {onOpenShareLinks ? (
+          <button
+            type="button"
+            className="editor-right-tool-sq"
+            style={{
+              ...btnSecondary,
+              borderColor: "rgba(14, 165, 233, 0.55)",
+              color: "#e0f2fe",
+              width: "100%",
+              minHeight: 48,
+            }}
+            disabled={shareLinksButtonDisabled}
+            title="共同編集・生徒用閲覧の URL をコピー"
+            onClick={onOpenShareLinks}
+          >
+            <span>共有</span>
+            <span>URL</span>
+          </button>
+        ) : null}
 
         <div className="editor-right-tools-col-ordered">
           {onOpenCueListModal ? (
@@ -1009,6 +1035,20 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
     >
       名簿取り込み
     </button>
+    {onOpenShareLinks ? (
+      <button
+        type="button"
+        style={{
+          ...btnSecondary,
+          borderColor: "rgba(14, 165, 233, 0.5)",
+        }}
+        disabled={shareLinksButtonDisabled}
+        title="共同編集・生徒用閲覧の URL をコピー"
+        onClick={onOpenShareLinks}
+      >
+        共有URL
+      </button>
+    ) : null}
     {!rail ? (
       <div
         style={{

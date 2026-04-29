@@ -6,6 +6,111 @@ export type StudentPick =
   | { kind: "all" }
   | { kind: "member"; id: string; label: string };
 
+/** 名前ボタン・全員（シート用／ゲート用の共通部） */
+export function ChoreoMemberPickerPanel({
+  entries,
+  onPick,
+  heading = "表示する人を選ぶ",
+  subheading = "あなたの立ち位置を大きく表示するか、全員同じ大きさで表示します。",
+  compact = false,
+}: {
+  entries: ViewRosterEntry[];
+  onPick: (p: StudentPick) => void;
+  heading?: string;
+  subheading?: string;
+  /** シート内表示で余白を詰める */
+  compact?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        textAlign: "center" as const,
+        padding: compact ? "0" : "0 4px",
+        maxWidth: 420,
+        width: "100%",
+        margin: "0 auto",
+        boxSizing: "border-box",
+      }}
+    >
+      <p
+        style={{
+          margin: compact ? "0 0 8px" : "0 0 10px",
+          fontSize: compact ? 14 : 16,
+          color: "#e2e8f0",
+          fontWeight: 700,
+        }}
+      >
+        {heading}
+      </p>
+      <p
+        style={{
+          margin: "0 0 14px",
+          fontSize: 12,
+          color: "#94a3b8",
+          lineHeight: 1.4,
+        }}
+      >
+        {subheading}
+      </p>
+      {entries.length === 0 ? (
+        <div>
+          <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 16 }}>
+            名簿にメンバーがありません。全員同じ表示にします。
+          </p>
+          <button
+            type="button"
+            onClick={() => onPick({ kind: "all" })}
+            style={{ ...btnAccent, padding: "12px 20px", fontSize: 15, fontWeight: 700 }}
+          >
+            全員表示で閲覧
+          </button>
+        </div>
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 10,
+          }}
+        >
+          {entries.map((e) => (
+            <button
+              key={e.id + e.label}
+              type="button"
+              onClick={() =>
+                onPick({ kind: "member", id: e.id, label: e.label })
+              }
+              style={{
+                ...btnSecondary,
+                padding: "14px 12px",
+                fontSize: 16,
+                fontWeight: 700,
+                minHeight: 48,
+              }}
+            >
+              {e.label}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => onPick({ kind: "all" })}
+            style={{
+              ...btnSecondary,
+              gridColumn: "1 / -1",
+              padding: "12px 12px",
+              fontSize: 14,
+              fontWeight: 600,
+              borderColor: "rgba(100, 116, 139, 0.9)",
+            }}
+          >
+            全員表示
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 type Props = {
   pieceTitle: string;
   entries: ViewRosterEntry[];
@@ -122,12 +227,19 @@ export function ChoreoStudentViewGate({
           textAlign: "center",
         }}
       >
-        <p style={{ margin: "0 0 8px", fontSize: 28, lineHeight: 1.2 }} aria-hidden>
+        <p
+          style={{
+            margin: "0 0 8px",
+            fontSize: 28,
+            lineHeight: 1.2,
+          }}
+          aria-hidden
+        >
           🎵
         </p>
         <h1
           style={{
-            margin: "0 0 24px",
+            margin: "0 0 20px",
             fontSize: 20,
             fontWeight: 700,
             color: "#e2e8f0",
@@ -135,71 +247,12 @@ export function ChoreoStudentViewGate({
         >
           {pieceTitle.trim() || "無題の作品"} - 閲覧モード
         </h1>
-        <p
-          style={{
-            margin: "0 0 20px",
-            fontSize: 16,
-            color: "#94a3b8",
-            fontWeight: 600,
-          }}
-        >
-          あなたは誰ですか？
-        </p>
-        {entries.length === 0 ? (
-          <div>
-            <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 16 }}>
-              名簿にメンバーがありません。全員同じ表示で閲覧を開始します。
-            </p>
-            <button
-              type="button"
-              onClick={() => onPick({ kind: "all" })}
-              style={{ ...btnAccent, padding: "12px 20px", fontSize: 15, fontWeight: 700 }}
-            >
-              閲覧を開始
-            </button>
-          </div>
-        ) : (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: 10,
-            }}
-          >
-            {entries.map((e) => (
-              <button
-                key={e.id + e.label}
-                type="button"
-                onClick={() =>
-                  onPick({ kind: "member", id: e.id, label: e.label })
-                }
-                style={{
-                  ...btnSecondary,
-                  padding: "14px 12px",
-                  fontSize: 16,
-                  fontWeight: 700,
-                  minHeight: 48,
-                }}
-              >
-                {e.label}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => onPick({ kind: "all" })}
-              style={{
-                ...btnSecondary,
-                gridColumn: "1 / -1",
-                padding: "12px 12px",
-                fontSize: 14,
-                fontWeight: 600,
-                borderColor: "rgba(100, 116, 139, 0.9)",
-              }}
-            >
-              全員表示
-            </button>
-          </div>
-        )}
+        <ChoreoMemberPickerPanel
+          entries={entries}
+          onPick={onPick}
+          heading="あなたは誰ですか？"
+          subheading="あなたの立ち位置を大きく光らせるか、全員同じ大きさで表示するかを選びます。"
+        />
       </div>
     </div>
   );
