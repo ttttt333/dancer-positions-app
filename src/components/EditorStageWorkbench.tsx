@@ -512,6 +512,23 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
           <button
             type="button"
             className="editor-right-tool-sq"
+            style={{
+              ...btnSecondary,
+              borderColor: "#0284c7",
+              background: "#0ea5e9",
+              color: "#0b1220",
+            }}
+            disabled={project.viewMode === "view"}
+            title="キュー設定：人数と立ち位置の決め方（変更／複製／雛形／保存リスト）を選んで追加"
+            aria-label="キュー設定"
+            onClick={() => setAddCueDialogOpen(true)}
+          >
+            <span>キュー</span>
+            <span>設定</span>
+          </button>
+          <button
+            type="button"
+            className="editor-right-tool-sq"
             aria-haspopup="dialog"
             aria-expanded={stageAreaSettingsOpen}
             disabled={project.viewMode === "view"}
@@ -520,43 +537,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
           >
             <span>舞台</span>
             <span>設定</span>
-          </button>
-          <button
-            type="button"
-            className="editor-right-tool-sq"
-            style={{
-              ...btnSecondary,
-              borderColor: "#0284c7",
-              background: "#0ea5e9",
-              color: "#0b1220",
-            }}
-            disabled={project.viewMode === "view"}
-            title="＋キュー：人数と立ち位置の決め方（変更／複製／雛形／保存リスト）を選んで追加"
-            aria-label="新しいキューを追加"
-            onClick={() => setAddCueDialogOpen(true)}
-          >
-            <svg
-              viewBox="0 0 22 14"
-              width="18"
-              height="12"
-              aria-hidden
-              style={{ display: "block" }}
-            >
-              <path
-                d="M3 7 L9 7 M6 4 L6 10"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-              />
-              <circle cx="13" cy="3" r="1.2" fill="currentColor" />
-              <circle cx="17" cy="3" r="1.2" fill="currentColor" />
-              <circle cx="12" cy="8" r="1.2" fill="currentColor" />
-              <circle cx="15" cy="8" r="1.2" fill="currentColor" />
-              <circle cx="18" cy="8" r="1.2" fill="currentColor" />
-              <circle cx="13.5" cy="12" r="1" fill="currentColor" opacity="0.7" />
-              <circle cx="16.5" cy="12" r="1" fill="currentColor" opacity="0.7" />
-            </svg>
-            <span>＋キュー</span>
           </button>
           <button
             type="button"
@@ -1000,7 +980,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
         <circle cx="13.5" cy="12" r="1" fill="currentColor" opacity="0.7" />
         <circle cx="16.5" cy="12" r="1" fill="currentColor" opacity="0.7" />
       </svg>
-      <span style={{ fontSize: "12px", fontWeight: 700 }}>キュー</span>
+      <span style={{ fontSize: "12px", fontWeight: 700 }}>キュー設定</span>
     </button>
     <button
       type="button"
