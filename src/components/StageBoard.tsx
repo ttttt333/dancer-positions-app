@@ -1997,29 +1997,44 @@ export function StageBoard({
   );
 
   /**
-   * ドラッグ中の立ち位置を、ステージのセンター線（x=50 / y=50）にだけ揃えて吸着させる。
-   * 他ダンサー座標への吸着・ガイドは行わない。
+   * 現在のダンサー一覧を pointermove ハンドラから参照するための ref。
+   * displayDancers が変わるたびに更新する。useCallback の deps を増やさずに済む。
+   */
+  const displayDancersSnapRef = useRef(displayDancers);
+  useEffect(() => {
+    displayDancersSnapRef.current = displayDancers;
+  });
+
+  /**
+   * ドラッグ中の立ち位置を、ステージのセンター線（x=50 / y=50）および
+   * 他ダンサーの x/y 座標に揃えて吸着させる。
+   * 揃った方向は guideX/guideY として返し、SVG 補助線に反映される。
    *
-   * @param xPct         現在の x（％）
-   * @param yPct         現在の y（％）
-   * @param _excludeIds  互換のため残す（センター専用のため未使用）
-   * @param strong       Shift 等で一時的にスナップを無効化したい場合は false
+   * @param xPct       現在の x（％）
+   * @param yPct       現在の y（％）
+   * @param excludeIds ドラッグ中のダンサー自身（スナップ候補から除外）
+   * @param strong     Shift 等で一時的にスナップを無効化したい場合は false
    */
   const computeAlignmentSnap = useCallback(
     (
       xPct: number,
       yPct: number,
-      _excludeIds: ReadonlySet<string>,
+      excludeIds: ReadonlySet<string>,
       strong: boolean
     ): { xPct: number; yPct: number; guideX: number | null; guideY: number | null } => {
       if (!strong) {
         return { xPct, yPct, guideX: null, guideY: null };
       }
-      /** 吸着する距離しきい値（％）。ステージの 1% 程度 */
-      const THRESHOLD = 0.9;
-      /** センターのみ（他ダンサーは候補に含めない） */
+      /** 吸着する距離しきい値（％）。ステージ幅の約 1.2% 程度 */
+      const THRESHOLD = 1.2;
+      /** センター + 他ダンサーの座標をスナップ候補に追加 */
       const xCandidates: number[] = [50];
       const yCandidates: number[] = [50];
+      for (const d of displayDancersSnapRef.current) {
+        if (excludeIds.has(d.id)) continue;
+        xCandidates.push(d.xPct);
+        yCandidates.push(d.yPct);
+      }
       let bestXDist = THRESHOLD;
       let guideX: number | null = null;
       let snappedX = xPct;
@@ -2829,10 +2844,14 @@ export function StageBoard({
           guideY = snapped.guideY;
         }
         /**
-         * 先頭がセンターにいなくても、選択中の誰かがセンター線上ならガイドを出す。
+         * 先頭がスナップしなかった場合も、選択中の誰かがセンター線または
+         * 他ダンサーの座標に揃っていればガイドを出す。
          */
+        const outsideDancers = displayDancersSnapRef.current.filter(
+          (d) => !idSet.has(d.id)
+        );
         if (guideX == null) {
-          for (const id of g.ids) {
+          outer: for (const id of g.ids) {
             const s = g.startPositions.get(id);
             if (!s) continue;
             const nx = round2(
@@ -2842,14 +2861,17 @@ export function StageBoard({
                 DANCER_STAGE_POSITION_PCT_HI
               )
             );
-            if (Math.abs(nx - STAGE_CENTER_PCT) <= CENTER_GUIDE_EPS) {
-              guideX = STAGE_CENTER_PCT;
-              break;
+            const xTargets = [STAGE_CENTER_PCT, ...outsideDancers.map((d) => d.xPct)];
+            for (const tx of xTargets) {
+              if (Math.abs(nx - tx) <= CENTER_GUIDE_EPS) {
+                guideX = tx;
+                break outer;
+              }
             }
           }
         }
         if (guideY == null) {
-          for (const id of g.ids) {
+          outer: for (const id of g.ids) {
             const s = g.startPositions.get(id);
             if (!s) continue;
             const ny = round2(
@@ -2859,9 +2881,12 @@ export function StageBoard({
                 DANCER_STAGE_POSITION_PCT_HI
               )
             );
-            if (Math.abs(ny - STAGE_CENTER_PCT) <= CENTER_GUIDE_EPS) {
-              guideY = STAGE_CENTER_PCT;
-              break;
+            const yTargets = [STAGE_CENTER_PCT, ...outsideDancers.map((d) => d.yPct)];
+            for (const ty of yTargets) {
+              if (Math.abs(ny - ty) <= CENTER_GUIDE_EPS) {
+                guideY = ty;
+                break outer;
+              }
             }
           }
         }
@@ -6586,35 +6611,7 @@ export function StageBoard({
                     pointerEvents: "none",
                   }}
                 >
-                  {selectedDancerIds.length < 2 ? (
-                    <div
-                      data-marker-rotate-handle
-                      title={rotateTip}
-                      onPointerDown={handlePointerDownMarkerRotate}
-                      style={{
-                        position: "absolute",
-                        left: "50%",
-                        top: `calc(50% + ${rim}px)`,
-                        transform: "translate(-50%, -50%)",
-                        width: 34,
-                        height: 34,
-                        borderRadius: "50%",
-                        background: shell.ruby,
-                        border: `2px solid ${shell.bgDeep}`,
-                        boxShadow: "0 2px 10px rgba(0,0,0,0.45)",
-                        cursor: "grab",
-                        touchAction: "none",
-                        pointerEvents: "auto",
-                        boxSizing: "border-box",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        userSelect: "none",
-                      }}
-                    >
-                      <RotateHandleGlyph size={17} />
-                    </div>
-                  ) : null}
+                  {/* 1人選択時の回転ハンドルは非表示（ユーザー要望） */}
                   <div
                     data-marker-resize-handle
                     title={resizeTip}
