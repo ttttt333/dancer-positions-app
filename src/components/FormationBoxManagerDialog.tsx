@@ -228,6 +228,135 @@ function ItemRow({ item, currentDancers, onRefresh }: ItemRowProps) {
   );
 }
 
+type GroupedListProps = {
+  items: FormationBoxItem[];
+  currentDancers: DancerSpot[];
+  onRefresh: () => void;
+};
+
+/** 人数ごとにグループ化して表示するリスト。グループは折りたたみ可。 */
+function GroupedItemList({ items, currentDancers, onRefresh }: GroupedListProps) {
+  // 人数の昇順でグループ化（同じ人数をまとめる）
+  const groups = (() => {
+    const map = new Map<number, FormationBoxItem[]>();
+    for (const item of items) {
+      const arr = map.get(item.dancerCount) ?? [];
+      arr.push(item);
+      map.set(item.dancerCount, arr);
+    }
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([count, groupItems]) => ({ count, groupItems }));
+  })();
+
+  // 初期状態: 全グループ展開
+  const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
+
+  const toggleGroup = (count: number) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(count)) next.delete(count);
+      else next.add(count);
+      return next;
+    });
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+      {/* 合計件数ヘッダ */}
+      <div
+        style={{
+          fontSize: "11px",
+          fontWeight: 600,
+          color: "#94a3b8",
+          textTransform: "uppercase",
+          letterSpacing: "0.04em",
+        }}
+      >
+        保存済み（{items.length}件 / {groups.length}グループ）
+      </div>
+
+      {groups.map(({ count, groupItems }) => {
+        const isOpen = !collapsed.has(count);
+        return (
+          <div key={count}>
+            {/* グループヘッダ（折りたたみトグル） */}
+            <button
+              type="button"
+              onClick={() => toggleGroup(count)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "7px",
+                width: "100%",
+                background: "none",
+                border: "none",
+                padding: "5px 0",
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "11px",
+                  color: isOpen ? "#38bdf8" : "#64748b",
+                  transition: "transform 0.15s",
+                  display: "inline-block",
+                  transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
+                  lineHeight: 1,
+                }}
+              >
+                ▶
+              </span>
+              <span
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  color: isOpen ? "#cbd5e1" : "#64748b",
+                  letterSpacing: "0.02em",
+                }}
+              >
+                {count}人
+              </span>
+              <span
+                style={{
+                  fontSize: "11px",
+                  color: "#475569",
+                  marginLeft: "2px",
+                }}
+              >
+                {groupItems.length}件
+              </span>
+              <span
+                style={{
+                  flex: 1,
+                  height: "1px",
+                  background: "#1e293b",
+                  marginLeft: "4px",
+                }}
+              />
+            </button>
+
+            {/* グループ内アイテム */}
+            {isOpen && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px", paddingLeft: "0px" }}>
+                {groupItems.map((item) => (
+                  <ItemRow
+                    key={item.id}
+                    item={item}
+                    currentDancers={currentDancers}
+                    onRefresh={onRefresh}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /**
  * 「立ち位置保存」ボタンから開く管理ダイアログ。
  * - 現在のステージを新規保存
@@ -407,28 +536,11 @@ export function FormationBoxManagerDialog({ open, onClose, currentDancers }: Pro
               上のボタンから現在のステージを保存できます。
             </div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              <div
-                style={{
-                  fontSize: "11px",
-                  fontWeight: 600,
-                  color: "#94a3b8",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.04em",
-                  marginBottom: "2px",
-                }}
-              >
-                保存済み（{items.length}件）
-              </div>
-              {items.map((item) => (
-                <ItemRow
-                  key={item.id}
-                  item={item}
-                  currentDancers={currentDancers}
-                  onRefresh={refresh}
-                />
-              ))}
-            </div>
+            <GroupedItemList
+              items={items}
+              currentDancers={currentDancers}
+              onRefresh={refresh}
+            />
           )}
         </div>
       </div>
