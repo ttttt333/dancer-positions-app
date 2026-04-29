@@ -3597,6 +3597,7 @@ export function EditorPage() {
                   project={project}
                   setProject={setProjectSafe}
                   onConfirmReturnToTimeline={onRosterConfirmReturnToTimeline}
+                  onStagePreviewChange={setStagePreviewDancers}
                 />
               </div>
             ) : null}
@@ -3657,6 +3658,7 @@ export function EditorPage() {
                   project={project}
                   setProject={setProjectSafe}
                   onConfirmReturnToTimeline={onRosterConfirmReturnToTimeline}
+                  onStagePreviewChange={setStagePreviewDancers}
                 />
               </div>
             ) : null}

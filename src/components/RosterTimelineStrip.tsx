@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -94,6 +95,11 @@ type Props = {
    * 親で先頭キュー（ページャ 1）へ切り替え・シークする。
    */
   onConfirmReturnToTimeline?: () => void;
+  /**
+   * 雛形選択中にステージへプレビューを表示するコールバック（null でクリア）。
+   * EditorPage の stagePreviewDancers を差し込む。
+   */
+  onStagePreviewChange?: (dancers: DancerSpot[] | null) => void;
 };
 
 /**
@@ -109,6 +115,7 @@ export function RosterTimelineStrip({
   project,
   setProject,
   onConfirmReturnToTimeline,
+  onStagePreviewChange,
 }: Props) {
   const listScrollRef = useRef<HTMLDivElement>(null);
   const [rowHeightPx, setRowHeightPx] = useState(26);
@@ -116,6 +123,8 @@ export function RosterTimelineStrip({
   const [presetModalMode, setPresetModalMode] = useState<
     null | "bulk" | "relayout"
   >(null);
+  /** モーダルで選択中の雛形（プレビュー用・まだ未適用） */
+  const [previewPresetId, setPreviewPresetId] = useState<LayoutPresetId | null>(null);
   /** 学年入力はフォーカス中だけ生文字、それ以外は短縮表示 */
   const [gradeFocusMemberId, setGradeFocusMemberId] = useState<string | null>(
     null
@@ -707,10 +716,100 @@ export function RosterTimelineStrip({
     [activeFormation, project.viewMode, setProject, sortedRows]
   );
 
-  const closePresetModal = useCallback(() => setPresetModalMode(null), []);
+  /**
+   * プレビュー用ダンサー配置を計算する（setProject は呼ばない）。
+   * relayout / bulk どちらのモードにも対応。
+   */
+  const computePreviewDancers = useCallback(
+    (presetId: LayoutPresetId, mode: "bulk" | "relayout"): DancerSpot[] | null => {
+      const f = activeFormation;
+      if (!f) return null;
+      const opts = {
+        dancerSpacingMm: project.dancerSpacingMm,
+        stageWidthMm: project.stageWidthMm,
+      };
+
+      if (mode === "relayout") {
+        const onStageCrew = new Set(
+          f.dancers.map((d) => d.crewMemberId).filter(Boolean) as string[]
+        );
+        if (onStageCrew.size === 0) return null;
+        const primary: DancerSpot[] = [];
+        const primaryIds = new Set<string>();
+        for (const row of sortedRows) {
+          if (!onStageCrew.has(row.member.id)) continue;
+          const spot = f.dancers.find((d) => d.crewMemberId === row.member.id);
+          if (spot) { primary.push(spot); primaryIds.add(spot.id); }
+        }
+        const secondaryRaw = f.dancers.filter((d) => !primaryIds.has(d.id));
+        const secondary = sortStandaloneDancerSpots(secondaryRaw, sortMode);
+        const placeholders = [...primary, ...secondary];
+        const total = placeholders.length;
+        if (total === 0) return null;
+        const positioned = dancersForLayoutPreset(total, presetId, opts);
+        return transferDancerIdentitiesByOrder(positioned, placeholders);
+      } else {
+        // bulk
+        const on = new Set(
+          f.dancers.map((d) => d.crewMemberId).filter(Boolean) as string[]
+        );
+        const toAdd = sortedRows.filter((r) => !on.has(r.member.id));
+        if (toAdd.length === 0) return null;
+        const existing = [...f.dancers];
+        const total = existing.length + toAdd.length;
+        const placeholders: DancerSpot[] = [
+          ...existing,
+          ...toAdd.map((row) => {
+            const m = row.member;
+            return {
+              id: crypto.randomUUID(),
+              label: m.label.trim().slice(0, 120) || "?",
+              markerBadge: "",
+              xPct: 50,
+              yPct: 40,
+              colorIndex: modDancerColorIndex(m.colorIndex),
+              crewMemberId: m.id,
+              ...(typeof m.heightCm === "number" ? { heightCm: m.heightCm } : {}),
+              ...(m.gradeLabel?.trim() ? { gradeLabel: m.gradeLabel.trim().slice(0, 32) } : {}),
+              ...(m.skillRankLabel?.trim() ? { skillRankLabel: m.skillRankLabel.trim().slice(0, 24) } : {}),
+            };
+          }),
+        ];
+        const positioned = dancersForLayoutPreset(total, presetId, opts);
+        return transferDancerIdentitiesByOrder(positioned, placeholders);
+      }
+    },
+    [activeFormation, project.dancerSpacingMm, project.stageWidthMm, sortedRows, sortMode]
+  );
+
+  /** プレビュー用ダンサー（メモ化：previewPresetId か sortedRows が変わるたびに再計算） */
+  const previewDancers = useMemo(
+    () =>
+      previewPresetId && presetModalMode
+        ? computePreviewDancers(previewPresetId, presetModalMode)
+        : null,
+    [previewPresetId, presetModalMode, computePreviewDancers]
+  );
+
+  /** previewDancers が変わるたびにステージへ反映 */
+  useEffect(() => {
+    onStagePreviewChange?.(previewDancers);
+  }, [previewDancers, onStagePreviewChange]);
+
+  /** アンマウント時にプレビューをクリア */
+  useEffect(() => {
+    return () => { onStagePreviewChange?.(null); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const closePresetModal = useCallback(() => {
+    setPreviewPresetId(null);
+    setPresetModalMode(null);
+  }, []);
 
   const handlePresetModalPick = useCallback(
     (presetId: LayoutPresetId) => {
+      setPreviewPresetId(null);
       if (presetModalMode === "bulk") {
         addAllNotOnStageWithPreset(presetId);
       } else if (presetModalMode === "relayout") {
@@ -1332,6 +1431,7 @@ export function RosterTimelineStrip({
         disabled={project.viewMode === "view"}
         project={project}
         onPickPreset={handlePresetModalPick}
+        onPreviewPreset={setPreviewPresetId}
         rosterSortMode={sortMode}
         onRosterSortModeChange={onSortModeChange}
       />
@@ -1724,6 +1824,7 @@ export function RosterTimelineStrip({
       disabled={project.viewMode === "view"}
       project={project}
       onPickPreset={handlePresetModalPick}
+      onPreviewPreset={setPreviewPresetId}
       rosterSortMode={sortMode}
       onRosterSortModeChange={onSortModeChange}
     />

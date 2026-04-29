@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type {
   ChoreographyProjectJson,
   DancerSpot,
@@ -23,6 +23,8 @@ type Props = {
   /** 配置前に並び順を選ぶ（名簿ストリップと同じ基準） */
   rosterSortMode: RosterStripSortMode;
   onRosterSortModeChange: (mode: RosterStripSortMode) => void;
+  /** 雛形を選択するたびにステージプレビューを更新するコールバック（null でクリア） */
+  onPreviewPreset?: (presetId: LayoutPresetId | null) => void;
 };
 
 /** カテゴリー定義 */
@@ -147,8 +149,12 @@ export function RosterPresetPickModal({
   onPickPreset,
   rosterSortMode,
   onRosterSortModeChange,
+  onPreviewPreset,
 }: Props) {
   const n = Math.max(1, Math.min(80, previewCount));
+
+  /** 選択中の雛形（未確定状態） */
+  const [selectedPresetId, setSelectedPresetId] = useState<LayoutPresetId | null>(null);
 
   const buildPreview = useCallback(
     (presetId: LayoutPresetId): DancerSpot[] => {
@@ -160,14 +166,31 @@ export function RosterPresetPickModal({
     [n, project.dancerSpacingMm, project.stageWidthMm]
   );
 
-  const handlePick = useCallback(
+  /** 雛形をクリック → プレビュー表示（まだ適用しない） */
+  const handleSelect = useCallback(
     (presetId: LayoutPresetId) => {
       if (disabled) return;
-      onPickPreset(presetId);
-      onClose();
+      setSelectedPresetId(presetId);
+      onPreviewPreset?.(presetId);
     },
-    [disabled, onPickPreset, onClose]
+    [disabled, onPreviewPreset]
   );
+
+  /** 決定ボタン → 適用してモーダルを閉じる */
+  const handleConfirm = useCallback(() => {
+    if (!selectedPresetId || disabled) return;
+    onPreviewPreset?.(null);
+    onPickPreset(selectedPresetId);
+    setSelectedPresetId(null);
+    onClose();
+  }, [selectedPresetId, disabled, onPreviewPreset, onPickPreset, onClose]);
+
+  /** 閉じる（キャンセル） → プレビューをクリアして閉じる */
+  const handleClose = useCallback(() => {
+    onPreviewPreset?.(null);
+    setSelectedPresetId(null);
+    onClose();
+  }, [onPreviewPreset, onClose]);
 
   /** カテゴリーごとのサムネイルを事前生成 */
   const categoryPreviews = useMemo(
@@ -195,7 +218,7 @@ export function RosterPresetPickModal({
       open
       zIndex={85}
       width="min(600px, 92vw)"
-      onClose={onClose}
+      onClose={handleClose}
       ariaLabelledBy="roster-preset-modal-title"
     >
       <div
@@ -249,7 +272,7 @@ export function RosterPresetPickModal({
           <button
             type="button"
             aria-label="閉じる"
-            onClick={onClose}
+            onClick={handleClose}
             style={{
               width: "28px",
               height: "28px",
@@ -301,9 +324,11 @@ export function RosterPresetPickModal({
               <select
                 value={sortSelectValue}
                 disabled={disabled}
-                onChange={(e) =>
-                  onRosterSortModeChange(e.target.value as RosterStripSortMode)
-                }
+                onChange={(e) => {
+                  onRosterSortModeChange(e.target.value as RosterStripSortMode);
+                  /** 並び順を変えたら即プレビューを再要求（presetId は変わらないので親側で再計算させる） */
+                  if (selectedPresetId) onPreviewPreset?.(selectedPresetId);
+                }}
                 style={{
                   fontSize: "12px",
                   padding: "6px 10px",
@@ -370,13 +395,71 @@ export function RosterPresetPickModal({
                       id={item.id}
                       dancers={item.dancers}
                       disabled={disabled}
-                      onPick={handlePick}
+                      isSelected={item.id === selectedPresetId}
+                      onPick={handleSelect}
                     />
                   ))}
                 </div>
               </div>
             ))}
           </div>
+        </div>
+
+        {/* 決定フッター（常に表示・選択前はグレーアウト） */}
+        <div
+          style={{
+            flexShrink: 0,
+            borderTop: "1px solid #1e293b",
+            padding: "10px 14px",
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            background: "#020617",
+          }}
+        >
+          {selectedPresetId ? (
+            <span style={{ flex: 1, fontSize: "11px", color: "#a5b4fc" }}>
+              「{PRESET_LABEL_MAP[selectedPresetId] ?? selectedPresetId}」を選択中
+            </span>
+          ) : (
+            <span style={{ flex: 1, fontSize: "11px", color: "#475569" }}>
+              雛形をタップするとステージにプレビューが表示されます
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={handleClose}
+            style={{
+              padding: "7px 16px",
+              borderRadius: "8px",
+              border: "1px solid #334155",
+              background: "#0f172a",
+              color: "#94a3b8",
+              fontSize: "12px",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            キャンセル
+          </button>
+          <button
+            type="button"
+            disabled={!selectedPresetId || disabled}
+            onClick={handleConfirm}
+            style={{
+              padding: "7px 20px",
+              borderRadius: "8px",
+              border: "none",
+              background: !selectedPresetId || disabled ? "#1e293b" : "#4f46e5",
+              color: !selectedPresetId || disabled ? "#475569" : "#fff",
+              fontSize: "12px",
+              fontWeight: 700,
+              cursor: !selectedPresetId || disabled ? "not-allowed" : "pointer",
+              transition: "background 0.15s",
+            }}
+          >
+            ✓ 決定
+          </button>
         </div>
       </div>
     </EditorSideSheet>
@@ -387,11 +470,13 @@ function PresetButton({
   id,
   dancers,
   disabled,
+  isSelected,
   onPick,
 }: {
   id: LayoutPresetId;
   dancers: DancerSpot[];
   disabled: boolean;
+  isSelected?: boolean;
   onPick: (id: LayoutPresetId) => void;
 }) {
   /** LayoutPresetOptions の label を逆引き */
@@ -410,23 +495,26 @@ function PresetButton({
         gap: "3px",
         padding: "5px 6px 6px",
         borderRadius: "8px",
-        border: "1px solid #1e293b",
-        background: "#0f172a",
+        border: isSelected ? "2px solid #6366f1" : "1px solid #1e293b",
+        background: isSelected ? "#1e1b4b" : "#0f172a",
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.45 : 1,
         minWidth: "52px",
         maxWidth: "76px",
         transition: "border-color 0.12s, background 0.12s",
+        boxShadow: isSelected ? "0 0 0 1px rgba(99,102,241,0.5)" : "none",
       }}
       onMouseEnter={(e) => {
-        if (!disabled) {
+        if (!disabled && !isSelected) {
           (e.currentTarget as HTMLButtonElement).style.borderColor = "#6366f1";
           (e.currentTarget as HTMLButtonElement).style.background = "#1e1b4b";
         }
       }}
       onMouseLeave={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.borderColor = "#1e293b";
-        (e.currentTarget as HTMLButtonElement).style.background = "#0f172a";
+        if (!isSelected) {
+          (e.currentTarget as HTMLButtonElement).style.borderColor = "#1e293b";
+          (e.currentTarget as HTMLButtonElement).style.background = "#0f172a";
+        }
       }}
     >
       <SpotThumb dancers={dancers} />
