@@ -769,7 +769,9 @@ function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
       const tGrid = isPlayingForWaveRef.current
         ? quantizePlayheadForWaveView(playheadTime)
         : playheadTime;
-      const startOverride = waveViewStartOverrideRef.current;
+      /** 再生中はオーバーライドを無視してプレイヘッド追従 */
+      const startOverride =
+        !isPlayingForWaveRef.current ? waveViewStartOverrideRef.current : null;
       const { start: viewStart, span: viewSpan } =
         startOverride !== null && d > 0
           ? { start: startOverride, span: Math.max(0.08, d * vp) }
@@ -1728,12 +1730,13 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
     }, [isPlaying, playheadGridSec, viewPortion]);
 
     const waveView = useMemo(() => {
-      if (waveViewStartOverride !== null && duration > 0) {
+      /** 再生中はオーバーライドを無視してプレイヘッド追従 */
+      if (waveViewStartOverride !== null && !isPlaying && duration > 0) {
         const span = Math.max(0.08, duration * viewPortion);
         return { start: waveViewStartOverride, end: waveViewStartOverride + span, span };
       }
       return getWaveViewForDraw(duration, viewPortion, waveViewAnchorSec);
-    }, [duration, viewPortion, waveViewAnchorSec, waveViewStartOverride]);
+    }, [duration, viewPortion, waveViewAnchorSec, waveViewStartOverride, isPlaying]);
 
     const isPlayingForWaveRef = useRef(isPlaying);
     isPlayingForWaveRef.current = isPlaying;
@@ -2245,13 +2248,14 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           const newVp = Math.min(1, Math.max(0.025, p * mult));
           const newSpan = Math.max(0.08, d * newVp);
 
-          if (newVp >= 1 - 1e-9) {
-            /** 完全ズームアウト → オーバーライド解除 */
-            setWaveViewStartOverride(null);
-          } else {
-            /** カーソル位置を軸に新しい viewStart を計算してオーバーライド */
-            const newStart = Math.max(0, Math.min(d - newSpan, tCursor - cursorFrac * newSpan));
-            setWaveViewStartOverride(newStart);
+          /** 再生中はオーバーライドしない（プレイヘッド追従を維持） */
+          if (!isPlayingForWaveRef.current) {
+            if (newVp >= 1 - 1e-9) {
+              setWaveViewStartOverride(null);
+            } else {
+              const newStart = Math.max(0, Math.min(d - newSpan, tCursor - cursorFrac * newSpan));
+              setWaveViewStartOverride(newStart);
+            }
           }
           return newVp;
         });
