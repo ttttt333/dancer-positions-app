@@ -82,6 +82,13 @@ function revokeBlobUrlUnlessCloudPersisted(cur: string | null) {
   else URL.revokeObjectURL(cur);
 }
 
+/** 既に `blob:` で持っている音源から波形用バッファを取る（Storage／API の二重取得を避ける） */
+async function arrayBufferFromBlobUrl(blobUrl: string): Promise<ArrayBuffer> {
+  const res = await fetch(blobUrl);
+  if (!res.ok) throw new Error("blob URL の読み込みに失敗しました");
+  return res.arrayBuffer();
+}
+
 /** タイムライン上部ツールバー用（再生・波形周りの縦スペース節約） */
 const TIMELINE_UI_SCALE = 1.2;
 function tlPx(n: number): string {
@@ -1994,7 +2001,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               a0.src = reuseUrl;
               a0.load();
             }
-            const buf = await fetchLegacyAudioArrayBuffer(aid);
+            const buf = await arrayBufferFromBlobUrl(reuseUrl);
             if (!cancelled) await decodePeaksFromBuffer(buf);
             return;
           }
@@ -2078,7 +2085,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               a0.src = reuseUrl;
               a0.load();
             }
-            const buf = await supabaseDownloadProjectAudioBuffer(effectivePath);
+            const buf = await arrayBufferFromBlobUrl(reuseUrl);
             if (!cancelled) await decodePeaksFromBuffer(buf);
             return;
           }
@@ -2157,15 +2164,32 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         );
         if (!ok) return;
       }
-      /** クラウドへ保存できたら、下のローカル読み＋波形デコードは省略（useEffect が 1 回だけ取得・デコードする） */
-      let cloudAudioUploadOk = false;
+      /** クラウド保存とローカル読みを並列化し、成功直後は blob で即再生（useEffect は再利用のみネット無し） */
       if (loggedIn && serverProjectId != null && !isVideo) {
         try {
           const fd = new FormData();
           fd.append("file", f);
           fd.append("projectId", String(serverProjectId));
-          const up = await audioApiUpload(fd);
+          const [up, buf] = await Promise.all([
+            audioApiUpload(fd),
+            f.arrayBuffer(),
+          ]);
+          const mime =
+            f.type ||
+            (up.kind === "supabase" ? up.mime : "audio/mpeg") ||
+            "audio/mpeg";
+          const url = URL.createObjectURL(new Blob([buf], { type: mime }));
+
+          if (blobUrlRef.current && blobUrlRef.current !== url) {
+            revokeBlobUrlUnlessCloudPersisted(blobUrlRef.current);
+          }
+          blobUrlRef.current = url;
+
           if (up.kind === "supabase") {
+            revokePersistedServerAudioBlob();
+            revokePersistedSupabaseAudioBlob();
+            persistedSupabaseAudioPath = up.path;
+            persistedSupabaseAudioBlobUrl = url;
             setProject((p) => ({
               ...p,
               audioSupabasePath: up.path,
@@ -2173,6 +2197,10 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               flowLocalAudioKey: null,
             }));
           } else {
+            revokePersistedSupabaseAudioBlob();
+            revokePersistedServerAudioBlob();
+            persistedServerAudioBlobUrl = url;
+            persistedServerAudioAssetId = up.id;
             setProject((p) => ({
               ...p,
               audioAssetId: up.id,
@@ -2180,15 +2208,19 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               flowLocalAudioKey: null,
             }));
           }
-          cloudAudioUploadOk = true;
+
+          const au = audioRef.current;
+          if (au) {
+            au.src = url;
+            au.load();
+          }
+          await decodePeaksFromBuffer(buf);
+          return;
         } catch (err) {
           alert(err instanceof Error ? err.message : "サーバへのアップロードに失敗しました");
           /** クラウド保存を試みたのに失敗したら、下のローカル読み込みに進まない（成功したように見えるため） */
           return;
         }
-      }
-      if (cloudAudioUploadOk) {
-        return;
       }
       if (loggedIn && serverProjectId != null && isVideo) {
         setProject((p) => ({
