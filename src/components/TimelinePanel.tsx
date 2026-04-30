@@ -2157,6 +2157,8 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         );
         if (!ok) return;
       }
+      /** クラウドへ保存できたら、下のローカル読み＋波形デコードは省略（useEffect が 1 回だけ取得・デコードする） */
+      let cloudAudioUploadOk = false;
       if (loggedIn && serverProjectId != null && !isVideo) {
         try {
           const fd = new FormData();
@@ -2178,11 +2180,15 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               flowLocalAudioKey: null,
             }));
           }
+          cloudAudioUploadOk = true;
         } catch (err) {
           alert(err instanceof Error ? err.message : "サーバへのアップロードに失敗しました");
           /** クラウド保存を試みたのに失敗したら、下のローカル読み込みに進まない（成功したように見えるため） */
           return;
         }
+      }
+      if (cloudAudioUploadOk) {
+        return;
       }
       if (loggedIn && serverProjectId != null && isVideo) {
         setProject((p) => ({
