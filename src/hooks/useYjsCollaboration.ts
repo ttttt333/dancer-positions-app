@@ -62,6 +62,25 @@ export function useYjsCollaboration(
     });
   }, []);
 
+  /** undo 履歴件数の表示更新を 1 フレームにまとめ、Yjs 同期直後の二重 setState 連鎖を抑える */
+  const stackFlushRafRef = useRef<number | null>(null);
+  const scheduleSyncStackInfo = useCallback(() => {
+    if (stackFlushRafRef.current != null) return;
+    stackFlushRafRef.current = requestAnimationFrame(() => {
+      stackFlushRafRef.current = null;
+      syncStackInfo();
+    });
+  }, [syncStackInfo]);
+
+  useEffect(() => {
+    return () => {
+      if (stackFlushRafRef.current != null) {
+        cancelAnimationFrame(stackFlushRafRef.current);
+        stackFlushRafRef.current = null;
+      }
+    };
+  }, []);
+
   useEffect(() => {
     if (!enabled || !serverId) {
       setYdoc(null);
@@ -146,9 +165,9 @@ export function useYjsCollaboration(
       undo.push(JSON.stringify(prev));
       redo.length = 0;
       applyProjectJsonToDoc(ydoc, next);
-      syncStackInfo();
+      scheduleSyncStackInfo();
     },
-    [ydoc, syncStackInfo]
+    [ydoc, scheduleSyncStackInfo]
   );
 
   const undo = useCallback(() => {
@@ -159,8 +178,8 @@ export function useYjsCollaboration(
     const cur = normalizeProject(yDocToProjectJson(ydoc));
     r.push(JSON.stringify(cur));
     applyProjectJsonToDoc(ydoc, normalizeProject(JSON.parse(prevStr)));
-    syncStackInfo();
-  }, [ydoc, syncStackInfo]);
+    scheduleSyncStackInfo();
+  }, [ydoc, scheduleSyncStackInfo]);
 
   const redo = useCallback(() => {
     if (!ydoc) return;
@@ -170,8 +189,8 @@ export function useYjsCollaboration(
     const cur = normalizeProject(yDocToProjectJson(ydoc));
     u.push(JSON.stringify(cur));
     applyProjectJsonToDoc(ydoc, normalizeProject(JSON.parse(nextStr)));
-    syncStackInfo();
-  }, [ydoc, syncStackInfo]);
+    scheduleSyncStackInfo();
+  }, [ydoc, scheduleSyncStackInfo]);
 
   return useMemo(
     () => ({

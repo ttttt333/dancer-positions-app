@@ -368,6 +368,11 @@ body {
     padding-left: max(4px, env(safe-area-inset-left, 0px)) !important;
     padding-right: max(4px, env(safe-area-inset-right, 0px)) !important;
   }
+  /* インラインの 2 行グリッドを他スタイルより優先（末尾の .editor-three-pane 汎用ルールに負けない） */
+  .choreo-public-view-root .editor-three-pane.editor-three-pane--public-narrow {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: minmax(120px, 1fr) minmax(96px, min(32dvh, 260px)) !important;
+  }
 }
 
 /* =============================================================================

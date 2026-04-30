@@ -2940,7 +2940,7 @@ export function EditorPage({
             } 4px minmax(0, 1fr)`
         : "1fr"
       : publicNarrowLayout
-        ? "minmax(0, 1fr) minmax(112px, min(40vh, 320px))"
+        ? "minmax(120px, 1fr) minmax(96px, min(32dvh, 260px))"
         : "auto auto auto auto";
 
   const editorPaneGridTemplateColumns = stageZenLayout
@@ -2992,7 +2992,7 @@ export function EditorPage({
       onSelectedCueIdsChange={setSelectedCueIds}
       formationIdForNewCue={selectedCue?.formationId ?? project.activeFormationId}
       wideWorkbench={wideEditorLayout}
-      compactTopDock={showTopWaveDock}
+      compactTopDock={showTopWaveDock || publicNarrowLayout}
       cueListPortalTarget={showTopWaveDock ? cueListPortalEl : null}
       onSave={() => setFlowLibraryOpen(true)}
     />
@@ -3209,7 +3209,11 @@ export function EditorPage({
           editorPaneRef.current = el;
           setEditorSurfaceEl((prev) => (prev === el ? prev : el));
         }}
-        className="editor-three-pane"
+        className={
+          publicNarrowLayout
+            ? "editor-three-pane editor-three-pane--public-narrow"
+            : "editor-three-pane"
+        }
         style={{
           position: "relative",
           flex: 1,
@@ -3223,7 +3227,7 @@ export function EditorPage({
               : "6px max(6px, env(safe-area-inset-right, 0px)) calc(max(8px, 2cm) + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
           paddingBottom:
             choreoPublicView && choreoStudentPick
-              ? "calc(8px + 140px + env(safe-area-inset-bottom, 0px))"
+              ? "calc(6px + min(132px, 30dvh) + env(safe-area-inset-bottom, 0px))"
               : undefined,
           /** 狭い画面では負のマージンを付けない（レイアウト再計算・はみ出しを抑えスマホで滑らかに） */
           marginTop: wideEditorLayout
@@ -5020,7 +5024,8 @@ export function EditorPage({
 
       <style>{`
         @media (max-width: 1279px) {
-          .editor-three-pane {
+          /* 閲覧ナローはインラインの 2 行グリッド（ステージ優先）を維持するため除外 */
+          .editor-three-pane:not(.editor-three-pane--public-narrow) {
             grid-template-columns: 1fr !important;
             grid-template-rows: auto auto auto !important;
             overscroll-behavior: contain;
