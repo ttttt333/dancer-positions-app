@@ -21,10 +21,6 @@ export function LanguageSwitcher({
   const wrap: CSSProperties =
     variant === "floating"
       ? {
-          position: "fixed",
-          bottom: "max(10px, env(safe-area-inset-bottom, 0px))",
-          right: "max(10px, env(safe-area-inset-right, 0px))",
-          zIndex: 40,
           display: "flex",
           alignItems: "center",
           gap: 6,
@@ -43,7 +39,16 @@ export function LanguageSwitcher({
         };
 
   return (
-    <div style={wrap} className="app-language-switcher" role="group" aria-label={t("lang.label")}>
+    <div
+      style={wrap}
+      className={
+        variant === "floating"
+          ? "app-language-switcher app-language-switcher--floating"
+          : "app-language-switcher"
+      }
+      role="group"
+      aria-label={t("lang.label")}
+    >
       <span
         style={{
           fontSize: 10,

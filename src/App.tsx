@@ -91,8 +91,9 @@ export default function App() {
     <AppErrorBoundary>
       <BrowserRouter>
         <Fragment>
+          {/** fixed 配置は viewport 基準にするため app-shell（overflow あり）の外に置く */}
+          <LanguageSwitcher variant="floating" />
           <div className="app-shell">
-            <LanguageSwitcher variant="floating" />
             <AuthProvider>
               <Routes>
             <Route path="/" element={<DashboardPage />} />
