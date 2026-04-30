@@ -84,6 +84,8 @@ export const TRANSLATIONS: Record<AppLocale, MessageBundle> = {
       "いまの内容でクラウド上のこの作品を上書きしますか？「保存しない」を選ぶと何も送信しません。",
     "editor.cloudSaveYes": "保存する",
     "editor.cloudSaveNo": "保存しない",
+    "editor.cloudSaveRailLine1": "クラウド",
+    "editor.cloudSaveFlowButton": "クラウド保存",
   },
   en: {
     "lang.label": "Language",
@@ -165,6 +167,8 @@ export const TRANSLATIONS: Record<AppLocale, MessageBundle> = {
       "Overwrite this cloud project with your current edits? Choose “Don’t save” to close without sending.",
     "editor.cloudSaveYes": "Save",
     "editor.cloudSaveNo": "Don’t save",
+    "editor.cloudSaveRailLine1": "Cloud",
+    "editor.cloudSaveFlowButton": "Cloud save",
   },
   ko: {
     "lang.label": "언어",
@@ -246,6 +250,8 @@ export const TRANSLATIONS: Record<AppLocale, MessageBundle> = {
       "지금 내용으로 클라우드의 이 작품을 덮어쓸까요? 「저장 안 함」이면 전송하지 않습니다.",
     "editor.cloudSaveYes": "저장",
     "editor.cloudSaveNo": "저장 안 함",
+    "editor.cloudSaveRailLine1": "클라우드",
+    "editor.cloudSaveFlowButton": "클라우드 저장",
   },
   zh: {
     "lang.label": "语言",
@@ -325,5 +331,7 @@ export const TRANSLATIONS: Record<AppLocale, MessageBundle> = {
       "要用当前内容覆盖云端中的此作品吗？选「不保存」则不发送。",
     "editor.cloudSaveYes": "保存",
     "editor.cloudSaveNo": "不保存",
+    "editor.cloudSaveRailLine1": "云端",
+    "editor.cloudSaveFlowButton": "云端保存",
   },
 };

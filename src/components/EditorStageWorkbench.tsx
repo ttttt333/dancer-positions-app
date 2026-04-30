@@ -1,7 +1,7 @@
 import type { CSSProperties, ComponentProps, Dispatch, SetStateAction } from "react";
 import type { ChoreographyProjectJson, Cue } from "../types/choreography";
 import type { FloorTextPlaceSession } from "../components/StageBoard";
-import { btnSecondary } from "../components/stageButtonStyles";
+import { btnAccent, btnSecondary } from "../components/stageButtonStyles";
 import { ChoreoCoreToolbar } from "./ChoreoCoreToolbar";
 
 export type EditorWorkbenchChoreoToolbarProps = Omit<
@@ -383,6 +383,16 @@ export type EditorStageWorkbenchProps = {
   onOpenViewerMode?: () => void;
   /** 閲覧を開けないとき（通常は使わない） */
   viewerModeButtonDisabled?: boolean;
+  /** クラウド保存の確認を開く（ログイン済み編集時のみ親から渡す） */
+  onOpenCloudSave?: () => void;
+  /** 保存処理中はクラウドボタンを無効化 */
+  cloudSaveDisabled?: boolean;
+  /** 右レール 2 行タイルの上段ラベル（例: クラウド） */
+  cloudSaveRailLine1?: string;
+  /** 右レール 2 行タイルの下段（例: 保存 / 上書き） */
+  cloudSaveRailLine2?: string;
+  /** 右レール・ツールチップ */
+  cloudSaveRailTitle?: string;
 };
 
 export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
@@ -421,6 +431,11 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
     shareLinksButtonDisabled = false,
     onOpenViewerMode,
     viewerModeButtonDisabled = false,
+    onOpenCloudSave,
+    cloudSaveDisabled = false,
+    cloudSaveRailLine1 = "",
+    cloudSaveRailLine2 = "",
+    cloudSaveRailTitle = "",
   } = props;
 
   const rowOuter: CSSProperties = rail
@@ -775,7 +790,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               <span>拡大</span>
             </button>
           ) : null}
-          {onOpenViewerMode || onOpenShareLinks ? (
+          {onOpenViewerMode || onOpenShareLinks || onOpenCloudSave ? (
             <>
               {onOpenViewerMode ? (
                 <button
@@ -816,6 +831,28 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                 >
                   <span>共有</span>
                   <span>URL</span>
+                </button>
+              ) : null}
+              {onOpenCloudSave ? (
+                <button
+                  type="button"
+                  className="editor-right-tool-sq"
+                  style={{
+                    ...btnAccent,
+                    minHeight: 48,
+                    ...(!onOpenViewerMode && onOpenShareLinks
+                      ? { gridColumn: 2, gridRow: 2 }
+                      : {}),
+                  }}
+                  disabled={
+                    project.viewMode === "view" || cloudSaveDisabled
+                  }
+                  title={cloudSaveRailTitle}
+                  aria-label={cloudSaveRailTitle}
+                  onClick={() => onOpenCloudSave()}
+                >
+                  <span>{cloudSaveRailLine1}</span>
+                  <span>{cloudSaveRailLine2}</span>
                 </button>
               ) : null}
             </>
@@ -1152,7 +1189,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
           メンバーを表示
         </button>
       ) : null}
-      {!rail && (onOpenViewerMode || onOpenShareLinks) ? (
+      {!rail && (onOpenViewerMode || onOpenShareLinks || onOpenCloudSave) ? (
         <div
           style={{
             display: "flex",
@@ -1203,6 +1240,26 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               }}
             >
               共有URL
+            </button>
+          ) : null}
+          {onOpenCloudSave ? (
+            <button
+              type="button"
+              disabled={project.viewMode === "view" || cloudSaveDisabled}
+              title={cloudSaveRailTitle}
+              aria-label={cloudSaveRailTitle}
+              onClick={() => onOpenCloudSave()}
+              style={{
+                ...btnAccent,
+                fontSize: "11px",
+                padding: "4px 10px",
+                borderRadius: "8px",
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {cloudSaveRailLine1}
+              {cloudSaveRailLine2 ? ` ${cloudSaveRailLine2}` : ""}
             </button>
           ) : null}
         </div>

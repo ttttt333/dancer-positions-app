@@ -28,6 +28,7 @@ import { isSupabaseBackend } from "../lib/supabaseClient";
 import { copyTextToClipboard, projectShareLinks } from "../lib/shareProjectLinks";
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
 import { EditorSideSheet } from "./EditorSideSheet";
+import { useI18n } from "../i18n/I18nContext";
 
 type Props = {
   open: boolean;
@@ -56,6 +57,12 @@ type Props = {
    * サーバ音源のみのときは呼び出し元で null を返してよい（memento の audioAssetId だけで足りる）
    */
   getAudioBlobForFlowLibrary?: () => Promise<Blob | null>;
+  /**
+   * フロー一覧からクラウド保存確認を開く（ログイン済み編集時のみ）。
+   */
+  onOpenCloudSave?: () => void;
+  /** 保存処理中はフロー内のクラウドボタンを無効化 */
+  cloudSaveDisabled?: boolean;
 };
 
 const card: CSSProperties = {
@@ -188,7 +195,10 @@ export function FlowLibraryDialog({
   serverId = null,
   serverShareToken = null,
   syncProjectToCloud,
+  onOpenCloudSave,
+  cloudSaveDisabled = false,
 }: Props) {
+  const { t } = useI18n();
   const [items, setItems] = useState<FlowLibraryItem[]>([]);
   const [name, setName] = useState("");
   /** 軽量キュー配列に秒を載せるか。バンドルでは cuesFull に常にフル秒が入る */
@@ -974,6 +984,25 @@ export function FlowLibraryDialog({
                     >
                       上書き保存
                     </button>
+                    {onOpenCloudSave ? (
+                      <button
+                        type="button"
+                        style={{
+                          ...btnAccent,
+                          padding: "4px 8px",
+                          fontSize: "10px",
+                        }}
+                        disabled={busy || cloudSaveDisabled}
+                        title={
+                          serverId != null && serverId > 0
+                            ? t("editor.saveTitleOverwrite")
+                            : t("editor.saveTitleNew")
+                        }
+                        onClick={() => onOpenCloudSave()}
+                      >
+                        {t("editor.cloudSaveFlowButton")}
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       style={{

@@ -2442,6 +2442,12 @@ export function EditorPage({
           getAudioBlobForFlowLibrary={() =>
             timelineRef.current?.getCurrentAudioBlobForFlowLibrary() ?? Promise.resolve(null)
           }
+          onOpenCloudSave={
+            me && !choreoPublicView
+              ? () => setCloudSaveDialogOpen(true)
+              : undefined
+          }
+          cloudSaveDisabled={saving}
         />
       ) : null,
     [
@@ -2453,6 +2459,8 @@ export function EditorPage({
       serverShareToken,
       me,
       syncProjectToCloud,
+      choreoPublicView,
+      saving,
     ]
   );
 
@@ -3004,6 +3012,17 @@ export function EditorPage({
     onOpenViewerMode: choreoPublicView
       ? () => setChoreoMemberSheetOpen(true)
       : () => setEditorViewerSheetOpen(true),
+    ...(me && !choreoPublicView
+      ? {
+          onOpenCloudSave: () => setCloudSaveDialogOpen(true),
+          cloudSaveDisabled: saving,
+          cloudSaveRailLine1: t("editor.cloudSaveRailLine1"),
+          cloudSaveRailLine2: serverId ? t("editor.saveOverwrite") : t("editor.save"),
+          cloudSaveRailTitle: serverId
+            ? t("editor.saveTitleOverwrite")
+            : t("editor.saveTitleNew"),
+        }
+      : {}),
   };
 
 
@@ -3138,60 +3157,6 @@ export function EditorPage({
             }}
           />
         </label>
-        {me ? (
-          <button
-            type="button"
-            style={{
-              ...btnAccent,
-              padding: "7px 14px",
-              fontSize: "12px",
-              flexShrink: 0,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              ...(saving
-                ? { opacity: 0.65, cursor: "wait", boxShadow: "none" }
-                : {}),
-            }}
-            disabled={saving}
-            title={
-              serverId ? t("editor.saveTitleOverwrite") : t("editor.saveTitleNew")
-            }
-            aria-label={
-              saving
-                ? t("editor.savingAria")
-                : serverId
-                  ? t("editor.saveTitleOverwrite")
-                  : t("editor.saveTitleNew")
-            }
-            onClick={() => setCloudSaveDialogOpen(true)}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              width={16}
-              height={16}
-              aria-hidden
-              style={{ display: "block", opacity: 0.9 }}
-            >
-              <path
-                d="M6 4h9l3 3v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M8 11h8M8 15h5"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-              />
-            </svg>
-            <span>
-              {saving ? t("editor.saving") : serverId ? t("editor.saveOverwrite") : t("editor.save")}
-            </span>
-          </button>
-        ) : null}
       </header>
       ) : null}
 
