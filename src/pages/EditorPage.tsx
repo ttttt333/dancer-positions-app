@@ -2339,49 +2339,65 @@ export function EditorPage({
     timelineRef.current?.stopPlayback();
   }, []);
 
+  /**
+   * いまの編集内容をクラウドに upsert（フローライブラリの保存直前にも利用）。
+   * 新規作成時は URL を `/editor/:id` に差し替える。
+   */
+  const syncProjectToCloud = useCallback(async (): Promise<{
+    id: number;
+    share_token?: string | null;
+  }> => {
+    if (!me) {
+      throw new Error("ログインが必要です");
+    }
+    const live = projectSaveRef.current;
+    if (!live) {
+      throw new Error("作品データがありません");
+    }
+    let json: ChoreographyProjectJson;
+    try {
+      json = normalizeProject(
+        JSON.parse(JSON.stringify(live)) as ChoreographyProjectJson
+      );
+    } catch {
+      throw new Error(
+        "作品データの保存用コピーを作れませんでした。ページを再読み込みしてから再度お試しください。"
+      );
+    }
+    const title =
+      json.pieceTitle?.trim() || projectName.trim() || "無題の作品";
+    const body: ChoreographyProjectJson = { ...json, pieceTitle: title };
+    if (serverId != null) {
+      const row = await projectApi.update(serverId, title, body);
+      setProjectName(title);
+      if (row.share_token) setServerShareToken(row.share_token);
+      return { id: serverId, share_token: row.share_token ?? null };
+    }
+    const row = await projectApi.create(title, body);
+    setServerId(row.id);
+    if (row.share_token) setServerShareToken(row.share_token);
+    navigate(`/editor/${row.id}`, {
+      replace: true,
+      state: {
+        editorSeed: body,
+        editorSeedProjectId: row.id,
+      },
+    });
+    return { id: row.id, share_token: row.share_token ?? null };
+  }, [me, projectName, serverId, navigate]);
+
   const performCloudSave = useCallback(async () => {
     if (!me) return;
-    const live = projectSaveRef.current;
-    if (!live) return;
     setCloudSaveDialogOpen(false);
     setSaving(true);
     try {
-      let json: ChoreographyProjectJson;
-      try {
-        json = normalizeProject(
-          JSON.parse(JSON.stringify(live)) as ChoreographyProjectJson
-        );
-      } catch {
-        alert(
-          "作品データの保存用コピーを作れませんでした。ページを再読み込みしてから再度お試しください。"
-        );
-        return;
-      }
-      const title =
-        json.pieceTitle?.trim() || projectName.trim() || "無題の作品";
-      const body: ChoreographyProjectJson = { ...json, pieceTitle: title };
-      if (serverId != null) {
-        const row = await projectApi.update(serverId, title, body);
-        setProjectName(title);
-        if (row.share_token) setServerShareToken(row.share_token);
-      } else {
-        const row = await projectApi.create(title, body);
-        setServerId(row.id);
-        if (row.share_token) setServerShareToken(row.share_token);
-        navigate(`/editor/${row.id}`, {
-          replace: true,
-          state: {
-            editorSeed: body,
-            editorSeedProjectId: row.id,
-          },
-        });
-      }
+      await syncProjectToCloud();
     } catch (e) {
       alert(e instanceof Error ? e.message : "保存に失敗しました");
     } finally {
       setSaving(false);
     }
-  }, [me, projectName, serverId, navigate]);
+  }, [me, syncProjectToCloud]);
   const handleAddCueCreated = useCallback(
     (cueId: string, startSec: number) => {
       setSelectedCueIds([cueId]);
@@ -2415,6 +2431,7 @@ export function EditorPage({
           onClose={() => setFlowLibraryOpen(false)}
           serverId={serverId}
           serverShareToken={serverShareToken}
+          syncProjectToCloud={me ? syncProjectToCloud : undefined}
           project={project}
           setProject={setProjectSafe}
           audioDurationSec={duration}
@@ -2427,7 +2444,16 @@ export function EditorPage({
           }
         />
       ) : null,
-    [project, flowLibraryOpen, setProjectSafe, duration, serverId, serverShareToken]
+    [
+      project,
+      flowLibraryOpen,
+      setProjectSafe,
+      duration,
+      serverId,
+      serverShareToken,
+      me,
+      syncProjectToCloud,
+    ]
   );
 
   /** 立ち位置管理ダイアログに渡す現在のダンサー */

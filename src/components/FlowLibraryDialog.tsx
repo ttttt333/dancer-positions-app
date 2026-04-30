@@ -36,6 +36,11 @@ type Props = {
   serverId?: number | null;
   /** Supabase 時の閲覧用 share_token。いま開いている作品と行の linked ID が一致するときの短絡用。 */
   serverShareToken?: string | null;
+  /**
+   * ログイン済みのとき渡す。フローの「新規保存」「上書き保存」の直前に呼び、いまの編集内容をクラウドに upsert する。
+   * 返した `id` がフローの `linkedServerProjectId` に記録される。
+   */
+  syncProjectToCloud?: () => Promise<{ id: number; share_token?: string | null }>;
   project: ChoreographyProjectJson;
   setProject: (
     next: ChoreographyProjectJson | ((p: ChoreographyProjectJson) => ChoreographyProjectJson)
@@ -182,6 +187,7 @@ export function FlowLibraryDialog({
   getAudioBlobForFlowLibrary,
   serverId = null,
   serverShareToken = null,
+  syncProjectToCloud,
 }: Props) {
   const [items, setItems] = useState<FlowLibraryItem[]>([]);
   const [name, setName] = useState("");
@@ -245,12 +251,18 @@ export function FlowLibraryDialog({
           flowEmbeddedAudioKey = k;
         }
       }
+      let linkId: number | null =
+        serverId != null && serverId > 0 ? Math.floor(serverId) : null;
+      if (syncProjectToCloud) {
+        const cloud = await syncProjectToCloud();
+        linkId = cloud.id;
+      }
       const r = saveFlowFromProject(trimmed, project, {
         includeTiming: true,
         wavePeaks: getWavePeaks?.() ?? null,
         audioDurationSec: audioDurationSec > 0 ? audioDurationSec : null,
         flowEmbeddedAudioKey: flowEmbeddedAudioKey ?? null,
-        linkServerId: serverId != null && serverId > 0 ? serverId : null,
+        linkServerId: linkId,
       });
       if (!r.ok) {
         if (flowEmbeddedAudioKey) void deleteFlowLibraryAudio(flowEmbeddedAudioKey);
@@ -259,7 +271,9 @@ export function FlowLibraryDialog({
       }
       setFeedback({
         kind: "info",
-        text: `「${r.item.name}」を保存しました（キュー ${r.item.cueCount} / 形 ${r.item.formations.length}）。`,
+        text:
+          `「${r.item.name}」を保存しました（キュー ${r.item.cueCount} / 形 ${r.item.formations.length}）。` +
+          (syncProjectToCloud ? " いまの作品もクラウドに保存しました。" : ""),
       });
       refresh();
     } catch (e) {
@@ -271,7 +285,16 @@ export function FlowLibraryDialog({
     } finally {
       setBusy(false);
     }
-  }, [name, project, refresh, getWavePeaks, getAudioBlobForFlowLibrary, audioDurationSec, serverId]);
+  }, [
+    name,
+    project,
+    refresh,
+    getWavePeaks,
+    getAudioBlobForFlowLibrary,
+    audioDurationSec,
+    serverId,
+    syncProjectToCloud,
+  ]);
 
   const doOverwrite = useCallback(
     async (id: string, label: string) => {
@@ -287,19 +310,30 @@ export function FlowLibraryDialog({
             flowEmbeddedAudioKey = k;
           }
         }
+        let linkId: number | null =
+          serverId != null && serverId > 0 ? Math.floor(serverId) : null;
+        if (syncProjectToCloud) {
+          const cloud = await syncProjectToCloud();
+          linkId = cloud.id;
+        }
         const r = overwriteFlowFromProject(id, project, {
           includeTiming: true,
           wavePeaks: getWavePeaks?.() ?? null,
           audioDurationSec: audioDurationSec > 0 ? audioDurationSec : null,
           flowEmbeddedAudioKey: flowEmbeddedAudioKey ?? null,
-          linkServerId: serverId != null && serverId > 0 ? serverId : null,
+          linkServerId: linkId,
         });
         if (!r.ok) {
           if (flowEmbeddedAudioKey) void deleteFlowLibraryAudio(flowEmbeddedAudioKey);
           setFeedback({ kind: "error", text: r.message });
           return;
         }
-        setFeedback({ kind: "info", text: `「${r.item.name}」を上書きしました。` });
+        setFeedback({
+          kind: "info",
+          text:
+            `「${r.item.name}」を上書きしました。` +
+            (syncProjectToCloud ? " いまの作品もクラウドに保存しました。" : ""),
+        });
         refresh();
       } catch (e) {
         if (flowEmbeddedAudioKey) void deleteFlowLibraryAudio(flowEmbeddedAudioKey);
@@ -311,7 +345,7 @@ export function FlowLibraryDialog({
         setBusy(false);
       }
     },
-    [project, refresh, getWavePeaks, getAudioBlobForFlowLibrary, audioDurationSec, serverId]
+    [project, refresh, getWavePeaks, getAudioBlobForFlowLibrary, audioDurationSec, serverId, syncProjectToCloud]
   );
 
   const doDelete = useCallback(
@@ -812,8 +846,10 @@ export function FlowLibraryDialog({
               lineHeight: 1.5,
             }}
           >
-            各フロー行の「共同編集共有」「閲覧共有」で URL をコピーします。保存・上書きでこのフローにクラウド作品
-            ID を記録します。未記録の行は、いま開いている作品の ID でコピーします。
+            各フロー行の「共同編集共有」「閲覧共有」で URL をコピーします。
+            <strong style={{ color: "#cbd5e1" }}>ログイン中</strong>
+            は「新規保存」「上書き保存」でいまの作品もクラウドに保存され、その作品 ID がフローに紐づきます。
+            未ログインのときは、先にツールバーからクラウド保存して作品 ID を付けてください。
           </p>
           <div
             style={{
