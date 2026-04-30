@@ -776,23 +776,59 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               <span>拡大</span>
             </button>
           ) : null}
-          {onOpenViewerMode ? (
-            <button
-              type="button"
-              className="editor-right-tool-sq"
+          {onOpenViewerMode || onOpenShareLinks ? (
+            <div
               style={{
-                ...btnSecondary,
-                background: "rgba(186, 230, 253, 0.1)",
-                borderColor: "rgba(56, 189, 248, 0.4)",
-                color: "#e0f2fe",
+                display: "flex",
+                flexDirection: "row",
+                gap: 6,
+                width: "100%",
+                minWidth: 0,
+                alignItems: "stretch",
               }}
-              disabled={viewerModeButtonDisabled}
-              title="表示する人を一人に強調。再生の確認とステージ画像の保存・共有"
-              aria-label="閲覧モード（メンバー別の強調）"
-              onClick={() => onOpenViewerMode()}
             >
-              <span>閲覧</span>
-            </button>
+              {onOpenViewerMode ? (
+                <button
+                  type="button"
+                  className="editor-right-tool-sq"
+                  style={{
+                    ...btnSecondary,
+                    background: "rgba(186, 230, 253, 0.1)",
+                    borderColor: "rgba(56, 189, 248, 0.4)",
+                    color: "#e0f2fe",
+                    flex: "1 1 0",
+                    minWidth: 0,
+                    minHeight: 48,
+                  }}
+                  disabled={viewerModeButtonDisabled}
+                  title="表示する人を一人に強調。再生の確認とステージ画像の保存・共有"
+                  aria-label="閲覧モード（メンバー別の強調）"
+                  onClick={() => onOpenViewerMode()}
+                >
+                  <span>閲覧</span>
+                </button>
+              ) : null}
+              {onOpenShareLinks ? (
+                <button
+                  type="button"
+                  className="editor-right-tool-sq"
+                  style={{
+                    ...btnSecondary,
+                    borderColor: "rgba(14, 165, 233, 0.55)",
+                    color: "#e0f2fe",
+                    flex: "1 1 0",
+                    minWidth: 0,
+                    minHeight: 48,
+                  }}
+                  disabled={shareLinksButtonDisabled}
+                  title="チーム用（共同編集）か生徒用（閲覧）か選んで URL を発行"
+                  onClick={onOpenShareLinks}
+                >
+                  <span>共有</span>
+                  <span>URL</span>
+                </button>
+              ) : null}
+            </div>
           ) : null}
         </div>
         {!hideFloorTextToolbar && floorTextPlaceSession ? (
@@ -898,26 +934,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               </div>
             </div>
           </div>
-        ) : null}
-        {onOpenShareLinks ? (
-          <button
-            type="button"
-            className="editor-right-tool-sq"
-            style={{
-              ...btnSecondary,
-              borderColor: "rgba(14, 165, 233, 0.55)",
-              color: "#e0f2fe",
-              width: "100%",
-              minHeight: 48,
-              marginTop: 4,
-            }}
-            disabled={shareLinksButtonDisabled}
-            title="共同編集・生徒用閲覧の URL をコピー"
-            onClick={onOpenShareLinks}
-          >
-            <span>共有</span>
-            <span>URL</span>
-          </button>
         ) : null}
       </div>
     );
@@ -1146,28 +1162,60 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
           メンバーを表示
         </button>
       ) : null}
-      {!rail && onOpenViewerMode ? (
-        <button
-          type="button"
-          disabled={viewerModeButtonDisabled}
-          title="表示する人を一人に強調。再生の確認とステージ画像の保存・共有"
-          onClick={() => onOpenViewerMode()}
+      {!rail && (onOpenViewerMode || onOpenShareLinks) ? (
+        <div
           style={{
-            ...btnSecondary,
-            background: "rgba(186, 230, 253, 0.1)",
-            borderColor: "rgba(56, 189, 248, 0.4)",
-            color: "#e0f2fe",
-            fontSize: "11px",
-            padding: "4px 10px",
-            borderRadius: "8px",
-            fontWeight: 600,
-            whiteSpace: "nowrap",
-            cursor: viewerModeButtonDisabled ? "not-allowed" : "pointer",
-            opacity: viewerModeButtonDisabled ? 0.5 : 1,
+            display: "flex",
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: 6,
+            alignItems: "center",
           }}
         >
-          閲覧
-        </button>
+          {onOpenViewerMode ? (
+            <button
+              type="button"
+              disabled={viewerModeButtonDisabled}
+              title="表示する人を一人に強調。再生の確認とステージ画像の保存・共有"
+              onClick={() => onOpenViewerMode()}
+              style={{
+                ...btnSecondary,
+                background: "rgba(186, 230, 253, 0.1)",
+                borderColor: "rgba(56, 189, 248, 0.4)",
+                color: "#e0f2fe",
+                fontSize: "11px",
+                padding: "4px 10px",
+                borderRadius: "8px",
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+                cursor: viewerModeButtonDisabled ? "not-allowed" : "pointer",
+                opacity: viewerModeButtonDisabled ? 0.5 : 1,
+              }}
+            >
+              閲覧
+            </button>
+          ) : null}
+          {onOpenShareLinks ? (
+            <button
+              type="button"
+              disabled={shareLinksButtonDisabled}
+              title="チーム用（共同編集）か生徒用（閲覧）か選んで URL を発行"
+              onClick={onOpenShareLinks}
+              style={{
+                ...btnSecondary,
+                borderColor: "rgba(14, 165, 233, 0.55)",
+                color: "#e0f2fe",
+                fontSize: "11px",
+                padding: "4px 10px",
+                borderRadius: "8px",
+                fontWeight: 600,
+                whiteSpace: "nowrap",
+              }}
+            >
+              共有URL
+            </button>
+          ) : null}
+        </div>
       ) : null}
     </div>
       {!hideFloorTextToolbar && floorTextPlaceSession ? (
@@ -1275,40 +1323,8 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
           </div>
         </div>
       ) : null}
-    {onOpenShareLinks && !rail ? (
-      <div
-        style={{
-          flexBasis: "100%",
-          width: "100%",
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "center",
-          gap: 8,
-          marginTop: 4,
-          paddingTop: 8,
-          borderTop: "1px solid #334155",
-        }}
-      >
-        <button
-          type="button"
-          style={{
-            ...btnSecondary,
-            borderColor: "rgba(14, 165, 233, 0.5)",
-            padding: "6px 12px",
-            fontSize: 12,
-            fontWeight: 600,
-          }}
-          disabled={shareLinksButtonDisabled}
-          title="共同編集・生徒用閲覧の URL をコピー"
-          onClick={onOpenShareLinks}
-        >
-          共有URL
-        </button>
+        </div>
       </div>
-    ) : null}
     </div>
-  </div>
-</div>
   );
-
 }

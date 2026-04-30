@@ -4339,9 +4339,9 @@ export function EditorPage({
                   fontWeight: 600,
                   borderColor: "rgba(14, 165, 233, 0.5)",
                 }}
-                title="共同編集用・生徒用閲覧用の URL をまとめてコピー"
+                title="チーム用・生徒用のどちらかを選んで URL を発行"
               >
-                共同編集・閲覧URL
+                共有 URL 発行
               </button>
               <button
                 type="button"
@@ -4683,7 +4683,7 @@ export function EditorPage({
                   color: "#e2e8f0",
                 }}
               >
-                ファイル共有
+                共有 URL
               </h3>
               <button
                 type="button"
@@ -4700,6 +4700,7 @@ export function EditorPage({
               </button>
             </div>
             <ShareLinksSheetContent
+              open={shareLinksOpen}
               collabUrl={shareLinksUrls.collab}
               viewUrl={shareLinksUrls.view}
               hasServerId={serverId != null}
