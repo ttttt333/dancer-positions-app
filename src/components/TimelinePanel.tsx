@@ -1618,6 +1618,11 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
 
     waveAmpRef.current = project.waveformAmplitudeScale ?? 1;
 
+    /** 狭い画面では左右レールが clamp(200px) で中央を潰すため、ワイド作業台時のみ広く取る */
+    const brandRailCss = wideWorkbench
+      ? TIMELINE_BRAND_RAIL_CSS
+      : "minmax(0, min(72px, 18vw))";
+
     const {
       cues,
       playbackRate,
@@ -3804,7 +3809,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: `${TIMELINE_BRAND_RAIL_CSS} minmax(0, 1fr) ${TIMELINE_BRAND_RAIL_CSS}`,
+                  gridTemplateColumns: `${brandRailCss} minmax(0, 1fr) ${brandRailCss}`,
                   alignItems: "stretch",
                   columnGap: tlPx(6),
                   width: "100%",
@@ -3914,7 +3919,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             className="wave-compact-time-above-wave"
             style={{
               display: "grid",
-              gridTemplateColumns: `${TIMELINE_BRAND_RAIL_CSS} minmax(0, 1fr) ${TIMELINE_BRAND_RAIL_CSS}`,
+              gridTemplateColumns: `${brandRailCss} minmax(0, 1fr) ${brandRailCss}`,
               alignItems: "stretch",
               columnGap: tlPx(6),
               width: "100%",

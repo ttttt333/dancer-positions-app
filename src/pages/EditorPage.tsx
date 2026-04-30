@@ -930,6 +930,11 @@ export function EditorPage({
       typeof window !== "undefined" &&
       window.matchMedia(`(min-width: ${EDITOR_WIDE_MIN_PX}px)`).matches
   );
+  /** 閲覧: 縦幅が低い（ランドスケープ等）でタイムライン＋下バーがステージを圧迫しやすい */
+  const [publicViewTightHeight, setPublicViewTightHeight] = useState(() => {
+    if (typeof window === "undefined" || !choreoPublicView) return false;
+    return window.matchMedia("(max-height: 520px)").matches;
+  });
   /** ワイド＋タイムライン表示時: キュー一覧モーダルの開閉（一覧本体はポータルで描画） */
   const [cueListModalOpen, setCueListModalOpen] = useState(false);
   const [cueListPortalEl, setCueListPortalEl] =
@@ -1311,6 +1316,19 @@ export function EditorPage({
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
   }, []);
+
+  useEffect(() => {
+    if (!choreoPublicView) {
+      setPublicViewTightHeight(false);
+      return;
+    }
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-height: 520px)");
+    const read = () => setPublicViewTightHeight(mq.matches);
+    read();
+    mq.addEventListener("change", read);
+    return () => mq.removeEventListener("change", read);
+  }, [choreoPublicView]);
 
   useEffect(() => {
     if (!wideEditorLayout) {
@@ -2940,7 +2958,9 @@ export function EditorPage({
             } 4px minmax(0, 1fr)`
         : "1fr"
       : publicNarrowLayout
-        ? "minmax(120px, 1fr) minmax(96px, min(32dvh, 260px))"
+        ? publicViewTightHeight
+          ? "minmax(88px, 1fr) minmax(56px, min(20dvh, 168px))"
+          : "minmax(120px, 1fr) minmax(96px, min(32dvh, 260px))"
         : "auto auto auto auto";
 
   const editorPaneGridTemplateColumns = stageZenLayout
@@ -3209,11 +3229,15 @@ export function EditorPage({
           editorPaneRef.current = el;
           setEditorSurfaceEl((prev) => (prev === el ? prev : el));
         }}
-        className={
-          publicNarrowLayout
-            ? "editor-three-pane editor-three-pane--public-narrow"
-            : "editor-three-pane"
-        }
+        className={[
+          "editor-three-pane",
+          publicNarrowLayout && "editor-three-pane--public-narrow",
+          publicNarrowLayout &&
+            publicViewTightHeight &&
+            "editor-three-pane--public-tight",
+        ]
+          .filter(Boolean)
+          .join(" ")}
         style={{
           position: "relative",
           flex: 1,
@@ -3227,7 +3251,9 @@ export function EditorPage({
               : "6px max(6px, env(safe-area-inset-right, 0px)) calc(max(8px, 2cm) + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
           paddingBottom:
             choreoPublicView && choreoStudentPick
-              ? "calc(6px + min(132px, 30dvh) + env(safe-area-inset-bottom, 0px))"
+              ? publicViewTightHeight
+                ? "calc(4px + min(100px, 24dvh) + env(safe-area-inset-bottom, 0px))"
+                : "calc(6px + min(132px, 30dvh) + env(safe-area-inset-bottom, 0px))"
               : undefined,
           /** 狭い画面では負のマージンを付けない（レイアウト再計算・はみ出しを抑えスマホで滑らかに） */
           marginTop: wideEditorLayout
@@ -4946,20 +4972,20 @@ export function EditorPage({
               display: "flex",
               flexWrap: "wrap",
               alignItems: "center",
-              gap: 8,
-              padding: "10px 14px 8px",
-              minHeight: 48,
+              gap: publicViewTightHeight ? 6 : 8,
+              padding: publicViewTightHeight ? "6px 10px 5px" : "10px 14px 8px",
+              minHeight: publicViewTightHeight ? 40 : 48,
               borderBottom: `1px solid ${shell.border}`,
             }}
           >
-            <span style={{ fontSize: 20 }} aria-hidden>
+            <span style={{ fontSize: publicViewTightHeight ? 16 : 20 }} aria-hidden>
               🎵
             </span>
             <span
               style={{
                 fontWeight: 700,
                 color: "#e2e8f0",
-                fontSize: 16,
+                fontSize: publicViewTightHeight ? 13 : 16,
                 lineHeight: 1.25,
                 flex: "1 1 120px",
                 minWidth: 0,
@@ -4972,15 +4998,15 @@ export function EditorPage({
               style={{
                 ...btnSecondary,
                 textDecoration: "none",
-                fontSize: 15,
+                fontSize: publicViewTightHeight ? 13 : 15,
                 fontWeight: 600,
                 flexShrink: 0,
-                minHeight: 44,
-                minWidth: 72,
+                minHeight: publicViewTightHeight ? 40 : 44,
+                minWidth: 64,
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
-                padding: "10px 16px",
+                padding: publicViewTightHeight ? "6px 12px" : "10px 16px",
               }}
             >
               閉じる
@@ -4991,11 +5017,18 @@ export function EditorPage({
               display: "flex",
               flexWrap: "wrap",
               alignItems: "center",
-              gap: 10,
-              padding: "12px 14px 14px",
+              gap: publicViewTightHeight ? 8 : 10,
+              padding: publicViewTightHeight ? "8px 10px 10px" : "12px 14px 14px",
             }}
           >
-            <span style={{ fontSize: 15, color: "#e2e8f0", lineHeight: 1.4, flex: "1 1 200px" }}>
+            <span
+              style={{
+                fontSize: publicViewTightHeight ? 13 : 15,
+                color: "#e2e8f0",
+                lineHeight: 1.35,
+                flex: "1 1 200px",
+              }}
+            >
               👤{" "}
               {choreoStudentPick.kind === "all"
                 ? "全員"
@@ -5008,10 +5041,10 @@ export function EditorPage({
               style={{
                 ...btnSecondary,
                 marginLeft: "auto",
-                fontSize: 15,
+                fontSize: publicViewTightHeight ? 13 : 15,
                 fontWeight: 600,
-                minHeight: 48,
-                padding: "10px 16px",
+                minHeight: publicViewTightHeight ? 40 : 48,
+                padding: publicViewTightHeight ? "6px 12px" : "10px 16px",
                 touchAction: "manipulation",
               }}
               title="誰の立ち位置を大きく表示するかを選び直す"

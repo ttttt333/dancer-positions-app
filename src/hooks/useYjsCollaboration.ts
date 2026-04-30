@@ -54,6 +54,11 @@ export function useYjsCollaboration(
   });
   const [synced, setSynced] = useState(false);
   const [stackInfo, setStackInfo] = useState({ undo: 0, redo: 0 });
+  /** 論理内容が同じなら同一参照を返し、useSyncExternalStore 経由の不要な再レンダー連鎖を防ぐ */
+  const projectSnapRef = useRef<{
+    sig: string | null;
+    value: ChoreographyProjectJson | null;
+  }>({ sig: null, value: null });
 
   const syncStackInfo = useCallback(() => {
     setStackInfo({
@@ -122,6 +127,10 @@ export function useYjsCollaboration(
     };
   }, [enabled, serverId]);
 
+  useEffect(() => {
+    projectSnapRef.current = { sig: null, value: null };
+  }, [ydoc]);
+
   const project = useSyncExternalStore(
     (cb) => {
       if (!ydoc) return () => {};
@@ -132,11 +141,28 @@ export function useYjsCollaboration(
       };
     },
     () => {
-      if (!ydoc) return null;
+      if (!ydoc) {
+        projectSnapRef.current = { sig: null, value: null };
+        return null;
+      }
       try {
         const raw = yDocToProjectJson(ydoc);
-        return normalizeProject(raw);
+        const normalized = normalizeProject(raw);
+        let sig: string;
+        try {
+          sig = JSON.stringify(normalized);
+        } catch {
+          projectSnapRef.current = { sig: "!", value: normalized };
+          return normalized;
+        }
+        const prev = projectSnapRef.current;
+        if (prev.sig === sig && prev.value) {
+          return prev.value;
+        }
+        projectSnapRef.current = { sig, value: normalized };
+        return normalized;
       } catch {
+        projectSnapRef.current = { sig: null, value: null };
         return null;
       }
     },

@@ -373,6 +373,10 @@ body {
     grid-template-columns: 1fr !important;
     grid-template-rows: minmax(120px, 1fr) minmax(96px, min(32dvh, 260px)) !important;
   }
+  .choreo-public-view-root
+    .editor-three-pane.editor-three-pane--public-narrow.editor-three-pane--public-tight {
+    grid-template-rows: minmax(88px, 1fr) minmax(56px, min(20dvh, 168px)) !important;
+  }
 }
 
 /* =============================================================================
