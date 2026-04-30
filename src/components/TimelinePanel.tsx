@@ -2280,8 +2280,8 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
         return;
       }
       const c = canvasRef.current;
-      const a = audioRef.current;
-      if (!c || !a || duration <= 0) return;
+      const el = playbackEngine.getMediaElement();
+      if (!c || !el || duration <= 0) return;
       const d = duration;
       let viewStart = lastWaveDrawRangeRef.current.viewStart;
       let viewSpan = lastWaveDrawRangeRef.current.viewSpan;
@@ -2345,7 +2345,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           return;
         }
       }
-      a.currentTime = clamped;
+      playbackEngine.seek(clamped);
       setCurrentTime(clamped);
     };
 
@@ -2491,51 +2491,53 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
     );
 
     const togglePlay = useCallback(() => {
-      const a = audioRef.current;
-      if (!a?.src) return;
-      if (a.paused) {
-        if (a.currentTime < trimStartSec) a.currentTime = trimStartSec;
-        void a.play();
+      const el = playbackEngine.getMediaElement();
+      if (!el?.src) return;
+      if (playbackEngine.isPaused()) {
+        if (playbackEngine.getCurrentTime() < trimStartSec) {
+          playbackEngine.seek(trimStartSec);
+        }
+        void playbackEngine.play();
       } else {
-        a.pause();
+        playbackEngine.pause();
       }
     }, [trimStartSec]);
 
     const seekForward5Sec = useCallback(() => {
-      const a = audioRef.current;
-      if (!a?.src || duration <= 0) return;
+      const el = playbackEngine.getMediaElement();
+      if (!el?.src || duration <= 0) return;
       const hi = trimEndSec ?? duration;
       const lo = trimStartSec;
-      const next = Math.min(hi, Math.max(lo, a.currentTime + 5));
-      a.currentTime = next;
+      const next = Math.min(hi, Math.max(lo, playbackEngine.getCurrentTime() + 5));
+      playbackEngine.seek(next);
       setCurrentTime(next);
     }, [duration, trimEndSec, trimStartSec, setCurrentTime]);
 
     const seekBackward5Sec = useCallback(() => {
-      const a = audioRef.current;
-      if (!a?.src || duration <= 0) return;
+      const el = playbackEngine.getMediaElement();
+      if (!el?.src || duration <= 0) return;
       const hi = trimEndSec ?? duration;
       const lo = trimStartSec;
-      const next = Math.min(hi, Math.max(lo, a.currentTime - 5));
-      a.currentTime = next;
+      const next = Math.min(hi, Math.max(lo, playbackEngine.getCurrentTime() - 5));
+      playbackEngine.seek(next);
       setCurrentTime(next);
     }, [duration, trimEndSec, trimStartSec, setCurrentTime]);
 
     const stopPlayback = useCallback(() => {
-      const a = audioRef.current;
-      if (!a?.src) return;
-      a.pause();
+      const el = playbackEngine.getMediaElement();
+      if (!el?.src) return;
+      playbackEngine.pause();
       setIsPlaying(false);
       const t = Math.max(0, trimStartSec);
       if (Number.isFinite(t)) {
-        a.currentTime = t;
+        playbackEngine.seek(t);
         setCurrentTime(t);
       }
     }, [trimStartSec, setCurrentTime, setIsPlaying]);
 
     const pauseAndSeekToSec = useCallback(
       (tRaw: number) => {
-        const a = audioRef.current;
+        const el = playbackEngine.getMediaElement();
         const d = durationRef.current;
         const { start: lo, end: trimE } = trimRef.current;
         const hi = trimE ?? d;
@@ -2544,9 +2546,9 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             ? Math.min(hi, Math.max(lo, tRaw))
             : Math.max(0, tRaw);
         setIsPlaying(false);
-        if (a?.src && Number.isFinite(clamped)) {
-          a.pause();
-          a.currentTime = clamped;
+        if (el?.src && Number.isFinite(clamped)) {
+          playbackEngine.pause();
+          playbackEngine.seek(clamped);
         }
         setCurrentTime(clamped);
       },
