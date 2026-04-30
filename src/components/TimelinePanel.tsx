@@ -45,6 +45,7 @@ import {
   preloadFFmpeg,
 } from "../lib/extractVideoAudio";
 import { playCompletionWoof } from "../lib/playCompletionWoof";
+import { playbackEngine } from "../core/playbackEngine";
 import { btnSecondary } from "./stageButtonStyles";
 import { shell } from "../theme/choreoShell";
 
@@ -1596,7 +1597,11 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
     },
     ref
   ) {
-    const audioRef = useRef<HTMLAudioElement>(null);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const bindAudioRef = useCallback((node: HTMLAudioElement | null) => {
+      audioRef.current = node;
+      playbackEngine.attachMediaElement(node);
+    }, []);
     const audioFileInputRef = useRef<HTMLInputElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     /** 目盛り〜波形にはみ出す再生位置線（キャンバス座標と同期、pointer-events なし） */
@@ -4662,7 +4667,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           if (!cueListPortalTarget) return null;
           return createPortal(cueListContent, cueListPortalTarget);
         })()}
-        <audio ref={audioRef} style={{ display: "none" }} controls={false} />
+        <audio ref={bindAudioRef} style={{ display: "none" }} controls={false} />
       </div>
       {waveCueMenuPanel}
       {gapRouteMenuPanel}
