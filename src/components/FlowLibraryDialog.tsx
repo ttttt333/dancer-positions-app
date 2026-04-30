@@ -23,6 +23,8 @@ import {
   saveFlowFromProject,
 } from "../lib/flowLibrary";
 import { deleteFlowLibraryAudio, putFlowLibraryAudio } from "../lib/flowLibraryLocalAudio";
+import { projectApi } from "../api/client";
+import { isSupabaseBackend } from "../lib/supabaseClient";
 import { copyTextToClipboard, projectShareLinks } from "../lib/shareProjectLinks";
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
 import { EditorSideSheet } from "./EditorSideSheet";
@@ -32,6 +34,8 @@ type Props = {
   onClose: () => void;
   /** クラウド保存済みの作品 ID。あるとき「保存済みフロー」欄に共同編集 / 閲覧の URL リストを出す。 */
   serverId?: number | null;
+  /** Supabase 時の閲覧用 share_token。いま開いている作品と行の linked ID が一致するときの短絡用。 */
+  serverShareToken?: string | null;
   project: ChoreographyProjectJson;
   setProject: (
     next: ChoreographyProjectJson | ((p: ChoreographyProjectJson) => ChoreographyProjectJson)
@@ -161,6 +165,7 @@ export function FlowLibraryDialog({
   onRestoreWaveform,
   getAudioBlobForFlowLibrary,
   serverId = null,
+  serverShareToken = null,
 }: Props) {
   const [items, setItems] = useState<FlowLibraryItem[]>([]);
   const [name, setName] = useState("");
@@ -321,7 +326,38 @@ export function FlowLibraryDialog({
         });
         return;
       }
-      const u = projectShareLinks(pid)[kind];
+
+      let viewToken: string | null | undefined;
+      if (kind === "view" && isSupabaseBackend()) {
+        const cached =
+          pid === serverId && serverShareToken && String(serverShareToken).trim() !== ""
+            ? String(serverShareToken).trim()
+            : null;
+        if (cached) {
+          viewToken = cached;
+        } else {
+          try {
+            const row = await projectApi.get(pid);
+            const t = row.share_token != null ? String(row.share_token).trim() : "";
+            viewToken = t !== "" ? t : null;
+          } catch (e) {
+            setFeedback({
+              kind: "error",
+              text: e instanceof Error ? e.message : "閲覧 URL の取得に失敗しました。",
+            });
+            return;
+          }
+          if (!viewToken) {
+            setFeedback({
+              kind: "error",
+              text: "閲覧用トークンがありません。該当作品を一度上書き保存してください。",
+            });
+            return;
+          }
+        }
+      }
+
+      const u = projectShareLinks(pid, viewToken)[kind];
       const ok = await copyTextToClipboard(u);
       if (ok) {
         setFeedback({
@@ -331,9 +367,11 @@ export function FlowLibraryDialog({
               ? `「${it.name}」用の共同編集 URL をコピーしました。`
               : `「${it.name}」用の閲覧 URL をコピーしました。`,
         });
+      } else {
+        setFeedback({ kind: "error", text: "クリップボードへのコピーに失敗しました。" });
       }
     },
-    [serverId]
+    [serverId, serverShareToken]
   );
 
   const doRename = useCallback(

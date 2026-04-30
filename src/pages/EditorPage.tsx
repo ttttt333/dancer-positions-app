@@ -2414,6 +2414,7 @@ export function EditorPage({
           open={flowLibraryOpen}
           onClose={() => setFlowLibraryOpen(false)}
           serverId={serverId}
+          serverShareToken={serverShareToken}
           project={project}
           setProject={setProjectSafe}
           audioDurationSec={duration}
@@ -2426,7 +2427,7 @@ export function EditorPage({
           }
         />
       ) : null,
-    [project, flowLibraryOpen, setProjectSafe, duration, serverId]
+    [project, flowLibraryOpen, setProjectSafe, duration, serverId, serverShareToken]
   );
 
   /** 立ち位置管理ダイアログに渡す現在のダンサー */
