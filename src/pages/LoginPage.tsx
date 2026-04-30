@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { Fragment, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { authApi, setToken } from "../api/client";
+import { authApi, setToken, CLOUD_AUTH_CONFIG_MISSING_MESSAGE, isProdBuildMissingCloudAuth } from "../api/client";
 import { getSupabase, isSupabaseBackend } from "../lib/supabaseClient";
 import { useAuth, mapApiMeToContextMe } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
@@ -42,6 +42,10 @@ export function LoginPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    if (isProdBuildMissingCloudAuth()) {
+      setError(CLOUD_AUTH_CONFIG_MISSING_MESSAGE);
+      return;
+    }
     try {
       if (isSupabaseBackend()) {
         const { error } = await getSupabase().auth.signInWithPassword({
@@ -74,6 +78,22 @@ export function LoginPage() {
   return (
     <AuthScreenLayout title={t("auth.loginTitle")} subtitle={t("auth.loginTagline")}>
       <Fragment>
+      {isProdBuildMissingCloudAuth() ? (
+        <p
+          style={{
+            color: "#fbbf24",
+            fontSize: "13px",
+            lineHeight: 1.55,
+            margin: "0 0 16px",
+            padding: "12px 14px",
+            background: "rgba(120, 80, 0, 0.2)",
+            border: "1px solid rgba(251, 191, 36, 0.45)",
+            borderRadius: 8,
+          }}
+        >
+          {CLOUD_AUTH_CONFIG_MISSING_MESSAGE}
+        </p>
+      ) : null}
       <form onSubmit={submit}>
         <label style={labelStyle}>
           {t("auth.email")}

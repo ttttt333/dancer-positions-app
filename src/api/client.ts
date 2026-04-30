@@ -36,6 +36,28 @@ function apiBaseUrl(): string {
   return String(raw).trim().replace(/\/+$/, "");
 }
 
+/**
+ * 従来 Express API を **別 URL** に向けている（ローカル以外の本番用）。
+ * 未設定時は `fetch("/api/...")`（Vite 開発のプロキシ用）。静的ホスト単体では API なし。
+ */
+export function isLegacyApiBaseConfigured(): boolean {
+  return apiBaseUrl() !== "";
+}
+
+/**
+ * 本番で静的ホスティングかつ Supabase も従来 API も未設定。開発では常に false（Vite プロキシ利用のため）。
+ */
+export function isProdBuildMissingCloudAuth(): boolean {
+  return import.meta.env.PROD && !isSupabaseBackend() && !isLegacyApiBaseConfigured();
+}
+
+const CONFIG_MISSING_MSG =
+  "このデプロイのビルドに Supabase の URL・キーが含まれていません。Vercel（など）の Project → Settings → Environment Variables に " +
+  "VITE_SUPABASE_URL と VITE_SUPABASE_ANON_KEY を入れ、Production にチェックを付け、Save 後「Redeploy」を実行してください。";
+
+/** ログイン/登録画面用。Vercel に VITE_SUPABASE_* が焼いていないとき案内文として表示 */
+export const CLOUD_AUTH_CONFIG_MISSING_MESSAGE = CONFIG_MISSING_MSG;
+
 const base = apiBaseUrl();
 
 const HTML_OR_TEXT_API_HINT =
