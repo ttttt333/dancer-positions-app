@@ -2371,6 +2371,7 @@ export function EditorPage({
         <FlowLibraryDialog
           open={flowLibraryOpen}
           onClose={() => setFlowLibraryOpen(false)}
+          serverId={serverId}
           project={project}
           setProject={setProjectSafe}
           audioDurationSec={duration}
@@ -2383,7 +2384,7 @@ export function EditorPage({
           }
         />
       ) : null,
-    [project, flowLibraryOpen, setProjectSafe, duration]
+    [project, flowLibraryOpen, setProjectSafe, duration, serverId]
   );
 
   /** 立ち位置管理ダイアログに渡す現在のダンサー */
@@ -2929,7 +2930,8 @@ export function EditorPage({
     },
     stageZenEligible: showTopWaveDock && !rightPaneCollapsed,
     onOpenShareLinks: choreoPublicView ? undefined : () => setShareLinksOpen(true),
-    shareLinksButtonDisabled: serverId == null,
+    /** false: 未保存でも押せる。シート側でクラウド保存の案内を出す（serverId なしで無効化すると「動かない」ように見える） */
+    shareLinksButtonDisabled: false,
     onOpenViewerMode: choreoPublicView
       ? () => setChoreoMemberSheetOpen(true)
       : () => setEditorViewerSheetOpen(true),

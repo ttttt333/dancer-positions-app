@@ -6,6 +6,7 @@ import {
   useState,
   type CSSProperties,
 } from "react";
+import { Link } from "react-router-dom";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import {
   FLOW_LIBRARY_CHANGE_EVENT,
@@ -22,12 +23,15 @@ import {
   saveFlowFromProject,
 } from "../lib/flowLibrary";
 import { deleteFlowLibraryAudio, putFlowLibraryAudio } from "../lib/flowLibraryLocalAudio";
-import { btnSecondary } from "./stageButtonStyles";
+import { copyTextToClipboard, projectShareLinks } from "../lib/shareProjectLinks";
+import { btnAccent, btnSecondary } from "./stageButtonStyles";
 import { EditorSideSheet } from "./EditorSideSheet";
 
 type Props = {
   open: boolean;
   onClose: () => void;
+  /** クラウド保存済みの作品 ID。あるとき「保存済みフロー」欄に共同編集 / 閲覧の URL リストを出す。 */
+  serverId?: number | null;
   project: ChoreographyProjectJson;
   setProject: (
     next: ChoreographyProjectJson | ((p: ChoreographyProjectJson) => ChoreographyProjectJson)
@@ -156,6 +160,7 @@ export function FlowLibraryDialog({
   getWavePeaks,
   onRestoreWaveform,
   getAudioBlobForFlowLibrary,
+  serverId = null,
 }: Props) {
   const [items, setItems] = useState<FlowLibraryItem[]>([]);
   const [name, setName] = useState("");
@@ -224,6 +229,7 @@ export function FlowLibraryDialog({
         wavePeaks: getWavePeaks?.() ?? null,
         audioDurationSec: audioDurationSec > 0 ? audioDurationSec : null,
         flowEmbeddedAudioKey: flowEmbeddedAudioKey ?? null,
+        linkServerId: serverId != null && serverId > 0 ? serverId : null,
       });
       if (!r.ok) {
         if (flowEmbeddedAudioKey) void deleteFlowLibraryAudio(flowEmbeddedAudioKey);
@@ -244,7 +250,7 @@ export function FlowLibraryDialog({
     } finally {
       setBusy(false);
     }
-  }, [name, project, refresh, getWavePeaks, getAudioBlobForFlowLibrary, audioDurationSec]);
+  }, [name, project, refresh, getWavePeaks, getAudioBlobForFlowLibrary, audioDurationSec, serverId]);
 
   const doOverwrite = useCallback(
     async (id: string, label: string) => {
@@ -265,6 +271,7 @@ export function FlowLibraryDialog({
           wavePeaks: getWavePeaks?.() ?? null,
           audioDurationSec: audioDurationSec > 0 ? audioDurationSec : null,
           flowEmbeddedAudioKey: flowEmbeddedAudioKey ?? null,
+          linkServerId: serverId != null && serverId > 0 ? serverId : null,
         });
         if (!r.ok) {
           if (flowEmbeddedAudioKey) void deleteFlowLibraryAudio(flowEmbeddedAudioKey);
@@ -283,7 +290,7 @@ export function FlowLibraryDialog({
         setBusy(false);
       }
     },
-    [project, refresh, getWavePeaks, getAudioBlobForFlowLibrary, audioDurationSec]
+    [project, refresh, getWavePeaks, getAudioBlobForFlowLibrary, audioDurationSec, serverId]
   );
 
   const doDelete = useCallback(
@@ -294,6 +301,39 @@ export function FlowLibraryDialog({
       setFeedback({ kind: "info", text: `「${label}」を削除しました。` });
     },
     [refresh]
+  );
+
+  const copyFlowItemShare = useCallback(
+    async (it: FlowLibraryItem, kind: "collab" | "view") => {
+      const pid =
+        typeof it.linkedServerProjectId === "number" &&
+        Number.isFinite(it.linkedServerProjectId) &&
+        it.linkedServerProjectId > 0
+          ? it.linkedServerProjectId
+          : serverId != null && serverId > 0
+            ? serverId
+            : null;
+      if (pid == null) {
+        setFeedback({
+          kind: "error",
+          text:
+            "先に作品をクラウドに保存してください。このフロー行で共有するには、保存または上書き保存で紐づくと安心です。",
+        });
+        return;
+      }
+      const u = projectShareLinks(pid)[kind];
+      const ok = await copyTextToClipboard(u);
+      if (ok) {
+        setFeedback({
+          kind: "info",
+          text:
+            kind === "collab"
+              ? `「${it.name}」用の共同編集 URL をコピーしました。`
+              : `「${it.name}」用の閲覧 URL をコピーしました。`,
+        });
+      }
+    },
+    [serverId]
   );
 
   const doRename = useCallback(
@@ -554,6 +594,37 @@ export function FlowLibraryDialog({
           キュー順に並んだ「立ち位置の流れ」を名前付きで端末に保存し、別の曲やプロジェクトでも呼び出せます。保存時のステージ寸法・場ミリ・客席向き・変形舞台も一緒に記録され、呼び出し時に現在の設定より優先して復元されます（以前に保存したフローにその情報が無い場合は、キューと形だけが置き換わります）。
         </p>
 
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "10px",
+            alignItems: "center",
+          }}
+        >
+          <Link
+            to="/editor/new"
+            onClick={onClose}
+            style={{
+              ...btnAccent,
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "10px 18px",
+              fontSize: "13px",
+              fontWeight: 700,
+              borderRadius: "8px",
+              boxSizing: "border-box",
+            }}
+          >
+            新規作成
+          </Link>
+          <span style={{ fontSize: "11px", color: "#64748b", lineHeight: 1.5, flex: "1 1 220px" }}>
+            まっさらな作品から 1 から編集を始めます。いまの内容を残す場合は、先にクラウド保存やフロー保存をしてください。
+          </span>
+        </div>
+
         <section style={card}>
           <div
             style={{
@@ -652,6 +723,17 @@ export function FlowLibraryDialog({
               />
             </div>
           </div>
+          <p
+            style={{
+              margin: "0 0 4px",
+              fontSize: "11px",
+              color: "#64748b",
+              lineHeight: 1.5,
+            }}
+          >
+            各フロー行の「共同編集共有」「閲覧共有」で URL をコピーします。保存・上書きでこのフローにクラウド作品
+            ID を記録します。未記録の行は、いま開いている作品の ID でコピーします。
+          </p>
           <div
             style={{
               flex: 1,
@@ -751,46 +833,77 @@ export function FlowLibraryDialog({
                   <div
                     style={{
                       display: "flex",
-                      gap: "6px",
+                      gap: "5px",
                       flexWrap: "wrap",
+                      alignItems: "center",
                     }}
                   >
                     <button
                       type="button"
                       style={{
                         ...btnSecondary,
-                        padding: "4px 10px",
-                        fontSize: "11px",
+                        padding: "4px 8px",
+                        fontSize: "10px",
                       }}
                       disabled={busy || !canSave}
                       onClick={() => doOverwrite(it.id, it.name)}
                       title="現在のステージ内容でこのフローを上書き"
                     >
-                      ⤴ 上書き保存
+                      上書き保存
                     </button>
                     <button
                       type="button"
                       style={{
                         ...btnSecondary,
-                        padding: "4px 10px",
-                        fontSize: "11px",
+                        padding: "4px 8px",
+                        fontSize: "10px",
                       }}
                       onClick={() => doRename(it.id, it.name)}
                     >
-                      ✎ 名前変更
+                      名前変更
                     </button>
                     <button
                       type="button"
                       style={{
                         ...btnSecondary,
-                        padding: "4px 10px",
-                        fontSize: "11px",
+                        padding: "4px 8px",
+                        fontSize: "10px",
+                        borderColor: "rgba(22, 163, 74, 0.55)",
+                        color: "#bbf7d0",
+                      }}
+                      disabled={busy}
+                      onClick={() => void copyFlowItemShare(it, "collab")}
+                      title="振り付けし・チーム用の共同編集 URL をコピー"
+                    >
+                      共同編集共有
+                    </button>
+                    <button
+                      type="button"
+                      style={{
+                        ...btnSecondary,
+                        padding: "4px 8px",
+                        fontSize: "10px",
+                        borderColor: "rgba(14, 165, 233, 0.5)",
+                        color: "#bae6fd",
+                      }}
+                      disabled={busy}
+                      onClick={() => void copyFlowItemShare(it, "view")}
+                      title="生徒用の閲覧だけ URL をコピー"
+                    >
+                      閲覧共有
+                    </button>
+                    <button
+                      type="button"
+                      style={{
+                        ...btnSecondary,
+                        padding: "4px 8px",
+                        fontSize: "10px",
                         borderColor: "#7f1d1d",
                         color: "#fecaca",
                       }}
                       onClick={() => doDelete(it.id, it.name)}
                     >
-                      ✕ 削除
+                      削除
                     </button>
                   </div>
                 </div>

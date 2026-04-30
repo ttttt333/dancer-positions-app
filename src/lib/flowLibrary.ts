@@ -152,6 +152,10 @@ export interface FlowLibraryItem {
   stageSettings?: FlowStageSettingsSnapshot;
   createdAt: number;
   updatedAt: number;
+  /**
+   * 新規保存・上書き保存したときのクラウド作品 ID。共有 URL をフローごとに出し分ける。
+   */
+  linkedServerProjectId?: number;
   /** 2 = formationsFull / cuesFull / memento を含む完全バンドル */
   bundleVersion?: 2;
   /** フォーメーション完全形（大道具・床マークアップ・スナップショット含む） */
@@ -282,6 +286,8 @@ export type FlowSaveOpts = {
   audioDurationSec?: number | null;
   /** ローカル取り込み音源を IndexedDB に同梱したときのキー */
   flowEmbeddedAudioKey?: string | null;
+  /** 保存時点のクラウド作品 ID。付与するとフロー行ごとに共有 URL を記録できる */
+  linkServerId?: number | null;
 };
 
 function buildMementoFromProject(
@@ -867,6 +873,11 @@ function normalize(raw: FlowLibraryItem): FlowLibraryItem {
         c.tEndSec > c.tStartSec
     );
   const stageSettings = normalizeStageSettings(rawRec.stageSettings);
+  const linkSid = rawRec.linkedServerProjectId;
+  const linkedServerProjectId =
+    typeof linkSid === "number" && Number.isFinite(linkSid) && linkSid > 0
+      ? Math.floor(linkSid)
+      : undefined;
   return {
     id: raw.id,
     name: (raw.name || "").slice(0, MAX_NAME_LEN),
@@ -879,6 +890,7 @@ function normalize(raw: FlowLibraryItem): FlowLibraryItem {
     createdAt: typeof raw.createdAt === "number" ? raw.createdAt : Date.now(),
     updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : Date.now(),
     ...normalizeBundleFromRaw(raw),
+    ...(linkedServerProjectId != null ? { linkedServerProjectId } : {}),
   };
 }
 
@@ -1088,6 +1100,13 @@ function buildFlowLibraryItemFromProject(
     cuesFull,
     memento,
   };
+  if (
+    opts.linkServerId != null &&
+    Number.isFinite(opts.linkServerId) &&
+    opts.linkServerId > 0
+  ) {
+    item.linkedServerProjectId = Math.floor(opts.linkServerId);
+  }
   return { ok: true, item };
 }
 
@@ -1152,6 +1171,8 @@ export function overwriteFlowFromProject(
           name: target.name,
           createdAt: target.createdAt,
           updatedAt: Date.now(),
+          linkedServerProjectId:
+            fresh.item.linkedServerProjectId ?? target.linkedServerProjectId,
         }
       : x
   );

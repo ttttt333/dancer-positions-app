@@ -7,6 +7,7 @@ import { ChoreoCoreLogo } from "../components/ChoreoCoreLogo";
 import { btnAccent, btnSecondary } from "../components/stageButtonStyles";
 import { shell } from "../theme/choreoShell";
 import { tryMigrateFromLocalStorage } from "../lib/projectDefaults";
+import { copyTextToClipboard, projectShareLinks } from "../lib/shareProjectLinks";
 
 /** 左カラムとヘッダの水平インセット */
 const LIBRARY_GUTTER = "clamp(16px, 4vw, 44px)";
@@ -79,6 +80,7 @@ export function LibraryPage() {
     { id: number; name: string; updated_at: string }[]
   >([]);
   const [error, setError] = useState("");
+  const [shareCopyHint, setShareCopyHint] = useState("");
 
   const legacyProject = useMemo(() => tryMigrateFromLocalStorage(), []);
 
@@ -101,6 +103,12 @@ export function LibraryPage() {
       c = true;
     };
   }, [me, t]);
+
+  useEffect(() => {
+    if (!shareCopyHint) return;
+    const t = window.setTimeout(() => setShareCopyHint(""), 2500);
+    return () => window.clearTimeout(t);
+  }, [shareCopyHint]);
 
   if (!ready) {
     return (
@@ -371,25 +379,136 @@ export function LibraryPage() {
                   gap: 12,
                 }}
               >
-                {projects.map((p) => (
+                {projects.map((p) => {
+                  const sp = projectShareLinks(p.id);
+                  return (
                   <li key={p.id} style={{ ...libraryGlassPanel, padding: 0, overflow: "hidden" }}>
-                    <Link
-                      to={`/editor/${p.id}`}
+                    <div
                       style={{
-                        display: "block",
-                        padding: "18px 20px",
-                        textDecoration: "none",
-                        color: shell.text,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 0,
                       }}
                     >
-                      <div style={{ fontSize: "16px", fontWeight: 600, marginBottom: 6 }}>{p.name}</div>
-                      <div style={{ fontSize: "12px", color: shell.textMuted }}>
-                        {t("dashboard.updatedLabel")}: {formatUpdatedAt(p.updated_at)}
-                      </div>
-                    </Link>
+                      <Link
+                        to={`/editor/${p.id}`}
+                        style={{
+                          display: "block",
+                          padding: "18px 20px 10px",
+                          textDecoration: "none",
+                          color: shell.text,
+                        }}
+                      >
+                        <div style={{ fontSize: "16px", fontWeight: 600, marginBottom: 6 }}>{p.name}</div>
+                        <div style={{ fontSize: "12px", color: shell.textMuted }}>
+                          {t("dashboard.updatedLabel")}: {formatUpdatedAt(p.updated_at)}
+                        </div>
+                      </Link>
+                      <ul
+                        style={{
+                          listStyle: "none",
+                          margin: 0,
+                          padding: "0 20px 16px",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 8,
+                        }}
+                      >
+                        <li
+                          style={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            alignItems: "center",
+                            gap: 8,
+                            justifyContent: "space-between",
+                            padding: "8px 10px",
+                            borderRadius: 8,
+                            background: "rgba(5, 46, 22, 0.25)",
+                            border: "1px solid rgba(20, 83, 45, 0.5)",
+                          }}
+                        >
+                          <div style={{ minWidth: 0, flex: "1 1 120px" }}>
+                            <div style={{ fontSize: "10px", fontWeight: 600, color: "#86efac", marginBottom: 2 }}>
+                              共同編集（振り付けし・チーム用）
+                            </div>
+                            <div
+                              style={{
+                                fontSize: "9px",
+                                color: "#94a3b8",
+                                wordBreak: "break-all",
+                                fontFamily: "ui-monospace,monospace",
+                              }}
+                            >
+                              {sp.collab}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void copyTextToClipboard(sp.collab).then((ok) => {
+                              if (ok) setShareCopyHint("共同編集用の URL をコピーしました。");
+                            })}
+                            style={{ ...btnAccent, padding: "4px 10px", fontSize: "11px", flexShrink: 0 }}
+                          >
+                            コピー
+                          </button>
+                        </li>
+                        <li
+                          style={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            alignItems: "center",
+                            gap: 8,
+                            justifyContent: "space-between",
+                            padding: "8px 10px",
+                            borderRadius: 8,
+                            background: "rgba(2, 32, 71, 0.35)",
+                            border: "1px solid rgba(12, 74, 110, 0.55)",
+                          }}
+                        >
+                          <div style={{ minWidth: 0, flex: "1 1 120px" }}>
+                            <div style={{ fontSize: "10px", fontWeight: 600, color: "#7dd3fc", marginBottom: 2 }}>
+                              生徒用（閲覧だけ）
+                            </div>
+                            <div
+                              style={{
+                                fontSize: "9px",
+                                color: "#94a3b8",
+                                wordBreak: "break-all",
+                                fontFamily: "ui-monospace,monospace",
+                              }}
+                            >
+                              {sp.view}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void copyTextToClipboard(sp.view).then((ok) => {
+                              if (ok) setShareCopyHint("閲覧用の URL をコピーしました。");
+                            })}
+                            style={{ ...btnSecondary, padding: "4px 10px", fontSize: "11px", flexShrink: 0 }}
+                          >
+                            コピー
+                          </button>
+                        </li>
+                      </ul>
+                    </div>
                   </li>
-                ))}
+                );
+                })}
               </ul>
+            ) : null}
+
+            {me && shareCopyHint ? (
+              <p
+                role="status"
+                style={{
+                  margin: "0 0 12px",
+                  fontSize: "13px",
+                  color: "#86efac",
+                }}
+              >
+                {shareCopyHint}
+              </p>
             ) : null}
 
             {me && projects.length === 0 && !error ? (

@@ -601,7 +601,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
             onClick={() => setFlowLibraryOpen(true)}
           >
             <span>ライブラリ</span>
-            <span>に保存</span>
           </button>
           {onOpenAudioImport ? (
             <button
@@ -1055,7 +1054,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
       title="今までの流れ（フォーメーションとキュー）をフローライブラリに保存します"
       onClick={() => setFlowLibraryOpen(true)}
     >
-      ライブラリに保存
+      ライブラリ
     </button>
     <button
       type="button"
