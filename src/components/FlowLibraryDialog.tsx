@@ -92,6 +92,22 @@ function fmtDate(t: number): string {
   }
 }
 
+/** フロー行の「共同編集 / 閲覧」に使うクラウド作品 ID（無ければ共有不可） */
+function resolveFlowShareProjectId(
+  it: FlowLibraryItem,
+  serverId: number | null
+): number | null {
+  if (
+    typeof it.linkedServerProjectId === "number" &&
+    Number.isFinite(it.linkedServerProjectId) &&
+    it.linkedServerProjectId > 0
+  ) {
+    return it.linkedServerProjectId;
+  }
+  if (serverId != null && serverId > 0) return serverId;
+  return null;
+}
+
 /** 1 行ぶんの「フォーメーション簡易プレビュー」（横並び） */
 function FlowMiniRow({ item }: { item: FlowLibraryItem }) {
   const cells = item.cues.slice(0, 12);
@@ -310,14 +326,7 @@ export function FlowLibraryDialog({
 
   const copyFlowItemShare = useCallback(
     async (it: FlowLibraryItem, kind: "collab" | "view") => {
-      const pid =
-        typeof it.linkedServerProjectId === "number" &&
-        Number.isFinite(it.linkedServerProjectId) &&
-        it.linkedServerProjectId > 0
-          ? it.linkedServerProjectId
-          : serverId != null && serverId > 0
-            ? serverId
-            : null;
+      const pid = resolveFlowShareProjectId(it, serverId);
       if (pid == null) {
         setFeedback({
           kind: "error",
@@ -621,6 +630,40 @@ export function FlowLibraryDialog({
             ×
           </button>
         </div>
+        {feedback ? (
+          <div
+            role="status"
+            aria-live="polite"
+            style={{
+              position: "sticky",
+              top: 0,
+              zIndex: 2,
+              margin: "0 0 4px",
+              padding: "10px 12px",
+              borderRadius: "8px",
+              background:
+                feedback.kind === "error"
+                  ? "rgba(127, 29, 29, 0.4)"
+                  : "rgba(22, 101, 52, 0.35)",
+              border:
+                feedback.kind === "error"
+                  ? "1px solid rgba(248, 113, 113, 0.45)"
+                  : "1px solid rgba(74, 222, 128, 0.35)",
+            }}
+          >
+            <p
+              style={{
+                margin: 0,
+                fontSize: "13px",
+                lineHeight: 1.45,
+                color: feedback.kind === "error" ? "#fecaca" : "#bbf7d0",
+                fontWeight: 500,
+              }}
+            >
+              {feedback.text}
+            </p>
+          </div>
+        ) : null}
         <p
           style={{
             margin: 0,
@@ -799,7 +842,13 @@ export function FlowLibraryDialog({
                 上の入力欄から名前をつけて保存してみましょう。
               </div>
             ) : (
-              items.map((it) => (
+              items.map((it) => {
+                const sharePid = resolveFlowShareProjectId(it, serverId);
+                const shareDisabledReason =
+                  sharePid == null
+                    ? "クラウドに保存した作品 ID がありません。いまの作品をクラウド保存するか、このフローを上書き保存して紐づけてください。"
+                    : "";
+                return (
                 <div
                   key={it.id}
                   style={{
@@ -909,9 +958,13 @@ export function FlowLibraryDialog({
                         borderColor: "rgba(22, 163, 74, 0.55)",
                         color: "#bbf7d0",
                       }}
-                      disabled={busy}
+                      disabled={busy || sharePid == null}
                       onClick={() => void copyFlowItemShare(it, "collab")}
-                      title="振り付けし・チーム用の共同編集 URL をコピー"
+                      title={
+                        sharePid == null
+                          ? shareDisabledReason
+                          : "振り付けし・チーム用の共同編集 URL をコピー"
+                      }
                     >
                       共同編集共有
                     </button>
@@ -924,9 +977,13 @@ export function FlowLibraryDialog({
                         borderColor: "rgba(14, 165, 233, 0.5)",
                         color: "#bae6fd",
                       }}
-                      disabled={busy}
+                      disabled={busy || sharePid == null}
                       onClick={() => void copyFlowItemShare(it, "view")}
-                      title="生徒用の閲覧だけ URL をコピー"
+                      title={
+                        sharePid == null
+                          ? shareDisabledReason
+                          : "生徒用の閲覧だけ URL をコピー"
+                      }
                     >
                       閲覧共有
                     </button>
@@ -945,22 +1002,11 @@ export function FlowLibraryDialog({
                     </button>
                   </div>
                 </div>
-              ))
+              );
+              })
             )}
           </div>
         </section>
-
-        {feedback ? (
-          <p
-            style={{
-              margin: 0,
-              fontSize: "12px",
-              color: feedback.kind === "error" ? "#fca5a5" : "#86efac",
-            }}
-          >
-            {feedback.text}
-          </p>
-        ) : null}
 
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
           <button
