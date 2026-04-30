@@ -1,4 +1,4 @@
--- 既に schema.sql の前半まで実行済みで、関数だけ失敗した場合にこのブロックだけ実行してもよい
+-- 既にテーブル・RLS まで実行済みで、関数だけ差し替える場合
 create or replace function public.get_project_by_share_token(t text)
 returns table (id bigint, name text, project_json jsonb)
 language sql
@@ -7,7 +7,7 @@ security definer
 set search_path = public
 as $$
   select p.id, p.name, p.json as project_json
-  from public.projects p
+  from public.choreocore_projects p
   where t is not null
     and t <> ''
     and p.share_token = t

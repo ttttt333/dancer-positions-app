@@ -29,7 +29,7 @@ function errMsg(e: { message?: string; code?: string } | null, fallback: string)
 export async function supabaseListProjects(): Promise<ProjectListItem[]> {
   const sb = getSupabase();
   const { data, error } = await sb
-    .from("projects")
+    .from("choreocore_projects")
     .select("id, name, updated_at, share_token")
     .order("updated_at", { ascending: false });
   if (error) throw new Error(errMsg(error, "作品一覧の取得に失敗しました"));
@@ -44,7 +44,7 @@ export async function supabaseListProjects(): Promise<ProjectListItem[]> {
 export async function supabaseGetProject(id: number): Promise<ProjectRow> {
   const sb = getSupabase();
   const { data, error } = await sb
-    .from("projects")
+    .from("choreocore_projects")
     .select("id, name, json, updated_at, share_token")
     .eq("id", id)
     .single();
@@ -90,7 +90,7 @@ export async function supabaseCreateProject(
   const now = new Date().toISOString();
   const share = newShareToken();
   const { data, error } = await sb
-    .from("projects")
+    .from("choreocore_projects")
     .insert({
       user_id: userData.user.id,
       name: name.slice(0, 200),
@@ -117,7 +117,7 @@ export async function supabaseUpdateProject(
 ): Promise<ProjectListItem> {
   const sb = getSupabase();
   const { data: cur, error: e1 } = await sb
-    .from("projects")
+    .from("choreocore_projects")
     .select("share_token")
     .eq("id", id)
     .single();
@@ -128,7 +128,7 @@ export async function supabaseUpdateProject(
   }
   const now = new Date().toISOString();
   const { data, error } = await sb
-    .from("projects")
+    .from("choreocore_projects")
     .update({
       name: name.slice(0, 200),
       json,
@@ -150,6 +150,6 @@ export async function supabaseUpdateProject(
 
 export async function supabaseDeleteProject(id: number): Promise<void> {
   const sb = getSupabase();
-  const { error } = await sb.from("projects").delete().eq("id", id);
+  const { error } = await sb.from("choreocore_projects").delete().eq("id", id);
   if (error) throw new Error(errMsg(error, "削除に失敗しました"));
 }
