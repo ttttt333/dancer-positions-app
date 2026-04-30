@@ -1254,11 +1254,11 @@ export function StageBoard({
 
   const playbackOrPreview = Boolean(playbackDancers || previewDancers);
   /**
-   * 閲覧・再生プレビュー時は従来どおり clip（PNG は #stage-export-root をそのまま capture）。
+   * 再生補間中だけ clip（補間印のはみ出しを抑え、PNG の #stage-export-root も従来どおり）。
+   * 閲覧（view）の静止表示では客席帯・場ミリ数字・翼などステージ外の印を切らないため、view 単体では clip しない。
    * 編集時は親子の overflow を外し、床の外に置いた印が消えないようにする。
    */
-  const clipStageHostedOverflow =
-    viewMode === "view" || playbackOrPreview;
+  const clipStageHostedOverflow = playbackOrPreview;
 
   const setPiecesEditable =
     viewMode !== "view" &&
@@ -3543,7 +3543,7 @@ export function StageBoard({
     height: "100%",
     minWidth: 0,
     minHeight: 0,
-    /** 編集時は印を床パネルの外（翼・花道側）にも描けるよう、再生・閲覧モードだけ従来どおり clip */
+    /** 編集時・閲覧静止時は印を床パネル外（翼・花道側）にも描けるよう visible。再生補間中のみ clip */
     overflow: clipStageHostedOverflow ? "hidden" : "visible",
     background: `linear-gradient(180deg, #0f1729 0%, #0a0f18 42%, ${shell.bgDeep} 100%)`,
   };
