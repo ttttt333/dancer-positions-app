@@ -85,6 +85,8 @@ import { ExportDialog } from "../components/ExportDialog";
 import { FlowLibraryDialog } from "../components/FlowLibraryDialog";
 import { AddCueWithFormationDialog } from "../components/AddCueWithFormationDialog";
 import { projectApi } from "../api/client";
+import { isSupabaseBackend } from "../lib/supabaseClient";
+import { projectShareLinks } from "../lib/shareProjectLinks";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
 import { btnAccent, btnSecondary, inputField } from "../components/stageButtonStyles";
@@ -845,7 +847,10 @@ export function EditorPage({
 }: {
   choreoPublicView?: boolean;
 } = {}) {
-  const { projectId } = useParams<{ projectId: string }>();
+  const { projectId, shareToken: shareTokenParam } = useParams<{
+    projectId?: string;
+    shareToken?: string;
+  }>();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -855,6 +860,8 @@ export function EditorPage({
   const [plainProject, setPlainProject] = useState<ChoreographyProjectJson | null>(null);
   const [projectName, setProjectName] = useState("無題の作品");
   const [serverId, setServerId] = useState<number | null>(null);
+  /** Supabase: 生徒用閲覧 URL `/view/s/{token}` 用。従来 API では null のまま */
+  const [serverShareToken, setServerShareToken] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   /** 初回クラウド保存直後の GET をスキップ（画面を空にしない） */
@@ -1003,12 +1010,8 @@ export function EditorPage({
   const shareLinksUrls = useMemo(() => {
     if (serverId == null) return { collab: "", view: "" };
     if (typeof window === "undefined") return { collab: "", view: "" };
-    const o = window.location.origin;
-    return {
-      collab: `${o}/editor/${serverId}?collab=1`,
-      view: `${o}/view/${serverId}`,
-    };
-  }, [serverId]);
+    return projectShareLinks(serverId, serverShareToken);
+  }, [serverId, serverShareToken]);
 
   const storageRemindHandledRef = useRef(false);
   useEffect(() => {
@@ -1155,11 +1158,46 @@ export function EditorPage({
   /** FFmpeg.wasm は音源取り込みボタン押下時のみロードする（バックグラウンド自動 DL だとタブのスピナーが常時表示されてしまうため削除） */
 
   useEffect(() => {
+    /** 生徒用: /view/s/{token} かつログイン不要（Supabase RPC） */
+    if (choreoPublicView && shareTokenParam) {
+      let cancelled = false;
+      (async () => {
+        setPlainProject(null);
+        setLoadError(null);
+        setServerShareToken(shareTokenParam);
+        try {
+          if (!isSupabaseBackend()) {
+            if (!cancelled) {
+              setLoadError("共有閲覧には VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY の設定が必要です。");
+            }
+            return;
+          }
+          const row = await projectApi.getByShareToken(shareTokenParam);
+          if (cancelled) return;
+          setServerId(row.id);
+          setServerShareToken(row.share_token ?? shareTokenParam);
+          setProjectName(row.name);
+          const baseJson = normalizeProject(row.json);
+          setPlainProject({ ...baseJson, viewMode: "view" });
+          setLoadError(null);
+          historyRef.current = { undo: [], redo: [] };
+        } catch (e) {
+          if (!cancelled) {
+            setLoadError(e instanceof Error ? e.message : "読み込み失敗");
+          }
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+
     /** 新規は API・ログイン不要のため認証待ちを挟まず即表示（立ち上げ短縮） */
     if (projectId === "new" || !projectId) {
       const migrated = tryMigrateFromLocalStorage();
       setPlainProject(migrated ?? createEmptyProject());
       setServerId(null);
+      setServerShareToken(null);
       setLoadError(null);
       historyRef.current = { undo: [], redo: [] };
       return;
@@ -1223,6 +1261,7 @@ export function EditorPage({
         const row = await projectApi.get(id);
         if (cancelled) return;
         setServerId(row.id);
+        setServerShareToken(row.share_token ?? null);
         setProjectName(row.name);
         const baseJson = normalizeProject(row.json);
         if (collabParam && me) {
@@ -1245,6 +1284,7 @@ export function EditorPage({
     };
   }, [
     projectId,
+    shareTokenParam,
     collabParam,
     me,
     authReady,
@@ -2321,11 +2361,13 @@ export function EditorPage({
         json.pieceTitle?.trim() || projectName.trim() || "無題の作品";
       const body: ChoreographyProjectJson = { ...json, pieceTitle: title };
       if (serverId != null) {
-        await projectApi.update(serverId, title, body);
+        const row = await projectApi.update(serverId, title, body);
         setProjectName(title);
+        if (row.share_token) setServerShareToken(row.share_token);
       } else {
         const row = await projectApi.create(title, body);
         setServerId(row.id);
+        if (row.share_token) setServerShareToken(row.share_token);
         navigate(`/editor/${row.id}`, {
           replace: true,
           state: {

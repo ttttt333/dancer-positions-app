@@ -77,7 +77,7 @@ export function LibraryPage() {
   const { t } = useI18n();
   const { ready, me, logout } = useAuth();
   const [projects, setProjects] = useState<
-    { id: number; name: string; updated_at: string }[]
+    { id: number; name: string; updated_at: string; share_token?: string | null }[]
   >([]);
   const [error, setError] = useState("");
   const [shareCopyHint, setShareCopyHint] = useState("");
@@ -386,7 +386,7 @@ export function LibraryPage() {
                 }}
               >
                 {projects.map((p) => {
-                  const sp = projectShareLinks(p.id);
+                  const sp = projectShareLinks(p.id, p.share_token ?? null);
                   return (
                   <li key={p.id} style={{ ...libraryGlassPanel, padding: 0, overflow: "hidden" }}>
                     <div

@@ -1,8 +1,23 @@
+import { getSupabaseAccessToken, isSupabaseBackend } from "../lib/supabaseClient";
+import {
+  supabaseCreateProject,
+  supabaseDeleteProject,
+  supabaseGetProject,
+  supabaseGetProjectByShareToken,
+  supabaseListProjects,
+  supabaseUpdateProject,
+} from "../lib/supabaseProjects";
+
 /** 本番ログイン前の暫定利用。`refresh` は API を呼ばずダミーユーザーを復元する */
 export const DEMO_SESSION_TOKEN = "__choreogrid_demo_session__";
 
 export function getToken(): string | null {
-  return localStorage.getItem("auth_token");
+  const r = localStorage.getItem("auth_token");
+  if (r === DEMO_SESSION_TOKEN) return r;
+  if (isSupabaseBackend()) {
+    return getSupabaseAccessToken() ?? null;
+  }
+  return r;
 }
 
 export function setToken(token: string | null) {
@@ -11,7 +26,7 @@ export function setToken(token: string | null) {
 }
 
 export function isDemoSessionToken(): boolean {
-  return getToken() === DEMO_SESSION_TOKEN;
+  return localStorage.getItem("auth_token") === DEMO_SESSION_TOKEN;
 }
 
 /** 本番で API が別ホストのとき `VITE_API_BASE_URL`（末尾スラッシュなし） */
@@ -127,31 +142,89 @@ export const authApi = {
     }>("/api/auth/me"),
 };
 
+export type ProjectListItem = {
+  id: number;
+  name: string;
+  updated_at: string;
+  share_token?: string | null;
+};
+
+export type ProjectGetRow = {
+  id: number;
+  name: string;
+  json: unknown;
+  updated_at: string;
+  share_token?: string | null;
+};
+
 export const projectApi = {
-  list: () =>
-    api<{ id: number; name: string; updated_at: string }[]>("/api/projects"),
-  get: (id: number) =>
-    api<{ id: number; name: string; json: unknown; updated_at: string }>(
+  list: async (): Promise<ProjectListItem[]> => {
+    if (isDemoSessionToken()) return [];
+    if (isSupabaseBackend()) {
+      if (!getSupabaseAccessToken()) return [];
+      return supabaseListProjects();
+    }
+    return api<ProjectListItem[]>("/api/projects");
+  },
+  get: async (id: number): Promise<ProjectGetRow> => {
+    if (isSupabaseBackend() && !isDemoSessionToken()) {
+      if (!getSupabaseAccessToken()) {
+        throw new Error("ログインが必要です");
+      }
+      return supabaseGetProject(id);
+    }
+    const row = await api<{ id: number; name: string; json: unknown; updated_at: string }>(
       `/api/projects/${id}`
-    ),
-  create: (name: string, json: unknown) =>
-    api<{ id: number; name: string; updated_at: string }>("/api/projects", {
+    );
+    return { ...row, share_token: null };
+  },
+  getByShareToken: (shareToken: string) => {
+    if (!isSupabaseBackend()) {
+      return Promise.reject(
+        new Error("共有リンク（閲覧専用）を使うには、VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY を設定してください。")
+      );
+    }
+    return supabaseGetProjectByShareToken(shareToken);
+  },
+  create: async (name: string, json: unknown): Promise<ProjectListItem> => {
+    if (isSupabaseBackend() && !isDemoSessionToken() && getSupabaseAccessToken()) {
+      return supabaseCreateProject(name, json);
+    }
+    const row = await api<{ id: number; name: string; updated_at: string }>("/api/projects", {
       method: "POST",
       body: JSON.stringify({ name, json }),
-    }),
-  update: (id: number, name: string, json: unknown) =>
-    api<{ id: number; name: string; updated_at: string }>(
+    });
+    return { ...row, share_token: null };
+  },
+  update: async (id: number, name: string, json: unknown): Promise<ProjectListItem> => {
+    if (isSupabaseBackend() && !isDemoSessionToken() && getSupabaseAccessToken()) {
+      return supabaseUpdateProject(id, name, json);
+    }
+    const row = await api<{ id: number; name: string; updated_at: string }>(
       `/api/projects/${id}`,
       { method: "PUT", body: JSON.stringify({ name, json }) }
-    ),
-  remove: (id: number) =>
-    api<{ ok: boolean }>(`/api/projects/${id}`, { method: "DELETE" }),
+    );
+    return { ...row, share_token: null };
+  },
+  remove: async (id: number) => {
+    if (isSupabaseBackend() && !isDemoSessionToken() && getSupabaseAccessToken()) {
+      await supabaseDeleteProject(id);
+      return;
+    }
+    await api<{ ok: boolean }>(`/api/projects/${id}`, { method: "DELETE" });
+  },
   /** オーナーのみ。メールで協作者を追加 */
-  addCollaborator: (projectId: number, email: string) =>
-    api<{ ok: boolean; userId: number }>(
+  addCollaborator: (projectId: number, email: string) => {
+    if (isSupabaseBackend()) {
+      return Promise.reject(
+        new Error("共同編集のメール追加は、Supabase 本番接続時は未実装です（従来 API 利用時に利用可能）。")
+      );
+    }
+    return api<{ ok: boolean; userId: number }>(
       `/api/projects/${projectId}/collaborators`,
       { method: "POST", body: JSON.stringify({ email }) }
-    ),
+    );
+  },
 };
 
 export async function audioApiUpload(formData: FormData): Promise<{ id: number; mime: string }> {

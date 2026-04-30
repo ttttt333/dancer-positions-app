@@ -2,7 +2,8 @@ import type { CSSProperties } from "react";
 import { Fragment, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { authApi, setToken } from "../api/client";
-import { useAuth } from "../context/AuthContext";
+import { getSupabase, isSupabaseBackend } from "../lib/supabaseClient";
+import { useAuth, mapApiMeToContextMe } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
 import { AuthScreenLayout } from "../components/AuthScreenLayout";
 import { btnAccent, btnSecondary, inputField } from "../components/stageButtonStyles";
@@ -31,7 +32,7 @@ export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const { me, ready, setAuth, logout, skipLoginForNow } = useAuth();
+  const { me, ready, setAuth, logout, skipLoginForNow, refresh } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -42,11 +43,24 @@ export function LoginPage() {
     e.preventDefault();
     setError("");
     try {
+      if (isSupabaseBackend()) {
+        const { error } = await getSupabase().auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (error) {
+          setError(error.message);
+          return;
+        }
+        await refresh();
+        navigate("/", { replace: true });
+        return;
+      }
       const { token } = await authApi.login(email, password);
       setToken(token);
       try {
         const m = await authApi.me();
-        setAuth(token, m);
+        setAuth(token, mapApiMeToContextMe(m));
         navigate("/", { replace: true });
       } catch {
         logout();

@@ -1,15 +1,19 @@
 /**
  * クラウドに保存した作品（projectId）向けの共有 URL。
- * エディタの `ShareLinksSheetContent` と同じ形。
+ * 閲覧用は `viewToken` がある場合は推奨の `/view/s/{token}`（生徒はログイン不要）。
  */
-export function projectShareLinks(projectId: number): { collab: string; view: string } {
+export function projectShareLinks(
+  projectId: number,
+  viewToken?: string | null
+): { collab: string; view: string } {
   if (typeof window === "undefined") {
     return { collab: "", view: "" };
   }
   const o = window.location.origin;
+  const t = viewToken && String(viewToken).trim() !== "" ? String(viewToken).trim() : null;
   return {
     collab: `${o}/editor/${projectId}?collab=1`,
-    view: `${o}/view/${projectId}`,
+    view: t ? `${o}/view/s/${t}` : `${o}/view/${projectId}`,
   };
 }
 

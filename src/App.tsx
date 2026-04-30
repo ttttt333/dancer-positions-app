@@ -104,6 +104,10 @@ export default function App() {
             <Route path="/billing/canceled" element={<BillingCanceledPage />} />
             <Route path="/editor/:projectId" element={<EditorPage />} />
             <Route
+              path="/view/s/:shareToken"
+              element={<EditorPage choreoPublicView />}
+            />
+            <Route
               path="/view/:projectId"
               element={<EditorPage choreoPublicView />}
             />

@@ -1,3 +1,9 @@
+# Env（秘密・本番キー。コミットしない）
+.env
+*.local
+*.env
+.env.local
+
 # Logs
 logs
 *.log
@@ -13,9 +19,6 @@ server/data.sqlite
 server/data.sqlite-journal
 server/data/uploads
 dist-ssr
-*.local
-*.env
-.env.local
 
 # Editor
 .vscode/*
