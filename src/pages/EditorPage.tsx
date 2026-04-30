@@ -998,6 +998,16 @@ export function EditorPage({
 
   const yjsCollab = useYjsCollaboration(serverId, collabActive);
   const project = collabActive ? yjsCollab.project : plainProject;
+  const projectRef = useRef(project);
+  projectRef.current = project;
+
+  /** キュー内容・区間・フォーメーション紐付けの変化検知（共同編集で project 参照だけが毎回変わるのを避ける） */
+  const cueIdsSig =
+    project?.cues
+      .map((c) => `${c.id}:${c.tStartSec}:${c.tEndSec}:${c.formationId}`)
+      .join("|") ?? "";
+
+  const activeFormationId = project?.activeFormationId ?? null;
 
   const viewerLocalStorageKey = useMemo(
     () =>
@@ -1890,6 +1900,26 @@ export function EditorPage({
     [selectedCueId, cueById]
   );
 
+  /**
+   * 舞台スナップショット同期は「どのフォーメーションを見ているか」が変わったときだけ走らせる。
+   * `project` 参照を依存に含めない（共同編集で毎同期ごとに新オブジェクトになるのを避ける）。
+   */
+  const navFormationId = useMemo(() => {
+    if (selectedCueId && cueIdsSig.length > 0) {
+      const prefix = `${selectedCueId}:`;
+      for (const part of cueIdsSig.split("|")) {
+        if (!part.startsWith(prefix)) continue;
+        const rest = part.slice(prefix.length);
+        const bits = rest.split(":");
+        if (bits.length >= 3) {
+          const fid = bits[bits.length - 1];
+          if (fid) return fid;
+        }
+      }
+    }
+    return activeFormationId;
+  }, [selectedCueId, activeFormationId, cueIdsSig]);
+
   useEffect(() => {
     lastFormationIdForStageRef.current = null;
   }, [projectId]);
@@ -1899,37 +1929,32 @@ export function EditorPage({
    * 次のページに保存済みがあればプロジェクトの舞台へ復元する。
    */
   useEffect(() => {
-    if (!project) return;
-    const nextId = selectedCue?.formationId ?? project.activeFormationId;
-    if (!nextId) return;
+    const p = projectRef.current;
+    if (!p || !navFormationId) return;
+    const nextId = navFormationId;
     const prevId = lastFormationIdForStageRef.current;
     if (prevId === nextId) return;
 
     if (prevId !== null) {
-      setProjectSafe((p) => {
-        const snap = captureStageSnapshot(p);
-        const formations1 = p.formations.map((f) =>
+      setProjectSafe((cur) => {
+        const snap = captureStageSnapshot(cur);
+        const formations1 = cur.formations.map((f) =>
           f.id === prevId ? { ...f, stageSnapshot: snap } : f
         );
-        const base: ChoreographyProjectJson = { ...p, formations: formations1 };
+        const base: ChoreographyProjectJson = { ...cur, formations: formations1 };
         const nf = formations1.find((f) => f.id === nextId);
         return nf?.stageSnapshot
           ? mergeStageSnapshotIntoProject(base, nf.stageSnapshot)
           : base;
       });
     } else {
-      const nf = formationById.get(nextId);
+      const nf = p.formations.find((f) => f.id === nextId);
       if (nf?.stageSnapshot) {
-        setProjectSafe((p) => mergeStageSnapshotIntoProject(p, nf.stageSnapshot));
+        setProjectSafe((cur) => mergeStageSnapshotIntoProject(cur, nf.stageSnapshot));
       }
     }
     lastFormationIdForStageRef.current = nextId;
-  }, [project, selectedCue, formationById, setProjectSafe]);
-
-  const cueIdsSig =
-    project?.cues
-      .map((c) => `${c.id}:${c.tStartSec}:${c.tEndSec}:${c.formationId}`)
-      .join("|") ?? "";
+  }, [navFormationId, setProjectSafe]);
 
   const cuesSortedForStageJump = useMemo(
     () => (project ? sortCuesByStart(project.cues) : []),
@@ -2000,7 +2025,7 @@ export function EditorPage({
   useEffect(() => {
     if (!project) return;
     if (project.cues.length === 0) {
-      setSelectedCueIds([]);
+      setSelectedCueIds((ids) => (ids.length === 0 ? ids : []));
       return;
     }
     setSelectedCueIds((ids) => {
@@ -2013,10 +2038,23 @@ export function EditorPage({
           seen.add(id);
           deduped.push(id);
         }
+        if (
+          deduped.length === ids.length &&
+          deduped.every((id, i) => id === ids[i])
+        ) {
+          return ids;
+        }
         return deduped;
       }
       const first = cuesSortedForStageJump[0]?.id;
-      return first ? [first] : [];
+      const next = first ? [first] : [];
+      if (
+        next.length === ids.length &&
+        next.every((id, i) => id === ids[i])
+      ) {
+        return ids;
+      }
+      return next;
     });
   }, [project, cueIdsSig, cueById, cuesSortedForStageJump]);
 
