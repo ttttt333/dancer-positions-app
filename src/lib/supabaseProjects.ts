@@ -72,7 +72,7 @@ export async function supabaseGetProjectByShareToken(
   return {
     id: Number((row as { id: number }).id),
     name: String((row as { name: string }).name),
-    json: (row as { json: unknown }).json,
+    json: (row as { project_json: unknown }).project_json,
     updated_at: new Date().toISOString(),
     share_token: shareToken,
   };

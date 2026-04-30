@@ -43,14 +43,15 @@ create policy "projects delete own" on public.projects
   using (auth.uid() = user_id);
 
 -- 匿名でも share_token さえ合えば閲覧用（データは RPC 越しにのみ返す）
+-- 戻り列名は `json` にできない（PostgreSQL の型名と衝突するため `project_json`）
 create or replace function public.get_project_by_share_token(t text)
-returns table (id bigint, name text, json jsonb)
+returns table (id bigint, name text, project_json jsonb)
 language sql
 stable
 security definer
 set search_path = public
 as $$
-  select p.id, p.name, p.json
+  select p.id, p.name, p.json as project_json
   from public.projects p
   where t is not null
     and t <> ''
