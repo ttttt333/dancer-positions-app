@@ -1254,11 +1254,9 @@ export function StageBoard({
 
   const playbackOrPreview = Boolean(playbackDancers || previewDancers);
   /**
-   * 再生補間中だけ clip（補間印のはみ出しを抑え、PNG の #stage-export-root も従来どおり）。
-   * 閲覧（view）の静止表示では客席帯・場ミリ数字・翼などステージ外の印を切らないため、view 単体では clip しない。
-   * 編集時は親子の overflow を外し、床の外に置いた印が消えないようにする。
+   * 客席帯・床下の場ミリ数字・翼の印は、閲覧・再生・客席を上にした回転でも欠けないよう、
+   * ステージ周りの親は overflow visible（旧: 再生中に hidden にして帯が切れる不具合があった）。
    */
-  const clipStageHostedOverflow = playbackOrPreview;
 
   const setPiecesEditable =
     viewMode !== "view" &&
@@ -3543,8 +3541,8 @@ export function StageBoard({
     height: "100%",
     minWidth: 0,
     minHeight: 0,
-    /** 編集時・閲覧静止時は印を床パネル外（翼・花道側）にも描けるよう visible。再生補間中のみ clip */
-    overflow: clipStageHostedOverflow ? "hidden" : "visible",
+    /** 常に印を床パネル外（翼・花道側）にも描けるよう visible（再生中も客席帯を切らない） */
+    overflow: "visible",
     background: `linear-gradient(180deg, #0f1729 0%, #0a0f18 42%, ${shell.bgDeep} 100%)`,
   };
 
@@ -5062,7 +5060,7 @@ export function StageBoard({
            * 少しだけ外側に余白を確保する。
            */
           padding: "5px",
-          overflow: clipStageHostedOverflow ? "hidden" : "visible",
+          overflow: "visible",
         }}
       >
         {/*
@@ -5121,7 +5119,7 @@ export function StageBoard({
               position: "relative",
               width: "100%",
               height: "100%",
-              overflow: clipStageHostedOverflow ? "hidden" : "visible",
+              overflow: "visible",
               touchAction: "none",
               boxShadow: previewDancers?.length
                 ? "0 0 0 2px rgba(167,139,250,0.65), 0 12px 40px rgba(0,0,0,0.35)"
@@ -5161,7 +5159,7 @@ export function StageBoard({
                 flex: "1 1 auto",
                 minHeight: 0,
                 position: "relative",
-                overflow: clipStageHostedOverflow ? "hidden" : "visible",
+                overflow: "visible",
                 display: showShell ? "grid" : "block",
                 ...(showShell
                   ? {
