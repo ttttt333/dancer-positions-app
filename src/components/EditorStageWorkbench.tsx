@@ -776,16 +776,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
             </button>
           ) : null}
           {onOpenViewerMode || onOpenShareLinks ? (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "row",
-                gap: 6,
-                width: "100%",
-                minWidth: 0,
-                alignItems: "stretch",
-              }}
-            >
+            <>
               {onOpenViewerMode ? (
                 <button
                   type="button"
@@ -795,8 +786,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                     background: "rgba(186, 230, 253, 0.1)",
                     borderColor: "rgba(56, 189, 248, 0.4)",
                     color: "#e0f2fe",
-                    flex: "1 1 0",
-                    minWidth: 0,
                     minHeight: 48,
                   }}
                   disabled={viewerModeButtonDisabled}
@@ -815,9 +804,11 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                     ...btnSecondary,
                     borderColor: "rgba(14, 165, 233, 0.55)",
                     color: "#e0f2fe",
-                    flex: "1 1 0",
-                    minWidth: 0,
                     minHeight: 48,
+                    // 3列グリッド: 閲覧がないときは (テキスト)(拡大)(共有) と並びがずれるため、共有だけ 2 行目 1 列（テキスト下）
+                    ...(!onOpenViewerMode
+                      ? { gridColumn: 1, gridRow: 2 }
+                      : {}),
                   }}
                   disabled={shareLinksButtonDisabled}
                   title="チーム用（共同編集）か生徒用（閲覧）か選んで URL を発行"
@@ -827,7 +818,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                   <span>URL</span>
                 </button>
               ) : null}
-            </div>
+            </>
           ) : null}
         </div>
         {!hideFloorTextToolbar && floorTextPlaceSession ? (
