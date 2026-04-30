@@ -369,6 +369,11 @@ export type ChoreographyProjectJson = {
   /** サーバに保存した楽曲アセット ID（未ログイン時は null） */
   audioAssetId: number | null;
   /**
+   * Supabase Storage のオブジェクトパス（バケット `choreocore-audio` 内の name）。
+   * 設定時は `audioAssetId` と排他（従来 API 利用時は未使用）。
+   */
+  audioSupabasePath?: string | null;
+  /**
    * フローライブラリから復元したローカル音源（IndexedDB `flowLibraryLocalAudio` のキー）。
    * サーバ `audioAssetId` より後段で、未設定のときだけ `<audio>` に反映する。
    */

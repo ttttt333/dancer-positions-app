@@ -27,7 +27,9 @@ import {
   listFormationBoxItemsByCount,
   saveFormationToBox,
 } from "../lib/formationBox";
-import { fetchAuthorizedAudioBlobUrl, getToken, audioApiUpload } from "../api/client";
+import { fetchAuthorizedAudioBlobUrl, fetchLegacyAudioArrayBuffer, getToken, audioApiUpload } from "../api/client";
+import { isSupabaseBackend } from "../lib/supabaseClient";
+import { supabaseDownloadProjectAudioBuffer } from "../lib/supabaseAudio";
 import { getFlowLibraryAudio } from "../lib/flowLibraryLocalAudio";
 import {
   formatMmSs,
@@ -53,12 +55,31 @@ import { shell } from "../theme/choreoShell";
 let persistedServerAudioBlobUrl: string | null = null;
 let persistedServerAudioAssetId: number | null = null;
 
+let persistedSupabaseAudioBlobUrl: string | null = null;
+let persistedSupabaseAudioPath: string | null = null;
+
 function revokePersistedServerAudioBlob() {
   if (persistedServerAudioBlobUrl) {
     URL.revokeObjectURL(persistedServerAudioBlobUrl);
     persistedServerAudioBlobUrl = null;
     persistedServerAudioAssetId = null;
   }
+}
+
+function revokePersistedSupabaseAudioBlob() {
+  if (persistedSupabaseAudioBlobUrl) {
+    URL.revokeObjectURL(persistedSupabaseAudioBlobUrl);
+    persistedSupabaseAudioBlobUrl = null;
+    persistedSupabaseAudioPath = null;
+  }
+}
+
+/** `blob:` URL の revoke。クラウド用に保持している URL は専用 revoke に回す */
+function revokeBlobUrlUnlessCloudPersisted(cur: string | null) {
+  if (!cur) return;
+  if (cur === persistedServerAudioBlobUrl) revokePersistedServerAudioBlob();
+  else if (cur === persistedSupabaseAudioBlobUrl) revokePersistedSupabaseAudioBlob();
+  else URL.revokeObjectURL(cur);
 }
 
 /** タイムライン上部ツールバー用（再生・波形周りの縦スペース節約） */
@@ -1957,6 +1978,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       let cancelled = false;
       (async () => {
         try {
+          revokePersistedSupabaseAudioBlob();
           const reuseUrl =
             persistedServerAudioAssetId === aid
               ? persistedServerAudioBlobUrl
@@ -1964,7 +1986,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           if (reuseUrl) {
             const cur = blobUrlRef.current;
             if (cur && cur !== reuseUrl) {
-              URL.revokeObjectURL(cur);
+              revokeBlobUrlUnlessCloudPersisted(cur);
             }
             blobUrlRef.current = reuseUrl;
             const a0 = audioRef.current;
@@ -1972,10 +1994,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
               a0.src = reuseUrl;
               a0.load();
             }
-            const res = await fetch(`/api/audio/${aid}`, {
-              headers: { Authorization: `Bearer ${getToken()}` },
-            });
-            const buf = await res.arrayBuffer();
+            const buf = await fetchLegacyAudioArrayBuffer(aid);
             if (!cancelled) await decodePeaksFromBuffer(buf);
             return;
           }
@@ -1985,7 +2004,11 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             URL.revokeObjectURL(url);
             return;
           }
-          if (blobUrlRef.current && blobUrlRef.current !== persistedServerAudioBlobUrl) {
+          if (
+            blobUrlRef.current &&
+            blobUrlRef.current !== persistedServerAudioBlobUrl &&
+            blobUrlRef.current !== persistedSupabaseAudioBlobUrl
+          ) {
             URL.revokeObjectURL(blobUrlRef.current);
           }
           blobUrlRef.current = url;
@@ -1996,10 +2019,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
             a.src = url;
             a.load();
           }
-          const res = await fetch(`/api/audio/${aid}`, {
-            headers: { Authorization: `Bearer ${getToken()}` },
-          });
-          const buf = await res.arrayBuffer();
+          const buf = await fetchLegacyAudioArrayBuffer(aid);
           if (!cancelled) await decodePeaksFromBuffer(buf);
         } catch (e) {
           console.error(e);
@@ -2011,7 +2031,92 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
     }, [project.audioAssetId, decodePeaksFromBuffer]);
 
     useEffect(() => {
+      const rawPath = project.audioSupabasePath;
+      const path =
+        typeof rawPath === "string" && rawPath.trim().length > 0 ? rawPath.trim() : null;
+      const effectivePath = isSupabaseBackend() ? path : null;
+      if (effectivePath == null || !getToken()) {
+        if (effectivePath == null) {
+          const hadSupabaseBlobAttached =
+            blobUrlRef.current != null &&
+            blobUrlRef.current === persistedSupabaseAudioBlobUrl;
+          revokePersistedSupabaseAudioBlob();
+          if (hadSupabaseBlobAttached) {
+            blobUrlRef.current = null;
+            const aClear = audioRef.current;
+            if (aClear) {
+              aClear.pause();
+              aClear.removeAttribute("src");
+              aClear.load();
+            }
+          }
+        }
+        return;
+      }
+      if (
+        persistedSupabaseAudioPath != null &&
+        persistedSupabaseAudioPath !== effectivePath
+      ) {
+        revokePersistedSupabaseAudioBlob();
+      }
+      let cancelled = false;
+      (async () => {
+        try {
+          revokePersistedServerAudioBlob();
+          const reuseUrl =
+            persistedSupabaseAudioPath === effectivePath
+              ? persistedSupabaseAudioBlobUrl
+              : null;
+          if (reuseUrl) {
+            const cur = blobUrlRef.current;
+            if (cur && cur !== reuseUrl) {
+              revokeBlobUrlUnlessCloudPersisted(cur);
+            }
+            blobUrlRef.current = reuseUrl;
+            const a0 = audioRef.current;
+            if (a0) {
+              a0.src = reuseUrl;
+              a0.load();
+            }
+            const buf = await supabaseDownloadProjectAudioBuffer(effectivePath);
+            if (!cancelled) await decodePeaksFromBuffer(buf);
+            return;
+          }
+
+          const buf = await supabaseDownloadProjectAudioBuffer(effectivePath);
+          if (cancelled) return;
+          const url = URL.createObjectURL(new Blob([buf]));
+          if (
+            blobUrlRef.current &&
+            blobUrlRef.current !== persistedServerAudioBlobUrl &&
+            blobUrlRef.current !== persistedSupabaseAudioBlobUrl
+          ) {
+            URL.revokeObjectURL(blobUrlRef.current);
+          }
+          blobUrlRef.current = url;
+          persistedSupabaseAudioBlobUrl = url;
+          persistedSupabaseAudioPath = effectivePath;
+          const a = audioRef.current;
+          if (a) {
+            a.src = url;
+            a.load();
+          }
+          if (!cancelled) await decodePeaksFromBuffer(buf);
+        } catch (e) {
+          console.error(e);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [project.audioSupabasePath, decodePeaksFromBuffer]);
+
+    useEffect(() => {
       if (project.audioAssetId != null) return;
+      if (isSupabaseBackend()) {
+        const sp = project.audioSupabasePath;
+        if (typeof sp === "string" && sp.trim().length > 0) return;
+      }
       const flowKey = project.flowLocalAudioKey;
       if (typeof flowKey !== "string" || flowKey.length === 0) return;
       let cancelled = false;
@@ -2021,12 +2126,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           if (cancelled || !blob || blob.size === 0) return;
           const url = URL.createObjectURL(blob);
           if (blobUrlRef.current) {
-            const cur = blobUrlRef.current;
-            if (cur === persistedServerAudioBlobUrl) {
-              revokePersistedServerAudioBlob();
-            } else {
-              URL.revokeObjectURL(cur);
-            }
+            revokeBlobUrlUnlessCloudPersisted(blobUrlRef.current);
           }
           blobUrlRef.current = url;
           const a = audioRef.current;
@@ -2043,7 +2143,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       return () => {
         cancelled = true;
       };
-    }, [project.audioAssetId, project.flowLocalAudioKey, decodePeaksFromBuffer]);
+    }, [project.audioAssetId, project.audioSupabasePath, project.flowLocalAudioKey, decodePeaksFromBuffer]);
 
     const onPickAudio = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const f = e.target.files?.[0];
@@ -2062,14 +2162,35 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
           const fd = new FormData();
           fd.append("file", f);
           fd.append("projectId", String(serverProjectId));
-          const { id } = await audioApiUpload(fd);
-          setProject((p) => ({ ...p, audioAssetId: id, flowLocalAudioKey: null }));
+          const up = await audioApiUpload(fd);
+          if (up.kind === "supabase") {
+            setProject((p) => ({
+              ...p,
+              audioSupabasePath: up.path,
+              audioAssetId: null,
+              flowLocalAudioKey: null,
+            }));
+          } else {
+            setProject((p) => ({
+              ...p,
+              audioAssetId: up.id,
+              audioSupabasePath: null,
+              flowLocalAudioKey: null,
+            }));
+          }
         } catch (err) {
           alert(err instanceof Error ? err.message : "サーバへのアップロードに失敗しました");
+          /** クラウド保存を試みたのに失敗したら、下のローカル読み込みに進まない（成功したように見えるため） */
+          return;
         }
       }
       if (loggedIn && serverProjectId != null && isVideo) {
-        setProject((p) => ({ ...p, audioAssetId: null, flowLocalAudioKey: null }));
+        setProject((p) => ({
+          ...p,
+          audioAssetId: null,
+          audioSupabasePath: null,
+          flowLocalAudioKey: null,
+        }));
       }
       let buf: ArrayBuffer;
       try {
@@ -2096,12 +2217,7 @@ export const TimelinePanel = forwardRef<TimelinePanelHandle, Props>(
       });
       const url = URL.createObjectURL(blob);
       if (blobUrlRef.current) {
-        const cur = blobUrlRef.current;
-        if (cur === persistedServerAudioBlobUrl) {
-          revokePersistedServerAudioBlob();
-        } else {
-          URL.revokeObjectURL(cur);
-        }
+        revokeBlobUrlUnlessCloudPersisted(blobUrlRef.current);
       }
       blobUrlRef.current = url;
       const a = audioRef.current;

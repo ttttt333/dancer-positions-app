@@ -119,6 +119,8 @@ export interface FlowLibraryMemento {
   /** 保存時の楽曲尺（秒）。波形復元・等間隔再配置の目安 */
   audioDurationSec?: number;
   audioAssetId: number | null;
+  /** Supabase Storage（バケット choreocore-audio）内のオブジェクトパス。`audioAssetId` と排他 */
+  audioSupabasePath?: string | null;
   playbackRate: number;
   trimStartSec: number;
   trimEndSec: number | null;
@@ -310,6 +312,9 @@ function buildMementoFromProject(
         ? opts.audioDurationSec
         : undefined,
     audioAssetId: project.audioAssetId,
+    ...(typeof project.audioSupabasePath === "string" && project.audioSupabasePath.trim().length > 0
+      ? { audioSupabasePath: project.audioSupabasePath.trim() }
+      : {}),
     playbackRate: project.playbackRate,
     trimStartSec: project.trimStartSec,
     trimEndSec: project.trimEndSec,
@@ -700,6 +705,9 @@ function normalizeMementoFromRaw(raw: unknown): FlowLibraryMemento | undefined {
           ? o.audioDurationSec
           : undefined,
       audioAssetId: aid,
+      ...(typeof o.audioSupabasePath === "string" && o.audioSupabasePath.trim().length > 0
+        ? { audioSupabasePath: o.audioSupabasePath.trim() }
+        : {}),
       playbackRate: pr,
       trimStartSec: ts,
       trimEndSec: te,

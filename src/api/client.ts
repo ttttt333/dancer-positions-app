@@ -1,4 +1,5 @@
 import { getSupabaseAccessToken, isSupabaseBackend } from "../lib/supabaseClient";
+import { supabaseUploadProjectAudio } from "../lib/supabaseAudio";
 import {
   supabaseCreateProject,
   supabaseDeleteProject,
@@ -138,6 +139,26 @@ export async function fetchAuthorizedAudioBlobUrl(assetId: number): Promise<stri
   return URL.createObjectURL(blob);
 }
 
+/** 従来 API の音源バイナリ（`VITE_API_BASE_URL` プレフィックス付き） */
+export async function fetchLegacyAudioArrayBuffer(assetId: number): Promise<ArrayBuffer> {
+  const token = getToken();
+  if (!token) throw new Error("ログインが必要です");
+  const res = await fetch(`${base}/api/audio/${assetId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const t = await res.text();
+    let msg = res.statusText;
+    try {
+      msg = (JSON.parse(t) as { error?: string }).error ?? msg;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg);
+  }
+  return res.arrayBuffer();
+}
+
 export const authApi = {
   register: (email: string, password: string) =>
     api<{ token: string; user: { id: number; email: string } }>(
@@ -249,9 +270,31 @@ export const projectApi = {
   },
 };
 
-export async function audioApiUpload(formData: FormData): Promise<{ id: number; mime: string }> {
+export type AudioApiUploadResult =
+  | { kind: "legacy"; id: number; mime: string }
+  | { kind: "supabase"; path: string; mime: string };
+
+export async function audioApiUpload(formData: FormData): Promise<AudioApiUploadResult> {
   const token = getToken();
   if (!token) throw new Error("ログインが必要です");
+  const file = formData.get("file");
+  const projectIdRaw = formData.get("projectId");
+  if (!(file instanceof File)) {
+    throw new Error("ファイルがありません");
+  }
+  if (isSupabaseBackend()) {
+    const pid = Number(projectIdRaw);
+    if (!Number.isFinite(pid) || pid <= 0) {
+      throw new Error("作品を保存してから音源を取り込んでください（作品 ID が必要です）");
+    }
+    const { path, mime } = await supabaseUploadProjectAudio({
+      projectId: pid,
+      file,
+      filename: file.name || "audio",
+      contentType: file.type || "application/octet-stream",
+    });
+    return { kind: "supabase", path, mime };
+  }
   const res = await fetch(`${base}/api/audio/upload`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
@@ -266,7 +309,13 @@ export async function audioApiUpload(formData: FormData): Promise<{ id: number; 
         "アップロード失敗"
     );
   }
-  return data as { id: number; mime: string };
+  const row = data as { id?: unknown; mime?: unknown };
+  const id = typeof row.id === "number" ? row.id : Number(row.id);
+  const mime = typeof row.mime === "string" ? row.mime : "audio/mpeg";
+  if (!Number.isFinite(id)) {
+    throw new Error("アップロード結果が不正です");
+  }
+  return { kind: "legacy", id, mime };
 }
 
 export const billingApi = {

@@ -54,7 +54,7 @@ type Props = {
   onRestoreWaveform?: (peaks: number[], durationSec?: number) => void;
   /**
    * フロー保存用: 現在 `<audio>` に出ている音源（blob URL 等）を取得。
-   * サーバ音源のみのときは呼び出し元で null を返してよい（memento の audioAssetId だけで足りる）
+   * クラウド音源のみのときは呼び出し元で null を返してよい（memento の `audioAssetId` / `audioSupabasePath` で足りる）
    */
   getAudioBlobForFlowLibrary?: () => Promise<Blob | null>;
   /**
@@ -253,7 +253,9 @@ export function FlowLibraryDialog({
     setBusy(true);
     let flowEmbeddedAudioKey: string | null = null;
     try {
-      if (project.audioAssetId == null && getAudioBlobForFlowLibrary) {
+      if (project.audioAssetId == null &&
+        (project.audioSupabasePath == null || String(project.audioSupabasePath).trim() === "") &&
+        getAudioBlobForFlowLibrary) {
         const b = await getAudioBlobForFlowLibrary();
         if (b && b.size > 0) {
           const k = crypto.randomUUID();
@@ -312,7 +314,9 @@ export function FlowLibraryDialog({
       setBusy(true);
       let flowEmbeddedAudioKey: string | null = null;
       try {
-        if (project.audioAssetId == null && getAudioBlobForFlowLibrary) {
+        if (project.audioAssetId == null &&
+        (project.audioSupabasePath == null || String(project.audioSupabasePath).trim() === "") &&
+        getAudioBlobForFlowLibrary) {
           const b = await getAudioBlobForFlowLibrary();
           if (b && b.size > 0) {
             const k = crypto.randomUUID();
@@ -509,20 +513,43 @@ export function FlowLibraryDialog({
             ...(embedKey
               ? {
                   audioAssetId: null,
+                  audioSupabasePath: null,
                   flowLocalAudioKey: embedKey,
                 }
-              : {
+              : (() => {
+                  const sup =
+                    typeof m.audioSupabasePath === "string" && m.audioSupabasePath.trim().length > 0
+                      ? m.audioSupabasePath.trim()
+                      : null;
+                  if (sup) {
+                    return {
+                      audioSupabasePath: sup,
+                      audioAssetId: null,
+                      flowLocalAudioKey: null,
+                    };
+                  }
+                  const numericAid =
+                    typeof m.audioAssetId === "number" && Number.isFinite(m.audioAssetId)
+                      ? m.audioAssetId
+                      : null;
+                  if (numericAid != null) {
+                    return {
+                      audioAssetId: numericAid,
+                      audioSupabasePath: null,
+                      flowLocalAudioKey: null,
+                    };
+                  }
                   /**
                    * memento の `audioAssetId: null` は「保存時にサーバ音源が無かった」ことが多く、
                    * ここで上書きすると既に読み込んでいるサーバ Blob を revoke しただけで `<audio>` が死 URLのままになり再生不能になる。
-                   * 数値が入っているときだけフロー側の id を採用する。
+                   * 数値が入っているときだけフロー側の id を採用する。Supabase パスも同様に、明示されているときだけ採用する。
                    */
-                  audioAssetId:
-                    typeof m.audioAssetId === "number" && Number.isFinite(m.audioAssetId)
-                      ? m.audioAssetId
-                      : prev.audioAssetId,
-                  flowLocalAudioKey: null,
-                }),
+                  return {
+                    audioAssetId: prev.audioAssetId,
+                    audioSupabasePath: prev.audioSupabasePath ?? null,
+                    flowLocalAudioKey: null,
+                  };
+                })()),
             playbackRate: m.playbackRate,
             trimStartSec: m.trimStartSec,
             trimEndSec: m.trimEndSec,

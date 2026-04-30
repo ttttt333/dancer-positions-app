@@ -635,6 +635,13 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
         : o.audioAssetId === null
           ? null
           : defaults.audioAssetId,
+    audioSupabasePath:
+      typeof (o as Partial<ChoreographyProjectJson>).audioSupabasePath === "string" &&
+      String((o as Partial<ChoreographyProjectJson>).audioSupabasePath).trim().length > 0
+        ? String((o as Partial<ChoreographyProjectJson>).audioSupabasePath).trim()
+        : (o as Partial<ChoreographyProjectJson>).audioSupabasePath === null
+          ? null
+          : defaults.audioSupabasePath ?? null,
     flowLocalAudioKey:
       typeof o.flowLocalAudioKey === "string" && o.flowLocalAudioKey.length > 0
         ? o.flowLocalAudioKey

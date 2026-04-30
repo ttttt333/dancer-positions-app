@@ -64,3 +64,35 @@ $$;
 
 revoke all on function public.get_project_by_share_token(text) from public;
 grant execute on function public.get_project_by_share_token(text) to anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Storage: 音源（バケット名は src/lib/supabaseAudio.ts の CHOREOCORE_AUDIO_BUCKET と一致）
+-- Dashboard → Storage で同名の private バケットを作ってもよい（未作成だとアップロードが失敗します）
+-- ---------------------------------------------------------------------------
+insert into storage.buckets (id, name, public)
+values ('choreocore-audio', 'choreocore-audio', false)
+on conflict (id) do update set public = excluded.public;
+
+drop policy if exists "choreocore_audio select own" on storage.objects;
+create policy "choreocore_audio select own"
+  on storage.objects for select to authenticated
+  using (
+    bucket_id = 'choreocore-audio'
+    and split_part(name, '/', 1) = auth.uid()::text
+  );
+
+drop policy if exists "choreocore_audio insert own" on storage.objects;
+create policy "choreocore_audio insert own"
+  on storage.objects for insert to authenticated
+  with check (
+    bucket_id = 'choreocore-audio'
+    and split_part(name, '/', 1) = auth.uid()::text
+  );
+
+drop policy if exists "choreocore_audio delete own" on storage.objects;
+create policy "choreocore_audio delete own"
+  on storage.objects for delete to authenticated
+  using (
+    bucket_id = 'choreocore-audio'
+    and split_part(name, '/', 1) = auth.uid()::text
+  );
