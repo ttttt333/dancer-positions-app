@@ -34,6 +34,23 @@ export const TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "dashboard.devPurchaseOk": "買い切りフラグを有効にしました（開発）",
     "dashboard.checkoutFail": "Checkout を開始できませんでした",
     "dashboard.deleteFail": "削除失敗",
+    "dashboard.portableTitle": "データの持ち運び（バックアップ）",
+    "dashboard.portableDesc":
+      "形の箱・ステージプリセット・フローライブラリ（IndexedDB の同梱音源）・エディタのレイアウト・動画モジュールなど、このブラウザに保存されたデータを 1 つの JSON にまとめられます。ログイン用トークンは含めません。動画を多く保存しているとファイルが大きくなります。",
+    "dashboard.portableExportLocal": "書き出し（このブラウザのデータのみ）",
+    "dashboard.portableExportWithCloud": "書き出し（クラウドの作品 JSON も含む）",
+    "dashboard.portableImport": "バックアップから取り込む",
+    "dashboard.portableImportConfirm":
+      "バックアップの内容で、このブラウザの対象データを上書きします。よろしいですか？\n（続けて JSON ファイルを選びます）",
+    "dashboard.portableImportCloudConfirm":
+      "バックアップにクラウド作品が {n} 件含まれています。いまログイン中のアカウントに、新規作品として作成もしますか？\n「キャンセル」＝ブラウザ内データのみ復元",
+    "dashboard.portableExportOk": "JSON をダウンロードしました。",
+    "dashboard.portableExportFail": "書き出しに失敗しました。",
+    "dashboard.portableImportParseFail": "JSON の解析に失敗しました。",
+    "dashboard.portableImportFormatFail": "このアプリ用のバックアップ JSON ではありません。",
+    "dashboard.portableImportFail": "取り込みに失敗しました。",
+    "dashboard.portableFootnote":
+      "※ クラウド作品に含まれる Supabase 上の音源ファイル本体は JSON には入りません（パス参照のみ）。別アカウントへ移す場合は音源の取り込み直しが必要になることがあります。",
     "auth.loginTagline": "ログインすると、保存した作品にいつでもアクセスできます。",
     "auth.loginFooterHint": "はじめての方は無料で新規登録できます。",
     "auth.loginTitle": "ログイン",
@@ -118,6 +135,23 @@ export const TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "dashboard.devPurchaseOk": "Lifetime flag enabled (dev)",
     "dashboard.checkoutFail": "Could not start checkout",
     "dashboard.deleteFail": "Delete failed",
+    "dashboard.portableTitle": "Portable backup",
+    "dashboard.portableDesc":
+      "Export browser-only data into one JSON file: formation box, stage presets, flow library (including IndexedDB audio blobs), editor layout, video module, and more. Auth tokens are not included. Large videos make the file large.",
+    "dashboard.portableExportLocal": "Export (local + IndexedDB only)",
+    "dashboard.portableExportWithCloud": "Export (include cloud project JSON)",
+    "dashboard.portableImport": "Import from backup",
+    "dashboard.portableImportConfirm":
+      "Overwrite matching browser data with this backup?\n(You will pick a JSON file next.)",
+    "dashboard.portableImportCloudConfirm":
+      "This backup includes {n} cloud project(s). Also create them as new projects on the account you are logged into?\n(Cancel = restore local browser data only)",
+    "dashboard.portableExportOk": "Downloaded JSON.",
+    "dashboard.portableExportFail": "Export failed.",
+    "dashboard.portableImportParseFail": "Could not parse JSON.",
+    "dashboard.portableImportFormatFail": "Not a ChoreoCore portable backup file.",
+    "dashboard.portableImportFail": "Import failed.",
+    "dashboard.portableFootnote":
+      "Cloud projects may reference Supabase Storage audio by path only; audio bytes are not inside this JSON. After moving to another account you may need to re-import audio.",
     "auth.loginTagline": "Sign in to access your saved formations anytime.",
     "auth.loginFooterHint": "New here? Create a free account.",
     "auth.loginTitle": "Log in",
@@ -201,6 +235,23 @@ export const TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "dashboard.devPurchaseOk": "평생 플래그를 켰습니다(개발)",
     "dashboard.checkoutFail": "Checkout을 시작할 수 없습니다",
     "dashboard.deleteFail": "삭제 실패",
+    "dashboard.portableTitle": "데이터 백업(휴대)",
+    "dashboard.portableDesc":
+      "형 박스·스테이지 프리셋·플로 라이브러리(IndexedDB 음원)·에디터 레이아웃·동영상 모듈 등 브라우저에 저장된 데이터를 JSON 하나로보냅니다. 인증 토큰은 포함되지 않습니다. 동영상이 많으면 파일이 커질 수 있습니다.",
+    "dashboard.portableExportLocal": "보내기(로컬·IndexedDB만)",
+    "dashboard.portableExportWithCloud": "보내기(클라우드 작품 JSON 포함)",
+    "dashboard.portableImport": "백업에서 가져오기",
+    "dashboard.portableImportConfirm":
+      "백업 내용으로 이 브라우저의 해당 데이터를 덮어씁니다. 계속할까요?\n(이어서 JSON 파일을 선택합니다)",
+    "dashboard.portableImportCloudConfirm":
+      "백업에 클라우드 작품이 {n}건 있습니다. 지금 로그인한 계정에 새 작품으로도 만들까요?\n취소 = 브라우저 데이터만 복원",
+    "dashboard.portableExportOk": "JSON을 다운로드했습니다.",
+    "dashboard.portableExportFail": "보내기에 실패했습니다.",
+    "dashboard.portableImportParseFail": "JSON을 해석하지 못했습니다.",
+    "dashboard.portableImportFormatFail": "이 앱용 백업 JSON이 아닙니다.",
+    "dashboard.portableImportFail": "가져오기에 실패했습니다.",
+    "dashboard.portableFootnote":
+      "클라우드 작품의 Supabase 음원은 JSON에 바이너리로 들어가지 않고 경로만 포함될 수 있습니다. 다른 계정으로 옮긴 뒤에는 음원을 다시 넣어야 할 수 있습니다.",
     "auth.loginTagline": "로그인하면 저장한 작품에 언제든 접근할 수 있습니다.",
     "auth.loginFooterHint": "처음이신가요? 무료로 가입할 수 있습니다.",
     "auth.loginTitle": "로그인",
@@ -284,6 +335,23 @@ export const TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "dashboard.devPurchaseOk": "已启用终身标记（开发）",
     "dashboard.checkoutFail": "无法开始结账",
     "dashboard.deleteFail": "删除失败",
+    "dashboard.portableTitle": "数据备份（可携带）",
+    "dashboard.portableDesc":
+      "将形之箱、舞台预设、流程库（含 IndexedDB 中的随附音频）、编辑器布局、视频模块等浏览器内数据导出为一个 JSON。不包含登录令牌。若保存了大量视频，文件会很大。",
+    "dashboard.portableExportLocal": "导出（仅本机与 IndexedDB）",
+    "dashboard.portableExportWithCloud": "导出（含云端作品 JSON）",
+    "dashboard.portableImport": "从备份导入",
+    "dashboard.portableImportConfirm":
+      "要用备份覆盖本浏览器中的对应数据吗？\n（随后请选择 JSON 文件）",
+    "dashboard.portableImportCloudConfirm":
+      "备份中包含 {n} 个云端作品。是否也在当前登录账号下新建这些作品？\n取消＝仅恢复浏览器内数据",
+    "dashboard.portableExportOk": "已下载 JSON。",
+    "dashboard.portableExportFail": "导出失败。",
+    "dashboard.portableImportParseFail": "无法解析 JSON。",
+    "dashboard.portableImportFormatFail": "不是本应用的便携备份文件。",
+    "dashboard.portableImportFail": "导入失败。",
+    "dashboard.portableFootnote":
+      "云端作品里通过 Supabase 引用的音源不会作为二进制写入此 JSON（通常只有路径）。换账号后可能需要重新取录音源。",
     "auth.loginTagline": "登录后即可随时访问已保存的作品。",
     "auth.loginFooterHint": "首次使用可免费注册。",
     "auth.loginTitle": "登录",

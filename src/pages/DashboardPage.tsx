@@ -1,8 +1,13 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
 import { billingApi, isDemoSessionToken, projectApi } from "../api/client";
+import {
+  exportPortableArchiveJsonAsync,
+  importPortableArchiveJsonAsync,
+  PORTABLE_ARCHIVE_FORMAT,
+} from "../lib/portableChoreoBackup";
 import { ChoreoCoreLogo } from "../components/ChoreoCoreLogo";
 import { btnAccent, btnSecondary } from "../components/stageButtonStyles";
 import { panelCard, shell } from "../theme/choreoShell";
@@ -25,6 +30,8 @@ export function DashboardPage() {
   >([]);
   const [error, setError] = useState("");
   const [accountNotice, setAccountNotice] = useState("");
+  const [portableMsg, setPortableMsg] = useState("");
+  const [portableBusy, setPortableBusy] = useState(false);
 
   useEffect(() => {
     if (!me) {
@@ -74,6 +81,91 @@ export function DashboardPage() {
       alert(e instanceof Error ? e.message : t("dashboard.deleteFail"));
     }
   };
+
+  const handleExportPortable = useCallback(
+    async (includeCloud: boolean) => {
+      setPortableBusy(true);
+      setPortableMsg("");
+      try {
+        const text = await exportPortableArchiveJsonAsync({
+          includeCloudProjects: includeCloud,
+        });
+        const blob = new Blob([text], { type: "application/json;charset=utf-8" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        const stamp = new Date().toISOString().replace(/[:]/g, "-").slice(0, 19);
+        a.download = `choreocore-portable-${stamp}.json`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        setPortableMsg(t("dashboard.portableExportOk"));
+      } catch (e) {
+        setPortableMsg(e instanceof Error ? e.message : t("dashboard.portableExportFail"));
+      } finally {
+        setPortableBusy(false);
+      }
+    },
+    [t]
+  );
+
+  const handleImportPortablePick = useCallback(() => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json,.json,application/octet-stream";
+    input.onchange = () => {
+      void (async () => {
+        const file = input.files?.[0];
+        if (!file) return;
+        if (!confirm(t("dashboard.portableImportConfirm"))) return;
+        setPortableBusy(true);
+        setPortableMsg("");
+        try {
+          const text = await file.text();
+          let parsed: { format?: string; cloudProjects?: unknown[] };
+          try {
+            parsed = JSON.parse(text) as typeof parsed;
+          } catch (e) {
+            setPortableMsg(e instanceof Error ? e.message : t("dashboard.portableImportParseFail"));
+            return;
+          }
+          if (parsed.format !== PORTABLE_ARCHIVE_FORMAT) {
+            setPortableMsg(t("dashboard.portableImportFormatFail"));
+            return;
+          }
+          let importCloud = false;
+          if (
+            Array.isArray(parsed.cloudProjects) &&
+            parsed.cloudProjects.length > 0 &&
+            me &&
+            !isDemoSessionToken()
+          ) {
+            importCloud = confirm(
+              t("dashboard.portableImportCloudConfirm").replace(
+                "{n}",
+                String(parsed.cloudProjects.length)
+              )
+            );
+          }
+          const r = await importPortableArchiveJsonAsync(text, {
+            importCloudProjectsAsNew: importCloud,
+          });
+          setPortableMsg(r.message);
+          if (r.ok && me) {
+            try {
+              const list = await projectApi.list();
+              setProjects(list);
+            } catch {
+              /** 一覧更新失敗は無視（取り込み自体は成功している） */
+            }
+          }
+        } catch (e) {
+          setPortableMsg(e instanceof Error ? e.message : t("dashboard.portableImportFail"));
+        } finally {
+          setPortableBusy(false);
+        }
+      })();
+    };
+    input.click();
+  }, [me, t]);
 
   if (!ready) {
     return (
@@ -242,6 +334,59 @@ export function DashboardPage() {
             {accountNotice}
           </p>
         ) : null}
+
+        <h2 style={{ margin: "0 0 14px", fontSize: "12px", fontWeight: 600, letterSpacing: "0.12em", color: shell.textSubtle }}>
+          {t("dashboard.portableTitle")}
+        </h2>
+        <div style={{ ...panelCard, padding: "14px 16px", marginBottom: 24 }}>
+          <p style={{ margin: "0 0 12px", fontSize: "13px", lineHeight: 1.55, color: shell.textMuted }}>
+            {t("dashboard.portableDesc")}
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+            <button
+              type="button"
+              disabled={portableBusy}
+              style={{
+                ...btnSecondary,
+                fontSize: "12px",
+                padding: "6px 12px",
+                opacity: portableBusy ? 0.65 : 1,
+              }}
+              onClick={() => void handleExportPortable(false)}
+            >
+              {t("dashboard.portableExportLocal")}
+            </button>
+            <button
+              type="button"
+              disabled={portableBusy || isDemoSessionToken()}
+              style={{
+                ...btnSecondary,
+                fontSize: "12px",
+                padding: "6px 12px",
+                opacity: portableBusy || isDemoSessionToken() ? 0.65 : 1,
+              }}
+              onClick={() => void handleExportPortable(true)}
+            >
+              {t("dashboard.portableExportWithCloud")}
+            </button>
+            <button
+              type="button"
+              disabled={portableBusy}
+              style={{ ...btnSecondary, fontSize: "12px", padding: "6px 12px" }}
+              onClick={() => handleImportPortablePick()}
+            >
+              {t("dashboard.portableImport")}
+            </button>
+          </div>
+          {portableMsg ? (
+            <p style={{ margin: "12px 0 0", fontSize: "12px", lineHeight: 1.5, color: shell.textMuted }}>
+              {portableMsg}
+            </p>
+          ) : null}
+          <p style={{ margin: "10px 0 0", fontSize: "11px", lineHeight: 1.5, color: shell.textSubtle }}>
+            {t("dashboard.portableFootnote")}
+          </p>
+        </div>
 
         <h2 style={{ margin: "0 0 14px", fontSize: "12px", fontWeight: 600, letterSpacing: "0.12em", color: shell.textSubtle }}>
           {t("dashboard.cloudWorks")}
