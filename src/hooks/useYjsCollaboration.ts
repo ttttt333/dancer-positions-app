@@ -3,6 +3,7 @@ import { WebsocketProvider } from "y-websocket";
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -172,13 +173,24 @@ export function useYjsCollaboration(
     syncStackInfo();
   }, [ydoc, syncStackInfo]);
 
-  return {
-    project,
-    setProjectSafe,
-    synced,
-    undo,
-    redo,
-    undoStackSize: stackInfo.undo,
-    redoStackSize: stackInfo.redo,
-  };
+  return useMemo(
+    () => ({
+      project,
+      setProjectSafe,
+      synced,
+      undo,
+      redo,
+      undoStackSize: stackInfo.undo,
+      redoStackSize: stackInfo.redo,
+    }),
+    [
+      project,
+      setProjectSafe,
+      synced,
+      undo,
+      redo,
+      stackInfo.undo,
+      stackInfo.redo,
+    ]
+  );
 }

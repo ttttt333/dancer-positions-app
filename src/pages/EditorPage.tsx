@@ -1744,12 +1744,12 @@ export function EditorPage({
   const undo = useCallback(() => {
     if (collabActive) yjsCollab.undo();
     else undoPlain();
-  }, [collabActive, yjsCollab, undoPlain]);
+  }, [collabActive, yjsCollab.undo, undoPlain]);
 
   const redo = useCallback(() => {
     if (collabActive) yjsCollab.redo();
     else redoPlain();
-  }, [collabActive, yjsCollab, redoPlain]);
+  }, [collabActive, yjsCollab.redo, redoPlain]);
 
   const copyEditorShareLink = useCallback(async () => {
     if (typeof window === "undefined") return;
@@ -2881,6 +2881,10 @@ export function EditorPage({
       ? EDITOR_SHELL_TOP_WAVE_ROSTER_ROW_PX
       : 0);
 
+  /** 生徒閲覧 /view：狭い画面ではステージ優先の 2 行グリッド */
+  const publicNarrowLayout =
+    choreoPublicView && !wideEditorLayout && !stageZenLayout;
+
   const editorPaneGridTemplateRows = stageZenLayout
     ? "1fr"
     : wideEditorLayout
@@ -2897,7 +2901,9 @@ export function EditorPage({
                 : `${TOP_DOCK_HEIGHT_PX}px`
             } 4px minmax(0, 1fr)`
         : "1fr"
-      : "auto auto auto auto";
+      : publicNarrowLayout
+        ? "minmax(0, 1fr) minmax(112px, min(40vh, 320px))"
+        : "auto auto auto auto";
 
   const editorPaneGridTemplateColumns = stageZenLayout
     ? "1fr"
@@ -3174,7 +3180,9 @@ export function EditorPage({
           gridTemplateRows: editorPaneGridTemplateRows,
           gap: `${EDITOR_GRID_GAP_PX}px`,
           padding:
-            "6px max(6px, env(safe-area-inset-right, 0px)) calc(max(8px, 2cm) + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
+            publicNarrowLayout
+              ? "4px max(4px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px))"
+              : "6px max(6px, env(safe-area-inset-right, 0px)) calc(max(8px, 2cm) + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
           paddingBottom:
             choreoPublicView && choreoStudentPick
               ? "calc(8px + 140px + env(safe-area-inset-bottom, 0px))"
@@ -3261,7 +3269,7 @@ export function EditorPage({
                     ? { position: "relative" as const }
                     : {}),
                 }
-              : { gridRow: 2 }),
+              : { gridRow: publicNarrowLayout ? 1 : 2 }),
           }}
         >
           {stageZenLayout ? (
@@ -3297,7 +3305,7 @@ export function EditorPage({
               <ChoreoCoreToolbar embedInPanel {...choreoToolbarSharedProps} />
             </section>
           ) : null}
-          {!workbenchInRightRail && !stageZenLayout ? (
+          {!workbenchInRightRail && !stageZenLayout && !publicNarrowLayout ? (
             <div
               style={
                 floorTextPlaceSession
@@ -3507,7 +3515,7 @@ export function EditorPage({
             style={{
               gridColumn:
                 wideEditorLayout && showTopWaveDock ? "1 / -1" : 1,
-              gridRow: wideEditorLayout && showTopWaveDock ? 1 : 3,
+              gridRow: wideEditorLayout && showTopWaveDock ? 1 : publicNarrowLayout ? 2 : 3,
               ...(wideEditorLayout && showTopWaveDock
                 ? {
                     background: "transparent",
@@ -3842,7 +3850,7 @@ export function EditorPage({
               </div>
             </section>
           </div>
-        ) : (
+        ) : !publicNarrowLayout ? (
           <div
             ref={rightPaneStackRef}
             style={{
@@ -3905,7 +3913,7 @@ export function EditorPage({
               </section>
             ) : null}
           </div>
-        )}
+        ) : null}
       </div>
 
       {showTopWaveDock ? (
