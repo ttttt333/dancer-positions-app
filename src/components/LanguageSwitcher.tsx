@@ -8,12 +8,12 @@ import { isAppLocale } from "../i18n/types";
 const LOCALE_ORDER: AppLocale[] = ["ja", "en", "ko", "zh"];
 
 /**
- * 画面右上などに置く言語セレクタ（日本語・英語・韓国語・簡体中国語）。
+ * 画面右下に置く言語セレクタ（日本語・英語・韓国語・簡体中国語）。
  */
 export function LanguageSwitcher({
   variant = "floating",
 }: {
-  /** floating: 固定右上 / inline: 親レイアウトに埋め込み */
+  /** floating: 固定右下 / inline: 親レイアウトに埋め込み */
   variant?: "floating" | "inline";
 }) {
   const { locale, setLocale, t } = useI18n();
@@ -22,7 +22,7 @@ export function LanguageSwitcher({
     variant === "floating"
       ? {
           position: "fixed",
-          top: "max(10px, env(safe-area-inset-top, 0px))",
+          bottom: "max(10px, env(safe-area-inset-bottom, 0px))",
           right: "max(10px, env(safe-area-inset-right, 0px))",
           zIndex: 40,
           display: "flex",

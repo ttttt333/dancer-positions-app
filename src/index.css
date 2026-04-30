@@ -380,7 +380,7 @@ body {
   -webkit-tap-highlight-color: rgba(212, 175, 55, 0.12);
 }
 
-/* 言語切替：タップしやすく。狭い幅では下寄せにして上部ヘッダーと重なりにくく */
+/* 言語切替：右下固定。タップしやすい最小サイズ（セーフエリア内に収める） */
 .app-language-switcher {
   max-width: calc(100vw - 20px);
   box-sizing: border-box;
@@ -393,8 +393,9 @@ body {
 
 @media (max-width: 600px) {
   .app-language-switcher {
-    top: max(8px, env(safe-area-inset-top, 0px)) !important;
+    bottom: max(8px, env(safe-area-inset-bottom, 0px)) !important;
     right: max(8px, env(safe-area-inset-right, 0px)) !important;
+    top: auto !important;
     left: auto !important;
     padding: 6px 8px;
   }
