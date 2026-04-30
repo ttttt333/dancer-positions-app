@@ -23,6 +23,7 @@ export function ChoreoMemberPickerPanel({
 }) {
   return (
     <div
+      className="choreo-member-picker"
       style={{
         textAlign: "center" as const,
         padding: compact ? "0" : "0 4px",
@@ -30,14 +31,17 @@ export function ChoreoMemberPickerPanel({
         width: "100%",
         margin: "0 auto",
         boxSizing: "border-box",
+        paddingLeft: "max(4px, env(safe-area-inset-left, 0px))",
+        paddingRight: "max(4px, env(safe-area-inset-right, 0px))",
       }}
     >
       <p
         style={{
           margin: compact ? "0 0 8px" : "0 0 10px",
-          fontSize: compact ? 14 : 16,
+          fontSize: compact ? 15 : 17,
           color: "#e2e8f0",
           fontWeight: 700,
+          lineHeight: 1.3,
         }}
       >
         {heading}
@@ -45,66 +49,63 @@ export function ChoreoMemberPickerPanel({
       <p
         style={{
           margin: "0 0 14px",
-          fontSize: 12,
+          fontSize: 13,
           color: "#94a3b8",
-          lineHeight: 1.4,
+          lineHeight: 1.5,
         }}
       >
         {subheading}
       </p>
       {entries.length === 0 ? (
         <div>
-          <p style={{ color: "#94a3b8", fontSize: 14, marginBottom: 16 }}>
+          <p style={{ color: "#94a3b8", fontSize: 15, marginBottom: 16, lineHeight: 1.45 }}>
             名簿にメンバーがありません。全員同じ表示にします。
           </p>
           <button
             type="button"
             onClick={() => onPick({ kind: "all" })}
-            style={{ ...btnAccent, padding: "12px 20px", fontSize: 15, fontWeight: 700 }}
+            style={{ ...btnAccent, padding: "14px 22px", fontSize: 16, fontWeight: 700, minHeight: 48 }}
           >
             全員表示で閲覧
           </button>
         </div>
       ) : (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 10,
-          }}
-        >
-          {entries.map((e) => (
+        <div className="choreo-member-picker-scroll">
+          <div className="choreo-member-picker-grid">
+            {entries.map((e) => (
+              <button
+                key={e.id + e.label}
+                type="button"
+                onClick={() =>
+                  onPick({ kind: "member", id: e.id, label: e.label })
+                }
+                style={{
+                  ...btnSecondary,
+                  padding: "14px 10px",
+                  fontSize: 16,
+                  fontWeight: 700,
+                  minHeight: 50,
+                }}
+              >
+                {e.label}
+              </button>
+            ))}
             <button
-              key={e.id + e.label}
               type="button"
-              onClick={() =>
-                onPick({ kind: "member", id: e.id, label: e.label })
-              }
+              onClick={() => onPick({ kind: "all" })}
               style={{
                 ...btnSecondary,
-                padding: "14px 12px",
-                fontSize: 16,
-                fontWeight: 700,
+                gridColumn: "1 / -1",
+                padding: "12px 12px",
+                fontSize: 15,
+                fontWeight: 600,
+                borderColor: "rgba(100, 116, 139, 0.9)",
                 minHeight: 48,
               }}
             >
-              {e.label}
+              全員表示
             </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => onPick({ kind: "all" })}
-            style={{
-              ...btnSecondary,
-              gridColumn: "1 / -1",
-              padding: "12px 12px",
-              fontSize: 14,
-              fontWeight: 600,
-              borderColor: "rgba(100, 116, 139, 0.9)",
-            }}
-          >
-            全員表示
-          </button>
+          </div>
         </div>
       )}
     </div>
@@ -134,17 +135,22 @@ export function ChoreoStudentViewGate({
   if (gateMode === "remind" && lastPick && onRemindContinue && onRemindChooseOther) {
     return (
       <div
+        className="choreo-student-view-gate"
         style={{
           minHeight: "100dvh",
           width: "100%",
+          maxWidth: "100vw",
           background: shell.bgDeep,
           color: shell.text,
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          padding: "32px 20px 48px",
+          padding:
+            "max(32px, env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-right, 0px)) max(48px, env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px))",
           boxSizing: "border-box",
+          overflowY: "auto",
+          WebkitOverflowScrolling: "touch",
         }}
       >
         <div style={{ maxWidth: 420, width: "100%", textAlign: "center" }}>
@@ -188,14 +194,14 @@ export function ChoreoStudentViewGate({
               <button
                 type="button"
                 onClick={onRemindContinue}
-                style={{ ...btnAccent, padding: "10px 18px", fontSize: 14 }}
+                style={{ ...btnAccent, padding: "12px 20px", fontSize: 16, minHeight: 48 }}
               >
                 はい
               </button>
               <button
                 type="button"
                 onClick={onRemindChooseOther}
-                style={{ ...btnSecondary, padding: "10px 18px", fontSize: 14 }}
+                style={{ ...btnSecondary, padding: "12px 20px", fontSize: 16, minHeight: 48 }}
               >
                 他の人／選び直す
               </button>
@@ -207,17 +213,22 @@ export function ChoreoStudentViewGate({
   }
   return (
     <div
+      className="choreo-student-view-gate"
       style={{
         minHeight: "100dvh",
         width: "100%",
+        maxWidth: "100vw",
         background: shell.bgDeep,
         color: shell.text,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: "32px 20px 48px",
+        padding:
+          "max(32px, env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-right, 0px)) max(48px, env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px))",
         boxSizing: "border-box",
+        overflowY: "auto",
+        WebkitOverflowScrolling: "touch",
       }}
     >
       <div

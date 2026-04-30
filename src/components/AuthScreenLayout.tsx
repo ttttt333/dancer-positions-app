@@ -84,6 +84,7 @@ export function AuthScreenLayout({ title, subtitle, children }: Props) {
         }}
       >
         <div
+          className="app-auth-card"
           style={{
             width: "100%",
             maxWidth: 400,

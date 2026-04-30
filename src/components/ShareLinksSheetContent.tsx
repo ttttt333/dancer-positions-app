@@ -1,4 +1,9 @@
 import { useState, useCallback, useEffect } from "react";
+import {
+  buildSingleShareUrlTextFileContent,
+  downloadTextFile,
+  shareLinksSafeFilenameBase,
+} from "../lib/shareProjectLinks";
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
 
 type ShareKind = "collab" | "view";
@@ -8,6 +13,8 @@ type Props = {
   collabUrl: string;
   viewUrl: string;
   hasServerId: boolean;
+  /** 保存する .txt に入れる作品名 */
+  pieceTitle?: string;
   onClose: () => void;
 };
 
@@ -19,15 +26,18 @@ export function ShareLinksSheetContent({
   collabUrl,
   viewUrl,
   hasServerId,
+  pieceTitle = "無題の作品",
   onClose,
 }: Props) {
   const [step, setStep] = useState<"choose" | ShareKind>("choose");
   const [copyOk, setCopyOk] = useState(false);
+  const [fileSaveFlash, setFileSaveFlash] = useState<ShareKind | null>(null);
 
   useEffect(() => {
     if (open) {
       setStep("choose");
       setCopyOk(false);
+      setFileSaveFlash(null);
     }
   }, [open]);
 
@@ -45,6 +55,26 @@ export function ShareLinksSheetContent({
       }
     }
   }, []);
+
+  const onSaveSingleTextFile = useCallback(
+    (kind: ShareKind) => {
+      const url = kind === "collab" ? collabUrl : viewUrl;
+      if (!url) return;
+      const text = buildSingleShareUrlTextFileContent({
+        pieceTitle: pieceTitle.trim() || "無題の作品",
+        kind,
+        url,
+      });
+      const base = shareLinksSafeFilenameBase(pieceTitle);
+      const d = new Date();
+      const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+      const label = kind === "collab" ? "共同編集" : "閲覧";
+      downloadTextFile(`ChoreoCore-${label}-${base}-${stamp}.txt`, text);
+      setFileSaveFlash(kind);
+      setTimeout(() => setFileSaveFlash(null), 2000);
+    },
+    [collabUrl, viewUrl, pieceTitle]
+  );
 
   const onCopy = async (kind: ShareKind) => {
     const u = kind === "collab" ? collabUrl : viewUrl;
@@ -153,6 +183,66 @@ export function ShareLinksSheetContent({
             立ち位置の閲覧・パート表示のみ。名簿から自分を選べます。編集はできません。
           </span>
         </button>
+
+        <div
+          style={{
+            marginTop: 4,
+            paddingTop: 14,
+            borderTop: "1px solid #334155",
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+          }}
+        >
+          <p
+            style={{
+              margin: 0,
+              fontSize: 12,
+              color: "#94a3b8",
+              lineHeight: 1.55,
+            }}
+          >
+            先生用と生徒用は別々のテキストファイルに保存できます（配布・印刷用のメモ）。
+          </p>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 8,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => onSaveSingleTextFile("collab")}
+              style={{
+                ...btnSecondary,
+                fontWeight: 600,
+                padding: "8px 12px",
+                fontSize: 12,
+                borderColor: "rgba(22, 163, 74, 0.5)",
+                color: "#bbf7d0",
+                flex: "1 1 200px",
+              }}
+            >
+              {fileSaveFlash === "collab" ? "保存しました" : "共同編集用を .txt に保存"}
+            </button>
+            <button
+              type="button"
+              onClick={() => onSaveSingleTextFile("view")}
+              style={{
+                ...btnSecondary,
+                fontWeight: 600,
+                padding: "8px 12px",
+                fontSize: 12,
+                borderColor: "rgba(14, 165, 233, 0.5)",
+                color: "#bae6fd",
+                flex: "1 1 200px",
+              }}
+            >
+              {fileSaveFlash === "view" ? "保存しました" : "閲覧用を .txt に保存"}
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -208,6 +298,21 @@ export function ShareLinksSheetContent({
         </button>
         <button type="button" onClick={() => setStep("choose")} style={btnSecondary}>
           種類を選び直す
+        </button>
+        <button
+          type="button"
+          onClick={() => onSaveSingleTextFile(step)}
+          style={{
+            ...btnSecondary,
+            fontSize: 12,
+            borderColor:
+              step === "collab"
+                ? "rgba(22, 163, 74, 0.5)"
+                : "rgba(14, 165, 233, 0.5)",
+            color: step === "collab" ? "#bbf7d0" : "#bae6fd",
+          }}
+        >
+          {fileSaveFlash === step ? "保存した" : "この URL を .txt に保存"}
         </button>
       </div>
     </div>

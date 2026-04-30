@@ -91,9 +91,10 @@ export default function App() {
     <AppErrorBoundary>
       <BrowserRouter>
         <Fragment>
-          <LanguageSwitcher variant="floating" />
-          <AuthProvider>
-          <Routes>
+          <div className="app-shell">
+            <LanguageSwitcher variant="floating" />
+            <AuthProvider>
+              <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
@@ -111,8 +112,9 @@ export default function App() {
               element={<MobileFormationEditorDemoPage />}
             />
             <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-          </AuthProvider>
+              </Routes>
+            </AuthProvider>
+          </div>
         </Fragment>
       </BrowserRouter>
     </AppErrorBoundary>

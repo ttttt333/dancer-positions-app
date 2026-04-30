@@ -322,3 +322,172 @@ body {
   -webkit-tap-highlight-color: transparent;
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+
+/* /view/:id 生徒・閲覧モード（スマートフォン向け） */
+.choreo-student-view-gate {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.choreo-member-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.choreo-member-picker-scroll {
+  max-height: min(50vh, 22rem);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 0 0 4px;
+  margin: 0;
+  text-align: left;
+}
+
+@media (max-width: 420px) {
+  .choreo-member-picker-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.choreo-public-view-root {
+  -webkit-tap-highlight-color: transparent;
+  /* ホームバー付き端末で下が切れにくい */
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
+}
+
+.choreo-viewer-bottom-bar a,
+.choreo-viewer-bottom-bar button {
+  touch-action: manipulation;
+}
+
+@media (max-width: 1279px) {
+  .choreo-public-view-root .editor-three-pane {
+    /* 閲覧時はステージを少しでも広く（下バー分は paddingBottom で確保済み） */
+    padding-left: max(4px, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(4px, env(safe-area-inset-right, 0px)) !important;
+  }
+}
+
+/* =============================================================================
+   アプリ全体：スマートフォン向け（ダッシュボード・ライブラリ・認証・共通）
+   ============================================================================= */
+.app-shell {
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
+  overflow-x: clip;
+  -webkit-tap-highlight-color: rgba(212, 175, 55, 0.12);
+}
+
+/* 言語切替：タップしやすく。狭い幅では下寄せにして上部ヘッダーと重なりにくく */
+.app-language-switcher {
+  max-width: calc(100vw - 20px);
+  box-sizing: border-box;
+}
+
+.app-language-switcher select {
+  min-height: 40px;
+  font-size: 14px;
+}
+
+@media (max-width: 600px) {
+  .app-language-switcher {
+    top: max(8px, env(safe-area-inset-top, 0px)) !important;
+    right: max(8px, env(safe-area-inset-right, 0px)) !important;
+    left: auto !important;
+    padding: 6px 8px;
+  }
+
+  .app-language-switcher select {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-page-header {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 14px !important;
+  }
+
+  .app-page-header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+    align-items: center;
+  }
+
+  .app-page-header-actions a[href],
+  .app-page-header-actions button {
+    min-height: 44px;
+    box-sizing: border-box;
+    font-size: 14px !important;
+    padding: 8px 14px !important;
+  }
+
+  .app-page-header-actions a[href] {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .app-dashboard-hero {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 16px !important;
+  }
+
+  .app-dashboard-hero > a[href] {
+    width: 100%;
+    justify-content: center;
+    box-sizing: border-box;
+    min-height: 48px;
+    font-size: 15px !important;
+  }
+
+  /* ダッシュボード：作品行の右アクション列を下に積む */
+  .app-dashboard-project-row {
+    flex-direction: column;
+  }
+
+  .app-dashboard-project-actions {
+    border-left: none !important;
+    border-top: 1px solid rgba(51, 65, 85, 0.65);
+    justify-content: flex-start;
+  }
+
+  .app-dashboard-project-actions a[href],
+  .app-dashboard-project-actions button {
+    min-height: 44px;
+    font-size: 14px !important;
+    padding: 8px 14px !important;
+  }
+
+  .app-library-main {
+    padding: 20px max(12px, env(safe-area-inset-right, 0px)) max(40px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)) !important;
+  }
+
+  .app-library-list-inner {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* ログイン／登録：iOS のフォーカス時拡大を抑え、タップ領域を確保 */
+@media (max-width: 480px) {
+  .app-auth-card input[type="email"],
+  .app-auth-card input[type="password"],
+  .app-auth-card input[type="text"] {
+    min-height: 48px;
+    font-size: 16px;
+  }
+
+  .app-auth-card button[type="submit"],
+  .app-auth-card button[type="button"] {
+    min-height: 48px;
+    font-size: 16px;
+  }
+}

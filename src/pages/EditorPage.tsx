@@ -2940,6 +2940,7 @@ export function EditorPage({
 
   return (
     <div
+      className={choreoPublicView ? "choreo-public-view-root" : undefined}
       style={{
         width: "100%",
         maxWidth: "100vw",
@@ -3140,9 +3141,10 @@ export function EditorPage({
           gap: `${EDITOR_GRID_GAP_PX}px`,
           padding:
             "6px max(6px, env(safe-area-inset-right, 0px)) calc(max(8px, 2cm) + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
-          paddingBottom: choreoPublicView && choreoStudentPick
-            ? "calc(max(8px, 2cm) + 104px + env(safe-area-inset-bottom, 0px))"
-            : undefined,
+          paddingBottom:
+            choreoPublicView && choreoStudentPick
+              ? "calc(8px + 140px + env(safe-area-inset-bottom, 0px))"
+              : undefined,
           /** 狭い画面では負のマージンを付けない（レイアウト再計算・はみ出しを抑えスマホで滑らかに） */
           marginTop: wideEditorLayout
             ? `calc(-1 * ${EDITOR_PLAYBACK_LAYOUT_SHIFT_UP})`
@@ -4706,6 +4708,11 @@ export function EditorPage({
               collabUrl={shareLinksUrls.collab}
               viewUrl={shareLinksUrls.view}
               hasServerId={serverId != null}
+              pieceTitle={
+                project?.pieceTitle?.trim() ||
+                projectName.trim() ||
+                "無題の作品"
+              }
               onClose={() => setShareLinksOpen(false)}
             />
           </div>
@@ -4835,6 +4842,7 @@ export function EditorPage({
 
       {choreoPublicView && choreoStudentPick ? (
         <div
+          className="choreo-viewer-bottom-bar"
           style={{
             position: "fixed",
             left: 0,
@@ -4846,7 +4854,7 @@ export function EditorPage({
             borderTop: `1px solid ${shell.border}`,
             background: "rgba(15, 23, 42, 0.98)",
             boxShadow: "0 -4px 20px rgba(0,0,0,0.35)",
-            paddingBottom: "env(safe-area-inset-bottom, 0px)",
+            paddingBottom: "max(4px, env(safe-area-inset-bottom, 0px))",
           }}
         >
           <div
@@ -4855,18 +4863,19 @@ export function EditorPage({
               flexWrap: "wrap",
               alignItems: "center",
               gap: 8,
-              padding: "8px 14px 6px",
+              padding: "10px 14px 8px",
+              minHeight: 48,
               borderBottom: `1px solid ${shell.border}`,
             }}
           >
-            <span style={{ fontSize: 18 }} aria-hidden>
+            <span style={{ fontSize: 20 }} aria-hidden>
               🎵
             </span>
             <span
               style={{
                 fontWeight: 700,
                 color: "#e2e8f0",
-                fontSize: 14,
+                fontSize: 16,
                 lineHeight: 1.25,
                 flex: "1 1 120px",
                 minWidth: 0,
@@ -4879,9 +4888,15 @@ export function EditorPage({
               style={{
                 ...btnSecondary,
                 textDecoration: "none",
-                fontSize: 12,
+                fontSize: 15,
                 fontWeight: 600,
                 flexShrink: 0,
+                minHeight: 44,
+                minWidth: 72,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "10px 16px",
               }}
             >
               閉じる
@@ -4893,10 +4908,10 @@ export function EditorPage({
               flexWrap: "wrap",
               alignItems: "center",
               gap: 10,
-              padding: "10px 14px 12px",
+              padding: "12px 14px 14px",
             }}
           >
-            <span style={{ fontSize: 14, color: "#e2e8f0" }}>
+            <span style={{ fontSize: 15, color: "#e2e8f0", lineHeight: 1.4, flex: "1 1 200px" }}>
               👤{" "}
               {choreoStudentPick.kind === "all"
                 ? "全員"
@@ -4909,8 +4924,11 @@ export function EditorPage({
               style={{
                 ...btnSecondary,
                 marginLeft: "auto",
-                fontSize: 12,
+                fontSize: 15,
                 fontWeight: 600,
+                minHeight: 48,
+                padding: "10px 16px",
+                touchAction: "manipulation",
               }}
               title="誰の立ち位置を大きく表示するかを選び直す"
             >

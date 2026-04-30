@@ -127,6 +127,7 @@ export function DashboardPage() {
             gap: "12px 16px",
             justifyContent: "space-between",
           }}
+          className="app-page-header"
         >
           <Link
             to="/"
@@ -140,7 +141,10 @@ export function DashboardPage() {
           >
             <ChoreoCoreLogo height={52} title="ChoreoCore" />
           </Link>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+          <div
+            className="app-page-header-actions"
+            style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}
+          >
             <span style={{ fontSize: "12px", color: shell.textMuted }}>{me.user.email}</span>
             {me.user.subscription_status ? (
               <span style={{ fontSize: "11px", color: "#86efac" }}>
@@ -198,6 +202,7 @@ export function DashboardPage() {
           </div>
         ) : null}
         <div
+          className="app-dashboard-hero"
           style={{
             display: "flex",
             flexWrap: "wrap",
@@ -247,6 +252,7 @@ export function DashboardPage() {
           {projects.map((p) => (
             <li key={p.id} style={{ ...panelCard, padding: 0, overflow: "hidden" }}>
               <div
+                className="app-dashboard-project-row"
                 style={{
                   display: "flex",
                   flexWrap: "wrap",
@@ -270,6 +276,7 @@ export function DashboardPage() {
                   </div>
                 </Link>
                 <div
+                  className="app-dashboard-project-actions"
                   style={{
                     display: "flex",
                     flexWrap: "wrap",

@@ -179,6 +179,7 @@ export function LibraryPage() {
             gap: "12px 16px",
             justifyContent: "space-between",
           }}
+          className="app-page-header"
         >
           <Link
             to="/library"
@@ -207,7 +208,10 @@ export function LibraryPage() {
               <span style={{ fontSize: "15px", fontWeight: 700 }}>{t("library.pageTitle")}</span>
             </span>
           </Link>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+          <div
+            className="app-page-header-actions"
+            style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}
+          >
             {me ? (
               <>
                 <span style={{ fontSize: "12px", color: shell.textMuted }}>{me.user.email}</span>
@@ -246,6 +250,7 @@ export function LibraryPage() {
       </header>
 
       <main
+        className="app-library-main"
         style={{
           flex: 1,
           display: "flex",
@@ -256,6 +261,7 @@ export function LibraryPage() {
         }}
       >
         <div
+          className="app-library-list-inner"
           style={{
             width: "min(100%, 520px)",
             maxWidth: 520,

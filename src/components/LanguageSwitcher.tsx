@@ -43,7 +43,7 @@ export function LanguageSwitcher({
         };
 
   return (
-    <div style={wrap} role="group" aria-label={t("lang.label")}>
+    <div style={wrap} className="app-language-switcher" role="group" aria-label={t("lang.label")}>
       <span
         style={{
           fontSize: 10,
