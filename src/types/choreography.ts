@@ -109,6 +109,19 @@ export type StageFloorLineMarkup = {
 
 export type StageFloorMarkup = StageFloorTextMarkup | StageFloorLineMarkup;
 
+/** ヘッダ「テキスト」から床へ置く前のプレビュー（親が状態を持つ） */
+export type FloorTextPlaceSession = {
+  body: string;
+  fontSizePx: number;
+  fontWeight: number;
+  xPct: number;
+  yPct: number;
+  color?: string;
+  fontFamily?: string;
+  /** 設置後の床テキスト scale（既定 1） */
+  scale?: number;
+};
+
 export type Formation = {
   id: string;
   name: string;

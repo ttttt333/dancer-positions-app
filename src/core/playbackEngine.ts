@@ -1,13 +1,16 @@
 /**
  * 再生の単一窓口（HTMLAudioElement への橋渡し）。
  *
- * 目的: TimelinePanel / 将来のストアと「UI・座標・キュー編集」を分離し、
+ * 目的: `EditorPage` / Zustand ストアと「UI・座標・キュー編集」を分離し、
  * 再生時刻の参照・シーク・再生/一時停止をここに集約していく。
  *
  * 移行方針（段階的でよい）:
- * 1. `<audio>` を `attachMediaElement` で登録（既存 ref パターンと併用可）
+ * 1. 非表示 `<audio>` は `EditorPage` に 1 つマウントし、`attachMediaElement` で登録
  * 2. play / pause / seek は本クラス経由に寄せる
- * 3. 再生時刻の「真実」は element.currentTime とし、UI は subscribe で同期
+ * 3. 再生時刻の「真実」は element.currentTime とし、UI は subscribe / RAF で同期（ヘッド丸め・間引き間隔は `playbackTrim`／UI からは `timelineController` 再エクスポート経由でも可）
+ * 4. src の付け外しは `setMediaSourceUrl` / `clearMediaSource` で揃え、購読へメタ・再生状態を流す
+ *
+ * トリム（書き出し）範囲に収めるシーク秒の計算は `playbackTrim.ts` の純関数（例: `clampSeekTimeSec`）。UI は `core/timelineController` から import してよい。
  */
 
 export type PlaybackTimeListener = (currentTimeSec: number) => void;
@@ -75,6 +78,20 @@ export class PlaybackEngine {
     return this.media;
   }
 
+  /**
+   * 割り当て済みの音源 URL（`currentSrc` を優先、未設定は空）。
+   * `fetch` や「音源あり」の判定には DOM の `src` 直参照よりこちらを使う。
+   */
+  getMediaSourceUrl(): string {
+    const el = this.media;
+    if (!el) return "";
+    const cur = el.currentSrc;
+    if (typeof cur === "string" && cur.length > 0) return cur;
+    const s = el.src;
+    if (typeof s === "string" && s.length > 0) return s;
+    return "";
+  }
+
   play(): Promise<void> {
     const p = this.media?.play();
     return p ?? Promise.resolve();
@@ -120,6 +137,32 @@ export class PlaybackEngine {
   setPlaybackRate(rate: number): void {
     if (!this.media || !Number.isFinite(rate)) return;
     this.media.playbackRate = rate;
+  }
+
+  /**
+   * 非表示 `<audio>` の `src` を差し替えて `load()`。
+   * `loadedmetadata` 前でも購読側が即座に状態を読めるよう、メタ・時刻・再生フラグを一度 emit する。
+   */
+  setMediaSourceUrl(url: string): void {
+    const el = this.media;
+    if (!el || typeof url !== "string" || url.length === 0) return;
+    el.src = url;
+    el.load();
+    this.emitPlaying(!el.paused);
+    this.emitMeta();
+    this.emitTime();
+  }
+
+  /** 再生を止め、`src` を外して `load()`（クラウド音源の解除など） */
+  clearMediaSource(): void {
+    const el = this.media;
+    if (!el) return;
+    el.pause();
+    el.removeAttribute("src");
+    el.load();
+    this.emitPlaying(false);
+    this.emitMeta();
+    this.emitTime();
   }
 
   onTimeUpdate(cb: PlaybackTimeListener): () => void {

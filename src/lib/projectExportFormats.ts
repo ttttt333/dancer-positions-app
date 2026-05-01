@@ -1,6 +1,6 @@
 import type { AudienceEdge, ChoreographyProjectJson } from "../types/choreography";
 import { modDancerColorIndex } from "./dancerColorPalette";
-import { sortCuesByStart } from "./cueInterval";
+import { sortCuesByStart } from "../core/timelineController";
 import { formatMmSs, parseMmSsFlexible } from "./timeFormat";
 import { formatMeterCmLabel, formatStageMmSummary } from "./stageDimensions";
 

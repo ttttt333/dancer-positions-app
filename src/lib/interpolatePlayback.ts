@@ -1,5 +1,5 @@
 import type { Cue, DancerSpot, Formation } from "../types/choreography";
-import { sortCuesByStart } from "./cueInterval";
+import { sortCuesByStart } from "../core/timelineController";
 import { lerpDancersAcrossGap } from "./gapDancerInterpolation";
 
 function formationById(

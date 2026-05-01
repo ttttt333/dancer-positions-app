@@ -16,7 +16,7 @@ import type {
   StageShape,
   StageShapePresetId,
 } from "../types/choreography";
-import { migrateCuesFromRaw } from "./cueInterval";
+import { migrateCuesFromRaw } from "../core/timelineController";
 import {
   clampStageGridAxisMm,
   createEmptyProject,

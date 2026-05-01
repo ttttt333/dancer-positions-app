@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { toCanvas, toPng } from "html-to-image";
 import { jsPDF } from "jspdf";
 import type { ChoreographyProjectJson } from "../types/choreography";
-import { sortCuesByStart } from "../lib/cueInterval";
+import { sortCuesByStart } from "../core/timelineController";
 import { playCompletionWoof } from "../lib/playCompletionWoof";
 import { btnSecondary } from "./stageButtonStyles";
 import { EditorSideSheet } from "./EditorSideSheet";

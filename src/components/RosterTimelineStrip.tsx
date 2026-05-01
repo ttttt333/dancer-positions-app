@@ -34,7 +34,7 @@ import {
   DEFAULT_CUE_SPAN_WITH_AUDIO_SEC,
   MIN_CUE_DURATION_SEC,
   sortCuesByStart,
-} from "../lib/cueInterval";
+} from "../core/timelineController";
 
 export type { RosterStripSortMode };
 

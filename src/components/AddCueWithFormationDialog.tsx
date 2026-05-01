@@ -11,10 +11,10 @@ import {
   cloneFormationForNewCue,
   DEFAULT_CUE_SPAN_WITH_AUDIO_SEC,
   MIN_CUE_DURATION_SEC,
-  PLACEHOLDER_TIMELINE_CAP_SEC,
   resolveCueIntervalNonOverlap,
   sortCuesByStart,
-} from "../lib/cueInterval";
+  trimHiSecForCueTimeline,
+} from "../core/timelineController";
 import {
   dancersForLayoutPreset,
   LAYOUT_PRESET_OPTIONS,
@@ -338,9 +338,7 @@ export function AddCueWithFormationDialog({
 }: Props) {
   const { viewMode } = project;
   const trimLo = project.trimStartSec;
-  const timelineCap =
-    durationSec > 0 ? durationSec : PLACEHOLDER_TIMELINE_CAP_SEC;
-  const trimHi = project.trimEndSec ?? timelineCap;
+  const trimHi = trimHiSecForCueTimeline(project.trimEndSec, durationSec);
 
   const initialCount = useMemo(() => {
     const f = project.formations.find((x) => x.id === project.activeFormationId);
@@ -637,8 +635,7 @@ export function AddCueWithFormationDialog({
         confirmedDancerCount: dancers.length,
       };
 
-      const d = durationSec > 0 ? durationSec : PLACEHOLDER_TIMELINE_CAP_SEC;
-      const hi = p.trimEndSec ?? d;
+      const hi = trimHiSecForCueTimeline(p.trimEndSec, durationSec);
       const lo = p.trimStartSec;
       let t0 = Math.round(t0Raw * 100) / 100;
       t0 = Math.max(lo, Math.min(hi - 0.02, t0));

@@ -31,7 +31,14 @@ import {
 const Stage3DView = lazy(() =>
   import("../components/Stage3DView").then((m) => ({ default: m.Stage3DView }))
 );
-import { TimelinePanel, type TimelinePanelHandle } from "../components/TimelinePanel";
+import { TimelinePanel } from "../components/TimelinePanel";
+import {
+  pauseAndSeekPlaybackToSec,
+  togglePlaybackRespectingTrimStart,
+} from "../lib/playbackTransport";
+import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
+import { useEditorPlaybackSync } from "../hooks/useEditorPlaybackSync";
+import { useTimelineMediaHandle } from "../hooks/useTimelineMediaHandle";
 import { RosterTimelineStrip } from "../components/RosterTimelineStrip";
 import {
   createEmptyProject,
@@ -42,8 +49,8 @@ import {
 import { preloadFFmpeg } from "../lib/extractVideoAudio";
 import { normalizeProject } from "../lib/normalizeProject";
 import { modDancerColorIndex } from "../lib/dancerColorPalette";
-import { sortCuesByStart } from "../lib/cueInterval";
-import { dancersAtTime } from "../lib/interpolatePlayback";
+import { sortCuesByStart } from "../core/timelineController";
+import { dancersAtTime } from "../core/stageEngine";
 import { floorMarkupAtTime, setPiecesAtTime } from "../lib/interpolateSetPieces";
 import { FormationBoxManagerDialog } from "../components/FormationBoxManagerDialog";
 import {
@@ -97,6 +104,7 @@ import {
   mergeStageSnapshotIntoProject,
 } from "../lib/savedSpotStageSnapshot";
 import { getViewRosterEntries } from "../lib/viewRoster";
+import { isCustomStageShapeActive } from "../lib/stageShapePaths";
 import {
   ChoreoStudentViewGate,
   type StudentPick,
@@ -867,9 +875,10 @@ export function EditorPage({
   /** 初回クラウド保存直後の GET をスキップ（画面を空にしない） */
   const skipNextProjectFetchRef = useRef<number | null>(null);
   const [cloudSaveDialogOpen, setCloudSaveDialogOpen] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const currentTime = usePlaybackUiStore((s) => s.currentTimeSec);
+  const isPlaying = usePlaybackUiStore((s) => s.isPlaying);
+  const setIsPlaying = usePlaybackUiStore((s) => s.setIsPlaying);
+  const duration = usePlaybackUiStore((s) => s.durationSec);
   const [stageView, setStageView] = useState<"2d" | "3d">("2d");
   const [stagePreviewDancers, setStagePreviewDancers] = useState<DancerSpot[] | null>(
     null
@@ -892,7 +901,13 @@ export function EditorPage({
    * キュー切替は引き続き可能。狭いビューポート（!wideEditorLayout）では無効。
    */
   const [rightPaneCollapsed, setRightPaneCollapsed] = useState(false);
-  const timelineRef = useRef<TimelinePanelHandle>(null);
+  const {
+    timelineRef,
+    getWavePeaksSnapshot,
+    restoreWavePeaks,
+    getCurrentAudioBlobForFlowLibrary,
+    openAudioImport,
+  } = useTimelineMediaHandle();
   const [stageSettingsOpen, setStageSettingsOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   /** ステージ列ヘッダの「設定」：舞台・グリッド・名前・共有・ヒントを集約 */
@@ -1595,6 +1610,17 @@ export function EditorPage({
       [collabActive, yjsCollab.setProjectSafe, setProjectSafePlain]
     );
 
+  const { playbackAudioElement } = useEditorPlaybackSync({
+    projectRef,
+    setProjectSafe,
+    projectId,
+    shareToken: shareTokenParam,
+    choreoPublicView,
+    wideEditorLayout,
+    stageZenFullscreen,
+    playbackRateSig: project?.playbackRate,
+  });
+
   /** ステージまわりシートのドラフトをプロジェクトへ一括反映（閉じない） */
   const applyStageAreaSettingsDraft = useCallback(() => {
     if (!project || project.viewMode === "view") return;
@@ -1855,7 +1881,8 @@ export function EditorPage({
       }
       if (e.code === "Space") {
         e.preventDefault();
-        timelineRef.current?.togglePlay();
+        const ts = projectRef.current?.trimStartSec ?? 0;
+        togglePlaybackRespectingTrimStart(ts);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -1979,19 +2006,6 @@ export function EditorPage({
     [project, cueIdsSig]
   );
 
-  const jumpToCueByIdx = useCallback(
-    (idx: number) => {
-      if (!project || project.viewMode === "view") return;
-      const cue = cuesSortedForStageJump[idx];
-      if (!cue) return;
-      /** 先に選択と activeFormation を確定してからシークする（順序逆だとステージ・一覧と再生位置が一瞬ずれる） */
-      setSelectedCueIds([cue.id]);
-      setProjectSafe((p) => ({ ...p, activeFormationId: cue.formationId }));
-      timelineRef.current?.pauseAndSeekToSec(cue.tStartSec);
-    },
-    [project, cuesSortedForStageJump, setProjectSafe]
-  );
-
   /** ステージ右上ページャ: 名簿があるとき slot 0 = 名簿、1.. = キュー順 */
   const jumpToPagerSlot = useCallback(
     (slotIdx: number) => {
@@ -2007,7 +2021,12 @@ export function EditorPage({
           ...prev,
           activeFormationId: cue.formationId,
         }));
-        timelineRef.current?.pauseAndSeekToSec(cue.tStartSec);
+        pauseAndSeekPlaybackToSec({
+          tRaw: cue.tStartSec,
+          durationSec: usePlaybackUiStore.getState().durationSec,
+          trimStartSec: p.trimStartSec,
+          trimEndSec: p.trimEndSec,
+        });
         return;
       }
       if (slotIdx === 0) {
@@ -2026,7 +2045,12 @@ export function EditorPage({
         rosterHidesTimeline: false,
         activeFormationId: cue.formationId,
       }));
-      timelineRef.current?.pauseAndSeekToSec(cue.tStartSec);
+      pauseAndSeekPlaybackToSec({
+        tRaw: cue.tStartSec,
+        durationSec: usePlaybackUiStore.getState().durationSec,
+        trimStartSec: p.trimStartSec,
+        trimEndSec: p.trimEndSec,
+      });
     },
     [setProjectSafe]
   );
@@ -2391,10 +2415,6 @@ export function EditorPage({
     [project, selectedCue, setProjectSafe]
   );
 
-  const onStopPlaybackFromStage = useCallback(() => {
-    timelineRef.current?.stopPlayback();
-  }, []);
-
   /**
    * いまの編集内容をクラウドに upsert（フローライブラリの保存直前にも利用）。
    * 新規作成時は URL を `/editor/:id` に差し替える。
@@ -2457,9 +2477,14 @@ export function EditorPage({
   const handleAddCueCreated = useCallback(
     (cueId: string, startSec: number) => {
       setSelectedCueIds([cueId]);
-      setIsPlaying(false);
       if (typeof startSec === "number" && Number.isFinite(startSec)) {
-        timelineRef.current?.pauseAndSeekToSec(startSec);
+        const proj = projectRef.current;
+        pauseAndSeekPlaybackToSec({
+          tRaw: startSec,
+          durationSec: usePlaybackUiStore.getState().durationSec,
+          trimStartSec: proj?.trimStartSec ?? 0,
+          trimEndSec: proj?.trimEndSec ?? null,
+        });
       }
     },
     []
@@ -2491,13 +2516,9 @@ export function EditorPage({
           project={project}
           setProject={setProjectSafe}
           audioDurationSec={duration}
-          getWavePeaks={() => timelineRef.current?.getWavePeaksSnapshot() ?? null}
-          onRestoreWaveform={(peaks, dur) => {
-            timelineRef.current?.restoreWavePeaks(peaks, dur);
-          }}
-          getAudioBlobForFlowLibrary={() =>
-            timelineRef.current?.getCurrentAudioBlobForFlowLibrary() ?? Promise.resolve(null)
-          }
+          getWavePeaks={getWavePeaksSnapshot}
+          onRestoreWaveform={restoreWavePeaks}
+          getAudioBlobForFlowLibrary={getCurrentAudioBlobForFlowLibrary}
           onOpenCloudSave={
             me && !choreoPublicView
               ? () => setCloudSaveDialogOpen(true)
@@ -2517,6 +2538,9 @@ export function EditorPage({
       syncProjectToCloud,
       choreoPublicView,
       saving,
+      getWavePeaksSnapshot,
+      restoreWavePeaks,
+      getCurrentAudioBlobForFlowLibrary,
     ]
   );
 
@@ -2969,8 +2993,7 @@ export function EditorPage({
 
   const choreoToolbarSharedProps = {
     stageShapeActive:
-      (project.stageShape != null &&
-        project.stageShape.presetId !== "rectangle") ||
+      isCustomStageShapeActive(project.stageShape) ||
       (project.hanamichiEnabled ?? false),
     disabled: project.viewMode === "view",
     onOpenStageShapePicker: () => setStageShapePickerOpen(true),
@@ -2984,12 +3007,6 @@ export function EditorPage({
       ref={timelineRef}
       project={project}
       setProject={setProjectSafe}
-      currentTime={currentTime}
-      setCurrentTime={setCurrentTime}
-      isPlaying={isPlaying}
-      setIsPlaying={setIsPlaying}
-      duration={duration}
-      setDuration={setDuration}
       serverProjectId={serverId}
       loggedIn={!!me}
       onStagePreviewChange={setStagePreviewDancers}
@@ -3059,9 +3076,7 @@ export function EditorPage({
     onOpenCueListModal: showTopWaveDock
       ? () => setCueListModalOpen(true)
       : undefined,
-    onOpenAudioImport: () => {
-      timelineRef.current?.openAudioImport();
-    },
+    onOpenAudioImport: openAudioImport,
     onPreloadFfmpegForAudio: () => {
       void preloadFFmpeg();
     },
@@ -3113,6 +3128,7 @@ export function EditorPage({
         boxSizing: "border-box",
       }}
     >
+      {playbackAudioElement}
       {!choreoPublicView ? (
       <header
         style={{
@@ -3517,8 +3533,6 @@ export function EditorPage({
                     browseSetPieces={browseSetPieces}
                     playbackFloorMarkup={playbackFloorMarkupForStage}
                     browseFloorMarkup={browseFloorMarkup}
-                    isPlaying={isPlaying}
-                    onStopPlaybackRequest={onStopPlaybackFromStage}
                     editFormationId={
                       selectedCue?.formationId ?? project.activeFormationId
                     }

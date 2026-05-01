@@ -1,5 +1,5 @@
 import type { Cue, Formation, SetPiece, StageFloorMarkup } from "../types/choreography";
-import { sortCuesByStart } from "./cueInterval";
+import { sortCuesByStart } from "../core/timelineController";
 
 function formationById(
   formations: Formation[],
