@@ -2921,10 +2921,12 @@ export function EditorPage({
     () =>
       mobileStackEditor
         ? {
-            flex: "0 0 min(58dvh, 62%)",
-            maxHeight: "62dvh",
+            /** 波形帯の分を残しつつステージをできるだけ大きく */
+            flex: "2 1 0",
+            minHeight: "min(46dvh, 420px)",
+            maxHeight: "min(78dvh, 900px)",
             position: "relative",
-            borderBottom: "2px solid #1e293b",
+            borderBottom: "1px solid #1e293b",
             borderRight: "none",
             overflow: "hidden",
             background: "#000",
@@ -3097,7 +3099,9 @@ export function EditorPage({
       onSelectedCueIdsChange={setSelectedCueIds}
       formationIdForNewCue={selectedCue?.formationId ?? project.activeFormationId}
       wideWorkbench={wideEditorLayout}
-      compactTopDock={showTopWaveDock || publicNarrowLayout}
+      compactTopDock={
+        showTopWaveDock || publicNarrowLayout || mobileStackEditor
+      }
       cueListPortalTarget={showTopWaveDock ? cueListPortalEl : null}
       onSave={() => setFlowLibraryOpen(true)}
     />
@@ -3394,7 +3398,7 @@ export function EditorPage({
             />
           </div>
         ) : null}
-        {!wideEditorLayout && !choreoPublicView ? (
+        {!wideEditorLayout && !choreoPublicView && !mobileStackEditor ? (
           <div
             style={{
               minWidth: 0,
@@ -3431,7 +3435,7 @@ export function EditorPage({
                 }
               : { gridRow: publicNarrowLayout ? 1 : 2 }),
             ...dynamicStageShellStyle,
-            ...(mobileStackEditor ? { order: -1 } : {}),
+            ...(mobileStackEditor ? { order: -2 } : {}),
           }}
         >
           {stageZenLayout ? (
@@ -3467,7 +3471,10 @@ export function EditorPage({
               <ChoreoCoreToolbar embedInPanel {...choreoToolbarSharedProps} />
             </section>
           ) : null}
-          {!workbenchInRightRail && !stageZenLayout && !publicNarrowLayout ? (
+          {!workbenchInRightRail &&
+          !stageZenLayout &&
+          !publicNarrowLayout &&
+          !mobileStackEditor ? (
             <div
               style={
                 floorTextPlaceSession
@@ -3695,7 +3702,7 @@ export function EditorPage({
           TimelinePanel が再マウントされ、波形・音源の内部状態が消える）。
           グリッド行だけワイド時は 1 行目、狭いときはステージの下（3 行目）に固定する。
         */}
-        {!stageZenLayout && !mobileStackEditor ? (
+        {!stageZenLayout ? (
           <section
             ref={(el) => {
               topDockSectionRef.current = el;
@@ -3731,6 +3738,21 @@ export function EditorPage({
                         }
                       : rightPaneTopSectionStyle),
                   }),
+              ...(mobileStackEditor
+                ? {
+                    order: -1,
+                    alignSelf: "stretch",
+                    width: "100%",
+                    maxWidth: "100%",
+                    flex: "0 0 min(28dvh, 210px)",
+                    maxHeight: "min(32dvh, 260px)",
+                    minHeight: "min(22dvh, 140px)",
+                    flexShrink: 0,
+                    padding: rosterOnlyMode ? "6px 8px" : "6px 8px",
+                    borderTop: "1px solid #1e293b",
+                    borderBottom: "1px solid #334155",
+                  }
+                : {}),
             }}
           >
             {wideEditorLayout &&
@@ -3772,7 +3794,7 @@ export function EditorPage({
                 </button>
               </div>
             ) : null}
-            {!wideEditorLayout ? (
+            {!wideEditorLayout && !mobileStackEditor ? (
               rosterOnlyMode ? (
                 <div
                   style={{
@@ -3933,6 +3955,13 @@ export function EditorPage({
                   ? {
                       overflowX: "hidden" as const,
                       overflowY: "auto" as const,
+                    }
+                  : {}),
+                ...(mobileStackEditor
+                  ? {
+                      overflow: "hidden",
+                      minHeight: 0,
+                      flex: "1 1 auto",
                     }
                   : {}),
               }}
@@ -4097,6 +4126,21 @@ export function EditorPage({
                 </button>
               </div>
             ) : null}
+            {mobileStackEditor ? (
+              <div
+                style={{
+                  flexShrink: 0,
+                  width: "100%",
+                  minWidth: 0,
+                  overflowX: "auto",
+                  WebkitOverflowScrolling: "touch",
+                  paddingBottom: 6,
+                  borderBottom: "1px solid #1e293b",
+                }}
+              >
+                <ChoreoCoreToolbar {...choreoToolbarSharedProps} />
+              </div>
+            ) : null}
             {rosterOnlyMode ? (
               <div
                 style={{
@@ -4134,6 +4178,30 @@ export function EditorPage({
                   <div className="editor-right-tools-tiles">
                     <EditorStageWorkbench
                       key="wb-tiles-2"
+                      layout="rail"
+                      {...stageWorkbenchProps}
+                    />
+                  </div>
+                </div>
+              </section>
+            ) : mobileStackEditor ? (
+              <section
+                className="editor-right-tools-section"
+                style={{
+                  ...panelCard,
+                  padding: "6px 5px",
+                  flex: "0 0 auto",
+                  minWidth: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  overflow: "hidden",
+                  marginBottom: rosterOnlyMode ? 0 : 6,
+                }}
+              >
+                <div className="editor-right-tools-host">
+                  <div className="editor-right-tools-tiles">
+                    <EditorStageWorkbench
+                      key="wb-mobile-rail"
                       layout="rail"
                       {...stageWorkbenchProps}
                     />
