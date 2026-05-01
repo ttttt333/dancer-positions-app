@@ -32,17 +32,10 @@ type Props = ChoreoCoreToolbarCoreProps & {
    * 右列の並べ替え用: この1種類だけを 48px タイルで出す（`embedInPanel`+`tilesInRun` と併用）
    */
   singleTile?: "snap" | "gridLines" | "stageShape" | "setPiece" | "export" | "help";
-  snapGrid?: boolean;
-  onToggleSnapGrid?: () => void;
-  stageGridLinesEnabled?: boolean;
-  onToggleStageGridLines?: () => void;
-  stageGridLinesToggleDisabled?: boolean;
-  stageShapeActive?: boolean;
-  onOpenStageShapePicker: () => void;
-  onOpenSetPiecePicker: () => void;
-  onOpenShortcutsHelp: () => void;
-  onOpenExport: () => void;
-  disabled?: boolean;
+  /** スマホ操作パネルなど: アイコン・余白を一段小さく */
+  dense?: boolean;
+  /** 横並びのときロゴを省略してボタン領域を確保（スマホ操作パネル向け） */
+  showBrand?: boolean;
 };
 
 const iconWrap: CSSProperties = {
@@ -185,6 +178,7 @@ function ToolbarIconButton({
   pressed,
   fullWidth,
   square48,
+  dense,
   children,
 }: {
   title: string;
@@ -195,10 +189,14 @@ function ToolbarIconButton({
   fullWidth?: boolean;
   /** 右列タイル用 48px 正方形 */
   square48?: boolean;
+  /** スマホ向けにタップ領域をやや縮小 */
+  dense?: boolean;
   children: ReactNode;
 }) {
-  const w = square48 ? 48 : fullWidth ? "100%" : 42;
-  const h = square48 ? 48 : 42;
+  const sqPx = dense ? 44 : 48;
+  const iconPx = dense ? 36 : 42;
+  const w = square48 ? sqPx : fullWidth ? "100%" : iconPx;
+  const h = square48 ? sqPx : iconPx;
   return (
     <button
       type="button"
@@ -211,10 +209,10 @@ function ToolbarIconButton({
         ...btnSecondary,
         width: w,
         height: h,
-        minWidth: square48 ? 48 : fullWidth ? 0 : 42,
-        minHeight: square48 ? 48 : 42,
+        minWidth: square48 ? sqPx : fullWidth ? 0 : iconPx,
+        minHeight: square48 ? sqPx : iconPx,
         padding: square48 ? 0 : fullWidth ? "0 10px" : 0,
-        borderRadius: square48 ? 10 : 10,
+        borderRadius: square48 ? (dense ? 9 : 10) : dense ? 8 : 10,
         display: "flex",
         alignItems: "center",
         justifyContent: fullWidth ? "flex-start" : "center",
@@ -237,6 +235,8 @@ export function ChoreoCoreToolbar({
   layout = "column",
   embedInPanel = false,
   tilesInRun = false,
+  showBrand = true,
+  dense = false,
   singleTile,
   onToggleSnapGrid: onToggleSnapGridProp,
   onToggleStageGridLines,
@@ -261,7 +261,7 @@ export function ChoreoCoreToolbar({
       case "snap":
         return onToggleSnapGrid ? (
           <Fragment>
-            <ToolbarIconButton
+            <ToolbarIconButton dense={dense}
               title="スナップ（グリッドに吸着。実寸 1cm 線が使えるときはその線に沿います）"
               disabled={d}
               pressed={snapGrid}
@@ -275,7 +275,7 @@ export function ChoreoCoreToolbar({
       case "gridLines":
         return onToggleStageGridLines ? (
           <Fragment>
-            <ToolbarIconButton
+            <ToolbarIconButton dense={dense}
               title={
                 stageGridLinesToggleDisabled
                   ? "幅・奥行（mm）を設定するとグリッド線を表示できます"
@@ -293,7 +293,7 @@ export function ChoreoCoreToolbar({
       case "stageShape":
         return (
           <Fragment>
-            <ToolbarIconButton
+            <ToolbarIconButton dense={dense}
               title="変形舞台（花道・スラスト・台形・手描きカスタムなど）"
               disabled={d}
               pressed={stageShapeActive}
@@ -307,7 +307,7 @@ export function ChoreoCoreToolbar({
       case "setPiece":
         return (
           <Fragment>
-            <ToolbarIconButton
+            <ToolbarIconButton dense={dense}
               title="大道具を追加（図形・色を選択）"
               disabled={d}
               square48
@@ -320,7 +320,7 @@ export function ChoreoCoreToolbar({
       case "export":
         return (
           <Fragment>
-            <ToolbarIconButton
+            <ToolbarIconButton dense={dense}
               title="書き出し（PNG / PDF / WebM / JSON）"
               disabled={d}
               square48
@@ -333,7 +333,7 @@ export function ChoreoCoreToolbar({
       case "help":
         return (
           <Fragment>
-            <ToolbarIconButton
+            <ToolbarIconButton dense={dense}
               title="キーボードショートカット一覧"
               disabled={d}
               square48
@@ -357,8 +357,14 @@ export function ChoreoCoreToolbar({
         flexWrap: row ? "wrap" : "nowrap",
         alignItems: embedInPanel ? "stretch" : row ? "flex-start" : "center",
         justifyContent: row ? "flex-start" : "flex-start",
-        gap: embedInPanel ? 6 : 8,
-        padding: embedInPanel ? 0 : row ? "8px 10px" : "8px 5px",
+        gap: embedInPanel ? 6 : row ? (dense ? 5 : 8) : 8,
+        padding: embedInPanel
+          ? 0
+          : row
+            ? dense
+              ? "5px 6px"
+              : "8px 10px"
+            : "8px 5px",
         background: embedInPanel ? "transparent" : shell.surface,
         border: embedInPanel ? "none" : `1px solid ${shell.border}`,
         borderRadius: embedInPanel ? 0 : row ? "14px" : "14px",
@@ -369,13 +375,13 @@ export function ChoreoCoreToolbar({
         boxSizing: "border-box",
       }}
     >
-      {!embedInPanel ? (
+      {!embedInPanel && showBrand ? (
         <div aria-hidden style={{ flexShrink: 0, lineHeight: 0 }}>
-          <ChoreoCoreLogo height={28} title="ChoreoCore" />
+          <ChoreoCoreLogo height={dense ? 24 : 28} title="ChoreoCore" />
         </div>
       ) : null}
       {onToggleSnapGrid ? (
-        <ToolbarIconButton
+        <ToolbarIconButton dense={dense}
           title="スナップ（グリッドに吸着。実寸 1cm 線が使えるときはその線に沿います）"
           disabled={disabled}
           pressed={snapGrid}
@@ -387,7 +393,7 @@ export function ChoreoCoreToolbar({
         </ToolbarIconButton>
       ) : null}
       {onToggleStageGridLines ? (
-        <ToolbarIconButton
+        <ToolbarIconButton dense={dense}
           title={
             stageGridLinesToggleDisabled
               ? "幅・奥行（mm）を設定するとグリッド線を表示できます"
@@ -402,7 +408,7 @@ export function ChoreoCoreToolbar({
           <IconGridLines on={stageGridLinesEnabled} />
         </ToolbarIconButton>
       ) : null}
-      <ToolbarIconButton
+      <ToolbarIconButton dense={dense}
         title="変形舞台（花道・スラスト・台形・手描きカスタムなど）"
         disabled={disabled}
         pressed={stageShapeActive}
@@ -412,7 +418,7 @@ export function ChoreoCoreToolbar({
       >
         <IconStageShape active={stageShapeActive} />
       </ToolbarIconButton>
-      <ToolbarIconButton
+      <ToolbarIconButton dense={dense}
         title="大道具を追加（図形・色を選択）"
         disabled={disabled}
         fullWidth={fw}
@@ -421,7 +427,7 @@ export function ChoreoCoreToolbar({
       >
         <IconSetPiece />
       </ToolbarIconButton>
-      <ToolbarIconButton
+      <ToolbarIconButton dense={dense}
         title="書き出し（PNG / PDF / WebM / JSON）"
         disabled={disabled}
         fullWidth={fw}
@@ -430,7 +436,7 @@ export function ChoreoCoreToolbar({
       >
         <IconExport />
       </ToolbarIconButton>
-      <ToolbarIconButton
+      <ToolbarIconButton dense={dense}
         title="キーボードショートカット一覧"
         disabled={disabled}
         fullWidth={fw}

@@ -131,30 +131,45 @@ function round2Pct(n: number): number {
 }
 
 const EDITOR_WIDE_MIN_PX = 1280;
-/** スマホ向け縦積みレイアウトに切り替える上限幅（未満でモバイル扱い） */
+/**
+ * スマホ向け縦積みレイアウト：ビューポートの短い辺が未満ならモバイル扱い。
+ * 横向きで幅だけ広い（≥768）ときも電話 UI に乗せる。
+ */
 const EDITOR_MOBILE_STACK_MAX_PX = 768;
 
-function subscribeEditorMobileStack(cb: () => void): () => void {
+/** stack + landscape を 1 プリミティブにまとめる（useSyncExternalStore の参照安定） */
+type EditorViewportKey = "00" | "01" | "10" | "11";
+
+function subscribeEditorViewport(cb: () => void): () => void {
   if (typeof window === "undefined") return () => {};
-  const mql = window.matchMedia(
-    `(max-width: ${EDITOR_MOBILE_STACK_MAX_PX - 1}px)`
-  );
+  const mq = (q: string) => window.matchMedia(q);
+  const mqlW = mq(`(max-width: ${EDITOR_MOBILE_STACK_MAX_PX - 1}px)`);
+  const mqlH = mq(`(max-height: ${EDITOR_MOBILE_STACK_MAX_PX - 1}px)`);
+  const mqlOrientation = mq("(orientation: landscape)");
   const run = () => {
     cb();
   };
-  mql.addEventListener("change", run);
+  mqlW.addEventListener("change", run);
+  mqlH.addEventListener("change", run);
+  mqlOrientation.addEventListener("change", run);
   window.addEventListener("resize", run);
+  window.addEventListener("orientationchange", run);
   return () => {
-    mql.removeEventListener("change", run);
+    mqlW.removeEventListener("change", run);
+    mqlH.removeEventListener("change", run);
+    mqlOrientation.removeEventListener("change", run);
     window.removeEventListener("resize", run);
+    window.removeEventListener("orientationchange", run);
   };
 }
 
-function getEditorMobileStackSnapshot(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    window.innerWidth < EDITOR_MOBILE_STACK_MAX_PX
-  );
+function getEditorViewportKey(): EditorViewportKey {
+  if (typeof window === "undefined") return "00";
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const stack = Math.min(w, h) < EDITOR_MOBILE_STACK_MAX_PX;
+  const landscape = w > h;
+  return `${stack ? "1" : "0"}${landscape ? "1" : "0"}` as EditorViewportKey;
 }
 /** メイン 3 列グリッドの列間・行間（参照スクリーンショットの段間に合わせる） */
 const EDITOR_GRID_GAP_PX = 10;
@@ -898,11 +913,13 @@ export function EditorPage({
   const location = useLocation();
   const [searchParams] = useSearchParams();
   /** `useState`+`resize` より購読が明示的で、ビルド差分での未定義参照を避ける */
-  const editorMobileStackBreakpoint = useSyncExternalStore(
-    subscribeEditorMobileStack,
-    getEditorMobileStackSnapshot,
-    () => false
+  const editorViewportKey = useSyncExternalStore(
+    subscribeEditorViewport,
+    getEditorViewportKey,
+    () => "00" as EditorViewportKey
   );
+  const editorMobileStackBreakpoint = editorViewportKey[0] === "1";
+  const editorMobileLandscape = editorViewportKey[1] === "1";
   const { me, ready: authReady } = useAuth();
   const { t } = useI18n();
   const collabParam = searchParams.get("collab") === "1" && !choreoPublicView;
@@ -2963,6 +2980,22 @@ export function EditorPage({
       mobileStackEditor
         ? (() => {
             const moreRoom = !mobileEditorWaveExpanded || !mobileEditorToolsExpanded;
+            if (editorMobileLandscape) {
+              return {
+                flex: moreRoom ? "4 1 0" : "2 1 0",
+                minHeight: moreRoom
+                  ? "min(36dvh, 200px)"
+                  : "min(24dvh, 120px)",
+                maxHeight: moreRoom
+                  ? "min(58dvh, calc(100dvh - 140px))"
+                  : "min(44dvh, calc(100dvh - 200px))",
+                position: "relative",
+                borderBottom: "1px solid #1e293b",
+                borderRight: "none",
+                overflow: "hidden",
+                background: "#000",
+              };
+            }
             return {
               flex: moreRoom ? "5 1 0" : "3 1 0",
               minHeight: moreRoom ? "min(54dvh, 520px)" : "min(38dvh, 320px)",
@@ -2981,6 +3014,7 @@ export function EditorPage({
       mobileStackEditor,
       mobileEditorWaveExpanded,
       mobileEditorToolsExpanded,
+      editorMobileLandscape,
     ]
   );
 
@@ -3153,6 +3187,7 @@ export function EditorPage({
       compactTopDock={
         showTopWaveDock || publicNarrowLayout || mobileStackEditor
       }
+      editorMobileStack={mobileStackEditor}
       cueListPortalTarget={showTopWaveDock ? cueListPortalEl : null}
       onSave={() => setFlowLibraryOpen(true)}
     />
@@ -3232,6 +3267,9 @@ export function EditorPage({
       className={[
         choreoPublicView ? "choreo-public-view-root" : "editor-page-root",
         mobileStackEditor ? "editor-page-root--mobile-editor" : "",
+        mobileStackEditor && editorMobileLandscape
+          ? "editor-page-root--mobile-landscape"
+          : "",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -3262,10 +3300,12 @@ export function EditorPage({
         style={{
           display: "flex",
           flexWrap: "wrap",
-          gap: mobileStackEditor ? "6px" : "8px",
+          gap: mobileStackEditor ? "4px" : "8px",
           alignItems: "center",
           padding: mobileStackEditor
-            ? "max(2px, env(safe-area-inset-top, 0px)) max(6px, env(safe-area-inset-right, 0px)) 2px max(6px, env(safe-area-inset-left, 0px))"
+            ? editorMobileLandscape
+              ? "max(2px, env(safe-area-inset-top, 0px)) max(4px, env(safe-area-inset-right, 0px)) 1px max(4px, env(safe-area-inset-left, 0px))"
+              : "max(2px, env(safe-area-inset-top, 0px)) max(6px, env(safe-area-inset-right, 0px)) 2px max(6px, env(safe-area-inset-left, 0px))"
             : "max(4px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) 4px max(8px, env(safe-area-inset-left, 0px))",
           borderBottom: `1px solid ${shell.border}`,
           background: shell.bgChrome,
@@ -3281,8 +3321,16 @@ export function EditorPage({
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
-            width: mobileStackEditor ? 40 : 32,
-            height: mobileStackEditor ? 40 : 32,
+            width: mobileStackEditor
+              ? editorMobileLandscape
+                ? 34
+                : 38
+              : 32,
+            height: mobileStackEditor
+              ? editorMobileLandscape
+                ? 34
+                : 38
+              : 32,
             flexShrink: 0,
             textDecoration: "none",
             borderRadius: 8,
@@ -3294,7 +3342,11 @@ export function EditorPage({
           <span
             aria-hidden
             style={{
-              fontSize: "22px",
+              fontSize: mobileStackEditor
+                ? editorMobileLandscape
+                  ? "18px"
+                  : "20px"
+                : "22px",
               fontWeight: 500,
               lineHeight: 1,
               fontFamily: "ui-serif, 'Hiragino Mincho ProN', serif",
@@ -3305,7 +3357,13 @@ export function EditorPage({
           </span>
         </Link>
         <ChoreoCoreLogo
-          height={mobileStackEditor ? 32 : 40}
+          height={
+            mobileStackEditor
+              ? editorMobileLandscape
+                ? 26
+                : 30
+              : 40
+          }
           title="ChoreoCore"
           style={{ flexShrink: 0, marginLeft: mobileStackEditor ? 2 : 4 }}
         />
@@ -3807,10 +3865,14 @@ export function EditorPage({
                     width: "100%",
                     maxWidth: "100%",
                     flex: mobileEditorWaveExpanded
-                      ? "0 0 clamp(128px, 28dvh, 260px)"
+                      ? editorMobileLandscape
+                        ? "0 0 clamp(96px, 20dvh, 200px)"
+                        : "0 0 clamp(128px, 28dvh, 260px)"
                       : "0 0 auto",
                     maxHeight: mobileEditorWaveExpanded
-                      ? "min(34dvh, 300px)"
+                      ? editorMobileLandscape
+                        ? "min(26dvh, 200px)"
+                        : "min(34dvh, 300px)"
                       : "none",
                     minHeight: 0,
                     flexShrink: 0,
@@ -4345,13 +4407,20 @@ export function EditorPage({
                       flexShrink: 0,
                       width: "100%",
                       minWidth: 0,
+                      maxWidth: "100%",
                       overflowX: "auto",
+                      overflowY: "visible",
                       WebkitOverflowScrolling: "touch",
                       paddingBottom: 6,
                       borderBottom: "1px solid #1e293b",
                     }}
                   >
-                    <ChoreoCoreToolbar {...choreoToolbarSharedProps} />
+                    <ChoreoCoreToolbar
+                      layout="row"
+                      showBrand={false}
+                      dense
+                      {...choreoToolbarSharedProps}
+                    />
                   </div>
                 ) : null}
                 {rosterOnlyMode ? (

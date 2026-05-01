@@ -6,7 +6,7 @@ import { ChoreoCoreToolbar } from "./ChoreoCoreToolbar";
 
 export type EditorWorkbenchChoreoToolbarProps = Omit<
   ComponentProps<typeof ChoreoCoreToolbar>,
-  "layout" | "embedInPanel" | "tilesInRun" | "singleTile"
+  "layout" | "embedInPanel" | "tilesInRun" | "singleTile" | "dense"
 >;
 
 export type WorkbenchCuePagerVariant = "rail" | "inline" | "stageCorner";

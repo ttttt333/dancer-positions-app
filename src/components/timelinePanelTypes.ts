@@ -35,6 +35,8 @@ export type TimelinePanelBodyProps = {
   waveTimelineDockTop?: boolean;
   onWaveTimelineDockTopChange?: (next: boolean) => void;
   compactTopDock?: boolean;
+  /** スマホ縦積みエディタ: 再生行・波形の余白を詰めた UI */
+  editorMobileStack?: boolean;
   cueListPortalTarget?: HTMLElement | null;
   onSave?: () => void;
 };

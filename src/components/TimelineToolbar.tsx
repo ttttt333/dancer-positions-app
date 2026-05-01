@@ -34,12 +34,18 @@ const WAVE_HISTORY_RING = "rgba(148, 163, 184, 0.55)";
 const WAVE_HISTORY_ICON_PX = 27;
 const WAVE_HISTORY_ARROW_STROKE = 2.75;
 
-function WaveHistoryRoundIcon({ kind }: { kind: "undo" | "redo" }) {
+function WaveHistoryRoundIcon({
+  kind,
+  sizePx = WAVE_HISTORY_ICON_PX,
+}: {
+  kind: "undo" | "redo";
+  sizePx?: number;
+}) {
   const mirror = kind === "redo";
   return (
     <svg
-      width={WAVE_HISTORY_ICON_PX}
-      height={WAVE_HISTORY_ICON_PX}
+      width={sizePx}
+      height={sizePx}
       viewBox="0 0 24 24"
       aria-hidden
       style={{ display: "block" }}
@@ -209,6 +215,8 @@ export type TimelineToolbarProps = {
   onRedo?: () => void;
   undoDisabled: boolean;
   redoDisabled: boolean;
+  /** スマホ縦積み: 再生行を詰め、ラベルを短くする */
+  editorMobileStack?: boolean;
 };
 
 export function TimelineToolbar({
@@ -230,6 +238,7 @@ export function TimelineToolbar({
   onRedo,
   undoDisabled,
   redoDisabled,
+  editorMobileStack = false,
 }: TimelineToolbarProps) {
   if (!compactTopDock) {
     return (
@@ -467,11 +476,13 @@ export function TimelineToolbar({
         display: "grid",
         gridTemplateColumns: `${brandRailCss} minmax(0, 1fr) ${brandRailCss}`,
         alignItems: "stretch",
-        columnGap: tlPx(6),
+        columnGap: tlPx(editorMobileStack ? 4 : 6),
         width: "100%",
         minWidth: 0,
         marginTop: 0,
-        padding: `${tlPx(0)} ${tlPx(6)} ${tlPx(2)}`,
+        padding: `${tlPx(0)} ${tlPx(editorMobileStack ? 4 : 6)} ${tlPx(
+          editorMobileStack ? 1 : 2
+        )}`,
         borderBottom: `1px solid ${shell.border}`,
         flexShrink: 0,
         background: shell.bgChrome,
@@ -486,86 +497,246 @@ export function TimelineToolbar({
           alignItems: "stretch",
         }}
       >
-        <ChoreoCoreHeaderBrand compact />
+        {editorMobileStack ? (
+          <div aria-hidden style={{ minWidth: 0, width: "100%" }} />
+        ) : (
+          <ChoreoCoreHeaderBrand compact />
+        )}
       </div>
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "nowrap",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: tlPx(6),
-          flexShrink: 0,
-          minWidth: 0,
-        }}
-      >
-        <button
-          type="button"
+      {editorMobileStack ? (
+        <div
           style={{
-            ...timelineToolbarBtn,
-            padding: `${tlPx(3)} ${tlPx(7)}`,
-            minHeight: tlPx(24),
-            fontSize: tlPx(10),
-            letterSpacing: "0.01em",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: tlPx(3),
             flexShrink: 0,
+            minWidth: 0,
+            width: "100%",
           }}
-          disabled={viewMode === "view" || duration <= 0}
-          title="5 秒戻す"
-          aria-label="5秒戻す"
-          onClick={seekBackward5Sec}
         >
-          «5s
-        </button>
-        <button
-          type="button"
+          <PlaybackClockReadout
+            isPlaying={isPlaying}
+            idleTimeSec={currentTime}
+            durationSec={duration}
+            monoFontSizePx={11.5 * TIMELINE_UI_SCALE}
+          />
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: tlPx(4),
+              rowGap: tlPx(3),
+              width: "100%",
+              minWidth: 0,
+            }}
+          >
+            <button
+              type="button"
+              style={{
+                ...timelineToolbarBtn,
+                padding: `${tlPx(2)} ${tlPx(5)}`,
+                minHeight: tlPx(22),
+                fontSize: tlPx(10),
+                letterSpacing: "0.02em",
+                flexShrink: 0,
+              }}
+              disabled={viewMode === "view" || duration <= 0}
+              title="5 秒戻す"
+              aria-label="5秒戻す"
+              onClick={seekBackward5Sec}
+            >
+              −5s
+            </button>
+            <button
+              type="button"
+              style={{
+                ...timelineToolbarBtn,
+                padding: `${tlPx(2)} ${tlPx(5)}`,
+                minHeight: tlPx(22),
+                fontSize: tlPx(10),
+                letterSpacing: "0.02em",
+                flexShrink: 0,
+              }}
+              disabled={viewMode === "view" || duration <= 0}
+              title="5 秒進む"
+              aria-label="5秒進む"
+              onClick={seekForward5Sec}
+            >
+              ＋5s
+            </button>
+            <button
+              type="button"
+              style={{
+                ...timelineToolbarBtn,
+                padding: `${tlPx(3)} ${tlPx(10)}`,
+                minHeight: tlPx(26),
+                minWidth: tlPx(44),
+                fontWeight: 700,
+                flexShrink: 0,
+              }}
+              disabled={viewMode === "view"}
+              onClick={togglePlay}
+              aria-label={isPlaying ? "一時停止" : "再生"}
+              title={isPlaying ? "一時停止" : "再生"}
+            >
+              {isPlaying ? "⏸" : "▶"}
+            </button>
+            <button
+              type="button"
+              style={{
+                ...timelineToolbarBtn,
+                padding: `${tlPx(2)} ${tlPx(6)}`,
+                minHeight: tlPx(22),
+                fontSize: tlPx(9),
+                fontWeight: 600,
+                flexShrink: 0,
+              }}
+              disabled={viewMode === "view" || duration <= 0}
+              title="再生を止め、先頭（トリム開始位置）に戻します"
+              aria-label="先頭へ"
+              onClick={stopPlayback}
+            >
+              ⏹
+            </button>
+            {onSave ? (
+              <button
+                type="button"
+                style={{
+                  ...timelineToolbarBtn,
+                  padding: `${tlPx(2)} ${tlPx(6)}`,
+                  minHeight: tlPx(22),
+                  fontSize: tlPx(9),
+                  fontWeight: 600,
+                  flexShrink: 0,
+                }}
+                disabled={viewMode === "view"}
+                title="立ち位置をライブラリに保存"
+                aria-label="保存"
+                onClick={onSave}
+              >
+                保存
+              </button>
+            ) : null}
+            {onUndo ? (
+              <button
+                type="button"
+                style={{
+                  width: tlPx(32),
+                  height: tlPx(32),
+                  minWidth: tlPx(32),
+                  padding: 0,
+                  borderRadius: "50%",
+                  border: "none",
+                  background: "transparent",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  cursor: undoDisabled ? "not-allowed" : "pointer",
+                  opacity: undoDisabled ? 0.42 : 1,
+                }}
+                disabled={undoDisabled}
+                title="編集を元に戻す（⌘Z / Ctrl+Z）"
+                aria-label="元に戻す"
+                onClick={() => onUndo()}
+              >
+                <WaveHistoryRoundIcon kind="undo" sizePx={22 * TIMELINE_UI_SCALE} />
+              </button>
+            ) : null}
+            {onRedo ? (
+              <button
+                type="button"
+                style={{
+                  width: tlPx(32),
+                  height: tlPx(32),
+                  minWidth: tlPx(32),
+                  padding: 0,
+                  borderRadius: "50%",
+                  border: "none",
+                  background: "transparent",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                  cursor: redoDisabled ? "not-allowed" : "pointer",
+                  opacity: redoDisabled ? 0.42 : 1,
+                }}
+                disabled={redoDisabled}
+                title="やり直す（⌘⇧Z / Ctrl+Shift+Z）"
+                aria-label="やり直す"
+                onClick={() => onRedo()}
+              >
+                <WaveHistoryRoundIcon kind="redo" sizePx={22 * TIMELINE_UI_SCALE} />
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : (
+        <div
           style={{
-            ...timelineToolbarBtn,
-            padding: `${tlPx(3)} ${tlPx(7)}`,
-            minHeight: tlPx(24),
-            fontSize: tlPx(10),
-            letterSpacing: "0.01em",
+            display: "flex",
+            flexWrap: "nowrap",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: tlPx(6),
             flexShrink: 0,
+            minWidth: 0,
           }}
-          disabled={viewMode === "view" || duration <= 0}
-          title="5 秒進む"
-          aria-label="5秒進む"
-          onClick={seekForward5Sec}
         >
-          5s»
-        </button>
-        <button
-          type="button"
-          style={{
-            ...timelineToolbarBtn,
-            padding: `${tlPx(4)} ${tlPx(12)}`,
-            minHeight: tlPx(28),
-            fontWeight: 600,
-            flexShrink: 0,
-          }}
-          disabled={viewMode === "view"}
-          onClick={togglePlay}
-          aria-label={isPlaying ? "一時停止" : "再生"}
-          title={isPlaying ? "一時停止" : "再生"}
-        >
-          {isPlaying ? "一時停止" : "再生"}
-        </button>
-        <button
-          type="button"
-          style={{
-            ...timelineToolbarBtn,
-            padding: `${tlPx(4)} ${tlPx(10)}`,
-            minHeight: tlPx(28),
-            fontWeight: 600,
-            flexShrink: 0,
-          }}
-          disabled={viewMode === "view" || duration <= 0}
-          title="再生を止め、先頭（トリム開始位置）に戻します"
-          aria-label="先頭へ"
-          onClick={stopPlayback}
-        >
-          先頭
-        </button>
-        {onSave && (
+          <button
+            type="button"
+            style={{
+              ...timelineToolbarBtn,
+              padding: `${tlPx(3)} ${tlPx(7)}`,
+              minHeight: tlPx(24),
+              fontSize: tlPx(10),
+              letterSpacing: "0.01em",
+              flexShrink: 0,
+            }}
+            disabled={viewMode === "view" || duration <= 0}
+            title="5 秒戻す"
+            aria-label="5秒戻す"
+            onClick={seekBackward5Sec}
+          >
+            «5s
+          </button>
+          <button
+            type="button"
+            style={{
+              ...timelineToolbarBtn,
+              padding: `${tlPx(3)} ${tlPx(7)}`,
+              minHeight: tlPx(24),
+              fontSize: tlPx(10),
+              letterSpacing: "0.01em",
+              flexShrink: 0,
+            }}
+            disabled={viewMode === "view" || duration <= 0}
+            title="5 秒進む"
+            aria-label="5秒進む"
+            onClick={seekForward5Sec}
+          >
+            5s»
+          </button>
+          <button
+            type="button"
+            style={{
+              ...timelineToolbarBtn,
+              padding: `${tlPx(4)} ${tlPx(12)}`,
+              minHeight: tlPx(28),
+              fontWeight: 600,
+              flexShrink: 0,
+            }}
+            disabled={viewMode === "view"}
+            onClick={togglePlay}
+            aria-label={isPlaying ? "一時停止" : "再生"}
+            title={isPlaying ? "一時停止" : "再生"}
+          >
+            {isPlaying ? "一時停止" : "再生"}
+          </button>
           <button
             type="button"
             style={{
@@ -575,73 +746,91 @@ export function TimelineToolbar({
               fontWeight: 600,
               flexShrink: 0,
             }}
-            disabled={viewMode === "view"}
-            title="立ち位置をライブラリに保存"
-            aria-label="保存"
-            onClick={onSave}
+            disabled={viewMode === "view" || duration <= 0}
+            title="再生を止め、先頭（トリム開始位置）に戻します"
+            aria-label="先頭へ"
+            onClick={stopPlayback}
           >
-            保存
+            先頭
           </button>
-        )}
-        <PlaybackClockReadout
-          isPlaying={isPlaying}
-          idleTimeSec={currentTime}
-          durationSec={duration}
-          monoFontSizePx={12 * TIMELINE_UI_SCALE}
-        />
-        {onUndo ? (
-          <button
-            type="button"
-            style={{
-              width: tlPx(40),
-              height: tlPx(40),
-              minWidth: tlPx(40),
-              padding: 0,
-              borderRadius: "50%",
-              border: "none",
-              background: "transparent",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-              cursor: undoDisabled ? "not-allowed" : "pointer",
-              opacity: undoDisabled ? 0.42 : 1,
-            }}
-            disabled={undoDisabled}
-            title="編集を元に戻す（⌘Z / Ctrl+Z）"
-            aria-label="元に戻す"
-            onClick={() => onUndo()}
-          >
-            <WaveHistoryRoundIcon kind="undo" />
-          </button>
-        ) : null}
-        {onRedo ? (
-          <button
-            type="button"
-            style={{
-              width: tlPx(40),
-              height: tlPx(40),
-              minWidth: tlPx(40),
-              padding: 0,
-              borderRadius: "50%",
-              border: "none",
-              background: "transparent",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-              cursor: redoDisabled ? "not-allowed" : "pointer",
-              opacity: redoDisabled ? 0.42 : 1,
-            }}
-            disabled={redoDisabled}
-            title="やり直す（⌘⇧Z / Ctrl+Shift+Z）"
-            aria-label="やり直す"
-            onClick={() => onRedo()}
-          >
-            <WaveHistoryRoundIcon kind="redo" />
-          </button>
-        ) : null}
-      </div>
+          {onSave && (
+            <button
+              type="button"
+              style={{
+                ...timelineToolbarBtn,
+                padding: `${tlPx(4)} ${tlPx(10)}`,
+                minHeight: tlPx(28),
+                fontWeight: 600,
+                flexShrink: 0,
+              }}
+              disabled={viewMode === "view"}
+              title="立ち位置をライブラリに保存"
+              aria-label="保存"
+              onClick={onSave}
+            >
+              保存
+            </button>
+          )}
+          <PlaybackClockReadout
+            isPlaying={isPlaying}
+            idleTimeSec={currentTime}
+            durationSec={duration}
+            monoFontSizePx={12 * TIMELINE_UI_SCALE}
+          />
+          {onUndo ? (
+            <button
+              type="button"
+              style={{
+                width: tlPx(40),
+                height: tlPx(40),
+                minWidth: tlPx(40),
+                padding: 0,
+                borderRadius: "50%",
+                border: "none",
+                background: "transparent",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                cursor: undoDisabled ? "not-allowed" : "pointer",
+                opacity: undoDisabled ? 0.42 : 1,
+              }}
+              disabled={undoDisabled}
+              title="編集を元に戻す（⌘Z / Ctrl+Z）"
+              aria-label="元に戻す"
+              onClick={() => onUndo()}
+            >
+              <WaveHistoryRoundIcon kind="undo" />
+            </button>
+          ) : null}
+          {onRedo ? (
+            <button
+              type="button"
+              style={{
+                width: tlPx(40),
+                height: tlPx(40),
+                minWidth: tlPx(40),
+                padding: 0,
+                borderRadius: "50%",
+                border: "none",
+                background: "transparent",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                cursor: redoDisabled ? "not-allowed" : "pointer",
+                opacity: redoDisabled ? 0.42 : 1,
+              }}
+              disabled={redoDisabled}
+              title="やり直す（⌘⇧Z / Ctrl+Shift+Z）"
+              aria-label="やり直す"
+              onClick={() => onRedo()}
+            >
+              <WaveHistoryRoundIcon kind="redo" />
+            </button>
+          ) : null}
+        </div>
+      )}
       <div aria-hidden style={{ minWidth: 0 }} />
     </div>
   );

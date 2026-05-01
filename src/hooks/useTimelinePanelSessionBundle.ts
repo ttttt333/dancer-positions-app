@@ -64,6 +64,7 @@ export function useTimelinePanelSessionBundle(
     waveTimelineDockTop = false,
     onWaveTimelineDockTopChange,
     compactTopDock = false,
+    editorMobileStack = false,
     cueListPortalTarget = null,
     onSave,
   } = props;
@@ -276,6 +277,7 @@ export function useTimelinePanelSessionBundle(
       extractProgress,
       onPickAudio,
       compactTopDock,
+      editorMobileStack,
       brandRailCss,
       wideWorkbench,
       waveTimelineDockTop,

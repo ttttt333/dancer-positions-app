@@ -36,7 +36,12 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
           gap: p.compactTopDock ? 0 : tlPx(4),
           minHeight: 0,
           flex: "1 1 auto",
-          fontSize: p.compactTopDock ? tlPx(11) : tlPx(12),
+          fontSize:
+            p.compactTopDock && p.editorMobileStack
+              ? tlPx(10)
+              : p.compactTopDock
+                ? tlPx(11)
+                : tlPx(12),
         }}
       >
         <TimelineAudioChrome
@@ -66,6 +71,7 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
           onRedo={p.onRedo}
           undoDisabled={p.undoDisabled}
           redoDisabled={p.redoDisabled}
+          editorMobileStack={p.editorMobileStack}
         />
         <WaveformStrip
           waveContainerRef={p.waveContainerRef}
