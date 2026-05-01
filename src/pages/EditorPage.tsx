@@ -130,6 +130,8 @@ function round2Pct(n: number): number {
 }
 
 const EDITOR_WIDE_MIN_PX = 1280;
+/** スマホ向け縦積みレイアウトに切り替える上限幅（未満で `isMobile`） */
+const EDITOR_MOBILE_STACK_MAX_PX = 768;
 /** メイン 3 列グリッドの列間・行間（参照スクリーンショットの段間に合わせる） */
 const EDITOR_GRID_GAP_PX = 10;
 /** 上部波形ドック行の既定高さ（px）。可変シェル時の未保存グリッド行に使う */
@@ -862,6 +864,18 @@ export function EditorPage({
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const [isMobile, setIsMobile] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.innerWidth < EDITOR_MOBILE_STACK_MAX_PX
+  );
+  useEffect(() => {
+    const onResize = () =>
+      setIsMobile(window.innerWidth < EDITOR_MOBILE_STACK_MAX_PX);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
   const { me, ready: authReady } = useAuth();
   const { t } = useI18n();
   const collabParam = searchParams.get("collab") === "1" && !choreoPublicView;
@@ -3104,6 +3118,60 @@ export function EditorPage({
       : {}),
   };
 
+  /** スマホ幅かつ編集画面: ステージ優先の縦積み（タイムラインは別途コンパクト化の余地あり） */
+  const mobileStackEditor =
+    isMobile && !choreoPublicView && !wideEditorLayout && !stageZenLayout;
+
+  const dynamicContainerStyle = useMemo<CSSProperties>(
+    () =>
+      mobileStackEditor
+        ? {
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            minHeight: 0,
+            width: "100%",
+            maxWidth: "100%",
+            overflow: "hidden",
+            backgroundColor: "#020617",
+          }
+        : {},
+    [mobileStackEditor]
+  );
+
+  const dynamicStageShellStyle = useMemo<CSSProperties>(
+    () =>
+      mobileStackEditor
+        ? {
+            flex: "0 0 min(58dvh, 62%)",
+            maxHeight: "62dvh",
+            position: "relative",
+            borderBottom: "2px solid #1e293b",
+            borderRight: "none",
+            overflow: "hidden",
+            background: "#000",
+          }
+        : {},
+    [mobileStackEditor]
+  );
+
+  const dynamicToolsAsideStyle = useMemo<CSSProperties>(
+    () =>
+      mobileStackEditor
+        ? {
+            flex: "1 1 auto",
+            minHeight: 0,
+            overflowY: "auto",
+            WebkitOverflowScrolling: "touch",
+            padding: "10px",
+            backgroundColor: "#0f172a",
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+          }
+        : {},
+    [mobileStackEditor]
+  );
 
   return (
     <div
@@ -3247,6 +3315,7 @@ export function EditorPage({
         }}
         className={[
           "editor-three-pane",
+          mobileStackEditor && "editor-mobile-stack",
           publicNarrowLayout && "editor-three-pane--public-narrow",
           publicNarrowLayout &&
             publicViewTightHeight &&
@@ -3257,26 +3326,34 @@ export function EditorPage({
         style={{
           position: "relative",
           flex: 1,
-          display: "grid",
-          gridTemplateColumns: editorPaneGridTemplateColumns,
-          gridTemplateRows: editorPaneGridTemplateRows,
-          gap: `${EDITOR_GRID_GAP_PX}px`,
-          padding:
-            publicNarrowLayout
-              ? "4px max(4px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px))"
-              : "6px max(6px, env(safe-area-inset-right, 0px)) calc(max(8px, 2cm) + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
-          paddingBottom:
-            choreoPublicView && choreoStudentPick
-              ? publicViewTightHeight
-                ? "calc(4px + min(100px, 24dvh) + env(safe-area-inset-bottom, 0px))"
-                : "calc(6px + min(132px, 30dvh) + env(safe-area-inset-bottom, 0px))"
-              : undefined,
-          /** 狭い画面では負のマージンを付けない（レイアウト再計算・はみ出しを抑えスマホで滑らかに） */
-          marginTop: wideEditorLayout
-            ? `calc(-1 * ${EDITOR_PLAYBACK_LAYOUT_SHIFT_UP})`
-            : 0,
           minHeight: 0,
           overflow: "hidden",
+          ...(mobileStackEditor
+            ? {
+                ...dynamicContainerStyle,
+                gap: 0,
+                padding:
+                  "4px max(6px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
+                marginTop: 0,
+              }
+            : {
+                display: "grid",
+                gridTemplateColumns: editorPaneGridTemplateColumns,
+                gridTemplateRows: editorPaneGridTemplateRows,
+                gap: `${EDITOR_GRID_GAP_PX}px`,
+                padding: publicNarrowLayout
+                  ? "4px max(4px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px))"
+                  : "6px max(6px, env(safe-area-inset-right, 0px)) calc(max(8px, 2cm) + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
+                paddingBottom:
+                  choreoPublicView && choreoStudentPick
+                    ? publicViewTightHeight
+                      ? "calc(4px + min(100px, 24dvh) + env(safe-area-inset-bottom, 0px))"
+                      : "calc(6px + min(132px, 30dvh) + env(safe-area-inset-bottom, 0px))"
+                    : undefined,
+                marginTop: wideEditorLayout
+                  ? `calc(-1 * ${EDITOR_PLAYBACK_LAYOUT_SHIFT_UP})`
+                  : 0,
+              }),
         }}
       >
         {showTopWaveDock && !stageZenLayout ? (
@@ -3354,6 +3431,8 @@ export function EditorPage({
                     : {}),
                 }
               : { gridRow: publicNarrowLayout ? 1 : 2 }),
+            ...dynamicStageShellStyle,
+            ...(mobileStackEditor ? { order: -1 } : {}),
           }}
         >
           {stageZenLayout ? (
@@ -3445,25 +3524,27 @@ export function EditorPage({
                 }}
               >
                 {cuesSortedForStageJump.length > 0 || hasRosterMembers ? (
-                  <div
-                    style={{
-                      flexShrink: 0,
-                      maxWidth: "min(200px, 100%)",
-                      lineHeight: 0,
-                    }}
-                  >
-                    <WorkbenchCuePager
-                      variant="stageCorner"
-                      project={project}
-                      cuesSortedForStageJump={cuesSortedForStageJump}
-                      selectedCueId={selectedCueId}
-                      jumpToPagerSlot={jumpToPagerSlot}
-                      includeRosterSlot={hasRosterMembers}
-                      rosterTimelineHidden={
-                        project.rosterHidesTimeline === true
-                      }
-                    />
-                  </div>
+                  !mobileStackEditor ? (
+                    <div
+                      style={{
+                        flexShrink: 0,
+                        maxWidth: "min(200px, 100%)",
+                        lineHeight: 0,
+                      }}
+                    >
+                      <WorkbenchCuePager
+                        variant="stageCorner"
+                        project={project}
+                        cuesSortedForStageJump={cuesSortedForStageJump}
+                        selectedCueId={selectedCueId}
+                        jumpToPagerSlot={jumpToPagerSlot}
+                        includeRosterSlot={hasRosterMembers}
+                        rosterTimelineHidden={
+                          project.rosterHidesTimeline === true
+                        }
+                      />
+                    </div>
+                  ) : null
                 ) : null}
                 <div
                   role="group"
@@ -3515,6 +3596,7 @@ export function EditorPage({
               </div>
               <div
                 style={{
+                  position: "relative",
                   flex: 1,
                   minHeight: 0,
                   minWidth: 0,
@@ -3579,6 +3661,31 @@ export function EditorPage({
                     />
                   </Suspense>
                 )}
+                {mobileStackEditor &&
+                (cuesSortedForStageJump.length > 0 || hasRosterMembers) ? (
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: "max(16px, env(safe-area-inset-bottom, 0px))",
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      zIndex: 50,
+                      pointerEvents: "auto",
+                    }}
+                  >
+                    <WorkbenchCuePager
+                      variant="inline"
+                      project={project}
+                      cuesSortedForStageJump={cuesSortedForStageJump}
+                      selectedCueId={selectedCueId}
+                      jumpToPagerSlot={jumpToPagerSlot}
+                      includeRosterSlot={hasRosterMembers}
+                      rosterTimelineHidden={
+                        project.rosterHidesTimeline === true
+                      }
+                    />
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
@@ -3589,7 +3696,7 @@ export function EditorPage({
           TimelinePanel が再マウントされ、波形・音源の内部状態が消える）。
           グリッド行だけワイド時は 1 行目、狭いときはステージの下（3 行目）に固定する。
         */}
-        {!stageZenLayout ? (
+        {!stageZenLayout && !mobileStackEditor ? (
           <section
             ref={(el) => {
               topDockSectionRef.current = el;
@@ -3948,8 +4055,49 @@ export function EditorPage({
               ...(floorTextPlaceSession
                 ? { position: "relative" as const, zIndex: 140 }
                 : {}),
+              ...(mobileStackEditor ? dynamicToolsAsideStyle : {}),
             }}
           >
+            {mobileStackEditor ? (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "10px",
+                  marginBottom: "4px",
+                  flexShrink: 0,
+                }}
+              >
+                <button
+                  type="button"
+                  style={{
+                    ...btnAccent,
+                    minHeight: 44,
+                    touchAction: "manipulation",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                  }}
+                  disabled={project.viewMode === "view"}
+                  title="新しいキューを追加"
+                  onClick={() => setAddCueDialogOpen(true)}
+                >
+                  ＋ 次のキュー
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    ...btnSecondary,
+                    minHeight: 44,
+                    touchAction: "manipulation",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                  }}
+                  onClick={() => setStageAreaSettingsOpen(true)}
+                >
+                  舞台設定
+                </button>
+              </div>
+            ) : null}
             {rosterOnlyMode ? (
               <div
                 style={{
