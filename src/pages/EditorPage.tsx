@@ -3038,6 +3038,40 @@ export function EditorPage({
     [mobileStackEditor]
   );
 
+  const mobileTimelineDockLeading = useMemo(() => {
+    if (!mobileStackEditor) return undefined;
+    return (
+      <>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: shell.textMuted,
+            letterSpacing: "0.02em",
+            whiteSpace: "nowrap",
+          }}
+        >
+          波形・再生
+        </span>
+        <button
+          type="button"
+          style={{
+            ...btnSecondary,
+            padding: "4px 10px",
+            fontSize: 11,
+            fontWeight: 600,
+            touchAction: "manipulation",
+            flexShrink: 0,
+          }}
+          aria-expanded={mobileEditorWaveExpanded}
+          onClick={() => setMobileEditorWaveExpanded((v) => !v)}
+        >
+          {mobileEditorWaveExpanded ? "たたむ" : "ひろげる"}
+        </button>
+      </>
+    );
+  }, [mobileStackEditor, mobileEditorWaveExpanded]);
+
   if (loadError) {
     return (
       <div style={{ padding: 24, color: "#f87171" }}>
@@ -3156,40 +3190,6 @@ export function EditorPage({
     onOpenShortcutsHelp: () => setShortcutsHelpOpen(true),
     onOpenExport: () => setExportDialogOpen(true),
   };
-
-  const mobileTimelineDockLeading = useMemo(() => {
-    if (!mobileStackEditor) return undefined;
-    return (
-      <>
-        <span
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            color: shell.textMuted,
-            letterSpacing: "0.02em",
-            whiteSpace: "nowrap",
-          }}
-        >
-          波形・再生
-        </span>
-        <button
-          type="button"
-          style={{
-            ...btnSecondary,
-            padding: "4px 10px",
-            fontSize: 11,
-            fontWeight: 600,
-            touchAction: "manipulation",
-            flexShrink: 0,
-          }}
-          aria-expanded={mobileEditorWaveExpanded}
-          onClick={() => setMobileEditorWaveExpanded((v) => !v)}
-        >
-          {mobileEditorWaveExpanded ? "たたむ" : "ひろげる"}
-        </button>
-      </>
-    );
-  }, [mobileStackEditor, mobileEditorWaveExpanded]);
 
   const timelinePanelEl = (
     <TimelinePanel
