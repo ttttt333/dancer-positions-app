@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type CSSProperties,
   type Dispatch,
   type MutableRefObject,
@@ -130,8 +131,31 @@ function round2Pct(n: number): number {
 }
 
 const EDITOR_WIDE_MIN_PX = 1280;
-/** スマホ向け縦積みレイアウトに切り替える上限幅（未満で `isMobile`） */
+/** スマホ向け縦積みレイアウトに切り替える上限幅（未満でモバイル扱い） */
 const EDITOR_MOBILE_STACK_MAX_PX = 768;
+
+function subscribeEditorMobileStack(cb: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const mql = window.matchMedia(
+    `(max-width: ${EDITOR_MOBILE_STACK_MAX_PX - 1}px)`
+  );
+  const run = () => {
+    cb();
+  };
+  mql.addEventListener("change", run);
+  window.addEventListener("resize", run);
+  return () => {
+    mql.removeEventListener("change", run);
+    window.removeEventListener("resize", run);
+  };
+}
+
+function getEditorMobileStackSnapshot(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.innerWidth < EDITOR_MOBILE_STACK_MAX_PX
+  );
+}
 /** メイン 3 列グリッドの列間・行間（参照スクリーンショットの段間に合わせる） */
 const EDITOR_GRID_GAP_PX = 10;
 /** 上部波形ドック行の既定高さ（px）。可変シェル時の未保存グリッド行に使う */
@@ -892,18 +916,12 @@ export function EditorPage({
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const [isMobile, setIsMobile] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      window.innerWidth < EDITOR_MOBILE_STACK_MAX_PX
+  /** `useState`+`resize` より購読が明示的で、ビルド差分での未定義参照を避ける */
+  const editorMobileStackBreakpoint = useSyncExternalStore(
+    subscribeEditorMobileStack,
+    getEditorMobileStackSnapshot,
+    () => false
   );
-  useEffect(() => {
-    const onResize = () =>
-      setIsMobile(window.innerWidth < EDITOR_MOBILE_STACK_MAX_PX);
-    onResize();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
   const { me, ready: authReady } = useAuth();
   const { t } = useI18n();
   const collabParam = searchParams.get("collab") === "1" && !choreoPublicView;
@@ -2926,7 +2944,10 @@ export function EditorPage({
   /** 早期 return より前に置く（その後の useMemo は毎レンダーで同じ回数呼ぶ必要がある） */
   const stageZenLayout = wideEditorLayout && stageZenFullscreen;
   const mobileStackEditor =
-    isMobile && !choreoPublicView && !wideEditorLayout && !stageZenLayout;
+    editorMobileStackBreakpoint &&
+    !choreoPublicView &&
+    !wideEditorLayout &&
+    !stageZenLayout;
 
   const dynamicContainerStyle = useMemo<CSSProperties>(
     () =>
