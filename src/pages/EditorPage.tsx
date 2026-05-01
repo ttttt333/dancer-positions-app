@@ -2895,6 +2895,62 @@ export function EditorPage({
     return null;
   }, [choreoPublicView, choreoStudentPick, editorViewerPreviewPick]);
 
+  /** 早期 return より前に置く（その後の useMemo は毎レンダーで同じ回数呼ぶ必要がある） */
+  const stageZenLayout = wideEditorLayout && stageZenFullscreen;
+  const mobileStackEditor =
+    isMobile && !choreoPublicView && !wideEditorLayout && !stageZenLayout;
+
+  const dynamicContainerStyle = useMemo<CSSProperties>(
+    () =>
+      mobileStackEditor
+        ? {
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            minHeight: 0,
+            width: "100%",
+            maxWidth: "100%",
+            overflow: "hidden",
+            backgroundColor: "#020617",
+          }
+        : {},
+    [mobileStackEditor]
+  );
+
+  const dynamicStageShellStyle = useMemo<CSSProperties>(
+    () =>
+      mobileStackEditor
+        ? {
+            flex: "0 0 min(58dvh, 62%)",
+            maxHeight: "62dvh",
+            position: "relative",
+            borderBottom: "2px solid #1e293b",
+            borderRight: "none",
+            overflow: "hidden",
+            background: "#000",
+          }
+        : {},
+    [mobileStackEditor]
+  );
+
+  const dynamicToolsAsideStyle = useMemo<CSSProperties>(
+    () =>
+      mobileStackEditor
+        ? {
+            flex: "1 1 auto",
+            minHeight: 0,
+            overflowY: "auto",
+            WebkitOverflowScrolling: "touch",
+            padding: "10px",
+            backgroundColor: "#0f172a",
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+          }
+        : {},
+    [mobileStackEditor]
+  );
+
   if (loadError) {
     return (
       <div style={{ padding: 24, color: "#f87171" }}>
@@ -2966,8 +3022,6 @@ export function EditorPage({
     project.rosterHidesTimeline === true && hasRosterMembers;
   /** ワイド時は常に上部に波形・再生を固定（名簿モードでも TimelinePanel を外さない） */
   const showTopWaveDock = wideEditorLayout;
-  /** ステージのみ全画面（ワイド時のみ有効） */
-  const stageZenLayout = wideEditorLayout && stageZenFullscreen;
   /** 固定シェル時：名簿行の有無で上部ドックの確保高さを変え、波形が切れないようにする */
   const editorShellTopWavePx =
     EDITOR_SHELL_TOP_WAVE_BASE_PX +
@@ -3117,61 +3171,6 @@ export function EditorPage({
         }
       : {}),
   };
-
-  /** スマホ幅かつ編集画面: ステージ優先の縦積み（タイムラインは別途コンパクト化の余地あり） */
-  const mobileStackEditor =
-    isMobile && !choreoPublicView && !wideEditorLayout && !stageZenLayout;
-
-  const dynamicContainerStyle = useMemo<CSSProperties>(
-    () =>
-      mobileStackEditor
-        ? {
-            display: "flex",
-            flexDirection: "column",
-            flex: 1,
-            minHeight: 0,
-            width: "100%",
-            maxWidth: "100%",
-            overflow: "hidden",
-            backgroundColor: "#020617",
-          }
-        : {},
-    [mobileStackEditor]
-  );
-
-  const dynamicStageShellStyle = useMemo<CSSProperties>(
-    () =>
-      mobileStackEditor
-        ? {
-            flex: "0 0 min(58dvh, 62%)",
-            maxHeight: "62dvh",
-            position: "relative",
-            borderBottom: "2px solid #1e293b",
-            borderRight: "none",
-            overflow: "hidden",
-            background: "#000",
-          }
-        : {},
-    [mobileStackEditor]
-  );
-
-  const dynamicToolsAsideStyle = useMemo<CSSProperties>(
-    () =>
-      mobileStackEditor
-        ? {
-            flex: "1 1 auto",
-            minHeight: 0,
-            overflowY: "auto",
-            WebkitOverflowScrolling: "touch",
-            padding: "10px",
-            backgroundColor: "#0f172a",
-            display: "flex",
-            flexDirection: "column",
-            gap: 10,
-          }
-        : {},
-    [mobileStackEditor]
-  );
 
   return (
     <div

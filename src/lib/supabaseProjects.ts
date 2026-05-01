@@ -47,9 +47,9 @@ export async function supabaseGetProject(id: number): Promise<ProjectRow> {
     .from("choreocore_projects")
     .select("id, name, json, updated_at, share_token")
     .eq("id", id)
-    .single();
+    .maybeSingle();
   if (error) throw new Error(errMsg(error, "作品の読み込みに失敗しました"));
-  if (!data) throw new Error("作品が見つかりません");
+  if (!data) throw new Error("作品が見つかりません（未ログイン・権限・ID のいずれかの可能性があります）");
   return {
     id: Number(data.id),
     name: String(data.name),
@@ -120,9 +120,10 @@ export async function supabaseUpdateProject(
     .from("choreocore_projects")
     .select("share_token")
     .eq("id", id)
-    .single();
+    .maybeSingle();
   if (e1) throw new Error(errMsg(e1, "作品の確認に失敗しました"));
-  let share: string | null = cur?.share_token != null ? String(cur.share_token) : null;
+  if (!cur) throw new Error("作品が見つかりません（上書きの権限がないか、ID が無効です）");
+  let share: string | null = cur.share_token != null ? String(cur.share_token) : null;
   if (share == null) {
     share = newShareToken();
   }
