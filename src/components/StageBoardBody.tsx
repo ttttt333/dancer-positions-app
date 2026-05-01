@@ -88,11 +88,16 @@ import {
 } from "../lib/stageBoardModelHelpers";
 import { computeStageContextMenuStyle } from "../lib/stageContextMenuGeometry";
 import { buildStageBoardExportColumnProps } from "../lib/buildStageBoardExportColumnProps";
-
-/** 床テキスト: これ未満の移動は「タップして編集」、超えたらドラッグ移動 */
-const FLOOR_TEXT_TAP_DRAG_THRESHOLD_PX = 6;
-
-type SnapMode = "free" | "grid" | "fine";
+import {
+  FLOOR_TEXT_TAP_DRAG_THRESHOLD_PX,
+  pickNextDancerInStack,
+  removeDancerFromSelection,
+  removeDancersFromSelection,
+  replaceSelectionWithSingle,
+  toggleDancerAdditiveSelection,
+  type StageDancerSnapMode,
+} from "../engine/stage";
+import { useStageBoardInteractionStore } from "../store/stage/stageBoardInteractionStore";
 
 /**
  * ステージボードの実装本体。`useStageDancerMarkerElements` / `useSetPieceBlockElements` 等で束ね、return 直前では次の順にオブジェクトを組み立てる:
@@ -217,12 +222,20 @@ export function StageBoardBody({
     null,
   );
   /**
-   * ステージ上で選択中のダンサー ID（複数可）。
+   * ステージ上で選択中のダンサー ID（複数可）。状態は `useStageBoardInteractionStore`。
    * - 1 件なら Alt+矢印で微移動できる（従来の microNudgeDancerId の役割）。
    * - 2 件以上ならステージに枠が出て、8 ハンドルで群全体を比率スケールできる。
    * - 1 件以上なら代表ダンサーの右下に小さなハンドルが出て、○の直径を変更できる。
    */
-  const [selectedDancerIds, setSelectedDancerIds] = useState<string[]>([]);
+  const selectedDancerIds = useStageBoardInteractionStore(
+    (s) => s.selectedDancerIds,
+  );
+  const setSelectedDancerIds = useStageBoardInteractionStore(
+    (s) => s.setSelectedDancerIds,
+  );
+  const clearSelectedDancers = useStageBoardInteractionStore(
+    (s) => s.clearSelectedDancers,
+  );
   const [selectedSetPieceId, setSelectedSetPieceId] = useState<string | null>(
     null,
   );
@@ -504,7 +517,7 @@ export function StageBoardBody({
   useEffect(() => {
     onGestureHistoryCancel?.();
     setDancerQuickEditId(null);
-    setSelectedDancerIds([]);
+    clearSelectedDancers();
     setStageContextMenu(null);
     setSelectedSetPieceId(null);
     setMarquee(null);
@@ -532,7 +545,7 @@ export function StageBoardBody({
     setShowStageDancerColorToolbar(false);
     setBulkHideDancerGlyphs(false);
     setGroupRotateGuideDeltaDeg(null);
-  }, [formationIdForWrites, onGestureHistoryCancel]);
+  }, [formationIdForWrites, onGestureHistoryCancel, clearSelectedDancers]);
 
   useEffect(() => {
     setShowStageDancerColorToolbar(false);
@@ -1023,7 +1036,9 @@ export function StageBoardBody({
         }
         return next;
       });
-      setSelectedDancerIds((ids) => ids.filter((id) => id !== dancerId));
+      setSelectedDancerIds((ids) =>
+        removeDancerFromSelection(ids, dancerId),
+      );
       setDancerQuickEditId((id) => (id === dancerId ? null : id));
       setStageContextMenu(null);
     },
@@ -1332,7 +1347,9 @@ export function StageBoardBody({
         );
         return next;
       });
-      setSelectedDancerIds((ids) => ids.filter((id) => !removeSet.has(id)));
+      setSelectedDancerIds((ids) =>
+        removeDancersFromSelection(ids, removeSet),
+      );
       setDancerQuickEditId((id) =>
         id != null && removeSet.has(id) ? null : id,
       );
@@ -1496,7 +1513,7 @@ export function StageBoardBody({
   }, []);
 
   const quantizeCoord = useCallback(
-    (v: number, axis: "x" | "y", mode: SnapMode) => {
+    (v: number, axis: "x" | "y", mode: StageDancerSnapMode) => {
       const c = clamp(
         v,
         DANCER_STAGE_POSITION_PCT_LO,
@@ -1539,7 +1556,11 @@ export function StageBoardBody({
       if (r.width < 1e-6 || r.height < 1e-6) return null;
       const xPct = ((clientX - r.left) / r.width) * 100;
       const yPct = ((clientY - r.top) / r.height) * 100;
-      const mode: SnapMode = snapGrid ? (shiftKey ? "fine" : "grid") : "free";
+      const mode: StageDancerSnapMode = snapGrid
+        ? shiftKey
+          ? "fine"
+          : "grid"
+        : "free";
       let snappedX = quantizeCoord(xPct, "x", mode);
       const snappedY = quantizeCoord(yPct, "y", mode);
       /**
@@ -1813,12 +1834,13 @@ export function StageBoardBody({
           .map((n) => n.dataset.dancerId!);
         const uniq = [...new Set(stack)];
         if (uniq.length > 1) {
-          const i0 = uniq.indexOf(dancerId);
-          const next = uniq[(i0 + 1) % uniq.length];
-          setSelectedDancerIds([next]);
-          e.preventDefault();
-          e.stopPropagation();
-          return;
+          const next = pickNextDancerInStack(uniq, dancerId);
+          if (next != null) {
+            setSelectedDancerIds(replaceSelectionWithSingle(next));
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
         }
       }
       e.stopPropagation();
@@ -1827,10 +1849,9 @@ export function StageBoardBody({
       const toggleOnly = e.shiftKey || e.metaKey || e.ctrlKey;
       let nextSelection: string[];
       if (toggleOnly) {
-        nextSelection = selectedDancerIds.includes(dancerId)
-          ? selectedDancerIds.filter((id) => id !== dancerId)
-          : [...selectedDancerIds, dancerId];
-        setSelectedDancerIds(nextSelection);
+        setSelectedDancerIds((ids) =>
+          toggleDancerAdditiveSelection(ids, dancerId),
+        );
         return;
       }
       if (selectedDancerIds.includes(dancerId)) {
@@ -1838,7 +1859,7 @@ export function StageBoardBody({
         nextSelection = selectedDancerIds;
       } else {
         /** 未選択のダンサーを押した場合はその 1 人だけ選択しなおす */
-        nextSelection = [dancerId];
+        nextSelection = replaceSelectionWithSingle(dancerId);
         setSelectedDancerIds(nextSelection);
       }
 
@@ -2275,7 +2296,7 @@ export function StageBoardBody({
         baseIds: additive ? [...selectedDancerIds] : [],
         movedPx: 0,
       };
-      if (!additive) setSelectedDancerIds([]);
+      if (!additive) clearSelectedDancers();
       setSelectedSetPieceId(null);
     },
     [
@@ -2300,7 +2321,7 @@ export function StageBoardBody({
       setFloorTextInlineRect,
       marqueeSessionRef,
       selectedDancerIds,
-      setSelectedDancerIds,
+      clearSelectedDancers,
       setSelectedSetPieceId,
     ],
   );
@@ -3013,7 +3034,7 @@ export function StageBoardBody({
         markerGroupPosDraftRef.current = null;
         floorMarkupTextDragRef.current = null;
         floorTextTapOrDragRef.current = null;
-        setSelectedDancerIds([]);
+        clearSelectedDancers();
         setMarquee(null);
         marqueeSessionRef.current = null;
         setFloorMarkupTool(null);
@@ -3038,7 +3059,7 @@ export function StageBoardBody({
       const stepPx = e.shiftKey ? 0.05 : 0.25;
       const shiftFine = e.shiftKey;
       const afterSnap = (nx: number, ny: number) => {
-        const mode: SnapMode = snapGrid ? "fine" : "free";
+        const mode: StageDancerSnapMode = snapGrid ? "fine" : "free";
         let xPct = quantizeCoord(nx, "x", mode);
         const yPct = quantizeCoord(ny, "y", mode);
         if (
@@ -3081,6 +3102,7 @@ export function StageBoardBody({
     mmSnapGrid,
     duplicateDancerIds,
     stageWidthMm,
+    clearSelectedDancers,
   ]);
 
   /**
