@@ -319,34 +319,6 @@ type StageAreaSettingsDraft = {
 };
 
 function emptyStageAreaSettingsDraft(): StageAreaSettingsDraft {
-// モバイル・ファーストな動的レイアウト設定
-  const dynamicContainerStyle: CSSProperties = {
-    display: "flex",
-    flexDirection: isMobile ? "column" : "row",
-    height: "100dvh", // モバイルブラウザのツールバー対策
-    width: "100vw",
-    overflow: "hidden",
-    backgroundColor: "#020617",
-  };
-
-  const dynamicStageStyle: CSSProperties = {
-    // スマホ時は画面の65%をステージに、PC時は残り全部を使用
-    flex: isMobile ? "0 0 65%" : "1",
-    position: "relative",
-    borderBottom: isMobile ? "1px solid #1e293b" : "none",
-    borderRight: !isMobile ? "1px solid #1e293b" : "none",
-    overflow: "hidden",
-    backgroundColor: "#000",
-  };
-
-  const dynamicPanelStyle: CSSProperties = {
-    flex: "1",
-    overflowY: "auto",
-    backgroundColor: "#0f172a",
-    display: "flex",
-    flexDirection: "column",
-  };
-
   return {
     audienceEdge: "bottom",
     width: { m: "", cm: "" },
