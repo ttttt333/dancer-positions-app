@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, SetStateAction, ReactNode } from "react";
 import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography";
 
 export type TimelinePanelHandle = {
@@ -37,6 +37,11 @@ export type TimelinePanelBodyProps = {
   compactTopDock?: boolean;
   /** スマホ縦積みエディタ: 再生行・波形の余白を詰めた UI */
   editorMobileStack?: boolean;
+  /**
+   * スマホ compact 再生行の先頭（例: 「波形・再生」＋たたむ）。
+   * 波形帯の直上で再生ボタン類と同一行に並べる。
+   */
+  compactDockLeading?: ReactNode;
   cueListPortalTarget?: HTMLElement | null;
   onSave?: () => void;
 };

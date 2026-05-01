@@ -3157,6 +3157,40 @@ export function EditorPage({
     onOpenExport: () => setExportDialogOpen(true),
   };
 
+  const mobileTimelineDockLeading = useMemo(() => {
+    if (!mobileStackEditor) return undefined;
+    return (
+      <>
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: shell.textMuted,
+            letterSpacing: "0.02em",
+            whiteSpace: "nowrap",
+          }}
+        >
+          波形・再生
+        </span>
+        <button
+          type="button"
+          style={{
+            ...btnSecondary,
+            padding: "4px 10px",
+            fontSize: 11,
+            fontWeight: 600,
+            touchAction: "manipulation",
+            flexShrink: 0,
+          }}
+          aria-expanded={mobileEditorWaveExpanded}
+          onClick={() => setMobileEditorWaveExpanded((v) => !v)}
+        >
+          {mobileEditorWaveExpanded ? "たたむ" : "ひろげる"}
+        </button>
+      </>
+    );
+  }, [mobileStackEditor, mobileEditorWaveExpanded]);
+
   const timelinePanelEl = (
     <TimelinePanel
       ref={timelineRef}
@@ -3188,6 +3222,7 @@ export function EditorPage({
         showTopWaveDock || publicNarrowLayout || mobileStackEditor
       }
       editorMobileStack={mobileStackEditor}
+      compactDockLeading={mobileTimelineDockLeading}
       cueListPortalTarget={showTopWaveDock ? cueListPortalEl : null}
       onSave={() => setFlowLibraryOpen(true)}
     />
@@ -3678,7 +3713,7 @@ export function EditorPage({
                   style={{
                     display: "flex",
                     flexDirection: "row",
-                    gap: 3,
+                    gap: mobileStackEditor ? 4 : 3,
                     flexShrink: 0,
                   }}
                 >
@@ -3686,11 +3721,29 @@ export function EditorPage({
                     type="button"
                     style={{
                       ...btnSecondary,
-                      padding: "2px 6px",
-                      fontSize: "9px",
-                      fontWeight: 700,
-                      lineHeight: 1.2,
-                      borderRadius: 5,
+                      ...(mobileStackEditor
+                        ? {
+                            width: 36,
+                            height: 32,
+                            minWidth: 36,
+                            minHeight: 32,
+                            padding: 0,
+                            fontSize: 10,
+                            fontWeight: 700,
+                            lineHeight: 1,
+                            borderRadius: 8,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            boxSizing: "border-box",
+                          }
+                        : {
+                            padding: "2px 6px",
+                            fontSize: "9px",
+                            fontWeight: 700,
+                            lineHeight: 1.2,
+                            borderRadius: 5,
+                          }),
                       ...(stageView === "2d"
                         ? { borderColor: "#6366f1", color: "#c7d2fe" }
                         : {}),
@@ -3704,11 +3757,29 @@ export function EditorPage({
                     type="button"
                     style={{
                       ...btnSecondary,
-                      padding: "2px 6px",
-                      fontSize: "9px",
-                      fontWeight: 700,
-                      lineHeight: 1.2,
-                      borderRadius: 5,
+                      ...(mobileStackEditor
+                        ? {
+                            width: 36,
+                            height: 32,
+                            minWidth: 36,
+                            minHeight: 32,
+                            padding: 0,
+                            fontSize: 10,
+                            fontWeight: 700,
+                            lineHeight: 1,
+                            borderRadius: 8,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            boxSizing: "border-box",
+                          }
+                        : {
+                            padding: "2px 6px",
+                            fontSize: "9px",
+                            fontWeight: 700,
+                            lineHeight: 1.2,
+                            borderRadius: 5,
+                          }),
                       ...(stageView === "3d"
                         ? { borderColor: "#6366f1", color: "#c7d2fe" }
                         : {}),
@@ -3864,63 +3935,26 @@ export function EditorPage({
                     alignSelf: "stretch",
                     width: "100%",
                     maxWidth: "100%",
-                    flex: mobileEditorWaveExpanded
-                      ? editorMobileLandscape
-                        ? "0 0 clamp(96px, 20dvh, 200px)"
-                        : "0 0 clamp(128px, 28dvh, 260px)"
-                      : "0 0 auto",
+                    flexGrow: 0,
+                    flexShrink: 1,
+                    flexBasis: "auto",
+                    minHeight: 0,
                     maxHeight: mobileEditorWaveExpanded
                       ? editorMobileLandscape
-                        ? "min(26dvh, 200px)"
-                        : "min(34dvh, 300px)"
-                      : "none",
-                    minHeight: 0,
-                    flexShrink: 0,
-                    padding: rosterOnlyMode ? "6px 8px" : "6px 8px",
+                        ? "min(44dvh, 260px)"
+                        : "min(52dvh, 340px)"
+                      : undefined,
+                    flex: mobileEditorWaveExpanded ? "0 1 auto" : "0 0 auto",
+                    padding: rosterOnlyMode ? "6px 8px" : "4px 6px 6px",
                     borderTop: "1px solid #1e293b",
                     borderBottom: "1px solid #334155",
+                    overflow: "hidden",
+                    display: "flex",
+                    flexDirection: "column",
                   }
                 : {}),
             }}
           >
-            {mobileStackEditor ? (
-              <div
-                style={{
-                  flexShrink: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 8,
-                  padding: "4px 2px 8px",
-                  borderBottom: "1px solid #334155",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: shell.textMuted,
-                    letterSpacing: "0.02em",
-                  }}
-                >
-                  波形・再生
-                </span>
-                <button
-                  type="button"
-                  style={{
-                    ...btnSecondary,
-                    padding: "6px 12px",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    touchAction: "manipulation",
-                  }}
-                  aria-expanded={mobileEditorWaveExpanded}
-                  onClick={() => setMobileEditorWaveExpanded((v) => !v)}
-                >
-                  {mobileEditorWaveExpanded ? "たたむ" : "ひろげる"}
-                </button>
-              </div>
-            ) : null}
             {wideEditorLayout &&
             showTopWaveDock &&
             hasRosterMembers &&
@@ -4177,10 +4211,19 @@ export function EditorPage({
                   : {}),
                 ...(mobileStackEditor
                   ? {
-                      overflow: "hidden",
-                      minHeight: 0,
                       flex: mobileEditorWaveExpanded ? "1 1 auto" : "0 0 0",
-                      maxHeight: mobileEditorWaveExpanded ? "none" : 0,
+                      minHeight: 0,
+                      minWidth: 0,
+                      maxHeight: mobileEditorWaveExpanded
+                        ? editorMobileLandscape
+                          ? "min(36dvh, 220px)"
+                          : "min(42dvh, 300px)"
+                        : 0,
+                      overflowX: "hidden" as const,
+                      overflowY: mobileEditorWaveExpanded
+                        ? ("auto" as const)
+                        : ("hidden" as const),
+                      WebkitOverflowScrolling: "touch" as const,
                       opacity: mobileEditorWaveExpanded ? 1 : 0,
                       pointerEvents: mobileEditorWaveExpanded
                         ? ("auto" as const)
@@ -4375,10 +4418,13 @@ export function EditorPage({
                       type="button"
                       style={{
                         ...btnAccent,
-                        minHeight: 44,
+                        minHeight: 48,
+                        borderRadius: 12,
+                        padding: "12px 10px",
                         touchAction: "manipulation",
                         fontSize: "13px",
                         fontWeight: 700,
+                        boxSizing: "border-box",
                       }}
                       disabled={project.viewMode === "view"}
                       title="新しいキューを追加"
@@ -4390,10 +4436,13 @@ export function EditorPage({
                       type="button"
                       style={{
                         ...btnSecondary,
-                        minHeight: 44,
+                        minHeight: 48,
+                        borderRadius: 12,
+                        padding: "12px 10px",
                         touchAction: "manipulation",
                         fontSize: "13px",
                         fontWeight: 700,
+                        boxSizing: "border-box",
                       }}
                       onClick={() => setStageAreaSettingsOpen(true)}
                     >

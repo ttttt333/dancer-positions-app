@@ -64,7 +64,7 @@ export function StageFloorMarkupFloatingToolbars({
   };
 
   return (
-    <>
+    <div className="stage-floor-markup-floating-cluster">
       <div
         role="toolbar"
         aria-label="ステージ床テキスト"
@@ -230,6 +230,6 @@ export function StageFloorMarkupFloatingToolbars({
       {floorMarkupTool === "line" || floorMarkupTool === "erase" ? (
         <StageFloorMarkupLineEraseInlineHint tool={floorMarkupTool} />
       ) : null}
-    </>
+    </div>
   );
 }

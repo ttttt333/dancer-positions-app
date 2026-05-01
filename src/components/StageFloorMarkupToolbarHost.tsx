@@ -43,6 +43,7 @@ export function StageFloorMarkupToolbarHost({
 
   return (
     <div
+      className="stage-floor-markup-toolbar-host"
       onPointerDown={(e) => e.stopPropagation()}
       style={{
         position: "absolute",

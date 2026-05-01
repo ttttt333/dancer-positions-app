@@ -72,6 +72,7 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
           undoDisabled={p.undoDisabled}
           redoDisabled={p.redoDisabled}
           editorMobileStack={p.editorMobileStack}
+          compactDockLeading={p.compactDockLeading}
         />
         <WaveformStrip
           waveContainerRef={p.waveContainerRef}

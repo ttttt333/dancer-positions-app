@@ -378,6 +378,72 @@ body {
   font-size: 9px !important;
 }
 
+/* モバイル: ステージ左上の床テキスト／線ツールを1行に近づけ、ボタン形状を揃える */
+.editor-page-root--mobile-editor .stage-floor-markup-toolbar-host {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 6px;
+  top: 4px;
+  left: 4px;
+  right: 4px;
+  max-width: calc(100% - 8px);
+}
+
+.editor-page-root--mobile-editor .stage-floor-markup-floating-cluster {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+}
+
+.editor-page-root--mobile-editor .stage-floor-markup-floating-cluster > div[role="toolbar"][aria-label="ステージ床テキスト"] {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 4px 8px !important;
+}
+
+.editor-page-root--mobile-editor
+  .stage-floor-markup-floating-cluster
+  > div[role="toolbar"][aria-label="ステージ床テキスト"]
+  > div:first-of-type {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.editor-page-root--mobile-editor .stage-floor-markup-floating-cluster > div[role="toolbar"][aria-label="床に線を引く・消す"] {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px !important;
+}
+
+.editor-page-root--mobile-editor .stage-floor-markup-floating-cluster > div[role="toolbar"] button {
+  min-height: 30px !important;
+  min-width: 44px !important;
+  padding: 4px 8px !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+  box-sizing: border-box !important;
+}
+
+.editor-page-root--mobile-editor .editor-timeline-mobile-dock {
+  max-height: 52px;
+}
+
+.editor-page-root--mobile-landscape .editor-timeline-mobile-dock {
+  max-height: 48px;
+}
+
 /* モバイル編集レイアウトデモ（MobileFormationEditorLayout） */
 .mobile-formation-editor-root {
   -webkit-tap-highlight-color: transparent;
