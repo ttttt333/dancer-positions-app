@@ -1,3 +1,6 @@
+/**
+ * @file `StageBoardBody` 用レイアウト束: シェル外寸・回転、メイン床 ResizeObserver、mm スナップグリッド。`useStageBoardController` と併用。
+ */
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { AudienceEdge, ChoreographyProjectJson } from "../types/choreography";
 import type { StageShellLayout } from "../lib/stageShellLayout";
@@ -25,10 +28,7 @@ export type UseStageBoardLayoutAfterDraftParams = {
 export type StageBoardLayoutAfterDraftBundle = StageShellLayout &
   StageBoardMmSnapGridBundle;
 
-/**
- * `stageResizeDraft` 以降にまとめるレイアウト束:
- * 外寸・回転、メイン床幅の ResizeObserver、場ミリスナップグリッド。
- */
+/** @see モジュール先頭 `@file` */
 export function useStageBoardLayoutAfterDraft(
   p: UseStageBoardLayoutAfterDraftParams
 ): StageBoardLayoutAfterDraftBundle {

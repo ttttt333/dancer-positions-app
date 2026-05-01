@@ -20,7 +20,14 @@ import type {
 } from "../types/choreography";
 import { useStageBoardController } from "../hooks/useStageBoardController";
 import { useStageBoardLayoutAfterDraft } from "../hooks/useStageBoardLayoutAfterDraft";
-import type { StageBoardBodyProps } from "./stageBoardTypes";
+import { useSetPieceBlockElements } from "../hooks/useSetPieceBlockElements";
+import { useStageDancerMarkerElements } from "../hooks/useStageDancerMarkerElements";
+import type {
+  BuildStageBoardExportColumnInput,
+  StageBoardBodyOverlaysProps,
+  StageBoardBodyProps,
+  StageBoardLayoutSlots,
+} from "./stageBoardTypes";
 import {
   audienceRotationDeg,
   MARKER_DIAMETER_PX_MAX as MARKER_PX_MAX,
@@ -38,35 +45,30 @@ import {
 import {
   resolveArrangeTargetIds,
 } from "../lib/stageSelectionArrange";
-import {
-  DancerQuickEditDialog,
-  type DancerQuickEditApply,
-} from "./DancerQuickEditDialog";
-import { SetPieceBlock } from "./SetPieceBlock";
+import type { DancerQuickEditApply } from "./DancerQuickEditDialog";
 import {
   FloorTextMarkupBlock,
   type FloorTextDraftPayload,
   type FloorTextResizeDragPayload,
   type FloorTextTapOrDragPayload,
 } from "./FloorTextMarkupBlock";
-import { FloorTextInlineEditPortal } from "./FloorTextInlineEditPortal";
-import { TrashDropStripPortal } from "./TrashDropStripPortal";
 import { StageBoardContextMenuLayer } from "./StageBoardContextMenuLayer";
 import type { StageBoardContextMenuState } from "./StageBoardContextMenuLayer";
-import { StageDancerMarkerItem } from "./StageDancerMarkerItem";
-import { StageBoardFitViewport } from "./StageBoardFitViewport";
 import { StageBoardLayout } from "./StageBoardLayout";
+import { StageBoardShell } from "./StageBoardShell";
 import { StageBoardMainColumn } from "./StageBoardMainColumn";
 import { StageBoardPreviewFormationBanner } from "./StageBoardPreviewFormationBanner";
 import { StageBoardScreenOverlay } from "./StageBoardScreenOverlay";
+import { StageBoardBodyOverlays } from "./StageBoardBodyOverlays";
+import { StageBoardBulkColorToolbar } from "./StageBoardBulkColorToolbar";
+import { StageBoardBulkToolbarSlot } from "./StageBoardBulkToolbarSlot";
+import { StageBoardStageFrame } from "./StageBoardStageFrame";
 import {
   type StageResizeHandleId,
 } from "./StageResizeHandles";
-import { StageExportRootColumn } from "./StageExportRootColumn";
-import { StageRotatedStageFrame } from "./StageRotatedStageFrame";
+import type { StageExportRootColumnProps } from "./StageExportRootColumn";
 import { shell } from "../theme/choreoShell";
 import {
-  DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE,
   modDancerColorIndex,
   normalizeDancerFacingDeg,
 } from "../lib/dancerColorPalette";
@@ -79,7 +81,6 @@ import {
 import {
   applySetPieceResizePct,
   clamp,
-  dancerCircleInnerBelowLabel,
   EMPTY_FLOOR_TEXT_DRAFT,
   floorTextDraftColorHex,
   floorTextLayer,
@@ -87,8 +88,6 @@ import {
   FLOOR_TEXT_DEFAULT_FONT,
   getSetPieceCoordRoot,
   groupScaleForHandle,
-  markerBelowLabelFontPx,
-  markerCircleLabelFontPx,
   MIN_SET_PIECE_H_PCT,
   MIN_SET_PIECE_W_PCT,
   round2,
@@ -98,12 +97,17 @@ import {
   type SetPieceResizeHandle,
 } from "../lib/stageBoardModelHelpers";
 import { computeStageContextMenuStyle } from "../lib/stageContextMenuGeometry";
+import { buildStageBoardExportColumnProps } from "../lib/buildStageBoardExportColumnProps";
 
 /** 床テキスト: これ未満の移動は「タップして編集」、超えたらドラッグ移動 */
 const FLOOR_TEXT_TAP_DRAG_THRESHOLD_PX = 6;
 
 type SnapMode = "free" | "grid" | "fine";
 
+/**
+ * ステージボードの実装本体。`useStageDancerMarkerElements` / `useSetPieceBlockElements` 等で束ね、return 直前では次の順にオブジェクトを組み立てる:
+ * `buildStageBoardExportColumnProps` → `stageBoardLayoutSlots` → `stageBoardOverlaysProps`（`useMemo`）→ `StageBoardShell`。
+ */
 export function StageBoardBody({
   project,
   setProject,
@@ -1288,95 +1292,94 @@ export function StageBoardBody({
     [writeFormation, updateActiveFormation, viewMode, stageInteractionsEnabled]
   );
 
-  const handlePointerDownSetPiece = (
-    e: ReactPointerEvent,
-    piece: SetPiece
-  ) => {
-    if (e.button !== 0) return;
-    if (!setPiecesEditable) return;
-    setSelectedSetPieceId(piece.id);
-    e.stopPropagation();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    const el = getSetPieceCoordRoot(
-      piece,
-      stageMainFloorRef.current,
-      viewportTextOverlayRoot
-    );
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const leftPx = r.left + (piece.xPct / 100) * r.width;
-    const topPx = r.top + (piece.yPct / 100) * r.height;
-    setPieceDragRef.current = {
-      mode: "move",
-      pieceId: piece.id,
-      offsetXPx: e.clientX - leftPx,
-      offsetYPx: e.clientY - topPx,
-    };
-  };
+  const handlePointerDownSetPiece = useCallback(
+    (e: ReactPointerEvent, piece: SetPiece) => {
+      if (e.button !== 0) return;
+      if (!setPiecesEditable) return;
+      setSelectedSetPieceId(piece.id);
+      e.stopPropagation();
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      const el = getSetPieceCoordRoot(
+        piece,
+        stageMainFloorRef.current,
+        viewportTextOverlayRoot
+      );
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const leftPx = r.left + (piece.xPct / 100) * r.width;
+      const topPx = r.top + (piece.yPct / 100) * r.height;
+      setPieceDragRef.current = {
+        mode: "move",
+        pieceId: piece.id,
+        offsetXPx: e.clientX - leftPx,
+        offsetYPx: e.clientY - topPx,
+      };
+    },
+    [setPiecesEditable, stageMainFloorRef, viewportTextOverlayRoot]
+  );
 
-  const handlePointerDownSetPieceResize = (
-    e: ReactPointerEvent,
-    piece: SetPiece,
-    handle: SetPieceResizeHandle
-  ) => {
-    if (e.button !== 0) return;
-    if (!setPiecesEditable) return;
-    e.stopPropagation();
-    e.preventDefault();
-    setSelectedSetPieceId(piece.id);
-    const el = getSetPieceCoordRoot(
-      piece,
-      stageMainFloorRef.current,
-      viewportTextOverlayRoot
-    );
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    setPieceDragRef.current = {
-      mode: "resize",
-      pieceId: piece.id,
-      handle,
-      start: {
-        xPct: piece.xPct,
-        yPct: piece.yPct,
-        wPct: piece.wPct,
-        hPct: piece.hPct,
-      },
-      startClientX: e.clientX,
-      startClientY: e.clientY,
-      floorWpx: r.width,
-      floorHpx: r.height,
-    };
-  };
+  const handlePointerDownSetPieceResize = useCallback(
+    (e: ReactPointerEvent, piece: SetPiece, handle: SetPieceResizeHandle) => {
+      if (e.button !== 0) return;
+      if (!setPiecesEditable) return;
+      e.stopPropagation();
+      e.preventDefault();
+      setSelectedSetPieceId(piece.id);
+      const el = getSetPieceCoordRoot(
+        piece,
+        stageMainFloorRef.current,
+        viewportTextOverlayRoot
+      );
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setPieceDragRef.current = {
+        mode: "resize",
+        pieceId: piece.id,
+        handle,
+        start: {
+          xPct: piece.xPct,
+          yPct: piece.yPct,
+          wPct: piece.wPct,
+          hPct: piece.hPct,
+        },
+        startClientX: e.clientX,
+        startClientY: e.clientY,
+        floorWpx: r.width,
+        floorHpx: r.height,
+      };
+    },
+    [setPiecesEditable, stageMainFloorRef, viewportTextOverlayRoot]
+  );
 
-  const handlePointerDownSetPieceRotate = (
-    e: ReactPointerEvent,
-    piece: SetPiece
-  ) => {
-    if (e.button !== 0) return;
-    if (!setPiecesEditable) return;
-    e.stopPropagation();
-    e.preventDefault();
-    setSelectedSetPieceId(piece.id);
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    const el = getSetPieceCoordRoot(
-      piece,
-      stageMainFloorRef.current,
-      viewportTextOverlayRoot
-    );
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const cx = r.left + ((piece.xPct + piece.wPct / 2) / 100) * r.width;
-    const cy = r.top + ((piece.yPct + piece.hPct / 2) / 100) * r.height;
-    const startPointerRad = Math.atan2(e.clientY - cy, e.clientX - cx);
-    setPieceDragRef.current = {
-      mode: "rotate",
-      pieceId: piece.id,
-      startRotationDeg: setPieceRotationDegDisplay(piece),
-      startPointerRad,
-      centerClientX: cx,
-      centerClientY: cy,
-    };
-  };
+  const handlePointerDownSetPieceRotate = useCallback(
+    (e: ReactPointerEvent, piece: SetPiece) => {
+      if (e.button !== 0) return;
+      if (!setPiecesEditable) return;
+      e.stopPropagation();
+      e.preventDefault();
+      setSelectedSetPieceId(piece.id);
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      const el = getSetPieceCoordRoot(
+        piece,
+        stageMainFloorRef.current,
+        viewportTextOverlayRoot
+      );
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const cx = r.left + ((piece.xPct + piece.wPct / 2) / 100) * r.width;
+      const cy = r.top + ((piece.yPct + piece.hPct / 2) / 100) * r.height;
+      const startPointerRad = Math.atan2(e.clientY - cy, e.clientX - cx);
+      setPieceDragRef.current = {
+        mode: "rotate",
+        pieceId: piece.id,
+        startRotationDeg: setPieceRotationDegDisplay(piece),
+        startPointerRad,
+        centerClientX: cx,
+        centerClientY: cy,
+      };
+    },
+    [setPiecesEditable, stageMainFloorRef, viewportTextOverlayRoot]
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -3462,240 +3465,61 @@ export function StageBoardBody({
     [updateActiveFormation]
   );
 
-  const stageSetPieceElements = useMemo(
-    () =>
-      stageSetPieces.map((p) => (
-        <SetPieceBlock
-          key={p.id}
-          piece={p}
-          coord="stage"
-          selected={selectedSetPieceId === p.id}
-          setPiecesEditable={setPiecesEditable}
-          snapGrid={snapGrid}
-          viewMode={viewMode}
-          playbackOrPreview={playbackOrPreview}
-          onBodyPointerDown={handlePointerDownSetPiece}
-          onBodyContextMenu={handleSetPieceBodyContextMenu}
-          onToggleInterpolateInGaps={handleSetPieceToggleInterpolate}
-          onResizePointerDown={handlePointerDownSetPieceResize}
-          onRotatePointerDown={handlePointerDownSetPieceRotate}
-        />
-      )),
-    [
-      stageSetPieces,
-      selectedSetPieceId,
-      setPiecesEditable,
-      snapGrid,
-      viewMode,
-      playbackOrPreview,
-      handlePointerDownSetPiece,
-      handleSetPieceBodyContextMenu,
-      handleSetPieceToggleInterpolate,
-      handlePointerDownSetPieceResize,
-      handlePointerDownSetPieceRotate,
-    ]
-  );
+  const stageSetPieceElements = useSetPieceBlockElements({
+    pieces: stageSetPieces,
+    coord: "stage",
+    selectedSetPieceId,
+    setPiecesEditable,
+    snapGrid,
+    viewMode,
+    playbackOrPreview,
+    onBodyPointerDown: handlePointerDownSetPiece,
+    onBodyContextMenu: handleSetPieceBodyContextMenu,
+    onToggleInterpolateInGaps: handleSetPieceToggleInterpolate,
+    onResizePointerDown: handlePointerDownSetPieceResize,
+    onRotatePointerDown: handlePointerDownSetPieceRotate,
+  });
 
-  const screenSetPieceElements = useMemo(
-    () =>
-      screenSetPieces.map((p) => (
-        <SetPieceBlock
-          key={p.id}
-          piece={p}
-          coord="screen"
-          selected={selectedSetPieceId === p.id}
-          setPiecesEditable={setPiecesEditable}
-          snapGrid={snapGrid}
-          viewMode={viewMode}
-          playbackOrPreview={playbackOrPreview}
-          onBodyPointerDown={handlePointerDownSetPiece}
-          onBodyContextMenu={handleSetPieceBodyContextMenu}
-          onToggleInterpolateInGaps={handleSetPieceToggleInterpolate}
-          onResizePointerDown={handlePointerDownSetPieceResize}
-          onRotatePointerDown={handlePointerDownSetPieceRotate}
-        />
-      )),
-    [
-      screenSetPieces,
-      selectedSetPieceId,
-      setPiecesEditable,
-      snapGrid,
-      viewMode,
-      playbackOrPreview,
-      handlePointerDownSetPiece,
-      handleSetPieceBodyContextMenu,
-      handleSetPieceToggleInterpolate,
-      handlePointerDownSetPieceResize,
-      handlePointerDownSetPieceRotate,
-    ]
-  );
+  const screenSetPieceElements = useSetPieceBlockElements({
+    pieces: screenSetPieces,
+    coord: "screen",
+    selectedSetPieceId,
+    setPiecesEditable,
+    snapGrid,
+    viewMode,
+    playbackOrPreview,
+    onBodyPointerDown: handlePointerDownSetPiece,
+    onBodyContextMenu: handleSetPieceBodyContextMenu,
+    onToggleInterpolateInGaps: handleSetPieceToggleInterpolate,
+    onResizePointerDown: handlePointerDownSetPieceResize,
+    onRotatePointerDown: handlePointerDownSetPieceRotate,
+  });
 
-  const stageDancerMarkerElements = useMemo(
-    () =>
-      dancersForStageMarkers.map((d, di) => {
-        const dMarkerPx = effectiveMarkerPx(d);
-        const dLabelFontPx = markerCircleLabelFontPx(dMarkerPx);
-        const hideGlyph =
-          bulkHideDancerGlyphs &&
-          !playbackOrPreview &&
-          selectedDancerIds.length >= 2 &&
-          selectedDancerIds.includes(d.id);
-        const markerLabelWmm = effStageWidthMm ?? 0;
-        const circleInnerOptsMarker =
-          markerLabelWmm > 0
-            ? { effXPct: d.xPct, stageWidthMm: markerLabelWmm }
-            : undefined;
-        const circleLabel = dancerLabelBelow
-          ? dancerCircleInnerBelowLabel(d, di, circleInnerOptsMarker)
-          : d.label || "?";
-        const facing = normalizeDancerFacingDeg(effectiveFacingDeg(d));
-        const labelOffsetPx =
-          Math.round(dMarkerPx / 2) + 4 + nameBelowClearanceExtraPx;
-        const pivotTransform = playbackOrPreview
-          ? `translate3d(-50%, -50%, 0) rotate(${facing}deg)`
-          : `translate(-50%, -50%) rotate(${facing}deg)`;
-        const halfMarker = dMarkerPx / 2;
-        const screenUnrotateDeg = -(rot + facing);
-        const belowNameFontPx = markerBelowLabelFontPx(dLabelFontPx);
-        const belowLabelOriginYpx =
-          -labelOffsetPx + Math.round((belowNameFontPx * 1.12) / 2);
-        const isStudentHighlight = (() => {
-          if (!studentViewerFocus || studentViewerFocus.kind === "all") {
-            return true;
-          }
-          const { crewMemberId, label } = studentViewerFocus;
-          if (d.crewMemberId && d.crewMemberId === crewMemberId) return true;
-          if ((d.label ?? "").trim() === (label ?? "").trim()) return true;
-          return false;
-        })();
-        const onePersonMode =
-          studentViewerFocus != null && studentViewerFocus.kind === "one";
-        const zMark = onePersonMode && isStudentHighlight ? 8 : 4;
-        const pivotOpacityDimmed = onePersonMode && !isStudentHighlight;
-        const interactionLocked =
-          viewMode === "view" ||
-          Boolean(playbackDancers) ||
-          Boolean(previewDancers) ||
-          !stageInteractionsEnabled;
-        const buttonTitle = !playbackOrPreview
-          ? [
-              mmLabel(d.xPct, d.yPct),
-              "ダブルクリックで名前・身長・学年・性別・スキル・備考",
-              "右クリックで削除・並べ替えメニュー",
-              "ポインタを画面の左端へ寄せるとゴミ箱が出ます。そこへドロップで削除",
-              "Shift / Cmd / Ctrl+クリックで複数選択に追加",
-              "空のステージをドラッグで範囲選択",
-              snapGrid ? "Shift+ドラッグで細かいグリッドにスナップ" : null,
-              "Alt+矢印で微移動（Shift+Altでさらに細かく）",
-              "⌘D / Ctrl+D で選択メンバーを複製",
-              "Alt+クリックで重なった印の背面へ切替（§10）",
-              facing !== 0
-                ? `向き ${facing}°（印の下の丸ハンドルをドラッグで変更）`
-                : "印の下の丸いハンドルで向きを変更",
-            ]
-              .filter(Boolean)
-              .join(" · ")
-          : mmLabel(d.xPct, d.yPct) || undefined;
-        const borderCss =
-          dancerQuickEditId === d.id
-            ? "2px solid rgba(99,102,241,0.95)"
-            : selectedDancerIds.includes(d.id)
-              ? selectedDancerIds.length >= 2
-                ? `2px solid ${shell.ruby}`
-                : "2px solid rgba(251,191,36,0.92)"
-              : "2px solid rgba(255,255,255,0.35)";
-        const cursorCss =
-          dancerQuickEditId === d.id
-            ? "default"
-            : interactionLocked
-              ? "default"
-              : "grab";
-        const pointerEventsCss: "auto" | "none" = interactionLocked
-          ? "none"
-          : "auto";
-        const boxShadowCss =
-          onePersonMode && isStudentHighlight
-            ? "0 0 0 2px rgba(250, 204, 21, 0.95), 0 4px 18px rgba(0,0,0,0.5)"
-            : "0 4px 14px rgba(0,0,0,0.35)";
-        const scaleTransform =
-          onePersonMode && isStudentHighlight ? "scale(1.12)" : "scale(1)";
-        return (
-          <StageDancerMarkerItem
-            key={d.id}
-            dancerId={d.id}
-            xPct={d.xPct}
-            yPct={d.yPct}
-            nameBelowLabel={d.label || "?"}
-            pivotTransform={pivotTransform}
-            zMark={zMark}
-            playbackOrPreview={playbackOrPreview}
-            pivotOpacityDimmed={pivotOpacityDimmed}
-            buttonTitle={buttonTitle}
-            onPointerDownButton={(e) =>
-              handlePointerDownDancer(e, d.id, d.xPct, d.yPct)
-            }
-            onContextMenuButton={(e) => {
-              if (interactionLocked) return;
-              e.preventDefault();
-              e.stopPropagation();
-              setShowStageDancerColorToolbar(true);
-              setStageContextMenu({
-                kind: "dancer",
-                clientX: e.clientX,
-                clientY: e.clientY,
-                dancerId: d.id,
-              });
-            }}
-            onDoubleClickButton={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (interactionLocked) return;
-              setDancerQuickEditId(d.id);
-            }}
-            halfMarker={halfMarker}
-            markerPx={dMarkerPx}
-            borderCss={borderCss}
-            fillHex={DANCER_PALETTE[modDancerColorIndex(d.colorIndex)]}
-            labelFontPx={dLabelFontPx}
-            cursorCss={cursorCss}
-            pointerEventsCss={pointerEventsCss}
-            boxShadowCss={boxShadowCss}
-            scaleTransform={scaleTransform}
-            hideGlyph={hideGlyph}
-            circleLabel={circleLabel}
-            screenUnrotateDeg={screenUnrotateDeg}
-            showNameBelow={dancerLabelBelow && !hideGlyph}
-            labelOffsetPx={labelOffsetPx}
-            belowLabelOriginYpx={belowLabelOriginYpx}
-            belowNameFontPx={belowNameFontPx}
-          />
-        );
-      }),
-    [
-      dancersForStageMarkers,
-      effectiveMarkerPx,
-      bulkHideDancerGlyphs,
-      playbackOrPreview,
-      selectedDancerIds,
-      effStageWidthMm,
-      dancerLabelBelow,
-      nameBelowClearanceExtraPx,
-      rot,
-      mmLabel,
-      snapGrid,
-      handlePointerDownDancer,
-      viewMode,
-      playbackDancers,
-      previewDancers,
-      stageInteractionsEnabled,
-      shell.ruby,
-      dancerQuickEditId,
-      setShowStageDancerColorToolbar,
-      setStageContextMenu,
-      setDancerQuickEditId,
-      studentViewerFocus,
-    ]
-  );
+  const stageDancerMarkerElements = useStageDancerMarkerElements({
+    dancersForStageMarkers,
+    effectiveMarkerPx,
+    effectiveFacingDeg,
+    bulkHideDancerGlyphs,
+    playbackOrPreview,
+    selectedDancerIds,
+    effStageWidthMm,
+    dancerLabelBelow,
+    nameBelowClearanceExtraPx,
+    rot,
+    mmLabel,
+    snapGrid,
+    handlePointerDownDancer,
+    viewMode,
+    playbackDancers,
+    previewDancers,
+    stageInteractionsEnabled,
+    rubyAccent: shell.ruby,
+    dancerQuickEditId,
+    setShowStageDancerColorToolbar,
+    setStageContextMenu,
+    setDancerQuickEditId,
+    studentViewerFocus,
+  });
 
   const screenOverlayOpen = Boolean(
     viewportTextOverlayRoot &&
@@ -3704,302 +3528,253 @@ export function StageBoardBody({
         screenSetPieces.length > 0)
   );
 
-  return (
-    <>
-    <StageBoardLayout
-      screenOverlay={
-    <StageBoardScreenOverlay
-      root={viewportTextOverlayRoot}
-      open={screenOverlayOpen}
-      screenFloorTexts={screenFloorTexts}
-      markupShared={floorTextMarkupSharedProps}
-      screenSetPieceElements={screenSetPieceElements}
-      floorTextPlaceSession={floorTextPlaceSession ?? null}
-      setPiecesEditable={Boolean(setPiecesEditable)}
-      playbackOrPreview={playbackOrPreview}
-      onFloorTextPlaceSessionChange={onFloorTextPlaceSessionChange}
-      onFloorTextPlacePreviewPointerDown={handleFloorTextPlacePreviewPointerDown}
-    />
-      }
-      mainColumn={
-    <StageBoardMainColumn
-      previewBanner={
-        <StageBoardPreviewFormationBanner
-          show={Boolean(previewDancers && previewDancers.length > 0)}
-        />
-      }
-      stageFrame={
-        <StageBoardFitViewport>
-        <StageRotatedStageFrame
-          hasStageDims={hasStageDims}
-          outerWmm={outerWmm}
-          outerDmm={outerDmm}
-          stageAspectRatio={stageAspectRatio}
-          rotationDeg={rot}
-          showResizeHandles={
-            viewMode !== "view" &&
-            stageInteractionsEnabled &&
-            !playbackDancers &&
-            !previewDancers
-          }
-          hoveredHandle={hoveredStageHandle}
-          resizeDraftActive={Boolean(stageResizeDraft)}
-          onResizePointerDown={onStageCornerResizeDown}
-          onHandlePointerEnter={setHoveredStageHandle}
-          onHandlePointerLeave={(h) =>
-            setHoveredStageHandle((cur) => (cur === h ? null : cur))
-          }
-        >
-          <StageExportRootColumn
-            previewFormationHighlight={Boolean(previewDancers?.length)}
-            dancerCount={displayDancers.length}
-            stageRotationDeg={rot}
-            hanamichiEnabled={hanamichiEnabled}
-            stageShapeActive={stageShapeActive}
-            hanamichiDepthPct={hanamichiDepthPct}
-            mainFloor={{
-              shellDims: {
-                showShell,
-                Bmm,
-                Dmm,
-                Wmm,
-                Smm,
-                labelScreenKeepUpright,
-              },
-              stageMainFloorRef,
-              isPlaying,
-              trimStartSec: project.trimStartSec,
-              onPointerDownFloor: handlePointerDownFloor,
-              mainFloorStyle,
-              floorMarkupToolbar: setPiecesEditable
-                ? {
-                    hideFloorMarkupFloatingToolbars,
-                    floorMarkupTool,
-                    setFloorMarkupTool,
-                    floorTextEditId,
-                    setFloorTextEditId,
-                    floorTextDraft,
-                    setFloorTextDraft,
-                    updateActiveFormation,
-                    floorLineSessionRef,
-                    setFloorLineDraft,
-                    setFloorTextInlineRect,
-                  }
-                : undefined,
-              baseOverlays: {
-                stageShapeActive,
-                stageShapeMaskPath,
-                stageShapeSvgPoints,
-                hasStageDims,
-                showStageMmGridOverlay,
-                mmSnapGrid,
-                stageGridLinesVertical,
-                stageGridLinesHorizontal,
-                guideLineDrawMarks,
-                alignGuides,
-                showStageFloorMarkup:
-                  displayFloorMarkup.length > 0 || !!floorLineDraft,
-                displayFloorMarkup,
-                floorLineDraft,
-                floorMarkupTool,
-                setPiecesEditable,
-                onRemoveFloorLineById: removeFloorMarkupById,
-                textShared: floorTextMarkupSharedProps,
-                floorTextPlaceSession: floorTextPlaceSession ?? null,
-                viewportTextOverlayRoot,
-                playbackOrPreview,
-                onFloorTextPlaceSessionChange,
-                onFloorTextPlacePreviewPointerDown:
-                  handleFloorTextPlacePreviewPointerDown,
-              },
-              interaction: {
-                setPieceElements: stageSetPieceElements,
-                selectionBox,
-                groupRotateGuideDeltaDeg,
-                playbackOrPreview,
-                viewMode,
-                stageInteractionsEnabled,
-                marquee,
-                primarySelectedDancer,
-                effectiveMarkerPx,
-                effectiveFacingDeg,
-                onGroupBoxHandlePointerDown: handlePointerDownGroupBoxHandle,
-                selectedDancerIds,
-                onGroupRotatePointerDown: handlePointerDownMarkerRotate,
-                dragGhostById,
-                stageDancerById,
-                bulkHideDancerGlyphs,
-                dancerLabelBelow,
-                stageDancerIndexById,
-                effStageWidthMm: effStageWidthMm ?? 0,
-                nameBelowClearanceExtraPx,
-                rot,
-                dancerMarkerElements: stageDancerMarkerElements,
-                onMarkerResizePointerDown: handlePointerDownMarkerResize,
-                tapStageToEditLayout,
-                onTapEditOverlayPointerDown: handleTapOverlayPointerDown,
-              },
-            }}
+  const stageBoardExportColumn: StageExportRootColumnProps =
+    // eslint-disable-next-line react-hooks/refs -- refs are forwarded into props; build does not read `.current`
+    buildStageBoardExportColumnProps({
+      /* エクスポート列メタ（プレビュー・人数・回転・花道・形状フラグ） */
+      previewDancers,
+      displayDancers,
+      stageRotationDeg: rot,
+      hanamichiEnabled,
+      stageShapeActive,
+      hanamichiDepthPct,
+      /* メイン床：シェル寸法・床パネル */
+      shellDims: {
+        showShell,
+        Bmm,
+        Dmm,
+        Wmm,
+        Smm,
+        labelScreenKeepUpright,
+      },
+      stageMainFloorRef,
+      isPlaying,
+      trimStartSec: project.trimStartSec,
+      onPointerDownFloor: handlePointerDownFloor,
+      mainFloorStyle,
+      setPiecesEditable,
+      /* 床マークアップ浮遊ツール（setPiecesEditable 時のみ有効） */
+      floorMarkupToolbarWhenEditable: {
+        hideFloorMarkupFloatingToolbars,
+        floorMarkupTool,
+        setFloorMarkupTool,
+        floorTextEditId,
+        setFloorTextEditId,
+        floorTextDraft,
+        setFloorTextDraft,
+        updateActiveFormation,
+        floorLineSessionRef,
+        setFloorLineDraft,
+        setFloorTextInlineRect,
+      },
+      /* 床下オーバーレイ（形状・格子・ガイド・床線／テキスト） */
+      baseOverlaysWithoutShow: {
+        stageShapeActive,
+        stageShapeMaskPath,
+        stageShapeSvgPoints,
+        hasStageDims,
+        showStageMmGridOverlay,
+        mmSnapGrid,
+        stageGridLinesVertical,
+        stageGridLinesHorizontal,
+        guideLineDrawMarks,
+        alignGuides,
+        displayFloorMarkup,
+        floorLineDraft,
+        floorMarkupTool,
+        setPiecesEditable,
+        onRemoveFloorLineById: removeFloorMarkupById,
+        textShared: floorTextMarkupSharedProps,
+        floorTextPlaceSession: floorTextPlaceSession ?? null,
+        viewportTextOverlayRoot,
+        playbackOrPreview,
+        onFloorTextPlaceSessionChange,
+        onFloorTextPlacePreviewPointerDown:
+          handleFloorTextPlacePreviewPointerDown,
+      },
+      showStageFloorMarkup:
+        displayFloorMarkup.length > 0 || !!floorLineDraft,
+      /* 操作層（大道具・ダンサー印・マーキー等） */
+      interaction: {
+        setPieceElements: stageSetPieceElements,
+        selectionBox,
+        groupRotateGuideDeltaDeg,
+        playbackOrPreview,
+        viewMode,
+        stageInteractionsEnabled,
+        marquee,
+        primarySelectedDancer,
+        effectiveMarkerPx,
+        effectiveFacingDeg,
+        onGroupBoxHandlePointerDown: handlePointerDownGroupBoxHandle,
+        selectedDancerIds,
+        onGroupRotatePointerDown: handlePointerDownMarkerRotate,
+        dragGhostById,
+        stageDancerById,
+        bulkHideDancerGlyphs,
+        dancerLabelBelow,
+        stageDancerIndexById,
+        effStageWidthMm: effStageWidthMm ?? 0,
+        nameBelowClearanceExtraPx,
+        rot,
+        dancerMarkerElements: stageDancerMarkerElements,
+        onMarkerResizePointerDown: handlePointerDownMarkerResize,
+        tapStageToEditLayout,
+        onTapEditOverlayPointerDown: handleTapOverlayPointerDown,
+      },
+    } satisfies BuildStageBoardExportColumnInput);
+
+  const stageBoardLayoutSlots = {
+    /* screen レイヤー（床テキスト・大道具など） */
+    screenOverlay: (
+      <StageBoardScreenOverlay
+        root={viewportTextOverlayRoot}
+        open={screenOverlayOpen}
+        screenFloorTexts={screenFloorTexts}
+        markupShared={floorTextMarkupSharedProps}
+        screenSetPieceElements={screenSetPieceElements}
+        floorTextPlaceSession={floorTextPlaceSession ?? null}
+        setPiecesEditable={Boolean(setPiecesEditable)}
+        playbackOrPreview={playbackOrPreview}
+        onFloorTextPlaceSessionChange={onFloorTextPlaceSessionChange}
+        onFloorTextPlacePreviewPointerDown={
+          handleFloorTextPlacePreviewPointerDown
+        }
+      />
+    ),
+    /* プレビュー帯・ステージ枠・床下一括色ツール */
+    mainColumn: (
+      <StageBoardMainColumn
+        previewBanner={
+          <StageBoardPreviewFormationBanner
+            show={Boolean(previewDancers && previewDancers.length > 0)}
           />
-        </StageRotatedStageFrame>
-        </StageBoardFitViewport>
-      }
-      bulkToolbar={
-        canStageBulkTools ? (
-          <div
-            style={{
-              flexShrink: 0,
-              width: "100%",
-              maxWidth: "min(100%, 440px)",
-              /** 未選択時は高さを取らずステージを広く。色一括バーがあるときだけ確保 */
-              minHeight: reserveStageBulkToolbarHeight ? 88 : 0,
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "flex-end",
-            }}
-          >
-            {selectedDancerIds.length >= 1 && showStageDancerColorToolbar ? (
-              <div
-                role="toolbar"
-                aria-label="選択した立ち位置の色を一括変更"
-                style={{
-                  flexShrink: 0,
-                  display: "flex",
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                  gap: "8px",
-                  width: "100%",
-                  padding: "8px 10px",
-                  borderRadius: "10px",
-                  border: "1px solid #334155",
-                  background: "rgba(15, 23, 42, 0.96)",
-                  boxSizing: "border-box",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    color: "#94a3b8",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  選択中 {selectedDancerIds.length} 人の色
-                </span>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
-                  {DANCER_PALETTE.map((hex, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      title={`色を一括で ${i + 1} に変更`}
-                      onClick={() =>
-                        applyBulkColorToDancerIds(selectedDancerIds, i)
-                      }
-                      style={{
-                        width: 26,
-                        height: 26,
-                        borderRadius: 6,
-                        border:
-                          primarySelectedDancer &&
-                          modDancerColorIndex(primarySelectedDancer.colorIndex) ===
-                          i
-                            ? "2px solid #fbbf24"
-                            : "1px solid #1e293b",
-                        background: hex,
-                        cursor: "pointer",
-                        padding: 0,
-                        boxSizing: "border-box",
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </div>
-        ) : null
-      }
-    />
-      }
-      stageContextMenu={
-    stageContextMenu && contextMenuStyle ? (
-      <StageBoardContextMenuLayer
-        menu={stageContextMenu}
-        style={contextMenuStyle}
-        containerRef={stageContextMenuRef}
-        onCloseMenu={() => setStageContextMenu(null)}
-        dancerMenu={{
-          selectedDancerIds,
-          menuInteractionDisabled:
-            viewMode === "view" ||
-            !stageInteractionsEnabled ||
-            Boolean(playbackDancers) ||
-            Boolean(previewDancers),
-          rawDancerLabelPosition: project.dancerLabelPosition,
-          dancerLabelBelow,
-          setProject,
-          duplicateDancerIds,
-          removeDancersByIds,
-          applyBulkColorToDancerIds,
-          applyBulkMarkerClear,
-          applyBulkMarkerSequence,
-          applyBulkMarkerSame,
-          applyBulkMarkerCenterDistance,
-          applyPermuteArrange,
-          applyDancerArrange,
-        }}
-        viewMode={viewMode}
-        setPiecesEditable={setPiecesEditable}
-        playbackDancers={playbackDancers}
-        previewDancers={previewDancers}
-        removeFloorMarkupById={removeFloorMarkupById}
-        writeFormationSetPieces={writeFormation?.setPieces}
-        updateActiveFormation={updateActiveFormation}
-        removeSetPieceById={removeSetPieceById}
+        }
+        stageFrame={
+          <StageBoardStageFrame
+            hasStageDims={hasStageDims}
+            outerWmm={outerWmm}
+            outerDmm={outerDmm}
+            stageAspectRatio={stageAspectRatio}
+            rotationDeg={rot}
+            showResizeHandles={
+              viewMode !== "view" &&
+              stageInteractionsEnabled &&
+              !playbackDancers &&
+              !previewDancers
+            }
+            hoveredHandle={hoveredStageHandle}
+            resizeDraftActive={Boolean(stageResizeDraft)}
+            onResizePointerDown={onStageCornerResizeDown}
+            onHandlePointerEnter={setHoveredStageHandle}
+            onHandlePointerLeave={(h) =>
+              setHoveredStageHandle((cur) => (cur === h ? null : cur))
+            }
+            exportColumn={stageBoardExportColumn}
+          />
+        }
+        bulkToolbar={
+          canStageBulkTools ? (
+            <StageBoardBulkToolbarSlot
+              reserveMinHeight={reserveStageBulkToolbarHeight}
+            >
+              <StageBoardBulkColorToolbar
+                open={
+                  selectedDancerIds.length >= 1 && showStageDancerColorToolbar
+                }
+                selectedCount={selectedDancerIds.length}
+                primarySelectedDancer={primarySelectedDancer}
+                onSelectPaletteIndex={(i) =>
+                  applyBulkColorToDancerIds(selectedDancerIds, i)
+                }
+              />
+            </StageBoardBulkToolbarSlot>
+          ) : null
+        }
       />
-    ) : null}
+    ),
+    /* ステージ上の右クリックメニュー */
+    stageContextMenu:
+      stageContextMenu && contextMenuStyle ? (
+        <StageBoardContextMenuLayer
+          menu={stageContextMenu}
+          style={contextMenuStyle}
+          containerRef={stageContextMenuRef}
+          onCloseMenu={() => setStageContextMenu(null)}
+          dancerMenu={{
+            selectedDancerIds,
+            menuInteractionDisabled:
+              viewMode === "view" ||
+              !stageInteractionsEnabled ||
+              Boolean(playbackDancers) ||
+              Boolean(previewDancers),
+            rawDancerLabelPosition: project.dancerLabelPosition,
+            dancerLabelBelow,
+            setProject,
+            duplicateDancerIds,
+            removeDancersByIds,
+            applyBulkColorToDancerIds,
+            applyBulkMarkerClear,
+            applyBulkMarkerSequence,
+            applyBulkMarkerSame,
+            applyBulkMarkerCenterDistance,
+            applyPermuteArrange,
+            applyDancerArrange,
+          }}
+          viewMode={viewMode}
+          setPiecesEditable={setPiecesEditable}
+          playbackDancers={playbackDancers}
+          previewDancers={previewDancers}
+          removeFloorMarkupById={removeFloorMarkupById}
+          writeFormationSetPieces={writeFormation?.setPieces}
+          updateActiveFormation={updateActiveFormation}
+          removeSetPieceById={removeSetPieceById}
+        />
+      ) : null,
+  } satisfies StageBoardLayoutSlots;
+
+  const stageBoardOverlaysProps = useMemo(
+    (): StageBoardBodyOverlaysProps => ({
+      floorTextInlineRect,
+      floorTextEditId,
+      floorTextDraft,
+      setFloorTextDraft,
+      floorTextInlineMarkupScale,
+      updateActiveFormation,
+      onFloorTextInlineRequestClose: () => setFloorMarkupTool(null),
+      showTrashDrop,
+      trashHot,
+      trashDockViewportRef,
+      dancerQuickEditId,
+      quickEditDancerForDialog,
+      viewMode,
+      onCloseQuickEdit: () => setDancerQuickEditId(null),
+      onApplyQuickEdit: applyDancerQuickEdit,
+    }),
+    [
+      applyDancerQuickEdit,
+      dancerQuickEditId,
+      floorTextDraft,
+      floorTextEditId,
+      floorTextInlineMarkupScale,
+      floorTextInlineRect,
+      quickEditDancerForDialog,
+      setDancerQuickEditId,
+      setFloorTextDraft,
+      setFloorMarkupTool,
+      showTrashDrop,
+      trashDockViewportRef,
+      trashHot,
+      updateActiveFormation,
+      viewMode,
+    ]
+  );
+
+  return (
+    <StageBoardShell
+      main={<StageBoardLayout {...stageBoardLayoutSlots} />}
+      overlays={<StageBoardBodyOverlays {...stageBoardOverlaysProps} />}
     />
-    {floorTextInlineRect && floorTextEditId === floorTextInlineRect.id ? (
-      <FloorTextInlineEditPortal
-        layout={{
-          left: floorTextInlineRect.left,
-          top: floorTextInlineRect.top,
-          width: floorTextInlineRect.width,
-          height: floorTextInlineRect.height,
-        }}
-        value={floorTextDraft.body}
-        onValueChange={(body) => {
-          setFloorTextDraft((d) => ({ ...d, body }));
-          const id = floorTextInlineRect.id;
-          updateActiveFormation((f) => ({
-            ...f,
-            floorMarkup: (f.floorMarkup ?? []).map((x) =>
-              x.id === id && x.kind === "text"
-                ? { ...x, text: body.slice(0, 400) }
-                : x
-            ),
-          }));
-        }}
-        fontSizePx={floorTextDraft.fontSizePx}
-        fontWeight={floorTextDraft.fontWeight}
-        fontFamily={floorTextDraft.fontFamily}
-        textColor={floorTextDraftColorHex(floorTextDraft.color)}
-        markupScale={floorTextInlineMarkupScale}
-        onRequestClose={() => setFloorMarkupTool(null)}
-      />
-    ) : null}
-    <TrashDropStripPortal
-      open={showTrashDrop}
-      trashHot={trashHot}
-      dockRef={trashDockViewportRef}
-    />
-    <DancerQuickEditDialog
-      open={Boolean(dancerQuickEditId && quickEditDancerForDialog)}
-      dancer={quickEditDancerForDialog}
-      viewMode={viewMode}
-      onClose={() => setDancerQuickEditId(null)}
-      onApply={applyDancerQuickEdit}
-    />
-    </>
   );
 }
 

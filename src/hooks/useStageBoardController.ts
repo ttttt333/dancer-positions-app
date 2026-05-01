@@ -1,3 +1,6 @@
+/**
+ * @file `StageBoardBody` 用コントローラ束: 再生・`project` 派生・床寸法／マーカー px・床マークツール。レイアウト下書きは `useStageBoardLayoutAfterDraft`。
+ */
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import type { StageBoardBodyProps } from "../components/stageBoardTypes";
 import { useStageBoardFloorMarkupTool } from "./useStageBoardFloorMarkupTool";

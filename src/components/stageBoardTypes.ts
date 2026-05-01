@@ -1,11 +1,52 @@
-import type { Dispatch, SetStateAction } from "react";
+/**
+ * @file ステージボード関連の公開型。`StageBoard` barrel・`StageBoardBody`・`buildStageBoardExportColumn*` の入力契約をここに寄せる。
+ */
+import type { Dispatch, ReactNode, RefObject, SetStateAction } from "react";
 import type {
   ChoreographyProjectJson,
   DancerSpot,
   FloorTextPlaceSession,
+  Formation,
   SetPiece,
   StageFloorMarkup,
 } from "../types/choreography";
+import type { DancerQuickEditApply } from "./DancerQuickEditDialog";
+import type { FloorTextDraftPayload } from "./FloorTextMarkupBlock";
+
+/** `StageBoardLayout` に渡す3スロット（screen オーバーレイ・メイン列・ステージ上コンテキストメニュー） */
+export type StageBoardLayoutSlots = {
+  screenOverlay: ReactNode;
+  mainColumn: ReactNode;
+  stageContextMenu: ReactNode;
+};
+
+/** 床テキストその場編集の画面上矩形（`StageBoardBodyOverlays` と共有） */
+export type StageBoardFloorTextInlineRect = {
+  id: string;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+
+/** レイアウト外ポータル／ダイアログ（`StageBoardBodyOverlays`）へ渡す束 */
+export type StageBoardBodyOverlaysProps = {
+  floorTextInlineRect: StageBoardFloorTextInlineRect | null;
+  floorTextEditId: string | null;
+  floorTextDraft: FloorTextDraftPayload;
+  setFloorTextDraft: Dispatch<SetStateAction<FloorTextDraftPayload>>;
+  floorTextInlineMarkupScale: number;
+  updateActiveFormation: (updater: (f: Formation) => Formation) => void;
+  onFloorTextInlineRequestClose: () => void;
+  showTrashDrop: boolean;
+  trashHot: boolean;
+  trashDockViewportRef: RefObject<HTMLDivElement | null>;
+  dancerQuickEditId: string | null;
+  quickEditDancerForDialog: DancerSpot | null;
+  viewMode: "edit" | "view";
+  onCloseQuickEdit: () => void;
+  onApplyQuickEdit: (patch: DancerQuickEditApply) => void;
+};
 
 /** 床にコメント／線を描く／消すツール。未選択は `null`。 */
 export type StageFloorMarkupTool = null | "text" | "line" | "erase";
@@ -66,3 +107,6 @@ export type StageBoardBodyProps = {
     | { kind: "all" }
     | { kind: "one"; crewMemberId: string; label: string };
 };
+
+export type { BuildStageBoardExportColumnInput } from "../lib/buildStageBoardExportColumnProps";
+export type { BuildStageBoardMainFloorParams } from "../lib/buildStageBoardMainFloor";

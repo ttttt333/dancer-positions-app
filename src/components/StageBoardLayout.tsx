@@ -1,11 +1,6 @@
-import type { ReactNode } from "react";
+import type { StageBoardLayoutSlots } from "./stageBoardTypes";
 
-export type StageBoardLayoutProps = {
-  screenOverlay: ReactNode;
-  mainColumn: ReactNode;
-  /** ステージ上の右クリックメニュー（不要なら `null`） */
-  stageContextMenu: ReactNode;
-};
+export type StageBoardLayoutProps = StageBoardLayoutSlots;
 
 /**
  * ステージボードの見た目レイヤー: screen オーバーレイ・メイン列・コンテキストメニュー。
