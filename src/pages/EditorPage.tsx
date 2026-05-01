@@ -2933,6 +2933,7 @@ export function EditorPage({
             maxWidth: "100%",
             overflow: "hidden",
             backgroundColor: "#020617",
+            overscrollBehaviorY: "contain",
           }
         : {},
     [mobileStackEditor]
@@ -2942,10 +2943,10 @@ export function EditorPage({
     () =>
       mobileStackEditor
         ? {
-            /** 波形帯の分を残しつつステージをできるだけ大きく */
-            flex: "2 1 0",
-            minHeight: "min(46dvh, 420px)",
-            maxHeight: "min(78dvh, 900px)",
+            /** 波形帯・ツール列の余白を残してステージを最大化 */
+            flex: "3 1 0",
+            minHeight: "min(46dvh, 400px)",
+            maxHeight: "min(68dvh, calc(100dvh - 230px))",
             position: "relative",
             borderBottom: "1px solid #1e293b",
             borderRight: "none",
@@ -2964,11 +2965,13 @@ export function EditorPage({
             minHeight: 0,
             overflowY: "auto",
             WebkitOverflowScrolling: "touch",
-            padding: "10px",
+            overscrollBehaviorY: "contain",
+            padding:
+              "6px max(8px, env(safe-area-inset-right, 0px)) max(10px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px))",
             backgroundColor: "#0f172a",
             display: "flex",
             flexDirection: "column",
-            gap: 10,
+            gap: 8,
           }
         : {},
     [mobileStackEditor]
@@ -3199,7 +3202,12 @@ export function EditorPage({
 
   return (
     <div
-      className={choreoPublicView ? "choreo-public-view-root" : undefined}
+      className={[
+        choreoPublicView ? "choreo-public-view-root" : "editor-page-root",
+        mobileStackEditor ? "editor-page-root--mobile-editor" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       style={{
         width: "100%",
         maxWidth: "100vw",
@@ -3223,13 +3231,15 @@ export function EditorPage({
       {playbackAudioElement}
       {!choreoPublicView ? (
       <header
+        className={mobileStackEditor ? "editor-page-header--mobile" : undefined}
         style={{
           display: "flex",
           flexWrap: "wrap",
-          gap: "8px",
+          gap: mobileStackEditor ? "6px" : "8px",
           alignItems: "center",
-          padding:
-            "max(4px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) 4px max(8px, env(safe-area-inset-left, 0px))",
+          padding: mobileStackEditor
+            ? "max(2px, env(safe-area-inset-top, 0px)) max(6px, env(safe-area-inset-right, 0px)) 2px max(6px, env(safe-area-inset-left, 0px))"
+            : "max(4px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) 4px max(8px, env(safe-area-inset-left, 0px))",
           borderBottom: `1px solid ${shell.border}`,
           background: shell.bgChrome,
           minHeight: 0,
@@ -3244,12 +3254,13 @@ export function EditorPage({
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
-            width: 32,
-            height: 32,
+            width: mobileStackEditor ? 40 : 32,
+            height: mobileStackEditor ? 40 : 32,
             flexShrink: 0,
             textDecoration: "none",
             borderRadius: 8,
             color: shell.textMuted,
+            touchAction: "manipulation",
           }}
         >
           {/** 「く」の向きを反転した一本の角括弧（戻る） */}
@@ -3267,11 +3278,12 @@ export function EditorPage({
           </span>
         </Link>
         <ChoreoCoreLogo
-          height={40}
+          height={mobileStackEditor ? 32 : 40}
           title="ChoreoCore"
-          style={{ flexShrink: 0, marginLeft: 4 }}
+          style={{ flexShrink: 0, marginLeft: mobileStackEditor ? 2 : 4 }}
         />
         <div style={{ flex: "1 1 auto", minWidth: 8 }} aria-hidden />
+        {!mobileStackEditor ? (
         <label
           style={{
             display: "inline-flex",
@@ -3329,6 +3341,7 @@ export function EditorPage({
             }}
           />
         </label>
+        ) : null}
       </header>
       ) : null}
 
@@ -3356,8 +3369,9 @@ export function EditorPage({
             ? {
                 ...dynamicContainerStyle,
                 gap: 0,
-                padding:
-                  "4px max(6px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
+                padding: mobileStackEditor
+                  ? "2px max(4px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px))"
+                  : "4px max(6px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
                 marginTop: 0,
               }
             : {
@@ -3435,7 +3449,7 @@ export function EditorPage({
           ref={stageSectionRef}
           style={{
             ...panelCard,
-            padding: "5px",
+            padding: mobileStackEditor ? "3px 4px" : "5px",
             minHeight: 0,
             minWidth: 0,
             position: "relative",
@@ -3765,9 +3779,9 @@ export function EditorPage({
                     alignSelf: "stretch",
                     width: "100%",
                     maxWidth: "100%",
-                    flex: "0 0 min(28dvh, 210px)",
-                    maxHeight: "min(32dvh, 260px)",
-                    minHeight: "min(22dvh, 140px)",
+                    flex: "0 0 clamp(118px, 26dvh, 200px)",
+                    maxHeight: "min(30dvh, 220px)",
+                    minHeight: "min(22dvh, 132px)",
                     flexShrink: 0,
                     padding: rosterOnlyMode ? "6px 8px" : "6px 8px",
                     borderTop: "1px solid #1e293b",
@@ -5307,8 +5321,8 @@ export function EditorPage({
 
       <style>{`
         @media (max-width: 1279px) {
-          /* 閲覧ナローはインラインの 2 行グリッド（ステージ優先）を維持するため除外 */
-          .editor-three-pane:not(.editor-three-pane--public-narrow) {
+          /* 閲覧ナロー・スマホ縦積み編集は除外（それぞれ専用レイアウト） */
+          .editor-three-pane:not(.editor-three-pane--public-narrow):not(.editor-mobile-stack) {
             grid-template-columns: 1fr !important;
             grid-template-rows: auto auto auto !important;
             overscroll-behavior: contain;

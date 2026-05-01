@@ -317,6 +317,31 @@ body {
   flex-shrink: 0;
 }
 
+/* 編集ページ（EditorPage）: ルート・スマホ縦積み */
+.editor-page-root {
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
+}
+
+.editor-page-root--mobile-editor {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.editor-mobile-stack {
+  display: flex !important;
+  flex-direction: column !important;
+  flex-wrap: nowrap !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.editor-mobile-stack > * {
+  min-width: 0;
+}
+
+.editor-page-header--mobile {
+  flex-wrap: nowrap;
+}
+
 /* モバイル編集レイアウトデモ（MobileFormationEditorLayout） */
 .mobile-formation-editor-root {
   -webkit-tap-highlight-color: transparent;
