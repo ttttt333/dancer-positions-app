@@ -7,7 +7,7 @@ import {
   type SetStateAction,
 } from "react";
 import { playbackEngine } from "../core/playbackEngine";
-import type { TimelinePanelHandle } from "../components/TimelinePanel";
+import type { TimelinePanelHandle } from "../components/timelinePanelTypes";
 
 type Params = {
   ref: Ref<TimelinePanelHandle>;

@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react";
-import type { TimelinePanelHandle } from "../components/TimelinePanel";
+import type { TimelinePanelHandle } from "../components/timelinePanelTypes";
 
 /**
  * タイムラインの imperative API（波形・音源インポート）を Editor から束ねる。
