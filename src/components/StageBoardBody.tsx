@@ -3,13 +3,7 @@ import type {
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
 } from "react";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   ChoreographyProjectJson,
   DancerSpot,
@@ -42,9 +36,7 @@ import {
   DANCER_STAGE_POSITION_PCT_LO,
   snapXPctToCenterDistanceMmGrid,
 } from "../lib/dancerSpacing";
-import {
-  resolveArrangeTargetIds,
-} from "../lib/stageSelectionArrange";
+import { resolveArrangeTargetIds } from "../lib/stageSelectionArrange";
 import type { DancerQuickEditApply } from "./DancerQuickEditDialog";
 import {
   FloorTextMarkupBlock,
@@ -63,9 +55,7 @@ import { StageBoardBodyOverlays } from "./StageBoardBodyOverlays";
 import { StageBoardBulkColorToolbar } from "./StageBoardBulkColorToolbar";
 import { StageBoardBulkToolbarSlot } from "./StageBoardBulkToolbarSlot";
 import { StageBoardStageFrame } from "./StageBoardStageFrame";
-import {
-  type StageResizeHandleId,
-} from "./StageResizeHandles";
+import { type StageResizeHandleId } from "./StageResizeHandles";
 import type { StageExportRootColumnProps } from "./StageExportRootColumn";
 import { shell } from "../theme/choreoShell";
 import {
@@ -223,7 +213,9 @@ export function StageBoardBody({
   }>({ x: null, y: null });
 
   /** ダブルクリックで開くメンバー編集ダイアログの対象ダンサー id */
-  const [dancerQuickEditId, setDancerQuickEditId] = useState<string | null>(null);
+  const [dancerQuickEditId, setDancerQuickEditId] = useState<string | null>(
+    null,
+  );
   /**
    * ステージ上で選択中のダンサー ID（複数可）。
    * - 1 件なら Alt+矢印で微移動できる（従来の microNudgeDancerId の役割）。
@@ -231,7 +223,9 @@ export function StageBoardBody({
    * - 1 件以上なら代表ダンサーの右下に小さなハンドルが出て、○の直径を変更できる。
    */
   const [selectedDancerIds, setSelectedDancerIds] = useState<string[]>([]);
-  const [selectedSetPieceId, setSelectedSetPieceId] = useState<string | null>(null);
+  const [selectedSetPieceId, setSelectedSetPieceId] = useState<string | null>(
+    null,
+  );
   /** 設置済み床テキストのドラッグ移動 */
   const floorMarkupTextDragRef = useRef<{
     id: string;
@@ -247,7 +241,9 @@ export function StageBoardBody({
    */
   const floorTextTapOrDragRef = useRef<FloorTextTapOrDragPayload | null>(null);
   /** 床テキスト枠の角ドラッグで scale を変える */
-  const floorTextResizeDragRef = useRef<FloorTextResizeDragPayload | null>(null);
+  const floorTextResizeDragRef = useRef<FloorTextResizeDragPayload | null>(
+    null,
+  );
   /** 置き場所プレビューをドラッグ中 */
   const floorTextPlaceDragRef = useRef<{
     startClientX: number;
@@ -257,11 +253,15 @@ export function StageBoardBody({
     session: FloorTextPlaceSession;
   } | null>(null);
   /** 床テキストツール：入力内容と次に置くときの書式 */
-  const [floorTextDraft, setFloorTextDraft] = useState({ ...EMPTY_FLOOR_TEXT_DRAFT });
+  const [floorTextDraft, setFloorTextDraft] = useState({
+    ...EMPTY_FLOOR_TEXT_DRAFT,
+  });
   /** 選択中の床テキスト id（スライダー・本文はこの項目を更新、空床クリックで移動） */
   const [floorTextEditId, setFloorTextEditId] = useState<string | null>(null);
   /** 角枠表示のみ（シングルタップ）。ダブルクリックでインライン編集 */
-  const [selectedFloorTextId, setSelectedFloorTextId] = useState<string | null>(null);
+  const [selectedFloorTextId, setSelectedFloorTextId] = useState<string | null>(
+    null,
+  );
   /** ダブルクリックでその場編集するテキストの画面上位置 */
   const [floorTextInlineRect, setFloorTextInlineRect] = useState<{
     id: string;
@@ -277,20 +277,17 @@ export function StageBoardBody({
     curXPct: number;
     curYPct: number;
   } | null>(null);
-  const marqueeSessionRef = useRef<
-    | {
-        startClientX: number;
-        startClientY: number;
-        startXPct: number;
-        startYPct: number;
-        floorWpx: number;
-        floorHpx: number;
-        additive: boolean;
-        baseIds: string[];
-        movedPx: number;
-      }
-    | null
-  >(null);
+  const marqueeSessionRef = useRef<{
+    startClientX: number;
+    startClientY: number;
+    startXPct: number;
+    startYPct: number;
+    floorWpx: number;
+    floorHpx: number;
+    additive: boolean;
+    baseIds: string[];
+    movedPx: number;
+  } | null>(null);
   /** 複数ダンサー選択時の群移動／群スケール操作セッション */
   const groupDragRef = useRef<
     | {
@@ -319,15 +316,12 @@ export function StageBoardBody({
    * 代表ダンサーの右下ハンドルで、選択中のダンサー群の○サイズ（px）を変更するセッション。
    * 開始時点の各ダンサーのサイズを覚えておき、ポインタ移動量に応じて全員を同じ差分で動かす。
    */
-  const markerResizeRef = useRef<
-    | {
-        startClientX: number;
-        startClientY: number;
-        startSizes: Map<string, number>;
-        ids: string[];
-      }
-    | null
-  >(null);
+  const markerResizeRef = useRef<{
+    startClientX: number;
+    startClientY: number;
+    startSizes: Map<string, number>;
+    ids: string[];
+  } | null>(null);
   /** サイズドラッグ中は選択中ダンサー ID → 仮の直径 px を保持してライブプレビュー */
   const [markerDiamDraft, setMarkerDiamDraft] = useState<Map<
     string,
@@ -341,19 +335,16 @@ export function StageBoardBody({
     string,
     number
   > | null>(null);
-  const markerRotateRef = useRef<
-    | {
-        centerClientX: number;
-        centerClientY: number;
-        startPointerAngle: number;
-        startFacings: Map<string, number>;
-        ids: string[];
-        /** 2 人以上＋選択枠あり：位置もまとめて回す。1 人は向きのみ。 */
-        mode: "facing" | "groupRigid";
-        startPositions?: Map<string, { xPct: number; yPct: number }>;
-      }
-    | null
-  >(null);
+  const markerRotateRef = useRef<{
+    centerClientX: number;
+    centerClientY: number;
+    startPointerAngle: number;
+    startFacings: Map<string, number>;
+    ids: string[];
+    /** 2 人以上＋選択枠あり：位置もまとめて回す。1 人は向きのみ。 */
+    mode: "facing" | "groupRigid";
+    startPositions?: Map<string, { xPct: number; yPct: number }>;
+  } | null>(null);
   /** `markerFacingDraft` と同内容をポインターアップで確実に読むため */
   const markerFacingDraftRef = useRef<Map<string, number> | null>(null);
   /**
@@ -375,43 +366,40 @@ export function StageBoardBody({
    * 画面中心座標・回転角・CSS 軸サイズ・反対コーナーのアンカー位置（CSS座標）を
    * 開始時点で記録し、ポインタ位置を CSS 軸上に戻してから新寸法を計算する。
    */
-  const stageResizeRef = useRef<
-    | {
-        /**
-         * ハンドルの種類。
-         * - "nw" / "ne" / "se" / "sw" … 四隅。横・奥の両方を同時に変更。
-         * - "n" / "s" … 上下の辺。奥行き（Dmm）のみ変更。
-         * - "e" / "w" … 左右の辺。横幅（Wmm）のみ変更。
-         */
-        handle: "nw" | "ne" | "se" | "sw" | "n" | "s" | "e" | "w";
-        /** 画面上のステージ中心（drag 開始時点） */
-        cx: number;
-        cy: number;
-        /** 回転角（度）。audienceEdge から算出した rot をそのまま使う */
-        rotDeg: number;
-        /** アンカー（対角コーナー）の CSS 座標系での位置（中心基準） */
-        anchorCssX: number;
-        anchorCssY: number;
-        /** 開始時点の要素 CSS 幅・高さ（px、回転前の axis） */
-        W0css: number;
-        H0css: number;
-        /** 開始時点の外枠寸法（mm）と側方/奥方の mm */
-        outerWmm0: number;
-        outerDmm0: number;
-        Smm: number;
-        Bmm: number;
-      }
-    | null
-  >(null);
+  const stageResizeRef = useRef<{
+    /**
+     * ハンドルの種類。
+     * - "nw" / "ne" / "se" / "sw" … 四隅。横・奥の両方を同時に変更。
+     * - "n" / "s" … 上下の辺。奥行き（Dmm）のみ変更。
+     * - "e" / "w" … 左右の辺。横幅（Wmm）のみ変更。
+     */
+    handle: "nw" | "ne" | "se" | "sw" | "n" | "s" | "e" | "w";
+    /** 画面上のステージ中心（drag 開始時点） */
+    cx: number;
+    cy: number;
+    /** 回転角（度）。audienceEdge から算出した rot をそのまま使う */
+    rotDeg: number;
+    /** アンカー（対角コーナー）の CSS 座標系での位置（中心基準） */
+    anchorCssX: number;
+    anchorCssY: number;
+    /** 開始時点の要素 CSS 幅・高さ（px、回転前の axis） */
+    W0css: number;
+    H0css: number;
+    /** 開始時点の外枠寸法（mm）と側方/奥方の mm */
+    outerWmm0: number;
+    outerDmm0: number;
+    Smm: number;
+    Bmm: number;
+  } | null>(null);
   /** コーナーリサイズの最新 mm（rAF で state に反映するため）。ポインタアップで確定にも使う。 */
   const stageResizeLastMmRef = useRef<{ w: number; d: number } | null>(null);
   /** setStageResizeDraft を 1 フレームにまとめ、ドラッグ中の過剰再レンダーを防ぐ */
   const stageResizeDraftRafRef = useRef<number | null>(null);
   /** ステージ枠ドラッグ中のライブプレビュー値（コミット前の W/D）。 */
-  const [stageResizeDraft, setStageResizeDraft] = useState<
-    | { stageWidthMm: number; stageDepthMm: number }
-    | null
-  >(null);
+  const [stageResizeDraft, setStageResizeDraft] = useState<{
+    stageWidthMm: number;
+    stageDepthMm: number;
+  } | null>(null);
   const {
     rot,
     effStageWidthMm,
@@ -449,14 +437,20 @@ export function StageBoardBody({
     (d: DancerSpot) => {
       const draft = markerDiamDraft?.get(d.id);
       if (typeof draft === "number" && Number.isFinite(draft)) {
-        return Math.max(MARKER_PX_MIN, Math.min(MARKER_PX_MAX, Math.round(draft)));
+        return Math.max(
+          MARKER_PX_MIN,
+          Math.min(MARKER_PX_MAX, Math.round(draft)),
+        );
       }
       if (typeof d.sizePx === "number" && Number.isFinite(d.sizePx)) {
-        return Math.max(MARKER_PX_MIN, Math.min(MARKER_PX_MAX, Math.round(d.sizePx)));
+        return Math.max(
+          MARKER_PX_MIN,
+          Math.min(MARKER_PX_MAX, Math.round(d.sizePx)),
+        );
       }
       return baseMarkerPx;
     },
-    [markerDiamDraft, baseMarkerPx]
+    [markerDiamDraft, baseMarkerPx],
   );
 
   /** 回転ドラッグ中はドラフト、それ以外は `facingDeg`（未設定は 0）。 */
@@ -470,7 +464,7 @@ export function StageBoardBody({
           : 0;
       return raw;
     },
-    [markerFacingDraft]
+    [markerFacingDraft],
   );
 
   /** ゴミ箱ドロップゾーン上でダンサーをドラッグ中 */
@@ -481,11 +475,13 @@ export function StageBoardBody({
   /**
    * ドラッグ開始時点の座標を薄く重ね表示（ポインタアップで消える）。
    */
-  const [dragGhostById, setDragGhostById] = useState<
-    Map<string, { xPct: number; yPct: number }> | null
-  >(null);
+  const [dragGhostById, setDragGhostById] = useState<Map<
+    string,
+    { xPct: number; yPct: number }
+  > | null>(null);
   /** ステージ上の右クリックメニュー（ダンサー / 床テキスト / 大道具） */
-  const [stageContextMenu, setStageContextMenu] = useState<StageBoardContextMenuState>(null);
+  const [stageContextMenu, setStageContextMenu] =
+    useState<StageBoardContextMenuState>(null);
   /**
    * ステージ直下の「選択中の色」一括ツールバー。
    * 左クリックで選んだだけでは出さず、ステージ上のダンサーを右クリックしたあとだけ表示する。
@@ -562,12 +558,12 @@ export function StageBoardBody({
 
   const activeFormation = useMemo(
     () => formations.find((f) => f.id === activeFormationId),
-    [formations, activeFormationId]
+    [formations, activeFormationId],
   );
 
   const writeFormation = useMemo(
     () => formations.find((f) => f.id === formationIdForWrites),
-    [formations, formationIdForWrites]
+    [formations, formationIdForWrites],
   );
 
   const displayDancers =
@@ -594,32 +590,32 @@ export function StageBoardBody({
    */
   const stageDancersForLookup = useMemo(
     () => writeFormation?.dancers ?? activeFormation?.dancers ?? [],
-    [writeFormation?.dancers, activeFormation?.dancers]
+    [writeFormation?.dancers, activeFormation?.dancers],
   );
   const stageDancerById = useMemo(
     () => new Map(stageDancersForLookup.map((d) => [d.id, d] as const)),
-    [stageDancersForLookup]
+    [stageDancersForLookup],
   );
   const stageDancerIndexById = useMemo(
     () => new Map(stageDancersForLookup.map((d, i) => [d.id, i] as const)),
-    [stageDancersForLookup]
+    [stageDancersForLookup],
   );
 
   const displaySetPieces: SetPiece[] =
     previewDancers != null && previewDancers.length > 0
-      ? writeFormation?.setPieces ?? []
-      : playbackSetPieces ??
+      ? (writeFormation?.setPieces ?? [])
+      : (playbackSetPieces ??
         browseSetPieces ??
         writeFormation?.setPieces ??
-        [];
+        []);
 
   const displayFloorMarkup: StageFloorMarkup[] =
     previewDancers != null && previewDancers.length > 0
-      ? writeFormation?.floorMarkup ?? []
-      : playbackFloorMarkup ??
+      ? (writeFormation?.floorMarkup ?? [])
+      : (playbackFloorMarkup ??
         browseFloorMarkup ??
         writeFormation?.floorMarkup ??
-        [];
+        []);
 
   const screenFloorTexts = useMemo((): StageFloorTextMarkup[] => {
     const out: StageFloorTextMarkup[] = [];
@@ -631,11 +627,11 @@ export function StageBoardBody({
 
   const stageSetPieces = useMemo(
     () => displaySetPieces.filter((p) => setPieceLayer(p) === "stage"),
-    [displaySetPieces]
+    [displaySetPieces],
   );
   const screenSetPieces = useMemo(
     () => displaySetPieces.filter((p) => setPieceLayer(p) === "screen"),
-    [displaySetPieces]
+    [displaySetPieces],
   );
 
   /** 床テキストのその場編集 textarea は親の scale と見た目を揃える */
@@ -643,24 +639,68 @@ export function StageBoardBody({
     const id = floorTextInlineRect?.id;
     if (!id) return 1;
     const mk = displayFloorMarkup.find(
-      (x): x is StageFloorTextMarkup => x.kind === "text" && x.id === id
+      (x): x is StageFloorTextMarkup => x.kind === "text" && x.id === id,
     );
     return mk ? floorTextMarkupScale(mk) : 1;
   }, [displayFloorMarkup, floorTextInlineRect?.id]);
 
   const playbackOrPreview = Boolean(playbackDancers || previewDancers);
+
+  /** 選択中ダンサーを囲む bounding box（pct 単位）。2 件以上で表示。`handlePointerDownMarkerRotate` 等が依存するため早期に定義する。 */
+  const selectionBox = useMemo(() => {
+    if (playbackOrPreview) return null;
+    if (viewMode === "view") return null;
+    const ids = selectedDancerIds;
+    if (ids.length < 2) return null;
+    const ds = (
+      writeFormation?.dancers ??
+      activeFormation?.dancers ??
+      []
+    ).filter((x) => ids.includes(x.id));
+    if (ds.length < 2) return null;
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (const d of ds) {
+      const ox = markerGroupPosDraft?.get(d.id)?.xPct ?? d.xPct;
+      const oy = markerGroupPosDraft?.get(d.id)?.yPct ?? d.yPct;
+      if (ox < x0) x0 = ox;
+      if (oy < y0) y0 = oy;
+      if (ox > x1) x1 = ox;
+      if (oy > y1) y1 = oy;
+    }
+    if (
+      !Number.isFinite(x0) ||
+      !Number.isFinite(y0) ||
+      !Number.isFinite(x1) ||
+      !Number.isFinite(y1)
+    )
+      return null;
+    return { x0, y0, x1, y1 };
+  }, [
+    selectedDancerIds,
+    writeFormation,
+    activeFormation,
+    playbackOrPreview,
+    viewMode,
+    markerGroupPosDraft,
+  ]);
+
   /**
    * 客席帯・床下の場ミリ数字・翼の印は、閲覧・再生・客席を上にした回転でも欠けないよう、
    * ステージ周りの親は overflow visible（旧: 再生中に hidden にして帯が切れる不具合があった）。
    */
 
   const setPiecesEditable =
-    viewMode !== "view" &&
-    stageInteractionsEnabled &&
-    !playbackOrPreview;
+    viewMode !== "view" && stageInteractionsEnabled && !playbackOrPreview;
 
   const updateActiveFormation = useCallback(
-    (updater: (f: NonNullable<typeof writeFormation>) => NonNullable<typeof writeFormation>) => {
+    (
+      updater: (
+        f: NonNullable<typeof writeFormation>,
+      ) => NonNullable<typeof writeFormation>,
+    ) => {
       if (
         !writeFormation ||
         viewMode === "view" ||
@@ -670,11 +710,17 @@ export function StageBoardBody({
       setProject((p) => ({
         ...p,
         formations: p.formations.map((f) =>
-          f.id === formationIdForWrites ? updater(f) : f
+          f.id === formationIdForWrites ? updater(f) : f,
         ),
       }));
     },
-    [writeFormation, formationIdForWrites, setProject, viewMode, stageInteractionsEnabled]
+    [
+      writeFormation,
+      formationIdForWrites,
+      setProject,
+      viewMode,
+      stageInteractionsEnabled,
+    ],
   );
 
   useEffect(() => {
@@ -697,7 +743,8 @@ export function StageBoardBody({
     const root = viewportTextOverlayRoot;
     const sess = floorTextPlaceSession;
     const onChange = onFloorTextPlaceSessionChange;
-    if (!sess || !onChange || !root || !setPiecesEditable || !writeFormation) return;
+    if (!sess || !onChange || !root || !setPiecesEditable || !writeFormation)
+      return;
     const onPointerDownCapture = (e: PointerEvent) => {
       if (e.button !== 0) return;
       const t = e.target;
@@ -705,7 +752,7 @@ export function StageBoardBody({
       if (!root.contains(t)) return;
       if (
         t.closest(
-          "button, input, textarea, select, option, a[href], [role='dialog'], [role='menu'], [data-floor-text-place-preview], [data-floor-text-box], [data-floor-markup]"
+          "button, input, textarea, select, option, a[href], [role='dialog'], [role='menu'], [data-floor-text-place-preview], [data-floor-text-box], [data-floor-markup]",
         )
       )
         return;
@@ -713,8 +760,12 @@ export function StageBoardBody({
       const r = root.getBoundingClientRect();
       if (r.width <= 0 || r.height <= 0) return;
       e.preventDefault();
-      const xPct = round2(clamp(((e.clientX - r.left) / r.width) * 100, 0, 100));
-      const yPct = round2(clamp(((e.clientY - r.top) / r.height) * 100, 0, 100));
+      const xPct = round2(
+        clamp(((e.clientX - r.left) / r.width) * 100, 0, 100),
+      );
+      const yPct = round2(
+        clamp(((e.clientY - r.top) / r.height) * 100, 0, 100),
+      );
       onChange({ ...sess, xPct, yPct });
     };
     window.addEventListener("pointerdown", onPointerDownCapture, true);
@@ -755,7 +806,7 @@ export function StageBoardBody({
         floorMarkup: (f.floorMarkup ?? []).filter((x) => x.id !== id),
       }));
     },
-    [writeFormation, setPiecesEditable, updateActiveFormation]
+    [writeFormation, setPiecesEditable, updateActiveFormation],
   );
 
   const handleFloorTextMarkupContextMenu = useCallback(
@@ -767,7 +818,7 @@ export function StageBoardBody({
         markupId,
       });
     },
-    []
+    [],
   );
 
   const handleFloorTextSelectMarkupTool = useCallback(
@@ -776,11 +827,15 @@ export function StageBoardBody({
       setSelectedFloorTextId(markupId);
       setFloorTextDraft(draft);
     },
-    []
+    [],
   );
 
   const handleFloorTextDoubleClickInline = useCallback(
-    (m: StageFloorTextMarkup, bounds: DOMRect, draft: FloorTextDraftPayload) => {
+    (
+      m: StageFloorTextMarkup,
+      bounds: DOMRect,
+      draft: FloorTextDraftPayload,
+    ) => {
       setFloorTextInlineRect({
         id: m.id,
         left: bounds.left,
@@ -793,7 +848,7 @@ export function StageBoardBody({
       setSelectedFloorTextId(m.id);
       setFloorTextDraft(draft);
     },
-    [setFloorMarkupTool]
+    [setFloorMarkupTool],
   );
 
   const handleFloorTextColorUpdate = useCallback(
@@ -801,11 +856,11 @@ export function StageBoardBody({
       updateActiveFormation((f) => ({
         ...f,
         floorMarkup: (f.floorMarkup ?? []).map((x) =>
-          x.id === id && x.kind === "text" ? { ...x, color } : x
+          x.id === id && x.kind === "text" ? { ...x, color } : x,
         ),
       }));
     },
-    [updateActiveFormation]
+    [updateActiveFormation],
   );
 
   const handleFloorTextFontFamilyUpdate = useCallback(
@@ -813,11 +868,11 @@ export function StageBoardBody({
       updateActiveFormation((f) => ({
         ...f,
         floorMarkup: (f.floorMarkup ?? []).map((x) =>
-          x.id === id && x.kind === "text" ? { ...x, fontFamily } : x
+          x.id === id && x.kind === "text" ? { ...x, fontFamily } : x,
         ),
       }));
     },
-    [updateActiveFormation]
+    [updateActiveFormation],
   );
 
   const floorTextMarkupSharedProps = useMemo(
@@ -856,7 +911,7 @@ export function StageBoardBody({
       handleFloorTextDoubleClickInline,
       handleFloorTextColorUpdate,
       handleFloorTextFontFamilyUpdate,
-    ]
+    ],
   );
 
   const handleFloorTextPlacePreviewPointerDown = useCallback(
@@ -874,7 +929,7 @@ export function StageBoardBody({
         session: { ...floorTextPlaceSession },
       };
     },
-    [floorTextPlaceSession]
+    [floorTextPlaceSession],
   );
 
   const beginFloorLineDraw = useCallback(
@@ -897,10 +952,10 @@ export function StageBoardBody({
         if (Math.hypot(dx, dy) < 4) return;
         if (s.points.length >= 200) return;
         const nx = round2(
-          clamp(((ev.clientX - r.left) / r.width) * 100, 0, 100)
+          clamp(((ev.clientX - r.left) / r.width) * 100, 0, 100),
         );
         const ny = round2(
-          clamp(((ev.clientY - r.top) / r.height) * 100, 0, 100)
+          clamp(((ev.clientY - r.top) / r.height) * 100, 0, 100),
         );
         s.points.push([nx, ny]);
         s.lastClientX = ev.clientX;
@@ -938,7 +993,7 @@ export function StageBoardBody({
       window.addEventListener("pointerup", up);
       window.addEventListener("pointercancel", up);
     },
-    [writeFormation, setPiecesEditable, updateActiveFormation]
+    [writeFormation, setPiecesEditable, updateActiveFormation],
   );
 
   const removeDancerById = useCallback(
@@ -956,14 +1011,14 @@ export function StageBoardBody({
           formations: p.formations.map((f) =>
             f.id === formationIdForWrites
               ? { ...f, dancers: f.dancers.filter((x) => x.id !== dancerId) }
-              : f
+              : f,
           ),
         };
         if (spot) {
           next = syncRosterAfterRemovingLinkedMembersFromFirstCue(
             next,
             formationIdForWrites,
-            [spot]
+            [spot],
           );
         }
         return next;
@@ -978,7 +1033,7 @@ export function StageBoardBody({
       setProject,
       viewMode,
       stageInteractionsEnabled,
-    ]
+    ],
   );
 
   /** 選択（または右クリック対象）のメンバーを複製し、少しずらして追加。新しい印だけ選択する。 */
@@ -1007,10 +1062,18 @@ export function StageBoardBody({
           id: nid,
           label,
           xPct: round2(
-            clamp(d.xPct + 2.5, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI)
+            clamp(
+              d.xPct + 2.5,
+              DANCER_STAGE_POSITION_PCT_LO,
+              DANCER_STAGE_POSITION_PCT_HI,
+            ),
           ),
           yPct: round2(
-            clamp(d.yPct + 2.5, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI)
+            clamp(
+              d.yPct + 2.5,
+              DANCER_STAGE_POSITION_PCT_LO,
+              DANCER_STAGE_POSITION_PCT_HI,
+            ),
           ),
           crewMemberId: undefined,
           markerBadge: undefined,
@@ -1026,7 +1089,7 @@ export function StageBoardBody({
                 dancers: [...f.dancers, ...clones],
                 confirmedDancerCount: f.dancers.length + clones.length,
               }
-            : f
+            : f,
         ),
       }));
       setSelectedDancerIds(newIds);
@@ -1039,7 +1102,7 @@ export function StageBoardBody({
       viewMode,
       stageInteractionsEnabled,
       playbackOrPreview,
-    ]
+    ],
   );
 
   /**
@@ -1053,7 +1116,7 @@ export function StageBoardBody({
   const onStageCornerResizeDown = useCallback(
     (
       handle: "nw" | "ne" | "se" | "sw" | "n" | "s" | "e" | "w",
-      e: ReactPointerEvent<HTMLDivElement>
+      e: ReactPointerEvent<HTMLDivElement>,
     ) => {
       if (
         viewMode === "view" ||
@@ -1083,14 +1146,14 @@ export function StageBoardBody({
         handle === "ne" || handle === "se" || handle === "e"
           ? -W0css / 2
           : handle === "nw" || handle === "sw" || handle === "w"
-          ? W0css / 2
-          : 0;
+            ? W0css / 2
+            : 0;
       const anchorCssY =
         handle === "sw" || handle === "se" || handle === "s"
           ? -H0css / 2
           : handle === "nw" || handle === "ne" || handle === "n"
-          ? H0css / 2
-          : 0;
+            ? H0css / 2
+            : 0;
       const curW =
         stageWidthMm != null && stageWidthMm > 0 ? stageWidthMm : 12000;
       const curD =
@@ -1130,7 +1193,7 @@ export function StageBoardBody({
       stageDepthMm,
       sideStageMm,
       backStageMm,
-    ]
+    ],
   );
 
   /** ドラッグ中: ポインタ位置を CSS 軸へ戻し、対角アンカーからの距離で新寸法を算出。 */
@@ -1189,8 +1252,14 @@ export function StageBoardBody({
       const newOuterDmm = s.outerDmm0 * ratioH;
       let newW = Math.round(newOuterWmm - 2 * s.Smm);
       let newD = Math.round(newOuterDmm - s.Bmm);
-      newW = Math.min(STAGE_MAIN_FLOOR_MM_MAX, Math.max(STAGE_MAIN_FLOOR_MM_MIN, newW));
-      newD = Math.min(STAGE_MAIN_FLOOR_MM_MAX, Math.max(STAGE_MAIN_FLOOR_MM_MIN, newD));
+      newW = Math.min(
+        STAGE_MAIN_FLOOR_MM_MAX,
+        Math.max(STAGE_MAIN_FLOOR_MM_MIN, newW),
+      );
+      newD = Math.min(
+        STAGE_MAIN_FLOOR_MM_MAX,
+        Math.max(STAGE_MAIN_FLOOR_MM_MIN, newD),
+      );
       stageResizeLastMmRef.current = { w: newW, d: newD };
       if (stageResizeDraftRafRef.current !== null) return;
       stageResizeDraftRafRef.current = requestAnimationFrame(() => {
@@ -1198,11 +1267,9 @@ export function StageBoardBody({
         const p = stageResizeLastMmRef.current;
         if (!p) return;
         setStageResizeDraft((prev) =>
-          prev &&
-          prev.stageWidthMm === p.w &&
-          prev.stageDepthMm === p.d
+          prev && prev.stageWidthMm === p.w && prev.stageDepthMm === p.d
             ? prev
-            : { stageWidthMm: p.w, stageDepthMm: p.d }
+            : { stageWidthMm: p.w, stageDepthMm: p.d },
         );
       });
     };
@@ -1247,7 +1314,7 @@ export function StageBoardBody({
         return;
       const removeSet = new Set(dancerIds);
       const removedSpots = writeFormation.dancers.filter((x) =>
-        removeSet.has(x.id)
+        removeSet.has(x.id),
       );
       setProject((p) => {
         let next: ChoreographyProjectJson = {
@@ -1255,18 +1322,20 @@ export function StageBoardBody({
           formations: p.formations.map((f) =>
             f.id === formationIdForWrites
               ? { ...f, dancers: f.dancers.filter((x) => !removeSet.has(x.id)) }
-              : f
+              : f,
           ),
         };
         next = syncRosterAfterRemovingLinkedMembersFromFirstCue(
           next,
           formationIdForWrites,
-          removedSpots
+          removedSpots,
         );
         return next;
       });
       setSelectedDancerIds((ids) => ids.filter((id) => !removeSet.has(id)));
-      setDancerQuickEditId((id) => (id != null && removeSet.has(id) ? null : id));
+      setDancerQuickEditId((id) =>
+        id != null && removeSet.has(id) ? null : id,
+      );
       setStageContextMenu(null);
     },
     [
@@ -1275,12 +1344,16 @@ export function StageBoardBody({
       setProject,
       viewMode,
       stageInteractionsEnabled,
-    ]
+    ],
   );
 
   const removeSetPieceById = useCallback(
     (pieceId: string) => {
-      if (!writeFormation || viewMode === "view" || stageInteractionsEnabled === false)
+      if (
+        !writeFormation ||
+        viewMode === "view" ||
+        stageInteractionsEnabled === false
+      )
         return;
       updateActiveFormation((f) => ({
         ...f,
@@ -1289,7 +1362,7 @@ export function StageBoardBody({
       setSelectedSetPieceId((id) => (id === pieceId ? null : id));
       setStageContextMenu(null);
     },
-    [writeFormation, updateActiveFormation, viewMode, stageInteractionsEnabled]
+    [writeFormation, updateActiveFormation, viewMode, stageInteractionsEnabled],
   );
 
   const handlePointerDownSetPiece = useCallback(
@@ -1302,7 +1375,7 @@ export function StageBoardBody({
       const el = getSetPieceCoordRoot(
         piece,
         stageMainFloorRef.current,
-        viewportTextOverlayRoot
+        viewportTextOverlayRoot,
       );
       if (!el) return;
       const r = el.getBoundingClientRect();
@@ -1315,7 +1388,7 @@ export function StageBoardBody({
         offsetYPx: e.clientY - topPx,
       };
     },
-    [setPiecesEditable, stageMainFloorRef, viewportTextOverlayRoot]
+    [setPiecesEditable, stageMainFloorRef, viewportTextOverlayRoot],
   );
 
   const handlePointerDownSetPieceResize = useCallback(
@@ -1328,7 +1401,7 @@ export function StageBoardBody({
       const el = getSetPieceCoordRoot(
         piece,
         stageMainFloorRef.current,
-        viewportTextOverlayRoot
+        viewportTextOverlayRoot,
       );
       if (!el) return;
       const r = el.getBoundingClientRect();
@@ -1348,7 +1421,7 @@ export function StageBoardBody({
         floorHpx: r.height,
       };
     },
-    [setPiecesEditable, stageMainFloorRef, viewportTextOverlayRoot]
+    [setPiecesEditable, stageMainFloorRef, viewportTextOverlayRoot],
   );
 
   const handlePointerDownSetPieceRotate = useCallback(
@@ -1362,7 +1435,7 @@ export function StageBoardBody({
       const el = getSetPieceCoordRoot(
         piece,
         stageMainFloorRef.current,
-        viewportTextOverlayRoot
+        viewportTextOverlayRoot,
       );
       if (!el) return;
       const r = el.getBoundingClientRect();
@@ -1378,14 +1451,15 @@ export function StageBoardBody({
         centerClientY: cy,
       };
     },
-    [setPiecesEditable, stageMainFloorRef, viewportTextOverlayRoot]
+    [setPiecesEditable, stageMainFloorRef, viewportTextOverlayRoot],
   );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Delete" && e.key !== "Backspace") return;
       const t = e.target;
-      if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement) return;
+      if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement)
+        return;
       if (t instanceof HTMLElement && t.isContentEditable) return;
       if (!selectedSetPieceId || !setPiecesEditable) return;
       e.preventDefault();
@@ -1418,42 +1492,38 @@ export function StageBoardBody({
     const w = window.innerWidth;
     const h = window.innerHeight;
     const strip = trashViewportStripWidthPx(w);
-    return (
-      clientX >= 0 &&
-      clientX <= strip &&
-      clientY >= 0 &&
-      clientY <= h
-    );
+    return clientX >= 0 && clientX <= strip && clientY >= 0 && clientY <= h;
   }, []);
 
   const quantizeCoord = useCallback(
     (v: number, axis: "x" | "y", mode: SnapMode) => {
-      const c = clamp(v, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI);
+      const c = clamp(
+        v,
+        DANCER_STAGE_POSITION_PCT_LO,
+        DANCER_STAGE_POSITION_PCT_HI,
+      );
       if (mode === "free" || !snapGrid) return round2(c);
       if (mmSnapGrid) {
-        const base =
-          axis === "x" ? mmSnapGrid.stepXPct : mmSnapGrid.stepYPct;
-        const useStep =
-          mode === "fine" ? Math.max(0.05, base / 4) : base;
+        const base = axis === "x" ? mmSnapGrid.stepXPct : mmSnapGrid.stepYPct;
+        const useStep = mode === "fine" ? Math.max(0.05, base / 4) : base;
         return round2(
           clamp(
             Math.round(c / useStep) * useStep,
             DANCER_STAGE_POSITION_PCT_LO,
-            DANCER_STAGE_POSITION_PCT_HI
-          )
+            DANCER_STAGE_POSITION_PCT_HI,
+          ),
         );
       }
-      const step =
-        mode === "fine" ? Math.max(0.25, gridStep / 4) : gridStep;
+      const step = mode === "fine" ? Math.max(0.25, gridStep / 4) : gridStep;
       return round2(
         clamp(
           Math.round(c / step) * step,
           DANCER_STAGE_POSITION_PCT_LO,
-          DANCER_STAGE_POSITION_PCT_HI
-        )
+          DANCER_STAGE_POSITION_PCT_HI,
+        ),
       );
     },
-    [snapGrid, gridStep, mmSnapGrid]
+    [snapGrid, gridStep, mmSnapGrid],
   );
 
   const pointerToPctInRoot = useCallback(
@@ -1463,7 +1533,7 @@ export function StageBoardBody({
       clientY: number,
       shiftKey: boolean,
       /** ダンサー印のドラッグ時のみ true。大道具の移動では false のまま。 */
-      snapHorizontalCenter50mm = false
+      snapHorizontalCenter50mm = false,
     ) => {
       const r = rootEl.getBoundingClientRect();
       if (r.width < 1e-6 || r.height < 1e-6) return null;
@@ -1476,14 +1546,16 @@ export function StageBoardBody({
        * ダンサー移動時: センターからの水平距離が 5cm（50mm）刻みになるよう x を丸める。
        * Shift 押下時は抑止。大道具の移動では使わない。
        */
-      const widthMm = (stageResizeDraft?.stageWidthMm ?? stageWidthMm) ?? null;
+      const widthMm = stageResizeDraft?.stageWidthMm ?? stageWidthMm ?? null;
       if (
         snapHorizontalCenter50mm &&
         !shiftKey &&
         typeof widthMm === "number" &&
         widthMm > 0
       ) {
-        snappedX = round2(snapXPctToCenterDistanceMmGrid(snappedX, widthMm, 50));
+        snappedX = round2(
+          snapXPctToCenterDistanceMmGrid(snappedX, widthMm, 50),
+        );
       }
       return { xPct: snappedX, yPct: snappedY };
     },
@@ -1493,7 +1565,7 @@ export function StageBoardBody({
       stageWidthMm,
       mmSnapGrid,
       stageResizeDraft?.stageWidthMm,
-    ]
+    ],
   );
 
   const pxToPct = useCallback(
@@ -1501,7 +1573,7 @@ export function StageBoardBody({
       clientX: number,
       clientY: number,
       shiftKey: boolean,
-      snapHorizontalCenter50mm = false
+      snapHorizontalCenter50mm = false,
     ) => {
       const el = stageMainFloorRef.current;
       if (!el) return null;
@@ -1510,10 +1582,10 @@ export function StageBoardBody({
         clientX,
         clientY,
         shiftKey,
-        snapHorizontalCenter50mm
+        snapHorizontalCenter50mm,
       );
     },
-    [pointerToPctInRoot]
+    [pointerToPctInRoot],
   );
 
   /**
@@ -1540,8 +1612,13 @@ export function StageBoardBody({
       xPct: number,
       yPct: number,
       excludeIds: ReadonlySet<string>,
-      strong: boolean
-    ): { xPct: number; yPct: number; guideX: number | null; guideY: number | null } => {
+      strong: boolean,
+    ): {
+      xPct: number;
+      yPct: number;
+      guideX: number | null;
+      guideY: number | null;
+    } => {
       if (!strong) {
         return { xPct, yPct, guideX: null, guideY: null };
       }
@@ -1584,7 +1661,7 @@ export function StageBoardBody({
         guideY,
       };
     },
-    []
+    [],
   );
 
   useEffect(() => {
@@ -1592,12 +1669,14 @@ export function StageBoardBody({
       const d = setPieceDragRef.current;
       if (!d) return;
       if (d.mode === "move") {
-        const piece = writeFormation?.setPieces?.find((x) => x.id === d.pieceId);
+        const piece = writeFormation?.setPieces?.find(
+          (x) => x.id === d.pieceId,
+        );
         const root = piece
           ? getSetPieceCoordRoot(
               piece,
               stageMainFloorRef.current,
-              viewportTextOverlayRoot
+              viewportTextOverlayRoot,
             )
           : stageMainFloorRef.current;
         if (!root) return;
@@ -1605,7 +1684,7 @@ export function StageBoardBody({
           root,
           e.clientX - d.offsetXPx,
           e.clientY - d.offsetYPx,
-          e.shiftKey
+          e.shiftKey,
         );
         if (!next) return;
         updateActiveFormation((f) => {
@@ -1623,7 +1702,7 @@ export function StageBoardBody({
       if (d.mode === "rotate") {
         const ang = Math.atan2(
           e.clientY - d.centerClientY,
-          e.clientX - d.centerClientX
+          e.clientX - d.centerClientX,
         );
         let deltaDeg = ((ang - d.startPointerRad) * 180) / Math.PI;
         let rawRot = d.startRotationDeg + deltaDeg;
@@ -1663,7 +1742,7 @@ export function StageBoardBody({
         d.start.wPct,
         d.start.hPct,
         dxPct,
-        dyPct
+        dyPct,
       );
       let xPct = snapDim("x", raw.xPct);
       let yPct = snapDim("y", raw.yPct);
@@ -1709,444 +1788,528 @@ export function StageBoardBody({
     viewportTextOverlayRoot,
   ]);
 
-  const handlePointerDownDancer = (
-    e: ReactPointerEvent,
-    dancerId: string,
-    xPct: number,
-    yPct: number
-  ) => {
-    if (e.button !== 0) return;
-    if (dancerQuickEditId) return;
-    if (
-      viewMode === "view" ||
-      playbackDancers ||
-      previewDancers ||
-      !stageInteractionsEnabled
-    )
-      return;
-    if (e.altKey && stageMainFloorRef.current) {
-      const floor = stageMainFloorRef.current;
-      const stack = document
-        .elementsFromPoint(e.clientX, e.clientY)
-        .filter(
-          (n): n is HTMLElement =>
-            n instanceof HTMLElement &&
-            typeof n.dataset.dancerId === "string" &&
-            n.dataset.dancerId !== "" &&
-            floor.contains(n)
-        )
-        .map((n) => n.dataset.dancerId!);
-      const uniq = [...new Set(stack)];
-      if (uniq.length > 1) {
-        const i0 = uniq.indexOf(dancerId);
-        const next = uniq[(i0 + 1) % uniq.length];
-        setSelectedDancerIds([next]);
-        e.preventDefault();
-        e.stopPropagation();
+  const handlePointerDownDancer = useCallback(
+    (e: ReactPointerEvent, dancerId: string, xPct: number, yPct: number) => {
+      if (e.button !== 0) return;
+      if (dancerQuickEditId) return;
+      if (
+        viewMode === "view" ||
+        playbackDancers ||
+        previewDancers ||
+        !stageInteractionsEnabled
+      )
+        return;
+      if (e.altKey && stageMainFloorRef.current) {
+        const floor = stageMainFloorRef.current;
+        const stack = document
+          .elementsFromPoint(e.clientX, e.clientY)
+          .filter(
+            (n): n is HTMLElement =>
+              n instanceof HTMLElement &&
+              typeof n.dataset.dancerId === "string" &&
+              n.dataset.dancerId !== "" &&
+              floor.contains(n),
+          )
+          .map((n) => n.dataset.dancerId!);
+        const uniq = [...new Set(stack)];
+        if (uniq.length > 1) {
+          const i0 = uniq.indexOf(dancerId);
+          const next = uniq[(i0 + 1) % uniq.length];
+          setSelectedDancerIds([next]);
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+      }
+      e.stopPropagation();
+
+      /** Shift / Cmd / Ctrl クリックは「追加選択のトグル」だけで、ドラッグは始めない */
+      const toggleOnly = e.shiftKey || e.metaKey || e.ctrlKey;
+      let nextSelection: string[];
+      if (toggleOnly) {
+        nextSelection = selectedDancerIds.includes(dancerId)
+          ? selectedDancerIds.filter((id) => id !== dancerId)
+          : [...selectedDancerIds, dancerId];
+        setSelectedDancerIds(nextSelection);
         return;
       }
-    }
-    e.stopPropagation();
+      if (selectedDancerIds.includes(dancerId)) {
+        /** すでに選択中 → 現在の選択を保ったまま、その全員をドラッグで一括移動 */
+        nextSelection = selectedDancerIds;
+      } else {
+        /** 未選択のダンサーを押した場合はその 1 人だけ選択しなおす */
+        nextSelection = [dancerId];
+        setSelectedDancerIds(nextSelection);
+      }
 
-    /** Shift / Cmd / Ctrl クリックは「追加選択のトグル」だけで、ドラッグは始めない */
-    const toggleOnly = e.shiftKey || e.metaKey || e.ctrlKey;
-    let nextSelection: string[];
-    if (toggleOnly) {
-      nextSelection = selectedDancerIds.includes(dancerId)
-        ? selectedDancerIds.filter((id) => id !== dancerId)
-        : [...selectedDancerIds, dancerId];
-      setSelectedDancerIds(nextSelection);
-      return;
-    }
-    if (selectedDancerIds.includes(dancerId)) {
-      /** すでに選択中 → 現在の選択を保ったまま、その全員をドラッグで一括移動 */
-      nextSelection = selectedDancerIds;
-    } else {
-      /** 未選択のダンサーを押した場合はその 1 人だけ選択しなおす */
-      nextSelection = [dancerId];
-      setSelectedDancerIds(nextSelection);
-    }
-
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    const el = stageMainFloorRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const cx = r.left + (xPct / 100) * r.width;
-    const cy = r.top + (yPct / 100) * r.height;
-    if (nextSelection.length <= 1) {
-      dragRef.current = {
-        dancerId,
-        offsetXPx: e.clientX - cx,
-        offsetYPx: e.clientY - cy,
-        startXPct: xPct,
-        startYPct: yPct,
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      const el = stageMainFloorRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const cx = r.left + (xPct / 100) * r.width;
+      const cy = r.top + (yPct / 100) * r.height;
+      if (nextSelection.length <= 1) {
+        dragRef.current = {
+          dancerId,
+          offsetXPx: e.clientX - cx,
+          offsetYPx: e.clientY - cy,
+          startXPct: xPct,
+          startYPct: yPct,
+        };
+        setDragGhostById(new Map([[dancerId, { xPct, yPct }]]));
+        onGestureHistoryBegin?.();
+        return;
+      }
+      /** 複数選択の一括移動: 各ダンサーの初期位置を覚えておき、差分だけ一斉に動かす */
+      const dancers = writeFormation?.dancers ?? activeFormation?.dancers ?? [];
+      const startPositions = new Map<string, { xPct: number; yPct: number }>();
+      for (const id of nextSelection) {
+        const d = dancers.find((x) => x.id === id);
+        if (d) startPositions.set(id, { xPct: d.xPct, yPct: d.yPct });
+      }
+      groupDragRef.current = {
+        mode: "move",
+        ids: nextSelection,
+        startPositions,
+        startClientX: e.clientX,
+        startClientY: e.clientY,
+        floorWpx: r.width,
+        floorHpx: r.height,
       };
-      setDragGhostById(new Map([[dancerId, { xPct, yPct }]]));
+      setBulkHideDancerGlyphs(true);
+      setDragGhostById(new Map(startPositions));
       onGestureHistoryBegin?.();
-      return;
-    }
-    /** 複数選択の一括移動: 各ダンサーの初期位置を覚えておき、差分だけ一斉に動かす */
-    const dancers =
-      writeFormation?.dancers ?? activeFormation?.dancers ?? [];
-    const startPositions = new Map<string, { xPct: number; yPct: number }>();
-    for (const id of nextSelection) {
-      const d = dancers.find((x) => x.id === id);
-      if (d) startPositions.set(id, { xPct: d.xPct, yPct: d.yPct });
-    }
-    groupDragRef.current = {
-      mode: "move",
-      ids: nextSelection,
-      startPositions,
-      startClientX: e.clientX,
-      startClientY: e.clientY,
-      floorWpx: r.width,
-      floorHpx: r.height,
-    };
-    setBulkHideDancerGlyphs(true);
-    setDragGhostById(new Map(startPositions));
-    onGestureHistoryBegin?.();
-  };
+    },
+    [
+      dancerQuickEditId,
+      viewMode,
+      playbackDancers,
+      previewDancers,
+      stageInteractionsEnabled,
+      stageMainFloorRef,
+      selectedDancerIds,
+      setSelectedDancerIds,
+      writeFormation,
+      activeFormation,
+      onGestureHistoryBegin,
+      setDragGhostById,
+      setBulkHideDancerGlyphs,
+    ],
+  );
 
   /** 複数選択の bounding box リサイズ開始 */
-  const handlePointerDownGroupBoxHandle = (
-    e: ReactPointerEvent,
-    handle: GroupBoxHandle,
-    startBox: { x0: number; y0: number; x1: number; y1: number }
-  ) => {
-    if (e.button !== 0) return;
-    if (
-      viewMode === "view" ||
-      playbackDancers ||
-      previewDancers ||
-      !stageInteractionsEnabled
-    )
-      return;
-    if (selectedDancerIds.length < 2) return;
-    e.stopPropagation();
-    e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    const el = stageMainFloorRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const dancers =
-      writeFormation?.dancers ?? activeFormation?.dancers ?? [];
-    const startPositions = new Map<string, { xPct: number; yPct: number }>();
-    for (const id of selectedDancerIds) {
-      const d = dancers.find((x) => x.id === id);
-      if (d) startPositions.set(id, { xPct: d.xPct, yPct: d.yPct });
-    }
-    groupDragRef.current = {
-      mode: "scale",
-      handle,
-      ids: [...selectedDancerIds],
-      startBox: { ...startBox },
-      startPositions,
-      startClientX: e.clientX,
-      startClientY: e.clientY,
-      floorWpx: r.width,
-      floorHpx: r.height,
-    };
-    setBulkHideDancerGlyphs(true);
-    onGestureHistoryBegin?.();
-  };
+  const handlePointerDownGroupBoxHandle = useCallback(
+    (
+      e: ReactPointerEvent,
+      handle: GroupBoxHandle,
+      startBox: { x0: number; y0: number; x1: number; y1: number },
+    ) => {
+      if (e.button !== 0) return;
+      if (
+        viewMode === "view" ||
+        playbackDancers ||
+        previewDancers ||
+        !stageInteractionsEnabled
+      )
+        return;
+      if (selectedDancerIds.length < 2) return;
+      e.stopPropagation();
+      e.preventDefault();
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      const el = stageMainFloorRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const dancers = writeFormation?.dancers ?? activeFormation?.dancers ?? [];
+      const startPositions = new Map<string, { xPct: number; yPct: number }>();
+      for (const id of selectedDancerIds) {
+        const d = dancers.find((x) => x.id === id);
+        if (d) startPositions.set(id, { xPct: d.xPct, yPct: d.yPct });
+      }
+      groupDragRef.current = {
+        mode: "scale",
+        handle,
+        ids: [...selectedDancerIds],
+        startBox: { ...startBox },
+        startPositions,
+        startClientX: e.clientX,
+        startClientY: e.clientY,
+        floorWpx: r.width,
+        floorHpx: r.height,
+      };
+      setBulkHideDancerGlyphs(true);
+      onGestureHistoryBegin?.();
+    },
+    [
+      viewMode,
+      playbackDancers,
+      previewDancers,
+      stageInteractionsEnabled,
+      selectedDancerIds,
+      stageMainFloorRef,
+      writeFormation,
+      activeFormation,
+      onGestureHistoryBegin,
+      setBulkHideDancerGlyphs,
+    ],
+  );
 
   /**
    * 代表ダンサーの右下ハンドル → 選択中のダンサー全員の○サイズ（px）を変える。
    * 選択が 1 件ならそのダンサーだけ、複数件なら全員が同じ差分ずつ変化する。
    */
-  const handlePointerDownMarkerResize = (e: ReactPointerEvent) => {
-    if (e.button !== 0) return;
-    if (
-      viewMode === "view" ||
-      playbackDancers ||
-      previewDancers ||
-      !stageInteractionsEnabled
-    )
-      return;
-    if (selectedDancerIds.length < 1) return;
-    e.stopPropagation();
-    e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    const dancers =
-      writeFormation?.dancers ?? activeFormation?.dancers ?? [];
-    const startSizes = new Map<string, number>();
-    for (const id of selectedDancerIds) {
-      const d = dancers.find((x) => x.id === id);
-      if (!d) continue;
-      const cur =
-        typeof d.sizePx === "number" && Number.isFinite(d.sizePx)
-          ? Math.round(d.sizePx)
-          : baseMarkerPx;
-      startSizes.set(id, cur);
-    }
-    if (startSizes.size === 0) return;
-    markerResizeRef.current = {
-      startClientX: e.clientX,
-      startClientY: e.clientY,
-      startSizes,
-      ids: [...selectedDancerIds],
-    };
-    setMarkerDiamDraft(new Map(startSizes));
-  };
+  const handlePointerDownMarkerResize = useCallback(
+    (e: ReactPointerEvent) => {
+      if (e.button !== 0) return;
+      if (
+        viewMode === "view" ||
+        playbackDancers ||
+        previewDancers ||
+        !stageInteractionsEnabled
+      )
+        return;
+      if (selectedDancerIds.length < 1) return;
+      e.stopPropagation();
+      e.preventDefault();
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      const dancers = writeFormation?.dancers ?? activeFormation?.dancers ?? [];
+      const startSizes = new Map<string, number>();
+      for (const id of selectedDancerIds) {
+        const d = dancers.find((x) => x.id === id);
+        if (!d) continue;
+        const cur =
+          typeof d.sizePx === "number" && Number.isFinite(d.sizePx)
+            ? Math.round(d.sizePx)
+            : baseMarkerPx;
+        startSizes.set(id, cur);
+      }
+      if (startSizes.size === 0) return;
+      markerResizeRef.current = {
+        startClientX: e.clientX,
+        startClientY: e.clientY,
+        startSizes,
+        ids: [...selectedDancerIds],
+      };
+      setMarkerDiamDraft(new Map(startSizes));
+    },
+    [
+      viewMode,
+      playbackDancers,
+      previewDancers,
+      stageInteractionsEnabled,
+      selectedDancerIds,
+      writeFormation,
+      activeFormation,
+      baseMarkerPx,
+      setMarkerDiamDraft,
+    ],
+  );
 
   /**
    * 回転ハンドル：1 人は印まわりのハンドルで向きのみ。2 人以上は枠下のグループハンドルで位置＋向きを剛体回転。
    */
-  const handlePointerDownMarkerRotate = (e: ReactPointerEvent<HTMLElement>) => {
-    if (e.button !== 0) return;
-    if (
-      viewMode === "view" ||
-      playbackDancers ||
-      previewDancers ||
-      !stageInteractionsEnabled
-    )
-      return;
-    if (selectedDancerIds.length < 1) return;
-    e.stopPropagation();
-    e.preventDefault();
-    const rotateHandleEl = e.currentTarget;
-    const floorEl = stageMainFloorRef.current;
-    if (!floorEl) return;
-    const rect = floorEl.getBoundingClientRect();
-    const dancers =
-      writeFormation?.dancers ?? activeFormation?.dancers ?? [];
-    let centerClientX: number;
-    let centerClientY: number;
-    const groupRigid =
-      selectedDancerIds.length >= 2 && selectionBox != null;
-    if (groupRigid) {
-      const cxPct = (selectionBox!.x0 + selectionBox!.x1) / 2;
-      const cyPct = (selectionBox!.y0 + selectionBox!.y1) / 2;
-      centerClientX = rect.left + (cxPct / 100) * rect.width;
-      centerClientY = rect.top + (cyPct / 100) * rect.height;
-    } else {
-      const primaryId = selectedDancerIds[0]!;
-      const primary = dancers.find((x) => x.id === primaryId);
-      if (!primary) return;
-      centerClientX = rect.left + (primary.xPct / 100) * rect.width;
-      centerClientY = rect.top + (primary.yPct / 100) * rect.height;
-    }
-    /**
-     * クリック位置ではなく回転マーク（ボタン）の幾何中心からの角度を基準にする。
-     * マーク内の多少のズレで 45° グリッドやガイドの基準が歪まないようにする。
-     */
-    const hr = rotateHandleEl.getBoundingClientRect();
-    const handleCenterX = hr.left + hr.width / 2;
-    const handleCenterY = hr.top + hr.height / 2;
-    const startPointerAngle = Math.atan2(handleCenterY - centerClientY, handleCenterX - centerClientX);
-    const startFacings = new Map<string, number>();
-    const startPositions = new Map<string, { xPct: number; yPct: number }>();
-    for (const id of selectedDancerIds) {
-      const d = dancers.find((x) => x.id === id);
-      if (!d) continue;
-      const cur =
-        typeof d.facingDeg === "number" && Number.isFinite(d.facingDeg)
-          ? d.facingDeg
-          : 0;
-      startFacings.set(id, normalizeDancerFacingDeg(cur));
+  const handlePointerDownMarkerRotate = useCallback(
+    (e: ReactPointerEvent<HTMLElement>) => {
+      if (e.button !== 0) return;
+      if (
+        viewMode === "view" ||
+        playbackDancers ||
+        previewDancers ||
+        !stageInteractionsEnabled
+      )
+        return;
+      if (selectedDancerIds.length < 1) return;
+      e.stopPropagation();
+      e.preventDefault();
+      const rotateHandleEl = e.currentTarget;
+      const floorEl = stageMainFloorRef.current;
+      if (!floorEl) return;
+      const rect = floorEl.getBoundingClientRect();
+      const dancers = writeFormation?.dancers ?? activeFormation?.dancers ?? [];
+      let centerClientX: number;
+      let centerClientY: number;
+      const groupRigid = selectedDancerIds.length >= 2 && selectionBox != null;
       if (groupRigid) {
-        startPositions.set(id, { xPct: d.xPct, yPct: d.yPct });
+        const cxPct = (selectionBox!.x0 + selectionBox!.x1) / 2;
+        const cyPct = (selectionBox!.y0 + selectionBox!.y1) / 2;
+        centerClientX = rect.left + (cxPct / 100) * rect.width;
+        centerClientY = rect.top + (cyPct / 100) * rect.height;
+      } else {
+        const primaryId = selectedDancerIds[0]!;
+        const primary = dancers.find((x) => x.id === primaryId);
+        if (!primary) return;
+        centerClientX = rect.left + (primary.xPct / 100) * rect.width;
+        centerClientY = rect.top + (primary.yPct / 100) * rect.height;
       }
-    }
-    if (startFacings.size === 0) return;
-    try {
-      rotateHandleEl.setPointerCapture(e.pointerId);
-    } catch {
-      /* capture 不可時も window の pointermove で回転は継続 */
-    }
-    markerRotateRef.current = {
-      centerClientX,
-      centerClientY,
-      startPointerAngle,
-      startFacings,
-      ids: [...selectedDancerIds],
-      mode: groupRigid ? "groupRigid" : "facing",
-      ...(groupRigid ? { startPositions } : {}),
-    };
-    const initFacing = new Map(startFacings);
-    markerFacingDraftRef.current = initFacing;
-    setMarkerFacingDraft(initFacing);
-    if (groupRigid) {
-      const initPos = new Map(startPositions);
-      markerGroupPosDraftRef.current = initPos;
-      setMarkerGroupPosDraft(initPos);
-      setBulkHideDancerGlyphs(true);
-      setGroupRotateGuideDeltaDeg(0);
-    } else {
-      markerGroupPosDraftRef.current = null;
-      setMarkerGroupPosDraft(null);
-      setBulkHideDancerGlyphs(false);
-      setGroupRotateGuideDeltaDeg(null);
-    }
-  };
+      /**
+       * クリック位置ではなく回転マーク（ボタン）の幾何中心からの角度を基準にする。
+       * マーク内の多少のズレで 45° グリッドやガイドの基準が歪まないようにする。
+       */
+      const hr = rotateHandleEl.getBoundingClientRect();
+      const handleCenterX = hr.left + hr.width / 2;
+      const handleCenterY = hr.top + hr.height / 2;
+      const startPointerAngle = Math.atan2(
+        handleCenterY - centerClientY,
+        handleCenterX - centerClientX,
+      );
+      const startFacings = new Map<string, number>();
+      const startPositions = new Map<string, { xPct: number; yPct: number }>();
+      for (const id of selectedDancerIds) {
+        const d = dancers.find((x) => x.id === id);
+        if (!d) continue;
+        const cur =
+          typeof d.facingDeg === "number" && Number.isFinite(d.facingDeg)
+            ? d.facingDeg
+            : 0;
+        startFacings.set(id, normalizeDancerFacingDeg(cur));
+        if (groupRigid) {
+          startPositions.set(id, { xPct: d.xPct, yPct: d.yPct });
+        }
+      }
+      if (startFacings.size === 0) return;
+      try {
+        rotateHandleEl.setPointerCapture(e.pointerId);
+      } catch {
+        /* capture 不可時も window の pointermove で回転は継続 */
+      }
+      markerRotateRef.current = {
+        centerClientX,
+        centerClientY,
+        startPointerAngle,
+        startFacings,
+        ids: [...selectedDancerIds],
+        mode: groupRigid ? "groupRigid" : "facing",
+        ...(groupRigid ? { startPositions } : {}),
+      };
+      const initFacing = new Map(startFacings);
+      markerFacingDraftRef.current = initFacing;
+      setMarkerFacingDraft(initFacing);
+      if (groupRigid) {
+        const initPos = new Map(startPositions);
+        markerGroupPosDraftRef.current = initPos;
+        setMarkerGroupPosDraft(initPos);
+        setBulkHideDancerGlyphs(true);
+        setGroupRotateGuideDeltaDeg(0);
+      } else {
+        markerGroupPosDraftRef.current = null;
+        setMarkerGroupPosDraft(null);
+        setBulkHideDancerGlyphs(false);
+        setGroupRotateGuideDeltaDeg(null);
+      }
+    },
+    [
+      viewMode,
+      playbackDancers,
+      previewDancers,
+      stageInteractionsEnabled,
+      selectedDancerIds,
+      selectionBox,
+      stageMainFloorRef,
+      writeFormation,
+      activeFormation,
+      setMarkerFacingDraft,
+      setMarkerGroupPosDraft,
+      setBulkHideDancerGlyphs,
+      setGroupRotateGuideDeltaDeg,
+    ],
+  );
 
   /** 空ステージを押したら範囲選択を始める（および選択のクリア） */
-  const handlePointerDownFloor = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return;
-    if (
-      viewMode === "view" ||
-      playbackDancers ||
-      previewDancers ||
-      !stageInteractionsEnabled
-    )
-      return;
-    /** ダンサー／大道具／ハンドル以外の床面のときだけ反応（削除ゴミ箱は画面左オーバーレイ） */
-    const target = e.target as HTMLElement;
-    if (target.closest("[data-dancer-id]")) return;
-    if (target.closest("[data-set-piece-id]")) return;
-    if (target.closest("[data-group-box-handle]")) return;
-    if (target.closest("[data-group-rotate-handle]")) return;
-    if (target.closest("[data-marker-resize-handle]")) return;
-    if (target.closest("[data-marker-rotate-handle]")) return;
-    const el = stageMainFloorRef.current;
-    if (!el) return;
-    const r = el.getBoundingClientRect();
-    const xPct = clamp(((e.clientX - r.left) / r.width) * 100, 0, 100);
-    const yPct = clamp(((e.clientY - r.top) / r.height) * 100, 0, 100);
+  const handlePointerDownFloor = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      if (
+        viewMode === "view" ||
+        playbackDancers ||
+        previewDancers ||
+        !stageInteractionsEnabled
+      )
+        return;
+      /** ダンサー／大道具／ハンドル以外の床面のときだけ反応（削除ゴミ箱は画面左オーバーレイ） */
+      const target = e.target as HTMLElement;
+      if (target.closest("[data-dancer-id]")) return;
+      if (target.closest("[data-set-piece-id]")) return;
+      if (target.closest("[data-group-box-handle]")) return;
+      if (target.closest("[data-group-rotate-handle]")) return;
+      if (target.closest("[data-marker-resize-handle]")) return;
+      if (target.closest("[data-marker-rotate-handle]")) return;
+      const el = stageMainFloorRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const xPct = clamp(((e.clientX - r.left) / r.width) * 100, 0, 100);
+      const yPct = clamp(((e.clientY - r.top) / r.height) * 100, 0, 100);
 
-    if (
-      floorTextPlaceSession &&
-      onFloorTextPlaceSessionChange &&
-      setPiecesEditable &&
-      writeFormation
-    ) {
-      if (target.closest("[data-floor-markup]")) return;
-      if (target.closest("[data-floor-text-place-preview]")) return;
-      e.preventDefault();
-      e.stopPropagation();
-      if (viewportTextOverlayRoot) {
-        const rr = viewportTextOverlayRoot.getBoundingClientRect();
-        const vx = clamp(((e.clientX - rr.left) / rr.width) * 100, 0, 100);
-        const vy = clamp(((e.clientY - rr.top) / rr.height) * 100, 0, 100);
-        onFloorTextPlaceSessionChange({
-          ...floorTextPlaceSession,
-          xPct: round2(vx),
-          yPct: round2(vy),
-        });
-      } else {
-        onFloorTextPlaceSessionChange({
-          ...floorTextPlaceSession,
-          xPct: round2(xPct),
-          yPct: round2(yPct),
-        });
+      if (
+        floorTextPlaceSession &&
+        onFloorTextPlaceSessionChange &&
+        setPiecesEditable &&
+        writeFormation
+      ) {
+        if (target.closest("[data-floor-markup]")) return;
+        if (target.closest("[data-floor-text-place-preview]")) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (viewportTextOverlayRoot) {
+          const rr = viewportTextOverlayRoot.getBoundingClientRect();
+          const vx = clamp(((e.clientX - rr.left) / rr.width) * 100, 0, 100);
+          const vy = clamp(((e.clientY - rr.top) / rr.height) * 100, 0, 100);
+          onFloorTextPlaceSessionChange({
+            ...floorTextPlaceSession,
+            xPct: round2(vx),
+            yPct: round2(vy),
+          });
+        } else {
+          onFloorTextPlaceSessionChange({
+            ...floorTextPlaceSession,
+            xPct: round2(xPct),
+            yPct: round2(yPct),
+          });
+        }
+        return;
       }
-      return;
-    }
 
-    if (setPiecesEditable && writeFormation && floorMarkupTool === "text") {
-      if (target.closest("[data-floor-markup]")) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const fs = Math.round(clamp(floorTextDraft.fontSizePx, 8, 56));
-      const fw = Math.round(clamp(floorTextDraft.fontWeight, 300, 900) / 50) * 50;
-      if (floorTextEditId) {
+      if (setPiecesEditable && writeFormation && floorMarkupTool === "text") {
+        if (target.closest("[data-floor-markup]")) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const fs = Math.round(clamp(floorTextDraft.fontSizePx, 8, 56));
+        const fw =
+          Math.round(clamp(floorTextDraft.fontWeight, 300, 900) / 50) * 50;
+        if (floorTextEditId) {
+          const col = floorTextDraftColorHex(floorTextDraft.color);
+          const fam =
+            (floorTextDraft.fontFamily ?? "").trim() || FLOOR_TEXT_DEFAULT_FONT;
+          const editMk = writeFormation.floorMarkup?.find(
+            (x): x is StageFloorTextMarkup =>
+              x.id === floorTextEditId && x.kind === "text",
+          );
+          const editLayer = editMk ? floorTextLayer(editMk) : "stage";
+          const rr =
+            editLayer === "screen" && viewportTextOverlayRoot
+              ? viewportTextOverlayRoot.getBoundingClientRect()
+              : r;
+          const mx = clamp(((e.clientX - rr.left) / rr.width) * 100, 0, 100);
+          const my = clamp(((e.clientY - rr.top) / rr.height) * 100, 0, 100);
+          updateActiveFormation((f) => ({
+            ...f,
+            floorMarkup: (f.floorMarkup ?? []).map((m) =>
+              m.id === floorTextEditId && m.kind === "text"
+                ? {
+                    ...m,
+                    xPct: round2(mx),
+                    yPct: round2(my),
+                    fontSizePx: fs,
+                    fontWeight: fw,
+                    color: col,
+                    fontFamily: fam,
+                  }
+                : m,
+            ),
+          }));
+          return;
+        }
+        const t = floorTextDraft.body.trim();
+        if (!t) return;
         const col = floorTextDraftColorHex(floorTextDraft.color);
         const fam =
           (floorTextDraft.fontFamily ?? "").trim() || FLOOR_TEXT_DEFAULT_FONT;
-        const editMk = writeFormation.floorMarkup?.find(
-          (x): x is StageFloorTextMarkup =>
-            x.id === floorTextEditId && x.kind === "text"
-        );
-        const editLayer = editMk ? floorTextLayer(editMk) : "stage";
-        const rr =
-          editLayer === "screen" && viewportTextOverlayRoot
-            ? viewportTextOverlayRoot.getBoundingClientRect()
-            : r;
-        const mx = clamp(((e.clientX - rr.left) / rr.width) * 100, 0, 100);
-        const my = clamp(((e.clientY - rr.top) / rr.height) * 100, 0, 100);
+        const root = viewportTextOverlayRoot;
+        const newText: StageFloorTextMarkup = {
+          kind: "text",
+          id: crypto.randomUUID(),
+          xPct: round2(xPct),
+          yPct: round2(yPct),
+          text: t.slice(0, 400),
+          color: col,
+          fontFamily: fam,
+          scale: 1,
+          fontSizePx: fs,
+          fontWeight: fw,
+        };
+        if (root) {
+          const rr = root.getBoundingClientRect();
+          if (rr.width > 0 && rr.height > 0) {
+            newText.layer = "screen";
+            newText.xPct = round2(
+              clamp(((e.clientX - rr.left) / rr.width) * 100, 0, 100),
+            );
+            newText.yPct = round2(
+              clamp(((e.clientY - rr.top) / rr.height) * 100, 0, 100),
+            );
+          }
+        }
         updateActiveFormation((f) => ({
           ...f,
-          floorMarkup: (f.floorMarkup ?? []).map((m) =>
-            m.id === floorTextEditId && m.kind === "text"
-              ? {
-                  ...m,
-                  xPct: round2(mx),
-                  yPct: round2(my),
-                  fontSizePx: fs,
-                  fontWeight: fw,
-                  color: col,
-                  fontFamily: fam,
-                }
-              : m
-          ),
+          floorMarkup: [...(f.floorMarkup ?? []), newText],
         }));
+        setFloorTextDraft((d) => ({ ...d, body: "" }));
+        setFloorTextEditId(null);
         return;
       }
-      const t = floorTextDraft.body.trim();
-      if (!t) return;
-      const col = floorTextDraftColorHex(floorTextDraft.color);
-      const fam =
-        (floorTextDraft.fontFamily ?? "").trim() || FLOOR_TEXT_DEFAULT_FONT;
-      const root = viewportTextOverlayRoot;
-      const newText: StageFloorTextMarkup = {
-        kind: "text",
-        id: crypto.randomUUID(),
-        xPct: round2(xPct),
-        yPct: round2(yPct),
-        text: t.slice(0, 400),
-        color: col,
-        fontFamily: fam,
-        scale: 1,
-        fontSizePx: fs,
-        fontWeight: fw,
-      };
-      if (root) {
-        const rr = root.getBoundingClientRect();
-        if (rr.width > 0 && rr.height > 0) {
-          newText.layer = "screen";
-          newText.xPct = round2(
-            clamp(((e.clientX - rr.left) / rr.width) * 100, 0, 100)
-          );
-          newText.yPct = round2(
-            clamp(((e.clientY - rr.top) / rr.height) * 100, 0, 100)
-          );
-        }
+
+      if (setPiecesEditable && writeFormation && floorMarkupTool === "line") {
+        if (target.closest("[data-floor-markup]")) return;
+        e.preventDefault();
+        e.stopPropagation();
+        beginFloorLineDraw(e.clientX, e.clientY, r);
+        return;
       }
-      updateActiveFormation((f) => ({
-        ...f,
-        floorMarkup: [...(f.floorMarkup ?? []), newText],
-      }));
-      setFloorTextDraft((d) => ({ ...d, body: "" }));
-      setFloorTextEditId(null);
-      return;
-    }
 
-    if (setPiecesEditable && writeFormation && floorMarkupTool === "line") {
-      if (target.closest("[data-floor-markup]")) return;
-      e.preventDefault();
-      e.stopPropagation();
-      beginFloorLineDraw(e.clientX, e.clientY, r);
-      return;
-    }
+      if (floorMarkupTool === "erase") {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
 
-    if (floorMarkupTool === "erase") {
-      e.preventDefault();
-      e.stopPropagation();
-      return;
-    }
+      setSelectedFloorTextId(null);
+      setFloorTextInlineRect(null);
 
-    setSelectedFloorTextId(null);
-    setFloorTextInlineRect(null);
-
-    const additive = e.shiftKey || e.metaKey || e.ctrlKey;
-    marqueeSessionRef.current = {
-      startClientX: e.clientX,
-      startClientY: e.clientY,
-      startXPct: xPct,
-      startYPct: yPct,
-      floorWpx: r.width,
-      floorHpx: r.height,
-      additive,
-      baseIds: additive ? [...selectedDancerIds] : [],
-      movedPx: 0,
-    };
-    if (!additive) setSelectedDancerIds([]);
-    setSelectedSetPieceId(null);
-  };
+      const additive = e.shiftKey || e.metaKey || e.ctrlKey;
+      marqueeSessionRef.current = {
+        startClientX: e.clientX,
+        startClientY: e.clientY,
+        startXPct: xPct,
+        startYPct: yPct,
+        floorWpx: r.width,
+        floorHpx: r.height,
+        additive,
+        baseIds: additive ? [...selectedDancerIds] : [],
+        movedPx: 0,
+      };
+      if (!additive) setSelectedDancerIds([]);
+      setSelectedSetPieceId(null);
+    },
+    [
+      viewMode,
+      playbackDancers,
+      previewDancers,
+      stageInteractionsEnabled,
+      stageMainFloorRef,
+      floorTextPlaceSession,
+      onFloorTextPlaceSessionChange,
+      setPiecesEditable,
+      writeFormation,
+      viewportTextOverlayRoot,
+      floorMarkupTool,
+      floorTextDraft,
+      floorTextEditId,
+      updateActiveFormation,
+      setFloorTextDraft,
+      setFloorTextEditId,
+      beginFloorLineDraw,
+      setSelectedFloorTextId,
+      setFloorTextInlineRect,
+      marqueeSessionRef,
+      selectedDancerIds,
+      setSelectedDancerIds,
+      setSelectedSetPieceId,
+    ],
+  );
 
   useEffect(() => {
     let queuedFormationUpdater:
-      | ((f: NonNullable<typeof writeFormation>) => NonNullable<typeof writeFormation>)
+      | ((
+          f: NonNullable<typeof writeFormation>,
+        ) => NonNullable<typeof writeFormation>)
       | null = null;
     let queuedFormationRafId: number | null = null;
 
@@ -2162,7 +2325,9 @@ export function StageBoardBody({
     };
 
     const queueFormationUpdate = (
-      updater: (f: NonNullable<typeof writeFormation>) => NonNullable<typeof writeFormation>
+      updater: (
+        f: NonNullable<typeof writeFormation>,
+      ) => NonNullable<typeof writeFormation>,
     ) => {
       queuedFormationUpdater = updater;
       if (queuedFormationRafId != null) return;
@@ -2182,7 +2347,7 @@ export function StageBoardBody({
           e.clientX - d.offsetXPx,
           e.clientY - d.offsetYPx,
           e.shiftKey,
-          true
+          true,
         );
         if (!next) return;
         const reveal = pointerInViewportTrashRevealZone(e.clientX);
@@ -2203,7 +2368,7 @@ export function StageBoardBody({
           next.xPct,
           next.yPct,
           new Set([d.dancerId]),
-          !e.shiftKey
+          !e.shiftKey,
         );
         if (
           snapped.guideX !== alignGuides.x ||
@@ -2216,7 +2381,7 @@ export function StageBoardBody({
           dancers: f.dancers.map((x) =>
             x.id === d.dancerId
               ? { ...x, xPct: snapped.xPct, yPct: snapped.yPct }
-              : x
+              : x,
           ),
         }));
         return;
@@ -2226,14 +2391,16 @@ export function StageBoardBody({
       if (fr && e.pointerId === fr.pointerId) {
         const nd = Math.max(
           12,
-          Math.hypot(e.clientX - fr.anchorX, e.clientY - fr.anchorY)
+          Math.hypot(e.clientX - fr.anchorX, e.clientY - fr.anchorY),
         );
         const ratio = clamp(nd / fr.startDist, 0.12, 14);
         const nextScale = clamp(fr.startScale * ratio, 0.2, 8);
         queueFormationUpdate((f) => ({
           ...f,
           floorMarkup: (f.floorMarkup ?? []).map((x) =>
-            x.id === fr.id && x.kind === "text" ? { ...x, scale: nextScale } : x
+            x.id === fr.id && x.kind === "text"
+              ? { ...x, scale: nextScale }
+              : x,
           ),
         }));
         return;
@@ -2247,7 +2414,7 @@ export function StageBoardBody({
       ) {
         const dist = Math.hypot(
           e.clientX - tapOr.startClientX,
-          e.clientY - tapOr.startClientY
+          e.clientY - tapOr.startClientY,
         );
         if (dist > FLOOR_TEXT_TAP_DRAG_THRESHOLD_PX) {
           floorMarkupTextDragRef.current = {
@@ -2273,7 +2440,9 @@ export function StageBoardBody({
             queueFormationUpdate((f) => ({
               ...f,
               floorMarkup: (f.floorMarkup ?? []).map((x) =>
-                x.id === tid && x.kind === "text" ? { ...x, xPct: nx, yPct: ny } : x
+                x.id === tid && x.kind === "text"
+                  ? { ...x, xPct: nx, yPct: ny }
+                  : x,
               ),
             }));
           }
@@ -2306,7 +2475,9 @@ export function StageBoardBody({
         queueFormationUpdate((f) => ({
           ...f,
           floorMarkup: (f.floorMarkup ?? []).map((x) =>
-            x.id === fmd.id && x.kind === "text" ? { ...x, xPct: nx, yPct: ny } : x
+            x.id === fmd.id && x.kind === "text"
+              ? { ...x, xPct: nx, yPct: ny }
+              : x,
           ),
         }));
         return;
@@ -2368,7 +2539,7 @@ export function StageBoardBody({
          * 他ダンサーの座標に揃っていればガイドを出す。
          */
         const outsideDancers = displayDancersSnapRef.current.filter(
-          (d) => !idSet.has(d.id)
+          (d) => !idSet.has(d.id),
         );
         if (guideX == null) {
           outer: for (const id of g.ids) {
@@ -2378,10 +2549,13 @@ export function StageBoardBody({
               clamp(
                 s.xPct + dxPct,
                 DANCER_STAGE_POSITION_PCT_LO,
-                DANCER_STAGE_POSITION_PCT_HI
-              )
+                DANCER_STAGE_POSITION_PCT_HI,
+              ),
             );
-            const xTargets = [STAGE_CENTER_PCT, ...outsideDancers.map((d) => d.xPct)];
+            const xTargets = [
+              STAGE_CENTER_PCT,
+              ...outsideDancers.map((d) => d.xPct),
+            ];
             for (const tx of xTargets) {
               if (Math.abs(nx - tx) <= CENTER_GUIDE_EPS) {
                 guideX = tx;
@@ -2398,10 +2572,13 @@ export function StageBoardBody({
               clamp(
                 s.yPct + dyPct,
                 DANCER_STAGE_POSITION_PCT_LO,
-                DANCER_STAGE_POSITION_PCT_HI
-              )
+                DANCER_STAGE_POSITION_PCT_HI,
+              ),
             );
-            const yTargets = [STAGE_CENTER_PCT, ...outsideDancers.map((d) => d.yPct)];
+            const yTargets = [
+              STAGE_CENTER_PCT,
+              ...outsideDancers.map((d) => d.yPct),
+            ];
             for (const ty of yTargets) {
               if (Math.abs(ny - ty) <= CENTER_GUIDE_EPS) {
                 guideY = ty;
@@ -2422,12 +2599,12 @@ export function StageBoardBody({
             const nx = clamp(
               s.xPct + dxPct,
               DANCER_STAGE_POSITION_PCT_LO,
-              DANCER_STAGE_POSITION_PCT_HI
+              DANCER_STAGE_POSITION_PCT_HI,
             );
             const ny = clamp(
               s.yPct + dyPct,
               DANCER_STAGE_POSITION_PCT_LO,
-              DANCER_STAGE_POSITION_PCT_HI
+              DANCER_STAGE_POSITION_PCT_HI,
             );
             return { ...x, xPct: round2(nx), yPct: round2(ny) };
           }),
@@ -2456,7 +2633,7 @@ export function StageBoardBody({
           g.startBox,
           curXPct,
           curYPct,
-          keepAspect
+          keepAspect,
         );
         const idSet = new Set(g.ids);
         queueFormationUpdate((f) => ({
@@ -2468,12 +2645,12 @@ export function StageBoardBody({
             const nx = clamp(
               ax + (s.xPct - ax) * sx,
               DANCER_STAGE_POSITION_PCT_LO,
-              DANCER_STAGE_POSITION_PCT_HI
+              DANCER_STAGE_POSITION_PCT_HI,
             );
             const ny = clamp(
               ay + (s.yPct - ay) * sy,
               DANCER_STAGE_POSITION_PCT_LO,
-              DANCER_STAGE_POSITION_PCT_HI
+              DANCER_STAGE_POSITION_PCT_HI,
             );
             return { ...x, xPct: round2(nx), yPct: round2(ny) };
           }),
@@ -2486,7 +2663,7 @@ export function StageBoardBody({
       if (rot) {
         const curAngle = Math.atan2(
           e.clientY - rot.centerClientY,
-          e.clientX - rot.centerClientX
+          e.clientX - rot.centerClientX,
         );
         let deltaRad = curAngle - rot.startPointerAngle;
         while (deltaRad > Math.PI) deltaRad -= 2 * Math.PI;
@@ -2515,7 +2692,10 @@ export function StageBoardBody({
             const w = r.width;
             const h = r.height;
             if (w > 0 && h > 0) {
-              const draftPos = new Map<string, { xPct: number; yPct: number }>();
+              const draftPos = new Map<
+                string,
+                { xPct: number; yPct: number }
+              >();
               for (const id of rot.ids) {
                 const s = rot.startPositions.get(id);
                 if (!s) continue;
@@ -2528,12 +2708,12 @@ export function StageBoardBody({
                 const nxPct = clamp(
                   ((px1 - r.left) / w) * 100,
                   DANCER_STAGE_POSITION_PCT_LO,
-                  DANCER_STAGE_POSITION_PCT_HI
+                  DANCER_STAGE_POSITION_PCT_HI,
                 );
                 const nyPct = clamp(
                   ((py1 - r.top) / h) * 100,
                   DANCER_STAGE_POSITION_PCT_LO,
-                  DANCER_STAGE_POSITION_PCT_HI
+                  DANCER_STAGE_POSITION_PCT_HI,
                 );
                 draftPos.set(id, {
                   xPct: round2(nxPct),
@@ -2557,7 +2737,9 @@ export function StageBoardBody({
         const delta = (dx + dy) / 2;
         const draft = new Map<string, number>();
         for (const [id, s0] of m.startSizes) {
-          const next = Math.round(clamp(s0 + delta, MARKER_PX_MIN, MARKER_PX_MAX));
+          const next = Math.round(
+            clamp(s0 + delta, MARKER_PX_MIN, MARKER_PX_MAX),
+          );
           draft.set(id, next);
         }
         setMarkerDiamDraft(draft);
@@ -2574,7 +2756,7 @@ export function StageBoardBody({
         const curYPct = clamp(((e.clientY - r.top) / r.height) * 100, 0, 100);
         mq.movedPx = Math.max(
           mq.movedPx,
-          Math.hypot(e.clientX - mq.startClientX, e.clientY - mq.startClientY)
+          Math.hypot(e.clientX - mq.startClientX, e.clientY - mq.startClientY),
         );
         setMarquee({
           startXPct: mq.startXPct,
@@ -2594,7 +2776,7 @@ export function StageBoardBody({
         floorTextTapOrDragRef.current = null;
         const dist = Math.hypot(
           e.clientX - tapUp.startClientX,
-          e.clientY - tapUp.startClientY
+          e.clientY - tapUp.startClientY,
         );
         if (dist <= FLOOR_TEXT_TAP_DRAG_THRESHOLD_PX && setPiecesEditable) {
           setSelectedFloorTextId(tapUp.id);
@@ -2608,10 +2790,7 @@ export function StageBoardBody({
         }
       }
       const floorTextDragEnd = floorMarkupTextDragRef.current;
-      if (
-        floorTextDragEnd &&
-        hitTrashDropZone(e.clientX, e.clientY)
-      ) {
+      if (floorTextDragEnd && hitTrashDropZone(e.clientX, e.clientY)) {
         onGestureHistoryEnd?.();
         markHistorySkipNextPush?.();
         removeFloorMarkupById(floorTextDragEnd.id);
@@ -2665,11 +2844,7 @@ export function StageBoardBody({
           for (const id of rotUp.ids) {
             const a = rotUp.startPositions.get(id);
             const b = posDraftSnap.get(id);
-            if (
-              a &&
-              b &&
-              (a.xPct !== b.xPct || a.yPct !== b.yPct)
-            ) {
+            if (a && b && (a.xPct !== b.xPct || a.yPct !== b.yPct)) {
               posChanged = true;
               break;
             }
@@ -2691,16 +2866,15 @@ export function StageBoardBody({
                       }
                       if (facingDraftSnap.has(x.id)) {
                         const deg = normalizeDancerFacingDeg(
-                          facingDraftSnap.get(x.id)!
+                          facingDraftSnap.get(x.id)!,
                         );
                         const { facingDeg: _fd, ...rest } = next;
-                        next =
-                          deg === 0 ? rest : { ...rest, facingDeg: deg };
+                        next = deg === 0 ? rest : { ...rest, facingDeg: deg };
                       }
                       return next;
                     }),
                   }
-                : f
+                : f,
             ),
           }));
         }
@@ -2714,7 +2888,7 @@ export function StageBoardBody({
       const m = markerResizeRef.current;
       if (m && markerDiamDraft && markerDiamDraft.size > 0) {
         const changed = [...markerDiamDraft.entries()].some(
-          ([id, v]) => m.startSizes.get(id) !== v
+          ([id, v]) => m.startSizes.get(id) !== v,
         );
         if (changed) {
           const nextSizes = new Map(markerDiamDraft);
@@ -2730,7 +2904,7 @@ export function StageBoardBody({
                       return { ...x, sizePx: v };
                     }),
                   }
-                : f
+                : f,
             ),
           }));
         }
@@ -2759,7 +2933,7 @@ export function StageBoardBody({
                   x.xPct >= minX &&
                   x.xPct <= maxX &&
                   x.yPct >= minY &&
-                  x.yPct <= maxY
+                  x.yPct <= maxY,
               )
               .map((x) => x.id);
             const combined = mq.additive
@@ -2822,7 +2996,8 @@ export function StageBoardBody({
       if (playbackDancers || previewDancers) return;
       if (dancerQuickEditId) return;
       const t = e.target;
-      if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement) return;
+      if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement)
+        return;
       if (t instanceof HTMLElement && t.isContentEditable) return;
 
       if ((e.metaKey || e.ctrlKey) && (e.key === "d" || e.key === "D")) {
@@ -2857,7 +3032,8 @@ export function StageBoardBody({
       /** 選択中が 1 件以上なら Alt+矢印で微移動。複数選択時は群全体を動かす。 */
       if (!e.altKey || selectedDancerIds.length === 0) return;
       const dk = e.key;
-      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(dk)) return;
+      if (!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(dk))
+        return;
       e.preventDefault();
       const stepPx = e.shiftKey ? 0.05 : 0.25;
       const shiftFine = e.shiftKey;
@@ -2871,9 +3047,7 @@ export function StageBoardBody({
           stageWidthMm > 0 &&
           (dk === "ArrowLeft" || dk === "ArrowRight")
         ) {
-          xPct = round2(
-            snapXPctToCenterDistanceMmGrid(xPct, stageWidthMm, 50)
-          );
+          xPct = round2(snapXPctToCenterDistanceMmGrid(xPct, stageWidthMm, 50));
         }
         return { xPct, yPct };
       };
@@ -2914,10 +3088,13 @@ export function StageBoardBody({
    * 客席を画面上にしたとき `rot` が 180° になり、帯ラベル・場ミリ数字が上下逆さまに見える。
    * 人数バッジと同様に、文字だけ画面に対して正立させる（transformOrigin で辺に固定）。
    */
-  const labelScreenKeepUpright = (origin: string): CSSProperties =>
-    rot % 360 !== 0
-      ? { transform: `rotate(${-rot}deg)`, transformOrigin: origin }
-      : {};
+  const labelScreenKeepUpright = useCallback(
+    (origin: string): CSSProperties =>
+      rot % 360 !== 0
+        ? { transform: `rotate(${-rot}deg)`, transformOrigin: origin }
+        : {},
+    [rot],
+  );
 
   /** 床下の一括ツールバー用。常に高さを確保してコンテナクエリの高さが選択で変わらないようにする */
   const canStageBulkTools =
@@ -2934,12 +3111,15 @@ export function StageBoardBody({
     !previewDancers &&
     typeof onRequestLayoutEditFromStage === "function";
 
-  const handleTapOverlayPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (!tapStageToEditLayout || e.button !== 0) return;
-    e.preventDefault();
-    e.stopPropagation();
-    onRequestLayoutEditFromStage();
-  };
+  const handleTapOverlayPointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      if (!tapStageToEditLayout || e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      onRequestLayoutEditFromStage();
+    },
+    [tapStageToEditLayout, onRequestLayoutEditFromStage],
+  );
 
   /**
    * センターに近い順に k=1,2,3…（左右の線は同じ番号）。xp は SVG / 観客席帯ラベル共通。
@@ -2963,68 +3143,35 @@ export function StageBoardBody({
     return marks;
   }, [centerFieldGuideIntervalMm, Wmm]);
 
-  const mainFloorStyle: CSSProperties = {
-    position: "relative",
-    width: "100%",
-    height: "100%",
-    minWidth: 0,
-    minHeight: 0,
-    /** 常に印を床パネル外（翼・花道側）にも描けるよう visible（再生中も客席帯を切らない） */
-    overflow: "visible",
-    background: `linear-gradient(180deg, #0f1729 0%, #0a0f18 42%, ${shell.bgDeep} 100%)`,
-  };
+  const mainFloorStyle: CSSProperties = useMemo(
+    () => ({
+      position: "relative",
+      width: "100%",
+      height: "100%",
+      minWidth: 0,
+      minHeight: 0,
+      /** 常に印を床パネル外（翼・花道側）にも描けるよう visible（再生中も客席帯を切らない） */
+      overflow: "visible",
+      background: `linear-gradient(180deg, #0f1729 0%, #0a0f18 42%, ${shell.bgDeep} 100%)`,
+    }),
+    [shell.bgDeep],
+  );
 
-  const mmLabel = (xPct: number, yPct: number) => {
-    if (stageWidthMm == null || stageDepthMm == null) return null;
-    const xMm = Math.round((xPct / 100) * stageWidthMm);
-    const yMm = Math.round((yPct / 100) * stageDepthMm);
-    return `${xMm} × ${yMm} mm`;
-  };
+  const mmLabel = useCallback(
+    (xPct: number, yPct: number) => {
+      if (stageWidthMm == null || stageDepthMm == null) return null;
+      const xMm = Math.round((xPct / 100) * stageWidthMm);
+      const yMm = Math.round((yPct / 100) * stageDepthMm);
+      return `${xMm} × ${yMm} mm`;
+    },
+    [stageWidthMm, stageDepthMm],
+  );
 
   const showTrashDrop =
     viewMode === "edit" &&
     !playbackDancers &&
     !previewDancers &&
     trashUiVisible;
-
-  /** 選択中ダンサーを囲む bounding box（pct 単位）。2 件以上で表示。 */
-  const selectionBox = useMemo(() => {
-    if (playbackOrPreview) return null;
-    if (viewMode === "view") return null;
-    const ids = selectedDancerIds;
-    if (ids.length < 2) return null;
-    const ds = (writeFormation?.dancers ?? activeFormation?.dancers ?? []).filter(
-      (x) => ids.includes(x.id)
-    );
-    if (ds.length < 2) return null;
-    let x0 = Infinity;
-    let y0 = Infinity;
-    let x1 = -Infinity;
-    let y1 = -Infinity;
-    for (const d of ds) {
-      const ox = markerGroupPosDraft?.get(d.id)?.xPct ?? d.xPct;
-      const oy = markerGroupPosDraft?.get(d.id)?.yPct ?? d.yPct;
-      if (ox < x0) x0 = ox;
-      if (oy < y0) y0 = oy;
-      if (ox > x1) x1 = ox;
-      if (oy > y1) y1 = oy;
-    }
-    if (
-      !Number.isFinite(x0) ||
-      !Number.isFinite(y0) ||
-      !Number.isFinite(x1) ||
-      !Number.isFinite(y1)
-    )
-      return null;
-    return { x0, y0, x1, y1 };
-  }, [
-    selectedDancerIds,
-    writeFormation,
-    activeFormation,
-    playbackOrPreview,
-    viewMode,
-    markerGroupPosDraft,
-  ]);
 
   /** 選択中の代表ダンサー（先頭）の座標。○サイズハンドルをその右下に置く。 */
   const primarySelectedDancer = useMemo(() => {
@@ -3066,7 +3213,7 @@ export function StageBoardBody({
       if (m) {
         const pick = (
           spot: string | undefined,
-          crew: string | undefined
+          crew: string | undefined,
         ): string | undefined =>
           spot != null && spot.trim() !== "" ? spot : crew;
         return {
@@ -3080,7 +3227,7 @@ export function StageBoardBody({
           genderLabel: pick(quickEditDancer.genderLabel, m.genderLabel),
           skillRankLabel: pick(
             quickEditDancer.skillRankLabel,
-            m.skillRankLabel
+            m.skillRankLabel,
           ),
           note: pick(quickEditDancer.note, m.note),
         };
@@ -3117,7 +3264,7 @@ export function StageBoardBody({
                     skillRankLabel: patch.skillRankLabel,
                     note: patch.note,
                   }
-                : m
+                : m,
             ),
           }));
         }
@@ -3147,7 +3294,7 @@ export function StageBoardBody({
         };
       });
     },
-    [formationIdForWrites, dancerQuickEditId, setProject]
+    [formationIdForWrites, dancerQuickEditId, setProject],
   );
 
   /** 範囲選択・Shift 複数選択の対象に、印の色を一括で当てる（名簿紐付け時は名簿の色も同期） */
@@ -3169,7 +3316,7 @@ export function StageBoardBody({
         const crews = p.crews.map((crew) => ({
           ...crew,
           members: crew.members.map((m) =>
-            crewIds.has(m.id) ? { ...m, colorIndex: ci } : m
+            crewIds.has(m.id) ? { ...m, colorIndex: ci } : m,
           ),
         }));
         return {
@@ -3180,7 +3327,7 @@ export function StageBoardBody({
             return {
               ...f,
               dancers: f.dancers.map((d) =>
-                idSet.has(d.id) ? { ...d, colorIndex: ci } : d
+                idSet.has(d.id) ? { ...d, colorIndex: ci } : d,
               ),
             };
           }),
@@ -3193,7 +3340,7 @@ export function StageBoardBody({
       viewMode,
       stageInteractionsEnabled,
       playbackOrPreview,
-    ]
+    ],
   );
 
   /**
@@ -3245,7 +3392,7 @@ export function StageBoardBody({
       viewMode,
       stageInteractionsEnabled,
       playbackOrPreview,
-    ]
+    ],
   );
 
   /** 名前を○の下にしているとき、選択した全員の○内表示を同じ文字列にする。 */
@@ -3271,7 +3418,7 @@ export function StageBoardBody({
             dancers: f.dancers.map((d) =>
               idSet.has(d.id)
                 ? { ...d, markerBadge: badge, markerBadgeSource: undefined }
-                : d
+                : d,
             ),
           };
         }),
@@ -3284,7 +3431,7 @@ export function StageBoardBody({
       viewMode,
       stageInteractionsEnabled,
       playbackOrPreview,
-    ]
+    ],
   );
 
   /** 「名前は○の下」のとき、選択メンバーの○内を空欄（連番フォールバックなし）にする */
@@ -3308,7 +3455,7 @@ export function StageBoardBody({
             dancers: f.dancers.map((d) =>
               idSet.has(d.id)
                 ? { ...d, markerBadge: "", markerBadgeSource: undefined }
-                : d
+                : d,
             ),
           };
         }),
@@ -3321,7 +3468,7 @@ export function StageBoardBody({
       viewMode,
       stageInteractionsEnabled,
       playbackOrPreview,
-    ]
+    ],
   );
 
   /**
@@ -3341,7 +3488,7 @@ export function StageBoardBody({
       const Wmm = effStageWidthMm ?? 0;
       if (!(Wmm > 0)) {
         window.alert(
-          "ステージの横幅（メイン床の幅）が未設定のため、センターからの距離を入れられません。舞台設定で幅を入れてください。"
+          "ステージの横幅（メイン床の幅）が未設定のため、センターからの距離を入れられません。舞台設定で幅を入れてください。",
         );
         return;
       }
@@ -3376,13 +3523,11 @@ export function StageBoardBody({
       stageInteractionsEnabled,
       playbackOrPreview,
       effStageWidthMm,
-    ]
+    ],
   );
 
   const applyDancerArrange = useCallback(
-    (
-      fn: (dancers: DancerSpot[], targetIds: string[]) => DancerSpot[]
-    ) => {
+    (fn: (dancers: DancerSpot[], targetIds: string[]) => DancerSpot[]) => {
       if (
         !writeFormation ||
         viewMode === "view" ||
@@ -3393,7 +3538,7 @@ export function StageBoardBody({
       if (!stageContextMenu || stageContextMenu.kind !== "dancer") return;
       const targetIds = resolveArrangeTargetIds(
         stageContextMenu.dancerId,
-        selectedDancerIds
+        selectedDancerIds,
       );
       updateActiveFormation((f) => ({
         ...f,
@@ -3409,29 +3554,27 @@ export function StageBoardBody({
       stageContextMenu,
       selectedDancerIds,
       updateActiveFormation,
-    ]
+    ],
   );
 
   /** 位置の形を保った入れ替え（2人以上必須） */
   const applyPermuteArrange = useCallback(
-    (
-      fn: (dancers: DancerSpot[], targetIds: string[]) => DancerSpot[]
-    ) => {
+    (fn: (dancers: DancerSpot[], targetIds: string[]) => DancerSpot[]) => {
       if (!stageContextMenu || stageContextMenu.kind !== "dancer") return;
       const targetIds = resolveArrangeTargetIds(
         stageContextMenu.dancerId,
-        selectedDancerIds
+        selectedDancerIds,
       );
       if (targetIds.length < 2) {
         window.alert(
-          "いまの立ち位置のままの並び替えは、対象を 2 人以上選んでください。"
+          "いまの立ち位置のままの並び替えは、対象を 2 人以上選んでください。",
         );
         setStageContextMenu(null);
         return;
       }
       applyDancerArrange(fn);
     },
-    [stageContextMenu, selectedDancerIds, applyDancerArrange]
+    [stageContextMenu, selectedDancerIds, applyDancerArrange],
   );
 
   const contextMenuStyle: CSSProperties | null = stageContextMenu
@@ -3450,7 +3593,7 @@ export function StageBoardBody({
         pieceId: piece.id,
       });
     },
-    []
+    [],
   );
 
   const handleSetPieceToggleInterpolate = useCallback(
@@ -3458,11 +3601,11 @@ export function StageBoardBody({
       updateActiveFormation((f) => ({
         ...f,
         setPieces: (f.setPieces ?? []).map((x) =>
-          x.id === p.id ? { ...x, interpolateInGaps: !x.interpolateInGaps } : x
+          x.id === p.id ? { ...x, interpolateInGaps: !x.interpolateInGaps } : x,
         ),
       }));
     },
-    [updateActiveFormation]
+    [updateActiveFormation],
   );
 
   const stageSetPieceElements = useSetPieceBlockElements({
@@ -3523,9 +3666,9 @@ export function StageBoardBody({
 
   const screenOverlayOpen = Boolean(
     viewportTextOverlayRoot &&
-      (screenFloorTexts.length > 0 ||
-        floorTextPlaceSession ||
-        screenSetPieces.length > 0)
+    (screenFloorTexts.length > 0 ||
+      floorTextPlaceSession ||
+      screenSetPieces.length > 0),
   );
 
   const stageBoardExportColumn: StageExportRootColumnProps =
@@ -3592,8 +3735,7 @@ export function StageBoardBody({
         onFloorTextPlacePreviewPointerDown:
           handleFloorTextPlacePreviewPointerDown,
       },
-      showStageFloorMarkup:
-        displayFloorMarkup.length > 0 || !!floorLineDraft,
+      showStageFloorMarkup: displayFloorMarkup.length > 0 || !!floorLineDraft,
       /* 操作層（大道具・ダンサー印・マーキー等） */
       interaction: {
         setPieceElements: stageSetPieceElements,
@@ -3767,7 +3909,7 @@ export function StageBoardBody({
       trashHot,
       updateActiveFormation,
       viewMode,
-    ]
+    ],
   );
 
   return (
