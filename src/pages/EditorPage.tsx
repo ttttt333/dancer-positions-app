@@ -876,6 +876,15 @@ function readMaxStageWidthPx(
   return Math.max(STAGE_COL_MIN_PX, Math.floor(maxStage));
 }
 
+/** モバイル折りたたみ帯の再生時刻表示（分:秒） */
+function formatPlaybackClockSec(sec: number): string {
+  if (!Number.isFinite(sec) || sec < 0) return "0:00";
+  const s = Math.floor(sec);
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${r.toString().padStart(2, "0")}`;
+}
+
 export function EditorPage({
   choreoPublicView = false,
 }: {
@@ -933,6 +942,16 @@ export function EditorPage({
    * キュー切替は引き続き可能。狭いビューポート（!wideEditorLayout）では無効。
    */
   const [rightPaneCollapsed, setRightPaneCollapsed] = useState(false);
+  /** スマホ縦積み: 波形・再生ブロックの表示（TimelinePanel はマウントしたまま） */
+  const [mobileEditorWaveExpanded, setMobileEditorWaveExpanded] = useState(true);
+  /** スマホ縦積み: 右下の操作列（ツールバー・ワークベンチ等）の表示 */
+  const [mobileEditorToolsExpanded, setMobileEditorToolsExpanded] = useState(true);
+  useEffect(() => {
+    if (!editorMobileStackBreakpoint) {
+      setMobileEditorWaveExpanded(true);
+      setMobileEditorToolsExpanded(true);
+    }
+  }, [editorMobileStackBreakpoint]);
   const {
     timelineRef,
     getWavePeaksSnapshot,
@@ -2942,19 +2961,27 @@ export function EditorPage({
   const dynamicStageShellStyle = useMemo<CSSProperties>(
     () =>
       mobileStackEditor
-        ? {
-            /** 波形帯・ツール列の余白を残してステージを最大化 */
-            flex: "3 1 0",
-            minHeight: "min(46dvh, 400px)",
-            maxHeight: "min(68dvh, calc(100dvh - 230px))",
-            position: "relative",
-            borderBottom: "1px solid #1e293b",
-            borderRight: "none",
-            overflow: "hidden",
-            background: "#000",
-          }
+        ? (() => {
+            const moreRoom = !mobileEditorWaveExpanded || !mobileEditorToolsExpanded;
+            return {
+              flex: moreRoom ? "5 1 0" : "3 1 0",
+              minHeight: moreRoom ? "min(54dvh, 520px)" : "min(38dvh, 320px)",
+              maxHeight: moreRoom
+                ? "min(78dvh, calc(100dvh - 100px))"
+                : "min(64dvh, calc(100dvh - 220px))",
+              position: "relative",
+              borderBottom: "1px solid #1e293b",
+              borderRight: "none",
+              overflow: "hidden",
+              background: "#000",
+            };
+          })()
         : {},
-    [mobileStackEditor]
+    [
+      mobileStackEditor,
+      mobileEditorWaveExpanded,
+      mobileEditorToolsExpanded,
+    ]
   );
 
   const dynamicToolsAsideStyle = useMemo<CSSProperties>(
@@ -3775,13 +3802,17 @@ export function EditorPage({
                   }),
               ...(mobileStackEditor
                 ? {
-                    order: -1,
+                    order: -3,
                     alignSelf: "stretch",
                     width: "100%",
                     maxWidth: "100%",
-                    flex: "0 0 clamp(118px, 26dvh, 200px)",
-                    maxHeight: "min(30dvh, 220px)",
-                    minHeight: "min(22dvh, 132px)",
+                    flex: mobileEditorWaveExpanded
+                      ? "0 0 clamp(128px, 28dvh, 260px)"
+                      : "0 0 auto",
+                    maxHeight: mobileEditorWaveExpanded
+                      ? "min(34dvh, 300px)"
+                      : "none",
+                    minHeight: 0,
                     flexShrink: 0,
                     padding: rosterOnlyMode ? "6px 8px" : "6px 8px",
                     borderTop: "1px solid #1e293b",
@@ -3790,6 +3821,44 @@ export function EditorPage({
                 : {}),
             }}
           >
+            {mobileStackEditor ? (
+              <div
+                style={{
+                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 8,
+                  padding: "4px 2px 8px",
+                  borderBottom: "1px solid #334155",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: shell.textMuted,
+                    letterSpacing: "0.02em",
+                  }}
+                >
+                  波形・再生
+                </span>
+                <button
+                  type="button"
+                  style={{
+                    ...btnSecondary,
+                    padding: "6px 12px",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    touchAction: "manipulation",
+                  }}
+                  aria-expanded={mobileEditorWaveExpanded}
+                  onClick={() => setMobileEditorWaveExpanded((v) => !v)}
+                >
+                  {mobileEditorWaveExpanded ? "たたむ" : "ひろげる"}
+                </button>
+              </div>
+            ) : null}
             {wideEditorLayout &&
             showTopWaveDock &&
             hasRosterMembers &&
@@ -3980,6 +4049,58 @@ export function EditorPage({
                 </div>
               )
             ) : null}
+            {mobileStackEditor && !mobileEditorWaveExpanded ? (
+              <div
+                style={{
+                  flexShrink: 0,
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "6px 4px 8px",
+                  borderBottom: "1px solid #1e293b",
+                }}
+              >
+                <button
+                  type="button"
+                  disabled={project.viewMode === "view"}
+                  style={{
+                    ...btnAccent,
+                    minWidth: 48,
+                    minHeight: 44,
+                    padding: "0 12px",
+                    touchAction: "manipulation",
+                  }}
+                  aria-label={isPlaying ? "一時停止" : "再生"}
+                  onClick={() => timelineRef.current?.togglePlay()}
+                >
+                  {isPlaying ? "⏸" : "▶"}
+                </button>
+                <span
+                  style={{
+                    fontSize: 13,
+                    fontVariantNumeric: "tabular-nums",
+                    color: shell.text,
+                    fontWeight: 600,
+                  }}
+                >
+                  {formatPlaybackClockSec(currentTime)} /{" "}
+                  {formatPlaybackClockSec(duration)}
+                </span>
+                <button
+                  type="button"
+                  style={{
+                    ...btnSecondary,
+                    marginLeft: "auto",
+                    minHeight: 40,
+                    touchAction: "manipulation",
+                  }}
+                  onClick={() => setMobileEditorWaveExpanded(true)}
+                >
+                  波形を表示
+                </button>
+              </div>
+            ) : null}
             <div
               style={{
                 flex: "1 1 auto",
@@ -3996,7 +4117,12 @@ export function EditorPage({
                   ? {
                       overflow: "hidden",
                       minHeight: 0,
-                      flex: "1 1 auto",
+                      flex: mobileEditorWaveExpanded ? "1 1 auto" : "0 0 0",
+                      maxHeight: mobileEditorWaveExpanded ? "none" : 0,
+                      opacity: mobileEditorWaveExpanded ? 1 : 0,
+                      pointerEvents: mobileEditorWaveExpanded
+                        ? ("auto" as const)
+                        : ("none" as const),
                     }
                   : {}),
               }}
@@ -4118,132 +4244,221 @@ export function EditorPage({
               ...(floorTextPlaceSession
                 ? { position: "relative" as const, zIndex: 140 }
                 : {}),
-              ...(mobileStackEditor ? dynamicToolsAsideStyle : {}),
+              ...(mobileStackEditor
+                ? {
+                    ...dynamicToolsAsideStyle,
+                    gap: mobileEditorToolsExpanded ? 8 : 0,
+                    flex: mobileEditorToolsExpanded ? "1 1 auto" : "0 0 auto",
+                  }
+                : {}),
             }}
           >
             {mobileStackEditor ? (
               <div
                 style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "10px",
-                  marginBottom: "4px",
                   flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 8,
+                  padding: "2px 0 8px",
+                  borderBottom: "1px solid #334155",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: shell.textMuted,
+                    letterSpacing: "0.02em",
+                  }}
+                >
+                  操作パネル
+                </span>
+                <button
+                  type="button"
+                  style={{
+                    ...btnSecondary,
+                    padding: "6px 12px",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    touchAction: "manipulation",
+                  }}
+                  disabled={rosterOnlyMode}
+                  title={
+                    rosterOnlyMode
+                      ? "名簿表示中は操作パネルを閉じられません"
+                      : undefined
+                  }
+                  aria-expanded={mobileEditorToolsExpanded}
+                  onClick={() => setMobileEditorToolsExpanded((v) => !v)}
+                >
+                  {mobileEditorToolsExpanded ? "たたむ" : "ひろげる"}
+                </button>
+              </div>
+            ) : null}
+            {!mobileStackEditor || mobileEditorToolsExpanded ? (
+              <>
+                {mobileStackEditor ? (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: "10px",
+                      marginBottom: "4px",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      style={{
+                        ...btnAccent,
+                        minHeight: 44,
+                        touchAction: "manipulation",
+                        fontSize: "13px",
+                        fontWeight: 700,
+                      }}
+                      disabled={project.viewMode === "view"}
+                      title="新しいキューを追加"
+                      onClick={() => setAddCueDialogOpen(true)}
+                    >
+                      ＋ 次のキュー
+                    </button>
+                    <button
+                      type="button"
+                      style={{
+                        ...btnSecondary,
+                        minHeight: 44,
+                        touchAction: "manipulation",
+                        fontSize: "13px",
+                        fontWeight: 700,
+                      }}
+                      onClick={() => setStageAreaSettingsOpen(true)}
+                    >
+                      舞台設定
+                    </button>
+                  </div>
+                ) : null}
+                {mobileStackEditor ? (
+                  <div
+                    style={{
+                      flexShrink: 0,
+                      width: "100%",
+                      minWidth: 0,
+                      overflowX: "auto",
+                      WebkitOverflowScrolling: "touch",
+                      paddingBottom: 6,
+                      borderBottom: "1px solid #1e293b",
+                    }}
+                  >
+                    <ChoreoCoreToolbar {...choreoToolbarSharedProps} />
+                  </div>
+                ) : null}
+                {rosterOnlyMode ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      overflow: "hidden",
+                      flex: "1 1 0",
+                      minHeight: 0,
+                      ...rightPaneTopSectionStyle,
+                    }}
+                  >
+                    <RosterTimelineStrip
+                      project={project}
+                      setProject={setProjectSafe}
+                      onConfirmReturnToTimeline={onRosterConfirmReturnToTimeline}
+                      onStagePreviewChange={setStagePreviewDancers}
+                    />
+                  </div>
+                ) : null}
+                {workbenchInRightRail ? (
+                  <section
+                    className="editor-right-tools-section"
+                    style={{
+                      ...panelCard,
+                      padding: "6px 5px",
+                      flex: "0 0 auto",
+                      minWidth: 0,
+                      display: "flex",
+                      flexDirection: "column",
+                      overflow: "hidden",
+                      marginBottom: rosterOnlyMode ? 0 : 8,
+                    }}
+                  >
+                    <div className="editor-right-tools-host">
+                      <div className="editor-right-tools-tiles">
+                        <EditorStageWorkbench
+                          key="wb-tiles-2"
+                          layout="rail"
+                          {...stageWorkbenchProps}
+                        />
+                      </div>
+                    </div>
+                  </section>
+                ) : mobileStackEditor ? (
+                  <section
+                    className="editor-right-tools-section"
+                    style={{
+                      ...panelCard,
+                      padding: "6px 5px",
+                      flex: "0 0 auto",
+                      minWidth: 0,
+                      display: "flex",
+                      flexDirection: "column",
+                      overflow: "hidden",
+                      marginBottom: rosterOnlyMode ? 0 : 6,
+                    }}
+                  >
+                    <div className="editor-right-tools-host">
+                      <div className="editor-right-tools-tiles">
+                        <EditorStageWorkbench
+                          key="wb-mobile-rail"
+                          layout="rail"
+                          {...stageWorkbenchProps}
+                        />
+                      </div>
+                    </div>
+                  </section>
+                ) : null}
+              </>
+            ) : (
+              <div
+                style={{
+                  flexShrink: 0,
+                  width: "100%",
+                  padding: "12px 0 4px",
+                  boxSizing: "border-box",
                 }}
               >
                 <button
                   type="button"
                   style={{
                     ...btnAccent,
-                    minHeight: 44,
+                    width: "100%",
+                    minHeight: 48,
                     touchAction: "manipulation",
-                    fontSize: "13px",
+                    fontSize: "14px",
                     fontWeight: 700,
                   }}
-                  disabled={project.viewMode === "view"}
-                  title="新しいキューを追加"
-                  onClick={() => setAddCueDialogOpen(true)}
+                  onClick={() => setMobileEditorToolsExpanded(true)}
                 >
-                  ＋ 次のキュー
+                  操作パネルを表示
                 </button>
-                <button
-                  type="button"
+                <p
                   style={{
-                    ...btnSecondary,
-                    minHeight: 44,
-                    touchAction: "manipulation",
-                    fontSize: "13px",
-                    fontWeight: 700,
+                    margin: "8px 0 0",
+                    fontSize: 11,
+                    color: shell.textMuted,
+                    lineHeight: 1.45,
+                    textAlign: "center",
                   }}
-                  onClick={() => setStageAreaSettingsOpen(true)}
                 >
-                  舞台設定
-                </button>
+                  ツールバー・キュー操作・床テキストなどはここから開きます
+                </p>
               </div>
-            ) : null}
-            {mobileStackEditor ? (
-              <div
-                style={{
-                  flexShrink: 0,
-                  width: "100%",
-                  minWidth: 0,
-                  overflowX: "auto",
-                  WebkitOverflowScrolling: "touch",
-                  paddingBottom: 6,
-                  borderBottom: "1px solid #1e293b",
-                }}
-              >
-                <ChoreoCoreToolbar {...choreoToolbarSharedProps} />
-              </div>
-            ) : null}
-            {rosterOnlyMode ? (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden",
-                  flex: "1 1 0",
-                  minHeight: 0,
-                  ...rightPaneTopSectionStyle,
-                }}
-              >
-                <RosterTimelineStrip
-                  project={project}
-                  setProject={setProjectSafe}
-                  onConfirmReturnToTimeline={onRosterConfirmReturnToTimeline}
-                  onStagePreviewChange={setStagePreviewDancers}
-                />
-              </div>
-            ) : null}
-            {workbenchInRightRail ? (
-              <section
-                className="editor-right-tools-section"
-                style={{
-                  ...panelCard,
-                  padding: "6px 5px",
-                  flex: "0 0 auto",
-                  minWidth: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden",
-                  marginBottom: rosterOnlyMode ? 0 : 8,
-                }}
-              >
-                <div className="editor-right-tools-host">
-                  <div className="editor-right-tools-tiles">
-                    <EditorStageWorkbench
-                      key="wb-tiles-2"
-                      layout="rail"
-                      {...stageWorkbenchProps}
-                    />
-                  </div>
-                </div>
-              </section>
-            ) : mobileStackEditor ? (
-              <section
-                className="editor-right-tools-section"
-                style={{
-                  ...panelCard,
-                  padding: "6px 5px",
-                  flex: "0 0 auto",
-                  minWidth: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden",
-                  marginBottom: rosterOnlyMode ? 0 : 6,
-                }}
-              >
-                <div className="editor-right-tools-host">
-                  <div className="editor-right-tools-tiles">
-                    <EditorStageWorkbench
-                      key="wb-mobile-rail"
-                      layout="rail"
-                      {...stageWorkbenchProps}
-                    />
-                  </div>
-                </div>
-              </section>
-            ) : null}
+            )}
           </div>
         ) : null}
       </div>
