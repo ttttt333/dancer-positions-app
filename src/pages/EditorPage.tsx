@@ -26,6 +26,7 @@ import { generateId } from "../lib/generateId";
 import { BottomNav } from "../components/mobile";
 import { StageBoard, type FloorTextPlaceSession } from "../components/StageBoard";
 import { MobileLayout } from "../components/mobile/MobileLayout";
+import { MobileMenuSheet } from "../components/mobile/MobileMenuSheet";
 import { StageDimensionFields } from "../components/StageDimensionFields";
 import {
   mmFromMeterAndCm,
@@ -964,6 +965,7 @@ export function EditorPage({
   const [mobileEditorWaveExpanded, setMobileEditorWaveExpanded] = useState(true);
   /** スマホ縦積み: 右下の操作列（ツールバー・ワークベンチ等）の表示 */
   const [mobileEditorToolsExpanded, setMobileEditorToolsExpanded] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   useEffect(() => {
     if (!editorMobileStackBreakpoint) {
       setMobileEditorWaveExpanded(true);
@@ -5636,8 +5638,34 @@ export function EditorPage({
         </div>
       ) : null}
 
-      {/* Mobile Bottom Navigation */}
-      <BottomNav />
+      <MobileMenuSheet
+          open={mobileMenuOpen}
+          onClose={() => setMobileMenuOpen(false)}
+          onOpenStageSettings={() => { setMobileMenuOpen(false); setStageAreaSettingsOpen(true); }}
+          onOpenAddCue={() => { setMobileMenuOpen(false); setAddCueDialogOpen(true); }}
+          onOpenExport={() => { setMobileMenuOpen(false); setExportDialogOpen(true); }}
+          onOpenFlowLibrary={() => { setMobileMenuOpen(false); setFlowLibraryOpen(true); }}
+          onOpenAudioImport={() => { setMobileMenuOpen(false); openAudioImport(); }}
+          onOpenRosterImport={() => { setMobileMenuOpen(false); importCrewCsvFromStageToolbar(); }}
+          onOpenShareLinks={() => { setMobileMenuOpen(false); setShareLinksOpen(true); }}
+          onOpenFormationBox={() => { setMobileMenuOpen(false); setFormationBoxManagerOpen(true); }}
+          onOpenViewerMode={() => { setMobileMenuOpen(false); setEditorViewerSheetOpen(true); }}
+          onAddDancer={addDancerFromStageToolbar}
+          onUndo={undo}
+          onRedo={redo}
+          onEnterZen={() => { setMobileMenuOpen(false); setStageZenFullscreen(true); }}
+          onOpenCueList={() => { setMobileMenuOpen(false); setCueListModalOpen(true); }}
+          canUndo={!stageUndoDisabled}
+          canRedo={!stageRedoDisabled}
+          isViewMode={project.viewMode === "view"}
+          hasServerId={serverId != null}
+          isLoggedIn={!!me}
+        />
+
+        {/* Mobile Bottom Navigation */}
+        <BottomNav
+          onOpenMenu={() => setMobileMenuOpen(true)}
+        />
 
       <style>{`
         @media (max-width: 1279px) {

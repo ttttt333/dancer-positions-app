@@ -4,9 +4,10 @@ import styles from "./BottomNav.module.css";
 
 export interface BottomNavProps {
   className?: string;
+  onOpenMenu?: () => void;
 }
 
-export function BottomNav({ className }: BottomNavProps) {
+export function BottomNav({ className, onOpenMenu }: BottomNavProps) {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -39,6 +40,17 @@ export function BottomNav({ className }: BottomNavProps) {
 
   return (
     <nav className={`${styles.bottomNav} ${className || ""}`} data-bottom-nav>
+      {onOpenMenu && (
+        <button
+          className={styles.navItem}
+          onClick={onOpenMenu}
+          aria-label="メニューを開く"
+          style={{ fontSize: "20px" }}
+        >
+          <span className={styles.navIcon}>☰</span>
+          <span className={styles.navLabel}>メニュー</span>
+        </button>
+      )}
       {navItems.map((item) => (
         <button
           key={item.id}
