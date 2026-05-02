@@ -2133,18 +2133,9 @@ export function EditorPage({
   }, []);
 
   useEffect(() => {
-      }
-      const first = cuesSortedForStageJump[0]?.id;
-      const next = first ? [first] : [];
-      if (
-        next.length === ids.length &&
-        next.every((id, i) => id === ids[i])
-      ) {
-        return ids;
-      }
-      return next;
-    });
-  }, [project, cueIdsSig, cueById, cuesSortedForStageJump]);
+    // TODO: Implement stage jump logic
+    console.log("Stage jump effect triggered");
+  }, [project]);
 
   /** 再生中のみ補間表示 */
   const playbackDancersForStage = !isPlaying ? null : interpolatedDancers;
