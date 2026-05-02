@@ -1,0 +1,49 @@
+/* ChoreoCore Mobile Override
+   EditorPage.tsxに触れずCSSだけでモバイルUIを改善 */
+
+@media (max-width: 768px) {
+
+  /* ── ステージを最大化 ─────────────────── */
+  .editor-mobile-stack section:first-of-type {
+    flex: 3 1 0 !important;
+    min-height: 52dvh !important;
+  }
+
+  /* ── 波形エリアをコンパクトに ─────────── */
+  .editor-mobile-stack > section:nth-of-type(2) {
+    flex: 0 0 auto !important;
+    max-height: 120px !important;
+  }
+
+  /* ── 操作パネルをコンパクトに ─────────── */
+  .editor-mobile-stack > div:last-of-type {
+    flex: 0 0 auto !important;
+    max-height: 200px !important;
+    overflow-y: auto !important;
+  }
+
+  /* ── ボタンを押しやすく ───────────────── */
+  .editor-mobile-stack button {
+    min-height: 44px !important;
+    min-width: 44px !important;
+  }
+
+  /* ── グリッドボタンを大きく ──────────── */
+  .editor-right-tools-tiles button {
+    min-height: 56px !important;
+    font-size: 11px !important;
+    border-radius: 10px !important;
+  }
+
+  /* ── ヘッダーをコンパクトに ──────────── */
+  .editor-page-root header {
+    min-height: 44px !important;
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+  }
+
+  /* ── 言語セレクターを小さく ──────────── */
+  select {
+    font-size: 12px !important;
+  }
+}
