@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { StageBoardFitViewport } from "./StageBoardFitViewport";
 import {
   StageRotatedStageFrame,
@@ -22,11 +23,25 @@ export function StageBoardStageFrame({
   exportColumn,
   ...rotatedFrame
 }: StageBoardStageFrameProps) {
+  /** 客席＝画面上（180°）のとき、回転後に下側の「舞台裏」帯が欠けないようわずかに上へ */
+  const rotNorm = ((rotatedFrame.rotationDeg % 360) + 360) % 360;
+  const wrapperStyle: CSSProperties = {
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    minWidth: 0,
+    minHeight: 0,
+    flex: "1 1 0%",
+    ...(rotNorm === 180 ? { transform: "translateY(-5mm)" } : {}),
+  };
+
   return (
     <StageBoardFitViewport>
-      <StageRotatedStageFrame {...rotatedFrame}>
-        <StageExportRootColumn {...exportColumn} />
-      </StageRotatedStageFrame>
+      <div style={wrapperStyle}>
+        <StageRotatedStageFrame {...rotatedFrame}>
+          <StageExportRootColumn {...exportColumn} />
+        </StageRotatedStageFrame>
+      </div>
     </StageBoardFitViewport>
   );
 }

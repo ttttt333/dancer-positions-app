@@ -170,7 +170,7 @@ export function markerBelowLabelFontPx(circleLabelPx: number): number {
 }
 
 /** ○下端と名前のあいだを、舞台横幅に対してこの mm ぶん広げる */
-const DANCER_NAME_BELOW_EXTRA_GAP_MM = 3.5;
+const DANCER_NAME_BELOW_EXTRA_GAP_MM = 5.5;
 
 export function dancerNameBelowClearanceExtraPx(
   stageWidthMm: number | null | undefined,
