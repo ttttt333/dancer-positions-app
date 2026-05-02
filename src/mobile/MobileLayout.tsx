@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { BottomNav } from "./BottomNav";
-import { MobileStage } from "./MobileStage";
+import { MobileStage } from "./MobileStageEnhanced";
 import { MobileTimelineModal } from "./MobileTimelineModal";
 
 export function MobileLayout() {

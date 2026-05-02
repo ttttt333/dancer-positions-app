@@ -75,19 +75,33 @@ export function MobileStage() {
         top: 0,
         left: 0,
         right: 0,
-        bottom: 70, // BottomNav分
+        bottom: 80, // BottomNav分（拡大）
         overflow: "hidden",
-        touchAction: "none" // スクロール競合解消
+        touchAction: "none", // スクロール競合解消
+        background: "#0f172a", // より明るい背景
+        padding: 16, // 余白を追加
+        boxSizing: "border-box"
       }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      <StageBoard
-        project={project}
-        selectedCueId={selectedCueId}
-        // TODO: 他のpropsは後で接続
-      />
+      <div style={{
+        width: "100%",
+        height: "100%",
+        background: "#1e293b",
+        borderRadius: 16,
+        border: "2px solid #475569",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+        overflow: "hidden",
+        position: "relative"
+      }}>
+        <StageBoard
+          project={project}
+          selectedCueId={selectedCueId}
+          // TODO: 他のpropsは後で接続
+        />
+      </div>
     </div>
   );
 }
