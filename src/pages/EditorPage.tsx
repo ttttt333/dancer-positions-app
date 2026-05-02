@@ -3006,7 +3006,7 @@ export function EditorPage({
             backgroundColor: "#0f172a",
             display: "flex",
             flexDirection: "column",
-            gap: 8,
+            gap: 12,
           }
         : {},
     [mobileStackEditor]
@@ -3569,7 +3569,7 @@ export function EditorPage({
                 }
               : { gridRow: publicNarrowLayout ? 1 : 2 }),
             ...dynamicStageShellStyle,
-            ...(mobileStackEditor ? { order: -2 } : {}),
+            ...(mobileStackEditor ? { order: -2, touchAction: "none" } : {}),
           }}
         >
           {stageZenLayout ? (
@@ -3670,6 +3670,11 @@ export function EditorPage({
                         flexShrink: 0,
                         maxWidth: "min(200px, 100%)",
                         lineHeight: 0,
+                        position: mobileStackEditor ? "fixed" : "relative",
+                        bottom: mobileStackEditor ? "20px" : "auto",
+                        left: mobileStackEditor ? "50%" : "auto",
+                        transform: mobileStackEditor ? "translateX(-50%)" : "none",
+                        zIndex: mobileStackEditor ? 100 : "auto",
                       }}
                     >
                       <WorkbenchCuePager
@@ -4397,11 +4402,11 @@ export function EditorPage({
                       type="button"
                       style={{
                         ...btnAccent,
-                        minHeight: 48,
+                        minHeight: 56,
                         borderRadius: 12,
                         padding: "12px 10px",
                         touchAction: "manipulation",
-                        fontSize: "13px",
+                        fontSize: "15px",
                         fontWeight: 700,
                         boxSizing: "border-box",
                       }}
@@ -4415,11 +4420,11 @@ export function EditorPage({
                       type="button"
                       style={{
                         ...btnSecondary,
-                        minHeight: 48,
+                        minHeight: 56,
                         borderRadius: 12,
                         padding: "12px 10px",
                         touchAction: "manipulation",
-                        fontSize: "13px",
+                        fontSize: "15px",
                         fontWeight: 700,
                         boxSizing: "border-box",
                       }}
@@ -5764,6 +5769,13 @@ export function EditorPage({
         @media (max-width: 768px) {
           .editor-pane-resizer {
             display: none !important;
+          }
+        }
+        
+        /* Mobile debug border */
+        @media (max-width: 768px) {
+          .editor-page-root--mobile-editor {
+            border-top: 0.5px solid rgba(255,255,255,0.08);
           }
         }
       `}</style>
