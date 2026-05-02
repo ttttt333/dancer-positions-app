@@ -48,21 +48,12 @@
   }
 }
 
-/* 言語セレクターをヘッダーに移動 */
 @media (max-width: 768px) {
-  /* 言語セレクターを左下から非表示にして
-     ヘッダー右端に移動 */
-  .editor-mobile-stack ~ div select,
-  div[style*="言語"] {
+  /* 言語セレクターを左下から非表示 */
+  .editor-mobile-stack ~ div select {
     display: none !important;
   }
-
-  /* ボトムナビの☰ボタンを右端に確保 */
-  nav[data-bottom-nav] {
-    justify-content: space-between !important;
-    padding: 0 16px !important;
-  }
-
+  
   /* ステージをもう少し大きく */
   .editor-mobile-stack {
     gap: 0 !important;
