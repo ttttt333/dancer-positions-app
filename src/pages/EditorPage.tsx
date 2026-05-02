@@ -25,6 +25,7 @@ import { ChoreoCoreLogo } from "../components/ChoreoGridLogo";
 import { generateId } from "../lib/generateId";
 import { BottomNav } from "../components/mobile";
 import { StageBoard, type FloorTextPlaceSession } from "../components/StageBoard";
+import { MobileLayout } from "../components/mobile/MobileLayout";
 import { StageDimensionFields } from "../components/StageDimensionFields";
 import {
   mmFromMeterAndCm,
@@ -2132,6 +2133,10 @@ export function EditorPage({
     });
   }, []);
 
+  // Mobile detection
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) 
+    || window.innerWidth < 768;
+
   useEffect(() => {
     // TODO: Implement stage jump logic
     console.log("Stage jump effect triggered");
@@ -3265,6 +3270,11 @@ export function EditorPage({
         }
       : {}),
   };
+
+  // Return MobileLayout for mobile devices
+  if (isMobile) {
+    return <MobileLayout />;
+  }
 
   return (
     <div
