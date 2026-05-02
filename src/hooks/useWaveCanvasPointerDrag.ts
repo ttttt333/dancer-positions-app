@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { ChoreographyProjectJson, Cue } from "../types/choreography";
+import { generateId } from "../lib/generateId";
 import {
   clampSeekTimeSec,
   cloneFormationForNewCue,
@@ -415,7 +416,7 @@ export function useWaveCanvasPointerDrag({
               redraw();
               return;
             }
-            const newCueId = crypto.randomUUID();
+            const newCueId = generateId();
             const rNew = resolveCueIntervalNonOverlap(cuesRef.current, newCueId, ts, te, st.trimLo, st.trimHi);
             const tsFinal = rNew.tStartSec;
             const teFinal = rNew.tEndSec;

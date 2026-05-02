@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
 import { btnSecondary } from "../components/stageButtonStyles";
+import { generateId } from "../lib/generateId";
 
 type VideoRow = {
   id: string;
@@ -92,7 +93,7 @@ export function VideoPage() {
     input.onchange = () => {
       const f = input.files?.[0];
       if (!f) return;
-      const id = crypto.randomUUID();
+      const id = generateId();
       const r = new FileReader();
       r.onload = () => {
         void (async () => {

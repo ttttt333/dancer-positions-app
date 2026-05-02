@@ -22,6 +22,8 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { ChoreoCoreLogo } from "../components/ChoreoGridLogo";
+import { generateId } from "../lib/generateId";
+import { BottomNav } from "../components/mobile";
 import { StageBoard, type FloorTextPlaceSession } from "../components/StageBoard";
 import { StageDimensionFields } from "../components/StageDimensionFields";
 import {
@@ -38,6 +40,7 @@ import {
   togglePlaybackRespectingTrimStart,
 } from "../lib/playbackTransport";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
+import { useSelectedCueId, useSetSelectedCueId } from "../store/useEditorStore";
 import { useEditorPlaybackSync } from "../hooks/useEditorPlaybackSync";
 import { useTimelineMediaHandle } from "../hooks/useTimelineMediaHandle";
 import { RosterTimelineStrip } from "../components/RosterTimelineStrip";
@@ -942,11 +945,8 @@ export function EditorPage({
     null
   );
   /** ChoreoCore: 編集対象のキュー（ステージ・プリセット・インスペクタの書き込み先） */
-  const [selectedCueIds, setSelectedCueIds] = useState<string[]>([]);
-  const selectedCueId =
-    selectedCueIds.length === 0
-      ? null
-      : selectedCueIds[selectedCueIds.length - 1]!;
+  const selectedCueId = useSelectedCueId();
+  const setSelectedCueId = useSetSelectedCueId();
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [flowLibraryOpen, setFlowLibraryOpen] = useState(false);
   /** 立ち位置保存ボタンから開く管理ダイアログ */
@@ -2084,7 +2084,7 @@ export function EditorPage({
       if (!hasRoster) {
         const cue = cuesSorted[slotIdx];
         if (!cue) return;
-        setSelectedCueIds([cue.id]);
+        setSelectedCueId(cue.id);
         setProjectSafe((prev) => ({
           ...prev,
           activeFormationId: cue.formationId,
@@ -2107,7 +2107,7 @@ export function EditorPage({
       }
       const cue = cuesSorted[slotIdx - 1];
       if (!cue) return;
-      setSelectedCueIds([cue.id]);
+      setSelectedCueId(cue.id);
       setProjectSafe((prev) => ({
         ...prev,
         rosterHidesTimeline: false,
@@ -2133,28 +2133,6 @@ export function EditorPage({
   }, []);
 
   useEffect(() => {
-    if (!project) return;
-    if (project.cues.length === 0) {
-      setSelectedCueIds((ids) => (ids.length === 0 ? ids : []));
-      return;
-    }
-    setSelectedCueIds((ids) => {
-      const valid = ids.filter((id) => cueById.has(id));
-      if (valid.length > 0) {
-        const seen = new Set<string>();
-        const deduped: string[] = [];
-        for (const id of valid) {
-          if (seen.has(id)) continue;
-          seen.add(id);
-          deduped.push(id);
-        }
-        if (
-          deduped.length === ids.length &&
-          deduped.every((id, i) => id === ids[i])
-        ) {
-          return ids;
-        }
-        return deduped;
       }
       const first = cuesSortedForStageJump[0]?.id;
       const next = first ? [first] : [];
@@ -2299,7 +2277,7 @@ export function EditorPage({
             ...(f.floorMarkup ?? []),
             {
               kind: "text" as const,
-              id: crypto.randomUUID(),
+              id: generateId(),
               layer: "screen" as const,
               xPct: round2Pct(
                 Math.min(100, Math.max(0, floorTextPlaceSession.xPct))
@@ -2349,7 +2327,7 @@ export function EditorPage({
       const n = f.dancers.length;
       const { xPct, yPct } = pickSpotForAppendedDancer(f.dancers);
       const newDancer = {
-        id: crypto.randomUUID(),
+        id: generateId(),
         label: String(n + 1),
         xPct,
         yPct,
@@ -2434,7 +2412,7 @@ export function EditorPage({
         project.formations.find((x) => x.id === project.activeFormationId)?.id ??
         project.formations[0]?.id;
       if (!fid) return;
-      const pieceId = crypto.randomUUID();
+      const pieceId = generateId();
       const kind: SetPieceKind = opts.kind;
       const onScreen = Boolean(opts.placeOnEditorSurface);
       const wPct = onScreen
@@ -2544,7 +2522,7 @@ export function EditorPage({
   }, [me, syncProjectToCloud]);
   const handleAddCueCreated = useCallback(
     (cueId: string, startSec: number) => {
-      setSelectedCueIds([cueId]);
+      setSelectedCueId(cueId);
       if (typeof startSec === "number" && Number.isFinite(startSec)) {
         const proj = projectRef.current;
         pauseAndSeekPlaybackToSec({
@@ -3214,8 +3192,8 @@ export function EditorPage({
           ? yjsCollab.redoStackSize === 0
           : historyRef.current.redo.length === 0)
       }
-      selectedCueIds={selectedCueIds}
-      onSelectedCueIdsChange={setSelectedCueIds}
+      selectedCueId={selectedCueId}
+      setSelectedCueId={setSelectedCueId}
       formationIdForNewCue={selectedCue?.formationId ?? project.activeFormationId}
       wideWorkbench={wideEditorLayout}
       compactTopDock={
@@ -5652,6 +5630,9 @@ export function EditorPage({
         </div>
       ) : null}
 
+      {/* Mobile Bottom Navigation */}
+      <BottomNav />
+
       <style>{`
         @media (max-width: 1279px) {
           /* 閲覧ナロー・スマホ縦積み編集は除外（それぞれ専用レイアウト） */
@@ -5661,6 +5642,107 @@ export function EditorPage({
             overscroll-behavior: contain;
           }
         }
+        
+        /* iPhone-specific mobile fixes */
+        @media (max-width: 430px) and (max-height: 932px) {
+          .editor-three-pane {
+            grid-template-columns: 1fr;
+            grid-template-rows: auto auto auto;
+            gap: 0;
+            padding-bottom: 65px;
+            margin-bottom: 0;
+            min-height: 100vh;
+          }
+          
+          .editor-three-pane > div {
+            min-height: auto;
+            overflow: visible;
+            margin-bottom: 0;
+          }
+          
+          /* iPhone safe area support */
+          body.has-bottom-nav .editor-three-pane {
+            padding-bottom: calc(65px + env(safe-area-inset-bottom, 0px));
+            margin-bottom: 0;
+          }
+          
+          body.has-bottom-nav .app-shell {
+            padding-bottom: calc(65px + env(safe-area-inset-bottom, 0px));
+            margin-bottom: 0;
+          }
+          
+          /* Bottom nav iPhone optimization */
+          nav[data-bottom-nav] {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 9999;
+            transform: translateZ(0);
+            background: #2a2a2e;
+            border-top: 2px solid #ff0000;
+            height: 65px;
+            display: flex;
+            visibility: visible;
+            opacity: 1;
+            padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+          }
+          
+          nav[data-bottom-nav] > * {
+            visibility: visible;
+            opacity: 1;
+            display: flex;
+          }
+        }
+        
+        /* General mobile fixes */
+        @media (max-width: 768px) {
+          .editor-three-pane {
+            grid-template-columns: 1fr;
+            grid-template-rows: auto auto auto;
+            gap: 0;
+            padding-bottom: 60px;
+            margin-bottom: 0;
+          }
+          
+          .editor-three-pane > div {
+            min-height: auto;
+            overflow: visible;
+            margin-bottom: 0;
+          }
+          
+          body.has-bottom-nav .editor-three-pane {
+            padding-bottom: 60px;
+            margin-bottom: 0;
+          }
+          
+          body.has-bottom-nav .app-shell {
+            padding-bottom: 60px;
+            margin-bottom: 0;
+          }
+          
+          nav[data-bottom-nav] {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 9999;
+            transform: translateZ(0);
+            background: #2a2a2e;
+            border-top: 2px solid #ff0000;
+            height: 60px;
+            display: flex;
+            visibility: visible;
+            opacity: 1;
+          }
+          
+          nav[data-bottom-nav] > * {
+            visibility: visible;
+            opacity: 1;
+            display: flex;
+          }
+        }
+        
         .editor-pane-resizer::after {
           content: "";
           position: absolute;
@@ -5675,6 +5757,13 @@ export function EditorPage({
         }
         .editor-pane-resizer:hover::after {
           background: rgba(148, 163, 184, 0.75);
+        }
+        
+        /* Hide resizers on mobile */
+        @media (max-width: 768px) {
+          .editor-pane-resizer {
+            display: none !important;
+          }
         }
       `}</style>
     </div>

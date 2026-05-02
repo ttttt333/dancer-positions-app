@@ -6,6 +6,7 @@ import {
   rescaleSpotsForSpacing,
 } from "./dancerSpacing";
 import { modDancerColorIndex } from "./dancerColorPalette";
+import { generateId } from "./generateId";
 
 /**
  * 場ミリ規格を `dancersForLayoutPreset` / `dancersWithPresetAndWingSurplus`
@@ -24,7 +25,7 @@ function clamp(n: number, lo: number, hi: number) {
 
 function pushSpot(out: DancerSpot[], i: number, x: number, y: number) {
   out.push({
-    id: crypto.randomUUID(),
+    id: generateId(),
     label: String(i + 1),
     xPct: clamp(x, 5, 95),
     yPct: clamp(y, 8, 92),
@@ -1391,7 +1392,7 @@ export function wingSurplusSpots(extra: number, firstLabelNumber: number): Dance
     const yPct = 18 + t * 56;
     const i = firstLabelNumber - 1 + j;
     out.push({
-      id: crypto.randomUUID(),
+      id: generateId(),
       label: String(firstLabelNumber + j),
       xPct: clamp(xPct, 5, 95),
       yPct: clamp(yPct, 10, 90),

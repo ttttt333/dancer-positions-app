@@ -1,0 +1,182 @@
+.touchStage {
+  position: relative;
+  overflow: hidden;
+  background: #1a2436;
+  border: 4px solid #c62828;
+  border-radius: 12px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.stageContent {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-origin: center center;
+  transition: transform 0.1s ease-out;
+}
+
+.gridBackground {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    linear-gradient(rgba(186, 210, 255, 0.15) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(186, 210, 255, 0.15) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+
+.dancer {
+  position: absolute;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  font-size: 12px;
+  font-weight: 600;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+}
+
+.dancer:hover {
+  transform: translate(-50%, -50%) scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  z-index: 20;
+}
+
+.dancer.selected {
+  border-color: #fbbf24;
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.3), 0 4px 12px rgba(0, 0, 0, 0.4);
+  z-index: 30;
+}
+
+.dancer:active {
+  transform: translate(-50%, -50%) scale(0.95);
+}
+
+.dancerName {
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40px;
+}
+
+.controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 100;
+  background: rgba(42, 42, 46, 0.9);
+  padding: 6px 8px;
+  border-radius: 8px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.resetButton {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #f4f4f5;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.resetButton:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+
+.resetButton:active {
+  transform: scale(0.95);
+}
+
+.zoomIndicator {
+  font-size: 11px;
+  font-weight: 600;
+  color: #a1a1aa;
+  min-width: 40px;
+  text-align: center;
+  font-variant-numeric: tabular-numbers;
+}
+
+@media (max-width: 360px) {
+  .dancer {
+    width: 40px;
+    height: 40px;
+    font-size: 10px;
+  }
+  
+  .dancerName {
+    max-width: 32px;
+  }
+  
+  .controls {
+    top: 8px;
+    right: 8px;
+    padding: 4px 6px;
+  }
+  
+  .resetButton {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+  
+  .zoomIndicator {
+    font-size: 10px;
+    min-width: 35px;
+  }
+}
+
+@media (min-width: 768px) {
+  .dancer {
+    width: 60px;
+    height: 60px;
+    font-size: 14px;
+  }
+  
+  .dancerName {
+    max-width: 48px;
+  }
+  
+  .controls {
+    top: 16px;
+    right: 16px;
+    padding: 8px 12px;
+  }
+  
+  .resetButton {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+  
+  .zoomIndicator {
+    font-size: 12px;
+    min-width: 45px;
+  }
+}

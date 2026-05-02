@@ -1,0 +1,18 @@
+.mobileLayout {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.mainContent {
+  flex: 1;
+  padding-bottom: 60px; /* Space for BottomNav */
+  overflow-y: auto;
+}
+
+@media (min-width: 768px) {
+  .mainContent {
+    padding-bottom: 70px; /* Space for BottomNav on larger screens */
+  }
+}

@@ -5,6 +5,8 @@
  * プロジェクト毎に毎回手で入力し直さなくて済むよう、端末横断のグローバル倉庫として扱う。
  */
 
+import { generateId } from "./generateId";
+
 const STORAGE_KEY = "choreogrid_stage_presets_v1";
 const MAX_NAME_LEN = 120;
 
@@ -100,10 +102,7 @@ function writeAll(items: StagePresetItem[]): void {
 }
 
 function genId(): string {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return `sp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return generateId();
 }
 
 /** 新しい順で返す */

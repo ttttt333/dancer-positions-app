@@ -4,6 +4,7 @@ import type {
   PointerEvent as ReactPointerEvent,
 } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { generateId } from "../lib/generateId";
 import type {
   ChoreographyProjectJson,
   DancerSpot,
@@ -992,7 +993,7 @@ export function StageBoardBody({
         if (len < 0.35) return;
         const newLine: StageFloorMarkup = {
           kind: "line",
-          id: crypto.randomUUID(),
+          id: generateId(),
           pointsPct: s.points,
           widthPx: 3,
           color: "#fbbf24",
@@ -1069,7 +1070,7 @@ export function StageBoardBody({
         .filter((d): d is DancerSpot => d != null);
       if (snapshots.length === 0) return;
       const clones: DancerSpot[] = snapshots.map((d) => {
-        const nid = crypto.randomUUID();
+        const nid = generateId();
         const base = (d.label || "?").trim() || "?";
         const label = base.length <= 12 ? `${base}′` : `${base.slice(0, 11)}′`;
         return {
@@ -2236,7 +2237,7 @@ export function StageBoardBody({
         const root = viewportTextOverlayRoot;
         const newText: StageFloorTextMarkup = {
           kind: "text",
-          id: crypto.randomUUID(),
+          id: generateId(),
           xPct: round2(xPct),
           yPct: round2(yPct),
           text: t.slice(0, 400),

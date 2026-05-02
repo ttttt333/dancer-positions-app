@@ -18,6 +18,7 @@ import {
 } from "./dancerSpacing";
 import { parseGapApproachRoute } from "./gapDancerInterpolation";
 import { clampStageGridAxisMm, parseAudienceEdge } from "./projectDefaults";
+import { generateId } from "./generateId";
 import {
   deleteFlowLibraryAudio,
   getFlowLibraryAudio,
@@ -575,14 +576,14 @@ export function ensureCrewsFromFormationsIfEmpty(
     );
     return {
       ...project,
-      crews: [{ id: crypto.randomUUID(), name: "名簿", members }],
+      crews: [{ id: generateId(), name: "名簿", members }],
     };
   }
 
   const memberIds: string[] = [];
   const members: CrewMember[] = [];
   for (let i = 0; i < active.dancers.length; i++) {
-    const mid = crypto.randomUUID();
+    const mid = generateId();
     memberIds.push(mid);
     members.push(crewMemberFromSpot(active.dancers[i], mid));
   }
@@ -600,7 +601,7 @@ export function ensureCrewsFromFormationsIfEmpty(
 
   return {
     ...project,
-    crews: [{ id: crypto.randomUUID(), name: "名簿", members }],
+    crews: [{ id: generateId(), name: "名簿", members }],
     formations,
   };
 }
@@ -974,7 +975,7 @@ async function rehydrateEmbeddedAudioFromJsonItems(
       const mime = m0?.flowEmbeddedAudioMimeType || "application/octet-stream";
       const bytes = base64ToUint8Array(b64);
       const blob = new Blob([bytes], { type: mime });
-      const newKey = crypto.randomUUID();
+      const newKey = generateId();
       await putFlowLibraryAudio(newKey, blob);
       const m: FlowLibraryMemento = { ...m0 };
       delete (m as Record<string, unknown>).flowEmbeddedAudioBase64;
@@ -1092,7 +1093,7 @@ function buildFlowLibraryItemFromProject(
   const existingCount = safeParseAll().length;
   const memento = buildMementoFromProject(project, opts);
   const item: FlowLibraryItem = {
-    id: crypto.randomUUID(),
+    id: generateId(),
     name: trimmed || `フロー ${existingCount + 1}`,
     /** バンドル版では常に実タイムラインに基づく（旧「秒数オフ」で hasTiming だけ false になる不整合を防ぐ） */
     hasTiming: hasTimingFromCues,
@@ -1294,14 +1295,14 @@ export function expandFlowToProject(
   /** id を新規採番（プロジェクト側の既存 id と衝突しないように） */
   const idMap = new Map<string, string>();
   for (const f of item.formations) {
-    idMap.set(f.id, crypto.randomUUID());
+    idMap.set(f.id, generateId());
   }
   const formations: Formation[] = item.formations.map((f) => ({
     id: idMap.get(f.id)!,
     name: f.name || "",
     setPieces: [],
     dancers: f.dancers.map<DancerSpot>((d, i) => ({
-      id: crypto.randomUUID(),
+      id: generateId(),
       label: d.label || String(i + 1),
       xPct: d.xPct,
       yPct: d.yPct,
@@ -1321,7 +1322,7 @@ export function expandFlowToProject(
       return null as unknown as Cue;
     }
     return {
-      id: typeof c.id === "string" && c.id ? c.id : crypto.randomUUID(),
+      id: typeof c.id === "string" && c.id ? c.id : generateId(),
       tStartSec:
         useTiming && c.tStartSec != null ? c.tStartSec : i,
       tEndSec:

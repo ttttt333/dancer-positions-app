@@ -1,0 +1,66 @@
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  background: #2a2a2e;
+  border-right: 1px solid #3f3f46;
+  z-index: 1000;
+  box-shadow: 2px 0 20px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  will-change: transform;
+  -webkit-overflow-scrolling: touch;
+}
+
+.drawerContent {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.drawerContent::-webkit-scrollbar {
+  width: 4px;
+}
+
+.drawerContent::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.drawerContent::-webkit-scrollbar-thumb {
+  background: #4a4a4e;
+  border-radius: 2px;
+}
+
+.drawerContent::-webkit-scrollbar-thumb:hover {
+  background: #5a5a5e;
+}
+
+@media (max-width: 360px) {
+  .drawerContent {
+    padding: 12px;
+  }
+}
+
+@media (min-width: 768px) {
+  .drawer {
+    box-shadow: 4px 0 30px rgba(0, 0, 0, 0.4);
+  }
+  
+  .drawerContent {
+    padding: 24px;
+  }
+}

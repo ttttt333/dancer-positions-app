@@ -15,6 +15,7 @@ import { syncPlaybackHeadAfterCueEdit } from "../lib/playbackTransport";
 import { listFormationBoxItemsByCount, saveFormationToBox } from "../lib/formationBox";
 import { dancersForLayoutPreset } from "../lib/formationLayouts";
 import type { ChoreographyProjectJson, Cue } from "../types/choreography";
+import { generateId } from "../lib/generateId";
 
 type Params = {
   project: ChoreographyProjectJson;
@@ -42,7 +43,7 @@ export function useTimelineCueActions({
   const addCueStartingAtTime = useCallback(
     (t0Raw: number) => {
       if (project.viewMode === "view") return;
-      const newCueId = crypto.randomUUID();
+      const newCueId = generateId();
       let appliedT = 0;
       setProject((p) => {
         if (p.cues.length >= 100) return p;
@@ -172,7 +173,7 @@ export function useTimelineCueActions({
   const duplicateCueSameSettings = useCallback(
     (source: Cue) => {
       if (project.viewMode === "view") return;
-      const newCueId = crypto.randomUUID();
+      const newCueId = generateId();
       let appliedT = Math.round(currentTime * 100) / 100;
       setProject((p) => {
         if (p.cues.length >= 100) return p;
@@ -240,7 +241,7 @@ export function useTimelineCueActions({
   const duplicateCueAtTimelineEnd = useCallback(
     (source: Cue) => {
       if (project.viewMode === "view") return;
-      const newCueId = crypto.randomUUID();
+      const newCueId = generateId();
       let appliedT = 0;
       setProject((p) => {
         if (p.cues.length >= 100) return p;
@@ -319,7 +320,7 @@ export function useTimelineCueActions({
   const duplicateCueAfterSource = useCallback(
     (source: Cue) => {
       if (project.viewMode === "view") return;
-      const newCueId = crypto.randomUUID();
+      const newCueId = generateId();
       let appliedT = 0;
       setProject((p) => {
         if (p.cues.length >= 100) return p;
@@ -427,7 +428,7 @@ export function useTimelineCueActions({
         if (!srcFm) return p;
         const newFm = cloneFormationForNewCue(srcFm);
         const newCue: Cue = {
-          id: crypto.randomUUID(),
+          id: generateId(),
           tStartSec: splitAt,
           tEndSec: origInner.tEndSec,
           formationId: newFm.id,

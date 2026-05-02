@@ -1,5 +1,6 @@
 import type { DancerSpot } from "../types/choreography";
 import { modDancerColorIndex } from "./dancerColorPalette";
+import { generateId } from "./generateId";
 import {
   DANCER_STAGE_POSITION_PCT_HI,
   DANCER_STAGE_POSITION_PCT_LO,
@@ -206,7 +207,7 @@ export function saveFormationToBox(
   const now = Date.now();
   const trimmed = (name || "").trim().slice(0, 120);
   const item: FormationBoxItem = {
-    id: crypto.randomUUID(),
+    id: generateId(),
     name: trimmed || `${clean.length}人の形`,
     dancerCount: clean.length,
     dancers: clean.map((d) => {
@@ -350,7 +351,7 @@ export function dancersFromFormationBoxItem(
         ? d.label.trim().slice(0, 120)
         : String(i + 1);
     const spot: DancerSpot = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       label,
       xPct: clamp(d.xPct, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI),
       yPct: clamp(d.yPct, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI),

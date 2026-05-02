@@ -27,6 +27,71 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Prevent BottomNav overlap - add padding when BottomNav is present */
+body:has(nav[data-bottom-nav]) {
+  padding-bottom: 60px !important;
+}
+
+/* Fallback for browsers without :has() support */
+.app-shell {
+  min-height: calc(100vh - 60px);
+}
+
+/* Alternative: Add a class to prevent overlap */
+body.has-bottom-nav {
+  padding-bottom: 60px !important;
+}
+
+/* Mobile-specific fixes */
+@media (max-width: 768px) {
+  body.has-bottom-nav {
+    padding-bottom: 60px !important;
+  }
+  
+  .app-shell {
+    min-height: calc(100vh - 60px) !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+  }
+  
+  /* Force bottom nav spacing */
+  .editor-three-pane,
+  .editor-content {
+    padding-bottom: 60px !important;
+    margin-bottom: 0 !important;
+  }
+  
+  /* Ensure bottom nav is visible */
+  nav[data-bottom-nav] {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 99999 !important;
+    background: #2a2a2e !important;
+    border-top: 3px solid #ff0000 !important;
+    height: 60px !important;
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  
+  /* Force all bottom nav elements to be visible */
+  nav[data-bottom-nav] * {
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+}
+
+/* Prevent layout shifts */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  overflow-x: hidden;
+  width: 100%;
+}
+
 #root {
   min-height: 100%;
   min-height: 100dvh;

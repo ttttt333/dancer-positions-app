@@ -7,6 +7,7 @@ import {
   type CSSProperties,
 } from "react";
 import type { ChoreographyProjectJson, Cue, DancerSpot } from "../types/choreography";
+import { generateId } from "../lib/generateId";
 import {
   cloneFormationForNewCue,
   DEFAULT_CUE_SPAN_WITH_AUDIO_SEC,
@@ -613,8 +614,8 @@ export function AddCueWithFormationDialog({
     const dancers = buildDancers();
     if (dancers.length === 0) return;
 
-    const newCueId = crypto.randomUUID();
-    const newFmId = crypto.randomUUID();
+    const newCueId = generateId();
+    const newFmId = generateId();
     let appliedT = 0;
 
     setProject((p) => {
@@ -623,7 +624,7 @@ export function AddCueWithFormationDialog({
       const baseTemplate = base
         ? cloneFormationForNewCue(base)
         : {
-            id: crypto.randomUUID(),
+            id: generateId(),
             name: "フォーメーション",
             dancers: [] as DancerSpot[],
             setPieces: [],

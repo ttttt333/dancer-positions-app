@@ -30,7 +30,12 @@ export const MARKER_DIAMETER_PX_MAX = 140;
 
 export function defaultFormation(): Formation {
   return {
-    id: crypto.randomUUID(),
+    id: (() => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return Math.random().toString(36).slice(2, 9) + '-' + Date.now().toString(36);
+})(),
     name: "フォーメーション 1",
     setPieces: [],
     dancers: [],
