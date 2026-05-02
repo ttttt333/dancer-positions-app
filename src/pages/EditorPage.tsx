@@ -23,10 +23,8 @@ import {
 } from "react-router-dom";
 import { ChoreoCoreLogo } from "../components/ChoreoGridLogo";
 import { generateId } from "../lib/generateId";
-import { BottomNav } from "../components/mobile";
 import { StageBoard, type FloorTextPlaceSession } from "../components/StageBoard";
-import { MobileLayout } from "../components/mobile/MobileLayout";
-import { MobileMenuSheet } from "../components/mobile/MobileMenuSheet";
+import { BottomNav } from "../components/mobile";
 import { StageDimensionFields } from "../components/StageDimensionFields";
 import {
   mmFromMeterAndCm,
@@ -965,7 +963,6 @@ export function EditorPage({
   const [mobileEditorWaveExpanded, setMobileEditorWaveExpanded] = useState(true);
   /** スマホ縦積み: 右下の操作列（ツールバー・ワークベンチ等）の表示 */
   const [mobileEditorToolsExpanded, setMobileEditorToolsExpanded] = useState(true);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   useEffect(() => {
     if (!editorMobileStackBreakpoint) {
       setMobileEditorWaveExpanded(true);
@@ -2135,10 +2132,7 @@ export function EditorPage({
     });
   }, []);
 
-  // Mobile detection
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) 
-    || window.innerWidth < 768;
-
+  
   useEffect(() => {
     // TODO: Implement stage jump logic
     console.log("Stage jump effect triggered");
@@ -3274,9 +3268,9 @@ export function EditorPage({
   };
 
   // Return MobileLayout for mobile devices
-  if (isMobile) {
-    return <MobileLayout />;
-  }
+  // if (isMobile) {
+  //   return <MobileLayout />;
+  // }
 
   return (
     <div
@@ -5638,34 +5632,26 @@ export function EditorPage({
         </div>
       ) : null}
 
-      <MobileMenuSheet
-          open={mobileMenuOpen}
-          onClose={() => setMobileMenuOpen(false)}
-          onOpenStageSettings={() => { setMobileMenuOpen(false); setStageAreaSettingsOpen(true); }}
-          onOpenAddCue={() => { setMobileMenuOpen(false); setAddCueDialogOpen(true); }}
-          onOpenExport={() => { setMobileMenuOpen(false); setExportDialogOpen(true); }}
-          onOpenFlowLibrary={() => { setMobileMenuOpen(false); setFlowLibraryOpen(true); }}
-          onOpenAudioImport={() => { setMobileMenuOpen(false); openAudioImport(); }}
-          onOpenRosterImport={() => { setMobileMenuOpen(false); importCrewCsvFromStageToolbar(); }}
-          onOpenShareLinks={() => { setMobileMenuOpen(false); setShareLinksOpen(true); }}
-          onOpenFormationBox={() => { setMobileMenuOpen(false); setFormationBoxManagerOpen(true); }}
-          onOpenViewerMode={() => { setMobileMenuOpen(false); setEditorViewerSheetOpen(true); }}
-          onAddDancer={addDancerFromStageToolbar}
-          onUndo={undo}
-          onRedo={redo}
-          onEnterZen={() => { setMobileMenuOpen(false); setStageZenFullscreen(true); }}
-          onOpenCueList={() => { setMobileMenuOpen(false); setCueListModalOpen(true); }}
-          canUndo={!stageUndoDisabled}
-          canRedo={!stageRedoDisabled}
-          isViewMode={project.viewMode === "view"}
-          hasServerId={serverId != null}
-          isLoggedIn={!!me}
-        />
-
-        {/* Mobile Bottom Navigation */}
-        <BottomNav
-          onOpenMenu={() => setMobileMenuOpen(true)}
-        />
+      
+      {/* Mobile Bottom Navigation */}
+      <BottomNav
+        onOpenStageSettings={() => setStageAreaSettingsOpen(true)}
+        onOpenAddCue={() => setAddCueDialogOpen(true)}
+        onOpenExport={() => setExportDialogOpen(true)}
+        onOpenFlowLibrary={() => setFlowLibraryOpen(true)}
+        onOpenAudioImport={openAudioImport}
+        onOpenRosterImport={importCrewCsvFromStageToolbar}
+        onOpenShareLinks={() => setShareLinksOpen(true)}
+        onOpenFormationBox={() => setFormationBoxManagerOpen(true)}
+        onOpenViewerMode={() => setEditorViewerSheetOpen(true)}
+        onAddDancer={addDancerFromStageToolbar}
+        onUndo={undo}
+        onRedo={redo}
+        onEnterZen={() => setStageZenFullscreen(true)}
+        canUndo={!stageUndoDisabled}
+        canRedo={!stageRedoDisabled}
+        isViewMode={project.viewMode === "view"}
+      />
 
       <style>{`
         @media (max-width: 1279px) {

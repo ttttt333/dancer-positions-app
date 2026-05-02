@@ -1,15 +1,47 @@
-import { useLocation, useNavigate } from "react-router-dom";
 import { useMemo, useEffect } from "react";
 import styles from "./BottomNav.module.css";
 
 export interface BottomNavProps {
   className?: string;
   onOpenMenu?: () => void;
+  onOpenStageSettings?: () => void;
+  onOpenAddCue?: () => void;
+  onOpenExport?: () => void;
+  onOpenFlowLibrary?: () => void;
+  onOpenAudioImport?: () => void;
+  onOpenRosterImport?: () => void;
+  onOpenShareLinks?: () => void;
+  onOpenFormationBox?: () => void;
+  onOpenViewerMode?: () => void;
+  onAddDancer?: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  onEnterZen?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  isViewMode?: boolean;
 }
 
-export function BottomNav({ className, onOpenMenu }: BottomNavProps) {
-  const navigate = useNavigate();
-  const location = useLocation();
+export function BottomNav({ 
+  className, 
+  onOpenMenu,
+  onOpenStageSettings,
+  onOpenAddCue,
+  onOpenExport,
+  onOpenFlowLibrary,
+  onOpenAudioImport,
+  onOpenRosterImport,
+  onOpenShareLinks,
+  onOpenFormationBox,
+  onOpenViewerMode,
+  onAddDancer,
+  onUndo,
+  onRedo,
+  onEnterZen,
+  canUndo,
+  canRedo,
+  isViewMode
+}: BottomNavProps) {
 
   // Add body class to prevent content overlap (mobile-safe)
   useEffect(() => {
@@ -22,22 +54,28 @@ export function BottomNav({ className, onOpenMenu }: BottomNavProps) {
     }
   }, []);
 
-  const navItems = useMemo(() => [
-    { id: "stage", label: "ステージ", path: "/", icon: "🎭" },
-    { id: "dancers", label: "ダンサー", path: "/library", icon: "👯" },
-    { id: "scenes", label: "シーン", path: "/video", icon: "🎬" },
-    { id: "settings", label: "設定", path: "/editor/new", icon: "⚙️" },
-  ], []);
+  const actionButtons = useMemo(() => [
+    { id: "stage", label: "舞台設定", icon: "⚙️", action: onOpenStageSettings, disabled: isViewMode },
+    { id: "add", label: "＋キュー", icon: "➕", action: onOpenAddCue, disabled: isViewMode },
+    { id: "dancer", label: "＋人", icon: "👤", action: onAddDancer, disabled: isViewMode },
+    { id: "library", label: "ライブラリ", icon: "�", action: onOpenFlowLibrary, disabled: false },
+    { id: "audio", label: "音源", icon: "🎵", action: onOpenAudioImport, disabled: isViewMode },
+    { id: "roster", label: "名簿", icon: "📋", action: onOpenRosterImport, disabled: isViewMode },
+    { id: "export", label: "出力", icon: "📤", action: onOpenExport, disabled: false },
+    { id: "share", label: "共有", icon: "🔗", action: onOpenShareLinks, disabled: false },
+    { id: "formation", label: "保存", icon: "💾", action: onOpenFormationBox, disabled: isViewMode },
+    { id: "viewer", label: "表示", icon: "👁️", action: onOpenViewerMode, disabled: false },
+    { id: "zen", label: "拡大", icon: "🔍", action: onEnterZen, disabled: false },
+    { id: "undo", label: "戻る", icon: "↩️", action: onUndo, disabled: !canUndo || isViewMode },
+    { id: "redo", label: "進む", icon: "↪️", action: onRedo, disabled: !canRedo || isViewMode },
+  ], [
+    onOpenStageSettings, onOpenAddCue, onAddDancer, onOpenFlowLibrary, 
+    onOpenAudioImport, onOpenRosterImport, onOpenExport, onOpenShareLinks,
+    onOpenFormationBox, onOpenViewerMode, onEnterZen, onUndo, onRedo,
+    canUndo, canRedo, isViewMode
+  ]);
 
-  const isActive = (path: string) => {
-    if (path === "/") return location.pathname === "/";
-    return location.pathname.startsWith(path);
-  };
-
-  const handleNavClick = (path: string) => {
-    navigate(path);
-  };
-
+  
   return (
     <nav className={`${styles.bottomNav} ${className || ""}`} data-bottom-nav>
       {onOpenMenu && (
@@ -51,15 +89,21 @@ export function BottomNav({ className, onOpenMenu }: BottomNavProps) {
           <span className={styles.navLabel}>メニュー</span>
         </button>
       )}
-      {navItems.map((item) => (
+      {actionButtons.map((button) => (
         <button
-          key={item.id}
-          className={`${styles.navItem} ${isActive(item.path) ? styles.active : ""}`}
-          onClick={() => handleNavClick(item.path)}
-          aria-label={item.label}
+          key={button.id}
+          className={`${styles.navItem} ${button.disabled ? styles.disabled : ""}`}
+          onClick={() => button.action?.()}
+          disabled={button.disabled}
+          aria-label={button.label}
+          style={{ 
+            fontSize: "16px",
+            opacity: button.disabled ? 0.5 : 1,
+            cursor: button.disabled ? "not-allowed" : "pointer"
+          }}
         >
-          <span className={styles.navIcon}>{item.icon}</span>
-          <span className={styles.navLabel}>{item.label}</span>
+          <span className={styles.navIcon}>{button.icon}</span>
+          <span className={styles.navLabel}>{button.label}</span>
         </button>
       ))}
     </nav>
