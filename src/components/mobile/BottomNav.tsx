@@ -58,7 +58,7 @@ export function BottomNav({
     { id: "stage", label: "舞台設定", icon: "⚙️", action: onOpenStageSettings, disabled: isViewMode },
     { id: "add", label: "＋キュー", icon: "➕", action: onOpenAddCue, disabled: isViewMode },
     { id: "dancer", label: "＋人", icon: "👤", action: onAddDancer, disabled: isViewMode },
-    { id: "library", label: "ライブラリ", icon: "�", action: onOpenFlowLibrary, disabled: false },
+    { id: "library", label: "ライブラリ", icon: "📚", action: onOpenFlowLibrary, disabled: false },
     { id: "audio", label: "音源", icon: "🎵", action: onOpenAudioImport, disabled: isViewMode },
     { id: "roster", label: "名簿", icon: "📋", action: onOpenRosterImport, disabled: isViewMode },
     { id: "export", label: "出力", icon: "📤", action: onOpenExport, disabled: false },
