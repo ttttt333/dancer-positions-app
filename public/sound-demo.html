@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IDEタスク完了音デモ</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        .description {
+            font-size: 1.2em;
+            margin-bottom: 40px;
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+        .button-container {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        button {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 20px 40px;
+            font-size: 1.2em;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(238, 90, 36, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(238, 90, 36, 0.6);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .info {
+            margin-top: 40px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            font-size: 0.9em;
+        }
+        .sound-wave {
+            display: inline-block;
+            animation: wave 1s ease-in-out infinite;
+        }
+        @keyframes wave {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .playing {
+            animation: pulse 0.3s ease-out;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 IDEタスク完了音</h1>
+        <p class="description">
+            「PON!」という効果音をタスク完了時に再生するデモです。<br>
+            Web Audio APIを使用して、3層構造のリッチな音響を生成しています。
+        </p>
+        
+        <div class="button-container">
+            <button onclick="playPonSound()" id="playButton">
+                <span class="sound-wave">🔊</span> PON! を再生
+            </button>
+            <button onclick="playMultipleTimes()">
+                <span class="sound-wave">🎯</span> 3回連続再生
+            </button>
+        </div>
+
+        <div class="info">
+            <h3>🔧 音響構成</h3>
+            <ul style="text-align: left; max-width: 400px; margin: 0 auto;">
+                <li><strong>メイン音</strong>: 200Hz（低めの基音）</li>
+                <li><strong>ハーモニクス</strong>: 400Hz（厚みを出す）</li>
+                <li><strong>スパークル</strong>: 800Hz（高域の「キラ」音）</li>
+            </ul>
+            <p style="margin-top: 20px; font-size: 0.8em; opacity: 0.7;">
+                💡 ボタンをクリックして「PON!」効果音をお試しください！
+            </p>
+        </div>
+    </div>
+
+    <script>
+        class IdeTaskCompletionSound {
+            static audioContext = null;
+            static isEnabled = true;
+
+            static getAudioContext() {
+                if (!this.audioContext) {
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                return this.audioContext;
+            }
+
+            static play() {
+                if (!this.isEnabled) return;
+
+                try {
+                    const context = this.getAudioContext();
+                    const currentTime = context.currentTime;
+                    
+                    // メインの「ポン」音（低めの周波数）
+                    const mainOscillator = context.createOscillator();
+                    const mainGainNode = context.createGain();
+                    
+                    mainOscillator.type = 'sine';
+                    mainOscillator.frequency.setValueAtTime(200, currentTime);
+                    
+                    mainGainNode.gain.setValueAtTime(0, currentTime);
+                    mainGainNode.gain.linearRampToValueAtTime(0.4, currentTime + 0.02);
+                    mainGainNode.gain.exponentialRampToValueAtTime(0.01, currentTime + 0.3);
+                    
+                    // ハーモニクス（音に厚みを出す）
+                    const harmonicOscillator = context.createOscillator();
+                    const harmonicGainNode = context.createGain();
+                    
+                    harmonicOscillator.type = 'sine';
+                    harmonicOscillator.frequency.setValueAtTime(400, currentTime);
+                    
+                    harmonicGainNode.gain.setValueAtTime(0, currentTime);
+                    harmonicGainNode.gain.linearRampToValueAtTime(0.15, currentTime + 0.02);
+                    harmonicGainNode.gain.exponentialRampToValueAtTime(0.01, currentTime + 0.2);
+                    
+                    // 高域の「キラ」音
+                    const sparkleOscillator = context.createOscillator();
+                    const sparkleGainNode = context.createGain();
+                    
+                    sparkleOscillator.type = 'sine';
+                    sparkleOscillator.frequency.setValueAtTime(800, currentTime);
+                    
+                    sparkleGainNode.gain.setValueAtTime(0, currentTime);
+                    sparkleGainNode.gain.linearRampToValueAtTime(0.1, currentTime + 0.01);
+                    sparkleGainNode.gain.exponentialRampToValueAtTime(0.01, currentTime + 0.15);
+                    
+                    // 接続
+                    mainOscillator.connect(mainGainNode);
+                    harmonicOscillator.connect(harmonicGainNode);
+                    sparkleOscillator.connect(sparkleGainNode);
+                    
+                    mainGainNode.connect(context.destination);
+                    harmonicGainNode.connect(context.destination);
+                    sparkleGainNode.connect(context.destination);
+                    
+                    // 再生
+                    mainOscillator.start(currentTime);
+                    mainOscillator.stop(currentTime + 0.3);
+                    
+                    harmonicOscillator.start(currentTime);
+                    harmonicOscillator.stop(currentTime + 0.2);
+                    
+                    sparkleOscillator.start(currentTime);
+                    sparkleOscillator.stop(currentTime + 0.15);
+                    
+                } catch (error) {
+                    console.warn('IDEタスク完了音の再生に失敗しました:', error);
+                }
+            }
+        }
+
+        function playPonSound() {
+            IdeTaskCompletionSound.play();
+            
+            // ボタンのアニメーション
+            const button = document.getElementById('playButton');
+            button.classList.add('playing');
+            setTimeout(() => {
+                button.classList.remove('playing');
+            }, 300);
+        }
+
+        function playMultipleTimes() {
+            playPonSound();
+            setTimeout(() => playPonSound(), 400);
+            setTimeout(() => playPonSound(), 800);
+        }
+
+        // キーボードショートカット
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                playPonSound();
+            }
+        });
+    </script>
+</body>
+</html>
