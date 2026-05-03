@@ -92,18 +92,44 @@ export function BottomNav({
       {actionButtons.map((button) => (
         <button
           key={button.id}
-          className={`${styles.navItem} ${button.disabled ? styles.disabled : ""}`}
+          className={styles.navItem}
           onClick={() => button.action?.()}
           disabled={button.disabled}
           aria-label={button.label}
           style={{ 
             fontSize: "16px",
             opacity: button.disabled ? 0.5 : 1,
-            cursor: button.disabled ? "not-allowed" : "pointer"
+            cursor: button.disabled ? "not-allowed" : "pointer",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            flex: "1",
+            height: "100%",
+            background: "transparent",
+            border: "none",
+            borderRadius: "8px",
+            color: button.disabled ? "#666" : "#a1a1aa",
+            transition: "all 0.2s ease",
+            padding: "6px 4px",
+            minWidth: "44px",
+            minHeight: "44px",
+            position: "relative",
+            gap: "2px"
           }}
         >
-          <span className={styles.navIcon}>{button.icon}</span>
-          <span className={styles.navLabel}>{button.label}</span>
+          <span style={{
+            fontSize: "22px",
+            lineHeight: "1",
+            marginBottom: "1px"
+          }}>{button.icon}</span>
+          <span style={{
+            fontSize: "11px",
+            fontWeight: "500",
+            lineHeight: "1",
+            textAlign: "center",
+            letterSpacing: "0.02em"
+          }}>{button.label}</span>
         </button>
       ))}
     </nav>
