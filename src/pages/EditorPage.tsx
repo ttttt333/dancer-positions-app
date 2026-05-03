@@ -25,6 +25,7 @@ import { ChoreoCoreLogo } from "../components/ChoreoGridLogo";
 import { generateId } from "../lib/generateId";
 import { StageBoard, type FloorTextPlaceSession } from "../components/StageBoard";
 import { BottomNav } from "../components/mobile";
+import { useTaskCompletionSound } from "../hooks/useTaskCompletionSound";
 import { StageDimensionFields } from "../components/StageDimensionFields";
 import {
   mmFromMeterAndCm,
@@ -976,6 +977,7 @@ export function EditorPage({
     getCurrentAudioBlobForFlowLibrary,
     openAudioImport,
   } = useTimelineMediaHandle();
+  const { playSound } = useTaskCompletionSound();
   const [stageSettingsOpen, setStageSettingsOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   /** ステージ列ヘッダの「設定」：舞台・グリッド・名前・共有・ヒントを集約 */
@@ -2506,12 +2508,13 @@ export function EditorPage({
     setSaving(true);
     try {
       await syncProjectToCloud();
+      playSound(); // 保存完了時に音を再生
     } catch (e) {
       alert(e instanceof Error ? e.message : "保存に失敗しました");
     } finally {
       setSaving(false);
     }
-  }, [me, syncProjectToCloud]);
+  }, [me, syncProjectToCloud, playSound]);
   const handleAddCueCreated = useCallback(
     (cueId: string, startSec: number) => {
       setSelectedCueId(cueId);

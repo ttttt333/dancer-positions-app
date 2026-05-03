@@ -9,6 +9,7 @@ import {
 import { Link } from "react-router-dom";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { generateId } from "../lib/generateId";
+import { useTaskCompletionSound } from "../hooks/useTaskCompletionSound";
 import {
   FLOW_LIBRARY_CHANGE_EVENT,
   applyFlowStageSettingsToProject,
@@ -200,6 +201,7 @@ export function FlowLibraryDialog({
   cloudSaveDisabled = false,
 }: Props) {
   const { t } = useI18n();
+  const { playSound } = useTaskCompletionSound();
   const [items, setItems] = useState<FlowLibraryItem[]>([]);
   const [name, setName] = useState("");
   /** 軽量キュー配列に秒を載せるか。バンドルでは cuesFull に常にフル秒が入る */
@@ -289,6 +291,7 @@ export function FlowLibraryDialog({
           (syncProjectToCloud ? " いまの作品もクラウドに保存しました。" : ""),
       });
       refresh();
+      playSound(); // 保存完了時に音を再生
     } catch (e) {
       if (flowEmbeddedAudioKey) void deleteFlowLibraryAudio(flowEmbeddedAudioKey);
       setFeedback({
@@ -350,6 +353,7 @@ export function FlowLibraryDialog({
             (syncProjectToCloud ? " いまの作品もクラウドに保存しました。" : ""),
         });
         refresh();
+        playSound(); // 保存完了時に音を再生
       } catch (e) {
         if (flowEmbeddedAudioKey) void deleteFlowLibraryAudio(flowEmbeddedAudioKey);
         setFeedback({
