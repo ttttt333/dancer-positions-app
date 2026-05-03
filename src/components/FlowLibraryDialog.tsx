@@ -226,7 +226,7 @@ export function FlowLibraryDialog({
     }
     const onChanged = () => refresh();
     const onStorage = (e: StorageEvent) => {
-      if (e.key === null || e.key.includes("flow_library")) refresh();
+      if (e.key === null || e.key?.includes("flow_library")) refresh();
     };
     window.addEventListener(FLOW_LIBRARY_CHANGE_EVENT, onChanged);
     window.addEventListener("storage", onStorage);
@@ -237,14 +237,14 @@ export function FlowLibraryDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const cuesCount = project.cues.length;
-  const formCount = project.formations.length;
+  const cuesCount = project.cues?.length ?? 0;
+  const formCount = project.formations?.length ?? 0;
   const dancerCount = useMemo(() => {
-    if (project.formations.length === 0) return 0;
+    if (!(project.formations?.length)) return 0;
     const active =
-      project.formations.find((f) => f.id === project.activeFormationId) ??
-      project.formations[0];
-    return active?.dancers.length ?? 0;
+      (project.formations ?? []).find((f) => f.id === project.activeFormationId) ??
+      (project.formations ?? [])[0];
+    return active?.dancers?.length ?? 0;
   }, [project.formations, project.activeFormationId]);
 
   const doSave = useCallback(async () => {

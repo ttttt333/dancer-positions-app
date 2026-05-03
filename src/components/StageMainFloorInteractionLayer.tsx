@@ -161,7 +161,7 @@ export function StageMainFloorInteractionLayer({
             bulkHideDancerGlyphs &&
             !playbackOrPreview &&
             selectedDancerIds.length >= 2 &&
-            selectedDancerIds.includes(ghostId);
+            (selectedDancerIds ?? []).includes(ghostId);
           const dMarkerPx = effectiveMarkerPx(d);
           const dLabelFontPx = markerCircleLabelFontPx(dMarkerPx);
           const diRaw = stageDancerIndexById.get(ghostId) ?? -1;

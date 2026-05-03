@@ -91,7 +91,7 @@ export function useStageDancerMarkerElements(
           bulkHideDancerGlyphs &&
           !playbackOrPreview &&
           selectedDancerIds.length >= 2 &&
-          selectedDancerIds.includes(d.id);
+          (selectedDancerIds ?? []).includes(d.id);
         const markerLabelWmm = effStageWidthMm ?? 0;
         const circleInnerOptsMarker =
           markerLabelWmm > 0
@@ -151,7 +151,7 @@ export function useStageDancerMarkerElements(
         const borderCss =
           dancerQuickEditId === d.id
             ? "2px solid rgba(99,102,241,0.95)"
-            : selectedDancerIds.includes(d.id)
+            : (selectedDancerIds ?? []).includes(d.id)
               ? selectedDancerIds.length >= 2
                 ? `2px solid ${rubyAccent}`
                 : "2px solid rgba(251,191,36,0.92)"

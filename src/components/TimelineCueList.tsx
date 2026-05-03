@@ -151,7 +151,7 @@ export function TimelineCueList({
                   gap: "6px",
                   padding: "6px 0",
                   borderBottom: "1px solid #1e293b",
-                  borderLeft: selectedCueIds.includes(c.id)
+                  borderLeft: (selectedCueIds ?? []).includes(c.id)
                     ? "3px solid #ef4444"
                     : "3px solid transparent",
                   paddingLeft: "8px",

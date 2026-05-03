@@ -91,7 +91,7 @@ export function useTimelineWaveCanvasActions({
       if (hitId) {
         if (e.metaKey || e.ctrlKey) {
           onSelectedCueIdsChange((prev) =>
-            prev.includes(hitId) ? prev.filter((x) => x !== hitId) : [...prev, hitId]
+            (prev ?? []).includes(hitId) ? (prev ?? []).filter((x) => x !== hitId) : [...(prev ?? []), hitId]
           );
         } else {
           onSelectedCueIdsChange([hitId]);

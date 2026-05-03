@@ -242,7 +242,7 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
           const left = Math.min(x1, x2);
           const width = Math.max(3, Math.abs(x2 - x1));
           const isDrag = dragCueId === cue.id;
-          const isSel = selectedCueIdsRef.current.includes(cue.id);
+          const isSel = (selectedCueIdsRef.current ?? []).includes(cue.id);
           const hover = waveHoverCueRef.current;
           const isHover = hover?.cueId === cue.id && (!dragCueId || dragCueId !== cue.id);
           drawWaveCueChrome(left, width, {

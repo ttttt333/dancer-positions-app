@@ -7,9 +7,9 @@ export function toggleDancerAdditiveSelection(
   selected: readonly string[],
   dancerId: string,
 ): string[] {
-  return selected.includes(dancerId)
-    ? selected.filter((id) => id !== dancerId)
-    : [...selected, dancerId];
+  return (selected ?? []).includes(dancerId)
+    ? (selected ?? []).filter((id) => id !== dancerId)
+    : [...(selected ?? []), dancerId];
 }
 
 /** 通常クリックで「この 1 人だけ」選択 */

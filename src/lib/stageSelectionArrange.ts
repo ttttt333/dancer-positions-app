@@ -41,7 +41,7 @@ export function resolveArrangeTargetIds(
   clickedId: string,
   selectedIds: string[]
 ): string[] {
-  if (selectedIds.includes(clickedId) && selectedIds.length > 0) {
+  if ((selectedIds ?? []).includes(clickedId) && (selectedIds ?? []).length > 0) {
     return [...selectedIds];
   }
   return [clickedId];

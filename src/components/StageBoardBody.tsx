@@ -1855,7 +1855,7 @@ export function StageBoardBody({
         );
         return;
       }
-      if (selectedDancerIds.includes(dancerId)) {
+      if ((selectedDancerIds ?? []).includes(dancerId)) {
         /** すでに選択中 → 現在の選択を保ったまま、その全員をドラッグで一括移動 */
         nextSelection = selectedDancerIds;
       } else {
