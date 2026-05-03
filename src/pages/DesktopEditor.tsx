@@ -45,6 +45,7 @@ import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import { useSelectedCueId, useSetSelectedCueId } from "../store/useEditorStore";
 import { useEditorPlaybackSync } from "../hooks/useEditorPlaybackSync";
 import { useTimelineMediaHandle } from "../hooks/useTimelineMediaHandle";
+import { useProjectStorage } from "../hooks/useProjectStorage";
 import { RosterTimelineStrip } from "../components/RosterTimelineStrip";
 import {
   createEmptyProject,
@@ -949,6 +950,9 @@ export function EditorPage({
   /** ChoreoCore: 編集対象のキュー（ステージ・プリセット・インスペクタの書き込み先） */
   const selectedCueId = useSelectedCueId();
   const setSelectedCueId = useSetSelectedCueId();
+  
+  /** 🚀 プロジェクト保存・復元 */
+  useProjectStorage();
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [flowLibraryOpen, setFlowLibraryOpen] = useState(false);
   /** 立ち位置保存ボタンから開く管理ダイアログ */
