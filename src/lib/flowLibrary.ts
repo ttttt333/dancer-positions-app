@@ -778,10 +778,10 @@ function normalize(raw: FlowLibraryItem): FlowLibraryItem {
     raw.formations && raw.formations.length > 0
       ? raw.formations
       : raw.formationsFull && raw.formationsFull.length > 0
-        ? raw.formationsFull.map((f) => ({
+        ? (raw.formationsFull ?? []).map((f) => ({
             id: f.id,
             name: (f.name || "").slice(0, MAX_NAME_LEN),
-            dancers: f.dancers.slice(0, MAX_DANCERS_PER_FORM).map((d) => ({
+            dancers: (f.dancers ?? []).slice(0, MAX_DANCERS_PER_FORM).map((d) => ({
               label: d.label,
               xPct: d.xPct,
               yPct: d.yPct,
@@ -796,7 +796,7 @@ function normalize(raw: FlowLibraryItem): FlowLibraryItem {
     raw.cues && raw.cues.length > 0
       ? raw.cues
       : raw.cuesFull && raw.cuesFull.length > 0
-        ? raw.cuesFull.map((c) => ({
+        ? (raw.cuesFull ?? []).map((c) => ({
             id: c.id,
             name: c.name,
             note: c.note,
@@ -807,7 +807,7 @@ function normalize(raw: FlowLibraryItem): FlowLibraryItem {
           }))
         : [];
 
-  const formations = (srcForm as unknown[])
+  const formations = (srcForm as unknown[] ?? [])
     .filter(isValidFormationSnap)
     .slice(0, MAX_FORMATIONS)
     .map((f, i) => ({
@@ -827,8 +827,8 @@ function normalize(raw: FlowLibraryItem): FlowLibraryItem {
             : {}),
         })),
     }));
-  const formationIds = new Set(formations.map((f) => f.id));
-  const cues = (srcCuesBase as unknown[])
+  const formationIds = new Set((formations ?? []).map((f) => f.id));
+  const cues = (srcCuesBase as unknown[] ?? [])
     .filter(isValidCueSnap)
     .slice(0, MAX_CUES)
     .filter((c) => formationIds.has((c as FlowCueSnapshot).formationIdRef))
@@ -860,7 +860,7 @@ function normalize(raw: FlowLibraryItem): FlowLibraryItem {
         ...(gap ? { gapApproachFromPrev: gap } : {}),
       };
     });
-  const dancerCount = formations[0]?.dancers.length ?? 0;
+  const dancerCount = (formations?.[0]?.dancers?.length) ?? 0;
   const fullCuesRaw = rawRec.cuesFull;
   const hasTimingFromFull =
     Array.isArray(fullCuesRaw) &&
@@ -875,7 +875,7 @@ function normalize(raw: FlowLibraryItem): FlowLibraryItem {
     );
   const hasTiming =
     hasTimingFromFull ||
-    cues.some(
+    (cues ?? []).some(
       (c) =>
         typeof c.tStartSec === "number" &&
         typeof c.tEndSec === "number" &&
@@ -993,7 +993,7 @@ async function rehydrateEmbeddedAudioFromJsonItems(
 function writeAll(items: FlowLibraryItem[]): void {
   if (typeof localStorage === "undefined") return;
   try {
-    const stripped = items.map(stripItemForLocalStorage);
+    const stripped = (items ?? []).map(stripItemForLocalStorage);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stripped));
     notifyChanged();
   } catch (e) {
@@ -1027,7 +1027,7 @@ function buildFlowLibraryItemFromProject(
   opts: FlowSaveOpts
 ): FlowSaveResult {
   const trimmed = (name || "").trim().slice(0, MAX_NAME_LEN);
-  if (!project.formations.length || !project.cues.length) {
+  if (!(project.formations?.length) || !(project.cues?.length)) {
     return {
       ok: false,
       reason: "empty",
@@ -1035,18 +1035,18 @@ function buildFlowLibraryItemFromProject(
         "保存できるフローがありません。キューを 1 つ以上作ってから保存してください。",
     };
   }
-  const cuesSorted = [...project.cues].sort(
+  const cuesSorted = [...(project.cues ?? [])].sort(
     (a, b) => a.tStartSec - b.tStartSec
   );
   /** 使われている formation だけ抽出（孤立した形は持ち込まない） */
   const usedFormationIds = new Set(cuesSorted.map((c) => c.formationId));
-  const formations: FlowFormationSnapshot[] = project.formations
+  const formations: FlowFormationSnapshot[] = (project.formations ?? [])
     .filter((f) => usedFormationIds.has(f.id))
     .slice(0, MAX_FORMATIONS)
     .map((f) => ({
       id: f.id,
       name: f.name?.slice(0, MAX_NAME_LEN) || "",
-      dancers: f.dancers
+      dancers: (f.dancers ?? [])
         .slice(0, MAX_DANCERS_PER_FORM)
         .map((d) => ({
           label: d.label,
@@ -1065,14 +1065,14 @@ function buildFlowLibraryItemFromProject(
       message: "キューに紐付く形（フォーメーション）が見つかりません。",
     };
   }
-  const formationsFull: Formation[] = project.formations
+  const formationsFull: Formation[] = (project.formations ?? [])
     .filter((f) => usedFormationIds.has(f.id))
     .slice(0, MAX_FORMATIONS)
     .map((f) => deepCloneJson(f));
-  const cuesFull: Cue[] = cuesSorted
+  const cuesFull: Cue[] = (cuesSorted ?? [])
     .slice(0, MAX_CUES)
     .map((c) => deepCloneJson(c));
-  const cues: FlowCueSnapshot[] = cuesSorted.slice(0, MAX_CUES).map((c) => {
+  const cues: FlowCueSnapshot[] = (cuesSorted ?? []).slice(0, MAX_CUES).map((c) => {
     const gap = c.gapApproachFromPrev;
     return {
       id: c.id,
