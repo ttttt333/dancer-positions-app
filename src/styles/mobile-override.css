@@ -1,34 +1,33 @@
 @media (max-width: 768px) {
+
+  /* 波形を最小化 */
   .editor-mobile-stack > section:first-child {
-    max-height: 80px !important;
+    max-height: 60px !important;
+    min-height: 0 !important;
     overflow: hidden !important;
+    flex: 0 0 60px !important;
   }
+
+  /* ステージを最大化 */
   .editor-mobile-stack > section:nth-child(2) {
     flex: 1 1 auto !important;
-    min-height: 55dvh !important;
+    min-height: 60dvh !important;
   }
+
+  /* 操作パネルを最小化 */
   .editor-mobile-stack > div {
-    max-height: 180px !important;
+    flex: 0 0 auto !important;
+    max-height: 160px !important;
     overflow-y: auto !important;
   }
+
+  /* 赤線を消す */
+  * {
+    border-top-color: rgba(255,255,255,0.08) !important;
+  }
+
+  /* ボタンを押しやすく */
   .editor-mobile-stack button {
     min-height: 44px !important;
-    min-width: 44px !important;
-  }
-  nav[data-bottom-nav] {
-    position: fixed !important;
-    bottom: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    z-index: 9999 !important;
-    background: #13161C !important;
-    border-top: 0.5px solid rgba(255,255,255,0.1) !important;
-    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-  }
-  .editor-page-root {
-    padding-bottom: 70px !important;
-  }
-  nav {
-    border-top-color: rgba(255,255,255,0.08) !important;
   }
 }
