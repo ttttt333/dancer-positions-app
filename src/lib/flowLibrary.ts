@@ -908,9 +908,7 @@ import { safeGetItem, safeSetItem } from "../utils/storage";
 function safeParseAll(): FlowLibraryItem[] {
   if (typeof localStorage === "undefined") return [];
   try {
-    const raw = safeGetItem(STORAGE_KEY, null as any);
-    if (!raw) return [];
-    const arr = JSON.parse(raw);
+    const arr = safeGetItem(STORAGE_KEY, [] as FlowLibraryItem[]);
     if (!Array.isArray(arr)) return [];
     return arr.filter(isValidItem).map(normalize);
   } catch {
