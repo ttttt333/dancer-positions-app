@@ -5634,24 +5634,26 @@ export function EditorPage({
 
       
       {/* Mobile Bottom Navigation */}
-      <BottomNav
-        onOpenStageSettings={() => setStageAreaSettingsOpen(true)}
-        onOpenAddCue={() => setAddCueDialogOpen(true)}
-        onOpenExport={() => setExportDialogOpen(true)}
-        onOpenFlowLibrary={() => setFlowLibraryOpen(true)}
-        onOpenAudioImport={openAudioImport}
-        onOpenRosterImport={importCrewCsvFromStageToolbar}
-        onOpenShareLinks={() => setShareLinksOpen(true)}
-        onOpenFormationBox={() => setFormationBoxManagerOpen(true)}
-        onOpenViewerMode={() => setEditorViewerSheetOpen(true)}
-        onAddDancer={addDancerFromStageToolbar}
-        onUndo={undo}
-        onRedo={redo}
-        onEnterZen={() => setStageZenFullscreen(true)}
-        canUndo={!stageUndoDisabled}
-        canRedo={!stageRedoDisabled}
-        isViewMode={project.viewMode === "view"}
-      />
+      {mobileStackEditor && (
+        <BottomNav
+          onOpenStageSettings={() => setStageAreaSettingsOpen(true)}
+          onOpenAddCue={() => setAddCueDialogOpen(true)}
+          onOpenExport={() => setExportDialogOpen(true)}
+          onOpenFlowLibrary={() => setFlowLibraryOpen(true)}
+          onOpenAudioImport={openAudioImport}
+          onOpenRosterImport={importCrewCsvFromStageToolbar}
+          onOpenShareLinks={() => setShareLinksOpen(true)}
+          onOpenFormationBox={() => setFormationBoxManagerOpen(true)}
+          onOpenViewerMode={() => setEditorViewerSheetOpen(true)}
+          onAddDancer={addDancerFromStageToolbar}
+          onUndo={undo}
+          onRedo={redo}
+          onEnterZen={() => setStageZenFullscreen(true)}
+          canUndo={!stageUndoDisabled}
+          canRedo={!stageRedoDisabled}
+          isViewMode={project.viewMode === "view"}
+        />
+      )}
 
       <style>{`
         @media (max-width: 1279px) {
