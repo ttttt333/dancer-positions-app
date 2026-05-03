@@ -1,5 +1,4 @@
 import { useMemo, useEffect } from "react";
-import styles from "./BottomNav.module.css";
 
 export interface BottomNavProps {
   className?: string;
@@ -77,25 +76,70 @@ export function BottomNav({
 
   
   return (
-    <nav className={`${styles.bottomNav} ${className || ""}`} data-bottom-nav>
+    <nav style={{
+      position: "fixed",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      display: "flex",
+      justifyContent: "space-around",
+      alignItems: "center",
+      height: "60px",
+      background: "#2a2a2e",
+      borderTop: "0.5px solid rgba(255,255,255,0.1)",
+      padding: "0 8px",
+      paddingBottom: "max(8px, env(safe-area-inset-bottom, 0px))",
+      zIndex: 9999,
+      WebkitBackdropFilter: "blur(10px)",
+      backdropFilter: "blur(10px)",
+      boxShadow: "0 -2px 10px rgba(0, 0, 0, 0.3)",
+      transform: "translateZ(0)",
+      visibility: "visible",
+      opacity: 1,
+      ...(className ? { className } : {})
+    }} data-bottom-nav>
       {onOpenMenu && (
         <button
-          className={styles.navItem}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            flex: "1",
+            height: "100%",
+            background: "transparent",
+            border: "none",
+            borderRadius: "8px",
+            color: "#a1a1aa",
+            cursor: "pointer",
+            transition: "all 0.2s ease",
+            padding: "6px 4px",
+            minWidth: "44px",
+            minHeight: "44px",
+            position: "relative",
+            gap: "2px",
+            fontSize: "20px"
+          }}
           onClick={onOpenMenu}
           aria-label="メニューを開く"
-          style={{ fontSize: "20px" }}
         >
-          <span className={styles.navIcon}>☰</span>
-          <span className={styles.navLabel}>メニュー</span>
+          <span style={{
+            fontSize: "22px",
+            lineHeight: "1",
+            marginBottom: "1px"
+          }}>☰</span>
+          <span style={{
+            fontSize: "11px",
+            fontWeight: "500",
+            lineHeight: "1",
+            textAlign: "center",
+            letterSpacing: "0.02em"
+          }}>メニュー</span>
         </button>
       )}
       {actionButtons.map((button) => (
         <button
           key={button.id}
-          className={styles.navItem}
-          onClick={() => button.action?.()}
-          disabled={button.disabled}
-          aria-label={button.label}
           style={{ 
             fontSize: "16px",
             opacity: button.disabled ? 0.5 : 1,
@@ -117,6 +161,9 @@ export function BottomNav({
             position: "relative",
             gap: "2px"
           }}
+          onClick={() => button.action?.()}
+          disabled={button.disabled}
+          aria-label={button.label}
         >
           <span style={{
             fontSize: "22px",
