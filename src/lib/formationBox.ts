@@ -98,10 +98,12 @@ function normalize(raw: FormationBoxItem): FormationBoxItem {
   };
 }
 
+import { safeGetItem } from "../utils/storage";
+
 function safeParseAll(): FormationBoxItem[] {
   if (typeof localStorage === "undefined") return [];
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = safeGetItem(STORAGE_KEY, null as any);
     if (!raw) return [];
     const arr = JSON.parse(raw);
     if (!Array.isArray(arr)) return [];

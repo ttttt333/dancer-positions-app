@@ -1,33 +1,124 @@
-@media (max-width: 768px) {
+/* ============================================
+   ChoreoCore Mobile Override
+   対象: max-width 768px (縦持ちスマホ)
+   ============================================ */
 
-  /* 波形を最小化 */
-  .editor-mobile-stack > section:first-child {
-    max-height: 60px !important;
+@media screen and (max-width: 768px) and (orientation: portrait) {
+
+  /* ------------------------------------------
+     1. セーフエリア対応（最重要・iPhone必須）
+     ボトムタブバーがホームインジケーターに
+     かぶっている問題を修正
+  ------------------------------------------ */
+  
+  /* ボトムタブバーのセーフエリア */
+  nav[style*="bottom"],
+  div[style*="bottom"],
+  [class*="bottom"],
+  [class*="BottomNav"],
+  [class*="nav"] {
+    padding-bottom: env(safe-area-inset-bottom, 16px) !important;
+    padding-bottom: max(env(safe-area-inset-bottom), 8px) !important;
+  }
+
+  /* ------------------------------------------
+     2. 全体レイアウト
+     横スクロールを防ぐ
+  ------------------------------------------ */
+  
+  body, #root {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+  }
+
+  /* ------------------------------------------
+     3. 波形パネルをコンパクトに
+     展開時は高さを制限、折りたたみ時は最小化
+  ------------------------------------------ */
+  
+  /* 波形パネル全体 */
+  .editor-mobile-stack > section:first-child,
+  [class*="waveform"],
+  [class*="Waveform"],
+  [class*="audio-panel"],
+  [class*="AudioPanel"] {
+    max-height: 80px !important;
     min-height: 0 !important;
     overflow: hidden !important;
-    flex: 0 0 60px !important;
+    flex: 0 0 80px !important;
+    transition: max-height 0.3s ease !important;
+  }
+  
+  /* 展開クラスがついた時だけ高さを確保 */
+  .editor-mobile-stack > section:first-child.expanded,
+  [class*="waveform"][class*="open"],
+  [class*="waveform"][class*="expanded"],
+  [class*="waveform"]:not([class*="collapsed"]) {
+    max-height: 140px !important;
+    flex: 0 0 140px !important;
   }
 
-  /* ステージを最大化 */
-  .editor-mobile-stack > section:nth-child(2) {
+  /* ------------------------------------------
+     4. ステージエリアを最大化
+  ------------------------------------------ */
+  
+  .editor-mobile-stack > section:nth-child(2),
+  [class*="stage"],
+  [class*="Stage"],
+  [class*="board"],
+  [class*="Board"] {
     flex: 1 1 auto !important;
-    min-height: 60dvh !important;
+    min-height: 50vh !important;
+    min-height: 50dvh !important;
   }
 
-  /* 操作パネルを最小化 */
-  .editor-mobile-stack > div {
+  /* ------------------------------------------
+     5. 操作パネルをコンパクトに
+  ------------------------------------------ */
+  
+  .editor-mobile-stack > div,
+  [class*="control-panel"],
+  [class*="ControlPanel"],
+  [class*="operation"],
+  [class*="操作パネル"] {
     flex: 0 0 auto !important;
-    max-height: 160px !important;
+    max-height: 120px !important;
+    overflow: hidden !important;
     overflow-y: auto !important;
   }
 
-  /* 赤線を消す */
+  /* ------------------------------------------
+     6. タップ領域を44px以上に
+  ------------------------------------------ */
+  
+  button {
+    min-height: 44px !important;
+    min-width: 44px !important;
+  }
+  
+  /* ボトムタブのアイコンとラベル */
+  [class*="tab"] button,
+  [class*="toolbar"] button,
+  [class*="nav"] button {
+    min-width: 48px !important;
+    padding: 4px 8px !important;
+    font-size: 10px !important;
+  }
+
+  /* ------------------------------------------
+     7. iOSズーム防止
+  ------------------------------------------ */
+  
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+
+  /* ------------------------------------------
+     8. 赤線を消す（既存の改善）
+  ------------------------------------------ */
+  
   * {
     border-top-color: rgba(255,255,255,0.08) !important;
   }
 
-  /* ボタンを押しやすく */
-  .editor-mobile-stack button {
-    min-height: 44px !important;
-  }
 }

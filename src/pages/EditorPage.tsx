@@ -14,6 +14,7 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react";
+import { safeGetItem } from "../utils/storage";
 import {
   Link,
   useLocation,
@@ -233,8 +234,8 @@ function readStoredEditorLayout(): {
     return { stageColumnPx: null, topDockRowPx: null };
   }
   try {
-    const rawCurrent = window.localStorage.getItem(EDITOR_LAYOUT_STORAGE_KEY);
-    const rawLegacy = window.localStorage.getItem(EDITOR_LAYOUT_LEGACY_STORAGE_KEY);
+    const rawCurrent = safeGetItem(EDITOR_LAYOUT_STORAGE_KEY, null as any);
+    const rawLegacy = safeGetItem(EDITOR_LAYOUT_LEGACY_STORAGE_KEY, null as any);
     const raw = rawCurrent ?? rawLegacy;
     if (!raw) return { stageColumnPx: null, topDockRowPx: null };
     const o = JSON.parse(raw) as {
@@ -1129,7 +1130,7 @@ export function EditorPage({
     if (choreoStudentPick != null) return;
     if (storageRemindHandledRef.current) return;
     try {
-      const raw = localStorage.getItem(viewerLocalStorageKey);
+      const raw = safeGetItem(viewerLocalStorageKey, null as any);
       if (!raw) {
         storageRemindHandledRef.current = true;
         return;

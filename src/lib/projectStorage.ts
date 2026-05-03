@@ -1,4 +1,5 @@
 import type { ChoreographyProjectJson } from "../types/choreography";
+import { safeGetItem, safeSetItem, safeRemoveItem } from "../utils/storage";
 
 const STORAGE_KEY = "dance-project";
 
@@ -6,19 +7,16 @@ const STORAGE_KEY = "dance-project";
  * 🚀 プロジェクト保存（JSON）
  */
 export const saveProject = (project: ChoreographyProjectJson): void => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(project));
-  } catch (error) {
-    console.error("Failed to save project:", error);
-  }
+  safeSetItem(STORAGE_KEY, project);
 };
 
 /**
  * 🚀 プロジェクトロード
  */
+
 export const loadProject = (): ChoreographyProjectJson | null => {
   try {
-    const data = localStorage.getItem(STORAGE_KEY);
+    const data = safeGetItem(STORAGE_KEY, null as any);
     return data ? JSON.parse(data) : null;
   } catch (error) {
     console.error("Failed to load project:", error);
@@ -30,11 +28,7 @@ export const loadProject = (): ChoreographyProjectJson | null => {
  * 🚀 プロジェクト削除
  */
 export const clearProject = (): void => {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch (error) {
-    console.error("Failed to clear project:", error);
-  }
+  safeRemoveItem(STORAGE_KEY);
 };
 
 /**

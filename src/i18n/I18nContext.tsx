@@ -19,9 +19,11 @@ type I18nContextValue = {
 
 const I18nContext = createContext<I18nContextValue | null>(null);
 
+import { safeGetItem, safeSetItem } from "../utils/storage";
+
 function readInitialLocale(): AppLocale {
   try {
-    const raw = localStorage.getItem(LOCALE_STORAGE_KEY);
+    const raw = safeGetItem(LOCALE_STORAGE_KEY, null as any);
     if (isAppLocale(raw)) return raw;
   } catch {
     /* ignore */
@@ -43,11 +45,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const setLocale = useCallback((next: AppLocale) => {
     setLocaleState(next);
-    try {
-      localStorage.setItem(LOCALE_STORAGE_KEY, next);
-    } catch {
-      /* ignore */
-    }
+    safeSetItem(LOCALE_STORAGE_KEY, next);
     document.documentElement.lang = htmlLangFor(next);
   }, []);
 

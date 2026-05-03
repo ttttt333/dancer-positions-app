@@ -66,17 +66,19 @@ function base64ToUint8(b64: string): Uint8Array {
   return out;
 }
 
+import { safeGetItem } from "../utils/storage";
+
 function collectLocalStorageSnapshot(): Record<string, string> {
   const out: Record<string, string> = {};
   for (const k of LOCALSTORAGE_EXACT_KEYS) {
-    const v = localStorage.getItem(k);
+    const v = safeGetItem(k, null as any);
     if (v != null && v.length > 0) out[k] = v;
   }
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
       if (!k || !k.startsWith(VIEWER_KEY_PREFIX)) continue;
-      const v = localStorage.getItem(k);
+      const v = safeGetItem(k, null as any);
       if (v != null) out[k] = v;
     }
   } catch {

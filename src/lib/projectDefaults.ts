@@ -97,9 +97,11 @@ type LegacyStored = {
   activeFormationId: string;
 };
 
+import { safeGetItem } from "../utils/storage";
+
 export function tryMigrateFromLocalStorage(): ChoreographyProjectJson | null {
   try {
-    const raw = localStorage.getItem(LEGACY_KEY);
+    const raw = safeGetItem(LEGACY_KEY, null as any);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as LegacyStored;
     if (!parsed.formations?.length) return null;

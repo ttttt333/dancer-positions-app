@@ -12,8 +12,10 @@ import {
 /** 本番ログイン前の暫定利用。`refresh` は API を呼ばずダミーユーザーを復元する */
 export const DEMO_SESSION_TOKEN = "__choreogrid_demo_session__";
 
+import { safeGetItem, safeSetItem, safeRemoveItem } from "../utils/storage";
+
 export function getToken(): string | null {
-  const r = localStorage.getItem("auth_token");
+  const r = safeGetItem("auth_token", null as any);
   if (r === DEMO_SESSION_TOKEN) return r;
   if (isSupabaseBackend()) {
     return getSupabaseAccessToken() ?? null;
@@ -22,12 +24,12 @@ export function getToken(): string | null {
 }
 
 export function setToken(token: string | null) {
-  if (token) localStorage.setItem("auth_token", token);
-  else localStorage.removeItem("auth_token");
+  if (token) safeSetItem("auth_token", token);
+  else safeRemoveItem("auth_token");
 }
 
 export function isDemoSessionToken(): boolean {
-  return localStorage.getItem("auth_token") === DEMO_SESSION_TOKEN;
+  return safeGetItem("auth_token", null as any) === DEMO_SESSION_TOKEN;
 }
 
 /** 本番で API が別ホストのとき `VITE_API_BASE_URL`（末尾スラッシュなし） */

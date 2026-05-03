@@ -903,10 +903,12 @@ function normalize(raw: FlowLibraryItem): FlowLibraryItem {
   };
 }
 
+import { safeGetItem, safeSetItem } from "../utils/storage";
+
 function safeParseAll(): FlowLibraryItem[] {
   if (typeof localStorage === "undefined") return [];
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = safeGetItem(STORAGE_KEY, null as any);
     if (!raw) return [];
     const arr = JSON.parse(raw);
     if (!Array.isArray(arr)) return [];
@@ -975,7 +977,8 @@ async function rehydrateEmbeddedAudioFromJsonItems(
       const mime = m0?.flowEmbeddedAudioMimeType || "application/octet-stream";
       const bytes = base64ToUint8Array(b64);
       const arrayBuffer = bytes.buffer instanceof ArrayBuffer ? bytes.buffer : bytes.buffer.slice(0);
-      const blob = new Blob([arrayBuffer], { type: mime });
+      const buffer = arrayBuffer as ArrayBuffer;
+      const blob = new Blob([buffer], { type: mime });
       const newKey = generateId();
       await putFlowLibraryAudio(newKey, blob);
       const m: FlowLibraryMemento = { ...m0! };
@@ -994,13 +997,13 @@ function writeAll(items: FlowLibraryItem[]): void {
   if (typeof localStorage === "undefined") return;
   try {
     const stripped = (items ?? []).map(stripItemForLocalStorage);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stripped));
+    safeSetItem(STORAGE_KEY, JSON.stringify(stripped));
     notifyChanged();
   } catch (e) {
     const name = (e as { name?: string } | null)?.name ?? "";
     if (
-      name === "QuotaExceededError" ||
-      name === "NS_ERROR_DOM_QUOTA_REACHED"
+      typeof DOMException !== "undefined" &&
+      name === "QuotaExceededError"
     ) {
       throw new FlowLibraryQuotaError();
     }

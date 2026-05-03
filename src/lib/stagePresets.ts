@@ -54,10 +54,12 @@ function normalizeDim(v: number | null | undefined): number | null {
   return n > 0 ? n : null;
 }
 
+import { safeGetItem } from "../utils/storage";
+
 function readAll(): StagePresetItem[] {
   if (typeof localStorage === "undefined") return [];
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = safeGetItem(STORAGE_KEY, null as any);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
