@@ -974,12 +974,13 @@ async function rehydrateEmbeddedAudioFromJsonItems(
     if (typeof b64 === "string" && b64.length > 0) {
       const mime = m0?.flowEmbeddedAudioMimeType || "application/octet-stream";
       const bytes = base64ToUint8Array(b64);
-      const blob = new Blob([bytes], { type: mime });
+      const arrayBuffer = bytes.buffer instanceof ArrayBuffer ? bytes.buffer : bytes.buffer.slice(0);
+      const blob = new Blob([arrayBuffer], { type: mime });
       const newKey = generateId();
       await putFlowLibraryAudio(newKey, blob);
-      const m: FlowLibraryMemento = { ...m0 };
-      delete (m as Record<string, unknown>).flowEmbeddedAudioBase64;
-      delete (m as Record<string, unknown>).flowEmbeddedAudioMimeType;
+      const m: FlowLibraryMemento = { ...m0! };
+      delete (m as unknown as Record<string, unknown>).flowEmbeddedAudioBase64;
+      delete (m as unknown as Record<string, unknown>).flowEmbeddedAudioMimeType;
       m.flowEmbeddedAudioKey = newKey;
       out.push({ ...it, memento: m });
     } else {
@@ -1315,12 +1316,13 @@ export function expandFlowToProject(
   }));
 
   const useTiming = opts.replaceTiming && item.hasTiming;
-  const cuesOut: Cue[] = item.cues.map((c, i) => {
-    const fid = idMap.get(c.formationIdRef);
-    if (!fid) {
-      /** 通常は normalize でフィルタ済みだが、防衛 */
-      return null as unknown as Cue;
-    }
+  const cuesOut: Cue[] = item.cues
+    .map((c, i) => {
+      const fid = idMap.get(c.formationIdRef);
+      if (!fid) {
+        /** 通常は normalize でフィルタ済みだが、防衛 */
+        return null;
+      }
     return {
       id: typeof c.id === "string" && c.id ? c.id : generateId(),
       tStartSec:
@@ -1336,7 +1338,8 @@ export function expandFlowToProject(
         ? { gapApproachFromPrev: c.gapApproachFromPrev }
         : {}),
     };
-  });
+  })
+    .filter((c): c is Cue => c !== null);
 
   if (!useTiming) {
     rescaleCueTimelinePreservingGaps(cuesOut, {
