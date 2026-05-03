@@ -71,6 +71,12 @@ body:has(.bottomNav) {
   color: #3b82f6;
 }
 
+.navItem.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .navItem.active::before {
   content: '';
   position: absolute;
