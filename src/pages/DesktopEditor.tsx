@@ -953,9 +953,9 @@ export function EditorPage({
   
   /** 🚀 プロジェクト保存・復元 */
   useEffect(() => {
-    // 初回ロード
+    // 初回ロード：plainProjectがnullの場合のみ読み込み
     const savedProject = loadProject();
-    if (savedProject && !plainProject) {
+    if (savedProject && plainProject === null) {
       setPlainProject(savedProject);
     }
   }, []);
@@ -1313,8 +1313,10 @@ export function EditorPage({
 
     /** 新規は API・ログイン不要のため認証待ちを挟まず即表示（立ち上げ短縮） */
     if (projectId === "new" || !projectId) {
+      // 新しい保存システムからデータを読み込み
+      const savedProject = loadProject();
       const migrated = tryMigrateFromLocalStorage();
-      setPlainProject(migrated ?? createEmptyProject());
+      setPlainProject(savedProject ?? migrated ?? createEmptyProject());
       setServerId(null);
       setServerShareToken(null);
       setLoadError(null);
