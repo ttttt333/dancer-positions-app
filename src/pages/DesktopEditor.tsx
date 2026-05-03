@@ -3188,8 +3188,11 @@ export function EditorPage({
           ? yjsCollab.redoStackSize === 0
           : historyRef.current.redo.length === 0)
       }
-      selectedCueId={selectedCueId}
-      setSelectedCueId={setSelectedCueId}
+      selectedCueIds={selectedCueId ? [selectedCueId] : []}
+      onSelectedCueIdsChange={(idsOrFn) => {
+        const ids = typeof idsOrFn === 'function' ? idsOrFn(selectedCueId ? [selectedCueId] : []) : idsOrFn;
+        setSelectedCueId(ids.length > 0 ? ids[0] : null);
+      }}
       formationIdForNewCue={selectedCue?.formationId ?? project.activeFormationId}
       wideWorkbench={wideEditorLayout}
       compactTopDock={
