@@ -45,7 +45,7 @@ import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import { useSelectedCueId, useSetSelectedCueId } from "../store/useEditorStore";
 import { useEditorPlaybackSync } from "../hooks/useEditorPlaybackSync";
 import { useTimelineMediaHandle } from "../hooks/useTimelineMediaHandle";
-import { useProjectStorage } from "../hooks/useProjectStorage";
+import { saveProject, loadProject, createAutoSave } from "../lib/projectStorage";
 import { RosterTimelineStrip } from "../components/RosterTimelineStrip";
 import {
   createEmptyProject,
@@ -952,7 +952,21 @@ export function EditorPage({
   const setSelectedCueId = useSetSelectedCueId();
   
   /** 🚀 プロジェクト保存・復元 */
-  useProjectStorage();
+  useEffect(() => {
+    // 初回ロード
+    const savedProject = loadProject();
+    if (savedProject && !plainProject) {
+      setPlainProject(savedProject);
+    }
+  }, []);
+
+  // オートセーブ
+  useEffect(() => {
+    if (plainProject) {
+      const autoSave = createAutoSave(saveProject);
+      autoSave(plainProject);
+    }
+  }, [plainProject]);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [flowLibraryOpen, setFlowLibraryOpen] = useState(false);
   /** 立ち位置保存ボタンから開く管理ダイアログ */
