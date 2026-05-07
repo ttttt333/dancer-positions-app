@@ -421,6 +421,8 @@ export type EditorStageWorkbenchProps = {
   cloudSaveRailLine2?: string;
   /** 右レール・ツールチップ */
   cloudSaveRailTitle?: string;
+  /** AIフォーメーション提案ダイアログを開く */
+  onAiSuggest?: () => void;
 };
 
 export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
@@ -462,6 +464,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
     cloudSaveRailLine1 = "",
     cloudSaveRailLine2 = "",
     cloudSaveRailTitle = "",
+    onAiSuggest,
   } = props;
 
   const rowOuter: CSSProperties = rail
@@ -698,6 +701,37 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                   ...iconCue
                 }} 
               />
+            </button>
+          ) : null}
+          {onAiSuggest && project.viewMode !== "view" ? (
+            <button
+              type="button"
+              className="editor-right-tool-sq"
+              style={{
+                ...btnToolSquare,
+                background: "rgba(76,29,149,0.18)",
+                border: "1px solid rgba(139,92,246,0.5)",
+                backdropFilter: "blur(8px)",
+                height: "64px",
+                width: "64px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 3,
+                cursor: "pointer",
+              }}
+              title="楽曲の構造を解析してフォーメーションをAIが提案します"
+              aria-label="AIフォーメーション提案"
+              onClick={() => onAiSuggest?.()}
+            >
+              <svg viewBox="0 0 24 24" width={22} height={22} fill="none" aria-hidden>
+                <path d="M12 2 L13.5 8.5 L20 10 L13.5 11.5 L12 18 L10.5 11.5 L4 10 L10.5 8.5 Z"
+                  fill="#a78bfa" stroke="#a78bfa" strokeWidth="0.5" strokeLinejoin="round"/>
+                <path d="M19 4 L19.8 6.8 L22 8 L19.8 9.2 L19 12 L18.2 9.2 L16 8 L18.2 6.8 Z"
+                  fill="#c4b5fd" stroke="#c4b5fd" strokeWidth="0.3" strokeLinejoin="round"/>
+              </svg>
+              <span style={{ fontSize: 9, fontWeight: 700, color: "#a78bfa", lineHeight: 1 }}>AI提案</span>
             </button>
           ) : null}
         </div>

@@ -3304,6 +3304,7 @@ export function EditorPage({
             : t("editor.saveTitleNew"),
         }
       : {}),
+    onAiSuggest: choreoPublicView ? undefined : () => setAiSuggestOpen(true),
   };
 
   // Return MobileLayout for mobile devices
