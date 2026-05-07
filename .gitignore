@@ -33,3 +33,6 @@ dist-ssr
 .env.local
 .env.local.*
 .env.local
+.env.supabase
+.env.ai
+supabase/.temp/

@@ -4536,6 +4536,32 @@ export function EditorPage({
                     />
                   </div>
                 ) : null}
+                {workbenchInRightRail && project?.viewMode !== "view" ? (
+                  <button
+                    type="button"
+                    onClick={() => setAiSuggestOpen(true)}
+                    title="楽曲の構造を解析してフォーメーションをAIが提案します"
+                    style={{
+                      ...btnSecondary,
+                      width: "100%",
+                      padding: "7px 8px",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      color: "#a78bfa",
+                      borderColor: "#4c1d95",
+                      background: "rgba(76,29,149,0.15)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 4,
+                      cursor: "pointer",
+                      flexShrink: 0,
+                      marginBottom: 4,
+                    }}
+                  >
+                    <span style={{ fontSize: 13 }}>✨</span> AIフォーメーション提案
+                  </button>
+                ) : null}
                 {workbenchInRightRail ? (
                   <section
                     className="editor-right-tools-section"
