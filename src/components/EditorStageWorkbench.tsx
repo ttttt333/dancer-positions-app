@@ -557,7 +557,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
             minWidth: 0,
           }}
         >
-          <div className="editor-right-tools-grid-3">
+          <div className="grid grid-cols-3 gap-y-6 gap-x-4 p-4 w-full justify-items-center content-start">
           <button
             type="button"
             className="editor-right-tool-sq"
@@ -635,7 +635,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
           </button>
         </div>
 
-        <div className="editor-right-tools-grid-3">
+        <div className="grid grid-cols-3 gap-y-6 gap-x-4 p-4 w-full justify-items-center content-start">
           {onOpenCueListModal ? (
             <button
               type="button"
@@ -701,7 +701,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
             </button>
           ) : null}
         </div>
-        <div className="editor-right-tools-grid-3">
+        <div className="grid grid-cols-3 gap-y-6 gap-x-4 p-4 w-full justify-items-center content-start">
           {choreo ? (
             <ChoreoCoreToolbar
               embedInPanel
@@ -761,7 +761,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
           />
         ) : null}
 
-        <div className="editor-right-tools-col-rest">
+        <div className="grid grid-cols-3 gap-y-6 gap-x-4 p-4 w-full justify-items-center content-start">
           {!hideUndoRedoInRail ? (
             <>
               <button
