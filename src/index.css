@@ -180,17 +180,17 @@ html, body {
   overflow: hidden;
 }
 
-/* 右レール: 48×48 タイルを 3 列で折り返し（48×3 + 列間 8×2 = 160px トラック） */
+/* 右レール: 48×48 タイルを 3 列で折り返し（48×3 + 列間 16×2 = 176px トラック） */
 .editor-right-tools-grid-3,
 .editor-right-tools-col-ordered,
 .editor-right-tools-col-rest {
   display: grid;
   grid-template-columns: repeat(3, 48px);
-  column-gap: 8px;
-  row-gap: 7px;
+  column-gap: 16px;
+  row-gap: 16px;
   justify-content: center;
   align-content: flex-start;
-  width: min(160px, 100%);
+  width: min(176px, 100%);
   margin-inline: auto;
   box-sizing: border-box;
 }

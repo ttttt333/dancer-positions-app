@@ -96,6 +96,10 @@ export const btnToolSquare: CSSProperties = {
   padding: "0",
   borderRadius: "12px",
   fontSize: "20px",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
 };
 
 /** 小さいツールボタン */
