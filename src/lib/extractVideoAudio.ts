@@ -613,14 +613,67 @@ export async function extractAudioBufferFromVideoFile(
   try {
     return await extractWithFFmpegWasm(file, onProgress);
   } catch (wasmErr) {
-    /** wasm が動かない環境（社内 PC・古いブラウザ等）向けの最終手段 */
-    console.warn("[extractAudio] wasm extraction failed, falling back to recording:", wasmErr);
+    /** wasm が動かない環境（iOS Safari など）向けのフォールバック */
+    console.warn("[extractAudio] wasm extraction failed, trying decodeAudioData fallback:", wasmErr);
+
+    // フォールバック1: サイズ制限なしで decodeAudioData を試みる（iOS Safari 対応）
     onProgress?.({
       ratio: 0,
-      stage: "record",
-      message: "高速抽出に失敗。録音モードに切り替え…",
+      stage: "decode",
+      message: "別の方法で抽出中…",
     });
-    return await extractWithMediaRecorder(file, onProgress);
+    try {
+      const fallbackBuf = await tryDecodeVideoFileAsAudioForceFull(file, onProgress);
+      if (fallbackBuf) return fallbackBuf;
+    } catch (decodeErr) {
+      console.warn("[extractAudio] decodeAudioData fallback failed:", decodeErr);
+    }
+
+    // フォールバック2: captureStream + MediaRecorder（デスクトップ Chrome/Firefox）
+    if (
+      typeof (document.createElement("video") as HTMLVideoElement & { captureStream?: unknown }).captureStream === "function" ||
+      typeof (document.createElement("video") as HTMLVideoElement & { mozCaptureStream?: unknown }).mozCaptureStream === "function"
+    ) {
+      console.warn("[extractAudio] falling back to MediaRecorder");
+      onProgress?.({
+        ratio: 0,
+        stage: "record",
+        message: "高速抽出に失敗。録音モードに切り替え…",
+      });
+      return await extractWithMediaRecorder(file, onProgress);
+    }
+
+    throw new Error(
+      "この動画ファイルの音声を取り込めませんでした。\n\n【対策】\n・音声ファイル（MP3・AAC・WAV）に変換してから取り込んでください\n・別のブラウザ（Chrome など）でお試しください"
+    );
+  }
+}
+
+/**
+ * サイズ制限なしで decodeAudioData を試みる（iOS Safari フォールバック用）。
+ * MAX_FAST_DECODE_BYTES を超えるファイルも対象にするが、大きすぎる場合は
+ * メモリ不足になりうるのでエラーを呼び出し側でキャッチすること。
+ */
+async function tryDecodeVideoFileAsAudioForceFull(
+  file: File,
+  onProgress?: ExtractProgress
+): Promise<ArrayBuffer | null> {
+  // 200MB 超はメモリ問題のリスクが高いので諦める
+  const MAX_FULL_DECODE_BYTES = 200 * 1024 * 1024;
+  if (file.size > MAX_FULL_DECODE_BYTES) return null;
+
+  onProgress?.({ ratio: 0.1, stage: "decode", message: "ファイルを読み込み中…" });
+  const ctx = new AudioContext();
+  try {
+    const raw = await file.arrayBuffer();
+    onProgress?.({ ratio: 0.5, stage: "decode", message: "音声をデコード中…" });
+    const audioBuf = await ctx.decodeAudioData(raw.slice(0));
+    onProgress?.({ ratio: 1, stage: "decode", message: "デコード完了" });
+    return encodeMonoWavFromAudioBuffer(audioBuf);
+  } catch {
+    return null;
+  } finally {
+    await ctx.close().catch(() => {});
   }
 }
 
