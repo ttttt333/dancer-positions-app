@@ -547,6 +547,45 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
 
   if (rail) {
     const choreo = choreoToolbarProps;
+    const isView = project.viewMode === "view";
+
+    // 共通ボタンスタイル生成
+    function tileBtn(color: string, active = false) {
+      return {
+        display: "flex",
+        flexDirection: "column" as const,
+        alignItems: "center",
+        justifyContent: "center",
+        width: "72px",
+        height: "72px",
+        borderRadius: "16px",
+        border: `1px solid ${color}40`,
+        background: active ? `${color}25` : "rgba(255,255,255,0.04)",
+        backdropFilter: "blur(8px)",
+        cursor: isView ? "not-allowed" : "pointer",
+        opacity: isView ? 0.4 : 1,
+        transition: "all 0.15s ease",
+        gap: 0,
+        padding: 0,
+        flexShrink: 0,
+      } as React.CSSProperties;
+    }
+
+    function sectionLabel(text: string) {
+      return (
+        <div style={{
+          fontSize: 10,
+          fontWeight: 700,
+          color: "rgba(148,163,184,0.7)",
+          letterSpacing: "0.08em",
+          textTransform: "uppercase" as const,
+          padding: "4px 12px 2px",
+          width: "100%",
+        }}>
+          {text}
+        </div>
+      );
+    }
 
     return (
       <>
@@ -555,682 +594,415 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: 10,
+            gap: 0,
             width: "100%",
             minWidth: 0,
           }}
         >
-          <div className="grid grid-cols-3 gap-4 p-3 w-full place-items-center">
-          <button
-            type="button"
-            className="editor-right-tool-sq"
-            style={{
-              ...btnToolSquare,
-              ...btnStage,
-              ...(project.viewMode === "view" ? btnDisabled : {})
-            }}
-            disabled={project.viewMode === "view"}
-            title="形の箱に今の立ち位置を保存"
-            aria-label="形の箱に今の立ち位置を保存"
-            onClick={() => saveStageToFormationBox()}
-          >
-            <MapPin 
-              size={20} 
-              style={{ 
-                ...iconStage
-              }} 
-            />
-          </button>
-          <button
-            type="button"
-            className="editor-right-tool-sq"
-            style={{
-              ...btnToolSquare,
-              ...btnStage,
-              ...(project.viewMode === "view" ? btnDisabled : {}),
-              ...(stageAreaSettingsOpen ? btnSelected : {})
-            }}
-            disabled={project.viewMode === "view"}
-            title="舞台・客席・グリッド・名前の出し方・この URL の共有・ショートカット"
-            onClick={() => setStageAreaSettingsOpen(true)}
-          >
-            <svg viewBox="0 0 24 24" width="34" height="34" fill="none" aria-hidden style={{ display: "block" }}>
-              {/* 台形（舞台を上から見た形） */}
-              <path
-                d="M3 17 L6 6 L18 6 L21 17 Z"
-                stroke="#8b5cf6"
-                strokeWidth="1.5"
-                strokeLinejoin="round"
-                fill="none"
-              />
-              {/* 後列ダンサー（小さい丸・4つ） */}
-              <circle cx="8.5"  cy="9.5" r="1" fill="#8b5cf6" />
-              <circle cx="11"   cy="9.5" r="1" fill="#8b5cf6" />
-              <circle cx="13.5" cy="9.5" r="1" fill="#8b5cf6" />
-              <circle cx="16"   cy="9.5" r="1" fill="#8b5cf6" />
-              {/* 前列ダンサー（大きい丸・3つ） */}
-              <circle cx="9"    cy="14" r="1.5" fill="#8b5cf6" />
-              <circle cx="12"   cy="13" r="1.8" fill="#8b5cf6" />
-              <circle cx="15"   cy="14" r="1.5" fill="#8b5cf6" />
-              {/* 支柱 */}
-              <line x1="12" y1="17" x2="12" y2="20"
-                stroke="#8b5cf6" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            className="editor-right-tool-sq"
-            style={{
-              ...btnToolSquare,
-              ...btnCue,
-              ...(project.viewMode === "view" ? btnDisabled : {})
-            }}
-            disabled={project.viewMode === "view"}
-            title="キュー設定"
-            onClick={() => setStageAreaSettingsOpen(true)}
-          >
-            <Flag 
-              size={20} 
-              style={{ 
-                ...iconCue
-              }} 
-            />
-          </button>
-        </div>
 
-        <div className="grid grid-cols-3 gap-4 p-3 w-full place-items-center">
-          {onOpenCueListModal ? (
-            <button
-              type="button"
-              className="editor-right-tool-sq"
-              style={{
-                ...btnToolSquare,
-                ...btnCue,
-                ...(project.viewMode === "view" ? btnDisabled : {})
-              }}
-              disabled={project.viewMode === "view"}
-              title="モーダルでキュー一覧を開きます"
-              aria-label="キュー一覧を開く"
-              onClick={() => onOpenCueListModal()}
+          {/* ── STAGE ── */}
+          {sectionLabel("舞台・編集")}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, padding: "4px 10px 8px" }}>
+
+            {/* 舞台設定 */}
+            <button type="button"
+              style={tileBtn("#8b5cf6", stageAreaSettingsOpen)}
+              disabled={isView}
+              title="舞台・客席・グリッド・名前の出し方・この URL の共有・ショートカット"
+              onClick={() => setStageAreaSettingsOpen(true)}
             >
-              <List 
-                size={20} 
-                style={{ 
-                  ...iconCue
-                }} 
-              />
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className="editor-right-tool-sq"
-            style={{
-              ...btnToolSquare,
-              ...btnMember,
-              ...(project.viewMode === "view" ? btnDisabled : {})
-            }}
-            disabled={project.viewMode === "view"}
-            title="選択中のフォーメーションにメンバーを1人追加（中央付近）"
-            onClick={() => addDancerFromStageToolbar()}
-          >
-            <Users 
-              size={20} 
-              style={{ 
-                ...iconMember
-              }} 
-            />
-          </button>
-          {onOpenAudioImport ? (
-            <button
-              type="button"
-              className="editor-right-tool-sq"
-              style={{
-                ...btnToolSquare,
-                ...btnCue,
-                ...(project.viewMode === "view" ? btnDisabled : {})
-              }}
-              disabled={project.viewMode === "view"}
-              title="楽曲または動画から音声を読み込み（MP4 / AVI / MOV / MKV / WMV 等に対応）"
-              aria-label="音源を取り込む"
-              onPointerEnter={() => onPreloadFfmpegForAudio?.()}
-              onClick={() => onOpenAudioImport?.()}
-            >
-              <Music 
-                size={20} 
-                style={{ 
-                  ...iconCue
-                }} 
-              />
-            </button>
-          ) : null}
-          {onAiSuggest && project.viewMode !== "view" ? (
-            <button
-              type="button"
-              className="editor-right-tool-sq"
-              style={{
-                ...btnToolSquare,
-                background: "rgba(76,29,149,0.18)",
-                border: "1px solid rgba(139,92,246,0.5)",
-                backdropFilter: "blur(8px)",
-                height: "64px",
-                width: "64px",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 3,
-                cursor: "pointer",
-              }}
-              title="楽曲の構造を解析してフォーメーションをAIが提案します"
-              aria-label="AIフォーメーション提案"
-              onClick={() => onAiSuggest?.()}
-            >
-              <svg viewBox="0 0 24 24" width={22} height={22} fill="none" aria-hidden>
-                <path d="M12 2 L13.5 8.5 L20 10 L13.5 11.5 L12 18 L10.5 11.5 L4 10 L10.5 8.5 Z"
-                  fill="#a78bfa" stroke="#a78bfa" strokeWidth="0.5" strokeLinejoin="round"/>
-                <path d="M19 4 L19.8 6.8 L22 8 L19.8 9.2 L19 12 L18.2 9.2 L16 8 L18.2 6.8 Z"
-                  fill="#c4b5fd" stroke="#c4b5fd" strokeWidth="0.3" strokeLinejoin="round"/>
+              <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
+                <path d="M3 18 L6 6 L18 6 L21 18 Z" stroke="#8b5cf6" strokeWidth="1.6" strokeLinejoin="round"/>
+                <circle cx="9" cy="10" r="1.2" fill="#8b5cf6"/>
+                <circle cx="12" cy="9.5" r="1.4" fill="#8b5cf6"/>
+                <circle cx="15" cy="10" r="1.2" fill="#8b5cf6"/>
+                <circle cx="10.5" cy="14" r="1" fill="#8b5cf6" opacity="0.7"/>
+                <circle cx="13.5" cy="14" r="1" fill="#8b5cf6" opacity="0.7"/>
               </svg>
-              <span style={{ fontSize: 9, fontWeight: 700, color: "#a78bfa", lineHeight: 1 }}>AI提案</span>
             </button>
-          ) : null}
-        </div>
-        <div className="grid grid-cols-3 gap-4 p-3 w-full place-items-center">
-          {choreo ? (
-            <ChoreoCoreToolbar
-              embedInPanel
-              tilesInRun
-              singleTile="setPiece"
-              {...choreo}
-            />
-          ) : null}
-          {choreo ? (
-            <ChoreoCoreToolbar
-              embedInPanel
-              tilesInRun
-              singleTile="stageShape"
-              {...choreo}
-            />
-          ) : null}
-          <button
-            type="button"
-            className="editor-right-tool-sq"
-            style={{
-              ...btnSecondary,
-              background: "rgba(255, 255, 255, 0.05)",
-              border: "1px solid #06b6d430",
-              backdropFilter: "blur(10px)",
-              height: "64px",
-              width: "64px"
-            }}
-            disabled={project.viewMode === "view"}
-            title="CSV / TSV を選んで新しい名簿として取り込みます（1 列目または「名前」などの見出しを検出）"
-            onClick={() => importCrewCsvFromStageToolbar()}
-          >
-            <Upload 
-              size={32} 
-              strokeWidth={1.5}
-              style={{ 
-                color: project.viewMode === "view" ? "rgba(255,255,255,0.3)" : "#06b6d4",
-                filter: `drop-shadow(0 0 8px ${project.viewMode === "view" ? "transparent" : "#06b6d4"})`,
-                transition: "all 0.2s ease"
-              }} 
-            />
-          </button>
-        </div>
-        {choreo ? (
-          <ChoreoCoreToolbar
-            embedInPanel
-            tilesInRun
-            singleTile="export"
-            {...choreo}
-          />
-        ) : null}
-        {choreo ? (
-          <ChoreoCoreToolbar
-            embedInPanel
-            tilesInRun
-            singleTile="help"
-            {...choreo}
-          />
-        ) : null}
 
-        <div className="grid grid-cols-3 gap-4 p-3 w-full place-items-center">
-          {!hideUndoRedoInRail ? (
-            <>
-              <button
-                type="button"
-                className="editor-right-tool-sq"
-                style={{
-                  ...btnSecondary,
-                  background: "rgba(255, 255, 255, 0.05)",
-                  border: "1px solid #64748b30",
-                  backdropFilter: "blur(10px)",
-                  height: "64px",
-                  width: "64px"
+            {/* キュー設定 */}
+            <button type="button"
+              style={tileBtn("#f59e0b")}
+              disabled={isView}
+              title="キュー設定"
+              onClick={() => setStageAreaSettingsOpen(true)}
+            >
+              <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
+                <path d="M4 5h16M4 9h16M4 13h10" stroke="#f59e0b" strokeWidth="1.8" strokeLinecap="round"/>
+                <path d="M16 16 L22 20 L16 24 Z" fill="#f59e0b" transform="translate(-3,-6) scale(0.8)"/>
+                <circle cx="18" cy="17" r="3.5" fill="none" stroke="#f59e0b" strokeWidth="1.5"/>
+                <path d="M16.5 17 L17.5 18 L19.5 16" stroke="#f59e0b" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+
+            {/* 立ち位置保存 */}
+            <button type="button"
+              style={tileBtn("#10b981")}
+              disabled={isView}
+              title="形の箱に今の立ち位置を保存"
+              aria-label="形の箱に今の立ち位置を保存"
+              onClick={() => saveStageToFormationBox()}
+            >
+              <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
+                <rect x="3" y="5" width="18" height="14" rx="2.5" stroke="#10b981" strokeWidth="1.6" fill="none"/>
+                <circle cx="8.5" cy="10" r="1.5" fill="#10b981"/>
+                <circle cx="15.5" cy="10" r="1.5" fill="#10b981"/>
+                <circle cx="12" cy="14" r="1.8" fill="#10b981"/>
+                <path d="M8.5 10 L12 14 L15.5 10" stroke="#10b981" strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.5"/>
+              </svg>
+            </button>
+
+            {/* テキスト */}
+            {!hideFloorTextToolbar ? (
+              <button type="button"
+                style={tileBtn(floorTextPlaceSession ? "#38bdf8" : "#f59e0b", !!floorTextPlaceSession)}
+                disabled={isView || stageView !== "2d" || (project.cues.length > 0 && !selectedCueId)}
+                title={
+                  stageView !== "2d" ? "床テキストは 2D 表示のときのみ使えます"
+                  : project.cues.length > 0 && !selectedCueId ? "タイムラインでキューを選んでから使えます"
+                  : floorTextPlaceSession ? "テキスト配置を終了します"
+                  : "編集画面の好きな位置にテキストを置きます"
+                }
+                onClick={() => {
+                  if (isView || stageView !== "2d") return;
+                  if (project.cues.length > 0 && !selectedCueId) return;
+                  setFloorTextPlaceSession(cur => cur ? null : { body: "", fontSizePx: 18, fontWeight: 600, xPct: 50, yPct: 22, color: "#fef08a", fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif", scale: 1 });
                 }}
-                disabled={project.viewMode === "view" || stageUndoDisabled}
+              >
+                <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
+                  <path d="M4 7h16M12 7v10M8 17h8" stroke={floorTextPlaceSession ? "#38bdf8" : "#f59e0b"} strokeWidth="1.8" strokeLinecap="round"/>
+                  <path d="M19 3 L21 5" stroke={floorTextPlaceSession ? "#38bdf8" : "#f59e0b"} strokeWidth="1.4" strokeLinecap="round"/>
+                </svg>
+              </button>
+            ) : null}
+
+            {/* 拡大（Zen） */}
+            {stageZenEligible && onEnterStageZen ? (
+              <button type="button"
+                style={tileBtn("#8b5cf6")}
+                disabled={isView}
+                title="波形と右メニューを隠してステージだけを大きく表示（Esc で戻る）"
+                aria-label="ステージを拡大表示"
+                onClick={() => onEnterStageZen()}
+              >
+                <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
+                  <circle cx="11" cy="11" r="6.5" stroke="#8b5cf6" strokeWidth="1.6"/>
+                  <path d="M16 16 L21 21" stroke="#8b5cf6" strokeWidth="1.8" strokeLinecap="round"/>
+                  <path d="M8.5 11 H13.5 M11 8.5 V13.5" stroke="#8b5cf6" strokeWidth="1.4" strokeLinecap="round"/>
+                </svg>
+              </button>
+            ) : null}
+
+            {/* 元に戻す */}
+            {!hideUndoRedoInRail ? (
+              <button type="button"
+                style={tileBtn("#64748b")}
+                disabled={isView || stageUndoDisabled}
                 title="編集を元に戻す（⌘Z / Ctrl+Z）"
                 aria-label="元に戻す"
                 onClick={() => undo()}
               >
-                <Undo 
-                  size={32} 
-                  strokeWidth={1.5}
-                  style={{ 
-                    color: (project.viewMode === "view" || stageUndoDisabled) ? "rgba(255,255,255,0.3)" : "#64748b",
-                    filter: `drop-shadow(0 0 8px ${(project.viewMode === "view" || stageUndoDisabled) ? "transparent" : "#64748b"})`,
-                    transition: "all 0.2s ease"
-                  }} 
-                />
+                <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
+                  <path d="M4 9 C4 5 8 3 12 3 C16 3 20 7 20 12 C20 17 16 21 12 21" stroke="#64748b" strokeWidth="1.8" strokeLinecap="round" fill="none"/>
+                  <path d="M4 9 L4 4 M4 9 L9 9" stroke="#64748b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                </svg>
               </button>
-              <button
-                type="button"
-                className="editor-right-tool-sq"
-                style={{
-                  ...btnSecondary,
-                  background: "rgba(255, 255, 255, 0.05)",
-                  border: "1px solid #64748b30",
-                  backdropFilter: "blur(10px)",
-                  height: "64px",
-                  width: "64px"
-                }}
-                disabled={project.viewMode === "view" || stageRedoDisabled}
+            ) : null}
+
+            {/* やり直す */}
+            {!hideUndoRedoInRail ? (
+              <button type="button"
+                style={tileBtn("#64748b")}
+                disabled={isView || stageRedoDisabled}
                 title="やり直す（⌘⇧Z / Ctrl+Shift+Z）"
                 aria-label="やり直す"
                 onClick={() => redo()}
               >
-                <Redo 
-                  size={32} 
-                  strokeWidth={1.5}
-                  style={{ 
-                    color: (project.viewMode === "view" || stageRedoDisabled) ? "rgba(255,255,255,0.3)" : "#64748b",
-                    filter: `drop-shadow(0 0 8px ${(project.viewMode === "view" || stageRedoDisabled) ? "transparent" : "#64748b"})`,
-                    transition: "all 0.2s ease"
-                  }} 
-                />
+                <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
+                  <path d="M20 9 C20 5 16 3 12 3 C8 3 4 7 4 12 C4 17 8 21 12 21" stroke="#64748b" strokeWidth="1.8" strokeLinecap="round" fill="none"/>
+                  <path d="M20 9 L20 4 M20 9 L15 9" stroke="#64748b" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                </svg>
               </button>
-            </>
-          ) : null}
-          {hasRosterMembers && !project.rosterHidesTimeline ? (
-            <button
-              type="button"
-              className="editor-right-tool-sq"
-              style={{
-                ...btnSecondary,
-                background: "rgba(255, 255, 255, 0.05)",
-                border: "1px solid #10b98130",
-                backdropFilter: "blur(10px)",
-                height: "64px",
-                width: "64px"
-              }}
-              disabled={project.viewMode === "view"}
-              title="右列で名簿一覧を表示し、タイムライン列は隠します"
-              onClick={() =>
-                setProjectSafe((p) => ({
-                  ...p,
-                  rosterHidesTimeline: true,
-                  rosterStripCollapsed: false,
-                }))
-              }
+            ) : null}
+
+            {/* グリッド吸着 (snap) */}
+            {choreo?.onToggleSnapGrid ? (
+              <button type="button"
+                style={tileBtn("#8b5cf6", choreo.snapGrid)}
+                title={`スナップ：格子点に自動整列 (${choreo.snapGrid ? "ON" : "OFF"})`}
+                onClick={() => choreo.onToggleSnapGrid?.()}
+              >
+                <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
+                  <path d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h6v6h-6v-6z" stroke={choreo.snapGrid ? "#a78bfa" : "#8b5cf6"} strokeWidth="1.5" strokeLinejoin="round"/>
+                  <circle cx="12" cy="12" r="2.5" fill={choreo.snapGrid ? "#a78bfa" : "#8b5cf6"} opacity={choreo.snapGrid ? 1 : 0.5}/>
+                </svg>
+              </button>
+            ) : null}
+
+          </div>
+
+          {/* ── CUE ── */}
+          {sectionLabel("キュー")}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, padding: "4px 10px 8px" }}>
+
+            {/* キュー一覧 */}
+            {onOpenCueListModal ? (
+              <button type="button"
+                style={tileBtn("#f59e0b")}
+                disabled={isView}
+                title="モーダルでキュー一覧を開きます"
+                aria-label="キュー一覧を開く"
+                onClick={() => onOpenCueListModal()}
+              >
+                <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
+                  <rect x="3" y="4" width="18" height="16" rx="2" stroke="#f59e0b" strokeWidth="1.5" fill="none"/>
+                  <path d="M7 8h2M7 12h2M7 16h2" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round"/>
+                  <path d="M12 8h5M12 12h5M12 16h3" stroke="#f59e0b" strokeWidth="1.4" strokeLinecap="round" opacity="0.7"/>
+                </svg>
+              </button>
+            ) : null}
+
+            {/* 音源取込 */}
+            {onOpenAudioImport ? (
+              <button type="button"
+                style={tileBtn("#ef4444")}
+                disabled={isView}
+                title="楽曲または動画から音声を読み込み（MP4 / AVI / MOV / MKV / WMV 等に対応）"
+                aria-label="音源を取り込む"
+                onPointerEnter={() => onPreloadFfmpegForAudio?.()}
+                onClick={() => onOpenAudioImport?.()}
+              >
+                <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
+                  <path d="M3 12 Q6 6 9 12 Q12 18 15 12 Q18 6 21 12" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round" fill="none"/>
+                  <path d="M12 18 L12 21 M10 21 L14 21" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+              </button>
+            ) : null}
+
+            {/* ライブラリ */}
+            <button type="button"
+              style={tileBtn("#3b82f6")}
+              disabled={isView}
+              title="今までの流れ（フォーメーションとキュー）をフローライブラリに保存します"
+              onClick={() => setFlowLibraryOpen(true)}
             >
-              <Users 
-                size={32} 
-                strokeWidth={1.5}
-                style={{ 
-                  color: project.viewMode === "view" ? "rgba(255,255,255,0.3)" : "#10b981",
-                  filter: `drop-shadow(0 0 8px ${project.viewMode === "view" ? "transparent" : "#10b981"})`,
-                  transition: "all 0.2s ease"
-                }} 
+              <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
+                <path d="M3 5 C3 4 4 3 5 3 L14 3 L21 10 L21 19 C21 20 20 21 19 21 L5 21 C4 21 3 20 3 19 Z" stroke="#3b82f6" strokeWidth="1.5" fill="none"/>
+                <path d="M14 3 L14 10 L21 10" stroke="#3b82f6" strokeWidth="1.4" fill="none"/>
+                <path d="M7 13 L12 13 M7 17 L15 17" stroke="#3b82f6" strokeWidth="1.4" strokeLinecap="round"/>
+                <path d="M17 14 L19 13 L17 12" stroke="#3b82f6" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+
+            {/* AI提案 */}
+            {onAiSuggest && !isView ? (
+              <button type="button"
+                style={{
+                  ...tileBtn("#a78bfa"),
+                  background: "rgba(76,29,149,0.22)",
+                  border: "1px solid rgba(167,139,250,0.5)",
+                }}
+                title="楽曲の構造を解析してフォーメーションをAIが提案します"
+                aria-label="AIフォーメーション提案"
+                onClick={() => onAiSuggest?.()}
+              >
+                <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
+                  <path d="M12 3 L13.8 9.2 L20 11 L13.8 12.8 L12 19 L10.2 12.8 L4 11 L10.2 9.2 Z" fill="#a78bfa" stroke="#a78bfa" strokeWidth="0.5" strokeLinejoin="round"/>
+                  <path d="M19 3 L19.9 5.9 L22 7 L19.9 8.1 L19 11 L18.1 8.1 L16 7 L18.1 5.9 Z" fill="#c4b5fd" stroke="#c4b5fd" strokeWidth="0.3" strokeLinejoin="round"/>
+                </svg>
+                <span style={{ fontSize: 9, fontWeight: 700, color: "#a78bfa", marginTop: 3, lineHeight: 1 }}>AI提案</span>
+              </button>
+            ) : null}
+
+          </div>
+
+          {/* ── MEMBERS ── */}
+          {sectionLabel("メンバー")}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, padding: "4px 10px 8px" }}>
+
+            {/* ＋メンバー */}
+            <button type="button"
+              style={tileBtn("#10b981")}
+              disabled={isView}
+              title="選択中のフォーメーションにメンバーを1人追加（中央付近）"
+              onClick={() => addDancerFromStageToolbar()}
+            >
+              <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
+                <circle cx="10" cy="8" r="3.5" stroke="#10b981" strokeWidth="1.6" fill="none"/>
+                <path d="M3 20 C3 16 6 14 10 14 C11.5 14 12.9 14.4 14 15.1" stroke="#10b981" strokeWidth="1.6" strokeLinecap="round" fill="none"/>
+                <path d="M18 13 V19 M15 16 H21" stroke="#10b981" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </button>
+
+            {/* 名簿取込 */}
+            <button type="button"
+              style={tileBtn("#06b6d4")}
+              disabled={isView}
+              title="CSV / TSV を選んで新しい名簿として取り込みます（1 列目または「名前」などの見出しを検出）"
+              onClick={() => importCrewCsvFromStageToolbar()}
+            >
+              <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
+                <rect x="3" y="3" width="14" height="18" rx="2" stroke="#06b6d4" strokeWidth="1.5" fill="none"/>
+                <path d="M6 7h8M6 11h8M6 15h5" stroke="#06b6d4" strokeWidth="1.3" strokeLinecap="round"/>
+                <circle cx="18" cy="17" r="4" fill="none" stroke="#06b6d4" strokeWidth="1.4"/>
+                <path d="M16.5 17 L17.5 18 L19.5 16" stroke="#06b6d4" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+
+            {/* メンバー表示 */}
+            {hasRosterMembers && !project.rosterHidesTimeline ? (
+              <button type="button"
+                style={tileBtn("#10b981")}
+                disabled={isView}
+                title="右列で名簿一覧を表示し、タイムライン列は隠します"
+                onClick={() => setProjectSafe(p => ({ ...p, rosterHidesTimeline: true, rosterStripCollapsed: false }))}
+              >
+                <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
+                  <circle cx="8" cy="8" r="3" stroke="#10b981" strokeWidth="1.5" fill="none"/>
+                  <circle cx="16" cy="8" r="3" stroke="#10b981" strokeWidth="1.5" fill="none"/>
+                  <path d="M2 20 C2 16.5 4.5 14 8 14" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+                  <path d="M22 20 C22 16.5 19.5 14 16 14" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+                  <path d="M8 14 C9.5 16 14.5 16 16 14" stroke="#10b981" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+                </svg>
+              </button>
+            ) : null}
+
+          </div>
+
+          {/* ── SHARE / OUTPUT ── */}
+          {sectionLabel("共有・出力")}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, padding: "4px 10px 8px" }}>
+
+            {/* 共有URL */}
+            {onOpenShareLinks ? (
+              <button type="button"
+                style={tileBtn("#0ea5e9")}
+                disabled={shareLinksButtonDisabled}
+                title="チーム用（共同編集）か生徒用（閲覧）か選んで URL を発行"
+                onClick={onOpenShareLinks}
+              >
+                <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
+                  <circle cx="18" cy="5" r="3" stroke="#0ea5e9" strokeWidth="1.5" fill="none"/>
+                  <circle cx="6" cy="12" r="3" stroke="#0ea5e9" strokeWidth="1.5" fill="none"/>
+                  <circle cx="18" cy="19" r="3" stroke="#0ea5e9" strokeWidth="1.5" fill="none"/>
+                  <path d="M8.6 10.7 L15.4 6.3 M8.6 13.3 L15.4 17.7" stroke="#0ea5e9" strokeWidth="1.4"/>
+                </svg>
+              </button>
+            ) : null}
+
+            {/* クラウド保存 */}
+            {onOpenCloudSave ? (
+              <button type="button"
+                style={tileBtn("#3b82f6")}
+                disabled={isView || cloudSaveDisabled}
+                title={cloudSaveRailTitle}
+                aria-label={cloudSaveRailTitle}
+                onClick={() => onOpenCloudSave()}
+              >
+                <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
+                  <path d="M18 15 C21 15 22 11 19 9 C19 6 16 4 13 5 C11 3 7 4 7 7.5 C4 8 3 12 6 13.5" stroke="#3b82f6" strokeWidth="1.6" strokeLinecap="round" fill="none"/>
+                  <path d="M12 12 L12 21 M9 18 L12 21 L15 18" stroke="#3b82f6" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+            ) : null}
+
+            {/* 書き出し */}
+            {choreo ? (
+              <button type="button"
+                style={tileBtn("#06b6d4")}
+                title="書き出し（PNG / PDF / WebM / JSON）"
+                onClick={() => choreo.onOpenExport?.()}
+              >
+                <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
+                  <rect x="4" y="3" width="16" height="13" rx="2" stroke="#06b6d4" strokeWidth="1.5" fill="none"/>
+                  <path d="M8 6h4M8 9h6M8 12h3" stroke="#06b6d4" strokeWidth="1.3" strokeLinecap="round" opacity="0.7"/>
+                  <path d="M8 19 L16 19 M12 16 L12 21 M9 18.5 L12 21 L15 18.5" stroke="#06b6d4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+            ) : null}
+
+            {/* 閲覧モード */}
+            {onOpenViewerMode ? (
+              <button type="button"
+                style={tileBtn("#38bdf8")}
+                disabled={viewerModeButtonDisabled}
+                title="表示する人を一人に強調。再生の確認とステージ画像の保存・共有"
+                aria-label="閲覧モード（メンバー別の強調）"
+                onClick={() => onOpenViewerMode()}
+              >
+                <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
+                  <path d="M2 12 C5 7 9 4 12 4 C15 4 19 7 22 12 C19 17 15 20 12 20 C9 20 5 17 2 12 Z" stroke="#38bdf8" strokeWidth="1.5" fill="none"/>
+                  <circle cx="12" cy="12" r="3.5" stroke="#38bdf8" strokeWidth="1.5" fill="none"/>
+                  <circle cx="12" cy="12" r="1.2" fill="#38bdf8"/>
+                </svg>
+              </button>
+            ) : null}
+
+            {/* 大道具 */}
+            {choreo ? (
+              <button type="button"
+                style={tileBtn("#f97316")}
+                title="大道具を追加（図形・色を選択）"
+                onClick={() => choreo.onOpenSetPiecePicker?.()}
+              >
+                <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
+                  <rect x="3" y="3" width="8" height="8" rx="1.5" stroke="#f97316" strokeWidth="1.5" fill="none"/>
+                  <circle cx="17" cy="7" r="4" stroke="#f97316" strokeWidth="1.5" fill="none"/>
+                  <path d="M3 17 L9 21 L21 13 L21 17 L9 21 L3 21 Z" stroke="#f97316" strokeWidth="1.4" strokeLinejoin="round" fill="none" opacity="0.5"/>
+                  <rect x="12" y="14" width="10" height="6" rx="1" stroke="#f97316" strokeWidth="1.4" fill="none"/>
+                </svg>
+              </button>
+            ) : null}
+
+            {/* ヘルプ */}
+            {choreo ? (
+              <button type="button"
+                style={tileBtn("#64748b")}
+                title="キーボードショートカット一覧"
+                onClick={() => choreo.onOpenShortcutsHelp?.()}
+              >
+                <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
+                  <circle cx="12" cy="12" r="9.5" stroke="#64748b" strokeWidth="1.5" fill="none"/>
+                  <path d="M9.5 9.5 C9.5 7.8 11 6.5 12.5 6.5 C14 6.5 15.5 7.7 15.5 9.3 C15.5 11.5 12.5 11.5 12.5 13.5" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+                  <circle cx="12.5" cy="17" r="1" fill="#64748b"/>
+                </svg>
+              </button>
+            ) : null}
+
+          </div>
+
+          {/* Floor text session toolbar */}
+          {!hideFloorTextToolbar && floorTextPlaceSession ? (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "flex-end", padding: "8px 10px", marginTop: 4, borderTop: "1px solid #334155", width: "100%", boxSizing: "border-box" }}>
+              <textarea
+                value={floorTextPlaceSession?.body || ""}
+                onChange={(e) => setFloorTextPlaceSession(s => s ? { ...s, body: e.target.value } : s)}
+                rows={2}
+                aria-label="編集画面に表示するテキスト"
+                placeholder=""
+                style={{ flex: "1 1 220px", minWidth: 180, maxWidth: 520, fontSize: 12, padding: "6px 8px", borderRadius: 8, border: "1px solid #475569", background: "#0f172a", color: "#e2e8f0", resize: "vertical" }}
               />
-            </button>
-          ) : null}
-          {!hideFloorTextToolbar ? (
-            <button
-              type="button"
-              className="editor-right-tool-sq"
-              style={{
-                ...btnSecondary,
-                background: "rgba(255, 255, 255, 0.05)",
-                border: floorTextPlaceSession ? "1px solid #38bdf830" : "1px solid #f59e0b30",
-                backdropFilter: "blur(10px)",
-                height: "64px",
-                width: "64px"
-              }}
-              disabled={
-                project.viewMode === "view" ||
-                stageView !== "2d" ||
-                (project.cues.length > 0 && !selectedCueId)
-              }
-              title={
-                stageView !== "2d"
-                  ? "床テキストは 2D 表示のときのみ使えます"
-                  : project.cues.length > 0 && !selectedCueId
-                    ? "タイムラインでキューを選んでから使えます"
-                    : floorTextPlaceSession
-                      ? "テキスト配置を終了します"
-                      : "編集画面の好きな位置にテキストを置きます（ドラッグ・空所クリックで移動）"
-              }
-              onClick={() => {
-                if (project.viewMode === "view") return;
-                if (stageView !== "2d") return;
-                if (project.cues.length > 0 && !selectedCueId) return;
-                setFloorTextPlaceSession((cur) =>
-                  cur
-                    ? null
-                    : {
-                        body: "",
-                        fontSizePx: 18,
-                        fontWeight: 600,
-                        xPct: 50,
-                        yPct: 22,
-                        color: "#fef08a",
-                        fontFamily:
-                          "system-ui, -apple-system, 'Segoe UI', sans-serif",
-                        scale: 1,
-                      }
-                );
-              }}
-            >
-              <div style={{ position: "relative", width: 34, height: 34 }}>
-                <Type 
-                  size={22} 
-                  strokeWidth={1.5}
-                  style={{ 
-                    color: (project.viewMode === "view" || stageView !== "2d" || (project.cues.length > 0 && !selectedCueId)) ? "rgba(255,255,255,0.3)" : (floorTextPlaceSession ? "#38bdf8" : "#f59e0b"),
-                    filter: `drop-shadow(0 0 6px ${(project.viewMode === "view" || stageView !== "2d" || (project.cues.length > 0 && !selectedCueId)) ? "transparent" : (floorTextPlaceSession ? "#38bdf8" : "#f59e0b")})`,
-                    transition: "all 0.2s ease"
-                  }} 
-                />
-                <ArrowUp 
-                  size={8} 
-                  strokeWidth={1.5}
-                  style={{ 
-                    color: (project.viewMode === "view" || stageView !== "2d" || (project.cues.length > 0 && !selectedCueId)) ? "rgba(255,255,255,0.3)" : (floorTextPlaceSession ? "#38bdf8" : "#f59e0b"),
-                    filter: `drop-shadow(0 0 3px ${(project.viewMode === "view" || stageView !== "2d" || (project.cues.length > 0 && !selectedCueId)) ? "transparent" : (floorTextPlaceSession ? "#38bdf8" : "#f59e0b")})`,
-                    transition: "all 0.2s ease",
-                    position: "absolute",
-                    bottom: 0,
-                    right: 0
-                  }} 
-                />
-              </div>
-            </button>
-          ) : null}
-          {stageZenEligible && onEnterStageZen ? (
-            <button
-              type="button"
-              className="editor-right-tool-sq"
-              style={{
-                ...btnSecondary,
-                background: "rgba(255, 255, 255, 0.05)",
-                border: "1px solid #8b5cf630",
-                backdropFilter: "blur(10px)",
-                height: "64px",
-                width: "64px"
-              }}
-              disabled={project.viewMode === "view"}
-              title="波形と右メニューを隠してステージだけを大きく表示（Esc で戻る）"
-              aria-label="ステージを拡大表示"
-              onClick={() => onEnterStageZen()}
-            >
-              <div style={{ position: "relative", width: 34, height: 34 }}>
-                <Search 
-                  size={22} 
-                  strokeWidth={1.5}
-                  style={{ 
-                    color: project.viewMode === "view" ? "rgba(255,255,255,0.3)" : "#8b5cf6",
-                    filter: `drop-shadow(0 0 6px ${project.viewMode === "view" ? "transparent" : "#8b5cf6"})`,
-                    transition: "all 0.2s ease"
-                  }} 
-                />
-                <Plus 
-                  size={14} 
-                  strokeWidth={1.5}
-                  style={{ 
-                    color: project.viewMode === "view" ? "rgba(255,255,255,0.3)" : "#8b5cf6",
-                    filter: `drop-shadow(0 0 4px ${project.viewMode === "view" ? "transparent" : "#8b5cf6"})`,
-                    transition: "all 0.2s ease",
-                    position: "absolute",
-                    bottom: 0,
-                    right: 0
-                  }} 
-                />
-              </div>
-            </button>
-          ) : null}
-          {onOpenViewerMode || onOpenShareLinks || onOpenCloudSave ? (
-            <>
-              {onOpenViewerMode ? (
-                <button
-                  type="button"
-                  className="editor-right-tool-sq"
-                  style={{
-                    ...btnSecondary,
-                    background: "rgba(255, 255, 255, 0.05)",
-                    border: "1px solid #38bdf830",
-                    backdropFilter: "blur(10px)",
-                    height: "64px",
-                    width: "64px"
-                  }}
-                  disabled={viewerModeButtonDisabled}
-                  title="表示する人を一人に強調。再生の確認とステージ画像の保存・共有"
-                  aria-label="閲覧モード（メンバー別の強調）"
-                  onClick={() => onOpenViewerMode()}
-                >
-                  <div style={{ position: "relative", width: 34, height: 34 }}>
-                    <Eye 
-                      size={22} 
-                      strokeWidth={1.5}
-                      style={{ 
-                        color: viewerModeButtonDisabled ? "rgba(255,255,255,0.3)" : "#38bdf8",
-                        filter: `drop-shadow(0 0 6px ${viewerModeButtonDisabled ? "transparent" : "#38bdf8"})`,
-                        transition: "all 0.2s ease"
-                      }} 
-                    />
-                    <Monitor 
-                      size={14} 
-                      strokeWidth={1.5}
-                      style={{ 
-                        color: viewerModeButtonDisabled ? "rgba(255,255,255,0.3)" : "#38bdf8",
-                        filter: `drop-shadow(0 0 4px ${viewerModeButtonDisabled ? "transparent" : "#38bdf8"})`,
-                        transition: "all 0.2s ease",
-                        position: "absolute",
-                        bottom: 0,
-                        right: 0
-                      }} 
-                    />
-                  </div>
+              <input type="number" min={8} max={56}
+                aria-label="床テキストのフォントサイズ（ピクセル）"
+                value={floorTextPlaceSession?.fontSizePx || 18}
+                onChange={(e) => setFloorTextPlaceSession(s => s ? { ...s, fontSizePx: Math.round(Math.min(56, Math.max(8, Number(e.target.value) || 18))) } : s)}
+                style={{ width: 64, padding: "4px 6px", borderRadius: 6, border: "1px solid #475569", background: "#0f172a", color: "#e2e8f0", fontSize: 12 }}
+              />
+              <div style={{ display: "flex", gap: 8 }}>
+                <button type="button" onClick={() => commitFloorTextPlace()} title="テキストを配置して確定"
+                  style={{ ...tileBtn("#22c55e"), width: 52, height: 40 }}>
+                  <Save size={18} strokeWidth={1.5} style={{ color: "#22c55e" }} />
                 </button>
-              ) : null}
-              {onOpenShareLinks ? (
-                <button
-                  type="button"
-                  className="editor-right-tool-sq"
-                  style={{
-                    ...btnSecondary,
-                    background: "rgba(255, 255, 255, 0.05)",
-                    border: "1px solid #0ea5e930",
-                    backdropFilter: "blur(10px)",
-                    height: "64px",
-                    width: "64px"
-                  }}
-                  disabled={shareLinksButtonDisabled}
-                  title="チーム用（共同編集）か生徒用（閲覧）か選んで URL を発行"
-                  onClick={onOpenShareLinks}
-                >
-                  <Share2 
-                    size={32} 
-                    strokeWidth={1.5}
-                    style={{ 
-                      color: shareLinksButtonDisabled ? "rgba(255,255,255,0.3)" : "#0ea5e9",
-                      filter: `drop-shadow(0 0 8px ${shareLinksButtonDisabled ? "transparent" : "#0ea5e9"})`,
-                      transition: "all 0.2s ease"
-                    }} 
-                  />
-                </button>
-              ) : null}
-              {onOpenCloudSave ? (
-                <button
-                  type="button"
-                  className="editor-right-tool-sq"
-                  style={{
-                    ...btnSecondary,
-                    background: "rgba(255, 255, 255, 0.05)",
-                    border: "1px solid #3b82f630",
-                    backdropFilter: "blur(10px)",
-                    height: "64px",
-                    width: "64px"
-                  }}
-                  disabled={
-                    project.viewMode === "view" || cloudSaveDisabled
-                  }
-                  title={cloudSaveRailTitle}
-                  aria-label={cloudSaveRailTitle}
-                  onClick={() => onOpenCloudSave()}
-                >
-                  <Cloud 
-                    size={32} 
-                    strokeWidth={1.5}
-                    style={{ 
-                      color: (project.viewMode === "view" || cloudSaveDisabled) ? "rgba(255,255,255,0.3)" : "#3b82f6",
-                      filter: `drop-shadow(0 0 8px ${(project.viewMode === "view" || cloudSaveDisabled) ? "transparent" : "#3b82f6"})`,
-                      transition: "all 0.2s ease"
-                    }} 
-                  />
-                </button>
-              ) : null}
-            </>
-          ) : null}
-        </div>
-        {!hideFloorTextToolbar && floorTextPlaceSession ? (
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "10px",
-              alignItems: "flex-end",
-              paddingTop: "8px",
-              marginTop: "4px",
-              borderTop: "1px solid #334155",
-              width: "100%",
-            }}
-          >
-            <textarea
-              value={floorTextPlaceSession?.body || ""}
-              onChange={(e) =>
-                setFloorTextPlaceSession((s) =>
-                  s ? { ...s, body: e.target.value } : s
-                )
-              }
-              rows={2}
-              aria-label="編集画面に表示するテキスト"
-              placeholder=""
-              style={{
-                flex: "1 1 220px",
-                minWidth: "180px",
-                maxWidth: "520px",
-                fontSize: "12px",
-                padding: "6px 8px",
-                borderRadius: "8px",
-                border: "1px solid #475569",
-                background: "#0f172a",
-                color: "#e2e8f0",
-                resize: "vertical",
-              }}
-            />
-            <input
-              type="number"
-              min={8}
-              max={56}
-              aria-label="床テキストのフォントサイズ（ピクセル）"
-              value={floorTextPlaceSession?.fontSizePx || 18}
-              onChange={(e) =>
-                setFloorTextPlaceSession((s) =>
-                  s
-                    ? {
-                        ...s,
-                        fontSizePx: Math.round(
-                          Math.min(
-                            56,
-                            Math.max(8, Number(e.target.value) || 18)
-                          )
-                        ),
-                      }
-                    : s
-                )
-              }
-              style={{
-                width: "64px",
-                padding: "4px 6px",
-                borderRadius: "6px",
-                border: "1px solid #475569",
-                background: "#0f172a",
-                color: "#e2e8f0",
-                fontSize: "12px",
-              }}
-            />
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "6px",
-                flex: "1 1 200px",
-                minWidth: "160px",
-              }}
-            >
-              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                <button
-                  type="button"
-                  onClick={() => commitFloorTextPlace()}
-                  title="テキストを配置して確定"
-                  style={{
-                    ...btnSecondary,
-                    background: "rgba(255, 255, 255, 0.05)",
-                    border: "1px solid #22c55e30",
-                    backdropFilter: "blur(10px)",
-                    height: "40px",
-                    width: "80px"
-                  }}
-                >
-                  <Save 
-                    size={22} 
-                    strokeWidth={1.5}
-                    style={{ 
-                      color: "#22c55e",
-                      filter: "drop-shadow(0 0 6px #22c55e)",
-                      transition: "all 0.2s ease"
-                    }} 
-                  />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFloorTextPlaceSession(null)}
-                  title="テキスト配置をキャンセル"
-                  style={{
-                    ...btnSecondary,
-                    background: "rgba(255, 255, 255, 0.05)",
-                    border: "1px solid #ef444430",
-                    backdropFilter: "blur(10px)",
-                    height: "40px",
-                    width: "80px"
-                  }}
-                >
-                  <X 
-                    size={22} 
-                    strokeWidth={1.5}
-                    style={{ 
-                      color: "#ef4444",
-                      filter: "drop-shadow(0 0 6px #ef4444)",
-                      transition: "all 0.2s ease"
-                    }} 
-                  />
+                <button type="button" onClick={() => setFloorTextPlaceSession(null)} title="テキスト配置をキャンセル"
+                  style={{ ...tileBtn("#ef4444"), width: 52, height: 40 }}>
+                  <X size={18} strokeWidth={1.5} style={{ color: "#ef4444" }} />
                 </button>
               </div>
             </div>
-          </div>
-        ) : null}
-      </div>
+          ) : null}
+
+        </div>
       </>
     );
   }
