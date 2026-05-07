@@ -238,12 +238,16 @@ export function MobileEditorShell({
         />
       )}
 
-      {/* Timeline strip (waveform + playback controls) — shown only on stage tab */}
+      {/* Timeline strip — always in DOM (needed for <input type=file> click on iOS) */}
+      {/* Hide visually when not on stage tab, but keep accessible */}
       <div
         style={{
           flexShrink: 0,
           overflow: "hidden",
-          display: activeTab === "stage" ? "block" : "none",
+          // height:0 instead of display:none so iOS can still .click() the hidden file input
+          height: activeTab === "stage" ? "auto" : 0,
+          visibility: activeTab === "stage" ? "visible" : "hidden",
+          pointerEvents: activeTab === "stage" ? "auto" : "none",
         }}
       >
         {timelinePanelEl}

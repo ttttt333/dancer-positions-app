@@ -116,7 +116,7 @@ export function useTimelineRemoteAudio({
     const path =
       typeof rawPath === "string" && rawPath.trim().length > 0 ? rawPath.trim() : null;
     const effectivePath = isSupabaseBackend() ? path : null;
-    if (effectivePath == null || !getToken()) {
+    if (effectivePath == null || (!getToken() && !isSupabaseBackend())) {
       if (effectivePath == null) {
         const hadSupabaseBlobAttached =
           blobUrlRef.current != null &&
@@ -173,7 +173,10 @@ export function useTimelineRemoteAudio({
         playbackEngine.setMediaSourceUrl(url);
         if (!cancelled) await decodePeaksFromBuffer(buf);
       } catch (e) {
-        console.error(e);
+        console.error("[audio] Supabase download failed:", e);
+        // Surface the error to the user instead of silent fail
+        const msg = e instanceof Error ? e.message : String(e);
+        alert(`音源の読み込みに失敗しました。\n${msg}\n\nページを再読み込みするか、音源を再取り込みしてください。`);
       }
     })();
     return () => {

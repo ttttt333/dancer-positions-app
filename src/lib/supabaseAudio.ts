@@ -45,7 +45,9 @@ export async function supabaseDownloadProjectAudioBuffer(path: string): Promise<
   const sb = getSupabase();
   const { data, error } = await sb.storage.from(CHOREOCORE_AUDIO_BUCKET).download(path);
   if (error) {
-    throw new Error(error.message || "音源のダウンロードに失敗しました");
+    // Provide detailed error for debugging
+    const detail = JSON.stringify({ message: error.message, name: (error as { name?: string }).name, path });
+    throw new Error(`音源のダウンロードに失敗しました: ${detail}`);
   }
   return data.arrayBuffer();
 }
