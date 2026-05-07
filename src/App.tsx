@@ -1,15 +1,67 @@
-import { Component, Fragment, type ReactNode, type ErrorInfo } from "react";
+import {
+  Component,
+  Fragment,
+  lazy,
+  Suspense,
+  type ReactNode,
+  type ErrorInfo,
+} from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { AuthProvider } from "./context/AuthContext";
-import { DashboardPage } from "./pages/DashboardPage";
-import { EditorPage } from "./pages/EditorPage";
-import { LoginPage } from "./pages/LoginPage";
-import { RegisterPage } from "./pages/RegisterPage";
-import { VideoPage } from "./pages/VideoPage";
-import { BillingCanceledPage, BillingSuccessPage } from "./pages/BillingPages";
-import { MobileFormationEditorDemoPage } from "./pages/MobileFormationEditorDemoPage";
-import { LibraryPage } from "./pages/LibraryPage";
+
+/** ルート単位で遅延読み込みし、初回表示（ダッシュボード等）の JS を軽くする */
+const DashboardPage = lazy(() =>
+  import("./pages/DashboardPage").then((m) => ({ default: m.DashboardPage }))
+);
+const EditorPage = lazy(() =>
+  import("./pages/EditorPage").then((m) => ({ default: m.EditorPage }))
+);
+const LoginPage = lazy(() =>
+  import("./pages/LoginPage").then((m) => ({ default: m.LoginPage }))
+);
+const RegisterPage = lazy(() =>
+  import("./pages/RegisterPage").then((m) => ({ default: m.RegisterPage }))
+);
+const VideoPage = lazy(() =>
+  import("./pages/VideoPage").then((m) => ({ default: m.VideoPage }))
+);
+const BillingSuccessPage = lazy(() =>
+  import("./pages/BillingPages").then((m) => ({
+    default: m.BillingSuccessPage,
+  }))
+);
+const BillingCanceledPage = lazy(() =>
+  import("./pages/BillingPages").then((m) => ({
+    default: m.BillingCanceledPage,
+  }))
+);
+const MobileFormationEditorDemoPage = lazy(() =>
+  import("./pages/MobileFormationEditorDemoPage").then((m) => ({
+    default: m.MobileFormationEditorDemoPage,
+  }))
+);
+const LibraryPage = lazy(() =>
+  import("./pages/LibraryPage").then((m) => ({ default: m.LibraryPage }))
+);
+
+function RouteFallback() {
+  return (
+    <div
+      style={{
+        minHeight: "40vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "#94a3b8",
+        fontFamily: "system-ui, sans-serif",
+        fontSize: 14,
+      }}
+    >
+      読み込み中…
+    </div>
+  );
+}
 
 type EBState = { error: Error | null };
 
@@ -95,29 +147,37 @@ export default function App() {
           <LanguageSwitcher variant="floating" />
           <div className="app-shell">
             <AuthProvider>
-              <Routes>
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/library" element={<LibraryPage />} />
-            <Route path="/video" element={<VideoPage />} />
-            <Route path="/billing/success" element={<BillingSuccessPage />} />
-            <Route path="/billing/canceled" element={<BillingCanceledPage />} />
-            <Route path="/editor/:projectId" element={<EditorPage />} />
-            <Route
-              path="/view/s/:shareToken"
-              element={<EditorPage choreoPublicView />}
-            />
-            <Route
-              path="/view/:projectId"
-              element={<EditorPage choreoPublicView />}
-            />
-            <Route
-              path="/demo/mobile-formation-editor"
-              element={<MobileFormationEditorDemoPage />}
-            />
-            <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
+              <Suspense fallback={<RouteFallback />}>
+                <Routes>
+                  <Route path="/" element={<DashboardPage />} />
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/register" element={<RegisterPage />} />
+                  <Route path="/library" element={<LibraryPage />} />
+                  <Route path="/video" element={<VideoPage />} />
+                  <Route
+                    path="/billing/success"
+                    element={<BillingSuccessPage />}
+                  />
+                  <Route
+                    path="/billing/canceled"
+                    element={<BillingCanceledPage />}
+                  />
+                  <Route path="/editor/:projectId" element={<EditorPage />} />
+                  <Route
+                    path="/view/s/:shareToken"
+                    element={<EditorPage choreoPublicView />}
+                  />
+                  <Route
+                    path="/view/:projectId"
+                    element={<EditorPage choreoPublicView />}
+                  />
+                  <Route
+                    path="/demo/mobile-formation-editor"
+                    element={<MobileFormationEditorDemoPage />}
+                  />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </Suspense>
             </AuthProvider>
           </div>
         </Fragment>

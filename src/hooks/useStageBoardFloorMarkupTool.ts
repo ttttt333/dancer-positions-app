@@ -1,5 +1,5 @@
-import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import { useRef, useState } from "react";
+import type { Dispatch, SetStateAction } from "react";
+import { useState } from "react";
 import type { StageFloorMarkupTool } from "../components/stageBoardTypes";
 
 export type UseStageBoardFloorMarkupToolParams = {
@@ -10,17 +10,10 @@ export type UseStageBoardFloorMarkupToolParams = {
 export type StageBoardFloorMarkupToolBundle = {
   floorMarkupTool: StageFloorMarkupTool;
   setFloorMarkupTool: Dispatch<SetStateAction<StageFloorMarkupTool>>;
-  floorLineDraft: [number, number][] | null;
-  setFloorLineDraft: Dispatch<SetStateAction<[number, number][] | null>>;
-  floorLineSessionRef: MutableRefObject<{
-    points: [number, number][];
-    lastClientX: number;
-    lastClientY: number;
-  } | null>;
 };
 
 /**
- * 床マークのツール選択（親と共有可）と、線ツール用ドラフト／セッション ref。
+ * 床マークのツール選択（親と共有可）。線ドラフトは `useFloorLineDraw`。
  */
 export function useStageBoardFloorMarkupTool({
   floorMarkupToolProp,
@@ -35,20 +28,9 @@ export function useStageBoardFloorMarkupTool({
   const setFloorMarkupTool = markupControlled
     ? onFloorMarkupToolChange!
     : setFloorMarkupToolUncontrolled;
-  const [floorLineDraft, setFloorLineDraft] = useState<
-    [number, number][] | null
-  >(null);
-  const floorLineSessionRef = useRef<{
-    points: [number, number][];
-    lastClientX: number;
-    lastClientY: number;
-  } | null>(null);
 
   return {
     floorMarkupTool,
     setFloorMarkupTool,
-    floorLineDraft,
-    setFloorLineDraft,
-    floorLineSessionRef,
   };
 }

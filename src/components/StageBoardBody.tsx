@@ -1,6 +1,5 @@
 import type {
   CSSProperties,
-  MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
 } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -8,13 +7,17 @@ import { generateId } from "../lib/generateId";
 import type {
   ChoreographyProjectJson,
   DancerSpot,
-  FloorTextPlaceSession,
   SetPiece,
   StageFloorMarkup,
   StageFloorTextMarkup,
 } from "../types/choreography";
 import { useStageBoardController } from "../hooks/useStageBoardController";
 import { useStageBoardLayoutAfterDraft } from "../hooks/useStageBoardLayoutAfterDraft";
+import { useFloorMarkupText } from "../hooks/useFloorMarkupText";
+import { useFloorLineDraw } from "../hooks/useFloorLineDraw";
+import { useMarkerHandles } from "../hooks/useMarkerHandles";
+import { useSetPieceInteraction } from "../hooks/useSetPieceInteraction";
+import { useStageResize } from "../hooks/useStageResize";
 import { useSetPieceBlockElements } from "../hooks/useSetPieceBlockElements";
 import { useStageDancerMarkerElements } from "../hooks/useStageDancerMarkerElements";
 import type {
@@ -24,27 +27,12 @@ import type {
   StageBoardLayoutSlots,
 } from "./stageBoardTypes";
 import {
-  audienceRotationDeg,
-  MARKER_DIAMETER_PX_MAX as MARKER_PX_MAX,
-  MARKER_DIAMETER_PX_MIN as MARKER_PX_MIN,
-} from "../lib/projectDefaults";
-import {
-  STAGE_MAIN_FLOOR_MM_MAX,
-  STAGE_MAIN_FLOOR_MM_MIN,
-} from "../lib/stageDimensions";
-import {
   DANCER_STAGE_POSITION_PCT_HI,
   DANCER_STAGE_POSITION_PCT_LO,
   snapXPctToCenterDistanceMmGrid,
 } from "../lib/dancerSpacing";
 import { resolveArrangeTargetIds } from "../lib/stageSelectionArrange";
 import type { DancerQuickEditApply } from "./DancerQuickEditDialog";
-import {
-  FloorTextMarkupBlock,
-  type FloorTextDraftPayload,
-  type FloorTextResizeDragPayload,
-  type FloorTextTapOrDragPayload,
-} from "./FloorTextMarkupBlock";
 import { StageBoardContextMenuLayer } from "./StageBoardContextMenuLayer";
 import type { StageBoardContextMenuState } from "./StageBoardContextMenuLayer";
 import { StageBoardLayout } from "./StageBoardLayout";
@@ -56,12 +44,10 @@ import { StageBoardBodyOverlays } from "./StageBoardBodyOverlays";
 import { StageBoardBulkColorToolbar } from "./StageBoardBulkColorToolbar";
 import { StageBoardBulkToolbarSlot } from "./StageBoardBulkToolbarSlot";
 import { StageBoardStageFrame } from "./StageBoardStageFrame";
-import { type StageResizeHandleId } from "./StageResizeHandles";
 import type { StageExportRootColumnProps } from "./StageExportRootColumn";
 import { shell } from "../theme/choreoShell";
 import {
   modDancerColorIndex,
-  normalizeDancerFacingDeg,
 } from "../lib/dancerColorPalette";
 import { sliceMarkerBadgeForStorage } from "../lib/markerBadge";
 import {
@@ -70,22 +56,15 @@ import {
   trashViewportStripWidthPx,
 } from "../lib/stageBoardRosterAndTrash";
 import {
-  applySetPieceResizePct,
   clamp,
   EMPTY_FLOOR_TEXT_DRAFT,
   floorTextDraftColorHex,
   floorTextLayer,
-  floorTextMarkupScale,
   FLOOR_TEXT_DEFAULT_FONT,
-  getSetPieceCoordRoot,
   groupScaleForHandle,
-  MIN_SET_PIECE_H_PCT,
-  MIN_SET_PIECE_W_PCT,
   round2,
   setPieceLayer,
-  setPieceRotationDegDisplay,
   type GroupBoxHandle,
-  type SetPieceResizeHandle,
 } from "../lib/stageBoardModelHelpers";
 import { computeStageContextMenuStyle } from "../lib/stageContextMenuGeometry";
 import { buildStageBoardExportColumnProps } from "../lib/buildStageBoardExportColumnProps";
@@ -156,9 +135,6 @@ export function StageBoardBody({
     stageShapeMaskPath,
     floorMarkupTool,
     setFloorMarkupTool,
-    floorLineDraft,
-    setFloorLineDraft,
-    floorLineSessionRef,
     stageMainFloorRef,
     setMainFloorPxWidth,
     baseMarkerPx,
@@ -180,34 +156,6 @@ export function StageBoardBody({
     startXPct: number;
     startYPct: number;
   } | null>(null);
-  const setPieceDragRef = useRef<
-    | {
-        mode: "move";
-        pieceId: string;
-        offsetXPx: number;
-        offsetYPx: number;
-      }
-    | {
-        mode: "resize";
-        pieceId: string;
-        handle: SetPieceResizeHandle;
-        start: { xPct: number; yPct: number; wPct: number; hPct: number };
-        startClientX: number;
-        startClientY: number;
-        floorWpx: number;
-        floorHpx: number;
-      }
-    | {
-        mode: "rotate";
-        pieceId: string;
-        startRotationDeg: number;
-        startPointerRad: number;
-        centerClientX: number;
-        centerClientY: number;
-      }
-    | null
-  >(null);
-
   /**
    * ドラッグ中に表示するスナップ補助線。
    * - `x`: 縦のガイド線（左右方向にセンター/他ダンサーと揃ったとき）
@@ -237,53 +185,6 @@ export function StageBoardBody({
   const clearSelectedDancers = useStageBoardInteractionStore(
     (s) => s.clearSelectedDancers,
   );
-  const [selectedSetPieceId, setSelectedSetPieceId] = useState<string | null>(
-    null,
-  );
-  /** 設置済み床テキストのドラッグ移動 */
-  const floorMarkupTextDragRef = useRef<{
-    id: string;
-    startClientX: number;
-    startClientY: number;
-    startXPct: number;
-    startYPct: number;
-    layer: "stage" | "screen";
-  } | null>(null);
-  /**
-   * ツール未選択時: テキスト上でポインタダウンした直後はここに保持し、
-   * 微小移動ならタップ（編集モードへ）、それ以上ならドラッグ移動に切り替える。
-   */
-  const floorTextTapOrDragRef = useRef<FloorTextTapOrDragPayload | null>(null);
-  /** 床テキスト枠の角ドラッグで scale を変える */
-  const floorTextResizeDragRef = useRef<FloorTextResizeDragPayload | null>(
-    null,
-  );
-  /** 置き場所プレビューをドラッグ中 */
-  const floorTextPlaceDragRef = useRef<{
-    startClientX: number;
-    startClientY: number;
-    startXPct: number;
-    startYPct: number;
-    session: FloorTextPlaceSession;
-  } | null>(null);
-  /** 床テキストツール：入力内容と次に置くときの書式 */
-  const [floorTextDraft, setFloorTextDraft] = useState({
-    ...EMPTY_FLOOR_TEXT_DRAFT,
-  });
-  /** 選択中の床テキスト id（スライダー・本文はこの項目を更新、空床クリックで移動） */
-  const [floorTextEditId, setFloorTextEditId] = useState<string | null>(null);
-  /** 角枠表示のみ（シングルタップ）。ダブルクリックでインライン編集 */
-  const [selectedFloorTextId, setSelectedFloorTextId] = useState<string | null>(
-    null,
-  );
-  /** ダブルクリックでその場編集するテキストの画面上位置 */
-  const [floorTextInlineRect, setFloorTextInlineRect] = useState<{
-    id: string;
-    left: number;
-    top: number;
-    width: number;
-    height: number;
-  } | null>(null);
   /** ドラッグ中のマーキー（範囲選択の四角）。pct 座標で親床内を示す */
   const [marquee, setMarquee] = useState<{
     startXPct: number;
@@ -326,94 +227,24 @@ export function StageBoardBody({
       }
     | null
   >(null);
-  /**
-   * 代表ダンサーの右下ハンドルで、選択中のダンサー群の○サイズ（px）を変更するセッション。
-   * 開始時点の各ダンサーのサイズを覚えておき、ポインタ移動量に応じて全員を同じ差分で動かす。
-   */
-  const markerResizeRef = useRef<{
-    startClientX: number;
-    startClientY: number;
-    startSizes: Map<string, number>;
-    ids: string[];
-  } | null>(null);
-  /** サイズドラッグ中は選択中ダンサー ID → 仮の直径 px を保持してライブプレビュー */
-  const [markerDiamDraft, setMarkerDiamDraft] = useState<Map<
-    string,
-    number
-  > | null>(null);
-  /**
-   * 回転ハンドルドラッグ中の向きプレビュー（選択中の各 ID → 度）。
-   * ポインターアップでプロジェクトに確定するまで `facingDeg` 表示に使う。
-   */
-  const [markerFacingDraft, setMarkerFacingDraft] = useState<Map<
-    string,
-    number
-  > | null>(null);
-  const markerRotateRef = useRef<{
-    centerClientX: number;
-    centerClientY: number;
-    startPointerAngle: number;
-    startFacings: Map<string, number>;
-    ids: string[];
-    /** 2 人以上＋選択枠あり：位置もまとめて回す。1 人は向きのみ。 */
-    mode: "facing" | "groupRigid";
-    startPositions?: Map<string, { xPct: number; yPct: number }>;
-  } | null>(null);
-  /** `markerFacingDraft` と同内容をポインターアップで確実に読むため */
-  const markerFacingDraftRef = useRef<Map<string, number> | null>(null);
-  /**
-   * 複数選択の回転ドラッグ中のみ：各 ID の仮 `xPct` / `yPct`（選択枠中心まわりの剛体回転）。
-   */
-  const [markerGroupPosDraft, setMarkerGroupPosDraft] = useState<Map<
-    string,
-    { xPct: number; yPct: number }
-  > | null>(null);
-  const markerGroupPosDraftRef = useRef<Map<
-    string,
-    { xPct: number; yPct: number }
-  > | null>(null);
 
-  /**
-   * ステージ枠の四隅ハンドルでステージ全体の寸法を変更するドラッグセッション。
-   *
-   * ローテーション（audienceEdge による舞台の回転）があっても正しく動かせるように、
-   * 画面中心座標・回転角・CSS 軸サイズ・反対コーナーのアンカー位置（CSS座標）を
-   * 開始時点で記録し、ポインタ位置を CSS 軸上に戻してから新寸法を計算する。
-   */
-  const stageResizeRef = useRef<{
-    /**
-     * ハンドルの種類。
-     * - "nw" / "ne" / "se" / "sw" … 四隅。横・奥の両方を同時に変更。
-     * - "n" / "s" … 上下の辺。奥行き（Dmm）のみ変更。
-     * - "e" / "w" … 左右の辺。横幅（Wmm）のみ変更。
-     */
-    handle: "nw" | "ne" | "se" | "sw" | "n" | "s" | "e" | "w";
-    /** 画面上のステージ中心（drag 開始時点） */
-    cx: number;
-    cy: number;
-    /** 回転角（度）。audienceEdge から算出した rot をそのまま使う */
-    rotDeg: number;
-    /** アンカー（対角コーナー）の CSS 座標系での位置（中心基準） */
-    anchorCssX: number;
-    anchorCssY: number;
-    /** 開始時点の要素 CSS 幅・高さ（px、回転前の axis） */
-    W0css: number;
-    H0css: number;
-    /** 開始時点の外枠寸法（mm）と側方/奥方の mm */
-    outerWmm0: number;
-    outerDmm0: number;
-    Smm: number;
-    Bmm: number;
-  } | null>(null);
-  /** コーナーリサイズの最新 mm（rAF で state に反映するため）。ポインタアップで確定にも使う。 */
-  const stageResizeLastMmRef = useRef<{ w: number; d: number } | null>(null);
-  /** setStageResizeDraft を 1 フレームにまとめ、ドラッグ中の過剰再レンダーを防ぐ */
-  const stageResizeDraftRafRef = useRef<number | null>(null);
-  /** ステージ枠ドラッグ中のライブプレビュー値（コミット前の W/D）。 */
-  const [stageResizeDraft, setStageResizeDraft] = useState<{
-    stageWidthMm: number;
-    stageDepthMm: number;
-  } | null>(null);
+  const {
+    stageResizeDraft,
+    hoveredStageHandle,
+    setHoveredStageHandle,
+    onStageCornerResizeDown,
+  } = useStageResize({
+    viewMode,
+    stageInteractionsEnabled,
+    playbackDancers,
+    previewDancers: previewDancers ?? null,
+    audienceEdge,
+    stageWidthMm,
+    stageDepthMm,
+    sideStageMm,
+    backStageMm,
+    setProject,
+  });
   const {
     rot,
     effStageWidthMm,
@@ -442,44 +273,6 @@ export function StageBoardBody({
     stageGridLinesVertical,
     stageGridLinesHorizontal,
   });
-  /** 現在カーソルが乗っているステージリサイズハンドル。ホバー時だけ少し大きくする。 */
-  const [hoveredStageHandle, setHoveredStageHandle] =
-    useState<StageResizeHandleId | null>(null);
-
-  /** ダンサー 1 人分の実効サイズ（px）。draft > 個別 sizePx > プロジェクト共通、の順で解決。 */
-  const effectiveMarkerPx = useCallback(
-    (d: DancerSpot) => {
-      const draft = markerDiamDraft?.get(d.id);
-      if (typeof draft === "number" && Number.isFinite(draft)) {
-        return Math.max(
-          MARKER_PX_MIN,
-          Math.min(MARKER_PX_MAX, Math.round(draft)),
-        );
-      }
-      if (typeof d.sizePx === "number" && Number.isFinite(d.sizePx)) {
-        return Math.max(
-          MARKER_PX_MIN,
-          Math.min(MARKER_PX_MAX, Math.round(d.sizePx)),
-        );
-      }
-      return baseMarkerPx;
-    },
-    [markerDiamDraft, baseMarkerPx],
-  );
-
-  /** 回転ドラッグ中はドラフト、それ以外は `facingDeg`（未設定は 0）。 */
-  const effectiveFacingDeg = useCallback(
-    (d: DancerSpot): number => {
-      const fd = markerFacingDraft?.get(d.id);
-      if (typeof fd === "number" && Number.isFinite(fd)) return fd;
-      const raw =
-        typeof d.facingDeg === "number" && Number.isFinite(d.facingDeg)
-          ? d.facingDeg
-          : 0;
-      return raw;
-    },
-    [markerFacingDraft],
-  );
 
   /** ゴミ箱ドロップゾーン上でダンサーをドラッグ中 */
   const [trashHot, setTrashHot] = useState(false);
@@ -496,6 +289,17 @@ export function StageBoardBody({
   /** ステージ上の右クリックメニュー（ダンサー / 床テキスト / 大道具） */
   const [stageContextMenu, setStageContextMenu] =
     useState<StageBoardContextMenuState>(null);
+  const openFloorTextContextMenu = useCallback(
+    (markupId: string, clientX: number, clientY: number) => {
+      setStageContextMenu({
+        kind: "floorText",
+        clientX,
+        clientY,
+        markupId,
+      });
+    },
+    [],
+  );
   /**
    * ステージ直下の「選択中の色」一括ツールバー。
    * 左クリックで選んだだけでは出さず、ステージ上のダンサーを右クリックしたあとだけ表示する。
@@ -514,39 +318,6 @@ export function StageBoardBody({
     editFormationId != null && formations.some((f) => f.id === editFormationId)
       ? editFormationId
       : activeFormationId;
-
-  useEffect(() => {
-    onGestureHistoryCancel?.();
-    setDancerQuickEditId(null);
-    clearSelectedDancers();
-    setStageContextMenu(null);
-    setSelectedSetPieceId(null);
-    setMarquee(null);
-    marqueeSessionRef.current = null;
-    groupDragRef.current = null;
-    markerResizeRef.current = null;
-    markerRotateRef.current = null;
-    markerFacingDraftRef.current = null;
-    markerGroupPosDraftRef.current = null;
-    floorMarkupTextDragRef.current = null;
-    floorTextTapOrDragRef.current = null;
-    floorTextPlaceDragRef.current = null;
-    floorTextResizeDragRef.current = null;
-    setMarkerDiamDraft(null);
-    setMarkerFacingDraft(null);
-    setMarkerGroupPosDraft(null);
-    setDragGhostById(null);
-    setFloorMarkupTool(null);
-    floorLineSessionRef.current = null;
-    setFloorLineDraft(null);
-    setFloorTextDraft({ ...EMPTY_FLOOR_TEXT_DRAFT });
-    setFloorTextEditId(null);
-    setSelectedFloorTextId(null);
-    setFloorTextInlineRect(null);
-    setShowStageDancerColorToolbar(false);
-    setBulkHideDancerGlyphs(false);
-    setGroupRotateGuideDeltaDeg(null);
-  }, [formationIdForWrites, onGestureHistoryCancel, clearSelectedDancers]);
 
   useEffect(() => {
     setShowStageDancerColorToolbar(false);
@@ -579,6 +350,36 @@ export function StageBoardBody({
     () => formations.find((f) => f.id === formationIdForWrites),
     [formations, formationIdForWrites],
   );
+
+  const playbackOrPreview = Boolean(playbackDancers || previewDancers);
+
+  const {
+    markerDiamDraft,
+    markerGroupPosDraft,
+    groupRotateGuideDeltaDeg,
+    selectionBox,
+    effectiveMarkerPx,
+    effectiveFacingDeg,
+    handlePointerDownMarkerResize,
+    handlePointerDownMarkerRotate,
+    applyMarkerRotateMove,
+    applyMarkerResizeMove,
+    commitMarkerRotateUp,
+    commitMarkerResizeUp,
+    resetMarkerHandles,
+  } = useMarkerHandles({
+    viewMode,
+    stageInteractionsEnabled,
+    playbackDancers,
+    previewDancers,
+    playbackOrPreview,
+    selectedDancerIds,
+    writeFormation,
+    activeFormation,
+    stageMainFloorRef,
+    baseMarkerPx,
+    setBulkHideDancerGlyphs,
+  });
 
   const displayDancers =
     previewDancers ??
@@ -631,14 +432,6 @@ export function StageBoardBody({
         writeFormation?.floorMarkup ??
         []);
 
-  const screenFloorTexts = useMemo((): StageFloorTextMarkup[] => {
-    const out: StageFloorTextMarkup[] = [];
-    for (const m of displayFloorMarkup) {
-      if (m.kind === "text" && floorTextLayer(m) === "screen") out.push(m);
-    }
-    return out;
-  }, [displayFloorMarkup]);
-
   const stageSetPieces = useMemo(
     () => displaySetPieces.filter((p) => setPieceLayer(p) === "stage"),
     [displaySetPieces],
@@ -647,59 +440,6 @@ export function StageBoardBody({
     () => displaySetPieces.filter((p) => setPieceLayer(p) === "screen"),
     [displaySetPieces],
   );
-
-  /** 床テキストのその場編集 textarea は親の scale と見た目を揃える */
-  const floorTextInlineMarkupScale = useMemo(() => {
-    const id = floorTextInlineRect?.id;
-    if (!id) return 1;
-    const mk = displayFloorMarkup.find(
-      (x): x is StageFloorTextMarkup => x.kind === "text" && x.id === id,
-    );
-    return mk ? floorTextMarkupScale(mk) : 1;
-  }, [displayFloorMarkup, floorTextInlineRect?.id]);
-
-  const playbackOrPreview = Boolean(playbackDancers || previewDancers);
-
-  /** 選択中ダンサーを囲む bounding box（pct 単位）。2 件以上で表示。`handlePointerDownMarkerRotate` 等が依存するため早期に定義する。 */
-  const selectionBox = useMemo(() => {
-    if (playbackOrPreview) return null;
-    if (viewMode === "view") return null;
-    const ids = selectedDancerIds;
-    if (ids.length < 2) return null;
-    const ds = (
-      writeFormation?.dancers ??
-      activeFormation?.dancers ??
-      []
-    ).filter((x) => ids.includes(x.id));
-    if (ds.length < 2) return null;
-    let x0 = Infinity;
-    let y0 = Infinity;
-    let x1 = -Infinity;
-    let y1 = -Infinity;
-    for (const d of ds) {
-      const ox = markerGroupPosDraft?.get(d.id)?.xPct ?? d.xPct;
-      const oy = markerGroupPosDraft?.get(d.id)?.yPct ?? d.yPct;
-      if (ox < x0) x0 = ox;
-      if (oy < y0) y0 = oy;
-      if (ox > x1) x1 = ox;
-      if (oy > y1) y1 = oy;
-    }
-    if (
-      !Number.isFinite(x0) ||
-      !Number.isFinite(y0) ||
-      !Number.isFinite(x1) ||
-      !Number.isFinite(y1)
-    )
-      return null;
-    return { x0, y0, x1, y1 };
-  }, [
-    selectedDancerIds,
-    writeFormation,
-    activeFormation,
-    playbackOrPreview,
-    viewMode,
-    markerGroupPosDraft,
-  ]);
 
   /**
    * 客席帯・床下の場ミリ数字・翼の印は、閲覧・再生・客席を上にした回転でも欠けないよう、
@@ -737,278 +477,51 @@ export function StageBoardBody({
     ],
   );
 
-  useEffect(() => {
-    if (floorMarkupTool !== "text") {
-      setFloorTextEditId(null);
-      setFloorTextInlineRect(null);
-    }
-  }, [floorMarkupTool]);
-
-  /** ヘッダからの床テキスト配置中はステージ内の旧テキストツールと競合しないよう解除 */
-  useEffect(() => {
-    if (!floorTextPlaceSession) return;
-    setFloorMarkupTool(null);
-    setFloorTextEditId(null);
-    floorTextTapOrDragRef.current = null;
-  }, [floorTextPlaceSession]);
-
-  /** 画面全体配置: 編集グリッド上の空所クリックでプレビュー位置を更新（入力欄・ボタンは除外） */
-  useEffect(() => {
-    const root = viewportTextOverlayRoot;
-    const sess = floorTextPlaceSession;
-    const onChange = onFloorTextPlaceSessionChange;
-    if (!sess || !onChange || !root || !setPiecesEditable || !writeFormation)
-      return;
-    const onPointerDownCapture = (e: PointerEvent) => {
-      if (e.button !== 0) return;
-      const t = e.target;
-      if (!(t instanceof Element)) return;
-      if (!root.contains(t)) return;
-      if (
-        t.closest(
-          "button, input, textarea, select, option, a[href], [role='dialog'], [role='menu'], [data-floor-text-place-preview], [data-floor-text-box], [data-floor-markup]",
-        )
-      )
-        return;
-      if (t.closest("[data-dancer-id], [data-set-piece-id]")) return;
-      const r = root.getBoundingClientRect();
-      if (r.width <= 0 || r.height <= 0) return;
-      e.preventDefault();
-      const xPct = round2(
-        clamp(((e.clientX - r.left) / r.width) * 100, 0, 100),
-      );
-      const yPct = round2(
-        clamp(((e.clientY - r.top) / r.height) * 100, 0, 100),
-      );
-      onChange({ ...sess, xPct, yPct });
-    };
-    window.addEventListener("pointerdown", onPointerDownCapture, true);
-    return () =>
-      window.removeEventListener("pointerdown", onPointerDownCapture, true);
-  }, [
-    floorTextPlaceSession,
+  const {
+    floorMarkupTextDragRef,
+    floorTextTapOrDragRef,
+    floorTextResizeDragRef,
+    floorTextPlaceDragRef,
+    floorTextDraft,
+    setFloorTextDraft,
+    floorTextEditId,
+    setFloorTextEditId,
+    setSelectedFloorTextId,
+    floorTextInlineRect,
+    setFloorTextInlineRect,
+    removeFloorMarkupById,
+    handleFloorTextPlacePreviewPointerDown,
+    floorTextMarkupSharedProps,
+    floorTextInlineMarkupScale,
+    screenFloorTexts,
+    resetFloorTextInteraction,
+  } = useFloorMarkupText({
+    viewMode,
+    setPiecesEditable,
+    playbackOrPreview,
+    previewDancers: Boolean(previewDancers),
+    floorTextPlaceSession: floorTextPlaceSession ?? null,
     onFloorTextPlaceSessionChange,
     viewportTextOverlayRoot,
-    setPiecesEditable,
+    floorMarkupTool,
+    setFloorMarkupTool,
     writeFormation,
-  ]);
+    displayFloorMarkup,
+    updateActiveFormation,
+    onFloorTextContextMenu: openFloorTextContextMenu,
+  });
 
-  /** 床テキストが削除されたあと、編集中 id が残らないようにする */
-  useEffect(() => {
-    if (!floorTextEditId || !writeFormation) return;
-    const fm = writeFormation.floorMarkup ?? [];
-    if (!fm.some((x) => x.id === floorTextEditId && x.kind === "text")) {
-      setFloorTextEditId(null);
-      setFloorTextDraft({ ...EMPTY_FLOOR_TEXT_DRAFT });
-    }
-  }, [writeFormation, floorTextEditId]);
-
-  useEffect(() => {
-    if (!selectedFloorTextId || !writeFormation) return;
-    const fm = writeFormation.floorMarkup ?? [];
-    if (!fm.some((x) => x.id === selectedFloorTextId && x.kind === "text")) {
-      setSelectedFloorTextId(null);
-      setFloorTextInlineRect(null);
-    }
-  }, [writeFormation, selectedFloorTextId]);
-
-  const removeFloorMarkupById = useCallback(
-    (id: string) => {
-      if (!writeFormation || !setPiecesEditable) return;
-      updateActiveFormation((f) => ({
-        ...f,
-        floorMarkup: (f.floorMarkup ?? []).filter((x) => x.id !== id),
-      }));
-    },
-    [writeFormation, setPiecesEditable, updateActiveFormation],
-  );
-
-  const handleFloorTextMarkupContextMenu = useCallback(
-    (markupId: string, clientX: number, clientY: number) => {
-      setStageContextMenu({
-        kind: "floorText",
-        clientX,
-        clientY,
-        markupId,
-      });
-    },
-    [],
-  );
-
-  const handleFloorTextSelectMarkupTool = useCallback(
-    (markupId: string, draft: FloorTextDraftPayload) => {
-      setFloorTextEditId(markupId);
-      setSelectedFloorTextId(markupId);
-      setFloorTextDraft(draft);
-    },
-    [],
-  );
-
-  const handleFloorTextDoubleClickInline = useCallback(
-    (
-      m: StageFloorTextMarkup,
-      bounds: DOMRect,
-      draft: FloorTextDraftPayload,
-    ) => {
-      setFloorTextInlineRect({
-        id: m.id,
-        left: bounds.left,
-        top: bounds.top,
-        width: Math.max(140, bounds.width),
-        height: Math.max(40, bounds.height),
-      });
-      setFloorMarkupTool("text");
-      setFloorTextEditId(m.id);
-      setSelectedFloorTextId(m.id);
-      setFloorTextDraft(draft);
-    },
-    [setFloorMarkupTool],
-  );
-
-  const handleFloorTextColorUpdate = useCallback(
-    (id: string, color: string) => {
-      updateActiveFormation((f) => ({
-        ...f,
-        floorMarkup: (f.floorMarkup ?? []).map((x) =>
-          x.id === id && x.kind === "text" ? { ...x, color } : x,
-        ),
-      }));
-    },
-    [updateActiveFormation],
-  );
-
-  const handleFloorTextFontFamilyUpdate = useCallback(
-    (id: string, fontFamily: string) => {
-      updateActiveFormation((f) => ({
-        ...f,
-        floorMarkup: (f.floorMarkup ?? []).map((x) =>
-          x.id === id && x.kind === "text" ? { ...x, fontFamily } : x,
-        ),
-      }));
-    },
-    [updateActiveFormation],
-  );
-
-  const floorTextMarkupSharedProps = useMemo(
-    () => ({
-      viewMode,
-      setPiecesEditable,
-      playbackOrPreview,
-      previewDancers: Boolean(previewDancers),
-      floorTextPlaceSession,
-      floorMarkupTool,
-      selectedFloorTextId,
-      floorTextEditId,
-      floorTextInlineRectId: floorTextInlineRect?.id,
-      floorTextResizeDragRef,
-      floorTextTapOrDragRef,
-      onContextMenuFloorText: handleFloorTextMarkupContextMenu,
-      onRemoveFloorMarkup: removeFloorMarkupById,
-      onSelectTextMarkupTool: handleFloorTextSelectMarkupTool,
-      onDoubleClickInlineEdit: handleFloorTextDoubleClickInline,
-      onUpdateTextColor: handleFloorTextColorUpdate,
-      onUpdateTextFontFamily: handleFloorTextFontFamilyUpdate,
-    }),
-    [
-      viewMode,
-      setPiecesEditable,
-      playbackOrPreview,
-      previewDancers,
-      floorTextPlaceSession,
-      floorMarkupTool,
-      selectedFloorTextId,
-      floorTextEditId,
-      floorTextInlineRect?.id,
-      handleFloorTextMarkupContextMenu,
-      removeFloorMarkupById,
-      handleFloorTextSelectMarkupTool,
-      handleFloorTextDoubleClickInline,
-      handleFloorTextColorUpdate,
-      handleFloorTextFontFamilyUpdate,
-    ],
-  );
-
-  const handleFloorTextPlacePreviewPointerDown = useCallback(
-    (e: ReactPointerEvent<HTMLDivElement>) => {
-      if (e.button !== 0) return;
-      if (!floorTextPlaceSession) return;
-      e.preventDefault();
-      e.stopPropagation();
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-      floorTextPlaceDragRef.current = {
-        startClientX: e.clientX,
-        startClientY: e.clientY,
-        startXPct: floorTextPlaceSession.xPct,
-        startYPct: floorTextPlaceSession.yPct,
-        session: { ...floorTextPlaceSession },
-      };
-    },
-    [floorTextPlaceSession],
-  );
-
-  const beginFloorLineDraw = useCallback(
-    (clientX: number, clientY: number, r: DOMRect) => {
-      if (!writeFormation || !setPiecesEditable) return;
-      const xPct = round2(clamp(((clientX - r.left) / r.width) * 100, 0, 100));
-      const yPct = round2(clamp(((clientY - r.top) / r.height) * 100, 0, 100));
-      const session = {
-        points: [[xPct, yPct]] as [number, number][],
-        lastClientX: clientX,
-        lastClientY: clientY,
-      };
-      floorLineSessionRef.current = session;
-      setFloorLineDraft([[xPct, yPct]]);
-      const move = (ev: PointerEvent) => {
-        const s = floorLineSessionRef.current;
-        if (!s) return;
-        const dx = ev.clientX - s.lastClientX;
-        const dy = ev.clientY - s.lastClientY;
-        if (Math.hypot(dx, dy) < 4) return;
-        if (s.points.length >= 200) return;
-        const nx = round2(
-          clamp(((ev.clientX - r.left) / r.width) * 100, 0, 100),
-        );
-        const ny = round2(
-          clamp(((ev.clientY - r.top) / r.height) * 100, 0, 100),
-        );
-        s.points.push([nx, ny]);
-        s.lastClientX = ev.clientX;
-        s.lastClientY = ev.clientY;
-        setFloorLineDraft([...s.points]);
-      };
-      const up = () => {
-        window.removeEventListener("pointermove", move);
-        window.removeEventListener("pointerup", up);
-        window.removeEventListener("pointercancel", up);
-        const s = floorLineSessionRef.current;
-        floorLineSessionRef.current = null;
-        setFloorLineDraft(null);
-        if (!s || s.points.length < 2) return;
-        let len = 0;
-        for (let i = 1; i < s.points.length; i++) {
-          const a = s.points[i - 1]!;
-          const b = s.points[i]!;
-          len += Math.hypot(b[0] - a[0], b[1] - a[1]);
-        }
-        if (len < 0.35) return;
-        const newLine: StageFloorMarkup = {
-          kind: "line",
-          id: generateId(),
-          pointsPct: s.points,
-          widthPx: 3,
-          color: "#fbbf24",
-        };
-        updateActiveFormation((f) => ({
-          ...f,
-          floorMarkup: [...(f.floorMarkup ?? []), newLine],
-        }));
-      };
-      window.addEventListener("pointermove", move);
-      window.addEventListener("pointerup", up);
-      window.addEventListener("pointercancel", up);
-    },
-    [writeFormation, setPiecesEditable, updateActiveFormation],
-  );
+  const {
+    floorLineSessionRef,
+    floorLineDraft,
+    setFloorLineDraft,
+    beginFloorLineDraw,
+    resetFloorLineDraw,
+  } = useFloorLineDraw({
+    updateActiveFormation,
+    writeFormation,
+    setPiecesEditable,
+  });
 
   const removeDancerById = useCallback(
     (dancerId: string) => {
@@ -1122,200 +635,6 @@ export function StageBoardBody({
   );
 
   /**
-   * ステージ枠の四隅ハンドルをつかんだら寸法ドラッグを開始する。
-   *
-   * - `stageWidthMm/stageDepthMm` が未設定のプロジェクトでも、
-   *   開始時に既定値（12m × 8m）を仮定してドラッグできる。
-   * - 舞台の客席方向 (audienceEdge) による回転を考慮し、
-   *   ポインタ位置を CSS 軸へ逆回転してから新寸法を計算する。
-   */
-  const onStageCornerResizeDown = useCallback(
-    (
-      handle: "nw" | "ne" | "se" | "sw" | "n" | "s" | "e" | "w",
-      e: ReactPointerEvent<HTMLDivElement>,
-    ) => {
-      if (
-        viewMode === "view" ||
-        !stageInteractionsEnabled ||
-        Boolean(playbackDancers) ||
-        Boolean(previewDancers)
-      )
-        return;
-      if (e.button !== 0) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const el = document.getElementById("stage-export-root");
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      const rotDeg = (audienceRotationDeg(audienceEdge) + 180) % 360;
-      const is90 = rotDeg === 90 || rotDeg === 270;
-      const W0css = is90 ? rect.height : rect.width;
-      const H0css = is90 ? rect.width : rect.height;
-      /**
-       * アンカー（動かない側）の CSS 座標系での位置。
-       * 辺ハンドル（n/s/e/w）の場合、動かない軸は 0（中央）扱いにして
-       * onMove 側で「その軸は元のまま」ロジックと併用する。
-       */
-      const anchorCssX =
-        handle === "ne" || handle === "se" || handle === "e"
-          ? -W0css / 2
-          : handle === "nw" || handle === "sw" || handle === "w"
-            ? W0css / 2
-            : 0;
-      const anchorCssY =
-        handle === "sw" || handle === "se" || handle === "s"
-          ? -H0css / 2
-          : handle === "nw" || handle === "ne" || handle === "n"
-            ? H0css / 2
-            : 0;
-      const curW =
-        stageWidthMm != null && stageWidthMm > 0 ? stageWidthMm : 12000;
-      const curD =
-        stageDepthMm != null && stageDepthMm > 0 ? stageDepthMm : 8000;
-      const SmmStart = sideStageMm != null && sideStageMm > 0 ? sideStageMm : 0;
-      const BmmStart = backStageMm != null && backStageMm > 0 ? backStageMm : 0;
-      stageResizeRef.current = {
-        handle,
-        cx,
-        cy,
-        rotDeg,
-        anchorCssX,
-        anchorCssY,
-        W0css,
-        H0css,
-        outerWmm0: curW + 2 * SmmStart,
-        outerDmm0: curD + BmmStart,
-        Smm: SmmStart,
-        Bmm: BmmStart,
-      };
-      stageResizeLastMmRef.current = { w: curW, d: curD };
-      setStageResizeDraft({ stageWidthMm: curW, stageDepthMm: curD });
-      const target = e.currentTarget as HTMLDivElement;
-      try {
-        target.setPointerCapture?.(e.pointerId);
-      } catch {
-        /* noop */
-      }
-    },
-    [
-      viewMode,
-      stageInteractionsEnabled,
-      playbackDancers,
-      previewDancers,
-      audienceEdge,
-      stageWidthMm,
-      stageDepthMm,
-      sideStageMm,
-      backStageMm,
-    ],
-  );
-
-  /** ドラッグ中: ポインタ位置を CSS 軸へ戻し、対角アンカーからの距離で新寸法を算出。 */
-  useEffect(() => {
-    /**
-     * ピクセル比 → mm 比。Shift 押下で「広い範囲まで」伸ばしやすくする（拡大を加速）。
-     * 縮小時は逆にやや鈍くして誤操作しにくくする。
-     */
-    const resizeRatioGain = (raw: number, shift: boolean): number => {
-      if (!Number.isFinite(raw) || raw <= 0) return raw;
-      if (!shift) return raw;
-      if (raw >= 1) return 1 + (raw - 1) * 2.35;
-      return 1 - (1 - raw) * 0.55;
-    };
-
-    const onMove = (e: PointerEvent) => {
-      const s = stageResizeRef.current;
-      if (!s) return;
-      const dx = e.clientX - s.cx;
-      const dy = e.clientY - s.cy;
-      const rad = (s.rotDeg * Math.PI) / 180;
-      /** 画面座標 → CSS 軸（rotate 前）へ逆回転。 */
-      const lx = dx * Math.cos(rad) + dy * Math.sin(rad);
-      const ly = -dx * Math.sin(rad) + dy * Math.cos(rad);
-      /**
-       * 辺ハンドル（n/s/e/w）の場合は担当軸だけを更新して、
-       * もう片方の寸法は元のまま維持する。コーナーの場合は両軸変更。
-       */
-      const affectsW =
-        s.handle === "e" ||
-        s.handle === "w" ||
-        s.handle === "nw" ||
-        s.handle === "ne" ||
-        s.handle === "se" ||
-        s.handle === "sw";
-      const affectsH =
-        s.handle === "n" ||
-        s.handle === "s" ||
-        s.handle === "nw" ||
-        s.handle === "ne" ||
-        s.handle === "se" ||
-        s.handle === "sw";
-      const newCssW = affectsW
-        ? Math.max(40, Math.abs(lx - s.anchorCssX))
-        : s.W0css;
-      const newCssH = affectsH
-        ? Math.max(40, Math.abs(ly - s.anchorCssY))
-        : s.H0css;
-      const ratioW = affectsW
-        ? resizeRatioGain(newCssW / Math.max(1, s.W0css), e.shiftKey)
-        : 1;
-      const ratioH = affectsH
-        ? resizeRatioGain(newCssH / Math.max(1, s.H0css), e.shiftKey)
-        : 1;
-      const newOuterWmm = s.outerWmm0 * ratioW;
-      const newOuterDmm = s.outerDmm0 * ratioH;
-      let newW = Math.round(newOuterWmm - 2 * s.Smm);
-      let newD = Math.round(newOuterDmm - s.Bmm);
-      newW = Math.min(
-        STAGE_MAIN_FLOOR_MM_MAX,
-        Math.max(STAGE_MAIN_FLOOR_MM_MIN, newW),
-      );
-      newD = Math.min(
-        STAGE_MAIN_FLOOR_MM_MAX,
-        Math.max(STAGE_MAIN_FLOOR_MM_MIN, newD),
-      );
-      stageResizeLastMmRef.current = { w: newW, d: newD };
-      if (stageResizeDraftRafRef.current !== null) return;
-      stageResizeDraftRafRef.current = requestAnimationFrame(() => {
-        stageResizeDraftRafRef.current = null;
-        const p = stageResizeLastMmRef.current;
-        if (!p) return;
-        setStageResizeDraft((prev) =>
-          prev && prev.stageWidthMm === p.w && prev.stageDepthMm === p.d
-            ? prev
-            : { stageWidthMm: p.w, stageDepthMm: p.d },
-        );
-      });
-    };
-    const onUp = () => {
-      if (stageResizeDraftRafRef.current !== null) {
-        cancelAnimationFrame(stageResizeDraftRafRef.current);
-        stageResizeDraftRafRef.current = null;
-      }
-      const s = stageResizeRef.current;
-      const last = stageResizeLastMmRef.current;
-      stageResizeLastMmRef.current = null;
-      stageResizeRef.current = null;
-      setStageResizeDraft(null);
-      if (!s || !last) return;
-      setProject((p) => {
-        if (p.stageWidthMm === last.w && p.stageDepthMm === last.d) return p;
-        return { ...p, stageWidthMm: last.w, stageDepthMm: last.d };
-      });
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
-    return () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
-    };
-  }, [setProject]);
-
-  /**
    * 範囲選択でまとめた複数ダンサーを一括で削除する。
    * ゴミ箱へ群ドロップしたときに使う。
    */
@@ -1364,129 +683,6 @@ export function StageBoardBody({
       stageInteractionsEnabled,
     ],
   );
-
-  const removeSetPieceById = useCallback(
-    (pieceId: string) => {
-      if (
-        !writeFormation ||
-        viewMode === "view" ||
-        stageInteractionsEnabled === false
-      )
-        return;
-      updateActiveFormation((f) => ({
-        ...f,
-        setPieces: (f.setPieces ?? []).filter((x) => x.id !== pieceId),
-      }));
-      setSelectedSetPieceId((id) => (id === pieceId ? null : id));
-      setStageContextMenu(null);
-    },
-    [writeFormation, updateActiveFormation, viewMode, stageInteractionsEnabled],
-  );
-
-  const handlePointerDownSetPiece = useCallback(
-    (e: ReactPointerEvent, piece: SetPiece) => {
-      if (e.button !== 0) return;
-      if (!setPiecesEditable) return;
-      setSelectedSetPieceId(piece.id);
-      e.stopPropagation();
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-      const el = getSetPieceCoordRoot(
-        piece,
-        stageMainFloorRef.current,
-        viewportTextOverlayRoot,
-      );
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      const leftPx = r.left + (piece.xPct / 100) * r.width;
-      const topPx = r.top + (piece.yPct / 100) * r.height;
-      setPieceDragRef.current = {
-        mode: "move",
-        pieceId: piece.id,
-        offsetXPx: e.clientX - leftPx,
-        offsetYPx: e.clientY - topPx,
-      };
-    },
-    [setPiecesEditable, stageMainFloorRef, viewportTextOverlayRoot],
-  );
-
-  const handlePointerDownSetPieceResize = useCallback(
-    (e: ReactPointerEvent, piece: SetPiece, handle: SetPieceResizeHandle) => {
-      if (e.button !== 0) return;
-      if (!setPiecesEditable) return;
-      e.stopPropagation();
-      e.preventDefault();
-      setSelectedSetPieceId(piece.id);
-      const el = getSetPieceCoordRoot(
-        piece,
-        stageMainFloorRef.current,
-        viewportTextOverlayRoot,
-      );
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      setPieceDragRef.current = {
-        mode: "resize",
-        pieceId: piece.id,
-        handle,
-        start: {
-          xPct: piece.xPct,
-          yPct: piece.yPct,
-          wPct: piece.wPct,
-          hPct: piece.hPct,
-        },
-        startClientX: e.clientX,
-        startClientY: e.clientY,
-        floorWpx: r.width,
-        floorHpx: r.height,
-      };
-    },
-    [setPiecesEditable, stageMainFloorRef, viewportTextOverlayRoot],
-  );
-
-  const handlePointerDownSetPieceRotate = useCallback(
-    (e: ReactPointerEvent, piece: SetPiece) => {
-      if (e.button !== 0) return;
-      if (!setPiecesEditable) return;
-      e.stopPropagation();
-      e.preventDefault();
-      setSelectedSetPieceId(piece.id);
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-      const el = getSetPieceCoordRoot(
-        piece,
-        stageMainFloorRef.current,
-        viewportTextOverlayRoot,
-      );
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      const cx = r.left + ((piece.xPct + piece.wPct / 2) / 100) * r.width;
-      const cy = r.top + ((piece.yPct + piece.hPct / 2) / 100) * r.height;
-      const startPointerRad = Math.atan2(e.clientY - cy, e.clientX - cx);
-      setPieceDragRef.current = {
-        mode: "rotate",
-        pieceId: piece.id,
-        startRotationDeg: setPieceRotationDegDisplay(piece),
-        startPointerRad,
-        centerClientX: cx,
-        centerClientY: cy,
-      };
-    },
-    [setPiecesEditable, stageMainFloorRef, viewportTextOverlayRoot],
-  );
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Delete" && e.key !== "Backspace") return;
-      const t = e.target;
-      if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement)
-        return;
-      if (t instanceof HTMLElement && t.isContentEditable) return;
-      if (!selectedSetPieceId || !setPiecesEditable) return;
-      e.preventDefault();
-      removeSetPieceById(selectedSetPieceId);
-      setSelectedSetPieceId(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [selectedSetPieceId, setPiecesEditable, removeSetPieceById]);
 
   const setTrashHotIfChanged = useCallback((v: boolean) => {
     if (trashHotRef.current === v) return;
@@ -1590,6 +786,58 @@ export function StageBoardBody({
     ],
   );
 
+  const {
+    selectedSetPieceId,
+    setSelectedSetPieceId,
+    removeSetPieceById,
+    handlePointerDownSetPiece,
+    handlePointerDownSetPieceResize,
+    handlePointerDownSetPieceRotate,
+    handleSetPieceBodyContextMenu,
+    handleSetPieceToggleInterpolate,
+    resetSetPieceInteraction,
+  } = useSetPieceInteraction({
+    viewMode,
+    stageInteractionsEnabled,
+    setPiecesEditable,
+    writeFormation,
+    snapGrid,
+    gridStep,
+    mmSnapGrid,
+    stageMainFloorRef,
+    viewportTextOverlayRoot,
+    updateActiveFormation,
+    pointerToPctInRoot,
+    onSetPieceContextMenu: setStageContextMenu,
+  });
+
+  useEffect(() => {
+    onGestureHistoryCancel?.();
+    setDancerQuickEditId(null);
+    clearSelectedDancers();
+    setStageContextMenu(null);
+    resetSetPieceInteraction();
+    setMarquee(null);
+    marqueeSessionRef.current = null;
+    groupDragRef.current = null;
+    resetMarkerHandles();
+    resetFloorTextInteraction();
+    setDragGhostById(null);
+    setFloorMarkupTool(null);
+    resetFloorLineDraw();
+    setShowStageDancerColorToolbar(false);
+    setBulkHideDancerGlyphs(false);
+    setGroupRotateGuideDeltaDeg(null);
+  }, [
+    formationIdForWrites,
+    onGestureHistoryCancel,
+    clearSelectedDancers,
+    resetFloorTextInteraction,
+    resetFloorLineDraw,
+    resetMarkerHandles,
+    resetSetPieceInteraction,
+  ]);
+
   const pxToPct = useCallback(
     (
       clientX: number,
@@ -1685,130 +933,6 @@ export function StageBoardBody({
     },
     [],
   );
-
-  useEffect(() => {
-    const onMove = (e: PointerEvent) => {
-      const d = setPieceDragRef.current;
-      if (!d) return;
-      if (d.mode === "move") {
-        const piece = writeFormation?.setPieces?.find(
-          (x) => x.id === d.pieceId,
-        );
-        const root = piece
-          ? getSetPieceCoordRoot(
-              piece,
-              stageMainFloorRef.current,
-              viewportTextOverlayRoot,
-            )
-          : stageMainFloorRef.current;
-        if (!root) return;
-        const next = pointerToPctInRoot(
-          root,
-          e.clientX - d.offsetXPx,
-          e.clientY - d.offsetYPx,
-          e.shiftKey,
-        );
-        if (!next) return;
-        updateActiveFormation((f) => {
-          const pieces = [...(f.setPieces ?? [])];
-          const idx = pieces.findIndex((x) => x.id === d.pieceId);
-          if (idx < 0) return f;
-          const p = pieces[idx];
-          const nx = clamp(next.xPct, 0, 100 - p.wPct);
-          const ny = clamp(next.yPct, 0, 100 - p.hPct);
-          pieces[idx] = { ...p, xPct: round2(nx), yPct: round2(ny) };
-          return { ...f, setPieces: pieces };
-        });
-        return;
-      }
-      if (d.mode === "rotate") {
-        const ang = Math.atan2(
-          e.clientY - d.centerClientY,
-          e.clientX - d.centerClientX,
-        );
-        let deltaDeg = ((ang - d.startPointerRad) * 180) / Math.PI;
-        let rawRot = d.startRotationDeg + deltaDeg;
-        if (e.shiftKey) {
-          const step = 15;
-          rawRot = Math.round(rawRot / step) * step;
-        }
-        updateActiveFormation((f) => {
-          const pieces = [...(f.setPieces ?? [])];
-          const idx = pieces.findIndex((x) => x.id === d.pieceId);
-          if (idx < 0) return f;
-          const p = pieces[idx];
-          pieces[idx] = { ...p, rotationDeg: round2(rawRot) };
-          return { ...f, setPieces: pieces };
-        });
-        return;
-      }
-      const dxPct = ((e.clientX - d.startClientX) / d.floorWpx) * 100;
-      const dyPct = ((e.clientY - d.startClientY) / d.floorHpx) * 100;
-      const snapDim = (axis: "x" | "y", v: number) => {
-        let c = clamp(v, 0, 100);
-        if (!snapGrid) return round2(c);
-        if (mmSnapGrid) {
-          const base = axis === "x" ? mmSnapGrid.stepXPct : mmSnapGrid.stepYPct;
-          const step = e.shiftKey ? Math.max(0.05, base / 4) : base;
-          c = clamp(Math.round(c / step) * step, 0, 100);
-          return round2(c);
-        }
-        const step = e.shiftKey ? Math.max(0.25, gridStep / 4) : gridStep;
-        c = clamp(Math.round(c / step) * step, 0, 100);
-        return round2(c);
-      };
-      const raw = applySetPieceResizePct(
-        d.handle,
-        d.start.xPct,
-        d.start.yPct,
-        d.start.wPct,
-        d.start.hPct,
-        dxPct,
-        dyPct,
-      );
-      let xPct = snapDim("x", raw.xPct);
-      let yPct = snapDim("y", raw.yPct);
-      let wPct = snapDim("x", raw.wPct);
-      let hPct = snapDim("y", raw.hPct);
-      wPct = Math.max(MIN_SET_PIECE_W_PCT, Math.min(wPct, 100 - xPct));
-      hPct = Math.max(MIN_SET_PIECE_H_PCT, Math.min(hPct, 100 - yPct));
-      xPct = clamp(xPct, 0, 100 - wPct);
-      yPct = clamp(yPct, 0, 100 - hPct);
-      updateActiveFormation((f) => {
-        const pieces = [...(f.setPieces ?? [])];
-        const idx = pieces.findIndex((x) => x.id === d.pieceId);
-        if (idx < 0) return f;
-        const p = pieces[idx];
-        pieces[idx] = {
-          ...p,
-          xPct,
-          yPct,
-          wPct,
-          hPct,
-        };
-        return { ...f, setPieces: pieces };
-      });
-    };
-    const onUp = () => {
-      setPieceDragRef.current = null;
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
-    return () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
-    };
-  }, [
-    pointerToPctInRoot,
-    snapGrid,
-    gridStep,
-    updateActiveFormation,
-    mmSnapGrid,
-    writeFormation?.setPieces,
-    viewportTextOverlayRoot,
-  ]);
 
   const handlePointerDownDancer = useCallback(
     (e: ReactPointerEvent, dancerId: string, xPct: number, yPct: number) => {
@@ -1972,166 +1096,6 @@ export function StageBoardBody({
       activeFormation,
       onGestureHistoryBegin,
       setBulkHideDancerGlyphs,
-    ],
-  );
-
-  /**
-   * 代表ダンサーの右下ハンドル → 選択中のダンサー全員の○サイズ（px）を変える。
-   * 選択が 1 件ならそのダンサーだけ、複数件なら全員が同じ差分ずつ変化する。
-   */
-  const handlePointerDownMarkerResize = useCallback(
-    (e: ReactPointerEvent) => {
-      if (e.button !== 0) return;
-      if (
-        viewMode === "view" ||
-        playbackDancers ||
-        previewDancers ||
-        !stageInteractionsEnabled
-      )
-        return;
-      if (selectedDancerIds.length < 1) return;
-      e.stopPropagation();
-      e.preventDefault();
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-      const dancers = writeFormation?.dancers ?? activeFormation?.dancers ?? [];
-      const startSizes = new Map<string, number>();
-      for (const id of selectedDancerIds) {
-        const d = dancers.find((x) => x.id === id);
-        if (!d) continue;
-        const cur =
-          typeof d.sizePx === "number" && Number.isFinite(d.sizePx)
-            ? Math.round(d.sizePx)
-            : baseMarkerPx;
-        startSizes.set(id, cur);
-      }
-      if (startSizes.size === 0) return;
-      markerResizeRef.current = {
-        startClientX: e.clientX,
-        startClientY: e.clientY,
-        startSizes,
-        ids: [...selectedDancerIds],
-      };
-      setMarkerDiamDraft(new Map(startSizes));
-    },
-    [
-      viewMode,
-      playbackDancers,
-      previewDancers,
-      stageInteractionsEnabled,
-      selectedDancerIds,
-      writeFormation,
-      activeFormation,
-      baseMarkerPx,
-      setMarkerDiamDraft,
-    ],
-  );
-
-  /**
-   * 回転ハンドル：1 人は印まわりのハンドルで向きのみ。2 人以上は枠下のグループハンドルで位置＋向きを剛体回転。
-   */
-  const handlePointerDownMarkerRotate = useCallback(
-    (e: ReactPointerEvent<HTMLElement>) => {
-      if (e.button !== 0) return;
-      if (
-        viewMode === "view" ||
-        playbackDancers ||
-        previewDancers ||
-        !stageInteractionsEnabled
-      )
-        return;
-      if (selectedDancerIds.length < 1) return;
-      e.stopPropagation();
-      e.preventDefault();
-      const rotateHandleEl = e.currentTarget;
-      const floorEl = stageMainFloorRef.current;
-      if (!floorEl) return;
-      const rect = floorEl.getBoundingClientRect();
-      const dancers = writeFormation?.dancers ?? activeFormation?.dancers ?? [];
-      let centerClientX: number;
-      let centerClientY: number;
-      const groupRigid = selectedDancerIds.length >= 2 && selectionBox != null;
-      if (groupRigid) {
-        const cxPct = (selectionBox!.x0 + selectionBox!.x1) / 2;
-        const cyPct = (selectionBox!.y0 + selectionBox!.y1) / 2;
-        centerClientX = rect.left + (cxPct / 100) * rect.width;
-        centerClientY = rect.top + (cyPct / 100) * rect.height;
-      } else {
-        const primaryId = selectedDancerIds[0]!;
-        const primary = dancers.find((x) => x.id === primaryId);
-        if (!primary) return;
-        centerClientX = rect.left + (primary.xPct / 100) * rect.width;
-        centerClientY = rect.top + (primary.yPct / 100) * rect.height;
-      }
-      /**
-       * クリック位置ではなく回転マーク（ボタン）の幾何中心からの角度を基準にする。
-       * マーク内の多少のズレで 45° グリッドやガイドの基準が歪まないようにする。
-       */
-      const hr = rotateHandleEl.getBoundingClientRect();
-      const handleCenterX = hr.left + hr.width / 2;
-      const handleCenterY = hr.top + hr.height / 2;
-      const startPointerAngle = Math.atan2(
-        handleCenterY - centerClientY,
-        handleCenterX - centerClientX,
-      );
-      const startFacings = new Map<string, number>();
-      const startPositions = new Map<string, { xPct: number; yPct: number }>();
-      for (const id of selectedDancerIds) {
-        const d = dancers.find((x) => x.id === id);
-        if (!d) continue;
-        const cur =
-          typeof d.facingDeg === "number" && Number.isFinite(d.facingDeg)
-            ? d.facingDeg
-            : 0;
-        startFacings.set(id, normalizeDancerFacingDeg(cur));
-        if (groupRigid) {
-          startPositions.set(id, { xPct: d.xPct, yPct: d.yPct });
-        }
-      }
-      if (startFacings.size === 0) return;
-      try {
-        rotateHandleEl.setPointerCapture(e.pointerId);
-      } catch {
-        /* capture 不可時も window の pointermove で回転は継続 */
-      }
-      markerRotateRef.current = {
-        centerClientX,
-        centerClientY,
-        startPointerAngle,
-        startFacings,
-        ids: [...selectedDancerIds],
-        mode: groupRigid ? "groupRigid" : "facing",
-        ...(groupRigid ? { startPositions } : {}),
-      };
-      const initFacing = new Map(startFacings);
-      markerFacingDraftRef.current = initFacing;
-      setMarkerFacingDraft(initFacing);
-      if (groupRigid) {
-        const initPos = new Map(startPositions);
-        markerGroupPosDraftRef.current = initPos;
-        setMarkerGroupPosDraft(initPos);
-        setBulkHideDancerGlyphs(true);
-        setGroupRotateGuideDeltaDeg(0);
-      } else {
-        markerGroupPosDraftRef.current = null;
-        setMarkerGroupPosDraft(null);
-        setBulkHideDancerGlyphs(false);
-        setGroupRotateGuideDeltaDeg(null);
-      }
-    },
-    [
-      viewMode,
-      playbackDancers,
-      previewDancers,
-      stageInteractionsEnabled,
-      selectedDancerIds,
-      selectionBox,
-      stageMainFloorRef,
-      writeFormation,
-      activeFormation,
-      setMarkerFacingDraft,
-      setMarkerGroupPosDraft,
-      setBulkHideDancerGlyphs,
-      setGroupRotateGuideDeltaDeg,
     ],
   );
 
@@ -2681,90 +1645,12 @@ export function StageBoardBody({
         return;
       }
       /** 4: 向き（丸い回転ハンドル）— 1 人は向きのみ。複数は枠中心まわりに位置＋向きを剛体回転 */
-      const rot = markerRotateRef.current;
-      if (rot) {
-        const curAngle = Math.atan2(
-          e.clientY - rot.centerClientY,
-          e.clientX - rot.centerClientX,
-        );
-        let deltaRad = curAngle - rot.startPointerAngle;
-        while (deltaRad > Math.PI) deltaRad -= 2 * Math.PI;
-        while (deltaRad < -Math.PI) deltaRad += 2 * Math.PI;
-        const deltaDeg = (deltaRad * 180) / Math.PI;
-        const cos = Math.cos(deltaRad);
-        const sin = Math.sin(deltaRad);
-        const draft = new Map<string, number>();
-        for (const id of rot.ids) {
-          const s = rot.startFacings.get(id) ?? 0;
-          draft.set(id, normalizeDancerFacingDeg(s + deltaDeg));
-        }
-        markerFacingDraftRef.current = draft;
-        setMarkerFacingDraft(draft);
-        if (rot.mode === "groupRigid") {
-          setGroupRotateGuideDeltaDeg(deltaDeg);
-        }
-        if (
-          rot.mode === "groupRigid" &&
-          rot.startPositions &&
-          rot.startPositions.size > 0
-        ) {
-          const floor = stageMainFloorRef.current;
-          if (floor) {
-            const r = floor.getBoundingClientRect();
-            const w = r.width;
-            const h = r.height;
-            if (w > 0 && h > 0) {
-              const draftPos = new Map<
-                string,
-                { xPct: number; yPct: number }
-              >();
-              for (const id of rot.ids) {
-                const s = rot.startPositions.get(id);
-                if (!s) continue;
-                const px0 = r.left + (s.xPct / 100) * w;
-                const py0 = r.top + (s.yPct / 100) * h;
-                const vx = px0 - rot.centerClientX;
-                const vy = py0 - rot.centerClientY;
-                const px1 = rot.centerClientX + vx * cos - vy * sin;
-                const py1 = rot.centerClientY + vx * sin + vy * cos;
-                const nxPct = clamp(
-                  ((px1 - r.left) / w) * 100,
-                  DANCER_STAGE_POSITION_PCT_LO,
-                  DANCER_STAGE_POSITION_PCT_HI,
-                );
-                const nyPct = clamp(
-                  ((py1 - r.top) / h) * 100,
-                  DANCER_STAGE_POSITION_PCT_LO,
-                  DANCER_STAGE_POSITION_PCT_HI,
-                );
-                draftPos.set(id, {
-                  xPct: round2(nxPct),
-                  yPct: round2(nyPct),
-                });
-              }
-              markerGroupPosDraftRef.current = draftPos;
-              setMarkerGroupPosDraft(draftPos);
-            }
-          }
-        }
+      if (applyMarkerRotateMove(e)) {
         setTrashHotIfChanged(false);
         return;
       }
       /** 5: 代表ダンサー右下の○サイズハンドル（選択中の全員に同じ差分を適用） */
-      const m = markerResizeRef.current;
-      if (m) {
-        const dx = e.clientX - m.startClientX;
-        const dy = e.clientY - m.startClientY;
-        /** 右下方向に引っ張ると大きく、左上に引くと小さくなる */
-        const delta = (dx + dy) / 2;
-        const draft = new Map<string, number>();
-        for (const [id, s0] of m.startSizes) {
-          const next = Math.round(
-            clamp(s0 + delta, MARKER_PX_MIN, MARKER_PX_MAX),
-          );
-          draft.set(id, next);
-        }
-        setMarkerDiamDraft(draft);
+      if (applyMarkerResizeMove(e)) {
         setTrashHotIfChanged(false);
         return;
       }
@@ -2842,97 +1728,12 @@ export function StageBoardBody({
       floorTextResizeDragRef.current = null;
       floorTextPlaceDragRef.current = null;
       groupDragRef.current = null;
-      /** 向き／複数時は位置も含む回転ドラッグの確定 */
-      const rotUp = markerRotateRef.current;
-      const facingDraftSnap = markerFacingDraftRef.current;
-      const posDraftSnap = markerGroupPosDraftRef.current;
-      if (rotUp && facingDraftSnap && facingDraftSnap.size > 0) {
-        let facingChanged = false;
-        for (const id of rotUp.ids) {
-          const a = normalizeDancerFacingDeg(rotUp.startFacings.get(id) ?? 0);
-          const b = normalizeDancerFacingDeg(facingDraftSnap.get(id) ?? a);
-          if (a !== b) {
-            facingChanged = true;
-            break;
-          }
-        }
-        let posChanged = false;
-        if (
-          rotUp.mode === "groupRigid" &&
-          rotUp.startPositions &&
-          posDraftSnap &&
-          posDraftSnap.size > 0
-        ) {
-          for (const id of rotUp.ids) {
-            const a = rotUp.startPositions.get(id);
-            const b = posDraftSnap.get(id);
-            if (a && b && (a.xPct !== b.xPct || a.yPct !== b.yPct)) {
-              posChanged = true;
-              break;
-            }
-          }
-        }
-        if (facingChanged || posChanged) {
-          setProject((p) => ({
-            ...p,
-            formations: p.formations.map((f) =>
-              f.id === formationIdForWrites
-                ? {
-                    ...f,
-                    dancers: f.dancers.map((x) => {
-                      if (!rotUp.ids.includes(x.id)) return x;
-                      let next: DancerSpot = { ...x };
-                      if (posDraftSnap?.has(x.id)) {
-                        const pr = posDraftSnap.get(x.id)!;
-                        next = { ...next, xPct: pr.xPct, yPct: pr.yPct };
-                      }
-                      if (facingDraftSnap.has(x.id)) {
-                        const deg = normalizeDancerFacingDeg(
-                          facingDraftSnap.get(x.id)!,
-                        );
-                        const { facingDeg: _fd, ...rest } = next;
-                        next = deg === 0 ? rest : { ...rest, facingDeg: deg };
-                      }
-                      return next;
-                    }),
-                  }
-                : f,
-            ),
-          }));
-        }
-      }
-      markerRotateRef.current = null;
-      markerFacingDraftRef.current = null;
-      markerGroupPosDraftRef.current = null;
-      setMarkerFacingDraft(null);
-      setMarkerGroupPosDraft(null);
-      /** ○サイズ確定（選択中の各ダンサーに `sizePx` を保存する） */
-      const m = markerResizeRef.current;
-      if (m && markerDiamDraft && markerDiamDraft.size > 0) {
-        const changed = [...markerDiamDraft.entries()].some(
-          ([id, v]) => m.startSizes.get(id) !== v,
-        );
-        if (changed) {
-          const nextSizes = new Map(markerDiamDraft);
-          setProject((p) => ({
-            ...p,
-            formations: p.formations.map((f) =>
-              f.id === formationIdForWrites
-                ? {
-                    ...f,
-                    dancers: f.dancers.map((x) => {
-                      const v = nextSizes.get(x.id);
-                      if (typeof v !== "number") return x;
-                      return { ...x, sizePx: v };
-                    }),
-                  }
-                : f,
-            ),
-          }));
-        }
-      }
-      markerResizeRef.current = null;
-      setMarkerDiamDraft(null);
+      commitMarkerRotateUp({ setProject, formationIdForWrites });
+      commitMarkerResizeUp({
+        setProject,
+        formationIdForWrites,
+        markerDiamDraftNow: markerDiamDraft,
+      });
       /** マーキー完了 → 範囲内のダンサーを選択 */
       const mq = marqueeSessionRef.current;
       if (mq) {
@@ -2997,6 +1798,10 @@ export function StageBoardBody({
     removeFloorMarkupById,
     setTrashHotIfChanged,
     markerDiamDraft,
+    applyMarkerRotateMove,
+    applyMarkerResizeMove,
+    commitMarkerRotateUp,
+    commitMarkerResizeUp,
     setProject,
     writeFormation,
     activeFormation,
@@ -3030,23 +1835,18 @@ export function StageBoardBody({
 
       if (e.key === "Escape") {
         groupDragRef.current = null;
-        markerRotateRef.current = null;
-        markerFacingDraftRef.current = null;
-        markerGroupPosDraftRef.current = null;
+        resetMarkerHandles();
         floorMarkupTextDragRef.current = null;
         floorTextTapOrDragRef.current = null;
         clearSelectedDancers();
         setMarquee(null);
         marqueeSessionRef.current = null;
         setFloorMarkupTool(null);
-        floorLineSessionRef.current = null;
-        setFloorLineDraft(null);
+        resetFloorLineDraw();
         setFloorTextDraft({ ...EMPTY_FLOOR_TEXT_DRAFT });
         setFloorTextEditId(null);
         setFloorTextInlineRect(null);
         setDragGhostById(null);
-        setMarkerFacingDraft(null);
-        setMarkerGroupPosDraft(null);
         setBulkHideDancerGlyphs(false);
         setGroupRotateGuideDeltaDeg(null);
         return;
@@ -3104,6 +1904,14 @@ export function StageBoardBody({
     duplicateDancerIds,
     stageWidthMm,
     clearSelectedDancers,
+    resetFloorLineDraw,
+    setFloorMarkupTool,
+    setFloorTextDraft,
+    setFloorTextEditId,
+    setFloorTextInlineRect,
+    floorMarkupTextDragRef,
+    floorTextTapOrDragRef,
+    resetMarkerHandles,
   ]);
 
   /**
@@ -3603,33 +2411,6 @@ export function StageBoardBody({
   const contextMenuStyle: CSSProperties | null = stageContextMenu
     ? computeStageContextMenuStyle(stageContextMenu)
     : null;
-
-  const handleSetPieceBodyContextMenu = useCallback(
-    (e: ReactMouseEvent<HTMLButtonElement>, piece: SetPiece) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setSelectedSetPieceId(piece.id);
-      setStageContextMenu({
-        kind: "setPiece",
-        clientX: e.clientX,
-        clientY: e.clientY,
-        pieceId: piece.id,
-      });
-    },
-    [],
-  );
-
-  const handleSetPieceToggleInterpolate = useCallback(
-    (p: SetPiece) => {
-      updateActiveFormation((f) => ({
-        ...f,
-        setPieces: (f.setPieces ?? []).map((x) =>
-          x.id === p.id ? { ...x, interpolateInGaps: !x.interpolateInGaps } : x,
-        ),
-      }));
-    },
-    [updateActiveFormation],
-  );
 
   const stageSetPieceElements = useSetPieceBlockElements({
     pieces: stageSetPieces,
