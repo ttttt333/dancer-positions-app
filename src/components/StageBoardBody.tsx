@@ -310,11 +310,7 @@ export function StageBoardBody({
    * 複数の一括移動・枠スケール・剛体回転ドラッグ中は、選択メンバーの○内番号と名前を隠す。
    */
   const [bulkHideDancerGlyphs, setBulkHideDancerGlyphs] = useState(false);
-  /** 群剛体回転ドラッグ中の累積回転角（度）— 角度バッジ表示用 */
-  const [groupRotateGuideDeltaDeg, setGroupRotateGuideDeltaDeg] = useState<
-    number | null
-  >(null);
-  const formationIdForWrites =
+    const formationIdForWrites =
     editFormationId != null && formations.some((f) => f.id === editFormationId)
       ? editFormationId
       : activeFormationId;

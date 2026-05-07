@@ -1,0 +1,86 @@
+.mobileWaveformArea {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  gap: 8px;
+  background: #0f1114;
+}
+
+.waveformContainer {
+  flex: 1;
+  position: relative;
+  min-height: 60px;
+}
+
+.waveformSvg {
+  width: 100%;
+  height: 100%;
+}
+
+.cueIndicators {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  pointer-events: none;
+}
+
+.cueMarker {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: rgba(255,255,255,0.3);
+  transform: translateX(-50%);
+}
+
+.cueMarker.active {
+  background: #6c63ff;
+  box-shadow: 0 0 8px rgba(108,99,255,0.6);
+}
+
+.playbackControls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.playButton {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(108,99,255,0.2);
+  border: 1px solid rgba(108,99,255,0.4);
+  color: #6c63ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.playButton:hover {
+  background: rgba(108,99,255,0.3);
+  transform: scale(1.05);
+}
+
+.playButton.playing {
+  background: #6c63ff;
+  color: white;
+}
+
+.playButton:active {
+  transform: scale(0.95);
+}
+
+.timeDisplay {
+  font-family: monospace;
+  font-size: 14px;
+  color: rgba(255,255,255,0.8);
+  min-width: 50px;
+}

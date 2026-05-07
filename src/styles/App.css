@@ -1,0 +1,85 @@
+.app-error-boundary {
+  padding: 32px 24px;
+  max-width: 640px;
+  margin: 0 auto;
+  font-family: system-ui, sans-serif;
+  color: #f1f5f9;
+}
+
+.app-error-boundary__title {
+  font-size: 18px;
+  margin-bottom: 12px;
+  color: #f87171;
+}
+
+.app-error-boundary__description {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-bottom: 16px;
+}
+
+.app-error-boundary__error {
+  font-size: 11px;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: #fca5a5;
+}
+
+.app-error-boundary__reload-button {
+  margin-top: 16px;
+  padding: 8px 20px;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.app-language-switcher {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.app-language-switcher--floating {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 10px;
+  border: 1px solid;
+  border-color: var(--shell-border-strong);
+  background: rgba(10, 9, 8, 0.92);
+  box-shadow: 0 4px 22px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--shell-brand-glow);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.app-language-switcher__label {
+  font-size: 10px;
+  color: #64748b;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.app-language-switcher__select {
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  max-width: 140px;
+  color: #e2e8f0;
+}

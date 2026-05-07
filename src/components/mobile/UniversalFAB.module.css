@@ -1,0 +1,155 @@
+.universalFabContainer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.fabMain {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6c63ff, #4a47e0);
+  border: none;
+  color: white;
+  font-size: 24px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(108, 99, 255, 0.4);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.fabIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fabMain:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(108, 99, 255, 0.5);
+}
+
+.fabMain.open {
+  transform: rotate(45deg);
+  background: linear-gradient(135deg, #ff6b6b, #e74c3c);
+}
+
+.fabMain:active {
+  transform: scale(0.95);
+}
+
+.menuItems {
+  position: absolute;
+  left: 70px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 1000;
+}
+
+.menuItem {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.8);
+  animation: menuItemAppear 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.menuIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menuItem:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
+}
+
+.menuItem.selected {
+  background: rgba(108, 99, 255, 0.3);
+  border-color: #6c63ff;
+}
+
+.menuItem:active {
+  transform: scale(0.9);
+}
+
+@keyframes menuItemAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.projectInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: 8px;
+}
+
+.projectName {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.timeInfo {
+  font-size: 10px;
+  font-family: monospace;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* レスポンシブ対応 */
+@media (orientation: landscape) {
+  .universalFabContainer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .menuItems {
+    position: static;
+    transform: none;
+    flex-direction: column;
+    left: 0;
+    top: 0;
+    margin-top: 8px;
+  }
+
+  .projectInfo {
+    margin-left: 0;
+    margin-top: 8px;
+    align-items: center;
+  }
+}

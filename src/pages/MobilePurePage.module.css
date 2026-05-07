@@ -1,0 +1,37 @@
+.mobilePurePage {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #0a0c10;
+}
+
+.loadingContainer {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0a0c10;
+  color: #f0f2f8;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+}
+
+.loadingContent {
+  text-align: center;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #6c63ff;
+  border-top: 3px solid transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

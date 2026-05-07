@@ -45,6 +45,7 @@ import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import { useSelectedCueId, useSetSelectedCueId } from "../store/useEditorStore";
 import { useEditorPlaybackSync } from "../hooks/useEditorPlaybackSync";
 import { useTimelineMediaHandle } from "../hooks/useTimelineMediaHandle";
+import { saveProject, loadProject, createAutoSave } from "../lib/projectStorage";
 import { RosterTimelineStrip } from "../components/RosterTimelineStrip";
 import {
   createEmptyProject,
@@ -949,6 +950,23 @@ export function EditorPage({
   /** ChoreoCore: 編集対象のキュー（ステージ・プリセット・インスペクタの書き込み先） */
   const selectedCueId = useSelectedCueId();
   const setSelectedCueId = useSetSelectedCueId();
+  
+  /** 🚀 プロジェクト保存・復元 */
+  useEffect(() => {
+    // 初回ロード：plainProjectがnullの場合のみ読み込み
+    const savedProject = loadProject();
+    if (savedProject && plainProject === null) {
+      setPlainProject(savedProject);
+    }
+  }, []);
+
+  // オートセーブ
+  useEffect(() => {
+    if (plainProject) {
+      const autoSave = createAutoSave(saveProject);
+      autoSave(plainProject);
+    }
+  }, [plainProject]);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [flowLibraryOpen, setFlowLibraryOpen] = useState(false);
   /** 立ち位置保存ボタンから開く管理ダイアログ */
@@ -1295,8 +1313,10 @@ export function EditorPage({
 
     /** 新規は API・ログイン不要のため認証待ちを挟まず即表示（立ち上げ短縮） */
     if (projectId === "new" || !projectId) {
+      // 新しい保存システムからデータを読み込み
+      const savedProject = loadProject();
       const migrated = tryMigrateFromLocalStorage();
-      setPlainProject(migrated ?? createEmptyProject());
+      setPlainProject(savedProject ?? migrated ?? createEmptyProject());
       setServerId(null);
       setServerShareToken(null);
       setLoadError(null);
@@ -3188,8 +3208,11 @@ export function EditorPage({
           ? yjsCollab.redoStackSize === 0
           : historyRef.current.redo.length === 0)
       }
-      selectedCueId={selectedCueId}
-      setSelectedCueId={setSelectedCueId}
+      selectedCueIds={selectedCueId ? [selectedCueId] : []}
+      onSelectedCueIdsChange={(idsOrFn) => {
+        const ids = typeof idsOrFn === 'function' ? idsOrFn(selectedCueId ? [selectedCueId] : []) : idsOrFn;
+        setSelectedCueId(ids.length > 0 ? ids[0] : null);
+      }}
       formationIdForNewCue={selectedCue?.formationId ?? project.activeFormationId}
       wideWorkbench={wideEditorLayout}
       compactTopDock={

@@ -15,7 +15,7 @@ const DashboardPage = lazy(() =>
   import("./pages/DashboardPage").then((m) => ({ default: m.DashboardPage }))
 );
 const EditorPage = lazy(() =>
-  import("./pages/EditorPage").then((m) => ({ default: m.EditorPage }))
+  import("./pages/DesktopEditor").then((m) => ({ default: m.EditorPage }))
 );
 const LoginPage = lazy(() =>
   import("./pages/LoginPage").then((m) => ({ default: m.LoginPage }))
