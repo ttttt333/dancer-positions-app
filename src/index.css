@@ -601,6 +601,15 @@ body:has([data-mobile-editor="true"]) .app-language-switcher--floating {
   display: none !important;
 }
 
+/* モバイルエディタ: 再生バーのブランドロゴ列を非表示にして再生コントロール幅を最大化 */
+body:has([data-mobile-editor="true"]) .wave-compact-time-above-wave {
+  grid-template-columns: 0 minmax(0, 1fr) 0 !important;
+}
+body:has([data-mobile-editor="true"]) .wave-compact-time-above-wave > *:first-child,
+body:has([data-mobile-editor="true"]) .wave-compact-time-above-wave > *:last-child {
+  display: none !important;
+}
+
 .app-language-switcher select {
   min-height: 40px;
   font-size: 14px;

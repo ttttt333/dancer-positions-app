@@ -4,7 +4,6 @@
  * MORE タブ押下で表示。backdrop + sheet アニメーション。
  * EditorStageWorkbench layout="rail" をそのままレンダリング。
  */
-import type { Dispatch, SetStateAction } from "react";
 import { useEffect, useRef } from "react";
 import { shell } from "../../theme/choreoShell";
 import { EditorStageWorkbench } from "../EditorStageWorkbench";
@@ -19,11 +18,6 @@ export type MobileToolSheetProps = {
 export function MobileToolSheet({ open, onClose, workbenchProps }: MobileToolSheetProps) {
   const sheetRef = useRef<HTMLDivElement>(null);
 
-  // Close on backdrop click
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onClose();
-  };
-
   // Close on Escape
   useEffect(() => {
     if (!open) return;
@@ -34,21 +28,17 @@ export function MobileToolSheet({ open, onClose, workbenchProps }: MobileToolShe
     return () => window.removeEventListener("keydown", handler);
   }, [open, onClose]);
 
-  // Prevent body scroll when open
-  useEffect(() => {
-    if (open) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => { document.body.style.overflow = ""; };
-  }, [open]);
-
   if (!open) return null;
 
   return (
     <div
-      onClick={handleBackdropClick}
+      onTouchEnd={(e) => {
+        // backdrop tap to close (touch)
+        if (e.target === e.currentTarget) { e.preventDefault(); onClose(); }
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
       style={{
         position: "fixed",
         inset: 0,
@@ -67,7 +57,7 @@ export function MobileToolSheet({ open, onClose, workbenchProps }: MobileToolShe
           to   { opacity: 1; }
         }
         @keyframes mobileSheetSlideUp {
-          from { transform: translateY(40px); opacity: 0; }
+          from { transform: translateY(60px); opacity: 0; }
           to   { transform: translateY(0);    opacity: 1; }
         }
       `}</style>
@@ -79,18 +69,22 @@ export function MobileToolSheet({ open, onClose, workbenchProps }: MobileToolShe
           borderRadius: "20px 20px 0 0",
           border: `1px solid ${shell.borderStrong}`,
           borderBottom: "none",
-          maxHeight: "80dvh",
-          overflowY: "auto",
+          maxHeight: "82dvh",
+          overflowY: "scroll",
+          overscrollBehavior: "contain",
           WebkitOverflowScrolling: "touch",
-          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          paddingBottom: "env(safe-area-inset-bottom, 16px)",
           animation: "mobileSheetSlideUp 220ms cubic-bezier(0.34,1.56,0.64,1) forwards",
           boxShadow: "0 -8px 40px rgba(0,0,0,0.6)",
+          /* スクロール内のタップを確実に通す */
+          isolation: "isolate",
         }}
         onClick={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
       >
         {/* Handle */}
         <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 4px" }}>
-          <div style={{ width: 36, height: 4, borderRadius: 2, background: shell.borderStrong }} />
+          <div style={{ width: 40, height: 4, borderRadius: 2, background: shell.borderStrong }} />
         </div>
 
         {/* Header */}
@@ -98,7 +92,8 @@ export function MobileToolSheet({ open, onClose, workbenchProps }: MobileToolShe
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "4px 16px 8px",
+          padding: "0 8px 8px 16px",
+          gap: 8,
         }}>
           <span style={{
             fontSize: 13,
@@ -109,23 +104,69 @@ export function MobileToolSheet({ open, onClose, workbenchProps }: MobileToolShe
           }}>
             ツール
           </span>
-          <button
-            type="button"
-            onClick={onClose}
-            style={{
-              background: "none",
-              border: "none",
-              padding: "4px 8px",
-              cursor: "pointer",
-              color: shell.textMuted,
-              fontSize: 14,
-              fontWeight: 600,
-              WebkitTapHighlightColor: "transparent",
-            }}
-            aria-label="閉じる"
-          >
-            ✕
-          </button>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+            {/* 音源ボタン — 常に表示（重要な操作） */}
+            {workbenchProps.onOpenAudioImport && (
+              <button
+                type="button"
+                onClick={() => { workbenchProps.onOpenAudioImport!(); onClose(); }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "8px 14px",
+                  borderRadius: 12,
+                  border: "1px solid #ef444440",
+                  background: "#ef444418",
+                  cursor: "pointer",
+                  color: "#fca5a5",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  touchAction: "manipulation",
+                  WebkitTapHighlightColor: "transparent",
+                  flexShrink: 0,
+                  whiteSpace: "nowrap",
+                }}
+                aria-label="音源を取り込む"
+              >
+                <svg viewBox="0 0 24 24" width={16} height={16} fill="none" aria-hidden style={{ display: "block", flexShrink: 0 }}>
+                  <path d="M3 12 Q6 6 9 12 Q12 18 15 12 Q18 6 21 12" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" fill="none"/>
+                  <path d="M12 18 L12 22" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round"/>
+                  <path d="M9 22 L15 22" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round"/>
+                </svg>
+                音源
+              </button>
+            )}
+
+            {/* ✕ close button — 44×44 touch target */}
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 44,
+                height: 44,
+                minWidth: 44,
+                borderRadius: 22,
+                background: "rgba(148,163,184,0.12)",
+                border: `1px solid rgba(148,163,184,0.2)`,
+                cursor: "pointer",
+                color: shell.text,
+                fontSize: 18,
+                fontWeight: 400,
+                lineHeight: 1,
+                touchAction: "manipulation",
+                WebkitTapHighlightColor: "transparent",
+                flexShrink: 0,
+              }}
+              aria-label="閉じる"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* Rail content */}
@@ -136,7 +177,7 @@ export function MobileToolSheet({ open, onClose, workbenchProps }: MobileToolShe
         />
 
         {/* Bottom padding */}
-        <div style={{ height: 16 }} />
+        <div style={{ height: 24 }} />
       </div>
     </div>
   );

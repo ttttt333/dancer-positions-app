@@ -156,7 +156,9 @@ export function MobileEditorShell({
         >
           {/* Canvas */}
           <div style={{ flex: 1, minHeight: 0, overflow: "hidden", position: "relative" }}>
-            {stageEl}
+            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}>
+              {stageEl}
+            </div>
           </div>
 
           {/* Timeline: waveform + playback (compact) */}
@@ -206,15 +208,17 @@ export function MobileEditorShell({
         style={{
           flex: activeTab === "stage" ? 1 : 0,
           minHeight: 0,
-          display: activeTab === "stage" ? "flex" : "none",
-          flexDirection: "column",
+          display: activeTab === "stage" ? "block" : "none",
           overflow: "hidden",
           position: "relative",
         }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {stageEl}
+        {/* absolute fill so StageBoard uses full area */}
+        <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column" }}>
+          {stageEl}
+        </div>
       </div>
 
       {/* Cue list tab */}

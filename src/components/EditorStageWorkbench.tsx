@@ -568,6 +568,9 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
         gap: 0,
         padding: 0,
         flexShrink: 0,
+        touchAction: "manipulation",
+        WebkitTapHighlightColor: "transparent",
+        userSelect: "none" as const,
       } as React.CSSProperties;
     }
 
