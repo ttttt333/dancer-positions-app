@@ -544,6 +544,7 @@ export function useMarkerHandles({
     markerFacingDraft,
     markerGroupPosDraft,
     groupRotateGuideDeltaDeg,
+    setGroupRotateGuideDeltaDeg,
     selectionBox,
     effectiveMarkerPx,
     effectiveFacingDeg,

@@ -353,6 +353,7 @@ export function StageBoardBody({
     markerDiamDraft,
     markerGroupPosDraft,
     groupRotateGuideDeltaDeg,
+    setGroupRotateGuideDeltaDeg,
     selectionBox,
     effectiveMarkerPx,
     effectiveFacingDeg,
