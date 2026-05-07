@@ -119,6 +119,7 @@ import {
 } from "../components/ChoreoStudentViewGate";
 import { ShareLinksSheetContent } from "../components/ShareLinksSheetContent";
 import { ViewerModeSheetContent } from "../components/ViewerModeSheetContent";
+import { MobileEditorShell } from "../components/mobile/MobileEditorShell";
 
 const HISTORY_CAP = 80;
 
@@ -3307,10 +3308,41 @@ export function EditorPage({
     onAiSuggest: choreoPublicView ? undefined : () => setAiSuggestOpen(true),
   };
 
-  // Return MobileLayout for mobile devices
-  // if (isMobile) {
-  //   return <MobileLayout />;
-  // }
+  // ── Mobile UI ─────────────────────────────────────────────────────────────
+  if (mobileStackEditor) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100dvh",
+          minHeight: "100dvh",
+          maxHeight: "100dvh",
+          overflow: "hidden",
+          background: shell.bgDeep,
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {/* Dialogs (all memos computed above, before this return) */}
+        {exportDialogEl}
+        {flowLibraryDialogEl}
+        {aiSuggestDialogEl}
+        {addCueDialogEl}
+        {formationBoxManagerDialogEl}
+        {rosterImportSheetEl}
+
+        <MobileEditorShell
+          workbenchProps={stageWorkbenchProps}
+          timelinePanelEl={timelinePanelEl}
+          landscape={editorMobileLandscape}
+          selectedCueId={selectedCueId}
+          setSelectedCueId={(id) => setSelectedCueId(id)}
+          onAddCue={() => setAddCueDialogOpen(true)}
+          isView={project.viewMode === "view"}
+        />
+      </div>
+    );
+  }
 
   return (
     <div
