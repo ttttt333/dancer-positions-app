@@ -37,7 +37,7 @@ if (import.meta.env.PROD && "serviceWorker" in navigator) {
 }
 
 createRoot(document.getElementById("root")!).render(
-  // <StrictMode> // 一時的に無効化して多重実行を確認
+  <StrictMode>
     <App />
-  // </StrictMode>
+  </StrictMode>,
 );

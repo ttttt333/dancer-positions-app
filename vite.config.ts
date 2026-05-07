@@ -58,6 +58,10 @@ function devOpenBrowserPlugin(): Plugin {
 }
 
 export default defineConfig({
+  /** 遅延チャンクと本体で React が二重化すると Context が途切れ useI18n が失敗することがある */
+  resolve: {
+    dedupe: ["react", "react-dom"],
+  },
   plugins: [
     react(),
     devOpenBrowserPlugin(),

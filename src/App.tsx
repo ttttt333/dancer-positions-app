@@ -9,6 +9,7 @@ import {
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { AuthProvider } from "./context/AuthContext";
+import { I18nProvider } from "./i18n/I18nContext";
 
 /** ルート単位で遅延読み込みし、初回表示（ダッシュボード等）の JS を軽くする */
 const DashboardPage = lazy(() =>
@@ -140,48 +141,50 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, EBState> {
 
 export default function App() {
   return (
-    <AppErrorBoundary>
-      <BrowserRouter>
-        <Fragment>
-          {/** fixed 配置は viewport 基準にするため app-shell（overflow あり）の外に置く */}
-          <LanguageSwitcher variant="floating" />
-          <div className="app-shell">
-            <AuthProvider>
-              <Suspense fallback={<RouteFallback />}>
-                <Routes>
-                  <Route path="/" element={<DashboardPage />} />
-                  <Route path="/login" element={<LoginPage />} />
-                  <Route path="/register" element={<RegisterPage />} />
-                  <Route path="/library" element={<LibraryPage />} />
-                  <Route path="/video" element={<VideoPage />} />
-                  <Route
-                    path="/billing/success"
-                    element={<BillingSuccessPage />}
-                  />
-                  <Route
-                    path="/billing/canceled"
-                    element={<BillingCanceledPage />}
-                  />
-                  <Route path="/editor/:projectId" element={<EditorPage />} />
-                  <Route
-                    path="/view/s/:shareToken"
-                    element={<EditorPage choreoPublicView />}
-                  />
-                  <Route
-                    path="/view/:projectId"
-                    element={<EditorPage choreoPublicView />}
-                  />
-                  <Route
-                    path="/demo/mobile-formation-editor"
-                    element={<MobileFormationEditorDemoPage />}
-                  />
-                  <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-              </Suspense>
-            </AuthProvider>
-          </div>
-        </Fragment>
-      </BrowserRouter>
-    </AppErrorBoundary>
+    <I18nProvider>
+      <AppErrorBoundary>
+        <BrowserRouter>
+          <Fragment>
+            {/** fixed 配置は viewport 基準にするため app-shell（overflow あり）の外に置く */}
+            <LanguageSwitcher variant="floating" />
+            <div className="app-shell">
+              <AuthProvider>
+                <Suspense fallback={<RouteFallback />}>
+                  <Routes>
+                    <Route path="/" element={<DashboardPage />} />
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/register" element={<RegisterPage />} />
+                    <Route path="/library" element={<LibraryPage />} />
+                    <Route path="/video" element={<VideoPage />} />
+                    <Route
+                      path="/billing/success"
+                      element={<BillingSuccessPage />}
+                    />
+                    <Route
+                      path="/billing/canceled"
+                      element={<BillingCanceledPage />}
+                    />
+                    <Route path="/editor/:projectId" element={<EditorPage />} />
+                    <Route
+                      path="/view/s/:shareToken"
+                      element={<EditorPage choreoPublicView />}
+                    />
+                    <Route
+                      path="/view/:projectId"
+                      element={<EditorPage choreoPublicView />}
+                    />
+                    <Route
+                      path="/demo/mobile-formation-editor"
+                      element={<MobileFormationEditorDemoPage />}
+                    />
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                  </Routes>
+                </Suspense>
+              </AuthProvider>
+            </div>
+          </Fragment>
+        </BrowserRouter>
+      </AppErrorBoundary>
+    </I18nProvider>
   );
 }
