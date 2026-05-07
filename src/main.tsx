@@ -4,7 +4,6 @@ import { registerSW } from "virtual:pwa-register";
 import "./index.css";
 import "./styles/mobile-override.css";
 import App from "./App.tsx";
-import { I18nProvider } from "./i18n/I18nContext";
 
 /**
  * 本番のみ SW を登録。
@@ -38,9 +37,7 @@ if (import.meta.env.PROD && "serviceWorker" in navigator) {
 }
 
 createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <I18nProvider>
-      <App />
-    </I18nProvider>
-  </StrictMode>
+  // <StrictMode> // 一時的に無効化して多重実行を確認
+    <App />
+  // </StrictMode>
 );
