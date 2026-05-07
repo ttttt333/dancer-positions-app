@@ -426,7 +426,7 @@ const StageAreaSettingsSheet = memo(function StageAreaSettingsSheet({
   return (
     <EditorSideSheet
       open
-      zIndex={61}
+      zIndex={9200}
       width="min(440px, calc(100vw - 16px))"
       onClose={onClose}
       ariaLabelledBy="stage-area-settings-title"
@@ -5276,7 +5276,7 @@ export function EditorPage({
       {shortcutsHelpOpen ? (
         <EditorSideSheet
           open
-          zIndex={60}
+          zIndex={9200}
           width="min(480px, 42vw)"
           onClose={() => setShortcutsHelpOpen(false)}
           ariaLabelledBy="shortcuts-dialog-title"
@@ -5424,7 +5424,7 @@ export function EditorPage({
           style={{
             position: "fixed",
             inset: 0,
-            zIndex: 85,
+            zIndex: 9200,
             background: "rgba(2, 6, 23, 0.72)",
             display: "flex",
             alignItems: "center",
@@ -5513,7 +5513,7 @@ export function EditorPage({
         <EditorSideSheet
           open={shareLinksOpen}
           onClose={() => setShareLinksOpen(false)}
-          zIndex={75}
+          zIndex={9200}
           width="min(440px, 92vw)"
           ariaLabelledBy="share-links-panel-title"
         >

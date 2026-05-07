@@ -174,6 +174,7 @@ export function MobileToolSheet({ open, onClose, workbenchProps }: MobileToolShe
           layout="rail"
           {...workbenchProps}
           hideUndoRedoInRail={false}
+          onBeforeRailAction={onClose}
         />
 
         {/* Bottom padding */}

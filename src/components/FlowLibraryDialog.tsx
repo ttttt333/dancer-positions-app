@@ -659,7 +659,7 @@ export function FlowLibraryDialog({
   return (
     <EditorSideSheet
       open
-      zIndex={70}
+      zIndex={9200}
       width="min(640px, 54vw)"
       blockDismiss={busy}
       onClose={onClose}

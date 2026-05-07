@@ -423,6 +423,11 @@ export type EditorStageWorkbenchProps = {
   cloudSaveRailTitle?: string;
   /** AIフォーメーション提案ダイアログを開く */
   onAiSuggest?: () => void;
+  /**
+   * rail モードの各タイルボタン押下時に呼ばれるフック。
+   * MobileToolSheet からは「シートを閉じる」処理を渡す。
+   */
+  onBeforeRailAction?: () => void;
 };
 
 export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
@@ -465,6 +470,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
     cloudSaveRailLine2 = "",
     cloudSaveRailTitle = "",
     onAiSuggest,
+    onBeforeRailAction,
   } = props;
 
   const rowOuter: CSSProperties = rail
@@ -549,6 +555,11 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
     const choreo = choreoToolbarProps;
     const isView = project.viewMode === "view";
 
+    /** アクション実行前にToolSheetを閉じるラッパー */
+    function act(fn: () => void) {
+      return () => { onBeforeRailAction?.(); fn(); };
+    }
+
     // 共通ボタンスタイル生成
     function tileBtn(color: string, active = false) {
       return {
@@ -612,7 +623,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               style={tileBtn("#8b5cf6", stageAreaSettingsOpen)}
               disabled={isView}
               title="舞台・客席・グリッド・名前の出し方・この URL の共有・ショートカット"
-              onClick={() => setStageAreaSettingsOpen(true)}
+              onClick={act(() => setStageAreaSettingsOpen(true))}
             >
               <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
                 <path d="M3 18 L6 6 L18 6 L21 18 Z" stroke="#8b5cf6" strokeWidth="1.6" strokeLinejoin="round"/>
@@ -629,7 +640,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               style={tileBtn("#f59e0b")}
               disabled={isView}
               title="キュー設定"
-              onClick={() => setStageAreaSettingsOpen(true)}
+              onClick={act(() => setStageAreaSettingsOpen(true))}
             >
               <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
                 <path d="M4 5h16M4 9h16M4 13h10" stroke="#f59e0b" strokeWidth="1.8" strokeLinecap="round"/>
@@ -645,7 +656,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               disabled={isView}
               title="形の箱に今の立ち位置を保存"
               aria-label="形の箱に今の立ち位置を保存"
-              onClick={() => saveStageToFormationBox()}
+              onClick={act(() => saveStageToFormationBox())}
             >
               <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
                 <rect x="3" y="5" width="18" height="14" rx="2.5" stroke="#10b981" strokeWidth="1.6" fill="none"/>
@@ -667,11 +678,11 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                   : floorTextPlaceSession ? "テキスト配置を終了します"
                   : "編集画面の好きな位置にテキストを置きます"
                 }
-                onClick={() => {
+                onClick={act(() => {
                   if (isView || stageView !== "2d") return;
                   if (project.cues.length > 0 && !selectedCueId) return;
                   setFloorTextPlaceSession(cur => cur ? null : { body: "", fontSizePx: 18, fontWeight: 600, xPct: 50, yPct: 22, color: "#fef08a", fontFamily: "system-ui, -apple-system, 'Segoe UI', sans-serif", scale: 1 });
-                }}
+                })}
               >
                 <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
                   <path d="M4 7h16M12 7v10M8 17h8" stroke={floorTextPlaceSession ? "#38bdf8" : "#f59e0b"} strokeWidth="1.8" strokeLinecap="round"/>
@@ -687,7 +698,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                 disabled={isView}
                 title="波形と右メニューを隠してステージだけを大きく表示（Esc で戻る）"
                 aria-label="ステージを拡大表示"
-                onClick={() => onEnterStageZen()}
+                onClick={act(() => onEnterStageZen())}
               >
                 <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
                   <circle cx="11" cy="11" r="6.5" stroke="#8b5cf6" strokeWidth="1.6"/>
@@ -704,7 +715,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                 disabled={isView || stageUndoDisabled}
                 title="編集を元に戻す（⌘Z / Ctrl+Z）"
                 aria-label="元に戻す"
-                onClick={() => undo()}
+                onClick={act(() => undo())}
               >
                 <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
                   <path d="M4 9 C4 5 8 3 12 3 C16 3 20 7 20 12 C20 17 16 21 12 21" stroke="#64748b" strokeWidth="1.8" strokeLinecap="round" fill="none"/>
@@ -720,7 +731,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                 disabled={isView || stageRedoDisabled}
                 title="やり直す（⌘⇧Z / Ctrl+Shift+Z）"
                 aria-label="やり直す"
-                onClick={() => redo()}
+                onClick={act(() => redo())}
               >
                 <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
                   <path d="M20 9 C20 5 16 3 12 3 C8 3 4 7 4 12 C4 17 8 21 12 21" stroke="#64748b" strokeWidth="1.8" strokeLinecap="round" fill="none"/>
@@ -734,7 +745,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               <button type="button"
                 style={tileBtn("#8b5cf6", choreo.snapGrid)}
                 title={`スナップ：格子点に自動整列 (${choreo.snapGrid ? "ON" : "OFF"})`}
-                onClick={() => choreo.onToggleSnapGrid?.()}
+                onClick={act(() => choreo.onToggleSnapGrid?.())}
               >
                 <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
                   <path d="M4 4h6v6H4V4zm10 0h6v6h-6V4zM4 14h6v6H4v-6zm10 0h6v6h-6v-6z" stroke={choreo.snapGrid ? "#a78bfa" : "#8b5cf6"} strokeWidth="1.5" strokeLinejoin="round"/>
@@ -756,7 +767,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                 disabled={isView}
                 title="モーダルでキュー一覧を開きます"
                 aria-label="キュー一覧を開く"
-                onClick={() => onOpenCueListModal()}
+                onClick={act(() => onOpenCueListModal())}
               >
                 <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
                   <rect x="3" y="4" width="18" height="16" rx="2" stroke="#f59e0b" strokeWidth="1.5" fill="none"/>
@@ -774,7 +785,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                 title="楽曲または動画から音声を読み込み（MP4 / AVI / MOV / MKV / WMV 等に対応）"
                 aria-label="音源を取り込む"
                 onPointerEnter={() => onPreloadFfmpegForAudio?.()}
-                onClick={() => onOpenAudioImport?.()}
+                onClick={act(() => onOpenAudioImport?.())}
               >
                 <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
                   <path d="M3 12 Q6 6 9 12 Q12 18 15 12 Q18 6 21 12" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round" fill="none"/>
@@ -788,7 +799,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               style={tileBtn("#3b82f6")}
               disabled={isView}
               title="今までの流れ（フォーメーションとキュー）をフローライブラリに保存します"
-              onClick={() => setFlowLibraryOpen(true)}
+              onClick={act(() => setFlowLibraryOpen(true))}
             >
               <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
                 <path d="M3 5 C3 4 4 3 5 3 L14 3 L21 10 L21 19 C21 20 20 21 19 21 L5 21 C4 21 3 20 3 19 Z" stroke="#3b82f6" strokeWidth="1.5" fill="none"/>
@@ -808,7 +819,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                 }}
                 title="楽曲の構造を解析してフォーメーションをAIが提案します"
                 aria-label="AIフォーメーション提案"
-                onClick={() => onAiSuggest?.()}
+                onClick={act(() => onAiSuggest?.())}
               >
                 <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
                   <path d="M12 3 L13.8 9.2 L20 11 L13.8 12.8 L12 19 L10.2 12.8 L4 11 L10.2 9.2 Z" fill="#a78bfa" stroke="#a78bfa" strokeWidth="0.5" strokeLinejoin="round"/>
@@ -829,7 +840,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               style={tileBtn("#10b981")}
               disabled={isView}
               title="選択中のフォーメーションにメンバーを1人追加（中央付近）"
-              onClick={() => addDancerFromStageToolbar()}
+              onClick={act(() => addDancerFromStageToolbar())}
             >
               <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
                 <circle cx="10" cy="8" r="3.5" stroke="#10b981" strokeWidth="1.6" fill="none"/>
@@ -843,7 +854,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               style={tileBtn("#06b6d4")}
               disabled={isView}
               title="CSV / TSV を選んで新しい名簿として取り込みます（1 列目または「名前」などの見出しを検出）"
-              onClick={() => importCrewCsvFromStageToolbar()}
+              onClick={act(() => importCrewCsvFromStageToolbar())}
             >
               <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
                 <rect x="3" y="3" width="14" height="18" rx="2" stroke="#06b6d4" strokeWidth="1.5" fill="none"/>
@@ -859,7 +870,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                 style={tileBtn("#10b981")}
                 disabled={isView}
                 title="右列で名簿一覧を表示し、タイムライン列は隠します"
-                onClick={() => setProjectSafe(p => ({ ...p, rosterHidesTimeline: true, rosterStripCollapsed: false }))}
+                onClick={act(() => setProjectSafe(p => ({ ...p, rosterHidesTimeline: true, rosterStripCollapsed: false })))}
               >
                 <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
                   <circle cx="8" cy="8" r="3" stroke="#10b981" strokeWidth="1.5" fill="none"/>
@@ -901,7 +912,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                 disabled={isView || cloudSaveDisabled}
                 title={cloudSaveRailTitle}
                 aria-label={cloudSaveRailTitle}
-                onClick={() => onOpenCloudSave()}
+                onClick={act(() => onOpenCloudSave())}
               >
                 <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
                   <path d="M18 15 C21 15 22 11 19 9 C19 6 16 4 13 5 C11 3 7 4 7 7.5 C4 8 3 12 6 13.5" stroke="#3b82f6" strokeWidth="1.6" strokeLinecap="round" fill="none"/>
@@ -915,7 +926,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               <button type="button"
                 style={tileBtn("#06b6d4")}
                 title="書き出し（PNG / PDF / WebM / JSON）"
-                onClick={() => choreo.onOpenExport?.()}
+                onClick={act(() => choreo.onOpenExport?.())}
               >
                 <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
                   <rect x="4" y="3" width="16" height="13" rx="2" stroke="#06b6d4" strokeWidth="1.5" fill="none"/>
@@ -932,7 +943,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                 disabled={viewerModeButtonDisabled}
                 title="表示する人を一人に強調。再生の確認とステージ画像の保存・共有"
                 aria-label="閲覧モード（メンバー別の強調）"
-                onClick={() => onOpenViewerMode()}
+                onClick={act(() => onOpenViewerMode())}
               >
                 <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
                   <path d="M2 12 C5 7 9 4 12 4 C15 4 19 7 22 12 C19 17 15 20 12 20 C9 20 5 17 2 12 Z" stroke="#38bdf8" strokeWidth="1.5" fill="none"/>
@@ -947,7 +958,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               <button type="button"
                 style={tileBtn("#f97316")}
                 title="大道具を追加（図形・色を選択）"
-                onClick={() => choreo.onOpenSetPiecePicker?.()}
+                onClick={act(() => choreo.onOpenSetPiecePicker?.())}
               >
                 <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
                   <rect x="3" y="3" width="8" height="8" rx="1.5" stroke="#f97316" strokeWidth="1.5" fill="none"/>
@@ -963,7 +974,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               <button type="button"
                 style={tileBtn("#64748b")}
                 title="キーボードショートカット一覧"
-                onClick={() => choreo.onOpenShortcutsHelp?.()}
+                onClick={act(() => choreo.onOpenShortcutsHelp?.())}
               >
                 <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
                   <circle cx="12" cy="12" r="9.5" stroke="#64748b" strokeWidth="1.5" fill="none"/>
