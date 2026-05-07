@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import { isDemoSessionToken, projectApi } from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -6,8 +6,14 @@ import { useI18n } from "../i18n/I18nContext";
 import { ChoreoCoreLogo } from "../components/ChoreoCoreLogo";
 import { btnAccent, btnSecondary } from "../components/stageButtonStyles";
 import { shell } from "../theme/choreoShell";
-import { tryMigrateFromLocalStorage } from "../lib/projectDefaults";
+import { tryMigrateFromLocalStorage, createEmptyProject } from "../lib/projectDefaults";
 import { copyTextToClipboard, projectShareLinks } from "../lib/shareProjectLinks";
+import {
+  listFlowLibraryItems,
+  expandFlowToProject,
+  applyFlowStageSettingsToProject,
+  type FlowLibraryItem,
+} from "../lib/flowLibrary";
 
 /** 左カラムとヘッダの水平インセット */
 const LIBRARY_GUTTER = "clamp(16px, 4vw, 44px)";
@@ -83,6 +89,65 @@ export function LibraryPage() {
   const [shareCopyHint, setShareCopyHint] = useState("");
 
   const legacyProject = useMemo(() => tryMigrateFromLocalStorage(), []);
+
+  // ゲスト時のローカルflowライブラリデータ
+  const [localFlows, setLocalFlows] = useState<FlowLibraryItem[]>([]);
+  const [migrateState, setMigrateState] = useState<
+    "idle" | "running" | "done" | "error"
+  >("idle");
+  const [migrateLog, setMigrateLog] = useState<string[]>([]);
+  const migrateAborted = useRef(false);
+
+  useEffect(() => {
+    // ログイン済みのときだけローカルデータを確認
+    if (!me) {
+      setLocalFlows([]);
+      return;
+    }
+    setLocalFlows(listFlowLibraryItems());
+  }, [me]);
+
+  const handleMigrateLocalFlows = useCallback(async () => {
+    if (localFlows.length === 0) return;
+    migrateAborted.current = false;
+    setMigrateState("running");
+    setMigrateLog([]);
+    const log: string[] = [];
+    let ok = 0;
+    let fail = 0;
+    for (const item of localFlows) {
+      if (migrateAborted.current) break;
+      const name = item.name || "無題のフロー";
+      try {
+        const expanded = expandFlowToProject(item, { replaceTiming: true });
+        let proj = createEmptyProject();
+        proj = {
+          ...proj,
+          formations: expanded.formations,
+          cues: expanded.cues,
+          activeFormationId: expanded.activeFormationId,
+        };
+        if (expanded.stageSettings) {
+          proj = applyFlowStageSettingsToProject(proj, expanded.stageSettings);
+        }
+        await projectApi.create(name, proj);
+        ok++;
+        log.push(`✓ ${name}`);
+      } catch (e) {
+        fail++;
+        log.push(`✗ ${name}：${e instanceof Error ? e.message : "不明なエラー"}`);
+      }
+      setMigrateLog([...log]);
+    }
+    setMigrateState(fail > 0 && ok === 0 ? "error" : "done");
+    // 完了後はcloudリストを再取得
+    if (ok > 0) {
+      try {
+        const list = await projectApi.list();
+        setProjects(list);
+      } catch {/* ignore */}
+    }
+  }, [localFlows]);
 
   useEffect(() => {
     if (!me) {
@@ -346,6 +411,88 @@ export function LibraryPage() {
                 >
                   {t("library.openBrowserData")}
                 </Link>
+              </div>
+            </section>
+          ) : null}
+
+          {/* ゲスト時のローカルFlowLibraryデータ → クラウドへ移行 */}
+          {me && localFlows.length > 0 && migrateState !== "done" ? (
+            <section style={{ marginBottom: 28 }}>
+              <h2
+                style={{
+                  margin: "0 0 10px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  letterSpacing: "0.12em",
+                  color: shell.textSubtle,
+                  textAlign: "left",
+                }}
+              >
+                ブラウザ内のフロー（ログイン前のデータ）
+              </h2>
+              <div
+                style={{
+                  ...libraryGlassPanel,
+                  padding: "18px 20px",
+                  borderColor: "rgba(212,175,55,0.3)",
+                  background: "rgba(212,175,55,0.07)",
+                }}
+              >
+                <p style={{ margin: "0 0 12px", fontSize: "14px", color: shell.textMuted, lineHeight: 1.55 }}>
+                  このブラウザに <strong style={{ color: shell.text }}>{localFlows.length}件</strong> のフローが保存されています。クラウドにアップロードして引き継げます。
+                </p>
+                <ul style={{ margin: "0 0 14px", padding: "0 0 0 16px", fontSize: "13px", color: shell.textMuted, lineHeight: 1.8 }}>
+                  {localFlows.map((f) => (
+                    <li key={f.id}>{f.name || "無題のフロー"}</li>
+                  ))}
+                </ul>
+                {migrateState === "idle" && (
+                  <button
+                    type="button"
+                    style={{ ...btnAccent, padding: "10px 20px", fontSize: "13px" }}
+                    onClick={() => void handleMigrateLocalFlows()}
+                  >
+                    クラウドに移行する
+                  </button>
+                )}
+                {migrateState === "running" && (
+                  <div style={{ fontSize: "13px", color: shell.textMuted }}>
+                    <span style={{ display: "inline-block", marginRight: 8, animation: "spin 1s linear infinite" }}>⏳</span>
+                    移行中…
+                    <ul style={{ margin: "8px 0 0", padding: "0 0 0 16px", lineHeight: 1.9 }}>
+                      {migrateLog.map((l, i) => <li key={i}>{l}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {migrateState === "error" && (
+                  <div>
+                    <p style={{ margin: "0 0 8px", color: "#fca5a5", fontSize: "13px" }}>一部の移行に失敗しました：</p>
+                    <ul style={{ margin: 0, padding: "0 0 0 16px", fontSize: "12px", color: "#fca5a5", lineHeight: 1.9 }}>
+                      {migrateLog.map((l, i) => <li key={i}>{l}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </section>
+          ) : null}
+
+          {me && migrateState === "done" ? (
+            <section style={{ marginBottom: 28 }}>
+              <div
+                style={{
+                  ...libraryGlassPanel,
+                  padding: "14px 18px",
+                  borderColor: "rgba(134,239,172,0.3)",
+                  background: "rgba(5,46,22,0.3)",
+                  fontSize: "13px",
+                  color: "#86efac",
+                  lineHeight: 1.7,
+                }}
+              >
+                <strong>移行完了</strong>
+                <ul style={{ margin: "6px 0 0", padding: "0 0 0 16px" }}>
+                  {migrateLog.map((l, i) => <li key={i}>{l}</li>)}
+                </ul>
               </div>
             </section>
           ) : null}
