@@ -98,6 +98,7 @@ import { EditorSideSheet } from "../components/EditorSideSheet";
 import { ExportDialog } from "../components/ExportDialog";
 import { FlowLibraryDialog } from "../components/FlowLibraryDialog";
 import { AddCueWithFormationDialog } from "../components/AddCueWithFormationDialog";
+import { AiSuggestDialog } from "../components/AiSuggestDialog";
 import { projectApi } from "../api/client";
 import { isSupabaseBackend } from "../lib/supabaseClient";
 import { projectShareLinks } from "../lib/shareProjectLinks";
@@ -998,6 +999,7 @@ export function EditorPage({
   } = useTimelineMediaHandle();
   const { playSound } = useTaskCompletionSound();
   const [stageSettingsOpen, setStageSettingsOpen] = useState(false);
+  const [aiSuggestOpen, setAiSuggestOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   /** ステージ列ヘッダの「設定」：舞台・グリッド・名前・共有・ヒントを集約 */
   const [stageAreaSettingsOpen, setStageAreaSettingsOpen] = useState(false);
@@ -2566,6 +2568,16 @@ export function EditorPage({
     [project, exportDialogOpen, projectName, stageView]
   );
 
+  const aiSuggestDialogEl =
+    aiSuggestOpen && project ? (
+      <AiSuggestDialog
+        project={project}
+        setProject={setProjectSafe}
+        peaks={getWavePeaksSnapshot()}
+        onClose={() => setAiSuggestOpen(false)}
+      />
+    ) : null;
+
   const flowLibraryDialogEl = useMemo(
     () =>
       project ? (
@@ -3561,10 +3573,36 @@ export function EditorPage({
               minWidth: 0,
               minHeight: 0,
               display: "flex",
+              flexDirection: "column",
+              gap: 4,
               gridRow: 1,
             }}
           >
             <ChoreoCoreToolbar {...choreoToolbarSharedProps} />
+            {project?.viewMode !== "view" && (
+              <button
+                type="button"
+                onClick={() => setAiSuggestOpen(true)}
+                title="楽曲の構造を解析してフォーメーションをAIが提案します"
+                style={{
+                  ...btnSecondary,
+                  width: "100%",
+                  padding: "6px 8px",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  color: "#a78bfa",
+                  borderColor: "#4c1d95",
+                  background: "rgba(76,29,149,0.15)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 4,
+                  cursor: "pointer",
+                }}
+              >
+                <span style={{ fontSize: 13 }}>✨</span> AIフォーメーション提案
+              </button>
+            )}
           </div>
         ) : null}
         <section
@@ -5369,6 +5407,7 @@ export function EditorPage({
 
       {exportDialogEl}
       {flowLibraryDialogEl}
+      {aiSuggestDialogEl}
       {addCueDialogEl}
       {formationBoxManagerDialogEl}
 
