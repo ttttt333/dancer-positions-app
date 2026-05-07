@@ -596,6 +596,11 @@ html, body {
   left: auto !important;
 }
 
+/* モバイルエディタ中は言語セレクタを非表示 */
+body:has([data-mobile-editor="true"]) .app-language-switcher--floating {
+  display: none !important;
+}
+
 .app-language-switcher select {
   min-height: 40px;
   font-size: 14px;

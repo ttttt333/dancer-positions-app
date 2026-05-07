@@ -1,21 +1,17 @@
 /**
  * MobileEditorShell — モバイルエディタのメインコンテナ
  *
- * Portrait: header 44px → stage flex:1(~65%) → waveform 52px → playbar 60px → bottomtab 56px+safe
+ * Portrait: stage flex:1 → timeline(波形+再生) ~72px → bottomtab 56px+safe
  * Landscape: stage 60% left | right panel 40% scrollable
  *
  * スワイプ: stage上の横スワイプ = 前後キュー切替（ハプティクスあり）
  */
 import { useState, useRef, useCallback, type ReactNode } from "react";
-import type { ChoreographyProjectJson, Cue } from "../../types/choreography";
 import type { EditorStageWorkbenchProps } from "../EditorStageWorkbench";
 import { EditorStageWorkbench } from "../EditorStageWorkbench";
 import { sortCuesByStart } from "../../lib/cueInterval";
 import { shell } from "../../theme/choreoShell";
-import { usePlaybackUiStore } from "../../store/usePlaybackUiStore";
-import { useTimelinePlayback } from "../../hooks/useTimelinePlayback";
 
-import { MobilePlaybar } from "./MobilePlaybar";
 import { MobileBottomTabBar, type MobileTab } from "./MobileBottomTabBar";
 import { MobileToolSheet } from "./MobileToolSheet";
 import { MobileCueList } from "./MobileCueList";
@@ -27,7 +23,10 @@ export type MobileEditorShellProps = {
   workbenchProps: Omit<EditorStageWorkbenchProps, "layout">;
   /** ステージキャンバス要素（StageBoard JSX を親から渡す） */
   stageEl: ReactNode;
-  /** タイムラインパネル要素（波形・再生 UI をマウントしたまま渡す） */
+  /**
+   * タイムラインパネル要素（波形＋再生コントロール）。
+   * TimelinePanel compactTopDock=true editorMobileStack=false で渡す。
+   */
   timelinePanelEl: ReactNode;
   /** 横向き判定 */
   landscape: boolean;
@@ -64,40 +63,24 @@ export function MobileEditorShell({
 }: MobileEditorShellProps) {
   const { project } = workbenchProps;
 
-  // Playback state from store
-  const currentTime = usePlaybackUiStore((s) => s.currentTimeSec);
-  const isPlaying = usePlaybackUiStore((s) => s.isPlaying);
-  const duration = usePlaybackUiStore((s) => s.durationSec);
-
-  // Playback controls
-  const { togglePlay, stopPlayback, seekForward5Sec, seekBackward5Sec } =
-    useTimelinePlayback({
-      durationSec: duration,
-      trimStartSec: project.trimStartSec ?? 0,
-      trimEndSec: project.trimEndSec ?? null,
-    });
-
-  const hasAudio = duration > 0;
-
-  // Sorted cues
+  // Sorted cues (for swipe navigation)
   const sortedCues = sortCuesByStart(project.cues);
 
   // Tab state
   const [activeTab, setActiveTab] = useState<MobileTab>("stage");
   const [toolSheetOpen, setToolSheetOpen] = useState(false);
 
-  // When MORE tab is pressed, toggle tool sheet
   const handleTabChange = (tab: MobileTab) => {
     if (tab === "more") {
-      setToolSheetOpen((prev) => !prev);
-      setActiveTab(toolSheetOpen ? "stage" : "more");
+      const nextOpen = !toolSheetOpen;
+      setToolSheetOpen(nextOpen);
+      setActiveTab(nextOpen ? "more" : "stage");
     } else {
       setToolSheetOpen(false);
       setActiveTab(tab);
     }
   };
 
-  // Close sheet → go back to stage
   const closeSheet = useCallback(() => {
     setToolSheetOpen(false);
     setActiveTab("stage");
@@ -107,7 +90,7 @@ export function MobileEditorShell({
   const swipeStartX = useRef<number | null>(null);
   const swipeStartY = useRef<number | null>(null);
   const SWIPE_THRESHOLD = 48;
-  const SWIPE_MAX_Y = 60; // ignore if mostly vertical
+  const SWIPE_MAX_Y = 60;
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     swipeStartX.current = e.touches[0].clientX;
@@ -122,22 +105,20 @@ export function MobileEditorShell({
       swipeStartX.current = null;
       swipeStartY.current = null;
 
-      if (Math.abs(dy) > SWIPE_MAX_Y) return; // vertical scroll
-      if (Math.abs(dx) < SWIPE_THRESHOLD) return; // too short
+      if (Math.abs(dy) > SWIPE_MAX_Y) return;
+      if (Math.abs(dx) < SWIPE_THRESHOLD) return;
 
       const idx = selectedCueId
         ? sortedCues.findIndex((c) => c.id === selectedCueId)
         : -1;
 
       if (dx < 0) {
-        // swipe left = next cue
         const nextIdx = idx + 1;
         if (nextIdx < sortedCues.length) {
           setSelectedCueId(sortedCues[nextIdx].id);
           vibrate(10);
         }
       } else {
-        // swipe right = previous cue
         const prevIdx = idx - 1;
         if (prevIdx >= 0) {
           setSelectedCueId(sortedCues[prevIdx].id);
@@ -173,33 +154,15 @@ export function MobileEditorShell({
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
+          {/* Canvas */}
           <div style={{ flex: 1, minHeight: 0, overflow: "hidden", position: "relative" }}>
             {stageEl}
           </div>
 
-          {/* Waveform (always mounted, compact height) */}
-          <div
-            style={{
-              height: 52,
-              overflow: "hidden",
-              flexShrink: 0,
-            }}
-          >
+          {/* Timeline: waveform + playback (compact) */}
+          <div style={{ flexShrink: 0, overflow: "hidden" }}>
             {timelinePanelEl}
           </div>
-
-          {/* Playbar */}
-          <MobilePlaybar
-            isPlaying={isPlaying}
-            currentTime={currentTime}
-            duration={duration}
-            hasAudio={hasAudio}
-            isView={isView}
-            togglePlay={togglePlay}
-            stopPlayback={stopPlayback}
-            seekForward5Sec={seekForward5Sec}
-            seekBackward5Sec={seekBackward5Sec}
-          />
         </div>
 
         {/* Right panel — 40% */}
@@ -215,7 +178,12 @@ export function MobileEditorShell({
             background: shell.surface,
           }}
         >
-          <EditorStageWorkbench key="mobile-rail-land" layout="rail" {...workbenchProps} hideUndoRedoInRail={false} />
+          <EditorStageWorkbench
+            key="mobile-rail-land"
+            layout="rail"
+            {...workbenchProps}
+            hideUndoRedoInRail={false}
+          />
         </div>
       </div>
     );
@@ -233,7 +201,7 @@ export function MobileEditorShell({
         overflow: "hidden",
       }}
     >
-      {/* Stage area — always mounted (visibility toggled) to preserve canvas state */}
+      {/* Stage — always mounted, toggled via display */}
       <div
         style={{
           flex: activeTab === "stage" ? 1 : 0,
@@ -263,34 +231,19 @@ export function MobileEditorShell({
             setActiveTab("stage");
           }}
           isView={isView}
-          currentTime={currentTime}
         />
       )}
 
-      {/* Waveform strip (always mounted but compact) */}
+      {/* Timeline strip (waveform + playback controls) — shown only on stage tab */}
       <div
         style={{
-          height: activeTab === "stage" ? 52 : 0,
-          overflow: "hidden",
           flexShrink: 0,
-          transition: "height 0.18s ease",
+          overflow: "hidden",
+          display: activeTab === "stage" ? "block" : "none",
         }}
       >
         {timelinePanelEl}
       </div>
-
-      {/* Playbar */}
-      <MobilePlaybar
-        isPlaying={isPlaying}
-        currentTime={currentTime}
-        duration={duration}
-        hasAudio={hasAudio}
-        isView={isView}
-        togglePlay={togglePlay}
-        stopPlayback={stopPlayback}
-        seekForward5Sec={seekForward5Sec}
-        seekBackward5Sec={seekBackward5Sec}
-      />
 
       {/* Bottom tab bar */}
       <MobileBottomTabBar

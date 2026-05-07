@@ -3231,8 +3231,8 @@ export function EditorPage({
       compactTopDock={
         showTopWaveDock || publicNarrowLayout || mobileStackEditor
       }
-      editorMobileStack={mobileStackEditor}
-      compactDockLeading={mobileTimelineDockLeading}
+      editorMobileStack={false}
+      compactDockLeading={mobileStackEditor ? undefined : mobileTimelineDockLeading}
       cueListPortalTarget={showTopWaveDock ? cueListPortalEl : null}
       onSave={() => setFlowLibraryOpen(true)}
     />
@@ -3332,7 +3332,7 @@ export function EditorPage({
       onFloorTextPlaceSessionChange={onFloorTextPlaceSessionChange}
       floorMarkupTool={floorMarkupTool}
       onFloorMarkupToolChange={setFloorMarkupTool}
-      hideFloorMarkupFloatingToolbars={false}
+      hideFloorMarkupFloatingToolbars={true}
       onGestureHistoryBegin={collabActive ? undefined : beginGestureHistory}
       onGestureHistoryEnd={collabActive ? undefined : endGestureHistory}
       onGestureHistoryCancel={collabActive ? undefined : cancelGestureHistory}
@@ -3346,6 +3346,7 @@ export function EditorPage({
     return (
       <div
         ref={(el) => setEditorSurfaceEl(el)}
+        data-mobile-editor="true"
         style={{
           width: "100%",
           height: "100dvh",
