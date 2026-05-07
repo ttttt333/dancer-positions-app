@@ -6,7 +6,7 @@
  *
  * スワイプ: stage上の横スワイプ = 前後キュー切替（ハプティクスあり）
  */
-import { useState, useRef, useCallback, useEffect, type ReactNode } from "react";
+import { useState, useRef, useCallback, type ReactNode } from "react";
 import type { ChoreographyProjectJson, Cue } from "../../types/choreography";
 import type { EditorStageWorkbenchProps } from "../EditorStageWorkbench";
 import { EditorStageWorkbench } from "../EditorStageWorkbench";
@@ -25,6 +25,8 @@ import { MobileCueList } from "./MobileCueList";
 export type MobileEditorShellProps = {
   /** 全 workbench プロップ (layout 以外) */
   workbenchProps: Omit<EditorStageWorkbenchProps, "layout">;
+  /** ステージキャンバス要素（StageBoard JSX を親から渡す） */
+  stageEl: ReactNode;
   /** タイムラインパネル要素（波形・再生 UI をマウントしたまま渡す） */
   timelinePanelEl: ReactNode;
   /** 横向き判定 */
@@ -52,6 +54,7 @@ function vibrate(pattern: number | number[]) {
 
 export function MobileEditorShell({
   workbenchProps,
+  stageEl,
   timelinePanelEl,
   landscape,
   selectedCueId,
@@ -170,8 +173,8 @@ export function MobileEditorShell({
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
-          <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
-            <EditorStageWorkbench key="mobile-stage-land" layout="stage" {...workbenchProps} />
+          <div style={{ flex: 1, minHeight: 0, overflow: "hidden", position: "relative" }}>
+            {stageEl}
           </div>
 
           {/* Waveform (always mounted, compact height) */}
@@ -230,22 +233,21 @@ export function MobileEditorShell({
         overflow: "hidden",
       }}
     >
-      {/* Stage area */}
-      {activeTab === "stage" && (
-        <div
-          style={{
-            flex: 1,
-            minHeight: 0,
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-        >
-          <EditorStageWorkbench key="mobile-stage-port" layout="stage" {...workbenchProps} />
-        </div>
-      )}
+      {/* Stage area — always mounted (visibility toggled) to preserve canvas state */}
+      <div
+        style={{
+          flex: activeTab === "stage" ? 1 : 0,
+          minHeight: 0,
+          display: activeTab === "stage" ? "flex" : "none",
+          flexDirection: "column",
+          overflow: "hidden",
+          position: "relative",
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        {stageEl}
+      </div>
 
       {/* Cue list tab */}
       {activeTab === "cues" && (

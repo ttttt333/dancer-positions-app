@@ -35,9 +35,16 @@
 - No text labels on icons except AI提案
 
 ## Status
-- [ ] MobilePlaybar
-- [ ] MobileBottomTabBar  
-- [ ] MobileToolSheet
-- [ ] MobileCueList
-- [ ] MobileEditorShell
-- [ ] DesktopEditor wiring
+- [x] MobilePlaybar
+- [x] MobileBottomTabBar  
+- [x] MobileToolSheet
+- [x] MobileCueList
+- [x] MobileEditorShell
+- [x] DesktopEditor wiring (early-return when mobileStackEditor=true)
+- [x] Build clean, pushed to main (commit 2905f6c)
+
+## Remaining / polish
+- [ ] Test on real device — check safe-area, touch targets, waveform height
+- [ ] Consider showing project title / back button in mobile header
+- [ ] Landscape: waveform in right panel or bottom of stage panel?
+- [ ] Stage swipe indicator (subtle "< >" arrows at edge when cues exist)

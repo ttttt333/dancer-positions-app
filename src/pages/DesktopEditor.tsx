@@ -3309,9 +3309,43 @@ export function EditorPage({
   };
 
   // ── Mobile UI ─────────────────────────────────────────────────────────────
+  // stageBoardEl: 実際のキャンバス要素。MobileEditorShellに渡す
+  const mobileStageBoardEl = (
+    <StageBoard
+      project={stageBoardProject}
+      setProject={setProjectSafe}
+      playbackDancers={playbackDancersForStage}
+      browseFormationDancers={browseFormationDancers}
+      previewDancers={stagePreviewDancers}
+      playbackSetPieces={playbackSetPiecesForStage}
+      browseSetPieces={browseSetPieces}
+      playbackFloorMarkup={playbackFloorMarkupForStage}
+      browseFloorMarkup={browseFloorMarkup}
+      editFormationId={
+        selectedCue?.formationId ?? project.activeFormationId
+      }
+      stageInteractionsEnabled={
+        project.viewMode !== "view" &&
+        (project.cues.length === 0 || Boolean(selectedCueId))
+      }
+      floorTextPlaceSession={floorTextPlaceSession}
+      onFloorTextPlaceSessionChange={onFloorTextPlaceSessionChange}
+      floorMarkupTool={floorMarkupTool}
+      onFloorMarkupToolChange={setFloorMarkupTool}
+      hideFloorMarkupFloatingToolbars={false}
+      onGestureHistoryBegin={collabActive ? undefined : beginGestureHistory}
+      onGestureHistoryEnd={collabActive ? undefined : endGestureHistory}
+      onGestureHistoryCancel={collabActive ? undefined : cancelGestureHistory}
+      markHistorySkipNextPush={collabActive ? undefined : markHistorySkipNextPush}
+      viewportTextOverlayRoot={editorSurfaceEl}
+      studentViewerFocus={studentViewerFocusForStage}
+    />
+  );
+
   if (mobileStackEditor) {
     return (
       <div
+        ref={(el) => setEditorSurfaceEl(el)}
         style={{
           width: "100%",
           height: "100dvh",
@@ -3321,6 +3355,7 @@ export function EditorPage({
           background: shell.bgDeep,
           display: "flex",
           flexDirection: "column",
+          position: "relative",
         }}
       >
         {/* Dialogs (all memos computed above, before this return) */}
@@ -3333,6 +3368,7 @@ export function EditorPage({
 
         <MobileEditorShell
           workbenchProps={stageWorkbenchProps}
+          stageEl={mobileStageBoardEl}
           timelinePanelEl={timelinePanelEl}
           landscape={editorMobileLandscape}
           selectedCueId={selectedCueId}
