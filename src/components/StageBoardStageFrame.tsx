@@ -30,7 +30,7 @@ export function StageBoardStageFrame({
    * `cqb` が縮小され、ステージ枠が自動的に小さくなって帯が枠内に収まる。
    */
   const rotNorm = ((rotatedFrame.rotationDeg % 360) + 360) % 360;
-  const audienceTopPadding = rotNorm === 180 ? 8 : undefined;
+  const isAudienceTop = rotNorm === 180;
 
   const wrapperStyle: CSSProperties = {
     display: "flex",
@@ -42,7 +42,7 @@ export function StageBoardStageFrame({
   };
 
   return (
-    <StageBoardFitViewport paddingTop={audienceTopPadding}>
+    <StageBoardFitViewport alignTop={isAudienceTop}>
       <div style={wrapperStyle}>
         <StageRotatedStageFrame {...rotatedFrame}>
           <StageExportRootColumn {...exportColumn} />
