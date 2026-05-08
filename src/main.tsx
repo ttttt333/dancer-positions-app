@@ -12,7 +12,7 @@ import { I18nProvider } from "./i18n/I18nContext";
  * その後 registerSW で新しい SW を登録する。
  */
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
-  const CLEAN_KEY = "__cc_sw_clean_v2";
+  const CLEAN_KEY = "__cc_sw_clean_v4";
   if (!sessionStorage.getItem(CLEAN_KEY)) {
     sessionStorage.setItem(CLEAN_KEY, "1");
     navigator.serviceWorker.getRegistrations().then(async (regs) => {
