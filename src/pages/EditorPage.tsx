@@ -4571,7 +4571,7 @@ export function EditorPage({
             <EditorSideSheet
               open
               zIndex={2200}
-              width="min(440px, calc(100vw - 28px))"
+              width="min(320px, calc(100vw - 16px))"
               onClose={() => setCueListModalOpen(false)}
               ariaLabelledBy="cue-list-modal-title"
             >
@@ -4584,35 +4584,57 @@ export function EditorPage({
                   background: shell.surface,
                 }}
               >
+                {/* ── ヘッダー ── */}
                 <div
                   style={{
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
                     gap: 8,
-                    padding: "10px 12px",
-                    borderBottom: `1px solid ${shell.border}`,
+                    padding: "11px 14px",
+                    borderBottom: `1px solid ${shell.borderStrong}`,
                     flexShrink: 0,
+                    background: shell.bgChrome,
                   }}
                 >
                   <h2
                     id="cue-list-modal-title"
                     style={{
                       margin: 0,
-                      fontSize: "14px",
-                      fontWeight: 600,
+                      fontSize: "13px",
+                      fontWeight: 700,
                       color: shell.text,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 7,
+                      letterSpacing: "0.03em",
                     }}
                   >
+                    <span style={{ color: shell.accent, display: "flex", opacity: 0.9 }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+                        <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+                      </svg>
+                    </span>
                     キュー一覧
                   </h2>
                   <button
                     type="button"
                     aria-label="閉じる"
                     onClick={() => setCueListModalOpen(false)}
-                    style={{ ...btnSecondary, padding: "4px 10px" }}
+                    style={{
+                      background: "transparent",
+                      border: `1px solid ${shell.border}`,
+                      borderRadius: 6,
+                      color: shell.textMuted,
+                      fontSize: 16,
+                      lineHeight: 1,
+                      padding: "3px 9px",
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                    }}
                   >
-                    閉じる
+                    ×
                   </button>
                 </div>
                 <div
