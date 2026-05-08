@@ -16,7 +16,7 @@ const neonGlow = (c: string) =>
 function IconPlay() {
   const c = "#c084fc"; // purple neon
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
       <polygon points="5,3 20,12 5,21" fill={c} />
     </svg>
   );
@@ -24,7 +24,7 @@ function IconPlay() {
 function IconPause() {
   const c = "#c084fc";
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
       <rect x="4" y="3" width="5" height="18" rx="1.5" fill={c} />
       <rect x="15" y="3" width="5" height="18" rx="1.5" fill={c} />
     </svg>
@@ -33,7 +33,7 @@ function IconPause() {
 function IconStop() {
   const c = "#818cf8"; // indigo neon
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
+    <svg width="21" height="21" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
       <rect x="3" y="3" width="18" height="18" rx="2.5" fill={c} />
     </svg>
   );
@@ -41,7 +41,7 @@ function IconStop() {
 function IconSeekBack() {
   const c = "#60a5fa"; // blue neon
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
       <polygon points="14,4 3,12 14,20" fill={c} />
       <rect x="15" y="4" width="6" height="16" rx="1.5" fill={c} />
     </svg>
@@ -50,7 +50,7 @@ function IconSeekBack() {
 function IconSeekFwd() {
   const c = "#60a5fa";
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
       <polygon points="10,4 21,12 10,20" fill={c} />
       <rect x="3" y="4" width="6" height="16" rx="1.5" fill={c} />
     </svg>
@@ -59,7 +59,7 @@ function IconSeekFwd() {
 function IconSave() {
   const c = "#818cf8"; // indigo neon — matches NeonIconPanel save
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
       <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"
         fill="none" stroke={c} strokeWidth="1.8" strokeLinejoin="round" />
       <polyline points="17,21 17,13 7,13 7,21" fill="none" stroke={c} strokeWidth="1.8" />
@@ -71,7 +71,7 @@ function IconAudioImport() {
   // 音符 + プラス、ピンクネオン
   const c = "#f472b6";
   return (
-    <svg width="17" height="17" viewBox="0 0 28 28" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
+    <svg width="24" height="24" viewBox="0 0 28 28" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
       {/* 音符の縦棒 */}
       <line x1="9" y1="5" x2="9" y2="17" stroke={c} strokeWidth="1.8" strokeLinecap="round" />
       {/* 音符の旗 */}
