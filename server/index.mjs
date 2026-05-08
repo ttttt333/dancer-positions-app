@@ -1,0 +1,828 @@
+import express from "express";
+import cors from "cors";
+import Database from "better-sqlite3";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import multer from "multer";
+import { randomBytes, createHash } from "crypto";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+import { mkdirSync, existsSync, createReadStream } from "fs";
+import { networkInterfaces } from "os";
+import http from "http";
+import { WebSocketServer } from "ws";
+import Stripe from "stripe";
+import {
+  setupWSConnection,
+  setContentInitializor,
+} from "@y/websocket-server/utils";
+import { applyProjectJsonToDoc } from "./yjsJson.mjs";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const JWT_SECRET = process.env.JWT_SECRET || "dev-only-change-in-production";
+const PORT = Number(process.env.PORT) || 3001;
+const APP_BASE = process.env.APP_BASE || "http://127.0.0.1:5173";
+
+/** 本番では永続ボリュームをマウントしたパス（例: Fly.io の /data） */
+const dataRoot = process.env.DATA_DIR || __dirname;
+if (!existsSync(dataRoot)) mkdirSync(dataRoot, { recursive: true });
+const dbPath = join(dataRoot, "data.sqlite");
+const db = new Database(dbPath);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS organizations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS org_admins (
+    org_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    PRIMARY KEY (org_id, user_id),
+    FOREIGN KEY (org_id) REFERENCES organizations(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+  CREATE TABLE IF NOT EXISTS org_members (
+    org_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    approved_at TEXT NOT NULL,
+    PRIMARY KEY (org_id, user_id),
+    FOREIGN KEY (org_id) REFERENCES organizations(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+  CREATE TABLE IF NOT EXISTS membership_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    org_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    decided_at TEXT,
+    decided_by INTEGER,
+    FOREIGN KEY (org_id) REFERENCES organizations(id),
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+  CREATE TABLE IF NOT EXISTS projects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    json TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+`);
+
+try {
+  db.exec(
+    "ALTER TABLE users ADD COLUMN entitlement_lifetime INTEGER NOT NULL DEFAULT 0"
+  );
+} catch {
+  /* column exists */
+}
+
+try {
+  db.exec("ALTER TABLE users ADD COLUMN stripe_customer_id TEXT");
+} catch {
+  /* exists */
+}
+try {
+  db.exec("ALTER TABLE users ADD COLUMN stripe_subscription_id TEXT");
+} catch {
+  /* exists */
+}
+try {
+  db.exec("ALTER TABLE users ADD COLUMN subscription_status TEXT");
+} catch {
+  /* exists */
+}
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS audio_assets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    project_id INTEGER,
+    mime TEXT,
+    path TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  );
+  CREATE TABLE IF NOT EXISTS approval_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    request_id INTEGER NOT NULL UNIQUE,
+    token_hash TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    FOREIGN KEY (request_id) REFERENCES membership_requests(id)
+  );
+  CREATE TABLE IF NOT EXISTS project_collaborators (
+    project_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    PRIMARY KEY (project_id, user_id),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+`);
+
+const countOrgs = db.prepare("SELECT COUNT(*) AS c FROM organizations").get();
+if (countOrgs.c === 0) {
+  db.prepare(
+    "INSERT INTO organizations (name, created_at) VALUES (?, ?)"
+  ).run("サンプル協会", new Date().toISOString());
+}
+
+const uploadsRoot = join(dataRoot, "data", "uploads");
+if (!existsSync(uploadsRoot)) mkdirSync(uploadsRoot, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uid = String(req.userId || "0");
+    const dir = join(uploadsRoot, uid);
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const ext = (file.originalname.split(".").pop() || "bin").slice(0, 8);
+    cb(null, `${Date.now()}-${randomBytes(4).toString("hex")}.${ext}`);
+  },
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 80 * 1024 * 1024 },
+});
+
+const stripeSecret = process.env.STRIPE_SECRET_KEY || "";
+const stripe = stripeSecret ? new Stripe(stripeSecret) : null;
+const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID || "";
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
+
+setContentInitializor(async (ydoc) => {
+  const name = ydoc.name;
+  const m = /^project-(\d+)$/.exec(name);
+  if (!m) return;
+  const pid = Number(m[1]);
+  const row = db.prepare("SELECT json FROM projects WHERE id = ?").get(pid);
+  if (!row?.json) return;
+  try {
+    applyProjectJsonToDoc(ydoc, JSON.parse(row.json));
+  } catch (e) {
+    console.error("[yjs] init doc failed", e);
+  }
+});
+
+function canAccessProject(userId, projectId) {
+  const own = db
+    .prepare("SELECT 1 FROM projects WHERE id = ? AND user_id = ?")
+    .get(projectId, userId);
+  if (own) return true;
+  const c = db
+    .prepare(
+      "SELECT 1 FROM project_collaborators WHERE project_id = ? AND user_id = ?"
+    )
+    .get(projectId, userId);
+  return !!c;
+}
+
+function isProjectOwner(userId, projectId) {
+  const own = db
+    .prepare("SELECT 1 FROM projects WHERE id = ? AND user_id = ?")
+    .get(projectId, userId);
+  return !!own;
+}
+
+const app = express();
+app.set("trust proxy", 1);
+app.use(cors({ origin: true, credentials: true }));
+
+/** Stripe Webhook は raw body で署名検証する必要がある */
+app.post(
+  "/api/billing/webhook",
+  express.raw({ type: "application/json" }),
+  (req, res) => {
+    if (!stripe || !STRIPE_WEBHOOK_SECRET) {
+      return res.status(503).send("Stripe not configured");
+    }
+    const sig = req.headers["stripe-signature"];
+    let event;
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        sig,
+        STRIPE_WEBHOOK_SECRET
+      );
+    } catch (err) {
+      console.error("[stripe webhook]", err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+    try {
+      if (event.type === "checkout.session.completed") {
+        const s = event.data.object;
+        const uid = Number(s.client_reference_id);
+        if (Number.isFinite(uid) && uid > 0) {
+          if (s.customer) {
+            db.prepare(
+              "UPDATE users SET stripe_customer_id = ? WHERE id = ?"
+            ).run(String(s.customer), uid);
+          }
+          if (s.mode === "subscription" && s.subscription) {
+            db.prepare(
+              "UPDATE users SET stripe_subscription_id = ?, subscription_status = ? WHERE id = ?"
+            ).run(String(s.subscription), "active", uid);
+          }
+        }
+      } else if (event.type === "customer.subscription.updated") {
+        const sub = event.data.object;
+        const row = db
+          .prepare("SELECT id FROM users WHERE stripe_subscription_id = ?")
+          .get(sub.id);
+        if (row) {
+          db.prepare(
+            "UPDATE users SET subscription_status = ? WHERE id = ?"
+          ).run(sub.status, row.id);
+        }
+      } else if (event.type === "customer.subscription.deleted") {
+        const sub = event.data.object;
+        db.prepare(
+          "UPDATE users SET subscription_status = 'canceled', stripe_subscription_id = NULL WHERE stripe_subscription_id = ?"
+        ).run(sub.id);
+      }
+    } catch (e) {
+      console.error("[stripe webhook handler]", e);
+      return res.status(500).json({ error: "handler failed" });
+    }
+    res.json({ received: true });
+  }
+);
+
+app.use(express.json({ limit: "20mb" }));
+
+function authMiddleware(req, res, next) {
+  const h = req.headers.authorization;
+  const token = h?.startsWith("Bearer ") ? h.slice(7) : null;
+  if (!token) {
+    req.userId = null;
+    return next();
+  }
+  try {
+    const p = jwt.verify(token, JWT_SECRET);
+    req.userId = Number(p.sub);
+    next();
+  } catch {
+    req.userId = null;
+    next();
+  }
+}
+
+function requireAuth(req, res, next) {
+  if (!req.userId) {
+    return res.status(401).json({ error: "ログインが必要です" });
+  }
+  next();
+}
+
+function hashToken(t) {
+  return createHash("sha256").update(t).digest("hex");
+}
+
+function approveMembershipRequest(requestId, decidedBy) {
+  const row = db
+    .prepare("SELECT * FROM membership_requests WHERE id = ?")
+    .get(requestId);
+  if (!row || row.status !== "pending") return { ok: false, error: "not_pending" };
+  const now = new Date().toISOString();
+  db.prepare(
+    `UPDATE membership_requests SET status = 'approved', decided_at = ?, decided_by = ?
+     WHERE id = ?`
+  ).run(now, decidedBy, requestId);
+  db.prepare(
+    `INSERT OR REPLACE INTO org_members (org_id, user_id, approved_at)
+     VALUES (?, ?, ?)`
+  ).run(row.org_id, row.user_id, now);
+  db.prepare("DELETE FROM approval_tokens WHERE request_id = ?").run(requestId);
+  return { ok: true };
+}
+
+app.post("/api/auth/register", async (req, res) => {
+  const email = String(req.body?.email || "")
+    .trim()
+    .toLowerCase();
+  const password = String(req.body?.password || "");
+  if (!email || password.length < 6) {
+    return res
+      .status(400)
+      .json({ error: "メールと6文字以上のパスワードが必要です" });
+  }
+  const exists = db.prepare("SELECT id FROM users WHERE email = ?").get(email);
+  if (exists) {
+    return res.status(409).json({ error: "このメールは既に登録されています" });
+  }
+  const hash = await bcrypt.hash(password, 10);
+  const now = new Date().toISOString();
+  const info = db
+    .prepare(
+      "INSERT INTO users (email, password_hash, created_at) VALUES (?, ?, ?)"
+    )
+    .run(email, hash, now);
+  const userId = Number(info.lastInsertRowid);
+  const userCount = db.prepare("SELECT COUNT(*) AS c FROM users").get().c;
+  const demoOrg = db
+    .prepare("SELECT id FROM organizations ORDER BY id LIMIT 1")
+    .get();
+  if (demoOrg && userCount === 1) {
+    db.prepare(
+      "INSERT OR IGNORE INTO org_admins (org_id, user_id) VALUES (?, ?)"
+    ).run(demoOrg.id, userId);
+    console.log(
+      `[auth] 最初のユーザー ${email} を協会 id=${demoOrg.id} の管理者にしました`
+    );
+  }
+  const token = jwt.sign({ sub: userId }, JWT_SECRET, { expiresIn: "30d" });
+  res.json({ token, user: { id: userId, email } });
+});
+
+app.post("/api/auth/login", async (req, res) => {
+  const email = String(req.body?.email || "")
+    .trim()
+    .toLowerCase();
+  const password = String(req.body?.password || "");
+  const row = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
+  if (!row || !(await bcrypt.compare(password, row.password_hash))) {
+    return res.status(401).json({ error: "メールまたはパスワードが違います" });
+  }
+  const token = jwt.sign({ sub: row.id }, JWT_SECRET, { expiresIn: "30d" });
+  res.json({ token, user: { id: row.id, email: row.email } });
+});
+
+app.get("/api/auth/me", authMiddleware, requireAuth, (req, res) => {
+  const user = db
+    .prepare(
+      `SELECT id, email,
+        COALESCE(entitlement_lifetime,0) AS entitlement_lifetime,
+        stripe_customer_id,
+        stripe_subscription_id,
+        subscription_status
+       FROM users WHERE id = ?`
+    )
+    .get(req.userId);
+  if (!user) return res.status(404).json({ error: "ユーザーが見つかりません" });
+  const adminRows = db
+    .prepare(
+      `SELECT o.id, o.name FROM org_admins a
+       JOIN organizations o ON o.id = a.org_id WHERE a.user_id = ?`
+    )
+    .all(req.userId);
+  const memberRows = db
+    .prepare(
+      `SELECT o.id, o.name FROM org_members m
+       JOIN organizations o ON o.id = m.org_id WHERE m.user_id = ?`
+    )
+    .all(req.userId);
+  res.json({
+    user,
+    adminOrganizations: adminRows,
+    memberOrganizations: memberRows,
+  });
+});
+
+/** Stripe Checkout（サブスクリプション）— STRIPE_PRICE_ID / APP_BASE が必要 */
+app.post(
+  "/api/billing/create-checkout-session",
+  authMiddleware,
+  requireAuth,
+  async (req, res) => {
+    if (!stripe || !STRIPE_PRICE_ID) {
+      return res.status(503).json({
+        error:
+          "Stripe が未設定です（STRIPE_SECRET_KEY と STRIPE_PRICE_ID）",
+      });
+    }
+    const user = db
+      .prepare("SELECT id, email FROM users WHERE id = ?")
+      .get(req.userId);
+    try {
+      const session = await stripe.checkout.sessions.create({
+        mode: "subscription",
+        line_items: [{ price: STRIPE_PRICE_ID, quantity: 1 }],
+        success_url: `${APP_BASE}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${APP_BASE}/billing/canceled`,
+        client_reference_id: String(user.id),
+        customer_email: user.email,
+      });
+      res.json({ url: session.url });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({
+        error: e instanceof Error ? e.message : "Checkout 作成に失敗しました",
+      });
+    }
+  }
+);
+
+/** Stripe 等と接続する前のプレースホルダ（買い切りフラグを手動で立てる想定） */
+app.post(
+  "/api/billing/placeholder-purchase",
+  authMiddleware,
+  requireAuth,
+  (req, res) => {
+    db.prepare(
+      "UPDATE users SET entitlement_lifetime = 1 WHERE id = ?"
+    ).run(req.userId);
+    res.json({ ok: true, message: "開発用: 買い切りフラグを有効にしました" });
+  }
+);
+
+app.get("/api/organizations", authMiddleware, requireAuth, (req, res) => {
+  const rows = db
+    .prepare("SELECT id, name FROM organizations ORDER BY id")
+    .all();
+  res.json(rows);
+});
+
+app.post("/api/membership-requests", authMiddleware, requireAuth, (req, res) => {
+  const orgId = Number(req.body?.orgId);
+  if (!orgId) return res.status(400).json({ error: "orgId が必要です" });
+  const org = db.prepare("SELECT id FROM organizations WHERE id = ?").get(orgId);
+  if (!org) return res.status(404).json({ error: "協会が見つかりません" });
+  const dup = db
+    .prepare(
+      `SELECT id FROM membership_requests
+       WHERE org_id = ? AND user_id = ? AND status = 'pending'`
+    )
+    .get(orgId, req.userId);
+  if (dup) {
+    return res.status(409).json({ error: "既に申請済みです" });
+  }
+  const member = db
+    .prepare(
+      "SELECT 1 FROM org_members WHERE org_id = ? AND user_id = ?"
+    )
+    .get(orgId, req.userId);
+  if (member) {
+    return res.status(409).json({ error: "既に所属しています" });
+  }
+  const now = new Date().toISOString();
+  const info = db
+    .prepare(
+      `INSERT INTO membership_requests (org_id, user_id, status, created_at)
+       VALUES (?, ?, 'pending', ?)`
+    )
+    .run(orgId, req.userId, now);
+  const requestId = Number(info.lastInsertRowid);
+  const plain = randomBytes(24).toString("hex");
+  const th = hashToken(plain);
+  const exp = new Date(Date.now() + 7 * 864e5).toISOString();
+  db.prepare("DELETE FROM approval_tokens WHERE request_id = ?").run(
+    requestId
+  );
+  db.prepare(
+    `INSERT INTO approval_tokens (request_id, token_hash, expires_at)
+     VALUES (?, ?, ?)`
+  ).run(requestId, th, exp);
+  const approveUrl = `${APP_BASE}/approve-membership?token=${plain}`;
+  const admins = db
+    .prepare(
+      `SELECT u.email FROM org_admins a
+       JOIN users u ON u.id = a.user_id WHERE a.org_id = ?`
+    )
+    .all(orgId);
+  console.log(
+    `[membership] 申請 id=${requestId} — 管理者向け承認リンク（メール本文に使用）:\n${approveUrl}\n対象管理者: ${admins.map((a) => a.email).join(", ")}`
+  );
+  res.json({
+    id: requestId,
+    status: "pending",
+    devApprovalUrl: approveUrl,
+  });
+});
+
+app.get("/api/public/membership-approve", (req, res) => {
+  const plain = String(req.query.token || "");
+  if (!plain) return res.status(400).json({ error: "token が必要です" });
+  const th = hashToken(plain);
+  const row = db
+    .prepare(
+      `SELECT t.request_id, t.expires_at FROM approval_tokens t WHERE t.token_hash = ?`
+    )
+    .get(th);
+  if (!row) return res.status(404).json({ error: "無効なトークン" });
+  if (new Date(row.expires_at) < new Date()) {
+    return res.status(410).json({ error: "トークンの有効期限切れ" });
+  }
+  const r = approveMembershipRequest(row.request_id, null);
+  if (!r.ok) return res.status(400).json({ error: "承認できません" });
+  res.json({ ok: true, message: "承認しました" });
+});
+
+app.get(
+  "/api/membership-requests/pending",
+  authMiddleware,
+  requireAuth,
+  (req, res) => {
+    const orgId = Number(req.query.orgId);
+    if (!orgId) return res.status(400).json({ error: "orgId クエリが必要です" });
+    const isAdmin = db
+      .prepare(
+        "SELECT 1 FROM org_admins WHERE org_id = ? AND user_id = ?"
+      )
+      .get(orgId, req.userId);
+    if (!isAdmin) {
+      return res.status(403).json({ error: "この協会の管理者のみ閲覧できます" });
+    }
+    const rows = db
+      .prepare(
+        `SELECT r.id, r.user_id, r.created_at, u.email
+         FROM membership_requests r
+         JOIN users u ON u.id = r.user_id
+         WHERE r.org_id = ? AND r.status = 'pending'
+         ORDER BY r.created_at`
+      )
+      .all(orgId);
+    res.json(rows);
+  }
+);
+
+app.post(
+  "/api/membership-requests/:id/approve",
+  authMiddleware,
+  requireAuth,
+  (req, res) => {
+    const id = Number(req.params.id);
+    const row = db
+      .prepare("SELECT * FROM membership_requests WHERE id = ?")
+      .get(id);
+    if (!row || row.status !== "pending") {
+      return res.status(404).json({ error: "申請が見つかりません" });
+    }
+    const isAdmin = db
+      .prepare(
+        "SELECT 1 FROM org_admins WHERE org_id = ? AND user_id = ?"
+      )
+      .get(row.org_id, req.userId);
+    if (!isAdmin) {
+      return res.status(403).json({ error: "承認権限がありません" });
+    }
+    const r = approveMembershipRequest(id, req.userId);
+    if (!r.ok) return res.status(400).json({ error: "承認できません" });
+    res.json({ ok: true });
+  }
+);
+
+app.post(
+  "/api/membership-requests/:id/reject",
+  authMiddleware,
+  requireAuth,
+  (req, res) => {
+    const id = Number(req.params.id);
+    const row = db
+      .prepare("SELECT * FROM membership_requests WHERE id = ?")
+      .get(id);
+    if (!row || row.status !== "pending") {
+      return res.status(404).json({ error: "申請が見つかりません" });
+    }
+    const isAdmin = db
+      .prepare(
+        "SELECT 1 FROM org_admins WHERE org_id = ? AND user_id = ?"
+      )
+      .get(row.org_id, req.userId);
+    if (!isAdmin) {
+      return res.status(403).json({ error: "権限がありません" });
+    }
+    const now = new Date().toISOString();
+    db.prepare(
+      `UPDATE membership_requests SET status = 'rejected', decided_at = ?, decided_by = ?
+       WHERE id = ?`
+    ).run(now, req.userId, id);
+    db.prepare("DELETE FROM approval_tokens WHERE request_id = ?").run(id);
+    res.json({ ok: true });
+  }
+);
+
+app.post(
+  "/api/audio/upload",
+  authMiddleware,
+  requireAuth,
+  upload.single("file"),
+  (req, res) => {
+    if (!req.file) return res.status(400).json({ error: "file が必要です" });
+    const projectId = req.body?.projectId
+      ? Number(req.body.projectId)
+      : null;
+    const mime = req.file.mimetype || "application/octet-stream";
+    const now = new Date().toISOString();
+    const info = db
+      .prepare(
+        `INSERT INTO audio_assets (user_id, project_id, mime, path, created_at)
+         VALUES (?, ?, ?, ?, ?)`
+      )
+      .run(req.userId, projectId, mime, req.file.path, now);
+    res.json({ id: Number(info.lastInsertRowid), mime });
+  }
+);
+
+app.get("/api/audio/:id", authMiddleware, requireAuth, (req, res) => {
+  const id = Number(req.params.id);
+  const row = db
+    .prepare("SELECT * FROM audio_assets WHERE id = ? AND user_id = ?")
+    .get(id, req.userId);
+  if (!row) return res.status(404).json({ error: "見つかりません" });
+  if (!existsSync(row.path)) return res.status(404).json({ error: "ファイルがありません" });
+  res.setHeader("Content-Type", row.mime || "application/octet-stream");
+  createReadStream(row.path).pipe(res);
+});
+
+app.get("/api/projects", authMiddleware, requireAuth, (req, res) => {
+  const rows = db
+    .prepare(
+      `SELECT id, name, updated_at FROM (
+         SELECT p.id, p.name, p.updated_at FROM projects p WHERE p.user_id = @uid
+         UNION
+         SELECT p.id, p.name, p.updated_at FROM projects p
+         JOIN project_collaborators c ON c.project_id = p.id AND c.user_id = @uid
+       ) ORDER BY updated_at DESC`
+    )
+    .all({ uid: req.userId });
+  res.json(rows);
+});
+
+app.get("/api/projects/:id", authMiddleware, requireAuth, (req, res) => {
+  const id = Number(req.params.id);
+  if (!canAccessProject(req.userId, id)) {
+    return res.status(404).json({ error: "見つかりません" });
+  }
+  const row = db.prepare("SELECT * FROM projects WHERE id = ?").get(id);
+  if (!row) return res.status(404).json({ error: "見つかりません" });
+  res.json({
+    id: row.id,
+    name: row.name,
+    json: JSON.parse(row.json),
+    updated_at: row.updated_at,
+  });
+});
+
+app.post("/api/projects", authMiddleware, requireAuth, (req, res) => {
+  const name = String(req.body?.name || "無題の作品").slice(0, 200);
+  const json = req.body?.json;
+  if (json == null) {
+    return res.status(400).json({ error: "json が必要です" });
+  }
+  const now = new Date().toISOString();
+  const info = db
+    .prepare(
+      `INSERT INTO projects (user_id, name, json, updated_at) VALUES (?, ?, ?, ?)`
+    )
+    .run(req.userId, name, JSON.stringify(json), now);
+  res.json({ id: info.lastInsertRowid, name, updated_at: now });
+});
+
+app.put("/api/projects/:id", authMiddleware, requireAuth, (req, res) => {
+  const id = Number(req.params.id);
+  if (!canAccessProject(req.userId, id)) {
+    return res.status(404).json({ error: "見つかりません" });
+  }
+  const current = db.prepare("SELECT name FROM projects WHERE id = ?").get(id);
+  if (!current) return res.status(404).json({ error: "見つかりません" });
+  const name =
+    req.body?.name != null
+      ? String(req.body.name).slice(0, 200)
+      : current.name;
+  const json = req.body?.json;
+  if (json == null) {
+    return res.status(400).json({ error: "json が必要です" });
+  }
+  const now = new Date().toISOString();
+  db.prepare(
+    "UPDATE projects SET name = ?, json = ?, updated_at = ? WHERE id = ?"
+  ).run(name, JSON.stringify(json), now, id);
+  res.json({ id, name, updated_at: now });
+});
+
+app.post(
+  "/api/projects/:id/collaborators",
+  authMiddleware,
+  requireAuth,
+  (req, res) => {
+    const id = Number(req.params.id);
+    if (!isProjectOwner(req.userId, id)) {
+      return res.status(403).json({ error: "オーナーのみ追加できます" });
+    }
+    const email = String(req.body?.email || "")
+      .trim()
+      .toLowerCase();
+    if (!email) return res.status(400).json({ error: "email が必要です" });
+    const u = db.prepare("SELECT id FROM users WHERE email = ?").get(email);
+    if (!u) return res.status(404).json({ error: "ユーザーが見つかりません" });
+    if (u.id === req.userId) {
+      return res.status(400).json({ error: "自分自身は不要です" });
+    }
+    db.prepare(
+      "INSERT OR IGNORE INTO project_collaborators (project_id, user_id) VALUES (?, ?)"
+    ).run(id, u.id);
+    res.json({ ok: true, userId: u.id });
+  }
+);
+
+app.delete("/api/projects/:id", authMiddleware, requireAuth, (req, res) => {
+  const id = Number(req.params.id);
+  if (!isProjectOwner(req.userId, id)) {
+    return res.status(403).json({ error: "削除はオーナーのみです" });
+  }
+  const r = db.prepare("DELETE FROM projects WHERE id = ? AND user_id = ?").run(
+    id,
+    req.userId
+  );
+  if (r.changes === 0) return res.status(404).json({ error: "見つかりません" });
+  res.json({ ok: true });
+});
+
+const distPath = join(__dirname, "..", "dist");
+const hasDist = existsSync(join(distPath, "index.html"));
+if (hasDist) {
+  app.use(express.static(distPath));
+  app.use((req, res, next) => {
+    if (req.path.startsWith("/api")) return next();
+    if (req.method !== "GET" && req.method !== "HEAD") return next();
+    res.sendFile(join(distPath, "index.html"), (err) => {
+      if (err) next(err);
+    });
+  });
+}
+
+const httpServer = http.createServer(app);
+const wss = new WebSocketServer({ noServer: true });
+
+httpServer.on("upgrade", (request, socket, head) => {
+  const url = new URL(request.url || "/", "http://127.0.0.1");
+  const token = url.searchParams.get("token") || "";
+  let peerUserId = null;
+  try {
+    const p = jwt.verify(token, JWT_SECRET);
+    peerUserId = Number(p.sub);
+  } catch {
+    socket.destroy();
+    return;
+  }
+  if (!peerUserId) {
+    socket.destroy();
+    return;
+  }
+  const pathname = url.pathname.replace(/^\//, "").split("?")[0] || "";
+  const m = /^project-(\d+)$/.exec(pathname);
+  if (!m) {
+    socket.destroy();
+    return;
+  }
+  const projectId = Number(m[1]);
+  if (!canAccessProject(peerUserId, projectId)) {
+    socket.destroy();
+    return;
+  }
+  wss.handleUpgrade(request, socket, head, (ws) => {
+    wss.emit("connection", ws, request);
+  });
+});
+
+wss.on("connection", setupWSConnection);
+
+function firstLanUrl(port) {
+  const nets = networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name] ?? []) {
+      const v4 = net.family === "IPv4" || net.family === 4;
+      if (v4 && !net.internal) {
+        return `http://${net.address}:${port}/`;
+      }
+    }
+  }
+  return null;
+}
+
+httpServer.listen(PORT, "0.0.0.0", () => {
+  const primary = `http://127.0.0.1:${PORT}/`;
+  const lan = firstLanUrl(PORT);
+  const bar = "\n" + "━".repeat(62);
+  console.log(
+    `Listening on 0.0.0.0:${PORT} (HTTP + WebSocket; SPA=${hasDist ? "yes" : "no"})`
+  );
+  if (hasDist) {
+    console.log(bar);
+    console.log(`  ChoreoGrid（ブラウザで開く）→  ${primary}`);
+    if (lan) {
+      console.log(`     同一 LAN の別端末: ${lan}`);
+    }
+    console.log(`     手動: npm run open:prod（別ターミナル）`);
+    console.log(bar + "\n");
+  } else {
+    console.log(bar);
+    console.log(
+      "  フロント未ビルド（dist なし）— API のみです。ブラウザで UI を見るには:"
+    );
+    console.log(`     npm run dev  →  ${APP_BASE.replace(/\/$/, "")}/ （Vite + プロキシ）`);
+    console.log(
+      "     または npm run build && npm run start:prod でこのポートに SPA を載せます。"
+    );
+    console.log(bar + "\n");
+  }
+});
