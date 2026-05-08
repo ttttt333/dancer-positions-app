@@ -6,7 +6,9 @@ import {
   type FloorTextMarkupBlockProps,
 } from "./FloorTextMarkupBlock";
 import { FloorTextPlacePreview } from "./FloorTextPlacePreview";
+import { FloorTextDraftGhostPreview } from "./FloorTextDraftGhostPreview";
 import { StageFloorLineMarkupSvg } from "./StageFloorLineMarkupSvg";
+import type { FloorTextDraftShape } from "./FloorTextDraftEditorForm";
 
 export type StageFloorStageMarkupOverlayProps = {
   displayFloorMarkup: StageFloorMarkup[];
@@ -24,6 +26,10 @@ export type StageFloorStageMarkupOverlayProps = {
   onFloorTextPlacePreviewPointerDown: (
     e: ReactPointerEvent<HTMLDivElement>
   ) => void;
+  /** 入力中ドラフトのゴーストプレビュー（floorMarkupTool==="text" かつ未配置のとき） */
+  floorTextDraftGhost?: FloorTextDraftShape | null;
+  /** ゴーストの表示位置（ステージ % 座標）— 省略時は中央 */
+  floorTextGhostPos?: { xPct: number; yPct: number };
 };
 
 /** メイン床ブロック上: 線 SVG・床テキスト・置きプレビュー */
@@ -41,6 +47,8 @@ export function StageFloorStageMarkupOverlay({
   playbackOrPreview,
   onFloorTextPlaceSessionChange,
   onFloorTextPlacePreviewPointerDown,
+  floorTextDraftGhost,
+  floorTextGhostPos,
 }: StageFloorStageMarkupOverlayProps) {
   return (
     <div
@@ -94,6 +102,17 @@ export function StageFloorStageMarkupOverlay({
           dragTitle="ドラッグで位置を調整。空いた床をクリックしても移動できます。"
           maxWidth="42%"
           onPointerDown={onFloorTextPlacePreviewPointerDown}
+        />
+      ) : null}
+      {floorMarkupTool === "text" &&
+      !playbackOrPreview &&
+      setPiecesEditable &&
+      floorTextDraftGhost &&
+      !floorTextPlaceSession ? (
+        <FloorTextDraftGhostPreview
+          draft={floorTextDraftGhost}
+          xPct={floorTextGhostPos?.xPct ?? 50}
+          yPct={floorTextGhostPos?.yPct ?? 50}
         />
       ) : null}
     </div>

@@ -41,6 +41,16 @@ export type FloorTextDraftPayload = {
   fontFamily: string;
 };
 
+/** 複数テキスト一括ドラッグのセッション情報 */
+export type FloorTextMultiDragPayload = {
+  ids: string[];
+  /** ドラッグ開始時の各テキストの位置 */
+  startPositions: Map<string, { xPct: number; yPct: number; layer: "stage" | "screen" }>;
+  startClientX: number;
+  startClientY: number;
+  pointerId: number;
+};
+
 export type FloorTextMarkupBlockProps = {
   markup: StageFloorTextMarkup;
   coordLayer: "stage" | "screen";
@@ -65,6 +75,12 @@ export type FloorTextMarkupBlockProps = {
   ) => void;
   onUpdateTextColor: (id: string, color: string) => void;
   onUpdateTextFontFamily: (id: string, fontFamily: string) => void;
+  /** 複数選択中の id 一覧（ハイライト表示用） */
+  selectedFloorTextIds?: string[];
+  /** Shift+クリックで複数選択 toggle */
+  onShiftSelectFloorText?: (id: string) => void;
+  /** 複数テキストドラッグ開始用 ref（floorTextMultiDragRef と同一 ref） */
+  floorTextMultiDragRef?: MutableRefObject<FloorTextMultiDragPayload | null>;
 };
 
 export function FloorTextMarkupBlock({
@@ -87,6 +103,9 @@ export function FloorTextMarkupBlock({
   onDoubleClickInlineEdit,
   onUpdateTextColor,
   onUpdateTextFontFamily,
+  selectedFloorTextIds,
+  onShiftSelectFloorText,
+  floorTextMultiDragRef,
 }: FloorTextMarkupBlockProps) {
   const fs = Math.max(8, Math.min(56, m.fontSizePx ?? 18));
   const fw = Math.round(clamp(m.fontWeight ?? 600, 300, 900) / 50) * 50;
@@ -104,9 +123,10 @@ export function FloorTextMarkupBlock({
     floorMarkupTool === null;
   const sc = floorTextMarkupScale(m);
   const selected = selectedFloorTextId === m.id;
+  const multiSelected = Boolean(selectedFloorTextIds?.includes(m.id));
   const editingInlineHere = floorTextInlineRectId === m.id;
   const showChrome =
-    selected &&
+    (selected || multiSelected) &&
     textHit &&
     floorMarkupTool !== "erase" &&
     setPiecesEditable &&
@@ -231,6 +251,25 @@ export function FloorTextMarkupBlock({
           e.preventDefault();
           e.stopPropagation();
           (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+          /* Shift+クリック: 複数選択 toggle（ドラッグは開始しない） */
+          if (e.shiftKey && onShiftSelectFloorText) {
+            onShiftSelectFloorText(m.id);
+            return;
+          }
+          /* 複数選択済みのテキストをドラッグ開始 → 一括移動 */
+          if (multiSelected && floorTextMultiDragRef && selectedFloorTextIds && selectedFloorTextIds.length > 1) {
+            /* Body 側で startPositions は持てないのでここでは id と開始座標だけセット。
+               Body 側の pointermove で全 markup の位置を参照して移動する。
+               ここでは自分自身の座標のみセット — Body で全 id の座標を起点にする。 */
+            floorTextMultiDragRef.current = {
+              ids: selectedFloorTextIds,
+              startPositions: new Map([[m.id, { xPct: m.xPct, yPct: m.yPct, layer: coordLayer }]]),
+              startClientX: e.clientX,
+              startClientY: e.clientY,
+              pointerId: e.pointerId,
+            };
+            return;
+          }
           floorTextTapOrDragRef.current = {
             id: m.id,
             text: m.text,
@@ -266,9 +305,11 @@ export function FloorTextMarkupBlock({
         whiteSpace: "pre-wrap",
         wordBreak: "break-word",
         outline:
-          !editingInlineHere &&
-          floorMarkupTool === "text" &&
-          floorTextEditId === m.id
+          !editingInlineHere && multiSelected
+            ? "2px solid rgba(251, 191, 36, 0.95)"
+            : !editingInlineHere &&
+              floorMarkupTool === "text" &&
+              floorTextEditId === m.id
             ? "2px solid rgba(129, 140, 248, 0.95)"
             : undefined,
         outlineOffset: 2,

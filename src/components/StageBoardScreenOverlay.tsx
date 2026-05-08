@@ -4,11 +4,13 @@ import {
   type FloorTextMarkupBlockProps,
 } from "./FloorTextMarkupBlock";
 import { FloorTextPlacePreview } from "./FloorTextPlacePreview";
+import { FloorTextDraftGhostPreview } from "./FloorTextDraftGhostPreview";
 import { StageScreenOverlayPortal } from "./StageScreenOverlayPortal";
 import type {
   FloorTextPlaceSession,
   StageFloorTextMarkup,
 } from "../types/choreography";
+import type { FloorTextDraftShape } from "./FloorTextDraftEditorForm";
 
 /** `FloorTextMarkupBlock` の screen 用共有 props（`markup` / `coordLayer` 除く） */
 export type StageBoardScreenMarkupSharedProps = Omit<
@@ -29,6 +31,12 @@ export type StageBoardScreenOverlayProps = {
   onFloorTextPlacePreviewPointerDown: (
     e: ReactPointerEvent<HTMLDivElement>
   ) => void;
+  /** テキストツール: 入力中ドラフトのゴーストプレビュー */
+  floorTextDraftGhost?: FloorTextDraftShape | null;
+  /** screen 座標での表示位置 (%) — 省略時は中央 */
+  floorTextGhostPos?: { xPct: number; yPct: number };
+  /** floorMarkupTool 現在値 */
+  floorMarkupTool?: null | "text" | "line" | "erase";
 };
 
 /**
@@ -45,6 +53,9 @@ export function StageBoardScreenOverlay({
   playbackOrPreview,
   onFloorTextPlaceSessionChange,
   onFloorTextPlacePreviewPointerDown,
+  floorTextDraftGhost,
+  floorTextGhostPos,
+  floorMarkupTool,
 }: StageBoardScreenOverlayProps) {
   return (
     <StageScreenOverlayPortal root={root} open={open}>
@@ -66,6 +77,17 @@ export function StageBoardScreenOverlay({
           dragTitle="ドラッグで位置を調整。編集画面の空所をクリックしても移動できます。"
           maxWidth="min(42vw, 520px)"
           onPointerDown={onFloorTextPlacePreviewPointerDown}
+        />
+      ) : null}
+      {floorMarkupTool === "text" &&
+      !playbackOrPreview &&
+      setPiecesEditable &&
+      floorTextDraftGhost &&
+      !floorTextPlaceSession ? (
+        <FloorTextDraftGhostPreview
+          draft={floorTextDraftGhost}
+          xPct={floorTextGhostPos?.xPct ?? 50}
+          yPct={floorTextGhostPos?.yPct ?? 50}
         />
       ) : null}
     </StageScreenOverlayPortal>

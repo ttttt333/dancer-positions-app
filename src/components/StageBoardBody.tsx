@@ -43,6 +43,7 @@ import {
   type FloorTextDraftPayload,
   type FloorTextResizeDragPayload,
   type FloorTextTapOrDragPayload,
+  type FloorTextMultiDragPayload,
 } from "./FloorTextMarkupBlock";
 import { StageBoardContextMenuLayer } from "./StageBoardContextMenuLayer";
 import type { StageBoardContextMenuState } from "./StageBoardContextMenuLayer";
@@ -277,6 +278,10 @@ export function StageBoardBody({
   const [selectedFloorTextId, setSelectedFloorTextId] = useState<string | null>(
     null,
   );
+  /** Shift+クリックで選択した複数テキストの id 一覧（ツールなし時のみ） */
+  const [selectedFloorTextIds, setSelectedFloorTextIds] = useState<string[]>([]);
+  /** 複数テキスト一括ドラッグのセッション ref */
+  const floorTextMultiDragRef = useRef<FloorTextMultiDragPayload | null>(null);
   /** ダブルクリックでその場編集するテキストの画面上位置 */
   const [floorTextInlineRect, setFloorTextInlineRect] = useState<{
     id: string;
@@ -285,6 +290,8 @@ export function StageBoardBody({
     width: number;
     height: number;
   } | null>(null);
+  /** テキストツール：マウス位置ゴーストプレビュー用のステージ内 % 座標 */
+  const [floorGhostPos, setFloorGhostPos] = useState<{ xPct: number; yPct: number }>({ xPct: 50, yPct: 50 });
   /** ドラッグ中のマーキー（範囲選択の四角）。pct 座標で親床内を示す */
   const [marquee, setMarquee] = useState<{
     startXPct: number;
@@ -543,6 +550,7 @@ export function StageBoardBody({
     setFloorTextDraft({ ...EMPTY_FLOOR_TEXT_DRAFT });
     setFloorTextEditId(null);
     setSelectedFloorTextId(null);
+    setSelectedFloorTextIds([]);
     setFloorTextInlineRect(null);
     setShowStageDancerColorToolbar(false);
     setBulkHideDancerGlyphs(false);
@@ -744,6 +752,22 @@ export function StageBoardBody({
       setFloorTextInlineRect(null);
     }
   }, [floorMarkupTool]);
+
+  /** テキストツール: ステージ床上のマウス位置をゴーストプレビュー用に追跡 */
+  useEffect(() => {
+    if (floorMarkupTool !== "text") return;
+    const el = stageMainFloorRef.current;
+    if (!el) return;
+    const onMove = (e: PointerEvent) => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      const xPct = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+      const yPct = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+      setFloorGhostPos({ xPct, yPct });
+    };
+    el.addEventListener("pointermove", onMove, { passive: true });
+    return () => el.removeEventListener("pointermove", onMove);
+  }, [floorMarkupTool, stageMainFloorRef]);
 
   /** ヘッダからの床テキスト配置中はステージ内の旧テキストツールと競合しないよう解除 */
   useEffect(() => {
@@ -963,6 +987,9 @@ export function StageBoardBody({
       onDoubleClickInlineEdit: handleFloorTextDoubleClickInline,
       onUpdateTextColor: handleFloorTextColorUpdate,
       onUpdateTextFontFamily: handleFloorTextFontFamilyUpdate,
+      selectedFloorTextIds,
+      onShiftSelectFloorText: handleShiftSelectFloorText,
+      floorTextMultiDragRef,
     }),
     [
       viewMode,
@@ -980,8 +1007,16 @@ export function StageBoardBody({
       handleFloorTextDoubleClickInline,
       handleFloorTextColorUpdate,
       handleFloorTextFontFamilyUpdate,
+      selectedFloorTextIds,
+      handleShiftSelectFloorText,
     ],
   );
+
+  const handleShiftSelectFloorText = useCallback((id: string) => {
+    setSelectedFloorTextIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  }, []);
 
   const handleFloorTextPlacePreviewPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -2370,6 +2405,7 @@ export function StageBoardBody({
       }
 
       setSelectedFloorTextId(null);
+      setSelectedFloorTextIds([]);
       setFloorTextInlineRect(null);
 
       const additive = e.shiftKey || e.metaKey || e.ctrlKey;
@@ -2611,6 +2647,73 @@ export function StageBoardBody({
                 ? { ...x, xPct: nx, yPct: ny }
                 : x,
             ),
+          }));
+        }
+        return;
+      }
+      /** 1c-multi: 複数テキスト一括ドラッグ移動 */
+      const multiDrag = floorTextMultiDragRef.current;
+      if (multiDrag && e.pointerId === multiDrag.pointerId) {
+        /* 初回 move 時に全選択テキストの開始位置を補完 */
+        if (multiDrag.startPositions.size < multiDrag.ids.length) {
+          const allMarkup = [
+            ...(displayFloorMarkup ?? []),
+            ...(globalFloorMarkup ?? []),
+          ];
+          for (const id of multiDrag.ids) {
+            if (!multiDrag.startPositions.has(id)) {
+              const found = allMarkup.find((x) => x.id === id && x.kind === "text");
+              if (found) {
+                const isGlobal = (globalFloorMarkup ?? []).some((x) => x.id === id);
+                multiDrag.startPositions.set(id, {
+                  xPct: (found as { xPct: number }).xPct,
+                  yPct: (found as { yPct: number }).yPct,
+                  layer: isGlobal ? "stage" : "stage",
+                });
+              }
+            }
+          }
+        }
+        const rectEl = stageMainFloorRef.current;
+        if (!rectEl) return;
+        const rr = rectEl.getBoundingClientRect();
+        const dxPct = ((e.clientX - multiDrag.startClientX) / rr.width) * 100;
+        const dyPct = ((e.clientY - multiDrag.startClientY) / rr.height) * 100;
+        const reveal = pointerInViewportTrashRevealZone(e.clientX);
+        if (reveal !== trashRevealActiveRef.current) {
+          trashRevealActiveRef.current = reveal;
+          setTrashUiVisible(reveal);
+        }
+        const overTrash = hitTrashDropZone(e.clientX, e.clientY);
+        setTrashHotIfChanged(overTrash);
+        if (overTrash) return;
+        const globalIds = new Set((globalFloorMarkup ?? []).map((x) => x.id));
+        const globalUpdates = new Map<string, { xPct: number; yPct: number }>();
+        const localUpdates = new Map<string, { xPct: number; yPct: number }>();
+        for (const [id, start] of multiDrag.startPositions) {
+          const nx = round2(clamp(start.xPct + dxPct, 0, 100));
+          const ny = round2(clamp(start.yPct + dyPct, 0, 100));
+          if (globalIds.has(id)) {
+            globalUpdates.set(id, { xPct: nx, yPct: ny });
+          } else {
+            localUpdates.set(id, { xPct: nx, yPct: ny });
+          }
+        }
+        if (globalUpdates.size > 0 && onUpdateGlobalFloorMarkup) {
+          onUpdateGlobalFloorMarkup((prev) =>
+            prev.map((x) => {
+              const upd = globalUpdates.get(x.id);
+              return upd && x.kind === "text" ? { ...x, ...upd } : x;
+            }),
+          );
+        }
+        if (localUpdates.size > 0) {
+          queueFormationUpdate((f) => ({
+            ...f,
+            floorMarkup: (f.floorMarkup ?? []).map((x) => {
+              const upd = localUpdates.get(x.id);
+              return upd && x.kind === "text" ? { ...x, ...upd } : x;
+            }),
           }));
         }
         return;
@@ -2932,6 +3035,28 @@ export function StageBoardBody({
         markHistorySkipNextPush?.();
         removeFloorMarkupById(floorTextDragEnd.id);
       }
+      /* 複数テキスト一括ドラッグのポインターアップ */
+      const multiDragEnd = floorTextMultiDragRef.current;
+      if (multiDragEnd && e.pointerId === multiDragEnd.pointerId) {
+        if (hitTrashDropZone(e.clientX, e.clientY)) {
+          onGestureHistoryEnd?.();
+          markHistorySkipNextPush?.();
+          const globalIds = new Set((globalFloorMarkup ?? []).map((x) => x.id));
+          for (const id of multiDragEnd.ids) {
+            if (globalIds.has(id)) {
+              removeGlobalFloorMarkupById?.(id);
+            } else {
+              removeFloorMarkupById(id);
+            }
+          }
+          setSelectedFloorTextIds([]);
+        } else {
+          onGestureHistoryEnd?.();
+        }
+        floorTextMultiDragRef.current = null;
+        setTrashUiVisible(false);
+        trashRevealActiveRef.current = false;
+      }
       const d = dragRef.current;
       const gUp = groupDragRef.current;
       if (d && hitTrashDropZone(e.clientX, e.clientY)) {
@@ -2956,6 +3081,7 @@ export function StageBoardBody({
       floorMarkupTextDragRef.current = null;
       floorTextResizeDragRef.current = null;
       floorTextPlaceDragRef.current = null;
+      floorTextMultiDragRef.current = null;
       groupDragRef.current = null;
       /** 向き／複数時は位置も含む回転ドラッグの確定 */
       const rotUp = markerRotateRef.current;
@@ -3127,6 +3253,9 @@ export function StageBoardBody({
     viewportTextOverlayRoot,
     globalFloorMarkup,
     onUpdateGlobalFloorMarkup,
+    removeGlobalFloorMarkupById,
+    displayFloorMarkup,
+    setSelectedFloorTextIds,
   ]);
 
   useEffect(() => {
@@ -3881,8 +4010,10 @@ export function StageBoardBody({
         onFloorTextPlaceSessionChange,
         onFloorTextPlacePreviewPointerDown:
           handleFloorTextPlacePreviewPointerDown,
+        floorTextDraftGhost: floorMarkupTool === "text" ? floorTextDraft : null,
+        floorTextGhostPos: floorGhostPos,
       },
-      showStageFloorMarkup: displayFloorMarkup.length > 0 || !!floorLineDraft || (globalFloorMarkup != null && globalFloorMarkup.length > 0),
+      showStageFloorMarkup: displayFloorMarkup.length > 0 || !!floorLineDraft || (globalFloorMarkup != null && globalFloorMarkup.length > 0) || floorMarkupTool === "text",
       /* 操作層（大道具・ダンサー印・マーキー等） */
       interaction: {
         setPieceElements: stageSetPieceElements,
@@ -3929,6 +4060,9 @@ export function StageBoardBody({
         onFloorTextPlacePreviewPointerDown={
           handleFloorTextPlacePreviewPointerDown
         }
+        floorMarkupTool={floorMarkupTool}
+        floorTextDraftGhost={floorMarkupTool === "text" ? floorTextDraft : null}
+        floorTextGhostPos={floorGhostPos}
       />
     ),
     /* プレビュー帯・ステージ枠・床下一括色ツール */

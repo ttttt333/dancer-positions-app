@@ -1,40 +1,40 @@
-# NeonIconPanel Button Wiring Task
+# テキスト機能追加 task
 
-## Goal
-Wire all NeonIconPanel buttons to actual EditorPage functions, matching v2 behavior
+## 要件
+1. **リアルタイムプレビュー** — `floorMarkupTool==="text"` で入力中、`floorTextDraft.body` をステージ上にプレビュー表示（既存 FloorTextPlacePreview 的な ghost）
+2. **複数テキスト一括選択→ドラッグ移動** — 複数テキストをまとめて選択し、一括でドラッグ移動
+3. **左端ゴミ箱** — 既存 TrashDropStripPortal はダンサー/テキストドラッグ時のみ表示。複数テキスト選択ドラッグ時も表示されるようにする
 
-## Button → Function Mapping
+## 実装方針
 
-| NeonIconPanel Button | Current State | Correct Wiring |
-|---|---|---|
-| 舞台設定 | `onOpenStageShapePicker` (shape picker only) | `setStageAreaSettingsOpen(true)` — full stage settings |
-| キュー設定 | `() => {}` (no-op) | `setAddCueDialogOpen(true)` — add/edit cue dialog |
-| 立ち位置保存 | `setFlowLibraryOpen(true)` | Keep as is (library save) |
-| テキスト | `() => {}` (no-op) | Toggle `floorMarkupTool` to "text" or null |
-| 拡大 | `setStageZenFullscreen(true)` | Keep as is |
-| 閲覧モード | Toggle viewMode | Keep as is |
-| グリッド吸着 | `onToggleStageGridLines` (from shared props) | Keep as is |
-| キュー一覧 | `() => {}` (no-op) | `setCueListModalOpen(true)` |
-| 音源取込 | `() => {}` (no-op) | `openAudioImport` |
-| ライブラリ | `setFlowLibraryOpen(true)` | Keep as is |
-| +メンバー | inline addDancer | Keep as is (works) |
-| 名簿取込 | `() => {}` (no-op) | `importCrewCsvFromStageToolbar` |
-| メンバー表示 | `() => {}` (no-op) | Toggle roster strip / show members |
-| 共有URL | `setShareLinksOpen(true)` | Keep as is |
-| クラウド保存 | `setFlowLibraryOpen(true)` | Keep — or could be cloud save |
-| エクスポート | `setExportDialogOpen(true)` (from shared props) | Keep as is |
-| AI提案 | `() => {}` (no-op) | Can keep as alert/placeholder |
-| 大道具 | `onOpenSetPiecePicker` (from shared props) | Keep as is |
-| ヘルプ | `onOpenShortcutsHelp` (from shared props) | Keep as is |
-| 元に戻す | `undo` | Keep as is |
-| やり直す | `redo` | Keep as is |
+### 1. リアルタイムプレビュー
+- `floorMarkupTool === "text"` かつ `!floorTextEditId` のとき（新規入力モード）
+- `floorTextDraft.body` が空でなければステージ中央 or マウス位置にプレビュー表示
+- 既存 `FloorTextPlacePreview` コンポーネントを流用するか、軽量な ghost div を追加
+- プレビューはクリックで配置（既存の空床クリック配置フローに乗る）
+- `StageFloorStageMarkupOverlay` か `StageBoardScreenOverlay` にゴーストを追加
 
-## Fix Summary
-1. 舞台設定: Change from shape picker to stage area settings
-2. キュー設定: Wire to addCueDialogOpen  
-3. テキスト: Wire to floorMarkupTool toggle
-4. キュー一覧: Wire to cueListModalOpen
-5. 音源取込: Wire to openAudioImport
-6. 名簿取込: Wire to importCrewCsvFromStageToolbar
-7. メンバー表示: Wire to roster strip toggle
-8. AI提案: Show alert placeholder
+**実装場所**: `StageFloorStageMarkupOverlay.tsx` と `StageBoardScreenOverlay.tsx`
+- `floorMarkupTool==="text" && !floorTextEditId && floorTextDraft.body.trim()` のとき
+- `floorTextDraft` を props で渡してゴースト表示
+
+### 2. 複数テキスト一括選択
+- `selectedFloorTextIds: Set<string>` を新規 state として追加（StageBoardBody）
+- Shift+クリックで複数選択
+- 選択済みテキストをドラッグすると全員が同じ delta で移動
+- ゴミ箱ドロップで全員削除
+
+### 3. ゴミ箱（既存拡張）
+- 複数テキスト選択ドラッグ中も `trashUiVisible` を true にする
+
+## 作業順序
+1. リアルタイムプレビュー（最も独立してシンプル）
+2. 複数選択+移動
+3. ゴミ箱連携
+
+## ファイル
+- `StageBoardBody.tsx` — state 追加、ドラッグロジック拡張
+- `StageFloorStageMarkupOverlay.tsx` — ゴーストプレビュー追加
+- `StageBoardScreenOverlay.tsx` — 同上（screen layer 用）
+- `stageBoardTypes.ts` — props 型拡張
+- `FloorTextMarkupBlock.tsx` — 複数選択スタイル
