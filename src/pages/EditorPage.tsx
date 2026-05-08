@@ -1094,16 +1094,6 @@ export function EditorPage({
     null | "text" | "line" | "erase"
   >(null);
 
-  /** 全編共通テキスト更新コールバック */
-  const onUpdateGlobalFloorMarkup = useCallback(
-    (updater: (prev: StageFloorMarkup[]) => StageFloorMarkup[]) => {
-      setProjectSafe((p) => ({
-        ...p,
-        globalFloorMarkup: updater(p.globalFloorMarkup ?? []),
-      }));
-    },
-    [setProjectSafe],
-  );
   const splitDragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -1732,6 +1722,17 @@ export function EditorPage({
     stageZenFullscreen,
     playbackRateSig: project?.playbackRate,
   });
+
+  /** 全編共通テキスト更新コールバック */
+  const onUpdateGlobalFloorMarkup = useCallback(
+    (updater: (prev: StageFloorMarkup[]) => StageFloorMarkup[]) => {
+      setProjectSafe((p) => ({
+        ...p,
+        globalFloorMarkup: updater(p.globalFloorMarkup ?? []),
+      }));
+    },
+    [setProjectSafe],
+  );
 
   /** ステージまわりシートのドラフトをプロジェクトへ一括反映（閉じない） */
   const applyStageAreaSettingsDraft = useCallback(() => {
