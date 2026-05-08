@@ -5645,15 +5645,25 @@ export function EditorPage({
       {!choreoPublicView && !mobileStackEditor ? (
         <NeonIconPanel
           {...choreoToolbarSharedProps}
+          /* Override 舞台設定 → full stage area settings (not just shape picker) */
+          onOpenStageShapePicker={() => setStageAreaSettingsOpen(true)}
           onUndo={undo}
           onRedo={redo}
           undoDisabled={stageUndoDisabled}
           redoDisabled={stageRedoDisabled}
           onSave={() => setFlowLibraryOpen(true)}
-          onOpenCueList={() => {}}
+          onOpenCueList={() => setCueListModalOpen(true)}
           onOpenShareLinks={() => setShareLinksOpen(true)}
-          onOpenAISuggest={() => {}}
-          onOpenFloorText={() => {}}
+          onOpenAISuggest={() => {
+            window.alert("AI提案機能は今後のアップデートで追加予定です。");
+          }}
+          onOpenFloorText={() => {
+            if (stageView !== "2d") {
+              window.alert("床テキストは 2D 表示のときのみ使えます");
+              return;
+            }
+            setFloorMarkupTool((prev) => (prev === "text" ? null : "text"));
+          }}
           onOpenViewMode={() => {
             setProjectSafe((p) => ({
               ...p,
@@ -5661,9 +5671,9 @@ export function EditorPage({
             }));
           }}
           onZoomStage={() => setStageZenFullscreen(true)}
-          onOpenAudioImport={() => {}}
+          onOpenAudioImport={openAudioImport}
           onOpenLibrary={() => setFlowLibraryOpen(true)}
-          onOpenRosterImport={() => {}}
+          onOpenRosterImport={importCrewCsvFromStageToolbar}
           onAddDancer={() => {
             setProjectSafe((prev) => {
               const cue = prev.cues.find((c) => c.id === (selectedCueIds[0] ?? prev.cues[0]?.id));
@@ -5686,7 +5696,13 @@ export function EditorPage({
               };
             });
           }}
-          onOpenRoster={() => {}}
+          onOpenRoster={() => {
+            setProjectSafe((p) => ({
+              ...p,
+              rosterHidesTimeline: true,
+              rosterStripCollapsed: false,
+            }));
+          }}
         />
       ) : null}
       </div>{/* end flex row wrapper */}
