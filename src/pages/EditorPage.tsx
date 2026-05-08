@@ -5645,18 +5645,21 @@ export function EditorPage({
       {!choreoPublicView && !mobileStackEditor ? (
         <NeonIconPanel
           {...choreoToolbarSharedProps}
-          /* Override 舞台設定 → full stage area settings (not just shape picker) */
+          /* 舞台設定 → full stage area settings dialog */
           onOpenStageShapePicker={() => setStageAreaSettingsOpen(true)}
           onUndo={undo}
           onRedo={redo}
           undoDisabled={stageUndoDisabled}
           redoDisabled={stageRedoDisabled}
-          onSave={() => setFlowLibraryOpen(true)}
-          onOpenCueList={() => setCueListModalOpen(true)}
+          /* 立ち位置保存 → formation box manager dialog */
+          onSave={saveStageToFormationBox}
+          /* キュー設定 → add/configure cue dialog */
+          onOpenCueList={() => setAddCueDialogOpen(true)}
           onOpenShareLinks={() => setShareLinksOpen(true)}
           onOpenAISuggest={() => {
             window.alert("AI提案機能は今後のアップデートで追加予定です。");
           }}
+          /* テキスト → toggle floor markup text tool (2D only) */
           onOpenFloorText={() => {
             if (stageView !== "2d") {
               window.alert("床テキストは 2D 表示のときのみ使えます");
@@ -5664,38 +5667,15 @@ export function EditorPage({
             }
             setFloorMarkupTool((prev) => (prev === "text" ? null : "text"));
           }}
-          onOpenViewMode={() => {
-            setProjectSafe((p) => ({
-              ...p,
-              viewMode: p.viewMode === "view" ? "edit" : "view",
-            }));
-          }}
+          /* 閲覧モード → editor viewer sheet (member highlight preview) */
+          onOpenViewMode={() => setEditorViewerSheetOpen(true)}
           onZoomStage={() => setStageZenFullscreen(true)}
           onOpenAudioImport={openAudioImport}
           onOpenLibrary={() => setFlowLibraryOpen(true)}
           onOpenRosterImport={importCrewCsvFromStageToolbar}
-          onAddDancer={() => {
-            setProjectSafe((prev) => {
-              const cue = prev.cues.find((c) => c.id === (selectedCueIds[0] ?? prev.cues[0]?.id));
-              if (!cue) return prev;
-              const n = cue.dancers.length;
-              const newId = crypto.randomUUID?.() ?? `d${Date.now()}`;
-              const spot = {
-                id: newId,
-                label: `ダンサー ${n + 1}`,
-                xPct: 20 + Math.random() * 60,
-                yPct: 20 + Math.random() * 60,
-                colorIndex: n % 12,
-              };
-              return {
-                ...prev,
-                cues: prev.cues.map((c) => ({
-                  ...c,
-                  dancers: [...c.dancers, { ...spot, xPct: c.id === cue.id ? spot.xPct : 50, yPct: c.id === cue.id ? spot.yPct : 50 }],
-                })),
-              };
-            });
-          }}
+          /* ＋メンバー → proper addDancer with smart positioning */
+          onAddDancer={addDancerFromStageToolbar}
+          /* メンバー表示 → show roster strip */
           onOpenRoster={() => {
             setProjectSafe((p) => ({
               ...p,
@@ -5703,6 +5683,8 @@ export function EditorPage({
               rosterStripCollapsed: false,
             }));
           }}
+          /* 舞台変形 → stage shape picker (custom stage shapes) */
+          onOpenStageTransform={() => setStageShapePickerOpen(true)}
         />
       ) : null}
       </div>{/* end flex row wrapper */}

@@ -30,6 +30,7 @@ type NeonIconPanelProps = ChoreoCoreToolbarCoreProps & {
   onOpenAudioImport?: () => void;
   onOpenLibrary?: () => void;
   onOpenRosterImport?: () => void;
+  onOpenStageTransform?: () => void;
 };
 
 /* ─── Glow filter helper ─── */
@@ -208,13 +209,23 @@ function IconShareUrl() {
     </svg>
   );
 }
-function IconCloudSave() {
-  const c = "#60a5fa";
+function IconStageTransform() {
+  const c = "#c084fc";
   return (
     <svg viewBox="0 0 32 32" style={{ filter: glow(c) }}>
-      <path d="M8 22 C3 22 2 18 5 15 C4 10 8 7 12 9 C14 5 20 4 23 8 C28 7 30 12 27 15 C30 18 28 22 24 22 Z" fill="none" stroke={c} strokeWidth="1.5" />
-      <line x1="16" y1="14" x2="16" y2="21" stroke={c} strokeWidth="1.5" />
-      <path d="M13 17 L16 14 L19 17" fill="none" stroke={c} strokeWidth="1.2" />
+      {/* Stage base shape morphing */}
+      <path d="M4 12 L16 6 L28 12 L24 28 L8 28 Z" fill="none" stroke={c} strokeWidth="1.5" strokeLinejoin="round" strokeDasharray="3 2" />
+      {/* Transform arrows at corners */}
+      <path d="M4 12 L2 9" stroke={c} strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M28 12 L30 9" stroke={c} strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M8 28 L5 30" stroke={c} strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M24 28 L27 30" stroke={c} strokeWidth="1.2" strokeLinecap="round" />
+      {/* Center morph indicator */}
+      <circle cx="16" cy="18" r="2" fill="none" stroke={c} strokeWidth="1" />
+      <path d="M14 18 L12 18" stroke={c} strokeWidth="1" strokeLinecap="round" />
+      <path d="M18 18 L20 18" stroke={c} strokeWidth="1" strokeLinecap="round" />
+      <path d="M16 16 L16 14" stroke={c} strokeWidth="1" strokeLinecap="round" />
+      <path d="M16 20 L16 22" stroke={c} strokeWidth="1" strokeLinecap="round" />
     </svg>
   );
 }
@@ -395,6 +406,7 @@ export function NeonIconPanel({
   onOpenAudioImport,
   onOpenLibrary,
   onOpenRosterImport,
+  onOpenStageTransform,
 }: NeonIconPanelProps) {
   const gridSnap = stageGridLinesEnabled ?? false;
 
@@ -504,7 +516,7 @@ export function NeonIconPanel({
       {/* Block 4: 共有・出力 (3×2) */}
       <div style={grid3}>
         <NeonBtn icon={<IconShareUrl />} label="共有URL" onClick={onOpenShareLinks} disabled={disabled} />
-        <NeonBtn icon={<IconCloudSave />} label="クラウド保存" onClick={onSave} disabled={disabled} />
+        <NeonBtn icon={<IconStageTransform />} label="舞台変形" onClick={onOpenStageTransform} disabled={disabled} />
         <NeonBtn icon={<IconExportPackage />} label="エクスポート" onClick={onOpenExport} disabled={disabled} />
         <NeonBtn icon={<IconAISuggest />} label="AI提案" onClick={onOpenAISuggest} disabled={disabled} />
         <NeonBtn icon={<IconSetPiece />} label="大道具" onClick={onOpenSetPiecePicker} disabled={disabled} />
