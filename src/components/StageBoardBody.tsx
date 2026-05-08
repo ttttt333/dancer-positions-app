@@ -888,6 +888,44 @@ export function StageBoardBody({
     [updateActiveFormation],
   );
 
+  const handleAddTemplateText = useCallback(
+    (text: string) => {
+      const col = floorTextDraftColorHex(floorTextDraft.color);
+      const fam =
+        (floorTextDraft.fontFamily ?? "").trim() || FLOOR_TEXT_DEFAULT_FONT;
+      const fs = Math.round(clamp(floorTextDraft.fontSizePx, 8, 56));
+      const fw =
+        Math.round(clamp(floorTextDraft.fontWeight, 300, 900) / 50) * 50;
+      const newId = crypto.randomUUID();
+      const newText: StageFloorTextMarkup = {
+        kind: "text",
+        id: newId,
+        xPct: 50,
+        yPct: 50,
+        text: text.slice(0, 400),
+        color: col,
+        fontFamily: fam,
+        scale: 1,
+        fontSizePx: fs,
+        fontWeight: fw,
+        ...(floorTextDraft.bgColor ? { bgColor: floorTextDraft.bgColor } : {}),
+      };
+      updateActiveFormation((f) => ({
+        ...f,
+        floorMarkup: [...(f.floorMarkup ?? []), newText],
+      }));
+      setFloorTextEditId(newId);
+      setSelectedFloorTextId(newId);
+      setFloorMarkupTool("text");
+    },
+    [
+      floorTextDraft,
+      updateActiveFormation,
+      setFloorTextEditId,
+      setFloorMarkupTool,
+    ],
+  );
+
   const floorTextMarkupSharedProps = useMemo(
     () => ({
       viewMode,
@@ -2245,6 +2283,7 @@ export function StageBoardBody({
           scale: 1,
           fontSizePx: fs,
           fontWeight: fw,
+          ...(floorTextDraft.bgColor ? { bgColor: floorTextDraft.bgColor } : {}),
         };
         if (root) {
           const rr = root.getBoundingClientRect();
@@ -3731,6 +3770,7 @@ export function StageBoardBody({
         floorLineSessionRef,
         setFloorLineDraft,
         setFloorTextInlineRect,
+        onAddTemplateText: handleAddTemplateText,
       },
       /* 床下オーバーレイ（形状・格子・ガイド・床線／テキスト） */
       baseOverlaysWithoutShow: {

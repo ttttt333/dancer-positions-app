@@ -39,6 +39,7 @@ export type StageFloorMarkupFloatingToolbarsProps = {
   floorLineSessionRef: MutableRefObject<FloorLineSession>;
   setFloorLineDraft: Dispatch<SetStateAction<[number, number][] | null>>;
   setFloorTextInlineRect: Dispatch<SetStateAction<FloorTextInlineRectState>>;
+  onAddTemplateText?: (text: string) => void;
 };
 
 /** メイン床左上: 床テキストツールバー＋線／消しゴムツールバー＋ヒント */
@@ -53,6 +54,7 @@ export function StageFloorMarkupFloatingToolbars({
   floorLineSessionRef,
   setFloorLineDraft,
   setFloorTextInlineRect,
+  onAddTemplateText,
 }: StageFloorMarkupFloatingToolbarsProps) {
   const clearAllMarkupTools = () => {
     setFloorMarkupTool(null);
@@ -144,6 +146,7 @@ export function StageFloorMarkupFloatingToolbars({
             setDraft={setFloorTextDraft}
             floorTextEditId={floorTextEditId}
             updateActiveFormation={updateActiveFormation}
+            onAddTemplateText={onAddTemplateText}
           />
         ) : null}
       </div>

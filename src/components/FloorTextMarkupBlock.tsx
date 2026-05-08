@@ -261,7 +261,8 @@ export function FloorTextMarkupBlock({
         fontWeight: fw,
         fontFamily: fontCss,
         color: m.color ?? "#fef3c7",
-        textShadow: "0 0 2px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.65)",
+        background: m.bgColor || "transparent",
+        textShadow: m.bgColor ? "none" : "0 0 2px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.65)",
         whiteSpace: "pre-wrap",
         wordBreak: "break-word",
         outline:

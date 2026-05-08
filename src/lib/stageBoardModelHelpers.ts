@@ -129,6 +129,7 @@ export const EMPTY_FLOOR_TEXT_DRAFT = {
   fontWeight: 600,
   color: FLOOR_TEXT_DEFAULT_COLOR,
   fontFamily: FLOOR_TEXT_DEFAULT_FONT,
+  bgColor: "",
 };
 
 export function floorTextMarkupScale(m: StageFloorTextMarkup): number {
