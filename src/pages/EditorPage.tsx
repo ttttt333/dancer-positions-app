@@ -1541,9 +1541,11 @@ export function EditorPage({
       e.preventDefault();
       const gridRect = grid.getBoundingClientRect();
       const topSection = topDockSectionRef.current;
-      const startH = topSection
-        ? topSection.getBoundingClientRect().height
-        : Math.max(160, gridRect.height * 0.28);
+      const startH = topDockRowPx != null
+        ? topDockRowPx
+        : topSection
+          ? topSection.getBoundingClientRect().height
+          : Math.max(160, gridRect.height * 0.28);
       topDockDragRef.current = {
         pointerId: e.pointerId,
         startY: e.clientY,
@@ -3160,9 +3162,7 @@ export function EditorPage({
   const editorPaneGridTemplateRows = stageZenLayout
     ? "1fr"
     : wideEditorLayout
-      ? showTopWaveDock
-        ? `minmax(0, 1fr) ${wideBottomDockPx}px`
-        : "1fr"
+      ? "minmax(0, 1fr)"  // 波形バーはflexラッパー下段に独立配置
       : publicNarrowLayout
         ? publicViewTightHeight
           ? "minmax(88px, 1fr) minmax(56px, min(20dvh, 168px))"
@@ -3458,7 +3458,9 @@ export function EditorPage({
       </header>
       ) : null}
 
-      {/* ─── Flex row: editor grid + NeonIconPanel ─── */}
+      {/* ─── Main layout: column flex (stage row + bottom wave bar) ─── */}
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
+      {/* ─── Stage row: editor grid + NeonIconPanel ─── */}
       <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
       <div
         ref={(el) => {
@@ -3877,26 +3879,18 @@ export function EditorPage({
           TimelinePanel が再マウントされ、波形・音源の内部状態が消える）。
           グリッド行だけワイド時は 1 行目、狭いときはステージの下（3 行目）に固定する。
         */}
-        {!stageZenLayout ? (
+        {/* wideEditorLayout時の波形バーはflex下段に独立配置 */}
+        {!stageZenLayout && !(wideEditorLayout && showTopWaveDock) ? (
           <section
             ref={(el) => {
               topDockSectionRef.current = el;
             }}
             style={{
-              gridColumn:
-                wideEditorLayout && showTopWaveDock ? "1 / -1" : 1,
-              gridRow: wideEditorLayout && showTopWaveDock ? 2 : publicNarrowLayout ? 2 : 3,
-              ...(wideEditorLayout && showTopWaveDock
+              gridColumn: 1,
+              gridRow: publicNarrowLayout ? 2 : 3,
+              ...(false
                 ? {
                     background: "transparent",
-                    border: "none",
-                    padding: "0 4px 6px",
-                    minWidth: 0,
-                    display: "flex",
-                    flexDirection: "column",
-                    overflow: "visible",
-                    flexShrink: 0,
-                    minHeight: 0,
                   }
                 : {
                     ...panelCard,
@@ -5623,7 +5617,89 @@ export function EditorPage({
           onCollapseToggle={wideEditorLayout ? () => setRightPaneCollapsed((v) => !v) : undefined}
         />
       ) : null}
-      </div>{/* end flex row wrapper */}
+      </div>{/* end stage row */}
+
+      {/* ─── Bottom wave bar (wideEditorLayout only, full width) ─── */}
+      {wideEditorLayout && showTopWaveDock && !stageZenLayout ? (
+        <div
+          style={{
+            flexShrink: 0,
+            width: "100%",
+            minWidth: 0,
+            height: wideBottomDockPx,
+            position: "relative",
+            background: "transparent",
+          }}
+        >
+          {/* Resize handle — top edge, drag upward to expand */}
+          <div
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="波形バーの高さを調整（上下ドラッグ）"
+            title="上下ドラッグで波形バーの高さを変更（ダブルクリックで既定に戻す）"
+            onPointerDown={onTopDockResizeDown}
+            onPointerMove={(e) => {
+              const d = topDockDragRef.current;
+              if (!d || e.pointerId !== d.pointerId) return;
+              const grid = editorPaneRef.current;
+              if (!grid) return;
+              const gridRect = grid.getBoundingClientRect();
+              const minH = TOP_DOCK_ROW_MIN_PX;
+              const maxH = Math.max(minH, Math.min(TOP_DOCK_ROW_MAX_PX, gridRect.height - 80));
+              // ドラッグ上方向 = 高さ増加（startY - clientY）
+              const next = clampTopDockRowPx(
+                Math.min(maxH, Math.max(minH, d.startH + (d.startY - e.clientY)))
+              );
+              setTopDockRowPx(next);
+            }}
+            onPointerUp={endTopDockResize}
+            onPointerCancel={endTopDockResize}
+            onDoubleClick={onTopDockResizeDoubleClick}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 8,
+              cursor: "row-resize",
+              touchAction: "none",
+              userSelect: "none",
+              zIndex: 10,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <div
+              aria-hidden
+              style={{
+                width: 48,
+                height: 3,
+                borderRadius: 2,
+                background: "rgba(148,163,184,0.35)",
+              }}
+            />
+          </div>
+          {/* Timeline content */}
+          <div
+            ref={(el) => {
+              topDockSectionRef.current = el as HTMLElement | null;
+            }}
+            style={{
+              position: "absolute",
+              inset: "8px 0 0 0",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              padding: "0 4px 4px",
+            }}
+          >
+            {timelinePanelEl}
+          </div>
+        </div>
+      ) : null}
+
+      </div>{/* end main column wrapper */}
 
       <style>{`
         @media (max-width: 1279px) {
