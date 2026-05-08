@@ -550,8 +550,8 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
             aria-label="キュー設定"
             onClick={() => setAddCueDialogOpen(true)}
           >
-            <span>キュー</span>
-            <span>設定</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+            <span style={{fontSize:"8px",opacity:0.8,lineHeight:1}}>キュー設定</span>
           </button>
           <button
             type="button"
@@ -562,8 +562,8 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
             title="舞台・客席・グリッド・名前の出し方・この URL の共有・ショートカット"
             onClick={() => setStageAreaSettingsOpen(true)}
           >
-            <span>舞台</span>
-            <span>設定</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="12" x2="12" y2="17"/><line x1="9" y1="14.5" x2="15" y2="14.5"/></svg>
+            <span style={{fontSize:"8px",opacity:0.8,lineHeight:1}}>舞台設定</span>
           </button>
           <button
             type="button"
@@ -577,8 +577,8 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
             title="形の箱に今の立ち位置を保存"
             onClick={() => saveStageToFormationBox()}
           >
-            <span>立ち位置</span>
-            <span>保存</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
+            <span style={{fontSize:"8px",opacity:0.8,lineHeight:1}}>立ち位置保存</span>
           </button>
         </div>
 

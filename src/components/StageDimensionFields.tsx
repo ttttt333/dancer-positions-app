@@ -15,22 +15,16 @@ import {
   type StagePresetItem,
 } from "../lib/stagePresets";
 
-/** 幅・奥行・袖・バック・場ミリ印の入力上限（メイン床と同じオーダーで足りる） */
 const MAX_MM = STAGE_MAIN_FLOOR_MM_MAX;
 
 type Props = {
   project: ChoreographyProjectJson;
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>;
   disabled: boolean;
-  /** ヘッダー等の狭いスペース用（説明文を省略し密度を上げる） */
   compact?: boolean;
-  /** 見出し「ステージサイズ／舞台の大きさ」を出さない（親がタイトルを付けるとき） */
   showHeading?: boolean;
-  /** モーダル内など：外枠の枠線・背景を付けない */
   embedded?: boolean;
-  /** 客席の位置（画面の辺）を選ぶ UI を出す（ステージ設定ダイアログ用） */
   showAudienceEdge?: boolean;
-  /** 「決定」押下後に呼ばれる。親ダイアログを閉じるなど用途に。 */
   onCommit?: () => void;
 };
 
@@ -39,7 +33,6 @@ function clampMm(mm: number): number {
   return Math.min(MAX_MM, Math.round(mm));
 }
 
-/** 間隔はメイン幅の半分以下に収める（袖まで等間隔点線用） */
 function clampGuideIntervalToWidth(
   widthMm: number | null,
   intervalMm: number | null
@@ -49,7 +42,24 @@ function clampGuideIntervalToWidth(
   return Math.min(Math.max(1, Math.floor(intervalMm)), maxHalf);
 }
 
-type DraftField = { m: string; cm: string };
+/** "12.5" → 12500mm, "12" → 12000mm, "" → null */
+function parseDecimalMeterToMm(raw: string): number | null {
+  const t = raw.trim();
+  if (t === "") return null;
+  const v = parseFloat(t);
+  if (!Number.isFinite(v) || v <= 0) return null;
+  return clampMm(Math.round(v * 1000));
+}
+
+/** mm → "12.50" (m単位の小数文字列) */
+function mmToDecimalStr(mm: number | null | undefined): string {
+  if (mm == null || mm <= 0) return "";
+  const u = mmToMeterCm(mm);
+  const total = u.m + u.cm / 100;
+  return total % 1 === 0 ? String(total) : total.toFixed(2).replace(/0+$/, "");
+}
+
+type DraftField = string; // decimal meter string e.g. "12.5"
 type Draft = {
   width: DraftField;
   depth: DraftField;
@@ -58,41 +68,22 @@ type Draft = {
   guide: DraftField;
 };
 
-function mmToDraftField(mm: number | null | undefined): DraftField {
-  if (mm == null) return { m: "", cm: "" };
-  const u = mmToMeterCm(mm);
-  return { m: String(u.m), cm: String(u.cm) };
-}
-
 function draftFromProject(p: ChoreographyProjectJson): Draft {
   return {
-    width: mmToDraftField(p.stageWidthMm),
-    depth: mmToDraftField(p.stageDepthMm),
-    side: mmToDraftField(p.sideStageMm),
-    back: mmToDraftField(p.backStageMm),
-    guide: mmToDraftField(p.centerFieldGuideIntervalMm),
+    width: mmToDecimalStr(p.stageWidthMm),
+    depth: mmToDecimalStr(p.stageDepthMm),
+    side: mmToDecimalStr(p.sideStageMm),
+    back: mmToDecimalStr(p.backStageMm),
+    guide: mmToDecimalStr(p.centerFieldGuideIntervalMm),
   };
 }
 
-/** m/cm 文字列から mm（>0）へ。空欄なら null を返す。 */
-function parseDraftFieldToMm(f: DraftField): number | null {
-  const mT = f.m.trim();
-  const cT = f.cm.trim();
-  if (mT === "" && cT === "") return null;
-  const m = mT === "" ? 0 : parseInt(mT, 10);
-  const cm = cT === "" ? 0 : parseInt(cT, 10);
-  if (!Number.isFinite(m) || !Number.isFinite(cm)) return null;
-  const mm = clampMm(mmFromMeterAndCm(m, cm));
-  return mm > 0 ? mm : null;
-}
-
-/** ドラフトの内容が現在のプロジェクトと異なるか */
 function draftDiffers(draft: Draft, project: ChoreographyProjectJson): boolean {
-  const wMm = parseDraftFieldToMm(draft.width);
-  const dMm = parseDraftFieldToMm(draft.depth);
-  const sMm = parseDraftFieldToMm(draft.side);
-  const bMm = parseDraftFieldToMm(draft.back);
-  const gMm = clampGuideIntervalToWidth(wMm, parseDraftFieldToMm(draft.guide));
+  const wMm = parseDecimalMeterToMm(draft.width);
+  const dMm = parseDecimalMeterToMm(draft.depth);
+  const sMm = parseDecimalMeterToMm(draft.side);
+  const bMm = parseDecimalMeterToMm(draft.back);
+  const gMm = clampGuideIntervalToWidth(wMm, parseDecimalMeterToMm(draft.guide));
   return (
     wMm !== (project.stageWidthMm ?? null) ||
     dMm !== (project.stageDepthMm ?? null) ||
@@ -102,12 +93,280 @@ function draftDiffers(draft: Draft, project: ChoreographyProjectJson): boolean {
   );
 }
 
-const AUDIENCE_EDGE_OPTIONS: { value: ChoreographyProjectJson["audienceEdge"]; label: string }[] =
-  [
-    { value: "top", label: "上" },
-    { value: "bottom", label: "下" },
-  ];
+// ─── Mini Stage Preview ───────────────────────────────────────────────────────
+function MiniStagePreview({
+  widthMm,
+  depthMm,
+  sideMm,
+  backMm,
+  audienceEdge,
+}: {
+  widthMm: number | null;
+  depthMm: number | null;
+  sideMm: number | null;
+  backMm: number | null;
+  audienceEdge?: ChoreographyProjectJson["audienceEdge"];
+}) {
+  const W = 160;
+  const H = 100;
+  const PAD = 8;
 
+  const hasMain = widthMm != null && widthMm > 0 && depthMm != null && depthMm > 0;
+  if (!hasMain) {
+    return (
+      <div
+        style={{
+          width: W,
+          height: H,
+          borderRadius: 8,
+          border: "1px dashed rgba(99,102,241,0.3)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 10,
+          color: "rgba(148,163,184,0.5)",
+          background: "rgba(15,23,42,0.6)",
+          flexShrink: 0,
+        }}
+      >
+        寸法を入力
+      </div>
+    );
+  }
+
+  const wMm = widthMm!;
+  const dMm = depthMm!;
+  const sMm = sideMm ?? 0;
+  const bMm = backMm ?? 0;
+
+  const totalW = wMm + sMm * 2;
+  const totalD = dMm + bMm;
+  const scaleX = (W - PAD * 2) / totalW;
+  const scaleY = (H - PAD * 2) / totalD;
+  const scale = Math.min(scaleX, scaleY);
+
+  const px = (mm: number) => mm * scale;
+
+  const totalPxW = px(totalW);
+  const totalPxD = px(totalD);
+  const offsetX = (W - totalPxW) / 2;
+  const offsetY = (H - totalPxD) / 2;
+
+  const mainX = offsetX + px(sMm);
+  const mainY = offsetY;
+  const mainW = px(wMm);
+  const mainD = px(dMm);
+
+  const isBottom = audienceEdge !== "top";
+
+  return (
+    <svg
+      width={W}
+      height={H}
+      style={{
+        borderRadius: 8,
+        border: "1px solid rgba(99,102,241,0.25)",
+        background: "rgba(15,23,42,0.6)",
+        flexShrink: 0,
+      }}
+    >
+      {/* サイド (左) */}
+      {sMm > 0 && (
+        <rect
+          x={offsetX}
+          y={offsetY}
+          width={px(sMm)}
+          height={mainD}
+          fill="rgba(99,102,241,0.12)"
+          stroke="rgba(99,102,241,0.3)"
+          strokeWidth={0.5}
+        />
+      )}
+      {/* サイド (右) */}
+      {sMm > 0 && (
+        <rect
+          x={mainX + mainW}
+          y={offsetY}
+          width={px(sMm)}
+          height={mainD}
+          fill="rgba(99,102,241,0.12)"
+          stroke="rgba(99,102,241,0.3)"
+          strokeWidth={0.5}
+        />
+      )}
+      {/* バック */}
+      {bMm > 0 && (
+        <rect
+          x={offsetX}
+          y={offsetY + mainD}
+          width={totalPxW}
+          height={px(bMm)}
+          fill="rgba(99,102,241,0.08)"
+          stroke="rgba(99,102,241,0.2)"
+          strokeWidth={0.5}
+        />
+      )}
+      {/* メインステージ */}
+      <rect
+        x={mainX}
+        y={mainY}
+        width={mainW}
+        height={mainD}
+        fill="rgba(99,102,241,0.18)"
+        stroke="rgba(129,140,248,0.8)"
+        strokeWidth={1}
+        rx={2}
+      />
+      {/* 客席方向ラベル */}
+      <text
+        x={mainX + mainW / 2}
+        y={isBottom ? mainY + mainD + 11 : mainY - 3}
+        textAnchor="middle"
+        fill="rgba(252,211,77,0.85)"
+        fontSize={8}
+        fontWeight={600}
+      >
+        客席
+      </text>
+      {/* CENTER LINE */}
+      <line
+        x1={mainX + mainW / 2}
+        y1={mainY + 2}
+        x2={mainX + mainW / 2}
+        y2={mainY + mainD - 2}
+        stroke="rgba(129,140,248,0.35)"
+        strokeWidth={0.5}
+        strokeDasharray="3,2"
+      />
+    </svg>
+  );
+}
+
+// ─── Decimal Input Row ────────────────────────────────────────────────────────
+const inputBaseStyle: React.CSSProperties = {
+  width: "90px",
+  padding: "6px 10px",
+  borderRadius: "8px",
+  border: "1px solid rgba(99,102,241,0.3)",
+  background: "rgba(15,23,42,0.7)",
+  color: "#e2e8f0",
+  fontSize: "13px",
+  outline: "none",
+  transition: "border-color 0.15s",
+};
+
+function DimRow({
+  label,
+  hint,
+  value,
+  onChange,
+  disabled,
+  previewMm,
+}: {
+  label: string;
+  hint?: string;
+  value: string;
+  onChange: (v: string) => void;
+  disabled: boolean;
+  previewMm: number | null;
+}) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 10, color: "rgba(148,163,184,0.8)", marginBottom: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {label}
+          {hint && <span style={{ marginLeft: 4, color: "rgba(100,116,139,0.7)", fontSize: 9 }}>{hint}</span>}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <input
+            type="number"
+            step="0.01"
+            min={0}
+            max={999}
+            disabled={disabled}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            placeholder="例: 12.5"
+            style={{
+              ...inputBaseStyle,
+              borderColor: focused
+                ? "rgba(129,140,248,0.8)"
+                : value
+                ? "rgba(99,102,241,0.5)"
+                : "rgba(51,65,85,0.8)",
+              boxShadow: focused ? "0 0 0 2px rgba(99,102,241,0.15)" : "none",
+            }}
+          />
+          <span style={{ fontSize: 11, color: "rgba(148,163,184,0.7)", userSelect: "none" }}>m</span>
+          {previewMm != null && (
+            <span style={{ fontSize: 10, color: "rgba(100,116,139,0.8)", fontVariantNumeric: "tabular-nums" }}>
+              {formatMeterCmLabel(previewMm)}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Card section ─────────────────────────────────────────────────────────────
+function Card({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        borderRadius: 12,
+        border: "1px solid rgba(99,102,241,0.2)",
+        background: "linear-gradient(135deg, rgba(15,23,42,0.9) 0%, rgba(30,41,59,0.6) 100%)",
+        backdropFilter: "blur(8px)",
+        padding: "12px 14px",
+        marginBottom: 10,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 7,
+          marginBottom: 10,
+          fontSize: 11,
+          fontWeight: 700,
+          color: "rgba(148,163,184,0.9)",
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+        }}
+      >
+        <span style={{ color: "rgba(129,140,248,0.9)", display: "flex" }}>{icon}</span>
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// ─── Icons ───────────────────────────────────────────────────────────────────
+const IconRuler = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2 20L20 2M7 20l1.5-1.5M12 20l1.5-1.5M17 20l1.5-1.5M2 7l1.5-1.5M2 12l1.5-1.5M2 17l1.5-1.5" />
+  </svg>
+);
+const IconBookmark = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+  </svg>
+);
+
+// ─── Main component ───────────────────────────────────────────────────────────
 export function StageDimensionFields({
   project,
   setProject,
@@ -120,11 +379,6 @@ export function StageDimensionFields({
 }: Props) {
   const [draft, setDraft] = useState<Draft>(() => draftFromProject(project));
 
-  /**
-   * project 側の値が外部要因（プロジェクト切替・初期化など）で変わったら
-   * ドラフトも追従させる。入力中の値はユーザ編集でしか変わらないので
-   * 完全に上書きして OK。
-   */
   useEffect(() => {
     setDraft(draftFromProject(project));
   }, [
@@ -135,22 +389,18 @@ export function StageDimensionFields({
     project.centerFieldGuideIntervalMm,
   ]);
 
-  const updateField = useCallback(
-    <K extends keyof Draft>(key: K, patch: Partial<DraftField>) => {
-      setDraft((d) => ({ ...d, [key]: { ...d[key], ...patch } }));
-    },
-    []
-  );
+  const update = useCallback((key: keyof Draft, v: string) => {
+    setDraft((d) => ({ ...d, [key]: v }));
+  }, []);
 
-  /** ドラフトから mm を割り出した「確定されたらこうなる」値（表示用） */
   const previewMm = useMemo(() => {
-    const wMm = parseDraftFieldToMm(draft.width);
+    const wMm = parseDecimalMeterToMm(draft.width);
     return {
       width: wMm,
-      depth: parseDraftFieldToMm(draft.depth),
-      side: parseDraftFieldToMm(draft.side),
-      back: parseDraftFieldToMm(draft.back),
-      guide: clampGuideIntervalToWidth(wMm, parseDraftFieldToMm(draft.guide)),
+      depth: parseDecimalMeterToMm(draft.depth),
+      side: parseDecimalMeterToMm(draft.side),
+      back: parseDecimalMeterToMm(draft.back),
+      guide: clampGuideIntervalToWidth(wMm, parseDecimalMeterToMm(draft.guide)),
     };
   }, [draft]);
 
@@ -174,25 +424,18 @@ export function StageDimensionFields({
     setDraft(draftFromProject(project));
   }, [project]);
 
-  /** 保存済みステージ情報（名前付き寸法セット） */
-  const [presets, setPresets] = useState<StagePresetItem[]>(() =>
-    listStagePresets()
-  );
-  /** プリセット一覧を最新化。保存・削除・改名などの後に呼ぶ。 */
-  const reloadPresets = useCallback(() => {
-    setPresets(listStagePresets());
-  }, []);
-
-  /** 選択中のプリセット（編集対象）。上書き・改名・削除の対象。 */
+  // Presets
+  const [presets, setPresets] = useState<StagePresetItem[]>(() => listStagePresets());
+  const reloadPresets = useCallback(() => setPresets(listStagePresets()), []);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
 
   const applyPreset = useCallback((p: StagePresetItem) => {
     setDraft({
-      width: mmToDraftField(p.stageWidthMm),
-      depth: mmToDraftField(p.stageDepthMm),
-      side: mmToDraftField(p.sideStageMm),
-      back: mmToDraftField(p.backStageMm),
-      guide: mmToDraftField(p.centerFieldGuideIntervalMm),
+      width: mmToDecimalStr(p.stageWidthMm),
+      depth: mmToDecimalStr(p.stageDepthMm),
+      side: mmToDecimalStr(p.sideStageMm),
+      back: mmToDecimalStr(p.backStageMm),
+      guide: mmToDecimalStr(p.centerFieldGuideIntervalMm),
     });
     setSelectedPresetId(p.id);
   }, []);
@@ -200,21 +443,12 @@ export function StageDimensionFields({
   const saveAsNewPreset = useCallback(() => {
     if (disabled) return;
     const { width, depth, side, back, guide } = previewMm;
-    if (
-      width == null &&
-      depth == null &&
-      side == null &&
-      back == null &&
-      guide == null
-    ) {
+    if (width == null && depth == null && side == null && back == null && guide == null) {
       window.alert("保存する寸法が入っていません。");
       return;
     }
     const defaultName = `ステージ ${presets.length + 1}`;
-    const name = window.prompt(
-      "保存プリセットの名前（あとで変更可）",
-      defaultName
-    );
+    const name = window.prompt("保存プリセットの名前（あとで変更可）", defaultName);
     if (name === null) return;
     const result = saveStagePreset(name.trim() || defaultName, {
       stageWidthMm: width,
@@ -223,10 +457,7 @@ export function StageDimensionFields({
       backStageMm: back,
       centerFieldGuideIntervalMm: guide,
     });
-    if (!result.ok) {
-      window.alert(result.message);
-      return;
-    }
+    if (!result.ok) { window.alert(result.message); return; }
     setSelectedPresetId(result.item.id);
     reloadPresets();
   }, [disabled, previewMm, presets.length, reloadPresets]);
@@ -235,25 +466,10 @@ export function StageDimensionFields({
     if (disabled || !selectedPresetId) return;
     const target = presets.find((x) => x.id === selectedPresetId);
     if (!target) return;
-    if (
-      !window.confirm(
-        `「${target.name}」を現在の入力内容で上書き保存しますか？`
-      )
-    ) {
-      return;
-    }
+    if (!window.confirm(`「${target.name}」を現在の入力内容で上書き保存しますか？`)) return;
     const { width, depth, side, back, guide } = previewMm;
-    const result = updateStagePreset(selectedPresetId, {
-      stageWidthMm: width,
-      stageDepthMm: depth,
-      sideStageMm: side,
-      backStageMm: back,
-      centerFieldGuideIntervalMm: guide,
-    });
-    if (!result.ok) {
-      window.alert(result.message);
-      return;
-    }
+    const result = updateStagePreset(selectedPresetId, { stageWidthMm: width, stageDepthMm: depth, sideStageMm: side, backStageMm: back, centerFieldGuideIntervalMm: guide });
+    if (!result.ok) { window.alert(result.message); return; }
     reloadPresets();
   }, [disabled, selectedPresetId, presets, previewMm, reloadPresets]);
 
@@ -265,10 +481,7 @@ export function StageDimensionFields({
     if (name === null) return;
     const n = name.trim();
     if (!n) return;
-    if (!renameStagePreset(selectedPresetId, n)) {
-      window.alert("改名に失敗しました。");
-      return;
-    }
+    if (!renameStagePreset(selectedPresetId, n)) { window.alert("改名に失敗しました。"); return; }
     reloadPresets();
   }, [disabled, selectedPresetId, presets, reloadPresets]);
 
@@ -282,408 +495,156 @@ export function StageDimensionFields({
     reloadPresets();
   }, [disabled, selectedPresetId, presets, reloadPresets]);
 
-  const inputStyle = {
-    width: compact ? ("52px" as const) : ("64px" as const),
-    padding: compact ? ("4px" as const) : ("6px" as const),
-    borderRadius: "6px" as const,
-    border: "1px solid #334155" as const,
-    background: "#0f172a" as const,
-    color: "#e2e8f0" as const,
-  };
-  const inputStyleCm = {
-    ...inputStyle,
-    width: compact ? ("44px" as const) : ("56px" as const),
-  };
-  const rowGap = compact ? "6px" : "10px";
-  const labelSize = compact ? "9px" : "10px";
-
   return (
-    <div
-      style={{
-        padding: embedded ? 0 : compact ? "6px 8px" : "10px",
-        borderRadius: embedded ? 0 : compact ? "8px" : "10px",
-        border: embedded ? "none" : "1px solid #334155",
-        background: embedded ? "transparent" : "#020617",
-      }}
-    >
-      {showHeading ? (
-        <div
-          style={{
-            fontSize: compact ? "10px" : "11px",
-            fontWeight: 600,
-            color: "#94a3b8",
-            marginBottom: compact ? "6px" : "8px",
-          }}
-        >
-          {compact ? "舞台の大きさ（詳細）" : "ステージサイズ"}
+    <div style={{ padding: embedded ? 0 : "10px", background: embedded ? "transparent" : "transparent" }}>
+      {showHeading && (
+        <div style={{ fontSize: 12, fontWeight: 700, color: "#94a3b8", marginBottom: 10, letterSpacing: "0.05em" }}>
+          ステージ形状・寸法
         </div>
-      ) : null}
-      {!compact && (
-        <p style={{ margin: "0 0 10px", fontSize: "10px", color: "#64748b", lineHeight: 1.45 }}>
-          メインの幅・奥行・サイド・バックは m / cm（センチは 0〜99、10 mm 単位）。
-          <strong style={{ color: "#cbd5e1" }}>「決定」</strong>
-          を押すまでステージには反映されません。
-        </p>
       )}
 
-      {showAudienceEdge ? (
-        <label
-          style={{
-            display: "block",
-            marginBottom: rowGap,
-            fontSize: labelSize,
-            color: "#64748b",
-          }}
-        >
-          <span style={{ display: "block", marginBottom: "4px" }}>
-            客席の位置（画面に対して）
-          </span>
-          <select
-            value={project.audienceEdge}
-            disabled={disabled}
-            onChange={(e) =>
-              setProject((p) => ({
-                ...p,
-                audienceEdge: e.target.value as ChoreographyProjectJson["audienceEdge"],
-              }))
-            }
-            style={{
-              width: "100%",
-              padding: "8px 10px",
-              borderRadius: "8px",
-              border: "1px solid #334155",
-              background: "#0f172a",
-              color: "#e2e8f0",
-              fontSize: "13px",
-            }}
-          >
-            {AUDIENCE_EDGE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-          <span style={{ display: "block", marginTop: "4px", fontSize: "9px", color: "#475569" }}>
-            すぐに 2D ステージの向きに反映されます（寸法は「決定」で反映）。
-          </span>
-        </label>
-      ) : null}
-
-      <div
-        style={
-          compact
-            ? {
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "8px",
-                marginBottom: rowGap,
-              }
-            : { marginBottom: rowGap }
-        }
-      >
-        <div style={compact ? {} : { marginBottom: rowGap }}>
-          <div style={{ fontSize: labelSize, color: "#64748b", marginBottom: "4px" }}>
-            メイン幅（上手〜下手）
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center" }}>
-            <input
-              type="number"
-              min={0}
-              max={999}
-              disabled={disabled}
-              placeholder="m"
-              value={draft.width.m}
-              onChange={(e) => updateField("width", { m: e.target.value })}
-              style={inputStyle}
-            />
-            <span style={{ fontSize: "12px", color: "#94a3b8" }}>m</span>
-            <input
-              type="number"
-              min={0}
-              max={99}
-              disabled={disabled}
-              placeholder="cm"
-              value={draft.width.cm}
-              onChange={(e) => updateField("width", { cm: e.target.value })}
-              style={inputStyleCm}
-            />
-            <span style={{ fontSize: "12px", color: "#94a3b8" }}>cm</span>
-            <span style={{ fontSize: compact ? "9px" : "10px", color: "#475569", marginLeft: "4px" }}>
-              → {previewMm.width != null ? `${previewMm.width} mm` : "未設定"}
-            </span>
-          </div>
-        </div>
-
-        <div>
-          <div style={{ fontSize: labelSize, color: "#64748b", marginBottom: "4px" }}>
-            メイン奥行（客席方向の深さ）
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center" }}>
-            <input
-              type="number"
-              min={0}
-              max={999}
-              disabled={disabled}
-              placeholder="m"
-              value={draft.depth.m}
-              onChange={(e) => updateField("depth", { m: e.target.value })}
-              style={inputStyle}
-            />
-            <span style={{ fontSize: "12px", color: "#94a3b8" }}>m</span>
-            <input
-              type="number"
-              min={0}
-              max={99}
-              disabled={disabled}
-              placeholder="cm"
-              value={draft.depth.cm}
-              onChange={(e) => updateField("depth", { cm: e.target.value })}
-              style={inputStyleCm}
-            />
-            <span style={{ fontSize: "12px", color: "#94a3b8" }}>cm</span>
-            <span style={{ fontSize: compact ? "9px" : "10px", color: "#475569", marginLeft: "4px" }}>
-              → {previewMm.depth != null ? `${previewMm.depth} mm` : "未設定"}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: compact ? "8px" : "10px",
-          marginBottom: rowGap,
-        }}
-      >
-        <div>
-          <div style={{ fontSize: labelSize, color: "#64748b", marginBottom: "4px" }}>サイド（片側）</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", alignItems: "center" }}>
-            <input
-              type="number"
-              min={0}
-              max={999}
-              disabled={disabled}
-              placeholder="m"
-              value={draft.side.m}
-              onChange={(e) => updateField("side", { m: e.target.value })}
-              style={{ ...inputStyle, width: "52px" }}
-            />
-            <span style={{ fontSize: "11px", color: "#94a3b8" }}>m</span>
-            <input
-              type="number"
-              min={0}
-              max={99}
-              disabled={disabled}
-              placeholder="cm"
-              value={draft.side.cm}
-              onChange={(e) => updateField("side", { cm: e.target.value })}
-              style={{ ...inputStyleCm, width: "48px" }}
-            />
-            <span style={{ fontSize: "11px", color: "#94a3b8" }}>cm</span>
-          </div>
-          <div style={{ fontSize: "9px", color: "#475569", marginTop: "4px" }}>
-            {previewMm.side != null ? formatMeterCmLabel(previewMm.side) : "—"}
-          </div>
-        </div>
-        <div>
-          <div style={{ fontSize: labelSize, color: "#64748b", marginBottom: "4px" }}>バックステージ</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", alignItems: "center" }}>
-            <input
-              type="number"
-              min={0}
-              max={999}
-              disabled={disabled}
-              placeholder="m"
-              value={draft.back.m}
-              onChange={(e) => updateField("back", { m: e.target.value })}
-              style={{ ...inputStyle, width: "52px" }}
-            />
-            <span style={{ fontSize: "11px", color: "#94a3b8" }}>m</span>
-            <input
-              type="number"
-              min={0}
-              max={99}
-              disabled={disabled}
-              placeholder="cm"
-              value={draft.back.cm}
-              onChange={(e) => updateField("back", { cm: e.target.value })}
-              style={{ ...inputStyleCm, width: "48px" }}
-            />
-            <span style={{ fontSize: "11px", color: "#94a3b8" }}>cm</span>
-          </div>
-          <div style={{ fontSize: "9px", color: "#475569", marginTop: "4px" }}>
-            {previewMm.back != null ? formatMeterCmLabel(previewMm.back) : "—"}
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <div style={{ fontSize: labelSize, color: "#64748b", marginBottom: "4px" }}>
-          センターからの場ミリ
-        </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", alignItems: "center" }}>
-          <input
-            type="number"
-            min={0}
-            max={999}
-            disabled={disabled}
-            placeholder="m"
-            value={draft.guide.m}
-            onChange={(e) => updateField("guide", { m: e.target.value })}
-            style={inputStyle}
+      {/* ─── CARD A: 物理寸法 ─── */}
+      <Card title="ステージ寸法" icon={<IconRuler />}>
+        {/* ミニプレビュー + 入力 横並び */}
+        <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+          {/* プレビュー */}
+          <MiniStagePreview
+            widthMm={previewMm.width}
+            depthMm={previewMm.depth}
+            sideMm={previewMm.side}
+            backMm={previewMm.back}
+            audienceEdge={project.audienceEdge}
           />
-          <span style={{ fontSize: "12px", color: "#94a3b8" }}>m</span>
-          <input
-            type="number"
-            min={0}
-            max={99}
-            disabled={disabled}
-            placeholder="cm"
-            value={draft.guide.cm}
-            onChange={(e) => updateField("guide", { cm: e.target.value })}
-            style={inputStyleCm}
-          />
-          <span style={{ fontSize: "12px", color: "#94a3b8" }}>cm</span>
-          <span style={{ fontSize: compact ? "9px" : "10px", color: "#475569", marginLeft: "4px" }}>
-            → {previewMm.guide != null ? `${previewMm.guide} mm` : "未設定"}
-          </span>
+          {/* 入力群 */}
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+            <DimRow label="メイン幅（上手〜下手）" value={draft.width} onChange={(v) => update("width", v)} disabled={disabled} previewMm={previewMm.width} />
+            <DimRow label="奥行（客席方向）" value={draft.depth} onChange={(v) => update("depth", v)} disabled={disabled} previewMm={previewMm.depth} />
+          </div>
         </div>
-        {!compact && (
-          <p style={{ margin: "6px 0 0", fontSize: "10px", color: "#64748b", lineHeight: 1.45 }}>
-            この間隔でセンターから袖（メイン幅の左右端）まで等間隔の縦点線を表示します。メイン幅が入っていると半分以下に自動調整されます（未設定でも入力できます）。
-          </p>
+
+        {/* サイド・バック・場ミリ 2カラム */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}>
+          <DimRow label="サイド（片側）" value={draft.side} onChange={(v) => update("side", v)} disabled={disabled} previewMm={previewMm.side} />
+          <DimRow label="バック" value={draft.back} onChange={(v) => update("back", v)} disabled={disabled} previewMm={previewMm.back} />
+          <div style={{ gridColumn: "1 / -1" }}>
+            <DimRow label="場ミリ（センターから）" hint="等間隔縦点線の間隔" value={draft.guide} onChange={(v) => update("guide", v)} disabled={disabled} previewMm={previewMm.guide} />
+          </div>
+        </div>
+
+        {/* 客席位置 */}
+        {showAudienceEdge && (
+          <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid rgba(30,41,59,0.8)" }}>
+            <div style={{ fontSize: 10, color: "rgba(100,116,139,0.9)", marginBottom: 6 }}>客席の位置</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              {(["top", "bottom"] as const).map((edge) => {
+                const active = project.audienceEdge === edge;
+                return (
+                  <button
+                    key={edge}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => setProject((p) => ({ ...p, audienceEdge: edge }))}
+                    style={{
+                      flex: 1,
+                      padding: "7px 10px",
+                      borderRadius: 8,
+                      border: active ? "1px solid rgba(252,211,77,0.7)" : "1px solid rgba(51,65,85,0.8)",
+                      background: active ? "rgba(252,211,77,0.12)" : "rgba(15,23,42,0.5)",
+                      color: active ? "#fcd34d" : "rgba(148,163,184,0.7)",
+                      fontSize: 11,
+                      fontWeight: active ? 700 : 400,
+                      cursor: disabled ? "not-allowed" : "pointer",
+                      transition: "all 0.15s",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 5,
+                    }}
+                  >
+                    {edge === "bottom" ? (
+                      <>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                        画面下が客席
+                      </>
+                    ) : (
+                      <>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <polyline points="18 15 12 9 6 15" />
+                        </svg>
+                        画面上が客席
+                      </>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         )}
-      </div>
+      </Card>
 
-      {/**
-       * 保存済みステージ情報（プリセット）。名前を付けて寸法セットを保管でき、
-       * 別プロジェクトでもワンクリックで復元できる。適用はドラフトに入るので、
-       * 実際にステージへ反映するには下の「決定」を押す必要がある。
-       */}
-      <div
-        style={{
-          marginTop: compact ? "10px" : "14px",
-          paddingTop: compact ? "8px" : "10px",
-          borderTop: "1px solid #1e293b",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: "6px",
-            gap: "8px",
-          }}
-        >
-          <div style={{ fontSize: compact ? "10px" : "11px", fontWeight: 600, color: "#94a3b8" }}>
-            保存済み寸法プリセット
-          </div>
-          <button
-            type="button"
-            onClick={saveAsNewPreset}
-            disabled={disabled}
-            style={{
-              padding: compact ? "3px 10px" : "5px 12px",
-              fontSize: compact ? "10px" : "11px",
-              borderRadius: "6px",
-              border: "1px solid #14532d",
-              background: disabled ? "#1e293b" : "#052e16",
-              color: disabled ? "#475569" : "#bbf7d0",
-              cursor: disabled ? "not-allowed" : "pointer",
-            }}
-            title="いま入力中の寸法を名前を付けて保存"
-          >
-            名前を付けて保存
-          </button>
-        </div>
-
+      {/* ─── CARD B: プリセット ─── */}
+      <Card title="プリセット" icon={<IconBookmark />}>
         {presets.length === 0 ? (
-          <div style={{ fontSize: "10px", color: "#475569", padding: "6px 0" }}>
-            （保存されたプリセットはまだありません）
+          <div style={{ fontSize: 10, color: "rgba(71,85,105,0.8)", padding: "4px 0 6px" }}>
+            保存されたプリセットはまだありません
           </div>
         ) : (
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "4px",
-              maxHeight: compact ? "120px" : "180px",
-              overflowY: "auto",
-              paddingRight: "2px",
-            }}
-          >
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
             {presets.map((p) => {
               const selected = selectedPresetId === p.id;
               const dims: string[] = [];
-              if (p.stageWidthMm != null)
-                dims.push(`幅 ${formatMeterCmLabel(p.stageWidthMm)}`);
-              if (p.stageDepthMm != null)
-                dims.push(`奥 ${formatMeterCmLabel(p.stageDepthMm)}`);
-              if (p.sideStageMm != null)
-                dims.push(`サイド ${formatMeterCmLabel(p.sideStageMm)}`);
-              if (p.backStageMm != null)
-                dims.push(`バック ${formatMeterCmLabel(p.backStageMm)}`);
-              if (p.centerFieldGuideIntervalMm != null)
-                dims.push(`場ミリ ${formatMeterCmLabel(p.centerFieldGuideIntervalMm)}`);
+              if (p.stageWidthMm != null) dims.push(`W ${formatMeterCmLabel(p.stageWidthMm)}`);
+              if (p.stageDepthMm != null) dims.push(`D ${formatMeterCmLabel(p.stageDepthMm)}`);
               return (
                 <div
                   key={p.id}
                   style={{
+                    borderRadius: 8,
+                    border: `1px solid ${selected ? "rgba(99,102,241,0.7)" : "rgba(30,41,59,0.9)"}`,
+                    background: selected ? "rgba(99,102,241,0.15)" : "rgba(15,23,42,0.5)",
                     display: "flex",
                     alignItems: "center",
-                    gap: "6px",
-                    padding: "6px 8px",
-                    borderRadius: "6px",
-                    border: `1px solid ${selected ? "#2563eb" : "#1e293b"}`,
-                    background: selected ? "#0b2447" : "#0f172a",
+                    gap: 0,
+                    overflow: "hidden",
+                    minWidth: 0,
                   }}
                 >
                   <button
                     type="button"
                     onClick={() => setSelectedPresetId(p.id)}
                     style={{
-                      flex: 1,
-                      textAlign: "left",
                       background: "transparent",
                       border: "none",
-                      color: "#e2e8f0",
-                      padding: 0,
+                      color: selected ? "#c7d2fe" : "#94a3b8",
+                      padding: "5px 8px",
                       cursor: "pointer",
-                      overflow: "hidden",
+                      textAlign: "left",
+                      minWidth: 0,
                     }}
-                    title="選択（下のボタンの対象になります）"
                   >
-                    <div style={{ fontSize: "11px", fontWeight: 600, marginBottom: "2px" }}>
-                      {p.name}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "9px",
-                        color: "#64748b",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      {dims.length > 0 ? dims.join(" · ") : "寸法なし"}
-                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 90 }}>{p.name}</div>
+                    <div style={{ fontSize: 9, color: "rgba(100,116,139,0.7)", whiteSpace: "nowrap" }}>{dims.length > 0 ? dims.join(" · ") : "寸法なし"}</div>
                   </button>
                   <button
                     type="button"
                     onClick={() => applyPreset(p)}
                     disabled={disabled}
-                    style={{
-                      padding: "3px 8px",
-                      fontSize: "10px",
-                      borderRadius: "4px",
-                      border: "1px solid #334155",
-                      background: "#0f172a",
-                      color: disabled ? "#475569" : "#e2e8f0",
-                      cursor: disabled ? "not-allowed" : "pointer",
-                    }}
                     title="この寸法を入力欄に読み込み（決定で反映）"
+                    style={{
+                      background: "rgba(99,102,241,0.15)",
+                      border: "none",
+                      borderLeft: "1px solid rgba(99,102,241,0.2)",
+                      color: disabled ? "rgba(71,85,105,0.7)" : "#a5b4fc",
+                      padding: "5px 7px",
+                      cursor: disabled ? "not-allowed" : "pointer",
+                      fontSize: 10,
+                      fontWeight: 600,
+                      alignSelf: "stretch",
+                      display: "flex",
+                      alignItems: "center",
+                    }}
                   >
                     読込
                   </button>
@@ -693,122 +654,86 @@ export function StageDimensionFields({
           </div>
         )}
 
-        {presets.length > 0 && (
-          <div
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          <button
+            type="button"
+            onClick={saveAsNewPreset}
+            disabled={disabled}
             style={{
-              display: "flex",
-              flexWrap: "wrap",
-              justifyContent: "flex-end",
-              gap: "6px",
-              marginTop: "8px",
+              padding: "5px 12px",
+              fontSize: 11,
+              borderRadius: 7,
+              border: "1px solid rgba(20,83,45,0.8)",
+              background: disabled ? "rgba(30,41,59,0.5)" : "rgba(5,46,22,0.7)",
+              color: disabled ? "rgba(71,85,105,0.7)" : "#bbf7d0",
+              cursor: disabled ? "not-allowed" : "pointer",
+              fontWeight: 600,
             }}
           >
-            <button
-              type="button"
-              onClick={overwriteSelectedPreset}
-              disabled={disabled || !selectedPresetId}
-              style={{
-                padding: "3px 10px",
-                fontSize: "10px",
-                borderRadius: "4px",
-                border: "1px solid #334155",
-                background: "#0f172a",
-                color: disabled || !selectedPresetId ? "#475569" : "#e2e8f0",
-                cursor: disabled || !selectedPresetId ? "not-allowed" : "pointer",
-              }}
-              title="選択中のものに現在の入力内容を上書き保存"
-            >
-              上書
-            </button>
-            <button
-              type="button"
-              onClick={renameSelectedPreset}
-              disabled={disabled || !selectedPresetId}
-              style={{
-                padding: "3px 10px",
-                fontSize: "10px",
-                borderRadius: "4px",
-                border: "1px solid #334155",
-                background: "#0f172a",
-                color: disabled || !selectedPresetId ? "#475569" : "#e2e8f0",
-                cursor: disabled || !selectedPresetId ? "not-allowed" : "pointer",
-              }}
-            >
-              改名
-            </button>
-            <button
-              type="button"
-              onClick={deleteSelectedPreset}
-              disabled={disabled || !selectedPresetId}
-              style={{
-                padding: "3px 10px",
-                fontSize: "10px",
-                borderRadius: "4px",
-                border: "1px solid #7f1d1d",
-                background: "#0f172a",
-                color: disabled || !selectedPresetId ? "#475569" : "#fecaca",
-                cursor: disabled || !selectedPresetId ? "not-allowed" : "pointer",
-              }}
-            >
-              削除
-            </button>
-          </div>
-        )}
-      </div>
+            名前を付けて保存
+          </button>
+          {selectedPresetId && (
+            <>
+              <button type="button" onClick={overwriteSelectedPreset} disabled={disabled}
+                style={{ padding: "5px 10px", fontSize: 10, borderRadius: 7, border: "1px solid rgba(51,65,85,0.8)", background: "rgba(15,23,42,0.5)", color: disabled ? "rgba(71,85,105,0.7)" : "#e2e8f0", cursor: disabled ? "not-allowed" : "pointer" }}>
+                上書
+              </button>
+              <button type="button" onClick={renameSelectedPreset} disabled={disabled}
+                style={{ padding: "5px 10px", fontSize: 10, borderRadius: 7, border: "1px solid rgba(51,65,85,0.8)", background: "rgba(15,23,42,0.5)", color: disabled ? "rgba(71,85,105,0.7)" : "#e2e8f0", cursor: disabled ? "not-allowed" : "pointer" }}>
+                改名
+              </button>
+              <button type="button" onClick={deleteSelectedPreset} disabled={disabled}
+                style={{ padding: "5px 10px", fontSize: 10, borderRadius: 7, border: "1px solid rgba(127,29,29,0.8)", background: "rgba(15,23,42,0.5)", color: disabled ? "rgba(71,85,105,0.7)" : "#fecaca", cursor: disabled ? "not-allowed" : "pointer" }}>
+                削除
+              </button>
+            </>
+          )}
+        </div>
+      </Card>
 
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          gap: "8px",
-          marginTop: compact ? "8px" : "12px",
-          paddingTop: compact ? "6px" : "10px",
-          borderTop: "1px solid #1e293b",
-        }}
-      >
+      {/* ─── Actions ─── */}
+      <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
         <button
           type="button"
           onClick={reset}
           disabled={disabled || !dirty}
           style={{
-            padding: compact ? "4px 10px" : "6px 14px",
-            fontSize: compact ? "11px" : "12px",
-            borderRadius: "6px",
-            border: "1px solid #334155",
-            background: "#0f172a",
-            color: dirty ? "#e2e8f0" : "#475569",
+            flex: 1,
+            padding: "8px 14px",
+            fontSize: 12,
+            borderRadius: 10,
+            border: "1px solid rgba(51,65,85,0.8)",
+            background: "rgba(15,23,42,0.5)",
+            color: dirty ? "#e2e8f0" : "rgba(71,85,105,0.7)",
             cursor: disabled || !dirty ? "not-allowed" : "pointer",
+            fontWeight: 500,
           }}
-          title="直前に決定した値に戻す"
         >
           取消
         </button>
-        {/**
-         * 決定は「変更の有無に関わらず常に反応する」仕様。
-         * 変更がなければ現在値で再保存＋親ダイアログを閉じるだけの副作用で、
-         * ユーザが「押しても反応しない」と感じる状況をなくす。
-         */}
         <button
           type="button"
           onClick={commit}
           disabled={disabled}
           style={{
-            padding: compact ? "4px 14px" : "6px 18px",
-            fontSize: compact ? "11px" : "12px",
-            fontWeight: 600,
-            borderRadius: "6px",
-            border: "1px solid #2563eb",
-            background: disabled ? "#1e293b" : "#2563eb",
-            color: disabled ? "#64748b" : "#ffffff",
+            flex: 2,
+            padding: "8px 18px",
+            fontSize: 13,
+            fontWeight: 700,
+            borderRadius: 10,
+            border: "1px solid rgba(129,140,248,0.5)",
+            background: disabled
+              ? "rgba(30,41,59,0.5)"
+              : "linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #a855f7 100%)",
+            color: disabled ? "rgba(71,85,105,0.7)" : "#ffffff",
             cursor: disabled ? "not-allowed" : "pointer",
+            boxShadow: disabled ? "none" : "0 0 16px rgba(99,102,241,0.4), 0 2px 8px rgba(0,0,0,0.4)",
+            transition: "box-shadow 0.2s",
+            letterSpacing: "0.03em",
           }}
-          title={
-            dirty
-              ? "入力した値をステージに反映"
-              : "変更はありません（押すと閉じます）"
-          }
+          title={dirty ? "入力した値をステージに反映" : "変更はありません（押すと閉じます）"}
         >
-          決定
+          ✓ 決定
         </button>
       </div>
     </div>

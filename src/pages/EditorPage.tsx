@@ -25,6 +25,7 @@ import { ChoreoCoreLogo } from "../components/ChoreoGridLogo";
 import { StageBoard, type FloorTextPlaceSession } from "../components/StageBoard";
 import { StageDimensionFields } from "../components/StageDimensionFields";
 import {
+  formatMeterCmLabel,
   mmFromMeterAndCm,
   mmToMeterCm,
   STAGE_MAIN_FLOOR_MM_MAX,
@@ -274,6 +275,7 @@ const STAGE_AREA_AUDIENCE_OPTIONS: {
   { value: "bottom", label: "下" },
 ];
 
+/** m/cm の古いドラフト型（内部互換用） */
 type StageAreaMeterCmDraft = { m: string; cm: string };
 
 function clampStageMainMm(mm: number): number {
@@ -281,22 +283,32 @@ function clampStageMainMm(mm: number): number {
   return Math.min(STAGE_MAIN_FLOOR_MM_MAX, Math.round(mm));
 }
 
-function mmToMeterCmDraft(mm: number | null | undefined): StageAreaMeterCmDraft {
-  if (mm == null || mm <= 0) return { m: "", cm: "" };
+/** mm → "12.50" (m単位小数文字列) */
+function mmToDecimalDraft(mm: number | null | undefined): string {
+  if (mm == null || mm <= 0) return "";
   const u = mmToMeterCm(clampStageMainMm(mm));
-  return { m: String(u.m), cm: String(u.cm) };
+  const total = u.m + u.cm / 100;
+  return total % 1 === 0 ? String(total) : total.toFixed(2).replace(/0+$/, "");
 }
 
-/** 空欄なら null（未設定）。cm は 0〜99（10 mm 刻み） */
+/** "12.5" → 12500mm, "" → null */
+function parseDecimalDraftToMm(s: string): number | null {
+  const t = s.trim();
+  if (t === "") return null;
+  const v = parseFloat(t);
+  if (!Number.isFinite(v) || v <= 0) return null;
+  return clampStageMainMm(Math.round(v * 1000));
+}
+
+/** 後方互換：{m,cm} → mm */
+function mmToMeterCmDraft(mm: number | null | undefined): StageAreaMeterCmDraft {
+  const s = mmToDecimalDraft(mm);
+  return { m: s, cm: "" }; // m フィールドに小数文字列を保存（後述の parse も対応）
+}
+
+/** 後方互換：{m, cm} の m フィールドを小数として読む */
 function parseMeterCmDraftToMm(d: StageAreaMeterCmDraft): number | null {
-  const mT = d.m.trim();
-  const cT = d.cm.trim();
-  if (mT === "" && cT === "") return null;
-  const m = mT === "" ? 0 : parseInt(mT, 10);
-  const cm = cT === "" ? 0 : parseInt(cT, 10);
-  if (!Number.isFinite(m) || !Number.isFinite(cm)) return null;
-  const mm = clampStageMainMm(mmFromMeterAndCm(m, cm));
-  return mm > 0 ? mm : null;
+  return parseDecimalDraftToMm(d.m);
 }
 
 const STAGE_AREA_DIM_ROWS: {
@@ -400,9 +412,12 @@ const STAGE_AREA_DIM_INPUT_CM: CSSProperties = {
 };
 
 const STAGE_AREA_SHEET_SECTION: CSSProperties = {
-  borderBottom: "1px solid #1e293b",
-  paddingBottom: "6px",
-  marginBottom: "6px",
+  borderRadius: "12px",
+  border: "1px solid rgba(99,102,241,0.15)",
+  background: "linear-gradient(135deg, rgba(15,23,42,0.8) 0%, rgba(30,41,59,0.5) 100%)",
+  backdropFilter: "blur(6px)",
+  padding: "10px 12px",
+  marginBottom: "8px",
 };
 
 type StageAreaSettingsSheetProps = {
@@ -442,65 +457,52 @@ const StageAreaDimensionRows = memo(function StageAreaDimensionRows({
   onChangeDraft,
 }: StageAreaDimensionRowsProps) {
   return (
-    <>
-      {STAGE_AREA_DIM_ROWS.map((row) => (
-        <div
-          key={row.key}
-          style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(0,1fr) auto auto auto auto auto",
-            gap: "4px",
-            alignItems: "center",
-            marginBottom: "4px",
-          }}
-        >
-          <span
-            style={{
-              fontSize: "11px",
-              color: "#94a3b8",
-              lineHeight: 1.25,
-              minWidth: 0,
-            }}
-          >
-            {row.title}
-          </span>
-          <input
-            type="number"
-            min={0}
-            max={999}
-            disabled={disabled}
-            placeholder="m"
-            value={draft[row.key].m}
-            onChange={(e) =>
-              onChangeDraft((d) => ({
-                ...d,
-                [row.key]: { ...d[row.key], m: e.target.value },
-              }))
-            }
-            aria-label={`${row.title} メートル`}
-            style={STAGE_AREA_DIM_INPUT}
-          />
-          <span style={{ fontSize: "10px", color: "#64748b" }}>m</span>
-          <input
-            type="number"
-            min={0}
-            max={99}
-            disabled={disabled}
-            placeholder="cm"
-            value={draft[row.key].cm}
-            onChange={(e) =>
-              onChangeDraft((d) => ({
-                ...d,
-                [row.key]: { ...d[row.key], cm: e.target.value },
-              }))
-            }
-            aria-label={`${row.title} センチ`}
-            style={STAGE_AREA_DIM_INPUT_CM}
-          />
-          <span style={{ fontSize: "10px", color: "#64748b" }}>cm</span>
-        </div>
-      ))}
-    </>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "8px" }}>
+      {STAGE_AREA_DIM_ROWS.map((row) => {
+        const previewMm = parseDecimalDraftToMm(draft[row.key].m);
+        return (
+          <div key={row.key} style={row.key === "guide" ? { gridColumn: "1 / -1" } : {}}>
+            <div style={{ fontSize: "10px", color: "rgba(148,163,184,0.8)", marginBottom: "4px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {row.title}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+              <input
+                type="number"
+                step="0.01"
+                min={0}
+                max={999}
+                disabled={disabled}
+                placeholder="例: 12.5"
+                value={draft[row.key].m}
+                onChange={(e) =>
+                  onChangeDraft((d) => ({
+                    ...d,
+                    [row.key]: { m: e.target.value, cm: "" },
+                  }))
+                }
+                aria-label={row.title}
+                style={{
+                  width: "80px",
+                  padding: "6px 8px",
+                  borderRadius: "8px",
+                  border: draft[row.key].m ? "1px solid rgba(99,102,241,0.5)" : "1px solid rgba(51,65,85,0.8)",
+                  background: "rgba(15,23,42,0.7)",
+                  color: "#e2e8f0",
+                  fontSize: "12px",
+                  outline: "none",
+                }}
+              />
+              <span style={{ fontSize: "11px", color: "rgba(148,163,184,0.6)" }}>m</span>
+              {previewMm != null && (
+                <span style={{ fontSize: "9px", color: "rgba(100,116,139,0.7)" }}>
+                  {formatMeterCmLabel(previewMm)}
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 });
 
@@ -607,50 +609,45 @@ type StageAreaGridStepControlProps = {
   onChangeDraft: Dispatch<SetStateAction<StageAreaSettingsDraft>>;
 };
 
+const GRID_STEP_OPTIONS = [0.5, 1, 2, 5, 10];
+
 const StageAreaGridStepControl = memo(function StageAreaGridStepControl({
   disabled,
   gridStep,
   onChangeDraft,
 }: StageAreaGridStepControlProps) {
   return (
-    <label
-      style={{
-        display: "block",
-        fontSize: "10px",
-        color: "#94a3b8",
-        marginBottom: "2px",
-      }}
-      title="幅・奥行が未設定のときの％刻み（参考用）"
-    >
-      寸法なし時の％刻み
-      <select
-        value={gridStep}
-        disabled={disabled}
-        onChange={(e) =>
-          onChangeDraft((d) => ({
-            ...d,
-            gridStep: Number(e.target.value),
-          }))
-        }
-        style={{
-          width: "100%",
-          marginTop: "3px",
-          marginBottom: "6px",
-          padding: "4px 8px",
-          borderRadius: "5px",
-          border: "1px solid #334155",
-          background: "#020617",
-          color: "#e2e8f0",
-          fontSize: "11px",
-        }}
-      >
-        <option value={0.5}>0.5%</option>
-        <option value={1}>1%</option>
-        <option value={2}>2%</option>
-        <option value={5}>5%</option>
-        <option value={10}>10%</option>
-      </select>
-    </label>
+    <div style={{ marginBottom: "6px" }} title="幅・奥行が未設定のときの％刻み（参考用）">
+      <div style={{ fontSize: "10px", color: "#94a3b8", marginBottom: "5px" }}>
+        グリッド刻み（寸法なし時）
+      </div>
+      <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
+        {GRID_STEP_OPTIONS.map((step) => {
+          const active = gridStep === step;
+          return (
+            <button
+              key={step}
+              type="button"
+              disabled={disabled}
+              onClick={() => onChangeDraft((d) => ({ ...d, gridStep: step }))}
+              style={{
+                padding: "4px 9px",
+                borderRadius: "6px",
+                border: active ? "1px solid rgba(99,102,241,0.7)" : "1px solid rgba(51,65,85,0.6)",
+                background: active ? "rgba(99,102,241,0.2)" : "rgba(15,23,42,0.5)",
+                color: active ? "#a5b4fc" : "rgba(100,116,139,0.8)",
+                fontSize: "11px",
+                fontWeight: active ? 700 : 400,
+                cursor: disabled ? "not-allowed" : "pointer",
+                transition: "all 0.1s",
+              }}
+            >
+              {step}%
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 });
 
@@ -806,63 +803,56 @@ const StageAreaGridVisibilityToggles = memo(function StageAreaGridVisibilityTogg
   horizontalEnabled,
   onChangeDraft,
 }: StageAreaGridVisibilityTogglesProps) {
+  const canToggle = !disabled && hasMainFloor;
+  const toggleStyle = (active: boolean): CSSProperties => ({
+    flex: 1,
+    padding: "7px 8px",
+    borderRadius: "8px",
+    border: active
+      ? "1px solid rgba(99,102,241,0.7)"
+      : "1px solid rgba(51,65,85,0.6)",
+    background: active ? "rgba(99,102,241,0.18)" : "rgba(15,23,42,0.5)",
+    color: active ? "#a5b4fc" : "rgba(100,116,139,0.7)",
+    fontSize: "11px",
+    fontWeight: active ? 700 : 400,
+    cursor: canToggle ? "pointer" : "not-allowed",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "5px",
+    transition: "all 0.15s",
+    opacity: hasMainFloor ? 1 : 0.45,
+  });
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "6px",
-        marginTop: "4px",
-      }}
-    >
-      <label
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "6px",
-          fontSize: "11px",
-          color: "#cbd5e1",
-          cursor: disabled ? "default" : "pointer",
-        }}
+    <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
+      <button
+        type="button"
+        disabled={!canToggle}
+        onClick={() => onChangeDraft((d) => ({ ...d, stageGridLinesVerticalEnabled: !verticalEnabled }))}
         title="幅方向（画面上では縦に走る線）"
+        style={toggleStyle(verticalEnabled)}
       >
-        <input
-          type="checkbox"
-          checked={verticalEnabled}
-          disabled={disabled || !hasMainFloor}
-          onChange={(e) =>
-            onChangeDraft((d) => ({
-              ...d,
-              stageGridLinesVerticalEnabled: e.target.checked,
-            }))
-          }
-        />
-        縦線（幅方向のグリッド）を表示
-      </label>
-      <label
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "6px",
-          fontSize: "11px",
-          color: "#cbd5e1",
-          cursor: disabled ? "default" : "pointer",
-        }}
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="12" y1="3" x2="12" y2="21" />
+          <line x1="6" y1="3" x2="6" y2="21" />
+          <line x1="18" y1="3" x2="18" y2="21" />
+        </svg>
+        縦線
+      </button>
+      <button
+        type="button"
+        disabled={!canToggle}
+        onClick={() => onChangeDraft((d) => ({ ...d, stageGridLinesHorizontalEnabled: !horizontalEnabled }))}
         title="奥行方向（画面上では横に走る線）"
+        style={toggleStyle(horizontalEnabled)}
       >
-        <input
-          type="checkbox"
-          checked={horizontalEnabled}
-          disabled={disabled || !hasMainFloor}
-          onChange={(e) =>
-            onChangeDraft((d) => ({
-              ...d,
-              stageGridLinesHorizontalEnabled: e.target.checked,
-            }))
-          }
-        />
-        横線（奥行方向のグリッド）を表示
-      </label>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+        横線
+      </button>
     </div>
   );
 });
@@ -4560,14 +4550,16 @@ export function EditorPage({
           stageAreaSettingsOpen={stageAreaSettingsOpen}
           onClose={() => setStageAreaSettingsOpen(false)}
         >
-          <div style={{ padding: "8px 10px 10px" }}>
+          <div style={{ padding: "12px 14px 14px" }}>
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
                 gap: "8px",
-                marginBottom: "6px",
+                marginBottom: "12px",
+                paddingBottom: "10px",
+                borderBottom: "1px solid rgba(99,102,241,0.2)",
               }}
             >
               <h3
@@ -4575,11 +4567,21 @@ export function EditorPage({
                 style={{
                   margin: 0,
                   fontSize: "14px",
-                  fontWeight: 600,
+                  fontWeight: 700,
                   color: "#e2e8f0",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
                 }}
               >
-                ステージまわりの設定
+                <span style={{ color: "rgba(129,140,248,0.9)", display: "flex" }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <line x1="3" y1="9" x2="21" y2="9" />
+                    <line x1="9" y1="21" x2="9" y2="9" />
+                  </svg>
+                </span>
+                舞台設定
               </h3>
               <button
                 type="button"
@@ -4603,40 +4605,52 @@ export function EditorPage({
                   fontWeight: 700,
                   color: "#64748b",
                   letterSpacing: "0.05em",
-                  marginBottom: "4px",
+                  marginBottom: "6px",
                 }}
               >
                 客席の位置
               </div>
-              <select
-                title="画面上辺または下辺のどちらを客席としてステージを回転表示するか"
-                value={stageAreaSettingsDraft.audienceEdge}
-                disabled={project.viewMode === "view"}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v !== "top" && v !== "bottom") return;
-                  setStageAreaSettingsDraft((d) => ({
-                    ...d,
-                    audienceEdge: v,
-                  }));
-                }}
-                aria-label="客席のある画面の上または下"
-                style={{
-                  width: "100%",
-                  padding: "5px 8px",
-                  borderRadius: "6px",
-                  border: "1px solid #334155",
-                  background: "#020617",
-                  color: "#e2e8f0",
-                  fontSize: "12px",
-                }}
-              >
-                {STAGE_AREA_AUDIENCE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    客席：画面の{o.label}側
-                  </option>
-                ))}
-              </select>
+              <div style={{ display: "flex", gap: "6px" }}>
+                {(["bottom", "top"] as const).map((edge) => {
+                  const active = stageAreaSettingsDraft.audienceEdge === edge;
+                  return (
+                    <button
+                      key={edge}
+                      type="button"
+                      disabled={project.viewMode === "view"}
+                      onClick={() => setStageAreaSettingsDraft((d) => ({ ...d, audienceEdge: edge }))}
+                      style={{
+                        flex: 1,
+                        padding: "8px 10px",
+                        borderRadius: "8px",
+                        border: active ? "1px solid rgba(252,211,77,0.7)" : "1px solid rgba(51,65,85,0.8)",
+                        background: active ? "rgba(252,211,77,0.1)" : "rgba(15,23,42,0.5)",
+                        color: active ? "#fcd34d" : "rgba(148,163,184,0.7)",
+                        fontSize: "11px",
+                        fontWeight: active ? 700 : 400,
+                        cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "5px",
+                        transition: "all 0.15s",
+                      }}
+                    >
+                      {edge === "bottom" ? (
+                        <>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9" /></svg>
+                          画面下が客席
+                        </>
+                      ) : (
+                        <>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="18 15 12 9 6 15" /></svg>
+                          画面上が客席
+                        </>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div style={STAGE_AREA_SHEET_SECTION}>
@@ -4646,21 +4660,11 @@ export function EditorPage({
                   fontWeight: 700,
                   color: "#64748b",
                   letterSpacing: "0.05em",
-                  marginBottom: "2px",
+                  marginBottom: "6px",
                 }}
               >
-                舞台の寸法
+                舞台の寸法 <span style={{ fontWeight: 400, color: "rgba(100,116,139,0.6)", fontSize: "9px" }}>— 小数で入力（例: 12.5 m）・決定で反映</span>
               </div>
-              <p
-                style={{
-                  margin: "0 0 6px",
-                  fontSize: "10px",
-                  color: "#64748b",
-                  lineHeight: 1.35,
-                }}
-              >
-                m・cm（空欄＝未設定）。<strong style={{ color: "#cbd5e1" }}>決定</strong>で反映。
-              </p>
               <StageAreaDimensionRows
                 disabled={project.viewMode === "view"}
                 draft={stageAreaSettingsDraft}
@@ -4880,14 +4884,22 @@ export function EditorPage({
                   setStageAreaSettingsOpen(false);
                 }}
                 style={{
-                  ...btnAccent,
-                  flex: 1,
-                  padding: "7px 10px",
-                  fontSize: "12px",
-                  fontWeight: 600,
+                  flex: 2,
+                  padding: "9px 14px",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  borderRadius: "10px",
+                  border: "1px solid rgba(129,140,248,0.5)",
+                  background: project.viewMode === "view"
+                    ? "rgba(30,41,59,0.5)"
+                    : "linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #a855f7 100%)",
+                  color: project.viewMode === "view" ? "rgba(71,85,105,0.7)" : "#ffffff",
+                  cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
+                  boxShadow: project.viewMode === "view" ? "none" : "0 0 18px rgba(99,102,241,0.45), 0 2px 8px rgba(0,0,0,0.4)",
+                  letterSpacing: "0.04em",
                 }}
               >
-                決定
+                ✓ 決定
               </button>
               <button
                 type="button"
@@ -4895,71 +4907,108 @@ export function EditorPage({
                 style={{
                   ...btnSecondary,
                   flex: 1,
-                  padding: "7px 10px",
+                  padding: "9px 10px",
                   fontSize: "12px",
                   fontWeight: 600,
+                  borderRadius: "10px",
                 }}
               >
-                取り消し
+                取消
               </button>
             </div>
 
             <div
               style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "6px",
+                borderRadius: "12px",
+                border: "1px solid rgba(99,102,241,0.15)",
+                background: "rgba(15,23,42,0.6)",
+                padding: "10px 12px",
               }}
             >
-              <button
-                type="button"
-                onClick={() => void copyEditorShareLink()}
-                style={{
-                  ...btnSecondary,
-                  flex: "1 1 160px",
-                  padding: "6px 8px",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                }}
-              >
-                {shareLinkCopiedFlash
-                  ? "URL をコピーしました"
-                  : "URL を共有（コピー）"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setStageAreaSettingsOpen(false);
-                  setShareLinksOpen(true);
-                }}
-                style={{
-                  ...btnSecondary,
-                  flex: "1 1 160px",
-                  padding: "6px 8px",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                  borderColor: "rgba(14, 165, 233, 0.5)",
-                }}
-                title="チーム用・生徒用のどちらかを選んで URL を発行"
-              >
-                共有 URL 発行
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setStageAreaSettingsOpen(false);
-                  setShortcutsHelpOpen(true);
-                }}
-                style={{
-                  ...btnSecondary,
-                  flex: "1 1 160px",
-                  padding: "6px 8px",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                }}
-              >
-                ショートカット・ヒント
-              </button>
+              <div style={{ fontSize: "10px", color: "rgba(100,116,139,0.8)", fontWeight: 700, letterSpacing: "0.05em", marginBottom: "8px" }}>
+                共有・その他
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <button
+                  type="button"
+                  onClick={() => void copyEditorShareLink()}
+                  style={{
+                    width: "100%",
+                    padding: "7px 10px",
+                    borderRadius: "8px",
+                    border: shareLinkCopiedFlash
+                      ? "1px solid rgba(52,211,153,0.6)"
+                      : "1px solid rgba(51,65,85,0.8)",
+                    background: shareLinkCopiedFlash
+                      ? "rgba(52,211,153,0.12)"
+                      : "rgba(15,23,42,0.5)",
+                    color: shareLinkCopiedFlash ? "#6ee7b7" : "rgba(148,163,184,0.8)",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "6px",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  {shareLinkCopiedFlash ? (
+                    <>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                      コピーしました
+                    </>
+                  ) : (
+                    <>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                      URL を共有（コピー）
+                    </>
+                  )}
+                </button>
+                <div style={{ display: "flex", gap: "6px" }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStageAreaSettingsOpen(false);
+                      setShareLinksOpen(true);
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: "7px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid rgba(14,165,233,0.4)",
+                      background: "rgba(14,165,233,0.06)",
+                      color: "rgba(125,211,252,0.85)",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                    title="チーム用・生徒用のどちらかを選んで URL を発行"
+                  >
+                    共有 URL 発行
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStageAreaSettingsOpen(false);
+                      setShortcutsHelpOpen(true);
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: "7px 8px",
+                      borderRadius: "8px",
+                      border: "1px solid rgba(51,65,85,0.8)",
+                      background: "rgba(15,23,42,0.5)",
+                      color: "rgba(148,163,184,0.8)",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    ショートカット
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </StageAreaSettingsSheet>
