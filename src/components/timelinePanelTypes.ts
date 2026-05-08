@@ -44,4 +44,5 @@ export type TimelinePanelBodyProps = {
   compactDockLeading?: ReactNode;
   cueListPortalTarget?: HTMLElement | null;
   onSave?: () => void;
+  onOpenAudioImport?: () => void;
 };

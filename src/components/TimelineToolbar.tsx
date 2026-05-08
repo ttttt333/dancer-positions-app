@@ -8,60 +8,79 @@ import { playbackEngine } from "../core/playbackEngine";
 import { btnSecondary } from "./stageButtonStyles";
 import { shell } from "../theme/choreoShell";
 
-/* ─── Playback icon SVGs ─── */
+/* ─── Neon glow helper ─── */
+const neonGlow = (c: string) =>
+  `drop-shadow(0 0 3px ${c}99) drop-shadow(0 0 7px ${c}55)`;
+
+/* ─── Playback icon SVGs — neon colors matching NeonIconPanel ─── */
 function IconPlay() {
+  const c = "#c084fc"; // purple neon
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden style={{ display: "block" }}>
-      <polygon points="5,3 19,12 5,21" fill="currentColor" />
+    <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
+      <polygon points="5,3 20,12 5,21" fill={c} />
     </svg>
   );
 }
 function IconPause() {
+  const c = "#c084fc";
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden style={{ display: "block" }}>
-      <rect x="5" y="3" width="4" height="18" rx="1" fill="currentColor" />
-      <rect x="15" y="3" width="4" height="18" rx="1" fill="currentColor" />
+    <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
+      <rect x="4" y="3" width="5" height="18" rx="1.5" fill={c} />
+      <rect x="15" y="3" width="5" height="18" rx="1.5" fill={c} />
     </svg>
   );
 }
 function IconStop() {
+  const c = "#818cf8"; // indigo neon
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden style={{ display: "block" }}>
-      <rect x="4" y="4" width="16" height="16" rx="2" fill="currentColor" />
+    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
+      <rect x="3" y="3" width="18" height="18" rx="2.5" fill={c} />
     </svg>
   );
 }
 function IconSeekBack() {
+  const c = "#60a5fa"; // blue neon
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden style={{ display: "block" }}>
-      <polygon points="13,5 3,12 13,19" fill="currentColor" />
-      <rect x="14" y="5" width="6" height="14" rx="1" fill="currentColor" />
+    <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
+      <polygon points="14,4 3,12 14,20" fill={c} />
+      <rect x="15" y="4" width="6" height="16" rx="1.5" fill={c} />
     </svg>
   );
 }
 function IconSeekFwd() {
+  const c = "#60a5fa";
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden style={{ display: "block" }}>
-      <polygon points="11,5 21,12 11,19" fill="currentColor" />
-      <rect x="4" y="5" width="6" height="14" rx="1" fill="currentColor" />
+    <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
+      <polygon points="10,4 21,12 10,20" fill={c} />
+      <rect x="3" y="4" width="6" height="16" rx="1.5" fill={c} />
     </svg>
   );
 }
 function IconSave() {
+  const c = "#818cf8"; // indigo neon — matches NeonIconPanel save
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden style={{ display: "block" }}>
-      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-      <polyline points="17,21 17,13 7,13 7,21" fill="none" stroke="currentColor" strokeWidth="2" />
-      <polyline points="7,3 7,8 15,8" fill="none" stroke="currentColor" strokeWidth="2" />
+    <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"
+        fill="none" stroke={c} strokeWidth="1.8" strokeLinejoin="round" />
+      <polyline points="17,21 17,13 7,13 7,21" fill="none" stroke={c} strokeWidth="1.8" />
+      <polyline points="7,3 7,8 15,8" fill="none" stroke={c} strokeWidth="1.8" />
     </svg>
   );
 }
 function IconAudioImport() {
+  // 音符 + プラス、ピンクネオン
+  const c = "#f472b6";
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden style={{ display: "block" }}>
-      <path d="M4 15 Q5.5 10 7 15 Q8.5 20 10 15 Q11.5 10 13 15 Q14.5 20 16 15 Q17.5 10 19 15 Q20.5 20 22 15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <line x1="12" y1="4" x2="12" y2="9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-      <path d="M9 7 L12 4 L15 7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="17" height="17" viewBox="0 0 28 28" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
+      {/* 音符の縦棒 */}
+      <line x1="9" y1="5" x2="9" y2="17" stroke={c} strokeWidth="1.8" strokeLinecap="round" />
+      {/* 音符の旗 */}
+      <path d="M9 5 L18 3 L18 11 L9 13" fill="none" stroke={c} strokeWidth="1.5" strokeLinejoin="round" />
+      {/* 音符の丸 */}
+      <ellipse cx="7" cy="18" rx="3" ry="2" fill={c} opacity="0.9" />
+      {/* プラス記号 */}
+      <line x1="20" y1="17" x2="20" y2="25" stroke={c} strokeWidth="2" strokeLinecap="round" />
+      <line x1="16" y1="21" x2="24" y2="21" stroke={c} strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }

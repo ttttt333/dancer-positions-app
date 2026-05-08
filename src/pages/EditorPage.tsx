@@ -3218,6 +3218,7 @@ export function EditorPage({
       compactDockLeading={mobileTimelineDockLeading}
       cueListPortalTarget={showTopWaveDock ? cueListPortalEl : null}
       onSave={() => setFlowLibraryOpen(true)}
+      onOpenAudioImport={openAudioImport}
     />
   );
 
@@ -5629,6 +5630,7 @@ export function EditorPage({
             height: wideBottomDockPx,
             position: "relative",
             background: "transparent",
+            marginTop: 10,
           }}
         >
           {/* Resize handle — top edge, drag upward to expand */}
