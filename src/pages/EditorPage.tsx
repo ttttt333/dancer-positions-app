@@ -1616,25 +1616,22 @@ export function EditorPage({
     }
     if (!wideEditorLayout) return "1fr";
     if (rightPaneCollapsed) return "1fr";
+    // NeonIconPanel固定幅232px — ステージが残り全スペースを使う
+    const NEON_PANEL_COL = "232px";
     if (editorFixedWaveDockLayout) {
-      if (stageColumnPx == null) {
-        return `minmax(${STAGE_COL_MIN_PX}px, ${STAGE_COL_FR_DEFAULT}fr) ${STAGE_RESIZER_PX}px minmax(${RIGHT_TOOLS_RAIL_MIN_PX}px, ${RIGHT_RAIL_FR_DEFAULT}fr)`;
-      }
-      return `${Math.round(stageColumnPx)}px ${STAGE_RESIZER_PX}px minmax(${RIGHT_TOOLS_RAIL_MIN_PX}px, 1fr)`;
+      return `minmax(${STAGE_COL_MIN_PX}px, 1fr) 0px ${NEON_PANEL_COL}`;
     }
     const rightTrackFullTimeline = `minmax(${TIMELINE_FULL_COL_MIN_PX}px, 1fr)`;
-    const rightTrackRailFixed = `minmax(${RIGHT_TOOLS_RAIL_MIN_PX}px, ${RIGHT_TOOLS_RAIL_MAX_PX}px)`;
-    const rightTrackRailProportional = `clamp(${RIGHT_TOOLS_RAIL_MIN_PX}px, ${RIGHT_RAIL_FR_DEFAULT}fr, ${RIGHT_TOOLS_RAIL_MAX_PX}px)`;
     if (stageColumnPx == null) {
       if (showTopWaveDockForGrid) {
-        return `minmax(${STAGE_COL_MIN_PX}px, ${STAGE_COL_FR_DEFAULT}fr) ${STAGE_RESIZER_PX}px ${rightTrackRailProportional}`;
+        return `minmax(${STAGE_COL_MIN_PX}px, 1fr) 0px ${NEON_PANEL_COL}`;
       }
       return `minmax(${STAGE_COL_MIN_PX}px, 2fr) ${STAGE_RESIZER_PX}px ${rightTrackFullTimeline}`;
     }
     const rightTrack = showTopWaveDockForGrid
-      ? rightTrackRailFixed
+      ? NEON_PANEL_COL
       : rightTrackFullTimeline;
-    return `${Math.round(stageColumnPx)}px ${STAGE_RESIZER_PX}px ${rightTrack}`;
+    return `minmax(${STAGE_COL_MIN_PX}px, 1fr) 0px ${rightTrack}`;
   }, [
     wideEditorLayout,
     rightPaneCollapsed,
@@ -4255,6 +4252,8 @@ export function EditorPage({
               zIndex: 2,
               gridColumn: 2,
               gridRow: 1,
+              // NeonIconPanel使用時はリサイザー非表示
+              display: showTopWaveDock ? "none" : "block",
             }}
           />
         ) : null}
