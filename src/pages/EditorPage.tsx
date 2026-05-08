@@ -3154,21 +3154,15 @@ export function EditorPage({
   const publicNarrowLayout =
     choreoPublicView && !wideEditorLayout && !stageZenLayout;
 
+  // wideEditorLayout時は常に固定 160px 下バー
+  const wideBottomDockPx = topDockRowPx != null
+    ? Math.max(TOP_DOCK_HEIGHT_PX, clampTopDockRowPx(topDockRowPx))
+    : TOP_DOCK_HEIGHT_PX;
   const editorPaneGridTemplateRows = stageZenLayout
     ? "1fr"
     : wideEditorLayout
       ? showTopWaveDock
-        ? editorFixedWaveDockLayout
-          ? `minmax(0, 1fr) ${
-              topDockRowPx != null
-                ? clampTopDockRowPx(topDockRowPx)
-                : editorShellTopWavePx
-            }px`
-          : `minmax(0, 1fr) ${
-              topDockRowPx != null
-                ? `${topDockRowPx}px`
-                : `${TOP_DOCK_HEIGHT_PX}px`
-            }`
+        ? `minmax(0, 1fr) ${wideBottomDockPx}px`
         : "1fr"
       : publicNarrowLayout
         ? publicViewTightHeight
@@ -3329,7 +3323,7 @@ export function EditorPage({
       }}
     >
       {playbackAudioElement}
-      {!choreoPublicView ? (
+      {!choreoPublicView && !wideEditorLayout ? (
       <header
         className={mobileStackEditor ? "editor-page-header--mobile" : undefined}
         style={{
@@ -3500,11 +3494,11 @@ export function EditorPage({
                 display: "grid",
                 gridTemplateColumns: editorPaneGridTemplateColumns,
                 gridTemplateRows: editorPaneGridTemplateRows,
-                gap: `${EDITOR_GRID_GAP_PX}px`,
+                gap: wideEditorLayout ? "4px" : `${EDITOR_GRID_GAP_PX}px`,
                 padding: publicNarrowLayout
                   ? "4px max(4px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px))"
                   : wideEditorLayout
-                    ? "max(8px, env(safe-area-inset-top, 0px)) max(6px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))"
+                    ? "0px max(6px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))"
                     : "6px max(6px, env(safe-area-inset-right, 0px)) calc(max(8px, 2cm) + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
                 paddingBottom:
                   choreoPublicView && choreoStudentPick
