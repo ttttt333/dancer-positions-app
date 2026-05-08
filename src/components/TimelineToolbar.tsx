@@ -68,18 +68,40 @@ function IconSave() {
   );
 }
 function IconAudioImport() {
-  const c = "#f472b6";
+  const pink = "#f472b6";
+  const yellow = "#facc15";
   return (
-    <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
-      {/* 音符：縦棒 */}
-      <line x1="7" y1="4" x2="7" y2="19" stroke={c} strokeWidth="2.5" strokeLinecap="round" />
-      {/* 音符：横旗 */}
-      <path d="M7 4 L18 2 L18 13 L7 15" fill={c} fillOpacity="0.25" stroke={c} strokeWidth="2" strokeLinejoin="round" />
-      {/* 音符：玉 */}
-      <ellipse cx="5" cy="20" rx="4" ry="2.8" fill={c} />
-      {/* プラス：太く大きく右下 */}
-      <line x1="21" y1="17" x2="21" y2="27" stroke={c} strokeWidth="3" strokeLinecap="round" />
-      <line x1="16" y1="22" x2="26" y2="22" stroke={c} strokeWidth="3" strokeLinecap="round" />
+    <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden style={{ display: "block" }}>
+      <defs>
+        <filter id="glow-pink" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="1.2" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+        <filter id="glow-yellow" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur stdDeviation="1.4" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+      </defs>
+
+      {/* ── 音符（ピンク） ── */}
+      <g filter="url(#glow-pink)">
+        {/* 縦棒 */}
+        <line x1="8" y1="3.5" x2="8" y2="17" stroke={pink} strokeWidth="2.8" strokeLinecap="round" />
+        {/* 旗（塗り＋縁） */}
+        <path d="M8 3.5 L19 1.5 L19 11.5 L8 13.5 Z" fill={pink} fillOpacity="0.3" stroke={pink} strokeWidth="1.8" strokeLinejoin="round" />
+        {/* 玉（大きめ楕円） */}
+        <ellipse cx="6" cy="18.5" rx="4.5" ry="3" fill={pink} />
+      </g>
+
+      {/* ── プラスボタン（黄色・右下・円バッジ風） ── */}
+      <g filter="url(#glow-yellow)">
+        {/* 背景の円 */}
+        <circle cx="21" cy="21" r="6.5" fill="#1e293b" stroke={yellow} strokeWidth="1.8" />
+        {/* プラスの縦棒 */}
+        <line x1="21" y1="17.2" x2="21" y2="24.8" stroke={yellow} strokeWidth="2.6" strokeLinecap="round" />
+        {/* プラスの横棒 */}
+        <line x1="17.2" y1="21" x2="24.8" y2="21" stroke={yellow} strokeWidth="2.6" strokeLinecap="round" />
+      </g>
     </svg>
   );
 }
