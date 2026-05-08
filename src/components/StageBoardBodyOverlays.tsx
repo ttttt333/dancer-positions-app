@@ -16,6 +16,8 @@ export const StageBoardBodyOverlays = memo(function StageBoardBodyOverlays({
   setFloorTextDraft,
   floorTextInlineMarkupScale,
   updateActiveFormation,
+  floorTextEditIsGlobal = false,
+  onUpdateGlobalMarkup,
   onFloorTextInlineRequestClose,
   showTrashDrop,
   trashHot,
@@ -40,14 +42,24 @@ export const StageBoardBodyOverlays = memo(function StageBoardBodyOverlays({
           onValueChange={(body) => {
             setFloorTextDraft((d) => ({ ...d, body }));
             const id = floorTextInlineRect.id;
-            updateActiveFormation((f) => ({
-              ...f,
-              floorMarkup: (f.floorMarkup ?? []).map((x) =>
-                x.id === id && x.kind === "text"
-                  ? { ...x, text: body.slice(0, 400) }
-                  : x
-              ),
-            }));
+            if (floorTextEditIsGlobal && onUpdateGlobalMarkup) {
+              onUpdateGlobalMarkup((prev) =>
+                prev.map((x) =>
+                  x.id === id && x.kind === "text"
+                    ? { ...x, text: body.slice(0, 400) }
+                    : x
+                )
+              );
+            } else {
+              updateActiveFormation((f) => ({
+                ...f,
+                floorMarkup: (f.floorMarkup ?? []).map((x) =>
+                  x.id === id && x.kind === "text"
+                    ? { ...x, text: body.slice(0, 400) }
+                    : x
+                ),
+              }));
+            }
           }}
           fontSizePx={floorTextDraft.fontSizePx}
           fontWeight={floorTextDraft.fontWeight}

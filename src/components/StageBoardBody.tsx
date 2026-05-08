@@ -2255,10 +2255,19 @@ export function StageBoardBody({
           const col = floorTextDraftColorHex(floorTextDraft.color);
           const fam =
             (floorTextDraft.fontFamily ?? "").trim() || FLOOR_TEXT_DEFAULT_FONT;
-          const editMk = writeFormation.floorMarkup?.find(
-            (x): x is StageFloorTextMarkup =>
-              x.id === floorTextEditId && x.kind === "text",
+          // グローバルテキストか formation テキストかを判定
+          const isGlobalEdit = (globalFloorMarkup ?? []).some(
+            (x) => x.id === floorTextEditId,
           );
+          const editMk = isGlobalEdit
+            ? (globalFloorMarkup ?? []).find(
+                (x): x is StageFloorTextMarkup =>
+                  x.id === floorTextEditId && x.kind === "text",
+              )
+            : writeFormation.floorMarkup?.find(
+                (x): x is StageFloorTextMarkup =>
+                  x.id === floorTextEditId && x.kind === "text",
+              );
           const editLayer = editMk ? floorTextLayer(editMk) : "stage";
           const rr =
             editLayer === "screen" && viewportTextOverlayRoot
@@ -2266,22 +2275,40 @@ export function StageBoardBody({
               : r;
           const mx = clamp(((e.clientX - rr.left) / rr.width) * 100, 0, 100);
           const my = clamp(((e.clientY - rr.top) / rr.height) * 100, 0, 100);
-          updateActiveFormation((f) => ({
-            ...f,
-            floorMarkup: (f.floorMarkup ?? []).map((m) =>
-              m.id === floorTextEditId && m.kind === "text"
-                ? {
-                    ...m,
-                    xPct: round2(mx),
-                    yPct: round2(my),
-                    fontSizePx: fs,
-                    fontWeight: fw,
-                    color: col,
-                    fontFamily: fam,
-                  }
-                : m,
-            ),
-          }));
+          if (isGlobalEdit && onUpdateGlobalFloorMarkup) {
+            onUpdateGlobalFloorMarkup((prev) =>
+              prev.map((m) =>
+                m.id === floorTextEditId && m.kind === "text"
+                  ? {
+                      ...m,
+                      xPct: round2(mx),
+                      yPct: round2(my),
+                      fontSizePx: fs,
+                      fontWeight: fw,
+                      color: col,
+                      fontFamily: fam,
+                    }
+                  : m,
+              ),
+            );
+          } else {
+            updateActiveFormation((f) => ({
+              ...f,
+              floorMarkup: (f.floorMarkup ?? []).map((m) =>
+                m.id === floorTextEditId && m.kind === "text"
+                  ? {
+                      ...m,
+                      xPct: round2(mx),
+                      yPct: round2(my),
+                      fontSizePx: fs,
+                      fontWeight: fw,
+                      color: col,
+                      fontFamily: fam,
+                    }
+                  : m,
+              ),
+            }));
+          }
           return;
         }
         const t = floorTextDraft.body.trim();
@@ -2315,10 +2342,14 @@ export function StageBoardBody({
             );
           }
         }
-        updateActiveFormation((f) => ({
-          ...f,
-          floorMarkup: [...(f.floorMarkup ?? []), newText],
-        }));
+        if (floorTextDraft.scope === "global" && onUpdateGlobalFloorMarkup) {
+          onUpdateGlobalFloorMarkup((prev) => [...prev, newText]);
+        } else {
+          updateActiveFormation((f) => ({
+            ...f,
+            floorMarkup: [...(f.floorMarkup ?? []), newText],
+          }));
+        }
         setFloorTextDraft((d) => ({ ...d, body: "" }));
         setFloorTextEditId(null);
         return;
@@ -2370,6 +2401,8 @@ export function StageBoardBody({
       floorMarkupTool,
       floorTextDraft,
       floorTextEditId,
+      globalFloorMarkup,
+      onUpdateGlobalFloorMarkup,
       updateActiveFormation,
       setFloorTextDraft,
       setFloorTextEditId,
@@ -2515,14 +2548,25 @@ export function StageBoardBody({
             const nx = round2(clamp(tapOr.startXPct + dxPct, 0, 100));
             const ny = round2(clamp(tapOr.startYPct + dyPct, 0, 100));
             const tid = tapOr.id;
-            queueFormationUpdate((f) => ({
-              ...f,
-              floorMarkup: (f.floorMarkup ?? []).map((x) =>
-                x.id === tid && x.kind === "text"
-                  ? { ...x, xPct: nx, yPct: ny }
-                  : x,
-              ),
-            }));
+            const isGlobal = (globalFloorMarkup ?? []).some((x) => x.id === tid);
+            if (isGlobal && onUpdateGlobalFloorMarkup) {
+              onUpdateGlobalFloorMarkup((prev) =>
+                prev.map((x) =>
+                  x.id === tid && x.kind === "text"
+                    ? { ...x, xPct: nx, yPct: ny }
+                    : x,
+                )
+              );
+            } else {
+              queueFormationUpdate((f) => ({
+                ...f,
+                floorMarkup: (f.floorMarkup ?? []).map((x) =>
+                  x.id === tid && x.kind === "text"
+                    ? { ...x, xPct: nx, yPct: ny }
+                    : x,
+                ),
+              }));
+            }
           }
         }
         return;
@@ -2550,14 +2594,25 @@ export function StageBoardBody({
         if (overTrash) {
           return;
         }
-        queueFormationUpdate((f) => ({
-          ...f,
-          floorMarkup: (f.floorMarkup ?? []).map((x) =>
-            x.id === fmd.id && x.kind === "text"
-              ? { ...x, xPct: nx, yPct: ny }
-              : x,
-          ),
-        }));
+        const fmdIsGlobal = (globalFloorMarkup ?? []).some((x) => x.id === fmd.id);
+        if (fmdIsGlobal && onUpdateGlobalFloorMarkup) {
+          onUpdateGlobalFloorMarkup((prev) =>
+            prev.map((x) =>
+              x.id === fmd.id && x.kind === "text"
+                ? { ...x, xPct: nx, yPct: ny }
+                : x,
+            )
+          );
+        } else {
+          queueFormationUpdate((f) => ({
+            ...f,
+            floorMarkup: (f.floorMarkup ?? []).map((x) =>
+              x.id === fmd.id && x.kind === "text"
+                ? { ...x, xPct: nx, yPct: ny }
+                : x,
+            ),
+          }));
+        }
         return;
       }
       /** 1c: ヘッダから置くテキストのプレビュー位置ドラッグ */
@@ -3066,6 +3121,8 @@ export function StageBoardBody({
     onGestureHistoryEnd,
     markHistorySkipNextPush,
     viewportTextOverlayRoot,
+    globalFloorMarkup,
+    onUpdateGlobalFloorMarkup,
   ]);
 
   useEffect(() => {
@@ -3969,6 +4026,10 @@ export function StageBoardBody({
       setFloorTextDraft,
       floorTextInlineMarkupScale,
       updateActiveFormation,
+      floorTextEditIsGlobal: floorTextEditId != null
+        ? (globalFloorMarkup ?? []).some((x) => x.id === floorTextEditId)
+        : floorTextDraft.scope === "global",
+      onUpdateGlobalMarkup: onUpdateGlobalFloorMarkup,
       onFloorTextInlineRequestClose: () => setFloorMarkupTool(null),
       showTrashDrop,
       trashHot,
@@ -3986,6 +4047,8 @@ export function StageBoardBody({
       floorTextEditId,
       floorTextInlineMarkupScale,
       floorTextInlineRect,
+      globalFloorMarkup,
+      onUpdateGlobalFloorMarkup,
       quickEditDancerForDialog,
       setDancerQuickEditId,
       setFloorTextDraft,

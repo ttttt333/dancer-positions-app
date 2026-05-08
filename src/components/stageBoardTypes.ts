@@ -37,6 +37,10 @@ export type StageBoardBodyOverlaysProps = {
   setFloorTextDraft: Dispatch<SetStateAction<FloorTextDraftPayload>>;
   floorTextInlineMarkupScale: number;
   updateActiveFormation: (updater: (f: Formation) => Formation) => void;
+  /** インライン編集対象が globalFloorMarkup 側か（true = 全編共通） */
+  floorTextEditIsGlobal?: boolean;
+  /** globalFloorMarkup 更新コールバック（インライン本文編集用） */
+  onUpdateGlobalMarkup?: (updater: (prev: StageFloorMarkup[]) => StageFloorMarkup[]) => void;
   onFloorTextInlineRequestClose: () => void;
   showTrashDrop: boolean;
   trashHot: boolean;
