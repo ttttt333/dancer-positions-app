@@ -481,7 +481,7 @@ const StageAreaDimensionRows = memo(function StageAreaDimensionRows({
   onChangeDraft,
 }: StageAreaDimensionRowsProps) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 6px", marginBottom: "8px" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 8px", marginBottom: "8px" }}>
       {STAGE_AREA_DIM_ROWS.map((row) => {
         const hasVal = draft[row.key].m !== "" || draft[row.key].cm !== "";
         return (
@@ -489,7 +489,7 @@ const StageAreaDimensionRows = memo(function StageAreaDimensionRows({
             <div style={{ fontSize: "10px", color: "rgba(148,163,184,0.8)", marginBottom: "4px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {row.title}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "3px", minWidth: 0 }}>
               <select
                 disabled={disabled}
                 value={draft[row.key].m}
@@ -502,7 +502,9 @@ const StageAreaDimensionRows = memo(function StageAreaDimensionRows({
                 aria-label={`${row.title} m`}
                 style={{
                   ...selectStyle,
-                  width: "56px",
+                  flex: "0 0 auto",
+                  width: "48px",
+                  padding: "5px 2px",
                   border: hasVal ? "1px solid rgba(99,102,241,0.5)" : "1px solid rgba(51,65,85,0.8)",
                 }}
               >
@@ -511,7 +513,7 @@ const StageAreaDimensionRows = memo(function StageAreaDimensionRows({
                   <option key={v} value={String(v)}>{v}</option>
                 ))}
               </select>
-              <span style={{ fontSize: "11px", color: "rgba(148,163,184,0.5)" }}>m</span>
+              <span style={{ fontSize: "10px", color: "rgba(148,163,184,0.5)", flexShrink: 0 }}>m</span>
               <select
                 disabled={disabled}
                 value={draft[row.key].cm}
@@ -524,7 +526,9 @@ const StageAreaDimensionRows = memo(function StageAreaDimensionRows({
                 aria-label={`${row.title} cm`}
                 style={{
                   ...selectStyle,
-                  width: "52px",
+                  flex: "0 0 auto",
+                  width: "48px",
+                  padding: "5px 2px",
                   border: hasVal ? "1px solid rgba(99,102,241,0.5)" : "1px solid rgba(51,65,85,0.8)",
                 }}
               >
@@ -533,7 +537,7 @@ const StageAreaDimensionRows = memo(function StageAreaDimensionRows({
                   <option key={v} value={String(v)}>{v}</option>
                 ))}
               </select>
-              <span style={{ fontSize: "11px", color: "rgba(148,163,184,0.5)" }}>cm</span>
+              <span style={{ fontSize: "10px", color: "rgba(148,163,184,0.5)", flexShrink: 0 }}>cm</span>
             </div>
           </div>
         );
@@ -818,8 +822,8 @@ const StageAreaGridSpacingControls = memo(function StageAreaGridSpacingControls(
         marginBottom: "6px",
       }}
     >
-      {renderInput("width", "縦線間隔（cm）", gridWidthCmInput)}
-      {renderInput("depth", "横線間隔（cm）", gridDepthCmInput)}
+      {renderInput("width", "幅方向（cm）", gridWidthCmInput)}
+      {renderInput("depth", "奥行方向（cm）", gridDepthCmInput)}
     </div>
   );
 });
@@ -4741,20 +4745,17 @@ export function EditorPage({
                 </div>
               </div>
 
-              {/* プレビュー + 寸法入力 横並び */}
-              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+              {/* ミニプレビュー */}
+              <div style={{ marginBottom: 10 }}>
                 <StageSettingsMiniPreview draft={stageAreaSettingsDraft} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, color: "#64748b", marginBottom: 5 }}>
-                    寸法入力
-                  </div>
-                  <StageAreaDimensionRows
-                    disabled={project.viewMode === "view"}
-                    draft={stageAreaSettingsDraft}
-                    onChangeDraft={setStageAreaSettingsDraft}
-                  />
-                </div>
               </div>
+
+              {/* 寸法入力 */}
+              <StageAreaDimensionRows
+                disabled={project.viewMode === "view"}
+                draft={stageAreaSettingsDraft}
+                onChangeDraft={setStageAreaSettingsDraft}
+              />
 
 
             </div>
@@ -4770,7 +4771,7 @@ export function EditorPage({
               {stageAreaDraftHasMainFloor && (
                 <div style={{ marginBottom: 8 }}>
                   <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 5 }}>
-                    グリッド間隔 <span style={{ color: "rgba(100,116,139,0.5)", fontSize: 9 }}>縦＝幅方向 / 横＝奥行</span>
+                    グリッド線の間隔
                   </div>
                   <StageAreaGridSpacingControls
                     disabled={project.viewMode === "view"}
