@@ -2913,12 +2913,16 @@ export function StageBoardBody({
         );
         if (dist <= FLOOR_TEXT_TAP_DRAG_THRESHOLD_PX && setPiecesEditable) {
           setSelectedFloorTextId(tapUp.id);
+          const tapIsGlobal = globalFloorMarkup.some(
+            (x) => x.id === tapUp.id,
+          );
           setFloorTextDraft({
             body: tapUp.text,
             fontSizePx: tapUp.fontSizePx,
             fontWeight: tapUp.fontWeight,
             color: tapUp.color,
             fontFamily: tapUp.fontFamily,
+            scope: tapIsGlobal ? "global" : "formation",
           });
         }
       }
