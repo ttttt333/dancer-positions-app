@@ -1708,7 +1708,7 @@ export function EditorPage({
       sideStageMm: s,
       backStageMm: b,
       centerFieldGuideIntervalMm: g,
-      snapGrid: false,
+      snapGrid: d.stageGridLinesVerticalEnabled || d.stageGridLinesHorizontalEnabled,
       gridStep: d.gridStep,
       stageGridLinesVerticalEnabled: d.stageGridLinesVerticalEnabled,
       stageGridLinesHorizontalEnabled: d.stageGridLinesHorizontalEnabled,
@@ -1814,7 +1814,7 @@ export function EditorPage({
       sideStageMm: s,
       backStageMm: b,
       centerFieldGuideIntervalMm: g,
-      snapGrid: false,
+      snapGrid: d.stageGridLinesVerticalEnabled || d.stageGridLinesHorizontalEnabled,
       gridStep: d.gridStep,
       stageGridLinesVerticalEnabled: d.stageGridLinesVerticalEnabled,
       stageGridLinesHorizontalEnabled: d.stageGridLinesHorizontalEnabled,
@@ -5561,6 +5561,25 @@ export function EditorPage({
       {!choreoPublicView && !mobileStackEditor ? (
         <NeonIconPanel
           {...choreoToolbarSharedProps}
+          /* グリッド吸着トグル — グリッド線表示＋snapGridを同時に切り替える */
+          stageGridLinesEnabled={
+            (project.stageGridLinesVerticalEnabled ?? project.stageGridLinesEnabled ?? false) ||
+            (project.stageGridLinesHorizontalEnabled ?? project.stageGridLinesEnabled ?? false)
+          }
+          onToggleStageGridLines={() => {
+            const current =
+              (project.stageGridLinesVerticalEnabled ?? project.stageGridLinesEnabled ?? false) ||
+              (project.stageGridLinesHorizontalEnabled ?? project.stageGridLinesEnabled ?? false);
+            const next = !current;
+            setProjectSafe((p) => ({
+              ...p,
+              stageGridLinesVerticalEnabled: next,
+              stageGridLinesHorizontalEnabled: next,
+              stageGridLinesEnabled: next,
+              snapGrid: next,
+            }));
+          }}
+          snapGrid={project.snapGrid ?? false}
           /* 舞台設定 → full stage area settings dialog */
           onOpenStageShapePicker={() => setStageAreaSettingsOpen(true)}
           onUndo={undo}
