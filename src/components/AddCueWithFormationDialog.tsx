@@ -763,10 +763,7 @@ export function AddCueWithFormationDialog({
               ＋
             </span>
             <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.2 }}>
-              <strong style={{ fontSize: "15px" }}>新しいキュー</strong>
-              <span style={{ fontSize: "11px", color: "#94a3b8" }}>
-                ステージ上部からのみ表示（タイムライン側のボタンはありません）
-              </span>
+              <strong style={{ fontSize: "15px" }}>キュー設定</strong>
             </div>
           </div>
           <button
@@ -797,8 +794,8 @@ export function AddCueWithFormationDialog({
             <div
               style={{
                 display: "flex",
-                flexWrap: "wrap",
-                gap: "10px 18px",
+                flexWrap: "nowrap",
+                gap: "6px 12px",
                 alignItems: "center",
                 paddingLeft: "26px",
               }}
@@ -807,9 +804,10 @@ export function AddCueWithFormationDialog({
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: "6px",
-                  fontSize: "13px",
+                  gap: "4px",
+                  fontSize: "12px",
                   cursor: "pointer",
+                  whiteSpace: "nowrap",
                 }}
               >
                 <input
@@ -818,12 +816,12 @@ export function AddCueWithFormationDialog({
                   checked={timeMode === "now"}
                   onChange={() => setTimeMode("now")}
                 />
-                現在の再生位置
+                現在位置
                 <span
                   style={{
                     fontVariantNumeric: "tabular-nums",
                     color: "#7dd3fc",
-                    fontSize: "12px",
+                    fontSize: "11px",
                   }}
                 >
                   （{formatSec(Math.max(trimLo, Math.min(trimHi, currentTimeSec)))}）
@@ -833,9 +831,10 @@ export function AddCueWithFormationDialog({
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: "6px",
-                  fontSize: "13px",
+                  gap: "4px",
+                  fontSize: "12px",
                   cursor: "pointer",
+                  whiteSpace: "nowrap",
                 }}
               >
                 <input
@@ -853,7 +852,9 @@ export function AddCueWithFormationDialog({
                   onFocus={() => setTimeMode("custom")}
                   style={{
                     ...inputStyle,
-                    width: "80px",
+                    width: "68px",
+                    fontSize: "12px",
+                    padding: "4px 6px",
                     fontVariantNumeric: "tabular-nums",
                   }}
                 />
@@ -881,10 +882,10 @@ export function AddCueWithFormationDialog({
                 onClick={() => bumpCount(-1)}
                 style={{
                   ...btnBase,
-                  padding: "6px 14px",
-                  fontSize: "18px",
+                  padding: "3px 10px",
+                  fontSize: "14px",
                   lineHeight: 1,
-                  minWidth: "40px",
+                  minWidth: "30px",
                 }}
               >
                 −
@@ -892,10 +893,10 @@ export function AddCueWithFormationDialog({
               <span
                 style={{
                   fontVariantNumeric: "tabular-nums",
-                  fontWeight: 800,
-                  fontSize: "20px",
+                  fontWeight: 700,
+                  fontSize: "14px",
                   color: "#f1f5f9",
-                  minWidth: "2.2em",
+                  minWidth: "2em",
                   textAlign: "center",
                 }}
               >
@@ -908,10 +909,10 @@ export function AddCueWithFormationDialog({
                 onClick={() => bumpCount(1)}
                 style={{
                   ...btnBase,
-                  padding: "6px 14px",
-                  fontSize: "18px",
+                  padding: "3px 10px",
+                  fontSize: "14px",
                   lineHeight: 1,
-                  minWidth: "40px",
+                  minWidth: "30px",
                 }}
               >
                 ＋
@@ -919,8 +920,8 @@ export function AddCueWithFormationDialog({
               <span style={{ fontSize: "11px", color: "#64748b" }}>
                 1〜30 人
                 {savedLayoutLocked ? (
-                  <span style={{ marginLeft: "8px", color: "#38bdf8" }}>
-                    （保存した並びの人数に固定）
+                  <span style={{ marginLeft: "6px", color: "#38bdf8" }}>
+                    （固定）
                   </span>
                 ) : null}
               </span>
@@ -1080,7 +1081,7 @@ export function AddCueWithFormationDialog({
                             <SpotThumb dancers={item.dancers} />
                             <span
                               style={{
-                                fontSize: "9.5px",
+                                fontSize: "11px",
                                 color: "#cbd5e1",
                                 width: "100%",
                                 overflow: "hidden",
