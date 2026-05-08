@@ -68,19 +68,18 @@ function IconSave() {
   );
 }
 function IconAudioImport() {
-  // 音符 + プラス、ピンクネオン
   const c = "#f472b6";
   return (
-    <svg width="24" height="24" viewBox="0 0 28 28" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
-      {/* 音符の縦棒 */}
-      <line x1="9" y1="5" x2="9" y2="17" stroke={c} strokeWidth="1.8" strokeLinecap="round" />
-      {/* 音符の旗 */}
-      <path d="M9 5 L18 3 L18 11 L9 13" fill="none" stroke={c} strokeWidth="1.5" strokeLinejoin="round" />
-      {/* 音符の丸 */}
-      <ellipse cx="7" cy="18" rx="3" ry="2" fill={c} opacity="0.9" />
-      {/* プラス記号 */}
-      <line x1="20" y1="17" x2="20" y2="25" stroke={c} strokeWidth="2" strokeLinecap="round" />
-      <line x1="16" y1="21" x2="24" y2="21" stroke={c} strokeWidth="2" strokeLinecap="round" />
+    <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
+      {/* 音符：縦棒 */}
+      <line x1="7" y1="4" x2="7" y2="19" stroke={c} strokeWidth="2.5" strokeLinecap="round" />
+      {/* 音符：横旗 */}
+      <path d="M7 4 L18 2 L18 13 L7 15" fill={c} fillOpacity="0.25" stroke={c} strokeWidth="2" strokeLinejoin="round" />
+      {/* 音符：玉 */}
+      <ellipse cx="5" cy="20" rx="4" ry="2.8" fill={c} />
+      {/* プラス：太く大きく右下 */}
+      <line x1="21" y1="17" x2="21" y2="27" stroke={c} strokeWidth="3" strokeLinecap="round" />
+      <line x1="16" y1="22" x2="26" y2="22" stroke={c} strokeWidth="3" strokeLinecap="round" />
     </svg>
   );
 }
