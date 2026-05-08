@@ -50,8 +50,17 @@ import {
 } from "../lib/projectDefaults";
 import { preloadFFmpeg } from "../lib/extractVideoAudio";
 import { normalizeProject } from "../lib/normalizeProject";
-import { modDancerColorIndex } from "../lib/dancerColorPalette";
-import { sortCuesByStart } from "../core/timelineController";
+import { modDancerColorIndex, DANCER_COLOR_PALETTE_HEX } from "../lib/dancerColorPalette";
+import {
+  sortCuesByStart,
+  MIN_CUE_DURATION_SEC,
+  DEFAULT_CUE_SPAN_WITH_AUDIO_SEC,
+} from "../core/timelineController";
+import {
+  dancersForLayoutPreset,
+  transferDancerIdentitiesByOrder,
+  type LayoutPresetId,
+} from "../lib/formationLayouts";
 import { dancersAtTime } from "../core/stageEngine";
 import { floorMarkupAtTime, setPiecesAtTime } from "../lib/interpolateSetPieces";
 import { FormationBoxManagerDialog } from "../components/FormationBoxManagerDialog";
@@ -76,6 +85,7 @@ import type {
   Cue,
   DancerSpot,
   Formation,
+  RosterStripSortMode,
   SetPieceKind,
   StageFloorMarkup,
 } from "../types/choreography";
@@ -118,6 +128,7 @@ import { ShareLinksSheetContent } from "../components/ShareLinksSheetContent";
 import { ViewerModeSheetContent } from "../components/ViewerModeSheetContent";
 
 const HISTORY_CAP = 80;
+const DEFAULT_ROSTER_CONFIRM_PRESET: LayoutPresetId = "rows_3";
 
 function studentPickToStageFocus(
   p: StudentPick
@@ -1093,6 +1104,8 @@ export function EditorPage({
   const [floorMarkupTool, setFloorMarkupTool] = useState<
     null | "text" | "line" | "erase"
   >(null);
+  /** メンバー表示 SideSheet */
+  const [memberRosterSheetOpen, setMemberRosterSheetOpen] = useState(false);
   /** wideEditorLayout 時: テキストパネルを右サイドシートに表示するか */
   const [floorTextSideSheetOpen, setFloorTextSideSheetOpen] = useState(false);
   /** テキストパネルのポータルターゲット DOM 要素 */
@@ -4536,7 +4549,7 @@ export function EditorPage({
             <EditorSideSheet
               open
               zIndex={2200}
-              width="min(320px, calc(100vw - 16px))"
+              width="min(360px, calc(100vw - 16px))"
               onClose={() => setCueListModalOpen(false)}
               ariaLabelledBy="cue-list-modal-title"
             >
@@ -4581,7 +4594,7 @@ export function EditorPage({
                         <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
                       </svg>
                     </span>
-                    キュー一覧
+                    キュー設定
                   </h2>
                   <button
                     type="button"
@@ -4602,15 +4615,180 @@ export function EditorPage({
                     ×
                   </button>
                 </div>
+                {/* ── キュー設定リスト ── */}
+                <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
+                  {project && project.viewMode !== "view" ? (
+                    <button
+                      type="button"
+                      onClick={() => { setCueListModalOpen(false); setAddCueDialogOpen(true); }}
+                      style={{ ...btnSecondary, fontSize: 12, padding: "7px 12px", borderRadius: 8, display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                      キューを追加
+                    </button>
+                  ) : null}
+                  {project ? (
+                    cuesSortedForStageJump.length === 0 ? (
+                      <p style={{ fontSize: 12, color: shell.textMuted, textAlign: "center", padding: "24px 0" }}>
+                        キューがありません。先に楽曲を取り込み、「キューを追加」してください。
+                      </p>
+                    ) : (
+                      cuesSortedForStageJump.map((cue, idx) => {
+                        const formation = formationById.get(cue.formationId);
+                        const isSelected = selectedCueId === cue.id;
+                        const fmtSec = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+                        return (
+                          <div
+                            key={cue.id}
+                            style={{
+                              borderRadius: 10,
+                              border: `1px solid ${isSelected ? shell.accent : shell.border}`,
+                              background: isSelected ? "rgba(99,102,241,0.08)" : "rgba(255,255,255,0.025)",
+                              padding: "8px 10px",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 6,
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{
+                                width: 22, height: 22, borderRadius: 6,
+                                background: isSelected ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.06)",
+                                color: isSelected ? "#a5b4fc" : shell.textMuted,
+                                fontSize: 10, fontWeight: 700,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                                flexShrink: 0,
+                              }}>
+                                {idx + 1}
+                              </span>
+                              <input
+                                type="text"
+                                value={cue.name ?? ""}
+                                placeholder={`キュー ${idx + 1}`}
+                                disabled={project.viewMode === "view"}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setProjectSafe((p) => ({
+                                    ...p,
+                                    cues: p.cues.map((c) => c.id === cue.id ? { ...c, name: val } : c),
+                                  }));
+                                }}
+                                style={{
+                                  flex: 1,
+                                  background: "rgba(255,255,255,0.04)",
+                                  border: `1px solid ${shell.border}`,
+                                  borderRadius: 6,
+                                  color: shell.text,
+                                  fontSize: 12,
+                                  padding: "4px 8px",
+                                  outline: "none",
+                                }}
+                              />
+                              {project.viewMode !== "view" && (
+                                <button
+                                  type="button"
+                                  title="このキューを削除"
+                                  onClick={() => {
+                                    if (!window.confirm(`キュー「${cue.name || `キュー${idx + 1}`}」を削除しますか？`)) return;
+                                    setProjectSafe((p) => ({
+                                      ...p,
+                                      cues: p.cues.filter((c) => c.id !== cue.id),
+                                    }));
+                                  }}
+                                  style={{ ...btnSecondary, padding: "3px 7px", fontSize: 12, color: "#f87171", borderColor: "rgba(248,113,113,0.3)", flexShrink: 0 }}
+                                >
+                                  削除
+                                </button>
+                              )}
+                            </div>
+                            <div style={{ display: "flex", gap: 8, fontSize: 11, color: shell.textMuted, paddingLeft: 30 }}>
+                              <span>
+                                <span style={{ opacity: 0.6 }}>開始</span>{" "}
+                                <input
+                                  type="number"
+                                  step={0.1}
+                                  min={0}
+                                  value={Math.round(cue.tStartSec * 10) / 10}
+                                  disabled={project.viewMode === "view"}
+                                  onChange={(e) => {
+                                    const v = Number(e.target.value);
+                                    if (!Number.isFinite(v) || v < 0) return;
+                                    setProjectSafe((p) => ({
+                                      ...p,
+                                      cues: p.cues.map((c) => c.id === cue.id ? { ...c, tStartSec: v, tEndSec: Math.max(v + 0.1, c.tEndSec) } : c),
+                                    }));
+                                  }}
+                                  style={{ width: 52, background: "rgba(255,255,255,0.04)", border: `1px solid ${shell.border}`, borderRadius: 5, color: shell.text, fontSize: 11, padding: "2px 4px" }}
+                                />
+                                <span style={{ opacity: 0.5 }}>s ({fmtSec(cue.tStartSec)})</span>
+                              </span>
+                              <span>
+                                <span style={{ opacity: 0.6 }}>終了</span>{" "}
+                                <input
+                                  type="number"
+                                  step={0.1}
+                                  min={0}
+                                  value={Math.round(cue.tEndSec * 10) / 10}
+                                  disabled={project.viewMode === "view"}
+                                  onChange={(e) => {
+                                    const v = Number(e.target.value);
+                                    if (!Number.isFinite(v) || v <= cue.tStartSec) return;
+                                    setProjectSafe((p) => ({
+                                      ...p,
+                                      cues: p.cues.map((c) => c.id === cue.id ? { ...c, tEndSec: v } : c),
+                                    }));
+                                  }}
+                                  style={{ width: 52, background: "rgba(255,255,255,0.04)", border: `1px solid ${shell.border}`, borderRadius: 5, color: shell.text, fontSize: 11, padding: "2px 4px" }}
+                                />
+                                <span style={{ opacity: 0.5 }}>s ({fmtSec(cue.tEndSec)})</span>
+                              </span>
+                            </div>
+                            {formation && (
+                              <div style={{ fontSize: 11, color: shell.textSubtle, paddingLeft: 30, display: "flex", alignItems: "center", gap: 5 }}>
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                                フォーメーション: <span style={{ color: shell.textMuted, fontWeight: 600 }}>{formation.name || `フォーメーション`}</span>
+                                <span style={{ opacity: 0.5 }}>({formation.dancers.length}人)</span>
+                              </div>
+                            )}
+                            <div style={{ paddingLeft: 30 }}>
+                              <textarea
+                                placeholder="メモ（任意）"
+                                value={cue.note ?? ""}
+                                disabled={project.viewMode === "view"}
+                                rows={1}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setProjectSafe((p) => ({
+                                    ...p,
+                                    cues: p.cues.map((c) => c.id === cue.id ? { ...c, note: val || undefined } : c),
+                                  }));
+                                }}
+                                style={{
+                                  width: "100%",
+                                  boxSizing: "border-box",
+                                  background: "rgba(255,255,255,0.03)",
+                                  border: `1px solid ${shell.border}`,
+                                  borderRadius: 6,
+                                  color: shell.textMuted,
+                                  fontSize: 11,
+                                  padding: "4px 8px",
+                                  resize: "vertical",
+                                  outline: "none",
+                                  fontFamily: "inherit",
+                                }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })
+                    )
+                  ) : null}
+                </div>
+                {/* ポータルターゲット（非表示で維持） */}
                 <div
                   ref={setCueListPortalEl}
-                  style={{
-                    flex: "1 1 auto",
-                    minHeight: 240,
-                    display: "flex",
-                    flexDirection: "column",
-                    overflow: "hidden",
-                  }}
+                  aria-hidden
+                  style={{ position: "absolute", left: -32000, top: 0, width: 400, height: 520, overflow: "hidden", opacity: 0, pointerEvents: "none", zIndex: -1, display: "flex", flexDirection: "column" }}
                 />
               </div>
             </EditorSideSheet>
@@ -4635,6 +4813,262 @@ export function EditorPage({
           )}
         </>
       ) : null}
+
+      {/* ── メンバー表示 SideSheet ── */}
+      <EditorSideSheet
+        open={memberRosterSheetOpen}
+        zIndex={2200}
+        width="min(380px, calc(100vw - 16px))"
+        onClose={() => setMemberRosterSheetOpen(false)}
+        ariaLabelledBy="member-roster-sheet-title"
+      >
+        <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, background: shell.surface }}>
+          {/* ヘッダー */}
+          <div style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            gap: 8, padding: "11px 14px",
+            borderBottom: `1px solid ${shell.borderStrong}`,
+            flexShrink: 0, background: shell.bgChrome,
+          }}>
+            <h2 id="member-roster-sheet-title" style={{
+              margin: 0, fontSize: "13px", fontWeight: 700, color: shell.text,
+              display: "flex", alignItems: "center", gap: 7, letterSpacing: "0.03em",
+            }}>
+              <span style={{ color: shell.accent, display: "flex", opacity: 0.9 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/>
+                  <line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>
+                </svg>
+              </span>
+              メンバー
+            </h2>
+            <button
+              type="button"
+              aria-label="閉じる"
+              onClick={() => setMemberRosterSheetOpen(false)}
+              style={{ background: "transparent", border: `1px solid ${shell.border}`, borderRadius: 6, color: shell.textMuted, fontSize: 16, lineHeight: 1, padding: "3px 9px", cursor: "pointer" }}
+            >×</button>
+          </div>
+          {/* 本文 */}
+          <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+            {(() => {
+              const fid = project?.activeFormationId;
+              const formation = fid ? formationById.get(fid) : null;
+              if (!formation || formation.dancers.length === 0) {
+                return (
+                  <p style={{ fontSize: 12, color: shell.textMuted, textAlign: "center", padding: "32px 0" }}>
+                    このフォーメーションにメンバーがいません。<br />
+                    ＋ボタンでメンバーを追加してください。
+                  </p>
+                );
+              }
+              return formation.dancers.map((dancer, idx) => {
+                const colorHex = DANCER_COLOR_PALETTE_HEX[dancer.colorIndex % DANCER_COLOR_PALETTE_HEX.length];
+                const badgeLabel = dancer.markerBadge ?? String(idx + 1);
+                return (
+                  <div key={dancer.id} style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "7px 10px", borderRadius: 10,
+                    border: `1px solid ${shell.border}`,
+                    background: "rgba(255,255,255,0.025)",
+                  }}>
+                    {/* カラーサークル */}
+                    <div style={{
+                      width: 28, height: 28, borderRadius: "50%",
+                      background: colorHex, flexShrink: 0,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 10, fontWeight: 700,
+                      color: "#fff", textShadow: "0 0 2px rgba(0,0,0,0.6)",
+                    }}>
+                      {badgeLabel}
+                    </div>
+                    {/* 名前入力 */}
+                    <input
+                      type="text"
+                      value={dancer.label ?? ""}
+                      placeholder={`ダンサー ${idx + 1}`}
+                      disabled={project?.viewMode === "view"}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setProjectSafe((p) => ({
+                          ...p,
+                          formations: p.formations.map((f) =>
+                            f.id !== fid ? f : {
+                              ...f,
+                              dancers: f.dancers.map((d) => d.id === dancer.id ? { ...d, label: val } : d),
+                            }
+                          ),
+                        }));
+                      }}
+                      style={{
+                        flex: 1, background: "rgba(255,255,255,0.04)",
+                        border: `1px solid ${shell.border}`, borderRadius: 6,
+                        color: shell.text, fontSize: 12, padding: "5px 8px", outline: "none",
+                      }}
+                    />
+                    {/* カラー変更 */}
+                    {project?.viewMode !== "view" && (
+                      <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
+                        {DANCER_COLOR_PALETTE_HEX.slice(0, 9).map((hex, ci) => (
+                          <button
+                            key={hex}
+                            type="button"
+                            title={hex}
+                            onClick={() => {
+                              setProjectSafe((p) => ({
+                                ...p,
+                                formations: p.formations.map((f) =>
+                                  f.id !== fid ? f : {
+                                    ...f,
+                                    dancers: f.dancers.map((d) =>
+                                      d.id === dancer.id ? { ...d, colorIndex: ci } : d
+                                    ),
+                                  }
+                                ),
+                              }));
+                            }}
+                            style={{
+                              width: 14, height: 14, borderRadius: "50%", background: hex,
+                              border: dancer.colorIndex === ci ? `2px solid #fff` : `1px solid transparent`,
+                              cursor: "pointer", padding: 0, flexShrink: 0,
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              });
+            })()}
+          </div>
+          {/* フッター：全フォーメーションに名前を反映 */}
+          {project?.viewMode !== "view" && (() => {
+            const fid = project?.activeFormationId;
+            const formation = fid ? formationById.get(fid) : null;
+            /** crew メンバーのうち未配置のものがあるか */
+            const unplacedCount = (() => {
+              if (!formation || !project) return 0;
+              const placedIds = new Set(
+                formation.dancers.map((d) => d.crewMemberId).filter(Boolean) as string[]
+              );
+              let n = 0;
+              for (const crew of project.crews) {
+                for (const m of crew.members) {
+                  if (!placedIds.has(m.id)) n++;
+                }
+              }
+              return n;
+            })();
+            return (
+              <div style={{ padding: "10px 12px", borderTop: `1px solid ${shell.borderStrong}`, flexShrink: 0, display: "flex", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={addDancerFromStageToolbar}
+                  style={{ ...btnSecondary, fontSize: 12, padding: "7px 12px", borderRadius: 8, display: "flex", alignItems: "center", gap: 5, flex: "0 0 auto", justifyContent: "center" }}
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  追加
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!project || !fid) { setMemberRosterSheetOpen(false); return; }
+                    setProjectSafe((p) => {
+                      if (p.viewMode === "view") return p;
+                      const f = p.formations.find((x) => x.id === fid);
+                      if (!f) return { ...p, rosterHidesTimeline: false };
+
+                      // crew メンバーを import 順に並べる
+                      const placedIds = new Set(
+                        f.dancers.map((d) => d.crewMemberId).filter(Boolean) as string[]
+                      );
+                      let order = 0;
+                      const toAdd: Array<{ crewId: string; member: { id: string; label: string; colorIndex: number; heightCm?: number; gradeLabel?: string; skillRankLabel?: string }; importOrder: number }> = [];
+                      for (const crew of p.crews) {
+                        for (const m of crew.members) {
+                          if (!placedIds.has(m.id)) {
+                            toAdd.push({ crewId: crew.id, member: m, importOrder: order });
+                          }
+                          order++;
+                        }
+                      }
+
+                      if (toAdd.length === 0) {
+                        // すでに全員配置済み → シートを閉じるだけ
+                        return { ...p, rosterHidesTimeline: false };
+                      }
+
+                      const existing = [...f.dancers];
+                      const total = existing.length + toAdd.length;
+                      const opts = {
+                        dancerSpacingMm: p.dancerSpacingMm,
+                        stageWidthMm: p.stageWidthMm,
+                      };
+                      const placeholders: DancerSpot[] = [
+                        ...existing,
+                        ...toAdd.map((row) => {
+                          const m = row.member;
+                          return {
+                            id: crypto.randomUUID(),
+                            label: m.label.trim().slice(0, 120) || "?",
+                            markerBadge: "",
+                            xPct: 50,
+                            yPct: 40,
+                            colorIndex: modDancerColorIndex(m.colorIndex),
+                            crewMemberId: m.id,
+                            ...(typeof m.heightCm === "number" ? { heightCm: m.heightCm } : {}),
+                            ...(m.gradeLabel?.trim() ? { gradeLabel: m.gradeLabel.trim().slice(0, 32) } : {}),
+                            ...(m.skillRankLabel?.trim() ? { skillRankLabel: m.skillRankLabel.trim().slice(0, 24) } : {}),
+                          } satisfies DancerSpot;
+                        }),
+                      ];
+                      const positioned = dancersForLayoutPreset(total, DEFAULT_ROSTER_CONFIRM_PRESET, opts);
+                      const merged = transferDancerIdentitiesByOrder(positioned, placeholders);
+
+                      // キューがなければ先頭キューを自動生成
+                      const sortedCues = sortCuesByStart(p.cues);
+                      const ensuredCues =
+                        sortedCues.length > 0
+                          ? p.cues
+                          : [
+                              {
+                                id: crypto.randomUUID(),
+                                tStartSec: 0,
+                                tEndSec: Math.max(
+                                  MIN_CUE_DURATION_SEC,
+                                  DEFAULT_CUE_SPAN_WITH_AUDIO_SEC
+                                ),
+                                formationId: fid,
+                              },
+                            ];
+
+                      return {
+                        ...p,
+                        cues: ensuredCues,
+                        rosterHidesTimeline: false,
+                        dancerLabelPosition: "below",
+                        dancerMarkerDiameterPx: dancerMarkerDiameterAfterRosterImport(
+                          p.dancerMarkerDiameterPx
+                        ),
+                        formations: p.formations.map((fm) =>
+                          fm.id === fid
+                            ? { ...fm, dancers: merged, confirmedDancerCount: merged.length }
+                            : fm
+                        ),
+                      };
+                    });
+                    setMemberRosterSheetOpen(false);
+                  }}
+                  style={{ ...btnAccent, fontSize: 12, padding: "7px 14px", borderRadius: 8, display: "flex", alignItems: "center", gap: 5, flex: 1, justifyContent: "center" }}
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  決定{unplacedCount > 0 ? `（${unplacedCount}人配置）` : "（舞台に確定）"}
+                </button>
+              </div>
+            );
+          })()}
+        </div>
+      </EditorSideSheet>
 
       {stageAreaSettingsOpen ? (
         <StageAreaSettingsSheet
@@ -5590,8 +6024,26 @@ export function EditorPage({
             }
             const next = floorMarkupTool === "text" ? null : "text";
             setFloorMarkupTool(next);
-            if (showTopWaveDock && next === "text") setFloorTextSideSheetOpen(true);
-            if (next === null) setFloorTextSideSheetOpen(false);
+            if (next === "text") {
+              // Tボタン押下と同時にセッションを初期化（舞台中央・空テキスト）
+              // → サイドシート／インラインパネルに入力欄がすぐ表示される
+              setFloorTextPlaceSession((cur) =>
+                cur
+                  ? cur
+                  : {
+                      body: "",
+                      fontSizePx: 24,
+                      fontWeight: 700,
+                      xPct: 50,
+                      yPct: 50,
+                      color: "#fef08a",
+                    }
+              );
+              if (showTopWaveDock) setFloorTextSideSheetOpen(true);
+            } else {
+              setFloorTextPlaceSession(null);
+              setFloorTextSideSheetOpen(false);
+            }
           }}
           /* 閲覧モード → editor viewer sheet (member highlight preview) */
           onOpenViewMode={() => setEditorViewerSheetOpen(true)}
@@ -5601,14 +6053,8 @@ export function EditorPage({
           onOpenRosterImport={importCrewCsvFromStageToolbar}
           /* ＋メンバー → proper addDancer with smart positioning */
           onAddDancer={addDancerFromStageToolbar}
-          /* メンバー表示 → show roster strip */
-          onOpenRoster={() => {
-            setProjectSafe((p) => ({
-              ...p,
-              rosterHidesTimeline: true,
-              rosterStripCollapsed: false,
-            }));
-          }}
+          /* メンバー表示 → member roster SideSheet */
+          onOpenRoster={() => setMemberRosterSheetOpen(true)}
           /* 舞台変形 → stage shape picker (custom stage shapes) */
           onOpenStageTransform={() => setStageShapePickerOpen(true)}
           /* パネル折りたたみ */

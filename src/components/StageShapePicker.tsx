@@ -128,6 +128,44 @@ export function StageShapePicker({
     []
   );
 
+  /** クリック座標を最近辺に挿入して頂点を1つ増やす */
+  const insertVertexOnClick = useCallback(
+    (clickPt: [number, number]) => {
+      if (customPoly.length < 2) return;
+      // 各辺について「clickPt から辺上の最近点」を計算し、最短の辺に挿入
+      let bestEdge = 0;
+      let bestDist = Infinity;
+      let bestProj: [number, number] = clickPt;
+      const n = customPoly.length;
+      for (let i = 0; i < n; i++) {
+        const a = customPoly[i];
+        const b = customPoly[(i + 1) % n];
+        const dx = b[0] - a[0];
+        const dy = b[1] - a[1];
+        const len2 = dx * dx + dy * dy;
+        let t = len2 > 0
+          ? Math.max(0, Math.min(1, ((clickPt[0] - a[0]) * dx + (clickPt[1] - a[1]) * dy) / len2))
+          : 0;
+        const px = a[0] + t * dx;
+        const py = a[1] + t * dy;
+        const dist = Math.hypot(clickPt[0] - px, clickPt[1] - py);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestEdge = i;
+          bestProj = [px, py];
+        }
+      }
+      // 既存頂点に近すぎる（1px 以内）場合は挿入しない
+      if (bestDist < 0.8) return;
+      setCustomPoly((prev) => {
+        const next = [...prev];
+        next.splice(bestEdge + 1, 0, bestProj);
+        return next as [number, number][];
+      });
+    },
+    [customPoly]
+  );
+
   const flushSketchStroke = useCallback(() => {
     const stroke = sketchStrokeRef.current;
     sketchStrokeRef.current = [];
@@ -449,7 +487,7 @@ export function StageShapePicker({
                       border: "1px solid #334155",
                       background: "#020617",
                       touchAction: sketchMode ? "none" : "auto",
-                      cursor: sketchMode ? "crosshair" : "default",
+                      cursor: disabled ? "default" : "crosshair",
                       maxHeight: "min(42vh, 280px)",
                     }}
                     onPointerDown={(e) => {

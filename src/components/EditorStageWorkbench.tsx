@@ -949,7 +949,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                     cursor: "pointer",
                   }}
                 >
-                  完了
+                  決定
                 </button>
                 <button
                   type="button"
@@ -1357,7 +1357,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                   cursor: "pointer",
                 }}
               >
-                完了
+                決定
               </button>
               <button
                 type="button"

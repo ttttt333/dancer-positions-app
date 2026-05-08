@@ -1845,8 +1845,9 @@ export function StageBoardBody({
           const idx = pieces.findIndex((x) => x.id === d.pieceId);
           if (idx < 0) return f;
           const p = pieces[idx];
-          const nx = clamp(next.xPct, 0, 100 - p.wPct);
-          const ny = clamp(next.yPct, 0, 100 - p.hPct);
+          // ステージ外への配置を許可（上下左右に最大200%まで）
+          const nx = clamp(next.xPct, -200, 200);
+          const ny = clamp(next.yPct, -200, 200);
           pieces[idx] = { ...p, xPct: round2(nx), yPct: round2(ny) };
           return { ...f, setPieces: pieces };
         });
@@ -1875,17 +1876,18 @@ export function StageBoardBody({
       }
       const dxPct = ((e.clientX - d.startClientX) / d.floorWpx) * 100;
       const dyPct = ((e.clientY - d.startClientY) / d.floorHpx) * 100;
+      // リサイズ: サイズのスナップのみ（位置のクランプは外してステージ外配置を許可）
       const snapDim = (axis: "x" | "y", v: number) => {
-        let c = clamp(v, 0, 100);
+        let c = v; // clamp 撤廃 — ステージ外配置を許可
         if (!snapGrid) return round2(c);
         if (mmSnapGrid) {
           const base = axis === "x" ? mmSnapGrid.stepXPct : mmSnapGrid.stepYPct;
           const step = e.shiftKey ? Math.max(0.05, base / 4) : base;
-          c = clamp(Math.round(c / step) * step, 0, 100);
+          c = Math.round(c / step) * step;
           return round2(c);
         }
         const step = e.shiftKey ? Math.max(0.25, gridStep / 4) : gridStep;
-        c = clamp(Math.round(c / step) * step, 0, 100);
+        c = Math.round(c / step) * step;
         return round2(c);
       };
       const raw = applySetPieceResizePct(
@@ -1901,10 +1903,10 @@ export function StageBoardBody({
       let yPct = snapDim("y", raw.yPct);
       let wPct = snapDim("x", raw.wPct);
       let hPct = snapDim("y", raw.hPct);
-      wPct = Math.max(MIN_SET_PIECE_W_PCT, Math.min(wPct, 100 - xPct));
-      hPct = Math.max(MIN_SET_PIECE_H_PCT, Math.min(hPct, 100 - yPct));
-      xPct = clamp(xPct, 0, 100 - wPct);
-      yPct = clamp(yPct, 0, 100 - hPct);
+      wPct = Math.max(MIN_SET_PIECE_W_PCT, wPct);
+      hPct = Math.max(MIN_SET_PIECE_H_PCT, hPct);
+      xPct = clamp(xPct, -200, 200);
+      yPct = clamp(yPct, -200, 200);
       updateActiveFormation((f) => {
         const pieces = [...(f.setPieces ?? [])];
         const idx = pieces.findIndex((x) => x.id === d.pieceId);

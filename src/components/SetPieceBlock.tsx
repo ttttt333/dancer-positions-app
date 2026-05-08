@@ -61,8 +61,9 @@ export function SetPieceBlock({
   const fill = resolveSetPieceFill(p);
   const rotDeg = setPieceRotationDegDisplay(p);
   const selectedSp = selected && setPiecesEditable;
+  // ダンサーマーカー(z=4)より常に下に置く。選択中でも z=3 に留める。
   const zBase = coord === "screen" ? 40 : 2;
-  const zSelected = coord === "screen" ? 46 : 5;
+  const zSelected = coord === "screen" ? 46 : 3;
 
   return (
     <div
