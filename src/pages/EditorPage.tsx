@@ -892,6 +892,58 @@ function formatPlaybackClockSec(sec: number): string {
   return `${m}:${r.toString().padStart(2, "0")}`;
 }
 
+// ─── Stage Settings Panel Mini Preview ───────────────────────────────────────
+function StageSettingsMiniPreview({
+  draft,
+}: {
+  draft: StageAreaSettingsDraft;
+}) {
+  const W = 140, H = 88, PAD = 8;
+  const wMm = parseDecimalDraftToMm(draft.width.m);
+  const dMm = parseDecimalDraftToMm(draft.depth.m);
+  const sMm = parseDecimalDraftToMm(draft.side.m) ?? 0;
+  const bMm = parseDecimalDraftToMm(draft.back.m) ?? 0;
+
+  if (!wMm || !dMm) {
+    return (
+      <div style={{
+        width: W, height: H, borderRadius: 8,
+        border: "1px dashed rgba(99,102,241,0.25)",
+        background: "rgba(15,23,42,0.6)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 10, color: "rgba(100,116,139,0.5)", flexShrink: 0,
+      }}>
+        寸法を入力
+      </div>
+    );
+  }
+  const totalW = wMm + sMm * 2;
+  const totalD = dMm + bMm;
+  const scale = Math.min((W - PAD * 2) / totalW, (H - PAD * 2) / totalD);
+  const px = (mm: number) => mm * scale;
+  const tpxW = px(totalW), tpxD = px(totalD);
+  const ox = (W - tpxW) / 2, oy = (H - tpxD) / 2;
+  const mx = ox + px(sMm), my = oy;
+  const mw = px(wMm), md = px(dMm);
+  const isBottom = draft.audienceEdge !== "top";
+  return (
+    <svg width={W} height={H} style={{
+      borderRadius: 8, flexShrink: 0,
+      border: "1px solid rgba(99,102,241,0.2)",
+      background: "rgba(15,23,42,0.6)",
+    }}>
+      {sMm > 0 && <>
+        <rect x={ox} y={oy} width={px(sMm)} height={md} fill="rgba(99,102,241,0.1)" stroke="rgba(99,102,241,0.25)" strokeWidth={0.5} />
+        <rect x={mx + mw} y={oy} width={px(sMm)} height={md} fill="rgba(99,102,241,0.1)" stroke="rgba(99,102,241,0.25)" strokeWidth={0.5} />
+      </>}
+      {bMm > 0 && <rect x={ox} y={oy + md} width={tpxW} height={px(bMm)} fill="rgba(99,102,241,0.06)" stroke="rgba(99,102,241,0.18)" strokeWidth={0.5} />}
+      <rect x={mx} y={my} width={mw} height={md} fill="rgba(99,102,241,0.18)" stroke="rgba(129,140,248,0.75)" strokeWidth={1} rx={2} />
+      <line x1={mx + mw / 2} y1={my + 2} x2={mx + mw / 2} y2={my + md - 2} stroke="rgba(129,140,248,0.3)" strokeWidth={0.5} strokeDasharray="3,2" />
+      <text x={mx + mw / 2} y={isBottom ? my + md + 11 : my - 3} textAnchor="middle" fill="rgba(252,211,77,0.8)" fontSize={8} fontWeight={600}>客席</text>
+    </svg>
+  );
+}
+
 export function EditorPage({
   choreoPublicView = false,
 }: {
@@ -4550,30 +4602,17 @@ export function EditorPage({
           stageAreaSettingsOpen={stageAreaSettingsOpen}
           onClose={() => setStageAreaSettingsOpen(false)}
         >
-          <div style={{ padding: "12px 14px 14px" }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "8px",
-                marginBottom: "12px",
-                paddingBottom: "10px",
-                borderBottom: "1px solid rgba(99,102,241,0.2)",
-              }}
-            >
-              <h3
-                id="stage-area-settings-title"
-                style={{
-                  margin: 0,
-                  fontSize: "14px",
-                  fontWeight: 700,
-                  color: "#e2e8f0",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                }}
-              >
+          <div style={{ padding: "12px 14px 14px", display: "flex", flexDirection: "column", gap: 0 }}>
+            {/* ── Header ── */}
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              gap: 8, marginBottom: 12, paddingBottom: 10,
+              borderBottom: "1px solid rgba(99,102,241,0.2)",
+            }}>
+              <h3 id="stage-area-settings-title" style={{
+                margin: 0, fontSize: 14, fontWeight: 700, color: "#e2e8f0",
+                display: "flex", alignItems: "center", gap: 8,
+              }}>
                 <span style={{ color: "rgba(129,140,248,0.9)", display: "flex" }}>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="3" width="18" height="18" rx="2" />
@@ -4583,93 +4622,181 @@ export function EditorPage({
                 </span>
                 舞台設定
               </h3>
-              <button
-                type="button"
-                aria-label="閉じる（変更は破棄）"
+              <button type="button" aria-label="閉じる"
                 onClick={() => setStageAreaSettingsOpen(false)}
-                style={{
-                  ...btnSecondary,
-                  fontSize: "16px",
-                  lineHeight: 1,
-                  padding: "2px 10px",
+                style={{ ...btnSecondary, fontSize: 16, lineHeight: 1, padding: "2px 10px" }}
+              >×</button>
+            </div>
+
+            {/* ── CARD A: ステージ寸法 ── */}
+            <div style={{ ...STAGE_AREA_SHEET_SECTION, marginBottom: 8 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M2 20L20 2M7 20l1.5-1.5M12 20l1.5-1.5M17 20l1.5-1.5M2 7l1.5-1.5M2 12l1.5-1.5M2 17l1.5-1.5"/></svg>
+                ステージ寸法
+              </div>
+
+              {/* 客席位置トグル */}
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 10, color: "rgba(100,116,139,0.8)", marginBottom: 5 }}>客席の位置</div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {(["bottom", "top"] as const).map((edge) => {
+                    const active = stageAreaSettingsDraft.audienceEdge === edge;
+                    return (
+                      <button key={edge} type="button"
+                        disabled={project.viewMode === "view"}
+                        onClick={() => setStageAreaSettingsDraft((d) => ({ ...d, audienceEdge: edge }))}
+                        style={{
+                          flex: 1, padding: "7px 10px", borderRadius: 8,
+                          border: active ? "1px solid rgba(252,211,77,0.7)" : "1px solid rgba(51,65,85,0.8)",
+                          background: active ? "rgba(252,211,77,0.1)" : "rgba(15,23,42,0.5)",
+                          color: active ? "#fcd34d" : "rgba(148,163,184,0.7)",
+                          fontSize: 11, fontWeight: active ? 700 : 400,
+                          cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
+                          display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                          transition: "all 0.15s",
+                          boxShadow: active ? "0 0 10px rgba(252,211,77,0.2)" : "none",
+                        }}
+                      >
+                        {edge === "bottom"
+                          ? <><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9" /></svg>画面下が客席</>
+                          : <><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="18 15 12 9 6 15" /></svg>画面上が客席</>
+                        }
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* プレビュー + 寸法入力 横並び */}
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <StageSettingsMiniPreview draft={stageAreaSettingsDraft} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10, color: "#64748b", marginBottom: 5 }}>
+                    寸法入力 <span style={{ color: "rgba(100,116,139,0.5)", fontSize: 9 }}>小数OK（例: 12.5）</span>
+                  </div>
+                  <StageAreaDimensionRows
+                    disabled={project.viewMode === "view"}
+                    draft={stageAreaSettingsDraft}
+                    onChangeDraft={setStageAreaSettingsDraft}
+                  />
+                </div>
+              </div>
+
+              <button type="button"
+                disabled={project.viewMode === "view"}
+                title="変形舞台・花道など"
+                onClick={() => {
+                  applyStageAreaSettingsDraft();
+                  setStageAreaSettingsOpen(false);
+                  setStageSettingsOpen(true);
                 }}
+                style={{ ...btnSecondary, width: "100%", padding: "6px 10px", fontSize: 11, fontWeight: 600, marginTop: 6 }}
               >
-                ×
+                形状・花道・詳細設定…
               </button>
             </div>
 
-            <div style={STAGE_AREA_SHEET_SECTION}>
-              <div
-                style={{
-                  fontSize: "10px",
-                  fontWeight: 700,
-                  color: "#64748b",
-                  letterSpacing: "0.05em",
-                  marginBottom: "6px",
-                }}
-              >
-                客席の位置
+            {/* ── CARD B: グリッド・表示設定 ── */}
+            <div style={{ ...STAGE_AREA_SHEET_SECTION, marginBottom: 8 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                グリッド・表示
               </div>
-              <div style={{ display: "flex", gap: "6px" }}>
-                {(["bottom", "top"] as const).map((edge) => {
-                  const active = stageAreaSettingsDraft.audienceEdge === edge;
-                  return (
-                    <button
-                      key={edge}
-                      type="button"
+
+              {/* グリッド間隔 */}
+              <div style={{ marginBottom: 8 }}>
+                {!stageAreaDraftHasMainFloor ? (
+                  <>
+                    <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 5 }}>グリッド刻み（寸法なし時）</div>
+                    <StageAreaGridStepControl
                       disabled={project.viewMode === "view"}
-                      onClick={() => setStageAreaSettingsDraft((d) => ({ ...d, audienceEdge: edge }))}
-                      style={{
-                        flex: 1,
-                        padding: "8px 10px",
-                        borderRadius: "8px",
-                        border: active ? "1px solid rgba(252,211,77,0.7)" : "1px solid rgba(51,65,85,0.8)",
-                        background: active ? "rgba(252,211,77,0.1)" : "rgba(15,23,42,0.5)",
-                        color: active ? "#fcd34d" : "rgba(148,163,184,0.7)",
-                        fontSize: "11px",
-                        fontWeight: active ? 700 : 400,
-                        cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "5px",
-                        transition: "all 0.15s",
-                      }}
-                    >
-                      {edge === "bottom" ? (
-                        <>
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9" /></svg>
-                          画面下が客席
-                        </>
-                      ) : (
-                        <>
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="18 15 12 9 6 15" /></svg>
-                          画面上が客席
-                        </>
-                      )}
-                    </button>
-                  );
-                })}
+                      gridStep={stageAreaSettingsDraft.gridStep}
+                      onChangeDraft={setStageAreaSettingsDraft}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 5 }}>
+                      グリッド間隔 <span style={{ color: "rgba(100,116,139,0.5)", fontSize: 9 }}>縦＝幅方向 / 横＝奥行</span>
+                    </div>
+                    <StageAreaGridSpacingControls
+                      disabled={project.viewMode === "view"}
+                      gridWidthCmInput={gridWidthCmInput}
+                      gridDepthCmInput={gridDepthCmInput}
+                      onStageGridCmInput={onStageGridCmInput}
+                      commitStageGridCmInput={commitStageGridCmInput}
+                      startGridNudgeRepeat={startGridNudgeRepeat}
+                      stopGridNudgeRepeat={stopGridNudgeRepeat}
+                      nudgeStageGridCm={nudgeStageGridCm}
+                      gridNudgeDidRepeatRef={gridNudgeDidRepeatRef}
+                    />
+                  </>
+                )}
+              </div>
+
+              {/* 縦線・横線トグル */}
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 5 }}>グリッド線の表示</div>
+                <StageAreaGridVisibilityToggles
+                  disabled={project.viewMode === "view"}
+                  hasMainFloor={stageAreaDraftHasMainFloor}
+                  verticalEnabled={stageAreaSettingsDraft.stageGridLinesVerticalEnabled}
+                  horizontalEnabled={stageAreaSettingsDraft.stageGridLinesHorizontalEnabled}
+                  onChangeDraft={setStageAreaSettingsDraft}
+                />
+              </div>
+
+              {/* 名前の位置 — アイコン付きセグメント */}
+              <div>
+                <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 5 }}>立ち位置の名前</div>
+                <div style={{ display: "flex", gap: 6 }} title="印の右クリックでも選べます">
+                  {([
+                    { val: "inside", label: "○の中", icon: (
+                      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                        <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5"/>
+                        <text x="11" y="15" textAnchor="middle" fontSize="9" fill="currentColor" fontWeight="700">A</text>
+                      </svg>
+                    )},
+                    { val: "below", label: "○の外", icon: (
+                      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                        <circle cx="11" cy="8" r="5" stroke="currentColor" strokeWidth="1.5"/>
+                        <text x="11" y="20" textAnchor="middle" fontSize="8" fill="currentColor" fontWeight="700">A</text>
+                      </svg>
+                    )},
+                  ] as const).map(({ val, label, icon }) => {
+                    const active = stageAreaSettingsDraft.dancerLabelPosition === val;
+                    return (
+                      <button key={val} type="button"
+                        disabled={project.viewMode === "view"}
+                        onClick={() => setStageAreaSettingsDraft((d) => ({ ...d, dancerLabelPosition: val }))}
+                        style={{
+                          flex: 1, padding: "6px 8px", borderRadius: 8,
+                          border: active ? "1px solid rgba(99,102,241,0.8)" : "1px solid rgba(51,65,85,0.7)",
+                          background: active ? "rgba(99,102,241,0.2)" : "rgba(15,23,42,0.5)",
+                          color: active ? "#a5b4fc" : "rgba(148,163,184,0.6)",
+                          fontSize: 11, fontWeight: active ? 700 : 400,
+                          cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
+                          display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+                          transition: "all 0.15s",
+                          boxShadow: active ? "0 0 10px rgba(99,102,241,0.25)" : "none",
+                        }}
+                      >
+                        {icon}
+                        <span style={{ fontSize: 10 }}>{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
-            <div style={STAGE_AREA_SHEET_SECTION}>
-              <div
-                style={{
-                  fontSize: "10px",
-                  fontWeight: 700,
-                  color: "#64748b",
-                  letterSpacing: "0.05em",
-                  marginBottom: "6px",
-                }}
-              >
-                舞台の寸法 <span style={{ fontWeight: 400, color: "rgba(100,116,139,0.6)", fontSize: "9px" }}>— 小数で入力（例: 12.5 m）・決定で反映</span>
+            {/* ── CARD C: プリセット・共有 ── */}
+            <div style={{ ...STAGE_AREA_SHEET_SECTION, marginBottom: 10 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                プリセット・共有
               </div>
-              <StageAreaDimensionRows
-                disabled={project.viewMode === "view"}
-                draft={stageAreaSettingsDraft}
-                onChangeDraft={setStageAreaSettingsDraft}
-              />
+
               <StageAreaPresetBlock
                 disabled={project.viewMode === "view"}
                 stageAreaPresetSelectNonce={stageAreaPresetSelectNonce}
@@ -4690,325 +4817,86 @@ export function EditorPage({
                   const name = window.prompt("保存する名前", defaultName);
                   if (name === null) return;
                   const result = saveStagePreset(name.trim() || defaultName, dims);
-                  if (!result.ok) {
-                    window.alert(result.message);
-                    return;
-                  }
+                  if (!result.ok) { window.alert(result.message); return; }
                   setStageAreaPresetList(listStagePresets());
                 }}
               />
-              <button
-                type="button"
-                disabled={project.viewMode === "view"}
-                title="変形舞台・花道など（決定後に開くのが安全）"
-                onClick={() => {
-                  applyStageAreaSettingsDraft();
-                  setStageAreaSettingsOpen(false);
-                  setStageSettingsOpen(true);
-                }}
-                style={{
-                  ...btnSecondary,
-                  width: "100%",
-                  padding: "6px 10px",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                }}
-              >
-                形状・花道・詳細設定…
-              </button>
-            </div>
 
-            <div style={STAGE_AREA_SHEET_SECTION}>
-              <div
-                style={{
-                  fontSize: "10px",
-                  fontWeight: 700,
-                  color: "#64748b",
-                  letterSpacing: "0.05em",
-                  marginBottom: "4px",
-                }}
-              >
-                グリッド
-              </div>
-              {!stageAreaDraftHasMainFloor ? (
-                <p
-                  style={{
-                    margin: "0 0 4px",
-                    fontSize: "10px",
-                    color: "#64748b",
-                    lineHeight: 1.35,
-                  }}
-                >
-                  幅・奥行入力後、<strong style={{ color: "#cbd5e1" }}>縦／横 cm</strong>
-                  で実寸の線間隔と表示を使えます。
-                </p>
-              ) : (
-                <p
-                  style={{
-                    margin: "0 0 4px",
-                    fontSize: "10px",
-                    color: "#64748b",
-                    lineHeight: 1.35,
-                  }}
-                >
-                  <strong style={{ color: "#cbd5e1" }}>縦</strong>＝幅方向、
-                  <strong style={{ color: "#cbd5e1" }}>横</strong>＝奥行。各 1〜100 cm（数字は直接入力可）。
-                </p>
-              )}
-              {!stageAreaDraftHasMainFloor ? (
-                <StageAreaGridStepControl
-                  disabled={project.viewMode === "view"}
-                  gridStep={stageAreaSettingsDraft.gridStep}
-                  onChangeDraft={setStageAreaSettingsDraft}
-                />
-              ) : null}
-              {stageAreaDraftHasMainFloor ? (
-                <StageAreaGridSpacingControls
-                  disabled={project.viewMode === "view"}
-                  gridWidthCmInput={gridWidthCmInput}
-                  gridDepthCmInput={gridDepthCmInput}
-                  onStageGridCmInput={onStageGridCmInput}
-                  commitStageGridCmInput={commitStageGridCmInput}
-                  startGridNudgeRepeat={startGridNudgeRepeat}
-                  stopGridNudgeRepeat={stopGridNudgeRepeat}
-                  nudgeStageGridCm={nudgeStageGridCm}
-                  gridNudgeDidRepeatRef={gridNudgeDidRepeatRef}
-                />
-              ) : null}
-              <StageAreaGridVisibilityToggles
-                disabled={project.viewMode === "view"}
-                hasMainFloor={stageAreaDraftHasMainFloor}
-                verticalEnabled={stageAreaSettingsDraft.stageGridLinesVerticalEnabled}
-                horizontalEnabled={stageAreaSettingsDraft.stageGridLinesHorizontalEnabled}
-                onChangeDraft={setStageAreaSettingsDraft}
-              />
-            </div>
-
-            <div style={STAGE_AREA_SHEET_SECTION}>
-              <div
-                style={{
-                  fontSize: "10px",
-                  fontWeight: 700,
-                  color: "#64748b",
-                  letterSpacing: "0.05em",
-                  marginBottom: "4px",
-                }}
-              >
-                立ち位置の名前
-              </div>
-              <div
-                style={{ display: "flex", gap: "6px" }}
-                title="印の右クリックでも同様に選べます。"
-              >
-                <button
-                  type="button"
-                  disabled={project.viewMode === "view"}
-                  onClick={() =>
-                    setStageAreaSettingsDraft((d) => ({
-                      ...d,
-                      dancerLabelPosition: "inside",
-                    }))
-                  }
-                  style={{
-                    flex: 1,
-                    padding: "5px 8px",
-                    borderRadius: "6px",
-                    border:
-                      stageAreaSettingsDraft.dancerLabelPosition === "inside"
-                        ? "1px solid rgba(99,102,241,0.9)"
-                        : "1px solid #334155",
-                    background:
-                      stageAreaSettingsDraft.dancerLabelPosition === "inside"
-                        ? "rgba(99,102,241,0.22)"
-                        : "#020617",
-                    color:
-                      stageAreaSettingsDraft.dancerLabelPosition === "inside"
-                        ? "#e0e7ff"
-                        : "#94a3b8",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    cursor:
-                      project.viewMode === "view" ? "not-allowed" : "pointer",
-                  }}
-                >
-                  ○の中
-                </button>
-                <button
-                  type="button"
-                  disabled={project.viewMode === "view"}
-                  onClick={() =>
-                    setStageAreaSettingsDraft((d) => ({
-                      ...d,
-                      dancerLabelPosition: "below",
-                    }))
-                  }
-                  style={{
-                    flex: 1,
-                    padding: "5px 8px",
-                    borderRadius: "6px",
-                    border:
-                      stageAreaSettingsDraft.dancerLabelPosition === "below"
-                        ? "1px solid rgba(99,102,241,0.9)"
-                        : "1px solid #334155",
-                    background:
-                      stageAreaSettingsDraft.dancerLabelPosition === "below"
-                        ? "rgba(99,102,241,0.22)"
-                        : "#020617",
-                    color:
-                      stageAreaSettingsDraft.dancerLabelPosition === "below"
-                        ? "#e0e7ff"
-                        : "#94a3b8",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    cursor:
-                      project.viewMode === "view" ? "not-allowed" : "pointer",
-                  }}
-                >
-                  ○の外
-                </button>
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                gap: "8px",
-                marginBottom: "6px",
-              }}
-            >
-              <button
-                type="button"
-                disabled={project.viewMode === "view"}
-                onClick={() => {
-                  applyStageAreaSettingsDraft();
-                  setStageAreaSettingsOpen(false);
-                }}
-                style={{
-                  flex: 2,
-                  padding: "9px 14px",
-                  fontSize: "13px",
-                  fontWeight: 700,
-                  borderRadius: "10px",
-                  border: "1px solid rgba(129,140,248,0.5)",
-                  background: project.viewMode === "view"
-                    ? "rgba(30,41,59,0.5)"
-                    : "linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #a855f7 100%)",
-                  color: project.viewMode === "view" ? "rgba(71,85,105,0.7)" : "#ffffff",
-                  cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
-                  boxShadow: project.viewMode === "view" ? "none" : "0 0 18px rgba(99,102,241,0.45), 0 2px 8px rgba(0,0,0,0.4)",
-                  letterSpacing: "0.04em",
-                }}
-              >
-                ✓ 決定
-              </button>
-              <button
-                type="button"
-                onClick={() => setStageAreaSettingsOpen(false)}
-                style={{
-                  ...btnSecondary,
-                  flex: 1,
-                  padding: "9px 10px",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  borderRadius: "10px",
-                }}
-              >
-                取消
-              </button>
-            </div>
-
-            <div
-              style={{
-                borderRadius: "12px",
-                border: "1px solid rgba(99,102,241,0.15)",
-                background: "rgba(15,23,42,0.6)",
-                padding: "10px 12px",
-              }}
-            >
-              <div style={{ fontSize: "10px", color: "rgba(100,116,139,0.8)", fontWeight: 700, letterSpacing: "0.05em", marginBottom: "8px" }}>
-                共有・その他
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                <button
-                  type="button"
+              {/* URL共有 */}
+              <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(51,65,85,0.5)" }}>
+                <button type="button"
                   onClick={() => void copyEditorShareLink()}
                   style={{
-                    width: "100%",
-                    padding: "7px 10px",
-                    borderRadius: "8px",
-                    border: shareLinkCopiedFlash
-                      ? "1px solid rgba(52,211,153,0.6)"
-                      : "1px solid rgba(51,65,85,0.8)",
-                    background: shareLinkCopiedFlash
-                      ? "rgba(52,211,153,0.12)"
-                      : "rgba(15,23,42,0.5)",
-                    color: shareLinkCopiedFlash ? "#6ee7b7" : "rgba(148,163,184,0.8)",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "6px",
+                    width: "100%", padding: "7px 10px", borderRadius: 8,
+                    border: shareLinkCopiedFlash ? "1px solid rgba(52,211,153,0.6)" : "1px solid rgba(51,65,85,0.7)",
+                    background: shareLinkCopiedFlash ? "rgba(52,211,153,0.1)" : "rgba(15,23,42,0.5)",
+                    color: shareLinkCopiedFlash ? "#6ee7b7" : "rgba(148,163,184,0.75)",
+                    fontSize: 11, fontWeight: 600, cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                     transition: "all 0.2s",
+                    marginBottom: 6,
                   }}
                 >
-                  {shareLinkCopiedFlash ? (
-                    <>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
-                      コピーしました
-                    </>
-                  ) : (
-                    <>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                      URL を共有（コピー）
-                    </>
-                  )}
+                  {shareLinkCopiedFlash
+                    ? <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>コピーしました ✓</>
+                    : <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>URL をコピー</>
+                  }
                 </button>
-                <div style={{ display: "flex", gap: "6px" }}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStageAreaSettingsOpen(false);
-                      setShareLinksOpen(true);
-                    }}
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button type="button"
+                    onClick={() => { setStageAreaSettingsOpen(false); setShareLinksOpen(true); }}
                     style={{
-                      flex: 1,
-                      padding: "7px 8px",
-                      borderRadius: "8px",
-                      border: "1px solid rgba(14,165,233,0.4)",
-                      background: "rgba(14,165,233,0.06)",
-                      color: "rgba(125,211,252,0.85)",
-                      fontSize: "11px",
-                      fontWeight: 600,
-                      cursor: "pointer",
+                      flex: 1, padding: "6px 8px", borderRadius: 8,
+                      border: "1px solid rgba(14,165,233,0.4)", background: "rgba(14,165,233,0.06)",
+                      color: "rgba(125,211,252,0.85)", fontSize: 11, fontWeight: 600, cursor: "pointer",
                     }}
-                    title="チーム用・生徒用のどちらかを選んで URL を発行"
                   >
                     共有 URL 発行
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStageAreaSettingsOpen(false);
-                      setShortcutsHelpOpen(true);
-                    }}
+                  <button type="button"
+                    onClick={() => { setStageAreaSettingsOpen(false); setShortcutsHelpOpen(true); }}
                     style={{
-                      flex: 1,
-                      padding: "7px 8px",
-                      borderRadius: "8px",
-                      border: "1px solid rgba(51,65,85,0.8)",
-                      background: "rgba(15,23,42,0.5)",
-                      color: "rgba(148,163,184,0.8)",
-                      fontSize: "11px",
-                      fontWeight: 600,
-                      cursor: "pointer",
+                      flex: 1, padding: "6px 8px", borderRadius: 8,
+                      border: "1px solid rgba(51,65,85,0.7)", background: "rgba(15,23,42,0.5)",
+                      color: "rgba(148,163,184,0.75)", fontSize: 11, fontWeight: 600, cursor: "pointer",
                     }}
                   >
                     ショートカット
                   </button>
                 </div>
               </div>
+            </div>
+
+            {/* ── 決定・取消 ── */}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button"
+                disabled={project.viewMode === "view"}
+                onClick={() => {
+                  applyStageAreaSettingsDraft();
+                  setStageAreaSettingsOpen(false);
+                }}
+                style={{
+                  flex: 2, padding: "10px 14px", fontSize: 13, fontWeight: 700,
+                  borderRadius: 10,
+                  border: "1px solid rgba(129,140,248,0.5)",
+                  background: project.viewMode === "view"
+                    ? "rgba(30,41,59,0.5)"
+                    : "linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #a855f7 100%)",
+                  color: project.viewMode === "view" ? "rgba(71,85,105,0.7)" : "#fff",
+                  cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
+                  boxShadow: project.viewMode === "view" ? "none" : "0 0 20px rgba(99,102,241,0.45), 0 2px 8px rgba(0,0,0,0.4)",
+                  letterSpacing: "0.04em",
+                  transition: "box-shadow 0.2s",
+                }}
+              >
+                ✓ 決定
+              </button>
+              <button type="button"
+                onClick={() => setStageAreaSettingsOpen(false)}
+                style={{ ...btnSecondary, flex: 1, padding: "10px 10px", fontSize: 12, fontWeight: 600, borderRadius: 10 }}
+              >
+                取消
+              </button>
             </div>
           </div>
         </StageAreaSettingsSheet>
