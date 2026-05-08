@@ -30,3 +30,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+dist-sm/
+vite.config.sm.ts
+vite.config.ts.bak
