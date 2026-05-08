@@ -37,7 +37,7 @@ export function StageBoardStageFrame({
     minWidth: 0,
     minHeight: 0,
     flex: "1 1 0%",
-    ...(rotNorm === 180 ? { paddingTop: 44 } : {}),
+    ...(rotNorm === 180 ? { paddingTop: 64 } : {}),
   };
 
   return (
