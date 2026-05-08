@@ -23,7 +23,7 @@ export function StageBoardStageFrame({
   exportColumn,
   ...rotatedFrame
 }: StageBoardStageFrameProps) {
-  /** 客席＝画面上（180°）のとき、回転後に下側の「舞台裏」帯が欠けないようわずかに上へ */
+  /** 客席＝画面上（180°）のとき、ステージが上に詰まって下部ラベルが隠れないよう下へオフセット */
   const rotNorm = ((rotatedFrame.rotationDeg % 360) + 360) % 360;
   const wrapperStyle: CSSProperties = {
     display: "flex",
@@ -32,7 +32,7 @@ export function StageBoardStageFrame({
     minWidth: 0,
     minHeight: 0,
     flex: "1 1 0%",
-    ...(rotNorm === 180 ? { transform: "translateY(-5mm)" } : {}),
+    ...(rotNorm === 180 ? { transform: "translateY(10mm)" } : {}),
   };
 
   return (

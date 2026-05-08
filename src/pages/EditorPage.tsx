@@ -176,7 +176,7 @@ function getEditorViewportKey(): EditorViewportKey {
 /** メイン 3 列グリッドの列間・行間（参照スクリーンショットの段間に合わせる） */
 const EDITOR_GRID_GAP_PX = 10;
 /** 上部波形ドック行の既定高さ（px）。可変シェル時の未保存グリッド行に使う */
-const TOP_DOCK_HEIGHT_PX = 160;
+const TOP_DOCK_HEIGHT_PX = 120;
 /**
  * ワイド＋上部波形時の固定シェル：波形行の外枠高さのベース（px）。
  * 参照 UI（波形帯が画面高の約 1/10 前後）に合わせた既定。
@@ -209,7 +209,7 @@ const STAGE_COL_FR_DEFAULT = 80;
 const RIGHT_RAIL_FR_DEFAULT = 20;
 
 /** 上部波形ドック行の高さの許容範囲（保存・ドラッグ・clamp と readStored と一致） */
-const TOP_DOCK_ROW_MIN_PX = 60;
+const TOP_DOCK_ROW_MIN_PX = 50;
 const TOP_DOCK_ROW_MAX_PX = 480;
 
 function clampTopDockRowPx(n: number): number {
@@ -5630,7 +5630,7 @@ export function EditorPage({
             height: wideBottomDockPx,
             position: "relative",
             background: "transparent",
-            marginTop: 10,
+            marginTop: 4,
           }}
         >
           {/* Resize handle — top edge, drag upward to expand */}
