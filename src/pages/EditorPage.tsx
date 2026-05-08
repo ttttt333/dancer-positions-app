@@ -1616,22 +1616,21 @@ export function EditorPage({
     }
     if (!wideEditorLayout) return "1fr";
     if (rightPaneCollapsed) return "1fr";
-    // NeonIconPanel固定幅232px — ステージが残り全スペースを使う
-    const NEON_PANEL_COL = "232px";
+    // wideEditorLayout: グリッドは1列のみ、NeonIconPanelは外側flexで配置
     if (editorFixedWaveDockLayout) {
-      return `minmax(${STAGE_COL_MIN_PX}px, 1fr) 0px ${NEON_PANEL_COL}`;
+      return `minmax(${STAGE_COL_MIN_PX}px, 1fr)`;
     }
     const rightTrackFullTimeline = `minmax(${TIMELINE_FULL_COL_MIN_PX}px, 1fr)`;
     if (stageColumnPx == null) {
       if (showTopWaveDockForGrid) {
-        return `minmax(${STAGE_COL_MIN_PX}px, 1fr) 0px ${NEON_PANEL_COL}`;
+        return `minmax(${STAGE_COL_MIN_PX}px, 1fr)`;
       }
       return `minmax(${STAGE_COL_MIN_PX}px, 2fr) ${STAGE_RESIZER_PX}px ${rightTrackFullTimeline}`;
     }
     const rightTrack = showTopWaveDockForGrid
-      ? NEON_PANEL_COL
+      ? `minmax(${STAGE_COL_MIN_PX}px, 1fr)`
       : rightTrackFullTimeline;
-    return `minmax(${STAGE_COL_MIN_PX}px, 1fr) 0px ${rightTrack}`;
+    return rightTrack;
   }, [
     wideEditorLayout,
     rightPaneCollapsed,
@@ -3498,7 +3497,7 @@ export function EditorPage({
                 padding: publicNarrowLayout
                   ? "4px max(4px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px))"
                   : wideEditorLayout
-                    ? "0px max(6px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))"
+                    ? "0px 0px 0px 0px"
                     : "6px max(6px, env(safe-area-inset-right, 0px)) calc(max(8px, 2cm) + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
                 paddingBottom:
                   choreoPublicView && choreoStudentPick
@@ -4253,51 +4252,8 @@ export function EditorPage({
         ) : null}
 
         {stageZenLayout ? null : rightPaneCollapsed && wideEditorLayout ? null : wideEditorLayout && showTopWaveDock ? (
-          <div
-            ref={rightPaneStackRef}
-            style={{
-              gridColumn: 3,
-              gridRow: 1,
-              display: "flex",
-              flexDirection: "column",
-              gap: 8,
-              minHeight: 0,
-              minWidth: 0,
-              flexShrink: 0,
-              ...(editorFixedWaveDockLayout
-                ? {
-                    overflowX: "hidden" as const,
-                    overflowY: "auto" as const,
-                  }
-                : { overflow: "hidden" }),
-              ...(floorTextPlaceSession
-                ? { position: "relative" as const, zIndex: 140 }
-                : {}),
-            }}
-          >
-            {rosterOnlyMode ? (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden",
-                  /** 名簿モードでは右列の縦スペースの大半をメンバー表に使う（ツールは下で内容分のみ） */
-                  flex: "1 1 0",
-                  minHeight: 0,
-                  ...panelCard,
-                  padding: "6px 5px",
-                }}
-              >
-                <RosterTimelineStrip
-                  project={project}
-                  setProject={setProjectSafe}
-                  onConfirmReturnToTimeline={onRosterConfirmReturnToTimeline}
-                  onStagePreviewChange={setStagePreviewDancers}
-                />
-              </div>
-            ) : null}
-            {/* テキストボタンレール非表示 — NeonIconPanelに統合済み */}
-          </div>
+          /* wideEditorLayout: グリッド右列なし。NeonIconPanelは外側flexで配置済み */
+          null
         ) : !publicNarrowLayout ? (
           <div
             ref={rightPaneStackRef}
@@ -4309,7 +4265,7 @@ export function EditorPage({
               minWidth: 0,
               overflow: "hidden",
               ...(wideEditorLayout
-                ? { gridColumn: 3, gridRow: 1 }
+                ? {}
                 : { gridRow: 4 }),
               ...(floorTextPlaceSession
                 ? { position: "relative" as const, zIndex: 140 }
