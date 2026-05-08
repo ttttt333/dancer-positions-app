@@ -750,12 +750,12 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
     globalFloorMarkup: (() => {
       const raw = (o as Partial<ChoreographyProjectJson>).globalFloorMarkup;
       if (!Array.isArray(raw)) return undefined;
-      const out: import("../types/choreography").StageFloorMarkup[] = [];
+      const out: StageFloorMarkup[] = [];
       for (const item of raw) {
         if (!item || typeof item !== "object") continue;
         const m = item as Record<string, unknown>;
         if (m["kind"] === "text" && typeof m["id"] === "string" && typeof m["xPct"] === "number" && typeof m["yPct"] === "number" && typeof m["text"] === "string") {
-          out.push(m as import("../types/choreography").StageFloorTextMarkup);
+          out.push(m as StageFloorTextMarkup);
         }
       }
       return out.length > 0 ? out : undefined;

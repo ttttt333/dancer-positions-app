@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
-import type { Formation } from "../types/choreography";
+import type { Formation, StageFloorMarkup } from "../types/choreography";
 import { EMPTY_FLOOR_TEXT_DRAFT } from "../lib/stageBoardModelHelpers";
 import { btnSecondary } from "./stageButtonStyles";
 import {
@@ -26,7 +26,7 @@ export type StageFloorMarkupHiddenTextPanelProps = {
   setFloorTextInlineRect: Dispatch<SetStateAction<FloorTextInlineRectState>>;
   onAddTemplateText?: (text: string) => void;
   floorTextEditIsGlobal?: boolean;
-  onUpdateGlobalMarkup?: (updater: (prev: import("../types/choreography").StageFloorMarkup[]) => import("../types/choreography").StageFloorMarkup[]) => void;
+  onUpdateGlobalMarkup?: (updater: (prev: StageFloorMarkup[]) => StageFloorMarkup[]) => void;
 };
 
 /**

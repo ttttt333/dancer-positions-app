@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
-import type { Formation } from "../types/choreography";
+import type { Formation, StageFloorMarkup } from "../types/choreography";
 import {
   clamp,
   floorTextDraftColorHex,
@@ -30,7 +30,7 @@ export type FloorTextDraftEditorFormProps = {
    */
   floorTextEditIsGlobal?: boolean;
   /** globalFloorMarkup の更新コールバック */
-  onUpdateGlobalMarkup?: (updater: (prev: import("../types/choreography").StageFloorMarkup[]) => import("../types/choreography").StageFloorMarkup[]) => void;
+  onUpdateGlobalMarkup?: (updater: (prev: StageFloorMarkup[]) => StageFloorMarkup[]) => void;
 };
 
 /** テンプレ一発配置ボタン用定義 */

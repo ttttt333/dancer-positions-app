@@ -77,6 +77,7 @@ import type {
   DancerSpot,
   Formation,
   SetPieceKind,
+  StageFloorMarkup,
 } from "../types/choreography";
 import {
   SetPiecePickerModal,
@@ -1095,7 +1096,7 @@ export function EditorPage({
 
   /** 全編共通テキスト更新コールバック */
   const onUpdateGlobalFloorMarkup = useCallback(
-    (updater: (prev: import("../types/choreography").StageFloorMarkup[]) => import("../types/choreography").StageFloorMarkup[]) => {
+    (updater: (prev: StageFloorMarkup[]) => StageFloorMarkup[]) => {
       setProjectSafe((p) => ({
         ...p,
         globalFloorMarkup: updater(p.globalFloorMarkup ?? []),
