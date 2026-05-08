@@ -176,12 +176,12 @@ function getEditorViewportKey(): EditorViewportKey {
 /** メイン 3 列グリッドの列間・行間（参照スクリーンショットの段間に合わせる） */
 const EDITOR_GRID_GAP_PX = 10;
 /** 上部波形ドック行の既定高さ（px）。可変シェル時の未保存グリッド行に使う */
-const TOP_DOCK_HEIGHT_PX = 62;
+const TOP_DOCK_HEIGHT_PX = 160;
 /**
  * ワイド＋上部波形時の固定シェル：波形行の外枠高さのベース（px）。
  * 参照 UI（波形帯が画面高の約 1/10 前後）に合わせた既定。
  */
-const EDITOR_SHELL_TOP_WAVE_BASE_PX = 110;
+const EDITOR_SHELL_TOP_WAVE_BASE_PX = 160;
 /** 名簿ありで上部に「メンバーを表示」行を出すとき、ベースに足す高さ（px） */
 const EDITOR_SHELL_TOP_WAVE_ROSTER_ROW_PX = 40;
 /**
@@ -3504,7 +3504,7 @@ export function EditorPage({
                 padding: publicNarrowLayout
                   ? "4px max(4px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px))"
                   : wideEditorLayout
-                    ? "calc(max(8px, 2cm) + env(safe-area-inset-top, 0px)) max(6px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))"
+                    ? "max(8px, env(safe-area-inset-top, 0px)) max(6px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))"
                     : "6px max(6px, env(safe-area-inset-right, 0px)) calc(max(8px, 2cm) + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
                 paddingBottom:
                   choreoPublicView && choreoStudentPick
