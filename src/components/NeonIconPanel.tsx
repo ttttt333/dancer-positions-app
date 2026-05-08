@@ -593,11 +593,11 @@ export function NeonIconPanel({
 
       <Divider />
 
-      {/* Block 2: キュー (3×1) */}
+      {/* Block 2: キュー (2×1) */}
       <div style={grid3}>
         <NeonBtn icon={<IconCueList />} label="キュー一覧" onClick={onOpenCueList} disabled={disabled} />
-        <NeonBtn icon={<IconAudioImport />} label="音源取込" onClick={onOpenAudioImport} disabled={disabled} />
         <NeonBtn icon={<IconLibrary />} label="ライブラリ" onClick={onOpenLibrary} disabled={disabled} />
+        <div />
       </div>
 
       <Divider />

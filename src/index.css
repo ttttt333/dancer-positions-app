@@ -525,26 +525,27 @@ body {
 .app-language-switcher--floating {
   position: fixed !important;
   z-index: 40;
-  bottom: max(10px, env(safe-area-inset-bottom, 0px)) !important;
-  right: max(10px, env(safe-area-inset-right, 0px)) !important;
-  top: auto !important;
+  top: max(6px, env(safe-area-inset-top, 0px)) !important;
+  right: max(8px, env(safe-area-inset-right, 0px)) !important;
+  bottom: auto !important;
   left: auto !important;
 }
 
 .app-language-switcher select {
-  min-height: 40px;
-  font-size: 14px;
+  min-height: 24px;
+  font-size: 11px;
 }
 
 @media (max-width: 600px) {
   .app-language-switcher--floating {
-    bottom: max(8px, env(safe-area-inset-bottom, 0px)) !important;
-    right: max(8px, env(safe-area-inset-right, 0px)) !important;
-    padding: 6px 8px;
+    top: max(4px, env(safe-area-inset-top, 0px)) !important;
+    right: max(6px, env(safe-area-inset-right, 0px)) !important;
+    padding: 3px 6px;
   }
 
   .app-language-switcher select {
-    min-height: 44px;
+    min-height: 26px;
+    font-size: 11px;
   }
 }
 

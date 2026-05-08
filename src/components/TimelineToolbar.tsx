@@ -8,6 +8,64 @@ import { playbackEngine } from "../core/playbackEngine";
 import { btnSecondary } from "./stageButtonStyles";
 import { shell } from "../theme/choreoShell";
 
+/* ─── Playback icon SVGs ─── */
+function IconPlay() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden style={{ display: "block" }}>
+      <polygon points="5,3 19,12 5,21" fill="currentColor" />
+    </svg>
+  );
+}
+function IconPause() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden style={{ display: "block" }}>
+      <rect x="5" y="3" width="4" height="18" rx="1" fill="currentColor" />
+      <rect x="15" y="3" width="4" height="18" rx="1" fill="currentColor" />
+    </svg>
+  );
+}
+function IconStop() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden style={{ display: "block" }}>
+      <rect x="4" y="4" width="16" height="16" rx="2" fill="currentColor" />
+    </svg>
+  );
+}
+function IconSeekBack() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden style={{ display: "block" }}>
+      <polygon points="13,5 3,12 13,19" fill="currentColor" />
+      <rect x="14" y="5" width="6" height="14" rx="1" fill="currentColor" />
+    </svg>
+  );
+}
+function IconSeekFwd() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden style={{ display: "block" }}>
+      <polygon points="11,5 21,12 11,19" fill="currentColor" />
+      <rect x="4" y="5" width="6" height="14" rx="1" fill="currentColor" />
+    </svg>
+  );
+}
+function IconSave() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden style={{ display: "block" }}>
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <polyline points="17,21 17,13 7,13 7,21" fill="none" stroke="currentColor" strokeWidth="2" />
+      <polyline points="7,3 7,8 15,8" fill="none" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  );
+}
+function IconAudioImport() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden style={{ display: "block" }}>
+      <path d="M4 15 Q5.5 10 7 15 Q8.5 20 10 15 Q11.5 10 13 15 Q14.5 20 16 15 Q17.5 10 19 15 Q20.5 20 22 15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <line x1="12" y1="4" x2="12" y2="9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M9 7 L12 4 L15 7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 /** タイムライン上部ツールバー用（再生・波形周りの縦スペース節約） */
 export const TIMELINE_UI_SCALE = 1.2;
 export function tlPx(n: number): string {
@@ -211,6 +269,7 @@ export type TimelineToolbarProps = {
   seekForward5Sec: () => void;
   seekBackward5Sec: () => void;
   onSave?: () => void;
+  onOpenAudioImport?: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
   undoDisabled: boolean;
@@ -236,6 +295,7 @@ export function TimelineToolbar({
   seekForward5Sec,
   seekBackward5Sec,
   onSave,
+  onOpenAudioImport,
   onUndo,
   onRedo,
   undoDisabled,
@@ -401,61 +461,99 @@ export function TimelineToolbar({
                 type="button"
                 style={{
                   ...timelineToolbarBtn,
-                  fontSize: tlPx(10),
-                  padding: `${tlPx(3)} ${tlPx(7)}`,
-                  letterSpacing: "0.01em",
+                  padding: `${tlPx(4)} ${tlPx(8)}`,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
                 disabled={viewMode === "view" || duration <= 0}
                 title="5 秒戻す"
                 aria-label="5秒戻す"
                 onClick={seekBackward5Sec}
               >
-                «5s
+                <IconSeekBack />
               </button>
               <button
                 type="button"
                 style={{
                   ...timelineToolbarBtn,
-                  fontSize: tlPx(10),
-                  padding: `${tlPx(3)} ${tlPx(7)}`,
-                  letterSpacing: "0.01em",
+                  padding: `${tlPx(4)} ${tlPx(8)}`,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
                 disabled={viewMode === "view" || duration <= 0}
                 title="5 秒進む"
                 aria-label="5秒進む"
                 onClick={seekForward5Sec}
               >
-                5s»
+                <IconSeekFwd />
               </button>
               <button
                 type="button"
-                style={timelineToolbarBtn}
+                style={{
+                  ...timelineToolbarBtn,
+                  padding: `${tlPx(4)} ${tlPx(10)}`,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
                 onClick={togglePlay}
                 aria-label={isPlaying ? "一時停止" : "再生"}
                 title={isPlaying ? "一時停止" : "再生"}
               >
-                {isPlaying ? "一時停止" : "再生"}
+                {isPlaying ? <IconPause /> : <IconPlay />}
               </button>
               <button
                 type="button"
-                style={timelineToolbarBtn}
+                style={{
+                  ...timelineToolbarBtn,
+                  padding: `${tlPx(4)} ${tlPx(8)}`,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
                 disabled={viewMode === "view" || duration <= 0}
                 title="再生を止め、先頭（トリム開始位置）に戻します"
                 aria-label="先頭へ"
                 onClick={stopPlayback}
               >
-                先頭
+                <IconStop />
               </button>
               {onSave && (
                 <button
                   type="button"
-                  style={timelineToolbarBtn}
+                  style={{
+                    ...timelineToolbarBtn,
+                    padding: `${tlPx(4)} ${tlPx(8)}`,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
                   disabled={viewMode === "view"}
                   title="立ち位置をライブラリに保存"
                   aria-label="保存"
                   onClick={onSave}
                 >
-                  保存
+                  <IconSave />
+                </button>
+              )}
+              {onOpenAudioImport && (
+                <button
+                  type="button"
+                  style={{
+                    ...timelineToolbarBtn,
+                    padding: `${tlPx(4)} ${tlPx(8)}`,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  title="音源を取り込む"
+                  aria-label="音源取込"
+                  onClick={onOpenAudioImport}
+                  onPointerEnter={() => { void preloadFFmpeg(); }}
+                >
+                  <IconAudioImport />
                 </button>
               )}
               <PlaybackClockReadout
@@ -531,23 +629,23 @@ export function TimelineToolbar({
         >
           <button
             type="button"
-            style={mobileScrollBtn}
+            style={{ ...mobileScrollBtn, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
             disabled={viewMode === "view" || duration <= 0}
             title="5 秒戻す"
             aria-label="5秒戻す"
             onClick={seekBackward5Sec}
           >
-            −5s
+            <IconSeekBack />
           </button>
           <button
             type="button"
-            style={mobileScrollBtn}
+            style={{ ...mobileScrollBtn, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
             disabled={viewMode === "view" || duration <= 0}
             title="5 秒進む"
             aria-label="5秒進む"
             onClick={seekForward5Sec}
           >
-            ＋5s
+            <IconSeekFwd />
           </button>
           <button
             type="button"
@@ -555,38 +653,51 @@ export function TimelineToolbar({
               ...timelineToolbarBtn,
               padding: `${tlPx(2)} ${tlPx(8)}`,
               minHeight: tlPx(26),
-              minWidth: tlPx(40),
-              fontSize: tlPx(10),
-              fontWeight: 700,
+              minWidth: tlPx(36),
               flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
             disabled={viewMode === "view"}
             onClick={togglePlay}
             aria-label={isPlaying ? "一時停止" : "再生"}
             title={isPlaying ? "一時停止" : "再生"}
           >
-            {isPlaying ? "⏸" : "▶"}
+            {isPlaying ? <IconPause /> : <IconPlay />}
           </button>
           <button
             type="button"
-            style={mobileScrollBtn}
+            style={{ ...mobileScrollBtn, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
             disabled={viewMode === "view" || duration <= 0}
             title="再生を止め、先頭（トリム開始位置）に戻します"
             aria-label="先頭へ"
             onClick={stopPlayback}
           >
-            ⏹
+            <IconStop />
           </button>
           {onSave ? (
             <button
               type="button"
-              style={mobileScrollBtn}
+              style={{ ...mobileScrollBtn, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
               disabled={viewMode === "view"}
               title="立ち位置をライブラリに保存"
               aria-label="保存"
               onClick={onSave}
             >
-              保存
+              <IconSave />
+            </button>
+          ) : null}
+          {onOpenAudioImport ? (
+            <button
+              type="button"
+              style={{ ...mobileScrollBtn, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+              title="音源を取り込む"
+              aria-label="音源取込"
+              onClick={onOpenAudioImport}
+              onPointerEnter={() => { void preloadFFmpeg(); }}
+            >
+              <IconAudioImport />
             </button>
           ) : null}
           {onUndo ? (
@@ -697,35 +808,37 @@ export function TimelineToolbar({
           type="button"
           style={{
             ...timelineToolbarBtn,
-            padding: `${tlPx(3)} ${tlPx(7)}`,
-            minHeight: tlPx(24),
-            fontSize: tlPx(10),
-            letterSpacing: "0.01em",
+            padding: `${tlPx(4)} ${tlPx(9)}`,
+            minHeight: tlPx(28),
             flexShrink: 0,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
           disabled={viewMode === "view" || duration <= 0}
           title="5 秒戻す"
           aria-label="5秒戻す"
           onClick={seekBackward5Sec}
         >
-          «5s
+          <IconSeekBack />
         </button>
         <button
           type="button"
           style={{
             ...timelineToolbarBtn,
-            padding: `${tlPx(3)} ${tlPx(7)}`,
-            minHeight: tlPx(24),
-            fontSize: tlPx(10),
-            letterSpacing: "0.01em",
+            padding: `${tlPx(4)} ${tlPx(9)}`,
+            minHeight: tlPx(28),
             flexShrink: 0,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
           disabled={viewMode === "view" || duration <= 0}
           title="5 秒進む"
           aria-label="5秒進む"
           onClick={seekForward5Sec}
         >
-          5s»
+          <IconSeekFwd />
         </button>
         <button
           type="button"
@@ -733,48 +846,73 @@ export function TimelineToolbar({
             ...timelineToolbarBtn,
             padding: `${tlPx(4)} ${tlPx(12)}`,
             minHeight: tlPx(28),
-            fontWeight: 600,
             flexShrink: 0,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
-          disabled={viewMode === "view"}
           onClick={togglePlay}
           aria-label={isPlaying ? "一時停止" : "再生"}
           title={isPlaying ? "一時停止" : "再生"}
         >
-          {isPlaying ? "一時停止" : "再生"}
+          {isPlaying ? <IconPause /> : <IconPlay />}
         </button>
         <button
           type="button"
           style={{
             ...timelineToolbarBtn,
-            padding: `${tlPx(4)} ${tlPx(10)}`,
+            padding: `${tlPx(4)} ${tlPx(9)}`,
             minHeight: tlPx(28),
-            fontWeight: 600,
             flexShrink: 0,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
           disabled={viewMode === "view" || duration <= 0}
           title="再生を止め、先頭（トリム開始位置）に戻します"
           aria-label="先頭へ"
           onClick={stopPlayback}
         >
-          先頭
+          <IconStop />
         </button>
         {onSave ? (
           <button
             type="button"
             style={{
               ...timelineToolbarBtn,
-              padding: `${tlPx(4)} ${tlPx(10)}`,
+              padding: `${tlPx(4)} ${tlPx(9)}`,
               minHeight: tlPx(28),
-              fontWeight: 600,
               flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
             disabled={viewMode === "view"}
             title="立ち位置をライブラリに保存"
             aria-label="保存"
             onClick={onSave}
           >
-            保存
+            <IconSave />
+          </button>
+        ) : null}
+        {onOpenAudioImport ? (
+          <button
+            type="button"
+            style={{
+              ...timelineToolbarBtn,
+              padding: `${tlPx(4)} ${tlPx(9)}`,
+              minHeight: tlPx(28),
+              flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            title="音源を取り込む"
+            aria-label="音源取込"
+            onClick={onOpenAudioImport}
+            onPointerEnter={() => { void preloadFFmpeg(); }}
+          >
+            <IconAudioImport />
           </button>
         ) : null}
         <PlaybackClockReadout

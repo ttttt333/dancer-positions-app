@@ -23,12 +23,12 @@ export function LanguageSwitcher({
       ? {
           display: "flex",
           alignItems: "center",
-          gap: 6,
-          padding: "4px 8px",
-          borderRadius: 10,
+          gap: 4,
+          padding: "2px 6px",
+          borderRadius: 7,
           border: `1px solid ${shell.borderStrong}`,
-          background: "rgba(10, 9, 8, 0.92)",
-          boxShadow: `0 4px 22px rgba(0,0,0,0.45), 0 0 0 1px ${shell.brandGlow}`,
+          background: "rgba(10, 9, 8, 0.85)",
+          boxShadow: `0 2px 10px rgba(0,0,0,0.4), 0 0 0 1px ${shell.brandGlow}`,
           backdropFilter: "blur(8px)",
         }
       : {
@@ -51,7 +51,7 @@ export function LanguageSwitcher({
     >
       <span
         style={{
-          fontSize: 10,
+          fontSize: 9,
           color: "#64748b",
           fontWeight: 700,
           letterSpacing: "0.04em",
@@ -70,12 +70,13 @@ export function LanguageSwitcher({
         }}
         style={{
           ...btnSecondary,
-          padding: "4px 8px",
-          fontSize: 12,
-          borderRadius: 8,
+          padding: "2px 5px",
+          fontSize: 11,
+          borderRadius: 5,
           cursor: "pointer",
-          maxWidth: 140,
+          maxWidth: 110,
           color: "#e2e8f0",
+          minHeight: "unset",
         }}
       >
         {LOCALE_ORDER.map((code) => (
