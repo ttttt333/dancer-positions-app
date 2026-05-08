@@ -83,6 +83,7 @@ import {
 } from "../components/SetPiecePickerModal";
 import { ChoreoCoreToolbar } from "../components/ChoreoCoreToolbar";
 import { NeonIconPanel } from "../components/NeonIconPanel";
+import { AiSuggestDialog } from "../components/AiSuggestDialog";
 import {
   EditorStageWorkbench,
   WorkbenchCuePager,
@@ -1021,6 +1022,7 @@ export function EditorPage({
   });
   /** ワイド＋タイムライン表示時: キュー一覧モーダルの開閉（一覧本体はポータルで描画） */
   const [cueListModalOpen, setCueListModalOpen] = useState(false);
+  const [aiSuggestOpen, setAiSuggestOpen] = useState(false);
   const [cueListPortalEl, setCueListPortalEl] =
     useState<HTMLDivElement | null>(null);
   /** 上部ドック時の上段（波形・再生）行の高さ（px）。null = 既定の `minmax(160px, min(28vh, 300px))` */
@@ -5356,6 +5358,16 @@ export function EditorPage({
 
       {rosterImportSheetEl}
 
+      {aiSuggestOpen && project ? (
+        <AiSuggestDialog
+          project={project}
+          setProject={setProjectSafe}
+          peaks={getWavePeaksSnapshot()}
+          durationSec={duration}
+          onClose={() => setAiSuggestOpen(false)}
+        />
+      ) : null}
+
       {!choreoPublicView ? (
         <EditorSideSheet
           open={shareLinksOpen}
@@ -5656,9 +5668,7 @@ export function EditorPage({
           /* キュー設定 → add/configure cue dialog */
           onOpenCueList={() => setAddCueDialogOpen(true)}
           onOpenShareLinks={() => setShareLinksOpen(true)}
-          onOpenAISuggest={() => {
-            window.alert("AI提案機能は今後のアップデートで追加予定です。");
-          }}
+          onOpenAISuggest={() => setAiSuggestOpen(true)}
           /* テキスト → toggle floor markup text tool (2D only) */
           onOpenFloorText={() => {
             if (stageView !== "2d") {
