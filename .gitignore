@@ -34,3 +34,6 @@ dist-ssr
 dist-sm/
 vite.config.sm.ts
 vite.config.ts.bak
+dist-debug/
+vite-debug.config.ts
+vite-sourcemap.config.ts
