@@ -37,7 +37,7 @@ export function StageBoardFitViewport({
     display: "flex",
     flexDirection: "row",
     justifyContent: "center",
-    alignItems: "center",
+    alignItems: paddingTop ? "flex-start" : "center",
     alignSelf: "stretch",
     containerType: "size",
     containerName: "stage-board-fit",
