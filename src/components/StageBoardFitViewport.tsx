@@ -25,10 +25,12 @@ const stretchColumnStyle: CSSProperties = {
 export function StageBoardFitViewport({
   children,
   paddingTop,
+  paddingBottom,
   alignTop,
 }: {
   children: ReactNode;
   paddingTop?: number;
+  paddingBottom?: number;
   /** true のとき alignItems を flex-start にしてステージを上寄せ */
   alignTop?: boolean;
 }) {
@@ -45,6 +47,7 @@ export function StageBoardFitViewport({
     containerType: "size",
     containerName: "stage-board-fit",
     ...(paddingTop ? { paddingTop } : {}),
+    ...(paddingBottom ? { paddingBottom } : {}),
   };
 
   return (
