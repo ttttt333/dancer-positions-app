@@ -4303,29 +4303,7 @@ export function EditorPage({
                 />
               </div>
             ) : null}
-            <section
-              className="editor-right-tools-section"
-              style={{
-                ...panelCard,
-                padding: "6px 5px",
-                flex: rosterOnlyMode ? "0 0 auto" : "1 1 auto",
-                minHeight: 0,
-                minWidth: 0,
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden",
-              }}
-            >
-              <div className="editor-right-tools-host">
-                <div className="editor-right-tools-tiles">
-                  <EditorStageWorkbench
-                    key="wb-tiles"
-                    layout="rail"
-                    {...stageWorkbenchProps}
-                  />
-                </div>
-              </div>
-            </section>
+            {/* テキストボタンレール非表示 — NeonIconPanelに統合済み */}
           </div>
         ) : !publicNarrowLayout ? (
           <div
