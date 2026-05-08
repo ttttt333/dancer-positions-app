@@ -968,6 +968,12 @@ export function StageBoardBody({
     ],
   );
 
+  const handleShiftSelectFloorText = useCallback((id: string) => {
+    setSelectedFloorTextIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  }, []);
+
   const floorTextMarkupSharedProps = useMemo(
     () => ({
       viewMode,
@@ -1011,12 +1017,6 @@ export function StageBoardBody({
       handleShiftSelectFloorText,
     ],
   );
-
-  const handleShiftSelectFloorText = useCallback((id: string) => {
-    setSelectedFloorTextIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
-  }, []);
 
   const handleFloorTextPlacePreviewPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
