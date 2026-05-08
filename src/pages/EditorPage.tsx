@@ -300,15 +300,25 @@ function parseDecimalDraftToMm(s: string): number | null {
   return clampStageMainMm(Math.round(v * 1000));
 }
 
-/** 後方互換：{m,cm} → mm */
+/** mm → { m: "12", cm: "50" } */
 function mmToMeterCmDraft(mm: number | null | undefined): StageAreaMeterCmDraft {
-  const s = mmToDecimalDraft(mm);
-  return { m: s, cm: "" }; // m フィールドに小数文字列を保存（後述の parse も対応）
+  if (mm == null || mm <= 0) return { m: "", cm: "" };
+  const clamped = clampStageMainMm(mm);
+  const mVal = Math.floor(clamped / 1000);
+  const cmRaw = Math.round((clamped % 1000) / 10) * 10; // 10mm=1cm刻み
+  const cmVal = Math.min(cmRaw, 90); // 最大 90cm（5cm刻み用に後で使う）
+  return { m: String(mVal), cm: String(cmVal) };
 }
 
-/** 後方互換：{m, cm} の m フィールドを小数として読む */
+/** { m: "12", cm: "50" } → 12500mm */
 function parseMeterCmDraftToMm(d: StageAreaMeterCmDraft): number | null {
-  return parseDecimalDraftToMm(d.m);
+  const mInt = parseInt(d.m, 10);
+  const cmInt = parseInt(d.cm, 10);
+  if (!Number.isFinite(mInt) || mInt < 0) return null;
+  const cmSafe = Number.isFinite(cmInt) && cmInt >= 0 ? cmInt : 0;
+  const total = mInt * 1000 + cmSafe * 10;
+  if (total <= 0) return null;
+  return clampStageMainMm(total);
 }
 
 const STAGE_AREA_DIM_ROWS: {
@@ -436,7 +446,7 @@ const StageAreaSettingsSheet = memo(function StageAreaSettingsSheet({
     <EditorSideSheet
       open
       zIndex={61}
-      width="min(440px, calc(100vw - 16px))"
+      width="min(320px, calc(100vw - 16px))"
       onClose={onClose}
       ariaLabelledBy="stage-area-settings-title"
     >
@@ -451,53 +461,79 @@ type StageAreaDimensionRowsProps = {
   onChangeDraft: Dispatch<SetStateAction<StageAreaSettingsDraft>>;
 };
 
+const M_OPTIONS = Array.from({ length: 100 }, (_, i) => i); // 0..99
+const CM_OPTIONS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95];
+
+const selectStyle: CSSProperties = {
+  padding: "5px 4px",
+  borderRadius: "6px",
+  border: "1px solid rgba(51,65,85,0.8)",
+  background: "#0f172a",
+  color: "#e2e8f0",
+  fontSize: "12px",
+  outline: "none",
+  cursor: "pointer",
+};
+
 const StageAreaDimensionRows = memo(function StageAreaDimensionRows({
   disabled,
   draft,
   onChangeDraft,
 }: StageAreaDimensionRowsProps) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "8px" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 6px", marginBottom: "8px" }}>
       {STAGE_AREA_DIM_ROWS.map((row) => {
-        const previewMm = parseDecimalDraftToMm(draft[row.key].m);
+        const hasVal = draft[row.key].m !== "" || draft[row.key].cm !== "";
         return (
           <div key={row.key} style={row.key === "guide" ? { gridColumn: "1 / -1" } : {}}>
             <div style={{ fontSize: "10px", color: "rgba(148,163,184,0.8)", marginBottom: "4px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {row.title}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-              <input
-                type="number"
-                step="0.01"
-                min={0}
-                max={999}
+            <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <select
                 disabled={disabled}
-                placeholder="例: 12.5"
                 value={draft[row.key].m}
                 onChange={(e) =>
                   onChangeDraft((d) => ({
                     ...d,
-                    [row.key]: { m: e.target.value, cm: "" },
+                    [row.key]: { ...d[row.key], m: e.target.value },
                   }))
                 }
-                aria-label={row.title}
+                aria-label={`${row.title} m`}
                 style={{
-                  width: "80px",
-                  padding: "6px 8px",
-                  borderRadius: "8px",
-                  border: draft[row.key].m ? "1px solid rgba(99,102,241,0.5)" : "1px solid rgba(51,65,85,0.8)",
-                  background: "rgba(15,23,42,0.7)",
-                  color: "#e2e8f0",
-                  fontSize: "12px",
-                  outline: "none",
+                  ...selectStyle,
+                  width: "56px",
+                  border: hasVal ? "1px solid rgba(99,102,241,0.5)" : "1px solid rgba(51,65,85,0.8)",
                 }}
-              />
-              <span style={{ fontSize: "11px", color: "rgba(148,163,184,0.6)" }}>m</span>
-              {previewMm != null && (
-                <span style={{ fontSize: "9px", color: "rgba(100,116,139,0.7)" }}>
-                  {formatMeterCmLabel(previewMm)}
-                </span>
-              )}
+              >
+                <option value="">-</option>
+                {M_OPTIONS.map((v) => (
+                  <option key={v} value={String(v)}>{v}</option>
+                ))}
+              </select>
+              <span style={{ fontSize: "11px", color: "rgba(148,163,184,0.5)" }}>m</span>
+              <select
+                disabled={disabled}
+                value={draft[row.key].cm}
+                onChange={(e) =>
+                  onChangeDraft((d) => ({
+                    ...d,
+                    [row.key]: { ...d[row.key], cm: e.target.value },
+                  }))
+                }
+                aria-label={`${row.title} cm`}
+                style={{
+                  ...selectStyle,
+                  width: "52px",
+                  border: hasVal ? "1px solid rgba(99,102,241,0.5)" : "1px solid rgba(51,65,85,0.8)",
+                }}
+              >
+                <option value="0">0</option>
+                {CM_OPTIONS.filter(v => v > 0).map((v) => (
+                  <option key={v} value={String(v)}>{v}</option>
+                ))}
+              </select>
+              <span style={{ fontSize: "11px", color: "rgba(148,163,184,0.5)" }}>cm</span>
             </div>
           </div>
         );
@@ -899,10 +935,10 @@ function StageSettingsMiniPreview({
   draft: StageAreaSettingsDraft;
 }) {
   const W = 140, H = 88, PAD = 8;
-  const wMm = parseDecimalDraftToMm(draft.width.m);
-  const dMm = parseDecimalDraftToMm(draft.depth.m);
-  const sMm = parseDecimalDraftToMm(draft.side.m) ?? 0;
-  const bMm = parseDecimalDraftToMm(draft.back.m) ?? 0;
+  const wMm = parseMeterCmDraftToMm(draft.width);
+  const dMm = parseMeterCmDraftToMm(draft.depth);
+  const sMm = parseMeterCmDraftToMm(draft.side) ?? 0;
+  const bMm = parseMeterCmDraftToMm(draft.back) ?? 0;
 
   if (!wMm || !dMm) {
     return (
@@ -919,13 +955,29 @@ function StageSettingsMiniPreview({
   }
   const totalW = wMm + sMm * 2;
   const totalD = dMm + bMm;
-  const scale = Math.min((W - PAD * 2) / totalW, (H - PAD * 2) / totalD);
+  // Reserve 12px for audience label above/below
+  const LABEL_H = 12;
+  const scale = Math.min((W - PAD * 2) / totalW, (H - PAD * 2 - LABEL_H) / totalD);
   const px = (mm: number) => mm * scale;
   const tpxW = px(totalW), tpxD = px(totalD);
-  const ox = (W - tpxW) / 2, oy = (H - tpxD) / 2;
-  const mx = ox + px(sMm), my = oy;
-  const mw = px(wMm), md = px(dMm);
   const isBottom = draft.audienceEdge !== "top";
+  const ox = (W - tpxW) / 2;
+  // isBottom: audience at bottom → main floor at top of content area, back below main
+  // isTop: audience at top → main floor at bottom of content area, back above main
+  const contentTop = isBottom
+    ? (H - tpxD - LABEL_H) / 2   // space for label below
+    : (H - tpxD - LABEL_H) / 2 + LABEL_H; // space for label above
+  const oy = contentTop;
+  // main floor y: isBottom → oy (top), isTop → oy + back
+  const my = isBottom ? oy : oy + px(bMm);
+  const mx = ox + px(sMm);
+  const mw = px(wMm), md = px(dMm);
+  // back rect: isBottom → below main (oy+md), isTop → above main (oy)
+  const backY = isBottom ? oy + md : oy;
+  // side rects always alongside main
+  const sideY = my;
+  // audience label
+  const audienceLabelY = isBottom ? oy + tpxD + LABEL_H - 1 : oy - 3;
   return (
     <svg width={W} height={H} style={{
       borderRadius: 8, flexShrink: 0,
@@ -933,13 +985,13 @@ function StageSettingsMiniPreview({
       background: "rgba(15,23,42,0.6)",
     }}>
       {sMm > 0 && <>
-        <rect x={ox} y={oy} width={px(sMm)} height={md} fill="rgba(99,102,241,0.1)" stroke="rgba(99,102,241,0.25)" strokeWidth={0.5} />
-        <rect x={mx + mw} y={oy} width={px(sMm)} height={md} fill="rgba(99,102,241,0.1)" stroke="rgba(99,102,241,0.25)" strokeWidth={0.5} />
+        <rect x={ox} y={sideY} width={px(sMm)} height={md} fill="rgba(99,102,241,0.1)" stroke="rgba(99,102,241,0.25)" strokeWidth={0.5} />
+        <rect x={mx + mw} y={sideY} width={px(sMm)} height={md} fill="rgba(99,102,241,0.1)" stroke="rgba(99,102,241,0.25)" strokeWidth={0.5} />
       </>}
-      {bMm > 0 && <rect x={ox} y={oy + md} width={tpxW} height={px(bMm)} fill="rgba(99,102,241,0.06)" stroke="rgba(99,102,241,0.18)" strokeWidth={0.5} />}
+      {bMm > 0 && <rect x={ox} y={backY} width={tpxW} height={px(bMm)} fill="rgba(99,102,241,0.06)" stroke="rgba(99,102,241,0.18)" strokeWidth={0.5} />}
       <rect x={mx} y={my} width={mw} height={md} fill="rgba(99,102,241,0.18)" stroke="rgba(129,140,248,0.75)" strokeWidth={1} rx={2} />
       <line x1={mx + mw / 2} y1={my + 2} x2={mx + mw / 2} y2={my + md - 2} stroke="rgba(129,140,248,0.3)" strokeWidth={0.5} strokeDasharray="3,2" />
-      <text x={mx + mw / 2} y={isBottom ? my + md + 11 : my - 3} textAnchor="middle" fill="rgba(252,211,77,0.8)" fontSize={8} fontWeight={600}>客席</text>
+      <text x={mx + mw / 2} y={audienceLabelY} textAnchor="middle" fill="rgba(252,211,77,0.8)" fontSize={8} fontWeight={600}>客席</text>
     </svg>
   );
 }
@@ -4672,7 +4724,7 @@ export function EditorPage({
                 <StageSettingsMiniPreview draft={stageAreaSettingsDraft} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 10, color: "#64748b", marginBottom: 5 }}>
-                    寸法入力 <span style={{ color: "rgba(100,116,139,0.5)", fontSize: 9 }}>小数OK（例: 12.5）</span>
+                    寸法入力
                   </div>
                   <StageAreaDimensionRows
                     disabled={project.viewMode === "view"}
@@ -4682,18 +4734,7 @@ export function EditorPage({
                 </div>
               </div>
 
-              <button type="button"
-                disabled={project.viewMode === "view"}
-                title="変形舞台・花道など"
-                onClick={() => {
-                  applyStageAreaSettingsDraft();
-                  setStageAreaSettingsOpen(false);
-                  setStageSettingsOpen(true);
-                }}
-                style={{ ...btnSecondary, width: "100%", padding: "6px 10px", fontSize: 11, fontWeight: 600, marginTop: 6 }}
-              >
-                形状・花道・詳細設定…
-              </button>
+
             </div>
 
             {/* ── CARD B: グリッド・表示設定 ── */}
@@ -4704,35 +4745,24 @@ export function EditorPage({
               </div>
 
               {/* グリッド間隔 */}
-              <div style={{ marginBottom: 8 }}>
-                {!stageAreaDraftHasMainFloor ? (
-                  <>
-                    <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 5 }}>グリッド刻み（寸法なし時）</div>
-                    <StageAreaGridStepControl
-                      disabled={project.viewMode === "view"}
-                      gridStep={stageAreaSettingsDraft.gridStep}
-                      onChangeDraft={setStageAreaSettingsDraft}
-                    />
-                  </>
-                ) : (
-                  <>
-                    <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 5 }}>
-                      グリッド間隔 <span style={{ color: "rgba(100,116,139,0.5)", fontSize: 9 }}>縦＝幅方向 / 横＝奥行</span>
-                    </div>
-                    <StageAreaGridSpacingControls
-                      disabled={project.viewMode === "view"}
-                      gridWidthCmInput={gridWidthCmInput}
-                      gridDepthCmInput={gridDepthCmInput}
-                      onStageGridCmInput={onStageGridCmInput}
-                      commitStageGridCmInput={commitStageGridCmInput}
-                      startGridNudgeRepeat={startGridNudgeRepeat}
-                      stopGridNudgeRepeat={stopGridNudgeRepeat}
-                      nudgeStageGridCm={nudgeStageGridCm}
-                      gridNudgeDidRepeatRef={gridNudgeDidRepeatRef}
-                    />
-                  </>
-                )}
-              </div>
+              {stageAreaDraftHasMainFloor && (
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 5 }}>
+                    グリッド間隔 <span style={{ color: "rgba(100,116,139,0.5)", fontSize: 9 }}>縦＝幅方向 / 横＝奥行</span>
+                  </div>
+                  <StageAreaGridSpacingControls
+                    disabled={project.viewMode === "view"}
+                    gridWidthCmInput={gridWidthCmInput}
+                    gridDepthCmInput={gridDepthCmInput}
+                    onStageGridCmInput={onStageGridCmInput}
+                    commitStageGridCmInput={commitStageGridCmInput}
+                    startGridNudgeRepeat={startGridNudgeRepeat}
+                    stopGridNudgeRepeat={stopGridNudgeRepeat}
+                    nudgeStageGridCm={nudgeStageGridCm}
+                    gridNudgeDidRepeatRef={gridNudgeDidRepeatRef}
+                  />
+                </div>
+              )}
 
               {/* 縦線・横線トグル */}
               <div style={{ marginBottom: 10 }}>
@@ -4752,15 +4782,15 @@ export function EditorPage({
                 <div style={{ display: "flex", gap: 6 }} title="印の右クリックでも選べます">
                   {([
                     { val: "inside", label: "○の中", icon: (
-                      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-                        <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5"/>
-                        <text x="11" y="15" textAnchor="middle" fontSize="9" fill="currentColor" fontWeight="700">A</text>
+                      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                        <circle cx="16" cy="16" r="12" stroke="currentColor" strokeWidth="2"/>
+                        <text x="16" y="21" textAnchor="middle" fontSize="13" fill="currentColor" fontWeight="700">A</text>
                       </svg>
                     )},
                     { val: "below", label: "○の外", icon: (
-                      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-                        <circle cx="11" cy="8" r="5" stroke="currentColor" strokeWidth="1.5"/>
-                        <text x="11" y="20" textAnchor="middle" fontSize="8" fill="currentColor" fontWeight="700">A</text>
+                      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                        <circle cx="16" cy="11" r="7" stroke="currentColor" strokeWidth="2"/>
+                        <text x="16" y="29" textAnchor="middle" fontSize="12" fill="currentColor" fontWeight="700">A</text>
                       </svg>
                     )},
                   ] as const).map(({ val, label, icon }) => {
@@ -4822,49 +4852,7 @@ export function EditorPage({
                 }}
               />
 
-              {/* URL共有 */}
-              <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(51,65,85,0.5)" }}>
-                <button type="button"
-                  onClick={() => void copyEditorShareLink()}
-                  style={{
-                    width: "100%", padding: "7px 10px", borderRadius: 8,
-                    border: shareLinkCopiedFlash ? "1px solid rgba(52,211,153,0.6)" : "1px solid rgba(51,65,85,0.7)",
-                    background: shareLinkCopiedFlash ? "rgba(52,211,153,0.1)" : "rgba(15,23,42,0.5)",
-                    color: shareLinkCopiedFlash ? "#6ee7b7" : "rgba(148,163,184,0.75)",
-                    fontSize: 11, fontWeight: 600, cursor: "pointer",
-                    display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                    transition: "all 0.2s",
-                    marginBottom: 6,
-                  }}
-                >
-                  {shareLinkCopiedFlash
-                    ? <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>コピーしました ✓</>
-                    : <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>URL をコピー</>
-                  }
-                </button>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button type="button"
-                    onClick={() => { setStageAreaSettingsOpen(false); setShareLinksOpen(true); }}
-                    style={{
-                      flex: 1, padding: "6px 8px", borderRadius: 8,
-                      border: "1px solid rgba(14,165,233,0.4)", background: "rgba(14,165,233,0.06)",
-                      color: "rgba(125,211,252,0.85)", fontSize: 11, fontWeight: 600, cursor: "pointer",
-                    }}
-                  >
-                    共有 URL 発行
-                  </button>
-                  <button type="button"
-                    onClick={() => { setStageAreaSettingsOpen(false); setShortcutsHelpOpen(true); }}
-                    style={{
-                      flex: 1, padding: "6px 8px", borderRadius: 8,
-                      border: "1px solid rgba(51,65,85,0.7)", background: "rgba(15,23,42,0.5)",
-                      color: "rgba(148,163,184,0.75)", fontSize: 11, fontWeight: 600, cursor: "pointer",
-                    }}
-                  >
-                    ショートカット
-                  </button>
-                </div>
-              </div>
+
             </div>
 
             {/* ── 決定・取消 ── */}
