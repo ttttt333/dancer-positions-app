@@ -63,7 +63,8 @@ export default defineConfig({
     devOpenBrowserPlugin(),
     VitePWA({
       registerType: "prompt",
-      /** 開発サーバーでは SW を登録しない（古いキャッシュ UI の防止） */
+      /** SW を完全無効化（キャッシュ問題根絶） */
+      selfDestroying: true,
       devOptions: {
         enabled: false,
       },
