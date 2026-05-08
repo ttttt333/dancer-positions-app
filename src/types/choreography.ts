@@ -99,6 +99,8 @@ export type StageFloorTextMarkup = {
   bgColor?: string;
   /** テキストをロックして誤移動を防ぐ */
   isLocked?: boolean;
+  /** 回転角度（度）。0 = 水平 */
+  rotation?: number;
 };
 
 /** ステージ床の手描き線（折れ線・% 座標） */

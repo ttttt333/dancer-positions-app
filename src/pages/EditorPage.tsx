@@ -1093,6 +1093,10 @@ export function EditorPage({
   const [floorMarkupTool, setFloorMarkupTool] = useState<
     null | "text" | "line" | "erase"
   >(null);
+  /** wideEditorLayout 時: テキストパネルを右サイドシートに表示するか */
+  const [floorTextSideSheetOpen, setFloorTextSideSheetOpen] = useState(false);
+  /** テキストパネルのポータルターゲット DOM 要素 */
+  const [textPanelPortalEl, setTextPanelPortalEl] = useState<HTMLDivElement | null>(null);
 
   const splitDragRef = useRef<{
     pointerId: number;
@@ -2375,6 +2379,11 @@ export function EditorPage({
   useEffect(() => {
     if (stageView === "3d") setFloorTextPlaceSession(null);
   }, [stageView]);
+
+  // テキストツール以外に切り替わったらサイドシートを閉じる
+  useEffect(() => {
+    if (floorMarkupTool !== "text") setFloorTextSideSheetOpen(false);
+  }, [floorMarkupTool]);
 
   /**
    * ＋ダンサーボタンで 1 人ずつ追加。
@@ -3857,6 +3866,10 @@ export function EditorPage({
                     floorMarkupTool={floorMarkupTool}
                     onFloorMarkupToolChange={setFloorMarkupTool}
                     hideFloorMarkupFloatingToolbars={showTopWaveDock}
+                    textPanelPortalTarget={showTopWaveDock ? textPanelPortalEl : null}
+                    onOpenTextEditSheet={showTopWaveDock ? (_id, _draft, _isGlobal) => {
+                      setFloorTextSideSheetOpen(true);
+                    } : undefined}
                     onGestureHistoryBegin={
                       collabActive ? undefined : beginGestureHistory
                     }
@@ -5338,6 +5351,97 @@ export function EditorPage({
         </EditorSideSheet>
       ) : null}
 
+      {/* ─── 床テキスト編集サイドシート（wideEditorLayout + showTopWaveDock 時） ─── */}
+      {showTopWaveDock && !choreoPublicView ? (
+        <EditorSideSheet
+          open={floorTextSideSheetOpen}
+          onClose={() => {
+            setFloorTextSideSheetOpen(false);
+            setFloorMarkupTool(null);
+          }}
+          zIndex={75}
+          width="min(340px, 92vw)"
+          ariaLabelledBy="floor-text-sheet-title"
+        >
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              height: "100%",
+              minHeight: 0,
+              background: "rgba(15,23,42,0.98)",
+            }}
+          >
+            {/* ヘッダー */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+                padding: "11px 14px",
+                borderBottom: "1px solid #334155",
+                flexShrink: 0,
+              }}
+            >
+              <h2
+                id="floor-text-sheet-title"
+                style={{
+                  margin: 0,
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  color: "#e2e8f0",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 7,
+                  letterSpacing: "0.03em",
+                }}
+              >
+                <span style={{ color: "#818cf8", display: "flex", opacity: 0.9 }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="4 7 4 4 20 4 20 7"/>
+                    <line x1="9" y1="20" x2="15" y2="20"/>
+                    <line x1="12" y1="4" x2="12" y2="20"/>
+                  </svg>
+                </span>
+                床テキスト
+              </h2>
+              <button
+                type="button"
+                aria-label="閉じる"
+                onClick={() => {
+                  setFloorTextSideSheetOpen(false);
+                  setFloorMarkupTool(null);
+                }}
+                style={{
+                  background: "transparent",
+                  border: "1px solid #334155",
+                  borderRadius: 6,
+                  color: "#94a3b8",
+                  fontSize: 16,
+                  lineHeight: 1,
+                  padding: "3px 9px",
+                  cursor: "pointer",
+                }}
+              >
+                ×
+              </button>
+            </div>
+            {/* ポータルターゲット: StageBoardBody の StageFloorMarkupHiddenTextPanel がここに描画される */}
+            <div
+              ref={setTextPanelPortalEl}
+              style={{
+                flex: "1 1 auto",
+                minHeight: 0,
+                overflow: "auto",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            />
+          </div>
+        </EditorSideSheet>
+      ) : null}
+
       {choreoPublicView && choreoStudentPick ? (
         <div
           className="choreo-viewer-bottom-bar"
@@ -5478,13 +5582,16 @@ export function EditorPage({
           onOpenCueList={() => setAddCueDialogOpen(true)}
           onOpenShareLinks={() => setShareLinksOpen(true)}
           onOpenAISuggest={() => setAiSuggestOpen(true)}
-          /* テキスト → toggle floor markup text tool (2D only) */
+          /* テキスト → floor markup text tool + right SideSheet (wide) or on-stage panel (narrow) */
           onOpenFloorText={() => {
             if (stageView !== "2d") {
               window.alert("床テキストは 2D 表示のときのみ使えます");
               return;
             }
-            setFloorMarkupTool((prev) => (prev === "text" ? null : "text"));
+            const next = floorMarkupTool === "text" ? null : "text";
+            setFloorMarkupTool(next);
+            if (showTopWaveDock && next === "text") setFloorTextSideSheetOpen(true);
+            if (next === null) setFloorTextSideSheetOpen(false);
           }}
           /* 閲覧モード → editor viewer sheet (member highlight preview) */
           onOpenViewMode={() => setEditorViewerSheetOpen(true)}

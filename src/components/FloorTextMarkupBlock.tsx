@@ -1,11 +1,10 @@
-import type { MutableRefObject, PointerEvent as ReactPointerEvent } from "react";
+import { useRef, type MutableRefObject, type PointerEvent as ReactPointerEvent } from "react";
 import type { StageFloorTextMarkup } from "../types/choreography";
 import {
   clamp,
   floorTextColorHex,
   floorTextFontCss,
   floorTextMarkupScale,
-  FLOOR_TEXT_FONT_OPTIONS,
   type FloorTextCornerHandle,
 } from "../lib/stageBoardModelHelpers";
 
@@ -44,10 +43,19 @@ export type FloorTextDraftPayload = {
 /** 複数テキスト一括ドラッグのセッション情報 */
 export type FloorTextMultiDragPayload = {
   ids: string[];
-  /** ドラッグ開始時の各テキストの位置 */
   startPositions: Map<string, { xPct: number; yPct: number; layer: "stage" | "screen" }>;
   startClientX: number;
   startClientY: number;
+  pointerId: number;
+};
+
+/** 回転ドラッグのセッション情報 */
+export type FloorTextRotateDragPayload = {
+  id: string;
+  centerX: number;
+  centerY: number;
+  startAngleDeg: number;
+  startRotation: number;
   pointerId: number;
 };
 
@@ -75,12 +83,16 @@ export type FloorTextMarkupBlockProps = {
   ) => void;
   onUpdateTextColor: (id: string, color: string) => void;
   onUpdateTextFontFamily: (id: string, fontFamily: string) => void;
-  /** 複数選択中の id 一覧（ハイライト表示用） */
+  /** 複数選択中の id 一覧 */
   selectedFloorTextIds?: string[];
   /** Shift+クリックで複数選択 toggle */
   onShiftSelectFloorText?: (id: string) => void;
-  /** 複数テキストドラッグ開始用 ref（floorTextMultiDragRef と同一 ref） */
+  /** 複数テキストドラッグ開始用 ref */
   floorTextMultiDragRef?: MutableRefObject<FloorTextMultiDragPayload | null>;
+  /** ダブルクリックで右パネル編集シートを開く */
+  onOpenTextEditSheet?: (markup: StageFloorTextMarkup, draft: FloorTextDraftPayload) => void;
+  /** 回転更新コールバック */
+  onUpdateTextRotation?: (id: string, rotation: number) => void;
 };
 
 export function FloorTextMarkupBlock({
@@ -101,14 +113,20 @@ export function FloorTextMarkupBlock({
   onRemoveFloorMarkup,
   onSelectTextMarkupTool,
   onDoubleClickInlineEdit,
-  onUpdateTextColor,
-  onUpdateTextFontFamily,
+  onUpdateTextColor: _onUpdateTextColor,
+  onUpdateTextFontFamily: _onUpdateTextFontFamily,
   selectedFloorTextIds,
   onShiftSelectFloorText,
   floorTextMultiDragRef,
+  onOpenTextEditSheet,
+  onUpdateTextRotation,
 }: FloorTextMarkupBlockProps) {
+  const rotateDragRef = useRef<FloorTextRotateDragPayload | null>(null);
+
   const fs = Math.max(8, Math.min(56, m.fontSizePx ?? 18));
   const fw = Math.round(clamp(m.fontWeight ?? 600, 300, 900) / 50) * 50;
+  const rotation = m.rotation ?? 0;
+
   const textHit =
     setPiecesEditable &&
     !playbackOrPreview &&
@@ -116,21 +134,25 @@ export function FloorTextMarkupBlock({
     (floorMarkupTool === "text" ||
       floorMarkupTool === "erase" ||
       floorMarkupTool === null);
+
   const textMoveGrab =
     setPiecesEditable &&
     !playbackOrPreview &&
     !floorTextPlaceSession &&
     floorMarkupTool === null;
+
   const sc = floorTextMarkupScale(m);
   const selected = selectedFloorTextId === m.id;
   const multiSelected = Boolean(selectedFloorTextIds?.includes(m.id));
   const editingInlineHere = floorTextInlineRectId === m.id;
+
   const showChrome =
     (selected || multiSelected) &&
     textHit &&
     floorMarkupTool !== "erase" &&
     setPiecesEditable &&
     !editingInlineHere;
+
   const fontCss = floorTextFontCss(m);
   const colorHex = floorTextColorHex(m);
 
@@ -142,6 +164,7 @@ export function FloorTextMarkupBlock({
     fontFamily: fontCss,
   });
 
+  /* ── リサイズハンドルのドラッグ開始 ── */
   const beginFloorTextResize = (
     ev: ReactPointerEvent<HTMLDivElement>,
     handle: FloorTextCornerHandle,
@@ -153,19 +176,10 @@ export function FloorTextMarkupBlock({
     const rect = boxEl.getBoundingClientRect();
     let ax: number;
     let ay: number;
-    if (handle === "se") {
-      ax = rect.left;
-      ay = rect.top;
-    } else if (handle === "nw") {
-      ax = rect.right;
-      ay = rect.bottom;
-    } else if (handle === "ne") {
-      ax = rect.left;
-      ay = rect.bottom;
-    } else {
-      ax = rect.right;
-      ay = rect.top;
-    }
+    if (handle === "se") { ax = rect.left; ay = rect.top; }
+    else if (handle === "nw") { ax = rect.right; ay = rect.bottom; }
+    else if (handle === "ne") { ax = rect.left; ay = rect.bottom; }
+    else { ax = rect.right; ay = rect.top; }
     const d0 = Math.max(14, Math.hypot(ev.clientX - ax, ev.clientY - ay));
     floorTextResizeDragRef.current = {
       id: m.id,
@@ -175,10 +189,47 @@ export function FloorTextMarkupBlock({
       startScale: floorTextMarkupScale(m),
       pointerId: ev.pointerId,
     };
-    try {
-      (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId);
-    } catch {
-      /* noop */
+    try { (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId); } catch { /* noop */ }
+  };
+
+  /* ── 回転ハンドルのドラッグ開始 ── */
+  const beginRotateDrag = (ev: ReactPointerEvent<HTMLDivElement>) => {
+    if (!setPiecesEditable || !onUpdateTextRotation) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    const boxEl = (ev.currentTarget as HTMLElement).closest("[data-floor-text-box]") as HTMLElement | null;
+    if (!boxEl) return;
+    const rect = boxEl.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const startAngleDeg = Math.atan2(ev.clientY - cy, ev.clientX - cx) * (180 / Math.PI);
+    rotateDragRef.current = {
+      id: m.id,
+      centerX: cx,
+      centerY: cy,
+      startAngleDeg,
+      startRotation: rotation,
+      pointerId: ev.pointerId,
+    };
+    try { (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId); } catch { /* noop */ }
+  };
+
+  const handleRotatePointerMove = (ev: ReactPointerEvent<HTMLDivElement>) => {
+    const rd = rotateDragRef.current;
+    if (!rd || ev.pointerId !== rd.pointerId || !onUpdateTextRotation) return;
+    ev.preventDefault();
+    const currentAngleDeg = Math.atan2(ev.clientY - rd.centerY, ev.clientX - rd.centerX) * (180 / Math.PI);
+    const delta = currentAngleDeg - rd.startAngleDeg;
+    let newRot = (rd.startRotation + delta) % 360;
+    if (newRot < 0) newRot += 360;
+    // 15度スナップ (Shift)
+    if (ev.shiftKey) newRot = Math.round(newRot / 15) * 15;
+    onUpdateTextRotation(rd.id, Math.round(newRot * 10) / 10);
+  };
+
+  const handleRotatePointerUp = (ev: ReactPointerEvent<HTMLDivElement>) => {
+    if (rotateDragRef.current && ev.pointerId === rotateDragRef.current.pointerId) {
+      rotateDragRef.current = null;
     }
   };
 
@@ -192,49 +243,39 @@ export function FloorTextMarkupBlock({
       data-fmark-id={m.id}
       title={
         coordLayer === "screen"
-          ? "編集画面（タイムラインなど含む）上のテキスト。タップで選択、ダブルクリックで編集、長くドラッグで移動。右クリックで削除"
+          ? "編集画面上のテキスト。タップで選択、ダブルクリックで右パネル編集、ドラッグで移動"
           : textMoveGrab
-            ? "タップで選択（枠と色・フォント）。ダブルクリックでその場に編集。長くドラッグで移動。右クリックで削除"
+            ? "タップで選択。ダブルクリックで右パネル編集。ドラッグで移動"
             : floorMarkupTool === "text"
-              ? "タップで選択。ダブルクリックでその場に編集。右クリックで削除"
+              ? "タップで選択。ダブルクリックで右パネル編集"
               : floorMarkupTool === "erase"
                 ? "タップで削除"
                 : undefined
       }
       onContextMenu={(e) => {
-        if (
-          viewMode === "view" ||
-          !setPiecesEditable ||
-          playbackOrPreview ||
-          previewDancers ||
-          !textHit
-        ) {
-          return;
-        }
+        if (viewMode === "view" || !setPiecesEditable || playbackOrPreview || previewDancers || !textHit) return;
         e.preventDefault();
         e.stopPropagation();
         onContextMenuFloorText(m.id, e.clientX, e.clientY);
       }}
       onDoubleClick={(e) => {
-        if (
-          viewMode === "view" ||
-          !setPiecesEditable ||
-          playbackOrPreview ||
-          previewDancers ||
-          !textHit ||
-          floorMarkupTool === "erase"
-        ) {
-          return;
-        }
+        if (viewMode === "view" || !setPiecesEditable || playbackOrPreview || previewDancers || !textHit || floorMarkupTool === "erase") return;
         e.preventDefault();
         e.stopPropagation();
-        const r = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-        onDoubleClickInlineEdit(m, r, draftFromMarkup());
-      }}
-      onPointerDown={(e) => {
-        if ((e.target as HTMLElement).closest("[data-floor-text-resize-handle]")) {
-          return;
+        // ダブルクリック → 右パネル編集シートを開く
+        if (onOpenTextEditSheet) {
+          onOpenTextEditSheet(m, draftFromMarkup());
+        } else {
+          // フォールバック: インライン編集
+          const r = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+          onDoubleClickInlineEdit(m, r, draftFromMarkup());
         }
+      }}
+      onPointerMove={handleRotatePointerMove}
+      onPointerUp={handleRotatePointerUp}
+      onPointerDown={(e) => {
+        if ((e.target as HTMLElement).closest("[data-floor-text-resize-handle]")) return;
+        if ((e.target as HTMLElement).closest("[data-floor-text-rotate-handle]")) return;
         if (floorMarkupTool === "erase" && setPiecesEditable) {
           e.preventDefault();
           e.stopPropagation();
@@ -251,16 +292,11 @@ export function FloorTextMarkupBlock({
           e.preventDefault();
           e.stopPropagation();
           (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-          /* Shift+クリック: 複数選択 toggle（ドラッグは開始しない） */
           if (e.shiftKey && onShiftSelectFloorText) {
             onShiftSelectFloorText(m.id);
             return;
           }
-          /* 複数選択済みのテキストをドラッグ開始 → 一括移動 */
           if (multiSelected && floorTextMultiDragRef && selectedFloorTextIds && selectedFloorTextIds.length > 1) {
-            /* Body 側で startPositions は持てないのでここでは id と開始座標だけセット。
-               Body 側の pointermove で全 markup の位置を参照して移動する。
-               ここでは自分自身の座標のみセット — Body で全 id の座標を起点にする。 */
             floorTextMultiDragRef.current = {
               ids: selectedFloorTextIds,
               startPositions: new Map([[m.id, { xPct: m.xPct, yPct: m.yPct, layer: coordLayer }]]),
@@ -290,8 +326,8 @@ export function FloorTextMarkupBlock({
         position: "absolute",
         left: `${m.xPct}%`,
         top: `${m.yPct}%`,
-        transform: `translate(-50%, -100%) scale(${sc})`,
-        transformOrigin: "50% 100%",
+        transform: `translate(-50%, -50%) scale(${sc}) rotate(${rotation}deg)`,
+        transformOrigin: "50% 50%",
         maxWidth: coordLayer === "screen" ? "min(42vw, 520px)" : "42%",
         padding: "2px 6px",
         borderRadius: "6px",
@@ -304,15 +340,6 @@ export function FloorTextMarkupBlock({
         textShadow: m.bgColor ? "none" : "0 0 2px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.65)",
         whiteSpace: "pre-wrap",
         wordBreak: "break-word",
-        outline:
-          !editingInlineHere && multiSelected
-            ? "2px solid rgba(251, 191, 36, 0.95)"
-            : !editingInlineHere &&
-              floorMarkupTool === "text" &&
-              floorTextEditId === m.id
-            ? "2px solid rgba(129, 140, 248, 0.95)"
-            : undefined,
-        outlineOffset: 2,
         opacity: editingInlineHere ? 0 : 1,
         pointerEvents: editingInlineHere ? "none" : textHit ? "auto" : "none",
         cursor:
@@ -327,123 +354,108 @@ export function FloorTextMarkupBlock({
       }}
     >
       <span style={{ display: "block" }}>{m.text}</span>
+
+      {/* ── 選択枠（スマートなダッシュボーダー） ── */}
       {showChrome ? (
         <>
+          {/* 外枠 */}
           <div
             aria-hidden
             style={{
               position: "absolute",
-              inset: -6,
-              border: "2px solid rgba(129, 140, 248, 0.95)",
-              borderRadius: 6,
+              inset: -5,
+              border: multiSelected
+                ? "1.5px dashed rgba(251,191,36,0.85)"
+                : "1.5px dashed rgba(139,92,246,0.9)",
+              borderRadius: 7,
               pointerEvents: "none",
               zIndex: 1,
+              boxShadow: multiSelected
+                ? "0 0 0 1px rgba(251,191,36,0.15), inset 0 0 0 1px rgba(251,191,36,0.08)"
+                : "0 0 0 1px rgba(139,92,246,0.15), inset 0 0 0 1px rgba(139,92,246,0.08)",
             }}
           />
+
+          {/* コーナーリサイズハンドル（小さい円） */}
           {(["nw", "ne", "sw", "se"] as FloorTextCornerHandle[]).map((h) => (
             <div
               key={h}
               role="presentation"
               data-floor-text-resize-handle={h}
               onPointerDown={(ev) =>
-                beginFloorTextResize(
-                  ev,
-                  h,
-                  ev.currentTarget.parentElement as HTMLDivElement
-                )
+                beginFloorTextResize(ev, h, ev.currentTarget.parentElement as HTMLDivElement)
               }
               style={{
                 position: "absolute",
-                width: 10,
-                height: 10,
-                borderRadius: 2,
-                background: "#a5b4fc",
-                border: "1px solid #0f172a",
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: "#fff",
+                border: "1.5px solid rgba(139,92,246,0.9)",
                 zIndex: 3,
                 pointerEvents: "auto",
                 cursor: handleCursor(h),
                 boxSizing: "border-box",
-                ...(h === "nw"
-                  ? { left: -5, top: -5 }
-                  : h === "ne"
-                    ? { right: -5, top: -5 }
-                    : h === "sw"
-                      ? { left: -5, bottom: -5 }
-                      : { right: -5, bottom: -5 }),
+                ...(h === "nw" ? { left: -4, top: -4 }
+                  : h === "ne" ? { right: -4, top: -4 }
+                  : h === "sw" ? { left: -4, bottom: -4 }
+                  : { right: -4, bottom: -4 }),
               }}
             />
           ))}
+
+          {/* 回転ハンドル（上部中央） */}
+          {onUpdateTextRotation ? (
+            <div
+              role="presentation"
+              data-floor-text-rotate-handle
+              title="ドラッグで回転（Shiftで15度スナップ）"
+              onPointerDown={beginRotateDrag}
+              style={{
+                position: "absolute",
+                top: -22,
+                left: "50%",
+                transform: "translateX(-50%)",
+                width: 18,
+                height: 18,
+                borderRadius: "50%",
+                background: "rgba(139,92,246,0.9)",
+                border: "1.5px solid #fff",
+                zIndex: 3,
+                pointerEvents: "auto",
+                cursor: "grab",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxSizing: "border-box",
+              }}
+            >
+              {/* 回転アイコン（↻） */}
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 2v6h-6"/>
+                <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
+              </svg>
+            </div>
+          ) : null}
+
+          {/* ハンドルと枠をつなぐ縦線（回転ハンドル表示時） */}
+          {onUpdateTextRotation ? (
+            <div
+              aria-hidden
+              style={{
+                position: "absolute",
+                top: -17,
+                left: "50%",
+                transform: "translateX(-50%)",
+                width: 1,
+                height: 12,
+                background: "rgba(139,92,246,0.6)",
+                pointerEvents: "none",
+                zIndex: 1,
+              }}
+            />
+          ) : null}
         </>
-      ) : null}
-      {showChrome && floorMarkupTool === null ? (
-        <div
-          role="toolbar"
-          aria-label={
-            coordLayer === "screen" ? "画面テキストの色とフォント" : "床テキストの色とフォント"
-          }
-          onPointerDown={(ev) => ev.stopPropagation()}
-          style={{
-            position: "absolute",
-            left: "50%",
-            top: "100%",
-            transform: "translate(-50%, 8px)",
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            gap: 6,
-            padding: "4px 6px",
-            borderRadius: 8,
-            border: "1px solid #475569",
-            background: "rgba(15, 23, 42, 0.96)",
-            zIndex: 4,
-            pointerEvents: "auto",
-            minWidth: 120,
-          }}
-        >
-          <input
-            type="color"
-            aria-label="文字色"
-            title="文字色"
-            value={colorHex}
-            onChange={(ev) => {
-              onUpdateTextColor(m.id, ev.target.value);
-            }}
-            style={{
-              width: 28,
-              height: 22,
-              padding: 0,
-              border: "none",
-              background: "transparent",
-              cursor: "pointer",
-            }}
-          />
-          <select
-            aria-label="フォント"
-            title="フォント"
-            value={
-              FLOOR_TEXT_FONT_OPTIONS.some((o) => o.value === fontCss)
-                ? fontCss
-                : FLOOR_TEXT_FONT_OPTIONS[0]!.value
-            }
-            onChange={(ev) => {
-              onUpdateTextFontFamily(m.id, ev.target.value);
-            }}
-            style={{
-              fontSize: 10,
-              maxWidth: 118,
-              borderRadius: 4,
-              border: "1px solid #334155",
-              background: "#020617",
-              color: "#e2e8f0",
-            }}
-          >
-            {FLOOR_TEXT_FONT_OPTIONS.map((o) => (
-              <option key={o.id} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </div>
       ) : null}
     </div>
   );

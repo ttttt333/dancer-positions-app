@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { EMPTY_FLOOR_TEXT_DRAFT } from "../lib/stageBoardModelHelpers";
 import {
   StageFloorMarkupFloatingToolbars,
@@ -9,6 +10,8 @@ import { StageFloorMarkupHiddenTextPanel } from "./StageFloorMarkupHiddenTextPan
 export type StageFloorMarkupToolbarHostProps =
   StageFloorMarkupFloatingToolbarsProps & {
     hideFloorMarkupFloatingToolbars: boolean;
+    /** テキストパネルをこの要素にポータル表示する（右サイドシート用）。指定時はステージ上には表示しない */
+    textPanelPortalTarget?: HTMLElement | null;
   };
 
 /**
@@ -17,6 +20,7 @@ export type StageFloorMarkupToolbarHostProps =
  */
 export function StageFloorMarkupToolbarHost({
   hideFloorMarkupFloatingToolbars,
+  textPanelPortalTarget,
   ...toolbar
 }: StageFloorMarkupToolbarHostProps) {
   const {
@@ -63,7 +67,7 @@ export function StageFloorMarkupToolbarHost({
       {!hideFloorMarkupFloatingToolbars ? (
         <StageFloorMarkupFloatingToolbars {...toolbar} />
       ) : null}
-      {hideFloorMarkupFloatingToolbars && floorMarkupTool === "text" ? (
+      {hideFloorMarkupFloatingToolbars && floorMarkupTool === "text" && !textPanelPortalTarget ? (
         <StageFloorMarkupHiddenTextPanel
           floorTextEditId={floorTextEditId}
           setFloorTextEditId={setFloorTextEditId}
@@ -77,6 +81,23 @@ export function StageFloorMarkupToolbarHost({
           onUpdateGlobalMarkup={onUpdateGlobalMarkup}
         />
       ) : null}
+      {hideFloorMarkupFloatingToolbars && floorMarkupTool === "text" && textPanelPortalTarget
+        ? createPortal(
+            <StageFloorMarkupHiddenTextPanel
+              floorTextEditId={floorTextEditId}
+              setFloorTextEditId={setFloorTextEditId}
+              floorTextDraft={floorTextDraft}
+              setFloorTextDraft={setFloorTextDraft}
+              updateActiveFormation={updateActiveFormation}
+              setFloorMarkupTool={setFloorMarkupTool}
+              setFloorTextInlineRect={setFloorTextInlineRect}
+              onAddTemplateText={onAddTemplateText}
+              floorTextEditIsGlobal={floorTextEditIsGlobal}
+              onUpdateGlobalMarkup={onUpdateGlobalMarkup}
+            />,
+            textPanelPortalTarget
+          )
+        : null}
       {hideFloorMarkupFloatingToolbars &&
       (floorMarkupTool === "line" || floorMarkupTool === "erase") ? (
         <StageFloorMarkupHiddenLineEraseStrip

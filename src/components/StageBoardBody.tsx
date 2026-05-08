@@ -125,11 +125,13 @@ export function StageBoardBody({
   floorMarkupTool: floorMarkupToolProp,
   onFloorMarkupToolChange,
   hideFloorMarkupFloatingToolbars = false,
+  textPanelPortalTarget,
   onGestureHistoryBegin,
   onGestureHistoryEnd,
   onGestureHistoryCancel,
   markHistorySkipNextPush,
   studentViewerFocus = null,
+  onOpenTextEditSheet,
 }: StageBoardBodyProps) {
   const {
     isPlaying,
@@ -922,6 +924,41 @@ export function StageBoardBody({
     [updateActiveFormation],
   );
 
+  /** テキスト回転更新 */
+  const handleFloorTextRotationUpdate = useCallback(
+    (id: string, rotation: number) => {
+      const isGlobal = (globalFloorMarkup ?? []).some((x) => x.id === id);
+      if (isGlobal && onUpdateGlobalFloorMarkup) {
+        onUpdateGlobalFloorMarkup((prev) =>
+          prev.map((x) =>
+            x.id === id && x.kind === "text" ? { ...x, rotation } : x,
+          ),
+        );
+      } else {
+        updateActiveFormation((f) => ({
+          ...f,
+          floorMarkup: (f.floorMarkup ?? []).map((x) =>
+            x.id === id && x.kind === "text" ? { ...x, rotation } : x,
+          ),
+        }));
+      }
+    },
+    [globalFloorMarkup, onUpdateGlobalFloorMarkup, updateActiveFormation],
+  );
+
+  /** ダブルクリック → 右パネル編集シートを開く */
+  const handleOpenTextEditSheet = useCallback(
+    (m: StageFloorTextMarkup, draft: FloorTextDraftPayload) => {
+      const isGlobal = (globalFloorMarkup ?? []).some((x) => x.id === m.id);
+      setFloorMarkupTool("text");
+      setFloorTextEditId(m.id);
+      setSelectedFloorTextId(m.id);
+      setFloorTextDraft(draft);
+      onOpenTextEditSheet?.(m.id, draft, isGlobal);
+    },
+    [globalFloorMarkup, onOpenTextEditSheet, setFloorMarkupTool],
+  );
+
   const handleAddTemplateText = useCallback(
     (text: string) => {
       const col = floorTextDraftColorHex(floorTextDraft.color);
@@ -996,6 +1033,8 @@ export function StageBoardBody({
       selectedFloorTextIds,
       onShiftSelectFloorText: handleShiftSelectFloorText,
       floorTextMultiDragRef,
+      onOpenTextEditSheet: handleOpenTextEditSheet,
+      onUpdateTextRotation: handleFloorTextRotationUpdate,
     }),
     [
       viewMode,
@@ -1015,6 +1054,8 @@ export function StageBoardBody({
       handleFloorTextFontFamilyUpdate,
       selectedFloorTextIds,
       handleShiftSelectFloorText,
+      handleOpenTextEditSheet,
+      handleFloorTextRotationUpdate,
     ],
   );
 
@@ -3968,6 +4009,7 @@ export function StageBoardBody({
       /* 床マークアップ浮遊ツール（setPiecesEditable 時のみ有効） */
       floorMarkupToolbarWhenEditable: {
         hideFloorMarkupFloatingToolbars,
+        textPanelPortalTarget,
         floorMarkupTool,
         setFloorMarkupTool,
         floorTextEditId,

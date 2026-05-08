@@ -102,6 +102,8 @@ export type StageBoardBodyProps = {
   onFloorMarkupToolChange?: Dispatch<SetStateAction<StageFloorMarkupTool>>;
   /** true のときステージ左上のテキスト／線トグル帯を出さず、編集 UI のみ出す */
   hideFloorMarkupFloatingToolbars?: boolean;
+  /** テキストパネルをこの要素にポータル表示する（右サイドシート内 div）。指定時はステージ上に表示しない */
+  textPanelPortalTarget?: HTMLElement | null;
   /** 立ち位置ドラッグ中は履歴に積まず、離したとき 1 手にまとめる（親の undo 用） */
   onGestureHistoryBegin?: () => void;
   onGestureHistoryEnd?: () => void;
@@ -116,6 +118,11 @@ export type StageBoardBodyProps = {
     | null
     | { kind: "all" }
     | { kind: "one"; crewMemberId: string; label: string };
+  /**
+   * ダブルクリックで右パネル編集シートを開くコールバック。
+   * 親(EditorPage)が EditorSideSheet を開く。
+   */
+  onOpenTextEditSheet?: (markupId: string, draft: import("./FloorTextMarkupBlock").FloorTextDraftPayload, isGlobal: boolean) => void;
 };
 
 export type { BuildStageBoardExportColumnInput } from "../lib/buildStageBoardExportColumnProps";
