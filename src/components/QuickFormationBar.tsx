@@ -17,7 +17,6 @@ import {
   transferDancerIdentitiesByOrder,
   type LayoutPresetId,
 } from "../lib/formationLayouts";
-import { generateId } from "../lib/generateId";
 import {
   captureStageSnapshot,
   mergeStageSnapshotIntoProject,
@@ -273,7 +272,7 @@ export function QuickFormationBar({
           }
         } else {
           list.push({
-            id: generateId(),
+            id: crypto.randomUUID(),
             name: trimmed,
             savedAtCount: dancersCopy.length,
             dancers: dancersCopy,

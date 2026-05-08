@@ -68,6 +68,7 @@ export function useTimelinePanelSessionBundle(
     compactDockLeading,
     cueListPortalTarget = null,
     onSave,
+    onOpenAudioImport,
   } = props;
 
   const {
@@ -293,6 +294,7 @@ export function useTimelinePanelSessionBundle(
       seekForward5Sec,
       seekBackward5Sec,
       onSave,
+      onOpenAudioImport,
       onUndo,
       onRedo,
       undoDisabled,

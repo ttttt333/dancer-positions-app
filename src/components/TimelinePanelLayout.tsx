@@ -67,6 +67,7 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
           seekForward5Sec={p.seekForward5Sec}
           seekBackward5Sec={p.seekBackward5Sec}
           onSave={p.onSave}
+          onOpenAudioImport={p.onOpenAudioImport}
           onUndo={p.onUndo}
           onRedo={p.onRedo}
           undoDisabled={p.undoDisabled}

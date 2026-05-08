@@ -4,7 +4,6 @@ import type {
   PointerEvent as ReactPointerEvent,
 } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { generateId } from "../lib/generateId";
 import type {
   ChoreographyProjectJson,
   DancerSpot,
@@ -889,6 +888,44 @@ export function StageBoardBody({
     [updateActiveFormation],
   );
 
+  const handleAddTemplateText = useCallback(
+    (text: string) => {
+      const col = floorTextDraftColorHex(floorTextDraft.color);
+      const fam =
+        (floorTextDraft.fontFamily ?? "").trim() || FLOOR_TEXT_DEFAULT_FONT;
+      const fs = Math.round(clamp(floorTextDraft.fontSizePx, 8, 56));
+      const fw =
+        Math.round(clamp(floorTextDraft.fontWeight, 300, 900) / 50) * 50;
+      const newId = crypto.randomUUID();
+      const newText: StageFloorTextMarkup = {
+        kind: "text",
+        id: newId,
+        xPct: 50,
+        yPct: 50,
+        text: text.slice(0, 400),
+        color: col,
+        fontFamily: fam,
+        scale: 1,
+        fontSizePx: fs,
+        fontWeight: fw,
+        ...(floorTextDraft.bgColor ? { bgColor: floorTextDraft.bgColor } : {}),
+      };
+      updateActiveFormation((f) => ({
+        ...f,
+        floorMarkup: [...(f.floorMarkup ?? []), newText],
+      }));
+      setFloorTextEditId(newId);
+      setSelectedFloorTextId(newId);
+      setFloorMarkupTool("text");
+    },
+    [
+      floorTextDraft,
+      updateActiveFormation,
+      setFloorTextEditId,
+      setFloorMarkupTool,
+    ],
+  );
+
   const floorTextMarkupSharedProps = useMemo(
     () => ({
       viewMode,
@@ -993,7 +1030,7 @@ export function StageBoardBody({
         if (len < 0.35) return;
         const newLine: StageFloorMarkup = {
           kind: "line",
-          id: generateId(),
+          id: crypto.randomUUID(),
           pointsPct: s.points,
           widthPx: 3,
           color: "#fbbf24",
@@ -1070,7 +1107,7 @@ export function StageBoardBody({
         .filter((d): d is DancerSpot => d != null);
       if (snapshots.length === 0) return;
       const clones: DancerSpot[] = snapshots.map((d) => {
-        const nid = generateId();
+        const nid = crypto.randomUUID();
         const base = (d.label || "?").trim() || "?";
         const label = base.length <= 12 ? `${base}′` : `${base.slice(0, 11)}′`;
         return {
@@ -2237,7 +2274,7 @@ export function StageBoardBody({
         const root = viewportTextOverlayRoot;
         const newText: StageFloorTextMarkup = {
           kind: "text",
-          id: generateId(),
+          id: crypto.randomUUID(),
           xPct: round2(xPct),
           yPct: round2(yPct),
           text: t.slice(0, 400),
@@ -2246,6 +2283,7 @@ export function StageBoardBody({
           scale: 1,
           fontSizePx: fs,
           fontWeight: fw,
+          ...(floorTextDraft.bgColor ? { bgColor: floorTextDraft.bgColor } : {}),
         };
         if (root) {
           const rr = root.getBoundingClientRect();
@@ -3732,6 +3770,7 @@ export function StageBoardBody({
         floorLineSessionRef,
         setFloorLineDraft,
         setFloorTextInlineRect,
+        onAddTemplateText: handleAddTemplateText,
       },
       /* 床下オーバーレイ（形状・格子・ガイド・床線／テキスト） */
       baseOverlaysWithoutShow: {

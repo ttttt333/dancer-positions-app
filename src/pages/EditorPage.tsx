@@ -22,12 +22,10 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { ChoreoCoreLogo } from "../components/ChoreoGridLogo";
-import { generateId } from "../lib/generateId";
-import { BottomNav } from "../components/mobile";
 import { StageBoard, type FloorTextPlaceSession } from "../components/StageBoard";
-import { MobileLayout } from "../components/mobile/MobileLayout";
 import { StageDimensionFields } from "../components/StageDimensionFields";
 import {
+  formatMeterCmLabel,
   mmFromMeterAndCm,
   mmToMeterCm,
   STAGE_MAIN_FLOOR_MM_MAX,
@@ -41,7 +39,6 @@ import {
   togglePlaybackRespectingTrimStart,
 } from "../lib/playbackTransport";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
-import { useSelectedCueId, useSetSelectedCueId } from "../store/useEditorStore";
 import { useEditorPlaybackSync } from "../hooks/useEditorPlaybackSync";
 import { useTimelineMediaHandle } from "../hooks/useTimelineMediaHandle";
 import { RosterTimelineStrip } from "../components/RosterTimelineStrip";
@@ -86,6 +83,8 @@ import {
   type SetPiecePickerSubmit,
 } from "../components/SetPiecePickerModal";
 import { ChoreoCoreToolbar } from "../components/ChoreoCoreToolbar";
+import { NeonIconPanel } from "../components/NeonIconPanel";
+import { AiSuggestDialog } from "../components/AiSuggestDialog";
 import {
   EditorStageWorkbench,
   WorkbenchCuePager,
@@ -178,12 +177,12 @@ function getEditorViewportKey(): EditorViewportKey {
 /** メイン 3 列グリッドの列間・行間（参照スクリーンショットの段間に合わせる） */
 const EDITOR_GRID_GAP_PX = 10;
 /** 上部波形ドック行の既定高さ（px）。可変シェル時の未保存グリッド行に使う */
-const TOP_DOCK_HEIGHT_PX = 62;
+const TOP_DOCK_HEIGHT_PX = 120;
 /**
  * ワイド＋上部波形時の固定シェル：波形行の外枠高さのベース（px）。
  * 参照 UI（波形帯が画面高の約 1/10 前後）に合わせた既定。
  */
-const EDITOR_SHELL_TOP_WAVE_BASE_PX = 110;
+const EDITOR_SHELL_TOP_WAVE_BASE_PX = 160;
 /** 名簿ありで上部に「メンバーを表示」行を出すとき、ベースに足す高さ（px） */
 const EDITOR_SHELL_TOP_WAVE_ROSTER_ROW_PX = 40;
 /**
@@ -211,7 +210,7 @@ const STAGE_COL_FR_DEFAULT = 80;
 const RIGHT_RAIL_FR_DEFAULT = 20;
 
 /** 上部波形ドック行の高さの許容範囲（保存・ドラッグ・clamp と readStored と一致） */
-const TOP_DOCK_ROW_MIN_PX = 60;
+const TOP_DOCK_ROW_MIN_PX = 50;
 const TOP_DOCK_ROW_MAX_PX = 480;
 
 function clampTopDockRowPx(n: number): number {
@@ -276,6 +275,7 @@ const STAGE_AREA_AUDIENCE_OPTIONS: {
   { value: "bottom", label: "下" },
 ];
 
+/** m/cm の古いドラフト型（内部互換用） */
 type StageAreaMeterCmDraft = { m: string; cm: string };
 
 function clampStageMainMm(mm: number): number {
@@ -283,22 +283,42 @@ function clampStageMainMm(mm: number): number {
   return Math.min(STAGE_MAIN_FLOOR_MM_MAX, Math.round(mm));
 }
 
-function mmToMeterCmDraft(mm: number | null | undefined): StageAreaMeterCmDraft {
-  if (mm == null || mm <= 0) return { m: "", cm: "" };
+/** mm → "12.50" (m単位小数文字列) */
+function mmToDecimalDraft(mm: number | null | undefined): string {
+  if (mm == null || mm <= 0) return "";
   const u = mmToMeterCm(clampStageMainMm(mm));
-  return { m: String(u.m), cm: String(u.cm) };
+  const total = u.m + u.cm / 100;
+  return total % 1 === 0 ? String(total) : total.toFixed(2).replace(/0+$/, "");
 }
 
-/** 空欄なら null（未設定）。cm は 0〜99（10 mm 刻み） */
+/** "12.5" → 12500mm, "" → null */
+function parseDecimalDraftToMm(s: string): number | null {
+  const t = s.trim();
+  if (t === "") return null;
+  const v = parseFloat(t);
+  if (!Number.isFinite(v) || v <= 0) return null;
+  return clampStageMainMm(Math.round(v * 1000));
+}
+
+/** mm → { m: "12", cm: "50" } */
+function mmToMeterCmDraft(mm: number | null | undefined): StageAreaMeterCmDraft {
+  if (mm == null || mm <= 0) return { m: "", cm: "" };
+  const clamped = clampStageMainMm(mm);
+  const mVal = Math.floor(clamped / 1000);
+  const cmRaw = Math.round((clamped % 1000) / 10) * 10; // 10mm=1cm刻み
+  const cmVal = Math.min(cmRaw, 90); // 最大 90cm（5cm刻み用に後で使う）
+  return { m: String(mVal), cm: String(cmVal) };
+}
+
+/** { m: "12", cm: "50" } → 12500mm */
 function parseMeterCmDraftToMm(d: StageAreaMeterCmDraft): number | null {
-  const mT = d.m.trim();
-  const cT = d.cm.trim();
-  if (mT === "" && cT === "") return null;
-  const m = mT === "" ? 0 : parseInt(mT, 10);
-  const cm = cT === "" ? 0 : parseInt(cT, 10);
-  if (!Number.isFinite(m) || !Number.isFinite(cm)) return null;
-  const mm = clampStageMainMm(mmFromMeterAndCm(m, cm));
-  return mm > 0 ? mm : null;
+  const mInt = parseInt(d.m, 10);
+  const cmInt = parseInt(d.cm, 10);
+  if (!Number.isFinite(mInt) || mInt < 0) return null;
+  const cmSafe = Number.isFinite(cmInt) && cmInt >= 0 ? cmInt : 0;
+  const total = mInt * 1000 + cmSafe * 10;
+  if (total <= 0) return null;
+  return clampStageMainMm(total);
 }
 
 const STAGE_AREA_DIM_ROWS: {
@@ -402,9 +422,12 @@ const STAGE_AREA_DIM_INPUT_CM: CSSProperties = {
 };
 
 const STAGE_AREA_SHEET_SECTION: CSSProperties = {
-  borderBottom: "1px solid #1e293b",
-  paddingBottom: "6px",
-  marginBottom: "6px",
+  borderRadius: "12px",
+  border: "1px solid rgba(99,102,241,0.15)",
+  background: "linear-gradient(135deg, rgba(15,23,42,0.8) 0%, rgba(30,41,59,0.5) 100%)",
+  backdropFilter: "blur(6px)",
+  padding: "10px 12px",
+  marginBottom: "8px",
 };
 
 type StageAreaSettingsSheetProps = {
@@ -423,7 +446,7 @@ const StageAreaSettingsSheet = memo(function StageAreaSettingsSheet({
     <EditorSideSheet
       open
       zIndex={61}
-      width="min(440px, calc(100vw - 16px))"
+      width="min(320px, calc(100vw - 16px))"
       onClose={onClose}
       ariaLabelledBy="stage-area-settings-title"
     >
@@ -438,71 +461,84 @@ type StageAreaDimensionRowsProps = {
   onChangeDraft: Dispatch<SetStateAction<StageAreaSettingsDraft>>;
 };
 
+const M_OPTIONS = Array.from({ length: 100 }, (_, i) => i); // 0..99
+const CM_OPTIONS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95];
+
+const selectStyle: CSSProperties = {
+  padding: "5px 4px",
+  borderRadius: "6px",
+  border: "1px solid rgba(51,65,85,0.8)",
+  background: "#0f172a",
+  color: "#e2e8f0",
+  fontSize: "12px",
+  outline: "none",
+  cursor: "pointer",
+};
+
 const StageAreaDimensionRows = memo(function StageAreaDimensionRows({
   disabled,
   draft,
   onChangeDraft,
 }: StageAreaDimensionRowsProps) {
   return (
-    <>
-      {STAGE_AREA_DIM_ROWS.map((row) => (
-        <div
-          key={row.key}
-          style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(0,1fr) auto auto auto auto auto",
-            gap: "4px",
-            alignItems: "center",
-            marginBottom: "4px",
-          }}
-        >
-          <span
-            style={{
-              fontSize: "11px",
-              color: "#94a3b8",
-              lineHeight: 1.25,
-              minWidth: 0,
-            }}
-          >
-            {row.title}
-          </span>
-          <input
-            type="number"
-            min={0}
-            max={999}
-            disabled={disabled}
-            placeholder="m"
-            value={draft[row.key].m}
-            onChange={(e) =>
-              onChangeDraft((d) => ({
-                ...d,
-                [row.key]: { ...d[row.key], m: e.target.value },
-              }))
-            }
-            aria-label={`${row.title} メートル`}
-            style={STAGE_AREA_DIM_INPUT}
-          />
-          <span style={{ fontSize: "10px", color: "#64748b" }}>m</span>
-          <input
-            type="number"
-            min={0}
-            max={99}
-            disabled={disabled}
-            placeholder="cm"
-            value={draft[row.key].cm}
-            onChange={(e) =>
-              onChangeDraft((d) => ({
-                ...d,
-                [row.key]: { ...d[row.key], cm: e.target.value },
-              }))
-            }
-            aria-label={`${row.title} センチ`}
-            style={STAGE_AREA_DIM_INPUT_CM}
-          />
-          <span style={{ fontSize: "10px", color: "#64748b" }}>cm</span>
-        </div>
-      ))}
-    </>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 6px", marginBottom: "8px" }}>
+      {STAGE_AREA_DIM_ROWS.map((row) => {
+        const hasVal = draft[row.key].m !== "" || draft[row.key].cm !== "";
+        return (
+          <div key={row.key} style={row.key === "guide" ? { gridColumn: "1 / -1" } : {}}>
+            <div style={{ fontSize: "10px", color: "rgba(148,163,184,0.8)", marginBottom: "4px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {row.title}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <select
+                disabled={disabled}
+                value={draft[row.key].m}
+                onChange={(e) =>
+                  onChangeDraft((d) => ({
+                    ...d,
+                    [row.key]: { ...d[row.key], m: e.target.value },
+                  }))
+                }
+                aria-label={`${row.title} m`}
+                style={{
+                  ...selectStyle,
+                  width: "56px",
+                  border: hasVal ? "1px solid rgba(99,102,241,0.5)" : "1px solid rgba(51,65,85,0.8)",
+                }}
+              >
+                <option value="">-</option>
+                {M_OPTIONS.map((v) => (
+                  <option key={v} value={String(v)}>{v}</option>
+                ))}
+              </select>
+              <span style={{ fontSize: "11px", color: "rgba(148,163,184,0.5)" }}>m</span>
+              <select
+                disabled={disabled}
+                value={draft[row.key].cm}
+                onChange={(e) =>
+                  onChangeDraft((d) => ({
+                    ...d,
+                    [row.key]: { ...d[row.key], cm: e.target.value },
+                  }))
+                }
+                aria-label={`${row.title} cm`}
+                style={{
+                  ...selectStyle,
+                  width: "52px",
+                  border: hasVal ? "1px solid rgba(99,102,241,0.5)" : "1px solid rgba(51,65,85,0.8)",
+                }}
+              >
+                <option value="0">0</option>
+                {CM_OPTIONS.filter(v => v > 0).map((v) => (
+                  <option key={v} value={String(v)}>{v}</option>
+                ))}
+              </select>
+              <span style={{ fontSize: "11px", color: "rgba(148,163,184,0.5)" }}>cm</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 });
 
@@ -609,50 +645,45 @@ type StageAreaGridStepControlProps = {
   onChangeDraft: Dispatch<SetStateAction<StageAreaSettingsDraft>>;
 };
 
+const GRID_STEP_OPTIONS = [0.5, 1, 2, 5, 10];
+
 const StageAreaGridStepControl = memo(function StageAreaGridStepControl({
   disabled,
   gridStep,
   onChangeDraft,
 }: StageAreaGridStepControlProps) {
   return (
-    <label
-      style={{
-        display: "block",
-        fontSize: "10px",
-        color: "#94a3b8",
-        marginBottom: "2px",
-      }}
-      title="幅・奥行が未設定のときの％刻み（参考用）"
-    >
-      寸法なし時の％刻み
-      <select
-        value={gridStep}
-        disabled={disabled}
-        onChange={(e) =>
-          onChangeDraft((d) => ({
-            ...d,
-            gridStep: Number(e.target.value),
-          }))
-        }
-        style={{
-          width: "100%",
-          marginTop: "3px",
-          marginBottom: "6px",
-          padding: "4px 8px",
-          borderRadius: "5px",
-          border: "1px solid #334155",
-          background: "#020617",
-          color: "#e2e8f0",
-          fontSize: "11px",
-        }}
-      >
-        <option value={0.5}>0.5%</option>
-        <option value={1}>1%</option>
-        <option value={2}>2%</option>
-        <option value={5}>5%</option>
-        <option value={10}>10%</option>
-      </select>
-    </label>
+    <div style={{ marginBottom: "6px" }} title="幅・奥行が未設定のときの％刻み（参考用）">
+      <div style={{ fontSize: "10px", color: "#94a3b8", marginBottom: "5px" }}>
+        グリッド刻み（寸法なし時）
+      </div>
+      <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
+        {GRID_STEP_OPTIONS.map((step) => {
+          const active = gridStep === step;
+          return (
+            <button
+              key={step}
+              type="button"
+              disabled={disabled}
+              onClick={() => onChangeDraft((d) => ({ ...d, gridStep: step }))}
+              style={{
+                padding: "4px 9px",
+                borderRadius: "6px",
+                border: active ? "1px solid rgba(99,102,241,0.7)" : "1px solid rgba(51,65,85,0.6)",
+                background: active ? "rgba(99,102,241,0.2)" : "rgba(15,23,42,0.5)",
+                color: active ? "#a5b4fc" : "rgba(100,116,139,0.8)",
+                fontSize: "11px",
+                fontWeight: active ? 700 : 400,
+                cursor: disabled ? "not-allowed" : "pointer",
+                transition: "all 0.1s",
+              }}
+            >
+              {step}%
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 });
 
@@ -808,63 +839,56 @@ const StageAreaGridVisibilityToggles = memo(function StageAreaGridVisibilityTogg
   horizontalEnabled,
   onChangeDraft,
 }: StageAreaGridVisibilityTogglesProps) {
+  const canToggle = !disabled && hasMainFloor;
+  const toggleStyle = (active: boolean): CSSProperties => ({
+    flex: 1,
+    padding: "7px 8px",
+    borderRadius: "8px",
+    border: active
+      ? "1px solid rgba(99,102,241,0.7)"
+      : "1px solid rgba(51,65,85,0.6)",
+    background: active ? "rgba(99,102,241,0.18)" : "rgba(15,23,42,0.5)",
+    color: active ? "#a5b4fc" : "rgba(100,116,139,0.7)",
+    fontSize: "11px",
+    fontWeight: active ? 700 : 400,
+    cursor: canToggle ? "pointer" : "not-allowed",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "5px",
+    transition: "all 0.15s",
+    opacity: hasMainFloor ? 1 : 0.45,
+  });
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "6px",
-        marginTop: "4px",
-      }}
-    >
-      <label
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "6px",
-          fontSize: "11px",
-          color: "#cbd5e1",
-          cursor: disabled ? "default" : "pointer",
-        }}
+    <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
+      <button
+        type="button"
+        disabled={!canToggle}
+        onClick={() => onChangeDraft((d) => ({ ...d, stageGridLinesVerticalEnabled: !verticalEnabled }))}
         title="幅方向（画面上では縦に走る線）"
+        style={toggleStyle(verticalEnabled)}
       >
-        <input
-          type="checkbox"
-          checked={verticalEnabled}
-          disabled={disabled || !hasMainFloor}
-          onChange={(e) =>
-            onChangeDraft((d) => ({
-              ...d,
-              stageGridLinesVerticalEnabled: e.target.checked,
-            }))
-          }
-        />
-        縦線（幅方向のグリッド）を表示
-      </label>
-      <label
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "6px",
-          fontSize: "11px",
-          color: "#cbd5e1",
-          cursor: disabled ? "default" : "pointer",
-        }}
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="12" y1="3" x2="12" y2="21" />
+          <line x1="6" y1="3" x2="6" y2="21" />
+          <line x1="18" y1="3" x2="18" y2="21" />
+        </svg>
+        縦線
+      </button>
+      <button
+        type="button"
+        disabled={!canToggle}
+        onClick={() => onChangeDraft((d) => ({ ...d, stageGridLinesHorizontalEnabled: !horizontalEnabled }))}
         title="奥行方向（画面上では横に走る線）"
+        style={toggleStyle(horizontalEnabled)}
       >
-        <input
-          type="checkbox"
-          checked={horizontalEnabled}
-          disabled={disabled || !hasMainFloor}
-          onChange={(e) =>
-            onChangeDraft((d) => ({
-              ...d,
-              stageGridLinesHorizontalEnabled: e.target.checked,
-            }))
-          }
-        />
-        横線（奥行方向のグリッド）を表示
-      </label>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+        横線
+      </button>
     </div>
   );
 });
@@ -902,6 +926,74 @@ function formatPlaybackClockSec(sec: number): string {
   const m = Math.floor(s / 60);
   const r = s % 60;
   return `${m}:${r.toString().padStart(2, "0")}`;
+}
+
+// ─── Stage Settings Panel Mini Preview ───────────────────────────────────────
+function StageSettingsMiniPreview({
+  draft,
+}: {
+  draft: StageAreaSettingsDraft;
+}) {
+  const W = 140, H = 88, PAD = 8;
+  const wMm = parseMeterCmDraftToMm(draft.width);
+  const dMm = parseMeterCmDraftToMm(draft.depth);
+  const sMm = parseMeterCmDraftToMm(draft.side) ?? 0;
+  const bMm = parseMeterCmDraftToMm(draft.back) ?? 0;
+
+  if (!wMm || !dMm) {
+    return (
+      <div style={{
+        width: W, height: H, borderRadius: 8,
+        border: "1px dashed rgba(99,102,241,0.25)",
+        background: "rgba(15,23,42,0.6)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 10, color: "rgba(100,116,139,0.5)", flexShrink: 0,
+      }}>
+        寸法を入力
+      </div>
+    );
+  }
+  const totalW = wMm + sMm * 2;
+  const totalD = dMm + bMm;
+  // Reserve 12px for audience label above/below
+  const LABEL_H = 12;
+  const scale = Math.min((W - PAD * 2) / totalW, (H - PAD * 2 - LABEL_H) / totalD);
+  const px = (mm: number) => mm * scale;
+  const tpxW = px(totalW), tpxD = px(totalD);
+  const isBottom = draft.audienceEdge !== "top";
+  const ox = (W - tpxW) / 2;
+  // isBottom: audience at bottom → main floor at top of content area, back below main
+  // isTop: audience at top → main floor at bottom of content area, back above main
+  const contentTop = isBottom
+    ? (H - tpxD - LABEL_H) / 2   // space for label below
+    : (H - tpxD - LABEL_H) / 2 + LABEL_H; // space for label above
+  const oy = contentTop;
+  // main floor y: isBottom → oy (top), isTop → oy + back
+  const my = isBottom ? oy : oy + px(bMm);
+  const mx = ox + px(sMm);
+  const mw = px(wMm), md = px(dMm);
+  // back rect: isBottom → below main (oy+md), isTop → above main (oy)
+  const backY = isBottom ? oy + md : oy;
+  // side rects always alongside main
+  const sideY = my;
+  // audience label
+  const audienceLabelY = isBottom ? oy + tpxD + LABEL_H - 1 : oy - 3;
+  return (
+    <svg width={W} height={H} style={{
+      borderRadius: 8, flexShrink: 0,
+      border: "1px solid rgba(99,102,241,0.2)",
+      background: "rgba(15,23,42,0.6)",
+    }}>
+      {sMm > 0 && <>
+        <rect x={ox} y={sideY} width={px(sMm)} height={md} fill="rgba(99,102,241,0.1)" stroke="rgba(99,102,241,0.25)" strokeWidth={0.5} />
+        <rect x={mx + mw} y={sideY} width={px(sMm)} height={md} fill="rgba(99,102,241,0.1)" stroke="rgba(99,102,241,0.25)" strokeWidth={0.5} />
+      </>}
+      {bMm > 0 && <rect x={ox} y={backY} width={tpxW} height={px(bMm)} fill="rgba(99,102,241,0.06)" stroke="rgba(99,102,241,0.18)" strokeWidth={0.5} />}
+      <rect x={mx} y={my} width={mw} height={md} fill="rgba(99,102,241,0.18)" stroke="rgba(129,140,248,0.75)" strokeWidth={1} rx={2} />
+      <line x1={mx + mw / 2} y1={my + 2} x2={mx + mw / 2} y2={my + md - 2} stroke="rgba(129,140,248,0.3)" strokeWidth={0.5} strokeDasharray="3,2" />
+      <text x={mx + mw / 2} y={audienceLabelY} textAnchor="middle" fill="rgba(252,211,77,0.8)" fontSize={8} fontWeight={600}>客席</text>
+    </svg>
+  );
 }
 
 export function EditorPage({
@@ -946,8 +1038,11 @@ export function EditorPage({
     null
   );
   /** ChoreoCore: 編集対象のキュー（ステージ・プリセット・インスペクタの書き込み先） */
-  const selectedCueId = useSelectedCueId();
-  const setSelectedCueId = useSetSelectedCueId();
+  const [selectedCueIds, setSelectedCueIds] = useState<string[]>([]);
+  const selectedCueId =
+    selectedCueIds.length === 0
+      ? null
+      : selectedCueIds[selectedCueIds.length - 1]!;
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [flowLibraryOpen, setFlowLibraryOpen] = useState(false);
   /** 立ち位置保存ボタンから開く管理ダイアログ */
@@ -1021,6 +1116,7 @@ export function EditorPage({
   });
   /** ワイド＋タイムライン表示時: キュー一覧モーダルの開閉（一覧本体はポータルで描画） */
   const [cueListModalOpen, setCueListModalOpen] = useState(false);
+  const [aiSuggestOpen, setAiSuggestOpen] = useState(false);
   const [cueListPortalEl, setCueListPortalEl] =
     useState<HTMLDivElement | null>(null);
   /** 上部ドック時の上段（波形・再生）行の高さ（px）。null = 既定の `minmax(160px, min(28vh, 300px))` */
@@ -1539,9 +1635,11 @@ export function EditorPage({
       e.preventDefault();
       const gridRect = grid.getBoundingClientRect();
       const topSection = topDockSectionRef.current;
-      const startH = topSection
-        ? topSection.getBoundingClientRect().height
-        : Math.max(160, gridRect.height * 0.28);
+      const startH = topDockRowPx != null
+        ? topDockRowPx
+        : topSection
+          ? topSection.getBoundingClientRect().height
+          : Math.max(160, gridRect.height * 0.28);
       topDockDragRef.current = {
         pointerId: e.pointerId,
         startY: e.clientY,
@@ -1614,25 +1712,21 @@ export function EditorPage({
     }
     if (!wideEditorLayout) return "1fr";
     if (rightPaneCollapsed) return "1fr";
+    // wideEditorLayout: グリッドは1列のみ、NeonIconPanelは外側flexで配置
     if (editorFixedWaveDockLayout) {
-      if (stageColumnPx == null) {
-        return `minmax(${STAGE_COL_MIN_PX}px, ${STAGE_COL_FR_DEFAULT}fr) ${STAGE_RESIZER_PX}px minmax(${RIGHT_TOOLS_RAIL_MIN_PX}px, ${RIGHT_RAIL_FR_DEFAULT}fr)`;
-      }
-      return `${Math.round(stageColumnPx)}px ${STAGE_RESIZER_PX}px minmax(${RIGHT_TOOLS_RAIL_MIN_PX}px, 1fr)`;
+      return `minmax(${STAGE_COL_MIN_PX}px, 1fr)`;
     }
     const rightTrackFullTimeline = `minmax(${TIMELINE_FULL_COL_MIN_PX}px, 1fr)`;
-    const rightTrackRailFixed = `minmax(${RIGHT_TOOLS_RAIL_MIN_PX}px, ${RIGHT_TOOLS_RAIL_MAX_PX}px)`;
-    const rightTrackRailProportional = `clamp(${RIGHT_TOOLS_RAIL_MIN_PX}px, ${RIGHT_RAIL_FR_DEFAULT}fr, ${RIGHT_TOOLS_RAIL_MAX_PX}px)`;
     if (stageColumnPx == null) {
       if (showTopWaveDockForGrid) {
-        return `minmax(${STAGE_COL_MIN_PX}px, ${STAGE_COL_FR_DEFAULT}fr) ${STAGE_RESIZER_PX}px ${rightTrackRailProportional}`;
+        return `minmax(${STAGE_COL_MIN_PX}px, 1fr)`;
       }
       return `minmax(${STAGE_COL_MIN_PX}px, 2fr) ${STAGE_RESIZER_PX}px ${rightTrackFullTimeline}`;
     }
     const rightTrack = showTopWaveDockForGrid
-      ? rightTrackRailFixed
+      ? `minmax(${STAGE_COL_MIN_PX}px, 1fr)`
       : rightTrackFullTimeline;
-    return `${Math.round(stageColumnPx)}px ${STAGE_RESIZER_PX}px ${rightTrack}`;
+    return rightTrack;
   }, [
     wideEditorLayout,
     rightPaneCollapsed,
@@ -1710,7 +1804,7 @@ export function EditorPage({
       sideStageMm: s,
       backStageMm: b,
       centerFieldGuideIntervalMm: g,
-      snapGrid: false,
+      snapGrid: d.stageGridLinesVerticalEnabled || d.stageGridLinesHorizontalEnabled,
       gridStep: d.gridStep,
       stageGridLinesVerticalEnabled: d.stageGridLinesVerticalEnabled,
       stageGridLinesHorizontalEnabled: d.stageGridLinesHorizontalEnabled,
@@ -1816,7 +1910,7 @@ export function EditorPage({
       sideStageMm: s,
       backStageMm: b,
       centerFieldGuideIntervalMm: g,
-      snapGrid: false,
+      snapGrid: d.stageGridLinesVerticalEnabled || d.stageGridLinesHorizontalEnabled,
       gridStep: d.gridStep,
       stageGridLinesVerticalEnabled: d.stageGridLinesVerticalEnabled,
       stageGridLinesHorizontalEnabled: d.stageGridLinesHorizontalEnabled,
@@ -2085,7 +2179,7 @@ export function EditorPage({
       if (!hasRoster) {
         const cue = cuesSorted[slotIdx];
         if (!cue) return;
-        setSelectedCueId(cue.id);
+        setSelectedCueIds([cue.id]);
         setProjectSafe((prev) => ({
           ...prev,
           activeFormationId: cue.formationId,
@@ -2108,7 +2202,7 @@ export function EditorPage({
       }
       const cue = cuesSorted[slotIdx - 1];
       if (!cue) return;
-      setSelectedCueId(cue.id);
+      setSelectedCueIds([cue.id]);
       setProjectSafe((prev) => ({
         ...prev,
         rosterHidesTimeline: false,
@@ -2133,14 +2227,41 @@ export function EditorPage({
     });
   }, []);
 
-  // Mobile detection
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) 
-    || window.innerWidth < 768;
-
   useEffect(() => {
-    // TODO: Implement stage jump logic
-    console.log("Stage jump effect triggered");
-  }, [project]);
+    if (!project) return;
+    if (project.cues.length === 0) {
+      setSelectedCueIds((ids) => (ids.length === 0 ? ids : []));
+      return;
+    }
+    setSelectedCueIds((ids) => {
+      const valid = ids.filter((id) => cueById.has(id));
+      if (valid.length > 0) {
+        const seen = new Set<string>();
+        const deduped: string[] = [];
+        for (const id of valid) {
+          if (seen.has(id)) continue;
+          seen.add(id);
+          deduped.push(id);
+        }
+        if (
+          deduped.length === ids.length &&
+          deduped.every((id, i) => id === ids[i])
+        ) {
+          return ids;
+        }
+        return deduped;
+      }
+      const first = cuesSortedForStageJump[0]?.id;
+      const next = first ? [first] : [];
+      if (
+        next.length === ids.length &&
+        next.every((id, i) => id === ids[i])
+      ) {
+        return ids;
+      }
+      return next;
+    });
+  }, [project, cueIdsSig, cueById, cuesSortedForStageJump]);
 
   /** 再生中のみ補間表示 */
   const playbackDancersForStage = !isPlaying ? null : interpolatedDancers;
@@ -2273,7 +2394,7 @@ export function EditorPage({
             ...(f.floorMarkup ?? []),
             {
               kind: "text" as const,
-              id: generateId(),
+              id: crypto.randomUUID(),
               layer: "screen" as const,
               xPct: round2Pct(
                 Math.min(100, Math.max(0, floorTextPlaceSession.xPct))
@@ -2323,7 +2444,7 @@ export function EditorPage({
       const n = f.dancers.length;
       const { xPct, yPct } = pickSpotForAppendedDancer(f.dancers);
       const newDancer = {
-        id: generateId(),
+        id: crypto.randomUUID(),
         label: String(n + 1),
         xPct,
         yPct,
@@ -2408,7 +2529,7 @@ export function EditorPage({
         project.formations.find((x) => x.id === project.activeFormationId)?.id ??
         project.formations[0]?.id;
       if (!fid) return;
-      const pieceId = generateId();
+      const pieceId = crypto.randomUUID();
       const kind: SetPieceKind = opts.kind;
       const onScreen = Boolean(opts.placeOnEditorSurface);
       const wPct = onScreen
@@ -2518,7 +2639,7 @@ export function EditorPage({
   }, [me, syncProjectToCloud]);
   const handleAddCueCreated = useCallback(
     (cueId: string, startSec: number) => {
-      setSelectedCueId(cueId);
+      setSelectedCueIds([cueId]);
       if (typeof startSec === "number" && Number.isFinite(startSec)) {
         const proj = projectRef.current;
         pauseAndSeekPlaybackToSec({
@@ -3006,7 +3127,7 @@ export function EditorPage({
             backgroundColor: "#0f172a",
             display: "flex",
             flexDirection: "column",
-            gap: 12,
+            gap: 8,
           }
         : {},
     [mobileStackEditor]
@@ -3128,22 +3249,14 @@ export function EditorPage({
   const publicNarrowLayout =
     choreoPublicView && !wideEditorLayout && !stageZenLayout;
 
+  // wideEditorLayout時は常に固定 160px 下バー
+  const wideBottomDockPx = topDockRowPx != null
+    ? Math.max(TOP_DOCK_HEIGHT_PX, clampTopDockRowPx(topDockRowPx))
+    : TOP_DOCK_HEIGHT_PX;
   const editorPaneGridTemplateRows = stageZenLayout
     ? "1fr"
     : wideEditorLayout
-      ? showTopWaveDock
-        ? editorFixedWaveDockLayout
-          ? `${
-              topDockRowPx != null
-                ? clampTopDockRowPx(topDockRowPx)
-                : editorShellTopWavePx
-            }px 4px minmax(0, 1fr)`
-          : `${
-              topDockRowPx != null
-                ? `${topDockRowPx}px`
-                : `${TOP_DOCK_HEIGHT_PX}px`
-            } 4px minmax(0, 1fr)`
-        : "1fr"
+      ? "minmax(0, 1fr)"  // 波形バーはflexラッパー下段に独立配置
       : publicNarrowLayout
         ? publicViewTightHeight
           ? "minmax(88px, 1fr) minmax(56px, min(20dvh, 168px))"
@@ -3188,8 +3301,8 @@ export function EditorPage({
           ? yjsCollab.redoStackSize === 0
           : historyRef.current.redo.length === 0)
       }
-      selectedCueId={selectedCueId}
-      setSelectedCueId={setSelectedCueId}
+      selectedCueIds={selectedCueIds}
+      onSelectedCueIdsChange={setSelectedCueIds}
       formationIdForNewCue={selectedCue?.formationId ?? project.activeFormationId}
       wideWorkbench={wideEditorLayout}
       compactTopDock={
@@ -3199,6 +3312,7 @@ export function EditorPage({
       compactDockLeading={mobileTimelineDockLeading}
       cueListPortalTarget={showTopWaveDock ? cueListPortalEl : null}
       onSave={() => setFlowLibraryOpen(true)}
+      onOpenAudioImport={openAudioImport}
     />
   );
 
@@ -3271,11 +3385,6 @@ export function EditorPage({
       : {}),
   };
 
-  // Return MobileLayout for mobile devices
-  if (isMobile) {
-    return <MobileLayout />;
-  }
-
   return (
     <div
       className={[
@@ -3308,7 +3417,7 @@ export function EditorPage({
       }}
     >
       {playbackAudioElement}
-      {!choreoPublicView ? (
+      {!choreoPublicView && !wideEditorLayout ? (
       <header
         className={mobileStackEditor ? "editor-page-header--mobile" : undefined}
         style={{
@@ -3444,6 +3553,10 @@ export function EditorPage({
       </header>
       ) : null}
 
+      {/* ─── Main layout: column flex (stage row + bottom wave bar) ─── */}
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
+      {/* ─── Stage row: editor grid + NeonIconPanel ─── */}
+      <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
       <div
         ref={(el) => {
           editorPaneRef.current = el;
@@ -3477,23 +3590,23 @@ export function EditorPage({
                 display: "grid",
                 gridTemplateColumns: editorPaneGridTemplateColumns,
                 gridTemplateRows: editorPaneGridTemplateRows,
-                gap: `${EDITOR_GRID_GAP_PX}px`,
+                gap: wideEditorLayout ? "4px" : `${EDITOR_GRID_GAP_PX}px`,
                 padding: publicNarrowLayout
                   ? "4px max(4px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px))"
-                  : "6px max(6px, env(safe-area-inset-right, 0px)) calc(max(8px, 2cm) + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
+                  : wideEditorLayout
+                    ? "0px 0px 0px 0px"
+                    : "6px max(6px, env(safe-area-inset-right, 0px)) calc(max(8px, 2cm) + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
                 paddingBottom:
                   choreoPublicView && choreoStudentPick
                     ? publicViewTightHeight
                       ? "calc(4px + min(100px, 24dvh) + env(safe-area-inset-bottom, 0px))"
                       : "calc(6px + min(132px, 30dvh) + env(safe-area-inset-bottom, 0px))"
                     : undefined,
-                marginTop: wideEditorLayout
-                  ? `calc(-1 * ${EDITOR_PLAYBACK_LAYOUT_SHIFT_UP})`
-                  : 0,
+                marginTop: 0,
               }),
         }}
       >
-        {showTopWaveDock && !stageZenLayout ? (
+        {showTopWaveDock && !stageZenLayout && !wideEditorLayout ? (
           <div
             role="separator"
             aria-orientation="horizontal"
@@ -3533,16 +3646,7 @@ export function EditorPage({
           </div>
         ) : null}
         {!wideEditorLayout && !choreoPublicView && !mobileStackEditor ? (
-          <div
-            style={{
-              minWidth: 0,
-              minHeight: 0,
-              display: "flex",
-              gridRow: 1,
-            }}
-          >
-            <ChoreoCoreToolbar {...choreoToolbarSharedProps} />
-          </div>
+          null
         ) : null}
         <section
           ref={stageSectionRef}
@@ -3560,16 +3664,14 @@ export function EditorPage({
                   gridColumn: stageZenLayout ? "1 / -1" : 1,
                   gridRow: stageZenLayout
                     ? "1 / -1"
-                    : showTopWaveDock
-                      ? 3
-                      : 1,
+                    : 1,
                   ...(stageZenLayout
                     ? { position: "relative" as const }
                     : {}),
                 }
               : { gridRow: publicNarrowLayout ? 1 : 2 }),
             ...dynamicStageShellStyle,
-            ...(mobileStackEditor ? { order: -2, touchAction: "none" } : {}),
+            ...(mobileStackEditor ? { order: -2 } : {}),
           }}
         >
           {stageZenLayout ? (
@@ -3602,7 +3704,7 @@ export function EditorPage({
                 minWidth: 0,
               }}
             >
-              <ChoreoCoreToolbar embedInPanel {...choreoToolbarSharedProps} />
+              {/* ChoreoCoreToolbar hidden — replaced by NeonIconPanel */}
             </section>
           ) : null}
           {!workbenchInRightRail &&
@@ -3670,11 +3772,6 @@ export function EditorPage({
                         flexShrink: 0,
                         maxWidth: "min(200px, 100%)",
                         lineHeight: 0,
-                        position: mobileStackEditor ? "fixed" : "relative",
-                        bottom: mobileStackEditor ? "20px" : "auto",
-                        left: mobileStackEditor ? "50%" : "auto",
-                        transform: mobileStackEditor ? "translateX(-50%)" : "none",
-                        zIndex: mobileStackEditor ? 100 : "auto",
                       }}
                     >
                       <WorkbenchCuePager
@@ -3877,26 +3974,18 @@ export function EditorPage({
           TimelinePanel が再マウントされ、波形・音源の内部状態が消える）。
           グリッド行だけワイド時は 1 行目、狭いときはステージの下（3 行目）に固定する。
         */}
-        {!stageZenLayout ? (
+        {/* wideEditorLayout時の波形バーはflex下段に独立配置 */}
+        {!stageZenLayout && !(wideEditorLayout && showTopWaveDock) ? (
           <section
             ref={(el) => {
               topDockSectionRef.current = el;
             }}
             style={{
-              gridColumn:
-                wideEditorLayout && showTopWaveDock ? "1 / -1" : 1,
-              gridRow: wideEditorLayout && showTopWaveDock ? 1 : publicNarrowLayout ? 2 : 3,
-              ...(wideEditorLayout && showTopWaveDock
+              gridColumn: 1,
+              gridRow: publicNarrowLayout ? 2 : 3,
+              ...(false
                 ? {
                     background: "transparent",
-                    border: "none",
-                    padding: "0 4px 6px",
-                    minWidth: 0,
-                    display: "flex",
-                    flexDirection: "column",
-                    overflow: "visible",
-                    flexShrink: 0,
-                    minHeight: 0,
                   }
                 : {
                     ...panelCard,
@@ -4244,79 +4333,16 @@ export function EditorPage({
               alignSelf: "stretch",
               zIndex: 2,
               gridColumn: 2,
-              gridRow: showTopWaveDock ? 3 : 1,
+              gridRow: 1,
+              // NeonIconPanel使用時はリサイザー非表示
+              display: showTopWaveDock ? "none" : "block",
             }}
           />
         ) : null}
 
         {stageZenLayout ? null : rightPaneCollapsed && wideEditorLayout ? null : wideEditorLayout && showTopWaveDock ? (
-          <div
-            ref={rightPaneStackRef}
-            style={{
-              gridColumn: 3,
-              gridRow: 3,
-              display: "flex",
-              flexDirection: "column",
-              gap: 8,
-              minHeight: 0,
-              minWidth: 0,
-              flexShrink: 0,
-              ...(editorFixedWaveDockLayout
-                ? {
-                    overflowX: "hidden" as const,
-                    overflowY: "auto" as const,
-                  }
-                : { overflow: "hidden" }),
-              ...(floorTextPlaceSession
-                ? { position: "relative" as const, zIndex: 140 }
-                : {}),
-            }}
-          >
-            {rosterOnlyMode ? (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  overflow: "hidden",
-                  /** 名簿モードでは右列の縦スペースの大半をメンバー表に使う（ツールは下で内容分のみ） */
-                  flex: "1 1 0",
-                  minHeight: 0,
-                  ...panelCard,
-                  padding: "6px 5px",
-                }}
-              >
-                <RosterTimelineStrip
-                  project={project}
-                  setProject={setProjectSafe}
-                  onConfirmReturnToTimeline={onRosterConfirmReturnToTimeline}
-                  onStagePreviewChange={setStagePreviewDancers}
-                />
-              </div>
-            ) : null}
-            <section
-              className="editor-right-tools-section"
-              style={{
-                ...panelCard,
-                padding: "6px 5px",
-                flex: rosterOnlyMode ? "0 0 auto" : "1 1 auto",
-                minHeight: 0,
-                minWidth: 0,
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden",
-              }}
-            >
-              <div className="editor-right-tools-host">
-                <div className="editor-right-tools-tiles">
-                  <EditorStageWorkbench
-                    key="wb-tiles"
-                    layout="rail"
-                    {...stageWorkbenchProps}
-                  />
-                </div>
-              </div>
-            </section>
-          </div>
+          /* wideEditorLayout: グリッド右列なし。NeonIconPanelは外側flexで配置済み */
+          null
         ) : !publicNarrowLayout ? (
           <div
             ref={rightPaneStackRef}
@@ -4328,7 +4354,7 @@ export function EditorPage({
               minWidth: 0,
               overflow: "hidden",
               ...(wideEditorLayout
-                ? { gridColumn: 3, gridRow: 1 }
+                ? {}
                 : { gridRow: 4 }),
               ...(floorTextPlaceSession
                 ? { position: "relative" as const, zIndex: 140 }
@@ -4402,11 +4428,11 @@ export function EditorPage({
                       type="button"
                       style={{
                         ...btnAccent,
-                        minHeight: 56,
+                        minHeight: 48,
                         borderRadius: 12,
                         padding: "12px 10px",
                         touchAction: "manipulation",
-                        fontSize: "15px",
+                        fontSize: "13px",
                         fontWeight: 700,
                         boxSizing: "border-box",
                       }}
@@ -4420,11 +4446,11 @@ export function EditorPage({
                       type="button"
                       style={{
                         ...btnSecondary,
-                        minHeight: 56,
+                        minHeight: 48,
                         borderRadius: 12,
                         padding: "12px 10px",
                         touchAction: "manipulation",
-                        fontSize: "15px",
+                        fontSize: "13px",
                         fontWeight: 700,
                         boxSizing: "border-box",
                       }}
@@ -4448,12 +4474,7 @@ export function EditorPage({
                       borderBottom: "1px solid #1e293b",
                     }}
                   >
-                    <ChoreoCoreToolbar
-                      layout="row"
-                      showBrand={false}
-                      dense
-                      {...choreoToolbarSharedProps}
-                    />
+                    {/* ChoreoCoreToolbar hidden — replaced by NeonIconPanel */}
                   </div>
                 ) : null}
                 {rosterOnlyMode ? (
@@ -4476,29 +4497,8 @@ export function EditorPage({
                   </div>
                 ) : null}
                 {workbenchInRightRail ? (
-                  <section
-                    className="editor-right-tools-section"
-                    style={{
-                      ...panelCard,
-                      padding: "6px 5px",
-                      flex: "0 0 auto",
-                      minWidth: 0,
-                      display: "flex",
-                      flexDirection: "column",
-                      overflow: "hidden",
-                      marginBottom: rosterOnlyMode ? 0 : 8,
-                    }}
-                  >
-                    <div className="editor-right-tools-host">
-                      <div className="editor-right-tools-tiles">
-                        <EditorStageWorkbench
-                          key="wb-tiles-2"
-                          layout="rail"
-                          {...stageWorkbenchProps}
-                        />
-                      </div>
-                    </div>
-                  </section>
+                  /* テキストボタンレール非表示 — NeonIconPanelに統合済み */
+                  null
                 ) : mobileStackEditor ? (
                   <section
                     className="editor-right-tools-section"
@@ -4571,7 +4571,7 @@ export function EditorPage({
             <EditorSideSheet
               open
               zIndex={2200}
-              width="min(440px, calc(100vw - 28px))"
+              width="min(320px, calc(100vw - 16px))"
               onClose={() => setCueListModalOpen(false)}
               ariaLabelledBy="cue-list-modal-title"
             >
@@ -4584,35 +4584,57 @@ export function EditorPage({
                   background: shell.surface,
                 }}
               >
+                {/* ── ヘッダー ── */}
                 <div
                   style={{
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
                     gap: 8,
-                    padding: "10px 12px",
-                    borderBottom: `1px solid ${shell.border}`,
+                    padding: "11px 14px",
+                    borderBottom: `1px solid ${shell.borderStrong}`,
                     flexShrink: 0,
+                    background: shell.bgChrome,
                   }}
                 >
                   <h2
                     id="cue-list-modal-title"
                     style={{
                       margin: 0,
-                      fontSize: "14px",
-                      fontWeight: 600,
+                      fontSize: "13px",
+                      fontWeight: 700,
                       color: shell.text,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 7,
+                      letterSpacing: "0.03em",
                     }}
                   >
+                    <span style={{ color: shell.accent, display: "flex", opacity: 0.9 }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+                        <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+                      </svg>
+                    </span>
                     キュー一覧
                   </h2>
                   <button
                     type="button"
                     aria-label="閉じる"
                     onClick={() => setCueListModalOpen(false)}
-                    style={{ ...btnSecondary, padding: "4px 10px" }}
+                    style={{
+                      background: "transparent",
+                      border: `1px solid ${shell.border}`,
+                      borderRadius: 6,
+                      color: shell.textMuted,
+                      fontSize: 16,
+                      lineHeight: 1,
+                      padding: "3px 9px",
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                    }}
                   >
-                    閉じる
+                    ×
                   </button>
                 </div>
                 <div
@@ -4654,112 +4676,179 @@ export function EditorPage({
           stageAreaSettingsOpen={stageAreaSettingsOpen}
           onClose={() => setStageAreaSettingsOpen(false)}
         >
-          <div style={{ padding: "8px 10px 10px" }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "8px",
-                marginBottom: "6px",
-              }}
-            >
-              <h3
-                id="stage-area-settings-title"
-                style={{
-                  margin: 0,
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  color: "#e2e8f0",
-                }}
-              >
-                ステージまわりの設定
+          <div style={{ padding: "12px 14px 14px", display: "flex", flexDirection: "column", gap: 0 }}>
+            {/* ── Header ── */}
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              gap: 8, marginBottom: 12, paddingBottom: 10,
+              borderBottom: "1px solid rgba(99,102,241,0.2)",
+            }}>
+              <h3 id="stage-area-settings-title" style={{
+                margin: 0, fontSize: 14, fontWeight: 700, color: "#e2e8f0",
+                display: "flex", alignItems: "center", gap: 8,
+              }}>
+                <span style={{ color: "rgba(129,140,248,0.9)", display: "flex" }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <line x1="3" y1="9" x2="21" y2="9" />
+                    <line x1="9" y1="21" x2="9" y2="9" />
+                  </svg>
+                </span>
+                舞台設定
               </h3>
-              <button
-                type="button"
-                aria-label="閉じる（変更は破棄）"
+              <button type="button" aria-label="閉じる"
                 onClick={() => setStageAreaSettingsOpen(false)}
-                style={{
-                  ...btnSecondary,
-                  fontSize: "16px",
-                  lineHeight: 1,
-                  padding: "2px 10px",
-                }}
-              >
-                ×
-              </button>
+                style={{ ...btnSecondary, fontSize: 16, lineHeight: 1, padding: "2px 10px" }}
+              >×</button>
             </div>
 
-            <div style={STAGE_AREA_SHEET_SECTION}>
-              <div
-                style={{
-                  fontSize: "10px",
-                  fontWeight: 700,
-                  color: "#64748b",
-                  letterSpacing: "0.05em",
-                  marginBottom: "4px",
-                }}
-              >
-                客席の位置
+            {/* ── CARD A: ステージ寸法 ── */}
+            <div style={{ ...STAGE_AREA_SHEET_SECTION, marginBottom: 8 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M2 20L20 2M7 20l1.5-1.5M12 20l1.5-1.5M17 20l1.5-1.5M2 7l1.5-1.5M2 12l1.5-1.5M2 17l1.5-1.5"/></svg>
+                ステージ寸法
               </div>
-              <select
-                title="画面上辺または下辺のどちらを客席としてステージを回転表示するか"
-                value={stageAreaSettingsDraft.audienceEdge}
-                disabled={project.viewMode === "view"}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v !== "top" && v !== "bottom") return;
-                  setStageAreaSettingsDraft((d) => ({
-                    ...d,
-                    audienceEdge: v,
-                  }));
-                }}
-                aria-label="客席のある画面の上または下"
-                style={{
-                  width: "100%",
-                  padding: "5px 8px",
-                  borderRadius: "6px",
-                  border: "1px solid #334155",
-                  background: "#020617",
-                  color: "#e2e8f0",
-                  fontSize: "12px",
-                }}
-              >
-                {STAGE_AREA_AUDIENCE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    客席：画面の{o.label}側
-                  </option>
-                ))}
-              </select>
+
+              {/* 客席位置トグル */}
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 10, color: "rgba(100,116,139,0.8)", marginBottom: 5 }}>客席の位置</div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {(["bottom", "top"] as const).map((edge) => {
+                    const active = stageAreaSettingsDraft.audienceEdge === edge;
+                    return (
+                      <button key={edge} type="button"
+                        disabled={project.viewMode === "view"}
+                        onClick={() => setStageAreaSettingsDraft((d) => ({ ...d, audienceEdge: edge }))}
+                        style={{
+                          flex: 1, padding: "7px 10px", borderRadius: 8,
+                          border: active ? "1px solid rgba(252,211,77,0.7)" : "1px solid rgba(51,65,85,0.8)",
+                          background: active ? "rgba(252,211,77,0.1)" : "rgba(15,23,42,0.5)",
+                          color: active ? "#fcd34d" : "rgba(148,163,184,0.7)",
+                          fontSize: 11, fontWeight: active ? 700 : 400,
+                          cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
+                          display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                          transition: "all 0.15s",
+                          boxShadow: active ? "0 0 10px rgba(252,211,77,0.2)" : "none",
+                        }}
+                      >
+                        {edge === "bottom"
+                          ? <><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9" /></svg>画面下が客席</>
+                          : <><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="18 15 12 9 6 15" /></svg>画面上が客席</>
+                        }
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* プレビュー + 寸法入力 横並び */}
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <StageSettingsMiniPreview draft={stageAreaSettingsDraft} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10, color: "#64748b", marginBottom: 5 }}>
+                    寸法入力
+                  </div>
+                  <StageAreaDimensionRows
+                    disabled={project.viewMode === "view"}
+                    draft={stageAreaSettingsDraft}
+                    onChangeDraft={setStageAreaSettingsDraft}
+                  />
+                </div>
+              </div>
+
+
             </div>
 
-            <div style={STAGE_AREA_SHEET_SECTION}>
-              <div
-                style={{
-                  fontSize: "10px",
-                  fontWeight: 700,
-                  color: "#64748b",
-                  letterSpacing: "0.05em",
-                  marginBottom: "2px",
-                }}
-              >
-                舞台の寸法
+            {/* ── CARD B: グリッド・表示設定 ── */}
+            <div style={{ ...STAGE_AREA_SHEET_SECTION, marginBottom: 8 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                グリッド・表示
               </div>
-              <p
-                style={{
-                  margin: "0 0 6px",
-                  fontSize: "10px",
-                  color: "#64748b",
-                  lineHeight: 1.35,
-                }}
-              >
-                m・cm（空欄＝未設定）。<strong style={{ color: "#cbd5e1" }}>決定</strong>で反映。
-              </p>
-              <StageAreaDimensionRows
-                disabled={project.viewMode === "view"}
-                draft={stageAreaSettingsDraft}
-                onChangeDraft={setStageAreaSettingsDraft}
-              />
+
+              {/* グリッド間隔 */}
+              {stageAreaDraftHasMainFloor && (
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 5 }}>
+                    グリッド間隔 <span style={{ color: "rgba(100,116,139,0.5)", fontSize: 9 }}>縦＝幅方向 / 横＝奥行</span>
+                  </div>
+                  <StageAreaGridSpacingControls
+                    disabled={project.viewMode === "view"}
+                    gridWidthCmInput={gridWidthCmInput}
+                    gridDepthCmInput={gridDepthCmInput}
+                    onStageGridCmInput={onStageGridCmInput}
+                    commitStageGridCmInput={commitStageGridCmInput}
+                    startGridNudgeRepeat={startGridNudgeRepeat}
+                    stopGridNudgeRepeat={stopGridNudgeRepeat}
+                    nudgeStageGridCm={nudgeStageGridCm}
+                    gridNudgeDidRepeatRef={gridNudgeDidRepeatRef}
+                  />
+                </div>
+              )}
+
+              {/* 縦線・横線トグル */}
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 5 }}>グリッド線の表示</div>
+                <StageAreaGridVisibilityToggles
+                  disabled={project.viewMode === "view"}
+                  hasMainFloor={stageAreaDraftHasMainFloor}
+                  verticalEnabled={stageAreaSettingsDraft.stageGridLinesVerticalEnabled}
+                  horizontalEnabled={stageAreaSettingsDraft.stageGridLinesHorizontalEnabled}
+                  onChangeDraft={setStageAreaSettingsDraft}
+                />
+              </div>
+
+              {/* 名前の位置 — アイコン付きセグメント */}
+              <div>
+                <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 5 }}>立ち位置の名前</div>
+                <div style={{ display: "flex", gap: 6 }} title="印の右クリックでも選べます">
+                  {([
+                    { val: "inside", label: "○の中", icon: (
+                      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                        <circle cx="16" cy="16" r="12" stroke="currentColor" strokeWidth="2"/>
+                        <text x="16" y="21" textAnchor="middle" fontSize="13" fill="currentColor" fontWeight="700">A</text>
+                      </svg>
+                    )},
+                    { val: "below", label: "○の外", icon: (
+                      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                        <circle cx="16" cy="11" r="7" stroke="currentColor" strokeWidth="2"/>
+                        <text x="16" y="29" textAnchor="middle" fontSize="12" fill="currentColor" fontWeight="700">A</text>
+                      </svg>
+                    )},
+                  ] as const).map(({ val, label, icon }) => {
+                    const active = stageAreaSettingsDraft.dancerLabelPosition === val;
+                    return (
+                      <button key={val} type="button"
+                        disabled={project.viewMode === "view"}
+                        onClick={() => setStageAreaSettingsDraft((d) => ({ ...d, dancerLabelPosition: val }))}
+                        style={{
+                          flex: 1, padding: "6px 8px", borderRadius: 8,
+                          border: active ? "1px solid rgba(99,102,241,0.8)" : "1px solid rgba(51,65,85,0.7)",
+                          background: active ? "rgba(99,102,241,0.2)" : "rgba(15,23,42,0.5)",
+                          color: active ? "#a5b4fc" : "rgba(148,163,184,0.6)",
+                          fontSize: 11, fontWeight: active ? 700 : 400,
+                          cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
+                          display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+                          transition: "all 0.15s",
+                          boxShadow: active ? "0 0 10px rgba(99,102,241,0.25)" : "none",
+                        }}
+                      >
+                        {icon}
+                        <span style={{ fontSize: 10 }}>{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* ── CARD C: プリセット・共有 ── */}
+            <div style={{ ...STAGE_AREA_SHEET_SECTION, marginBottom: 10 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                プリセット・共有
+              </div>
+
               <StageAreaPresetBlock
                 disabled={project.viewMode === "view"}
                 stageAreaPresetSelectNonce={stageAreaPresetSelectNonce}
@@ -4780,279 +4869,43 @@ export function EditorPage({
                   const name = window.prompt("保存する名前", defaultName);
                   if (name === null) return;
                   const result = saveStagePreset(name.trim() || defaultName, dims);
-                  if (!result.ok) {
-                    window.alert(result.message);
-                    return;
-                  }
+                  if (!result.ok) { window.alert(result.message); return; }
                   setStageAreaPresetList(listStagePresets());
                 }}
               />
-              <button
-                type="button"
-                disabled={project.viewMode === "view"}
-                title="変形舞台・花道など（決定後に開くのが安全）"
-                onClick={() => {
-                  applyStageAreaSettingsDraft();
-                  setStageAreaSettingsOpen(false);
-                  setStageSettingsOpen(true);
-                }}
-                style={{
-                  ...btnSecondary,
-                  width: "100%",
-                  padding: "6px 10px",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                }}
-              >
-                形状・花道・詳細設定…
-              </button>
+
+
             </div>
 
-            <div style={STAGE_AREA_SHEET_SECTION}>
-              <div
-                style={{
-                  fontSize: "10px",
-                  fontWeight: 700,
-                  color: "#64748b",
-                  letterSpacing: "0.05em",
-                  marginBottom: "4px",
-                }}
-              >
-                グリッド
-              </div>
-              {!stageAreaDraftHasMainFloor ? (
-                <p
-                  style={{
-                    margin: "0 0 4px",
-                    fontSize: "10px",
-                    color: "#64748b",
-                    lineHeight: 1.35,
-                  }}
-                >
-                  幅・奥行入力後、<strong style={{ color: "#cbd5e1" }}>縦／横 cm</strong>
-                  で実寸の線間隔と表示を使えます。
-                </p>
-              ) : (
-                <p
-                  style={{
-                    margin: "0 0 4px",
-                    fontSize: "10px",
-                    color: "#64748b",
-                    lineHeight: 1.35,
-                  }}
-                >
-                  <strong style={{ color: "#cbd5e1" }}>縦</strong>＝幅方向、
-                  <strong style={{ color: "#cbd5e1" }}>横</strong>＝奥行。各 1〜100 cm（数字は直接入力可）。
-                </p>
-              )}
-              {!stageAreaDraftHasMainFloor ? (
-                <StageAreaGridStepControl
-                  disabled={project.viewMode === "view"}
-                  gridStep={stageAreaSettingsDraft.gridStep}
-                  onChangeDraft={setStageAreaSettingsDraft}
-                />
-              ) : null}
-              {stageAreaDraftHasMainFloor ? (
-                <StageAreaGridSpacingControls
-                  disabled={project.viewMode === "view"}
-                  gridWidthCmInput={gridWidthCmInput}
-                  gridDepthCmInput={gridDepthCmInput}
-                  onStageGridCmInput={onStageGridCmInput}
-                  commitStageGridCmInput={commitStageGridCmInput}
-                  startGridNudgeRepeat={startGridNudgeRepeat}
-                  stopGridNudgeRepeat={stopGridNudgeRepeat}
-                  nudgeStageGridCm={nudgeStageGridCm}
-                  gridNudgeDidRepeatRef={gridNudgeDidRepeatRef}
-                />
-              ) : null}
-              <StageAreaGridVisibilityToggles
-                disabled={project.viewMode === "view"}
-                hasMainFloor={stageAreaDraftHasMainFloor}
-                verticalEnabled={stageAreaSettingsDraft.stageGridLinesVerticalEnabled}
-                horizontalEnabled={stageAreaSettingsDraft.stageGridLinesHorizontalEnabled}
-                onChangeDraft={setStageAreaSettingsDraft}
-              />
-            </div>
-
-            <div style={STAGE_AREA_SHEET_SECTION}>
-              <div
-                style={{
-                  fontSize: "10px",
-                  fontWeight: 700,
-                  color: "#64748b",
-                  letterSpacing: "0.05em",
-                  marginBottom: "4px",
-                }}
-              >
-                立ち位置の名前
-              </div>
-              <div
-                style={{ display: "flex", gap: "6px" }}
-                title="印の右クリックでも同様に選べます。"
-              >
-                <button
-                  type="button"
-                  disabled={project.viewMode === "view"}
-                  onClick={() =>
-                    setStageAreaSettingsDraft((d) => ({
-                      ...d,
-                      dancerLabelPosition: "inside",
-                    }))
-                  }
-                  style={{
-                    flex: 1,
-                    padding: "5px 8px",
-                    borderRadius: "6px",
-                    border:
-                      stageAreaSettingsDraft.dancerLabelPosition === "inside"
-                        ? "1px solid rgba(99,102,241,0.9)"
-                        : "1px solid #334155",
-                    background:
-                      stageAreaSettingsDraft.dancerLabelPosition === "inside"
-                        ? "rgba(99,102,241,0.22)"
-                        : "#020617",
-                    color:
-                      stageAreaSettingsDraft.dancerLabelPosition === "inside"
-                        ? "#e0e7ff"
-                        : "#94a3b8",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    cursor:
-                      project.viewMode === "view" ? "not-allowed" : "pointer",
-                  }}
-                >
-                  ○の中
-                </button>
-                <button
-                  type="button"
-                  disabled={project.viewMode === "view"}
-                  onClick={() =>
-                    setStageAreaSettingsDraft((d) => ({
-                      ...d,
-                      dancerLabelPosition: "below",
-                    }))
-                  }
-                  style={{
-                    flex: 1,
-                    padding: "5px 8px",
-                    borderRadius: "6px",
-                    border:
-                      stageAreaSettingsDraft.dancerLabelPosition === "below"
-                        ? "1px solid rgba(99,102,241,0.9)"
-                        : "1px solid #334155",
-                    background:
-                      stageAreaSettingsDraft.dancerLabelPosition === "below"
-                        ? "rgba(99,102,241,0.22)"
-                        : "#020617",
-                    color:
-                      stageAreaSettingsDraft.dancerLabelPosition === "below"
-                        ? "#e0e7ff"
-                        : "#94a3b8",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    cursor:
-                      project.viewMode === "view" ? "not-allowed" : "pointer",
-                  }}
-                >
-                  ○の外
-                </button>
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                gap: "8px",
-                marginBottom: "6px",
-              }}
-            >
-              <button
-                type="button"
+            {/* ── 決定・取消 ── */}
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button"
                 disabled={project.viewMode === "view"}
                 onClick={() => {
                   applyStageAreaSettingsDraft();
                   setStageAreaSettingsOpen(false);
                 }}
                 style={{
-                  ...btnAccent,
-                  flex: 1,
-                  padding: "7px 10px",
-                  fontSize: "12px",
-                  fontWeight: 600,
+                  flex: 2, padding: "10px 14px", fontSize: 13, fontWeight: 700,
+                  borderRadius: 10,
+                  border: "1px solid rgba(129,140,248,0.5)",
+                  background: project.viewMode === "view"
+                    ? "rgba(30,41,59,0.5)"
+                    : "linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #a855f7 100%)",
+                  color: project.viewMode === "view" ? "rgba(71,85,105,0.7)" : "#fff",
+                  cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
+                  boxShadow: project.viewMode === "view" ? "none" : "0 0 20px rgba(99,102,241,0.45), 0 2px 8px rgba(0,0,0,0.4)",
+                  letterSpacing: "0.04em",
+                  transition: "box-shadow 0.2s",
                 }}
               >
-                決定
+                ✓ 決定
               </button>
-              <button
-                type="button"
+              <button type="button"
                 onClick={() => setStageAreaSettingsOpen(false)}
-                style={{
-                  ...btnSecondary,
-                  flex: 1,
-                  padding: "7px 10px",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                }}
+                style={{ ...btnSecondary, flex: 1, padding: "10px 10px", fontSize: 12, fontWeight: 600, borderRadius: 10 }}
               >
-                取り消し
-              </button>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "6px",
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => void copyEditorShareLink()}
-                style={{
-                  ...btnSecondary,
-                  flex: "1 1 160px",
-                  padding: "6px 8px",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                }}
-              >
-                {shareLinkCopiedFlash
-                  ? "URL をコピーしました"
-                  : "URL を共有（コピー）"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setStageAreaSettingsOpen(false);
-                  setShareLinksOpen(true);
-                }}
-                style={{
-                  ...btnSecondary,
-                  flex: "1 1 160px",
-                  padding: "6px 8px",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                  borderColor: "rgba(14, 165, 233, 0.5)",
-                }}
-                title="チーム用・生徒用のどちらかを選んで URL を発行"
-              >
-                共有 URL 発行
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setStageAreaSettingsOpen(false);
-                  setShortcutsHelpOpen(true);
-                }}
-                style={{
-                  ...btnSecondary,
-                  flex: "1 1 160px",
-                  padding: "6px 8px",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                }}
-              >
-                ショートカット・ヒント
+                取消
               </button>
             </div>
           </div>
@@ -5351,6 +5204,16 @@ export function EditorPage({
 
       {rosterImportSheetEl}
 
+      {aiSuggestOpen && project ? (
+        <AiSuggestDialog
+          project={project}
+          setProject={setProjectSafe}
+          peaks={getWavePeaksSnapshot()}
+          durationSec={duration}
+          onClose={() => setAiSuggestOpen(false)}
+        />
+      ) : null}
+
       {!choreoPublicView ? (
         <EditorSideSheet
           open={shareLinksOpen}
@@ -5636,8 +5499,156 @@ export function EditorPage({
         </div>
       ) : null}
 
-      {/* Mobile Bottom Navigation */}
-      <BottomNav />
+      {/* NeonIconPanel — right side */}
+      {!choreoPublicView && !mobileStackEditor ? (
+        <NeonIconPanel
+          {...choreoToolbarSharedProps}
+          /* グリッド吸着トグル — グリッド線表示＋snapGridを同時に切り替える */
+          stageGridLinesEnabled={
+            (project.stageGridLinesVerticalEnabled ?? project.stageGridLinesEnabled ?? false) ||
+            (project.stageGridLinesHorizontalEnabled ?? project.stageGridLinesEnabled ?? false)
+          }
+          onToggleStageGridLines={() => {
+            const current =
+              (project.stageGridLinesVerticalEnabled ?? project.stageGridLinesEnabled ?? false) ||
+              (project.stageGridLinesHorizontalEnabled ?? project.stageGridLinesEnabled ?? false);
+            const next = !current;
+            setProjectSafe((p) => ({
+              ...p,
+              stageGridLinesVerticalEnabled: next,
+              stageGridLinesHorizontalEnabled: next,
+              stageGridLinesEnabled: next,
+              snapGrid: next,
+            }));
+          }}
+          snapGrid={project.snapGrid ?? false}
+          /* 舞台設定 → full stage area settings dialog */
+          onOpenStageShapePicker={() => setStageAreaSettingsOpen(true)}
+          onUndo={undo}
+          onRedo={redo}
+          undoDisabled={stageUndoDisabled}
+          redoDisabled={stageRedoDisabled}
+          /* 立ち位置保存 → formation box manager dialog */
+          onSave={saveStageToFormationBox}
+          /* キュー設定 → add/configure cue dialog */
+          onOpenCueList={() => setAddCueDialogOpen(true)}
+          onOpenShareLinks={() => setShareLinksOpen(true)}
+          onOpenAISuggest={() => setAiSuggestOpen(true)}
+          /* テキスト → toggle floor markup text tool (2D only) */
+          onOpenFloorText={() => {
+            if (stageView !== "2d") {
+              window.alert("床テキストは 2D 表示のときのみ使えます");
+              return;
+            }
+            setFloorMarkupTool((prev) => (prev === "text" ? null : "text"));
+          }}
+          /* 閲覧モード → editor viewer sheet (member highlight preview) */
+          onOpenViewMode={() => setEditorViewerSheetOpen(true)}
+          onZoomStage={() => setStageZenFullscreen(true)}
+          onOpenAudioImport={openAudioImport}
+          onOpenLibrary={() => setFlowLibraryOpen(true)}
+          onOpenRosterImport={importCrewCsvFromStageToolbar}
+          /* ＋メンバー → proper addDancer with smart positioning */
+          onAddDancer={addDancerFromStageToolbar}
+          /* メンバー表示 → show roster strip */
+          onOpenRoster={() => {
+            setProjectSafe((p) => ({
+              ...p,
+              rosterHidesTimeline: true,
+              rosterStripCollapsed: false,
+            }));
+          }}
+          /* 舞台変形 → stage shape picker (custom stage shapes) */
+          onOpenStageTransform={() => setStageShapePickerOpen(true)}
+          /* パネル折りたたみ */
+          collapsed={rightPaneCollapsed && wideEditorLayout}
+          onCollapseToggle={wideEditorLayout ? () => setRightPaneCollapsed((v) => !v) : undefined}
+        />
+      ) : null}
+      </div>{/* end stage row */}
+
+      {/* ─── Bottom wave bar (wideEditorLayout only, full width) ─── */}
+      {wideEditorLayout && showTopWaveDock && !stageZenLayout ? (
+        <div
+          style={{
+            flexShrink: 0,
+            width: "100%",
+            minWidth: 0,
+            height: wideBottomDockPx,
+            position: "relative",
+            background: "transparent",
+            marginTop: 4,
+          }}
+        >
+          {/* Resize handle — top edge, drag upward to expand */}
+          <div
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="波形バーの高さを調整（上下ドラッグ）"
+            title="上下ドラッグで波形バーの高さを変更（ダブルクリックで既定に戻す）"
+            onPointerDown={onTopDockResizeDown}
+            onPointerMove={(e) => {
+              const d = topDockDragRef.current;
+              if (!d || e.pointerId !== d.pointerId) return;
+              const grid = editorPaneRef.current;
+              if (!grid) return;
+              const gridRect = grid.getBoundingClientRect();
+              const minH = TOP_DOCK_ROW_MIN_PX;
+              const maxH = Math.max(minH, Math.min(TOP_DOCK_ROW_MAX_PX, gridRect.height - 80));
+              // ドラッグ上方向 = 高さ増加（startY - clientY）
+              const next = clampTopDockRowPx(
+                Math.min(maxH, Math.max(minH, d.startH + (d.startY - e.clientY)))
+              );
+              setTopDockRowPx(next);
+            }}
+            onPointerUp={endTopDockResize}
+            onPointerCancel={endTopDockResize}
+            onDoubleClick={onTopDockResizeDoubleClick}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 8,
+              cursor: "row-resize",
+              touchAction: "none",
+              userSelect: "none",
+              zIndex: 10,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <div
+              aria-hidden
+              style={{
+                width: 48,
+                height: 3,
+                borderRadius: 2,
+                background: "rgba(148,163,184,0.35)",
+              }}
+            />
+          </div>
+          {/* Timeline content */}
+          <div
+            ref={(el) => {
+              topDockSectionRef.current = el as HTMLElement | null;
+            }}
+            style={{
+              position: "absolute",
+              inset: "8px 0 0 0",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              padding: "0 4px 4px",
+            }}
+          >
+            {timelinePanelEl}
+          </div>
+        </div>
+      ) : null}
+
+      </div>{/* end main column wrapper */}
 
       <style>{`
         @media (max-width: 1279px) {
@@ -5648,107 +5659,6 @@ export function EditorPage({
             overscroll-behavior: contain;
           }
         }
-        
-        /* iPhone-specific mobile fixes */
-        @media (max-width: 430px) and (max-height: 932px) {
-          .editor-three-pane {
-            grid-template-columns: 1fr;
-            grid-template-rows: auto auto auto;
-            gap: 0;
-            padding-bottom: 65px;
-            margin-bottom: 0;
-            min-height: 100vh;
-          }
-          
-          .editor-three-pane > div {
-            min-height: auto;
-            overflow: visible;
-            margin-bottom: 0;
-          }
-          
-          /* iPhone safe area support */
-          body.has-bottom-nav .editor-three-pane {
-            padding-bottom: calc(65px + env(safe-area-inset-bottom, 0px));
-            margin-bottom: 0;
-          }
-          
-          body.has-bottom-nav .app-shell {
-            padding-bottom: calc(65px + env(safe-area-inset-bottom, 0px));
-            margin-bottom: 0;
-          }
-          
-          /* Bottom nav iPhone optimization */
-          nav[data-bottom-nav] {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            z-index: 9999;
-            transform: translateZ(0);
-            background: #2a2a2e;
-            border-top: 2px solid #ff0000;
-            height: 65px;
-            display: flex;
-            visibility: visible;
-            opacity: 1;
-            padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
-          }
-          
-          nav[data-bottom-nav] > * {
-            visibility: visible;
-            opacity: 1;
-            display: flex;
-          }
-        }
-        
-        /* General mobile fixes */
-        @media (max-width: 768px) {
-          .editor-three-pane {
-            grid-template-columns: 1fr;
-            grid-template-rows: auto auto auto;
-            gap: 0;
-            padding-bottom: 60px;
-            margin-bottom: 0;
-          }
-          
-          .editor-three-pane > div {
-            min-height: auto;
-            overflow: visible;
-            margin-bottom: 0;
-          }
-          
-          body.has-bottom-nav .editor-three-pane {
-            padding-bottom: 60px;
-            margin-bottom: 0;
-          }
-          
-          body.has-bottom-nav .app-shell {
-            padding-bottom: 60px;
-            margin-bottom: 0;
-          }
-          
-          nav[data-bottom-nav] {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            z-index: 9999;
-            transform: translateZ(0);
-            background: #2a2a2e;
-            border-top: 2px solid #ff0000;
-            height: 60px;
-            display: flex;
-            visibility: visible;
-            opacity: 1;
-          }
-          
-          nav[data-bottom-nav] > * {
-            visibility: visible;
-            opacity: 1;
-            display: flex;
-          }
-        }
-        
         .editor-pane-resizer::after {
           content: "";
           position: absolute;
@@ -5763,20 +5673,6 @@ export function EditorPage({
         }
         .editor-pane-resizer:hover::after {
           background: rgba(148, 163, 184, 0.75);
-        }
-        
-        /* Hide resizers on mobile */
-        @media (max-width: 768px) {
-          .editor-pane-resizer {
-            display: none !important;
-          }
-        }
-        
-        /* Mobile debug border */
-        @media (max-width: 768px) {
-          .editor-page-root--mobile-editor {
-            border-top: 0.5px solid rgba(255,255,255,0.08);
-          }
         }
       `}</style>
     </div>

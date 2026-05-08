@@ -1,7 +1,6 @@
 import type { DancerSpot } from "../types/choreography";
 import { dancersForLayoutPreset, wingSurplusSpots } from "./formationLayouts";
 import { modDancerColorIndex } from "./dancerColorPalette";
-import { generateId } from "./generateId";
 
 function clamp(n: number, lo: number, hi: number) {
   return Math.min(hi, Math.max(lo, n));
@@ -30,7 +29,7 @@ export function dancersForCountFromSaved(
         ? d.label.trim().slice(0, 120)
         : String(i + 1);
     out.push({
-      id: generateId(),
+      id: crypto.randomUUID(),
       label,
       xPct: clamp(d.xPct, 5, 95),
       yPct: clamp(d.yPct, 8, 92),
@@ -61,7 +60,7 @@ export function snapshotDancersForPersist(dancers: DancerSpot[]): DancerSpot[] {
         ? d.label.trim().slice(0, 120)
         : String(i + 1);
     return {
-      id: generateId(),
+      id: crypto.randomUUID(),
       label,
       xPct: clamp(d.xPct, 5, 95),
       yPct: clamp(d.yPct, 8, 92),

@@ -7,7 +7,6 @@ import type {
 } from "../types/choreography";
 import { cloneFloorMarkupWithNewIds } from "./floorMarkup";
 import { parseGapApproachRoute } from "./gapDancerInterpolation";
-import { generateId } from "./generateId";
 
 export function sortCuesByStart(cues: Cue[]): Cue[] {
   return [...cues].sort(
@@ -141,13 +140,13 @@ export function findCueGapContainingTime(
 export function cloneFormationForNewCue(f: Formation): Formation {
   const pieces: SetPiece[] = (f.setPieces ?? []).map((p) => ({
     ...p,
-    id: generateId(),
+    id: crypto.randomUUID(),
   }));
   const floorMarkup = cloneFloorMarkupWithNewIds(f.floorMarkup);
   const { floorMarkup: _omitFm, ...rest } = f;
   return {
     ...rest,
-    id: generateId(),
+    id: crypto.randomUUID(),
     name:
       f.name.trim().length > 0
         ? `${f.name.trim().slice(0, 60)} · コピー`

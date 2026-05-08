@@ -8,7 +8,6 @@
  */
 import type { Crew, CrewMember } from "../types/choreography";
 import { parseCsvToRows } from "./projectExportFormats";
-import { generateId } from "./generateId";
 import { modDancerColorIndex } from "./dancerColorPalette";
 
 const NAME_HEADER_KEYS = [
@@ -805,7 +804,7 @@ export function rowsToCrewMembers(
   const members = labeled.map((L, idx) => {
     const pr = parsed[idx]!;
     const m: CrewMember = {
-      id: generateId(),
+      id: crypto.randomUUID(),
       label: L.label,
       colorIndex: L.colorIndex,
     };
@@ -846,7 +845,7 @@ export function buildCrewFromCsv(
 ): Crew {
   const members = parseCrewMembersFromCsv(csvText, opts).slice(0, 80);
   return {
-    id: generateId(),
+    id: crypto.randomUUID(),
     name: name.trim().slice(0, 60) || "新しい名簿",
     members,
   };
@@ -860,7 +859,7 @@ export function buildCrewFromRows(
 ): Crew {
   const members = rowsToCrewMembers(rows, opts).slice(0, 80);
   return {
-    id: generateId(),
+    id: crypto.randomUUID(),
     name: name.trim().slice(0, 60) || "新しい名簿",
     members,
   };

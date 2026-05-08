@@ -30,6 +30,7 @@ export function StageFloorMarkupToolbarHost({
     floorLineSessionRef,
     setFloorLineDraft,
     setFloorTextInlineRect,
+    onAddTemplateText,
   } = toolbar;
 
   const clearLineEraseSession = () => {
@@ -69,6 +70,7 @@ export function StageFloorMarkupToolbarHost({
           updateActiveFormation={updateActiveFormation}
           setFloorMarkupTool={setFloorMarkupTool}
           setFloorTextInlineRect={setFloorTextInlineRect}
+          onAddTemplateText={onAddTemplateText}
         />
       ) : null}
       {hideFloorMarkupFloatingToolbars &&

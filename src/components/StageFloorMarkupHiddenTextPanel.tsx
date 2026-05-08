@@ -24,6 +24,7 @@ export type StageFloorMarkupHiddenTextPanelProps = {
   updateActiveFormation: (updater: (f: Formation) => Formation) => void;
   setFloorMarkupTool: Dispatch<SetStateAction<FloorMarkupTool>>;
   setFloorTextInlineRect: Dispatch<SetStateAction<FloorTextInlineRectState>>;
+  onAddTemplateText?: (text: string) => void;
 };
 
 /**
@@ -38,6 +39,7 @@ export function StageFloorMarkupHiddenTextPanel({
   updateActiveFormation,
   setFloorMarkupTool,
   setFloorTextInlineRect,
+  onAddTemplateText,
 }: StageFloorMarkupHiddenTextPanelProps) {
   const handleDone = () => {
     setFloorMarkupTool(null);
@@ -87,6 +89,7 @@ export function StageFloorMarkupHiddenTextPanel({
         setDraft={setFloorTextDraft}
         floorTextEditId={floorTextEditId}
         updateActiveFormation={updateActiveFormation}
+        onAddTemplateText={onAddTemplateText}
       />
       <button
         type="button"

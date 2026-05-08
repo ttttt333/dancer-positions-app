@@ -8,7 +8,6 @@ import {
 } from "react";
 import { Link } from "react-router-dom";
 import type { ChoreographyProjectJson } from "../types/choreography";
-import { generateId } from "../lib/generateId";
 import {
   FLOW_LIBRARY_CHANGE_EVENT,
   applyFlowStageSettingsToProject,
@@ -259,7 +258,7 @@ export function FlowLibraryDialog({
         getAudioBlobForFlowLibrary) {
         const b = await getAudioBlobForFlowLibrary();
         if (b && b.size > 0) {
-          const k = generateId();
+          const k = crypto.randomUUID();
           await putFlowLibraryAudio(k, b);
           flowEmbeddedAudioKey = k;
         }
@@ -320,7 +319,7 @@ export function FlowLibraryDialog({
         getAudioBlobForFlowLibrary) {
           const b = await getAudioBlobForFlowLibrary();
           if (b && b.size > 0) {
-            const k = generateId();
+            const k = crypto.randomUUID();
             await putFlowLibraryAudio(k, b);
             flowEmbeddedAudioKey = k;
           }

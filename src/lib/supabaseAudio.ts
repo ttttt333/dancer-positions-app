@@ -1,5 +1,4 @@
 import { getSupabase } from "./supabaseClient";
-import { generateId } from "./generateId";
 
 /** `supabase/schema.sql` と Storage のバケット作成で同名にすること */
 export const CHOREOCORE_AUDIO_BUCKET = "choreocore-audio";
@@ -26,7 +25,7 @@ export async function supabaseUploadProjectAudio(opts: {
   }
   const uid = userData.user.id;
   const ext = extFromFilename(opts.filename);
-  const objectId = generateId();
+  const objectId = crypto.randomUUID();
   const path = `${uid}/${Math.floor(opts.projectId)}/${objectId}.${ext}`;
   const { error } = await sb.storage.from(CHOREOCORE_AUDIO_BUCKET).upload(path, opts.file, {
     contentType: opts.contentType || "application/octet-stream",

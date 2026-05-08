@@ -95,6 +95,10 @@ export type StageFloorTextMarkup = {
   fontFamily?: string;
   /** 表示スケール（1＝既定）。角ドラッグで変更 */
   scale?: number;
+  /** 背景色（袋文字・ハイライト）。例: "rgba(0,0,0,0.55)" または "#rrggbb" */
+  bgColor?: string;
+  /** テキストをロックして誤移動を防ぐ */
+  isLocked?: boolean;
 };
 
 /** ステージ床の手描き線（折れ線・% 座標） */

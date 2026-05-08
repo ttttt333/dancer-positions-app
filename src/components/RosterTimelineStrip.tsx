@@ -18,7 +18,6 @@ import {
   transferDancerIdentitiesByOrder,
   type LayoutPresetId,
 } from "../lib/formationLayouts";
-import { generateId } from "../lib/generateId";
 import { RosterPresetPickModal } from "./RosterPresetPickModal";
 import {
   formatGradeLabelForDisplay,
@@ -355,11 +354,11 @@ export function RosterTimelineStrip({
           ...p,
           crews: [
             {
-              id: generateId(),
+              id: crypto.randomUUID(),
               name: "名簿 1",
               members: [
                 {
-                  id: generateId(),
+                  id: crypto.randomUUID(),
                   label: "1",
                   colorIndex: 0,
                 },
@@ -378,7 +377,7 @@ export function RosterTimelineStrip({
                 members: [
                   ...crew.members,
                   {
-                    id: generateId(),
+                    id: crypto.randomUUID(),
                     label: String(crew.members.length + 1),
                     colorIndex: modDancerColorIndex(crew.members.length),
                   },
@@ -431,7 +430,7 @@ export function RosterTimelineStrip({
                   dancers: [
                     ...fm.dancers,
                     {
-                      id: generateId(),
+                      id: crypto.randomUUID(),
                       label: m.label.trim().slice(0, 120) || "?",
                       markerBadge: "",
                       xPct: 50 + (idx % 5) * 5,
@@ -480,7 +479,7 @@ export function RosterTimelineStrip({
           ...toAdd.map((row) => {
             const m = row.member;
             return {
-              id: generateId(),
+              id: crypto.randomUUID(),
               label: m.label.trim().slice(0, 120) || "?",
               markerBadge: "",
               xPct: 50,
@@ -538,7 +537,7 @@ export function RosterTimelineStrip({
           ? p.cues
           : [
               {
-                id: generateId(),
+                id: crypto.randomUUID(),
                 tStartSec: 0,
                 tEndSec: Math.max(
                   MIN_CUE_DURATION_SEC,
@@ -604,7 +603,7 @@ export function RosterTimelineStrip({
         ...toAdd.map((row) => {
           const m = row.member;
           return {
-            id: generateId(),
+            id: crypto.randomUUID(),
             label: m.label.trim().slice(0, 120) || "?",
             markerBadge: "",
             xPct: 50,
@@ -763,7 +762,7 @@ export function RosterTimelineStrip({
           ...toAdd.map((row) => {
             const m = row.member;
             return {
-              id: generateId(),
+              id: crypto.randomUUID(),
               label: m.label.trim().slice(0, 120) || "?",
               markerBadge: "",
               xPct: 50,
