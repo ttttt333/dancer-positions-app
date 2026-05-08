@@ -31,6 +31,8 @@ type NeonIconPanelProps = ChoreoCoreToolbarCoreProps & {
   onOpenLibrary?: () => void;
   onOpenRosterImport?: () => void;
   onOpenStageTransform?: () => void;
+  collapsed?: boolean;
+  onCollapseToggle?: () => void;
 };
 
 /* ─── Glow filter helper ─── */
@@ -407,8 +409,75 @@ export function NeonIconPanel({
   onOpenLibrary,
   onOpenRosterImport,
   onOpenStageTransform,
+  collapsed = false,
+  onCollapseToggle,
 }: NeonIconPanelProps) {
   const gridSnap = stageGridLinesEnabled ?? false;
+
+  /* ── Collapsed thin-bar mode ── */
+  if (collapsed) {
+    return (
+      <div
+        style={{
+          position: "relative",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "flex-start",
+          width: 28,
+          background: "rgba(10,10,20,0.90)",
+          backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
+          borderLeft: "1px solid rgba(255,255,255,0.06)",
+          flexShrink: 0,
+          paddingTop: 8,
+          gap: 8,
+          height: "100%",
+          transition: "width 0.18s ease",
+        }}
+      >
+        <button
+          type="button"
+          title="パネルを展開"
+          onClick={onCollapseToggle}
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: 6,
+            background: "rgba(99,102,241,0.15)",
+            border: "1px solid rgba(99,102,241,0.35)",
+            color: "#c084fc",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 13,
+            lineHeight: 1,
+            padding: 0,
+            flexShrink: 0,
+          }}
+        >
+          ›
+        </button>
+        {/* Rotated label */}
+        <div
+          style={{
+            writingMode: "vertical-rl",
+            textOrientation: "mixed",
+            transform: "rotate(180deg)",
+            fontSize: 9,
+            color: "rgba(255,255,255,0.25)",
+            letterSpacing: 1,
+            marginTop: 4,
+            userSelect: "none",
+            pointerEvents: "none",
+          }}
+        >
+          ツール
+        </div>
+      </div>
+    );
+  }
 
   const grid3: CSSProperties = {
     display: "grid",
@@ -468,6 +537,35 @@ export function NeonIconPanel({
 
   return (
     <div style={panelStyle}>
+      {/* Collapse toggle button */}
+      {onCollapseToggle && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 2 }}>
+          <button
+            type="button"
+            title="パネルを折りたたむ"
+            onClick={onCollapseToggle}
+            style={{
+              width: 22,
+              height: 22,
+              borderRadius: 6,
+              background: "rgba(99,102,241,0.10)",
+              border: "1px solid rgba(99,102,241,0.25)",
+              color: "rgba(192,132,252,0.7)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 13,
+              lineHeight: 1,
+              padding: 0,
+              flexShrink: 0,
+              transition: "background 0.15s",
+            }}
+          >
+            ›
+          </button>
+        </div>
+      )}
       {/* Block 1: 舞台・編集 (3×2) */}
       <div style={grid3}>
         <NeonBtn icon={<IconStage />} label="舞台設定" onClick={onOpenStageShapePicker} active={stageShapeActive} disabled={disabled} />

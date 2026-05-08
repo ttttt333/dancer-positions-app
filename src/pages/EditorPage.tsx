@@ -3162,16 +3162,16 @@ export function EditorPage({
     : wideEditorLayout
       ? showTopWaveDock
         ? editorFixedWaveDockLayout
-          ? `${
+          ? `minmax(0, 1fr) ${
               topDockRowPx != null
                 ? clampTopDockRowPx(topDockRowPx)
                 : editorShellTopWavePx
-            }px 4px minmax(0, 1fr)`
-          : `${
+            }px`
+          : `minmax(0, 1fr) ${
               topDockRowPx != null
                 ? `${topDockRowPx}px`
                 : `${TOP_DOCK_HEIGHT_PX}px`
-            } 4px minmax(0, 1fr)`
+            }`
         : "1fr"
       : publicNarrowLayout
         ? publicViewTightHeight
@@ -3506,20 +3506,20 @@ export function EditorPage({
                 gap: `${EDITOR_GRID_GAP_PX}px`,
                 padding: publicNarrowLayout
                   ? "4px max(4px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px))"
-                  : "6px max(6px, env(safe-area-inset-right, 0px)) calc(max(8px, 2cm) + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
+                  : wideEditorLayout
+                    ? "calc(max(8px, 2cm) + env(safe-area-inset-top, 0px)) max(6px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))"
+                    : "6px max(6px, env(safe-area-inset-right, 0px)) calc(max(8px, 2cm) + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
                 paddingBottom:
                   choreoPublicView && choreoStudentPick
                     ? publicViewTightHeight
                       ? "calc(4px + min(100px, 24dvh) + env(safe-area-inset-bottom, 0px))"
                       : "calc(6px + min(132px, 30dvh) + env(safe-area-inset-bottom, 0px))"
                     : undefined,
-                marginTop: wideEditorLayout
-                  ? `calc(-1 * ${EDITOR_PLAYBACK_LAYOUT_SHIFT_UP})`
-                  : 0,
+                marginTop: 0,
               }),
         }}
       >
-        {showTopWaveDock && !stageZenLayout ? (
+        {showTopWaveDock && !stageZenLayout && !wideEditorLayout ? (
           <div
             role="separator"
             aria-orientation="horizontal"
@@ -3577,9 +3577,7 @@ export function EditorPage({
                   gridColumn: stageZenLayout ? "1 / -1" : 1,
                   gridRow: stageZenLayout
                     ? "1 / -1"
-                    : showTopWaveDock
-                      ? 3
-                      : 1,
+                    : 1,
                   ...(stageZenLayout
                     ? { position: "relative" as const }
                     : {}),
@@ -3897,7 +3895,7 @@ export function EditorPage({
             style={{
               gridColumn:
                 wideEditorLayout && showTopWaveDock ? "1 / -1" : 1,
-              gridRow: wideEditorLayout && showTopWaveDock ? 1 : publicNarrowLayout ? 2 : 3,
+              gridRow: wideEditorLayout && showTopWaveDock ? 2 : publicNarrowLayout ? 2 : 3,
               ...(wideEditorLayout && showTopWaveDock
                 ? {
                     background: "transparent",
@@ -4256,7 +4254,7 @@ export function EditorPage({
               alignSelf: "stretch",
               zIndex: 2,
               gridColumn: 2,
-              gridRow: showTopWaveDock ? 3 : 1,
+              gridRow: 1,
             }}
           />
         ) : null}
@@ -4266,7 +4264,7 @@ export function EditorPage({
             ref={rightPaneStackRef}
             style={{
               gridColumn: 3,
-              gridRow: 3,
+              gridRow: 1,
               display: "flex",
               flexDirection: "column",
               gap: 8,
@@ -5695,6 +5693,9 @@ export function EditorPage({
           }}
           /* 舞台変形 → stage shape picker (custom stage shapes) */
           onOpenStageTransform={() => setStageShapePickerOpen(true)}
+          /* パネル折りたたみ */
+          collapsed={rightPaneCollapsed && wideEditorLayout}
+          onCollapseToggle={wideEditorLayout ? () => setRightPaneCollapsed((v) => !v) : undefined}
         />
       ) : null}
       </div>{/* end flex row wrapper */}
