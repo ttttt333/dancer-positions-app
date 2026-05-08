@@ -138,7 +138,7 @@ const panelShellStyle: CSSProperties = {
   left: "max(12px, env(safe-area-inset-left, 0px))",
   width: "auto",
   maxWidth:
-    "min(460px, calc(100vw - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)))",
+    "min(320px, calc(100vw - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)))",
   marginLeft: "auto",
   /** 言語スイッチャー（z40）や他オーバーレイより手前に固定し、フッターの決定が隠れないようにする */
   zIndex: 200,
@@ -153,10 +153,10 @@ const panelCardStyle: CSSProperties = {
   width: "100%",
   display: "flex",
   flexDirection: "column",
-  background: "#0f172a",
-  border: "1px solid #334155",
+  background: "#0a0f1e",
+  border: "1px solid #1e293b",
   borderRadius: "12px",
-  boxShadow: "0 20px 50px rgba(0,0,0,0.55)",
+  boxShadow: "0 20px 50px rgba(0,0,0,0.65)",
   color: "#e2e8f0",
   overflow: "hidden",
 };
@@ -168,8 +168,8 @@ const headerStyle: CSSProperties = {
   justifyContent: "space-between",
   gap: "12px",
   padding: "12px 16px",
-  borderBottom: "1px solid #1e293b",
-  background: "#0b1220",
+  borderBottom: "1px solid rgba(212,175,55,0.2)",
+  background: "#07090f",
 };
 
 const bodyStyle: CSSProperties = {
@@ -189,8 +189,8 @@ const footerStyle: CSSProperties = {
   justifyContent: "flex-end",
   gap: "10px",
   padding: "10px 16px",
-  borderTop: "1px solid #1e293b",
-  background: "#0b1220",
+  borderTop: "1px solid rgba(212,175,55,0.2)",
+  background: "#07090f",
 };
 
 const sectionLabelStyle: CSSProperties = {
@@ -211,8 +211,8 @@ const sectionNumberStyle: CSSProperties = {
   width: "20px",
   height: "20px",
   borderRadius: "50%",
-  background: "#1e293b",
-  color: "#e2e8f0",
+  background: "rgba(212,175,55,0.2)",
+  color: "#d4af37",
   fontSize: "11px",
   fontWeight: 700,
 };
@@ -241,9 +241,9 @@ const btnBase: CSSProperties = {
 
 const btnPrimary: CSSProperties = {
   ...btnBase,
-  borderColor: "#0284c7",
-  background: "#0ea5e9",
-  color: "#0b1220",
+  borderColor: "#b8962e",
+  background: "#d4af37",
+  color: "#0a0f1e",
 };
 
 const modeCardBase: CSSProperties = {
@@ -279,23 +279,24 @@ const presetChipBase: CSSProperties = {
   transition: "border-color 0.12s, background 0.12s",
 };
 
-/** 「立ち位置について」4 モード用（従来の約半分の高さ・説明は title / aria-label） */
+/** 「立ち位置について」モードカード用（2列グリッドの1セル） */
 const addCueModePickStyle: CSSProperties = {
   display: "flex",
-  flexDirection: "row",
-  alignItems: "center",
-  gap: "8px",
-  padding: "5px 10px",
-  borderRadius: "7px",
+  flexDirection: "column",
+  alignItems: "flex-start",
+  justifyContent: "center",
+  gap: "2px",
+  padding: "8px 8px",
+  borderRadius: "8px",
   border: "1px solid #334155",
-  background: "#0b1220",
+  background: "#0a0f1e",
   color: "#e2e8f0",
-  fontSize: "12px",
+  fontSize: "11px",
   cursor: "pointer",
   textAlign: "left",
   width: "100%",
-  minHeight: 0,
-  lineHeight: 1.25,
+  minHeight: "44px",
+  lineHeight: 1.3,
 };
 
 /** カテゴリグリッド用サムネイル（名簿モーダルの SpotThumb と同等） */
@@ -753,8 +754,8 @@ export function AddCueWithFormationDialog({
                 width: 28,
                 height: 28,
                 borderRadius: "8px",
-                background: "rgba(14,116,144,0.25)",
-                color: "#7dd3fc",
+                background: "rgba(212,175,55,0.18)",
+                color: "#d4af37",
                 fontSize: "18px",
                 fontWeight: 700,
               }}
@@ -931,60 +932,63 @@ export function AddCueWithFormationDialog({
               <span style={{ ...sectionNumberStyle, width: 18, height: 18, fontSize: "10px" }}>3</span>
               立ち位置について
             </div>
-            <div
-              style={{
-                paddingLeft: "8px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "4px",
-              }}
-            >
-              {modeCards.map(({ mode, title, desc }) => {
-                const active = addMode === mode;
-                return (
-                  <button
-                    key={mode}
-                    type="button"
-                    title={desc}
-                    aria-label={`${title}。${desc}`}
-                    onClick={() => {
-                      setAddMode(mode);
-                      if (mode !== "saved") {
-                        setSavedBoxId(null);
-                        setSavedSlotId(null);
-                      }
-                      if (
-                        (mode === "template" || mode === "edit_current") &&
-                        !templatePresetId &&
-                        PRESETS[0]
-                      ) {
-                        setTemplatePresetId(PRESETS[0].id);
-                      }
-                    }}
-                    style={{
-                      ...addCueModePickStyle,
-                      borderColor: active ? "#38bdf8" : "#334155",
-                      borderWidth: active ? 2 : 1,
-                      background: active ? "#0e7490" : "#0b1220",
-                      color: active ? "#ecfeff" : "#e2e8f0",
-                    }}
-                  >
-                    <span
+            <div style={{ paddingLeft: "4px" }}>
+              {/* 2列グリッド：4モード */}
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "5px",
+                  marginBottom: onImportRoster ? "5px" : "0",
+                }}
+              >
+                {modeCards.map(({ mode, title, desc }) => {
+                  const active = addMode === mode;
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      title={desc}
+                      aria-label={`${title}。${desc}`}
+                      onClick={() => {
+                        setAddMode(mode);
+                        if (mode !== "saved") {
+                          setSavedBoxId(null);
+                          setSavedSlotId(null);
+                        }
+                        if (
+                          (mode === "template" || mode === "edit_current") &&
+                          !templatePresetId &&
+                          PRESETS[0]
+                        ) {
+                          setTemplatePresetId(PRESETS[0].id);
+                        }
+                      }}
                       style={{
-                        fontWeight: 700,
-                        fontSize: "12px",
-                        flex: 1,
-                        minWidth: 0,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
+                        ...addCueModePickStyle,
+                        borderColor: active ? "#d4af37" : "#334155",
+                        borderWidth: active ? 2 : 1,
+                        background: active ? "rgba(212,175,55,0.15)" : "#0a0f1e",
+                        color: active ? "#f5e199" : "#e2e8f0",
                       }}
                     >
-                      {title}
-                    </span>
-                  </button>
-                );
-              })}
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          fontSize: "11px",
+                          width: "100%",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {title}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {/* 名簿取り込みは下に単独配置 */}
               {onImportRoster ? (
                 <button
                   type="button"
@@ -999,17 +1003,19 @@ export function AddCueWithFormationDialog({
                     ...addCueModePickStyle,
                     borderColor: "#334155",
                     borderWidth: 1,
-                    background: "#0b1220",
-                    color: "#e2e8f0",
-                    marginTop: "2px",
+                    background: "#0a0f1e",
+                    color: "#94a3b8",
+                    width: "100%",
+                    flexDirection: "row",
+                    gap: "6px",
+                    minHeight: "36px",
                   }}
                 >
+                  <span style={{ fontSize: "13px" }}>📋</span>
                   <span
                     style={{
-                      fontWeight: 700,
-                      fontSize: "12px",
-                      flex: 1,
-                      minWidth: 0,
+                      fontWeight: 600,
+                      fontSize: "11px",
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       whiteSpace: "nowrap",
@@ -1062,12 +1068,12 @@ export function AddCueWithFormationDialog({
                               gap: "3px",
                               padding: "5px 6px 6px",
                               borderRadius: "8px",
-                              border: active ? "2px solid #6366f1" : "1px solid #1e293b",
-                              background: active ? "#1e1b4b" : "#0f172a",
+                              border: active ? "2px solid #d4af37" : "1px solid #1e293b",
+                              background: active ? "rgba(212,175,55,0.15)" : "#0a0f1e",
                               cursor: "pointer",
                               minWidth: "52px",
                               maxWidth: "76px",
-                              boxShadow: active ? "0 0 0 1px rgba(99,102,241,0.5)" : "none",
+                              boxShadow: active ? "0 0 0 1px rgba(212,175,55,0.35)" : "none",
                               transition: "border-color 0.12s, background 0.12s",
                             }}
                           >
@@ -1131,9 +1137,9 @@ export function AddCueWithFormationDialog({
                             title={`${item.name}（${item.dancerCount}人）`}
                             style={{
                               ...presetChipBase,
-                              borderColor: active ? "#38bdf8" : "#334155",
+                              borderColor: active ? "#d4af37" : "#334155",
                               borderWidth: active ? 2 : 1,
-                              background: active ? "#0e7490" : "#0b1220",
+                              background: active ? "rgba(212,175,55,0.15)" : "#0a0f1e",
                               maxWidth: 120,
                             }}
                           >
@@ -1186,9 +1192,9 @@ export function AddCueWithFormationDialog({
                                 flex: 1,
                                 minWidth: 0,
                                 padding: "8px 10px",
-                                borderColor: active ? "#38bdf8" : "#334155",
+                                borderColor: active ? "#d4af37" : "#334155",
                                 borderWidth: active ? 2 : 1,
-                                background: active ? "#0e7490" : "#0b1220",
+                                background: active ? "rgba(212,175,55,0.15)" : "#0a0f1e",
                                 textAlign: "left",
                               }}
                             >
