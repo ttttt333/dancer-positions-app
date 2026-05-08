@@ -4481,29 +4481,8 @@ export function EditorPage({
                   </div>
                 ) : null}
                 {workbenchInRightRail ? (
-                  <section
-                    className="editor-right-tools-section"
-                    style={{
-                      ...panelCard,
-                      padding: "6px 5px",
-                      flex: "0 0 auto",
-                      minWidth: 0,
-                      display: "flex",
-                      flexDirection: "column",
-                      overflow: "hidden",
-                      marginBottom: rosterOnlyMode ? 0 : 8,
-                    }}
-                  >
-                    <div className="editor-right-tools-host">
-                      <div className="editor-right-tools-tiles">
-                        <EditorStageWorkbench
-                          key="wb-tiles-2"
-                          layout="rail"
-                          {...stageWorkbenchProps}
-                        />
-                      </div>
-                    </div>
-                  </section>
+                  /* テキストボタンレール非表示 — NeonIconPanelに統合済み */
+                  null
                 ) : mobileStackEditor ? (
                   <section
                     className="editor-right-tools-section"
