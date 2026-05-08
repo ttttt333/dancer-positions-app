@@ -422,12 +422,12 @@ const STAGE_AREA_DIM_INPUT_CM: CSSProperties = {
 };
 
 const STAGE_AREA_SHEET_SECTION: CSSProperties = {
-  borderRadius: "12px",
+  borderRadius: "10px",
   border: "1px solid rgba(99,102,241,0.15)",
   background: "linear-gradient(135deg, rgba(15,23,42,0.8) 0%, rgba(30,41,59,0.5) 100%)",
   backdropFilter: "blur(6px)",
-  padding: "10px 12px",
-  marginBottom: "8px",
+  padding: "8px 10px",
+  marginBottom: "6px",
 };
 
 type StageAreaSettingsSheetProps = {
@@ -481,7 +481,7 @@ const StageAreaDimensionRows = memo(function StageAreaDimensionRows({
   onChangeDraft,
 }: StageAreaDimensionRowsProps) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 8px", marginBottom: "8px" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 8px", marginBottom: "6px" }}>
       {STAGE_AREA_DIM_ROWS.map((row) => {
         const hasVal = draft[row.key].m !== "" || draft[row.key].cm !== "";
         return (
@@ -4680,11 +4680,11 @@ export function EditorPage({
           stageAreaSettingsOpen={stageAreaSettingsOpen}
           onClose={() => setStageAreaSettingsOpen(false)}
         >
-          <div style={{ padding: "12px 14px 14px", display: "flex", flexDirection: "column", gap: 0 }}>
+          <div style={{ padding: "8px 12px 10px", display: "flex", flexDirection: "column", gap: 0 }}>
             {/* ── Header ── */}
             <div style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
-              gap: 8, marginBottom: 12, paddingBottom: 10,
+              gap: 8, marginBottom: 8, paddingBottom: 8,
               borderBottom: "1px solid rgba(99,102,241,0.2)",
             }}>
               <h3 id="stage-area-settings-title" style={{
@@ -4707,14 +4707,14 @@ export function EditorPage({
             </div>
 
             {/* ── CARD A: ステージ寸法 ── */}
-            <div style={{ ...STAGE_AREA_SHEET_SECTION, marginBottom: 8 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ ...STAGE_AREA_SHEET_SECTION, marginBottom: 6 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 7, display: "flex", alignItems: "center", gap: 6 }}>
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M2 20L20 2M7 20l1.5-1.5M12 20l1.5-1.5M17 20l1.5-1.5M2 7l1.5-1.5M2 12l1.5-1.5M2 17l1.5-1.5"/></svg>
                 ステージ寸法
               </div>
 
               {/* 客席位置トグル */}
-              <div style={{ marginBottom: 10 }}>
+              <div style={{ marginBottom: 7 }}>
                 <div style={{ fontSize: 10, color: "rgba(100,116,139,0.8)", marginBottom: 5 }}>客席の位置</div>
                 <div style={{ display: "flex", gap: 6 }}>
                   {(["bottom", "top"] as const).map((edge) => {
@@ -4745,11 +4745,6 @@ export function EditorPage({
                 </div>
               </div>
 
-              {/* ミニプレビュー */}
-              <div style={{ marginBottom: 10 }}>
-                <StageSettingsMiniPreview draft={stageAreaSettingsDraft} />
-              </div>
-
               {/* 寸法入力 */}
               <StageAreaDimensionRows
                 disabled={project.viewMode === "view"}
@@ -4761,16 +4756,16 @@ export function EditorPage({
             </div>
 
             {/* ── CARD B: グリッド・表示設定 ── */}
-            <div style={{ ...STAGE_AREA_SHEET_SECTION, marginBottom: 8 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ ...STAGE_AREA_SHEET_SECTION, marginBottom: 6 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 7, display: "flex", alignItems: "center", gap: 6 }}>
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
                 グリッド・表示
               </div>
 
               {/* グリッド間隔 */}
               {stageAreaDraftHasMainFloor && (
-                <div style={{ marginBottom: 8 }}>
-                  <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 5 }}>
+                <div style={{ marginBottom: 6 }}>
+                  <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 4 }}>
                     グリッド線の間隔
                   </div>
                   <StageAreaGridSpacingControls
@@ -4788,8 +4783,8 @@ export function EditorPage({
               )}
 
               {/* 縦線・横線トグル */}
-              <div style={{ marginBottom: 10 }}>
-                <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 5 }}>グリッド線の表示</div>
+              <div style={{ marginBottom: 7 }}>
+                <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 4 }}>グリッド線の表示</div>
                 <StageAreaGridVisibilityToggles
                   disabled={project.viewMode === "view"}
                   hasMainFloor={stageAreaDraftHasMainFloor}
@@ -4801,7 +4796,7 @@ export function EditorPage({
 
               {/* 名前の位置 — アイコン付きセグメント */}
               <div>
-                <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 5 }}>立ち位置の名前</div>
+                <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 4 }}>立ち位置の名前</div>
                 <div style={{ display: "flex", gap: 6 }} title="印の右クリックでも選べます">
                   {([
                     { val: "inside", label: "○の中", icon: (
@@ -4844,8 +4839,8 @@ export function EditorPage({
             </div>
 
             {/* ── CARD C: プリセット・共有 ── */}
-            <div style={{ ...STAGE_AREA_SHEET_SECTION, marginBottom: 10 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ ...STAGE_AREA_SHEET_SECTION, marginBottom: 6 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 7, display: "flex", alignItems: "center", gap: 6 }}>
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
                 プリセット・共有
               </div>
