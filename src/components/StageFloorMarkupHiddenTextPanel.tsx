@@ -56,11 +56,7 @@ export function StageFloorMarkupHiddenTextPanel({
     <div
       onPointerDown={(e) => e.stopPropagation()}
       style={{
-        position: "absolute",
-        bottom: 8,
-        left: 8,
-        right: 8,
-        zIndex: 37,
+        position: "relative",
         maxHeight: "42%",
         overflow: "auto",
         display: "flex",
