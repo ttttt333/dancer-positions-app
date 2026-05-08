@@ -322,6 +322,11 @@ export type ChoreographyProjectJson = {
   formations: Formation[];
   /** ユーザーが保存した立ち位置（プロジェクトに永続化） */
   savedSpotLayouts: SavedSpotLayout[];
+  /**
+   * 全キューを通して常時表示するステージテキスト・線（キュー固有 floorMarkup と重ねて表示）。
+   * ステージ方向注記・タイトルなど「どのシーンでも出したい」ものを置く。
+   */
+  globalFloorMarkup?: StageFloorMarkup[];
   activeFormationId: string;
   cues: Cue[];
   playbackRate: number;

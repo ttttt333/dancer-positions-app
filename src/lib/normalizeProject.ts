@@ -747,5 +747,18 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
       return undefined;
     })(),
     viewMode: o.viewMode === "view" ? "view" : "edit",
+    globalFloorMarkup: (() => {
+      const raw = (o as Partial<ChoreographyProjectJson>).globalFloorMarkup;
+      if (!Array.isArray(raw)) return undefined;
+      const out: import("../types/choreography").StageFloorMarkup[] = [];
+      for (const item of raw) {
+        if (!item || typeof item !== "object") continue;
+        const m = item as Record<string, unknown>;
+        if (m["kind"] === "text" && typeof m["id"] === "string" && typeof m["xPct"] === "number" && typeof m["yPct"] === "number" && typeof m["text"] === "string") {
+          out.push(m as import("../types/choreography").StageFloorTextMarkup);
+        }
+      }
+      return out.length > 0 ? out : undefined;
+    })(),
   };
 }

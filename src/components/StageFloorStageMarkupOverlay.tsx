@@ -10,6 +10,8 @@ import { StageFloorLineMarkupSvg } from "./StageFloorLineMarkupSvg";
 
 export type StageFloorStageMarkupOverlayProps = {
   displayFloorMarkup: StageFloorMarkup[];
+  globalFloorMarkup?: StageFloorMarkup[] | null;
+  onRemoveGlobalFloorMarkupById?: (id: string) => void;
   floorLineDraft: [number, number][] | null;
   floorMarkupTool: null | "text" | "line" | "erase";
   setPiecesEditable: boolean;
@@ -27,6 +29,8 @@ export type StageFloorStageMarkupOverlayProps = {
 /** メイン床ブロック上: 線 SVG・床テキスト・置きプレビュー */
 export function StageFloorStageMarkupOverlay({
   displayFloorMarkup,
+  globalFloorMarkup,
+  onRemoveGlobalFloorMarkupById,
   floorLineDraft,
   floorMarkupTool,
   setPiecesEditable,
@@ -63,6 +67,20 @@ export function StageFloorStageMarkupOverlay({
             markup={m}
             coordLayer="stage"
             {...textShared}
+          />
+        );
+      })}
+      {/* 全編共通テキスト（キュー切替に関係なく常時表示） */}
+      {(globalFloorMarkup ?? []).map((m) => {
+        if (m.kind !== "text") return null;
+        if (floorTextLayer(m) === "screen") return null;
+        return (
+          <FloorTextMarkupBlock
+            key={`global-${m.id}`}
+            markup={m}
+            coordLayer="stage"
+            {...textShared}
+            onRemoveFloorMarkup={onRemoveGlobalFloorMarkupById ?? textShared.onRemoveFloorMarkup}
           />
         );
       })}

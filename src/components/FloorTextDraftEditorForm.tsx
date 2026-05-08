@@ -13,6 +13,8 @@ export type FloorTextDraftShape = {
   color: string;
   fontFamily: string;
   bgColor: string; // "" = 背景なし、それ以外は背景色
+  /** "formation" = このキュー固有 / "global" = 全編共通 */
+  scope: "formation" | "global";
 };
 
 export type FloorTextDraftEditorFormProps = {
@@ -22,6 +24,13 @@ export type FloorTextDraftEditorFormProps = {
   updateActiveFormation: (updater: (f: Formation) => Formation) => void;
   /** テンプレ文字をクリックで即座にステージ配置する */
   onAddTemplateText?: (text: string) => void;
+  /**
+   * 編集中テキストが globalFloorMarkup 側かどうか（true = 全編共通）。
+   * 未指定は false（フォーメーション固有）。
+   */
+  floorTextEditIsGlobal?: boolean;
+  /** globalFloorMarkup の更新コールバック */
+  onUpdateGlobalMarkup?: (updater: (prev: import("../types/choreography").StageFloorMarkup[]) => import("../types/choreography").StageFloorMarkup[]) => void;
 };
 
 /** テンプレ一発配置ボタン用定義 */
@@ -51,21 +60,71 @@ export function FloorTextDraftEditorForm({
   floorTextEditId,
   updateActiveFormation,
   onAddTemplateText,
+  floorTextEditIsGlobal = false,
+  onUpdateGlobalMarkup,
 }: FloorTextDraftEditorFormProps) {
   const updateMarkup = (patch: Record<string, unknown>) => {
     if (!floorTextEditId) return;
-    updateActiveFormation((f) => ({
-      ...f,
-      floorMarkup: (f.floorMarkup ?? []).map((m) =>
-        m.id === floorTextEditId && m.kind === "text"
-          ? { ...m, ...patch }
-          : m
-      ),
-    }));
+    if (floorTextEditIsGlobal && onUpdateGlobalMarkup) {
+      onUpdateGlobalMarkup((prev) =>
+        prev.map((m) =>
+          m.id === floorTextEditId && m.kind === "text" ? { ...m, ...patch } : m
+        )
+      );
+    } else {
+      updateActiveFormation((f) => ({
+        ...f,
+        floorMarkup: (f.floorMarkup ?? []).map((m) =>
+          m.id === floorTextEditId && m.kind === "text"
+            ? { ...m, ...patch }
+            : m
+        ),
+      }));
+    }
   };
 
   return (
     <>
+      {/* ── スコープ選択（全編共通 / このキュー固有） ── */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 4,
+          marginBottom: 8,
+        }}
+      >
+        {(["formation", "global"] as const).map((s) => {
+          const active = draft.scope === s;
+          const label = s === "formation" ? "このキュー固有" : "全編共通";
+          const desc = s === "formation" ? "選択中シーンにのみ表示" : "全シーンで常時表示";
+          return (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setDraft((d) => ({ ...d, scope: s }))}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-start",
+                gap: 1,
+                padding: "5px 7px",
+                borderRadius: 7,
+                border: active ? "2px solid #d4af37" : "1px solid #334155",
+                background: active ? "rgba(212,175,55,0.13)" : "#0a0f1e",
+                color: active ? "#f5e199" : "#94a3b8",
+                cursor: "pointer",
+                textAlign: "left",
+                transition: "border-color 0.12s, background 0.12s",
+              }}
+            >
+              <span style={{ fontSize: 11, fontWeight: 700, lineHeight: 1.2 }}>{label}</span>
+              <span style={{ fontSize: 9.5, color: active ? "#d4af37" : "#64748b", lineHeight: 1.2 }}>{desc}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* ── テンプレ一発配置 ── */}
       {onAddTemplateText && (
         <div style={{ marginBottom: 6 }}>
@@ -81,16 +140,16 @@ export function FloorTextDraftEditorForm({
                   fontSize: 11,
                   padding: "3px 8px",
                   borderRadius: 6,
-                  border: "1px solid #334155",
-                  background: "#1e293b",
-                  color: "#c084fc",
+                  border: "1px solid #3a3000",
+                  background: "#1a1400",
+                  color: "#d4af37",
                   cursor: "pointer",
                   fontWeight: 600,
                   letterSpacing: "0.03em",
                   transition: "background 0.12s",
                 }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#312e81"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#1e293b"; }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(212,175,55,0.18)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#1a1400"; }}
               >
                 {t.label}
               </button>
@@ -252,8 +311,8 @@ export function FloorTextDraftEditorForm({
 
       <div style={{ fontSize: "10px", lineHeight: 1.4, color: "#64748b" }}>
         {floorTextEditId
-          ? "ドラッグで移動・ダブルクリックで編集。Delete/Backspaceで削除。"
-          : "テキストを入力してステージをクリックで配置。テンプレボタンで即座に追加できます。"}
+          ? `ドラッグで移動・ダブルクリックで編集。Delete/Backspaceで削除。${draft.scope === "global" ? "【全編共通】" : "【このキュー固有】"}`
+          : `テキストを入力してテンプレをクリックで配置。スコープで表示範囲を選択。${draft.scope === "global" ? "【全編共通】" : "【このキュー固有】"}`}
       </div>
     </>
   );

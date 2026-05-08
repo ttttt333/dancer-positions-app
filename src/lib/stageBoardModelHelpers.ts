@@ -130,6 +130,7 @@ export const EMPTY_FLOOR_TEXT_DRAFT = {
   color: FLOOR_TEXT_DEFAULT_COLOR,
   fontFamily: FLOOR_TEXT_DEFAULT_FONT,
   bgColor: "",
+  scope: "formation" as "formation" | "global",
 };
 
 export function floorTextMarkupScale(m: StageFloorTextMarkup): number {

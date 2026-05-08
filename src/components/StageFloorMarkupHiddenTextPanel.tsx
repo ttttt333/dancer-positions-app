@@ -25,6 +25,8 @@ export type StageFloorMarkupHiddenTextPanelProps = {
   setFloorMarkupTool: Dispatch<SetStateAction<FloorMarkupTool>>;
   setFloorTextInlineRect: Dispatch<SetStateAction<FloorTextInlineRectState>>;
   onAddTemplateText?: (text: string) => void;
+  floorTextEditIsGlobal?: boolean;
+  onUpdateGlobalMarkup?: (updater: (prev: import("../types/choreography").StageFloorMarkup[]) => import("../types/choreography").StageFloorMarkup[]) => void;
 };
 
 /**
@@ -40,6 +42,8 @@ export function StageFloorMarkupHiddenTextPanel({
   setFloorMarkupTool,
   setFloorTextInlineRect,
   onAddTemplateText,
+  floorTextEditIsGlobal,
+  onUpdateGlobalMarkup,
 }: StageFloorMarkupHiddenTextPanelProps) {
   const handleDone = () => {
     setFloorMarkupTool(null);
@@ -90,6 +94,8 @@ export function StageFloorMarkupHiddenTextPanel({
         floorTextEditId={floorTextEditId}
         updateActiveFormation={updateActiveFormation}
         onAddTemplateText={onAddTemplateText}
+        floorTextEditIsGlobal={floorTextEditIsGlobal}
+        onUpdateGlobalMarkup={onUpdateGlobalMarkup}
       />
       <button
         type="button"

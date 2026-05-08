@@ -31,6 +31,8 @@ export function StageFloorMarkupToolbarHost({
     setFloorLineDraft,
     setFloorTextInlineRect,
     onAddTemplateText,
+    floorTextEditIsGlobal,
+    onUpdateGlobalMarkup,
   } = toolbar;
 
   const clearLineEraseSession = () => {
@@ -71,6 +73,8 @@ export function StageFloorMarkupToolbarHost({
           setFloorMarkupTool={setFloorMarkupTool}
           setFloorTextInlineRect={setFloorTextInlineRect}
           onAddTemplateText={onAddTemplateText}
+          floorTextEditIsGlobal={floorTextEditIsGlobal}
+          onUpdateGlobalMarkup={onUpdateGlobalMarkup}
         />
       ) : null}
       {hideFloorMarkupFloatingToolbars &&

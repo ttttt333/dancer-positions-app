@@ -116,6 +116,8 @@ export function StageBoardBody({
   browseSetPieces = null,
   playbackFloorMarkup = null,
   browseFloorMarkup = null,
+  globalFloorMarkup = null,
+  onUpdateGlobalFloorMarkup,
   floorTextPlaceSession = null,
   onFloorTextPlaceSessionChange,
   viewportTextOverlayRoot = null,
@@ -822,6 +824,14 @@ export function StageBoardBody({
     [writeFormation, setPiecesEditable, updateActiveFormation],
   );
 
+  const removeGlobalFloorMarkupById = useCallback(
+    (id: string) => {
+      if (!onUpdateGlobalFloorMarkup || !setPiecesEditable) return;
+      onUpdateGlobalFloorMarkup((prev) => prev.filter((x) => x.id !== id));
+    },
+    [onUpdateGlobalFloorMarkup, setPiecesEditable],
+  );
+
   const handleFloorTextMarkupContextMenu = useCallback(
     (markupId: string, clientX: number, clientY: number) => {
       setStageContextMenu({
@@ -910,17 +920,25 @@ export function StageBoardBody({
         fontWeight: fw,
         ...(floorTextDraft.bgColor ? { bgColor: floorTextDraft.bgColor } : {}),
       };
-      updateActiveFormation((f) => ({
-        ...f,
-        floorMarkup: [...(f.floorMarkup ?? []), newText],
-      }));
-      setFloorTextEditId(newId);
-      setSelectedFloorTextId(newId);
-      setFloorMarkupTool("text");
+      if (floorTextDraft.scope === "global" && onUpdateGlobalFloorMarkup) {
+        onUpdateGlobalFloorMarkup((prev) => [...prev, newText]);
+        setFloorTextEditId(newId);
+        setSelectedFloorTextId(newId);
+        setFloorMarkupTool("text");
+      } else {
+        updateActiveFormation((f) => ({
+          ...f,
+          floorMarkup: [...(f.floorMarkup ?? []), newText],
+        }));
+        setFloorTextEditId(newId);
+        setSelectedFloorTextId(newId);
+        setFloorMarkupTool("text");
+      }
     },
     [
       floorTextDraft,
       updateActiveFormation,
+      onUpdateGlobalFloorMarkup,
       setFloorTextEditId,
       setFloorMarkupTool,
     ],
@@ -3771,6 +3789,10 @@ export function StageBoardBody({
         setFloorLineDraft,
         setFloorTextInlineRect,
         onAddTemplateText: handleAddTemplateText,
+        floorTextEditIsGlobal: floorTextEditId != null
+          ? (globalFloorMarkup ?? []).some((x) => x.id === floorTextEditId)
+          : floorTextDraft.scope === "global",
+        onUpdateGlobalMarkup: onUpdateGlobalFloorMarkup,
       },
       /* 床下オーバーレイ（形状・格子・ガイド・床線／テキスト） */
       baseOverlaysWithoutShow: {
@@ -3785,6 +3807,8 @@ export function StageBoardBody({
         guideLineDrawMarks,
         alignGuides,
         displayFloorMarkup,
+        globalFloorMarkup: globalFloorMarkup ?? undefined,
+        onRemoveGlobalFloorMarkupById: removeGlobalFloorMarkupById,
         floorLineDraft,
         floorMarkupTool,
         setPiecesEditable,
@@ -3797,7 +3821,7 @@ export function StageBoardBody({
         onFloorTextPlacePreviewPointerDown:
           handleFloorTextPlacePreviewPointerDown,
       },
-      showStageFloorMarkup: displayFloorMarkup.length > 0 || !!floorLineDraft,
+      showStageFloorMarkup: displayFloorMarkup.length > 0 || !!floorLineDraft || (globalFloorMarkup != null && globalFloorMarkup.length > 0),
       /* 操作層（大道具・ダンサー印・マーキー等） */
       interaction: {
         setPieceElements: stageSetPieceElements,

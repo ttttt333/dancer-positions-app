@@ -79,6 +79,12 @@ export type StageBoardBodyProps = {
   playbackFloorMarkup?: StageFloorMarkup[] | null;
   /** 閲覧時の床マーク（親が計算） */
   browseFloorMarkup?: StageFloorMarkup[] | null;
+  /**
+   * 全キュー共通の床マーク（常時表示）。親が project.globalFloorMarkup を渡す。
+   */
+  globalFloorMarkup?: StageFloorMarkup[] | null;
+  /** globalFloorMarkup の更新コールバック（テキスト追加・編集・削除） */
+  onUpdateGlobalFloorMarkup?: (updater: (prev: StageFloorMarkup[]) => StageFloorMarkup[]) => void;
   /** 床テキストを置くウィザード中（プレビュー座標・本文は親が保持） */
   floorTextPlaceSession?: FloorTextPlaceSession | null;
   onFloorTextPlaceSessionChange?: (next: FloorTextPlaceSession) => void;

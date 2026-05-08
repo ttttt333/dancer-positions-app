@@ -1092,6 +1092,17 @@ export function EditorPage({
   const [floorMarkupTool, setFloorMarkupTool] = useState<
     null | "text" | "line" | "erase"
   >(null);
+
+  /** 全編共通テキスト更新コールバック */
+  const onUpdateGlobalFloorMarkup = useCallback(
+    (updater: (prev: import("../types/choreography").StageFloorMarkup[]) => import("../types/choreography").StageFloorMarkup[]) => {
+      setProjectSafe((p) => ({
+        ...p,
+        globalFloorMarkup: updater(p.globalFloorMarkup ?? []),
+      }));
+    },
+    [setProjectSafe],
+  );
   const splitDragRef = useRef<{
     pointerId: number;
     startX: number;
@@ -3830,6 +3841,8 @@ export function EditorPage({
                     browseSetPieces={browseSetPieces}
                     playbackFloorMarkup={playbackFloorMarkupForStage}
                     browseFloorMarkup={browseFloorMarkup}
+                    globalFloorMarkup={project.globalFloorMarkup ?? []}
+                    onUpdateGlobalFloorMarkup={onUpdateGlobalFloorMarkup}
                     editFormationId={
                       selectedCue?.formationId ?? project.activeFormationId
                     }
