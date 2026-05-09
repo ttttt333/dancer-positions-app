@@ -2351,38 +2351,64 @@ export function EditorPage({
       typeof sc === "number" && Number.isFinite(sc) && sc > 0
         ? Math.min(8, Math.max(0.2, sc))
         : 1;
-    const newMarkup = {
-      kind: "text" as const,
-      id: crypto.randomUUID(),
-      layer: "stage" as const,
-      xPct: round2Pct(Math.min(100, Math.max(0, floorTextPlaceSession.xPct))),
-      yPct: round2Pct(Math.min(100, Math.max(0, floorTextPlaceSession.yPct))),
+    const editTargetId = floorTextPlaceSession.editTargetId;
+    const updatedFields = {
       text,
       color,
       fontFamily,
       scale,
       fontSizePx: fs,
       fontWeight: fw,
+      xPct: round2Pct(Math.min(100, Math.max(0, floorTextPlaceSession.xPct))),
+      yPct: round2Pct(Math.min(100, Math.max(0, floorTextPlaceSession.yPct))),
     };
 
-    if (floorTextPlaceSession.scope === "global") {
-      // 全キュー共通（globalFloorMarkup）に保存
-      setProjectSafe((p) => ({
-        ...p,
-        globalFloorMarkup: [...(p.globalFloorMarkup ?? []), newMarkup],
-      }));
-    } else {
-      // このフォーメーションのみに保存
-      setProjectSafe((p) => ({
-        ...p,
-        formations: p.formations.map((f) => {
-          if (f.id !== formationId) return f;
-          return {
+    if (editTargetId) {
+      // ── 既存テキストの更新 ──
+      if (floorTextPlaceSession.scope === "global") {
+        setProjectSafe((p) => ({
+          ...p,
+          globalFloorMarkup: (p.globalFloorMarkup ?? []).map((x) =>
+            x.id === editTargetId && x.kind === "text"
+              ? { ...x, ...updatedFields }
+              : x
+          ),
+        }));
+      } else {
+        setProjectSafe((p) => ({
+          ...p,
+          formations: p.formations.map((f) => ({
             ...f,
-            floorMarkup: [...(f.floorMarkup ?? []), newMarkup],
-          };
-        }),
-      }));
+            floorMarkup: (f.floorMarkup ?? []).map((x) =>
+              x.id === editTargetId && x.kind === "text"
+                ? { ...x, ...updatedFields }
+                : x
+            ),
+          })),
+        }));
+      }
+    } else {
+      // ── 新規配置 ──
+      const newMarkup = {
+        kind: "text" as const,
+        id: crypto.randomUUID(),
+        layer: "stage" as const,
+        ...updatedFields,
+      };
+      if (floorTextPlaceSession.scope === "global") {
+        setProjectSafe((p) => ({
+          ...p,
+          globalFloorMarkup: [...(p.globalFloorMarkup ?? []), newMarkup],
+        }));
+      } else {
+        setProjectSafe((p) => ({
+          ...p,
+          formations: p.formations.map((f) => {
+            if (f.id !== formationId) return f;
+            return { ...f, floorMarkup: [...(f.floorMarkup ?? []), newMarkup] };
+          }),
+        }));
+      }
     }
     setFloorTextPlaceSession(null);
   }, [
@@ -3881,7 +3907,20 @@ export function EditorPage({
                     onFloorMarkupToolChange={setFloorMarkupTool}
                     hideFloorMarkupFloatingToolbars={showTopWaveDock}
                     textPanelPortalTarget={showTopWaveDock ? textPanelPortalEl : null}
-                    onOpenTextEditSheet={showTopWaveDock ? (_id, _draft, _isGlobal) => {
+                    onOpenTextEditSheet={showTopWaveDock ? (id, draft, isGlobal, markup) => {
+                      // 既存テキストをサイドシートで編集するため、session に内容を詰める
+                      setFloorTextPlaceSession({
+                        editTargetId: id,
+                        body: draft.body,
+                        fontSizePx: draft.fontSizePx,
+                        fontWeight: draft.fontWeight,
+                        color: draft.color,
+                        fontFamily: draft.fontFamily,
+                        xPct: markup?.xPct ?? 50,
+                        yPct: markup?.yPct ?? 50,
+                        scale: markup?.scale ?? 1,
+                        scope: isGlobal ? "global" : "formation",
+                      });
                       setFloorTextSideSheetOpen(true);
                     } : undefined}
                     onGestureHistoryBegin={
@@ -5838,7 +5877,7 @@ export function EditorPage({
                     <line x1="12" y1="4" x2="12" y2="20"/>
                   </svg>
                 </span>
-                床テキスト
+                {floorTextPlaceSession?.editTargetId ? "テキストを編集" : "床テキスト"}
               </h2>
               <button
                 type="button"
@@ -6004,7 +6043,7 @@ export function EditorPage({
                   letterSpacing: "0.04em",
                 }}
               >
-                ✓ 決定（ステージに配置）
+                {floorTextPlaceSession?.editTargetId ? "✓ 変更を保存" : "✓ 決定（ステージに配置）"}
               </button>
 
               {/* キャンセル */}

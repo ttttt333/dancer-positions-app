@@ -128,6 +128,8 @@ export type FloorTextPlaceSession = {
   scale?: number;
   /** 保存先: このフォーメーションのみ or 全キュー共通 */
   scope?: "formation" | "global";
+  /** 既存テキスト編集モード: このIDのテキストを更新する（undefined = 新規配置） */
+  editTargetId?: string;
 };
 
 export type Formation = {

@@ -956,13 +956,13 @@ export function StageBoardBody({
   const handleOpenTextEditSheet = useCallback(
     (m: StageFloorTextMarkup, draft: FloorTextDraftPayload) => {
       const isGlobal = (globalFloorMarkup ?? []).some((x) => x.id === m.id);
-      setFloorMarkupTool("text");
+      // floorMarkupTool は触らない（floorTextPlaceSession系と競合するため）
       setFloorTextEditId(m.id);
       setSelectedFloorTextId(m.id);
       setFloorTextDraft(draft);
-      onOpenTextEditSheet?.(m.id, draft, isGlobal);
+      onOpenTextEditSheet?.(m.id, draft, isGlobal, m);
     },
-    [globalFloorMarkup, onOpenTextEditSheet, setFloorMarkupTool],
+    [globalFloorMarkup, onOpenTextEditSheet],
   );
 
   const handleAddTemplateText = useCallback(

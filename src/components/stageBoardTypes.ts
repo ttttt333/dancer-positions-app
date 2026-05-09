@@ -122,7 +122,7 @@ export type StageBoardBodyProps = {
    * ダブルクリックで右パネル編集シートを開くコールバック。
    * 親(EditorPage)が EditorSideSheet を開く。
    */
-  onOpenTextEditSheet?: (markupId: string, draft: import("./FloorTextMarkupBlock").FloorTextDraftPayload, isGlobal: boolean) => void;
+  onOpenTextEditSheet?: (markupId: string, draft: import("./FloorTextMarkupBlock").FloorTextDraftPayload, isGlobal: boolean, markup?: import("../types/choreography").StageFloorTextMarkup) => void;
 };
 
 export type { BuildStageBoardExportColumnInput } from "../lib/buildStageBoardExportColumnProps";
