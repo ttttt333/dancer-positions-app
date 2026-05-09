@@ -2351,36 +2351,39 @@ export function EditorPage({
       typeof sc === "number" && Number.isFinite(sc) && sc > 0
         ? Math.min(8, Math.max(0.2, sc))
         : 1;
-    setProjectSafe((p) => ({
-      ...p,
-      formations: p.formations.map((f) => {
-        if (f.id !== formationId) return f;
-        return {
-          ...f,
-          floorMarkup: [
-            ...(f.floorMarkup ?? []),
-            {
-              kind: "text" as const,
-              id: crypto.randomUUID(),
-              // "stage" にすることで配置後もステージ上でドラッグ移動できる
-              layer: "stage" as const,
-              xPct: round2Pct(
-                Math.min(100, Math.max(0, floorTextPlaceSession.xPct))
-              ),
-              yPct: round2Pct(
-                Math.min(100, Math.max(0, floorTextPlaceSession.yPct))
-              ),
-              text,
-              color,
-              fontFamily,
-              scale,
-              fontSizePx: fs,
-              fontWeight: fw,
-            },
-          ],
-        };
-      }),
-    }));
+    const newMarkup = {
+      kind: "text" as const,
+      id: crypto.randomUUID(),
+      layer: "stage" as const,
+      xPct: round2Pct(Math.min(100, Math.max(0, floorTextPlaceSession.xPct))),
+      yPct: round2Pct(Math.min(100, Math.max(0, floorTextPlaceSession.yPct))),
+      text,
+      color,
+      fontFamily,
+      scale,
+      fontSizePx: fs,
+      fontWeight: fw,
+    };
+
+    if (floorTextPlaceSession.scope === "global") {
+      // 全キュー共通（globalFloorMarkup）に保存
+      setProjectSafe((p) => ({
+        ...p,
+        globalFloorMarkup: [...(p.globalFloorMarkup ?? []), newMarkup],
+      }));
+    } else {
+      // このフォーメーションのみに保存
+      setProjectSafe((p) => ({
+        ...p,
+        formations: p.formations.map((f) => {
+          if (f.id !== formationId) return f;
+          return {
+            ...f,
+            floorMarkup: [...(f.floorMarkup ?? []), newMarkup],
+          };
+        }),
+      }));
+    }
     setFloorTextPlaceSession(null);
   }, [
     project,
@@ -5900,6 +5903,38 @@ export function EditorPage({
                     outline: "none",
                   }}
                 />
+              </div>
+
+              {/* 表示範囲（このキューのみ / 全キュー共通） */}
+              <div style={{ display: "flex", gap: 0, borderRadius: 8, overflow: "hidden", border: "1px solid #334155", flexShrink: 0 }}>
+                {(["formation", "global"] as const).map((s) => {
+                  const active = (floorTextPlaceSession?.scope ?? "formation") === s;
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() =>
+                        setFloorTextPlaceSession((prev) =>
+                          prev ? { ...prev, scope: s } : prev
+                        )
+                      }
+                      style={{
+                        flex: 1,
+                        padding: "7px 4px",
+                        fontSize: 12,
+                        fontWeight: active ? 700 : 400,
+                        border: "none",
+                        background: active ? "#4f46e5" : "transparent",
+                        color: active ? "#fff" : "#64748b",
+                        cursor: "pointer",
+                        transition: "background 0.15s",
+                        lineHeight: 1.3,
+                      }}
+                    >
+                      {s === "formation" ? "このキューのみ" : "全キューに表示"}
+                    </button>
+                  );
+                })}
               </div>
 
               {/* フォントサイズ */}

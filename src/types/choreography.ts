@@ -126,6 +126,8 @@ export type FloorTextPlaceSession = {
   fontFamily?: string;
   /** 設置後の床テキスト scale（既定 1） */
   scale?: number;
+  /** 保存先: このフォーメーションのみ or 全キュー共通 */
+  scope?: "formation" | "global";
 };
 
 export type Formation = {
