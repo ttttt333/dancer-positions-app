@@ -1293,7 +1293,7 @@ export function EditorPage({
    * 上部波形ドック時は右列を狭くする（未ロード時は false で右列を広めに確保）。
    * ワイドでは名簿モードでも常に上部ドックを使う（`showTopWaveDock` と揃え Timeline をアンマウントしない）。
    */
-  const showTopWaveDockForGrid = !!project && wideEditorLayout;
+  const showTopWaveDockForGrid = !!project && !stageZenFullscreen;
   /** 上部波形＋ステージ＋右列の「枠だけ固定」レイアウト（拡大モードではオフ） */
   const editorFixedWaveDockLayout =
     showTopWaveDockForGrid && !stageZenFullscreen;
@@ -3241,8 +3241,8 @@ export function EditorPage({
   /** 名簿ストリップのみ表示しタイムライン列を隠す（取り込み直後や「メンバーを表示」から） */
   const rosterOnlyMode =
     project.rosterHidesTimeline === true && hasRosterMembers;
-  /** ワイド時は常に上部に波形・再生を固定（名簿モードでも TimelinePanel を外さない） */
-  const showTopWaveDock = wideEditorLayout;
+  /** 常に上部に波形・再生を固定（幅に関係なく常時 top dock を使う） */
+  const showTopWaveDock = !!project && !stageZenFullscreen;
   /** 固定シェル時：名簿行の有無で上部ドックの確保高さを変え、波形が切れないようにする */
   const editorShellTopWavePx =
     EDITOR_SHELL_TOP_WAVE_BASE_PX +
@@ -3558,8 +3558,77 @@ export function EditorPage({
       </header>
       ) : null}
 
-      {/* ─── Main layout: column flex (stage row + bottom wave bar) ─── */}
+      {/* ─── Main layout: column flex (top wave bar + stage row) ─── */}
       <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "visible" }}>
+
+      {/* ─── Top wave bar (always visible, full width) ─── */}
+      {showTopWaveDock && !stageZenLayout ? (
+        <div
+          style={{
+            flexShrink: 0,
+            width: "100%",
+            minWidth: 0,
+            height: wideBottomDockPx,
+            position: "relative",
+            background: "transparent",
+            marginBottom: 4,
+          }}
+        >
+          {/* Timeline content */}
+          <div
+            ref={(el) => {
+              topDockSectionRef.current = el as HTMLElement | null;
+            }}
+            style={{
+              position: "absolute",
+              inset: "0 0 8px 0",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              padding: "0 4px 4px",
+            }}
+          >
+            {timelinePanelEl}
+          </div>
+          {/* Resize handle — bottom edge, drag downward to expand */}
+          <div
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="波形バーの高さを調整（上下ドラッグ）"
+            title="上下ドラッグで波形バーの高さを変更（ダブルクリックで既定に戻す）"
+            onPointerDown={onTopDockResizeDown}
+            onPointerMove={onTopDockResizeMove}
+            onPointerUp={endTopDockResize}
+            onPointerCancel={endTopDockResize}
+            onDoubleClick={onTopDockResizeDoubleClick}
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: 8,
+              cursor: "row-resize",
+              touchAction: "none",
+              userSelect: "none",
+              zIndex: 10,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <div
+              aria-hidden
+              style={{
+                width: 48,
+                height: 3,
+                borderRadius: 2,
+                background: "rgba(148,163,184,0.35)",
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
+
       {/* ─── Stage row: editor grid + NeonIconPanel ─── */}
       <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "visible" }}>
       <div
@@ -6200,87 +6269,6 @@ export function EditorPage({
         />
       ) : null}
       </div>{/* end stage row */}
-
-      {/* ─── Bottom wave bar (wideEditorLayout only, full width) ─── */}
-      {wideEditorLayout && showTopWaveDock && !stageZenLayout ? (
-        <div
-          style={{
-            flexShrink: 0,
-            width: "100%",
-            minWidth: 0,
-            height: wideBottomDockPx,
-            position: "relative",
-            background: "transparent",
-            marginTop: 4,
-          }}
-        >
-          {/* Resize handle — top edge, drag upward to expand */}
-          <div
-            role="separator"
-            aria-orientation="horizontal"
-            aria-label="波形バーの高さを調整（上下ドラッグ）"
-            title="上下ドラッグで波形バーの高さを変更（ダブルクリックで既定に戻す）"
-            onPointerDown={onTopDockResizeDown}
-            onPointerMove={(e) => {
-              const d = topDockDragRef.current;
-              if (!d || e.pointerId !== d.pointerId) return;
-              const grid = editorPaneRef.current;
-              if (!grid) return;
-              const gridRect = grid.getBoundingClientRect();
-              const minH = TOP_DOCK_ROW_MIN_PX;
-              const maxH = Math.max(minH, Math.min(TOP_DOCK_ROW_MAX_PX, gridRect.height - 80));
-              // ドラッグ上方向 = 高さ増加（startY - clientY）
-              const next = clampTopDockRowPx(
-                Math.min(maxH, Math.max(minH, d.startH + (d.startY - e.clientY)))
-              );
-              setTopDockRowPx(next);
-            }}
-            onPointerUp={endTopDockResize}
-            onPointerCancel={endTopDockResize}
-            onDoubleClick={onTopDockResizeDoubleClick}
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 8,
-              cursor: "row-resize",
-              touchAction: "none",
-              userSelect: "none",
-              zIndex: 10,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <div
-              aria-hidden
-              style={{
-                width: 48,
-                height: 3,
-                borderRadius: 2,
-                background: "rgba(148,163,184,0.35)",
-              }}
-            />
-          </div>
-          {/* Timeline content */}
-          <div
-            ref={(el) => {
-              topDockSectionRef.current = el as HTMLElement | null;
-            }}
-            style={{
-              position: "absolute",
-              inset: "8px 0 0 0",
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-              padding: "0 4px 4px",
-            }}
-          >
-            {timelinePanelEl}
-          </div>
-        </div>
-      ) : null}
 
       </div>{/* end main column wrapper */}
 
