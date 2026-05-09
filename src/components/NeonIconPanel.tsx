@@ -22,6 +22,7 @@ type NeonIconPanelProps = ChoreoCoreToolbarCoreProps & {
   onAddDancer?: () => void;
   onOpenRoster?: () => void;
   onOpenCueList?: () => void;
+  onOpenCueSettings?: () => void;
   onOpenShareLinks?: () => void;
   onOpenAISuggest?: () => void;
   onOpenFloorText?: () => void;
@@ -400,6 +401,7 @@ export function NeonIconPanel({
   onAddDancer,
   onOpenRoster,
   onOpenCueList,
+  onOpenCueSettings,
   onOpenShareLinks,
   onOpenAISuggest,
   onOpenFloorText,
@@ -569,7 +571,7 @@ export function NeonIconPanel({
       {/* Block 1: 舞台・編集 (3×2) */}
       <div style={grid3}>
         <NeonBtn icon={<IconStage />} label="舞台設定" onClick={onOpenStageShapePicker} active={stageShapeActive} disabled={disabled} />
-        <NeonBtn icon={<IconCueFlag />} label="キュー設定" onClick={onOpenCueList} disabled={disabled} />
+        <NeonBtn icon={<IconCueFlag />} label="キュー設定" onClick={onOpenCueSettings} disabled={disabled} />
         <NeonBtn icon={<IconSavePosition />} label="立ち位置保存" onClick={onSave} disabled={disabled} />
         <NeonBtn icon={<IconText />} label="テキスト" onClick={onOpenFloorText} disabled={disabled} />
         <NeonBtn icon={<IconZoomIn />} label="拡大" onClick={onZoomStage} disabled={disabled} />

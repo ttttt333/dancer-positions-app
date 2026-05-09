@@ -4595,7 +4595,7 @@ export function EditorPage({
             <EditorSideSheet
               open
               zIndex={2200}
-              width="min(360px, calc(100vw - 16px))"
+              width="min(300px, calc(100vw - 16px))"
               onClose={() => setCueListModalOpen(false)}
               ariaLabelledBy="cue-list-modal-title"
             >
@@ -4640,7 +4640,7 @@ export function EditorPage({
                         <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
                       </svg>
                     </span>
-                    キュー設定
+                    キュー一覧
                   </h2>
                   <button
                     type="button"
@@ -4661,170 +4661,57 @@ export function EditorPage({
                     ×
                   </button>
                 </div>
-                {/* ── キュー設定リスト ── */}
-                <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
-                  {project && project.viewMode !== "view" ? (
-                    <button
-                      type="button"
-                      onClick={() => { setCueListModalOpen(false); setAddCueDialogOpen(true); }}
-                      style={{ ...btnSecondary, fontSize: 12, padding: "7px 12px", borderRadius: 8, display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                      キューを追加
-                    </button>
-                  ) : null}
+                {/* ── シンプルキュー一覧 ── */}
+                <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "8px 10px", display: "flex", flexDirection: "column", gap: 4 }}>
                   {project ? (
                     cuesSortedForStageJump.length === 0 ? (
                       <p style={{ fontSize: 12, color: shell.textMuted, textAlign: "center", padding: "24px 0" }}>
-                        キューがありません。先に楽曲を取り込み、「キューを追加」してください。
+                        キューがありません。
                       </p>
                     ) : (
                       cuesSortedForStageJump.map((cue, idx) => {
-                        const formation = formationById.get(cue.formationId);
                         const isSelected = selectedCueId === cue.id;
                         const fmtSec = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
                         return (
-                          <div
+                          <button
                             key={cue.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedCueIds([cue.id]);
+                              setCueListModalOpen(false);
+                            }}
                             style={{
-                              borderRadius: 10,
+                              width: "100%",
+                              textAlign: "left",
+                              borderRadius: 8,
                               border: `1px solid ${isSelected ? shell.accent : shell.border}`,
-                              background: isSelected ? "rgba(99,102,241,0.08)" : "rgba(255,255,255,0.025)",
+                              background: isSelected ? "rgba(99,102,241,0.12)" : "rgba(255,255,255,0.03)",
                               padding: "8px 10px",
                               display: "flex",
-                              flexDirection: "column",
-                              gap: 6,
+                              alignItems: "center",
+                              gap: 10,
+                              cursor: "pointer",
+                              transition: "background 0.12s, border-color 0.12s",
                             }}
                           >
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <span style={{
-                                width: 22, height: 22, borderRadius: 6,
-                                background: isSelected ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.06)",
-                                color: isSelected ? "#a5b4fc" : shell.textMuted,
-                                fontSize: 10, fontWeight: 700,
-                                display: "flex", alignItems: "center", justifyContent: "center",
-                                flexShrink: 0,
-                              }}>
-                                {idx + 1}
+                            <span style={{
+                              width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+                              background: isSelected ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.06)",
+                              color: isSelected ? "#a5b4fc" : shell.textMuted,
+                              fontSize: 10, fontWeight: 700,
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                            }}>
+                              {idx + 1}
+                            </span>
+                            <span style={{ flex: 1, minWidth: 0 }}>
+                              <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: shell.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {cue.name || `キュー ${idx + 1}`}
                               </span>
-                              <input
-                                type="text"
-                                value={cue.name ?? ""}
-                                placeholder={`キュー ${idx + 1}`}
-                                disabled={project.viewMode === "view"}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  setProjectSafe((p) => ({
-                                    ...p,
-                                    cues: p.cues.map((c) => c.id === cue.id ? { ...c, name: val } : c),
-                                  }));
-                                }}
-                                style={{
-                                  flex: 1,
-                                  background: "rgba(255,255,255,0.04)",
-                                  border: `1px solid ${shell.border}`,
-                                  borderRadius: 6,
-                                  color: shell.text,
-                                  fontSize: 12,
-                                  padding: "4px 8px",
-                                  outline: "none",
-                                }}
-                              />
-                              {project.viewMode !== "view" && (
-                                <button
-                                  type="button"
-                                  title="このキューを削除"
-                                  onClick={() => {
-                                    if (!window.confirm(`キュー「${cue.name || `キュー${idx + 1}`}」を削除しますか？`)) return;
-                                    setProjectSafe((p) => ({
-                                      ...p,
-                                      cues: p.cues.filter((c) => c.id !== cue.id),
-                                    }));
-                                  }}
-                                  style={{ ...btnSecondary, padding: "3px 7px", fontSize: 12, color: "#f87171", borderColor: "rgba(248,113,113,0.3)", flexShrink: 0 }}
-                                >
-                                  削除
-                                </button>
-                              )}
-                            </div>
-                            <div style={{ display: "flex", gap: 8, fontSize: 11, color: shell.textMuted, paddingLeft: 30 }}>
-                              <span>
-                                <span style={{ opacity: 0.6 }}>開始</span>{" "}
-                                <input
-                                  type="number"
-                                  step={0.1}
-                                  min={0}
-                                  value={Math.round(cue.tStartSec * 10) / 10}
-                                  disabled={project.viewMode === "view"}
-                                  onChange={(e) => {
-                                    const v = Number(e.target.value);
-                                    if (!Number.isFinite(v) || v < 0) return;
-                                    setProjectSafe((p) => ({
-                                      ...p,
-                                      cues: p.cues.map((c) => c.id === cue.id ? { ...c, tStartSec: v, tEndSec: Math.max(v + 0.1, c.tEndSec) } : c),
-                                    }));
-                                  }}
-                                  style={{ width: 52, background: "rgba(255,255,255,0.04)", border: `1px solid ${shell.border}`, borderRadius: 5, color: shell.text, fontSize: 11, padding: "2px 4px" }}
-                                />
-                                <span style={{ opacity: 0.5 }}>s ({fmtSec(cue.tStartSec)})</span>
+                              <span style={{ display: "block", fontSize: 11, color: shell.textMuted, marginTop: 2 }}>
+                                {fmtSec(cue.tStartSec)} – {fmtSec(cue.tEndSec)}
                               </span>
-                              <span>
-                                <span style={{ opacity: 0.6 }}>終了</span>{" "}
-                                <input
-                                  type="number"
-                                  step={0.1}
-                                  min={0}
-                                  value={Math.round(cue.tEndSec * 10) / 10}
-                                  disabled={project.viewMode === "view"}
-                                  onChange={(e) => {
-                                    const v = Number(e.target.value);
-                                    if (!Number.isFinite(v) || v <= cue.tStartSec) return;
-                                    setProjectSafe((p) => ({
-                                      ...p,
-                                      cues: p.cues.map((c) => c.id === cue.id ? { ...c, tEndSec: v } : c),
-                                    }));
-                                  }}
-                                  style={{ width: 52, background: "rgba(255,255,255,0.04)", border: `1px solid ${shell.border}`, borderRadius: 5, color: shell.text, fontSize: 11, padding: "2px 4px" }}
-                                />
-                                <span style={{ opacity: 0.5 }}>s ({fmtSec(cue.tEndSec)})</span>
-                              </span>
-                            </div>
-                            {formation && (
-                              <div style={{ fontSize: 11, color: shell.textSubtle, paddingLeft: 30, display: "flex", alignItems: "center", gap: 5 }}>
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
-                                フォーメーション: <span style={{ color: shell.textMuted, fontWeight: 600 }}>{formation.name || `フォーメーション`}</span>
-                                <span style={{ opacity: 0.5 }}>({formation.dancers.length}人)</span>
-                              </div>
-                            )}
-                            <div style={{ paddingLeft: 30 }}>
-                              <textarea
-                                placeholder="メモ（任意）"
-                                value={cue.note ?? ""}
-                                disabled={project.viewMode === "view"}
-                                rows={1}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  setProjectSafe((p) => ({
-                                    ...p,
-                                    cues: p.cues.map((c) => c.id === cue.id ? { ...c, note: val || undefined } : c),
-                                  }));
-                                }}
-                                style={{
-                                  width: "100%",
-                                  boxSizing: "border-box",
-                                  background: "rgba(255,255,255,0.03)",
-                                  border: `1px solid ${shell.border}`,
-                                  borderRadius: 6,
-                                  color: shell.textMuted,
-                                  fontSize: 11,
-                                  padding: "4px 8px",
-                                  resize: "vertical",
-                                  outline: "none",
-                                  fontFamily: "inherit",
-                                }}
-                              />
-                            </div>
-                          </div>
+                            </span>
+                          </button>
                         );
                       })
                     )
@@ -6266,6 +6153,8 @@ export function EditorPage({
           onSave={saveStageToFormationBox}
           /* キュー一覧モーダルを開く */
           onOpenCueList={() => setCueListModalOpen(true)}
+          /* キュー設定ダイアログを開く */
+          onOpenCueSettings={() => setAddCueDialogOpen(true)}
           onOpenShareLinks={() => setShareLinksOpen(true)}
           onOpenAISuggest={() => setAiSuggestOpen(true)}
           /* テキスト → floor markup text tool + right SideSheet (wide) or on-stage panel (narrow) */
