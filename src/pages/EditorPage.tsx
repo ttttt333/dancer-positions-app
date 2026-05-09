@@ -5861,17 +5861,145 @@ export function EditorPage({
                 ×
               </button>
             </div>
-            {/* ポータルターゲット: StageBoardBody の StageFloorMarkupHiddenTextPanel がここに描画される */}
+            {/* ポータルターゲット（後方互換用、実UIはこの下に直書き） */}
+            <div ref={setTextPanelPortalEl} style={{ display: "none" }} />
+
+            {/* ── テキスト入力UI（スクロール不要・全要素を一画面に収める） ── */}
             <div
-              ref={setTextPanelPortalEl}
               style={{
                 flex: "1 1 auto",
-                minHeight: 0,
-                overflow: "auto",
                 display: "flex",
                 flexDirection: "column",
+                gap: 10,
+                padding: "14px 14px",
+                overflow: "hidden",
               }}
-            />
+            >
+              {/* テキスト入力欄 */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <label style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>
+                  テキスト
+                </label>
+                <textarea
+                  autoFocus
+                  rows={3}
+                  placeholder="ステージに表示する文字を入力…"
+                  value={floorTextPlaceSession?.body ?? ""}
+                  onChange={(e) =>
+                    setFloorTextPlaceSession((s) =>
+                      s ? { ...s, body: e.target.value } : s
+                    )
+                  }
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    resize: "none",
+                    borderRadius: 8,
+                    border: "1px solid #475569",
+                    background: "#0f172a",
+                    color: "#e2e8f0",
+                    fontSize: 14,
+                    padding: "8px 10px",
+                    fontFamily: "system-ui, sans-serif",
+                    outline: "none",
+                  }}
+                />
+              </div>
+
+              {/* フォントサイズ */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#cbd5e1" }}>
+                <label style={{ flexShrink: 0, fontWeight: 600 }}>
+                  サイズ: {floorTextPlaceSession?.fontSizePx ?? 24}px
+                </label>
+                <input
+                  type="range" min={8} max={72}
+                  value={floorTextPlaceSession?.fontSizePx ?? 24}
+                  onChange={(e) =>
+                    setFloorTextPlaceSession((s) =>
+                      s ? { ...s, fontSizePx: Number(e.target.value) } : s
+                    )
+                  }
+                  style={{ flex: 1 }}
+                />
+              </div>
+
+              {/* 文字色 */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#cbd5e1" }}>
+                <label style={{ flexShrink: 0, fontWeight: 600 }}>文字色</label>
+                <input
+                  type="color"
+                  value={
+                    floorTextPlaceSession?.color &&
+                    /^#[0-9a-fA-F]{6}$/i.test(floorTextPlaceSession.color)
+                      ? floorTextPlaceSession.color
+                      : "#fef08a"
+                  }
+                  onChange={(e) =>
+                    setFloorTextPlaceSession((s) =>
+                      s ? { ...s, color: e.target.value } : s
+                    )
+                  }
+                  style={{ width: 36, height: 28, padding: 2, border: "1px solid #334155", borderRadius: 6, background: "transparent", cursor: "pointer" }}
+                />
+                <span style={{ fontSize: 10, color: "#64748b" }}>
+                  配置後にドラッグで位置を調整できます
+                </span>
+              </div>
+
+              {/* spacer */}
+              <div style={{ flex: 1 }} />
+
+              {/* 決定ボタン */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (!floorTextPlaceSession?.body.trim()) {
+                    window.alert("テキストを入力してください");
+                    return;
+                  }
+                  commitFloorTextPlace();
+                  setFloorTextSideSheetOpen(false);
+                  setFloorMarkupTool(null);
+                }}
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  fontSize: 15,
+                  fontWeight: 700,
+                  borderRadius: 10,
+                  border: "1px solid #15803d",
+                  background: "#22c55e",
+                  color: "#052e16",
+                  cursor: "pointer",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                ✓ 決定（ステージに配置）
+              </button>
+
+              {/* キャンセル */}
+              <button
+                type="button"
+                onClick={() => {
+                  setFloorTextPlaceSession(null);
+                  setFloorTextSideSheetOpen(false);
+                  setFloorMarkupTool(null);
+                }}
+                style={{
+                  width: "100%",
+                  padding: "8px",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  borderRadius: 8,
+                  border: "1px solid #334155",
+                  background: "transparent",
+                  color: "#94a3b8",
+                  cursor: "pointer",
+                }}
+              >
+                キャンセル
+              </button>
+            </div>
           </div>
         </EditorSideSheet>
       ) : null}
