@@ -3468,6 +3468,7 @@ export function StageBoardBody({
       height: "100%",
       minWidth: 0,
       minHeight: 0,
+      isolation: "isolate",
       /** 常に印を床パネル外（翼・花道側）にも描けるよう visible（再生中も客席帯を切らない） */
       overflow: "visible",
       background: `linear-gradient(180deg, #0f1729 0%, #0a0f18 42%, ${shell.bgDeep} 100%)`,

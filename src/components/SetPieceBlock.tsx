@@ -62,7 +62,7 @@ export function SetPieceBlock({
   const rotDeg = setPieceRotationDegDisplay(p);
   const selectedSp = selected && setPiecesEditable;
   // ダンサーマーカー(z=4)より常に下に置く。選択中でも z=3 に留める。
-  const zBase = coord === "screen" ? 40 : 0;
+  const zBase = coord === "screen" ? 40 : -1;
   const zSelected = coord === "screen" ? 46 : 10;
 
   return (
