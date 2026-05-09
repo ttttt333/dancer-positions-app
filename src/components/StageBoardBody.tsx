@@ -2295,8 +2295,8 @@ export function StageBoardBody({
       const el = stageMainFloorRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
-      const xPct = clamp(((e.clientX - r.left) / r.width) * 100, 0, 100);
-      const yPct = clamp(((e.clientY - r.top) / r.height) * 100, 0, 100);
+      const xPct = ((e.clientX - r.left) / r.width) * 100;
+      const yPct = ((e.clientY - r.top) / r.height) * 100;
 
       if (
         floorTextPlaceSession &&
@@ -2311,8 +2311,8 @@ export function StageBoardBody({
         e.stopPropagation();
         if (viewportTextOverlayRoot) {
           const rr = viewportTextOverlayRoot.getBoundingClientRect();
-          const vx = clamp(((e.clientX - rr.left) / rr.width) * 100, 0, 100);
-          const vy = clamp(((e.clientY - rr.top) / rr.height) * 100, 0, 100);
+          const vx = ((e.clientX - rr.left) / rr.width) * 100;
+          const vy = ((e.clientY - rr.top) / rr.height) * 100;
           onFloorTextPlaceSessionChange({
             ...floorTextPlaceSession,
             xPct: round2(vx),
@@ -2630,8 +2630,8 @@ export function StageBoardBody({
             const rr = rectEl.getBoundingClientRect();
             const dxPct = ((e.clientX - tapOr.startClientX) / rr.width) * 100;
             const dyPct = ((e.clientY - tapOr.startClientY) / rr.height) * 100;
-            const nx = round2(clamp(tapOr.startXPct + dxPct, 3, 97));
-            const ny = round2(clamp(tapOr.startYPct + dyPct, 3, 97));
+            const nx = round2(clamp(tapOr.startXPct + dxPct, -200, 200));
+            const ny = round2(clamp(tapOr.startYPct + dyPct, -200, 200));
             const tid = tapOr.id;
             const isGlobal = (globalFloorMarkup ?? []).some((x) => x.id === tid);
             if (isGlobal && onUpdateGlobalFloorMarkup) {
@@ -2667,8 +2667,8 @@ export function StageBoardBody({
         const rr = rectEl.getBoundingClientRect();
         const dxPct = ((e.clientX - fmd.startClientX) / rr.width) * 100;
         const dyPct = ((e.clientY - fmd.startClientY) / rr.height) * 100;
-        const nx = round2(clamp(fmd.startXPct + dxPct, 3, 97));
-        const ny = round2(clamp(fmd.startYPct + dyPct, 3, 97));
+        const nx = round2(clamp(fmd.startXPct + dxPct, -200, 200));
+        const ny = round2(clamp(fmd.startYPct + dyPct, -200, 200));
         const reveal = pointerInViewportTrashRevealZone(e.clientX);
         if (reveal !== trashRevealActiveRef.current) {
           trashRevealActiveRef.current = reveal;
@@ -2740,8 +2740,8 @@ export function StageBoardBody({
         const globalUpdates = new Map<string, { xPct: number; yPct: number }>();
         const localUpdates = new Map<string, { xPct: number; yPct: number }>();
         for (const [id, start] of multiDrag.startPositions) {
-          const nx = round2(clamp(start.xPct + dxPct, 3, 97));
-          const ny = round2(clamp(start.yPct + dyPct, 3, 97));
+          const nx = round2(clamp(start.xPct + dxPct, -200, 200));
+          const ny = round2(clamp(start.yPct + dyPct, -200, 200));
           if (globalIds.has(id)) {
             globalUpdates.set(id, { xPct: nx, yPct: ny });
           } else {
@@ -2775,8 +2775,8 @@ export function StageBoardBody({
         const rr = rectEl.getBoundingClientRect();
         const dxPct = ((e.clientX - ftpd.startClientX) / rr.width) * 100;
         const dyPct = ((e.clientY - ftpd.startClientY) / rr.height) * 100;
-        const nx = round2(clamp(ftpd.startXPct + dxPct, 0, 100));
-        const ny = round2(clamp(ftpd.startYPct + dyPct, 0, 100));
+        const nx = round2(clamp(ftpd.startXPct + dxPct, -200, 200));
+        const ny = round2(clamp(ftpd.startYPct + dyPct, -200, 200));
         onFloorTextPlaceSessionChange({ ...ftpd.session, xPct: nx, yPct: ny });
         return;
       }

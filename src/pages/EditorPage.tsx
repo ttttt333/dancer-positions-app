@@ -2359,8 +2359,8 @@ export function EditorPage({
       scale,
       fontSizePx: fs,
       fontWeight: fw,
-      xPct: round2Pct(Math.min(100, Math.max(0, floorTextPlaceSession.xPct))),
-      yPct: round2Pct(Math.min(100, Math.max(0, floorTextPlaceSession.yPct))),
+      xPct: round2Pct(floorTextPlaceSession.xPct),
+      yPct: round2Pct(floorTextPlaceSession.yPct),
     };
 
     if (editTargetId) {
@@ -3553,9 +3553,9 @@ export function EditorPage({
       ) : null}
 
       {/* ─── Main layout: column flex (stage row + bottom wave bar) ─── */}
-      <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "visible" }}>
       {/* ─── Stage row: editor grid + NeonIconPanel ─── */}
-      <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden" }}>
+      <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "visible" }}>
       <div
         ref={(el) => {
           editorPaneRef.current = el;
@@ -3575,7 +3575,7 @@ export function EditorPage({
           position: "relative",
           flex: 1,
           minHeight: 0,
-          overflow: "hidden",
+          overflow: "visible",
           ...(mobileStackEditor
             ? {
                 ...dynamicContainerStyle,
@@ -3657,7 +3657,7 @@ export function EditorPage({
             position: "relative",
             display: "flex",
             flexDirection: "column",
-            overflow: "hidden",
+            overflow: "visible",
             ...(wideEditorLayout
               ? {
                   gridColumn: stageZenLayout ? "1 / -1" : 1,

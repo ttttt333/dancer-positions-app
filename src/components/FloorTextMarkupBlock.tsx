@@ -319,11 +319,11 @@ export function FloorTextMarkupBlock({
       }}
       style={{
         position: "absolute",
-        left: `clamp(5%, ${m.xPct}%, 95%)`,
-        top: `clamp(5%, ${m.yPct}%, 95%)`,
+        left: `${m.xPct}%`,
+        top: `${m.yPct}%`,
         transform: `translate(-50%, -50%) scale(${sc}) rotate(${rotation}deg)`,
         transformOrigin: "50% 50%",
-        maxWidth: coordLayer === "screen" ? "min(42vw, 520px)" : "38%",
+        maxWidth: coordLayer === "screen" ? "min(42vw, 520px)" : "42%",
         padding: "2px 6px",
         borderRadius: "6px",
         fontSize: fs,
