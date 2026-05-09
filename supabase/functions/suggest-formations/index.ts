@@ -48,11 +48,22 @@ serve(async (req: Request) => {
     const dancerIds = dancers.map((d: any) => d.id);
     const dancerLabels = dancers.map((d: any) => `${d.id}(label:"${d.label}", color:${d.colorIndex})`);
 
+    // 1拍あたりの秒数・1エイト(8拍)・4カウントの秒数を計算
+    const secPerBeat = 60 / (analysis.bpm || 120);
+    const secPer8count = secPerBeat * 8;   // 1エイト = 8拍
+    const secPer4count = secPerBeat * 4;   // 4カウント = 4拍
+    const secPer32count = secPerBeat * 32; // 4エイト = 32拍
+
+    const extraInfo = body.extraInfo ?? "";
+
     const prompt = `あなたはプロのダンス振付師AIです。楽曲の解析結果に基づき、${dancerCount}人のダンサーのフォーメーション（立ち位置）とタイムライン（キュー）を提案してください。
 
 ## 楽曲情報
 - 長さ: ${analysis.durationSec}秒
 - BPM: ${analysis.bpm}
+- 1拍: ${secPerBeat.toFixed(3)}秒
+- 1エイト(8拍): ${secPer8count.toFixed(3)}秒
+- 4エイト(32拍): ${secPer32count.toFixed(3)}秒
 - セクション:
 ${sectionsDesc}
 
@@ -63,23 +74,39 @@ ${sectionsDesc}
 
 ## ダンサー (${dancerCount}人)
 ${dancerLabels.join("\n")}
+${extraInfo ? `\n## ユーザーからの追加情報\n${extraInfo}\n` : ""}
+## フォーメーション切り替えの基本ルール（最重要）
+フォーメーションの切り替えは【4エイト(32拍)単位】を基本とする。
+以下のタイミング構造を必ず守ること：
 
-## ルール
-1. 各セクションに1つのフォーメーションを作成（セクション数 = フォーメーション数）
-2. ダンサーIDは必ず入力のものを再利用。新規IDを生成しない
-3. エネルギー低(< 0.3) → シンプル形（横一列・縦一列・密集）
-4. エネルギー高(> 0.6) → 動的な形（扇・逆ピラミッド・左右分散・ダイヤモンド）
-5. キューのタイミング: tStartSec = セクション開始 + 0.5秒, tEndSec = セクション終了 - 0.3秒
-6. ダンサー同士が重ならないよう最低5%は離す
-7. 各フォーメーションに意味のある日本語名をつける（例: "サビ - 逆V字"）
-8. 隣接フォーメーション間で大きすぎる移動を避ける（前のフォーメーションからの自然な流れ）
+【1フォーメーションブロックの構造（32拍を1単位とする）】
+- 拍 1〜28（3エイト+4カウント）: 現在のフォーメーション位置をキープ（cueのtStartSec〜tEndSec）
+- 拍 29〜32（4カウント）: 次のフォーメーションへ移動中（この間はキュー外 = 空白）
+- 次ブロックの拍 1〜: 次のフォーメーション開始（次のcueのtStartSec）
+
+具体的な計算式（ブロック開始秒を blockStart とする）:
+- cue.tStartSec = blockStart
+- cue.tEndSec   = blockStart + ${(secPer32count - secPer4count).toFixed(3)}  （28拍分 = 32拍 - 4カウント）
+- 次のcue.tStartSec = blockStart + ${secPer32count.toFixed(3)}  （32拍後）
+
+楽曲の長さに収まるよう、32拍単位でブロックを区切ること。
+セクションをまたいでもこの32拍ルールを守る（セクション境界がずれてもよい）。
+ただし最後のブロックは楽曲終了に合わせて短くしてよい。
+
+## フォーメーション設計ルール
+1. ダンサーIDは必ず入力のものを再利用。新規IDを生成しない
+2. エネルギー低(< 0.3) → シンプル形（横一列・縦一列・密集）
+3. エネルギー高(> 0.6) → 動的な形（扇・逆ピラミッド・左右分散・ダイヤモンド）
+4. ダンサー同士が重ならないよう最低5%は離す
+5. 各フォーメーションに意味のある日本語名をつける（例: "サビ-1 逆V字"）
+6. 隣接フォーメーション間で移動距離が大きすぎないよう自然な流れを意識する
 
 ## 出力形式（JSON のみ。説明文は不要）
 {
   "formations": [
     {
       "id": "一意のUUID",
-      "name": "セクション名 - 形の説明",
+      "name": "セクション名-番号 形の説明",
       "dancers": [
         { "id": "既存ダンサーid", "xPct": 数値, "yPct": 数値, "colorIndex": 数値 }
       ]
@@ -91,11 +118,11 @@ ${dancerLabels.join("\n")}
       "formationId": "上記formationsのid",
       "tStartSec": 数値,
       "tEndSec": 数値,
-      "name": "セクション名"
+      "name": "フォーメーション名"
     }
   ],
   "reasoning": [
-    "各フォーメーションの意図を1文で説明"
+    "各フォーメーションの意図と32拍割り当ての理由を1文で説明"
   ]
 }`;
 
