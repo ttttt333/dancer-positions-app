@@ -780,13 +780,21 @@ export function StageBoardBody({
   }, [floorTextPlaceSession]);
 
   /** 画面全体配置: 編集グリッド上の空所クリックでプレビュー位置を更新（入力欄・ボタンは除外） */
+  // ref で最新値を保持して、ステージクリック時の位置更新リスナーが
+  // テキスト入力のたびに再アタッチされないようにする
+  const floorTextPlaceSessionRef = useRef(floorTextPlaceSession);
+  const onFloorTextPlaceSessionChangeRef = useRef(onFloorTextPlaceSessionChange);
+  useEffect(() => { floorTextPlaceSessionRef.current = floorTextPlaceSession; }, [floorTextPlaceSession]);
+  useEffect(() => { onFloorTextPlaceSessionChangeRef.current = onFloorTextPlaceSessionChange; }, [onFloorTextPlaceSessionChange]);
+
   useEffect(() => {
     const root = viewportTextOverlayRoot;
-    const sess = floorTextPlaceSession;
-    const onChange = onFloorTextPlaceSessionChange;
-    if (!sess || !onChange || !root || !setPiecesEditable || !writeFormation)
+    if (!root || !setPiecesEditable || !writeFormation)
       return;
     const onPointerDownCapture = (e: PointerEvent) => {
+      const sess = floorTextPlaceSessionRef.current;
+      const onChange = onFloorTextPlaceSessionChangeRef.current;
+      if (!sess || !onChange) return;
       if (e.button !== 0) return;
       const t = e.target;
       if (!(t instanceof Element)) return;
@@ -813,8 +821,6 @@ export function StageBoardBody({
     return () =>
       window.removeEventListener("pointerdown", onPointerDownCapture, true);
   }, [
-    floorTextPlaceSession,
-    onFloorTextPlaceSessionChange,
     viewportTextOverlayRoot,
     setPiecesEditable,
     writeFormation,

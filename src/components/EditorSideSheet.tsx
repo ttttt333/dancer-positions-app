@@ -42,8 +42,10 @@ export function EditorSideSheet({
       <button
         type="button"
         aria-label="パネルを閉じる"
+        tabIndex={-1}
         disabled={blockDismiss}
-        onClick={() => {
+        onClick={(e) => {
+          e.stopPropagation();
           if (!blockDismiss) onClose();
         }}
         style={{
