@@ -120,9 +120,7 @@ export function SetPieceBlock({
           border:
             selectedSp
               ? "2px solid rgba(251, 191, 36, 0.92)"
-              : p.interpolateInGaps
-                ? "1px solid rgba(45, 212, 191, 0.72)"
-                : "1px solid rgba(148, 163, 184, 0.55)",
+              : "none",
           borderRadius: p.kind === "ellipse" ? "999px" : 6,
           background: "rgba(15, 23, 42, 0.2)",
           boxShadow: "inset 0 0 0 1px rgba(15,23,42,0.2)",
@@ -150,7 +148,7 @@ export function SetPieceBlock({
             left: 0,
             right: 0,
             top: 0,
-            bottom: 18,
+            bottom: 0,
             pointerEvents: "none",
           }}
         >
@@ -196,21 +194,7 @@ export function SetPieceBlock({
             />
           )}
         </div>
-        <span
-          style={{
-            position: "relative",
-            zIndex: 1,
-            padding: "2px 6px 4px",
-            textShadow: "0 0 4px rgba(15,23,42,0.95), 0 1px 2px rgba(0,0,0,0.8)",
-            alignSelf: "flex-start",
-            maxWidth: "100%",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {p.label?.trim() ? p.label : "大道具"}
-        </span>
+
       </button>
       {selectedSp
         ? resizeHandles.map(({ h, cursor, pos }) => (
