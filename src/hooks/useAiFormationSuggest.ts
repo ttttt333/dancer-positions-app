@@ -36,7 +36,7 @@ export function useAiFormationSuggest(
   const abortRef = useRef<AbortController | null>(null);
 
   const suggest = useCallback(
-    async (peaks: number[], durationSec: number) => {
+    async (peaks: number[], durationSec: number, extraInfo?: string) => {
       // Abort previous
       abortRef.current?.abort();
       const controller = new AbortController();
@@ -95,6 +95,7 @@ export function useAiFormationSuggest(
           stageDepthMm: project.stageDepthMm ?? 8000,
           dancers,
           lang: "ja",
+          ...(extraInfo ? { extraInfo } : {}),
         };
 
         const res = await fetch(
