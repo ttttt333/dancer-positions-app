@@ -997,7 +997,13 @@ export function EditorPage({
   /** 立ち位置保存ボタンから開く管理ダイアログ */
   const [formationBoxManagerOpen, setFormationBoxManagerOpen] = useState(false);
   /** キュー追加 ＋ 形選択 ＋ 形の箱保存を 1 画面に統合したダイアログ */
-  const [addCueDialogOpen, setAddCueDialogOpen] = useState(false);
+  const [addCueDialogOpen, _setAddCueDialogOpen] = useState(false);
+  const setAddCueDialogOpen = (v: boolean | ((prev: boolean) => boolean)) => {
+    if (v === true || (typeof v === "function" && v(false) === true)) {
+      console.trace("[DEBUG] setAddCueDialogOpen(true) called from:");
+    }
+    _setAddCueDialogOpen(v);
+  };
   /**
    * 右ペイン（タイムライン／右ツール列）を畳んでステージを最大化するトグル。
    * 畳んでもステージ上にグリッド用ツールバーが出るほか、ステージ上部のページャーから
@@ -6258,8 +6264,8 @@ export function EditorPage({
           redoDisabled={stageRedoDisabled}
           /* 立ち位置保存 → formation box manager dialog */
           onSave={saveStageToFormationBox}
-          /* キュー設定 → add/configure cue dialog */
-          onOpenCueList={() => setAddCueDialogOpen(true)}
+          /* キュー一覧モーダルを開く */
+          onOpenCueList={() => setCueListModalOpen(true)}
           onOpenShareLinks={() => setShareLinksOpen(true)}
           onOpenAISuggest={() => setAiSuggestOpen(true)}
           /* テキスト → floor markup text tool + right SideSheet (wide) or on-stage panel (narrow) */
