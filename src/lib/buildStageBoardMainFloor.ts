@@ -1,7 +1,7 @@
 /**
  * @file `StageShellWithMainFloor` 向け mainFloor 束。編集時のみ `floorMarkupToolbar` を渡し、`baseOverlays` に `showStageFloorMarkup` を合成する純関数。
  */
-import type { CSSProperties, PointerEvent as ReactPointerEvent, RefObject } from "react";
+import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode, RefObject } from "react";
 import type { StageFloorMarkupToolbarHostProps } from "../components/StageFloorMarkupToolbarHost";
 import type { StageMainFloorBaseOverlaysProps } from "../components/StageMainFloorBaseOverlays";
 import type { StageMainFloorInteractionLayerProps } from "../components/StageMainFloorInteractionLayer";
@@ -27,6 +27,8 @@ export type BuildStageBoardMainFloorParams = {
   >;
   /** `displayFloorMarkup.length > 0 || !!floorLineDraft` など */
   showStageFloorMarkup: boolean;
+  /** 大道具ブロック群（最背面に描画） */
+  setPieceElements: ReactNode;
   interaction: StageMainFloorInteractionLayerProps;
 };
 
@@ -44,6 +46,7 @@ export function buildStageBoardMainFloor(
     floorMarkupToolbar: p.setPiecesEditable
       ? p.floorMarkupToolbarWhenEditable
       : undefined,
+    setPieceElements: p.setPieceElements,
     baseOverlays: {
       ...p.baseOverlaysWithoutShow,
       showStageFloorMarkup: p.showStageFloorMarkup,

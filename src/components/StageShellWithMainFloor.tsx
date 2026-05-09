@@ -1,6 +1,7 @@
 import type {
   CSSProperties,
   PointerEvent as ReactPointerEvent,
+  ReactNode,
   RefObject,
 } from "react";
 import { StageAudienceFooterBand } from "./StageAudienceFooterBand";
@@ -34,6 +35,8 @@ export type StageShellWithMainFloorProps = {
   onPointerDownFloor: (e: ReactPointerEvent<HTMLDivElement>) => void;
   mainFloorStyle: CSSProperties;
   floorMarkupToolbar?: StageFloorMarkupToolbarHostProps;
+  /** 最背面レイヤー：大道具をここに置きBaseOverlays/InteractionLayerより下に描画 */
+  setPieceElements?: ReactNode;
   baseOverlays: StageMainFloorBaseOverlaysProps;
   interaction: StageMainFloorInteractionLayerProps;
 };
@@ -49,6 +52,7 @@ export function StageShellWithMainFloor({
   onPointerDownFloor,
   mainFloorStyle,
   floorMarkupToolbar,
+  setPieceElements,
   baseOverlays,
   interaction,
 }: StageShellWithMainFloorProps) {
@@ -115,6 +119,8 @@ export function StageShellWithMainFloor({
               {floorMarkupToolbar ? (
                 <StageFloorMarkupToolbarHost {...floorMarkupToolbar} />
               ) : null}
+              {/* 大道具は必ず最背面（BaseOverlays・InteractionLayerより前のDOM） */}
+              {setPieceElements}
               <StageMainFloorBaseOverlays {...baseOverlays} />
               <StageMainFloorInteractionLayer {...interaction} />
             </StageMainFloorPanel>

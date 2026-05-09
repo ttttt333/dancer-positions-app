@@ -4064,9 +4064,10 @@ export function StageBoardBody({
         floorTextGhostPos: floorGhostPos,
       },
       showStageFloorMarkup: displayFloorMarkup.length > 0 || !!floorLineDraft || (globalFloorMarkup != null && globalFloorMarkup.length > 0) || floorMarkupTool === "text",
-      /* 操作層（大道具・ダンサー印・マーキー等） */
+      /* 大道具：最背面レイヤーとして StageShellWithMainFloor に直接渡す */
+      setPieceElements: stageSetPieceElements,
+      /* 操作層（ダンサー印・マーキー等） */
       interaction: {
-        setPieceElements: stageSetPieceElements,
         selectionBox,
         groupRotateGuideDeltaDeg,
         playbackOrPreview,

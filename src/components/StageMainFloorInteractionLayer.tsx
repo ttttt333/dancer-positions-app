@@ -36,7 +36,6 @@ export type StageMarqueePct = {
 };
 
 export type StageMainFloorInteractionLayerProps = {
-  setPieceElements: ReactNode;
   selectionBox: StageSelectionBoxPct | null;
   groupRotateGuideDeltaDeg: number | null;
   playbackOrPreview: boolean;
@@ -76,7 +75,6 @@ export type StageMainFloorInteractionLayerProps = {
 
 /** メイン床: 大道具・選択 UI・ゴースト印・本印・リサイズ・タップ編集オーバーレイ */
 export function StageMainFloorInteractionLayer({
-  setPieceElements,
   selectionBox,
   groupRotateGuideDeltaDeg,
   playbackOrPreview,
@@ -104,7 +102,6 @@ export function StageMainFloorInteractionLayer({
 }: StageMainFloorInteractionLayerProps) {
   return (
     <>
-      {setPieceElements}
       {selectionBox &&
         groupRotateGuideDeltaDeg != null &&
         !playbackOrPreview &&
