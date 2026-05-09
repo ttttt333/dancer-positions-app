@@ -2362,7 +2362,8 @@ export function EditorPage({
             {
               kind: "text" as const,
               id: crypto.randomUUID(),
-              layer: "screen" as const,
+              // "stage" にすることで配置後もステージ上でドラッグ移動できる
+              layer: "stage" as const,
               xPct: round2Pct(
                 Math.min(100, Math.max(0, floorTextPlaceSession.xPct))
               ),
@@ -2393,10 +2394,7 @@ export function EditorPage({
     if (stageView === "3d") setFloorTextPlaceSession(null);
   }, [stageView]);
 
-  // テキストツール以外に切り替わったらサイドシートを閉じる
-  useEffect(() => {
-    if (floorMarkupTool !== "text") setFloorTextSideSheetOpen(false);
-  }, [floorMarkupTool]);
+  // (removed: floorMarkupTool依存のサイドシート閉じuseEffect → floorMarkupToolは使わなくなった)
 
   /**
    * ＋ダンサーボタンで 1 人ずつ追加。
@@ -5791,7 +5789,6 @@ export function EditorPage({
           open={floorTextSideSheetOpen}
           onClose={() => {
             setFloorTextSideSheetOpen(false);
-            setFloorMarkupTool(null);
           }}
           zIndex={75}
           width="min(340px, 92vw)"
@@ -5845,7 +5842,6 @@ export function EditorPage({
                 aria-label="閉じる"
                 onClick={() => {
                   setFloorTextSideSheetOpen(false);
-                  setFloorMarkupTool(null);
                 }}
                 style={{
                   background: "transparent",
@@ -5959,7 +5955,6 @@ export function EditorPage({
                   }
                   commitFloorTextPlace();
                   setFloorTextSideSheetOpen(false);
-                  setFloorMarkupTool(null);
                 }}
                 style={{
                   width: "100%",
@@ -5983,7 +5978,6 @@ export function EditorPage({
                 onClick={() => {
                   setFloorTextPlaceSession(null);
                   setFloorTextSideSheetOpen(false);
-                  setFloorMarkupTool(null);
                 }}
                 style={{
                   width: "100%",
@@ -6150,27 +6144,23 @@ export function EditorPage({
               window.alert("床テキストは 2D 表示のときのみ使えます");
               return;
             }
-            const next = floorMarkupTool === "text" ? null : "text";
-            setFloorMarkupTool(next);
-            if (next === "text") {
-              // Tボタン押下と同時にセッションを初期化（舞台中央・空テキスト）
-              // → サイドシート／インラインパネルに入力欄がすぐ表示される
-              setFloorTextPlaceSession((cur) =>
-                cur
-                  ? cur
-                  : {
-                      body: "",
-                      fontSizePx: 24,
-                      fontWeight: 700,
-                      xPct: 50,
-                      yPct: 50,
-                      color: "#fef08a",
-                    }
-              );
-              if (showTopWaveDock) setFloorTextSideSheetOpen(true);
-            } else {
+            // floorMarkupTool は使わず floorTextPlaceSession で完結させる
+            // （両方セットすると内部 useEffect が競合して tool がリセットされる）
+            if (floorTextPlaceSession) {
+              // 既に開いている → 閉じる
               setFloorTextPlaceSession(null);
               setFloorTextSideSheetOpen(false);
+            } else {
+              // セッション開始：舞台中央・空テキストで即表示
+              setFloorTextPlaceSession({
+                body: "",
+                fontSizePx: 24,
+                fontWeight: 700,
+                xPct: 50,
+                yPct: 50,
+                color: "#fef08a",
+              });
+              setFloorTextSideSheetOpen(true);
             }
           }}
           /* 閲覧モード → editor viewer sheet (member highlight preview) */
