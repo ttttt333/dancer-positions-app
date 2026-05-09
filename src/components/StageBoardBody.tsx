@@ -2300,6 +2300,7 @@ export function StageBoardBody({
 
       if (
         floorTextPlaceSession &&
+        !floorTextPlaceSession.editTargetId &&
         onFloorTextPlaceSessionChange &&
         setPiecesEditable &&
         writeFormation

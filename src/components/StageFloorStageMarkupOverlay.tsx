@@ -93,6 +93,7 @@ export function StageFloorStageMarkupOverlay({
         );
       })}
       {floorTextPlaceSession &&
+      !floorTextPlaceSession.editTargetId &&
       !viewportTextOverlayRoot &&
       setPiecesEditable &&
       !playbackOrPreview &&

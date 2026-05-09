@@ -69,6 +69,7 @@ export function StageBoardScreenOverlay({
       ))}
       {screenSetPieceElements}
       {floorTextPlaceSession &&
+      !floorTextPlaceSession.editTargetId &&
       setPiecesEditable &&
       !playbackOrPreview &&
       onFloorTextPlaceSessionChange ? (
