@@ -44,9 +44,9 @@ export function FloorTextDraftGhostPreview({
         textShadow: body
           ? "0 0 2px rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.65)"
           : "none",
-        whiteSpace: "pre-wrap",
-        wordBreak: "break-word",
-        maxWidth: "60%",
+        whiteSpace: "pre",
+        wordBreak: "normal",
+        maxWidth: "none",
         textAlign: "center",
         outline: `2px dashed ${body ? "rgba(56,189,248,0.85)" : "rgba(100,116,139,0.55)"}`,
         outlineOffset: 4,
