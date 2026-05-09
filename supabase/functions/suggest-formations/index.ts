@@ -101,7 +101,11 @@ ${extraInfo ? `\n## ユーザーからの追加情報\n${extraInfo}\n` : ""}
 5. 各フォーメーションに意味のある日本語名をつける（例: "サビ-1 逆V字"）
 6. 隣接フォーメーション間で移動距離が大きすぎないよう自然な流れを意識する
 
-## 出力形式（JSON のみ。説明文は不要）
+## 重要: 出力フォーマット
+- 必ず純粋なJSONのみを返すこと
+- \`\`\`json や \`\`\` などのマークダウン記法は絶対に使用しないこと
+- 説明文・前置き・後書きは一切不要。JSONオブジェクト { } のみを返すこと
+
 {
   "formations": [
     {
@@ -137,6 +141,7 @@ ${extraInfo ? `\n## ユーザーからの追加情報\n${extraInfo}\n` : ""}
       body: JSON.stringify({
         model: "claude-haiku-4-5-20250414",
         max_tokens: 4096,
+        system: "あなたはJSONのみを返すAPIです。マークダウン記法（```json等）は絶対に使用しないこと。説明文・前置き・後書きは不要。回答は常に純粋なJSONオブジェクト { } のみとすること。",
         messages: [
           { role: "user", content: prompt },
         ],
@@ -155,25 +160,51 @@ ${extraInfo ? `\n## ユーザーからの追加情報\n${extraInfo}\n` : ""}
     const claudeData = await claudeRes.json();
     const text = claudeData.content?.[0]?.text ?? "";
 
-    // Parse JSON from response (handle ```json blocks)
-    let jsonStr = text;
-    const codeBlockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
-    if (codeBlockMatch) {
-      jsonStr = codeBlockMatch[1];
+    /**
+     * robustParseJson — Claude レスポンスから JSON を抽出する堅牢なパーサー
+     * 試行順:
+     *   1. ```json ... ``` または ``` ... ``` ブロックを除去して parse
+     *   2. 先頭・末尾の空白を除去して parse
+     *   3. 文字列中の最外 { ... } を抽出して parse
+     *   4. すべて失敗したら Error を throw
+     */
+    function robustParseJson(raw: string): any {
+      // Step 1: コードブロック（```json や ```）を除去
+      let stripped = raw
+        .replace(/^```(?:json)?\s*/i, "")   // 先頭の ```json または ```
+        .replace(/\s*```\s*$/i, "")          // 末尾の ```
+        .trim();
+
+      // Step 2: そのまま parse を試みる
+      try {
+        return JSON.parse(stripped);
+      } catch (_) { /* 続行 */ }
+
+      // Step 3: 文字列全体に複数のコードブロックが含まれる場合も対処
+      const codeBlockMatch = raw.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
+      if (codeBlockMatch) {
+        try {
+          return JSON.parse(codeBlockMatch[1].trim());
+        } catch (_) { /* 続行 */ }
+      }
+
+      // Step 4: テキスト中から最初の { ... } ブロックを抽出（最大ネスト対応）
+      const start = raw.indexOf("{");
+      const end = raw.lastIndexOf("}");
+      if (start !== -1 && end !== -1 && end > start) {
+        try {
+          return JSON.parse(raw.slice(start, end + 1));
+        } catch (_) { /* 続行 */ }
+      }
+
+      // Step 5: すべて失敗
+      console.error("robustParseJson: 全パース試行失敗。raw text:", raw.slice(0, 300));
+      throw new Error(
+        `Claudeのレスポンスのパースに失敗しました。受け取ったテキスト(先頭100文字): ${raw.slice(0, 100)}`
+      );
     }
 
-    let parsed: any;
-    try {
-      parsed = JSON.parse(jsonStr.trim());
-    } catch {
-      // Try to find JSON object in the text
-      const objMatch = jsonStr.match(/\{[\s\S]*\}/);
-      if (objMatch) {
-        parsed = JSON.parse(objMatch[0]);
-      } else {
-        throw new Error("Claude response is not valid JSON");
-      }
-    }
+    const parsed: any = robustParseJson(text);
 
     // Validate & fix IDs
     const seenFormationIds = new Set<string>();
