@@ -898,12 +898,11 @@ export function StageBoardBody({
         width: Math.max(140, bounds.width),
         height: Math.max(40, bounds.height),
       });
-      setFloorMarkupTool("text");
       setFloorTextEditId(m.id);
       setSelectedFloorTextId(m.id);
       setFloorTextDraft(draft);
     },
-    [setFloorMarkupTool],
+    [],
   );
 
   const handleFloorTextColorUpdate = useCallback(

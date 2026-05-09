@@ -282,12 +282,7 @@ export function FloorTextMarkupBlock({
           onRemoveFloorMarkup(m.id);
           return;
         }
-        if (floorMarkupTool === "text" && setPiecesEditable) {
-          e.preventDefault();
-          e.stopPropagation();
-          onSelectTextMarkupTool(m.id, draftFromMarkup());
-          return;
-        }
+
         if (textMoveGrab) {
           e.preventDefault();
           e.stopPropagation();
