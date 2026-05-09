@@ -5994,30 +5994,80 @@ export function EditorPage({
               </div>
 
               {/* 文字色 */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#cbd5e1" }}>
-                <label style={{ flexShrink: 0, fontWeight: 600 }}>文字色</label>
-                <input
-                  type="color"
-                  value={
-                    floorTextPlaceSession?.color &&
-                    /^#[0-9a-fA-F]{6}$/i.test(floorTextPlaceSession.color)
-                      ? floorTextPlaceSession.color
-                      : "#fef08a"
-                  }
-                  onChange={(e) =>
-                    setFloorTextPlaceSession((s) =>
-                      s ? { ...s, color: e.target.value } : s
-                    )
-                  }
-                  style={{ width: 36, height: 28, padding: 2, border: "1px solid #334155", borderRadius: 6, background: "transparent", cursor: "pointer" }}
-                />
-                <span style={{ fontSize: 10, color: "#64748b" }}>
-                  配置後にドラッグで位置を調整できます
-                </span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#cbd5e1" }}>
+                  <label style={{ flexShrink: 0, fontWeight: 600 }}>文字色</label>
+                  <input
+                    type="color"
+                    value={
+                      floorTextPlaceSession?.color &&
+                      /^#[0-9a-fA-F]{6}$/i.test(floorTextPlaceSession.color)
+                        ? floorTextPlaceSession.color
+                        : "#fef08a"
+                    }
+                    onChange={(e) =>
+                      setFloorTextPlaceSession((s) =>
+                        s ? { ...s, color: e.target.value } : s
+                      )
+                    }
+                    style={{ width: 36, height: 28, padding: 2, border: "1px solid #334155", borderRadius: 6, background: "transparent", cursor: "pointer" }}
+                  />
+                  <span style={{ fontSize: 10, color: "#64748b" }}>
+                    カスタムカラーを選択
+                  </span>
+                </div>
+                {/* カラーパレット */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 6 }}>
+                  {[
+                    { hex: "#ffffff", label: "白" },
+                    { hex: "#fef08a", label: "黄" },
+                    { hex: "#fb923c", label: "オレンジ" },
+                    { hex: "#f87171", label: "赤" },
+                    { hex: "#f472b6", label: "ピンク" },
+                    { hex: "#c084fc", label: "紫" },
+                    { hex: "#60a5fa", label: "青" },
+                    { hex: "#34d399", label: "緑" },
+                    { hex: "#a3e635", label: "黄緑" },
+                    { hex: "#94a3b8", label: "グレー" },
+                    { hex: "#1e293b", label: "黒" },
+                    { hex: "#fcd34d", label: "ゴールド" },
+                  ].map(({ hex, label }) => {
+                    const currentColor = (
+                      floorTextPlaceSession?.color &&
+                      /^#[0-9a-fA-F]{6}$/i.test(floorTextPlaceSession.color)
+                        ? floorTextPlaceSession.color
+                        : "#fef08a"
+                    ).toLowerCase();
+                    const isSelected = currentColor === hex.toLowerCase();
+                    return (
+                      <button
+                        key={hex}
+                        type="button"
+                        title={label}
+                        onClick={() =>
+                          setFloorTextPlaceSession((s) =>
+                            s ? { ...s, color: hex } : s
+                          )
+                        }
+                        style={{
+                          width: "100%",
+                          aspectRatio: "1",
+                          borderRadius: 6,
+                          border: isSelected
+                            ? "2px solid #fff"
+                            : "2px solid transparent",
+                          background: hex,
+                          cursor: "pointer",
+                          outline: isSelected ? "2px solid #60a5fa" : "none",
+                          outlineOffset: 1,
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.4)",
+                          padding: 0,
+                        }}
+                      />
+                    );
+                  })}
+                </div>
               </div>
-
-              {/* spacer */}
-              <div style={{ flex: 1 }} />
 
               {/* 決定ボタン */}
               <button
