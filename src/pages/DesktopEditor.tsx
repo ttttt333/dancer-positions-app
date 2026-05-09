@@ -123,6 +123,13 @@ import { MobileEditorShell } from "../components/mobile/MobileEditorShell";
 
 const HISTORY_CAP = 80;
 
+/**
+ * ページ遷移（/library → /editor/:id）によるアンマウント→再マウント時に
+ * プロジェクトデータが消えるのを防ぐモジュールスコープキャッシュ。
+ * 同一タブ内でのみ有効。id → 最後に読み込んだ ChoreographyProjectJson。
+ */
+const editorProjectCache = new Map<number, ChoreographyProjectJson>();
+
 function studentPickToStageFocus(
   p: StudentPick
 ):
@@ -969,6 +976,13 @@ export function EditorPage({
       autoSave(plainProject);
     }
   }, [plainProject]);
+
+  // plainProject の変化をモジュールキャッシュに同期（ページ遷移後の復元用）
+  useEffect(() => {
+    if (plainProject && serverId != null) {
+      editorProjectCache.set(serverId, plainProject);
+    }
+  }, [plainProject, serverId]);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [flowLibraryOpen, setFlowLibraryOpen] = useState(false);
   /** 立ち位置保存ボタンから開く管理ダイアログ */
@@ -1369,12 +1383,44 @@ export function EditorPage({
       const title = seeded.pieceTitle?.trim() || "無題の作品";
       setProjectName(title);
       setLoadError(null);
+      // editorSeed を使ったのでキャッシュも更新
+      editorProjectCache.set(id, seeded);
       skipNextProjectFetchRef.current = id;
       navigate(
         { pathname: location.pathname, search: location.search },
         { replace: true, state: {} }
       );
       return;
+    }
+
+    // --- ページ遷移による再マウント時にキャッシュでフォールバック ---
+    // collabParam（共同編集）の場合はキャッシュを使わない（YJS で管理するため）
+    if (!collabParam) {
+      const cached = editorProjectCache.get(id);
+      if (cached) {
+        // キャッシュがあればすぐに表示（ローディング画面を出さない）
+        setPlainProject(choreoPublicView ? { ...cached, viewMode: "view" } : cached);
+        setServerId(id);
+        const title = cached.pieceTitle?.trim() || "無題の作品";
+        setProjectName(title);
+        setLoadError(null);
+        // バックグラウンドでサーバーと同期（エラーは無視してキャッシュ優先）
+        let bgCancelled = false;
+        (async () => {
+          try {
+            const row = await projectApi.get(id);
+            if (bgCancelled) return;
+            setServerShareToken(row.share_token ?? null);
+            setProjectName(row.name);
+            // バックグラウンド同期ではデータを上書きしない（キャッシュが最新）
+          } catch {
+            /* ignore background sync errors */
+          }
+        })();
+        return () => {
+          bgCancelled = true;
+        };
+      }
     }
 
     let cancelled = false;
@@ -1391,9 +1437,10 @@ export function EditorPage({
         if (collabParam && me) {
           setPlainProject(null);
         } else {
-          setPlainProject(
-            choreoPublicView ? { ...baseJson, viewMode: "view" } : baseJson
-          );
+          const resolved = choreoPublicView ? { ...baseJson, viewMode: "view" } : baseJson;
+          setPlainProject(resolved as ChoreographyProjectJson);
+          // 初回フェッチ結果をキャッシュ
+          editorProjectCache.set(id, baseJson);
         }
         setLoadError(null);
         historyRef.current = { undo: [], redo: [] };
