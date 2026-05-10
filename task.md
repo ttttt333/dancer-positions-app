@@ -1,50 +1,33 @@
-# Mobile UI Implementation
+# タスク: スマホ横向きUI修正
 
-## Architecture
-- mobileStackEditor = true when viewport < breakpoint (editorViewportKey[0]==="1")
-- Currently: DesktopEditor handles mobile via mobileStackEditor flag — messy, cramped
-- Plan: When mobileStackEditor===true, render NEW <MobileEditorShell> instead of current layout
-- MobileEditorShell owns: header, stage, waveform, playbar, bottomtab, menu-sheet, cue-list
+## 修正内容
+1. 舞台設定ボタン連動 → StageAreaSettingsDialogをモバイルreturnにも追加
+2. キュー設定ボタン連動 → cueListModalDialogをモバイルreturnにも追加 + onOpenCueListModal常に渡す
+3. キュー設定ボタンバグ修正 → EditorStageWorkbench.tsx line638
+4. 右パネル折り畳みボタン → MobileEditorShell.tsx
 
-## Files to create
-1. src/components/mobile/MobileEditorShell.tsx  ← main container
-2. src/components/mobile/MobileBottomTabBar.tsx  ← 4-tab bar
-3. src/components/mobile/MobileToolSheet.tsx     ← bottom-sheet menu
-4. src/components/mobile/MobileCueList.tsx       ← cues tab panel
-5. src/components/mobile/MobilePlaybar.tsx       ← waveform+playback strip
+## 実装戦略
+- cueListModalDialogEl: inline変数に切り出し（line2997付近に追加）
+- stageAreaSettingsDialogEl: inline変数に切り出し（line2997付近に追加）
+- PC版return内のインラインJSXを変数参照に置換
+- mobileStackEditor returnに変数を追加
 
-## Files to modify
-- src/pages/DesktopEditor.tsx: add early-return when mobileStackEditor===true
+## 進捗
+- [ ] DesktopEditor.tsx: cueListModalDialogEl変数作成
+- [ ] DesktopEditor.tsx: stageAreaSettingsDialogEl変数作成  
+- [ ] DesktopEditor.tsx: mobileReturnに変数追加
+- [ ] DesktopEditor.tsx: onOpenCueListModal常に渡す
+- [ ] EditorStageWorkbench.tsx: キュー設定ボタンバグ修正
+- [ ] MobileEditorShell.tsx: 折り畳みボタン追加
 
-## Key props to pass in (from DesktopEditor)
-- project, setProjectSafe
-- stageWorkbenchProps (all the callbacks)
-- isPlaying, togglePlay, stopPlayback, seekForward5Sec, seekBackward5Sec
-- duration, currentTime
-- selectedCueId
-- editorMobileLandscape
-- All dialog open handlers (setAiSuggestOpen, setAddCueDialogOpen, etc.)
+## ファイル
+- src/pages/DesktopEditor.tsx (6012行)
+- src/components/EditorStageWorkbench.tsx
+- src/components/mobile/MobileEditorShell.tsx
 
-## Design decisions
-- Portrait: stage 65% | waveform 52px | playbar 60px | bottomtab 56px+safe
-- Landscape: stage 60% left | right panel 40% (members+tools)
-- Bottom sheet: 3-col grid, section-labeled, same icon language as desktop
-- Cue list tab: filmstrip + list cards
-- Swipe stage = previous/next cue
-- Haptics on cue change
-- No text labels on icons except AI提案
-
-## Status
-- [x] MobilePlaybar
-- [x] MobileBottomTabBar  
-- [x] MobileToolSheet
-- [x] MobileCueList
-- [x] MobileEditorShell
-- [x] DesktopEditor wiring (early-return when mobileStackEditor=true)
-- [x] Build clean, pushed to main (commit 2905f6c)
-
-## Remaining / polish
-- [ ] Test on real device — check safe-area, touch targets, waveform height
-- [ ] Consider showing project title / back button in mobile header
-- [ ] Landscape: waveform in right panel or bottom of stage panel?
-- [ ] Stage swipe indicator (subtle "< >" arrows at edge when cues exist)
+## キーライン
+- cueListModalJSX: PC return内 line4777〜4856
+- stageAreaSettingsJSX: PC return内 line4859〜5266
+- mobileStackEditor return: line3395〜3432
+- onOpenCueListModal: line3329
+- キュー設定ボタンバグ: EditorStageWorkbench.tsx line643
