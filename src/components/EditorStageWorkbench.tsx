@@ -623,7 +623,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               style={tileBtn("#8b5cf6", stageAreaSettingsOpen)}
               disabled={isView}
               title="舞台・客席・グリッド・名前の出し方・この URL の共有・ショートカット"
-              onClick={act(() => setStageAreaSettingsOpen(true))}
+              onClick={act(() => onOpenCueListModal?.())}
             >
               <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
                 <path d="M3 18 L6 6 L18 6 L21 18 Z" stroke="#8b5cf6" strokeWidth="1.6" strokeLinejoin="round"/>
@@ -640,7 +640,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               style={tileBtn("#f59e0b")}
               disabled={isView}
               title="キュー設定"
-              onClick={act(() => setStageAreaSettingsOpen(true))}
+              onClick={act(() => onOpenCueListModal?.())}
             >
               <svg viewBox="0 0 24 24" width={28} height={28} fill="none" aria-hidden>
                 <path d="M4 5h16M4 9h16M4 13h10" stroke="#f59e0b" strokeWidth="1.8" strokeLinecap="round"/>

@@ -130,6 +130,9 @@ export function MobileEditorShell({
   );
 
   // ── Landscape layout ──────────────────────────────────────────────────
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
+
   if (landscape) {
     return (
       <div
@@ -142,14 +145,16 @@ export function MobileEditorShell({
           overflow: "hidden",
         }}
       >
-        {/* Stage area — 60% */}
+        {/* Stage area — flex grows when right panel is collapsed */}
         <div
           style={{
-            flex: "0 0 60%",
+            flex: rightPanelCollapsed ? "1 1 auto" : "0 0 60%",
             display: "flex",
             flexDirection: "column",
             minWidth: 0,
             overflow: "hidden",
+            position: "relative",
+            transition: "flex 0.25s ease",
           }}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
@@ -165,19 +170,53 @@ export function MobileEditorShell({
           <div style={{ flexShrink: 0, overflow: "hidden" }}>
             {timelinePanelEl}
           </div>
+
+          {/* Collapse/expand toggle button — right edge of stage */}
+          <button
+            type="button"
+            aria-label={rightPanelCollapsed ? "ツールパネルを開く" : "ツールパネルを閉じる"}
+            onClick={() => setRightPanelCollapsed((v) => !v)}
+            style={{
+              position: "absolute",
+              right: 0,
+              top: "50%",
+              transform: "translateY(-50%)",
+              width: 24,
+              height: 44,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: shell.surface,
+              border: `1px solid ${shell.border}`,
+              borderRight: "none",
+              borderRadius: "6px 0 0 6px",
+              cursor: "pointer",
+              zIndex: 10,
+              color: shell.textMuted ?? "#94a3b8",
+              fontSize: "10px",
+              padding: 0,
+              flexShrink: 0,
+            }}
+          >
+            {rightPanelCollapsed ? "▶" : "◀"}
+          </button>
         </div>
 
-        {/* Right panel — 40% */}
+        {/* Right panel — 40%, collapsible */}
         <div
           style={{
-            flex: "0 0 40%",
+            flex: rightPanelCollapsed ? "0 0 0%" : "0 0 40%",
             display: "flex",
             flexDirection: "column",
             borderLeft: `1px solid ${shell.border}`,
             minWidth: 0,
-            overflowY: "auto",
+            overflowY: rightPanelCollapsed ? "hidden" : "auto",
             WebkitOverflowScrolling: "touch",
             background: shell.surface,
+            opacity: rightPanelCollapsed ? 0 : 1,
+            pointerEvents: rightPanelCollapsed ? "none" : "auto",
+            transition: "flex 0.25s ease, opacity 0.2s ease",
+            overflow: "hidden",
           }}
         >
           <EditorStageWorkbench

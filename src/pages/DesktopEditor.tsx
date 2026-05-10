@@ -2995,6 +2995,500 @@ export function EditorPage({
     ]
   );
 
+  const cueListModalDialogEl = (
+    <>
+        {cueListModalOpen ? (
+          <EditorSideSheet
+            open
+            zIndex={2200}
+            width="min(440px, calc(100vw - 28px))"
+            onClose={() => setCueListModalOpen(false)}
+            ariaLabelledBy="cue-list-modal-title"
+          >
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                height: "100%",
+                minHeight: 0,
+                background: shell.surface,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 8,
+                  padding: "10px 12px",
+                  borderBottom: `1px solid ${shell.border}`,
+                  flexShrink: 0,
+                }}
+              >
+                <h2
+                  id="cue-list-modal-title"
+                  style={{
+                    margin: 0,
+                    fontSize: "14px",
+                    fontWeight: 600,
+                    color: shell.text,
+                  }}
+                >
+                  キュー一覧
+                </h2>
+                <button
+                  type="button"
+                  aria-label="閉じる"
+                  onClick={() => setCueListModalOpen(false)}
+                  style={{ ...btnSecondary, padding: "4px 10px" }}
+                >
+                  閉じる
+                </button>
+              </div>
+              <div
+                ref={setCueListPortalEl}
+                style={{
+                  flex: "1 1 auto",
+                  minHeight: 240,
+                  display: "flex",
+                  flexDirection: "column",
+                  overflow: "hidden",
+                }}
+              />
+            </div>
+          </EditorSideSheet>
+        ) : (
+          <div
+            ref={setCueListPortalEl}
+            aria-hidden
+            style={{
+              position: "fixed",
+              left: -32000,
+              top: 0,
+              width: 400,
+              height: 520,
+              overflow: "hidden",
+              opacity: 0,
+              pointerEvents: "none",
+              zIndex: -1,
+              display: "flex",
+              flexDirection: "column",
+            }}
+          />
+        )}
+    </>
+  );
+
+  const stageAreaSettingsDialogEl = stageAreaSettingsOpen ? (
+        <StageAreaSettingsSheet
+          stageAreaSettingsOpen={stageAreaSettingsOpen}
+          onClose={() => setStageAreaSettingsOpen(false)}
+        >
+          <div style={{ padding: "8px 10px 10px" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "8px",
+                marginBottom: "6px",
+              }}
+            >
+              <h3
+                id="stage-area-settings-title"
+                style={{
+                  margin: 0,
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  color: "#e2e8f0",
+                }}
+              >
+                ステージまわりの設定
+              </h3>
+              <button
+                type="button"
+                aria-label="閉じる（変更は破棄）"
+                onClick={() => setStageAreaSettingsOpen(false)}
+                style={{
+                  ...btnSecondary,
+                  fontSize: "16px",
+                  lineHeight: 1,
+                  padding: "2px 10px",
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={STAGE_AREA_SHEET_SECTION}>
+              <div
+                style={{
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  color: "#64748b",
+                  letterSpacing: "0.05em",
+                  marginBottom: "4px",
+                }}
+              >
+                客席の位置
+              </div>
+              <select
+                title="画面上辺または下辺のどちらを客席としてステージを回転表示するか"
+                value={stageAreaSettingsDraft.audienceEdge}
+                disabled={project.viewMode === "view"}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v !== "top" && v !== "bottom") return;
+                  setStageAreaSettingsDraft((d) => ({
+                    ...d,
+                    audienceEdge: v,
+                  }));
+                }}
+                aria-label="客席のある画面の上または下"
+                style={{
+                  width: "100%",
+                  padding: "5px 8px",
+                  borderRadius: "6px",
+                  border: "1px solid #334155",
+                  background: "#020617",
+                  color: "#e2e8f0",
+                  fontSize: "12px",
+                }}
+              >
+                {STAGE_AREA_AUDIENCE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    客席：画面の{o.label}側
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={STAGE_AREA_SHEET_SECTION}>
+              <div
+                style={{
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  color: "#64748b",
+                  letterSpacing: "0.05em",
+                  marginBottom: "2px",
+                }}
+              >
+                舞台の寸法
+              </div>
+              <p
+                style={{
+                  margin: "0 0 6px",
+                  fontSize: "10px",
+                  color: "#64748b",
+                  lineHeight: 1.35,
+                }}
+              >
+                m・cm（空欄＝未設定）。<strong style={{ color: "#cbd5e1" }}>決定</strong>で反映。
+              </p>
+              <StageAreaDimensionRows
+                disabled={project.viewMode === "view"}
+                draft={stageAreaSettingsDraft}
+                onChangeDraft={setStageAreaSettingsDraft}
+              />
+              <StageAreaPresetBlock
+                disabled={project.viewMode === "view"}
+                stageAreaPresetSelectNonce={stageAreaPresetSelectNonce}
+                stageAreaPresetList={stageAreaPresetList}
+                onChangeDraft={setStageAreaSettingsDraft}
+                onBumpPresetNonce={() => setStageAreaPresetSelectNonce((n) => n + 1)}
+                onSavePreset={() => {
+                  if (project.viewMode === "view") return;
+                  const d = stageAreaSettingsDraftRef.current;
+                  const dims = {
+                    stageWidthMm: parseMeterCmDraftToMm(d.width),
+                    stageDepthMm: parseMeterCmDraftToMm(d.depth),
+                    sideStageMm: parseMeterCmDraftToMm(d.side),
+                    backStageMm: parseMeterCmDraftToMm(d.back),
+                    centerFieldGuideIntervalMm: parseMeterCmDraftToMm(d.guide),
+                  };
+                  const defaultName = `舞台 ${stageAreaPresetList.length + 1}`;
+                  const name = window.prompt("保存する名前", defaultName);
+                  if (name === null) return;
+                  const result = saveStagePreset(name.trim() || defaultName, dims);
+                  if (!result.ok) {
+                    window.alert(result.message);
+                    return;
+                  }
+                  setStageAreaPresetList(listStagePresets());
+                }}
+              />
+              <button
+                type="button"
+                disabled={project.viewMode === "view"}
+                title="変形舞台・花道など（決定後に開くのが安全）"
+                onClick={() => {
+                  applyStageAreaSettingsDraft();
+                  setStageAreaSettingsOpen(false);
+                  setStageSettingsOpen(true);
+                }}
+                style={{
+                  ...btnSecondary,
+                  width: "100%",
+                  padding: "6px 10px",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                }}
+              >
+                形状・花道・詳細設定…
+              </button>
+            </div>
+
+            <div style={STAGE_AREA_SHEET_SECTION}>
+              <div
+                style={{
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  color: "#64748b",
+                  letterSpacing: "0.05em",
+                  marginBottom: "4px",
+                }}
+              >
+                グリッド
+              </div>
+              {!stageAreaDraftHasMainFloor ? (
+                <p
+                  style={{
+                    margin: "0 0 4px",
+                    fontSize: "10px",
+                    color: "#64748b",
+                    lineHeight: 1.35,
+                  }}
+                >
+                  幅・奥行入力後、<strong style={{ color: "#cbd5e1" }}>縦／横 cm</strong>
+                  で実寸の線間隔と表示を使えます。
+                </p>
+              ) : (
+                <p
+                  style={{
+                    margin: "0 0 4px",
+                    fontSize: "10px",
+                    color: "#64748b",
+                    lineHeight: 1.35,
+                  }}
+                >
+                  <strong style={{ color: "#cbd5e1" }}>縦</strong>＝幅方向、
+                  <strong style={{ color: "#cbd5e1" }}>横</strong>＝奥行。各 1〜100 cm（数字は直接入力可）。
+                </p>
+              )}
+              {!stageAreaDraftHasMainFloor ? (
+                <StageAreaGridStepControl
+                  disabled={project.viewMode === "view"}
+                  gridStep={stageAreaSettingsDraft.gridStep}
+                  onChangeDraft={setStageAreaSettingsDraft}
+                />
+              ) : null}
+              {stageAreaDraftHasMainFloor ? (
+                <StageAreaGridSpacingControls
+                  disabled={project.viewMode === "view"}
+                  gridWidthCmInput={gridWidthCmInput}
+                  gridDepthCmInput={gridDepthCmInput}
+                  onStageGridCmInput={onStageGridCmInput}
+                  commitStageGridCmInput={commitStageGridCmInput}
+                  startGridNudgeRepeat={startGridNudgeRepeat}
+                  stopGridNudgeRepeat={stopGridNudgeRepeat}
+                  nudgeStageGridCm={nudgeStageGridCm}
+                  gridNudgeDidRepeatRef={gridNudgeDidRepeatRef}
+                />
+              ) : null}
+              <StageAreaGridVisibilityToggles
+                disabled={project.viewMode === "view"}
+                hasMainFloor={stageAreaDraftHasMainFloor}
+                verticalEnabled={stageAreaSettingsDraft.stageGridLinesVerticalEnabled}
+                horizontalEnabled={stageAreaSettingsDraft.stageGridLinesHorizontalEnabled}
+                onChangeDraft={setStageAreaSettingsDraft}
+              />
+            </div>
+
+            <div style={STAGE_AREA_SHEET_SECTION}>
+              <div
+                style={{
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  color: "#64748b",
+                  letterSpacing: "0.05em",
+                  marginBottom: "4px",
+                }}
+              >
+                立ち位置の名前
+              </div>
+              <div
+                style={{ display: "flex", gap: "6px" }}
+                title="印の右クリックでも同様に選べます。"
+              >
+                <button
+                  type="button"
+                  disabled={project.viewMode === "view"}
+                  onClick={() =>
+                    setStageAreaSettingsDraft((d) => ({
+                      ...d,
+                      dancerLabelPosition: "inside",
+                    }))
+                  }
+                  style={{
+                    flex: 1,
+                    padding: "5px 8px",
+                    borderRadius: "6px",
+                    border:
+                      stageAreaSettingsDraft.dancerLabelPosition === "inside"
+                        ? "1px solid rgba(99,102,241,0.9)"
+                        : "1px solid #334155",
+                    background:
+                      stageAreaSettingsDraft.dancerLabelPosition === "inside"
+                        ? "rgba(99,102,241,0.22)"
+                        : "#020617",
+                    color:
+                      stageAreaSettingsDraft.dancerLabelPosition === "inside"
+                        ? "#e0e7ff"
+                        : "#94a3b8",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    cursor:
+                      project.viewMode === "view" ? "not-allowed" : "pointer",
+                  }}
+                >
+                  ○の中
+                </button>
+                <button
+                  type="button"
+                  disabled={project.viewMode === "view"}
+                  onClick={() =>
+                    setStageAreaSettingsDraft((d) => ({
+                      ...d,
+                      dancerLabelPosition: "below",
+                    }))
+                  }
+                  style={{
+                    flex: 1,
+                    padding: "5px 8px",
+                    borderRadius: "6px",
+                    border:
+                      stageAreaSettingsDraft.dancerLabelPosition === "below"
+                        ? "1px solid rgba(99,102,241,0.9)"
+                        : "1px solid #334155",
+                    background:
+                      stageAreaSettingsDraft.dancerLabelPosition === "below"
+                        ? "rgba(99,102,241,0.22)"
+                        : "#020617",
+                    color:
+                      stageAreaSettingsDraft.dancerLabelPosition === "below"
+                        ? "#e0e7ff"
+                        : "#94a3b8",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    cursor:
+                      project.viewMode === "view" ? "not-allowed" : "pointer",
+                  }}
+                >
+                  ○の外
+                </button>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: "8px",
+                marginBottom: "6px",
+              }}
+            >
+              <button
+                type="button"
+                disabled={project.viewMode === "view"}
+                onClick={() => {
+                  applyStageAreaSettingsDraft();
+                  setStageAreaSettingsOpen(false);
+                }}
+                style={{
+                  ...btnAccent,
+                  flex: 1,
+                  padding: "7px 10px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                }}
+              >
+                決定
+              </button>
+              <button
+                type="button"
+                onClick={() => setStageAreaSettingsOpen(false)}
+                style={{
+                  ...btnSecondary,
+                  flex: 1,
+                  padding: "7px 10px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                }}
+              >
+                取り消し
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "6px",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => void copyEditorShareLink()}
+                style={{
+                  ...btnSecondary,
+                  flex: "1 1 160px",
+                  padding: "6px 8px",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                }}
+              >
+                {shareLinkCopiedFlash
+                  ? "URL をコピーしました"
+                  : "URL を共有（コピー）"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setStageAreaSettingsOpen(false);
+                  setShareLinksOpen(true);
+                }}
+                style={{
+                  ...btnSecondary,
+                  flex: "1 1 160px",
+                  padding: "6px 8px",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  borderColor: "rgba(14, 165, 233, 0.5)",
+                }}
+                title="チーム用・生徒用のどちらかを選んで URL を発行"
+              >
+                共有 URL 発行
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setStageAreaSettingsOpen(false);
+                  setShortcutsHelpOpen(true);
+                }}
+                style={{
+                  ...btnSecondary,
+                  flex: "1 1 160px",
+                  padding: "6px 8px",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                }}
+              >
+                ショートカット・ヒント
+              </button>
+            </div>
+          </div>
+        </StageAreaSettingsSheet>
+      ) : null;
+
   const studentViewerFocusForStage = useMemo(() => {
     if (choreoPublicView) {
       if (!choreoStudentPick) return null;
@@ -3326,9 +3820,7 @@ export function EditorPage({
     hideFloorTextToolbar: false,
     hideUndoRedoInRail: showTopWaveDock,
     choreoToolbarProps: choreoToolbarSharedProps,
-    onOpenCueListModal: showTopWaveDock
-      ? () => setCueListModalOpen(true)
-      : undefined,
+    onOpenCueListModal: () => setCueListModalOpen(true),
     onOpenAudioImport: openAudioImport,
     onPreloadFfmpegForAudio: () => {
       void preloadFFmpeg();
@@ -3416,6 +3908,8 @@ export function EditorPage({
         {addCueDialogEl}
         {formationBoxManagerDialogEl}
         {rosterImportSheetEl}
+        {cueListModalDialogEl}
+        {stageAreaSettingsDialogEl}
 
         <MobileEditorShell
           workbenchProps={stageWorkbenchProps}
@@ -4772,499 +5266,9 @@ export function EditorPage({
         ) : null}
       </div>
 
-      {showTopWaveDock ? (
-        <>
-          {cueListModalOpen ? (
-            <EditorSideSheet
-              open
-              zIndex={2200}
-              width="min(440px, calc(100vw - 28px))"
-              onClose={() => setCueListModalOpen(false)}
-              ariaLabelledBy="cue-list-modal-title"
-            >
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  height: "100%",
-                  minHeight: 0,
-                  background: shell.surface,
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 8,
-                    padding: "10px 12px",
-                    borderBottom: `1px solid ${shell.border}`,
-                    flexShrink: 0,
-                  }}
-                >
-                  <h2
-                    id="cue-list-modal-title"
-                    style={{
-                      margin: 0,
-                      fontSize: "14px",
-                      fontWeight: 600,
-                      color: shell.text,
-                    }}
-                  >
-                    キュー一覧
-                  </h2>
-                  <button
-                    type="button"
-                    aria-label="閉じる"
-                    onClick={() => setCueListModalOpen(false)}
-                    style={{ ...btnSecondary, padding: "4px 10px" }}
-                  >
-                    閉じる
-                  </button>
-                </div>
-                <div
-                  ref={setCueListPortalEl}
-                  style={{
-                    flex: "1 1 auto",
-                    minHeight: 240,
-                    display: "flex",
-                    flexDirection: "column",
-                    overflow: "hidden",
-                  }}
-                />
-              </div>
-            </EditorSideSheet>
-          ) : (
-            <div
-              ref={setCueListPortalEl}
-              aria-hidden
-              style={{
-                position: "fixed",
-                left: -32000,
-                top: 0,
-                width: 400,
-                height: 520,
-                overflow: "hidden",
-                opacity: 0,
-                pointerEvents: "none",
-                zIndex: -1,
-                display: "flex",
-                flexDirection: "column",
-              }}
-            />
-          )}
-        </>
-      ) : null}
+      {cueListModalDialogEl}
 
-      {stageAreaSettingsOpen ? (
-        <StageAreaSettingsSheet
-          stageAreaSettingsOpen={stageAreaSettingsOpen}
-          onClose={() => setStageAreaSettingsOpen(false)}
-        >
-          <div style={{ padding: "8px 10px 10px" }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "8px",
-                marginBottom: "6px",
-              }}
-            >
-              <h3
-                id="stage-area-settings-title"
-                style={{
-                  margin: 0,
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  color: "#e2e8f0",
-                }}
-              >
-                ステージまわりの設定
-              </h3>
-              <button
-                type="button"
-                aria-label="閉じる（変更は破棄）"
-                onClick={() => setStageAreaSettingsOpen(false)}
-                style={{
-                  ...btnSecondary,
-                  fontSize: "16px",
-                  lineHeight: 1,
-                  padding: "2px 10px",
-                }}
-              >
-                ×
-              </button>
-            </div>
-
-            <div style={STAGE_AREA_SHEET_SECTION}>
-              <div
-                style={{
-                  fontSize: "10px",
-                  fontWeight: 700,
-                  color: "#64748b",
-                  letterSpacing: "0.05em",
-                  marginBottom: "4px",
-                }}
-              >
-                客席の位置
-              </div>
-              <select
-                title="画面上辺または下辺のどちらを客席としてステージを回転表示するか"
-                value={stageAreaSettingsDraft.audienceEdge}
-                disabled={project.viewMode === "view"}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v !== "top" && v !== "bottom") return;
-                  setStageAreaSettingsDraft((d) => ({
-                    ...d,
-                    audienceEdge: v,
-                  }));
-                }}
-                aria-label="客席のある画面の上または下"
-                style={{
-                  width: "100%",
-                  padding: "5px 8px",
-                  borderRadius: "6px",
-                  border: "1px solid #334155",
-                  background: "#020617",
-                  color: "#e2e8f0",
-                  fontSize: "12px",
-                }}
-              >
-                {STAGE_AREA_AUDIENCE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    客席：画面の{o.label}側
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div style={STAGE_AREA_SHEET_SECTION}>
-              <div
-                style={{
-                  fontSize: "10px",
-                  fontWeight: 700,
-                  color: "#64748b",
-                  letterSpacing: "0.05em",
-                  marginBottom: "2px",
-                }}
-              >
-                舞台の寸法
-              </div>
-              <p
-                style={{
-                  margin: "0 0 6px",
-                  fontSize: "10px",
-                  color: "#64748b",
-                  lineHeight: 1.35,
-                }}
-              >
-                m・cm（空欄＝未設定）。<strong style={{ color: "#cbd5e1" }}>決定</strong>で反映。
-              </p>
-              <StageAreaDimensionRows
-                disabled={project.viewMode === "view"}
-                draft={stageAreaSettingsDraft}
-                onChangeDraft={setStageAreaSettingsDraft}
-              />
-              <StageAreaPresetBlock
-                disabled={project.viewMode === "view"}
-                stageAreaPresetSelectNonce={stageAreaPresetSelectNonce}
-                stageAreaPresetList={stageAreaPresetList}
-                onChangeDraft={setStageAreaSettingsDraft}
-                onBumpPresetNonce={() => setStageAreaPresetSelectNonce((n) => n + 1)}
-                onSavePreset={() => {
-                  if (project.viewMode === "view") return;
-                  const d = stageAreaSettingsDraftRef.current;
-                  const dims = {
-                    stageWidthMm: parseMeterCmDraftToMm(d.width),
-                    stageDepthMm: parseMeterCmDraftToMm(d.depth),
-                    sideStageMm: parseMeterCmDraftToMm(d.side),
-                    backStageMm: parseMeterCmDraftToMm(d.back),
-                    centerFieldGuideIntervalMm: parseMeterCmDraftToMm(d.guide),
-                  };
-                  const defaultName = `舞台 ${stageAreaPresetList.length + 1}`;
-                  const name = window.prompt("保存する名前", defaultName);
-                  if (name === null) return;
-                  const result = saveStagePreset(name.trim() || defaultName, dims);
-                  if (!result.ok) {
-                    window.alert(result.message);
-                    return;
-                  }
-                  setStageAreaPresetList(listStagePresets());
-                }}
-              />
-              <button
-                type="button"
-                disabled={project.viewMode === "view"}
-                title="変形舞台・花道など（決定後に開くのが安全）"
-                onClick={() => {
-                  applyStageAreaSettingsDraft();
-                  setStageAreaSettingsOpen(false);
-                  setStageSettingsOpen(true);
-                }}
-                style={{
-                  ...btnSecondary,
-                  width: "100%",
-                  padding: "6px 10px",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                }}
-              >
-                形状・花道・詳細設定…
-              </button>
-            </div>
-
-            <div style={STAGE_AREA_SHEET_SECTION}>
-              <div
-                style={{
-                  fontSize: "10px",
-                  fontWeight: 700,
-                  color: "#64748b",
-                  letterSpacing: "0.05em",
-                  marginBottom: "4px",
-                }}
-              >
-                グリッド
-              </div>
-              {!stageAreaDraftHasMainFloor ? (
-                <p
-                  style={{
-                    margin: "0 0 4px",
-                    fontSize: "10px",
-                    color: "#64748b",
-                    lineHeight: 1.35,
-                  }}
-                >
-                  幅・奥行入力後、<strong style={{ color: "#cbd5e1" }}>縦／横 cm</strong>
-                  で実寸の線間隔と表示を使えます。
-                </p>
-              ) : (
-                <p
-                  style={{
-                    margin: "0 0 4px",
-                    fontSize: "10px",
-                    color: "#64748b",
-                    lineHeight: 1.35,
-                  }}
-                >
-                  <strong style={{ color: "#cbd5e1" }}>縦</strong>＝幅方向、
-                  <strong style={{ color: "#cbd5e1" }}>横</strong>＝奥行。各 1〜100 cm（数字は直接入力可）。
-                </p>
-              )}
-              {!stageAreaDraftHasMainFloor ? (
-                <StageAreaGridStepControl
-                  disabled={project.viewMode === "view"}
-                  gridStep={stageAreaSettingsDraft.gridStep}
-                  onChangeDraft={setStageAreaSettingsDraft}
-                />
-              ) : null}
-              {stageAreaDraftHasMainFloor ? (
-                <StageAreaGridSpacingControls
-                  disabled={project.viewMode === "view"}
-                  gridWidthCmInput={gridWidthCmInput}
-                  gridDepthCmInput={gridDepthCmInput}
-                  onStageGridCmInput={onStageGridCmInput}
-                  commitStageGridCmInput={commitStageGridCmInput}
-                  startGridNudgeRepeat={startGridNudgeRepeat}
-                  stopGridNudgeRepeat={stopGridNudgeRepeat}
-                  nudgeStageGridCm={nudgeStageGridCm}
-                  gridNudgeDidRepeatRef={gridNudgeDidRepeatRef}
-                />
-              ) : null}
-              <StageAreaGridVisibilityToggles
-                disabled={project.viewMode === "view"}
-                hasMainFloor={stageAreaDraftHasMainFloor}
-                verticalEnabled={stageAreaSettingsDraft.stageGridLinesVerticalEnabled}
-                horizontalEnabled={stageAreaSettingsDraft.stageGridLinesHorizontalEnabled}
-                onChangeDraft={setStageAreaSettingsDraft}
-              />
-            </div>
-
-            <div style={STAGE_AREA_SHEET_SECTION}>
-              <div
-                style={{
-                  fontSize: "10px",
-                  fontWeight: 700,
-                  color: "#64748b",
-                  letterSpacing: "0.05em",
-                  marginBottom: "4px",
-                }}
-              >
-                立ち位置の名前
-              </div>
-              <div
-                style={{ display: "flex", gap: "6px" }}
-                title="印の右クリックでも同様に選べます。"
-              >
-                <button
-                  type="button"
-                  disabled={project.viewMode === "view"}
-                  onClick={() =>
-                    setStageAreaSettingsDraft((d) => ({
-                      ...d,
-                      dancerLabelPosition: "inside",
-                    }))
-                  }
-                  style={{
-                    flex: 1,
-                    padding: "5px 8px",
-                    borderRadius: "6px",
-                    border:
-                      stageAreaSettingsDraft.dancerLabelPosition === "inside"
-                        ? "1px solid rgba(99,102,241,0.9)"
-                        : "1px solid #334155",
-                    background:
-                      stageAreaSettingsDraft.dancerLabelPosition === "inside"
-                        ? "rgba(99,102,241,0.22)"
-                        : "#020617",
-                    color:
-                      stageAreaSettingsDraft.dancerLabelPosition === "inside"
-                        ? "#e0e7ff"
-                        : "#94a3b8",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    cursor:
-                      project.viewMode === "view" ? "not-allowed" : "pointer",
-                  }}
-                >
-                  ○の中
-                </button>
-                <button
-                  type="button"
-                  disabled={project.viewMode === "view"}
-                  onClick={() =>
-                    setStageAreaSettingsDraft((d) => ({
-                      ...d,
-                      dancerLabelPosition: "below",
-                    }))
-                  }
-                  style={{
-                    flex: 1,
-                    padding: "5px 8px",
-                    borderRadius: "6px",
-                    border:
-                      stageAreaSettingsDraft.dancerLabelPosition === "below"
-                        ? "1px solid rgba(99,102,241,0.9)"
-                        : "1px solid #334155",
-                    background:
-                      stageAreaSettingsDraft.dancerLabelPosition === "below"
-                        ? "rgba(99,102,241,0.22)"
-                        : "#020617",
-                    color:
-                      stageAreaSettingsDraft.dancerLabelPosition === "below"
-                        ? "#e0e7ff"
-                        : "#94a3b8",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    cursor:
-                      project.viewMode === "view" ? "not-allowed" : "pointer",
-                  }}
-                >
-                  ○の外
-                </button>
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                gap: "8px",
-                marginBottom: "6px",
-              }}
-            >
-              <button
-                type="button"
-                disabled={project.viewMode === "view"}
-                onClick={() => {
-                  applyStageAreaSettingsDraft();
-                  setStageAreaSettingsOpen(false);
-                }}
-                style={{
-                  ...btnAccent,
-                  flex: 1,
-                  padding: "7px 10px",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                }}
-              >
-                決定
-              </button>
-              <button
-                type="button"
-                onClick={() => setStageAreaSettingsOpen(false)}
-                style={{
-                  ...btnSecondary,
-                  flex: 1,
-                  padding: "7px 10px",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                }}
-              >
-                取り消し
-              </button>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "6px",
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => void copyEditorShareLink()}
-                style={{
-                  ...btnSecondary,
-                  flex: "1 1 160px",
-                  padding: "6px 8px",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                }}
-              >
-                {shareLinkCopiedFlash
-                  ? "URL をコピーしました"
-                  : "URL を共有（コピー）"}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setStageAreaSettingsOpen(false);
-                  setShareLinksOpen(true);
-                }}
-                style={{
-                  ...btnSecondary,
-                  flex: "1 1 160px",
-                  padding: "6px 8px",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                  borderColor: "rgba(14, 165, 233, 0.5)",
-                }}
-                title="チーム用・生徒用のどちらかを選んで URL を発行"
-              >
-                共有 URL 発行
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setStageAreaSettingsOpen(false);
-                  setShortcutsHelpOpen(true);
-                }}
-                style={{
-                  ...btnSecondary,
-                  flex: "1 1 160px",
-                  padding: "6px 8px",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                }}
-              >
-                ショートカット・ヒント
-              </button>
-            </div>
-          </div>
-        </StageAreaSettingsSheet>
-      ) : null}
+      {stageAreaSettingsDialogEl}
 
       {stageSettingsOpen ? (
         <EditorSideSheet
