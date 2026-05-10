@@ -145,7 +145,7 @@ function round2Pct(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-const EDITOR_WIDE_MIN_PX = 1280;
+const EDITOR_WIDE_MIN_PX = 1024;
 /**
  * スマホ向け縦積みレイアウト：ビューポートの短い辺が未満ならモバイル扱い。
  * 横向きで幅だけ広い（≥768）ときも電話 UI に乗せる。
@@ -926,6 +926,11 @@ export function EditorPage({
   }>();
   const navigate = useNavigate();
   const location = useLocation();
+  // Stable refs to avoid re-triggering the load useEffect on navigation state changes
+  const navigateRef = useRef(navigate);
+  const locationRef = useRef(location);
+  useEffect(() => { navigateRef.current = navigate; }, [navigate]);
+  useEffect(() => { locationRef.current = location; }, [location]);
   const [searchParams] = useSearchParams();
   /** `useState`+`resize` より購読が明示的で、ビルド差分での未定義参照を避ける */
   const editorViewportKey = useSyncExternalStore(
@@ -1371,7 +1376,7 @@ export function EditorPage({
       editorSeed?: ChoreographyProjectJson;
       editorSeedProjectId?: number;
     };
-    const nav = (location.state ?? null) as NavSeed | null;
+    const nav = (locationRef.current.state ?? null) as NavSeed | null;
     if (
       !collabParam &&
       nav?.editorSeed &&
@@ -1386,8 +1391,8 @@ export function EditorPage({
       // editorSeed を使ったのでキャッシュも更新
       editorProjectCache.set(id, seeded);
       skipNextProjectFetchRef.current = id;
-      navigate(
-        { pathname: location.pathname, search: location.search },
+      navigateRef.current(
+        { pathname: locationRef.current.pathname, search: locationRef.current.search },
         { replace: true, state: {} }
       );
       return;
@@ -1459,11 +1464,9 @@ export function EditorPage({
     collabParam,
     me,
     authReady,
-    location.state,
-    location.pathname,
-    location.search,
-    navigate,
     choreoPublicView,
+    // location.state / navigate は ref 経由で参照するため依存配列から除外
+    // （navigate({replace,state:{}}) 呼び出しで再フェッチが起きるのを防ぐ）
   ]);
 
   useEffect(() => {
