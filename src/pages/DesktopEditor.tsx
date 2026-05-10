@@ -3777,7 +3777,7 @@ export function EditorPage({
       }
       editorMobileStack={false}
       compactDockLeading={mobileStackEditor ? undefined : mobileTimelineDockLeading}
-      cueListPortalTarget={showTopWaveDock ? cueListPortalEl : null}
+      cueListPortalTarget={showTopWaveDock || mobileStackEditor ? cueListPortalEl : null}
       onSave={() => setFlowLibraryOpen(true)}
     />
   );
