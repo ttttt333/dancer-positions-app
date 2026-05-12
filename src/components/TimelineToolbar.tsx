@@ -50,7 +50,7 @@ function IconPlay({ color = "#22c55e", size = 20 }: { color?: string; size?: num
   );
 }
 
-function IconPause({ color = "#f59e0b", size = 20 }: { color?: string; size?: number }) {
+function IconPause({ color = "#ef4444", size = 20 }: { color?: string; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden style={{ display: "block" }}>
       <circle cx="12" cy="12" r="10" stroke={color} strokeWidth="1.5" fill={color + "18"}/>
@@ -321,15 +321,15 @@ function PlaybarCenter({
           display: "inline-flex", alignItems: "center", justifyContent: "center",
           width: bigSz, height: bigSz, minWidth: bigSz, padding: 0,
           borderRadius: Math.round(bigSz * 0.5),
-          border: `1.5px solid ${isPlaying ? "#f59e0b70" : "#22c55e70"}`,
-          background: isPlaying ? "#f59e0b20" : "#22c55e20",
+          border: `1.5px solid ${isPlaying ? "#ef444470" : "#22c55e70"}`,
+          background: isPlaying ? "#ef444420" : "#22c55e20",
           backdropFilter: "blur(8px)",
           cursor: noEdit ? "not-allowed" : "pointer",
           opacity: noEdit ? 0.38 : 1,
           transition: "all 0.14s ease",
           flexShrink: 0,
           boxShadow: isPlaying
-            ? "0 0 14px rgba(245,158,11,0.25)"
+            ? "0 0 14px rgba(239,68,68,0.30)"
             : "0 0 14px rgba(34,197,94,0.2)",
         }}
         disabled={noEdit}
@@ -338,7 +338,7 @@ function PlaybarCenter({
         title={isPlaying ? "一時停止" : "再生"}
       >
         {isPlaying
-          ? <IconPause color="#f59e0b" size={Math.round(bigSz * 0.62)} />
+          ? <IconPause color="#ef4444" size={Math.round(bigSz * 0.62)} />
           : <IconPlay  color="#22c55e" size={Math.round(bigSz * 0.62)} />
         }
       </button>
@@ -528,10 +528,10 @@ export function TimelineToolbar({
             <IconSeekBack color="#38bdf8" size={Math.round(mSz * 0.62)} />
           </button>
           <button type="button"
-            style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: mBigSz, height: mBigSz, minWidth: mBigSz, padding: 0, borderRadius: mBigSz, border: `1.5px solid ${isPlaying ? "#f59e0b70" : "#22c55e70"}`, background: isPlaying ? "#f59e0b20" : "#22c55e20", backdropFilter: "blur(6px)", cursor: noEdit ? "not-allowed" : "pointer", opacity: noEdit ? 0.38 : 1, flexShrink: 0 }}
+            style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: mBigSz, height: mBigSz, minWidth: mBigSz, padding: 0, borderRadius: mBigSz, border: `1.5px solid ${isPlaying ? "#ef444470" : "#22c55e70"}`, background: isPlaying ? "#ef444420" : "#22c55e20", backdropFilter: "blur(6px)", cursor: noEdit ? "not-allowed" : "pointer", opacity: noEdit ? 0.38 : 1, flexShrink: 0 }}
             disabled={noEdit} onClick={togglePlay} aria-label={isPlaying ? "一時停止" : "再生"} title={isPlaying ? "一時停止" : "再生"}
           >
-            {isPlaying ? <IconPause color="#f59e0b" size={Math.round(mBigSz * 0.62)} /> : <IconPlay color="#22c55e" size={Math.round(mBigSz * 0.62)} />}
+            {isPlaying ? <IconPause color="#ef4444" size={Math.round(mBigSz * 0.62)} /> : <IconPlay color="#22c55e" size={Math.round(mBigSz * 0.62)} />}
           </button>
           <button type="button" style={iconBtn("#94a3b8", mSz, noAudio)} disabled={noAudio} title="先頭へ" aria-label="先頭へ" onClick={stopPlayback}>
             <IconStop color="#94a3b8" size={Math.round(mSz * 0.62)} />

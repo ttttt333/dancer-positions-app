@@ -1155,6 +1155,7 @@ export function EditorPage({
   }, [serverId, serverShareToken]);
 
   const storageRemindHandledRef = useRef(false);
+  const newProjectInitializedRef = useRef(false);
   useEffect(() => {
     storageRemindHandledRef.current = false;
   }, [viewerLocalStorageKey]);
@@ -1335,6 +1336,9 @@ export function EditorPage({
 
     /** 新規は API・ログイン不要のため認証待ちを挟まず即表示（立ち上げ短縮） */
     if (projectId === "new" || !projectId) {
+      // 他ページ遷移後に戻っても再初期化しない（立ち位置消失バグ対策）
+      if (newProjectInitializedRef.current) return;
+      newProjectInitializedRef.current = true;
       // 新しい保存システムからデータを読み込み
       const savedProject = loadProject();
       const migrated = tryMigrateFromLocalStorage();
@@ -2111,6 +2115,7 @@ export function EditorPage({
 
   useEffect(() => {
     lastFormationIdForStageRef.current = null;
+    newProjectInitializedRef.current = false;
   }, [projectId]);
 
   /**
