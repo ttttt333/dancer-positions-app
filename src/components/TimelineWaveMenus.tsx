@@ -255,7 +255,7 @@ export function TimelineWaveMenus({
               8,
               Math.min(
                 gapRouteMenu.clientX,
-                (typeof window !== "undefined" ? window.innerWidth : 800) - 420
+                (typeof window !== "undefined" ? window.innerWidth : 800) - 576
               )
             ),
             top: Math.max(
@@ -266,7 +266,7 @@ export function TimelineWaveMenus({
               )
             ),
             zIndex: 2499,
-            width: "min(400px, calc(100vw - 16px))",
+            width: "min(560px, calc(100vw - 16px))",
             maxHeight: "min(82vh, 680px)",
             overflowY: "auto",
             padding: "12px",
@@ -307,17 +307,7 @@ export function TimelineWaveMenus({
               <div style={{ borderTop: `1px solid ${shell.border}`, margin: "8px 0" }} />
             </>
           )}
-          <div
-            style={{
-              fontSize: "12px",
-              fontWeight: 600,
-              color: "#94a3b8",
-              marginBottom: "10px",
-              lineHeight: 1.45,
-            }}
-          >
-            直前のキュー終了〜このキュー開始の動き方（全員一括）。上手＝画面右（x 大）、客席側＝手前（y 大）。
-          </div>
+
           {GAP_APPROACH_OPTIONS.map((opt) => (
             <button
               key={opt.id}
