@@ -93,7 +93,7 @@ export function useEditorProjectLoader({
 
     if (projectId === "new" || !projectId) {
       const migrated = tryMigrateFromLocalStorage();
-      setPlainProject(migrated ?? createEmptyProject());
+      setPlainProject((prev) => prev ?? migrated ?? createEmptyProject());
       setServerId(null);
       setServerShareToken(null);
       setLoadError(null);

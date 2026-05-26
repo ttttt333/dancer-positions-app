@@ -186,6 +186,9 @@ export function EditorPage({
   const { t } = useI18n();
   const collabParam = searchParams.get("collab") === "1" && !choreoPublicView;
   const onHistoryResetRef = useRef<() => void>(() => {});
+  const onHistoryReset = useCallback(() => {
+    onHistoryResetRef.current();
+  }, []);
   const loader = useEditorProjectLoader({
     projectId,
     shareTokenParam,
@@ -195,7 +198,7 @@ export function EditorPage({
     authReady,
     location,
     navigate,
-    onHistoryReset: () => onHistoryResetRef.current(),
+    onHistoryReset,
   });
   const {
     plainProject,

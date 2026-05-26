@@ -22,6 +22,9 @@ export const useStageBoardInteractionStore = create<StageBoardInteractionStore>(
             ? (next as (p: string[]) => string[])(s.selectedDancerIds)
             : next,
       })),
-    clearSelectedDancers: () => set({ selectedDancerIds: [] }),
+    clearSelectedDancers: () =>
+      set((s) =>
+        s.selectedDancerIds.length === 0 ? s : { selectedDancerIds: [] },
+      ),
   }),
 );

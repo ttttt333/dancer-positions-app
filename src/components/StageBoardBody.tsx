@@ -528,12 +528,17 @@ export function StageBoardBody({
       ? editFormationId
       : activeFormationId;
 
+  const lastFormationResetIdRef = useRef<string | null>(null);
+
   useEffect(() => {
+    if (lastFormationResetIdRef.current === formationIdForWrites) return;
+    lastFormationResetIdRef.current = formationIdForWrites;
+
     onGestureHistoryCancel?.();
-    setDancerQuickEditId(null);
+    setDancerQuickEditId((id) => (id === null ? id : null));
     clearSelectedDancers();
-    setStageContextMenu(null);
-    setSelectedSetPieceId(null);
+    setStageContextMenu((m) => (m === null ? m : null));
+    setSelectedSetPieceId((id) => (id === null ? id : null));
     setMarquee(null);
     marqueeSessionRef.current = null;
     groupDragRef.current = null;
@@ -549,13 +554,22 @@ export function StageBoardBody({
     setMarkerFacingDraft(null);
     setMarkerGroupPosDraft(null);
     setDragGhostById(null);
-    setFloorMarkupTool(null);
+    setFloorMarkupTool((tool) => (tool === null ? tool : null));
     floorLineSessionRef.current = null;
     setFloorLineDraft(null);
-    setFloorTextDraft({ ...EMPTY_FLOOR_TEXT_DRAFT });
-    setFloorTextEditId(null);
-    setSelectedFloorTextId(null);
-    setSelectedFloorTextIds([]);
+    setFloorTextDraft((draft) => {
+      try {
+        if (JSON.stringify(draft) === JSON.stringify(EMPTY_FLOOR_TEXT_DRAFT)) {
+          return draft;
+        }
+      } catch {
+        /** fall through */
+      }
+      return { ...EMPTY_FLOOR_TEXT_DRAFT };
+    });
+    setFloorTextEditId((id) => (id === null ? id : null));
+    setSelectedFloorTextId((id) => (id === null ? id : null));
+    setSelectedFloorTextIds((ids) => (ids.length === 0 ? ids : []));
     setFloorTextInlineRect(null);
     setShowStageDancerColorToolbar(false);
     setBulkHideDancerGlyphs(false);
