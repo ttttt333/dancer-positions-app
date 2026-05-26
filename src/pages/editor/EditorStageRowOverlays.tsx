@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import { useSafeElementRef } from "./useSafeElementRef";
 import { Link } from "react-router-dom";
 import { ChoreoCoreLogo } from "../../components/ChoreoGridLogo";
 import { StageBoard } from "../../components/StageBoard";
@@ -230,6 +231,10 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
   const workbenchInRightRail = props.workbenchInRightRail as never;
   const xPct = props.xPct as never;
   const yPct = props.yPct as never;
+
+  const attachCueListPortalEl = useSafeElementRef(setCueListPortalEl);
+  const attachTextPanelPortalEl = useSafeElementRef(setTextPanelPortalEl);
+
   return (
     <>
       {showTopWaveDock ? (
@@ -362,7 +367,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                 </div>
                 {/* ポータルターゲット（非表示で維持） */}
                 <div
-                  ref={setCueListPortalEl}
+                  ref={attachCueListPortalEl}
                   aria-hidden
                   style={{ position: "absolute", left: -32000, top: 0, width: 400, height: 520, overflow: "hidden", opacity: 0, pointerEvents: "none", zIndex: -1, display: "flex", flexDirection: "column" }}
                 />
@@ -370,7 +375,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
             </EditorSideSheet>
           ) : (
             <div
-              ref={setCueListPortalEl}
+              ref={attachCueListPortalEl}
               aria-hidden
               style={{
                 position: "fixed",
@@ -1438,7 +1443,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
               </button>
             </div>
             {/* ポータルターゲット（後方互換用、実UIはこの下に直書き） */}
-            <div ref={setTextPanelPortalEl} style={{ display: "none" }} />
+            <div ref={attachTextPanelPortalEl} style={{ display: "none" }} />
 
             {/* ── テキスト入力UI（スクロール不要・全要素を一画面に収める） ── */}
             <div
