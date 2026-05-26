@@ -668,6 +668,26 @@ app.post("/api/projects", authMiddleware, requireAuth, (req, res) => {
   if (json == null) {
     return res.status(400).json({ error: "json が必要です" });
   }
+
+  // Freeプランの作品数制限（3作品まで）
+  const user = db
+    .prepare("SELECT entitlement_lifetime, subscription_status FROM users WHERE id = ?")
+    .get(req.userId);
+  const isPro =
+    user?.entitlement_lifetime === 1 ||
+    user?.subscription_status === "active";
+  if (!isPro) {
+    const count = db
+      .prepare("SELECT COUNT(*) AS cnt FROM projects WHERE user_id = ?")
+      .get(req.userId)?.cnt ?? 0;
+    if (count >= 3) {
+      return res.status(403).json({
+        error: "free_limit",
+        message: "無料プランは3作品までです。Proにアップグレードすると無制限になります。",
+      });
+    }
+  }
+
   const now = new Date().toISOString();
   const info = db
     .prepare(

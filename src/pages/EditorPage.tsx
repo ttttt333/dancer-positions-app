@@ -106,7 +106,7 @@ import { EditorSideSheet } from "../components/EditorSideSheet";
 import { ExportDialog } from "../components/ExportDialog";
 import { FlowLibraryDialog } from "../components/FlowLibraryDialog";
 import { AddCueWithFormationDialog } from "../components/AddCueWithFormationDialog";
-import { projectApi } from "../api/client";
+import { billingApi, projectApi } from "../api/client";
 import { isSupabaseBackend } from "../lib/supabaseClient";
 import { projectShareLinks } from "../lib/shareProjectLinks";
 import { useAuth } from "../context/AuthContext";
@@ -2617,7 +2617,27 @@ export function EditorPage({
       if (row.share_token) setServerShareToken(row.share_token);
       return { id: serverId, share_token: row.share_token ?? null };
     }
-    const row = await projectApi.create(title, body);
+    let row: Awaited<ReturnType<typeof projectApi.create>>;
+    try {
+      row = await projectApi.create(title, body);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "";
+      if (msg.includes("free_limit") || msg.includes("無料プラン")) {
+        const goUpgrade = window.confirm(
+          "無料プランの作品数上限（3作品）に達しました。\nProにアップグレードすると無制限になります。\n\nアップグレードページを開きますか？"
+        );
+        if (goUpgrade) {
+          try {
+            const { url } = await billingApi.createCheckoutSession();
+            window.location.href = url;
+          } catch {
+            window.location.href = "/";
+          }
+        }
+        throw e;
+      }
+      throw e;
+    }
     setServerId(row.id);
     if (row.share_token) setServerShareToken(row.share_token);
     navigate(`/editor/${row.id}`, {

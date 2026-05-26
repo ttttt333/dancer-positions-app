@@ -72,6 +72,12 @@ export function DashboardPage() {
     }
   };
 
+  const isPro =
+    me?.user?.entitlement_lifetime === 1 ||
+    me?.user?.subscription_status === "active";
+  const projectLimit = isPro ? Infinity : 3;
+  const nearLimit = !isPro && projects.length >= 2;
+
   const del = async (id: number) => {
     if (!confirm(t("dashboard.deleteConfirm"))) return;
     try {
@@ -238,19 +244,48 @@ export function DashboardPage() {
             style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}
           >
             <span style={{ fontSize: "12px", color: shell.textMuted }}>{me.user.email}</span>
-            {me.user.subscription_status ? (
-              <span style={{ fontSize: "11px", color: "#86efac" }}>
-                {t("dashboard.subscription")}: {me.user.subscription_status}
+            {isPro ? (
+              <span style={{
+                fontSize: "11px",
+                fontWeight: 700,
+                color: "#fff",
+                background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                padding: "3px 9px",
+                borderRadius: 20,
+                letterSpacing: "0.05em",
+              }}>
+                ✦ PRO
               </span>
-            ) : null}
-            <button
-              type="button"
-              style={{ ...btnSecondary, padding: "6px 12px", fontSize: "12px" }}
-              title="Stripe でサブスクリプション（要 STRIPE_PRICE_ID）"
-              onClick={() => void startStripeSubscription()}
-            >
-              {t("dashboard.subscriptionStripe")}
-            </button>
+            ) : (
+              <span style={{
+                fontSize: "11px",
+                color: shell.textMuted,
+                padding: "3px 9px",
+                border: `1px solid ${shell.border}`,
+                borderRadius: 20,
+              }}>
+                FREE {projects.length}/3
+              </span>
+            )}
+            {!isPro && (
+              <button
+                type="button"
+                style={{
+                  padding: "6px 14px",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  border: "none",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                  color: "#fff",
+                  letterSpacing: "0.03em",
+                }}
+                onClick={() => void startStripeSubscription()}
+              >
+                Pro にアップグレード
+              </button>
+            )}
             <Link
               to="/video"
               style={{ ...btnSecondary, padding: "6px 12px", fontSize: "12px", textDecoration: "none" }}
@@ -293,6 +328,49 @@ export function DashboardPage() {
             {t("dashboard.demoSessionBanner")}
           </div>
         ) : null}
+
+        {/* Freeプラン制限バナー */}
+        {nearLimit && !isPro ? (
+          <div style={{
+            ...panelCard,
+            padding: "14px 16px",
+            marginBottom: 20,
+            border: "1px solid rgba(99, 102, 241, 0.5)",
+            background: "rgba(99, 102, 241, 0.08)",
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: "12px 16px",
+            justifyContent: "space-between",
+          }}>
+            <div>
+              <div style={{ fontSize: "13px", fontWeight: 600, color: "#a5b4fc", marginBottom: 4 }}>
+                {projects.length >= 3 ? "作品数の上限に達しました" : "作品数が上限に近づいています"}
+              </div>
+              <div style={{ fontSize: "12px", color: shell.textMuted, lineHeight: 1.5 }}>
+                無料プランは3作品まで。Proにアップグレードすると作品数が無制限になります。
+              </div>
+            </div>
+            <button
+              type="button"
+              style={{
+                padding: "8px 18px",
+                fontSize: "13px",
+                fontWeight: 700,
+                border: "none",
+                borderRadius: 8,
+                cursor: "pointer",
+                background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                color: "#fff",
+                whiteSpace: "nowrap",
+                flexShrink: 0,
+              }}
+              onClick={() => void startStripeSubscription()}
+            >
+              Pro にアップグレード →
+            </button>
+          </div>
+        ) : null}
         <div
           className="app-dashboard-hero"
           style={{
@@ -312,21 +390,42 @@ export function DashboardPage() {
               {t("dashboard.subtitle")}
             </p>
           </div>
-          <Link
-            to="/editor/new"
-            style={{
-              ...btnAccent,
-              textDecoration: "none",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: "12px 22px",
-              fontSize: "14px",
-              flexShrink: 0,
-            }}
-          >
-            {t("dashboard.newProject")}
-          </Link>
+          {!isPro && projects.length >= projectLimit ? (
+            <button
+              type="button"
+              style={{
+                ...btnAccent,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "12px 22px",
+                fontSize: "14px",
+                flexShrink: 0,
+                background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                border: "none",
+                cursor: "pointer",
+              }}
+              onClick={() => void startStripeSubscription()}
+            >
+              Pro で作品を追加 →
+            </button>
+          ) : (
+            <Link
+              to="/editor/new"
+              style={{
+                ...btnAccent,
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "12px 22px",
+                fontSize: "14px",
+                flexShrink: 0,
+              }}
+            >
+              {t("dashboard.newProject")}
+            </Link>
+          )}
         </div>
 
         {accountNotice ? (
