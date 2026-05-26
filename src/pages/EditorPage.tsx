@@ -106,7 +106,6 @@ import { EditorSideSheet } from "../components/EditorSideSheet";
 import { ExportDialog } from "../components/ExportDialog";
 import { FlowLibraryDialog } from "../components/FlowLibraryDialog";
 import { AddCueWithFormationDialog } from "../components/AddCueWithFormationDialog";
-import { billingApi, projectApi } from "../api/client";
 import { isSupabaseBackend } from "../lib/supabaseClient";
 import { projectShareLinks } from "../lib/shareProjectLinks";
 import { useAuth } from "../context/AuthContext";
@@ -153,640 +152,24 @@ import {
 } from "./editor/editorLayoutStorage";
 import { readMaxStageWidthPx, round2Pct, studentPickToStageFocus } from "./editor/editorStageLayout";
 import { useEditorViewport } from "./editor/editorViewport";
+import { EditorPageStatus } from "./editor/EditorPageStatus";
+import { EditorPageLayout } from "./editor/EditorPageLayout";
+import type { EditorLayoutProps } from "./editor/editorLayoutProps";
+import {
+  clampGridSpacingCm,
+  clampGuideIntervalToWidth,
+  emptyStageAreaSettingsDraft,
+  parseGridSpacingInput,
+  parseMeterCmDraftToMm,
+  projectToStageAreaDraft,
+  type StageAreaSettingsDraft,
+} from "./editor/stageAreaSettingsDraft";
+import { useEditorProjectLoader } from "../hooks/useEditorProjectLoader";
+import { useEditorHistory } from "../hooks/useEditorHistory";
+import { useEditorCloudSave } from "../hooks/useEditorCloudSave";
 
 
 const DEFAULT_ROSTER_CONFIRM_PRESET: LayoutPresetId = "rows_3";
-
-/** ステージ「設定」パネル：客席は画面上辺・下辺のみ */
-const STAGE_AREA_AUDIENCE_OPTIONS: {
-  value: ChoreographyProjectJson["audienceEdge"];
-  label: string;
-}[] = [
-  { value: "top", label: "上" },
-  { value: "bottom", label: "下" },
-];
-
-/** m/cm の古いドラフト型（内部互換用） */
-type StageAreaMeterCmDraft = { m: string; cm: string };
-
-function clampStageMainMm(mm: number): number {
-  if (!Number.isFinite(mm) || mm <= 0) return 0;
-  return Math.min(STAGE_MAIN_FLOOR_MM_MAX, Math.round(mm));
-}
-
-/** mm → "12.50" (m単位小数文字列) */
-function mmToDecimalDraft(mm: number | null | undefined): string {
-  if (mm == null || mm <= 0) return "";
-  const u = mmToMeterCm(clampStageMainMm(mm));
-  const total = u.m + u.cm / 100;
-  return total % 1 === 0 ? String(total) : total.toFixed(2).replace(/0+$/, "");
-}
-
-/** "12.5" → 12500mm, "" → null */
-function parseDecimalDraftToMm(s: string): number | null {
-  const t = s.trim();
-  if (t === "") return null;
-  const v = parseFloat(t);
-  if (!Number.isFinite(v) || v <= 0) return null;
-  return clampStageMainMm(Math.round(v * 1000));
-}
-
-/** mm → { m: "12", cm: "50" } */
-function mmToMeterCmDraft(mm: number | null | undefined): StageAreaMeterCmDraft {
-  if (mm == null || mm <= 0) return { m: "", cm: "" };
-  const clamped = clampStageMainMm(mm);
-  const mVal = Math.floor(clamped / 1000);
-  const cmRaw = Math.round((clamped % 1000) / 10) * 10; // 10mm=1cm刻み
-  const cmVal = Math.min(cmRaw, 90); // 最大 90cm（5cm刻み用に後で使う）
-  return { m: String(mVal), cm: String(cmVal) };
-}
-
-/** { m: "12", cm: "50" } → 12500mm */
-function parseMeterCmDraftToMm(d: StageAreaMeterCmDraft): number | null {
-  const mInt = parseInt(d.m, 10);
-  const cmInt = parseInt(d.cm, 10);
-  if (!Number.isFinite(mInt) || mInt < 0) return null;
-  const cmSafe = Number.isFinite(cmInt) && cmInt >= 0 ? cmInt : 0;
-  const total = mInt * 1000 + cmSafe * 10;
-  if (total <= 0) return null;
-  return clampStageMainMm(total);
-}
-
-const STAGE_AREA_DIM_ROWS: {
-  key: "width" | "depth" | "side" | "back" | "guide";
-  title: string;
-}[] = [
-  { key: "width", title: "メイン幅（上手〜下手）" },
-  { key: "depth", title: "奥行（客席方向）" },
-  { key: "side", title: "サイド（片側）" },
-  { key: "back", title: "バック" },
-  { key: "guide", title: "場ミリ（センターから）" },
-];
-
-/** 場ミリはメイン幅の半分以下（`StageDimensionFields` と同じ） */
-function clampGuideIntervalToWidth(
-  widthMm: number | null,
-  intervalMm: number | null
-): number | null {
-  if (intervalMm == null || widthMm == null || widthMm <= 0) return intervalMm;
-  const maxHalf = Math.max(1, Math.floor(widthMm / 2));
-  return Math.min(Math.max(1, Math.floor(intervalMm)), maxHalf);
-}
-
-type StageAreaSettingsDraft = {
-  audienceEdge: ChoreographyProjectJson["audienceEdge"];
-  width: StageAreaMeterCmDraft;
-  depth: StageAreaMeterCmDraft;
-  side: StageAreaMeterCmDraft;
-  back: StageAreaMeterCmDraft;
-  guide: StageAreaMeterCmDraft;
-  gridStep: number;
-  stageGridLinesVerticalEnabled: boolean;
-  stageGridLinesHorizontalEnabled: boolean;
-  gridWidthCm: number;
-  gridDepthCm: number;
-  dancerLabelPosition: "inside" | "below";
-};
-
-function emptyStageAreaSettingsDraft(): StageAreaSettingsDraft {
-  return {
-    audienceEdge: "bottom",
-    width: { m: "", cm: "" },
-    depth: { m: "", cm: "" },
-    side: { m: "", cm: "" },
-    back: { m: "", cm: "" },
-    guide: { m: "", cm: "" },
-    gridStep: 1,
-    stageGridLinesVerticalEnabled: false,
-    stageGridLinesHorizontalEnabled: false,
-    gridWidthCm: 1,
-    gridDepthCm: 1,
-    dancerLabelPosition: "inside",
-  };
-}
-
-function clampGridSpacingCm(raw: number): number {
-  if (!Number.isFinite(raw)) return 1;
-  return Math.max(1, Math.min(100, Math.round(raw)));
-}
-
-function parseGridSpacingInput(raw: string): number {
-  const normalized = raw
-    .replace(/[０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0))
-    .replace(/[^\d]/g, "");
-  return Number(normalized);
-}
-
-function projectToStageAreaDraft(p: ChoreographyProjectJson): StageAreaSettingsDraft {
-  const gridWmm = p.stageGridSpacingWidthMm ?? p.stageGridLineSpacingMm ?? 10;
-  const gridDmm = p.stageGridSpacingDepthMm ?? p.stageGridLineSpacingMm ?? 10;
-  return {
-    audienceEdge: p.audienceEdge,
-    width: mmToMeterCmDraft(p.stageWidthMm),
-    depth: mmToMeterCmDraft(p.stageDepthMm),
-    side: mmToMeterCmDraft(p.sideStageMm),
-    back: mmToMeterCmDraft(p.backStageMm),
-    guide: mmToMeterCmDraft(p.centerFieldGuideIntervalMm),
-    gridStep: p.gridStep,
-    stageGridLinesVerticalEnabled:
-      p.stageGridLinesVerticalEnabled ?? p.stageGridLinesEnabled ?? false,
-    stageGridLinesHorizontalEnabled:
-      p.stageGridLinesHorizontalEnabled ?? p.stageGridLinesEnabled ?? false,
-    gridWidthCm: clampGridSpacingCm(gridWmm / 10),
-    gridDepthCm: clampGridSpacingCm(gridDmm / 10),
-    dancerLabelPosition: p.dancerLabelPosition ?? "inside",
-  };
-}
-
-const STAGE_AREA_DIM_INPUT: CSSProperties = {
-  width: "52px",
-  padding: "4px 6px",
-  borderRadius: "5px",
-  border: "1px solid #334155",
-  background: "#0f172a",
-  color: "#e2e8f0",
-  fontSize: "12px",
-};
-const STAGE_AREA_DIM_INPUT_CM: CSSProperties = {
-  ...STAGE_AREA_DIM_INPUT,
-  width: "44px",
-};
-
-const STAGE_AREA_SHEET_SECTION: CSSProperties = {
-  borderRadius: "10px",
-  border: "1px solid rgba(99,102,241,0.15)",
-  background: "linear-gradient(135deg, rgba(15,23,42,0.8) 0%, rgba(30,41,59,0.5) 100%)",
-  backdropFilter: "blur(6px)",
-  padding: "8px 10px",
-  marginBottom: "6px",
-};
-
-type StageAreaSettingsSheetProps = {
-  stageAreaSettingsOpen: boolean;
-  onClose: () => void;
-  children: ReactNode;
-};
-
-const StageAreaSettingsSheet = memo(function StageAreaSettingsSheet({
-  stageAreaSettingsOpen,
-  onClose,
-  children,
-}: StageAreaSettingsSheetProps) {
-  if (!stageAreaSettingsOpen) return null;
-  return (
-    <EditorSideSheet
-      open
-      zIndex={61}
-      width="min(320px, calc(100vw - 16px))"
-      onClose={onClose}
-      ariaLabelledBy="stage-area-settings-title"
-    >
-      {children}
-    </EditorSideSheet>
-  );
-});
-
-type StageAreaDimensionRowsProps = {
-  disabled: boolean;
-  draft: StageAreaSettingsDraft;
-  onChangeDraft: Dispatch<SetStateAction<StageAreaSettingsDraft>>;
-};
-
-const M_OPTIONS = Array.from({ length: 100 }, (_, i) => i); // 0..99
-const CM_OPTIONS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95];
-
-const selectStyle: CSSProperties = {
-  padding: "5px 4px",
-  borderRadius: "6px",
-  border: "1px solid rgba(51,65,85,0.8)",
-  background: "#0f172a",
-  color: "#e2e8f0",
-  fontSize: "12px",
-  outline: "none",
-  cursor: "pointer",
-};
-
-const StageAreaDimensionRows = memo(function StageAreaDimensionRows({
-  disabled,
-  draft,
-  onChangeDraft,
-}: StageAreaDimensionRowsProps) {
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 8px", marginBottom: "6px" }}>
-      {STAGE_AREA_DIM_ROWS.map((row) => {
-        const hasVal = draft[row.key].m !== "" || draft[row.key].cm !== "";
-        return (
-          <div key={row.key} style={row.key === "guide" ? { gridColumn: "1 / -1" } : {}}>
-            <div style={{ fontSize: "10px", color: "rgba(148,163,184,0.8)", marginBottom: "4px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              {row.title}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "3px", minWidth: 0 }}>
-              <select
-                disabled={disabled}
-                value={draft[row.key].m}
-                onChange={(e) =>
-                  onChangeDraft((d) => ({
-                    ...d,
-                    [row.key]: { ...d[row.key], m: e.target.value },
-                  }))
-                }
-                aria-label={`${row.title} m`}
-                style={{
-                  ...selectStyle,
-                  flex: "0 0 auto",
-                  width: "48px",
-                  padding: "5px 2px",
-                  border: hasVal ? "1px solid rgba(99,102,241,0.5)" : "1px solid rgba(51,65,85,0.8)",
-                }}
-              >
-                <option value="">-</option>
-                {M_OPTIONS.map((v) => (
-                  <option key={v} value={String(v)}>{v}</option>
-                ))}
-              </select>
-              <span style={{ fontSize: "10px", color: "rgba(148,163,184,0.5)", flexShrink: 0 }}>m</span>
-              <select
-                disabled={disabled}
-                value={draft[row.key].cm}
-                onChange={(e) =>
-                  onChangeDraft((d) => ({
-                    ...d,
-                    [row.key]: { ...d[row.key], cm: e.target.value },
-                  }))
-                }
-                aria-label={`${row.title} cm`}
-                style={{
-                  ...selectStyle,
-                  flex: "0 0 auto",
-                  width: "48px",
-                  padding: "5px 2px",
-                  border: hasVal ? "1px solid rgba(99,102,241,0.5)" : "1px solid rgba(51,65,85,0.8)",
-                }}
-              >
-                <option value="0">0</option>
-                {CM_OPTIONS.filter(v => v > 0).map((v) => (
-                  <option key={v} value={String(v)}>{v}</option>
-                ))}
-              </select>
-              <span style={{ fontSize: "10px", color: "rgba(148,163,184,0.5)", flexShrink: 0 }}>cm</span>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-});
-
-type StageAreaPresetBlockProps = {
-  disabled: boolean;
-  stageAreaPresetSelectNonce: number;
-  stageAreaPresetList: StagePresetItem[];
-  onChangeDraft: Dispatch<SetStateAction<StageAreaSettingsDraft>>;
-  onBumpPresetNonce: () => void;
-  onSavePreset: () => void;
-};
-
-const StageAreaPresetBlock = memo(function StageAreaPresetBlock({
-  disabled,
-  stageAreaPresetSelectNonce,
-  stageAreaPresetList,
-  onChangeDraft,
-  onBumpPresetNonce,
-  onSavePreset,
-}: StageAreaPresetBlockProps) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexWrap: "wrap",
-        gap: "6px",
-        alignItems: "flex-end",
-        marginTop: "6px",
-        marginBottom: "6px",
-      }}
-    >
-      <label
-        style={{
-          flex: "1 1 140px",
-          minWidth: 0,
-          fontSize: "10px",
-          fontWeight: 700,
-          color: "#64748b",
-          letterSpacing: "0.04em",
-        }}
-      >
-        保存済みから読込
-        <select
-          key={stageAreaPresetSelectNonce}
-          defaultValue=""
-          disabled={disabled || stageAreaPresetList.length === 0}
-          title="端末に保存した寸法セットを入力欄に読み込み（決定で反映）"
-          onChange={(e) => {
-            const id = e.target.value;
-            if (!id) return;
-            const item = stageAreaPresetList.find((x) => x.id === id);
-            if (!item) return;
-            onChangeDraft((d) => ({
-              ...d,
-              width: mmToMeterCmDraft(item.stageWidthMm),
-              depth: mmToMeterCmDraft(item.stageDepthMm),
-              side: mmToMeterCmDraft(item.sideStageMm),
-              back: mmToMeterCmDraft(item.backStageMm),
-              guide: mmToMeterCmDraft(item.centerFieldGuideIntervalMm),
-            }));
-            onBumpPresetNonce();
-          }}
-          style={{
-            width: "100%",
-            marginTop: "3px",
-            padding: "5px 8px",
-            borderRadius: "6px",
-            border: "1px solid #334155",
-            background: "#020617",
-            color: "#e2e8f0",
-            fontSize: "11px",
-          }}
-        >
-          <option value="">{stageAreaPresetList.length === 0 ? "（なし）" : "選ぶ…"}</option>
-          {stageAreaPresetList.map((pr) => (
-            <option key={pr.id} value={pr.id}>
-              {pr.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <button
-        type="button"
-        disabled={disabled}
-        title="現在の入力を名前付きで保存"
-        onClick={onSavePreset}
-        style={{
-          ...btnSecondary,
-          flex: "0 0 auto",
-          padding: "6px 10px",
-          fontSize: "11px",
-          fontWeight: 600,
-        }}
-      >
-        名前で保存
-      </button>
-    </div>
-  );
-});
-
-type StageAreaGridStepControlProps = {
-  disabled: boolean;
-  gridStep: number;
-  onChangeDraft: Dispatch<SetStateAction<StageAreaSettingsDraft>>;
-};
-
-const GRID_STEP_OPTIONS = [0.5, 1, 2, 5, 10];
-
-const StageAreaGridStepControl = memo(function StageAreaGridStepControl({
-  disabled,
-  gridStep,
-  onChangeDraft,
-}: StageAreaGridStepControlProps) {
-  return (
-    <div style={{ marginBottom: "6px" }} title="幅・奥行が未設定のときの％刻み（参考用）">
-      <div style={{ fontSize: "10px", color: "#94a3b8", marginBottom: "5px" }}>
-        グリッド刻み（寸法なし時）
-      </div>
-      <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
-        {GRID_STEP_OPTIONS.map((step) => {
-          const active = gridStep === step;
-          return (
-            <button
-              key={step}
-              type="button"
-              disabled={disabled}
-              onClick={() => onChangeDraft((d) => ({ ...d, gridStep: step }))}
-              style={{
-                padding: "4px 9px",
-                borderRadius: "6px",
-                border: active ? "1px solid rgba(99,102,241,0.7)" : "1px solid rgba(51,65,85,0.6)",
-                background: active ? "rgba(99,102,241,0.2)" : "rgba(15,23,42,0.5)",
-                color: active ? "#a5b4fc" : "rgba(100,116,139,0.8)",
-                fontSize: "11px",
-                fontWeight: active ? 700 : 400,
-                cursor: disabled ? "not-allowed" : "pointer",
-                transition: "all 0.1s",
-              }}
-            >
-              {step}%
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-});
-
-type StageAreaGridSpacingControlsProps = {
-  disabled: boolean;
-  gridWidthCmInput: string;
-  gridDepthCmInput: string;
-  onStageGridCmInput: (axis: "width" | "depth", raw: string) => void;
-  commitStageGridCmInput: (axis: "width" | "depth") => void;
-  startGridNudgeRepeat: (axis: "width" | "depth", delta: number) => void;
-  stopGridNudgeRepeat: () => void;
-  nudgeStageGridCm: (axis: "width" | "depth", delta: number) => void;
-  gridNudgeDidRepeatRef: MutableRefObject<boolean>;
-};
-
-const StageAreaGridSpacingControls = memo(function StageAreaGridSpacingControls({
-  disabled,
-  gridWidthCmInput,
-  gridDepthCmInput,
-  onStageGridCmInput,
-  commitStageGridCmInput,
-  startGridNudgeRepeat,
-  stopGridNudgeRepeat,
-  nudgeStageGridCm,
-  gridNudgeDidRepeatRef,
-}: StageAreaGridSpacingControlsProps) {
-  const renderInput = (axis: "width" | "depth", label: string, value: string) => (
-    <label style={{ fontSize: "10px", color: "#94a3b8" }}>
-      {label}
-      <div
-        style={{
-          marginTop: "3px",
-          display: "grid",
-          gridTemplateColumns: "1fr 28px 28px",
-          gap: "4px",
-          alignItems: "center",
-        }}
-      >
-        <input
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          value={value}
-          disabled={disabled}
-          onChange={(e) => onStageGridCmInput(axis, e.target.value)}
-          onBlur={() => commitStageGridCmInput(axis)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              commitStageGridCmInput(axis);
-            }
-          }}
-          aria-label={`${label}（センチ）`}
-          style={{
-            width: "100%",
-            padding: "4px 8px",
-            borderRadius: "5px",
-            border: "1px solid #334155",
-            background: "#020617",
-            color: "#e2e8f0",
-            fontSize: "11px",
-            textAlign: "center",
-          }}
-        />
-        <button
-          type="button"
-          disabled={disabled}
-          onPointerDown={(e) => {
-            if (disabled) return;
-            e.preventDefault();
-            startGridNudgeRepeat(axis, -1);
-          }}
-          onPointerUp={stopGridNudgeRepeat}
-          onPointerCancel={stopGridNudgeRepeat}
-          onPointerLeave={stopGridNudgeRepeat}
-          onClick={() => {
-            if (disabled) return;
-            if (gridNudgeDidRepeatRef.current) {
-              gridNudgeDidRepeatRef.current = false;
-              return;
-            }
-            nudgeStageGridCm(axis, -1);
-          }}
-          style={{
-            ...btnSecondary,
-            padding: "3px 0",
-            fontSize: "12px",
-            fontWeight: 700,
-            lineHeight: 1.1,
-          }}
-        >
-          −
-        </button>
-        <button
-          type="button"
-          disabled={disabled}
-          onPointerDown={(e) => {
-            if (disabled) return;
-            e.preventDefault();
-            startGridNudgeRepeat(axis, 1);
-          }}
-          onPointerUp={stopGridNudgeRepeat}
-          onPointerCancel={stopGridNudgeRepeat}
-          onPointerLeave={stopGridNudgeRepeat}
-          onClick={() => {
-            if (disabled) return;
-            if (gridNudgeDidRepeatRef.current) {
-              gridNudgeDidRepeatRef.current = false;
-              return;
-            }
-            nudgeStageGridCm(axis, 1);
-          }}
-          style={{
-            ...btnSecondary,
-            padding: "3px 0",
-            fontSize: "12px",
-            fontWeight: 700,
-            lineHeight: 1.1,
-          }}
-        >
-          ＋
-        </button>
-      </div>
-    </label>
-  );
-  return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gap: "6px",
-        marginBottom: "6px",
-      }}
-    >
-      {renderInput("width", "幅方向（cm）", gridWidthCmInput)}
-      {renderInput("depth", "奥行方向（cm）", gridDepthCmInput)}
-    </div>
-  );
-});
-
-type StageAreaGridVisibilityTogglesProps = {
-  disabled: boolean;
-  hasMainFloor: boolean;
-  verticalEnabled: boolean;
-  horizontalEnabled: boolean;
-  onChangeDraft: Dispatch<SetStateAction<StageAreaSettingsDraft>>;
-};
-
-const StageAreaGridVisibilityToggles = memo(function StageAreaGridVisibilityToggles({
-  disabled,
-  hasMainFloor,
-  verticalEnabled,
-  horizontalEnabled,
-  onChangeDraft,
-}: StageAreaGridVisibilityTogglesProps) {
-  const canToggle = !disabled && hasMainFloor;
-  const toggleStyle = (active: boolean): CSSProperties => ({
-    flex: 1,
-    padding: "7px 8px",
-    borderRadius: "8px",
-    border: active
-      ? "1px solid rgba(99,102,241,0.7)"
-      : "1px solid rgba(51,65,85,0.6)",
-    background: active ? "rgba(99,102,241,0.18)" : "rgba(15,23,42,0.5)",
-    color: active ? "#a5b4fc" : "rgba(100,116,139,0.7)",
-    fontSize: "11px",
-    fontWeight: active ? 700 : 400,
-    cursor: canToggle ? "pointer" : "not-allowed",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "5px",
-    transition: "all 0.15s",
-    opacity: hasMainFloor ? 1 : 0.45,
-  });
-  return (
-    <div style={{ display: "flex", gap: "6px", marginTop: "6px" }}>
-      <button
-        type="button"
-        disabled={!canToggle}
-        onClick={() => onChangeDraft((d) => ({ ...d, stageGridLinesVerticalEnabled: !verticalEnabled }))}
-        title="幅方向（画面上では縦に走る線）"
-        style={toggleStyle(verticalEnabled)}
-      >
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <line x1="12" y1="3" x2="12" y2="21" />
-          <line x1="6" y1="3" x2="6" y2="21" />
-          <line x1="18" y1="3" x2="18" y2="21" />
-        </svg>
-        縦線
-      </button>
-      <button
-        type="button"
-        disabled={!canToggle}
-        onClick={() => onChangeDraft((d) => ({ ...d, stageGridLinesHorizontalEnabled: !horizontalEnabled }))}
-        title="奥行方向（画面上では横に走る線）"
-        style={toggleStyle(horizontalEnabled)}
-      >
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <line x1="3" y1="12" x2="21" y2="12" />
-          <line x1="3" y1="6" x2="21" y2="6" />
-          <line x1="3" y1="18" x2="21" y2="18" />
-        </svg>
-        横線
-      </button>
-    </div>
-  );
-});
 
 export function EditorPage({
   choreoPublicView = false,
@@ -804,16 +187,49 @@ export function EditorPage({
   const { me, ready: authReady } = useAuth();
   const { t } = useI18n();
   const collabParam = searchParams.get("collab") === "1" && !choreoPublicView;
-  const [plainProject, setPlainProject] = useState<ChoreographyProjectJson | null>(null);
-  const [projectName, setProjectName] = useState("無題の作品");
-  const [serverId, setServerId] = useState<number | null>(null);
-  /** Supabase: 生徒用閲覧 URL `/view/s/{token}` 用。従来 API では null のまま */
-  const [serverShareToken, setServerShareToken] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  /** 初回クラウド保存直後の GET をスキップ（画面を空にしない） */
-  const skipNextProjectFetchRef = useRef<number | null>(null);
-  const [cloudSaveDialogOpen, setCloudSaveDialogOpen] = useState(false);
+  const onHistoryResetRef = useRef<() => void>(() => {});
+  const loader = useEditorProjectLoader({
+    projectId,
+    shareTokenParam,
+    choreoPublicView,
+    collabParam,
+    me,
+    authReady,
+    location,
+    navigate,
+    onHistoryReset: () => onHistoryResetRef.current(),
+  });
+  const {
+    plainProject,
+    setPlainProject,
+    projectName,
+    setProjectName,
+    serverId,
+    setServerId,
+    serverShareToken,
+    setServerShareToken,
+    loadError,
+    saving,
+    setSaving,
+    skipNextProjectFetchRef,
+    projectSaveRef,
+  } = loader;
+  const {
+    cloudSaveDialogOpen,
+    setCloudSaveDialogOpen,
+    syncProjectToCloud,
+    performCloudSave,
+  } = useEditorCloudSave({
+    me,
+    projectName,
+    serverId,
+    projectSaveRef,
+    setProjectName,
+    setServerId,
+    setServerShareToken,
+    setSaving,
+    navigate,
+  });
   const currentTime = usePlaybackUiStore((s) => s.currentTimeSec);
   const isPlaying = usePlaybackUiStore((s) => s.isPlaying);
   const setIsPlaying = usePlaybackUiStore((s) => s.setIsPlaying);
@@ -971,11 +387,6 @@ export function EditorPage({
   /** 舞台設定の保存・復元に使う直前のフォーメーション id（キュー／アクティブ切替） */
   const lastFormationIdForStageRef = useRef<string | null>(null);
 
-  const historyRef = useRef<{ undo: string[]; redo: string[] }>({
-    undo: [],
-    redo: [],
-  });
-
   const collabActive =
     collabParam &&
     !!me &&
@@ -984,9 +395,38 @@ export function EditorPage({
     projectId !== "new";
 
   const yjsCollab = useYjsCollaboration(serverId, collabActive);
+
+  const projectForHistoryRef = useRef<ChoreographyProjectJson | null>(null);
+  const projectPagerRef = useRef<ChoreographyProjectJson | null>(null);
+
+  const history = useEditorHistory({
+    collabActive,
+    yjsCollab,
+    plainProject,
+    setPlainProject,
+    projectForHistoryRef,
+  });
+  onHistoryResetRef.current = history.clearHistory;
+
+  const {
+    cancelGestureHistory,
+    beginGestureHistory,
+    endGestureHistory,
+    markHistorySkipNextPush,
+    setProjectSafe,
+    undo,
+    redo,
+    isUndoDisabled: stageUndoDisabledFromHistory,
+    isRedoDisabled: stageRedoDisabledFromHistory,
+  } = history;
+
   const project = collabActive ? yjsCollab.project : plainProject;
   const projectRef = useRef(project);
   projectRef.current = project;
+  if (project) {
+    projectForHistoryRef.current = project;
+    projectPagerRef.current = project;
+  }
 
   /** キュー内容・区間・フォーメーション紐付けの変化検知（共同編集で project 参照だけが毎回変わるのを避ける） */
   const cueIdsSig =
@@ -1058,77 +498,6 @@ export function EditorPage({
     }
   }, [choreoPublicView, viewerLocalStorageKey, choreoStudentPick]);
 
-  /** ドラッグ中は毎フレーム積まない。離したときだけ 1 手分を積む（StageBoard の立ち位置ドラッグ用） */
-  const gestureHistoryDepthRef = useRef(0);
-  const gestureHistoryBaselineRef = useRef<string | null>(null);
-  const skipNextHistoryPushRef = useRef(false);
-  const projectForHistoryRef = useRef<ChoreographyProjectJson | null>(null);
-  if (project) {
-    projectForHistoryRef.current = project;
-  }
-
-  /** `jumpToPagerSlot` が名簿取り込み直後などで古い `project` を参照しないようにする */
-  const projectPagerRef = useRef<ChoreographyProjectJson | null>(null);
-  if (project) {
-    projectPagerRef.current = project;
-  }
-
-  /**
-   * クラウド保存は確認ダイアログ経由で非同期に走るため、`useCallback` が掴む `project` が
-   * 編集前のスナップショットのまま残ることがある。保存直前は常に ref の最新値を送る。
-   */
-  const projectSaveRef = useRef<ChoreographyProjectJson | null>(null);
-  if (project) {
-    projectSaveRef.current = project;
-  } else {
-    projectSaveRef.current = null;
-  }
-
-  const cancelGestureHistory = useCallback(() => {
-    gestureHistoryDepthRef.current = 0;
-    gestureHistoryBaselineRef.current = null;
-  }, []);
-
-  const beginGestureHistory = useCallback(() => {
-    if (collabActive) return;
-    gestureHistoryDepthRef.current += 1;
-    if (
-      gestureHistoryDepthRef.current === 1 &&
-      projectForHistoryRef.current != null
-    ) {
-      gestureHistoryBaselineRef.current = JSON.stringify(
-        projectForHistoryRef.current
-      );
-    }
-  }, [collabActive]);
-
-  const endGestureHistory = useCallback(() => {
-    if (collabActive) return;
-    if (gestureHistoryDepthRef.current <= 0) return;
-    gestureHistoryDepthRef.current -= 1;
-    if (gestureHistoryDepthRef.current !== 0) return;
-    const baseline = gestureHistoryBaselineRef.current;
-    gestureHistoryBaselineRef.current = null;
-    if (!baseline) return;
-    const cur = projectForHistoryRef.current;
-    if (!cur) return;
-    let curStr: string;
-    try {
-      curStr = JSON.stringify(cur);
-    } catch {
-      return;
-    }
-    if (curStr === baseline) return;
-    const { undo, redo } = historyRef.current;
-    if (undo.length >= HISTORY_CAP) undo.shift();
-    undo.push(baseline);
-    redo.length = 0;
-  }, [collabActive]);
-
-  const markHistorySkipNextPush = useCallback(() => {
-    skipNextHistoryPushRef.current = true;
-  }, []);
-
   /**
    * 上部波形ドック時は右列を狭くする（未ロード時は false で右列を広めに確保）。
    * ワイドでは名簿モードでも常に上部ドックを使う（`showTopWaveDock` と揃え Timeline をアンマウントしない）。
@@ -1152,145 +521,7 @@ export function EditorPage({
     prevShowTopWaveDockRef.current = showTopWaveDockForGrid;
   }, [showTopWaveDockForGrid]);
 
-  /** FFmpeg.wasm は音源取り込みボタン押下時のみロードする（バックグラウンド自動 DL だとタブのスピナーが常時表示されてしまうため削除） */
-
-  useEffect(() => {
-    /** 生徒用: /view/s/{token} かつログイン不要（Supabase RPC） */
-    if (choreoPublicView && shareTokenParam) {
-      let cancelled = false;
-      (async () => {
-        setPlainProject(null);
-        setLoadError(null);
-        setServerShareToken(shareTokenParam);
-        try {
-          if (!isSupabaseBackend()) {
-            if (!cancelled) {
-              setLoadError("共有閲覧には VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY の設定が必要です。");
-            }
-            return;
-          }
-          const row = await projectApi.getByShareToken(shareTokenParam);
-          if (cancelled) return;
-          setServerId(row.id);
-          setServerShareToken(row.share_token ?? shareTokenParam);
-          setProjectName(row.name);
-          const baseJson = normalizeProject(row.json);
-          setPlainProject({ ...baseJson, viewMode: "view" });
-          setLoadError(null);
-          historyRef.current = { undo: [], redo: [] };
-        } catch (e) {
-          if (!cancelled) {
-            setLoadError(e instanceof Error ? e.message : "読み込み失敗");
-          }
-        }
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    /** 新規は API・ログイン不要のため認証待ちを挟まず即表示（立ち上げ短縮） */
-    if (projectId === "new" || !projectId) {
-      const migrated = tryMigrateFromLocalStorage();
-      setPlainProject(migrated ?? createEmptyProject());
-      setServerId(null);
-      setServerShareToken(null);
-      setLoadError(null);
-      historyRef.current = { undo: [], redo: [] };
-      return;
-    }
-
-    const id = Number(projectId);
-    if (!Number.isFinite(id)) {
-      setPlainProject(null);
-      setLoadError("無効な ID");
-      return;
-    }
-
-    /** 共同編集だけ「未ログイン」と区別するために認証確定を待つ */
-    if (collabParam) {
-      if (!authReady) {
-        setPlainProject(null);
-        setLoadError(null);
-        return;
-      }
-      if (!me) {
-        setPlainProject(null);
-        setLoadError("共同編集にはログインが必要です");
-        return;
-      }
-    }
-
-    if (skipNextProjectFetchRef.current === id) {
-      skipNextProjectFetchRef.current = null;
-      return;
-    }
-
-    type NavSeed = {
-      editorSeed?: ChoreographyProjectJson;
-      editorSeedProjectId?: number;
-    };
-    const nav = (location.state ?? null) as NavSeed | null;
-    if (
-      !collabParam &&
-      nav?.editorSeed &&
-      nav.editorSeedProjectId === id
-    ) {
-      const seeded = normalizeProject(nav.editorSeed);
-      setPlainProject(seeded);
-      setServerId(id);
-      const title = seeded.pieceTitle?.trim() || "無題の作品";
-      setProjectName(title);
-      setLoadError(null);
-      skipNextProjectFetchRef.current = id;
-      navigate(
-        { pathname: location.pathname, search: location.search },
-        { replace: true, state: {} }
-      );
-      return;
-    }
-
-    let cancelled = false;
-    (async () => {
-      setPlainProject(null);
-      setLoadError(null);
-      try {
-        const row = await projectApi.get(id);
-        if (cancelled) return;
-        setServerId(row.id);
-        setServerShareToken(row.share_token ?? null);
-        setProjectName(row.name);
-        const baseJson = normalizeProject(row.json);
-        if (collabParam && me) {
-          setPlainProject(null);
-        } else {
-          setPlainProject(
-            choreoPublicView ? { ...baseJson, viewMode: "view" } : baseJson
-          );
-        }
-        setLoadError(null);
-        historyRef.current = { undo: [], redo: [] };
-      } catch (e) {
-        if (!cancelled) {
-          setLoadError(e instanceof Error ? e.message : "読み込み失敗");
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    projectId,
-    shareTokenParam,
-    collabParam,
-    me,
-    authReady,
-    location.state,
-    location.pathname,
-    location.search,
-    navigate,
-    choreoPublicView,
-  ]);
+  /** FFmpeg.wasm は音源取り込みボタン押下時のみロードする */
 
   useEffect(() => {
     const mq = window.matchMedia(`(min-width: ${EDITOR_WIDE_MIN_PX}px)`);
@@ -1524,249 +755,6 @@ export function EditorPage({
     editorFixedWaveDockLayout,
     choreoPublicView,
   ]);
-
-  const setProjectSafePlain: Dispatch<SetStateAction<ChoreographyProjectJson>> =
-    useCallback((action) => {
-      setPlainProject((prev) => {
-        if (!prev) return prev;
-        const next =
-          typeof action === "function"
-            ? (action as (p: ChoreographyProjectJson) => ChoreographyProjectJson)(prev)
-            : action;
-        if (next === prev) return prev;
-        let unchanged = false;
-        try {
-          unchanged = JSON.stringify(next) === JSON.stringify(prev);
-        } catch {
-          unchanged = false;
-        }
-        if (unchanged) return prev;
-        if (skipNextHistoryPushRef.current) {
-          skipNextHistoryPushRef.current = false;
-          return next;
-        }
-        if (gestureHistoryDepthRef.current > 0) {
-          return next;
-        }
-        const { undo, redo } = historyRef.current;
-        if (undo.length >= HISTORY_CAP) undo.shift();
-        undo.push(JSON.stringify(prev));
-        redo.length = 0;
-        return next;
-      });
-    }, []);
-
-  const setProjectSafe: Dispatch<SetStateAction<ChoreographyProjectJson>> =
-    useMemo(
-      () => (collabActive ? yjsCollab.setProjectSafe : setProjectSafePlain),
-      [collabActive, yjsCollab.setProjectSafe, setProjectSafePlain]
-    );
-
-  const { playbackAudioElement } = useEditorPlaybackSync({
-    projectRef,
-    setProjectSafe,
-    projectId,
-    shareToken: shareTokenParam,
-    choreoPublicView,
-    wideEditorLayout,
-    stageZenFullscreen,
-    playbackRateSig: project?.playbackRate,
-  });
-
-  /** 全編共通テキスト更新コールバック */
-  const onUpdateGlobalFloorMarkup = useCallback(
-    (updater: (prev: StageFloorMarkup[]) => StageFloorMarkup[]) => {
-      setProjectSafe((p) => ({
-        ...p,
-        globalFloorMarkup: updater(p.globalFloorMarkup ?? []),
-      }));
-    },
-    [setProjectSafe],
-  );
-
-  /** ステージまわりシートのドラフトをプロジェクトへ一括反映（閉じない） */
-  const applyStageAreaSettingsDraft = useCallback(() => {
-    if (!project || project.viewMode === "view") return;
-    const d = stageAreaSettingsDraftRef.current;
-    const w = parseMeterCmDraftToMm(d.width);
-    const depthMm = parseMeterCmDraftToMm(d.depth);
-    const s = parseMeterCmDraftToMm(d.side);
-    const b = parseMeterCmDraftToMm(d.back);
-    const gRaw = parseMeterCmDraftToMm(d.guide);
-    const g = clampGuideIntervalToWidth(w, gRaw);
-    const gw = Math.max(1, Math.min(100, Math.round(d.gridWidthCm))) * 10;
-    const gd = Math.max(1, Math.min(100, Math.round(d.gridDepthCm))) * 10;
-    setProjectSafe((p) => ({
-      ...p,
-      audienceEdge: d.audienceEdge,
-      stageWidthMm: w,
-      stageDepthMm: depthMm,
-      sideStageMm: s,
-      backStageMm: b,
-      centerFieldGuideIntervalMm: g,
-      snapGrid: d.stageGridLinesVerticalEnabled || d.stageGridLinesHorizontalEnabled,
-      gridStep: d.gridStep,
-      stageGridLinesVerticalEnabled: d.stageGridLinesVerticalEnabled,
-      stageGridLinesHorizontalEnabled: d.stageGridLinesHorizontalEnabled,
-      stageGridLinesEnabled:
-        d.stageGridLinesVerticalEnabled || d.stageGridLinesHorizontalEnabled,
-      stageGridSpacingWidthMm: gw,
-      stageGridLineSpacingMm: gw,
-      stageGridSpacingDepthMm: gd,
-      dancerLabelPosition: d.dancerLabelPosition,
-    }));
-  }, [project, setProjectSafe]);
-
-  const stageAreaDraftHasMainFloor = useMemo(() => {
-    const w = parseMeterCmDraftToMm(stageAreaSettingsDraft.width);
-    const d = parseMeterCmDraftToMm(stageAreaSettingsDraft.depth);
-    return w != null && w > 0 && d != null && d > 0;
-  }, [stageAreaSettingsDraft.width, stageAreaSettingsDraft.depth]);
-
-  const onStageGridCmInput = useCallback((axis: "width" | "depth", raw: string) => {
-    if (axis === "width") setGridWidthCmInput(raw);
-    else setGridDepthCmInput(raw);
-  }, []);
-
-  const commitStageGridCmInput = useCallback((axis: "width" | "depth") => {
-    if (axis === "width") {
-      const next = clampGridSpacingCm(parseGridSpacingInput(gridWidthCmInput));
-      setStageAreaSettingsDraft((d) => ({ ...d, gridWidthCm: next }));
-      setGridWidthCmInput(String(next));
-      return;
-    }
-    const next = clampGridSpacingCm(parseGridSpacingInput(gridDepthCmInput));
-    setStageAreaSettingsDraft((d) => ({ ...d, gridDepthCm: next }));
-    setGridDepthCmInput(String(next));
-  }, [gridDepthCmInput, gridWidthCmInput]);
-
-  const nudgeStageGridCm = useCallback((axis: "width" | "depth", delta: number) => {
-    setStageAreaSettingsDraft((d) => {
-      const base = axis === "width" ? d.gridWidthCm : d.gridDepthCm;
-      const next = clampGridSpacingCm(base + delta);
-      if (axis === "width") setGridWidthCmInput(String(next));
-      else setGridDepthCmInput(String(next));
-      return axis === "width" ? { ...d, gridWidthCm: next } : { ...d, gridDepthCm: next };
-    });
-  }, []);
-
-  const gridNudgeTimeoutRef = useRef<number | null>(null);
-  const gridNudgeIntervalRef = useRef<number | null>(null);
-  const gridNudgeDidRepeatRef = useRef(false);
-
-  const stopGridNudgeRepeat = useCallback(() => {
-    if (gridNudgeTimeoutRef.current != null) {
-      window.clearTimeout(gridNudgeTimeoutRef.current);
-      gridNudgeTimeoutRef.current = null;
-    }
-    if (gridNudgeIntervalRef.current != null) {
-      window.clearInterval(gridNudgeIntervalRef.current);
-      gridNudgeIntervalRef.current = null;
-    }
-  }, []);
-
-  const startGridNudgeRepeat = useCallback(
-    (axis: "width" | "depth", delta: number) => {
-      stopGridNudgeRepeat();
-      gridNudgeDidRepeatRef.current = false;
-      gridNudgeTimeoutRef.current = window.setTimeout(() => {
-        gridNudgeDidRepeatRef.current = true;
-        nudgeStageGridCm(axis, delta);
-        gridNudgeIntervalRef.current = window.setInterval(() => {
-          nudgeStageGridCm(axis, delta);
-        }, 70);
-      }, 260);
-    },
-    [nudgeStageGridCm, stopGridNudgeRepeat]
-  );
-
-  useEffect(() => stopGridNudgeRepeat, [stopGridNudgeRepeat]);
-  useEffect(() => {
-    setGridWidthCmInput(String(stageAreaSettingsDraft.gridWidthCm));
-    setGridDepthCmInput(String(stageAreaSettingsDraft.gridDepthCm));
-  }, [stageAreaSettingsDraft.gridWidthCm, stageAreaSettingsDraft.gridDepthCm]);
-
-  /**
-   * 「ステージまわりの設定」表示中はドラフト（グリッド線のON/OFF・間隔・寸法など）を
-   * メインの StageBoard に反映し、決定前でもステージ上でプレビューできるようにする。
-   */
-  const projectForStageBoard = useMemo((): ChoreographyProjectJson | null => {
-    if (!project) return null;
-    if (!stageAreaSettingsOpen) return project;
-    const d = stageAreaSettingsDraft;
-    const w = parseMeterCmDraftToMm(d.width);
-    const depthMm = parseMeterCmDraftToMm(d.depth);
-    const s = parseMeterCmDraftToMm(d.side);
-    const b = parseMeterCmDraftToMm(d.back);
-    const gRaw = parseMeterCmDraftToMm(d.guide);
-    const g = clampGuideIntervalToWidth(w, gRaw);
-    const gw = Math.max(1, Math.min(100, Math.round(d.gridWidthCm))) * 10;
-    const gd = Math.max(1, Math.min(100, Math.round(d.gridDepthCm))) * 10;
-    return {
-      ...project,
-      audienceEdge: d.audienceEdge,
-      stageWidthMm: w,
-      stageDepthMm: depthMm,
-      sideStageMm: s,
-      backStageMm: b,
-      centerFieldGuideIntervalMm: g,
-      snapGrid: d.stageGridLinesVerticalEnabled || d.stageGridLinesHorizontalEnabled,
-      gridStep: d.gridStep,
-      stageGridLinesVerticalEnabled: d.stageGridLinesVerticalEnabled,
-      stageGridLinesHorizontalEnabled: d.stageGridLinesHorizontalEnabled,
-      stageGridLinesEnabled:
-        d.stageGridLinesVerticalEnabled || d.stageGridLinesHorizontalEnabled,
-      stageGridSpacingWidthMm: gw,
-      stageGridLineSpacingMm: gw,
-      stageGridSpacingDepthMm: gd,
-      dancerLabelPosition: d.dancerLabelPosition,
-    };
-  }, [project, stageAreaSettingsOpen, stageAreaSettingsDraft]);
-
-  useEffect(() => {
-    if (!project) {
-      prevStageAreaOpenRef.current = false;
-      return;
-    }
-    if (stageAreaSettingsOpen && !prevStageAreaOpenRef.current) {
-      setStageAreaSettingsDraft(projectToStageAreaDraft(project));
-      setStageAreaPresetList(listStagePresets());
-      setStageAreaPresetSelectNonce((n) => n + 1);
-    }
-    prevStageAreaOpenRef.current = stageAreaSettingsOpen;
-  }, [stageAreaSettingsOpen, project]);
-
-  const undoPlain = useCallback(() => {
-    setPlainProject((cur) => {
-      if (!cur) return cur;
-      const { undo, redo } = historyRef.current;
-      if (undo.length === 0) return cur;
-      const prevStr = undo.pop()!;
-      redo.push(JSON.stringify(cur));
-      return normalizeProject(JSON.parse(prevStr));
-    });
-  }, []);
-
-  const redoPlain = useCallback(() => {
-    setPlainProject((cur) => {
-      if (!cur) return cur;
-      const { undo, redo } = historyRef.current;
-      if (redo.length === 0) return cur;
-      const nextStr = redo.pop()!;
-      undo.push(JSON.stringify(cur));
-      return normalizeProject(JSON.parse(nextStr));
-    });
-  }, []);
-
-  const undo = useCallback(() => {
-    if (collabActive) yjsCollab.undo();
-    else undoPlain();
-  }, [collabActive, yjsCollab.undo, undoPlain]);
-
-  const redo = useCallback(() => {
-    if (collabActive) yjsCollab.redo();
-    else redoPlain();
-  }, [collabActive, yjsCollab.redo, redoPlain]);
 
   const copyEditorShareLink = useCallback(async () => {
     if (typeof window === "undefined") return;
@@ -2133,6 +1121,131 @@ export function EditorPage({
     return f?.floorMarkup ?? null;
   }, [project, isPlaying, stagePreviewDancers, selectedCue, currentTime, formationById]);
 
+  const { playbackAudioElement } = useEditorPlaybackSync({
+    projectRef,
+    setProjectSafe,
+    projectId,
+    shareToken: shareTokenParam,
+    choreoPublicView,
+    wideEditorLayout,
+    stageZenFullscreen,
+    playbackRateSig: project?.playbackRate,
+  });
+
+  const onUpdateGlobalFloorMarkup = useCallback(
+    (updater: (prev: StageFloorMarkup[]) => StageFloorMarkup[]) => {
+      setProjectSafe((p) => ({
+        ...p,
+        globalFloorMarkup: updater(p.globalFloorMarkup ?? []),
+      }));
+    },
+    [setProjectSafe]
+  );
+
+  const applyStageAreaSettingsDraft = useCallback(() => {
+    if (!project || project.viewMode === "view") return;
+    const d = stageAreaSettingsDraftRef.current;
+    const w = parseMeterCmDraftToMm(d.width);
+    const depthMm = parseMeterCmDraftToMm(d.depth);
+    const s = parseMeterCmDraftToMm(d.side);
+    const b = parseMeterCmDraftToMm(d.back);
+    const gRaw = parseMeterCmDraftToMm(d.guide);
+    const g = clampGuideIntervalToWidth(w, gRaw);
+    const gw = Math.max(1, Math.min(100, Math.round(d.gridWidthCm))) * 10;
+    const gd = Math.max(1, Math.min(100, Math.round(d.gridDepthCm))) * 10;
+    setProjectSafe((p) => ({
+      ...p,
+      audienceEdge: d.audienceEdge,
+      stageWidthMm: w,
+      stageDepthMm: depthMm,
+      sideStageMm: s,
+      backStageMm: b,
+      centerFieldGuideIntervalMm: g,
+      snapGrid: d.stageGridLinesVerticalEnabled || d.stageGridLinesHorizontalEnabled,
+      gridStep: d.gridStep,
+      stageGridLinesVerticalEnabled: d.stageGridLinesVerticalEnabled,
+      stageGridLinesHorizontalEnabled: d.stageGridLinesHorizontalEnabled,
+      stageGridLinesEnabled:
+        d.stageGridLinesVerticalEnabled || d.stageGridLinesHorizontalEnabled,
+      stageGridSpacingWidthMm: gw,
+      stageGridLineSpacingMm: gw,
+      stageGridSpacingDepthMm: gd,
+      dancerLabelPosition: d.dancerLabelPosition,
+    }));
+  }, [project, setProjectSafe]);
+
+  const stageAreaDraftHasMainFloor = useMemo(() => {
+    const w = parseMeterCmDraftToMm(stageAreaSettingsDraft.width);
+    const d = parseMeterCmDraftToMm(stageAreaSettingsDraft.depth);
+    return w != null && w > 0 && d != null && d > 0;
+  }, [stageAreaSettingsDraft.width, stageAreaSettingsDraft.depth]);
+
+  const onStageGridCmInput = useCallback((axis: "width" | "depth", raw: string) => {
+    if (axis === "width") setGridWidthCmInput(raw);
+    else setGridDepthCmInput(raw);
+  }, []);
+
+  const commitStageGridCmInput = useCallback(
+    (axis: "width" | "depth") => {
+      if (axis === "width") {
+        const next = clampGridSpacingCm(parseGridSpacingInput(gridWidthCmInput));
+        setStageAreaSettingsDraft((d) => ({ ...d, gridWidthCm: next }));
+        setGridWidthCmInput(String(next));
+        return;
+      }
+      const next = clampGridSpacingCm(parseGridSpacingInput(gridDepthCmInput));
+      setStageAreaSettingsDraft((d) => ({ ...d, gridDepthCm: next }));
+      setGridDepthCmInput(String(next));
+    },
+    [gridDepthCmInput, gridWidthCmInput]
+  );
+
+  const nudgeStageGridCm = useCallback((axis: "width" | "depth", delta: number) => {
+    setStageAreaSettingsDraft((d) => {
+      const base = axis === "width" ? d.gridWidthCm : d.gridDepthCm;
+      const next = clampGridSpacingCm(base + delta);
+      if (axis === "width") setGridWidthCmInput(String(next));
+      else setGridDepthCmInput(String(next));
+      return axis === "width" ? { ...d, gridWidthCm: next } : { ...d, gridDepthCm: next };
+    });
+  }, []);
+
+  const gridNudgeTimeoutRef = useRef<number | null>(null);
+  const gridNudgeIntervalRef = useRef<number | null>(null);
+  const gridNudgeDidRepeatRef = useRef(false);
+
+  const stopGridNudgeRepeat = useCallback(() => {
+    if (gridNudgeTimeoutRef.current != null) {
+      window.clearTimeout(gridNudgeTimeoutRef.current);
+      gridNudgeTimeoutRef.current = null;
+    }
+    if (gridNudgeIntervalRef.current != null) {
+      window.clearInterval(gridNudgeIntervalRef.current);
+      gridNudgeIntervalRef.current = null;
+    }
+  }, []);
+
+  const startGridNudgeRepeat = useCallback(
+    (axis: "width" | "depth", delta: number) => {
+      stopGridNudgeRepeat();
+      gridNudgeDidRepeatRef.current = false;
+      gridNudgeTimeoutRef.current = window.setTimeout(() => {
+        gridNudgeDidRepeatRef.current = true;
+        nudgeStageGridCm(axis, delta);
+        gridNudgeIntervalRef.current = window.setInterval(() => {
+          nudgeStageGridCm(axis, delta);
+        }, 70);
+      }, 260);
+    },
+    [nudgeStageGridCm, stopGridNudgeRepeat]
+  );
+
+  useEffect(() => stopGridNudgeRepeat, [stopGridNudgeRepeat]);
+  useEffect(() => {
+    setGridWidthCmInput(String(stageAreaSettingsDraft.gridWidthCm));
+    setGridDepthCmInput(String(stageAreaSettingsDraft.gridDepthCm));
+  }, [stageAreaSettingsDraft.gridWidthCm, stageAreaSettingsDraft.gridDepthCm]);
+
   useEffect(() => {
     if (!wideEditorLayout) setFloorMarkupTool(null);
   }, [wideEditorLayout]);
@@ -2416,85 +1529,6 @@ export function EditorPage({
     [project, selectedCue, setProjectSafe]
   );
 
-  /**
-   * いまの編集内容をクラウドに upsert（フローライブラリの保存直前にも利用）。
-   * 新規作成時は URL を `/editor/:id` に差し替える。
-   */
-  const syncProjectToCloud = useCallback(async (): Promise<{
-    id: number;
-    share_token?: string | null;
-  }> => {
-    if (!me) {
-      throw new Error("ログインが必要です");
-    }
-    const live = projectSaveRef.current;
-    if (!live) {
-      throw new Error("作品データがありません");
-    }
-    let json: ChoreographyProjectJson;
-    try {
-      json = normalizeProject(
-        JSON.parse(JSON.stringify(live)) as ChoreographyProjectJson
-      );
-    } catch {
-      throw new Error(
-        "作品データの保存用コピーを作れませんでした。ページを再読み込みしてから再度お試しください。"
-      );
-    }
-    const title =
-      json.pieceTitle?.trim() || projectName.trim() || "無題の作品";
-    const body: ChoreographyProjectJson = { ...json, pieceTitle: title };
-    if (serverId != null) {
-      const row = await projectApi.update(serverId, title, body);
-      setProjectName(title);
-      if (row.share_token) setServerShareToken(row.share_token);
-      return { id: serverId, share_token: row.share_token ?? null };
-    }
-    let row: Awaited<ReturnType<typeof projectApi.create>>;
-    try {
-      row = await projectApi.create(title, body);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "";
-      if (msg.includes("free_limit") || msg.includes("無料プラン")) {
-        const goUpgrade = window.confirm(
-          "無料プランの作品数上限（3作品）に達しました。\nProにアップグレードすると無制限になります。\n\nアップグレードページを開きますか？"
-        );
-        if (goUpgrade) {
-          try {
-            const { url } = await billingApi.createCheckoutSession();
-            window.location.href = url;
-          } catch {
-            window.location.href = "/";
-          }
-        }
-        throw e;
-      }
-      throw e;
-    }
-    setServerId(row.id);
-    if (row.share_token) setServerShareToken(row.share_token);
-    navigate(`/editor/${row.id}`, {
-      replace: true,
-      state: {
-        editorSeed: body,
-        editorSeedProjectId: row.id,
-      },
-    });
-    return { id: row.id, share_token: row.share_token ?? null };
-  }, [me, projectName, serverId, navigate]);
-
-  const performCloudSave = useCallback(async () => {
-    if (!me) return;
-    setCloudSaveDialogOpen(false);
-    setSaving(true);
-    try {
-      await syncProjectToCloud();
-    } catch (e) {
-      alert(e instanceof Error ? e.message : "保存に失敗しました");
-    } finally {
-      setSaving(false);
-    }
-  }, [me, syncProjectToCloud]);
   const handleAddCueCreated = useCallback(
     (cueId: string, startSec: number) => {
       setSelectedCueIds([cueId]);
@@ -3025,28 +2059,14 @@ export function EditorPage({
     );
   }, [mobileStackEditor, mobileEditorWaveExpanded]);
 
-  if (loadError) {
-    return (
-      <div style={{ padding: 24, color: "#f87171" }}>
-        {loadError}{" "}
-        <Link to="/library" style={{ color: "#93c5fd" }}>
-          戻る
-        </Link>
-      </div>
-    );
-  }
-
-  if (collabActive && !yjsCollab.synced) {
-    return (
-      <div style={{ padding: 24, color: "#94a3b8" }}>
-        共同編集を同期しています…（Yjs）
-      </div>
-    );
-  }
-
-  if (!project) {
-    return <div style={{ padding: 24, color: "#94a3b8" }}>読み込み中…</div>;
-  }
+  const pageStatus = (
+    <EditorPageStatus
+      loadError={loadError}
+      collabSyncing={collabActive && !yjsCollab.synced}
+      projectLoaded={project != null}
+    />
+  );
+  if (pageStatus) return pageStatus;
 
   if (choreoPublicView) {
     if (choreoStudentPick == null) {
@@ -3148,16 +2168,14 @@ export function EditorPage({
       onUndo={undo}
       onRedo={redo}
       undoDisabled={
-        project.viewMode === "view" ||
-        (collabActive
-          ? yjsCollab.undoStackSize === 0
-          : historyRef.current.undo.length === 0)
+        collabActive
+          ? project.viewMode === "view" || yjsCollab.undoStackSize === 0
+          : stageUndoDisabledFromHistory
       }
       redoDisabled={
-        project.viewMode === "view" ||
-        (collabActive
-          ? yjsCollab.redoStackSize === 0
-          : historyRef.current.redo.length === 0)
+        collabActive
+          ? project.viewMode === "view" || yjsCollab.redoStackSize === 0
+          : stageRedoDisabledFromHistory
       }
       selectedCueIds={selectedCueIds}
       onSelectedCueIdsChange={setSelectedCueIds}
@@ -3175,16 +2193,8 @@ export function EditorPage({
     />
   );
 
-  const stageUndoDisabled =
-    project.viewMode === "view" ||
-    (collabActive
-      ? yjsCollab.undoStackSize === 0
-      : historyRef.current.undo.length === 0);
-  const stageRedoDisabled =
-    project.viewMode === "view" ||
-    (collabActive
-      ? yjsCollab.redoStackSize === 0
-      : historyRef.current.redo.length === 0);
+  const stageUndoDisabled = stageUndoDisabledFromHistory;
+  const stageRedoDisabled = stageRedoDisabledFromHistory;
   const workbenchInRightRail = wideEditorLayout && !rightPaneCollapsed;
 
   const stageWorkbenchProps: Omit<EditorStageWorkbenchProps, "layout"> = {
@@ -3244,2980 +2254,194 @@ export function EditorPage({
       : {}),
   };
 
-  return (
-    <div
-      className={[
-        choreoPublicView ? "choreo-public-view-root" : "editor-page-root",
-        mobileStackEditor ? "editor-page-root--mobile-editor" : "",
-        mobileStackEditor && editorMobileLandscape
-          ? "editor-page-root--mobile-landscape"
-          : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      style={{
-        width: "100%",
-        maxWidth: "100vw",
-        height: "100dvh",
-        minHeight: "100dvh",
-        maxHeight: "100dvh",
-        overflow: "hidden",
-        background: shell.bgDeep,
-        color: shell.text,
-        fontFamily:
-          "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-        WebkitFontSmoothing: "antialiased",
-        display: "flex",
-        flexDirection: "column",
-        paddingLeft: "env(safe-area-inset-left, 0px)",
-        paddingRight: "env(safe-area-inset-right, 0px)",
-        paddingBottom: "env(safe-area-inset-bottom, 0px)",
-        boxSizing: "border-box",
-      }}
-    >
-      {playbackAudioElement}
-      {!choreoPublicView && !wideEditorLayout ? (
-      <header
-        className={mobileStackEditor ? "editor-page-header--mobile" : undefined}
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: mobileStackEditor ? "4px" : "8px",
-          alignItems: "center",
-          padding: mobileStackEditor
-            ? editorMobileLandscape
-              ? "max(2px, env(safe-area-inset-top, 0px)) max(4px, env(safe-area-inset-right, 0px)) 1px max(4px, env(safe-area-inset-left, 0px))"
-              : "max(2px, env(safe-area-inset-top, 0px)) max(6px, env(safe-area-inset-right, 0px)) 2px max(6px, env(safe-area-inset-left, 0px))"
-            : "max(4px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) 4px max(8px, env(safe-area-inset-left, 0px))",
-          borderBottom: `1px solid ${shell.border}`,
-          background: shell.bgChrome,
-          minHeight: 0,
-          flexShrink: 0,
-        }}
-      >
-        <Link
-          to="/library"
-          title={t("editor.backTitle")}
-          aria-label={t("editor.backTitle")}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: mobileStackEditor
-              ? editorMobileLandscape
-                ? 34
-                : 38
-              : 32,
-            height: mobileStackEditor
-              ? editorMobileLandscape
-                ? 34
-                : 38
-              : 32,
-            flexShrink: 0,
-            textDecoration: "none",
-            borderRadius: 8,
-            color: shell.textMuted,
-            touchAction: "manipulation",
-          }}
-        >
-          {/** 「く」の向きを反転した一本の角括弧（戻る） */}
-          <span
-            aria-hidden
-            style={{
-              fontSize: mobileStackEditor
-                ? editorMobileLandscape
-                  ? "18px"
-                  : "20px"
-                : "22px",
-              fontWeight: 500,
-              lineHeight: 1,
-              fontFamily: "ui-serif, 'Hiragino Mincho ProN', serif",
-              letterSpacing: "-0.12em",
-            }}
-          >
-            〉
-          </span>
-        </Link>
-        <ChoreoCoreLogo
-          height={
-            mobileStackEditor
-              ? editorMobileLandscape
-                ? 26
-                : 30
-              : 40
-          }
-          title="ChoreoCore"
-          style={{ flexShrink: 0, marginLeft: mobileStackEditor ? 2 : 4 }}
-        />
-        <div style={{ flex: "1 1 auto", minWidth: 8 }} aria-hidden />
-        {!mobileStackEditor ? (
-        <label
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "4px",
-            fontSize: "11px",
-            color: shell.textMuted,
-            flexShrink: 0,
-          }}
-          title={t("editor.headcount")}
-        >
-          <svg
-            width={14}
-            height={14}
-            viewBox="0 0 24 24"
-            aria-hidden
-            style={{ display: "block", opacity: 0.75 }}
-          >
-            <circle cx="12" cy="9" r="3.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
-            <path
-              d="M6 20c0-4 3.5-6 6-6s6 2 6 6"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinecap="round"
-            />
-          </svg>
-          <input
-            type="number"
-            min={1}
-            max={200}
-            step={1}
-            placeholder="—"
-            title="作品の想定人数（メモ用。各フォーメーションの人数とは別です）"
-            disabled={project.viewMode === "view"}
-            value={project.pieceDancerCount ?? ""}
-            onChange={(e) => {
-              const raw = e.target.value.trim();
-              if (raw === "") {
-                setProjectSafe((p) => ({ ...p, pieceDancerCount: null }));
-                return;
-              }
-              const n = Number(raw);
-              if (!Number.isFinite(n)) return;
-              setProjectSafe((p) => ({
-                ...p,
-                pieceDancerCount: Math.max(1, Math.min(200, Math.floor(n))),
-              }));
-            }}
-            style={{
-              ...inputField,
-              width: "56px",
-              padding: "6px 8px",
-              fontVariantNumeric: "tabular-nums",
-            }}
-          />
-        </label>
-        ) : null}
-      </header>
-      ) : null}
+  const editorLayoutProps: EditorLayoutProps = {
+    activeFormationId,
+    addCueDialogEl,
+    addDancerFromStageToolbar,
+    aiSuggestOpen,
+    applyStageAreaSettingsDraft,
+    beginGestureHistory,
+    browseFloorMarkup,
+    browseFormationDancers,
+    browseSetPieces,
+    cancelGestureHistory,
+    choreoMemberSheetOpen,
+    choreoPublicView,
+    choreoStudentPick,
+    choreoToolbarSharedProps,
+    cloudSaveDialogOpen,
+    collabActive,
+    color,
+    commitFloorTextPlace,
+    commitStageGridCmInput,
+    confirmAddSetPiece,
+    crew,
+    cue,
+    cueById,
+    cueListModalOpen,
+    cuesSortedForStageJump,
+    currentTime,
+    d,
+    dancersFor3d,
+    defaultName,
+    duration,
+    dynamicContainerStyle,
+    dynamicStageShellStyle,
+    dynamicToolsAsideStyle,
+    editTargetId,
+    editorMobileLandscape,
+    editorPaneGridTemplateColumns,
+    editorPaneGridTemplateRows,
+    editorPaneRef,
+    editorSurfaceEl,
+    editorViewerSheetOpen,
+    endGestureHistory,
+    endSplitDrag,
+    endTopDockResize,
+    exportDialogEl,
+    f,
+    fid,
+    floorMarkupTool,
+    floorTextPlaceSession,
+    floorTextSideSheetOpen,
+    flowLibraryDialogEl,
+    fontFamily,
+    formationBoxManagerDialogEl,
+    formationById,
+    formationId,
+    getWavePeaksSnapshot,
+    grid,
+    gridDepthCmInput,
+    gridNudgeDidRepeatRef,
+    gridWidthCmInput,
+    hasRosterMembers,
+    importCrewCsvFromStageToolbar,
+    input,
+    isPlaying,
+    jumpToPagerSlot,
+    markHistorySkipNextPush,
+    me,
+    memberRosterSheetOpen,
+    mobileEditorToolsExpanded,
+    mobileEditorWaveExpanded,
+    mobileStackEditor,
+    n,
+    next,
+    nudgeStageGridCm,
+    onChange,
+    onFloorTextPlaceSessionChange,
+    onRosterConfirmReturnToTimeline,
+    onSplitLostCapture,
+    onSplitPointerDown,
+    onSplitPointerMove,
+    onStageGridCmInput,
+    onTopDockResizeDoubleClick,
+    onTopDockResizeDown,
+    onTopDockResizeMove,
+    onUpdateGlobalFloorMarkup,
+    openAudioImport,
+    p,
+    pathEditorCueId,
+    performCloudSave,
+    playbackAudioElement,
+    playbackDancersForStage,
+    playbackFloorMarkupForStage,
+    playbackSetPiecesForStage,
+    project,
+    projectName,
+    publicNarrowLayout,
+    publicViewTightHeight,
+    raw,
+    redo,
+    result,
+    rightPaneCollapsed,
+    rightPaneStackRef,
+    rightPaneTopSectionStyle,
+    rosterImportSheetEl,
+    rosterOnlyMode,
+    row,
+    saveStageToFormationBox,
+    saving,
+    scale,
+    selectedCue,
+    selectedCueId,
+    serverId,
+    setAddCueDialogOpen,
+    setAiSuggestOpen,
+    setChoreoMemberSheetOpen,
+    setChoreoStudentPick,
+    setCloudSaveDialogOpen,
+    setCueListModalOpen,
+    setCueListPortalEl,
+    setEditorSurfaceEl,
+    setEditorViewerPreviewPick,
+    setEditorViewerSheetOpen,
+    setFloorMarkupTool,
+    setFloorTextPlaceSession,
+    setFloorTextSideSheetOpen,
+    setFlowLibraryOpen,
+    setMemberRosterSheetOpen,
+    setMobileEditorToolsExpanded,
+    setMobileEditorWaveExpanded,
+    setPathEditorCueId,
+    setPiecePickerOpen,
+    setProjectSafe,
+    setRightPaneCollapsed,
+    setSelectedCueIds,
+    setSetPiecePickerOpen,
+    setShareLinksOpen,
+    setShortcutsHelpOpen,
+    setShowMotionArrows,
+    setStageAreaPresetList,
+    setStageAreaPresetSelectNonce,
+    setStageAreaSettingsDraft,
+    setStageAreaSettingsOpen,
+    setStagePreviewDancers,
+    setStageSettingsOpen,
+    setStageShapePickerOpen,
+    setStageView,
+    setStageZenFullscreen,
+    setTextPanelPortalEl,
+    shareLinksOpen,
+    shareLinksUrls,
+    shortcutsHelpOpen,
+    showMotionArrows,
+    showTopWaveDock,
+    sortedCuesForEditor,
+    stageAreaDraftHasMainFloor,
+    stageAreaPresetList,
+    stageAreaPresetSelectNonce,
+    stageAreaSettingsDraft,
+    stageAreaSettingsDraftRef,
+    stageAreaSettingsOpen,
+    stageBoardProject,
+    stagePreviewDancers,
+    stageRedoDisabled,
+    stageSectionRef,
+    stageSettingsOpen,
+    stageShapePickerOpen,
+    stageUndoDisabled,
+    stageView,
+    stageZenLayout,
+    startGridNudgeRepeat,
+    stopGridNudgeRepeat,
+    studentViewerFocusForStage,
+    t,
+    text,
+    textPanelPortalEl,
+    timelinePanelEl,
+    timelineRef,
+    title,
+    topDockSectionRef,
+    undo,
+    v,
+    viewerLocalStorageKey,
+    wideBottomDockPx,
+    wideEditorLayout,
+    workbenchInRightRail,
+    xPct,
+    yPct,
+  };
 
-      {/* ─── Main layout: column flex (top wave bar + stage row) ─── */}
-      <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "visible" }}>
-
-      {/* ─── Top wave bar (always visible, full width) ─── */}
-      {showTopWaveDock && !stageZenLayout ? (
-        <div
-          style={{
-            flexShrink: 0,
-            width: "100%",
-            minWidth: 0,
-            height: wideBottomDockPx,
-            position: "relative",
-            background: "transparent",
-            marginBottom: 4,
-          }}
-        >
-          {/* Timeline content */}
-          <div
-            ref={(el) => {
-              topDockSectionRef.current = el as HTMLElement | null;
-            }}
-            style={{
-              position: "absolute",
-              inset: "0 0 8px 0",
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-              padding: "0 4px 4px",
-            }}
-          >
-            {timelinePanelEl}
-          </div>
-          {/* Resize handle — bottom edge, drag downward to expand */}
-          <div
-            role="separator"
-            aria-orientation="horizontal"
-            aria-label="波形バーの高さを調整（上下ドラッグ）"
-            title="上下ドラッグで波形バーの高さを変更（ダブルクリックで既定に戻す）"
-            onPointerDown={onTopDockResizeDown}
-            onPointerMove={onTopDockResizeMove}
-            onPointerUp={endTopDockResize}
-            onPointerCancel={endTopDockResize}
-            onDoubleClick={onTopDockResizeDoubleClick}
-            style={{
-              position: "absolute",
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: 8,
-              cursor: "row-resize",
-              touchAction: "none",
-              userSelect: "none",
-              zIndex: 10,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <div
-              aria-hidden
-              style={{
-                width: 48,
-                height: 3,
-                borderRadius: 2,
-                background: "rgba(148,163,184,0.35)",
-              }}
-            />
-          </div>
-        </div>
-      ) : null}
-
-      {/* ─── Stage row: editor grid + NeonIconPanel ─── */}
-      <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "visible" }}>
-      <div
-        ref={(el) => {
-          editorPaneRef.current = el;
-          setEditorSurfaceEl((prev) => (prev === el ? prev : el));
-        }}
-        className={[
-          "editor-three-pane",
-          mobileStackEditor && "editor-mobile-stack",
-          publicNarrowLayout && "editor-three-pane--public-narrow",
-          publicNarrowLayout &&
-            publicViewTightHeight &&
-            "editor-three-pane--public-tight",
-        ]
-          .filter(Boolean)
-          .join(" ")}
-        style={{
-          position: "relative",
-          flex: 1,
-          minHeight: 0,
-          overflow: "visible",
-          ...(mobileStackEditor
-            ? {
-                ...dynamicContainerStyle,
-                gap: 0,
-                padding: mobileStackEditor
-                  ? "2px max(4px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px))"
-                  : "4px max(6px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
-                marginTop: 0,
-              }
-            : {
-                display: "grid",
-                gridTemplateColumns: editorPaneGridTemplateColumns,
-                gridTemplateRows: editorPaneGridTemplateRows,
-                gap: wideEditorLayout ? "4px" : `${EDITOR_GRID_GAP_PX}px`,
-                padding: publicNarrowLayout
-                  ? "4px max(4px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px))"
-                  : wideEditorLayout
-                    ? "0px 0px 0px 0px"
-                    : "6px max(6px, env(safe-area-inset-right, 0px)) calc(max(8px, 2cm) + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
-                paddingBottom:
-                  choreoPublicView && choreoStudentPick
-                    ? publicViewTightHeight
-                      ? "calc(4px + min(100px, 24dvh) + env(safe-area-inset-bottom, 0px))"
-                      : "calc(6px + min(132px, 30dvh) + env(safe-area-inset-bottom, 0px))"
-                    : undefined,
-                marginTop: 0,
-              }),
-        }}
-      >
-        {showTopWaveDock && !stageZenLayout && !wideEditorLayout ? (
-          <div
-            role="separator"
-            aria-orientation="horizontal"
-            aria-label="波形・再生エリアの高さを変更（ダブルクリックで既定に戻す）"
-            title="上下ドラッグで高さを調整（ダブルクリックで既定に戻す）"
-            onPointerDown={onTopDockResizeDown}
-            onPointerMove={onTopDockResizeMove}
-            onPointerUp={endTopDockResize}
-            onPointerCancel={endTopDockResize}
-            onDoubleClick={onTopDockResizeDoubleClick}
-            style={{
-              gridColumn: "1 / -1",
-              gridRow: 2,
-              cursor: "row-resize",
-              touchAction: "none",
-              userSelect: "none",
-              alignSelf: "stretch",
-              justifySelf: "stretch",
-              position: "relative",
-              zIndex: 2,
-              flexShrink: 0,
-              pointerEvents: "auto",
-            }}
-          >
-            <div
-              aria-hidden
-              style={{
-                position: "absolute",
-                left: 0,
-                right: 0,
-                top: "50%",
-                transform: "translateY(-50%)",
-                height: 1,
-                background: "#334155",
-              }}
-            />
-          </div>
-        ) : null}
-        {!wideEditorLayout && !choreoPublicView && !mobileStackEditor ? (
-          null
-        ) : null}
-        <section
-          ref={stageSectionRef}
-          style={{
-            ...panelCard,
-            padding: mobileStackEditor ? "3px 4px" : "5px",
-            minHeight: 0,
-            minWidth: 0,
-            position: "relative",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "visible",
-            ...(wideEditorLayout
-              ? {
-                  gridColumn: stageZenLayout ? "1 / -1" : 1,
-                  gridRow: stageZenLayout
-                    ? "1 / -1"
-                    : 1,
-                  ...(stageZenLayout
-                    ? { position: "relative" as const }
-                    : {}),
-                }
-              : { gridRow: publicNarrowLayout ? 1 : 2 }),
-            ...dynamicStageShellStyle,
-            ...(mobileStackEditor ? { order: -2 } : {}),
-          }}
-        >
-          {stageZenLayout ? (
-            <button
-              type="button"
-              onClick={() => setStageZenFullscreen(false)}
-              style={{
-                position: "absolute",
-                top: 8,
-                right: 10,
-                zIndex: 200,
-                ...btnSecondary,
-                padding: "6px 12px",
-                fontSize: "12px",
-                fontWeight: 700,
-              }}
-              title="ステージ拡大を終了（Esc でも戻ります）"
-              aria-label="縮小して通常表示に戻す"
-            >
-              縮小
-            </button>
-          ) : null}
-          {wideEditorLayout && rightPaneCollapsed ? (
-            <section
-              style={{
-                ...panelCard,
-                padding: "8px",
-                marginBottom: "6px",
-                flexShrink: 0,
-                minWidth: 0,
-              }}
-            >
-              {/* ChoreoCoreToolbar hidden — replaced by NeonIconPanel */}
-            </section>
-          ) : null}
-          {!workbenchInRightRail &&
-          !stageZenLayout &&
-          !publicNarrowLayout &&
-          !mobileStackEditor ? (
-            <div
-              style={
-                floorTextPlaceSession
-                  ? {
-                      position: "relative",
-                      zIndex: 130,
-                      flexShrink: 0,
-                      minWidth: 0,
-                      width: "100%",
-                    }
-                  : { flexShrink: 0, minWidth: 0, width: "100%" }
-              }
-            >
-              <EditorStageWorkbench key="stage-wb" layout="stage" {...stageWorkbenchProps} />
-            </div>
-          ) : null}
-          <div
-            style={{
-              flex: 1,
-              minHeight: 0,
-              minWidth: 0,
-              display: "flex",
-              flexDirection: "row",
-              alignItems: "stretch",
-              gap: 0,
-            }}
-          >
-            <div
-              style={{
-                position: "relative",
-                flex: 1,
-                minHeight: 0,
-                minWidth: 0,
-                display: "flex",
-                flexDirection: "column",
-              }}
-            >
-              {/*
-                キュー・2D/3D は床と重ねない（絶対配置＋高 z-index だと回転ハンドルが隠れる）。
-                ステージ列の右上に、床の上の一行として並べる。
-              */}
-              <div
-                style={{
-                  flexShrink: 0,
-                  display: stageZenLayout ? "none" : "flex",
-                  flexDirection: "column",
-                  alignItems: "flex-end",
-                  gap: 3,
-                  padding: "0 2px 2px",
-                  minWidth: 0,
-                  maxWidth: "100%",
-                  pointerEvents: "auto",
-                }}
-              >
-                {cuesSortedForStageJump.length > 0 || hasRosterMembers ? (
-                  !mobileStackEditor ? (
-                    <div
-                      style={{
-                        flexShrink: 0,
-                        maxWidth: "min(200px, 100%)",
-                        lineHeight: 0,
-                      }}
-                    >
-                      <WorkbenchCuePager
-                        variant="stageCorner"
-                        project={project}
-                        cuesSortedForStageJump={cuesSortedForStageJump}
-                        selectedCueId={selectedCueId}
-                        jumpToPagerSlot={jumpToPagerSlot}
-                        includeRosterSlot={hasRosterMembers}
-                        rosterTimelineHidden={
-                          project.rosterHidesTimeline === true
-                        }
-                      />
-                    </div>
-                  ) : null
-                ) : null}
-                <div
-                  role="group"
-                  aria-label="ステージを 2D または 3D で表示"
-                  style={{
-                    display: "flex",
-                    flexDirection: "row",
-                    gap: mobileStackEditor ? 4 : 3,
-                    flexShrink: 0,
-                  }}
-                >
-                  <button
-                    type="button"
-                    style={{
-                      ...btnSecondary,
-                      ...(mobileStackEditor
-                        ? {
-                            width: 36,
-                            height: 32,
-                            minWidth: 36,
-                            minHeight: 32,
-                            padding: 0,
-                            fontSize: 10,
-                            fontWeight: 700,
-                            lineHeight: 1,
-                            borderRadius: 8,
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            boxSizing: "border-box",
-                          }
-                        : {
-                            padding: "2px 6px",
-                            fontSize: "9px",
-                            fontWeight: 700,
-                            lineHeight: 1.2,
-                            borderRadius: 5,
-                          }),
-                      ...(stageView === "2d"
-                        ? { borderColor: "#6366f1", color: "#c7d2fe" }
-                        : {}),
-                    }}
-                    title="平面の編集ステージ"
-                    onClick={() => setStageView("2d")}
-                  >
-                    2D
-                  </button>
-                  <button
-                    type="button"
-                    style={{
-                      ...btnSecondary,
-                      ...(mobileStackEditor
-                        ? {
-                            width: 36,
-                            height: 32,
-                            minWidth: 36,
-                            minHeight: 32,
-                            padding: 0,
-                            fontSize: 10,
-                            fontWeight: 700,
-                            lineHeight: 1,
-                            borderRadius: 8,
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            boxSizing: "border-box",
-                          }
-                        : {
-                            padding: "2px 6px",
-                            fontSize: "9px",
-                            fontWeight: 700,
-                            lineHeight: 1.2,
-                            borderRadius: 5,
-                          }),
-                      ...(stageView === "3d"
-                        ? { borderColor: "#6366f1", color: "#c7d2fe" }
-                        : {}),
-                    }}
-                    title="簡易 3D プレビュー"
-                    onClick={() => setStageView("3d")}
-                  >
-                    3D
-                  </button>
-                </div>
-                {/* 動線矢印トグル */}
-                {stageView === "2d" && (
-                  <button
-                    type="button"
-                    style={{
-                      ...btnSecondary,
-                      ...(mobileStackEditor
-                        ? {
-                            width: 36,
-                            height: 32,
-                            minWidth: 36,
-                            minHeight: 32,
-                            padding: 0,
-                            fontSize: 10,
-                            fontWeight: 700,
-                            lineHeight: 1,
-                            borderRadius: 8,
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            boxSizing: "border-box",
-                          }
-                        : {
-                            padding: "2px 6px",
-                            fontSize: "9px",
-                            fontWeight: 700,
-                            lineHeight: 1.2,
-                            borderRadius: 5,
-                          }),
-                      ...(showMotionArrows
-                        ? { borderColor: "#34d399", color: "#6ee7b7", background: "rgba(52,211,153,0.12)" }
-                        : {}),
-                    }}
-                    title={showMotionArrows ? "動線矢印を非表示" : "次フォーメーションへの動線矢印を表示"}
-                    onClick={() => setShowMotionArrows((v) => !v)}
-                  >
-                    {mobileStackEditor ? "→" : "動線"}
-                  </button>
-                )}
-              </div>
-              <div
-                style={{
-                  position: "relative",
-                  flex: 1,
-                  minHeight: 0,
-                  minWidth: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                }}
-              >
-                {stageView === "2d" ? (
-                  <StageBoard
-                    project={stageBoardProject}
-                    setProject={setProjectSafe}
-                    playbackDancers={playbackDancersForStage}
-                    browseFormationDancers={browseFormationDancers}
-                    previewDancers={stagePreviewDancers}
-                    playbackSetPieces={playbackSetPiecesForStage}
-                    browseSetPieces={browseSetPieces}
-                    playbackFloorMarkup={playbackFloorMarkupForStage}
-                    browseFloorMarkup={browseFloorMarkup}
-                    globalFloorMarkup={project.globalFloorMarkup ?? []}
-                    onUpdateGlobalFloorMarkup={onUpdateGlobalFloorMarkup}
-                    editFormationId={
-                      selectedCue?.formationId ?? project.activeFormationId
-                    }
-                    stageInteractionsEnabled={
-                      project.viewMode !== "view" &&
-                      (project.cues.length === 0 || Boolean(selectedCueId))
-                    }
-                    floorTextPlaceSession={floorTextPlaceSession}
-                    onFloorTextPlaceSessionChange={onFloorTextPlaceSessionChange}
-                    floorMarkupTool={floorMarkupTool}
-                    onFloorMarkupToolChange={setFloorMarkupTool}
-                    hideFloorMarkupFloatingToolbars={showTopWaveDock}
-                    textPanelPortalTarget={showTopWaveDock ? textPanelPortalEl : null}
-                    onOpenTextEditSheet={showTopWaveDock ? (id, draft, isGlobal, markup) => {
-                      // 既存テキストをサイドシートで編集するため、session に内容を詰める
-                      setFloorTextPlaceSession({
-                        editTargetId: id,
-                        body: draft.body,
-                        fontSizePx: draft.fontSizePx,
-                        fontWeight: draft.fontWeight,
-                        color: draft.color,
-                        fontFamily: draft.fontFamily,
-                        xPct: markup?.xPct ?? 50,
-                        yPct: markup?.yPct ?? 50,
-                        scale: markup?.scale ?? 1,
-                        scope: isGlobal ? "global" : "formation",
-                      });
-                      setFloorTextSideSheetOpen(true);
-                    } : undefined}
-                    onGestureHistoryBegin={
-                      collabActive ? undefined : beginGestureHistory
-                    }
-                    onGestureHistoryEnd={
-                      collabActive ? undefined : endGestureHistory
-                    }
-                    onGestureHistoryCancel={
-                      collabActive ? undefined : cancelGestureHistory
-                    }
-                    markHistorySkipNextPush={
-                      collabActive ? undefined : markHistorySkipNextPush
-                    }
-                    viewportTextOverlayRoot={editorSurfaceEl}
-                    studentViewerFocus={studentViewerFocusForStage}
-                    showMotionArrows={showMotionArrows}
-                    onOpenDancerPathEditor={
-                      selectedCueId
-                        ? () => setPathEditorCueId(selectedCueId)
-                        : undefined
-                    }
-                  />
-                ) : (
-                  <Suspense
-                    fallback={
-                      <div
-                        style={{ padding: 24, color: shell.textSubtle, fontSize: "13px" }}
-                      >
-                        3D ビューを読み込み中…
-                      </div>
-                    }
-                  >
-                    <Stage3DView
-                      dancers={dancersFor3d}
-                      markerDiameterPx={
-                        project.dancerMarkerDiameterPx ??
-                        DEFAULT_DANCER_MARKER_DIAMETER_PX
-                      }
-                    />
-                  </Suspense>
-                )}
-                {mobileStackEditor &&
-                (cuesSortedForStageJump.length > 0 || hasRosterMembers) ? (
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: "max(16px, env(safe-area-inset-bottom, 0px))",
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                      zIndex: 50,
-                      pointerEvents: "auto",
-                    }}
-                  >
-                    <WorkbenchCuePager
-                      variant="inline"
-                      project={project}
-                      cuesSortedForStageJump={cuesSortedForStageJump}
-                      selectedCueId={selectedCueId}
-                      jumpToPagerSlot={jumpToPagerSlot}
-                      includeRosterSlot={hasRosterMembers}
-                      rosterTimelineHidden={
-                        project.rosterHidesTimeline === true
-                      }
-                    />
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/*
-          タイムラインは常にこの 1 ブロックだけにマウントする（ワイド⇔狭いで別ブランチに置くと
-          TimelinePanel が再マウントされ、波形・音源の内部状態が消える）。
-          グリッド行だけワイド時は 1 行目、狭いときはステージの下（3 行目）に固定する。
-        */}
-        {/* wideEditorLayout時の波形バーはflex下段に独立配置 */}
-        {!stageZenLayout && !(wideEditorLayout && showTopWaveDock) ? (
-          <section
-            ref={(el) => {
-              topDockSectionRef.current = el;
-            }}
-            style={{
-              gridColumn: 1,
-              gridRow: publicNarrowLayout ? 2 : 3,
-              ...(false
-                ? {
-                    background: "transparent",
-                  }
-                : {
-                    ...panelCard,
-                    padding: rosterOnlyMode ? "8px 10px" : "12px",
-                    display: "flex",
-                    flexDirection: "column",
-                    overflow: "hidden",
-                    minHeight: 0,
-                    ...(rosterOnlyMode
-                      ? {
-                          flex: "0 0 auto",
-                          maxHeight: "min(42vh, 380px)",
-                          flexShrink: 0,
-                        }
-                      : rightPaneTopSectionStyle),
-                  }),
-              ...(mobileStackEditor
-                ? {
-                    order: -3,
-                    alignSelf: "stretch",
-                    width: "100%",
-                    maxWidth: "100%",
-                    flexGrow: 0,
-                    flexShrink: 1,
-                    flexBasis: "auto",
-                    minHeight: 0,
-                    maxHeight: mobileEditorWaveExpanded
-                      ? editorMobileLandscape
-                        ? "min(44dvh, 260px)"
-                        : "min(52dvh, 340px)"
-                      : undefined,
-                    flex: mobileEditorWaveExpanded ? "0 1 auto" : "0 0 auto",
-                    padding: rosterOnlyMode ? "6px 8px" : "4px 6px 6px",
-                    borderTop: "1px solid #1e293b",
-                    borderBottom: "1px solid #334155",
-                    overflow: "hidden",
-                    display: "flex",
-                    flexDirection: "column",
-                  }
-                : {}),
-            }}
-          >
-            {wideEditorLayout &&
-            showTopWaveDock &&
-            hasRosterMembers &&
-            !project.rosterHidesTimeline ? (
-              <div
-                style={{
-                  flexShrink: 0,
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  padding: "0 4px 2px",
-                }}
-              >
-                <button
-                  type="button"
-                  disabled={project.viewMode === "view"}
-                  title="右列で名簿一覧を表示し、タイムラインは隠します"
-                  onClick={() =>
-                    setProjectSafe((p) => ({
-                      ...p,
-                      rosterHidesTimeline: true,
-                      rosterStripCollapsed: false,
-                    }))
-                  }
-                  style={{
-                    fontSize: "11px",
-                    padding: "4px 10px",
-                    borderRadius: "8px",
-                    border: "1px solid #14532d",
-                    background: "#14532d",
-                    color: "#dcfce7",
-                    cursor:
-                      project.viewMode === "view" ? "not-allowed" : "pointer",
-                    fontWeight: 600,
-                  }}
-                >
-                  メンバーを表示
-                </button>
-              </div>
-            ) : null}
-            {!wideEditorLayout && !mobileStackEditor ? (
-              rosterOnlyMode ? (
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    alignItems: "center",
-                    gap: "8px",
-                    marginBottom: "6px",
-                    flexShrink: 0,
-                  }}
-                >
-                  <h2
-                    style={{
-                      margin: 0,
-                      fontSize: "12px",
-                      color: shell.textMuted,
-                      fontWeight: 600,
-                      flexShrink: 0,
-                    }}
-                  >
-                    波形・再生
-                  </h2>
-                  <button
-                    type="button"
-                    disabled={project.viewMode === "view"}
-                    title="右列でタイムライン・楽曲を全面表示する"
-                    onClick={() => {
-                      setProjectSafe((p) => ({ ...p, rosterHidesTimeline: false }));
-                      onRosterConfirmReturnToTimeline();
-                    }}
-                    style={{
-                      ...btnSecondary,
-                      fontSize: "11px",
-                      padding: "4px 10px",
-                      marginLeft: "auto",
-                      flexShrink: 0,
-                    }}
-                  >
-                    タイムラインを全表示
-                  </button>
-                </div>
-              ) : (
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    alignItems: "center",
-                    gap: "8px",
-                    rowGap: "6px",
-                    marginBottom: "8px",
-                    flexShrink: 0,
-                  }}
-                >
-                  <h2
-                    style={{
-                      margin: 0,
-                      fontSize: "13px",
-                      color: shell.textMuted,
-                      fontWeight: 600,
-                      flexShrink: 0,
-                    }}
-                  >
-                    タイムライン・楽曲
-                  </h2>
-                  <button
-                    type="button"
-                    style={{
-                      ...btnSecondary,
-                      borderColor: "#0284c7",
-                      background: "#0ea5e9",
-                      color: "#0b1220",
-                      padding: "5px 9px",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "5px",
-                      fontWeight: 700,
-                      flexShrink: 0,
-                    }}
-                    disabled={project.viewMode === "view"}
-                    title="＋キュー：人数と立ち位置の決め方（変更／複製／雛形／保存リスト）を選んで追加"
-                    aria-label="新しいキューを追加"
-                    onClick={() => setAddCueDialogOpen(true)}
-                  >
-                    <svg
-                      viewBox="0 0 22 14"
-                      width="20"
-                      height="13"
-                      aria-hidden
-                      style={{ display: "block" }}
-                    >
-                      <path
-                        d="M3 7 L9 7 M6 4 L6 10"
-                        stroke="currentColor"
-                        strokeWidth="1.6"
-                        strokeLinecap="round"
-                      />
-                      <circle cx="13" cy="3" r="1.2" fill="currentColor" />
-                      <circle cx="17" cy="3" r="1.2" fill="currentColor" />
-                      <circle cx="12" cy="8" r="1.2" fill="currentColor" />
-                      <circle cx="15" cy="8" r="1.2" fill="currentColor" />
-                      <circle cx="18" cy="8" r="1.2" fill="currentColor" />
-                      <circle
-                        cx="13.5"
-                        cy="12"
-                        r="1"
-                        fill="currentColor"
-                        opacity="0.7"
-                      />
-                      <circle
-                        cx="16.5"
-                        cy="12"
-                        r="1"
-                        fill="currentColor"
-                        opacity="0.7"
-                      />
-                    </svg>
-                    <span style={{ fontSize: "11px", fontWeight: 700 }}>キュー</span>
-                  </button>
-                  {hasRosterMembers && !project.rosterHidesTimeline ? (
-                    <button
-                      type="button"
-                      disabled={project.viewMode === "view"}
-                      title="名簿一覧を表示し、タイムライン列は隠します"
-                      onClick={() =>
-                        setProjectSafe((p) => ({
-                          ...p,
-                          rosterHidesTimeline: true,
-                          rosterStripCollapsed: false,
-                        }))
-                      }
-                      style={{
-                        fontSize: "11px",
-                        padding: "4px 10px",
-                        borderRadius: "8px",
-                        border: "1px solid #14532d",
-                        background: "#14532d",
-                        color: "#dcfce7",
-                        cursor:
-                          project.viewMode === "view" ? "not-allowed" : "pointer",
-                        fontWeight: 600,
-                        flexShrink: 0,
-                        marginLeft: "auto",
-                      }}
-                    >
-                      メンバーを表示
-                    </button>
-                  ) : null}
-                </div>
-              )
-            ) : null}
-            {mobileStackEditor && !mobileEditorWaveExpanded ? (
-              <div
-                style={{
-                  flexShrink: 0,
-                  display: "flex",
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "6px 4px 8px",
-                  borderBottom: "1px solid #1e293b",
-                }}
-              >
-                <button
-                  type="button"
-                  disabled={project.viewMode === "view"}
-                  style={{
-                    ...btnAccent,
-                    minWidth: 48,
-                    minHeight: 44,
-                    padding: "0 12px",
-                    touchAction: "manipulation",
-                  }}
-                  aria-label={isPlaying ? "一時停止" : "再生"}
-                  onClick={() => timelineRef.current?.togglePlay()}
-                >
-                  {isPlaying ? "⏸" : "▶"}
-                </button>
-                <span
-                  style={{
-                    fontSize: 13,
-                    fontVariantNumeric: "tabular-nums",
-                    color: shell.text,
-                    fontWeight: 600,
-                  }}
-                >
-                  {formatMmSsFloor(currentTime)} /{" "}
-                  {formatMmSsFloor(duration)}
-                </span>
-                <button
-                  type="button"
-                  style={{
-                    ...btnSecondary,
-                    marginLeft: "auto",
-                    minHeight: 40,
-                    touchAction: "manipulation",
-                  }}
-                  onClick={() => setMobileEditorWaveExpanded(true)}
-                >
-                  波形を表示
-                </button>
-              </div>
-            ) : null}
-            <div
-              style={{
-                flex: "1 1 auto",
-                minHeight: 0,
-                display: "flex",
-                flexDirection: "column",
-                ...(wideEditorLayout && showTopWaveDock
-                  ? {
-                      overflowX: "hidden" as const,
-                      overflowY: "auto" as const,
-                    }
-                  : {}),
-                ...(mobileStackEditor
-                  ? {
-                      flex: mobileEditorWaveExpanded ? "1 1 auto" : "0 0 0",
-                      minHeight: 0,
-                      minWidth: 0,
-                      maxHeight: mobileEditorWaveExpanded
-                        ? editorMobileLandscape
-                          ? "min(36dvh, 220px)"
-                          : "min(42dvh, 300px)"
-                        : 0,
-                      overflowX: "hidden" as const,
-                      overflowY: mobileEditorWaveExpanded
-                        ? ("auto" as const)
-                        : ("hidden" as const),
-                      WebkitOverflowScrolling: "touch" as const,
-                      opacity: mobileEditorWaveExpanded ? 1 : 0,
-                      pointerEvents: mobileEditorWaveExpanded
-                        ? ("auto" as const)
-                        : ("none" as const),
-                    }
-                  : {}),
-              }}
-            >
-              {timelinePanelEl}
-            </div>
-          </section>
-        ) : null}
-
-        {wideEditorLayout && !rightPaneCollapsed && !stageZenLayout ? (
-          <div
-            className="editor-pane-resizer"
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="ステージとタイムラインの幅を調整"
-            title="ドラッグでステージとタイムラインの幅を変更"
-            onPointerDown={onSplitPointerDown}
-            onPointerMove={onSplitPointerMove}
-            onPointerUp={endSplitDrag}
-            onPointerCancel={endSplitDrag}
-            onLostPointerCapture={onSplitLostCapture}
-            style={{
-              position: "relative",
-              width: STAGE_RESIZER_PX,
-              minWidth: STAGE_RESIZER_PX,
-              cursor: "col-resize",
-              touchAction: "none",
-              userSelect: "none",
-              justifySelf: "stretch",
-              alignSelf: "stretch",
-              zIndex: 2,
-              gridColumn: 2,
-              gridRow: 1,
-              // NeonIconPanel使用時はリサイザー非表示
-              display: showTopWaveDock ? "none" : "block",
-            }}
-          />
-        ) : null}
-
-        {stageZenLayout ? null : rightPaneCollapsed && wideEditorLayout ? null : wideEditorLayout && showTopWaveDock ? (
-          /* wideEditorLayout: グリッド右列なし。NeonIconPanelは外側flexで配置済み */
-          null
-        ) : !publicNarrowLayout ? (
-          <div
-            ref={rightPaneStackRef}
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 0,
-              minHeight: 0,
-              minWidth: 0,
-              overflow: "hidden",
-              ...(wideEditorLayout
-                ? {}
-                : { gridRow: 4 }),
-              ...(floorTextPlaceSession
-                ? { position: "relative" as const, zIndex: 140 }
-                : {}),
-              ...(mobileStackEditor
-                ? {
-                    ...dynamicToolsAsideStyle,
-                    gap: mobileEditorToolsExpanded ? 8 : 0,
-                    flex: mobileEditorToolsExpanded ? "1 1 auto" : "0 0 auto",
-                  }
-                : {}),
-            }}
-          >
-            {mobileStackEditor ? (
-              <div
-                style={{
-                  flexShrink: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 8,
-                  padding: "2px 0 8px",
-                  borderBottom: "1px solid #334155",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: shell.textMuted,
-                    letterSpacing: "0.02em",
-                  }}
-                >
-                  操作パネル
-                </span>
-                <button
-                  type="button"
-                  style={{
-                    ...btnSecondary,
-                    padding: "6px 12px",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    touchAction: "manipulation",
-                  }}
-                  disabled={rosterOnlyMode}
-                  title={
-                    rosterOnlyMode
-                      ? "名簿表示中は操作パネルを閉じられません"
-                      : undefined
-                  }
-                  aria-expanded={mobileEditorToolsExpanded}
-                  onClick={() => setMobileEditorToolsExpanded((v) => !v)}
-                >
-                  {mobileEditorToolsExpanded ? "たたむ" : "ひろげる"}
-                </button>
-              </div>
-            ) : null}
-            {!mobileStackEditor || mobileEditorToolsExpanded ? (
-              <>
-                {mobileStackEditor ? (
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: "10px",
-                      marginBottom: "4px",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <button
-                      type="button"
-                      style={{
-                        ...btnAccent,
-                        minHeight: 48,
-                        borderRadius: 12,
-                        padding: "12px 10px",
-                        touchAction: "manipulation",
-                        fontSize: "13px",
-                        fontWeight: 700,
-                        boxSizing: "border-box",
-                      }}
-                      disabled={project.viewMode === "view"}
-                      title="新しいキューを追加"
-                      onClick={() => setAddCueDialogOpen(true)}
-                    >
-                      ＋ 次のキュー
-                    </button>
-                    <button
-                      type="button"
-                      style={{
-                        ...btnSecondary,
-                        minHeight: 48,
-                        borderRadius: 12,
-                        padding: "12px 10px",
-                        touchAction: "manipulation",
-                        fontSize: "13px",
-                        fontWeight: 700,
-                        boxSizing: "border-box",
-                      }}
-                      onClick={() => setStageAreaSettingsOpen(true)}
-                    >
-                      舞台設定
-                    </button>
-                  </div>
-                ) : null}
-                {mobileStackEditor ? (
-                  <div
-                    style={{
-                      flexShrink: 0,
-                      width: "100%",
-                      minWidth: 0,
-                      maxWidth: "100%",
-                      overflowX: "auto",
-                      overflowY: "visible",
-                      WebkitOverflowScrolling: "touch",
-                      paddingBottom: 6,
-                      borderBottom: "1px solid #1e293b",
-                    }}
-                  >
-                    {/* ChoreoCoreToolbar hidden — replaced by NeonIconPanel */}
-                  </div>
-                ) : null}
-                {rosterOnlyMode ? (
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      overflow: "hidden",
-                      flex: "1 1 0",
-                      minHeight: 0,
-                      ...rightPaneTopSectionStyle,
-                    }}
-                  >
-                    <RosterTimelineStrip
-                      project={project}
-                      setProject={setProjectSafe}
-                      onConfirmReturnToTimeline={onRosterConfirmReturnToTimeline}
-                      onStagePreviewChange={setStagePreviewDancers}
-                    />
-                  </div>
-                ) : null}
-                {workbenchInRightRail ? (
-                  /* テキストボタンレール非表示 — NeonIconPanelに統合済み */
-                  null
-                ) : mobileStackEditor ? (
-                  <section
-                    className="editor-right-tools-section"
-                    style={{
-                      ...panelCard,
-                      padding: "6px 5px",
-                      flex: "0 0 auto",
-                      minWidth: 0,
-                      display: "flex",
-                      flexDirection: "column",
-                      overflow: "hidden",
-                      marginBottom: rosterOnlyMode ? 0 : 6,
-                    }}
-                  >
-                    <div className="editor-right-tools-host">
-                      <div className="editor-right-tools-tiles">
-                        <EditorStageWorkbench
-                          key="wb-mobile-rail"
-                          layout="rail"
-                          {...stageWorkbenchProps}
-                        />
-                      </div>
-                    </div>
-                  </section>
-                ) : null}
-              </>
-            ) : (
-              <div
-                style={{
-                  flexShrink: 0,
-                  width: "100%",
-                  padding: "12px 0 4px",
-                  boxSizing: "border-box",
-                }}
-              >
-                <button
-                  type="button"
-                  style={{
-                    ...btnAccent,
-                    width: "100%",
-                    minHeight: 48,
-                    touchAction: "manipulation",
-                    fontSize: "14px",
-                    fontWeight: 700,
-                  }}
-                  onClick={() => setMobileEditorToolsExpanded(true)}
-                >
-                  操作パネルを表示
-                </button>
-                <p
-                  style={{
-                    margin: "8px 0 0",
-                    fontSize: 11,
-                    color: shell.textMuted,
-                    lineHeight: 1.45,
-                    textAlign: "center",
-                  }}
-                >
-                  ツールバー・キュー操作・床テキストなどはここから開きます
-                </p>
-              </div>
-            )}
-          </div>
-        ) : null}
-      </div>
-
-      {showTopWaveDock ? (
-        <>
-          {cueListModalOpen ? (
-            <EditorSideSheet
-              open
-              zIndex={2200}
-              width="min(300px, calc(100vw - 16px))"
-              onClose={() => setCueListModalOpen(false)}
-              ariaLabelledBy="cue-list-modal-title"
-            >
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  height: "100%",
-                  minHeight: 0,
-                  background: shell.surface,
-                }}
-              >
-                {/* ── ヘッダー ── */}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 8,
-                    padding: "11px 14px",
-                    borderBottom: `1px solid ${shell.borderStrong}`,
-                    flexShrink: 0,
-                    background: shell.bgChrome,
-                  }}
-                >
-                  <h2
-                    id="cue-list-modal-title"
-                    style={{
-                      margin: 0,
-                      fontSize: "13px",
-                      fontWeight: 700,
-                      color: shell.text,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 7,
-                      letterSpacing: "0.03em",
-                    }}
-                  >
-                    <span style={{ color: shell.accent, display: "flex", opacity: 0.9 }}>
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
-                        <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
-                      </svg>
-                    </span>
-                    キュー一覧
-                  </h2>
-                  <button
-                    type="button"
-                    aria-label="閉じる"
-                    onClick={() => setCueListModalOpen(false)}
-                    style={{
-                      background: "transparent",
-                      border: `1px solid ${shell.border}`,
-                      borderRadius: 6,
-                      color: shell.textMuted,
-                      fontSize: 16,
-                      lineHeight: 1,
-                      padding: "3px 9px",
-                      cursor: "pointer",
-                      transition: "all 0.15s",
-                    }}
-                  >
-                    ×
-                  </button>
-                </div>
-                {/* ── シンプルキュー一覧 ── */}
-                <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "8px 10px", display: "flex", flexDirection: "column", gap: 4 }}>
-                  {project ? (
-                    cuesSortedForStageJump.length === 0 ? (
-                      <p style={{ fontSize: 12, color: shell.textMuted, textAlign: "center", padding: "24px 0" }}>
-                        キューがありません。
-                      </p>
-                    ) : (
-                      cuesSortedForStageJump.map((cue, idx) => {
-                        const isSelected = selectedCueId === cue.id;
-                        const fmtSec = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
-                        return (
-                          <button
-                            key={cue.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedCueIds([cue.id]);
-                              setCueListModalOpen(false);
-                            }}
-                            style={{
-                              width: "100%",
-                              textAlign: "left",
-                              borderRadius: 8,
-                              border: `1px solid ${isSelected ? shell.accent : shell.border}`,
-                              background: isSelected ? "rgba(99,102,241,0.12)" : "rgba(255,255,255,0.03)",
-                              padding: "8px 10px",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 10,
-                              cursor: "pointer",
-                              transition: "background 0.12s, border-color 0.12s",
-                            }}
-                          >
-                            <span style={{
-                              width: 22, height: 22, borderRadius: 6, flexShrink: 0,
-                              background: isSelected ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.06)",
-                              color: isSelected ? "#a5b4fc" : shell.textMuted,
-                              fontSize: 10, fontWeight: 700,
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                            }}>
-                              {idx + 1}
-                            </span>
-                            <span style={{ flex: 1, minWidth: 0 }}>
-                              <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: shell.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                {cue.name || `キュー ${idx + 1}`}
-                              </span>
-                              <span style={{ display: "block", fontSize: 11, color: shell.textMuted, marginTop: 2 }}>
-                                {fmtSec(cue.tStartSec)} – {fmtSec(cue.tEndSec)}
-                              </span>
-                            </span>
-                          </button>
-                        );
-                      })
-                    )
-                  ) : null}
-                </div>
-                {/* ポータルターゲット（非表示で維持） */}
-                <div
-                  ref={setCueListPortalEl}
-                  aria-hidden
-                  style={{ position: "absolute", left: -32000, top: 0, width: 400, height: 520, overflow: "hidden", opacity: 0, pointerEvents: "none", zIndex: -1, display: "flex", flexDirection: "column" }}
-                />
-              </div>
-            </EditorSideSheet>
-          ) : (
-            <div
-              ref={setCueListPortalEl}
-              aria-hidden
-              style={{
-                position: "fixed",
-                left: -32000,
-                top: 0,
-                width: 400,
-                height: 520,
-                overflow: "hidden",
-                opacity: 0,
-                pointerEvents: "none",
-                zIndex: -1,
-                display: "flex",
-                flexDirection: "column",
-              }}
-            />
-          )}
-        </>
-      ) : null}
-
-      {/* ── メンバー表示 SideSheet ── */}
-      <EditorSideSheet
-        open={memberRosterSheetOpen}
-        zIndex={2200}
-        width="min(380px, calc(100vw - 16px))"
-        onClose={() => setMemberRosterSheetOpen(false)}
-        ariaLabelledBy="member-roster-sheet-title"
-      >
-        <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, background: shell.surface }}>
-          {/* ヘッダー */}
-          <div style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            gap: 8, padding: "11px 14px",
-            borderBottom: `1px solid ${shell.borderStrong}`,
-            flexShrink: 0, background: shell.bgChrome,
-          }}>
-            <h2 id="member-roster-sheet-title" style={{
-              margin: 0, fontSize: "13px", fontWeight: 700, color: shell.text,
-              display: "flex", alignItems: "center", gap: 7, letterSpacing: "0.03em",
-            }}>
-              <span style={{ color: shell.accent, display: "flex", opacity: 0.9 }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/>
-                  <line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>
-                </svg>
-              </span>
-              メンバー
-            </h2>
-            <button
-              type="button"
-              aria-label="閉じる"
-              onClick={() => setMemberRosterSheetOpen(false)}
-              style={{ background: "transparent", border: `1px solid ${shell.border}`, borderRadius: 6, color: shell.textMuted, fontSize: 16, lineHeight: 1, padding: "3px 9px", cursor: "pointer" }}
-            >×</button>
-          </div>
-          {/* 本文 */}
-          <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
-            {(() => {
-              const fid = project?.activeFormationId;
-              const formation = fid ? formationById.get(fid) : null;
-              if (!formation || formation.dancers.length === 0) {
-                return (
-                  <p style={{ fontSize: 12, color: shell.textMuted, textAlign: "center", padding: "32px 0" }}>
-                    このフォーメーションにメンバーがいません。<br />
-                    ＋ボタンでメンバーを追加してください。
-                  </p>
-                );
-              }
-              return formation.dancers.map((dancer, idx) => {
-                const colorHex = DANCER_COLOR_PALETTE_HEX[dancer.colorIndex % DANCER_COLOR_PALETTE_HEX.length];
-                const badgeLabel = dancer.markerBadge ?? String(idx + 1);
-                return (
-                  <div key={dancer.id} style={{
-                    display: "flex", alignItems: "center", gap: 10,
-                    padding: "7px 10px", borderRadius: 10,
-                    border: `1px solid ${shell.border}`,
-                    background: "rgba(255,255,255,0.025)",
-                  }}>
-                    {/* カラーサークル */}
-                    <div style={{
-                      width: 28, height: 28, borderRadius: "50%",
-                      background: colorHex, flexShrink: 0,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 10, fontWeight: 700,
-                      color: "#fff", textShadow: "0 0 2px rgba(0,0,0,0.6)",
-                    }}>
-                      {badgeLabel}
-                    </div>
-                    {/* 名前入力 */}
-                    <input
-                      type="text"
-                      value={dancer.label ?? ""}
-                      placeholder={`ダンサー ${idx + 1}`}
-                      disabled={project?.viewMode === "view"}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setProjectSafe((p) => ({
-                          ...p,
-                          formations: p.formations.map((f) =>
-                            f.id !== fid ? f : {
-                              ...f,
-                              dancers: f.dancers.map((d) => d.id === dancer.id ? { ...d, label: val } : d),
-                            }
-                          ),
-                        }));
-                      }}
-                      style={{
-                        flex: 1, background: "rgba(255,255,255,0.04)",
-                        border: `1px solid ${shell.border}`, borderRadius: 6,
-                        color: shell.text, fontSize: 12, padding: "5px 8px", outline: "none",
-                      }}
-                    />
-                    {/* カラー変更 */}
-                    {project?.viewMode !== "view" && (
-                      <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
-                        {DANCER_COLOR_PALETTE_HEX.slice(0, 9).map((hex, ci) => (
-                          <button
-                            key={hex}
-                            type="button"
-                            title={hex}
-                            onClick={() => {
-                              setProjectSafe((p) => ({
-                                ...p,
-                                formations: p.formations.map((f) =>
-                                  f.id !== fid ? f : {
-                                    ...f,
-                                    dancers: f.dancers.map((d) =>
-                                      d.id === dancer.id ? { ...d, colorIndex: ci } : d
-                                    ),
-                                  }
-                                ),
-                              }));
-                            }}
-                            style={{
-                              width: 14, height: 14, borderRadius: "50%", background: hex,
-                              border: dancer.colorIndex === ci ? `2px solid #fff` : `1px solid transparent`,
-                              cursor: "pointer", padding: 0, flexShrink: 0,
-                            }}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              });
-            })()}
-          </div>
-          {/* フッター：全フォーメーションに名前を反映 */}
-          {project?.viewMode !== "view" && (() => {
-            const fid = project?.activeFormationId;
-            const formation = fid ? formationById.get(fid) : null;
-            /** crew メンバーのうち未配置のものがあるか */
-            const unplacedCount = (() => {
-              if (!formation || !project) return 0;
-              const placedIds = new Set(
-                formation.dancers.map((d) => d.crewMemberId).filter(Boolean) as string[]
-              );
-              let n = 0;
-              for (const crew of project.crews) {
-                for (const m of crew.members) {
-                  if (!placedIds.has(m.id)) n++;
-                }
-              }
-              return n;
-            })();
-            return (
-              <div style={{ padding: "10px 12px", borderTop: `1px solid ${shell.borderStrong}`, flexShrink: 0, display: "flex", gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={addDancerFromStageToolbar}
-                  style={{ ...btnSecondary, fontSize: 12, padding: "7px 12px", borderRadius: 8, display: "flex", alignItems: "center", gap: 5, flex: "0 0 auto", justifyContent: "center" }}
-                >
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                  追加
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!project || !fid) { setMemberRosterSheetOpen(false); return; }
-                    setProjectSafe((p) => {
-                      if (p.viewMode === "view") return p;
-                      const f = p.formations.find((x) => x.id === fid);
-                      if (!f) return { ...p, rosterHidesTimeline: false };
-
-                      // crew メンバーを import 順に並べる
-                      const placedIds = new Set(
-                        f.dancers.map((d) => d.crewMemberId).filter(Boolean) as string[]
-                      );
-                      let order = 0;
-                      const toAdd: Array<{ crewId: string; member: { id: string; label: string; colorIndex: number; heightCm?: number; gradeLabel?: string; skillRankLabel?: string }; importOrder: number }> = [];
-                      for (const crew of p.crews) {
-                        for (const m of crew.members) {
-                          if (!placedIds.has(m.id)) {
-                            toAdd.push({ crewId: crew.id, member: m, importOrder: order });
-                          }
-                          order++;
-                        }
-                      }
-
-                      if (toAdd.length === 0) {
-                        // すでに全員配置済み → シートを閉じるだけ
-                        return { ...p, rosterHidesTimeline: false };
-                      }
-
-                      const existing = [...f.dancers];
-                      const total = existing.length + toAdd.length;
-                      const opts = {
-                        dancerSpacingMm: p.dancerSpacingMm,
-                        stageWidthMm: p.stageWidthMm,
-                      };
-                      const placeholders: DancerSpot[] = [
-                        ...existing,
-                        ...toAdd.map((row) => {
-                          const m = row.member;
-                          return {
-                            id: crypto.randomUUID(),
-                            label: m.label.trim().slice(0, 120) || "?",
-                            markerBadge: "",
-                            xPct: 50,
-                            yPct: 40,
-                            colorIndex: modDancerColorIndex(m.colorIndex),
-                            crewMemberId: m.id,
-                            ...(typeof m.heightCm === "number" ? { heightCm: m.heightCm } : {}),
-                            ...(m.gradeLabel?.trim() ? { gradeLabel: m.gradeLabel.trim().slice(0, 32) } : {}),
-                            ...(m.skillRankLabel?.trim() ? { skillRankLabel: m.skillRankLabel.trim().slice(0, 24) } : {}),
-                          } satisfies DancerSpot;
-                        }),
-                      ];
-                      const positioned = dancersForLayoutPreset(total, DEFAULT_ROSTER_CONFIRM_PRESET, opts);
-                      const merged = transferDancerIdentitiesByOrder(positioned, placeholders);
-
-                      // キューがなければ先頭キューを自動生成
-                      const sortedCues = sortCuesByStart(p.cues);
-                      const ensuredCues =
-                        sortedCues.length > 0
-                          ? p.cues
-                          : [
-                              {
-                                id: crypto.randomUUID(),
-                                tStartSec: 0,
-                                tEndSec: Math.max(
-                                  MIN_CUE_DURATION_SEC,
-                                  DEFAULT_CUE_SPAN_WITH_AUDIO_SEC
-                                ),
-                                formationId: fid,
-                              },
-                            ];
-
-                      return {
-                        ...p,
-                        cues: ensuredCues,
-                        rosterHidesTimeline: false,
-                        dancerLabelPosition: "below",
-                        dancerMarkerDiameterPx: dancerMarkerDiameterAfterRosterImport(
-                          p.dancerMarkerDiameterPx
-                        ),
-                        formations: p.formations.map((fm) =>
-                          fm.id === fid
-                            ? { ...fm, dancers: merged, confirmedDancerCount: merged.length }
-                            : fm
-                        ),
-                      };
-                    });
-                    setMemberRosterSheetOpen(false);
-                  }}
-                  style={{ ...btnAccent, fontSize: 12, padding: "7px 14px", borderRadius: 8, display: "flex", alignItems: "center", gap: 5, flex: 1, justifyContent: "center" }}
-                >
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                  決定{unplacedCount > 0 ? `（${unplacedCount}人配置）` : "（舞台に確定）"}
-                </button>
-              </div>
-            );
-          })()}
-        </div>
-      </EditorSideSheet>
-
-      {stageAreaSettingsOpen ? (
-        <StageAreaSettingsSheet
-          stageAreaSettingsOpen={stageAreaSettingsOpen}
-          onClose={() => setStageAreaSettingsOpen(false)}
-        >
-          <div style={{ padding: "8px 12px 10px", display: "flex", flexDirection: "column", gap: 0 }}>
-            {/* ── Header ── */}
-            <div style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              gap: 8, marginBottom: 8, paddingBottom: 8,
-              borderBottom: "1px solid rgba(99,102,241,0.2)",
-            }}>
-              <h3 id="stage-area-settings-title" style={{
-                margin: 0, fontSize: 14, fontWeight: 700, color: "#e2e8f0",
-                display: "flex", alignItems: "center", gap: 8,
-              }}>
-                <span style={{ color: "rgba(129,140,248,0.9)", display: "flex" }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                    <line x1="3" y1="9" x2="21" y2="9" />
-                    <line x1="9" y1="21" x2="9" y2="9" />
-                  </svg>
-                </span>
-                舞台設定
-              </h3>
-              <button type="button" aria-label="閉じる"
-                onClick={() => setStageAreaSettingsOpen(false)}
-                style={{ ...btnSecondary, fontSize: 16, lineHeight: 1, padding: "2px 10px" }}
-              >×</button>
-            </div>
-
-            {/* ── CARD A: ステージ寸法 ── */}
-            <div style={{ ...STAGE_AREA_SHEET_SECTION, marginBottom: 6 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 7, display: "flex", alignItems: "center", gap: 6 }}>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M2 20L20 2M7 20l1.5-1.5M12 20l1.5-1.5M17 20l1.5-1.5M2 7l1.5-1.5M2 12l1.5-1.5M2 17l1.5-1.5"/></svg>
-                ステージ寸法
-              </div>
-
-              {/* 客席位置トグル */}
-              <div style={{ marginBottom: 7 }}>
-                <div style={{ fontSize: 10, color: "rgba(100,116,139,0.8)", marginBottom: 5 }}>客席の位置</div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  {(["bottom", "top"] as const).map((edge) => {
-                    const active = stageAreaSettingsDraft.audienceEdge === edge;
-                    return (
-                      <button key={edge} type="button"
-                        disabled={project.viewMode === "view"}
-                        onClick={() => setStageAreaSettingsDraft((d) => ({ ...d, audienceEdge: edge }))}
-                        style={{
-                          flex: 1, padding: "7px 10px", borderRadius: 8,
-                          border: active ? "1px solid rgba(252,211,77,0.7)" : "1px solid rgba(51,65,85,0.8)",
-                          background: active ? "rgba(252,211,77,0.1)" : "rgba(15,23,42,0.5)",
-                          color: active ? "#fcd34d" : "rgba(148,163,184,0.7)",
-                          fontSize: 11, fontWeight: active ? 700 : 400,
-                          cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
-                          display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-                          transition: "all 0.15s",
-                          boxShadow: active ? "0 0 10px rgba(252,211,77,0.2)" : "none",
-                        }}
-                      >
-                        {edge === "bottom"
-                          ? <><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9" /></svg>画面下が客席</>
-                          : <><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="18 15 12 9 6 15" /></svg>画面上が客席</>
-                        }
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 寸法入力 */}
-              <StageAreaDimensionRows
-                disabled={project.viewMode === "view"}
-                draft={stageAreaSettingsDraft}
-                onChangeDraft={setStageAreaSettingsDraft}
-              />
-
-
-            </div>
-
-            {/* ── CARD B: グリッド・表示設定 ── */}
-            <div style={{ ...STAGE_AREA_SHEET_SECTION, marginBottom: 6 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 7, display: "flex", alignItems: "center", gap: 6 }}>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-                グリッド・表示
-              </div>
-
-              {/* グリッド間隔 */}
-              {stageAreaDraftHasMainFloor && (
-                <div style={{ marginBottom: 6 }}>
-                  <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 4 }}>
-                    グリッド線の間隔
-                  </div>
-                  <StageAreaGridSpacingControls
-                    disabled={project.viewMode === "view"}
-                    gridWidthCmInput={gridWidthCmInput}
-                    gridDepthCmInput={gridDepthCmInput}
-                    onStageGridCmInput={onStageGridCmInput}
-                    commitStageGridCmInput={commitStageGridCmInput}
-                    startGridNudgeRepeat={startGridNudgeRepeat}
-                    stopGridNudgeRepeat={stopGridNudgeRepeat}
-                    nudgeStageGridCm={nudgeStageGridCm}
-                    gridNudgeDidRepeatRef={gridNudgeDidRepeatRef}
-                  />
-                </div>
-              )}
-
-              {/* 縦線・横線トグル */}
-              <div style={{ marginBottom: 7 }}>
-                <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 4 }}>グリッド線の表示</div>
-                <StageAreaGridVisibilityToggles
-                  disabled={project.viewMode === "view"}
-                  hasMainFloor={stageAreaDraftHasMainFloor}
-                  verticalEnabled={stageAreaSettingsDraft.stageGridLinesVerticalEnabled}
-                  horizontalEnabled={stageAreaSettingsDraft.stageGridLinesHorizontalEnabled}
-                  onChangeDraft={setStageAreaSettingsDraft}
-                />
-              </div>
-
-              {/* 名前の位置 — アイコン付きセグメント */}
-              <div>
-                <div style={{ fontSize: 10, color: "#94a3b8", marginBottom: 4 }}>立ち位置の名前</div>
-                <div style={{ display: "flex", gap: 6 }} title="印の右クリックでも選べます">
-                  {([
-                    { val: "inside", label: "○の中", icon: (
-                      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                        <circle cx="16" cy="16" r="12" stroke="currentColor" strokeWidth="2"/>
-                        <text x="16" y="21" textAnchor="middle" fontSize="13" fill="currentColor" fontWeight="700">A</text>
-                      </svg>
-                    )},
-                    { val: "below", label: "○の外", icon: (
-                      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                        <circle cx="16" cy="11" r="7" stroke="currentColor" strokeWidth="2"/>
-                        <text x="16" y="29" textAnchor="middle" fontSize="12" fill="currentColor" fontWeight="700">A</text>
-                      </svg>
-                    )},
-                  ] as const).map(({ val, label, icon }) => {
-                    const active = stageAreaSettingsDraft.dancerLabelPosition === val;
-                    return (
-                      <button key={val} type="button"
-                        disabled={project.viewMode === "view"}
-                        onClick={() => setStageAreaSettingsDraft((d) => ({ ...d, dancerLabelPosition: val }))}
-                        style={{
-                          flex: 1, padding: "6px 8px", borderRadius: 8,
-                          border: active ? "1px solid rgba(99,102,241,0.8)" : "1px solid rgba(51,65,85,0.7)",
-                          background: active ? "rgba(99,102,241,0.2)" : "rgba(15,23,42,0.5)",
-                          color: active ? "#a5b4fc" : "rgba(148,163,184,0.6)",
-                          fontSize: 11, fontWeight: active ? 700 : 400,
-                          cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
-                          display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-                          transition: "all 0.15s",
-                          boxShadow: active ? "0 0 10px rgba(99,102,241,0.25)" : "none",
-                        }}
-                      >
-                        {icon}
-                        <span style={{ fontSize: 10 }}>{label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* ── CARD C: プリセット・共有 ── */}
-            <div style={{ ...STAGE_AREA_SHEET_SECTION, marginBottom: 6 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(129,140,248,0.8)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 7, display: "flex", alignItems: "center", gap: 6 }}>
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-                プリセット・共有
-              </div>
-
-              <StageAreaPresetBlock
-                disabled={project.viewMode === "view"}
-                stageAreaPresetSelectNonce={stageAreaPresetSelectNonce}
-                stageAreaPresetList={stageAreaPresetList}
-                onChangeDraft={setStageAreaSettingsDraft}
-                onBumpPresetNonce={() => setStageAreaPresetSelectNonce((n) => n + 1)}
-                onSavePreset={() => {
-                  if (project.viewMode === "view") return;
-                  const d = stageAreaSettingsDraftRef.current;
-                  const dims = {
-                    stageWidthMm: parseMeterCmDraftToMm(d.width),
-                    stageDepthMm: parseMeterCmDraftToMm(d.depth),
-                    sideStageMm: parseMeterCmDraftToMm(d.side),
-                    backStageMm: parseMeterCmDraftToMm(d.back),
-                    centerFieldGuideIntervalMm: parseMeterCmDraftToMm(d.guide),
-                  };
-                  const defaultName = `舞台 ${stageAreaPresetList.length + 1}`;
-                  const name = window.prompt("保存する名前", defaultName);
-                  if (name === null) return;
-                  const result = saveStagePreset(name.trim() || defaultName, dims);
-                  if (!result.ok) { window.alert(result.message); return; }
-                  setStageAreaPresetList(listStagePresets());
-                }}
-              />
-
-
-            </div>
-
-            {/* ── 決定・取消 ── */}
-            <div style={{ display: "flex", gap: 8 }}>
-              <button type="button"
-                disabled={project.viewMode === "view"}
-                onClick={() => {
-                  applyStageAreaSettingsDraft();
-                  setStageAreaSettingsOpen(false);
-                }}
-                style={{
-                  flex: 2, padding: "10px 14px", fontSize: 13, fontWeight: 700,
-                  borderRadius: 10,
-                  border: "1px solid rgba(129,140,248,0.5)",
-                  background: project.viewMode === "view"
-                    ? "rgba(30,41,59,0.5)"
-                    : "linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #a855f7 100%)",
-                  color: project.viewMode === "view" ? "rgba(71,85,105,0.7)" : "#fff",
-                  cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
-                  boxShadow: project.viewMode === "view" ? "none" : "0 0 20px rgba(99,102,241,0.45), 0 2px 8px rgba(0,0,0,0.4)",
-                  letterSpacing: "0.04em",
-                  transition: "box-shadow 0.2s",
-                }}
-              >
-                ✓ 決定
-              </button>
-              <button type="button"
-                onClick={() => setStageAreaSettingsOpen(false)}
-                style={{ ...btnSecondary, flex: 1, padding: "10px 10px", fontSize: 12, fontWeight: 600, borderRadius: 10 }}
-              >
-                取消
-              </button>
-            </div>
-          </div>
-        </StageAreaSettingsSheet>
-      ) : null}
-
-      {stageSettingsOpen ? (
-        <EditorSideSheet
-          open
-          zIndex={60}
-          width="min(520px, 46vw)"
-          onClose={() => setStageSettingsOpen(false)}
-          ariaLabelledBy="stage-settings-dialog-title"
-        >
-          <div style={{ padding: "16px 18px 18px" }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "12px",
-                marginBottom: "12px",
-              }}
-            >
-              <h3
-                id="stage-settings-dialog-title"
-                style={{
-                  margin: 0,
-                  fontSize: "15px",
-                  fontWeight: 600,
-                  color: "#e2e8f0",
-                }}
-              >
-                ステージ設定
-              </h3>
-              <button
-                type="button"
-                aria-label="閉じる"
-                onClick={() => setStageSettingsOpen(false)}
-                style={{
-                  ...btnSecondary,
-                  fontSize: "18px",
-                  lineHeight: 1,
-                  padding: "4px 12px",
-                }}
-              >
-                ×
-              </button>
-            </div>
-            <StageDimensionFields
-              project={project}
-              setProject={setProjectSafe}
-              disabled={project.viewMode === "view"}
-              compact={false}
-              showHeading={false}
-              embedded
-              showAudienceEdge
-              onCommit={() => setStageSettingsOpen(false)}
-            />
-          </div>
-        </EditorSideSheet>
-      ) : null}
-
-      {shortcutsHelpOpen ? (
-        <EditorSideSheet
-          open
-          zIndex={60}
-          width="min(480px, 42vw)"
-          onClose={() => setShortcutsHelpOpen(false)}
-          ariaLabelledBy="shortcuts-dialog-title"
-        >
-          <div style={{ padding: "16px 18px 18px", maxHeight: "min(88vh, 560px)", overflow: "auto" }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "12px",
-                marginBottom: "14px",
-              }}
-            >
-              <h3
-                id="shortcuts-dialog-title"
-                style={{
-                  margin: 0,
-                  fontSize: "15px",
-                  fontWeight: 600,
-                  color: "#e2e8f0",
-                }}
-              >
-                ショートカット
-              </h3>
-              <button
-                type="button"
-                aria-label="閉じる"
-                onClick={() => setShortcutsHelpOpen(false)}
-                style={{
-                  ...btnSecondary,
-                  fontSize: "18px",
-                  lineHeight: 1,
-                  padding: "4px 12px",
-                }}
-              >
-                ×
-              </button>
-            </div>
-            <ul
-              style={{
-                margin: 0,
-                paddingLeft: "18px",
-                color: "#cbd5e1",
-                fontSize: "13px",
-                lineHeight: 1.65,
-              }}
-            >
-              <li>
-                <strong style={{ color: "#e2e8f0" }}>Space</strong>{" "}
-                再生／一時停止（タイムラインにフォーカス不要・入力欄以外）
-              </li>
-              <li>
-                <strong style={{ color: "#e2e8f0" }}>⌘Z / Ctrl+Z</strong> 元に戻す ·{" "}
-                <strong style={{ color: "#e2e8f0" }}>⌘⇧Z / Ctrl+⇧Z</strong> やり直し
-              </li>
-              <li>
-                <strong style={{ color: "#e2e8f0" }}>Escape</strong>{" "}
-                開いているダイアログを閉じる
-              </li>
-              <li>
-                波形: 波形上でマウスホイール（またはトラックパッドの縦スクロール）で表示範囲を拡大・縮小
-              </li>
-              <li>
-                ステージ微調整:{" "}
-                <strong style={{ color: "#e2e8f0" }}>Shift+ドラッグ</strong>{" "}
-                で細かいグリッドにスナップ（スナップON時。幅・奥行ありなら実寸グリッド）
-              </li>
-              <li>
-                <strong style={{ color: "#e2e8f0" }}>⌘D / Ctrl+D</strong>{" "}
-                ステージで選択中のメンバーを複製（名簿紐付けは外れます）
-              </li>
-              <li>
-                ドラッグ移動中、<strong style={{ color: "#e2e8f0" }}>移動前の位置</strong>
-                を薄い印で重ね表示します（指を離すと消えます）
-              </li>
-              <li>
-                <strong style={{ color: "#e2e8f0" }}>Alt+矢印</strong>{" "}
-                で選択ダンサーを微移動（<strong style={{ color: "#e2e8f0" }}>Shift+Alt</strong>{" "}
-                でさらに細かく）
-              </li>
-              <li>
-                <strong style={{ color: "#e2e8f0" }}>再生中にステージ</strong>{" "}
-                のダンサー以外をクリック → 再生停止（先頭付近へ）
-              </li>
-              <li>
-                大道具: ツールバー「大道具」から追加。モーダルで{" "}
-                <strong style={{ color: "#e2e8f0" }}>編集画面全体に配置</strong>を選ぶとタイムライン周りにも置けます。
-                選択中は青い丸ハンドルで回転（Shift で15°刻み）。右クリックで床／画面の切替や削除。
-              </li>
-              <li>
-                タイムライン: 波形で <strong style={{ color: "#e2e8f0" }}>⌘／Ctrl+クリック</strong>{" "}
-                でキュー複数選択、<strong style={{ color: "#e2e8f0" }}>Delete</strong>{" "}
-                で一括削除（Undo 可）
-              </li>
-              <li>
-                タイムライン: 波形上のキューを{" "}
-                <strong style={{ color: "#e2e8f0" }}>右クリック</strong>
-                →「複製する」「立ち位置リストに追加」は{" "}
-                <strong style={{ color: "#e2e8f0" }}>はい</strong>／
-                <strong style={{ color: "#e2e8f0" }}>いいえ</strong>で確定。「削除」はその場でキューを削除（Undo 可）
-              </li>
-              <li>
-                タイムライン: 動画ファイルから <strong style={{ color: "#e2e8f0" }}>音声抽出</strong>（再生時間ぶんかかります）
-                ・波形の <strong style={{ color: "#e2e8f0" }}>振幅 ±</strong> / 枠の下辺ドラッグで波形の高さ
-              </li>
-              <li>
-                ステージ: <strong style={{ color: "#e2e8f0" }}>Alt+クリック</strong>（ダンサー印）で重なった印を手前から順に切替
-              </li>
-            </ul>
-          </div>
-        </EditorSideSheet>
-      ) : null}
-
-      <SetPiecePickerModal
-        open={setPiecePickerOpen}
-        onClose={() => setSetPiecePickerOpen(false)}
-        onConfirm={confirmAddSetPiece}
-        disabled={project.viewMode === "view"}
-      />
-
-      <StageShapePicker
-        open={stageShapePickerOpen}
-        currentShape={project.stageShape}
-        legacyHanamichi={{
-          enabled: project.hanamichiEnabled ?? false,
-          depthPct: project.hanamichiDepthPct ?? 14,
-        }}
-        disabled={project.viewMode === "view"}
-        onClose={() => setStageShapePickerOpen(false)}
-        onConfirm={(shape) => {
-          setProjectSafe((p) => ({
-            ...p,
-            /** 新しい形を選んだときは旧仕様の花道フラグはオフに統一 */
-            hanamichiEnabled: false,
-            stageShape: shape,
-          }));
-          setStageShapePickerOpen(false);
-        }}
-      />
-
-      {cloudSaveDialogOpen && me && project ? (
-        <div
-          role="presentation"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 85,
-            background: "rgba(2, 6, 23, 0.72)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "max(16px, env(safe-area-inset-top))",
-            boxSizing: "border-box",
-          }}
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) setCloudSaveDialogOpen(false);
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="cloud-save-dialog-title"
-            style={{
-              ...panelCard,
-              maxWidth: 440,
-              width: "100%",
-              padding: "20px 22px 22px",
-              boxSizing: "border-box",
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <h2
-              id="cloud-save-dialog-title"
-              style={{
-                margin: "0 0 12px",
-                fontSize: "17px",
-                fontWeight: 700,
-                color: "#f1f5f9",
-              }}
-            >
-              {t("editor.cloudSaveTitle")}
-            </h2>
-            <p
-              style={{
-                margin: "0 0 20px",
-                fontSize: "13px",
-                lineHeight: 1.6,
-                color: "#94a3b8",
-              }}
-            >
-              {serverId != null
-                ? t("editor.cloudSaveBodyOverwrite")
-                : t("editor.cloudSaveBodyNew")}
-            </p>
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 10,
-                justifyContent: "flex-end",
-              }}
-            >
-              <button
-                type="button"
-                style={{ ...btnSecondary, padding: "8px 16px", fontSize: "13px" }}
-                disabled={saving}
-                onClick={() => setCloudSaveDialogOpen(false)}
-              >
-                {t("editor.cloudSaveNo")}
-              </button>
-              <button
-                type="button"
-                style={{ ...btnAccent, padding: "8px 16px", fontSize: "13px" }}
-                disabled={saving}
-                onClick={() => void performCloudSave()}
-              >
-                {saving ? t("editor.saving") : t("editor.cloudSaveYes")}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {exportDialogEl}
-      {flowLibraryDialogEl}
-      {addCueDialogEl}
-      {formationBoxManagerDialogEl}
-
-      {rosterImportSheetEl}
-
-      {aiSuggestOpen && project ? (
-        <AiSuggestDialog
-          project={project}
-          setProject={setProjectSafe}
-          peaks={getWavePeaksSnapshot()}
-          durationSec={duration}
-          onClose={() => setAiSuggestOpen(false)}
-        />
-      ) : null}
-
-      {!choreoPublicView ? (
-        <EditorSideSheet
-          open={shareLinksOpen}
-          onClose={() => setShareLinksOpen(false)}
-          zIndex={75}
-          width="min(440px, 92vw)"
-          ariaLabelledBy="share-links-panel-title"
-        >
-          <div style={{ padding: "16px 18px 22px" }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 12,
-                marginBottom: 4,
-              }}
-            >
-              <h3
-                id="share-links-panel-title"
-                style={{
-                  margin: 0,
-                  fontSize: 16,
-                  fontWeight: 700,
-                  color: "#e2e8f0",
-                }}
-              >
-                共有 URL
-              </h3>
-              <button
-                type="button"
-                aria-label="閉じる"
-                onClick={() => setShareLinksOpen(false)}
-                style={{
-                  ...btnSecondary,
-                  fontSize: 18,
-                  lineHeight: 1,
-                  padding: "4px 12px",
-                }}
-              >
-                ×
-              </button>
-            </div>
-            <ShareLinksSheetContent
-              open={shareLinksOpen}
-              collabUrl={shareLinksUrls.collab}
-              viewUrl={shareLinksUrls.view}
-              hasServerId={serverId != null}
-              pieceTitle={
-                project?.pieceTitle?.trim() ||
-                projectName.trim() ||
-                "無題の作品"
-              }
-              onClose={() => setShareLinksOpen(false)}
-            />
-          </div>
-        </EditorSideSheet>
-      ) : null}
-
-      {choreoPublicView && project ? (
-        <EditorSideSheet
-          open={choreoMemberSheetOpen}
-          onClose={() => setChoreoMemberSheetOpen(false)}
-          zIndex={88}
-          width="min(400px, 92vw)"
-        >
-          <div
-            style={{
-              padding: "8px 16px 0",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-            }}
-          >
-            <h3
-              style={{
-                margin: 0,
-                fontSize: 16,
-                fontWeight: 700,
-                color: "#e2e8f0",
-              }}
-            >
-              閲覧モード
-            </h3>
-            <button
-              type="button"
-              aria-label="閉じる"
-              onClick={() => setChoreoMemberSheetOpen(false)}
-              style={{
-                ...btnSecondary,
-                fontSize: 18,
-                lineHeight: 1,
-                padding: "4px 12px",
-              }}
-            >
-              ×
-            </button>
-          </div>
-          <div style={{ padding: "0 16px 20px" }}>
-            <ViewerModeSheetContent
-              variant="public"
-              pieceTitle={project.pieceTitle}
-              entries={getViewRosterEntries(project)}
-              canCapture2d={stageView === "2d"}
-              onPick={(p) => {
-                setChoreoStudentPick(p);
-                if (viewerLocalStorageKey) {
-                  try {
-                    localStorage.setItem(
-                      viewerLocalStorageKey,
-                      JSON.stringify(p)
-                    );
-                  } catch {
-                    /* ignore */
-                  }
-                }
-                setChoreoMemberSheetOpen(false);
-              }}
-            />
-          </div>
-        </EditorSideSheet>
-      ) : null}
-
-      {!choreoPublicView && project ? (
-        <EditorSideSheet
-          open={editorViewerSheetOpen}
-          onClose={() => setEditorViewerSheetOpen(false)}
-          zIndex={88}
-          width="min(400px, 92vw)"
-        >
-          <div
-            style={{
-              padding: "8px 16px 0",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-            }}
-          >
-            <h3
-              style={{
-                margin: 0,
-                fontSize: 16,
-                fontWeight: 700,
-                color: "#e2e8f0",
-              }}
-            >
-              閲覧プレビュー
-            </h3>
-            <button
-              type="button"
-              aria-label="閉じる"
-              onClick={() => setEditorViewerSheetOpen(false)}
-              style={{
-                ...btnSecondary,
-                fontSize: 18,
-                lineHeight: 1,
-                padding: "4px 12px",
-              }}
-            >
-              ×
-            </button>
-          </div>
-          <div style={{ padding: "0 16px 20px" }}>
-            <ViewerModeSheetContent
-              variant="editor"
-              pieceTitle={project.pieceTitle}
-              entries={getViewRosterEntries(project)}
-              canCapture2d={stageView === "2d"}
-              onPick={(p) => {
-                setEditorViewerPreviewPick(p);
-                setEditorViewerSheetOpen(false);
-              }}
-              onClearEditorPreview={() => setEditorViewerPreviewPick(null)}
-            />
-          </div>
-        </EditorSideSheet>
-      ) : null}
-
-      {/* ─── 床テキスト編集サイドシート（wideEditorLayout + showTopWaveDock 時） ─── */}
-      {showTopWaveDock && !choreoPublicView ? (
-        <EditorSideSheet
-          open={floorTextSideSheetOpen}
-          onClose={() => {
-            setFloorTextSideSheetOpen(false);
-          }}
-          zIndex={75}
-          width="min(340px, 92vw)"
-          ariaLabelledBy="floor-text-sheet-title"
-        >
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              height: "100%",
-              minHeight: 0,
-              background: "rgba(15,23,42,0.98)",
-            }}
-          >
-            {/* ヘッダー */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 8,
-                padding: "11px 14px",
-                borderBottom: "1px solid #334155",
-                flexShrink: 0,
-              }}
-            >
-              <h2
-                id="floor-text-sheet-title"
-                style={{
-                  margin: 0,
-                  fontSize: "13px",
-                  fontWeight: 700,
-                  color: "#e2e8f0",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 7,
-                  letterSpacing: "0.03em",
-                }}
-              >
-                <span style={{ color: "#818cf8", display: "flex", opacity: 0.9 }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="4 7 4 4 20 4 20 7"/>
-                    <line x1="9" y1="20" x2="15" y2="20"/>
-                    <line x1="12" y1="4" x2="12" y2="20"/>
-                  </svg>
-                </span>
-                {floorTextPlaceSession?.editTargetId ? "テキストを編集" : "床テキスト"}
-              </h2>
-              <button
-                type="button"
-                aria-label="閉じる"
-                onClick={() => {
-                  setFloorTextSideSheetOpen(false);
-                }}
-                style={{
-                  background: "transparent",
-                  border: "1px solid #334155",
-                  borderRadius: 6,
-                  color: "#94a3b8",
-                  fontSize: 16,
-                  lineHeight: 1,
-                  padding: "3px 9px",
-                  cursor: "pointer",
-                }}
-              >
-                ×
-              </button>
-            </div>
-            {/* ポータルターゲット（後方互換用、実UIはこの下に直書き） */}
-            <div ref={setTextPanelPortalEl} style={{ display: "none" }} />
-
-            {/* ── テキスト入力UI（スクロール不要・全要素を一画面に収める） ── */}
-            <div
-              style={{
-                flex: "1 1 auto",
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
-                padding: "14px 14px",
-                overflow: "hidden",
-              }}
-            >
-              {/* テキスト入力欄 */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <label style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>
-                  テキスト
-                </label>
-                <textarea
-                  autoFocus
-                  rows={3}
-                  placeholder="ステージに表示する文字を入力…"
-                  value={floorTextPlaceSession?.body ?? ""}
-                  onChange={(e) =>
-                    setFloorTextPlaceSession((s) =>
-                      s ? { ...s, body: e.target.value } : s
-                    )
-                  }
-                  style={{
-                    width: "100%",
-                    boxSizing: "border-box",
-                    resize: "none",
-                    borderRadius: 8,
-                    border: "1px solid #475569",
-                    background: "#0f172a",
-                    color: "#e2e8f0",
-                    fontSize: 14,
-                    padding: "8px 10px",
-                    fontFamily: "system-ui, sans-serif",
-                    outline: "none",
-                  }}
-                />
-              </div>
-
-              {/* 表示範囲（このキューのみ / 全キュー共通） */}
-              <div style={{ display: "flex", gap: 0, borderRadius: 8, overflow: "hidden", border: "1px solid #334155", flexShrink: 0 }}>
-                {(["formation", "global"] as const).map((s) => {
-                  const active = (floorTextPlaceSession?.scope ?? "formation") === s;
-                  return (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() =>
-                        setFloorTextPlaceSession((prev) =>
-                          prev ? { ...prev, scope: s } : prev
-                        )
-                      }
-                      style={{
-                        flex: 1,
-                        padding: "7px 4px",
-                        fontSize: 12,
-                        fontWeight: active ? 700 : 400,
-                        border: "none",
-                        background: active ? "#4f46e5" : "transparent",
-                        color: active ? "#fff" : "#64748b",
-                        cursor: "pointer",
-                        transition: "background 0.15s",
-                        lineHeight: 1.3,
-                      }}
-                    >
-                      {s === "formation" ? "このキューのみ" : "全キューに表示"}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* フォントサイズ */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#cbd5e1" }}>
-                <label style={{ flexShrink: 0, fontWeight: 600 }}>
-                  サイズ: {floorTextPlaceSession?.fontSizePx ?? 24}px
-                </label>
-                <input
-                  type="range" min={8} max={72}
-                  value={floorTextPlaceSession?.fontSizePx ?? 24}
-                  onChange={(e) =>
-                    setFloorTextPlaceSession((s) =>
-                      s ? { ...s, fontSizePx: Number(e.target.value) } : s
-                    )
-                  }
-                  style={{ flex: 1 }}
-                />
-              </div>
-
-              {/* 文字色 */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#cbd5e1" }}>
-                  <label style={{ flexShrink: 0, fontWeight: 600 }}>文字色</label>
-                  <input
-                    type="color"
-                    value={
-                      floorTextPlaceSession?.color &&
-                      /^#[0-9a-fA-F]{6}$/i.test(floorTextPlaceSession.color)
-                        ? floorTextPlaceSession.color
-                        : "#fef08a"
-                    }
-                    onChange={(e) =>
-                      setFloorTextPlaceSession((s) =>
-                        s ? { ...s, color: e.target.value } : s
-                      )
-                    }
-                    style={{ width: 36, height: 28, padding: 2, border: "1px solid #334155", borderRadius: 6, background: "transparent", cursor: "pointer" }}
-                  />
-                  <span style={{ fontSize: 10, color: "#64748b" }}>
-                    カスタムカラーを選択
-                  </span>
-                </div>
-                {/* カラーパレット */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 6 }}>
-                  {[
-                    { hex: "#ffffff", label: "白" },
-                    { hex: "#fef08a", label: "黄" },
-                    { hex: "#fb923c", label: "オレンジ" },
-                    { hex: "#f87171", label: "赤" },
-                    { hex: "#f472b6", label: "ピンク" },
-                    { hex: "#c084fc", label: "紫" },
-                    { hex: "#60a5fa", label: "青" },
-                    { hex: "#34d399", label: "緑" },
-                    { hex: "#a3e635", label: "黄緑" },
-                    { hex: "#94a3b8", label: "グレー" },
-                    { hex: "#1e293b", label: "黒" },
-                    { hex: "#fcd34d", label: "ゴールド" },
-                  ].map(({ hex, label }) => {
-                    const currentColor = (
-                      floorTextPlaceSession?.color &&
-                      /^#[0-9a-fA-F]{6}$/i.test(floorTextPlaceSession.color)
-                        ? floorTextPlaceSession.color
-                        : "#fef08a"
-                    ).toLowerCase();
-                    const isSelected = currentColor === hex.toLowerCase();
-                    return (
-                      <button
-                        key={hex}
-                        type="button"
-                        title={label}
-                        onClick={() =>
-                          setFloorTextPlaceSession((s) =>
-                            s ? { ...s, color: hex } : s
-                          )
-                        }
-                        style={{
-                          width: "100%",
-                          aspectRatio: "1",
-                          borderRadius: 6,
-                          border: isSelected
-                            ? "2px solid #fff"
-                            : "2px solid transparent",
-                          background: hex,
-                          cursor: "pointer",
-                          outline: isSelected ? "2px solid #60a5fa" : "none",
-                          outlineOffset: 1,
-                          boxShadow: "0 1px 3px rgba(0,0,0,0.4)",
-                          padding: 0,
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 決定ボタン */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (!floorTextPlaceSession?.body.trim()) {
-                    window.alert("テキストを入力してください");
-                    return;
-                  }
-                  commitFloorTextPlace();
-                  setFloorTextSideSheetOpen(false);
-                }}
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  fontSize: 15,
-                  fontWeight: 700,
-                  borderRadius: 10,
-                  border: "1px solid #15803d",
-                  background: "#22c55e",
-                  color: "#052e16",
-                  cursor: "pointer",
-                  letterSpacing: "0.04em",
-                }}
-              >
-                {floorTextPlaceSession?.editTargetId ? "✓ 変更を保存" : "✓ 決定（ステージに配置）"}
-              </button>
-
-              {/* キャンセル */}
-              <button
-                type="button"
-                onClick={() => {
-                  setFloorTextPlaceSession(null);
-                  setFloorTextSideSheetOpen(false);
-                }}
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  fontSize: 13,
-                  fontWeight: 500,
-                  borderRadius: 8,
-                  border: "1px solid #334155",
-                  background: "transparent",
-                  color: "#94a3b8",
-                  cursor: "pointer",
-                }}
-              >
-                キャンセル
-              </button>
-            </div>
-          </div>
-        </EditorSideSheet>
-      ) : null}
-
-      {choreoPublicView && choreoStudentPick ? (
-        <div
-          className="choreo-viewer-bottom-bar"
-          style={{
-            position: "fixed",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 90,
-            display: "flex",
-            flexDirection: "column",
-            borderTop: `1px solid ${shell.border}`,
-            background: "rgba(15, 23, 42, 0.98)",
-            boxShadow: "0 -4px 20px rgba(0,0,0,0.35)",
-            paddingBottom: "max(4px, env(safe-area-inset-bottom, 0px))",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              gap: publicViewTightHeight ? 6 : 8,
-              padding: publicViewTightHeight ? "6px 10px 5px" : "10px 14px 8px",
-              minHeight: publicViewTightHeight ? 40 : 48,
-              borderBottom: `1px solid ${shell.border}`,
-            }}
-          >
-            <span style={{ fontSize: publicViewTightHeight ? 16 : 20 }} aria-hidden>
-              🎵
-            </span>
-            <span
-              style={{
-                fontWeight: 700,
-                color: "#e2e8f0",
-                fontSize: publicViewTightHeight ? 13 : 16,
-                lineHeight: 1.25,
-                flex: "1 1 120px",
-                minWidth: 0,
-              }}
-            >
-              {(project.pieceTitle || "無題の作品").trim()} - 閲覧
-            </span>
-            <Link
-              to="/library"
-              style={{
-                ...btnSecondary,
-                textDecoration: "none",
-                fontSize: publicViewTightHeight ? 13 : 15,
-                fontWeight: 600,
-                flexShrink: 0,
-                minHeight: publicViewTightHeight ? 40 : 44,
-                minWidth: 64,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: publicViewTightHeight ? "6px 12px" : "10px 16px",
-              }}
-            >
-              閉じる
-            </Link>
-          </div>
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              gap: publicViewTightHeight ? 8 : 10,
-              padding: publicViewTightHeight ? "8px 10px 10px" : "12px 14px 14px",
-            }}
-          >
-            <span
-              style={{
-                fontSize: publicViewTightHeight ? 13 : 15,
-                color: "#e2e8f0",
-                lineHeight: 1.35,
-                flex: "1 1 200px",
-              }}
-            >
-              👤{" "}
-              {choreoStudentPick.kind === "all"
-                ? "全員"
-                : `${choreoStudentPick.label} さん`}{" "}
-              のパート表示中
-            </span>
-            <button
-              type="button"
-              onClick={() => setChoreoMemberSheetOpen(true)}
-              style={{
-                ...btnSecondary,
-                marginLeft: "auto",
-                fontSize: publicViewTightHeight ? 13 : 15,
-                fontWeight: 600,
-                minHeight: publicViewTightHeight ? 40 : 48,
-                padding: publicViewTightHeight ? "6px 12px" : "10px 16px",
-                touchAction: "manipulation",
-              }}
-              title="誰の立ち位置を大きく表示するかを選び直す"
-            >
-              パートを選ぶ
-            </button>
-          </div>
-        </div>
-      ) : null}
-
-      {/* NeonIconPanel — right side */}
-      {!choreoPublicView && !mobileStackEditor ? (
-        <NeonIconPanel
-          {...choreoToolbarSharedProps}
-          /* グリッド吸着トグル — グリッド線表示＋snapGridを同時に切り替える */
-          stageGridLinesEnabled={
-            (project.stageGridLinesVerticalEnabled ?? project.stageGridLinesEnabled ?? false) ||
-            (project.stageGridLinesHorizontalEnabled ?? project.stageGridLinesEnabled ?? false)
-          }
-          onToggleStageGridLines={() => {
-            const current =
-              (project.stageGridLinesVerticalEnabled ?? project.stageGridLinesEnabled ?? false) ||
-              (project.stageGridLinesHorizontalEnabled ?? project.stageGridLinesEnabled ?? false);
-            const next = !current;
-            setProjectSafe((p) => ({
-              ...p,
-              stageGridLinesVerticalEnabled: next,
-              stageGridLinesHorizontalEnabled: next,
-              stageGridLinesEnabled: next,
-              snapGrid: next,
-            }));
-          }}
-          snapGrid={project.snapGrid ?? false}
-          /* 舞台設定 → full stage area settings dialog */
-          onOpenStageShapePicker={() => setStageAreaSettingsOpen(true)}
-          onUndo={undo}
-          onRedo={redo}
-          undoDisabled={stageUndoDisabled}
-          redoDisabled={stageRedoDisabled}
-          /* 立ち位置保存 → formation box manager dialog */
-          onSave={saveStageToFormationBox}
-          /* キュー一覧モーダルを開く */
-          onOpenCueList={() => setCueListModalOpen(true)}
-          /* キュー設定ダイアログを開く */
-          onOpenCueSettings={() => setAddCueDialogOpen(true)}
-          onOpenShareLinks={() => setShareLinksOpen(true)}
-          onOpenAISuggest={() => setAiSuggestOpen(true)}
-          /* テキスト → floor markup text tool + right SideSheet (wide) or on-stage panel (narrow) */
-          onOpenFloorText={() => {
-            if (stageView !== "2d") {
-              window.alert("床テキストは 2D 表示のときのみ使えます");
-              return;
-            }
-            // floorMarkupTool は使わず floorTextPlaceSession で完結させる
-            // （両方セットすると内部 useEffect が競合して tool がリセットされる）
-            if (floorTextPlaceSession) {
-              // 既に開いている → 閉じる
-              setFloorTextPlaceSession(null);
-              setFloorTextSideSheetOpen(false);
-            } else {
-              // セッション開始：舞台中央・空テキストで即表示
-              setFloorTextPlaceSession({
-                body: "",
-                fontSizePx: 24,
-                fontWeight: 700,
-                xPct: 50,
-                yPct: 50,
-                color: "#fef08a",
-              });
-              setFloorTextSideSheetOpen(true);
-            }
-          }}
-          /* 閲覧モード → editor viewer sheet (member highlight preview) */
-          onOpenViewMode={() => setEditorViewerSheetOpen(true)}
-          onZoomStage={() => setStageZenFullscreen(true)}
-          onOpenAudioImport={openAudioImport}
-          onOpenLibrary={() => setFlowLibraryOpen(true)}
-          onOpenRosterImport={importCrewCsvFromStageToolbar}
-          /* ＋メンバー → proper addDancer with smart positioning */
-          onAddDancer={addDancerFromStageToolbar}
-          /* メンバー表示 → member roster SideSheet */
-          onOpenRoster={() => setMemberRosterSheetOpen(true)}
-          /* 舞台変形 → stage shape picker (custom stage shapes) */
-          onOpenStageTransform={() => setStageShapePickerOpen(true)}
-          /* パネル折りたたみ */
-          collapsed={rightPaneCollapsed && wideEditorLayout}
-          onCollapseToggle={wideEditorLayout ? () => setRightPaneCollapsed((v) => !v) : undefined}
-        />
-      ) : null}
-      </div>{/* end stage row */}
-
-      </div>{/* end main column wrapper */}
-
-      <style>{`
-        @media (max-width: 1279px) {
-          /* 閲覧ナロー・スマホ縦積み編集は除外（それぞれ専用レイアウト） */
-          .editor-three-pane:not(.editor-three-pane--public-narrow):not(.editor-mobile-stack) {
-            grid-template-columns: 1fr !important;
-            grid-template-rows: auto auto auto !important;
-            overscroll-behavior: contain;
-          }
-        }
-        .editor-pane-resizer::after {
-          content: "";
-          position: absolute;
-          top: 0;
-          bottom: 0;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 1px;
-          background: #334155;
-          pointer-events: none;
-          transition: background 120ms ease;
-        }
-        .editor-pane-resizer:hover::after {
-          background: rgba(148, 163, 184, 0.75);
-        }
-      `}</style>
-      {/* 個人別ベジェ軌道エディタ */}
-      {(() => {
-        if (!pathEditorCueId) return null;
-        const targetCue = cueById.get(pathEditorCueId);
-        if (!targetCue) return null;
-        const idx = sortedCuesForEditor.findIndex((c) => c.id === pathEditorCueId);
-        const prevCue = idx > 0 ? sortedCuesForEditor[idx - 1] : null;
-        if (!prevCue) return null;
-        const prevForm = formationById.get(prevCue.formationId);
-        const nextForm = formationById.get(targetCue.formationId);
-        if (!prevForm || !nextForm) return null;
-        return (
-          <DancerPathEditor
-            cueId={pathEditorCueId}
-            prevFormation={prevForm.dancers}
-            nextFormation={nextForm.dancers}
-            existingPaths={targetCue.dancerCustomPaths}
-            setProject={setProjectSafe}
-            onClose={() => setPathEditorCueId(null)}
-          />
-        );
-      })()}
-    </div>
-  );
+  return <EditorPageLayout {...editorLayoutProps} />;
 }

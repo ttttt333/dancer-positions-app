@@ -1,5 +1,9 @@
 /** Desktop editor layout constants (shared across editor modules). */
 
+import type { LayoutPresetId } from "../../lib/formationLayouts";
+
+export const DEFAULT_ROSTER_CONFIRM_PRESET: LayoutPresetId = "rows_3";
+
 export const HISTORY_CAP = 80;
 
 export const EDITOR_WIDE_MIN_PX = 1280;

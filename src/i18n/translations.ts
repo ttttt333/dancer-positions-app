@@ -1,8 +1,9 @@
 import type { AppLocale } from "./types";
+import { mergeEditorLayoutTranslations } from "./editorLayoutTranslations";
 
 export type MessageBundle = Record<string, string>;
 
-export const TRANSLATIONS: Record<AppLocale, MessageBundle> = {
+const BASE_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
   ja: {
     "lang.label": "言語",
     "lang.ja": "日本語",
@@ -403,3 +404,5 @@ export const TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "editor.cloudSaveFlowButton": "云端保存",
   },
 };
+
+export const TRANSLATIONS = mergeEditorLayoutTranslations(BASE_TRANSLATIONS);
