@@ -255,7 +255,7 @@ export function TimelineWaveMenus({
               8,
               Math.min(
                 gapRouteMenu.clientX,
-                (typeof window !== "undefined" ? window.innerWidth : 800) - 320
+                (typeof window !== "undefined" ? window.innerWidth : 800) - 420
               )
             ),
             top: Math.max(
@@ -266,28 +266,57 @@ export function TimelineWaveMenus({
               )
             ),
             zIndex: 2499,
-            width: "min(300px, calc(100vw - 16px))",
-            maxHeight: "min(72vh, 520px)",
+            width: "min(400px, calc(100vw - 16px))",
+            maxHeight: "min(82vh, 680px)",
             overflowY: "auto",
-            padding: "10px",
-            borderRadius: "10px",
+            padding: "12px",
+            borderRadius: "12px",
             border: `1px solid ${shell.border}`,
             background: shell.surface,
             boxShadow: "0 16px 48px rgba(0,0,0,0.45)",
           }}
           onClick={(ev) => ev.stopPropagation()}
         >
+          {/* 個人設定ボタンを最上部に */}
+          {onOpenPathEditor && viewMode !== "view" && (
+            <>
+              <button
+                type="button"
+                role="menuitem"
+                style={{
+                  ...btnSecondary,
+                  display: "block",
+                  width: "100%",
+                  textAlign: "left",
+                  fontSize: "14px",
+                  padding: "10px 12px",
+                  borderColor: "rgba(139,92,246,0.7)",
+                  color: "#ddd6fe",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  marginBottom: "8px",
+                }}
+                onClick={() => {
+                  const nextId = gapRouteMenu.nextCueId;
+                  setGapRouteMenu(null);
+                  onOpenPathEditor(nextId);
+                }}
+              >
+                🎯 動線を個人設定…
+              </button>
+              <div style={{ borderTop: `1px solid ${shell.border}`, margin: "8px 0" }} />
+            </>
+          )}
           <div
             style={{
-              fontSize: "11px",
+              fontSize: "12px",
               fontWeight: 600,
               color: "#94a3b8",
-              marginBottom: "8px",
-              lineHeight: 1.35,
+              marginBottom: "10px",
+              lineHeight: 1.45,
             }}
           >
-            金枠のキュー同士の間の白いブロック上で開きます。直前のキュー終了〜このキュー開始の動き方（再生の補間）。上手＝画面右（x
-            大）、客席側＝手前（y 大）。
+            直前のキュー終了〜このキュー開始の動き方（全員一括）。上手＝画面右（x 大）、客席側＝手前（y 大）。
           </div>
           {GAP_APPROACH_OPTIONS.map((opt) => (
             <button
@@ -300,10 +329,10 @@ export function TimelineWaveMenus({
                 display: "block",
                 width: "100%",
                 textAlign: "left",
-                marginBottom: "5px",
-                fontSize: "11px",
-                padding: "7px 8px",
-                lineHeight: 1.35,
+                marginBottom: "6px",
+                fontSize: "13px",
+                padding: "9px 10px",
+                lineHeight: 1.4,
                 whiteSpace: "normal",
                 cursor: viewMode === "view" ? "not-allowed" : "pointer",
               }}
@@ -339,8 +368,8 @@ export function TimelineWaveMenus({
               width: "100%",
               textAlign: "left",
               marginTop: "4px",
-              fontSize: "11px",
-              padding: "7px 8px",
+              fontSize: "13px",
+              padding: "9px 10px",
               cursor: viewMode === "view" ? "not-allowed" : "pointer",
             }}
             onClick={() => {
@@ -359,34 +388,7 @@ export function TimelineWaveMenus({
           >
             設定をクリア（線形のみ）
           </button>
-          {onOpenPathEditor && viewMode !== "view" && (
-            <>
-              <div style={{ borderTop: `1px solid ${shell.border}`, margin: "6px 0 4px" }} />
-              <button
-                type="button"
-                role="menuitem"
-                style={{
-                  ...btnSecondary,
-                  display: "block",
-                  width: "100%",
-                  textAlign: "left",
-                  fontSize: "11px",
-                  padding: "7px 8px",
-                  borderColor: "rgba(139,92,246,0.55)",
-                  color: "#ddd6fe",
-                  cursor: "pointer",
-                }}
-                onClick={() => {
-                  const nextId = gapRouteMenu.nextCueId;
-                  setGapRouteMenu(null);
-                  onOpenPathEditor(nextId);
-                }}
-              >
-                🎯 動線を個人設定…
-              </button>
-            </>
-          )}
-          <div style={{ borderTop: `1px solid ${shell.border}`, margin: "6px 0 4px" }} />
+          <div style={{ borderTop: `1px solid ${shell.border}`, margin: "8px 0 6px" }} />
           <button
             type="button"
             role="menuitem"
@@ -395,8 +397,8 @@ export function TimelineWaveMenus({
               display: "block",
               width: "100%",
               textAlign: "center",
-              fontSize: "11px",
-              padding: "7px 8px",
+              fontSize: "13px",
+              padding: "9px 10px",
               color: "#94a3b8",
             }}
             onClick={() => setGapRouteMenu(null)}
