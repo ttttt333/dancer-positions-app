@@ -1,38 +1,32 @@
-# タスク一覧（2026-05-08）
+# Phase 2実装タスク
 
-## 1. 大道具 — ステージ外どこでも配置可能
-- 現状: clamp(xPct, 0, 100-wPct) で 0-100% に制限
-- 対応: 制限を撤廃し -50% 〜 150% 程度まで自由配置
-- ファイル: StageBoardBody.tsx (line 1848,1849,1906,1907)
+## 1. 動線矢印 (StageMotionArrowsOverlay.tsx)
+- 新規コンポーネント: SVGでダンサーの移動経路を矢印表示
+- アクティブフォーメーション → 次フォーメーションへの矢印
+- StageBoardBody に `showMotionArrows?: boolean` propsを追加
+- EditorPage に toggle ボタンを追加
 
-## 2. 大道具の上に立ち位置をつけても隠れない
-- 現状: SetPiece の z-index が立ち位置より上になっている可能性
-- ファイル: StageBoardBody.tsx - SetPiece の描画順・zIndex を確認
+## 2. 個人閲覧モード強化
+- studentViewerFocus = "one" のとき、ハイライト対象のマーカーに:
+  - 光るリング/パルスアニメ追加
+  - 名前ラベルを常時大きく表示
+  - 矢印（↓）で自分の位置を示す
+- ChoreoStudentViewGate を更新
 
-## 3. キュー一覧ボタン → キュー設定パネル（修正）
-- 現状: キュー一覧SideSheetはあるが「設定」になっていない
-- 対応: SideSheetの中身をキュー設定（名前変更・削除・順番変更）に変更
-- ファイル: EditorPage.tsx (4535-4635)
+## 3. テンプレ150種 (+73種)
+- formationLayouts.ts に新パターン追加:
+  - 対角線バリエーション: diagonal_nw, diagonal_sw
+  - 台形系: trapezoid_front, trapezoid_back
+  - 五角形・六角形周り: pentagon, hexagon
+  - L字・T字・E字・F字
+  - 入れ子ひし形: nested_diamond
+  - 対称クラスター系 x5
+  - 3点フォーカス x3
+  - 扇形バリエーション x5
+  - フリースタイル多様系 x20
+  - 舞台用具体フォーメーション x20
 
-## 4. メンバー表示ボタン → 立ち位置メンバー名前確認・設定 SideSheet
-- 現状: rosterHidesTimeline=trueにするだけで何も視覚的変化なし
-- 対応: EditorSideSheet で名前・色・番号などを編集できるメンバーパネルを表示
-- ファイル: EditorPage.tsx + 新規 DancerRosterSheet コンポーネント
-
-## 5. 舞台変形カスタム — クリックで頂点追加
-- 現状: sketchMode（なぞり）のみ、クリックで追加不可
-- 対応: sketchMode オフの状態でSVGクリック → 最近辺に頂点挿入 or 末尾追加
-- ファイル: StageShapePicker.tsx
-
-## 6. AI提案 — 歌詞・曲情報・要望・タイムスタンプ指定入力
-- 現状: 音楽解析のみで自動実行、入力UI なし
-- 対応: 
-  a) 歌詞テキスト入力欄
-  b) 曲名・ジャンル・雰囲気など入力欄
-  c) 演出要望（自由記述）
-  d) タイムスタンプ別指定（秒数 + フォーメーション名）
-  e) これらを suggest() に渡してEdge Functionのbodyに含める
-- ファイル: AiSuggestDialog.tsx + useAiFormationSuggest.ts
-
-## 優先順位
-1 → 2 → 4 → 3 → 5 → 6（工数大きい順に後回し）
+## 状態
+- [ ] 動線矢印
+- [ ] 個人閲覧強化
+- [ ] テンプレ追加

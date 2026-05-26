@@ -305,6 +305,93 @@ export const LAYOUT_PRESET_OPTIONS = [
   { id: "cluster_tight", label: "密集（センター）" },
   { id: "spread_loose", label: "広く分散" },
   { id: "asymmetric_l", label: "アシンメ L字" },
+  /** ─ 追加: 列・千鳥 系 ─ */
+  { id: "rows_9", label: "9列" },
+  { id: "rows_10", label: "10列" },
+  { id: "stagger_4", label: "4段千鳥" },
+  { id: "stagger_5", label: "5段千鳥" },
+  { id: "stagger_wide", label: "千鳥（広め）" },
+  { id: "stagger_tight", label: "千鳥（狭め）" },
+  { id: "two_rows_equal", label: "2列均等" },
+  { id: "three_rows_equal", label: "3列均等" },
+  { id: "checkerboard", label: "チェッカーボード" },
+  /** ─ 追加: 直線・対角 系 ─ */
+  { id: "line_left", label: "縦一列（左端）" },
+  { id: "line_right", label: "縦一列（右端）" },
+  { id: "diagonal_sw", label: "斜め（↙）" },
+  { id: "diagonal_nw", label: "斜め（↖）" },
+  { id: "cross_diag", label: "X対角線 2ライン" },
+  { id: "double_diagonal", label: "並行斜め2ライン" },
+  { id: "zigzag_deep", label: "ジグザグ（深め）" },
+  { id: "zigzag_wide", label: "ジグザグ（横広）" },
+  /** ─ 追加: グリッド・縦列 系 ─ */
+  { id: "columns_3", label: "3列縦並び" },
+  { id: "columns_11", label: "11列縦並び" },
+  { id: "columns_12", label: "12列縦並び" },
+  { id: "grid_tight", label: "グリッド（狭め）" },
+  { id: "grid_wide", label: "グリッド（広め）" },
+  { id: "brick_pattern", label: "レンガ積み" },
+  /** ─ 追加: 円形・弧 系 ─ */
+  { id: "arc_front", label: "円弧（手前向き）" },
+  { id: "triple_arc", label: "三重弧" },
+  { id: "semicircle_back", label: "半円（奥向き）" },
+  { id: "ellipse", label: "楕円形" },
+  { id: "oval_wide", label: "横長楕円" },
+  { id: "oval_tall", label: "縦長楕円" },
+  { id: "ring_inner_dot", label: "リング＋中央1人" },
+  { id: "double_ring_offset", label: "二重リング（ずらし）" },
+  /** ─ 追加: V字・扇 系 ─ */
+  { id: "v_open", label: "V字（広め）" },
+  { id: "v_tight", label: "V字（狭め）" },
+  { id: "fan_front", label: "扇（手前頂点）" },
+  { id: "fan_wide", label: "扇（幅広）" },
+  { id: "triple_vee", label: "三重V字" },
+  { id: "arrow_left", label: "矢印（左向き）" },
+  { id: "arrow_right", label: "矢印（右向き）" },
+  /** ─ 追加: グループ・ブロック 系 ─ */
+  { id: "block_4", label: "4ブロック" },
+  { id: "block_lr_depth", label: "左右ブロック（奥行き）" },
+  { id: "quad_corners", label: "4隅配置" },
+  { id: "pentagon_group", label: "5角形グループ" },
+  { id: "hex_group", label: "6角形グループ" },
+  { id: "center_ring_outer", label: "センター群＋外周リング" },
+  { id: "two_wings", label: "左右ウィング" },
+  { id: "three_lines_depth", label: "前中奥3ライン" },
+  /** ─ 追加: 幾何形 系 ─ */
+  { id: "triangle", label: "三角形（周り）" },
+  { id: "pentagon", label: "五角形（周り）" },
+  { id: "hexagon", label: "六角形（周り）" },
+  { id: "octagon", label: "八角形（周り）" },
+  { id: "star_5", label: "星形（5点）" },
+  { id: "star_6", label: "星形（6点）" },
+  { id: "plus_cross", label: "プラス（＋）形" },
+  { id: "double_cross", label: "ダブルクロス" },
+  { id: "t_shape", label: "T字形" },
+  { id: "l_shape", label: "L字形" },
+  /** ─ 追加: アート・個性 系 ─ */
+  { id: "spiral_loose", label: "螺旋（緩め）" },
+  { id: "spiral_tight", label: "螺旋（密）" },
+  { id: "wave_double", label: "二重波型" },
+  { id: "sine_deep", label: "サイン波（深め）" },
+  { id: "scatter_wide", label: "広域ランダム" },
+  { id: "scatter_center", label: "中央クラスター" },
+  { id: "pinwheel", label: "風車形" },
+  { id: "radial_burst", label: "放射状" },
+  { id: "figure_eight", label: "8の字" },
+  { id: "heart", label: "ハート形" },
+  { id: "asymmetric_r", label: "アシンメ R字" },
+  { id: "comb", label: "クシ形" },
+  { id: "bracket_lr", label: "括弧形（左右）" },
+  { id: "two_diag_lines", label: "2対角ライン" },
+  { id: "s_curve", label: "S字カーブ" },
+  { id: "u_deep", label: "深いU字" },
+  /** ─ 追加: 残り6種 ─ */
+  { id: "rows_11", label: "11列" },
+  { id: "rows_12", label: "12列" },
+  { id: "column_pair", label: "2列縦ペア" },
+  { id: "w_shape", label: "W字形" },
+  { id: "m_shape", label: "M字形" },
+  { id: "fan_360", label: "360°扇形（全周）" },
 ] as const;
 
 export type LayoutPresetId = (typeof LAYOUT_PRESET_OPTIONS)[number]["id"];
@@ -439,6 +526,119 @@ export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
       "cluster_tight",
       "spread_loose",
       "asymmetric_l",
+      "spiral_loose",
+      "spiral_tight",
+      "wave_double",
+      "sine_deep",
+      "scatter_wide",
+      "scatter_center",
+      "pinwheel",
+      "radial_burst",
+      "figure_eight",
+      "heart",
+      "asymmetric_r",
+      "comb",
+      "bracket_lr",
+      "two_diag_lines",
+      "s_curve",
+      "u_deep",
+      "w_shape",
+      "m_shape",
+      "fan_360",
+    ],
+  },
+  {
+    label: "🔢 列・千鳥（追加）",
+    ids: [
+      "rows_9",
+      "rows_10",
+      "rows_11",
+      "rows_12",
+      "stagger_4",
+      "stagger_5",
+      "stagger_wide",
+      "stagger_tight",
+      "two_rows_equal",
+      "three_rows_equal",
+      "checkerboard",
+    ],
+  },
+  {
+    label: "📏 直線・対角（追加）",
+    ids: [
+      "line_left",
+      "line_right",
+      "diagonal_sw",
+      "diagonal_nw",
+      "cross_diag",
+      "double_diagonal",
+      "zigzag_deep",
+      "zigzag_wide",
+    ],
+  },
+  {
+    label: "⬛ グリッド・縦列（追加）",
+    ids: [
+      "columns_3",
+      "column_pair",
+      "columns_11",
+      "columns_12",
+      "grid_tight",
+      "grid_wide",
+      "brick_pattern",
+    ],
+  },
+  {
+    label: "🌕 円形・弧（追加）",
+    ids: [
+      "arc_front",
+      "triple_arc",
+      "semicircle_back",
+      "ellipse",
+      "oval_wide",
+      "oval_tall",
+      "ring_inner_dot",
+      "double_ring_offset",
+    ],
+  },
+  {
+    label: "🔺 V字・扇（追加）",
+    ids: [
+      "v_open",
+      "v_tight",
+      "fan_front",
+      "fan_wide",
+      "triple_vee",
+      "arrow_left",
+      "arrow_right",
+    ],
+  },
+  {
+    label: "👥 グループ・ブロック（追加）",
+    ids: [
+      "block_4",
+      "block_lr_depth",
+      "quad_corners",
+      "pentagon_group",
+      "hex_group",
+      "center_ring_outer",
+      "two_wings",
+      "three_lines_depth",
+    ],
+  },
+  {
+    label: "🔷 幾何形（追加）",
+    ids: [
+      "triangle",
+      "pentagon",
+      "hexagon",
+      "octagon",
+      "star_5",
+      "star_6",
+      "plus_cross",
+      "double_cross",
+      "t_shape",
+      "l_shape",
     ],
   },
 ];
@@ -1354,6 +1554,880 @@ export function dancersForLayoutPreset(
       for (let i = 0; i < rest; i++) {
         const u = rest === 1 ? 0.5 : i / (rest - 1);
         pushSpot(out, i + 1, 18 + u * 64, 60 - Math.abs(u - 0.5) * 36);
+      }
+      break;
+    }
+    // ── 追加: 列・千鳥 系 ──────────────────────────────────────────
+    case "rows_9":
+    case "rows_10": {
+      const target = preset === "rows_9" ? 9 : 10;
+      const rowCounts = evenRowCounts(n, target);
+      const nr = rowCounts.length;
+      let idx = 0;
+      for (let r = 0; r < nr; r++) {
+        const cnt = rowCounts[r]!;
+        const y = yPctPyramidRow(nr - 1 - r, nr);
+        const xs = evenSpacingPositions(cnt, 50, TARGET_STEP_X, 5, 95);
+        for (let j = 0; j < cnt; j++) pushSpot(out, idx++, xs[j]!, y);
+      }
+      break;
+    }
+    case "stagger_4": {
+      const rowCounts = evenRowCounts(n, 4);
+      const nr = rowCounts.length;
+      let idx = 0;
+      for (let r = 0; r < nr; r++) {
+        const cnt = rowCounts[r]!;
+        const y = yPctPyramidRow(nr - 1 - r, nr);
+        const offset = r % 2 === 1 ? TARGET_STEP_X / 2 : 0;
+        const xs = evenSpacingPositions(cnt, 50 + offset / 2, TARGET_STEP_X, 5, 95);
+        for (let j = 0; j < cnt; j++) pushSpot(out, idx++, xs[j]!, y);
+      }
+      break;
+    }
+    case "stagger_5": {
+      const rowCounts = evenRowCounts(n, 5);
+      const nr = rowCounts.length;
+      let idx = 0;
+      for (let r = 0; r < nr; r++) {
+        const cnt = rowCounts[r]!;
+        const y = yPctPyramidRow(nr - 1 - r, nr);
+        const offset = r % 2 === 1 ? TARGET_STEP_X / 2 : 0;
+        const xs = evenSpacingPositions(cnt, 50 + offset / 2, TARGET_STEP_X, 5, 95);
+        for (let j = 0; j < cnt; j++) pushSpot(out, idx++, xs[j]!, y);
+      }
+      break;
+    }
+    case "stagger_wide": {
+      const rowCounts = evenRowCounts(n, 3);
+      const nr = rowCounts.length;
+      let idx = 0;
+      for (let r = 0; r < nr; r++) {
+        const cnt = rowCounts[r]!;
+        const y = yPctPyramidRow(nr - 1 - r, nr);
+        const offset = r % 2 === 1 ? TARGET_STEP_X * 0.75 : 0;
+        const xs = evenSpacingPositions(cnt, 50, TARGET_STEP_X * 1.5, 5, 95);
+        for (let j = 0; j < cnt; j++) pushSpot(out, idx++, xs[j]! + offset, y);
+      }
+      break;
+    }
+    case "stagger_tight": {
+      const rowCounts = evenRowCounts(n, 3);
+      const nr = rowCounts.length;
+      let idx = 0;
+      for (let r = 0; r < nr; r++) {
+        const cnt = rowCounts[r]!;
+        const y = yPctPyramidRow(nr - 1 - r, nr);
+        const offset = r % 2 === 1 ? TARGET_STEP_X * 0.3 : 0;
+        const xs = evenSpacingPositions(cnt, 50, TARGET_STEP_X * 0.7, 5, 95);
+        for (let j = 0; j < cnt; j++) pushSpot(out, idx++, xs[j]! + offset, y);
+      }
+      break;
+    }
+    case "two_rows_equal": {
+      const half = Math.ceil(n / 2);
+      const half2 = n - half;
+      const xs1 = evenSpacingPositions(half, 50, TARGET_STEP_X, 10, 90);
+      const xs2 = evenSpacingPositions(half2, 50, TARGET_STEP_X, 10, 90);
+      for (let j = 0; j < half; j++) pushSpot(out, j, xs1[j]!, 68);
+      for (let j = 0; j < half2; j++) pushSpot(out, half + j, xs2[j]!, 34);
+      break;
+    }
+    case "three_rows_equal": {
+      const r0 = Math.ceil(n / 3);
+      const r1 = Math.ceil((n - r0) / 2);
+      const r2 = n - r0 - r1;
+      const ys = [72, 48, 24];
+      let idx = 0;
+      for (const [ri, cnt] of [[r0, ys[0]], [r1, ys[1]], [r2, ys[2]]] as [number, number][]) {
+        const xs = evenSpacingPositions(cnt, 50, TARGET_STEP_X, 10, 90);
+        for (let j = 0; j < cnt; j++) pushSpot(out, idx++, xs[j]!, ri);
+      }
+      break;
+    }
+    case "checkerboard": {
+      const cols = Math.max(2, Math.round(Math.sqrt(n * 1.5)));
+      const rows = Math.ceil(n / cols);
+      let idx = 0;
+      for (let r = 0; r < rows && idx < n; r++) {
+        for (let c = 0; c < cols && idx < n; c++) {
+          const offset = r % 2 === 1 ? TARGET_STEP_X / 2 : 0;
+          const x = 15 + c * ((70) / Math.max(cols - 1, 1)) + offset;
+          const y = 72 - r * (50 / Math.max(rows - 1, 1));
+          pushSpot(out, idx++, x, y);
+        }
+      }
+      break;
+    }
+    // ── 追加: 直線・対角 系 ──────────────────────────────────────────
+    case "line_left": {
+      for (let i = 0; i < n; i++) {
+        const u = n <= 1 ? 0.5 : i / (n - 1);
+        pushSpot(out, i, 22, 20 + u * 60);
+      }
+      break;
+    }
+    case "line_right": {
+      for (let i = 0; i < n; i++) {
+        const u = n <= 1 ? 0.5 : i / (n - 1);
+        pushSpot(out, i, 78, 20 + u * 60);
+      }
+      break;
+    }
+    case "diagonal_sw": {
+      for (let i = 0; i < n; i++) {
+        const u = n <= 1 ? 0.5 : i / (n - 1);
+        pushSpot(out, i, 82 - u * 64, 25 + u * 50);
+      }
+      break;
+    }
+    case "diagonal_nw": {
+      for (let i = 0; i < n; i++) {
+        const u = n <= 1 ? 0.5 : i / (n - 1);
+        pushSpot(out, i, 82 - u * 64, 75 - u * 50);
+      }
+      break;
+    }
+    case "cross_diag": {
+      const half = Math.ceil(n / 2);
+      for (let i = 0; i < half; i++) {
+        const u = half <= 1 ? 0.5 : i / (half - 1);
+        pushSpot(out, i, 18 + u * 64, 25 + u * 50);
+      }
+      for (let i = half; i < n; i++) {
+        const j = i - half;
+        const rest = n - half;
+        const u = rest <= 1 ? 0.5 : j / (rest - 1);
+        pushSpot(out, i, 82 - u * 64, 25 + u * 50);
+      }
+      break;
+    }
+    case "double_diagonal": {
+      const half = Math.ceil(n / 2);
+      for (let i = 0; i < half; i++) {
+        const u = half <= 1 ? 0.5 : i / (half - 1);
+        pushSpot(out, i, 18 + u * 64, 25 + u * 50);
+      }
+      for (let i = half; i < n; i++) {
+        const j = i - half;
+        const rest = n - half;
+        const u = rest <= 1 ? 0.5 : j / (rest - 1);
+        pushSpot(out, i, 25 + u * 64, 25 + u * 50);
+      }
+      break;
+    }
+    case "zigzag_deep": {
+      for (let i = 0; i < n; i++) {
+        const u = n <= 1 ? 0.5 : i / (n - 1);
+        const x = 18 + u * 64;
+        const y = 50 + Math.sin(i * Math.PI) * 30;
+        pushSpot(out, i, x, y);
+      }
+      break;
+    }
+    case "zigzag_wide": {
+      for (let i = 0; i < n; i++) {
+        const u = n <= 1 ? 0.5 : i / (n - 1);
+        const x = 10 + u * 80;
+        const y = 50 + (i % 2 === 0 ? -18 : 18);
+        pushSpot(out, i, x, y);
+      }
+      break;
+    }
+    // ── 追加: グリッド・縦列 系 ──────────────────────────────────────
+    case "columns_3": {
+      const perCol = Math.ceil(n / 3);
+      const xs = evenSpacingPositions(3, 50, TARGET_STEP_X * 2, 15, 85);
+      for (let i = 0; i < n; i++) {
+        const col = i % 3;
+        const row = Math.floor(i / 3);
+        const ys = evenSpacingPositions(perCol, 50, TARGET_STEP_Y, 20, 78);
+        pushSpot(out, i, xs[col]!, ys[row] ?? 50);
+      }
+      break;
+    }
+    case "columns_11":
+    case "columns_12": {
+      const nCols = preset === "columns_11" ? 11 : 12;
+      const perCol = Math.ceil(n / nCols);
+      const xs = evenSpacingPositions(nCols, 50, TARGET_STEP_X * 0.8, 5, 95);
+      for (let i = 0; i < n; i++) {
+        const col = i % nCols;
+        const row = Math.floor(i / nCols);
+        const ys = evenSpacingPositions(perCol, 50, TARGET_STEP_Y, 20, 78);
+        pushSpot(out, i, xs[col]!, ys[row] ?? 50);
+      }
+      break;
+    }
+    case "grid_tight": {
+      const cols = Math.max(2, Math.round(Math.sqrt(n)));
+      const rows = Math.ceil(n / cols);
+      let idx = 0;
+      for (let r = 0; r < rows && idx < n; r++) {
+        for (let c = 0; c < cols && idx < n; c++) {
+          const x = 30 + c * (40 / Math.max(cols - 1, 1));
+          const y = 65 - r * (30 / Math.max(rows - 1, 1));
+          pushSpot(out, idx++, x, y);
+        }
+      }
+      break;
+    }
+    case "grid_wide": {
+      const cols = Math.max(2, Math.round(Math.sqrt(n)));
+      const rows = Math.ceil(n / cols);
+      let idx = 0;
+      for (let r = 0; r < rows && idx < n; r++) {
+        for (let c = 0; c < cols && idx < n; c++) {
+          const x = 10 + c * (80 / Math.max(cols - 1, 1));
+          const y = 80 - r * (60 / Math.max(rows - 1, 1));
+          pushSpot(out, idx++, x, y);
+        }
+      }
+      break;
+    }
+    case "brick_pattern": {
+      const cols = Math.max(2, Math.round(Math.sqrt(n * 1.2)));
+      const rows = Math.ceil(n / cols);
+      let idx = 0;
+      for (let r = 0; r < rows && idx < n; r++) {
+        const offset = r % 2 === 1 ? 35 / Math.max(cols - 1, 1) : 0;
+        for (let c = 0; c < cols && idx < n; c++) {
+          const x = 15 + c * (70 / Math.max(cols - 1, 1)) + offset;
+          const y = 72 - r * (50 / Math.max(rows - 1, 1));
+          pushSpot(out, idx++, x, y);
+        }
+      }
+      break;
+    }
+    // ── 追加: 円形・弧 系 ──────────────────────────────────────────
+    case "arc_front": {
+      for (let i = 0; i < n; i++) {
+        const t = n <= 1 ? 0 : (i / (n - 1) - 0.5) * Math.PI * 0.9;
+        pushSpot(out, i, 50 + 38 * Math.sin(t), 65 - 22 * (1 - Math.cos(t)));
+      }
+      break;
+    }
+    case "triple_arc": {
+      const third = Math.ceil(n / 3);
+      let idx = 0;
+      for (let arc = 0; arc < 3 && idx < n; arc++) {
+        const cnt = arc < 2 ? third : n - idx;
+        const ry = [22, 35, 48][arc]!;
+        for (let i = 0; i < cnt && idx < n; i++) {
+          const t = cnt <= 1 ? 0 : (i / (cnt - 1) - 0.5) * Math.PI * 0.85;
+          pushSpot(out, idx++, 50 + 38 * Math.sin(t), ry - 14 * (1 - Math.cos(t)));
+        }
+      }
+      break;
+    }
+    case "semicircle_back": {
+      for (let i = 0; i < n; i++) {
+        const t = n <= 1 ? Math.PI / 2 : (Math.PI * i) / (n - 1);
+        pushSpot(out, i, 50 + 38 * Math.cos(t), 35 + 22 * Math.sin(t));
+      }
+      break;
+    }
+    case "ellipse": {
+      for (let i = 0; i < n; i++) {
+        const ang = (i / Math.max(n, 1)) * Math.PI * 2 - Math.PI / 2;
+        pushSpot(out, i, 50 + 34 * Math.cos(ang), 50 + 26 * Math.sin(ang));
+      }
+      break;
+    }
+    case "oval_wide": {
+      for (let i = 0; i < n; i++) {
+        const ang = (i / Math.max(n, 1)) * Math.PI * 2 - Math.PI / 2;
+        pushSpot(out, i, 50 + 42 * Math.cos(ang), 50 + 20 * Math.sin(ang));
+      }
+      break;
+    }
+    case "oval_tall": {
+      for (let i = 0; i < n; i++) {
+        const ang = (i / Math.max(n, 1)) * Math.PI * 2 - Math.PI / 2;
+        pushSpot(out, i, 50 + 22 * Math.cos(ang), 50 + 38 * Math.sin(ang));
+      }
+      break;
+    }
+    case "ring_inner_dot": {
+      if (n <= 1) { pushSpot(out, 0, 50, 50); break; }
+      pushSpot(out, 0, 50, 50);
+      for (let i = 1; i < n; i++) {
+        const ang = ((i - 1) / (n - 1)) * Math.PI * 2 - Math.PI / 2;
+        const rx = 34, ry = 26;
+        pushSpot(out, i, 50 + rx * Math.cos(ang), 50 + ry * Math.sin(ang));
+      }
+      break;
+    }
+    case "double_ring_offset": {
+      const inner = Math.ceil(n * 0.45);
+      const outer = n - inner;
+      for (let i = 0; i < inner; i++) {
+        const ang = (i / Math.max(inner, 1)) * Math.PI * 2 - Math.PI / 2;
+        pushSpot(out, i, 50 + 18 * Math.cos(ang), 50 + 14 * Math.sin(ang));
+      }
+      const offset = Math.PI / Math.max(outer, 1);
+      for (let i = 0; i < outer; i++) {
+        const ang = (i / Math.max(outer, 1)) * Math.PI * 2 - Math.PI / 2 + offset;
+        pushSpot(out, inner + i, 50 + 36 * Math.cos(ang), 50 + 28 * Math.sin(ang));
+      }
+      break;
+    }
+    // ── 追加: V字・扇 系 ──────────────────────────────────────────
+    case "v_open": {
+      if (n === 1) { pushSpot(out, 0, 50, 28); break; }
+      pushSpot(out, 0, 50, 28);
+      const half = Math.ceil((n - 1) / 2);
+      for (let i = 0; i < half; i++) {
+        const u = (i + 1) / half;
+        pushSpot(out, i + 1, 50 - u * 44, 28 + u * 48);
+      }
+      for (let i = half; i < n - 1; i++) {
+        const j = i - half;
+        const rest = n - 1 - half;
+        const u = rest === 0 ? 1 : (j + 1) / (rest + 1);
+        pushSpot(out, i + 1, 50 + u * 44, 28 + u * 48);
+      }
+      break;
+    }
+    case "v_tight": {
+      if (n === 1) { pushSpot(out, 0, 50, 35); break; }
+      pushSpot(out, 0, 50, 35);
+      const half = Math.ceil((n - 1) / 2);
+      for (let i = 0; i < half; i++) {
+        const u = (i + 1) / half;
+        pushSpot(out, i + 1, 50 - u * 22, 35 + u * 40);
+      }
+      for (let i = half; i < n - 1; i++) {
+        const j = i - half;
+        const rest = n - 1 - half;
+        const u = rest === 0 ? 1 : (j + 1) / (rest + 1);
+        pushSpot(out, i + 1, 50 + u * 22, 35 + u * 40);
+      }
+      break;
+    }
+    case "fan_front": {
+      if (n === 1) { pushSpot(out, 0, 50, 76); break; }
+      pushSpot(out, 0, 50, 76);
+      for (let i = 1; i < n; i++) {
+        const t = n <= 2 ? 0 : ((i - 1) / (n - 2) - 0.5) * Math.PI * 0.82;
+        const r = 42;
+        pushSpot(out, i, 50 + r * Math.sin(t), 76 - r * (1 - Math.cos(t)) - 4);
+      }
+      break;
+    }
+    case "fan_wide": {
+      for (let i = 0; i < n; i++) {
+        const t = n <= 1 ? 0 : (i / (n - 1) - 0.5) * Math.PI;
+        pushSpot(out, i, 50 + 44 * Math.sin(t), 28 - 28 * (Math.cos(t) - 1) * 0.5);
+      }
+      break;
+    }
+    case "triple_vee": {
+      const third = Math.ceil(n / 3);
+      let idx = 0;
+      const tips = [50, 35, 65];
+      for (let arc = 0; arc < 3 && idx < n; arc++) {
+        const cnt = arc < 2 ? third : n - idx;
+        const tipX = tips[arc]!;
+        if (cnt === 0) break;
+        pushSpot(out, idx++, tipX, 28);
+        for (let i = 1; i < cnt; i++) {
+          const u = i / cnt;
+          const side = i % 2 === 1 ? -1 : 1;
+          pushSpot(out, idx++, tipX + side * u * 18, 28 + u * 44);
+        }
+      }
+      break;
+    }
+    case "arrow_left": {
+      if (n === 1) { pushSpot(out, 0, 22, 50); break; }
+      pushSpot(out, 0, 22, 50);
+      for (let i = 1; i < n; i++) {
+        const u = (n <= 2) ? 0.5 : (i - 1) / (n - 2);
+        pushSpot(out, i, 38 + u * 36, 50 - Math.abs(u - 0.5) * 44);
+      }
+      break;
+    }
+    case "arrow_right": {
+      if (n === 1) { pushSpot(out, 0, 78, 50); break; }
+      pushSpot(out, 0, 78, 50);
+      for (let i = 1; i < n; i++) {
+        const u = (n <= 2) ? 0.5 : (i - 1) / (n - 2);
+        pushSpot(out, i, 26 + u * 36, 50 - Math.abs(u - 0.5) * 44);
+      }
+      break;
+    }
+    // ── 追加: グループ・ブロック 系 ──────────────────────────────────
+    case "block_4": {
+      const perBlock = Math.ceil(n / 4);
+      const xs = [20, 38, 62, 80];
+      for (let b = 0; b < 4; b++) {
+        const start = b * perBlock;
+        const end = Math.min(start + perBlock, n);
+        const cnt = end - start;
+        if (cnt <= 0) break;
+        const ys = evenSpacingPositions(cnt, 50, TARGET_STEP_Y * 1.1, 22, 76);
+        for (let j = 0; j < cnt; j++) pushSpot(out, start + j, xs[b]!, ys[j]!);
+      }
+      break;
+    }
+    case "block_lr_depth": {
+      const half = Math.ceil(n / 2);
+      for (let i = 0; i < half; i++) {
+        const u = half <= 1 ? 0.5 : i / (half - 1);
+        pushSpot(out, i, 28, 22 + u * 56);
+      }
+      for (let i = half; i < n; i++) {
+        const j = i - half;
+        const rest = n - half;
+        const u = rest <= 1 ? 0.5 : j / (rest - 1);
+        pushSpot(out, i, 72, 22 + u * 56);
+      }
+      break;
+    }
+    case "quad_corners": {
+      const perCorner = Math.ceil(n / 4);
+      const corners = [[18, 22], [82, 22], [18, 76], [82, 76]] as const;
+      for (let b = 0; b < 4; b++) {
+        const start = b * perCorner;
+        const end = Math.min(start + perCorner, n);
+        for (let j = start; j < end; j++) {
+          const offset = (j - start) * 5;
+          pushSpot(out, j, corners[b]![0] + (b % 2 === 1 ? -offset : offset), corners[b]![1] + (b < 2 ? offset : -offset));
+        }
+      }
+      break;
+    }
+    case "pentagon_group": {
+      const groups = 5;
+      const perG = Math.ceil(n / groups);
+      for (let g = 0; g < groups; g++) {
+        const ang = (g / groups) * Math.PI * 2 - Math.PI / 2;
+        const cx = 50 + 32 * Math.cos(ang);
+        const cy = 50 + 24 * Math.sin(ang);
+        const start = g * perG;
+        const end = Math.min(start + perG, n);
+        for (let j = start; j < end; j++) {
+          const local = j - start;
+          const lAng = (local / perG) * Math.PI * 2;
+          pushSpot(out, j, cx + 6 * Math.cos(lAng), cy + 6 * Math.sin(lAng));
+        }
+      }
+      break;
+    }
+    case "hex_group": {
+      const groups = 6;
+      const perG = Math.ceil(n / groups);
+      for (let g = 0; g < groups; g++) {
+        const ang = (g / groups) * Math.PI * 2 - Math.PI / 2;
+        const cx = 50 + 30 * Math.cos(ang);
+        const cy = 50 + 22 * Math.sin(ang);
+        const start = g * perG;
+        const end = Math.min(start + perG, n);
+        for (let j = start; j < end; j++) {
+          const local = j - start;
+          const lAng = (local / perG) * Math.PI * 2;
+          pushSpot(out, j, cx + 5 * Math.cos(lAng), cy + 5 * Math.sin(lAng));
+        }
+      }
+      break;
+    }
+    case "center_ring_outer": {
+      const innerN = Math.ceil(n * 0.35);
+      const outerN = n - innerN;
+      const innerXs = evenSpacingPositions(innerN, 50, TARGET_STEP_X * 0.9, 30, 70);
+      const innerYs = evenSpacingPositions(Math.ceil(innerN / 2), 50, TARGET_STEP_Y, 34, 62);
+      for (let i = 0; i < innerN; i++) {
+        pushSpot(out, i, innerXs[i % innerXs.length]!, innerYs[Math.floor(i / innerXs.length)] ?? 50);
+      }
+      for (let i = 0; i < outerN; i++) {
+        const ang = (i / Math.max(outerN, 1)) * Math.PI * 2 - Math.PI / 2;
+        pushSpot(out, innerN + i, 50 + 42 * Math.cos(ang), 50 + 32 * Math.sin(ang));
+      }
+      break;
+    }
+    case "two_wings": {
+      const leftN = Math.ceil(n / 2);
+      const rightN = n - leftN;
+      for (let i = 0; i < leftN; i++) {
+        const u = leftN <= 1 ? 0.5 : i / (leftN - 1);
+        pushSpot(out, i, 18 + u * 20, 28 + u * 48);
+      }
+      for (let i = 0; i < rightN; i++) {
+        const u = rightN <= 1 ? 0.5 : i / (rightN - 1);
+        pushSpot(out, leftN + i, 62 + u * 20, 76 - u * 48);
+      }
+      break;
+    }
+    case "three_lines_depth": {
+      const r0 = Math.ceil(n / 3);
+      const r1 = Math.ceil((n - r0) / 2);
+      const r2 = n - r0 - r1;
+      const ys = [72, 48, 24];
+      let idx = 0;
+      for (const [cnt, y] of [[r0, ys[0]], [r1, ys[1]], [r2, ys[2]]] as [number, number][]) {
+        const xs = evenSpacingPositions(cnt, 50, TARGET_STEP_X, 10, 90);
+        for (let j = 0; j < cnt; j++) pushSpot(out, idx++, xs[j]!, y);
+      }
+      break;
+    }
+    // ── 追加: 幾何形 系 ──────────────────────────────────────────
+    case "triangle": {
+      const sides = 3;
+      for (let i = 0; i < n; i++) {
+        const t = (i / Math.max(n, 1)) * Math.PI * 2 - Math.PI / 2;
+        const seg = Math.floor((i / n) * sides);
+        const u = (i / n) * sides - seg;
+        const a0 = (seg / sides) * Math.PI * 2 - Math.PI / 2;
+        const a1 = ((seg + 1) / sides) * Math.PI * 2 - Math.PI / 2;
+        const r = 34;
+        void t;
+        const cx = 50 + r * Math.cos(a0) * (1 - u) + r * Math.cos(a1) * u;
+        const cy = 46 + r * 0.75 * Math.sin(a0) * (1 - u) + r * 0.75 * Math.sin(a1) * u;
+        pushSpot(out, i, cx, cy);
+      }
+      break;
+    }
+    case "pentagon": {
+      for (let i = 0; i < n; i++) {
+        const sides = 5;
+        const seg = Math.floor((i / n) * sides);
+        const u = (i / n) * sides - seg;
+        const a0 = (seg / sides) * Math.PI * 2 - Math.PI / 2;
+        const a1 = ((seg + 1) / sides) * Math.PI * 2 - Math.PI / 2;
+        const r = 34;
+        pushSpot(out, i, 50 + r * (Math.cos(a0) * (1 - u) + Math.cos(a1) * u), 50 + r * 0.75 * (Math.sin(a0) * (1 - u) + Math.sin(a1) * u));
+      }
+      break;
+    }
+    case "hexagon": {
+      for (let i = 0; i < n; i++) {
+        const sides = 6;
+        const seg = Math.floor((i / n) * sides);
+        const u = (i / n) * sides - seg;
+        const a0 = (seg / sides) * Math.PI * 2 - Math.PI / 6;
+        const a1 = ((seg + 1) / sides) * Math.PI * 2 - Math.PI / 6;
+        const r = 36;
+        pushSpot(out, i, 50 + r * (Math.cos(a0) * (1 - u) + Math.cos(a1) * u), 50 + r * 0.75 * (Math.sin(a0) * (1 - u) + Math.sin(a1) * u));
+      }
+      break;
+    }
+    case "octagon": {
+      for (let i = 0; i < n; i++) {
+        const sides = 8;
+        const seg = Math.floor((i / n) * sides);
+        const u = (i / n) * sides - seg;
+        const a0 = (seg / sides) * Math.PI * 2 - Math.PI / 8;
+        const a1 = ((seg + 1) / sides) * Math.PI * 2 - Math.PI / 8;
+        const r = 36;
+        pushSpot(out, i, 50 + r * (Math.cos(a0) * (1 - u) + Math.cos(a1) * u), 50 + r * 0.75 * (Math.sin(a0) * (1 - u) + Math.sin(a1) * u));
+      }
+      break;
+    }
+    case "star_5": {
+      for (let i = 0; i < n; i++) {
+        const isOuter = i % 2 === 0;
+        const r = isOuter ? 36 : 18;
+        const ang = (i / n) * Math.PI * 2 - Math.PI / 2;
+        pushSpot(out, i, 50 + r * Math.cos(ang), 50 + r * 0.8 * Math.sin(ang));
+      }
+      break;
+    }
+    case "star_6": {
+      for (let i = 0; i < n; i++) {
+        const isOuter = i % 2 === 0;
+        const r = isOuter ? 36 : 20;
+        const ang = (i / n) * Math.PI * 2 - Math.PI / 6;
+        pushSpot(out, i, 50 + r * Math.cos(ang), 50 + r * 0.8 * Math.sin(ang));
+      }
+      break;
+    }
+    case "plus_cross": {
+      const arm = Math.ceil((n - 1) / 4);
+      pushSpot(out, 0, 50, 50);
+      let idx = 1;
+      const dirs = [[0, -1], [0, 1], [-1, 0], [1, 0]] as const;
+      for (const [dx, dy] of dirs) {
+        for (let i = 1; i <= arm && idx < n; i++) {
+          pushSpot(out, idx++, 50 + dx * i * TARGET_STEP_X, 50 + dy * i * TARGET_STEP_Y);
+        }
+      }
+      break;
+    }
+    case "double_cross": {
+      const perLine = Math.ceil(n / 4);
+      let idx = 0;
+      // H line
+      for (let i = 0; i < perLine && idx < n; i++) {
+        const u = perLine <= 1 ? 0.5 : i / (perLine - 1);
+        pushSpot(out, idx++, 15 + u * 70, 50);
+      }
+      // V line
+      for (let i = 0; i < perLine && idx < n; i++) {
+        const u = perLine <= 1 ? 0.5 : i / (perLine - 1);
+        pushSpot(out, idx++, 50, 20 + u * 58);
+      }
+      // diag1
+      for (let i = 0; i < perLine && idx < n; i++) {
+        const u = perLine <= 1 ? 0.5 : i / (perLine - 1);
+        pushSpot(out, idx++, 18 + u * 64, 22 + u * 56);
+      }
+      // diag2
+      for (let i = 0; i < (n - idx + 1) && idx < n; i++) {
+        const rem = n - idx;
+        const u = rem <= 1 ? 0.5 : i / (rem - 1);
+        pushSpot(out, idx++, 82 - u * 64, 22 + u * 56);
+      }
+      break;
+    }
+    case "t_shape": {
+      const topN = Math.ceil(n * 0.55);
+      const stemN = n - topN;
+      const topXs = evenSpacingPositions(topN, 50, TARGET_STEP_X, 10, 90);
+      for (let i = 0; i < topN; i++) pushSpot(out, i, topXs[i]!, 22);
+      for (let i = 0; i < stemN; i++) {
+        const u = stemN <= 1 ? 0.5 : i / (stemN - 1);
+        pushSpot(out, topN + i, 50, 30 + u * 48);
+      }
+      break;
+    }
+    case "l_shape": {
+      const vertN = Math.ceil(n * 0.55);
+      const horizN = n - vertN;
+      for (let i = 0; i < vertN; i++) {
+        const u = vertN <= 1 ? 0.5 : i / (vertN - 1);
+        pushSpot(out, i, 22, 18 + u * 58);
+      }
+      const horizXs = evenSpacingPositions(horizN, 50, TARGET_STEP_X, 22, 88);
+      for (let i = 0; i < horizN; i++) pushSpot(out, vertN + i, horizXs[i]!, 76);
+      break;
+    }
+    // ── 追加: アート・個性 系 ──────────────────────────────────────
+    case "spiral_loose": {
+      for (let i = 0; i < n; i++) {
+        const t = (i / Math.max(n, 1)) * Math.PI * 4;
+        const r = 8 + (i / Math.max(n, 1)) * 36;
+        pushSpot(out, i, 50 + r * Math.cos(t), 50 + r * 0.75 * Math.sin(t));
+      }
+      break;
+    }
+    case "spiral_tight": {
+      for (let i = 0; i < n; i++) {
+        const t = (i / Math.max(n, 1)) * Math.PI * 6;
+        const r = 4 + (i / Math.max(n, 1)) * 38;
+        pushSpot(out, i, 50 + r * Math.cos(t), 50 + r * 0.72 * Math.sin(t));
+      }
+      break;
+    }
+    case "wave_double": {
+      const half = Math.ceil(n / 2);
+      for (let i = 0; i < half; i++) {
+        const u = half <= 1 ? 0.5 : i / (half - 1);
+        pushSpot(out, i, 15 + u * 70, 44 + Math.sin(u * Math.PI * 2) * 16);
+      }
+      for (let i = half; i < n; i++) {
+        const j = i - half;
+        const rest = n - half;
+        const u = rest <= 1 ? 0.5 : j / (rest - 1);
+        pushSpot(out, i, 15 + u * 70, 56 + Math.sin(u * Math.PI * 2 + Math.PI) * 16);
+      }
+      break;
+    }
+    case "sine_deep": {
+      for (let i = 0; i < n; i++) {
+        const u = n <= 1 ? 0.5 : i / (n - 1);
+        pushSpot(out, i, 12 + u * 76, 50 + Math.sin(u * Math.PI * 2) * 28);
+      }
+      break;
+    }
+    case "scatter_wide": {
+      const pts = [
+        [12, 18],[28, 72],[44, 32],[60, 85],[76, 20],[88, 58],[20, 50],
+        [50, 15],[68, 48],[35, 64],[80, 35],[14, 80],[55, 72],[90, 22],
+        [42, 52],[70, 75],[25, 35],[58, 28],[82, 66],[10, 42],[48, 88],
+        [32, 22],[72, 55],[16, 62],[64, 12],[38, 78],[88, 42],[24, 48],
+      ];
+      for (let i = 0; i < n; i++) {
+        const p = pts[i % pts.length]!;
+        pushSpot(out, i, p[0]!, p[1]!);
+      }
+      break;
+    }
+    case "scatter_center": {
+      const pts = [
+        [50,50],[44,44],[56,44],[56,56],[44,56],[50,38],[62,50],[50,62],
+        [38,50],[46,42],[54,42],[58,48],[58,58],[54,60],[46,60],[42,54],
+        [42,46],[50,35],[64,50],[50,65],[36,50],[52,38],[60,44],[64,56],
+        [56,64],[44,64],[36,56],[36,44],
+      ];
+      for (let i = 0; i < n; i++) {
+        const p = pts[i % pts.length]!;
+        pushSpot(out, i, p[0]!, p[1]!);
+      }
+      break;
+    }
+    case "pinwheel": {
+      for (let i = 0; i < n; i++) {
+        const ang = (i / Math.max(n, 1)) * Math.PI * 2;
+        const r = 10 + (i % 4) * 10;
+        pushSpot(out, i, 50 + r * Math.cos(ang + i * 0.4), 50 + r * 0.8 * Math.sin(ang + i * 0.4));
+      }
+      break;
+    }
+    case "radial_burst": {
+      if (n === 1) { pushSpot(out, 0, 50, 50); break; }
+      pushSpot(out, 0, 50, 50);
+      for (let i = 1; i < n; i++) {
+        const ang = ((i - 1) / (n - 1)) * Math.PI * 2 - Math.PI / 2;
+        const r = 32 + ((i - 1) % 2) * 10;
+        pushSpot(out, i, 50 + r * Math.cos(ang), 50 + r * 0.75 * Math.sin(ang));
+      }
+      break;
+    }
+    case "figure_eight": {
+      for (let i = 0; i < n; i++) {
+        const t = (i / Math.max(n, 1)) * Math.PI * 2;
+        const x = 50 + 30 * Math.sin(t);
+        const y = 50 + 22 * Math.sin(2 * t);
+        pushSpot(out, i, x, y);
+      }
+      break;
+    }
+    case "heart": {
+      for (let i = 0; i < n; i++) {
+        const t = (i / Math.max(n, 1)) * Math.PI * 2 - Math.PI;
+        const x = 50 + 28 * (16 * Math.pow(Math.sin(t), 3)) / 16;
+        const y = 54 - 28 * (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) / 17;
+        pushSpot(out, i, Math.max(5, Math.min(95, x)), Math.max(10, Math.min(88, y)));
+      }
+      break;
+    }
+    case "asymmetric_r": {
+      const cut = Math.max(1, Math.ceil(n * 0.52));
+      for (let i = 0; i < n; i++) {
+        if (i < cut) {
+          pushSpot(out, i, 78, 26 + i * 9);
+        } else {
+          const j = i - cut;
+          pushSpot(out, i, 68 - j * 14, 74);
+        }
+      }
+      break;
+    }
+    case "comb": {
+      const teethN = Math.max(2, Math.ceil(n / 2));
+      const baseN = n - teethN;
+      const teethXs = evenSpacingPositions(teethN, 50, TARGET_STEP_X * 1.2, 12, 88);
+      for (let i = 0; i < teethN; i++) pushSpot(out, i, teethXs[i]!, 24);
+      const baseXs = evenSpacingPositions(baseN, 50, TARGET_STEP_X * 1.2, 12, 88);
+      for (let i = 0; i < baseN; i++) pushSpot(out, teethN + i, baseXs[i]!, 74);
+      break;
+    }
+    case "bracket_lr": {
+      const half = Math.ceil(n / 2);
+      // left bracket ⌐
+      for (let i = 0; i < half; i++) {
+        const u = half <= 1 ? 0.5 : i / (half - 1);
+        if (i === 0) pushSpot(out, i, 22, 24);
+        else if (i === half - 1) pushSpot(out, i, 22, 74);
+        else pushSpot(out, i, 18, 24 + u * 50);
+      }
+      // right bracket ¬
+      for (let i = half; i < n; i++) {
+        const j = i - half;
+        const rest = n - half;
+        const u = rest <= 1 ? 0.5 : j / (rest - 1);
+        if (j === 0) pushSpot(out, i, 78, 24);
+        else if (j === rest - 1) pushSpot(out, i, 78, 74);
+        else pushSpot(out, i, 82, 24 + u * 50);
+      }
+      break;
+    }
+    case "two_diag_lines": {
+      const half = Math.ceil(n / 2);
+      for (let i = 0; i < half; i++) {
+        const u = half <= 1 ? 0.5 : i / (half - 1);
+        pushSpot(out, i, 18 + u * 64, 22 + u * 56);
+      }
+      for (let i = half; i < n; i++) {
+        const j = i - half;
+        const rest = n - half;
+        const u = rest <= 1 ? 0.5 : j / (rest - 1);
+        pushSpot(out, i, 18 + u * 64, 35 + u * 56);
+      }
+      break;
+    }
+    case "s_curve": {
+      for (let i = 0; i < n; i++) {
+        const u = n <= 1 ? 0.5 : i / (n - 1);
+        const x = 15 + u * 70;
+        const y = 50 + 28 * Math.sin(u * Math.PI * 1.5 - Math.PI * 0.75);
+        pushSpot(out, i, x, y);
+      }
+      break;
+    }
+    case "u_deep": {
+      for (let i = 0; i < n; i++) {
+        const t = n <= 1 ? Math.PI / 2 : (Math.PI * i) / (n - 1);
+        const rx = 36, ry = 36;
+        pushSpot(out, i, 50 + rx * Math.cos(Math.PI - t), 55 + ry * Math.sin(Math.PI - t) * 0.75);
+      }
+      break;
+    }
+    case "rows_11":
+    case "rows_12": {
+      const target = preset === "rows_11" ? 11 : 12;
+      const rowCounts = evenRowCounts(n, target);
+      const nr = rowCounts.length;
+      let idx = 0;
+      for (let r = 0; r < nr; r++) {
+        const cnt = rowCounts[r]!;
+        const y = yPctPyramidRow(nr - 1 - r, nr);
+        const xs = evenSpacingPositions(cnt, 50, TARGET_STEP_X, 5, 95);
+        for (let j = 0; j < cnt; j++) pushSpot(out, idx++, xs[j]!, y);
+      }
+      break;
+    }
+    case "column_pair": {
+      const half = Math.ceil(n / 2);
+      const ys1 = evenSpacingPositions(half, 50, TARGET_STEP_Y * 1.1, 18, 78);
+      for (let i = 0; i < half; i++) pushSpot(out, i, 38, ys1[i]!);
+      const half2 = n - half;
+      const ys2 = evenSpacingPositions(half2, 50, TARGET_STEP_Y * 1.1, 18, 78);
+      for (let i = 0; i < half2; i++) pushSpot(out, half + i, 62, ys2[i]!);
+      break;
+    }
+    case "w_shape": {
+      if (n <= 1) { pushSpot(out, 0, 50, 50); break; }
+      const peaks = [14, 36, 50, 64, 86];
+      const valleys = [25, 50, 75];
+      const allPts = [peaks[0], valleys[0], peaks[1], valleys[1], peaks[2], valleys[1], peaks[3], valleys[2], peaks[4]].map(
+        (x, k) => ({ x: x!, y: k % 2 === 0 ? 28 : 68 })
+      );
+      for (let i = 0; i < n; i++) {
+        const p = allPts[i % allPts.length]!;
+        pushSpot(out, i, p.x, p.y + Math.floor(i / allPts.length) * 8);
+      }
+      break;
+    }
+    case "m_shape": {
+      if (n <= 1) { pushSpot(out, 0, 50, 50); break; }
+      const allPts = [
+        { x: 14, y: 72 }, { x: 14, y: 28 }, { x: 32, y: 50 },
+        { x: 50, y: 28 }, { x: 68, y: 50 }, { x: 86, y: 28 },
+        { x: 86, y: 72 }
+      ];
+      for (let i = 0; i < n; i++) {
+        const p = allPts[i % allPts.length]!;
+        pushSpot(out, i, p.x, p.y + Math.floor(i / allPts.length) * 7);
+      }
+      break;
+    }
+    case "fan_360": {
+      for (let i = 0; i < n; i++) {
+        const ang = (i / Math.max(n, 1)) * Math.PI * 2 - Math.PI / 2;
+        const r = 34;
+        pushSpot(out, i, 50 + r * Math.cos(ang), 50 + r * 0.75 * Math.sin(ang));
       }
       break;
     }

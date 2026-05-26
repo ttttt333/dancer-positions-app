@@ -123,6 +123,11 @@ export type StageBoardBodyProps = {
    * 親(EditorPage)が EditorSideSheet を開く。
    */
   onOpenTextEditSheet?: (markupId: string, draft: import("./FloorTextMarkupBlock").FloorTextDraftPayload, isGlobal: boolean, markup?: import("../types/choreography").StageFloorTextMarkup) => void;
+  /**
+   * 動線矢印を表示するか（アクティブ → 次フォーメーションへの移動経路）。
+   * デフォルト false。
+   */
+  showMotionArrows?: boolean;
 };
 
 export type { BuildStageBoardExportColumnInput } from "../lib/buildStageBoardExportColumnProps";

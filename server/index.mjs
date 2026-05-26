@@ -421,6 +421,52 @@ app.post(
   }
 );
 
+/** Checkout完了後にsession_idでサブスク状態を確認してDBに反映（Webhook不要方式） */
+app.post(
+  "/api/billing/verify-session",
+  authMiddleware,
+  requireAuth,
+  async (req, res) => {
+    if (!stripe) {
+      return res.status(503).json({ error: "Stripe が未設定です" });
+    }
+    const { session_id } = req.body || {};
+    if (!session_id) {
+      return res.status(400).json({ error: "session_id が必要です" });
+    }
+    try {
+      const session = await stripe.checkout.sessions.retrieve(session_id, {
+        expand: ["subscription"],
+      });
+      // client_reference_id がログイン中ユーザーと一致するか確認
+      if (String(session.client_reference_id) !== String(req.userId)) {
+        return res.status(403).json({ error: "不正なセッションです" });
+      }
+      if (session.payment_status === "paid" || session.status === "complete") {
+        const customerId = session.customer
+          ? String(session.customer)
+          : null;
+        const sub = session.subscription;
+        const subId = sub ? String(typeof sub === "string" ? sub : sub.id) : null;
+        const subStatus =
+          sub && typeof sub !== "string" ? sub.status : "active";
+        db.prepare(
+          `UPDATE users SET
+            stripe_customer_id = COALESCE(?, stripe_customer_id),
+            stripe_subscription_id = COALESCE(?, stripe_subscription_id),
+            subscription_status = ?
+           WHERE id = ?`
+        ).run(customerId, subId, subStatus, req.userId);
+        return res.json({ ok: true, status: subStatus });
+      }
+      return res.status(400).json({ error: "支払いが完了していません", payment_status: session.payment_status });
+    } catch (e) {
+      console.error("[verify-session]", e);
+      res.status(500).json({ error: e instanceof Error ? e.message : "検証に失敗しました" });
+    }
+  }
+);
+
 /** Stripe 等と接続する前のプレースホルダ（買い切りフラグを手動で立てる想定） */
 app.post(
   "/api/billing/placeholder-purchase",

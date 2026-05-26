@@ -1114,6 +1114,8 @@ export function EditorPage({
   const [memberRosterSheetOpen, setMemberRosterSheetOpen] = useState(false);
   /** wideEditorLayout 時: テキストパネルを右サイドシートに表示するか */
   const [floorTextSideSheetOpen, setFloorTextSideSheetOpen] = useState(false);
+  /** 動線矢印オーバーレイ表示フラグ */
+  const [showMotionArrows, setShowMotionArrows] = useState(false);
   /** テキストパネルのポータルターゲット DOM 要素 */
   const [textPanelPortalEl, setTextPanelPortalEl] = useState<HTMLDivElement | null>(null);
 
@@ -3965,6 +3967,45 @@ export function EditorPage({
                     3D
                   </button>
                 </div>
+                {/* 動線矢印トグル */}
+                {stageView === "2d" && (
+                  <button
+                    type="button"
+                    style={{
+                      ...btnSecondary,
+                      ...(mobileStackEditor
+                        ? {
+                            width: 36,
+                            height: 32,
+                            minWidth: 36,
+                            minHeight: 32,
+                            padding: 0,
+                            fontSize: 10,
+                            fontWeight: 700,
+                            lineHeight: 1,
+                            borderRadius: 8,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            boxSizing: "border-box",
+                          }
+                        : {
+                            padding: "2px 6px",
+                            fontSize: "9px",
+                            fontWeight: 700,
+                            lineHeight: 1.2,
+                            borderRadius: 5,
+                          }),
+                      ...(showMotionArrows
+                        ? { borderColor: "#34d399", color: "#6ee7b7", background: "rgba(52,211,153,0.12)" }
+                        : {}),
+                    }}
+                    title={showMotionArrows ? "動線矢印を非表示" : "次フォーメーションへの動線矢印を表示"}
+                    onClick={() => setShowMotionArrows((v) => !v)}
+                  >
+                    {mobileStackEditor ? "→" : "動線"}
+                  </button>
+                )}
               </div>
               <div
                 style={{
@@ -4032,6 +4073,7 @@ export function EditorPage({
                     }
                     viewportTextOverlayRoot={editorSurfaceEl}
                     studentViewerFocus={studentViewerFocusForStage}
+                    showMotionArrows={showMotionArrows}
                   />
                 ) : (
                   <Suspense

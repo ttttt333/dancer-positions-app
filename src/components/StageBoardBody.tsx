@@ -56,6 +56,7 @@ import { StageBoardBodyOverlays } from "./StageBoardBodyOverlays";
 import { StageBoardBulkColorToolbar } from "./StageBoardBulkColorToolbar";
 import { StageBoardBulkToolbarSlot } from "./StageBoardBulkToolbarSlot";
 import { StageBoardStageFrame } from "./StageBoardStageFrame";
+import { StageMotionArrowsOverlay } from "./StageMotionArrowsOverlay";
 import { type StageResizeHandleId } from "./StageResizeHandles";
 import type { StageExportRootColumnProps } from "./StageExportRootColumn";
 import { shell } from "../theme/choreoShell";
@@ -132,6 +133,7 @@ export function StageBoardBody({
   markHistorySkipNextPush,
   studentViewerFocus = null,
   onOpenTextEditSheet,
+  showMotionArrows = false,
 }: StageBoardBodyProps) {
   const {
     isPlaying,
@@ -4095,6 +4097,21 @@ export function StageBoardBody({
         onTapEditOverlayPointerDown: handleTapOverlayPointerDown,
       },
     } satisfies BuildStageBoardExportColumnInput);
+
+  // 動線矢印オーバーレイ
+  if (showMotionArrows) {
+    const highlightId =
+      studentViewerFocus?.kind === "one"
+        ? studentViewerFocus.crewMemberId
+        : null;
+    stageBoardExportColumn.mainFloor.motionArrowsOverlay = (
+      <StageMotionArrowsOverlay
+        formations={project.formations}
+        activeFormationId={activeFormationId}
+        highlightCrewMemberId={highlightId}
+      />
+    );
+  }
 
   const stageBoardLayoutSlots = {
     /* screen レイヤー（床テキスト・大道具など） */

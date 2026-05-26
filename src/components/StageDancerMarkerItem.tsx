@@ -30,6 +30,10 @@ export type StageDancerMarkerItemProps = {
   labelOffsetPx: number;
   belowLabelOriginYpx: number;
   belowNameFontPx: number;
+  /** 個人閲覧モードで自分自身のマーカーのとき true */
+  isStudentHighlight?: boolean;
+  /** 個人閲覧モード（1人フォーカス）が有効なとき true */
+  onePersonMode?: boolean;
 };
 
 /** ステージ上のダンサー印 1 人分（位置・回転・○内／名下） */
@@ -62,7 +66,11 @@ export function StageDancerMarkerItem({
   labelOffsetPx,
   belowLabelOriginYpx,
   belowNameFontPx,
+  isStudentHighlight = false,
+  onePersonMode = false,
 }: StageDancerMarkerItemProps) {
+  const pulseRingSize = markerPx + 14;
+
   return (
     <div
       style={{
@@ -80,6 +88,51 @@ export function StageDancerMarkerItem({
         transition: "opacity 200ms ease",
       }}
     >
+      {/* 個人閲覧：パルスリング */}
+      {onePersonMode && isStudentHighlight && (
+        <>
+          <style>{`
+            @keyframes _choreo_pulse {
+              0%   { transform: translate(-50%, -50%) scale(1);   opacity: 0.7; }
+              70%  { transform: translate(-50%, -50%) scale(1.55); opacity: 0; }
+              100% { transform: translate(-50%, -50%) scale(1.55); opacity: 0; }
+            }
+            @keyframes _choreo_pulse2 {
+              0%   { transform: translate(-50%, -50%) scale(1);   opacity: 0.45; }
+              70%  { transform: translate(-50%, -50%) scale(1.9); opacity: 0; }
+              100% { transform: translate(-50%, -50%) scale(1.9); opacity: 0; }
+            }
+          `}</style>
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: "50%",
+              width: pulseRingSize,
+              height: pulseRingSize,
+              borderRadius: "50%",
+              border: "2.5px solid rgba(250,204,21,0.85)",
+              animation: "_choreo_pulse 1.6s ease-out infinite",
+              pointerEvents: "none",
+            }}
+          />
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: "50%",
+              width: pulseRingSize,
+              height: pulseRingSize,
+              borderRadius: "50%",
+              border: "2px solid rgba(250,204,21,0.5)",
+              animation: "_choreo_pulse2 1.6s ease-out 0.4s infinite",
+              pointerEvents: "none",
+            }}
+          />
+        </>
+      )}
       <button
         type="button"
         data-dancer-id={dancerId}
@@ -128,7 +181,28 @@ export function StageDancerMarkerItem({
           </span>
         ) : null}
       </button>
-      {showNameBelow ? (
+      {/* 個人閲覧：↓ 矢印ラベル（自分の位置を示す） */}
+      {onePersonMode && isStudentHighlight && (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: "50%",
+            transform: `translate(-50%, calc(-50% - ${halfMarker + 20}px))`,
+            color: "rgba(250,204,21,0.95)",
+            fontSize: "18px",
+            lineHeight: 1,
+            pointerEvents: "none",
+            textShadow: "0 2px 6px rgba(0,0,0,0.9)",
+            userSelect: "none",
+            animation: "_choreo_pulse 1.6s ease-out infinite",
+          }}
+        >
+          ↓
+        </div>
+      )}
+      {showNameBelow || (onePersonMode && isStudentHighlight) ? (
         <div
           aria-hidden
           style={{
@@ -137,8 +211,8 @@ export function StageDancerMarkerItem({
             top: "50%",
             transform: `translate(-50%, calc(-50% + ${labelOffsetPx}px)) rotate(${screenUnrotateDeg}deg)`,
             transformOrigin: `50% ${belowLabelOriginYpx}px`,
-            color: "#f8fafc",
-            fontSize: `${belowNameFontPx}px`,
+            color: onePersonMode && isStudentHighlight ? "rgba(250,204,21,0.95)" : "#f8fafc",
+            fontSize: onePersonMode && isStudentHighlight ? `${Math.max(belowNameFontPx, 11)}px` : `${belowNameFontPx}px`,
             fontWeight: 700,
             lineHeight: 1.1,
             whiteSpace: "nowrap",

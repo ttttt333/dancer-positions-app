@@ -220,6 +220,8 @@ export function useStageDancerMarkerElements(
             labelOffsetPx={labelOffsetPx}
             belowLabelOriginYpx={belowLabelOriginYpx}
             belowNameFontPx={belowNameFontPx}
+            isStudentHighlight={isStudentHighlight}
+            onePersonMode={onePersonMode}
           />
         );
       }),
