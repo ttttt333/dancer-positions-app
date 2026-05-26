@@ -31,8 +31,8 @@ export function DancerPathEditor({
   existingPaths,
   setProject,
   onClose,
-  stageWidthPx = 560,
-  stageHeightPx = 360,
+  stageWidthPx = 900,
+  stageHeightPx = 580,
 }: DancerPathEditorProps) {
   // Build map of nextFormation by id for quick lookup
   const nextById = useRef<Map<string, DancerSpot>>(new Map());
@@ -170,7 +170,7 @@ export function DancerPathEditor({
             marginLeft: 10,
           }}
         >
-          ◆ をドラッグして曲線を調整
+          黄色い点をドラッグして曲線を調整
         </span>
       </div>
 
@@ -182,12 +182,14 @@ export function DancerPathEditor({
           borderRadius: 8,
           overflow: "hidden",
           boxShadow: "0 8px 40px rgba(0,0,0,0.6)",
+          width: `min(${stageWidthPx}px, calc(100vw - 32px))`,
+          aspectRatio: `${stageWidthPx} / ${stageHeightPx}`,
         }}
       >
         <svg
           ref={svgRef}
-          width={stageWidthPx}
-          height={stageHeightPx}
+          width="100%"
+          height="100%"
           viewBox={`0 0 ${stageWidthPx} ${stageHeightPx}`}
           style={{ display: "block", userSelect: "none" }}
         >
@@ -241,12 +243,14 @@ export function DancerPathEditor({
                   {b.label}
                 </text>
 
-                {/* Control point handle (draggable ◆) */}
-                <polygon
-                  points={`${cpx},${cpy - 9} ${cpx + 9},${cpy} ${cpx},${cpy + 9} ${cpx - 9},${cpy}`}
+                {/* Control point handle (draggable circle) */}
+                <circle
+                  cx={cpx}
+                  cy={cpy}
+                  r={5}
                   fill="#f59e0b"
                   stroke="#fde68a"
-                  strokeWidth={1}
+                  strokeWidth={1.5}
                   style={{ cursor: "grab" }}
                   onMouseDown={(e) => {
                     e.preventDefault();
@@ -283,7 +287,7 @@ export function DancerPathEditor({
         </span>
         <span>
           <svg width={12} height={12} style={{ verticalAlign: "middle", marginRight: 3 }}>
-            <polygon points="6,0 12,6 6,12 0,6" fill="#f59e0b" />
+            <circle cx={6} cy={6} r={4} fill="#f59e0b" stroke="#fde68a" strokeWidth={1.5} />
           </svg>
           制御点（ドラッグ）
         </span>
