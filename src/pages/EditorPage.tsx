@@ -90,7 +90,6 @@ import type {
   StageFloorMarkup,
 } from "../types/choreography";
 import {
-  SetPiecePickerModal,
   type SetPiecePickerSubmit,
 } from "../components/SetPiecePickerModal";
 import { ChoreoCoreToolbar } from "../components/ChoreoCoreToolbar";

@@ -8,6 +8,7 @@ import { NeonIconPanel } from "../../components/NeonIconPanel";
 import { AiSuggestDialog } from "../../components/AiSuggestDialog";
 import { EditorStageWorkbench, WorkbenchCuePager } from "../../components/EditorStageWorkbench";
 import { StageShapePicker } from "../../components/StageShapePicker";
+import { SetPiecePickerModal } from "../../components/SetPiecePickerModal";
 import { EditorSideSheet } from "../../components/EditorSideSheet";
 import { ShareLinksSheetContent } from "../../components/ShareLinksSheetContent";
 import { ViewerModeSheetContent } from "../../components/ViewerModeSheetContent";

@@ -1,5 +1,6 @@
 import type { AppLocale } from "./types";
 import type { MessageBundle } from "./translations";
+import { buildLocaleBundle } from "./buildLocaleBundle";
 
 const JA: MessageBundle = {
   "editor.untitledProject": "無題の作品",
@@ -348,10 +349,10 @@ export const EDITOR_LAYOUT_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
   en: EN,
   ko: KO,
   zh: ZH,
-  es: EN,
-  fr: EN,
-  de: EN,
-  pt: EN,
+  es: buildLocaleBundle(EN, "es"),
+  fr: buildLocaleBundle(EN, "fr"),
+  de: buildLocaleBundle(EN, "de"),
+  pt: buildLocaleBundle(EN, "pt"),
 };
 
 export function mergeEditorLayoutTranslations(

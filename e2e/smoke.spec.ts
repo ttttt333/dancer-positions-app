@@ -13,4 +13,11 @@ test.describe("smoke", () => {
       timeout: 15_000,
     });
   });
+
+  test("Spanish locale updates library UI", async ({ page }) => {
+    await page.goto("/library");
+    await page.selectOption("#choreogrid-locale-select", "es");
+    await expect(page.getByRole("link", { name: /Iniciar proyecto nuevo/i })).toBeVisible();
+    await expect(page.locator("#choreogrid-locale-select")).toHaveValue("es");
+  });
 });

@@ -1,5 +1,6 @@
 import type { AppLocale } from "./types";
 import type { MessageBundle } from "./translations";
+import { buildLocaleBundle } from "./buildLocaleBundle";
 
 const JA: MessageBundle = {
   "editor.comp.k001": "+メンバー",
@@ -263,20 +264,16 @@ const EN: MessageBundle = {
 
 const KO: MessageBundle = { ...EN };
 const ZH: MessageBundle = { ...EN };
-const ES: MessageBundle = { ...EN };
-const FR: MessageBundle = { ...EN };
-const DE: MessageBundle = { ...EN };
-const PT: MessageBundle = { ...EN };
 
 export const EDITOR_COMPONENT_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
   ja: JA,
   en: EN,
   ko: KO,
   zh: ZH,
-  es: ES,
-  fr: FR,
-  de: DE,
-  pt: PT,
+  es: buildLocaleBundle(EN, "es"),
+  fr: buildLocaleBundle(EN, "fr"),
+  de: buildLocaleBundle(EN, "de"),
+  pt: buildLocaleBundle(EN, "pt"),
 };
 
 export function mergeEditorComponentTranslations(
