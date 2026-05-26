@@ -7,7 +7,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
   type CSSProperties,
   type Dispatch,
   type MutableRefObject,
@@ -127,157 +126,36 @@ import {
 } from "../components/ChoreoStudentViewGate";
 import { ShareLinksSheetContent } from "../components/ShareLinksSheetContent";
 import { ViewerModeSheetContent } from "../components/ViewerModeSheetContent";
+import { formatMmSsFloor } from "../lib/timeFormat";
+import {
+  EDITOR_GRID_GAP_PX,
+  EDITOR_MOBILE_STACK_MAX_PX,
+  EDITOR_PLAYBACK_LAYOUT_SHIFT_UP,
+  EDITOR_SHELL_TOP_WAVE_BASE_PX,
+  EDITOR_SHELL_TOP_WAVE_ROSTER_ROW_PX,
+  EDITOR_WIDE_MIN_PX,
+  HISTORY_CAP,
+  RIGHT_RAIL_FR_DEFAULT,
+  RIGHT_TOOLS_RAIL_MAX_PX,
+  RIGHT_TOOLS_RAIL_MIN_PX,
+  STAGE_COL_FR_DEFAULT,
+  STAGE_COL_MIN_PX,
+  STAGE_RESIZER_PX,
+  TIMELINE_FULL_COL_MIN_PX,
+  TOP_DOCK_HEIGHT_PX,
+  TOP_DOCK_ROW_MAX_PX,
+  TOP_DOCK_ROW_MIN_PX,
+} from "./editor/editorConstants";
+import {
+  clampTopDockRowPx,
+  persistEditorLayout,
+  readStoredEditorLayout,
+} from "./editor/editorLayoutStorage";
+import { readMaxStageWidthPx, round2Pct, studentPickToStageFocus } from "./editor/editorStageLayout";
+import { useEditorViewport } from "./editor/editorViewport";
 
-const HISTORY_CAP = 80;
+
 const DEFAULT_ROSTER_CONFIRM_PRESET: LayoutPresetId = "rows_3";
-
-function studentPickToStageFocus(
-  p: StudentPick
-):
-  | { kind: "all" }
-  | { kind: "one"; crewMemberId: string; label: string } {
-  if (p.kind === "all") {
-    return { kind: "all" };
-  }
-  return { kind: "one", crewMemberId: p.id, label: p.label };
-}
-
-function round2Pct(n: number): number {
-  return Math.round(n * 100) / 100;
-}
-
-const EDITOR_WIDE_MIN_PX = 1280;
-/**
- * スマホ向け縦積みレイアウト：ビューポートの短い辺が未満ならモバイル扱い。
- * 横向きで幅だけ広い（≥768）ときも電話 UI に乗せる。
- */
-const EDITOR_MOBILE_STACK_MAX_PX = 768;
-
-/** stack + landscape を 1 プリミティブにまとめる（useSyncExternalStore の参照安定） */
-type EditorViewportKey = "00" | "01" | "10" | "11";
-
-function subscribeEditorViewport(cb: () => void): () => void {
-  if (typeof window === "undefined") return () => {};
-  const mq = (q: string) => window.matchMedia(q);
-  const mqlW = mq(`(max-width: ${EDITOR_MOBILE_STACK_MAX_PX - 1}px)`);
-  const mqlH = mq(`(max-height: ${EDITOR_MOBILE_STACK_MAX_PX - 1}px)`);
-  const mqlOrientation = mq("(orientation: landscape)");
-  const run = () => {
-    cb();
-  };
-  mqlW.addEventListener("change", run);
-  mqlH.addEventListener("change", run);
-  mqlOrientation.addEventListener("change", run);
-  window.addEventListener("resize", run);
-  window.addEventListener("orientationchange", run);
-  return () => {
-    mqlW.removeEventListener("change", run);
-    mqlH.removeEventListener("change", run);
-    mqlOrientation.removeEventListener("change", run);
-    window.removeEventListener("resize", run);
-    window.removeEventListener("orientationchange", run);
-  };
-}
-
-function getEditorViewportKey(): EditorViewportKey {
-  if (typeof window === "undefined") return "00";
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  const stack = Math.min(w, h) < EDITOR_MOBILE_STACK_MAX_PX;
-  const landscape = w > h;
-  return `${stack ? "1" : "0"}${landscape ? "1" : "0"}` as EditorViewportKey;
-}
-/** メイン 3 列グリッドの列間・行間（参照スクリーンショットの段間に合わせる） */
-const EDITOR_GRID_GAP_PX = 10;
-/** 上部波形ドック行の既定高さ（px）。可変シェル時の未保存グリッド行に使う */
-const TOP_DOCK_HEIGHT_PX = 120;
-/**
- * ワイド＋上部波形時の固定シェル：波形行の外枠高さのベース（px）。
- * 参照 UI（波形帯が画面高の約 1/10 前後）に合わせた既定。
- */
-const EDITOR_SHELL_TOP_WAVE_BASE_PX = 160;
-/** 名簿ありで上部に「メンバーを表示」行を出すとき、ベースに足す高さ（px） */
-const EDITOR_SHELL_TOP_WAVE_ROSTER_ROW_PX = 40;
-/**
- * 再生・波形・タイムライン列をまとめて上へ詰める。
- * 参照スクリーンショット（ヘッダと再生行が切れず、ステージブロックがやや上）のバランス。
- */
-const EDITOR_PLAYBACK_LAYOUT_SHIFT_UP = "calc(1.45cm + 3mm - 1cm)";
-
-/** ステージ列とタイムライン列の間のドラッグ幅 */
-const STAGE_RESIZER_PX = 4;
-/** 右列タイムラインとの分割時のステージ列の最小幅（狭すぎると編集しづらい） */
-const STAGE_COL_MIN_PX = 340;
-/** 波形が右列にあるときのタイムライン列の最小幅 */
-const TIMELINE_FULL_COL_MIN_PX = 240;
-/** 上部ドック時：右列はツール帯のみなので幅を抑える（グリッドは minmax(MIN, MAX)） */
-const RIGHT_TOOLS_RAIL_MIN_PX = 152;
-const RIGHT_TOOLS_RAIL_MAX_PX = 210;
-/** 右ペイン：タイムライン（またはキュー一覧）の縦スタック */
-
-/**
- * ワイド＋上部波形固定シェル時の既定の列比（参照 UI：ステージ約 80%・右アクション列約 20%）。
- * `stageColumnPx` が未保存のときは `minmax(MIN, Nfr)` でこの比を再現する。
- */
-const STAGE_COL_FR_DEFAULT = 80;
-const RIGHT_RAIL_FR_DEFAULT = 20;
-
-/** 上部波形ドック行の高さの許容範囲（保存・ドラッグ・clamp と readStored と一致） */
-const TOP_DOCK_ROW_MIN_PX = 50;
-const TOP_DOCK_ROW_MAX_PX = 480;
-
-function clampTopDockRowPx(n: number): number {
-  return Math.min(
-    TOP_DOCK_ROW_MAX_PX,
-    Math.max(TOP_DOCK_ROW_MIN_PX, Math.round(n))
-  );
-}
-
-/** 波形行の高さ・ステージ〜右列の幅分割を端末に覚えさせる */
-const EDITOR_LAYOUT_STORAGE_KEY = "dancer-positions.editorLayout.v2";
-const EDITOR_LAYOUT_LEGACY_STORAGE_KEY = "dancer-positions.editorLayout.v1";
-
-function readStoredEditorLayout(): {
-  stageColumnPx: number | null;
-  topDockRowPx: number | null;
-} {
-  if (typeof window === "undefined") {
-    return { stageColumnPx: null, topDockRowPx: null };
-  }
-  try {
-    const rawCurrent = window.localStorage.getItem(EDITOR_LAYOUT_STORAGE_KEY);
-    const rawLegacy = window.localStorage.getItem(EDITOR_LAYOUT_LEGACY_STORAGE_KEY);
-    const raw = rawCurrent ?? rawLegacy;
-    if (!raw) return { stageColumnPx: null, topDockRowPx: null };
-    const o = JSON.parse(raw) as {
-      stageColumnPx?: unknown;
-      topDockRowPx?: unknown;
-    };
-    const sc =
-      typeof o.stageColumnPx === "number" &&
-      Number.isFinite(o.stageColumnPx) &&
-      o.stageColumnPx >= STAGE_COL_MIN_PX
-        ? o.stageColumnPx
-        : null;
-    const td =
-      typeof o.topDockRowPx === "number" &&
-      Number.isFinite(o.topDockRowPx) &&
-      o.topDockRowPx >= TOP_DOCK_ROW_MIN_PX &&
-      o.topDockRowPx <= TOP_DOCK_ROW_MAX_PX
-        ? Math.round(o.topDockRowPx)
-        : null;
-    if (!rawCurrent && rawLegacy) {
-      try {
-        window.localStorage.setItem(EDITOR_LAYOUT_STORAGE_KEY, raw);
-      } catch {
-        /* 移行失敗は無視 */
-      }
-    }
-    return { stageColumnPx: sc, topDockRowPx: td };
-  } catch {
-    return { stageColumnPx: null, topDockRowPx: null };
-  }
-}
 
 /** ステージ「設定」パネル：客席は画面上辺・下辺のみ */
 const STAGE_AREA_AUDIENCE_OPTIONS: {
@@ -910,42 +788,6 @@ const StageAreaGridVisibilityToggles = memo(function StageAreaGridVisibilityTogg
   );
 });
 
-/**
- * ステージ列の最大幅（px）。
- * 右列の最小幅＋列間ギャップ＋リサイザを除いた残りまで許可する。
- * （旧: 画面幅の 2/3 上限があり、2fr レイアウトより狭くなりドラッグ直後に幅が跳ぶ原因になっていた）
- */
-function readMaxStageWidthPx(
-  gridEl: HTMLElement,
-  minRightColPx: number = TIMELINE_FULL_COL_MIN_PX
-): number {
-  const rect = gridEl.getBoundingClientRect();
-  const cs = getComputedStyle(gridEl);
-  const padX =
-    (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
-  const gap =
-    parseFloat(cs.columnGap) ||
-    parseFloat(cs.rowGap) ||
-    parseFloat(cs.gap) ||
-    EDITOR_GRID_GAP_PX;
-  const gapsBetween3Cols = 2 * gap;
-  /** ステージ＋列間ギャップ＋リサイザ＋右列で使える横方向の余白 */
-  const inner =
-    rect.width - padX - gapsBetween3Cols - STAGE_RESIZER_PX;
-  const maxStage = inner - minRightColPx;
-  return Math.max(STAGE_COL_MIN_PX, Math.floor(maxStage));
-}
-
-/** モバイル折りたたみ帯の再生時刻表示（分:秒） */
-function formatPlaybackClockSec(sec: number): string {
-  if (!Number.isFinite(sec) || sec < 0) return "0:00";
-  const s = Math.floor(sec);
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return `${m}:${r.toString().padStart(2, "0")}`;
-}
-
-
 export function EditorPage({
   choreoPublicView = false,
 }: {
@@ -958,14 +800,7 @@ export function EditorPage({
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  /** `useState`+`resize` より購読が明示的で、ビルド差分での未定義参照を避ける */
-  const editorViewportKey = useSyncExternalStore(
-    subscribeEditorViewport,
-    getEditorViewportKey,
-    () => "00" as EditorViewportKey
-  );
-  const editorMobileStackBreakpoint = editorViewportKey[0] === "1";
-  const editorMobileLandscape = editorViewportKey[1] === "1";
+  const { editorMobileStackBreakpoint, editorMobileLandscape } = useEditorViewport();
   const { me, ready: authReady } = useAuth();
   const { t } = useI18n();
   const collabParam = searchParams.get("collab") === "1" && !choreoPublicView;
@@ -1507,20 +1342,7 @@ export function EditorPage({
 
   useEffect(() => {
     if (!wideEditorLayout || typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(
-        EDITOR_LAYOUT_STORAGE_KEY,
-        JSON.stringify({
-          stageColumnPx,
-          topDockRowPx:
-            topDockRowPx == null
-              ? null
-              : clampTopDockRowPx(topDockRowPx),
-        })
-      );
-    } catch {
-      /* ストレージ不可 */
-    }
+    persistEditorLayout({ stageColumnPx, topDockRowPx });
   }, [wideEditorLayout, stageColumnPx, topDockRowPx]);
 
   useEffect(() => {
@@ -4423,8 +4245,8 @@ export function EditorPage({
                     fontWeight: 600,
                   }}
                 >
-                  {formatPlaybackClockSec(currentTime)} /{" "}
-                  {formatPlaybackClockSec(duration)}
+                  {formatMmSsFloor(currentTime)} /{" "}
+                  {formatMmSsFloor(duration)}
                 </span>
                 <button
                   type="button"
