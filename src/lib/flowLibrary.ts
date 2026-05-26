@@ -72,6 +72,8 @@ export interface FlowCueSnapshot {
   formationIdRef: string;
   /** 前キュー終了〜このキュー開始のギャップでの移動経路（旧ライブラリのみ簡易キューに含む） */
   gapApproachFromPrev?: GapApproachRoute;
+  /** ダンサーIDごとの個人別ベジェ制御点 */
+  dancerCustomPaths?: Record<string, { cpX: number; cpY: number }>;
 }
 
 /**
@@ -803,6 +805,7 @@ function normalize(raw: FlowLibraryItem): FlowLibraryItem {
             tEndSec: c.tEndSec,
             formationIdRef: c.formationId,
             ...(c.gapApproachFromPrev ? { gapApproachFromPrev: c.gapApproachFromPrev } : {}),
+            ...(c.dancerCustomPaths ? { dancerCustomPaths: c.dancerCustomPaths } : {}),
           }))
         : [];
 
@@ -857,6 +860,9 @@ function normalize(raw: FlowLibraryItem): FlowLibraryItem {
             : null,
         formationIdRef: c.formationIdRef,
         ...(gap ? { gapApproachFromPrev: gap } : {}),
+        ...(rawCue.dancerCustomPaths && typeof rawCue.dancerCustomPaths === "object"
+          ? { dancerCustomPaths: rawCue.dancerCustomPaths as Record<string, { cpX: number; cpY: number }> }
+          : {}),
       };
     });
   const dancerCount = formations[0]?.dancers.length ?? 0;
@@ -1084,6 +1090,7 @@ function buildFlowLibraryItemFromProject(
       tEndSec: c.tEndSec,
       formationIdRef: c.formationId,
       ...(gap ? { gapApproachFromPrev: gap } : {}),
+      ...(c.dancerCustomPaths ? { dancerCustomPaths: c.dancerCustomPaths } : {}),
     };
   });
   const hasTimingFromCues =
@@ -1333,6 +1340,9 @@ export function expandFlowToProject(
       ...(c.note ? { note: c.note } : {}),
       ...(c.gapApproachFromPrev
         ? { gapApproachFromPrev: c.gapApproachFromPrev }
+        : {}),
+      ...(c.dancerCustomPaths
+        ? { dancerCustomPaths: c.dancerCustomPaths }
         : {}),
     };
   });

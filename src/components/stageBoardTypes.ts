@@ -128,6 +128,11 @@ export type StageBoardBodyProps = {
    * デフォルト false。
    */
   showMotionArrows?: boolean;
+  /**
+   * 右クリックメニューから「動線を個人設定…」が押されたときのコールバック。
+   * 指定されたときのみボタンが表示される。
+   */
+  onOpenDancerPathEditor?: () => void;
 };
 
 export type { BuildStageBoardExportColumnInput } from "../lib/buildStageBoardExportColumnProps";

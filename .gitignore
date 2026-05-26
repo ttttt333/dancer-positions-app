@@ -37,3 +37,6 @@ vite.config.ts.bak
 dist-debug/
 vite-debug.config.ts
 vite-sourcemap.config.ts
+.env.git
+.env.stripe
+.env.*

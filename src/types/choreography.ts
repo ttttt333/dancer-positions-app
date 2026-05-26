@@ -241,6 +241,12 @@ export type Cue = {
    * 先頭キューでは無視される。未指定は線形補間。
    */
   gapApproachFromPrev?: GapApproachRoute;
+  /**
+   * ダンサーごとの個別軌道（二次ベジェ制御点）。
+   * キー = dancerId、値 = 制御点のステージ座標（%）。
+   * これが設定されているダンサーは gapApproachFromPrev より優先される。
+   */
+  dancerCustomPaths?: Record<string, { cpX: number; cpY: number }>;
 };
 
 /**

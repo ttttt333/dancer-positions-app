@@ -217,13 +217,32 @@ function pairXY(
 }
 
 /**
+ * 二次ベジェ補間（制御点1個）。
+ * p0: 始点, cp: 制御点, p1: 終点, t: [0,1]
+ */
+function quadBezier(
+  p0: { x: number; y: number },
+  cp: { x: number; y: number },
+  p1: { x: number; y: number },
+  t: number
+): { x: number; y: number } {
+  const u = 1 - t;
+  return {
+    x: u * u * p0.x + 2 * u * t * cp.x + t * t * p1.x,
+    y: u * u * p0.y + 2 * u * t * cp.y + t * t * p1.y,
+  };
+}
+
+/**
  * ギャップ区間での立ち位置補間（区間内ラベル・色などは従来どおり lerp / 閾値切替）。
+ * customPaths: ダンサーIDごとの個人軌道制御点。指定があるダンサーはベジェ補間を優先。
  */
 export function lerpDancersAcrossGap(
   from: DancerSpot[],
   to: DancerSpot[],
   alpha: number,
-  route: GapApproachRoute | undefined
+  route: GapApproachRoute | undefined,
+  customPaths?: Record<string, { cpX: number; cpY: number }>
 ): DancerSpot[] {
   const r: GapApproachRoute = route ?? "linear";
   const xs = from.map((d) => d.xPct);
@@ -261,17 +280,33 @@ export function lerpDancersAcrossGap(
       const markerBadgeSource =
         alpha < 0.5 ? a.markerBadgeSource : b.markerBadgeSource;
 
-      const xy = pairXY(
-        a.xPct,
-        a.yPct,
-        b.xPct,
-        b.yPct,
-        alpha,
-        r,
-        medX,
-        medY,
-        sepPct
-      );
+      const cp = customPaths?.[a.id];
+      const xy = cp
+        ? clampXY(
+            quadBezier(
+              { x: a.xPct, y: a.yPct },
+              { x: cp.cpX, y: cp.cpY },
+              { x: b.xPct, y: b.yPct },
+              alpha
+            ).x,
+            quadBezier(
+              { x: a.xPct, y: a.yPct },
+              { x: cp.cpX, y: cp.cpY },
+              { x: b.xPct, y: b.yPct },
+              alpha
+            ).y
+          )
+        : pairXY(
+            a.xPct,
+            a.yPct,
+            b.xPct,
+            b.yPct,
+            alpha,
+            r,
+            medX,
+            medY,
+            sepPct
+          );
 
       out.push({
         id: a.id,

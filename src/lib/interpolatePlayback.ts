@@ -61,7 +61,8 @@ export function dancersAtTime(
           f0?.dancers ?? [],
           f1?.dancers ?? [],
           alpha,
-          next.gapApproachFromPrev
+          next.gapApproachFromPrev,
+          next.dancerCustomPaths
         )
       );
     }

@@ -1,4 +1,5 @@
 import type { CSSProperties, RefObject } from "react";
+import type { DancerSpot, Formation, SetPiece } from "../types/choreography";
 import { setPieceLayer } from "../lib/stageBoardModelHelpers";
 import {
   StageContextMenuFloorTextBody,
@@ -21,6 +22,7 @@ export type StageBoardContextMenuLayerProps = {
   containerRef: RefObject<HTMLDivElement | null>;
   onCloseMenu: () => void;
   dancerMenu: Omit<StageDancerContextMenuProps, "anchorDancerId" | "onCloseMenu">;
+  onOpenDancerPathEditor?: () => void;
   viewMode: "edit" | "view";
   setPiecesEditable: boolean;
   playbackDancers: DancerSpot[] | null;
@@ -40,6 +42,7 @@ export function StageBoardContextMenuLayer({
   containerRef,
   onCloseMenu,
   dancerMenu,
+  onOpenDancerPathEditor,
   viewMode,
   setPiecesEditable,
   playbackDancers,
@@ -59,6 +62,7 @@ export function StageBoardContextMenuLayer({
         <StageDancerContextMenu
           anchorDancerId={menu.dancerId}
           onCloseMenu={onCloseMenu}
+          onOpenPathEditor={onOpenDancerPathEditor}
           {...dancerMenu}
         />
       ) : menu.kind === "floorText" ? (

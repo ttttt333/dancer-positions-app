@@ -134,6 +134,7 @@ export function StageBoardBody({
   studentViewerFocus = null,
   onOpenTextEditSheet,
   showMotionArrows = false,
+  onOpenDancerPathEditor,
 }: StageBoardBodyProps) {
   const {
     isPlaying,
@@ -4213,6 +4214,7 @@ export function StageBoardBody({
             applyPermuteArrange,
             applyDancerArrange,
           }}
+          onOpenDancerPathEditor={onOpenDancerPathEditor}
           viewMode={viewMode}
           setPiecesEditable={setPiecesEditable}
           playbackDancers={playbackDancers}

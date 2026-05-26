@@ -23,6 +23,7 @@ import {
 } from "react-router-dom";
 import { ChoreoCoreLogo } from "../components/ChoreoGridLogo";
 import { StageBoard, type FloorTextPlaceSession } from "../components/StageBoard";
+import { DancerPathEditor } from "../components/DancerPathEditor";
 import { StageDimensionFields } from "../components/StageDimensionFields";
 import {
   formatMeterCmLabel,
@@ -986,6 +987,8 @@ export function EditorPage({
   const [stagePreviewDancers, setStagePreviewDancers] = useState<DancerSpot[] | null>(
     null
   );
+  /** 個人別軌道エディタを開くキューID */
+  const [pathEditorCueId, setPathEditorCueId] = useState<string | null>(null);
   /** ChoreoCore: 編集対象のキュー（ステージ・プリセット・インスペクタの書き込み先） */
   const [selectedCueIds, setSelectedCueIds] = useState<string[]>([]);
   const selectedCueId =
@@ -2081,6 +2084,12 @@ export function EditorPage({
   const selectedCue = useMemo(
     () => (selectedCueId ? cueById.get(selectedCueId) ?? null : null),
     [selectedCueId, cueById]
+  );
+
+  /** 全キューを時刻順に並べたもの（個人軌道エディタ等で prevCue 取得に使用） */
+  const sortedCuesForEditor = useMemo(
+    () => (project ? sortCuesByStart(project.cues) : []),
+    [project]
   );
 
   /**
@@ -4074,6 +4083,11 @@ export function EditorPage({
                     viewportTextOverlayRoot={editorSurfaceEl}
                     studentViewerFocus={studentViewerFocusForStage}
                     showMotionArrows={showMotionArrows}
+                    onOpenDancerPathEditor={
+                      selectedCueId
+                        ? () => setPathEditorCueId(selectedCueId)
+                        : undefined
+                    }
                   />
                 ) : (
                   <Suspense
@@ -6359,6 +6373,28 @@ export function EditorPage({
           background: rgba(148, 163, 184, 0.75);
         }
       `}</style>
+      {/* 個人別ベジェ軌道エディタ */}
+      {(() => {
+        if (!pathEditorCueId) return null;
+        const targetCue = cueById.get(pathEditorCueId);
+        if (!targetCue) return null;
+        const idx = sortedCuesForEditor.findIndex((c) => c.id === pathEditorCueId);
+        const prevCue = idx > 0 ? sortedCuesForEditor[idx - 1] : null;
+        if (!prevCue) return null;
+        const prevForm = formationById.get(prevCue.formationId);
+        const nextForm = formationById.get(targetCue.formationId);
+        if (!prevForm || !nextForm) return null;
+        return (
+          <DancerPathEditor
+            cueId={pathEditorCueId}
+            prevFormation={prevForm.dancers}
+            nextFormation={nextForm.dancers}
+            existingPaths={targetCue.dancerCustomPaths}
+            setProject={setProjectSafe}
+            onClose={() => setPathEditorCueId(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

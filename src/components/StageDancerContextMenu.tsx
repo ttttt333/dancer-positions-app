@@ -40,6 +40,7 @@ export type StageDancerContextMenuProps = {
     fn: (dancers: DancerSpot[], targetIds: string[]) => DancerSpot[]
   ) => void;
   onCloseMenu: () => void;
+  onOpenPathEditor?: () => void;
 };
 
 export function StageDancerContextMenu({
@@ -59,6 +60,7 @@ export function StageDancerContextMenu({
   applyPermuteArrange,
   applyDancerArrange,
   onCloseMenu,
+  onOpenPathEditor,
 }: StageDancerContextMenuProps) {
   return (
     <>
@@ -748,6 +750,39 @@ menuInteractionDisabled
       大→奥
     </button>
   </div>
+  {onOpenPathEditor && (
+    <>
+      <div
+        style={{
+          height: "1px",
+          background: "#1e293b",
+          margin: "6px 0",
+        }}
+      />
+      <button
+        type="button"
+        onClick={() => {
+          onCloseMenu();
+          onOpenPathEditor();
+        }}
+        style={{
+          width: "100%",
+          padding: "6px 8px",
+          borderRadius: 6,
+          border: "1px solid rgba(99,102,241,0.5)",
+          background: "rgba(99,102,241,0.12)",
+          color: "#c7d2fe",
+          fontSize: "10px",
+          fontWeight: 700,
+          cursor: "pointer",
+          textAlign: "center",
+        }}
+        title="このキューに入る前のギャップでの各ダンサーの移動軌道を個別に設定します"
+      >
+        動線を個人設定…
+      </button>
+    </>
+  )}
     </>
   );
 }
