@@ -69,6 +69,7 @@ export function useTimelinePanelSessionBundle(
     cueListPortalTarget = null,
     onSave,
     onOpenAudioImport,
+    onOpenPathEditor,
   } = props;
 
   const {
@@ -326,6 +327,7 @@ export function useTimelinePanelSessionBundle(
       duplicateCueAfterSource,
       duplicateCueAtTimelineEnd,
       saveCueFormationToBoxList,
+      onOpenPathEditor,
     };
 
   return { waveBundleParams, layoutInputWithoutWavePointers };

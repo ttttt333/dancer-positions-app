@@ -37,6 +37,8 @@ export type TimelineWaveMenusProps = {
   duplicateCueAfterSource: (cue: Cue) => void;
   duplicateCueAtTimelineEnd: (cue: Cue) => void;
   saveCueFormationToBoxList: (cueId: string) => void;
+  /** ギャップ経路メニューから個人軌道エディタを開くコールバック */
+  onOpenPathEditor?: (cueId: string) => void;
 };
 
 /**
@@ -58,6 +60,7 @@ export function TimelineWaveMenus({
   duplicateCueAfterSource,
   duplicateCueAtTimelineEnd,
   saveCueFormationToBoxList,
+  onOpenPathEditor,
 }: TimelineWaveMenusProps) {
   const waveCueMenuTargetCue = waveCueMenu
     ? cuesSorted.find((c) => c.id === waveCueMenu.cueId)
@@ -356,6 +359,33 @@ export function TimelineWaveMenus({
           >
             設定をクリア（線形のみ）
           </button>
+          {onOpenPathEditor && viewMode !== "view" && (
+            <>
+              <div style={{ borderTop: `1px solid ${shell.border}`, margin: "6px 0 4px" }} />
+              <button
+                type="button"
+                role="menuitem"
+                style={{
+                  ...btnSecondary,
+                  display: "block",
+                  width: "100%",
+                  textAlign: "left",
+                  fontSize: "11px",
+                  padding: "7px 8px",
+                  borderColor: "rgba(139,92,246,0.55)",
+                  color: "#ddd6fe",
+                  cursor: "pointer",
+                }}
+                onClick={() => {
+                  const nextId = gapRouteMenu.nextCueId;
+                  setGapRouteMenu(null);
+                  onOpenPathEditor(nextId);
+                }}
+              >
+                🎯 動線を個人設定…
+              </button>
+            </>
+          )}
           <div style={{ borderTop: `1px solid ${shell.border}`, margin: "6px 0 4px" }} />
           <button
             type="button"

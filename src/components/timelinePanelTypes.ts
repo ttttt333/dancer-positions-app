@@ -45,4 +45,6 @@ export type TimelinePanelBodyProps = {
   cueListPortalTarget?: HTMLElement | null;
   onSave?: () => void;
   onOpenAudioImport?: () => void;
+  /** ギャップ右クリックメニューから個人軌道エディタを開くコールバック */
+  onOpenPathEditor?: (cueId: string) => void;
 };

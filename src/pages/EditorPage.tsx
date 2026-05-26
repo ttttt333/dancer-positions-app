@@ -3349,6 +3349,7 @@ export function EditorPage({
       cueListPortalTarget={showTopWaveDock ? cueListPortalEl : null}
       onSave={() => setFlowLibraryOpen(true)}
       onOpenAudioImport={openAudioImport}
+      onOpenPathEditor={(cueId) => setPathEditorCueId(cueId)}
     />
   );
 
