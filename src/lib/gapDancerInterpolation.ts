@@ -73,11 +73,11 @@ export const GAP_APPROACH_OPTIONS: {
   { id: "linear", label: "真っ直ぐ（線形・最短）" },
   {
     id: "kamite_half_via_audience",
-    label: "上手（画面右・x大）にいたメンバーは客席側（手前）を経由",
+    label: "上手にいたメンバーは客席側を経由",
   },
   {
     id: "shimote_half_via_audience",
-    label: "下手（画面左・x小）にいたメンバーは客席側を経由",
+    label: "下手にいたメンバーは客席側を経由",
   },
   {
     id: "kamite_half_via_upstage",
@@ -89,11 +89,11 @@ export const GAP_APPROACH_OPTIONS: {
   },
   {
     id: "front_half_via_kamite",
-    label: "手前側（客席寄り・y大）にいたメンバーは上手側（x大）を経由",
+    label: "手前側にいたメンバーは上手側を経由",
   },
   {
     id: "front_half_via_shimote",
-    label: "手前側にいたメンバーは下手側（x小）を経由",
+    label: "手前側にいたメンバーは下手側を経由",
   },
   {
     id: "detour_bulge",
