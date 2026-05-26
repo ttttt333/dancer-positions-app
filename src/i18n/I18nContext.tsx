@@ -31,6 +31,7 @@ function readInitialLocale(): AppLocale {
 
 function htmlLangFor(locale: AppLocale): string {
   if (locale === "zh") return "zh-Hans";
+  if (locale === "pt") return "pt-BR";
   return locale;
 }
 

@@ -7,6 +7,7 @@ import { preloadFFmpeg } from "../lib/extractVideoAudio";
 import { playbackEngine } from "../core/playbackEngine";
 import { btnSecondary } from "./stageButtonStyles";
 import { shell } from "../theme/choreoShell";
+import { useI18n } from "../i18n/I18nContext";
 
 /* ─── Neon glow helper ─── */
 const neonGlow = (c: string) =>
@@ -139,6 +140,7 @@ function WaveHistoryRoundIcon({
   kind: "undo" | "redo";
   sizePx?: number;
 }) {
+  const { t } = useI18n();
   const mirror = kind === "redo";
   return (
     <svg
@@ -179,11 +181,12 @@ function WaveHistoryRoundIcon({
 }
 
 function ChoreoCoreHeaderBrand({ compact }: { compact?: boolean }) {
+  const { t } = useI18n();
   return (
     <Link
       to="/library"
-      title="作品一覧へ"
-      aria-label="CHOREOGRID（作品一覧へ）"
+      title={t("editor.comp.k051")}
+      aria-label={t("editor.comp.k007")}
       style={{
         boxSizing: "border-box",
         display: "flex",
@@ -231,6 +234,7 @@ const PlaybackClockReadout = memo(function PlaybackClockReadout({
   durationSec: number;
   monoFontSizePx?: number;
 }) {
+  const { t } = useI18n();
   const liveRef = useRef<HTMLSpanElement>(null);
   const idleTimeSecRef = useRef(idleTimeSec);
   idleTimeSecRef.current = idleTimeSec;
@@ -343,6 +347,7 @@ export function TimelineToolbar({
   editorMobileStack = false,
   compactDockLeading,
 }: TimelineToolbarProps) {
+  const { t } = useI18n();
   if (!compactTopDock) {
     return (
       <div
@@ -382,8 +387,8 @@ export function TimelineToolbar({
                 height: tlPx(28),
                 padding: 0,
               }}
-              aria-label="音源追加"
-              title="楽曲または動画から音声を読み込み（MP4 / AVI / MOV / MKV / WMV 等に対応）"
+              aria-label={t("editor.comp.k122")}
+              title={t("editor.comp.k089")}
               onPointerEnter={() => {
                 void preloadFFmpeg();
               }}
@@ -416,16 +421,16 @@ export function TimelineToolbar({
                   type="button"
                   style={timelineToolbarBtn}
                   disabled={undoDisabled}
-                  title="編集を元に戻す（⌘Z / Ctrl+Z）"
-                  aria-label="戻る"
+                  title={t("editor.comp.k097")}
+                  aria-label={t("editor.comp.k083")}
                   onClick={() => onUndo()}
                 />
                 <button
                   type="button"
                   style={timelineToolbarBtn}
                   disabled={redoDisabled}
-                  title="やり直す（⌘⇧Z / Ctrl+Shift+Z）"
-                  aria-label="進む"
+                  title={t("editor.comp.k015")}
+                  aria-label={t("editor.comp.k108")}
                   onClick={() => onRedo()}
                 />
               </>
@@ -455,8 +460,8 @@ export function TimelineToolbar({
                     padding: `${tlPx(3)} ${tlPx(10)}`,
                   }}
                   disabled={viewMode === "view"}
-                  title="画面上部の波形エリアを閉じ、タイムラインを右列の通常位置に戻します"
-                  aria-label="上部の波形エリアを閉じる"
+                  title={t("editor.comp.k094")}
+                  aria-label={t("editor.comp.k042")}
                   onClick={() => onWaveTimelineDockTopChange(false)}
                 />
               </div>
@@ -507,8 +512,8 @@ export function TimelineToolbar({
                   justifyContent: "center",
                 }}
                 disabled={viewMode === "view" || duration <= 0}
-                title="5 秒戻す"
-                aria-label="5秒戻す"
+                title={t("editor.comp.k002")}
+                aria-label={t("editor.comp.k004")}
                 onClick={seekBackward5Sec}
               >
                 <IconSeekBack />
@@ -523,8 +528,8 @@ export function TimelineToolbar({
                   justifyContent: "center",
                 }}
                 disabled={viewMode === "view" || duration <= 0}
-                title="5 秒進む"
-                aria-label="5秒進む"
+                title={t("editor.comp.k003")}
+                aria-label={t("editor.comp.k005")}
                 onClick={seekForward5Sec}
               >
                 <IconSeekFwd />
@@ -554,8 +559,8 @@ export function TimelineToolbar({
                   justifyContent: "center",
                 }}
                 disabled={viewMode === "view" || duration <= 0}
-                title="再生を止め、先頭（トリム開始位置）に戻します"
-                aria-label="先頭へ"
+                title={t("editor.comp.k060")}
+                aria-label={t("editor.comp.k057")}
                 onClick={stopPlayback}
               >
                 <IconStop />
@@ -571,8 +576,8 @@ export function TimelineToolbar({
                     justifyContent: "center",
                   }}
                   disabled={viewMode === "view"}
-                  title="立ち位置をライブラリに保存"
-                  aria-label="保存"
+                  title={t("editor.comp.k095")}
+                  aria-label={t("editor.comp.k052")}
                   onClick={onSave}
                 >
                   <IconSave />
@@ -588,8 +593,8 @@ export function TimelineToolbar({
                     alignItems: "center",
                     justifyContent: "center",
                   }}
-                  title="音源を取り込む"
-                  aria-label="音源取込"
+                  title={t("editor.comp.k120")}
+                  aria-label={t("editor.comp.k121")}
                   onClick={onOpenAudioImport}
                   onPointerEnter={() => { void preloadFFmpeg(); }}
                 >
@@ -671,8 +676,8 @@ export function TimelineToolbar({
             type="button"
             style={{ ...mobileScrollBtn, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
             disabled={viewMode === "view" || duration <= 0}
-            title="5 秒戻す"
-            aria-label="5秒戻す"
+            title={t("editor.comp.k002")}
+            aria-label={t("editor.comp.k004")}
             onClick={seekBackward5Sec}
           >
             <IconSeekBack />
@@ -681,8 +686,8 @@ export function TimelineToolbar({
             type="button"
             style={{ ...mobileScrollBtn, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
             disabled={viewMode === "view" || duration <= 0}
-            title="5 秒進む"
-            aria-label="5秒進む"
+            title={t("editor.comp.k003")}
+            aria-label={t("editor.comp.k005")}
             onClick={seekForward5Sec}
           >
             <IconSeekFwd />
@@ -710,8 +715,8 @@ export function TimelineToolbar({
             type="button"
             style={{ ...mobileScrollBtn, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
             disabled={viewMode === "view" || duration <= 0}
-            title="再生を止め、先頭（トリム開始位置）に戻します"
-            aria-label="先頭へ"
+            title={t("editor.comp.k060")}
+            aria-label={t("editor.comp.k057")}
             onClick={stopPlayback}
           >
             <IconStop />
@@ -721,8 +726,8 @@ export function TimelineToolbar({
               type="button"
               style={{ ...mobileScrollBtn, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
               disabled={viewMode === "view"}
-              title="立ち位置をライブラリに保存"
-              aria-label="保存"
+              title={t("editor.comp.k095")}
+              aria-label={t("editor.comp.k052")}
               onClick={onSave}
             >
               <IconSave />
@@ -732,8 +737,8 @@ export function TimelineToolbar({
             <button
               type="button"
               style={{ ...mobileScrollBtn, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
-              title="音源を取り込む"
-              aria-label="音源取込"
+              title={t("editor.comp.k120")}
+              aria-label={t("editor.comp.k121")}
               onClick={onOpenAudioImport}
               onPointerEnter={() => { void preloadFFmpeg(); }}
             >
@@ -759,8 +764,8 @@ export function TimelineToolbar({
                 opacity: undoDisabled ? 0.42 : 1,
               }}
               disabled={undoDisabled}
-              title="編集を元に戻す（⌘Z / Ctrl+Z）"
-              aria-label="元に戻す"
+              title={t("editor.comp.k097")}
+              aria-label={t("editor.comp.k056")}
               onClick={() => onUndo()}
             >
               <WaveHistoryRoundIcon kind="undo" sizePx={18 * TIMELINE_UI_SCALE} />
@@ -785,8 +790,8 @@ export function TimelineToolbar({
                 opacity: redoDisabled ? 0.42 : 1,
               }}
               disabled={redoDisabled}
-              title="やり直す（⌘⇧Z / Ctrl+Shift+Z）"
-              aria-label="やり直す"
+              title={t("editor.comp.k015")}
+              aria-label={t("editor.comp.k014")}
               onClick={() => onRedo()}
             >
               <WaveHistoryRoundIcon kind="redo" sizePx={18 * TIMELINE_UI_SCALE} />
@@ -856,8 +861,8 @@ export function TimelineToolbar({
             justifyContent: "center",
           }}
           disabled={viewMode === "view" || duration <= 0}
-          title="5 秒戻す"
-          aria-label="5秒戻す"
+          title={t("editor.comp.k002")}
+          aria-label={t("editor.comp.k004")}
           onClick={seekBackward5Sec}
         >
           <IconSeekBack />
@@ -874,8 +879,8 @@ export function TimelineToolbar({
             justifyContent: "center",
           }}
           disabled={viewMode === "view" || duration <= 0}
-          title="5 秒進む"
-          aria-label="5秒進む"
+          title={t("editor.comp.k003")}
+          aria-label={t("editor.comp.k005")}
           onClick={seekForward5Sec}
         >
           <IconSeekFwd />
@@ -909,8 +914,8 @@ export function TimelineToolbar({
             justifyContent: "center",
           }}
           disabled={viewMode === "view" || duration <= 0}
-          title="再生を止め、先頭（トリム開始位置）に戻します"
-          aria-label="先頭へ"
+          title={t("editor.comp.k060")}
+          aria-label={t("editor.comp.k057")}
           onClick={stopPlayback}
         >
           <IconStop />
@@ -928,8 +933,8 @@ export function TimelineToolbar({
               justifyContent: "center",
             }}
             disabled={viewMode === "view"}
-            title="立ち位置をライブラリに保存"
-            aria-label="保存"
+            title={t("editor.comp.k095")}
+            aria-label={t("editor.comp.k052")}
             onClick={onSave}
           >
             <IconSave />
@@ -947,8 +952,8 @@ export function TimelineToolbar({
               alignItems: "center",
               justifyContent: "center",
             }}
-            title="音源を取り込む"
-            aria-label="音源取込"
+            title={t("editor.comp.k120")}
+            aria-label={t("editor.comp.k121")}
             onClick={onOpenAudioImport}
             onPointerEnter={() => { void preloadFFmpeg(); }}
           >
@@ -980,8 +985,8 @@ export function TimelineToolbar({
               opacity: undoDisabled ? 0.42 : 1,
             }}
             disabled={undoDisabled}
-            title="編集を元に戻す（⌘Z / Ctrl+Z）"
-            aria-label="元に戻す"
+            title={t("editor.comp.k097")}
+            aria-label={t("editor.comp.k056")}
             onClick={() => onUndo()}
           >
             <WaveHistoryRoundIcon kind="undo" />
@@ -1006,8 +1011,8 @@ export function TimelineToolbar({
               opacity: redoDisabled ? 0.42 : 1,
             }}
             disabled={redoDisabled}
-            title="やり直す（⌘⇧Z / Ctrl+Shift+Z）"
-            aria-label="やり直す"
+            title={t("editor.comp.k015")}
+            aria-label={t("editor.comp.k014")}
             onClick={() => onRedo()}
           >
             <WaveHistoryRoundIcon kind="redo" />

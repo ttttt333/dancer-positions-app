@@ -29,6 +29,7 @@ import {
 } from "../lib/formationBox";
 import { mergeStageSnapshotIntoProject } from "../lib/savedSpotStageSnapshot";
 import { FormationBoxItemThumb } from "./FormationBoxItemThumb";
+import { useI18n } from "../i18n/I18nContext";
 
 /**
  * ステージの「＋キュー」用の右側パネル。
@@ -337,6 +338,7 @@ export function AddCueWithFormationDialog({
   onStagePreviewChange,
   onImportRoster,
 }: Props) {
+  const { t } = useI18n();
   const { viewMode } = project;
   const trimLo = project.trimStartSec;
   const trimHi = trimHiSecForCueTimeline(project.trimEndSec, durationSec);
@@ -357,7 +359,7 @@ export function AddCueWithFormationDialog({
   const removeSavedSpotLayout = useCallback(
     (slotId: string, slotName: string) => {
       if (viewMode === "view") return;
-      if (!window.confirm(`「${slotName}」を立ち位置リストから削除しますか？`)) return;
+      if (!window.confirm(t("editor.comp.k043", { slotName }))) return;
       setProject((p) => ({
         ...p,
         savedSpotLayouts: p.savedSpotLayouts.filter((s) => s.id !== slotId),
@@ -599,14 +601,14 @@ export function AddCueWithFormationDialog({
     }
 
     if (project.cues.length >= 100) {
-      window.alert("キューの上限（100）に達しています。");
+      window.alert(t("editor.comp.k018"));
       return;
     }
 
     let t0Raw =
       timeMode === "now" ? currentTimeSec : parseTimeString(customTimeStr);
     if (!Number.isFinite(t0Raw)) {
-      window.alert("時刻の形式が正しくありません（例: 0:12.5 または 12.5）");
+      window.alert(t("editor.comp.k087"));
       return;
     }
     t0Raw = Math.max(trimLo, Math.min(trimHi - 0.02, t0Raw));
@@ -720,28 +722,28 @@ export function AddCueWithFormationDialog({
   }[] = [
     {
       mode: "template",
-      title: "雛形から選ぶ",
-      desc: "定番プリセットから人数分を配置",
+      title: t("editor.comp.k116"),
+      desc: t("editor.comp.k079"),
     },
     {
       mode: "saved",
-      title: "保存したリストから選ぶ",
-      desc: "形の箱・プロジェクトに保存した並びから選びます",
+      title: t("editor.comp.k054"),
+      desc: t("editor.comp.k082"),
     },
     {
       mode: "edit_current",
-      title: "今の立ち位置を変更",
-      desc: "選択中のキューのみ：雛形で立ち位置を置き換え、名簿の並び順はいまの形から引き継ぎます（新しいキューは追加しません）",
+      title: t("editor.comp.k047"),
+      desc: t("editor.comp.k109"),
     },
     {
       mode: "duplicate",
-      title: "今の立ち位置を複製",
-      desc: "人数に合わせてコピー（増減は横一列で補完）",
+      title: t("editor.comp.k048"),
+      desc: t("editor.comp.k044"),
     },
   ];
 
   return (
-    <div style={panelShellStyle} role="dialog" aria-modal="false" aria-label="新しいキューを追加">
+    <div style={panelShellStyle} role="dialog" aria-modal="false" aria-label={t("editor.comp.k085")}>
       <div style={panelCardStyle}>
         <div style={headerStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -763,14 +765,14 @@ export function AddCueWithFormationDialog({
               ＋
             </span>
             <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.2 }}>
-              <strong style={{ fontSize: "15px" }}>キュー設定</strong>
+              <strong style={{ fontSize: "15px" }}>{t("editor.comp.k021")}</strong>
             </div>
           </div>
           <button
             type="button"
             onClick={closeAndCleanup}
-            aria-label="閉じる"
-            title="閉じる（Esc）"
+            aria-label={t("editor.comp.k111")}
+            title={t("editor.comp.k112")}
             style={{
               padding: "4px 10px",
               borderRadius: "6px",
@@ -877,7 +879,7 @@ export function AddCueWithFormationDialog({
             >
               <button
                 type="button"
-                aria-label="人数を減らす"
+                aria-label={t("editor.comp.k046")}
                 disabled={viewMode === "view" || count <= 1 || savedLayoutLocked}
                 onClick={() => bumpCount(-1)}
                 style={{
@@ -904,7 +906,7 @@ export function AddCueWithFormationDialog({
               </span>
               <button
                 type="button"
-                aria-label="人数を増やす"
+                aria-label={t("editor.comp.k045")}
                 disabled={viewMode === "view" || count >= 30 || savedLayoutLocked}
                 onClick={() => bumpCount(1)}
                 style={{
@@ -993,8 +995,8 @@ export function AddCueWithFormationDialog({
               {onImportRoster ? (
                 <button
                   type="button"
-                  title="CSV / TSV などを選び、新しい名簿として取り込みます（ステージ上部の名簿取り込みと同じ）"
-                  aria-label="名簿取り込み。CSV や TSV を選び新しい名簿として追加します"
+                  title={t("editor.comp.k008")}
+                  aria-label={t("editor.comp.k073")}
                   disabled={viewMode === "view"}
                   onClick={() => {
                     onClose();
@@ -1122,7 +1124,7 @@ export function AddCueWithFormationDialog({
                     形の箱
                   </div>
                   {boxItems.length === 0 ? (
-                    <span style={{ fontSize: "11px", color: "#64748b" }}>保存された形がありません</span>
+                    <span style={{ fontSize: "11px", color: "#64748b" }}>{t("editor.comp.k053")}</span>
                   ) : (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                       {boxItems.map((item) => {
@@ -1168,7 +1170,7 @@ export function AddCueWithFormationDialog({
                     プロジェクトに保存した並び
                   </div>
                   {project.savedSpotLayouts.length === 0 ? (
-                    <span style={{ fontSize: "11px", color: "#64748b" }}>スロットに保存されていません</span>
+                    <span style={{ fontSize: "11px", color: "#64748b" }}>{t("editor.comp.k030")}</span>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                       {project.savedSpotLayouts.map((slot) => {
@@ -1207,7 +1209,7 @@ export function AddCueWithFormationDialog({
                             <button
                               type="button"
                               disabled={viewMode === "view"}
-                              title="この保存をリストから削除"
+                              title={t("editor.comp.k013")}
                               aria-label={`${slot.name} を削除`}
                               onClick={() => removeSavedSpotLayout(slot.id, slot.name)}
                               style={{

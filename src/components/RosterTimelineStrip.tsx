@@ -30,6 +30,7 @@ import {
   modDancerColorIndex,
 } from "../lib/dancerColorPalette";
 import { dancerMarkerDiameterAfterRosterImport } from "../lib/projectDefaults";
+import { useI18n } from "../i18n/I18nContext";
 import {
   DEFAULT_CUE_SPAN_WITH_AUDIO_SEC,
   MIN_CUE_DURATION_SEC,
@@ -117,6 +118,7 @@ export function RosterTimelineStrip({
   onConfirmReturnToTimeline,
   onStagePreviewChange,
 }: Props) {
+  const { t } = useI18n();
   const listScrollRef = useRef<HTMLDivElement>(null);
   const [rowHeightPx, setRowHeightPx] = useState(26);
   /** 雛形選択モーダル: 未配置一括 / 名簿並びで再配置 */
@@ -847,7 +849,7 @@ export function RosterTimelineStrip({
         <button
           type="button"
           onClick={toggleCollapsed}
-          title="名簿パネルを開く"
+          title={t("editor.comp.k071")}
           style={{
             fontSize: "12px",
             padding: "4px 10px",
@@ -947,14 +949,12 @@ export function RosterTimelineStrip({
                 flexShrink: 0,
                 lineHeight: 1.15,
               }}
-            >
-              名簿
-            </span>
+            >{t("editor.comp.k065")}</span>
             <button
               type="button"
               onClick={confirmRosterAndReturnToTimeline}
               disabled={project.viewMode === "view"}
-              title="未配置のメンバーを3列の形でステージに置き、先頭キュー（タイムライン 1 ページ目）のフォーメーションに確定してタイムラインへ戻ります（別の形にしたい場合は「未配置を一括でステージへ」）"
+              title={t("editor.comp.k088")}
               style={{
                 fontSize: "11px",
                 padding: "4px 12px",
@@ -975,7 +975,7 @@ export function RosterTimelineStrip({
             <button
               type="button"
               onClick={toggleCollapsed}
-              title="名簿パネルを隠して細いバーだけにします"
+              title={t("editor.comp.k072")}
               style={{
                 fontSize: "10px",
                 padding: "2px 8px",
@@ -1011,8 +1011,8 @@ export function RosterTimelineStrip({
                 onSortModeChange(e.target.value as RosterStripSortMode)
               }
               disabled={project.viewMode === "view"}
-              aria-label="名簿の並び順"
-              title="名簿の並び順"
+              aria-label={t("editor.comp.k069")}
+              title={t("editor.comp.k069")}
               style={{
                 fontSize: "11px",
                 padding: "3px 7px",
@@ -1027,16 +1027,16 @@ export function RosterTimelineStrip({
                 cursor: project.viewMode === "view" ? "not-allowed" : "pointer",
               }}
             >
-              <option value="import">取り込み順</option>
-              <option value="height_desc">身長 高い順</option>
-              <option value="height_asc">身長 低い順</option>
-              <option value="grade">学年順</option>
-              <option value="skill">スキル順</option>
+              <option value="import">{t("editor.comp.k061")}</option>
+              <option value="height_desc">{t("editor.comp.k106")}</option>
+              <option value="height_asc">{t("editor.comp.k105")}</option>
+              <option value="grade">{t("editor.comp.k077")}</option>
+              <option value="skill">{t("editor.comp.k026")}</option>
             </select>
             <button
               type="button"
               onClick={showTimelineAgain}
-              title="波形・楽曲のタイムラインを再表示します"
+              title={t("editor.comp.k091")}
               style={{
                 fontSize: "10px",
                 padding: "3px 9px",
@@ -1058,7 +1058,7 @@ export function RosterTimelineStrip({
                 type="button"
                 disabled={project.viewMode === "view"}
                 onClick={() => setPresetModalMode("bulk")}
-                title="雛形を選んで、未配置メンバーを一括追加します（既にステージにいる人＋未配置をまとめて並べます）"
+                title={t("editor.comp.k118")}
                 style={{
                   fontSize: "10px",
                   padding: "2px 6px",
@@ -1081,7 +1081,7 @@ export function RosterTimelineStrip({
                 type="button"
                 disabled={project.viewMode === "view"}
                 onClick={() => setPresetModalMode("relayout")}
-                title="名簿の並び替え順に合わせて、現在ステージ上の名簿メンバーを並べ替えて雛形で敷き直します"
+                title={t("editor.comp.k067")}
                 style={{
                   fontSize: "10px",
                   padding: "2px 6px",
@@ -1103,7 +1103,7 @@ export function RosterTimelineStrip({
               type="button"
               disabled={project.viewMode === "view"}
               onClick={addMemberToRoster}
-              title="名簿の末尾のクルーにメンバーを追加します（表示名・身長などは下の表で編集）"
+              title={t("editor.comp.k070")}
               style={{
                 fontSize: "10px",
                 padding: "2px 6px",
@@ -1161,12 +1161,12 @@ export function RosterTimelineStrip({
             >
               #
             </span>
-            <span style={{ display: "flex", alignItems: "center" }}>表示名</span>
-            <span style={{ display: "flex", alignItems: "center" }}>クルー</span>
+            <span style={{ display: "flex", alignItems: "center" }}>{t("editor.comp.k104")}</span>
+            <span style={{ display: "flex", alignItems: "center" }}>{t("editor.comp.k023")}</span>
             <span style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
               身長
             </span>
-            <span style={{ display: "flex", alignItems: "center" }}>学年</span>
+            <span style={{ display: "flex", alignItems: "center" }}>{t("editor.comp.k076")}</span>
             <span
               style={{
                 display: "flex",
@@ -1178,10 +1178,8 @@ export function RosterTimelineStrip({
                 overflow: "hidden",
                 textOverflow: "ellipsis",
               }}
-              title="スキル"
-            >
-              スキル
-            </span>
+              title={t("editor.comp.k025")}
+            >{t("editor.comp.k025")}</span>
             <span style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
               操作
             </span>
@@ -1239,7 +1237,7 @@ export function RosterTimelineStrip({
                   {i + 1}
                 </span>
                 <input
-                  aria-label="表示名"
+                  aria-label={t("editor.comp.k104")}
                   value={m.label}
                   disabled={vm}
                   maxLength={120}
@@ -1270,7 +1268,7 @@ export function RosterTimelineStrip({
                 </span>
                 <input
                   key={`hcm-${m.id}-${String(m.heightCm ?? "")}`}
-                  aria-label="身長cm"
+                  aria-label={t("editor.comp.k107")}
                   placeholder="—"
                   inputMode="decimal"
                   disabled={vm}
@@ -1297,8 +1295,8 @@ export function RosterTimelineStrip({
                   style={{ ...inp, textAlign: "right", fontVariantNumeric: "tabular-nums" }}
                 />
                 <input
-                  aria-label="学年"
-                  placeholder="学年"
+                  aria-label={t("editor.comp.k076")}
+                  placeholder={t("editor.comp.k076")}
                   disabled={vm}
                   title={
                     m.gradeLabel?.trim()
@@ -1325,8 +1323,8 @@ export function RosterTimelineStrip({
                   style={inp}
                 />
                 <input
-                  aria-label="スキル"
-                  placeholder="スキル"
+                  aria-label={t("editor.comp.k025")}
+                  placeholder={t("editor.comp.k025")}
                   disabled={vm}
                   value={m.skillRankLabel ?? ""}
                   maxLength={24}
@@ -1377,7 +1375,7 @@ export function RosterTimelineStrip({
                     type="button"
                     disabled={vm}
                     onClick={() => removeMemberFromRoster(row.crewId, m.id)}
-                    title="名簿からすぐ削除（ステージの印は残り名簿リンクのみ外す。取り消しは戻る）"
+                    title={t("editor.comp.k066")}
                     style={{
                       fontSize: `${tableBtnFs}px`,
                       padding: "0 5px",
@@ -1482,13 +1480,11 @@ export function RosterTimelineStrip({
               color: "#e2e8f0",
               lineHeight: 1.15,
             }}
-          >
-            名簿
-          </span>
+          >{t("editor.comp.k065")}</span>
           <button
             type="button"
             onClick={toggleCollapsed}
-            title="名簿パネルを隠して細いバーだけにします"
+            title={t("editor.comp.k072")}
             style={{
               fontSize: "11px",
               padding: "3px 9px",
@@ -1520,8 +1516,8 @@ export function RosterTimelineStrip({
               onSortModeChange(e.target.value as RosterStripSortMode)
             }
             disabled={project.viewMode === "view"}
-            aria-label="名簿の並び順"
-            title="並び替え（今後の拡張と同じ基準）"
+            aria-label={t("editor.comp.k069")}
+            title={t("editor.comp.k043")}
             style={{
               fontSize: "11px",
               padding: "3px 7px",
@@ -1535,18 +1531,18 @@ export function RosterTimelineStrip({
                 project.viewMode === "view" ? "not-allowed" : "pointer",
             }}
           >
-            <option value="import">取り込み順</option>
-            <option value="height_desc">身長 高い順</option>
-            <option value="height_asc">身長 低い順</option>
-            <option value="grade">学年（小→中→高→大学→大人）</option>
-            <option value="skill">スキル（数字が小さいほど上）</option>
+            <option value="import">{t("editor.comp.k061")}</option>
+            <option value="height_desc">{t("editor.comp.k106")}</option>
+            <option value="height_asc">{t("editor.comp.k105")}</option>
+            <option value="grade">{t("editor.comp.k078")}</option>
+            <option value="skill">{t("editor.comp.k027")}</option>
           </select>
           {notOnStageCount > 0 ? (
             <button
               type="button"
               disabled={project.viewMode === "view"}
               onClick={() => setPresetModalMode("bulk")}
-              title="雛形を選んで、未配置メンバーを一括追加します"
+              title={t("editor.comp.k117")}
               style={{
                 fontSize: "11px",
                 padding: "4px 10px",
@@ -1567,7 +1563,7 @@ export function RosterTimelineStrip({
               type="button"
               disabled={project.viewMode === "view"}
               onClick={() => setPresetModalMode("relayout")}
-              title="名簿の並び替え順に合わせてステージ上の名簿メンバーを敷き直します"
+              title={t("editor.comp.k068")}
               style={{
                 fontSize: "11px",
                 padding: "4px 10px",
@@ -1651,7 +1647,7 @@ export function RosterTimelineStrip({
                 }}
               >
                 <input
-                  aria-label="表示名"
+                  aria-label={t("editor.comp.k104")}
                   value={m.label}
                   disabled={vm}
                   maxLength={120}
@@ -1696,7 +1692,7 @@ export function RosterTimelineStrip({
                     type="button"
                     disabled={vm}
                     onClick={() => removeMemberFromRoster(row.crewId, m.id)}
-                    title="名簿からすぐ削除（ステージの印は残り名簿リンクのみ外す。取り消しは戻る）"
+                    title={t("editor.comp.k066")}
                     style={{
                       fontSize: "11px",
                       padding: "4px 8px",
@@ -1721,8 +1717,8 @@ export function RosterTimelineStrip({
               >
                 <input
                   key={`hcm-chip-${m.id}-${String(m.heightCm ?? "")}`}
-                  aria-label="身長cm"
-                  placeholder="身長cm"
+                  aria-label={t("editor.comp.k107")}
+                  placeholder={t("editor.comp.k107")}
                   inputMode="decimal"
                   disabled={vm}
                   defaultValue={heightStr}
@@ -1748,8 +1744,8 @@ export function RosterTimelineStrip({
                   style={chipInp}
                 />
                 <input
-                  aria-label="学年"
-                  placeholder="学年"
+                  aria-label={t("editor.comp.k076")}
+                  placeholder={t("editor.comp.k076")}
                   disabled={vm}
                   title={
                     m.gradeLabel?.trim()
@@ -1776,8 +1772,8 @@ export function RosterTimelineStrip({
                   style={chipInp}
                 />
                 <input
-                  aria-label="スキル"
-                  placeholder="スキル"
+                  aria-label={t("editor.comp.k025")}
+                  placeholder={t("editor.comp.k025")}
                   disabled={vm}
                   value={m.skillRankLabel ?? ""}
                   maxLength={24}

@@ -180,6 +180,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const stageSettingsOpen = props.stageSettingsOpen as never;
   const stageShapePickerOpen = props.stageShapePickerOpen as never;
   const stageUndoDisabled = props.stageUndoDisabled as never;
+  const stageWorkbenchProps = props.stageWorkbenchProps as never;
   const stageView = props.stageView as never;
   const stageZenLayout = props.stageZenLayout as never;
   const startGridNudgeRepeat = props.startGridNudgeRepeat as never;

@@ -5,10 +5,10 @@ import { useI18n } from "../i18n/I18nContext";
 import type { AppLocale } from "../i18n/types";
 import { isAppLocale } from "../i18n/types";
 
-const LOCALE_ORDER: AppLocale[] = ["ja", "en", "ko", "zh"];
+const LOCALE_ORDER: AppLocale[] = ["ja", "en", "ko", "zh", "es", "fr", "de", "pt"];
 
 /**
- * 画面右下に置く言語セレクタ（日本語・英語・韓国語・簡体中国語）。
+ * 画面右下に置く言語セレクタ（8言語）。
  */
 export function LanguageSwitcher({
   variant = "floating",

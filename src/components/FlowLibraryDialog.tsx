@@ -689,7 +689,7 @@ export function FlowLibraryDialog({
           <button
             type="button"
             disabled={busy}
-            aria-label="閉じる"
+            aria-label={t("editor.comp.k111")}
             onClick={onClose}
             style={{
               ...btnSecondary,
@@ -786,7 +786,7 @@ export function FlowLibraryDialog({
               marginBottom: "8px",
             }}
           >
-            <h4 style={sectionTitle}>現在のフローを保存</h4>
+            <h4 style={sectionTitle}>{t("editor.comp.k093")}</h4>
             <span style={{ fontSize: "11px", color: "#64748b" }}>
               キュー {fmtCount(cuesCount)} ／ 形 {fmtCount(formCount)} ／ 人数 {dancerCount}
             </span>
@@ -794,7 +794,7 @@ export function FlowLibraryDialog({
           <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
             <input
               type="text"
-              placeholder="このフローの名前（例：A サビ崩し ver.2）"
+              placeholder={t("editor.comp.k012")}
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={120}
@@ -854,7 +854,7 @@ export function FlowLibraryDialog({
                 style={{ ...btnSecondary, padding: "4px 10px", fontSize: "11px" }}
                 onClick={doExportJson}
                 disabled={items.length === 0}
-                title="保存済みフローを JSON にバックアップ"
+                title={t("editor.comp.k055")}
               >
                 書き出し
               </button>
@@ -862,7 +862,7 @@ export function FlowLibraryDialog({
                 type="button"
                 style={{ ...btnSecondary, padding: "4px 10px", fontSize: "11px" }}
                 onClick={() => fileInputRef.current?.click()}
-                title="JSON バックアップから取り込み"
+                title={t("editor.comp.k010")}
               >
                 取り込み
               </button>
@@ -884,7 +884,7 @@ export function FlowLibraryDialog({
             }}
           >
             各フロー行の「共同編集共有」「閲覧共有」で URL をコピーします。
-            <strong style={{ color: "#cbd5e1" }}>ログイン中</strong>
+            <strong style={{ color: "#cbd5e1" }}>{t("editor.comp.k040")}</strong>
             は「新規保存」「上書き保存」でいまの作品もクラウドに保存され、その作品 ID がフローに紐づきます。
             未ログインのときは、先にツールバーからクラウド保存して作品 ID を付けてください。
           </p>
@@ -1007,7 +1007,7 @@ export function FlowLibraryDialog({
                       }}
                       disabled={busy || !canSave}
                       onClick={() => doOverwrite(it.id, it.name)}
-                      title="現在のステージ内容でこのフローを上書き"
+                      title={t("editor.comp.k092")}
                     >
                       上書き保存
                     </button>
@@ -1106,9 +1106,7 @@ export function FlowLibraryDialog({
             disabled={busy}
             style={btnSecondary}
             onClick={onClose}
-          >
-            閉じる
-          </button>
+          >{t("editor.comp.k111")}</button>
         </div>
       </div>
     </EditorSideSheet>

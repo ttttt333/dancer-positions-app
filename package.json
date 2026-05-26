@@ -15,6 +15,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "npm run build && playwright test",
     "preview": "vite preview --host --open",
     "open:app": "node scripts/open-app.mjs",
     "open:prod": "OPEN_URL=http://127.0.0.1:3001/ node scripts/open-app.mjs"
@@ -41,6 +42,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@playwright/test": "^1.52.0",
     "@types/node": "^24.12.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

@@ -1,6 +1,7 @@
 import { type CSSProperties, type ReactNode } from "react";
 import { shell } from "../theme/choreoShell";
 import type { ChoreoCoreToolbarCoreProps } from "./ChoreoCoreToolbar";
+import { useI18n } from "../i18n/I18nContext";
 
 /* ═══════════════════════════════════════════════════════════
    NeonIconPanel — matches ChoreoCore v2 RightPanel exactly
@@ -375,6 +376,7 @@ function NeonBtn({ icon, label, onClick, active, disabled }: {
 
 /* ─── Divider ─── */
 function Divider() {
+  const { t } = useI18n();
   return <div style={{ height: 1, background: "rgba(255,255,255,0.04)", gridColumn: "1 / -1" }} />;
 }
 
@@ -414,6 +416,7 @@ export function NeonIconPanel({
   collapsed = false,
   onCollapseToggle,
 }: NeonIconPanelProps) {
+  const { t } = useI18n();
   const gridSnap = stageGridLinesEnabled ?? false;
 
   /* ── Collapsed thin-bar mode ── */
@@ -440,7 +443,7 @@ export function NeonIconPanel({
       >
         <button
           type="button"
-          title="パネルを展開"
+          title={t("editor.comp.k033")}
           onClick={onCollapseToggle}
           style={{
             width: 22,
@@ -474,9 +477,7 @@ export function NeonIconPanel({
             userSelect: "none",
             pointerEvents: "none",
           }}
-        >
-          ツール
-        </div>
+        >{t("editor.comp.k124")}</div>
       </div>
     );
   }
@@ -544,7 +545,7 @@ export function NeonIconPanel({
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 2 }}>
           <button
             type="button"
-            title="パネルを折りたたむ"
+            title={t("editor.comp.k034")}
             onClick={onCollapseToggle}
             style={{
               width: 22,
@@ -570,12 +571,12 @@ export function NeonIconPanel({
       )}
       {/* Block 1: 舞台・編集 (3×2) */}
       <div style={grid3}>
-        <NeonBtn icon={<IconStage />} label="舞台設定" onClick={onOpenStageShapePicker} active={stageShapeActive} disabled={disabled} />
-        <NeonBtn icon={<IconCueFlag />} label="キュー設定" onClick={onOpenCueSettings} disabled={disabled} />
-        <NeonBtn icon={<IconSavePosition />} label="立ち位置保存" onClick={onSave} disabled={disabled} />
-        <NeonBtn icon={<IconText />} label="テキスト" onClick={onOpenFloorText} disabled={disabled} />
-        <NeonBtn icon={<IconZoomIn />} label="拡大" onClick={onZoomStage} disabled={disabled} />
-        <NeonBtn icon={<IconViewMode />} label="閲覧モード" onClick={onOpenViewMode} disabled={disabled} />
+        <NeonBtn icon={<IconStage />} label={t("editor.comp.k101")} onClick={onOpenStageShapePicker} active={stageShapeActive} disabled={disabled} />
+        <NeonBtn icon={<IconCueFlag />} label={t("editor.comp.k021")} onClick={onOpenCueSettings} disabled={disabled} />
+        <NeonBtn icon={<IconSavePosition />} label={t("editor.comp.k096")} onClick={onSave} disabled={disabled} />
+        <NeonBtn icon={<IconText />} label={t("editor.comp.k032")} onClick={onOpenFloorText} disabled={disabled} />
+        <NeonBtn icon={<IconZoomIn />} label={t("editor.comp.k084")} onClick={onZoomStage} disabled={disabled} />
+        <NeonBtn icon={<IconViewMode />} label={t("editor.comp.k114")} onClick={onOpenViewMode} disabled={disabled} />
       </div>
 
       {/* Grid snap toggle */}
@@ -585,8 +586,8 @@ export function NeonIconPanel({
           <IconMagnet />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)", fontWeight: 500, lineHeight: 1 }}>グリッド吸着</div>
-          <div style={{ fontSize: 7, color: "rgba(255,255,255,0.25)", marginTop: 2 }}>{gridSnap ? "ON" : "OFF"} — 格子点に自動整列</div>
+          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)", fontWeight: 500, lineHeight: 1 }}>{t("editor.comp.k024")}</div>
+          <div style={{ fontSize: 7, color: "rgba(255,255,255,0.25)", marginTop: 2 }}>{gridSnap ? t("editor.comp.k125") : t("editor.comp.k126")}{t("editor.comp.k127")}</div>
         </div>
         <button type="button" style={toggleTrack} onClick={onToggleStageGridLines}>
           <div style={toggleThumb} />
@@ -597,8 +598,8 @@ export function NeonIconPanel({
 
       {/* Block 2: キュー (2×1) */}
       <div style={grid3}>
-        <NeonBtn icon={<IconCueList />} label="キュー一覧" onClick={onOpenCueList} disabled={disabled} />
-        <NeonBtn icon={<IconLibrary />} label="ライブラリ" onClick={onOpenLibrary} disabled={disabled} />
+        <NeonBtn icon={<IconCueList />} label={t("editor.comp.k019")} onClick={onOpenCueList} disabled={disabled} />
+        <NeonBtn icon={<IconLibrary />} label={t("editor.comp.k039")} onClick={onOpenLibrary} disabled={disabled} />
         <div />
       </div>
 
@@ -606,21 +607,21 @@ export function NeonIconPanel({
 
       {/* Block 3: メンバー (3×1) */}
       <div style={grid3}>
-        <NeonBtn icon={<IconAddMember />} label="+メンバー" onClick={onAddDancer} disabled={disabled} />
-        <NeonBtn icon={<IconRosterImport />} label="名簿取込" onClick={onOpenRosterImport} disabled={disabled} />
-        <NeonBtn icon={<IconMemberView />} label="メンバー表示" onClick={onOpenRoster} disabled={disabled} />
+        <NeonBtn icon={<IconAddMember />} label={t("editor.comp.k001")} onClick={onAddDancer} disabled={disabled} />
+        <NeonBtn icon={<IconRosterImport />} label={t("editor.comp.k074")} onClick={onOpenRosterImport} disabled={disabled} />
+        <NeonBtn icon={<IconMemberView />} label={t("editor.comp.k037")} onClick={onOpenRoster} disabled={disabled} />
       </div>
 
       <Divider />
 
       {/* Block 4: 共有・出力 (3×2) */}
       <div style={grid3}>
-        <NeonBtn icon={<IconShareUrl />} label="共有URL" onClick={onOpenShareLinks} disabled={disabled} />
-        <NeonBtn icon={<IconStageTransform />} label="舞台変形" onClick={onOpenStageTransform} disabled={disabled} />
-        <NeonBtn icon={<IconExportPackage />} label="エクスポート" onClick={onOpenExport} disabled={disabled} />
-        <NeonBtn icon={<IconAISuggest />} label="AI提案" onClick={onOpenAISuggest} disabled={disabled} />
-        <NeonBtn icon={<IconSetPiece />} label="大道具" onClick={onOpenSetPiecePicker} disabled={disabled} />
-        <NeonBtn icon={<IconHelp />} label="ヘルプ" onClick={onOpenShortcutsHelp} disabled={disabled} />
+        <NeonBtn icon={<IconShareUrl />} label={t("editor.comp.k059")} onClick={onOpenShareLinks} disabled={disabled} />
+        <NeonBtn icon={<IconStageTransform />} label={t("editor.comp.k100")} onClick={onOpenStageTransform} disabled={disabled} />
+        <NeonBtn icon={<IconExportPackage />} label={t("editor.comp.k016")} onClick={onOpenExport} disabled={disabled} />
+        <NeonBtn icon={<IconAISuggest />} label={t("editor.comp.k006")} onClick={onOpenAISuggest} disabled={disabled} />
+        <NeonBtn icon={<IconSetPiece />} label={t("editor.comp.k075")} onClick={onOpenSetPiecePicker} disabled={disabled} />
+        <NeonBtn icon={<IconHelp />} label={t("editor.comp.k035")} onClick={onOpenShortcutsHelp} disabled={disabled} />
       </div>
 
       {/* Spacer */}
@@ -629,8 +630,8 @@ export function NeonIconPanel({
       {/* Undo / Redo */}
       <div style={{ borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: 4 }}>
         <div style={grid3}>
-          <NeonBtn icon={<IconUndo />} label="元に戻す" onClick={onUndo} disabled={undoDisabled ?? disabled} />
-          <NeonBtn icon={<IconRedo />} label="やり直す" onClick={onRedo} disabled={redoDisabled ?? disabled} />
+          <NeonBtn icon={<IconUndo />} label={t("editor.comp.k056")} onClick={onUndo} disabled={undoDisabled ?? disabled} />
+          <NeonBtn icon={<IconRedo />} label={t("editor.comp.k014")} onClick={onRedo} disabled={redoDisabled ?? disabled} />
           <div />
         </div>
       </div>

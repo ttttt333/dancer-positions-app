@@ -36,10 +36,10 @@ const Stage3DView = lazy(() =>
 import { TimelinePanel } from "../components/TimelinePanel";
 import {
   pauseAndSeekPlaybackToSec,
-  togglePlaybackRespectingTrimStart,
 } from "../lib/playbackTransport";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import { useEditorPlaybackSync } from "../hooks/useEditorPlaybackSync";
+import { useEditorKeyboardShortcuts } from "../hooks/useEditorKeyboardShortcuts";
 import { useTimelineMediaHandle } from "../hooks/useTimelineMediaHandle";
 import { RosterTimelineStrip } from "../components/RosterTimelineStrip";
 import {
@@ -152,7 +152,6 @@ import {
 } from "./editor/editorLayoutStorage";
 import { readMaxStageWidthPx, round2Pct, studentPickToStageFocus } from "./editor/editorStageLayout";
 import { useEditorViewport } from "./editor/editorViewport";
-import { EditorPageStatus } from "./editor/EditorPageStatus";
 import { EditorPageLayout } from "./editor/EditorPageLayout";
 import type { EditorLayoutProps } from "./editor/editorLayoutProps";
 import {
@@ -576,17 +575,30 @@ export function EditorPage({
     persistEditorLayout({ stageColumnPx, topDockRowPx });
   }, [wideEditorLayout, stageColumnPx, topDockRowPx]);
 
-  useEffect(() => {
-    if (!stageZenFullscreen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        setStageZenFullscreen(false);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [stageZenFullscreen]);
+  useEditorKeyboardShortcuts({
+    stageZenFullscreen,
+    setStageZenFullscreen,
+    cloudSaveDialogOpen,
+    setCloudSaveDialogOpen,
+    stageAreaSettingsOpen,
+    setStageAreaSettingsOpen,
+    stageSettingsOpen,
+    setStageSettingsOpen,
+    exportDialogOpen,
+    setExportDialogOpen,
+    flowLibraryOpen,
+    setFlowLibraryOpen,
+    cueListModalOpen,
+    setCueListModalOpen,
+    shortcutsHelpOpen,
+    setShortcutsHelpOpen,
+    rosterImportDraft,
+    setRosterImportDraft,
+    setRosterImportExtraNames,
+    undo,
+    redo,
+    getTrimStartSec: () => projectRef.current?.trimStartSec ?? 0,
+  });
 
   useEffect(() => {
     if (!wideEditorLayout && stageZenFullscreen) {
@@ -781,75 +793,6 @@ export function EditorPage({
       if (shareCopiedTimerRef.current) clearTimeout(shareCopiedTimerRef.current);
     };
   }, []);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement ||
-        (e.target as HTMLElement).isContentEditable
-      ) {
-        return;
-      }
-      if (e.key === "Escape" && cloudSaveDialogOpen) {
-        setCloudSaveDialogOpen(false);
-        return;
-      }
-      if (e.key === "Escape" && stageAreaSettingsOpen) {
-        setStageAreaSettingsOpen(false);
-        return;
-      }
-      if (e.key === "Escape" && stageSettingsOpen) {
-        setStageSettingsOpen(false);
-        return;
-      }
-      if (e.key === "Escape" && exportDialogOpen) {
-        setExportDialogOpen(false);
-        return;
-      }
-      if (e.key === "Escape" && flowLibraryOpen) {
-        setFlowLibraryOpen(false);
-        return;
-      }
-      if (e.key === "Escape" && cueListModalOpen) {
-        setCueListModalOpen(false);
-        return;
-      }
-      if (e.key === "Escape" && shortcutsHelpOpen) {
-        setShortcutsHelpOpen(false);
-        return;
-      }
-      if (e.key === "Escape" && rosterImportDraft) {
-        setRosterImportDraft(null);
-        setRosterImportExtraNames([]);
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
-        e.preventDefault();
-        if (e.shiftKey) redo();
-        else undo();
-        return;
-      }
-      if (e.code === "Space") {
-        e.preventDefault();
-        const ts = projectRef.current?.trimStartSec ?? 0;
-        togglePlaybackRespectingTrimStart(ts);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [
-    redo,
-    undo,
-    cloudSaveDialogOpen,
-    stageAreaSettingsOpen,
-    stageSettingsOpen,
-    shortcutsHelpOpen,
-    exportDialogOpen,
-    flowLibraryOpen,
-    rosterImportDraft,
-    cueListModalOpen,
-  ]);
 
   const interpolatedDancers = useMemo(() => {
     if (!project || project.cues.length === 0) return null;
@@ -2059,14 +2002,28 @@ export function EditorPage({
     );
   }, [mobileStackEditor, mobileEditorWaveExpanded]);
 
-  const pageStatus = (
-    <EditorPageStatus
-      loadError={loadError}
-      collabSyncing={collabActive && !yjsCollab.synced}
-      projectLoaded={project != null}
-    />
-  );
-  if (pageStatus) return pageStatus;
+  if (loadError) {
+    return (
+      <div style={{ padding: 24, color: "#f87171" }}>
+        {loadError}{" "}
+        <Link to="/library" style={{ color: "#93c5fd" }}>
+          {t("common.backProjects")}
+        </Link>
+      </div>
+    );
+  }
+
+  if (collabActive && !yjsCollab.synced) {
+    return (
+      <div style={{ padding: 24, color: "#94a3b8" }}>
+        {t("common.loading")}
+      </div>
+    );
+  }
+
+  if (!project) {
+    return <div style={{ padding: 24, color: "#94a3b8" }}>{t("common.loading")}</div>;
+  }
 
   if (choreoPublicView) {
     if (choreoStudentPick == null) {
@@ -2108,7 +2065,7 @@ export function EditorPage({
     }
   }
 
-  const stageBoardProject = projectForStageBoard!;
+  const stageBoardProject = project;
 
   const hasRosterMembers = project.crews.some((c) => c.members.length > 0);
   /** 名簿ストリップのみ表示しタイムライン列を隠す（取り込み直後や「メンバーを表示」から） */
@@ -2271,24 +2228,18 @@ export function EditorPage({
     choreoToolbarSharedProps,
     cloudSaveDialogOpen,
     collabActive,
-    color,
     commitFloorTextPlace,
     commitStageGridCmInput,
     confirmAddSetPiece,
-    crew,
-    cue,
     cueById,
     cueListModalOpen,
     cuesSortedForStageJump,
     currentTime,
-    d,
     dancersFor3d,
-    defaultName,
     duration,
     dynamicContainerStyle,
     dynamicStageShellStyle,
     dynamicToolsAsideStyle,
-    editTargetId,
     editorMobileLandscape,
     editorPaneGridTemplateColumns,
     editorPaneGridTemplateRows,
@@ -2299,24 +2250,18 @@ export function EditorPage({
     endSplitDrag,
     endTopDockResize,
     exportDialogEl,
-    f,
-    fid,
     floorMarkupTool,
     floorTextPlaceSession,
     floorTextSideSheetOpen,
     flowLibraryDialogEl,
-    fontFamily,
     formationBoxManagerDialogEl,
     formationById,
-    formationId,
     getWavePeaksSnapshot,
-    grid,
     gridDepthCmInput,
     gridNudgeDidRepeatRef,
     gridWidthCmInput,
     hasRosterMembers,
     importCrewCsvFromStageToolbar,
-    input,
     isPlaying,
     jumpToPagerSlot,
     markHistorySkipNextPush,
@@ -2325,10 +2270,7 @@ export function EditorPage({
     mobileEditorToolsExpanded,
     mobileEditorWaveExpanded,
     mobileStackEditor,
-    n,
-    next,
     nudgeStageGridCm,
-    onChange,
     onFloorTextPlaceSessionChange,
     onRosterConfirmReturnToTimeline,
     onSplitLostCapture,
@@ -2340,7 +2282,6 @@ export function EditorPage({
     onTopDockResizeMove,
     onUpdateGlobalFloorMarkup,
     openAudioImport,
-    p,
     pathEditorCueId,
     performCloudSave,
     playbackAudioElement,
@@ -2351,18 +2292,14 @@ export function EditorPage({
     projectName,
     publicNarrowLayout,
     publicViewTightHeight,
-    raw,
     redo,
-    result,
     rightPaneCollapsed,
     rightPaneStackRef,
     rightPaneTopSectionStyle,
     rosterImportSheetEl,
     rosterOnlyMode,
-    row,
     saveStageToFormationBox,
     saving,
-    scale,
     selectedCue,
     selectedCueId,
     serverId,
@@ -2421,26 +2358,22 @@ export function EditorPage({
     stageSettingsOpen,
     stageShapePickerOpen,
     stageUndoDisabled,
+    stageWorkbenchProps,
     stageView,
     stageZenLayout,
     startGridNudgeRepeat,
     stopGridNudgeRepeat,
     studentViewerFocusForStage,
     t,
-    text,
     textPanelPortalEl,
     timelinePanelEl,
     timelineRef,
-    title,
     topDockSectionRef,
     undo,
-    v,
     viewerLocalStorageKey,
     wideBottomDockPx,
     wideEditorLayout,
     workbenchInRightRail,
-    xPct,
-    yPct,
   };
 
   return <EditorPageLayout {...editorLayoutProps} />;

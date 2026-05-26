@@ -348,15 +348,19 @@ export const EDITOR_LAYOUT_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
   en: EN,
   ko: KO,
   zh: ZH,
+  es: EN,
+  fr: EN,
+  de: EN,
+  pt: EN,
 };
 
 export function mergeEditorLayoutTranslations(
   base: Record<AppLocale, MessageBundle>
 ): Record<AppLocale, MessageBundle> {
-  return {
-    ja: { ...base.ja, ...EDITOR_LAYOUT_TRANSLATIONS.ja },
-    en: { ...base.en, ...EDITOR_LAYOUT_TRANSLATIONS.en },
-    ko: { ...base.ko, ...EDITOR_LAYOUT_TRANSLATIONS.ko },
-    zh: { ...base.zh, ...EDITOR_LAYOUT_TRANSLATIONS.zh },
-  };
+  return Object.fromEntries(
+    (Object.keys(base) as AppLocale[]).map((loc) => [
+      loc,
+      { ...base[loc], ...EDITOR_LAYOUT_TRANSLATIONS[loc] },
+    ])
+  ) as Record<AppLocale, MessageBundle>;
 }

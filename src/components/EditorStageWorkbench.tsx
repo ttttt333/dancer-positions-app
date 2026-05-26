@@ -3,6 +3,7 @@ import type { ChoreographyProjectJson, Cue } from "../types/choreography";
 import type { FloorTextPlaceSession } from "../components/StageBoard";
 import { btnAccent, btnSecondary } from "../components/stageButtonStyles";
 import { ChoreoCoreToolbar } from "./ChoreoCoreToolbar";
+import { useI18n } from "../i18n/I18nContext";
 
 export type EditorWorkbenchChoreoToolbarProps = Omit<
   ComponentProps<typeof ChoreoCoreToolbar>,
@@ -36,6 +37,7 @@ export function WorkbenchCuePager({
   includeRosterSlot = false,
   rosterTimelineHidden = false,
 }: WorkbenchCuePagerProps) {
+  const { t } = useI18n();
   const isRail = variant === "rail";
   const isCorner = variant === "stageCorner";
   const total = includeRosterSlot
@@ -150,7 +152,7 @@ export function WorkbenchCuePager({
         flexShrink: 0,
         width: isRail ? 48 : undefined,
       }}
-      title="ステージのキュー（ページ）切替。名簿があるとき先頭は名簿。波形の再生位置も区間の頭に移動します。"
+      title={t("editor.comp.k028")}
     >
       <button
         type="button"
@@ -252,9 +254,7 @@ export function WorkbenchCuePager({
               letterSpacing: isRail ? 0 : "0.04em",
               lineHeight: 1.1,
             }}
-          >
-            キュー
-          </span>
+          >{t("editor.comp.k017")}</span>
         ) : null}
         <span
           style={
@@ -396,6 +396,7 @@ export type EditorStageWorkbenchProps = {
 };
 
 export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
+  const { t } = useI18n();
   const rail = props.layout === "rail";
   const {
     project,
@@ -546,12 +547,12 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               color: "#0b1220",
             }}
             disabled={project.viewMode === "view"}
-            title="キュー設定：人数と立ち位置の決め方（変更／複製／雛形／保存リスト）を選んで追加"
-            aria-label="キュー設定"
+            title={t("editor.comp.k022")}
+            aria-label={t("editor.comp.k021")}
             onClick={() => setAddCueDialogOpen(true)}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-            <span style={{fontSize:"8px",opacity:0.8,lineHeight:1}}>キュー設定</span>
+            <span style={{fontSize:"8px",opacity:0.8,lineHeight:1}}>{t("editor.comp.k021")}</span>
           </button>
           <button
             type="button"
@@ -559,11 +560,11 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
             aria-haspopup="dialog"
             aria-expanded={stageAreaSettingsOpen}
             disabled={project.viewMode === "view"}
-            title="舞台・客席・グリッド・名前の出し方・この URL の共有・ショートカット"
+            title={t("editor.comp.k099")}
             onClick={() => setStageAreaSettingsOpen(true)}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="12" x2="12" y2="17"/><line x1="9" y1="14.5" x2="15" y2="14.5"/></svg>
-            <span style={{fontSize:"8px",opacity:0.8,lineHeight:1}}>舞台設定</span>
+            <span style={{fontSize:"8px",opacity:0.8,lineHeight:1}}>{t("editor.comp.k101")}</span>
           </button>
           <button
             type="button"
@@ -574,11 +575,11 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               color: "#dcfce7",
             }}
             disabled={project.viewMode === "view" || !canSaveSpotsR}
-            title="形の箱に今の立ち位置を保存"
+            title={t("editor.comp.k081")}
             onClick={() => saveStageToFormationBox()}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
-            <span style={{fontSize:"8px",opacity:0.8,lineHeight:1}}>立ち位置保存</span>
+            <span style={{fontSize:"8px",opacity:0.8,lineHeight:1}}>{t("editor.comp.k096")}</span>
           </button>
         </div>
 
@@ -588,12 +589,12 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               type="button"
               className="editor-right-tool-sq"
               disabled={project.viewMode === "view"}
-              title="モーダルでキュー一覧を開きます"
-              aria-label="キュー一覧を開く"
+              title={t("editor.comp.k038")}
+              aria-label={t("editor.comp.k020")}
               onClick={() => onOpenCueListModal()}
             >
-              <span>キュー</span>
-              <span>一覧</span>
+              <span>{t("editor.comp.k017")}</span>
+              <span>{t("editor.comp.k041")}</span>
             </button>
           ) : null}
           <button
@@ -601,34 +602,34 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
             className="editor-right-tool-sq"
             style={btnSecondary}
             disabled={project.viewMode === "view"}
-            title="選択中のフォーメーションにメンバーを1人追加（中央付近）"
+            title={t("editor.comp.k110")}
             onClick={() => addDancerFromStageToolbar()}
           >
             <span>＋</span>
-            <span>メンバー</span>
+            <span>{t("editor.comp.k036")}</span>
           </button>
           <button
             type="button"
             className="editor-right-tool-sq"
             style={btnSecondary}
             disabled={project.viewMode === "view"}
-            title="今までの流れをフローライブラリに保存"
+            title={t("editor.comp.k049")}
             onClick={() => setFlowLibraryOpen(true)}
           >
-            <span>ライブラリ</span>
+            <span>{t("editor.comp.k039")}</span>
           </button>
           {onOpenAudioImport ? (
             <button
               type="button"
               className="editor-right-tool-sq"
               disabled={project.viewMode === "view"}
-              title="楽曲または動画から音声を読み込み（MP4 / AVI / MOV / MKV / WMV 等に対応）"
-              aria-label="音源を取り込む"
+              title={t("editor.comp.k089")}
+              aria-label={t("editor.comp.k120")}
               onPointerEnter={() => onPreloadFfmpegForAudio?.()}
               onClick={() => onOpenAudioImport()}
             >
-              <span>音源</span>
-              <span>取込</span>
+              <span>{t("editor.comp.k119")}</span>
+              <span>{t("editor.comp.k062")}</span>
             </button>
           ) : null}
           {choreo ? (
@@ -652,11 +653,11 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
             className="editor-right-tool-sq"
             style={btnSecondary}
             disabled={project.viewMode === "view"}
-            title="CSV / TSV を選んで新しい名簿として取り込みます（1 列目または「名前」などの見出しを検出）"
+            title={t("editor.comp.k009")}
             onClick={() => importCrewCsvFromStageToolbar()}
           >
-            <span>名簿</span>
-            <span>取込</span>
+            <span>{t("editor.comp.k065")}</span>
+            <span>{t("editor.comp.k062")}</span>
           </button>
           {choreo ? (
             <ChoreoCoreToolbar
@@ -684,23 +685,19 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                 className="editor-right-tool-sq"
                 style={btnSecondary}
                 disabled={project.viewMode === "view" || stageUndoDisabled}
-                title="編集を元に戻す（⌘Z / Ctrl+Z）"
-                aria-label="元に戻す"
+                title={t("editor.comp.k097")}
+                aria-label={t("editor.comp.k056")}
                 onClick={() => undo()}
-              >
-                戻る
-              </button>
+              >{t("editor.comp.k083")}</button>
               <button
                 type="button"
                 className="editor-right-tool-sq"
                 style={btnSecondary}
                 disabled={project.viewMode === "view" || stageRedoDisabled}
-                title="やり直す（⌘⇧Z / Ctrl+Shift+Z）"
-                aria-label="やり直す"
+                title={t("editor.comp.k015")}
+                aria-label={t("editor.comp.k014")}
                 onClick={() => redo()}
-              >
-                進む
-              </button>
+              >{t("editor.comp.k108")}</button>
             </>
           ) : null}
           {hasRosterMembers && !project.rosterHidesTimeline ? (
@@ -708,7 +705,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               type="button"
               className="editor-right-tool-sq"
               disabled={project.viewMode === "view"}
-              title="右列で名簿一覧を表示し、タイムライン列は隠します"
+              title={t("editor.comp.k064")}
               onClick={() =>
                 setProjectSafe((p) => ({
                   ...p,
@@ -725,8 +722,8 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                   project.viewMode === "view" ? "not-allowed" : "pointer",
               }}
             >
-              <span>メンバー</span>
-              <span>表示</span>
+              <span>{t("editor.comp.k036")}</span>
+              <span>{t("editor.comp.k102")}</span>
             </button>
           ) : null}
           {!hideFloorTextToolbar ? (
@@ -774,7 +771,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                 );
               }}
             >
-              <span>テキスト</span>
+              <span>{t("editor.comp.k032")}</span>
             </button>
           ) : null}
           {stageZenEligible && onEnterStageZen ? (
@@ -783,11 +780,11 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               className="editor-right-tool-sq"
               style={btnSecondary}
               disabled={project.viewMode === "view"}
-              title="波形と右メニューを隠してステージだけを大きく表示（Esc で戻る）"
-              aria-label="ステージを拡大表示"
+              title={t("editor.comp.k090")}
+              aria-label={t("editor.comp.k029")}
               onClick={() => onEnterStageZen()}
             >
-              <span>拡大</span>
+              <span>{t("editor.comp.k084")}</span>
             </button>
           ) : null}
           {onOpenViewerMode || onOpenShareLinks || onOpenCloudSave ? (
@@ -804,11 +801,11 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                     minHeight: 48,
                   }}
                   disabled={viewerModeButtonDisabled}
-                  title="表示する人を一人に強調。再生の確認とステージ画像の保存・共有"
-                  aria-label="閲覧モード（メンバー別の強調）"
+                  title={t("editor.comp.k103")}
+                  aria-label={t("editor.comp.k115")}
                   onClick={() => onOpenViewerMode()}
                 >
-                  <span>閲覧</span>
+                  <span>{t("editor.comp.k113")}</span>
                 </button>
               ) : null}
               {onOpenShareLinks ? (
@@ -826,10 +823,10 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                       : {}),
                   }}
                   disabled={shareLinksButtonDisabled}
-                  title="チーム用（共同編集）か生徒用（閲覧）か選んで URL を発行"
+                  title={t("editor.comp.k031")}
                   onClick={onOpenShareLinks}
                 >
-                  <span>共有</span>
+                  <span>{t("editor.comp.k058")}</span>
                   <span>URL</span>
                 </button>
               ) : null}
@@ -879,7 +876,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                 )
               }
               rows={2}
-              aria-label="編集画面に表示するテキスト"
+              aria-label={t("editor.comp.k098")}
               placeholder=""
               style={{
                 flex: "1 1 220px",
@@ -898,7 +895,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               type="number"
               min={8}
               max={56}
-              aria-label="床テキストのフォントサイズ（ピクセル）"
+              aria-label={t("editor.comp.k080")}
               value={floorTextPlaceSession.fontSizePx}
               onChange={(e) =>
                 setFloorTextPlaceSession((s) =>
@@ -976,7 +973,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
       aria-haspopup="dialog"
       aria-expanded={stageAreaSettingsOpen}
       disabled={project.viewMode === "view"}
-      title="舞台・客席・グリッド・名前の出し方・この URL の共有・ショートカット"
+      title={t("editor.comp.k099")}
       onClick={() => setStageAreaSettingsOpen(true)}
       style={{
         fontSize: "11px",
@@ -991,13 +988,11 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
         fontWeight: 600,
         flexShrink: 0,
       }}
-    >
-      舞台設定
-    </button>
+    >{t("editor.comp.k101")}</button>
         </div>
         <div
           style={clusterEndStyle}
-          title="右のタイムラインでキューを選ぶと、その区間の立ち位置を編集します。再生中は区間の隙間のみ補間表示されます。"
+          title={t("editor.comp.k063")}
         >
           {!rail ? (
             <div
@@ -1016,22 +1011,18 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
           type="button"
           style={btnSecondary}
           disabled={project.viewMode === "view" || stageUndoDisabled}
-          title="編集を元に戻す（⌘Z / Ctrl+Z）"
-          aria-label="元に戻す"
+          title={t("editor.comp.k097")}
+          aria-label={t("editor.comp.k056")}
           onClick={() => undo()}
-        >
-          戻る
-        </button>
+        >{t("editor.comp.k083")}</button>
         <button
           type="button"
           style={btnSecondary}
           disabled={project.viewMode === "view" || stageRedoDisabled}
-          title="やり直す（⌘⇧Z / Ctrl+Shift+Z）"
-          aria-label="やり直す"
+          title={t("editor.comp.k015")}
+          aria-label={t("editor.comp.k014")}
           onClick={() => redo()}
-        >
-          進む
-        </button>
+        >{t("editor.comp.k108")}</button>
       </>
     ) : null}
     <button
@@ -1048,8 +1039,8 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
         fontWeight: 700,
       }}
       disabled={project.viewMode === "view"}
-      title="＋キュー：人数と立ち位置の決め方（変更／複製／雛形／保存リスト）を選んで追加"
-      aria-label="新しいキューを追加"
+      title={t("editor.comp.k123")}
+      aria-label={t("editor.comp.k085")}
       onClick={() => setAddCueDialogOpen(true)}
     >
       <svg
@@ -1073,22 +1064,20 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
         <circle cx="13.5" cy="12" r="1" fill="currentColor" opacity="0.7" />
         <circle cx="16.5" cy="12" r="1" fill="currentColor" opacity="0.7" />
       </svg>
-      <span style={{ fontSize: "12px", fontWeight: 700 }}>キュー設定</span>
+      <span style={{ fontSize: "12px", fontWeight: 700 }}>{t("editor.comp.k021")}</span>
     </button>
     <button
       type="button"
       style={btnSecondary}
       disabled={project.viewMode === "view"}
-      title="今までの流れ（フォーメーションとキュー）をフローライブラリに保存します"
+      title={t("editor.comp.k050")}
       onClick={() => setFlowLibraryOpen(true)}
-    >
-      ライブラリ
-    </button>
+    >{t("editor.comp.k039")}</button>
     <button
       type="button"
       style={btnSecondary}
       disabled={project.viewMode === "view"}
-      title="選択中のフォーメーションにメンバーを1人追加（中央付近）"
+      title={t("editor.comp.k110")}
       onClick={() => addDancerFromStageToolbar()}
     >
       ＋メンバー
@@ -1097,7 +1086,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
       type="button"
       style={btnSecondary}
       disabled={project.viewMode === "view"}
-      title="CSV / TSV を選んで新しい名簿として取り込みます（1 列目または「名前」などの見出しを検出）"
+      title={t("editor.comp.k009")}
       onClick={() => importCrewCsvFromStageToolbar()}
     >
       名簿取り込み
@@ -1157,13 +1146,13 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
           );
         }}
       >
-        {floorTextPlaceSession ? "テキストやめる" : "テキスト"}
+        {floorTextPlaceSession ? "テキストやめる" : t("editor.comp.k032")}
       </button>
       {hasRosterMembers && !project.rosterHidesTimeline ? (
         <button
           type="button"
           disabled={project.viewMode === "view"}
-          title="右列で名簿一覧を表示し、タイムライン列は隠します"
+          title={t("editor.comp.k064")}
           onClick={() =>
             setProjectSafe((p) => ({
               ...p,
@@ -1203,7 +1192,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
             <button
               type="button"
               disabled={viewerModeButtonDisabled}
-              title="表示する人を一人に強調。再生の確認とステージ画像の保存・共有"
+              title={t("editor.comp.k103")}
               onClick={() => onOpenViewerMode()}
               style={{
                 ...btnSecondary,
@@ -1218,15 +1207,13 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                 cursor: viewerModeButtonDisabled ? "not-allowed" : "pointer",
                 opacity: viewerModeButtonDisabled ? 0.5 : 1,
               }}
-            >
-              閲覧
-            </button>
+            >{t("editor.comp.k113")}</button>
           ) : null}
           {onOpenShareLinks ? (
             <button
               type="button"
               disabled={shareLinksButtonDisabled}
-              title="チーム用（共同編集）か生徒用（閲覧）か選んで URL を発行"
+              title={t("editor.comp.k031")}
               onClick={onOpenShareLinks}
               style={{
                 ...btnSecondary,
@@ -1238,9 +1225,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                 fontWeight: 600,
                 whiteSpace: "nowrap",
               }}
-            >
-              共有URL
-            </button>
+            >{t("editor.comp.k059")}</button>
           ) : null}
           {onOpenCloudSave ? (
             <button
@@ -1287,7 +1272,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               )
             }
             rows={2}
-            aria-label="編集画面に表示するテキスト"
+            aria-label={t("editor.comp.k098")}
             placeholder=""
             style={{
               flex: "1 1 220px",
@@ -1306,7 +1291,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
             type="number"
             min={8}
             max={56}
-            aria-label="床テキストのフォントサイズ（ピクセル）"
+            aria-label={t("editor.comp.k080")}
             value={floorTextPlaceSession.fontSizePx}
             onChange={(e) =>
               setFloorTextPlaceSession((s) =>
