@@ -30,6 +30,7 @@ const Stage3DView = lazy(() =>
 import { EditorPageHeader } from "./EditorPageHeader";
 import { EditorDesktopLayout } from "./EditorDesktopLayout";
 import { EditorMobileLayout } from "./EditorMobileLayout";
+import { useAssignRef } from "./useSafeElementRef";
 
 export function EditorPageLayout(props: EditorLayoutProps) {
   const activeFormationId = props.activeFormationId as never;
@@ -218,6 +219,9 @@ export function EditorPageLayout(props: EditorLayoutProps) {
   const workbenchInRightRail = props.workbenchInRightRail as never;
   const xPct = props.xPct as never;
   const yPct = props.yPct as never;
+
+  const attachTopDockSection = useAssignRef(topDockSectionRef);
+
   return (
     <div
       className={[
@@ -271,9 +275,7 @@ export function EditorPageLayout(props: EditorLayoutProps) {
         >
           {/* Timeline content */}
           <div
-            ref={(el) => {
-              topDockSectionRef.current = el as HTMLElement | null;
-            }}
+            ref={attachTopDockSection}
             style={{
               position: "absolute",
               inset: "0 0 8px 0",

@@ -7,6 +7,7 @@ import { btnAccent, btnSecondary } from "../../components/stageButtonStyles";
 import { panelCard, shell } from "../../theme/choreoShell";
 import { EDITOR_GRID_GAP_PX, STAGE_RESIZER_PX } from "./editorConstants";
 import type { EditorLayoutProps } from "./editorLayoutProps";
+import { useAssignRef, useAttachElementRef } from "./useSafeElementRef";
 
 const Stage3DView = lazy(() =>
   import("../../components/Stage3DView").then((m) => ({ default: m.Stage3DView }))
@@ -201,12 +202,13 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const workbenchInRightRail = props.workbenchInRightRail as never;
   const xPct = props.xPct as never;
   const yPct = props.yPct as never;
+
+  const attachEditorPane = useAttachElementRef(setEditorSurfaceEl, editorPaneRef);
+  const attachTopDockSection = useAssignRef(topDockSectionRef);
+
   return (
       <div
-        ref={(el) => {
-          editorPaneRef.current = el;
-          setEditorSurfaceEl((prev) => (prev === el ? prev : el));
-        }}
+        ref={attachEditorPane}
         className={[
           "editor-three-pane",
           mobileStackEditor && "editor-mobile-stack",
@@ -686,9 +688,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
         {/* wideEditorLayout時の波形バーはflex下段に独立配置 */}
         {!stageZenLayout && !(wideEditorLayout && showTopWaveDock) ? (
           <section
-            ref={(el) => {
-              topDockSectionRef.current = el;
-            }}
+            ref={attachTopDockSection}
             style={{
               gridColumn: 1,
               gridRow: publicNarrowLayout ? 2 : 3,
