@@ -473,7 +473,10 @@ export function LibraryPage() {
                         >
                           <div style={{ minWidth: 0, flex: "1 1 120px" }}>
                             <div style={{ fontSize: "10px", fontWeight: 600, color: "#7dd3fc", marginBottom: 2 }}>
-                              生徒用（閲覧だけ）
+                              生徒用（閲覧だけ・スマホ OK）
+                            </div>
+                            <div style={{ fontSize: "9px", color: "#64748b", marginBottom: 4, lineHeight: 1.4 }}>
+                              LINE 等で送る。生徒はログイン不要で自分の立ち位置を確認できます。
                             </div>
                             <div
                               style={{
@@ -489,7 +492,7 @@ export function LibraryPage() {
                           <button
                             type="button"
                             onClick={() => void copyTextToClipboard(sp.view).then((ok) => {
-                              if (ok) setShareCopyHint("閲覧用の URL をコピーしました。");
+                              if (ok) setShareCopyHint("生徒用 URL をコピーしました。LINE 等で送るとスマホから見られます。");
                             })}
                             style={{ ...btnSecondary, padding: "4px 10px", fontSize: "11px", flexShrink: 0 }}
                           >

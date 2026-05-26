@@ -2096,8 +2096,8 @@ export function EditorPage({
       ? "minmax(0, 1fr)"  // 波形バーはflexラッパー下段に独立配置
       : publicNarrowLayout
         ? publicViewTightHeight
-          ? "minmax(88px, 1fr) minmax(56px, min(20dvh, 168px))"
-          : "minmax(120px, 1fr) minmax(96px, min(32dvh, 260px))"
+          ? "minmax(100px, 1fr) minmax(72px, min(24dvh, 200px))"
+          : "minmax(140px, 1fr) minmax(88px, min(30dvh, 240px))"
         : "auto auto auto auto";
 
   const editorPaneGridTemplateColumns = stageZenLayout
@@ -2149,6 +2149,7 @@ export function EditorPage({
       onSave={() => setFlowLibraryOpen(true)}
       onOpenAudioImport={openAudioImport}
       onOpenPathEditor={(cueId) => setPathEditorCueId(cueId)}
+      publicShareView={choreoPublicView && !!shareTokenParam}
     />
   );
 

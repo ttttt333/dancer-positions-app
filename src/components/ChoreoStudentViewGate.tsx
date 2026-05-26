@@ -262,7 +262,7 @@ export function ChoreoStudentViewGate({
           entries={entries}
           onPick={onPick}
           heading="あなたは誰ですか？"
-          subheading="あなたの立ち位置を大きく光らせるか、全員同じ大きさで表示するかを選びます。"
+          subheading="スマホでも見やすい閲覧モードです。あなたの立ち位置を大きく光らせるか、全員同じ大きさで表示するかを選びます。"
         />
       </div>
     </div>

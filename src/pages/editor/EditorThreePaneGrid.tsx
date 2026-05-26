@@ -413,7 +413,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 }}
               >
                 {cuesSortedForStageJump.length > 0 || hasRosterMembers ? (
-                  !mobileStackEditor ? (
+                  !mobileStackEditor && !publicNarrowLayout ? (
                     <div
                       style={{
                         flexShrink: 0,
@@ -439,7 +439,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                   role="group"
                   aria-label={t("editor.layout.stageViewAria")}
                   style={{
-                    display: "flex",
+                    display: choreoPublicView ? "none" : "flex",
                     flexDirection: "row",
                     gap: mobileStackEditor ? 4 : 3,
                     flexShrink: 0,
@@ -518,8 +518,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     3D
                   </button>
                 </div>
-                {/* 動線矢印トグル */}
-                {stageView === "2d" && (
+                {/* 動線矢印トグル（生徒閲覧では非表示） */}
+                {!choreoPublicView && stageView === "2d" && (
                   <button
                     type="button"
                     style={{
@@ -626,9 +626,11 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     studentViewerFocus={studentViewerFocusForStage}
                     showMotionArrows={showMotionArrows}
                     onOpenDancerPathEditor={
-                      selectedCueId
-                        ? () => setPathEditorCueId(selectedCueId)
-                        : undefined
+                      choreoPublicView
+                        ? undefined
+                        : selectedCueId
+                          ? () => setPathEditorCueId(selectedCueId)
+                          : undefined
                     }
                   />
                 ) : (
@@ -650,6 +652,32 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     />
                   </Suspense>
                 )}
+                {publicNarrowLayout &&
+                (cuesSortedForStageJump.length > 0 || hasRosterMembers) ? (
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: publicViewTightHeight
+                        ? "calc(8px + min(100px, 24dvh))"
+                        : "calc(10px + min(132px, 30dvh))",
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      zIndex: 50,
+                      pointerEvents: "auto",
+                      maxWidth: "min(100%, 320px)",
+                    }}
+                  >
+                    <WorkbenchCuePager
+                      variant="inline"
+                      project={project}
+                      cuesSortedForStageJump={cuesSortedForStageJump}
+                      selectedCueId={selectedCueId}
+                      jumpToPagerSlot={jumpToPagerSlot}
+                      includeRosterSlot={hasRosterMembers}
+                      rosterTimelineHidden={project.rosterHidesTimeline === true}
+                    />
+                  </div>
+                ) : null}
                 {mobileStackEditor &&
                 (cuesSortedForStageJump.length > 0 || hasRosterMembers) ? (
                   <div

@@ -47,4 +47,6 @@ export type TimelinePanelBodyProps = {
   onOpenAudioImport?: () => void;
   /** ギャップ右クリックメニューから個人軌道エディタを開くコールバック */
   onOpenPathEditor?: (cueId: string) => void;
+  /** 生徒閲覧（/view/s/…）: ログインなしで Supabase 音源を読む */
+  publicShareView?: boolean;
 };

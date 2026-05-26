@@ -1,5 +1,5 @@
 import { Component, Fragment, type ReactNode, type ErrorInfo } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { AuthProvider } from "./context/AuthContext";
 import { DashboardPage } from "./pages/DashboardPage";
@@ -86,16 +86,16 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, EBState> {
   }
 }
 
-export default function App() {
+function AppShell() {
+  const location = useLocation();
+  const hideFloatingLocale = location.pathname.startsWith("/view");
+
   return (
-    <AppErrorBoundary>
-      <BrowserRouter>
-        <Fragment>
-          {/** fixed 配置は viewport 基準にするため app-shell（overflow あり）の外に置く */}
-          <LanguageSwitcher variant="floating" />
-          <div className="app-shell">
-            <AuthProvider>
-              <Routes>
+    <Fragment>
+      {!hideFloatingLocale ? <LanguageSwitcher variant="floating" /> : null}
+      <div className="app-shell">
+        <AuthProvider>
+          <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
@@ -117,10 +117,18 @@ export default function App() {
               element={<MobileFormationEditorDemoPage />}
             />
             <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </AuthProvider>
-          </div>
-        </Fragment>
+          </Routes>
+        </AuthProvider>
+      </div>
+    </Fragment>
+  );
+}
+
+export default function App() {
+  return (
+    <AppErrorBoundary>
+      <BrowserRouter>
+        <AppShell />
       </BrowserRouter>
     </AppErrorBoundary>
   );

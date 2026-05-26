@@ -498,11 +498,15 @@ body {
   /* インラインの 2 行グリッドを他スタイルより優先（末尾の .editor-three-pane 汎用ルールに負けない） */
   .choreo-public-view-root .editor-three-pane.editor-three-pane--public-narrow {
     grid-template-columns: 1fr !important;
-    grid-template-rows: minmax(120px, 1fr) minmax(96px, min(32dvh, 260px)) !important;
+    grid-template-rows: minmax(140px, 1fr) minmax(88px, min(30dvh, 240px)) !important;
   }
   .choreo-public-view-root
     .editor-three-pane.editor-three-pane--public-narrow.editor-three-pane--public-tight {
-    grid-template-rows: minmax(88px, 1fr) minmax(56px, min(20dvh, 168px)) !important;
+    grid-template-rows: minmax(100px, 1fr) minmax(72px, min(24dvh, 200px)) !important;
+  }
+  .choreo-public-view-root .choreo-viewer-bottom-bar {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
   }
 }
 

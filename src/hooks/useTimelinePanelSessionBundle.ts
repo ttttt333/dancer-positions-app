@@ -70,6 +70,7 @@ export function useTimelinePanelSessionBundle(
     onSave,
     onOpenAudioImport,
     onOpenPathEditor,
+    publicShareView = false,
   } = props;
 
   const {
@@ -170,6 +171,7 @@ export function useTimelinePanelSessionBundle(
     audioAssetId: project.audioAssetId,
     audioSupabasePath: project.audioSupabasePath,
     flowLocalAudioKey: project.flowLocalAudioKey,
+    publicShareView,
   });
 
   useTimelineWaveWheelZoom({

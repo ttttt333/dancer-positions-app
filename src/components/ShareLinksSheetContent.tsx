@@ -181,6 +181,7 @@ export function ShareLinksSheetContent({
             }}
           >
             立ち位置の閲覧・パート表示のみ。名簿から自分を選べます。編集はできません。
+            スマホでは URL を開くだけで確認できます（ログイン不要）。
           </span>
         </button>
 
@@ -252,7 +253,7 @@ export function ShareLinksSheetContent({
   const hint =
     step === "collab"
       ? "この URL をチームに送ります。相手もログインのうえ、編集用リンクとして使います。"
-      : "この URL を生徒に送ります。誰のパートを光らせるかだけ選べ、データは変えられません。";
+      : "この URL を生徒に送ります（LINE 等）。スマホで開くと自分のパートを選んで立ち位置を確認できます。編集はできません。";
 
   return (
     <div

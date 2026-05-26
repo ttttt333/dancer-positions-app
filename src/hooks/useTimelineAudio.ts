@@ -13,6 +13,7 @@ type Params = {
   audioAssetId: number | null;
   audioSupabasePath: string | null | undefined;
   flowLocalAudioKey: string | null | undefined;
+  publicShareView?: boolean;
 };
 
 /**
@@ -26,6 +27,7 @@ export function useTimelineAudio({
   audioAssetId,
   audioSupabasePath,
   flowLocalAudioKey,
+  publicShareView = false,
 }: Params) {
   const blobUrlRef = useRef<string | null>(null);
 
@@ -53,6 +55,7 @@ export function useTimelineAudio({
     audioAssetId,
     audioSupabasePath,
     flowLocalAudioKey,
+    publicShareView,
   });
 
   return {

@@ -25,6 +25,8 @@ type Params = {
   audioAssetId: number | null;
   audioSupabasePath: string | null | undefined;
   flowLocalAudioKey: string | null | undefined;
+  /** 生徒閲覧（/view/s/…）: ログインなしで Supabase 音源を読む */
+  publicShareView?: boolean;
 };
 
 /**
@@ -37,6 +39,7 @@ export function useTimelineRemoteAudio({
   audioAssetId,
   audioSupabasePath,
   flowLocalAudioKey,
+  publicShareView = false,
 }: Params) {
   const clearPlaybackTrustedDurationSec = () =>
     usePlaybackUiStore.getState().setTrustedAudioDurationSec(null);
@@ -116,7 +119,8 @@ export function useTimelineRemoteAudio({
     const path =
       typeof rawPath === "string" && rawPath.trim().length > 0 ? rawPath.trim() : null;
     const effectivePath = isSupabaseBackend() ? path : null;
-    if (effectivePath == null || !getToken()) {
+    const canLoadSupabaseAudio = getToken() || publicShareView;
+    if (effectivePath == null || !canLoadSupabaseAudio) {
       if (effectivePath == null) {
         const hadSupabaseBlobAttached =
           blobUrlRef.current != null &&
@@ -179,7 +183,7 @@ export function useTimelineRemoteAudio({
     return () => {
       cancelled = true;
     };
-  }, [audioSupabasePath, blobUrlRef, decodePeaksFromBuffer]);
+  }, [audioSupabasePath, blobUrlRef, decodePeaksFromBuffer, publicShareView]);
 
   useEffect(() => {
     if (audioAssetId != null) return;

@@ -1709,11 +1709,17 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
               {(project.pieceTitle || t("editor.untitledProject")).trim()}
               {t("editor.layout.viewingSuffix")}
             </span>
-            <Link
-              to="/library"
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined" && window.history.length > 1) {
+                  window.history.back();
+                  return;
+                }
+                window.close();
+              }}
               style={{
                 ...btnSecondary,
-                textDecoration: "none",
                 fontSize: publicViewTightHeight ? 13 : 15,
                 fontWeight: 600,
                 flexShrink: 0,
@@ -1726,7 +1732,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
               }}
             >
               {t("editor.layout.close")}
-            </Link>
+            </button>
           </div>
           <div
             style={{
