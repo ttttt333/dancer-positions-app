@@ -685,10 +685,23 @@ body {
   display: none !important;
 }
 
-/* 横向き: EditorPage 自身の landscape ツールパネルを非表示 (LandscapeSidePanel で代替) */
+/* 横向き: EditorPage 自身の landscape ツールパネル・波形バーを非表示 */
 [data-shell-landscape] .editor-landscape-tools,
 [data-shell-landscape] .editor-landscape-timeline {
   display: none !important;
+}
+
+/* 横向き: EditorPage の CSS Grid を 1×1 に上書き → stage が全幅・全高を占有 */
+[data-shell-landscape] .editor-three-pane.editor-mobile-stack {
+  grid-template-columns: 1fr !important;
+  grid-template-rows: 1fr !important;
+  grid-template-areas: "stage" !important;
+  padding: 0 !important;
+}
+
+/* 縦向き: EditorPage の flex 内 padding を除去（MobileShell が safe-area を管理） */
+[data-shell-portrait] .editor-three-pane.editor-mobile-stack {
+  padding: 0 !important;
 }
 
 /* ── ログイン／登録：iOS のフォーカス時拡大を抑え、タップ領域を確保 ── */

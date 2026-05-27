@@ -57,12 +57,13 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
           {props.children}
         </div>
 
-        {/* 右サイドパネル: プレイヤー + キューナビ + アクション */}
+        {/* 右サイドパネル: 再生コントロール + 波形 + キューナビ + アクション */}
         <LandscapeSidePanel
           isPlaying={props.isPlaying}
           currentTime={props.currentTime}
           duration={props.duration}
           onPlayPause={props.onPlayPause}
+          onSeek={props.onSeek}
           currentCueIndex={props.currentCueIndex}
           totalCues={props.totalCues}
           onCuePrev={props.onCuePrev}
