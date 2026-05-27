@@ -40,3 +40,10 @@ vite-sourcemap.config.ts
 .env.git
 .env.stripe
 .env.*
+
+# 作業用一時ファイル
+COREOCORE機能詳細/
+src/pages/editor/_*.txt
+src/pages/editor/_*.json
+src/**/* 2.ts
+src/**/* 2.tsx
