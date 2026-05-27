@@ -655,17 +655,18 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 )}
                 {publicNarrowLayout &&
                 (cuesSortedForStageJump.length > 0 || hasRosterMembers) ? (
+                  // 生徒閲覧: タイムラインを非表示にしたため、position:fixed でボトムバーの上にフロート
                   <div
                     style={{
-                      position: "absolute",
+                      position: "fixed",
                       bottom: publicViewTightHeight
-                        ? "calc(8px + min(100px, 24dvh))"
-                        : "calc(10px + min(132px, 30dvh))",
+                        ? "calc(max(8px, env(safe-area-inset-bottom, 0px)) + min(116px, 30dvh))"
+                        : "calc(max(8px, env(safe-area-inset-bottom, 0px)) + min(142px, 24dvh))",
                       left: "50%",
                       transform: "translateX(-50%)",
-                      zIndex: 50,
+                      zIndex: 91,
                       pointerEvents: "auto",
-                      maxWidth: "min(100%, 320px)",
+                      maxWidth: "min(calc(100% - 16px), 320px)",
                     }}
                   >
                     <WorkbenchCuePager
@@ -740,6 +741,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                         }
                       : rightPaneTopSectionStyle),
                   }),
+              // 生徒閲覧: タイムラインを非表示（音声・状態を維持するため DOM には残す）
+              ...(publicNarrowLayout ? { display: "none" } : {}),
               ...(mobileStackEditor
                 ? {
                     order: -3,

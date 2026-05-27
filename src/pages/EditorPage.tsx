@@ -2106,11 +2106,7 @@ export function EditorPage({
     : wideEditorLayout
       ? "minmax(0, 1fr)"  // 波形バーはflexラッパー下段に独立配置
       : publicNarrowLayout
-        ? publicViewTightHeight
-          // 横向き：タイムラインを最小限にしてステージ優先
-          ? "minmax(100px, 1fr) minmax(60px, min(18dvh, 120px))"
-          // 縦向き：タイムラインを縮めてステージを広く
-          : "minmax(160px, 1fr) minmax(80px, min(22dvh, 160px))"
+        ? "1fr"  // 生徒閲覧: ステージのみ全面表示。タイムラインは display:none で非表示
         : "auto auto auto auto";
 
   const editorPaneGridTemplateColumns = stageZenLayout

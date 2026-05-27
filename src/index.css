@@ -495,14 +495,10 @@ body {
     padding-left: max(4px, env(safe-area-inset-left, 0px)) !important;
     padding-right: max(4px, env(safe-area-inset-right, 0px)) !important;
   }
-  /* インラインの 2 行グリッドを他スタイルより優先（末尾の .editor-three-pane 汎用ルールに負けない） */
+  /* 生徒閲覧: ステージのみ全面表示（タイムラインは display:none で非表示） */
   .choreo-public-view-root .editor-three-pane.editor-three-pane--public-narrow {
     grid-template-columns: 1fr !important;
-    grid-template-rows: minmax(160px, 1fr) minmax(80px, min(22dvh, 160px)) !important;
-  }
-  .choreo-public-view-root
-    .editor-three-pane.editor-three-pane--public-narrow.editor-three-pane--public-tight {
-    grid-template-rows: minmax(100px, 1fr) minmax(60px, min(18dvh, 120px)) !important;
+    grid-template-rows: 1fr !important;
   }
   .choreo-public-view-root .choreo-viewer-bottom-bar {
     backdrop-filter: blur(10px);
