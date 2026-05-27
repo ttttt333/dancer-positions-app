@@ -319,7 +319,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 }
               : { gridRow: publicNarrowLayout ? 1 : 2 }),
             ...dynamicStageShellStyle,
-            ...(mobileStackEditor ? { order: -2 } : {}),
+            // 縦画面: order -2 でタイムライン(order -3)の直後に配置。横画面: CSS Grid で配置するため order 不要
+            ...(mobileStackEditor && !editorMobileLandscape ? { order: -2 } : {}),
           }}
         >
           {stageZenLayout ? (
@@ -719,6 +720,11 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
         {!stageZenLayout && !(wideEditorLayout && showTopWaveDock) ? (
           <section
             ref={attachTopDockSection}
+            className={
+              mobileStackEditor && editorMobileLandscape
+                ? "editor-landscape-timeline"
+                : undefined
+            }
             style={{
               gridColumn: 1,
               gridRow: publicNarrowLayout ? 2 : 3,
@@ -741,35 +747,42 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                         }
                       : rightPaneTopSectionStyle),
                   }),
-              // 生徒閲覧 or 横向きモバイル: タイムラインを非表示（音声・状態を維持するため DOM には残す）
-              ...((publicNarrowLayout || (editorMobileLandscape && mobileStackEditor))
-                ? { display: "none" }
-                : {}),
+              // 生徒閲覧: タイムラインを非表示（音声・状態を維持するため DOM には残す）
+              ...(publicNarrowLayout ? { display: "none" } : {}),
+              // モバイルスタック時の配置スタイル
               ...(mobileStackEditor
-                ? {
-                    order: -3,
-                    alignSelf: "stretch",
-                    width: "100%",
-                    maxWidth: "100%",
-                    flexGrow: 0,
-                    flexShrink: 1,
-                    flexBasis: "auto",
-                    minHeight: 0,
-                    maxHeight: mobileEditorWaveExpanded
-                      ? editorMobileLandscape
-                        ? "min(26dvh, 130px)"  // 横向き展開: 最小限にしてステージ優先
-                        : "min(52dvh, 340px)"
-                      : editorMobileLandscape
-                        ? "58px"  // 横向き折りたたみ時：コントロールバーのみ表示
-                        : undefined,
-                    flex: mobileEditorWaveExpanded ? "0 1 auto" : "0 0 auto",
-                    padding: rosterOnlyMode ? "6px 8px" : "4px 6px 6px",
-                    borderTop: "1px solid #1e293b",
-                    borderBottom: "1px solid #334155",
-                    overflow: "hidden",
-                    display: "flex",
-                    flexDirection: "column",
-                  }
+                ? editorMobileLandscape
+                  ? {
+                      // 横画面 2カラム: CSS Grid の "timeline" エリア（右カラム上部）
+                      gridArea: "timeline",
+                      display: "flex",
+                      flexDirection: "column",
+                      overflow: "hidden",
+                      minHeight: 0,
+                      maxHeight: mobileEditorWaveExpanded ? "min(45%, 200px)" : "auto",
+                      borderBottom: "1px solid #334155",
+                      padding: "4px 6px 4px",
+                      backgroundColor: "#0f172a",
+                    }
+                  : {
+                      // 縦画面: flex column 内で上部に配置（order: -3）
+                      order: -3,
+                      alignSelf: "stretch",
+                      width: "100%",
+                      maxWidth: "100%",
+                      flexGrow: 0,
+                      flexShrink: 1,
+                      flexBasis: "auto",
+                      minHeight: 0,
+                      maxHeight: mobileEditorWaveExpanded ? "min(52dvh, 340px)" : undefined,
+                      flex: mobileEditorWaveExpanded ? "0 1 auto" : "0 0 auto",
+                      padding: rosterOnlyMode ? "6px 8px" : "4px 6px 6px",
+                      borderTop: "1px solid #1e293b",
+                      borderBottom: "1px solid #334155",
+                      overflow: "hidden",
+                      display: "flex",
+                      flexDirection: "column",
+                    }
                 : {}),
             }}
           >
@@ -1133,10 +1146,18 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
         {stageZenLayout ? null : rightPaneCollapsed && wideEditorLayout ? null : wideEditorLayout && showTopWaveDock ? (
           /* wideEditorLayout: グリッド右列なし。NeonIconPanelは外側flexで配置済み */
           null
-        ) : !publicNarrowLayout && !(editorMobileLandscape && mobileStackEditor) ? (
-          /* 横向きモバイル: ツールパネルを非表示にしてステージを最大化。キューナビはステージオーバーレイで提供 */
+        ) : !publicNarrowLayout ? (
+          /* 操作パネル:
+             縦画面モバイル → flex column 末尾（フル）
+             横画面モバイル → CSS Grid の "tools" エリア（右カラム下部、スクロール可）
+             デスクトップ  → グリッド右列 */
           <div
             ref={rightPaneStackRef}
+            className={
+              mobileStackEditor && editorMobileLandscape
+                ? "editor-landscape-tools"
+                : undefined
+            }
             style={{
               display: "flex",
               flexDirection: "column",
@@ -1150,7 +1171,13 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
               ...(floorTextPlaceSession
                 ? { position: "relative" as const, zIndex: 140 }
                 : {}),
-              ...(mobileStackEditor
+              ...(mobileStackEditor && editorMobileLandscape
+                ? {
+                    // 横画面: CSS Grid tools エリア（dynamicToolsAsideStyle に gridArea 込み）
+                    ...dynamicToolsAsideStyle,
+                    gap: 4,
+                  }
+                : mobileStackEditor
                 ? {
                     ...dynamicToolsAsideStyle,
                     gap: mobileEditorToolsExpanded ? 8 : 0,
@@ -1159,7 +1186,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 : {}),
             }}
           >
-            {mobileStackEditor ? (
+            {/* 縦画面のみ: 操作パネルのヘッダー（横画面は常に展開表示） */}
+            {mobileStackEditor && !editorMobileLandscape ? (
               <div
                 style={{
                   flexShrink: 0,
@@ -1199,7 +1227,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 </button>
               </div>
             ) : null}
-            {!mobileStackEditor || mobileEditorToolsExpanded ? (
+            {/* 横画面は常に展開、縦画面は mobileEditorToolsExpanded に従う */}
+            {!mobileStackEditor || mobileEditorToolsExpanded || editorMobileLandscape ? (
               <>
                 {mobileStackEditor ? (
                   <div

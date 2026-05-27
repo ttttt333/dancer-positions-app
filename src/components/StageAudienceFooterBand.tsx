@@ -72,7 +72,8 @@ export function StageAudienceFooterBand({
                   left: `${xp}%`,
                   top: 0,
                   transform,
-                  fontSize: "11px",
+                  // ステージ枠幅に連動（stage-frame コンテナクエリ）
+                  fontSize: "clamp(8px, 3.2cqw, 14px)",
                   fontWeight: 700,
                   color: "#fef3c7",
                   textShadow:
@@ -90,7 +91,7 @@ export function StageAudienceFooterBand({
       <div
         style={{
           textAlign: "center",
-          fontSize: "12px",
+          fontSize: "clamp(9px, 3.5cqw, 15px)",
           fontWeight: 600,
           color: audienceCaptionColor,
         }}

@@ -1900,83 +1900,107 @@ export function EditorPage({
     !wideEditorLayout &&
     !stageZenLayout;
 
-  const dynamicContainerStyle = useMemo<CSSProperties>(
-    () =>
-      mobileStackEditor
-        ? {
-            display: "flex",
-            flexDirection: "column",
-            flex: 1,
-            minHeight: 0,
-            width: "100%",
-            maxWidth: "100%",
-            overflow: "hidden",
-            backgroundColor: "#020617",
-            overscrollBehaviorY: "contain",
-          }
-        : {},
-    [mobileStackEditor]
-  );
+  /**
+   * モバイルエディタのコンテナスタイル。
+   * 縦: flex column / 横: CSS Grid 2カラム（左=ステージ 全高、右=波形+操作パネル）
+   */
+  const dynamicContainerStyle = useMemo<CSSProperties>(() => {
+    if (!mobileStackEditor) return {};
+    if (editorMobileLandscape) {
+      // 横画面: 2カラム CSS Grid
+      // left col = stage (spans both rows), right col top = timeline, right col bottom = tools
+      return {
+        display: "grid",
+        gridTemplateColumns: "1fr min(280px, 38vw)",
+        gridTemplateRows: "auto 1fr",
+        // named areas: stage | timeline / stage | tools
+        gridTemplateAreas: '"stage timeline" "stage tools"',
+        flex: 1,
+        minHeight: 0,
+        width: "100%",
+        maxWidth: "100%",
+        overflow: "hidden",
+        backgroundColor: "#020617",
+      };
+    }
+    // 縦画面: flex column
+    return {
+      display: "flex",
+      flexDirection: "column",
+      flex: 1,
+      minHeight: 0,
+      width: "100%",
+      maxWidth: "100%",
+      overflow: "hidden",
+      backgroundColor: "#020617",
+      overscrollBehaviorY: "contain",
+    };
+  }, [mobileStackEditor, editorMobileLandscape]);
 
-  const dynamicStageShellStyle = useMemo<CSSProperties>(
-    () =>
-      mobileStackEditor
-        ? (() => {
-            const moreRoom = !mobileEditorWaveExpanded || !mobileEditorToolsExpanded;
-            if (editorMobileLandscape) {
-              // 横向き: wave/toolsが折りたたまれているので残りを全てステージに割り当てる
-              return {
-                flex: "1 1 0",
-                minHeight: 0,
-                // maxHeight を外して flex で自然に余白を埋める
-                position: "relative",
-                borderBottom: "1px solid #1e293b",
-                borderRight: "none",
-                overflow: "hidden",
-                background: "#000",
-              };
-            }
-            return {
-              flex: moreRoom ? "5 1 0" : "3 1 0",
-              minHeight: moreRoom ? "min(54dvh, 520px)" : "min(38dvh, 320px)",
-              maxHeight: moreRoom
-                ? "min(78dvh, calc(100dvh - 100px))"
-                : "min(64dvh, calc(100dvh - 220px))",
-              position: "relative",
-              borderBottom: "1px solid #1e293b",
-              borderRight: "none",
-              overflow: "hidden",
-              background: "#000",
-            };
-          })()
-        : {},
-    [
-      mobileStackEditor,
-      mobileEditorWaveExpanded,
-      mobileEditorToolsExpanded,
-      editorMobileLandscape,
-    ]
-  );
+  const dynamicStageShellStyle = useMemo<CSSProperties>(() => {
+    if (!mobileStackEditor) return {};
+    if (editorMobileLandscape) {
+      // 横画面 2カラム: ステージが左カラム全高を占める
+      return {
+        gridArea: "stage",
+        minHeight: 0,
+        minWidth: 0,
+        overflow: "hidden",
+        background: "#000",
+        position: "relative",
+        borderRight: "1px solid #1e293b",
+        borderBottom: "none",
+      };
+    }
+    // 縦画面: flex-1 でステージが残りスペースを最大限確保
+    const moreRoom = !mobileEditorWaveExpanded || !mobileEditorToolsExpanded;
+    return {
+      flex: "1 1 0",
+      minHeight: moreRoom ? "min(40dvh, 240px)" : "min(32dvh, 200px)",
+      maxHeight: moreRoom
+        ? "min(72dvh, calc(100dvh - 130px))"
+        : "min(60dvh, calc(100dvh - 200px))",
+      position: "relative",
+      borderBottom: "1px solid #1e293b",
+      borderRight: "none",
+      overflow: "hidden",
+      background: "#000",
+    };
+  }, [mobileStackEditor, mobileEditorWaveExpanded, mobileEditorToolsExpanded, editorMobileLandscape]);
 
-  const dynamicToolsAsideStyle = useMemo<CSSProperties>(
-    () =>
-      mobileStackEditor
-        ? {
-            flex: "1 1 auto",
-            minHeight: 0,
-            overflowY: "auto",
-            WebkitOverflowScrolling: "touch",
-            overscrollBehaviorY: "contain",
-            padding:
-              "6px max(8px, env(safe-area-inset-right, 0px)) max(10px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px))",
-            backgroundColor: "#0f172a",
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-          }
-        : {},
-    [mobileStackEditor]
-  );
+  const dynamicToolsAsideStyle = useMemo<CSSProperties>(() => {
+    if (!mobileStackEditor) return {};
+    if (editorMobileLandscape) {
+      // 横画面: CSS Grid の tools エリア（下）に配置、スクロール可
+      return {
+        gridArea: "tools",
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+        overflowY: "auto",
+        WebkitOverflowScrolling: "touch",
+        overscrollBehaviorY: "contain",
+        padding:
+          "6px max(6px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
+        backgroundColor: "#0f172a",
+        borderTop: "1px solid #1e293b",
+      };
+    }
+    // 縦画面: flex column 末尾に配置
+    return {
+      flex: "1 1 auto",
+      minHeight: 0,
+      overflowY: "auto",
+      WebkitOverflowScrolling: "touch",
+      overscrollBehaviorY: "contain",
+      padding:
+        "6px max(8px, env(safe-area-inset-right, 0px)) max(10px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px))",
+      backgroundColor: "#0f172a",
+      display: "flex",
+      flexDirection: "column",
+      gap: 8,
+    };
+  }, [mobileStackEditor, editorMobileLandscape]);
 
   const mobileTimelineDockLeading = useMemo(() => {
     if (!mobileStackEditor) return undefined;

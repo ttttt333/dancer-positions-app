@@ -43,6 +43,9 @@ const frameStyle = ({
   transform: `rotate(${rotationDeg}deg)`,
   transformOrigin: "center center",
   transition: "transform 0.2s ease",
+  // コンテナクエリコンテキストを設定 → 子要素が cqw/cqh でステージ枠幅を参照できる
+  containerType: "size",
+  containerName: "stage-frame",
 });
 
 export function StageRotatedStageFrame({

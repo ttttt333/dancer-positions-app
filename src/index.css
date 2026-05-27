@@ -338,6 +338,31 @@ body {
   min-width: 0;
 }
 
+/* ─── 横画面 2カラムレイアウト ─────────────────────────────────────────── */
+/*
+  横画面のモバイルエディタ: EditorPage.tsx が dynamicContainerStyle で
+  display:grid / grid-template-areas を inline style で設定するため、
+  ここでは補助スタイルのみ定義。
+*/
+.editor-page-root--mobile-landscape .editor-mobile-stack {
+  /* inline style が grid を設定する。flex !important を上書きして grid を許容 */
+  display: grid !important;
+  overflow: hidden;
+}
+
+/* 横画面 右カラム: 波形バー */
+.editor-landscape-timeline {
+  border-left: 1px solid #1e293b !important;
+  overflow: hidden;
+}
+
+/* 横画面 右カラム: 操作パネル */
+.editor-landscape-tools {
+  border-left: 1px solid #1e293b !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
 .editor-page-header--mobile {
   flex-wrap: wrap;
   row-gap: 6px;
