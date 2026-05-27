@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { StageBoard } from "../../components/StageBoard";
 import { EditorStageWorkbench, WorkbenchCuePager } from "../../components/EditorStageWorkbench";
@@ -209,15 +209,21 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const attachTopDockSection = useAssignRef(topDockSectionRef);
 
   // MobileShell landscape 用: stageView・ダイアログ開閉関数を bridge store に同期
+  // 不安定な関数参照を ref に退避して依存配列ループを防ぐ
+  const addCueFnRef = useRef(setAddCueDialogOpen as ((open: boolean) => void) | null);
+  const stageSettingsFnRef = useRef(setStageAreaSettingsOpen as ((open: boolean) => void) | null);
+  addCueFnRef.current = setAddCueDialogOpen as ((open: boolean) => void);
+  stageSettingsFnRef.current = setStageAreaSettingsOpen as ((open: boolean) => void);
+
   const setMobileShellBridge = useMobileShellBridgeStore((s) => s.setMobileShellBridge);
   useEffect(() => {
     setMobileShellBridge({
       stageView: stageView as "2d" | "3d",
       onStageViewChange: (v: "2d" | "3d") => (setStageView as (v: "2d" | "3d") => void)(v),
-      onAddCue: () => (setAddCueDialogOpen as (open: boolean) => void)(true),
-      onStageSettings: () => (setStageAreaSettingsOpen as (open: boolean) => void)(true),
+      onAddCue: () => addCueFnRef.current?.(true),
+      onStageSettings: () => stageSettingsFnRef.current?.(true),
     });
-  }, [stageView, setStageView, setAddCueDialogOpen, setStageAreaSettingsOpen, setMobileShellBridge]);
+  }, [stageView, setStageView, setMobileShellBridge]);
 
   return (
       <div
