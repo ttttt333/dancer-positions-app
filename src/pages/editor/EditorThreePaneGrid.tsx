@@ -741,8 +741,10 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                         }
                       : rightPaneTopSectionStyle),
                   }),
-              // 生徒閲覧: タイムラインを非表示（音声・状態を維持するため DOM には残す）
-              ...(publicNarrowLayout ? { display: "none" } : {}),
+              // 生徒閲覧 or 横向きモバイル: タイムラインを非表示（音声・状態を維持するため DOM には残す）
+              ...((publicNarrowLayout || (editorMobileLandscape && mobileStackEditor))
+                ? { display: "none" }
+                : {}),
               ...(mobileStackEditor
                 ? {
                     order: -3,
