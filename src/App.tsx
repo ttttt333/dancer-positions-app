@@ -103,12 +103,17 @@ function MobileEditorRoute() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
 
-  // モバイル幅判定 (≤768px)
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  // モバイル幅判定: iPhone landscape 最大幅 ≈ 932px をカバーするため 960px 閾値を使用
+  const checkMobile = () => window.innerWidth <= 960;
+  const [isMobile, setIsMobile] = useState(checkMobile);
   useEffect(() => {
-    const handler = () => setIsMobile(window.innerWidth <= 768);
+    const handler = () => setIsMobile(checkMobile());
     window.addEventListener("resize", handler);
-    return () => window.removeEventListener("resize", handler);
+    window.addEventListener("orientationchange", handler);
+    return () => {
+      window.removeEventListener("resize", handler);
+      window.removeEventListener("orientationchange", handler);
+    };
   }, []);
 
   // 再生状態 (usePlaybackUiStore の実フィールド名に合わせる)
