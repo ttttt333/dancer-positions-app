@@ -1086,7 +1086,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
         {stageZenLayout ? null : rightPaneCollapsed && wideEditorLayout ? null : wideEditorLayout && showTopWaveDock ? (
           /* wideEditorLayout: グリッド右列なし。NeonIconPanelは外側flexで配置済み */
           null
-        ) : !publicNarrowLayout ? (
+        ) : !publicNarrowLayout && !(editorMobileLandscape && mobileStackEditor) ? (
+          /* 横向きモバイル: ツールパネルを非表示にしてステージを最大化。キューナビはステージオーバーレイで提供 */
           <div
             ref={rightPaneStackRef}
             style={{
