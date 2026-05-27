@@ -254,14 +254,14 @@ export function EditorPageLayout(props: EditorLayoutProps) {
       }}
     >
       {playbackAudioElement}
-      {!choreoPublicView && !wideEditorLayout ? (
+      {!choreoPublicView && !wideEditorLayout && !editorMobileLandscape ? (
         <EditorPageHeader {...props} />
       ) : null}
 
       {/* ─── Main layout: column flex (top wave bar + stage row) ─── */}
       <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "visible" }}>
 
-      {showTopWaveDock && !stageZenLayout ? (
+      {showTopWaveDock && !stageZenLayout && wideEditorLayout ? (
         <div
           style={{
             flexShrink: 0,

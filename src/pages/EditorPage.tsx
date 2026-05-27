@@ -267,14 +267,25 @@ export function EditorPage({
   const [rightPaneCollapsed, setRightPaneCollapsed] = useState(false);
   /** スマホ縦積み: 波形・再生ブロックの表示（TimelinePanel はマウントしたまま） */
   const [mobileEditorWaveExpanded, setMobileEditorWaveExpanded] = useState(true);
-  /** スマホ縦積み: 右下の操作列（ツールバー・ワークベンチ等）の表示 */
-  const [mobileEditorToolsExpanded, setMobileEditorToolsExpanded] = useState(true);
+  /** スマホ縦積み: 右下の操作列（ツールバー・ワークベンチ等）の表示。モバイルではステージを広く使うため初期は折りたたむ */
+  const [mobileEditorToolsExpanded, setMobileEditorToolsExpanded] = useState(false);
   useEffect(() => {
     if (!editorMobileStackBreakpoint) {
+      // デスクトップに戻ったら両方展開
       setMobileEditorWaveExpanded(true);
       setMobileEditorToolsExpanded(true);
+    } else {
+      // モバイルに切り替わったら操作パネルを折りたたむ
+      setMobileEditorToolsExpanded(false);
     }
   }, [editorMobileStackBreakpoint]);
+
+  // 横向きになったら波形エリアも折りたたんでステージ高さを確保
+  useEffect(() => {
+    if (editorMobileLandscape) {
+      setMobileEditorWaveExpanded(false);
+    }
+  }, [editorMobileLandscape]);
   const {
     timelineRef,
     getWavePeaksSnapshot,
@@ -2096,8 +2107,10 @@ export function EditorPage({
       ? "minmax(0, 1fr)"  // 波形バーはflexラッパー下段に独立配置
       : publicNarrowLayout
         ? publicViewTightHeight
-          ? "minmax(100px, 1fr) minmax(72px, min(24dvh, 200px))"
-          : "minmax(140px, 1fr) minmax(88px, min(30dvh, 240px))"
+          // 横向き：タイムラインを最小限にしてステージ優先
+          ? "minmax(100px, 1fr) minmax(60px, min(18dvh, 120px))"
+          // 縦向き：タイムラインを縮めてステージを広く
+          : "minmax(160px, 1fr) minmax(80px, min(22dvh, 160px))"
         : "auto auto auto auto";
 
   const editorPaneGridTemplateColumns = stageZenLayout

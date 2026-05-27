@@ -498,11 +498,11 @@ body {
   /* インラインの 2 行グリッドを他スタイルより優先（末尾の .editor-three-pane 汎用ルールに負けない） */
   .choreo-public-view-root .editor-three-pane.editor-three-pane--public-narrow {
     grid-template-columns: 1fr !important;
-    grid-template-rows: minmax(140px, 1fr) minmax(88px, min(30dvh, 240px)) !important;
+    grid-template-rows: minmax(160px, 1fr) minmax(80px, min(22dvh, 160px)) !important;
   }
   .choreo-public-view-root
     .editor-three-pane.editor-three-pane--public-narrow.editor-three-pane--public-tight {
-    grid-template-rows: minmax(100px, 1fr) minmax(72px, min(24dvh, 200px)) !important;
+    grid-template-rows: minmax(100px, 1fr) minmax(60px, min(18dvh, 120px)) !important;
   }
   .choreo-public-view-root .choreo-viewer-bottom-bar {
     backdrop-filter: blur(10px);
@@ -550,6 +550,13 @@ body {
   .app-language-switcher select {
     min-height: 26px;
     font-size: 11px;
+  }
+}
+
+/* スマホ幅 or スマホ横向き（高さ 500px 以下）では言語切替を非表示 */
+@media (max-width: 767px), (max-height: 500px) and (orientation: landscape) {
+  .app-language-switcher--floating {
+    display: none !important;
   }
 }
 

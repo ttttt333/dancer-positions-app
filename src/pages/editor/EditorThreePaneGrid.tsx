@@ -8,6 +8,7 @@ import { panelCard, shell } from "../../theme/choreoShell";
 import { EDITOR_GRID_GAP_PX, STAGE_RESIZER_PX } from "./editorConstants";
 import type { EditorLayoutProps } from "./editorLayoutProps";
 import { useAssignRef, useAttachElementRef } from "./useSafeElementRef";
+import { formatMmSsFloor } from "../../lib/timeFormat";
 
 const Stage3DView = lazy(() =>
   import("../../components/Stage3DView").then((m) => ({ default: m.Stage3DView }))
@@ -253,7 +254,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
               }),
         }}
       >
-        {showTopWaveDock && !stageZenLayout && !wideEditorLayout ? (
+        {showTopWaveDock && !stageZenLayout && !wideEditorLayout && !publicNarrowLayout ? (
           <div
             role="separator"
             aria-orientation="horizontal"
@@ -753,7 +754,9 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                       ? editorMobileLandscape
                         ? "min(44dvh, 260px)"
                         : "min(52dvh, 340px)"
-                      : undefined,
+                      : editorMobileLandscape
+                        ? "58px"  // 横向き折りたたみ時：コントロールバーのみ表示
+                        : undefined,
                     flex: mobileEditorWaveExpanded ? "0 1 auto" : "0 0 auto",
                     padding: rosterOnlyMode ? "6px 8px" : "4px 6px 6px",
                     borderTop: "1px solid #1e293b",
