@@ -51,7 +51,7 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
 
   if (orientation === 'landscape') {
     return (
-      <div className={styles.landscapeRoot}>
+      <div className={styles.landscapeRoot} data-shell-landscape="">
         {/* ステージ: 横向きでは波形ヘッダーを排除して全高使用 */}
         <div className={styles.stageAreaLandscape}>
           {props.children}
@@ -77,7 +77,7 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
 
   // 縦向き
   return (
-    <div className={styles.portraitRoot}>
+    <div className={styles.portraitRoot} data-shell-portrait="">
       {/* 上部: 音声プレイヤー + 波形 */}
       <PortraitHeader
         audioUrl={props.audioUrl}

@@ -654,7 +654,44 @@ body {
   }
 }
 
-/* ログイン／登録：iOS のフォーカス時拡大を抑え、タップ領域を確保 */
+/* ──────────────────────────────────────────────────────────────
+   MobileShell ラッパー内: EditorPage の内部モバイルコントロールを非表示にし
+   ステージが MobileShell のヘッダー・ボトムバーの間で最大化されるよう整える
+   ────────────────────────────────────────────────────────────── */
+
+/* EditorPage のルート要素: 100dvh → 100% に変更してフレックス制約に従わせる */
+[data-shell-portrait] .editor-page-root,
+[data-shell-portrait] .editor-page-root--mobile-editor,
+[data-shell-landscape] .editor-page-root,
+[data-shell-landscape] .editor-page-root--mobile-editor {
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
+}
+
+/* EditorPage 自身のモバイルヘッダー (ChoreoCore ロゴ行) を非表示 */
+[data-shell-portrait] .editor-page-header--mobile,
+[data-shell-landscape] .editor-page-header--mobile {
+  display: none !important;
+}
+
+/* 縦向き: EditorPage 自身の波形バーを非表示 (MobileShell の PortraitHeader で代替) */
+[data-shell-portrait] .editor-mobile-wave-bar {
+  display: none !important;
+}
+
+/* 縦向き: EditorPage 自身のツールアイコンバーを非表示 (MobileShell の PortraitBottomBar で代替) */
+[data-shell-portrait] .editor-mobile-portrait-tools {
+  display: none !important;
+}
+
+/* 横向き: EditorPage 自身の landscape ツールパネルを非表示 (LandscapeSidePanel で代替) */
+[data-shell-landscape] .editor-landscape-tools,
+[data-shell-landscape] .editor-landscape-timeline {
+  display: none !important;
+}
+
+/* ── ログイン／登録：iOS のフォーカス時拡大を抑え、タップ領域を確保 ── */
 @media (max-width: 480px) {
   .app-auth-card input[type="email"],
   .app-auth-card input[type="password"],

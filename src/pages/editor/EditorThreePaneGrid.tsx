@@ -723,6 +723,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
             className={
               mobileStackEditor && editorMobileLandscape
                 ? "editor-landscape-timeline"
+                : mobileStackEditor
+                ? "editor-mobile-wave-bar"
                 : undefined
             }
             style={{
@@ -1243,6 +1245,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
             className={
               mobileStackEditor && editorMobileLandscape
                 ? "editor-landscape-tools"
+                : mobileStackEditor
+                ? "editor-mobile-portrait-tools"
                 : undefined
             }
             style={{
