@@ -753,15 +753,16 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
               ...(mobileStackEditor
                 ? editorMobileLandscape
                   ? {
-                      // 横画面 2カラム: CSS Grid の "timeline" エリア（右カラム上部）
-                      gridArea: "timeline",
+                      // 横画面: CSS Grid の "wave" エリア（上段全幅）
+                      gridArea: "wave",
                       display: "flex",
-                      flexDirection: "column",
+                      flexDirection: "row",
+                      alignItems: "center",
                       overflow: "hidden",
                       minHeight: 0,
-                      maxHeight: mobileEditorWaveExpanded ? "min(45%, 200px)" : "auto",
+                      maxHeight: "none",
                       borderBottom: "1px solid #334155",
-                      padding: "4px 6px 4px",
+                      padding: "2px 6px 2px",
                       backgroundColor: "#0f172a",
                     }
                   : {
@@ -977,6 +978,92 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
               )
             ) : null}
             {mobileStackEditor && !mobileEditorWaveExpanded ? (
+              editorMobileLandscape ? (
+                // 横画面: 1行に全コントロールを並べる
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "4px 6px",
+                    flex: "1 1 auto",
+                    minWidth: 0,
+                    overflowX: "auto",
+                    WebkitOverflowScrolling: "touch",
+                  }}
+                >
+                  <button
+                    type="button"
+                    disabled={project.viewMode === "view"}
+                    style={{
+                      ...btnAccent,
+                      minWidth: 46,
+                      minHeight: 40,
+                      padding: "0 10px",
+                      fontSize: 18,
+                      touchAction: "manipulation",
+                      flexShrink: 0,
+                    }}
+                    aria-label={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
+                    onClick={() => timelineRef.current?.togglePlay()}
+                  >
+                    {isPlaying ? "⏸" : "▶"}
+                  </button>
+                  <button
+                    type="button"
+                    style={{
+                      ...btnSecondary,
+                      minHeight: 40,
+                      padding: "0 10px",
+                      touchAction: "manipulation",
+                      flexShrink: 0,
+                    }}
+                    aria-label={t("editor.layout.stop")}
+                    onClick={() => timelineRef.current?.stopPlayback()}
+                  >
+                    ⏹
+                  </button>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      fontVariantNumeric: "tabular-nums",
+                      color: shell.text,
+                      fontWeight: 600,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {formatMmSsFloor(currentTime)} / {formatMmSsFloor(duration)}
+                  </span>
+                  <button
+                    type="button"
+                    style={{
+                      ...btnSecondary,
+                      minHeight: 40,
+                      padding: "0 8px",
+                      touchAction: "manipulation",
+                      flexShrink: 0,
+                      fontSize: 11,
+                    }}
+                    onClick={() => setMobileEditorWaveExpanded(true)}
+                  >
+                    波形
+                  </button>
+                  {(cuesSortedForStageJump.length > 0 || hasRosterMembers) ? (
+                    <WorkbenchCuePager
+                      variant="inline"
+                      project={project}
+                      cuesSortedForStageJump={cuesSortedForStageJump}
+                      selectedCueId={selectedCueId}
+                      jumpToPagerSlot={jumpToPagerSlot}
+                      includeRosterSlot={hasRosterMembers}
+                      rosterTimelineHidden={project.rosterHidesTimeline === true}
+                    />
+                  ) : null}
+                </div>
+              ) : null
+            ) : null}
+            {mobileStackEditor && !mobileEditorWaveExpanded && !editorMobileLandscape ? (
               <div
                 style={{
                   flexShrink: 0,
@@ -1171,128 +1258,132 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
               ...(floorTextPlaceSession
                 ? { position: "relative" as const, zIndex: 140 }
                 : {}),
-              ...(mobileStackEditor && editorMobileLandscape
+              ...(mobileStackEditor
                 ? {
-                    // 横画面: CSS Grid tools エリア（dynamicToolsAsideStyle に gridArea 込み）
+                    // モバイル共通: dynamicToolsAsideStyle に全スタイル集約
                     ...dynamicToolsAsideStyle,
-                    gap: 4,
-                  }
-                : mobileStackEditor
-                ? {
-                    ...dynamicToolsAsideStyle,
-                    gap: mobileEditorToolsExpanded ? 8 : 0,
-                    flex: mobileEditorToolsExpanded ? "1 1 auto" : "0 0 auto",
                   }
                 : {}),
             }}
           >
-            {/* 縦画面のみ: 操作パネルのヘッダー（横画面は常に展開表示） */}
-            {mobileStackEditor && !editorMobileLandscape ? (
-              <div
-                style={{
-                  flexShrink: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 8,
-                  padding: "2px 0 8px",
-                  borderBottom: "1px solid #334155",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: shell.textMuted,
-                    letterSpacing: "0.02em",
-                  }}
-                >
-                  操作パネル
-                </span>
-                <button
-                  type="button"
-                  style={{
-                    ...btnSecondary,
-                    padding: "6px 12px",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    touchAction: "manipulation",
-                  }}
-                  disabled={rosterOnlyMode}
-                  title={rosterOnlyMode ? t("editor.layout.toolsCollapseDisabled") : undefined}
-                  aria-expanded={mobileEditorToolsExpanded}
-                  onClick={() => setMobileEditorToolsExpanded((v) => !v)}
-                >
-                  {mobileEditorToolsExpanded ? t("editor.layout.toolsCollapse") : t("editor.layout.toolsExpand")}
-                </button>
-              </div>
-            ) : null}
-            {/* 横画面は常に展開、縦画面は mobileEditorToolsExpanded に従う */}
-            {!mobileStackEditor || mobileEditorToolsExpanded || editorMobileLandscape ? (
-              <>
-                {mobileStackEditor ? (
-                  <div
+            {/* ===== モバイル: 常時コンパクトアイコン（縦=横並び / 横=縦並び） ===== */}
+            {mobileStackEditor ? (
+              editorMobileLandscape ? (
+                // 横画面: 縦一列（親が flex-column & overflow-y: auto）
+                <>
+                  <button
+                    type="button"
                     style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: "10px",
-                      marginBottom: "4px",
+                      ...btnAccent,
+                      width: 44,
+                      height: 44,
                       flexShrink: 0,
+                      borderRadius: 12,
+                      fontSize: 20,
+                      touchAction: "manipulation",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: 0,
                     }}
+                    disabled={project.viewMode === "view"}
+                    title={t("editor.layout.addCueAria")}
+                    onClick={() => setAddCueDialogOpen(true)}
                   >
-                    <button
-                      type="button"
-                      style={{
-                        ...btnAccent,
-                        minHeight: 48,
-                        borderRadius: 12,
-                        padding: "12px 10px",
-                        touchAction: "manipulation",
-                        fontSize: "13px",
-                        fontWeight: 700,
-                        boxSizing: "border-box",
-                      }}
-                      disabled={project.viewMode === "view"}
-                      title={t("editor.layout.addCueAria")}
-                      onClick={() => setAddCueDialogOpen(true)}
-                    >
-                      ＋ 次のキュー
-                    </button>
-                    <button
-                      type="button"
-                      style={{
-                        ...btnSecondary,
-                        minHeight: 48,
-                        borderRadius: 12,
-                        padding: "12px 10px",
-                        touchAction: "manipulation",
-                        fontSize: "13px",
-                        fontWeight: 700,
-                        boxSizing: "border-box",
-                      }}
-                      onClick={() => setStageAreaSettingsOpen(true)}
-                    >
-                      舞台設定
-                    </button>
-                  </div>
-                ) : null}
-                {mobileStackEditor ? (
+                    ＋
+                  </button>
+                  <button
+                    type="button"
+                    style={{
+                      ...btnSecondary,
+                      width: 44,
+                      height: 44,
+                      flexShrink: 0,
+                      borderRadius: 12,
+                      fontSize: 20,
+                      touchAction: "manipulation",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: 0,
+                    }}
+                    title="舞台設定"
+                    onClick={() => setStageAreaSettingsOpen(true)}
+                  >
+                    ⚙
+                  </button>
                   <div
                     style={{
-                      flexShrink: 0,
+                      flex: "1 1 auto",
+                      minHeight: 0,
+                      overflowY: "auto",
+                      overflowX: "hidden",
                       width: "100%",
-                      minWidth: 0,
-                      maxWidth: "100%",
-                      overflowX: "auto",
-                      overflowY: "visible",
-                      WebkitOverflowScrolling: "touch",
-                      paddingBottom: 6,
-                      borderBottom: "1px solid #1e293b",
                     }}
                   >
-                    {/* ChoreoCoreToolbar hidden — replaced by NeonIconPanel */}
+                    <EditorStageWorkbench
+                      key="wb-landscape-col"
+                      layout="rail"
+                      {...stageWorkbenchProps}
+                    />
                   </div>
-                ) : null}
+                </>
+              ) : (
+                // 縦画面: 横一列（親が flex-row & overflow-x: auto）
+                <>
+                  <button
+                    type="button"
+                    style={{
+                      ...btnAccent,
+                      minWidth: 52,
+                      minHeight: 52,
+                      flexShrink: 0,
+                      borderRadius: 14,
+                      fontSize: 22,
+                      touchAction: "manipulation",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: 0,
+                    }}
+                    disabled={project.viewMode === "view"}
+                    title={t("editor.layout.addCueAria")}
+                    onClick={() => setAddCueDialogOpen(true)}
+                  >
+                    ＋
+                  </button>
+                  <button
+                    type="button"
+                    style={{
+                      ...btnSecondary,
+                      minWidth: 52,
+                      minHeight: 52,
+                      flexShrink: 0,
+                      borderRadius: 14,
+                      fontSize: 22,
+                      touchAction: "manipulation",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: 0,
+                    }}
+                    title="舞台設定"
+                    onClick={() => setStageAreaSettingsOpen(true)}
+                  >
+                    ⚙
+                  </button>
+                  <div style={{ flex: "1 1 auto", minWidth: 0, overflowX: "auto" }}>
+                    <EditorStageWorkbench
+                      key="wb-portrait-row"
+                      layout="rail"
+                      {...stageWorkbenchProps}
+                    />
+                  </div>
+                </>
+              )
+            ) : (
+              // ===== デスクトップ: 既存の展開パネル =====
+              <>
                 {rosterOnlyMode ? (
                   <div
                     style={{
@@ -1315,7 +1406,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 {workbenchInRightRail ? (
                   /* テキストボタンレール非表示 — NeonIconPanelに統合済み */
                   null
-                ) : mobileStackEditor ? (
+                ) : (
                   <section
                     className="editor-right-tools-section"
                     style={{
@@ -1326,75 +1417,20 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                       display: "flex",
                       flexDirection: "column",
                       overflow: "hidden",
-                      marginBottom: rosterOnlyMode ? 0 : 6,
                     }}
                   >
                     <div className="editor-right-tools-host">
                       <div className="editor-right-tools-tiles">
                         <EditorStageWorkbench
-                          key="wb-mobile-rail"
+                          key="wb-desktop-rail"
                           layout="rail"
                           {...stageWorkbenchProps}
                         />
                       </div>
                     </div>
                   </section>
-                ) : null}
+                )}
               </>
-            ) : (
-              // 折りたたみ時: キーアクションをアイコンで直接表示（CTA廃止）
-              <div
-                style={{
-                  flexShrink: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "8px 4px",
-                  overflowX: "auto",
-                  WebkitOverflowScrolling: "touch",
-                }}
-              >
-                <button
-                  type="button"
-                  style={{
-                    ...btnAccent,
-                    minWidth: 54,
-                    minHeight: 54,
-                    flexShrink: 0,
-                    borderRadius: 14,
-                    fontSize: 22,
-                    touchAction: "manipulation",
-                  }}
-                  disabled={project.viewMode === "view"}
-                  title={t("editor.layout.addCueAria")}
-                  onClick={() => setAddCueDialogOpen(true)}
-                >
-                  ＋
-                </button>
-                <button
-                  type="button"
-                  style={{
-                    ...btnSecondary,
-                    minWidth: 54,
-                    minHeight: 54,
-                    flexShrink: 0,
-                    borderRadius: 14,
-                    fontSize: 22,
-                    touchAction: "manipulation",
-                  }}
-                  title="舞台設定"
-                  onClick={() => setStageAreaSettingsOpen(true)}
-                >
-                  ⚙
-                </button>
-                <div style={{ flex: "1 1 auto", minWidth: 0, overflowX: "auto" }}>
-                  <EditorStageWorkbench
-                    key="wb-mobile-compact"
-                    layout="rail"
-                    {...stageWorkbenchProps}
-                  />
-                </div>
-              </div>
             )}
           </div>
         ) : null}

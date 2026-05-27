@@ -1902,19 +1902,19 @@ export function EditorPage({
 
   /**
    * モバイルエディタのコンテナスタイル。
-   * 縦: flex column / 横: CSS Grid 2カラム（左=ステージ 全高、右=波形+操作パネル）
+   * 縦: flex column
+   * 横: CSS Grid 3ゾーン
+   *   行1: wave（上段全幅）
+   *   行2: stage（左）/ tools（右・縦スクロール）
    */
   const dynamicContainerStyle = useMemo<CSSProperties>(() => {
     if (!mobileStackEditor) return {};
     if (editorMobileLandscape) {
-      // 横画面: 2カラム CSS Grid
-      // left col = stage (spans both rows), right col top = timeline, right col bottom = tools
       return {
         display: "grid",
-        gridTemplateColumns: "1fr min(280px, 38vw)",
+        gridTemplateColumns: "1fr min(56px, 14vw)",
         gridTemplateRows: "auto 1fr",
-        // named areas: stage | timeline / stage | tools
-        gridTemplateAreas: '"stage timeline" "stage tools"',
+        gridTemplateAreas: '"wave wave" "stage tools"',
         flex: 1,
         minHeight: 0,
         width: "100%",
@@ -1971,34 +1971,42 @@ export function EditorPage({
   const dynamicToolsAsideStyle = useMemo<CSSProperties>(() => {
     if (!mobileStackEditor) return {};
     if (editorMobileLandscape) {
-      // 横画面: CSS Grid の tools エリア（下）に配置、スクロール可
+      // 横画面: CSS Grid の tools エリア（右端）に縦一列で配置、縦スクロール可
       return {
         gridArea: "tools",
         display: "flex",
         flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "flex-start",
         minHeight: 0,
         overflowY: "auto",
+        overflowX: "hidden",
         WebkitOverflowScrolling: "touch",
         overscrollBehaviorY: "contain",
         padding:
-          "6px max(6px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
+          "4px max(4px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) 4px",
         backgroundColor: "#0f172a",
-        borderTop: "1px solid #1e293b",
+        borderLeft: "1px solid #1e293b",
+        gap: 4,
       };
     }
-    // 縦画面: flex column 末尾に配置
+    // 縦画面: 常時コンパクト横スクロール行として最下部に固定
     return {
-      flex: "1 1 auto",
-      minHeight: 0,
-      overflowY: "auto",
-      WebkitOverflowScrolling: "touch",
-      overscrollBehaviorY: "contain",
-      padding:
-        "6px max(8px, env(safe-area-inset-right, 0px)) max(10px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px))",
-      backgroundColor: "#0f172a",
+      flex: "0 0 auto",
       display: "flex",
-      flexDirection: "column",
-      gap: 8,
+      flexDirection: "row",
+      alignItems: "center",
+      minHeight: 0,
+      minWidth: 0,
+      overflowX: "auto",
+      overflowY: "hidden",
+      WebkitOverflowScrolling: "touch",
+      overscrollBehaviorX: "contain",
+      padding:
+        "4px max(8px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px))",
+      backgroundColor: "#0f172a",
+      borderTop: "1px solid #1e293b",
+      gap: 6,
     };
   }, [mobileStackEditor, editorMobileLandscape]);
 

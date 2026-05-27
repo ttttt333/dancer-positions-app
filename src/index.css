@@ -350,17 +350,18 @@ body {
   overflow: hidden;
 }
 
-/* 横画面 右カラム: 波形バー */
+/* 横画面 上段全幅: 波形バー */
 .editor-landscape-timeline {
-  border-left: 1px solid #1e293b !important;
+  border-bottom: 1px solid #334155 !important;
   overflow: hidden;
 }
 
-/* 横画面 右カラム: 操作パネル */
+/* 横画面 右端: 操作パネル（縦一列アイコン） */
 .editor-landscape-tools {
   border-left: 1px solid #1e293b !important;
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
+  overscroll-behavior-y: contain;
+  overscroll-behavior-x: hidden;
 }
 
 .editor-page-header--mobile {
