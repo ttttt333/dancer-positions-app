@@ -208,14 +208,16 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const attachEditorPane = useAttachElementRef(setEditorSurfaceEl, editorPaneRef);
   const attachTopDockSection = useAssignRef(topDockSectionRef);
 
-  // MobileShell landscape 用: stageView と切替関数を bridge store に同期
+  // MobileShell landscape 用: stageView・ダイアログ開閉関数を bridge store に同期
   const setMobileShellBridge = useMobileShellBridgeStore((s) => s.setMobileShellBridge);
   useEffect(() => {
     setMobileShellBridge({
       stageView: stageView as "2d" | "3d",
       onStageViewChange: (v: "2d" | "3d") => (setStageView as (v: "2d" | "3d") => void)(v),
+      onAddCue: () => (setAddCueDialogOpen as (open: boolean) => void)(true),
+      onStageSettings: () => (setStageAreaSettingsOpen as (open: boolean) => void)(true),
     });
-  }, [stageView, setStageView, setMobileShellBridge]);
+  }, [stageView, setStageView, setAddCueDialogOpen, setStageAreaSettingsOpen, setMobileShellBridge]);
 
   return (
       <div
