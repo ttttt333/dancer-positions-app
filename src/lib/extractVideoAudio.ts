@@ -466,6 +466,112 @@ async function tryNativeDecodeAudioFallback(
 }
 
 /**
+ * iOS Safari / captureStream 非対応環境向け:
+ * createMediaElementSource（Web Audio API）経由で音声をキャプチャする。
+ * captureStream() を一切使わないため iOS Safari でも動作する。
+ */
+async function extractWithMediaElementSource(
+  file: File,
+  onProgress?: ExtractProgress
+): Promise<ArrayBuffer> {
+  const url = URL.createObjectURL(file);
+  try {
+    const video = document.createElement("video");
+    video.src = url;
+    video.playsInline = true;
+
+    await new Promise<void>((resolve, reject) => {
+      video.onloadedmetadata = () => resolve();
+      video.onerror = () => reject(new Error("動画の読み込みに失敗しました"));
+      setTimeout(() => reject(new Error("読み込みタイムアウト")), 30_000);
+    });
+
+    const dur = video.duration;
+    if (!Number.isFinite(dur) || dur <= 0 || dur > MAX_VIDEO_DURATION_SEC) {
+      throw new Error(
+        dur > MAX_VIDEO_DURATION_SEC
+          ? "2時間を超える動画は未対応です"
+          : "動画の長さを取得できませんでした"
+      );
+    }
+
+    // Web Audio API 経由でキャプチャ（captureStream 不要）
+    const ctx = new AudioContext();
+    const source = ctx.createMediaElementSource(video);
+    const dest = ctx.createMediaStreamDestination();
+    source.connect(dest);
+
+    const mime = [
+      "audio/webm;codecs=opus",
+      "audio/webm",
+      "audio/mp4",      // iOS Safari 14+
+      "video/mp4",      // iOS フォールバック
+    ].find((m) => MediaRecorder.isTypeSupported(m));
+
+    if (!mime) {
+      await ctx.close();
+      throw new Error("NO_SUPPORTED_MIME");
+    }
+
+    const rec = new MediaRecorder(dest.stream, { mimeType: mime });
+    const chunks: Blob[] = [];
+    rec.ondataavailable = (e) => {
+      if (e.data.size > 0) chunks.push(e.data);
+    };
+
+    const stopped = new Promise<ArrayBuffer>((resolve, reject) => {
+      rec.onstop = async () => {
+        try {
+          const blob = new Blob(chunks, { type: mime.split(";")[0] });
+          resolve(await blob.arrayBuffer());
+        } catch (e) {
+          reject(e instanceof Error ? e : new Error("録音データの取得に失敗しました"));
+        }
+      };
+      rec.onerror = () => reject(new Error("録音に失敗しました"));
+    });
+
+    const sliceMs = Math.min(1000, Math.max(100, Math.floor((dur * 1000) / 40)));
+    rec.start(sliceMs);
+
+    // iOS では play() がユーザジェスチャ後でないと失敗することがある
+    try {
+      await video.play();
+    } catch {
+      rec.stop();
+      await ctx.close();
+      throw new Error("PLAY_BLOCKED");
+    }
+
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        resolve();
+      };
+      video.addEventListener("ended", finish);
+      video.addEventListener("timeupdate", () => {
+        if (video.ended || video.currentTime >= dur - 0.04) finish();
+        onProgress?.({
+          ratio: Math.min(1, video.currentTime / dur),
+          stage: "record",
+          message: "録音中…",
+        });
+      });
+      video.addEventListener("error", finish);
+      setTimeout(finish, (dur + 15) * 1000);
+    });
+
+    rec.stop();
+    await ctx.close();
+    return stopped;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/**
  * 最終手段: 従来の captureStream + MediaRecorder（実時間）。
  * wasm 初期化に失敗した環境向けのセーフティネット。
  */
@@ -500,7 +606,7 @@ async function extractWithMediaRecorder(
       .mozCaptureStream;
   if (typeof capture !== "function") {
     URL.revokeObjectURL(url);
-    throw new Error("このブラウザでは captureStream に対応していません");
+    throw new Error("CAPTURE_STREAM_UNSUPPORTED");
   }
 
   try {
@@ -600,13 +706,23 @@ async function extractWithMediaRecorder(
   return await stopped;
 }
 
+/** iOS Safari / iOS WKWebView かどうか判定 */
+function isIOSBrowser(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
 /**
  * 動画から音声を抽出。
  * - ファイル自体が音声ファイル            → そのまま返す（一瞬）
  * - 小型 or 音声主体コンテナ（webm 等）  → `decodeAudioData` で即デコード
+ * - iOS Safari                            → ネイティブデコード → MediaElementSource の順で試みる
  * - 一般的な動画（MP4/MOV/MKV/AVI…）    → FFmpeg.wasm で stream copy（数秒）
  * - copy 不可のコーデック                → FFmpeg.wasm で WAV 再エンコード
- * - wasm もダメな環境                     → MediaRecorder（実時間）
+ * - wasm もダメな環境                     → MediaElementSource → captureStream + MediaRecorder
  *
  * `preloadFFmpeg()` で事前にコア/wasm を取得済みの場合、多くの動画は数秒以内で完了する。
  */
@@ -639,24 +755,78 @@ export async function extractAudioBufferFromVideoFile(
     }
   }
 
+  /**
+   * 2) iOS は FFmpeg.wasm のロードが遅く失敗しやすいため、
+   *    ネイティブデコード → MediaElementSource の順に先に試みる。
+   */
+  if (isIOSBrowser()) {
+    console.log("[extractAudio] iOS detected – trying native decode first");
+    const native = await tryNativeDecodeAudioFallback(file, onProgress).catch(() => null);
+    if (native) return native;
+
+    console.warn("[extractAudio] iOS native decode failed, trying MediaElementSource");
+    onProgress?.({ ratio: 0, stage: "record", message: "録音モードで抽出中…" });
+    try {
+      return await extractWithMediaElementSource(file, onProgress);
+    } catch (meErr) {
+      const msg = meErr instanceof Error ? meErr.message : "";
+      if (msg === "PLAY_BLOCKED" || msg === "NO_SUPPORTED_MIME") {
+        throw new Error(
+          "お使いのブラウザ・端末では動画からの自動音声抽出ができませんでした。\n" +
+          "以下の方法をお試しください：\n" +
+          "① 動画を MP3 / M4A / WAV に変換してから読み込む\n" +
+          "② iPhone の場合「ファイル」アプリで動画を選び「共有 → GarageBand」等で音声書き出し後、音声ファイルとして読み込む"
+        );
+      }
+      console.warn("[extractAudio] iOS MediaElementSource failed, falling back to wasm:", meErr);
+    }
+  }
+
   try {
     return await extractWithFFmpegWasm(file, onProgress);
   } catch (wasmErr) {
     /** wasm が動かない環境（iOS Safari・古いブラウザ等）向けのフォールバック */
     console.warn("[extractAudio] wasm extraction failed, trying native decode:", wasmErr);
 
-    // iOS / モバイル: ブラウザネイティブの音声デコードを試みる（MOV/M4A/MP4 は iOS Safari で動く）
+    // フォールバック 1: ブラウザネイティブ音声デコード（iOS Safari は MOV/M4A/MP4 対応）
     const nativeFallback = await tryNativeDecodeAudioFallback(file, onProgress).catch(() => null);
     if (nativeFallback) return nativeFallback;
 
-    // 最終手段: captureStream + MediaRecorder（実時間録音）
-    console.warn("[extractAudio] native decode also failed, falling back to MediaRecorder");
-    onProgress?.({
-      ratio: 0,
-      stage: "record",
-      message: "高速抽出に失敗。録音モードに切り替え…",
-    });
-    return await extractWithMediaRecorder(file, onProgress);
+    // フォールバック 2: createMediaElementSource 経由（captureStream 不要、iOS 向け）
+    console.warn("[extractAudio] trying MediaElementSource route (no captureStream)");
+    onProgress?.({ ratio: 0, stage: "record", message: "録音モードで抽出中…" });
+    try {
+      return await extractWithMediaElementSource(file, onProgress);
+    } catch (meErr) {
+      const msg = meErr instanceof Error ? meErr.message : "";
+      // play() がブロックされた / MIME 非対応 の場合はユーザ向けメッセージを返す
+      if (msg === "PLAY_BLOCKED" || msg === "NO_SUPPORTED_MIME") {
+        throw new Error(
+          "お使いのブラウザ・端末では動画からの自動音声抽出ができませんでした。\n" +
+          "以下の方法をお試しください：\n" +
+          "① 動画を MP3 / M4A / WAV に変換してから読み込む\n" +
+          "② iPhone の場合「ファイル」アプリで動画を選び「共有 → GarageBand」等で音声書き出し後、音声ファイルとして読み込む"
+        );
+      }
+      console.warn("[extractAudio] MediaElementSource failed:", meErr);
+    }
+
+    // フォールバック 3: captureStream + MediaRecorder（デスクトップ向け最終手段）
+    console.warn("[extractAudio] falling back to captureStream MediaRecorder");
+    try {
+      return await extractWithMediaRecorder(file, onProgress);
+    } catch (recErr) {
+      const msg = recErr instanceof Error ? recErr.message : "";
+      if (msg === "CAPTURE_STREAM_UNSUPPORTED") {
+        throw new Error(
+          "お使いのブラウザ・端末では動画からの音声抽出ができませんでした。\n" +
+          "以下の方法をお試しください：\n" +
+          "① 動画を MP3 / M4A / WAV に変換してから読み込む\n" +
+          "② iPhone の場合「ファイル」アプリで動画を選び「共有 → GarageBand」等で音声書き出し後、音声ファイルとして読み込む"
+        );
+      }
+      throw recErr;
+    }
   }
 }
 
