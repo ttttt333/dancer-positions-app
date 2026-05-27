@@ -1,0 +1,141 @@
+/* PortraitBottomBar.module.css */
+
+.bar {
+  background: #0b1120;
+  border-top: 0.5px solid #1a2540;
+  flex-shrink: 0;
+}
+
+/* ── キューナビ ── */
+.cueRow {
+  padding: 8px 10px 0;
+  display: flex;
+  justify-content: center;
+}
+.cueNav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0,0,0,0.5);
+  border: 0.5px solid #1a2540;
+  border-radius: 999px;
+  padding: 3px 6px;
+}
+.navArrow {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #1f2937;
+  border: 0.5px solid #374151;
+  color: #d1d5db;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.navArrow:disabled { opacity: 0.3; cursor: default; }
+.navArrow:active:not(:disabled) { background: #374151; }
+.cueLabel {
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: #f1f5f9;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+.addCueBtn {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 0.5px solid rgba(217,119,6,0.4);
+  color: #d97706;
+  background: rgba(217,119,6,0.08);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+
+/* ── アクション行 ── */
+.actionsRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px 4px;
+}
+.actionsLabel {
+  font-size: 10px;
+  color: #6b7280;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.viewerBtn {
+  font-size: 11px;
+  color: #d97706;
+  background: rgba(217,119,6,0.1);
+  border: 0.5px solid rgba(217,119,6,0.3);
+  border-radius: 6px;
+  padding: 3px 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* ── 主要ボタン ── */
+.mainBtns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 0 10px 8px;
+}
+.goldBtn {
+  height: 44px;
+  border-radius: 12px;
+  background: #d97706;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.goldBtn:active { opacity: 0.8; }
+.darkBtn {
+  height: 44px;
+  border-radius: 12px;
+  background: #1f2937;
+  color: #d1d5db;
+  font-size: 12px;
+  font-weight: 600;
+  border: 0.5px solid #374151;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.darkBtn:active { background: #374151; }
+
+/* ── タブバー ── */
+.tabBar {
+  display: flex;
+  border-top: 0.5px solid #1a2540;
+  /* ▼ safe-area: Geminiの safe-bottom クラスをCSSで直接置き換え */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.tabBtn {
+  flex: 1;
+  padding: 7px 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  transition: opacity 0.15s;
+}
+.tabBtn:active { opacity: 0.7; }
+.tabIcon { font-size: 18px; filter: grayscale(1) brightness(0.5); }
+.tabLabel { font-size: 9px; color: #4b5563; font-weight: 400; }
+.tabActive .tabIcon { filter: none; }
+.tabActive .tabLabel { color: #d97706; font-weight: 600; }

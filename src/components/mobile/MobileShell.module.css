@@ -1,0 +1,36 @@
+/* MobileShell.module.css */
+
+/* ── 縦向きルート ── */
+.portraitRoot {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  background: #030712;
+  overflow: hidden;
+}
+
+/* ── 横向きルート ── */
+.landscapeRoot {
+  display: flex;
+  flex-direction: row;
+  height: 100dvh;
+  background: #030712;
+  overflow: hidden;
+}
+
+/* ── ステージエリア (縦) ── */
+.stageAreaPortrait {
+  flex: 1;
+  min-height: 0;   /* Flexboxでのshrinkに必須 */
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── ステージエリア (横) ── */
+.stageAreaLandscape {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  padding-left: env(safe-area-inset-left, 0px);
+}

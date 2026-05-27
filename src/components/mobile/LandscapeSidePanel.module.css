@@ -1,0 +1,191 @@
+/* LandscapeSidePanel.module.css */
+
+.panel {
+  width: 176px;
+  flex-shrink: 0;
+  background: #0b1120;
+  border-left: 0.5px solid #1a2540;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  /* ▼ safe-area: Geminiの safe-right クラスをCSSで置き換え */
+  padding-right: max(10px, env(safe-area-inset-right, 10px));
+  padding-bottom: max(8px, env(safe-area-inset-bottom, 8px));
+  gap: 7px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.collapsed {
+  width: 32px;
+  flex-shrink: 0;
+  background: #0b1120;
+  border-left: 0.5px solid #1a2540;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.panelTop {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.collapseBtn {
+  background: transparent;
+  border: none;
+  color: #6b7280;
+  font-size: 18px;
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── コンパクトプレイヤー ── */
+.playerBox {
+  background: rgba(0,0,0,0.45);
+  border: 0.5px solid #1a2540;
+  border-radius: 10px;
+  padding: 8px;
+}
+.playerMeta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.metaLabel {
+  font-size: 9px;
+  color: #6b7280;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+.metaTime {
+  font-size: 10px;
+  color: #d97706;
+  font-family: monospace;
+  font-weight: 700;
+}
+.playerControls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+.btnSm {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #1f2937;
+  border: 0.5px solid #374151;
+  color: #d1d5db;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btnPlay {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #d97706;
+  border: none;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s;
+}
+.btnPlay:active { opacity: 0.8; }
+
+/* ── キューセクション ── */
+.cueSection {
+  text-align: center;
+}
+.cueMetaLabel {
+  font-size: 9px;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+.cueValue {
+  font-size: 13px;
+  color: #93c5fd;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.cueArrows {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+.btnMd {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #1f2937;
+  border: 0.5px solid #374151;
+  color: #d1d5db;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.btnMd:disabled { opacity: 0.3; cursor: default; }
+.btnMd:active:not(:disabled) { background: #374151; }
+
+.divider {
+  height: 0.5px;
+  background: #1a2540;
+}
+
+/* ── アクションボタン ── */
+.viewerBtn {
+  width: 100%;
+  padding: 6px;
+  border-radius: 8px;
+  border: 0.5px solid rgba(217,119,6,0.4);
+  color: #d97706;
+  background: rgba(217,119,6,0.07);
+  font-size: 11px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.goldBtn {
+  width: 100%;
+  padding: 8px 0;
+  border-radius: 10px;
+  background: #d97706;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.goldBtn:active { opacity: 0.8; }
+.darkBtn {
+  width: 100%;
+  padding: 8px 0;
+  border-radius: 10px;
+  background: #1f2937;
+  color: #d1d5db;
+  font-size: 12px;
+  font-weight: 600;
+  border: 0.5px solid #374151;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.darkBtn:active { background: #374151; }

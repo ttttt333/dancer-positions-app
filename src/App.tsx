@@ -1,5 +1,5 @@
-import { Component, Fragment, type ReactNode, type ErrorInfo } from "react";
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Component, Fragment, type ReactNode, type ErrorInfo, useState, useEffect, useCallback } from "react";
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { AuthProvider } from "./context/AuthContext";
 import { DashboardPage } from "./pages/DashboardPage";
@@ -10,6 +10,10 @@ import { VideoPage } from "./pages/VideoPage";
 import { BillingCanceledPage, BillingSuccessPage } from "./pages/BillingPages";
 import { MobileFormationEditorDemoPage } from "./pages/MobileFormationEditorDemoPage";
 import { LibraryPage } from "./pages/LibraryPage";
+import { MobileShell } from "./components/mobile/MobileShell";
+import { usePlaybackUiStore } from "./store/usePlaybackUiStore";
+import { useMobileShellBridgeStore } from "./store/useMobileShellBridgeStore";
+import { playbackEngine } from "./core/playbackEngine";
 
 type EBState = { error: Error | null };
 
@@ -86,6 +90,86 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, EBState> {
   }
 }
 
+/**
+ * モバイル幅 (≤768px) のとき MobileShell でラップし、
+ * デスクトップではそのまま EditorPage を表示するルートコンポーネント。
+ *
+ * Zustand ストアのフィールド名対応:
+ *   usePlaybackUiStore: currentTimeSec / isPlaying / durationSec
+ *   useMobileShellBridgeStore: currentCueIndex / totalCues / audioUrl / activeTab / actions
+ *   playbackEngine (singleton): play() / pause() / seek()
+ */
+function MobileEditorRoute() {
+  const { projectId } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
+
+  // モバイル幅判定 (≤768px)
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+
+  // 再生状態 (usePlaybackUiStore の実フィールド名に合わせる)
+  const currentTimeSec = usePlaybackUiStore((s) => s.currentTimeSec);
+  const isPlaying = usePlaybackUiStore((s) => s.isPlaying);
+  const durationSec = usePlaybackUiStore((s) => s.durationSec);
+
+  // キュー・アクション状態 (useMobileShellBridgeStore 経由)
+  const currentCueIndex = useMobileShellBridgeStore((s) => s.currentCueIndex);
+  const totalCues = useMobileShellBridgeStore((s) => s.totalCues);
+  const audioUrl = useMobileShellBridgeStore((s) => s.audioUrl);
+  const activeTab = useMobileShellBridgeStore((s) => s.activeTab);
+  const onCuePrev = useMobileShellBridgeStore((s) => s.onCuePrev);
+  const onCueNext = useMobileShellBridgeStore((s) => s.onCueNext);
+  const onAddCue = useMobileShellBridgeStore((s) => s.onAddCue);
+  const onStageSettings = useMobileShellBridgeStore((s) => s.onStageSettings);
+  const onTabChange = useMobileShellBridgeStore((s) => s.onTabChange);
+
+  const onPlayPause = useCallback(() => {
+    if (isPlaying) {
+      playbackEngine.pause();
+    } else {
+      playbackEngine.play();
+    }
+  }, [isPlaying]);
+
+  const onSeek = useCallback((sec: number) => {
+    playbackEngine.seek(sec);
+  }, []);
+
+  const onViewerList = useCallback(() => {
+    if (projectId) navigate(`/view/${projectId}`);
+  }, [projectId, navigate]);
+
+  if (!isMobile) {
+    return <EditorPage />;
+  }
+
+  return (
+    <MobileShell
+      audioUrl={audioUrl}
+      isPlaying={isPlaying}
+      currentTime={currentTimeSec}
+      duration={durationSec}
+      onPlayPause={onPlayPause}
+      onSeek={onSeek}
+      currentCueIndex={currentCueIndex}
+      totalCues={totalCues}
+      onCuePrev={onCuePrev}
+      onCueNext={onCueNext}
+      onAddCue={onAddCue}
+      onStageSettings={onStageSettings}
+      onViewerList={onViewerList}
+      activeTab={activeTab}
+      onTabChange={onTabChange}
+    >
+      <EditorPage />
+    </MobileShell>
+  );
+}
+
 function AppShell() {
   const location = useLocation();
   const hideFloatingLocale = location.pathname.startsWith("/view");
@@ -103,7 +187,7 @@ function AppShell() {
             <Route path="/video" element={<VideoPage />} />
             <Route path="/billing/success" element={<BillingSuccessPage />} />
             <Route path="/billing/canceled" element={<BillingCanceledPage />} />
-            <Route path="/editor/:projectId" element={<EditorPage />} />
+            <Route path="/editor/:projectId" element={<MobileEditorRoute />} />
             <Route
               path="/view/s/:shareToken"
               element={<EditorPage choreoPublicView />}
