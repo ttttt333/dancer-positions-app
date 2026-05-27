@@ -6,13 +6,12 @@
  *    何もせずそのままバイト列を返す。ほぼ一瞬。
  * 1) 小さな動画 or audio-in-container（短い WebM など）は `decodeAudioData` で
  *    ブラウザネイティブに即デコード。
- * 2) 一般的な動画（MP4 / MOV / MKV / AVI / FLV / WMV…）は最初から
+ * 2) iOS Safari: mp4box.js で MP4/MOV コンテナを解析 → AAC フレーム抽出 → ADTS 変換
+ *    → `decodeAudioData`。captureStream / FFmpeg.wasm 不要。
+ * 3) 一般的な動画（MP4 / MOV / MKV / AVI / FLV / WMV…）は最初から
  *    FFmpeg.wasm で音声トラックのみ **stream copy**（demux のみ）。
- *    AAC / MP3 / Opus / Vorbis など、コンテナと互換な音声コーデックは再エンコード
- *    不要なので大型動画でも数秒〜十数秒で抽出できる（従来の 5〜20 倍高速）。
- *    FFmpeg のロードとファイル読み取りは `Promise.all` で並列化。
- * 3) copy 不能なコーデックのときだけ WAV へ再エンコード。
- * 4) さらに失敗したら captureStream + MediaRecorder（実時間）。
+ * 4) copy 不能なコーデックのときだけ WAV へ再エンコード。
+ * 5) さらに失敗したら captureStream + MediaRecorder（実時間）。
  *
  * FFmpeg.wasm 本体は `preloadFFmpeg()` でエディタ起動時にバックグラウンド取得済。
  * 2 回目以降はインスタンス使い回しで即起動（ブラウザ HTTP キャッシュも効く）。
@@ -23,6 +22,172 @@ const MAX_VIDEO_DURATION_SEC = 7200;
 const MAX_FAST_DECODE_BYTES = 60 * 1024 * 1024;
 /** 極端に巨大なファイルは wasm メモリを食いつぶすので従来パスへ */
 const MAX_WASM_BYTES = 800 * 1024 * 1024;
+
+// ─── ADTS ヘルパー ────────────────────────────────────────────
+/** 標準 AAC サンプルレートテーブル（インデックス 0〜12） */
+const AAC_SAMPLE_RATE_TABLE = [
+  96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350,
+] as const;
+
+/**
+ * 生 AAC フレーム 1 つ分の 7 バイト ADTS ヘッダーを返す。
+ * @param audioObjectType 2 = AAC-LC（iPhone 動画はほぼすべて AAC-LC）
+ * @param sampleRateIdx   AAC_SAMPLE_RATE_TABLE のインデックス
+ * @param channelConfig   チャネル数（1=mono, 2=stereo…）
+ * @param rawFrameLen     生 AAC データのバイト数（ADTS ヘッダーを含まない）
+ */
+function buildAdtsHeader(
+  audioObjectType: number,
+  sampleRateIdx: number,
+  channelConfig: number,
+  rawFrameLen: number
+): Uint8Array {
+  const profile = audioObjectType - 1; // profile_ObjectType = audioObjectType − 1
+  const adtsLen = rawFrameLen + 7;     // ADTS フレーム長はヘッダー込み
+  return new Uint8Array([
+    0xff,
+    0xf1, // MPEG-4 (ID=0), layer=00, no CRC
+    ((profile & 0x3) << 6) | ((sampleRateIdx & 0xf) << 2) | ((channelConfig >> 2) & 0x1),
+    ((channelConfig & 0x3) << 6) | ((adtsLen >> 11) & 0x3),
+    (adtsLen >> 3) & 0xff,
+    ((adtsLen & 0x7) << 5) | 0x1f,
+    0xfc,
+  ]);
+}
+
+/**
+ * mp4box.js で MP4/MOV コンテナを解析し、AAC 音声フレームを ADTS ストリームに変換して
+ * `AudioContext.decodeAudioData` でデコードする。
+ *
+ * captureStream / FFmpeg.wasm / video.play() を一切使わないため iOS Safari でも動作する。
+ * iPhone 動画（HEVC+AAC、H.264+AAC どちらも）対応。
+ *
+ * @returns WAV 形式の ArrayBuffer、またはコンテナが音声トラックを持たない場合 null
+ */
+async function extractAudioWithMp4Demux(
+  file: File,
+  onProgress?: ExtractProgress
+): Promise<ArrayBuffer | null> {
+  const { createFile } = await import("mp4box");
+
+  return new Promise<ArrayBuffer | null>((resolve) => {
+    const mp4 = createFile();
+
+    let audioTrackId: number | null = null;
+    let expectedSamples = 0;
+    let receivedSamples = 0;
+    let audioObjectType = 2; // デフォルト: AAC-LC
+    let sampleRateIdx = 4;  // デフォルト: 44100 Hz
+    let channelConfig = 2;  // デフォルト: ステレオ
+
+    const frames: { data: Uint8Array; byteLen: number }[] = [];
+    let totalAdtsBytes = 0;
+    let finished = false;
+
+    const buildAndResolve = async () => {
+      if (finished) return;
+      finished = true;
+
+      if (!frames.length) {
+        resolve(null);
+        return;
+      }
+
+      // ADTS ストリームを組み立てる
+      const adtsBuf = new Uint8Array(totalAdtsBytes);
+      let offset = 0;
+      for (const { data, byteLen } of frames) {
+        const hdr = buildAdtsHeader(audioObjectType, sampleRateIdx, channelConfig, byteLen);
+        adtsBuf.set(hdr, offset);
+        offset += 7;
+        adtsBuf.set(data, offset);
+        offset += byteLen;
+      }
+
+      try {
+        onProgress?.({ ratio: 0.85, stage: "decode", message: "音声をデコード中…" });
+        const ctx = new AudioContext();
+        const audioBuf = await ctx.decodeAudioData(adtsBuf.buffer);
+        await ctx.close().catch(() => {});
+        onProgress?.({ ratio: 1, stage: "decode", message: "デコード完了" });
+        resolve(encodeMonoWavFromAudioBuffer(audioBuf));
+      } catch (e) {
+        console.warn("[mp4demux] decodeAudioData failed:", e);
+        resolve(null);
+      }
+    };
+
+    mp4.onReady = (info) => {
+      if (!info.audioTracks.length) {
+        resolve(null);
+        return;
+      }
+      const track = info.audioTracks[0];
+      audioTrackId = track.id;
+      expectedSamples = track.nb_samples;
+
+      // コーデック文字列から audioObjectType を取得 (例: "mp4a.40.2" → 2)
+      const parts = track.codec.split(".");
+      if (parts.length >= 3) {
+        const aot = parseInt(parts[2], 10);
+        if (!isNaN(aot)) audioObjectType = aot;
+      }
+
+      // サンプルレートインデックス
+      const sr = track.audio?.sample_rate ?? 44100;
+      const idx = (AAC_SAMPLE_RATE_TABLE as readonly number[]).indexOf(sr);
+      sampleRateIdx = idx >= 0 ? idx : 4;
+
+      // チャネル設定
+      channelConfig = track.audio?.channel_count ?? 2;
+
+      mp4.setExtractionOptions(track.id, null, { nbSamples: expectedSamples });
+      mp4.start();
+    };
+
+    mp4.onSamples = (_id, _user, samples) => {
+      for (const s of samples) {
+        const view = new Uint8Array(s.data.buffer, s.data.byteOffset, s.data.byteLength);
+        frames.push({ data: view, byteLen: s.data.byteLength });
+        totalAdtsBytes += s.data.byteLength + 7;
+        receivedSamples++;
+      }
+      if (audioTrackId !== null && receivedSamples >= expectedSamples) {
+        buildAndResolve();
+      }
+    };
+
+    // ファイルを 4 MB ずつ送り込む
+    const CHUNK = 4 * 1024 * 1024;
+    let byteOffset = 0;
+
+    const readNext = async (): Promise<void> => {
+      if (byteOffset >= file.size) {
+        mp4.flush(); // 残りサンプルを onSamples へ送出
+        // flush 後も onSamples が呼ばれない場合（フラグメントなど）に備える
+        setTimeout(() => buildAndResolve(), 2000);
+        return;
+      }
+      const slice = file.slice(byteOffset, byteOffset + CHUNK);
+      const ab = await slice.arrayBuffer();
+      // mp4box は ArrayBuffer に fileStart プロパティが必要
+      (ab as ArrayBuffer & { fileStart: number }).fileStart = byteOffset;
+      byteOffset += ab.byteLength;
+
+      const nextOffset = mp4.appendBuffer(ab as ArrayBuffer & { fileStart: number });
+      if (nextOffset !== undefined) byteOffset = Math.max(byteOffset, nextOffset);
+
+      onProgress?.({
+        ratio: Math.min(0.8, byteOffset / file.size),
+        stage: "decode",
+        message: "MP4/MOV を解析中…",
+      });
+      await readNext();
+    };
+
+    readNext().catch(() => resolve(null));
+  });
+}
 
 /** 抽出進捗コールバック。0〜1 の進捗と任意ステージラベル（"decode" / "wasm" / "record"）。 */
 export type ExtractProgress = (p: {
@@ -757,10 +922,21 @@ export async function extractAudioBufferFromVideoFile(
 
   /**
    * 2) iOS は FFmpeg.wasm のロードが遅く失敗しやすいため、
-   *    ネイティブデコード → MediaElementSource の順に先に試みる。
+   *    mp4box demux → ネイティブデコード → MediaElementSource の順に先に試みる。
+   *    MP4/MOV コンテナを JavaScript で解析して AAC だけ抽出するので
+   *    captureStream も play() も FFmpeg.wasm も不要。
    */
-  if (isIOSBrowser()) {
-    console.log("[extractAudio] iOS detected – trying native decode first");
+  if (isIOSBrowser() && isLikelyVideoContainer(file)) {
+    console.log("[extractAudio] iOS + video detected – trying mp4box demux");
+    onProgress?.({ ratio: 0, stage: "decode", message: "MP4/MOV を解析中…" });
+    const mp4Result = await extractAudioWithMp4Demux(file, onProgress).catch((e) => {
+      console.warn("[extractAudio] mp4box demux error:", e);
+      return null;
+    });
+    if (mp4Result) return mp4Result;
+
+    // mp4box で取れなかった場合（非 AAC コーデック等）はネイティブデコードを試みる
+    console.warn("[extractAudio] mp4box demux returned null, trying native decode");
     const native = await tryNativeDecodeAudioFallback(file, onProgress).catch(() => null);
     if (native) return native;
 
