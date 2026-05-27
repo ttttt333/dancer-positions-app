@@ -7,6 +7,7 @@
 
 import React, { useState, useRef, useCallback } from 'react'
 import styles from './LandscapeSidePanel.module.css'
+import { useMobileShellBridgeStore } from '../../store/useMobileShellBridgeStore'
 
 // ── 波形バーの高さデータ (固定値) ──
 const WAVE_HEIGHTS = [
@@ -40,6 +41,8 @@ export const LandscapeSidePanel: React.FC<Props> = ({
   onAddCue, onStageSettings, onViewerList,
 }) => {
   const [open, setOpen] = useState(true)
+  const stageView = useMobileShellBridgeStore((s) => s.stageView)
+  const onStageViewChange = useMobileShellBridgeStore((s) => s.onStageViewChange)
   const waveRef = useRef<HTMLDivElement>(null)
   const playedBars = Math.floor((currentTime / Math.max(duration, 1)) * WAVE_HEIGHTS.length)
   const pct = duration > 0 ? (currentTime / duration) * 100 : 0
@@ -133,6 +136,26 @@ export const LandscapeSidePanel: React.FC<Props> = ({
             aria-label="次のキュー"
           >›</button>
         </div>
+      </div>
+
+      <div className={styles.divider} />
+
+      {/* ── 2D / 3D 表示切替 ── */}
+      <div className={styles.viewToggleRow}>
+        <button
+          className={stageView === '2d' ? styles.viewBtnActive : styles.viewBtn}
+          onClick={() => onStageViewChange('2d')}
+          aria-label="2D表示"
+        >
+          2D
+        </button>
+        <button
+          className={stageView === '3d' ? styles.viewBtnActive : styles.viewBtn}
+          onClick={() => onStageViewChange('3d')}
+          aria-label="3D表示"
+        >
+          3D
+        </button>
       </div>
 
       <div className={styles.divider} />

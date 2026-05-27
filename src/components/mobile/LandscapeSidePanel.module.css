@@ -160,6 +160,38 @@
   flex-shrink: 0;
 }
 
+/* ── 2D/3D 切替 ── */
+.viewToggleRow {
+  display: flex;
+  gap: 5px;
+}
+.viewBtn {
+  flex: 1;
+  padding: 6px 0;
+  border-radius: 7px;
+  background: #1f2937;
+  border: 0.5px solid #374151;
+  color: #9ca3af;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+  letter-spacing: 0.03em;
+}
+.viewBtn:active { background: #374151; }
+.viewBtnActive {
+  flex: 1;
+  padding: 6px 0;
+  border-radius: 7px;
+  background: #1e3a5f;
+  border: 0.5px solid #3b82f6;
+  color: #93c5fd;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.03em;
+}
+
 /* ── アクションボタン ── */
 .viewerBtn {
   width: 100%;

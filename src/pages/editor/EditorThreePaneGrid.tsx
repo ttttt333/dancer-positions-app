@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { StageBoard } from "../../components/StageBoard";
 import { EditorStageWorkbench, WorkbenchCuePager } from "../../components/EditorStageWorkbench";
@@ -9,6 +9,7 @@ import { EDITOR_GRID_GAP_PX, STAGE_RESIZER_PX } from "./editorConstants";
 import type { EditorLayoutProps } from "./editorLayoutProps";
 import { useAssignRef, useAttachElementRef } from "./useSafeElementRef";
 import { formatMmSsFloor } from "../../lib/timeFormat";
+import { useMobileShellBridgeStore } from "../../store/useMobileShellBridgeStore";
 
 const Stage3DView = lazy(() =>
   import("../../components/Stage3DView").then((m) => ({ default: m.Stage3DView }))
@@ -207,6 +208,15 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const attachEditorPane = useAttachElementRef(setEditorSurfaceEl, editorPaneRef);
   const attachTopDockSection = useAssignRef(topDockSectionRef);
 
+  // MobileShell landscape 用: stageView と切替関数を bridge store に同期
+  const setMobileShellBridge = useMobileShellBridgeStore((s) => s.setMobileShellBridge);
+  useEffect(() => {
+    setMobileShellBridge({
+      stageView: stageView as "2d" | "3d",
+      onStageViewChange: (v: "2d" | "3d") => (setStageView as (v: "2d" | "3d") => void)(v),
+    });
+  }, [stageView, setStageView, setMobileShellBridge]);
+
   return (
       <div
         ref={attachEditorPane}
@@ -403,6 +413,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 ステージ列の右上に、床の上の一行として並べる。
               */}
               <div
+                className="editor-stage-viewcontrols"
                 style={{
                   flexShrink: 0,
                   display: stageZenLayout ? "none" : "flex",

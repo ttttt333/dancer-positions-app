@@ -15,12 +15,14 @@ export type MobileShellBridgeStore = {
   totalCues: number;
   audioUrl: string | null;
   activeTab: "stages" | "timeline" | "team" | "settings";
+  stageView: "2d" | "3d";
   onCuePrev: () => void;
   onCueNext: () => void;
   onAddCue: () => void;
   onStageSettings: () => void;
   onViewerList: () => void;
   onTabChange: (tab: MobileShellBridgeStore["activeTab"]) => void;
+  onStageViewChange: (v: "2d" | "3d") => void;
   /** EditorPage または上位コンポーネントから一括設定 */
   setMobileShellBridge: (patch: Partial<Omit<MobileShellBridgeStore, "setMobileShellBridge">>) => void;
 };
@@ -30,11 +32,13 @@ export const useMobileShellBridgeStore = create<MobileShellBridgeStore>((set) =>
   totalCues: 1,
   audioUrl: null,
   activeTab: "stages",
+  stageView: "2d",
   onCuePrev: () => {},
   onCueNext: () => {},
   onAddCue: () => {},
   onStageSettings: () => {},
   onViewerList: () => {},
   onTabChange: (tab) => set({ activeTab: tab }),
+  onStageViewChange: () => {},
   setMobileShellBridge: (patch) => set(patch),
 }));
