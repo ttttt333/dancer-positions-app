@@ -439,6 +439,33 @@ async function extractWithFFmpegWasm(
 }
 
 /**
+ * FFmpeg.wasm 失敗後の iOS / モバイル向けフォールバック。
+ * ブラウザネイティブ AudioContext.decodeAudioData を試みる。
+ * iOS Safari は MOV/M4V/MP4(AAC) を natively サポートするので有効。
+ * ファイルを一括読み込みするためサイズ上限を設ける。
+ */
+async function tryNativeDecodeAudioFallback(
+  file: File,
+  onProgress?: ExtractProgress
+): Promise<ArrayBuffer | null> {
+  const MAX_NATIVE_BYTES = 300 * 1024 * 1024; // 300 MB
+  if (file.size > MAX_NATIVE_BYTES) return null;
+  const ctx = new AudioContext();
+  try {
+    onProgress?.({ ratio: 0, stage: "decode", message: "ネイティブデコードを試行中…" });
+    const raw = await file.arrayBuffer();
+    onProgress?.({ ratio: 0.5, stage: "decode", message: "音声をデコード中…" });
+    const audioBuf = await ctx.decodeAudioData(raw.slice(0));
+    onProgress?.({ ratio: 1, stage: "decode", message: "デコード完了" });
+    return encodeMonoWavFromAudioBuffer(audioBuf);
+  } catch {
+    return null;
+  } finally {
+    await ctx.close().catch(() => {});
+  }
+}
+
+/**
  * 最終手段: 従来の captureStream + MediaRecorder（実時間）。
  * wasm 初期化に失敗した環境向けのセーフティネット。
  */
@@ -497,11 +524,13 @@ async function extractWithMediaRecorder(
     ? "audio/webm;codecs=opus"
     : MediaRecorder.isTypeSupported("audio/webm")
       ? "audio/webm"
-      : "";
+      : MediaRecorder.isTypeSupported("video/mp4")
+        ? "video/mp4"  // iOS 14+ Safari
+        : "";
   if (!mime) {
     video.pause();
     URL.revokeObjectURL(url);
-    throw new Error("WebM 音声録音に対応していません");
+    throw new Error("音声録音に対応していません（ブラウザが WebM / MP4 録音をサポートしていません）");
   }
 
   const rec = new MediaRecorder(audioOnly, { mimeType: mime });
@@ -613,8 +642,15 @@ export async function extractAudioBufferFromVideoFile(
   try {
     return await extractWithFFmpegWasm(file, onProgress);
   } catch (wasmErr) {
-    /** wasm が動かない環境（社内 PC・古いブラウザ等）向けの最終手段 */
-    console.warn("[extractAudio] wasm extraction failed, falling back to recording:", wasmErr);
+    /** wasm が動かない環境（iOS Safari・古いブラウザ等）向けのフォールバック */
+    console.warn("[extractAudio] wasm extraction failed, trying native decode:", wasmErr);
+
+    // iOS / モバイル: ブラウザネイティブの音声デコードを試みる（MOV/M4A/MP4 は iOS Safari で動く）
+    const nativeFallback = await tryNativeDecodeAudioFallback(file, onProgress).catch(() => null);
+    if (nativeFallback) return nativeFallback;
+
+    // 最終手段: captureStream + MediaRecorder（実時間録音）
+    console.warn("[extractAudio] native decode also failed, falling back to MediaRecorder");
     onProgress?.({
       ratio: 0,
       stage: "record",
