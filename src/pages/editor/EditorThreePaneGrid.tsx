@@ -757,7 +757,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     minHeight: 0,
                     maxHeight: mobileEditorWaveExpanded
                       ? editorMobileLandscape
-                        ? "min(44dvh, 260px)"
+                        ? "min(26dvh, 130px)"  // 横向き展開: 最小限にしてステージ優先
                         : "min(52dvh, 340px)"
                       : editorMobileLandscape
                         ? "58px"  // 横向き折りたたみ時：コントロールバーのみ表示
@@ -968,51 +968,96 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 style={{
                   flexShrink: 0,
                   display: "flex",
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "6px 4px 8px",
+                  flexDirection: "column",
                   borderBottom: "1px solid #1e293b",
                 }}
               >
-                <button
-                  type="button"
-                  disabled={project.viewMode === "view"}
+                {/* 1行目: 再生コントロール */}
+                <div
                   style={{
-                    ...btnAccent,
-                    minWidth: 48,
-                    minHeight: 44,
-                    padding: "0 12px",
-                    touchAction: "manipulation",
-                  }}
-                  aria-label={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
-                  onClick={() => timelineRef.current?.togglePlay()}
-                >
-                  {isPlaying ? "⏸" : "▶"}
-                </button>
-                <span
-                  style={{
-                    fontSize: 13,
-                    fontVariantNumeric: "tabular-nums",
-                    color: shell.text,
-                    fontWeight: 600,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "6px 8px 4px",
                   }}
                 >
-                  {formatMmSsFloor(currentTime)} /{" "}
-                  {formatMmSsFloor(duration)}
-                </span>
-                <button
-                  type="button"
+                  <button
+                    type="button"
+                    disabled={project.viewMode === "view"}
+                    style={{
+                      ...btnAccent,
+                      minWidth: 56,
+                      minHeight: 50,
+                      padding: "0 14px",
+                      fontSize: 20,
+                      touchAction: "manipulation",
+                      flexShrink: 0,
+                    }}
+                    aria-label={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
+                    onClick={() => timelineRef.current?.togglePlay()}
+                  >
+                    {isPlaying ? "⏸" : "▶"}
+                  </button>
+                  <button
+                    type="button"
+                    style={{
+                      ...btnSecondary,
+                      minHeight: 50,
+                      padding: "0 12px",
+                      touchAction: "manipulation",
+                      flexShrink: 0,
+                    }}
+                    aria-label={t("editor.layout.stop")}
+                    onClick={() => timelineRef.current?.stopPlayback()}
+                  >
+                    ⏹
+                  </button>
+                  <span
+                    style={{
+                      fontSize: 14,
+                      fontVariantNumeric: "tabular-nums",
+                      color: shell.text,
+                      fontWeight: 600,
+                      marginLeft: "auto",
+                    }}
+                  >
+                    {formatMmSsFloor(currentTime)} / {formatMmSsFloor(duration)}
+                  </span>
+                </div>
+                {/* 2行目: 波形展開 + キューナビ */}
+                <div
                   style={{
-                    ...btnSecondary,
-                    marginLeft: "auto",
-                    minHeight: 40,
-                    touchAction: "manipulation",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "4px 8px 8px",
                   }}
-                  onClick={() => setMobileEditorWaveExpanded(true)}
                 >
-                  波形を表示
-                </button>
+                  <button
+                    type="button"
+                    style={{
+                      ...btnSecondary,
+                      minHeight: 42,
+                      padding: "0 12px",
+                      touchAction: "manipulation",
+                      flexShrink: 0,
+                    }}
+                    onClick={() => setMobileEditorWaveExpanded(true)}
+                  >
+                    波形を表示
+                  </button>
+                  {(cuesSortedForStageJump.length > 0 || hasRosterMembers) ? (
+                    <WorkbenchCuePager
+                      variant="inline"
+                      project={project}
+                      cuesSortedForStageJump={cuesSortedForStageJump}
+                      selectedCueId={selectedCueId}
+                      jumpToPagerSlot={jumpToPagerSlot}
+                      includeRosterSlot={hasRosterMembers}
+                      rosterTimelineHidden={project.rosterHidesTimeline === true}
+                    />
+                  ) : null}
+                </div>
               </div>
             ) : null}
             <div
@@ -1268,39 +1313,58 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 ) : null}
               </>
             ) : (
+              // 折りたたみ時: キーアクションをアイコンで直接表示（CTA廃止）
               <div
                 style={{
                   flexShrink: 0,
-                  width: "100%",
-                  padding: "12px 0 4px",
-                  boxSizing: "border-box",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "8px 4px",
+                  overflowX: "auto",
+                  WebkitOverflowScrolling: "touch",
                 }}
               >
                 <button
                   type="button"
                   style={{
                     ...btnAccent,
-                    width: "100%",
-                    minHeight: 48,
+                    minWidth: 54,
+                    minHeight: 54,
+                    flexShrink: 0,
+                    borderRadius: 14,
+                    fontSize: 22,
                     touchAction: "manipulation",
-                    fontSize: "14px",
-                    fontWeight: 700,
                   }}
-                  onClick={() => setMobileEditorToolsExpanded(true)}
+                  disabled={project.viewMode === "view"}
+                  title={t("editor.layout.addCueAria")}
+                  onClick={() => setAddCueDialogOpen(true)}
                 >
-                  操作パネルを表示
+                  ＋
                 </button>
-                <p
+                <button
+                  type="button"
                   style={{
-                    margin: "8px 0 0",
-                    fontSize: 11,
-                    color: shell.textMuted,
-                    lineHeight: 1.45,
-                    textAlign: "center",
+                    ...btnSecondary,
+                    minWidth: 54,
+                    minHeight: 54,
+                    flexShrink: 0,
+                    borderRadius: 14,
+                    fontSize: 22,
+                    touchAction: "manipulation",
                   }}
+                  title="舞台設定"
+                  onClick={() => setStageAreaSettingsOpen(true)}
                 >
-                  ツールバー・キュー操作・床テキストなどはここから開きます
-                </p>
+                  ⚙
+                </button>
+                <div style={{ flex: "1 1 auto", minWidth: 0, overflowX: "auto" }}>
+                  <EditorStageWorkbench
+                    key="wb-mobile-compact"
+                    layout="rail"
+                    {...stageWorkbenchProps}
+                  />
+                </div>
               </div>
             )}
           </div>
