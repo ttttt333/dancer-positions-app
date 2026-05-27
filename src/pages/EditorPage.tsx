@@ -1924,14 +1924,11 @@ export function EditorPage({
         ? (() => {
             const moreRoom = !mobileEditorWaveExpanded || !mobileEditorToolsExpanded;
             if (editorMobileLandscape) {
+              // 横向き: wave/toolsが折りたたまれているので残りを全てステージに割り当てる
               return {
-                flex: moreRoom ? "4 1 0" : "2 1 0",
-                minHeight: moreRoom
-                  ? "min(36dvh, 200px)"
-                  : "min(24dvh, 120px)",
-                maxHeight: moreRoom
-                  ? "min(58dvh, calc(100dvh - 140px))"
-                  : "min(44dvh, calc(100dvh - 200px))",
+                flex: "1 1 0",
+                minHeight: 0,
+                // maxHeight を外して flex で自然に余白を埋める
                 position: "relative",
                 borderBottom: "1px solid #1e293b",
                 borderRight: "none",
