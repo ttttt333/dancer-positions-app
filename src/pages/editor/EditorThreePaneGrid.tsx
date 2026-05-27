@@ -298,6 +298,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
         ) : null}
         <section
           ref={stageSectionRef}
+          className="editor-stage-section"
           style={{
             ...panelCard,
             padding: mobileStackEditor ? "3px 4px" : "5px",

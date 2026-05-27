@@ -35,7 +35,7 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
   const t = props.t as (key: string, params?: Record<string, string | number>) => string;
 
   return (
-    <NeonIconPanel
+    <div className="editor-neon-icon-panel-wrapper"><NeonIconPanel
       {...choreoToolbarSharedProps}
       stageGridLinesEnabled={
         (project.stageGridLinesVerticalEnabled ?? project.stageGridLinesEnabled ?? false) ||
@@ -97,6 +97,6 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
       onCollapseToggle={
         wideEditorLayout ? () => setRightPaneCollapsed((v) => !v) : undefined
       }
-    />
+    /></div>
   );
 }

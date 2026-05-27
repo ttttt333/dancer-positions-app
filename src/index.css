@@ -655,8 +655,9 @@ body {
 }
 
 /* ──────────────────────────────────────────────────────────────
-   MobileShell ラッパー内: EditorPage の内部モバイルコントロールを非表示にし
-   ステージが MobileShell のヘッダー・ボトムバーの間で最大化されるよう整える
+   MobileShell ラッパー内: EditorPage の内部コントロールを非表示にし
+   ステージが MobileShell のヘッダー・ボトムバーの間で最大化されるよう整える。
+   mobile/mid/wide すべてのレイアウトモードを包括的にカバー。
    ────────────────────────────────────────────────────────────── */
 
 /* EditorPage のルート要素: 100dvh → 100% に変更してフレックス制約に従わせる */
@@ -669,34 +670,56 @@ body {
   max-height: 100% !important;
 }
 
-/* EditorPage 自身のモバイルヘッダー (ChoreoCore ロゴ行) を非表示 */
-[data-shell-portrait] .editor-page-header--mobile,
-[data-shell-landscape] .editor-page-header--mobile {
+/* EditorPageHeader を全レイアウトモードで非表示（mobile クラスの有無に依存しない） */
+[data-shell-portrait] .editor-page-header,
+[data-shell-landscape] .editor-page-header {
   display: none !important;
 }
 
-/* 縦向き: EditorPage 自身の波形バーを非表示 (MobileShell の PortraitHeader で代替) */
+/* 縦向き: EditorPage 自身の波形バーを非表示 */
 [data-shell-portrait] .editor-mobile-wave-bar {
   display: none !important;
 }
 
-/* 縦向き: EditorPage 自身のツールアイコンバーを非表示 (MobileShell の PortraitBottomBar で代替) */
+/* 縦向き: EditorPage 自身のツールアイコンバーを非表示 */
 [data-shell-portrait] .editor-mobile-portrait-tools {
   display: none !important;
 }
 
-/* 横向き: EditorPage 自身の landscape ツールパネル・波形バーを非表示 */
+/* 横向き: EditorPage 自身の landscape コントロール類を非表示 */
 [data-shell-landscape] .editor-landscape-tools,
 [data-shell-landscape] .editor-landscape-timeline {
   display: none !important;
 }
 
-/* 横向き: EditorPage の CSS Grid を 1×1 に上書き → stage が全幅・全高を占有 */
-[data-shell-landscape] .editor-three-pane.editor-mobile-stack {
-  grid-template-columns: 1fr !important;
-  grid-template-rows: 1fr !important;
-  grid-template-areas: "stage" !important;
+/* 横向き: NeonIconPanel を非表示 (右サイドパネルで代替) */
+[data-shell-landscape] .editor-neon-icon-panel-wrapper {
+  display: none !important;
+}
+
+/* ─── 横向き: editor-three-pane をステージのみ表示 (全レイアウトモード対応) ─── */
+[data-shell-landscape] .editor-three-pane {
+  display: flex !important;
+  flex-direction: column !important;
   padding: 0 !important;
+  gap: 0 !important;
+  margin: 0 !important;
+}
+
+/* ステージ section 以外の直接子要素をすべて非表示 */
+[data-shell-landscape] .editor-three-pane > *:not(.editor-stage-section) {
+  display: none !important;
+}
+
+/* ステージ section がコンテナ全体を占有 */
+[data-shell-landscape] .editor-three-pane > .editor-stage-section {
+  flex: 1 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 /* 縦向き: EditorPage の flex 内 padding を除去（MobileShell が safe-area を管理） */

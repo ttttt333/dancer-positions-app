@@ -13,7 +13,7 @@ export function EditorPageHeader(props: EditorLayoutProps) {
 
   return (
     <header
-      className={mobileStackEditor ? "editor-page-header--mobile" : undefined}
+      className={mobileStackEditor ? "editor-page-header editor-page-header--mobile" : "editor-page-header"}
       style={{
         display: "flex",
         flexWrap: "wrap",
