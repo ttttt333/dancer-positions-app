@@ -4,11 +4,11 @@
   width: 148px;
   flex-shrink: 0;
   background: #0b1120;
-  border-left: 0.5px solid #1a2540;
+  border-right: 0.5px solid #1a2540;
   display: flex;
   flex-direction: column;
   padding: 6px 8px;
-  padding-right: max(8px, env(safe-area-inset-right, 8px));
+  padding-left: max(8px, env(safe-area-inset-left, 8px));
   padding-bottom: max(8px, env(safe-area-inset-bottom, 8px));
   gap: 6px;
   overflow-y: auto;
@@ -19,16 +19,17 @@
   width: 28px;
   flex-shrink: 0;
   background: #0b1120;
-  border-left: 0.5px solid #1a2540;
+  border-right: 0.5px solid #1a2540;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  padding-left: env(safe-area-inset-left, 0px);
 }
 
 .panelTop {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   margin-bottom: -2px;
 }
 
@@ -226,3 +227,51 @@
   transition: background 0.15s;
 }
 .darkBtn:active { background: #374151; }
+
+/* ── Undo / Redo (パネル下部) ── */
+.undoRedoRow {
+  margin-top: auto;
+  padding-top: 6px;
+  display: flex;
+  gap: 6px;
+}
+
+.histBtn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: rgba(255,255,255,0.04);
+  border: 0.5px solid rgba(255,255,255,0.10);
+  border-radius: 10px;
+  padding: 7px 0;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  color: #e2e8f0;
+}
+
+.histBtn:active:not(:disabled) {
+  background: rgba(217,119,6,0.18);
+  border-color: rgba(217,119,6,0.4);
+}
+
+.histBtn:disabled {
+  opacity: 0.2;
+  cursor: default;
+}
+
+.histIcon {
+  font-size: 18px;
+  line-height: 1;
+  display: block;
+}
+
+.histLabel {
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+  text-transform: uppercase;
+  line-height: 1;
+}

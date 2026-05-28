@@ -57,34 +57,7 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
   if (orientation === 'landscape') {
     return (
       <div className={styles.landscapeRoot} data-shell-landscape="">
-        {/* 左バー: Undo / Redo (左親指エリア) */}
-        <div className={styles.leftBar}>
-          <button
-            className={styles.sideBtn}
-            onClick={onUndo}
-            disabled={undoDisabled}
-            aria-label="元に戻す"
-          >
-            <span className={styles.sideBtnIcon}>↩</span>
-            <span className={styles.sideBtnLabel}>Undo</span>
-          </button>
-          <button
-            className={styles.sideBtn}
-            onClick={onRedo}
-            disabled={redoDisabled}
-            aria-label="やり直す"
-          >
-            <span className={styles.sideBtnIcon}>↪</span>
-            <span className={styles.sideBtnLabel}>Redo</span>
-          </button>
-        </div>
-
-        {/* ステージ: 波形ヘッダーを排除して全高使用 */}
-        <div className={styles.stageAreaLandscape}>
-          {props.children}
-        </div>
-
-        {/* 右サイドパネル: 再生コントロール + 波形 + キューナビ + アクション */}
+        {/* 左サイドパネル: 再生コントロール + 波形 + キューナビ + アクション + Undo/Redo */}
         <LandscapeSidePanel
           isPlaying={props.isPlaying}
           currentTime={props.currentTime}
@@ -98,7 +71,16 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
           onAddCue={props.onAddCue}
           onStageSettings={props.onStageSettings}
           onViewerList={props.onViewerList}
+          onUndo={onUndo}
+          onRedo={onRedo}
+          undoDisabled={undoDisabled}
+          redoDisabled={redoDisabled}
         />
+
+        {/* ステージ: 波形ヘッダーを排除して全高使用 */}
+        <div className={styles.stageAreaLandscape}>
+          {props.children}
+        </div>
       </div>
     )
   }

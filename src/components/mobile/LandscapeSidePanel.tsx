@@ -33,12 +33,17 @@ interface Props {
   onAddCue: () => void
   onStageSettings: () => void
   onViewerList: () => void
+  onUndo?: () => void
+  onRedo?: () => void
+  undoDisabled?: boolean
+  redoDisabled?: boolean
 }
 
 export const LandscapeSidePanel: React.FC<Props> = ({
   isPlaying, currentTime, duration, onPlayPause, onSeek,
   currentCueIndex, totalCues, onCuePrev, onCueNext,
   onAddCue, onStageSettings, onViewerList,
+  onUndo, onRedo, undoDisabled, redoDisabled,
 }) => {
   const [open, setOpen] = useState(true)
   const stageView = useMobileShellBridgeStore((s) => s.stageView)
@@ -57,7 +62,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
     return (
       <div className={styles.collapsed}>
         <button className={styles.collapseBtn} onClick={() => setOpen(true)} aria-label="パネルを開く">
-          ‹
+          ›
         </button>
       </div>
     )
@@ -68,7 +73,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
       {/* ── 閉じるボタン ── */}
       <div className={styles.panelTop}>
         <button className={styles.collapseBtn} onClick={() => setOpen(false)} aria-label="パネルを閉じる">
-          ›
+          ‹
         </button>
       </div>
 
@@ -169,6 +174,28 @@ export const LandscapeSidePanel: React.FC<Props> = ({
       <button className={styles.darkBtn} onClick={onStageSettings}>
         Stage Settings
       </button>
+
+      {/* ── Undo / Redo (パネル下部・左親指エリア) ── */}
+      <div className={styles.undoRedoRow}>
+        <button
+          className={styles.histBtn}
+          onClick={onUndo}
+          disabled={undoDisabled}
+          aria-label="元に戻す"
+        >
+          <span className={styles.histIcon}>↩</span>
+          <span className={styles.histLabel}>Undo</span>
+        </button>
+        <button
+          className={styles.histBtn}
+          onClick={onRedo}
+          disabled={redoDisabled}
+          aria-label="やり直す"
+        >
+          <span className={styles.histIcon}>↪</span>
+          <span className={styles.histLabel}>Redo</span>
+        </button>
+      </div>
     </div>
   )
 }
