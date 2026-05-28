@@ -26,14 +26,21 @@ type Props = {
   onStagePreviewChange?: (dancers: DancerSpot[] | null) => void;
 };
 
-function SpotThumb({ dancers }: { dancers: { xPct: number; yPct: number }[] }) {
+function SpotThumb({
+  dancers,
+  large = false,
+}: {
+  dancers: { xPct: number; yPct: number }[];
+  large?: boolean;
+}) {
   const radius = dancers.length >= 12 ? 2.4 : dancers.length >= 6 ? 3.0 : 3.4;
   return (
     <svg
       viewBox="0 0 100 60"
-      width={44}
-      height={26}
+      width={large ? 72 : 44}
+      height={large ? 44 : 26}
       aria-hidden
+      className={large ? "formation-preset-picker-thumb formation-preset-picker-thumb--large" : "formation-preset-picker-thumb"}
       style={{ display: "block", color: "#cbd5e1" }}
     >
       <rect
@@ -112,7 +119,7 @@ export function FormationPresetPickerSheet({
   );
   const wasOpenRef = useRef(false);
   const portraitMobileShell = usePortraitMobileShell();
-  const dockActionsBottomLeft = open && portraitMobileShell;
+  const portraitFullscreen = open && portraitMobileShell;
 
   const spacingOpts = useMemo(
     () => ({
@@ -204,12 +211,18 @@ export function FormationPresetPickerSheet({
 
   const noTarget = !targetFormation;
 
+  const subtitle = noTarget
+    ? "適用先のフォーメーションがありません"
+    : cueLabel
+      ? `「${cueLabel}」に反映（${count} 人）`
+      : `現在のフォーメーションに反映（${count} 人）`;
+
   const actionsPanel = (
     <div
       role="group"
       aria-label="立ち位置雛形の操作"
       className={
-        dockActionsBottomLeft
+        portraitFullscreen
           ? "formation-preset-picker-actions formation-preset-picker-actions--portrait-docked"
           : "formation-preset-picker-actions"
       }
@@ -232,8 +245,103 @@ export function FormationPresetPickerSheet({
     </div>
   );
 
+  const presetGrid = (
+    <div
+      className={
+        portraitFullscreen
+          ? "formation-preset-picker-sheet-body formation-preset-picker-sheet-body--portrait-full"
+          : "formation-preset-picker-sheet-body"
+      }
+      style={
+        portraitFullscreen
+          ? undefined
+          : {
+              flex: 1,
+              minHeight: 0,
+              overflowY: "auto",
+              padding: "12px 14px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+            }
+      }
+    >
+      {presetCategoryPreviews.map((cat) => (
+        <div key={cat.label} className="formation-preset-picker-category">
+          <div className="add-cue-preset-category formation-preset-picker-category-label">
+            {cat.label}
+          </div>
+          <div
+            className={
+              portraitFullscreen
+                ? "formation-preset-picker-grid"
+                : undefined
+            }
+            style={portraitFullscreen ? undefined : { display: "flex", flexWrap: "wrap", gap: "8px" }}
+          >
+            {cat.items.map((item) => {
+              const active = selectedPresetId === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="add-cue-preset-btn formation-preset-picker-preset-btn"
+                  disabled={noTarget}
+                  onClick={() => setSelectedPresetId(item.id)}
+                  title={item.label}
+                  style={{
+                    ...presetBtnStyle,
+                    border: active ? "2px solid #d4af37" : presetBtnStyle.border,
+                    background: active
+                      ? "rgba(212,175,55,0.15)"
+                      : presetBtnStyle.background,
+                    boxShadow: active ? "0 0 0 1px rgba(212,175,55,0.35)" : "none",
+                    opacity: noTarget ? 0.45 : 1,
+                    cursor: noTarget ? "not-allowed" : "pointer",
+                  }}
+                >
+                  <SpotThumb dancers={item.dancers} large={portraitFullscreen} />
+                  <span className="add-cue-preset-label formation-preset-picker-preset-label">
+                    {item.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const sheetHeader = (
+    <div className="formation-preset-picker-sheet-header">
+      <h2 id="formation-preset-picker-title">立ち位置の雛形</h2>
+      <p>{subtitle}</p>
+    </div>
+  );
+
+  if (!open) return null;
+
+  if (portraitFullscreen && typeof document !== "undefined") {
+    return createPortal(
+      <>
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="formation-preset-picker-title"
+          data-editor-sheet="formation-preset-picker"
+          className="formation-preset-picker-fullscreen"
+        >
+          {sheetHeader}
+          {presetGrid}
+        </div>
+        {actionsPanel}
+      </>,
+      document.body
+    );
+  }
+
   return (
-    <>
     <EditorSideSheet
       open={open}
       onClose={closeAndCleanup}
@@ -267,82 +375,13 @@ export function FormationPresetPickerSheet({
             立ち位置の雛形
           </h2>
           <p style={{ margin: "6px 0 0", fontSize: "11px", color: "#94a3b8", lineHeight: 1.45 }}>
-            {noTarget
-              ? "適用先のフォーメーションがありません"
-              : cueLabel
-                ? `「${cueLabel}」に反映（${count} 人）`
-                : `現在のフォーメーションに反映（${count} 人）`}
+            {subtitle}
           </p>
         </div>
-
-        <div
-          className="formation-preset-picker-sheet-body"
-          style={{
-            flex: 1,
-            minHeight: 0,
-            overflowY: "auto",
-            padding: "12px 14px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "12px",
-          }}
-        >
-          {presetCategoryPreviews.map((cat) => (
-            <div key={cat.label}>
-              <div
-                className="add-cue-preset-category"
-                style={{
-                  fontSize: "12px",
-                  fontWeight: 700,
-                  color: "#94a3b8",
-                  letterSpacing: "0.02em",
-                  marginBottom: "6px",
-                  paddingLeft: "2px",
-                }}
-              >
-                {cat.label}
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                {cat.items.map((item) => {
-                  const active = selectedPresetId === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className="add-cue-preset-btn"
-                      disabled={noTarget}
-                      onClick={() => setSelectedPresetId(item.id)}
-                      title={item.label}
-                      style={{
-                        ...presetBtnStyle,
-                        border: active ? "2px solid #d4af37" : presetBtnStyle.border,
-                        background: active
-                          ? "rgba(212,175,55,0.15)"
-                          : presetBtnStyle.background,
-                        boxShadow: active ? "0 0 0 1px rgba(212,175,55,0.35)" : "none",
-                        opacity: noTarget ? 0.45 : 1,
-                        cursor: noTarget ? "not-allowed" : "pointer",
-                      }}
-                    >
-                      <SpotThumb dancers={item.dancers} />
-                      <span className="add-cue-preset-label" style={presetLabelStyle}>
-                        {item.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {!dockActionsBottomLeft ? actionsPanel : null}
+        {presetGrid}
+        {actionsPanel}
       </div>
     </EditorSideSheet>
-    {dockActionsBottomLeft && typeof document !== "undefined"
-      ? createPortal(actionsPanel, document.body)
-      : null}
-    </>
   );
 }
 
@@ -353,8 +392,6 @@ const presetBtnStyle: CSSProperties = {
   color: "#e2e8f0",
   cursor: "pointer",
 };
-
-const presetLabelStyle: CSSProperties = {};
 
 const cancelBtnStyle: CSSProperties = {
   padding: "10px 18px",

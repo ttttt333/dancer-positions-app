@@ -1059,15 +1059,102 @@ body {
 }
 
 /*
-  縦画面 Change 雛形: ステージを広く見せるため下部コンパクトシート +
+  縦画面 Change 雛形: 画面いっぱいのグリッド +
   閉じる・適用は画面左下固定（浮遊 ✕ 閉じるは MobileShell 側で非表示）
 */
 [data-shell-portrait] {
   --portrait-bottom-bar-h: 160px;
-  --formation-picker-actions-h: 52px;
+  --formation-picker-actions-h: 56px;
 }
 
-[data-shell-portrait] [role="dialog"][data-editor-sheet="formation-preset-picker"] {
+.formation-preset-picker-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: flex;
+  flex-direction: column;
+  background: #07090f;
+  color: #e2e8f0;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: calc(
+    var(--portrait-bottom-bar-h, 160px) + var(--formation-picker-actions-h, 56px) +
+      env(safe-area-inset-bottom, 0px) + 8px
+  );
+  overflow: hidden;
+}
+
+.formation-preset-picker-fullscreen .formation-preset-picker-sheet-header {
+  flex-shrink: 0;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.22);
+  background: #07090f;
+}
+
+.formation-preset-picker-fullscreen .formation-preset-picker-sheet-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.formation-preset-picker-fullscreen .formation-preset-picker-sheet-header p {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.45;
+}
+
+.formation-preset-picker-sheet-body--portrait-full {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: 10px 10px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.formation-preset-picker-category-label {
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  color: #cbd5e1 !important;
+  letter-spacing: 0.02em;
+  margin-bottom: 8px !important;
+  padding-left: 2px;
+}
+
+.formation-preset-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.formation-preset-picker-grid .formation-preset-picker-preset-btn {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  min-height: 108px;
+  padding: 8px 6px 10px !important;
+  gap: 6px !important;
+}
+
+.formation-preset-picker-grid .formation-preset-picker-thumb--large {
+  width: 100% !important;
+  height: auto !important;
+  max-height: 52px;
+}
+
+.formation-preset-picker-grid .formation-preset-picker-preset-label {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  line-height: 1.35 !important;
+  min-height: calc(1.35em * 2) !important;
+}
+
+/* 旧: 下部コンパクトシート（縦画面フルスクリーン化のため非使用・横画面は EditorSideSheet のまま） */
+[data-shell-portrait] [role="dialog"][data-editor-sheet="formation-preset-picker"]:not(.formation-preset-picker-fullscreen) {
   top: auto !important;
   left: 0 !important;
   right: 0 !important;
@@ -1086,18 +1173,6 @@ body {
   background: rgba(7, 9, 15, 0.97) !important;
 }
 
-[data-shell-portrait]
-  [data-editor-sheet-root="formation-preset-picker"]
-  > button[aria-label="パネルを閉じる"] {
-  top: env(safe-area-inset-top, 0px) !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: calc(
-    var(--portrait-bottom-bar-h) + env(safe-area-inset-bottom, 0px) +
-      var(--formation-picker-actions-h) + min(38vh, 300px)
-  ) !important;
-}
-
 [data-shell-portrait] .formation-preset-picker-sheet-header {
   padding: 8px 12px 6px !important;
 }
@@ -1111,7 +1186,7 @@ body {
   margin-top: 4px !important;
 }
 
-[data-shell-portrait] .formation-preset-picker-sheet-body {
+[data-shell-portrait] .formation-preset-picker-sheet-body:not(.formation-preset-picker-sheet-body--portrait-full) {
   padding: 8px 10px !important;
   gap: 8px !important;
 }
@@ -1122,7 +1197,7 @@ body {
   left: max(10px, env(safe-area-inset-left, 0px)) !important;
   right: auto !important;
   bottom: calc(
-    var(--portrait-bottom-bar-h, 160px) + env(safe-area-inset-bottom, 0px) + 6px
+    var(--portrait-bottom-bar-h, 160px) + env(safe-area-inset-bottom, 0px) + 8px
   ) !important;
   z-index: 520 !important;
   display: flex !important;
