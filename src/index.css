@@ -781,25 +781,33 @@ body {
       position:fixed / top:56px を持つため個別に上書き。
 */
 
-/* 横向き: 最上部 & 左サイドパネルを避け、ステージエリア内に表示 */
+/* 横向き: 画面下部 & 左サイドパネルを避けて表示 */
 [data-shell-landscape] [role="dialog"][aria-modal="false"] {
-  top: env(safe-area-inset-top, 4px) !important;
-  left: calc(148px + 6px) !important;
-  right: max(6px, env(safe-area-inset-right, 6px)) !important;
-  bottom: max(6px, env(safe-area-inset-bottom, 6px)) !important;
+  top: auto !important;
+  bottom: max(12px, env(safe-area-inset-bottom, 12px)) !important;
+  left: calc(148px + 8px) !important;
+  right: max(8px, env(safe-area-inset-right, 8px)) !important;
   max-width: none !important;
   margin-left: 0 !important;
   width: auto !important;
+  max-height: 70vh !important;
+  overflow-y: auto !important;
+  border-radius: 20px !important;
 }
 
-/* 縦向き: 最上部から表示・横幅フル活用 */
+/* 縦向き: ボトムバー直上から表示・横幅フル活用 */
 [data-shell-portrait] [role="dialog"][aria-modal="false"] {
-  top: env(safe-area-inset-top, 4px) !important;
+  top: auto !important;
+  /* PortraitBottomBar の高さ(cueRow≈50px + tabBar≈43px) + safe-area の上に配置 */
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px)) !important;
   left: max(8px, env(safe-area-inset-left, 8px)) !important;
   right: max(8px, env(safe-area-inset-right, 8px)) !important;
   max-width: none !important;
   margin-left: 0 !important;
   width: auto !important;
+  max-height: 60vh !important;
+  overflow-y: auto !important;
+  border-radius: 20px !important;
 }
 
 /*
@@ -814,6 +822,86 @@ body {
 [data-shell-landscape] select {
   font-size: max(16px, 0.875em) !important;
   touch-action: manipulation;
+}
+
+/*
+   4. ダイアログ内テキストを大きく・読みやすく
+      EditorSideSheet 系 (aria-modal="true") + AddCueWithFormationDialog (aria-modal="false")
+      のすべての文字要素を 20px ベースにし、ボタン・入力欄も大きくタップしやすく整える。
+*/
+
+/* ─ テキスト要素共通 ─ */
+[data-shell-portrait]  [role="dialog"] label,
+[data-shell-portrait]  [role="dialog"] p,
+[data-shell-portrait]  [role="dialog"] span:not([aria-hidden="true"]),
+[data-shell-portrait]  [role="dialog"] li,
+[data-shell-portrait]  [role="dialog"] td,
+[data-shell-portrait]  [role="dialog"] th,
+[data-shell-portrait]  [role="dialog"] h1,
+[data-shell-portrait]  [role="dialog"] h2,
+[data-shell-portrait]  [role="dialog"] h3,
+[data-shell-portrait]  [role="dialog"] h4,
+[data-shell-portrait]  [role="dialog"] h5,
+[data-shell-landscape] [role="dialog"] label,
+[data-shell-landscape] [role="dialog"] p,
+[data-shell-landscape] [role="dialog"] span:not([aria-hidden="true"]),
+[data-shell-landscape] [role="dialog"] li,
+[data-shell-landscape] [role="dialog"] td,
+[data-shell-landscape] [role="dialog"] th,
+[data-shell-landscape] [role="dialog"] h1,
+[data-shell-landscape] [role="dialog"] h2,
+[data-shell-landscape] [role="dialog"] h3,
+[data-shell-landscape] [role="dialog"] h4,
+[data-shell-landscape] [role="dialog"] h5 {
+  font-size: 18px !important;
+  line-height: 1.65 !important;
+}
+
+/* 見出しは少し大きめ */
+[data-shell-portrait]  [role="dialog"] h1,
+[data-shell-portrait]  [role="dialog"] h2,
+[data-shell-portrait]  [role="dialog"] h3,
+[data-shell-landscape] [role="dialog"] h1,
+[data-shell-landscape] [role="dialog"] h2,
+[data-shell-landscape] [role="dialog"] h3 {
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  line-height: 1.4 !important;
+}
+
+/* ─ ボタン ─ */
+[data-shell-portrait]  [role="dialog"] button,
+[data-shell-landscape] [role="dialog"] button {
+  font-size: 18px !important;
+  min-height: 52px !important;
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+  line-height: 1.4 !important;
+  border-radius: 12px !important;
+}
+
+/* ─ 入力欄・セレクト・テキストエリア ─ */
+[data-shell-portrait]  [role="dialog"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+[data-shell-portrait]  [role="dialog"] select,
+[data-shell-portrait]  [role="dialog"] textarea,
+[data-shell-landscape] [role="dialog"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+[data-shell-landscape] [role="dialog"] select,
+[data-shell-landscape] [role="dialog"] textarea {
+  font-size: 18px !important;
+  min-height: 52px !important;
+  padding: 12px 16px !important;
+  line-height: 1.5 !important;
+  border-radius: 10px !important;
+}
+
+/* チェックボックス・ラジオはタップしやすい最低サイズに */
+[data-shell-portrait]  [role="dialog"] input[type="checkbox"],
+[data-shell-portrait]  [role="dialog"] input[type="radio"],
+[data-shell-landscape] [role="dialog"] input[type="checkbox"],
+[data-shell-landscape] [role="dialog"] input[type="radio"] {
+  width: 24px !important;
+  height: 24px !important;
+  min-height: unset !important;
 }
 
 /* ── ログイン／登録：iOS のフォーカス時拡大を抑え、タップ領域を確保 ── */

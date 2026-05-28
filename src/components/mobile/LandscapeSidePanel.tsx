@@ -1,13 +1,24 @@
 /**
  * LandscapeSidePanel.tsx
- * 横向き専用の右サイドパネル（理想レイアウト版）
- * 再生コントロール行 + キューナビ + アクションボタン
- * 波形はこのパネル内に集約（上部には表示しない）
+ * 横向き専用の左サイドパネル
+ * 再生コントロール行 + キューナビ + Menuボタン + Undo/Redo
  */
 
 import React, { useState, useRef, useCallback } from 'react'
 import styles from './LandscapeSidePanel.module.css'
 import { useMobileShellBridgeStore } from '../../store/useMobileShellBridgeStore'
+
+interface MenuItem {
+  label: string
+  icon: string
+  action: () => void
+}
+
+interface MenuSection {
+  title: string
+  icon: string
+  items: MenuItem[]
+}
 
 // ── 波形バーの高さデータ (固定値) ──
 const WAVE_HEIGHTS = [
@@ -46,8 +57,65 @@ export const LandscapeSidePanel: React.FC<Props> = ({
   onUndo, onRedo, undoDisabled, redoDisabled,
 }) => {
   const [open, setOpen] = useState(true)
+  const [menuOpen, setMenuOpen] = useState(false)
   const stageView = useMobileShellBridgeStore((s) => s.stageView)
   const onStageViewChange = useMobileShellBridgeStore((s) => s.onStageViewChange)
+  const onSaveSpot    = useMobileShellBridgeStore((s) => s.onSaveSpot)
+  const onAddText     = useMobileShellBridgeStore((s) => s.onAddText)
+  const onCueList     = useMobileShellBridgeStore((s) => s.onCueList)
+  const onStageShape  = useMobileShellBridgeStore((s) => s.onStageShape)
+  const onSetPiece    = useMobileShellBridgeStore((s) => s.onSetPiece)
+  const onAudioImport = useMobileShellBridgeStore((s) => s.onAudioImport)
+  const onRosterImport = useMobileShellBridgeStore((s) => s.onRosterImport)
+  const onMemberList  = useMobileShellBridgeStore((s) => s.onMemberList)
+  const onMemberAdd   = useMobileShellBridgeStore((s) => s.onMemberAdd)
+  const onShareLinks  = useMobileShellBridgeStore((s) => s.onShareLinks)
+  const onHelp        = useMobileShellBridgeStore((s) => s.onHelp)
+  const onFlowLibrary = useMobileShellBridgeStore((s) => s.onFlowLibrary)
+
+  const MENU_SECTIONS: MenuSection[] = [
+    {
+      title: 'Stages', icon: '🎭',
+      items: [
+        { label: 'キュー設定',       icon: '🎬', action: onAddCue },
+        { label: '舞台設定',         icon: '⚙️', action: onStageSettings },
+        { label: 'キュー一覧',       icon: '📋', action: onCueList },
+        { label: 'ライブラリ',       icon: '📚', action: onFlowLibrary },
+        { label: '立ち位置雛形保存', icon: '💾', action: onSaveSpot },
+        { label: 'テキスト追加',     icon: '✏️', action: onAddText },
+        { label: '舞台変形',         icon: '🏟️', action: onStageShape },
+        { label: '大道具追加',       icon: '🪑', action: onSetPiece },
+      ],
+    },
+    {
+      title: 'Timeline', icon: '🎵',
+      items: [
+        { label: '音源追加', icon: '🎵', action: onAudioImport },
+        { label: '名簿取込', icon: '📄', action: onRosterImport },
+      ],
+    },
+    {
+      title: 'Team', icon: '👥',
+      items: [
+        { label: 'メンバー表示', icon: '👤', action: onMemberList },
+        { label: 'メンバー追加', icon: '➕', action: onMemberAdd },
+        { label: '閲覧共有',    icon: '🔗', action: onShareLinks },
+      ],
+    },
+    {
+      title: 'Settings', icon: '⚙️',
+      items: [
+        { label: 'エクスポート', icon: '📤', action: onViewerList },
+        { label: 'ヘルプ',      icon: '❓', action: onHelp },
+      ],
+    },
+  ]
+
+  const handleMenuItemTap = useCallback((action: () => void) => {
+    action()
+    setMenuOpen(false)
+  }, [])
+
   const waveRef = useRef<HTMLDivElement>(null)
   const playedBars = Math.floor((currentTime / Math.max(duration, 1)) * WAVE_HEIGHTS.length)
   const pct = duration > 0 ? (currentTime / duration) * 100 : 0
@@ -162,40 +230,85 @@ export const LandscapeSidePanel: React.FC<Props> = ({
         </button>
       </div>
 
-      <div className={styles.divider} />
-
-      {/* ── アクションボタン ── */}
-      <button className={styles.viewerBtn} onClick={onViewerList}>
-        Viewer List
-      </button>
-      <button className={styles.goldBtn} onClick={onAddCue}>
-        + Next Cue
-      </button>
-      <button className={styles.darkBtn} onClick={onStageSettings}>
-        Stage Settings
-      </button>
-
-      {/* ── Undo / Redo (パネル下部・左親指エリア) ── */}
-      <div className={styles.undoRedoRow}>
+      {/* ── Menu + Undo/Redo (パネル下部) ── */}
+      <div className={styles.bottomArea}>
+        {/* ☰ Menu ボタン */}
         <button
-          className={styles.histBtn}
-          onClick={onUndo}
-          disabled={undoDisabled}
-          aria-label="元に戻す"
+          className={styles.menuBtn}
+          onClick={() => setMenuOpen(true)}
+          aria-label="メニューを開く"
+          aria-expanded={menuOpen}
         >
-          <span className={styles.histIcon}>↩</span>
-          <span className={styles.histLabel}>Undo</span>
+          <span className={styles.menuBtnIcon}>☰</span>
+          <span className={styles.menuBtnLabel}>Menu</span>
         </button>
-        <button
-          className={styles.histBtn}
-          onClick={onRedo}
-          disabled={redoDisabled}
-          aria-label="やり直す"
-        >
-          <span className={styles.histIcon}>↪</span>
-          <span className={styles.histLabel}>Redo</span>
-        </button>
+
+        {/* Undo / Redo */}
+        <div className={styles.undoRedoRow}>
+          <button
+            className={styles.histBtn}
+            onClick={onUndo}
+            disabled={undoDisabled}
+            aria-label="元に戻す"
+          >
+            <span className={styles.histIcon}>↩</span>
+            <span className={styles.histLabel}>Undo</span>
+          </button>
+          <button
+            className={styles.histBtn}
+            onClick={onRedo}
+            disabled={redoDisabled}
+            aria-label="やり直す"
+          >
+            <span className={styles.histIcon}>↪</span>
+            <span className={styles.histLabel}>Redo</span>
+          </button>
+        </div>
       </div>
+
+      {/* ── メニューオーバーレイ ── */}
+      {menuOpen && (
+        <>
+          <div
+            className={styles.menuBackdrop}
+            onClick={() => setMenuOpen(false)}
+          />
+          <div className={styles.menuSheet} role="dialog" aria-label="メニュー">
+            {/* ヘッダー */}
+            <div className={styles.menuSheetHeader}>
+              <span className={styles.menuSheetTitle}>Menu</span>
+              <button
+                className={styles.menuSheetClose}
+                onClick={() => setMenuOpen(false)}
+                aria-label="メニューを閉じる"
+              >✕</button>
+            </div>
+
+            {/* セクション一覧 */}
+            <div className={styles.menuContent}>
+              {MENU_SECTIONS.map((section) => (
+                <div key={section.title} className={styles.menuSection}>
+                  <div className={styles.menuSectionTitle}>
+                    <span>{section.icon}</span> {section.title}
+                  </div>
+                  <div className={styles.menuGrid}>
+                    {section.items.map((item) => (
+                      <button
+                        key={item.label}
+                        className={styles.menuItem}
+                        onClick={() => handleMenuItemTap(item.action)}
+                      >
+                        <span className={styles.menuItemIcon}>{item.icon}</span>
+                        <span className={styles.menuItemLabel}>{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

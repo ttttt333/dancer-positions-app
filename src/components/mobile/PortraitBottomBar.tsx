@@ -106,8 +106,15 @@ export const PortraitBottomBar: React.FC<Props> = ({
         <div className={styles.menuBackdrop} onClick={() => setOpenMenu(null)} />
         <div className={styles.menuSheet}>
           <div className={styles.menuHandle} />
-          <div className={styles.menuTitle}>
-            {TABS.find(t => t.id === openMenu)?.label}
+          <div className={styles.menuTitleRow}>
+            <div className={styles.menuTitle}>
+              {TABS.find(t => t.id === openMenu)?.label}
+            </div>
+            <button
+              className={styles.menuCloseBtn}
+              onClick={() => setOpenMenu(null)}
+              aria-label="メニューを閉じる"
+            >✕</button>
           </div>
           <div className={styles.menuList}>
             {menuItems.map((item) => (

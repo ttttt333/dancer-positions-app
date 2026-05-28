@@ -11,7 +11,7 @@
  *   </MobileShell>
  */
 
-import React from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useOrientation } from '../../hooks/useOrientation'
 import { PortraitHeader } from './PortraitHeader'
 import { PortraitBottomBar } from './PortraitBottomBar'
@@ -56,6 +56,52 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
   const onAddCue = useMobileShellBridgeStore((s) => s.onAddCue)
   const cueStartTimes = useMobileShellBridgeStore((s) => s.cueStartTimes)
 
+  // ── ダイアログ開閉を監視して浮遊閉じるボタンを表示 ──
+  const [hasOpenDialog, setHasOpenDialog] = useState(false)
+
+  useEffect(() => {
+    const checkDialog = () => {
+      const modal = document.querySelector('[role="dialog"][aria-modal="true"]')
+      const nonModal = document.querySelector('[role="dialog"][aria-modal="false"]')
+      setHasOpenDialog(!!(modal || nonModal))
+    }
+    const observer = new MutationObserver(checkDialog)
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['role', 'aria-modal'],
+    })
+    checkDialog()
+    return () => observer.disconnect()
+  }, [])
+
+  const handleFloatingClose = useCallback(() => {
+    // EditorSideSheet の透明クリック領域ボタン
+    const dismissBtn = document.querySelector(
+      'button[aria-label="パネルを閉じる"]'
+    ) as HTMLButtonElement | null
+    if (dismissBtn && !dismissBtn.disabled) {
+      dismissBtn.click()
+      return
+    }
+    // ダイアログ内の閉じる/キャンセルボタン
+    const dialog = document.querySelector('[role="dialog"]')
+    if (dialog) {
+      const closeBtn = dialog.querySelector(
+        'button[aria-label*="閉じ"], button[aria-label*="キャンセル"], button[aria-label*="close"]'
+      ) as HTMLButtonElement | null
+      if (closeBtn) {
+        closeBtn.click()
+        return
+      }
+    }
+    // フォールバック: Escape キー
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    )
+  }, [])
+
   if (orientation === 'landscape') {
     return (
       <div className={styles.landscapeRoot} data-shell-landscape="">
@@ -83,6 +129,13 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
         <div className={styles.stageAreaLandscape}>
           {props.children}
         </div>
+
+        {/* ダイアログが開いているときだけ浮遊閉じるボタンを表示 */}
+        {hasOpenDialog && (
+          <button className={styles.floatingClose} onClick={handleFloatingClose} aria-label="ダイアログを閉じる">
+            ✕ 閉じる
+          </button>
+        )}
       </div>
     )
   }
@@ -119,6 +172,13 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
         activeTab={props.activeTab}
         onTabChange={props.onTabChange}
       />
+
+      {/* ダイアログが開いているときだけ浮遊閉じるボタンを表示 */}
+      {hasOpenDialog && (
+        <button className={styles.floatingClose} onClick={handleFloatingClose} aria-label="ダイアログを閉じる">
+          ✕ 閉じる
+        </button>
+      )}
     </div>
   )
 }

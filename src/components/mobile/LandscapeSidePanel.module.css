@@ -188,50 +188,50 @@
   letter-spacing: 0.03em;
 }
 
-/* ── アクションボタン ── */
-.viewerBtn {
-  width: 100%;
-  padding: 5px 0;
-  border-radius: 7px;
-  border: 0.5px solid rgba(217,119,6,0.4);
-  color: #d97706;
-  background: rgba(217,119,6,0.07);
-  font-size: 10px;
-  cursor: pointer;
-  font-weight: 600;
-  letter-spacing: 0.03em;
+/* ── 下部エリア (Menu + Undo/Redo) ── */
+.bottomArea {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
-.goldBtn {
+
+/* ── ☰ Menu ボタン ── */
+.menuBtn {
   width: 100%;
-  padding: 8px 0;
-  border-radius: 9px;
-  background: #d97706;
-  color: #0f172a;
+  padding: 10px 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #1e3a5f 0%, #1a2f4e 100%);
+  border: 1px solid #3b82f6;
+  color: #93c5fd;
   font-size: 11px;
   font-weight: 700;
-  border: none;
   cursor: pointer;
-  transition: opacity 0.15s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  transition: background 0.15s, border-color 0.15s;
+  letter-spacing: 0.04em;
 }
-.goldBtn:active { opacity: 0.8; }
-.darkBtn {
-  width: 100%;
-  padding: 8px 0;
-  border-radius: 9px;
-  background: #1f2937;
-  color: #d1d5db;
-  font-size: 11px;
-  font-weight: 600;
-  border: 0.5px solid #374151;
-  cursor: pointer;
-  transition: background 0.15s;
+.menuBtn:active {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  border-color: #60a5fa;
 }
-.darkBtn:active { background: #374151; }
+.menuBtnIcon {
+  font-size: 20px;
+  line-height: 1;
+}
+.menuBtnLabel {
+  font-size: 9px;
+  font-weight: 700;
+  color: #93c5fd;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
 
-/* ── Undo / Redo (パネル下部) ── */
+/* ── Undo / Redo (パネル最下部) ── */
 .undoRedoRow {
-  margin-top: auto;
-  padding-top: 6px;
   display: flex;
   gap: 6px;
 }
@@ -274,4 +274,144 @@
   color: #6b7280;
   text-transform: uppercase;
   line-height: 1;
+}
+
+/* ══════════════════════════════════════
+   横画面 全メニュー オーバーレイ
+   ══════════════════════════════════════ */
+
+.menuBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 400;
+  touch-action: none;
+}
+
+.menuSheet {
+  position: fixed;
+  /* 左パネル(148px)の右端から画面右端まで */
+  left: 148px;
+  right: 0;
+  bottom: 0;
+  top: 0;
+  z-index: 401;
+  background: #0f172a;
+  border-left: 1px solid #1a2540;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideInRight 0.22s cubic-bezier(0.34, 1.26, 0.64, 1);
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+.menuSheetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px 10px 20px;
+  border-bottom: 0.5px solid #1a2540;
+  flex-shrink: 0;
+  background: #0b1120;
+  padding-top: max(10px, env(safe-area-inset-top, 10px));
+}
+
+.menuSheetTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #f1f5f9;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.menuSheetClose {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 0.5px solid rgba(255, 255, 255, 0.15);
+  color: #9ca3af;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.menuSheetClose:active {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.menuContent {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 10px 12px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom, 12px));
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-content: flex-start;
+}
+
+.menuSection {
+  width: calc(50% - 6px);
+  min-width: 140px;
+}
+
+.menuSectionTitle {
+  font-size: 10px;
+  font-weight: 700;
+  color: #4b5563;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.menuGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 0.5px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: background 0.12s;
+}
+.menuItem:active {
+  background: rgba(217, 119, 6, 0.15);
+  border-color: rgba(217, 119, 6, 0.3);
+}
+
+.menuItemIcon {
+  font-size: 18px;
+  width: 24px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.menuItemLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: #e2e8f0;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
 }

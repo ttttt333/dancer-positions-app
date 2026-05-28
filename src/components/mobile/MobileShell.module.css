@@ -107,3 +107,37 @@
   text-transform: uppercase;
   line-height: 1;
 }
+
+/* ── ダイアログ浮遊閉じるボタン ── */
+.floatingClose {
+  position: fixed;
+  /* 縦画面ではタブバーの高さ (~80px) + safe-area の上に配置 */
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 88px);
+  right: 16px;
+  z-index: 500;
+  background: rgba(17, 24, 39, 0.92);
+  color: #f1f5f9;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  border-radius: 999px;
+  padding: 0 20px;
+  height: 48px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(239,68,68,0.2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  /* タッチ操作しやすいよう最小サイズを確保 */
+  min-width: 48px;
+  touch-action: manipulation;
+}
+.floatingClose:active {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.8);
+  transform: scale(0.96);
+}
