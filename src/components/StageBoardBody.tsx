@@ -354,6 +354,8 @@ export function StageBoardBody({
     string,
     number
   > | null>(null);
+  const markerDiamDraftRafRef = useRef<number | null>(null);
+  const markerDiamDraftPendingRef = useRef<Map<string, number> | null>(null);
   /**
    * 回転ハンドルドラッグ中の向きプレビュー（選択中の各 ID → 度）。
    * ポインターアップでプロジェクトに確定するまで `facingDeg` 表示に使う。
@@ -727,6 +729,32 @@ export function StageBoardBody({
     playbackOrPreview,
     viewMode,
     markerGroupPosDraft,
+  ]);
+
+  /** 複数選択時：○サイズハンドルを範囲枠の右下（最南東の立ち位置）に置く */
+  const groupMarkerResizeAnchor = useMemo(() => {
+    if (!selectionBox || selectedDancerIds.length < 2) return null;
+    const ds = (
+      writeFormation?.dancers ??
+      activeFormation?.dancers ??
+      []
+    ).filter((x) => selectedDancerIds.includes(x.id));
+    let maxPx = baseMarkerPx;
+    for (const d of ds) {
+      maxPx = Math.max(maxPx, effectiveMarkerPx(d));
+    }
+    return {
+      xPct: selectionBox.x1,
+      yPct: selectionBox.y1,
+      markerPx: maxPx,
+    };
+  }, [
+    selectionBox,
+    selectedDancerIds,
+    writeFormation,
+    activeFormation,
+    baseMarkerPx,
+    effectiveMarkerPx,
   ]);
 
   /**
@@ -3036,7 +3064,8 @@ export function StageBoardBody({
         const dx = e.clientX - m.startClientX;
         const dy = e.clientY - m.startClientY;
         /** 右下方向に引っ張ると大きく、左上に引くと小さくなる */
-        const delta = (dx + dy) / 2;
+        const bulk = m.ids.length >= 2;
+        const delta = (dx + dy) * (bulk ? 0.85 : 0.65);
         const draft = new Map<string, number>();
         for (const [id, s0] of m.startSizes) {
           const next = Math.round(
@@ -3044,7 +3073,14 @@ export function StageBoardBody({
           );
           draft.set(id, next);
         }
-        setMarkerDiamDraft(draft);
+        markerDiamDraftPendingRef.current = draft;
+        if (markerDiamDraftRafRef.current === null) {
+          markerDiamDraftRafRef.current = requestAnimationFrame(() => {
+            markerDiamDraftRafRef.current = null;
+            const pending = markerDiamDraftPendingRef.current;
+            if (pending) setMarkerDiamDraft(new Map(pending));
+          });
+        }
         setTrashHotIfChanged(false);
         return;
       }
@@ -3215,12 +3251,19 @@ export function StageBoardBody({
       setMarkerGroupPosDraft(null);
       /** ○サイズ確定（選択中の各ダンサーに `sizePx` を保存する） */
       const m = markerResizeRef.current;
-      if (m && markerDiamDraft && markerDiamDraft.size > 0) {
-        const changed = [...markerDiamDraft.entries()].some(
+      if (markerDiamDraftRafRef.current !== null) {
+        cancelAnimationFrame(markerDiamDraftRafRef.current);
+        markerDiamDraftRafRef.current = null;
+      }
+      const pendingDiamDraft =
+        markerDiamDraftPendingRef.current ?? markerDiamDraft;
+      markerDiamDraftPendingRef.current = null;
+      if (m && pendingDiamDraft && pendingDiamDraft.size > 0) {
+        const changed = [...pendingDiamDraft.entries()].some(
           ([id, v]) => m.startSizes.get(id) !== v,
         );
         if (changed) {
-          const nextSizes = new Map(markerDiamDraft);
+          const nextSizes = new Map(pendingDiamDraft);
           setProject((p) => ({
             ...p,
             formations: p.formations.map((f) =>
@@ -3291,6 +3334,11 @@ export function StageBoardBody({
         queuedFormationRafId = null;
       }
       queuedFormationUpdater = null;
+      if (markerDiamDraftRafRef.current !== null) {
+        cancelAnimationFrame(markerDiamDraftRafRef.current);
+        markerDiamDraftRafRef.current = null;
+      }
+      markerDiamDraftPendingRef.current = null;
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
@@ -4093,6 +4141,7 @@ export function StageBoardBody({
         stageInteractionsEnabled,
         marquee,
         primarySelectedDancer,
+        groupMarkerResizeAnchor,
         effectiveMarkerPx,
         effectiveFacingDeg,
         onGroupBoxHandlePointerDown: handlePointerDownGroupBoxHandle,

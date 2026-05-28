@@ -43,6 +43,12 @@ export type StageMainFloorInteractionLayerProps = {
   stageInteractionsEnabled: boolean;
   marquee: StageMarqueePct | null;
   primarySelectedDancer: DancerSpot | null;
+  /** 複数選択時は範囲枠右下に ○ サイズハンドルを置く */
+  groupMarkerResizeAnchor: {
+    xPct: number;
+    yPct: number;
+    markerPx: number;
+  } | null;
   effectiveMarkerPx: (d: DancerSpot) => number;
   effectiveFacingDeg: (d: DancerSpot) => number;
   onGroupBoxHandlePointerDown: (
@@ -82,6 +88,7 @@ export function StageMainFloorInteractionLayer({
   stageInteractionsEnabled,
   marquee,
   primarySelectedDancer,
+  groupMarkerResizeAnchor,
   effectiveMarkerPx,
   effectiveFacingDeg,
   onGroupBoxHandlePointerDown,
@@ -204,12 +211,23 @@ export function StageMainFloorInteractionLayer({
       {dancerMarkerElements}
       {primarySelectedDancer && !marquee ? (
         <StagePrimaryMarkerResizeHandle
-          xPct={primarySelectedDancer.xPct}
-          yPct={primarySelectedDancer.yPct}
-          facingDeg={normalizeDancerFacingDeg(
-            effectiveFacingDeg(primarySelectedDancer)
-          )}
-          markerPx={effectiveMarkerPx(primarySelectedDancer)}
+          xPct={
+            groupMarkerResizeAnchor?.xPct ?? primarySelectedDancer.xPct
+          }
+          yPct={
+            groupMarkerResizeAnchor?.yPct ?? primarySelectedDancer.yPct
+          }
+          facingDeg={
+            groupMarkerResizeAnchor
+              ? 0
+              : normalizeDancerFacingDeg(
+                  effectiveFacingDeg(primarySelectedDancer)
+                )
+          }
+          markerPx={
+            groupMarkerResizeAnchor?.markerPx ??
+            effectiveMarkerPx(primarySelectedDancer)
+          }
           selectedCount={selectedDancerIds.length}
           onPointerDown={onMarkerResizePointerDown}
         />
