@@ -6,6 +6,7 @@ import {
   useState,
   type CSSProperties,
 } from "react";
+import { createPortal } from "react-dom";
 import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography";
 import {
   dancersForLayoutPreset,
@@ -62,6 +63,25 @@ function SpotThumb({ dancers }: { dancers: { xPct: number; yPct: number }[] }) {
   );
 }
 
+function usePortraitMobileShell(): boolean {
+  const [active, setActive] = useState(false);
+  useEffect(() => {
+    const read = () =>
+      setActive(
+        typeof document !== "undefined" &&
+          document.querySelector("[data-shell-portrait]") != null
+      );
+    read();
+    window.addEventListener("resize", read);
+    window.addEventListener("orientationchange", read);
+    return () => {
+      window.removeEventListener("resize", read);
+      window.removeEventListener("orientationchange", read);
+    };
+  }, []);
+  return active;
+}
+
 export function FormationPresetPickerSheet({
   open,
   onClose,
@@ -91,6 +111,8 @@ export function FormationPresetPickerSheet({
     null
   );
   const wasOpenRef = useRef(false);
+  const portraitMobileShell = usePortraitMobileShell();
+  const dockActionsBottomLeft = open && portraitMobileShell;
 
   const spacingOpts = useMemo(
     () => ({
@@ -181,6 +203,34 @@ export function FormationPresetPickerSheet({
   }, [project.cues, selectedCueId]);
 
   const noTarget = !targetFormation;
+
+  const actionsPanel = (
+    <div
+      role="group"
+      aria-label="立ち位置雛形の操作"
+      className={
+        dockActionsBottomLeft
+          ? "formation-preset-picker-actions formation-preset-picker-actions--portrait-docked"
+          : "formation-preset-picker-actions"
+      }
+    >
+      <button type="button" onClick={closeAndCleanup} style={cancelBtnStyle}>
+        閉じる
+      </button>
+      <button
+        type="button"
+        onClick={apply}
+        disabled={noTarget || !selectedPresetId}
+        style={{
+          ...applyBtnStyle,
+          opacity: noTarget || !selectedPresetId ? 0.45 : 1,
+          cursor: noTarget || !selectedPresetId ? "not-allowed" : "pointer",
+        }}
+      >
+        適用
+      </button>
+    </div>
+  );
 
   return (
     <>
@@ -286,29 +336,12 @@ export function FormationPresetPickerSheet({
           ))}
         </div>
 
-        <div
-          role="group"
-          aria-label="立ち位置雛形の操作"
-          className="formation-preset-picker-actions"
-        >
-          <button type="button" onClick={closeAndCleanup} style={cancelBtnStyle}>
-            閉じる
-          </button>
-          <button
-            type="button"
-            onClick={apply}
-            disabled={noTarget || !selectedPresetId}
-            style={{
-              ...applyBtnStyle,
-              opacity: noTarget || !selectedPresetId ? 0.45 : 1,
-              cursor: noTarget || !selectedPresetId ? "not-allowed" : "pointer",
-            }}
-          >
-            適用
-          </button>
-        </div>
+        {!dockActionsBottomLeft ? actionsPanel : null}
       </div>
     </EditorSideSheet>
+    {dockActionsBottomLeft && typeof document !== "undefined"
+      ? createPortal(actionsPanel, document.body)
+      : null}
     </>
   );
 }
