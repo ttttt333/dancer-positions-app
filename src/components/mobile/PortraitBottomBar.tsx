@@ -10,6 +10,7 @@
 
 import React from 'react'
 import styles from './PortraitBottomBar.module.css'
+import { useMobileShellBridgeStore } from '../../store/useMobileShellBridgeStore'
 
 const TABS = [
   { id: 'stages'   as const, label: 'Stages',   icon: '⬜' },
@@ -35,29 +36,36 @@ interface Props {
 export const PortraitBottomBar: React.FC<Props> = ({
   currentCueIndex, totalCues, onCuePrev, onCueNext,
   onAddCue, onStageSettings, onViewerList, activeTab, onTabChange,
-}) => (
+}) => {
+  const onUndo = useMobileShellBridgeStore((s) => s.onUndo)
+  const onRedo = useMobileShellBridgeStore((s) => s.onRedo)
+  const undoDisabled = useMobileShellBridgeStore((s) => s.undoDisabled)
+  const redoDisabled = useMobileShellBridgeStore((s) => s.redoDisabled)
+
+  return (
   <div className={styles.bar}>
-    {/* ── キューナビ ── */}
+    {/* ── Undo / Redo + キューナビ 1行 ── */}
     <div className={styles.cueRow}>
+      {/* Undo / Redo */}
+      <button className={styles.histBtn} onClick={onUndo} disabled={undoDisabled} aria-label="元に戻す">↩</button>
+      <button className={styles.histBtn} onClick={onRedo} disabled={redoDisabled} aria-label="やり直す">↪</button>
+
       <div className={styles.cueNav}>
         <button
           className={styles.navArrow}
           onClick={onCuePrev}
           disabled={currentCueIndex === 0}
           aria-label="前のキュー"
-        >◀</button>
+        >‹</button>
         <span className={styles.cueLabel}>
-          Cue {currentCueIndex + 1} / {totalCues}
+          {currentCueIndex + 1} / {totalCues}
         </span>
         <button
           className={styles.navArrow}
           onClick={onCueNext}
           disabled={currentCueIndex >= totalCues - 1}
           aria-label="次のキュー"
-        >▶</button>
-        <button className={styles.addCueBtn} onClick={onAddCue}>
-          ADD CUE
-        </button>
+        >›</button>
       </div>
     </div>
 
@@ -94,4 +102,5 @@ export const PortraitBottomBar: React.FC<Props> = ({
       ))}
     </div>
   </div>
-)
+  )
+}

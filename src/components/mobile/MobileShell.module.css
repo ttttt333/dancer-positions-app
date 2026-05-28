@@ -53,41 +53,57 @@
   overflow: hidden;
 }
 
-/* Undo / Redo フローティングボタン (左親指エリア: 左下) */
-.undoRedoFloat {
-  position: absolute;
-  bottom: max(16px, env(safe-area-inset-bottom, 16px));
-  left: max(14px, env(safe-area-inset-left, 14px));
+/* ── 左バー (Undo/Redo 縦並び) ── */
+.leftBar {
+  width: 54px;
+  flex-shrink: 0;
   display: flex;
-  gap: 8px;
-  z-index: 60;
-  pointer-events: auto;
-}
-
-.undoBtn {
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
-  background: rgba(15, 23, 42, 0.82);
-  border: 0.5px solid rgba(255, 255, 255, 0.12);
-  color: #e2e8f0;
-  font-size: 22px;
-  cursor: pointer;
-  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  transition: background 0.15s, opacity 0.15s;
-  padding: 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  gap: 10px;
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: linear-gradient(180deg, #0a0f1e 0%, #080c18 100%);
+  border-right: 0.5px solid rgba(255,255,255,0.06);
 }
 
-.undoBtn:active:not(:disabled) {
-  background: rgba(30, 41, 59, 0.95);
+.sideBtn {
+  width: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: rgba(255,255,255,0.04);
+  border: 0.5px solid rgba(255,255,255,0.10);
+  border-radius: 12px;
+  padding: 8px 0;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  color: #e2e8f0;
 }
 
-.undoBtn:disabled {
-  opacity: 0.25;
+.sideBtn:active:not(:disabled) {
+  background: rgba(217,119,6,0.18);
+  border-color: rgba(217,119,6,0.4);
+}
+
+.sideBtn:disabled {
+  opacity: 0.2;
   cursor: default;
+}
+
+.sideBtnIcon {
+  font-size: 20px;
+  line-height: 1;
+  display: block;
+}
+
+.sideBtnLabel {
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #6b7280;
+  text-transform: uppercase;
+  line-height: 1;
 }

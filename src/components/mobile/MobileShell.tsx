@@ -57,31 +57,31 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
   if (orientation === 'landscape') {
     return (
       <div className={styles.landscapeRoot} data-shell-landscape="">
-        {/* ステージ: 横向きでは波形ヘッダーを排除して全高使用 */}
+        {/* 左バー: Undo / Redo (左親指エリア) */}
+        <div className={styles.leftBar}>
+          <button
+            className={styles.sideBtn}
+            onClick={onUndo}
+            disabled={undoDisabled}
+            aria-label="元に戻す"
+          >
+            <span className={styles.sideBtnIcon}>↩</span>
+            <span className={styles.sideBtnLabel}>Undo</span>
+          </button>
+          <button
+            className={styles.sideBtn}
+            onClick={onRedo}
+            disabled={redoDisabled}
+            aria-label="やり直す"
+          >
+            <span className={styles.sideBtnIcon}>↪</span>
+            <span className={styles.sideBtnLabel}>Redo</span>
+          </button>
+        </div>
+
+        {/* ステージ: 波形ヘッダーを排除して全高使用 */}
         <div className={styles.stageAreaLandscape}>
           {props.children}
-
-          {/* Undo / Redo: 左親指が届く左下フローティング */}
-          <div className={styles.undoRedoFloat}>
-            <button
-              className={styles.undoBtn}
-              onClick={onUndo}
-              disabled={undoDisabled}
-              aria-label="元に戻す"
-              title="元に戻す (Undo)"
-            >
-              ↩
-            </button>
-            <button
-              className={styles.undoBtn}
-              onClick={onRedo}
-              disabled={redoDisabled}
-              aria-label="やり直す"
-              title="やり直す (Redo)"
-            >
-              ↪
-            </button>
-          </div>
         </div>
 
         {/* 右サイドパネル: 再生コントロール + 波形 + キューナビ + アクション */}

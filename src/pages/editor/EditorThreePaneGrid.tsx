@@ -712,6 +712,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 {mobileStackEditor &&
                 (cuesSortedForStageJump.length > 0 || hasRosterMembers) ? (
                   <div
+                    className="editor-stage-cuepager"
                     style={{
                       position: "absolute",
                       bottom: "max(16px, env(safe-area-inset-bottom, 0px))",

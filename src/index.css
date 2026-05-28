@@ -702,6 +702,11 @@ body {
   display: none !important;
 }
 
+/* 横向き: ステージ底部の WorkbenchCuePager を非表示 (右パネルのキューナビで代替) */
+[data-shell-landscape] .editor-stage-cuepager {
+  display: none !important;
+}
+
 /* ─── 横向き: editor-three-pane をステージのみ表示 (全レイアウトモード対応) ─── */
 [data-shell-landscape] .editor-three-pane {
   display: flex !important;
