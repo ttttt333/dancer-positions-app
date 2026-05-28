@@ -108,6 +108,7 @@ import { FlowLibraryDialog } from "../components/FlowLibraryDialog";
 import { AddCueWithFormationDialog } from "../components/AddCueWithFormationDialog";
 import { FormationPresetPickerSheet } from "../components/FormationPresetPickerSheet";
 import { isSupabaseBackend } from "../lib/supabaseClient";
+import { isCollabFeatureAvailable } from "../lib/collabAvailability";
 import { projectShareLinks } from "../lib/shareProjectLinks";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
@@ -186,7 +187,9 @@ export function EditorPage({
   const { editorMobileStackBreakpoint, editorMobileLandscape } = useEditorViewport();
   const { me, ready: authReady } = useAuth();
   const { t } = useI18n();
-  const collabParam = searchParams.get("collab") === "1" && !choreoPublicView;
+  const collabRequested = searchParams.get("collab") === "1" && !choreoPublicView;
+  const collabParam = collabRequested && isCollabFeatureAvailable();
+  const collabUnavailableNotice = collabRequested && !isCollabFeatureAvailable();
   const onHistoryResetRef = useRef<() => void>(() => {});
   const onHistoryReset = useCallback(() => {
     onHistoryResetRef.current();
@@ -2555,5 +2558,38 @@ export function EditorPage({
     workbenchInRightRail,
   };
 
-  return <EditorPageLayout {...editorLayoutProps} />;
+  return (
+    <>
+      {collabUnavailableNotice ? (
+        <div
+          role="status"
+          style={{
+            padding: "10px 16px",
+            background: "rgba(120, 80, 0, 0.25)",
+            borderBottom: "1px solid rgba(251, 191, 36, 0.45)",
+            color: "#fde68a",
+            fontSize: "13px",
+            lineHeight: 1.5,
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: 12,
+            justifyContent: "space-between",
+          }}
+        >
+          <span>{t("editor.collabUnavailable")}</span>
+          <button
+            type="button"
+            style={{ ...btnSecondary, fontSize: "12px", padding: "6px 12px" }}
+            onClick={() =>
+              navigate({ pathname: location.pathname, search: "" }, { replace: true })
+            }
+          >
+            {t("editor.collabOpenNormal")}
+          </button>
+        </div>
+      ) : null}
+      <EditorPageLayout {...editorLayoutProps} />
+    </>
+  );
 }

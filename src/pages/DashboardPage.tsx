@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
 import { billingApi, isDemoSessionToken, projectApi } from "../api/client";
+import { isCollabFeatureAvailable } from "../lib/collabAvailability";
 import { ChoreoCoreLogo } from "../components/ChoreoCoreLogo";
 import { btnAccent, btnSecondary } from "../components/stageButtonStyles";
 import { panelCard, shell } from "../theme/choreoShell";
@@ -464,18 +465,20 @@ export function DashboardPage() {
                       background: "rgba(0,0,0,0.15)",
                     }}
                   >
-                    <Link
-                      to={`/editor/${p.id}?collab=1`}
-                      style={{
-                        ...btnSecondary,
-                        fontSize: "12px",
-                        padding: "6px 12px",
-                        textDecoration: "none",
-                      }}
-                      title={t("dashboard.collabHint")}
-                    >
-                      {t("dashboard.collab")}
-                    </Link>
+                    {isCollabFeatureAvailable() ? (
+                      <Link
+                        to={`/editor/${p.id}?collab=1`}
+                        style={{
+                          ...btnSecondary,
+                          fontSize: "12px",
+                          padding: "6px 12px",
+                          textDecoration: "none",
+                        }}
+                        title={t("dashboard.collabHint")}
+                      >
+                        {t("dashboard.collab")}
+                      </Link>
+                    ) : null}
                     <button
                       type="button"
                       style={{ ...btnSecondary, fontSize: "12px", padding: "6px 12px" }}

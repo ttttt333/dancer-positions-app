@@ -80,6 +80,9 @@ const EN_BASE: MessageBundle = {
   "auth.socialLoginFailed": "Google sign-in failed. Check provider settings in Supabase.",
   "auth.redirecting": "Redirecting…",
   "auth.orEmailDivider": "or with email",
+  "editor.collabUnavailable":
+    "Collaborative editing is not available on this deployment (Supabase cloud). You can edit normally; changes save to the cloud.",
+  "editor.collabOpenNormal": "Switch to normal editing",
   "library.pageTitle": "Choose a project",
   "library.pageSubtitle": "Pick a new or saved project before opening the editor.",
   "library.newWork": "Start new project (editor)",
@@ -194,6 +197,9 @@ const BASE_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "auth.socialLoginFailed": "Google ログインに失敗しました。Supabase の Google 設定を確認してください。",
     "auth.redirecting": "リダイレクト中…",
     "auth.orEmailDivider": "またはメールで",
+    "editor.collabUnavailable":
+      "この環境（Supabase クラウド）では共同編集サーバーが未設定のため、共同編集は利用できません。通常編集でクラウド保存は可能です。",
+    "editor.collabOpenNormal": "通常編集に切り替え",
     "library.pageTitle": "作品を選ぶ",
     "library.pageSubtitle":
       "編集ページに入る前に、新規作成または保存済みの作品を選べます。",
@@ -304,6 +310,9 @@ const BASE_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "auth.socialLoginFailed": "Google 로그인에 실패했습니다. Supabase Google 설정을 확인하세요.",
     "auth.redirecting": "리디렉션 중…",
     "auth.orEmailDivider": "또는 이메일로",
+    "editor.collabUnavailable":
+      "이 환경(Supabase 클라우드)에서는 공동 편집 서버가 없어 공동 편집을 사용할 수 없습니다. 일반 편집으로 클라우드 저장은 가능합니다.",
+    "editor.collabOpenNormal": "일반 편집으로 전환",
     "library.pageTitle": "작품 선택",
     "library.pageSubtitle": "편집 화면에 들어가기 전에 새로 만들기 또는 저장된 작품을 고릅니다.",
     "library.newWork": "새로 시작 (에디터)",
@@ -410,6 +419,9 @@ const BASE_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "auth.socialLoginFailed": "Google 登录失败，请检查 Supabase 的 Google 设置。",
     "auth.redirecting": "跳转中…",
     "auth.orEmailDivider": "或使用邮箱",
+    "editor.collabUnavailable":
+      "当前环境（Supabase 云端）未配置协作编辑服务器，无法使用共同编辑。可正常编辑并保存到云端。",
+    "editor.collabOpenNormal": "切换到普通编辑",
     "library.pageTitle": "选择作品",
     "library.pageSubtitle": "进入编辑页之前，可新建或打开已保存的作品。",
     "library.newWork": "新建并开始（编辑器）",
