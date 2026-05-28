@@ -1,8 +1,7 @@
 -- CHOREOCORE: Supabase（Dashboard の SQL エディタに貼り付けて実行）
 -- 1. 認証（Authentication → Providers）:
 --    - Email+Password（Email から有効化）
---    - Google / Apple / GitHub / Facebook / X など OAuth（各プロバイダの Client ID 等を設定）
---    - Phone（SMS OTP、Twilio 等が必要）
+--    - Google OAuth（Client ID / Secret を設定）
 -- 2. Authentication → URL Configuration:
 --    Site URL と Redirect URLs に /login と /register を登録
 -- 3. 開発時は Email の「Confirm email」をオフにすると、登録直後にセッションが作られます。

@@ -1,37 +1,13 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
-import { useI18n } from "../../i18n/I18nContext";
 import {
   clearAuthCallbackParams,
   parseAuthCallbackError,
-  sendPhoneOtp,
-  signInWithSocialProvider,
-  SOCIAL_AUTH_PROVIDERS,
-  type SocialAuthProvider,
-  verifyPhoneOtp,
+  signInWithGoogle,
 } from "../../lib/supabaseAuth";
-import { btnAccent, btnSecondary, inputField } from "../stageButtonStyles";
+import { useI18n } from "../../i18n/I18nContext";
+import { btnSecondary } from "../stageButtonStyles";
 import { shell } from "../../theme/choreoShell";
-
-const labelStyle: CSSProperties = {
-  display: "block",
-  marginBottom: "14px",
-  fontSize: "12px",
-  fontWeight: 600,
-  color: shell.textMuted,
-  letterSpacing: "0.04em",
-};
-
-const inputStyle: CSSProperties = {
-  ...inputField,
-  display: "block",
-  width: "100%",
-  marginTop: "6px",
-  padding: "12px 14px",
-  boxSizing: "border-box",
-};
 
 const socialBtnStyle: CSSProperties = {
   ...btnSecondary,
@@ -51,17 +27,10 @@ type Props = {
 
 export function AuthAlternativeMethods({ onError }: Props) {
   const { t } = useI18n();
-  const { refresh } = useAuth();
-  const navigate = useNavigate();
-  const [socialLoading, setSocialLoading] = useState<SocialAuthProvider | null>(null);
-  const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [phoneLoading, setPhoneLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
 
-  // OAuth 失敗時の URL エラーはマウント時に一度だけ表示（onError を deps に入れると再レンダーループの原因になる）
   useEffect(() => {
     const callbackError = parseAuthCallbackError();
     if (callbackError) {
@@ -70,49 +39,14 @@ export function AuthAlternativeMethods({ onError }: Props) {
     }
   }, []);
 
-  const handleSocial = async (provider: SocialAuthProvider) => {
+  const handleGoogle = async () => {
     onError("");
-    setSocialLoading(provider);
+    setGoogleLoading(true);
     try {
-      await signInWithSocialProvider(provider);
+      await signInWithGoogle();
     } catch (err) {
-      setSocialLoading(null);
+      setGoogleLoading(false);
       onError(err instanceof Error ? err.message : t("auth.socialLoginFailed"));
-    }
-  };
-
-  const handleSendOtp = async () => {
-    onError("");
-    if (!phone.trim()) {
-      onError(t("auth.phoneRequired"));
-      return;
-    }
-    setPhoneLoading(true);
-    try {
-      await sendPhoneOtp(phone);
-      setOtpSent(true);
-    } catch (err) {
-      onError(err instanceof Error ? err.message : t("auth.phoneOtpSendFailed"));
-    } finally {
-      setPhoneLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    onError("");
-    if (!otp.trim()) {
-      onError(t("auth.otpRequired"));
-      return;
-    }
-    setPhoneLoading(true);
-    try {
-      await verifyPhoneOtp(phone, otp);
-      await refresh();
-      navigate("/", { replace: true });
-    } catch (err) {
-      onError(err instanceof Error ? err.message : t("auth.phoneOtpVerifyFailed"));
-    } finally {
-      setPhoneLoading(false);
     }
   };
 
@@ -129,106 +63,14 @@ export function AuthAlternativeMethods({ onError }: Props) {
       >
         {t("auth.quickSignInHeading")}
       </p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {SOCIAL_AUTH_PROVIDERS.map(({ id, labelKey }) => (
-          <button
-            key={id}
-            type="button"
-            disabled={socialLoading !== null || phoneLoading}
-            style={{
-              ...socialBtnStyle,
-              opacity: socialLoading && socialLoading !== id ? 0.55 : 1,
-            }}
-            onClick={() => handleSocial(id)}
-          >
-            {socialLoading === id ? t("auth.redirecting") : t(labelKey)}
-          </button>
-        ))}
-      </div>
-
-      <div style={{ marginTop: 18 }}>
-        <p
-          style={{
-            margin: "0 0 10px",
-            fontSize: "12px",
-            fontWeight: 600,
-            color: shell.textMuted,
-            letterSpacing: "0.04em",
-          }}
-        >
-          {t("auth.phoneHeading")}
-        </p>
-        <label style={labelStyle}>
-          {t("auth.phoneLabel")}
-          <input
-            type="tel"
-            autoComplete="tel"
-            inputMode="tel"
-            placeholder={t("auth.phonePlaceholder")}
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            style={inputStyle}
-            disabled={phoneLoading}
-          />
-        </label>
-        {otpSent ? (
-          <label style={labelStyle}>
-            {t("auth.otpLabel")}
-            <input
-              type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              placeholder={t("auth.otpPlaceholder")}
-              value={otp}
-              onChange={(e) => setOtp(e.target.value)}
-              style={inputStyle}
-              disabled={phoneLoading}
-            />
-          </label>
-        ) : null}
-        <button
-          type="button"
-          disabled={phoneLoading || socialLoading !== null}
-          style={{ ...btnAccent, width: "100%", padding: "11px 18px", marginTop: 4 }}
-          onClick={otpSent ? handleVerifyOtp : handleSendOtp}
-        >
-          {phoneLoading
-            ? t("auth.phoneWorking")
-            : otpSent
-              ? t("auth.verifyOtp")
-              : t("auth.sendOtp")}
-        </button>
-        {otpSent ? (
-          <button
-            type="button"
-            disabled={phoneLoading}
-            style={{
-              ...btnSecondary,
-              width: "100%",
-              marginTop: 8,
-              padding: "8px 14px",
-              fontSize: "12px",
-            }}
-            onClick={() => {
-              setOtpSent(false);
-              setOtp("");
-              onError("");
-            }}
-          >
-            {t("auth.changePhone")}
-          </button>
-        ) : null}
-        <p
-          style={{
-            margin: "8px 0 0",
-            fontSize: "11px",
-            lineHeight: 1.45,
-            color: shell.textSubtle,
-          }}
-        >
-          {t("auth.phoneHint")}
-        </p>
-      </div>
+      <button
+        type="button"
+        disabled={googleLoading}
+        style={socialBtnStyle}
+        onClick={handleGoogle}
+      >
+        {googleLoading ? t("auth.redirecting") : t("auth.continueGoogle")}
+      </button>
     </div>
   );
 }

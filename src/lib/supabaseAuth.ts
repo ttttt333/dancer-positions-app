@@ -1,21 +1,11 @@
-import type { Provider } from "@supabase/supabase-js";
 import { getSupabase } from "./supabaseClient";
 
-export type SocialAuthProvider = Extract<
-  Provider,
-  "google" | "apple" | "github" | "facebook" | "twitter"
->;
+export type SocialAuthProvider = "google";
 
 export const SOCIAL_AUTH_PROVIDERS: {
   id: SocialAuthProvider;
   labelKey: string;
-}[] = [
-  { id: "google", labelKey: "auth.continueGoogle" },
-  { id: "apple", labelKey: "auth.continueApple" },
-  { id: "github", labelKey: "auth.continueGithub" },
-  { id: "facebook", labelKey: "auth.continueFacebook" },
-  { id: "twitter", labelKey: "auth.continueTwitter" },
-];
+}[] = [{ id: "google", labelKey: "auth.continueGoogle" }];
 
 export function getAuthRedirectUrl(): string {
   if (typeof window === "undefined") return "";
@@ -23,9 +13,9 @@ export function getAuthRedirectUrl(): string {
   return `${window.location.origin}${path}`;
 }
 
-export async function signInWithSocialProvider(provider: SocialAuthProvider): Promise<void> {
+export async function signInWithGoogle(): Promise<void> {
   const { error } = await getSupabase().auth.signInWithOAuth({
-    provider,
+    provider: "google",
     options: {
       redirectTo: getAuthRedirectUrl(),
     },
@@ -69,27 +59,4 @@ export function clearAuthSessionHashIfPresent(): void {
     return;
   }
   clearAuthCallbackParams();
-}
-
-export function normalizePhoneE164(raw: string, defaultCountryCode = "+81"): string {
-  const trimmed = raw.trim().replace(/[\s\-()]/g, "");
-  if (trimmed.startsWith("+")) return trimmed;
-  if (trimmed.startsWith("0")) return defaultCountryCode + trimmed.slice(1);
-  return defaultCountryCode + trimmed;
-}
-
-export async function sendPhoneOtp(phone: string): Promise<void> {
-  const { error } = await getSupabase().auth.signInWithOtp({
-    phone: normalizePhoneE164(phone),
-  });
-  if (error) throw error;
-}
-
-export async function verifyPhoneOtp(phone: string, token: string): Promise<void> {
-  const { error } = await getSupabase().auth.verifyOtp({
-    phone: normalizePhoneE164(phone),
-    token: token.trim(),
-    type: "sms",
-  });
-  if (error) throw error;
 }
