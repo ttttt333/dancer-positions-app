@@ -20,6 +20,7 @@ import { migrateCuesFromRaw } from "../core/timelineController";
 import {
   clampStageGridAxisMm,
   createEmptyProject,
+  LEGACY_DANCER_MARKER_DIAMETER_PX,
   MARKER_DIAMETER_PX_MAX,
   MARKER_DIAMETER_PX_MIN,
   migrateAudienceEdge,
@@ -281,7 +282,10 @@ function normalizeDancerSpot(raw: unknown, index: number): DancerSpot {
   const sizeRaw = d.sizePx;
   const sizePx =
     typeof sizeRaw === "number" && Number.isFinite(sizeRaw)
-      ? Math.max(20, Math.min(120, Math.round(sizeRaw)))
+      ? Math.max(
+          MARKER_DIAMETER_PX_MIN,
+          Math.min(MARKER_DIAMETER_PX_MAX, Math.round(sizeRaw))
+        )
       : undefined;
   const hRaw = d.heightCm;
   const heightCm =
@@ -398,7 +402,9 @@ function normalizeSavedSpotStageSnapshot(
     typeof o.dancerMarkerDiameterPx === "number" && Number.isFinite(o.dancerMarkerDiameterPx)
       ? (() => {
           const r = Math.round(o.dancerMarkerDiameterPx);
-          if (r === 44) return defaults.dancerMarkerDiameterPx;
+          if (r === 44 || r === LEGACY_DANCER_MARKER_DIAMETER_PX) {
+            return defaults.dancerMarkerDiameterPx;
+          }
           return Math.max(
             MARKER_DIAMETER_PX_MIN,
             Math.min(MARKER_DIAMETER_PX_MAX, r)
@@ -698,7 +704,9 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
         return defaults.dancerMarkerDiameterPx;
       }
       const r = Math.round(raw);
-      if (r === 44) return defaults.dancerMarkerDiameterPx;
+      if (r === 44 || r === LEGACY_DANCER_MARKER_DIAMETER_PX) {
+        return defaults.dancerMarkerDiameterPx;
+      }
       return Math.max(
         MARKER_DIAMETER_PX_MIN,
         Math.min(MARKER_DIAMETER_PX_MAX, r)

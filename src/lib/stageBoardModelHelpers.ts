@@ -160,10 +160,11 @@ export function floorTextDraftColorHex(color: string | undefined): string {
 
 /** ○内ラベル用フォント（px）。印が大きいほど比例して大きく */
 export function markerCircleLabelFontPx(markerPx: number): number {
-  return Math.max(
-    14,
-    Math.min(34, Math.round(19 * (markerPx / DEFAULT_DANCER_MARKER_DIAMETER_PX)))
+  const scaled = Math.round(
+    19 * (markerPx / DEFAULT_DANCER_MARKER_DIAMETER_PX)
   );
+  const minFont = markerPx <= 12 ? 7 : markerPx <= 16 ? 9 : 11;
+  return Math.max(minFont, Math.min(34, scaled));
 }
 
 /** ○の下に出す名前用（○内よりやや小さめ） */
