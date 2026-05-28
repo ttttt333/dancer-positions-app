@@ -1101,14 +1101,23 @@ export function EditorPage({
   const applyStageAreaSettingsDraft = useCallback(() => {
     if (!project || project.viewMode === "view") return;
     const d = stageAreaSettingsDraftRef.current;
+    const gridWidthCm = clampGridSpacingCm(parseGridSpacingInput(gridWidthCmInput));
+    const gridDepthCm = clampGridSpacingCm(parseGridSpacingInput(gridDepthCmInput));
     const w = parseMeterCmDraftToMm(d.width);
     const depthMm = parseMeterCmDraftToMm(d.depth);
     const s = parseMeterCmDraftToMm(d.side);
     const b = parseMeterCmDraftToMm(d.back);
     const gRaw = parseMeterCmDraftToMm(d.guide);
     const g = clampGuideIntervalToWidth(w, gRaw);
-    const gw = Math.max(1, Math.min(100, Math.round(d.gridWidthCm))) * 10;
-    const gd = Math.max(1, Math.min(100, Math.round(d.gridDepthCm))) * 10;
+    const gw = gridWidthCm * 10;
+    const gd = gridDepthCm * 10;
+    setStageAreaSettingsDraft((prev) => ({
+      ...prev,
+      gridWidthCm,
+      gridDepthCm,
+    }));
+    setGridWidthCmInput(String(gridWidthCm));
+    setGridDepthCmInput(String(gridDepthCm));
     setProjectSafe((p) => ({
       ...p,
       audienceEdge: d.audienceEdge,
@@ -1128,7 +1137,7 @@ export function EditorPage({
       stageGridSpacingDepthMm: gd,
       dancerLabelPosition: d.dancerLabelPosition,
     }));
-  }, [project, setProjectSafe]);
+  }, [project, setProjectSafe, gridWidthCmInput, gridDepthCmInput]);
 
   const stageAreaDraftHasMainFloor = useMemo(() => {
     const w = parseMeterCmDraftToMm(stageAreaSettingsDraft.width);
@@ -1201,6 +1210,65 @@ export function EditorPage({
     setGridWidthCmInput(String(stageAreaSettingsDraft.gridWidthCm));
     setGridDepthCmInput(String(stageAreaSettingsDraft.gridDepthCm));
   }, [stageAreaSettingsDraft.gridWidthCm, stageAreaSettingsDraft.gridDepthCm]);
+
+  /** 舞台設定を開いたときに現在のプロジェクト値をドラフトへ反映 */
+  useEffect(() => {
+    if (!project) {
+      prevStageAreaOpenRef.current = false;
+      return;
+    }
+    if (stageAreaSettingsOpen && !prevStageAreaOpenRef.current) {
+      setStageAreaSettingsDraft(projectToStageAreaDraft(project));
+      setStageAreaPresetList(listStagePresets());
+      setStageAreaPresetSelectNonce((n) => n + 1);
+    }
+    prevStageAreaOpenRef.current = stageAreaSettingsOpen;
+  }, [stageAreaSettingsOpen, project]);
+
+  /**
+   * 舞台設定表示中はドラフト（寸法・グリッド等）を StageBoard に反映し、
+   * 決定前でもステージ上でプレビューできるようにする。
+   */
+  const projectForStageBoard = useMemo((): ChoreographyProjectJson | null => {
+    if (!project) return null;
+    if (!stageAreaSettingsOpen) return project;
+    const d = stageAreaSettingsDraft;
+    const w = parseMeterCmDraftToMm(d.width);
+    const depthMm = parseMeterCmDraftToMm(d.depth);
+    const s = parseMeterCmDraftToMm(d.side);
+    const b = parseMeterCmDraftToMm(d.back);
+    const gRaw = parseMeterCmDraftToMm(d.guide);
+    const g = clampGuideIntervalToWidth(w, gRaw);
+    const gridWidthCm = clampGridSpacingCm(parseGridSpacingInput(gridWidthCmInput));
+    const gridDepthCm = clampGridSpacingCm(parseGridSpacingInput(gridDepthCmInput));
+    const gw = gridWidthCm * 10;
+    const gd = gridDepthCm * 10;
+    return {
+      ...project,
+      audienceEdge: d.audienceEdge,
+      stageWidthMm: w,
+      stageDepthMm: depthMm,
+      sideStageMm: s,
+      backStageMm: b,
+      centerFieldGuideIntervalMm: g,
+      snapGrid: d.stageGridLinesVerticalEnabled || d.stageGridLinesHorizontalEnabled,
+      gridStep: d.gridStep,
+      stageGridLinesVerticalEnabled: d.stageGridLinesVerticalEnabled,
+      stageGridLinesHorizontalEnabled: d.stageGridLinesHorizontalEnabled,
+      stageGridLinesEnabled:
+        d.stageGridLinesVerticalEnabled || d.stageGridLinesHorizontalEnabled,
+      stageGridSpacingWidthMm: gw,
+      stageGridLineSpacingMm: gw,
+      stageGridSpacingDepthMm: gd,
+      dancerLabelPosition: d.dancerLabelPosition,
+    };
+  }, [
+    project,
+    stageAreaSettingsOpen,
+    stageAreaSettingsDraft,
+    gridWidthCmInput,
+    gridDepthCmInput,
+  ]);
 
   useEffect(() => {
     if (!wideEditorLayout) setFloorMarkupTool(null);
@@ -2107,7 +2175,7 @@ export function EditorPage({
     }
   }
 
-  const stageBoardProject = project;
+  const stageBoardProject = projectForStageBoard ?? project;
 
   const hasRosterMembers = project.crews.some((c) => c.members.length > 0);
   /** 名簿ストリップのみ表示しタイムライン列を隠す（取り込み直後や「メンバーを表示」から） */

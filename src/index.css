@@ -781,18 +781,20 @@ body {
       position:fixed / top:56px を持つため個別に上書き。
 */
 
-/* 横向き: 画面下部 & 左サイドパネルを避けて表示 */
+/* 横向き: 左サイドパネル右側を上から下までフル表示 */
 [data-shell-landscape] [role="dialog"][aria-modal="false"] {
-  top: auto !important;
-  bottom: max(12px, env(safe-area-inset-bottom, 12px)) !important;
-  left: calc(148px + 8px) !important;
-  right: max(8px, env(safe-area-inset-right, 8px)) !important;
+  top: env(safe-area-inset-top, 0px) !important;
+  bottom: env(safe-area-inset-bottom, 0px) !important;
+  left: 148px !important;
+  right: env(safe-area-inset-right, 0px) !important;
   max-width: none !important;
+  max-height: none !important;
   margin-left: 0 !important;
   width: auto !important;
-  max-height: 70vh !important;
-  overflow-y: auto !important;
-  border-radius: 20px !important;
+  height: auto !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+  border-radius: 0 !important;
 }
 
 /* 縦向き: ボトムバー直上から表示・横幅フル活用 */
@@ -952,6 +954,44 @@ body {
 [data-shell-portrait] [role="dialog"][aria-modal="false"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
 [data-shell-portrait] [role="dialog"][aria-modal="false"] select,
 [data-shell-portrait] [role="dialog"][aria-modal="false"] textarea {
+  font-size: 16px !important;
+  min-height: 44px !important;
+  padding: 10px 12px !important;
+}
+
+/* 横画面: ダイアログ全体を左パネル右側の全高に */
+[data-shell-landscape] [role="dialog"][aria-modal="false"] > * {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  box-sizing: border-box !important;
+  overflow-x: hidden !important;
+  border-radius: 0 !important;
+}
+
+/* 横画面: テキスト・ボタン・入力欄（縦画面と同じ読みやすいサイズ） */
+[data-shell-landscape] [role="dialog"][aria-modal="false"] label,
+[data-shell-landscape] [role="dialog"][aria-modal="false"] p,
+[data-shell-landscape] [role="dialog"][aria-modal="false"] span:not([aria-hidden="true"]),
+[data-shell-landscape] [role="dialog"][aria-modal="false"] li,
+[data-shell-landscape] [role="dialog"][aria-modal="false"] strong {
+  font-size: 15px !important;
+  line-height: 1.55 !important;
+}
+
+[data-shell-landscape] [role="dialog"][aria-modal="false"] button {
+  font-size: 15px !important;
+  min-height: 44px !important;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+}
+
+[data-shell-landscape] [role="dialog"][aria-modal="false"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+[data-shell-landscape] [role="dialog"][aria-modal="false"] select,
+[data-shell-landscape] [role="dialog"][aria-modal="false"] textarea {
   font-size: 16px !important;
   min-height: 44px !important;
   padding: 10px 12px !important;
