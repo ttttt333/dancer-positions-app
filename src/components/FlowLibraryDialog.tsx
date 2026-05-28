@@ -2,7 +2,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type CSSProperties,
 } from "react";
@@ -15,8 +14,6 @@ import {
   type FlowLibraryItem,
   deleteFlowItem,
   expandFlowToProject,
-  exportFlowLibraryJsonAsync,
-  importFlowLibraryJsonAsync,
   listFlowLibraryItems,
   overwriteFlowFromProject,
   renameFlowItem,
@@ -120,68 +117,8 @@ function resolveFlowShareProjectId(
   return null;
 }
 
-/** 1 行ぶんの「フォーメーション簡易プレビュー」（横並び） */
-function FlowMiniRow({ item }: { item: FlowLibraryItem }) {
-  const cells = item.cues.slice(0, 12);
-  return (
-    <div
-      style={{
-        display: "flex",
-        gap: "4px",
-        alignItems: "stretch",
-        height: "32px",
-      }}
-      aria-hidden
-    >
-      {cells.map((c, i) => {
-        const f = item.formations.find((x) => x.id === c.formationIdRef);
-        return (
-          <svg
-            key={c.id || i}
-            viewBox="0 0 100 100"
-            width={32}
-            height={32}
-            style={{
-              background: "#020617",
-              border: "1px solid #1f2937",
-              borderRadius: "4px",
-              flexShrink: 0,
-            }}
-          >
-            {(f?.dancers ?? []).map((d, j) => (
-              <circle
-                key={j}
-                cx={d.xPct}
-                cy={d.yPct}
-                r={5}
-                fill="#22d3ee"
-                opacity={0.85}
-              />
-            ))}
-          </svg>
-        );
-      })}
-      {item.cues.length > cells.length ? (
-        <div
-          style={{
-            alignSelf: "center",
-            color: "#64748b",
-            fontSize: "11px",
-            paddingLeft: "4px",
-          }}
-        >
-          …+{item.cues.length - cells.length}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
 /**
- * フローライブラリのダイアログ。
- * - 上半分: 現在のプロジェクトを「新しいフロー」として保存
- * - 下半分: 端末に保存済みのフロー一覧（読み込み・上書き・名前変更・削除）
- * - フッタ: バックアップ JSON のエクスポート／取り込み
+ * フローライブラリのダイアログ（保存・読み込み・共有）。
  */
 export function FlowLibraryDialog({
   open,
@@ -207,7 +144,6 @@ export function FlowLibraryDialog({
     kind: "info" | "error";
     text: string;
   } | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(() => {
     setItems(listFlowLibraryItems());
@@ -586,67 +522,6 @@ export function FlowLibraryDialog({
     [audioDurationSec, setProject, onClose, onRestoreWaveform]
   );
 
-  const doExportJson = useCallback(async () => {
-    setBusy(true);
-    setFeedback(null);
-    try {
-      const text = await exportFlowLibraryJsonAsync();
-      const blob = new Blob([text], { type: "application/json;charset=utf-8" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `choreocore-flows-${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(a.href);
-      setFeedback({
-        kind: "info",
-        text: "JSON をダウンロードしました（同梱したローカル音源が含まれる場合があります）。",
-      });
-    } catch (e) {
-      setFeedback({
-        kind: "error",
-        text: e instanceof Error ? e.message : "エクスポートに失敗しました。",
-      });
-    } finally {
-      setBusy(false);
-    }
-  }, []);
-
-  const onPickFile: React.ChangeEventHandler<HTMLInputElement> = useCallback(
-    (e) => {
-      const f = e.target.files?.[0];
-      e.target.value = "";
-      if (!f) return;
-      void f.text().then(async (text) => {
-        setBusy(true);
-        setFeedback(null);
-        try {
-          const r = await importFlowLibraryJsonAsync(text);
-          if (r.message) {
-            setFeedback({ kind: "error", text: r.message });
-            return;
-          }
-          setFeedback({
-            kind: "info",
-            text: `取り込み完了：追加 ${r.added}・更新 ${r.updated}・スキップ ${r.skipped}${
-              text.includes('"flowEmbeddedAudioBase64"')
-                ? "（同梱音源をこのブラウザに復元しました）"
-                : ""
-            }。`,
-          });
-          refresh();
-        } catch (e) {
-          setFeedback({
-            kind: "error",
-            text: e instanceof Error ? e.message : "取り込みに失敗しました。",
-          });
-        } finally {
-          setBusy(false);
-        }
-      });
-    },
-    [refresh]
-  );
-
   if (!open) return null;
 
   const canSave = cuesCount > 0 && formCount > 0;
@@ -666,50 +541,27 @@ export function FlowLibraryDialog({
           display: "flex",
           flexDirection: "column",
           gap: "12px",
+          minHeight: 0,
+          flex: 1,
         }}
       >
-        <div
+        <h3
+          id="flow-lib-title"
           style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
+            margin: 0,
+            fontSize: "16px",
+            fontWeight: 600,
+            color: "#f8fafc",
           }}
         >
-          <h3
-            id="flow-lib-title"
-            style={{
-              margin: 0,
-              fontSize: "16px",
-              fontWeight: 600,
-              color: "#f8fafc",
-            }}
-          >
-            立ち位置フローライブラリ
-          </h3>
-          <button
-            type="button"
-            disabled={busy}
-            aria-label={t("editor.comp.k111")}
-            onClick={onClose}
-            style={{
-              ...btnSecondary,
-              fontSize: "18px",
-              lineHeight: 1,
-              padding: "4px 12px",
-            }}
-          >
-            ×
-          </button>
-        </div>
+          立ち位置フローライブラリ
+        </h3>
+
         {feedback ? (
           <div
             role="status"
             aria-live="polite"
             style={{
-              position: "sticky",
-              top: 0,
-              zIndex: 2,
-              margin: "0 0 4px",
               padding: "10px 12px",
               borderRadius: "8px",
               background:
@@ -735,25 +587,8 @@ export function FlowLibraryDialog({
             </p>
           </div>
         ) : null}
-        <p
-          style={{
-            margin: 0,
-            fontSize: "12px",
-            color: "#94a3b8",
-            lineHeight: 1.55,
-          }}
-        >
-          キュー順に並んだ「立ち位置の流れ」を名前付きで端末に保存し、別の曲やプロジェクトでも呼び出せます。保存時のステージ寸法・場ミリ・客席向き・変形舞台も一緒に記録され、呼び出し時に現在の設定より優先して復元されます（以前に保存したフローにその情報が無い場合は、キューと形だけが置き換わります）。
-        </p>
 
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "10px",
-            alignItems: "center",
-          }}
-        >
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" }}>
           <Link
             to="/editor/new"
             onClick={onClose}
@@ -772,9 +607,6 @@ export function FlowLibraryDialog({
           >
             新規作成
           </Link>
-          <span style={{ fontSize: "11px", color: "#64748b", lineHeight: 1.5, flex: "1 1 220px" }}>
-            まっさらな作品から 1 から編集を始めます。いまの内容を残す場合は、先にクラウド保存やフロー保存をしてください。
-          </span>
         </div>
 
         <section style={card}>
@@ -783,15 +615,17 @@ export function FlowLibraryDialog({
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
+              gap: "8px",
               marginBottom: "8px",
+              flexWrap: "wrap",
             }}
           >
-            <h4 style={sectionTitle}>{t("editor.comp.k093")}</h4>
-            <span style={{ fontSize: "11px", color: "#64748b" }}>
+            <h4 style={sectionTitle}>フロー情報</h4>
+            <span style={{ fontSize: "12px", color: "#cbd5e1" }}>
               キュー {fmtCount(cuesCount)} ／ 形 {fmtCount(formCount)} ／ 人数 {dancerCount}
             </span>
           </div>
-          <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
+          <div style={{ display: "flex", gap: "8px" }}>
             <input
               type="text"
               placeholder={t("editor.comp.k012")}
@@ -810,22 +644,12 @@ export function FlowLibraryDialog({
                 borderColor: "#14532d",
                 color: "#bbf7d0",
                 fontWeight: 600,
+                flexShrink: 0,
               }}
             >
               {busy ? "保存中…" : "新規保存"}
             </button>
           </div>
-          {!canSave ? (
-            <p
-              style={{
-                margin: "8px 0 0",
-                fontSize: "11px",
-                color: "#fbbf24",
-              }}
-            >
-              キューが 1 つもありません。タイムラインでキューを作成してから保存してください。
-            </p>
-          ) : null}
         </section>
 
         <section
@@ -838,56 +662,9 @@ export function FlowLibraryDialog({
             gap: "8px",
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <h4 style={sectionTitle}>
-              保存済みフロー（{fmtCount(items.length)} 件）
-            </h4>
-            <div style={{ display: "flex", gap: "6px" }}>
-              <button
-                type="button"
-                style={{ ...btnSecondary, padding: "4px 10px", fontSize: "11px" }}
-                onClick={doExportJson}
-                disabled={items.length === 0}
-                title={t("editor.comp.k055")}
-              >
-                書き出し
-              </button>
-              <button
-                type="button"
-                style={{ ...btnSecondary, padding: "4px 10px", fontSize: "11px" }}
-                onClick={() => fileInputRef.current?.click()}
-                title={t("editor.comp.k010")}
-              >
-                取り込み
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="application/json,.json"
-                style={{ display: "none" }}
-                onChange={onPickFile}
-              />
-            </div>
-          </div>
-          <p
-            style={{
-              margin: "0 0 4px",
-              fontSize: "11px",
-              color: "#64748b",
-              lineHeight: 1.5,
-            }}
-          >
-            各フロー行の「共同編集共有」「閲覧共有」で URL をコピーします。
-            <strong style={{ color: "#cbd5e1" }}>{t("editor.comp.k040")}</strong>
-            は「新規保存」「上書き保存」でいまの作品もクラウドに保存され、その作品 ID がフローに紐づきます。
-            未ログインのときは、先にツールバーからクラウド保存して作品 ID を付けてください。
-          </p>
+          <h4 style={{ ...sectionTitle, margin: 0 }}>
+            保存済みフロー（{fmtCount(items.length)} 件）
+          </h4>
           <div
             style={{
               flex: 1,
@@ -903,210 +680,198 @@ export function FlowLibraryDialog({
               <div
                 style={{
                   textAlign: "center",
-                  padding: "24px 12px",
+                  padding: "20px 12px",
                   color: "#64748b",
                   fontSize: "12px",
                   border: "1px dashed #1f2937",
                   borderRadius: "8px",
                 }}
               >
-                まだ保存されたフローはありません。
-                <br />
-                上の入力欄から名前をつけて保存してみましょう。
+                保存されたフローはありません
               </div>
             ) : (
               items.map((it) => {
                 const sharePid = resolveFlowShareProjectId(it, serverId);
                 const shareDisabledReason =
                   sharePid == null
-                    ? "クラウドに保存した作品 ID がありません。いまの作品をクラウド保存するか、このフローを上書き保存して紐づけてください。"
+                    ? "クラウドに保存した作品 ID がありません。"
                     : "";
                 return (
-                <div
-                  key={it.id}
-                  style={{
-                    border: "1px solid #1f2937",
-                    borderRadius: "8px",
-                    padding: "10px 12px",
-                    background: "#020617",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "8px",
-                  }}
-                >
                   <div
+                    key={it.id}
                     style={{
+                      border: "1px solid #1f2937",
+                      borderRadius: "8px",
+                      padding: "10px 12px",
+                      background: "#020617",
                       display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: "10px",
+                      flexDirection: "column",
+                      gap: "8px",
                     }}
                   >
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div
-                        style={{
-                          color: "#f8fafc",
-                          fontSize: "13px",
-                          fontWeight: 600,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                        title={it.name}
-                      >
-                        {it.name}
-                      </div>
-                      <div
-                        style={{
-                          color: "#64748b",
-                          fontSize: "11px",
-                          marginTop: "2px",
-                        }}
-                      >
-                        キュー {fmtCount(it.cueCount)} ／ 形 {fmtCount(it.formations.length)} ／ 人数 {it.dancerCount}
-                        {it.hasTiming ? (
-                          <span style={{ color: "#22d3ee", marginLeft: "8px" }}>
-                            ⏱ 秒数あり
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        justifyContent: "space-between",
+                        gap: "10px",
+                      }}
+                    >
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div
+                          style={{
+                            color: "#f8fafc",
+                            fontSize: "13px",
+                            fontWeight: 600,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                          title={it.name}
+                        >
+                          {it.name}
+                        </div>
+                        <div
+                          style={{
+                            color: "#64748b",
+                            fontSize: "11px",
+                            marginTop: "4px",
+                            lineHeight: 1.45,
+                          }}
+                        >
+                          キュー {fmtCount(it.cueCount)} ／ 形{" "}
+                          {fmtCount(it.formations.length)} ／ 人数 {it.dancerCount}
+                          {it.hasTiming ? (
+                            <span style={{ color: "#22d3ee", marginLeft: "8px" }}>
+                              ⏱ 秒数あり
+                            </span>
+                          ) : null}
+                          <span style={{ marginLeft: "8px" }}>
+                            更新: {fmtDate(it.updatedAt)}
                           </span>
-                        ) : null}
-                        <span style={{ marginLeft: "8px" }}>
-                          更新: {fmtDate(it.updatedAt)}
-                        </span>
+                        </div>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => doApply(it)}
+                        disabled={busy}
+                        style={{
+                          ...btnSecondary,
+                          borderColor: "#6366f1",
+                          color: "#c7d2fe",
+                          fontWeight: 600,
+                          padding: "6px 12px",
+                          flexShrink: 0,
+                        }}
+                      >
+                        読み込み
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => doApply(it)}
-                      disabled={busy}
+                    <div
                       style={{
-                        ...btnSecondary,
-                        borderColor: "#6366f1",
-                        color: "#c7d2fe",
-                        fontWeight: 600,
-                        padding: "6px 12px",
+                        display: "flex",
+                        gap: "5px",
+                        flexWrap: "wrap",
+                        alignItems: "center",
                       }}
                     >
-                      読み込み
-                    </button>
-                  </div>
-                  <FlowMiniRow item={it} />
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "5px",
-                      flexWrap: "wrap",
-                      alignItems: "center",
-                    }}
-                  >
-                    <button
-                      type="button"
-                      style={{
-                        ...btnSecondary,
-                        padding: "4px 8px",
-                        fontSize: "10px",
-                      }}
-                      disabled={busy || !canSave}
-                      onClick={() => doOverwrite(it.id, it.name)}
-                      title={t("editor.comp.k092")}
-                    >
-                      上書き保存
-                    </button>
-                    {onOpenCloudSave ? (
                       <button
                         type="button"
                         style={{
-                          ...btnAccent,
+                          ...btnSecondary,
                           padding: "4px 8px",
                           fontSize: "10px",
                         }}
-                        disabled={busy || cloudSaveDisabled}
-                        title={
-                          serverId != null && serverId > 0
-                            ? t("editor.saveTitleOverwrite")
-                            : t("editor.saveTitleNew")
-                        }
-                        onClick={() => onOpenCloudSave()}
+                        disabled={busy || !canSave}
+                        onClick={() => doOverwrite(it.id, it.name)}
                       >
-                        {t("editor.cloudSaveFlowButton")}
+                        上書き保存
                       </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      style={{
-                        ...btnSecondary,
-                        padding: "4px 8px",
-                        fontSize: "10px",
-                      }}
-                      onClick={() => doRename(it.id, it.name)}
-                    >
-                      名前変更
-                    </button>
-                    <button
-                      type="button"
-                      style={{
-                        ...btnSecondary,
-                        padding: "4px 8px",
-                        fontSize: "10px",
-                        borderColor: "rgba(22, 163, 74, 0.55)",
-                        color: "#bbf7d0",
-                      }}
-                      disabled={busy || sharePid == null}
-                      onClick={() => void copyFlowItemShare(it, "collab")}
-                      title={
-                        sharePid == null
-                          ? shareDisabledReason
-                          : "振り付けし・チーム用の共同編集 URL をコピー"
-                      }
-                    >
-                      共同編集共有
-                    </button>
-                    <button
-                      type="button"
-                      style={{
-                        ...btnSecondary,
-                        padding: "4px 8px",
-                        fontSize: "10px",
-                        borderColor: "rgba(14, 165, 233, 0.5)",
-                        color: "#bae6fd",
-                      }}
-                      disabled={busy || sharePid == null}
-                      onClick={() => void copyFlowItemShare(it, "view")}
-                      title={
-                        sharePid == null
-                          ? shareDisabledReason
-                          : "生徒用の閲覧だけ URL をコピー"
-                      }
-                    >
-                      閲覧共有
-                    </button>
-                    <button
-                      type="button"
-                      style={{
-                        ...btnSecondary,
-                        padding: "4px 8px",
-                        fontSize: "10px",
-                        borderColor: "#7f1d1d",
-                        color: "#fecaca",
-                      }}
-                      onClick={() => doDelete(it.id, it.name)}
-                    >
-                      削除
-                    </button>
+                      {onOpenCloudSave ? (
+                        <button
+                          type="button"
+                          style={{
+                            ...btnAccent,
+                            padding: "4px 8px",
+                            fontSize: "10px",
+                          }}
+                          disabled={busy || cloudSaveDisabled}
+                          onClick={() => onOpenCloudSave()}
+                        >
+                          {t("editor.cloudSaveFlowButton")}
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        style={{
+                          ...btnSecondary,
+                          padding: "4px 8px",
+                          fontSize: "10px",
+                        }}
+                        onClick={() => doRename(it.id, it.name)}
+                      >
+                        名前変更
+                      </button>
+                      <button
+                        type="button"
+                        style={{
+                          ...btnSecondary,
+                          padding: "4px 8px",
+                          fontSize: "10px",
+                          borderColor: "rgba(22, 163, 74, 0.55)",
+                          color: "#bbf7d0",
+                        }}
+                        disabled={busy || sharePid == null}
+                        onClick={() => void copyFlowItemShare(it, "collab")}
+                        title={sharePid == null ? shareDisabledReason : undefined}
+                      >
+                        共同編集共有
+                      </button>
+                      <button
+                        type="button"
+                        style={{
+                          ...btnSecondary,
+                          padding: "4px 8px",
+                          fontSize: "10px",
+                          borderColor: "rgba(14, 165, 233, 0.5)",
+                          color: "#bae6fd",
+                        }}
+                        disabled={busy || sharePid == null}
+                        onClick={() => void copyFlowItemShare(it, "view")}
+                        title={sharePid == null ? shareDisabledReason : undefined}
+                      >
+                        閲覧共有
+                      </button>
+                      <button
+                        type="button"
+                        style={{
+                          ...btnSecondary,
+                          padding: "4px 8px",
+                          fontSize: "10px",
+                          borderColor: "#7f1d1d",
+                          color: "#fecaca",
+                        }}
+                        onClick={() => doDelete(it.id, it.name)}
+                      >
+                        削除
+                      </button>
+                    </div>
                   </div>
-                </div>
-              );
+                );
               })
             )}
           </div>
         </section>
 
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <div style={{ display: "flex", justifyContent: "flex-start", marginTop: "auto" }}>
           <button
             type="button"
             disabled={busy}
             style={btnSecondary}
             onClick={onClose}
-          >{t("editor.comp.k111")}</button>
+          >
+            {t("editor.comp.k111")}
+          </button>
         </div>
       </div>
     </EditorSideSheet>
