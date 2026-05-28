@@ -281,43 +281,31 @@ export function FormationPresetPickerSheet({
             </div>
           ))}
         </div>
+
+        <div
+          role="group"
+          aria-label="立ち位置雛形の操作"
+          className="formation-preset-picker-actions"
+        >
+          <button type="button" onClick={closeAndCleanup} style={cancelBtnStyle}>
+            閉じる
+          </button>
+          <button
+            type="button"
+            onClick={apply}
+            disabled={noTarget || !selectedPresetId}
+            style={{
+              ...applyBtnStyle,
+              opacity: noTarget || !selectedPresetId ? 0.45 : 1,
+              cursor: noTarget || !selectedPresetId ? "not-allowed" : "pointer",
+            }}
+          >
+            適用
+          </button>
+        </div>
       </div>
     </EditorSideSheet>
-    {open ? (
-      <div
-        role="group"
-        aria-label="立ち位置雛形の操作"
-        className="formation-preset-picker-actions"
-        style={{
-          position: "fixed",
-          left: "max(12px, env(safe-area-inset-left, 0px))",
-          bottom: "max(12px, env(safe-area-inset-bottom, 0px))",
-          zIndex: 201,
-          display: "flex",
-          flexDirection: "row",
-          alignItems: "center",
-          gap: "10px",
-          pointerEvents: "auto",
-        }}
-      >
-        <button type="button" onClick={closeAndCleanup} style={cancelBtnStyle}>
-          閉じる
-        </button>
-        <button
-          type="button"
-          onClick={apply}
-          disabled={noTarget || !selectedPresetId}
-          style={{
-            ...applyBtnStyle,
-            opacity: noTarget || !selectedPresetId ? 0.45 : 1,
-            cursor: noTarget || !selectedPresetId ? "not-allowed" : "pointer",
-          }}
-        >
-          適用
-        </button>
-      </div>
-    ) : null}
-  </>
+    </>
   );
 }
 
@@ -340,7 +328,6 @@ const cancelBtnStyle: CSSProperties = {
   fontSize: "13px",
   fontWeight: 600,
   cursor: "pointer",
-  boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
 };
 
 const applyBtnStyle: CSSProperties = {
@@ -352,5 +339,4 @@ const applyBtnStyle: CSSProperties = {
   fontSize: "13px",
   fontWeight: 700,
   cursor: "pointer",
-  boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
 };

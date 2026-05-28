@@ -8,6 +8,7 @@ import {
   pickCueDragKindAtWave,
   waveExtentXToTime,
 } from "../lib/timelineWaveGeometry";
+import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
 import {
   useWaveCanvasPointerDrag,
   type UseWaveCanvasPointerDragArgs,
@@ -52,7 +53,7 @@ export function useTimelineWaveSurfaceHandlers(
     (e: PointerEvent<HTMLDivElement>) => {
       if (e.button !== 0) return;
       if (projectViewMode === "view" || duration <= 0 || !peaks) return;
-      const c = canvasRef.current;
+      const c = resolveActiveWaveCanvas(canvasRef);
       if (!c) return;
       let viewStart = lastWaveDrawRangeRef.current.viewStart;
       let viewSpan = lastWaveDrawRangeRef.current.viewSpan;
@@ -104,7 +105,7 @@ export function useTimelineWaveSurfaceHandlers(
         return;
       }
       if (e.buttons !== 0) return;
-      const cnv = canvasRef.current;
+      const cnv = resolveActiveWaveCanvas(canvasRef);
       if (!cnv) return;
       const { viewStart, viewSpan } = lastWaveDrawRangeRef.current;
       if (viewSpan <= 0) return;

@@ -42,6 +42,8 @@ export type MobileShellBridgeStore = {
   onSetPiece: () => void;
   /** 音源追加 (timeline) */
   onAudioImport: () => void;
+  /** AI提案 (timeline) */
+  onAiSuggest: () => void;
   /** 名簿取込 (timeline) */
   onRosterImport: () => void;
   /** メンバー表示 (team) */
@@ -84,6 +86,7 @@ export const useMobileShellBridgeStore = create<MobileShellBridgeStore>((set) =>
   onStageShape: () => {},
   onSetPiece: () => {},
   onAudioImport: () => {},
+  onAiSuggest: () => {},
   onRosterImport: () => {},
   onMemberList: () => {},
   onMemberAdd: () => {},

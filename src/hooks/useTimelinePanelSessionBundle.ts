@@ -37,6 +37,10 @@ export type TimelinePanelLayoutInputWithoutWavePointers = Omit<
 export type TimelinePanelSessionBundleResult = {
   waveBundleParams: TimelinePanelWaveHandlersBundleParams;
   layoutInputWithoutWavePointers: TimelinePanelLayoutInputWithoutWavePointers;
+  viewportControls: {
+    setViewPortion: (portion: number) => void;
+    setWaveViewStartOverride: (start: number | null) => void;
+  };
 };
 
 /**
@@ -332,5 +336,9 @@ export function useTimelinePanelSessionBundle(
       onOpenPathEditor,
     };
 
-  return { waveBundleParams, layoutInputWithoutWavePointers };
+  return {
+    waveBundleParams,
+    layoutInputWithoutWavePointers,
+    viewportControls: { setViewPortion, setWaveViewStartOverride },
+  };
 }

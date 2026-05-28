@@ -9,6 +9,7 @@ import {
   waveTimeToExtentX,
   type CueDragEdgeMode,
 } from "../lib/timelineWaveGeometry";
+import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
 
 export type UseWaveCanvasRendererArgs = {
   canvasRef: RefObject<HTMLCanvasElement>;
@@ -81,7 +82,7 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
 
   const drawWaveformAt = useCallback(
     (playheadTime: number) => {
-      const c = canvasRef.current;
+      const c = resolveActiveWaveCanvas(canvasRef);
       const pk = peaksRef.current;
       const d = durationRef.current;
       const vp = viewPortionRef.current;

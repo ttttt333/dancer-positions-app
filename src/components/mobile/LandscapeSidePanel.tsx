@@ -66,6 +66,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
   const onStageShape  = useMobileShellBridgeStore((s) => s.onStageShape)
   const onSetPiece    = useMobileShellBridgeStore((s) => s.onSetPiece)
   const onAudioImport = useMobileShellBridgeStore((s) => s.onAudioImport)
+  const onAiSuggest = useMobileShellBridgeStore((s) => s.onAiSuggest)
   const onRosterImport = useMobileShellBridgeStore((s) => s.onRosterImport)
   const onMemberList  = useMobileShellBridgeStore((s) => s.onMemberList)
   const onMemberAdd   = useMobileShellBridgeStore((s) => s.onMemberAdd)
@@ -91,6 +92,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
       title: 'Timeline', icon: '🎵',
       items: [
         { label: '音源追加', icon: '🎵', action: onAudioImport },
+        { label: 'AI提案', icon: '✨', action: onAiSuggest },
         { label: '名簿取込', icon: '📄', action: onRosterImport },
       ],
     },

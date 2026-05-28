@@ -227,6 +227,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const shareLinksOpenFnRef = useRef(setShareLinksOpen as ((open: boolean) => void) | null);
   const helpFnRef = useRef(setShortcutsHelpOpen as ((open: boolean) => void) | null);
   const flowLibraryFnRef = useRef(setFlowLibraryOpen as ((open: boolean) => void) | null);
+  const aiSuggestFnRef = useRef(setAiSuggestOpen as ((open: boolean) => void) | null);
 
   addCueFnRef.current = setAddCueDialogOpen as ((open: boolean) => void);
   stageSettingsFnRef.current = setStageAreaSettingsOpen as ((open: boolean) => void);
@@ -244,6 +245,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   shareLinksOpenFnRef.current = setShareLinksOpen as ((open: boolean) => void);
   helpFnRef.current = setShortcutsHelpOpen as ((open: boolean) => void);
   flowLibraryFnRef.current = setFlowLibraryOpen as ((open: boolean) => void);
+  aiSuggestFnRef.current = setAiSuggestOpen as ((open: boolean) => void);
 
   const jumpToPagerSlotRef = useRef(jumpToPagerSlot as (slotIdx: number) => void);
   jumpToPagerSlotRef.current = jumpToPagerSlot as (slotIdx: number) => void;
@@ -329,6 +331,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
       onStageShape: () => stageShapeFnRef.current?.(true),
       onSetPiece: () => setPieceFnRef.current?.(true),
       onAudioImport: () => audioImportFnRef.current?.(),
+      onAiSuggest: () => aiSuggestFnRef.current?.(true),
       onRosterImport: () => rosterImportFnRef.current?.(),
       onMemberList: () => memberListFnRef.current?.(true),
       onMemberAdd: () => memberAddFnRef.current?.(true),

@@ -15,6 +15,7 @@ import type {
   WaveCueConfirmState,
   WaveCueMenuState,
 } from "../components/TimelineWaveMenus";
+import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
 
 export type UseTimelineWaveCanvasActionsParams = {
   suppressNextWaveSeekRef: RefObject<boolean>;
@@ -64,7 +65,7 @@ export function useTimelineWaveCanvasActions({
         suppressNextWaveSeekRef.current = false;
         return;
       }
-      const c = canvasRef.current;
+      const c = resolveActiveWaveCanvas(canvasRef);
       if (!c || duration <= 0 || !playbackEngine.getMediaSourceUrl()) return;
       const d = duration;
       let viewStart = lastWaveDrawRangeRef.current.viewStart;
@@ -152,7 +153,7 @@ export function useTimelineWaveCanvasActions({
   const onWaveContextMenu = useCallback(
     (e: MouseEvent<HTMLCanvasElement>) => {
       if (viewMode === "view" || duration <= 0 || !peaks) return;
-      const c = canvasRef.current;
+      const c = resolveActiveWaveCanvas(canvasRef);
       if (!c) return;
       let viewStart = lastWaveDrawRangeRef.current.viewStart;
       let viewSpan = lastWaveDrawRangeRef.current.viewSpan;
@@ -221,7 +222,7 @@ export function useTimelineWaveCanvasActions({
   const onWaveDoubleClick = useCallback(
     (e: MouseEvent<HTMLCanvasElement>) => {
       if (viewMode === "view" || duration <= 0 || !peaks) return;
-      const c = canvasRef.current;
+      const c = resolveActiveWaveCanvas(canvasRef);
       if (!c || !playbackEngine.getMediaSourceUrl()) return;
       let viewStart = lastWaveDrawRangeRef.current.viewStart;
       let viewSpan = lastWaveDrawRangeRef.current.viewSpan;

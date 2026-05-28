@@ -20,6 +20,7 @@ import {
   waveExtentXToTime,
   type CueDragEdgeMode,
 } from "../lib/timelineWaveGeometry";
+import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
 
 export type UseWaveCanvasPointerDragArgs = {
   projectViewMode: ChoreographyProjectJson["viewMode"];
@@ -106,7 +107,7 @@ export function useWaveCanvasPointerDrag({
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (e.button !== 0) return;
       if (projectViewMode === "view" || duration <= 0 || !peaks) return;
-      const c = canvasRef.current;
+      const c = resolveActiveWaveCanvas(canvasRef);
       if (!c) return;
       const { viewStart, viewSpan } = lastWaveDrawRangeRef.current;
       const trimLo = trimStartSec;
@@ -384,7 +385,7 @@ export function useWaveCanvasPointerDrag({
         newCueRangePreviewRef.current = null;
         if (st?.active) suppressNextWaveSeekRef.current = true;
         if (st && !st.active && playbackEngine.getMediaSourceUrl() && durationRef.current > 0) {
-          const cnv = canvasRef.current;
+          const cnv = resolveActiveWaveCanvas(canvasRef);
           if (cnv) {
             const { viewStart: vs, viewSpan: vsp } = lastWaveDrawRangeRef.current;
             if (vsp > 0) {
