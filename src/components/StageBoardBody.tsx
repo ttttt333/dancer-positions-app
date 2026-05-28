@@ -315,6 +315,12 @@ export function StageBoardBody({
     baseIds: string[];
     movedPx: number;
   } | null>(null);
+  /** 空床ダブルタップで全員選択 */
+  const floorDoubleTapRef = useRef<{ t: number; x: number; y: number } | null>(
+    null,
+  );
+  const STAGE_FLOOR_DOUBLE_TAP_MS = 320;
+  const STAGE_FLOOR_DOUBLE_TAP_PX = 28;
   /** 複数ダンサー選択時の群移動／群スケール操作セッション */
   const groupDragRef = useRef<
     | {
@@ -2498,6 +2504,30 @@ export function StageBoardBody({
         return;
       }
 
+      const now = performance.now();
+      const prevTap = floorDoubleTapRef.current;
+      const isDoubleTap =
+        prevTap != null &&
+        now - prevTap.t <= STAGE_FLOOR_DOUBLE_TAP_MS &&
+        Math.hypot(e.clientX - prevTap.x, e.clientY - prevTap.y) <=
+          STAGE_FLOOR_DOUBLE_TAP_PX;
+      floorDoubleTapRef.current = { t: now, x: e.clientX, y: e.clientY };
+
+      if (isDoubleTap) {
+        const dancers = writeFormation?.dancers ?? activeFormation?.dancers ?? [];
+        const allIds = dancers.map((d) => d.id);
+        if (allIds.length > 0) {
+          e.preventDefault();
+          e.stopPropagation();
+          marqueeSessionRef.current = null;
+          setMarquee(null);
+          setSelectedDancerIds(allIds);
+          setSelectedSetPieceId(null);
+          floorDoubleTapRef.current = null;
+          return;
+        }
+      }
+
       setSelectedFloorTextId(null);
       setSelectedFloorTextIds([]);
       setFloorTextInlineRect(null);
@@ -2543,6 +2573,10 @@ export function StageBoardBody({
       selectedDancerIds,
       clearSelectedDancers,
       setSelectedSetPieceId,
+      setSelectedDancerIds,
+      setMarquee,
+      writeFormation,
+      activeFormation,
     ],
   );
 
