@@ -6,6 +6,11 @@ import {
   rescaleSpotsForSpacing,
 } from "./dancerSpacing";
 import { modDancerColorIndex } from "./dancerColorPalette";
+import {
+  EXTRA_LAYOUT_PRESET_OPTIONS,
+  EXTRA_PRESET_CATEGORY,
+  tryApplyExtraLayoutPreset,
+} from "./formationLayoutPresetsExtra";
 
 /**
  * 場ミリ規格を `dancersForLayoutPreset` / `dancersWithPresetAndWingSurplus`
@@ -392,6 +397,7 @@ export const LAYOUT_PRESET_OPTIONS = [
   { id: "w_shape", label: "W字形" },
   { id: "m_shape", label: "M字形" },
   { id: "fan_360", label: "360°扇形（全周）" },
+  ...EXTRA_LAYOUT_PRESET_OPTIONS,
 ] as const;
 
 export type LayoutPresetId = (typeof LAYOUT_PRESET_OPTIONS)[number]["id"];
@@ -624,6 +630,10 @@ export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
       "t_shape",
       "l_shape",
     ],
+  },
+  {
+    label: EXTRA_PRESET_CATEGORY.label,
+    ids: [...EXTRA_PRESET_CATEGORY.ids],
   },
 ];
 
@@ -2415,11 +2425,15 @@ export function dancersForLayoutPreset(
       }
       break;
     }
-    default:
-      for (let i = 0; i < n; i++) {
-        const x = n === 1 ? 50 : 12 + ((76 * i) / (n - 1 || 1));
-        pushSpot(out, i, x, 44);
+    default: {
+      if (!tryApplyExtraLayoutPreset(preset, n, out)) {
+        for (let i = 0; i < n; i++) {
+          const x = n === 1 ? 50 : 12 + ((76 * i) / (n - 1 || 1));
+          pushSpot(out, i, x, 44);
+        }
       }
+      break;
+    }
   }
   /**
    * 場ミリ規格があれば等比リスケール、その後に「客席に近い側から・中央→左→右」

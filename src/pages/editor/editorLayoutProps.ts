@@ -18,6 +18,7 @@ export type EditorLayoutProps = {
   flowLibraryDialogEl: ReactNode;
   addCueDialogEl: ReactNode;
   formationBoxManagerDialogEl: ReactNode;
+  formationPresetPickerSheetEl: ReactNode;
   rosterImportSheetEl: ReactNode;
   stageWorkbenchProps: Omit<EditorStageWorkbenchProps, "layout">;
 };

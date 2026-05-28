@@ -100,6 +100,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
   const flowLibraryDialogEl = props.flowLibraryDialogEl as never;
   const fontFamily = props.fontFamily as never;
   const formationBoxManagerDialogEl = props.formationBoxManagerDialogEl as never;
+  const formationPresetPickerSheetEl = props.formationPresetPickerSheetEl as never;
   const formationById = props.formationById as never;
   const formationId = props.formationId as never;
   const getWavePeaksSnapshot = props.getWavePeaksSnapshot as never;
@@ -1175,6 +1176,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
       {flowLibraryDialogEl}
       {addCueDialogEl}
       {formationBoxManagerDialogEl}
+      {formationPresetPickerSheetEl}
 
       {rosterImportSheetEl}
 

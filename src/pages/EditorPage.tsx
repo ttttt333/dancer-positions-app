@@ -106,6 +106,7 @@ import { EditorSideSheet } from "../components/EditorSideSheet";
 import { ExportDialog } from "../components/ExportDialog";
 import { FlowLibraryDialog } from "../components/FlowLibraryDialog";
 import { AddCueWithFormationDialog } from "../components/AddCueWithFormationDialog";
+import { FormationPresetPickerSheet } from "../components/FormationPresetPickerSheet";
 import { isSupabaseBackend } from "../lib/supabaseClient";
 import { projectShareLinks } from "../lib/shareProjectLinks";
 import { useAuth } from "../context/AuthContext";
@@ -254,6 +255,8 @@ export function EditorPage({
   const [formationBoxManagerOpen, setFormationBoxManagerOpen] = useState(false);
   /** キュー追加 ＋ 形選択 ＋ 形の箱保存を 1 画面に統合したダイアログ */
   const [addCueDialogOpen, _setAddCueDialogOpen] = useState(false);
+  /** ステージ左上 Change から開く立ち位置雛形ピッカー */
+  const [formationPresetPickerOpen, setFormationPresetPickerOpen] = useState(false);
   const setAddCueDialogOpen = (v: boolean | ((prev: boolean) => boolean)) => {
     if (v === true || (typeof v === "function" && v(false) === true)) {
       console.trace("[DEBUG] setAddCueDialogOpen(true) called from:");
@@ -1637,6 +1640,26 @@ export function EditorPage({
     />
   );
 
+  const formationPresetPickerSheetEl = useMemo(
+    () =>
+      project ? (
+        <FormationPresetPickerSheet
+          open={formationPresetPickerOpen}
+          onClose={() => setFormationPresetPickerOpen(false)}
+          project={project}
+          setProject={setProjectSafe}
+          selectedCueId={selectedCueId}
+          onStagePreviewChange={setStagePreviewDancers}
+        />
+      ) : null,
+    [
+      project,
+      formationPresetPickerOpen,
+      setProjectSafe,
+      selectedCueId,
+    ]
+  );
+
   const addCueDialogEl = useMemo(
     () =>
       project ? (
@@ -2408,6 +2431,9 @@ export function EditorPage({
     floorTextSideSheetOpen,
     flowLibraryDialogEl,
     formationBoxManagerDialogEl,
+    formationPresetPickerOpen,
+    formationPresetPickerSheetEl,
+    setFormationPresetPickerOpen,
     formationById,
     getWavePeaksSnapshot,
     gridDepthCmInput,

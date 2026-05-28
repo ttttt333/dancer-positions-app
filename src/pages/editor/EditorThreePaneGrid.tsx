@@ -69,6 +69,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const flowLibraryDialogEl = props.flowLibraryDialogEl as never;
   const fontFamily = props.fontFamily as never;
   const formationBoxManagerDialogEl = props.formationBoxManagerDialogEl as never;
+  const setFormationPresetPickerOpen = props.setFormationPresetPickerOpen as never;
   const formationById = props.formationById as never;
   const formationId = props.formationId as never;
   const getWavePeaksSnapshot = props.getWavePeaksSnapshot as never;
@@ -780,6 +781,43 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     />
                   </Suspense>
                 )}
+                {!choreoPublicView &&
+                project.viewMode !== "view" &&
+                stageView === "2d" ? (
+                  <button
+                    type="button"
+                    onClick={() => setFormationPresetPickerOpen(true)}
+                    title="立ち位置の雛形を選ぶ"
+                    aria-label="立ち位置の雛形を選ぶ"
+                    style={{
+                      position: "absolute",
+                      top: mobileStackEditor ? 8 : 6,
+                      left: mobileStackEditor ? 8 : 6,
+                      zIndex: 45,
+                      pointerEvents: "auto",
+                      ...btnSecondary,
+                      ...(mobileStackEditor
+                        ? {
+                            padding: "6px 10px",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            borderRadius: 8,
+                          }
+                        : {
+                            padding: "4px 8px",
+                            fontSize: 10,
+                            fontWeight: 700,
+                            borderRadius: 6,
+                          }),
+                      borderColor: "#d4af37",
+                      color: "#fef3c7",
+                      background: "rgba(15,23,42,0.88)",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
+                    }}
+                  >
+                    Change
+                  </button>
+                ) : null}
                 {publicNarrowLayout &&
                 (cuesSortedForStageJump.length > 0 || hasRosterMembers) ? (
                   // 生徒閲覧: タイムラインを非表示にしたため、position:fixed でボトムバーの上にフロート
