@@ -116,12 +116,8 @@ export const LandscapeSidePanel: React.FC<Props> = ({
 
       <div className={styles.divider} />
 
-      {/* ── キューナビ ── */}
-      <div className={styles.cueSection}>
-        <p className={styles.cueMetaLabel}>Cue Navigation</p>
-        <p className={styles.cueValue}>
-          ({currentCueIndex + 1} / {totalCues})
-        </p>
+      {/* ── キューナビ: [‹][›] -------- Cue X/Y ── */}
+      <div className={styles.cueRow}>
         <div className={styles.cueArrows}>
           <button
             className={styles.btnMd}
@@ -136,6 +132,9 @@ export const LandscapeSidePanel: React.FC<Props> = ({
             aria-label="次のキュー"
           >›</button>
         </div>
+        <span className={styles.cueValue}>
+          {currentCueIndex + 1} / {totalCues}
+        </span>
       </div>
 
       <div className={styles.divider} />
