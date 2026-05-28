@@ -702,8 +702,10 @@ body {
   display: none !important;
 }
 
-/* 横向き: ステージ底部の WorkbenchCuePager を非表示 (右パネルのキューナビで代替) */
-[data-shell-landscape] .editor-stage-cuepager {
+/* 横向き・縦向き共通: ステージ底部の WorkbenchCuePager を非表示
+   (横: 右パネルのキューナビで代替 / 縦: PortraitBottomBar で代替) */
+[data-shell-landscape] .editor-stage-cuepager,
+[data-shell-portrait] .editor-stage-cuepager {
   display: none !important;
 }
 
