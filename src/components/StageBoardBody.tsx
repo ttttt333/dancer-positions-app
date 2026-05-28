@@ -47,6 +47,7 @@ import {
 } from "./FloorTextMarkupBlock";
 import { StageBoardContextMenuLayer } from "./StageBoardContextMenuLayer";
 import type { StageBoardContextMenuState } from "./StageBoardContextMenuLayer";
+import { StageDancerContextMenuSheet } from "./StageDancerContextMenuSheet";
 import { StageBoardLayout } from "./StageBoardLayout";
 import { StageBoardShell } from "./StageBoardShell";
 import { StageBoardMainColumn } from "./StageBoardMainColumn";
@@ -523,6 +524,9 @@ export function StageBoardBody({
    */
   const [showStageDancerColorToolbar, setShowStageDancerColorToolbar] =
     useState(false);
+  /** 範囲選択枠の緑ボタンから開く大きな操作パネル */
+  const [dancerSelectionSheetOpen, setDancerSelectionSheetOpen] =
+    useState(false);
   /**
    * 複数の一括移動・枠スケール・剛体回転ドラッグ中は、選択メンバーの○内番号と名前を隠す。
    */
@@ -546,6 +550,7 @@ export function StageBoardBody({
     setDancerQuickEditId((id) => (id === null ? id : null));
     clearSelectedDancers();
     setStageContextMenu((m) => (m === null ? m : null));
+    setDancerSelectionSheetOpen(false);
     setSelectedSetPieceId((id) => (id === null ? id : null));
     setMarquee(null);
     marqueeSessionRef.current = null;
@@ -2340,6 +2345,7 @@ export function StageBoardBody({
       if (target.closest("[data-dancer-id]")) return;
       if (target.closest("[data-set-piece-id]")) return;
       if (target.closest("[data-group-box-handle]")) return;
+      if (target.closest("[data-group-selection-menu-handle]")) return;
       if (target.closest("[data-group-rotate-handle]")) return;
       if (target.closest("[data-marker-resize-handle]")) return;
       if (target.closest("[data-marker-rotate-handle]")) return;
@@ -3999,6 +4005,61 @@ export function StageBoardBody({
     ? computeStageContextMenuStyle(stageContextMenu)
     : null;
 
+  const dancerMenuInteractionDisabled =
+    viewMode === "view" ||
+    !stageInteractionsEnabled ||
+    Boolean(playbackDancers) ||
+    Boolean(previewDancers);
+
+  const dancerContextMenuShared = useMemo(
+    () => ({
+      selectedDancerIds,
+      menuInteractionDisabled: dancerMenuInteractionDisabled,
+      rawDancerLabelPosition: project.dancerLabelPosition,
+      dancerLabelBelow,
+      setProject,
+      duplicateDancerIds,
+      removeDancersByIds,
+      applyBulkColorToDancerIds,
+      applyBulkMarkerClear,
+      applyBulkMarkerSequence,
+      applyBulkMarkerSame,
+      applyBulkMarkerCenterDistance,
+      applyPermuteArrange,
+      applyDancerArrange,
+    }),
+    [
+      selectedDancerIds,
+      dancerMenuInteractionDisabled,
+      project.dancerLabelPosition,
+      dancerLabelBelow,
+      setProject,
+      duplicateDancerIds,
+      removeDancersByIds,
+      applyBulkColorToDancerIds,
+      applyBulkMarkerClear,
+      applyBulkMarkerSequence,
+      applyBulkMarkerSame,
+      applyBulkMarkerCenterDistance,
+      applyPermuteArrange,
+      applyDancerArrange,
+    ],
+  );
+
+  const handleOpenSelectionMenu = useCallback(() => {
+    if (dancerMenuInteractionDisabled) return;
+    if (selectedDancerIds.length < 2) return;
+    setShowStageDancerColorToolbar(true);
+    setStageContextMenu(null);
+    setDancerSelectionSheetOpen(true);
+  }, [dancerMenuInteractionDisabled, selectedDancerIds.length]);
+
+  useEffect(() => {
+    if (selectedDancerIds.length < 2) {
+      setDancerSelectionSheetOpen(false);
+    }
+  }, [selectedDancerIds.length]);
+
   const handleSetPieceBodyContextMenu = useCallback(
     (e: ReactMouseEvent<HTMLButtonElement>, piece: SetPiece) => {
       e.preventDefault();
@@ -4179,6 +4240,7 @@ export function StageBoardBody({
         effectiveMarkerPx,
         effectiveFacingDeg,
         onGroupBoxHandlePointerDown: handlePointerDownGroupBoxHandle,
+        onOpenSelectionMenuClick: handleOpenSelectionMenu,
         selectedDancerIds,
         onGroupRotatePointerDown: handlePointerDownMarkerRotate,
         dragGhostById,
@@ -4284,44 +4346,44 @@ export function StageBoardBody({
       />
     ),
     /* ステージ上の右クリックメニュー */
-    stageContextMenu:
-      stageContextMenu && contextMenuStyle ? (
-        <StageBoardContextMenuLayer
-          menu={stageContextMenu}
-          style={contextMenuStyle}
-          containerRef={stageContextMenuRef}
-          onCloseMenu={() => setStageContextMenu(null)}
-          dancerMenu={{
-            selectedDancerIds,
-            menuInteractionDisabled:
-              viewMode === "view" ||
-              !stageInteractionsEnabled ||
-              Boolean(playbackDancers) ||
-              Boolean(previewDancers),
-            rawDancerLabelPosition: project.dancerLabelPosition,
-            dancerLabelBelow,
-            setProject,
-            duplicateDancerIds,
-            removeDancersByIds,
-            applyBulkColorToDancerIds,
-            applyBulkMarkerClear,
-            applyBulkMarkerSequence,
-            applyBulkMarkerSame,
-            applyBulkMarkerCenterDistance,
-            applyPermuteArrange,
-            applyDancerArrange,
-          }}
-          onOpenDancerPathEditor={onOpenDancerPathEditor}
-          viewMode={viewMode}
-          setPiecesEditable={setPiecesEditable}
-          playbackDancers={playbackDancers}
-          previewDancers={previewDancers}
-          removeFloorMarkupById={removeFloorMarkupById}
-          writeFormationSetPieces={writeFormation?.setPieces}
-          updateActiveFormation={updateActiveFormation}
-          removeSetPieceById={removeSetPieceById}
-        />
-      ) : null,
+    stageContextMenu: (
+      <>
+        {stageContextMenu && contextMenuStyle ? (
+          <StageBoardContextMenuLayer
+            menu={stageContextMenu}
+            style={contextMenuStyle}
+            containerRef={stageContextMenuRef}
+            onCloseMenu={() => setStageContextMenu(null)}
+            dancerMenu={dancerContextMenuShared}
+            onOpenDancerPathEditor={onOpenDancerPathEditor}
+            viewMode={viewMode}
+            setPiecesEditable={setPiecesEditable}
+            playbackDancers={playbackDancers}
+            previewDancers={previewDancers}
+            removeFloorMarkupById={removeFloorMarkupById}
+            writeFormationSetPieces={writeFormation?.setPieces}
+            updateActiveFormation={updateActiveFormation}
+            removeSetPieceById={removeSetPieceById}
+          />
+        ) : null}
+        {dancerSelectionSheetOpen && primarySelectedDancer ? (
+          <StageDancerContextMenuSheet
+            open
+            onClose={() => setDancerSelectionSheetOpen(false)}
+            anchorDancerId={primarySelectedDancer.id}
+            {...dancerContextMenuShared}
+            onOpenPathEditor={
+              onOpenDancerPathEditor
+                ? () => {
+                    setDancerSelectionSheetOpen(false);
+                    onOpenDancerPathEditor();
+                  }
+                : undefined
+            }
+          />
+        ) : null}
+      </>
+    ),
   } satisfies StageBoardLayoutSlots;
 
   const stageBoardOverlaysProps = useMemo(

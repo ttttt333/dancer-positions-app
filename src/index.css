@@ -1004,6 +1004,28 @@ body {
   padding: 10px 12px !important;
 }
 
+/* 範囲選択 → 緑ボタン：大きな操作パネル（右クリックメニュー同等） */
+.stage-dancer-menu-sheet [style*="gridTemplateColumns"] {
+  gap: 8px !important;
+  margin-bottom: 10px !important;
+}
+
+.stage-dancer-menu-sheet [style*="gridTemplateColumns"] button,
+.stage-dancer-menu-sheet [style*="gridTemplateColumns: \"1fr 1fr 1fr\""] button {
+  font-size: 12px !important;
+  padding: 8px 10px !important;
+  min-height: 42px !important;
+}
+
+.stage-dancer-menu-sheet .sdcm-color-grid {
+  gap: 8px !important;
+}
+
+.stage-dancer-menu-sheet .sdcm-color-btn {
+  min-height: 34px !important;
+  padding: 0 !important;
+}
+
 /* 立ち位置雛形チップ — ラベル折返し（1文字 orphan 防止・全画面共通） */
 .add-cue-preset-btn {
   flex-shrink: 0;

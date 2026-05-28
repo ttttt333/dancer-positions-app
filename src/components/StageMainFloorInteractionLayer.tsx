@@ -56,6 +56,7 @@ export type StageMainFloorInteractionLayerProps = {
     h: GroupBoxHandle,
     box: StageSelectionBoxPct
   ) => void;
+  onOpenSelectionMenuClick?: () => void;
   selectedDancerIds: readonly string[];
   onGroupRotatePointerDown: (
     e: ReactPointerEvent<HTMLButtonElement>
@@ -92,6 +93,7 @@ export function StageMainFloorInteractionLayer({
   effectiveMarkerPx,
   effectiveFacingDeg,
   onGroupBoxHandlePointerDown,
+  onOpenSelectionMenuClick,
   selectedDancerIds,
   onGroupRotatePointerDown,
   dragGhostById,
@@ -137,6 +139,14 @@ export function StageMainFloorInteractionLayer({
           }
           onHandlePointerDown={(e, h) =>
             onGroupBoxHandlePointerDown(e, h, selectionBox)
+          }
+          onOpenMenuClick={
+            !playbackOrPreview &&
+            viewMode !== "view" &&
+            stageInteractionsEnabled &&
+            onOpenSelectionMenuClick
+              ? onOpenSelectionMenuClick
+              : undefined
           }
         />
       ) : null}

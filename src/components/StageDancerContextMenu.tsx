@@ -41,6 +41,8 @@ export type StageDancerContextMenuProps = {
   ) => void;
   onCloseMenu: () => void;
   onOpenPathEditor?: () => void;
+  /** contextMenu=右クリック小窓 / sheet=範囲選択の緑ボタンからの大パネル */
+  presentation?: "menu" | "sheet";
 };
 
 export function StageDancerContextMenu({
@@ -61,15 +63,19 @@ export function StageDancerContextMenu({
   applyDancerArrange,
   onCloseMenu,
   onOpenPathEditor,
+  presentation = "menu",
 }: StageDancerContextMenuProps) {
+  const sheet = presentation === "sheet";
   return (
-    <>
+    <div className={sheet ? "stage-dancer-menu-sheet" : undefined}>
   <div
+    className="sdcm-hint"
     style={{
-      fontSize: "9px",
+      fontSize: sheet ? "12px" : "9px",
       color: "#64748b",
-      marginBottom: "5px",
-      lineHeight: 1.3,
+      marginBottom: sheet ? "10px" : "5px",
+      lineHeight: 1.45,
+      display: sheet ? "none" : "block",
     }}
   >
     Shift+クリック／範囲ドラッグで複数選択。右クリック印が選択に含まれるときは
@@ -79,8 +85,8 @@ export function StageDancerContextMenu({
     style={{
       display: "grid",
       gridTemplateColumns: "1fr 1fr",
-      gap: "4px",
-      marginBottom: "6px",
+      gap: sheet ? "8px" : "4px",
+      marginBottom: sheet ? "10px" : "6px",
     }}
   >
     <button
@@ -99,9 +105,10 @@ menuInteractionDisabled
       style={{
         ...btnSecondary,
         width: "100%",
-        padding: "5px 6px",
-        fontSize: "10px",
+        padding: sheet ? "10px 12px" : "5px 6px",
+        fontSize: sheet ? "13px" : "10px",
         fontWeight: 600,
+        minHeight: sheet ? 44 : undefined,
       }}
     >
       複製（⌘D）
@@ -130,20 +137,22 @@ menuInteractionDisabled
         width: "100%",
         borderColor: "#7f1d1d",
         color: "#fecaca",
-        padding: "5px 6px",
-        fontSize: "10px",
+        padding: sheet ? "10px 12px" : "5px 6px",
+        fontSize: sheet ? "13px" : "10px",
         fontWeight: 600,
+        minHeight: sheet ? 44 : undefined,
       }}
     >
       削除
     </button>
   </div>
   <div
+    className="sdcm-section"
     style={{
-      fontSize: "9px",
+      fontSize: sheet ? "13px" : "9px",
       fontWeight: 600,
       color: "#94a3b8",
-      margin: "4px 0 2px",
+      margin: sheet ? "12px 0 6px" : "4px 0 2px",
     }}
   >
     名前の表示（全体）
@@ -151,8 +160,8 @@ menuInteractionDisabled
   <div
     style={{
       display: "flex",
-      gap: "4px",
-      marginBottom: "3px",
+      gap: sheet ? "8px" : "4px",
+      marginBottom: sheet ? "8px" : "3px",
     }}
     title="ステージ上のすべての印に共通。ステージまわりの設定でも変更可。"
   >
@@ -166,7 +175,7 @@ menuInteractionDisabled
       }}
       style={{
         flex: 1,
-        padding: "4px 6px",
+        padding: sheet ? "10px 12px" : "4px 6px",
         borderRadius: "6px",
         border:
           (rawDancerLabelPosition ?? "inside") === "inside"
@@ -180,7 +189,7 @@ menuInteractionDisabled
           (rawDancerLabelPosition ?? "inside") === "inside"
             ? "#e0e7ff"
             : "#94a3b8",
-        fontSize: "10px",
+        fontSize: sheet ? "13px" : "10px",
         fontWeight: 600,
         cursor:
 menuInteractionDisabled
@@ -200,7 +209,7 @@ menuInteractionDisabled
       }}
       style={{
         flex: 1,
-        padding: "4px 6px",
+        padding: sheet ? "10px 12px" : "4px 6px",
         borderRadius: "6px",
         border:
           rawDancerLabelPosition === "below"
@@ -214,7 +223,7 @@ menuInteractionDisabled
           rawDancerLabelPosition === "below"
             ? "#e0e7ff"
             : "#94a3b8",
-        fontSize: "10px",
+        fontSize: sheet ? "13px" : "10px",
         fontWeight: 600,
         cursor:
 menuInteractionDisabled
@@ -246,17 +255,19 @@ menuInteractionDisabled
     印の色（選択に一括）
   </div>
   <div
+    className="sdcm-color-grid"
     style={{
       display: "flex",
       flexWrap: "wrap",
-      gap: "3px",
-      marginBottom: "5px",
+      gap: sheet ? "8px" : "3px",
+      marginBottom: sheet ? "10px" : "5px",
     }}
   >
     {DANCER_PALETTE.map((hex, i) => (
       <button
         key={`cm-color-${i}`}
         type="button"
+        className="sdcm-color-btn"
         title={`色 ${i + 1} に一括変更`}
         onClick={() => {
           const ids = resolveArrangeTargetIds(
@@ -267,9 +278,9 @@ menuInteractionDisabled
           onCloseMenu();
         }}
         style={{
-          width: 22,
-          height: 22,
-          borderRadius: 5,
+          width: sheet ? 34 : 22,
+          height: sheet ? 34 : 22,
+          borderRadius: sheet ? 8 : 5,
           border: "1px solid #1e293b",
           background: hex,
           cursor: "pointer",
@@ -772,7 +783,7 @@ menuInteractionDisabled
           border: "1px solid rgba(99,102,241,0.5)",
           background: "rgba(99,102,241,0.12)",
           color: "#c7d2fe",
-          fontSize: "10px",
+          fontSize: sheet ? "13px" : "10px",
           fontWeight: 700,
           cursor: "pointer",
           textAlign: "center",
@@ -783,6 +794,6 @@ menuInteractionDisabled
       </button>
     </>
   )}
-    </>
+    </div>
   );
 }
