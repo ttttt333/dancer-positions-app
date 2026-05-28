@@ -16,6 +16,7 @@ import { useOrientation } from '../../hooks/useOrientation'
 import { PortraitHeader } from './PortraitHeader'
 import { PortraitBottomBar } from './PortraitBottomBar'
 import { LandscapeSidePanel } from './LandscapeSidePanel'
+import { useMobileShellBridgeStore } from '../../store/useMobileShellBridgeStore'
 import styles from './MobileShell.module.css'
 
 export interface MobileShellProps {
@@ -48,6 +49,10 @@ export interface MobileShellProps {
 
 export const MobileShell: React.FC<MobileShellProps> = (props) => {
   const orientation = useOrientation()
+  const onUndo = useMobileShellBridgeStore((s) => s.onUndo)
+  const onRedo = useMobileShellBridgeStore((s) => s.onRedo)
+  const undoDisabled = useMobileShellBridgeStore((s) => s.undoDisabled)
+  const redoDisabled = useMobileShellBridgeStore((s) => s.redoDisabled)
 
   if (orientation === 'landscape') {
     return (
@@ -55,6 +60,28 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
         {/* ステージ: 横向きでは波形ヘッダーを排除して全高使用 */}
         <div className={styles.stageAreaLandscape}>
           {props.children}
+
+          {/* Undo / Redo: 左親指が届く左下フローティング */}
+          <div className={styles.undoRedoFloat}>
+            <button
+              className={styles.undoBtn}
+              onClick={onUndo}
+              disabled={undoDisabled}
+              aria-label="元に戻す"
+              title="元に戻す (Undo)"
+            >
+              ↩
+            </button>
+            <button
+              className={styles.undoBtn}
+              onClick={onRedo}
+              disabled={redoDisabled}
+              aria-label="やり直す"
+              title="やり直す (Redo)"
+            >
+              ↪
+            </button>
+          </div>
         </div>
 
         {/* 右サイドパネル: 再生コントロール + 波形 + キューナビ + アクション */}

@@ -208,22 +208,30 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const attachEditorPane = useAttachElementRef(setEditorSurfaceEl, editorPaneRef);
   const attachTopDockSection = useAssignRef(topDockSectionRef);
 
-  // MobileShell landscape 用: stageView・ダイアログ開閉関数を bridge store に同期
+  // MobileShell landscape 用: stageView・ダイアログ開閉・undo/redo を bridge store に同期
   // 不安定な関数参照を ref に退避して依存配列ループを防ぐ
   const addCueFnRef = useRef(setAddCueDialogOpen as ((open: boolean) => void) | null);
   const stageSettingsFnRef = useRef(setStageAreaSettingsOpen as ((open: boolean) => void) | null);
+  const undoFnRef = useRef(undo as (() => void) | null);
+  const redoFnRef = useRef(redo as (() => void) | null);
   addCueFnRef.current = setAddCueDialogOpen as ((open: boolean) => void);
   stageSettingsFnRef.current = setStageAreaSettingsOpen as ((open: boolean) => void);
+  undoFnRef.current = undo as (() => void);
+  redoFnRef.current = redo as (() => void);
 
   const setMobileShellBridge = useMobileShellBridgeStore((s) => s.setMobileShellBridge);
   useEffect(() => {
     setMobileShellBridge({
       stageView: stageView as "2d" | "3d",
+      undoDisabled: stageUndoDisabled as boolean,
+      redoDisabled: stageRedoDisabled as boolean,
       onStageViewChange: (v: "2d" | "3d") => (setStageView as (v: "2d" | "3d") => void)(v),
       onAddCue: () => addCueFnRef.current?.(true),
       onStageSettings: () => stageSettingsFnRef.current?.(true),
+      onUndo: () => undoFnRef.current?.(),
+      onRedo: () => redoFnRef.current?.(),
     });
-  }, [stageView, setStageView, setMobileShellBridge]);
+  }, [stageView, stageUndoDisabled, stageRedoDisabled, setStageView, setMobileShellBridge]);
 
   return (
       <div

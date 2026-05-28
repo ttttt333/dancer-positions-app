@@ -52,3 +52,42 @@
   min-height: 0;
   overflow: hidden;
 }
+
+/* Undo / Redo フローティングボタン (左親指エリア: 左下) */
+.undoRedoFloat {
+  position: absolute;
+  bottom: max(16px, env(safe-area-inset-bottom, 16px));
+  left: max(14px, env(safe-area-inset-left, 14px));
+  display: flex;
+  gap: 8px;
+  z-index: 60;
+  pointer-events: auto;
+}
+
+.undoBtn {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.82);
+  border: 0.5px solid rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+  font-size: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: background 0.15s, opacity 0.15s;
+  padding: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.undoBtn:active:not(:disabled) {
+  background: rgba(30, 41, 59, 0.95);
+}
+
+.undoBtn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
