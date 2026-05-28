@@ -54,12 +54,6 @@ type Props = {
    * クラウド音源のみのときは呼び出し元で null を返してよい（memento の `audioAssetId` / `audioSupabasePath` で足りる）
    */
   getAudioBlobForFlowLibrary?: () => Promise<Blob | null>;
-  /**
-   * フロー一覧からクラウド保存確認を開く（ログイン済み編集時のみ）。
-   */
-  onOpenCloudSave?: () => void;
-  /** 保存処理中はフロー内のクラウドボタンを無効化 */
-  cloudSaveDisabled?: boolean;
 };
 
 const card: CSSProperties = {
@@ -132,8 +126,6 @@ export function FlowLibraryDialog({
   serverId = null,
   serverShareToken = null,
   syncProjectToCloud,
-  onOpenCloudSave,
-  cloudSaveDisabled = false,
 }: Props) {
   const { t } = useI18n();
   const [items, setItems] = useState<FlowLibraryItem[]>([]);
@@ -219,9 +211,9 @@ export function FlowLibraryDialog({
       }
       setFeedback({
         kind: "info",
-        text:
-          `「${r.item.name}」を保存しました（キュー ${r.item.cueCount} / 形 ${r.item.formations.length}）。` +
-          (syncProjectToCloud ? " いまの作品もクラウドに保存しました。" : ""),
+        text: syncProjectToCloud
+          ? `「${r.item.name}」をクラウドと端末に保存しました（キュー ${r.item.cueCount} / 形 ${r.item.formations.length}）。`
+          : `「${r.item.name}」を保存しました（キュー ${r.item.cueCount} / 形 ${r.item.formations.length}）。`,
       });
       refresh();
     } catch (e) {
@@ -280,9 +272,9 @@ export function FlowLibraryDialog({
         }
         setFeedback({
           kind: "info",
-          text:
-            `「${r.item.name}」を上書きしました。` +
-            (syncProjectToCloud ? " いまの作品もクラウドに保存しました。" : ""),
+          text: syncProjectToCloud
+            ? `「${r.item.name}」をクラウドと端末に上書き保存しました。`
+            : `「${r.item.name}」を上書きしました。`,
         });
         refresh();
       } catch (e) {
@@ -787,20 +779,6 @@ export function FlowLibraryDialog({
                       >
                         上書き保存
                       </button>
-                      {onOpenCloudSave ? (
-                        <button
-                          type="button"
-                          style={{
-                            ...btnAccent,
-                            padding: "4px 8px",
-                            fontSize: "10px",
-                          }}
-                          disabled={busy || cloudSaveDisabled}
-                          onClick={() => onOpenCloudSave()}
-                        >
-                          {t("editor.cloudSaveFlowButton")}
-                        </button>
-                      ) : null}
                       <button
                         type="button"
                         style={{
@@ -862,17 +840,6 @@ export function FlowLibraryDialog({
             )}
           </div>
         </section>
-
-        <div style={{ display: "flex", justifyContent: "flex-start", marginTop: "auto" }}>
-          <button
-            type="button"
-            disabled={busy}
-            style={btnSecondary}
-            onClick={onClose}
-          >
-            {t("editor.comp.k111")}
-          </button>
-        </div>
       </div>
     </EditorSideSheet>
   );

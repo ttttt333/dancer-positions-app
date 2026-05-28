@@ -1573,12 +1573,6 @@ export function EditorPage({
           getWavePeaks={getWavePeaksSnapshot}
           onRestoreWaveform={restoreWavePeaks}
           getAudioBlobForFlowLibrary={getCurrentAudioBlobForFlowLibrary}
-          onOpenCloudSave={
-            me && !choreoPublicView
-              ? () => setCloudSaveDialogOpen(true)
-              : undefined
-          }
-          cloudSaveDisabled={saving}
         />
       ) : null,
     [
@@ -1590,8 +1584,6 @@ export function EditorPage({
       serverShareToken,
       me,
       syncProjectToCloud,
-      choreoPublicView,
-      saving,
       getWavePeaksSnapshot,
       restoreWavePeaks,
       getCurrentAudioBlobForFlowLibrary,
