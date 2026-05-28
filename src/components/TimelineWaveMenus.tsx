@@ -1,4 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
+import { createPortal } from "react-dom";
 import type { ChoreographyProjectJson, Cue } from "../types/choreography";
 import { sortCuesByStart } from "../core/timelineController";
 import { GAP_APPROACH_OPTIONS } from "../lib/gapDancerInterpolation";
@@ -594,11 +595,16 @@ export function TimelineWaveMenus({
     </>
   ) : null;
 
-  return (
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(
     <>
       {waveCueMenuPanel}
       {gapRouteMenuPanel}
       {waveCueConfirmPanel}
-    </>
+    </>,
+    document.body
   );
 }

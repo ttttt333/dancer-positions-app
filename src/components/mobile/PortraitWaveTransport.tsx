@@ -14,6 +14,10 @@ const ZOOM_STEP = 1.5;
 const DOUBLE_TAP_MS = 350;
 const LONG_PRESS_MS = 520;
 const PORTRAIT_WAVE_CSS_H = 80;
+/** 長押し判定前にドラッグ開始する移動量（px） */
+const DRAG_ARM_PX = 8;
+/** 長押しキャンセルまでの指の揺れ許容（px） */
+const LONG_PRESS_CANCEL_PX = 18;
 
 interface Props {
   audioUrl: string | null;
@@ -77,6 +81,9 @@ export const PortraitWaveTransport: React.FC<Props> = ({
   const longPressFiredRef = useRef(false);
   const pinchRef = useRef<{ dist: number; zoom: number; anchor: number } | null>(null);
   const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pointerDownRef = useRef<React.PointerEvent<HTMLCanvasElement> | null>(null);
+  const dragArmedRef = useRef(false);
+  const pointerDownOriginRef = useRef<{ x: number; y: number } | null>(null);
 
   const viewDuration = duration > 0 ? duration / zoom : 0;
   const viewEnd = viewStart + viewDuration;
@@ -231,15 +238,30 @@ export const PortraitWaveTransport: React.FC<Props> = ({
     }
   }, []);
 
+  const armCanvasDrag = useCallback(
+    (e: React.PointerEvent<HTMLCanvasElement>) => {
+      if (dragArmedRef.current || !bridgeApi?.handlers) return;
+      dragArmedRef.current = true;
+      clearLongPress();
+      bridgeApi.handlers.onWaveCanvasPointerDown(e);
+    },
+    [bridgeApi, clearLongPress]
+  );
+
   const onPointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (!bridgeApi?.handlers) return;
       clearPendingSingleTap();
       pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       longPressFiredRef.current = false;
+      dragArmedRef.current = false;
+      pointerDownRef.current = e;
+      pointerDownOriginRef.current = { x: e.clientX, y: e.clientY };
 
       if (pointersRef.current.size === 2) {
         clearLongPress();
+        pointerDownRef.current = null;
+        pointerDownOriginRef.current = null;
         const pts = [...pointersRef.current.values()];
         const dist = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y);
         const anchor = timeFromClientX((pts[0]!.x + pts[1]!.x) / 2) ?? currentTime;
@@ -252,12 +274,15 @@ export const PortraitWaveTransport: React.FC<Props> = ({
 
       longPressTimerRef.current = window.setTimeout(() => {
         longPressFiredRef.current = true;
+        pointerDownRef.current = null;
+        pointerDownOriginRef.current = null;
+        if (typeof navigator !== "undefined" && navigator.vibrate) {
+          navigator.vibrate(12);
+        }
         bridgeApi.handlers.onWaveContextMenu(synthMouseEvent("contextmenu", e));
       }, LONG_PRESS_MS);
-
-      bridgeApi.handlers.onWaveCanvasPointerDown(e);
     },
-    [bridgeApi, zoom, viewStart, currentTime, timeFromClientX, clearLongPress, clearPendingSingleTap]
+    [bridgeApi, zoom, currentTime, timeFromClientX, clearLongPress, clearPendingSingleTap]
   );
 
   const onPointerMove = useCallback(
@@ -268,9 +293,15 @@ export const PortraitWaveTransport: React.FC<Props> = ({
         pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       }
 
-      if (Math.abs(e.movementX) > 12 || Math.abs(e.movementY) > 12) {
-        clearLongPress();
-        clearPendingSingleTap();
+      const origin = pointerDownOriginRef.current;
+      if (origin && !longPressFiredRef.current) {
+        const dist = Math.hypot(e.clientX - origin.x, e.clientY - origin.y);
+        if (dist > LONG_PRESS_CANCEL_PX) {
+          clearLongPress();
+          clearPendingSingleTap();
+        } else if (!dragArmedRef.current && dist > DRAG_ARM_PX && pointerDownRef.current) {
+          armCanvasDrag(pointerDownRef.current);
+        }
       }
 
       if (pinchRef.current && pointersRef.current.size >= 2) {
@@ -283,9 +314,11 @@ export const PortraitWaveTransport: React.FC<Props> = ({
         return;
       }
 
-      bridgeApi.handlers.onWaveCanvasPointerMove(e);
+      if (dragArmedRef.current) {
+        bridgeApi.handlers.onWaveCanvasPointerMove(e);
+      }
     },
-    [bridgeApi, applyZoomAt, clearLongPress, clearPendingSingleTap]
+    [bridgeApi, applyZoomAt, clearLongPress, clearPendingSingleTap, armCanvasDrag]
   );
 
   const onClick = useCallback(
@@ -314,8 +347,21 @@ export const PortraitWaveTransport: React.FC<Props> = ({
       clearLongPress();
       pointersRef.current.delete(e.pointerId);
       pinchRef.current = null;
+      pointerDownRef.current = null;
+      pointerDownOriginRef.current = null;
 
-      if (!longPressFiredRef.current) {
+      if (longPressFiredRef.current) {
+        longPressFiredRef.current = false;
+        suppressClickRef.current = true;
+        try {
+          e.currentTarget.releasePointerCapture(e.pointerId);
+        } catch {
+          /* ignore */
+        }
+        return;
+      }
+
+      if (!dragArmedRef.current) {
         const now = Date.now();
         if (now - lastTapRef.current < DOUBLE_TAP_MS) {
           clearPendingSingleTap();
@@ -332,6 +378,8 @@ export const PortraitWaveTransport: React.FC<Props> = ({
           }, DOUBLE_TAP_MS);
         }
       }
+
+      dragArmedRef.current = false;
 
       try {
         e.currentTarget.releasePointerCapture(e.pointerId);
