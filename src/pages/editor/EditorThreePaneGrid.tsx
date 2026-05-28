@@ -208,16 +208,37 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const attachEditorPane = useAttachElementRef(setEditorSurfaceEl, editorPaneRef);
   const attachTopDockSection = useAssignRef(topDockSectionRef);
 
-  // MobileShell landscape 用: stageView・ダイアログ開閉・undo/redo を bridge store に同期
+  // MobileShell 用: stageView・ダイアログ開閉・undo/redo・タブメニューアクション を bridge store に同期
   // 不安定な関数参照を ref に退避して依存配列ループを防ぐ
   const addCueFnRef = useRef(setAddCueDialogOpen as ((open: boolean) => void) | null);
   const stageSettingsFnRef = useRef(setStageAreaSettingsOpen as ((open: boolean) => void) | null);
   const undoFnRef = useRef(undo as (() => void) | null);
   const redoFnRef = useRef(redo as (() => void) | null);
+  const saveSpotFnRef = useRef(saveStageToFormationBox as (() => void) | null);
+  const addTextFnRef = useRef(setFloorTextSideSheetOpen as ((open: boolean) => void) | null);
+  const cueListFnRef = useRef(setCueListModalOpen as ((open: boolean) => void) | null);
+  const stageShapeFnRef = useRef(setStageShapePickerOpen as ((open: boolean) => void) | null);
+  const setPieceFnRef = useRef(setSetPiecePickerOpen as ((open: boolean) => void) | null);
+  const audioImportFnRef = useRef(openAudioImport as (() => void) | null);
+  const memberListFnRef = useRef(setMemberRosterSheetOpen as ((open: boolean) => void) | null);
+  const memberAddFnRef = useRef(setChoreoMemberSheetOpen as ((open: boolean) => void) | null);
+  const shareLinksOpenFnRef = useRef(setShareLinksOpen as ((open: boolean) => void) | null);
+  const helpFnRef = useRef(setShortcutsHelpOpen as ((open: boolean) => void) | null);
+
   addCueFnRef.current = setAddCueDialogOpen as ((open: boolean) => void);
   stageSettingsFnRef.current = setStageAreaSettingsOpen as ((open: boolean) => void);
   undoFnRef.current = undo as (() => void);
   redoFnRef.current = redo as (() => void);
+  saveSpotFnRef.current = saveStageToFormationBox as (() => void);
+  addTextFnRef.current = setFloorTextSideSheetOpen as ((open: boolean) => void);
+  cueListFnRef.current = setCueListModalOpen as ((open: boolean) => void);
+  stageShapeFnRef.current = setStageShapePickerOpen as ((open: boolean) => void);
+  setPieceFnRef.current = setSetPiecePickerOpen as ((open: boolean) => void);
+  audioImportFnRef.current = openAudioImport as (() => void);
+  memberListFnRef.current = setMemberRosterSheetOpen as ((open: boolean) => void);
+  memberAddFnRef.current = setChoreoMemberSheetOpen as ((open: boolean) => void);
+  shareLinksOpenFnRef.current = setShareLinksOpen as ((open: boolean) => void);
+  helpFnRef.current = setShortcutsHelpOpen as ((open: boolean) => void);
 
   const setMobileShellBridge = useMobileShellBridgeStore((s) => s.setMobileShellBridge);
   useEffect(() => {
@@ -230,6 +251,17 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
       onStageSettings: () => stageSettingsFnRef.current?.(true),
       onUndo: () => undoFnRef.current?.(),
       onRedo: () => redoFnRef.current?.(),
+      onSaveSpot: () => saveSpotFnRef.current?.(),
+      onAddText: () => addTextFnRef.current?.(true),
+      onCueList: () => cueListFnRef.current?.(true),
+      onStageShape: () => stageShapeFnRef.current?.(true),
+      onSetPiece: () => setPieceFnRef.current?.(true),
+      onAudioImport: () => audioImportFnRef.current?.(),
+      onRosterImport: () => memberListFnRef.current?.(true),
+      onMemberList: () => memberListFnRef.current?.(true),
+      onMemberAdd: () => memberAddFnRef.current?.(true),
+      onShareLinks: () => shareLinksOpenFnRef.current?.(true),
+      onHelp: () => helpFnRef.current?.(true),
     });
   }, [stageView, stageUndoDisabled, stageRedoDisabled, setStageView, setMobileShellBridge]);
 

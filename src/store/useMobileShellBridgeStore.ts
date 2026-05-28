@@ -27,6 +27,29 @@ export type MobileShellBridgeStore = {
   onStageViewChange: (v: "2d" | "3d") => void;
   onUndo: () => void;
   onRedo: () => void;
+  // ── タブメニュー用アクション ──
+  /** 立ち位置保存 (stages) */
+  onSaveSpot: () => void;
+  /** テキスト追加 (stages) */
+  onAddText: () => void;
+  /** キュー一覧 (stages) */
+  onCueList: () => void;
+  /** 舞台変形 (stages) */
+  onStageShape: () => void;
+  /** 大道具 (stages) */
+  onSetPiece: () => void;
+  /** 音源追加 (timeline) */
+  onAudioImport: () => void;
+  /** 名簿取込 (timeline) */
+  onRosterImport: () => void;
+  /** メンバー表示 (team) */
+  onMemberList: () => void;
+  /** メンバー追加 (team) */
+  onMemberAdd: () => void;
+  /** 閲覧共有 (team) */
+  onShareLinks: () => void;
+  /** ヘルプ (settings) */
+  onHelp: () => void;
   /** EditorPage または上位コンポーネントから一括設定 */
   setMobileShellBridge: (patch: Partial<Omit<MobileShellBridgeStore, "setMobileShellBridge">>) => void;
 };
@@ -48,5 +71,16 @@ export const useMobileShellBridgeStore = create<MobileShellBridgeStore>((set) =>
   onStageViewChange: () => {},
   onUndo: () => {},
   onRedo: () => {},
+  onSaveSpot: () => {},
+  onAddText: () => {},
+  onCueList: () => {},
+  onStageShape: () => {},
+  onSetPiece: () => {},
+  onAudioImport: () => {},
+  onRosterImport: () => {},
+  onMemberList: () => {},
+  onMemberAdd: () => {},
+  onShareLinks: () => {},
+  onHelp: () => {},
   setMobileShellBridge: (patch) => set(patch),
 }));
