@@ -22,6 +22,9 @@ function newShareToken(): string {
 }
 
 function errMsg(e: { message?: string; code?: string } | null, fallback: string): string {
+  if (e?.code === "PGRST205" || e?.message?.includes("choreocore_projects")) {
+    return "Supabase に choreocore_projects テーブルがありません。Dashboard の SQL エディタで supabase/schema.sql を実行してください。";
+  }
   if (e && typeof e.message === "string" && e.message) return e.message;
   return fallback;
 }

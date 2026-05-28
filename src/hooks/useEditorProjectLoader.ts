@@ -108,17 +108,24 @@ export function useEditorProjectLoader({
       return;
     }
 
+    if (!authReady) {
+      setPlainProject(null);
+      setLoadError(null);
+      return;
+    }
+
     if (collabParam) {
-      if (!authReady) {
-        setPlainProject(null);
-        setLoadError(null);
-        return;
-      }
       if (!me) {
         setPlainProject(null);
         setLoadError("共同編集にはログインが必要です");
         return;
       }
+    }
+
+    if (isSupabaseBackend() && !me && !choreoPublicView) {
+      setPlainProject(null);
+      setLoadError("ログインが必要です");
+      return;
     }
 
     if (skipNextProjectFetchRef.current === id) {

@@ -1,4 +1,8 @@
-import { getSupabaseAccessToken, isSupabaseBackend } from "../lib/supabaseClient";
+import {
+  ensureSupabaseAccessToken,
+  getSupabaseAccessToken,
+  isSupabaseBackend,
+} from "../lib/supabaseClient";
 import { supabaseUploadProjectAudio } from "../lib/supabaseAudio";
 import {
   supabaseCreateProject,
@@ -204,14 +208,14 @@ export const projectApi = {
   list: async (): Promise<ProjectListItem[]> => {
     if (isDemoSessionToken()) return [];
     if (isSupabaseBackend()) {
-      if (!getSupabaseAccessToken()) return [];
+      if (!(await ensureSupabaseAccessToken())) return [];
       return supabaseListProjects();
     }
     return api<ProjectListItem[]>("/api/projects");
   },
   get: async (id: number): Promise<ProjectGetRow> => {
     if (isSupabaseBackend() && !isDemoSessionToken()) {
-      if (!getSupabaseAccessToken()) {
+      if (!(await ensureSupabaseAccessToken())) {
         throw new Error("ログインが必要です");
       }
       return supabaseGetProject(id);
@@ -230,7 +234,7 @@ export const projectApi = {
     return supabaseGetProjectByShareToken(shareToken);
   },
   create: async (name: string, json: unknown): Promise<ProjectListItem> => {
-    if (isSupabaseBackend() && !isDemoSessionToken() && getSupabaseAccessToken()) {
+    if (isSupabaseBackend() && !isDemoSessionToken() && (await ensureSupabaseAccessToken())) {
       return supabaseCreateProject(name, json);
     }
     const row = await api<{ id: number; name: string; updated_at: string }>("/api/projects", {
@@ -240,7 +244,7 @@ export const projectApi = {
     return { ...row, share_token: null };
   },
   update: async (id: number, name: string, json: unknown): Promise<ProjectListItem> => {
-    if (isSupabaseBackend() && !isDemoSessionToken() && getSupabaseAccessToken()) {
+    if (isSupabaseBackend() && !isDemoSessionToken() && (await ensureSupabaseAccessToken())) {
       return supabaseUpdateProject(id, name, json);
     }
     const row = await api<{ id: number; name: string; updated_at: string }>(
@@ -250,7 +254,7 @@ export const projectApi = {
     return { ...row, share_token: null };
   },
   remove: async (id: number) => {
-    if (isSupabaseBackend() && !isDemoSessionToken() && getSupabaseAccessToken()) {
+    if (isSupabaseBackend() && !isDemoSessionToken() && (await ensureSupabaseAccessToken())) {
       await supabaseDeleteProject(id);
       return;
     }

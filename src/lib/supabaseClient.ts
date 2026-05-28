@@ -30,3 +30,17 @@ export function getSupabaseAccessToken(): string | null {
 export function setSupabaseAccessToken(t: string | null): void {
   _accessToken = t;
 }
+
+/** メモリ上のトークンが未設定でも Supabase クライアントのセッションから復元する */
+export async function ensureSupabaseAccessToken(): Promise<string | null> {
+  if (_accessToken) return _accessToken;
+  if (!isSupabaseBackend()) return null;
+  try {
+    const { data } = await getSupabase().auth.getSession();
+    const token = data.session?.access_token ?? null;
+    setSupabaseAccessToken(token);
+    return token;
+  } catch {
+    return null;
+  }
+}
