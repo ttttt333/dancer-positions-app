@@ -57,18 +57,22 @@ export const PortraitBottomBar: React.FC<Props> = ({
   const onMemberAdd   = useMobileShellBridgeStore((s) => s.onMemberAdd)
   const onShareLinks  = useMobileShellBridgeStore((s) => s.onShareLinks)
   const onHelp        = useMobileShellBridgeStore((s) => s.onHelp)
+  const onFlowLibrary = useMobileShellBridgeStore((s) => s.onFlowLibrary)
 
   const TAB_MENUS: Record<TabId, MenuItem[]> = {
     stages: [
-      { label: '立ち位置保存',  icon: '💾', action: onSaveSpot },
-      { label: 'テキスト追加',  icon: '✏️', action: onAddText },
-      { label: 'キュー一覧',   icon: '📋', action: onCueList },
-      { label: '舞台変形',     icon: '🏟️', action: onStageShape },
-      { label: '大道具',       icon: '🪑', action: onSetPiece },
+      { label: '立ち位置保存', icon: '💾', action: onSaveSpot },
+      { label: 'テキスト追加', icon: '✏️', action: onAddText },
+      { label: 'キュー一覧',  icon: '📋', action: onCueList },
+      { label: 'キュー設定',  icon: '🎬', action: onAddCue },
+      { label: '舞台設定',    icon: '⚙️', action: onStageSettings },
+      { label: '舞台変形',    icon: '🏟️', action: onStageShape },
+      { label: '大道具',      icon: '🪑', action: onSetPiece },
+      { label: 'ライブラリ',  icon: '📚', action: onFlowLibrary },
     ],
     timeline: [
-      { label: '音源追加',     icon: '🎵', action: onAudioImport },
-      { label: '名簿取込',     icon: '📄', action: onRosterImport },
+      { label: '音源追加',    icon: '🎵', action: onAudioImport },
+      { label: '名簿取込',    icon: '📄', action: onRosterImport },
     ],
     team: [
       { label: 'メンバー表示', icon: '👤', action: onMemberList },
@@ -76,12 +80,10 @@ export const PortraitBottomBar: React.FC<Props> = ({
       { label: '閲覧共有',    icon: '🔗', action: onShareLinks },
     ],
     settings: [
-      { label: 'エクスポート',  icon: '📤', action: onAddCue }, // placeholder: onAddCue is temp
-      { label: 'ヘルプ',       icon: '❓', action: onHelp },
+      { label: 'エクスポート', icon: '📤', action: onViewerList },
+      { label: 'ヘルプ',      icon: '❓', action: onHelp },
     ],
   }
-  // settingsのエクスポートは専用アクションが取得できるまで onViewerList で代替
-  TAB_MENUS.settings[0].action = onViewerList
 
   const handleTabTap = useCallback((tabId: TabId) => {
     onTabChange(tabId)

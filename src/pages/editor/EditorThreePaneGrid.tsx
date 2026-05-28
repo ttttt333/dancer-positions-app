@@ -224,6 +224,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const memberAddFnRef = useRef(setChoreoMemberSheetOpen as ((open: boolean) => void) | null);
   const shareLinksOpenFnRef = useRef(setShareLinksOpen as ((open: boolean) => void) | null);
   const helpFnRef = useRef(setShortcutsHelpOpen as ((open: boolean) => void) | null);
+  const flowLibraryFnRef = useRef(setFlowLibraryOpen as ((open: boolean) => void) | null);
 
   addCueFnRef.current = setAddCueDialogOpen as ((open: boolean) => void);
   stageSettingsFnRef.current = setStageAreaSettingsOpen as ((open: boolean) => void);
@@ -239,6 +240,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   memberAddFnRef.current = setChoreoMemberSheetOpen as ((open: boolean) => void);
   shareLinksOpenFnRef.current = setShareLinksOpen as ((open: boolean) => void);
   helpFnRef.current = setShortcutsHelpOpen as ((open: boolean) => void);
+  flowLibraryFnRef.current = setFlowLibraryOpen as ((open: boolean) => void);
 
   const setMobileShellBridge = useMobileShellBridgeStore((s) => s.setMobileShellBridge);
   useEffect(() => {
@@ -262,6 +264,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
       onMemberAdd: () => memberAddFnRef.current?.(true),
       onShareLinks: () => shareLinksOpenFnRef.current?.(true),
       onHelp: () => helpFnRef.current?.(true),
+      onFlowLibrary: () => flowLibraryFnRef.current?.(true),
     });
   }, [stageView, stageUndoDisabled, stageRedoDisabled, setStageView, setMobileShellBridge]);
 

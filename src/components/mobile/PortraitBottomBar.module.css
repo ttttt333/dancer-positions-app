@@ -159,12 +159,12 @@
   border-radius: 0;
 }
 .tabBtn:active { background: rgba(255,255,255,0.04); }
-.tabIcon { font-size: 18px; filter: grayscale(1) brightness(0.5); }
+.tabIcon { font-size: 18px; opacity: 0.45; }
 .tabLabel { font-size: 9px; color: #4b5563; font-weight: 400; }
-.tabActive .tabIcon { filter: none; }
+.tabActive .tabIcon { opacity: 1; }
 .tabActive .tabLabel { color: #d97706; font-weight: 600; }
 .tabMenuOpen { background: rgba(217,119,6,0.08); }
-.tabMenuOpen .tabIcon { filter: none; }
+.tabMenuOpen .tabIcon { opacity: 1; }
 .tabMenuOpen .tabLabel { color: #d97706; font-weight: 600; }
 
 /* ── スライドアップ メニューシート ── */

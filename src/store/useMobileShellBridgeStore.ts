@@ -50,6 +50,8 @@ export type MobileShellBridgeStore = {
   onShareLinks: () => void;
   /** ヘルプ (settings) */
   onHelp: () => void;
+  /** ライブラリ (stages) */
+  onFlowLibrary: () => void;
   /** EditorPage または上位コンポーネントから一括設定 */
   setMobileShellBridge: (patch: Partial<Omit<MobileShellBridgeStore, "setMobileShellBridge">>) => void;
 };
@@ -82,5 +84,6 @@ export const useMobileShellBridgeStore = create<MobileShellBridgeStore>((set) =>
   onMemberAdd: () => {},
   onShareLinks: () => {},
   onHelp: () => {},
+  onFlowLibrary: () => {},
   setMobileShellBridge: (patch) => set(patch),
 }));
