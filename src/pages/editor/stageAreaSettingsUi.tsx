@@ -13,6 +13,7 @@ import { listStagePresets, saveStagePreset, type StagePresetItem } from "../../l
 import type { ChoreographyProjectJson } from "../../types/choreography";
 import {
   STAGE_AREA_DIM_ROWS,
+  mmToMeterCmDraft,
   type StageAreaSettingsDraft,
 } from "./stageAreaSettingsDraft";
 import { useI18n } from "../../i18n/I18nContext";
