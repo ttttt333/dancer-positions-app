@@ -2,20 +2,21 @@
  * PortraitHeader.tsx
  * 縦向き専用の音声プレイヤー + 波形バー
  *
- * ▶ Geminiコードからの修正点:
- *   - react-responsive 不使用 (useOrientation に統一)
- *   - 波形バーのデータを外部定数で管理 (コンポーネント内 Math.random() を排除)
- *   - safe-area を CSS env() で直接指定
+ * - audioUrl が変わると Web Audio API で実際の波形を計算
+ * - コントロール: 先頭戻し / -5s / 再生 / +5s
+ * - タイム表示は右寄せ
  */
 
-import React, { useRef, useCallback, useState } from 'react'
+import React, { useRef, useCallback, useState, useEffect } from 'react'
 import styles from './PortraitHeader.module.css'
 
-// ── 波形バーの高さデータ (固定値: renderごとに変わらない) ──
-const WAVE_HEIGHTS = [
+const NUM_BARS = 48
+
+// フォールバック用固定値
+const FALLBACK_HEIGHTS: number[] = [
   20,35,15,45,30,50,25,40,18,42,32,48,22,38,28,52,
   20,36,24,44,30,46,18,40,26,48,22,34,28,50,20,38,
-  24,42,30,46,18,36,26,44,22,48,20,40,28,50,24,38,18,42,
+  24,42,30,46,18,36,26,44,22,48,20,40,28,50,24,38,
 ]
 
 interface Props {
@@ -32,12 +33,48 @@ function fmt(sec: number): string {
   return `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`
 }
 
+/** AudioContext で URL をデコードして RMS ピーク配列を返す */
+async function computeWavePeaks(url: string, numBars: number): Promise<number[]> {
+  const res = await fetch(url, { mode: 'cors' })
+  const buf = await res.arrayBuffer()
+  const ctx = new AudioContext()
+  const decoded = await ctx.decodeAudioData(buf)
+  ctx.close()
+
+  const ch = decoded.getChannelData(0)
+  const blockSize = Math.floor(ch.length / numBars)
+  const peaks: number[] = []
+  for (let i = 0; i < numBars; i++) {
+    let sum = 0
+    for (let j = 0; j < blockSize; j++) {
+      sum += ch[i * blockSize + j] ** 2
+    }
+    peaks.push(Math.sqrt(sum / blockSize))
+  }
+  const max = Math.max(...peaks, 0.001)
+  return peaks.map(p => Math.max(4, (p / max) * 52))
+}
+
 export const PortraitHeader: React.FC<Props> = ({
   audioUrl, isPlaying, currentTime, duration, onPlayPause, onSeek,
 }) => {
   const [showWave, setShowWave] = useState(true)
+  const [wavePeaks, setWavePeaks] = useState<number[]>(FALLBACK_HEIGHTS)
   const progressRef = useRef<HTMLDivElement>(null)
-  const playedBars = Math.floor((currentTime / Math.max(duration, 1)) * WAVE_HEIGHTS.length)
+  const playedBars = Math.floor((currentTime / Math.max(duration, 1)) * wavePeaks.length)
+
+  // ── 音源が変わったら実際の波形を計算 ──
+  useEffect(() => {
+    if (!audioUrl) {
+      setWavePeaks(FALLBACK_HEIGHTS)
+      return
+    }
+    let cancelled = false
+    computeWavePeaks(audioUrl, NUM_BARS)
+      .then(peaks => { if (!cancelled) setWavePeaks(peaks) })
+      .catch(() => { if (!cancelled) setWavePeaks(FALLBACK_HEIGHTS) })
+    return () => { cancelled = true }
+  }, [audioUrl])
 
   const handleWaveClick = useCallback((e: React.MouseEvent) => {
     if (!progressRef.current || duration === 0) return
@@ -45,27 +82,70 @@ export const PortraitHeader: React.FC<Props> = ({
     onSeek(((e.clientX - r.left) / r.width) * duration)
   }, [duration, onSeek])
 
+  const handleStop = useCallback(() => {
+    onSeek(0)
+    if (isPlaying) onPlayPause()
+  }, [isPlaying, onPlayPause, onSeek])
+
+  const handleSkipBack = useCallback(() => {
+    onSeek(Math.max(0, currentTime - 5))
+  }, [currentTime, onSeek])
+
+  const handleSkipForward = useCallback(() => {
+    onSeek(Math.min(duration, currentTime + 5))
+  }, [currentTime, duration, onSeek])
+
   return (
     <div className={styles.header}>
       <div className={styles.row}>
-        {/* 再生ボタン */}
-        <button
-          className={styles.playBtn}
-          onClick={onPlayPause}
-          disabled={!audioUrl}
-          aria-label={isPlaying ? '一時停止' : '再生'}
-        >
-          {isPlaying ? '⏸' : '▶'}
-        </button>
+        {/* ── 左: 操作ボタン群 ── */}
+        <div className={styles.controls}>
+          {/* 停止して先頭へ */}
+          <button
+            className={styles.ctrlBtn}
+            onClick={handleStop}
+            disabled={!audioUrl}
+            aria-label="停止して先頭へ"
+          >⏹</button>
 
-        {/* タイム表示 */}
-        <div className={styles.timePill}>
-          <span className={styles.timeText}>{fmt(currentTime)} / {fmt(duration)}</span>
+          {/* -5秒 */}
+          <button
+            className={styles.ctrlBtn}
+            onClick={handleSkipBack}
+            disabled={!audioUrl}
+            aria-label="5秒戻す"
+          >
+            <span className={styles.skipIcon}>↺</span>
+            <span className={styles.skipSec}>5</span>
+          </button>
+
+          {/* 再生 / 一時停止 */}
+          <button
+            className={styles.playBtn}
+            onClick={onPlayPause}
+            disabled={!audioUrl}
+            aria-label={isPlaying ? '一時停止' : '再生'}
+          >
+            {isPlaying ? '⏸' : '▶'}
+          </button>
+
+          {/* +5秒 */}
+          <button
+            className={styles.ctrlBtn}
+            onClick={handleSkipForward}
+            disabled={!audioUrl}
+            aria-label="5秒進める"
+          >
+            <span className={styles.skipIcon}>↻</span>
+            <span className={styles.skipSec}>5</span>
+          </button>
         </div>
 
-        {/* 波形トグル */}
-        <div className={styles.waveToggleArea}>
-          <span className={styles.waveLabel}>Waveform</span>
+        {/* ── 右: タイム表示 + 波形トグル ── */}
+        <div className={styles.rightArea}>
+          <span className={styles.timeText}>
+            {fmt(currentTime)}<span className={styles.timeSep}>/</span>{fmt(duration)}
+          </span>
           <button
             className={styles.toggle}
             data-on={showWave}
@@ -77,7 +157,7 @@ export const PortraitHeader: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* 波形バー (タップでシーク) */}
+      {/* ── 波形バー (タップでシーク) ── */}
       {showWave && (
         <div
           ref={progressRef}
@@ -89,7 +169,7 @@ export const PortraitHeader: React.FC<Props> = ({
           aria-valuenow={currentTime}
           aria-label="再生位置"
         >
-          {WAVE_HEIGHTS.map((h, i) => (
+          {wavePeaks.map((h, i) => (
             <div
               key={i}
               className={styles.bar}
