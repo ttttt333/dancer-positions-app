@@ -89,6 +89,7 @@ export const StageAreaDimensionRows = memo(function StageAreaDimensionRows({
             <div style={{ display: "flex", alignItems: "center", gap: "3px", minWidth: 0 }}>
               <select
                 disabled={disabled}
+                className="stage-area-dim-select"
                 value={draft[row.key].m}
                 onChange={(e) =>
                   onChangeDraft((d) => ({
@@ -113,6 +114,7 @@ export const StageAreaDimensionRows = memo(function StageAreaDimensionRows({
               <span style={{ fontSize: "10px", color: "rgba(148,163,184,0.5)", flexShrink: 0 }}>m</span>
               <select
                 disabled={disabled}
+                className="stage-area-dim-select"
                 value={draft[row.key].cm}
                 onChange={(e) =>
                   onChangeDraft((d) => ({
@@ -328,6 +330,7 @@ export const StageAreaGridSpacingControls = memo(function StageAreaGridSpacingCo
       >
         <input
           type="text"
+          className="stage-area-grid-input"
           inputMode="numeric"
           pattern="[0-9]*"
           value={value}

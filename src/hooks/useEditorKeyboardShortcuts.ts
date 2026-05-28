@@ -7,7 +7,7 @@ export type UseEditorKeyboardShortcutsArgs = {
   cloudSaveDialogOpen: boolean;
   setCloudSaveDialogOpen: (open: boolean) => void;
   stageAreaSettingsOpen: boolean;
-  setStageAreaSettingsOpen: (open: boolean) => void;
+  onCloseStageAreaSettings: () => void;
   stageSettingsOpen: boolean;
   setStageSettingsOpen: (open: boolean) => void;
   exportDialogOpen: boolean;
@@ -33,7 +33,7 @@ export function useEditorKeyboardShortcuts({
   cloudSaveDialogOpen,
   setCloudSaveDialogOpen,
   stageAreaSettingsOpen,
-  setStageAreaSettingsOpen,
+  onCloseStageAreaSettings,
   stageSettingsOpen,
   setStageSettingsOpen,
   exportDialogOpen,
@@ -77,7 +77,7 @@ export function useEditorKeyboardShortcuts({
         return;
       }
       if (e.key === "Escape" && stageAreaSettingsOpen) {
-        setStageAreaSettingsOpen(false);
+        onCloseStageAreaSettings();
         return;
       }
       if (e.key === "Escape" && stageSettingsOpen) {
@@ -125,7 +125,7 @@ export function useEditorKeyboardShortcuts({
     cloudSaveDialogOpen,
     setCloudSaveDialogOpen,
     stageAreaSettingsOpen,
-    setStageAreaSettingsOpen,
+    onCloseStageAreaSettings,
     stageSettingsOpen,
     setStageSettingsOpen,
     shortcutsHelpOpen,

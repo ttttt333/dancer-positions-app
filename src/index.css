@@ -997,6 +997,47 @@ body {
   padding: 10px 12px !important;
 }
 
+/*
+   6. 舞台設定: 寸法セレクト・グリッド入力（2列グリッド向けコンパクト化）
+      全ダイアログ向け 52px/18px ルールで select が潰れて操作できなくなるのを防ぐ。
+*/
+[data-shell-portrait] .stage-area-dim-select,
+[data-shell-landscape] .stage-area-dim-select {
+  font-size: 16px !important;
+  min-height: 44px !important;
+  height: 44px !important;
+  padding: 4px 6px !important;
+  width: 72px !important;
+  min-width: 72px !important;
+  max-width: 88px !important;
+  flex: 0 0 72px !important;
+  box-sizing: border-box !important;
+  -webkit-appearance: menulist !important;
+  appearance: menulist !important;
+  touch-action: manipulation;
+}
+
+[data-shell-portrait] .stage-area-grid-input,
+[data-shell-landscape] .stage-area-grid-input {
+  font-size: 16px !important;
+  min-height: 44px !important;
+  padding: 8px 10px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  touch-action: manipulation;
+}
+
+/* 舞台設定シート: ボタン最小高さを抑えて2列レイアウトが崩れないように */
+[data-shell-portrait] #stage-area-settings-title ~ * button,
+[data-shell-portrait] [aria-labelledby="stage-area-settings-title"] button {
+  min-height: 44px !important;
+}
+
+[data-shell-landscape] #stage-area-settings-title ~ * button,
+[data-shell-landscape] [aria-labelledby="stage-area-settings-title"] button {
+  min-height: 44px !important;
+}
+
 /* ── ログイン／登録：iOS のフォーカス時拡大を抑え、タップ領域を確保 ── */
 @media (max-width: 480px) {
   .app-auth-card input[type="email"],

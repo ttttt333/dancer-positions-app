@@ -588,31 +588,6 @@ export function EditorPage({
     persistEditorLayout({ stageColumnPx, topDockRowPx });
   }, [wideEditorLayout, stageColumnPx, topDockRowPx]);
 
-  useEditorKeyboardShortcuts({
-    stageZenFullscreen,
-    setStageZenFullscreen,
-    cloudSaveDialogOpen,
-    setCloudSaveDialogOpen,
-    stageAreaSettingsOpen,
-    setStageAreaSettingsOpen,
-    stageSettingsOpen,
-    setStageSettingsOpen,
-    exportDialogOpen,
-    setExportDialogOpen,
-    flowLibraryOpen,
-    setFlowLibraryOpen,
-    cueListModalOpen,
-    setCueListModalOpen,
-    shortcutsHelpOpen,
-    setShortcutsHelpOpen,
-    rosterImportDraft,
-    setRosterImportDraft,
-    setRosterImportExtraNames,
-    undo,
-    redo,
-    getTrimStartSec: () => projectRef.current?.trimStartSec ?? 0,
-  });
-
   useEffect(() => {
     if (!wideEditorLayout && stageZenFullscreen) {
       setStageZenFullscreen(false);
@@ -1968,6 +1943,54 @@ export function EditorPage({
     !wideEditorLayout &&
     !stageZenLayout;
 
+  /** 舞台設定シートを閉じる。モバイルは ✕/背景タップでも保存、取消のみ破棄。 */
+  const closeStageAreaSettings = useCallback(
+    (mode?: "apply" | "discard" | "cancel") => {
+      if (!project) {
+        setStageAreaSettingsOpen(false);
+        return;
+      }
+      const resolved = mode ?? (mobileStackEditor ? "apply" : "discard");
+      if (resolved === "apply") {
+        if (project.viewMode !== "view") {
+          applyStageAreaSettingsDraft();
+        }
+      } else {
+        const fresh = projectToStageAreaDraft(project);
+        setStageAreaSettingsDraft(fresh);
+        setGridWidthCmInput(String(fresh.gridWidthCm));
+        setGridDepthCmInput(String(fresh.gridDepthCm));
+      }
+      setStageAreaSettingsOpen(false);
+    },
+    [project, mobileStackEditor, applyStageAreaSettingsDraft]
+  );
+
+  useEditorKeyboardShortcuts({
+    stageZenFullscreen,
+    setStageZenFullscreen,
+    cloudSaveDialogOpen,
+    setCloudSaveDialogOpen,
+    stageAreaSettingsOpen,
+    onCloseStageAreaSettings: () => closeStageAreaSettings(),
+    stageSettingsOpen,
+    setStageSettingsOpen,
+    exportDialogOpen,
+    setExportDialogOpen,
+    flowLibraryOpen,
+    setFlowLibraryOpen,
+    cueListModalOpen,
+    setCueListModalOpen,
+    shortcutsHelpOpen,
+    setShortcutsHelpOpen,
+    rosterImportDraft,
+    setRosterImportDraft,
+    setRosterImportExtraNames,
+    undo,
+    redo,
+    getTrimStartSec: () => projectRef.current?.trimStartSec ?? 0,
+  });
+
   /**
    * モバイルエディタのコンテナスタイル。
    * 縦: flex column
@@ -2326,6 +2349,7 @@ export function EditorPage({
     addDancerFromStageToolbar,
     aiSuggestOpen,
     applyStageAreaSettingsDraft,
+    closeStageAreaSettings,
     beginGestureHistory,
     browseFloorMarkup,
     browseFormationDancers,

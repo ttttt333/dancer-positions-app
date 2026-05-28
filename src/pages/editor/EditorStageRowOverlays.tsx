@@ -50,6 +50,9 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
   const addDancerFromStageToolbar = props.addDancerFromStageToolbar as never;
   const aiSuggestOpen = props.aiSuggestOpen as never;
   const applyStageAreaSettingsDraft = props.applyStageAreaSettingsDraft as never;
+  const closeStageAreaSettings = props.closeStageAreaSettings as (
+    mode?: "apply" | "discard" | "cancel"
+  ) => void;
   const beginGestureHistory = props.beginGestureHistory as never;
   const browseFloorMarkup = props.browseFloorMarkup as never;
   const browseFormationDancers = props.browseFormationDancers as never;
@@ -656,7 +659,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
       {stageAreaSettingsOpen ? (
         <StageAreaSettingsSheet
           stageAreaSettingsOpen={stageAreaSettingsOpen}
-          onClose={() => setStageAreaSettingsOpen(false)}
+          onClose={() => closeStageAreaSettings()}
         >
           <div style={{ padding: "8px 12px 10px", display: "flex", flexDirection: "column", gap: 0 }}>
             {/* ── Header ── */}
@@ -679,7 +682,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                 舞台設定
               </h3>
               <button type="button" aria-label={t("editor.layout.close")}
-                onClick={() => setStageAreaSettingsOpen(false)}
+                onClick={() => closeStageAreaSettings()}
                 style={{ ...btnSecondary, fontSize: 16, lineHeight: 1, padding: "2px 10px" }}
               >×</button>
             </div>
@@ -855,10 +858,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
             <div style={{ display: "flex", gap: 8 }}>
               <button type="button"
                 disabled={project.viewMode === "view"}
-                onClick={() => {
-                  applyStageAreaSettingsDraft();
-                  setStageAreaSettingsOpen(false);
-                }}
+                onClick={() => closeStageAreaSettings("apply")}
                 style={{
                   flex: 2, padding: "10px 14px", fontSize: 13, fontWeight: 700,
                   borderRadius: 10,
@@ -876,7 +876,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                 {t("editor.layout.confirmOk")}
               </button>
               <button type="button"
-                onClick={() => setStageAreaSettingsOpen(false)}
+                onClick={() => closeStageAreaSettings("cancel")}
                 style={{ ...btnSecondary, flex: 1, padding: "10px 10px", fontSize: 12, fontWeight: 600, borderRadius: 10 }}
               >
                 取消
