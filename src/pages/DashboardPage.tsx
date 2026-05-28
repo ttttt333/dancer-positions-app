@@ -1,16 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
 import { billingApi, isDemoSessionToken, projectApi } from "../api/client";
-import {
-  exportPortableArchiveJsonAsync,
-  importPortableArchiveJsonAsync,
-  PORTABLE_ARCHIVE_FORMAT,
-} from "../lib/portableChoreoBackup";
 import { ChoreoCoreLogo } from "../components/ChoreoCoreLogo";
 import { btnAccent, btnSecondary } from "../components/stageButtonStyles";
 import { panelCard, shell } from "../theme/choreoShell";
+import { tryMigrateFromLocalStorage } from "../lib/projectDefaults";
 
 function formatUpdatedAt(iso: string): string {
   try {
@@ -22,6 +18,20 @@ function formatUpdatedAt(iso: string): string {
   }
 }
 
+const proBtnStyle = {
+  padding: "8px 16px",
+  fontSize: "13px",
+  fontWeight: 700,
+  border: "none",
+  borderRadius: 8,
+  cursor: "pointer",
+  background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+  color: "#fff",
+  letterSpacing: "0.03em",
+  whiteSpace: "nowrap" as const,
+};
+
+/** トップ `/` — 保存作品へすぐ飛べるホーム */
 export function DashboardPage() {
   const { t } = useI18n();
   const { ready, me, logout, refresh } = useAuth();
@@ -30,12 +40,13 @@ export function DashboardPage() {
   >([]);
   const [error, setError] = useState("");
   const [accountNotice, setAccountNotice] = useState("");
-  const [portableMsg, setPortableMsg] = useState("");
-  const [portableBusy, setPortableBusy] = useState(false);
+
+  const legacyProject = useMemo(() => tryMigrateFromLocalStorage(), []);
 
   useEffect(() => {
     if (!me) {
       setProjects([]);
+      setError("");
       return;
     }
     let c = false;
@@ -52,16 +63,6 @@ export function DashboardPage() {
     };
   }, [me, t]);
 
-  const devPurchase = async () => {
-    try {
-      const r = await billingApi.placeholderPurchase();
-      setAccountNotice(r.message ?? t("dashboard.devPurchaseOk"));
-      await refresh();
-    } catch (e) {
-      setAccountNotice(e instanceof Error ? e.message : "失敗しました");
-    }
-  };
-
   const startStripeSubscription = async () => {
     setAccountNotice("");
     try {
@@ -76,7 +77,7 @@ export function DashboardPage() {
     me?.user?.entitlement_lifetime === 1 ||
     me?.user?.subscription_status === "active";
   const projectLimit = isPro ? Infinity : 3;
-  const nearLimit = !isPro && projects.length >= 2;
+  const atProjectLimit = Boolean(me) && !isPro && projects.length >= projectLimit;
 
   const del = async (id: number) => {
     if (!confirm(t("dashboard.deleteConfirm"))) return;
@@ -87,91 +88,6 @@ export function DashboardPage() {
       alert(e instanceof Error ? e.message : t("dashboard.deleteFail"));
     }
   };
-
-  const handleExportPortable = useCallback(
-    async (includeCloud: boolean) => {
-      setPortableBusy(true);
-      setPortableMsg("");
-      try {
-        const text = await exportPortableArchiveJsonAsync({
-          includeCloudProjects: includeCloud,
-        });
-        const blob = new Blob([text], { type: "application/json;charset=utf-8" });
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        const stamp = new Date().toISOString().replace(/[:]/g, "-").slice(0, 19);
-        a.download = `choreocore-portable-${stamp}.json`;
-        a.click();
-        URL.revokeObjectURL(a.href);
-        setPortableMsg(t("dashboard.portableExportOk"));
-      } catch (e) {
-        setPortableMsg(e instanceof Error ? e.message : t("dashboard.portableExportFail"));
-      } finally {
-        setPortableBusy(false);
-      }
-    },
-    [t]
-  );
-
-  const handleImportPortablePick = useCallback(() => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "application/json,.json,application/octet-stream";
-    input.onchange = () => {
-      void (async () => {
-        const file = input.files?.[0];
-        if (!file) return;
-        if (!confirm(t("dashboard.portableImportConfirm"))) return;
-        setPortableBusy(true);
-        setPortableMsg("");
-        try {
-          const text = await file.text();
-          let parsed: { format?: string; cloudProjects?: unknown[] };
-          try {
-            parsed = JSON.parse(text) as typeof parsed;
-          } catch (e) {
-            setPortableMsg(e instanceof Error ? e.message : t("dashboard.portableImportParseFail"));
-            return;
-          }
-          if (parsed.format !== PORTABLE_ARCHIVE_FORMAT) {
-            setPortableMsg(t("dashboard.portableImportFormatFail"));
-            return;
-          }
-          let importCloud = false;
-          if (
-            Array.isArray(parsed.cloudProjects) &&
-            parsed.cloudProjects.length > 0 &&
-            me &&
-            !isDemoSessionToken()
-          ) {
-            importCloud = confirm(
-              t("dashboard.portableImportCloudConfirm").replace(
-                "{n}",
-                String(parsed.cloudProjects.length)
-              )
-            );
-          }
-          const r = await importPortableArchiveJsonAsync(text, {
-            importCloudProjectsAsNew: importCloud,
-          });
-          setPortableMsg(r.message);
-          if (r.ok && me) {
-            try {
-              const list = await projectApi.list();
-              setProjects(list);
-            } catch {
-              /** 一覧更新失敗は無視（取り込み自体は成功している） */
-            }
-          }
-        } catch (e) {
-          setPortableMsg(e instanceof Error ? e.message : t("dashboard.portableImportFail"));
-        } finally {
-          setPortableBusy(false);
-        }
-      })();
-    };
-    input.click();
-  }, [me, t]);
 
   if (!ready) {
     return (
@@ -192,9 +108,7 @@ export function DashboardPage() {
     );
   }
 
-  if (!me) {
-    return <Navigate to="/login" replace />;
-  }
+  const accountLabel = me?.user.email ?? t("dashboard.guestLabel");
 
   return (
     <div
@@ -217,7 +131,7 @@ export function DashboardPage() {
       >
         <div
           style={{
-            maxWidth: 960,
+            maxWidth: 720,
             margin: "0 auto",
             display: "flex",
             flexWrap: "wrap",
@@ -237,79 +151,67 @@ export function DashboardPage() {
               color: shell.text,
             }}
           >
-            <ChoreoCoreLogo height={52} title="ChoreoCore" />
+            <ChoreoCoreLogo height={48} title="ChoreoCore" />
           </Link>
           <div
             className="app-page-header-actions"
             style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}
           >
-            <span style={{ fontSize: "12px", color: shell.textMuted }}>{me.user.email}</span>
-            {isPro ? (
-              <span style={{
-                fontSize: "11px",
-                fontWeight: 700,
-                color: "#fff",
-                background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-                padding: "3px 9px",
-                borderRadius: 20,
-                letterSpacing: "0.05em",
-              }}>
-                ✦ PRO
-              </span>
+            {me ? (
+              <>
+                {!isPro ? (
+                  <button
+                    type="button"
+                    style={{ ...proBtnStyle, padding: "6px 14px", fontSize: "12px" }}
+                    onClick={() => void startStripeSubscription()}
+                  >
+                    Pro にアップグレード
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  style={{ ...btnSecondary, padding: "6px 12px", fontSize: "12px" }}
+                  onClick={() => logout()}
+                >
+                  {t("dashboard.logout")}
+                </button>
+              </>
             ) : (
-              <span style={{
-                fontSize: "11px",
-                color: shell.textMuted,
-                padding: "3px 9px",
-                border: `1px solid ${shell.border}`,
-                borderRadius: 20,
-              }}>
-                FREE {projects.length}/3
-              </span>
+              <>
+                <Link
+                  to="/login"
+                  style={{
+                    ...btnSecondary,
+                    padding: "6px 14px",
+                    fontSize: "12px",
+                    textDecoration: "none",
+                  }}
+                >
+                  {t("dashboard.login")}
+                </Link>
+                <Link
+                  to="/register"
+                  style={{
+                    ...btnAccent,
+                    padding: "6px 14px",
+                    fontSize: "12px",
+                    textDecoration: "none",
+                  }}
+                >
+                  {t("dashboard.register")}
+                </Link>
+              </>
             )}
-            {!isPro && (
-              <button
-                type="button"
-                style={{
-                  padding: "6px 14px",
-                  fontSize: "12px",
-                  fontWeight: 700,
-                  border: "none",
-                  borderRadius: 8,
-                  cursor: "pointer",
-                  background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-                  color: "#fff",
-                  letterSpacing: "0.03em",
-                }}
-                onClick={() => void startStripeSubscription()}
-              >
-                Pro にアップグレード
-              </button>
-            )}
-            <Link
-              to="/video"
-              style={{ ...btnSecondary, padding: "6px 12px", fontSize: "12px", textDecoration: "none" }}
-            >
-              {t("dashboard.videoModule")}
-            </Link>
-            {import.meta.env.DEV && (
-              <button type="button" style={{ ...btnSecondary, padding: "6px 12px", fontSize: "12px" }} onClick={() => void devPurchase()}>
-                {t("dashboard.devLifetime")}
-              </button>
-            )}
-            <button type="button" style={{ ...btnSecondary, padding: "6px 12px", fontSize: "12px" }} onClick={logout}>
-              {t("dashboard.logout")}
-            </button>
           </div>
         </div>
       </header>
 
       <main
         style={{
-          maxWidth: 960,
+          maxWidth: 720,
           margin: "0 auto",
           padding:
-            "28px max(20px, env(safe-area-inset-right, 0px)) 48px max(20px, env(safe-area-inset-left, 0px))",
+            "24px max(20px, env(safe-area-inset-right, 0px)) 48px max(20px, env(safe-area-inset-left, 0px))",
         }}
       >
         {isDemoSessionToken() ? (
@@ -329,68 +231,57 @@ export function DashboardPage() {
           </div>
         ) : null}
 
-        {/* Freeプラン制限バナー */}
-        {nearLimit && !isPro ? (
-          <div style={{
-            ...panelCard,
-            padding: "14px 16px",
-            marginBottom: 20,
-            border: "1px solid rgba(99, 102, 241, 0.5)",
-            background: "rgba(99, 102, 241, 0.08)",
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            gap: "12px 16px",
-            justifyContent: "space-between",
-          }}>
-            <div>
-              <div style={{ fontSize: "13px", fontWeight: 600, color: "#a5b4fc", marginBottom: 4 }}>
-                {projects.length >= 3 ? "作品数の上限に達しました" : "作品数が上限に近づいています"}
-              </div>
-              <div style={{ fontSize: "12px", color: shell.textMuted, lineHeight: 1.5 }}>
-                無料プランは3作品まで。Proにアップグレードすると作品数が無制限になります。
-              </div>
-            </div>
-            <button
-              type="button"
-              style={{
-                padding: "8px 18px",
-                fontSize: "13px",
-                fontWeight: 700,
-                border: "none",
-                borderRadius: 8,
-                cursor: "pointer",
-                background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-                color: "#fff",
-                whiteSpace: "nowrap",
-                flexShrink: 0,
-              }}
-              onClick={() => void startStripeSubscription()}
-            >
-              Pro にアップグレード →
-            </button>
+        {/* アカウント名 */}
+        <section style={{ ...panelCard, padding: "16px 18px", marginBottom: 20 }}>
+          <div style={{ fontSize: "11px", fontWeight: 600, color: shell.textSubtle, marginBottom: 6 }}>
+            {t("dashboard.accountLabel")}
           </div>
-        ) : null}
-        <div
-          className="app-dashboard-hero"
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px 12px" }}>
+            <span style={{ fontSize: "17px", fontWeight: 700, wordBreak: "break-all" }}>
+              {accountLabel}
+            </span>
+            {me ? (
+              isPro ? (
+                <span
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    color: "#fff",
+                    background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                    padding: "3px 9px",
+                    borderRadius: 20,
+                    letterSpacing: "0.05em",
+                  }}
+                >
+                  ✦ PRO
+                </span>
+              ) : (
+                <span
+                  style={{
+                    fontSize: "11px",
+                    color: shell.textMuted,
+                    padding: "3px 9px",
+                    border: `1px solid ${shell.border}`,
+                    borderRadius: 20,
+                  }}
+                >
+                  FREE {projects.length}/3
+                </span>
+              )
+            ) : null}
+          </div>
+        </section>
+
+        {/* 新規作成・Pro（メイン操作） */}
+        <section
           style={{
             display: "flex",
-            flexWrap: "wrap",
-            alignItems: "flex-end",
-            justifyContent: "space-between",
-            gap: "16px 24px",
-            marginBottom: "28px",
+            flexDirection: "column",
+            gap: 10,
+            marginBottom: 28,
           }}
         >
-          <div style={{ minWidth: 0, flex: "1 1 240px" }}>
-            <h1 style={{ margin: 0, fontSize: "26px", fontWeight: 700, letterSpacing: "-0.03em" }}>
-              {t("dashboard.libraryHeading")}
-            </h1>
-            <p style={{ margin: "10px 0 0", fontSize: "14px", lineHeight: 1.55, color: shell.textMuted }}>
-              {t("dashboard.subtitle")}
-            </p>
-          </div>
-          {!isPro && projects.length >= projectLimit ? (
+          {atProjectLimit ? (
             <button
               type="button"
               style={{
@@ -398,9 +289,10 @@ export function DashboardPage() {
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
-                padding: "12px 22px",
-                fontSize: "14px",
-                flexShrink: 0,
+                padding: "14px 22px",
+                fontSize: "15px",
+                width: "100%",
+                boxSizing: "border-box",
                 background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
                 border: "none",
                 cursor: "pointer",
@@ -418,15 +310,43 @@ export function DashboardPage() {
                 display: "inline-flex",
                 alignItems: "center",
                 justifyContent: "center",
-                padding: "12px 22px",
-                fontSize: "14px",
-                flexShrink: 0,
+                padding: "14px 22px",
+                fontSize: "15px",
+                width: "100%",
+                boxSizing: "border-box",
               }}
             >
               {t("dashboard.newProject")}
             </Link>
           )}
-        </div>
+          {me && !isPro ? (
+            <button
+              type="button"
+              style={{ ...proBtnStyle, width: "100%", padding: "12px 18px", fontSize: "14px" }}
+              onClick={() => void startStripeSubscription()}
+            >
+              Pro にアップグレード
+            </button>
+          ) : null}
+          {!me ? (
+            <Link
+              to="/login"
+              style={{
+                ...btnSecondary,
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "12px 18px",
+                fontSize: "14px",
+                width: "100%",
+                boxSizing: "border-box",
+              }}
+            >
+              {t("dashboard.login")}
+            </Link>
+          ) : null}
+        </section>
 
         {accountNotice ? (
           <p style={{ fontSize: "13px", color: shell.textMuted, marginBottom: 20, lineHeight: 1.5 }}>
@@ -434,134 +354,161 @@ export function DashboardPage() {
           </p>
         ) : null}
 
-        <h2 style={{ margin: "0 0 14px", fontSize: "12px", fontWeight: 600, letterSpacing: "0.12em", color: shell.textSubtle }}>
-          {t("dashboard.portableTitle")}
-        </h2>
-        <div style={{ ...panelCard, padding: "14px 16px", marginBottom: 24 }}>
-          <p style={{ margin: "0 0 12px", fontSize: "13px", lineHeight: 1.55, color: shell.textMuted }}>
-            {t("dashboard.portableDesc")}
-          </p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-            <button
-              type="button"
-              disabled={portableBusy}
-              style={{
-                ...btnSecondary,
-                fontSize: "12px",
-                padding: "6px 12px",
-                opacity: portableBusy ? 0.65 : 1,
-              }}
-              onClick={() => void handleExportPortable(false)}
-            >
-              {t("dashboard.portableExportLocal")}
-            </button>
-            <button
-              type="button"
-              disabled={portableBusy || isDemoSessionToken()}
-              style={{
-                ...btnSecondary,
-                fontSize: "12px",
-                padding: "6px 12px",
-                opacity: portableBusy || isDemoSessionToken() ? 0.65 : 1,
-              }}
-              onClick={() => void handleExportPortable(true)}
-            >
-              {t("dashboard.portableExportWithCloud")}
-            </button>
-            <button
-              type="button"
-              disabled={portableBusy}
-              style={{ ...btnSecondary, fontSize: "12px", padding: "6px 12px" }}
-              onClick={() => handleImportPortablePick()}
-            >
-              {t("dashboard.portableImport")}
-            </button>
-          </div>
-          {portableMsg ? (
-            <p style={{ margin: "12px 0 0", fontSize: "12px", lineHeight: 1.5, color: shell.textMuted }}>
-              {portableMsg}
+        {legacyProject ? (
+          <section style={{ ...panelCard, padding: "16px 18px", marginBottom: 24 }}>
+            <div style={{ fontSize: "13px", fontWeight: 600, marginBottom: 6 }}>
+              {t("library.browserDataTitle")}
+            </div>
+            <p style={{ margin: "0 0 12px", fontSize: "13px", color: shell.textMuted, lineHeight: 1.55 }}>
+              {t("library.browserDataDesc")}
             </p>
-          ) : null}
-          <p style={{ margin: "10px 0 0", fontSize: "11px", lineHeight: 1.5, color: shell.textSubtle }}>
-            {t("dashboard.portableFootnote")}
-          </p>
-        </div>
-
-        <h2 style={{ margin: "0 0 14px", fontSize: "12px", fontWeight: 600, letterSpacing: "0.12em", color: shell.textSubtle }}>
-          {t("dashboard.cloudWorks")}
-        </h2>
-        {error ? <p style={{ color: "#fca5a5", marginBottom: 16 }}>{error}</p> : null}
-
-        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 12 }}>
-          {projects.map((p) => (
-            <li key={p.id} style={{ ...panelCard, padding: 0, overflow: "hidden" }}>
-              <div
-                className="app-dashboard-project-row"
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  alignItems: "stretch",
-                  gap: 0,
-                }}
-              >
-                <Link
-                  to={`/editor/${p.id}`}
-                  style={{
-                    flex: "1 1 200px",
-                    padding: "18px 20px",
-                    textDecoration: "none",
-                    color: shell.text,
-                    minWidth: 0,
-                  }}
-                >
-                  <div style={{ fontSize: "16px", fontWeight: 600, marginBottom: 6 }}>{p.name}</div>
-                  <div style={{ fontSize: "12px", color: shell.textMuted }}>
-                    {t("dashboard.updatedLabel")}: {formatUpdatedAt(p.updated_at)}
-                  </div>
-                </Link>
-                <div
-                  className="app-dashboard-project-actions"
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "12px 16px",
-                    borderLeft: `1px solid ${shell.border}`,
-                    background: "rgba(0,0,0,0.15)",
-                  }}
-                >
-                  <Link
-                    to={`/editor/${p.id}?collab=1`}
-                    style={{ ...btnSecondary, fontSize: "12px", padding: "6px 12px", textDecoration: "none" }}
-                    title={t("dashboard.collabHint")}
-                  >
-                    {t("dashboard.collab")}
-                  </Link>
-                  <button type="button" style={{ ...btnSecondary, fontSize: "12px", padding: "6px 12px" }} onClick={() => void del(p.id)}>
-                    {t("dashboard.delete")}
-                  </button>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
-
-        {projects.length === 0 && !error ? (
-          <div style={{ ...panelCard, padding: "36px 24px", textAlign: "center", marginTop: 8 }}>
-            <p style={{ margin: 0, fontSize: "14px", color: shell.textMuted, lineHeight: 1.6 }}>{t("dashboard.emptyProjects")}</p>
             <Link
               to="/editor/new"
               style={{
-                ...btnAccent,
-                marginTop: 20,
+                ...btnSecondary,
                 textDecoration: "none",
                 display: "inline-flex",
-                padding: "10px 20px",
+                padding: "8px 14px",
+                fontSize: "13px",
               }}
             >
-              {t("dashboard.newProject")}
+              {t("library.openBrowserData")}
             </Link>
+          </section>
+        ) : null}
+
+        {/* 保存した作品 */}
+        <h2
+          style={{
+            margin: "0 0 14px",
+            fontSize: "13px",
+            fontWeight: 700,
+            letterSpacing: "0.06em",
+            color: shell.textSubtle,
+          }}
+        >
+          {t("dashboard.cloudWorks")}
+        </h2>
+
+        {!me ? (
+          <div style={{ ...panelCard, padding: "24px 20px" }}>
+            <p style={{ margin: 0, fontSize: "14px", color: shell.textMuted, lineHeight: 1.6 }}>
+              {t("library.needLoginForCloud")}
+            </p>
+            <Link
+              to="/login"
+              style={{
+                ...btnAccent,
+                marginTop: 16,
+                textDecoration: "none",
+                display: "inline-flex",
+                padding: "10px 18px",
+                fontSize: "13px",
+              }}
+            >
+              {t("dashboard.login")}
+            </Link>
+          </div>
+        ) : null}
+
+        {me && error ? (
+          <p style={{ color: "#fca5a5", marginBottom: 16 }}>{error}</p>
+        ) : null}
+
+        {me ? (
+          <ul
+            style={{
+              listStyle: "none",
+              padding: 0,
+              margin: 0,
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+            }}
+          >
+            {projects.map((p) => (
+              <li key={p.id} style={{ ...panelCard, padding: 0, overflow: "hidden" }}>
+                <div
+                  className="app-dashboard-project-row"
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    alignItems: "stretch",
+                    gap: 0,
+                  }}
+                >
+                  <Link
+                    to={`/editor/${p.id}`}
+                    style={{
+                      flex: "1 1 200px",
+                      padding: "18px 20px",
+                      textDecoration: "none",
+                      color: shell.text,
+                      minWidth: 0,
+                    }}
+                  >
+                    <div style={{ fontSize: "16px", fontWeight: 600, marginBottom: 6 }}>{p.name}</div>
+                    <div style={{ fontSize: "12px", color: shell.textMuted }}>
+                      {t("dashboard.updatedLabel")}: {formatUpdatedAt(p.updated_at)}
+                    </div>
+                  </Link>
+                  <div
+                    className="app-dashboard-project-actions"
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "12px 16px",
+                      borderLeft: `1px solid ${shell.border}`,
+                      background: "rgba(0,0,0,0.15)",
+                    }}
+                  >
+                    <Link
+                      to={`/editor/${p.id}?collab=1`}
+                      style={{
+                        ...btnSecondary,
+                        fontSize: "12px",
+                        padding: "6px 12px",
+                        textDecoration: "none",
+                      }}
+                      title={t("dashboard.collabHint")}
+                    >
+                      {t("dashboard.collab")}
+                    </Link>
+                    <button
+                      type="button"
+                      style={{ ...btnSecondary, fontSize: "12px", padding: "6px 12px" }}
+                      onClick={() => void del(p.id)}
+                    >
+                      {t("dashboard.delete")}
+                    </button>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        {me && projects.length === 0 && !error ? (
+          <div style={{ ...panelCard, padding: "32px 24px", textAlign: "center" }}>
+            <p style={{ margin: 0, fontSize: "14px", color: shell.textMuted, lineHeight: 1.6 }}>
+              {t("dashboard.emptyProjects")}
+            </p>
+            {!atProjectLimit ? (
+              <Link
+                to="/editor/new"
+                style={{
+                  ...btnAccent,
+                  marginTop: 20,
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  padding: "10px 20px",
+                }}
+              >
+                {t("dashboard.newProject")}
+              </Link>
+            ) : null}
           </div>
         ) : null}
       </main>

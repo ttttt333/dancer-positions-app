@@ -2182,7 +2182,7 @@ export function EditorPage({
     return (
       <div style={{ padding: 24, color: "#f87171" }}>
         {loadError}{" "}
-        <Link to="/library" style={{ color: "#93c5fd" }}>
+        <Link to="/" style={{ color: "#93c5fd" }}>
           {t("common.backProjects")}
         </Link>
       </div>

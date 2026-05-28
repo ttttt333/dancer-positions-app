@@ -184,7 +184,7 @@ function ChoreoCoreHeaderBrand({ compact }: { compact?: boolean }) {
   const { t } = useI18n();
   return (
     <Link
-      to="/library"
+      to="/"
       title={t("editor.comp.k051")}
       aria-label={t("editor.comp.k007")}
       style={{

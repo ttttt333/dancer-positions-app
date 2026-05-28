@@ -169,7 +169,7 @@ export function LoginPage() {
         </p>
       </form>
       <Link
-        to="/library"
+        to="/"
         style={{
           ...btnAccent,
           width: "100%",

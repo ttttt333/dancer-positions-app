@@ -9,7 +9,6 @@ import { RegisterPage } from "./pages/RegisterPage";
 import { VideoPage } from "./pages/VideoPage";
 import { BillingCanceledPage, BillingSuccessPage } from "./pages/BillingPages";
 import { MobileFormationEditorDemoPage } from "./pages/MobileFormationEditorDemoPage";
-import { LibraryPage } from "./pages/LibraryPage";
 import { MobileShell } from "./components/mobile/MobileShell";
 import { usePlaybackUiStore } from "./store/usePlaybackUiStore";
 import { useMobileShellBridgeStore } from "./store/useMobileShellBridgeStore";
@@ -205,7 +204,7 @@ function AppShell() {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
-            <Route path="/library" element={<LibraryPage />} />
+            <Route path="/library" element={<Navigate to="/" replace />} />
             <Route path="/video" element={<VideoPage />} />
             <Route path="/billing/success" element={<BillingSuccessPage />} />
             <Route path="/billing/canceled" element={<BillingCanceledPage />} />

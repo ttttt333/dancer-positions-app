@@ -31,7 +31,7 @@ export function EditorPageHeader(props: EditorLayoutProps) {
       }}
     >
       <Link
-        to="/library"
+        to="/"
         title={t("editor.backTitle")}
         aria-label={t("editor.backTitle")}
         style={{

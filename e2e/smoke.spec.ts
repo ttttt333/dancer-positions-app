@@ -1,10 +1,10 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("smoke", () => {
-  test("library page loads", async ({ page }) => {
-    await page.goto("/library");
+  test("home page loads", async ({ page }) => {
+    await page.goto("/");
     await expect(page.locator("#choreogrid-locale-select")).toBeVisible();
-    await expect(page.getByRole("link", { name: /新規|Start new|editor/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /新規|New project|Start new/i })).toBeVisible();
   });
 
   test("new editor session opens", async ({ page }) => {
@@ -14,10 +14,10 @@ test.describe("smoke", () => {
     });
   });
 
-  test("Spanish locale updates library UI", async ({ page }) => {
-    await page.goto("/library");
+  test("Spanish locale updates home UI", async ({ page }) => {
+    await page.goto("/");
     await page.selectOption("#choreogrid-locale-select", "es");
-    await expect(page.getByRole("link", { name: /Iniciar proyecto nuevo/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Nuevo proyecto/i })).toBeVisible();
     await expect(page.locator("#choreogrid-locale-select")).toHaveValue("es");
   });
 });
