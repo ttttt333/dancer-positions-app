@@ -111,8 +111,8 @@
 /* ── ダイアログ浮遊閉じるボタン ── */
 .floatingClose {
   position: fixed;
-  /* 縦画面ではタブバーの高さ (~80px) + safe-area の上に配置 */
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 88px);
+  /* 縦画面: 下部バー（波形+キュー+Menu）の上 */
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 168px);
   right: 16px;
   z-index: 500;
   background: rgba(17, 24, 39, 0.92);

@@ -1,0 +1,133 @@
+.transport {
+  padding: 8px 10px 6px;
+  border-bottom: 0.5px solid #1a2540;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.ctrlBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
+  color: #d1d5db;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s;
+  gap: 0;
+  padding: 0;
+  line-height: 1;
+}
+.ctrlBtn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.ctrlBtn:active:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.skipIcon {
+  font-size: 15px;
+  line-height: 1;
+  display: block;
+}
+.skipSec {
+  font-size: 7px;
+  font-weight: 700;
+  color: #9ca3af;
+  line-height: 1;
+}
+
+.playBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #d97706;
+  border: none;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+.playBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.playBtn:active:not(:disabled) {
+  opacity: 0.8;
+}
+
+.timeText {
+  font-family: monospace;
+  font-size: 11px;
+  color: #f1f5f9;
+  white-space: nowrap;
+  margin-left: auto;
+}
+.timeSep {
+  color: #4b5563;
+  margin: 0 2px;
+}
+
+.waveform {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 36px;
+  cursor: pointer;
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+.bar {
+  width: 3px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  transition: background 0.1s;
+}
+
+.playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #fbbf24;
+  transform: translateX(-50%);
+  pointer-events: none;
+  box-shadow: 0 0 6px rgba(251, 191, 36, 0.6);
+}
+
+.cueMarker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #22d3ee;
+  border-radius: 1px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  opacity: 0.9;
+}

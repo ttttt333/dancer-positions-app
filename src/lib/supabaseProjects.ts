@@ -1,4 +1,5 @@
 import { getSupabase } from "./supabaseClient";
+import { summarizeProjectJson, type ProjectListSummary } from "./projectListSummary";
 
 export type ProjectRow = {
   id: number;
@@ -13,7 +14,34 @@ export type ProjectListItem = {
   name: string;
   updated_at: string;
   share_token: string | null;
-};
+} & ProjectListSummary;
+
+function mapListRow(r: {
+  id: unknown;
+  name: unknown;
+  updated_at: unknown;
+  share_token: unknown;
+  json: unknown;
+}): ProjectListItem {
+  const summary = summarizeProjectJson(r.json);
+  return {
+    id: Number(r.id),
+    name: String(r.name),
+    updated_at: String(r.updated_at),
+    share_token: r.share_token != null ? String(r.share_token) : null,
+    ...summary,
+  };
+}
+
+export async function supabaseListProjects(): Promise<ProjectListItem[]> {
+  const sb = getSupabase();
+  const { data, error } = await sb
+    .from("choreocore_projects")
+    .select("id, name, updated_at, share_token, json")
+    .order("updated_at", { ascending: false });
+  if (error) throw new Error(errMsg(error, "作品一覧の取得に失敗しました"));
+  return (data ?? []).map(mapListRow);
+}
 
 function newShareToken(): string {
   const a = new Uint8Array(16);
@@ -27,21 +55,6 @@ function errMsg(e: { message?: string; code?: string } | null, fallback: string)
   }
   if (e && typeof e.message === "string" && e.message) return e.message;
   return fallback;
-}
-
-export async function supabaseListProjects(): Promise<ProjectListItem[]> {
-  const sb = getSupabase();
-  const { data, error } = await sb
-    .from("choreocore_projects")
-    .select("id, name, updated_at, share_token")
-    .order("updated_at", { ascending: false });
-  if (error) throw new Error(errMsg(error, "作品一覧の取得に失敗しました"));
-  return (data ?? []).map((r) => ({
-    id: Number(r.id),
-    name: String(r.name),
-    updated_at: String(r.updated_at),
-    share_token: r.share_token != null ? String(r.share_token) : null,
-  }));
 }
 
 export async function supabaseGetProject(id: number): Promise<ProjectRow> {
@@ -110,6 +123,7 @@ export async function supabaseCreateProject(
     name: String(data.name),
     updated_at: String(data.updated_at),
     share_token: data.share_token != null ? String(data.share_token) : null,
+    ...summarizeProjectJson(json),
   };
 }
 
@@ -149,6 +163,7 @@ export async function supabaseUpdateProject(
     name: String(data.name),
     updated_at: String(data.updated_at),
     share_token: data.share_token != null ? String(data.share_token) : null,
+    ...summarizeProjectJson(json),
   };
 }
 

@@ -263,6 +263,28 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
     if (s < t - 1) jumpToPagerSlotRef.current(s + 1);
   }, []);
 
+  const handleMobileSelectCueNearTime = useCallback(
+    (tSec: number) => {
+      const cues = Array.isArray(sortedCuesForEditor)
+        ? (sortedCuesForEditor as Array<{ tStartSec: number }>)
+        : [];
+      if (cues.length === 0) return;
+      let bestIdx = 0;
+      let bestDist = Infinity;
+      cues.forEach((c, i) => {
+        const d = Math.abs(c.tStartSec - tSec);
+        if (d < bestDist) {
+          bestDist = d;
+          bestIdx = i;
+        }
+      });
+      if (bestDist > 1.5) return;
+      const { hasRoster } = cueNavRef.current;
+      jumpToPagerSlotRef.current(hasRoster ? bestIdx + 1 : bestIdx);
+    },
+    [sortedCuesForEditor]
+  );
+
   const setMobileShellBridge = useMobileShellBridgeStore((s) => s.setMobileShellBridge);
   useEffect(() => {
     const cues = Array.isArray(cuesSortedForStageJump)
@@ -316,6 +338,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
       cueStartTimes: Array.isArray(sortedCuesForEditor)
         ? (sortedCuesForEditor as Array<{ tStartSec: number }>).map((c) => c.tStartSec)
         : [],
+      onSelectCueNearTime: handleMobileSelectCueNearTime,
     });
   }, [
     stageView,
@@ -330,6 +353,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
     project,
     handleMobileCuePrev,
     handleMobileCueNext,
+    handleMobileSelectCueNearTime,
   ]);
 
   return (

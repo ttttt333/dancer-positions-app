@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
-import { billingApi, isDemoSessionToken, projectApi } from "../api/client";
+import { billingApi, isDemoSessionToken, projectApi, type ProjectListItem } from "../api/client";
 import { isCollabFeatureAvailable } from "../lib/collabAvailability";
 import { ChoreoCoreLogo } from "../components/ChoreoCoreLogo";
+import { ProjectFormationThumb } from "../components/dashboard/ProjectFormationThumb";
 import { btnAccent, btnSecondary } from "../components/stageButtonStyles";
 import { panelCard, shell } from "../theme/choreoShell";
 import { tryMigrateFromLocalStorage } from "../lib/projectDefaults";
@@ -36,9 +37,7 @@ const proBtnStyle = {
 export function DashboardPage() {
   const { t } = useI18n();
   const { ready, me, logout, refresh } = useAuth();
-  const [projects, setProjects] = useState<
-    { id: number; name: string; updated_at: string }[]
-  >([]);
+  const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [error, setError] = useState("");
   const [accountNotice, setAccountNotice] = useState("");
 
@@ -442,15 +441,38 @@ export function DashboardPage() {
                     to={`/editor/${p.id}`}
                     style={{
                       flex: "1 1 200px",
-                      padding: "18px 20px",
+                      padding: "14px 16px",
                       textDecoration: "none",
                       color: shell.text,
                       minWidth: 0,
                     }}
                   >
-                    <div style={{ fontSize: "16px", fontWeight: 600, marginBottom: 6 }}>{p.name}</div>
-                    <div style={{ fontSize: "12px", color: shell.textMuted }}>
-                      {t("dashboard.updatedLabel")}: {formatUpdatedAt(p.updated_at)}
+                    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                      <ProjectFormationThumb dancers={p.previewDancers} size={64} />
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: "16px", fontWeight: 600, marginBottom: 6 }}>
+                          {p.name}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "12px",
+                            color: shell.textMuted,
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: "4px 14px",
+                          }}
+                        >
+                          <span>
+                            {t("editor.headcount")}: {p.dancerCount}
+                          </span>
+                          <span>
+                            {t("dashboard.cueCount")}: {p.cueCount}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: "11px", color: shell.textMuted, marginTop: 4 }}>
+                          {t("dashboard.updatedLabel")}: {formatUpdatedAt(p.updated_at)}
+                        </div>
+                      </div>
                     </div>
                   </Link>
                   <div

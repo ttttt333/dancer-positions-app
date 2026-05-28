@@ -11,7 +11,9 @@ import {
   supabaseGetProjectByShareToken,
   supabaseListProjects,
   supabaseUpdateProject,
+  type ProjectListItem as SupabaseProjectListItem,
 } from "../lib/supabaseProjects";
+import { summarizeProjectJson } from "../lib/projectListSummary";
 
 /** 本番ログイン前の暫定利用。`refresh` は API を呼ばずダミーユーザーを復元する */
 export const DEMO_SESSION_TOKEN = "__choreogrid_demo_session__";
@@ -189,12 +191,7 @@ export const authApi = {
     }>("/api/auth/me"),
 };
 
-export type ProjectListItem = {
-  id: number;
-  name: string;
-  updated_at: string;
-  share_token?: string | null;
-};
+export type ProjectListItem = SupabaseProjectListItem;
 
 export type ProjectGetRow = {
   id: number;
@@ -211,7 +208,16 @@ export const projectApi = {
       if (!(await ensureSupabaseAccessToken())) return [];
       return supabaseListProjects();
     }
-    return api<ProjectListItem[]>("/api/projects");
+    const rows = await api<
+      Array<{ id: number; name: string; updated_at: string; json: unknown }>
+    >("/api/projects");
+    return rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      updated_at: r.updated_at,
+      share_token: null,
+      ...summarizeProjectJson(r.json),
+    }));
   },
   get: async (id: number): Promise<ProjectGetRow> => {
     if (isSupabaseBackend() && !isDemoSessionToken()) {
@@ -241,7 +247,7 @@ export const projectApi = {
       method: "POST",
       body: JSON.stringify({ name, json }),
     });
-    return { ...row, share_token: null };
+    return { ...row, share_token: null, ...summarizeProjectJson(json) };
   },
   update: async (id: number, name: string, json: unknown): Promise<ProjectListItem> => {
     if (isSupabaseBackend() && !isDemoSessionToken() && (await ensureSupabaseAccessToken())) {
@@ -251,7 +257,7 @@ export const projectApi = {
       `/api/projects/${id}`,
       { method: "PUT", body: JSON.stringify({ name, json }) }
     );
-    return { ...row, share_token: null };
+    return { ...row, share_token: null, ...summarizeProjectJson(json) };
   },
   remove: async (id: number) => {
     if (isSupabaseBackend() && !isDemoSessionToken() && (await ensureSupabaseAccessToken())) {

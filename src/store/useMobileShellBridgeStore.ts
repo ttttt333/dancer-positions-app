@@ -54,6 +54,8 @@ export type MobileShellBridgeStore = {
   onHelp: () => void;
   /** ライブラリ (stages) */
   onFlowLibrary: () => void;
+  /** 波形タップで近傍キューを選択 */
+  onSelectCueNearTime: (tSec: number) => void;
   /** EditorPage または上位コンポーネントから一括設定 */
   setMobileShellBridge: (patch: Partial<Omit<MobileShellBridgeStore, "setMobileShellBridge">>) => void;
 };
@@ -88,5 +90,6 @@ export const useMobileShellBridgeStore = create<MobileShellBridgeStore>((set) =>
   onShareLinks: () => {},
   onHelp: () => {},
   onFlowLibrary: () => {},
+  onSelectCueNearTime: () => {},
   setMobileShellBridge: (patch) => set(patch),
 }));

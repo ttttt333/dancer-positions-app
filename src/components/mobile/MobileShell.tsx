@@ -13,7 +13,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { useOrientation } from '../../hooks/useOrientation'
-import { PortraitHeader } from './PortraitHeader'
 import { PortraitBottomBar } from './PortraitBottomBar'
 import { LandscapeSidePanel } from './LandscapeSidePanel'
 import { useMobileShellBridgeStore } from '../../store/useMobileShellBridgeStore'
@@ -53,7 +52,6 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
   const onRedo = useMobileShellBridgeStore((s) => s.onRedo)
   const undoDisabled = useMobileShellBridgeStore((s) => s.undoDisabled)
   const redoDisabled = useMobileShellBridgeStore((s) => s.redoDisabled)
-  const onAddCue = useMobileShellBridgeStore((s) => s.onAddCue)
   const cueStartTimes = useMobileShellBridgeStore((s) => s.cueStartTimes)
 
   // ── ダイアログ開閉を監視して浮遊閉じるボタンを表示 ──
@@ -143,25 +141,19 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
   // 縦向き
   return (
     <div className={styles.portraitRoot} data-shell-portrait="">
-      {/* 上部: 音声プレイヤー + 波形 */}
-      <PortraitHeader
+      {/* 中央: ステージ (flex-1 で残り全部) */}
+      <div className={styles.stageAreaPortrait}>
+        {props.children}
+      </div>
+
+      {/* 下部: 波形 + キューナビ + Menu/Undo/Redo */}
+      <PortraitBottomBar
         audioUrl={props.audioUrl}
         isPlaying={props.isPlaying}
         currentTime={props.currentTime}
         duration={props.duration}
         onPlayPause={props.onPlayPause}
         onSeek={props.onSeek}
-        onAddCue={onAddCue}
-        cueStartTimes={cueStartTimes}
-      />
-
-      {/* 中央: ステージ (flex-1 で残り全部) */}
-      <div className={styles.stageAreaPortrait}>
-        {props.children}
-      </div>
-
-      {/* 下部: キューナビ + アクションボタン + タブバー */}
-      <PortraitBottomBar
         currentCueIndex={props.currentCueIndex}
         totalCues={props.totalCues}
         onCuePrev={props.onCuePrev}
@@ -169,8 +161,7 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
         onAddCue={props.onAddCue}
         onStageSettings={props.onStageSettings}
         onViewerList={props.onViewerList}
-        activeTab={props.activeTab}
-        onTabChange={props.onTabChange}
+        cueStartTimes={cueStartTimes}
       />
 
       {/* ダイアログが開いているときだけ浮遊閉じるボタンを表示 */}

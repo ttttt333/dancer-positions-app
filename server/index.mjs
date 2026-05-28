@@ -682,15 +682,22 @@ app.get("/api/audio/:id", authMiddleware, requireAuth, (req, res) => {
 app.get("/api/projects", authMiddleware, requireAuth, (req, res) => {
   const rows = db
     .prepare(
-      `SELECT id, name, updated_at FROM (
-         SELECT p.id, p.name, p.updated_at FROM projects p WHERE p.user_id = @uid
+      `SELECT id, name, updated_at, json FROM (
+         SELECT p.id, p.name, p.updated_at, p.json FROM projects p WHERE p.user_id = @uid
          UNION
-         SELECT p.id, p.name, p.updated_at FROM projects p
+         SELECT p.id, p.name, p.updated_at, p.json FROM projects p
          JOIN project_collaborators c ON c.project_id = p.id AND c.user_id = @uid
        ) ORDER BY updated_at DESC`
     )
     .all({ uid: req.userId });
-  res.json(rows);
+  res.json(
+    rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      updated_at: row.updated_at,
+      json: JSON.parse(row.json),
+    }))
+  );
 });
 
 app.get("/api/projects/:id", authMiddleware, requireAuth, (req, res) => {
