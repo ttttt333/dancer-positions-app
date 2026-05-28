@@ -1004,6 +1004,42 @@ body {
   padding: 10px 12px !important;
 }
 
+/* キュー設定: 立ち位置雛形チップ（文字を読みやすく・型を大きく） */
+[data-shell-portrait] [role="dialog"][aria-modal="false"] .add-cue-preset-btn,
+[data-shell-landscape] [role="dialog"][aria-modal="false"] .add-cue-preset-btn {
+  min-width: 84px !important;
+  width: 84px !important;
+  max-width: 104px !important;
+  min-height: unset !important;
+  padding: 10px 8px 12px !important;
+  gap: 6px !important;
+}
+
+[data-shell-portrait] [role="dialog"][aria-modal="false"] .add-cue-preset-btn svg,
+[data-shell-landscape] [role="dialog"][aria-modal="false"] .add-cue-preset-btn svg {
+  width: 68px !important;
+  height: 42px !important;
+}
+
+[data-shell-portrait] [role="dialog"][aria-modal="false"] .add-cue-preset-label,
+[data-shell-landscape] [role="dialog"][aria-modal="false"] .add-cue-preset-label {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: #f1f5f9 !important;
+  line-height: 1.35 !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow: visible !important;
+  text-overflow: unset !important;
+}
+
+[data-shell-portrait] [role="dialog"][aria-modal="false"] .add-cue-preset-category,
+[data-shell-landscape] [role="dialog"][aria-modal="false"] .add-cue-preset-category {
+  font-size: 14px !important;
+  color: #cbd5e1 !important;
+  margin-bottom: 8px !important;
+}
+
 /*
    5b. フローライブラリ (aria-labelledby=flow-lib-title) — 新規保存行のはみ出し防止
 */

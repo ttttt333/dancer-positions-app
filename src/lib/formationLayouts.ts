@@ -240,10 +240,10 @@ export const LAYOUT_PRESET_OPTIONS = [
   { id: "stagger_3", label: "3段千鳥" },
   { id: "offset_triple", label: "3列オフセット" },
   { id: "two_rows_dense_back", label: "2列（前少・奥多）" },
-  /** ─ 段の列 ─ */
-  { id: "front_stair_from_2", label: "段の列２（手前2人〜）" },
-  { id: "front_stair_from_3", label: "段の列３（手前3人〜）" },
-  { id: "front_stair_from_4", label: "段の列４（手前4人〜）" },
+  /** ─ 段 ─ */
+  { id: "front_stair_from_2", label: "２段" },
+  { id: "front_stair_from_3", label: "３段" },
+  { id: "front_stair_from_4", label: "４段" },
   { id: "front_stair_from_5", label: "段の列５（手前5人〜）" },
   { id: "front_stair_from_6", label: "段の列６（手前6人〜）" },
   { id: "front_stair_from_7", label: "段の列７（手前7人〜）" },
@@ -270,7 +270,7 @@ export const LAYOUT_PRESET_OPTIONS = [
   { id: "columns_10", label: "10列縦並び" },
   /** ─ ピラミッド・V字系 ─ */
   { id: "vee", label: "V字" },
-  { id: "inverse_vee", label: "逆V字（奥に先端）" },
+  { id: "inverse_vee", label: "逆V字" },
   { id: "wedge", label: "楔（手前先端）" },
   { id: "fan_back", label: "扇状（奥を頂点）" },
   { id: "hourglass", label: "砂時計（前後広・中狭）" },
@@ -417,19 +417,8 @@ export const COMMON_QUICK_LAYOUT_PRESETS: { id: LayoutPresetId; label: string }[
  */
 export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
   {
-    label: "▲ ピラミッド・V字系",
-    ids: [
-      "pyramid",
-      "pyramid_inverse",
-      "vee",
-      "inverse_vee",
-      "wedge",
-      "fan_back",
-      "hourglass",
-      "bowtie",
-      "arrow_back",
-      "arrow_front",
-    ],
+    label: "ピラミッド・V字",
+    ids: ["pyramid", "pyramid_inverse", "vee", "inverse_vee"],
   },
   {
     label: "🟦 複数列・千鳥",
@@ -449,19 +438,8 @@ export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
     ],
   },
   {
-    label: "📐 段の列（客席側から増える）",
-    ids: [
-      "front_stair_from_2",
-      "front_stair_from_3",
-      "front_stair_from_4",
-      "front_stair_from_5",
-      "front_stair_from_6",
-      "front_stair_from_7",
-      "front_stair_from_8",
-      "front_stair_from_9",
-      "front_stair_from_10",
-      "front_stair_from_11",
-    ],
+    label: "段",
+    ids: ["front_stair_from_2", "front_stair_from_3", "front_stair_from_4"],
   },
   {
     label: "➖ 直線・対角線",
@@ -604,6 +582,12 @@ export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
   {
     label: "🔺 V字・扇（追加）",
     ids: [
+      "wedge",
+      "fan_back",
+      "hourglass",
+      "bowtie",
+      "arrow_back",
+      "arrow_front",
       "v_open",
       "v_tight",
       "fan_front",

@@ -282,6 +282,37 @@ const presetChipBase: CSSProperties = {
   transition: "border-color 0.12s, background 0.12s",
 };
 
+const addCuePresetLabelStyle: CSSProperties = {
+  fontSize: "12px",
+  fontWeight: 600,
+  color: "#e2e8f0",
+  width: "100%",
+  lineHeight: 1.35,
+  textAlign: "center",
+  whiteSpace: "normal",
+  wordBreak: "break-word",
+};
+
+const addCuePresetBtnStyle: CSSProperties = {
+  flexShrink: 0,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "flex-start",
+  gap: "5px",
+  padding: "8px 8px 10px",
+  borderRadius: "10px",
+  border: "1px solid #1e293b",
+  background: "#0a0f1e",
+  cursor: "pointer",
+  minWidth: "78px",
+  width: "78px",
+  maxWidth: "96px",
+  boxShadow: "none",
+  transition: "border-color 0.12s, background 0.12s",
+  boxSizing: "border-box",
+};
+
 /** 「立ち位置について」モードカード用（2列グリッドの1セル） */
 const addCueModePickStyle: CSSProperties = {
   display: "flex",
@@ -304,14 +335,14 @@ const addCueModePickStyle: CSSProperties = {
 
 /** カテゴリグリッド用サムネイル（名簿モーダルの SpotThumb と同等） */
 function SpotThumb({ dancers }: { dancers: { xPct: number; yPct: number }[] }) {
-  const radius = dancers.length >= 12 ? 2.4 : dancers.length >= 6 ? 3.0 : 3.4;
+  const radius = dancers.length >= 12 ? 2.8 : dancers.length >= 6 ? 3.4 : 3.8;
   return (
     <svg
       viewBox="0 0 100 60"
-      width={46}
-      height={28}
+      width={62}
+      height={38}
       aria-hidden
-      style={{ display: "block", color: "#cbd5e1" }}
+      style={{ display: "block", color: "#cbd5e1", flexShrink: 0 }}
     >
       <rect x="0" y="48" width="100" height="12" fill="currentColor" fillOpacity={0.14} rx="2" />
       {dancers.map((d, i) => (
@@ -1025,62 +1056,43 @@ export function AddCueWithFormationDialog({
                 <span style={sectionNumberStyle}>4</span>
                 雛形（プリセット）
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px", paddingLeft: "4px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px", paddingLeft: "4px" }}>
                 {presetCategoryPreviews.map((cat) => (
                   <div key={cat.label}>
                     {/* カテゴリラベル */}
                     <div
+                      className="add-cue-preset-category"
                       style={{
-                        fontSize: "10px",
+                        fontSize: "12px",
                         fontWeight: 700,
-                        color: "#64748b",
-                        letterSpacing: "0.04em",
-                        marginBottom: "5px",
+                        color: "#94a3b8",
+                        letterSpacing: "0.02em",
+                        marginBottom: "6px",
                         paddingLeft: "2px",
                       }}
                     >
                       {cat.label}
                     </div>
                     {/* プリセットグリッド */}
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "5px" }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                       {cat.items.map((item) => {
                         const active = templatePresetId === item.id;
                         return (
                           <button
                             key={item.id}
                             type="button"
+                            className="add-cue-preset-btn"
                             onClick={() => setTemplatePresetId(item.id)}
                             title={item.label}
                             style={{
-                              flexShrink: 0,
-                              display: "flex",
-                              flexDirection: "column",
-                              alignItems: "center",
-                              gap: "3px",
-                              padding: "5px 6px 6px",
-                              borderRadius: "8px",
-                              border: active ? "2px solid #d4af37" : "1px solid #1e293b",
-                              background: active ? "rgba(212,175,55,0.15)" : "#0a0f1e",
-                              cursor: "pointer",
-                              minWidth: "52px",
-                              maxWidth: "76px",
+                              ...addCuePresetBtnStyle,
+                              border: active ? "2px solid #d4af37" : addCuePresetBtnStyle.border,
+                              background: active ? "rgba(212,175,55,0.15)" : addCuePresetBtnStyle.background,
                               boxShadow: active ? "0 0 0 1px rgba(212,175,55,0.35)" : "none",
-                              transition: "border-color 0.12s, background 0.12s",
                             }}
                           >
                             <SpotThumb dancers={item.dancers} />
-                            <span
-                              style={{
-                                fontSize: "11px",
-                                color: "#cbd5e1",
-                                width: "100%",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                                lineHeight: 1.2,
-                                textAlign: "center",
-                              }}
-                            >
+                            <span className="add-cue-preset-label" style={addCuePresetLabelStyle}>
                               {item.label}
                             </span>
                           </button>
