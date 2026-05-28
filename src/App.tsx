@@ -121,10 +121,27 @@ function MobileEditorRoute() {
   const isPlaying = usePlaybackUiStore((s) => s.isPlaying);
   const durationSec = usePlaybackUiStore((s) => s.durationSec);
 
+  // audioUrl: playbackEngine から直接取得（BridgeStore の audioUrl は常に null のため）
+  // onMetaChange で音源の差し替えを購読して最新の src を反映する
+  const [audioUrl, setAudioUrl] = useState<string | null>(() => {
+    const url = playbackEngine.getMediaSourceUrl();
+    return url || null;
+  });
+  useEffect(() => {
+    const syncUrl = () => {
+      const url = playbackEngine.getMediaSourceUrl();
+      setAudioUrl(url || null);
+    };
+    // 音源メタデータ変更（src 差し替え・duration 確定など）を購読
+    const unsub = playbackEngine.onMetaChange(syncUrl);
+    // マウント時にも一度同期
+    syncUrl();
+    return unsub;
+  }, []);
+
   // キュー・アクション状態 (useMobileShellBridgeStore 経由)
   const currentCueIndex = useMobileShellBridgeStore((s) => s.currentCueIndex);
   const totalCues = useMobileShellBridgeStore((s) => s.totalCues);
-  const audioUrl = useMobileShellBridgeStore((s) => s.audioUrl);
   const activeTab = useMobileShellBridgeStore((s) => s.activeTab);
   const onCuePrev = useMobileShellBridgeStore((s) => s.onCuePrev);
   const onCueNext = useMobileShellBridgeStore((s) => s.onCueNext);
