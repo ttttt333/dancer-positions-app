@@ -221,6 +221,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const setPieceFnRef = useRef(setSetPiecePickerOpen as ((open: boolean) => void) | null);
   const audioImportFnRef = useRef(openAudioImport as (() => void) | null);
   const memberListFnRef = useRef(setMemberRosterSheetOpen as ((open: boolean) => void) | null);
+  const rosterImportFnRef = useRef(importCrewCsvFromStageToolbar as (() => void) | null);
   const memberAddFnRef = useRef(setChoreoMemberSheetOpen as ((open: boolean) => void) | null);
   const shareLinksOpenFnRef = useRef(setShareLinksOpen as ((open: boolean) => void) | null);
   const helpFnRef = useRef(setShortcutsHelpOpen as ((open: boolean) => void) | null);
@@ -237,6 +238,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   setPieceFnRef.current = setSetPiecePickerOpen as ((open: boolean) => void);
   audioImportFnRef.current = openAudioImport as (() => void);
   memberListFnRef.current = setMemberRosterSheetOpen as ((open: boolean) => void);
+  rosterImportFnRef.current = importCrewCsvFromStageToolbar as (() => void);
   memberAddFnRef.current = setChoreoMemberSheetOpen as ((open: boolean) => void);
   shareLinksOpenFnRef.current = setShareLinksOpen as ((open: boolean) => void);
   helpFnRef.current = setShortcutsHelpOpen as ((open: boolean) => void);
@@ -259,7 +261,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
       onStageShape: () => stageShapeFnRef.current?.(true),
       onSetPiece: () => setPieceFnRef.current?.(true),
       onAudioImport: () => audioImportFnRef.current?.(),
-      onRosterImport: () => memberListFnRef.current?.(true),
+      onRosterImport: () => rosterImportFnRef.current?.(),
       onMemberList: () => memberListFnRef.current?.(true),
       onMemberAdd: () => memberAddFnRef.current?.(true),
       onShareLinks: () => shareLinksOpenFnRef.current?.(true),
