@@ -315,32 +315,14 @@ export function FormationPresetPickerSheet({
 }
 
 const presetBtnStyle: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  gap: "3px",
-  padding: "5px 6px 6px",
   borderRadius: "10px",
   border: "1px solid #334155",
   background: "#0a0f1e",
   color: "#e2e8f0",
-  minWidth: "52px",
-  maxWidth: "88px",
+  cursor: "pointer",
 };
 
-const presetLabelStyle: CSSProperties = {
-  fontSize: "10px",
-  fontWeight: 600,
-  color: "#cbd5e1",
-  textAlign: "center",
-  lineHeight: 1.15,
-  maxWidth: "80px",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  display: "-webkit-box",
-  WebkitLineClamp: 2,
-  WebkitBoxOrient: "vertical",
-};
+const presetLabelStyle: CSSProperties = {};
 
 const cancelBtnStyle: CSSProperties = {
   padding: "8px 14px",

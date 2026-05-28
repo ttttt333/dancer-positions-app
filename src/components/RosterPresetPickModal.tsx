@@ -393,11 +393,10 @@ function PresetButton({
         background: isSelected ? "#1e1b4b" : "#0f172a",
         cursor: disabled ? "not-allowed" : "pointer",
         opacity: disabled ? 0.45 : 1,
-        minWidth: "52px",
-        maxWidth: "76px",
         transition: "border-color 0.12s, background 0.12s",
         boxShadow: isSelected ? "0 0 0 1px rgba(99,102,241,0.5)" : "none",
       }}
+      className="add-cue-preset-btn"
       onMouseEnter={(e) => {
         if (!disabled && !isSelected) {
           (e.currentTarget as HTMLButtonElement).style.borderColor = "#6366f1";
@@ -412,18 +411,7 @@ function PresetButton({
       }}
     >
       <SpotThumb dancers={dancers} />
-      <span
-        style={{
-          fontSize: "9.5px",
-          color: "#cbd5e1",
-          width: "100%",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-          lineHeight: 1.2,
-          textAlign: "center",
-        }}
-      >
+      <span className="add-cue-preset-label">
         {label}
       </span>
     </button>

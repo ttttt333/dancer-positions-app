@@ -283,31 +283,15 @@ const presetChipBase: CSSProperties = {
 };
 
 const addCuePresetLabelStyle: CSSProperties = {
-  fontSize: "12px",
-  fontWeight: 600,
-  color: "#e2e8f0",
-  width: "100%",
-  lineHeight: 1.35,
-  textAlign: "center",
-  whiteSpace: "normal",
-  wordBreak: "break-word",
+  /* 折返しは index.css の .add-cue-preset-label に委譲 */
 };
 
 const addCuePresetBtnStyle: CSSProperties = {
   flexShrink: 0,
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  justifyContent: "flex-start",
-  gap: "5px",
-  padding: "8px 8px 10px",
+  cursor: "pointer",
   borderRadius: "10px",
   border: "1px solid #1e293b",
   background: "#0a0f1e",
-  cursor: "pointer",
-  minWidth: "78px",
-  width: "78px",
-  maxWidth: "96px",
   boxShadow: "none",
   transition: "border-color 0.12s, background 0.12s",
   boxSizing: "border-box",
