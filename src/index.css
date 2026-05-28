@@ -959,6 +959,13 @@ body {
   padding: 10px 12px !important;
 }
 
+[data-shell-portrait] [role="dialog"][aria-modal="false"] .add-cue-custom-time-input,
+[data-shell-landscape] [role="dialog"][aria-modal="false"] .add-cue-custom-time-input {
+  min-width: 140px !important;
+  width: min(200px, 48vw) !important;
+  flex: 1 1 160px !important;
+}
+
 /* 横画面: ダイアログ全体を左パネル右側の全高に */
 [data-shell-landscape] [role="dialog"][aria-modal="false"] > * {
   width: 100% !important;

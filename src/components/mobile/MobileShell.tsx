@@ -61,9 +61,9 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
 
   useEffect(() => {
     const checkDialog = () => {
+      /** キュー設定（aria-modal="false"）はフッターのキャンセルで閉じる。浮遊ボタンは邪魔になるため出さない */
       const modal = document.querySelector('[role="dialog"][aria-modal="true"]')
-      const nonModal = document.querySelector('[role="dialog"][aria-modal="false"]')
-      setHasOpenDialog(!!(modal || nonModal))
+      setHasOpenDialog(!!modal)
     }
     const observer = new MutationObserver(checkDialog)
     observer.observe(document.body, {

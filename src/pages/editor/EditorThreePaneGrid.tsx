@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { StageBoard } from "../../components/StageBoard";
 import { EditorStageWorkbench, WorkbenchCuePager } from "../../components/EditorStageWorkbench";
@@ -244,12 +244,57 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   helpFnRef.current = setShortcutsHelpOpen as ((open: boolean) => void);
   flowLibraryFnRef.current = setFlowLibraryOpen as ((open: boolean) => void);
 
+  const jumpToPagerSlotRef = useRef(jumpToPagerSlot as (slotIdx: number) => void);
+  jumpToPagerSlotRef.current = jumpToPagerSlot as (slotIdx: number) => void;
+  const cueNavRef = useRef({ slotIdx: 0, total: 1, hasRoster: false });
+
+  const handleMobileCuePrev = useCallback(() => {
+    const { slotIdx: s } = cueNavRef.current;
+    if (s > 0) jumpToPagerSlotRef.current(s - 1);
+  }, []);
+
+  const handleMobileCueNext = useCallback(() => {
+    const { slotIdx: s, total: t, hasRoster: hr } = cueNavRef.current;
+    if (s < 0) {
+      jumpToPagerSlotRef.current(hr ? 1 : 0);
+      return;
+    }
+    if (s < t - 1) jumpToPagerSlotRef.current(s + 1);
+  }, []);
+
   const setMobileShellBridge = useMobileShellBridgeStore((s) => s.setMobileShellBridge);
   useEffect(() => {
+    const cues = Array.isArray(cuesSortedForStageJump)
+      ? (cuesSortedForStageJump as Array<{ id: string }>)
+      : [];
+    const hasRoster = Boolean(hasRosterMembers);
+    const rosterHidden =
+      (project as { rosterHidesTimeline?: boolean }).rosterHidesTimeline === true;
+    const cueIdx =
+      selectedCueId != null && selectedCueId !== ""
+        ? cues.findIndex((c) => c.id === selectedCueId)
+        : -1;
+
+    let slotIdx: number;
+    if (hasRoster) {
+      if (rosterHidden) slotIdx = 0;
+      else if (cueIdx >= 0) slotIdx = cueIdx + 1;
+      else slotIdx = -1;
+    } else {
+      slotIdx = cueIdx;
+    }
+
+    const total = Math.max(1, hasRoster ? cues.length + 1 : cues.length);
+    cueNavRef.current = { slotIdx, total, hasRoster };
+
     setMobileShellBridge({
       stageView: stageView as "2d" | "3d",
       undoDisabled: stageUndoDisabled as boolean,
       redoDisabled: stageRedoDisabled as boolean,
+      currentCueIndex: slotIdx >= 0 ? slotIdx : 0,
+      totalCues: total,
+      onCuePrev: handleMobileCuePrev,
+      onCueNext: handleMobileCueNext,
       onStageViewChange: (v: "2d" | "3d") => (setStageView as (v: "2d" | "3d") => void)(v),
       onAddCue: () => addCueFnRef.current?.(true),
       onStageSettings: () => stageSettingsFnRef.current?.(true),
@@ -271,7 +316,20 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
         ? (sortedCuesForEditor as Array<{ tStartSec: number }>).map((c) => c.tStartSec)
         : [],
     });
-  }, [stageView, stageUndoDisabled, stageRedoDisabled, setStageView, setMobileShellBridge, sortedCuesForEditor]);
+  }, [
+    stageView,
+    stageUndoDisabled,
+    stageRedoDisabled,
+    setStageView,
+    setMobileShellBridge,
+    sortedCuesForEditor,
+    cuesSortedForStageJump,
+    selectedCueId,
+    hasRosterMembers,
+    project,
+    handleMobileCuePrev,
+    handleMobileCueNext,
+  ]);
 
   return (
       <div

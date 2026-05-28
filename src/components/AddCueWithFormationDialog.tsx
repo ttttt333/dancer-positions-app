@@ -168,7 +168,7 @@ const headerStyle: CSSProperties = {
   flexShrink: 0,
   display: "flex",
   alignItems: "center",
-  justifyContent: "space-between",
+  justifyContent: "flex-start",
   gap: "12px",
   padding: "12px 16px",
   borderBottom: "1px solid rgba(212,175,55,0.2)",
@@ -770,23 +770,6 @@ export function AddCueWithFormationDialog({
               <strong style={{ fontSize: "15px" }}>{t("editor.comp.k021")}</strong>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={closeAndCleanup}
-            aria-label={t("editor.comp.k111")}
-            title={t("editor.comp.k112")}
-            style={{
-              padding: "4px 10px",
-              borderRadius: "6px",
-              background: "transparent",
-              border: "1px solid #334155",
-              color: "#94a3b8",
-              cursor: "pointer",
-              fontSize: "13px",
-            }}
-          >
-            ✕
-          </button>
         </div>
 
         <div style={bodyStyle}>
@@ -850,15 +833,18 @@ export function AddCueWithFormationDialog({
                 指定
                 <input
                   type="text"
+                  className="add-cue-custom-time-input"
                   value={customTimeStr}
                   placeholder="0:00.0"
                   onChange={(e) => setCustomTimeStr(e.target.value)}
                   onFocus={() => setTimeMode("custom")}
                   style={{
                     ...inputStyle,
-                    width: "68px",
+                    minWidth: "120px",
+                    width: "min(180px, 42vw)",
+                    flex: "1 1 140px",
                     fontSize: "12px",
-                    padding: "4px 6px",
+                    padding: "4px 8px",
                     fontVariantNumeric: "tabular-nums",
                   }}
                 />
