@@ -15,6 +15,7 @@ import {
   setToken,
 } from "../api/client";
 import { buildMeFromSupabaseUser } from "../lib/buildSupabaseMe";
+import { clearAuthSessionHashIfPresent } from "../lib/supabaseAuth";
 import {
   getSupabase,
   isSupabaseBackend,
@@ -85,6 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       setMe(buildMeFromSupabaseUser(session.user));
+      clearAuthSessionHashIfPresent();
     },
     []
   );

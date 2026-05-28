@@ -5,6 +5,7 @@ import { authApi, setToken, CLOUD_AUTH_CONFIG_MISSING_MESSAGE, isProdBuildMissin
 import { getSupabase, isSupabaseBackend } from "../lib/supabaseClient";
 import { useAuth, mapApiMeToContextMe } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
+import { AuthAlternativeMethods, AuthMethodDivider } from "../components/auth/AuthAlternativeMethods";
 import { AuthScreenLayout } from "../components/AuthScreenLayout";
 import { btnAccent, btnSecondary, inputField } from "../components/stageButtonStyles";
 import { shell } from "../theme/choreoShell";
@@ -97,6 +98,12 @@ export function RegisterPage() {
         >
           {CLOUD_AUTH_CONFIG_MISSING_MESSAGE}
         </p>
+      ) : null}
+      {isSupabaseBackend() && !isProdBuildMissingCloudAuth() ? (
+        <>
+          <AuthAlternativeMethods onError={setError} />
+          <AuthMethodDivider />
+        </>
       ) : null}
       <form onSubmit={submit}>
         <label style={labelStyle}>

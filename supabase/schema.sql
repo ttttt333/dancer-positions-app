@@ -1,6 +1,11 @@
 -- CHOREOCORE: Supabase（Dashboard の SQL エディタに貼り付けて実行）
--- 1. 認証: Email+Password（Authentication → Providers → Email から有効化）
--- 2. 開発時は「Confirm email」をオフにすると、登録直後にセッションが作られます。
+-- 1. 認証（Authentication → Providers）:
+--    - Email+Password（Email から有効化）
+--    - Google / Apple / GitHub / Facebook / X など OAuth（各プロバイダの Client ID 等を設定）
+--    - Phone（SMS OTP、Twilio 等が必要）
+-- 2. Authentication → URL Configuration:
+--    Site URL と Redirect URLs に /login と /register を登録
+-- 3. 開発時は Email の「Confirm email」をオフにすると、登録直後にセッションが作られます。
 --
 -- テーブル名は public.projects ではなく choreocore_projects。
 -- 既存の projects（UUID 主キー等）と名前衝突・型不一致を避けるため。
