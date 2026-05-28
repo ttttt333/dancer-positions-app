@@ -5,6 +5,11 @@ import {
   type GroupBoxHandle,
 } from "../lib/stageBoardModelHelpers";
 
+/** 白い角ハンドルの見た目サイズ */
+const GROUP_BOX_HANDLE_VISUAL_PX = 18;
+/** ドラッグしやすいヒット領域（見た目より大きく） */
+const GROUP_BOX_HANDLE_HIT_PX = 44;
+
 export type StageGroupBoundsPct = {
   x0: number;
   y0: number;
@@ -61,20 +66,34 @@ export function StageGroupSelectionBox({
           onPointerDown={(e) => onHandlePointerDown(e, h)}
           style={{
             position: "absolute",
-            width: 10,
-            height: 10,
-            borderRadius: 2,
-            background: "#f4f4f5",
-            border: "1px solid rgba(0,0,0,0.38)",
+            width: GROUP_BOX_HANDLE_HIT_PX,
+            height: GROUP_BOX_HANDLE_HIT_PX,
             zIndex: 7,
             boxSizing: "border-box",
             touchAction: "none",
             pointerEvents: "auto",
             cursor,
-            boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "transparent",
             ...pos,
           }}
-        />
+        >
+          <div
+            aria-hidden
+            style={{
+              width: GROUP_BOX_HANDLE_VISUAL_PX,
+              height: GROUP_BOX_HANDLE_VISUAL_PX,
+              borderRadius: 4,
+              background: "#f4f4f5",
+              border: "1.5px solid rgba(0,0,0,0.42)",
+              boxShadow: "0 2px 6px rgba(0,0,0,0.4)",
+              boxSizing: "border-box",
+              pointerEvents: "none",
+            }}
+          />
+        </div>
       ))}
     </div>
   );
