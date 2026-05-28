@@ -289,8 +289,26 @@ function isMp3(buf: ArrayBuffer): boolean {
 /**
  * ファイルが「音声だけが入ったコンテナ」っぽいかを拡張子で判定（最速パス用）。
  */
-function isPureAudioByName(file: File): boolean {
+export function isPureAudioByName(file: File): boolean {
   return /\.(mp3|m4a|wav|ogg|oga|opus|flac|aac)$/i.test(file.name);
+}
+
+/** iOS など MIME が空のとき、拡張子から再生用 MIME を推定する */
+export function guessAudioMimeFromFilename(name: string): string {
+  const lower = name.toLowerCase();
+  if (lower.endsWith(".wav")) return "audio/wav";
+  if (lower.endsWith(".m4a") || lower.endsWith(".aac")) return "audio/mp4";
+  if (lower.endsWith(".ogg") || lower.endsWith(".oga")) return "audio/ogg";
+  if (lower.endsWith(".opus")) return "audio/opus";
+  if (lower.endsWith(".flac")) return "audio/flac";
+  return "audio/mpeg";
+}
+
+/** MIME が空でも拡張子で動画/音声を判別（iPhone の Files ピッカー向け） */
+export function isVideoFile(file: File): boolean {
+  if (file.type.startsWith("video/")) return true;
+  if (file.type.startsWith("audio/")) return false;
+  return isLikelyVideoContainer(file);
 }
 
 /**
@@ -298,7 +316,7 @@ function isPureAudioByName(file: File): boolean {
  * 典型的にブラウザの `decodeAudioData` は失敗するので、最初から FFmpeg 経由に
  * した方が速い（無駄な全読み込みを避けられる）。
  */
-function isLikelyVideoContainer(file: File): boolean {
+export function isLikelyVideoContainer(file: File): boolean {
   return /\.(mp4|m4v|mov|mkv|avi|flv|wmv|ogv|ts|mts|3gp|f4v|webm)$/i.test(
     file.name
   );
@@ -609,7 +627,7 @@ async function extractWithFFmpegWasm(
  * iOS Safari は MOV/M4V/MP4(AAC) を natively サポートするので有効。
  * ファイルを一括読み込みするためサイズ上限を設ける。
  */
-async function tryNativeDecodeAudioFallback(
+export async function tryNativeDecodeAudioFallback(
   file: File,
   onProgress?: ExtractProgress
 ): Promise<ArrayBuffer | null> {

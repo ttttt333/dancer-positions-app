@@ -1,4 +1,5 @@
-import type { ChangeEvent, RefObject } from "react";
+import type { ChangeEvent, CSSProperties, RefObject } from "react";
+import { createPortal } from "react-dom";
 
 /** 動画→音声抽出などの進捗（`TimelinePanel` の state と共有） */
 export type TimelineExtractProgress = {
@@ -15,6 +16,27 @@ export type TimelineAudioChromeProps = {
   onPreloadFfmpegPointer: () => void;
 };
 
+const FILE_INPUT_ACCEPT =
+  "audio/*,video/*,.mp3,.wav,.m4a,.aac,.ogg,.oga,.opus,.flac,.mp4,.mov,.m4v,.mkv,.avi,.webm";
+
+/**
+ * iOS Safari は `display:none` や非表示祖先内の `<input type="file">` へ
+ * プログラムから `.click()` してもファイルピッカーが開かない。
+ */
+const IOS_SAFE_FILE_INPUT_STYLE: CSSProperties = {
+  position: "fixed",
+  top: 0,
+  left: 0,
+  width: "1px",
+  height: "1px",
+  opacity: 0,
+  overflow: "hidden",
+  border: 0,
+  padding: 0,
+  margin: 0,
+  zIndex: 9999,
+};
+
 /**
  * 非表示の音源 `<input type="file">` と、抽出中のステータスバー。
  * `TimelineToolbar` のラベルは `id="choreogrid-timeline-audio-file"` と対応。
@@ -25,19 +47,25 @@ export function TimelineAudioChrome({
   onPickAudio,
   onPreloadFfmpegPointer,
 }: TimelineAudioChromeProps) {
+  const fileInput = (
+    <input
+      ref={audioFileInputRef}
+      id="choreogrid-timeline-audio-file"
+      type="file"
+      accept={FILE_INPUT_ACCEPT}
+      style={IOS_SAFE_FILE_INPUT_STYLE}
+      onChange={onPickAudio}
+      onClick={() => {
+        onPreloadFfmpegPointer();
+      }}
+    />
+  );
+
   return (
     <>
-      <input
-        ref={audioFileInputRef}
-        id="choreogrid-timeline-audio-file"
-        type="file"
-        accept="audio/*,video/*"
-        style={{ display: "none" }}
-        onChange={onPickAudio}
-        onClick={() => {
-          onPreloadFfmpegPointer();
-        }}
-      />
+      {typeof document !== "undefined"
+        ? createPortal(fileInput, document.body)
+        : fileInput}
       {extractProgress && (
         <div
           role="status"

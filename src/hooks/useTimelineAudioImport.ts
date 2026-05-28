@@ -4,8 +4,11 @@ import type { ChoreographyProjectJson } from "../types/choreography";
 import { audioApiUpload } from "../api/client";
 import {
   extractAudioBufferFromVideoFile,
+  guessAudioMimeFromFilename,
+  isVideoFile,
   mimeForExtractedVideoAudio,
   preloadFFmpeg,
+  tryNativeDecodeAudioFallback,
 } from "../lib/extractVideoAudio";
 import { playCompletionWoof } from "../lib/playCompletionWoof";
 import { playbackEngine } from "../core/playbackEngine";
@@ -26,6 +29,24 @@ type Params = {
   blobUrlRef: MutableRefObject<string | null>;
   decodePeaksFromBuffer: (buf: ArrayBuffer) => Promise<void>;
 };
+
+async function decodePeaksWithNativeFallback(
+  file: File,
+  buf: ArrayBuffer,
+  isVideo: boolean,
+  decodePeaksFromBuffer: (buf: ArrayBuffer) => Promise<void>
+): Promise<ArrayBuffer> {
+  try {
+    await decodePeaksFromBuffer(buf);
+    return buf;
+  } catch (err) {
+    if (isVideo) throw err;
+    const native = await tryNativeDecodeAudioFallback(file).catch(() => null);
+    if (!native) throw err;
+    await decodePeaksFromBuffer(native);
+    return native;
+  }
+}
 
 export function useTimelineAudioImport({
   setProject,
@@ -48,7 +69,7 @@ export function useTimelineAudioImport({
       e.target.value = "";
       if (!f) return;
       setProject((p) => ({ ...p, flowLocalAudioKey: null }));
-      const isVideo = f.type.startsWith("video/");
+      const isVideo = isVideoFile(f);
       if (isVideo) {
         const ok = window.confirm(
           `動画「${f.name}」から音声を抽出します。\nMP4 / AVI / MOV / MKV / WMV などほとんどの形式に対応。AAC / MP3 / Opus などの一般的な音声は再エンコードせず demux するので、大容量の動画でも数秒〜十数秒で完了します。\nFFmpeg コア（約 30MB）はエディタ起動時と「音源追加」ボタンのホバー時点で先読み済みのはずなので、通常は読み込み待ちなしで抽出が始まります。\n著作権・利用範囲はご利用者の責任です。続行しますか？`
@@ -68,7 +89,7 @@ export function useTimelineAudioImport({
           const mime =
             f.type ||
             (up.kind === "supabase" ? up.mime : "audio/mpeg") ||
-            "audio/mpeg";
+            guessAudioMimeFromFilename(f.name);
           const url = URL.createObjectURL(new Blob([buf], { type: mime }));
 
           if (blobUrlRef.current && blobUrlRef.current !== url) {
@@ -100,12 +121,10 @@ export function useTimelineAudioImport({
 
           clearPlaybackTrustedDurationSec();
           playbackEngine.setMediaSourceUrl(url);
-          await decodePeaksFromBuffer(buf);
+          await decodePeaksWithNativeFallback(f, buf, isVideo, decodePeaksFromBuffer);
           return;
         } catch (err) {
-          alert(err instanceof Error ? err.message : "サーバへのアップロードに失敗しました");
-          /** クラウド保存を試みたのに失敗したら、下のローカル読み込みに進まない（成功したように見えるため） */
-          return;
+          console.warn("[audioImport] cloud upload failed, falling back to local:", err);
         }
       }
       if (loggedIn && serverProjectId != null && isVideo) {
@@ -136,9 +155,10 @@ export function useTimelineAudioImport({
           setTimeout(() => setExtractProgress(null), 400);
         }
       }
-      const blob = new Blob([buf], {
-        type: isVideo ? mimeForExtractedVideoAudio(buf) : f.type || "audio/mpeg",
-      });
+      const mime = isVideo
+        ? mimeForExtractedVideoAudio(buf)
+        : f.type || guessAudioMimeFromFilename(f.name);
+      const blob = new Blob([buf], { type: mime });
       const url = URL.createObjectURL(blob);
       if (blobUrlRef.current) {
         revokeBlobUrlUnlessCloudPersisted(blobUrlRef.current);
@@ -146,7 +166,31 @@ export function useTimelineAudioImport({
       blobUrlRef.current = url;
       clearPlaybackTrustedDurationSec();
       playbackEngine.setMediaSourceUrl(url);
-      await decodePeaksFromBuffer(buf);
+      try {
+        const decodedBuf = await decodePeaksWithNativeFallback(
+          f,
+          buf,
+          isVideo,
+          decodePeaksFromBuffer
+        );
+        if (decodedBuf !== buf) {
+          const wavUrl = URL.createObjectURL(
+            new Blob([decodedBuf], { type: "audio/wav" })
+          );
+          if (blobUrlRef.current) {
+            revokeBlobUrlUnlessCloudPersisted(blobUrlRef.current);
+          }
+          blobUrlRef.current = wavUrl;
+          playbackEngine.setMediaSourceUrl(wavUrl);
+        }
+      } catch (err) {
+        alert(
+          err instanceof Error
+            ? err.message
+            : "音声のデコードに失敗しました。別の形式（MP3 / M4A / WAV）でお試しください。"
+        );
+        return;
+      }
       if (isVideo) {
         playCompletionWoof();
       }

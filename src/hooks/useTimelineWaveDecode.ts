@@ -19,7 +19,15 @@ export function useTimelineWaveDecode({ setProject, setPeaks }: Params) {
     async (buf: ArrayBuffer) => {
       usePlaybackUiStore.getState().setTrustedAudioDurationSec(null);
       const ctx = new AudioContext();
-      const audioBuf = await ctx.decodeAudioData(buf.slice(0));
+      let audioBuf: AudioBuffer;
+      try {
+        audioBuf = await ctx.decodeAudioData(buf.slice(0));
+      } catch (err) {
+        await ctx.close().catch(() => {});
+        throw err instanceof Error
+          ? err
+          : new Error("音声のデコードに失敗しました");
+      }
       /** `<audio>` の loadedmetadata より確実。立ち位置→後から音源のとき duration が 0 のままだと波形が一切描画されない */
       const durSec = audioBuf.duration;
       if (Number.isFinite(durSec) && durSec > 0) {
