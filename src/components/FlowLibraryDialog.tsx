@@ -129,12 +129,13 @@ function formatFlowTimingLabel(it: FlowLibraryItem): string {
 
 const flowItemMetaLine: CSSProperties = {
   color: "#64748b",
-  fontSize: "11px",
-  lineHeight: 1.35,
+  fontSize: "12px",
+  lineHeight: 1.45,
   whiteSpace: "nowrap",
   overflow: "hidden",
   textOverflow: "ellipsis",
   minWidth: 0,
+  display: "block",
 };
 
 /** フロー行の「共同編集 / 閲覧」に使うクラウド作品 ID（無ければ共有不可） */
@@ -576,11 +577,21 @@ export function FlowLibraryDialog({
           display: "flex",
           flexDirection: "column",
           gap: "12px",
-          minHeight: 0,
+          minHeight: "100%",
           flex: 1,
           boxSizing: "border-box",
         }}
       >
+        <div
+          className="flow-library-scroll"
+          style={{
+            flex: 1,
+            minHeight: 0,
+            display: "flex",
+            flexDirection: "column",
+            gap: "12px",
+          }}
+        >
         <h3
           id="flow-lib-title"
           style={{
@@ -759,77 +770,71 @@ export function FlowLibraryDialog({
                       gap: "8px",
                     }}
                   >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        justifyContent: "space-between",
-                        gap: "10px",
-                      }}
-                    >
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div
-                          style={{
-                            color: "#f8fafc",
-                            fontSize: "13px",
-                            fontWeight: 600,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                          title={it.name}
-                        >
-                          {it.name}
-                        </div>
-                        <div
-                          className="flow-lib-item-meta"
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "2px",
-                            marginTop: "4px",
-                            minWidth: 0,
-                          }}
-                        >
-                          <div className="flow-lib-item-meta-line" style={flowItemMetaLine}>
-                            キュー {fmtCount(it.cueCount)} ／ 形{" "}
-                            {fmtCount(it.formations.length)} ／ 人数 {it.dancerCount}
-                          </div>
-                          <div
-                            className="flow-lib-item-meta-line flow-lib-item-meta-line--timing"
-                            style={{
-                              ...flowItemMetaLine,
-                              color: it.hasTiming ? "#22d3ee" : "#64748b",
-                            }}
-                            title={formatFlowTimingLabel(it)}
-                          >
-                            {formatFlowTimingLabel(it)}
-                          </div>
-                          <div
-                            className="flow-lib-item-meta-line flow-lib-item-meta-line--updated"
-                            style={flowItemMetaLine}
-                            title={`更新 ${fmtDateCompact(it.updatedAt)}`}
-                          >
-                            更新 {fmtDateCompact(it.updatedAt)}
-                          </div>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => doApply(it)}
-                        disabled={busy}
+                    <div style={{ minWidth: 0 }}>
+                      <div
                         style={{
-                          ...btnSecondary,
-                          borderColor: "#6366f1",
-                          color: "#c7d2fe",
+                          color: "#f8fafc",
+                          fontSize: "13px",
                           fontWeight: 600,
-                          padding: "6px 12px",
-                          flexShrink: 0,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                        title={it.name}
+                      >
+                        {it.name}
+                      </div>
+                      <div
+                        className="flow-lib-item-meta"
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "2px",
+                          marginTop: "4px",
+                          minWidth: 0,
                         }}
                       >
-                        読み込み
-                      </button>
+                        <span className="flow-lib-item-meta-line" style={flowItemMetaLine}>
+                          キュー {fmtCount(it.cueCount)} ／ 形{" "}
+                          {fmtCount(it.formations.length)} ／ 人数 {it.dancerCount}
+                        </span>
+                        <span
+                          className="flow-lib-item-meta-line flow-lib-item-meta-line--timing"
+                          style={{
+                            ...flowItemMetaLine,
+                            color: it.hasTiming ? "#22d3ee" : "#64748b",
+                          }}
+                          title={formatFlowTimingLabel(it)}
+                        >
+                          {formatFlowTimingLabel(it)}
+                        </span>
+                        <span
+                          className="flow-lib-item-meta-line flow-lib-item-meta-line--updated"
+                          style={flowItemMetaLine}
+                          title={`更新 ${fmtDateCompact(it.updatedAt)}`}
+                        >
+                          更新 {fmtDateCompact(it.updatedAt)}
+                        </span>
+                      </div>
                     </div>
+                    <button
+                      type="button"
+                      className="flow-lib-load-btn"
+                      onClick={() => doApply(it)}
+                      disabled={busy}
+                      style={{
+                        ...btnSecondary,
+                        borderColor: "#6366f1",
+                        color: "#c7d2fe",
+                        fontWeight: 600,
+                        width: "100%",
+                        padding: "8px 12px",
+                        fontSize: "13px",
+                        boxSizing: "border-box",
+                      }}
+                    >
+                      読み込み
+                    </button>
                     <div
                       style={{
                         display: "flex",
@@ -911,6 +916,33 @@ export function FlowLibraryDialog({
             )}
           </div>
         </section>
+        </div>
+
+        <footer
+          className="flow-lib-close-footer"
+          style={{
+            flexShrink: 0,
+            display: "flex",
+            justifyContent: "flex-start",
+            paddingTop: "4px",
+          }}
+        >
+          <button
+            type="button"
+            className="flow-lib-close-btn"
+            onClick={onClose}
+            disabled={busy}
+            aria-label="閉じる"
+            style={{
+              ...btnSecondary,
+              padding: "8px 20px",
+              fontSize: "13px",
+              fontWeight: 600,
+            }}
+          >
+            閉じる
+          </button>
+        </footer>
       </div>
     </EditorSideSheet>
   );

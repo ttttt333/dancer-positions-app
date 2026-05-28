@@ -1059,16 +1059,42 @@ body {
 
 [data-shell-portrait] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-item-meta,
 [data-shell-landscape] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-item-meta {
-  gap: 1px !important;
+  gap: 2px !important;
 }
 
 [data-shell-portrait] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-item-meta-line,
 [data-shell-landscape] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-item-meta-line {
-  font-size: 10px !important;
-  line-height: 1.3 !important;
+  font-size: 18px !important;
+  line-height: 1.45 !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
+}
+
+[data-shell-portrait] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-load-btn,
+[data-shell-landscape] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-load-btn {
+  width: 100% !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  white-space: nowrap !important;
+  box-sizing: border-box !important;
+}
+
+[data-shell-portrait] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-close-footer,
+[data-shell-landscape] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-close-footer {
+  position: sticky !important;
+  bottom: 0 !important;
+  z-index: 2 !important;
+  margin-top: auto !important;
+  padding-top: 8px !important;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+  background: linear-gradient(to top, #0f172a 70%, rgba(15, 23, 42, 0)) !important;
+}
+
+[data-shell-portrait]:has([aria-labelledby="flow-lib-title"]) button[aria-label="ダイアログを閉じる"],
+[data-shell-landscape]:has([aria-labelledby="flow-lib-title"]) button[aria-label="ダイアログを閉じる"] {
+  display: none !important;
 }
 
 /*
