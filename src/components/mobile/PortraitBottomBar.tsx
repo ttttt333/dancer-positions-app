@@ -61,14 +61,14 @@ export const PortraitBottomBar: React.FC<Props> = ({
 
   const TAB_MENUS: Record<TabId, MenuItem[]> = {
     stages: [
-      { label: '立ち位置保存', icon: '💾', action: onSaveSpot },
-      { label: 'テキスト追加', icon: '✏️', action: onAddText },
-      { label: 'キュー一覧',  icon: '📋', action: onCueList },
-      { label: 'キュー設定',  icon: '🎬', action: onAddCue },
-      { label: '舞台設定',    icon: '⚙️', action: onStageSettings },
-      { label: '舞台変形',    icon: '🏟️', action: onStageShape },
-      { label: '大道具',      icon: '🪑', action: onSetPiece },
-      { label: 'ライブラリ',  icon: '📚', action: onFlowLibrary },
+      { label: 'キュー設定',        icon: '🎬', action: onAddCue },
+      { label: '舞台設定',          icon: '⚙️', action: onStageSettings },
+      { label: 'キュー一覧',        icon: '📋', action: onCueList },
+      { label: 'ライブラリ',        icon: '📚', action: onFlowLibrary },
+      { label: '立ち位置雛形保存',  icon: '💾', action: onSaveSpot },
+      { label: 'テキスト追加',      icon: '✏️', action: onAddText },
+      { label: '舞台変形',          icon: '🏟️', action: onStageShape },
+      { label: '大道具追加',        icon: '🪑', action: onSetPiece },
     ],
     timeline: [
       { label: '音源追加',    icon: '🎵', action: onAudioImport },
