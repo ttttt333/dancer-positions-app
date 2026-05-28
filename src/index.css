@@ -1026,6 +1026,25 @@ body {
   padding: 0 !important;
 }
 
+/* Change → 立ち位置雛形：左下固定の適用・閉じる */
+.formation-preset-picker-actions button {
+  min-height: 44px;
+}
+
+[data-shell-portrait] .formation-preset-picker-actions,
+[data-shell-landscape] .formation-preset-picker-actions {
+  left: max(12px, env(safe-area-inset-left, 0px)) !important;
+  bottom: max(16px, env(safe-area-inset-bottom, 0px)) !important;
+  gap: 12px !important;
+}
+
+[data-shell-portrait] .formation-preset-picker-actions button,
+[data-shell-landscape] .formation-preset-picker-actions button {
+  min-height: 48px !important;
+  padding: 12px 20px !important;
+  font-size: 15px !important;
+}
+
 /* 立ち位置雛形チップ — ラベル折返し（1文字 orphan 防止・全画面共通） */
 .add-cue-preset-btn {
   flex-shrink: 0;

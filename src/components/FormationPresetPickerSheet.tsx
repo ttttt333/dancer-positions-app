@@ -183,6 +183,7 @@ export function FormationPresetPickerSheet({
   const noTarget = !targetFormation;
 
   return (
+    <>
     <EditorSideSheet
       open={open}
       onClose={closeAndCleanup}
@@ -280,37 +281,43 @@ export function FormationPresetPickerSheet({
             </div>
           ))}
         </div>
-
-        <div
-          style={{
-            flexShrink: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "flex-end",
-            gap: "10px",
-            padding: "10px 16px",
-            borderTop: "1px solid rgba(212,175,55,0.2)",
-            background: "#07090f",
-          }}
-        >
-          <button type="button" onClick={closeAndCleanup} style={cancelBtnStyle}>
-            キャンセル
-          </button>
-          <button
-            type="button"
-            onClick={apply}
-            disabled={noTarget || !selectedPresetId}
-            style={{
-              ...applyBtnStyle,
-              opacity: noTarget || !selectedPresetId ? 0.45 : 1,
-              cursor: noTarget || !selectedPresetId ? "not-allowed" : "pointer",
-            }}
-          >
-            適用
-          </button>
-        </div>
       </div>
     </EditorSideSheet>
+    {open ? (
+      <div
+        role="group"
+        aria-label="立ち位置雛形の操作"
+        className="formation-preset-picker-actions"
+        style={{
+          position: "fixed",
+          left: "max(12px, env(safe-area-inset-left, 0px))",
+          bottom: "max(12px, env(safe-area-inset-bottom, 0px))",
+          zIndex: 201,
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: "10px",
+          pointerEvents: "auto",
+        }}
+      >
+        <button type="button" onClick={closeAndCleanup} style={cancelBtnStyle}>
+          閉じる
+        </button>
+        <button
+          type="button"
+          onClick={apply}
+          disabled={noTarget || !selectedPresetId}
+          style={{
+            ...applyBtnStyle,
+            opacity: noTarget || !selectedPresetId ? 0.45 : 1,
+            cursor: noTarget || !selectedPresetId ? "not-allowed" : "pointer",
+          }}
+        >
+          適用
+        </button>
+      </div>
+    ) : null}
+  </>
   );
 }
 
@@ -325,23 +332,25 @@ const presetBtnStyle: CSSProperties = {
 const presetLabelStyle: CSSProperties = {};
 
 const cancelBtnStyle: CSSProperties = {
-  padding: "8px 14px",
+  padding: "10px 18px",
   borderRadius: "8px",
   border: "1px solid #334155",
-  background: "#0f172a",
+  background: "rgba(15,23,42,0.94)",
   color: "#cbd5e1",
-  fontSize: "12px",
+  fontSize: "13px",
   fontWeight: 600,
   cursor: "pointer",
+  boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
 };
 
 const applyBtnStyle: CSSProperties = {
-  padding: "8px 16px",
+  padding: "10px 20px",
   borderRadius: "8px",
   border: "1px solid #d4af37",
-  background: "rgba(212,175,55,0.22)",
+  background: "rgba(212,175,55,0.28)",
   color: "#fef3c7",
-  fontSize: "12px",
+  fontSize: "13px",
   fontWeight: 700,
   cursor: "pointer",
+  boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
 };
