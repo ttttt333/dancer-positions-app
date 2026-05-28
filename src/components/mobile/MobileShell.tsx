@@ -53,6 +53,8 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
   const onRedo = useMobileShellBridgeStore((s) => s.onRedo)
   const undoDisabled = useMobileShellBridgeStore((s) => s.undoDisabled)
   const redoDisabled = useMobileShellBridgeStore((s) => s.redoDisabled)
+  const onAddCue = useMobileShellBridgeStore((s) => s.onAddCue)
+  const cueStartTimes = useMobileShellBridgeStore((s) => s.cueStartTimes)
 
   if (orientation === 'landscape') {
     return (
@@ -96,6 +98,8 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
         duration={props.duration}
         onPlayPause={props.onPlayPause}
         onSeek={props.onSeek}
+        onAddCue={onAddCue}
+        cueStartTimes={cueStartTimes}
       />
 
       {/* 中央: ステージ (flex-1 で残り全部) */}

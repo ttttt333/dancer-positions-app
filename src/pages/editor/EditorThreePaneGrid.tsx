@@ -265,8 +265,11 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
       onShareLinks: () => shareLinksOpenFnRef.current?.(true),
       onHelp: () => helpFnRef.current?.(true),
       onFlowLibrary: () => flowLibraryFnRef.current?.(true),
+      cueStartTimes: Array.isArray(sortedCuesForEditor)
+        ? (sortedCuesForEditor as Array<{ tStartSec: number }>).map((c) => c.tStartSec)
+        : [],
     });
-  }, [stageView, stageUndoDisabled, stageRedoDisabled, setStageView, setMobileShellBridge]);
+  }, [stageView, stageUndoDisabled, stageRedoDisabled, setStageView, setMobileShellBridge, sortedCuesForEditor]);
 
   return (
       <div

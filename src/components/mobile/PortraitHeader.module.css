@@ -130,6 +130,7 @@
 
 /* ── 波形バー ── */
 .waveform {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 2px;
@@ -143,4 +144,17 @@
   border-radius: 2px;
   flex-shrink: 0;
   transition: background 0.1s;
+}
+
+/* ── キュー位置マーカー ── */
+.cueMarker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #22d3ee;
+  border-radius: 1px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  opacity: 0.85;
 }

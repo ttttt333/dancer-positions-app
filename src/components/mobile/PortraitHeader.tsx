@@ -26,6 +26,8 @@ interface Props {
   duration: number
   onPlayPause: () => void
   onSeek: (sec: number) => void
+  onAddCue?: () => void
+  cueStartTimes?: number[]
 }
 
 function fmt(sec: number): string {
@@ -57,10 +59,12 @@ async function computeWavePeaks(url: string, numBars: number): Promise<number[]>
 
 export const PortraitHeader: React.FC<Props> = ({
   audioUrl, isPlaying, currentTime, duration, onPlayPause, onSeek,
+  onAddCue, cueStartTimes = [],
 }) => {
   const [showWave, setShowWave] = useState(true)
   const [wavePeaks, setWavePeaks] = useState<number[]>(FALLBACK_HEIGHTS)
   const progressRef = useRef<HTMLDivElement>(null)
+  const lastTapRef = useRef<number>(0)
   const playedBars = Math.floor((currentTime / Math.max(duration, 1)) * wavePeaks.length)
 
   // ── 音源が変わったら実際の波形を計算 ──
@@ -76,11 +80,29 @@ export const PortraitHeader: React.FC<Props> = ({
     return () => { cancelled = true }
   }, [audioUrl])
 
-  const handleWaveClick = useCallback((e: React.MouseEvent) => {
+  /** シーク処理 (clientX から時刻を計算) */
+  const seekFromClientX = useCallback((clientX: number) => {
     if (!progressRef.current || duration === 0) return
     const r = progressRef.current.getBoundingClientRect()
-    onSeek(((e.clientX - r.left) / r.width) * duration)
+    onSeek(Math.max(0, Math.min(duration, ((clientX - r.left) / r.width) * duration)))
   }, [duration, onSeek])
+
+  /** 波形タップ: シングルタップ=シーク / ダブルタップ=シーク+キュー追加 */
+  const handleWaveTap = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    const clientX = 'touches' in e
+      ? (e as React.TouchEvent).changedTouches[0]?.clientX ?? 0
+      : (e as React.MouseEvent).clientX
+    const now = Date.now()
+    if (now - lastTapRef.current < 350) {
+      // ダブルタップ: シークしてキュー追加ダイアログを開く
+      seekFromClientX(clientX)
+      onAddCue?.()
+      lastTapRef.current = 0
+    } else {
+      seekFromClientX(clientX)
+      lastTapRef.current = now
+    }
+  }, [seekFromClientX, onAddCue])
 
   const handleStop = useCallback(() => {
     onSeek(0)
@@ -98,16 +120,8 @@ export const PortraitHeader: React.FC<Props> = ({
   return (
     <div className={styles.header}>
       <div className={styles.row}>
-        {/* ── 左: 操作ボタン群 ── */}
+        {/* ── 左: 操作ボタン群 (↺5 / ↻5 / ▶ / ⏹) ── */}
         <div className={styles.controls}>
-          {/* 停止して先頭へ */}
-          <button
-            className={styles.ctrlBtn}
-            onClick={handleStop}
-            disabled={!audioUrl}
-            aria-label="停止して先頭へ"
-          >⏹</button>
-
           {/* -5秒 */}
           <button
             className={styles.ctrlBtn}
@@ -116,6 +130,17 @@ export const PortraitHeader: React.FC<Props> = ({
             aria-label="5秒戻す"
           >
             <span className={styles.skipIcon}>↺</span>
+            <span className={styles.skipSec}>5</span>
+          </button>
+
+          {/* +5秒 */}
+          <button
+            className={styles.ctrlBtn}
+            onClick={handleSkipForward}
+            disabled={!audioUrl}
+            aria-label="5秒進める"
+          >
+            <span className={styles.skipIcon}>↻</span>
             <span className={styles.skipSec}>5</span>
           </button>
 
@@ -129,16 +154,13 @@ export const PortraitHeader: React.FC<Props> = ({
             {isPlaying ? '⏸' : '▶'}
           </button>
 
-          {/* +5秒 */}
+          {/* 停止して先頭へ */}
           <button
             className={styles.ctrlBtn}
-            onClick={handleSkipForward}
+            onClick={handleStop}
             disabled={!audioUrl}
-            aria-label="5秒進める"
-          >
-            <span className={styles.skipIcon}>↻</span>
-            <span className={styles.skipSec}>5</span>
-          </button>
+            aria-label="停止して先頭へ"
+          >⏹</button>
         </div>
 
         {/* ── 右: タイム表示 + 波形トグル ── */}
@@ -157,17 +179,18 @@ export const PortraitHeader: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* ── 波形バー (タップでシーク) ── */}
+      {/* ── 波形バー: タップ=シーク / ダブルタップ=キュー追加 ── */}
       {showWave && (
         <div
           ref={progressRef}
           className={styles.waveform}
-          onClick={handleWaveClick}
+          onClick={handleWaveTap}
+          onTouchEnd={handleWaveTap}
           role="slider"
           aria-valuemin={0}
           aria-valuemax={duration}
           aria-valuenow={currentTime}
-          aria-label="再生位置"
+          aria-label="再生位置 (ダブルタップでキュー追加)"
         >
           {wavePeaks.map((h, i) => (
             <div
@@ -177,6 +200,16 @@ export const PortraitHeader: React.FC<Props> = ({
                 height: Math.min(h, 28),
                 background: i < playedBars ? '#d97706' : 'rgba(217,119,6,0.18)',
               }}
+            />
+          ))}
+
+          {/* ── キュー位置マーカー ── */}
+          {duration > 0 && cueStartTimes.map((t, idx) => (
+            <div
+              key={idx}
+              className={styles.cueMarker}
+              style={{ left: `${(t / duration) * 100}%` }}
+              aria-hidden
             />
           ))}
         </div>
