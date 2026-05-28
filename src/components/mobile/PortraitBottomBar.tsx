@@ -133,34 +133,7 @@ export const PortraitBottomBar: React.FC<Props> = ({
         cueStartTimes={cueStartTimes}
       />
 
-      <div className={styles.cueRow}>
-        <div className={styles.cueNav}>
-          <button
-            className={styles.navArrow}
-            onClick={onCuePrev}
-            disabled={currentCueIndex === 0}
-            aria-label="前のキュー"
-          >
-            ‹
-          </button>
-          <span className={styles.cueLabel}>
-            {currentCueIndex + 1} / {totalCues}
-          </span>
-          <button
-            className={styles.navArrow}
-            onClick={onCueNext}
-            disabled={currentCueIndex >= totalCues - 1}
-            aria-label="次のキュー"
-          >
-            ›
-          </button>
-        </div>
-        <button className={styles.addCueBtn} onClick={onAddCue}>
-          ＋ Cue
-        </button>
-      </div>
-
-      <div className={styles.bottomToolbar}>
+      <div className={styles.toolbarRow}>
         <button
           className={styles.menuBtn}
           onClick={() => setMenuOpen(true)}
@@ -176,8 +149,7 @@ export const PortraitBottomBar: React.FC<Props> = ({
           disabled={undoDisabled}
           aria-label="元に戻す"
         >
-          <span className={styles.histIcon}>↩</span>
-          <span className={styles.histLabel}>Undo</span>
+          ↩
         </button>
         <button
           className={styles.histBtn}
@@ -185,8 +157,31 @@ export const PortraitBottomBar: React.FC<Props> = ({
           disabled={redoDisabled}
           aria-label="やり直す"
         >
-          <span className={styles.histIcon}>↪</span>
-          <span className={styles.histLabel}>Redo</span>
+          ↪
+        </button>
+        <div className={styles.cueNav}>
+          <button
+            className={styles.navArrow}
+            onClick={onCuePrev}
+            disabled={currentCueIndex === 0}
+            aria-label="前のキュー"
+          >
+            ‹
+          </button>
+          <span className={styles.cueLabel}>
+            {currentCueIndex + 1}/{totalCues}
+          </span>
+          <button
+            className={styles.navArrow}
+            onClick={onCueNext}
+            disabled={currentCueIndex >= totalCues - 1}
+            aria-label="次のキュー"
+          >
+            ›
+          </button>
+        </div>
+        <button className={styles.addCueBtn} onClick={onAddCue}>
+          ＋Cue
         </button>
       </div>
 

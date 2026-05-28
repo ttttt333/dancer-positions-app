@@ -1,30 +1,35 @@
 .transport {
-  padding: 8px 10px 6px;
-  border-bottom: 0.5px solid #1a2540;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  padding: 6px 0 4px;
+  min-height: 108px;
 }
 
 .row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
+  gap: 6px;
+  margin-bottom: 4px;
+  flex-shrink: 0;
+  padding: 0 8px;
 }
 
 .controls {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   flex-shrink: 0;
 }
 
 .ctrlBtn {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.06);
   border: 0.5px solid rgba(255, 255, 255, 0.1);
   color: #d1d5db;
-  font-size: 14px;
+  font-size: 13px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -45,7 +50,7 @@
 }
 
 .skipIcon {
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1;
   display: block;
 }
@@ -57,13 +62,13 @@
 }
 
 .playBtn {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   background: #d97706;
   border: none;
   color: white;
-  font-size: 16px;
+  font-size: 15px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -85,49 +90,41 @@
   color: #f1f5f9;
   white-space: nowrap;
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .timeSep {
   color: #4b5563;
   margin: 0 2px;
 }
 
-.waveform {
+.zoomBadge {
+  font-size: 9px;
+  font-weight: 700;
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.15);
+  border: 0.5px solid rgba(239, 68, 68, 0.35);
+  border-radius: 4px;
+  padding: 1px 5px;
+  letter-spacing: 0.03em;
+}
+
+.waveViewport {
   position: relative;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  height: 36px;
-  cursor: pointer;
-  overflow: hidden;
-  touch-action: manipulation;
-}
-
-.bar {
-  width: 3px;
-  border-radius: 2px;
+  width: 100%;
+  height: 80px;
   flex-shrink: 0;
-  transition: background 0.1s;
+  touch-action: none;
+  cursor: crosshair;
+  background: rgba(0, 0, 0, 0.25);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.06);
 }
 
-.playhead {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: #fbbf24;
-  transform: translateX(-50%);
+.waveCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
-  box-shadow: 0 0 6px rgba(251, 191, 36, 0.6);
-}
-
-.cueMarker {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: #22d3ee;
-  border-radius: 1px;
-  transform: translateX(-50%);
-  pointer-events: none;
-  opacity: 0.9;
 }
