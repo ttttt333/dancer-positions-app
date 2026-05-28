@@ -181,7 +181,8 @@ export function pickGapLinkAtWave(
   cueList: Cue[],
   viewStart: number,
   viewSpan: number,
-  dragPreview: { cueId: string; tStart: number; tEnd: number } | null
+  dragPreview: { cueId: string; tStart: number; tEnd: number } | null,
+  touchPaddingPx = 0
 ): { nextCueId: string } | null {
   if (viewSpan <= 0 || cueList.length < 2) return null;
   const sortedList = sortCuesByStart(cueList);
@@ -192,6 +193,15 @@ export function pickGapLinkAtWave(
   const h = r.height;
   if (w <= 0 || h <= 0) return null;
   const viewEnd = viewStart + viewSpan;
+  const pad = Math.max(0, touchPaddingPx);
+  const junctionHalfW = Math.max(GAP_LINK_MIN_WIDTH_PX, pad);
+  const inset = 0.5;
+  const barTop = inset;
+  const barHeight = h - inset * 2;
+
+  const inBarBand = (y: number) =>
+    y >= barTop - pad && y <= barTop + barHeight + pad;
+
   for (let i = 0; i < sortedList.length - 1; i++) {
     const prev = sortedList[i]!;
     const next = sortedList[i + 1]!;
@@ -199,6 +209,7 @@ export function pickGapLinkAtWave(
     let nextStart = next.tStartSec;
     if (dragPreview && dragPreview.cueId === prev.id) prevEnd = dragPreview.tEnd;
     if (dragPreview && dragPreview.cueId === next.id) nextStart = dragPreview.tStart;
+
     const b = gapConnectorPixelBounds(
       prevEnd,
       nextStart,
@@ -208,14 +219,23 @@ export function pickGapLinkAtWave(
       w,
       h
     );
-    if (!b) continue;
-    if (
-      px >= b.left &&
-      px <= b.left + b.width &&
-      py >= b.top &&
-      py <= b.top + b.height
-    ) {
-      return { nextCueId: next.id };
+    if (b) {
+      if (
+        px >= b.left - pad &&
+        px <= b.left + b.width + pad &&
+        py >= b.top - pad &&
+        py <= b.top + b.height + pad
+      ) {
+        return { nextCueId: next.id };
+      }
+    }
+
+    /** 時間的に隙間が無い（境界が一致）キュー同士の「間」 */
+    if (nextStart <= prevEnd + 1e-4 && inBarBand(py)) {
+      const xJ = waveTimeToExtentX(prevEnd, viewStart, viewSpan, w);
+      if (px >= xJ - junctionHalfW && px <= xJ + junctionHalfW) {
+        return { nextCueId: next.id };
+      }
     }
   }
   return null;

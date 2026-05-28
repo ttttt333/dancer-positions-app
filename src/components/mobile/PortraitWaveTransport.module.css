@@ -3,7 +3,7 @@
   flex-direction: column;
   flex-shrink: 0;
   padding: 6px 0 4px;
-  min-height: 122px;
+  min-height: calc(122px + 5mm);
 }
 
 .row {
@@ -127,19 +127,22 @@
 
 .waveRuler {
   position: relative;
-  height: 14px;
+  height: calc(14px + 5mm);
+  min-height: calc(14px + 5mm);
   overflow: hidden;
   border-bottom: 0.5px solid rgba(255, 255, 255, 0.08);
   background: rgba(0, 0, 0, 0.35);
   user-select: none;
+  touch-action: none;
+  cursor: ew-resize;
 }
 
 .rulerTick {
   position: absolute;
-  top: 1px;
-  transform: translateX(-50%);
+  top: 50%;
+  transform: translate(-50%, -50%);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 600;
   color: #94a3b8;
   white-space: nowrap;
@@ -159,10 +162,10 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 2px;
+  width: 3px;
   transform: translateX(-50%);
   background: #ef4444;
-  box-shadow: 0 0 5px rgba(239, 68, 68, 0.55);
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
   pointer-events: none;
   z-index: 3;
   border-radius: 1px;

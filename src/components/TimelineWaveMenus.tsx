@@ -15,6 +15,8 @@ export type GapRouteMenuState = {
   nextCueId: string;
   clientX: number;
   clientY: number;
+  /** スマホ縦画面: 全画面シートで表示 */
+  fullscreen?: boolean;
 } | null;
 
 export type WaveCueConfirmState =
@@ -236,47 +238,70 @@ export function TimelineWaveMenus({
         <button
           type="button"
           aria-label="経路メニューを閉じる"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 2498,
-            border: "none",
-            background: "transparent",
-            cursor: "default",
-          }}
+          className={gapRouteMenu.fullscreen ? "timeline-gap-route-backdrop" : undefined}
+          style={
+            gapRouteMenu.fullscreen
+              ? undefined
+              : {
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 2498,
+                  border: "none",
+                  background: "transparent",
+                  cursor: "default",
+                }
+          }
           onClick={() => setGapRouteMenu(null)}
         />
         <div
           role="menu"
           aria-label="キュー間の立ち位置の入り方"
-          style={{
-            position: "fixed",
-            left: Math.max(
-              8,
-              Math.min(
-                gapRouteMenu.clientX,
-                (typeof window !== "undefined" ? window.innerWidth : 800) - 576
-              )
-            ),
-            top: Math.max(
-              8,
-              Math.min(
-                gapRouteMenu.clientY,
-                (typeof window !== "undefined" ? window.innerHeight : 600) - 120
-              )
-            ),
-            zIndex: 2499,
-            width: "min(560px, calc(100vw - 16px))",
-            maxHeight: "min(82vh, 680px)",
-            overflowY: "auto",
-            padding: "12px",
-            borderRadius: "12px",
-            border: `1px solid ${shell.border}`,
-            background: shell.surface,
-            boxShadow: "0 16px 48px rgba(0,0,0,0.45)",
-          }}
+          className={
+            gapRouteMenu.fullscreen
+              ? "timeline-gap-route-menu timeline-gap-route-menu--fullscreen"
+              : "timeline-gap-route-menu"
+          }
+          style={
+            gapRouteMenu.fullscreen
+              ? undefined
+              : {
+                  position: "fixed",
+                  left: Math.max(
+                    8,
+                    Math.min(
+                      gapRouteMenu.clientX,
+                      (typeof window !== "undefined" ? window.innerWidth : 800) - 576
+                    )
+                  ),
+                  top: Math.max(
+                    8,
+                    Math.min(
+                      gapRouteMenu.clientY,
+                      (typeof window !== "undefined" ? window.innerHeight : 600) - 120
+                    )
+                  ),
+                  zIndex: 2499,
+                  width: "min(560px, calc(100vw - 16px))",
+                  maxHeight: "min(82vh, 680px)",
+                  overflowY: "auto",
+                  padding: "12px",
+                  borderRadius: "12px",
+                  border: `1px solid ${shell.border}`,
+                  background: shell.surface,
+                  boxShadow: "0 16px 48px rgba(0,0,0,0.45)",
+                }
+          }
           onClick={(ev) => ev.stopPropagation()}
         >
+          {gapRouteMenu.fullscreen ? (
+            <div className="timeline-gap-route-menu-header">
+              <h2 className="timeline-gap-route-menu-title">キュー間の動線</h2>
+              <p className="timeline-gap-route-menu-sub">
+                前のキューから次のキューへの入り方を選びます
+              </p>
+            </div>
+          ) : null}
+          <div className="timeline-gap-route-menu-body">
           {/* 個人設定ボタンを最上部に */}
           {onOpenPathEditor && viewMode !== "view" && (
             <>
@@ -382,6 +407,7 @@ export function TimelineWaveMenus({
           <button
             type="button"
             role="menuitem"
+            className="timeline-gap-route-menu-cancel"
             style={{
               ...btnSecondary,
               display: "block",
@@ -395,6 +421,7 @@ export function TimelineWaveMenus({
           >
             キャンセル
           </button>
+          </div>
         </div>
       </>
     ) : null;

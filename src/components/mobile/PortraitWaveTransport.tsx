@@ -184,6 +184,33 @@ export const PortraitWaveTransport: React.FC<Props> = ({
     [duration, viewStart, viewDuration]
   );
 
+  const seekFromClientX = useCallback(
+    (clientX: number) => {
+      const t = timeFromClientX(clientX);
+      if (t != null) onSeek(t);
+    },
+    [timeFromClientX, onSeek]
+  );
+
+  const onRulerPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0 || !audioUrl || duration <= 0) return;
+      e.preventDefault();
+      e.currentTarget.setPointerCapture(e.pointerId);
+      clearPendingSingleTap();
+      seekFromClientX(e.clientX);
+    },
+    [audioUrl, duration, seekFromClientX, clearPendingSingleTap]
+  );
+
+  const onRulerPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!(e.buttons & 1) || !audioUrl || duration <= 0) return;
+      seekFromClientX(e.clientX);
+    },
+    [audioUrl, duration, seekFromClientX]
+  );
+
   const applyZoomAt = useCallback(
     (nextZoom: number, anchorTimeSec: number) => {
       if (duration <= 0) return;
@@ -241,7 +268,7 @@ export const PortraitWaveTransport: React.FC<Props> = ({
         pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       }
 
-      if (Math.abs(e.movementX) > 3 || Math.abs(e.movementY) > 3) {
+      if (Math.abs(e.movementX) > 12 || Math.abs(e.movementY) > 12) {
         clearLongPress();
         clearPendingSingleTap();
       }
@@ -419,7 +446,16 @@ export const PortraitWaveTransport: React.FC<Props> = ({
       </div>
 
       <div className={styles.waveFrame}>
-        <div className={styles.waveRuler} aria-hidden={duration <= 0}>
+        <div
+          className={styles.waveRuler}
+          onPointerDown={onRulerPointerDown}
+          onPointerMove={onRulerPointerMove}
+          role="slider"
+          aria-valuemin={0}
+          aria-valuemax={duration}
+          aria-valuenow={currentTime}
+          aria-label="タイムライン（タップ・ドラッグで再生位置を移動）"
+        >
           {rulerTicks.map((tick) => {
             const pct =
               viewDuration > 0

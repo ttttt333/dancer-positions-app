@@ -22,6 +22,9 @@ import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
 import { MOBILE_WAVE_DOUBLE_TAP_CUE_SPAN_SEC } from "../lib/cueInterval";
 import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
 
+/** スマホ縦画面: キュー間タップ／長押しの当たり判定余白 */
+const MOBILE_GAP_TOUCH_PADDING_PX = 28;
+
 export type UseTimelineWaveCanvasActionsParams = {
   suppressNextWaveSeekRef: RefObject<boolean>;
   canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -168,6 +171,36 @@ export function useTimelineWaveCanvasActions({
         viewSpan = gv.span;
       }
       if (viewSpan <= 0) return;
+      const portraitActive = useTimelineWaveBridgeStore.getState().portraitActive;
+      const gapTouchPad = portraitActive ? MOBILE_GAP_TOUCH_PADDING_PX : 0;
+
+      if (portraitActive) {
+        const gapLink = pickGapLinkAtWave(
+          e.clientX,
+          e.clientY,
+          c,
+          cuesSorted,
+          viewStart,
+          viewSpan,
+          cueDragPreviewRangeRef.current,
+          gapTouchPad
+        );
+        if (gapLink) {
+          e.preventDefault();
+          e.stopPropagation();
+          setWaveCueMenu(null);
+          setWaveCueConfirm(null);
+          onSelectedCueIdsChange([gapLink.nextCueId]);
+          setGapRouteMenu({
+            nextCueId: gapLink.nextCueId,
+            clientX: e.clientX,
+            clientY: e.clientY,
+            fullscreen: true,
+          });
+          return;
+        }
+      }
+
       const id = pickCueIdAtWave(
         e.clientX,
         e.clientY,
@@ -193,7 +226,8 @@ export function useTimelineWaveCanvasActions({
         cuesSorted,
         viewStart,
         viewSpan,
-        cueDragPreviewRangeRef.current
+        cueDragPreviewRangeRef.current,
+        gapTouchPad
       );
       if (!gapLink) return;
       e.preventDefault();
