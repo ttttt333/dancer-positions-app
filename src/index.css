@@ -739,6 +739,28 @@ body {
   padding: 0 !important;
 }
 
+/* ── MobileShell 内: キュー追加ダイアログを画面最上部から表示 ──
+   AddCueWithFormationDialog は position:fixed / top:56px のインラインスタイルを持つため
+   !important で上書きして上部余白を最小化する。
+   aria-modal="false" で他のモーダルと区別。
+*/
+
+/* 横向き: 最上部 & サイドパネル・左バーを避けて表示 */
+[data-shell-landscape] [role="dialog"][aria-modal="false"] {
+  top: env(safe-area-inset-top, 4px) !important;
+  right: calc(148px + 6px) !important;
+  bottom: max(6px, env(safe-area-inset-bottom, 6px)) !important;
+  left: calc(54px + 6px) !important;
+  max-width: none !important;
+  margin-left: 0 !important;
+  width: auto !important;
+}
+
+/* 縦向き: 最上部から表示 */
+[data-shell-portrait] [role="dialog"][aria-modal="false"] {
+  top: env(safe-area-inset-top, 4px) !important;
+}
+
 /* ── ログイン／登録：iOS のフォーカス時拡大を抑え、タップ領域を確保 ── */
 @media (max-width: 480px) {
   .app-auth-card input[type="email"],
