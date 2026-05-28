@@ -528,6 +528,7 @@ export function FlowLibraryDialog({
       ariaLabelledBy="flow-lib-title"
     >
       <div
+        className="flow-library-panel"
         style={{
           padding: "16px 18px 18px",
           display: "flex",
@@ -535,6 +536,7 @@ export function FlowLibraryDialog({
           gap: "12px",
           minHeight: 0,
           flex: 1,
+          boxSizing: "border-box",
         }}
       >
         <h3
@@ -617,18 +619,28 @@ export function FlowLibraryDialog({
               キュー {fmtCount(cuesCount)} ／ 形 {fmtCount(formCount)} ／ 人数 {dancerCount}
             </span>
           </div>
-          <div style={{ display: "flex", gap: "8px" }}>
+          <div
+            className="flow-lib-save-row"
+            style={{
+              display: "flex",
+              gap: "6px",
+              alignItems: "stretch",
+              minWidth: 0,
+            }}
+          >
             <input
               type="text"
+              className="flow-lib-name-input"
               placeholder={t("editor.comp.k012")}
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={120}
-              style={{ ...inputBase, flex: 1 }}
+              style={{ ...inputBase, flex: "1 1 0", minWidth: 0 }}
               disabled={busy || !canSave}
             />
             <button
               type="button"
+              className="flow-lib-save-btn"
               onClick={doSave}
               disabled={busy || !canSave || !name.trim()}
               style={{
@@ -637,6 +649,10 @@ export function FlowLibraryDialog({
                 color: "#bbf7d0",
                 fontWeight: 600,
                 flexShrink: 0,
+                fontSize: "11px",
+                padding: "6px 8px",
+                lineHeight: 1.2,
+                whiteSpace: "nowrap",
               }}
             >
               {busy ? "保存中…" : "新規保存"}

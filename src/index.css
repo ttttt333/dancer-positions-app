@@ -1005,6 +1005,59 @@ body {
 }
 
 /*
+   5b. フローライブラリ (aria-labelledby=flow-lib-title) — 新規保存行のはみ出し防止
+*/
+[data-shell-portrait] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-library-panel,
+[data-shell-landscape] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-library-panel {
+  padding: 12px 12px 14px !important;
+  gap: 10px !important;
+}
+
+[data-shell-portrait] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-save-row,
+[data-shell-landscape] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-save-row {
+  gap: 6px !important;
+  min-width: 0 !important;
+}
+
+[data-shell-portrait] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-name-input,
+[data-shell-landscape] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-name-input {
+  font-size: 14px !important;
+  min-height: 38px !important;
+  height: 38px !important;
+  padding: 6px 8px !important;
+  min-width: 0 !important;
+}
+
+[data-shell-portrait] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-save-btn,
+[data-shell-landscape] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-save-btn {
+  font-size: 11px !important;
+  min-height: 38px !important;
+  height: 38px !important;
+  padding: 4px 8px !important;
+  line-height: 1.2 !important;
+  border-radius: 8px !important;
+  white-space: nowrap !important;
+}
+
+[data-shell-portrait] [role="dialog"][aria-labelledby="flow-lib-title"] h3,
+[data-shell-landscape] [role="dialog"][aria-labelledby="flow-lib-title"] h3 {
+  font-size: 16px !important;
+  line-height: 1.35 !important;
+}
+
+[data-shell-portrait] [role="dialog"][aria-labelledby="flow-lib-title"] h4,
+[data-shell-landscape] [role="dialog"][aria-labelledby="flow-lib-title"] h4 {
+  font-size: 11px !important;
+}
+
+[data-shell-portrait] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-library-panel > div:first-of-type a,
+[data-shell-landscape] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-library-panel > div:first-of-type a {
+  font-size: 12px !important;
+  min-height: 38px !important;
+  padding: 8px 12px !important;
+}
+
+/*
    6. 舞台設定: 寸法セレクト・グリッド入力（2列グリッド向けコンパクト化）
       全ダイアログ向け 52px/18px ルールで select が潰れて操作できなくなるのを防ぐ。
 */
