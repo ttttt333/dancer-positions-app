@@ -26,6 +26,7 @@ import { copyTextToClipboard, projectShareLinks } from "../lib/shareProjectLinks
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
 import { EditorSideSheet } from "./EditorSideSheet";
 import { useI18n } from "../i18n/I18nContext";
+import { formatMmSsFloor } from "../lib/timeFormat";
 
 type Props = {
   open: boolean;
@@ -86,14 +87,55 @@ function fmtCount(n: number): string {
   return new Intl.NumberFormat("ja-JP").format(n);
 }
 
-function fmtDate(t: number): string {
+function fmtDateCompact(t: number): string {
   try {
-    const d = new Date(t);
-    return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    return new Intl.DateTimeFormat("ja-JP", {
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(new Date(t));
   } catch {
     return "";
   }
 }
+
+/** 保存フローの最終タイミング位置（秒）。タイミング未保存なら null。 */
+function computeFlowTimingSpanSec(it: FlowLibraryItem): number | null {
+  if (!it.hasTiming) return null;
+  const cues = it.cuesFull?.length ? it.cuesFull : it.cues;
+  if (!cues?.length) return null;
+  let maxT = 0;
+  let found = false;
+  for (const c of cues) {
+    for (const t of [c.tEndSec, c.tStartSec]) {
+      if (t != null && Number.isFinite(t) && t >= 0) {
+        maxT = Math.max(maxT, t);
+        found = true;
+      }
+    }
+  }
+  return found ? maxT : null;
+}
+
+function formatFlowTimingLabel(it: FlowLibraryItem): string {
+  if (!it.hasTiming) return "タイミングなし";
+  const span = computeFlowTimingSpanSec(it);
+  if (span == null) return "タイミング保存済";
+  return `タイミング ${formatMmSsFloor(span)}（${Math.round(span)}秒）`;
+}
+
+const flowItemMetaLine: CSSProperties = {
+  color: "#64748b",
+  fontSize: "11px",
+  lineHeight: 1.35,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  minWidth: 0,
+};
 
 /** フロー行の「共同編集 / 閲覧」に使うクラウド作品 ID（無ければ共有不可） */
 function resolveFlowShareProjectId(
@@ -740,23 +782,36 @@ export function FlowLibraryDialog({
                           {it.name}
                         </div>
                         <div
+                          className="flow-lib-item-meta"
                           style={{
-                            color: "#64748b",
-                            fontSize: "11px",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "2px",
                             marginTop: "4px",
-                            lineHeight: 1.45,
+                            minWidth: 0,
                           }}
                         >
-                          キュー {fmtCount(it.cueCount)} ／ 形{" "}
-                          {fmtCount(it.formations.length)} ／ 人数 {it.dancerCount}
-                          {it.hasTiming ? (
-                            <span style={{ color: "#22d3ee", marginLeft: "8px" }}>
-                              ⏱ 秒数あり
-                            </span>
-                          ) : null}
-                          <span style={{ marginLeft: "8px" }}>
-                            更新: {fmtDate(it.updatedAt)}
-                          </span>
+                          <div className="flow-lib-item-meta-line" style={flowItemMetaLine}>
+                            キュー {fmtCount(it.cueCount)} ／ 形{" "}
+                            {fmtCount(it.formations.length)} ／ 人数 {it.dancerCount}
+                          </div>
+                          <div
+                            className="flow-lib-item-meta-line flow-lib-item-meta-line--timing"
+                            style={{
+                              ...flowItemMetaLine,
+                              color: it.hasTiming ? "#22d3ee" : "#64748b",
+                            }}
+                            title={formatFlowTimingLabel(it)}
+                          >
+                            {formatFlowTimingLabel(it)}
+                          </div>
+                          <div
+                            className="flow-lib-item-meta-line flow-lib-item-meta-line--updated"
+                            style={flowItemMetaLine}
+                            title={`更新 ${fmtDateCompact(it.updatedAt)}`}
+                          >
+                            更新 {fmtDateCompact(it.updatedAt)}
+                          </div>
                         </div>
                       </div>
                       <button

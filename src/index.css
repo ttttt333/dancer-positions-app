@@ -1057,6 +1057,20 @@ body {
   padding: 8px 12px !important;
 }
 
+[data-shell-portrait] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-item-meta,
+[data-shell-landscape] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-item-meta {
+  gap: 1px !important;
+}
+
+[data-shell-portrait] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-item-meta-line,
+[data-shell-landscape] [role="dialog"][aria-labelledby="flow-lib-title"] .flow-lib-item-meta-line {
+  font-size: 10px !important;
+  line-height: 1.3 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
 /*
    6. 舞台設定: 寸法セレクト・グリッド入力（2列グリッド向けコンパクト化）
       全ダイアログ向け 52px/18px ルールで select が潰れて操作できなくなるのを防ぐ。
