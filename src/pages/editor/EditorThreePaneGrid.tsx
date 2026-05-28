@@ -342,6 +342,12 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
         ? (sortedCuesForEditor as Array<{ tStartSec: number }>).map((c) => c.tStartSec)
         : [],
       onSelectCueNearTime: handleMobileSelectCueNearTime,
+      trimStartSec:
+        typeof (project as { trimStartSec?: number })?.trimStartSec === "number"
+          ? (project as { trimStartSec: number }).trimStartSec
+          : 0,
+      trimEndSec:
+        (project as { trimEndSec?: number | null })?.trimEndSec ?? null,
     });
   }, [
     stageView,

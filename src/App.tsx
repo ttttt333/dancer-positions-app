@@ -13,6 +13,11 @@ import { MobileShell } from "./components/mobile/MobileShell";
 import { usePlaybackUiStore } from "./store/usePlaybackUiStore";
 import { useMobileShellBridgeStore } from "./store/useMobileShellBridgeStore";
 import { playbackEngine } from "./core/playbackEngine";
+import {
+  seekPlaybackClampedAndSyncStore,
+  stopPlaybackAtTrimStart,
+  togglePlaybackRespectingTrimStart,
+} from "./lib/playbackTransport";
 
 type EBState = { error: Error | null };
 
@@ -147,18 +152,29 @@ function MobileEditorRoute() {
   const onAddCue = useMobileShellBridgeStore((s) => s.onAddCue);
   const onStageSettings = useMobileShellBridgeStore((s) => s.onStageSettings);
   const onTabChange = useMobileShellBridgeStore((s) => s.onTabChange);
+  const trimStartSec = useMobileShellBridgeStore((s) => s.trimStartSec);
+  const trimEndSec = useMobileShellBridgeStore((s) => s.trimEndSec);
 
   const onPlayPause = useCallback(() => {
-    if (isPlaying) {
-      playbackEngine.pause();
-    } else {
-      playbackEngine.play();
-    }
-  }, [isPlaying]);
+    togglePlaybackRespectingTrimStart(trimStartSec);
+  }, [trimStartSec]);
 
-  const onSeek = useCallback((sec: number) => {
-    playbackEngine.seek(sec);
-  }, []);
+  const onStop = useCallback(() => {
+    stopPlaybackAtTrimStart(trimStartSec);
+  }, [trimStartSec]);
+
+  const onSeek = useCallback(
+    (sec: number) => {
+      seekPlaybackClampedAndSyncStore({
+        t: sec,
+        durationSec,
+        trimStartSec,
+        trimEndSec,
+        roundHeadForStore: true,
+      });
+    },
+    [durationSec, trimStartSec, trimEndSec]
+  );
 
   const onViewerList = useCallback(() => {
     if (projectId) navigate(`/view/${projectId}`);
@@ -175,6 +191,7 @@ function MobileEditorRoute() {
       currentTime={currentTimeSec}
       duration={durationSec}
       onPlayPause={onPlayPause}
+      onStop={onStop}
       onSeek={onSeek}
       currentCueIndex={currentCueIndex}
       totalCues={totalCues}

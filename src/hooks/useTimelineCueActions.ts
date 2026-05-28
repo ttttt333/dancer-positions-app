@@ -5,6 +5,7 @@ import {
   clampTimelineHeadForCueOps,
   cloneFormationForNewCue,
   DEFAULT_CUE_SPAN_WITH_AUDIO_SEC,
+  MOBILE_WAVE_DOUBLE_TAP_CUE_SPAN_SEC,
   MIN_CUE_DURATION_SEC,
   resolveCueIntervalNonOverlap,
   roundPlaybackHeadSec,
@@ -40,10 +41,11 @@ export function useTimelineCueActions({
   trimEndSec,
 }: Params) {
   const addCueStartingAtTime = useCallback(
-    (t0Raw: number) => {
+    (t0Raw: number, spanSec = DEFAULT_CUE_SPAN_WITH_AUDIO_SEC) => {
       if (project.viewMode === "view") return;
       const newCueId = crypto.randomUUID();
       let appliedT = 0;
+      const cueSpan = Math.max(MIN_CUE_DURATION_SEC, spanSec);
       setProject((p) => {
         if (p.cues.length >= 100) return p;
         const sourceF =
@@ -60,7 +62,7 @@ export function useTimelineCueActions({
         t0 = Math.max(trimLo, Math.min(trimHi - 0.02, t0));
         let t1 = Math.min(
           trimHi,
-          Math.round((t0 + DEFAULT_CUE_SPAN_WITH_AUDIO_SEC) * 100) / 100
+          Math.round((t0 + cueSpan) * 100) / 100
         );
         if (t1 <= t0) t1 = Math.round((t0 + 0.5) * 100) / 100;
         const resolved = resolveCueIntervalNonOverlap(

@@ -323,47 +323,90 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                     ) : (
                       cuesSortedForStageJump.map((cue, idx) => {
                         const isSelected = selectedCueId === cue.id;
+                        const canEditCues = project.viewMode !== "view";
                         const fmtSec = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
                         return (
-                          <button
+                          <div
                             key={cue.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedCueIds([cue.id]);
-                              setCueListModalOpen(false);
-                            }}
                             style={{
-                              width: "100%",
-                              textAlign: "left",
-                              borderRadius: 8,
-                              border: `1px solid ${isSelected ? shell.accent : shell.border}`,
-                              background: isSelected ? "rgba(99,102,241,0.12)" : "rgba(255,255,255,0.03)",
-                              padding: "8px 10px",
                               display: "flex",
-                              alignItems: "center",
-                              gap: 10,
-                              cursor: "pointer",
-                              transition: "background 0.12s, border-color 0.12s",
+                              alignItems: "stretch",
+                              gap: 6,
                             }}
                           >
-                            <span style={{
-                              width: 22, height: 22, borderRadius: 6, flexShrink: 0,
-                              background: isSelected ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.06)",
-                              color: isSelected ? "#a5b4fc" : shell.textMuted,
-                              fontSize: 10, fontWeight: 700,
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                            }}>
-                              {idx + 1}
-                            </span>
-                            <span style={{ flex: 1, minWidth: 0 }}>
-                              <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: shell.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                {cue.name || t("editor.layout.cueName", { n: idx + 1 })}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedCueIds([cue.id]);
+                                setCueListModalOpen(false);
+                              }}
+                              style={{
+                                flex: 1,
+                                minWidth: 0,
+                                textAlign: "left",
+                                borderRadius: 8,
+                                border: `1px solid ${isSelected ? shell.accent : shell.border}`,
+                                background: isSelected ? "rgba(99,102,241,0.12)" : "rgba(255,255,255,0.03)",
+                                padding: "8px 10px",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 10,
+                                cursor: "pointer",
+                                transition: "background 0.12s, border-color 0.12s",
+                              }}
+                            >
+                              <span style={{
+                                width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+                                background: isSelected ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.06)",
+                                color: isSelected ? "#a5b4fc" : shell.textMuted,
+                                fontSize: 10, fontWeight: 700,
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                              }}>
+                                {idx + 1}
                               </span>
-                              <span style={{ display: "block", fontSize: 11, color: shell.textMuted, marginTop: 2 }}>
-                                {fmtSec(cue.tStartSec)} – {fmtSec(cue.tEndSec)}
+                              <span style={{ flex: 1, minWidth: 0 }}>
+                                <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: shell.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                  {cue.name || t("editor.layout.cueName", { n: idx + 1 })}
+                                </span>
+                                <span style={{ display: "block", fontSize: 11, color: shell.textMuted, marginTop: 2 }}>
+                                  {fmtSec(cue.tStartSec)} – {fmtSec(cue.tEndSec)}
+                                </span>
                               </span>
-                            </span>
-                          </button>
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`${cue.name || t("editor.layout.cueName", { n: idx + 1 })}を削除`}
+                              title="削除"
+                              disabled={!canEditCues}
+                              onClick={() => {
+                                if (!canEditCues) return;
+                                setProjectSafe((prev) => ({
+                                  ...prev,
+                                  cues: sortCuesByStart(prev.cues.filter((c) => c.id !== cue.id)),
+                                }));
+                                setSelectedCueIds((prev) => prev.filter((id) => id !== cue.id));
+                              }}
+                              style={{
+                                flexShrink: 0,
+                                width: 44,
+                                borderRadius: 8,
+                                border: "1px solid rgba(196,30,58,0.35)",
+                                background: "rgba(196,30,58,0.14)",
+                                color: "#fca5a5",
+                                fontSize: 18,
+                                fontWeight: 700,
+                                lineHeight: 1,
+                                cursor: canEditCues ? "pointer" : "not-allowed",
+                                opacity: canEditCues ? 1 : 0.35,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                padding: 0,
+                              }}
+                            >
+                              ×
+                            </button>
+                          </div>
                         );
                       })
                     )

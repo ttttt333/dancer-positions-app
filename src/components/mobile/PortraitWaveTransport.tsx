@@ -3,12 +3,14 @@
  * 縦画面: PC 版 TimelinePanel と同じ波形操作（キュー作成・移動・導線）を共有
  */
 
-import React, { useRef, useCallback, useState, useEffect, useLayoutEffect } from "react";
+import React, { useRef, useCallback, useState, useEffect, useLayoutEffect, useMemo } from "react";
 import styles from "./PortraitWaveTransport.module.css";
 import { useTimelineWaveBridgeStore } from "../../store/timelineWaveBridgeStore";
+import { formatMmSs, waveRulerTicks } from "../../lib/timeFormat";
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 48;
+const ZOOM_STEP = 1.5;
 const DOUBLE_TAP_MS = 350;
 const LONG_PRESS_MS = 520;
 const PORTRAIT_WAVE_CSS_H = 80;
@@ -19,6 +21,7 @@ interface Props {
   currentTime: number;
   duration: number;
   onPlayPause: () => void;
+  onStop: () => void;
   onSeek: (sec: number) => void;
 }
 
@@ -54,6 +57,7 @@ export const PortraitWaveTransport: React.FC<Props> = ({
   currentTime,
   duration,
   onPlayPause,
+  onStop,
   onSeek,
 }) => {
   const registered = useTimelineWaveBridgeStore((s) => s.registered);
@@ -67,21 +71,43 @@ export const PortraitWaveTransport: React.FC<Props> = ({
   const [zoom, setZoom] = useState(1);
   const [viewStart, setViewStart] = useState(0);
   const lastTapRef = useRef(0);
+  const pendingSingleTapRef = useRef<number | null>(null);
+  const suppressClickRef = useRef(false);
   const longPressTimerRef = useRef<number | null>(null);
   const longPressFiredRef = useRef(false);
   const pinchRef = useRef<{ dist: number; zoom: number; anchor: number } | null>(null);
   const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
 
   const viewDuration = duration > 0 ? duration / zoom : 0;
+  const viewEnd = viewStart + viewDuration;
+
+  const playheadPct = useMemo(() => {
+    if (duration <= 0 || viewDuration <= 0) return 0;
+    const ratio = (currentTime - viewStart) / viewDuration;
+    return Math.min(100, Math.max(0, ratio * 100));
+  }, [currentTime, viewStart, viewDuration, duration]);
+
+  const rulerTicks = useMemo(
+    () => (viewDuration > 0 ? waveRulerTicks(viewStart, viewEnd, 8) : []),
+    [viewStart, viewEnd, viewDuration]
+  );
+
+  const clearPendingSingleTap = useCallback(() => {
+    if (pendingSingleTapRef.current != null) {
+      window.clearTimeout(pendingSingleTapRef.current);
+      pendingSingleTapRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     setPortraitCanvasRef(canvasRef);
     setPortraitActive(true);
     return () => {
+      clearPendingSingleTap();
       setPortraitActive(false);
       setPortraitCanvasRef(null);
     };
-  }, [setPortraitActive, setPortraitCanvasRef]);
+  }, [setPortraitActive, setPortraitCanvasRef, clearPendingSingleTap]);
 
   useEffect(() => {
     syncPortraitView(viewStart, zoom);
@@ -181,6 +207,7 @@ export const PortraitWaveTransport: React.FC<Props> = ({
   const onPointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (!bridgeApi?.handlers) return;
+      clearPendingSingleTap();
       pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       longPressFiredRef.current = false;
 
@@ -203,7 +230,7 @@ export const PortraitWaveTransport: React.FC<Props> = ({
 
       bridgeApi.handlers.onWaveCanvasPointerDown(e);
     },
-    [bridgeApi, zoom, viewStart, currentTime, timeFromClientX, clearLongPress]
+    [bridgeApi, zoom, viewStart, currentTime, timeFromClientX, clearLongPress, clearPendingSingleTap]
   );
 
   const onPointerMove = useCallback(
@@ -216,6 +243,7 @@ export const PortraitWaveTransport: React.FC<Props> = ({
 
       if (Math.abs(e.movementX) > 3 || Math.abs(e.movementY) > 3) {
         clearLongPress();
+        clearPendingSingleTap();
       }
 
       if (pinchRef.current && pointersRef.current.size >= 2) {
@@ -230,11 +258,15 @@ export const PortraitWaveTransport: React.FC<Props> = ({
 
       bridgeApi.handlers.onWaveCanvasPointerMove(e);
     },
-    [bridgeApi, applyZoomAt, clearLongPress]
+    [bridgeApi, applyZoomAt, clearLongPress, clearPendingSingleTap]
   );
 
   const onClick = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
+      if (suppressClickRef.current) {
+        suppressClickRef.current = false;
+        return;
+      }
       if (longPressFiredRef.current) return;
       bridgeApi?.handlers.onWaveClick(e);
     },
@@ -259,10 +291,18 @@ export const PortraitWaveTransport: React.FC<Props> = ({
       if (!longPressFiredRef.current) {
         const now = Date.now();
         if (now - lastTapRef.current < DOUBLE_TAP_MS) {
+          clearPendingSingleTap();
+          suppressClickRef.current = true;
           bridgeApi.handlers.onWaveDoubleClick(synthMouseEvent("dblclick", e));
           lastTapRef.current = 0;
         } else {
           lastTapRef.current = now;
+          clearPendingSingleTap();
+          pendingSingleTapRef.current = window.setTimeout(() => {
+            pendingSingleTapRef.current = null;
+            if (longPressFiredRef.current) return;
+            bridgeApi.handlers.onWaveClick(synthMouseEvent("click", e));
+          }, DOUBLE_TAP_MS);
         }
       }
 
@@ -272,27 +312,28 @@ export const PortraitWaveTransport: React.FC<Props> = ({
         /* ignore */
       }
     },
-    [bridgeApi, clearLongPress]
+    [bridgeApi, clearLongPress, clearPendingSingleTap]
   );
 
   const onPointerLeave = useCallback(() => {
     clearLongPress();
+    clearPendingSingleTap();
     bridgeApi?.handlers.onWaveCanvasPointerLeave();
-  }, [bridgeApi, clearLongPress]);
+  }, [bridgeApi, clearLongPress, clearPendingSingleTap]);
 
   const onPointerCancel = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       clearLongPress();
+      clearPendingSingleTap();
       pointersRef.current.delete(e.pointerId);
       pinchRef.current = null;
     },
-    [clearLongPress]
+    [clearLongPress, clearPendingSingleTap]
   );
 
   const handleStop = useCallback(() => {
-    onSeek(0);
-    if (isPlaying) onPlayPause();
-  }, [isPlaying, onPlayPause, onSeek]);
+    onStop();
+  }, [onStop]);
 
   const handleSkipBack = useCallback(() => {
     onSeek(Math.max(0, currentTime - 5));
@@ -301,6 +342,14 @@ export const PortraitWaveTransport: React.FC<Props> = ({
   const handleSkipForward = useCallback(() => {
     onSeek(Math.min(duration, currentTime + 5));
   }, [currentTime, duration, onSeek]);
+
+  const handleZoomIn = useCallback(() => {
+    applyZoomAt(zoom * ZOOM_STEP, currentTime);
+  }, [applyZoomAt, zoom, currentTime]);
+
+  const handleZoomOut = useCallback(() => {
+    applyZoomAt(zoom / ZOOM_STEP, currentTime);
+  }, [applyZoomAt, zoom, currentTime]);
 
   const zoomLabel = zoom > 1 ? `${zoom.toFixed(zoom >= 10 ? 0 : 1)}×` : null;
 
@@ -342,6 +391,24 @@ export const PortraitWaveTransport: React.FC<Props> = ({
           >
             ⏹
           </button>
+          <button
+            className={styles.ctrlBtn}
+            onClick={handleZoomIn}
+            disabled={!audioUrl || zoom >= MAX_ZOOM - 0.01}
+            aria-label="波形を拡大"
+            title="拡大"
+          >
+            <span className={styles.zoomBtnIcon}>＋</span>
+          </button>
+          <button
+            className={styles.ctrlBtn}
+            onClick={handleZoomOut}
+            disabled={!audioUrl || zoom <= MIN_ZOOM + 0.01}
+            aria-label="波形を縮小"
+            title="縮小"
+          >
+            <span className={styles.zoomBtnIcon}>－</span>
+          </button>
         </div>
         <span className={styles.timeText}>
           {fmt(currentTime)}
@@ -351,25 +418,51 @@ export const PortraitWaveTransport: React.FC<Props> = ({
         </span>
       </div>
 
-      <div ref={viewportRef} className={styles.waveViewport}>
-        <canvas
-          ref={canvasRef}
-          className={styles.waveCanvas}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerLeave={onPointerLeave}
-          onPointerCancel={onPointerCancel}
-          onClick={onClick}
-          onDoubleClick={onDoubleClick}
-          role="slider"
-          aria-valuemin={0}
-          aria-valuemax={duration}
-          aria-valuenow={currentTime}
-          aria-label="波形（PC版と同じ操作: ダブルタップでキュー追加・ドラッグで長さ調整・長押しで導線/キューメニュー）"
-        />
-        {!registered ? (
-          <div className={styles.wavePlaceholder}>波形を読み込み中…</div>
+      <div className={styles.waveFrame}>
+        <div className={styles.waveRuler} aria-hidden={duration <= 0}>
+          {rulerTicks.map((tick) => {
+            const pct =
+              viewDuration > 0
+                ? ((tick - viewStart) / viewDuration) * 100
+                : 0;
+            return (
+              <span
+                key={tick}
+                className={styles.rulerTick}
+                style={{ left: `${Math.min(100, Math.max(0, pct))}%` }}
+              >
+                {formatMmSs(tick)}
+              </span>
+            );
+          })}
+        </div>
+        <div ref={viewportRef} className={styles.waveViewport}>
+          <canvas
+            ref={canvasRef}
+            className={styles.waveCanvas}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerLeave={onPointerLeave}
+            onPointerCancel={onPointerCancel}
+            onClick={onClick}
+            onDoubleClick={onDoubleClick}
+            role="slider"
+            aria-valuemin={0}
+            aria-valuemax={duration}
+            aria-valuenow={currentTime}
+            aria-label="波形（ダブルタップで7秒のキュー追加・ドラッグで長さ調整・長押しで導線/キューメニュー）"
+          />
+          {!registered ? (
+            <div className={styles.wavePlaceholder}>波形を読み込み中…</div>
+          ) : null}
+        </div>
+        {duration > 0 && viewDuration > 0 ? (
+          <div
+            className={styles.playheadLine}
+            style={{ left: `${playheadPct}%` }}
+            aria-hidden
+          />
         ) : null}
       </div>
     </div>

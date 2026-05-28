@@ -10,6 +10,8 @@ export type EditorSideSheetProps = {
   blockDismiss?: boolean;
   /** `role="dialog"` の `aria-labelledby` */
   ariaLabelledBy?: string;
+  /** モバイル CSS 上書き用（例: formation-preset-picker） */
+  sheetId?: string;
   children: ReactNode;
 };
 
@@ -24,11 +26,13 @@ export function EditorSideSheet({
   zIndex = 64,
   blockDismiss = false,
   ariaLabelledBy,
+  sheetId,
   children,
 }: EditorSideSheetProps) {
   if (!open) return null;
   return (
     <div
+      data-editor-sheet-root={sheetId}
       style={
         {
           position: "fixed",
@@ -62,6 +66,7 @@ export function EditorSideSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby={ariaLabelledBy}
+        data-editor-sheet={sheetId}
         style={{
           position: "absolute",
           top: 0,

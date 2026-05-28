@@ -28,6 +28,7 @@ export interface MobileShellProps {
   currentTime: number
   duration: number
   onPlayPause: () => void
+  onStop: () => void
   onSeek: (sec: number) => void
 
   // ── キュー ──
@@ -61,6 +62,11 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
     const checkDialog = () => {
       /** キュー設定（aria-modal="false"）はフッターのキャンセルで閉じる。浮遊ボタンは邪魔になるため出さない */
       const modal = document.querySelector('[role="dialog"][aria-modal="true"]')
+      /** Change 雛形ピッカーは左下に閉じる・適用があるため浮遊閉じるは出さない */
+      if (modal?.getAttribute('data-editor-sheet') === 'formation-preset-picker') {
+        setHasOpenDialog(false)
+        return
+      }
       setHasOpenDialog(!!modal)
     }
     const observer = new MutationObserver(checkDialog)
@@ -109,6 +115,7 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
           currentTime={props.currentTime}
           duration={props.duration}
           onPlayPause={props.onPlayPause}
+          onStop={props.onStop}
           onSeek={props.onSeek}
           currentCueIndex={props.currentCueIndex}
           totalCues={props.totalCues}
@@ -153,6 +160,7 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
         currentTime={props.currentTime}
         duration={props.duration}
         onPlayPause={props.onPlayPause}
+        onStop={props.onStop}
         onSeek={props.onSeek}
         currentCueIndex={props.currentCueIndex}
         totalCues={props.totalCues}

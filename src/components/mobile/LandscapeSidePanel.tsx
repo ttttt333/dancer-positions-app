@@ -36,6 +36,7 @@ interface Props {
   currentTime: number
   duration: number
   onPlayPause: () => void
+  onStop: () => void
   onSeek?: (sec: number) => void
   currentCueIndex: number
   totalCues: number
@@ -51,7 +52,7 @@ interface Props {
 }
 
 export const LandscapeSidePanel: React.FC<Props> = ({
-  isPlaying, currentTime, duration, onPlayPause, onSeek,
+  isPlaying, currentTime, duration, onPlayPause, onStop, onSeek,
   currentCueIndex, totalCues, onCuePrev, onCueNext,
   onAddCue, onStageSettings, onViewerList,
   onUndo, onRedo, undoDisabled, redoDisabled,
@@ -152,9 +153,18 @@ export const LandscapeSidePanel: React.FC<Props> = ({
         <button
           className={styles.btnPlay}
           onClick={onPlayPause}
+          disabled={duration <= 0}
           aria-label={isPlaying ? '一時停止' : '再生'}
         >
           {isPlaying ? '⏸' : '▶'}
+        </button>
+        <button
+          className={styles.btnStop}
+          onClick={onStop}
+          disabled={duration <= 0}
+          aria-label="停止して先頭へ"
+        >
+          ⏹
         </button>
         <span className={styles.timeText}>{fmt(currentTime)}</span>
         <span className={styles.timeSep}>/</span>

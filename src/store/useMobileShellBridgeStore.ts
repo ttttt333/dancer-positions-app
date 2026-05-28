@@ -58,6 +58,9 @@ export type MobileShellBridgeStore = {
   onFlowLibrary: () => void;
   /** 波形タップで近傍キューを選択 */
   onSelectCueNearTime: (tSec: number) => void;
+  /** タイムライン左端（停止ボタンで戻る位置） */
+  trimStartSec: number;
+  trimEndSec: number | null;
   /** EditorPage または上位コンポーネントから一括設定 */
   setMobileShellBridge: (patch: Partial<Omit<MobileShellBridgeStore, "setMobileShellBridge">>) => void;
 };
@@ -94,5 +97,7 @@ export const useMobileShellBridgeStore = create<MobileShellBridgeStore>((set) =>
   onHelp: () => {},
   onFlowLibrary: () => {},
   onSelectCueNearTime: () => {},
+  trimStartSec: 0,
+  trimEndSec: null,
   setMobileShellBridge: (patch) => set(patch),
 }));

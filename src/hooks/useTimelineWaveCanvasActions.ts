@@ -1,6 +1,9 @@
 import { useCallback, type MouseEvent } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
-import { clampTimelineHeadForCueOps } from "../core/timelineController";
+import {
+  clampTimelineHeadForCueOps,
+  DEFAULT_CUE_SPAN_WITH_AUDIO_SEC,
+} from "../core/timelineController";
 import { playbackEngine } from "../core/playbackEngine";
 import { seekPlaybackClampedAndSyncStore } from "../lib/playbackTransport";
 import {
@@ -16,6 +19,8 @@ import type {
   WaveCueMenuState,
 } from "../components/TimelineWaveMenus";
 import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
+import { MOBILE_WAVE_DOUBLE_TAP_CUE_SPAN_SEC } from "../lib/cueInterval";
+import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
 
 export type UseTimelineWaveCanvasActionsParams = {
   suppressNextWaveSeekRef: RefObject<boolean>;
@@ -244,7 +249,10 @@ export function useTimelineWaveCanvasActions({
       e.preventDefault();
       e.stopPropagation();
       suppressNextWaveSeekRef.current = true;
-      addCueStartingAtTime(clamped);
+      const spanSec = useTimelineWaveBridgeStore.getState().portraitActive
+        ? MOBILE_WAVE_DOUBLE_TAP_CUE_SPAN_SEC
+        : DEFAULT_CUE_SPAN_WITH_AUDIO_SEC;
+      addCueStartingAtTime(clamped, spanSec);
     },
     [
       viewMode,

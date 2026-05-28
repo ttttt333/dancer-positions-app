@@ -10,6 +10,7 @@ import {
   type CueDragEdgeMode,
 } from "../lib/timelineWaveGeometry";
 import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
+import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
 
 export type UseWaveCanvasRendererArgs = {
   canvasRef: RefObject<HTMLCanvasElement>;
@@ -297,21 +298,28 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         }
       }
       const lineEl = playheadLineOverlayRef.current;
+      const portraitCanvas =
+        useTimelineWaveBridgeStore.getState().portraitActive &&
+        c === useTimelineWaveBridgeStore.getState().portraitCanvasRef?.current;
       if (d > 0 && viewSpan > 0) {
         let xPlay = waveTimeToExtentX(playheadTime, viewStart, viewSpan, w);
         xPlay = Number.isFinite(xPlay)
           ? Math.min(w, Math.max(0, Math.round(xPlay * 2) / 2))
           : 0;
-        g.strokeStyle = "#ef4444";
-        g.lineWidth = 2.5;
-        g.lineCap = "butt";
-        g.beginPath();
-        g.moveTo(xPlay + 0.5, 0);
-        g.lineTo(xPlay + 0.5, h);
-        g.stroke();
-        if (lineEl) {
+        if (!portraitCanvas) {
+          g.strokeStyle = "#ef4444";
+          g.lineWidth = 2.5;
+          g.lineCap = "butt";
+          g.beginPath();
+          g.moveTo(xPlay + 0.5, 0);
+          g.lineTo(xPlay + 0.5, h);
+          g.stroke();
+        }
+        if (lineEl && !portraitCanvas) {
           lineEl.style.display = "block";
           lineEl.style.left = `${((xPlay + 0.5) / w) * 100}%`;
+        } else if (lineEl && portraitCanvas) {
+          lineEl.style.display = "none";
         }
       } else if (lineEl) {
         lineEl.style.display = "none";

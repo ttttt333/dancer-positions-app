@@ -217,6 +217,9 @@ export const PLACEHOLDER_TIMELINE_CAP_SEC = 600;
 /** 音源取り込み後に極短区間へ伸ばす目標長（秒） */
 export const DEFAULT_CUE_SPAN_WITH_AUDIO_SEC = 5;
 
+/** スマホ縦画面: 波形ダブルタップで作るキューの初期長（秒） */
+export const MOBILE_WAVE_DOUBLE_TAP_CUE_SPAN_SEC = 7;
+
 /** これ未満の長さは無音時タイムラインで潰れた区間とみなし、音源取り込み後に伸ばす */
 export const SHORT_CUE_EXPANSION_THRESHOLD_SEC = 2;
 

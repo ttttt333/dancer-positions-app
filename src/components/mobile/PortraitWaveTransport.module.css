@@ -3,7 +3,7 @@
   flex-direction: column;
   flex-shrink: 0;
   padding: 6px 0 4px;
-  min-height: 108px;
+  min-height: 122px;
 }
 
 .row {
@@ -110,6 +110,42 @@
   letter-spacing: 0.03em;
 }
 
+.zoomBtnIcon {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.waveFrame {
+  position: relative;
+  width: 100%;
+  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.25);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.06);
+}
+
+.waveRuler {
+  position: relative;
+  height: 14px;
+  overflow: hidden;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.35);
+  user-select: none;
+}
+
+.rulerTick {
+  position: absolute;
+  top: 1px;
+  transform: translateX(-50%);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 8px;
+  font-weight: 600;
+  color: #94a3b8;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 .waveViewport {
   position: relative;
   width: 100%;
@@ -117,9 +153,19 @@
   flex-shrink: 0;
   touch-action: none;
   cursor: crosshair;
-  background: rgba(0, 0, 0, 0.25);
-  border-top: 0.5px solid rgba(255, 255, 255, 0.06);
-  border-bottom: 0.5px solid rgba(255, 255, 255, 0.06);
+}
+
+.playheadLine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  transform: translateX(-50%);
+  background: #ef4444;
+  box-shadow: 0 0 5px rgba(239, 68, 68, 0.55);
+  pointer-events: none;
+  z-index: 3;
+  border-radius: 1px;
 }
 
 .waveCanvas {

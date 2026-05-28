@@ -26,6 +26,7 @@ interface Props {
   currentTime: number;
   duration: number;
   onPlayPause: () => void;
+  onStop: () => void;
   onSeek: (sec: number) => void;
   currentCueIndex: number;
   totalCues: number;
@@ -43,6 +44,7 @@ export const PortraitBottomBar: React.FC<Props> = ({
   currentTime,
   duration,
   onPlayPause,
+  onStop,
   onSeek,
   currentCueIndex,
   totalCues,
@@ -130,6 +132,7 @@ export const PortraitBottomBar: React.FC<Props> = ({
         currentTime={currentTime}
         duration={duration}
         onPlayPause={onPlayPause}
+        onStop={onStop}
         onSeek={onSeek}
       />
 

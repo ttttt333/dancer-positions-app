@@ -190,8 +190,10 @@ export function FormationPresetPickerSheet({
       zIndex={200}
       width="min(360px, 92vw)"
       ariaLabelledBy="formation-preset-picker-title"
+      sheetId="formation-preset-picker"
     >
       <div
+        className="formation-preset-picker-sheet"
         style={{
           display: "flex",
           flexDirection: "column",
@@ -200,6 +202,7 @@ export function FormationPresetPickerSheet({
         }}
       >
         <div
+          className="formation-preset-picker-sheet-header"
           style={{
             flexShrink: 0,
             padding: "14px 16px 10px",
@@ -223,6 +226,7 @@ export function FormationPresetPickerSheet({
         </div>
 
         <div
+          className="formation-preset-picker-sheet-body"
           style={{
             flex: 1,
             minHeight: 0,
