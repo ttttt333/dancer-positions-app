@@ -55,6 +55,7 @@ import {
   sortCuesByStart,
   MIN_CUE_DURATION_SEC,
   DEFAULT_CUE_SPAN_WITH_AUDIO_SEC,
+  splitSharedCueFormations,
 } from "../core/timelineController";
 import {
   dancersForLayoutPreset,
@@ -987,6 +988,33 @@ export function EditorPage({
       return next;
     });
   }, [project, cueIdsSig, cueById, cuesSortedForStageJump]);
+
+  /** 複数キューが同一フォーメーションを共有している旧データを、編集時に自動分離 */
+  const sharedFormationSplitSigRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!project || project.cues.length < 2) return;
+    const counts = new Map<string, number>();
+    for (const c of project.cues) {
+      counts.set(c.formationId, (counts.get(c.formationId) ?? 0) + 1);
+    }
+    const hasShared = [...counts.values()].some((n) => n > 1);
+    if (!hasShared) return;
+    const sig = project.cues.map((c) => `${c.id}:${c.formationId}`).join("|");
+    if (sharedFormationSplitSigRef.current === sig) return;
+    sharedFormationSplitSigRef.current = sig;
+    setProjectSafe((p) => splitSharedCueFormations(p));
+  }, [project, cueIdsSig, setProjectSafe]);
+
+  /** キュー選択と activeFormationId を同期（舞台スナップショット・表示のずれ防止） */
+  useEffect(() => {
+    if (!project || !selectedCueId) return;
+    const cue = cueById.get(selectedCueId);
+    if (!cue || project.activeFormationId === cue.formationId) return;
+    setProjectSafe((p) => {
+      if (p.activeFormationId === cue.formationId) return p;
+      return { ...p, activeFormationId: cue.formationId };
+    });
+  }, [project, selectedCueId, cueById, setProjectSafe]);
 
   /** 再生中のみ補間表示 */
   const playbackDancersForStage = !isPlaying ? null : interpolatedDancers;

@@ -137,24 +137,75 @@ export function findCueGapContainingTime(
   return null;
 }
 
-export function cloneFormationForNewCue(f: Formation): Formation {
+export function cloneFormationForNewCue(
+  f: Formation,
+  opts?: { preserveName?: boolean }
+): Formation {
   const pieces: SetPiece[] = (f.setPieces ?? []).map((p) => ({
     ...p,
     id: crypto.randomUUID(),
   }));
   const floorMarkup = cloneFloorMarkupWithNewIds(f.floorMarkup);
   const { floorMarkup: _omitFm, ...rest } = f;
+  const trimmed = f.name.trim();
+  const name = opts?.preserveName
+    ? f.name
+    : trimmed.length > 0
+      ? `${trimmed.slice(0, 60)} · コピー`
+      : "フォーメーション";
   return {
     ...rest,
     id: crypto.randomUUID(),
-    name:
-      f.name.trim().length > 0
-        ? `${f.name.trim().slice(0, 60)} · コピー`
-        : "フォーメーション",
+    name,
     dancers: f.dancers.map((d) => ({ ...d })),
     setPieces: pieces,
     ...(floorMarkup?.length ? { floorMarkup } : {}),
   };
+}
+
+/**
+ * 複数キューが同じ formationId を参照している場合、先頭キュー以外に
+ * フォーメーションの複製を割り当てる（立ち位置編集が他キューに波及しないようにする）。
+ */
+export function splitSharedCueFormations(
+  project: ChoreographyProjectJson
+): ChoreographyProjectJson {
+  const sorted = sortCuesByStart(project.cues);
+  if (sorted.length < 2) return project;
+
+  const usage = new Map<string, number>();
+  for (const c of sorted) {
+    usage.set(c.formationId, (usage.get(c.formationId) ?? 0) + 1);
+  }
+  const sharedIds = new Set(
+    [...usage.entries()].filter(([, n]) => n > 1).map(([id]) => id)
+  );
+  if (sharedIds.size === 0) return project;
+
+  const formationById = new Map(project.formations.map((f) => [f.id, f] as const));
+  const newFormations = [...project.formations];
+  const cueFormationReplacements = new Map<string, string>();
+
+  for (const fid of sharedIds) {
+    const source = formationById.get(fid);
+    if (!source) continue;
+    const cuesUsing = sorted.filter((c) => c.formationId === fid);
+    for (let i = 1; i < cuesUsing.length; i++) {
+      const cue = cuesUsing[i]!;
+      const cloned = cloneFormationForNewCue(source, { preserveName: true });
+      newFormations.push(cloned);
+      cueFormationReplacements.set(cue.id, cloned.id);
+    }
+  }
+
+  if (cueFormationReplacements.size === 0) return project;
+
+  const cues = project.cues.map((c) => {
+    const nextFid = cueFormationReplacements.get(c.id);
+    return nextFid ? { ...c, formationId: nextFid } : c;
+  });
+
+  return { ...project, formations: newFormations, cues };
 }
 
 /** タイムライン上の区間の最短長（秒）。ドラッグ・入力と揃える */

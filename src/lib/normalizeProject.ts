@@ -16,7 +16,7 @@ import type {
   StageShape,
   StageShapePresetId,
 } from "../types/choreography";
-import { migrateCuesFromRaw } from "../core/timelineController";
+import { migrateCuesFromRaw, splitSharedCueFormations } from "../core/timelineController";
 import {
   clampStageGridAxisMm,
   createEmptyProject,
@@ -575,14 +575,21 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
       };
     });
 
-  const cues: Cue[] = migrateCuesFromRaw(cuesRaw, formations).slice(0, 100);
+  const migratedCues = migrateCuesFromRaw(cuesRaw, formations).slice(0, 100);
+  const splitProject = splitSharedCueFormations({
+    ...defaults,
+    ...o,
+    formations,
+    activeFormationId,
+    cues: migratedCues,
+  } as ChoreographyProjectJson);
   return {
     ...defaults,
     ...o,
     version: 3,
-    formations,
+    formations: splitProject.formations,
     activeFormationId,
-    cues,
+    cues: splitProject.cues,
     pieceTitle: typeof o.pieceTitle === "string" ? o.pieceTitle : "",
     pieceDancerCount: (() => {
       const v = (o as Partial<ChoreographyProjectJson>).pieceDancerCount;
