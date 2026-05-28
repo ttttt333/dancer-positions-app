@@ -146,6 +146,8 @@ const panelShellStyle: CSSProperties = {
   display: "flex",
   flexDirection: "column",
   pointerEvents: "auto",
+  boxSizing: "border-box",
+  overflowX: "hidden",
 };
 
 const panelCardStyle: CSSProperties = {
@@ -796,7 +798,7 @@ export function AddCueWithFormationDialog({
             <div
               style={{
                 display: "flex",
-                flexWrap: "nowrap",
+                flexWrap: "wrap",
                 gap: "6px 12px",
                 alignItems: "center",
                 paddingLeft: "26px",
@@ -1253,10 +1255,11 @@ export function AddCueWithFormationDialog({
           <div
             style={{
               display: "flex",
-              flexWrap: "nowrap",
+              flexWrap: "wrap",
               alignItems: "center",
-              gap: "10px",
+              gap: "8px",
               flexShrink: 0,
+              justifyContent: "flex-end",
             }}
           >
             <button type="button" onClick={closeAndCleanup} style={btnBase}>

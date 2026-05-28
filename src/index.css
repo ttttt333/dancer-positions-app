@@ -904,6 +904,59 @@ body {
   min-height: unset !important;
 }
 
+/*
+   5. キュー設定ダイアログ (aria-modal="false") 専用のサイズ上書き
+      上記の 18px/52px 設定だとレイアウトが崩れるため、
+      このダイアログに合った適切なサイズに再上書きする。
+      ※ セレクタの詳細度を高くして先の規則を確実に上書き。
+*/
+
+/* 縦画面: ダイアログ全体の overflow/幅を正しく制御 */
+[data-shell-portrait] [role="dialog"][aria-modal="false"] {
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+  /* CSS が maxWidth を上書きできるよう明示 */
+  max-width: calc(100vw - max(16px, env(safe-area-inset-left, 0px)) - max(16px, env(safe-area-inset-right, 0px))) !important;
+  width: calc(100vw - max(16px, env(safe-area-inset-left, 0px)) - max(16px, env(safe-area-inset-right, 0px))) !important;
+}
+
+/* 内側カードも全幅に */
+[data-shell-portrait] [role="dialog"][aria-modal="false"] > * {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  overflow-x: hidden !important;
+}
+
+/* テキスト: 15px (元の約1.3倍。18px では折り返し問題が起きるため) */
+[data-shell-portrait] [role="dialog"][aria-modal="false"] label,
+[data-shell-portrait] [role="dialog"][aria-modal="false"] p,
+[data-shell-portrait] [role="dialog"][aria-modal="false"] span:not([aria-hidden="true"]),
+[data-shell-portrait] [role="dialog"][aria-modal="false"] li,
+[data-shell-portrait] [role="dialog"][aria-modal="false"] strong {
+  font-size: 15px !important;
+  line-height: 1.55 !important;
+}
+
+/* ボタン: 44px / 15px (52px では行が詰まる) */
+[data-shell-portrait] [role="dialog"][aria-modal="false"] button {
+  font-size: 15px !important;
+  min-height: 44px !important;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+}
+
+/* 入力欄: 16px / 44px */
+[data-shell-portrait] [role="dialog"][aria-modal="false"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+[data-shell-portrait] [role="dialog"][aria-modal="false"] select,
+[data-shell-portrait] [role="dialog"][aria-modal="false"] textarea {
+  font-size: 16px !important;
+  min-height: 44px !important;
+  padding: 10px 12px !important;
+}
+
 /* ── ログイン／登録：iOS のフォーカス時拡大を抑え、タップ領域を確保 ── */
 @media (max-width: 480px) {
   .app-auth-card input[type="email"],
