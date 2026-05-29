@@ -2,6 +2,9 @@ import type { CSSProperties, ReactNode } from "react";
 import { formatMeterCmLabel } from "../lib/stageDimensions";
 import { shell } from "../theme/choreoShell";
 
+/** メイン床と同じトーン（奥側はやや青みの黒 → 真黒） */
+const stageFloorBackground = `linear-gradient(180deg, #0f1729 0%, #0a0f18 42%, ${shell.bgDeep} 100%)`;
+
 const stripShellStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -15,6 +18,12 @@ const stripShellStyle: CSSProperties = {
   minWidth: 0,
   minHeight: 0,
   padding: "4px",
+};
+
+const backStripShellStyle: CSSProperties = {
+  ...stripShellStyle,
+  background: stageFloorBackground,
+  borderColor: shell.border,
 };
 
 export type StageShellGridLayoutProps = {
@@ -66,7 +75,7 @@ export function StageShellGridLayout({
       {showShell && Bmm > 0 && (
         <div
           style={{
-            ...stripShellStyle,
+            ...backStripShellStyle,
             ...labelScreenKeepUpright("center center"),
             gridColumn: "1 / -1",
             gridRow: 1,

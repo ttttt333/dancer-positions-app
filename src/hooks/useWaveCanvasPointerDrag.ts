@@ -13,8 +13,7 @@ import { playbackEngine } from "../core/playbackEngine";
 import {
   beginPlaybackScrubSession,
   endPlaybackScrubSession,
-  ensurePlaybackAudibleDuringScrub,
-  seekPlaybackClampedAndSyncStore,
+  seekPlaybackScrubAudible,
   syncPlaybackHeadAfterCueEdit,
   type PlaybackScrubSession,
 } from "../lib/playbackTransport";
@@ -53,7 +52,7 @@ export type UseWaveCanvasPointerDragArgs = {
     origEnd: number;
   } | null>;
   cueDragPreviewRangeRef: RefObject<{ cueId: string; tStart: number; tEnd: number } | null>;
-  playheadScrubDragRef: RefObject<{ pointerId: number; wasPlaying: boolean } | null>;
+  playheadScrubDragRef: RefObject<{ pointerId: number; scrubSession: PlaybackScrubSession } | null>;
   emptyWaveDragRef: RefObject<{
     pointerId: number;
     startClientX: number;
@@ -175,16 +174,15 @@ export function useWaveCanvasPointerDrag({
         e.preventDefault();
         e.stopPropagation();
         waveHoverCueRef.current = null;
-        const wasPlaying = !playbackEngine.isPaused();
-        playheadScrubDragRef.current = { pointerId: e.pointerId, wasPlaying };
-        const t0e = seekPlaybackClampedAndSyncStore({
+        const scrubSession = beginPlaybackScrubSession();
+        playheadScrubDragRef.current = { pointerId: e.pointerId, scrubSession };
+        const t0e = seekPlaybackScrubAudible({
           t: rawWaveTimeFromClientX(e.clientX),
           durationSec: duration,
           trimStartSec: trimLo,
           trimEndSec,
           roundHeadForStore: true,
         });
-        ensurePlaybackAudibleDuringScrub();
         const capturePid = e.pointerId;
         c.setPointerCapture(capturePid);
         const onPhMove = (ev: PointerEvent) => {
@@ -197,14 +195,13 @@ export function useWaveCanvasPointerDrag({
               false
             );
           }
-          const tMoved = seekPlaybackClampedAndSyncStore({
+          const tMoved = seekPlaybackScrubAudible({
             t: rawWaveTimeFromClientX(ev.clientX),
             durationSec: duration,
             trimStartSec: trimLo,
             trimEndSec,
             roundHeadForStore: true,
           });
-          ensurePlaybackAudibleDuringScrub();
           drawWaveformAt(tMoved ?? timeFromClientX(ev.clientX));
         };
         const onPhUp = (ev: PointerEvent) => {
@@ -224,16 +221,14 @@ export function useWaveCanvasPointerDrag({
           playheadScrubDragRef.current = null;
           suppressNextWaveSeekRef.current = true;
           if (playbackEngine.getMediaElement()) {
-            seekPlaybackClampedAndSyncStore({
+            seekPlaybackScrubAudible({
               t: rawWaveTimeFromClientX(ev.clientX),
               durationSec: duration,
               trimStartSec: trimLo,
               trimEndSec,
               roundHeadForStore: true,
             });
-            endPlaybackScrubSession(
-              drag ? { wasPlaying: drag.wasPlaying } : null
-            );
+            endPlaybackScrubSession(drag?.scrubSession ?? null);
           }
           redraw();
         };

@@ -16,11 +16,12 @@ import {
   TransportIconZoomOut,
 } from "./TransportIcons";
 import { useTimelineWaveBridgeStore } from "../../store/timelineWaveBridgeStore";
+import { useMobileShellBridgeStore } from "../../store/useMobileShellBridgeStore";
 import { playbackEngine } from "../../core/playbackEngine";
 import {
   beginPlaybackScrubSession,
   endPlaybackScrubSession,
-  ensurePlaybackAudibleDuringScrub,
+  seekPlaybackScrubAudible,
   type PlaybackScrubSession,
 } from "../../lib/playbackTransport";
 import { formatMmSs, waveRulerTicks } from "../../lib/timeFormat";
@@ -97,6 +98,8 @@ export const PortraitWaveTransport: React.FC<Props> = ({
   const syncPortraitView = useTimelineWaveBridgeStore((s) => s.syncPortraitView);
   const setPortraitActive = useTimelineWaveBridgeStore((s) => s.setPortraitActive);
   const setPortraitCanvasRef = useTimelineWaveBridgeStore((s) => s.setPortraitCanvasRef);
+  const trimStartSec = useMobileShellBridgeStore((s) => s.trimStartSec);
+  const trimEndSec = useMobileShellBridgeStore((s) => s.trimEndSec);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -301,10 +304,15 @@ export const PortraitWaveTransport: React.FC<Props> = ({
 
   const seekDuringScrub = useCallback(
     (t: number) => {
-      onSeek(t);
-      ensurePlaybackAudibleDuringScrub();
+      seekPlaybackScrubAudible({
+        t,
+        durationSec: duration,
+        trimStartSec,
+        trimEndSec,
+        roundHeadForStore: true,
+      });
     },
-    [onSeek]
+    [duration, trimStartSec, trimEndSec]
   );
 
   const finishScrubSession = useCallback(() => {

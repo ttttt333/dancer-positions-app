@@ -1,7 +1,12 @@
 import type { PointerEvent } from "react";
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { playbackEngine } from "../core/playbackEngine";
-import { seekPlaybackClampedAndSyncStore } from "../lib/playbackTransport";
+import {
+  beginPlaybackScrubSession,
+  endPlaybackScrubSession,
+  seekPlaybackScrubAudible,
+  type PlaybackScrubSession,
+} from "../lib/playbackTransport";
 import {
   getWaveViewForDraw,
   hitPlayheadStripForScrub,
@@ -50,6 +55,7 @@ export function useTimelineWaveSurfaceHandlers(
     emptyWaveDragRef,
     waveHoverCueRef,
   } = params;
+  const rulerScrubSessionRef = useRef<PlaybackScrubSession | null>(null);
 
   const onWaveRulerPointerDown = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
@@ -69,18 +75,60 @@ export function useTimelineWaveSurfaceHandlers(
 
       const trimLo = trimStartSec;
       const r0 = c.getBoundingClientRect();
-      const x0 = e.clientX - r0.left;
-      const tRaw = waveExtentXToTime(x0, viewStart, viewSpan, r0.width);
+      const timeAtClientX = (clientX: number) => {
+        const x = clientX - r0.left;
+        return waveExtentXToTime(x, viewStart, viewSpan, r0.width);
+      };
 
       e.preventDefault();
-      const tFinal = seekPlaybackClampedAndSyncStore({
-        t: tRaw,
+      rulerScrubSessionRef.current = beginPlaybackScrubSession();
+      const tFinal = seekPlaybackScrubAudible({
+        t: timeAtClientX(e.clientX),
         durationSec: duration,
         trimStartSec: trimLo,
         trimEndSec,
         roundHeadForStore: true,
       });
       if (tFinal != null) drawWaveformAt(tFinal);
+
+      const capturePid = e.pointerId;
+      e.currentTarget.setPointerCapture(capturePid);
+      const onRulerMove = (ev: globalThis.PointerEvent) => {
+        if (ev.pointerId !== capturePid) return;
+        if (!(ev.buttons & 1)) return;
+        const tMoved = seekPlaybackScrubAudible({
+          t: timeAtClientX(ev.clientX),
+          durationSec: duration,
+          trimStartSec: trimLo,
+          trimEndSec,
+          roundHeadForStore: true,
+        });
+        if (tMoved != null) drawWaveformAt(tMoved);
+      };
+      const onRulerUp = (ev: globalThis.PointerEvent) => {
+        if (ev.pointerId !== capturePid) return;
+        window.removeEventListener("pointermove", onRulerMove);
+        window.removeEventListener("pointerup", onRulerUp);
+        window.removeEventListener("pointercancel", onRulerUp);
+        try {
+          e.currentTarget.releasePointerCapture(ev.pointerId);
+        } catch {
+          /* ignore */
+        }
+        const tUp = seekPlaybackScrubAudible({
+          t: timeAtClientX(ev.clientX),
+          durationSec: duration,
+          trimStartSec: trimLo,
+          trimEndSec,
+          roundHeadForStore: true,
+        });
+        endPlaybackScrubSession(rulerScrubSessionRef.current);
+        rulerScrubSessionRef.current = null;
+        if (tUp != null) drawWaveformAt(tUp);
+      };
+      window.addEventListener("pointermove", onRulerMove);
+      window.addEventListener("pointerup", onRulerUp);
+      window.addEventListener("pointercancel", onRulerUp);
     },
     [
       projectViewMode,

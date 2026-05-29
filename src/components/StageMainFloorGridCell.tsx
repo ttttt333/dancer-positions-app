@@ -1,6 +1,9 @@
 import type { CSSProperties, ReactNode } from "react";
 import { shell } from "../theme/choreoShell";
 
+/** `StageShellGridLayout` / `StageBoardBody` のメイン床と同系統 */
+const stageFloorBackground = `linear-gradient(180deg, #0f1729 0%, #0a0f18 42%, ${shell.bgDeep} 100%)`;
+
 export type StageMainFloorGridCellProps = {
   /** グリッド中央セル（`gridColumn` / `gridRow` 等を含む） */
   cellStyle: CSSProperties;
@@ -39,6 +42,7 @@ export function StageMainFloorGridCell({
             fontWeight: 600,
             letterSpacing: "0.14em",
             color: shell.textMuted,
+            background: stageFloorBackground,
             pointerEvents: "none",
             userSelect: "none",
             ...labelScreenKeepUpright("top center"),

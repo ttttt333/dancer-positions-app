@@ -63,13 +63,34 @@ export type PlaybackScrubSession = {
   wasPlaying: boolean;
 };
 
-/** スクラブ開始時の再生状態を記録する */
+/** スクラブ中: 先に再生を開始してからシークし、シーク後も再生を維持する */
+export function seekPlaybackScrubAudible(
+  params: SeekPlaybackClampedParams
+): number | null {
+  if (!playbackEngine.getMediaSourceUrl()) return null;
+  usePlaybackUiStore.getState().setIsPlaying(true);
+  if (playbackEngine.isPaused()) {
+    void playbackEngine.play();
+  }
+  const next = seekPlaybackClampedAndSyncStore(params);
+  if (next != null && playbackEngine.isPaused()) {
+    void playbackEngine.play();
+  }
+  return next;
+}
+
+/** スクラブ開始時の再生状態を記録し、ユーザー操作のうちに再生を開始する */
 export function beginPlaybackScrubSession(): PlaybackScrubSession {
-  return {
-    wasPlaying:
-      Boolean(playbackEngine.getMediaSourceUrl()) &&
-      !playbackEngine.isPaused(),
-  };
+  const wasPlaying =
+    Boolean(playbackEngine.getMediaSourceUrl()) &&
+    !playbackEngine.isPaused();
+  if (playbackEngine.getMediaSourceUrl()) {
+    usePlaybackUiStore.getState().setIsPlaying(true);
+    if (playbackEngine.isPaused()) {
+      void playbackEngine.play();
+    }
+  }
+  return { wasPlaying };
 }
 
 /** スクラブ中: シーク先の位置から音が出るよう再生を維持・開始する */

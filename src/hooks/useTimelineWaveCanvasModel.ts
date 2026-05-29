@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import type { RefObject } from "react";
 import type { Cue } from "../types/choreography";
+import type { PlaybackScrubSession } from "../lib/playbackTransport";
 import { useWaveCanvasRenderer } from "./useWaveCanvasRenderer";
 import type { CueDragEdgeMode } from "../lib/timelineWaveGeometry";
 
@@ -83,7 +84,7 @@ export function useTimelineWaveCanvasModel({
   const suppressNextWaveSeekRef = useRef(false);
   const playheadScrubDragRef = useRef<{
     pointerId: number;
-    wasPlaying: boolean;
+    scrubSession: PlaybackScrubSession;
   } | null>(null);
   const waveHoverCueRef = useRef<{
     cueId: string;
