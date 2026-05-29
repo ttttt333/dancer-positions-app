@@ -43,6 +43,8 @@ import {
   clearWaveLoadProgress,
 } from "../lib/waveLoadProgress";
 import { verifyBlobUrl } from "../lib/verifyBlobUrl";
+import { waitForAudioElementReady } from "../lib/audioElementReady";
+import { tryFetchServerWavePeaksReady } from "../lib/wavePeaksServerApi";
 
 type DecodePeaksFn = (
   buf: ArrayBuffer,
@@ -87,9 +89,21 @@ function syncPlaybackUrl(
   playbackEngine.setMediaSourceUrl(url);
 }
 
-/** 音源 URL 設定後: 再生可能にし、波形取得はバックグラウンド扱い */
+/** 音源 URL 設定後: ブラウザが再生可能になったら UI を解放 */
+function scheduleMarkPlaybackReady() {
+  void waitForAudioElementReady(playbackEngine.getMediaElement())
+    .then(() => {
+      clearWaveLoadProgress();
+    })
+    .catch((e) => {
+      reportWaveLoadError(
+        e instanceof Error ? e.message : "音源の読み込みに失敗しました"
+      );
+    });
+}
+
 function markPlaybackReadyForWaveFetch() {
-  clearWaveLoadProgress();
+  scheduleMarkPlaybackReady();
 }
 
 async function ensureServerPeaksOnly(
@@ -233,6 +247,15 @@ export function useTimelineRemoteAudio({
         }
 
         reportWaveLoadProgress(0.05, "音源と波形を並列取得中…");
+
+        const readyPeaks = await tryFetchServerWavePeaksReady(aid);
+        if (readyPeaks?.peaks.length && !cancelled) {
+          await decodePeaksRef.current(new ArrayBuffer(0), {
+            cacheKey,
+            precomputed: readyPeaks,
+          });
+        }
+
         let audioResult: { blobUrl: string; buffer: ArrayBuffer } | null = null;
         const audioPromise = fetchAuthorizedAudio(aid, (ratio) => {
           reportWaveLoadProgress(0.05 + ratio * 0.35, "音源を読み込み中…");
@@ -417,6 +440,23 @@ export function useTimelineRemoteAudio({
           markPlaybackReadyForWaveFetch();
         }
 
+        const sidecar = await sidecarPromise;
+        if (sidecar?.peaks.length && !cancelled) {
+          void putCachedPeaksPayload(
+            cacheKey,
+            sidecar.peaks,
+            sidecar.durationSec
+          );
+          await decodePeaksRef.current(new ArrayBuffer(0), {
+            cacheKey,
+            supabaseAudioPath: effectivePath,
+            precomputed: {
+              peaks: sidecar.peaks,
+              durationSec: sidecar.durationSec,
+            },
+          });
+        }
+
         const audioPromise = supabaseDownloadProjectAudioWithCache(
           effectivePath,
           (ratio) => {
@@ -424,10 +464,7 @@ export function useTimelineRemoteAudio({
           }
         );
 
-        const [sidecar, audio] = await Promise.all([
-          sidecarPromise,
-          audioPromise,
-        ]);
+        const audio = await audioPromise;
         if (cancelled) return;
 
         const blobUrl = URL.createObjectURL(
@@ -443,19 +480,6 @@ export function useTimelineRemoteAudio({
         markPlaybackReadyForWaveFetch();
 
         if (sidecar?.peaks.length) {
-          void putCachedPeaksPayload(
-            cacheKey,
-            sidecar.peaks,
-            sidecar.durationSec
-          );
-          await decodePeaksRef.current(new ArrayBuffer(0), {
-            cacheKey,
-            supabaseAudioPath: effectivePath,
-            precomputed: {
-              peaks: sidecar.peaks,
-              durationSec: sidecar.durationSec,
-            },
-          });
           return;
         }
 

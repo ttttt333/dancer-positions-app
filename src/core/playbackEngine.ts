@@ -13,10 +13,13 @@
  * トリム（書き出し）範囲に収めるシーク秒の計算は `playbackTrim.ts` の純関数（例: `clampSeekTimeSec`）。UI は `core/timelineController` から import してよい。
  */
 
+import { configureHtmlAudioElement, mediaElementErrorMessage } from "../lib/audioElementReady";
+
 export type PlaybackTimeListener = (currentTimeSec: number) => void;
 /** true = 再生中、false = 一時停止など */
 export type PlaybackPlayingListener = (playing: boolean) => void;
 export type PlaybackMetaListener = () => void;
+export type PlaybackErrorListener = (message: string) => void;
 
 export class PlaybackEngine {
   private media: HTMLAudioElement | null = null;
@@ -24,6 +27,7 @@ export class PlaybackEngine {
   private readonly timeListeners = new Set<PlaybackTimeListener>();
   private readonly playStateListeners = new Set<PlaybackPlayingListener>();
   private readonly metaListeners = new Set<PlaybackMetaListener>();
+  private readonly errorListeners = new Set<PlaybackErrorListener>();
 
   private readonly onTimeLike = () => {
     this.emitTime();
@@ -42,6 +46,14 @@ export class PlaybackEngine {
     this.emitTime();
   };
 
+  private readonly onErrorEvent = () => {
+    this.emitError(mediaElementErrorMessage(this.media));
+  };
+
+  private readonly onCanPlayThrough = () => {
+    this.emitMeta();
+  };
+
   private clearElementListeners() {
     const el = this.media;
     if (!el) return;
@@ -51,6 +63,8 @@ export class PlaybackEngine {
     el.removeEventListener("pause", this.onPauseEvent);
     el.removeEventListener("loadedmetadata", this.onMeta);
     el.removeEventListener("durationchange", this.onMeta);
+    el.removeEventListener("error", this.onErrorEvent);
+    el.removeEventListener("canplaythrough", this.onCanPlayThrough);
   }
 
   /** 非 null で登録、null で紐付け解除 */
@@ -63,12 +77,15 @@ export class PlaybackEngine {
       this.emitTime();
       return;
     }
+    configureHtmlAudioElement(el);
     el.addEventListener("timeupdate", this.onTimeLike);
     el.addEventListener("seeked", this.onTimeLike);
     el.addEventListener("play", this.onPlayEvent);
     el.addEventListener("pause", this.onPauseEvent);
     el.addEventListener("loadedmetadata", this.onMeta);
     el.addEventListener("durationchange", this.onMeta);
+    el.addEventListener("error", this.onErrorEvent);
+    el.addEventListener("canplaythrough", this.onCanPlayThrough);
     this.emitPlaying(!el.paused);
     this.emitMeta();
     this.emitTime();
@@ -157,6 +174,7 @@ export class PlaybackEngine {
     const wasPlaying = !el.paused;
     const savedTime = Number.isFinite(el.currentTime) ? el.currentTime : 0;
 
+    configureHtmlAudioElement(el);
     el.src = url;
     el.load();
 
@@ -222,6 +240,13 @@ export class PlaybackEngine {
     };
   }
 
+  onLoadError(cb: PlaybackErrorListener): () => void {
+    this.errorListeners.add(cb);
+    return () => {
+      this.errorListeners.delete(cb);
+    };
+  }
+
   /** 外部（デコード直後など）から明示的に時刻通知したいとき */
   notifyTimeFromExternal(): void {
     this.emitTime();
@@ -252,6 +277,16 @@ export class PlaybackEngine {
     for (const cb of this.metaListeners) {
       try {
         cb();
+      } catch {
+        /** ignore */
+      }
+    }
+  }
+
+  private emitError(message: string) {
+    for (const cb of this.errorListeners) {
+      try {
+        cb(message);
       } catch {
         /** ignore */
       }

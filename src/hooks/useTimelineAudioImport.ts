@@ -31,21 +31,38 @@ import {
   payloadToPeaksResult,
 } from "../lib/wavePeaksServerApi";
 import { resolveServerAssetWavePeaks } from "../lib/resolveRemoteWavePeaks";
-import { reportWaveLoadError, reportWaveLoadProgress } from "../lib/waveLoadProgress";
+import {
+  clearWaveLoadProgress,
+  reportWaveLoadError,
+  reportWaveLoadProgress,
+} from "../lib/waveLoadProgress";
+import {
+  generateWaveformPeaksFromArrayBuffer,
+  generateWaveformPeaksFromFile,
+  validateAudioFile,
+  type WaveformPeaksResult,
+} from "../lib/generateWaveformPeaks";
+import { waitForAudioElementReady } from "../lib/audioElementReady";
 
 type Params = {
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>;
   loggedIn: boolean;
   serverProjectId: number | null;
   blobUrlRef: MutableRefObject<string | null>;
-  decodePeaksFromBuffer: (buf: ArrayBuffer) => Promise<void>;
+  decodePeaksFromBuffer: (
+    buf: ArrayBuffer,
+    options?: DecodePeaksOptions
+  ) => Promise<void>;
 };
 
 async function decodePeaksWithNativeFallback(
   file: File,
   buf: ArrayBuffer,
   isVideo: boolean,
-  decodePeaksFromBuffer: (buf: ArrayBuffer, options?: DecodePeaksOptions) => Promise<void>,
+  decodePeaksFromBuffer: (
+    buf: ArrayBuffer,
+    options?: DecodePeaksOptions
+  ) => Promise<void>,
   options?: DecodePeaksOptions
 ): Promise<ArrayBuffer> {
   try {
@@ -58,6 +75,35 @@ async function decodePeaksWithNativeFallback(
     await decodePeaksFromBuffer(native, options);
     return native;
   }
+}
+
+async function applyQuickPeaksIfReady(
+  decodePeaksFromBuffer: Params["decodePeaksFromBuffer"],
+  quick: WaveformPeaksResult | null,
+  options?: DecodePeaksOptions
+) {
+  if (!quick?.peaks.length || !(quick.durationSec > 0)) return;
+  await decodePeaksFromBuffer(new ArrayBuffer(0), {
+    ...options,
+    precomputed: { peaks: quick.peaks, durationSec: quick.durationSec },
+  });
+}
+
+async function mountLocalPlaybackBlob(
+  blobUrlRef: MutableRefObject<string | null>,
+  buf: ArrayBuffer,
+  mime: string
+): Promise<string> {
+  const url = URL.createObjectURL(new Blob([buf], { type: mime }));
+  if (blobUrlRef.current && blobUrlRef.current !== url) {
+    revokeBlobUrlUnlessCloudPersisted(blobUrlRef.current);
+  }
+  blobUrlRef.current = url;
+  usePlaybackUiStore.getState().setTrustedAudioDurationSec(null);
+  playbackEngine.setMediaSourceUrl(url);
+  await waitForAudioElementReady(playbackEngine.getMediaElement()).catch(() => {});
+  clearWaveLoadProgress();
+  return url;
 }
 
 export function useTimelineAudioImport({
@@ -79,14 +125,24 @@ export function useTimelineAudioImport({
     }
   }, []);
 
-  const clearPlaybackTrustedDurationSec = () =>
-    usePlaybackUiStore.getState().setTrustedAudioDurationSec(null);
-
   const onPickAudio = useCallback(
     async (e: ChangeEvent<HTMLInputElement>) => {
       const f = e.target.files?.[0];
       e.target.value = "";
       if (!f) return;
+
+      try {
+        if (!isVideoFile(f)) {
+          validateAudioFile(f);
+        }
+      } catch (err) {
+        reportWaveLoadError(
+          err instanceof Error ? err.message : "ファイルを読み込めませんでした"
+        );
+        alert(err instanceof Error ? err.message : "ファイルを読み込めませんでした");
+        return;
+      }
+
       reportWaveLoadProgress(0.05, "音源ファイルを読み込み中…");
       setProject((p) => ({ ...p, flowLocalAudioKey: null }));
       const isVideo = isVideoFile(f);
@@ -96,31 +152,31 @@ export function useTimelineAudioImport({
         );
         if (!ok) return;
       }
-      /** クラウド保存とローカル読みを並列化し、成功直後は blob で即再生（useEffect は再利用のみネット無し） */
+
+      /** クラウド保存: クイック波形 → 即再生 → アップロード → 高精度波形 */
       if (loggedIn && serverProjectId != null && !isVideo) {
         try {
-          const fd = new FormData();
-          fd.append("file", f);
-          fd.append("projectId", String(serverProjectId));
-          const [up, buf] = await Promise.all([
-            audioApiUpload(fd),
+          reportWaveLoadProgress(0.1, "波形を解析中…");
+          const [quickPeaks, buf] = await Promise.all([
+            generateWaveformPeaksFromFile(f).catch(() => null),
             f.arrayBuffer(),
           ]);
           const mime =
-            f.type ||
-            (up.kind === "supabase" ? up.mime : "audio/mpeg") ||
-            guessAudioMimeFromFilename(f.name);
-          const url = URL.createObjectURL(new Blob([buf], { type: mime }));
+            f.type || guessAudioMimeFromFilename(f.name) || "audio/mpeg";
 
-          if (blobUrlRef.current && blobUrlRef.current !== url) {
-            revokeBlobUrlUnlessCloudPersisted(blobUrlRef.current);
-          }
-          blobUrlRef.current = url;
+          await mountLocalPlaybackBlob(blobUrlRef, buf, mime);
+          await applyQuickPeaksIfReady(decodePeaksFromBuffer, quickPeaks);
+
+          reportWaveLoadProgress(0.4, "クラウドに保存中…");
+          const fd = new FormData();
+          fd.append("file", f);
+          fd.append("projectId", String(serverProjectId));
+          const up = await audioApiUpload(fd);
 
           if (up.kind === "supabase") {
             revokePersistedServerAudioBlob();
             revokePersistedSupabaseAudioBlob();
-            setPersistedSupabaseAudio(url, up.path);
+            setPersistedSupabaseAudio(blobUrlRef.current!, up.path);
             setProject((p) => ({
               ...p,
               audioSupabasePath: up.path,
@@ -130,7 +186,7 @@ export function useTimelineAudioImport({
           } else {
             revokePersistedSupabaseAudioBlob();
             revokePersistedServerAudioBlob();
-            setPersistedServerAudio(url, up.id);
+            setPersistedServerAudio(blobUrlRef.current!, up.id);
             setProject((p) => ({
               ...p,
               audioAssetId: up.id,
@@ -139,10 +195,7 @@ export function useTimelineAudioImport({
             }));
           }
 
-          clearPlaybackTrustedDurationSec();
-          playbackEngine.setMediaSourceUrl(url);
-
-          reportWaveLoadProgress(0.45, "波形を取得中…");
+          reportWaveLoadProgress(0.55, "高精度波形を取得中…");
           const decodeOpts: DecodePeaksOptions =
             up.kind === "supabase"
               ? {
@@ -160,20 +213,16 @@ export function useTimelineAudioImport({
             );
           } else {
             try {
-              const payload = await computeServerWavePeaksFromBlob(blob, f.name);
+              const payload = await computeServerWavePeaksFromBlob(
+                new Blob([buf], { type: mime }),
+                f.name
+              );
               await decodePeaksFromBuffer(new ArrayBuffer(0), {
                 ...decodeOpts,
                 precomputed: payloadToPeaksResult(payload),
               });
             } catch (err) {
-              console.warn("[audioImport] server peaks failed, local decode:", err);
-              await decodePeaksWithNativeFallback(
-                f,
-                buf,
-                isVideo,
-                decodePeaksFromBuffer,
-                decodeOpts
-              );
+              console.warn("[audioImport] server peaks failed, keeping quick waveform:", err);
             }
           }
           return;
@@ -181,6 +230,7 @@ export function useTimelineAudioImport({
           console.warn("[audioImport] cloud upload failed, falling back to local:", err);
         }
       }
+
       if (loggedIn && serverProjectId != null && isVideo) {
         setProject((p) => ({
           ...p,
@@ -189,6 +239,7 @@ export function useTimelineAudioImport({
           flowLocalAudioKey: null,
         }));
       }
+
       let buf: ArrayBuffer;
       try {
         if (isVideo) {
@@ -197,7 +248,16 @@ export function useTimelineAudioImport({
             updateExtractProgress(p);
           });
         } else {
-          buf = await f.arrayBuffer();
+          reportWaveLoadProgress(0.12, "波形を解析中…");
+          const [quickPeaks, fileBuf] = await Promise.all([
+            generateWaveformPeaksFromFile(f).catch(() => null),
+            f.arrayBuffer(),
+          ]);
+          buf = fileBuf;
+          const mime = f.type || guessAudioMimeFromFilename(f.name);
+          await mountLocalPlaybackBlob(blobUrlRef, buf, mime);
+          await applyQuickPeaksIfReady(decodePeaksFromBuffer, quickPeaks);
+          reportWaveLoadProgress(0.45, "波形を高精度化中…");
         }
       } catch (err) {
         updateExtractProgress(null);
@@ -208,23 +268,28 @@ export function useTimelineAudioImport({
         return;
       } finally {
         if (isVideo) {
-          /** 完了 or エラー直後は一瞬だけ 100% を見せてから消す */
           setTimeout(() => setExtractProgress(null), 400);
         }
       }
+
       const mime = isVideo
         ? mimeForExtractedVideoAudio(buf)
         : f.type || guessAudioMimeFromFilename(f.name);
-      const blob = new Blob([buf], { type: mime });
-      const url = URL.createObjectURL(blob);
-      if (blobUrlRef.current) {
-        revokeBlobUrlUnlessCloudPersisted(blobUrlRef.current);
+
+      if (isVideo) {
+        await mountLocalPlaybackBlob(blobUrlRef, buf, mime);
+        reportWaveLoadProgress(0.35, "波形を解析中…");
       }
-      blobUrlRef.current = url;
-      clearPlaybackTrustedDurationSec();
-      playbackEngine.setMediaSourceUrl(url);
-      reportWaveLoadProgress(0.35, "波形を解析中…");
+
       try {
+        let quickFromBuf: WaveformPeaksResult | null = null;
+        if (isVideo) {
+          quickFromBuf = await generateWaveformPeaksFromArrayBuffer(buf).catch(
+            () => null
+          );
+          await applyQuickPeaksIfReady(decodePeaksFromBuffer, quickFromBuf);
+        }
+
         const decodedBuf = await decodePeaksWithNativeFallback(
           f,
           buf,
@@ -253,7 +318,7 @@ export function useTimelineAudioImport({
         playCompletionWoof();
       }
     },
-    [blobUrlRef, decodePeaksFromBuffer, loggedIn, serverProjectId, setProject]
+    [blobUrlRef, decodePeaksFromBuffer, loggedIn, serverProjectId, setProject, updateExtractProgress]
   );
 
   const openAudioImport = useCallback(() => {

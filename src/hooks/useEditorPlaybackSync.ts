@@ -10,6 +10,7 @@ import {
 } from "../core/timelineController";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import { bindPlaybackOrientationResume } from "../lib/playbackOrientationResume";
+import { reportWaveLoadError } from "../lib/waveLoadProgress";
 import type { ChoreographyProjectJson } from "../types/choreography";
 
 type Params = {
@@ -55,6 +56,8 @@ export function useEditorPlaybackSync(p: Params): {
         ref: bindPlaybackAudioElementRef,
         style: { display: "none" },
         controls: false,
+        crossOrigin: "anonymous",
+        preload: "auto",
         "aria-hidden": true,
       }),
     [bindPlaybackAudioElementRef]
@@ -66,6 +69,8 @@ export function useEditorPlaybackSync(p: Params): {
   }, [projectId, shareToken, choreoPublicView, setProjectSafe]);
 
   useEffect(() => bindPlaybackOrientationResume(), []);
+
+  useEffect(() => playbackEngine.onLoadError(reportWaveLoadError), []);
 
   useEffect(() => {
     const cur = projectRef.current;
