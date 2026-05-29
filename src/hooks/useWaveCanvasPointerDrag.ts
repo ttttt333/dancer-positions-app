@@ -11,8 +11,12 @@ import {
 } from "../core/timelineController";
 import { playbackEngine } from "../core/playbackEngine";
 import {
+  beginPlaybackScrubSession,
+  endPlaybackScrubSession,
+  ensurePlaybackAudibleDuringScrub,
   seekPlaybackClampedAndSyncStore,
   syncPlaybackHeadAfterCueEdit,
+  type PlaybackScrubSession,
 } from "../lib/playbackTransport";
 import {
   hitPlayheadStripForScrub,
@@ -180,9 +184,7 @@ export function useWaveCanvasPointerDrag({
           trimEndSec,
           roundHeadForStore: true,
         });
-        if (playbackEngine.isPaused()) {
-          void playbackEngine.play();
-        }
+        ensurePlaybackAudibleDuringScrub();
         const capturePid = e.pointerId;
         c.setPointerCapture(capturePid);
         const onPhMove = (ev: PointerEvent) => {
@@ -202,6 +204,7 @@ export function useWaveCanvasPointerDrag({
             trimEndSec,
             roundHeadForStore: true,
           });
+          ensurePlaybackAudibleDuringScrub();
           drawWaveformAt(tMoved ?? timeFromClientX(ev.clientX));
         };
         const onPhUp = (ev: PointerEvent) => {
@@ -228,11 +231,9 @@ export function useWaveCanvasPointerDrag({
               trimEndSec,
               roundHeadForStore: true,
             });
-            if (drag?.wasPlaying && playbackEngine.isPaused()) {
-              void playbackEngine.play();
-            } else if (!drag?.wasPlaying) {
-              playbackEngine.pause();
-            }
+            endPlaybackScrubSession(
+              drag ? { wasPlaying: drag.wasPlaying } : null
+            );
           }
           redraw();
         };

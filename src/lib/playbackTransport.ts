@@ -59,6 +59,42 @@ export function seekPlaybackClampedAndSyncStore(
   return next;
 }
 
+export type PlaybackScrubSession = {
+  wasPlaying: boolean;
+};
+
+/** スクラブ開始時の再生状態を記録する */
+export function beginPlaybackScrubSession(): PlaybackScrubSession {
+  return {
+    wasPlaying:
+      Boolean(playbackEngine.getMediaSourceUrl()) &&
+      !playbackEngine.isPaused(),
+  };
+}
+
+/** スクラブ中: シーク先の位置から音が出るよう再生を維持・開始する */
+export function ensurePlaybackAudibleDuringScrub(): void {
+  if (!playbackEngine.getMediaSourceUrl()) return;
+  usePlaybackUiStore.getState().setIsPlaying(true);
+  if (playbackEngine.isPaused()) {
+    void playbackEngine.play();
+  }
+}
+
+/** スクラブ終了: 開始前に停止中だったら再び停止する */
+export function endPlaybackScrubSession(
+  session: PlaybackScrubSession | null
+): void {
+  if (!session) return;
+  if (session.wasPlaying) {
+    ensurePlaybackAudibleDuringScrub();
+    return;
+  }
+  if (!playbackEngine.getMediaSourceUrl()) return;
+  playbackEngine.pause();
+  usePlaybackUiStore.getState().setIsPlaying(false);
+}
+
 export type SyncPlaybackHeadAfterCueParams = {
   /** キュー先頭など、ストアに合わせたい目標秒 */
   t: number;

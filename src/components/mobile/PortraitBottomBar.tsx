@@ -5,6 +5,13 @@
 
 import React, { useState, useCallback } from "react";
 import styles from "./PortraitBottomBar.module.css";
+import ctrlStyles from "./TransportControls.module.css";
+import {
+  TransportIconChevronLeft,
+  TransportIconChevronRight,
+  TransportIconRedo,
+  TransportIconUndo,
+} from "./TransportIcons";
 import { useMobileShellBridgeStore } from "../../store/useMobileShellBridgeStore";
 import { PortraitWaveTransport } from "./PortraitWaveTransport";
 
@@ -147,40 +154,40 @@ export const PortraitBottomBar: React.FC<Props> = ({
           <span className={styles.menuBtnLabel}>Menu</span>
         </button>
         <button
-          className={styles.histBtn}
+          className={`${ctrlStyles.btn} ${styles.toolbarCtrlBtn}`}
           onClick={onUndo}
           disabled={undoDisabled}
           aria-label="元に戻す"
         >
-          ↩
+          <TransportIconUndo size={22} className={ctrlStyles.icon} />
         </button>
         <button
-          className={styles.histBtn}
+          className={`${ctrlStyles.btn} ${styles.toolbarCtrlBtn}`}
           onClick={onRedo}
           disabled={redoDisabled}
           aria-label="やり直す"
         >
-          ↪
+          <TransportIconRedo size={22} className={ctrlStyles.icon} />
         </button>
         <div className={styles.cueNav}>
           <button
-            className={styles.navArrow}
+            className={`${ctrlStyles.btn} ${styles.cueNavBtn}`}
             onClick={onCuePrev}
             disabled={currentCueIndex === 0}
             aria-label="前のキュー"
           >
-            ‹
+            <TransportIconChevronLeft size={22} className={ctrlStyles.icon} />
           </button>
           <span className={styles.cueLabel}>
             {currentCueIndex + 1}/{totalCues}
           </span>
           <button
-            className={styles.navArrow}
+            className={`${ctrlStyles.btn} ${styles.cueNavBtn}`}
             onClick={onCueNext}
             disabled={currentCueIndex >= totalCues - 1}
             aria-label="次のキュー"
           >
-            ›
+            <TransportIconChevronRight size={22} className={ctrlStyles.icon} />
           </button>
         </div>
         <button className={styles.addCueBtn} onClick={onAddCue}>

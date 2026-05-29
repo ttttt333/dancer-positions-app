@@ -17,6 +17,12 @@ import {
 } from "./TransportIcons";
 import { useTimelineWaveBridgeStore } from "../../store/timelineWaveBridgeStore";
 import { playbackEngine } from "../../core/playbackEngine";
+import {
+  beginPlaybackScrubSession,
+  endPlaybackScrubSession,
+  ensurePlaybackAudibleDuringScrub,
+  type PlaybackScrubSession,
+} from "../../lib/playbackTransport";
 import { formatMmSs, waveRulerTicks } from "../../lib/timeFormat";
 import {
   hitPlayheadStripForScrub,
@@ -26,7 +32,8 @@ import {
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 48;
-const ZOOM_STEP = 1.5;
+/** +/- ボタン: 1回あたり 10% ずつ拡大・縮小 */
+const ZOOM_BUTTON_STEP = 1.1;
 const DOUBLE_TAP_MS = 350;
 const LONG_PRESS_MS = 520;
 const PORTRAIT_WAVE_CSS_H = 96;
@@ -113,6 +120,7 @@ export const PortraitWaveTransport: React.FC<Props> = ({
   const scrubActiveRef = useRef(false);
   const scrubShouldSeekRef = useRef(true);
   const playheadDragRef = useRef(false);
+  const scrubSessionRef = useRef<PlaybackScrubSession | null>(null);
 
   const viewDuration = duration > 0 ? duration / zoom : 0;
   const viewEnd = viewStart + viewDuration;
@@ -285,6 +293,25 @@ export const PortraitWaveTransport: React.FC<Props> = ({
     }
   }, []);
 
+  const startScrubSession = useCallback(() => {
+    if (!scrubSessionRef.current) {
+      scrubSessionRef.current = beginPlaybackScrubSession();
+    }
+  }, []);
+
+  const seekDuringScrub = useCallback(
+    (t: number) => {
+      onSeek(t);
+      ensurePlaybackAudibleDuringScrub();
+    },
+    [onSeek]
+  );
+
+  const finishScrubSession = useCallback(() => {
+    endPlaybackScrubSession(scrubSessionRef.current);
+    scrubSessionRef.current = null;
+  }, []);
+
   const tickEdgeScrollLoop = useCallback(() => {
     edgeScrollRafRef.current = null;
     if (!scrubActiveRef.current) return;
@@ -294,12 +321,12 @@ export const PortraitWaveTransport: React.FC<Props> = ({
     edgeScrollAtClientX(x);
     if (scrubShouldSeekRef.current) {
       const t = timeFromClientX(x);
-      if (t != null) onSeek(t);
+      if (t != null) seekDuringScrub(t);
     } else {
       useTimelineWaveBridgeStore.getState().portraitWaveEdgeScrollTick?.(x);
     }
     edgeScrollRafRef.current = requestAnimationFrame(tickEdgeScrollLoop);
-  }, [edgeScrollAtClientX, isInEdgeScrollZone, timeFromClientX, onSeek]);
+  }, [edgeScrollAtClientX, isInEdgeScrollZone, timeFromClientX, seekDuringScrub]);
 
   const handlePortraitWaveScrub = useCallback(
     (clientX: number, end = false, shouldSeek = true) => {
@@ -307,6 +334,7 @@ export const PortraitWaveTransport: React.FC<Props> = ({
         scrubActiveRef.current = false;
         scrubClientXRef.current = null;
         stopEdgeScrollLoop();
+        finishScrubSession();
         return;
       }
       scrubActiveRef.current = true;
@@ -315,7 +343,7 @@ export const PortraitWaveTransport: React.FC<Props> = ({
       edgeScrollAtClientX(clientX);
       if (shouldSeek) {
         const t = timeFromClientX(clientX);
-        if (t != null) onSeek(t);
+        if (t != null) seekDuringScrub(t);
       }
       if (isInEdgeScrollZone(clientX) && edgeScrollRafRef.current == null) {
         edgeScrollRafRef.current = requestAnimationFrame(tickEdgeScrollLoop);
@@ -325,9 +353,10 @@ export const PortraitWaveTransport: React.FC<Props> = ({
       edgeScrollAtClientX,
       isInEdgeScrollZone,
       timeFromClientX,
-      onSeek,
+      seekDuringScrub,
       stopEdgeScrollLoop,
       tickEdgeScrollLoop,
+      finishScrubSession,
     ]
   );
 
@@ -345,9 +374,10 @@ export const PortraitWaveTransport: React.FC<Props> = ({
       e.preventDefault();
       e.currentTarget.setPointerCapture(e.pointerId);
       clearPendingSingleTap();
+      startScrubSession();
       handlePortraitWaveScrub(e.clientX);
     },
-    [audioUrl, duration, handlePortraitWaveScrub, clearPendingSingleTap]
+    [audioUrl, duration, handlePortraitWaveScrub, clearPendingSingleTap, startScrubSession]
   );
 
   const onRulerPointerMove = useCallback(
@@ -375,6 +405,18 @@ export const PortraitWaveTransport: React.FC<Props> = ({
     [duration, zoom, viewStart]
   );
 
+  /** +/- ボタン: 再生バーの位置を画面中央に保ちながら拡大・縮小 */
+  const applyZoomCenteredOnPlayhead = useCallback(
+    (nextZoom: number, anchorTimeSec: number) => {
+      if (duration <= 0) return;
+      const z = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, nextZoom));
+      const newVd = duration / z;
+      setZoom(z);
+      setViewStart(clampViewStart(anchorTimeSec - newVd / 2, newVd, duration));
+    },
+    [duration]
+  );
+
   const clearLongPress = useCallback(() => {
     if (longPressTimerRef.current != null) {
       window.clearTimeout(longPressTimerRef.current);
@@ -399,11 +441,12 @@ export const PortraitWaveTransport: React.FC<Props> = ({
       e.stopPropagation();
       clearPendingSingleTap();
       clearLongPress();
+      startScrubSession();
       playheadDragRef.current = true;
       e.currentTarget.setPointerCapture(e.pointerId);
       handlePortraitWaveScrub(e.clientX);
     },
-    [audioUrl, duration, handlePortraitWaveScrub, clearPendingSingleTap, clearLongPress]
+    [audioUrl, duration, handlePortraitWaveScrub, clearPendingSingleTap, clearLongPress, startScrubSession]
   );
 
   const onPlayheadPointerMove = useCallback(
@@ -635,12 +678,12 @@ export const PortraitWaveTransport: React.FC<Props> = ({
   }, [currentTime, duration, onSeek]);
 
   const handleZoomIn = useCallback(() => {
-    applyZoomAt(zoom * ZOOM_STEP, currentTime);
-  }, [applyZoomAt, zoom, currentTime]);
+    applyZoomCenteredOnPlayhead(zoom * ZOOM_BUTTON_STEP, playheadSecForUi);
+  }, [applyZoomCenteredOnPlayhead, zoom, playheadSecForUi]);
 
   const handleZoomOut = useCallback(() => {
-    applyZoomAt(zoom / ZOOM_STEP, currentTime);
-  }, [applyZoomAt, zoom, currentTime]);
+    applyZoomCenteredOnPlayhead(zoom / ZOOM_BUTTON_STEP, playheadSecForUi);
+  }, [applyZoomCenteredOnPlayhead, zoom, playheadSecForUi]);
 
   const zoomLabel = zoom > 1 ? `${zoom.toFixed(zoom >= 10 ? 0 : 1)}×` : null;
 

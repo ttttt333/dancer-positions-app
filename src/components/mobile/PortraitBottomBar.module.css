@@ -12,12 +12,18 @@
 .toolbarRow {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  padding-bottom: max(4px, env(safe-area-inset-bottom, 4px));
+  gap: 5px;
+  padding: 5px 8px;
+  padding-bottom: max(5px, env(safe-area-inset-bottom, 5px));
   border-top: 0.5px solid #1a2540;
   flex-shrink: 0;
-  min-height: 44px;
+  min-height: 48px;
+}
+
+.toolbarCtrlBtn {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 11px !important;
 }
 
 .menuBtn {
@@ -55,77 +61,33 @@
   line-height: 1;
 }
 
-.histBtn {
-  flex: 0 0 40px;
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 0.5px solid rgba(255, 255, 255, 0.1);
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-  color: #e2e8f0;
-  font-size: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-}
-.histBtn:active:not(:disabled) {
-  background: rgba(217, 119, 6, 0.18);
-  border-color: rgba(217, 119, 6, 0.4);
-}
-.histBtn:disabled {
-  opacity: 0.2;
-  cursor: default;
-}
-
 .cueNav {
   flex: 1;
   min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  background: rgba(0, 0, 0, 0.45);
-  border: 0.5px solid #1a2540;
-  border-radius: 999px;
-  padding: 2px 4px;
-  height: 40px;
+  gap: 6px;
+  padding: 0 2px;
+  height: 44px;
 }
 
-.navArrow {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #1f2937;
-  border: 0.5px solid #374151;
-  color: #d1d5db;
-  font-size: 14px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s;
+.cueNavBtn {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 11px !important;
   flex-shrink: 0;
-  padding: 0;
-}
-.navArrow:disabled {
-  opacity: 0.3;
-  cursor: default;
-}
-.navArrow:active:not(:disabled) {
-  background: #374151;
 }
 
 .cueLabel {
-  font-family: monospace;
-  font-size: 11px;
-  font-weight: 600;
-  color: #f1f5f9;
-  padding: 0 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: #e2e8f0;
+  padding: 0 4px;
   white-space: nowrap;
   flex-shrink: 0;
+  letter-spacing: 0.02em;
 }
 
 .addCueBtn {
