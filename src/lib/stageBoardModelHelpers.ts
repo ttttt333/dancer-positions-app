@@ -159,12 +159,67 @@ export function floorTextDraftColorHex(color: string | undefined): string {
 }
 
 /** ○内ラベル用フォント（px）。印が大きいほど比例して大きく */
-export function markerCircleLabelFontPx(markerPx: number): number {
+export function markerCircleLabelFontPx(
+  markerPx: number,
+  label = ""
+): number {
   const scaled = Math.round(
     19 * (markerPx / DEFAULT_DANCER_MARKER_DIAMETER_PX)
   );
   const minFont = markerPx <= 12 ? 7 : markerPx <= 16 ? 9 : 11;
-  return Math.max(minFont, Math.min(34, scaled));
+  const base = Math.max(minFont, Math.min(34, scaled));
+  const text = label.trim();
+  if (!text) return base;
+
+  const innerPx = Math.max(6, markerPx - 4);
+  const emPerChar = /^\d+$/.test(text) ? 0.56 : 0.62;
+  const fitFont = Math.floor(innerPx / (text.length * emPerChar));
+  const minFit = markerPx <= 14 ? 6 : markerPx <= 18 ? 7 : markerPx <= 24 ? 8 : 9;
+  return Math.max(minFit, Math.min(base, fitFont));
+}
+
+export type MarkerCircleInnerLabelLayout = {
+  fontSizePx: number;
+  spanStyle: CSSProperties;
+};
+
+/** ○内ラベル（最大3桁想定）が丸に収まる fontSize と span スタイル */
+export function layoutMarkerCircleInnerLabel(
+  markerPx: number,
+  label: string,
+  screenUnrotateDeg: number
+): MarkerCircleInnerLabelLayout {
+  const text = label.trim();
+  const fontSizePx = markerCircleLabelFontPx(markerPx, text);
+  const innerPx = Math.max(6, markerPx - 4);
+  let scale = 1;
+  if (text.length > 0) {
+    const emPerChar = /^\d+$/.test(text) ? 0.56 : 0.62;
+    const estWidth = text.length * emPerChar * fontSizePx;
+    if (estWidth > innerPx) {
+      scale = Math.max(0.6, innerPx / estWidth);
+    }
+  }
+  const rotate =
+    scale < 0.999
+      ? `rotate(${screenUnrotateDeg}deg) scale(${scale})`
+      : `rotate(${screenUnrotateDeg}deg)`;
+  return {
+    fontSizePx,
+    spanStyle: {
+      position: "relative",
+      zIndex: 1,
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      transform: rotate,
+      transformOrigin: "center center",
+      lineHeight: 1,
+      fontVariantNumeric: "tabular-nums",
+      letterSpacing:
+        text.length >= 3 ? "-0.04em" : text.length === 2 ? "-0.02em" : undefined,
+    },
+  };
 }
 
 /** ○の下に出す名前用（○内よりやや小さめ） */

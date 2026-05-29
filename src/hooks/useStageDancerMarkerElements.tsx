@@ -11,8 +11,8 @@ import {
 } from "../lib/dancerColorPalette";
 import {
   dancerCircleInnerBelowLabel,
+  layoutMarkerCircleInnerLabel,
   markerBelowLabelFontPx,
-  markerCircleLabelFontPx,
 } from "../lib/stageBoardModelHelpers";
 import type { DancerSpot } from "../types/choreography";
 import { StageDancerMarkerItem } from "../components/StageDancerMarkerItem";
@@ -86,7 +86,6 @@ export function useStageDancerMarkerElements(
     () =>
       dancersForStageMarkers.map((d, di) => {
         const dMarkerPx = effectiveMarkerPx(d);
-        const dLabelFontPx = markerCircleLabelFontPx(dMarkerPx);
         const hideGlyph =
           bulkHideDancerGlyphs &&
           !playbackOrPreview &&
@@ -101,13 +100,19 @@ export function useStageDancerMarkerElements(
           ? dancerCircleInnerBelowLabel(d, di, circleInnerOptsMarker)
           : d.label || "?";
         const facing = normalizeDancerFacingDeg(effectiveFacingDeg(d));
+        const screenUnrotateDeg = -(rot + facing);
+        const circleInnerLabelLayout = layoutMarkerCircleInnerLabel(
+          dMarkerPx,
+          circleLabel,
+          screenUnrotateDeg
+        );
+        const dLabelFontPx = circleInnerLabelLayout.fontSizePx;
         const labelOffsetPx =
           Math.round(dMarkerPx / 2) + 4 + nameBelowClearanceExtraPx;
         const pivotTransform = playbackOrPreview
           ? `translate3d(-50%, -50%, 0) rotate(${facing}deg)`
           : `translate(-50%, -50%) rotate(${facing}deg)`;
         const halfMarker = dMarkerPx / 2;
-        const screenUnrotateDeg = -(rot + facing);
         const belowNameFontPx = markerBelowLabelFontPx(dLabelFontPx);
         const belowLabelOriginYpx =
           -labelOffsetPx + Math.round((belowNameFontPx * 1.12) / 2);
@@ -215,6 +220,7 @@ export function useStageDancerMarkerElements(
             scaleTransform={scaleTransform}
             hideGlyph={hideGlyph}
             circleLabel={circleLabel}
+            circleInnerLabelSpanStyle={circleInnerLabelLayout.spanStyle}
             screenUnrotateDeg={screenUnrotateDeg}
             showNameBelow={dancerLabelBelow && !hideGlyph}
             labelOffsetPx={labelOffsetPx}

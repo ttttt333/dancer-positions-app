@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 export type StageDancerDragGhostItemProps = {
   xPct: number;
@@ -10,6 +10,7 @@ export type StageDancerDragGhostItemProps = {
   labelFontPx: number;
   hideGlyph: boolean;
   circleLabel: ReactNode;
+  circleInnerLabelSpanStyle?: CSSProperties;
   screenUnrotateDeg: number;
   showNameBelow: boolean;
   labelOffsetPx: number;
@@ -29,6 +30,7 @@ export function StageDancerDragGhostItem({
   labelFontPx,
   hideGlyph,
   circleLabel,
+  circleInnerLabelSpanStyle,
   screenUnrotateDeg,
   showNameBelow,
   labelOffsetPx,
@@ -77,15 +79,17 @@ export function StageDancerDragGhostItem({
       >
         {!hideGlyph ? (
           <span
-            style={{
-              position: "relative",
-              zIndex: 1,
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              transform: `rotate(${screenUnrotateDeg}deg)`,
-              transformOrigin: "center center",
-            }}
+            style={
+              circleInnerLabelSpanStyle ?? {
+                position: "relative",
+                zIndex: 1,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transform: `rotate(${screenUnrotateDeg}deg)`,
+                transformOrigin: "center center",
+              }
+            }
           >
             {circleLabel}
           </span>

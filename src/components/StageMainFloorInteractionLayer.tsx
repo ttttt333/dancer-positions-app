@@ -3,8 +3,8 @@ import type { DancerSpot } from "../types/choreography";
 import { DEFAULT_DANCER_MARKER_DIAMETER_PX } from "../lib/projectDefaults";
 import {
   dancerCircleInnerBelowLabel,
+  layoutMarkerCircleInnerLabel,
   markerBelowLabelFontPx,
-  markerCircleLabelFontPx,
   type GroupBoxHandle,
 } from "../lib/stageBoardModelHelpers";
 import {
@@ -177,7 +177,6 @@ export function StageMainFloorInteractionLayer({
             selectedDancerIds.length >= 2 &&
             selectedDancerIds.includes(ghostId);
           const dMarkerPx = effectiveMarkerPx(d);
-          const dLabelFontPx = markerCircleLabelFontPx(dMarkerPx);
           const diRaw = stageDancerIndexById.get(ghostId) ?? -1;
           const di = diRaw >= 0 ? diRaw : 0;
           const ghostLabelWmm = effStageWidthMm ?? 0;
@@ -189,11 +188,17 @@ export function StageMainFloorInteractionLayer({
             ? dancerCircleInnerBelowLabel(d, di, circleInnerOptsGhost)
             : d.label || "?";
           const facing = normalizeDancerFacingDeg(effectiveFacingDeg(d));
+          const screenUnrotateDeg = -(rot + facing);
+          const circleInnerLabelLayout = layoutMarkerCircleInnerLabel(
+            dMarkerPx,
+            circleLabel,
+            screenUnrotateDeg
+          );
+          const dLabelFontPx = circleInnerLabelLayout.fontSizePx;
           const labelOffsetPx =
             Math.round(dMarkerPx / 2) + 4 + nameBelowClearanceExtraPx;
           const pivotTransform = `translate(-50%, -50%) rotate(${facing}deg)`;
           const halfMarker = dMarkerPx / 2;
-          const screenUnrotateDeg = -(rot + facing);
           const belowNameFontPx = markerBelowLabelFontPx(dLabelFontPx);
           const belowLabelOriginYpx =
             -labelOffsetPx + Math.round((belowNameFontPx * 1.12) / 2);
@@ -209,6 +214,7 @@ export function StageMainFloorInteractionLayer({
               labelFontPx={dLabelFontPx}
               hideGlyph={hideGlyph}
               circleLabel={circleLabel}
+              circleInnerLabelSpanStyle={circleInnerLabelLayout.spanStyle}
               screenUnrotateDeg={screenUnrotateDeg}
               showNameBelow={dancerLabelBelow && !hideGlyph}
               labelOffsetPx={labelOffsetPx}

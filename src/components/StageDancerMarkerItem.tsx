@@ -1,4 +1,4 @@
-import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactNode } from "react";
+import type { CSSProperties, MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent, ReactNode } from "react";
 
 export type StageDancerMarkerItemProps = {
   dancerId: string;
@@ -25,6 +25,7 @@ export type StageDancerMarkerItemProps = {
   scaleTransform: string;
   hideGlyph: boolean;
   circleLabel: ReactNode;
+  circleInnerLabelSpanStyle?: CSSProperties;
   screenUnrotateDeg: number;
   showNameBelow: boolean;
   labelOffsetPx: number;
@@ -61,6 +62,7 @@ export function StageDancerMarkerItem({
   scaleTransform,
   hideGlyph,
   circleLabel,
+  circleInnerLabelSpanStyle,
   screenUnrotateDeg,
   showNameBelow,
   labelOffsetPx,
@@ -167,15 +169,17 @@ export function StageDancerMarkerItem({
       >
         {!hideGlyph ? (
           <span
-            style={{
-              position: "relative",
-              zIndex: 1,
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              transform: `rotate(${screenUnrotateDeg}deg)`,
-              transformOrigin: "center center",
-            }}
+            style={
+              circleInnerLabelSpanStyle ?? {
+                position: "relative",
+                zIndex: 1,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transform: `rotate(${screenUnrotateDeg}deg)`,
+                transformOrigin: "center center",
+              }
+            }
           >
             {circleLabel}
           </span>
