@@ -27,35 +27,6 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-.collapsedStack {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 0;
-}
-
-.collapsedWaveBtn {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 0.5px solid rgba(255, 255, 255, 0.12);
-  color: #94a3b8;
-  font-size: 11px;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  touch-action: manipulation;
-}
-
-.collapsedWaveBtn:active {
-  background: rgba(255, 255, 255, 0.14);
-}
-
 .panelTop {
   display: flex;
   justify-content: flex-start;
@@ -76,108 +47,24 @@
   padding: 0;
 }
 
-/* ── 再生コントロール行 ── */
-.playerRow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.timeText {
-  font-size: 10px;
-  color: #d97706;
-  font-family: monospace;
-  font-weight: 700;
-}
-.timeSep {
-  font-size: 9px;
-  color: #4b5563;
-}
-.timeDur {
-  font-size: 9px;
-  color: #6b7280;
-  font-family: monospace;
-}
-
-/* ── 畳み波形（左パネル内） ── */
-.waveCollapsedBtn {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
+/* ── 左パネル: 再生・波形操作グリッド ── */
+.controlGrid {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr;
   gap: 5px;
   width: 100%;
-  padding: 6px 4px;
-  background: rgba(0, 0, 0, 0.22);
-  border: 0.5px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  color: #e2e8f0;
-  cursor: pointer;
-  touch-action: manipulation;
 }
 
-.waveCollapsedBtn:active {
-  background: rgba(255, 255, 255, 0.06);
+.controlGrid .gridBtn {
+  width: 100% !important;
+  height: 34px !important;
+  border-radius: 9px !important;
 }
 
-.waveCollapsedHead {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.waveCollapsedChevron {
-  flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 0.5px solid rgba(255, 255, 255, 0.12);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 8px;
-  color: #94a3b8;
-}
-
-.waveCollapsedLabel {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #94a3b8;
-}
-
-.waveMiniTrack {
-  position: relative;
-  height: 6px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.06);
-  overflow: hidden;
-}
-
-.waveMiniFill {
-  position: absolute;
-  inset: 0 auto 0 0;
-  background: rgba(59, 130, 246, 0.35);
-  border-radius: 3px 0 0 3px;
-}
-
-.waveMiniPlayhead {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1.5px;
-  background: rgba(255, 255, 255, 0.65);
-  transform: translateX(-50%);
-  pointer-events: none;
-}
-
-.waveCollapsedTime {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 9px;
-  font-weight: 600;
-  color: #cbd5e1;
-  white-space: nowrap;
-  align-self: flex-end;
+.controlGrid :global(.skipBadge) {
+  right: 4px;
+  bottom: 3px;
+  font-size: 7px;
 }
 
 /* ── キューナビ行: [‹][›] -------- Cue X/Y ── */
@@ -223,39 +110,6 @@
   flex-shrink: 0;
 }
 
-/* ── 2D/3D 切替 ── */
-.viewToggleRow {
-  display: flex;
-  gap: 5px;
-}
-.viewBtn {
-  flex: 1;
-  padding: 6px 0;
-  border-radius: 7px;
-  background: #1f2937;
-  border: 0.5px solid #374151;
-  color: #9ca3af;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.15s;
-  letter-spacing: 0.03em;
-}
-.viewBtn:active { background: #374151; }
-.viewBtnActive {
-  flex: 1;
-  padding: 6px 0;
-  border-radius: 7px;
-  background: #1e3a5f;
-  border: 0.5px solid #3b82f6;
-  color: #93c5fd;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-  letter-spacing: 0.03em;
-}
-
-/* ── 下部エリア (Menu + Undo/Redo) ── */
 .bottomArea {
   margin-top: auto;
   display: flex;

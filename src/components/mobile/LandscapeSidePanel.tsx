@@ -1,13 +1,20 @@
 /**
  * LandscapeSidePanel.tsx
- * 横向き専用の左サイドパネル
- * 再生コントロール行 + キューナビ + Menuボタン + Undo/Redo
+ * 横向き専用の左サイドパネル（再生・波形操作・キュー・Menu）
  */
 
 import React, { useState, useCallback } from 'react'
 import styles from './LandscapeSidePanel.module.css'
 import ctrlStyles from './TransportControls.module.css'
-import { TransportIconPause, TransportIconPlay, TransportIconStop } from './TransportIcons'
+import {
+  TransportIconPause,
+  TransportIconPlay,
+  TransportIconStop,
+  TransportIconSkipBack,
+  TransportIconSkipForward,
+  TransportIconZoomIn,
+  TransportIconZoomOut,
+} from './TransportIcons'
 import { useMobileShellBridgeStore } from '../../store/useMobileShellBridgeStore'
 
 interface MenuItem {
@@ -23,12 +30,15 @@ interface MenuSection {
 }
 
 interface Props {
+  audioUrl: string | null
   isPlaying: boolean
-  currentTime: number
   duration: number
   onPlayPause: () => void
   onStop: () => void
-  onSeek?: (sec: number) => void
+  onSkipBack: () => void
+  onSkipForward: () => void
+  onZoomIn: () => void
+  onZoomOut: () => void
   currentCueIndex: number
   totalCues: number
   onCuePrev: () => void
@@ -40,28 +50,32 @@ interface Props {
   onRedo?: () => void
   undoDisabled?: boolean
   redoDisabled?: boolean
-  /** 横画面: 下部波形が展開中か（畳み時は左パネル内に表示） */
-  landscapeWaveExpanded?: boolean
-  onLandscapeWaveExpand?: () => void
-}
-
-function fmt(sec: number): string {
-  if (!isFinite(sec) || sec < 0) return '0:00'
-  return `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`
 }
 
 export const LandscapeSidePanel: React.FC<Props> = ({
-  isPlaying, currentTime, duration, onPlayPause, onStop,
-  currentCueIndex, totalCues, onCuePrev, onCueNext,
-  onAddCue, onStageSettings, onViewerList,
-  onUndo, onRedo, undoDisabled, redoDisabled,
-  landscapeWaveExpanded = true,
-  onLandscapeWaveExpand,
+  audioUrl,
+  isPlaying,
+  duration,
+  onPlayPause,
+  onStop,
+  onSkipBack,
+  onSkipForward,
+  onZoomIn,
+  onZoomOut,
+  currentCueIndex,
+  totalCues,
+  onCuePrev,
+  onCueNext,
+  onAddCue,
+  onStageSettings,
+  onViewerList,
+  onUndo,
+  onRedo,
+  undoDisabled,
+  redoDisabled,
 }) => {
   const [open, setOpen] = useState(true)
   const [menuOpen, setMenuOpen] = useState(false)
-  const stageView = useMobileShellBridgeStore((s) => s.stageView)
-  const onStageViewChange = useMobileShellBridgeStore((s) => s.onStageViewChange)
   const onSaveSpot    = useMobileShellBridgeStore((s) => s.onSaveSpot)
   const onAddText     = useMobileShellBridgeStore((s) => s.onAddText)
   const onCueList     = useMobileShellBridgeStore((s) => s.onCueList)
@@ -75,6 +89,8 @@ export const LandscapeSidePanel: React.FC<Props> = ({
   const onShareLinks  = useMobileShellBridgeStore((s) => s.onShareLinks)
   const onHelp        = useMobileShellBridgeStore((s) => s.onHelp)
   const onFlowLibrary = useMobileShellBridgeStore((s) => s.onFlowLibrary)
+
+  const transportDisabled = !audioUrl || duration <= 0
 
   const MENU_SECTIONS: MenuSection[] = [
     {
@@ -120,98 +136,85 @@ export const LandscapeSidePanel: React.FC<Props> = ({
     setMenuOpen(false)
   }, [])
 
-  const wavePct =
-    duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0
-
   if (!open) {
     return (
       <div className={styles.collapsed}>
-        <div className={styles.collapsedStack}>
-          {!landscapeWaveExpanded && onLandscapeWaveExpand ? (
-            <button
-              type="button"
-              className={styles.collapsedWaveBtn}
-              onClick={onLandscapeWaveExpand}
-              aria-label="波形を展開"
-              title="波形を展開"
-            >
-              〜
-            </button>
-          ) : null}
-          <button className={styles.collapseBtn} onClick={() => setOpen(true)} aria-label="パネルを開く">
-            ›
-          </button>
-        </div>
+        <button className={styles.collapseBtn} onClick={() => setOpen(true)} aria-label="パネルを開く">
+          ›
+        </button>
       </div>
     )
   }
 
   return (
     <div className={styles.panel}>
-      {/* ── 閉じるボタン ── */}
       <div className={styles.panelTop}>
         <button className={styles.collapseBtn} onClick={() => setOpen(false)} aria-label="パネルを閉じる">
           ‹
         </button>
       </div>
 
-      {/* ── 再生コントロール (1行) ── */}
-      <div className={styles.playerRow}>
+      <div className={`${ctrlStyles.controls} ${styles.controlGrid}`}>
         <button
-          className={`${ctrlStyles.btn} ${ctrlStyles.btnPrimary}`}
+          className={`${ctrlStyles.btn} ${ctrlStyles.btnPrimary} ${styles.gridBtn}`}
           onClick={onPlayPause}
-          disabled={duration <= 0}
+          disabled={transportDisabled}
           aria-label={isPlaying ? '一時停止' : '再生'}
         >
           {isPlaying ? (
-            <TransportIconPause size={22} className={ctrlStyles.iconPrimary} />
+            <TransportIconPause size={20} className={ctrlStyles.iconPrimary} />
           ) : (
-            <TransportIconPlay size={22} className={ctrlStyles.iconPrimary} />
+            <TransportIconPlay size={20} className={ctrlStyles.iconPrimary} />
           )}
         </button>
         <button
-          className={ctrlStyles.btn}
+          className={`${ctrlStyles.btn} ${styles.gridBtn}`}
           onClick={onStop}
-          disabled={duration <= 0}
+          disabled={transportDisabled}
           aria-label="停止して先頭へ"
         >
-          <TransportIconStop size={18} className={ctrlStyles.icon} />
+          <TransportIconStop size={16} className={ctrlStyles.icon} />
         </button>
-        <span className={styles.timeText}>{fmt(currentTime)}</span>
-        <span className={styles.timeSep}>/</span>
-        <span className={styles.timeDur}>{fmt(duration)}</span>
+        <button
+          className={`${ctrlStyles.btn} ${ctrlStyles.skipBtn} ${styles.gridBtn}`}
+          onClick={onSkipBack}
+          disabled={transportDisabled}
+          aria-label="5秒戻す"
+        >
+          <TransportIconSkipBack size={18} className={ctrlStyles.icon} />
+          <span className={ctrlStyles.skipBadge}>5</span>
+        </button>
+        <button
+          className={`${ctrlStyles.btn} ${ctrlStyles.skipBtn} ${styles.gridBtn}`}
+          onClick={onSkipForward}
+          disabled={transportDisabled}
+          aria-label="5秒進める"
+        >
+          <TransportIconSkipForward size={18} className={ctrlStyles.icon} />
+          <span className={ctrlStyles.skipBadge}>5</span>
+        </button>
+        <button
+          className={`${ctrlStyles.btn} ${styles.gridBtn}`}
+          onClick={onZoomOut}
+          disabled={transportDisabled}
+          aria-label="波形を縮小"
+          title="縮小"
+        >
+          <TransportIconZoomOut size={18} className={ctrlStyles.icon} />
+        </button>
+        <button
+          className={`${ctrlStyles.btn} ${styles.gridBtn}`}
+          onClick={onZoomIn}
+          disabled={transportDisabled}
+          aria-label="波形を拡大"
+          title="拡大"
+        >
+          <TransportIconZoomIn size={18} className={ctrlStyles.icon} />
+        </button>
       </div>
-
-      {!landscapeWaveExpanded && onLandscapeWaveExpand ? (
-        <>
-          <button
-            type="button"
-            className={styles.waveCollapsedBtn}
-            onClick={onLandscapeWaveExpand}
-            aria-label="波形を展開"
-          >
-            <span className={styles.waveCollapsedHead}>
-              <span className={styles.waveCollapsedChevron} aria-hidden>▶</span>
-              <span className={styles.waveCollapsedLabel}>波形</span>
-            </span>
-            {duration > 0 ? (
-              <div className={styles.waveMiniTrack} aria-hidden>
-                <div className={styles.waveMiniFill} style={{ width: `${wavePct}%` }} />
-                <div className={styles.waveMiniPlayhead} style={{ left: `${wavePct}%` }} />
-              </div>
-            ) : null}
-            <span className={styles.waveCollapsedTime}>
-              {fmt(currentTime)}
-              <span className={styles.timeSep}>/</span>
-              {fmt(duration)}
-            </span>
-          </button>
-        </>
-      ) : null}
 
       <div className={styles.divider} />
 
-      {/* ── キューナビ: [‹][›] -------- Cue X/Y ── */}
       <div className={styles.cueRow}>
         <div className={styles.cueArrows}>
           <button
@@ -232,29 +235,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
         </span>
       </div>
 
-      <div className={styles.divider} />
-
-      {/* ── 2D / 3D 表示切替 ── */}
-      <div className={styles.viewToggleRow}>
-        <button
-          className={stageView === '2d' ? styles.viewBtnActive : styles.viewBtn}
-          onClick={() => onStageViewChange('2d')}
-          aria-label="2D表示"
-        >
-          2D
-        </button>
-        <button
-          className={stageView === '3d' ? styles.viewBtnActive : styles.viewBtn}
-          onClick={() => onStageViewChange('3d')}
-          aria-label="3D表示"
-        >
-          3D
-        </button>
-      </div>
-
-      {/* ── Menu + Undo/Redo (パネル下部) ── */}
       <div className={styles.bottomArea}>
-        {/* ☰ Menu ボタン */}
         <button
           className={styles.menuBtn}
           onClick={() => setMenuOpen(true)}
@@ -265,7 +246,6 @@ export const LandscapeSidePanel: React.FC<Props> = ({
           <span className={styles.menuBtnLabel}>Menu</span>
         </button>
 
-        {/* Undo / Redo */}
         <div className={styles.undoRedoRow}>
           <button
             className={styles.histBtn}
@@ -288,7 +268,6 @@ export const LandscapeSidePanel: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* ── メニューオーバーレイ ── */}
       {menuOpen && (
         <>
           <div
@@ -296,7 +275,6 @@ export const LandscapeSidePanel: React.FC<Props> = ({
             onClick={() => setMenuOpen(false)}
           />
           <div className={styles.menuSheet} role="dialog" aria-label="メニュー">
-            {/* ヘッダー */}
             <div className={styles.menuSheetHeader}>
               <span className={styles.menuSheetTitle}>Menu</span>
               <button
@@ -305,8 +283,6 @@ export const LandscapeSidePanel: React.FC<Props> = ({
                 aria-label="メニューを閉じる"
               >✕</button>
             </div>
-
-            {/* セクション一覧 */}
             <div className={styles.menuContent}>
               {MENU_SECTIONS.map((section) => (
                 <div key={section.title} className={styles.menuSection}>

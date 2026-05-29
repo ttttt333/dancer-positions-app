@@ -3,7 +3,7 @@
  * 縦画面: PC 版 TimelinePanel と同じ波形操作（キュー作成・移動・導線）を共有
  */
 
-import React, { useRef, useCallback, useState, useEffect, useLayoutEffect, useMemo } from "react";
+import React, { useRef, useCallback, useState, useEffect, useLayoutEffect, useMemo, useImperativeHandle, forwardRef } from "react";
 import styles from "./PortraitWaveTransport.module.css";
 import ctrlStyles from "./TransportControls.module.css";
 import {
@@ -64,6 +64,13 @@ interface Props {
   className?: string;
 }
 
+export type PortraitWaveTransportHandle = {
+  skipBack: () => void;
+  skipForward: () => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+};
+
 function fmt(sec: number): string {
   if (!isFinite(sec) || sec < 0) return "0:00";
   return `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
@@ -90,7 +97,8 @@ function synthMouseEvent(
   } as React.MouseEvent<HTMLCanvasElement>;
 }
 
-export const PortraitWaveTransport: React.FC<Props> = ({
+export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Props>(function PortraitWaveTransport(
+  {
   audioUrl,
   isPlaying,
   currentTime,
@@ -101,7 +109,9 @@ export const PortraitWaveTransport: React.FC<Props> = ({
   showTransportControls = true,
   waveHeightPx = DEFAULT_WAVE_HEIGHT_PX,
   className,
-}) => {
+  },
+  ref
+) {
   const registered = useTimelineWaveBridgeStore((s) => s.registered);
   const bridgeApi = useTimelineWaveBridgeStore((s) => s.api);
   const syncPortraitView = useTimelineWaveBridgeStore((s) => s.syncPortraitView);
@@ -702,6 +712,17 @@ export const PortraitWaveTransport: React.FC<Props> = ({
     applyZoomCenteredOnPlayhead(zoom / ZOOM_BUTTON_STEP, playheadSecForUi);
   }, [applyZoomCenteredOnPlayhead, zoom, playheadSecForUi]);
 
+  useImperativeHandle(
+    ref,
+    () => ({
+      skipBack: handleSkipBack,
+      skipForward: handleSkipForward,
+      zoomIn: handleZoomIn,
+      zoomOut: handleZoomOut,
+    }),
+    [handleSkipBack, handleSkipForward, handleZoomIn, handleZoomOut]
+  );
+
   const zoomLabel = zoom > 1 ? `${zoom.toFixed(zoom >= 10 ? 0 : 1)}×` : null;
 
   return (
@@ -851,4 +872,4 @@ export const PortraitWaveTransport: React.FC<Props> = ({
       </div>
     </div>
   );
-};
+});

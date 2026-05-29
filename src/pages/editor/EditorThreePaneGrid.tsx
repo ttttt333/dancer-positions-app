@@ -864,6 +864,82 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     Change
                   </button>
                 ) : null}
+                {mobileStackEditor &&
+                editorMobileLandscape &&
+                !choreoPublicView &&
+                project.viewMode !== "view" ? (
+                  <div
+                    role="group"
+                    aria-label={t("editor.layout.stageViewAria")}
+                    style={{
+                      position: "absolute",
+                      top: 42,
+                      left: 8,
+                      zIndex: 45,
+                      display: "flex",
+                      flexDirection: "row",
+                      gap: 3,
+                      pointerEvents: "auto",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      style={{
+                        ...btnSecondary,
+                        width: 34,
+                        height: 24,
+                        minWidth: 34,
+                        minHeight: 24,
+                        padding: 0,
+                        fontSize: 9,
+                        fontWeight: 700,
+                        lineHeight: 1,
+                        borderRadius: 6,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        boxSizing: "border-box",
+                        background: "rgba(15,23,42,0.88)",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
+                        ...(stageView === "2d"
+                          ? { borderColor: "#6366f1", color: "#c7d2fe" }
+                          : {}),
+                      }}
+                      title={t("editor.layout.stage2dTitle")}
+                      onClick={() => setStageView("2d")}
+                    >
+                      2D
+                    </button>
+                    <button
+                      type="button"
+                      style={{
+                        ...btnSecondary,
+                        width: 34,
+                        height: 24,
+                        minWidth: 34,
+                        minHeight: 24,
+                        padding: 0,
+                        fontSize: 9,
+                        fontWeight: 700,
+                        lineHeight: 1,
+                        borderRadius: 6,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        boxSizing: "border-box",
+                        background: "rgba(15,23,42,0.88)",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
+                        ...(stageView === "3d"
+                          ? { borderColor: "#6366f1", color: "#c7d2fe" }
+                          : {}),
+                      }}
+                      title={t("editor.layout.stage3dTitle")}
+                      onClick={() => setStageView("3d")}
+                    >
+                      3D
+                    </button>
+                  </div>
+                ) : null}
                 {publicNarrowLayout &&
                 (cuesSortedForStageJump.length > 0 || hasRosterMembers) ? (
                   // 生徒閲覧: タイムラインを非表示にしたため、position:fixed でボトムバーの上にフロート
