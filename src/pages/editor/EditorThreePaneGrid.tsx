@@ -829,7 +829,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 )}
                 {!choreoPublicView &&
                 project.viewMode !== "view" &&
-                stageView === "2d" ? (
+                stageView === "2d" &&
+                !(mobileStackEditor && editorMobileLandscape) ? (
                   <button
                     type="button"
                     onClick={() => setFormationPresetPickerOpen(true)}
@@ -890,57 +891,28 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                   const canCueNext =
                     slotIdx < 0 ? cues.length > 0 : slotIdx < total - 1;
                   const showChangeBtn = stageView === "2d";
-                  const landscapeMiniBtn = {
-                    ...btnSecondary,
-                    width: 34,
-                    height: 24,
-                    minWidth: 34,
-                    minHeight: 24,
-                    padding: 0,
-                    fontSize: 9,
-                    fontWeight: 700,
-                    lineHeight: 1,
-                    borderRadius: 6,
-                    display: "inline-flex" as const,
-                    alignItems: "center" as const,
-                    justifyContent: "center" as const,
-                    boxSizing: "border-box" as const,
-                    background: "rgba(15,23,42,0.88)",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
-                  };
 
                   return (
-                    <div
-                      className="editor-stage-landscape-stack"
-                      style={{
-                        position: "absolute",
-                        top: showChangeBtn ? 42 : 8,
-                        left: 8,
-                        zIndex: 45,
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 4,
-                        pointerEvents: "auto",
-                        alignItems: "flex-start",
-                      }}
-                    >
+                    <div className="editor-stage-landscape-stack">
+                      {showChangeBtn ? (
+                        <button
+                          type="button"
+                          className="editor-stage-landscape-btn editor-stage-landscape-btn--change"
+                          onClick={() => setFormationPresetPickerOpen(true)}
+                          title="立ち位置の雛形を選ぶ"
+                          aria-label="立ち位置の雛形を選ぶ"
+                        >
+                          Change
+                        </button>
+                      ) : null}
                       <div
                         role="group"
                         aria-label={t("editor.layout.stageViewAria")}
-                        style={{
-                          display: "flex",
-                          flexDirection: "row",
-                          gap: 3,
-                        }}
+                        className="editor-stage-landscape-btnRow"
                       >
                         <button
                           type="button"
-                          style={{
-                            ...landscapeMiniBtn,
-                            ...(stageView === "2d"
-                              ? { borderColor: "#6366f1", color: "#c7d2fe" }
-                              : {}),
-                          }}
+                          className={`editor-stage-landscape-btn${stageView === "2d" ? " editor-stage-landscape-btn--active" : ""}`}
                           title={t("editor.layout.stage2dTitle")}
                           onClick={() => setStageView("2d")}
                         >
@@ -948,12 +920,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                         </button>
                         <button
                           type="button"
-                          style={{
-                            ...landscapeMiniBtn,
-                            ...(stageView === "3d"
-                              ? { borderColor: "#6366f1", color: "#c7d2fe" }
-                              : {}),
-                          }}
+                          className={`editor-stage-landscape-btn${stageView === "3d" ? " editor-stage-landscape-btn--active" : ""}`}
                           title={t("editor.layout.stage3dTitle")}
                           onClick={() => setStageView("3d")}
                         >
@@ -962,22 +929,10 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                       </div>
                       {cues.length > 0 || hasRoster ? (
                         <>
-                          <div
-                            style={{
-                              display: "flex",
-                              flexDirection: "row",
-                              alignItems: "center",
-                              gap: 3,
-                            }}
-                          >
+                          <div className="editor-stage-landscape-btnRow">
                             <button
                               type="button"
-                              style={{
-                                ...landscapeMiniBtn,
-                                color: canCuePrev ? "#e2e8f0" : "#475569",
-                                cursor: canCuePrev ? "pointer" : "not-allowed",
-                                opacity: canCuePrev ? 1 : 0.45,
-                              }}
+                              className="editor-stage-landscape-btn editor-stage-landscape-btn--cue"
                               onClick={handleMobileCuePrev}
                               disabled={!canCuePrev}
                               aria-label="前のキュー"
@@ -986,12 +941,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                             </button>
                             <button
                               type="button"
-                              style={{
-                                ...landscapeMiniBtn,
-                                color: canCueNext ? "#e2e8f0" : "#475569",
-                                cursor: canCueNext ? "pointer" : "not-allowed",
-                                opacity: canCueNext ? 1 : 0.45,
-                              }}
+                              className="editor-stage-landscape-btn editor-stage-landscape-btn--cue"
                               onClick={handleMobileCueNext}
                               disabled={!canCueNext}
                               aria-label="次のキュー"
@@ -999,17 +949,30 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                               ›
                             </button>
                           </div>
-                          <WorkbenchCuePager
-                            variant="stageCorner"
-                            project={project}
-                            cuesSortedForStageJump={cuesSortedForStageJump}
-                            selectedCueId={selectedCueId}
-                            jumpToPagerSlot={jumpToPagerSlot}
-                            includeRosterSlot={hasRosterMembers}
-                            rosterTimelineHidden={rosterHidden}
-                          />
+                          <div className="editor-stage-landscape-pager">
+                            <WorkbenchCuePager
+                              variant="stageCorner"
+                              project={project}
+                              cuesSortedForStageJump={cuesSortedForStageJump}
+                              selectedCueId={selectedCueId}
+                              jumpToPagerSlot={jumpToPagerSlot}
+                              includeRosterSlot={hasRosterMembers}
+                              rosterTimelineHidden={rosterHidden}
+                            />
+                          </div>
                         </>
                       ) : null}
+                      <div
+                        className="editor-stage-landscape-time"
+                        aria-live="polite"
+                        aria-label={`再生位置 ${formatMmSsFloor(currentTime)} / ${formatMmSsFloor(duration)}`}
+                      >
+                        <span className="editor-stage-landscape-timeCurrent">
+                          {formatMmSsFloor(currentTime)}
+                        </span>
+                        {" / "}
+                        {formatMmSsFloor(duration)}
+                      </div>
                     </div>
                   );
                 })() : null}

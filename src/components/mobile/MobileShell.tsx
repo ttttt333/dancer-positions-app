@@ -9,7 +9,6 @@ import { useOrientation } from '../../hooks/useOrientation'
 import { PortraitBottomBar } from './PortraitBottomBar'
 import { LandscapeSidePanel } from './LandscapeSidePanel'
 import { LandscapeBottomWaveBar } from './LandscapeBottomWaveBar'
-import { LandscapeStageTimeBadge } from './LandscapeStageTimeBadge'
 import { type PortraitWaveTransportHandle } from './PortraitWaveTransport'
 import { useMobileShellBridgeStore } from '../../store/useMobileShellBridgeStore'
 import styles from './MobileShell.module.css'
@@ -68,19 +67,37 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
   }, [])
 
   const handleFloatingClose = useCallback(() => {
-    const dismissBtn = document.querySelector(
-      'button[aria-label="パネルを閉じる"]'
-    ) as HTMLButtonElement | null
-    if (dismissBtn && !dismissBtn.disabled) {
-      dismissBtn.click()
-      return
+    const modal = document.querySelector(
+      '[role="dialog"][aria-modal="true"]'
+    ) as HTMLElement | null
+    if (modal) {
+      const closeBtn = modal.querySelector(
+        'button[aria-label*="閉じ"], button[aria-label*="キャンセル"], button[aria-label*="close"]'
+      ) as HTMLButtonElement | null
+      if (closeBtn && !closeBtn.disabled) {
+        closeBtn.click()
+        return
+      }
+      /** EditorSideSheet: 透明ディミス領域は dialog の外（sheet root 内） */
+      const sheetRoot =
+        modal.closest('[data-editor-sheet-root]') ??
+        document.querySelector('[data-editor-sheet-root]')
+      if (sheetRoot) {
+        const dismissBtn = sheetRoot.querySelector(
+          'button[aria-label="パネルを閉じる"]'
+        ) as HTMLButtonElement | null
+        if (dismissBtn && !dismissBtn.disabled) {
+          dismissBtn.click()
+          return
+        }
+      }
     }
     const dialog = document.querySelector('[role="dialog"]')
     if (dialog) {
       const closeBtn = dialog.querySelector(
         'button[aria-label*="閉じ"], button[aria-label*="キャンセル"], button[aria-label*="close"]'
       ) as HTMLButtonElement | null
-      if (closeBtn) {
+      if (closeBtn && !closeBtn.disabled) {
         closeBtn.click()
         return
       }
@@ -143,10 +160,6 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
             className={styles.stageAreaLandscape}
           >
             {props.children}
-            <LandscapeStageTimeBadge
-              currentTime={props.currentTime}
-              duration={props.duration}
-            />
           </div>
         </div>
       ) : (

@@ -162,7 +162,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
   return (
     <div className={styles.panel}>
       <div className={styles.panelTop}>
-        <button className={styles.collapseBtn} onClick={() => setOpen(false)} aria-label="パネルを閉じる">
+        <button className={styles.collapseBtn} onClick={() => setOpen(false)} aria-label="左メニューを畳む">
           ‹
         </button>
       </div>
