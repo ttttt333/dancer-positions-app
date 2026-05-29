@@ -11,6 +11,7 @@ import { EditorStageWorkbench, WorkbenchCuePager } from "../../components/Editor
 import { StageShapePicker } from "../../components/StageShapePicker";
 import { SetPiecePickerModal } from "../../components/SetPiecePickerModal";
 import { EditorSideSheet } from "../../components/EditorSideSheet";
+import { FloorTextSideSheetContent } from "../../components/FloorTextSideSheetContent";
 import { ShareLinksSheetContent } from "../../components/ShareLinksSheetContent";
 import { ViewerModeSheetContent } from "../../components/ViewerModeSheetContent";
 import { btnAccent, btnSecondary, inputField } from "../../components/stageButtonStyles";
@@ -1421,292 +1422,23 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
             setFloorTextSideSheetOpen(false);
           }}
           zIndex={75}
-          width="min(340px, 92vw)"
+          width="min(360px, 94vw)"
           ariaLabelledBy="floor-text-sheet-title"
         >
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              height: "100%",
-              minHeight: 0,
-              background: "rgba(15,23,42,0.98)",
+          <div ref={attachTextPanelPortalEl} style={{ display: "none" }} />
+          <FloorTextSideSheetContent
+            open={floorTextSideSheetOpen}
+            floorTextPlaceSession={floorTextPlaceSession}
+            setFloorTextPlaceSession={setFloorTextPlaceSession}
+            commitFloorTextPlace={commitFloorTextPlace}
+            onClose={() => setFloorTextSideSheetOpen(false)}
+            onCancel={() => {
+              setFloorTextPlaceSession(null);
+              setFloorTextSideSheetOpen(false);
             }}
-          >
-            {/* ヘッダー */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 8,
-                padding: "11px 14px",
-                borderBottom: "1px solid #334155",
-                flexShrink: 0,
-              }}
-            >
-              <h2
-                id="floor-text-sheet-title"
-                style={{
-                  margin: 0,
-                  fontSize: "13px",
-                  fontWeight: 700,
-                  color: "#e2e8f0",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 7,
-                  letterSpacing: "0.03em",
-                }}
-              >
-                <span style={{ color: "#818cf8", display: "flex", opacity: 0.9 }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="4 7 4 4 20 4 20 7"/>
-                    <line x1="9" y1="20" x2="15" y2="20"/>
-                    <line x1="12" y1="4" x2="12" y2="20"/>
-                  </svg>
-                </span>
-                {floorTextPlaceSession?.editTargetId ? "テキストを編集" : "床テキスト"}
-              </h2>
-              <button
-                type="button"
-                aria-label={t("editor.layout.close")}
-                onClick={() => {
-                  setFloorTextSideSheetOpen(false);
-                }}
-                style={{
-                  background: "transparent",
-                  border: "1px solid #334155",
-                  borderRadius: 6,
-                  color: "#94a3b8",
-                  fontSize: 16,
-                  lineHeight: 1,
-                  padding: "3px 9px",
-                  cursor: "pointer",
-                }}
-              >
-                ×
-              </button>
-            </div>
-            {/* ポータルターゲット（後方互換用、実UIはこの下に直書き） */}
-            <div ref={attachTextPanelPortalEl} style={{ display: "none" }} />
-
-            {/* ── テキスト入力UI（スクロール不要・全要素を一画面に収める） ── */}
-            <div
-              style={{
-                flex: "1 1 auto",
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
-                padding: "14px 14px",
-                overflow: "hidden",
-              }}
-            >
-              {/* テキスト入力欄 */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <label style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600 }}>
-                  テキスト
-                </label>
-                <textarea
-                  autoFocus
-                  rows={3}
-                  placeholder={t("editor.layout.floorTextPlaceholder")}
-                  value={floorTextPlaceSession?.body ?? ""}
-                  onChange={(e) =>
-                    setFloorTextPlaceSession((s) =>
-                      s ? { ...s, body: e.target.value } : s
-                    )
-                  }
-                  style={{
-                    width: "100%",
-                    boxSizing: "border-box",
-                    resize: "none",
-                    borderRadius: 8,
-                    border: "1px solid #475569",
-                    background: "#0f172a",
-                    color: "#e2e8f0",
-                    fontSize: 14,
-                    padding: "8px 10px",
-                    fontFamily: "system-ui, sans-serif",
-                    outline: "none",
-                  }}
-                />
-              </div>
-
-              {/* 表示範囲（このキューのみ / 全キュー共通） */}
-              <div style={{ display: "flex", gap: 0, borderRadius: 8, overflow: "hidden", border: "1px solid #334155", flexShrink: 0 }}>
-                {(["formation", "global"] as const).map((s) => {
-                  const active = (floorTextPlaceSession?.scope ?? "formation") === s;
-                  return (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() =>
-                        setFloorTextPlaceSession((prev) =>
-                          prev ? { ...prev, scope: s } : prev
-                        )
-                      }
-                      style={{
-                        flex: 1,
-                        padding: "7px 4px",
-                        fontSize: 12,
-                        fontWeight: active ? 700 : 400,
-                        border: "none",
-                        background: active ? "#4f46e5" : "transparent",
-                        color: active ? "#fff" : "#64748b",
-                        cursor: "pointer",
-                        transition: "background 0.15s",
-                        lineHeight: 1.3,
-                      }}
-                    >
-                      {s === "formation" ? "このキューのみ" : "全キューに表示"}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* フォントサイズ */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#cbd5e1" }}>
-                <label style={{ flexShrink: 0, fontWeight: 600 }}>
-                  サイズ: {floorTextPlaceSession?.fontSizePx ?? 24}px
-                </label>
-                <input
-                  type="range" min={8} max={72}
-                  value={floorTextPlaceSession?.fontSizePx ?? 24}
-                  onChange={(e) =>
-                    setFloorTextPlaceSession((s) =>
-                      s ? { ...s, fontSizePx: Number(e.target.value) } : s
-                    )
-                  }
-                  style={{ flex: 1 }}
-                />
-              </div>
-
-              {/* 文字色 */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#cbd5e1" }}>
-                  <label style={{ flexShrink: 0, fontWeight: 600 }}>{t("editor.layout.textColor")}</label>
-                  <input
-                    type="color"
-                    value={
-                      floorTextPlaceSession?.color &&
-                      /^#[0-9a-fA-F]{6}$/i.test(floorTextPlaceSession.color)
-                        ? floorTextPlaceSession.color
-                        : "#fef08a"
-                    }
-                    onChange={(e) =>
-                      setFloorTextPlaceSession((s) =>
-                        s ? { ...s, color: e.target.value } : s
-                      )
-                    }
-                    style={{ width: 36, height: 28, padding: 2, border: "1px solid #334155", borderRadius: 6, background: "transparent", cursor: "pointer" }}
-                  />
-                  <span style={{ fontSize: 10, color: "#64748b" }}>
-                    カスタムカラーを選択
-                  </span>
-                </div>
-                {/* カラーパレット */}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 6 }}>
-                  {[
-                    { hex: "#ffffff", label: "白" },
-                    { hex: "#fef08a", label: "黄" },
-                    { hex: "#fb923c", label: "オレンジ" },
-                    { hex: "#f87171", label: "赤" },
-                    { hex: "#f472b6", label: "ピンク" },
-                    { hex: "#c084fc", label: "紫" },
-                    { hex: "#60a5fa", label: "青" },
-                    { hex: "#34d399", label: "緑" },
-                    { hex: "#a3e635", label: "黄緑" },
-                    { hex: "#94a3b8", label: "グレー" },
-                    { hex: "#1e293b", label: "黒" },
-                    { hex: "#fcd34d", label: "ゴールド" },
-                  ].map(({ hex, label }) => {
-                    const currentColor = (
-                      floorTextPlaceSession?.color &&
-                      /^#[0-9a-fA-F]{6}$/i.test(floorTextPlaceSession.color)
-                        ? floorTextPlaceSession.color
-                        : "#fef08a"
-                    ).toLowerCase();
-                    const isSelected = currentColor === hex.toLowerCase();
-                    return (
-                      <button
-                        key={hex}
-                        type="button"
-                        title={label}
-                        onClick={() =>
-                          setFloorTextPlaceSession((s) =>
-                            s ? { ...s, color: hex } : s
-                          )
-                        }
-                        style={{
-                          width: "100%",
-                          aspectRatio: "1",
-                          borderRadius: 6,
-                          border: isSelected
-                            ? "2px solid #fff"
-                            : "2px solid transparent",
-                          background: hex,
-                          cursor: "pointer",
-                          outline: isSelected ? "2px solid #60a5fa" : "none",
-                          outlineOffset: 1,
-                          boxShadow: "0 1px 3px rgba(0,0,0,0.4)",
-                          padding: 0,
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 決定ボタン */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (!floorTextPlaceSession?.body.trim()) {
-                    window.alert(t("editor.layout.floorTextAlert"));
-                    return;
-                  }
-                  commitFloorTextPlace();
-                  setFloorTextSideSheetOpen(false);
-                }}
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  fontSize: 15,
-                  fontWeight: 700,
-                  borderRadius: 10,
-                  border: "1px solid #15803d",
-                  background: "#22c55e",
-                  color: "#052e16",
-                  cursor: "pointer",
-                  letterSpacing: "0.04em",
-                }}
-              >
-                {floorTextPlaceSession?.editTargetId ? "✓ 変更を保存" : "✓ 決定（ステージに配置）"}
-              </button>
-
-              {/* キャンセル */}
-              <button
-                type="button"
-                onClick={() => {
-                  setFloorTextPlaceSession(null);
-                  setFloorTextSideSheetOpen(false);
-                }}
-                style={{
-                  width: "100%",
-                  padding: "8px",
-                  fontSize: 13,
-                  fontWeight: 500,
-                  borderRadius: 8,
-                  border: "1px solid #334155",
-                  background: "transparent",
-                  color: "#94a3b8",
-                  cursor: "pointer",
-                }}
-              >
-                キャンセル
-              </button>
-            </div>
-          </div>
+            onCommitted={() => setFloorTextSideSheetOpen(false)}
+            t={t}
+          />
         </EditorSideSheet>
       ) : null}
 

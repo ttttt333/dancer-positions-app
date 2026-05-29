@@ -951,8 +951,8 @@ export function StageBoardBody({
         id: m.id,
         left: bounds.left,
         top: bounds.top,
-        width: Math.max(140, bounds.width),
-        height: Math.max(40, bounds.height),
+        width: Math.max(180, bounds.width),
+        height: Math.max(56, bounds.height),
       });
       setFloorTextEditId(m.id);
       setSelectedFloorTextId(m.id);
@@ -4386,6 +4386,12 @@ export function StageBoardBody({
     ),
   } satisfies StageBoardLayoutSlots;
 
+  const handleFloorTextInlineRequestClose = useCallback(() => {
+    setFloorTextInlineRect(null);
+    setFloorTextEditId(null);
+    setFloorMarkupTool(null);
+  }, [setFloorMarkupTool]);
+
   const stageBoardOverlaysProps = useMemo(
     (): StageBoardBodyOverlaysProps => ({
       floorTextInlineRect,
@@ -4398,7 +4404,7 @@ export function StageBoardBody({
         ? (globalFloorMarkup ?? []).some((x) => x.id === floorTextEditId)
         : floorTextDraft.scope === "global",
       onUpdateGlobalMarkup: onUpdateGlobalFloorMarkup,
-      onFloorTextInlineRequestClose: () => setFloorMarkupTool(null),
+      onFloorTextInlineRequestClose: handleFloorTextInlineRequestClose,
       showTrashDrop,
       trashHot,
       trashDockViewportRef,
@@ -4416,6 +4422,7 @@ export function StageBoardBody({
       floorTextInlineMarkupScale,
       floorTextInlineRect,
       globalFloorMarkup,
+      handleFloorTextInlineRequestClose,
       onUpdateGlobalFloorMarkup,
       quickEditDancerForDialog,
       setDancerQuickEditId,

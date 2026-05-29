@@ -56,6 +56,19 @@ export function WaveformStrip({
   const rulerInteractive = duration > 0 && hasPeaks && viewMode !== "view";
   const rulerHeightPx = compactTopDock ? 13 : 16;
 
+  const forwardPlayheadPointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || duration <= 0 || !hasPeaks) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    e.preventDefault();
+    e.stopPropagation();
+    onWaveCanvasPointerDown({
+      ...e,
+      currentTarget: canvas,
+      target: canvas,
+    } as PointerEvent<HTMLCanvasElement>);
+  };
+
   return (
     <div
       ref={waveContainerRef}
@@ -89,7 +102,7 @@ export function WaveformStrip({
           }}
           aria-label={
             duration > 0
-              ? "秒数目盛り。クリックで再生位置を移動します（一時停止のままです）。"
+              ? "秒数目盛り。クリックで再生位置を移動します（再生中も移動できます）。"
               : undefined
           }
         >
@@ -147,10 +160,12 @@ export function WaveformStrip({
         />
         <div
           ref={playheadLineOverlayRef}
-          aria-hidden
+          role="slider"
+          aria-label="再生位置（ドラッグで移動・再生中も操作できます）"
+          onPointerDown={forwardPlayheadPointerDown}
           style={{
             position: "absolute",
-            pointerEvents: "none",
+            pointerEvents: duration > 0 && hasPeaks ? "auto" : "none",
             display: "none",
             left: "0%",
             transform: "translateX(-50%)",
@@ -159,13 +174,28 @@ export function WaveformStrip({
               PLAYHEAD_LINE_BLEED_TOP_CSS +
               waveCanvasCssH +
               PLAYHEAD_LINE_BLEED_BOTTOM_CSS,
-            width: 3,
-            background: "#ef4444",
-            borderRadius: 1,
-            boxShadow: "0 0 5px rgba(239, 68, 68, 0.55)",
-            zIndex: 2,
+            width: 16,
+            cursor: "col-resize",
+            touchAction: "none",
+            zIndex: 3,
           }}
-        />
+        >
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              left: "50%",
+              width: 3,
+              transform: "translateX(-50%)",
+              background: "#ef4444",
+              borderRadius: 1,
+              boxShadow: "0 0 5px rgba(239, 68, 68, 0.55)",
+              pointerEvents: "none",
+            }}
+          />
+        </div>
       </div>
       <div
         role="separator"

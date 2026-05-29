@@ -228,7 +228,11 @@ export function useWaveCanvasPointerDrag({
               trimEndSec,
               roundHeadForStore: true,
             });
-            if (!drag?.wasPlaying) playbackEngine.pause();
+            if (drag?.wasPlaying && playbackEngine.isPaused()) {
+              void playbackEngine.play();
+            } else if (!drag?.wasPlaying) {
+              playbackEngine.pause();
+            }
           }
           redraw();
         };

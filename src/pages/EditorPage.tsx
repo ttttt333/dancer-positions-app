@@ -1307,14 +1307,13 @@ export function EditorPage({
     setFloorTextPlaceSession(next);
   }, []);
 
-  const commitFloorTextPlace = useCallback(() => {
-    if (!project || project.viewMode === "view") return;
-    if (project.cues.length > 0 && !selectedCueId) return;
-    if (!floorTextPlaceSession) return;
+  const commitFloorTextPlace = useCallback((): boolean => {
+    if (!project || project.viewMode === "view") return false;
+    if (project.cues.length > 0 && !selectedCueId) return false;
+    if (!floorTextPlaceSession) return false;
     const text = floorTextPlaceSession.body.trim().slice(0, 400);
     if (!text) {
-      window.alert("テキストを入力してください");
-      return;
+      return false;
     }
     const formationId = selectedCue?.formationId ?? project.activeFormationId;
     const fs = Math.round(
@@ -1396,6 +1395,7 @@ export function EditorPage({
       }
     }
     setFloorTextPlaceSession(null);
+    return true;
   }, [
     project,
     floorTextPlaceSession,

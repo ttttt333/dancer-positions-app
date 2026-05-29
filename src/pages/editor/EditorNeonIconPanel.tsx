@@ -1,4 +1,5 @@
 import { NeonIconPanel } from "../../components/NeonIconPanel";
+import { createDefaultFloorTextPlaceSession } from "../../lib/floorTextPlaceSession";
 import type { EditorLayoutProps } from "./editorLayoutProps";
 
 export function EditorNeonIconPanel(props: EditorLayoutProps) {
@@ -74,14 +75,7 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
           setFloorTextPlaceSession(null);
           setFloorTextSideSheetOpen(false);
         } else {
-          setFloorTextPlaceSession({
-            body: "",
-            fontSizePx: 24,
-            fontWeight: 700,
-            xPct: 50,
-            yPct: 50,
-            color: "#fef08a",
-          });
+          setFloorTextPlaceSession(createDefaultFloorTextPlaceSession());
           setFloorTextSideSheetOpen(true);
         }
       }}

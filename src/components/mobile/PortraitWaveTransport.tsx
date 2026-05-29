@@ -16,7 +16,13 @@ import {
   TransportIconZoomOut,
 } from "./TransportIcons";
 import { useTimelineWaveBridgeStore } from "../../store/timelineWaveBridgeStore";
+import { playbackEngine } from "../../core/playbackEngine";
 import { formatMmSs, waveRulerTicks } from "../../lib/timeFormat";
+import {
+  hitPlayheadStripForScrub,
+  PORTRAIT_PLAYHEAD_SCRUB_HALF_WIDTH_PX,
+  waveTimeToExtentX,
+} from "../../lib/timelineWaveGeometry";
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 48;
@@ -106,15 +112,33 @@ export const PortraitWaveTransport: React.FC<Props> = ({
   const edgeScrollRafRef = useRef<number | null>(null);
   const scrubActiveRef = useRef(false);
   const scrubShouldSeekRef = useRef(true);
+  const playheadDragRef = useRef(false);
 
   const viewDuration = duration > 0 ? duration / zoom : 0;
   const viewEnd = viewStart + viewDuration;
 
+  const playheadSecForUi = useMemo(() => {
+    if (
+      isPlaying &&
+      playbackEngine.getMediaSourceUrl() &&
+      !playbackEngine.isPaused() &&
+      Number.isFinite(playbackEngine.getCurrentTime())
+    ) {
+      return playbackEngine.getCurrentTime();
+    }
+    return currentTime;
+  }, [currentTime, isPlaying]);
+
   const playheadPct = useMemo(() => {
     if (duration <= 0 || viewDuration <= 0) return 0;
-    const ratio = (currentTime - viewStart) / viewDuration;
-    return Math.min(100, Math.max(0, ratio * 100));
-  }, [currentTime, viewStart, viewDuration, duration]);
+    const xPlay = waveTimeToExtentX(
+      playheadSecForUi,
+      viewStart,
+      viewDuration,
+      100
+    );
+    return Math.min(100, Math.max(0, xPlay));
+  }, [playheadSecForUi, viewStart, viewDuration, duration]);
 
   const rulerTicks = useMemo(
     () => (viewDuration > 0 ? waveRulerTicks(viewStart, viewEnd, 8) : []),
@@ -148,6 +172,7 @@ export const PortraitWaveTransport: React.FC<Props> = ({
 
   useEffect(() => {
     if (!isPlaying || zoom <= 1 || duration <= 0) return;
+    if (scrubActiveRef.current || playheadDragRef.current) return;
     const vd = duration / zoom;
     setViewStart((vs) => {
       if (currentTime < vs) return clampViewStart(currentTime, vd, duration);
@@ -367,6 +392,60 @@ export const PortraitWaveTransport: React.FC<Props> = ({
     [bridgeApi, clearLongPress]
   );
 
+  const onPlayheadPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0 || !audioUrl || duration <= 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      clearPendingSingleTap();
+      clearLongPress();
+      playheadDragRef.current = true;
+      e.currentTarget.setPointerCapture(e.pointerId);
+      handlePortraitWaveScrub(e.clientX);
+    },
+    [audioUrl, duration, handlePortraitWaveScrub, clearPendingSingleTap, clearLongPress]
+  );
+
+  const onPlayheadPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!playheadDragRef.current || !(e.buttons & 1)) return;
+      e.preventDefault();
+      handlePortraitWaveScrub(e.clientX);
+    },
+    [handlePortraitWaveScrub]
+  );
+
+  const endPlayheadDrag = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!playheadDragRef.current) return;
+      playheadDragRef.current = false;
+      handlePortraitWaveScrub(e.clientX, true);
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+    },
+    [handlePortraitWaveScrub]
+  );
+
+  const isNearPlayhead = useCallback(
+    (clientX: number) => {
+      const canvas = canvasRef.current;
+      if (!canvas || duration <= 0 || viewDuration <= 0) return false;
+      return hitPlayheadStripForScrub(
+        clientX,
+        canvas,
+        viewStart,
+        viewDuration,
+        playheadSecForUi,
+        duration,
+        PORTRAIT_PLAYHEAD_SCRUB_HALF_WIDTH_PX
+      );
+    },
+    [duration, viewDuration, viewStart, playheadSecForUi]
+  );
+
   const onPointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (!bridgeApi?.handlers) return;
@@ -391,6 +470,13 @@ export const PortraitWaveTransport: React.FC<Props> = ({
 
       if (pointersRef.current.size > 2) return;
 
+      if (pointersRef.current.size === 1 && isNearPlayhead(e.clientX)) {
+        clearLongPress();
+        dragArmedRef.current = true;
+        bridgeApi.handlers.onWaveCanvasPointerDown(e);
+        return;
+      }
+
       longPressTimerRef.current = window.setTimeout(() => {
         longPressFiredRef.current = true;
         pointerDownRef.current = null;
@@ -401,7 +487,7 @@ export const PortraitWaveTransport: React.FC<Props> = ({
         bridgeApi.handlers.onWaveContextMenu(synthMouseEvent("contextmenu", e));
       }, LONG_PRESS_MS);
     },
-    [bridgeApi, zoom, currentTime, timeFromClientX, clearLongPress, clearPendingSingleTap]
+    [bridgeApi, zoom, currentTime, timeFromClientX, clearLongPress, clearPendingSingleTap, isNearPlayhead]
   );
 
   const onPointerMove = useCallback(
@@ -686,7 +772,15 @@ export const PortraitWaveTransport: React.FC<Props> = ({
           <div
             className={styles.playheadLine}
             style={{ left: `${playheadPct}%` }}
-            aria-hidden
+            role="slider"
+            aria-valuemin={0}
+            aria-valuemax={duration}
+            aria-valuenow={playheadSecForUi}
+            aria-label="再生位置（ドラッグで移動・再生中も操作できます）"
+            onPointerDown={onPlayheadPointerDown}
+            onPointerMove={onPlayheadPointerMove}
+            onPointerUp={endPlayheadDrag}
+            onPointerCancel={endPlayheadDrag}
           />
         ) : null}
       </div>

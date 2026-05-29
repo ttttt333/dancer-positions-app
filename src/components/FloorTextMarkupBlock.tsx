@@ -122,6 +122,11 @@ export function FloorTextMarkupBlock({
   onUpdateTextRotation,
 }: FloorTextMarkupBlockProps) {
   const rotateDragRef = useRef<FloorTextRotateDragPayload | null>(null);
+  const coarsePointer =
+    typeof window !== "undefined" &&
+    window.matchMedia("(pointer: coarse)").matches;
+  const resizeHandleSize = coarsePointer ? 14 : 8;
+  const rotateHandleSize = coarsePointer ? 24 : 18;
 
   const fs = Math.max(8, Math.min(56, m.fontSizePx ?? 18));
   const fw = Math.round(clamp(m.fontWeight ?? 600, 300, 900) / 50) * 50;
@@ -247,7 +252,9 @@ export function FloorTextMarkupBlock({
           : textMoveGrab
             ? "タップで選択。ダブルクリックで右パネル編集。ドラッグで移動"
             : floorMarkupTool === "text"
-              ? "タップで選択。ダブルクリックで右パネル編集"
+              ? onOpenTextEditSheet
+              ? "タップで選択 · 編集ボタンまたはダブルクリックで編集"
+              : "タップで選択。ダブルクリックで編集"
               : floorMarkupTool === "erase"
                 ? "タップで削除"
                 : undefined
@@ -371,6 +378,57 @@ export function FloorTextMarkupBlock({
             }}
           />
 
+          {onOpenTextEditSheet && !multiSelected ? (
+            <button
+              type="button"
+              aria-label="テキストを編集"
+              title="編集"
+              onPointerDown={(ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+              }}
+              onClick={(ev) => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                onOpenTextEditSheet(m, draftFromMarkup());
+              }}
+              style={{
+                position: "absolute",
+                top: coarsePointer ? -20 : -16,
+                right: coarsePointer ? -20 : -16,
+                width: coarsePointer ? 36 : 28,
+                height: coarsePointer ? 36 : 28,
+                borderRadius: "50%",
+                border: "1.5px solid #fff",
+                background: "rgba(79, 70, 229, 0.95)",
+                color: "#fff",
+                zIndex: 4,
+                pointerEvents: "auto",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 0,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
+              }}
+            >
+              <svg
+                width={coarsePointer ? 16 : 13}
+                height={coarsePointer ? 16 : 13}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+              </svg>
+            </button>
+          ) : null}
+
           {/* コーナーリサイズハンドル（小さい円） */}
           {(["nw", "ne", "sw", "se"] as FloorTextCornerHandle[]).map((h) => (
             <div
@@ -382,8 +440,8 @@ export function FloorTextMarkupBlock({
               }
               style={{
                 position: "absolute",
-                width: 8,
-                height: 8,
+                width: resizeHandleSize,
+                height: resizeHandleSize,
                 borderRadius: "50%",
                 background: "#fff",
                 border: "1.5px solid rgba(139,92,246,0.9)",
@@ -391,10 +449,13 @@ export function FloorTextMarkupBlock({
                 pointerEvents: "auto",
                 cursor: handleCursor(h),
                 boxSizing: "border-box",
-                ...(h === "nw" ? { left: -4, top: -4 }
-                  : h === "ne" ? { right: -4, top: -4 }
-                  : h === "sw" ? { left: -4, bottom: -4 }
-                  : { right: -4, bottom: -4 }),
+                ...(h === "nw"
+                  ? { left: -resizeHandleSize / 2, top: -resizeHandleSize / 2 }
+                  : h === "ne"
+                    ? { right: -resizeHandleSize / 2, top: -resizeHandleSize / 2 }
+                    : h === "sw"
+                      ? { left: -resizeHandleSize / 2, bottom: -resizeHandleSize / 2 }
+                      : { right: -resizeHandleSize / 2, bottom: -resizeHandleSize / 2 }),
               }}
             />
           ))}
@@ -408,11 +469,11 @@ export function FloorTextMarkupBlock({
               onPointerDown={beginRotateDrag}
               style={{
                 position: "absolute",
-                top: -22,
+                top: -(rotateHandleSize + 4),
                 left: "50%",
                 transform: "translateX(-50%)",
-                width: 18,
-                height: 18,
+                width: rotateHandleSize,
+                height: rotateHandleSize,
                 borderRadius: "50%",
                 background: "rgba(139,92,246,0.9)",
                 border: "1.5px solid #fff",

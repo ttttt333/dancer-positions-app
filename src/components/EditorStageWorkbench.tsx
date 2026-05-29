@@ -357,7 +357,7 @@ export type EditorStageWorkbenchProps = {
   setStageView: Dispatch<SetStateAction<"2d" | "3d">>;
   floorTextPlaceSession: FloorTextPlaceSession | null;
   setFloorTextPlaceSession: Dispatch<SetStateAction<FloorTextPlaceSession | null>>;
-  commitFloorTextPlace: () => void;
+  commitFloorTextPlace: () => boolean;
   hasRosterMembers: boolean;
   /** true のとき「テキスト」（床プレビュー配置）ボタンとその入力帯を出さない */
   hideFloorTextToolbar?: boolean;
@@ -875,15 +875,16 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                   s ? { ...s, body: e.target.value } : s
                 )
               }
-              rows={2}
+              rows={3}
               aria-label={t("editor.comp.k098")}
-              placeholder=""
+              placeholder={t("editor.layout.floorTextPlaceholder")}
               style={{
                 flex: "1 1 220px",
                 minWidth: "180px",
                 maxWidth: "520px",
-                fontSize: "12px",
-                padding: "6px 8px",
+                fontSize: "16px",
+                lineHeight: 1.45,
+                padding: "10px 12px",
                 borderRadius: "8px",
                 border: "1px solid #475569",
                 background: "#0f172a",
@@ -934,7 +935,11 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                 <button
                   type="button"
-                  onClick={() => commitFloorTextPlace()}
+                  onClick={() => {
+                    if (!commitFloorTextPlace()) {
+                      window.alert(t("editor.layout.floorTextAlert"));
+                    }
+                  }}
                   style={{
                     fontSize: "12px",
                     fontWeight: 700,
@@ -1271,15 +1276,16 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                 s ? { ...s, body: e.target.value } : s
               )
             }
-            rows={2}
+            rows={3}
             aria-label={t("editor.comp.k098")}
-            placeholder=""
+            placeholder={t("editor.layout.floorTextPlaceholder")}
             style={{
               flex: "1 1 220px",
               minWidth: "180px",
               maxWidth: "520px",
-              fontSize: "12px",
-              padding: "6px 8px",
+              fontSize: "16px",
+              lineHeight: 1.45,
+              padding: "10px 12px",
               borderRadius: "8px",
               border: "1px solid #475569",
               background: "#0f172a",
@@ -1330,7 +1336,11 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
               <button
                 type="button"
-                onClick={() => commitFloorTextPlace()}
+                onClick={() => {
+                  if (!commitFloorTextPlace()) {
+                    window.alert(t("editor.layout.floorTextAlert"));
+                  }
+                }}
                 style={{
                   fontSize: "12px",
                   fontWeight: 700,

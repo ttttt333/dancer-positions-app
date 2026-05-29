@@ -87,13 +87,28 @@
   position: absolute;
   top: -4px;
   bottom: -4px;
+  width: 16px;
+  margin-left: -8px;
+  transform: none;
+  background: transparent;
+  pointer-events: auto;
+  cursor: col-resize;
+  z-index: 4;
+  touch-action: none;
+}
+
+.playheadLine::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
   width: 4px;
   transform: translateX(-50%);
   background: #ef4444;
   box-shadow: 0 0 8px rgba(239, 68, 68, 0.65);
-  pointer-events: none;
-  z-index: 3;
   border-radius: 2px;
+  pointer-events: none;
 }
 
 .waveCanvas {

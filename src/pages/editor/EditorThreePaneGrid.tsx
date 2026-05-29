@@ -9,6 +9,7 @@ import { EDITOR_GRID_GAP_PX, STAGE_RESIZER_PX } from "./editorConstants";
 import type { EditorLayoutProps } from "./editorLayoutProps";
 import { useAssignRef, useAttachElementRef } from "./useSafeElementRef";
 import { formatMmSsFloor } from "../../lib/timeFormat";
+import { createDefaultFloorTextPlaceSession } from "../../lib/floorTextPlaceSession";
 import { useMobileShellBridgeStore } from "../../store/useMobileShellBridgeStore";
 
 const Stage3DView = lazy(() =>
@@ -216,7 +217,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const undoFnRef = useRef(undo as (() => void) | null);
   const redoFnRef = useRef(redo as (() => void) | null);
   const saveSpotFnRef = useRef(saveStageToFormationBox as (() => void) | null);
-  const addTextFnRef = useRef(setFloorTextSideSheetOpen as ((open: boolean) => void) | null);
+  const addTextFnRef = useRef<(() => void) | null>(null);
   const cueListFnRef = useRef(setCueListModalOpen as ((open: boolean) => void) | null);
   const stageShapeFnRef = useRef(setStageShapePickerOpen as ((open: boolean) => void) | null);
   const setPieceFnRef = useRef(setSetPiecePickerOpen as ((open: boolean) => void) | null);
@@ -234,7 +235,19 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   undoFnRef.current = undo as (() => void);
   redoFnRef.current = redo as (() => void);
   saveSpotFnRef.current = saveStageToFormationBox as (() => void);
-  addTextFnRef.current = setFloorTextSideSheetOpen as ((open: boolean) => void);
+  const stageViewRef = useRef(stageView);
+  stageViewRef.current = stageView;
+
+  addTextFnRef.current = () => {
+    if (stageViewRef.current !== "2d") {
+      window.alert(t("editor.layout.floorText2dOnly"));
+      return;
+    }
+    (setFloorTextPlaceSession as (v: unknown) => void)(
+      createDefaultFloorTextPlaceSession()
+    );
+    (setFloorTextSideSheetOpen as (open: boolean) => void)(true);
+  };
   cueListFnRef.current = setCueListModalOpen as ((open: boolean) => void);
   stageShapeFnRef.current = setStageShapePickerOpen as ((open: boolean) => void);
   setPieceFnRef.current = setSetPiecePickerOpen as ((open: boolean) => void);
@@ -326,7 +339,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
       onUndo: () => undoFnRef.current?.(),
       onRedo: () => redoFnRef.current?.(),
       onSaveSpot: () => saveSpotFnRef.current?.(),
-      onAddText: () => addTextFnRef.current?.(true),
+      onAddText: () => addTextFnRef.current?.(),
       onCueList: () => cueListFnRef.current?.(true),
       onStageShape: () => stageShapeFnRef.current?.(true),
       onSetPiece: () => setPieceFnRef.current?.(true),
