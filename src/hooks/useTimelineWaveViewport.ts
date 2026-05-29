@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { playbackEngine } from "../core/playbackEngine";
 import {
   getWaveViewForDraw,
@@ -25,11 +25,14 @@ export function useTimelineWaveViewport({
   const viewPortionRef = useRef(viewPortion);
   viewPortionRef.current = viewPortion;
 
-  const [waveViewStartOverride, setWaveViewStartOverride] = useState<
+  const [waveViewStartOverride, setWaveViewStartOverrideState] = useState<
     number | null
   >(null);
   const waveViewStartOverrideRef = useRef<number | null>(null);
-  waveViewStartOverrideRef.current = waveViewStartOverride;
+  const setWaveViewStartOverride = useCallback((start: number | null) => {
+    waveViewStartOverrideRef.current = start;
+    setWaveViewStartOverrideState(start);
+  }, []);
 
   const playheadGridSec = useMemo(
     () => (isPlaying ? quantizePlayheadForWaveView(currentTime) : currentTime),

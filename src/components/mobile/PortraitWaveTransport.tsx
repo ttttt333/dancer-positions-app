@@ -79,6 +79,8 @@ export const PortraitWaveTransport: React.FC<Props> = ({
   const viewportRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [viewStart, setViewStart] = useState(0);
+  const viewStartRef = useRef(0);
+  viewStartRef.current = viewStart;
   const lastTapRef = useRef(0);
   const pendingSingleTapRef = useRef<number | null>(null);
   const suppressClickRef = useRef(false);
@@ -210,18 +212,27 @@ export const PortraitWaveTransport: React.FC<Props> = ({
       if (r.width <= 0) return;
       const vd = viewDuration;
       const zone = Math.max(EDGE_SCROLL_ZONE_MIN_PX, r.width * EDGE_SCROLL_ZONE_RATIO);
+      const vs = viewStartRef.current;
+      let next = vs;
 
       if (clientX <= r.left + zone) {
         const depth = 1 - Math.max(0, (clientX - r.left) / zone);
         const pan = vd * (0.016 + 0.065 * depth);
-        setViewStart((vs) => clampViewStart(vs - pan, vd, duration));
+        next = clampViewStart(vs - pan, vd, duration);
       } else if (clientX >= r.right - zone) {
         const depth = 1 - Math.max(0, (r.right - clientX) / zone);
         const pan = vd * (0.016 + 0.065 * depth);
-        setViewStart((vs) => clampViewStart(vs + pan, vd, duration));
+        next = clampViewStart(vs + pan, vd, duration);
+      } else {
+        return;
       }
+      if (next === vs) return;
+      viewStartRef.current = next;
+      setViewStart(next);
+      syncPortraitView(next, zoom);
+      bridgeApi?.drawWaveformAt(currentTime);
     },
-    [zoom, duration, viewDuration]
+    [zoom, duration, viewDuration, syncPortraitView, bridgeApi, currentTime]
   );
 
   const isInEdgeScrollZone = useCallback((clientX: number) => {
@@ -249,6 +260,8 @@ export const PortraitWaveTransport: React.FC<Props> = ({
     if (scrubShouldSeekRef.current) {
       const t = timeFromClientX(x);
       if (t != null) onSeek(t);
+    } else {
+      useTimelineWaveBridgeStore.getState().portraitWaveEdgeScrollTick?.(x);
     }
     edgeScrollRafRef.current = requestAnimationFrame(tickEdgeScrollLoop);
   }, [edgeScrollAtClientX, isInEdgeScrollZone, timeFromClientX, onSeek]);

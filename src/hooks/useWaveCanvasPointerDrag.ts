@@ -120,7 +120,8 @@ export function useWaveCanvasPointerDrag({
       const rawWaveTimeFromClientX = (clientX: number) => {
         const r = c.getBoundingClientRect();
         const x = clientX - r.left;
-        return waveExtentXToTime(x, viewStart, viewSpan, r.width);
+        const { viewStart: vs, viewSpan: vsp } = lastWaveDrawRangeRef.current;
+        return waveExtentXToTime(x, vs, vsp, r.width);
       };
       const timeFromClientX = (clientX: number) =>
         clampSeekTimeSec({
@@ -266,11 +267,11 @@ export function useWaveCanvasPointerDrag({
         cueDragPreviewRangeRef.current = { cueId, tStart: cue.tStartSec, tEnd: cue.tEndSec };
         c.setPointerCapture(e.pointerId);
         const MIN_CUE_DUR = 0.05;
-        const onMove = (ev: PointerEvent) => {
-          if (ev.pointerId !== e.pointerId || !cueDragRef.current) return;
-          cueDragRef.current.moved = true;
+        const applyCueDragAtClientX = (clientX: number) => {
           const drag = cueDragRef.current;
-          const cur = timeFromClientX(ev.clientX);
+          if (!drag) return;
+          drag.moved = true;
+          const cur = timeFromClientX(clientX);
           let ns = drag.origStart;
           let ne = drag.origEnd;
           if (drag.mode === "move") {
@@ -297,7 +298,14 @@ export function useWaveCanvasPointerDrag({
           }
           ns = Math.round(ns * 100) / 100;
           ne = Math.round(ne * 100) / 100;
-          const resolved = resolveCueIntervalNonOverlap(cuesRef.current, cueId, ns, ne, trimLo, trimHi);
+          const resolved = resolveCueIntervalNonOverlap(
+            cuesRef.current,
+            cueId,
+            ns,
+            ne,
+            trimLo,
+            trimHi
+          );
           cueDragPreviewRangeRef.current = {
             cueId,
             tStart: resolved.tStartSec,
@@ -305,11 +313,34 @@ export function useWaveCanvasPointerDrag({
           };
           redraw();
         };
+        if (useTimelineWaveBridgeStore.getState().portraitActive) {
+          useTimelineWaveBridgeStore
+            .getState()
+            .setPortraitWaveEdgeScrollTick(applyCueDragAtClientX);
+        }
+        const onMove = (ev: PointerEvent) => {
+          if (ev.pointerId !== e.pointerId || !cueDragRef.current) return;
+          if (useTimelineWaveBridgeStore.getState().portraitActive) {
+            useTimelineWaveBridgeStore.getState().portraitWaveScrubAtClientX?.(
+              ev.clientX,
+              false,
+              false
+            );
+          }
+          applyCueDragAtClientX(ev.clientX);
+        };
         const onUp = (ev: PointerEvent) => {
           if (ev.pointerId !== e.pointerId || !cueDragRef.current) return;
           window.removeEventListener("pointermove", onMove);
           window.removeEventListener("pointerup", onUp);
           window.removeEventListener("pointercancel", onUp);
+          if (useTimelineWaveBridgeStore.getState().portraitActive) {
+            useTimelineWaveBridgeStore.getState().portraitWaveScrubAtClientX?.(
+              ev.clientX,
+              true
+            );
+            useTimelineWaveBridgeStore.getState().setPortraitWaveEdgeScrollTick(null);
+          }
           try {
             c.releasePointerCapture(ev.pointerId);
           } catch {
@@ -328,7 +359,8 @@ export function useWaveCanvasPointerDrag({
             Number.isFinite(preview.tStart) &&
             Number.isFinite(preview.tEnd) &&
             moved &&
-            (Math.abs(preview.tStart - origStart) > 1e-4 || Math.abs(preview.tEnd - origEnd) > 1e-4)
+            (Math.abs(preview.tStart - origStart) > 1e-4 ||
+              Math.abs(preview.tEnd - origEnd) > 1e-4)
           ) {
             const ns = preview.tStart;
             const ne = preview.tEnd;
@@ -337,11 +369,20 @@ export function useWaveCanvasPointerDrag({
                 p.trimEndSec,
                 durationRef.current
               );
-              const r = resolveCueIntervalNonOverlap(p.cues, cid, ns, ne, p.trimStartSec, trimHiNow);
+              const r = resolveCueIntervalNonOverlap(
+                p.cues,
+                cid,
+                ns,
+                ne,
+                p.trimStartSec,
+                trimHiNow
+              );
               return {
                 ...p,
                 cues: sortCuesByStart(
-                  p.cues.map((x) => (x.id === cid ? { ...x, tStartSec: r.tStartSec, tEndSec: r.tEndSec } : x))
+                  p.cues.map((x) =>
+                    x.id === cid ? { ...x, tStartSec: r.tStartSec, tEndSec: r.tEndSec } : x
+                  )
                 ),
               };
             });

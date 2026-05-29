@@ -28,12 +28,15 @@ type TimelineWaveBridgeStore = {
   portraitWaveScrubAtClientX:
     | ((clientX: number, end?: boolean, shouldSeek?: boolean) => void)
     | null;
+  /** 縦画面: 端スクロール rAF 中にキュー帯などを追従更新（shouldSeek=false のとき） */
+  portraitWaveEdgeScrollTick: ((clientX: number) => void) | null;
   register: (api: TimelineWaveBridgeApi | null) => void;
   setPortraitActive: (active: boolean) => void;
   setPortraitCanvasRef: (ref: RefObject<HTMLCanvasElement | null> | null) => void;
   setPortraitWaveScrubAtClientX: (
     fn: ((clientX: number, end?: boolean, shouldSeek?: boolean) => void) | null
   ) => void;
+  setPortraitWaveEdgeScrollTick: (fn: ((clientX: number) => void) | null) => void;
   /** 縦画面の zoom / viewStart を PC 版波形ビューに同期 */
   syncPortraitView: (viewStart: number, zoom: number) => void;
 };
@@ -44,6 +47,7 @@ export const useTimelineWaveBridgeStore = create<TimelineWaveBridgeStore>((set, 
   portraitCanvasRef: null,
   api: null,
   portraitWaveScrubAtClientX: null,
+  portraitWaveEdgeScrollTick: null,
   register: (api) =>
     set({
       api,
@@ -52,6 +56,7 @@ export const useTimelineWaveBridgeStore = create<TimelineWaveBridgeStore>((set, 
   setPortraitActive: (active) => set({ portraitActive: active }),
   setPortraitCanvasRef: (ref) => set({ portraitCanvasRef: ref }),
   setPortraitWaveScrubAtClientX: (fn) => set({ portraitWaveScrubAtClientX: fn }),
+  setPortraitWaveEdgeScrollTick: (fn) => set({ portraitWaveEdgeScrollTick: fn }),
   syncPortraitView: (viewStart, zoom) => {
     const { api, isPlaying } = {
       api: get().api,
