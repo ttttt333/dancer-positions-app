@@ -41,13 +41,28 @@ export async function fetchServerWavePeaks(
   return { ready: false, status: (row as { status?: string }).status };
 }
 
+/** 即時 1 回だけサーバー波形を試す（ポーリングなし） */
+export async function tryFetchServerWavePeaksReady(
+  assetId: number
+): Promise<{ peaks: number[]; durationSec: number } | null> {
+  try {
+    const row = await fetchServerWavePeaks(assetId);
+    if (row.ready && row.peaks.length > 0) {
+      return { peaks: row.peaks, durationSec: row.durationSec };
+    }
+  } catch {
+    /* 未ログイン等 */
+  }
+  return null;
+}
+
 /** サーバー生成待ちのとき短時間ポーリング */
 export async function fetchServerWavePeaksWithPoll(
   assetId: number,
   opts?: { maxAttempts?: number; intervalMs?: number }
 ): Promise<{ peaks: number[]; durationSec: number } | null> {
-  const maxAttempts = opts?.maxAttempts ?? 40;
-  const intervalMs = opts?.intervalMs ?? 300;
+  const maxAttempts = opts?.maxAttempts ?? 24;
+  const intervalMs = opts?.intervalMs ?? 150;
   for (let i = 0; i < maxAttempts; i++) {
     reportWaveLoadProgress(
       0.08 + (i / maxAttempts) * 0.35,
@@ -58,7 +73,9 @@ export async function fetchServerWavePeaksWithPoll(
       return { peaks: row.peaks, durationSec: row.durationSec };
     }
     if (row.status === "failed") return null;
-    await new Promise((r) => window.setTimeout(r, intervalMs));
+    if (i < maxAttempts - 1) {
+      await new Promise((r) => window.setTimeout(r, intervalMs));
+    }
   }
   return null;
 }

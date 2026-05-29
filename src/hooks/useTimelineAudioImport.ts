@@ -21,8 +21,6 @@ import {
   setPersistedSupabaseAudio,
 } from "../lib/timelineAudioBlobPersist";
 import type { TimelineExtractProgress } from "../components/TimelineAudioChrome";
-import { computeServerWavePeaksFromBlob, fetchServerWavePeaksWithPoll } from "../lib/wavePeaksServerApi";
-import { supabaseUploadWavePeaks } from "../lib/supabaseWavePeaks";
 import {
   wavePeaksCacheKeyForServerAsset,
   wavePeaksCacheKeyForSupabase,
@@ -138,42 +136,22 @@ export function useTimelineAudioImport({
           clearPlaybackTrustedDurationSec();
           playbackEngine.setMediaSourceUrl(url);
 
-          if (up.kind === "supabase") {
-            const cacheKey = wavePeaksCacheKeyForSupabase(up.path);
-            let precomputed: { peaks: number[]; durationSec: number } | null = null;
-            try {
-              const payload = await computeServerWavePeaksFromBlob(
-                new Blob([buf], { type: mime }),
-                f.name
-              );
-              await supabaseUploadWavePeaks(up.path, payload.peaks, payload.durationSec);
-              precomputed = {
-                peaks: payload.peaks,
-                durationSec: payload.durationSec,
-              };
-            } catch (peakErr) {
-              console.warn("[audioImport] server peak compute failed:", peakErr);
-            }
-            await decodePeaksWithNativeFallback(f, buf, isVideo, decodePeaksFromBuffer, {
-              cacheKey,
-              supabaseAudioPath: up.path,
-              precomputed,
-            });
-          } else {
-            let precomputed: { peaks: number[]; durationSec: number } | null = null;
-            try {
-              precomputed = await fetchServerWavePeaksWithPoll(up.id, {
-                maxAttempts: 30,
-                intervalMs: 250,
-              });
-            } catch (peakErr) {
-              console.warn("[audioImport] server peaks poll failed:", peakErr);
-            }
-            await decodePeaksWithNativeFallback(f, buf, isVideo, decodePeaksFromBuffer, {
-              cacheKey: wavePeaksCacheKeyForServerAsset(up.id),
-              precomputed,
-            });
-          }
+          const decodeOpts: DecodePeaksOptions =
+            up.kind === "supabase"
+              ? {
+                  cacheKey: wavePeaksCacheKeyForSupabase(up.path),
+                  supabaseAudioPath: up.path,
+                }
+              : { cacheKey: wavePeaksCacheKeyForServerAsset(up.id) };
+
+          reportWaveLoadProgress(0.45, "波形を解析中…");
+          await decodePeaksWithNativeFallback(
+            f,
+            buf,
+            isVideo,
+            decodePeaksFromBuffer,
+            decodeOpts
+          );
           return;
         } catch (err) {
           console.warn("[audioImport] cloud upload failed, falling back to local:", err);
@@ -219,6 +197,7 @@ export function useTimelineAudioImport({
       blobUrlRef.current = url;
       clearPlaybackTrustedDurationSec();
       playbackEngine.setMediaSourceUrl(url);
+      reportWaveLoadProgress(0.35, "波形を解析中…");
       try {
         const decodedBuf = await decodePeaksWithNativeFallback(
           f,

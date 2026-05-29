@@ -25,7 +25,11 @@ import {
   wavePeaksCacheKeyForServerAsset,
   wavePeaksCacheKeyForSupabase,
 } from "../lib/wavePeaksCache";
-import { fetchServerWavePeaksWithPoll } from "../lib/wavePeaksServerApi";
+import {
+  resolveServerAssetWavePeaks,
+  resolveSupabaseReuseWavePeaks,
+} from "../lib/resolveRemoteWavePeaks";
+import { supabaseDownloadWavePeaks } from "../lib/supabaseWavePeaks";
 import {
   clearWaveLoadProgress,
   reportWaveLoadProgress,
@@ -107,24 +111,18 @@ export function useTimelineRemoteAudio({
             }
             return;
           }
-          const peaksPromise = fetchServerWavePeaksWithPoll(aid);
-          const buf = await arrayBufferFromBlobUrl(reuseUrl);
           if (cancelled) return;
-          const serverPeaks = await peaksPromise;
-          if (serverPeaks?.peaks.length) {
-            await decodePeaksFromBuffer(new ArrayBuffer(0), {
-              cacheKey,
-              precomputed: serverPeaks,
-            });
-            return;
-          }
-          await decodePeaksFromBuffer(buf, { cacheKey });
+          await resolveServerAssetWavePeaks(
+            aid,
+            () => arrayBufferFromBlobUrl(reuseUrl),
+            decodePeaksFromBuffer,
+            { cacheKey }
+          );
           return;
         }
 
-        const peaksPromise = fetchServerWavePeaksWithPoll(aid);
         const { blobUrl, buffer } = await fetchAuthorizedAudio(aid, (ratio) => {
-          reportWaveLoadProgress(0.05 + ratio * 0.35, "音源を読み込み中…");
+          reportWaveLoadProgress(0.05 + ratio * 0.45, "音源を読み込み中…");
         });
         if (cancelled) {
           URL.revokeObjectURL(blobUrl);
@@ -142,15 +140,8 @@ export function useTimelineRemoteAudio({
         clearPlaybackTrustedDurationSec();
         playbackEngine.setMediaSourceUrl(blobUrl);
         if (!cancelled) {
-          const serverPeaks = await peaksPromise;
-          if (serverPeaks?.peaks.length) {
-            await decodePeaksFromBuffer(new ArrayBuffer(0), {
-              cacheKey,
-              precomputed: serverPeaks,
-            });
-          } else {
-            await decodePeaksFromBuffer(buffer, { cacheKey });
-          }
+          reportWaveLoadProgress(0.55, "波形を解析中…");
+          await decodePeaksFromBuffer(buffer, { cacheKey });
         }
       } catch (e) {
         clearWaveLoadProgress();
@@ -217,18 +208,21 @@ export function useTimelineRemoteAudio({
             }
             return;
           }
-          const buf = await arrayBufferFromBlobUrl(reuseUrl);
-          if (!cancelled) {
-            await decodePeaksFromBuffer(buf, {
-              cacheKey,
-              supabaseAudioPath: effectivePath,
-            });
-          }
+          if (cancelled) return;
+          await resolveSupabaseReuseWavePeaks(
+            effectivePath,
+            () => arrayBufferFromBlobUrl(reuseUrl),
+            decodePeaksFromBuffer,
+            { cacheKey, supabaseAudioPath: effectivePath }
+          );
           return;
         }
 
-        reportWaveLoadProgress(0.08, "音源をダウンロード中…");
-        const buf = await supabaseDownloadProjectAudioBuffer(effectivePath);
+        reportWaveLoadProgress(0.08, "音源と波形を並列取得中…");
+        const [sidecar, buf] = await Promise.all([
+          supabaseDownloadWavePeaks(effectivePath).catch(() => null),
+          supabaseDownloadProjectAudioBuffer(effectivePath),
+        ]);
         if (cancelled) return;
         const url = URL.createObjectURL(new Blob([buf]));
         if (
@@ -243,11 +237,22 @@ export function useTimelineRemoteAudio({
         clearPlaybackTrustedDurationSec();
         playbackEngine.setMediaSourceUrl(url);
         if (!cancelled) {
-          reportWaveLoadProgress(0.38, "波形を読み込み中…");
-          await decodePeaksFromBuffer(buf, {
-            cacheKey,
-            supabaseAudioPath: effectivePath,
-          });
+          if (sidecar?.peaks.length) {
+            await decodePeaksFromBuffer(new ArrayBuffer(0), {
+              cacheKey,
+              supabaseAudioPath: effectivePath,
+              precomputed: {
+                peaks: sidecar.peaks,
+                durationSec: sidecar.durationSec,
+              },
+            });
+          } else {
+            reportWaveLoadProgress(0.42, "波形を解析中…");
+            await decodePeaksFromBuffer(buf, {
+              cacheKey,
+              supabaseAudioPath: effectivePath,
+            });
+          }
         }
       } catch (e) {
         clearWaveLoadProgress();
