@@ -48,3 +48,47 @@ export async function supabaseDownloadProjectAudioBuffer(path: string): Promise<
   }
   return data.arrayBuffer();
 }
+
+/** 署名付き URL で HTML5 Audio がストリーミング再生できる */
+export async function supabaseGetProjectAudioSignedUrl(
+  path: string,
+  expiresInSec = 3600
+): Promise<string> {
+  const sb = getSupabase();
+  const { data, error } = await sb.storage
+    .from(CHOREOCORE_AUDIO_BUCKET)
+    .createSignedUrl(path, expiresInSec);
+  if (error || !data?.signedUrl) {
+    throw new Error(error?.message || "音源 URL の取得に失敗しました");
+  }
+  return data.signedUrl;
+}
+
+export async function supabaseDownloadProjectAudioWithCache(
+  path: string,
+  onProgress?: (ratio: number) => void
+): Promise<{ buffer: ArrayBuffer; mime: string }> {
+  const {
+    getCachedAudioBlob,
+    putCachedAudioBlob,
+    waveMediaCacheKeyForSupabase,
+  } = await import("./waveMediaCache");
+  const cacheKey = waveMediaCacheKeyForSupabase(path);
+  const cached = await getCachedAudioBlob(cacheKey);
+  if (cached) {
+    onProgress?.(1);
+    return { buffer: await cached.blob.arrayBuffer(), mime: cached.mime };
+  }
+  onProgress?.(0.05);
+  const sb = getSupabase();
+  const { data, error } = await sb.storage.from(CHOREOCORE_AUDIO_BUCKET).download(path);
+  if (error) {
+    throw new Error(error.message || "音源のダウンロードに失敗しました");
+  }
+  onProgress?.(0.95);
+  const buffer = await data.arrayBuffer();
+  const mime = data.type || "application/octet-stream";
+  void putCachedAudioBlob(cacheKey, new Blob([buffer], { type: mime }), mime);
+  onProgress?.(1);
+  return { buffer, mime };
+}

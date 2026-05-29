@@ -56,16 +56,16 @@ export async function tryFetchServerWavePeaksReady(
   return null;
 }
 
-/** サーバー生成待ちのとき短時間ポーリング */
+/** サーバー生成待ちのときポーリング（既定 ~30 秒） */
 export async function fetchServerWavePeaksWithPoll(
   assetId: number,
   opts?: { maxAttempts?: number; intervalMs?: number }
 ): Promise<{ peaks: number[]; durationSec: number } | null> {
-  const maxAttempts = opts?.maxAttempts ?? 24;
-  const intervalMs = opts?.intervalMs ?? 150;
+  const maxAttempts = opts?.maxAttempts ?? 120;
+  const intervalMs = opts?.intervalMs ?? 250;
   for (let i = 0; i < maxAttempts; i++) {
     reportWaveLoadProgress(
-      0.08 + (i / maxAttempts) * 0.35,
+      0.4 + (i / maxAttempts) * 0.45,
       i === 0 ? "波形データを取得中…" : "サーバーで波形を生成中…"
     );
     const row = await fetchServerWavePeaks(assetId);

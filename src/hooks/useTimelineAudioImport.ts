@@ -26,6 +26,11 @@ import {
   wavePeaksCacheKeyForSupabase,
 } from "../lib/wavePeaksCache";
 import type { DecodePeaksOptions } from "./useTimelineWaveDecode";
+import {
+  computeServerWavePeaksFromBlob,
+  payloadToPeaksResult,
+} from "../lib/wavePeaksServerApi";
+import { resolveServerAssetWavePeaks } from "../lib/resolveRemoteWavePeaks";
 import { reportWaveLoadError, reportWaveLoadProgress } from "../lib/waveLoadProgress";
 
 type Params = {
@@ -137,6 +142,7 @@ export function useTimelineAudioImport({
           clearPlaybackTrustedDurationSec();
           playbackEngine.setMediaSourceUrl(url);
 
+          reportWaveLoadProgress(0.45, "波形を取得中…");
           const decodeOpts: DecodePeaksOptions =
             up.kind === "supabase"
               ? {
@@ -145,14 +151,31 @@ export function useTimelineAudioImport({
                 }
               : { cacheKey: wavePeaksCacheKeyForServerAsset(up.id) };
 
-          reportWaveLoadProgress(0.45, "波形を解析中…");
-          await decodePeaksWithNativeFallback(
-            f,
-            buf,
-            isVideo,
-            decodePeaksFromBuffer,
-            decodeOpts
-          );
+          if (up.kind === "server") {
+            await resolveServerAssetWavePeaks(
+              up.id,
+              () => Promise.resolve(buf),
+              decodePeaksFromBuffer,
+              decodeOpts
+            );
+          } else {
+            try {
+              const payload = await computeServerWavePeaksFromBlob(blob, f.name);
+              await decodePeaksFromBuffer(new ArrayBuffer(0), {
+                ...decodeOpts,
+                precomputed: payloadToPeaksResult(payload),
+              });
+            } catch (err) {
+              console.warn("[audioImport] server peaks failed, local decode:", err);
+              await decodePeaksWithNativeFallback(
+                f,
+                buf,
+                isVideo,
+                decodePeaksFromBuffer,
+                decodeOpts
+              );
+            }
+          }
           return;
         } catch (err) {
           console.warn("[audioImport] cloud upload failed, falling back to local:", err);

@@ -3,7 +3,10 @@ import { useEffect } from "react";
 import { fetchAuthorizedAudio, getToken } from "../api/client";
 import { playbackEngine } from "../core/playbackEngine";
 import { isSupabaseBackend } from "../lib/supabaseClient";
-import { supabaseDownloadProjectAudioBuffer } from "../lib/supabaseAudio";
+import {
+  supabaseDownloadProjectAudioWithCache,
+  supabaseGetProjectAudioSignedUrl,
+} from "../lib/supabaseAudio";
 import { getFlowLibraryAudio } from "../lib/flowLibraryLocalAudio";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import {
@@ -31,6 +34,10 @@ import {
 } from "../lib/resolveRemoteWavePeaks";
 import { supabaseDownloadWavePeaks } from "../lib/supabaseWavePeaks";
 import {
+  getCachedPeaksPayload,
+  putCachedPeaksPayload,
+} from "../lib/waveMediaCache";
+import {
   reportWaveLoadError,
   reportWaveLoadProgress,
 } from "../lib/waveLoadProgress";
@@ -48,6 +55,23 @@ type Params = {
   publicShareView?: boolean;
 };
 
+function attachPlaybackUrl(
+  blobUrlRef: MutableRefObject<string | null>,
+  url: string,
+  clearPlaybackTrustedDurationSec: () => void
+) {
+  if (
+    blobUrlRef.current &&
+    blobUrlRef.current !== persistedServerAudioBlobUrl &&
+    blobUrlRef.current !== persistedSupabaseAudioBlobUrl &&
+    !blobUrlRef.current.startsWith("http")
+  ) {
+    URL.revokeObjectURL(blobUrlRef.current);
+  }
+  blobUrlRef.current = url;
+  clearPlaybackTrustedDurationSec();
+  playbackEngine.setMediaSourceUrl(url);
+}
 
 /**
  * プロジェクトに紐づくリモート／ローカルストア音源（API・Supabase・フローライブラリ）を
@@ -121,9 +145,27 @@ export function useTimelineRemoteAudio({
           return;
         }
 
-        const { blobUrl, buffer } = await fetchAuthorizedAudio(aid, (ratio) => {
-          reportWaveLoadProgress(0.05 + ratio * 0.45, "音源を読み込み中…");
+        reportWaveLoadProgress(0.05, "音源と波形を並列取得中…");
+        let audioResult: { blobUrl: string; buffer: ArrayBuffer } | null = null;
+        const audioPromise = fetchAuthorizedAudio(aid, (ratio) => {
+          reportWaveLoadProgress(0.05 + ratio * 0.35, "音源を読み込み中…");
+        }).then((result) => {
+          audioResult = result;
+          return result;
         });
+
+        const peaksPromise = resolveServerAssetWavePeaks(
+          aid,
+          async () => {
+            if (audioResult) return audioResult.buffer;
+            const result = await audioPromise;
+            return result.buffer;
+          },
+          decodePeaksFromBuffer,
+          { cacheKey }
+        );
+
+        const { blobUrl } = await audioPromise;
         if (cancelled) {
           URL.revokeObjectURL(blobUrl);
           return;
@@ -139,9 +181,9 @@ export function useTimelineRemoteAudio({
         setPersistedServerAudio(blobUrl, aid);
         clearPlaybackTrustedDurationSec();
         playbackEngine.setMediaSourceUrl(blobUrl);
+
         if (!cancelled) {
-          reportWaveLoadProgress(0.55, "波形を解析中…");
-          await decodePeaksFromBuffer(buffer, { cacheKey });
+          await peaksPromise;
         }
       } catch (e) {
         reportWaveLoadError(
@@ -219,42 +261,82 @@ export function useTimelineRemoteAudio({
           return;
         }
 
-        reportWaveLoadProgress(0.08, "音源と波形を並列取得中…");
-        const [sidecar, buf] = await Promise.all([
-          supabaseDownloadWavePeaks(effectivePath).catch(() => null),
-          supabaseDownloadProjectAudioBuffer(effectivePath),
-        ]);
-        if (cancelled) return;
-        const url = URL.createObjectURL(new Blob([buf]));
-        if (
-          blobUrlRef.current &&
-          blobUrlRef.current !== persistedServerAudioBlobUrl &&
-          blobUrlRef.current !== persistedSupabaseAudioBlobUrl
-        ) {
-          URL.revokeObjectURL(blobUrlRef.current);
-        }
-        blobUrlRef.current = url;
-        setPersistedSupabaseAudio(url, effectivePath);
-        clearPlaybackTrustedDurationSec();
-        playbackEngine.setMediaSourceUrl(url);
-        if (!cancelled) {
-          if (sidecar?.peaks.length) {
-            await decodePeaksFromBuffer(new ArrayBuffer(0), {
-              cacheKey,
-              supabaseAudioPath: effectivePath,
-              precomputed: {
-                peaks: sidecar.peaks,
-                durationSec: sidecar.durationSec,
-              },
-            });
-          } else {
-            reportWaveLoadProgress(0.42, "波形を解析中…");
-            await decodePeaksFromBuffer(buf, {
-              cacheKey,
-              supabaseAudioPath: effectivePath,
-            });
+        reportWaveLoadProgress(0.05, "音源と波形を並列取得中…");
+        const sidecarPromise = supabaseDownloadWavePeaks(effectivePath).catch(
+          () => null
+        );
+
+        let signedPlaybackUrl: string | null = null;
+        if (!publicShareView) {
+          try {
+            signedPlaybackUrl = await supabaseGetProjectAudioSignedUrl(
+              effectivePath
+            );
+          } catch {
+            /* 署名 URL 不可時は blob ダウンロードへ */
           }
         }
+
+        if (signedPlaybackUrl && !cancelled) {
+          attachPlaybackUrl(
+            blobUrlRef,
+            signedPlaybackUrl,
+            clearPlaybackTrustedDurationSec
+          );
+        }
+
+        const audioPromise = supabaseDownloadProjectAudioWithCache(
+          effectivePath,
+          (ratio) => {
+            reportWaveLoadProgress(0.08 + ratio * 0.32, "音源を読み込み中…");
+          }
+        );
+
+        const [sidecar, audio] = await Promise.all([
+          sidecarPromise,
+          audioPromise,
+        ]);
+        if (cancelled) return;
+
+        const blobUrl = URL.createObjectURL(
+          new Blob([audio.buffer], { type: audio.mime })
+        );
+        setPersistedSupabaseAudio(blobUrl, effectivePath);
+        attachPlaybackUrl(blobUrlRef, blobUrl, clearPlaybackTrustedDurationSec);
+
+        if (sidecar?.peaks.length) {
+          void putCachedPeaksPayload(
+            cacheKey,
+            sidecar.peaks,
+            sidecar.durationSec
+          );
+          await decodePeaksFromBuffer(new ArrayBuffer(0), {
+            cacheKey,
+            supabaseAudioPath: effectivePath,
+            precomputed: {
+              peaks: sidecar.peaks,
+              durationSec: sidecar.durationSec,
+            },
+          });
+          return;
+        }
+
+        const mediaPeaks = await getCachedPeaksPayload(cacheKey);
+        if (mediaPeaks?.peaks.length) {
+          await decodePeaksFromBuffer(new ArrayBuffer(0), {
+            cacheKey,
+            supabaseAudioPath: effectivePath,
+            precomputed: mediaPeaks,
+          });
+          return;
+        }
+
+        await resolveSupabaseReuseWavePeaks(
+          effectivePath,
+          () => Promise.resolve(audio.buffer),
+          decodePeaksFromBuffer,
+          { cacheKey, supabaseAudioPath: effectivePath }
+        );
       } catch (e) {
         reportWaveLoadError(
           e instanceof Error ? e.message : "音源の読み込みに失敗しました"
@@ -289,6 +371,13 @@ export function useTimelineRemoteAudio({
         clearPlaybackTrustedDurationSec();
         playbackEngine.setMediaSourceUrl(url);
         const cacheKey = wavePeaksCacheKeyForFlow(flowKey);
+        const cached = await getWavePeaksCache(cacheKey);
+        if (cached?.peaks.length) {
+          if (!cancelled) {
+            await decodePeaksFromBuffer(new ArrayBuffer(0), { cacheKey });
+          }
+          return;
+        }
         const buf = await blob.arrayBuffer();
         if (!cancelled) await decodePeaksFromBuffer(buf, { cacheKey });
       } catch (e) {

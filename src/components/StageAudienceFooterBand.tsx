@@ -18,6 +18,8 @@ export function StageAudienceFooterBand({
   wrapperStyle,
 }: StageAudienceFooterBandProps) {
   const hasGuideLabels = guideLineMarks.length > 0;
+  /** センター前ドット（8px・top 0 で半分はみ出し）の直下に「客席」を置く */
+  const audienceCaptionTopPx = 8;
   const captionStyle: CSSProperties = {
     fontSize: "clamp(8px, 3.2cqw, 14px)",
     fontWeight: 700,
@@ -33,7 +35,7 @@ export function StageAudienceFooterBand({
       className="stage-audience-footer-band"
       style={{
         flex: "0 0 auto",
-        minHeight: hasGuideLabels ? 22 : 20,
+        minHeight: hasGuideLabels ? 24 : 22,
         position: "relative",
         width: "100%",
         pointerEvents: "none",
@@ -102,7 +104,7 @@ export function StageAudienceFooterBand({
             style={{
               position: "absolute",
               left: "50%",
-              top: 0,
+              top: audienceCaptionTopPx,
               transform: "translateX(-50%)",
               ...captionStyle,
             }}
@@ -115,6 +117,7 @@ export function StageAudienceFooterBand({
           className="stage-audience-footer-band__caption-only"
           style={{
             textAlign: "center",
+            paddingTop: audienceCaptionTopPx,
             fontSize: "clamp(9px, 3.5cqw, 15px)",
             fontWeight: 600,
             color: audienceCaptionColor,

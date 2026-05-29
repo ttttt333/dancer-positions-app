@@ -130,13 +130,30 @@ export async function fetchAuthorizedAudioBlobUrl(assetId: number): Promise<stri
   return blobUrl;
 }
 
-/** 認証付き音源を 1 回の取得で blob URL と ArrayBuffer の両方返す（波形デコード用） */
+/** 認証付き音源を 1 回の取得で blob URL と ArrayBuffer の両方返す（再生・必要時のみデコード用） */
 export async function fetchAuthorizedAudio(
   assetId: number,
   onDownloadProgress?: (ratio: number) => void
 ): Promise<{ blobUrl: string; buffer: ArrayBuffer }> {
   const token = getToken();
   if (!token) throw new Error("ログインが必要です");
+
+  const {
+    getCachedAudioBlob,
+    putCachedAudioBlob,
+    waveMediaCacheKeyForServerAsset,
+  } = await import("../lib/waveMediaCache");
+  const mediaCacheKey = waveMediaCacheKeyForServerAsset(assetId);
+  const cached = await getCachedAudioBlob(mediaCacheKey);
+  if (cached) {
+    onDownloadProgress?.(1);
+    const buffer = await cached.blob.arrayBuffer();
+    const blobUrl = URL.createObjectURL(
+      new Blob([buffer], { type: cached.mime })
+    );
+    return { blobUrl, buffer };
+  }
+
   const res = await fetch(`${base}/api/audio/${assetId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -155,7 +172,9 @@ export async function fetchAuthorizedAudio(
   );
   const buffer = await readResponseArrayBufferWithProgress(res, onDownloadProgress);
   const mime = res.headers.get("content-type") || "audio/mpeg";
-  const blobUrl = URL.createObjectURL(new Blob([buffer], { type: mime }));
+  const blob = new Blob([buffer], { type: mime });
+  void putCachedAudioBlob(mediaCacheKey, blob, mime);
+  const blobUrl = URL.createObjectURL(blob);
   return { blobUrl, buffer };
 }
 

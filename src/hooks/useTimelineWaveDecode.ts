@@ -8,6 +8,7 @@ import {
   getWavePeaksCache,
   setWavePeaksCache,
 } from "../lib/wavePeaksCache";
+import { putCachedPeaksPayload } from "../lib/waveMediaCache";
 import { supabaseDownloadWavePeaks, supabaseUploadWavePeaks } from "../lib/supabaseWavePeaks";
 import {
   clearWaveLoadProgress,
@@ -69,6 +70,11 @@ export function useTimelineWaveDecode({ setProject, setPeaks }: Params) {
               options.precomputed.peaks,
               options.precomputed.durationSec
             );
+            void putCachedPeaksPayload(
+              cacheKey,
+              options.precomputed.peaks,
+              options.precomputed.durationSec
+            );
           }
           if (supabaseAudioPath) {
             void supabaseUploadWavePeaks(
@@ -85,6 +91,7 @@ export function useTimelineWaveDecode({ setProject, setPeaks }: Params) {
           if (cached?.peaks.length) {
             reportWaveLoadProgress(0.9, "保存済み波形を読み込み中…");
             applyPeaksAndDuration(cached.peaks, cached.durationSec);
+            void putCachedPeaksPayload(cacheKey, cached.peaks, cached.durationSec);
             return;
           }
         }
@@ -97,6 +104,7 @@ export function useTimelineWaveDecode({ setProject, setPeaks }: Params) {
             applyPeaksAndDuration(sidecar.peaks, sidecar.durationSec);
             if (cacheKey) {
               await setWavePeaksCache(cacheKey, sidecar.peaks, sidecar.durationSec);
+              void putCachedPeaksPayload(cacheKey, sidecar.peaks, sidecar.durationSec);
             }
             return;
           }
@@ -118,6 +126,7 @@ export function useTimelineWaveDecode({ setProject, setPeaks }: Params) {
         applyPeaksAndDuration(peaks, durationSec);
         if (cacheKey) {
           await setWavePeaksCache(cacheKey, peaks, durationSec);
+          void putCachedPeaksPayload(cacheKey, peaks, durationSec);
         }
         if (supabaseAudioPath) {
           void supabaseUploadWavePeaks(supabaseAudioPath, peaks, durationSec);

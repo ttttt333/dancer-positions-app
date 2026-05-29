@@ -4,6 +4,10 @@ import {
   tryFetchServerWavePeaksReady,
 } from "./wavePeaksServerApi";
 import { supabaseDownloadWavePeaks } from "./supabaseWavePeaks";
+import {
+  getCachedPeaksPayload,
+  putCachedPeaksPayload,
+} from "./waveMediaCache";
 import { reportWaveLoadProgress } from "./waveLoadProgress";
 
 type PeaksResult = { peaks: number[]; durationSec: number };
@@ -35,25 +39,45 @@ export async function resolveServerAssetWavePeaks(
   applyPeaks: ApplyPeaks,
   options: Omit<DecodePeaksOptions, "precomputed">
 ): Promise<void> {
+  if (options.cacheKey) {
+    const mediaCached = await getCachedPeaksPayload(options.cacheKey);
+    if (mediaCached?.peaks.length) {
+      await applyPrecomputedWavePeaks(applyPeaks, mediaCached, options);
+      return;
+    }
+  }
+
   const ready = await tryFetchServerWavePeaksReady(assetId);
   if (ready) {
+    if (options.cacheKey) {
+      void putCachedPeaksPayload(
+        options.cacheKey,
+        ready.peaks,
+        ready.durationSec
+      );
+    }
     await applyPrecomputedWavePeaks(applyPeaks, ready, options);
     return;
   }
 
-  reportWaveLoadProgress(0.12, "波形を取得中…");
-  const peaksTask = fetchServerWavePeaksWithPoll(assetId, {
-    maxAttempts: 10,
-    intervalMs: 120,
-  });
+  reportWaveLoadProgress(0.4, "波形データを取得中…");
+  const peaksTask = fetchServerWavePeaksWithPoll(assetId);
   const bufTask = readBuffer();
 
   const serverPeaks = await peaksTask;
   if (serverPeaks?.peaks.length) {
+    if (options.cacheKey) {
+      void putCachedPeaksPayload(
+        options.cacheKey,
+        serverPeaks.peaks,
+        serverPeaks.durationSec
+      );
+    }
     await applyPrecomputedWavePeaks(applyPeaks, serverPeaks, options);
     return;
   }
 
+  reportWaveLoadProgress(0.88, "波形を端末で解析中…");
   const buf = await bufTask;
   await applyPeaks(buf, options);
 }
@@ -81,9 +105,24 @@ export async function resolveSupabaseReuseWavePeaks(
   applyPeaks: ApplyPeaks,
   options: Omit<DecodePeaksOptions, "precomputed">
 ): Promise<void> {
-  reportWaveLoadProgress(0.12, "クラウドの波形データを確認中…");
+  if (options.cacheKey) {
+    const mediaCached = await getCachedPeaksPayload(options.cacheKey);
+    if (mediaCached?.peaks.length) {
+      await applyPrecomputedWavePeaks(applyPeaks, mediaCached, options);
+      return;
+    }
+  }
+
+  reportWaveLoadProgress(0.4, "クラウドの波形データを確認中…");
   const sidecar = await supabaseDownloadWavePeaks(audioPath).catch(() => null);
   if (sidecar?.peaks.length) {
+    if (options.cacheKey) {
+      void putCachedPeaksPayload(
+        options.cacheKey,
+        sidecar.peaks,
+        sidecar.durationSec
+      );
+    }
     await applyPrecomputedWavePeaks(
       applyPeaks,
       { peaks: sidecar.peaks, durationSec: sidecar.durationSec },
@@ -92,7 +131,7 @@ export async function resolveSupabaseReuseWavePeaks(
     return;
   }
 
-  reportWaveLoadProgress(0.35, "波形を解析中…");
+  reportWaveLoadProgress(0.88, "波形を端末で解析中…");
   const buf = await readBuffer();
   await applyPeaks(buf, options);
 }

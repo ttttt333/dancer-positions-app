@@ -840,7 +840,7 @@ body {
 
 /* 横画面: 客席帯をコンパクトに（数字と同じ行に「客席」） */
 [data-shell-landscape] .stage-audience-footer-band {
-  min-height: 16px !important;
+  min-height: 18px !important;
   gap: 0 !important;
   padding-top: 0 !important;
 }
@@ -851,10 +851,12 @@ body {
 
 [data-shell-landscape] .stage-audience-footer-band__caption-inline {
   font-size: clamp(8px, 2.8cqw, 12px) !important;
+  top: 7px !important;
 }
 
 [data-shell-landscape] .stage-audience-footer-band__caption-only {
   font-size: clamp(8px, 2.8cqw, 12px) !important;
+  padding-top: 7px !important;
 }
 
 /* 横画面: ステージを上下左右ギリギリまで拡大 */
