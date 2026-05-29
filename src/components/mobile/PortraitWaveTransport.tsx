@@ -20,6 +20,9 @@ const DRAG_ARM_PX = 14;
 const TAP_MAX_MOVE_PX = 16;
 /** 長押しキャンセルまでの指の揺れ許容（px） */
 const LONG_PRESS_CANCEL_PX = 18;
+/** 端付近この幅に入ると波形を自動スクロール */
+const EDGE_SCROLL_ZONE_MIN_PX = 32;
+const EDGE_SCROLL_ZONE_RATIO = 0.14;
 
 interface Props {
   audioUrl: string | null;
@@ -87,6 +90,10 @@ export const PortraitWaveTransport: React.FC<Props> = ({
   const pointerDownRef = useRef<React.PointerEvent<HTMLCanvasElement> | null>(null);
   const dragArmedRef = useRef(false);
   const pointerDownOriginRef = useRef<{ x: number; y: number } | null>(null);
+  const scrubClientXRef = useRef<number | null>(null);
+  const edgeScrollRafRef = useRef<number | null>(null);
+  const scrubActiveRef = useRef(false);
+  const scrubShouldSeekRef = useRef(true);
 
   const viewDuration = duration > 0 ? duration / zoom : 0;
   const viewEnd = viewStart + viewDuration;
@@ -194,13 +201,95 @@ export const PortraitWaveTransport: React.FC<Props> = ({
     [duration, viewStart, viewDuration]
   );
 
-  const seekFromClientX = useCallback(
+  const edgeScrollAtClientX = useCallback(
     (clientX: number) => {
-      const t = timeFromClientX(clientX);
-      if (t != null) onSeek(t);
+      if (zoom <= 1.001 || duration <= 0) return;
+      const el = viewportRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      if (r.width <= 0) return;
+      const vd = viewDuration;
+      const zone = Math.max(EDGE_SCROLL_ZONE_MIN_PX, r.width * EDGE_SCROLL_ZONE_RATIO);
+
+      if (clientX <= r.left + zone) {
+        const depth = 1 - Math.max(0, (clientX - r.left) / zone);
+        const pan = vd * (0.016 + 0.065 * depth);
+        setViewStart((vs) => clampViewStart(vs - pan, vd, duration));
+      } else if (clientX >= r.right - zone) {
+        const depth = 1 - Math.max(0, (r.right - clientX) / zone);
+        const pan = vd * (0.016 + 0.065 * depth);
+        setViewStart((vs) => clampViewStart(vs + pan, vd, duration));
+      }
     },
-    [timeFromClientX, onSeek]
+    [zoom, duration, viewDuration]
   );
+
+  const isInEdgeScrollZone = useCallback((clientX: number) => {
+    const el = viewportRef.current;
+    if (!el || zoom <= 1.001) return false;
+    const r = el.getBoundingClientRect();
+    const zone = Math.max(EDGE_SCROLL_ZONE_MIN_PX, r.width * EDGE_SCROLL_ZONE_RATIO);
+    return clientX <= r.left + zone || clientX >= r.right - zone;
+  }, [zoom]);
+
+  const stopEdgeScrollLoop = useCallback(() => {
+    if (edgeScrollRafRef.current != null) {
+      cancelAnimationFrame(edgeScrollRafRef.current);
+      edgeScrollRafRef.current = null;
+    }
+  }, []);
+
+  const tickEdgeScrollLoop = useCallback(() => {
+    edgeScrollRafRef.current = null;
+    if (!scrubActiveRef.current) return;
+    const x = scrubClientXRef.current;
+    if (x == null) return;
+    if (!isInEdgeScrollZone(x)) return;
+    edgeScrollAtClientX(x);
+    if (scrubShouldSeekRef.current) {
+      const t = timeFromClientX(x);
+      if (t != null) onSeek(t);
+    }
+    edgeScrollRafRef.current = requestAnimationFrame(tickEdgeScrollLoop);
+  }, [edgeScrollAtClientX, isInEdgeScrollZone, timeFromClientX, onSeek]);
+
+  const handlePortraitWaveScrub = useCallback(
+    (clientX: number, end = false, shouldSeek = true) => {
+      if (end) {
+        scrubActiveRef.current = false;
+        scrubClientXRef.current = null;
+        stopEdgeScrollLoop();
+        return;
+      }
+      scrubActiveRef.current = true;
+      scrubShouldSeekRef.current = shouldSeek;
+      scrubClientXRef.current = clientX;
+      edgeScrollAtClientX(clientX);
+      if (shouldSeek) {
+        const t = timeFromClientX(clientX);
+        if (t != null) onSeek(t);
+      }
+      if (isInEdgeScrollZone(clientX) && edgeScrollRafRef.current == null) {
+        edgeScrollRafRef.current = requestAnimationFrame(tickEdgeScrollLoop);
+      }
+    },
+    [
+      edgeScrollAtClientX,
+      isInEdgeScrollZone,
+      timeFromClientX,
+      onSeek,
+      stopEdgeScrollLoop,
+      tickEdgeScrollLoop,
+    ]
+  );
+
+  useEffect(() => {
+    useTimelineWaveBridgeStore.getState().setPortraitWaveScrubAtClientX(handlePortraitWaveScrub);
+    return () => {
+      stopEdgeScrollLoop();
+      useTimelineWaveBridgeStore.getState().setPortraitWaveScrubAtClientX(null);
+    };
+  }, [handlePortraitWaveScrub, stopEdgeScrollLoop]);
 
   const onRulerPointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -208,18 +297,22 @@ export const PortraitWaveTransport: React.FC<Props> = ({
       e.preventDefault();
       e.currentTarget.setPointerCapture(e.pointerId);
       clearPendingSingleTap();
-      seekFromClientX(e.clientX);
+      handlePortraitWaveScrub(e.clientX);
     },
-    [audioUrl, duration, seekFromClientX, clearPendingSingleTap]
+    [audioUrl, duration, handlePortraitWaveScrub, clearPendingSingleTap]
   );
 
   const onRulerPointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (!(e.buttons & 1) || !audioUrl || duration <= 0) return;
-      seekFromClientX(e.clientX);
+      handlePortraitWaveScrub(e.clientX);
     },
-    [audioUrl, duration, seekFromClientX]
+    [audioUrl, duration, handlePortraitWaveScrub]
   );
+
+  const onRulerPointerUp = useCallback(() => {
+    handlePortraitWaveScrub(0, true);
+  }, [handlePortraitWaveScrub]);
 
   const applyZoomAt = useCallback(
     (nextZoom: number, anchorTimeSec: number) => {
@@ -512,6 +605,8 @@ export const PortraitWaveTransport: React.FC<Props> = ({
           className={styles.waveRuler}
           onPointerDown={onRulerPointerDown}
           onPointerMove={onRulerPointerMove}
+          onPointerUp={onRulerPointerUp}
+          onPointerCancel={onRulerPointerUp}
           role="slider"
           aria-valuemin={0}
           aria-valuemax={duration}

@@ -183,6 +183,13 @@ export function useWaveCanvasPointerDrag({
         const onPhMove = (ev: PointerEvent) => {
           if (ev.pointerId !== capturePid || !playheadScrubDragRef.current) return;
           if (!playbackEngine.getMediaElement()) return;
+          if (useTimelineWaveBridgeStore.getState().portraitActive) {
+            useTimelineWaveBridgeStore.getState().portraitWaveScrubAtClientX?.(
+              ev.clientX,
+              false,
+              false
+            );
+          }
           const tMoved = seekPlaybackClampedAndSyncStore({
             t: rawWaveTimeFromClientX(ev.clientX),
             durationSec: duration,
@@ -197,6 +204,9 @@ export function useWaveCanvasPointerDrag({
           window.removeEventListener("pointermove", onPhMove);
           window.removeEventListener("pointerup", onPhUp);
           window.removeEventListener("pointercancel", onPhUp);
+          if (useTimelineWaveBridgeStore.getState().portraitActive) {
+            useTimelineWaveBridgeStore.getState().portraitWaveScrubAtClientX?.(ev.clientX, true);
+          }
           try {
             c.releasePointerCapture(ev.pointerId);
           } catch {
