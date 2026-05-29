@@ -62,6 +62,8 @@ interface Props {
   /** 波形キャンバスの CSS 高さ（px） */
   waveHeightPx?: number;
   className?: string;
+  /** 横画面: タイムライン左端の畳むボタン */
+  onCollapseWave?: () => void;
 }
 
 export type PortraitWaveTransportHandle = {
@@ -109,6 +111,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   showTransportControls = true,
   waveHeightPx = DEFAULT_WAVE_HEIGHT_PX,
   className,
+  onCollapseWave,
   },
   ref
 ) {
@@ -806,7 +809,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
 
       <div className={styles.waveFrame}>
         <div
-          className={styles.waveRuler}
+          className={`${styles.waveRuler} ${onCollapseWave ? styles.waveRulerWithCollapse : ""}`.trim()}
           onPointerDown={onRulerPointerDown}
           onPointerMove={onRulerPointerMove}
           onPointerUp={onRulerPointerUp}
@@ -817,6 +820,23 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
           aria-valuenow={currentTime}
           aria-label="タイムライン（タップ・ドラッグで再生位置を移動）"
         >
+          {onCollapseWave ? (
+            <button
+              type="button"
+              className={styles.rulerCollapseBtn}
+              onClick={(e) => {
+                e.stopPropagation();
+                onCollapseWave();
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+              aria-label="波形を畳む"
+              title="波形を畳む"
+            >
+              <span className={styles.rulerCollapseIcon} aria-hidden>
+                ▼
+              </span>
+            </button>
+          ) : null}
           {rulerTicks.map((tick) => {
             const pct =
               viewDuration > 0

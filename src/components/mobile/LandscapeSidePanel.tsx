@@ -1,6 +1,6 @@
 /**
  * LandscapeSidePanel.tsx
- * 横向き専用の左サイドパネル（再生・波形操作・キュー・Menu）
+ * 横向き専用の左サイドパネル（再生・波形操作・Menu）
  */
 
 import React, { useState, useCallback } from 'react'
@@ -39,10 +39,8 @@ interface Props {
   onSkipForward: () => void
   onZoomIn: () => void
   onZoomOut: () => void
-  currentCueIndex: number
-  totalCues: number
-  onCuePrev: () => void
-  onCueNext: () => void
+  landscapeWaveExpanded?: boolean
+  onWaveExpand?: () => void
   onAddCue: () => void
   onStageSettings: () => void
   onViewerList: () => void
@@ -62,10 +60,8 @@ export const LandscapeSidePanel: React.FC<Props> = ({
   onSkipForward,
   onZoomIn,
   onZoomOut,
-  currentCueIndex,
-  totalCues,
-  onCuePrev,
-  onCueNext,
+  landscapeWaveExpanded = true,
+  onWaveExpand,
   onAddCue,
   onStageSettings,
   onViewerList,
@@ -136,12 +132,29 @@ export const LandscapeSidePanel: React.FC<Props> = ({
     setMenuOpen(false)
   }, [])
 
+  const waveExpandBtn =
+    !landscapeWaveExpanded && onWaveExpand ? (
+      <button
+        type="button"
+        className={styles.waveExpandBtn}
+        onClick={onWaveExpand}
+        aria-label="波形を展開"
+        title="波形を展開"
+      >
+        <span className={styles.waveExpandIcon} aria-hidden>〜</span>
+        <span className={styles.waveExpandLabel}>波形</span>
+      </button>
+    ) : null
+
   if (!open) {
     return (
       <div className={styles.collapsed}>
-        <button className={styles.collapseBtn} onClick={() => setOpen(true)} aria-label="パネルを開く">
-          ›
-        </button>
+        <div className={styles.collapsedStack}>
+          {waveExpandBtn}
+          <button className={styles.collapseBtn} onClick={() => setOpen(true)} aria-label="パネルを開く">
+            ›
+          </button>
+        </div>
       </div>
     )
   }
@@ -153,6 +166,8 @@ export const LandscapeSidePanel: React.FC<Props> = ({
           ‹
         </button>
       </div>
+
+      {waveExpandBtn}
 
       <div className={`${ctrlStyles.controls} ${styles.controlGrid}`}>
         <button
@@ -211,28 +226,6 @@ export const LandscapeSidePanel: React.FC<Props> = ({
         >
           <TransportIconZoomIn size={18} className={ctrlStyles.icon} />
         </button>
-      </div>
-
-      <div className={styles.divider} />
-
-      <div className={styles.cueRow}>
-        <div className={styles.cueArrows}>
-          <button
-            className={styles.btnMd}
-            onClick={onCuePrev}
-            disabled={currentCueIndex === 0}
-            aria-label="前のキュー"
-          >‹</button>
-          <button
-            className={styles.btnMd}
-            onClick={onCueNext}
-            disabled={currentCueIndex >= totalCues - 1}
-            aria-label="次のキュー"
-          >›</button>
-        </div>
-        <span className={styles.cueValue}>
-          {currentCueIndex + 1} / {totalCues}
-        </span>
       </div>
 
       <div className={styles.bottomArea}>

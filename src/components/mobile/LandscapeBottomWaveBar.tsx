@@ -20,6 +20,7 @@ interface Props {
   onPlayPause: () => void;
   onStop: () => void;
   onSeek: (sec: number) => void;
+  onCollapse: () => void;
 }
 
 export const LandscapeBottomWaveBar: React.FC<Props> = ({
@@ -31,6 +32,7 @@ export const LandscapeBottomWaveBar: React.FC<Props> = ({
   onPlayPause,
   onStop,
   onSeek,
+  onCollapse,
 }) => {
   return (
     <div className={styles.dock}>
@@ -45,6 +47,7 @@ export const LandscapeBottomWaveBar: React.FC<Props> = ({
         onSeek={onSeek}
         showTransportControls={false}
         waveHeightPx={LANDSCAPE_WAVE_CANVAS_HEIGHT_PX}
+        onCollapseWave={onCollapse}
       />
     </div>
   );

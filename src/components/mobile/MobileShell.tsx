@@ -45,6 +45,7 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
   const landscapeWaveRef = useRef<PortraitWaveTransportHandle>(null)
 
   const [hasOpenDialog, setHasOpenDialog] = useState(false)
+  const [landscapeWaveExpanded, setLandscapeWaveExpanded] = useState(true)
 
   useEffect(() => {
     const checkDialog = () => {
@@ -108,7 +109,12 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
   return (
     <div
       className={isLandscape ? styles.landscapeRoot : styles.portraitRoot}
-      {...(isLandscape ? { 'data-shell-landscape': '' } : { 'data-shell-portrait': '' })}
+      {...(isLandscape
+        ? {
+            'data-shell-landscape': '',
+            ...(landscapeWaveExpanded ? {} : { 'data-landscape-wave-collapsed': '' }),
+          }
+        : { 'data-shell-portrait': '' })}
     >
       {isLandscape ? (
         <div className={styles.landscapeMainRow}>
@@ -122,10 +128,8 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
             onSkipForward={handleSkipForward}
             onZoomIn={handleZoomIn}
             onZoomOut={handleZoomOut}
-            currentCueIndex={props.currentCueIndex}
-            totalCues={props.totalCues}
-            onCuePrev={props.onCuePrev}
-            onCueNext={props.onCueNext}
+            landscapeWaveExpanded={landscapeWaveExpanded}
+            onWaveExpand={() => setLandscapeWaveExpanded(true)}
             onAddCue={props.onAddCue}
             onStageSettings={props.onStageSettings}
             onViewerList={props.onViewerList}
@@ -154,7 +158,7 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
         </div>
       )}
 
-      {isLandscape ? (
+      {isLandscape && landscapeWaveExpanded ? (
         <LandscapeBottomWaveBar
           waveRef={landscapeWaveRef}
           audioUrl={props.audioUrl}
@@ -164,6 +168,7 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
           onPlayPause={props.onPlayPause}
           onStop={props.onStop}
           onSeek={props.onSeek}
+          onCollapse={() => setLandscapeWaveExpanded(false)}
         />
       ) : null}
 

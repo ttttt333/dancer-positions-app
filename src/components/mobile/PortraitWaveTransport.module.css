@@ -96,6 +96,39 @@
   cursor: ew-resize;
 }
 
+.waveRulerWithCollapse {
+  padding-left: 24px;
+}
+
+.rulerCollapseBtn {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-right: 0.5px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0;
+  touch-action: manipulation;
+  z-index: 2;
+}
+
+.rulerCollapseBtn:active {
+  background: rgba(255, 255, 255, 0.14);
+  color: #e2e8f0;
+}
+
+.rulerCollapseIcon {
+  font-size: 9px;
+  line-height: 1;
+}
+
 .rulerTick {
   position: absolute;
   top: 50%;

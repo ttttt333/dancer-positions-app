@@ -27,6 +27,60 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+.collapsedStack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.waveExpandBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 100%;
+  min-height: 36px;
+  padding: 5px 4px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #94a3b8;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.waveExpandBtn:active {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+}
+
+.waveExpandIcon {
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: -0.08em;
+}
+
+.waveExpandLabel {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.collapsedStack .waveExpandBtn {
+  width: 22px;
+  min-height: 22px;
+  padding: 0;
+  border-radius: 6px;
+}
+
+.collapsedStack .waveExpandLabel {
+  display: none;
+}
+
 .panelTop {
   display: flex;
   justify-content: flex-start;

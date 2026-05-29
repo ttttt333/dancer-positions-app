@@ -867,79 +867,152 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 {mobileStackEditor &&
                 editorMobileLandscape &&
                 !choreoPublicView &&
-                project.viewMode !== "view" ? (
-                  <div
-                    role="group"
-                    aria-label={t("editor.layout.stageViewAria")}
-                    style={{
-                      position: "absolute",
-                      top: 42,
-                      left: 8,
-                      zIndex: 45,
-                      display: "flex",
-                      flexDirection: "row",
-                      gap: 3,
-                      pointerEvents: "auto",
-                    }}
-                  >
-                    <button
-                      type="button"
+                project.viewMode !== "view" ? (() => {
+                  const cues = Array.isArray(cuesSortedForStageJump)
+                    ? (cuesSortedForStageJump as Array<{ id: string }>)
+                    : [];
+                  const hasRoster = Boolean(hasRosterMembers);
+                  const rosterHidden = project.rosterHidesTimeline === true;
+                  const cueIdx =
+                    selectedCueId != null && selectedCueId !== ""
+                      ? cues.findIndex((c) => c.id === selectedCueId)
+                      : -1;
+                  let slotIdx: number;
+                  if (hasRoster) {
+                    if (rosterHidden) slotIdx = 0;
+                    else if (cueIdx >= 0) slotIdx = cueIdx + 1;
+                    else slotIdx = -1;
+                  } else {
+                    slotIdx = cueIdx;
+                  }
+                  const total = Math.max(1, hasRoster ? cues.length + 1 : cues.length);
+                  const canCuePrev = slotIdx > 0;
+                  const canCueNext =
+                    slotIdx < 0 ? cues.length > 0 : slotIdx < total - 1;
+                  const showChangeBtn = stageView === "2d";
+                  const landscapeMiniBtn = {
+                    ...btnSecondary,
+                    width: 34,
+                    height: 24,
+                    minWidth: 34,
+                    minHeight: 24,
+                    padding: 0,
+                    fontSize: 9,
+                    fontWeight: 700,
+                    lineHeight: 1,
+                    borderRadius: 6,
+                    display: "inline-flex" as const,
+                    alignItems: "center" as const,
+                    justifyContent: "center" as const,
+                    boxSizing: "border-box" as const,
+                    background: "rgba(15,23,42,0.88)",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
+                  };
+
+                  return (
+                    <div
+                      className="editor-stage-landscape-stack"
                       style={{
-                        ...btnSecondary,
-                        width: 34,
-                        height: 24,
-                        minWidth: 34,
-                        minHeight: 24,
-                        padding: 0,
-                        fontSize: 9,
-                        fontWeight: 700,
-                        lineHeight: 1,
-                        borderRadius: 6,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        boxSizing: "border-box",
-                        background: "rgba(15,23,42,0.88)",
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
-                        ...(stageView === "2d"
-                          ? { borderColor: "#6366f1", color: "#c7d2fe" }
-                          : {}),
+                        position: "absolute",
+                        top: showChangeBtn ? 42 : 8,
+                        left: 8,
+                        zIndex: 45,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 4,
+                        pointerEvents: "auto",
+                        alignItems: "flex-start",
                       }}
-                      title={t("editor.layout.stage2dTitle")}
-                      onClick={() => setStageView("2d")}
                     >
-                      2D
-                    </button>
-                    <button
-                      type="button"
-                      style={{
-                        ...btnSecondary,
-                        width: 34,
-                        height: 24,
-                        minWidth: 34,
-                        minHeight: 24,
-                        padding: 0,
-                        fontSize: 9,
-                        fontWeight: 700,
-                        lineHeight: 1,
-                        borderRadius: 6,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        boxSizing: "border-box",
-                        background: "rgba(15,23,42,0.88)",
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
-                        ...(stageView === "3d"
-                          ? { borderColor: "#6366f1", color: "#c7d2fe" }
-                          : {}),
-                      }}
-                      title={t("editor.layout.stage3dTitle")}
-                      onClick={() => setStageView("3d")}
-                    >
-                      3D
-                    </button>
-                  </div>
-                ) : null}
+                      <div
+                        role="group"
+                        aria-label={t("editor.layout.stageViewAria")}
+                        style={{
+                          display: "flex",
+                          flexDirection: "row",
+                          gap: 3,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          style={{
+                            ...landscapeMiniBtn,
+                            ...(stageView === "2d"
+                              ? { borderColor: "#6366f1", color: "#c7d2fe" }
+                              : {}),
+                          }}
+                          title={t("editor.layout.stage2dTitle")}
+                          onClick={() => setStageView("2d")}
+                        >
+                          2D
+                        </button>
+                        <button
+                          type="button"
+                          style={{
+                            ...landscapeMiniBtn,
+                            ...(stageView === "3d"
+                              ? { borderColor: "#6366f1", color: "#c7d2fe" }
+                              : {}),
+                          }}
+                          title={t("editor.layout.stage3dTitle")}
+                          onClick={() => setStageView("3d")}
+                        >
+                          3D
+                        </button>
+                      </div>
+                      {cues.length > 0 || hasRoster ? (
+                        <>
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 3,
+                            }}
+                          >
+                            <button
+                              type="button"
+                              style={{
+                                ...landscapeMiniBtn,
+                                color: canCuePrev ? "#e2e8f0" : "#475569",
+                                cursor: canCuePrev ? "pointer" : "not-allowed",
+                                opacity: canCuePrev ? 1 : 0.45,
+                              }}
+                              onClick={handleMobileCuePrev}
+                              disabled={!canCuePrev}
+                              aria-label="前のキュー"
+                            >
+                              ‹
+                            </button>
+                            <button
+                              type="button"
+                              style={{
+                                ...landscapeMiniBtn,
+                                color: canCueNext ? "#e2e8f0" : "#475569",
+                                cursor: canCueNext ? "pointer" : "not-allowed",
+                                opacity: canCueNext ? 1 : 0.45,
+                              }}
+                              onClick={handleMobileCueNext}
+                              disabled={!canCueNext}
+                              aria-label="次のキュー"
+                            >
+                              ›
+                            </button>
+                          </div>
+                          <WorkbenchCuePager
+                            variant="stageCorner"
+                            project={project}
+                            cuesSortedForStageJump={cuesSortedForStageJump}
+                            selectedCueId={selectedCueId}
+                            jumpToPagerSlot={jumpToPagerSlot}
+                            includeRosterSlot={hasRosterMembers}
+                            rosterTimelineHidden={rosterHidden}
+                          />
+                        </>
+                      ) : null}
+                    </div>
+                  );
+                })() : null}
                 {publicNarrowLayout &&
                 (cuesSortedForStageJump.length > 0 || hasRosterMembers) ? (
                   // 生徒閲覧: タイムラインを非表示にしたため、position:fixed でボトムバーの上にフロート
@@ -968,6 +1041,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                   </div>
                 ) : null}
                 {mobileStackEditor &&
+                !editorMobileLandscape &&
                 (cuesSortedForStageJump.length > 0 || hasRosterMembers) ? (
                   <div
                     className="editor-stage-cuepager"
