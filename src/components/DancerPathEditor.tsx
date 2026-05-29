@@ -36,9 +36,9 @@ type MarkerSizes = {
 };
 
 const DESKTOP_MARKERS: MarkerSizes = {
-  formationR: 14,
-  formationStroke: 2.25,
-  labelFont: 10,
+  formationR: 18,
+  formationStroke: 2.5,
+  labelFont: 11,
   controlR: 12,
   controlHitR: 28,
   controlStroke: 2.25,
@@ -47,15 +47,45 @@ const DESKTOP_MARKERS: MarkerSizes = {
 };
 
 const PORTRAIT_MARKERS: MarkerSizes = {
-  formationR: 18,
-  formationStroke: 2.75,
-  labelFont: 12,
+  formationR: 22,
+  formationStroke: 3,
+  labelFont: 13,
   controlR: 16,
   controlHitR: 36,
   controlStroke: 2.75,
   pathStroke: 3.25,
   guideStroke: 2,
 };
+
+const MIN_VIEW_ZOOM = 1;
+const MAX_VIEW_ZOOM = 5;
+
+type ViewState = { zoom: number; panX: number; panY: number };
+
+function clamp(n: number, lo: number, hi: number) {
+  return Math.min(hi, Math.max(lo, n));
+}
+
+function computeViewBox(
+  stageW: number,
+  stageH: number,
+  zoom: number,
+  panX: number,
+  panY: number
+) {
+  const w = stageW / zoom;
+  const h = stageH / zoom;
+  const maxX = Math.max(0, stageW - w);
+  const maxY = Math.max(0, stageH - h);
+  return {
+    x: clamp(panX, 0, maxX),
+    y: clamp(panY, 0, maxY),
+    w,
+    h,
+    maxX,
+    maxY,
+  };
+}
 
 function usePortraitMobileShell(): boolean {
   const [active, setActive] = useState(false);
@@ -106,15 +136,196 @@ export function DancerPathEditor({
 
   const dragging = useRef<string | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const viewStateRef = useRef<ViewState>({ zoom: 1, panX: 0, panY: 0 });
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchRef = useRef<{
+    dist: number;
+    zoom: number;
+    anchorSvgX: number;
+    anchorSvgY: number;
+  } | null>(null);
+  const panDragRef = useRef<{
+    pointerId: number;
+    startClientX: number;
+    startClientY: number;
+    startPanX: number;
+    startPanY: number;
+  } | null>(null);
 
-  const getSvgPoint = useCallback((clientX: number, clientY: number) => {
-    if (!svgRef.current) return { x: 0, y: 0 };
-    const rect = svgRef.current.getBoundingClientRect();
-    return {
-      x: ((clientX - rect.left) / rect.width) * 100,
-      y: ((clientY - rect.top) / rect.height) * 100,
-    };
+  const [viewState, setViewState] = useState<ViewState>({
+    zoom: 1,
+    panX: 0,
+    panY: 0,
+  });
+  viewStateRef.current = viewState;
+
+  const viewBox = computeViewBox(
+    stageWidthPx,
+    stageHeightPx,
+    viewState.zoom,
+    viewState.panX,
+    viewState.panY
+  );
+
+  const clientToSvgPx = useCallback(
+    (clientX: number, clientY: number, vs = viewStateRef.current) => {
+      if (!svgRef.current) return { x: stageWidthPx / 2, y: stageHeightPx / 2 };
+      const rect = svgRef.current.getBoundingClientRect();
+      const vb = computeViewBox(stageWidthPx, stageHeightPx, vs.zoom, vs.panX, vs.panY);
+      if (rect.width <= 0 || rect.height <= 0) {
+        return { x: stageWidthPx / 2, y: stageHeightPx / 2 };
+      }
+      return {
+        x: vb.x + ((clientX - rect.left) / rect.width) * vb.w,
+        y: vb.y + ((clientY - rect.top) / rect.height) * vb.h,
+      };
+    },
+    [stageWidthPx, stageHeightPx]
+  );
+
+  const applyViewZoom = useCallback(
+    (nextZoom: number, anchorSvgX: number, anchorSvgY: number) => {
+      setViewState((prev) => {
+        const zoom = clamp(nextZoom, MIN_VIEW_ZOOM, MAX_VIEW_ZOOM);
+        const old = computeViewBox(stageWidthPx, stageHeightPx, prev.zoom, prev.panX, prev.panY);
+        const relX = old.w > 0 ? (anchorSvgX - old.x) / old.w : 0.5;
+        const relY = old.h > 0 ? (anchorSvgY - old.y) / old.h : 0.5;
+        const w = stageWidthPx / zoom;
+        const h = stageHeightPx / zoom;
+        const panX = anchorSvgX - relX * w;
+        const panY = anchorSvgY - relY * h;
+        return {
+          zoom,
+          panX: clamp(panX, 0, Math.max(0, stageWidthPx - w)),
+          panY: clamp(panY, 0, Math.max(0, stageHeightPx - h)),
+        };
+      });
+    },
+    [stageWidthPx, stageHeightPx]
+  );
+
+  const getSvgPoint = useCallback(
+    (clientX: number, clientY: number) => {
+      const pt = clientToSvgPx(clientX, clientY);
+      return {
+        x: (pt.x / stageWidthPx) * 100,
+        y: (pt.y / stageHeightPx) * 100,
+      };
+    },
+    [clientToSvgPx, stageWidthPx, stageHeightPx]
+  );
+
+  const endStageGesture = useCallback((pointerId: number) => {
+    pointersRef.current.delete(pointerId);
+    if (pointersRef.current.size < 2) pinchRef.current = null;
+    if (panDragRef.current?.pointerId === pointerId) panDragRef.current = null;
   }, []);
+
+  const onStagePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      if (pointersRef.current.size === 2) {
+        dragging.current = null;
+        panDragRef.current = null;
+        const pts = [...pointersRef.current.values()];
+        const dist = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y);
+        const midX = (pts[0]!.x + pts[1]!.x) / 2;
+        const midY = (pts[0]!.y + pts[1]!.y) / 2;
+        const anchor = clientToSvgPx(midX, midY);
+        pinchRef.current = {
+          dist,
+          zoom: viewStateRef.current.zoom,
+          anchorSvgX: anchor.x,
+          anchorSvgY: anchor.y,
+        };
+        e.currentTarget.setPointerCapture(e.pointerId);
+        return;
+      }
+
+      if (pointersRef.current.size === 1 && viewStateRef.current.zoom > 1.001) {
+        panDragRef.current = {
+          pointerId: e.pointerId,
+          startClientX: e.clientX,
+          startClientY: e.clientY,
+          startPanX: viewStateRef.current.panX,
+          startPanY: viewStateRef.current.panY,
+        };
+        e.currentTarget.setPointerCapture(e.pointerId);
+      }
+    },
+    [clientToSvgPx]
+  );
+
+  const onStagePointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (pointersRef.current.has(e.pointerId)) {
+        pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      }
+
+      if (pinchRef.current && pointersRef.current.size >= 2) {
+        const pts = [...pointersRef.current.values()];
+        const dist = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y);
+        if (pinchRef.current.dist > 0) {
+          const scale = dist / pinchRef.current.dist;
+          applyViewZoom(
+            pinchRef.current.zoom * scale,
+            pinchRef.current.anchorSvgX,
+            pinchRef.current.anchorSvgY
+          );
+        }
+        return;
+      }
+
+      const pan = panDragRef.current;
+      if (!pan || pan.pointerId !== e.pointerId || !svgRef.current) return;
+      const rect = svgRef.current.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      const vb = computeViewBox(
+        stageWidthPx,
+        stageHeightPx,
+        viewStateRef.current.zoom,
+        viewStateRef.current.panX,
+        viewStateRef.current.panY
+      );
+      const dx = ((e.clientX - pan.startClientX) / rect.width) * vb.w;
+      const dy = ((e.clientY - pan.startClientY) / rect.height) * vb.h;
+      setViewState((prev) => {
+        const z = prev.zoom;
+        const w = stageWidthPx / z;
+        const h = stageHeightPx / z;
+        return {
+          zoom: z,
+          panX: clamp(pan.startPanX - dx, 0, Math.max(0, stageWidthPx - w)),
+          panY: clamp(pan.startPanY - dy, 0, Math.max(0, stageHeightPx - h)),
+        };
+      });
+    },
+    [applyViewZoom, stageWidthPx, stageHeightPx]
+  );
+
+  const onStagePointerUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      endStageGesture(e.pointerId);
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+    },
+    [endStageGesture]
+  );
+
+  const onStageWheel = useCallback(
+    (e: React.WheelEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      const anchor = clientToSvgPx(e.clientX, e.clientY);
+      const factor = e.deltaY > 0 ? 0.9 : 1.1;
+      applyViewZoom(viewStateRef.current.zoom * factor, anchor.x, anchor.y);
+    },
+    [applyViewZoom, clientToSvgPx]
+  );
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent) => {
@@ -137,6 +348,8 @@ export function DancerPathEditor({
     (dancerId: string, e: React.PointerEvent<SVGCircleElement>) => {
       e.preventDefault();
       e.stopPropagation();
+      pinchRef.current = null;
+      panDragRef.current = null;
       dragging.current = dancerId;
       try {
         e.currentTarget.setPointerCapture(e.pointerId);
@@ -199,12 +412,15 @@ export function DancerPathEditor({
     return `M${toSvgX(ax)},${toSvgY(ay)} Q${toSvgX(cpX)},${toSvgY(cpY)} ${toSvgX(bx)},${toSvgY(by)}`;
   }
 
+  const zoomHint =
+    viewState.zoom > 1.001 ? ` · ${viewState.zoom.toFixed(viewState.zoom >= 10 ? 0 : 1)}×` : "";
+
   const stageSvg = (
     <svg
       ref={svgRef}
       width="100%"
       height="100%"
-      viewBox={`0 0 ${stageWidthPx} ${stageHeightPx}`}
+      viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
       preserveAspectRatio="xMidYMid meet"
       className="dancer-path-editor-svg"
       style={{ display: "block", userSelect: "none", touchAction: "none" }}
@@ -359,10 +575,21 @@ export function DancerPathEditor({
       >
         <header className="dancer-path-editor-header dancer-path-editor-header--portrait">
           <h2 className="dancer-path-editor-title">個人別移動軌道</h2>
-          <p className="dancer-path-editor-hint">黄色い点をドラッグして曲線を調整</p>
+          <p className="dancer-path-editor-hint">
+            黄色い点をドラッグして曲線を調整 · 2本指で拡大{zoomHint}
+          </p>
         </header>
 
-        <div className="dancer-path-editor-stage dancer-path-editor-stage--portrait">{stageSvg}</div>
+        <div
+          className="dancer-path-editor-stage dancer-path-editor-stage--portrait"
+          onPointerDown={onStagePointerDown}
+          onPointerMove={onStagePointerMove}
+          onPointerUp={onStagePointerUp}
+          onPointerCancel={onStagePointerUp}
+          onWheel={onStageWheel}
+        >
+          {stageSvg}
+        </div>
 
         <div className="dancer-path-editor-legend dancer-path-editor-legend--portrait">
           <span>
@@ -398,12 +625,21 @@ export function DancerPathEditor({
         <div className="dancer-path-editor-title-block">
           個人別移動軌道の設定
           <span className="dancer-path-editor-hint dancer-path-editor-hint--desktop">
-            黄色い点をドラッグして曲線を調整
+            黄色い点をドラッグして曲線を調整 · ピンチ／ホイールで拡大{zoomHint}
           </span>
         </div>
       </div>
 
-      <div className="dancer-path-editor-stage dancer-path-editor-stage--desktop">{stageSvg}</div>
+      <div
+        className="dancer-path-editor-stage dancer-path-editor-stage--desktop"
+        onPointerDown={onStagePointerDown}
+        onPointerMove={onStagePointerMove}
+        onPointerUp={onStagePointerUp}
+        onPointerCancel={onStagePointerUp}
+        onWheel={onStageWheel}
+      >
+        {stageSvg}
+      </div>
 
       <div className="dancer-path-editor-legend dancer-path-editor-legend--desktop">
         <span>

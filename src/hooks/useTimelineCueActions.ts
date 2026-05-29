@@ -5,7 +5,6 @@ import {
   clampTimelineHeadForCueOps,
   cloneFormationForNewCue,
   DEFAULT_CUE_SPAN_WITH_AUDIO_SEC,
-  MOBILE_WAVE_DOUBLE_TAP_CUE_SPAN_SEC,
   MIN_CUE_DURATION_SEC,
   resolveCueIntervalNonOverlap,
   roundPlaybackHeadSec,

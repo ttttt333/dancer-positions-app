@@ -657,7 +657,7 @@ export const PortraitWaveTransport: React.FC<Props> = ({
             aria-valuemin={0}
             aria-valuemax={duration}
             aria-valuenow={currentTime}
-            aria-label="波形（タップで再生位置を移動・ダブルタップで7秒のキュー追加・ドラッグでキュー調整・長押しで導線/キューメニュー）"
+            aria-label="波形（タップで再生位置を移動・ダブルタップで10秒のキュー追加・ドラッグでキュー調整・長押しで導線/キューメニュー）"
           />
           {!registered ? (
             <div className={styles.wavePlaceholder}>波形を読み込み中…</div>

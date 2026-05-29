@@ -19,7 +19,7 @@ import type {
   WaveCueMenuState,
 } from "../components/TimelineWaveMenus";
 import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
-import { MOBILE_WAVE_DOUBLE_TAP_CUE_SPAN_SEC } from "../lib/cueInterval";
+import { WAVE_DOUBLE_CLICK_CUE_SPAN_SEC } from "../lib/cueInterval";
 import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
 
 /** スマホ縦画面: キュー間タップ／長押しの当たり判定余白 */
@@ -283,10 +283,7 @@ export function useTimelineWaveCanvasActions({
       e.preventDefault();
       e.stopPropagation();
       suppressNextWaveSeekRef.current = true;
-      const spanSec = useTimelineWaveBridgeStore.getState().portraitActive
-        ? MOBILE_WAVE_DOUBLE_TAP_CUE_SPAN_SEC
-        : DEFAULT_CUE_SPAN_WITH_AUDIO_SEC;
-      addCueStartingAtTime(clamped, spanSec);
+      addCueStartingAtTime(clamped, WAVE_DOUBLE_CLICK_CUE_SPAN_SEC);
     },
     [
       viewMode,
