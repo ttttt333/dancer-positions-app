@@ -10,6 +10,7 @@ import { VideoPage } from "./pages/VideoPage";
 import { BillingCanceledPage, BillingSuccessPage } from "./pages/BillingPages";
 import { MobileFormationEditorDemoPage } from "./pages/MobileFormationEditorDemoPage";
 import { MobileShell } from "./components/mobile/MobileShell";
+import { EDITOR_MOBILE_STACK_MAX_PX } from "./pages/editor/editorConstants";
 import { usePlaybackUiStore } from "./store/usePlaybackUiStore";
 import { useMobileShellBridgeStore } from "./store/useMobileShellBridgeStore";
 import { playbackEngine } from "./core/playbackEngine";
@@ -107,8 +108,9 @@ function MobileEditorRoute() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
 
-  // モバイル幅判定: 短辺で見る（横画面でもスマホ扱いを維持し、EditorPage の再マウントを防ぐ）
-  const checkMobile = () => Math.min(window.innerWidth, window.innerHeight) <= 960;
+  // EditorPage の mobileStack と同じ基準（短辺 < 768）。960px だと 1366×768 等の PC が MobileShell になる
+  const checkMobile = () =>
+    Math.min(window.innerWidth, window.innerHeight) < EDITOR_MOBILE_STACK_MAX_PX;
   const [isMobile, setIsMobile] = useState(checkMobile);
   useEffect(() => {
     const handler = () => {

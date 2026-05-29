@@ -18,8 +18,6 @@ export function StageAudienceFooterBand({
   wrapperStyle,
 }: StageAudienceFooterBandProps) {
   const hasGuideLabels = guideLineMarks.length > 0;
-  /** センター前ドット（8px・top 0 で半分はみ出し）の直下に「客席」を置く */
-  const audienceCaptionTopPx = 8;
   const captionStyle: CSSProperties = {
     fontSize: "clamp(8px, 3.2cqw, 14px)",
     fontWeight: 700,
@@ -35,7 +33,7 @@ export function StageAudienceFooterBand({
       className="stage-audience-footer-band"
       style={{
         flex: "0 0 auto",
-        minHeight: hasGuideLabels ? 24 : 22,
+        minHeight: hasGuideLabels ? 40 : 26,
         position: "relative",
         width: "100%",
         pointerEvents: "none",
@@ -43,8 +41,8 @@ export function StageAudienceFooterBand({
         flexDirection: "column",
         alignItems: "stretch",
         justifyContent: "center",
-        gap: 0,
-        paddingTop: 0,
+        gap: 4,
+        paddingTop: 2,
         ...wrapperStyle,
       }}
     >
@@ -104,7 +102,7 @@ export function StageAudienceFooterBand({
             style={{
               position: "absolute",
               left: "50%",
-              top: audienceCaptionTopPx,
+              top: 8,
               transform: "translateX(-50%)",
               ...captionStyle,
             }}
@@ -112,20 +110,22 @@ export function StageAudienceFooterBand({
             客席
           </span>
         </div>
-      ) : (
-        <div
-          className="stage-audience-footer-band__caption-only"
-          style={{
-            textAlign: "center",
-            paddingTop: audienceCaptionTopPx,
-            fontSize: "clamp(9px, 3.5cqw, 15px)",
-            fontWeight: 600,
-            color: audienceCaptionColor,
-          }}
-        >
-          客席
-        </div>
-      )}
+      ) : null}
+      <div
+        className={
+          hasGuideLabels
+            ? "stage-audience-footer-band__caption-row"
+            : "stage-audience-footer-band__caption-row stage-audience-footer-band__caption-row--solo"
+        }
+        style={{
+          textAlign: "center",
+          fontSize: "clamp(9px, 3.5cqw, 15px)",
+          fontWeight: 600,
+          color: audienceCaptionColor,
+        }}
+      >
+        客席
+      </div>
     </div>
   );
 }
