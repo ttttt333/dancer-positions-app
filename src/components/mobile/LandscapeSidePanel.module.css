@@ -51,46 +51,7 @@
 .playerRow {
   display: flex;
   align-items: center;
-  gap: 5px;
-}
-.btnPlay {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: #d97706;
-  border: none;
-  color: white;
-  font-size: 13px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: opacity 0.15s;
-}
-.btnPlay:active { opacity: 0.8; }
-.btnPlay:disabled { opacity: 0.35; cursor: not-allowed; }
-.btnStop {
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 0.5px solid rgba(255, 255, 255, 0.12);
-  color: #d1d5db;
-  font-size: 12px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: opacity 0.15s, background 0.15s;
-}
-.btnStop:active:not(:disabled) {
-  background: rgba(255, 255, 255, 0.12);
-}
-.btnStop:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
+  gap: 6px;
 }
 .timeText {
   font-size: 10px;

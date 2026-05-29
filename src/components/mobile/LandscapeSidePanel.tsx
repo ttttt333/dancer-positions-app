@@ -6,6 +6,8 @@
 
 import React, { useState, useRef, useCallback } from 'react'
 import styles from './LandscapeSidePanel.module.css'
+import ctrlStyles from './TransportControls.module.css'
+import { TransportIconPause, TransportIconPlay, TransportIconStop } from './TransportIcons'
 import { useMobileShellBridgeStore } from '../../store/useMobileShellBridgeStore'
 
 interface MenuItem {
@@ -151,20 +153,24 @@ export const LandscapeSidePanel: React.FC<Props> = ({
       {/* ── 再生コントロール (1行) ── */}
       <div className={styles.playerRow}>
         <button
-          className={styles.btnPlay}
+          className={`${ctrlStyles.btn} ${ctrlStyles.btnPrimary}`}
           onClick={onPlayPause}
           disabled={duration <= 0}
           aria-label={isPlaying ? '一時停止' : '再生'}
         >
-          {isPlaying ? '⏸' : '▶'}
+          {isPlaying ? (
+            <TransportIconPause size={22} className={ctrlStyles.iconPrimary} />
+          ) : (
+            <TransportIconPlay size={22} className={ctrlStyles.iconPrimary} />
+          )}
         </button>
         <button
-          className={styles.btnStop}
+          className={ctrlStyles.btn}
           onClick={onStop}
           disabled={duration <= 0}
           aria-label="停止して先頭へ"
         >
-          ⏹
+          <TransportIconStop size={18} className={ctrlStyles.icon} />
         </button>
         <span className={styles.timeText}>{fmt(currentTime)}</span>
         <span className={styles.timeSep}>/</span>

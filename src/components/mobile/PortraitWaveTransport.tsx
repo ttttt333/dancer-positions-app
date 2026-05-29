@@ -5,6 +5,16 @@
 
 import React, { useRef, useCallback, useState, useEffect, useLayoutEffect, useMemo } from "react";
 import styles from "./PortraitWaveTransport.module.css";
+import ctrlStyles from "./TransportControls.module.css";
+import {
+  TransportIconPause,
+  TransportIconPlay,
+  TransportIconSkipBack,
+  TransportIconSkipForward,
+  TransportIconStop,
+  TransportIconZoomIn,
+  TransportIconZoomOut,
+} from "./TransportIcons";
 import { useTimelineWaveBridgeStore } from "../../store/timelineWaveBridgeStore";
 import { formatMmSs, waveRulerTicks } from "../../lib/timeFormat";
 
@@ -551,59 +561,68 @@ export const PortraitWaveTransport: React.FC<Props> = ({
   return (
     <div className={styles.transport}>
       <div className={styles.row}>
-        <div className={styles.controls}>
-          <button
-            className={styles.ctrlBtn}
-            onClick={handleSkipBack}
-            disabled={!audioUrl}
-            aria-label="5秒戻す"
-          >
-            <span className={styles.skipIcon}>↺</span>
-            <span className={styles.skipSec}>5</span>
-          </button>
-          <button
-            className={styles.ctrlBtn}
-            onClick={handleSkipForward}
-            disabled={!audioUrl}
-            aria-label="5秒進める"
-          >
-            <span className={styles.skipIcon}>↻</span>
-            <span className={styles.skipSec}>5</span>
-          </button>
-          <button
-            className={styles.playBtn}
-            onClick={onPlayPause}
-            disabled={!audioUrl}
-            aria-label={isPlaying ? "一時停止" : "再生"}
-          >
-            {isPlaying ? "⏸" : "▶"}
-          </button>
-          <button
-            className={styles.ctrlBtn}
-            onClick={handleStop}
-            disabled={!audioUrl}
-            aria-label="停止して先頭へ"
-          >
-            ⏹
-          </button>
-          <button
-            className={styles.ctrlBtn}
-            onClick={handleZoomIn}
-            disabled={!audioUrl || zoom >= MAX_ZOOM - 0.01}
-            aria-label="波形を拡大"
-            title="拡大"
-          >
-            <span className={styles.zoomBtnIcon}>＋</span>
-          </button>
-          <button
-            className={styles.ctrlBtn}
-            onClick={handleZoomOut}
-            disabled={!audioUrl || zoom <= MIN_ZOOM + 0.01}
-            aria-label="波形を縮小"
-            title="縮小"
-          >
-            <span className={styles.zoomBtnIcon}>－</span>
-          </button>
+        <div className={ctrlStyles.controls}>
+          <div className={ctrlStyles.group}>
+            <button
+              className={`${ctrlStyles.btn} ${ctrlStyles.skipBtn}`}
+              onClick={handleSkipBack}
+              disabled={!audioUrl}
+              aria-label="5秒戻す"
+            >
+              <TransportIconSkipBack size={22} className={ctrlStyles.icon} />
+              <span className={ctrlStyles.skipBadge}>5</span>
+            </button>
+            <button
+              className={`${ctrlStyles.btn} ${ctrlStyles.skipBtn}`}
+              onClick={handleSkipForward}
+              disabled={!audioUrl}
+              aria-label="5秒進める"
+            >
+              <TransportIconSkipForward size={22} className={ctrlStyles.icon} />
+              <span className={ctrlStyles.skipBadge}>5</span>
+            </button>
+            <button
+              className={`${ctrlStyles.btn} ${ctrlStyles.btnPrimary}`}
+              onClick={onPlayPause}
+              disabled={!audioUrl}
+              aria-label={isPlaying ? "一時停止" : "再生"}
+            >
+              {isPlaying ? (
+                <TransportIconPause size={24} className={ctrlStyles.iconPrimary} />
+              ) : (
+                <TransportIconPlay size={24} className={ctrlStyles.iconPrimary} />
+              )}
+            </button>
+            <button
+              className={ctrlStyles.btn}
+              onClick={handleStop}
+              disabled={!audioUrl}
+              aria-label="停止して先頭へ"
+            >
+              <TransportIconStop size={20} className={ctrlStyles.icon} />
+            </button>
+          </div>
+          <div className={ctrlStyles.divider} aria-hidden />
+          <div className={ctrlStyles.group}>
+            <button
+              className={ctrlStyles.btn}
+              onClick={handleZoomIn}
+              disabled={!audioUrl || zoom >= MAX_ZOOM - 0.01}
+              aria-label="波形を拡大"
+              title="拡大"
+            >
+              <TransportIconZoomIn size={22} className={ctrlStyles.icon} />
+            </button>
+            <button
+              className={ctrlStyles.btn}
+              onClick={handleZoomOut}
+              disabled={!audioUrl || zoom <= MIN_ZOOM + 0.01}
+              aria-label="波形を縮小"
+              title="縮小"
+            >
+              <TransportIconZoomOut size={22} className={ctrlStyles.icon} />
+            </button>
+          </div>
         </div>
         <span className={styles.timeText}>
           {fmt(currentTime)}

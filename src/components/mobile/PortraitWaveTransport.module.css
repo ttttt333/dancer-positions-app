@@ -9,79 +9,10 @@
 .row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin-bottom: 4px;
   flex-shrink: 0;
   padding: 0 8px;
-}
-
-.controls {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  flex-shrink: 0;
-}
-
-.ctrlBtn {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 0.5px solid rgba(255, 255, 255, 0.1);
-  color: #d1d5db;
-  font-size: 13px;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: background 0.15s;
-  gap: 0;
-  padding: 0;
-  line-height: 1;
-}
-.ctrlBtn:disabled {
-  opacity: 0.3;
-  cursor: default;
-}
-.ctrlBtn:active:not(:disabled) {
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.skipIcon {
-  font-size: 14px;
-  line-height: 1;
-  display: block;
-}
-.skipSec {
-  font-size: 7px;
-  font-weight: 700;
-  color: #9ca3af;
-  line-height: 1;
-}
-
-.playBtn {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: #d97706;
-  border: none;
-  color: white;
-  font-size: 15px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: opacity 0.15s;
-}
-.playBtn:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-.playBtn:active:not(:disabled) {
-  opacity: 0.8;
 }
 
 .timeText {
@@ -108,12 +39,6 @@
   border-radius: 4px;
   padding: 1px 5px;
   letter-spacing: 0.03em;
-}
-
-.zoomBtnIcon {
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 1;
 }
 
 .waveFrame {
