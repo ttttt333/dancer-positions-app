@@ -865,7 +865,7 @@ function normalize(raw: FlowLibraryItem): FlowLibraryItem {
           : {}),
       };
     });
-  const dancerCount = formations[0]?.dancers.length ?? 0;
+  const dancerCount = resolveFirstCueFormationDancerCount(formations, cues);
   const fullCuesRaw = rawRec.cuesFull;
   const hasTimingFromFull =
     Array.isArray(fullCuesRaw) &&
@@ -1012,6 +1012,78 @@ function writeAll(items: FlowLibraryItem[]): void {
   }
 }
 
+function resolveFirstCueFormationDancerCount(
+  formations: FlowFormationSnapshot[],
+  cues: FlowCueSnapshot[]
+): number {
+  if (!formations.length) return 0;
+  if (!cues.length) return formations[0]?.dancers.length ?? 0;
+  const sorted = [...cues].sort(
+    (a, b) => (a.tStartSec ?? 0) - (b.tStartSec ?? 0)
+  );
+  const fid = sorted[0]?.formationIdRef;
+  const f = fid ? formations.find((x) => x.id === fid) : formations[0];
+  return f?.dancers.length ?? 0;
+}
+
+/** 先頭キュー（時刻順）に紐づく最初の立ち位置 */
+export function getFlowLibraryFirstFormation(
+  item: FlowLibraryItem
+): FlowFormationSnapshot | null {
+  const cues = item.cues;
+  if (!cues.length) return item.formations[0] ?? null;
+  const sorted = [...cues].sort(
+    (a, b) => (a.tStartSec ?? 0) - (b.tStartSec ?? 0)
+  );
+  const fid = sorted[0]?.formationIdRef;
+  if (fid) {
+    return item.formations.find((f) => f.id === fid) ?? item.formations[0] ?? null;
+  }
+  return item.formations[0] ?? null;
+}
+
+/** 保存フローの最終タイミング位置（秒）。タイミング未保存なら null。 */
+export function computeFlowLibraryTimingSpanSec(
+  item: FlowLibraryItem
+): number | null {
+  if (!item.hasTiming) return null;
+  const cues = item.cuesFull?.length ? item.cuesFull : item.cues;
+  if (!cues?.length) return null;
+  let maxT = 0;
+  let found = false;
+  for (const c of cues) {
+    for (const t of [c.tEndSec, c.tStartSec]) {
+      if (t != null && Number.isFinite(t) && t >= 0) {
+        maxT = Math.max(maxT, t);
+        found = true;
+      }
+    }
+  }
+  return found ? maxT : null;
+}
+
+/** 一覧表示用の尺（秒）。楽曲尺 → キュー終端の順で解決。 */
+export function resolveFlowLibraryDurationSec(
+  item: FlowLibraryItem
+): number | null {
+  const audio = item.memento?.audioDurationSec;
+  if (typeof audio === "number" && Number.isFinite(audio) && audio > 0) {
+    return audio;
+  }
+  return computeFlowLibraryTimingSpanSec(item);
+}
+
+/** 一覧表示用の人数（先頭キューの形 → memento → 保存値） */
+export function resolveFlowLibraryDancerCount(item: FlowLibraryItem): number {
+  const first = getFlowLibraryFirstFormation(item);
+  if (first?.dancers.length) return first.dancers.length;
+  const piece = item.memento?.pieceDancerCount;
+  if (typeof piece === "number" && Number.isFinite(piece) && piece > 0) {
+    return Math.floor(piece);
+  }
+  return item.dancerCount;
+}
+
 /** 新しい順 */
 export function listFlowLibraryItems(): FlowLibraryItem[] {
   return safeParseAll().sort((a, b) => b.updatedAt - a.updatedAt);
@@ -1103,7 +1175,7 @@ function buildFlowLibraryItemFromProject(
     name: trimmed || `フロー ${existingCount + 1}`,
     /** バンドル版では常に実タイムラインに基づく（旧「秒数オフ」で hasTiming だけ false になる不整合を防ぐ） */
     hasTiming: hasTimingFromCues,
-    dancerCount: formations[0]?.dancers.length ?? 0,
+    dancerCount: resolveFirstCueFormationDancerCount(formations, cues),
     cueCount: cues.length,
     formations,
     cues,

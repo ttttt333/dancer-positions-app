@@ -113,16 +113,17 @@ export function TransportIconUndo(props: IconProps) {
   return (
     <svg {...iconProps(props)}>
       <path
-        d="M8 7H5v3"
+        d="m9 14-5-5 5-5"
         stroke="currentColor"
-        strokeWidth="2.2"
+        strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
+        fill="none"
       />
       <path
-        d="M5 10a7 7 0 1 1 2.05 4.95"
+        d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"
         stroke="currentColor"
-        strokeWidth="2.2"
+        strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -134,21 +135,24 @@ export function TransportIconUndo(props: IconProps) {
 export function TransportIconRedo(props: IconProps) {
   return (
     <svg {...iconProps(props)}>
-      <path
-        d="M16 7h3v3"
-        stroke="currentColor"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M19 10a7 7 0 1 1-2.05 4.95"
-        stroke="currentColor"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
+      <g transform="translate(24 0) scale(-1 1)">
+        <path
+          d="m9 14-5-5 5-5"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+        <path
+          d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+      </g>
     </svg>
   );
 }
