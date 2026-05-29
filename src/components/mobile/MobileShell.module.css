@@ -12,9 +12,17 @@
 /* ── 横向きルート ── */
 .landscapeRoot {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   height: 100dvh;
   background: #030712;
+  overflow: hidden;
+}
+
+.landscapeMainRow {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
   overflow: hidden;
 }
 
@@ -140,4 +148,8 @@
   background: rgba(239, 68, 68, 0.25);
   border-color: rgba(239, 68, 68, 0.8);
   transform: scale(0.96);
+}
+
+.floatingCloseLandscape {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 128px);
 }

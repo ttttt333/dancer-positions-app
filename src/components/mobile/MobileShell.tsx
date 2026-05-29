@@ -15,6 +15,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { useOrientation } from '../../hooks/useOrientation'
 import { PortraitBottomBar } from './PortraitBottomBar'
 import { LandscapeSidePanel } from './LandscapeSidePanel'
+import { LandscapeBottomWaveBar } from './LandscapeBottomWaveBar'
 import { useMobileShellBridgeStore } from '../../store/useMobileShellBridgeStore'
 import styles from './MobileShell.module.css'
 
@@ -117,33 +118,53 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
       {...(isLandscape ? { 'data-shell-landscape': '' } : { 'data-shell-portrait': '' })}
     >
       {isLandscape ? (
-        <LandscapeSidePanel
+        <div className={styles.landscapeMainRow}>
+          <LandscapeSidePanel
+            isPlaying={props.isPlaying}
+            currentTime={props.currentTime}
+            duration={props.duration}
+            onPlayPause={props.onPlayPause}
+            onStop={props.onStop}
+            onSeek={props.onSeek}
+            currentCueIndex={props.currentCueIndex}
+            totalCues={props.totalCues}
+            onCuePrev={props.onCuePrev}
+            onCueNext={props.onCueNext}
+            onAddCue={props.onAddCue}
+            onStageSettings={props.onStageSettings}
+            onViewerList={props.onViewerList}
+            onUndo={onUndo}
+            onRedo={onRedo}
+            undoDisabled={undoDisabled}
+            redoDisabled={redoDisabled}
+          />
+          <div
+            key="mobile-stage-host"
+            className={styles.stageAreaLandscape}
+          >
+            {props.children}
+          </div>
+        </div>
+      ) : (
+        <div
+          key="mobile-stage-host"
+          className={styles.stageAreaPortrait}
+        >
+          {props.children}
+        </div>
+      )}
+
+      {isLandscape ? (
+        <LandscapeBottomWaveBar
+          audioUrl={props.audioUrl}
           isPlaying={props.isPlaying}
           currentTime={props.currentTime}
           duration={props.duration}
           onPlayPause={props.onPlayPause}
           onStop={props.onStop}
           onSeek={props.onSeek}
-          currentCueIndex={props.currentCueIndex}
-          totalCues={props.totalCues}
-          onCuePrev={props.onCuePrev}
-          onCueNext={props.onCueNext}
-          onAddCue={props.onAddCue}
-          onStageSettings={props.onStageSettings}
-          onViewerList={props.onViewerList}
-          onUndo={onUndo}
-          onRedo={onRedo}
-          undoDisabled={undoDisabled}
-          redoDisabled={redoDisabled}
         />
       ) : null}
-
-      <div
-        key="mobile-stage-host"
-        className={isLandscape ? styles.stageAreaLandscape : styles.stageAreaPortrait}
-      >
-        {props.children}
-      </div>
 
       {!isLandscape ? (
         <PortraitBottomBar
@@ -166,7 +187,11 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
       ) : null}
 
       {hasOpenDialog ? (
-        <button className={styles.floatingClose} onClick={handleFloatingClose} aria-label="ダイアログを閉じる">
+        <button
+          className={`${styles.floatingClose} ${isLandscape ? styles.floatingCloseLandscape : ""}`.trim()}
+          onClick={handleFloatingClose}
+          aria-label="ダイアログを閉じる"
+        >
           ✕ 閉じる
         </button>
       ) : null}

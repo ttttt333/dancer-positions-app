@@ -38,6 +38,7 @@ const ZOOM_BUTTON_STEP = 1.1;
 const DOUBLE_TAP_MS = 350;
 const LONG_PRESS_MS = 520;
 const PORTRAIT_WAVE_CSS_H = 96;
+const DEFAULT_WAVE_HEIGHT_PX = PORTRAIT_WAVE_CSS_H;
 /** 長押し判定前にドラッグ開始する移動量（px） */
 const DRAG_ARM_PX = 14;
 /** この距離未満の指の動きはタップ扱い（シーク） */
@@ -56,6 +57,11 @@ interface Props {
   onPlayPause: () => void;
   onStop: () => void;
   onSeek: (sec: number) => void;
+  /** false のとき再生ボタン行を出さず波形・目盛りのみ（横画面下部用） */
+  showTransportControls?: boolean;
+  /** 波形キャンバスの CSS 高さ（px） */
+  waveHeightPx?: number;
+  className?: string;
 }
 
 function fmt(sec: number): string {
@@ -92,6 +98,9 @@ export const PortraitWaveTransport: React.FC<Props> = ({
   onPlayPause,
   onStop,
   onSeek,
+  showTransportControls = true,
+  waveHeightPx = DEFAULT_WAVE_HEIGHT_PX,
+  className,
 }) => {
   const registered = useTimelineWaveBridgeStore((s) => s.registered);
   const bridgeApi = useTimelineWaveBridgeStore((s) => s.api);
@@ -205,13 +214,13 @@ export const PortraitWaveTransport: React.FC<Props> = ({
     if (cssW <= 2) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const bw = Math.max(280, Math.round(cssW * dpr));
-    const bh = Math.round(PORTRAIT_WAVE_CSS_H * dpr);
+    const bh = Math.round(waveHeightPx * dpr);
     if (canvas.width !== bw || canvas.height !== bh) {
       canvas.width = bw;
       canvas.height = bh;
     }
     redraw();
-  }, [redraw]);
+  }, [redraw, waveHeightPx]);
 
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
@@ -696,9 +705,13 @@ export const PortraitWaveTransport: React.FC<Props> = ({
   const zoomLabel = zoom > 1 ? `${zoom.toFixed(zoom >= 10 ? 0 : 1)}×` : null;
 
   return (
-    <div className={styles.transport}>
+    <div
+      className={`${styles.transport} ${showTransportControls ? "" : styles.transportWaveOnly} ${className ?? ""}`.trim()}
+      style={{ ["--portrait-wave-h" as string]: `${waveHeightPx}px` } as React.CSSProperties}
+    >
+      {showTransportControls ? (
       <div className={styles.row}>
-        <div className={ctrlStyles.controls}>
+        <div className={`${ctrlStyles.controls} ${styles.rowControls}`}>
           <div className={ctrlStyles.group}>
             <button
               className={`${ctrlStyles.btn} ${ctrlStyles.skipBtn}`}
@@ -768,6 +781,7 @@ export const PortraitWaveTransport: React.FC<Props> = ({
           {zoomLabel ? <span className={styles.zoomBadge}>{zoomLabel}</span> : null}
         </span>
       </div>
+      ) : null}
 
       <div className={styles.waveFrame}>
         <div

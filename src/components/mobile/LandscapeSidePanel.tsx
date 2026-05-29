@@ -4,7 +4,7 @@
  * 再生コントロール行 + キューナビ + Menuボタン + Undo/Redo
  */
 
-import React, { useState, useRef, useCallback } from 'react'
+import React, { useState, useCallback } from 'react'
 import styles from './LandscapeSidePanel.module.css'
 import ctrlStyles from './TransportControls.module.css'
 import { TransportIconPause, TransportIconPlay, TransportIconStop } from './TransportIcons'
@@ -20,17 +20,6 @@ interface MenuSection {
   title: string
   icon: string
   items: MenuItem[]
-}
-
-// ── 波形バーの高さデータ (固定値) ──
-const WAVE_HEIGHTS = [
-  20,35,15,45,30,50,25,40,18,42,32,48,22,38,28,52,
-  20,36,24,44,30,46,18,40,26,48,22,34,28,50,20,38,
-]
-
-function fmt(sec: number): string {
-  if (!isFinite(sec) || sec < 0) return '0:00'
-  return `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`
 }
 
 interface Props {
@@ -53,8 +42,13 @@ interface Props {
   redoDisabled?: boolean
 }
 
+function fmt(sec: number): string {
+  if (!isFinite(sec) || sec < 0) return '0:00'
+  return `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`
+}
+
 export const LandscapeSidePanel: React.FC<Props> = ({
-  isPlaying, currentTime, duration, onPlayPause, onStop, onSeek,
+  isPlaying, currentTime, duration, onPlayPause, onStop,
   currentCueIndex, totalCues, onCuePrev, onCueNext,
   onAddCue, onStageSettings, onViewerList,
   onUndo, onRedo, undoDisabled, redoDisabled,
@@ -121,16 +115,6 @@ export const LandscapeSidePanel: React.FC<Props> = ({
     setMenuOpen(false)
   }, [])
 
-  const waveRef = useRef<HTMLDivElement>(null)
-  const playedBars = Math.floor((currentTime / Math.max(duration, 1)) * WAVE_HEIGHTS.length)
-  const pct = duration > 0 ? (currentTime / duration) * 100 : 0
-
-  const handleWaveClick = useCallback((e: React.MouseEvent) => {
-    if (!waveRef.current || !onSeek || duration === 0) return
-    const r = waveRef.current.getBoundingClientRect()
-    onSeek(((e.clientX - r.left) / r.width) * duration)
-  }, [duration, onSeek])
-
   if (!open) {
     return (
       <div className={styles.collapsed}>
@@ -175,34 +159,6 @@ export const LandscapeSidePanel: React.FC<Props> = ({
         <span className={styles.timeText}>{fmt(currentTime)}</span>
         <span className={styles.timeSep}>/</span>
         <span className={styles.timeDur}>{fmt(duration)}</span>
-      </div>
-
-      {/* ── 波形バー (タップでシーク) ── */}
-      <div
-        ref={waveRef}
-        className={styles.waveform}
-        onClick={handleWaveClick}
-        role="slider"
-        aria-valuemin={0}
-        aria-valuemax={duration}
-        aria-valuenow={currentTime}
-        aria-label="再生位置"
-      >
-        {WAVE_HEIGHTS.map((h, i) => (
-          <div
-            key={i}
-            className={styles.waveBar}
-            style={{
-              height: Math.min(h * 0.55, 16),
-              background: i < playedBars ? '#d97706' : 'rgba(217,119,6,0.2)',
-            }}
-          />
-        ))}
-        {/* プログレスライン */}
-        <div
-          className={styles.wavePlayhead}
-          style={{ left: `${pct}%` }}
-        />
       </div>
 
       <div className={styles.divider} />
