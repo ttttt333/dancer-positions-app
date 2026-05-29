@@ -114,8 +114,8 @@ export function useTimelineWaveDecode({ setProject, setPeaks }: Params) {
         if (!buf.byteLength) {
           throw new Error("音声データが空です。音源を再度追加してください。");
         }
-        reportWaveLoadProgress(0.42, "波形を解析中…");
-        const stopTick = runIndeterminateDecodeProgress(0.42, 0.92, "波形を解析中…");
+        reportWaveLoadProgress(0.92, "波形を端末で解析中…");
+        const stopTick = runIndeterminateDecodeProgress(0.92, 0.99, "波形を端末で解析中…");
         let peaks: number[];
         let durationSec: number;
         try {

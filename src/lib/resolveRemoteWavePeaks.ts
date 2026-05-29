@@ -1,6 +1,8 @@
 import type { DecodePeaksOptions } from "../hooks/useTimelineWaveDecode";
 import {
+  computeServerWavePeaksFromBlob,
   fetchServerWavePeaksWithPoll,
+  payloadToPeaksResult,
   tryFetchServerWavePeaksReady,
 } from "./wavePeaksServerApi";
 import { supabaseDownloadWavePeaks } from "./supabaseWavePeaks";
@@ -29,9 +31,49 @@ export async function applyPrecomputedWavePeaks(
   });
 }
 
+async function cacheAndApplyPeaks(
+  applyPeaks: ApplyPeaks,
+  peaks: PeaksResult,
+  options: Omit<DecodePeaksOptions, "precomputed">
+): Promise<void> {
+  if (options.cacheKey) {
+    void putCachedPeaksPayload(
+      options.cacheKey,
+      peaks.peaks,
+      peaks.durationSec
+    );
+  }
+  await applyPrecomputedWavePeaks(applyPeaks, peaks, options);
+}
+
+/** 端末 decodeAudioData の前にサーバー生成を試す（88% で止まる重い処理を回避） */
+async function fallbackPeaksViaServerCompute(
+  buf: ArrayBuffer,
+  applyPeaks: ApplyPeaks,
+  options: Omit<DecodePeaksOptions, "precomputed">,
+  filename: string
+): Promise<boolean> {
+  if (!buf.byteLength) return false;
+  reportWaveLoadProgress(0.82, "サーバーで波形を生成中…");
+  try {
+    const payload = await computeServerWavePeaksFromBlob(
+      new Blob([buf], { type: "audio/mpeg" }),
+      filename
+    );
+    await cacheAndApplyPeaks(
+      applyPeaks,
+      payloadToPeaksResult(payload),
+      options
+    );
+    return true;
+  } catch (err) {
+    console.warn("[wavePeaks] server compute fallback failed:", err);
+    return false;
+  }
+}
+
 /**
- * サーバー音源（再利用）: キャッシュ済み blob から波形を解決。
- * サーバー側ピークを優先し、無ければローカルデコード用に ArrayBuffer を読む。
+ * サーバー音源: キャッシュ → GET peaks → ポーリング → サーバー compute → 端末解析（最終）
  */
 export async function resolveServerAssetWavePeaks(
   assetId: number,
@@ -49,14 +91,7 @@ export async function resolveServerAssetWavePeaks(
 
   const ready = await tryFetchServerWavePeaksReady(assetId);
   if (ready) {
-    if (options.cacheKey) {
-      void putCachedPeaksPayload(
-        options.cacheKey,
-        ready.peaks,
-        ready.durationSec
-      );
-    }
-    await applyPrecomputedWavePeaks(applyPeaks, ready, options);
+    await cacheAndApplyPeaks(applyPeaks, ready, options);
     return;
   }
 
@@ -64,27 +99,40 @@ export async function resolveServerAssetWavePeaks(
   const peaksTask = fetchServerWavePeaksWithPoll(assetId);
   const bufTask = readBuffer();
 
-  const serverPeaks = await peaksTask;
+  let serverPeaks = await peaksTask;
   if (serverPeaks?.peaks.length) {
-    if (options.cacheKey) {
-      void putCachedPeaksPayload(
-        options.cacheKey,
-        serverPeaks.peaks,
-        serverPeaks.durationSec
-      );
-    }
-    await applyPrecomputedWavePeaks(applyPeaks, serverPeaks, options);
+    await cacheAndApplyPeaks(applyPeaks, serverPeaks, options);
     return;
   }
 
-  reportWaveLoadProgress(0.88, "波形を端末で解析中…");
+  reportWaveLoadProgress(0.78, "サーバーで波形を生成中…");
+  serverPeaks = await fetchServerWavePeaksWithPoll(assetId, {
+    maxAttempts: 48,
+    intervalMs: 500,
+  });
+  if (serverPeaks?.peaks.length) {
+    await cacheAndApplyPeaks(applyPeaks, serverPeaks, options);
+    return;
+  }
+
   const buf = await bufTask;
+  if (
+    await fallbackPeaksViaServerCompute(
+      buf,
+      applyPeaks,
+      options,
+      `audio-${assetId}.m4a`
+    )
+  ) {
+    return;
+  }
+
+  reportWaveLoadProgress(0.92, "波形を端末で解析中…");
   await applyPeaks(buf, options);
 }
 
 /**
  * Supabase 音源: サイドカー JSON と本体を並列取得し、サイドカーがあればデコードを省略。
- * （呼び出し側で再生 URL の設定後に applyPeaks を実行する想定）
  */
 export async function downloadSupabaseAudioWithSidecar(
   audioPath: string,
@@ -98,7 +146,12 @@ export async function downloadSupabaseAudioWithSidecar(
   return { buf, sidecar };
 }
 
-/** Supabase 再利用 blob: サイドカーを先に試し、無ければ blob からデコード */
+function filenameFromStoragePath(path: string): string {
+  const base = path.trim().split("/").pop();
+  return base && base.length > 0 ? base : "audio.m4a";
+}
+
+/** Supabase: サイドカー → サーバー compute → 端末解析（最終） */
 export async function resolveSupabaseReuseWavePeaks(
   audioPath: string,
   readBuffer: () => Promise<ArrayBuffer>,
@@ -116,14 +169,7 @@ export async function resolveSupabaseReuseWavePeaks(
   reportWaveLoadProgress(0.4, "クラウドの波形データを確認中…");
   const sidecar = await supabaseDownloadWavePeaks(audioPath).catch(() => null);
   if (sidecar?.peaks.length) {
-    if (options.cacheKey) {
-      void putCachedPeaksPayload(
-        options.cacheKey,
-        sidecar.peaks,
-        sidecar.durationSec
-      );
-    }
-    await applyPrecomputedWavePeaks(
+    await cacheAndApplyPeaks(
       applyPeaks,
       { peaks: sidecar.peaks, durationSec: sidecar.durationSec },
       options
@@ -131,7 +177,18 @@ export async function resolveSupabaseReuseWavePeaks(
     return;
   }
 
-  reportWaveLoadProgress(0.88, "波形を端末で解析中…");
   const buf = await readBuffer();
+  if (
+    await fallbackPeaksViaServerCompute(
+      buf,
+      applyPeaks,
+      options,
+      filenameFromStoragePath(audioPath)
+    )
+  ) {
+    return;
+  }
+
+  reportWaveLoadProgress(0.92, "波形を端末で解析中…");
   await applyPeaks(buf, options);
 }

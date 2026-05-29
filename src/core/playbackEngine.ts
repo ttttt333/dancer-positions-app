@@ -141,13 +141,48 @@ export class PlaybackEngine {
 
   /**
    * 非表示 `<audio>` の `src` を差し替えて `load()`。
-   * `loadedmetadata` 前でも購読側が即座に状態を読めるよう、メタ・時刻・再生フラグを一度 emit する。
+   * 同一 URL の再設定はスキップ（向き変更時の effect 再実行で再生が止まるのを防ぐ）。
+   * URL 変更時は再生位置・再生中状態を可能な限り維持する。
    */
-  setMediaSourceUrl(url: string): void {
+  setMediaSourceUrl(url: string, opts?: { force?: boolean }): void {
     const el = this.media;
     if (!el || typeof url !== "string" || url.length === 0) return;
+    const current = this.getMediaSourceUrl();
+    if (!opts?.force && current === url) {
+      this.emitMeta();
+      this.emitTime();
+      return;
+    }
+
+    const wasPlaying = !el.paused;
+    const savedTime = Number.isFinite(el.currentTime) ? el.currentTime : 0;
+
     el.src = url;
     el.load();
+
+    if (wasPlaying || savedTime > 0) {
+      const restore = () => {
+        if (savedTime > 0) {
+          try {
+            el.currentTime = savedTime;
+          } catch {
+            /* duration 未確定等 */
+          }
+        }
+        if (wasPlaying) {
+          void el.play().catch(() => {});
+        }
+        this.emitPlaying(!el.paused);
+        this.emitMeta();
+        this.emitTime();
+      };
+      if (el.readyState >= HTMLMediaElement.HAVE_METADATA) {
+        restore();
+      } else {
+        el.addEventListener("loadedmetadata", restore, { once: true });
+      }
+    }
+
     this.emitPlaying(!el.paused);
     this.emitMeta();
     this.emitTime();

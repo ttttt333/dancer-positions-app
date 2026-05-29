@@ -9,6 +9,7 @@ import {
   roundPlaybackHeadSec,
 } from "../core/timelineController";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
+import { bindPlaybackOrientationResume } from "../lib/playbackOrientationResume";
 import type { ChoreographyProjectJson } from "../types/choreography";
 
 type Params = {
@@ -63,6 +64,8 @@ export function useEditorPlaybackSync(p: Params): {
     usePlaybackUiStore.getState().resetPlaybackUi();
     return subscribePlaybackEngineToPlaybackUiStore(setProjectSafe);
   }, [projectId, shareToken, choreoPublicView, setProjectSafe]);
+
+  useEffect(() => bindPlaybackOrientationResume(), []);
 
   useEffect(() => {
     const cur = projectRef.current;

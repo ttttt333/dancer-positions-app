@@ -3,7 +3,7 @@ import { useRef } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { useTimelineAudioImport } from "./useTimelineAudioImport";
 import { useTimelineRemoteAudio } from "./useTimelineRemoteAudio";
-import { useTimelineWaveDecode } from "./useTimelineWaveDecode";
+import { useTimelineWaveDecode, type DecodePeaksOptions } from "./useTimelineWaveDecode";
 
 type Params = {
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>;
@@ -36,6 +36,10 @@ export function useTimelineAudio({
     setPeaks,
   });
 
+  /** effect 再実行（向き変更等）で音源 reload を誘発しないよう ref 経由 */
+  const decodePeaksRef = useRef(decodePeaksFromBuffer);
+  decodePeaksRef.current = decodePeaksFromBuffer;
+
   const {
     extractProgress,
     audioFileInputRef,
@@ -51,7 +55,7 @@ export function useTimelineAudio({
 
   useTimelineRemoteAudio({
     blobUrlRef,
-    decodePeaksFromBuffer,
+    decodePeaksRef,
     audioAssetId,
     audioSupabasePath,
     flowLocalAudioKey,
@@ -65,3 +69,5 @@ export function useTimelineAudio({
     openAudioImport,
   };
 }
+
+export type { DecodePeaksOptions };

@@ -42,12 +42,14 @@ import {
   reportWaveLoadProgress,
 } from "../lib/waveLoadProgress";
 
+type DecodePeaksFn = (
+  buf: ArrayBuffer,
+  options?: DecodePeaksOptions
+) => Promise<void>;
+
 type Params = {
   blobUrlRef: MutableRefObject<string | null>;
-  decodePeaksFromBuffer: (
-    buf: ArrayBuffer,
-    options?: DecodePeaksOptions
-  ) => Promise<void>;
+  decodePeaksRef: MutableRefObject<DecodePeaksFn>;
   audioAssetId: number | null;
   audioSupabasePath: string | null | undefined;
   flowLocalAudioKey: string | null | undefined;
@@ -55,22 +57,64 @@ type Params = {
   publicShareView?: boolean;
 };
 
-function attachPlaybackUrl(
+function assignBlobUrlRef(
   blobUrlRef: MutableRefObject<string | null>,
   url: string,
-  clearPlaybackTrustedDurationSec: () => void
+  revokePrevious: boolean
 ) {
-  if (
-    blobUrlRef.current &&
-    blobUrlRef.current !== persistedServerAudioBlobUrl &&
-    blobUrlRef.current !== persistedSupabaseAudioBlobUrl &&
-    !blobUrlRef.current.startsWith("http")
-  ) {
-    URL.revokeObjectURL(blobUrlRef.current);
+  const cur = blobUrlRef.current;
+  if (revokePrevious && cur && cur !== url) {
+    revokeBlobUrlUnlessCloudPersisted(cur);
   }
   blobUrlRef.current = url;
+}
+
+/** 再生 URL を設定（同一 URL・再生中は load() しない） */
+function syncPlaybackUrl(
+  blobUrlRef: MutableRefObject<string | null>,
+  url: string,
+  clearPlaybackTrustedDurationSec: () => void,
+  opts?: { revokePrevious?: boolean; skipEngineIfSame?: boolean }
+) {
+  assignBlobUrlRef(blobUrlRef, url, opts?.revokePrevious ?? false);
+  const engineUrl = playbackEngine.getMediaSourceUrl();
+  if (opts?.skipEngineIfSame !== false && engineUrl === url) {
+    return;
+  }
   clearPlaybackTrustedDurationSec();
   playbackEngine.setMediaSourceUrl(url);
+}
+
+async function ensureServerPeaksOnly(
+  assetId: number,
+  readBuffer: () => Promise<ArrayBuffer>,
+  decodePeaksRef: MutableRefObject<DecodePeaksFn>,
+  cacheKey: string,
+  cancelled: () => boolean
+) {
+  if (cancelled()) return;
+  await resolveServerAssetWavePeaks(
+    assetId,
+    readBuffer,
+    (buf, options) => decodePeaksRef.current(buf, options),
+    { cacheKey }
+  );
+}
+
+async function ensureSupabasePeaksOnly(
+  path: string,
+  readBuffer: () => Promise<ArrayBuffer>,
+  decodePeaksRef: MutableRefObject<DecodePeaksFn>,
+  cacheKey: string,
+  cancelled: () => boolean
+) {
+  if (cancelled()) return;
+  await resolveSupabaseReuseWavePeaks(
+    path,
+    readBuffer,
+    (buf, options) => decodePeaksRef.current(buf, options),
+    { cacheKey, supabaseAudioPath: path }
+  );
 }
 
 /**
@@ -79,7 +123,7 @@ function attachPlaybackUrl(
  */
 export function useTimelineRemoteAudio({
   blobUrlRef,
-  decodePeaksFromBuffer,
+  decodePeaksRef,
   audioAssetId,
   audioSupabasePath,
   flowLocalAudioKey,
@@ -110,37 +154,58 @@ export function useTimelineRemoteAudio({
     ) {
       revokePersistedServerAudioBlob();
     }
+
     let cancelled = false;
+    const isCancelled = () => cancelled;
+
     (async () => {
       try {
-        reportWaveLoadProgress(0.02, "音源を準備中…");
         revokePersistedSupabaseAudioBlob();
         const cacheKey = wavePeaksCacheKeyForServerAsset(aid);
         const reuseUrl =
           persistedServerAudioAssetId === aid
             ? persistedServerAudioBlobUrl
             : null;
+
         if (reuseUrl) {
-          const cur = blobUrlRef.current;
-          if (cur && cur !== reuseUrl) {
-            revokeBlobUrlUnlessCloudPersisted(cur);
-          }
-          blobUrlRef.current = reuseUrl;
-          clearPlaybackTrustedDurationSec();
-          playbackEngine.setMediaSourceUrl(reuseUrl);
+          syncPlaybackUrl(
+            blobUrlRef,
+            reuseUrl,
+            clearPlaybackTrustedDurationSec,
+            { revokePrevious: true }
+          );
           const cached = await getWavePeaksCache(cacheKey);
           if (cached?.peaks.length) {
             if (!cancelled) {
-              await decodePeaksFromBuffer(new ArrayBuffer(0), { cacheKey });
+              await decodePeaksRef.current(new ArrayBuffer(0), { cacheKey });
             }
             return;
           }
-          if (cancelled) return;
-          await resolveServerAssetWavePeaks(
+          reportWaveLoadProgress(0.4, "波形データを取得中…");
+          await ensureServerPeaksOnly(
             aid,
             () => arrayBufferFromBlobUrl(reuseUrl),
-            decodePeaksFromBuffer,
-            { cacheKey }
+            decodePeaksRef,
+            cacheKey,
+            isCancelled
+          );
+          return;
+        }
+
+        const engineAlreadyOnAsset =
+          persistedServerAudioAssetId === aid &&
+          persistedServerAudioBlobUrl &&
+          playbackEngine.getMediaSourceUrl() === persistedServerAudioBlobUrl;
+
+        if (engineAlreadyOnAsset && persistedServerAudioBlobUrl) {
+          blobUrlRef.current = persistedServerAudioBlobUrl;
+          reportWaveLoadProgress(0.4, "波形データを取得中…");
+          await ensureServerPeaksOnly(
+            aid,
+            () => arrayBufferFromBlobUrl(persistedServerAudioBlobUrl!),
+            decodePeaksRef,
+            cacheKey,
+            isCancelled
           );
           return;
         }
@@ -158,10 +223,9 @@ export function useTimelineRemoteAudio({
           aid,
           async () => {
             if (audioResult) return audioResult.buffer;
-            const result = await audioPromise;
-            return result.buffer;
+            return (await audioPromise).buffer;
           },
-          decodePeaksFromBuffer,
+          (buf, options) => decodePeaksRef.current(buf, options),
           { cacheKey }
         );
 
@@ -170,17 +234,11 @@ export function useTimelineRemoteAudio({
           URL.revokeObjectURL(blobUrl);
           return;
         }
-        if (
-          blobUrlRef.current &&
-          blobUrlRef.current !== persistedServerAudioBlobUrl &&
-          blobUrlRef.current !== persistedSupabaseAudioBlobUrl
-        ) {
-          URL.revokeObjectURL(blobUrlRef.current);
-        }
-        blobUrlRef.current = blobUrl;
+
         setPersistedServerAudio(blobUrl, aid);
-        clearPlaybackTrustedDurationSec();
-        playbackEngine.setMediaSourceUrl(blobUrl);
+        syncPlaybackUrl(blobUrlRef, blobUrl, clearPlaybackTrustedDurationSec, {
+          revokePrevious: true,
+        });
 
         if (!cancelled) {
           await peaksPromise;
@@ -192,10 +250,11 @@ export function useTimelineRemoteAudio({
         console.error(e);
       }
     })();
+
     return () => {
       cancelled = true;
     };
-  }, [audioAssetId, blobUrlRef, decodePeaksFromBuffer]);
+  }, [audioAssetId, blobUrlRef, decodePeaksRef]);
 
   useEffect(() => {
     const rawPath = audioSupabasePath;
@@ -223,40 +282,71 @@ export function useTimelineRemoteAudio({
     ) {
       revokePersistedSupabaseAudioBlob();
     }
+
     let cancelled = false;
+    const isCancelled = () => cancelled;
+
     (async () => {
       try {
-        reportWaveLoadProgress(0.02, "音源を準備中…");
         revokePersistedServerAudioBlob();
         const cacheKey = wavePeaksCacheKeyForSupabase(effectivePath);
         const reuseUrl =
           persistedSupabaseAudioPath === effectivePath
             ? persistedSupabaseAudioBlobUrl
             : null;
+
         if (reuseUrl) {
-          const cur = blobUrlRef.current;
-          if (cur && cur !== reuseUrl) {
-            revokeBlobUrlUnlessCloudPersisted(cur);
-          }
-          blobUrlRef.current = reuseUrl;
-          clearPlaybackTrustedDurationSec();
-          playbackEngine.setMediaSourceUrl(reuseUrl);
+          syncPlaybackUrl(
+            blobUrlRef,
+            reuseUrl,
+            clearPlaybackTrustedDurationSec,
+            { revokePrevious: true }
+          );
           const cached = await getWavePeaksCache(cacheKey);
           if (cached?.peaks.length) {
             if (!cancelled) {
-              await decodePeaksFromBuffer(new ArrayBuffer(0), {
+              await decodePeaksRef.current(new ArrayBuffer(0), {
                 cacheKey,
                 supabaseAudioPath: effectivePath,
               });
             }
             return;
           }
-          if (cancelled) return;
-          await resolveSupabaseReuseWavePeaks(
+          reportWaveLoadProgress(0.4, "波形データを取得中…");
+          await ensureSupabasePeaksOnly(
             effectivePath,
             () => arrayBufferFromBlobUrl(reuseUrl),
-            decodePeaksFromBuffer,
-            { cacheKey, supabaseAudioPath: effectivePath }
+            decodePeaksRef,
+            cacheKey,
+            isCancelled
+          );
+          return;
+        }
+
+        const engineUrl = playbackEngine.getMediaSourceUrl();
+        const alreadyPlayingThisPath =
+          persistedSupabaseAudioPath === effectivePath &&
+          engineUrl.length > 0 &&
+          (engineUrl === persistedSupabaseAudioBlobUrl ||
+            engineUrl.startsWith("http"));
+
+        if (alreadyPlayingThisPath) {
+          if (persistedSupabaseAudioBlobUrl) {
+            blobUrlRef.current = persistedSupabaseAudioBlobUrl;
+          }
+          reportWaveLoadProgress(0.4, "波形データを取得中…");
+          const readBuf = persistedSupabaseAudioBlobUrl
+            ? () => arrayBufferFromBlobUrl(persistedSupabaseAudioBlobUrl!)
+            : async () =>
+                (
+                  await supabaseDownloadProjectAudioWithCache(effectivePath)
+                ).buffer;
+          await ensureSupabasePeaksOnly(
+            effectivePath,
+            readBuf,
+            decodePeaksRef,
+            cacheKey,
+            isCancelled
           );
           return;
         }
@@ -278,10 +368,11 @@ export function useTimelineRemoteAudio({
         }
 
         if (signedPlaybackUrl && !cancelled) {
-          attachPlaybackUrl(
+          syncPlaybackUrl(
             blobUrlRef,
             signedPlaybackUrl,
-            clearPlaybackTrustedDurationSec
+            clearPlaybackTrustedDurationSec,
+            { revokePrevious: false }
           );
         }
 
@@ -302,7 +393,12 @@ export function useTimelineRemoteAudio({
           new Blob([audio.buffer], { type: audio.mime })
         );
         setPersistedSupabaseAudio(blobUrl, effectivePath);
-        attachPlaybackUrl(blobUrlRef, blobUrl, clearPlaybackTrustedDurationSec);
+        assignBlobUrlRef(blobUrlRef, blobUrl, false);
+
+        const curEngine = playbackEngine.getMediaSourceUrl();
+        if (curEngine !== blobUrl) {
+          playbackEngine.setMediaSourceUrl(blobUrl);
+        }
 
         if (sidecar?.peaks.length) {
           void putCachedPeaksPayload(
@@ -310,7 +406,7 @@ export function useTimelineRemoteAudio({
             sidecar.peaks,
             sidecar.durationSec
           );
-          await decodePeaksFromBuffer(new ArrayBuffer(0), {
+          await decodePeaksRef.current(new ArrayBuffer(0), {
             cacheKey,
             supabaseAudioPath: effectivePath,
             precomputed: {
@@ -323,7 +419,7 @@ export function useTimelineRemoteAudio({
 
         const mediaPeaks = await getCachedPeaksPayload(cacheKey);
         if (mediaPeaks?.peaks.length) {
-          await decodePeaksFromBuffer(new ArrayBuffer(0), {
+          await decodePeaksRef.current(new ArrayBuffer(0), {
             cacheKey,
             supabaseAudioPath: effectivePath,
             precomputed: mediaPeaks,
@@ -331,11 +427,12 @@ export function useTimelineRemoteAudio({
           return;
         }
 
-        await resolveSupabaseReuseWavePeaks(
+        await ensureSupabasePeaksOnly(
           effectivePath,
           () => Promise.resolve(audio.buffer),
-          decodePeaksFromBuffer,
-          { cacheKey, supabaseAudioPath: effectivePath }
+          decodePeaksRef,
+          cacheKey,
+          isCancelled
         );
       } catch (e) {
         reportWaveLoadError(
@@ -344,10 +441,11 @@ export function useTimelineRemoteAudio({
         console.error(e);
       }
     })();
+
     return () => {
       cancelled = true;
     };
-  }, [audioSupabasePath, blobUrlRef, decodePeaksFromBuffer, publicShareView]);
+  }, [audioSupabasePath, blobUrlRef, decodePeaksRef, publicShareView]);
 
   useEffect(() => {
     if (audioAssetId != null) return;
@@ -364,22 +462,19 @@ export function useTimelineRemoteAudio({
         const blob = await getFlowLibraryAudio(flowKey);
         if (cancelled || !blob || blob.size === 0) return;
         const url = URL.createObjectURL(blob);
-        if (blobUrlRef.current) {
-          revokeBlobUrlUnlessCloudPersisted(blobUrlRef.current);
-        }
-        blobUrlRef.current = url;
-        clearPlaybackTrustedDurationSec();
-        playbackEngine.setMediaSourceUrl(url);
+        syncPlaybackUrl(blobUrlRef, url, clearPlaybackTrustedDurationSec, {
+          revokePrevious: true,
+        });
         const cacheKey = wavePeaksCacheKeyForFlow(flowKey);
         const cached = await getWavePeaksCache(cacheKey);
         if (cached?.peaks.length) {
           if (!cancelled) {
-            await decodePeaksFromBuffer(new ArrayBuffer(0), { cacheKey });
+            await decodePeaksRef.current(new ArrayBuffer(0), { cacheKey });
           }
           return;
         }
         const buf = await blob.arrayBuffer();
-        if (!cancelled) await decodePeaksFromBuffer(buf, { cacheKey });
+        if (!cancelled) await decodePeaksRef.current(buf, { cacheKey });
       } catch (e) {
         reportWaveLoadError(
           e instanceof Error ? e.message : "音源の読み込みに失敗しました"
@@ -395,6 +490,6 @@ export function useTimelineRemoteAudio({
     audioSupabasePath,
     flowLocalAudioKey,
     blobUrlRef,
-    decodePeaksFromBuffer,
+    decodePeaksRef,
   ]);
 }
