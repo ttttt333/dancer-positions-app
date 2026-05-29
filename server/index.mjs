@@ -13,6 +13,10 @@ import http from "http";
 import { WebSocketServer } from "ws";
 import Stripe from "stripe";
 import {
+  computeWavePeaksFromFilePath,
+  computeWavePeaksFromBuffer,
+} from "./wavePeaks.mjs";
+import {
   setupWSConnection,
   setContentInitializor,
 } from "@y/websocket-server/utils";
@@ -126,6 +130,65 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
 `);
+
+try {
+  db.exec("ALTER TABLE audio_assets ADD COLUMN wave_peaks_json TEXT");
+} catch {
+  /* exists */
+}
+try {
+  db.exec("ALTER TABLE audio_assets ADD COLUMN duration_sec REAL");
+} catch {
+  /* exists */
+}
+try {
+  db.exec(
+    "ALTER TABLE audio_assets ADD COLUMN peaks_status TEXT NOT NULL DEFAULT 'pending'"
+  );
+} catch {
+  /* exists */
+}
+
+/** @type {Set<number>} */
+const peakJobsRunning = new Set();
+
+async function computeAndStorePeaksForAsset(assetId) {
+  if (peakJobsRunning.has(assetId)) return;
+  peakJobsRunning.add(assetId);
+  try {
+    const row = db
+      .prepare("SELECT * FROM audio_assets WHERE id = ?")
+      .get(assetId);
+    if (!row?.path || !existsSync(row.path)) {
+      db.prepare(
+        "UPDATE audio_assets SET peaks_status = 'failed' WHERE id = ?"
+      ).run(assetId);
+      return;
+    }
+    db.prepare(
+      "UPDATE audio_assets SET peaks_status = 'pending' WHERE id = ?"
+    ).run(assetId);
+    const { peaks, durationSec } = await computeWavePeaksFromFilePath(row.path);
+    db.prepare(
+      `UPDATE audio_assets
+       SET wave_peaks_json = ?, duration_sec = ?, peaks_status = 'ready'
+       WHERE id = ?`
+    ).run(JSON.stringify(peaks), durationSec, assetId);
+  } catch (err) {
+    console.error("[wavePeaks] asset", assetId, err);
+    db.prepare(
+      "UPDATE audio_assets SET peaks_status = 'failed' WHERE id = ?"
+    ).run(assetId);
+  } finally {
+    peakJobsRunning.delete(assetId);
+  }
+}
+
+function schedulePeakCompute(assetId) {
+  setImmediate(() => {
+    void computeAndStorePeaksForAsset(assetId);
+  });
+}
 
 const countOrgs = db.prepare("SELECT COUNT(*) AS c FROM organizations").get();
 if (countOrgs.c === 0) {
@@ -664,9 +727,59 @@ app.post(
          VALUES (?, ?, ?, ?, ?)`
       )
       .run(req.userId, projectId, mime, req.file.path, now);
-    res.json({ id: Number(info.lastInsertRowid), mime });
+    const assetId = Number(info.lastInsertRowid);
+    schedulePeakCompute(assetId);
+    res.json({ id: assetId, mime });
   }
 );
+
+app.post(
+  "/api/audio/peaks/compute",
+  authMiddleware,
+  requireAuth,
+  upload.single("file"),
+  async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: "file が必要です" });
+    try {
+      const { peaks, durationSec, binCount } = await computeWavePeaksFromBuffer(
+        req.file.buffer ?? (await import("fs/promises")).readFile(req.file.path)
+      );
+      res.json({ v: 1, peaks, durationSec, binCount });
+    } catch (err) {
+      console.error("[wavePeaks] compute", err);
+      res.status(500).json({
+        error: err instanceof Error ? err.message : "波形の生成に失敗しました",
+      });
+    }
+  }
+);
+
+app.get("/api/audio/:id/peaks", authMiddleware, requireAuth, (req, res) => {
+  const id = Number(req.params.id);
+  const row = db
+    .prepare("SELECT * FROM audio_assets WHERE id = ? AND user_id = ?")
+    .get(id, req.userId);
+  if (!row) return res.status(404).json({ error: "見つかりません" });
+  if (row.peaks_status === "ready" && row.wave_peaks_json) {
+    try {
+      const peaks = JSON.parse(row.wave_peaks_json);
+      if (Array.isArray(peaks) && peaks.length > 0) {
+        return res.json({
+          ready: true,
+          peaks,
+          durationSec: row.duration_sec ?? 0,
+          binCount: peaks.length,
+        });
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  if (row.peaks_status !== "ready" && row.peaks_status !== "failed") {
+    schedulePeakCompute(id);
+  }
+  res.json({ ready: false, status: row.peaks_status || "pending" });
+});
 
 app.get("/api/audio/:id", authMiddleware, requireAuth, (req, res) => {
   const id = Number(req.params.id);

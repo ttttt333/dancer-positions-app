@@ -1,6 +1,8 @@
 import type { MouseEvent, PointerEvent, RefObject } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { formatMmSs, waveRulerTicks } from "../lib/timeFormat";
+import { WaveformLoadOverlay } from "./WaveformLoadOverlay";
+import { useWaveformLoadProgressStore } from "../store/waveformLoadProgressStore";
 
 /** 目盛り行〜波形にかけて再生位置線を少しはみ出して見せる（CSS px） */
 const PLAYHEAD_LINE_BLEED_TOP_CSS = 14;
@@ -55,6 +57,8 @@ export function WaveformStrip({
 }: WaveformStripProps) {
   const rulerInteractive = duration > 0 && hasPeaks && viewMode !== "view";
   const rulerHeightPx = compactTopDock ? 13 : 16;
+  const waveLoadProgress = useWaveformLoadProgressStore((s) => s.progress);
+  const showWaveLoadOverlay = !hasPeaks && waveLoadProgress != null;
 
   const forwardPlayheadPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 || duration <= 0 || !hasPeaks) return;
@@ -132,32 +136,35 @@ export function WaveformStrip({
               })
             : null}
         </div>
-        <canvas
-          ref={canvasRef}
-          tabIndex={0}
-          role="application"
-          aria-label="楽曲波形・キュー区間"
-          onClick={onWaveClick}
-          onDoubleClick={onWaveDoubleClick}
-          onContextMenu={onWaveContextMenu}
-          onPointerDown={onWaveCanvasPointerDown}
-          onPointerMove={onWaveCanvasPointerMove}
-          onPointerLeave={onWaveCanvasPointerLeave}
-          style={{
-            display: "block",
-            width: "100%",
-            height: `${waveCanvasCssH}px`,
-            cursor: duration > 0 ? "pointer" : "default",
-            touchAction: "none",
-            outline: "none",
-          }}
-          onFocus={(ev) => {
-            ev.currentTarget.style.boxShadow = "inset 0 0 0 1px rgba(129, 140, 248, 0.6)";
-          }}
-          onBlur={(ev) => {
-            ev.currentTarget.style.boxShadow = "none";
-          }}
-        />
+        <div style={{ position: "relative", width: "100%" }}>
+          <canvas
+            ref={canvasRef}
+            tabIndex={0}
+            role="application"
+            aria-label="楽曲波形・キュー区間"
+            onClick={onWaveClick}
+            onDoubleClick={onWaveDoubleClick}
+            onContextMenu={onWaveContextMenu}
+            onPointerDown={onWaveCanvasPointerDown}
+            onPointerMove={onWaveCanvasPointerMove}
+            onPointerLeave={onWaveCanvasPointerLeave}
+            style={{
+              display: "block",
+              width: "100%",
+              height: `${waveCanvasCssH}px`,
+              cursor: duration > 0 ? "pointer" : "default",
+              touchAction: "none",
+              outline: "none",
+            }}
+            onFocus={(ev) => {
+              ev.currentTarget.style.boxShadow = "inset 0 0 0 1px rgba(129, 140, 248, 0.6)";
+            }}
+            onBlur={(ev) => {
+              ev.currentTarget.style.boxShadow = "none";
+            }}
+          />
+          <WaveformLoadOverlay visible={showWaveLoadOverlay} />
+        </div>
         <div
           ref={playheadLineOverlayRef}
           role="slider"

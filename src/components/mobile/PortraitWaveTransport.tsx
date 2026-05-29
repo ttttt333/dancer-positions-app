@@ -16,6 +16,8 @@ import {
   TransportIconZoomOut,
 } from "./TransportIcons";
 import { useTimelineWaveBridgeStore } from "../../store/timelineWaveBridgeStore";
+import { WaveformLoadOverlay } from "../WaveformLoadOverlay";
+import { useWaveformLoadProgressStore } from "../../store/waveformLoadProgressStore";
 import { useMobileShellBridgeStore } from "../../store/useMobileShellBridgeStore";
 import { playbackEngine } from "../../core/playbackEngine";
 import {
@@ -117,6 +119,9 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
 ) {
   const registered = useTimelineWaveBridgeStore((s) => s.registered);
   const bridgeApi = useTimelineWaveBridgeStore((s) => s.api);
+  const waveLoadProgress = useWaveformLoadProgressStore((s) => s.progress);
+  const showWaveLoadOverlay =
+    waveLoadProgress != null || (!registered && Boolean(audioUrl));
   const syncPortraitView = useTimelineWaveBridgeStore((s) => s.syncPortraitView);
   const setPortraitActive = useTimelineWaveBridgeStore((s) => s.setPortraitActive);
   const setPortraitCanvasRef = useTimelineWaveBridgeStore((s) => s.setPortraitCanvasRef);
@@ -870,8 +875,8 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
             aria-valuenow={currentTime}
             aria-label="波形（タップで再生位置を移動・ダブルタップで10秒のキュー追加・ドラッグでキュー調整・長押しで導線/キューメニュー）"
           />
-          {!registered ? (
-            <div className={styles.wavePlaceholder}>波形を読み込み中…</div>
+          {showWaveLoadOverlay ? (
+            <WaveformLoadOverlay visible compact className={styles.wavePlaceholder} />
           ) : null}
         </div>
         {duration > 0 && viewDuration > 0 ? (

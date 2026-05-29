@@ -30,6 +30,7 @@ export function StageBoardMainColumn({
     >
       {previewBanner}
       <div
+        className="stage-board-main-slot"
         style={{
           flex: 1,
           minHeight: 0,

@@ -3,10 +3,31 @@ import { useCallback } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { expandShortCuesAfterAudioLoad } from "../core/timelineController";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
+import { decodeWavePeaksFromBuffer } from "../lib/wavePeakDecodeWorkerClient";
+import {
+  getWavePeaksCache,
+  setWavePeaksCache,
+} from "../lib/wavePeaksCache";
+import { supabaseDownloadWavePeaks, supabaseUploadWavePeaks } from "../lib/supabaseWavePeaks";
+import {
+  clearWaveLoadProgress,
+  reportWaveLoadProgress,
+  runIndeterminateDecodeProgress,
+} from "../lib/waveLoadProgress";
+import type { WavePeaksPayload } from "../lib/wavePeaksTypes";
 
 type Params = {
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>;
   setPeaks: Dispatch<SetStateAction<number[] | null>>;
+};
+
+export type DecodePeaksOptions = {
+  /** キャッシュキー。ヒット時はデコードを省略して即表示 */
+  cacheKey?: string | null;
+  /** サーバー／Supabase サイドカーなど事前計算済みピーク */
+  precomputed?: { peaks: number[]; durationSec: number } | null;
+  /** Supabase 音源パス（サイドカー読み書き用） */
+  supabaseAudioPath?: string | null;
 };
 
 /**
@@ -15,43 +36,112 @@ type Params = {
 export function useTimelineWaveDecode({ setProject, setPeaks }: Params) {
   const setDuration = usePlaybackUiStore((s) => s.setDurationSec);
 
-  const decodePeaksFromBuffer = useCallback(
-    async (buf: ArrayBuffer) => {
-      usePlaybackUiStore.getState().setTrustedAudioDurationSec(null);
-      const ctx = new AudioContext();
-      let audioBuf: AudioBuffer;
-      try {
-        audioBuf = await ctx.decodeAudioData(buf.slice(0));
-      } catch (err) {
-        await ctx.close().catch(() => {});
-        throw err instanceof Error
-          ? err
-          : new Error("音声のデコードに失敗しました");
-      }
-      /** `<audio>` の loadedmetadata より確実。立ち位置→後から音源のとき duration が 0 のままだと波形が一切描画されない */
-      const durSec = audioBuf.duration;
+  const applyPeaksAndDuration = useCallback(
+    (peaks: number[], durSec: number) => {
       if (Number.isFinite(durSec) && durSec > 0) {
         usePlaybackUiStore.getState().setTrustedAudioDurationSec(durSec);
         setDuration(durSec);
         setProject((p) => expandShortCuesAfterAudioLoad(p, durSec));
       }
-      const ch = audioBuf.getChannelData(0);
-      const len = 400;
-      const block = Math.floor(ch.length / len) || 1;
-      const out: number[] = [];
-      for (let i = 0; i < len; i++) {
-        let s = 0;
-        for (let j = 0; j < block; j++) {
-          s += Math.abs(ch[i * block + j] ?? 0);
-        }
-        out.push(s / block);
-      }
-      const max = Math.max(...out, 1e-6);
-      setPeaks(out.map((x) => x / max));
-      await ctx.close();
+      setPeaks(peaks);
+      reportWaveLoadProgress(1, "完了");
+      clearWaveLoadProgress();
     },
     [setDuration, setProject, setPeaks]
   );
 
-  return { decodePeaksFromBuffer };
+  const decodePeaksFromBuffer = useCallback(
+    async (buf: ArrayBuffer, options?: DecodePeaksOptions) => {
+      const cacheKey = options?.cacheKey ?? null;
+      const supabaseAudioPath = options?.supabaseAudioPath ?? null;
+
+      try {
+        if (options?.precomputed?.peaks.length) {
+          reportWaveLoadProgress(0.92, "波形を反映中…");
+          applyPeaksAndDuration(
+            options.precomputed.peaks,
+            options.precomputed.durationSec
+          );
+          if (cacheKey) {
+            await setWavePeaksCache(
+              cacheKey,
+              options.precomputed.peaks,
+              options.precomputed.durationSec
+            );
+          }
+          if (supabaseAudioPath) {
+            void supabaseUploadWavePeaks(
+              supabaseAudioPath,
+              options.precomputed.peaks,
+              options.precomputed.durationSec
+            );
+          }
+          return;
+        }
+
+        if (cacheKey) {
+          const cached = await getWavePeaksCache(cacheKey);
+          if (cached?.peaks.length) {
+            reportWaveLoadProgress(0.9, "保存済み波形を読み込み中…");
+            applyPeaksAndDuration(cached.peaks, cached.durationSec);
+            return;
+          }
+        }
+
+        if (supabaseAudioPath) {
+          reportWaveLoadProgress(0.12, "クラウドの波形データを確認中…");
+          const sidecar = await supabaseDownloadWavePeaks(supabaseAudioPath);
+          if (sidecar?.peaks.length) {
+            reportWaveLoadProgress(0.9, "クラウド波形を反映中…");
+            applyPeaksAndDuration(sidecar.peaks, sidecar.durationSec);
+            if (cacheKey) {
+              await setWavePeaksCache(cacheKey, sidecar.peaks, sidecar.durationSec);
+            }
+            return;
+          }
+        }
+
+        usePlaybackUiStore.getState().setTrustedAudioDurationSec(null);
+        reportWaveLoadProgress(0.42, "波形を解析中…");
+        const stopTick = runIndeterminateDecodeProgress(0.42, 0.92, "波形を解析中…");
+        let peaks: number[];
+        let durationSec: number;
+        try {
+          ({ peaks, durationSec } = await decodeWavePeaksFromBuffer(buf));
+        } finally {
+          stopTick();
+        }
+        applyPeaksAndDuration(peaks, durationSec);
+        if (cacheKey) {
+          await setWavePeaksCache(cacheKey, peaks, durationSec);
+        }
+        if (supabaseAudioPath) {
+          void supabaseUploadWavePeaks(supabaseAudioPath, peaks, durationSec);
+        }
+      } catch (err) {
+        clearWaveLoadProgress();
+        throw err;
+      }
+    },
+    [applyPeaksAndDuration]
+  );
+
+  const applyPrecomputedPeaks = useCallback(
+    async (
+      payload: WavePeaksPayload,
+      options?: Pick<DecodePeaksOptions, "cacheKey" | "supabaseAudioPath">
+    ) => {
+      await decodePeaksFromBuffer(new ArrayBuffer(0), {
+        cacheKey: options?.cacheKey,
+        supabaseAudioPath: options?.supabaseAudioPath,
+        precomputed: {
+          peaks: payload.peaks,
+          durationSec: payload.durationSec,
+        },
+      });
+    },
+    [decodePeaksFromBuffer]
+  );
+
+  return { decodePeaksFromBuffer, applyPrecomputedPeaks };
 }

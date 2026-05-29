@@ -874,22 +874,6 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     : [];
                   const hasRoster = Boolean(hasRosterMembers);
                   const rosterHidden = project.rosterHidesTimeline === true;
-                  const cueIdx =
-                    selectedCueId != null && selectedCueId !== ""
-                      ? cues.findIndex((c) => c.id === selectedCueId)
-                      : -1;
-                  let slotIdx: number;
-                  if (hasRoster) {
-                    if (rosterHidden) slotIdx = 0;
-                    else if (cueIdx >= 0) slotIdx = cueIdx + 1;
-                    else slotIdx = -1;
-                  } else {
-                    slotIdx = cueIdx;
-                  }
-                  const total = Math.max(1, hasRoster ? cues.length + 1 : cues.length);
-                  const canCuePrev = slotIdx > 0;
-                  const canCueNext =
-                    slotIdx < 0 ? cues.length > 0 : slotIdx < total - 1;
                   const showChangeBtn = stageView === "2d";
 
                   return (
@@ -928,39 +912,17 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                         </button>
                       </div>
                       {cues.length > 0 || hasRoster ? (
-                        <>
-                          <div className="editor-stage-landscape-btnRow">
-                            <button
-                              type="button"
-                              className="editor-stage-landscape-btn editor-stage-landscape-btn--cue"
-                              onClick={handleMobileCuePrev}
-                              disabled={!canCuePrev}
-                              aria-label="前のキュー"
-                            >
-                              ‹
-                            </button>
-                            <button
-                              type="button"
-                              className="editor-stage-landscape-btn editor-stage-landscape-btn--cue"
-                              onClick={handleMobileCueNext}
-                              disabled={!canCueNext}
-                              aria-label="次のキュー"
-                            >
-                              ›
-                            </button>
-                          </div>
-                          <div className="editor-stage-landscape-pager">
-                            <WorkbenchCuePager
-                              variant="stageCorner"
-                              project={project}
-                              cuesSortedForStageJump={cuesSortedForStageJump}
-                              selectedCueId={selectedCueId}
-                              jumpToPagerSlot={jumpToPagerSlot}
-                              includeRosterSlot={hasRosterMembers}
-                              rosterTimelineHidden={rosterHidden}
-                            />
-                          </div>
-                        </>
+                        <div className="editor-stage-landscape-pager">
+                          <WorkbenchCuePager
+                            variant="stageCorner"
+                            project={project}
+                            cuesSortedForStageJump={cuesSortedForStageJump}
+                            selectedCueId={selectedCueId}
+                            jumpToPagerSlot={jumpToPagerSlot}
+                            includeRosterSlot={hasRosterMembers}
+                            rosterTimelineHidden={rosterHidden}
+                          />
+                        </div>
                       ) : null}
                       <div
                         className="editor-stage-landscape-time"

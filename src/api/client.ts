@@ -126,6 +126,15 @@ async function api<T>(
 
 /** 認証付きでバイナリを取得し、`blob:` URL を返す（呼び出し側で revoke 推奨） */
 export async function fetchAuthorizedAudioBlobUrl(assetId: number): Promise<string> {
+  const { blobUrl } = await fetchAuthorizedAudio(assetId);
+  return blobUrl;
+}
+
+/** 認証付き音源を 1 回の取得で blob URL と ArrayBuffer の両方返す（波形デコード用） */
+export async function fetchAuthorizedAudio(
+  assetId: number,
+  onDownloadProgress?: (ratio: number) => void
+): Promise<{ blobUrl: string; buffer: ArrayBuffer }> {
   const token = getToken();
   if (!token) throw new Error("ログインが必要です");
   const res = await fetch(`${base}/api/audio/${assetId}`, {
@@ -141,28 +150,19 @@ export async function fetchAuthorizedAudioBlobUrl(assetId: number): Promise<stri
     }
     throw new Error(msg);
   }
-  const blob = await res.blob();
-  return URL.createObjectURL(blob);
+  const { readResponseArrayBufferWithProgress } = await import(
+    "../lib/fetchWithProgress"
+  );
+  const buffer = await readResponseArrayBufferWithProgress(res, onDownloadProgress);
+  const mime = res.headers.get("content-type") || "audio/mpeg";
+  const blobUrl = URL.createObjectURL(new Blob([buffer], { type: mime }));
+  return { blobUrl, buffer };
 }
 
 /** 従来 API の音源バイナリ（`VITE_API_BASE_URL` プレフィックス付き） */
 export async function fetchLegacyAudioArrayBuffer(assetId: number): Promise<ArrayBuffer> {
-  const token = getToken();
-  if (!token) throw new Error("ログインが必要です");
-  const res = await fetch(`${base}/api/audio/${assetId}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) {
-    const t = await res.text();
-    let msg = res.statusText;
-    try {
-      msg = (JSON.parse(t) as { error?: string }).error ?? msg;
-    } catch {
-      /* ignore */
-    }
-    throw new Error(msg);
-  }
-  return res.arrayBuffer();
+  const { buffer } = await fetchAuthorizedAudio(assetId);
+  return buffer;
 }
 
 export const authApi = {

@@ -14,6 +14,8 @@ import {
   TransportIconSkipForward,
   TransportIconZoomIn,
   TransportIconZoomOut,
+  TransportIconUndo,
+  TransportIconRedo,
 } from './TransportIcons'
 import { useMobileShellBridgeStore } from '../../store/useMobileShellBridgeStore'
 
@@ -151,8 +153,17 @@ export const LandscapeSidePanel: React.FC<Props> = ({
       <div className={styles.collapsed}>
         <div className={styles.collapsedStack}>
           {waveExpandBtn}
-          <button className={styles.collapseBtn} onClick={() => setOpen(true)} aria-label="パネルを開く">
-            ›
+          <button
+            type="button"
+            className={`${styles.panelToggleBtn} ${styles.panelToggleBtnExpand}`}
+            onClick={() => setOpen(true)}
+            aria-label="左メニューを開く"
+            title="左メニューを開く"
+          >
+            <span className={styles.panelToggleChevron} aria-hidden>
+              ›
+            </span>
+            <span className={styles.panelToggleLabel}>Menu</span>
           </button>
         </div>
       </div>
@@ -162,8 +173,17 @@ export const LandscapeSidePanel: React.FC<Props> = ({
   return (
     <div className={styles.panel}>
       <div className={styles.panelTop}>
-        <button className={styles.collapseBtn} onClick={() => setOpen(false)} aria-label="左メニューを畳む">
-          ‹
+        <button
+          type="button"
+          className={`${styles.panelToggleBtn} ${styles.panelToggleBtnCollapse}`}
+          onClick={() => setOpen(false)}
+          aria-label="左メニューを畳む"
+          title="左メニューを畳む"
+        >
+          <span className={styles.panelToggleChevron} aria-hidden>
+            ‹
+          </span>
+          <span className={styles.panelToggleLabel}>畳む</span>
         </button>
       </div>
 
@@ -239,24 +259,32 @@ export const LandscapeSidePanel: React.FC<Props> = ({
           <span className={styles.menuBtnLabel}>Menu</span>
         </button>
 
-        <div className={styles.undoRedoRow}>
+        <div className={styles.undoRedoRow} role="group" aria-label="操作履歴">
           <button
-            className={styles.histBtn}
+            type="button"
+            className={`${styles.histBtn} ${styles.histBtnUndo}`}
             onClick={onUndo}
             disabled={undoDisabled}
             aria-label="元に戻す"
+            title="元に戻す"
           >
-            <span className={styles.histIcon}>↩</span>
-            <span className={styles.histLabel}>Undo</span>
+            <span className={styles.histIconWrap} aria-hidden>
+              <TransportIconUndo size={20} className={styles.histIconSvg} />
+            </span>
+            <span className={styles.histLabel}>戻る</span>
           </button>
           <button
-            className={styles.histBtn}
+            type="button"
+            className={`${styles.histBtn} ${styles.histBtnRedo}`}
             onClick={onRedo}
             disabled={redoDisabled}
             aria-label="やり直す"
+            title="やり直す"
           >
-            <span className={styles.histIcon}>↪</span>
-            <span className={styles.histLabel}>Redo</span>
+            <span className={styles.histIconWrap} aria-hidden>
+              <TransportIconRedo size={20} className={styles.histIconSvg} />
+            </span>
+            <span className={styles.histLabel}>進む</span>
           </button>
         </div>
       </div>

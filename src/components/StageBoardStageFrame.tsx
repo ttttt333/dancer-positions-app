@@ -43,7 +43,7 @@ export function StageBoardStageFrame({
 
   return (
     <StageBoardFitViewport alignTop={isAudienceTop} paddingTop={isAudienceTop ? 28 : undefined} paddingBottom={isAudienceTop ? 20 : undefined}>
-      <div style={wrapperStyle}>
+      <div className="stage-board-stage-wrapper" style={wrapperStyle}>
         <StageRotatedStageFrame {...rotatedFrame}>
           <StageExportRootColumn {...exportColumn} />
         </StageRotatedStageFrame>

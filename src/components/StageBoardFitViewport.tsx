@@ -51,8 +51,10 @@ export function StageBoardFitViewport({
   };
 
   return (
-    <div style={stretchColumnStyle}>
-      <div style={containerQueryRowStyle}>{children}</div>
+    <div className="stage-board-fit-viewport" style={stretchColumnStyle}>
+      <div className="stage-board-fit-viewport-inner" style={containerQueryRowStyle}>
+        {children}
+      </div>
     </div>
   );
 }
