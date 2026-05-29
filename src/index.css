@@ -797,10 +797,62 @@ body {
   border-radius: 0 !important;
 }
 
-/* 縦向き: ボトムバー直上から表示・横幅フル活用 */
-[data-shell-portrait] [role="dialog"][aria-modal="false"] {
+/* 縦向き: キュー設定ダイアログを画面いっぱいに */
+[data-shell-portrait] .add-cue-with-formation-dialog {
+  top: env(safe-area-inset-top, 0px) !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  max-width: 100vw !important;
+  max-height: none !important;
+  height: 100dvh !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
+  z-index: 410 !important;
+}
+
+[data-shell-portrait] .add-cue-with-formation-dialog-card {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  border-radius: 0 !important;
+  border-left: none !important;
+  border-right: none !important;
+  box-sizing: border-box !important;
+}
+
+[data-shell-portrait] .add-cue-with-formation-dialog-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 12px 8px !important;
+}
+
+[data-shell-portrait] .add-cue-with-formation-dialog-footer {
+  flex-shrink: 0 !important;
+  padding: 10px 12px max(10px, env(safe-area-inset-bottom, 0px)) !important;
+}
+
+[data-shell-portrait] .add-cue-with-formation-dialog .add-cue-preset-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+[data-shell-portrait] .add-cue-with-formation-dialog .add-cue-preset-btn {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  min-height: 104px !important;
+}
+
+/* 旧: 他 aria-modal=false 用フォールバック（現状キュー設定のみ） */
+[data-shell-portrait] [role="dialog"][aria-modal="false"]:not(.add-cue-with-formation-dialog) {
   top: auto !important;
-  /* PortraitBottomBar の高さ(cueRow≈50px + tabBar≈43px) + safe-area の上に配置 */
   bottom: calc(96px + env(safe-area-inset-bottom, 0px)) !important;
   left: max(8px, env(safe-area-inset-left, 8px)) !important;
   right: max(8px, env(safe-area-inset-right, 8px)) !important;
@@ -913,17 +965,14 @@ body {
       ※ セレクタの詳細度を高くして先の規則を確実に上書き。
 */
 
-/* 縦画面: ダイアログ全体の overflow/幅を正しく制御 */
-[data-shell-portrait] [role="dialog"][aria-modal="false"] {
+/* 縦画面: キュー設定ダイアログの overflow/幅 */
+[data-shell-portrait] .add-cue-with-formation-dialog,
+[data-shell-portrait] [role="dialog"][aria-modal="false"].add-cue-with-formation-dialog {
   overflow: hidden !important;
   box-sizing: border-box !important;
-  /* CSS が maxWidth を上書きできるよう明示 */
-  max-width: calc(100vw - max(16px, env(safe-area-inset-left, 0px)) - max(16px, env(safe-area-inset-right, 0px))) !important;
-  width: calc(100vw - max(16px, env(safe-area-inset-left, 0px)) - max(16px, env(safe-area-inset-right, 0px))) !important;
 }
 
-/* 内側カードも全幅に */
-[data-shell-portrait] [role="dialog"][aria-modal="false"] > * {
+[data-shell-portrait] .add-cue-with-formation-dialog > * {
   width: 100% !important;
   max-width: 100% !important;
   box-sizing: border-box !important;
@@ -931,6 +980,11 @@ body {
 }
 
 /* テキスト: 15px (元の約1.3倍。18px では折り返し問題が起きるため) */
+[data-shell-portrait] .add-cue-with-formation-dialog label,
+[data-shell-portrait] .add-cue-with-formation-dialog p,
+[data-shell-portrait] .add-cue-with-formation-dialog span:not([aria-hidden="true"]),
+[data-shell-portrait] .add-cue-with-formation-dialog li,
+[data-shell-portrait] .add-cue-with-formation-dialog strong,
 [data-shell-portrait] [role="dialog"][aria-modal="false"] label,
 [data-shell-portrait] [role="dialog"][aria-modal="false"] p,
 [data-shell-portrait] [role="dialog"][aria-modal="false"] span:not([aria-hidden="true"]),
@@ -941,6 +995,7 @@ body {
 }
 
 /* ボタン: 44px / 15px (52px では行が詰まる) */
+[data-shell-portrait] .add-cue-with-formation-dialog button,
 [data-shell-portrait] [role="dialog"][aria-modal="false"] button {
   font-size: 15px !important;
   min-height: 44px !important;
@@ -951,6 +1006,9 @@ body {
 }
 
 /* 入力欄: 16px / 44px */
+[data-shell-portrait] .add-cue-with-formation-dialog input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+[data-shell-portrait] .add-cue-with-formation-dialog select,
+[data-shell-portrait] .add-cue-with-formation-dialog textarea,
 [data-shell-portrait] [role="dialog"][aria-modal="false"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
 [data-shell-portrait] [role="dialog"][aria-modal="false"] select,
 [data-shell-portrait] [role="dialog"][aria-modal="false"] textarea {
@@ -959,6 +1017,7 @@ body {
   padding: 10px 12px !important;
 }
 
+[data-shell-portrait] .add-cue-with-formation-dialog .add-cue-custom-time-input,
 [data-shell-portrait] [role="dialog"][aria-modal="false"] .add-cue-custom-time-input,
 [data-shell-landscape] [role="dialog"][aria-modal="false"] .add-cue-custom-time-input {
   min-width: 140px !important;
@@ -1325,8 +1384,18 @@ body {
   min-height: calc(1.38em * 2);
 }
 
-/* キュー設定: 立ち位置雛形チップ（文字を読みやすく・型を大きく） */
-[data-shell-portrait] [role="dialog"][aria-modal="false"] .add-cue-preset-btn,
+/* キュー設定: 立ち位置雛形チップ（縦画面フルスクリーンは3列グリッド） */
+[data-shell-portrait] .add-cue-with-formation-dialog .add-cue-preset-btn {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  min-height: 104px !important;
+  padding: 10px 8px 12px !important;
+  gap: 6px !important;
+  word-break: keep-all !important;
+}
+
+[data-shell-portrait] [role="dialog"][aria-modal="false"]:not(.add-cue-with-formation-dialog) .add-cue-preset-btn,
 [data-shell-landscape] [role="dialog"][aria-modal="false"] .add-cue-preset-btn {
   min-width: 96px !important;
   width: 96px !important;
@@ -1337,12 +1406,19 @@ body {
   word-break: keep-all !important;
 }
 
-[data-shell-portrait] [role="dialog"][aria-modal="false"] .add-cue-preset-btn svg,
+[data-shell-portrait] .add-cue-with-formation-dialog .add-cue-preset-btn svg {
+  width: 100% !important;
+  height: auto !important;
+  max-height: 48px !important;
+}
+
+[data-shell-portrait] [role="dialog"][aria-modal="false"]:not(.add-cue-with-formation-dialog) .add-cue-preset-btn svg,
 [data-shell-landscape] [role="dialog"][aria-modal="false"] .add-cue-preset-btn svg {
   width: 68px !important;
   height: 42px !important;
 }
 
+[data-shell-portrait] .add-cue-with-formation-dialog .add-cue-preset-label,
 [data-shell-portrait] [role="dialog"][aria-modal="false"] .add-cue-preset-label,
 [data-shell-landscape] [role="dialog"][aria-modal="false"] .add-cue-preset-label {
   font-size: 13px !important;
@@ -1358,6 +1434,7 @@ body {
   min-height: calc(1.38em * 2) !important;
 }
 
+[data-shell-portrait] .add-cue-with-formation-dialog .add-cue-preset-category,
 [data-shell-portrait] [role="dialog"][aria-modal="false"] .add-cue-preset-category,
 [data-shell-landscape] [role="dialog"][aria-modal="false"] .add-cue-preset-category {
   font-size: 14px !important;
@@ -1513,4 +1590,201 @@ body {
     min-height: 48px;
     font-size: 16px;
   }
+}
+
+/* ── 個人別移動軌道エディタ（動線設定） ── */
+.dancer-path-editor {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.82);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  touch-action: none;
+  box-sizing: border-box;
+}
+
+.dancer-path-editor--portrait {
+  justify-content: stretch;
+  gap: 0;
+  background: #07090f;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.dancer-path-editor-header {
+  color: #e2e8f0;
+  text-align: center;
+  padding: 0 16px;
+}
+
+.dancer-path-editor-header--portrait {
+  flex-shrink: 0;
+  text-align: left;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid rgba(99, 102, 241, 0.25);
+  background: #07090f;
+}
+
+.dancer-path-editor-title-block {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.dancer-path-editor-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.dancer-path-editor-hint {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 400;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.dancer-path-editor-header--portrait .dancer-path-editor-hint {
+  margin-top: 4px;
+}
+
+.dancer-path-editor-hint--desktop {
+  display: block;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.dancer-path-editor-stage {
+  touch-action: none;
+  overflow: hidden;
+}
+
+.dancer-path-editor-stage--desktop {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+  width: min(900px, calc(100vw - 32px));
+  aspect-ratio: 900 / 580;
+}
+
+.dancer-path-editor-stage--portrait {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  background: #0f172a;
+  border-top: 1px solid #1e293b;
+  border-bottom: 1px solid #1e293b;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+.dancer-path-editor-stage--portrait .dancer-path-editor-svg {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+}
+
+.dancer-path-editor-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px;
+  font-size: 12px;
+  color: #94a3b8;
+  align-items: center;
+  padding: 0 16px;
+}
+
+.dancer-path-editor-legend--portrait {
+  flex-shrink: 0;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 6px 12px;
+  font-size: 11px;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.65);
+  background: #07090f;
+}
+
+.dancer-path-editor-legend--portrait span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.dancer-path-editor-legend-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.dancer-path-editor-legend-dot--prev {
+  background: rgba(59, 130, 246, 0.28);
+  border: 2px solid #3b82f6;
+}
+
+.dancer-path-editor-legend-dot--next {
+  background: rgba(34, 197, 94, 0.24);
+  border: 2px solid #22c55e;
+}
+
+.dancer-path-editor-legend-dot--cp {
+  background: #f59e0b;
+  border: 2px solid #fde68a;
+}
+
+.dancer-path-editor-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.dancer-path-editor-actions--desktop {
+  padding: 0 16px 12px;
+}
+
+.dancer-path-editor-actions--portrait {
+  flex-shrink: 0;
+  gap: 8px;
+  padding: 8px 10px max(10px, env(safe-area-inset-bottom, 0px));
+  background: rgba(7, 9, 15, 0.98);
+  border-top: 1px solid rgba(51, 65, 85, 0.8);
+}
+
+.dancer-path-editor-actions--portrait .dancer-path-editor-btn {
+  flex: 1;
+  min-height: 48px;
+  font-size: 14px;
+}
+
+.dancer-path-editor-btn {
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.dancer-path-editor-btn--muted {
+  border: 1px solid #475569;
+  background: #1e293b;
+  color: #cbd5e1;
+  font-size: 13px;
+}
+
+.dancer-path-editor-btn--primary {
+  padding: 10px 22px;
+  border: 1px solid rgba(99, 102, 241, 0.8);
+  background: rgba(99, 102, 241, 0.25);
+  color: #c7d2fe;
+  font-size: 13px;
+  font-weight: 700;
 }

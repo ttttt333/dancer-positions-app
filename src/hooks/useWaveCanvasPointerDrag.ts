@@ -21,6 +21,7 @@ import {
   type CueDragEdgeMode,
 } from "../lib/timelineWaveGeometry";
 import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
+import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
 
 export type UseWaveCanvasPointerDragArgs = {
   projectViewMode: ChoreographyProjectJson["viewMode"];
@@ -341,6 +342,11 @@ export function useWaveCanvasPointerDrag({
         window.addEventListener("pointerup", onUp);
         window.addEventListener("pointercancel", onUp);
         redraw();
+        return;
+      }
+
+      /** 縦画面: 空きドラッグ新規キューは使わない（タップ=シーク・ダブルタップ=追加） */
+      if (useTimelineWaveBridgeStore.getState().portraitActive) {
         return;
       }
 

@@ -760,8 +760,14 @@ export function AddCueWithFormationDialog({
   ];
 
   return (
-    <div style={panelShellStyle} role="dialog" aria-modal="false" aria-label={t("editor.comp.k085")}>
-      <div style={panelCardStyle}>
+    <div
+      className="add-cue-with-formation-dialog"
+      style={panelShellStyle}
+      role="dialog"
+      aria-modal="false"
+      aria-label={t("editor.comp.k085")}
+    >
+      <div className="add-cue-with-formation-dialog-card" style={panelCardStyle}>
         <div style={headerStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <span
@@ -787,7 +793,7 @@ export function AddCueWithFormationDialog({
           </div>
         </div>
 
-        <div style={bodyStyle}>
+        <div className="add-cue-with-formation-dialog-body" style={bodyStyle}>
           <section>
             <div style={sectionLabelStyle}>
               <span style={sectionNumberStyle}>1</span>
@@ -1058,7 +1064,7 @@ export function AddCueWithFormationDialog({
                       {cat.label}
                     </div>
                     {/* プリセットグリッド */}
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                    <div className="add-cue-preset-grid" style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                       {cat.items.map((item) => {
                         const active = templatePresetId === item.id;
                         return (
@@ -1221,7 +1227,7 @@ export function AddCueWithFormationDialog({
           ) : null}
         </div>
 
-        <div style={footerStyle}>
+        <div className="add-cue-with-formation-dialog-footer" style={footerStyle}>
           <span style={{ marginRight: "auto", fontSize: "11px", color: "#64748b", minWidth: 0 }}>
             {dancerCountPreview > 0 ? (
               <>

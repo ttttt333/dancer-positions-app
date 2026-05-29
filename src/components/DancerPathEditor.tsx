@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography";
 
@@ -24,14 +24,57 @@ function defaultCp(
 
 type LocalPaths = Record<string, { cpX: number; cpY: number }>;
 
-/** 前後フォーメーションの印（スマホでも見やすいサイズ） */
-const FORMATION_MARKER_R = 14;
-const FORMATION_MARKER_STROKE = 2.25;
-const MARKER_LABEL_FONT = 10;
-/** 黄色い制御点（見た目 + タッチ当たり判定） */
-const CONTROL_POINT_R = 12;
-const CONTROL_POINT_HIT_R = 28;
-const CONTROL_POINT_STROKE = 2.25;
+type MarkerSizes = {
+  formationR: number;
+  formationStroke: number;
+  labelFont: number;
+  controlR: number;
+  controlHitR: number;
+  controlStroke: number;
+  pathStroke: number;
+  guideStroke: number;
+};
+
+const DESKTOP_MARKERS: MarkerSizes = {
+  formationR: 14,
+  formationStroke: 2.25,
+  labelFont: 10,
+  controlR: 12,
+  controlHitR: 28,
+  controlStroke: 2.25,
+  pathStroke: 2.5,
+  guideStroke: 1.5,
+};
+
+const PORTRAIT_MARKERS: MarkerSizes = {
+  formationR: 18,
+  formationStroke: 2.75,
+  labelFont: 12,
+  controlR: 16,
+  controlHitR: 36,
+  controlStroke: 2.75,
+  pathStroke: 3.25,
+  guideStroke: 2,
+};
+
+function usePortraitMobileShell(): boolean {
+  const [active, setActive] = useState(false);
+  useEffect(() => {
+    const read = () =>
+      setActive(
+        typeof document !== "undefined" &&
+          document.querySelector("[data-shell-portrait]") != null
+      );
+    read();
+    window.addEventListener("resize", read);
+    window.addEventListener("orientationchange", read);
+    return () => {
+      window.removeEventListener("resize", read);
+      window.removeEventListener("orientationchange", read);
+    };
+  }, []);
+  return active;
+}
 
 export function DancerPathEditor({
   cueId,
@@ -43,6 +86,9 @@ export function DancerPathEditor({
   stageWidthPx = 900,
   stageHeightPx = 580,
 }: DancerPathEditorProps) {
+  const portraitMobile = usePortraitMobileShell();
+  const markers = portraitMobile ? PORTRAIT_MARKERS : DESKTOP_MARKERS;
+
   const nextById = useRef<Map<string, DancerSpot>>(new Map());
   nextById.current.clear();
   for (const d of nextFormation) nextById.current.set(d.id, d);
@@ -153,286 +199,235 @@ export function DancerPathEditor({
     return `M${toSvgX(ax)},${toSvgY(ay)} Q${toSvgX(cpX)},${toSvgY(cpY)} ${toSvgX(bx)},${toSvgY(by)}`;
   }
 
+  const stageSvg = (
+    <svg
+      ref={svgRef}
+      width="100%"
+      height="100%"
+      viewBox={`0 0 ${stageWidthPx} ${stageHeightPx}`}
+      preserveAspectRatio="xMidYMid meet"
+      className="dancer-path-editor-svg"
+      style={{ display: "block", userSelect: "none", touchAction: "none" }}
+    >
+      <rect width={stageWidthPx} height={stageHeightPx} fill="#0f172a" />
+      <line
+        x1={stageWidthPx / 2}
+        y1={0}
+        x2={stageWidthPx / 2}
+        y2={stageHeightPx}
+        stroke="#1e293b"
+        strokeWidth={portraitMobile ? 1.5 : 1}
+      />
+      <line
+        x1={0}
+        y1={stageHeightPx / 2}
+        x2={stageWidthPx}
+        y2={stageHeightPx / 2}
+        stroke="#1e293b"
+        strokeWidth={portraitMobile ? 1.5 : 1}
+      />
+
+      {prevFormation.map((a) => {
+        const b = nextById.current.get(a.id);
+        if (!b) return null;
+        const cp = paths[a.id] ?? defaultCp(a.xPct, a.yPct, b.xPct, b.yPct);
+        const ax = toSvgX(a.xPct);
+        const ay = toSvgY(a.yPct);
+        const bx = toSvgX(b.xPct);
+        const by = toSvgY(b.yPct);
+        const cpx = toSvgX(cp.cpX);
+        const cpy = toSvgY(cp.cpY);
+
+        return (
+          <g key={a.id}>
+            <line
+              x1={ax}
+              y1={ay}
+              x2={cpx}
+              y2={cpy}
+              stroke="#475569"
+              strokeWidth={markers.guideStroke}
+              strokeDasharray="4,3"
+            />
+            <line
+              x1={bx}
+              y1={by}
+              x2={cpx}
+              y2={cpy}
+              stroke="#475569"
+              strokeWidth={markers.guideStroke}
+              strokeDasharray="4,3"
+            />
+
+            <path
+              d={bezierD(a.xPct, a.yPct, cp.cpX, cp.cpY, b.xPct, b.yPct)}
+              fill="none"
+              stroke="#6366f1"
+              strokeWidth={markers.pathStroke}
+              strokeDasharray="6,3"
+            />
+
+            <circle
+              cx={ax}
+              cy={ay}
+              r={markers.formationR}
+              fill="rgba(59,130,246,0.28)"
+              stroke="#3b82f6"
+              strokeWidth={markers.formationStroke}
+            />
+            <text
+              x={ax}
+              y={ay + 1}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill="#93c5fd"
+              fontSize={markers.labelFont}
+              fontWeight={700}
+              pointerEvents="none"
+            >
+              {a.label}
+            </text>
+
+            <circle
+              cx={bx}
+              cy={by}
+              r={markers.formationR}
+              fill="rgba(34,197,94,0.24)"
+              stroke="#22c55e"
+              strokeWidth={markers.formationStroke}
+            />
+            <text
+              x={bx}
+              y={by + 1}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill="#86efac"
+              fontSize={markers.labelFont}
+              fontWeight={700}
+              pointerEvents="none"
+            >
+              {b.label}
+            </text>
+
+            <circle
+              cx={cpx}
+              cy={cpy}
+              r={markers.controlR}
+              fill="#f59e0b"
+              stroke="#fde68a"
+              strokeWidth={markers.controlStroke}
+              pointerEvents="none"
+            />
+            <circle
+              cx={cpx}
+              cy={cpy}
+              r={markers.controlHitR}
+              fill="transparent"
+              style={{ cursor: "grab", touchAction: "none" }}
+              onPointerDown={(e) => beginControlPointDrag(a.id, e)}
+            />
+          </g>
+        );
+      })}
+    </svg>
+  );
+
+  const actionButtons = (
+    <>
+      <button type="button" className="dancer-path-editor-btn dancer-path-editor-btn--muted" onClick={onReset}>
+        リセット
+      </button>
+      <button type="button" className="dancer-path-editor-btn dancer-path-editor-btn--muted" onClick={onClose}>
+        キャンセル
+      </button>
+      <button type="button" className="dancer-path-editor-btn dancer-path-editor-btn--primary" onClick={onSave}>
+        保存
+      </button>
+    </>
+  );
+
+  if (portraitMobile) {
+    return (
+      <div
+        className="dancer-path-editor dancer-path-editor--portrait"
+        role="dialog"
+        aria-modal="true"
+        aria-label="個人別移動軌道の設定"
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+      >
+        <header className="dancer-path-editor-header dancer-path-editor-header--portrait">
+          <h2 className="dancer-path-editor-title">個人別移動軌道</h2>
+          <p className="dancer-path-editor-hint">黄色い点をドラッグして曲線を調整</p>
+        </header>
+
+        <div className="dancer-path-editor-stage dancer-path-editor-stage--portrait">{stageSvg}</div>
+
+        <div className="dancer-path-editor-legend dancer-path-editor-legend--portrait">
+          <span>
+            <span className="dancer-path-editor-legend-dot dancer-path-editor-legend-dot--prev" />
+            前
+          </span>
+          <span>
+            <span className="dancer-path-editor-legend-dot dancer-path-editor-legend-dot--next" />
+            後
+          </span>
+          <span>
+            <span className="dancer-path-editor-legend-dot dancer-path-editor-legend-dot--cp" />
+            制御点
+          </span>
+        </div>
+
+        <div className="dancer-path-editor-actions dancer-path-editor-actions--portrait">
+          {actionButtons}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 9999,
-        background: "rgba(0,0,0,0.82)",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 12,
-        touchAction: "none",
-      }}
+      className="dancer-path-editor"
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
       onPointerLeave={onPointerUp}
     >
-      <div
-        style={{
-          color: "#e2e8f0",
-          fontSize: 14,
-          fontWeight: 700,
-          letterSpacing: "0.03em",
-          textAlign: "center",
-          padding: "0 16px",
-        }}
-      >
-        個人別移動軌道の設定
-        <span
-          style={{
-            display: "block",
-            fontSize: 12,
-            fontWeight: 400,
-            color: "#94a3b8",
-            marginTop: 4,
-          }}
-        >
-          黄色い点をドラッグして曲線を調整
-        </span>
+      <div className="dancer-path-editor-header">
+        <div className="dancer-path-editor-title-block">
+          個人別移動軌道の設定
+          <span className="dancer-path-editor-hint dancer-path-editor-hint--desktop">
+            黄色い点をドラッグして曲線を調整
+          </span>
+        </div>
       </div>
 
-      <div
-        style={{
-          background: "#0f172a",
-          border: "1px solid #334155",
-          borderRadius: 8,
-          overflow: "hidden",
-          boxShadow: "0 8px 40px rgba(0,0,0,0.6)",
-          width: `min(${stageWidthPx}px, calc(100vw - 32px))`,
-          aspectRatio: `${stageWidthPx} / ${stageHeightPx}`,
-          touchAction: "none",
-        }}
-      >
-        <svg
-          ref={svgRef}
-          width="100%"
-          height="100%"
-          viewBox={`0 0 ${stageWidthPx} ${stageHeightPx}`}
-          style={{ display: "block", userSelect: "none", touchAction: "none" }}
-        >
-          <rect width={stageWidthPx} height={stageHeightPx} fill="#0f172a" />
-          <line
-            x1={stageWidthPx / 2}
-            y1={0}
-            x2={stageWidthPx / 2}
-            y2={stageHeightPx}
-            stroke="#1e293b"
-            strokeWidth={1}
-          />
-          <line
-            x1={0}
-            y1={stageHeightPx / 2}
-            x2={stageWidthPx}
-            y2={stageHeightPx / 2}
-            stroke="#1e293b"
-            strokeWidth={1}
-          />
+      <div className="dancer-path-editor-stage dancer-path-editor-stage--desktop">{stageSvg}</div>
 
-          {prevFormation.map((a) => {
-            const b = nextById.current.get(a.id);
-            if (!b) return null;
-            const cp = paths[a.id] ?? defaultCp(a.xPct, a.yPct, b.xPct, b.yPct);
-            const ax = toSvgX(a.xPct);
-            const ay = toSvgY(a.yPct);
-            const bx = toSvgX(b.xPct);
-            const by = toSvgY(b.yPct);
-            const cpx = toSvgX(cp.cpX);
-            const cpy = toSvgY(cp.cpY);
-
-            return (
-              <g key={a.id}>
-                <line
-                  x1={ax}
-                  y1={ay}
-                  x2={cpx}
-                  y2={cpy}
-                  stroke="#475569"
-                  strokeWidth={1.5}
-                  strokeDasharray="4,3"
-                />
-                <line
-                  x1={bx}
-                  y1={by}
-                  x2={cpx}
-                  y2={cpy}
-                  stroke="#475569"
-                  strokeWidth={1.5}
-                  strokeDasharray="4,3"
-                />
-
-                <path
-                  d={bezierD(a.xPct, a.yPct, cp.cpX, cp.cpY, b.xPct, b.yPct)}
-                  fill="none"
-                  stroke="#6366f1"
-                  strokeWidth={2.5}
-                  strokeDasharray="6,3"
-                />
-
-                <circle
-                  cx={ax}
-                  cy={ay}
-                  r={FORMATION_MARKER_R}
-                  fill="rgba(59,130,246,0.28)"
-                  stroke="#3b82f6"
-                  strokeWidth={FORMATION_MARKER_STROKE}
-                />
-                <text
-                  x={ax}
-                  y={ay + 1}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  fill="#93c5fd"
-                  fontSize={MARKER_LABEL_FONT}
-                  fontWeight={700}
-                  pointerEvents="none"
-                >
-                  {a.label}
-                </text>
-
-                <circle
-                  cx={bx}
-                  cy={by}
-                  r={FORMATION_MARKER_R}
-                  fill="rgba(34,197,94,0.24)"
-                  stroke="#22c55e"
-                  strokeWidth={FORMATION_MARKER_STROKE}
-                />
-                <text
-                  x={bx}
-                  y={by + 1}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  fill="#86efac"
-                  fontSize={MARKER_LABEL_FONT}
-                  fontWeight={700}
-                  pointerEvents="none"
-                >
-                  {b.label}
-                </text>
-
-                <circle
-                  cx={cpx}
-                  cy={cpy}
-                  r={CONTROL_POINT_R}
-                  fill="#f59e0b"
-                  stroke="#fde68a"
-                  strokeWidth={CONTROL_POINT_STROKE}
-                  pointerEvents="none"
-                />
-                <circle
-                  cx={cpx}
-                  cy={cpy}
-                  r={CONTROL_POINT_HIT_R}
-                  fill="transparent"
-                  style={{ cursor: "grab", touchAction: "none" }}
-                  onPointerDown={(e) => beginControlPointDrag(a.id, e)}
-                />
-              </g>
-            );
-          })}
-        </svg>
-      </div>
-
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          justifyContent: "center",
-          gap: 14,
-          fontSize: 12,
-          color: "#94a3b8",
-          alignItems: "center",
-          padding: "0 16px",
-        }}
-      >
+      <div className="dancer-path-editor-legend dancer-path-editor-legend--desktop">
         <span>
-          <svg width={18} height={18} style={{ verticalAlign: "middle", marginRight: 4 }}>
-            <circle
-              cx={9}
-              cy={9}
-              r={7}
-              fill="rgba(59,130,246,0.28)"
-              stroke="#3b82f6"
-              strokeWidth={2}
-            />
+          <svg width={18} height={18} style={{ verticalAlign: "middle", marginRight: 4 }} aria-hidden>
+            <circle cx={9} cy={9} r={7} fill="rgba(59,130,246,0.28)" stroke="#3b82f6" strokeWidth={2} />
           </svg>
           前フォーメーション
         </span>
         <span>
-          <svg width={18} height={18} style={{ verticalAlign: "middle", marginRight: 4 }}>
-            <circle
-              cx={9}
-              cy={9}
-              r={7}
-              fill="rgba(34,197,94,0.24)"
-              stroke="#22c55e"
-              strokeWidth={2}
-            />
+          <svg width={18} height={18} style={{ verticalAlign: "middle", marginRight: 4 }} aria-hidden>
+            <circle cx={9} cy={9} r={7} fill="rgba(34,197,94,0.24)" stroke="#22c55e" strokeWidth={2} />
           </svg>
           後フォーメーション
         </span>
         <span>
-          <svg width={18} height={18} style={{ verticalAlign: "middle", marginRight: 4 }}>
+          <svg width={18} height={18} style={{ verticalAlign: "middle", marginRight: 4 }} aria-hidden>
             <circle cx={9} cy={9} r={6} fill="#f59e0b" stroke="#fde68a" strokeWidth={2} />
           </svg>
           制御点（ドラッグ）
         </span>
       </div>
 
-      <div style={{ display: "flex", gap: 10, padding: "0 16px 12px" }}>
-        <button
-          type="button"
-          onClick={onReset}
-          style={{
-            padding: "10px 18px",
-            borderRadius: 7,
-            border: "1px solid #475569",
-            background: "#1e293b",
-            color: "#94a3b8",
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
-        >
-          リセット
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          style={{
-            padding: "10px 18px",
-            borderRadius: 7,
-            border: "1px solid #475569",
-            background: "#1e293b",
-            color: "#cbd5e1",
-            fontSize: 13,
-            fontWeight: 600,
-            cursor: "pointer",
-          }}
-        >
-          キャンセル
-        </button>
-        <button
-          type="button"
-          onClick={onSave}
-          style={{
-            padding: "10px 22px",
-            borderRadius: 7,
-            border: "1px solid rgba(99,102,241,0.8)",
-            background: "rgba(99,102,241,0.25)",
-            color: "#c7d2fe",
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: "pointer",
-          }}
-        >
-          保存
-        </button>
+      <div className="dancer-path-editor-actions dancer-path-editor-actions--desktop">
+        {actionButtons}
       </div>
     </div>
   );

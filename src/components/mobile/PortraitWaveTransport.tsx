@@ -15,7 +15,9 @@ const DOUBLE_TAP_MS = 350;
 const LONG_PRESS_MS = 520;
 const PORTRAIT_WAVE_CSS_H = 80;
 /** 長押し判定前にドラッグ開始する移動量（px） */
-const DRAG_ARM_PX = 8;
+const DRAG_ARM_PX = 14;
+/** この距離未満の指の動きはタップ扱い（シーク） */
+const TAP_MAX_MOVE_PX = 16;
 /** 長押しキャンセルまでの指の揺れ許容（px） */
 const LONG_PRESS_CANCEL_PX = 18;
 
@@ -77,6 +79,7 @@ export const PortraitWaveTransport: React.FC<Props> = ({
   const lastTapRef = useRef(0);
   const pendingSingleTapRef = useRef<number | null>(null);
   const suppressClickRef = useRef(false);
+  const suppressDoubleClickRef = useRef(false);
   const longPressTimerRef = useRef<number | null>(null);
   const longPressFiredRef = useRef(false);
   const pinchRef = useRef<{ dist: number; zoom: number; anchor: number } | null>(null);
@@ -321,21 +324,23 @@ export const PortraitWaveTransport: React.FC<Props> = ({
     [bridgeApi, applyZoomAt, clearLongPress, clearPendingSingleTap, armCanvasDrag]
   );
 
-  const onClick = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      if (suppressClickRef.current) {
+  const onClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    void e;
+    if (suppressClickRef.current) {
         suppressClickRef.current = false;
         return;
       }
       if (longPressFiredRef.current) return;
-      bridgeApi?.handlers.onWaveClick(e);
-    },
-    [bridgeApi]
-  );
+      /* タップは pointerUp で処理（シークのみ） */
+  }, []);
 
   const onDoubleClick = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       e.preventDefault();
+      if (suppressDoubleClickRef.current) {
+        suppressDoubleClickRef.current = false;
+        return;
+      }
       bridgeApi?.handlers.onWaveDoubleClick(e);
     },
     [bridgeApi]
@@ -345,6 +350,11 @@ export const PortraitWaveTransport: React.FC<Props> = ({
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (!bridgeApi?.handlers) return;
       clearLongPress();
+      const origin = pointerDownOriginRef.current;
+      const movedPx =
+        origin != null
+          ? Math.hypot(e.clientX - origin.x, e.clientY - origin.y)
+          : 0;
       pointersRef.current.delete(e.pointerId);
       pinchRef.current = null;
       pointerDownRef.current = null;
@@ -358,14 +368,19 @@ export const PortraitWaveTransport: React.FC<Props> = ({
         } catch {
           /* ignore */
         }
+        dragArmedRef.current = false;
         return;
       }
 
-      if (!dragArmedRef.current) {
+      const treatAsTap = !dragArmedRef.current || movedPx <= TAP_MAX_MOVE_PX;
+      dragArmedRef.current = false;
+
+      if (treatAsTap) {
         const now = Date.now();
         if (now - lastTapRef.current < DOUBLE_TAP_MS) {
           clearPendingSingleTap();
           suppressClickRef.current = true;
+          suppressDoubleClickRef.current = true;
           bridgeApi.handlers.onWaveDoubleClick(synthMouseEvent("dblclick", e));
           lastTapRef.current = 0;
         } else {
@@ -374,12 +389,11 @@ export const PortraitWaveTransport: React.FC<Props> = ({
           pendingSingleTapRef.current = window.setTimeout(() => {
             pendingSingleTapRef.current = null;
             if (longPressFiredRef.current) return;
+            suppressClickRef.current = true;
             bridgeApi.handlers.onWaveClick(synthMouseEvent("click", e));
           }, DOUBLE_TAP_MS);
         }
       }
-
-      dragArmedRef.current = false;
 
       try {
         e.currentTarget.releasePointerCapture(e.pointerId);
@@ -535,7 +549,7 @@ export const PortraitWaveTransport: React.FC<Props> = ({
             aria-valuemin={0}
             aria-valuemax={duration}
             aria-valuenow={currentTime}
-            aria-label="波形（ダブルタップで7秒のキュー追加・ドラッグで長さ調整・長押しで導線/キューメニュー）"
+            aria-label="波形（タップで再生位置を移動・ダブルタップで7秒のキュー追加・ドラッグでキュー調整・長押しで導線/キューメニュー）"
           />
           {!registered ? (
             <div className={styles.wavePlaceholder}>波形を読み込み中…</div>
