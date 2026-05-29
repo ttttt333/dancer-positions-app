@@ -120,8 +120,9 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   const registered = useTimelineWaveBridgeStore((s) => s.registered);
   const bridgeApi = useTimelineWaveBridgeStore((s) => s.api);
   const waveLoadProgress = useWaveformLoadProgressStore((s) => s.progress);
+  const hasPeaks = Boolean(bridgeApi?.hasPeaks);
   const showWaveLoadOverlay =
-    waveLoadProgress != null || (!registered && Boolean(audioUrl));
+    waveLoadProgress != null || (Boolean(audioUrl) && !hasPeaks);
   const syncPortraitView = useTimelineWaveBridgeStore((s) => s.syncPortraitView);
   const setPortraitActive = useTimelineWaveBridgeStore((s) => s.setPortraitActive);
   const setPortraitCanvasRef = useTimelineWaveBridgeStore((s) => s.setPortraitCanvasRef);
@@ -810,6 +811,27 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
           {zoomLabel ? <span className={styles.zoomBadge}>{zoomLabel}</span> : null}
         </span>
       </div>
+      ) : null}
+
+      {!showTransportControls ? (
+        <div className={styles.waveOnlyMetaRow}>
+          <span className={styles.waveOnlyStatus} aria-live="polite">
+            {waveLoadProgress?.message ??
+              (!audioUrl
+                ? "音源未設定 — Menu → 音源追加"
+                : !hasPeaks
+                  ? registered
+                    ? "波形を読み込み中…"
+                    : "波形を準備中…"
+                  : "")}
+          </span>
+          <span className={styles.waveOnlyTime}>
+            {fmt(currentTime)}
+            <span className={styles.timeSep}>/</span>
+            {fmt(duration)}
+            {zoomLabel ? <span className={styles.zoomBadge}>{zoomLabel}</span> : null}
+          </span>
+        </div>
       ) : null}
 
       <div className={styles.waveFrame}>

@@ -17,6 +17,7 @@ type TimelineWaveBridgeApi = {
   setWaveViewStartOverride: (start: number | null) => void;
   duration: number;
   isPlaying: boolean;
+  hasPeaks: boolean;
 };
 
 type TimelineWaveBridgeStore = {

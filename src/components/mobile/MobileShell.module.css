@@ -156,3 +156,11 @@
 .landscapeRoot[data-landscape-wave-collapsed] .floatingCloseLandscape {
   bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
 }
+
+.landscapeRoot[data-shell-landscape]:not([data-landscape-wave-collapsed]) {
+  --landscape-wave-dock-h: 96px;
+}
+
+.landscapeRoot[data-shell-landscape][data-landscape-wave-collapsed] {
+  --landscape-wave-dock-h: 0px;
+}

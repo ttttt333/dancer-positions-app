@@ -45,6 +45,7 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
 
   const [hasOpenDialog, setHasOpenDialog] = useState(false)
   const [landscapeWaveExpanded, setLandscapeWaveExpanded] = useState(true)
+  const [landscapePanelOpen, setLandscapePanelOpen] = useState(true)
 
   useEffect(() => {
     const checkDialog = () => {
@@ -130,6 +131,7 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
         ? {
             'data-shell-landscape': '',
             ...(landscapeWaveExpanded ? {} : { 'data-landscape-wave-collapsed': '' }),
+            ...(landscapePanelOpen ? {} : { 'data-landscape-panel-collapsed': '' }),
           }
         : { 'data-shell-portrait': '' })}
     >
@@ -147,6 +149,8 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
             onZoomOut={handleZoomOut}
             landscapeWaveExpanded={landscapeWaveExpanded}
             onWaveExpand={() => setLandscapeWaveExpanded(true)}
+            panelOpen={landscapePanelOpen}
+            onPanelOpenChange={setLandscapePanelOpen}
             onAddCue={props.onAddCue}
             onStageSettings={props.onStageSettings}
             onViewerList={props.onViewerList}

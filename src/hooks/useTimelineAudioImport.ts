@@ -28,6 +28,7 @@ import {
   wavePeaksCacheKeyForSupabase,
 } from "../lib/wavePeaksCache";
 import type { DecodePeaksOptions } from "./useTimelineWaveDecode";
+import { clearWaveLoadProgress, reportWaveLoadProgress } from "../lib/waveLoadProgress";
 
 type Params = {
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>;
@@ -67,6 +68,13 @@ export function useTimelineAudioImport({
     null
   );
   const audioFileInputRef = useRef<HTMLInputElement>(null);
+
+  const updateExtractProgress = useCallback((progress: TimelineExtractProgress | null) => {
+    setExtractProgress(progress);
+    if (progress) {
+      reportWaveLoadProgress(progress.ratio, progress.message ?? "音声を抽出中…");
+    }
+  }, []);
 
   const clearPlaybackTrustedDurationSec = () =>
     usePlaybackUiStore.getState().setTrustedAudioDurationSec(null);
@@ -182,15 +190,16 @@ export function useTimelineAudioImport({
       let buf: ArrayBuffer;
       try {
         if (isVideo) {
-          setExtractProgress({ ratio: 0, stage: "decode", message: "抽出準備中…" });
+          updateExtractProgress({ ratio: 0, stage: "decode", message: "抽出準備中…" });
           buf = await extractAudioBufferFromVideoFile(f, (p) => {
-            setExtractProgress(p);
+            updateExtractProgress(p);
           });
         } else {
           buf = await f.arrayBuffer();
         }
       } catch (err) {
-        setExtractProgress(null);
+        updateExtractProgress(null);
+        clearWaveLoadProgress();
         alert(err instanceof Error ? err.message : "読み込みに失敗しました");
         return;
       } finally {

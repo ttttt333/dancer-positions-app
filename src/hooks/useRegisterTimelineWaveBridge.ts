@@ -34,6 +34,7 @@ export function useRegisterTimelineWaveBridge(
 
   const drawWaveformAt = waveBundleParams.canvas.drawWaveformAt;
   const duration = waveBundleParams.playback.duration;
+  const hasPeaks = (waveBundleParams.peaks?.length ?? 0) > 0;
 
   useEffect(() => {
     useTimelineWaveBridgeStore.getState().register({
@@ -43,6 +44,7 @@ export function useRegisterTimelineWaveBridge(
       setWaveViewStartOverride: viewport.setWaveViewStartOverride,
       duration,
       isPlaying,
+      hasPeaks,
     });
     return () => useTimelineWaveBridgeStore.getState().register(null);
   }, [
@@ -52,5 +54,6 @@ export function useRegisterTimelineWaveBridge(
     viewport.setWaveViewStartOverride,
     duration,
     isPlaying,
+    hasPeaks,
   ]);
 }

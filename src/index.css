@@ -670,6 +670,13 @@ body {
   max-height: 100% !important;
 }
 
+/* 横画面: safe-area は MobileShell 側で管理 — ステージ左の二重余白を除去 */
+[data-shell-landscape] .editor-page-root,
+[data-shell-landscape] .editor-page-root--mobile-editor {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
 /* EditorPageHeader を全レイアウトモードで非表示（mobile クラスの有無に依存しない） */
 [data-shell-portrait] .editor-page-header,
 [data-shell-landscape] .editor-page-header {
@@ -709,10 +716,10 @@ body {
   display: none !important;
 }
 
-/* 横画面: Change 列（ステージ左上・コンパクト） */
+/* 横画面: Change 列（左メニュー直後・隙間なし） */
 [data-shell-landscape] .editor-stage-landscape-stack {
   position: absolute;
-  top: 2px;
+  top: 0;
   left: 0;
   z-index: 45;
   display: flex;
@@ -720,7 +727,11 @@ body {
   gap: 4px;
   pointer-events: auto;
   align-items: stretch;
-  width: 98px;
+  width: 128px;
+  padding: 2px 4px 0 2px;
+  box-sizing: border-box;
+  border-right: 0.5px solid #1a2540;
+  background: rgba(11, 17, 32, 0.72);
 }
 
 [data-shell-landscape] .editor-stage-landscape-btnRow {
@@ -856,6 +867,11 @@ body {
   padding-bottom: 0 !important;
 }
 
+[data-shell-landscape] .stage-board-main-slot {
+  padding: 0 0 0 128px !important;
+  align-items: stretch !important;
+}
+
 /* 波形たたみ時: 上寄せで最大化 */
 [data-shell-landscape][data-landscape-wave-collapsed] .stage-board-fit-viewport-inner {
   align-items: flex-start !important;
@@ -864,13 +880,13 @@ body {
 }
 
 [data-shell-landscape][data-landscape-wave-collapsed] .stage-board-main-slot {
-  padding: 0 !important;
+  padding: 0 0 0 128px !important;
   align-items: stretch !important;
 }
 
 /* 波形表示時: タイムライン直上まで下寄せで最大化 */
 [data-shell-landscape]:not([data-landscape-wave-collapsed]) .stage-board-main-slot {
-  padding: 0 !important;
+  padding: 0 0 0 128px !important;
   align-items: stretch !important;
 }
 
@@ -892,9 +908,13 @@ body {
   padding: 0 !important;
 }
 
-[data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-stack {
-  top: 1px;
-  left: 0;
+[data-shell-landscape][data-landscape-panel-collapsed] .editor-stage-landscape-stack {
+  width: 112px;
+  padding-left: 4px;
+}
+
+[data-shell-landscape][data-landscape-panel-collapsed] .stage-board-main-slot {
+  padding-left: 112px !important;
 }
 
 /* ─── 横向き: editor-three-pane をステージのみ表示 (全レイアウトモード対応) ─── */

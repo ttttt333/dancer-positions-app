@@ -50,6 +50,9 @@ interface Props {
   onRedo?: () => void
   undoDisabled?: boolean
   redoDisabled?: boolean
+  /** 親（MobileShell）から畳み状態を制御する場合 */
+  panelOpen?: boolean
+  onPanelOpenChange?: (open: boolean) => void
 }
 
 export const LandscapeSidePanel: React.FC<Props> = ({
@@ -71,8 +74,12 @@ export const LandscapeSidePanel: React.FC<Props> = ({
   onRedo,
   undoDisabled,
   redoDisabled,
+  panelOpen: panelOpenProp,
+  onPanelOpenChange,
 }) => {
-  const [open, setOpen] = useState(true)
+  const [panelOpenInternal, setPanelOpenInternal] = useState(true)
+  const panelOpen = panelOpenProp ?? panelOpenInternal
+  const setPanelOpen = onPanelOpenChange ?? setPanelOpenInternal
   const [menuOpen, setMenuOpen] = useState(false)
   const onSaveSpot    = useMobileShellBridgeStore((s) => s.onSaveSpot)
   const onAddText     = useMobileShellBridgeStore((s) => s.onAddText)
@@ -148,15 +155,15 @@ export const LandscapeSidePanel: React.FC<Props> = ({
       </button>
     ) : null
 
-  if (!open) {
+  if (!panelOpen) {
     return (
-      <div className={styles.collapsed}>
-        <div className={styles.collapsedStack}>
+      <div className={styles.collapsedRail} aria-hidden>
+        <div className={styles.collapsedFloatingStack}>
           {waveExpandBtn}
           <button
             type="button"
-            className={`${styles.panelToggleBtn} ${styles.panelToggleBtnExpand}`}
-            onClick={() => setOpen(true)}
+            className={`${styles.panelToggleBtn} ${styles.panelToggleBtnExpandFloating}`}
+            onClick={() => setPanelOpen(true)}
             aria-label="左メニューを開く"
             title="左メニューを開く"
           >
@@ -176,7 +183,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
         <button
           type="button"
           className={`${styles.panelToggleBtn} ${styles.panelToggleBtnCollapse}`}
-          onClick={() => setOpen(false)}
+          onClick={() => setPanelOpen(false)}
           aria-label="左メニューを畳む"
           title="左メニューを畳む"
         >
