@@ -730,7 +730,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
 
   return (
     <div
-      className={`${styles.transport} ${showTransportControls ? "" : styles.transportWaveOnly} ${className ?? ""}`.trim()}
+      className={`${styles.transport} ${showTransportControls ? "" : styles.transportWaveOnly} ${onCollapseWave ? styles.transportWaveOnlyWithCollapse : ""} ${className ?? ""}`.trim()}
       style={{ ["--portrait-wave-h" as string]: `${waveHeightPx}px` } as React.CSSProperties}
     >
       {showTransportControls ? (
@@ -808,18 +808,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       ) : null}
 
       <div className={styles.waveFrame}>
-        <div
-          className={`${styles.waveRuler} ${onCollapseWave ? styles.waveRulerWithCollapse : ""}`.trim()}
-          onPointerDown={onRulerPointerDown}
-          onPointerMove={onRulerPointerMove}
-          onPointerUp={onRulerPointerUp}
-          onPointerCancel={onRulerPointerUp}
-          role="slider"
-          aria-valuemin={0}
-          aria-valuemax={duration}
-          aria-valuenow={currentTime}
-          aria-label="タイムライン（タップ・ドラッグで再生位置を移動）"
-        >
+        <div className={styles.waveRulerWrap}>
           {onCollapseWave ? (
             <button
               type="button"
@@ -832,12 +821,22 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
               aria-label="波形を畳む"
               title="波形を畳む"
             >
-              <span className={styles.rulerCollapseIcon} aria-hidden>
-                ▼
-              </span>
+              <span className={styles.rulerCollapseTriangle} aria-hidden />
             </button>
           ) : null}
-          {rulerTicks.map((tick) => {
+          <div
+            className={styles.waveRuler}
+            onPointerDown={onRulerPointerDown}
+            onPointerMove={onRulerPointerMove}
+            onPointerUp={onRulerPointerUp}
+            onPointerCancel={onRulerPointerUp}
+            role="slider"
+            aria-valuemin={0}
+            aria-valuemax={duration}
+            aria-valuenow={currentTime}
+            aria-label="タイムライン（タップ・ドラッグで再生位置を移動）"
+          >
+            {rulerTicks.map((tick) => {
             const pct =
               viewDuration > 0
                 ? ((tick - viewStart) / viewDuration) * 100
@@ -852,6 +851,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
               </span>
             );
           })}
+          </div>
         </div>
         <div ref={viewportRef} className={styles.waveViewport}>
           <canvas

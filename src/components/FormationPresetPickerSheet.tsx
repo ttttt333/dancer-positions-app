@@ -89,6 +89,53 @@ function usePortraitMobileShell(): boolean {
   return active;
 }
 
+function useLandscapeMobileShell(): boolean {
+  const [active, setActive] = useState(false);
+  useEffect(() => {
+    const read = () =>
+      setActive(
+        typeof document !== "undefined" &&
+          document.querySelector("[data-shell-landscape]") != null
+      );
+    read();
+    window.addEventListener("resize", read);
+    window.addEventListener("orientationchange", read);
+    return () => {
+      window.removeEventListener("resize", read);
+      window.removeEventListener("orientationchange", read);
+    };
+  }, []);
+  return active;
+}
+
+function useLandscapeWaveCollapsed(active: boolean): boolean {
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    if (!active) return;
+    const read = () => {
+      const root = document.querySelector("[data-shell-landscape]");
+      setCollapsed(root?.hasAttribute("data-landscape-wave-collapsed") ?? false);
+    };
+    read();
+    const root = document.querySelector("[data-shell-landscape]");
+    const observer = new MutationObserver(read);
+    if (root) {
+      observer.observe(root, {
+        attributes: true,
+        attributeFilter: ["data-landscape-wave-collapsed"],
+      });
+    }
+    window.addEventListener("resize", read);
+    window.addEventListener("orientationchange", read);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", read);
+      window.removeEventListener("orientationchange", read);
+    };
+  }, [active]);
+  return collapsed;
+}
+
 export function FormationPresetPickerSheet({
   open,
   onClose,
@@ -119,7 +166,10 @@ export function FormationPresetPickerSheet({
   );
   const wasOpenRef = useRef(false);
   const portraitMobileShell = usePortraitMobileShell();
+  const landscapeMobileShell = useLandscapeMobileShell();
   const portraitFullscreen = open && portraitMobileShell;
+  const landscapeHorizontal = open && landscapeMobileShell && !portraitMobileShell;
+  const landscapeWaveCollapsed = useLandscapeWaveCollapsed(landscapeHorizontal);
 
   const spacingOpts = useMemo(
     () => ({
@@ -250,10 +300,12 @@ export function FormationPresetPickerSheet({
       className={
         portraitFullscreen
           ? "formation-preset-picker-sheet-body formation-preset-picker-sheet-body--portrait-full"
-          : "formation-preset-picker-sheet-body"
+          : landscapeHorizontal
+            ? "formation-preset-picker-sheet-body formation-preset-picker-sheet-body--landscape"
+            : "formation-preset-picker-sheet-body"
       }
       style={
-        portraitFullscreen
+        portraitFullscreen || landscapeHorizontal
           ? undefined
           : {
               flex: 1,
@@ -275,9 +327,15 @@ export function FormationPresetPickerSheet({
             className={
               portraitFullscreen
                 ? "formation-preset-picker-grid"
-                : undefined
+                : landscapeHorizontal
+                  ? "formation-preset-picker-scroll-row"
+                  : undefined
             }
-            style={portraitFullscreen ? undefined : { display: "flex", flexWrap: "wrap", gap: "8px" }}
+            style={
+              portraitFullscreen || landscapeHorizontal
+                ? undefined
+                : { display: "flex", flexWrap: "wrap", gap: "8px" }
+            }
           >
             {cat.items.map((item) => {
               const active = selectedPresetId === item.id;
@@ -321,6 +379,29 @@ export function FormationPresetPickerSheet({
   );
 
   if (!open) return null;
+
+  if (landscapeHorizontal && typeof document !== "undefined") {
+    return createPortal(
+      <>
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="formation-preset-picker-title"
+          data-editor-sheet="formation-preset-picker"
+          className={`formation-preset-picker-landscape-dock${
+            landscapeWaveCollapsed
+              ? " formation-preset-picker-landscape-dock--wave-collapsed"
+              : ""
+          }`}
+        >
+          {sheetHeader}
+          {presetGrid}
+          {actionsPanel}
+        </div>
+      </>,
+      document.body
+    );
+  }
 
   if (portraitFullscreen && typeof document !== "undefined") {
     return createPortal(

@@ -1064,7 +1064,7 @@ export function AddCueWithFormationDialog({
                       {cat.label}
                     </div>
                     {/* プリセットグリッド */}
-                    <div className="add-cue-preset-grid" style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                    <div className="add-cue-preset-grid">
                       {cat.items.map((item) => {
                         const active = templatePresetId === item.id;
                         return (

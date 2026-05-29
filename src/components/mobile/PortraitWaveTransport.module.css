@@ -11,6 +11,10 @@
   min-height: 0;
 }
 
+.transportWaveOnlyWithCollapse {
+  padding-top: 14px;
+}
+
 .row {
   display: flex;
   align-items: center;
@@ -84,6 +88,11 @@
   border-bottom: 0.5px solid rgba(255, 255, 255, 0.06);
 }
 
+.waveRulerWrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .waveRuler {
   position: relative;
   height: calc(14px + 5mm);
@@ -96,37 +105,39 @@
   cursor: ew-resize;
 }
 
-.waveRulerWithCollapse {
-  padding-left: 24px;
-}
-
 .rulerCollapseBtn {
   position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 24px;
+  left: 4px;
+  top: -12px;
+  z-index: 6;
+  width: 34px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: none;
-  border-right: 0.5px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.06);
-  color: #94a3b8;
+  border: 1px solid rgba(251, 146, 60, 0.75);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.96);
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.45),
+    0 0 10px rgba(251, 146, 60, 0.22);
   cursor: pointer;
   padding: 0;
   touch-action: manipulation;
-  z-index: 2;
 }
 
 .rulerCollapseBtn:active {
-  background: rgba(255, 255, 255, 0.14);
-  color: #e2e8f0;
+  background: rgba(30, 41, 59, 0.98);
+  transform: scale(0.96);
 }
 
-.rulerCollapseIcon {
-  font-size: 9px;
-  line-height: 1;
+.rulerCollapseTriangle {
+  width: 0;
+  height: 0;
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-top: 11px solid #fb923c;
+  filter: drop-shadow(0 1px 3px rgba(251, 146, 60, 0.55));
 }
 
 .rulerTick {
