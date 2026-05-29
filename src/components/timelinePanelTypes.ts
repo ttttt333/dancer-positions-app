@@ -1,5 +1,6 @@
-import type { Dispatch, SetStateAction, ReactNode } from "react";
+import type { ChangeEvent, Dispatch, RefObject, SetStateAction, ReactNode } from "react";
 import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography";
+import type { TimelineExtractProgress } from "./TimelineAudioChrome";
 
 export type TimelinePanelHandle = {
   togglePlay: () => void;
@@ -49,4 +50,8 @@ export type TimelinePanelBodyProps = {
   onOpenPathEditor?: (cueId: string) => void;
   /** 生徒閲覧（/view/s/…）: ログインなしで Supabase 音源を読む */
   publicShareView?: boolean;
+  /** EditorPage の音源セッションから渡す（未指定時はインポート不可） */
+  audioFileInputRef?: RefObject<HTMLInputElement | null>;
+  extractProgress?: TimelineExtractProgress | null;
+  onPickAudio?: (e: ChangeEvent<HTMLInputElement>) => void;
 };

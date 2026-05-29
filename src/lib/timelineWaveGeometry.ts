@@ -304,3 +304,38 @@ export function getWaveViewForDraw(
   );
   return { start, end: start + span, span };
 }
+
+/** 波形キャンバス描画と UI オーバーレイで共有する可視時間窓 */
+export function resolveWaveDrawView(params: {
+  durationSec: number;
+  viewPortion: number;
+  anchorTimeSec: number;
+  isPlaying: boolean;
+  viewStartOverride: number | null;
+}): { start: number; end: number; span: number } {
+  const { durationSec, viewPortion, anchorTimeSec, isPlaying, viewStartOverride } =
+    params;
+  if (
+    !isPlaying &&
+    viewStartOverride !== null &&
+    Number.isFinite(durationSec) &&
+    durationSec > 0
+  ) {
+    const span = Math.max(0.08, durationSec * viewPortion);
+    return {
+      start: viewStartOverride,
+      end: viewStartOverride + span,
+      span,
+    };
+  }
+  return getWaveViewForDraw(durationSec, viewPortion, anchorTimeSec);
+}
+
+/** 目盛り・再生ヘッド用: 時刻をコンテナ幅に対する 0–100% へ（左右余白込み） */
+export function waveTimeToPercent(
+  tSec: number,
+  viewStart: number,
+  viewSpan: number
+): number {
+  return waveTimeToExtentX(tSec, viewStart, viewSpan, 100);
+}

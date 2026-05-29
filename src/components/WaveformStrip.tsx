@@ -1,6 +1,7 @@
 import type { MouseEvent, PointerEvent, RefObject } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { formatMmSs, waveRulerTicks } from "../lib/timeFormat";
+import { waveTimeToPercent } from "../lib/timelineWaveGeometry";
 import { WaveformLoadOverlay } from "./WaveformLoadOverlay";
 import { useWaveformLoadProgressStore } from "../store/waveformLoadProgressStore";
 
@@ -112,8 +113,7 @@ export function WaveformStrip({
         >
           {duration > 0
             ? waveRulerTicks(waveView.start, waveView.end, 10).map((tick) => {
-                const span = waveView.span;
-                const p = span > 0 ? ((tick - waveView.start) / span) * 100 : 0;
+                const p = waveTimeToPercent(tick, waveView.start, waveView.span);
                 const pRounded = Math.round(p * 10000) / 10000;
                 return (
                   <span

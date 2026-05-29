@@ -5,7 +5,7 @@ import { sortCuesByStart } from "../core/timelineController";
 import { playbackEngine } from "../core/playbackEngine";
 import {
   gapConnectorPixelBounds,
-  getWaveViewForDraw,
+  resolveWaveDrawView,
   waveTimeToExtentX,
   type CueDragEdgeMode,
 } from "../lib/timelineWaveGeometry";
@@ -95,10 +95,13 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
       if (!g) return;
       const startOverride =
         !isPlayingForWaveRef.current ? waveViewStartOverrideRef.current : null;
-      const { start: viewStart, span: viewSpan } =
-        startOverride !== null && d > 0
-          ? { start: startOverride, span: Math.max(0.08, d * vp) }
-          : getWaveViewForDraw(d, vp, playheadTime);
+      const { start: viewStart, span: viewSpan } = resolveWaveDrawView({
+        durationSec: d,
+        viewPortion: vp,
+        anchorTimeSec: playheadTime,
+        isPlaying: isPlayingForWaveRef.current,
+        viewStartOverride: startOverride,
+      });
       const viewEnd = viewStart + viewSpan;
       lastWaveDrawRangeRef.current = { viewStart, viewSpan };
       g.fillStyle = "#0f172a";
@@ -301,28 +304,50 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
       const portraitCanvas =
         useTimelineWaveBridgeStore.getState().portraitActive &&
         c === useTimelineWaveBridgeStore.getState().portraitCanvasRef?.current;
+      const portraitHeadEl =
+        useTimelineWaveBridgeStore.getState().portraitPlayheadLineRef?.current;
+      const cssW = c.getBoundingClientRect().width;
+      const extentForOverlay = cssW > 0 ? cssW : w;
       if (d > 0 && viewSpan > 0) {
-        let xPlay = waveTimeToExtentX(playheadTime, viewStart, viewSpan, w);
+        let xPlay = waveTimeToExtentX(
+          playheadTime,
+          viewStart,
+          viewSpan,
+          extentForOverlay
+        );
         xPlay = Number.isFinite(xPlay)
-          ? Math.min(w, Math.max(0, Math.round(xPlay * 2) / 2))
+          ? Math.min(extentForOverlay, Math.max(0, xPlay))
+          : 0;
+        const xBitmap = waveTimeToExtentX(playheadTime, viewStart, viewSpan, w);
+        const xDraw = Number.isFinite(xBitmap)
+          ? Math.min(w, Math.max(0, Math.round(xBitmap * 2) / 2))
           : 0;
         if (!portraitCanvas) {
           g.strokeStyle = "#ef4444";
           g.lineWidth = 2.5;
           g.lineCap = "butt";
           g.beginPath();
-          g.moveTo(xPlay + 0.5, 0);
-          g.lineTo(xPlay + 0.5, h);
+          g.moveTo(xDraw + 0.5, 0);
+          g.lineTo(xDraw + 0.5, h);
           g.stroke();
         }
+        const pct =
+          extentForOverlay > 0 ? (xPlay / extentForOverlay) * 100 : 0;
         if (lineEl && !portraitCanvas) {
           lineEl.style.display = "block";
-          lineEl.style.left = `${((xPlay + 0.5) / w) * 100}%`;
+          lineEl.style.left = `${pct}%`;
         } else if (lineEl && portraitCanvas) {
           lineEl.style.display = "none";
         }
-      } else if (lineEl) {
-        lineEl.style.display = "none";
+        if (portraitHeadEl && portraitCanvas) {
+          portraitHeadEl.style.display = "block";
+          portraitHeadEl.style.left = `${pct}%`;
+        } else if (portraitHeadEl) {
+          portraitHeadEl.style.display = "none";
+        }
+      } else {
+        if (lineEl) lineEl.style.display = "none";
+        if (portraitHeadEl) portraitHeadEl.style.display = "none";
       }
     },
     [

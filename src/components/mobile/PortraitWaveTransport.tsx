@@ -30,7 +30,10 @@ import { formatMmSs, waveRulerTicks } from "../../lib/timeFormat";
 import {
   hitPlayheadStripForScrub,
   PORTRAIT_PLAYHEAD_SCRUB_HALF_WIDTH_PX,
-  waveTimeToExtentX,
+  waveExtentXToTime,
+  waveTimeToPercent,
+  getWaveViewForDraw,
+  resolveWaveDrawView,
 } from "../../lib/timelineWaveGeometry";
 
 const MIN_ZOOM = 1;
@@ -123,14 +126,18 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   const hasPeaks = Boolean(bridgeApi?.hasPeaks);
   const isLoadError = waveLoadProgress?.error === true;
   const showWaveLoadOverlay =
-    waveLoadProgress != null || (Boolean(audioUrl) && !hasPeaks && !isLoadError);
+    !hasPeaks && waveLoadProgress != null && !isLoadError;
   const syncPortraitView = useTimelineWaveBridgeStore((s) => s.syncPortraitView);
   const setPortraitActive = useTimelineWaveBridgeStore((s) => s.setPortraitActive);
   const setPortraitCanvasRef = useTimelineWaveBridgeStore((s) => s.setPortraitCanvasRef);
+  const setPortraitPlayheadLineRef = useTimelineWaveBridgeStore(
+    (s) => s.setPortraitPlayheadLineRef
+  );
   const trimStartSec = useMobileShellBridgeStore((s) => s.trimStartSec);
   const trimEndSec = useMobileShellBridgeStore((s) => s.trimEndSec);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const playheadLineRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [viewStart, setViewStart] = useState(0);
@@ -155,7 +162,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   const scrubSessionRef = useRef<PlaybackScrubSession | null>(null);
 
   const viewDuration = duration > 0 ? duration / zoom : 0;
-  const viewEnd = viewStart + viewDuration;
+  const viewPortion = Math.min(1, Math.max(0.02, zoom > 0 ? 1 / zoom : 1));
 
   const playheadSecForUi = useMemo(() => {
     if (
@@ -169,20 +176,28 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
     return currentTime;
   }, [currentTime, isPlaying]);
 
-  const playheadPct = useMemo(() => {
-    if (duration <= 0 || viewDuration <= 0) return 0;
-    const xPlay = waveTimeToExtentX(
-      playheadSecForUi,
-      viewStart,
-      viewDuration,
-      100
-    );
-    return Math.min(100, Math.max(0, xPlay));
-  }, [playheadSecForUi, viewStart, viewDuration, duration]);
+  const waveDrawView = useMemo(
+    () =>
+      duration <= 0
+        ? { start: 0, span: 1, end: 1 }
+        : resolveWaveDrawView({
+            durationSec: duration,
+            viewPortion,
+            anchorTimeSec: playheadSecForUi,
+            isPlaying,
+            viewStartOverride: isPlaying ? null : viewStart,
+          }),
+    [duration, viewPortion, playheadSecForUi, isPlaying, viewStart]
+  );
+
+  const viewEnd = waveDrawView.end;
 
   const rulerTicks = useMemo(
-    () => (viewDuration > 0 ? waveRulerTicks(viewStart, viewEnd, 8) : []),
-    [viewStart, viewEnd, viewDuration]
+    () =>
+      waveDrawView.span > 0
+        ? waveRulerTicks(waveDrawView.start, waveDrawView.end, 8)
+        : [],
+    [waveDrawView.start, waveDrawView.end, waveDrawView.span]
   );
 
   const clearPendingSingleTap = useCallback(() => {
@@ -194,13 +209,20 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
 
   useEffect(() => {
     setPortraitCanvasRef(canvasRef);
+    setPortraitPlayheadLineRef(playheadLineRef);
     setPortraitActive(true);
     return () => {
       clearPendingSingleTap();
       setPortraitActive(false);
       setPortraitCanvasRef(null);
+      setPortraitPlayheadLineRef(null);
     };
-  }, [setPortraitActive, setPortraitCanvasRef, clearPendingSingleTap]);
+  }, [
+    setPortraitActive,
+    setPortraitCanvasRef,
+    setPortraitPlayheadLineRef,
+    clearPendingSingleTap,
+  ]);
 
   useEffect(() => {
     syncPortraitView(viewStart, zoom);
@@ -213,19 +235,28 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   useEffect(() => {
     if (!isPlaying || zoom <= 1 || duration <= 0) return;
     if (scrubActiveRef.current || playheadDragRef.current) return;
-    const vd = duration / zoom;
+    const { start } = getWaveViewForDraw(duration, viewPortion, playheadSecForUi);
     setViewStart((vs) => {
-      if (currentTime < vs) return clampViewStart(currentTime, vd, duration);
-      if (currentTime > vs + vd * 0.82) {
-        return clampViewStart(currentTime - vd * 0.18, vd, duration);
-      }
-      return vs;
+      const next = clampViewStart(start, viewDuration, duration);
+      return Math.abs(vs - next) < 0.001 ? vs : next;
     });
-  }, [currentTime, isPlaying, zoom, duration]);
+  }, [playheadSecForUi, isPlaying, zoom, duration, viewPortion, viewDuration]);
+
+  const resolvePlayheadTimeForDraw = useCallback(() => {
+    if (
+      isPlaying &&
+      playbackEngine.getMediaSourceUrl() &&
+      !playbackEngine.isPaused() &&
+      Number.isFinite(playbackEngine.getCurrentTime())
+    ) {
+      return playbackEngine.getCurrentTime();
+    }
+    return currentTime;
+  }, [currentTime, isPlaying]);
 
   const redraw = useCallback(() => {
-    bridgeApi?.drawWaveformAt(currentTime);
-  }, [bridgeApi, currentTime]);
+    bridgeApi?.drawWaveformAt(resolvePlayheadTimeForDraw());
+  }, [bridgeApi, resolvePlayheadTimeForDraw]);
 
   const syncCanvasBitmap = useCallback(() => {
     const canvas = canvasRef.current;
@@ -254,28 +285,22 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   useEffect(() => {
     if (!registered) return;
     redraw();
-  }, [registered, currentTime, zoom, viewStart, redraw]);
-
-  useEffect(() => {
-    if (!isPlaying || !registered) return;
-    let raf = 0;
-    const tick = () => {
-      redraw();
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [isPlaying, registered, redraw]);
+  }, [registered, currentTime, zoom, viewStart, redraw, waveDrawView.start]);
 
   const timeFromClientX = useCallback(
     (clientX: number): number | null => {
       const el = viewportRef.current;
-      if (!el || duration <= 0 || viewDuration <= 0) return null;
+      if (!el || duration <= 0 || waveDrawView.span <= 0) return null;
       const r = el.getBoundingClientRect();
-      const ratio = Math.max(0, Math.min(1, (clientX - r.left) / r.width));
-      return viewStart + ratio * viewDuration;
+      const xPx = Math.max(0, Math.min(r.width, clientX - r.left));
+      return waveExtentXToTime(
+        xPx,
+        waveDrawView.start,
+        waveDrawView.span,
+        r.width
+      );
     },
-    [duration, viewStart, viewDuration]
+    [duration, waveDrawView.start, waveDrawView.span]
   );
 
   const edgeScrollAtClientX = useCallback(
@@ -433,13 +458,21 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
     (nextZoom: number, anchorTimeSec: number) => {
       if (duration <= 0) return;
       const z = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, nextZoom));
-      const oldVd = duration / zoom;
       const newVd = duration / z;
-      const anchorRatio = oldVd > 0 ? (anchorTimeSec - viewStart) / oldVd : 0.5;
+      const newPortion = 1 / z;
       setZoom(z);
-      setViewStart(clampViewStart(anchorTimeSec - anchorRatio * newVd, newVd, duration));
+      if (isPlaying) {
+        const { start } = getWaveViewForDraw(duration, newPortion, anchorTimeSec);
+        setViewStart(clampViewStart(start, newVd, duration));
+        return;
+      }
+      const oldVd = duration / zoom;
+      const anchorRatio = oldVd > 0 ? (anchorTimeSec - viewStart) / oldVd : 0.5;
+      setViewStart(
+        clampViewStart(anchorTimeSec - anchorRatio * newVd, newVd, duration)
+      );
     },
-    [duration, zoom, viewStart]
+    [duration, zoom, viewStart, isPlaying]
   );
 
   /** +/- ボタン: 再生バーの位置を画面中央に保ちながら拡大・縮小 */
@@ -448,10 +481,16 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       if (duration <= 0) return;
       const z = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, nextZoom));
       const newVd = duration / z;
+      const newPortion = 1 / z;
       setZoom(z);
+      if (isPlaying) {
+        const { start } = getWaveViewForDraw(duration, newPortion, anchorTimeSec);
+        setViewStart(clampViewStart(start, newVd, duration));
+        return;
+      }
       setViewStart(clampViewStart(anchorTimeSec - newVd / 2, newVd, duration));
     },
-    [duration]
+    [duration, isPlaying]
   );
 
   const clearLongPress = useCallback(() => {
@@ -512,18 +551,18 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   const isNearPlayhead = useCallback(
     (clientX: number) => {
       const canvas = canvasRef.current;
-      if (!canvas || duration <= 0 || viewDuration <= 0) return false;
+      if (!canvas || duration <= 0 || waveDrawView.span <= 0) return false;
       return hitPlayheadStripForScrub(
         clientX,
         canvas,
-        viewStart,
-        viewDuration,
+        waveDrawView.start,
+        waveDrawView.span,
         playheadSecForUi,
         duration,
         PORTRAIT_PLAYHEAD_SCRUB_HALF_WIDTH_PX
       );
     },
-    [duration, viewDuration, viewStart, playheadSecForUi]
+    [duration, waveDrawView.start, waveDrawView.span, playheadSecForUi]
   );
 
   const onPointerDown = useCallback(
@@ -873,10 +912,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
             aria-label="タイムライン（タップ・ドラッグで再生位置を移動）"
           >
             {rulerTicks.map((tick) => {
-            const pct =
-              viewDuration > 0
-                ? ((tick - viewStart) / viewDuration) * 100
-                : 0;
+            const pct = waveTimeToPercent(tick, waveDrawView.start, waveDrawView.span);
             return (
               <span
                 key={tick}
@@ -910,10 +946,11 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
             <WaveformLoadOverlay visible compact className={styles.wavePlaceholder} />
           ) : null}
         </div>
-        {duration > 0 && viewDuration > 0 ? (
+        {duration > 0 && waveDrawView.span > 0 ? (
           <div
+            ref={playheadLineRef}
             className={styles.playheadLine}
-            style={{ left: `${playheadPct}%` }}
+            style={{ left: "0%" }}
             role="slider"
             aria-valuemin={0}
             aria-valuemax={duration}

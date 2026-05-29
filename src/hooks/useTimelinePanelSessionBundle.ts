@@ -1,10 +1,10 @@
-import { useState, type Ref } from "react";
+import type { ChangeEvent, Ref } from "react";
+import { useWavePeaksStore } from "../store/wavePeaksStore";
 import type {
   TimelinePanelBodyProps,
   TimelinePanelHandle,
 } from "../components/timelinePanelTypes";
 import type { BuildTimelinePanelLayoutInput } from "../lib/timelinePanelLayoutProps";
-import { useTimelineAudio } from "./useTimelineAudio";
 import { useTimelinePlayback } from "./useTimelinePlayback";
 import { useTimelineCueActions } from "./useTimelineCueActions";
 import { useTimelineWaveHeightDrag } from "./useTimelineWaveHeightDrag";
@@ -75,6 +75,9 @@ export function useTimelinePanelSessionBundle(
     onOpenAudioImport,
     onOpenPathEditor,
     publicShareView = false,
+    audioFileInputRef,
+    extractProgress = null,
+    onPickAudio,
   } = props;
 
   const {
@@ -85,7 +88,8 @@ export function useTimelinePanelSessionBundle(
     setDuration,
     setPlaybackTrustedDurationSec,
   } = useTimelinePlaybackUi();
-  const [peaks, setPeaks] = useState<number[] | null>(null);
+  const peaks = useWavePeaksStore((s) => s.peaks);
+  const setPeaks = useWavePeaksStore((s) => s.setPeaks);
   const {
     viewPortion,
     setViewPortion,
@@ -162,21 +166,7 @@ export function useTimelinePanelSessionBundle(
     onSelectedCueIdsChange,
   });
 
-  const {
-    extractProgress,
-    audioFileInputRef,
-    onPickAudio,
-    openAudioImport,
-  } = useTimelineAudio({
-    setProject,
-    setPeaks,
-    loggedIn,
-    serverProjectId,
-    audioAssetId: project.audioAssetId,
-    audioSupabasePath: project.audioSupabasePath,
-    flowLocalAudioKey: project.flowLocalAudioKey,
-    publicShareView,
-  });
+  const openAudioImport = onOpenAudioImport ?? (() => {});
 
   useTimelineWaveWheelZoom({
     waveContainerRef,
@@ -284,7 +274,8 @@ export function useTimelinePanelSessionBundle(
     {
       audioFileInputRef,
       extractProgress,
-      onPickAudio,
+      onPickAudio: onPickAudio ?? ((_e: ChangeEvent<HTMLInputElement>) => {}),
+      audioChromeRenderedExternally: audioFileInputRef != null,
       compactTopDock,
       editorMobileStack,
       compactDockLeading,

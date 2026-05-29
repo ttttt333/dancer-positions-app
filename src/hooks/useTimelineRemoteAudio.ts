@@ -40,7 +40,9 @@ import {
 import {
   reportWaveLoadError,
   reportWaveLoadProgress,
+  clearWaveLoadProgress,
 } from "../lib/waveLoadProgress";
+import { verifyBlobUrl } from "../lib/verifyBlobUrl";
 
 type DecodePeaksFn = (
   buf: ArrayBuffer,
@@ -83,6 +85,11 @@ function syncPlaybackUrl(
   }
   clearPlaybackTrustedDurationSec();
   playbackEngine.setMediaSourceUrl(url);
+}
+
+/** 音源 URL 設定後: 再生可能にし、波形取得はバックグラウンド扱い */
+function markPlaybackReadyForWaveFetch() {
+  clearWaveLoadProgress();
 }
 
 async function ensureServerPeaksOnly(
@@ -162,10 +169,18 @@ export function useTimelineRemoteAudio({
       try {
         revokePersistedSupabaseAudioBlob();
         const cacheKey = wavePeaksCacheKeyForServerAsset(aid);
-        const reuseUrl =
+        const reuseUrlRaw =
           persistedServerAudioAssetId === aid
             ? persistedServerAudioBlobUrl
             : null;
+        let reuseUrl = reuseUrlRaw;
+        if (reuseUrl) {
+          const valid = await verifyBlobUrl(reuseUrl);
+          if (!valid) {
+            revokePersistedServerAudioBlob();
+            reuseUrl = null;
+          }
+        }
 
         if (reuseUrl) {
           syncPlaybackUrl(
@@ -174,6 +189,7 @@ export function useTimelineRemoteAudio({
             clearPlaybackTrustedDurationSec,
             { revokePrevious: true }
           );
+          markPlaybackReadyForWaveFetch();
           const cached = await getWavePeaksCache(cacheKey);
           if (cached?.peaks.length) {
             if (!cancelled) {
@@ -192,22 +208,28 @@ export function useTimelineRemoteAudio({
           return;
         }
 
+        const engineUrl = playbackEngine.getMediaSourceUrl();
         const engineAlreadyOnAsset =
           persistedServerAudioAssetId === aid &&
           persistedServerAudioBlobUrl &&
-          playbackEngine.getMediaSourceUrl() === persistedServerAudioBlobUrl;
+          engineUrl === persistedServerAudioBlobUrl;
 
         if (engineAlreadyOnAsset && persistedServerAudioBlobUrl) {
-          blobUrlRef.current = persistedServerAudioBlobUrl;
-          reportWaveLoadProgress(0.4, "波形データを取得中…");
-          await ensureServerPeaksOnly(
-            aid,
-            () => arrayBufferFromBlobUrl(persistedServerAudioBlobUrl!),
-            decodePeaksRef,
-            cacheKey,
-            isCancelled
-          );
-          return;
+          const blobValid = await verifyBlobUrl(persistedServerAudioBlobUrl);
+          if (blobValid) {
+            blobUrlRef.current = persistedServerAudioBlobUrl;
+            markPlaybackReadyForWaveFetch();
+            reportWaveLoadProgress(0.4, "波形データを取得中…");
+            await ensureServerPeaksOnly(
+              aid,
+              () => arrayBufferFromBlobUrl(persistedServerAudioBlobUrl!),
+              decodePeaksRef,
+              cacheKey,
+              isCancelled
+            );
+            return;
+          }
+          revokePersistedServerAudioBlob();
         }
 
         reportWaveLoadProgress(0.05, "音源と波形を並列取得中…");
@@ -239,6 +261,7 @@ export function useTimelineRemoteAudio({
         syncPlaybackUrl(blobUrlRef, blobUrl, clearPlaybackTrustedDurationSec, {
           revokePrevious: true,
         });
+        markPlaybackReadyForWaveFetch();
 
         if (!cancelled) {
           await peaksPromise;
@@ -290,10 +313,18 @@ export function useTimelineRemoteAudio({
       try {
         revokePersistedServerAudioBlob();
         const cacheKey = wavePeaksCacheKeyForSupabase(effectivePath);
-        const reuseUrl =
+        const reuseUrlRaw =
           persistedSupabaseAudioPath === effectivePath
             ? persistedSupabaseAudioBlobUrl
             : null;
+        let reuseUrl = reuseUrlRaw;
+        if (reuseUrl) {
+          const valid = await verifyBlobUrl(reuseUrl);
+          if (!valid) {
+            revokePersistedSupabaseAudioBlob();
+            reuseUrl = null;
+          }
+        }
 
         if (reuseUrl) {
           syncPlaybackUrl(
@@ -302,6 +333,7 @@ export function useTimelineRemoteAudio({
             clearPlaybackTrustedDurationSec,
             { revokePrevious: true }
           );
+          markPlaybackReadyForWaveFetch();
           const cached = await getWavePeaksCache(cacheKey);
           if (cached?.peaks.length) {
             if (!cancelled) {
@@ -332,15 +364,23 @@ export function useTimelineRemoteAudio({
 
         if (alreadyPlayingThisPath) {
           if (persistedSupabaseAudioBlobUrl) {
-            blobUrlRef.current = persistedSupabaseAudioBlobUrl;
+            const valid = await verifyBlobUrl(persistedSupabaseAudioBlobUrl);
+            if (valid) {
+              blobUrlRef.current = persistedSupabaseAudioBlobUrl;
+            } else {
+              revokePersistedSupabaseAudioBlob();
+            }
           }
+          markPlaybackReadyForWaveFetch();
           reportWaveLoadProgress(0.4, "波形データを取得中…");
-          const readBuf = persistedSupabaseAudioBlobUrl
-            ? () => arrayBufferFromBlobUrl(persistedSupabaseAudioBlobUrl!)
-            : async () =>
-                (
-                  await supabaseDownloadProjectAudioWithCache(effectivePath)
-                ).buffer;
+          const readBuf =
+            persistedSupabaseAudioBlobUrl &&
+            (await verifyBlobUrl(persistedSupabaseAudioBlobUrl))
+              ? () => arrayBufferFromBlobUrl(persistedSupabaseAudioBlobUrl!)
+              : async () =>
+                  (
+                    await supabaseDownloadProjectAudioWithCache(effectivePath)
+                  ).buffer;
           await ensureSupabasePeaksOnly(
             effectivePath,
             readBuf,
@@ -374,6 +414,7 @@ export function useTimelineRemoteAudio({
             clearPlaybackTrustedDurationSec,
             { revokePrevious: false }
           );
+          markPlaybackReadyForWaveFetch();
         }
 
         const audioPromise = supabaseDownloadProjectAudioWithCache(
@@ -399,6 +440,7 @@ export function useTimelineRemoteAudio({
         if (curEngine !== blobUrl) {
           playbackEngine.setMediaSourceUrl(blobUrl);
         }
+        markPlaybackReadyForWaveFetch();
 
         if (sidecar?.peaks.length) {
           void putCachedPeaksPayload(
@@ -465,6 +507,7 @@ export function useTimelineRemoteAudio({
         syncPlaybackUrl(blobUrlRef, url, clearPlaybackTrustedDurationSec, {
           revokePrevious: true,
         });
+        markPlaybackReadyForWaveFetch();
         const cacheKey = wavePeaksCacheKeyForFlow(flowKey);
         const cached = await getWavePeaksCache(cacheKey);
         if (cached?.peaks.length) {

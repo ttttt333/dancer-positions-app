@@ -1,5 +1,6 @@
 import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from "react";
 import { useEffect } from "react";
+import { waveExtentXToTime } from "../lib/timelineWaveGeometry";
 
 type Params = {
   waveContainerRef: RefObject<HTMLDivElement | null>;
@@ -9,6 +10,10 @@ type Params = {
   setViewPortion: Dispatch<SetStateAction<number>>;
   setWaveViewStartOverride: Dispatch<SetStateAction<number | null>>;
 };
+
+function clamp01(n: number): number {
+  return Math.max(0, Math.min(1, n));
+}
 
 /**
  * 波形枠上のホイールで時間軸の拡大・縮小（カーソル位置を軸に `viewPortion` と表示開始を更新）。
@@ -34,17 +39,20 @@ export function useTimelineWaveWheelZoom({
       const mult = Math.exp(dy * 0.00115);
 
       /** カーソル位置の横方向割合（0〜1）を求めてズームの軸とする */
-      const rect = el.getBoundingClientRect();
-      const cursorFrac =
-        rect.width > 0
-          ? Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-          : 0.5;
+      const canvas = el.querySelector("canvas");
+      const rect = canvas?.getBoundingClientRect() ?? el.getBoundingClientRect();
+      const xPx = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
 
       /** 現在の viewStart/viewSpan を取得（最後に描画された範囲） */
       const { viewStart, viewSpan } = lastWaveDrawRangeRef.current;
 
-      /** カーソル位置が示す時刻 */
-      const tCursor = viewStart + cursorFrac * viewSpan;
+      /** カーソル位置が示す時刻（波形左右余白込み） */
+      const tCursor =
+        viewSpan > 0 && rect.width > 0
+          ? waveExtentXToTime(xPx, viewStart, viewSpan, rect.width)
+          : viewStart + viewSpan / 2;
+      const cursorFrac =
+        viewSpan > 0 ? clamp01((tCursor - viewStart) / viewSpan) : 0.5;
 
       setViewPortion((p) => {
         const newVp = Math.min(1, Math.max(0.025, p * mult));

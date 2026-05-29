@@ -34,12 +34,14 @@ const Stage3DView = lazy(() =>
   import("../components/Stage3DView").then((m) => ({ default: m.Stage3DView }))
 );
 import { TimelinePanel } from "../components/TimelinePanel";
+import { TimelineAudioChrome } from "../components/TimelineAudioChrome";
 import {
   pauseAndSeekPlaybackToSec,
 } from "../lib/playbackTransport";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import { useEditorPlaybackSync } from "../hooks/useEditorPlaybackSync";
 import { useEditorKeyboardShortcuts } from "../hooks/useEditorKeyboardShortcuts";
+import { useEditorAudioSession } from "../hooks/useEditorAudioSession";
 import { useTimelineMediaHandle } from "../hooks/useTimelineMediaHandle";
 import { RosterTimelineStrip } from "../components/RosterTimelineStrip";
 import {
@@ -293,13 +295,6 @@ export function EditorPage({
       setMobileEditorWaveExpanded(false);
     }
   }, [editorMobileLandscape]);
-  const {
-    timelineRef,
-    getWavePeaksSnapshot,
-    restoreWavePeaks,
-    getCurrentAudioBlobForFlowLibrary,
-    openAudioImport,
-  } = useTimelineMediaHandle();
   const [stageSettingsOpen, setStageSettingsOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   /** ステージ列ヘッダの「設定」：舞台・グリッド・名前・共有・ヒントを集約 */
@@ -446,6 +441,27 @@ export function EditorPage({
     projectForHistoryRef.current = project;
     projectPagerRef.current = project;
   }
+
+
+  const editorAudioSession = useEditorAudioSession({
+    setProject: setProjectSafe,
+    loggedIn: !!me,
+    serverProjectId: serverId,
+    audioAssetId: project?.audioAssetId ?? null,
+    audioSupabasePath: project?.audioSupabasePath,
+    flowLocalAudioKey: project?.flowLocalAudioKey ?? null,
+    publicShareView: choreoPublicView && !!shareTokenParam,
+  });
+
+  const {
+    timelineRef,
+    getWavePeaksSnapshot,
+    restoreWavePeaks,
+    getCurrentAudioBlobForFlowLibrary,
+    openAudioImport,
+  } = useTimelineMediaHandle({
+    openAudioImport: editorAudioSession.openAudioImport,
+  });
 
   /** キュー内容・区間・フォーメーション紐付けの変化検知（共同編集で project 参照だけが毎回変わるのを避ける） */
   const cueIdsSig =
@@ -2323,6 +2339,9 @@ export function EditorPage({
       cueListPortalTarget={showTopWaveDock ? cueListPortalEl : null}
       onSave={() => setFlowLibraryOpen(true)}
       onOpenAudioImport={openAudioImport}
+      audioFileInputRef={editorAudioSession.audioFileInputRef}
+      extractProgress={editorAudioSession.extractProgress}
+      onPickAudio={editorAudioSession.onPickAudio}
       onOpenPathEditor={(cueId) => setPathEditorCueId(cueId)}
       publicShareView={choreoPublicView && !!shareTokenParam}
     />
@@ -2560,6 +2579,14 @@ export function EditorPage({
 
   return (
     <>
+      <TimelineAudioChrome
+        audioFileInputRef={editorAudioSession.audioFileInputRef}
+        extractProgress={editorAudioSession.extractProgress}
+        onPickAudio={editorAudioSession.onPickAudio}
+        onPreloadFfmpegPointer={() => {
+          void preloadFFmpeg();
+        }}
+      />
       {collabUnavailableNotice ? (
         <div
           role="status"

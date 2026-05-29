@@ -24,6 +24,7 @@ type TimelineWaveBridgeStore = {
   registered: boolean;
   portraitActive: boolean;
   portraitCanvasRef: RefObject<HTMLCanvasElement | null> | null;
+  portraitPlayheadLineRef: RefObject<HTMLDivElement | null> | null;
   api: TimelineWaveBridgeApi | null;
   /** 縦画面: 再生ヘッド／ルーラー scrub 中の clientX（端で自動スクロール） */
   portraitWaveScrubAtClientX:
@@ -34,6 +35,7 @@ type TimelineWaveBridgeStore = {
   register: (api: TimelineWaveBridgeApi | null) => void;
   setPortraitActive: (active: boolean) => void;
   setPortraitCanvasRef: (ref: RefObject<HTMLCanvasElement | null> | null) => void;
+  setPortraitPlayheadLineRef: (ref: RefObject<HTMLDivElement | null> | null) => void;
   setPortraitWaveScrubAtClientX: (
     fn: ((clientX: number, end?: boolean, shouldSeek?: boolean) => void) | null
   ) => void;
@@ -46,6 +48,7 @@ export const useTimelineWaveBridgeStore = create<TimelineWaveBridgeStore>((set, 
   registered: false,
   portraitActive: false,
   portraitCanvasRef: null,
+  portraitPlayheadLineRef: null,
   api: null,
   portraitWaveScrubAtClientX: null,
   portraitWaveEdgeScrollTick: null,
@@ -56,6 +59,7 @@ export const useTimelineWaveBridgeStore = create<TimelineWaveBridgeStore>((set, 
     }),
   setPortraitActive: (active) => set({ portraitActive: active }),
   setPortraitCanvasRef: (ref) => set({ portraitCanvasRef: ref }),
+  setPortraitPlayheadLineRef: (ref) => set({ portraitPlayheadLineRef: ref }),
   setPortraitWaveScrubAtClientX: (fn) => set({ portraitWaveScrubAtClientX: fn }),
   setPortraitWaveEdgeScrollTick: (fn) => set({ portraitWaveEdgeScrollTick: fn }),
   syncPortraitView: (viewStart, zoom) => {

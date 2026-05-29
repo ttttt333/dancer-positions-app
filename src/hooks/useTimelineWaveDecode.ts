@@ -3,6 +3,8 @@ import { useCallback } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { expandShortCuesAfterAudioLoad } from "../core/timelineController";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
+import { useWavePeaksStore } from "../store/wavePeaksStore";
+import { createPlaceholderWavePeaks } from "../lib/placeholderWavePeaks";
 import { decodeWavePeaksFromBuffer } from "../lib/wavePeakDecodeWorkerClient";
 import {
   getWavePeaksCache,
@@ -20,8 +22,28 @@ import type { WavePeaksPayload } from "../lib/wavePeaksTypes";
 
 type Params = {
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>;
-  setPeaks: Dispatch<SetStateAction<number[] | null>>;
 };
+
+const CLIENT_DECODE_TIMEOUT_MS = 45_000;
+
+function withDecodeTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(
+      () => reject(new Error("波形解析がタイムアウトしました")),
+      ms
+    );
+    promise.then(
+      (v) => {
+        window.clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        window.clearTimeout(timer);
+        reject(e);
+      }
+    );
+  });
+}
 
 export type DecodePeaksOptions = {
   /** キャッシュキー。ヒット時はデコードを省略して即表示 */
@@ -35,8 +57,9 @@ export type DecodePeaksOptions = {
 /**
  * ArrayBuffer をデコードして波形ピークと再生 UI の長さを更新する。
  */
-export function useTimelineWaveDecode({ setProject, setPeaks }: Params) {
+export function useTimelineWaveDecode({ setProject }: Params) {
   const setDuration = usePlaybackUiStore((s) => s.setDurationSec);
+  const setPeaks = useWavePeaksStore((s) => s.setPeaks);
 
   const applyPeaksAndDuration = useCallback(
     (peaks: number[], durSec: number) => {
@@ -119,7 +142,16 @@ export function useTimelineWaveDecode({ setProject, setPeaks }: Params) {
         let peaks: number[];
         let durationSec: number;
         try {
-          ({ peaks, durationSec } = await decodeWavePeaksFromBuffer(buf));
+          ({ peaks, durationSec } = await withDecodeTimeout(
+            decodeWavePeaksFromBuffer(buf),
+            CLIENT_DECODE_TIMEOUT_MS
+          ));
+        } catch (decodeErr) {
+          console.warn("[waveDecode] client decode failed, using placeholder:", decodeErr);
+          const ui = usePlaybackUiStore.getState();
+          durationSec =
+            ui.trustedAudioDurationSec ?? ui.durationSec ?? 120;
+          peaks = createPlaceholderWavePeaks();
         } finally {
           stopTick();
         }

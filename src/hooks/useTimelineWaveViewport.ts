@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { playbackEngine } from "../core/playbackEngine";
 import {
   getWaveViewForDraw,
   quantizePlayheadForWaveView,
+  resolveWaveDrawView,
 } from "../lib/timelineWaveGeometry";
 
 type Params = {
@@ -56,17 +57,31 @@ export function useTimelineWaveViewport({
   }, [isPlaying, playheadGridSec, viewPortion]);
 
   const waveView = useMemo(() => {
-    /** 再生中はオーバーライドを無視してプレイヘッド追従 */
-    if (waveViewStartOverride !== null && !isPlaying && duration > 0) {
-      const span = Math.max(0.08, duration * viewPortion);
-      return {
-        start: waveViewStartOverride,
-        end: waveViewStartOverride + span,
-        span,
-      };
+    if (duration <= 0) {
+      return { start: 0, end: 1, span: 1 };
     }
-    return getWaveViewForDraw(duration, viewPortion, waveViewAnchorSec);
-  }, [duration, viewPortion, waveViewAnchorSec, waveViewStartOverride, isPlaying]);
+    return resolveWaveDrawView({
+      durationSec: duration,
+      viewPortion,
+      anchorTimeSec: waveViewAnchorSec,
+      isPlaying,
+      viewStartOverride: waveViewStartOverride,
+    });
+  }, [
+    duration,
+    viewPortion,
+    waveViewAnchorSec,
+    waveViewStartOverride,
+    isPlaying,
+  ]);
+
+  const setViewPortionSynced = useCallback((action: SetStateAction<number>) => {
+    setViewPortion((prev) => {
+      const next = typeof action === "function" ? action(prev) : action;
+      viewPortionRef.current = next;
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     setViewPortion(1);
@@ -93,7 +108,7 @@ export function useTimelineWaveViewport({
 
   return {
     viewPortion,
-    setViewPortion,
+    setViewPortion: setViewPortionSynced,
     viewPortionRef,
     waveViewStartOverride,
     setWaveViewStartOverride,

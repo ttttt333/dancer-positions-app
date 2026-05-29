@@ -10,6 +10,8 @@ import {
   getCachedPeaksPayload,
   putCachedPeaksPayload,
 } from "./waveMediaCache";
+import { createPlaceholderWavePeaks } from "./placeholderWavePeaks";
+import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import { reportWaveLoadProgress } from "./waveLoadProgress";
 
 type PeaksResult = { peaks: number[]; durationSec: number };
@@ -127,8 +129,22 @@ export async function resolveServerAssetWavePeaks(
     return;
   }
 
-  reportWaveLoadProgress(0.92, "波形を端末で解析中…");
-  await applyPeaks(buf, options);
+  await applyPlaceholderWavePeaks(applyPeaks, options);
+}
+
+async function applyPlaceholderWavePeaks(
+  applyPeaks: ApplyPeaks,
+  options: Omit<DecodePeaksOptions, "precomputed">
+): Promise<void> {
+  const ui = usePlaybackUiStore.getState();
+  const durationSec =
+    ui.trustedAudioDurationSec ?? ui.durationSec ?? 120;
+  reportWaveLoadProgress(0.95, "簡易波形を表示中…");
+  await applyPrecomputedWavePeaks(
+    applyPeaks,
+    { peaks: createPlaceholderWavePeaks(), durationSec },
+    options
+  );
 }
 
 /**
@@ -189,6 +205,5 @@ export async function resolveSupabaseReuseWavePeaks(
     return;
   }
 
-  reportWaveLoadProgress(0.92, "波形を端末で解析中…");
-  await applyPeaks(buf, options);
+  await applyPlaceholderWavePeaks(applyPeaks, options);
 }

@@ -21,7 +21,10 @@ export type TimelinePanelLayoutProps = Omit<
   Omit<WaveformStripProps, "chromeTitle"> &
   TimelineToolbarProps &
   TimelineCueListProps &
-  TimelineWaveMenusProps;
+  TimelineWaveMenusProps & {
+    /** true のとき EditorPage 側で `<TimelineAudioChrome>` を描画済み */
+    audioChromeRenderedExternally?: boolean;
+  };
 
 /**
  * `TimelinePanel` の見た目レイヤー：音源 chrome・ツールバー・波形・キュー一覧・波形オーバーレイメニュー。
@@ -44,14 +47,16 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
                 : tlPx(12),
         }}
       >
-        <TimelineAudioChrome
-          audioFileInputRef={p.audioFileInputRef}
-          extractProgress={p.extractProgress}
-          onPickAudio={p.onPickAudio}
-          onPreloadFfmpegPointer={() => {
-            void preloadFFmpeg();
-          }}
-        />
+        {!p.audioChromeRenderedExternally ? (
+          <TimelineAudioChrome
+            audioFileInputRef={p.audioFileInputRef}
+            extractProgress={p.extractProgress}
+            onPickAudio={p.onPickAudio}
+            onPreloadFfmpegPointer={() => {
+              void preloadFFmpeg();
+            }}
+          />
+        ) : null}
         <TimelineToolbar
           compactTopDock={p.compactTopDock}
           brandRailCss={p.brandRailCss}
