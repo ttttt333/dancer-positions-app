@@ -58,7 +58,8 @@ export function WaveformStrip({
   const rulerInteractive = duration > 0 && hasPeaks && viewMode !== "view";
   const rulerHeightPx = compactTopDock ? 13 : 16;
   const waveLoadProgress = useWaveformLoadProgressStore((s) => s.progress);
-  const showWaveLoadOverlay = !hasPeaks && waveLoadProgress != null;
+  const showWaveLoadOverlay =
+    !hasPeaks && (waveLoadProgress != null || duration > 0);
 
   const forwardPlayheadPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 || duration <= 0 || !hasPeaks) return;

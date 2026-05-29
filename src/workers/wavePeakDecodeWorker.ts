@@ -1,28 +1,25 @@
 /// <reference lib="webworker" />
+/**
+ * Worker では AudioContext が使えない環境（iOS Safari 等）があるため、
+ * デコード済み PCM のピーク計算のみ行う。
+ */
 import { computeWavePeaksFromChannelData } from "../lib/computeWavePeaksFromChannelData";
 
 declare const self: DedicatedWorkerGlobalScope;
 
-type WorkerRequest = { id: number; buffer: ArrayBuffer };
+type WorkerRequest = {
+  id: number;
+  channelData: Float32Array;
+  durationSec: number;
+};
 type WorkerSuccess = { id: number; peaks: number[]; durationSec: number };
 type WorkerFailure = { id: number; error: string };
 
-self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
-  const { id, buffer } = event.data;
+self.onmessage = (event: MessageEvent<WorkerRequest>) => {
+  const { id, channelData, durationSec } = event.data;
   try {
-    const ctx = new AudioContext();
-    let audioBuf: AudioBuffer;
-    try {
-      audioBuf = await ctx.decodeAudioData(buffer);
-    } finally {
-      await ctx.close().catch(() => {});
-    }
-    const peaks = computeWavePeaksFromChannelData(audioBuf.getChannelData(0));
-    const msg: WorkerSuccess = {
-      id,
-      peaks,
-      durationSec: audioBuf.duration,
-    };
+    const peaks = computeWavePeaksFromChannelData(channelData);
+    const msg: WorkerSuccess = { id, peaks, durationSec };
     self.postMessage(msg);
   } catch (err) {
     const msg: WorkerFailure = {

@@ -26,7 +26,7 @@ import {
   wavePeaksCacheKeyForSupabase,
 } from "../lib/wavePeaksCache";
 import type { DecodePeaksOptions } from "./useTimelineWaveDecode";
-import { clearWaveLoadProgress, reportWaveLoadProgress } from "../lib/waveLoadProgress";
+import { reportWaveLoadError, reportWaveLoadProgress } from "../lib/waveLoadProgress";
 
 type Params = {
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>;
@@ -82,6 +82,7 @@ export function useTimelineAudioImport({
       const f = e.target.files?.[0];
       e.target.value = "";
       if (!f) return;
+      reportWaveLoadProgress(0.05, "音源ファイルを読み込み中…");
       setProject((p) => ({ ...p, flowLocalAudioKey: null }));
       const isVideo = isVideoFile(f);
       if (isVideo) {
@@ -177,7 +178,9 @@ export function useTimelineAudioImport({
         }
       } catch (err) {
         updateExtractProgress(null);
-        clearWaveLoadProgress();
+        reportWaveLoadError(
+          err instanceof Error ? err.message : "読み込みに失敗しました"
+        );
         alert(err instanceof Error ? err.message : "読み込みに失敗しました");
         return;
       } finally {

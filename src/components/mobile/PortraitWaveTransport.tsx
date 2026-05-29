@@ -121,8 +121,9 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   const bridgeApi = useTimelineWaveBridgeStore((s) => s.api);
   const waveLoadProgress = useWaveformLoadProgressStore((s) => s.progress);
   const hasPeaks = Boolean(bridgeApi?.hasPeaks);
+  const isLoadError = waveLoadProgress?.error === true;
   const showWaveLoadOverlay =
-    waveLoadProgress != null || (Boolean(audioUrl) && !hasPeaks);
+    waveLoadProgress != null || (Boolean(audioUrl) && !hasPeaks && !isLoadError);
   const syncPortraitView = useTimelineWaveBridgeStore((s) => s.syncPortraitView);
   const setPortraitActive = useTimelineWaveBridgeStore((s) => s.setPortraitActive);
   const setPortraitCanvasRef = useTimelineWaveBridgeStore((s) => s.setPortraitCanvasRef);
@@ -815,7 +816,10 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
 
       {!showTransportControls ? (
         <div className={styles.waveOnlyMetaRow}>
-          <span className={styles.waveOnlyStatus} aria-live="polite">
+          <span
+            className={`${styles.waveOnlyStatus}${isLoadError ? ` ${styles.waveOnlyStatusError}` : ""}`}
+            aria-live="polite"
+          >
             {waveLoadProgress?.message ??
               (!audioUrl
                 ? "音源未設定 — Menu → 音源追加"
@@ -824,6 +828,11 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
                     ? "波形を読み込み中…"
                     : "波形を準備中…"
                   : "")}
+            {waveLoadProgress && !isLoadError ? (
+              <span className={styles.waveOnlyPct}>
+                {Math.round((waveLoadProgress.ratio ?? 0) * 100)}%
+              </span>
+            ) : null}
           </span>
           <span className={styles.waveOnlyTime}>
             {fmt(currentTime)}

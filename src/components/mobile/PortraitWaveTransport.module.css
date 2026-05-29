@@ -38,6 +38,20 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.waveOnlyStatusError {
+  color: #fca5a5;
+}
+
+.waveOnlyPct {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: #fbbf24;
 }
 
 .waveOnlyTime {

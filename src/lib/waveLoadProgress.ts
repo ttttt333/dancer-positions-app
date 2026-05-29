@@ -24,6 +24,15 @@ export function reportWaveLoadProgress(ratio: number, message?: string): void {
   setWaveformLoadProgress({
     ratio: Math.max(0, Math.min(1, ratio)),
     message,
+    error: false,
+  });
+}
+
+export function reportWaveLoadError(message: string): void {
+  setWaveformLoadProgress({
+    ratio: 0,
+    message,
+    error: true,
   });
 }
 

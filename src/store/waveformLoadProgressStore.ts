@@ -3,6 +3,8 @@ import { create } from "zustand";
 export type WaveformLoadProgress = {
   ratio: number;
   message?: string;
+  /** 読み込み失敗時 true */
+  error?: boolean;
 };
 
 type WaveformLoadProgressStore = {

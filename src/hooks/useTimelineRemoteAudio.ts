@@ -31,7 +31,7 @@ import {
 } from "../lib/resolveRemoteWavePeaks";
 import { supabaseDownloadWavePeaks } from "../lib/supabaseWavePeaks";
 import {
-  clearWaveLoadProgress,
+  reportWaveLoadError,
   reportWaveLoadProgress,
 } from "../lib/waveLoadProgress";
 
@@ -144,13 +144,14 @@ export function useTimelineRemoteAudio({
           await decodePeaksFromBuffer(buffer, { cacheKey });
         }
       } catch (e) {
-        clearWaveLoadProgress();
+        reportWaveLoadError(
+          e instanceof Error ? e.message : "音源の読み込みに失敗しました"
+        );
         console.error(e);
       }
     })();
     return () => {
       cancelled = true;
-      clearWaveLoadProgress();
     };
   }, [audioAssetId, blobUrlRef, decodePeaksFromBuffer]);
 
@@ -255,13 +256,14 @@ export function useTimelineRemoteAudio({
           }
         }
       } catch (e) {
-        clearWaveLoadProgress();
+        reportWaveLoadError(
+          e instanceof Error ? e.message : "音源の読み込みに失敗しました"
+        );
         console.error(e);
       }
     })();
     return () => {
       cancelled = true;
-      clearWaveLoadProgress();
     };
   }, [audioSupabasePath, blobUrlRef, decodePeaksFromBuffer, publicShareView]);
 
@@ -290,13 +292,14 @@ export function useTimelineRemoteAudio({
         const buf = await blob.arrayBuffer();
         if (!cancelled) await decodePeaksFromBuffer(buf, { cacheKey });
       } catch (e) {
-        clearWaveLoadProgress();
+        reportWaveLoadError(
+          e instanceof Error ? e.message : "音源の読み込みに失敗しました"
+        );
         console.error(e);
       }
     })();
     return () => {
       cancelled = true;
-      clearWaveLoadProgress();
     };
   }, [
     audioAssetId,

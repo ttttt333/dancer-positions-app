@@ -11,6 +11,7 @@ import {
 import { supabaseDownloadWavePeaks, supabaseUploadWavePeaks } from "../lib/supabaseWavePeaks";
 import {
   clearWaveLoadProgress,
+  reportWaveLoadError,
   reportWaveLoadProgress,
   runIndeterminateDecodeProgress,
 } from "../lib/waveLoadProgress";
@@ -102,6 +103,9 @@ export function useTimelineWaveDecode({ setProject, setPeaks }: Params) {
         }
 
         usePlaybackUiStore.getState().setTrustedAudioDurationSec(null);
+        if (!buf.byteLength) {
+          throw new Error("音声データが空です。音源を再度追加してください。");
+        }
         reportWaveLoadProgress(0.42, "波形を解析中…");
         const stopTick = runIndeterminateDecodeProgress(0.42, 0.92, "波形を解析中…");
         let peaks: number[];
@@ -119,7 +123,9 @@ export function useTimelineWaveDecode({ setProject, setPeaks }: Params) {
           void supabaseUploadWavePeaks(supabaseAudioPath, peaks, durationSec);
         }
       } catch (err) {
-        clearWaveLoadProgress();
+        reportWaveLoadError(
+          err instanceof Error ? err.message : "波形の読み込みに失敗しました"
+        );
         throw err;
       }
     },

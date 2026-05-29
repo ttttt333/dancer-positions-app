@@ -1,4 +1,8 @@
-import { computeWavePeaksFromAudioBuffer } from "./computeWavePeaksFromChannelData";
+import { decodeArrayBufferToAudioBuffer } from "./audioContext";
+import {
+  computeWavePeaksFromAudioBuffer,
+  computeWavePeaksFromChannelData,
+} from "./computeWavePeaksFromChannelData";
 
 type DecodeResult = { peaks: number[]; durationSec: number };
 
@@ -11,7 +15,8 @@ let worker: Worker | null = null;
 let nextJobId = 0;
 const pending = new Map<number, PendingJob>();
 
-function getWorker(): Worker | null {
+/** Worker はピーク計算のみ（AudioContext はメインスレッド） */
+function getPeakWorker(): Worker | null {
   if (typeof Worker === "undefined") return null;
   if (worker) return worker;
   try {
@@ -34,7 +39,7 @@ function getWorker(): Worker | null {
     };
     worker.onerror = (err) => {
       for (const job of pending.values()) {
-        job.reject(err.error ?? new Error("wave decode worker failed"));
+        job.reject(err.error ?? new Error("wave peak worker failed"));
       }
       pending.clear();
       worker?.terminate();
@@ -46,39 +51,52 @@ function getWorker(): Worker | null {
   }
 }
 
-async function decodeOnMainThread(buf: ArrayBuffer): Promise<DecodeResult> {
-  const ctx = new AudioContext();
-  let audioBuf: AudioBuffer;
-  try {
-    audioBuf = await ctx.decodeAudioData(buf.slice(0));
-  } catch (err) {
-    await ctx.close().catch(() => {});
-    throw err instanceof Error ? err : new Error("音声のデコードに失敗しました");
-  }
-  try {
-    const peaks = computeWavePeaksFromAudioBuffer(audioBuf);
-    return { peaks, durationSec: audioBuf.duration };
-  } finally {
-    await ctx.close().catch(() => {});
-  }
-}
-
-/** 音声バッファを Worker（不可ならメインスレッド）でデコードしてピークを返す */
-export async function decodeWavePeaksFromBuffer(
-  buf: ArrayBuffer
+function computePeaksViaWorker(
+  channelData: Float32Array,
+  durationSec: number
 ): Promise<DecodeResult> {
-  const w = getWorker();
-  if (!w) return decodeOnMainThread(buf);
+  const w = getPeakWorker();
+  if (!w) {
+    return Promise.resolve({
+      peaks: computeWavePeaksFromChannelData(channelData),
+      durationSec,
+    });
+  }
 
   return new Promise<DecodeResult>((resolve, reject) => {
     const id = ++nextJobId;
     pending.set(id, { resolve, reject });
-    const decodeBuf = buf.slice(0);
+    const copy = new Float32Array(channelData);
     try {
-      w.postMessage({ id, buffer: decodeBuf }, [decodeBuf]);
+      w.postMessage({ id, channelData: copy, durationSec }, [copy.buffer]);
     } catch {
       pending.delete(id);
-      decodeOnMainThread(buf).then(resolve).catch(reject);
+      resolve({
+        peaks: computeWavePeaksFromChannelData(channelData),
+        durationSec,
+      });
     }
   });
+}
+
+/** 音声バッファをデコードして波形ピークを返す（iOS 対応・Worker はピーク計算のみ） */
+export async function decodeWavePeaksFromBuffer(
+  buf: ArrayBuffer
+): Promise<DecodeResult> {
+  const audioBuf = await decodeArrayBufferToAudioBuffer(buf);
+  const channelData = audioBuf.getChannelData(0);
+  const durationSec = audioBuf.duration;
+
+  if (channelData.length > 44100 * 45) {
+    try {
+      return await computePeaksViaWorker(channelData, durationSec);
+    } catch {
+      /* Worker 失敗時はメインスレッドへ */
+    }
+  }
+
+  return {
+    peaks: computeWavePeaksFromAudioBuffer(audioBuf),
+    durationSec,
+  };
 }

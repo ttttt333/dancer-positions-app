@@ -9,6 +9,7 @@
 
 import React, { useRef, useCallback, useState, useEffect } from 'react'
 import styles from './PortraitHeader.module.css'
+import { decodeArrayBufferToAudioBuffer } from '../../lib/audioContext'
 
 const NUM_BARS = 48
 
@@ -39,9 +40,7 @@ function fmt(sec: number): string {
 async function computeWavePeaks(url: string, numBars: number): Promise<number[]> {
   const res = await fetch(url, { mode: 'cors' })
   const buf = await res.arrayBuffer()
-  const ctx = new AudioContext()
-  const decoded = await ctx.decodeAudioData(buf)
-  ctx.close()
+  const decoded = await decodeArrayBufferToAudioBuffer(buf)
 
   const ch = decoded.getChannelData(0)
   const blockSize = Math.floor(ch.length / numBars)
