@@ -13,7 +13,7 @@ const MAX_ZOOM = 48;
 const ZOOM_STEP = 1.5;
 const DOUBLE_TAP_MS = 350;
 const LONG_PRESS_MS = 520;
-const PORTRAIT_WAVE_CSS_H = 80;
+const PORTRAIT_WAVE_CSS_H = 96;
 /** 長押し判定前にドラッグ開始する移動量（px） */
 const DRAG_ARM_PX = 14;
 /** この距離未満の指の動きはタップ扱い（シーク） */

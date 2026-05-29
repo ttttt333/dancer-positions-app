@@ -49,6 +49,7 @@ export interface MobileShellProps {
 
 export const MobileShell: React.FC<MobileShellProps> = (props) => {
   const orientation = useOrientation()
+  const isLandscape = orientation === 'landscape'
   const onUndo = useMobileShellBridgeStore((s) => s.onUndo)
   const onRedo = useMobileShellBridgeStore((s) => s.onRedo)
   const undoDisabled = useMobileShellBridgeStore((s) => s.undoDisabled)
@@ -106,10 +107,16 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
     )
   }, [])
 
-  if (orientation === 'landscape') {
-    return (
-      <div className={styles.landscapeRoot} data-shell-landscape="">
-        {/* 左サイドパネル: 再生コントロール + 波形 + キューナビ + アクション + Undo/Redo */}
+  /**
+   * 縦↔横で return を分けると EditorPage がアンマウントされ編集内容が消える。
+   * ルートは 1 本化し、ステージ host に固定 key を付けて子を維持する。
+   */
+  return (
+    <div
+      className={isLandscape ? styles.landscapeRoot : styles.portraitRoot}
+      {...(isLandscape ? { 'data-shell-landscape': '' } : { 'data-shell-portrait': '' })}
+    >
+      {isLandscape ? (
         <LandscapeSidePanel
           isPlaying={props.isPlaying}
           currentTime={props.currentTime}
@@ -129,55 +136,40 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
           undoDisabled={undoDisabled}
           redoDisabled={redoDisabled}
         />
+      ) : null}
 
-        {/* ステージ: 波形ヘッダーを排除して全高使用 */}
-        <div className={styles.stageAreaLandscape}>
-          {props.children}
-        </div>
-
-        {/* ダイアログが開いているときだけ浮遊閉じるボタンを表示 */}
-        {hasOpenDialog && (
-          <button className={styles.floatingClose} onClick={handleFloatingClose} aria-label="ダイアログを閉じる">
-            ✕ 閉じる
-          </button>
-        )}
-      </div>
-    )
-  }
-
-  // 縦向き
-  return (
-    <div className={styles.portraitRoot} data-shell-portrait="">
-      {/* 中央: ステージ (flex-1 で残り全部) */}
-      <div className={styles.stageAreaPortrait}>
+      <div
+        key="mobile-stage-host"
+        className={isLandscape ? styles.stageAreaLandscape : styles.stageAreaPortrait}
+      >
         {props.children}
       </div>
 
-      {/* 下部: 波形 + キューナビ + Menu/Undo/Redo */}
-      <PortraitBottomBar
-        audioUrl={props.audioUrl}
-        isPlaying={props.isPlaying}
-        currentTime={props.currentTime}
-        duration={props.duration}
-        onPlayPause={props.onPlayPause}
-        onStop={props.onStop}
-        onSeek={props.onSeek}
-        currentCueIndex={props.currentCueIndex}
-        totalCues={props.totalCues}
-        onCuePrev={props.onCuePrev}
-        onCueNext={props.onCueNext}
-        onAddCue={props.onAddCue}
-        onStageSettings={props.onStageSettings}
-        onViewerList={props.onViewerList}
-        cueStartTimes={cueStartTimes}
-      />
+      {!isLandscape ? (
+        <PortraitBottomBar
+          audioUrl={props.audioUrl}
+          isPlaying={props.isPlaying}
+          currentTime={props.currentTime}
+          duration={props.duration}
+          onPlayPause={props.onPlayPause}
+          onStop={props.onStop}
+          onSeek={props.onSeek}
+          currentCueIndex={props.currentCueIndex}
+          totalCues={props.totalCues}
+          onCuePrev={props.onCuePrev}
+          onCueNext={props.onCueNext}
+          onAddCue={props.onAddCue}
+          onStageSettings={props.onStageSettings}
+          onViewerList={props.onViewerList}
+          cueStartTimes={cueStartTimes}
+        />
+      ) : null}
 
-      {/* ダイアログが開いているときだけ浮遊閉じるボタンを表示 */}
-      {hasOpenDialog && (
+      {hasOpenDialog ? (
         <button className={styles.floatingClose} onClick={handleFloatingClose} aria-label="ダイアログを閉じる">
           ✕ 閉じる
         </button>
-      )}
+      ) : null}
     </div>
   )
 }

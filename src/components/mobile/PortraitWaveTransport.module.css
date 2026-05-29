@@ -3,7 +3,7 @@
   flex-direction: column;
   flex-shrink: 0;
   padding: 6px 0 4px;
-  min-height: calc(122px + 5mm);
+  min-height: calc(138px + 5mm);
 }
 
 .row {
@@ -152,7 +152,7 @@
 .waveViewport {
   position: relative;
   width: 100%;
-  height: 80px;
+  height: 96px;
   flex-shrink: 0;
   touch-action: none;
   cursor: crosshair;
@@ -160,15 +160,15 @@
 
 .playheadLine {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 3px;
+  top: -4px;
+  bottom: -4px;
+  width: 4px;
   transform: translateX(-50%);
   background: #ef4444;
-  box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.65);
   pointer-events: none;
   z-index: 3;
-  border-radius: 1px;
+  border-radius: 2px;
 }
 
 .waveCanvas {

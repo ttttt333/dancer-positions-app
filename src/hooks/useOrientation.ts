@@ -11,7 +11,10 @@ export function useOrientation(): Orientation {
   const [orientation, setOrientation] = useState<Orientation>(get)
 
   useEffect(() => {
-    const handler = () => setOrientation(get())
+    const handler = () => {
+      /** 回転直後は innerWidth/Height が未更新のことがある */
+      requestAnimationFrame(() => setOrientation(get()))
+    }
     window.addEventListener('resize', handler)
     window.addEventListener('orientationchange', handler)
     return () => {

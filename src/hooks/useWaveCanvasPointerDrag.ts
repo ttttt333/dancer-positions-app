@@ -16,6 +16,7 @@ import {
 } from "../lib/playbackTransport";
 import {
   hitPlayheadStripForScrub,
+  PORTRAIT_PLAYHEAD_SCRUB_HALF_WIDTH_PX,
   pickCueDragKindAtWave,
   waveExtentXToTime,
   type CueDragEdgeMode,
@@ -161,7 +162,10 @@ export function useWaveCanvasPointerDrag({
           viewStart,
           viewSpan,
           playheadSecForHit,
-          duration
+          duration,
+          useTimelineWaveBridgeStore.getState().portraitActive
+            ? PORTRAIT_PLAYHEAD_SCRUB_HALF_WIDTH_PX
+            : undefined
         )
       ) {
         e.preventDefault();

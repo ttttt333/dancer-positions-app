@@ -5,10 +5,12 @@ import { seekPlaybackClampedAndSyncStore } from "../lib/playbackTransport";
 import {
   getWaveViewForDraw,
   hitPlayheadStripForScrub,
+  PORTRAIT_PLAYHEAD_SCRUB_HALF_WIDTH_PX,
   pickCueDragKindAtWave,
   waveExtentXToTime,
 } from "../lib/timelineWaveGeometry";
 import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
+import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
 import {
   useWaveCanvasPointerDrag,
   type UseWaveCanvasPointerDragArgs,
@@ -126,7 +128,10 @@ export function useTimelineWaveSurfaceHandlers(
           viewStart,
           viewSpan,
           phSec,
-          duration
+          duration,
+          useTimelineWaveBridgeStore.getState().portraitActive
+            ? PORTRAIT_PLAYHEAD_SCRUB_HALF_WIDTH_PX
+            : undefined
         )
       ) {
         waveHoverCueRef.current = null;

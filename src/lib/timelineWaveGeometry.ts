@@ -242,6 +242,8 @@ export function pickGapLinkAtWave(
 }
 
 const PLAYHEAD_SCRUB_HALF_WIDTH_PX = 16;
+/** 縦画面: 再生位置バーのタップ・ドラッグ判定を広げる */
+export const PORTRAIT_PLAYHEAD_SCRUB_HALF_WIDTH_PX = 28;
 
 export function hitPlayheadStripForScrub(
   clientX: number,
@@ -249,7 +251,8 @@ export function hitPlayheadStripForScrub(
   viewStart: number,
   viewSpan: number,
   playheadSec: number,
-  durationSec: number
+  durationSec: number,
+  scrubHalfWidthPx = PLAYHEAD_SCRUB_HALF_WIDTH_PX
 ): boolean {
   if (durationSec <= 0 || viewSpan <= 0) return false;
   const r = canvas.getBoundingClientRect();
@@ -257,7 +260,7 @@ export function hitPlayheadStripForScrub(
   if (w <= 0) return false;
   const x = clientX - r.left;
   const xPlay = waveTimeToExtentX(playheadSec, viewStart, viewSpan, w);
-  return Math.abs(x - xPlay) <= PLAYHEAD_SCRUB_HALF_WIDTH_PX;
+  return Math.abs(x - xPlay) <= scrubHalfWidthPx;
 }
 
 export function computeViewRange(

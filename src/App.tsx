@@ -107,11 +107,13 @@ function MobileEditorRoute() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
 
-  // モバイル幅判定: iPhone landscape 最大幅 ≈ 932px をカバーするため 960px 閾値を使用
-  const checkMobile = () => window.innerWidth <= 960;
+  // モバイル幅判定: 短辺で見る（横画面でもスマホ扱いを維持し、EditorPage の再マウントを防ぐ）
+  const checkMobile = () => Math.min(window.innerWidth, window.innerHeight) <= 960;
   const [isMobile, setIsMobile] = useState(checkMobile);
   useEffect(() => {
-    const handler = () => setIsMobile(checkMobile());
+    const handler = () => {
+      requestAnimationFrame(() => setIsMobile(checkMobile()));
+    };
     window.addEventListener("resize", handler);
     window.addEventListener("orientationchange", handler);
     return () => {
