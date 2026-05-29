@@ -40,6 +40,9 @@ interface Props {
   onRedo?: () => void
   undoDisabled?: boolean
   redoDisabled?: boolean
+  /** 横画面: 下部波形が展開中か（畳み時は左パネル内に表示） */
+  landscapeWaveExpanded?: boolean
+  onLandscapeWaveExpand?: () => void
 }
 
 function fmt(sec: number): string {
@@ -52,6 +55,8 @@ export const LandscapeSidePanel: React.FC<Props> = ({
   currentCueIndex, totalCues, onCuePrev, onCueNext,
   onAddCue, onStageSettings, onViewerList,
   onUndo, onRedo, undoDisabled, redoDisabled,
+  landscapeWaveExpanded = true,
+  onLandscapeWaveExpand,
 }) => {
   const [open, setOpen] = useState(true)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -115,12 +120,28 @@ export const LandscapeSidePanel: React.FC<Props> = ({
     setMenuOpen(false)
   }, [])
 
+  const wavePct =
+    duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0
+
   if (!open) {
     return (
       <div className={styles.collapsed}>
-        <button className={styles.collapseBtn} onClick={() => setOpen(true)} aria-label="パネルを開く">
-          ›
-        </button>
+        <div className={styles.collapsedStack}>
+          {!landscapeWaveExpanded && onLandscapeWaveExpand ? (
+            <button
+              type="button"
+              className={styles.collapsedWaveBtn}
+              onClick={onLandscapeWaveExpand}
+              aria-label="波形を展開"
+              title="波形を展開"
+            >
+              〜
+            </button>
+          ) : null}
+          <button className={styles.collapseBtn} onClick={() => setOpen(true)} aria-label="パネルを開く">
+            ›
+          </button>
+        </div>
       </div>
     )
   }
@@ -160,6 +181,33 @@ export const LandscapeSidePanel: React.FC<Props> = ({
         <span className={styles.timeSep}>/</span>
         <span className={styles.timeDur}>{fmt(duration)}</span>
       </div>
+
+      {!landscapeWaveExpanded && onLandscapeWaveExpand ? (
+        <>
+          <button
+            type="button"
+            className={styles.waveCollapsedBtn}
+            onClick={onLandscapeWaveExpand}
+            aria-label="波形を展開"
+          >
+            <span className={styles.waveCollapsedHead}>
+              <span className={styles.waveCollapsedChevron} aria-hidden>▶</span>
+              <span className={styles.waveCollapsedLabel}>波形</span>
+            </span>
+            {duration > 0 ? (
+              <div className={styles.waveMiniTrack} aria-hidden>
+                <div className={styles.waveMiniFill} style={{ width: `${wavePct}%` }} />
+                <div className={styles.waveMiniPlayhead} style={{ left: `${wavePct}%` }} />
+              </div>
+            ) : null}
+            <span className={styles.waveCollapsedTime}>
+              {fmt(currentTime)}
+              <span className={styles.timeSep}>/</span>
+              {fmt(duration)}
+            </span>
+          </button>
+        </>
+      ) : null}
 
       <div className={styles.divider} />
 

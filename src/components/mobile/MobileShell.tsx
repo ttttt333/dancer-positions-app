@@ -59,6 +59,7 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
 
   // ── ダイアログ開閉を監視して浮遊閉じるボタンを表示 ──
   const [hasOpenDialog, setHasOpenDialog] = useState(false)
+  const [landscapeWaveExpanded, setLandscapeWaveExpanded] = useState(true)
 
   useEffect(() => {
     const checkDialog = () => {
@@ -115,7 +116,12 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
   return (
     <div
       className={isLandscape ? styles.landscapeRoot : styles.portraitRoot}
-      {...(isLandscape ? { 'data-shell-landscape': '' } : { 'data-shell-portrait': '' })}
+      {...(isLandscape
+        ? {
+            'data-shell-landscape': '',
+            ...(landscapeWaveExpanded ? {} : { 'data-landscape-wave-collapsed': '' }),
+          }
+        : { 'data-shell-portrait': '' })}
     >
       {isLandscape ? (
         <div className={styles.landscapeMainRow}>
@@ -137,6 +143,8 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
             onRedo={onRedo}
             undoDisabled={undoDisabled}
             redoDisabled={redoDisabled}
+            landscapeWaveExpanded={landscapeWaveExpanded}
+            onLandscapeWaveExpand={() => setLandscapeWaveExpanded(true)}
           />
           <div
             key="mobile-stage-host"
@@ -154,7 +162,7 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
         </div>
       )}
 
-      {isLandscape ? (
+      {isLandscape && landscapeWaveExpanded ? (
         <LandscapeBottomWaveBar
           audioUrl={props.audioUrl}
           isPlaying={props.isPlaying}
@@ -163,6 +171,7 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
           onPlayPause={props.onPlayPause}
           onStop={props.onStop}
           onSeek={props.onSeek}
+          onCollapse={() => setLandscapeWaveExpanded(false)}
         />
       ) : null}
 

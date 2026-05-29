@@ -1,11 +1,12 @@
 /**
  * LandscapeBottomWaveBar.tsx
- * 横画面: 画面下部に縦画面と同じ波形編集 UI（畳み込み可能）
+ * 横画面: 展開時のみ画面下部に波形編集 UI を表示
  */
 
-import React, { useState, useCallback } from "react";
+import React from "react";
 import styles from "./LandscapeBottomWaveBar.module.css";
 import { PortraitWaveTransport } from "./PortraitWaveTransport";
+import { LANDSCAPE_WAVE_CANVAS_HEIGHT_PX } from "./landscapeWaveLayout";
 
 function fmt(sec: number): string {
   if (!isFinite(sec) || sec < 0) return "0:00";
@@ -20,6 +21,7 @@ interface Props {
   onPlayPause: () => void;
   onStop: () => void;
   onSeek: (sec: number) => void;
+  onCollapse: () => void;
 }
 
 export const LandscapeBottomWaveBar: React.FC<Props> = ({
@@ -30,36 +32,24 @@ export const LandscapeBottomWaveBar: React.FC<Props> = ({
   onPlayPause,
   onStop,
   onSeek,
+  onCollapse,
 }) => {
-  const [collapsed, setCollapsed] = useState(false);
-  const pct = duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0;
-
-  const toggleCollapsed = useCallback(() => {
-    setCollapsed((v) => !v);
-  }, []);
-
   return (
-    <div className={styles.dock} data-collapsed={collapsed ? "true" : "false"}>
+    <div className={styles.dock}>
       <button
         type="button"
         className={styles.toggleRow}
-        onClick={toggleCollapsed}
-        aria-expanded={!collapsed}
-        aria-label={collapsed ? "波形を展開" : "波形を畳む"}
+        onClick={onCollapse}
+        aria-expanded
+        aria-label="波形を畳んで左メニューに移す"
       >
         <span className={styles.toggleChevron} aria-hidden>
-          {collapsed ? "▲" : "▼"}
+          ▼
         </span>
         <span className={styles.toggleLabel}>波形</span>
-        {collapsed && duration > 0 ? (
-          <div className={styles.miniTrack} aria-hidden>
-            <div className={styles.miniFill} style={{ width: `${pct}%` }} />
-            <div className={styles.miniPlayhead} style={{ left: `${pct}%` }} />
-          </div>
-        ) : null}
         <span className={styles.toggleTime}>
           {fmt(currentTime)}
-          <span style={{ color: "#4b5563", margin: "0 3px" }}>/</span>
+          <span className={styles.timeSep}>/</span>
           {fmt(duration)}
         </span>
       </button>
@@ -73,7 +63,7 @@ export const LandscapeBottomWaveBar: React.FC<Props> = ({
           onStop={onStop}
           onSeek={onSeek}
           showTransportControls={false}
-          waveHeightPx={80}
+          waveHeightPx={LANDSCAPE_WAVE_CANVAS_HEIGHT_PX}
         />
       </div>
     </div>
