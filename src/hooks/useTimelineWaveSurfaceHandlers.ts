@@ -20,11 +20,14 @@ import {
   useWaveCanvasPointerDrag,
   type UseWaveCanvasPointerDragArgs,
 } from "./useWaveCanvasPointerDrag";
+import { useWaveCanvasLongPressGate } from "./useWaveCanvasLongPressGate";
+import type { MouseEvent } from "react";
 
 export type UseTimelineWaveSurfaceHandlersParams = UseWaveCanvasPointerDragArgs & {
   /** 目盛りクリック時に `lastWaveDrawRangeRef` が未更新のときのフォールバック */
   viewPortion: number;
   currentTime: number;
+  onWaveContextMenu: (e: MouseEvent<HTMLCanvasElement>) => void;
 };
 
 /**
@@ -34,8 +37,13 @@ export type UseTimelineWaveSurfaceHandlersParams = UseWaveCanvasPointerDragArgs 
 export function useTimelineWaveSurfaceHandlers(
   params: UseTimelineWaveSurfaceHandlersParams
 ) {
-  const { viewPortion, currentTime, ...dragArgs } = params;
-  const onWaveCanvasPointerDown = useWaveCanvasPointerDrag(dragArgs);
+  const { viewPortion, currentTime, onWaveContextMenu, ...dragArgs } = params;
+  const basePointerDown = useWaveCanvasPointerDrag(dragArgs);
+  const { onWaveCanvasPointerDown, clearPending } = useWaveCanvasLongPressGate({
+    ...dragArgs,
+    onWaveContextMenu,
+    basePointerDown,
+  });
 
   const {
     projectViewMode,
@@ -243,6 +251,7 @@ export function useTimelineWaveSurfaceHandlers(
   );
 
   const onWaveCanvasPointerLeave = useCallback(() => {
+    clearPending();
     waveHoverCueRef.current = null;
     const cnv = canvasRef.current;
     if (cnv) cnv.style.cursor = duration > 0 ? "pointer" : "default";
@@ -256,6 +265,7 @@ export function useTimelineWaveSurfaceHandlers(
     }
     drawWaveformAt(tRedraw);
   }, [
+    clearPending,
     duration,
     canvasRef,
     currentTimePropRef,

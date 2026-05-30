@@ -3,7 +3,7 @@
  * Worker では AudioContext が使えない環境（iOS Safari 等）があるため、
  * デコード済み PCM のピーク計算のみ行う。
  */
-import { computeWavePeaksFromChannelData } from "../lib/computeWavePeaksFromChannelData";
+import { computeWavePeaksFromChannelData, resolveWavePeakBinCount } from "../lib/computeWavePeaksFromChannelData";
 
 declare const self: DedicatedWorkerGlobalScope;
 
@@ -18,7 +18,10 @@ type WorkerFailure = { id: number; error: string };
 self.onmessage = (event: MessageEvent<WorkerRequest>) => {
   const { id, channelData, durationSec } = event.data;
   try {
-    const peaks = computeWavePeaksFromChannelData(channelData);
+    const peaks = computeWavePeaksFromChannelData(
+      channelData,
+      resolveWavePeakBinCount(durationSec)
+    );
     const msg: WorkerSuccess = { id, peaks, durationSec };
     self.postMessage(msg);
   } catch (err) {

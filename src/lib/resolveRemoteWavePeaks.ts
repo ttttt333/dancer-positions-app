@@ -10,7 +10,10 @@ import {
   getCachedPeaksPayload,
   putCachedPeaksPayload,
 } from "./waveMediaCache";
-import { createPlaceholderWavePeaks } from "./placeholderWavePeaks";
+import {
+  refinePeaksForTimeline,
+  isWavePeaksResolutionStale,
+} from "./computeWavePeaksFromChannelData";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import { reportWaveLoadProgress } from "./waveLoadProgress";
 
@@ -38,14 +41,18 @@ async function cacheAndApplyPeaks(
   peaks: PeaksResult,
   options: Omit<DecodePeaksOptions, "precomputed">
 ): Promise<void> {
+  const refined = {
+    peaks: refinePeaksForTimeline(peaks.peaks, peaks.durationSec),
+    durationSec: peaks.durationSec,
+  };
   if (options.cacheKey) {
     void putCachedPeaksPayload(
       options.cacheKey,
-      peaks.peaks,
-      peaks.durationSec
+      refined.peaks,
+      refined.durationSec
     );
   }
-  await applyPrecomputedWavePeaks(applyPeaks, peaks, options);
+  await applyPrecomputedWavePeaks(applyPeaks, refined, options);
 }
 
 /** 端末 decodeAudioData の前にサーバー生成を試す（88% で止まる重い処理を回避） */
@@ -85,14 +92,17 @@ export async function resolveServerAssetWavePeaks(
 ): Promise<void> {
   if (options.cacheKey) {
     const mediaCached = await getCachedPeaksPayload(options.cacheKey);
-    if (mediaCached?.peaks.length) {
+    if (
+      mediaCached?.peaks.length &&
+      !isWavePeaksResolutionStale(mediaCached.peaks, mediaCached.durationSec)
+    ) {
       await applyPrecomputedWavePeaks(applyPeaks, mediaCached, options);
       return;
     }
   }
 
   const ready = await tryFetchServerWavePeaksReady(assetId);
-  if (ready) {
+  if (ready && !isWavePeaksResolutionStale(ready.peaks, ready.durationSec)) {
     await cacheAndApplyPeaks(applyPeaks, ready, options);
     return;
   }
@@ -102,7 +112,10 @@ export async function resolveServerAssetWavePeaks(
   const bufTask = readBuffer();
 
   let serverPeaks = await peaksTask;
-  if (serverPeaks?.peaks.length) {
+  if (
+    serverPeaks?.peaks.length &&
+    !isWavePeaksResolutionStale(serverPeaks.peaks, serverPeaks.durationSec)
+  ) {
     await cacheAndApplyPeaks(applyPeaks, serverPeaks, options);
     return;
   }
@@ -113,8 +126,10 @@ export async function resolveServerAssetWavePeaks(
     intervalMs: 500,
   });
   if (serverPeaks?.peaks.length) {
-    await cacheAndApplyPeaks(applyPeaks, serverPeaks, options);
-    return;
+    if (!isWavePeaksResolutionStale(serverPeaks.peaks, serverPeaks.durationSec)) {
+      await cacheAndApplyPeaks(applyPeaks, serverPeaks, options);
+      return;
+    }
   }
 
   const buf = await bufTask;
@@ -140,9 +155,13 @@ async function applyPlaceholderWavePeaks(
   const durationSec =
     ui.trustedAudioDurationSec ?? ui.durationSec ?? 120;
   reportWaveLoadProgress(0.95, "簡易波形を表示中…");
+  const { createPlaceholderWavePeaks } = await import("./placeholderWavePeaks");
   await applyPrecomputedWavePeaks(
     applyPeaks,
-    { peaks: createPlaceholderWavePeaks(), durationSec },
+    {
+      peaks: createPlaceholderWavePeaks(durationSec),
+      durationSec,
+    },
     options
   );
 }
@@ -176,7 +195,10 @@ export async function resolveSupabaseReuseWavePeaks(
 ): Promise<void> {
   if (options.cacheKey) {
     const mediaCached = await getCachedPeaksPayload(options.cacheKey);
-    if (mediaCached?.peaks.length) {
+    if (
+      mediaCached?.peaks.length &&
+      !isWavePeaksResolutionStale(mediaCached.peaks, mediaCached.durationSec)
+    ) {
       await applyPrecomputedWavePeaks(applyPeaks, mediaCached, options);
       return;
     }
@@ -184,7 +206,10 @@ export async function resolveSupabaseReuseWavePeaks(
 
   reportWaveLoadProgress(0.4, "クラウドの波形データを確認中…");
   const sidecar = await supabaseDownloadWavePeaks(audioPath).catch(() => null);
-  if (sidecar?.peaks.length) {
+  if (
+    sidecar?.peaks.length &&
+    !isWavePeaksResolutionStale(sidecar.peaks, sidecar.durationSec)
+  ) {
     await cacheAndApplyPeaks(
       applyPeaks,
       { peaks: sidecar.peaks, durationSec: sidecar.durationSec },

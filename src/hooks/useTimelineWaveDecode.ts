@@ -4,6 +4,7 @@ import type { ChoreographyProjectJson } from "../types/choreography";
 import { expandShortCuesAfterAudioLoad } from "../core/timelineController";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import { useWavePeaksStore } from "../store/wavePeaksStore";
+import { refinePeaksForTimeline, isWavePeaksResolutionStale } from "../lib/computeWavePeaksFromChannelData";
 import { createPlaceholderWavePeaks } from "../lib/placeholderWavePeaks";
 import { decodeWavePeaksFromBuffer } from "../lib/wavePeakDecodeWorkerClient";
 import {
@@ -62,7 +63,8 @@ export function useTimelineWaveDecode({ setProject }: Params) {
   const setPeaks = useWavePeaksStore((s) => s.setPeaks);
 
   const applyPeaksAndDuration = useCallback(
-    (peaks: number[], durSec: number) => {
+    (rawPeaks: number[], durSec: number) => {
+      const peaks = refinePeaksForTimeline(rawPeaks, durSec);
       if (Number.isFinite(durSec) && durSec > 0) {
         usePlaybackUiStore.getState().setTrustedAudioDurationSec(durSec);
         setDuration(durSec);
@@ -82,40 +84,39 @@ export function useTimelineWaveDecode({ setProject }: Params) {
 
       try {
         if (options?.precomputed?.peaks.length) {
-          reportWaveLoadProgress(0.92, "波形を反映中…");
-          applyPeaksAndDuration(
-            options.precomputed.peaks,
-            options.precomputed.durationSec
-          );
-          if (cacheKey) {
-            await setWavePeaksCache(
-              cacheKey,
-              options.precomputed.peaks,
-              options.precomputed.durationSec
-            );
-            void putCachedPeaksPayload(
-              cacheKey,
-              options.precomputed.peaks,
-              options.precomputed.durationSec
-            );
+          const pre = options.precomputed;
+          const stale =
+            isWavePeaksResolutionStale(pre.peaks, pre.durationSec) && buf.byteLength > 0;
+          if (!stale) {
+            reportWaveLoadProgress(0.92, "波形を反映中…");
+            applyPeaksAndDuration(pre.peaks, pre.durationSec);
+            if (cacheKey) {
+              await setWavePeaksCache(cacheKey, pre.peaks, pre.durationSec);
+              void putCachedPeaksPayload(cacheKey, pre.peaks, pre.durationSec);
+            }
+            if (supabaseAudioPath) {
+              void supabaseUploadWavePeaks(
+                supabaseAudioPath,
+                pre.peaks,
+                pre.durationSec
+              );
+            }
+            return;
           }
-          if (supabaseAudioPath) {
-            void supabaseUploadWavePeaks(
-              supabaseAudioPath,
-              options.precomputed.peaks,
-              options.precomputed.durationSec
-            );
-          }
-          return;
         }
 
         if (cacheKey) {
           const cached = await getWavePeaksCache(cacheKey);
           if (cached?.peaks.length) {
-            reportWaveLoadProgress(0.9, "保存済み波形を読み込み中…");
-            applyPeaksAndDuration(cached.peaks, cached.durationSec);
-            void putCachedPeaksPayload(cacheKey, cached.peaks, cached.durationSec);
-            return;
+            const stale =
+              isWavePeaksResolutionStale(cached.peaks, cached.durationSec) &&
+              buf.byteLength > 0;
+            if (!stale) {
+              reportWaveLoadProgress(0.9, "保存済み波形を読み込み中…");
+              applyPeaksAndDuration(cached.peaks, cached.durationSec);
+              void putCachedPeaksPayload(cacheKey, cached.peaks, cached.durationSec);
+              return;
+            }
           }
         }
 
@@ -123,13 +124,18 @@ export function useTimelineWaveDecode({ setProject }: Params) {
           reportWaveLoadProgress(0.12, "クラウドの波形データを確認中…");
           const sidecar = await supabaseDownloadWavePeaks(supabaseAudioPath);
           if (sidecar?.peaks.length) {
-            reportWaveLoadProgress(0.9, "クラウド波形を反映中…");
-            applyPeaksAndDuration(sidecar.peaks, sidecar.durationSec);
-            if (cacheKey) {
-              await setWavePeaksCache(cacheKey, sidecar.peaks, sidecar.durationSec);
-              void putCachedPeaksPayload(cacheKey, sidecar.peaks, sidecar.durationSec);
+            const stale =
+              isWavePeaksResolutionStale(sidecar.peaks, sidecar.durationSec) &&
+              buf.byteLength > 0;
+            if (!stale) {
+              reportWaveLoadProgress(0.9, "クラウド波形を反映中…");
+              applyPeaksAndDuration(sidecar.peaks, sidecar.durationSec);
+              if (cacheKey) {
+                await setWavePeaksCache(cacheKey, sidecar.peaks, sidecar.durationSec);
+                void putCachedPeaksPayload(cacheKey, sidecar.peaks, sidecar.durationSec);
+              }
+              return;
             }
-            return;
           }
         }
 
@@ -151,7 +157,7 @@ export function useTimelineWaveDecode({ setProject }: Params) {
           const ui = usePlaybackUiStore.getState();
           durationSec =
             ui.trustedAudioDurationSec ?? ui.durationSec ?? 120;
-          peaks = createPlaceholderWavePeaks();
+          peaks = createPlaceholderWavePeaks(durationSec);
         } finally {
           stopTick();
         }

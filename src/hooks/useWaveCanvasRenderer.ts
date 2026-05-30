@@ -10,6 +10,7 @@ import {
   type CueDragEdgeMode,
 } from "../lib/timelineWaveGeometry";
 import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
+import { drawWavePeaksColumns } from "../lib/drawWavePeaksColumns";
 import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
 
 export type UseWaveCanvasRendererArgs = {
@@ -120,21 +121,8 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
           g.fillRect(xTrim, 0, w - xTrim, h);
         }
       }
-      g.strokeStyle = "#6366f1";
-      g.lineWidth = 1;
-      const mid = h / 2;
-      pk.forEach((p, i) => {
-        if (d <= 0 || viewSpan <= 0) return;
-        const t = pk.length <= 1 ? d / 2 : (i / (pk.length - 1)) * d;
-        if (t < viewStart || t > viewEnd) return;
-        const x = waveTimeToExtentX(t, viewStart, viewSpan, w);
-        if (x < -1 || x > w + 1) return;
-        const ph = Math.min(h * 0.45, ((p * h) / 2) * waveAmpRef.current);
-        g.beginPath();
-        g.moveTo(x, mid - ph);
-        g.lineTo(x, mid + ph);
-        g.stroke();
-      });
+      g.fillStyle = "#6366f1";
+      drawWavePeaksColumns(g, pk, d, viewStart, viewSpan, w, h, waveAmpRef.current);
       const cueList = cuesRef.current;
       if (d > 0 && viewSpan > 0 && cueList.length >= 2) {
         const sortedWave = sortCuesByStart(cueList);
@@ -380,7 +368,7 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         typeof window !== "undefined"
           ? Math.min(window.devicePixelRatio || 1, wideWorkbench ? 2 : 1.35)
           : 1;
-      const bw = Math.max(280, Math.min(1600, Math.round(cssW * dpr)));
+      const bw = Math.max(280, Math.min(wideWorkbench ? 4096 : 3200, Math.round(cssW * dpr)));
       const bh = Math.round(waveCanvasCssH * 2);
       if (canvas.width !== bw || canvas.height !== bh) {
         canvas.width = bw;

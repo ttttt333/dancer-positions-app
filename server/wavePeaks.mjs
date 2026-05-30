@@ -1,25 +1,40 @@
 /** @typedef {{ peaks: number[]; durationSec: number; binCount: number }} WavePeaksPayload */
 
-export const WAVE_PEAK_BIN_COUNT = 400;
+export const WAVE_PEAK_BINS_PER_SEC = 128;
+export const WAVE_PEAK_BIN_MIN = 8192;
+export const WAVE_PEAK_BIN_MAX = 32768;
+
+/**
+ * @param {number | undefined | null} durationSec
+ * @returns {number}
+ */
+export function resolveWavePeakBinCount(durationSec) {
+  if (!durationSec || !Number.isFinite(durationSec) || durationSec <= 0) {
+    return WAVE_PEAK_BIN_MIN;
+  }
+  const scaled = Math.ceil(durationSec * WAVE_PEAK_BINS_PER_SEC);
+  return Math.min(WAVE_PEAK_BIN_MAX, Math.max(WAVE_PEAK_BIN_MIN, scaled));
+}
 
 /**
  * @param {Float32Array | Float64Array | readonly number[]} ch
+ * @param {number} [durationSec]
  * @returns {number[]}
  */
-export function computeWavePeaksFromChannelData(ch) {
-  const len = WAVE_PEAK_BIN_COUNT;
+export function computeWavePeaksFromChannelData(ch, durationSec) {
+  const len = resolveWavePeakBinCount(durationSec);
   const block = Math.floor(ch.length / len) || 1;
   const out = new Array(len);
   let max = 1e-6;
   for (let i = 0; i < len; i++) {
-    let s = 0;
+    let peak = 0;
     const start = i * block;
     for (let j = 0; j < block; j++) {
-      s += Math.abs(ch[start + j] ?? 0);
+      const abs = Math.abs(ch[start + j] ?? 0);
+      if (abs > peak) peak = abs;
     }
-    const v = s / block;
-    out[i] = v;
-    if (v > max) max = v;
+    out[i] = peak;
+    if (peak > max) max = peak;
   }
   for (let i = 0; i < len; i++) out[i] /= max;
   return out;
@@ -34,12 +49,12 @@ export async function computeWavePeaksFromBuffer(input) {
   const buf = Buffer.isBuffer(input) ? input : Buffer.from(input);
   const audioBuf = await decode(buf);
   const ch = audioBuf.getChannelData(0);
-  const peaks = computeWavePeaksFromChannelData(ch);
   const durationSec =
     typeof audioBuf.duration === "number" && Number.isFinite(audioBuf.duration)
       ? audioBuf.duration
       : audioBuf.length / (audioBuf.sampleRate || 44100);
-  return { peaks, durationSec, binCount: WAVE_PEAK_BIN_COUNT };
+  const peaks = computeWavePeaksFromChannelData(ch, durationSec);
+  return { peaks, durationSec, binCount: peaks.length };
 }
 
 /**

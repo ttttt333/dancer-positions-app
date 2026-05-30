@@ -127,7 +127,7 @@ export interface FlowLibraryMemento {
   trimStartSec: number;
   trimEndSec: number | null;
   waveformAmplitudeScale?: number;
-  /** タイムライン描画用の正規化ピーク（長さは通常 400） */
+  /** タイムライン描画用の正規化ピーク（長さは通常 4096） */
   wavePeaks?: number[];
   /**
    * IndexedDB（`flowLibraryLocalAudio`）に保存したローカル音源のキー。
@@ -265,7 +265,7 @@ function rescaleCueTimelinePreservingGaps(
   }
 }
 
-const MAX_WAVE_PEAKS_LEN = 8000;
+const MAX_WAVE_PEAKS_LEN = 32768;
 
 function deepCloneJson<T>(x: T): T {
   return JSON.parse(JSON.stringify(x)) as T;

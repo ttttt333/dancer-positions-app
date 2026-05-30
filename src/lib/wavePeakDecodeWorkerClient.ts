@@ -2,6 +2,7 @@ import { decodeArrayBufferToAudioBuffer } from "./audioContext";
 import {
   computeWavePeaksFromAudioBuffer,
   computeWavePeaksFromChannelData,
+  resolveWavePeakBinCount,
 } from "./computeWavePeaksFromChannelData";
 
 type DecodeResult = { peaks: number[]; durationSec: number };
@@ -58,7 +59,10 @@ function computePeaksViaWorker(
   const w = getPeakWorker();
   if (!w) {
     return Promise.resolve({
-      peaks: computeWavePeaksFromChannelData(channelData),
+      peaks: computeWavePeaksFromChannelData(
+        channelData,
+        resolveWavePeakBinCount(durationSec)
+      ),
       durationSec,
     });
   }
@@ -72,7 +76,10 @@ function computePeaksViaWorker(
     } catch {
       pending.delete(id);
       resolve({
-        peaks: computeWavePeaksFromChannelData(channelData),
+        peaks: computeWavePeaksFromChannelData(
+          channelData,
+          resolveWavePeakBinCount(durationSec)
+        ),
         durationSec,
       });
     }

@@ -36,7 +36,7 @@ export function createWavePeaksPayload(
 ): WavePeaksPayload {
   return {
     v: 1,
-    binCount: WAVE_PEAK_BIN_COUNT,
+    binCount: peaks.length,
     peaks,
     durationSec,
   };

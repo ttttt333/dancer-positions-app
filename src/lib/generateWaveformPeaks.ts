@@ -3,7 +3,12 @@
  * アップロード前・リモート取得待ち中に即表示するプレビュー波形用。
  */
 
-export const QUICK_WAVEFORM_POINTS = 200;
+import {
+  resolveWavePeakBinCount,
+  WAVE_PEAK_BIN_COUNT,
+} from "./computeWavePeaksFromChannelData";
+
+export const QUICK_WAVEFORM_POINTS = WAVE_PEAK_BIN_COUNT;
 export const MAX_AUDIO_FILE_MB = 100;
 
 const ACCEPTED_MIME_TYPES = new Set([
@@ -53,11 +58,12 @@ export async function generateWaveformPeaksFromFile(
 
 export async function generateWaveformPeaksFromArrayBuffer(
   arrayBuffer: ArrayBuffer,
-  numPoints = QUICK_WAVEFORM_POINTS
+  numPointsOverride?: number
 ): Promise<WaveformPeaksResult> {
+  const fallbackPoints = numPointsOverride ?? QUICK_WAVEFORM_POINTS;
   if (!arrayBuffer.byteLength) {
     return {
-      peaks: Array(numPoints).fill(0.12),
+      peaks: Array(fallbackPoints).fill(0.12),
       durationSec: 0,
     };
   }
@@ -70,7 +76,7 @@ export async function generateWaveformPeaksFromArrayBuffer(
   if (!AudioContextClass) {
     console.warn("[generateWaveformPeaks] Web Audio API 非対応: プレースホルダー波形を使用");
     return {
-      peaks: Array(numPoints).fill(0.12),
+      peaks: Array(fallbackPoints).fill(0.12),
       durationSec: 0,
     };
   }
@@ -84,6 +90,9 @@ export async function generateWaveformPeaksFromArrayBuffer(
   }
 
   const channelData = audioBuffer.getChannelData(0);
+  const durationSec = Number.isFinite(audioBuffer.duration) ? audioBuffer.duration : 0;
+  const numPoints =
+    numPointsOverride ?? resolveWavePeakBinCount(durationSec || undefined);
   const blockSize = Math.max(1, Math.floor(channelData.length / numPoints));
   const peaks: number[] = [];
 

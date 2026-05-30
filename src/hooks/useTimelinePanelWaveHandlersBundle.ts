@@ -138,6 +138,7 @@ export function useTimelinePanelWaveHandlersBundle({
     onFormationChosenFromCueList,
     viewPortion: viewport.viewPortion,
     currentTime: playback.currentTime,
+    onWaveContextMenu,
   });
 
   return {

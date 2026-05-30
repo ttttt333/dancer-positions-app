@@ -1,6 +1,6 @@
 /**
  * audioAnalyze.ts — ブラウザ内の波形ピーク配列から BPM・セクション・エネルギー曲線を推定
- * AudioContext は使わず peaks(400点) だけで処理するため軽量・同期的
+ * AudioContext は使わず peaks(4096点) だけで処理するため軽量・同期的
  */
 
 export interface Section {
