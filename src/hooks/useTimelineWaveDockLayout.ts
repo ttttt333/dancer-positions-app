@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TIMELINE_BRAND_RAIL_CSS } from "../components/TimelineToolbar";
-import { WAVE_CANVAS_H_MAX } from "./useTimelineWaveHeightDrag";
+import { WAVE_CANVAS_H_MAX, WAVE_CANVAS_H_MIN } from "./useTimelineWaveHeightDrag";
 
 /** 波形キャンバス既定高さ（CSS px）。`useTimelineWaveHeightDrag` の最小・最大と揃える */
 const WAVE_CANVAS_H_DEFAULT = 36;
