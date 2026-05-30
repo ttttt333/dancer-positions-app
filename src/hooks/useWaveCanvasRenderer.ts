@@ -5,6 +5,7 @@ import { sortCuesByStart } from "../core/timelineController";
 import { playbackEngine } from "../core/playbackEngine";
 import {
   gapConnectorPixelBounds,
+  playheadOverlayPositionStyles,
   resolveWaveDrawView,
   waveTimeToExtentX,
   type CueDragEdgeMode,
@@ -323,13 +324,17 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
           extentForOverlay > 0 ? (xPlay / extentForOverlay) * 100 : 0;
         if (lineEl && !portraitCanvas) {
           lineEl.style.display = "block";
-          lineEl.style.left = `${pct}%`;
+          const pos = playheadOverlayPositionStyles(pct);
+          lineEl.style.left = pos.left;
+          lineEl.style.transform = pos.transform;
         } else if (lineEl && portraitCanvas) {
           lineEl.style.display = "none";
         }
         if (portraitHeadEl && portraitCanvas) {
           portraitHeadEl.style.display = "block";
-          portraitHeadEl.style.left = `${pct}%`;
+          const pos = playheadOverlayPositionStyles(pct);
+          portraitHeadEl.style.left = pos.left;
+          portraitHeadEl.style.transform = pos.transform;
         } else if (portraitHeadEl) {
           portraitHeadEl.style.display = "none";
         }

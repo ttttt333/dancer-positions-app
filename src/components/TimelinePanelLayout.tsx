@@ -85,6 +85,7 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
           canvasRef={p.canvasRef}
           playheadLineOverlayRef={p.playheadLineOverlayRef}
           compactTopDock={p.compactTopDock}
+          wideWorkbench={p.wideWorkbench}
           duration={p.duration}
           viewMode={p.viewMode}
           hasPeaks={p.hasPeaks}

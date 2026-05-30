@@ -10,10 +10,8 @@ function clamp(n: number, lo: number, hi: number) {
   return Math.min(hi, Math.max(lo, n));
 }
 
-/**
- * 波形の左右に余白を取り、内側に縮小して描く・座標変換する。
- */
-const WAVE_X_INSET_FRAC = 0.035;
+/** 波形・再生バー・目盛りは同一の水平座標系（左右端までフル幅） */
+const WAVE_X_INSET_FRAC = 0;
 
 export function waveTimeToExtentX(
   tSec: number,
@@ -331,11 +329,22 @@ export function resolveWaveDrawView(params: {
   return getWaveViewForDraw(durationSec, viewPortion, anchorTimeSec);
 }
 
-/** 目盛り・再生ヘッド用: 時刻をコンテナ幅に対する 0–100% へ（左右余白込み） */
+/** 目盛り・再生ヘッド用: 時刻をコンテナ幅に対する 0–100% へ */
 export function waveTimeToPercent(
   tSec: number,
   viewStart: number,
   viewSpan: number
 ): number {
   return waveTimeToExtentX(tSec, viewStart, viewSpan, 100);
+}
+
+/** 再生位置オーバーレイ: 0%/100% でも縦線がコンテナ端まで届く */
+export function playheadOverlayPositionStyles(pct: number): {
+  left: string;
+  transform: string;
+} {
+  const p = Math.max(0, Math.min(100, pct));
+  if (p <= 0) return { left: "0", transform: "none" };
+  if (p >= 100) return { left: "100%", transform: "translateX(-100%)" };
+  return { left: `${p}%`, transform: "translateX(-50%)" };
 }

@@ -18,6 +18,8 @@ export type WaveformStripProps = {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   playheadLineOverlayRef: RefObject<HTMLDivElement | null>;
   compactTopDock: boolean;
+  /** PC ワイド上部ドック: 秒数目盛り行を PC サイズに保つ */
+  wideWorkbench?: boolean;
   duration: number;
   viewMode: ChoreographyProjectJson["viewMode"];
   /** 目盛りのポインタ（音源・編集モード時のみ） */
@@ -45,6 +47,7 @@ export function WaveformStrip({
   canvasRef,
   playheadLineOverlayRef,
   compactTopDock,
+  wideWorkbench = false,
   duration,
   viewMode,
   hasPeaks,
@@ -61,10 +64,11 @@ export function WaveformStrip({
   onWaveBorderResizePointerDown,
 }: WaveformStripProps) {
   const rulerInteractive = duration > 0 && hasPeaks && viewMode !== "view";
-  const rulerHeight = compactTopDock ? MOBILE_WAVE_RULER_HEIGHT : PC_WAVE_RULER_HEIGHT;
-  const playheadTop = compactTopDock
-    ? `${13 - PLAYHEAD_LINE_BLEED_TOP_CSS}px`
-    : `calc(16px + 5mm - ${PLAYHEAD_LINE_BLEED_TOP_CSS}px)`;
+  const usePcWaveRuler = !compactTopDock || wideWorkbench;
+  const rulerHeight = usePcWaveRuler ? PC_WAVE_RULER_HEIGHT : MOBILE_WAVE_RULER_HEIGHT;
+  const playheadTop = usePcWaveRuler
+    ? `calc(16px + 5mm - ${PLAYHEAD_LINE_BLEED_TOP_CSS}px)`
+    : `${13 - PLAYHEAD_LINE_BLEED_TOP_CSS}px`;
   const waveLoadProgress = useWaveformLoadProgressStore((s) => s.progress);
   const showWaveLoadOverlay = !hasPeaks && waveLoadProgress != null;
 
@@ -103,7 +107,7 @@ export function WaveformStrip({
           style={{
             position: "relative",
             height: rulerHeight,
-            fontSize: compactTopDock ? "8px" : "9px",
+            fontSize: usePcWaveRuler ? "9px" : "8px",
             color: "#94a3b8",
             borderBottom: "1px solid #1e293b",
             fontVariantNumeric: "tabular-nums",
@@ -128,7 +132,7 @@ export function WaveformStrip({
                     aria-hidden
                     style={{
                       position: "absolute",
-                      top: compactTopDock ? "2px" : "6px",
+                      top: usePcWaveRuler ? "6px" : "2px",
                       left: `${pRounded}%`,
                       transform: "translate3d(-50%, 0, 0)",
                       whiteSpace: "nowrap",

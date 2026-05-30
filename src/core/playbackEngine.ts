@@ -23,6 +23,8 @@ export type PlaybackErrorListener = (message: string) => void;
 
 export class PlaybackEngine {
   private media: HTMLAudioElement | null = null;
+  /** `<audio>` 再マウント時に src を復元する */
+  private lastMediaSourceUrl = "";
 
   private readonly timeListeners = new Set<PlaybackTimeListener>();
   private readonly playStateListeners = new Set<PlaybackPlayingListener>();
@@ -86,6 +88,13 @@ export class PlaybackEngine {
     el.addEventListener("durationchange", this.onMeta);
     el.addEventListener("error", this.onErrorEvent);
     el.addEventListener("canplaythrough", this.onCanPlayThrough);
+    if (
+      this.lastMediaSourceUrl &&
+      this.getMediaSourceUrl() !== this.lastMediaSourceUrl
+    ) {
+      el.src = this.lastMediaSourceUrl;
+      el.load();
+    }
     this.emitPlaying(!el.paused);
     this.emitMeta();
     this.emitTime();
@@ -175,6 +184,7 @@ export class PlaybackEngine {
     const savedTime = Number.isFinite(el.currentTime) ? el.currentTime : 0;
 
     configureHtmlAudioElement(el);
+    this.lastMediaSourceUrl = url;
     el.src = url;
     el.load();
 
@@ -213,6 +223,7 @@ export class PlaybackEngine {
     el.pause();
     el.removeAttribute("src");
     el.load();
+    this.lastMediaSourceUrl = "";
     this.emitPlaying(false);
     this.emitMeta();
     this.emitTime();

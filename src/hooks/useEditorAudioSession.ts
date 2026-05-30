@@ -1,11 +1,9 @@
 import type { Dispatch, SetStateAction } from "react";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
-import { playbackEngine } from "../core/playbackEngine";
 import { EDITOR_WIDE_MIN_PX } from "../pages/editor/editorConstants";
 import { subscribeEditorViewport } from "../pages/editor/editorViewport";
-import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
-import { verifyBlobUrl } from "../lib/verifyBlobUrl";
+import { resyncEditorPlaybackMedia } from "../lib/resyncPlaybackMedia";
 import { useTimelineAudioImport } from "./useTimelineAudioImport";
 import { useTimelineRemoteAudio } from "./useTimelineRemoteAudio";
 import { useTimelineWaveDecode } from "./useTimelineWaveDecode";
@@ -34,6 +32,7 @@ export function useEditorAudioSession({
   publicShareView = false,
 }: Params) {
   const blobUrlRef = useRef<string | null>(null);
+  const [reloadRemoteAudioNonce, setReloadRemoteAudioNonce] = useState(0);
 
   const { decodePeaksFromBuffer } = useTimelineWaveDecode({ setProject });
 
@@ -60,36 +59,58 @@ export function useEditorAudioSession({
     audioSupabasePath,
     flowLocalAudioKey,
     publicShareView,
+    reloadRemoteAudioNonce,
   });
 
-  /** レイアウト切替・ウィンドウリサイズ後も blob URL を `<audio>` に再接続 */
+  const requestRemoteAudioReload = useCallback(() => {
+    setReloadRemoteAudioNonce((n) => n + 1);
+  }, []);
+
+  const resyncPlayback = useCallback(
+    (opts?: { force?: boolean }) => {
+      void resyncEditorPlaybackMedia(blobUrlRef, opts).then((result) => {
+        if (result === "reload") requestRemoteAudioReload();
+      });
+    },
+    [requestRemoteAudioReload]
+  );
+
+  /** レイアウト切替・タブ復帰後も blob URL を `<audio>` に再接続 */
   useEffect(() => {
     if (typeof window === "undefined") return;
     let debounce = 0;
-    const resync = () => {
+    const scheduleResync = (force = false) => {
       window.clearTimeout(debounce);
       debounce = window.setTimeout(() => {
-        const url = blobUrlRef.current;
-        if (!url) return;
-        void verifyBlobUrl(url).then((valid) => {
-          if (!valid) return;
-          if (playbackEngine.getMediaSourceUrl() === url) return;
-          usePlaybackUiStore.getState().setTrustedAudioDurationSec(null);
-          playbackEngine.setMediaSourceUrl(url);
-        });
+        resyncPlayback({ force });
       }, 80);
     };
+
+    const onPageWake = () => {
+      if (document.visibilityState === "hidden") return;
+      scheduleResync(true);
+    };
+
+    const onLayoutChange = () => scheduleResync(false);
+
     const mqWide = window.matchMedia(`(min-width: ${EDITOR_WIDE_MIN_PX}px)`);
-    mqWide.addEventListener("change", resync);
-    const unsubViewport = subscribeEditorViewport(resync);
-    window.addEventListener("resize", resync);
+    mqWide.addEventListener("change", onLayoutChange);
+    const unsubViewport = subscribeEditorViewport(onLayoutChange);
+    window.addEventListener("resize", onLayoutChange);
+    document.addEventListener("visibilitychange", onPageWake);
+    window.addEventListener("pageshow", onPageWake);
+    window.addEventListener("focus", onPageWake);
+
     return () => {
       window.clearTimeout(debounce);
-      mqWide.removeEventListener("change", resync);
+      mqWide.removeEventListener("change", onLayoutChange);
       unsubViewport();
-      window.removeEventListener("resize", resync);
+      window.removeEventListener("resize", onLayoutChange);
+      document.removeEventListener("visibilitychange", onPageWake);
+      window.removeEventListener("pageshow", onPageWake);
+      window.removeEventListener("focus", onPageWake);
     };
-  }, []);
+  }, [resyncPlayback]);
 
   return {
     extractProgress,

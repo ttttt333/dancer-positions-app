@@ -1,3 +1,5 @@
+import { waveExtentXToTime } from "./timelineWaveGeometry";
+
 /** 表示窓内を 1px 列ごとに集約して波形を描画（ズーム時も隙間なく表示） */
 export function drawWavePeaksColumns(
   g: CanvasRenderingContext2D,
@@ -19,8 +21,8 @@ export function drawWavePeaksColumns(
   };
 
   for (let px = 0; px < canvasWidth; px++) {
-    const t0 = viewStart + (px / canvasWidth) * viewSpan;
-    const t1 = viewStart + ((px + 1) / canvasWidth) * viewSpan;
+    const t0 = waveExtentXToTime(px, viewStart, viewSpan, canvasWidth);
+    const t1 = waveExtentXToTime(px + 1, viewStart, viewSpan, canvasWidth);
     const i0 = Math.floor(indexForTime(t0));
     const i1 = Math.ceil(indexForTime(t1));
     let peak = 0;
