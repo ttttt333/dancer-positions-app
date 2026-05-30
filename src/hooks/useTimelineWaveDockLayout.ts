@@ -14,7 +14,18 @@ type Params = {
   compactTopDock: boolean;
   /** スマホ縦積みエディタ（狭いビューポート） */
   editorMobileStack?: boolean;
+  /** PC 上部ドック外枠の高さ（px）。波形キャンバスを残り領域に合わせる */
+  topDockHeightPx?: number | null;
 };
+
+/** 上部ドック内で波形キャンバス以外（ツールバー・目盛り・余白・リサイズ枠）の目安 */
+export function estimateTopDockWaveChromePx(wideWorkbench: boolean): number {
+  if (wideWorkbench) {
+    // コンパクトツールバー + calc(16px+5mm) 目盛り + gap/padding + リサイズ 8px
+    return 91;
+  }
+  return 48;
+}
 
 /**
  * タイムライン上部ドック時のブランドレール幅（grid 列）と波形帯の CSS 高さ。
@@ -23,6 +34,7 @@ export function useTimelineWaveDockLayout({
   wideWorkbench,
   compactTopDock,
   editorMobileStack = false,
+  topDockHeightPx = null,
 }: Params) {
   const [waveCanvasCssH, setWaveCanvasCssH] = useState(() => {
     if (!compactTopDock) return WAVE_CANVAS_H_DEFAULT;
@@ -52,6 +64,25 @@ export function useTimelineWaveDockLayout({
       Math.min(WAVE_CANVAS_H_MAX, Math.max(h, floor))
     );
   }, [compactTopDock, editorMobileStack]);
+
+  /** PC 上部ドック: 再生エリアの高さに合わせて波形キャンバスを伸縮 */
+  useEffect(() => {
+    if (
+      editorMobileStack ||
+      !compactTopDock ||
+      topDockHeightPx == null ||
+      !Number.isFinite(topDockHeightPx) ||
+      topDockHeightPx <= 0
+    ) {
+      return;
+    }
+    const chrome = estimateTopDockWaveChromePx(wideWorkbench);
+    const next = Math.min(
+      WAVE_CANVAS_H_MAX,
+      Math.max(WAVE_CANVAS_H_MIN, Math.round(topDockHeightPx - chrome))
+    );
+    setWaveCanvasCssH(next);
+  }, [topDockHeightPx, compactTopDock, editorMobileStack, wideWorkbench]);
 
   return {
     brandRailCss,

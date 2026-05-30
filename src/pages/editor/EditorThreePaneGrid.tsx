@@ -425,7 +425,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
               }),
         }}
       >
-        {showTopWaveDock && !stageZenLayout && !wideEditorLayout && !publicNarrowLayout ? (
+        {showTopWaveDock && !stageZenLayout && !wideEditorLayout && !publicNarrowLayout && !mobileStackEditor ? (
           <div
             role="separator"
             aria-orientation="horizontal"
@@ -998,12 +998,9 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
         </section>
 
         {/*
-          タイムラインは常にこの 1 ブロックだけにマウントする（ワイド⇔狭いで別ブランチに置くと
-          TimelinePanel が再マウントされ、波形・音源の内部状態が消える）。
-          グリッド行だけワイド時は 1 行目、狭いときはステージの下（3 行目）に固定する。
+          タイムラインはモバイル積み上げ専用（PC は EditorPageLayout 上部ドックに常時 1 箇所だけマウント）。
         */}
-        {/* wideEditorLayout時の波形バーはflex下段に独立配置 */}
-        {!stageZenLayout && !(wideEditorLayout && showTopWaveDock) ? (
+        {!stageZenLayout && mobileStackEditor ? (
           <section
             ref={attachTopDockSection}
             className={

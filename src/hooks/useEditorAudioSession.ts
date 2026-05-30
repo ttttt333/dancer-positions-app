@@ -1,6 +1,11 @@
 import type { Dispatch, SetStateAction } from "react";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
+import { playbackEngine } from "../core/playbackEngine";
+import { EDITOR_WIDE_MIN_PX } from "../pages/editor/editorConstants";
+import { subscribeEditorViewport } from "../pages/editor/editorViewport";
+import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
+import { verifyBlobUrl } from "../lib/verifyBlobUrl";
 import { useTimelineAudioImport } from "./useTimelineAudioImport";
 import { useTimelineRemoteAudio } from "./useTimelineRemoteAudio";
 import { useTimelineWaveDecode } from "./useTimelineWaveDecode";
@@ -56,6 +61,35 @@ export function useEditorAudioSession({
     flowLocalAudioKey,
     publicShareView,
   });
+
+  /** レイアウト切替・ウィンドウリサイズ後も blob URL を `<audio>` に再接続 */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let debounce = 0;
+    const resync = () => {
+      window.clearTimeout(debounce);
+      debounce = window.setTimeout(() => {
+        const url = blobUrlRef.current;
+        if (!url) return;
+        void verifyBlobUrl(url).then((valid) => {
+          if (!valid) return;
+          if (playbackEngine.getMediaSourceUrl() === url) return;
+          usePlaybackUiStore.getState().setTrustedAudioDurationSec(null);
+          playbackEngine.setMediaSourceUrl(url);
+        });
+      }, 80);
+    };
+    const mqWide = window.matchMedia(`(min-width: ${EDITOR_WIDE_MIN_PX}px)`);
+    mqWide.addEventListener("change", resync);
+    const unsubViewport = subscribeEditorViewport(resync);
+    window.addEventListener("resize", resync);
+    return () => {
+      window.clearTimeout(debounce);
+      mqWide.removeEventListener("change", resync);
+      unsubViewport();
+      window.removeEventListener("resize", resync);
+    };
+  }, []);
 
   return {
     extractProgress,

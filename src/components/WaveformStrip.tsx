@@ -9,6 +9,10 @@ import { useWaveformLoadProgressStore } from "../store/waveformLoadProgressStore
 const PLAYHEAD_LINE_BLEED_TOP_CSS = 14;
 const PLAYHEAD_LINE_BLEED_BOTTOM_CSS = 8;
 
+/** PC: 波形上の秒数目盛り行（従来 16px に 5mm 追加） */
+const PC_WAVE_RULER_HEIGHT = "calc(16px + 5mm)";
+const MOBILE_WAVE_RULER_HEIGHT = "13px";
+
 export type WaveformStripProps = {
   waveContainerRef: RefObject<HTMLDivElement | null>;
   canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -57,7 +61,10 @@ export function WaveformStrip({
   onWaveBorderResizePointerDown,
 }: WaveformStripProps) {
   const rulerInteractive = duration > 0 && hasPeaks && viewMode !== "view";
-  const rulerHeightPx = compactTopDock ? 13 : 16;
+  const rulerHeight = compactTopDock ? MOBILE_WAVE_RULER_HEIGHT : PC_WAVE_RULER_HEIGHT;
+  const playheadTop = compactTopDock
+    ? `${13 - PLAYHEAD_LINE_BLEED_TOP_CSS}px`
+    : `calc(16px + 5mm - ${PLAYHEAD_LINE_BLEED_TOP_CSS}px)`;
   const waveLoadProgress = useWaveformLoadProgressStore((s) => s.progress);
   const showWaveLoadOverlay = !hasPeaks && waveLoadProgress != null;
 
@@ -95,7 +102,7 @@ export function WaveformStrip({
           onPointerDown={onWaveRulerPointerDown}
           style={{
             position: "relative",
-            height: compactTopDock ? "13px" : "16px",
+            height: rulerHeight,
             fontSize: compactTopDock ? "8px" : "9px",
             color: "#94a3b8",
             borderBottom: "1px solid #1e293b",
@@ -121,7 +128,7 @@ export function WaveformStrip({
                     aria-hidden
                     style={{
                       position: "absolute",
-                      top: compactTopDock ? "2px" : "3px",
+                      top: compactTopDock ? "2px" : "6px",
                       left: `${pRounded}%`,
                       transform: "translate3d(-50%, 0, 0)",
                       whiteSpace: "nowrap",
@@ -176,7 +183,7 @@ export function WaveformStrip({
             display: "none",
             left: "0%",
             transform: "translateX(-50%)",
-            top: rulerHeightPx - PLAYHEAD_LINE_BLEED_TOP_CSS,
+            top: playheadTop,
             height:
               PLAYHEAD_LINE_BLEED_TOP_CSS +
               waveCanvasCssH +

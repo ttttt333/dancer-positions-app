@@ -71,6 +71,7 @@ export function useTimelinePanelSessionBundle(
     editorMobileStack = false,
     compactDockLeading,
     cueListPortalTarget = null,
+    topDockHeightPx = null,
     onSave,
     onOpenAudioImport,
     onOpenPathEditor,
@@ -108,7 +109,12 @@ export function useTimelinePanelSessionBundle(
     waveCanvasCssH,
     setWaveCanvasCssH,
     waveCanvasCssHRef,
-  } = useTimelineWaveDockLayout({ wideWorkbench, compactTopDock });
+  } = useTimelineWaveDockLayout({
+    wideWorkbench,
+    compactTopDock,
+    editorMobileStack,
+    topDockHeightPx,
+  });
 
   const { cuesSorted, trimStartSec, trimEndSec, formations } =
     useTimelinePanelProjectSlice(project);
@@ -278,6 +284,7 @@ export function useTimelinePanelSessionBundle(
       audioChromeRenderedExternally: audioFileInputRef != null,
       compactTopDock,
       editorMobileStack,
+      topDockHeightPx,
       compactDockLeading,
       brandRailCss,
       wideWorkbench,

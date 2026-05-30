@@ -261,16 +261,17 @@ export function EditorPageLayout(props: EditorLayoutProps) {
       {/* ─── Main layout: column flex (top wave bar + stage row) ─── */}
       <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "visible" }}>
 
-      {showTopWaveDock && !stageZenLayout && wideEditorLayout ? (
+      {showTopWaveDock && !stageZenLayout && !mobileStackEditor ? (
         <div
           style={{
             flexShrink: 0,
             width: "100%",
             minWidth: 0,
-            height: wideBottomDockPx,
+            height: wideEditorLayout ? wideBottomDockPx : TOP_DOCK_HEIGHT_PX,
             position: "relative",
             background: "transparent",
             marginBottom: 4,
+            display: publicNarrowLayout ? "none" : undefined,
           }}
         >
           {/* Timeline content */}

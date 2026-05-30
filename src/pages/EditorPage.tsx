@@ -2344,6 +2344,9 @@ export function EditorPage({
       onPickAudio={editorAudioSession.onPickAudio}
       onOpenPathEditor={(cueId) => setPathEditorCueId(cueId)}
       publicShareView={choreoPublicView && !!shareTokenParam}
+      topDockHeightPx={
+        showTopWaveDock && !mobileStackEditor ? wideBottomDockPx : null
+      }
     />
   );
 

@@ -50,6 +50,8 @@ export type TimelinePanelBodyProps = {
   onOpenPathEditor?: (cueId: string) => void;
   /** 生徒閲覧（/view/s/…）: ログインなしで Supabase 音源を読む */
   publicShareView?: boolean;
+  /** PC 上部ドック外枠の高さ（px）。波形を再生エリアに連動させる */
+  topDockHeightPx?: number | null;
   /** EditorPage の音源セッションから渡す（未指定時はインポート不可） */
   audioFileInputRef?: RefObject<HTMLInputElement | null>;
   extractProgress?: TimelineExtractProgress | null;
