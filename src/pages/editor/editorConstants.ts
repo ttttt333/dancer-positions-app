@@ -20,8 +20,11 @@ export const EDITOR_GRID_GAP_PX = 10;
 /** 上部波形ドック行の既定高さ（px） */
 export const TOP_DOCK_HEIGHT_PX = 120;
 
-/** PC ワイド上部波形ドックの既定高さ（px）。`TOP_DOCK_HEIGHT_PX` の 2/3 */
-export const TOP_DOCK_HEIGHT_WIDE_PX = Math.round((TOP_DOCK_HEIGHT_PX * 2) / 3);
+export {
+  TOP_DOCK_HEIGHT_WIDE_PX,
+  TOP_DOCK_ROW_MIN_WIDE_PX,
+  WAVE_CANVAS_H_PC_WIDE_DEFAULT,
+} from "../../lib/waveDockMetrics";
 
 /** ワイド＋上部波形時の固定シェル：波形行の外枠高さのベース（px） */
 export const EDITOR_SHELL_TOP_WAVE_BASE_PX = 160;
@@ -40,6 +43,7 @@ export const RIGHT_TOOLS_RAIL_MAX_PX = 210;
 export const STAGE_COL_FR_DEFAULT = 80;
 export const RIGHT_RAIL_FR_DEFAULT = 20;
 
+/** PC ワイド上部ドックの最小高さは `TOP_DOCK_ROW_MIN_WIDE_PX`、それ以外は 50 */
 export const TOP_DOCK_ROW_MIN_PX = 50;
 export const TOP_DOCK_ROW_MAX_PX = 480;
 

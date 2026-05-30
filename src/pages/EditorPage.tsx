@@ -149,6 +149,7 @@ import {
   TOP_DOCK_HEIGHT_WIDE_PX,
   TOP_DOCK_ROW_MAX_PX,
   TOP_DOCK_ROW_MIN_PX,
+  TOP_DOCK_ROW_MIN_WIDE_PX,
 } from "./editor/editorConstants";
 import {
   clampTopDockRowPx,
@@ -703,11 +704,7 @@ export function EditorPage({
       const grid = editorPaneRef.current;
       if (!grid) return;
       const gridRect = grid.getBoundingClientRect();
-      /**
-       * ユーザーが「波形を上の方までできるだけ縮めたい」ケース向けに、
-       * 最小高さはコンパクト再生行＋ルーラー＋波形が潰れない程度まで許可する。
-       */
-      const minH = TOP_DOCK_ROW_MIN_PX;
+      const minH = wideEditorLayout ? TOP_DOCK_ROW_MIN_WIDE_PX : TOP_DOCK_ROW_MIN_PX;
       const maxH = Math.max(
         minH,
         Math.min(TOP_DOCK_ROW_MAX_PX, gridRect.height - 200)
@@ -717,7 +714,7 @@ export function EditorPage({
       );
       setTopDockRowPx(next);
     },
-    []
+    [wideEditorLayout]
   );
 
   const endTopDockResize = useCallback(

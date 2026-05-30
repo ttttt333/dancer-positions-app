@@ -4,12 +4,13 @@ import { formatMmSs, waveRulerTicks } from "../lib/timeFormat";
 import { waveTimeToPercent } from "../lib/timelineWaveGeometry";
 import { WaveformLoadOverlay } from "./WaveformLoadOverlay";
 import { useWaveformLoadProgressStore } from "../store/waveformLoadProgressStore";
+import { PC_WAVE_RULER_HEIGHT_CSS } from "../lib/waveDockMetrics";
 
 /** 波形下端の再生位置線のはみ出し（CSS px） */
 const PLAYHEAD_LINE_BLEED_BOTTOM_CSS = 8;
 
-/** PC: 波形上の秒数目盛り行（従来 16px に 5mm 追加） */
-const PC_WAVE_RULER_HEIGHT = "calc(16px + 5mm)";
+/** PC: 波形上の秒数目盛り行（従来の 2/3） — `waveDockMetrics` と揃える */
+const PC_WAVE_RULER_HEIGHT = PC_WAVE_RULER_HEIGHT_CSS;
 const MOBILE_WAVE_RULER_HEIGHT = "13px";
 
 export type WaveformStripProps = {
@@ -19,6 +20,8 @@ export type WaveformStripProps = {
   compactTopDock: boolean;
   /** PC ワイド上部ドック: 秒数目盛り行を PC サイズに保つ */
   wideWorkbench?: boolean;
+  /** false のとき波形下端の高さリサイズ枠を非表示（PC 上部ドックは外枠リサイズを使う） */
+  showWaveHeightResizeHandle?: boolean;
   duration: number;
   viewMode: ChoreographyProjectJson["viewMode"];
   /** 目盛りのポインタ（音源・編集モード時のみ） */
@@ -51,6 +54,7 @@ export function WaveformStrip({
   playheadLineOverlayRef,
   compactTopDock,
   wideWorkbench = false,
+  showWaveHeightResizeHandle = true,
   duration,
   viewMode,
   hasPeaks,
@@ -124,9 +128,11 @@ export function WaveformStrip({
                     aria-hidden
                     style={{
                       position: "absolute",
-                      top: usePcWaveRuler ? "6px" : "2px",
+                      top: usePcWaveRuler ? "50%" : "2px",
                       left: `${pRounded}%`,
-                      transform: "translate3d(-50%, 0, 0)",
+                      transform: usePcWaveRuler
+                        ? "translate3d(-50%, -50%, 0)"
+                        : "translate3d(-50%, 0, 0)",
                       whiteSpace: "nowrap",
                       pointerEvents: "none",
                       fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
@@ -207,22 +213,24 @@ export function WaveformStrip({
           />
         </div>
       </div>
-      <div
-        role="separator"
-        aria-orientation="horizontal"
-        aria-label="波形の高さを変更"
-        onPointerDown={onWaveBorderResizePointerDown}
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height: 10,
-          cursor: "ns-resize",
-          touchAction: "none",
-          zIndex: 4,
-        }}
-      />
+      {showWaveHeightResizeHandle ? (
+        <div
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="波形の高さを変更"
+          onPointerDown={onWaveBorderResizePointerDown}
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 10,
+            cursor: "ns-resize",
+            touchAction: "none",
+            zIndex: 4,
+          }}
+        />
+      ) : null}
     </div>
   );
 }

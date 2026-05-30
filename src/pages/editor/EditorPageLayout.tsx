@@ -21,6 +21,7 @@ import { getViewRosterEntries } from "../../lib/viewRoster";
 import { listStagePresets, saveStagePreset } from "../../lib/stagePresets";
 import { parseMeterCmDraftToMm } from "./stageAreaSettingsDraft";
 import { EDITOR_GRID_GAP_PX, STAGE_RESIZER_PX, TOP_DOCK_HEIGHT_PX, TOP_DOCK_ROW_MIN_PX } from "./editorConstants";
+import { TOP_DOCK_WAVE_STAGE_RESIZER_PX } from "../../lib/waveDockMetrics";
 import type { EditorLayoutProps } from "./editorLayoutProps";
 
 const Stage3DView = lazy(() =>
@@ -279,7 +280,7 @@ export function EditorPageLayout(props: EditorLayoutProps) {
             ref={attachTopDockSection}
             style={{
               position: "absolute",
-              inset: wideEditorLayout ? 0 : "0 0 8px 0",
+              inset: wideEditorLayout ? `0 0 ${TOP_DOCK_WAVE_STAGE_RESIZER_PX}px 0` : "0 0 8px 0",
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",
@@ -288,12 +289,12 @@ export function EditorPageLayout(props: EditorLayoutProps) {
           >
             {timelinePanelEl}
           </div>
-          {/* Resize handle — bottom edge, drag downward to expand */}
+          {/* 波形バーとステージの境目 — 上下ドラッグで高さ調整 */}
           <div
             role="separator"
             aria-orientation="horizontal"
-            aria-label={t("editor.layout.waveDockResizeAria")}
-            title={t("editor.layout.waveDockResizeTitle")}
+            aria-label={t("editor.layout.wavePlaybackResizeAria")}
+            title={t("editor.layout.wavePlaybackResizeTitle")}
             onPointerDown={onTopDockResizeDown}
             onPointerMove={onTopDockResizeMove}
             onPointerUp={endTopDockResize}
@@ -304,7 +305,7 @@ export function EditorPageLayout(props: EditorLayoutProps) {
               bottom: 0,
               left: 0,
               right: 0,
-              height: 8,
+              height: 10,
               cursor: "row-resize",
               touchAction: "none",
               userSelect: "none",
@@ -312,15 +313,18 @@ export function EditorPageLayout(props: EditorLayoutProps) {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              borderTop: "1px solid #334155",
+              background: "linear-gradient(180deg, rgba(15,23,42,0.35) 0%, rgba(15,23,42,0.85) 100%)",
             }}
           >
             <div
               aria-hidden
               style={{
-                width: 48,
+                width: "min(100%, 120px)",
                 height: 3,
                 borderRadius: 2,
-                background: "rgba(148,163,184,0.35)",
+                background: "rgba(148,163,184,0.55)",
+                boxShadow: "0 0 0 1px rgba(51,65,85,0.6)",
               }}
             />
           </div>
