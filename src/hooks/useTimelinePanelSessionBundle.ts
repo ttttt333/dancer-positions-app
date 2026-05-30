@@ -277,7 +277,10 @@ export function useTimelinePanelSessionBundle(
       setGapRouteMenu,
       setWaveCueConfirm,
     },
-    cueActions: { addCueStartingAtTime },
+    cueActions: {
+      addCueStartingAtTime,
+      duplicateCueAfterSource,
+    },
   };
 
   const layoutInputWithoutWavePointers: TimelinePanelLayoutInputWithoutWavePointers =

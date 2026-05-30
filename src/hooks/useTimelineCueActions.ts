@@ -242,7 +242,6 @@ export function useTimelineCueActions({
     (source: Cue) => {
       if (project.viewMode === "view") return;
       const newCueId = crypto.randomUUID();
-      let appliedT = 0;
       setProject((p) => {
         if (p.cues.length >= 100) return p;
         const srcFm = p.formations.find((f) => f.id === source.formationId);
@@ -278,7 +277,6 @@ export function useTimelineCueActions({
         );
         t0 = resolved.tStartSec;
         t1 = resolved.tEndSec;
-        appliedT = t0;
         const newCue: Cue = {
           id: newCueId,
           tStartSec: t0,
@@ -297,19 +295,11 @@ export function useTimelineCueActions({
           activeFormationId: newFm.id,
         };
       });
-      syncPlaybackHeadAfterCueEdit({
-        t: appliedT,
-        durationSec: durationRef.current,
-        trimStartSec: project.trimStartSec,
-        trimEndSec: project.trimEndSec,
-      });
       onSelectedCueIdsChange([newCueId]);
       onFormationChosenFromCueList?.();
     },
     [
       project.viewMode,
-      project.trimStartSec,
-      project.trimEndSec,
       setProject,
       onFormationChosenFromCueList,
       onSelectedCueIdsChange,
@@ -321,7 +311,6 @@ export function useTimelineCueActions({
     (source: Cue) => {
       if (project.viewMode === "view") return;
       const newCueId = crypto.randomUUID();
-      let appliedT = 0;
       setProject((p) => {
         if (p.cues.length >= 100) return p;
         const srcFm = p.formations.find((f) => f.id === source.formationId);
@@ -353,7 +342,6 @@ export function useTimelineCueActions({
         );
         t0 = resolved.tStartSec;
         t1 = resolved.tEndSec;
-        appliedT = t0;
         const newCue: Cue = {
           id: newCueId,
           tStartSec: t0,
@@ -372,19 +360,11 @@ export function useTimelineCueActions({
           activeFormationId: newFm.id,
         };
       });
-      syncPlaybackHeadAfterCueEdit({
-        t: appliedT,
-        durationSec: durationRef.current,
-        trimStartSec: project.trimStartSec,
-        trimEndSec: project.trimEndSec,
-      });
       onSelectedCueIdsChange([newCueId]);
       onFormationChosenFromCueList?.();
     },
     [
       project.viewMode,
-      project.trimStartSec,
-      project.trimEndSec,
       setProject,
       onFormationChosenFromCueList,
       onSelectedCueIdsChange,

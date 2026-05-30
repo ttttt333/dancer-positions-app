@@ -44,6 +44,7 @@ export type UseTimelineWaveCanvasActionsParams = {
   setGapRouteMenu: Dispatch<SetStateAction<GapRouteMenuState>>;
   setWaveCueConfirm: Dispatch<SetStateAction<WaveCueConfirmState>>;
   addCueStartingAtTime: (tSec: number) => void;
+  duplicateCueAfterSource: (source: Cue) => void;
 };
 
 /**
@@ -67,6 +68,7 @@ export function useTimelineWaveCanvasActions({
   setGapRouteMenu,
   setWaveCueConfirm,
   addCueStartingAtTime,
+  duplicateCueAfterSource,
 }: UseTimelineWaveCanvasActionsParams) {
   const onWaveClick = useCallback(
     (e: MouseEvent<HTMLCanvasElement>) => {
@@ -274,6 +276,25 @@ export function useTimelineWaveCanvasActions({
       if (viewSpan <= 0) return;
       const r = c.getBoundingClientRect();
       const x = e.clientX - r.left;
+      const hitId = pickCueIdAtWave(
+        e.clientX,
+        e.clientY,
+        c,
+        cuesSorted,
+        viewStart,
+        viewSpan,
+        cueDragPreviewRangeRef.current
+      );
+      e.preventDefault();
+      e.stopPropagation();
+      suppressNextWaveSeekRef.current = true;
+      if (hitId) {
+        const source = cuesSorted.find((c0) => c0.id === hitId);
+        if (source) {
+          duplicateCueAfterSource(source);
+          return;
+        }
+      }
       const t = waveExtentXToTime(x, viewStart, viewSpan, r.width);
       const clamped = clampTimelineHeadForCueOps(
         t,
@@ -281,9 +302,6 @@ export function useTimelineWaveCanvasActions({
         trimEndSec,
         duration
       );
-      e.preventDefault();
-      e.stopPropagation();
-      suppressNextWaveSeekRef.current = true;
       addCueStartingAtTime(clamped, WAVE_DOUBLE_CLICK_CUE_SPAN_SEC);
     },
     [
@@ -294,10 +312,13 @@ export function useTimelineWaveCanvasActions({
       lastWaveDrawRangeRef,
       viewPortion,
       currentTime,
+      cuesSorted,
+      cueDragPreviewRangeRef,
       trimStartSec,
       trimEndSec,
       suppressNextWaveSeekRef,
       addCueStartingAtTime,
+      duplicateCueAfterSource,
     ]
   );
 

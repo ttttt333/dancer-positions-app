@@ -34,8 +34,10 @@ export function estimateWideTopDockWaveChromePx(): number {
   );
 }
 
-/** PC ワイド上部ドックの波形キャンバス既定高さ（px） */
-export const WAVE_CANVAS_H_PC_WIDE_DEFAULT = PORTRAIT_WAVE_CANVAS_H_PX;
+/** PC ワイド上部ドックの波形キャンバス既定高さ（px）。スマホ既定の 2/3 */
+export const WAVE_CANVAS_H_PC_WIDE_DEFAULT = Math.round(
+  (PORTRAIT_WAVE_CANVAS_H_PX * 2) / 3
+);
 
 /** PC ワイド上部ドックの既定外枠高さ（px） */
 export const TOP_DOCK_HEIGHT_WIDE_PX =
@@ -43,4 +45,4 @@ export const TOP_DOCK_HEIGHT_WIDE_PX =
 
 /** リサイズ時に波形が潰れない最小外枠高さ（px） */
 export const TOP_DOCK_ROW_MIN_WIDE_PX =
-  estimateWideTopDockWaveChromePx() + 48;
+  estimateWideTopDockWaveChromePx() + WAVE_CANVAS_H_PC_WIDE_DEFAULT;
