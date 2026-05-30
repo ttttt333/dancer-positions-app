@@ -15,6 +15,8 @@ type TimelineWaveBridgeApi = {
   drawWaveformAt: (playheadTime: number) => void;
   setViewPortion: (portion: number) => void;
   setWaveViewStartOverride: (start: number | null) => void;
+  /** キュー間の動線メニュー（長押し専用） */
+  openGapRouteMenuAtPointer: (clientX: number, clientY: number) => void;
   duration: number;
   isPlaying: boolean;
   hasPeaks: boolean;

@@ -27,7 +27,11 @@ type WavePointerKeys =
   | "onWaveContextMenu"
   | "onWaveCanvasPointerDown"
   | "onWaveCanvasPointerMove"
-  | "onWaveCanvasPointerLeave";
+  | "onWaveCanvasPointerLeave"
+  | "onPlayheadLinePointerDown"
+  | "onPlayheadLinePointerMove"
+  | "onPlayheadLinePointerUp"
+  | "onPlayheadLinePointerCancel";
 
 export type TimelinePanelLayoutInputWithoutWavePointers = Omit<
   BuildTimelinePanelLayoutInput,
@@ -242,7 +246,7 @@ export function useTimelinePanelSessionBundle(
       duration,
       setCurrentTime,
     },
-    viewport: { viewPortion },
+    viewport: { viewPortion, setWaveViewStartOverride },
     projectSlice: {
       cuesSorted,
       trimStartSec,

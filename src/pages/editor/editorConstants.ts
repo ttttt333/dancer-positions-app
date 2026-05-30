@@ -20,6 +20,9 @@ export const EDITOR_GRID_GAP_PX = 10;
 /** 上部波形ドック行の既定高さ（px） */
 export const TOP_DOCK_HEIGHT_PX = 120;
 
+/** PC ワイド上部波形ドックの既定高さ（px）。`TOP_DOCK_HEIGHT_PX` の 2/3 */
+export const TOP_DOCK_HEIGHT_WIDE_PX = Math.round((TOP_DOCK_HEIGHT_PX * 2) / 3);
+
 /** ワイド＋上部波形時の固定シェル：波形行の外枠高さのベース（px） */
 export const EDITOR_SHELL_TOP_WAVE_BASE_PX = 160;
 

@@ -5,8 +5,7 @@ import { waveTimeToPercent } from "../lib/timelineWaveGeometry";
 import { WaveformLoadOverlay } from "./WaveformLoadOverlay";
 import { useWaveformLoadProgressStore } from "../store/waveformLoadProgressStore";
 
-/** 目盛り行〜波形にかけて再生位置線を少しはみ出して見せる（CSS px） */
-const PLAYHEAD_LINE_BLEED_TOP_CSS = 14;
+/** 波形下端の再生位置線のはみ出し（CSS px） */
 const PLAYHEAD_LINE_BLEED_BOTTOM_CSS = 8;
 
 /** PC: 波形上の秒数目盛り行（従来 16px に 5mm 追加） */
@@ -36,6 +35,10 @@ export type WaveformStripProps = {
   onWaveCanvasPointerMove: (e: PointerEvent<HTMLCanvasElement>) => void;
   onWaveCanvasPointerLeave: () => void;
   onWaveBorderResizePointerDown: (e: PointerEvent<HTMLDivElement>) => void;
+  onPlayheadLinePointerDown: (e: PointerEvent<HTMLDivElement>) => void;
+  onPlayheadLinePointerMove: (e: PointerEvent<HTMLDivElement>) => void;
+  onPlayheadLinePointerUp: (e: PointerEvent<HTMLDivElement>) => void;
+  onPlayheadLinePointerCancel: (e: PointerEvent<HTMLDivElement>) => void;
 };
 
 /**
@@ -62,28 +65,17 @@ export function WaveformStrip({
   onWaveCanvasPointerMove,
   onWaveCanvasPointerLeave,
   onWaveBorderResizePointerDown,
+  onPlayheadLinePointerDown,
+  onPlayheadLinePointerMove,
+  onPlayheadLinePointerUp,
+  onPlayheadLinePointerCancel,
 }: WaveformStripProps) {
   const rulerInteractive = duration > 0 && hasPeaks && viewMode !== "view";
   const usePcWaveRuler = !compactTopDock || wideWorkbench;
   const rulerHeight = usePcWaveRuler ? PC_WAVE_RULER_HEIGHT : MOBILE_WAVE_RULER_HEIGHT;
-  const playheadTop = usePcWaveRuler
-    ? `calc(16px + 5mm - ${PLAYHEAD_LINE_BLEED_TOP_CSS}px)`
-    : `${13 - PLAYHEAD_LINE_BLEED_TOP_CSS}px`;
+  const playheadHeight = `calc(${rulerHeight} + ${waveCanvasCssH}px + ${PLAYHEAD_LINE_BLEED_BOTTOM_CSS}px)`;
   const waveLoadProgress = useWaveformLoadProgressStore((s) => s.progress);
   const showWaveLoadOverlay = !hasPeaks && waveLoadProgress != null;
-
-  const forwardPlayheadPointerDown = (e: PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0 || duration <= 0 || !hasPeaks) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    e.preventDefault();
-    e.stopPropagation();
-    onWaveCanvasPointerDown({
-      ...e,
-      currentTarget: canvas,
-      target: canvas,
-    } as PointerEvent<HTMLCanvasElement>);
-  };
 
   return (
     <div
@@ -180,18 +172,18 @@ export function WaveformStrip({
           ref={playheadLineOverlayRef}
           role="slider"
           aria-label="再生位置（ドラッグで移動・再生中も操作できます）"
-          onPointerDown={forwardPlayheadPointerDown}
+          onPointerDown={onPlayheadLinePointerDown}
+          onPointerMove={onPlayheadLinePointerMove}
+          onPointerUp={onPlayheadLinePointerUp}
+          onPointerCancel={onPlayheadLinePointerCancel}
           style={{
             position: "absolute",
             pointerEvents: duration > 0 && hasPeaks ? "auto" : "none",
             display: "none",
             left: "0%",
             transform: "translateX(-50%)",
-            top: playheadTop,
-            height:
-              PLAYHEAD_LINE_BLEED_TOP_CSS +
-              waveCanvasCssH +
-              PLAYHEAD_LINE_BLEED_BOTTOM_CSS,
+            top: 0,
+            height: playheadHeight,
             width: 16,
             cursor: "col-resize",
             touchAction: "none",

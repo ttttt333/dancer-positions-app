@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react";
-import type { MouseEvent, PointerEvent, RefObject } from "react";
+import type { PointerEvent, RefObject } from "react";
 import type { Cue, ChoreographyProjectJson } from "../types/choreography";
 import { playbackEngine } from "../core/playbackEngine";
 import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
@@ -8,10 +8,8 @@ import {
   pickCueDragKindAtWave,
   pickGapLinkAtWave,
 } from "../lib/timelineWaveGeometry";
+import { PC_GAP_LONG_PRESS_PAD_PX } from "../lib/waveLongPress";
 import {
-  PC_GAP_LONG_PRESS_PAD_PX,
-  synthMouseEventFromPointer,
-  WAVE_DRAG_ARM_PX,
   WAVE_LONG_PRESS_CANCEL_PX,
   WAVE_LONG_PRESS_MS,
 } from "../lib/waveLongPress";
@@ -23,8 +21,6 @@ type PendingLongPress = {
   originX: number;
   originY: number;
   downEvent: PointerEvent<HTMLCanvasElement>;
-  dragArmed: boolean;
-  hasCueBody: boolean;
 };
 
 export type UseWaveCanvasLongPressGateArgs = {
@@ -38,13 +34,13 @@ export type UseWaveCanvasLongPressGateArgs = {
   currentTimePropRef: RefObject<number>;
   isPlayingForWaveRef: RefObject<boolean>;
   suppressNextWaveSeekRef: RefObject<boolean>;
-  onWaveContextMenu: (e: MouseEvent<HTMLCanvasElement>) => void;
+  /** キュー間の動線のみ（長押し） */
+  openGapRouteMenuAtPointer: (clientX: number, clientY: number) => void;
   basePointerDown: (e: PointerEvent<HTMLCanvasElement>) => void;
 };
 
 /**
- * PC 波形: キュー帯・キュー間動線を長押しで設定メニューを開く。
- * 端末ドラッグ（キュー移動）は従来どおり、少し動かすと開始する。
+ * PC 波形: キュー同士の間だけ長押しで動線メニュー。キュー帯本体の長押しは無効。
  */
 export function useWaveCanvasLongPressGate({
   projectViewMode,
@@ -57,7 +53,7 @@ export function useWaveCanvasLongPressGate({
   currentTimePropRef,
   isPlayingForWaveRef,
   suppressNextWaveSeekRef,
-  onWaveContextMenu,
+  openGapRouteMenuAtPointer,
   basePointerDown,
 }: UseWaveCanvasLongPressGateArgs) {
   const pendingRef = useRef<PendingLongPress | null>(null);
@@ -132,7 +128,7 @@ export function useWaveCanvasLongPressGate({
         cueDragPreviewRangeRef.current
       );
 
-      if (cueHit && (cueHit.mode === "start" || cueHit.mode === "end")) {
+      if (cueHit) {
         basePointerDown(e);
         return;
       }
@@ -151,8 +147,7 @@ export function useWaveCanvasLongPressGate({
             )
           : null;
 
-      const cueBodyHit = cueHit?.mode === "move";
-      if (!cueBodyHit && !gapHit) {
+      if (!gapHit) {
         basePointerDown(e);
         return;
       }
@@ -161,7 +156,6 @@ export function useWaveCanvasLongPressGate({
       const pointerId = e.pointerId;
       const originX = e.clientX;
       const originY = e.clientY;
-      const downEvent = e;
 
       const cleanupListeners = () => {
         window.removeEventListener("pointermove", onMove);
@@ -174,17 +168,6 @@ export function useWaveCanvasLongPressGate({
         if (!pending || ev.pointerId !== pointerId) return;
         const dist = Math.hypot(ev.clientX - originX, ev.clientY - originY);
         if (dist <= WAVE_LONG_PRESS_CANCEL_PX) return;
-
-        window.clearTimeout(pending.timer);
-
-        if (pending.hasCueBody && !pending.dragArmed && dist > WAVE_DRAG_ARM_PX) {
-          pending.dragArmed = true;
-          pendingRef.current = null;
-          cleanupListeners();
-          basePointerDown(downEvent);
-          return;
-        }
-
         pendingRef.current = null;
         cleanupListeners();
       };
@@ -199,7 +182,7 @@ export function useWaveCanvasLongPressGate({
         pendingRef.current = null;
         cleanupListeners();
         suppressNextWaveSeekRef.current = true;
-        onWaveContextMenu(synthMouseEventFromPointer("contextmenu", downEvent));
+        openGapRouteMenuAtPointer(originX, originY);
       }, WAVE_LONG_PRESS_MS);
 
       pendingRef.current = {
@@ -207,9 +190,7 @@ export function useWaveCanvasLongPressGate({
         pointerId,
         originX,
         originY,
-        downEvent,
-        dragArmed: false,
-        hasCueBody: cueBodyHit,
+        downEvent: e,
       };
       cleanupRef.current = cleanupListeners;
 
@@ -227,7 +208,7 @@ export function useWaveCanvasLongPressGate({
       duration,
       isPlayingForWaveRef,
       lastWaveDrawRangeRef,
-      onWaveContextMenu,
+      openGapRouteMenuAtPointer,
       peaks,
       projectViewMode,
       suppressNextWaveSeekRef,

@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { ChoreographyProjectJson, Cue } from "../types/choreography";
 import {
@@ -25,6 +25,7 @@ import {
   type CueDragEdgeMode,
 } from "../lib/timelineWaveGeometry";
 import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
+import { panWaveViewStartAtClientX } from "../lib/waveEdgeScrollDuringScrub";
 import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
 
 export type UseWaveCanvasPointerDragArgs = {
@@ -39,6 +40,8 @@ export type UseWaveCanvasPointerDragArgs = {
   currentTimePropRef: RefObject<number>;
   isPlayingForWaveRef: RefObject<boolean>;
   viewPortionRef: RefObject<number>;
+  viewPortion: number;
+  setWaveViewStartOverride: Dispatch<SetStateAction<number | null>>;
   drawWaveformAt: (playheadTime: number) => void;
   cuesSorted: Cue[];
   cuesRef: RefObject<Cue[]>;
@@ -88,6 +91,8 @@ export function useWaveCanvasPointerDrag({
   currentTimePropRef,
   isPlayingForWaveRef,
   viewPortionRef,
+  viewPortion,
+  setWaveViewStartOverride,
   drawWaveformAt,
   cuesSorted,
   cuesRef,
@@ -106,8 +111,37 @@ export function useWaveCanvasPointerDrag({
   formations,
   onFormationChosenFromCueList,
 }: UseWaveCanvasPointerDragArgs) {
-  void waveViewStartOverrideRef;
-  void viewPortionRef;
+  const edgeScrollRafRef = useRef(0);
+  const scrubClientXRef = useRef<number | null>(null);
+
+  const applyEdgeScroll = useCallback(
+    (clientX: number) => {
+      const c = resolveActiveWaveCanvas(canvasRef);
+      if (!c) return;
+      const { viewStart, viewSpan } = lastWaveDrawRangeRef.current;
+      const vp = viewPortionRef.current ?? viewPortion;
+      const nextStart = panWaveViewStartAtClientX({
+        clientX,
+        canvasRect: c.getBoundingClientRect(),
+        viewStart,
+        viewSpan,
+        durationSec: duration,
+        viewPortion: vp,
+      });
+      if (nextStart != null) {
+        setWaveViewStartOverride(nextStart);
+      }
+    },
+    [
+      canvasRef,
+      duration,
+      lastWaveDrawRangeRef,
+      setWaveViewStartOverride,
+      viewPortion,
+      viewPortionRef,
+    ]
+  );
+
   return useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (e.button !== 0) return;
@@ -176,6 +210,9 @@ export function useWaveCanvasPointerDrag({
         waveHoverCueRef.current = null;
         const scrubSession = beginPlaybackScrubSession();
         playheadScrubDragRef.current = { pointerId: e.pointerId, scrubSession };
+        if (!useTimelineWaveBridgeStore.getState().portraitActive) {
+          applyEdgeScroll(e.clientX);
+        }
         const t0e = seekPlaybackScrubAudible({
           t: rawWaveTimeFromClientX(e.clientX),
           durationSec: duration,
@@ -194,6 +231,8 @@ export function useWaveCanvasPointerDrag({
               false,
               false
             );
+          } else {
+            applyEdgeScroll(ev.clientX);
           }
           const tMoved = seekPlaybackScrubAudible({
             t: rawWaveTimeFromClientX(ev.clientX),

@@ -13,7 +13,9 @@ type ViewportControls = {
 /** TimelinePanel の波形ハンドラを縦画面ポートレート波形へ共有 */
 export function useRegisterTimelineWaveBridge(
   waveBundleParams: TimelinePanelWaveHandlersBundleParams,
-  handlers: Handlers,
+  handlers: Handlers & {
+    openGapRouteMenuAtPointer: (clientX: number, clientY: number) => void;
+  },
   viewport: ViewportControls,
   isPlaying: boolean
 ) {
@@ -42,6 +44,8 @@ export function useRegisterTimelineWaveBridge(
       drawWaveformAt,
       setViewPortion: viewport.setViewPortion,
       setWaveViewStartOverride: viewport.setWaveViewStartOverride,
+      openGapRouteMenuAtPointer: (clientX, clientY) =>
+        handlersRef.current.openGapRouteMenuAtPointer(clientX, clientY),
       duration,
       isPlaying,
       hasPeaks,

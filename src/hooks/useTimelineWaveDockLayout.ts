@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { TIMELINE_BRAND_RAIL_CSS } from "../components/TimelineToolbar";
+import {
+  TIMELINE_BRAND_RAIL_CSS,
+  TIMELINE_BRAND_RAIL_WIDE_CSS,
+} from "../components/TimelineToolbar";
+import { TOP_DOCK_HEIGHT_PX, TOP_DOCK_HEIGHT_WIDE_PX } from "../pages/editor/editorConstants";
 import { WAVE_CANVAS_H_MAX, WAVE_CANVAS_H_MIN } from "./useTimelineWaveHeightDrag";
 
 /** 波形キャンバス既定高さ（CSS px）。`useTimelineWaveHeightDrag` の最小・最大と揃える */
@@ -21,8 +25,8 @@ type Params = {
 /** 上部ドック内で波形キャンバス以外（ツールバー・目盛り・余白・リサイズ枠）の目安 */
 export function estimateTopDockWaveChromePx(wideWorkbench: boolean): number {
   if (wideWorkbench) {
-    // コンパクトツールバー + calc(16px+5mm) 目盛り + gap/padding + リサイズ 8px
-    return 91;
+    // コンパクトツールバー + calc(16px+5mm) 目盛り + gap/padding + リサイズ 8px（PC 既定高さ 2/3 に比例）
+    return Math.round(91 * (TOP_DOCK_HEIGHT_WIDE_PX / TOP_DOCK_HEIGHT_PX));
   }
   return 48;
 }
@@ -47,7 +51,7 @@ export function useTimelineWaveDockLayout({
   const brandRailCss = useMemo(
     () =>
       wideWorkbench
-        ? TIMELINE_BRAND_RAIL_CSS
+        ? TIMELINE_BRAND_RAIL_WIDE_CSS
         : compactTopDock && editorMobileStack
           ? "minmax(0, 24px)"
           : "minmax(0, min(72px, 18vw))",

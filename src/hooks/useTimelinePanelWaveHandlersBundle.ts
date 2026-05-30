@@ -32,7 +32,7 @@ type WaveHandlersBundleParams = {
     PlaybackUiSlice,
     "currentTime" | "duration" | "setCurrentTime"
   >;
-  viewport: Pick<ViewportSlice, "viewPortion">;
+  viewport: Pick<ViewportSlice, "viewPortion" | "setWaveViewStartOverride">;
   projectSlice: Pick<
     ProjectSlice,
     "cuesSorted" | "trimStartSec" | "trimEndSec" | "formations"
@@ -81,7 +81,7 @@ export function useTimelinePanelWaveHandlersBundle({
   menus,
   cueActions,
 }: WaveHandlersBundleParams) {
-  const { onWaveClick, onWaveContextMenu, onWaveDoubleClick } =
+  const { onWaveClick, onWaveContextMenu, onWaveDoubleClick, openGapRouteMenuAtPointer } =
     useTimelineWaveCanvasActions({
       suppressNextWaveSeekRef: canvas.suppressNextWaveSeekRef,
       canvasRef: canvas.canvasRef,
@@ -107,6 +107,10 @@ export function useTimelinePanelWaveHandlersBundle({
     onWaveCanvasPointerDown,
     onWaveCanvasPointerMove,
     onWaveCanvasPointerLeave,
+    onPlayheadLinePointerDown,
+    onPlayheadLinePointerMove,
+    onPlayheadLinePointerUp,
+    onPlayheadLinePointerCancel,
   } = useTimelineWaveSurfaceHandlers({
     projectViewMode: project.viewMode,
     duration: playback.duration,
@@ -137,6 +141,8 @@ export function useTimelinePanelWaveHandlersBundle({
     formations: projectSlice.formations,
     onFormationChosenFromCueList,
     viewPortion: viewport.viewPortion,
+    setWaveViewStartOverride: viewport.setWaveViewStartOverride,
+    openGapRouteMenuAtPointer,
     currentTime: playback.currentTime,
     onWaveContextMenu,
   });
@@ -145,9 +151,14 @@ export function useTimelinePanelWaveHandlersBundle({
     onWaveClick,
     onWaveContextMenu,
     onWaveDoubleClick,
+    openGapRouteMenuAtPointer,
     onWaveRulerPointerDown,
     onWaveCanvasPointerDown,
     onWaveCanvasPointerMove,
     onWaveCanvasPointerLeave,
+    onPlayheadLinePointerDown,
+    onPlayheadLinePointerMove,
+    onPlayheadLinePointerUp,
+    onPlayheadLinePointerCancel,
   };
 }

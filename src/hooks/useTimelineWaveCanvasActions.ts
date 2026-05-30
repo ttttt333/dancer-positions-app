@@ -20,6 +20,7 @@ import type {
 } from "../components/TimelineWaveMenus";
 import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
 import { WAVE_DOUBLE_CLICK_CUE_SPAN_SEC } from "../lib/cueInterval";
+import { PC_GAP_LONG_PRESS_PAD_PX } from "../lib/waveLongPress";
 import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
 
 /** スマホ縦画面: キュー間タップ／長押しの当たり判定余白 */
@@ -300,5 +301,58 @@ export function useTimelineWaveCanvasActions({
     ]
   );
 
-  return { onWaveClick, onWaveContextMenu, onWaveDoubleClick };
+  const openGapRouteMenuAtPointer = useCallback(
+    (clientX: number, clientY: number) => {
+      if (viewMode === "view" || duration <= 0 || !peaks) return;
+      const c = resolveActiveWaveCanvas(canvasRef);
+      if (!c) return;
+      let viewStart = lastWaveDrawRangeRef.current.viewStart;
+      let viewSpan = lastWaveDrawRangeRef.current.viewSpan;
+      if (viewSpan <= 0) {
+        const gv = getWaveViewForDraw(duration, viewPortion, currentTime);
+        viewStart = gv.start;
+        viewSpan = gv.span;
+      }
+      if (viewSpan <= 0) return;
+      const portraitActive = useTimelineWaveBridgeStore.getState().portraitActive;
+      const gapTouchPad = portraitActive ? MOBILE_GAP_TOUCH_PADDING_PX : PC_GAP_LONG_PRESS_PAD_PX;
+      const gapLink = pickGapLinkAtWave(
+        clientX,
+        clientY,
+        c,
+        cuesSorted,
+        viewStart,
+        viewSpan,
+        cueDragPreviewRangeRef.current,
+        gapTouchPad
+      );
+      if (!gapLink) return;
+      setWaveCueMenu(null);
+      setWaveCueConfirm(null);
+      onSelectedCueIdsChange([gapLink.nextCueId]);
+      setGapRouteMenu({
+        nextCueId: gapLink.nextCueId,
+        clientX,
+        clientY,
+        ...(portraitActive ? { fullscreen: true } : {}),
+      });
+    },
+    [
+      viewMode,
+      duration,
+      peaks,
+      canvasRef,
+      lastWaveDrawRangeRef,
+      viewPortion,
+      currentTime,
+      cuesSorted,
+      cueDragPreviewRangeRef,
+      onSelectedCueIdsChange,
+      setGapRouteMenu,
+      setWaveCueConfirm,
+      setWaveCueMenu,
+    ]
+  );
+
+  return { onWaveClick, onWaveContextMenu, onWaveDoubleClick, openGapRouteMenuAtPointer };
 }

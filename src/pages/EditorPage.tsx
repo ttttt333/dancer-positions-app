@@ -146,6 +146,7 @@ import {
   STAGE_RESIZER_PX,
   TIMELINE_FULL_COL_MIN_PX,
   TOP_DOCK_HEIGHT_PX,
+  TOP_DOCK_HEIGHT_WIDE_PX,
   TOP_DOCK_ROW_MAX_PX,
   TOP_DOCK_ROW_MIN_PX,
 } from "./editor/editorConstants";
@@ -2281,8 +2282,8 @@ export function EditorPage({
 
   // wideEditorLayout時は常に固定 160px 下バー
   const wideBottomDockPx = topDockRowPx != null
-    ? Math.max(TOP_DOCK_HEIGHT_PX, clampTopDockRowPx(topDockRowPx))
-    : TOP_DOCK_HEIGHT_PX;
+    ? Math.max(TOP_DOCK_HEIGHT_WIDE_PX, clampTopDockRowPx(topDockRowPx))
+    : TOP_DOCK_HEIGHT_WIDE_PX;
   const editorPaneGridTemplateRows = stageZenLayout
     ? "1fr"
     : wideEditorLayout

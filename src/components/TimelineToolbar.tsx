@@ -119,6 +119,9 @@ export function tlPx(n: number): string {
  */
 export const TIMELINE_BRAND_RAIL_CSS = "clamp(200px, 28vw, 340px)";
 
+/** PC ワイド上部ドック: 左右レール幅（`TIMELINE_BRAND_RAIL_CSS` の 2/3） */
+export const TIMELINE_BRAND_RAIL_WIDE_CSS = "clamp(133px, 18.67vw, 227px)";
+
 const timelineToolbarBtn: CSSProperties = {
   ...btnSecondary,
   padding: `${tlPx(3)} ${tlPx(8)}`,

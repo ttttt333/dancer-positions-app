@@ -603,7 +603,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
         if (typeof navigator !== "undefined" && navigator.vibrate) {
           navigator.vibrate(12);
         }
-        bridgeApi.handlers.onWaveContextMenu(synthMouseEvent("contextmenu", e));
+        bridgeApi.openGapRouteMenuAtPointer?.(e.clientX, e.clientY);
       }, LONG_PRESS_MS);
     },
     [bridgeApi, zoom, currentTime, timeFromClientX, clearLongPress, clearPendingSingleTap, isNearPlayhead]
@@ -940,7 +940,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
             aria-valuemin={0}
             aria-valuemax={duration}
             aria-valuenow={currentTime}
-            aria-label="波形（タップで再生位置を移動・ダブルタップで10秒のキュー追加・ドラッグでキュー調整・長押しで導線/キューメニュー）"
+            aria-label="波形（タップで再生位置を移動・ダブルタップで10秒のキュー追加・ドラッグでキュー調整・キュー間を長押しで導線メニュー）"
           />
           {showWaveLoadOverlay ? (
             <WaveformLoadOverlay visible compact className={styles.wavePlaceholder} />

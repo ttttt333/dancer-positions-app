@@ -1,4 +1,4 @@
-import type { PointerEvent } from "react";
+import type { Dispatch, PointerEvent, SetStateAction } from "react";
 import { useCallback, useRef } from "react";
 import { playbackEngine } from "../core/playbackEngine";
 import {
@@ -15,6 +15,7 @@ import {
   waveExtentXToTime,
 } from "../lib/timelineWaveGeometry";
 import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
+import { panWaveViewStartAtClientX } from "../lib/waveEdgeScrollDuringScrub";
 import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
 import {
   useWaveCanvasPointerDrag,
@@ -27,7 +28,8 @@ export type UseTimelineWaveSurfaceHandlersParams = UseWaveCanvasPointerDragArgs 
   /** 目盛りクリック時に `lastWaveDrawRangeRef` が未更新のときのフォールバック */
   viewPortion: number;
   currentTime: number;
-  onWaveContextMenu: (e: MouseEvent<HTMLCanvasElement>) => void;
+  setWaveViewStartOverride: Dispatch<SetStateAction<number | null>>;
+  openGapRouteMenuAtPointer: (clientX: number, clientY: number) => void;
 };
 
 /**
@@ -37,11 +39,21 @@ export type UseTimelineWaveSurfaceHandlersParams = UseWaveCanvasPointerDragArgs 
 export function useTimelineWaveSurfaceHandlers(
   params: UseTimelineWaveSurfaceHandlersParams
 ) {
-  const { viewPortion, currentTime, onWaveContextMenu, ...dragArgs } = params;
-  const basePointerDown = useWaveCanvasPointerDrag(dragArgs);
+  const {
+    viewPortion,
+    currentTime,
+    openGapRouteMenuAtPointer,
+    setWaveViewStartOverride,
+    ...dragArgs
+  } = params;
+  const basePointerDown = useWaveCanvasPointerDrag({
+    ...dragArgs,
+    viewPortion,
+    setWaveViewStartOverride,
+  });
   const { onWaveCanvasPointerDown, clearPending } = useWaveCanvasLongPressGate({
     ...dragArgs,
-    onWaveContextMenu,
+    openGapRouteMenuAtPointer,
     basePointerDown,
   });
 
@@ -64,6 +76,135 @@ export function useTimelineWaveSurfaceHandlers(
     waveHoverCueRef,
   } = params;
   const rulerScrubSessionRef = useRef<PlaybackScrubSession | null>(null);
+  const playheadEdgeScrollRafRef = useRef(0);
+  const playheadScrubClientXRef = useRef<number | null>(null);
+
+  const resolveViewRange = useCallback(() => {
+    let viewStart = lastWaveDrawRangeRef.current.viewStart;
+    let viewSpan = lastWaveDrawRangeRef.current.viewSpan;
+    if (viewSpan <= 0) {
+      const gv = getWaveViewForDraw(duration, viewPortion, currentTime);
+      viewStart = gv.start;
+      viewSpan = gv.span;
+    }
+    return { viewStart, viewSpan };
+  }, [canvasRef, currentTime, duration, lastWaveDrawRangeRef, viewPortion]);
+
+  const timeAtClientX = useCallback(
+    (clientX: number) => {
+      const c = resolveActiveWaveCanvas(canvasRef);
+      if (!c) return null;
+      const { viewStart, viewSpan } = resolveViewRange();
+      if (viewSpan <= 0) return null;
+      const r = c.getBoundingClientRect();
+      return waveExtentXToTime(clientX - r.left, viewStart, viewSpan, r.width);
+    },
+    [canvasRef, resolveViewRange]
+  );
+
+  const applyEdgeScrollAtClientX = useCallback(
+    (clientX: number) => {
+      const c = resolveActiveWaveCanvas(canvasRef);
+      if (!c) return;
+      const { viewStart, viewSpan } = resolveViewRange();
+      const nextStart = panWaveViewStartAtClientX({
+        clientX,
+        canvasRect: c.getBoundingClientRect(),
+        viewStart,
+        viewSpan,
+        durationSec: duration,
+        viewPortion,
+      });
+      if (nextStart != null) {
+        setWaveViewStartOverride(nextStart);
+      }
+    },
+    [
+      canvasRef,
+      duration,
+      resolveViewRange,
+      setWaveViewStartOverride,
+      viewPortion,
+    ]
+  );
+
+  const stopPlayheadEdgeScrollLoop = useCallback(() => {
+    if (playheadEdgeScrollRafRef.current) {
+      cancelAnimationFrame(playheadEdgeScrollRafRef.current);
+      playheadEdgeScrollRafRef.current = 0;
+    }
+    playheadScrubClientXRef.current = null;
+  }, []);
+
+  const tickPlayheadEdgeScrollLoop = useCallback(() => {
+    playheadEdgeScrollRafRef.current = 0;
+    const x = playheadScrubClientXRef.current;
+    if (x == null || !playheadScrubDragRef.current) return;
+    applyEdgeScrollAtClientX(x);
+    const t = timeAtClientX(x);
+    if (t != null) {
+      const moved = seekPlaybackScrubAudible({
+        t,
+        durationSec: duration,
+        trimStartSec,
+        trimEndSec,
+        roundHeadForStore: true,
+      });
+      if (moved != null) drawWaveformAt(moved);
+    }
+    playheadEdgeScrollRafRef.current = requestAnimationFrame(tickPlayheadEdgeScrollLoop);
+  }, [
+    applyEdgeScrollAtClientX,
+    drawWaveformAt,
+    duration,
+    playheadScrubDragRef,
+    timeAtClientX,
+    trimEndSec,
+    trimStartSec,
+  ]);
+
+  const scrubAtClientX = useCallback(
+    (clientX: number, opts?: { edgeLoop?: boolean }) => {
+      applyEdgeScrollAtClientX(clientX);
+      const t = timeAtClientX(clientX);
+      if (t == null) return null;
+      const moved = seekPlaybackScrubAudible({
+        t,
+        durationSec: duration,
+        trimStartSec,
+        trimEndSec,
+        roundHeadForStore: true,
+      });
+      if (moved != null) drawWaveformAt(moved);
+      if (opts?.edgeLoop) {
+        playheadScrubClientXRef.current = clientX;
+        const c = resolveActiveWaveCanvas(canvasRef);
+        if (c && viewPortion < 1 - 1e-9) {
+          const r = c.getBoundingClientRect();
+          const zone = Math.max(32, r.width * 0.14);
+          const inEdge =
+            clientX <= r.left + zone || clientX >= r.right - zone;
+          if (inEdge && !playheadEdgeScrollRafRef.current) {
+            playheadEdgeScrollRafRef.current = requestAnimationFrame(
+              tickPlayheadEdgeScrollLoop
+            );
+          }
+        }
+      }
+      return moved;
+    },
+    [
+      applyEdgeScrollAtClientX,
+      canvasRef,
+      drawWaveformAt,
+      duration,
+      tickPlayheadEdgeScrollLoop,
+      timeAtClientX,
+      trimEndSec,
+      trimStartSec,
+      viewPortion,
+    ]
+  );
 
   const onWaveRulerPointerDown = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
@@ -274,10 +415,71 @@ export function useTimelineWaveSurfaceHandlers(
     drawWaveformAt,
   ]);
 
+  const onPlayheadLinePointerDown = useCallback(
+    (e: PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      if (projectViewMode === "view" || duration <= 0 || !peaks) return;
+      if (!playbackEngine.getMediaSourceUrl()) return;
+      e.preventDefault();
+      e.stopPropagation();
+      clearPending();
+      const scrubSession = beginPlaybackScrubSession();
+      playheadScrubDragRef.current = { pointerId: e.pointerId, scrubSession };
+      scrubAtClientX(e.clientX, { edgeLoop: true });
+      e.currentTarget.setPointerCapture(e.pointerId);
+    },
+    [
+      clearPending,
+      duration,
+      peaks,
+      playheadScrubDragRef,
+      projectViewMode,
+      scrubAtClientX,
+    ]
+  );
+
+  const onPlayheadLinePointerMove = useCallback(
+    (e: PointerEvent<HTMLDivElement>) => {
+      if (!playheadScrubDragRef.current) return;
+      if (playheadScrubDragRef.current.pointerId !== e.pointerId) return;
+      if (!(e.buttons & 1)) return;
+      e.preventDefault();
+      scrubAtClientX(e.clientX, { edgeLoop: true });
+    },
+    [playheadScrubDragRef, scrubAtClientX]
+  );
+
+  const endPlayheadLineDrag = useCallback(
+    (e: PointerEvent<HTMLDivElement>) => {
+      if (!playheadScrubDragRef.current) return;
+      if (playheadScrubDragRef.current.pointerId !== e.pointerId) return;
+      stopPlayheadEdgeScrollLoop();
+      params.suppressNextWaveSeekRef.current = true;
+      scrubAtClientX(e.clientX);
+      endPlaybackScrubSession(playheadScrubDragRef.current.scrubSession);
+      playheadScrubDragRef.current = null;
+      try {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+    },
+    [
+      params.suppressNextWaveSeekRef,
+      playheadScrubDragRef,
+      scrubAtClientX,
+      stopPlayheadEdgeScrollLoop,
+    ]
+  );
+
   return {
     onWaveRulerPointerDown,
     onWaveCanvasPointerDown,
     onWaveCanvasPointerMove,
     onWaveCanvasPointerLeave,
+    onPlayheadLinePointerDown,
+    onPlayheadLinePointerMove,
+    onPlayheadLinePointerUp: endPlayheadLineDrag,
+    onPlayheadLinePointerCancel: endPlayheadLineDrag,
   };
 }
