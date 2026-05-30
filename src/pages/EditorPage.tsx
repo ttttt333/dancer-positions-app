@@ -172,6 +172,7 @@ import {
 import { useEditorProjectLoader } from "../hooks/useEditorProjectLoader";
 import { useEditorHistory } from "../hooks/useEditorHistory";
 import { useEditorCloudSave } from "../hooks/useEditorCloudSave";
+import { useEditorAutoSave } from "../hooks/useEditorAutoSave";
 
 
 const DEFAULT_ROSTER_CONFIRM_PRESET: LayoutPresetId = "rows_3";
@@ -240,6 +241,7 @@ export function EditorPage({
     setSaving,
     navigate,
   });
+
   const currentTime = usePlaybackUiStore((s) => s.currentTimeSec);
   const isPlaying = usePlaybackUiStore((s) => s.isPlaying);
   const setIsPlaying = usePlaybackUiStore((s) => s.setIsPlaying);
@@ -442,7 +444,27 @@ export function EditorPage({
   if (project) {
     projectForHistoryRef.current = project;
     projectPagerRef.current = project;
+    projectSaveRef.current = project;
   }
+
+  const projectAutoSaveSig = useMemo(
+    () => (project ? JSON.stringify(project) : ""),
+    [project]
+  );
+
+  useEditorAutoSave({
+    enabled:
+      !!me &&
+      !choreoPublicView &&
+      !collabActive &&
+      project?.viewMode !== "view",
+    projectRef,
+    projectName,
+    serverId,
+    syncProjectToCloud,
+    setSaving,
+    projectChangeSig: projectAutoSaveSig,
+  });
 
 
   const editorAudioSession = useEditorAudioSession({

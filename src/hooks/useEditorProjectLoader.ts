@@ -13,6 +13,7 @@ import {
   tryMigrateFromLocalStorage,
 } from "../lib/projectDefaults";
 import { normalizeProject } from "../lib/normalizeProject";
+import { loadEditorDraft } from "../lib/editorDraftStorage";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import type { Me } from "../types/authMe";
 
@@ -93,7 +94,13 @@ export function useEditorProjectLoader({
 
     if (projectId === "new" || !projectId) {
       const migrated = tryMigrateFromLocalStorage();
-      setPlainProject((prev) => prev ?? migrated ?? createEmptyProject());
+      const draft = loadEditorDraft(null);
+      const fromDraft =
+        draft?.project != null ? normalizeProject(draft.project) : null;
+      setPlainProject((prev) => prev ?? fromDraft ?? migrated ?? createEmptyProject());
+      if (fromDraft && draft?.projectName) {
+        setProjectName(draft.projectName);
+      }
       setServerId(null);
       setServerShareToken(null);
       setLoadError(null);
@@ -164,11 +171,32 @@ export function useEditorProjectLoader({
         setServerShareToken(row.share_token ?? null);
         setProjectName(row.name);
         const baseJson = normalizeProject(row.json);
+        const draft = loadEditorDraft(id);
+        let loadedJson = baseJson;
+        if (
+          draft &&
+          draft.serverId === id &&
+          draft.project
+        ) {
+          const draftMs = Date.parse(draft.savedAt);
+          const serverMs = Date.parse(row.updated_at);
+          if (
+            Number.isFinite(draftMs) &&
+            (!Number.isFinite(serverMs) || draftMs > serverMs + 500)
+          ) {
+            loadedJson = normalizeProject(draft.project);
+            setProjectName(
+              draft.projectName?.trim() ||
+                draft.project.pieceTitle?.trim() ||
+                row.name
+            );
+          }
+        }
         if (collabParam && me) {
           setPlainProject(null);
         } else {
           setPlainProject(
-            choreoPublicView ? { ...baseJson, viewMode: "view" } : baseJson
+            choreoPublicView ? { ...loadedJson, viewMode: "view" } : loadedJson
           );
         }
         setLoadError(null);

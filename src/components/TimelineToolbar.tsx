@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { flushEditorAutoSaveBeforeLeave } from "../lib/editorAutoSaveBridge";
 import type { CSSProperties, ReactNode } from "react";
 import { memo, useEffect, useLayoutEffect, useRef } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
@@ -185,11 +186,16 @@ function WaveHistoryRoundIcon({
 
 function ChoreoCoreHeaderBrand({ compact }: { compact?: boolean }) {
   const { t } = useI18n();
+  const navigate = useNavigate();
   return (
     <Link
       to="/"
       title={t("editor.comp.k051")}
       aria-label={t("editor.comp.k007")}
+      onClick={(e) => {
+        e.preventDefault();
+        void flushEditorAutoSaveBeforeLeave().finally(() => navigate("/"));
+      }}
       style={{
         boxSizing: "border-box",
         display: "flex",

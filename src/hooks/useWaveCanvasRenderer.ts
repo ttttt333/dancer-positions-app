@@ -175,14 +175,21 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         const top = inset;
         const boxH = h - inset * 2;
         const edgeSeg = Math.min(18, Math.max(6, width * 0.14));
-        const baseLw = opts.isSel ? 1.75 : opts.isDrag ? 1.65 : 1.35;
+        const baseLw = opts.isSel ? 2.1 : opts.isDrag ? 1.65 : 1.35;
         const gold =
-          opts.isSel || opts.isDrag
-            ? "rgba(234, 200, 95, 0.98)"
-            : opts.isHover
-              ? "rgba(212, 175, 55, 0.92)"
-              : "rgba(212, 175, 55, 0.82)";
-        const goldEdge = opts.hoverStart || opts.hoverEnd ? "rgba(250, 230, 160, 0.98)" : gold;
+          opts.isSel
+            ? "rgba(239, 68, 68, 0.98)"
+            : opts.isDrag
+              ? "rgba(234, 200, 95, 0.98)"
+              : opts.isHover
+                ? "rgba(212, 175, 55, 0.92)"
+                : "rgba(212, 175, 55, 0.82)";
+        const goldEdge =
+          opts.isSel
+            ? "rgba(252, 165, 165, 0.98)"
+            : opts.hoverStart || opts.hoverEnd
+              ? "rgba(250, 230, 160, 0.98)"
+              : gold;
         g.strokeStyle = gold;
         g.lineWidth = baseLw;
         g.lineJoin = "miter";

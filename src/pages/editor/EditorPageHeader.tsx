@@ -1,10 +1,12 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ChoreoCoreLogo } from "../../components/ChoreoGridLogo";
+import { flushEditorAutoSaveBeforeLeave } from "../../lib/editorAutoSaveBridge";
 import { inputField } from "../../components/stageButtonStyles";
 import { shell } from "../../theme/choreoShell";
 import type { EditorLayoutProps } from "./editorLayoutProps";
 
 export function EditorPageHeader(props: EditorLayoutProps) {
+  const navigate = useNavigate();
   const mobileStackEditor = props.mobileStackEditor as boolean;
   const editorMobileLandscape = props.editorMobileLandscape as boolean;
   const project = props.project as EditorLayoutProps["project"];
@@ -34,6 +36,10 @@ export function EditorPageHeader(props: EditorLayoutProps) {
         to="/"
         title={t("editor.backTitle")}
         aria-label={t("editor.backTitle")}
+        onClick={(e) => {
+          e.preventDefault();
+          void flushEditorAutoSaveBeforeLeave().finally(() => navigate("/"));
+        }}
         style={{
           display: "inline-flex",
           alignItems: "center",
