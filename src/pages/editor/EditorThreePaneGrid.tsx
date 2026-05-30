@@ -204,6 +204,9 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const wideBottomDockPx = props.wideBottomDockPx as never;
   const wideEditorLayout = props.wideEditorLayout as never;
   const workbenchInRightRail = props.workbenchInRightRail as never;
+  /** PCワイド＋上部波形: ステージを波形バー直下まで隙間なく広げる */
+  const stageFlushTopDock =
+    wideEditorLayout && showTopWaveDock && !stageZenLayout && !mobileStackEditor;
   const xPct = props.xPct as never;
   const yPct = props.yPct as never;
 
@@ -409,7 +412,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 display: "grid",
                 gridTemplateColumns: editorPaneGridTemplateColumns,
                 gridTemplateRows: editorPaneGridTemplateRows,
-                gap: wideEditorLayout ? "4px" : `${EDITOR_GRID_GAP_PX}px`,
+                gap: wideEditorLayout ? (stageFlushTopDock ? "0" : "4px") : `${EDITOR_GRID_GAP_PX}px`,
                 padding: publicNarrowLayout
                   ? "4px max(4px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px))"
                   : wideEditorLayout
@@ -472,13 +475,20 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
           className="editor-stage-section"
           style={{
             ...panelCard,
-            padding: mobileStackEditor ? "3px 4px" : "5px",
+            padding: mobileStackEditor ? "3px 4px" : stageFlushTopDock ? "0" : "5px",
             minHeight: 0,
             minWidth: 0,
             position: "relative",
             display: "flex",
             flexDirection: "column",
             overflow: "visible",
+            ...(stageFlushTopDock
+              ? {
+                  borderTopLeftRadius: 0,
+                  borderTopRightRadius: 0,
+                  borderTop: "none",
+                }
+              : {}),
             ...(wideEditorLayout
               ? {
                   gridColumn: stageZenLayout ? "1 / -1" : 1,
@@ -515,7 +525,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
               縮小
             </button>
           ) : null}
-          {wideEditorLayout && rightPaneCollapsed ? (
+          {wideEditorLayout && rightPaneCollapsed && !stageFlushTopDock ? (
             <section
               style={{
                 ...panelCard,
@@ -531,7 +541,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
           {!workbenchInRightRail &&
           !stageZenLayout &&
           !publicNarrowLayout &&
-          !mobileStackEditor ? (
+          !mobileStackEditor &&
+          !stageFlushTopDock ? (
             <div
               style={
                 floorTextPlaceSession
@@ -581,10 +592,18 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                   flexDirection: "column",
                   alignItems: "flex-end",
                   gap: 3,
-                  padding: "0 2px 2px",
+                  padding: stageFlushTopDock ? "4px 4px 0 0" : "0 2px 2px",
                   minWidth: 0,
                   maxWidth: "100%",
                   pointerEvents: "auto",
+                  ...(stageFlushTopDock
+                    ? {
+                        position: "absolute",
+                        top: 0,
+                        right: 0,
+                        zIndex: 45,
+                      }
+                    : {}),
                 }}
               >
                 {cuesSortedForStageJump.length > 0 || hasRosterMembers ? (

@@ -270,7 +270,7 @@ export function EditorPageLayout(props: EditorLayoutProps) {
             height: wideEditorLayout ? wideBottomDockPx : TOP_DOCK_HEIGHT_PX,
             position: "relative",
             background: "transparent",
-            marginBottom: 4,
+            marginBottom: wideEditorLayout ? 0 : 4,
             display: publicNarrowLayout ? "none" : undefined,
           }}
         >
@@ -279,11 +279,11 @@ export function EditorPageLayout(props: EditorLayoutProps) {
             ref={attachTopDockSection}
             style={{
               position: "absolute",
-              inset: "0 0 8px 0",
+              inset: wideEditorLayout ? 0 : "0 0 8px 0",
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",
-              padding: "0 4px 4px",
+              padding: wideEditorLayout ? 0 : "0 4px 4px",
             }}
           >
             {timelinePanelEl}
