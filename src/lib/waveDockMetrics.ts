@@ -5,11 +5,19 @@ export const PORTRAIT_WAVE_CANVAS_H_PX = 96;
 export const PC_WAVE_RULER_HEIGHT_CSS = "calc((16px + 5mm) * 2 / 3)";
 
 /** 5mm を 96dpi で換算した px（目盛り chrome 見積もり用） */
-const MM_TO_PX_AT_96DPI = 96 / 25.4;
+export const CSS_MM_TO_PX = 96 / 25.4;
+
+/** 波形キャンバスは CSS 高さの 2 倍のビットマップで描画 */
+export const WAVE_CANVAS_BITMAP_TO_CSS = 2;
+
+/** CSS mm を波形ビットマップ座標の px に換算 */
+export function waveCanvasBitmapPxFromCssMm(mm: number): number {
+  return mm * CSS_MM_TO_PX * WAVE_CANVAS_BITMAP_TO_CSS;
+}
 
 /** 目盛り行の px 目安（2/3 縮小後） */
 export const PC_WAVE_RULER_CHROME_PX = Math.round(
-  ((16 + 5 * MM_TO_PX_AT_96DPI) * 2) / 3
+  ((16 + 5 * CSS_MM_TO_PX) * 2) / 3
 );
 
 /** コンパクト再生ツールバー行（minHeight + padding + border） */
