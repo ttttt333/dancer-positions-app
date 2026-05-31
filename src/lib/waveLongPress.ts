@@ -9,6 +9,9 @@ export const WAVE_LONG_PRESS_CANCEL_PX = 18;
 /** この距離以上動いたらドラッグ操作を開始（キュー移動など） */
 export const WAVE_DRAG_ARM_PX = 14;
 
+/** 再生バー: この距離以上動いたときだけシーク（クリックのみでは進めない） */
+export const PLAYHEAD_SCRUB_ARM_PX = 4;
+
 /** PC: キュー間動線の長押し当たり判定余白 */
 export const PC_GAP_LONG_PRESS_PAD_PX = 14;
 

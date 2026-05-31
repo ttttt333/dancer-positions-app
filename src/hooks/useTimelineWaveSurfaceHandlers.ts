@@ -17,6 +17,7 @@ import {
 import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
 import { panWaveViewStartAtClientX } from "../lib/waveEdgeScrollDuringScrub";
 import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
+import { PLAYHEAD_SCRUB_ARM_PX } from "../lib/waveLongPress";
 import {
   useWaveCanvasPointerDrag,
   type UseWaveCanvasPointerDragArgs,
@@ -139,7 +140,7 @@ export function useTimelineWaveSurfaceHandlers(
   const tickPlayheadEdgeScrollLoop = useCallback(() => {
     playheadEdgeScrollRafRef.current = 0;
     const x = playheadScrubClientXRef.current;
-    if (x == null || !playheadScrubDragRef.current) return;
+    if (x == null || !playheadScrubDragRef.current?.armed) return;
     applyEdgeScrollAtClientX(x);
     const t = timeAtClientX(x);
     if (t != null) {
@@ -423,9 +424,13 @@ export function useTimelineWaveSurfaceHandlers(
       e.preventDefault();
       e.stopPropagation();
       clearPending();
-      const scrubSession = beginPlaybackScrubSession();
-      playheadScrubDragRef.current = { pointerId: e.pointerId, scrubSession };
-      scrubAtClientX(e.clientX, { edgeLoop: true });
+      playheadScrubDragRef.current = {
+        pointerId: e.pointerId,
+        scrubSession: null,
+        originX: e.clientX,
+        originY: e.clientY,
+        armed: false,
+      };
       e.currentTarget.setPointerCapture(e.pointerId);
     },
     [
@@ -434,15 +439,21 @@ export function useTimelineWaveSurfaceHandlers(
       peaks,
       playheadScrubDragRef,
       projectViewMode,
-      scrubAtClientX,
     ]
   );
 
   const onPlayheadLinePointerMove = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
-      if (!playheadScrubDragRef.current) return;
-      if (playheadScrubDragRef.current.pointerId !== e.pointerId) return;
+      const drag = playheadScrubDragRef.current;
+      if (!drag || drag.pointerId !== e.pointerId) return;
       if (!(e.buttons & 1)) return;
+      if (!drag.armed) {
+        const dx = e.clientX - drag.originX;
+        const dy = e.clientY - drag.originY;
+        if (Math.hypot(dx, dy) < PLAYHEAD_SCRUB_ARM_PX) return;
+        drag.armed = true;
+        drag.scrubSession = beginPlaybackScrubSession();
+      }
       e.preventDefault();
       scrubAtClientX(e.clientX, { edgeLoop: true });
     },
@@ -451,12 +462,14 @@ export function useTimelineWaveSurfaceHandlers(
 
   const endPlayheadLineDrag = useCallback(
     (e: PointerEvent<HTMLDivElement>) => {
-      if (!playheadScrubDragRef.current) return;
-      if (playheadScrubDragRef.current.pointerId !== e.pointerId) return;
+      const drag = playheadScrubDragRef.current;
+      if (!drag || drag.pointerId !== e.pointerId) return;
       stopPlayheadEdgeScrollLoop();
-      params.suppressNextWaveSeekRef.current = true;
-      scrubAtClientX(e.clientX);
-      endPlaybackScrubSession(playheadScrubDragRef.current.scrubSession);
+      if (drag.armed) {
+        params.suppressNextWaveSeekRef.current = true;
+        scrubAtClientX(e.clientX);
+        endPlaybackScrubSession(drag.scrubSession);
+      }
       playheadScrubDragRef.current = null;
       try {
         e.currentTarget.releasePointerCapture(e.pointerId);

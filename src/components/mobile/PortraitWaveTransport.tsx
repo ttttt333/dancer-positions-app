@@ -35,6 +35,7 @@ import {
   getWaveViewForDraw,
   resolveWaveDrawView,
 } from "../../lib/timelineWaveGeometry";
+import { PLAYHEAD_SCRUB_ARM_PX } from "../../lib/waveLongPress";
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 48;
@@ -159,6 +160,8 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   const scrubActiveRef = useRef(false);
   const scrubShouldSeekRef = useRef(true);
   const playheadDragRef = useRef(false);
+  const playheadScrubArmedRef = useRef(false);
+  const playheadOriginRef = useRef({ x: 0, y: 0 });
   const scrubSessionRef = useRef<PlaybackScrubSession | null>(null);
 
   const viewDuration = duration > 0 ? duration / zoom : 0;
@@ -517,28 +520,36 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       e.stopPropagation();
       clearPendingSingleTap();
       clearLongPress();
-      startScrubSession();
       playheadDragRef.current = true;
+      playheadScrubArmedRef.current = false;
+      playheadOriginRef.current = { x: e.clientX, y: e.clientY };
       e.currentTarget.setPointerCapture(e.pointerId);
-      handlePortraitWaveScrub(e.clientX);
     },
-    [audioUrl, duration, handlePortraitWaveScrub, clearPendingSingleTap, clearLongPress, startScrubSession]
+    [audioUrl, duration, clearPendingSingleTap, clearLongPress]
   );
 
   const onPlayheadPointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (!playheadDragRef.current || !(e.buttons & 1)) return;
+      if (!playheadScrubArmedRef.current) {
+        const { x, y } = playheadOriginRef.current;
+        if (Math.hypot(e.clientX - x, e.clientY - y) < PLAYHEAD_SCRUB_ARM_PX) return;
+        playheadScrubArmedRef.current = true;
+        startScrubSession();
+      }
       e.preventDefault();
       handlePortraitWaveScrub(e.clientX);
     },
-    [handlePortraitWaveScrub]
+    [handlePortraitWaveScrub, startScrubSession]
   );
 
   const endPlayheadDrag = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (!playheadDragRef.current) return;
+      const wasArmed = playheadScrubArmedRef.current;
       playheadDragRef.current = false;
-      handlePortraitWaveScrub(e.clientX, true);
+      playheadScrubArmedRef.current = false;
+      if (wasArmed) handlePortraitWaveScrub(e.clientX, true);
       try {
         e.currentTarget.releasePointerCapture(e.pointerId);
       } catch {

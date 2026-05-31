@@ -26,6 +26,7 @@ import { deleteFlowLibraryAudio, putFlowLibraryAudio } from "../lib/flowLibraryL
 import { projectApi } from "../api/client";
 import { isSupabaseBackend } from "../lib/supabaseClient";
 import { copyTextToClipboard, projectShareLinks } from "../lib/shareProjectLinks";
+import { yieldToMain } from "../lib/yieldToMain";
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
 import { EditorSideSheet } from "./EditorSideSheet";
 import { FlowLibraryFormationPreview } from "./FlowLibraryFormationPreview";
@@ -218,6 +219,7 @@ export function FlowLibraryDialog({
       return;
     }
     setBusy(true);
+    await yieldToMain();
     let flowEmbeddedAudioKey: string | null = null;
     try {
       if (project.audioAssetId == null &&
@@ -236,6 +238,7 @@ export function FlowLibraryDialog({
         const cloud = await syncProjectToCloud();
         linkId = cloud.id;
       }
+      await yieldToMain();
       const r = saveFlowFromProject(trimmed, project, {
         includeTiming: true,
         wavePeaks: getWavePeaks?.() ?? null,
@@ -279,6 +282,7 @@ export function FlowLibraryDialog({
     async (id: string, label: string) => {
       if (!confirm(`「${label}」を現在のステージ内容で上書きします。よろしいですか？`)) return;
       setBusy(true);
+      await yieldToMain();
       let flowEmbeddedAudioKey: string | null = null;
       try {
         if (project.audioAssetId == null &&
@@ -297,6 +301,7 @@ export function FlowLibraryDialog({
           const cloud = await syncProjectToCloud();
           linkId = cloud.id;
         }
+        await yieldToMain();
         const r = overwriteFlowFromProject(id, project, {
           includeTiming: true,
           wavePeaks: getWavePeaks?.() ?? null,

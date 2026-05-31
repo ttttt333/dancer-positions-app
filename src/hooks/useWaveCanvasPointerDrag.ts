@@ -27,6 +27,7 @@ import {
 import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
 import { panWaveViewStartAtClientX } from "../lib/waveEdgeScrollDuringScrub";
 import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
+import { PLAYHEAD_SCRUB_ARM_PX } from "../lib/waveLongPress";
 
 export type UseWaveCanvasPointerDragArgs = {
   projectViewMode: ChoreographyProjectJson["viewMode"];
@@ -55,7 +56,13 @@ export type UseWaveCanvasPointerDragArgs = {
     origEnd: number;
   } | null>;
   cueDragPreviewRangeRef: RefObject<{ cueId: string; tStart: number; tEnd: number } | null>;
-  playheadScrubDragRef: RefObject<{ pointerId: number; scrubSession: PlaybackScrubSession } | null>;
+  playheadScrubDragRef: RefObject<{
+    pointerId: number;
+    scrubSession: PlaybackScrubSession | null;
+    originX: number;
+    originY: number;
+    armed: boolean;
+  } | null>;
   emptyWaveDragRef: RefObject<{
     pointerId: number;
     startClientX: number;
@@ -208,22 +215,25 @@ export function useWaveCanvasPointerDrag({
         e.preventDefault();
         e.stopPropagation();
         waveHoverCueRef.current = null;
-        const scrubSession = beginPlaybackScrubSession();
-        playheadScrubDragRef.current = { pointerId: e.pointerId, scrubSession };
-        if (!useTimelineWaveBridgeStore.getState().portraitActive) {
-          applyEdgeScroll(e.clientX);
-        }
-        const t0e = seekPlaybackScrubAudible({
-          t: rawWaveTimeFromClientX(e.clientX),
-          durationSec: duration,
-          trimStartSec: trimLo,
-          trimEndSec,
-          roundHeadForStore: true,
-        });
+        playheadScrubDragRef.current = {
+          pointerId: e.pointerId,
+          scrubSession: null,
+          originX: e.clientX,
+          originY: e.clientY,
+          armed: false,
+        };
         const capturePid = e.pointerId;
         c.setPointerCapture(capturePid);
         const onPhMove = (ev: PointerEvent) => {
-          if (ev.pointerId !== capturePid || !playheadScrubDragRef.current) return;
+          const drag = playheadScrubDragRef.current;
+          if (ev.pointerId !== capturePid || !drag) return;
+          if (!drag.armed) {
+            const dx = ev.clientX - drag.originX;
+            const dy = ev.clientY - drag.originY;
+            if (Math.hypot(dx, dy) < PLAYHEAD_SCRUB_ARM_PX) return;
+            drag.armed = true;
+            drag.scrubSession = beginPlaybackScrubSession();
+          }
           if (!playbackEngine.getMediaElement()) return;
           if (useTimelineWaveBridgeStore.getState().portraitActive) {
             useTimelineWaveBridgeStore.getState().portraitWaveScrubAtClientX?.(
@@ -248,16 +258,20 @@ export function useWaveCanvasPointerDrag({
           window.removeEventListener("pointermove", onPhMove);
           window.removeEventListener("pointerup", onPhUp);
           window.removeEventListener("pointercancel", onPhUp);
-          if (useTimelineWaveBridgeStore.getState().portraitActive) {
-            useTimelineWaveBridgeStore.getState().portraitWaveScrubAtClientX?.(ev.clientX, true);
-          }
+          const drag = playheadScrubDragRef.current;
+          playheadScrubDragRef.current = null;
           try {
             c.releasePointerCapture(ev.pointerId);
           } catch {
             /* ignore */
           }
-          const drag = playheadScrubDragRef.current;
-          playheadScrubDragRef.current = null;
+          if (!drag.armed) {
+            redraw();
+            return;
+          }
+          if (useTimelineWaveBridgeStore.getState().portraitActive) {
+            useTimelineWaveBridgeStore.getState().portraitWaveScrubAtClientX?.(ev.clientX, true);
+          }
           suppressNextWaveSeekRef.current = true;
           if (playbackEngine.getMediaElement()) {
             seekPlaybackScrubAudible({
@@ -267,14 +281,13 @@ export function useWaveCanvasPointerDrag({
               trimEndSec,
               roundHeadForStore: true,
             });
-            endPlaybackScrubSession(drag?.scrubSession ?? null);
+            endPlaybackScrubSession(drag.scrubSession);
           }
           redraw();
         };
         window.addEventListener("pointermove", onPhMove);
         window.addEventListener("pointerup", onPhUp);
         window.addEventListener("pointercancel", onPhUp);
-        drawWaveformAt(t0e ?? timeFromClientX(e.clientX));
         return;
       }
 

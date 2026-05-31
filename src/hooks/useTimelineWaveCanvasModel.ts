@@ -84,7 +84,10 @@ export function useTimelineWaveCanvasModel({
   const suppressNextWaveSeekRef = useRef(false);
   const playheadScrubDragRef = useRef<{
     pointerId: number;
-    scrubSession: PlaybackScrubSession;
+    scrubSession: PlaybackScrubSession | null;
+    originX: number;
+    originY: number;
+    armed: boolean;
   } | null>(null);
   const waveHoverCueRef = useRef<{
     cueId: string;
