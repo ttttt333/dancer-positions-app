@@ -9,6 +9,7 @@ import { ProjectFormationThumb } from "../components/dashboard/ProjectFormationT
 import { btnAccent, btnSecondary } from "../components/stageButtonStyles";
 import { panelCard, shell } from "../theme/choreoShell";
 import { tryMigrateFromLocalStorage } from "../lib/projectDefaults";
+import { PortableBackupSection } from "../components/dashboard/PortableBackupSection";
 
 function formatUpdatedAt(iso: string): string {
   try {
@@ -536,6 +537,8 @@ export function DashboardPage() {
             ) : null}
           </div>
         ) : null}
+
+        <PortableBackupSection loggedIn={Boolean(me)} />
       </main>
     </div>
   );

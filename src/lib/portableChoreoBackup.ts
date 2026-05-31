@@ -5,6 +5,7 @@ import {
   exportFlowLibraryAudioBackupMap,
   importFlowLibraryAudioBackupMap,
 } from "./flowLibraryLocalAudio";
+import { exportAllWavePeaksCache, importAllWavePeaksCache } from "./wavePeaksCache";
 import { projectApi, getToken, isDemoSessionToken } from "../api/client";
 
 /** `VideoPage` と同じ DB 名・バージョン（変更時は両方を揃えること） */
@@ -21,9 +22,12 @@ const LOCALSTORAGE_EXACT_KEYS = [
   "dancer-positions.editorLayout.v2",
   "dancer-positions.editorLayout.v1",
   "dance_stage_positions_v1",
+  "dance-project",
 ] as const;
 
 const VIEWER_KEY_PREFIX = "choreoViewerMemberV1:";
+export const EDITOR_DRAFT_PREFIX_EXPORT = "choreogrid-editor-draft-v1:";
+const EDITOR_DRAFT_PREFIX = EDITOR_DRAFT_PREFIX_EXPORT;
 
 export type PortableArchiveV1 = {
   format: typeof PORTABLE_ARCHIVE_FORMAT;
@@ -51,6 +55,8 @@ export type PortableArchiveV1 = {
     json: unknown;
     share_token?: string | null;
   }>;
+  /** 波形ピークの IndexedDB キャッシュ */
+  wavePeaksCache?: Record<string, { peaks: number[]; durationSec: number }>;
 };
 
 function uint8ToBase64(bytes: Uint8Array): string {
@@ -75,7 +81,8 @@ function collectLocalStorageSnapshot(): Record<string, string> {
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (!k || !k.startsWith(VIEWER_KEY_PREFIX)) continue;
+      if (!k) continue;
+      if (!k.startsWith(VIEWER_KEY_PREFIX) && !k.startsWith(EDITOR_DRAFT_PREFIX)) continue;
       const v = localStorage.getItem(k);
       if (v != null) out[k] = v;
     }
@@ -153,13 +160,14 @@ function isPortableArchiveV1(x: unknown): x is PortableArchiveV1 {
   );
 }
 
-export async function exportPortableArchiveJsonAsync(opts?: {
+export async function buildPortableArchiveAsync(opts?: {
   /** ログイン中のみ。作品ごとに API で取得するため時間がかかることがあります */
   includeCloudProjects?: boolean;
-}): Promise<string> {
+}): Promise<PortableArchiveV1> {
   const localStorageSnap = collectLocalStorageSnapshot();
   const flowLibraryIndexedAudio = await exportFlowLibraryAudioBackupMap();
   const videoModule = await exportVideoModuleSnapshot();
+  const wavePeaksCache = await exportAllWavePeaksCache();
 
   let cloudProjects: PortableArchiveV1["cloudProjects"];
   if (opts?.includeCloudProjects && getToken() && !isDemoSessionToken()) {
@@ -181,7 +189,7 @@ export async function exportPortableArchiveJsonAsync(opts?: {
     }
   }
 
-  const payload: PortableArchiveV1 = {
+  return {
     format: PORTABLE_ARCHIVE_FORMAT,
     exportedAt: new Date().toISOString(),
     appLabel: "ChoreoCore / dancer-positions-app",
@@ -192,9 +200,15 @@ export async function exportPortableArchiveJsonAsync(opts?: {
     ...(videoModule && (videoModule.meta?.length || Object.keys(videoModule.blobs ?? {}).length)
       ? { videoModule }
       : {}),
+    ...(Object.keys(wavePeaksCache).length > 0 ? { wavePeaksCache } : {}),
     ...(cloudProjects && cloudProjects.length > 0 ? { cloudProjects } : {}),
   };
+}
 
+export async function exportPortableArchiveJsonAsync(opts?: {
+  includeCloudProjects?: boolean;
+}): Promise<string> {
+  const payload = await buildPortableArchiveAsync(opts);
   return JSON.stringify(payload, null, 2);
 }
 
@@ -270,6 +284,11 @@ export async function importPortableArchiveJsonAsync(
       videoMeta = data.videoModule.meta.length;
     }
 
+    let wavePeaksRestored = 0;
+    if (data.wavePeaksCache && Object.keys(data.wavePeaksCache).length > 0) {
+      wavePeaksRestored = await importAllWavePeaksCache(data.wavePeaksCache);
+    }
+
     let cloudProjectsCreated = 0;
     if (
       opts?.importCloudProjectsAsNew &&
@@ -307,6 +326,7 @@ export async function importPortableArchiveJsonAsync(
         ? `フロー用音源 ${Object.keys(data.flowLibraryIndexedAudio).length} 件`
         : null,
       videoMeta > 0 ? `動画モジュール ${videoMeta} 件` : null,
+      wavePeaksRestored > 0 ? `波形キャッシュ ${wavePeaksRestored} 件` : null,
       cloudProjectsCreated > 0 ? `クラウド新規作品 ${cloudProjectsCreated} 件` : null,
     ].filter(Boolean);
 

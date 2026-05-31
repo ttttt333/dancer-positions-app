@@ -41,15 +41,15 @@ const EN_BASE: MessageBundle = {
   "dashboard.deleteFail": "Delete failed",
   "dashboard.portableTitle": "Portable backup",
   "dashboard.portableDesc":
-    "Export browser-only data into one JSON file: formation box, stage presets, flow library (including IndexedDB audio blobs), editor layout, video module, and more. Auth tokens are not included. Large videos make the file large.",
-  "dashboard.portableExportLocal": "Export (local + IndexedDB only)",
-  "dashboard.portableExportWithCloud": "Export (include cloud project JSON)",
+    "Export browser-only data into one ZIP folder: formation box, stage presets, flow library (including IndexedDB audio blobs), editor layout, video module, wave peaks cache, and more. Auth tokens are not included. Large videos make the file large.",
+  "dashboard.portableExportLocal": "Download folder (ZIP)",
+  "dashboard.portableExportWithCloud": "Download folder (ZIP, include cloud projects)",
   "dashboard.portableImport": "Import from backup",
   "dashboard.portableImportConfirm":
     "Overwrite matching browser data with this backup?\n(You will pick a JSON file next.)",
   "dashboard.portableImportCloudConfirm":
     "This backup includes {n} cloud project(s). Also create them as new projects on the account you are logged into?\n(Cancel = restore local browser data only)",
-  "dashboard.portableExportOk": "Downloaded JSON.",
+  "dashboard.portableExportOk": "Downloaded ZIP.",
   "dashboard.portableExportFail": "Export failed.",
   "dashboard.portableImportParseFail": "Could not parse JSON.",
   "dashboard.portableImportFormatFail": "Not a ChoreoCore portable backup file.",
@@ -159,15 +159,15 @@ const BASE_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "dashboard.deleteFail": "削除失敗",
     "dashboard.portableTitle": "データの持ち運び（バックアップ）",
     "dashboard.portableDesc":
-      "形の箱・ステージプリセット・フローライブラリ（IndexedDB の同梱音源）・エディタのレイアウト・動画モジュールなど、このブラウザに保存されたデータを 1 つの JSON にまとめられます。ログイン用トークンは含めません。動画を多く保存しているとファイルが大きくなります。",
-    "dashboard.portableExportLocal": "書き出し（このブラウザのデータのみ）",
-    "dashboard.portableExportWithCloud": "書き出し（クラウドの作品 JSON も含む）",
+      "形の箱・ステージプリセット・フローライブラリ（IndexedDB の同梱音源）・エディタのレイアウト・動画モジュール・波形キャッシュなど、このブラウザに保存されたデータを 1 つの ZIP フォルダにまとめてダウンロードできます。ログイン用トークンは含めません。動画を多く保存しているとファイルが大きくなります。",
+    "dashboard.portableExportLocal": "フォルダごとダウンロード（ZIP）",
+    "dashboard.portableExportWithCloud": "フォルダごとダウンロード（ZIP・クラウド作品含む）",
     "dashboard.portableImport": "バックアップから取り込む",
     "dashboard.portableImportConfirm":
       "バックアップの内容で、このブラウザの対象データを上書きします。よろしいですか？\n（続けて JSON ファイルを選びます）",
     "dashboard.portableImportCloudConfirm":
       "バックアップにクラウド作品が {n} 件含まれています。いまログイン中のアカウントに、新規作品として作成もしますか？\n「キャンセル」＝ブラウザ内データのみ復元",
-    "dashboard.portableExportOk": "JSON をダウンロードしました。",
+    "dashboard.portableExportOk": "ZIP をダウンロードしました。",
     "dashboard.portableExportFail": "書き出しに失敗しました。",
     "dashboard.portableImportParseFail": "JSON の解析に失敗しました。",
     "dashboard.portableImportFormatFail": "このアプリ用のバックアップ JSON ではありません。",

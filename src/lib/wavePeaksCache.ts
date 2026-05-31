@@ -63,6 +63,37 @@ export async function getWavePeaksCache(
   }
 }
 
+/** バックアップ用: IndexedDB の波形ピークをすべて書き出す */
+export async function exportAllWavePeaksCache(): Promise<
+  Record<string, { peaks: number[]; durationSec: number }>
+> {
+  const out: Record<string, { peaks: number[]; durationSec: number }> = {};
+  try {
+    const db = await getDb();
+    const rows = await db.getAll(STORE);
+    for (const row of rows) {
+      if (!row?.key || !row.peaks?.length) continue;
+      out[row.key] = { peaks: row.peaks, durationSec: row.durationSec };
+    }
+  } catch {
+    /** ignore */
+  }
+  return out;
+}
+
+/** バックアップから波形ピークキャッシュを復元 */
+export async function importAllWavePeaksCache(
+  entries: Record<string, { peaks: number[]; durationSec: number }>
+): Promise<number> {
+  let n = 0;
+  for (const [key, v] of Object.entries(entries)) {
+    if (!key || !Array.isArray(v?.peaks) || !v.peaks.length) continue;
+    await setWavePeaksCache(key, v.peaks, v.durationSec);
+    n++;
+  }
+  return n;
+}
+
 export async function setWavePeaksCache(
   key: string,
   peaks: number[],
