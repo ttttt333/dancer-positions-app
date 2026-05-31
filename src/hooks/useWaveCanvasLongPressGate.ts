@@ -118,21 +118,6 @@ export function useWaveCanvasLongPressGate({
         playheadSec = playbackEngine.getCurrentTime();
       }
 
-      if (
-        playbackEngine.getMediaSourceUrl() &&
-        hitPlayheadStripForScrub(
-          e.clientX,
-          c,
-          viewStart,
-          viewSpan,
-          playheadSec,
-          duration
-        )
-      ) {
-        basePointerDown(e);
-        return;
-      }
-
       const cueHit = pickCueDragKindAtWave(
         e.clientX,
         e.clientY,
@@ -144,6 +129,21 @@ export function useWaveCanvasLongPressGate({
       );
 
       if (cueHit) {
+        basePointerDown(e);
+        return;
+      }
+
+      if (
+        playbackEngine.getMediaSourceUrl() &&
+        hitPlayheadStripForScrub(
+          e.clientX,
+          c,
+          viewStart,
+          viewSpan,
+          playheadSec,
+          duration
+        )
+      ) {
         basePointerDown(e);
         return;
       }

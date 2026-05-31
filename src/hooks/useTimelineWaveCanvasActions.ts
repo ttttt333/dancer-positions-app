@@ -81,7 +81,7 @@ export function useTimelineWaveCanvasActions({
         return;
       }
       const c = resolveActiveWaveCanvas(canvasRef);
-      if (!c || duration <= 0 || !playbackEngine.getMediaSourceUrl()) return;
+      if (!c || duration <= 0) return;
       const d = duration;
       let viewStart = lastWaveDrawRangeRef.current.viewStart;
       let viewSpan = lastWaveDrawRangeRef.current.viewSpan;
@@ -115,6 +115,7 @@ export function useTimelineWaveCanvasActions({
       } else {
         onSelectedCueIdsChange([]);
       }
+      if (!playbackEngine.getMediaSourceUrl()) return;
       const r = c.getBoundingClientRect();
       const x = e.clientX - r.left;
       const t = waveExtentXToTime(x, viewStart, viewSpan, r.width);
@@ -276,7 +277,7 @@ export function useTimelineWaveCanvasActions({
     (e: MouseEvent<HTMLCanvasElement>) => {
       if (viewMode === "view" || duration <= 0 || !peaks) return;
       const c = resolveActiveWaveCanvas(canvasRef);
-      if (!c || !playbackEngine.getMediaSourceUrl()) return;
+      if (!c) return;
       let viewStart = lastWaveDrawRangeRef.current.viewStart;
       let viewSpan = lastWaveDrawRangeRef.current.viewSpan;
       if (viewSpan <= 0) {
@@ -306,6 +307,7 @@ export function useTimelineWaveCanvasActions({
           return;
         }
       }
+      if (!playbackEngine.getMediaSourceUrl()) return;
       const t = waveExtentXToTime(x, viewStart, viewSpan, r.width);
       const clamped = clampTimelineHeadForCueOps(
         t,

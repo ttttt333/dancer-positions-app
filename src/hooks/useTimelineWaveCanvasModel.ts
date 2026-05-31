@@ -61,6 +61,9 @@ export function useTimelineWaveCanvasModel({
     cueId: string;
     mode: CueDragEdgeMode;
     moved: boolean;
+    armed: boolean;
+    originX: number;
+    originY: number;
     grabOffset: number;
     origStart: number;
     origEnd: number;

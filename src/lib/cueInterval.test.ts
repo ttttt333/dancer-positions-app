@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createEmptyProject } from "./projectDefaults";
-import { splitSharedCueFormations } from "./cueInterval";
+import { applyCueWaveDragCommit, splitSharedCueFormations } from "./cueInterval";
+import type { Cue } from "../types/choreography";
 
 describe("splitSharedCueFormations", () => {
   it("assigns unique formations when multiple cues share one formationId", () => {
@@ -61,5 +62,48 @@ describe("splitSharedCueFormations", () => {
       ],
     };
     expect(splitSharedCueFormations(project)).toBe(project);
+  });
+});
+
+describe("applyCueWaveDragCommit", () => {
+  const adjacent: Cue[] = [
+    { id: "a", tStartSec: 0, tEndSec: 10, formationId: "f1" },
+    { id: "b", tStartSec: 10, tEndSec: 20, formationId: "f2" },
+  ];
+
+  it("extends cue end into adjacent cue by moving shared boundary", () => {
+    const next = applyCueWaveDragCommit(
+      adjacent,
+      "a",
+      "end",
+      12,
+      12,
+      0,
+      30
+    );
+    expect(next.find((c) => c.id === "a")).toMatchObject({
+      tStartSec: 0,
+      tEndSec: 12,
+    });
+    expect(next.find((c) => c.id === "b")).toMatchObject({
+      tStartSec: 12,
+      tEndSec: 20,
+    });
+  });
+
+  it("moves cue block without overlap", () => {
+    const next = applyCueWaveDragCommit(
+      adjacent,
+      "a",
+      "move",
+      2,
+      12,
+      0,
+      30
+    );
+    expect(next.find((c) => c.id === "a")).toMatchObject({
+      tStartSec: 2,
+      tEndSec: 12,
+    });
   });
 });

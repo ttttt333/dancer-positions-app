@@ -192,6 +192,7 @@ export function WaveformStrip({
           }}
         >
           <div
+            aria-hidden
             onPointerDown={onPlayheadLinePointerDown}
             onPointerMove={onPlayheadLinePointerMove}
             onPointerUp={onPlayheadLinePointerUp}
@@ -203,7 +204,8 @@ export function WaveformStrip({
               left: "50%",
               width: 8,
               transform: "translateX(-50%)",
-              pointerEvents: duration > 0 && hasPeaks ? "auto" : "none",
+              /** キャンバス側のヒット判定で再生バー操作を処理（ここで拾うとキュー枠をブロックする） */
+              pointerEvents: "none",
               cursor: "col-resize",
               touchAction: "none",
             }}

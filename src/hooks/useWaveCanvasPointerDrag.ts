@@ -30,7 +30,7 @@ import {
 import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
 import { panWaveViewStartAtClientX } from "../lib/waveEdgeScrollDuringScrub";
 import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
-import { PLAYHEAD_SCRUB_ARM_PX } from "../lib/waveLongPress";
+import { PLAYHEAD_SCRUB_ARM_PX, WAVE_DRAG_ARM_PX } from "../lib/waveLongPress";
 
 export type UseWaveCanvasPointerDragArgs = {
   projectViewMode: ChoreographyProjectJson["viewMode"];
@@ -54,6 +54,9 @@ export type UseWaveCanvasPointerDragArgs = {
     cueId: string;
     mode: CueDragEdgeMode;
     moved: boolean;
+    armed: boolean;
+    originX: number;
+    originY: number;
     grabOffset: number;
     origStart: number;
     origEnd: number;
@@ -234,7 +237,6 @@ export function useWaveCanvasPointerDrag({
       );
       const cueId = cueHit?.cueId ?? null;
       if (cueId) {
-        e.preventDefault();
         e.stopPropagation();
         waveHoverCueRef.current = null;
         const cue = cuesSorted.find((x) => x.id === cueId);
@@ -248,12 +250,14 @@ export function useWaveCanvasPointerDrag({
           cueId,
           mode,
           moved: false,
+          armed: false,
+          originX: e.clientX,
+          originY: e.clientY,
           grabOffset,
           origStart: cue.tStartSec,
           origEnd: cue.tEndSec,
         };
         cueDragPreviewRangeRef.current = { cueId, tStart: cue.tStartSec, tEnd: cue.tEndSec };
-        c.setPointerCapture(e.pointerId);
         const MIN_CUE_DUR = 0.05;
         const applyCueDragAtClientX = (clientX: number) => {
           const drag = cueDragRef.current;
@@ -296,6 +300,19 @@ export function useWaveCanvasPointerDrag({
         }
         const onMove = (ev: PointerEvent) => {
           if (ev.pointerId !== e.pointerId || !cueDragRef.current) return;
+          const drag = cueDragRef.current;
+          if (!drag.armed) {
+            const dx = ev.clientX - drag.originX;
+            const dy = ev.clientY - drag.originY;
+            if (Math.hypot(dx, dy) < WAVE_DRAG_ARM_PX) return;
+            drag.armed = true;
+            try {
+              c.setPointerCapture(ev.pointerId);
+            } catch {
+              /* ignore */
+            }
+            ev.preventDefault();
+          }
           if (useTimelineWaveBridgeStore.getState().portraitActive) {
             useTimelineWaveBridgeStore.getState().portraitWaveScrubAtClientX?.(
               ev.clientX,
@@ -327,13 +344,10 @@ export function useWaveCanvasPointerDrag({
           const preview = cueDragPreviewRangeRef.current;
           cueDragPreviewRangeRef.current = null;
           if (!drag) return;
-          const { cueId: cid, mode: dragMode, moved, origStart, origEnd } = drag;
+          const { cueId: cid, mode: dragMode, moved, armed, origStart, origEnd } = drag;
           onSelectedCueIdsChange([cid]);
-          if (!moved) {
-            if (dragMode === "move") {
-              seekTimelineAtClientX(ev.clientX);
-            }
-            suppressNextWaveSeekRef.current = true;
+          if (!armed || !moved) {
+            redraw();
             return;
           }
           suppressNextWaveSeekRef.current = true;
@@ -341,7 +355,6 @@ export function useWaveCanvasPointerDrag({
             preview &&
             Number.isFinite(preview.tStart) &&
             Number.isFinite(preview.tEnd) &&
-            moved &&
             (Math.abs(preview.tStart - origStart) > 1e-4 ||
               Math.abs(preview.tEnd - origEnd) > 1e-4)
           ) {
@@ -474,7 +487,6 @@ export function useWaveCanvasPointerDrag({
         return;
       }
 
-      e.preventDefault();
       e.stopPropagation();
       waveHoverCueRef.current = null;
       emptyWaveDragRef.current = {
@@ -486,13 +498,18 @@ export function useWaveCanvasPointerDrag({
         active: false,
       };
       newCueRangePreviewRef.current = null;
-      c.setPointerCapture(e.pointerId);
       const onEmptyMove = (ev: PointerEvent) => {
         const st = emptyWaveDragRef.current;
         if (!st || ev.pointerId !== st.pointerId) return;
         if (!st.active) {
-          if (Math.abs(ev.clientX - st.startClientX) < 5) return;
+          if (Math.abs(ev.clientX - st.startClientX) < WAVE_DRAG_ARM_PX) return;
           st.active = true;
+          try {
+            c.setPointerCapture(ev.pointerId);
+          } catch {
+            /* ignore */
+          }
+          ev.preventDefault();
         }
         const tCur = timeFromClientX(ev.clientX);
         const t0 = st.startT;

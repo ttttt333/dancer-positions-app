@@ -86,9 +86,10 @@ export function pickCueIdAtWave(
   const w = r.width;
   const h = r.height;
   if (w <= 0) return null;
+  const inset = 0.5;
+  const bandTop = inset;
+  const bandBottom = Math.max(inset, h - inset);
   const mid = h / 2;
-  /** 描画されるキュー枠（上下 inset 0.5px）と揃える */
-  const barHalfH = Math.max(14, (h - 1) / 2);
   const viewEnd = viewStart + viewSpan;
   let best: { id: string; dist: number } | null = null;
   for (const cue of cueList) {
@@ -106,7 +107,7 @@ export function pickCueIdAtWave(
     const left = Math.min(x1, x2);
     const right = Math.max(x1, x2);
     if (x < left || x > right) continue;
-    if (y < mid - barHalfH || y > mid + barHalfH) continue;
+    if (y < bandTop || y > bandBottom) continue;
     const cx = clamp(x, left, right);
     const dist = Math.abs(x - cx) + Math.abs(y - mid) * 0.05;
     if (!best || dist < best.dist) best = { id: cue.id, dist };
@@ -124,9 +125,10 @@ function cueWaveVerticalBandPx(canvasHeight: number): {
   top: number;
   bottom: number;
 } {
+  /** 描画（strokeRect inset 0.5）と同じ縦範囲でヒット判定する */
+  const inset = 0.5;
   const mid = canvasHeight / 2;
-  const barHalfH = Math.max(14, (canvasHeight - 1) / 2);
-  return { mid, top: mid - barHalfH, bottom: mid + barHalfH };
+  return { mid, top: inset, bottom: Math.max(inset, canvasHeight - inset) };
 }
 
 function cueWaveHorizontalBoundsPx(
@@ -189,7 +191,14 @@ export function pickCueDragKindAtWave(
       viewEnd,
       w
     );
-    if (right - left < 2) continue;
+    const cueWidth = right - left;
+    if (cueWidth < 2) continue;
+
+    /** ズームアウトで枠が狭いときは全体を移動として扱う */
+    if (cueWidth <= CUE_EDGE_INNER_GRAB_PX * 2 + 1) {
+      consider(cue.id, "move", Math.abs(x - (left + right) / 2) + 500);
+      continue;
+    }
 
     const inStartZone =
       x >= left - CUE_EDGE_OUTER_GRAB_PX && x <= left + CUE_EDGE_INNER_GRAB_PX;
