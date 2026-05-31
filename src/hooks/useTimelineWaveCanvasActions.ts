@@ -28,6 +28,8 @@ const MOBILE_GAP_TOUCH_PADDING_PX = 40;
 
 export type UseTimelineWaveCanvasActionsParams = {
   suppressNextWaveSeekRef: RefObject<boolean>;
+  currentTimePropRef: RefObject<number>;
+  drawWaveformAt: (playheadTime: number) => void;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   duration: number;
   viewPortion: number;
@@ -52,6 +54,8 @@ export type UseTimelineWaveCanvasActionsParams = {
  */
 export function useTimelineWaveCanvasActions({
   suppressNextWaveSeekRef,
+  currentTimePropRef,
+  drawWaveformAt,
   canvasRef,
   duration,
   viewPortion,
@@ -135,15 +139,22 @@ export function useTimelineWaveCanvasActions({
           return;
         }
       }
-      seekPlaybackClampedAndSyncStore({
+      const moved = seekPlaybackClampedAndSyncStore({
         t,
         durationSec: duration,
         trimStartSec,
         trimEndSec,
+        roundHeadForStore: true,
       });
+      if (moved != null) {
+        currentTimePropRef.current = moved;
+        drawWaveformAt(moved);
+      }
     },
     [
       suppressNextWaveSeekRef,
+      currentTimePropRef,
+      drawWaveformAt,
       canvasRef,
       duration,
       viewPortion,

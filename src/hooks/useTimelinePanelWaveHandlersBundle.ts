@@ -84,6 +84,8 @@ export function useTimelinePanelWaveHandlersBundle({
   const { onWaveClick, onWaveContextMenu, onWaveDoubleClick, openGapRouteMenuAtPointer } =
     useTimelineWaveCanvasActions({
       suppressNextWaveSeekRef: canvas.suppressNextWaveSeekRef,
+      currentTimePropRef: canvas.currentTimePropRef,
+      drawWaveformAt: canvas.drawWaveformAt,
       canvasRef: canvas.canvasRef,
       duration: playback.duration,
       viewPortion: viewport.viewPortion,

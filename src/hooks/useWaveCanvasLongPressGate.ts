@@ -34,7 +34,8 @@ export type UseWaveCanvasLongPressGateArgs = {
   currentTimePropRef: RefObject<number>;
   isPlayingForWaveRef: RefObject<boolean>;
   suppressNextWaveSeekRef: RefObject<boolean>;
-  /** キュー間の動線のみ（長押し） */
+  /** キュー間の動線のみ（長押し）。短いタップでは再生位置を移動 */
+  seekTimelineAtClientX: (clientX: number) => void;
   openGapRouteMenuAtPointer: (clientX: number, clientY: number) => void;
   basePointerDown: (e: PointerEvent<HTMLCanvasElement>) => void;
 };
@@ -53,6 +54,7 @@ export function useWaveCanvasLongPressGate({
   currentTimePropRef,
   isPlayingForWaveRef,
   suppressNextWaveSeekRef,
+  seekTimelineAtClientX,
   openGapRouteMenuAtPointer,
   basePointerDown,
 }: UseWaveCanvasLongPressGateArgs) {
@@ -156,6 +158,7 @@ export function useWaveCanvasLongPressGate({
       const pointerId = e.pointerId;
       const originX = e.clientX;
       const originY = e.clientY;
+      let longPressFired = false;
 
       const cleanupListeners = () => {
         window.removeEventListener("pointermove", onMove);
@@ -174,12 +177,18 @@ export function useWaveCanvasLongPressGate({
 
       const onUp = (ev: PointerEvent) => {
         if (ev.pointerId !== pointerId) return;
+        const hadPending = pendingRef.current != null;
         clearPending();
+        if (hadPending && !longPressFired) {
+          seekTimelineAtClientX(originX);
+          suppressNextWaveSeekRef.current = true;
+        }
       };
 
       const timer = window.setTimeout(() => {
         if (!pendingRef.current || pendingRef.current.pointerId !== pointerId) return;
         pendingRef.current = null;
+        longPressFired = true;
         cleanupListeners();
         suppressNextWaveSeekRef.current = true;
         openGapRouteMenuAtPointer(originX, originY);
@@ -211,6 +220,7 @@ export function useWaveCanvasLongPressGate({
       openGapRouteMenuAtPointer,
       peaks,
       projectViewMode,
+      seekTimelineAtClientX,
       suppressNextWaveSeekRef,
     ]
   );

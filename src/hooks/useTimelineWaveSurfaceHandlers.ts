@@ -4,6 +4,7 @@ import { playbackEngine } from "../core/playbackEngine";
 import {
   beginPlaybackScrubSession,
   endPlaybackScrubSession,
+  seekPlaybackClampedAndSyncStore,
   seekPlaybackScrubAudible,
   type PlaybackScrubSession,
 } from "../lib/playbackTransport";
@@ -45,20 +46,6 @@ export function useTimelineWaveSurfaceHandlers(
     currentTime,
     openGapRouteMenuAtPointer,
     setWaveViewStartOverride,
-    ...dragArgs
-  } = params;
-  const basePointerDown = useWaveCanvasPointerDrag({
-    ...dragArgs,
-    viewPortion,
-    setWaveViewStartOverride,
-  });
-  const { onWaveCanvasPointerDown, clearPending } = useWaveCanvasLongPressGate({
-    ...dragArgs,
-    openGapRouteMenuAtPointer,
-    basePointerDown,
-  });
-
-  const {
     projectViewMode,
     duration,
     peaks,
@@ -75,6 +62,7 @@ export function useTimelineWaveSurfaceHandlers(
     playheadScrubDragRef,
     emptyWaveDragRef,
     waveHoverCueRef,
+    ...dragArgs
   } = params;
   const rulerScrubSessionRef = useRef<PlaybackScrubSession | null>(null);
   const playheadEdgeScrollRafRef = useRef(0);
@@ -89,7 +77,7 @@ export function useTimelineWaveSurfaceHandlers(
       viewSpan = gv.span;
     }
     return { viewStart, viewSpan };
-  }, [canvasRef, currentTime, duration, lastWaveDrawRangeRef, viewPortion]);
+  }, [currentTime, duration, lastWaveDrawRangeRef, viewPortion]);
 
   const timeAtClientX = useCallback(
     (clientX: number) => {
@@ -102,6 +90,49 @@ export function useTimelineWaveSurfaceHandlers(
     },
     [canvasRef, resolveViewRange]
   );
+
+  const seekTimelineAtClientX = useCallback(
+    (clientX: number) => {
+      if (projectViewMode === "view" || duration <= 0 || !peaks) return;
+      if (!playbackEngine.getMediaSourceUrl()) return;
+      const t = timeAtClientX(clientX);
+      if (t == null) return;
+      const moved = seekPlaybackClampedAndSyncStore({
+        t,
+        durationSec: duration,
+        trimStartSec,
+        trimEndSec,
+        roundHeadForStore: true,
+      });
+      if (moved != null) {
+        currentTimePropRef.current = moved;
+        drawWaveformAt(moved);
+      }
+    },
+    [
+      canvasRef,
+      currentTimePropRef,
+      drawWaveformAt,
+      duration,
+      peaks,
+      projectViewMode,
+      timeAtClientX,
+      trimEndSec,
+      trimStartSec,
+    ]
+  );
+
+  const basePointerDown = useWaveCanvasPointerDrag({
+    ...dragArgs,
+    viewPortion,
+    setWaveViewStartOverride,
+  });
+  const { onWaveCanvasPointerDown, clearPending } = useWaveCanvasLongPressGate({
+    ...dragArgs,
+    seekTimelineAtClientX,
+    openGapRouteMenuAtPointer,
+    basePointerDown,
+  });
 
   const applyEdgeScrollAtClientX = useCallback(
     (clientX: number) => {

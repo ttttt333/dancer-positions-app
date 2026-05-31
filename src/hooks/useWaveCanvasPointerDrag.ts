@@ -13,6 +13,7 @@ import { playbackEngine } from "../core/playbackEngine";
 import {
   beginPlaybackScrubSession,
   endPlaybackScrubSession,
+  seekPlaybackClampedAndSyncStore,
   seekPlaybackScrubAudible,
   syncPlaybackHeadAfterCueEdit,
   type PlaybackScrubSession,
@@ -176,6 +177,20 @@ export function useWaveCanvasPointerDrag({
           durationSec: duration,
           durationFallbackSec: duration,
         });
+      const seekTimelineAtClientX = (clientX: number) => {
+        const moved = seekPlaybackClampedAndSyncStore({
+          t: rawWaveTimeFromClientX(clientX),
+          durationSec: duration,
+          trimStartSec: trimLo,
+          trimEndSec,
+          roundHeadForStore: true,
+        });
+        if (moved != null) {
+          currentTimePropRef.current = moved;
+          drawWaveformAt(moved);
+        }
+        return moved;
+      };
       const redraw = () => {
         let tRedraw = currentTimePropRef.current;
         if (
@@ -406,10 +421,15 @@ export function useWaveCanvasPointerDrag({
           cueDragRef.current = null;
           const preview = cueDragPreviewRangeRef.current;
           cueDragPreviewRangeRef.current = null;
-          suppressNextWaveSeekRef.current = true;
           if (!drag) return;
           const { cueId: cid, moved, origStart, origEnd } = drag;
           onSelectedCueIdsChange([cid]);
+          if (!moved) {
+            seekTimelineAtClientX(ev.clientX);
+            suppressNextWaveSeekRef.current = true;
+            return;
+          }
+          suppressNextWaveSeekRef.current = true;
           if (
             preview &&
             Number.isFinite(preview.tStart) &&
@@ -498,24 +518,9 @@ export function useWaveCanvasPointerDrag({
         newCueRangePreviewRef.current = null;
         if (st?.active) suppressNextWaveSeekRef.current = true;
         if (st && !st.active && playbackEngine.getMediaSourceUrl() && durationRef.current > 0) {
-          const cnv = resolveActiveWaveCanvas(canvasRef);
-          if (cnv) {
-            const { viewStart: vs, viewSpan: vsp } = lastWaveDrawRangeRef.current;
-            if (vsp > 0) {
-              const rr = cnv.getBoundingClientRect();
-              if (rr.width > 0) {
-                let tSeek = waveExtentXToTime(ev.clientX - rr.left, vs, vsp, rr.width);
-                tSeek = Math.max(st.trimLo, Math.min(st.trimHi, tSeek));
-                if (playbackEngine.getMediaElement()) {
-                  playbackEngine.seek(tSeek);
-                  setCurrentTime(tSeek);
-                }
-                onSelectedCueIdsChange([]);
-                suppressNextWaveSeekRef.current = true;
-                redraw();
-              }
-            }
-          }
+          seekTimelineAtClientX(ev.clientX);
+          onSelectedCueIdsChange([]);
+          suppressNextWaveSeekRef.current = true;
         }
         if (st?.active && preview && Number.isFinite(preview.tStart) && Number.isFinite(preview.tEnd)) {
           let ts = Math.round(Math.min(preview.tStart, preview.tEnd) * 100) / 100;
