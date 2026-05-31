@@ -63,6 +63,15 @@ describe("pickCueDragKindAtWave", () => {
     expect(endHit?.mode).toBe("end");
   });
 
+  it("detects sub-pixel cue bands the same as drawing (min 3px chrome)", () => {
+    const cues: Cue[] = [
+      { id: "tiny", tStartSec: 50, tEndSec: 50.05, formationId: "f1" },
+    ];
+    const canvas = mockCanvas(1000, 80);
+    const hit = pickCueDragKindAtWave(500, 40, canvas, cues, 0, 100, null);
+    expect(hit).toEqual({ cueId: "tiny", mode: "move" });
+  });
+
   it("prefers cue resize at adjacent cue junction over gap-only hit", () => {
     const canvas = mockCanvas(1000, 80);
     const hit = pickCueDragKindAtWave(

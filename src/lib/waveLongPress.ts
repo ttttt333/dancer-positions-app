@@ -7,7 +7,7 @@ export const WAVE_LONG_PRESS_MS = 520;
 export const WAVE_LONG_PRESS_CANCEL_PX = 18;
 
 /** この距離以上動いたらドラッグ操作を開始（キュー移動など） */
-export const WAVE_DRAG_ARM_PX = 14;
+export const WAVE_DRAG_ARM_PX = 8;
 
 /** 再生バー: この距離以上動いたときだけシーク（クリックのみでは進めない） */
 export const PLAYHEAD_SCRUB_ARM_PX = 4;

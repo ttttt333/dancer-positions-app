@@ -1,11 +1,17 @@
 import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from "react";
 import { useEffect } from "react";
-import { waveExtentXToTime } from "../lib/timelineWaveGeometry";
+import { playbackEngine } from "../core/playbackEngine";
+import {
+  resolveWaveViewForPointerHit,
+  waveExtentXToTime,
+} from "../lib/timelineWaveGeometry";
 
 type Params = {
   waveContainerRef: RefObject<HTMLDivElement | null>;
   durationRef: MutableRefObject<number>;
-  lastWaveDrawRangeRef: MutableRefObject<{ viewStart: number; viewSpan: number }>;
+  viewPortionRef: MutableRefObject<number>;
+  waveViewStartOverrideRef: MutableRefObject<number | null>;
+  currentTimePropRef: MutableRefObject<number>;
   isPlayingForWaveRef: MutableRefObject<boolean>;
   setViewPortion: Dispatch<SetStateAction<number>>;
   setWaveViewStartOverride: Dispatch<SetStateAction<number | null>>;
@@ -21,7 +27,9 @@ function clamp01(n: number): number {
 export function useTimelineWaveWheelZoom({
   waveContainerRef,
   durationRef,
-  lastWaveDrawRangeRef,
+  viewPortionRef,
+  waveViewStartOverrideRef,
+  currentTimePropRef,
   isPlayingForWaveRef,
   setViewPortion,
   setWaveViewStartOverride,
@@ -43,8 +51,24 @@ export function useTimelineWaveWheelZoom({
       const rect = canvas?.getBoundingClientRect() ?? el.getBoundingClientRect();
       const xPx = Math.max(0, Math.min(rect.width, e.clientX - rect.left));
 
-      /** 現在の viewStart/viewSpan を取得（最後に描画された範囲） */
-      const { viewStart, viewSpan } = lastWaveDrawRangeRef.current;
+      let anchorSec = currentTimePropRef.current;
+      if (
+        isPlayingForWaveRef.current &&
+        playbackEngine.getMediaSourceUrl() &&
+        !playbackEngine.isPaused() &&
+        Number.isFinite(playbackEngine.getCurrentTime())
+      ) {
+        anchorSec = playbackEngine.getCurrentTime();
+      }
+      const { viewStart, viewSpan } = resolveWaveViewForPointerHit({
+        durationSec: d,
+        viewPortion: viewPortionRef.current,
+        isPlaying: isPlayingForWaveRef.current,
+        viewStartOverride: !isPlayingForWaveRef.current
+          ? waveViewStartOverrideRef.current
+          : null,
+        anchorTimeSec: anchorSec,
+      });
 
       /** カーソル位置が示す時刻（波形左右余白込み） */
       const tCursor =
@@ -75,7 +99,9 @@ export function useTimelineWaveWheelZoom({
   }, [
     waveContainerRef,
     durationRef,
-    lastWaveDrawRangeRef,
+    viewPortionRef,
+    waveViewStartOverrideRef,
+    currentTimePropRef,
     isPlayingForWaveRef,
     setViewPortion,
     setWaveViewStartOverride,

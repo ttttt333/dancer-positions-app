@@ -2,7 +2,7 @@ import { useCallback, useRef } from "react";
 import type { PointerEvent, RefObject } from "react";
 import type { Cue, ChoreographyProjectJson } from "../types/choreography";
 import { playbackEngine } from "../core/playbackEngine";
-import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
+import { resolveWavePointerCanvas } from "../lib/activeWaveCanvas";
 import {
   hitPlayheadStripForScrub,
   pickCueDragKindAtWave,
@@ -28,6 +28,7 @@ export type UseWaveCanvasLongPressGateArgs = {
   projectViewMode: ChoreographyProjectJson["viewMode"];
   duration: number;
   peaks: number[] | null;
+  peaksRef: RefObject<number[] | null>;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   lastWaveDrawRangeRef: RefObject<{ viewStart: number; viewSpan: number }>;
   waveViewStartOverrideRef: RefObject<number | null>;
@@ -51,6 +52,7 @@ export function useWaveCanvasLongPressGate({
   projectViewMode,
   duration,
   peaks,
+  peaksRef,
   canvasRef,
   lastWaveDrawRangeRef,
   waveViewStartOverrideRef,
@@ -85,13 +87,18 @@ export function useWaveCanvasLongPressGate({
         basePointerDown(e);
         return;
       }
-      if (e.button !== 0 || projectViewMode === "view" || duration <= 0 || !peaks) {
+      if (e.button !== 0 || projectViewMode === "view" || duration <= 0) {
+        basePointerDown(e);
+        return;
+      }
+      const peaksReady = peaks ?? peaksRef.current;
+      if (!peaksReady) {
         basePointerDown(e);
         return;
       }
 
-      const c = e.currentTarget as HTMLCanvasElement;
-      if (!c || c.tagName !== "CANVAS") {
+      const c = resolveWavePointerCanvas(canvasRef, e.currentTarget);
+      if (!c) {
         basePointerDown(e);
         return;
       }
@@ -249,6 +256,7 @@ export function useWaveCanvasLongPressGate({
       viewPortion,
       openGapRouteMenuAtPointer,
       peaks,
+      peaksRef,
       projectViewMode,
       seekTimelineAtClientX,
       suppressNextWaveSeekRef,

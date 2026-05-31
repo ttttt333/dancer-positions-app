@@ -181,7 +181,9 @@ export function useTimelinePanelSessionBundle(
   useTimelineWaveWheelZoom({
     waveContainerRef,
     durationRef,
-    lastWaveDrawRangeRef,
+    viewPortionRef,
+    waveViewStartOverrideRef,
+    currentTimePropRef,
     isPlayingForWaveRef,
     setViewPortion,
     setWaveViewStartOverride,
@@ -271,6 +273,7 @@ export function useTimelinePanelSessionBundle(
       currentTimePropRef,
       isPlayingForWaveRef,
       durationRef,
+      peaksRef,
     },
     menus: {
       setWaveCueMenu,

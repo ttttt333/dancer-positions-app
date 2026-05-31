@@ -27,7 +27,7 @@ import {
   waveExtentXToTime,
   type CueDragEdgeMode,
 } from "../lib/timelineWaveGeometry";
-import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
+import { resolveActiveWaveCanvas, resolveWavePointerCanvas } from "../lib/activeWaveCanvas";
 import { panWaveViewStartAtClientX } from "../lib/waveEdgeScrollDuringScrub";
 import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
 import { PLAYHEAD_SCRUB_ARM_PX, WAVE_DRAG_ARM_PX } from "../lib/waveLongPress";
@@ -36,6 +36,7 @@ export type UseWaveCanvasPointerDragArgs = {
   projectViewMode: ChoreographyProjectJson["viewMode"];
   duration: number;
   peaks: number[] | null;
+  peaksRef: RefObject<number[] | null>;
   canvasRef: RefObject<HTMLCanvasElement>;
   lastWaveDrawRangeRef: RefObject<{ viewStart: number; viewSpan: number }>;
   waveViewStartOverrideRef: RefObject<number | null>;
@@ -96,6 +97,7 @@ export function useWaveCanvasPointerDrag({
   projectViewMode,
   duration,
   peaks,
+  peaksRef,
   canvasRef,
   lastWaveDrawRangeRef,
   waveViewStartOverrideRef,
@@ -175,9 +177,10 @@ export function useWaveCanvasPointerDrag({
   return useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (e.button !== 0) return;
-      if (projectViewMode === "view" || duration <= 0 || !peaks) return;
-      const c = e.currentTarget as HTMLCanvasElement;
-      if (!c || c.tagName !== "CANVAS") return;
+      const peaksReady = peaks ?? peaksRef.current;
+      if (projectViewMode === "view" || duration <= 0 || !peaksReady) return;
+      const c = resolveWavePointerCanvas(canvasRef, e.currentTarget);
+      if (!c) return;
       const anchorSec = () => {
         if (
           isPlayingForWaveRef.current &&
@@ -261,7 +264,7 @@ export function useWaveCanvasPointerDrag({
         cuesSorted,
         viewStart,
         viewSpan,
-        null
+        cueDragPreviewRangeRef.current
       );
       const cueId = cueHit?.cueId ?? null;
       if (cueId) {
@@ -278,7 +281,7 @@ export function useWaveCanvasPointerDrag({
           cueId,
           mode,
           moved: false,
-          armed: false,
+          armed: mode === "start" || mode === "end",
           originX: e.clientX,
           originY: e.clientY,
           grabOffset,
@@ -286,6 +289,14 @@ export function useWaveCanvasPointerDrag({
           origEnd: cue.tEndSec,
         };
         cueDragPreviewRangeRef.current = { cueId, tStart: cue.tStartSec, tEnd: cue.tEndSec };
+        if (cueDragRef.current.armed) {
+          e.preventDefault();
+          try {
+            c.setPointerCapture(e.pointerId);
+          } catch {
+            /* ignore */
+          }
+        }
         const MIN_CUE_DUR = 0.05;
         const applyCueDragAtClientX = (clientX: number) => {
           const drag = cueDragRef.current;
@@ -375,6 +386,7 @@ export function useWaveCanvasPointerDrag({
           const { cueId: cid, mode: dragMode, moved, armed, origStart, origEnd } = drag;
           onSelectedCueIdsChange([cid]);
           if (!armed || !moved) {
+            cueDragPreviewRangeRef.current = null;
             redraw();
             return;
           }
@@ -620,6 +632,7 @@ export function useWaveCanvasPointerDrag({
       projectViewMode,
       duration,
       peaks,
+      peaksRef,
       canvasRef,
       lastWaveDrawRangeRef,
       waveViewStartOverrideRef,

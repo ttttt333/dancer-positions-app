@@ -11,3 +11,14 @@ export function resolveActiveWaveCanvas(
   }
   return desktopRef.current;
 }
+
+/** pointerdown の currentTarget、またはデスクトップ ref から Canvas を解決（長押し委譲後の stale event 対策） */
+export function resolveWavePointerCanvas(
+  desktopRef: RefObject<HTMLCanvasElement | null>,
+  eventTarget: EventTarget | null | undefined
+): HTMLCanvasElement | null {
+  if (eventTarget instanceof HTMLCanvasElement) {
+    return eventTarget;
+  }
+  return resolveActiveWaveCanvas(desktopRef);
+}

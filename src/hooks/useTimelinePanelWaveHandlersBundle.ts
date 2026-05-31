@@ -56,6 +56,7 @@ type WaveHandlersBundleParams = {
     | "currentTimePropRef"
     | "isPlayingForWaveRef"
     | "durationRef"
+    | "peaksRef"
   >;
   menus: Pick<
     MenuSlice,
@@ -143,6 +144,7 @@ export function useTimelinePanelWaveHandlersBundle({
     suppressNextWaveSeekRef: canvas.suppressNextWaveSeekRef,
     setProject,
     durationRef: canvas.durationRef,
+    peaksRef: canvas.peaksRef,
     formationIdForNewCue,
     formations: projectSlice.formations,
     onFormationChosenFromCueList,

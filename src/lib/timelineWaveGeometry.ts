@@ -186,7 +186,7 @@ export function pickCueDragKindAtWave(
       dragPreview && dragPreview.cueId === cue.id ? dragPreview.tEnd : cue.tEndSec;
     if (te < viewStart || ts > viewEnd) continue;
 
-    const { left, right } = cueWaveHorizontalBoundsPx(
+    let { left, right } = cueWaveHorizontalBoundsPx(
       ts,
       te,
       viewStart,
@@ -194,10 +194,17 @@ export function pickCueDragKindAtWave(
       viewEnd,
       w
     );
+    /** 描画側は Math.max(3, width) なので、サブピクセル幅は 3px 相当に広げて当たりを合わせる */
+    const rawWidth = right - left;
+    if (rawWidth < 3) {
+      const mid = (left + right) / 2;
+      left = mid - 1.5;
+      right = mid + 1.5;
+    }
     const cueWidth = right - left;
-    if (cueWidth < 2) continue;
+    if (cueWidth < 1) continue;
 
-    /** ズームアウトで枠が狭いときは全体を移動として扱う */
+    /** 枠が狭いときは全体を移動として扱う */
     if (cueWidth <= CUE_EDGE_INNER_GRAB_PX * 2 + 1) {
       consider(cue.id, "move", Math.abs(x - (left + right) / 2) + 500);
       continue;
