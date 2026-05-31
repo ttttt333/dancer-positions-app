@@ -5,6 +5,7 @@ import {
   clampSeekTimeSec,
   cloneFormationForNewCue,
   resolveCueIntervalNonOverlap,
+  resolveCueWaveDragCommit,
   sortCuesByStart,
   trimHiSecForCueTimeline,
   trimPlaybackEndSec,
@@ -22,6 +23,7 @@ import {
   hitPlayheadStripForScrub,
   PORTRAIT_PLAYHEAD_SCRUB_HALF_WIDTH_PX,
   pickCueDragKindAtWave,
+  resolveWaveViewForPointerHit,
   waveExtentXToTime,
   type CueDragEdgeMode,
 } from "../lib/timelineWaveGeometry";
@@ -120,7 +122,6 @@ export function useWaveCanvasPointerDrag({
   onFormationChosenFromCueList,
 }: UseWaveCanvasPointerDragArgs) {
   const edgeScrollRafRef = useRef(0);
-  const dragRedrawRafRef = useRef(0);
   const scrubClientXRef = useRef<number | null>(null);
 
   const applyEdgeScroll = useCallback(
@@ -157,27 +158,25 @@ export function useWaveCanvasPointerDrag({
       if (projectViewMode === "view" || duration <= 0 || !peaks) return;
       const c = resolveActiveWaveCanvas(canvasRef);
       if (!c) return;
-      const { viewStart, viewSpan } = lastWaveDrawRangeRef.current;
+      const viewForPointer = () =>
+        resolveWaveViewForPointerHit({
+          durationSec: duration,
+          viewPortion: viewPortionRef.current ?? viewPortion,
+          isPlaying: isPlayingForWaveRef.current,
+          viewStartOverride: waveViewStartOverrideRef.current,
+          lastDrawRange: lastWaveDrawRangeRef.current,
+        });
+      const { viewStart, viewSpan } = viewForPointer();
       const trimLo = trimStartSec;
       const trimHi = trimPlaybackEndSec({
         trimEndSec,
         durationSec: duration,
         durationFallbackSec: duration,
       });
-      const resolveViewForPointer = () => {
-        const vp = viewPortionRef.current ?? viewPortion;
-        const startOverride =
-          !isPlayingForWaveRef.current ? waveViewStartOverrideRef.current : null;
-        if (startOverride != null && duration > 0) {
-          const span = Math.max(0.08, duration * vp);
-          return { viewStart: startOverride, viewSpan: span };
-        }
-        return lastWaveDrawRangeRef.current;
-      };
       const rawWaveTimeFromClientX = (clientX: number) => {
         const r = c.getBoundingClientRect();
         const x = clientX - r.left;
-        const { viewStart: vs, viewSpan: vsp } = resolveViewForPointer();
+        const { viewStart: vs, viewSpan: vsp } = viewForPointer();
         return waveExtentXToTime(x, vs, vsp, r.width);
       };
       const timeFromClientX = (clientX: number) =>
@@ -212,19 +211,6 @@ export function useWaveCanvasPointerDrag({
           tRedraw = playbackEngine.getCurrentTime();
         }
         drawWaveformAt(tRedraw);
-      };
-      const cancelDragRedraw = () => {
-        if (dragRedrawRafRef.current) {
-          cancelAnimationFrame(dragRedrawRafRef.current);
-          dragRedrawRafRef.current = 0;
-        }
-      };
-      const scheduleDragRedraw = () => {
-        if (dragRedrawRafRef.current) return;
-        dragRedrawRafRef.current = requestAnimationFrame(() => {
-          dragRedrawRafRef.current = 0;
-          redraw();
-        });
       };
 
       let playheadSecForHit = currentTimePropRef.current;
@@ -394,7 +380,7 @@ export function useWaveCanvasPointerDrag({
             tStart: ns,
             tEnd: ne,
           };
-          scheduleDragRedraw();
+          redraw();
         };
         if (useTimelineWaveBridgeStore.getState().portraitActive) {
           useTimelineWaveBridgeStore
@@ -409,8 +395,6 @@ export function useWaveCanvasPointerDrag({
               false,
               false
             );
-          } else {
-            applyEdgeScroll(ev.clientX);
           }
           applyCueDragAtClientX(ev.clientX);
         };
@@ -419,7 +403,6 @@ export function useWaveCanvasPointerDrag({
           window.removeEventListener("pointermove", onMove);
           window.removeEventListener("pointerup", onUp);
           window.removeEventListener("pointercancel", onUp);
-          cancelDragRedraw();
           if (useTimelineWaveBridgeStore.getState().portraitActive) {
             useTimelineWaveBridgeStore.getState().portraitWaveScrubAtClientX?.(
               ev.clientX,
@@ -437,7 +420,7 @@ export function useWaveCanvasPointerDrag({
           const preview = cueDragPreviewRangeRef.current;
           cueDragPreviewRangeRef.current = null;
           if (!drag) return;
-          const { cueId: cid, moved, origStart, origEnd } = drag;
+          const { cueId: cid, mode: dragMode, moved, origStart, origEnd } = drag;
           onSelectedCueIdsChange([cid]);
           if (!moved) {
             seekTimelineAtClientX(ev.clientX);
@@ -453,26 +436,19 @@ export function useWaveCanvasPointerDrag({
             (Math.abs(preview.tStart - origStart) > 1e-4 ||
               Math.abs(preview.tEnd - origEnd) > 1e-4)
           ) {
-            const resolved = resolveCueIntervalNonOverlap(
-              cuesRef.current,
-              cid,
-              preview.tStart,
-              preview.tEnd,
-              trimLo,
-              trimHi
-            );
-            const ns = resolved.tStartSec;
-            const ne = resolved.tEndSec;
+            const previewStart = preview.tStart;
+            const previewEnd = preview.tEnd;
             setProject((p) => {
               const trimHiNow = trimHiSecForCueTimeline(
                 p.trimEndSec,
                 durationRef.current
               );
-              const r = resolveCueIntervalNonOverlap(
+              const r = resolveCueWaveDragCommit(
                 p.cues,
                 cid,
-                ns,
-                ne,
+                dragMode,
+                previewStart,
+                previewEnd,
                 p.trimStartSec,
                 trimHiNow
               );
@@ -523,7 +499,7 @@ export function useWaveCanvasPointerDrag({
         const tCur = timeFromClientX(ev.clientX);
         const t0 = st.startT;
         newCueRangePreviewRef.current = { tStart: Math.min(t0, tCur), tEnd: Math.max(t0, tCur) };
-        scheduleDragRedraw();
+        redraw();
       };
       const onEmptyUp = (ev: PointerEvent) => {
         if (ev.pointerId !== e.pointerId || !emptyWaveDragRef.current) return;

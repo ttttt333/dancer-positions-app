@@ -7,6 +7,7 @@ import {
   hitPlayheadStripForScrub,
   pickCueDragKindAtWave,
   pickGapLinkAtWave,
+  resolveWaveViewForPointerHit,
 } from "../lib/timelineWaveGeometry";
 import { PC_GAP_LONG_PRESS_PAD_PX } from "../lib/waveLongPress";
 import {
@@ -29,6 +30,9 @@ export type UseWaveCanvasLongPressGateArgs = {
   peaks: number[] | null;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   lastWaveDrawRangeRef: RefObject<{ viewStart: number; viewSpan: number }>;
+  waveViewStartOverrideRef: RefObject<number | null>;
+  viewPortionRef: RefObject<number>;
+  viewPortion: number;
   cuesSorted: Cue[];
   cueDragPreviewRangeRef: RefObject<{ cueId: string; tStart: number; tEnd: number } | null>;
   currentTimePropRef: RefObject<number>;
@@ -49,6 +53,9 @@ export function useWaveCanvasLongPressGate({
   peaks,
   canvasRef,
   lastWaveDrawRangeRef,
+  waveViewStartOverrideRef,
+  viewPortionRef,
+  viewPortion,
   cuesSorted,
   cueDragPreviewRangeRef,
   currentTimePropRef,
@@ -89,7 +96,13 @@ export function useWaveCanvasLongPressGate({
         return;
       }
 
-      const { viewStart, viewSpan } = lastWaveDrawRangeRef.current;
+      const { viewStart, viewSpan } = resolveWaveViewForPointerHit({
+        durationSec: duration,
+        viewPortion: viewPortionRef.current ?? viewPortion,
+        isPlaying: isPlayingForWaveRef.current,
+        viewStartOverride: waveViewStartOverrideRef.current,
+        lastDrawRange: lastWaveDrawRangeRef.current,
+      });
       if (viewSpan <= 0) {
         basePointerDown(e);
         return;
@@ -217,6 +230,9 @@ export function useWaveCanvasLongPressGate({
       duration,
       isPlayingForWaveRef,
       lastWaveDrawRangeRef,
+      waveViewStartOverrideRef,
+      viewPortionRef,
+      viewPortion,
       openGapRouteMenuAtPointer,
       peaks,
       projectViewMode,

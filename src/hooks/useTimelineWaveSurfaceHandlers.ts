@@ -10,6 +10,7 @@ import {
   hitPlayheadStripForScrub,
   PORTRAIT_PLAYHEAD_SCRUB_HALF_WIDTH_PX,
   pickCueDragKindAtWave,
+  resolveWaveViewForPointerHit,
   waveExtentXToTime,
 } from "../lib/timelineWaveGeometry";
 import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
@@ -59,21 +60,28 @@ export function useTimelineWaveSurfaceHandlers(
     playheadScrubDragRef,
     emptyWaveDragRef,
     waveHoverCueRef,
+    waveViewStartOverrideRef,
+    viewPortionRef,
     ...dragArgs
   } = params;
   const playheadEdgeScrollRafRef = useRef(0);
   const playheadScrubClientXRef = useRef<number | null>(null);
 
   const resolveViewRange = useCallback(() => {
-    let viewStart = lastWaveDrawRangeRef.current.viewStart;
-    let viewSpan = lastWaveDrawRangeRef.current.viewSpan;
-    if (viewSpan <= 0) {
-      const gv = getWaveViewForDraw(duration, viewPortion, currentTime);
-      viewStart = gv.start;
-      viewSpan = gv.span;
-    }
-    return { viewStart, viewSpan };
-  }, [currentTime, duration, lastWaveDrawRangeRef, viewPortion]);
+    return resolveWaveViewForPointerHit({
+      durationSec: duration,
+      viewPortion,
+      isPlaying: isPlayingForWaveRef.current,
+      viewStartOverride: waveViewStartOverrideRef.current,
+      lastDrawRange: lastWaveDrawRangeRef.current,
+    });
+  }, [
+    duration,
+    isPlayingForWaveRef,
+    lastWaveDrawRangeRef,
+    viewPortion,
+    waveViewStartOverrideRef,
+  ]);
 
   const timeAtClientX = useCallback(
     (clientX: number) => {
@@ -126,6 +134,8 @@ export function useTimelineWaveSurfaceHandlers(
   });
   const { onWaveCanvasPointerDown, clearPending } = useWaveCanvasLongPressGate({
     ...dragArgs,
+    duration,
+    viewPortion,
     seekTimelineAtClientX,
     openGapRouteMenuAtPointer,
     basePointerDown,

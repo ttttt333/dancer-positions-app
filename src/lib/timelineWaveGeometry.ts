@@ -46,6 +46,29 @@ export function quantizePlayheadForWaveView(sec: number): number {
   return Math.round(sec * 30) / 30;
 }
 
+/** ポインタのヒット判定・座標変換用。viewStartOverride があれば最後の描画範囲より優先 */
+export function resolveWaveViewForPointerHit(params: {
+  durationSec: number;
+  viewPortion: number;
+  isPlaying: boolean;
+  viewStartOverride: number | null;
+  lastDrawRange: { viewStart: number; viewSpan: number };
+}): { viewStart: number; viewSpan: number } {
+  const { durationSec, viewPortion, isPlaying, viewStartOverride, lastDrawRange } =
+    params;
+  if (
+    !isPlaying &&
+    viewStartOverride != null &&
+    Number.isFinite(viewStartOverride) &&
+    durationSec > 0
+  ) {
+    const span = Math.max(0.08, durationSec * viewPortion);
+    return { viewStart: viewStartOverride, viewSpan: span };
+  }
+  if (lastDrawRange.viewSpan > 0) return lastDrawRange;
+  return getWaveViewForDraw(durationSec, viewPortion, 0);
+}
+
 /** 波形キャンバス上のキュー区間帯をクリック判定（CSS ピクセル座標） */
 export function pickCueIdAtWave(
   clientX: number,
@@ -64,7 +87,8 @@ export function pickCueIdAtWave(
   const h = r.height;
   if (w <= 0) return null;
   const mid = h / 2;
-  const barHalfH = Math.max(14, Math.floor(h * 0.46));
+  /** 描画されるキュー枠（上下 inset 0.5px）と揃える */
+  const barHalfH = Math.max(14, (h - 1) / 2);
   const viewEnd = viewStart + viewSpan;
   let best: { id: string; dist: number } | null = null;
   for (const cue of cueList) {
@@ -125,7 +149,7 @@ export function pickCueDragKindAtWave(
   const w = r.width;
   if (w <= 0) return null;
   const mid = r.height / 2;
-  const barHalfH = Math.max(14, Math.floor(r.height * 0.46));
+  const barHalfH = Math.max(14, (r.height - 1) / 2);
   if (y < mid - barHalfH || y > mid + barHalfH) return null;
   const viewEnd = viewStart + viewSpan;
   const x1 = waveTimeToExtentX(Math.max(ts, viewStart), viewStart, viewSpan, w);

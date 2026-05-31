@@ -376,6 +376,67 @@ function fitIntervalInGap(
   };
 }
 
+export type CueWaveDragMode = "move" | "start" | "end";
+
+/**
+ * 波形上ドラッグ確定: start/end は固定端を維持して隣接キューにだけクランプ。move は従来どおり空き区間へ収める。
+ */
+export function resolveCueWaveDragCommit(
+  cues: Cue[],
+  cueId: string,
+  mode: CueWaveDragMode,
+  desiredStart: number,
+  desiredEnd: number,
+  trimLo: number,
+  trimHi: number
+): { tStartSec: number; tEndSec: number } {
+  const tLo = Math.min(trimLo, trimHi);
+  const tHi = Math.max(trimLo, trimHi);
+  let ns = desiredStart;
+  let ne = desiredEnd;
+  if (!Number.isFinite(ns) || !Number.isFinite(ne)) {
+    return resolveCueIntervalNonOverlap(
+      cues,
+      cueId,
+      tLo,
+      Math.min(tHi, tLo + MIN_CUE_DURATION_SEC),
+      tLo,
+      tHi
+    );
+  }
+  if (ne <= ns) ne = ns + MIN_CUE_DURATION_SEC;
+
+  const others = sortCuesByStart(cues.filter((c) => c.id !== cueId));
+
+  if (mode === "start") {
+    ne = Math.min(tHi, Math.max(ne, ns + MIN_CUE_DURATION_SEC));
+    let maxPrevEnd = tLo;
+    for (const c of others) {
+      if (c.tEndSec <= ne + 1e-6) maxPrevEnd = Math.max(maxPrevEnd, c.tEndSec);
+    }
+    ns = Math.max(tLo, maxPrevEnd, Math.min(ns, ne - MIN_CUE_DURATION_SEC));
+    return {
+      tStartSec: Math.round(ns * 100) / 100,
+      tEndSec: Math.round(ne * 100) / 100,
+    };
+  }
+
+  if (mode === "end") {
+    ns = Math.max(tLo, Math.min(ns, tHi - MIN_CUE_DURATION_SEC));
+    let minNextStart = tHi;
+    for (const c of others) {
+      if (c.tStartSec >= ns - 1e-6) minNextStart = Math.min(minNextStart, c.tStartSec);
+    }
+    ne = Math.min(tHi, minNextStart, Math.max(ne, ns + MIN_CUE_DURATION_SEC));
+    return {
+      tStartSec: Math.round(ns * 100) / 100,
+      tEndSec: Math.round(ne * 100) / 100,
+    };
+  }
+
+  return resolveCueIntervalNonOverlap(cues, cueId, ns, ne, tLo, tHi);
+}
+
 /**
  * 他キューと時間が重ならないよう、指定 id の区間 [desiredStart, desiredEnd] をトリム内の空きに収める。
  * 編集中キューは others から除く（ドラッグ中は元位置が邪魔にならない）。
