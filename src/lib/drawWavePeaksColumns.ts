@@ -30,7 +30,7 @@ export function drawWavePeaksColumns(
       const v = peaks[i]!;
       if (v > peak) peak = v;
     }
-    const ph = Math.min(canvasHeight * 0.48, ((peak * canvasHeight) / 2) * amplitudeScale);
+    const ph = Math.min(canvasHeight * 0.5, ((peak * canvasHeight) / 2) * amplitudeScale);
     if (ph > 0.2) {
       g.fillRect(px, mid - ph, 1, ph * 2);
     }
