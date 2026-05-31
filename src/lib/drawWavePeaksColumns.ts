@@ -1,5 +1,8 @@
 import { waveExtentXToTime } from "./timelineWaveGeometry";
 
+/** 半振幅の上限（キャンバス高さに対する比率）。上下に余白を残しつつ約 94% まで描画 */
+const WAVE_PEAK_HALF_HEIGHT_MAX = 0.47;
+
 /** 表示窓内を 1px 列ごとに集約して波形を描画（ズーム時も隙間なく表示） */
 export function drawWavePeaksColumns(
   g: CanvasRenderingContext2D,
@@ -30,7 +33,10 @@ export function drawWavePeaksColumns(
       const v = peaks[i]!;
       if (v > peak) peak = v;
     }
-    const ph = Math.min(canvasHeight * 0.5, ((peak * canvasHeight) / 2) * amplitudeScale);
+    const ph = Math.min(
+      canvasHeight * WAVE_PEAK_HALF_HEIGHT_MAX,
+      ((peak * canvasHeight) / 2) * amplitudeScale
+    );
     if (ph > 0.2) {
       g.fillRect(px, mid - ph, 1, ph * 2);
     }
