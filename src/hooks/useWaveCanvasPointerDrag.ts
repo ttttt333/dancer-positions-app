@@ -423,7 +423,9 @@ export function useWaveCanvasPointerDrag({
           const { cueId: cid, mode: dragMode, moved, origStart, origEnd } = drag;
           onSelectedCueIdsChange([cid]);
           if (!moved) {
-            seekTimelineAtClientX(ev.clientX);
+            if (dragMode === "move") {
+              seekTimelineAtClientX(ev.clientX);
+            }
             suppressNextWaveSeekRef.current = true;
             return;
           }

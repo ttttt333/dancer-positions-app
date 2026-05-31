@@ -114,10 +114,37 @@ export function pickCueIdAtWave(
   return best?.id ?? null;
 }
 
-const CUE_EDGE_GRAB_PX = 14;
+/** 枠内側の端ドラッグ判定幅（px） */
+const CUE_EDGE_INNER_GRAB_PX = 10;
+/** 枠外側の端ドラッグ判定幅（px）— PC で枠の外を掴んで拡大縮小 */
+export const CUE_EDGE_OUTER_GRAB_PX = 18;
+
+function cueWaveVerticalBandPx(canvasHeight: number): {
+  mid: number;
+  top: number;
+  bottom: number;
+} {
+  const mid = canvasHeight / 2;
+  const barHalfH = Math.max(14, (canvasHeight - 1) / 2);
+  return { mid, top: mid - barHalfH, bottom: mid + barHalfH };
+}
+
+function cueWaveHorizontalBoundsPx(
+  ts: number,
+  te: number,
+  viewStart: number,
+  viewSpan: number,
+  viewEnd: number,
+  canvasWidth: number
+): { left: number; right: number } {
+  const x1 = waveTimeToExtentX(Math.max(ts, viewStart), viewStart, viewSpan, canvasWidth);
+  const x2 = waveTimeToExtentX(Math.min(te, viewEnd), viewStart, viewSpan, canvasWidth);
+  return { left: Math.min(x1, x2), right: Math.max(x1, x2) };
+}
+
 export type CueDragEdgeMode = "move" | "start" | "end";
 
-/** 帯上のクリックが開始端／終了端／移動のいずれか */
+/** 帯上のクリックが開始端／終了端／移動のいずれか（端は枠の外側にも判定を広げる） */
 export function pickCueDragKindAtWave(
   clientX: number,
   clientY: number,
@@ -127,39 +154,60 @@ export function pickCueDragKindAtWave(
   viewSpan: number,
   dragPreview: { cueId: string; tStart: number; tEnd: number } | null
 ): { cueId: string; mode: CueDragEdgeMode } | null {
-  const id = pickCueIdAtWave(
-    clientX,
-    clientY,
-    canvas,
-    cueList,
-    viewStart,
-    viewSpan,
-    dragPreview
-  );
-  if (!id || viewSpan <= 0) return null;
-  const cue = cueList.find((c) => c.id === id);
-  if (!cue) return null;
-  const ts =
-    dragPreview && dragPreview.cueId === cue.id ? dragPreview.tStart : cue.tStartSec;
-  const te =
-    dragPreview && dragPreview.cueId === cue.id ? dragPreview.tEnd : cue.tEndSec;
+  if (viewSpan <= 0 || cueList.length === 0) return null;
   const r = canvas.getBoundingClientRect();
   const x = clientX - r.left;
   const y = clientY - r.top;
   const w = r.width;
-  if (w <= 0) return null;
-  const mid = r.height / 2;
-  const barHalfH = Math.max(14, (r.height - 1) / 2);
-  if (y < mid - barHalfH || y > mid + barHalfH) return null;
+  const h = r.height;
+  if (w <= 0 || h <= 0) return null;
+
+  const { top, bottom } = cueWaveVerticalBandPx(h);
+  if (y < top || y > bottom) return null;
+
   const viewEnd = viewStart + viewSpan;
-  const x1 = waveTimeToExtentX(Math.max(ts, viewStart), viewStart, viewSpan, w);
-  const x2 = waveTimeToExtentX(Math.min(te, viewEnd), viewStart, viewSpan, w);
-  const left = Math.min(x1, x2);
-  const right = Math.max(x1, x2);
-  let mode: CueDragEdgeMode = "move";
-  if (x <= left + CUE_EDGE_GRAB_PX) mode = "start";
-  else if (x >= right - CUE_EDGE_GRAB_PX) mode = "end";
-  return { cueId: id, mode };
+  let best: { cueId: string; mode: CueDragEdgeMode; dist: number } | null = null;
+
+  const consider = (cueId: string, mode: CueDragEdgeMode, dist: number) => {
+    if (!best || dist < best.dist - 0.5) {
+      best = { cueId, mode, dist };
+    }
+  };
+
+  for (const cue of cueList) {
+    const ts =
+      dragPreview && dragPreview.cueId === cue.id ? dragPreview.tStart : cue.tStartSec;
+    const te =
+      dragPreview && dragPreview.cueId === cue.id ? dragPreview.tEnd : cue.tEndSec;
+    if (te < viewStart || ts > viewEnd) continue;
+
+    const { left, right } = cueWaveHorizontalBoundsPx(
+      ts,
+      te,
+      viewStart,
+      viewSpan,
+      viewEnd,
+      w
+    );
+    if (right - left < 2) continue;
+
+    const inStartZone =
+      x >= left - CUE_EDGE_OUTER_GRAB_PX && x <= left + CUE_EDGE_INNER_GRAB_PX;
+    const inEndZone =
+      x >= right - CUE_EDGE_INNER_GRAB_PX && x <= right + CUE_EDGE_OUTER_GRAB_PX;
+    const inMoveZone =
+      x > left + CUE_EDGE_INNER_GRAB_PX && x < right - CUE_EDGE_INNER_GRAB_PX;
+
+    if (inStartZone) consider(cue.id, "start", Math.abs(x - left));
+    if (inEndZone) consider(cue.id, "end", Math.abs(x - right));
+    if (inMoveZone) {
+      const cx = clamp(x, left, right);
+      consider(cue.id, "move", Math.abs(x - cx) + 1000);
+    }
+  }
+
+  if (!best) return null;
+  return { cueId: best.cueId, mode: best.mode };
 }
 
 const GAP_LINK_MIN_WIDTH_PX = 6;
