@@ -2,7 +2,9 @@
 export function yieldToMain(): Promise<void> {
   return new Promise((resolve) => {
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => resolve());
+      requestAnimationFrame(() => {
+        setTimeout(resolve, 0);
+      });
     });
   });
 }

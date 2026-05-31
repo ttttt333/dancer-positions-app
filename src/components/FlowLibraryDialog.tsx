@@ -3,8 +3,10 @@ import {
   useEffect,
   useMemo,
   useState,
+  startTransition,
   type CSSProperties,
 } from "react";
+import { flushSync } from "react-dom";
 import { Link } from "react-router-dom";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import {
@@ -16,11 +18,11 @@ import {
   expandFlowToProject,
   getFlowLibraryFirstFormation,
   listFlowLibraryItems,
-  overwriteFlowFromProject,
+  overwriteFlowFromProjectAsync,
   renameFlowItem,
   resolveFlowLibraryDancerCount,
   resolveFlowLibraryDurationSec,
-  saveFlowFromProject,
+  saveFlowFromProjectAsync,
 } from "../lib/flowLibrary";
 import { deleteFlowLibraryAudio, putFlowLibraryAudio } from "../lib/flowLibraryLocalAudio";
 import { projectApi } from "../api/client";
@@ -218,7 +220,7 @@ export function FlowLibraryDialog({
       setFeedback({ kind: "error", text: "名前を入力してください。" });
       return;
     }
-    setBusy(true);
+    flushSync(() => setBusy(true));
     await yieldToMain();
     let flowEmbeddedAudioKey: string | null = null;
     try {
@@ -239,9 +241,11 @@ export function FlowLibraryDialog({
         linkId = cloud.id;
       }
       await yieldToMain();
-      const r = saveFlowFromProject(trimmed, project, {
+      const wavePeaks = getWavePeaks?.() ?? null;
+      await yieldToMain();
+      const r = await saveFlowFromProjectAsync(trimmed, project, {
         includeTiming: true,
-        wavePeaks: getWavePeaks?.() ?? null,
+        wavePeaks,
         audioDurationSec: audioDurationSec > 0 ? audioDurationSec : null,
         flowEmbeddedAudioKey: flowEmbeddedAudioKey ?? null,
         linkServerId: linkId,
@@ -281,7 +285,7 @@ export function FlowLibraryDialog({
   const doOverwrite = useCallback(
     async (id: string, label: string) => {
       if (!confirm(`「${label}」を現在のステージ内容で上書きします。よろしいですか？`)) return;
-      setBusy(true);
+      flushSync(() => setBusy(true));
       await yieldToMain();
       let flowEmbeddedAudioKey: string | null = null;
       try {
@@ -302,9 +306,11 @@ export function FlowLibraryDialog({
           linkId = cloud.id;
         }
         await yieldToMain();
-        const r = overwriteFlowFromProject(id, project, {
+        const wavePeaks = getWavePeaks?.() ?? null;
+        await yieldToMain();
+        const r = await overwriteFlowFromProjectAsync(id, project, {
           includeTiming: true,
-          wavePeaks: getWavePeaks?.() ?? null,
+          wavePeaks,
           audioDurationSec: audioDurationSec > 0 ? audioDurationSec : null,
           flowEmbeddedAudioKey: flowEmbeddedAudioKey ?? null,
           linkServerId: linkId,
@@ -418,7 +424,7 @@ export function FlowLibraryDialog({
   );
 
   const doApply = useCallback(
-    (item: FlowLibraryItem) => {
+    async (item: FlowLibraryItem) => {
       const replaceTiming = item.hasTiming
         ? confirm(
             `「${item.name}」のキュー秒数も復元しますか？\n\n` +
@@ -435,13 +441,18 @@ export function FlowLibraryDialog({
       ) {
         return;
       }
-      const expanded = expandFlowToProject(item, {
-        replaceTiming,
-        totalDurationSec:
-          audioDurationSec > 0 ? audioDurationSec : null,
-        minCueLengthSec: 0.8,
-      });
-      setProject((prev) => {
+      flushSync(() => setBusy(true));
+      await yieldToMain();
+      try {
+        const expanded = expandFlowToProject(item, {
+          replaceTiming,
+          totalDurationSec:
+            audioDurationSec > 0 ? audioDurationSec : null,
+          minCueLengthSec: 0.8,
+        });
+        await yieldToMain();
+        startTransition(() => {
+          setProject((prev) => {
         let next: ChoreographyProjectJson = {
           ...prev,
           formations: expanded.formations,
@@ -532,28 +543,31 @@ export function FlowLibraryDialog({
           };
         }
         return ensureCrewsFromFormationsIfEmpty(next);
-      });
-      const restoreDur =
-        expanded.memento?.audioDurationSec != null &&
-        expanded.memento.audioDurationSec > 0
-          ? expanded.memento.audioDurationSec
-          : audioDurationSec > 0
-            ? audioDurationSec
-            : undefined;
-      const peaks = expanded.memento?.wavePeaks;
-      if (peaks?.length) {
-        /** setProject 後にコミットさせ、音源 effect と競合しにくくする */
-        queueMicrotask(() => {
-          onRestoreWaveform?.(peaks, restoreDur);
+          });
         });
+        const restoreDur =
+          expanded.memento?.audioDurationSec != null &&
+          expanded.memento.audioDurationSec > 0
+            ? expanded.memento.audioDurationSec
+            : audioDurationSec > 0
+              ? audioDurationSec
+              : undefined;
+        const peaks = expanded.memento?.wavePeaks;
+        if (peaks?.length) {
+          queueMicrotask(() => {
+            onRestoreWaveform?.(peaks, restoreDur);
+          });
+        }
+        setFeedback({
+          kind: "info",
+          text: `「${item.name}」を読み込みました（キュー ${expanded.cues.length}${
+            expanded.stageSettings ? "・ステージ寸法" : ""
+          }${expanded.memento ? "・名簿・立ち位置リスト・音源設定" : ""}）。`,
+        });
+        onClose();
+      } finally {
+        setBusy(false);
       }
-      setFeedback({
-        kind: "info",
-        text: `「${item.name}」を読み込みました（キュー ${expanded.cues.length}${
-          expanded.stageSettings ? "・ステージ寸法" : ""
-        }${expanded.memento ? "・名簿・立ち位置リスト・音源設定" : ""}）。`,
-      });
-      onClose();
     },
     [audioDurationSec, setProject, onClose, onRestoreWaveform]
   );
@@ -828,7 +842,7 @@ export function FlowLibraryDialog({
                     <button
                       type="button"
                       className="flow-lib-load-btn"
-                      onClick={() => doApply(it)}
+                      onClick={() => void doApply(it)}
                       disabled={busy}
                       style={{
                         ...btnSecondary,

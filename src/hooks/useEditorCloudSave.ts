@@ -5,6 +5,7 @@ import { normalizeProject } from "../lib/normalizeProject";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import type { Me } from "../types/authMe";
 import { useI18n } from "../i18n/I18nContext";
+import { yieldToMain } from "../lib/yieldToMain";
 
 export type UseEditorCloudSaveOptions = {
   me: Me | null;
@@ -47,6 +48,7 @@ export function useEditorCloudSave({
     if (!live) {
       throw new Error(t("editor.cloudSave.errNoProject"));
     }
+    await yieldToMain();
     let json: ChoreographyProjectJson;
     try {
       json = normalizeProject(

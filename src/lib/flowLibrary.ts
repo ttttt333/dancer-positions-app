@@ -23,6 +23,7 @@ import {
   getFlowLibraryAudio,
   putFlowLibraryAudio,
 } from "./flowLibraryLocalAudio";
+import { yieldToMain } from "./yieldToMain";
 
 /**
  * 「フローライブラリ」— 1 曲ぶんの **立ち位置の流れ**（フォーメーション群＋キュー順）を
@@ -1116,10 +1117,13 @@ function buildFlowLibraryItemFromProject(
   );
   /** 使われている formation だけ抽出（孤立した形は持ち込まない） */
   const usedFormationIds = new Set(cuesSorted.map((c) => c.formationId));
-  const formations: FlowFormationSnapshot[] = project.formations
+  const filteredFormations = project.formations
     .filter((f) => usedFormationIds.has(f.id))
-    .slice(0, MAX_FORMATIONS)
-    .map((f) => ({
+    .slice(0, MAX_FORMATIONS);
+  const formationsFull: Formation[] = deepCloneJson(filteredFormations);
+  const cuesSlice = cuesSorted.slice(0, MAX_CUES);
+  const cuesFull: Cue[] = deepCloneJson(cuesSlice);
+  const formations: FlowFormationSnapshot[] = filteredFormations.map((f) => ({
       id: f.id,
       name: f.name?.slice(0, MAX_NAME_LEN) || "",
       dancers: f.dancers
@@ -1133,7 +1137,7 @@ function buildFlowLibraryItemFromProject(
             : {}),
           ...(d.note ? { note: d.note.slice(0, 2000) } : {}),
         })),
-    }));
+  }));
   if (formations.length === 0) {
     return {
       ok: false,
@@ -1141,13 +1145,6 @@ function buildFlowLibraryItemFromProject(
       message: "キューに紐付く形（フォーメーション）が見つかりません。",
     };
   }
-  const formationsFull: Formation[] = project.formations
-    .filter((f) => usedFormationIds.has(f.id))
-    .slice(0, MAX_FORMATIONS)
-    .map((f) => deepCloneJson(f));
-  const cuesFull: Cue[] = cuesSorted
-    .slice(0, MAX_CUES)
-    .map((c) => deepCloneJson(c));
   const cues: FlowCueSnapshot[] = cuesSorted.slice(0, MAX_CUES).map((c) => {
     const gap = c.gapApproachFromPrev;
     return {
@@ -1201,6 +1198,35 @@ function buildFlowLibraryItemFromProject(
  * 現在のプロジェクト状態を新規フローとして保存。
  * 同名のフローも別レコードになる（重複は呼び出し側で制御してもよい）。
  */
+export async function saveFlowFromProjectAsync(
+  name: string,
+  project: ChoreographyProjectJson,
+  opts: FlowSaveOpts
+): Promise<FlowSaveResult> {
+  await yieldToMain();
+  const built = buildFlowLibraryItemFromProject(name, project, opts);
+  if (!built.ok) return built;
+  const cur = safeParseAll();
+  cur.unshift(built.item);
+  await yieldToMain();
+  try {
+    writeAll(cur);
+    return built;
+  } catch (e) {
+    if (e instanceof FlowLibraryQuotaError) {
+      return { ok: false, reason: "quota", message: e.message };
+    }
+    return {
+      ok: false,
+      reason: "unknown",
+      message:
+        e instanceof Error
+          ? e.message
+          : "保存中に予期しないエラーが発生しました。",
+    };
+  }
+}
+
 export function saveFlowFromProject(
   name: string,
   project: ChoreographyProjectJson,
@@ -1229,6 +1255,60 @@ export function saveFlowFromProject(
 }
 
 /** 既存フローを「現在のプロジェクト」で上書き（同じ id・名前は維持） */
+export async function overwriteFlowFromProjectAsync(
+  id: string,
+  project: ChoreographyProjectJson,
+  opts: FlowSaveOpts
+): Promise<FlowSaveResult> {
+  await yieldToMain();
+  const cur = safeParseAll();
+  const target = cur.find((x) => x.id === id);
+  if (!target) {
+    return {
+      ok: false,
+      reason: "unknown",
+      message: "上書き対象のフローが見つかりませんでした。",
+    };
+  }
+  await yieldToMain();
+  const fresh = buildFlowLibraryItemFromProject(target.name, project, opts);
+  if (!fresh.ok) return fresh;
+  const oldEmb = target.memento?.flowEmbeddedAudioKey;
+  const newEmb = fresh.item.memento?.flowEmbeddedAudioKey;
+  if (oldEmb && oldEmb !== newEmb) {
+    void deleteFlowLibraryAudio(oldEmb);
+  }
+  const next = cur.map((x) =>
+    x.id === id
+      ? {
+          ...fresh.item,
+          id: target.id,
+          name: target.name,
+          createdAt: target.createdAt,
+          updatedAt: Date.now(),
+          linkedServerProjectId:
+            fresh.item.linkedServerProjectId ?? target.linkedServerProjectId,
+        }
+      : x
+  );
+  await yieldToMain();
+  try {
+    writeAll(next);
+    const updated = next.find((x) => x.id === id)!;
+    return { ok: true, item: updated };
+  } catch (e) {
+    if (e instanceof FlowLibraryQuotaError) {
+      return { ok: false, reason: "quota", message: e.message };
+    }
+    return {
+      ok: false,
+      reason: "unknown",
+      message:
+        e instanceof Error ? e.message : "上書き中にエラーが発生しました。",
+    };
+  }
+}
+
 export function overwriteFlowFromProject(
   id: string,
   project: ChoreographyProjectJson,
