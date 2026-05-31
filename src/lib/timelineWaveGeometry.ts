@@ -46,27 +46,30 @@ export function quantizePlayheadForWaveView(sec: number): number {
   return Math.round(sec * 30) / 30;
 }
 
-/** ポインタのヒット判定・座標変換用。viewStartOverride があれば最後の描画範囲より優先 */
+/**
+ * ポインタのヒット判定・座標変換用。
+ * 描画と同じ `resolveWaveDrawView` をその場で求め、lastDrawRange の遅れで当たりがズレないようにする。
+ */
 export function resolveWaveViewForPointerHit(params: {
   durationSec: number;
   viewPortion: number;
   isPlaying: boolean;
   viewStartOverride: number | null;
-  lastDrawRange: { viewStart: number; viewSpan: number };
+  anchorTimeSec: number;
 }): { viewStart: number; viewSpan: number } {
-  const { durationSec, viewPortion, isPlaying, viewStartOverride, lastDrawRange } =
+  const { durationSec, viewPortion, isPlaying, viewStartOverride, anchorTimeSec } =
     params;
-  if (
-    !isPlaying &&
-    viewStartOverride != null &&
-    Number.isFinite(viewStartOverride) &&
-    durationSec > 0
-  ) {
-    const span = Math.max(0.08, durationSec * viewPortion);
-    return { viewStart: viewStartOverride, viewSpan: span };
+  if (durationSec <= 0) {
+    return { viewStart: 0, viewSpan: 1 };
   }
-  if (lastDrawRange.viewSpan > 0) return lastDrawRange;
-  return getWaveViewForDraw(durationSec, viewPortion, 0);
+  const { start, span } = resolveWaveDrawView({
+    durationSec,
+    viewPortion,
+    anchorTimeSec,
+    isPlaying,
+    viewStartOverride: !isPlaying ? viewStartOverride : null,
+  });
+  return { viewStart: start, viewSpan: span };
 }
 
 /** 波形キャンバス上のキュー区間帯をクリック判定（CSS ピクセル座標） */

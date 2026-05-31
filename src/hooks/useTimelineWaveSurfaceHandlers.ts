@@ -6,7 +6,6 @@ import {
   seekPlaybackScrubAudible,
 } from "../lib/playbackTransport";
 import {
-  getWaveViewForDraw,
   hitPlayheadStripForScrub,
   PORTRAIT_PLAYHEAD_SCRUB_HALF_WIDTH_PX,
   pickCueDragKindAtWave,
@@ -68,19 +67,29 @@ export function useTimelineWaveSurfaceHandlers(
   const playheadScrubClientXRef = useRef<number | null>(null);
 
   const resolveViewRange = useCallback(() => {
+    let anchorSec = currentTimePropRef.current;
+    if (
+      isPlayingForWaveRef.current &&
+      playbackEngine.getMediaSourceUrl() &&
+      !playbackEngine.isPaused() &&
+      Number.isFinite(playbackEngine.getCurrentTime())
+    ) {
+      anchorSec = playbackEngine.getCurrentTime();
+    }
     return resolveWaveViewForPointerHit({
       durationSec: duration,
-      viewPortion,
+      viewPortion: viewPortionRef.current ?? viewPortion,
       isPlaying: isPlayingForWaveRef.current,
       viewStartOverride: waveViewStartOverrideRef.current,
-      lastDrawRange: lastWaveDrawRangeRef.current,
+      anchorTimeSec: anchorSec,
     });
   }, [
     duration,
     isPlayingForWaveRef,
-    lastWaveDrawRangeRef,
     viewPortion,
+    viewPortionRef,
     waveViewStartOverrideRef,
+    currentTimePropRef,
   ]);
 
   const timeAtClientX = useCallback(
@@ -263,13 +272,7 @@ export function useTimelineWaveSurfaceHandlers(
       if (projectViewMode === "view" || duration <= 0 || !peaks) return;
       const c = resolveActiveWaveCanvas(canvasRef);
       if (!c) return;
-      let viewStart = lastWaveDrawRangeRef.current.viewStart;
-      let viewSpan = lastWaveDrawRangeRef.current.viewSpan;
-      if (viewSpan <= 0) {
-        const gv = getWaveViewForDraw(duration, viewPortion, currentTime);
-        viewStart = gv.start;
-        viewSpan = gv.span;
-      }
+      const { viewStart, viewSpan } = resolveViewRange();
       if (viewSpan <= 0) return;
       if (!playbackEngine.getMediaSourceUrl()) return;
 
@@ -347,8 +350,8 @@ export function useTimelineWaveSurfaceHandlers(
         return;
       }
       if (e.buttons !== 0) return;
-      const cnv = resolveActiveWaveCanvas(canvasRef);
-      if (!cnv) return;
+      const cnv = e.currentTarget as HTMLCanvasElement;
+      if (!cnv || cnv.tagName !== "CANVAS") return;
       const { viewStart, viewSpan } = resolveViewRange();
       if (viewSpan <= 0) return;
       let phSec = currentTimePropRef.current;

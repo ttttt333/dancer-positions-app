@@ -90,10 +90,20 @@ export function useWaveCanvasLongPressGate({
         return;
       }
 
-      const c = resolveActiveWaveCanvas(canvasRef);
-      if (!c) {
+      const c = e.currentTarget as HTMLCanvasElement;
+      if (!c || c.tagName !== "CANVAS") {
         basePointerDown(e);
         return;
+      }
+
+      let anchorSec = currentTimePropRef.current;
+      if (
+        isPlayingForWaveRef.current &&
+        playbackEngine.getMediaSourceUrl() &&
+        !playbackEngine.isPaused() &&
+        Number.isFinite(playbackEngine.getCurrentTime())
+      ) {
+        anchorSec = playbackEngine.getCurrentTime();
       }
 
       const { viewStart, viewSpan } = resolveWaveViewForPointerHit({
@@ -101,7 +111,7 @@ export function useWaveCanvasLongPressGate({
         viewPortion: viewPortionRef.current ?? viewPortion,
         isPlaying: isPlayingForWaveRef.current,
         viewStartOverride: waveViewStartOverrideRef.current,
-        lastDrawRange: lastWaveDrawRangeRef.current,
+        anchorTimeSec: anchorSec,
       });
       if (viewSpan <= 0) {
         basePointerDown(e);
@@ -184,8 +194,12 @@ export function useWaveCanvasLongPressGate({
         if (!pending || ev.pointerId !== pointerId) return;
         const dist = Math.hypot(ev.clientX - originX, ev.clientY - originY);
         if (dist <= WAVE_LONG_PRESS_CANCEL_PX) return;
+        const downEvent = pending.downEvent;
         pendingRef.current = null;
         cleanupListeners();
+        if (!longPressFired) {
+          basePointerDown(downEvent);
+        }
       };
 
       const onUp = (ev: PointerEvent) => {

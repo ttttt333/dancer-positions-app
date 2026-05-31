@@ -7,9 +7,9 @@ import {
 import { playbackEngine } from "../core/playbackEngine";
 import { seekPlaybackClampedAndSyncStore } from "../lib/playbackTransport";
 import {
-  getWaveViewForDraw,
   pickGapLinkAtWave,
   pickCueIdAtWave,
+  resolveWaveViewForPointerHit,
   waveExtentXToTime,
 } from "../lib/timelineWaveGeometry";
 import type { Cue, ChoreographyProjectJson } from "../types/choreography";
@@ -33,6 +33,9 @@ export type UseTimelineWaveCanvasActionsParams = {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   duration: number;
   viewPortion: number;
+  viewPortionRef: RefObject<number>;
+  waveViewStartOverrideRef: RefObject<number | null>;
+  isPlayingForWaveRef: RefObject<boolean>;
   currentTime: number;
   lastWaveDrawRangeRef: RefObject<{ viewStart: number; viewSpan: number }>;
   peaks: number[] | null;
@@ -59,8 +62,9 @@ export function useTimelineWaveCanvasActions({
   canvasRef,
   duration,
   viewPortion,
-  currentTime,
-  lastWaveDrawRangeRef,
+  viewPortionRef,
+  waveViewStartOverrideRef,
+  isPlayingForWaveRef,
   peaks,
   cuesSorted,
   cueDragPreviewRangeRef,
@@ -74,23 +78,41 @@ export function useTimelineWaveCanvasActions({
   addCueStartingAtTime,
   duplicateCueAfterSource,
 }: UseTimelineWaveCanvasActionsParams) {
+  const waveViewAtPointer = useCallback(() => {
+    let anchorSec = currentTimePropRef.current;
+    if (
+      isPlayingForWaveRef.current &&
+      playbackEngine.getMediaSourceUrl() &&
+      !playbackEngine.isPaused() &&
+      Number.isFinite(playbackEngine.getCurrentTime())
+    ) {
+      anchorSec = playbackEngine.getCurrentTime();
+    }
+    return resolveWaveViewForPointerHit({
+      durationSec: duration,
+      viewPortion: viewPortionRef.current ?? viewPortion,
+      isPlaying: isPlayingForWaveRef.current,
+      viewStartOverride: waveViewStartOverrideRef.current,
+      anchorTimeSec: anchorSec,
+    });
+  }, [
+    currentTimePropRef,
+    duration,
+    isPlayingForWaveRef,
+    viewPortion,
+    viewPortionRef,
+    waveViewStartOverrideRef,
+  ]);
+
   const onWaveClick = useCallback(
     (e: MouseEvent<HTMLCanvasElement>) => {
       if (suppressNextWaveSeekRef.current) {
         suppressNextWaveSeekRef.current = false;
         return;
       }
-      const c = resolveActiveWaveCanvas(canvasRef);
+      const c = e.currentTarget as HTMLCanvasElement;
       if (!c || duration <= 0) return;
-      const d = duration;
-      let viewStart = lastWaveDrawRangeRef.current.viewStart;
-      let viewSpan = lastWaveDrawRangeRef.current.viewSpan;
-      if (viewSpan <= 0) {
-        const vp = viewPortion;
-        const gv = getWaveViewForDraw(d, vp, currentTime);
-        viewStart = gv.start;
-        viewSpan = gv.span;
-      }
+      const { viewStart, viewSpan } = waveViewAtPointer();
       if (viewSpan <= 0) return;
       const hitId =
         peaks != null && cuesSorted.length > 0
@@ -159,8 +181,8 @@ export function useTimelineWaveCanvasActions({
       canvasRef,
       duration,
       viewPortion,
-      currentTime,
-      lastWaveDrawRangeRef,
+      viewPortionRef,
+      waveViewAtPointer,
       peaks,
       cuesSorted,
       cueDragPreviewRangeRef,
@@ -176,15 +198,9 @@ export function useTimelineWaveCanvasActions({
   const onWaveContextMenu = useCallback(
     (e: MouseEvent<HTMLCanvasElement>) => {
       if (viewMode === "view" || duration <= 0 || !peaks) return;
-      const c = resolveActiveWaveCanvas(canvasRef);
+      const c = e.currentTarget as HTMLCanvasElement;
       if (!c) return;
-      let viewStart = lastWaveDrawRangeRef.current.viewStart;
-      let viewSpan = lastWaveDrawRangeRef.current.viewSpan;
-      if (viewSpan <= 0) {
-        const gv = getWaveViewForDraw(duration, viewPortion, currentTime);
-        viewStart = gv.start;
-        viewSpan = gv.span;
-      }
+      const { viewStart, viewSpan } = waveViewAtPointer();
       if (viewSpan <= 0) return;
       const portraitActive = useTimelineWaveBridgeStore.getState().portraitActive;
       const gapTouchPad = portraitActive ? MOBILE_GAP_TOUCH_PADDING_PX : 0;
@@ -260,10 +276,7 @@ export function useTimelineWaveCanvasActions({
       viewMode,
       duration,
       peaks,
-      canvasRef,
-      lastWaveDrawRangeRef,
-      viewPortion,
-      currentTime,
+      waveViewAtPointer,
       cuesSorted,
       cueDragPreviewRangeRef,
       onSelectedCueIdsChange,
@@ -276,15 +289,9 @@ export function useTimelineWaveCanvasActions({
   const onWaveDoubleClick = useCallback(
     (e: MouseEvent<HTMLCanvasElement>) => {
       if (viewMode === "view" || duration <= 0 || !peaks) return;
-      const c = resolveActiveWaveCanvas(canvasRef);
+      const c = e.currentTarget as HTMLCanvasElement;
       if (!c) return;
-      let viewStart = lastWaveDrawRangeRef.current.viewStart;
-      let viewSpan = lastWaveDrawRangeRef.current.viewSpan;
-      if (viewSpan <= 0) {
-        const gv = getWaveViewForDraw(duration, viewPortion, currentTime);
-        viewStart = gv.start;
-        viewSpan = gv.span;
-      }
+      const { viewStart, viewSpan } = waveViewAtPointer();
       if (viewSpan <= 0) return;
       const r = c.getBoundingClientRect();
       const x = e.clientX - r.left;
@@ -321,10 +328,7 @@ export function useTimelineWaveCanvasActions({
       viewMode,
       duration,
       peaks,
-      canvasRef,
-      lastWaveDrawRangeRef,
-      viewPortion,
-      currentTime,
+      waveViewAtPointer,
       cuesSorted,
       cueDragPreviewRangeRef,
       trimStartSec,
@@ -340,13 +344,7 @@ export function useTimelineWaveCanvasActions({
       if (viewMode === "view" || duration <= 0 || !peaks) return;
       const c = resolveActiveWaveCanvas(canvasRef);
       if (!c) return;
-      let viewStart = lastWaveDrawRangeRef.current.viewStart;
-      let viewSpan = lastWaveDrawRangeRef.current.viewSpan;
-      if (viewSpan <= 0) {
-        const gv = getWaveViewForDraw(duration, viewPortion, currentTime);
-        viewStart = gv.start;
-        viewSpan = gv.span;
-      }
+      const { viewStart, viewSpan } = waveViewAtPointer();
       if (viewSpan <= 0) return;
       const portraitActive = useTimelineWaveBridgeStore.getState().portraitActive;
       const gapTouchPad = portraitActive ? MOBILE_GAP_TOUCH_PADDING_PX : PC_GAP_LONG_PRESS_PAD_PX;
@@ -376,9 +374,7 @@ export function useTimelineWaveCanvasActions({
       duration,
       peaks,
       canvasRef,
-      lastWaveDrawRangeRef,
-      viewPortion,
-      currentTime,
+      waveViewAtPointer,
       cuesSorted,
       cueDragPreviewRangeRef,
       onSelectedCueIdsChange,

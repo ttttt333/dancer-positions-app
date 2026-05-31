@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Cue } from "../types/choreography";
-import { pickCueDragKindAtWave, pickCueIdAtWave } from "./timelineWaveGeometry";
+import { pickCueDragKindAtWave, pickCueIdAtWave, resolveWaveViewForPointerHit } from "./timelineWaveGeometry";
 
 function mockCanvas(width: number, height: number, left = 0, top = 0): HTMLCanvasElement {
   return {
@@ -75,6 +75,29 @@ describe("pickCueDragKindAtWave", () => {
       null
     );
     expect(hit?.mode === "start" || hit?.mode === "end").toBe(true);
+  });
+});
+
+describe("resolveWaveViewForPointerHit", () => {
+  it("matches live zoom state instead of stale lastDrawRange", () => {
+    const live = resolveWaveViewForPointerHit({
+      durationSec: 100,
+      viewPortion: 0.2,
+      isPlaying: false,
+      viewStartOverride: 40,
+      anchorTimeSec: 50,
+    });
+    expect(live.viewStart).toBe(40);
+    expect(live.viewSpan).toBeCloseTo(20, 5);
+
+    const stale = resolveWaveViewForPointerHit({
+      durationSec: 100,
+      viewPortion: 1,
+      isPlaying: false,
+      viewStartOverride: null,
+      anchorTimeSec: 0,
+    });
+    expect(stale.viewSpan).toBe(100);
   });
 });
 

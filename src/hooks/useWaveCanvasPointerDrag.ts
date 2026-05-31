@@ -131,7 +131,22 @@ export function useWaveCanvasPointerDrag({
     (clientX: number) => {
       const c = resolveActiveWaveCanvas(canvasRef);
       if (!c) return;
-      const { viewStart, viewSpan } = lastWaveDrawRangeRef.current;
+      let anchorSec = currentTimePropRef.current;
+      if (
+        isPlayingForWaveRef.current &&
+        playbackEngine.getMediaSourceUrl() &&
+        !playbackEngine.isPaused() &&
+        Number.isFinite(playbackEngine.getCurrentTime())
+      ) {
+        anchorSec = playbackEngine.getCurrentTime();
+      }
+      const { viewStart, viewSpan } = resolveWaveViewForPointerHit({
+        durationSec: duration,
+        viewPortion: viewPortionRef.current ?? viewPortion,
+        isPlaying: isPlayingForWaveRef.current,
+        viewStartOverride: waveViewStartOverrideRef.current,
+        anchorTimeSec: anchorSec,
+      });
       const vp = viewPortionRef.current ?? viewPortion;
       const nextStart = panWaveViewStartAtClientX({
         clientX,
@@ -148,7 +163,9 @@ export function useWaveCanvasPointerDrag({
     [
       canvasRef,
       duration,
-      lastWaveDrawRangeRef,
+      currentTimePropRef,
+      isPlayingForWaveRef,
+      waveViewStartOverrideRef,
       setWaveViewStartOverride,
       viewPortion,
       viewPortionRef,
@@ -159,15 +176,26 @@ export function useWaveCanvasPointerDrag({
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (e.button !== 0) return;
       if (projectViewMode === "view" || duration <= 0 || !peaks) return;
-      const c = resolveActiveWaveCanvas(canvasRef);
-      if (!c) return;
+      const c = e.currentTarget as HTMLCanvasElement;
+      if (!c || c.tagName !== "CANVAS") return;
+      const anchorSec = () => {
+        if (
+          isPlayingForWaveRef.current &&
+          playbackEngine.getMediaSourceUrl() &&
+          !playbackEngine.isPaused() &&
+          Number.isFinite(playbackEngine.getCurrentTime())
+        ) {
+          return playbackEngine.getCurrentTime();
+        }
+        return currentTimePropRef.current;
+      };
       const viewForPointer = () =>
         resolveWaveViewForPointerHit({
           durationSec: duration,
           viewPortion: viewPortionRef.current ?? viewPortion,
           isPlaying: isPlayingForWaveRef.current,
           viewStartOverride: waveViewStartOverrideRef.current,
-          lastDrawRange: lastWaveDrawRangeRef.current,
+          anchorTimeSec: anchorSec(),
         });
       const { viewStart, viewSpan } = viewForPointer();
       const trimLo = trimStartSec;
