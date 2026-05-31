@@ -57,6 +57,7 @@ export function useEditorCloudSave({
     } catch {
       throw new Error(t("editor.cloudSave.errCopyFailed"));
     }
+    await yieldToMain();
     const title =
       json.pieceTitle?.trim() || projectName.trim() || t("editor.untitledProject");
     const body: ChoreographyProjectJson = { ...json, pieceTitle: title };

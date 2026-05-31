@@ -8,7 +8,7 @@ import {
   type PortableArchiveV1,
 } from "../../lib/portableChoreoBackup";
 import { exportPortableArchiveZipAsync } from "../../lib/portableChoreoBackupZip";
-import { yieldToMain } from "../../lib/yieldToMain";
+import { yieldToMain, deferAfterUserGesture } from "../../lib/yieldToMain";
 import { btnSecondary } from "../stageButtonStyles";
 import { panelCard, shell } from "../../theme/choreoShell";
 

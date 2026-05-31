@@ -6,7 +6,6 @@ import {
   startTransition,
   type CSSProperties,
 } from "react";
-import { flushSync } from "react-dom";
 import { Link } from "react-router-dom";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import {
@@ -28,7 +27,7 @@ import { deleteFlowLibraryAudio, putFlowLibraryAudio } from "../lib/flowLibraryL
 import { projectApi } from "../api/client";
 import { isSupabaseBackend } from "../lib/supabaseClient";
 import { copyTextToClipboard, projectShareLinks } from "../lib/shareProjectLinks";
-import { yieldToMain } from "../lib/yieldToMain";
+import { yieldToMain, deferAfterUserGesture } from "../lib/yieldToMain";
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
 import { EditorSideSheet } from "./EditorSideSheet";
 import { FlowLibraryFormationPreview } from "./FlowLibraryFormationPreview";
@@ -214,84 +213,20 @@ export function FlowLibraryDialog({
     audioDurationSec > 0 ? audioDurationSec : null
   );
 
-  const doSave = useCallback(async () => {
+  const doSave = useCallback(() => {
     const trimmed = name.trim();
     if (!trimmed) {
       setFeedback({ kind: "error", text: "名前を入力してください。" });
       return;
     }
-    flushSync(() => setBusy(true));
-    await yieldToMain();
-    let flowEmbeddedAudioKey: string | null = null;
-    try {
-      if (project.audioAssetId == null &&
-        (project.audioSupabasePath == null || String(project.audioSupabasePath).trim() === "") &&
-        getAudioBlobForFlowLibrary) {
-        const b = await getAudioBlobForFlowLibrary();
-        if (b && b.size > 0) {
-          const k = crypto.randomUUID();
-          await putFlowLibraryAudio(k, b);
-          flowEmbeddedAudioKey = k;
-        }
-      }
-      let linkId: number | null =
-        serverId != null && serverId > 0 ? Math.floor(serverId) : null;
-      if (syncProjectToCloud) {
-        const cloud = await syncProjectToCloud();
-        linkId = cloud.id;
-      }
-      await yieldToMain();
-      const wavePeaks = getWavePeaks?.() ?? null;
-      await yieldToMain();
-      const r = await saveFlowFromProjectAsync(trimmed, project, {
-        includeTiming: true,
-        wavePeaks,
-        audioDurationSec: audioDurationSec > 0 ? audioDurationSec : null,
-        flowEmbeddedAudioKey: flowEmbeddedAudioKey ?? null,
-        linkServerId: linkId,
-      });
-      if (!r.ok) {
-        if (flowEmbeddedAudioKey) void deleteFlowLibraryAudio(flowEmbeddedAudioKey);
-        setFeedback({ kind: "error", text: r.message });
-        return;
-      }
-      setFeedback({
-        kind: "info",
-        text: syncProjectToCloud
-          ? `「${r.item.name}」をクラウドと端末に保存しました（${formatFlowItemMetaLine(r.item)}）。`
-          : `「${r.item.name}」を保存しました（${formatFlowItemMetaLine(r.item)}）。`,
-      });
-      refresh();
-    } catch (e) {
-      if (flowEmbeddedAudioKey) void deleteFlowLibraryAudio(flowEmbeddedAudioKey);
-      setFeedback({
-        kind: "error",
-        text: e instanceof Error ? e.message : "保存中にエラーが発生しました。",
-      });
-    } finally {
-      setBusy(false);
-    }
-  }, [
-    name,
-    project,
-    refresh,
-    getWavePeaks,
-    getAudioBlobForFlowLibrary,
-    audioDurationSec,
-    serverId,
-    syncProjectToCloud,
-  ]);
-
-  const doOverwrite = useCallback(
-    async (id: string, label: string) => {
-      if (!confirm(`「${label}」を現在のステージ内容で上書きします。よろしいですか？`)) return;
-      flushSync(() => setBusy(true));
+    deferAfterUserGesture(async () => {
+      setBusy(true);
       await yieldToMain();
       let flowEmbeddedAudioKey: string | null = null;
       try {
         if (project.audioAssetId == null &&
-        (project.audioSupabasePath == null || String(project.audioSupabasePath).trim() === "") &&
-        getAudioBlobForFlowLibrary) {
+          (project.audioSupabasePath == null || String(project.audioSupabasePath).trim() === "") &&
+          getAudioBlobForFlowLibrary) {
           const b = await getAudioBlobForFlowLibrary();
           if (b && b.size > 0) {
             const k = crypto.randomUUID();
@@ -308,7 +243,7 @@ export function FlowLibraryDialog({
         await yieldToMain();
         const wavePeaks = getWavePeaks?.() ?? null;
         await yieldToMain();
-        const r = await overwriteFlowFromProjectAsync(id, project, {
+        const r = await saveFlowFromProjectAsync(trimmed, project, {
           includeTiming: true,
           wavePeaks,
           audioDurationSec: audioDurationSec > 0 ? audioDurationSec : null,
@@ -323,19 +258,87 @@ export function FlowLibraryDialog({
         setFeedback({
           kind: "info",
           text: syncProjectToCloud
-            ? `「${r.item.name}」をクラウドと端末に上書き保存しました。`
-            : `「${r.item.name}」を上書きしました。`,
+            ? `「${r.item.name}」をクラウドと端末に保存しました（${formatFlowItemMetaLine(r.item)}）。`
+            : `「${r.item.name}」を保存しました（${formatFlowItemMetaLine(r.item)}）。`,
         });
-        refresh();
+        startTransition(() => refresh());
       } catch (e) {
         if (flowEmbeddedAudioKey) void deleteFlowLibraryAudio(flowEmbeddedAudioKey);
         setFeedback({
           kind: "error",
-          text: e instanceof Error ? e.message : "上書き中にエラーが発生しました。",
+          text: e instanceof Error ? e.message : "保存中にエラーが発生しました。",
         });
       } finally {
         setBusy(false);
       }
+    });
+  }, [
+    name,
+    project,
+    refresh,
+    getWavePeaks,
+    getAudioBlobForFlowLibrary,
+    audioDurationSec,
+    serverId,
+    syncProjectToCloud,
+  ]);
+
+  const doOverwrite = useCallback(
+    (id: string, label: string) => {
+      if (!confirm(`「${label}」を現在のステージ内容で上書きします。よろしいですか？`)) return;
+      deferAfterUserGesture(async () => {
+        setBusy(true);
+        await yieldToMain();
+        let flowEmbeddedAudioKey: string | null = null;
+        try {
+          if (project.audioAssetId == null &&
+          (project.audioSupabasePath == null || String(project.audioSupabasePath).trim() === "") &&
+          getAudioBlobForFlowLibrary) {
+            const b = await getAudioBlobForFlowLibrary();
+            if (b && b.size > 0) {
+              const k = crypto.randomUUID();
+              await putFlowLibraryAudio(k, b);
+              flowEmbeddedAudioKey = k;
+            }
+          }
+          let linkId: number | null =
+            serverId != null && serverId > 0 ? Math.floor(serverId) : null;
+          if (syncProjectToCloud) {
+            const cloud = await syncProjectToCloud();
+            linkId = cloud.id;
+          }
+          await yieldToMain();
+          const wavePeaks = getWavePeaks?.() ?? null;
+          await yieldToMain();
+          const r = await overwriteFlowFromProjectAsync(id, project, {
+            includeTiming: true,
+            wavePeaks,
+            audioDurationSec: audioDurationSec > 0 ? audioDurationSec : null,
+            flowEmbeddedAudioKey: flowEmbeddedAudioKey ?? null,
+            linkServerId: linkId,
+          });
+          if (!r.ok) {
+            if (flowEmbeddedAudioKey) void deleteFlowLibraryAudio(flowEmbeddedAudioKey);
+            setFeedback({ kind: "error", text: r.message });
+            return;
+          }
+          setFeedback({
+            kind: "info",
+            text: syncProjectToCloud
+              ? `「${r.item.name}」をクラウドと端末に上書き保存しました。`
+              : `「${r.item.name}」を上書きしました。`,
+          });
+          startTransition(() => refresh());
+        } catch (e) {
+          if (flowEmbeddedAudioKey) void deleteFlowLibraryAudio(flowEmbeddedAudioKey);
+          setFeedback({
+            kind: "error",
+            text: e instanceof Error ? e.message : "上書き中にエラーが発生しました。",
+          });
+        } finally {
+          setBusy(false);
+        }
+      });
     },
     [project, refresh, getWavePeaks, getAudioBlobForFlowLibrary, audioDurationSec, serverId, syncProjectToCloud]
   );
@@ -424,7 +427,7 @@ export function FlowLibraryDialog({
   );
 
   const doApply = useCallback(
-    async (item: FlowLibraryItem) => {
+    (item: FlowLibraryItem) => {
       const replaceTiming = item.hasTiming
         ? confirm(
             `「${item.name}」のキュー秒数も復元しますか？\n\n` +
@@ -441,18 +444,19 @@ export function FlowLibraryDialog({
       ) {
         return;
       }
-      flushSync(() => setBusy(true));
-      await yieldToMain();
-      try {
-        const expanded = expandFlowToProject(item, {
-          replaceTiming,
-          totalDurationSec:
-            audioDurationSec > 0 ? audioDurationSec : null,
-          minCueLengthSec: 0.8,
-        });
+      deferAfterUserGesture(async () => {
+        setBusy(true);
         await yieldToMain();
-        startTransition(() => {
-          setProject((prev) => {
+        try {
+          const expanded = expandFlowToProject(item, {
+            replaceTiming,
+            totalDurationSec:
+              audioDurationSec > 0 ? audioDurationSec : null,
+            minCueLengthSec: 0.8,
+          });
+          await yieldToMain();
+          startTransition(() => {
+            setProject((prev) => {
         let next: ChoreographyProjectJson = {
           ...prev,
           formations: expanded.formations,
@@ -565,9 +569,10 @@ export function FlowLibraryDialog({
           }${expanded.memento ? "・名簿・立ち位置リスト・音源設定" : ""}）。`,
         });
         onClose();
-      } finally {
-        setBusy(false);
-      }
+        } finally {
+          setBusy(false);
+        }
+      });
     },
     [audioDurationSec, setProject, onClose, onRestoreWaveform]
   );

@@ -1098,6 +1098,103 @@ export type FlowSaveResult =
  * プロジェクトからフロー 1 件を構築するのみ（localStorage には書かない）。
  * 新規保存・上書きの両方で使い、上書きでは余計な一時レコードを挟まない。
  */
+async function buildFlowLibraryItemFromProjectAsync(
+  name: string,
+  project: ChoreographyProjectJson,
+  opts: FlowSaveOpts
+): Promise<FlowSaveResult> {
+  const trimmed = (name || "").trim().slice(0, MAX_NAME_LEN);
+  if (!project.formations.length || !project.cues.length) {
+    return {
+      ok: false,
+      reason: "empty",
+      message:
+        "保存できるフローがありません。キューを 1 つ以上作ってから保存してください。",
+    };
+  }
+  await yieldToMain();
+  const cuesSorted = [...project.cues].sort(
+    (a, b) => a.tStartSec - b.tStartSec
+  );
+  const usedFormationIds = new Set(cuesSorted.map((c) => c.formationId));
+  const filteredFormations = project.formations
+    .filter((f) => usedFormationIds.has(f.id))
+    .slice(0, MAX_FORMATIONS);
+  await yieldToMain();
+  const formationsFull: Formation[] = deepCloneJson(filteredFormations);
+  const cuesSlice = cuesSorted.slice(0, MAX_CUES);
+  const cuesFull: Cue[] = deepCloneJson(cuesSlice);
+  await yieldToMain();
+  const formations: FlowFormationSnapshot[] = filteredFormations.map((f) => ({
+    id: f.id,
+    name: f.name?.slice(0, MAX_NAME_LEN) || "",
+    dancers: f.dancers
+      .slice(0, MAX_DANCERS_PER_FORM)
+      .map((d) => ({
+        label: d.label,
+        xPct: clamp(d.xPct, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI),
+        yPct: clamp(d.yPct, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI),
+        ...(typeof d.colorIndex === "number" && Number.isFinite(d.colorIndex)
+          ? { colorIndex: modDancerColorIndex(Math.floor(d.colorIndex)) }
+          : {}),
+        ...(d.note ? { note: d.note.slice(0, 2000) } : {}),
+      })),
+  }));
+  if (formations.length === 0) {
+    return {
+      ok: false,
+      reason: "empty",
+      message: "キューに紐付く形（フォーメーション）が見つかりません。",
+    };
+  }
+  const cues: FlowCueSnapshot[] = cuesSorted.slice(0, MAX_CUES).map((c) => {
+    const gap = c.gapApproachFromPrev;
+    return {
+      id: c.id,
+      name:
+        typeof c.name === "string" && c.name.trim()
+          ? c.name.slice(0, MAX_NAME_LEN)
+          : undefined,
+      note: c.note ? c.note.slice(0, 2000) : undefined,
+      tStartSec: c.tStartSec,
+      tEndSec: c.tEndSec,
+      formationIdRef: c.formationId,
+      ...(gap ? { gapApproachFromPrev: gap } : {}),
+      ...(c.dancerCustomPaths ? { dancerCustomPaths: c.dancerCustomPaths } : {}),
+    };
+  });
+  const hasTimingFromCues =
+    cuesSorted.length > 0 && cuesHaveValidAbsoluteTimeline(cuesSorted);
+  await yieldToMain();
+  const now = Date.now();
+  const existingCount = safeParseAll().length;
+  const memento = buildMementoFromProject(project, opts);
+  const item: FlowLibraryItem = {
+    id: crypto.randomUUID(),
+    name: trimmed || `フロー ${existingCount + 1}`,
+    hasTiming: hasTimingFromCues,
+    dancerCount: resolveFirstCueFormationDancerCount(formations, cues),
+    cueCount: cues.length,
+    formations,
+    cues,
+    stageSettings: snapshotStageFromProject(project),
+    createdAt: now,
+    updatedAt: now,
+    bundleVersion: 2,
+    formationsFull,
+    cuesFull,
+    memento,
+  };
+  if (
+    opts.linkServerId != null &&
+    Number.isFinite(opts.linkServerId) &&
+    opts.linkServerId > 0
+  ) {
+    item.linkedServerProjectId = Math.floor(opts.linkServerId);
+  }
+  return { ok: true, item };
+}
+
 function buildFlowLibraryItemFromProject(
   name: string,
   project: ChoreographyProjectJson,
@@ -1204,7 +1301,7 @@ export async function saveFlowFromProjectAsync(
   opts: FlowSaveOpts
 ): Promise<FlowSaveResult> {
   await yieldToMain();
-  const built = buildFlowLibraryItemFromProject(name, project, opts);
+  const built = await buildFlowLibraryItemFromProjectAsync(name, project, opts);
   if (!built.ok) return built;
   const cur = safeParseAll();
   cur.unshift(built.item);
@@ -1271,7 +1368,7 @@ export async function overwriteFlowFromProjectAsync(
     };
   }
   await yieldToMain();
-  const fresh = buildFlowLibraryItemFromProject(target.name, project, opts);
+  const fresh = await buildFlowLibraryItemFromProjectAsync(target.name, project, opts);
   if (!fresh.ok) return fresh;
   const oldEmb = target.memento?.flowEmbeddedAudioKey;
   const newEmb = fresh.item.memento?.flowEmbeddedAudioKey;

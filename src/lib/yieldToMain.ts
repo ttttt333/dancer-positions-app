@@ -8,3 +8,10 @@ export function yieldToMain(): Promise<void> {
     });
   });
 }
+
+/** confirm 直後など: クリックハンドラを抜けてから重い処理を走らせる（INP 対策） */
+export function deferAfterUserGesture(work: () => void | Promise<void>): void {
+  window.setTimeout(() => {
+    void work();
+  }, 0);
+}
