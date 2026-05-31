@@ -349,7 +349,7 @@ export function useTimelineWaveSurfaceHandlers(
       if (e.buttons !== 0) return;
       const cnv = resolveActiveWaveCanvas(canvasRef);
       if (!cnv) return;
-      const { viewStart, viewSpan } = lastWaveDrawRangeRef.current;
+      const { viewStart, viewSpan } = resolveViewRange();
       if (viewSpan <= 0) return;
       let phSec = currentTimePropRef.current;
       if (
@@ -431,6 +431,7 @@ export function useTimelineWaveSurfaceHandlers(
       emptyWaveDragRef,
       waveHoverCueRef,
       drawWaveformAt,
+      resolveViewRange,
     ]
   );
 

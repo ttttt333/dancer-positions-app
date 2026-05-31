@@ -379,8 +379,78 @@ function fitIntervalInGap(
 export type CueWaveDragMode = "move" | "start" | "end";
 
 /**
- * 波形上ドラッグ確定: start/end は固定端を維持して隣接キューにだけクランプ。move は従来どおり空き区間へ収める。
+ * 波形上ドラッグ確定。start/end は隣接キューの共有境界を一緒に動かし、move は空き区間へ収める。
  */
+export function applyCueWaveDragCommit(
+  cues: Cue[],
+  cueId: string,
+  mode: CueWaveDragMode,
+  desiredStart: number,
+  desiredEnd: number,
+  trimLo: number,
+  trimHi: number
+): Cue[] {
+  const tLo = Math.min(trimLo, trimHi);
+  const tHi = Math.max(trimLo, trimHi);
+
+  if (mode === "move") {
+    const r = resolveCueIntervalNonOverlap(
+      cues,
+      cueId,
+      desiredStart,
+      desiredEnd,
+      tLo,
+      tHi
+    );
+    return sortCuesByStart(
+      cues.map((c) =>
+        c.id === cueId ? { ...c, tStartSec: r.tStartSec, tEndSec: r.tEndSec } : c
+      )
+    );
+  }
+
+  const sorted = sortCuesByStart(cues);
+  const idx = sorted.findIndex((c) => c.id === cueId);
+  if (idx < 0) return cues;
+
+  const target = sorted[idx]!;
+  const prev = idx > 0 ? sorted[idx - 1]! : null;
+  const next = idx < sorted.length - 1 ? sorted[idx + 1]! : null;
+  const patch = new Map<string, { tStartSec?: number; tEndSec?: number }>();
+
+  if (mode === "start") {
+    const fixedEnd = target.tEndSec;
+    let ns = Math.max(tLo, Math.min(desiredStart, fixedEnd - MIN_CUE_DURATION_SEC));
+    ns = Math.round(ns * 100) / 100;
+    if (prev && ns < prev.tEndSec - 1e-4) {
+      const newPrevEnd =
+        Math.round(Math.max(prev.tStartSec + MIN_CUE_DURATION_SEC, ns) * 100) / 100;
+      patch.set(prev.id, { tEndSec: newPrevEnd });
+      ns = newPrevEnd;
+    }
+    patch.set(cueId, { tStartSec: ns, tEndSec: fixedEnd });
+  } else {
+    const fixedStart = target.tStartSec;
+    let ne = Math.min(tHi, Math.max(desiredEnd, fixedStart + MIN_CUE_DURATION_SEC));
+    ne = Math.round(ne * 100) / 100;
+    if (next && ne > next.tStartSec + 1e-4) {
+      const newNextStart =
+        Math.round(Math.min(next.tEndSec - MIN_CUE_DURATION_SEC, ne) * 100) / 100;
+      patch.set(next.id, { tStartSec: newNextStart });
+      ne = newNextStart;
+    }
+    patch.set(cueId, { tStartSec: fixedStart, tEndSec: ne });
+  }
+
+  return sortCuesByStart(
+    cues.map((c) => {
+      const u = patch.get(c.id);
+      return u ? { ...c, ...u } : c;
+    })
+  );
+}
+
+/** @deprecated applyCueWaveDragCommit を使用 */
 export function resolveCueWaveDragCommit(
   cues: Cue[],
   cueId: string,
@@ -390,51 +460,20 @@ export function resolveCueWaveDragCommit(
   trimLo: number,
   trimHi: number
 ): { tStartSec: number; tEndSec: number } {
-  const tLo = Math.min(trimLo, trimHi);
-  const tHi = Math.max(trimLo, trimHi);
-  let ns = desiredStart;
-  let ne = desiredEnd;
-  if (!Number.isFinite(ns) || !Number.isFinite(ne)) {
-    return resolveCueIntervalNonOverlap(
-      cues,
-      cueId,
-      tLo,
-      Math.min(tHi, tLo + MIN_CUE_DURATION_SEC),
-      tLo,
-      tHi
-    );
-  }
-  if (ne <= ns) ne = ns + MIN_CUE_DURATION_SEC;
-
-  const others = sortCuesByStart(cues.filter((c) => c.id !== cueId));
-
-  if (mode === "start") {
-    ne = Math.min(tHi, Math.max(ne, ns + MIN_CUE_DURATION_SEC));
-    let maxPrevEnd = tLo;
-    for (const c of others) {
-      if (c.tEndSec <= ne + 1e-6) maxPrevEnd = Math.max(maxPrevEnd, c.tEndSec);
-    }
-    ns = Math.max(tLo, maxPrevEnd, Math.min(ns, ne - MIN_CUE_DURATION_SEC));
-    return {
-      tStartSec: Math.round(ns * 100) / 100,
-      tEndSec: Math.round(ne * 100) / 100,
-    };
-  }
-
-  if (mode === "end") {
-    ns = Math.max(tLo, Math.min(ns, tHi - MIN_CUE_DURATION_SEC));
-    let minNextStart = tHi;
-    for (const c of others) {
-      if (c.tStartSec >= ns - 1e-6) minNextStart = Math.min(minNextStart, c.tStartSec);
-    }
-    ne = Math.min(tHi, minNextStart, Math.max(ne, ns + MIN_CUE_DURATION_SEC));
-    return {
-      tStartSec: Math.round(ns * 100) / 100,
-      tEndSec: Math.round(ne * 100) / 100,
-    };
-  }
-
-  return resolveCueIntervalNonOverlap(cues, cueId, ns, ne, tLo, tHi);
+  const next = applyCueWaveDragCommit(
+    cues,
+    cueId,
+    mode,
+    desiredStart,
+    desiredEnd,
+    trimLo,
+    trimHi
+  );
+  const c = next.find((x) => x.id === cueId);
+  return {
+    tStartSec: c?.tStartSec ?? desiredStart,
+    tEndSec: c?.tEndSec ?? desiredEnd,
+  };
 }
 
 /**

@@ -178,24 +178,36 @@ export function WaveformStrip({
           ref={playheadLineOverlayRef}
           role="slider"
           aria-label="再生位置（ドラッグで移動・再生中も操作できます）"
-          onPointerDown={onPlayheadLinePointerDown}
-          onPointerMove={onPlayheadLinePointerMove}
-          onPointerUp={onPlayheadLinePointerUp}
-          onPointerCancel={onPlayheadLinePointerCancel}
           style={{
             position: "absolute",
-            pointerEvents: duration > 0 && hasPeaks ? "auto" : "none",
+            pointerEvents: "none",
             display: "none",
             left: "0%",
             transform: "translateX(-50%)",
             top: 0,
             height: playheadHeight,
             width: 16,
-            cursor: "col-resize",
             touchAction: "none",
             zIndex: 3,
           }}
         >
+          <div
+            onPointerDown={onPlayheadLinePointerDown}
+            onPointerMove={onPlayheadLinePointerMove}
+            onPointerUp={onPlayheadLinePointerUp}
+            onPointerCancel={onPlayheadLinePointerCancel}
+            style={{
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              left: "50%",
+              width: 8,
+              transform: "translateX(-50%)",
+              pointerEvents: duration > 0 && hasPeaks ? "auto" : "none",
+              cursor: "col-resize",
+              touchAction: "none",
+            }}
+          />
           <div
             aria-hidden
             style={{
