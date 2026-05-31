@@ -2,11 +2,8 @@ import type { Dispatch, PointerEvent, SetStateAction } from "react";
 import { useCallback, useRef } from "react";
 import { playbackEngine } from "../core/playbackEngine";
 import {
-  beginPlaybackScrubSession,
-  endPlaybackScrubSession,
   seekPlaybackClampedAndSyncStore,
   seekPlaybackScrubAudible,
-  type PlaybackScrubSession,
 } from "../lib/playbackTransport";
 import {
   getWaveViewForDraw,
@@ -64,7 +61,6 @@ export function useTimelineWaveSurfaceHandlers(
     waveHoverCueRef,
     ...dragArgs
   } = params;
-  const rulerScrubSessionRef = useRef<PlaybackScrubSession | null>(null);
   const playheadEdgeScrollRafRef = useRef(0);
   const playheadScrubClientXRef = useRef<number | null>(null);
 
@@ -119,6 +115,7 @@ export function useTimelineWaveSurfaceHandlers(
       timeAtClientX,
       trimEndSec,
       trimStartSec,
+      currentTimePropRef,
     ]
   );
 
@@ -175,18 +172,22 @@ export function useTimelineWaveSurfaceHandlers(
     applyEdgeScrollAtClientX(x);
     const t = timeAtClientX(x);
     if (t != null) {
-      const moved = seekPlaybackScrubAudible({
+      const moved = seekPlaybackClampedAndSyncStore({
         t,
         durationSec: duration,
         trimStartSec,
         trimEndSec,
         roundHeadForStore: true,
       });
-      if (moved != null) drawWaveformAt(moved);
+      if (moved != null) {
+        currentTimePropRef.current = moved;
+        drawWaveformAt(moved);
+      }
     }
     playheadEdgeScrollRafRef.current = requestAnimationFrame(tickPlayheadEdgeScrollLoop);
   }, [
     applyEdgeScrollAtClientX,
+    currentTimePropRef,
     drawWaveformAt,
     duration,
     playheadScrubDragRef,
@@ -196,18 +197,25 @@ export function useTimelineWaveSurfaceHandlers(
   ]);
 
   const scrubAtClientX = useCallback(
-    (clientX: number, opts?: { edgeLoop?: boolean }) => {
+    (clientX: number, opts?: { edgeLoop?: boolean; audible?: boolean }) => {
       applyEdgeScrollAtClientX(clientX);
       const t = timeAtClientX(clientX);
       if (t == null) return null;
-      const moved = seekPlaybackScrubAudible({
+      const seekParams = {
         t,
         durationSec: duration,
         trimStartSec,
         trimEndSec,
-        roundHeadForStore: true,
-      });
-      if (moved != null) drawWaveformAt(moved);
+        roundHeadForStore: true as const,
+      };
+      const moved =
+        opts?.audible === true
+          ? seekPlaybackScrubAudible(seekParams)
+          : seekPlaybackClampedAndSyncStore(seekParams);
+      if (moved != null) {
+        currentTimePropRef.current = moved;
+        drawWaveformAt(moved);
+      }
       if (opts?.edgeLoop) {
         playheadScrubClientXRef.current = clientX;
         const c = resolveActiveWaveCanvas(canvasRef);
@@ -228,6 +236,7 @@ export function useTimelineWaveSurfaceHandlers(
     [
       applyEdgeScrollAtClientX,
       canvasRef,
+      currentTimePropRef,
       drawWaveformAt,
       duration,
       tickPlayheadEdgeScrollLoop,
@@ -262,29 +271,29 @@ export function useTimelineWaveSurfaceHandlers(
       };
 
       e.preventDefault();
-      rulerScrubSessionRef.current = beginPlaybackScrubSession();
-      const tFinal = seekPlaybackScrubAudible({
-        t: timeAtClientX(e.clientX),
-        durationSec: duration,
-        trimStartSec: trimLo,
-        trimEndSec,
-        roundHeadForStore: true,
-      });
-      if (tFinal != null) drawWaveformAt(tFinal);
+      const seekRulerAtClientX = (clientX: number) => {
+        const moved = seekPlaybackClampedAndSyncStore({
+          t: timeAtClientX(clientX),
+          durationSec: duration,
+          trimStartSec: trimLo,
+          trimEndSec,
+          roundHeadForStore: true,
+        });
+        if (moved != null) {
+          currentTimePropRef.current = moved;
+          drawWaveformAt(moved);
+        }
+        return moved;
+      };
+
+      seekRulerAtClientX(e.clientX);
 
       const capturePid = e.pointerId;
       e.currentTarget.setPointerCapture(capturePid);
       const onRulerMove = (ev: globalThis.PointerEvent) => {
         if (ev.pointerId !== capturePid) return;
         if (!(ev.buttons & 1)) return;
-        const tMoved = seekPlaybackScrubAudible({
-          t: timeAtClientX(ev.clientX),
-          durationSec: duration,
-          trimStartSec: trimLo,
-          trimEndSec,
-          roundHeadForStore: true,
-        });
-        if (tMoved != null) drawWaveformAt(tMoved);
+        seekRulerAtClientX(ev.clientX);
       };
       const onRulerUp = (ev: globalThis.PointerEvent) => {
         if (ev.pointerId !== capturePid) return;
@@ -296,16 +305,7 @@ export function useTimelineWaveSurfaceHandlers(
         } catch {
           /* ignore */
         }
-        const tUp = seekPlaybackScrubAudible({
-          t: timeAtClientX(ev.clientX),
-          durationSec: duration,
-          trimStartSec: trimLo,
-          trimEndSec,
-          roundHeadForStore: true,
-        });
-        endPlaybackScrubSession(rulerScrubSessionRef.current);
-        rulerScrubSessionRef.current = null;
-        if (tUp != null) drawWaveformAt(tUp);
+        seekRulerAtClientX(ev.clientX);
       };
       window.addEventListener("pointermove", onRulerMove);
       window.addEventListener("pointerup", onRulerUp);
@@ -319,6 +319,7 @@ export function useTimelineWaveSurfaceHandlers(
       lastWaveDrawRangeRef,
       viewPortion,
       currentTime,
+      currentTimePropRef,
       trimStartSec,
       trimEndSec,
       drawWaveformAt,
@@ -483,7 +484,6 @@ export function useTimelineWaveSurfaceHandlers(
         const dy = e.clientY - drag.originY;
         if (Math.hypot(dx, dy) < PLAYHEAD_SCRUB_ARM_PX) return;
         drag.armed = true;
-        drag.scrubSession = beginPlaybackScrubSession();
       }
       e.preventDefault();
       scrubAtClientX(e.clientX, { edgeLoop: true });
@@ -499,7 +499,6 @@ export function useTimelineWaveSurfaceHandlers(
       if (drag.armed) {
         params.suppressNextWaveSeekRef.current = true;
         scrubAtClientX(e.clientX);
-        endPlaybackScrubSession(drag.scrubSession);
       }
       playheadScrubDragRef.current = null;
       try {
