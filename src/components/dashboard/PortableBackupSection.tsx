@@ -23,21 +23,23 @@ export function PortableBackupSection({ loggedIn }: Props) {
   const importInputRef = useRef<HTMLInputElement>(null);
 
   const runExport = useCallback(
-    async (includeCloudProjects: boolean) => {
-      setBusy(true);
-      setNotice("");
-      await yieldToMain();
-      try {
-        const { blob, filename } = await exportPortableArchiveZipAsync({
-          includeCloudProjects,
-        });
-        downloadBlob(blob, filename);
-        setNotice(t("dashboard.portableExportOk"));
-      } catch (e) {
-        setNotice(e instanceof Error ? e.message : t("dashboard.portableExportFail"));
-      } finally {
-        setBusy(false);
-      }
+    (includeCloudProjects: boolean) => {
+      deferAfterUserGesture(async () => {
+        setBusy(true);
+        setNotice("");
+        await yieldToMain();
+        try {
+          const { blob, filename } = await exportPortableArchiveZipAsync({
+            includeCloudProjects,
+          });
+          downloadBlob(blob, filename);
+          setNotice(t("dashboard.portableExportOk"));
+        } catch (e) {
+          setNotice(e instanceof Error ? e.message : t("dashboard.portableExportFail"));
+        } finally {
+          setBusy(false);
+        }
+      });
     },
     [t]
   );
