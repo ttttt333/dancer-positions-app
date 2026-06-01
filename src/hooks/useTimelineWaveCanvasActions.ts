@@ -69,6 +69,7 @@ export function useTimelineWaveCanvasActions({
   setWaveViewStartOverride,
   isPlayingForWaveRef,
   playheadScrubDragRef,
+  lastWaveDrawRangeRef,
   peaks,
   cuesSorted,
   cueDragPreviewRangeRef,
