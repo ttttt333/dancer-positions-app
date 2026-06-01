@@ -1,5 +1,4 @@
-import { useRef } from "react";
-import type { RefObject } from "react";
+import { useRef, type RefObject } from "react";
 import type { Cue } from "../types/choreography";
 import type { PlaybackScrubSession } from "../lib/playbackTransport";
 import { useWaveCanvasRenderer } from "./useWaveCanvasRenderer";
@@ -13,6 +12,13 @@ type Params = {
   viewPortion: number;
   viewPortionRef: RefObject<number>;
   waveViewStartOverrideRef: RefObject<number | null>;
+  playheadScrubDragRef: RefObject<{
+    pointerId: number;
+    scrubSession: PlaybackScrubSession | null;
+    originX: number;
+    originY: number;
+    armed: boolean;
+  } | null>;
   trimStartSec: number;
   trimEndSec: number | null;
   cuesSorted: Cue[];
@@ -33,6 +39,7 @@ export function useTimelineWaveCanvasModel({
   viewPortion,
   viewPortionRef,
   waveViewStartOverrideRef,
+  playheadScrubDragRef,
   trimStartSec,
   trimEndSec,
   cuesSorted,
@@ -85,13 +92,6 @@ export function useTimelineWaveCanvasModel({
     active: boolean;
   } | null>(null);
   const suppressNextWaveSeekRef = useRef(false);
-  const playheadScrubDragRef = useRef<{
-    pointerId: number;
-    scrubSession: PlaybackScrubSession | null;
-    originX: number;
-    originY: number;
-    armed: boolean;
-  } | null>(null);
   const waveHoverCueRef = useRef<{
     cueId: string;
     mode: CueDragEdgeMode;
@@ -124,6 +124,7 @@ export function useTimelineWaveCanvasModel({
     waveAmpRef,
     lastWaveDrawRangeRef,
     waveViewStartOverrideRef,
+    playheadScrubDragRef,
     isPlayingForWaveRef,
     currentTimePropRef,
     wideWorkbench,

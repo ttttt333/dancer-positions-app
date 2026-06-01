@@ -63,6 +63,17 @@ export type PlaybackScrubSession = {
   wasPlaying: boolean;
 };
 
+/** スクラブ中: 再生中からのドラッグは無音シーク、停止中からはプレビュー再生付きシーク */
+export function seekPlaybackDuringScrub(
+  params: SeekPlaybackClampedParams,
+  session: PlaybackScrubSession | null
+): number | null {
+  if (session?.wasPlaying) {
+    return seekPlaybackClampedAndSyncStore(params);
+  }
+  return seekPlaybackScrubAudible(params);
+}
+
 /** スクラブ中: 先に再生を開始してからシークし、シーク後も再生を維持する */
 export function seekPlaybackScrubAudible(
   params: SeekPlaybackClampedParams
@@ -79,12 +90,17 @@ export function seekPlaybackScrubAudible(
   return next;
 }
 
-/** スクラブ開始時の再生状態を記録し、ユーザー操作のうちに再生を開始する */
+/**
+ * スクラブ開始: 再生中ならいったん停止（ドラッグ中はヘッドを固定）、
+ * 停止中ならドラッグ中プレビュー用に再生を開始する。
+ */
 export function beginPlaybackScrubSession(): PlaybackScrubSession {
   const wasPlaying =
     Boolean(playbackEngine.getMediaSourceUrl()) &&
     !playbackEngine.isPaused();
-  if (playbackEngine.getMediaSourceUrl()) {
+  if (wasPlaying) {
+    playbackEngine.pause();
+  } else if (playbackEngine.getMediaSourceUrl()) {
     usePlaybackUiStore.getState().setIsPlaying(true);
     if (playbackEngine.isPaused()) {
       void playbackEngine.play();

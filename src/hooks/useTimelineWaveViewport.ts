@@ -1,4 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+} from "react";
+import type { PlaybackScrubSession } from "../lib/playbackTransport";
 import { playbackEngine } from "../core/playbackEngine";
 import {
   getWaveViewForDraw,
@@ -6,11 +16,17 @@ import {
   resolveWaveDrawView,
 } from "../lib/timelineWaveGeometry";
 
+type PlayheadScrubDragRef = RefObject<{
+  armed: boolean;
+  scrubSession: PlaybackScrubSession | null;
+} | null>;
+
 type Params = {
   peaks: number[] | null;
   duration: number;
   currentTime: number;
   isPlaying: boolean;
+  playheadScrubDragRef?: PlayheadScrubDragRef;
 };
 
 /**
@@ -21,6 +37,7 @@ export function useTimelineWaveViewport({
   duration,
   currentTime,
   isPlaying,
+  playheadScrubDragRef,
 }: Params) {
   const [viewPortion, setViewPortion] = useState(1);
   const viewPortionRef = useRef(viewPortion);
@@ -90,6 +107,7 @@ export function useTimelineWaveViewport({
 
   /** プレイヘッドがオーバーライドのビュー範囲外に出たら追従に戻す */
   useEffect(() => {
+    if (playheadScrubDragRef?.current?.armed) return;
     if (waveViewStartOverride === null || duration <= 0) return;
     const span = Math.max(0.08, duration * viewPortion);
     const margin = span * 0.15;
@@ -107,7 +125,14 @@ export function useTimelineWaveViewport({
     ) {
       setWaveViewStartOverride(null);
     }
-  }, [playheadGridSec, waveViewStartOverride, duration, viewPortion, isPlaying]);
+  }, [
+    playheadGridSec,
+    waveViewStartOverride,
+    duration,
+    viewPortion,
+    isPlaying,
+    playheadScrubDragRef,
+  ]);
 
   return {
     viewPortion,

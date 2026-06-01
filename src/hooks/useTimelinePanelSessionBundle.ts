@@ -1,4 +1,5 @@
-import type { ChangeEvent, Ref } from "react";
+import { useRef, type ChangeEvent, type Ref } from "react";
+import type { PlaybackScrubSession } from "../lib/playbackTransport";
 import { useWavePeaksStore } from "../store/wavePeaksStore";
 import type {
   TimelinePanelBodyProps,
@@ -95,6 +96,13 @@ export function useTimelinePanelSessionBundle(
   } = useTimelinePlaybackUi();
   const peaks = useWavePeaksStore((s) => s.peaks);
   const setPeaks = useWavePeaksStore((s) => s.setPeaks);
+  const playheadScrubDragRef = useRef<{
+    pointerId: number;
+    scrubSession: PlaybackScrubSession | null;
+    originX: number;
+    originY: number;
+    armed: boolean;
+  } | null>(null);
   const {
     viewPortion,
     setViewPortion,
@@ -107,6 +115,7 @@ export function useTimelinePanelSessionBundle(
     duration,
     currentTime,
     isPlaying,
+    playheadScrubDragRef,
   });
   const {
     brandRailCss,
@@ -139,7 +148,6 @@ export function useTimelinePanelSessionBundle(
     newCueRangePreviewRef,
     emptyWaveDragRef,
     suppressNextWaveSeekRef,
-    playheadScrubDragRef,
     waveHoverCueRef,
     isPlayingForWaveRef,
     drawWaveformAt,
@@ -151,6 +159,7 @@ export function useTimelinePanelSessionBundle(
     viewPortion,
     viewPortionRef,
     waveViewStartOverrideRef,
+    playheadScrubDragRef,
     trimStartSec,
     trimEndSec,
     cuesSorted,

@@ -23,7 +23,7 @@ import { playbackEngine } from "../../core/playbackEngine";
 import {
   beginPlaybackScrubSession,
   endPlaybackScrubSession,
-  seekPlaybackScrubAudible,
+  seekPlaybackDuringScrub,
   type PlaybackScrubSession,
 } from "../../lib/playbackTransport";
 import { formatMmSs, waveRulerTicks } from "../../lib/timeFormat";
@@ -361,13 +361,16 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
 
   const seekDuringScrub = useCallback(
     (t: number) => {
-      seekPlaybackScrubAudible({
-        t,
-        durationSec: duration,
-        trimStartSec,
-        trimEndSec,
-        roundHeadForStore: true,
-      });
+      seekPlaybackDuringScrub(
+        {
+          t,
+          durationSec: duration,
+          trimStartSec,
+          trimEndSec,
+          roundHeadForStore: true,
+        },
+        scrubSessionRef.current
+      );
     },
     [duration, trimStartSec, trimEndSec]
   );

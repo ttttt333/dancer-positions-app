@@ -31,6 +31,7 @@ export type UseWaveCanvasRendererArgs = {
   lastWaveDrawRangeRef: RefObject<{ viewStart: number; viewSpan: number }>;
   /** カーソル位置ズーム用: null でなければ viewStart をこの値で固定 */
   waveViewStartOverrideRef: RefObject<number | null>;
+  playheadScrubDragRef: RefObject<{ armed: boolean } | null>;
   isPlayingForWaveRef: RefObject<boolean>;
   currentTimePropRef: RefObject<number>;
   wideWorkbench: boolean;
@@ -67,6 +68,7 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
     waveAmpRef,
     lastWaveDrawRangeRef,
     waveViewStartOverrideRef,
+    playheadScrubDragRef,
     isPlayingForWaveRef,
     currentTimePropRef,
     wideWorkbench,
@@ -82,6 +84,20 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
     selectedCueIds,
     waveformAmplitudeScale,
   } = args;
+
+  const resolvePlayheadPaintTime = useCallback(() => {
+    if (playheadScrubDragRef.current?.armed) {
+      return currentTimePropRef.current;
+    }
+    if (
+      isPlayingForWaveRef.current &&
+      !playbackEngine.isPaused() &&
+      Number.isFinite(playbackEngine.getCurrentTime())
+    ) {
+      return playbackEngine.getCurrentTime();
+    }
+    return currentTimePropRef.current;
+  }, [currentTimePropRef, isPlayingForWaveRef, playheadScrubDragRef]);
 
   const drawWaveformAt = useCallback(
     (playheadTime: number) => {
@@ -385,13 +401,7 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         canvas.height = bh;
       }
       if (!peaksRef.current) return;
-      const tRedraw =
-        isPlayingForWaveRef.current &&
-        !playbackEngine.isPaused() &&
-        Number.isFinite(playbackEngine.getCurrentTime())
-          ? playbackEngine.getCurrentTime()
-          : currentTimePropRef.current;
-      drawWaveformAt(tRedraw);
+      drawWaveformAt(resolvePlayheadPaintTime());
     };
     syncBitmapSize();
     const ro = new ResizeObserver(() => syncBitmapSize());
@@ -406,6 +416,7 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
     wideWorkbench,
     waveCanvasCssH,
     peaks,
+    resolvePlayheadPaintTime,
   ]);
 
   useEffect(() => {
@@ -430,11 +441,7 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
     if (!isPlaying || !peaks) return;
     let id = 0;
     const paint = () => {
-      const t =
-        !playbackEngine.isPaused() && Number.isFinite(playbackEngine.getCurrentTime())
-          ? playbackEngine.getCurrentTime()
-          : currentTimePropRef.current;
-      drawWaveformAt(t);
+      drawWaveformAt(resolvePlayheadPaintTime());
       id = requestAnimationFrame(paint);
     };
     id = requestAnimationFrame(paint);
@@ -452,6 +459,7 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
     waveformAmplitudeScale,
     waveCanvasCssH,
     currentTimePropRef,
+    resolvePlayheadPaintTime,
   ]);
 
   return { drawWaveformAt };

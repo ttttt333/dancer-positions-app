@@ -2,8 +2,10 @@ import type { Dispatch, PointerEvent, SetStateAction } from "react";
 import { useCallback, useRef } from "react";
 import { playbackEngine } from "../core/playbackEngine";
 import {
+  beginPlaybackScrubSession,
+  endPlaybackScrubSession,
   seekPlaybackClampedAndSyncStore,
-  seekPlaybackScrubAudible,
+  seekPlaybackDuringScrub,
 } from "../lib/playbackTransport";
 import {
   hitPlayheadStripForScrub,
@@ -243,17 +245,23 @@ export function useTimelineWaveSurfaceHandlers(
   const tickPlayheadEdgeScrollLoop = useCallback(() => {
     playheadEdgeScrollRafRef.current = 0;
     const x = playheadScrubClientXRef.current;
-    if (x == null || !playheadScrubDragRef.current?.armed) return;
+    const drag = playheadScrubDragRef.current;
+    if (x == null || !drag?.armed) return;
+    const vp = viewPortionRef.current ?? viewPortion;
+    if (vp >= 1 - 1e-9) return;
     applyPlayheadScrubViewPan(x);
     const t = timeAtClientX(x);
     if (t != null) {
-      const moved = seekPlaybackClampedAndSyncStore({
-        t,
-        durationSec: duration,
-        trimStartSec,
-        trimEndSec,
-        roundHeadForStore: true,
-      });
+      const moved = seekPlaybackDuringScrub(
+        {
+          t,
+          durationSec: duration,
+          trimStartSec,
+          trimEndSec,
+          roundHeadForStore: true,
+        },
+        drag.scrubSession
+      );
       if (moved != null) {
         currentTimePropRef.current = moved;
         drawWaveformAt(moved);
@@ -283,9 +291,10 @@ export function useTimelineWaveSurfaceHandlers(
         trimEndSec,
         roundHeadForStore: true as const,
       };
+      const session = playheadScrubDragRef.current?.scrubSession ?? null;
       const moved =
-        opts?.audible === true
-          ? seekPlaybackScrubAudible(seekParams)
+        session != null
+          ? seekPlaybackDuringScrub(seekParams, session)
           : seekPlaybackClampedAndSyncStore(seekParams);
       if (moved != null) {
         currentTimePropRef.current = moved;
@@ -293,17 +302,11 @@ export function useTimelineWaveSurfaceHandlers(
       }
       if (opts?.edgeLoop) {
         playheadScrubClientXRef.current = clientX;
-        const c = resolveActiveWaveCanvas(canvasRef);
-        if (c && viewPortion < 1 - 1e-9) {
-          const r = c.getBoundingClientRect();
-          const zone = Math.max(32, r.width * 0.14);
-          const inEdge =
-            clientX <= r.left + zone || clientX >= r.right - zone;
-          if (inEdge && !playheadEdgeScrollRafRef.current) {
-            playheadEdgeScrollRafRef.current = requestAnimationFrame(
-              tickPlayheadEdgeScrollLoop
-            );
-          }
+        const vp = viewPortionRef.current ?? viewPortion;
+        if (vp < 1 - 1e-9 && !playheadEdgeScrollRafRef.current) {
+          playheadEdgeScrollRafRef.current = requestAnimationFrame(
+            tickPlayheadEdgeScrollLoop
+          );
         }
       }
       return moved;
@@ -554,6 +557,7 @@ export function useTimelineWaveSurfaceHandlers(
         const dy = e.clientY - drag.originY;
         if (Math.hypot(dx, dy) < PLAYHEAD_SCRUB_ARM_PX) return;
         drag.armed = true;
+        drag.scrubSession = beginPlaybackScrubSession();
       }
       e.preventDefault();
       scrubAtClientX(e.clientX, { edgeLoop: true });
@@ -569,6 +573,7 @@ export function useTimelineWaveSurfaceHandlers(
       if (drag.armed) {
         params.suppressNextWaveSeekRef.current = true;
         scrubAtClientX(e.clientX);
+        endPlaybackScrubSession(drag.scrubSession);
       }
       playheadScrubDragRef.current = null;
       try {

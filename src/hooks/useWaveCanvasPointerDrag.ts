@@ -15,7 +15,7 @@ import {
   beginPlaybackScrubSession,
   endPlaybackScrubSession,
   seekPlaybackClampedAndSyncStore,
-  seekPlaybackScrubAudible,
+  seekPlaybackDuringScrub,
   syncPlaybackHeadAfterCueEdit,
   type PlaybackScrubSession,
 } from "../lib/playbackTransport";
@@ -502,16 +502,24 @@ export function useWaveCanvasPointerDrag({
             applyPlayheadScrubViewPan(x, scrubT);
           }
           if (playbackEngine.getMediaElement()) {
-            const tMoved = seekPlaybackScrubAudible({
-              t: scrubT,
-              durationSec: duration,
-              trimStartSec: trimLo,
-              trimEndSec,
-              roundHeadForStore: true,
-            });
+            const tMoved = seekPlaybackDuringScrub(
+              {
+                t: scrubT,
+                durationSec: duration,
+                trimStartSec: trimLo,
+                trimEndSec,
+                roundHeadForStore: true,
+              },
+              drag.scrubSession
+            );
             drawWaveformAt(tMoved ?? scrubT);
           }
-          playheadEdgeScrollRafRef.current = requestAnimationFrame(tickPlayheadEdgeScrollLoop);
+          const vpLoop = viewPortionRef.current ?? viewPortion;
+          if (vpLoop < 1 - 1e-9) {
+            playheadEdgeScrollRafRef.current = requestAnimationFrame(
+              tickPlayheadEdgeScrollLoop
+            );
+          }
         };
         const onPhMove = (ev: PointerEvent) => {
           const drag = playheadScrubDragRef.current;
@@ -535,28 +543,24 @@ export function useWaveCanvasPointerDrag({
             applyPlayheadScrubViewPan(ev.clientX, scrubT);
             const vp = viewPortionRef.current ?? viewPortion;
             if (vp < 1 - 1e-9) {
-              const r = c.getBoundingClientRect();
-              const zone = Math.max(
-                WAVE_EDGE_SCROLL_ZONE_MIN_PX,
-                r.width * WAVE_EDGE_SCROLL_ZONE_RATIO
-              );
-              const inEdge =
-                ev.clientX <= r.left + zone || ev.clientX >= r.right - zone;
               playheadScrubClientXRef.current = ev.clientX;
-              if (inEdge && !playheadEdgeScrollRafRef.current) {
+              if (!playheadEdgeScrollRafRef.current) {
                 playheadEdgeScrollRafRef.current = requestAnimationFrame(
                   tickPlayheadEdgeScrollLoop
                 );
               }
             }
           }
-          const tMoved = seekPlaybackScrubAudible({
-            t: scrubT,
-            durationSec: duration,
-            trimStartSec: trimLo,
-            trimEndSec,
-            roundHeadForStore: true,
-          });
+          const tMoved = seekPlaybackDuringScrub(
+            {
+              t: scrubT,
+              durationSec: duration,
+              trimStartSec: trimLo,
+              trimEndSec,
+              roundHeadForStore: true,
+            },
+            drag.scrubSession
+          );
           drawWaveformAt(tMoved ?? scrubT);
         };
         const onPhUp = (ev: PointerEvent) => {
@@ -581,13 +585,16 @@ export function useWaveCanvasPointerDrag({
           }
           suppressNextWaveSeekRef.current = true;
           if (playbackEngine.getMediaElement()) {
-            seekPlaybackScrubAudible({
-              t: rawWaveTimeFromClientX(ev.clientX),
-              durationSec: duration,
-              trimStartSec: trimLo,
-              trimEndSec,
-              roundHeadForStore: true,
-            });
+            seekPlaybackDuringScrub(
+              {
+                t: rawWaveTimeFromClientX(ev.clientX),
+                durationSec: duration,
+                trimStartSec: trimLo,
+                trimEndSec,
+                roundHeadForStore: true,
+              },
+              drag.scrubSession
+            );
             endPlaybackScrubSession(drag.scrubSession);
           }
           redraw();
