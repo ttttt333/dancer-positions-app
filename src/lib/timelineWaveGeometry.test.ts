@@ -4,6 +4,7 @@ import {
   effectiveWaveViewStartOverride,
   pickCueDragKindAtWave,
   pickCueIdAtWave,
+  resolvePlayheadSecForWaveInteraction,
   resolveWaveDrawView,
   resolveWaveViewForPointerHit,
 } from "./timelineWaveGeometry";
@@ -171,6 +172,30 @@ describe("resolveWaveViewForPointerHit", () => {
       anchorTimeSec: 0,
     });
     expect(stale.viewSpan).toBe(100);
+  });
+});
+
+describe("resolvePlayheadSecForWaveInteraction", () => {
+  it("prefers currentTimeProp while playhead scrub is armed", () => {
+    expect(
+      resolvePlayheadSecForWaveInteraction({
+        currentTimePropSec: 42,
+        isPlayingForWave: true,
+        playheadScrubArmed: true,
+        engineTimeSec: 10,
+      })
+    ).toBe(42);
+  });
+
+  it("uses engine time while playing when not scrubbing", () => {
+    expect(
+      resolvePlayheadSecForWaveInteraction({
+        currentTimePropSec: 42,
+        isPlayingForWave: true,
+        playheadScrubArmed: false,
+        engineTimeSec: 10,
+      })
+    ).toBe(10);
   });
 });
 

@@ -1044,19 +1044,21 @@ export function EditorPage({
     const sig = project.cues.map((c) => `${c.id}:${c.formationId}`).join("|");
     if (sharedFormationSplitSigRef.current === sig) return;
     sharedFormationSplitSigRef.current = sig;
+    markHistorySkipNextPush();
     setProjectSafe((p) => splitSharedCueFormations(p));
-  }, [project, cueIdsSig, setProjectSafe]);
+  }, [project, cueIdsSig, setProjectSafe, markHistorySkipNextPush]);
 
   /** キュー選択と activeFormationId を同期（舞台スナップショット・表示のずれ防止） */
   useEffect(() => {
     if (!project || !selectedCueId) return;
     const cue = cueById.get(selectedCueId);
     if (!cue || project.activeFormationId === cue.formationId) return;
+    markHistorySkipNextPush();
     setProjectSafe((p) => {
       if (p.activeFormationId === cue.formationId) return p;
       return { ...p, activeFormationId: cue.formationId };
     });
-  }, [project, selectedCueId, cueById, setProjectSafe]);
+  }, [project, selectedCueId, cueById, setProjectSafe, markHistorySkipNextPush]);
 
   /** 再生中のみ補間表示 */
   const playbackDancersForStage = !isPlaying ? null : interpolatedDancers;

@@ -9,6 +9,13 @@ import {
 import { createEmptyProject } from "../../lib/projectDefaults";
 
 describe("editorHistoryStack", () => {
+  it("skips duplicate consecutive snapshots", () => {
+    const stacks = createEditorHistoryStacks();
+    pushEditorHistorySnapshot(stacks, '{"v":1}');
+    pushEditorHistorySnapshot(stacks, '{"v":1}');
+    expect(stacks.undo).toHaveLength(1);
+  });
+
   it("push clears redo stack", () => {
     const stacks = createEditorHistoryStacks();
     stacks.redo.push("{}");

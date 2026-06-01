@@ -10,6 +10,7 @@ import {
   hitPlayheadStripForScrub,
   PORTRAIT_PLAYHEAD_SCRUB_HALF_WIDTH_PX,
   pickCueDragKindAtWave,
+  resolvePlayheadSecForWaveInteraction,
   resolveWaveViewForPointerHit,
   waveExtentXToTime,
 } from "../lib/timelineWaveGeometry";
@@ -34,6 +35,8 @@ export type UseTimelineWaveSurfaceHandlersParams = UseWaveCanvasPointerDragArgs 
   currentTime: number;
   setWaveViewStartOverride: Dispatch<SetStateAction<number | null>>;
   openGapRouteMenuAtPointer: (clientX: number, clientY: number) => void;
+  /** 2 回目の pointerup でキュー追加（ズーム時は dblclick が届かないことがある） */
+  commitWaveDoubleClickAt: (clientX: number, clientY: number) => void;
 };
 
 /**
@@ -51,25 +54,52 @@ export function useTimelineWaveSurfaceHandlers(
     projectViewMode,
     duration,
     peaks,
+    peaksRef,
     canvasRef,
     lastWaveDrawRangeRef,
+    waveViewStartOverrideRef,
     trimStartSec,
     trimEndSec,
-    drawWaveformAt,
     currentTimePropRef,
     isPlayingForWaveRef,
+    viewPortionRef,
+    drawWaveformAt,
     cuesSorted,
+    cuesRef,
     cueDragRef,
     cueDragPreviewRangeRef,
     playheadScrubDragRef,
     emptyWaveDragRef,
+    newCueRangePreviewRef,
     waveHoverCueRef,
-    waveViewStartOverrideRef,
-    viewPortionRef,
-    ...dragArgs
+    setCurrentTime,
+    onSelectedCueIdsChange,
+    suppressNextWaveSeekRef,
+    wavePointerGestureRef,
+    setProject,
+    durationRef,
+    formationIdForNewCue,
+    formations,
+    onFormationChosenFromCueList,
+    commitWaveDoubleClickAt,
   } = params;
   const playheadEdgeScrollRafRef = useRef(0);
   const playheadScrubClientXRef = useRef<number | null>(null);
+
+  const resolvePlayheadSecForHit = useCallback(() => {
+    const engineSec =
+      playbackEngine.getMediaSourceUrl() &&
+      !playbackEngine.isPaused() &&
+      Number.isFinite(playbackEngine.getCurrentTime())
+        ? playbackEngine.getCurrentTime()
+        : null;
+    return resolvePlayheadSecForWaveInteraction({
+      currentTimePropSec: currentTimePropRef.current,
+      isPlayingForWave: isPlayingForWaveRef.current,
+      playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
+      engineTimeSec: engineSec,
+    });
+  }, [currentTimePropRef, isPlayingForWaveRef, playheadScrubDragRef]);
 
   const resolveViewRange = useCallback(() => {
     let anchorSec = currentTimePropRef.current;
@@ -183,10 +213,10 @@ export function useTimelineWaveSurfaceHandlers(
   );
 
   const basePointerDown = useWaveCanvasPointerDrag({
-    ...dragArgs,
     projectViewMode,
     duration,
     peaks,
+    peaksRef,
     canvasRef,
     lastWaveDrawRangeRef,
     waveViewStartOverrideRef,
@@ -199,16 +229,29 @@ export function useTimelineWaveSurfaceHandlers(
     setWaveViewStartOverride,
     drawWaveformAt,
     cuesSorted,
+    cuesRef,
     cueDragRef,
     cueDragPreviewRangeRef,
     playheadScrubDragRef,
     emptyWaveDragRef,
+    newCueRangePreviewRef,
     waveHoverCueRef,
+    setCurrentTime,
+    onSelectedCueIdsChange,
+    suppressNextWaveSeekRef,
+    wavePointerGestureRef,
+    setProject,
+    durationRef,
+    formationIdForNewCue,
+    formations,
+    onFormationChosenFromCueList,
+    commitWaveDoubleClickAt,
   });
   const { onWaveCanvasPointerDown, clearPending } = useWaveCanvasLongPressGate({
-    ...dragArgs,
     projectViewMode,
+    duration,
     peaks,
+    peaksRef,
     canvasRef,
     lastWaveDrawRangeRef,
     waveViewStartOverrideRef,
@@ -218,9 +261,12 @@ export function useTimelineWaveSurfaceHandlers(
     cueDragPreviewRangeRef,
     currentTimePropRef,
     isPlayingForWaveRef,
-    duration,
+    playheadScrubDragRef,
+    suppressNextWaveSeekRef,
+    wavePointerGestureRef,
     seekTimelineAtClientX,
     openGapRouteMenuAtPointer,
+    commitWaveDoubleClickAt,
     basePointerDown,
   });
 
@@ -409,15 +455,7 @@ export function useTimelineWaveSurfaceHandlers(
       if (!cnv || cnv.tagName !== "CANVAS") return;
       const { viewStart, viewSpan } = resolveViewRange();
       if (viewSpan <= 0) return;
-      let phSec = currentTimePropRef.current;
-      if (
-        isPlayingForWaveRef.current &&
-        playbackEngine.getMediaSourceUrl() &&
-        !playbackEngine.isPaused() &&
-        Number.isFinite(playbackEngine.getCurrentTime())
-      ) {
-        phSec = playbackEngine.getCurrentTime();
-      }
+      const phSec = resolvePlayheadSecForHit();
       if (
         playbackEngine.getMediaSourceUrl() &&
         hitPlayheadStripForScrub(
@@ -490,6 +528,7 @@ export function useTimelineWaveSurfaceHandlers(
       waveHoverCueRef,
       drawWaveformAt,
       resolveViewRange,
+      resolvePlayheadSecForHit,
     ]
   );
 
@@ -536,10 +575,17 @@ export function useTimelineWaveSurfaceHandlers(
       };
       e.currentTarget.setPointerCapture(e.pointerId);
       if (zoomed) {
-        seekTimelineAtClientX(e.clientX, playheadScrubDragRef.current.scrubSession);
+        const moved = seekTimelineAtClientX(
+          e.clientX,
+          playheadScrubDragRef.current.scrubSession
+        );
+        if (moved != null) {
+          applyPlayheadScrubViewPan(e.clientX, moved);
+        }
       }
     },
     [
+      applyPlayheadScrubViewPan,
       clearPending,
       duration,
       peaks,
@@ -556,6 +602,8 @@ export function useTimelineWaveSurfaceHandlers(
       const drag = playheadScrubDragRef.current;
       if (!drag || drag.pointerId !== e.pointerId) return;
       if (!(e.buttons & 1)) return;
+      const vp = viewPortionRef.current ?? viewPortion;
+      const zoomed = vp < 1 - 1e-9;
       if (!drag.armed) {
         const dx = e.clientX - drag.originX;
         const dy = e.clientY - drag.originY;
@@ -564,9 +612,18 @@ export function useTimelineWaveSurfaceHandlers(
         drag.scrubSession = beginPlaybackScrubSession();
       }
       e.preventDefault();
-      scrubAtClientX(e.clientX, { edgeLoop: true });
+      const moved = scrubAtClientX(e.clientX, { edgeLoop: zoomed });
+      if (zoomed && moved != null) {
+        applyPlayheadScrubViewPan(e.clientX, moved);
+      }
     },
-    [playheadScrubDragRef, scrubAtClientX]
+    [
+      applyPlayheadScrubViewPan,
+      playheadScrubDragRef,
+      scrubAtClientX,
+      viewPortion,
+      viewPortionRef,
+    ]
   );
 
   const endPlayheadLineDrag = useCallback(
@@ -575,12 +632,12 @@ export function useTimelineWaveSurfaceHandlers(
       if (!drag || drag.pointerId !== e.pointerId) return;
       stopPlayheadEdgeScrollLoop();
       if (drag.armed) {
-        params.suppressNextWaveSeekRef.current = true;
+        suppressNextWaveSeekRef.current = true;
         scrubAtClientX(e.clientX);
         endPlaybackScrubSession(drag.scrubSession);
       } else {
         seekTimelineAtClientX(e.clientX);
-        params.suppressNextWaveSeekRef.current = true;
+        suppressNextWaveSeekRef.current = true;
       }
       playheadScrubDragRef.current = null;
       try {
@@ -590,7 +647,7 @@ export function useTimelineWaveSurfaceHandlers(
       }
     },
     [
-      params.suppressNextWaveSeekRef,
+      suppressNextWaveSeekRef,
       playheadScrubDragRef,
       scrubAtClientX,
       seekTimelineAtClientX,

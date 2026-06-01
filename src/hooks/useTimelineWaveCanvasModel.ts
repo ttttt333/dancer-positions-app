@@ -92,6 +92,8 @@ export function useTimelineWaveCanvasModel({
     active: boolean;
   } | null>(null);
   const suppressNextWaveSeekRef = useRef(false);
+  /** ダブルクリック直前の pointerup でシーク抑制しないための時刻 */
+  const wavePointerGestureRef = useRef({ lastPointerUpAtMs: 0 });
   const waveHoverCueRef = useRef<{
     cueId: string;
     mode: CueDragEdgeMode;
@@ -158,6 +160,7 @@ export function useTimelineWaveCanvasModel({
     newCueRangePreviewRef,
     emptyWaveDragRef,
     suppressNextWaveSeekRef,
+    wavePointerGestureRef,
     playheadScrubDragRef,
     waveHoverCueRef,
     isPlayingForWaveRef,

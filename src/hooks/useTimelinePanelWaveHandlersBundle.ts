@@ -44,6 +44,7 @@ type WaveHandlersBundleParams = {
     | "lastWaveDrawRangeRef"
     | "cueDragPreviewRangeRef"
     | "suppressNextWaveSeekRef"
+    | "wavePointerGestureRef"
     | "waveViewStartOverrideRef"
     | "viewPortionRef"
     | "drawWaveformAt"
@@ -82,9 +83,15 @@ export function useTimelinePanelWaveHandlersBundle({
   menus,
   cueActions,
 }: WaveHandlersBundleParams) {
-  const { onWaveClick, onWaveContextMenu, onWaveDoubleClick, openGapRouteMenuAtPointer } =
-    useTimelineWaveCanvasActions({
+  const {
+    onWaveClick,
+    onWaveContextMenu,
+    onWaveDoubleClick,
+    commitWaveDoubleClickAt,
+    openGapRouteMenuAtPointer,
+  } = useTimelineWaveCanvasActions({
       suppressNextWaveSeekRef: canvas.suppressNextWaveSeekRef,
+      wavePointerGestureRef: canvas.wavePointerGestureRef,
       currentTimePropRef: canvas.currentTimePropRef,
       drawWaveformAt: canvas.drawWaveformAt,
       canvasRef: canvas.canvasRef,
@@ -144,6 +151,7 @@ export function useTimelinePanelWaveHandlersBundle({
     setCurrentTime: playback.setCurrentTime,
     onSelectedCueIdsChange,
     suppressNextWaveSeekRef: canvas.suppressNextWaveSeekRef,
+    wavePointerGestureRef: canvas.wavePointerGestureRef,
     setProject,
     durationRef: canvas.durationRef,
     peaksRef: canvas.peaksRef,
@@ -153,6 +161,7 @@ export function useTimelinePanelWaveHandlersBundle({
     viewPortion: viewport.viewPortion,
     setWaveViewStartOverride: viewport.setWaveViewStartOverride,
     openGapRouteMenuAtPointer,
+    commitWaveDoubleClickAt,
     currentTime: playback.currentTime,
     onWaveContextMenu,
   });

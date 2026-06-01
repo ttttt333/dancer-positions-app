@@ -21,6 +21,7 @@ import {
   hitPlayheadStripForScrub,
   PORTRAIT_PLAYHEAD_SCRUB_HALF_WIDTH_PX,
   pickCueDragKindAtWave,
+  resolvePlayheadSecForWaveInteraction,
   resolveWaveViewForPointerHit,
   waveExtentXToTime,
   type CueDragEdgeMode,
@@ -36,7 +37,12 @@ import {
   panWaveViewStartForPlayheadAtClientX,
 } from "../lib/waveTimelineSeek";
 import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
-import { PLAYHEAD_SCRUB_ARM_PX, WAVE_DRAG_ARM_PX } from "../lib/waveLongPress";
+import {
+  isWaveDoubleClickFollowUp,
+  PLAYHEAD_SCRUB_ARM_PX,
+  tryArmWaveDoubleClickOnPointerDown,
+  WAVE_DRAG_ARM_PX,
+} from "../lib/waveLongPress";
 
 export type UseWaveCanvasPointerDragArgs = {
   projectViewMode: ChoreographyProjectJson["viewMode"];
@@ -89,11 +95,13 @@ export type UseWaveCanvasPointerDragArgs = {
   setCurrentTime: (t: number) => void;
   onSelectedCueIdsChange: Dispatch<SetStateAction<string[]>>;
   suppressNextWaveSeekRef: RefObject<boolean>;
+  wavePointerGestureRef: RefObject<{ lastPointerUpAtMs: number }>;
   setProject: React.Dispatch<React.SetStateAction<ChoreographyProjectJson>>;
   durationRef: RefObject<number>;
   formationIdForNewCue: string;
   formations: ChoreographyProjectJson["formations"];
   onFormationChosenFromCueList?: () => void;
+  commitWaveDoubleClickAt: (clientX: number, clientY: number) => void;
 };
 
 /**
@@ -126,14 +134,26 @@ export function useWaveCanvasPointerDrag({
   setCurrentTime,
   onSelectedCueIdsChange,
   suppressNextWaveSeekRef,
+  wavePointerGestureRef,
   setProject,
   durationRef,
   formationIdForNewCue,
   formations,
   onFormationChosenFromCueList,
+  commitWaveDoubleClickAt,
 }: UseWaveCanvasPointerDragArgs) {
   const playheadEdgeScrollRafRef = useRef(0);
   const playheadScrubClientXRef = useRef<number | null>(null);
+  const cueEdgeScrollRafRef = useRef(0);
+  const cueDragScrollClientXRef = useRef<number | null>(null);
+
+  const stopCueEdgeScrollLoop = useCallback(() => {
+    if (cueEdgeScrollRafRef.current) {
+      cancelAnimationFrame(cueEdgeScrollRafRef.current);
+      cueEdgeScrollRafRef.current = 0;
+    }
+    cueDragScrollClientXRef.current = null;
+  }, []);
 
   const applyEdgeScroll = useCallback(
     (clientX: number) => {
@@ -157,6 +177,7 @@ export function useWaveCanvasPointerDrag({
         playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
         enginePaused:
           !isPlayingForWaveRef.current || playbackEngine.isPaused(),
+        lastDrawRange: lastWaveDrawRangeRef.current,
       });
       const vp = viewPortionRef.current ?? viewPortion;
       const nextStart = panWaveViewStartAtClientX({
@@ -176,6 +197,8 @@ export function useWaveCanvasPointerDrag({
       duration,
       currentTimePropRef,
       isPlayingForWaveRef,
+      lastWaveDrawRangeRef,
+      playheadScrubDragRef,
       waveViewStartOverrideRef,
       setWaveViewStartOverride,
       viewPortion,
@@ -313,15 +336,18 @@ export function useWaveCanvasPointerDrag({
         drawWaveformAt(tRedraw);
       };
 
-      let playheadSecForHit = currentTimePropRef.current;
-      if (
-        isPlayingForWaveRef.current &&
+      const engineSec =
         playbackEngine.getMediaSourceUrl() &&
         !playbackEngine.isPaused() &&
         Number.isFinite(playbackEngine.getCurrentTime())
-      ) {
-        playheadSecForHit = playbackEngine.getCurrentTime();
-      }
+          ? playbackEngine.getCurrentTime()
+          : null;
+      const playheadSecForHit = resolvePlayheadSecForWaveInteraction({
+        currentTimePropSec: currentTimePropRef.current,
+        isPlayingForWave: isPlayingForWaveRef.current,
+        playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
+        engineTimeSec: engineSec,
+      });
 
       const { viewStart, viewSpan } = viewForPointer();
       const dragKind = pickCueDragKindAtWave(
@@ -407,6 +433,17 @@ export function useWaveCanvasPointerDrag({
             .getState()
             .setPortraitWaveEdgeScrollTick(applyCueDragAtClientX);
         }
+        const tickCueEdgeScrollLoop = () => {
+          cueEdgeScrollRafRef.current = 0;
+          const x = cueDragScrollClientXRef.current;
+          const drag = cueDragRef.current;
+          if (x == null || !drag?.armed) return;
+          const vpLoop = viewPortionRef.current ?? viewPortion;
+          if (vpLoop >= 1 - 1e-9) return;
+          applyEdgeScroll(x);
+          applyCueDragAtClientX(x);
+          cueEdgeScrollRafRef.current = requestAnimationFrame(tickCueEdgeScrollLoop);
+        };
         const onMove = (ev: PointerEvent) => {
           if (ev.pointerId !== e.pointerId || !cueDragRef.current) return;
           const drag = cueDragRef.current;
@@ -430,9 +467,18 @@ export function useWaveCanvasPointerDrag({
             );
           }
           applyCueDragAtClientX(ev.clientX);
+          const vpMove = viewPortionRef.current ?? viewPortion;
+          if (vpMove < 1 - 1e-9) {
+            cueDragScrollClientXRef.current = ev.clientX;
+            applyEdgeScroll(ev.clientX);
+            if (!cueEdgeScrollRafRef.current) {
+              cueEdgeScrollRafRef.current = requestAnimationFrame(tickCueEdgeScrollLoop);
+            }
+          }
         };
         const onUp = (ev: PointerEvent) => {
           if (ev.pointerId !== e.pointerId || !cueDragRef.current) return;
+          stopCueEdgeScrollLoop();
           window.removeEventListener("pointermove", onMove);
           window.removeEventListener("pointerup", onUp);
           window.removeEventListener("pointercancel", onUp);
@@ -630,6 +676,21 @@ export function useWaveCanvasPointerDrag({
         return;
       }
 
+      if (
+        tryArmWaveDoubleClickOnPointerDown({
+          wavePointerGestureRef,
+          suppressNextWaveSeekRef,
+          pointerId: e.pointerId,
+          clientX: e.clientX,
+          clientY: e.clientY,
+          onCommit: commitWaveDoubleClickAt,
+        })
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
       e.stopPropagation();
       waveHoverCueRef.current = null;
       emptyWaveDragRef.current = {
@@ -677,10 +738,21 @@ export function useWaveCanvasPointerDrag({
         const preview = newCueRangePreviewRef.current;
         newCueRangePreviewRef.current = null;
         if (st?.active) suppressNextWaveSeekRef.current = true;
-        if (st && !st.active && playbackEngine.getMediaSourceUrl() && durationRef.current > 0) {
-          seekTimelineAtClientX(ev.clientX);
-          onSelectedCueIdsChange([]);
-          suppressNextWaveSeekRef.current = true;
+        if (st && !st.active && durationRef.current > 0) {
+          const now = performance.now();
+          const dblFollowUp = isWaveDoubleClickFollowUp(
+            wavePointerGestureRef.current.lastPointerUpAtMs,
+            now
+          );
+          wavePointerGestureRef.current.lastPointerUpAtMs = now;
+          if (dblFollowUp) {
+            commitWaveDoubleClickAt(ev.clientX, ev.clientY);
+            suppressNextWaveSeekRef.current = true;
+          } else if (playbackEngine.getMediaSourceUrl()) {
+            seekTimelineAtClientX(ev.clientX);
+            onSelectedCueIdsChange([]);
+            suppressNextWaveSeekRef.current = true;
+          }
         }
         if (st?.active && preview && Number.isFinite(preview.tStart) && Number.isFinite(preview.tEnd)) {
           let ts = Math.round(Math.min(preview.tStart, preview.tEnd) * 100) / 100;
@@ -757,6 +829,8 @@ export function useWaveCanvasPointerDrag({
       playheadScrubDragRef,
       setCurrentTime,
       suppressNextWaveSeekRef,
+      wavePointerGestureRef,
+      stopCueEdgeScrollLoop,
       onSelectedCueIdsChange,
       cueDragRef,
       cueDragPreviewRangeRef,
@@ -768,6 +842,7 @@ export function useWaveCanvasPointerDrag({
       formations.length,
       formationIdForNewCue,
       onFormationChosenFromCueList,
+      commitWaveDoubleClickAt,
     ]
   );
 }

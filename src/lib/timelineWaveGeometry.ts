@@ -375,6 +375,52 @@ const PLAYHEAD_SCRUB_HALF_WIDTH_PX = 16;
 /** 縦画面: 再生位置バーのタップ・ドラッグ判定を広げる */
 export const PORTRAIT_PLAYHEAD_SCRUB_HALF_WIDTH_PX = 28;
 
+/**
+ * 波形の赤バー描画・ヒット判定で同じ再生秒を使う。
+ * スクラブ中（armed）は `currentTimePropRef` を優先し、描画と当たりがずれないようにする。
+ */
+/** ポインタ位置 → 波形上の秒（ヒット判定・ダブルクリック追加と同じ窓） */
+export function waveTimeAtClientXOnCanvas(
+  clientX: number,
+  canvas: HTMLCanvasElement,
+  ctx: {
+    durationSec: number;
+    viewPortion: number;
+    isPlaying: boolean;
+    viewStartOverride: number | null;
+    anchorTimeSec: number;
+    playheadScrubArmed?: boolean;
+    enginePaused?: boolean;
+    lastDrawRange?: { viewStart: number; viewSpan: number } | null;
+  }
+): number | null {
+  const rect = canvas.getBoundingClientRect();
+  const { viewStart, viewSpan } = resolveWaveViewForPointerHit(ctx);
+  if (viewSpan <= 0 || rect.width <= 0) return null;
+  return waveExtentXToTime(clientX - rect.left, viewStart, viewSpan, rect.width);
+}
+
+export function resolvePlayheadSecForWaveInteraction(params: {
+  currentTimePropSec: number;
+  isPlayingForWave: boolean;
+  playheadScrubArmed: boolean;
+  engineTimeSec: number | null;
+}): number {
+  const { currentTimePropSec, isPlayingForWave, playheadScrubArmed, engineTimeSec } =
+    params;
+  if (playheadScrubArmed && Number.isFinite(currentTimePropSec)) {
+    return currentTimePropSec;
+  }
+  if (
+    isPlayingForWave &&
+    engineTimeSec != null &&
+    Number.isFinite(engineTimeSec)
+  ) {
+    return engineTimeSec;
+  }
+  return currentTimePropSec;
+}
+
 export function hitPlayheadStripForScrub(
   clientX: number,
   canvas: HTMLCanvasElement,

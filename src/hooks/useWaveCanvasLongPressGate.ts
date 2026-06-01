@@ -7,10 +7,13 @@ import {
   hitPlayheadStripForScrub,
   pickCueDragKindAtWave,
   pickGapLinkAtWave,
+  resolvePlayheadSecForWaveInteraction,
   resolveWaveViewForPointerHit,
 } from "../lib/timelineWaveGeometry";
 import { PC_GAP_LONG_PRESS_PAD_PX } from "../lib/waveLongPress";
 import {
+  isWaveDoubleClickFollowUp,
+  tryArmWaveDoubleClickOnPointerDown,
   WAVE_LONG_PRESS_CANCEL_PX,
   WAVE_LONG_PRESS_MS,
 } from "../lib/waveLongPress";
@@ -40,10 +43,12 @@ export type UseWaveCanvasLongPressGateArgs = {
   isPlayingForWaveRef: RefObject<boolean>;
   playheadScrubDragRef: RefObject<{ armed: boolean } | null>;
   suppressNextWaveSeekRef: RefObject<boolean>;
+  wavePointerGestureRef: RefObject<{ lastPointerUpAtMs: number }>;
   /** キュー間の動線のみ（長押し）。短いタップでは再生位置を移動 */
   seekTimelineAtClientX: (clientX: number) => void;
   openGapRouteMenuAtPointer: (clientX: number, clientY: number) => void;
   basePointerDown: (e: PointerEvent<HTMLCanvasElement>) => void;
+  commitWaveDoubleClickAt: (clientX: number, clientY: number) => void;
 };
 
 /**
@@ -65,9 +70,11 @@ export function useWaveCanvasLongPressGate({
   isPlayingForWaveRef,
   playheadScrubDragRef,
   suppressNextWaveSeekRef,
+  wavePointerGestureRef,
   seekTimelineAtClientX,
   openGapRouteMenuAtPointer,
   basePointerDown,
+  commitWaveDoubleClickAt,
 }: UseWaveCanvasLongPressGateArgs) {
   const pendingRef = useRef<PendingLongPress | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
@@ -131,15 +138,18 @@ export function useWaveCanvasLongPressGate({
         return;
       }
 
-      let playheadSec = currentTimePropRef.current;
-      if (
-        isPlayingForWaveRef.current &&
+      const engineSec =
         playbackEngine.getMediaSourceUrl() &&
         !playbackEngine.isPaused() &&
         Number.isFinite(playbackEngine.getCurrentTime())
-      ) {
-        playheadSec = playbackEngine.getCurrentTime();
-      }
+          ? playbackEngine.getCurrentTime()
+          : null;
+      const playheadSec = resolvePlayheadSecForWaveInteraction({
+        currentTimePropSec: currentTimePropRef.current,
+        isPlayingForWave: isPlayingForWaveRef.current,
+        playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
+        engineTimeSec: engineSec,
+      });
 
       const cueHit = pickCueDragKindAtWave(
         e.clientX,
@@ -168,6 +178,21 @@ export function useWaveCanvasLongPressGate({
         )
       ) {
         basePointerDown(e);
+        return;
+      }
+
+      if (
+        tryArmWaveDoubleClickOnPointerDown({
+          wavePointerGestureRef,
+          suppressNextWaveSeekRef,
+          pointerId: e.pointerId,
+          clientX: e.clientX,
+          clientY: e.clientY,
+          onCommit: commitWaveDoubleClickAt,
+        })
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
         return;
       }
 
@@ -220,8 +245,19 @@ export function useWaveCanvasLongPressGate({
         const hadPending = pendingRef.current != null;
         clearPending();
         if (hadPending && !longPressFired) {
-          seekTimelineAtClientX(originX);
-          suppressNextWaveSeekRef.current = true;
+          const now = performance.now();
+          const dblFollowUp = isWaveDoubleClickFollowUp(
+            wavePointerGestureRef.current.lastPointerUpAtMs,
+            now
+          );
+          wavePointerGestureRef.current.lastPointerUpAtMs = now;
+          if (dblFollowUp) {
+            commitWaveDoubleClickAt(originX, originY);
+            suppressNextWaveSeekRef.current = true;
+          } else {
+            seekTimelineAtClientX(originX);
+            suppressNextWaveSeekRef.current = true;
+          }
         }
       };
 
@@ -266,6 +302,8 @@ export function useWaveCanvasLongPressGate({
       projectViewMode,
       seekTimelineAtClientX,
       suppressNextWaveSeekRef,
+      wavePointerGestureRef,
+      commitWaveDoubleClickAt,
     ]
   );
 

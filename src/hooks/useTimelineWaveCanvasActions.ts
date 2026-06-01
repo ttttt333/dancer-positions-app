@@ -10,7 +10,7 @@ import {
   pickGapLinkAtWave,
   pickCueIdAtWave,
   resolveWaveViewForPointerHit,
-  waveExtentXToTime,
+  waveTimeAtClientXOnCanvas,
 } from "../lib/timelineWaveGeometry";
 import type { Cue, ChoreographyProjectJson } from "../types/choreography";
 import type {
@@ -28,6 +28,7 @@ const MOBILE_GAP_TOUCH_PADDING_PX = 40;
 
 export type UseTimelineWaveCanvasActionsParams = {
   suppressNextWaveSeekRef: RefObject<boolean>;
+  wavePointerGestureRef: RefObject<{ lastPointerUpAtMs: number }>;
   currentTimePropRef: RefObject<number>;
   drawWaveformAt: (playheadTime: number) => void;
   canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -59,6 +60,7 @@ export type UseTimelineWaveCanvasActionsParams = {
  */
 export function useTimelineWaveCanvasActions({
   suppressNextWaveSeekRef,
+  wavePointerGestureRef,
   currentTimePropRef,
   drawWaveformAt,
   canvasRef,
@@ -315,26 +317,55 @@ export function useTimelineWaveCanvasActions({
     ]
   );
 
-  const onWaveDoubleClick = useCallback(
-    (e: MouseEvent<HTMLCanvasElement>) => {
+  const wavePointerViewContext = useCallback(() => {
+    let anchorSec = currentTimePropRef.current;
+    if (
+      isPlayingForWaveRef.current &&
+      playbackEngine.getMediaSourceUrl() &&
+      !playbackEngine.isPaused() &&
+      Number.isFinite(playbackEngine.getCurrentTime())
+    ) {
+      anchorSec = playbackEngine.getCurrentTime();
+    }
+    return {
+      durationSec: duration,
+      viewPortion: viewPortionRef.current ?? viewPortion,
+      isPlaying: isPlayingForWaveRef.current,
+      viewStartOverride: waveViewStartOverrideRef.current,
+      anchorTimeSec: anchorSec,
+      playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
+      enginePaused:
+        !isPlayingForWaveRef.current || playbackEngine.isPaused(),
+      lastDrawRange: lastWaveDrawRangeRef.current,
+    };
+  }, [
+    currentTimePropRef,
+    duration,
+    isPlayingForWaveRef,
+    lastWaveDrawRangeRef,
+    playheadScrubDragRef,
+    viewPortion,
+    viewPortionRef,
+    waveViewStartOverrideRef,
+  ]);
+
+  const commitWaveDoubleClickAt = useCallback(
+    (clientX: number, clientY: number) => {
       if (viewMode === "view" || duration <= 0 || !peaks) return;
-      const c = e.currentTarget as HTMLCanvasElement;
+      const c = resolveActiveWaveCanvas(canvasRef);
       if (!c) return;
       const { viewStart, viewSpan } = waveViewAtPointer();
       if (viewSpan <= 0) return;
-      const r = c.getBoundingClientRect();
-      const x = e.clientX - r.left;
       const hitId = pickCueIdAtWave(
-        e.clientX,
-        e.clientY,
+        clientX,
+        clientY,
         c,
         cuesSorted,
         viewStart,
         viewSpan,
         cueDragPreviewRangeRef.current
       );
-      e.preventDefault();
-      e.stopPropagation();
+      wavePointerGestureRef.current.lastPointerUpAtMs = 0;
       suppressNextWaveSeekRef.current = true;
       if (hitId) {
         const source = cuesSorted.find((c0) => c0.id === hitId);
@@ -343,8 +374,8 @@ export function useTimelineWaveCanvasActions({
           return;
         }
       }
-      if (!playbackEngine.getMediaSourceUrl()) return;
-      const t = waveExtentXToTime(x, viewStart, viewSpan, r.width);
+      const t = waveTimeAtClientXOnCanvas(clientX, c, wavePointerViewContext());
+      if (t == null || !Number.isFinite(t)) return;
       const clamped = clampTimelineHeadForCueOps(
         t,
         trimStartSec,
@@ -357,15 +388,27 @@ export function useTimelineWaveCanvasActions({
       viewMode,
       duration,
       peaks,
+      canvasRef,
       waveViewAtPointer,
+      wavePointerViewContext,
       cuesSorted,
       cueDragPreviewRangeRef,
       trimStartSec,
       trimEndSec,
       suppressNextWaveSeekRef,
+      wavePointerGestureRef,
       addCueStartingAtTime,
       duplicateCueAfterSource,
     ]
+  );
+
+  const onWaveDoubleClick = useCallback(
+    (e: MouseEvent<HTMLCanvasElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      commitWaveDoubleClickAt(e.clientX, e.clientY);
+    },
+    [commitWaveDoubleClickAt]
   );
 
   const openGapRouteMenuAtPointer = useCallback(
@@ -413,5 +456,11 @@ export function useTimelineWaveCanvasActions({
     ]
   );
 
-  return { onWaveClick, onWaveContextMenu, onWaveDoubleClick, openGapRouteMenuAtPointer };
+  return {
+    onWaveClick,
+    onWaveContextMenu,
+    onWaveDoubleClick,
+    commitWaveDoubleClickAt,
+    openGapRouteMenuAtPointer,
+  };
 }

@@ -93,6 +93,13 @@ export function WaveformStrip({
     drawWaveView.span > 0 && drawWaveView.span < duration - 1e-6
       ? drawWaveView
       : waveView;
+  /** ズーム中のみ赤バー上でポインタを受け、ドラッグで波形を横スクロール（非ズーム時はキャンバスでキュー操作を優先） */
+  const zoomedWaveView =
+    duration > 0 &&
+    drawWaveView.span > 0 &&
+    drawWaveView.span < duration - 1e-6;
+  const playheadStripPointerEvents =
+    zoomedWaveView && hasPeaks && viewMode !== "view" ? "auto" : "none";
 
   return (
     <div
@@ -210,6 +217,18 @@ export function WaveformStrip({
             onPointerMove={onPlayheadLinePointerMove}
             onPointerUp={onPlayheadLinePointerUp}
             onPointerCancel={onPlayheadLinePointerCancel}
+            onDoubleClick={(e) => {
+              if (playheadStripPointerEvents !== "auto") return;
+              const canvas = canvasRef.current;
+              if (!canvas) return;
+              e.preventDefault();
+              e.stopPropagation();
+              onWaveDoubleClick({
+                ...e,
+                currentTarget: canvas,
+                target: canvas,
+              } as MouseEvent<HTMLCanvasElement>);
+            }}
             style={{
               position: "absolute",
               top: 0,
@@ -217,9 +236,8 @@ export function WaveformStrip({
               left: "50%",
               width: 8,
               transform: "translateX(-50%)",
-              /** キャンバスでキュー・再生バーを一体ヒット（ここ true だとキュー端リサイズをブロック） */
-              pointerEvents: "none",
-              cursor: "col-resize",
+              pointerEvents: playheadStripPointerEvents,
+              cursor: playheadStripPointerEvents === "auto" ? "col-resize" : "default",
               touchAction: "none",
             }}
           />

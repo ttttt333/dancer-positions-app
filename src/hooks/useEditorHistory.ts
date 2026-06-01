@@ -32,6 +32,15 @@ export type UseEditorHistoryOptions = {
   projectForHistoryRef: MutableRefObject<ChoreographyProjectJson | null>;
 };
 
+/** undo/redo 直後の useEffect 同期が履歴を消費しないよう、数フレームは push を抑止 */
+function scheduleEndApplyingHistory(ref: MutableRefObject<boolean>): void {
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      ref.current = false;
+    });
+  });
+}
+
 export function useEditorHistory({
   collabActive,
   yjsCollab,
@@ -43,17 +52,24 @@ export function useEditorHistory({
   const gestureHistoryDepthRef = useRef(0);
   const gestureHistoryBaselineRef = useRef<string | null>(null);
   const skipNextHistoryPushRef = useRef(false);
+  const applyingHistoryRef = useRef(false);
 
   const clearHistory = useCallback(() => {
     clearEditorHistoryStacks(historyRef.current);
     gestureHistoryDepthRef.current = 0;
     gestureHistoryBaselineRef.current = null;
     skipNextHistoryPushRef.current = false;
+    applyingHistoryRef.current = false;
   }, []);
 
   const cancelGestureHistory = useCallback(() => {
-    gestureHistoryDepthRef.current = 0;
-    gestureHistoryBaselineRef.current = null;
+    if (gestureHistoryDepthRef.current > 0) {
+      gestureHistoryDepthRef.current -= 1;
+    }
+    if (gestureHistoryDepthRef.current <= 0) {
+      gestureHistoryDepthRef.current = 0;
+      gestureHistoryBaselineRef.current = null;
+    }
   }, []);
 
   const beginGestureHistory = useCallback(() => {
@@ -71,7 +87,11 @@ export function useEditorHistory({
 
   const endGestureHistory = useCallback(() => {
     if (collabActive) return;
-    if (gestureHistoryDepthRef.current <= 0) return;
+    if (gestureHistoryDepthRef.current <= 0) {
+      gestureHistoryDepthRef.current = 0;
+      gestureHistoryBaselineRef.current = null;
+      return;
+    }
     gestureHistoryDepthRef.current -= 1;
     if (gestureHistoryDepthRef.current !== 0) return;
     const baseline = gestureHistoryBaselineRef.current;
@@ -112,6 +132,9 @@ export function useEditorHistory({
             unchanged = false;
           }
           if (unchanged) return prev;
+          if (applyingHistoryRef.current) {
+            return next;
+          }
           if (skipNextHistoryPushRef.current) {
             skipNextHistoryPushRef.current = false;
             return next;
@@ -134,19 +157,25 @@ export function useEditorHistory({
     collabActive ? yjsCollab.setProjectSafe : setProjectSafePlain;
 
   const undoPlain = useCallback(() => {
+    if (historyRef.current.undo.length === 0) return;
+    applyingHistoryRef.current = true;
     setPlainProject((cur) => {
       if (!cur) return cur;
       const next = applyUndoPlain(historyRef.current, cur);
       return next ?? cur;
     });
+    scheduleEndApplyingHistory(applyingHistoryRef);
   }, [setPlainProject]);
 
   const redoPlain = useCallback(() => {
+    if (historyRef.current.redo.length === 0) return;
+    applyingHistoryRef.current = true;
     setPlainProject((cur) => {
       if (!cur) return cur;
       const next = applyRedoPlain(historyRef.current, cur);
       return next ?? cur;
     });
+    scheduleEndApplyingHistory(applyingHistoryRef);
   }, [setPlainProject]);
 
   const undo = useCallback(() => {

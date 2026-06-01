@@ -21,6 +21,11 @@ export function pushEditorHistorySnapshot(
   snapshotJson: string,
   cap: number = HISTORY_CAP
 ): void {
+  const tail = stacks.undo[stacks.undo.length - 1];
+  if (tail === snapshotJson) {
+    stacks.redo.length = 0;
+    return;
+  }
   if (stacks.undo.length >= cap) stacks.undo.shift();
   stacks.undo.push(snapshotJson);
   stacks.redo.length = 0;

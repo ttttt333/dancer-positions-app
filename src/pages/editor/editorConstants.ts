@@ -4,7 +4,8 @@ import type { LayoutPresetId } from "../../lib/formationLayouts";
 
 export const DEFAULT_ROSTER_CONFIRM_PRESET: LayoutPresetId = "rows_3";
 
-export const HISTORY_CAP = 80;
+/** 戻る／進むで遡れるスナップショット数（メモリと JSON サイズのトレードオフ） */
+export const HISTORY_CAP = 200;
 
 export const EDITOR_WIDE_MIN_PX = 1280;
 

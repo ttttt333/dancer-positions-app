@@ -17,7 +17,12 @@ import {
 } from "../lib/collab/yjsJsonBridge";
 import type { ChoreographyProjectJson } from "../types/choreography";
 
-const HISTORY_CAP = 80;
+import { HISTORY_CAP } from "../pages/editor/editorConstants";
+import {
+  applyRedoPlain,
+  applyUndoPlain,
+  pushEditorHistorySnapshot,
+} from "../pages/editor/editorHistoryStack";
 
 function collabWsBase(): string {
   const env = import.meta.env.VITE_COLLAB_WS as string | undefined;
@@ -54,6 +59,7 @@ export function useYjsCollaboration(
   });
   const [synced, setSynced] = useState(false);
   const [stackInfo, setStackInfo] = useState({ undo: 0, redo: 0 });
+  const applyingHistoryRef = useRef(false);
   /** 論理内容が同じなら同一参照を返し、useSyncExternalStore 経由の不要な再レンダー連鎖を防ぐ */
   const projectSnapRef = useRef<{
     sig: string | null;
@@ -186,10 +192,13 @@ export function useYjsCollaboration(
         unchanged = false;
       }
       if (unchanged) return;
-      const { undo, redo } = historyRef.current;
-      if (undo.length >= HISTORY_CAP) undo.shift();
-      undo.push(JSON.stringify(prev));
-      redo.length = 0;
+      if (!applyingHistoryRef.current) {
+        pushEditorHistorySnapshot(
+          historyRef.current,
+          JSON.stringify(prev),
+          HISTORY_CAP
+        );
+      }
       applyProjectJsonToDoc(ydoc, next);
       scheduleSyncStackInfo();
     },
@@ -198,24 +207,32 @@ export function useYjsCollaboration(
 
   const undo = useCallback(() => {
     if (!ydoc) return;
-    const { undo: u, redo: r } = historyRef.current;
-    if (u.length === 0) return;
-    const prevStr = u.pop()!;
     const cur = normalizeProject(yDocToProjectJson(ydoc));
-    r.push(JSON.stringify(cur));
-    applyProjectJsonToDoc(ydoc, normalizeProject(JSON.parse(prevStr)));
+    const next = applyUndoPlain(historyRef.current, cur);
+    if (!next) return;
+    applyingHistoryRef.current = true;
+    applyProjectJsonToDoc(ydoc, next);
     scheduleSyncStackInfo();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        applyingHistoryRef.current = false;
+      });
+    });
   }, [ydoc, scheduleSyncStackInfo]);
 
   const redo = useCallback(() => {
     if (!ydoc) return;
-    const { undo: u, redo: r } = historyRef.current;
-    if (r.length === 0) return;
-    const nextStr = r.pop()!;
     const cur = normalizeProject(yDocToProjectJson(ydoc));
-    u.push(JSON.stringify(cur));
-    applyProjectJsonToDoc(ydoc, normalizeProject(JSON.parse(nextStr)));
+    const next = applyRedoPlain(historyRef.current, cur);
+    if (!next) return;
+    applyingHistoryRef.current = true;
+    applyProjectJsonToDoc(ydoc, next);
     scheduleSyncStackInfo();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        applyingHistoryRef.current = false;
+      });
+    });
   }, [ydoc, scheduleSyncStackInfo]);
 
   return useMemo(
