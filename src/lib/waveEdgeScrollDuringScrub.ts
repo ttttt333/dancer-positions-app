@@ -47,3 +47,26 @@ export function panWaveViewStartAtClientX(params: {
   }
   return next === viewStart ? null : next;
 }
+
+/** 再生ヘッド追従時の水平位置（`getWaveViewForDraw` と揃える） */
+const WAVE_PLAYHEAD_VIEW_FRAC = 0.11;
+
+/**
+ * ズーム中に再生バーをドラッグしたとき、スクラブ位置が窓内に収まるよう viewStart を更新する。
+ */
+export function panWaveViewStartToFollowScrubTime(params: {
+  scrubTimeSec: number;
+  durationSec: number;
+  viewPortion: number;
+}): number | null {
+  const { scrubTimeSec, durationSec, viewPortion } = params;
+  if (viewPortion >= 1 - 1e-9 || durationSec <= 0 || !Number.isFinite(scrubTimeSec)) {
+    return null;
+  }
+  const span = Math.max(0.08, durationSec * viewPortion);
+  return clampWaveViewStart(
+    scrubTimeSec - WAVE_PLAYHEAD_VIEW_FRAC * span,
+    span,
+    durationSec
+  );
+}

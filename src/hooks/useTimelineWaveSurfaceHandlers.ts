@@ -13,7 +13,10 @@ import {
   waveExtentXToTime,
 } from "../lib/timelineWaveGeometry";
 import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
-import { panWaveViewStartAtClientX } from "../lib/waveEdgeScrollDuringScrub";
+import {
+  panWaveViewStartAtClientX,
+  panWaveViewStartToFollowScrubTime,
+} from "../lib/waveEdgeScrollDuringScrub";
 import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
 import { PLAYHEAD_SCRUB_ARM_PX } from "../lib/waveLongPress";
 import {
@@ -212,11 +215,36 @@ export function useTimelineWaveSurfaceHandlers(
     playheadScrubClientXRef.current = null;
   }, []);
 
+  const applyPlayheadScrubViewPan = useCallback(
+    (clientX: number) => {
+      const t = timeAtClientX(clientX);
+      if (t != null) {
+        const followStart = panWaveViewStartToFollowScrubTime({
+          scrubTimeSec: t,
+          durationSec: duration,
+          viewPortion: viewPortionRef.current ?? viewPortion,
+        });
+        if (followStart != null) {
+          setWaveViewStartOverride(followStart);
+        }
+      }
+      applyEdgeScrollAtClientX(clientX);
+    },
+    [
+      applyEdgeScrollAtClientX,
+      duration,
+      setWaveViewStartOverride,
+      timeAtClientX,
+      viewPortion,
+      viewPortionRef,
+    ]
+  );
+
   const tickPlayheadEdgeScrollLoop = useCallback(() => {
     playheadEdgeScrollRafRef.current = 0;
     const x = playheadScrubClientXRef.current;
     if (x == null || !playheadScrubDragRef.current?.armed) return;
-    applyEdgeScrollAtClientX(x);
+    applyPlayheadScrubViewPan(x);
     const t = timeAtClientX(x);
     if (t != null) {
       const moved = seekPlaybackClampedAndSyncStore({
@@ -233,7 +261,7 @@ export function useTimelineWaveSurfaceHandlers(
     }
     playheadEdgeScrollRafRef.current = requestAnimationFrame(tickPlayheadEdgeScrollLoop);
   }, [
-    applyEdgeScrollAtClientX,
+    applyPlayheadScrubViewPan,
     currentTimePropRef,
     drawWaveformAt,
     duration,
@@ -245,7 +273,7 @@ export function useTimelineWaveSurfaceHandlers(
 
   const scrubAtClientX = useCallback(
     (clientX: number, opts?: { edgeLoop?: boolean; audible?: boolean }) => {
-      applyEdgeScrollAtClientX(clientX);
+      applyPlayheadScrubViewPan(clientX);
       const t = timeAtClientX(clientX);
       if (t == null) return null;
       const seekParams = {
@@ -281,7 +309,7 @@ export function useTimelineWaveSurfaceHandlers(
       return moved;
     },
     [
-      applyEdgeScrollAtClientX,
+      applyPlayheadScrubViewPan,
       canvasRef,
       currentTimePropRef,
       drawWaveformAt,

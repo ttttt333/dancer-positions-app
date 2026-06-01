@@ -28,7 +28,12 @@ import {
   type CueDragEdgeMode,
 } from "../lib/timelineWaveGeometry";
 import { resolveActiveWaveCanvas, resolveWavePointerCanvas } from "../lib/activeWaveCanvas";
-import { panWaveViewStartAtClientX } from "../lib/waveEdgeScrollDuringScrub";
+import {
+  panWaveViewStartAtClientX,
+  panWaveViewStartToFollowScrubTime,
+  WAVE_EDGE_SCROLL_ZONE_MIN_PX,
+  WAVE_EDGE_SCROLL_ZONE_RATIO,
+} from "../lib/waveEdgeScrollDuringScrub";
 import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
 import { PLAYHEAD_SCRUB_ARM_PX, WAVE_DRAG_ARM_PX } from "../lib/waveLongPress";
 
@@ -126,8 +131,8 @@ export function useWaveCanvasPointerDrag({
   formations,
   onFormationChosenFromCueList,
 }: UseWaveCanvasPointerDragArgs) {
-  const edgeScrollRafRef = useRef(0);
-  const scrubClientXRef = useRef<number | null>(null);
+  const playheadEdgeScrollRafRef = useRef(0);
+  const playheadScrubClientXRef = useRef<number | null>(null);
 
   const applyEdgeScroll = useCallback(
     (clientX: number) => {
@@ -168,6 +173,36 @@ export function useWaveCanvasPointerDrag({
       currentTimePropRef,
       isPlayingForWaveRef,
       waveViewStartOverrideRef,
+      setWaveViewStartOverride,
+      viewPortion,
+      viewPortionRef,
+    ]
+  );
+
+  const stopPlayheadEdgeScrollLoop = useCallback(() => {
+    if (playheadEdgeScrollRafRef.current) {
+      cancelAnimationFrame(playheadEdgeScrollRafRef.current);
+      playheadEdgeScrollRafRef.current = 0;
+    }
+    playheadScrubClientXRef.current = null;
+  }, []);
+
+  const applyPlayheadScrubViewPan = useCallback(
+    (clientX: number, scrubTimeSec: number) => {
+      const vp = viewPortionRef.current ?? viewPortion;
+      const followStart = panWaveViewStartToFollowScrubTime({
+        scrubTimeSec,
+        durationSec: duration,
+        viewPortion: vp,
+      });
+      if (followStart != null) {
+        setWaveViewStartOverride(followStart);
+      }
+      applyEdgeScroll(clientX);
+    },
+    [
+      applyEdgeScroll,
+      duration,
       setWaveViewStartOverride,
       viewPortion,
       viewPortionRef,
@@ -455,6 +490,29 @@ export function useWaveCanvasPointerDrag({
         };
         const capturePid = e.pointerId;
         c.setPointerCapture(capturePid);
+        const tickPlayheadEdgeScrollLoop = () => {
+          playheadEdgeScrollRafRef.current = 0;
+          const x = playheadScrubClientXRef.current;
+          const drag = playheadScrubDragRef.current;
+          if (x == null || !drag?.armed) return;
+          const scrubT = rawWaveTimeFromClientX(x);
+          if (useTimelineWaveBridgeStore.getState().portraitActive) {
+            useTimelineWaveBridgeStore.getState().portraitWaveScrubAtClientX?.(x, false, false);
+          } else {
+            applyPlayheadScrubViewPan(x, scrubT);
+          }
+          if (playbackEngine.getMediaElement()) {
+            const tMoved = seekPlaybackScrubAudible({
+              t: scrubT,
+              durationSec: duration,
+              trimStartSec: trimLo,
+              trimEndSec,
+              roundHeadForStore: true,
+            });
+            drawWaveformAt(tMoved ?? scrubT);
+          }
+          playheadEdgeScrollRafRef.current = requestAnimationFrame(tickPlayheadEdgeScrollLoop);
+        };
         const onPhMove = (ev: PointerEvent) => {
           const drag = playheadScrubDragRef.current;
           if (ev.pointerId !== capturePid || !drag) return;
@@ -466,6 +524,7 @@ export function useWaveCanvasPointerDrag({
             drag.scrubSession = beginPlaybackScrubSession();
           }
           if (!playbackEngine.getMediaElement()) return;
+          const scrubT = rawWaveTimeFromClientX(ev.clientX);
           if (useTimelineWaveBridgeStore.getState().portraitActive) {
             useTimelineWaveBridgeStore.getState().portraitWaveScrubAtClientX?.(
               ev.clientX,
@@ -473,19 +532,36 @@ export function useWaveCanvasPointerDrag({
               false
             );
           } else {
-            applyEdgeScroll(ev.clientX);
+            applyPlayheadScrubViewPan(ev.clientX, scrubT);
+            const vp = viewPortionRef.current ?? viewPortion;
+            if (vp < 1 - 1e-9) {
+              const r = c.getBoundingClientRect();
+              const zone = Math.max(
+                WAVE_EDGE_SCROLL_ZONE_MIN_PX,
+                r.width * WAVE_EDGE_SCROLL_ZONE_RATIO
+              );
+              const inEdge =
+                ev.clientX <= r.left + zone || ev.clientX >= r.right - zone;
+              playheadScrubClientXRef.current = ev.clientX;
+              if (inEdge && !playheadEdgeScrollRafRef.current) {
+                playheadEdgeScrollRafRef.current = requestAnimationFrame(
+                  tickPlayheadEdgeScrollLoop
+                );
+              }
+            }
           }
           const tMoved = seekPlaybackScrubAudible({
-            t: rawWaveTimeFromClientX(ev.clientX),
+            t: scrubT,
             durationSec: duration,
             trimStartSec: trimLo,
             trimEndSec,
             roundHeadForStore: true,
           });
-          drawWaveformAt(tMoved ?? timeFromClientX(ev.clientX));
+          drawWaveformAt(tMoved ?? scrubT);
         };
         const onPhUp = (ev: PointerEvent) => {
           if (ev.pointerId !== capturePid || !playheadScrubDragRef.current) return;
+          stopPlayheadEdgeScrollLoop();
           window.removeEventListener("pointermove", onPhMove);
           window.removeEventListener("pointerup", onPhUp);
           window.removeEventListener("pointercancel", onPhUp);
@@ -639,6 +715,8 @@ export function useWaveCanvasPointerDrag({
       viewPortionRef,
       viewPortion,
       applyEdgeScroll,
+      applyPlayheadScrubViewPan,
+      stopPlayheadEdgeScrollLoop,
       trimStartSec,
       trimEndSec,
       currentTimePropRef,
