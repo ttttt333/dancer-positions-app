@@ -1603,6 +1603,25 @@ body {
   cursor: default;
 }
 
+.timeline-wave-cue-menu--fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 6001 !important;
+  width: 100% !important;
+  max-width: 100vw !important;
+  max-height: 100dvh !important;
+  margin: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: #0a0f1e !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+}
+
 .timeline-gap-route-menu--fullscreen {
   position: fixed !important;
   inset: 0 !important;
@@ -1654,7 +1673,9 @@ body {
 }
 
 [data-shell-portrait] .timeline-gap-route-menu--fullscreen [role="menuitem"],
-[data-shell-landscape] .timeline-gap-route-menu--fullscreen [role="menuitem"] {
+[data-shell-landscape] .timeline-gap-route-menu--fullscreen [role="menuitem"],
+[data-shell-portrait] .timeline-wave-cue-menu--fullscreen [role="menuitem"],
+[data-shell-landscape] .timeline-wave-cue-menu--fullscreen [role="menuitem"] {
   min-height: 52px !important;
   font-size: 15px !important;
   padding: 14px 14px !important;
@@ -1663,7 +1684,9 @@ body {
 }
 
 [data-shell-portrait] .timeline-gap-route-menu--fullscreen .timeline-gap-route-menu-cancel,
-[data-shell-landscape] .timeline-gap-route-menu--fullscreen .timeline-gap-route-menu-cancel {
+[data-shell-landscape] .timeline-gap-route-menu--fullscreen .timeline-gap-route-menu-cancel,
+[data-shell-portrait] .timeline-wave-cue-menu--fullscreen .timeline-gap-route-menu-cancel,
+[data-shell-landscape] .timeline-wave-cue-menu--fullscreen .timeline-gap-route-menu-cancel {
   min-height: 50px !important;
   font-size: 15px !important;
   margin-top: 8px !important;

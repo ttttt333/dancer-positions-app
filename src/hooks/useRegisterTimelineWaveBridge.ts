@@ -15,6 +15,7 @@ export function useRegisterTimelineWaveBridge(
   waveBundleParams: TimelinePanelWaveHandlersBundleParams,
   handlers: Handlers & {
     openGapRouteMenuAtPointer: (clientX: number, clientY: number) => void;
+    openWaveCueMenuAtPointer: (clientX: number, clientY: number) => void;
   },
   viewport: ViewportControls,
   isPlaying: boolean
@@ -46,6 +47,8 @@ export function useRegisterTimelineWaveBridge(
       setWaveViewStartOverride: viewport.setWaveViewStartOverride,
       openGapRouteMenuAtPointer: (clientX, clientY) =>
         handlersRef.current.openGapRouteMenuAtPointer(clientX, clientY),
+      openWaveCueMenuAtPointer: (clientX, clientY) =>
+        handlersRef.current.openWaveCueMenuAtPointer(clientX, clientY),
       duration,
       isPlaying,
       hasPeaks,

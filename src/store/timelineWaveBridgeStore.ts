@@ -17,6 +17,8 @@ type TimelineWaveBridgeApi = {
   setWaveViewStartOverride: (start: number | null) => void;
   /** キュー間の動線メニュー（長押し専用） */
   openGapRouteMenuAtPointer: (clientX: number, clientY: number) => void;
+  /** スマホ長押し: キュー内→操作メニュー、間→動線メニュー */
+  openWaveCueMenuAtPointer: (clientX: number, clientY: number) => void;
   duration: number;
   isPlaying: boolean;
   hasPeaks: boolean;

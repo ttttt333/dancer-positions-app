@@ -9,8 +9,10 @@ import { commitWaveTimelineSeekAtClientX } from "../lib/waveTimelineSeek";
 import {
   pickGapLinkAtWave,
   pickCueIdAtWave,
+  resolvePlayheadSecForWaveInteraction,
   resolveWaveViewForPointerHit,
   waveTimeAtClientXOnCanvas,
+  waveTimeToPercent,
 } from "../lib/timelineWaveGeometry";
 import type { Cue, ChoreographyProjectJson } from "../types/choreography";
 import type {
@@ -456,11 +458,99 @@ export function useTimelineWaveCanvasActions({
     ]
   );
 
+  const openWaveCueMenuAtPointer = useCallback(
+    (clientX: number, clientY: number) => {
+      if (viewMode === "view" || duration <= 0 || !peaks) return;
+      const c = resolveActiveWaveCanvas(canvasRef);
+      if (!c) return;
+      const { viewStart, viewSpan } = waveViewAtPointer();
+      if (viewSpan <= 0) return;
+      const portraitActive = useTimelineWaveBridgeStore.getState().portraitActive;
+      const gapTouchPad = portraitActive ? MOBILE_GAP_TOUCH_PADDING_PX : PC_GAP_LONG_PRESS_PAD_PX;
+
+      const cueId = pickCueIdAtWave(
+        clientX,
+        clientY,
+        c,
+        cuesSorted,
+        viewStart,
+        viewSpan,
+        cueDragPreviewRangeRef.current
+      );
+      if (cueId) {
+        setGapRouteMenu(null);
+        setWaveCueConfirm(null);
+        onSelectedCueIdsChange([cueId]);
+        const rect = c.getBoundingClientRect();
+        const playheadSec = resolvePlayheadSecForWaveInteraction({
+          currentTimePropSec: currentTime,
+          isPlayingForWave: isPlayingForWaveRef.current,
+          playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
+          engineTimeSec:
+            isPlayingForWaveRef.current &&
+            playbackEngine.getMediaSourceUrl() &&
+            !playbackEngine.isPaused() &&
+            Number.isFinite(playbackEngine.getCurrentTime())
+              ? playbackEngine.getCurrentTime()
+              : null,
+        });
+        const pct = waveTimeToPercent(playheadSec, viewStart, viewSpan);
+        const menuClientX = rect.left + (pct / 100) * rect.width;
+        const menuClientY = rect.top + rect.height * 0.5;
+        setWaveCueMenu({
+          cueId,
+          clientX: portraitActive ? menuClientX : clientX,
+          clientY: portraitActive ? menuClientY : clientY,
+          ...(portraitActive ? { fullscreen: true } : {}),
+        });
+        return;
+      }
+
+      const gapLink = pickGapLinkAtWave(
+        clientX,
+        clientY,
+        c,
+        cuesSorted,
+        viewStart,
+        viewSpan,
+        cueDragPreviewRangeRef.current,
+        gapTouchPad
+      );
+      if (!gapLink) return;
+      setWaveCueMenu(null);
+      setWaveCueConfirm(null);
+      onSelectedCueIdsChange([gapLink.nextCueId]);
+      setGapRouteMenu({
+        nextCueId: gapLink.nextCueId,
+        clientX,
+        clientY,
+        ...(portraitActive ? { fullscreen: true } : {}),
+      });
+    },
+    [
+      viewMode,
+      duration,
+      peaks,
+      canvasRef,
+      waveViewAtPointer,
+      cuesSorted,
+      cueDragPreviewRangeRef,
+      currentTime,
+      isPlayingForWaveRef,
+      playheadScrubDragRef,
+      onSelectedCueIdsChange,
+      setGapRouteMenu,
+      setWaveCueConfirm,
+      setWaveCueMenu,
+    ]
+  );
+
   return {
     onWaveClick,
     onWaveContextMenu,
     onWaveDoubleClick,
     commitWaveDoubleClickAt,
     openGapRouteMenuAtPointer,
+    openWaveCueMenuAtPointer,
   };
 }

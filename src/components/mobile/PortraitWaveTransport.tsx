@@ -36,6 +36,7 @@ import {
   resolveWaveDrawView,
 } from "../../lib/timelineWaveGeometry";
 import { PLAYHEAD_SCRUB_ARM_PX } from "../../lib/waveLongPress";
+import { panWaveViewStartForPlayheadAtClientX } from "../../lib/waveTimelineSeek";
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 48;
@@ -541,9 +542,35 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
         startScrubSession();
       }
       e.preventDefault();
+      if (zoom > 1.001 && duration > 0) {
+        const canvas = canvasRef.current;
+        const t = timeFromClientX(e.clientX);
+        if (canvas && t != null) {
+          const followStart = panWaveViewStartForPlayheadAtClientX({
+            scrubTimeSec: t,
+            clientX: e.clientX,
+            canvasRect: canvas.getBoundingClientRect(),
+            durationSec: duration,
+            viewPortion,
+          });
+          if (followStart != null) {
+            viewStartRef.current = followStart;
+            setViewStart(followStart);
+            syncPortraitView(followStart, zoom);
+          }
+        }
+      }
       handlePortraitWaveScrub(e.clientX);
     },
-    [handlePortraitWaveScrub, startScrubSession]
+    [
+      handlePortraitWaveScrub,
+      startScrubSession,
+      zoom,
+      duration,
+      timeFromClientX,
+      viewPortion,
+      syncPortraitView,
+    ]
   );
 
   const endPlayheadDrag = useCallback(
@@ -617,7 +644,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
         if (typeof navigator !== "undefined" && navigator.vibrate) {
           navigator.vibrate(12);
         }
-        bridgeApi.openGapRouteMenuAtPointer?.(e.clientX, e.clientY);
+        bridgeApi.openWaveCueMenuAtPointer?.(e.clientX, e.clientY);
       }, LONG_PRESS_MS);
     },
     [bridgeApi, zoom, currentTime, timeFromClientX, clearLongPress, clearPendingSingleTap, isNearPlayhead]
@@ -786,8 +813,6 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
     [handleSkipBack, handleSkipForward, handleZoomIn, handleZoomOut]
   );
 
-  const zoomLabel = zoom > 1 ? `${zoom.toFixed(zoom >= 10 ? 0 : 1)}×` : null;
-
   return (
     <div
       className={`${styles.transport} ${showTransportControls ? "" : styles.transportWaveOnly} ${onCollapseWave ? styles.transportWaveOnlyWithCollapse : ""} ${className ?? ""}`.trim()}
@@ -862,7 +887,6 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
           {fmt(currentTime)}
           <span className={styles.timeSep}>/</span>
           {fmt(duration)}
-          {zoomLabel ? <span className={styles.zoomBadge}>{zoomLabel}</span> : null}
         </span>
       </div>
       ) : null}
@@ -891,7 +915,6 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
             {fmt(currentTime)}
             <span className={styles.timeSep}>/</span>
             {fmt(duration)}
-            {zoomLabel ? <span className={styles.zoomBadge}>{zoomLabel}</span> : null}
           </span>
         </div>
       ) : null}
@@ -954,7 +977,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
             aria-valuemin={0}
             aria-valuemax={duration}
             aria-valuenow={currentTime}
-            aria-label="波形（タップで再生位置を移動・ダブルタップで10秒のキュー追加・ドラッグでキュー調整・キュー間を長押しで導線メニュー）"
+            aria-label="波形（タップで再生位置を移動・ダブルタップでキュー追加・ドラッグでキュー調整・キュー内長押しで操作メニュー・間を長押しで導線メニュー）"
           />
           {showWaveLoadOverlay ? (
             <WaveformLoadOverlay visible compact className={styles.wavePlaceholder} />

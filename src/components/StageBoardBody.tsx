@@ -36,6 +36,7 @@ import {
   DANCER_STAGE_POSITION_PCT_LO,
   snapXPctToCenterDistanceMmGrid,
 } from "../lib/dancerSpacing";
+import { computeMarkerResizeDraftSizes } from "../lib/stageMarkerSizing";
 import { resolveArrangeTargetIds } from "../lib/stageSelectionArrange";
 import type { DancerQuickEditApply } from "./DancerQuickEditDialog";
 import {
@@ -348,13 +349,14 @@ export function StageBoardBody({
   >(null);
   /**
    * 代表ダンサーの右下ハンドルで、選択中のダンサー群の○サイズ（px）を変更するセッション。
-   * 開始時点の各ダンサーのサイズを覚えておき、ポインタ移動量に応じて全員を同じ差分で動かす。
+   * 複数選択時は基準直径に対する共通倍率で全員を同時に拡縮する。
    */
   const markerResizeRef = useRef<{
     startClientX: number;
     startClientY: number;
     startSizes: Map<string, number>;
     ids: string[];
+    anchorSizePx: number;
   } | null>(null);
   /** サイズドラッグ中は選択中ダンサー ID → 仮の直径 px を保持してライブプレビュー */
   const [markerDiamDraft, setMarkerDiamDraft] = useState<Map<
@@ -2171,7 +2173,7 @@ export function StageBoardBody({
 
   /**
    * 代表ダンサーの右下ハンドル → 選択中のダンサー全員の○サイズ（px）を変える。
-   * 選択が 1 件ならそのダンサーだけ、複数件なら全員が同じ差分ずつ変化する。
+   * 複数選択時は基準直径に対する倍率で○と名下を同時に拡縮する。
    */
   const handlePointerDownMarkerResize = useCallback(
     (e: ReactPointerEvent) => {
@@ -2199,11 +2201,17 @@ export function StageBoardBody({
         startSizes.set(id, cur);
       }
       if (startSizes.size === 0) return;
+      let anchorSizePx = 0;
+      for (const v of startSizes.values()) {
+        anchorSizePx = Math.max(anchorSizePx, v);
+      }
+      if (!(anchorSizePx > 0)) anchorSizePx = baseMarkerPx;
       markerResizeRef.current = {
         startClientX: e.clientX,
         startClientY: e.clientY,
         startSizes,
         ids: [...selectedDancerIds],
+        anchorSizePx,
       };
       setMarkerDiamDraft(new Map(startSizes));
     },
@@ -3098,7 +3106,7 @@ export function StageBoardBody({
         setTrashHotIfChanged(false);
         return;
       }
-      /** 5: 代表ダンサー右下の○サイズハンドル（選択中の全員に同じ差分を適用） */
+      /** 5: 代表ダンサー右下の○サイズハンドル（○と名下を連動。複数は共通倍率） */
       const m = markerResizeRef.current;
       if (m) {
         const dx = e.clientX - m.startClientX;
@@ -3106,13 +3114,14 @@ export function StageBoardBody({
         /** 右下方向に引っ張ると大きく、左上に引くと小さくなる */
         const bulk = m.ids.length >= 2;
         const delta = (dx + dy) * (bulk ? 0.85 : 0.65);
-        const draft = new Map<string, number>();
-        for (const [id, s0] of m.startSizes) {
-          const next = Math.round(
-            clamp(s0 + delta, MARKER_PX_MIN, MARKER_PX_MAX),
-          );
-          draft.set(id, next);
-        }
+        const draft = computeMarkerResizeDraftSizes({
+          startSizes: m.startSizes,
+          delta,
+          minPx: MARKER_PX_MIN,
+          maxPx: MARKER_PX_MAX,
+          bulk,
+          anchorSizePx: m.anchorSizePx,
+        });
         markerDiamDraftPendingRef.current = draft;
         if (markerDiamDraftRafRef.current === null) {
           markerDiamDraftRafRef.current = requestAnimationFrame(() => {

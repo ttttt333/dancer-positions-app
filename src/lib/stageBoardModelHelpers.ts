@@ -222,9 +222,10 @@ export function layoutMarkerCircleInnerLabel(
   };
 }
 
-/** ○の下に出す名前用（○内よりやや小さめ） */
-export function markerBelowLabelFontPx(circleLabelPx: number): number {
-  return Math.max(12, Math.min(24, circleLabelPx));
+/** ○の下に出す名前用（○直径に連動。内側ラベルの文字数フィットとは独立） */
+export function markerBelowLabelFontPx(markerPx: number): number {
+  const refInner = markerCircleLabelFontPx(markerPx, "A");
+  return Math.max(12, Math.min(28, Math.round(refInner * 0.92)));
 }
 
 /** ○下端と名前のあいだを、舞台横幅に対してこの mm ぶん広げる */

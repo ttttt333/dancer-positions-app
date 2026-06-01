@@ -199,7 +199,7 @@ export function StageMainFloorInteractionLayer({
             Math.round(dMarkerPx / 2) + 4 + nameBelowClearanceExtraPx;
           const pivotTransform = `translate(-50%, -50%) rotate(${facing}deg)`;
           const halfMarker = dMarkerPx / 2;
-          const belowNameFontPx = markerBelowLabelFontPx(dLabelFontPx);
+          const belowNameFontPx = markerBelowLabelFontPx(dMarkerPx);
           const belowLabelOriginYpx =
             -labelOffsetPx + Math.round((belowNameFontPx * 1.12) / 2);
           return (

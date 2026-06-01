@@ -1,0 +1,51 @@
+import { describe, expect, it } from "vitest";
+import {
+  MARKER_DIAMETER_PX_MAX,
+  MARKER_DIAMETER_PX_MIN,
+} from "./projectDefaults";
+import { computeMarkerResizeDraftSizes } from "./stageMarkerSizing";
+
+describe("computeMarkerResizeDraftSizes", () => {
+  it("単体選択は差分で拡縮する", () => {
+    const draft = computeMarkerResizeDraftSizes({
+      startSizes: new Map([["a", 20]]),
+      delta: 4,
+      minPx: MARKER_DIAMETER_PX_MIN,
+      maxPx: MARKER_DIAMETER_PX_MAX,
+      bulk: false,
+    });
+    expect(draft.get("a")).toBe(24);
+  });
+
+  it("複数選択は共通倍率で拡縮する", () => {
+    const draft = computeMarkerResizeDraftSizes({
+      startSizes: new Map([
+        ["a", 18],
+        ["b", 24],
+      ]),
+      delta: 6,
+      minPx: MARKER_DIAMETER_PX_MIN,
+      maxPx: MARKER_DIAMETER_PX_MAX,
+      bulk: true,
+      anchorSizePx: 24,
+    });
+    expect(draft.get("a")).toBe(23);
+    expect(draft.get("b")).toBe(30);
+  });
+
+  it("複数選択で上限に当たっても倍率は揃う", () => {
+    const draft = computeMarkerResizeDraftSizes({
+      startSizes: new Map([
+        ["a", 30],
+        ["b", 40],
+      ]),
+      delta: 200,
+      minPx: MARKER_DIAMETER_PX_MIN,
+      maxPx: 48,
+      bulk: true,
+      anchorSizePx: 40,
+    });
+    expect(draft.get("a")).toBe(36);
+    expect(draft.get("b")).toBe(48);
+  });
+});

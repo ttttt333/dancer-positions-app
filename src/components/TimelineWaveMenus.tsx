@@ -10,6 +10,8 @@ export type WaveCueMenuState = {
   cueId: string;
   clientX: number;
   clientY: number;
+  /** スマホ: 全画面シートで表示（赤いバー付近を基準に配置） */
+  fullscreen?: boolean;
 } | null;
 
 export type GapRouteMenuState = {
@@ -79,45 +81,73 @@ export function TimelineWaveMenus({
         <button
           type="button"
           aria-label="メニューを閉じる"
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 2498,
-            border: "none",
-            background: "transparent",
-            cursor: "default",
-          }}
+          className={waveCueMenu.fullscreen ? "timeline-gap-route-backdrop" : undefined}
+          style={
+            waveCueMenu.fullscreen
+              ? undefined
+              : {
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 2498,
+                  border: "none",
+                  background: "transparent",
+                  cursor: "default",
+                }
+          }
           onClick={() => setWaveCueMenu(null)}
         />
         <div
           role="menu"
           aria-label="キューの操作"
-          style={{
-            position: "fixed",
-            left: Math.max(
-              8,
-              Math.min(
-                waveCueMenu.clientX,
-                (typeof window !== "undefined" ? window.innerWidth : 800) - 240
-              )
-            ),
-            top: Math.max(
-              8,
-              Math.min(
-                waveCueMenu.clientY,
-                (typeof window !== "undefined" ? window.innerHeight : 600) - 150
-              )
-            ),
-            zIndex: 2499,
-            minWidth: "220px",
-            maxWidth: "min(300px, calc(100vw - 16px))",
-            padding: "8px",
-            borderRadius: "10px",
-            border: `1px solid ${shell.border}`,
-            background: shell.surface,
-            boxShadow: "0 16px 48px rgba(0,0,0,0.45)",
-          }}
+          className={
+            waveCueMenu.fullscreen
+              ? "timeline-wave-cue-menu timeline-wave-cue-menu--fullscreen"
+              : "timeline-wave-cue-menu"
+          }
+          style={
+            waveCueMenu.fullscreen
+              ? undefined
+              : {
+                  position: "fixed",
+                  left: Math.max(
+                    8,
+                    Math.min(
+                      waveCueMenu.clientX,
+                      (typeof window !== "undefined" ? window.innerWidth : 800) - 240
+                    )
+                  ),
+                  top: Math.max(
+                    8,
+                    Math.min(
+                      waveCueMenu.clientY,
+                      (typeof window !== "undefined" ? window.innerHeight : 600) - 150
+                    )
+                  ),
+                  zIndex: 2499,
+                  minWidth: "220px",
+                  maxWidth: "min(300px, calc(100vw - 16px))",
+                  padding: "8px",
+                  borderRadius: "10px",
+                  border: `1px solid ${shell.border}`,
+                  background: shell.surface,
+                  boxShadow: "0 16px 48px rgba(0,0,0,0.45)",
+                }
+          }
+          onClick={(ev) => ev.stopPropagation()}
         >
+          {waveCueMenu.fullscreen ? (
+            <div className="timeline-gap-route-menu-header">
+              <h2 className="timeline-gap-route-menu-title">キューの操作</h2>
+              <p className="timeline-gap-route-menu-sub">
+                赤いバーの位置で分割・複製などができます
+              </p>
+            </div>
+          ) : null}
+          <div
+            className={
+              waveCueMenu.fullscreen ? "timeline-gap-route-menu-body" : undefined
+            }
+          >
           <button
             type="button"
             role="menuitem"
@@ -128,8 +158,8 @@ export function TimelineWaveMenus({
               width: "100%",
               textAlign: "left",
               marginBottom: "6px",
-              fontSize: "12px",
-              padding: "8px 10px",
+              fontSize: waveCueMenu.fullscreen ? "15px" : "12px",
+              padding: waveCueMenu.fullscreen ? "14px 14px" : "8px 10px",
               cursor:
                 viewMode === "view" || !canSplitAtPlayhead ? "not-allowed" : "pointer",
               opacity: canSplitAtPlayhead ? 1 : 0.4,
@@ -152,8 +182,8 @@ export function TimelineWaveMenus({
               width: "100%",
               textAlign: "left",
               marginBottom: "6px",
-              fontSize: "12px",
-              padding: "8px 10px",
+              fontSize: waveCueMenu.fullscreen ? "15px" : "12px",
+              padding: waveCueMenu.fullscreen ? "14px 14px" : "8px 10px",
               cursor: viewMode === "view" ? "not-allowed" : "pointer",
             }}
             onClick={() => {
@@ -174,8 +204,8 @@ export function TimelineWaveMenus({
               width: "100%",
               textAlign: "left",
               marginBottom: "6px",
-              fontSize: "12px",
-              padding: "8px 10px",
+              fontSize: waveCueMenu.fullscreen ? "15px" : "12px",
+              padding: waveCueMenu.fullscreen ? "14px 14px" : "8px 10px",
               cursor: viewMode === "view" ? "not-allowed" : "pointer",
             }}
             onClick={() => {
@@ -187,7 +217,7 @@ export function TimelineWaveMenus({
               });
             }}
           >
-            立ち位置リストに追加
+            立ち位置を保存
           </button>
           <button
             type="button"
@@ -198,8 +228,8 @@ export function TimelineWaveMenus({
               display: "block",
               width: "100%",
               textAlign: "left",
-              fontSize: "12px",
-              padding: "8px 10px",
+              fontSize: waveCueMenu.fullscreen ? "15px" : "12px",
+              padding: waveCueMenu.fullscreen ? "14px 14px" : "8px 10px",
               borderColor: "rgba(248, 113, 113, 0.55)",
               color: "#fecaca",
               cursor: viewMode === "view" ? "not-allowed" : "pointer",
@@ -216,19 +246,23 @@ export function TimelineWaveMenus({
           <button
             type="button"
             role="menuitem"
+            className={
+              waveCueMenu.fullscreen ? "timeline-gap-route-menu-cancel" : undefined
+            }
             style={{
               ...btnSecondary,
               display: "block",
               width: "100%",
               textAlign: "center",
-              fontSize: "12px",
-              padding: "8px 10px",
+              fontSize: waveCueMenu.fullscreen ? "15px" : "12px",
+              padding: waveCueMenu.fullscreen ? "14px 14px" : "8px 10px",
               color: "#94a3b8",
             }}
             onClick={() => setWaveCueMenu(null)}
           >
             キャンセル
           </button>
+          </div>
         </div>
       </>
     ) : null;

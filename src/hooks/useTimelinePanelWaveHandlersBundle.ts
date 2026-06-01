@@ -89,6 +89,7 @@ export function useTimelinePanelWaveHandlersBundle({
     onWaveDoubleClick,
     commitWaveDoubleClickAt,
     openGapRouteMenuAtPointer,
+    openWaveCueMenuAtPointer,
   } = useTimelineWaveCanvasActions({
       suppressNextWaveSeekRef: canvas.suppressNextWaveSeekRef,
       wavePointerGestureRef: canvas.wavePointerGestureRef,
@@ -171,6 +172,7 @@ export function useTimelinePanelWaveHandlersBundle({
     onWaveContextMenu,
     onWaveDoubleClick,
     openGapRouteMenuAtPointer,
+    openWaveCueMenuAtPointer,
     onWaveRulerPointerDown,
     onWaveCanvasPointerDown,
     onWaveCanvasPointerMove,
