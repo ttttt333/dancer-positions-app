@@ -113,26 +113,14 @@ describe("pickCueDragKindAtWave", () => {
 });
 
 describe("effectiveWaveViewStartOverride", () => {
-  it("ignores manual override while playing at max zoom", () => {
+  it("keeps manual override while zoomed", () => {
     expect(
-      effectiveWaveViewStartOverride(40, {
-        viewPortion: 0.025,
-        isPlaying: true,
-        playheadScrubArmed: false,
-        enginePaused: false,
-      })
-    ).toBeNull();
+      effectiveWaveViewStartOverride(40, { viewPortion: 0.025 })
+    ).toBe(40);
   });
 
-  it("keeps override while playhead scrub drag is armed", () => {
-    expect(
-      effectiveWaveViewStartOverride(40, {
-        viewPortion: 0.025,
-        isPlaying: true,
-        playheadScrubArmed: true,
-        enginePaused: true,
-      })
-    ).toBe(40);
+  it("clears override when fully zoomed out", () => {
+    expect(effectiveWaveViewStartOverride(40, { viewPortion: 1 })).toBeNull();
   });
 });
 

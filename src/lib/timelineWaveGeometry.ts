@@ -50,27 +50,12 @@ export function waveVisibleSpanSec(
   return Math.max(0.08, durationSec * viewPortion);
 }
 
-/**
- * 再生中（スクラブ中を除く）は手動パン用 override を無効化し、
- * プレイヘッド追従の表示窓に揃える（最大ズームで赤バーが端に張り付くのを防ぐ）。
- */
+/** ズーム中にセットされた表示開始オーバーライドをそのまま使う（クリック・ドラッグ後の窓を維持） */
 export function effectiveWaveViewStartOverride(
   viewStartOverride: number | null,
-  opts: {
-    viewPortion: number;
-    isPlaying: boolean;
-    playheadScrubArmed?: boolean;
-    enginePaused?: boolean;
-  }
+  opts: { viewPortion: number }
 ): number | null {
   if (opts.viewPortion >= 1 - 1e-9) return null;
-  if (
-    opts.isPlaying &&
-    !opts.playheadScrubArmed &&
-    opts.enginePaused === false
-  ) {
-    return null;
-  }
   return viewStartOverride;
 }
 
@@ -107,9 +92,6 @@ export function resolveWaveViewForPointerHit(params: {
   }
   const override = effectiveWaveViewStartOverride(viewStartOverride, {
     viewPortion,
-    isPlaying,
-    playheadScrubArmed,
-    enginePaused,
   });
   const { start, span } = resolveWaveDrawView({
     durationSec,

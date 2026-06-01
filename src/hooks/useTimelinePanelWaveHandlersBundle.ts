@@ -92,6 +92,7 @@ export function useTimelinePanelWaveHandlersBundle({
       viewPortion: viewport.viewPortion,
       viewPortionRef: canvas.viewPortionRef,
       waveViewStartOverrideRef: canvas.waveViewStartOverrideRef,
+      setWaveViewStartOverride: viewport.setWaveViewStartOverride,
       isPlayingForWaveRef: canvas.isPlayingForWaveRef,
       playheadScrubDragRef: canvas.playheadScrubDragRef,
       currentTime: playback.currentTime,

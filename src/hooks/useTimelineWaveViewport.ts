@@ -80,9 +80,6 @@ export function useTimelineWaveViewport({
     }
     const override = effectiveWaveViewStartOverride(waveViewStartOverride, {
       viewPortion,
-      isPlaying,
-      playheadScrubArmed: playheadScrubDragRef?.current?.armed ?? false,
-      enginePaused: !isPlaying || playbackEngine.isPaused(),
     });
     return resolveWaveDrawView({
       durationSec: duration,

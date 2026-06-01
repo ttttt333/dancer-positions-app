@@ -4,8 +4,7 @@ import { playbackEngine } from "../core/playbackEngine";
 import {
   beginPlaybackScrubSession,
   endPlaybackScrubSession,
-  seekPlaybackClampedAndSyncStore,
-  seekPlaybackDuringScrub,
+  type PlaybackScrubSession,
 } from "../lib/playbackTransport";
 import {
   hitPlayheadStripForScrub,
@@ -15,10 +14,11 @@ import {
   waveExtentXToTime,
 } from "../lib/timelineWaveGeometry";
 import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
+import { panWaveViewStartAtClientX } from "../lib/waveEdgeScrollDuringScrub";
 import {
-  panWaveViewStartAtClientX,
-  panWaveViewStartToFollowScrubTime,
-} from "../lib/waveEdgeScrollDuringScrub";
+  commitWaveTimelineSeekAtClientX,
+  panWaveViewStartForPlayheadAtClientX,
+} from "../lib/waveTimelineSeek";
 import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
 import { PLAYHEAD_SCRUB_ARM_PX } from "../lib/waveLongPress";
 import {
@@ -113,23 +113,56 @@ export function useTimelineWaveSurfaceHandlers(
     [canvasRef, resolveViewRange]
   );
 
+  const waveSeekViewContext = useCallback(() => {
+    let anchorSec = currentTimePropRef.current;
+    if (
+      isPlayingForWaveRef.current &&
+      playbackEngine.getMediaSourceUrl() &&
+      !playbackEngine.isPaused() &&
+      Number.isFinite(playbackEngine.getCurrentTime())
+    ) {
+      anchorSec = playbackEngine.getCurrentTime();
+    }
+    return {
+      durationSec: duration,
+      viewPortion: viewPortionRef.current ?? viewPortion,
+      isPlaying: isPlayingForWaveRef.current,
+      viewStartOverride: waveViewStartOverrideRef.current,
+      anchorTimeSec: anchorSec,
+      playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
+      enginePaused:
+        !isPlayingForWaveRef.current || playbackEngine.isPaused(),
+    };
+  }, [
+    currentTimePropRef,
+    duration,
+    isPlayingForWaveRef,
+    playheadScrubDragRef,
+    viewPortion,
+    viewPortionRef,
+    waveViewStartOverrideRef,
+  ]);
+
   const seekTimelineAtClientX = useCallback(
-    (clientX: number) => {
-      if (projectViewMode === "view" || duration <= 0 || !peaks) return;
-      if (!playbackEngine.getMediaSourceUrl()) return;
-      const t = timeAtClientX(clientX);
-      if (t == null) return;
-      const moved = seekPlaybackClampedAndSyncStore({
-        t,
-        durationSec: duration,
+    (clientX: number, scrubSession?: PlaybackScrubSession | null) => {
+      if (projectViewMode === "view" || duration <= 0 || !peaks) return null;
+      if (!playbackEngine.getMediaSourceUrl()) return null;
+      const c = resolveActiveWaveCanvas(canvasRef);
+      if (!c) return null;
+      const moved = commitWaveTimelineSeekAtClientX({
+        clientX,
+        canvas: c,
         trimStartSec,
         trimEndSec,
-        roundHeadForStore: true,
+        setWaveViewStartOverride,
+        scrubSession: scrubSession ?? null,
+        ...waveSeekViewContext(),
       });
       if (moved != null) {
         currentTimePropRef.current = moved;
         drawWaveformAt(moved);
       }
+      return moved;
     },
     [
       canvasRef,
@@ -138,10 +171,10 @@ export function useTimelineWaveSurfaceHandlers(
       duration,
       peaks,
       projectViewMode,
-      timeAtClientX,
+      setWaveViewStartOverride,
       trimEndSec,
       trimStartSec,
-      currentTimePropRef,
+      waveSeekViewContext,
     ]
   );
 
@@ -222,13 +255,16 @@ export function useTimelineWaveSurfaceHandlers(
   }, []);
 
   const applyPlayheadScrubViewPan = useCallback(
-    (clientX: number) => {
-      const t = timeAtClientX(clientX);
-      if (t != null) {
-        const followStart = panWaveViewStartToFollowScrubTime({
-          scrubTimeSec: t,
+    (clientX: number, scrubTimeSec: number) => {
+      const c = resolveActiveWaveCanvas(canvasRef);
+      const vp = viewPortionRef.current ?? viewPortion;
+      if (c && vp < 1 - 1e-9) {
+        const followStart = panWaveViewStartForPlayheadAtClientX({
+          scrubTimeSec,
+          clientX,
+          canvasRect: c.getBoundingClientRect(),
           durationSec: duration,
-          viewPortion: viewPortionRef.current ?? viewPortion,
+          viewPortion: vp,
         });
         if (followStart != null) {
           setWaveViewStartOverride(followStart);
@@ -238,9 +274,9 @@ export function useTimelineWaveSurfaceHandlers(
     },
     [
       applyEdgeScrollAtClientX,
+      canvasRef,
       duration,
       setWaveViewStartOverride,
-      timeAtClientX,
       viewPortion,
       viewPortionRef,
     ]
@@ -253,57 +289,25 @@ export function useTimelineWaveSurfaceHandlers(
     if (x == null || !drag?.armed) return;
     const vp = viewPortionRef.current ?? viewPortion;
     if (vp >= 1 - 1e-9) return;
-    applyPlayheadScrubViewPan(x);
     const t = timeAtClientX(x);
     if (t != null) {
-      const moved = seekPlaybackDuringScrub(
-        {
-          t,
-          durationSec: duration,
-          trimStartSec,
-          trimEndSec,
-          roundHeadForStore: true,
-        },
-        drag.scrubSession
-      );
-      if (moved != null) {
-        currentTimePropRef.current = moved;
-        drawWaveformAt(moved);
-      }
+      applyPlayheadScrubViewPan(x, t);
+      seekTimelineAtClientX(x, drag.scrubSession);
     }
     playheadEdgeScrollRafRef.current = requestAnimationFrame(tickPlayheadEdgeScrollLoop);
   }, [
     applyPlayheadScrubViewPan,
-    currentTimePropRef,
-    drawWaveformAt,
-    duration,
     playheadScrubDragRef,
+    seekTimelineAtClientX,
     timeAtClientX,
-    trimEndSec,
-    trimStartSec,
+    viewPortion,
+    viewPortionRef,
   ]);
 
   const scrubAtClientX = useCallback(
-    (clientX: number, opts?: { edgeLoop?: boolean; audible?: boolean }) => {
-      applyPlayheadScrubViewPan(clientX);
-      const t = timeAtClientX(clientX);
-      if (t == null) return null;
-      const seekParams = {
-        t,
-        durationSec: duration,
-        trimStartSec,
-        trimEndSec,
-        roundHeadForStore: true as const,
-      };
+    (clientX: number, opts?: { edgeLoop?: boolean }) => {
       const session = playheadScrubDragRef.current?.scrubSession ?? null;
-      const moved =
-        session != null
-          ? seekPlaybackDuringScrub(seekParams, session)
-          : seekPlaybackClampedAndSyncStore(seekParams);
-      if (moved != null) {
-        currentTimePropRef.current = moved;
-        drawWaveformAt(moved);
-      }
+      const moved = seekTimelineAtClientX(clientX, session);
       if (opts?.edgeLoop) {
         playheadScrubClientXRef.current = clientX;
         const vp = viewPortionRef.current ?? viewPortion;
@@ -316,16 +320,11 @@ export function useTimelineWaveSurfaceHandlers(
       return moved;
     },
     [
-      applyPlayheadScrubViewPan,
-      canvasRef,
-      currentTimePropRef,
-      drawWaveformAt,
-      duration,
+      playheadScrubDragRef,
+      seekTimelineAtClientX,
       tickPlayheadEdgeScrollLoop,
-      timeAtClientX,
-      trimEndSec,
-      trimStartSec,
       viewPortion,
+      viewPortionRef,
     ]
   );
 
@@ -347,20 +346,8 @@ export function useTimelineWaveSurfaceHandlers(
       };
 
       e.preventDefault();
-      const seekRulerAtClientX = (clientX: number) => {
-        const moved = seekPlaybackClampedAndSyncStore({
-          t: timeAtClientX(clientX),
-          durationSec: duration,
-          trimStartSec: trimLo,
-          trimEndSec,
-          roundHeadForStore: true,
-        });
-        if (moved != null) {
-          currentTimePropRef.current = moved;
-          drawWaveformAt(moved);
-        }
-        return moved;
-      };
+      const seekRulerAtClientX = (clientX: number) =>
+        seekTimelineAtClientX(clientX);
 
       seekRulerAtClientX(e.clientX);
 
@@ -399,6 +386,7 @@ export function useTimelineWaveSurfaceHandlers(
       trimStartSec,
       trimEndSec,
       drawWaveformAt,
+      seekTimelineAtClientX,
     ]
   );
 
@@ -533,14 +521,19 @@ export function useTimelineWaveSurfaceHandlers(
       e.preventDefault();
       e.stopPropagation();
       clearPending();
+      const vp = viewPortionRef.current ?? viewPortion;
+      const zoomed = vp < 1 - 1e-9;
       playheadScrubDragRef.current = {
         pointerId: e.pointerId,
-        scrubSession: null,
+        scrubSession: zoomed ? beginPlaybackScrubSession() : null,
         originX: e.clientX,
         originY: e.clientY,
-        armed: false,
+        armed: zoomed,
       };
       e.currentTarget.setPointerCapture(e.pointerId);
+      if (zoomed) {
+        seekTimelineAtClientX(e.clientX, playheadScrubDragRef.current.scrubSession);
+      }
     },
     [
       clearPending,
@@ -548,6 +541,9 @@ export function useTimelineWaveSurfaceHandlers(
       peaks,
       playheadScrubDragRef,
       projectViewMode,
+      seekTimelineAtClientX,
+      viewPortion,
+      viewPortionRef,
     ]
   );
 
@@ -578,6 +574,9 @@ export function useTimelineWaveSurfaceHandlers(
         params.suppressNextWaveSeekRef.current = true;
         scrubAtClientX(e.clientX);
         endPlaybackScrubSession(drag.scrubSession);
+      } else {
+        seekTimelineAtClientX(e.clientX);
+        params.suppressNextWaveSeekRef.current = true;
       }
       playheadScrubDragRef.current = null;
       try {
@@ -590,6 +589,7 @@ export function useTimelineWaveSurfaceHandlers(
       params.suppressNextWaveSeekRef,
       playheadScrubDragRef,
       scrubAtClientX,
+      seekTimelineAtClientX,
       stopPlayheadEdgeScrollLoop,
     ]
   );

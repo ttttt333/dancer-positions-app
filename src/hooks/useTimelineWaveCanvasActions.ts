@@ -5,7 +5,7 @@ import {
   DEFAULT_CUE_SPAN_WITH_AUDIO_SEC,
 } from "../core/timelineController";
 import { playbackEngine } from "../core/playbackEngine";
-import { seekPlaybackClampedAndSyncStore } from "../lib/playbackTransport";
+import { commitWaveTimelineSeekAtClientX } from "../lib/waveTimelineSeek";
 import {
   pickGapLinkAtWave,
   pickCueIdAtWave,
@@ -35,6 +35,7 @@ export type UseTimelineWaveCanvasActionsParams = {
   viewPortion: number;
   viewPortionRef: RefObject<number>;
   waveViewStartOverrideRef: RefObject<number | null>;
+  setWaveViewStartOverride: React.Dispatch<React.SetStateAction<number | null>>;
   isPlayingForWaveRef: RefObject<boolean>;
   playheadScrubDragRef: RefObject<{ armed: boolean } | null>;
   currentTime: number;
@@ -65,6 +66,7 @@ export function useTimelineWaveCanvasActions({
   viewPortion,
   viewPortionRef,
   waveViewStartOverrideRef,
+  setWaveViewStartOverride,
   isPlayingForWaveRef,
   playheadScrubDragRef,
   peaks,
@@ -168,12 +170,24 @@ export function useTimelineWaveCanvasActions({
           return;
         }
       }
-      const moved = seekPlaybackClampedAndSyncStore({
-        t,
+      const moved = commitWaveTimelineSeekAtClientX({
+        clientX: e.clientX,
+        canvas: c,
         durationSec: duration,
+        viewPortion: viewPortionRef.current ?? viewPortion,
+        isPlaying: isPlayingForWaveRef.current,
+        viewStartOverride: waveViewStartOverrideRef.current,
+        anchorTimeSec: isPlayingForWaveRef.current &&
+          !playbackEngine.isPaused() &&
+          Number.isFinite(playbackEngine.getCurrentTime())
+          ? playbackEngine.getCurrentTime()
+          : currentTimePropRef.current,
+        playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
+        enginePaused:
+          !isPlayingForWaveRef.current || playbackEngine.isPaused(),
         trimStartSec,
         trimEndSec,
-        roundHeadForStore: true,
+        setWaveViewStartOverride,
       });
       if (moved != null) {
         currentTimePropRef.current = moved;
@@ -198,6 +212,10 @@ export function useTimelineWaveCanvasActions({
       trimEndSec,
       setWaveCueMenu,
       setGapRouteMenu,
+      setWaveViewStartOverride,
+      isPlayingForWaveRef,
+      playheadScrubDragRef,
+      waveViewStartOverrideRef,
     ]
   );
 

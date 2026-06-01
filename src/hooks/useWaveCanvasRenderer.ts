@@ -115,13 +115,7 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
       if (!g) return;
       const viewOverride = effectiveWaveViewStartOverride(
         waveViewStartOverrideRef.current,
-        {
-          viewPortion: vp,
-          isPlaying: isPlayingForWaveRef.current,
-          playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
-          enginePaused:
-            !isPlayingForWaveRef.current || playbackEngine.isPaused(),
-        }
+        { viewPortion: vp }
       );
       const { start: viewStart, span: viewSpan } = resolveWaveDrawView({
         durationSec: d,
