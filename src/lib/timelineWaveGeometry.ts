@@ -77,6 +77,8 @@ export function resolveWaveViewForPointerHit(params: {
   anchorTimeSec: number;
   playheadScrubArmed?: boolean;
   enginePaused?: boolean;
+  /** 直近の描画窓（あればヒット判定を描画と一致させる） */
+  lastDrawRange?: { viewStart: number; viewSpan: number } | null;
 }): { viewStart: number; viewSpan: number } {
   const {
     durationSec,
@@ -84,11 +86,20 @@ export function resolveWaveViewForPointerHit(params: {
     isPlaying,
     viewStartOverride,
     anchorTimeSec,
-    playheadScrubArmed,
-    enginePaused,
+    lastDrawRange,
   } = params;
   if (durationSec <= 0) {
     return { viewStart: 0, viewSpan: 1 };
+  }
+  if (
+    lastDrawRange &&
+    lastDrawRange.viewSpan > 0 &&
+    Number.isFinite(lastDrawRange.viewStart)
+  ) {
+    return {
+      viewStart: lastDrawRange.viewStart,
+      viewSpan: lastDrawRange.viewSpan,
+    };
   }
   const override = effectiveWaveViewStartOverride(viewStartOverride, {
     viewPortion,

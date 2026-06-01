@@ -139,6 +139,19 @@ describe("resolveWaveDrawView", () => {
 });
 
 describe("resolveWaveViewForPointerHit", () => {
+  it("prefers lastDrawRange when provided", () => {
+    const fromDraw = resolveWaveViewForPointerHit({
+      durationSec: 100,
+      viewPortion: 0.2,
+      isPlaying: false,
+      viewStartOverride: 10,
+      anchorTimeSec: 50,
+      lastDrawRange: { viewStart: 40, viewSpan: 20 },
+    });
+    expect(fromDraw.viewStart).toBe(40);
+    expect(fromDraw.viewSpan).toBe(20);
+  });
+
   it("matches live zoom state instead of stale lastDrawRange", () => {
     const live = resolveWaveViewForPointerHit({
       durationSec: 100,

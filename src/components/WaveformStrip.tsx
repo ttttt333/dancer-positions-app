@@ -217,7 +217,8 @@ export function WaveformStrip({
               left: "50%",
               width: 8,
               transform: "translateX(-50%)",
-              pointerEvents: "auto",
+              /** キャンバスでキュー・再生バーを一体ヒット（ここ true だとキュー端リサイズをブロック） */
+              pointerEvents: "none",
               cursor: "col-resize",
               touchAction: "none",
             }}

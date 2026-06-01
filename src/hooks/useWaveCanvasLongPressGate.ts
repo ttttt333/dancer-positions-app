@@ -124,6 +124,7 @@ export function useWaveCanvasLongPressGate({
         playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
         enginePaused:
           !isPlayingForWaveRef.current || playbackEngine.isPaused(),
+        lastDrawRange: lastWaveDrawRangeRef.current,
       });
       if (viewSpan <= 0) {
         basePointerDown(e);

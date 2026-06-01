@@ -101,11 +101,13 @@ export function useTimelineWaveCanvasActions({
       playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
       enginePaused:
         !isPlayingForWaveRef.current || playbackEngine.isPaused(),
+      lastDrawRange: lastWaveDrawRangeRef.current,
     });
   }, [
     currentTimePropRef,
     duration,
     isPlayingForWaveRef,
+    lastWaveDrawRangeRef,
     playheadScrubDragRef,
     viewPortion,
     viewPortionRef,
@@ -188,6 +190,7 @@ export function useTimelineWaveCanvasActions({
         trimStartSec,
         trimEndSec,
         setWaveViewStartOverride,
+        lastDrawRange: lastWaveDrawRangeRef.current,
       });
       if (moved != null) {
         currentTimePropRef.current = moved;
@@ -215,6 +218,7 @@ export function useTimelineWaveCanvasActions({
       setWaveViewStartOverride,
       isPlayingForWaveRef,
       playheadScrubDragRef,
+      lastWaveDrawRangeRef,
       waveViewStartOverrideRef,
     ]
   );

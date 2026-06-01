@@ -90,10 +90,12 @@ export function useTimelineWaveSurfaceHandlers(
       playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
       enginePaused:
         !isPlayingForWaveRef.current || playbackEngine.isPaused(),
+      lastDrawRange: lastWaveDrawRangeRef.current,
     });
   }, [
     duration,
     isPlayingForWaveRef,
+    lastWaveDrawRangeRef,
     viewPortion,
     viewPortionRef,
     waveViewStartOverrideRef,
@@ -132,11 +134,13 @@ export function useTimelineWaveSurfaceHandlers(
       playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
       enginePaused:
         !isPlayingForWaveRef.current || playbackEngine.isPaused(),
+      lastDrawRange: lastWaveDrawRangeRef.current,
     };
   }, [
     currentTimePropRef,
     duration,
     isPlayingForWaveRef,
+    lastWaveDrawRangeRef,
     playheadScrubDragRef,
     viewPortion,
     viewPortionRef,

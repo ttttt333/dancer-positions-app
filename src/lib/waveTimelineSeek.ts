@@ -19,6 +19,7 @@ export type WaveTimelineSeekViewContext = {
   anchorTimeSec: number;
   playheadScrubArmed?: boolean;
   enginePaused?: boolean;
+  lastDrawRange?: { viewStart: number; viewSpan: number } | null;
 };
 
 /** クリック／ドラッグ位置に再生バーが来るよう viewStart を決める（11% 固定追従ではない） */
@@ -84,6 +85,7 @@ export function commitWaveTimelineSeekAtClientX(
     anchorTimeSec,
     playheadScrubArmed,
     enginePaused,
+    lastDrawRange: params.lastDrawRange,
   });
   if (viewSpan <= 0 || rect.width <= 0) return null;
 

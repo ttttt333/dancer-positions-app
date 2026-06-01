@@ -246,8 +246,8 @@ export function useWaveCanvasPointerDrag({
           playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
           enginePaused:
             !isPlayingForWaveRef.current || playbackEngine.isPaused(),
+          lastDrawRange: lastWaveDrawRangeRef.current,
         });
-      const { viewStart, viewSpan } = viewForPointer();
       const trimLo = trimStartSec;
       const trimHi = trimPlaybackEndSec({
         trimEndSec,
@@ -289,6 +289,7 @@ export function useWaveCanvasPointerDrag({
           playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
           enginePaused:
             !isPlayingForWaveRef.current || playbackEngine.isPaused(),
+          lastDrawRange: lastWaveDrawRangeRef.current,
           trimStartSec: trimLo,
           trimEndSec,
           setWaveViewStartOverride,
@@ -322,6 +323,7 @@ export function useWaveCanvasPointerDrag({
         playheadSecForHit = playbackEngine.getCurrentTime();
       }
 
+      const { viewStart, viewSpan } = viewForPointer();
       const dragKind = pickCueDragKindAtWave(
         e.clientX,
         e.clientY,
@@ -397,6 +399,9 @@ export function useWaveCanvasPointerDrag({
           };
           redraw();
         };
+        if (mode === "start" || mode === "end") {
+          applyCueDragAtClientX(e.clientX);
+        }
         if (useTimelineWaveBridgeStore.getState().portraitActive) {
           useTimelineWaveBridgeStore
             .getState()
@@ -450,7 +455,10 @@ export function useWaveCanvasPointerDrag({
           if (!drag) return;
           const { cueId: cid, mode: dragMode, moved, armed, origStart, origEnd } = drag;
           onSelectedCueIdsChange([cid]);
-          if (!armed || !moved) {
+          if (
+            !moved &&
+            !(armed && (dragMode === "start" || dragMode === "end"))
+          ) {
             cueDragPreviewRangeRef.current = null;
             redraw();
             return;
