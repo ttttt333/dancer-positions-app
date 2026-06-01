@@ -257,7 +257,7 @@ export function useWaveCanvasPointerDrag({
         playheadSecForHit = playbackEngine.getCurrentTime();
       }
 
-      const cueHit = pickCueDragKindAtWave(
+      const dragKind = pickCueDragKindAtWave(
         e.clientX,
         e.clientY,
         c,
@@ -266,7 +266,7 @@ export function useWaveCanvasPointerDrag({
         viewSpan,
         cueDragPreviewRangeRef.current
       );
-      const cueId = cueHit?.cueId ?? null;
+      const cueId = dragKind?.cueId ?? null;
       if (cueId) {
         e.stopPropagation();
         waveHoverCueRef.current = null;
@@ -274,7 +274,7 @@ export function useWaveCanvasPointerDrag({
         if (!cue) return;
         onSelectedCueIdsChange([cueId]);
         const pointerT0 = timeFromClientX(e.clientX);
-        const mode = cueHit?.mode ?? "move";
+        const mode = dragKind?.mode ?? "move";
         const grabOffset = pointerT0 - cue.tStartSec;
         cueDragRef.current = {
           pointerId: e.pointerId,
