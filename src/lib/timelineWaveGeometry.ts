@@ -67,7 +67,7 @@ export function resolveWaveViewForPointerHit(params: {
     viewPortion,
     anchorTimeSec,
     isPlaying,
-    viewStartOverride: !isPlaying ? viewStartOverride : null,
+    viewStartOverride,
   });
   return { viewStart: start, viewSpan: span };
 }
@@ -398,14 +398,14 @@ export function resolveWaveDrawView(params: {
   durationSec: number;
   viewPortion: number;
   anchorTimeSec: number;
+  /** @deprecated 互換用。表示窓は `viewStartOverride` の有無で決まる */
   isPlaying: boolean;
   viewStartOverride: number | null;
 }): { start: number; end: number; span: number } {
-  const { durationSec, viewPortion, anchorTimeSec, isPlaying, viewStartOverride } =
-    params;
+  const { durationSec, viewPortion, anchorTimeSec, viewStartOverride } = params;
   if (
-    !isPlaying &&
     viewStartOverride !== null &&
+    Number.isFinite(viewStartOverride) &&
     Number.isFinite(durationSec) &&
     durationSec > 0
   ) {

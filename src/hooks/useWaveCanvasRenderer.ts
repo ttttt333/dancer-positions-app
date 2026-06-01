@@ -95,14 +95,12 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
       const h = c.height;
       const g = c.getContext("2d");
       if (!g) return;
-      const startOverride =
-        !isPlayingForWaveRef.current ? waveViewStartOverrideRef.current : null;
       const { start: viewStart, span: viewSpan } = resolveWaveDrawView({
         durationSec: d,
         viewPortion: vp,
         anchorTimeSec: playheadTime,
         isPlaying: isPlayingForWaveRef.current,
-        viewStartOverride: startOverride,
+        viewStartOverride: waveViewStartOverrideRef.current,
       });
       const viewEnd = viewStart + viewSpan;
       lastWaveDrawRangeRef.current = { viewStart, viewSpan };

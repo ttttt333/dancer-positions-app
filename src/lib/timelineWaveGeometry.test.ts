@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Cue } from "../types/choreography";
-import { pickCueDragKindAtWave, pickCueIdAtWave, resolveWaveViewForPointerHit } from "./timelineWaveGeometry";
+import {
+  pickCueDragKindAtWave,
+  pickCueIdAtWave,
+  resolveWaveDrawView,
+  resolveWaveViewForPointerHit,
+} from "./timelineWaveGeometry";
 
 function mockCanvas(width: number, height: number, left = 0, top = 0): HTMLCanvasElement {
   return {
@@ -103,6 +108,20 @@ describe("pickCueDragKindAtWave", () => {
     const id = pickCueIdAtWave(200, 40, canvas, overlap, 0, 100, null);
     const hit = pickCueDragKindAtWave(200, 40, canvas, overlap, 0, 100, null);
     expect(hit?.cueId).toBe(id);
+  });
+});
+
+describe("resolveWaveDrawView", () => {
+  it("uses viewStartOverride while playing (draw/hit/scrub stay aligned)", () => {
+    const v = resolveWaveDrawView({
+      durationSec: 100,
+      viewPortion: 0.2,
+      anchorTimeSec: 50,
+      isPlaying: true,
+      viewStartOverride: 40,
+    });
+    expect(v.start).toBe(40);
+    expect(v.span).toBeCloseTo(20, 5);
   });
 });
 

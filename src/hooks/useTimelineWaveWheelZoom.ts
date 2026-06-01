@@ -64,9 +64,7 @@ export function useTimelineWaveWheelZoom({
         durationSec: d,
         viewPortion: viewPortionRef.current,
         isPlaying: isPlayingForWaveRef.current,
-        viewStartOverride: !isPlayingForWaveRef.current
-          ? waveViewStartOverrideRef.current
-          : null,
+        viewStartOverride: waveViewStartOverrideRef.current,
         anchorTimeSec: anchorSec,
       });
 
@@ -82,14 +80,14 @@ export function useTimelineWaveWheelZoom({
         const newVp = Math.min(1, Math.max(0.025, p * mult));
         const newSpan = Math.max(0.08, d * newVp);
 
-        /** 再生中はオーバーライドしない（プレイヘッド追従を維持） */
-        if (!isPlayingForWaveRef.current) {
-          if (newVp >= 1 - 1e-9) {
-            setWaveViewStartOverride(null);
-          } else {
-            const newStart = Math.max(0, Math.min(d - newSpan, tCursor - cursorFrac * newSpan));
-            setWaveViewStartOverride(newStart);
-          }
+        if (newVp >= 1 - 1e-9) {
+          setWaveViewStartOverride(null);
+        } else {
+          const newStart = Math.max(
+            0,
+            Math.min(d - newSpan, tCursor - cursorFrac * newSpan)
+          );
+          setWaveViewStartOverride(newStart);
         }
         return newVp;
       });

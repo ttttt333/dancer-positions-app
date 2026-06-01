@@ -88,23 +88,26 @@ export function useTimelineWaveViewport({
     setWaveViewStartOverride(null);
   }, [peaks]);
 
-  /** 再生開始時はオーバーライドを解除してプレイヘッド追従に戻す */
-  useEffect(() => {
-    if (isPlaying) setWaveViewStartOverride(null);
-  }, [isPlaying]);
-
   /** プレイヘッドがオーバーライドのビュー範囲外に出たら追従に戻す */
   useEffect(() => {
     if (waveViewStartOverride === null || duration <= 0) return;
     const span = Math.max(0.08, duration * viewPortion);
     const margin = span * 0.15;
+    let phSec = playheadGridSec;
     if (
-      playheadGridSec < waveViewStartOverride - margin ||
-      playheadGridSec > waveViewStartOverride + span + margin
+      isPlaying &&
+      !playbackEngine.isPaused() &&
+      Number.isFinite(playbackEngine.getCurrentTime())
+    ) {
+      phSec = playbackEngine.getCurrentTime();
+    }
+    if (
+      phSec < waveViewStartOverride - margin ||
+      phSec > waveViewStartOverride + span + margin
     ) {
       setWaveViewStartOverride(null);
     }
-  }, [playheadGridSec, waveViewStartOverride, duration, viewPortion]);
+  }, [playheadGridSec, waveViewStartOverride, duration, viewPortion, isPlaying]);
 
   return {
     viewPortion,
