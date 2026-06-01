@@ -149,7 +149,29 @@ function cueWaveHorizontalBoundsPx(
 
 export type CueDragEdgeMode = "move" | "start" | "end";
 
-/** 帯上のクリックが開始端／終了端／移動のいずれか（端は枠の外側にも判定を広げる） */
+/** 確定したキュー帯上で、開始端／終了端／移動のいずれか（端は枠の外側にも判定を広げる） */
+function pickCueDragModeForCueAtX(
+  x: number,
+  left: number,
+  right: number
+): CueDragEdgeMode {
+  const cueWidth = right - left;
+  if (cueWidth <= CUE_EDGE_INNER_GRAB_PX * 2 + 1) {
+    return "move";
+  }
+  const inStartZone =
+    x >= left - CUE_EDGE_OUTER_GRAB_PX && x <= left + CUE_EDGE_INNER_GRAB_PX;
+  const inEndZone =
+    x >= right - CUE_EDGE_INNER_GRAB_PX && x <= right + CUE_EDGE_OUTER_GRAB_PX;
+  if (inStartZone) return "start";
+  if (inEndZone) return "end";
+  return "move";
+}
+
+/**
+ * 帯上のポインタ操作種別。
+ * キュー ID はクリック選択と同じ `pickCueIdAtWave` で決め、隣接キューの端ゾーンが奪い合わないようにする。
+ */
 export function pickCueDragKindAtWave(
   clientX: number,
   clientY: number,
@@ -160,73 +182,50 @@ export function pickCueDragKindAtWave(
   dragPreview: { cueId: string; tStart: number; tEnd: number } | null
 ): { cueId: string; mode: CueDragEdgeMode } | null {
   if (viewSpan <= 0 || cueList.length === 0) return null;
+
+  const cueId = pickCueIdAtWave(
+    clientX,
+    clientY,
+    canvas,
+    cueList,
+    viewStart,
+    viewSpan,
+    dragPreview
+  );
+  if (!cueId) return null;
+
+  const cue = cueList.find((c) => c.id === cueId);
+  if (!cue) return null;
+
   const r = canvas.getBoundingClientRect();
   const x = clientX - r.left;
-  const y = clientY - r.top;
   const w = r.width;
-  const h = r.height;
-  if (w <= 0 || h <= 0) return null;
-
-  const { top, bottom } = cueWaveVerticalBandPx(h);
-  if (y < top || y > bottom) return null;
+  if (w <= 0) return null;
 
   const viewEnd = viewStart + viewSpan;
-  let best: { cueId: string; mode: CueDragEdgeMode; dist: number } | null = null;
+  const ts =
+    dragPreview && dragPreview.cueId === cue.id ? dragPreview.tStart : cue.tStartSec;
+  const te =
+    dragPreview && dragPreview.cueId === cue.id ? dragPreview.tEnd : cue.tEndSec;
+  if (te < viewStart || ts > viewEnd) return null;
 
-  const consider = (cueId: string, mode: CueDragEdgeMode, dist: number) => {
-    if (!best || dist < best.dist - 0.5) {
-      best = { cueId, mode, dist };
-    }
-  };
-
-  for (const cue of cueList) {
-    const ts =
-      dragPreview && dragPreview.cueId === cue.id ? dragPreview.tStart : cue.tStartSec;
-    const te =
-      dragPreview && dragPreview.cueId === cue.id ? dragPreview.tEnd : cue.tEndSec;
-    if (te < viewStart || ts > viewEnd) continue;
-
-    let { left, right } = cueWaveHorizontalBoundsPx(
-      ts,
-      te,
-      viewStart,
-      viewSpan,
-      viewEnd,
-      w
-    );
-    /** 描画側は Math.max(3, width) なので、サブピクセル幅は 3px 相当に広げて当たりを合わせる */
-    const rawWidth = right - left;
-    if (rawWidth < 3) {
-      const mid = (left + right) / 2;
-      left = mid - 1.5;
-      right = mid + 1.5;
-    }
-    const cueWidth = right - left;
-    if (cueWidth < 1) continue;
-
-    /** 枠が狭いときは全体を移動として扱う */
-    if (cueWidth <= CUE_EDGE_INNER_GRAB_PX * 2 + 1) {
-      consider(cue.id, "move", Math.abs(x - (left + right) / 2) + 500);
-      continue;
-    }
-
-    const inStartZone =
-      x >= left - CUE_EDGE_OUTER_GRAB_PX && x <= left + CUE_EDGE_INNER_GRAB_PX;
-    const inEndZone =
-      x >= right - CUE_EDGE_INNER_GRAB_PX && x <= right + CUE_EDGE_OUTER_GRAB_PX;
-    const inMoveZone =
-      x > left + CUE_EDGE_INNER_GRAB_PX && x < right - CUE_EDGE_INNER_GRAB_PX;
-
-    if (inStartZone) consider(cue.id, "start", Math.abs(x - left));
-    if (inEndZone) consider(cue.id, "end", Math.abs(x - right));
-    if (inMoveZone) {
-      const cx = clamp(x, left, right);
-      consider(cue.id, "move", Math.abs(x - cx) + 1000);
-    }
+  let { left, right } = cueWaveHorizontalBoundsPx(
+    ts,
+    te,
+    viewStart,
+    viewSpan,
+    viewEnd,
+    w
+  );
+  const rawWidth = right - left;
+  if (rawWidth < 3) {
+    const mid = (left + right) / 2;
+    left = mid - 1.5;
+    right = mid + 1.5;
   }
+  if (right - left < 1) return null;
 
-  if (!best) return null;
-  return { cueId: best.cueId, mode: best.mode };
+  return { cueId, mode: pickCueDragModeForCueAtX(x, left, right) };
 }
 
 const GAP_LINK_MIN_WIDTH_PX = 6;

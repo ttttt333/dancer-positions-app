@@ -85,6 +85,25 @@ describe("pickCueDragKindAtWave", () => {
     );
     expect(hit?.mode === "start" || hit?.mode === "end").toBe(true);
   });
+
+  it("drags the same cue as click selection in the center (not an adjacent cue)", () => {
+    const canvas = mockCanvas(1000, 80);
+    const id = pickCueIdAtWave(150, 40, canvas, cues, 0, 100, null);
+    const hit = pickCueDragKindAtWave(150, 40, canvas, cues, 0, 100, null);
+    expect(id).toBe("a");
+    expect(hit).toEqual({ cueId: "a", mode: "move" });
+  });
+
+  it("matches pickCueIdAtWave when cues overlap in time", () => {
+    const overlap: Cue[] = [
+      { id: "a", tStartSec: 10, tEndSec: 25, formationId: "f1" },
+      { id: "b", tStartSec: 15, tEndSec: 30, formationId: "f2" },
+    ];
+    const canvas = mockCanvas(1000, 80);
+    const id = pickCueIdAtWave(200, 40, canvas, overlap, 0, 100, null);
+    const hit = pickCueDragKindAtWave(200, 40, canvas, overlap, 0, 100, null);
+    expect(hit?.cueId).toBe(id);
+  });
 });
 
 describe("resolveWaveViewForPointerHit", () => {
