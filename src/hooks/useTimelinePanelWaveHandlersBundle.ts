@@ -93,6 +93,7 @@ export function useTimelinePanelWaveHandlersBundle({
       viewPortionRef: canvas.viewPortionRef,
       waveViewStartOverrideRef: canvas.waveViewStartOverrideRef,
       isPlayingForWaveRef: canvas.isPlayingForWaveRef,
+      playheadScrubDragRef: canvas.playheadScrubDragRef,
       currentTime: playback.currentTime,
       lastWaveDrawRangeRef: canvas.lastWaveDrawRangeRef,
       peaks,

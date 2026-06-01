@@ -87,6 +87,9 @@ export function useTimelineWaveSurfaceHandlers(
       isPlaying: isPlayingForWaveRef.current,
       viewStartOverride: waveViewStartOverrideRef.current,
       anchorTimeSec: anchorSec,
+      playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
+      enginePaused:
+        !isPlayingForWaveRef.current || playbackEngine.isPaused(),
     });
   }, [
     duration,
@@ -95,6 +98,7 @@ export function useTimelineWaveSurfaceHandlers(
     viewPortionRef,
     waveViewStartOverrideRef,
     currentTimePropRef,
+    playheadScrubDragRef,
   ]);
 
   const timeAtClientX = useCallback(

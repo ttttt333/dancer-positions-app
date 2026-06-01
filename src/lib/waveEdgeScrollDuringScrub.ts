@@ -1,3 +1,5 @@
+import { waveVisibleSpanSec } from "./timelineWaveGeometry";
+
 /** 端付近ドラッグで波形ビューを横スクロールするゾーン */
 export const WAVE_EDGE_SCROLL_ZONE_MIN_PX = 32;
 export const WAVE_EDGE_SCROLL_ZONE_RATIO = 0.14;
@@ -63,7 +65,7 @@ export function panWaveViewStartToFollowScrubTime(params: {
   if (viewPortion >= 1 - 1e-9 || durationSec <= 0 || !Number.isFinite(scrubTimeSec)) {
     return null;
   }
-  const span = Math.max(0.08, durationSec * viewPortion);
+  const span = waveVisibleSpanSec(durationSec, viewPortion);
   return clampWaveViewStart(
     scrubTimeSec - WAVE_PLAYHEAD_VIEW_FRAC * span,
     span,

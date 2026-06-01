@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Cue } from "../types/choreography";
 import {
+  effectiveWaveViewStartOverride,
   pickCueDragKindAtWave,
   pickCueIdAtWave,
   resolveWaveDrawView,
@@ -108,6 +109,30 @@ describe("pickCueDragKindAtWave", () => {
     const id = pickCueIdAtWave(200, 40, canvas, overlap, 0, 100, null);
     const hit = pickCueDragKindAtWave(200, 40, canvas, overlap, 0, 100, null);
     expect(hit?.cueId).toBe(id);
+  });
+});
+
+describe("effectiveWaveViewStartOverride", () => {
+  it("ignores manual override while playing at max zoom", () => {
+    expect(
+      effectiveWaveViewStartOverride(40, {
+        viewPortion: 0.025,
+        isPlaying: true,
+        playheadScrubArmed: false,
+        enginePaused: false,
+      })
+    ).toBeNull();
+  });
+
+  it("keeps override while playhead scrub drag is armed", () => {
+    expect(
+      effectiveWaveViewStartOverride(40, {
+        viewPortion: 0.025,
+        isPlaying: true,
+        playheadScrubArmed: true,
+        enginePaused: true,
+      })
+    ).toBe(40);
   });
 });
 

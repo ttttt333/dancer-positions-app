@@ -40,6 +40,40 @@ export function waveExtentXToTime(
   return viewStart + f * viewSpan;
 }
 
+/** ズーム時の可視時間幅（`viewPortion` と描画・ヒット判定で共有） */
+export function waveVisibleSpanSec(
+  durationSec: number,
+  viewPortion: number
+): number {
+  if (!Number.isFinite(durationSec) || durationSec <= 0) return 1;
+  if (viewPortion >= 1 - 1e-9) return durationSec;
+  return Math.max(0.08, durationSec * viewPortion);
+}
+
+/**
+ * 再生中（スクラブ中を除く）は手動パン用 override を無効化し、
+ * プレイヘッド追従の表示窓に揃える（最大ズームで赤バーが端に張り付くのを防ぐ）。
+ */
+export function effectiveWaveViewStartOverride(
+  viewStartOverride: number | null,
+  opts: {
+    viewPortion: number;
+    isPlaying: boolean;
+    playheadScrubArmed?: boolean;
+    enginePaused?: boolean;
+  }
+): number | null {
+  if (opts.viewPortion >= 1 - 1e-9) return null;
+  if (
+    opts.isPlaying &&
+    !opts.playheadScrubArmed &&
+    opts.enginePaused === false
+  ) {
+    return null;
+  }
+  return viewStartOverride;
+}
+
 /** 再生中の目盛り・波形ビュー窓の微振れを抑える（約 33ms グリッド） */
 export function quantizePlayheadForWaveView(sec: number): number {
   if (!Number.isFinite(sec)) return 0;
@@ -56,18 +90,33 @@ export function resolveWaveViewForPointerHit(params: {
   isPlaying: boolean;
   viewStartOverride: number | null;
   anchorTimeSec: number;
+  playheadScrubArmed?: boolean;
+  enginePaused?: boolean;
 }): { viewStart: number; viewSpan: number } {
-  const { durationSec, viewPortion, isPlaying, viewStartOverride, anchorTimeSec } =
-    params;
+  const {
+    durationSec,
+    viewPortion,
+    isPlaying,
+    viewStartOverride,
+    anchorTimeSec,
+    playheadScrubArmed,
+    enginePaused,
+  } = params;
   if (durationSec <= 0) {
     return { viewStart: 0, viewSpan: 1 };
   }
+  const override = effectiveWaveViewStartOverride(viewStartOverride, {
+    viewPortion,
+    isPlaying,
+    playheadScrubArmed,
+    enginePaused,
+  });
   const { start, span } = resolveWaveDrawView({
     durationSec,
     viewPortion,
     anchorTimeSec,
     isPlaying,
-    viewStartOverride,
+    viewStartOverride: override,
   });
   return { viewStart: start, viewSpan: span };
 }
@@ -384,7 +433,7 @@ export function getWaveViewForDraw(
   if (viewPortion >= 1 - 1e-9) {
     return computeViewRange(durationSec, viewPortion, anchorTimeSec);
   }
-  const span = Math.max(0.08, durationSec * viewPortion);
+  const span = waveVisibleSpanSec(durationSec, viewPortion);
   const start = clamp(
     anchorTimeSec - WAVE_PLAYHEAD_X_FRAC * span,
     0,
@@ -409,7 +458,7 @@ export function resolveWaveDrawView(params: {
     Number.isFinite(durationSec) &&
     durationSec > 0
   ) {
-    const span = Math.max(0.08, durationSec * viewPortion);
+    const span = waveVisibleSpanSec(durationSec, viewPortion);
     return {
       start: viewStartOverride,
       end: viewStartOverride + span,

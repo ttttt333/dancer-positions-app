@@ -153,6 +153,9 @@ export function useWaveCanvasPointerDrag({
         isPlaying: isPlayingForWaveRef.current,
         viewStartOverride: waveViewStartOverrideRef.current,
         anchorTimeSec: anchorSec,
+        playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
+        enginePaused:
+          !isPlayingForWaveRef.current || playbackEngine.isPaused(),
       });
       const vp = viewPortionRef.current ?? viewPortion;
       const nextStart = panWaveViewStartAtClientX({
@@ -234,6 +237,9 @@ export function useWaveCanvasPointerDrag({
           isPlaying: isPlayingForWaveRef.current,
           viewStartOverride: waveViewStartOverrideRef.current,
           anchorTimeSec: anchorSec(),
+          playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
+          enginePaused:
+            !isPlayingForWaveRef.current || playbackEngine.isPaused(),
         });
       const { viewStart, viewSpan } = viewForPointer();
       const trimLo = trimStartSec;

@@ -11,9 +11,10 @@ import {
 import type { PlaybackScrubSession } from "../lib/playbackTransport";
 import { playbackEngine } from "../core/playbackEngine";
 import {
-  getWaveViewForDraw,
+  effectiveWaveViewStartOverride,
   quantizePlayheadForWaveView,
   resolveWaveDrawView,
+  waveVisibleSpanSec,
 } from "../lib/timelineWaveGeometry";
 
 type PlayheadScrubDragRef = RefObject<{
@@ -77,12 +78,18 @@ export function useTimelineWaveViewport({
     if (duration <= 0) {
       return { start: 0, end: 1, span: 1 };
     }
+    const override = effectiveWaveViewStartOverride(waveViewStartOverride, {
+      viewPortion,
+      isPlaying,
+      playheadScrubArmed: playheadScrubDragRef?.current?.armed ?? false,
+      enginePaused: !isPlaying || playbackEngine.isPaused(),
+    });
     return resolveWaveDrawView({
       durationSec: duration,
       viewPortion,
       anchorTimeSec: waveViewAnchorSec,
       isPlaying,
-      viewStartOverride: waveViewStartOverride,
+      viewStartOverride: override,
     });
   }, [
     duration,
@@ -90,6 +97,7 @@ export function useTimelineWaveViewport({
     waveViewAnchorSec,
     waveViewStartOverride,
     isPlaying,
+    playheadScrubDragRef,
   ]);
 
   const setViewPortionSynced = useCallback((action: SetStateAction<number>) => {
@@ -107,9 +115,10 @@ export function useTimelineWaveViewport({
 
   /** プレイヘッドがオーバーライドのビュー範囲外に出たら追従に戻す */
   useEffect(() => {
+    if (isPlaying) return;
     if (playheadScrubDragRef?.current?.armed) return;
     if (waveViewStartOverride === null || duration <= 0) return;
-    const span = Math.max(0.08, duration * viewPortion);
+    const span = waveVisibleSpanSec(duration, viewPortion);
     const margin = span * 0.15;
     let phSec = playheadGridSec;
     if (

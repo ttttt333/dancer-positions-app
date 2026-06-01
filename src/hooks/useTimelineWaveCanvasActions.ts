@@ -36,6 +36,7 @@ export type UseTimelineWaveCanvasActionsParams = {
   viewPortionRef: RefObject<number>;
   waveViewStartOverrideRef: RefObject<number | null>;
   isPlayingForWaveRef: RefObject<boolean>;
+  playheadScrubDragRef: RefObject<{ armed: boolean } | null>;
   currentTime: number;
   lastWaveDrawRangeRef: RefObject<{ viewStart: number; viewSpan: number }>;
   peaks: number[] | null;
@@ -65,6 +66,7 @@ export function useTimelineWaveCanvasActions({
   viewPortionRef,
   waveViewStartOverrideRef,
   isPlayingForWaveRef,
+  playheadScrubDragRef,
   peaks,
   cuesSorted,
   cueDragPreviewRangeRef,
@@ -94,11 +96,15 @@ export function useTimelineWaveCanvasActions({
       isPlaying: isPlayingForWaveRef.current,
       viewStartOverride: waveViewStartOverrideRef.current,
       anchorTimeSec: anchorSec,
+      playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
+      enginePaused:
+        !isPlayingForWaveRef.current || playbackEngine.isPaused(),
     });
   }, [
     currentTimePropRef,
     duration,
     isPlayingForWaveRef,
+    playheadScrubDragRef,
     viewPortion,
     viewPortionRef,
     waveViewStartOverrideRef,

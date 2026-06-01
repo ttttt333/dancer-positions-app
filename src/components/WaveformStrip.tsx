@@ -1,4 +1,8 @@
-import type { MouseEvent, PointerEvent, RefObject } from "react";
+import { useSyncExternalStore, type MouseEvent, type PointerEvent, type RefObject } from "react";
+import {
+  getWaveDrawRangeSnapshot,
+  subscribeWaveDrawRange,
+} from "../lib/waveDrawRangeSync";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { formatMmSs, waveRulerTicks } from "../lib/timeFormat";
 import { waveTimeToPercent } from "../lib/timelineWaveGeometry";
@@ -80,6 +84,15 @@ export function WaveformStrip({
   const playheadHeight = `calc(${rulerHeight} + ${waveCanvasCssH}px + ${PLAYHEAD_LINE_BLEED_BOTTOM_CSS}px)`;
   const waveLoadProgress = useWaveformLoadProgressStore((s) => s.progress);
   const showWaveLoadOverlay = !hasPeaks && waveLoadProgress != null;
+  const drawWaveView = useSyncExternalStore(
+    subscribeWaveDrawRange,
+    getWaveDrawRangeSnapshot,
+    getWaveDrawRangeSnapshot
+  );
+  const rulerView =
+    drawWaveView.span > 0 && drawWaveView.span < duration - 1e-6
+      ? drawWaveView
+      : waveView;
 
   return (
     <div
@@ -119,8 +132,8 @@ export function WaveformStrip({
           }
         >
           {duration > 0
-            ? waveRulerTicks(waveView.start, waveView.end, 10).map((tick) => {
-                const p = waveTimeToPercent(tick, waveView.start, waveView.span);
+            ? waveRulerTicks(rulerView.start, rulerView.end, 10).map((tick) => {
+                const p = waveTimeToPercent(tick, rulerView.start, rulerView.span);
                 const pRounded = Math.round(p * 10000) / 10000;
                 return (
                   <span

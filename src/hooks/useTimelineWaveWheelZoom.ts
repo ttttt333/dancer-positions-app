@@ -66,6 +66,9 @@ export function useTimelineWaveWheelZoom({
         isPlaying: isPlayingForWaveRef.current,
         viewStartOverride: waveViewStartOverrideRef.current,
         anchorTimeSec: anchorSec,
+        playheadScrubArmed: false,
+        enginePaused:
+          !isPlayingForWaveRef.current || playbackEngine.isPaused(),
       });
 
       /** カーソル位置が示す時刻（波形左右余白込み） */

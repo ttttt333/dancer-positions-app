@@ -4,12 +4,14 @@ import type { Cue } from "../types/choreography";
 import { sortCuesByStart } from "../core/timelineController";
 import { playbackEngine } from "../core/playbackEngine";
 import {
+  effectiveWaveViewStartOverride,
   gapConnectorPixelBounds,
   playheadOverlayPositionStyles,
   resolveWaveDrawView,
   waveTimeToExtentX,
   type CueDragEdgeMode,
 } from "../lib/timelineWaveGeometry";
+import { publishWaveDrawRange } from "../lib/waveDrawRangeSync";
 import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
 import { drawWavePeaksColumns } from "../lib/drawWavePeaksColumns";
 import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
@@ -111,15 +113,26 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
       const h = c.height;
       const g = c.getContext("2d");
       if (!g) return;
+      const viewOverride = effectiveWaveViewStartOverride(
+        waveViewStartOverrideRef.current,
+        {
+          viewPortion: vp,
+          isPlaying: isPlayingForWaveRef.current,
+          playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
+          enginePaused:
+            !isPlayingForWaveRef.current || playbackEngine.isPaused(),
+        }
+      );
       const { start: viewStart, span: viewSpan } = resolveWaveDrawView({
         durationSec: d,
         viewPortion: vp,
         anchorTimeSec: playheadTime,
         isPlaying: isPlayingForWaveRef.current,
-        viewStartOverride: waveViewStartOverrideRef.current,
+        viewStartOverride: viewOverride,
       });
       const viewEnd = viewStart + viewSpan;
       lastWaveDrawRangeRef.current = { viewStart, viewSpan };
+      publishWaveDrawRange(viewStart, viewSpan);
       g.fillStyle = "#0f172a";
       g.fillRect(0, 0, w, h);
       if (d > 0 && trimS > 0) {
