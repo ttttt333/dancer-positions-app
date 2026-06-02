@@ -48,6 +48,7 @@ export const LandscapeBottomWaveBar: React.FC<Props> = ({
         showTransportControls={false}
         waveHeightPx={LANDSCAPE_WAVE_CANVAS_HEIGHT_PX}
         onCollapseWave={onCollapse}
+        compactLandscape
       />
     </div>
   );

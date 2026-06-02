@@ -150,7 +150,7 @@
 }
 
 .floatingCloseLandscape {
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 88px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + var(--landscape-wave-dock-h, 65px) + 12px);
 }
 
 .landscapeRoot[data-landscape-wave-collapsed] .floatingCloseLandscape {
@@ -158,7 +158,7 @@
 }
 
 .landscapeRoot[data-shell-landscape]:not([data-landscape-wave-collapsed]) {
-  --landscape-wave-dock-h: 96px;
+  --landscape-wave-dock-h: 65px;
 }
 
 .landscapeRoot[data-shell-landscape][data-landscape-wave-collapsed] {

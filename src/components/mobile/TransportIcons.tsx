@@ -46,8 +46,8 @@ export function TransportIconStop(props: IconProps) {
 export function TransportIconSkipBack(props: IconProps) {
   return (
     <svg {...iconProps(props)}>
-      <path d="M6 7v10l8.5-5L6 7Z" fill="currentColor" />
-      <rect x="15.5" y="7" width="2.5" height="10" rx="1" fill="currentColor" />
+      <path d="M18 7v10l-8.5-5L18 7Z" fill="currentColor" />
+      <rect x="6" y="7" width="2.5" height="10" rx="1" fill="currentColor" />
     </svg>
   );
 }
@@ -55,8 +55,8 @@ export function TransportIconSkipBack(props: IconProps) {
 export function TransportIconSkipForward(props: IconProps) {
   return (
     <svg {...iconProps(props)}>
-      <path d="M18 7v10l-8.5-5L18 7Z" fill="currentColor" />
-      <rect x="6" y="7" width="2.5" height="10" rx="1" fill="currentColor" />
+      <path d="M6 7v10l8.5-5L6 7Z" fill="currentColor" />
+      <rect x="15.5" y="7" width="2.5" height="10" rx="1" fill="currentColor" />
     </svg>
   );
 }

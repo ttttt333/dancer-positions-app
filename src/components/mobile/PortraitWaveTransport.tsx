@@ -36,7 +36,6 @@ import {
   resolveWaveDrawView,
 } from "../../lib/timelineWaveGeometry";
 import { PLAYHEAD_SCRUB_ARM_PX } from "../../lib/waveLongPress";
-import { panWaveViewStartForPlayheadAtClientX } from "../../lib/waveTimelineSeek";
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 48;
@@ -71,6 +70,8 @@ interface Props {
   className?: string;
   /** 横画面: タイムライン左端の畳むボタン */
   onCollapseWave?: () => void;
+  /** 横画面下部: 上部余白・時刻表示を省きステージ領域を確保 */
+  compactLandscape?: boolean;
 }
 
 export type PortraitWaveTransportHandle = {
@@ -119,6 +120,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   waveHeightPx = DEFAULT_WAVE_HEIGHT_PX,
   className,
   onCollapseWave,
+  compactLandscape = false,
   },
   ref
 ) {
@@ -141,7 +143,10 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const playheadLineRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
+  const waveTimelineBodyRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
+  const zoomRef = useRef(1);
+  zoomRef.current = zoom;
   const [viewStart, setViewStart] = useState(0);
   const viewStartRef = useRef(0);
   viewStartRef.current = viewStart;
@@ -294,27 +299,31 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   const timeFromClientX = useCallback(
     (clientX: number): number | null => {
       const el = viewportRef.current;
-      if (!el || duration <= 0 || waveDrawView.span <= 0) return null;
+      if (!el || duration <= 0) return null;
+      const z = zoomRef.current;
+      const viewSpan = z > 0 ? duration / z : duration;
+      if (viewSpan <= 0) return null;
       const r = el.getBoundingClientRect();
       const xPx = Math.max(0, Math.min(r.width, clientX - r.left));
       return waveExtentXToTime(
         xPx,
-        waveDrawView.start,
-        waveDrawView.span,
+        viewStartRef.current,
+        viewSpan,
         r.width
       );
     },
-    [duration, waveDrawView.start, waveDrawView.span]
+    [duration]
   );
 
   const edgeScrollAtClientX = useCallback(
     (clientX: number) => {
-      if (zoom <= 1.001 || duration <= 0) return;
+      const z = zoomRef.current;
+      if (z <= 1.001 || duration <= 0) return;
       const el = viewportRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
       if (r.width <= 0) return;
-      const vd = viewDuration;
+      const vd = duration / z;
       const zone = Math.max(EDGE_SCROLL_ZONE_MIN_PX, r.width * EDGE_SCROLL_ZONE_RATIO);
       const vs = viewStartRef.current;
       let next = vs;
@@ -333,19 +342,20 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       if (next === vs) return;
       viewStartRef.current = next;
       setViewStart(next);
-      syncPortraitView(next, zoom);
-      bridgeApi?.drawWaveformAt(currentTime);
+      syncPortraitView(next, z);
+      bridgeApi?.drawWaveformAt(resolvePlayheadTimeForDraw());
     },
-    [zoom, duration, viewDuration, syncPortraitView, bridgeApi, currentTime]
+    [duration, syncPortraitView, bridgeApi, resolvePlayheadTimeForDraw]
   );
 
   const isInEdgeScrollZone = useCallback((clientX: number) => {
     const el = viewportRef.current;
-    if (!el || zoom <= 1.001) return false;
+    const z = zoomRef.current;
+    if (!el || z <= 1.001) return false;
     const r = el.getBoundingClientRect();
     const zone = Math.max(EDGE_SCROLL_ZONE_MIN_PX, r.width * EDGE_SCROLL_ZONE_RATIO);
     return clientX <= r.left + zone || clientX >= r.right - zone;
-  }, [zoom]);
+  }, []);
 
   const stopEdgeScrollLoop = useCallback(() => {
     if (edgeScrollRafRef.current != null) {
@@ -429,37 +439,12 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
     ]
   );
 
-  /** ズーム中: タップ／ドラッグ位置に赤バーが来るよう表示窓を合わせてからシーク */
+  /** ズーム中も端スクロール＋即時 viewStart でシーク（パン競合で左に戻らない） */
   const portraitSeekAtClientX = useCallback(
     (clientX: number, end = false) => {
-      if (!end && zoom > 1.001 && duration > 0) {
-        const canvas = canvasRef.current;
-        const t = timeFromClientX(clientX);
-        if (canvas && t != null) {
-          const followStart = panWaveViewStartForPlayheadAtClientX({
-            scrubTimeSec: t,
-            clientX,
-            canvasRect: canvas.getBoundingClientRect(),
-            durationSec: duration,
-            viewPortion,
-          });
-          if (followStart != null) {
-            viewStartRef.current = followStart;
-            setViewStart(followStart);
-            syncPortraitView(followStart, zoom);
-          }
-        }
-      }
       handlePortraitWaveScrub(clientX, end);
     },
-    [
-      zoom,
-      duration,
-      timeFromClientX,
-      viewPortion,
-      syncPortraitView,
-      handlePortraitWaveScrub,
-    ]
+    [handlePortraitWaveScrub]
   );
 
   useEffect(() => {
@@ -565,12 +550,12 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       playheadOriginRef.current = { x: e.clientX, y: e.clientY };
       startScrubSession();
       portraitSeekAtClientX(e.clientX);
-      e.currentTarget.setPointerCapture(e.pointerId);
+      waveTimelineBodyRef.current?.setPointerCapture(e.pointerId);
     },
     [audioUrl, duration, clearPendingSingleTap, clearLongPress, startScrubSession, portraitSeekAtClientX]
   );
 
-  const onPlayheadPointerMove = useCallback(
+  const onTimelinePlayheadPointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (!playheadDragRef.current || !(e.buttons & 1)) return;
       if (!playheadScrubArmedRef.current) {
@@ -593,7 +578,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       playheadScrubArmedRef.current = false;
       if (wasArmed) portraitSeekAtClientX(e.clientX, true);
       try {
-        e.currentTarget.releasePointerCapture(e.pointerId);
+        waveTimelineBodyRef.current?.releasePointerCapture(e.pointerId);
       } catch {
         /* ignore */
       }
@@ -821,9 +806,23 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
     [handleSkipBack, handleSkipForward, handleZoomIn, handleZoomOut]
   );
 
+  const waveOnlyStatusText =
+    waveLoadProgress?.message ??
+    (!audioUrl
+      ? "音源未設定 — Menu → 音源追加"
+      : !hasPeaks
+        ? registered
+          ? "波形を読み込み中…"
+          : "波形を準備中…"
+        : "");
+
+  const showWaveOnlyMetaRow =
+    !showTransportControls &&
+    (!compactLandscape || Boolean(waveOnlyStatusText) || showWaveLoadOverlay);
+
   return (
     <div
-      className={`${styles.transport} ${showTransportControls ? "" : styles.transportWaveOnly} ${onCollapseWave ? styles.transportWaveOnlyWithCollapse : ""} ${className ?? ""}`.trim()}
+      className={`${styles.transport} ${showTransportControls ? "" : styles.transportWaveOnly} ${onCollapseWave ? styles.transportWaveOnlyWithCollapse : ""} ${compactLandscape ? styles.transportLandscapeCompact : ""} ${className ?? ""}`.trim()}
       style={{ ["--portrait-wave-h" as string]: `${waveHeightPx}px` } as React.CSSProperties}
     >
       {showTransportControls ? (
@@ -899,36 +898,37 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       </div>
       ) : null}
 
-      {!showTransportControls ? (
+      {!showTransportControls && showWaveOnlyMetaRow ? (
         <div className={styles.waveOnlyMetaRow}>
           <span
             className={`${styles.waveOnlyStatus}${isLoadError ? ` ${styles.waveOnlyStatusError}` : ""}`}
             aria-live="polite"
           >
-            {waveLoadProgress?.message ??
-              (!audioUrl
-                ? "音源未設定 — Menu → 音源追加"
-                : !hasPeaks
-                  ? registered
-                    ? "波形を読み込み中…"
-                    : "波形を準備中…"
-                  : "")}
+            {waveOnlyStatusText}
             {waveLoadProgress && !isLoadError ? (
               <span className={styles.waveOnlyPct}>
                 {Math.round((waveLoadProgress.ratio ?? 0) * 100)}%
               </span>
             ) : null}
           </span>
-          <span className={styles.waveOnlyTime}>
-            {fmt(currentTime)}
-            <span className={styles.timeSep}>/</span>
-            {fmt(duration)}
-          </span>
+          {!compactLandscape ? (
+            <span className={styles.waveOnlyTime}>
+              {fmt(currentTime)}
+              <span className={styles.timeSep}>/</span>
+              {fmt(duration)}
+            </span>
+          ) : null}
         </div>
       ) : null}
 
       <div className={styles.waveFrame}>
-        <div className={styles.waveTimelineBody}>
+        <div
+          ref={waveTimelineBodyRef}
+          className={styles.waveTimelineBody}
+          onPointerMove={onTimelinePlayheadPointerMove}
+          onPointerUp={endPlayheadDrag}
+          onPointerCancel={endPlayheadDrag}
+        >
         <div className={styles.waveRulerWrap}>
           {onCollapseWave ? (
             <button
@@ -1003,9 +1003,6 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
             aria-valuenow={playheadSecForUi}
             aria-label="再生位置（ドラッグで移動・再生中も操作できます）"
             onPointerDown={onPlayheadPointerDown}
-            onPointerMove={onPlayheadPointerMove}
-            onPointerUp={endPlayheadDrag}
-            onPointerCancel={endPlayheadDrag}
           />
         ) : null}
         </div>
