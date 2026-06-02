@@ -11,6 +11,8 @@ import { useAssignRef, useAttachElementRef } from "./useSafeElementRef";
 import { formatMmSsFloor } from "../../lib/timeFormat";
 import { createDefaultFloorTextPlaceSession } from "../../lib/floorTextPlaceSession";
 import { useMobileShellBridgeStore } from "../../store/useMobileShellBridgeStore";
+import { useVideoExportUiStore } from "../../store/videoExportUiStore";
+import { ChoreoViewerTransportControls } from "../../components/ChoreoViewerBottomBar";
 
 const Stage3DView = lazy(() =>
   import("../../components/Stage3DView").then((m) => ({ default: m.Stage3DView }))
@@ -232,6 +234,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const helpFnRef = useRef(setShortcutsHelpOpen as ((open: boolean) => void) | null);
   const flowLibraryFnRef = useRef(setFlowLibraryOpen as ((open: boolean) => void) | null);
   const aiSuggestFnRef = useRef(setAiSuggestOpen as ((open: boolean) => void) | null);
+  const videoExportFnRef = useRef<(() => void) | null>(null);
 
   addCueFnRef.current = setAddCueDialogOpen as ((open: boolean) => void);
   stageSettingsFnRef.current = setStageAreaSettingsOpen as ((open: boolean) => void);
@@ -262,6 +265,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   helpFnRef.current = setShortcutsHelpOpen as ((open: boolean) => void);
   flowLibraryFnRef.current = setFlowLibraryOpen as ((open: boolean) => void);
   aiSuggestFnRef.current = setAiSuggestOpen as ((open: boolean) => void);
+  videoExportFnRef.current = () => useVideoExportUiStore.getState().openSheet();
 
   const jumpToPagerSlotRef = useRef(jumpToPagerSlot as (slotIdx: number) => void);
   jumpToPagerSlotRef.current = jumpToPagerSlot as (slotIdx: number) => void;
@@ -354,6 +358,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
       onShareLinks: () => shareLinksOpenFnRef.current?.(true),
       onHelp: () => helpFnRef.current?.(true),
       onFlowLibrary: () => flowLibraryFnRef.current?.(true),
+      onVideoExport: () => videoExportFnRef.current?.(),
       cueStartTimes: Array.isArray(sortedCuesForEditor)
         ? (sortedCuesForEditor as Array<{ tStartSec: number }>).map((c) => c.tStartSec)
         : [],
@@ -414,15 +419,13 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 gridTemplateRows: editorPaneGridTemplateRows,
                 gap: wideEditorLayout ? (stageFlushTopDock ? "0" : "4px") : `${EDITOR_GRID_GAP_PX}px`,
                 padding: publicNarrowLayout
-                  ? "4px max(4px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px))"
+                  ? "0"
                   : wideEditorLayout
                     ? "0px 0px 0px 0px"
                     : "6px max(6px, env(safe-area-inset-right, 0px)) calc(max(8px, 2cm) + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
                 paddingBottom:
                   choreoPublicView && choreoStudentPick
-                    ? publicViewTightHeight
-                      ? "calc(4px + min(100px, 24dvh) + env(safe-area-inset-bottom, 0px))"
-                      : "calc(6px + min(132px, 30dvh) + env(safe-area-inset-bottom, 0px))"
+                    ? "calc(var(--choreo-viewer-bar-h, 104px) + env(safe-area-inset-bottom, 0px))"
                     : undefined,
                 marginTop: 0,
               }),
@@ -472,10 +475,21 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
         ) : null}
         <section
           ref={stageSectionRef}
-          className="editor-stage-section"
+          className={[
+            "editor-stage-section",
+            publicNarrowLayout ? "editor-stage-section--public-view" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
           style={{
             ...panelCard,
-            padding: mobileStackEditor ? "3px 4px" : stageFlushTopDock ? "0" : "5px",
+            padding: publicNarrowLayout
+              ? 0
+              : mobileStackEditor
+                ? "3px 4px"
+                : stageFlushTopDock
+                  ? "0"
+                  : "5px",
             minHeight: 0,
             minWidth: 0,
             position: "relative",
@@ -958,14 +972,27 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                   );
                 })() : null}
                 {publicNarrowLayout &&
+                publicViewTightHeight &&
+                choreoStudentPick ? (
+                  <div className="choreo-viewer-stage-transport">
+                    <ChoreoViewerTransportControls
+                      timelineRef={timelineRef}
+                      isPlaying={isPlaying}
+                      currentTime={currentTime}
+                      duration={duration}
+                      compact
+                    />
+                  </div>
+                ) : null}
+                {publicNarrowLayout &&
                 (cuesSortedForStageJump.length > 0 || hasRosterMembers) ? (
                   // 生徒閲覧: タイムラインを非表示にしたため、position:fixed でボトムバーの上にフロート
                   <div
                     style={{
                       position: "fixed",
                       bottom: publicViewTightHeight
-                        ? "calc(max(8px, env(safe-area-inset-bottom, 0px)) + min(116px, 30dvh))"
-                        : "calc(max(8px, env(safe-area-inset-bottom, 0px)) + min(142px, 24dvh))",
+                        ? "calc(var(--choreo-viewer-bar-h, 44px) + max(8px, env(safe-area-inset-bottom, 0px)) + 58px)"
+                        : "calc(var(--choreo-viewer-bar-h, 104px) + max(8px, env(safe-area-inset-bottom, 0px)) + 8px)",
                       left: "50%",
                       transform: "translateX(-50%)",
                       zIndex: 91,

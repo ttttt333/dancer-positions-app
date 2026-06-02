@@ -33,6 +33,7 @@ type NeonIconPanelProps = ChoreoCoreToolbarCoreProps & {
   onOpenLibrary?: () => void;
   onOpenRosterImport?: () => void;
   onOpenStageTransform?: () => void;
+  onOpenVideoExport?: () => void;
   collapsed?: boolean;
   onCollapseToggle?: () => void;
 };
@@ -246,6 +247,18 @@ function IconExportPackage() {
     </svg>
   );
 }
+function IconVideoExport() {
+  const c = "#f472b6";
+  return (
+    <svg viewBox="0 0 32 32" style={{ filter: glow(c) }}>
+      <rect x="5" y="9" width="22" height="16" rx="2.5" fill="none" stroke={c} strokeWidth="1.5" />
+      <path d="M14 13 L14 21 L22 17 Z" fill="none" stroke={c} strokeWidth="1.5" strokeLinejoin="round" />
+      <circle cx="24" cy="7" r="4" fill="none" stroke={c} strokeWidth="1.2" />
+      <line x1="24" y1="5" x2="24" y2="9" stroke={c} strokeWidth="1.2" strokeLinecap="round" />
+      <line x1="22" y1="7" x2="26" y2="7" stroke={c} strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  );
+}
 function IconAISuggest() {
   const c = "#e879f9";
   return (
@@ -394,6 +407,7 @@ export function NeonIconPanel({
   onOpenSetPiecePicker,
   onOpenShortcutsHelp,
   onOpenExport,
+  onOpenVideoExport,
   disabled,
   onUndo,
   onRedo,
@@ -619,6 +633,7 @@ export function NeonIconPanel({
         <NeonBtn icon={<IconShareUrl />} label={t("editor.comp.k059")} onClick={onOpenShareLinks} disabled={disabled} />
         <NeonBtn icon={<IconStageTransform />} label={t("editor.comp.k100")} onClick={onOpenStageTransform} disabled={disabled} />
         <NeonBtn icon={<IconExportPackage />} label={t("editor.comp.k016")} onClick={onOpenExport} disabled={disabled} />
+        <NeonBtn icon={<IconVideoExport />} label={t("editor.comp.k128")} onClick={onOpenVideoExport} disabled={disabled} />
         <NeonBtn icon={<IconAISuggest />} label={t("editor.comp.k006")} onClick={onOpenAISuggest} disabled={disabled} />
         <NeonBtn icon={<IconSetPiece />} label={t("editor.comp.k075")} onClick={onOpenSetPiecePicker} disabled={disabled} />
         <NeonBtn icon={<IconHelp />} label={t("editor.comp.k035")} onClick={onOpenShortcutsHelp} disabled={disabled} />

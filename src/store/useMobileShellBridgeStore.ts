@@ -25,6 +25,8 @@ export type MobileShellBridgeStore = {
   onAddCue: () => void;
   onStageSettings: () => void;
   onViewerList: () => void;
+  /** 動画書き出しシートを開く */
+  onVideoExport: () => void;
   onTabChange: (tab: MobileShellBridgeStore["activeTab"]) => void;
   onStageViewChange: (v: "2d" | "3d") => void;
   onUndo: () => void;
@@ -79,6 +81,7 @@ export const useMobileShellBridgeStore = create<MobileShellBridgeStore>((set) =>
   onAddCue: () => {},
   onStageSettings: () => {},
   onViewerList: () => {},
+  onVideoExport: () => {},
   onTabChange: (tab) => set({ activeTab: tab }),
   onStageViewChange: () => {},
   onUndo: () => {},

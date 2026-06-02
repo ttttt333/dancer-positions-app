@@ -1,5 +1,6 @@
 import { NeonIconPanel } from "../../components/NeonIconPanel";
 import { createDefaultFloorTextPlaceSession } from "../../lib/floorTextPlaceSession";
+import { useVideoExportUiStore } from "../../store/videoExportUiStore";
 import type { EditorLayoutProps } from "./editorLayoutProps";
 
 export function EditorNeonIconPanel(props: EditorLayoutProps) {
@@ -87,6 +88,7 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
       onAddDancer={addDancerFromStageToolbar}
       onOpenRoster={() => setMemberRosterSheetOpen(true)}
       onOpenStageTransform={() => setStageShapePickerOpen(true)}
+      onOpenVideoExport={() => useVideoExportUiStore.getState().openSheet()}
       collapsed={rightPaneCollapsed && wideEditorLayout}
       onCollapseToggle={
         wideEditorLayout ? () => setRightPaneCollapsed((v) => !v) : undefined

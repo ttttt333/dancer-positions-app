@@ -93,6 +93,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
   const onMemberAdd   = useMobileShellBridgeStore((s) => s.onMemberAdd)
   const onShareLinks  = useMobileShellBridgeStore((s) => s.onShareLinks)
   const onHelp        = useMobileShellBridgeStore((s) => s.onHelp)
+  const onVideoExport = useMobileShellBridgeStore((s) => s.onVideoExport)
   const onFlowLibrary = useMobileShellBridgeStore((s) => s.onFlowLibrary)
 
   const transportDisabled = !audioUrl || duration <= 0
@@ -131,6 +132,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
       title: 'Settings', icon: '⚙️',
       items: [
         { label: 'エクスポート', icon: '📤', action: onViewerList },
+        { label: '動画書き出し', icon: '🎥', action: onVideoExport },
         { label: 'ヘルプ',      icon: '❓', action: onHelp },
       ],
     },

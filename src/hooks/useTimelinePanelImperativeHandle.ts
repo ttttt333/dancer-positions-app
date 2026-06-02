@@ -17,6 +17,8 @@ type Params = {
   setPlaybackTrustedDurationSec: (sec: number) => void;
   togglePlay: () => void;
   stopPlayback: () => void;
+  seekForward5Sec: () => void;
+  seekBackward5Sec: () => void;
   openAudioImport: () => void;
 };
 
@@ -28,6 +30,8 @@ export function useTimelinePanelImperativeHandle({
   setPlaybackTrustedDurationSec,
   togglePlay,
   stopPlayback,
+  seekForward5Sec,
+  seekBackward5Sec,
   openAudioImport,
 }: Params) {
   const getWavePeaksSnapshot = useCallback((): number[] | null => {
@@ -67,6 +71,8 @@ export function useTimelinePanelImperativeHandle({
     () => ({
       togglePlay,
       stopPlayback,
+      seekForward5Sec,
+      seekBackward5Sec,
       openAudioImport,
       getWavePeaksSnapshot,
       restoreWavePeaks,
@@ -75,6 +81,8 @@ export function useTimelinePanelImperativeHandle({
     [
       togglePlay,
       stopPlayback,
+      seekForward5Sec,
+      seekBackward5Sec,
       openAudioImport,
       getWavePeaksSnapshot,
       restoreWavePeaks,

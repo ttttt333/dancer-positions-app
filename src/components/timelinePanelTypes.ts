@@ -6,6 +6,8 @@ export type TimelinePanelHandle = {
   togglePlay: () => void;
   /** 仕様 §5: 再生中ステージクリックなどと同じ「停止」（一時停止＋先頭付近へ） */
   stopPlayback: () => void;
+  seekForward5Sec: () => void;
+  seekBackward5Sec: () => void;
   /** 音源ファイル選択ダイアログを開く（エディタ上部ツールバー用） */
   openAudioImport: () => void;
   /** フローライブラリ保存用。現在の波形ピーク（無ければ null） */

@@ -220,6 +220,8 @@ export function useTimelinePanelSessionBundle(
     setPlaybackTrustedDurationSec,
     togglePlay,
     stopPlayback,
+    seekForward5Sec,
+    seekBackward5Sec,
     openAudioImport,
   });
 

@@ -14,7 +14,10 @@ import { EditorSideSheet } from "../../components/EditorSideSheet";
 import { FloorTextSideSheetContent } from "../../components/FloorTextSideSheetContent";
 import { ShareLinksSheetContent } from "../../components/ShareLinksSheetContent";
 import { ViewerModeSheetContent } from "../../components/ViewerModeSheetContent";
-import { btnAccent, btnSecondary, inputField } from "../../components/stageButtonStyles";
+import { ChoreoViewerBottomBar } from "../../components/ChoreoViewerBottomBar";
+import { VideoExportSheet } from "../../components/VideoExportSheet";
+import { useVideoExportUiStore } from "../../store/videoExportUiStore";
+import { btnAccent, btnSecondary } from "../../components/stageButtonStyles";
 import { panelCard, shell } from "../../theme/choreoShell";
 import { modDancerColorIndex, DANCER_COLOR_PALETTE_HEX } from "../../lib/dancerColorPalette";
 import { sortCuesByStart, MIN_CUE_DURATION_SEC, DEFAULT_CUE_SPAN_WITH_AUDIO_SEC } from "../../core/timelineController";
@@ -46,6 +49,8 @@ const Stage3DView = lazy(() =>
 
 
 export function EditorStageRowOverlays(props: EditorLayoutProps) {
+  const videoExportOpen = useVideoExportUiStore((s) => s.open);
+  const closeVideoExport = useVideoExportUiStore((s) => s.closeSheet);
   const activeFormationId = props.activeFormationId as never;
   const addCueDialogEl = props.addCueDialogEl as never;
   const addDancerFromStageToolbar = props.addDancerFromStageToolbar as never;
@@ -1217,6 +1222,18 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
       ) : null}
 
       {exportDialogEl}
+      {!choreoPublicView && project ? (
+        <VideoExportSheet
+          open={videoExportOpen}
+          onClose={closeVideoExport}
+          project={project}
+          durationSec={duration}
+          fileName={
+            (typeof projectName === "string" && projectName.trim()) ||
+            "formation"
+          }
+        />
+      ) : null}
       {flowLibraryDialogEl}
       {addCueDialogEl}
       {formationBoxManagerDialogEl}
@@ -1443,115 +1460,17 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
       ) : null}
 
       {choreoPublicView && choreoStudentPick ? (
-        <div
-          className="choreo-viewer-bottom-bar"
-          style={{
-            position: "fixed",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 90,
-            display: "flex",
-            flexDirection: "column",
-            borderTop: `1px solid ${shell.border}`,
-            background: "rgba(15, 23, 42, 0.98)",
-            boxShadow: "0 -4px 20px rgba(0,0,0,0.35)",
-            paddingBottom: "max(4px, env(safe-area-inset-bottom, 0px))",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              gap: publicViewTightHeight ? 6 : 8,
-              padding: publicViewTightHeight ? "6px 10px 5px" : "10px 14px 8px",
-              minHeight: publicViewTightHeight ? 40 : 48,
-              borderBottom: `1px solid ${shell.border}`,
-            }}
-          >
-            <span style={{ fontSize: publicViewTightHeight ? 16 : 20 }} aria-hidden>
-              🎵
-            </span>
-            <span
-              style={{
-                fontWeight: 700,
-                color: "#e2e8f0",
-                fontSize: publicViewTightHeight ? 13 : 16,
-                lineHeight: 1.25,
-                flex: "1 1 120px",
-                minWidth: 0,
-              }}
-            >
-              {(project.pieceTitle || t("editor.untitledProject")).trim()}
-              {t("editor.layout.viewingSuffix")}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                if (typeof window !== "undefined" && window.history.length > 1) {
-                  window.history.back();
-                  return;
-                }
-                window.close();
-              }}
-              style={{
-                ...btnSecondary,
-                fontSize: publicViewTightHeight ? 13 : 15,
-                fontWeight: 600,
-                flexShrink: 0,
-                minHeight: publicViewTightHeight ? 40 : 44,
-                minWidth: 64,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: publicViewTightHeight ? "6px 12px" : "10px 16px",
-              }}
-            >
-              {t("editor.layout.close")}
-            </button>
-          </div>
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              gap: publicViewTightHeight ? 8 : 10,
-              padding: publicViewTightHeight ? "8px 10px 10px" : "12px 14px 14px",
-            }}
-          >
-            <span
-              style={{
-                fontSize: publicViewTightHeight ? 13 : 15,
-                color: "#e2e8f0",
-                lineHeight: 1.35,
-                flex: "1 1 200px",
-              }}
-            >
-              👤{" "}
-              {choreoStudentPick.kind === "all"
-                ? t("editor.layout.allMembers")
-                : `${choreoStudentPick.label}${t("editor.layout.memberSuffix")}`}{" "}
-              {t("editor.layout.partViewing")}
-            </span>
-            <button
-              type="button"
-              onClick={() => setChoreoMemberSheetOpen(true)}
-              style={{
-                ...btnSecondary,
-                marginLeft: "auto",
-                fontSize: publicViewTightHeight ? 13 : 15,
-                fontWeight: 600,
-                minHeight: publicViewTightHeight ? 40 : 48,
-                padding: publicViewTightHeight ? "6px 12px" : "10px 16px",
-                touchAction: "manipulation",
-              }}
-              title={t("editor.layout.selectPartTitle")}
-            >
-              パートを選ぶ
-            </button>
-          </div>
-        </div>
+        <ChoreoViewerBottomBar
+          timelineRef={timelineRef}
+          project={project}
+          choreoStudentPick={choreoStudentPick}
+          isPlaying={isPlaying}
+          currentTime={currentTime}
+          duration={duration}
+          tightHeight={publicViewTightHeight}
+          onOpenMemberSheet={() => setChoreoMemberSheetOpen(true)}
+          fileName={projectName}
+        />
       ) : null}
     </>
   );

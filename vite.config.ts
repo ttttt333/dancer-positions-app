@@ -122,8 +122,10 @@ export default defineConfig({
     /** Vite の既定どおり 5173（以前の作業 URL と揃える） */
     port: 5173,
     strictPort: true,
-    /** ブラウザが dev の HTML/JS を強キャッシュしないようにする */
+    /** SharedArrayBuffer（FFmpeg.wasm）用 + 開発時の強キャッシュ防止 */
     headers: {
+      "Cross-Origin-Embedder-Policy": "require-corp",
+      "Cross-Origin-Opener-Policy": "same-origin",
       "Cache-Control": "no-store",
     },
     /** open は devOpenBrowserPlugin が担当（concurrently でも確実に開く） */
@@ -133,6 +135,12 @@ export default defineConfig({
         target: "http://127.0.0.1:3001",
         changeOrigin: true,
       },
+    },
+  },
+  preview: {
+    headers: {
+      "Cross-Origin-Embedder-Policy": "require-corp",
+      "Cross-Origin-Opener-Policy": "same-origin",
     },
   },
 });

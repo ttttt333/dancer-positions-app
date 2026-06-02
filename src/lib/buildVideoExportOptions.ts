@@ -1,0 +1,104 @@
+import type { RefObject } from "react";
+import { sortCuesByStart } from "../core/timelineController";
+import { dancersAtTime } from "../core/stageEngine";
+import { playbackEngine } from "../core/playbackEngine";
+import {
+  DANCER_COLOR_PALETTE_HEX,
+  modDancerColorIndex,
+} from "./dancerColorPalette";
+import { resolveStageExportRange } from "./stageExportRange";
+import type { ExportOptions } from "../hooks/useVideoExport";
+import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography";
+
+const SAMPLE_FPS = 30;
+
+function dancerColorHex(d: DancerSpot): string {
+  return DANCER_COLOR_PALETTE_HEX[modDancerColorIndex(d.colorIndex ?? 0)];
+}
+
+function mapDancers(dancers: DancerSpot[]) {
+  return dancers.map((d) => ({
+    id: d.id,
+    name: d.label || "?",
+    color: dancerColorHex(d),
+    x: d.xPct / 100,
+    y: d.yPct / 100,
+  }));
+}
+
+function cueFormationName(
+  project: ChoreographyProjectJson,
+  formationId: string,
+  cueName?: string
+): string {
+  const f = project.formations.find((x) => x.id === formationId);
+  return (cueName || f?.name || "フォーメーション").trim() || "フォーメーション";
+}
+
+/**
+ * `useVideoExport` 向けにプロジェクト JSON から ExportOptions を組み立てる。
+ * キュー境界に加え、30fps 相当で補間サンプルを入れてギャップ中も動く。
+ */
+export function buildVideoExportOptions(
+  project: ChoreographyProjectJson,
+  durationSec: number,
+  fileName: string,
+  canvasRef: RefObject<HTMLCanvasElement | null>
+): ExportOptions {
+  const { startSec, durationSec: span } = resolveStageExportRange(
+    durationSec,
+    project.trimStartSec ?? 0,
+    project.trimEndSec
+  );
+
+  const formations: ExportOptions["formations"] = [];
+  const totalFrames = Math.max(1, Math.ceil(span * SAMPLE_FPS));
+  const sorted = sortCuesByStart(project.cues);
+
+  for (let frame = 0; frame <= totalFrames; frame++) {
+    const tRel = frame / SAMPLE_FPS;
+    const tAbs = startSec + tRel;
+    const dancers = dancersAtTime(
+      tAbs,
+      project.cues,
+      project.formations,
+      project.activeFormationId
+    );
+
+    const activeCue =
+      [...sorted].reverse().find((c) => c.tStartSec <= tAbs) ?? sorted[0];
+    const label = activeCue
+      ? cueFormationName(project, activeCue.formationId, activeCue.name)
+      : "ステージ";
+
+    formations.push({
+      id: `frame-${frame}`,
+      name: label,
+      startSec: tRel,
+      dancers: mapDancers(dancers),
+    });
+  }
+
+  if (formations.length === 0) {
+    const f = project.formations.find((x) => x.id === project.activeFormationId);
+    formations.push({
+      id: f?.id ?? "default",
+      name: f?.name ?? "ステージ",
+      startSec: 0,
+      dancers: mapDancers(f?.dancers ?? []),
+    });
+  }
+
+  const safeName =
+    fileName.replace(/[^\w\u3000-\u30ff\u4e00-\u9faf-]+/g, "_").slice(0, 80) ||
+    "choreogrid";
+
+  return {
+    canvasRef,
+    audioUrl: playbackEngine.getMediaSourceUrl() || null,
+    durationSec: span,
+    fileName: safeName,
+    formations,
+    audioStartSec: startSec,
+  };
+}

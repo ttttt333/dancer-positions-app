@@ -50,7 +50,7 @@ import {
   dancerMarkerDiameterAfterRosterImport,
   tryMigrateFromLocalStorage,
 } from "../lib/projectDefaults";
-import { preloadFFmpeg } from "../lib/extractVideoAudio";
+import { preloadFFmpegWasm } from "../lib/ffmpegWasm";
 import { normalizeProject } from "../lib/normalizeProject";
 import { modDancerColorIndex, DANCER_COLOR_PALETTE_HEX } from "../lib/dancerColorPalette";
 import {
@@ -2407,7 +2407,7 @@ export function EditorPage({
       : undefined,
     onOpenAudioImport: openAudioImport,
     onPreloadFfmpegForAudio: () => {
-      void preloadFFmpeg();
+      void preloadFFmpegWasm();
     },
     onEnterStageZen: () => {
       setFloorTextPlaceSession(null);
@@ -2609,7 +2609,7 @@ export function EditorPage({
         extractProgress={editorAudioSession.extractProgress}
         onPickAudio={editorAudioSession.onPickAudio}
         onPreloadFfmpegPointer={() => {
-          void preloadFFmpeg();
+          void preloadFFmpegWasm();
         }}
       />
       {collabUnavailableNotice ? (

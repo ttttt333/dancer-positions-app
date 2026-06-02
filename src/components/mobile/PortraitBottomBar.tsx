@@ -82,6 +82,7 @@ export const PortraitBottomBar: React.FC<Props> = ({
   const onShareLinks = useMobileShellBridgeStore((s) => s.onShareLinks);
   const onHelp = useMobileShellBridgeStore((s) => s.onHelp);
   const onFlowLibrary = useMobileShellBridgeStore((s) => s.onFlowLibrary);
+  const onVideoExport = useMobileShellBridgeStore((s) => s.onVideoExport);
 
   const MENU_SECTIONS: MenuSection[] = [
     {
@@ -121,6 +122,7 @@ export const PortraitBottomBar: React.FC<Props> = ({
       icon: "⚙️",
       items: [
         { label: "エクスポート", icon: "📤", action: onViewerList },
+        { label: "動画書き出し", icon: "🎥", action: onVideoExport },
         { label: "ヘルプ", icon: "❓", action: onHelp },
       ],
     },
