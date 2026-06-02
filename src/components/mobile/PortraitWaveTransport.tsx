@@ -429,6 +429,39 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
     ]
   );
 
+  /** ズーム中: タップ／ドラッグ位置に赤バーが来るよう表示窓を合わせてからシーク */
+  const portraitSeekAtClientX = useCallback(
+    (clientX: number, end = false) => {
+      if (!end && zoom > 1.001 && duration > 0) {
+        const canvas = canvasRef.current;
+        const t = timeFromClientX(clientX);
+        if (canvas && t != null) {
+          const followStart = panWaveViewStartForPlayheadAtClientX({
+            scrubTimeSec: t,
+            clientX,
+            canvasRect: canvas.getBoundingClientRect(),
+            durationSec: duration,
+            viewPortion,
+          });
+          if (followStart != null) {
+            viewStartRef.current = followStart;
+            setViewStart(followStart);
+            syncPortraitView(followStart, zoom);
+          }
+        }
+      }
+      handlePortraitWaveScrub(clientX, end);
+    },
+    [
+      zoom,
+      duration,
+      timeFromClientX,
+      viewPortion,
+      syncPortraitView,
+      handlePortraitWaveScrub,
+    ]
+  );
+
   useEffect(() => {
     useTimelineWaveBridgeStore.getState().setPortraitWaveScrubAtClientX(handlePortraitWaveScrub);
     return () => {
@@ -444,22 +477,25 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       e.currentTarget.setPointerCapture(e.pointerId);
       clearPendingSingleTap();
       startScrubSession();
-      handlePortraitWaveScrub(e.clientX);
+      portraitSeekAtClientX(e.clientX);
     },
-    [audioUrl, duration, handlePortraitWaveScrub, clearPendingSingleTap, startScrubSession]
+    [audioUrl, duration, portraitSeekAtClientX, clearPendingSingleTap, startScrubSession]
   );
 
   const onRulerPointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (!(e.buttons & 1) || !audioUrl || duration <= 0) return;
-      handlePortraitWaveScrub(e.clientX);
+      portraitSeekAtClientX(e.clientX);
     },
-    [audioUrl, duration, handlePortraitWaveScrub]
+    [audioUrl, duration, portraitSeekAtClientX]
   );
 
-  const onRulerPointerUp = useCallback(() => {
-    handlePortraitWaveScrub(0, true);
-  }, [handlePortraitWaveScrub]);
+  const onRulerPointerUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      portraitSeekAtClientX(e.clientX, true);
+    },
+    [portraitSeekAtClientX]
+  );
 
   const applyZoomAt = useCallback(
     (nextZoom: number, anchorTimeSec: number) => {
@@ -525,11 +561,13 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       clearPendingSingleTap();
       clearLongPress();
       playheadDragRef.current = true;
-      playheadScrubArmedRef.current = false;
+      playheadScrubArmedRef.current = true;
       playheadOriginRef.current = { x: e.clientX, y: e.clientY };
+      startScrubSession();
+      portraitSeekAtClientX(e.clientX);
       e.currentTarget.setPointerCapture(e.pointerId);
     },
-    [audioUrl, duration, clearPendingSingleTap, clearLongPress]
+    [audioUrl, duration, clearPendingSingleTap, clearLongPress, startScrubSession, portraitSeekAtClientX]
   );
 
   const onPlayheadPointerMove = useCallback(
@@ -542,35 +580,9 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
         startScrubSession();
       }
       e.preventDefault();
-      if (zoom > 1.001 && duration > 0) {
-        const canvas = canvasRef.current;
-        const t = timeFromClientX(e.clientX);
-        if (canvas && t != null) {
-          const followStart = panWaveViewStartForPlayheadAtClientX({
-            scrubTimeSec: t,
-            clientX: e.clientX,
-            canvasRect: canvas.getBoundingClientRect(),
-            durationSec: duration,
-            viewPortion,
-          });
-          if (followStart != null) {
-            viewStartRef.current = followStart;
-            setViewStart(followStart);
-            syncPortraitView(followStart, zoom);
-          }
-        }
-      }
-      handlePortraitWaveScrub(e.clientX);
+      portraitSeekAtClientX(e.clientX);
     },
-    [
-      handlePortraitWaveScrub,
-      startScrubSession,
-      zoom,
-      duration,
-      timeFromClientX,
-      viewPortion,
-      syncPortraitView,
-    ]
+    [portraitSeekAtClientX, startScrubSession]
   );
 
   const endPlayheadDrag = useCallback(
@@ -579,14 +591,14 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       const wasArmed = playheadScrubArmedRef.current;
       playheadDragRef.current = false;
       playheadScrubArmedRef.current = false;
-      if (wasArmed) handlePortraitWaveScrub(e.clientX, true);
+      if (wasArmed) portraitSeekAtClientX(e.clientX, true);
       try {
         e.currentTarget.releasePointerCapture(e.pointerId);
       } catch {
         /* ignore */
       }
     },
-    [handlePortraitWaveScrub]
+    [portraitSeekAtClientX]
   );
 
   const isNearPlayhead = useCallback(
@@ -748,12 +760,8 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
         } else {
           lastTapRef.current = now;
           clearPendingSingleTap();
-          pendingSingleTapRef.current = window.setTimeout(() => {
-            pendingSingleTapRef.current = null;
-            if (longPressFiredRef.current) return;
-            suppressClickRef.current = true;
-            bridgeApi.handlers.onWaveClick(synthMouseEvent("click", e));
-          }, DOUBLE_TAP_MS);
+          suppressClickRef.current = true;
+          bridgeApi.handlers.onWaveClick(synthMouseEvent("click", e));
         }
       }
 
@@ -920,6 +928,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       ) : null}
 
       <div className={styles.waveFrame}>
+        <div className={styles.waveTimelineBody}>
         <div className={styles.waveRulerWrap}>
           {onCollapseWave ? (
             <button
@@ -999,6 +1008,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
             onPointerCancel={endPlayheadDrag}
           />
         ) : null}
+        </div>
       </div>
     </div>
   );
