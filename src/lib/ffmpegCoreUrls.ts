@@ -1,6 +1,11 @@
 /** COEP 下でも読める同一オリジンの FFmpeg.wasm コア URL */
 
-export type FfmpegCoreAsset = "ffmpeg-core.js" | "ffmpeg-core.wasm";
+export type FfmpegCoreAsset =
+  | "ffmpeg-core.js"
+  | "ffmpeg-core.wasm"
+  | "ffmpeg-class-worker.js"
+  | "const.js"
+  | "errors.js";
 
 function normalizeBase(base: string): string {
   if (!base || base === "/") return "/";

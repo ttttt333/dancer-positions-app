@@ -48,38 +48,49 @@ function wrapFfmpegError(step: string, cause: unknown): Error {
   return new Error(`${step}: ${detail}`);
 }
 
-async function prefetchAsset(
+/** 同一オリジン取得 → Blob URL（Worker 内 import で COEP を回避） */
+async function prefetchAsBlobUrl(
   url: string,
+  mime: string,
   onProgress: (ratio: number) => void
-): Promise<void> {
+): Promise<string> {
   onProgress(0);
   const res = await fetch(url, { cache: "force-cache" });
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}`);
   }
-  await readResponseArrayBufferWithProgress(res, onProgress);
+  const buf = await readResponseArrayBufferWithProgress(res, onProgress);
   onProgress(1);
+  return URL.createObjectURL(new Blob([buf], { type: mime }));
 }
 
 async function instantiateFFmpeg(): Promise<FFmpeg> {
   emitLoadProgress({ ratio: 0, message: "FFmpeg コア (JS) を取得中…" });
-  await prefetchAsset(ffmpegCoreAssetUrl("ffmpeg-core.js"), (r) => {
-    emitLoadProgress({
-      ratio: r * 0.1,
-      message: "FFmpeg コア (JS) を取得中…",
-    });
-  });
+  const coreBlobUrl = await prefetchAsBlobUrl(
+    ffmpegCoreAssetUrl("ffmpeg-core.js"),
+    "text/javascript",
+    (r) => {
+      emitLoadProgress({
+        ratio: r * 0.1,
+        message: "FFmpeg コア (JS) を取得中…",
+      });
+    }
+  );
 
   emitLoadProgress({
     ratio: 0.1,
     message: "FFmpeg コア (WASM) を取得中…（初回は 20〜40 秒）",
   });
-  await prefetchAsset(ffmpegCoreAssetUrl("ffmpeg-core.wasm"), (r) => {
-    emitLoadProgress({
-      ratio: 0.1 + r * 0.55,
-      message: "FFmpeg コア (WASM) を取得中…（初回は 20〜40 秒）",
-    });
-  });
+  const wasmBlobUrl = await prefetchAsBlobUrl(
+    ffmpegCoreAssetUrl("ffmpeg-core.wasm"),
+    "application/wasm",
+    (r) => {
+      emitLoadProgress({
+        ratio: 0.1 + r * 0.55,
+        message: "FFmpeg コア (WASM) を取得中…（初回は 20〜40 秒）",
+      });
+    }
+  );
 
   emitLoadProgress({
     ratio: 0.68,
@@ -103,8 +114,9 @@ async function instantiateFFmpeg(): Promise<FFmpeg> {
   try {
     await Promise.race([
       ff.load({
-        coreURL: ffmpegCoreAbsoluteUrl("ffmpeg-core.js"),
-        wasmURL: ffmpegCoreAbsoluteUrl("ffmpeg-core.wasm"),
+        classWorkerURL: ffmpegCoreAbsoluteUrl("ffmpeg-class-worker.js"),
+        coreURL: coreBlobUrl,
+        wasmURL: wasmBlobUrl,
       }),
       new Promise<never>((_, reject) => {
         window.setTimeout(() => {

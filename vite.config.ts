@@ -16,7 +16,7 @@ import type { Plugin, ViteDevServer } from "vite";
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)));
 
 function syncFfmpegCoreAssets(): void {
-  const marker = join(repoRoot, "public/ffmpeg-core/ffmpeg-core.wasm");
+  const marker = join(repoRoot, "public/ffmpeg-core/const.js");
   if (existsSync(marker)) return;
   execFileSync("node", ["scripts/sync-ffmpeg-core.mjs"], {
     cwd: repoRoot,

@@ -8,21 +8,38 @@
           "value": "application/wasm"
         },
         {
+          "key": "Cross-Origin-Resource-Policy",
+          "value": "same-origin"
+        },
+        {
           "key": "Cache-Control",
           "value": "public, max-age=31536000, immutable"
         }
       ]
     },
     {
-      "source": "/ffmpeg-core/ffmpeg-core.js",
+      "source": "/ffmpeg-core/(.*\\.js)",
       "headers": [
         {
           "key": "Content-Type",
           "value": "text/javascript"
         },
         {
+          "key": "Cross-Origin-Resource-Policy",
+          "value": "same-origin"
+        },
+        {
           "key": "Cache-Control",
           "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cross-Origin-Resource-Policy",
+          "value": "same-origin"
         }
       ]
     },
