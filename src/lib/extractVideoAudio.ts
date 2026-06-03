@@ -17,6 +17,8 @@
  * 2 回目以降はインスタンス使い回しで即起動（ブラウザ HTTP キャッシュも効く）。
  */
 
+import { ffmpegCoreAssetUrl } from "./ffmpegCoreUrls";
+
 const MAX_VIDEO_DURATION_SEC = 7200;
 /** decodeAudioData を試してよい最大サイズ。大きすぎるとメモリ＆読み込みで遅い */
 const MAX_FAST_DECODE_BYTES = 60 * 1024 * 1024;
@@ -369,10 +371,6 @@ type FFmpegInstance = {
 let ffmpegSingleton: FFmpegInstance | null = null;
 let ffmpegLoadPromise: Promise<FFmpegInstance> | null = null;
 
-/** FFmpeg.wasm コアの CDN 基点（single-thread 版。COEP/COOP 不要） */
-const FFMPEG_CORE_CDN =
-  "https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd";
-
 async function loadFFmpeg(onProgress?: ExtractProgress): Promise<FFmpegInstance> {
   if (ffmpegSingleton?.loaded) return ffmpegSingleton;
   if (ffmpegLoadPromise) return ffmpegLoadPromise;
@@ -383,10 +381,9 @@ async function loadFFmpeg(onProgress?: ExtractProgress): Promise<FFmpegInstance>
       import("@ffmpeg/util"),
     ]);
     const ff = new FFmpeg() as unknown as FFmpegInstance;
-    /** Blob URL にしておくことで cross-origin 制約を回避しつつブラウザキャッシュが効く */
     const [coreURL, wasmURL] = await Promise.all([
-      toBlobURL(`${FFMPEG_CORE_CDN}/ffmpeg-core.js`, "text/javascript"),
-      toBlobURL(`${FFMPEG_CORE_CDN}/ffmpeg-core.wasm`, "application/wasm"),
+      toBlobURL(ffmpegCoreAssetUrl("ffmpeg-core.js"), "text/javascript"),
+      toBlobURL(ffmpegCoreAssetUrl("ffmpeg-core.wasm"), "application/wasm"),
     ]);
     await ff.load({ coreURL, wasmURL });
     ffmpegSingleton = ff;

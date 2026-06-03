@@ -280,12 +280,22 @@ export function useVideoExport() {
       const inputName = mimeType.includes("mp4") ? "input.mp4" : "input.webm";
       await ffmpeg.writeFile(inputName, await fetchFile(recordedBlob));
 
-      await muxRecordedWebmToMp4(ffmpeg, {
-        inputName,
-        audioUrl: options.audioUrl,
-        audioStartSec: options.audioStartSec ?? 0,
-        durationSec: options.durationSec,
-      });
+      const onMuxProgress = ({ progress }: { progress: number }) => {
+        if (Number.isFinite(progress) && progress >= 0) {
+          setProgress(clampExportProgress(82 + Math.min(1, progress) * 16));
+        }
+      };
+      ffmpeg.on("progress", onMuxProgress);
+      try {
+        await muxRecordedWebmToMp4(ffmpeg, {
+          inputName,
+          audioUrl: options.audioUrl,
+          audioStartSec: options.audioStartSec ?? 0,
+          durationSec: options.durationSec,
+        });
+      } finally {
+        ffmpeg.off("progress", onMuxProgress);
+      }
 
       setProgress(98);
       const data = await ffmpeg.readFile("output.mp4");

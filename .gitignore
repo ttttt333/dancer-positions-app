@@ -14,6 +14,8 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+public/ffmpeg-core/*
+!public/ffmpeg-core/.gitkeep
 dist
 server/data.sqlite
 server/data.sqlite-journal

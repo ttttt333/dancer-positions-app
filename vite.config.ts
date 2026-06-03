@@ -1,4 +1,7 @@
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
@@ -10,6 +13,30 @@ import type { Plugin, ViteDevServer } from "vite";
  * `npm run dev` で concurrently 経由でも Vite 内で動く。
  * 自動オープンを止める: NO_OPEN=1 npm run dev
  */
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)));
+
+function syncFfmpegCoreAssets(): void {
+  const marker = join(repoRoot, "public/ffmpeg-core/ffmpeg-core.wasm");
+  if (existsSync(marker)) return;
+  execFileSync("node", ["scripts/sync-ffmpeg-core.mjs"], {
+    cwd: repoRoot,
+    stdio: "inherit",
+  });
+}
+
+/** dev / build 前に FFmpeg コアを public へ同期（COEP 下の CDN ブロック回避） */
+function ffmpegCoreStaticPlugin(): Plugin {
+  return {
+    name: "ffmpeg-core-static",
+    buildStart() {
+      syncFfmpegCoreAssets();
+    },
+    configureServer() {
+      syncFfmpegCoreAssets();
+    },
+  };
+}
+
 function devOpenBrowserPlugin(): Plugin {
   return {
     name: "dev-open-browser",
@@ -60,6 +87,7 @@ function devOpenBrowserPlugin(): Plugin {
 export default defineConfig({
   plugins: [
     react(),
+    ffmpegCoreStaticPlugin(),
     devOpenBrowserPlugin(),
     VitePWA({
       registerType: "prompt",
@@ -95,18 +123,14 @@ export default defineConfig({
         navigateFallback: "/index.html",
         /** API はフォールバック対象外 */
         navigateFallbackDenylist: [/^\/api/],
-        /**
-         * FFmpeg コアは CDN（unpkg）から fetch するので、起動後 HTTP キャッシュに載せる。
-         * 2 回目以降はネットワーク無しでも動く。
-         */
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/unpkg\.com\/@ffmpeg\/core@.*\/dist\/umd\/.*$/,
+            urlPattern: /\/ffmpeg-core\/ffmpeg-core\.(js|wasm)$/,
             handler: "CacheFirst",
             options: {
-              cacheName: "ffmpeg-core",
+              cacheName: "ffmpeg-core-local",
               expiration: {
-                maxEntries: 4,
+                maxEntries: 2,
                 maxAgeSeconds: 60 * 60 * 24 * 365,
               },
               cacheableResponse: { statuses: [0, 200] },

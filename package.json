@@ -9,6 +9,8 @@
     "dev:client": "vite --force",
     "dev:vite": "vite --force --open",
     "dev:server": "node server/index.mjs",
+    "prebuild": "node scripts/sync-ffmpeg-core.mjs",
+    "postinstall": "node scripts/sync-ffmpeg-core.mjs",
     "build": "vite build",
     "type-check": "tsc -b",
     "start:prod": "node server/index.mjs",
@@ -21,6 +23,7 @@
     "open:prod": "OPEN_URL=http://127.0.0.1:3001/ node scripts/open-app.mjs"
   },
   "dependencies": {
+    "@ffmpeg/core": "^0.12.6",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
     "@react-three/fiber": "^9.6.0",

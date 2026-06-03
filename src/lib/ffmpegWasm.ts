@@ -2,14 +2,12 @@
 
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { toBlobURL } from "@ffmpeg/util";
+import { ffmpegCoreAssetUrl } from "./ffmpegCoreUrls";
 
 export type FfmpegWasmProgress = {
   ratio: number;
   message: string;
 };
-
-const FFMPEG_CORE_CDN =
-  "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
 
 let ffmpegSingleton: FFmpeg | null = null;
 let ffmpegLoadPromise: Promise<FFmpeg> | null = null;
@@ -21,7 +19,11 @@ function wrapFfmpegError(step: string, cause: unknown): Error {
       : typeof cause === "string"
         ? cause
         : "不明なエラー";
-  if (/sharedarraybuffer|crossOriginIsolated|COOP|COEP/i.test(detail)) {
+  if (
+    /sharedarraybuffer|crossOriginIsolated|COOP|COEP|NotSameOriginAfterDefaultedToSameOriginByCoep/i.test(
+      detail
+    )
+  ) {
     return new Error(
       `${step}: ブラウザのセキュリティ設定（COOP/COEP）により FFmpeg を起動できません。ページを再読み込みしてください。`
     );
@@ -47,9 +49,10 @@ export async function loadFFmpegWasm(
   ffmpegLoadPromise = (async () => {
     onProgress?.({ ratio: 0, message: "FFmpeg を準備中…" });
     const ff = new FFmpeg();
+    /** 同一オリジン（public/ffmpeg-core）。CDN は COEP でブロックされる */
     const [coreURL, wasmURL] = await Promise.all([
-      toBlobURL(`${FFMPEG_CORE_CDN}/ffmpeg-core.js`, "text/javascript"),
-      toBlobURL(`${FFMPEG_CORE_CDN}/ffmpeg-core.wasm`, "application/wasm"),
+      toBlobURL(ffmpegCoreAssetUrl("ffmpeg-core.js"), "text/javascript"),
+      toBlobURL(ffmpegCoreAssetUrl("ffmpeg-core.wasm"), "application/wasm"),
     ]);
     await ff.load({ coreURL, wasmURL });
     ffmpegSingleton = ff;
