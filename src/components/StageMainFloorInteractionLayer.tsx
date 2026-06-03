@@ -46,12 +46,6 @@ export type StageMainFloorInteractionLayerProps = {
   stageInteractionsEnabled: boolean;
   marquee: StageMarqueePct | null;
   primarySelectedDancer: DancerSpot | null;
-  /** 複数選択時は範囲枠右下に ○ サイズハンドルを置く */
-  groupMarkerResizeAnchor: {
-    xPct: number;
-    yPct: number;
-    markerPx: number;
-  } | null;
   effectiveMarkerPx: (d: DancerSpot) => number;
   effectiveFacingDeg: (d: DancerSpot) => number;
   onGroupBoxHandlePointerDown: (
@@ -96,7 +90,6 @@ export function StageMainFloorInteractionLayer({
   stageInteractionsEnabled,
   marquee,
   primarySelectedDancer,
-  groupMarkerResizeAnchor,
   effectiveMarkerPx,
   effectiveFacingDeg,
   onGroupBoxHandlePointerDown,
@@ -155,6 +148,23 @@ export function StageMainFloorInteractionLayer({
             stageInteractionsEnabled &&
             onOpenSelectionMenuClick
               ? onOpenSelectionMenuClick
+              : undefined
+          }
+          onNameBelowFontPointerDown={
+            dancerLabelBelow &&
+            selectedDancerIds.length >= 2 &&
+            !playbackOrPreview &&
+            viewMode !== "view" &&
+            stageInteractionsEnabled
+              ? onNameBelowFontResizePointerDown
+              : undefined
+          }
+          onMarkerResizePointerDown={
+            selectedDancerIds.length >= 2 &&
+            !playbackOrPreview &&
+            viewMode !== "view" &&
+            stageInteractionsEnabled
+              ? onMarkerResizePointerDown
               : undefined
           }
         />
@@ -239,54 +249,29 @@ export function StageMainFloorInteractionLayer({
       {dancerMarkerElements}
       {dancerLabelBelow &&
       primarySelectedDancer &&
+      selectedDancerIds.length === 1 &&
       !marquee &&
       !playbackOrPreview &&
       viewMode !== "view" &&
-      stageInteractionsEnabled &&
-      selectedDancerIds.length >= 1 ? (
+      stageInteractionsEnabled ? (
         <StageNameBelowFontResizeHandle
-          xPct={
-            selectionBox && selectedDancerIds.length >= 2
-              ? selectionBox.x0
-              : primarySelectedDancer.xPct
-          }
-          yPct={
-            selectionBox && selectedDancerIds.length >= 2
-              ? selectionBox.y0
-              : primarySelectedDancer.yPct
-          }
-          anchorIsDancerCenter={
-            !(selectionBox && selectedDancerIds.length >= 2)
-          }
+          xPct={primarySelectedDancer.xPct}
+          yPct={primarySelectedDancer.yPct}
           markerPx={effectiveMarkerPx(primarySelectedDancer)}
-          selectionInsetPx={
-            selectionBox && selectedDancerIds.length >= 2
-              ? Math.round(effectiveMarkerPx(primarySelectedDancer) / 2) + 14
-              : 0
-          }
           selectedCount={selectedDancerIds.length}
           onPointerDown={onNameBelowFontResizePointerDown}
         />
       ) : null}
-      {primarySelectedDancer && !marquee ? (
+      {primarySelectedDancer &&
+      selectedDancerIds.length === 1 &&
+      !marquee ? (
         <StagePrimaryMarkerResizeHandle
-          xPct={
-            groupMarkerResizeAnchor?.xPct ?? primarySelectedDancer.xPct
-          }
-          yPct={
-            groupMarkerResizeAnchor?.yPct ?? primarySelectedDancer.yPct
-          }
-          facingDeg={
-            groupMarkerResizeAnchor
-              ? 0
-              : normalizeDancerFacingDeg(
-                  effectiveFacingDeg(primarySelectedDancer)
-                )
-          }
-          markerPx={
-            groupMarkerResizeAnchor?.markerPx ??
-            effectiveMarkerPx(primarySelectedDancer)
-          }
+          xPct={primarySelectedDancer.xPct}
+          yPct={primarySelectedDancer.yPct}
+          facingDeg={normalizeDancerFacingDeg(
+            effectiveFacingDeg(primarySelectedDancer)
+          )}
+          markerPx={effectiveMarkerPx(primarySelectedDancer)}
           selectedCount={selectedDancerIds.length}
           onPointerDown={onMarkerResizePointerDown}
         />

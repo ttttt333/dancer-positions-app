@@ -766,32 +766,6 @@ export function StageBoardBody({
     markerGroupPosDraft,
   ]);
 
-  /** 複数選択時：○サイズハンドルを範囲枠の右下（最南東の立ち位置）に置く */
-  const groupMarkerResizeAnchor = useMemo(() => {
-    if (!selectionBox || selectedDancerIds.length < 2) return null;
-    const ds = (
-      writeFormation?.dancers ??
-      activeFormation?.dancers ??
-      []
-    ).filter((x) => selectedDancerIds.includes(x.id));
-    let maxPx = baseMarkerPx;
-    for (const d of ds) {
-      maxPx = Math.max(maxPx, effectiveMarkerPx(d));
-    }
-    return {
-      xPct: selectionBox.x1,
-      yPct: selectionBox.y1,
-      markerPx: maxPx,
-    };
-  }, [
-    selectionBox,
-    selectedDancerIds,
-    writeFormation,
-    activeFormation,
-    baseMarkerPx,
-    effectiveMarkerPx,
-  ]);
-
   /**
    * 客席帯・床下の場ミリ数字・翼の印は、閲覧・再生・客席を上にした回転でも欠けないよう、
    * ステージ周りの親は overflow visible（旧: 再生中に hidden にして帯が切れる不具合があった）。
@@ -4351,7 +4325,6 @@ export function StageBoardBody({
         stageInteractionsEnabled,
         marquee,
         primarySelectedDancer,
-        groupMarkerResizeAnchor,
         effectiveMarkerPx,
         effectiveFacingDeg,
         onGroupBoxHandlePointerDown: handlePointerDownGroupBoxHandle,

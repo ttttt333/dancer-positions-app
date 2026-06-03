@@ -1,4 +1,9 @@
 import type { PointerEventHandler } from "react";
+import {
+  STAGE_AUX_HANDLE_CORNER_OFFSET_PX,
+  stageAuxHandleHitStyle,
+  stageAuxHandleVisualStyle,
+} from "../lib/stageSelectionAuxHandleStyles";
 
 export type StagePrimaryMarkerResizeHandleProps = {
   xPct: number;
@@ -10,7 +15,7 @@ export type StagePrimaryMarkerResizeHandleProps = {
   onPointerDown: PointerEventHandler<HTMLDivElement>;
 };
 
-/** 主選択ダンサー印の右下リサイズハンドル（回転ハンドルは別） */
+/** 1 人選択時：印の右下の黄四角（複数選択は StageGroupSelectionBox 側） */
 export function StagePrimaryMarkerResizeHandle({
   xPct,
   yPct,
@@ -19,13 +24,12 @@ export function StagePrimaryMarkerResizeHandle({
   selectedCount,
   onPointerDown,
 }: StagePrimaryMarkerResizeHandleProps) {
-  const bulk = selectedCount >= 2;
-  const resizeTip = bulk
-    ? `選択中の ${selectedCount} 人の ○ サイズを一括変更（基準 ${markerPx}px・ドラッグで変更）`
-    : `○ のサイズ（${markerPx}px）・ドラッグで変更`;
-  const handleOffset = Math.round(markerPx / 2) + (bulk ? 18 : 14);
-  const visualSize = bulk ? 16 : 14;
-  const hitSize = bulk ? 44 : 36;
+  const resizeTip =
+    selectedCount >= 2
+      ? `選択中の ${selectedCount} 人の ○ サイズを一括変更（基準 ${markerPx}px・ドラッグで変更）`
+      : `○ のサイズ（${markerPx}px）・ドラッグで変更`;
+  const inset = Math.round(markerPx / 2) + 14;
+  const o = STAGE_AUX_HANDLE_CORNER_OFFSET_PX;
 
   return (
     <div
@@ -38,7 +42,7 @@ export function StagePrimaryMarkerResizeHandle({
         transform: `translate(-50%, -50%) rotate(${facingDeg}deg)`,
         width: 0,
         height: 0,
-        zIndex: bulk ? 20 : 14,
+        zIndex: 14,
         pointerEvents: "none",
       }}
     >
@@ -48,35 +52,14 @@ export function StagePrimaryMarkerResizeHandle({
         onPointerDown={onPointerDown}
         style={{
           position: "absolute",
-          left: `calc(50% + ${handleOffset}px)`,
-          top: `calc(50% + ${handleOffset}px)`,
+          left: `calc(50% + ${inset}px + ${o}px)`,
+          top: `calc(50% + ${inset}px + ${o}px)`,
           transform: "translate(-50%, -50%)",
-          width: hitSize,
-          height: hitSize,
-          borderRadius: Math.max(6, visualSize / 2),
-          background: "transparent",
-          cursor: "nwse-resize",
-          touchAction: "none",
-          pointerEvents: "auto",
-          boxSizing: "border-box",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          zIndex: 14,
+          ...stageAuxHandleHitStyle("nwse-resize"),
         }}
       >
-        <div
-          aria-hidden
-          style={{
-            width: visualSize,
-            height: visualSize,
-            borderRadius: 4,
-            background: "#fbbf24",
-            border: "2px solid #0f172a",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.5)",
-            boxSizing: "border-box",
-            pointerEvents: "none",
-          }}
-        />
+        <span aria-hidden style={stageAuxHandleVisualStyle("#fbbf24")} />
       </div>
     </div>
   );
