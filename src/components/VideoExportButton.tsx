@@ -1,19 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useMemo } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
-import { preloadFFmpegWasm } from "../lib/ffmpegWasm";
 import { buildVideoExportOptions } from "../lib/buildVideoExportOptions";
+import { getVideoExportCanvasRef } from "../lib/videoExportCanvasRef";
 import {
   checkVideoExportCapabilities,
   formatVideoExportCapabilityHint,
 } from "../lib/videoExportCapabilities";
-import {
-  useVideoExport,
-  type ExportEncodeSubphase,
-  type ExportPhase,
-} from "../hooks/useVideoExport";
+import { useVideoExport } from "../hooks/useVideoExport";
 import { useExportToast } from "../hooks/useExportToast";
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
-import { ChoreoViewerVideoExportOverlay } from "./ChoreoViewerVideoExportOverlay";
 import { ExportToast } from "./ExportToast";
 
 export type VideoExportButtonProps = {
@@ -24,41 +19,14 @@ export type VideoExportButtonProps = {
   compact?: boolean;
 };
 
-const PHASE_LABEL: Record<Exclude<ExportPhase, null>, string> = {
-  recording: "ステージを描画中…",
-  converting: "MP4 に変換中…",
-  done: "完了",
-};
-
-function exportOverlayMessage(
-  phase: ExportPhase,
-  encodeSubphase: ExportEncodeSubphase | null,
-  progressMessage: string
-): string {
-  if (progressMessage.trim()) return progressMessage;
-  if (!phase) return "";
-  if (phase === "converting") {
-    if (encodeSubphase === "load") return "FFmpeg を準備中…";
-    if (encodeSubphase === "mux") return "MP4 に結合中…";
-    return "MP4 に変換中…";
-  }
-  return PHASE_LABEL[phase];
-}
-
 export function VideoExportButton({
   project,
   durationSec,
   fileName,
   compact = false,
 }: VideoExportButtonProps) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const { toast, showToast, dismiss } = useExportToast();
-  const { isExporting, progress, progressMessage, phase, encodeSubphase, startExport, cancelExport } =
-    useVideoExport();
-
-  useEffect(() => {
-    void preloadFFmpegWasm();
-  }, []);
+  const { isExporting, progress, startExport } = useVideoExport();
 
   const capabilities = useMemo(() => checkVideoExportCapabilities(), []);
   const exportBlocked = !capabilities.supported;
@@ -74,7 +42,7 @@ export function VideoExportButton({
           project,
           durationSec,
           fileName,
-          canvasRef
+          getVideoExportCanvasRef()
         );
         const result = await startExport({
           ...options,
@@ -149,36 +117,6 @@ export function VideoExportButton({
   return (
     <>
       <ExportToast toast={toast} onDismiss={dismiss} />
-      <canvas
-        ref={canvasRef}
-        width={960}
-        height={540}
-        aria-hidden
-        style={{
-          position: "fixed",
-          left: -9999,
-          top: 0,
-          width: 1,
-          height: 1,
-          opacity: 0,
-          pointerEvents: "none",
-        }}
-      />
-      {phase ? (
-        <ChoreoViewerVideoExportOverlay
-          progress={{
-            phase:
-              phase === "recording"
-                ? "frames"
-                : phase === "converting"
-                  ? "encode"
-                  : "done",
-            ratio: progress / 100,
-            message: exportOverlayMessage(phase, encodeSubphase, progressMessage),
-          }}
-          onCancel={cancelExport}
-        />
-      ) : null}
       {capabilityHint ? (
         <p
           className="choreo-viewer-video-export-hint"

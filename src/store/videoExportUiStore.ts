@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { isVideoExportRunning } from "./videoExportRunStore";
 
 /** エディタの動画書き出しシート（モバイルメニュー・右アイコンから開く） */
 export const useVideoExportUiStore = create<{
@@ -8,5 +9,8 @@ export const useVideoExportUiStore = create<{
 }>((set) => ({
   open: false,
   openSheet: () => set({ open: true }),
-  closeSheet: () => set({ open: false }),
+  closeSheet: () => {
+    if (isVideoExportRunning()) return;
+    set({ open: false });
+  },
 }));

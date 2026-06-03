@@ -1,13 +1,23 @@
+import type { DancerSpot } from "../types/choreography";
+import {
+  dancerCircleInnerBelowLabel,
+  markerCircleLabelFontPx,
+  markerBelowLabelFontPx,
+} from "./stageBoardModelHelpers";
 import type { StageExportAppearance } from "./stageExportAppearance";
+
+export type ExportDancerFrame = {
+  name: string;
+  markerBadge?: string;
+  markerBadgeSource?: DancerSpot["markerBadgeSource"];
+  color: string;
+  x: number;
+  y: number;
+};
 
 export type ExportFormationFrame = {
   startSec: number;
-  dancers: Array<{
-    name: string;
-    color: string;
-    x: number;
-    y: number;
-  }>;
+  dancers: ExportDancerFrame[];
 };
 
 type FloorRect = { x: number; y: number; w: number; h: number };
@@ -215,12 +225,40 @@ function drawGrid(
   }
 }
 
+function resolveExportCircleLabel(
+  dancer: ExportDancerFrame,
+  dancerIndex: number,
+  appearance: StageExportAppearance
+): string {
+  if (appearance.dancerLabelBelow) {
+    const xPct = dancer.x * 100;
+    return dancerCircleInnerBelowLabel(
+      {
+        id: "",
+        label: dancer.name,
+        markerBadge: dancer.markerBadge,
+        markerBadgeSource: dancer.markerBadgeSource,
+        xPct,
+        yPct: dancer.y * 100,
+        colorIndex: 0,
+      },
+      dancerIndex,
+      appearance.Wmm > 0
+        ? { effXPct: xPct, stageWidthMm: appearance.Wmm }
+        : undefined
+    );
+  }
+  return dancer.name.trim() || String(dancerIndex + 1);
+}
+
 function drawDancers(
   ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
   formation: ExportFormationFrame,
-  main: FloorRect
+  main: FloorRect,
+  appearance: StageExportAppearance
 ) {
-  const markerR = Math.max(10, Math.min(18, main.w * 0.028));
+  const markerPx = Math.max(20, Math.min(36, main.w * 0.056));
+  const markerR = markerPx / 2;
 
   formation.dancers.forEach((dancer, di) => {
     const x = main.x + dancer.x * main.w;
@@ -234,16 +272,27 @@ function drawDancers(
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    const inner = dancer.name.trim() || String(di + 1);
-    ctx.fillStyle = "#ffffff";
-    ctx.font = `bold ${Math.round(markerR * 0.85)}px system-ui,sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(inner.slice(0, 3), x, y);
+    const inner = resolveExportCircleLabel(dancer, di, appearance);
+    if (inner) {
+      ctx.fillStyle = "#ffffff";
+      const fontPx = markerCircleLabelFontPx(markerPx, inner);
+      ctx.font = `bold ${fontPx}px system-ui,sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(inner, x, y);
+    }
 
-    ctx.fillStyle = "rgba(255,255,255,0.8)";
-    ctx.font = "11px system-ui,sans-serif";
-    ctx.fillText(dancer.name, x, y + markerR + 12);
+    if (appearance.dancerLabelBelow) {
+      const belowName = dancer.name.trim();
+      if (belowName) {
+        ctx.fillStyle = "rgba(255,255,255,0.8)";
+        const belowFontPx = markerBelowLabelFontPx(markerPx);
+        ctx.font = `${belowFontPx}px system-ui,sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        ctx.fillText(belowName, x, y + markerR + 4);
+      }
+    }
   });
 }
 
@@ -273,7 +322,7 @@ export function drawStageExportFrame(
   drawShellChrome(ctx, width, height, appearance, outer, main);
   drawGrid(ctx, appearance, main);
   if (formation) {
-    drawDancers(ctx, formation, main);
+    drawDancers(ctx, formation, main, appearance);
   }
 
   ctx.restore();

@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, type RefObject } from "react";
+import { useCallback, type RefObject } from "react";
 import { fetchFile } from "@ffmpeg/util";
 import type { FFmpeg } from "@ffmpeg/ffmpeg";
 import {
@@ -14,12 +14,17 @@ import {
 } from "../lib/videoExportCapabilities";
 import { drawStageExportFrame } from "../lib/drawStageExportFrame";
 import type { StageExportAppearance } from "../lib/stageExportAppearance";
+import {
+  useVideoExportRunStore,
+  videoExportCancelRef,
+  videoExportProgressRef,
+  type ExportEncodeSubphase,
+  type ExportPhase,
+} from "../store/videoExportRunStore";
 
 export type { VideoExportCapabilityCheck } from "../lib/videoExportCapabilities";
 export { checkVideoExportCapabilities };
-
-export type ExportPhase = "recording" | "converting" | "done" | null;
-export type ExportEncodeSubphase = "load" | "mux" | null;
+export type { ExportPhase, ExportEncodeSubphase };
 
 export type ExportOptions = {
   canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -33,6 +38,8 @@ export type ExportOptions = {
     dancers: Array<{
       id: string;
       name: string;
+      markerBadge?: string;
+      markerBadgeSource?: "centerDistance";
       color: string;
       x: number;
       y: number;
@@ -44,10 +51,6 @@ export type ExportOptions = {
   onFfmpegFirstLoad?: () => void;
   onAudioSkipped?: () => void;
 };
-
-function clampExportProgress(n: number): number {
-  return Math.min(100, Math.max(0, Math.round(n)));
-}
 
 const EXPORT_WIDTH = 960;
 const EXPORT_HEIGHT = 540;
@@ -239,19 +242,14 @@ async function muxRecordedWebmToMp4(
 }
 
 export function useVideoExport() {
-  const [isExporting, setIsExporting] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [progressMessage, setProgressMessage] = useState("");
-  const [phase, setPhase] = useState<ExportPhase>(null);
-  const [encodeSubphase, setEncodeSubphase] = useState<ExportEncodeSubphase>(null);
-  const cancelRef = useRef(false);
-  const progressRef = useRef(0);
-
-  const setProgressValue = useCallback((n: number) => {
-    const v = clampExportProgress(n);
-    progressRef.current = v;
-    setProgress(v);
-  }, []);
+  const isExporting = useVideoExportRunStore((s) => s.isExporting);
+  const progress = useVideoExportRunStore((s) => s.progress);
+  const progressMessage = useVideoExportRunStore((s) => s.progressMessage);
+  const phase = useVideoExportRunStore((s) => s.phase);
+  const encodeSubphase = useVideoExportRunStore((s) => s.encodeSubphase);
+  const setProgressValue = useVideoExportRunStore((s) => s.setProgressValue);
+  const patch = useVideoExportRunStore((s) => s.patch);
+  const resetRun = useVideoExportRunStore((s) => s.resetRun);
 
   const startExport = useCallback(async (
     options: ExportOptions
@@ -260,11 +258,13 @@ export function useVideoExport() {
     let recordedBlob: Blob | null = null;
 
     try {
-      cancelRef.current = false;
-      setIsExporting(true);
-      setPhase("recording");
-      setEncodeSubphase(null);
-      setProgressMessage("ステージを描画中…");
+      videoExportCancelRef.current = false;
+      patch({
+        isExporting: true,
+        phase: "recording",
+        encodeSubphase: null,
+        progressMessage: "ステージを描画中…",
+      });
       setProgressValue(0);
 
       const { ctx2d, videoStream: stream, requestFrame } = createExportCanvas(
@@ -294,9 +294,10 @@ export function useVideoExport() {
       const totalFrames = Math.max(1, Math.ceil(options.durationSec * fps));
 
       for (let frame = 0; frame <= totalFrames; frame++) {
-        if (cancelRef.current) {
+        if (videoExportCancelRef.current) {
           recorder.stop();
           await recordDone;
+          resetRun();
           throw new DOMException("Export aborted", "AbortError");
         }
 
@@ -332,15 +333,17 @@ export function useVideoExport() {
         );
       }
 
-      setPhase("converting");
-      setEncodeSubphase("load");
-      setProgressMessage("FFmpeg を準備中…");
+      patch({
+        phase: "converting",
+        encodeSubphase: "load",
+        progressMessage: "FFmpeg を準備中…",
+      });
       setProgressValue(69);
       await sleep(0);
 
       let notifiedFfmpegLoad = false;
       const stopLoadCreep = startProgressCreep(
-        () => progressRef.current,
+        () => videoExportProgressRef.current,
         setProgressValue,
         88
       );
@@ -348,7 +351,7 @@ export function useVideoExport() {
       try {
         ffmpeg = await loadFFmpegWasm((p) => {
           setProgressValue(69 + p.ratio * 16);
-          setProgressMessage(p.message);
+          patch({ progressMessage: p.message });
           if (p.ratio < 0.05 && !notifiedFfmpegLoad) {
             options.onFfmpegFirstLoad?.();
             notifiedFfmpegLoad = true;
@@ -358,8 +361,10 @@ export function useVideoExport() {
         stopLoadCreep();
       }
 
-      setEncodeSubphase("mux");
-      setProgressMessage("録画データを渡しています…");
+      patch({
+        encodeSubphase: "mux",
+        progressMessage: "録画データを渡しています…",
+      });
       setProgressValue(86);
       await sleep(0);
 
@@ -374,13 +379,15 @@ export function useVideoExport() {
       };
       ffmpeg.on("progress", onMuxProgress);
       const stopMuxCreep = startProgressCreep(
-        () => progressRef.current,
+        () => videoExportProgressRef.current,
         setProgressValue,
         97
       );
-      setProgressMessage(
-        options.audioUrl ? "音源を取得して MP4 に結合中…" : "MP4 に変換中…"
-      );
+      patch({
+        progressMessage: options.audioUrl
+          ? "音源を取得して MP4 に結合中…"
+          : "MP4 に変換中…",
+      });
       const videoFrameCount = totalFrames + 1;
       try {
         await muxRecordedWebmToMp4(
@@ -395,14 +402,16 @@ export function useVideoExport() {
           {
             onAudioProgress: (ratio) => {
               setProgressValue(85 + ratio * 4);
-              setProgressMessage("音源を取得中…");
+              patch({ progressMessage: "音源を取得中…" });
             },
             onMuxStart: () => {
-              setProgressMessage("MP4 に結合中…（数十秒かかることがあります）");
+              patch({
+                progressMessage: "MP4 に結合中…（数十秒かかることがあります）",
+              });
               setProgressValue(89);
             },
             onAudioSkipped: () => {
-              setProgressMessage("音源なしで MP4 に変換中…");
+              patch({ progressMessage: "音源なしで MP4 に変換中…" });
               options.onAudioSkipped?.();
             },
           }
@@ -412,7 +421,7 @@ export function useVideoExport() {
         stopMuxCreep();
       }
 
-      setProgressMessage("ファイルを仕上げています…");
+      patch({ progressMessage: "ファイルを仕上げています…" });
       setProgressValue(99);
       const data = await ffmpeg.readFile("output.mp4");
       if (!data || (data instanceof Uint8Array && data.byteLength < 256)) {
@@ -434,15 +443,14 @@ export function useVideoExport() {
         downloadVideoBlob(mp4Blob, downloadName);
       }
 
-      setPhase("done");
-      setEncodeSubphase(null);
-      setProgressMessage("完了");
+      patch({
+        phase: "done",
+        encodeSubphase: null,
+        progressMessage: "完了",
+      });
       setProgressValue(100);
       setTimeout(() => {
-        setIsExporting(false);
-        setPhase(null);
-        setProgressValue(0);
-        setProgressMessage("");
+        resetRun();
       }, 1200);
 
       return { downloadName, shared };
@@ -456,18 +464,19 @@ export function useVideoExport() {
       ) {
         try {
           resetFFmpegWasm();
-          setProgressMessage("MP4 変換に失敗したため WebM で保存しています…");
+          patch({
+            progressMessage: "MP4 変換に失敗したため WebM で保存しています…",
+          });
           setProgressValue(95);
           const fallback = await tryWebmFallback(recordedBlob, options);
-          setPhase("done");
-          setEncodeSubphase(null);
-          setProgressMessage("WebM で保存しました");
+          patch({
+            phase: "done",
+            encodeSubphase: null,
+            progressMessage: "WebM で保存しました",
+          });
           setProgressValue(100);
           setTimeout(() => {
-            setIsExporting(false);
-            setPhase(null);
-            setProgressValue(0);
-            setProgressMessage("");
+            resetRun();
           }, 1200);
           return fallback;
         } catch (fallbackError) {
@@ -476,25 +485,18 @@ export function useVideoExport() {
       }
 
       console.error("Video export failed:", error);
-      setIsExporting(false);
-      setPhase(null);
-      setEncodeSubphase(null);
-      setProgressValue(0);
-      setProgressMessage("");
+      resetRun();
       throw error;
     } finally {
       videoStream?.getTracks().forEach((t) => t.stop());
+      videoExportCancelRef.current = false;
     }
-  }, [setProgressValue]);
+  }, [patch, resetRun, setProgressValue]);
 
   const cancelExport = useCallback(() => {
-    cancelRef.current = true;
-    setIsExporting(false);
-    setProgressValue(0);
-    setProgressMessage("");
-    setPhase(null);
-    setEncodeSubphase(null);
-  }, [setProgressValue]);
+    videoExportCancelRef.current = true;
+    resetRun();
+  }, [resetRun]);
 
   return {
     isExporting,

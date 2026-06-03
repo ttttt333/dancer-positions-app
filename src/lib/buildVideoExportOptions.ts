@@ -23,6 +23,8 @@ function mapDancers(dancers: DancerSpot[]) {
   return dancers.map((d) => ({
     id: d.id,
     name: d.label || "?",
+    markerBadge: d.markerBadge,
+    markerBadgeSource: d.markerBadgeSource,
     color: dancerColorHex(d),
     x: d.xPct / 100,
     y: d.yPct / 100,

@@ -29,6 +29,7 @@ const Stage3DView = lazy(() =>
 );
 
 import { EditorPageHeader } from "./EditorPageHeader";
+import { VideoExportHost } from "../../components/VideoExportHost";
 import { EditorDesktopLayout } from "./EditorDesktopLayout";
 import { EditorMobileLayout } from "./EditorMobileLayout";
 import { useAssignRef } from "./useSafeElementRef";
@@ -255,6 +256,7 @@ export function EditorPageLayout(props: EditorLayoutProps) {
       }}
     >
       {playbackAudioElement}
+      <VideoExportHost />
       {!choreoPublicView && !wideEditorLayout && !editorMobileLandscape ? (
         <EditorPageHeader {...props} />
       ) : null}

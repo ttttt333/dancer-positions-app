@@ -9,6 +9,8 @@ export type StageExportAppearance = {
   Smm: number;
   Bmm: number;
   showShell: boolean;
+  /** 名前を○の下に出す（○内は番号・距離など） */
+  dancerLabelBelow: boolean;
   stageGridLinesVertical: boolean;
   stageGridLinesHorizontal: boolean;
   stepXPct: number | null;
@@ -69,6 +71,7 @@ export function buildStageExportAppearance(
     Smm,
     Bmm,
     showShell,
+    dancerLabelBelow: project.dancerLabelPosition === "below",
     stageGridLinesVertical,
     stageGridLinesHorizontal,
     stepXPct,

@@ -2,6 +2,7 @@ import type { ChoreographyProjectJson } from "../types/choreography";
 import { EditorSideSheet } from "./EditorSideSheet";
 import { VideoExportButton } from "./VideoExportButton";
 import { btnSecondary } from "./stageButtonStyles";
+import { useVideoExportRunStore } from "../store/videoExportRunStore";
 
 type Props = {
   open: boolean;
@@ -21,10 +22,13 @@ export function VideoExportSheet({
   durationSec,
   fileName,
 }: Props) {
+  const isExporting = useVideoExportRunStore((s) => s.isExporting);
+
   return (
     <EditorSideSheet
       open={open}
       onClose={onClose}
+      blockDismiss={isExporting}
       zIndex={76}
       width="min(400px, 92vw)"
       sheetId="video-export"
@@ -54,12 +58,14 @@ export function VideoExportSheet({
           <button
             type="button"
             aria-label="閉じる"
+            disabled={isExporting}
             onClick={onClose}
             style={{
               ...btnSecondary,
               minWidth: 36,
               minHeight: 36,
               padding: "4px 10px",
+              opacity: isExporting ? 0.45 : 1,
             }}
           >
             ✕
