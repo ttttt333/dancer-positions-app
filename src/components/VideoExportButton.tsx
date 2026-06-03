@@ -1,9 +1,6 @@
 import { useCallback, useMemo, useRef } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { buildVideoExportOptions } from "../lib/buildVideoExportOptions";
-import { getStageExportElement } from "../lib/captureStagePng";
-import { pauseAndSeekPlaybackToSec } from "../lib/playbackTransport";
-import { waitForPaint } from "../lib/waitForPaint";
 import {
   checkVideoExportCapabilities,
   formatVideoExportCapabilityHint,
@@ -23,7 +20,7 @@ export type VideoExportButtonProps = {
 };
 
 const PHASE_LABEL: Record<Exclude<ExportPhase, null>, string> = {
-  recording: "ステージを録画中…",
+  recording: "ステージを描画中…",
   converting: "MP4 に変換中…",
   done: "完了",
 };
@@ -36,10 +33,6 @@ function phaseMessage(phase: ExportPhase, progress: number): string {
   return PHASE_LABEL[phase];
 }
 
-/**
- * 閲覧モード等: `useVideoExport` + 進捗オーバーレイ + 保存／共有ボタン。
- * EditorPage を変更せず EditorStageRowOverlays / ChoreoViewerBottomBar から使う。
- */
 export function VideoExportButton({
   project,
   durationSec,
@@ -60,20 +53,6 @@ export function VideoExportButton({
 
   const run = useCallback(
     async (shareAfter: boolean) => {
-      if (!getStageExportElement()) {
-        showToast({
-          kind: "error",
-          title: "2D ステージが必要です",
-          description:
-            "平面表示（2D）に切り替えてから、もう一度お試しください",
-        });
-        return;
-      }
-
-      const trimStartSec = project.trimStartSec ?? 0;
-      const trimEndSec = project.trimEndSec ?? null;
-      const html = document.documentElement;
-
       try {
         const options = buildVideoExportOptions(
           project,
@@ -84,21 +63,6 @@ export function VideoExportButton({
         const result = await startExport({
           ...options,
           shareAfter,
-          prepareDomCapture: () => {
-            html.classList.add("choreo-stage-video-export");
-          },
-          cleanupDomCapture: () => {
-            html.classList.remove("choreo-stage-video-export");
-          },
-          renderFrameAtTime: async (tAbsSec) => {
-            pauseAndSeekPlaybackToSec({
-              tRaw: tAbsSec,
-              durationSec,
-              trimStartSec,
-              trimEndSec,
-            });
-            await waitForPaint();
-          },
           onFfmpegFirstLoad: () =>
             showToast({
               kind: "info",
@@ -138,8 +102,6 @@ export function VideoExportButton({
           description: msg,
         });
         console.error("Export failed:", e);
-      } finally {
-        html.classList.remove("choreo-stage-video-export");
       }
     },
     [project, durationSec, fileName, startExport, showToast]
@@ -153,8 +115,8 @@ export function VideoExportButton({
       <ExportToast toast={toast} onDismiss={dismiss} />
       <canvas
         ref={canvasRef}
-        width={1280}
-        height={720}
+        width={960}
+        height={540}
         aria-hidden
         style={{
           position: "fixed",

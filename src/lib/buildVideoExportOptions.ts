@@ -7,10 +7,12 @@ import {
   modDancerColorIndex,
 } from "./dancerColorPalette";
 import { resolveStageExportRange } from "./stageExportRange";
+import { buildStageExportAppearance } from "./stageExportAppearance";
 import type { ExportOptions } from "../hooks/useVideoExport";
 import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography";
 
-const SAMPLE_FPS = 30;
+/** 書き出しフレームレート（useVideoExport と揃える） */
+const SAMPLE_FPS = 12;
 
 function dancerColorHex(d: DancerSpot): string {
   return DANCER_COLOR_PALETTE_HEX[modDancerColorIndex(d.colorIndex ?? 0)];
@@ -99,6 +101,7 @@ export function buildVideoExportOptions(
     durationSec: span,
     fileName: safeName,
     formations,
+    stageAppearance: buildStageExportAppearance(project),
     audioStartSec: startSec,
   };
 }

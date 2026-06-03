@@ -33,7 +33,7 @@ export function ChoreoViewerVideoExportOverlay({ progress, onCancel }: Props) {
         </div>
         <p className="choreo-viewer-video-export-pct">{pct}%</p>
         <p className="choreo-viewer-video-export-hint">
-          ステージの枠・グリッド・番号を含めて録画します。曲の長さぶん時間がかかります。画面を閉じずにお待ちください。
+          舞台の枠・グリッド・番号を描画して書き出します（12fps・速さ優先）。画面を閉じずにお待ちください。
         </p>
         <button type="button" style={btnSecondary} onClick={onCancel}>
           キャンセル

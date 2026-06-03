@@ -9,9 +9,9 @@ import {
 import {
   checkVideoExportCapabilities,
   getSupportedRecorderMimeType,
-  type VideoExportCaptureMode,
 } from "../lib/videoExportCapabilities";
-import { captureStageRootToExportCanvas } from "../lib/captureStageVideoFrame";
+import { drawStageExportFrame } from "../lib/drawStageExportFrame";
+import type { StageExportAppearance } from "../lib/stageExportAppearance";
 
 export type { VideoExportCapabilityCheck } from "../lib/videoExportCapabilities";
 export { checkVideoExportCapabilities };
@@ -35,40 +35,41 @@ export type ExportOptions = {
       y: number;
     }>;
   }>;
+  stageAppearance: StageExportAppearance;
   /** トリム開始秒（音源の再生オフセット） */
   audioStartSec?: number;
   /** true のとき保存の代わりに共有シートを開く */
   shareAfter?: boolean;
-  /** FFmpeg.wasm 初回ロード開始時（1 セッション 1 回） */
   onFfmpegFirstLoad?: () => void;
-  /** 書き出し前（全画面ステージ CSS 等） */
-  prepareDomCapture?: () => void | Promise<void>;
-  /** 書き出し後の後片付け */
-  cleanupDomCapture?: () => void;
-  /** 各フレームの絶対秒でステージ表示を更新してから DOM キャプチャ */
-  renderFrameAtTime?: (tAbsSec: number) => void | Promise<void>;
 };
 
 function clampExportProgress(n: number): number {
   return Math.min(100, Math.max(0, Math.round(n)));
 }
 
-const EXPORT_WIDTH = 1280;
-const EXPORT_HEIGHT = 720;
-const EXPORT_FPS = 30;
+/** 速さ優先: 12fps・960×540 */
+const EXPORT_WIDTH = 960;
+const EXPORT_HEIGHT = 540;
+const EXPORT_FPS = 12;
 
 let ffmpegWasmReady = false;
 
-/** 実機テスト・デバッグ用 */
 export function isFfmpegWasmReady(): boolean {
   return ffmpegWasmReady;
 }
 
 type RecordingSurface = {
   ctx2d: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
-  captureStream: (frameRate: number) => MediaStream;
-  mode: VideoExportCaptureMode;
+  videoStream: MediaStream;
+  requestFrame: (() => void) | null;
 };
+
+function requestFrameFromStream(stream: MediaStream): (() => void) | null {
+  const track = stream.getVideoTracks()[0] as
+    | (MediaStreamTrack & { requestFrame?: () => void })
+    | undefined;
+  return track?.requestFrame?.bind(track) ?? null;
+}
 
 function createRecordingSurface(
   canvasRef: RefObject<HTMLCanvasElement | null>
@@ -86,12 +87,16 @@ function createRecordingSurface(
     if (!ctx2d) {
       throw new Error("Canvas 2D context を取得できません");
     }
-    const captureStream = (
+    const videoStream = (
       offscreen as OffscreenCanvas & {
         captureStream: (frameRate?: number) => MediaStream;
       }
-    ).captureStream.bind(offscreen);
-    return { ctx2d, captureStream, mode: "offscreen" };
+    ).captureStream(0);
+    return {
+      ctx2d,
+      videoStream,
+      requestFrame: requestFrameFromStream(videoStream),
+    };
   }
 
   const canvas = canvasRef.current ?? document.createElement("canvas");
@@ -106,60 +111,12 @@ function createRecordingSurface(
       "HTMLCanvasElement.captureStream が利用できません（iOS 17+ が必要な場合があります）"
     );
   }
+  const videoStream = canvas.captureStream(0);
   return {
     ctx2d,
-    captureStream: (frameRate) => canvas.captureStream(frameRate),
-    mode: "html-canvas",
+    videoStream,
+    requestFrame: requestFrameFromStream(videoStream),
   };
-}
-
-function drawExportFrame(
-  ctx2d: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
-  t: number,
-  formations: ExportOptions["formations"]
-) {
-  ctx2d.fillStyle = "#0f0f1a";
-  ctx2d.fillRect(0, 0, EXPORT_WIDTH, EXPORT_HEIGHT);
-
-  const formation =
-    [...formations].reverse().find((f) => f.startSec <= t) ??
-    formations[0];
-
-  if (formation) {
-    formation.dancers.forEach((dancer) => {
-      const x = dancer.x * EXPORT_WIDTH;
-      const y = dancer.y * EXPORT_HEIGHT;
-
-      ctx2d.beginPath();
-      ctx2d.arc(x, y, 24, 0, Math.PI * 2);
-      ctx2d.fillStyle = dancer.color;
-      ctx2d.fill();
-
-      ctx2d.fillStyle = "#ffffff";
-      ctx2d.font = "bold 14px sans-serif";
-      ctx2d.textAlign = "center";
-      ctx2d.textBaseline = "middle";
-      ctx2d.fillText(dancer.name.slice(0, 2), x, y);
-
-      ctx2d.fillStyle = "rgba(255,255,255,0.7)";
-      ctx2d.font = "12px sans-serif";
-      ctx2d.fillText(dancer.name, x, y + 34);
-    });
-
-    ctx2d.fillStyle = "rgba(255,255,255,0.5)";
-    ctx2d.font = "18px sans-serif";
-    ctx2d.textAlign = "center";
-    ctx2d.textBaseline = "bottom";
-    ctx2d.fillText(formation.name, EXPORT_WIDTH / 2, EXPORT_HEIGHT - 20);
-  }
-
-  ctx2d.globalAlpha = 0.3;
-  ctx2d.fillStyle = "#ffffff";
-  ctx2d.font = "14px sans-serif";
-  ctx2d.textAlign = "right";
-  ctx2d.textBaseline = "bottom";
-  ctx2d.fillText("CHOREOCORE", EXPORT_WIDTH - 10, EXPORT_HEIGHT - 10);
-  ctx2d.globalAlpha = 1.0;
 }
 
 function blobFromFfmpegFile(data: Uint8Array | string): Blob {
@@ -169,6 +126,18 @@ function blobFromFfmpegFile(data: Uint8Array | string): Blob {
   const copy = new Uint8Array(data.byteLength);
   copy.set(data);
   return new Blob([copy], { type: "video/mp4" });
+}
+
+function startEncodeProgressTicker(
+  onTick: (pct: number) => void
+): () => void {
+  let pct = 72;
+  onTick(pct);
+  const id = window.setInterval(() => {
+    pct = Math.min(98, pct + 1);
+    onTick(pct);
+  }, 400);
+  return () => window.clearInterval(id);
 }
 
 export function useVideoExport() {
@@ -181,53 +150,22 @@ export function useVideoExport() {
   const startExport = useCallback(async (
     options: ExportOptions
   ): Promise<{ downloadName: string; shared: boolean }> => {
-    let audioCtx: AudioContext | null = null;
-    let audioSource: AudioBufferSourceNode | null = null;
-
     try {
       cancelRef.current = false;
       setIsExporting(true);
       setPhase("recording");
       setProgress(0);
 
-      const { ctx2d, captureStream } = createRecordingSurface(
+      const { ctx2d, videoStream, requestFrame } = createRecordingSurface(
         options.canvasRef
       );
-
-      const useDomCapture = Boolean(options.renderFrameAtTime);
-      let domCaptureActive = useDomCapture;
-      if (options.prepareDomCapture) {
-        await options.prepareDomCapture();
-      }
-
-      let dest: MediaStreamAudioDestinationNode | null = null;
-
-      if (options.audioUrl) {
-        audioCtx = new AudioContext();
-        const res = await fetch(options.audioUrl);
-        if (!res.ok) {
-          throw new Error("音源の取得に失敗しました");
-        }
-        const arrayBuffer = await res.arrayBuffer();
-        const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-        dest = audioCtx.createMediaStreamDestination();
-        audioSource = audioCtx.createBufferSource();
-        audioSource.buffer = audioBuffer;
-        audioSource.connect(dest);
-      }
 
       const mimeType = getSupportedRecorderMimeType();
       if (!mimeType) {
         throw new Error("このブラウザでは WebM 録画に対応していません");
       }
 
-      const canvasStream = captureStream(EXPORT_FPS);
-      const tracks =
-        options.audioUrl && dest
-          ? [...canvasStream.getVideoTracks(), ...dest.stream.getAudioTracks()]
-          : canvasStream.getTracks();
-      const mediaStream = new MediaStream(tracks);
-      const recorder = new MediaRecorder(mediaStream, { mimeType });
+      const recorder = new MediaRecorder(videoStream, { mimeType });
       const chunks: Blob[] = [];
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunks.push(e.data);
@@ -238,76 +176,33 @@ export function useVideoExport() {
       });
 
       recorder.start(100);
-      if (audioSource) {
-        const offset = options.audioStartSec ?? 0;
-        audioSource.start(0, offset, options.durationSec);
-      }
 
       const fps = EXPORT_FPS;
       const totalFrames = Math.max(1, Math.ceil(options.durationSec * fps));
-      let frame = 0;
-      const recordStartedAt = performance.now();
 
-      await new Promise<void>((resolve) => {
-        const drawFrame = async () => {
-          if (cancelRef.current) {
-            try {
-              audioSource?.stop();
-            } catch {
-              /* already stopped */
-            }
-            recorder.stop();
-            resolve();
-            return;
-          }
+      for (let frame = 0; frame <= totalFrames; frame++) {
+        if (cancelRef.current) {
+          recorder.stop();
+          await recordDone;
+          throw new DOMException("Export aborted", "AbortError");
+        }
 
-          const tRel = frame / fps;
-          const tAbs = (options.audioStartSec ?? 0) + tRel;
+        const tRel = frame / fps;
+        drawStageExportFrame(
+          ctx2d,
+          EXPORT_WIDTH,
+          EXPORT_HEIGHT,
+          tRel,
+          options.formations,
+          options.stageAppearance
+        );
+        requestFrame?.();
 
-          if (domCaptureActive && options.renderFrameAtTime) {
-            try {
-              await options.renderFrameAtTime(tAbs);
-              const ok = await captureStageRootToExportCanvas(
-                ctx2d,
-                EXPORT_WIDTH,
-                EXPORT_HEIGHT
-              );
-              if (!ok) domCaptureActive = false;
-            } catch (err) {
-              console.warn("Stage DOM capture failed, falling back:", err);
-              domCaptureActive = false;
-            }
-          }
-          if (!domCaptureActive) {
-            drawExportFrame(ctx2d, tRel, options.formations);
-          }
-
-          const recordProgress = clampExportProgress(
-            (frame / totalFrames) * 70
-          );
-          setProgress(recordProgress);
-
-          frame++;
-          if (frame <= totalFrames) {
-            const targetWallSec = frame / fps;
-            const elapsedSec = (performance.now() - recordStartedAt) / 1000;
-            const delayMs = Math.max(0, (targetWallSec - elapsedSec) * 1000);
-            window.setTimeout(() => {
-              void drawFrame();
-            }, delayMs);
-          } else {
-            recorder.stop();
-            resolve();
-          }
-        };
-        void drawFrame();
-      });
-
-      await recordDone;
-
-      if (cancelRef.current) {
-        throw new DOMException("Export aborted", "AbortError");
+        setProgress(clampExportProgress((frame / totalFrames) * 70));
       }
+
+      recorder.stop();
+      await recordDone;
 
       if (chunks.length === 0) {
         throw new Error("録画データがありません");
@@ -320,6 +215,11 @@ export function useVideoExport() {
         ffmpegRef.current = new FFmpeg();
       }
       const ffmpeg = ffmpegRef.current;
+
+      const stopProgressTicker = startEncodeProgressTicker((pct) => {
+        setProgress(pct);
+      });
+
       ffmpeg.on("progress", ({ progress: p }) => {
         const t = Number.isFinite(p) ? Math.min(1, Math.max(0, p)) : 0;
         setProgress(clampExportProgress(72 + t * 27));
@@ -346,7 +246,6 @@ export function useVideoExport() {
         );
       }
       ffmpegWasmReady = true;
-      setProgress(72);
 
       const inputExt = mimeType.includes("mp4") ? "mp4" : "webm";
       const inputName = `input.${inputExt}`;
@@ -354,21 +253,66 @@ export function useVideoExport() {
         type: mimeType.split(";")[0] || "video/webm",
       });
       await ffmpeg.writeFile(inputName, await fetchFile(recordedBlob));
-      await ffmpeg.exec([
-        "-i",
-        inputName,
-        "-c:v",
-        "libx264",
-        "-preset",
-        "fast",
-        "-crf",
-        "23",
-        "-c:a",
-        "aac",
-        "-movflags",
-        "+faststart",
-        "output.mp4",
-      ]);
+
+      const audioStart = options.audioStartSec ?? 0;
+      const duration = String(options.durationSec);
+
+      if (options.audioUrl) {
+        await ffmpeg.writeFile("audio_src", await fetchFile(options.audioUrl));
+        await ffmpeg.exec([
+          "-r",
+          String(EXPORT_FPS),
+          "-i",
+          inputName,
+          "-ss",
+          String(audioStart),
+          "-i",
+          "audio_src",
+          "-t",
+          duration,
+          "-map",
+          "0:v:0",
+          "-map",
+          "1:a:0",
+          "-c:v",
+          "libx264",
+          "-preset",
+          "ultrafast",
+          "-crf",
+          "28",
+          "-c:a",
+          "aac",
+          "-b:a",
+          "96k",
+          "-movflags",
+          "+faststart",
+          "output.mp4",
+        ]);
+        await ffmpeg.deleteFile("audio_src").catch(() => {});
+      } else {
+        await ffmpeg.exec([
+          "-r",
+          String(EXPORT_FPS),
+          "-i",
+          inputName,
+          "-t",
+          duration,
+          "-c:v",
+          "libx264",
+          "-preset",
+          "ultrafast",
+          "-crf",
+          "28",
+          "-an",
+          "-movflags",
+          "+faststart",
+          "output.mp4",
+        ]);
+      }
+
+      stopProgressTicker();
+      setProgress(99);
+
       const data = await ffmpeg.readFile("output.mp4");
       const mp4Blob = blobFromFfmpegFile(data);
 
@@ -392,7 +336,7 @@ export function useVideoExport() {
         setIsExporting(false);
         setPhase(null);
         setProgress(0);
-      }, 2000);
+      }, 1500);
 
       return { downloadName, shared };
     } catch (error) {
@@ -401,16 +345,6 @@ export function useVideoExport() {
       setPhase(null);
       setProgress(0);
       throw error;
-    } finally {
-      try {
-        audioSource?.stop();
-      } catch {
-        /* noop */
-      }
-      if (audioCtx && audioCtx.state !== "closed") {
-        await audioCtx.close().catch(() => {});
-      }
-      options.cleanupDomCapture?.();
     }
   }, []);
 
