@@ -1,6 +1,9 @@
 /**
- * @ffmpeg/core と FFmpeg worker を public/ffmpeg-core にコピーする。
+ * @ffmpeg/core を public/ffmpeg-core にコピーする。
  * COEP 有効時は CDN（unpkg）がブロックされるため同一オリジン配信が必須。
+ *
+ * ffmpeg の class worker は Vite がバンドルした /assets/worker-*.js を使う
+ * （public に worker を置くと const.js 等の相対 import が壊れる）。
  */
 import { cpSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -17,10 +20,6 @@ const copies = [
   {
     from: join(root, "node_modules/@ffmpeg/core/dist/esm/ffmpeg-core.wasm"),
     to: "ffmpeg-core.wasm",
-  },
-  {
-    from: join(root, "node_modules/@ffmpeg/ffmpeg/dist/esm/worker.js"),
-    to: "ffmpeg-worker.js",
   },
 ];
 

@@ -103,7 +103,6 @@ async function instantiateFFmpeg(): Promise<FFmpeg> {
   try {
     await Promise.race([
       ff.load({
-        classWorkerURL: ffmpegCoreAbsoluteUrl("ffmpeg-worker.js"),
         coreURL: ffmpegCoreAbsoluteUrl("ffmpeg-core.js"),
         wasmURL: ffmpegCoreAbsoluteUrl("ffmpeg-core.wasm"),
       }),

@@ -27,19 +27,6 @@
       ]
     },
     {
-      "source": "/ffmpeg-core/ffmpeg-worker.js",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "text/javascript"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
-      ]
-    },
-    {
       "source": "/(.*)",
       "headers": [
         {
@@ -55,7 +42,7 @@
   ],
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!assets/|ffmpeg-core/).*)",
       "destination": "/index.html"
     }
   ]
