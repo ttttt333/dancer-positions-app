@@ -44,24 +44,6 @@
       ]
     },
     {
-      "source": "/ffmpeg-core/(.*)",
-      "headers": [
-        {
-          "key": "Cross-Origin-Resource-Policy",
-          "value": "cross-origin"
-        }
-      ]
-    },
-    {
-      "source": "/(.*\\.(png|svg|ico|webmanifest|json|woff2))",
-      "headers": [
-        {
-          "key": "Cross-Origin-Resource-Policy",
-          "value": "same-origin"
-        }
-      ]
-    },
-    {
       "source": "/registerSW.js",
       "headers": [
         {
@@ -86,7 +68,7 @@
   ],
   "rewrites": [
     {
-      "source": "/((?!assets/|ffmpeg-core/).*)",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ]
