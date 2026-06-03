@@ -687,9 +687,11 @@ html.choreo-stage-video-export #stage-export-root {
 
 .choreo-viewer-video-export-barFill {
   height: 100%;
+  width: 0;
+  max-width: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, #6366f1, #818cf8);
-  transition: width 0.2s ease;
+  transition: width 0.15s linear;
 }
 
 .choreo-viewer-video-export-pct {

@@ -11,6 +11,7 @@ import {
   getSupportedRecorderMimeType,
   type VideoExportCaptureMode,
 } from "../lib/videoExportCapabilities";
+import { captureStageRootToExportCanvas } from "../lib/captureStageVideoFrame";
 
 export type { VideoExportCapabilityCheck } from "../lib/videoExportCapabilities";
 export { checkVideoExportCapabilities };
@@ -38,11 +39,30 @@ export type ExportOptions = {
   audioStartSec?: number;
   /** true のとき保存の代わりに共有シートを開く */
   shareAfter?: boolean;
+  /** FFmpeg.wasm 初回ロード開始時（1 セッション 1 回） */
+  onFfmpegFirstLoad?: () => void;
+  /** 書き出し前（全画面ステージ CSS 等） */
+  prepareDomCapture?: () => void | Promise<void>;
+  /** 書き出し後の後片付け */
+  cleanupDomCapture?: () => void;
+  /** 各フレームの絶対秒でステージ表示を更新してから DOM キャプチャ */
+  renderFrameAtTime?: (tAbsSec: number) => void | Promise<void>;
 };
+
+function clampExportProgress(n: number): number {
+  return Math.min(100, Math.max(0, Math.round(n)));
+}
 
 const EXPORT_WIDTH = 1280;
 const EXPORT_HEIGHT = 720;
 const EXPORT_FPS = 30;
+
+let ffmpegWasmReady = false;
+
+/** 実機テスト・デバッグ用 */
+export function isFfmpegWasmReady(): boolean {
+  return ffmpegWasmReady;
+}
 
 type RecordingSurface = {
   ctx2d: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
@@ -174,6 +194,12 @@ export function useVideoExport() {
         options.canvasRef
       );
 
+      const useDomCapture = Boolean(options.renderFrameAtTime);
+      let domCaptureActive = useDomCapture;
+      if (options.prepareDomCapture) {
+        await options.prepareDomCapture();
+      }
+
       let dest: MediaStreamAudioDestinationNode | null = null;
 
       if (options.audioUrl) {
@@ -220,9 +246,10 @@ export function useVideoExport() {
       const fps = EXPORT_FPS;
       const totalFrames = Math.max(1, Math.ceil(options.durationSec * fps));
       let frame = 0;
+      const recordStartedAt = performance.now();
 
       await new Promise<void>((resolve) => {
-        const drawFrame = () => {
+        const drawFrame = async () => {
           if (cancelRef.current) {
             try {
               audioSource?.stop();
@@ -234,21 +261,46 @@ export function useVideoExport() {
             return;
           }
 
-          const t = frame / fps;
-          drawExportFrame(ctx2d, t, options.formations);
+          const tRel = frame / fps;
+          const tAbs = (options.audioStartSec ?? 0) + tRel;
 
-          const recordProgress = Math.floor((frame / totalFrames) * 70);
+          if (domCaptureActive && options.renderFrameAtTime) {
+            try {
+              await options.renderFrameAtTime(tAbs);
+              const ok = await captureStageRootToExportCanvas(
+                ctx2d,
+                EXPORT_WIDTH,
+                EXPORT_HEIGHT
+              );
+              if (!ok) domCaptureActive = false;
+            } catch (err) {
+              console.warn("Stage DOM capture failed, falling back:", err);
+              domCaptureActive = false;
+            }
+          }
+          if (!domCaptureActive) {
+            drawExportFrame(ctx2d, tRel, options.formations);
+          }
+
+          const recordProgress = clampExportProgress(
+            (frame / totalFrames) * 70
+          );
           setProgress(recordProgress);
 
           frame++;
           if (frame <= totalFrames) {
-            requestAnimationFrame(drawFrame);
+            const targetWallSec = frame / fps;
+            const elapsedSec = (performance.now() - recordStartedAt) / 1000;
+            const delayMs = Math.max(0, (targetWallSec - elapsedSec) * 1000);
+            window.setTimeout(() => {
+              void drawFrame();
+            }, delayMs);
           } else {
             recorder.stop();
             resolve();
           }
         };
-        requestAnimationFrame(drawFrame);
+        void drawFrame();
       });
 
       await recordDone;
@@ -262,18 +314,22 @@ export function useVideoExport() {
       }
 
       setPhase("converting");
-      setProgress(70);
+      setProgress(71);
 
       if (!ffmpegRef.current) {
         ffmpegRef.current = new FFmpeg();
       }
       const ffmpeg = ffmpegRef.current;
       ffmpeg.on("progress", ({ progress: p }) => {
-        setProgress(70 + Math.floor(p * 30));
+        const t = Number.isFinite(p) ? Math.min(1, Math.max(0, p)) : 0;
+        setProgress(clampExportProgress(72 + t * 27));
       });
 
       const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
       try {
+        if (!ffmpegWasmReady) {
+          options.onFfmpegFirstLoad?.();
+        }
         await ffmpeg.load({
           coreURL: await toBlobURL(
             `${baseURL}/ffmpeg-core.js`,
@@ -289,6 +345,8 @@ export function useVideoExport() {
           "FFmpeg の読み込みに失敗しました。ページを再読み込みするか、別のブラウザでお試しください"
         );
       }
+      ffmpegWasmReady = true;
+      setProgress(72);
 
       const inputExt = mimeType.includes("mp4") ? "mp4" : "webm";
       const inputName = `input.${inputExt}`;
@@ -352,6 +410,7 @@ export function useVideoExport() {
       if (audioCtx && audioCtx.state !== "closed") {
         await audioCtx.close().catch(() => {});
       }
+      options.cleanupDomCapture?.();
     }
   }, []);
 

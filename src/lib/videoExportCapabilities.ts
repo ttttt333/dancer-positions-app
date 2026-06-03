@@ -118,3 +118,17 @@ export function checkVideoExportCapabilities(): VideoExportCapabilityCheck {
     blockReason,
   };
 }
+
+/** ボタン下に表示する互換性ヒント（1 行） */
+export function formatVideoExportCapabilityHint(
+  caps: VideoExportCapabilityCheck
+): string | null {
+  if (caps.blockReason) return caps.blockReason;
+  if (caps.captureMode === "offscreen") {
+    return "OffscreenCanvas 録画モード";
+  }
+  if (caps.captureMode === "html-canvas") {
+    return "HTML Canvas 録画モード（iOS Safari 等）";
+  }
+  return caps.warnings[0] ?? null;
+}

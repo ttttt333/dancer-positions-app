@@ -1,7 +1,13 @@
 import { useCallback, useMemo, useRef } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { buildVideoExportOptions } from "../lib/buildVideoExportOptions";
-import { checkVideoExportCapabilities } from "../lib/videoExportCapabilities";
+import { getStageExportElement } from "../lib/captureStagePng";
+import { pauseAndSeekPlaybackToSec } from "../lib/playbackTransport";
+import { waitForPaint } from "../lib/waitForPaint";
+import {
+  checkVideoExportCapabilities,
+  formatVideoExportCapabilityHint,
+} from "../lib/videoExportCapabilities";
 import { useVideoExport, type ExportPhase } from "../hooks/useVideoExport";
 import { useExportToast } from "../hooks/useExportToast";
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
@@ -17,15 +23,17 @@ export type VideoExportButtonProps = {
 };
 
 const PHASE_LABEL: Record<Exclude<ExportPhase, null>, string> = {
-  recording: "録画中…",
+  recording: "ステージを録画中…",
   converting: "MP4 に変換中…",
   done: "完了",
 };
 
 function phaseMessage(phase: ExportPhase, progress: number): string {
   if (!phase) return "";
-  const base = PHASE_LABEL[phase];
-  return `${base} ${progress}%`;
+  if (phase === "converting" && progress <= 72) {
+    return "MP4 に変換中…（エンジン読み込み）";
+  }
+  return PHASE_LABEL[phase];
 }
 
 /**
@@ -45,12 +53,27 @@ export function VideoExportButton({
 
   const capabilities = useMemo(() => checkVideoExportCapabilities(), []);
   const exportBlocked = !capabilities.supported;
-  const capabilityHint =
-    capabilities.blockReason ??
-    (capabilities.warnings.length > 0 ? capabilities.warnings[0] : null);
+  const capabilityHint = useMemo(
+    () => formatVideoExportCapabilityHint(capabilities),
+    [capabilities]
+  );
 
   const run = useCallback(
     async (shareAfter: boolean) => {
+      if (!getStageExportElement()) {
+        showToast({
+          kind: "error",
+          title: "2D ステージが必要です",
+          description:
+            "平面表示（2D）に切り替えてから、もう一度お試しください",
+        });
+        return;
+      }
+
+      const trimStartSec = project.trimStartSec ?? 0;
+      const trimEndSec = project.trimEndSec ?? null;
+      const html = document.documentElement;
+
       try {
         const options = buildVideoExportOptions(
           project,
@@ -58,7 +81,31 @@ export function VideoExportButton({
           fileName,
           canvasRef
         );
-        const result = await startExport({ ...options, shareAfter });
+        const result = await startExport({
+          ...options,
+          shareAfter,
+          prepareDomCapture: () => {
+            html.classList.add("choreo-stage-video-export");
+          },
+          cleanupDomCapture: () => {
+            html.classList.remove("choreo-stage-video-export");
+          },
+          renderFrameAtTime: async (tAbsSec) => {
+            pauseAndSeekPlaybackToSec({
+              tRaw: tAbsSec,
+              durationSec,
+              trimStartSec,
+              trimEndSec,
+            });
+            await waitForPaint();
+          },
+          onFfmpegFirstLoad: () =>
+            showToast({
+              kind: "info",
+              title: "FFmpeg コアを読み込み中…",
+              description: "初回は 10〜30 秒かかることがあります",
+            }),
+        });
 
         if (shareAfter && result.shared) {
           showToast({
@@ -91,6 +138,8 @@ export function VideoExportButton({
           description: msg,
         });
         console.error("Export failed:", e);
+      } finally {
+        html.classList.remove("choreo-stage-video-export");
       }
     },
     [project, durationSec, fileName, startExport, showToast]
