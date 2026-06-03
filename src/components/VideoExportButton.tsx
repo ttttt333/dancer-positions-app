@@ -30,24 +30,19 @@ const PHASE_LABEL: Record<Exclude<ExportPhase, null>, string> = {
   done: "完了",
 };
 
-function phaseMessage(
+function exportOverlayMessage(
   phase: ExportPhase,
-  encodeSubphase: ExportEncodeSubphase | null
+  encodeSubphase: ExportEncodeSubphase | null,
+  progressMessage: string
 ): string {
+  if (progressMessage.trim()) return progressMessage;
   if (!phase) return "";
   if (phase === "converting") {
     if (encodeSubphase === "load") return "FFmpeg を準備中…";
-    if (encodeSubphase === "mux") return "MP4 に結合中…（数十秒かかることがあります）";
+    if (encodeSubphase === "mux") return "MP4 に結合中…";
     return "MP4 に変換中…";
   }
   return PHASE_LABEL[phase];
-}
-
-function exportProgressIndeterminate(
-  phase: ExportPhase,
-  encodeSubphase: ExportEncodeSubphase | null
-): boolean {
-  return phase === "converting" && encodeSubphase === "mux";
 }
 
 export function VideoExportButton({
@@ -58,7 +53,7 @@ export function VideoExportButton({
 }: VideoExportButtonProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const { toast, showToast, dismiss } = useExportToast();
-  const { isExporting, progress, phase, encodeSubphase, startExport, cancelExport } =
+  const { isExporting, progress, progressMessage, phase, encodeSubphase, startExport, cancelExport } =
     useVideoExport();
 
   useEffect(() => {
@@ -165,8 +160,7 @@ export function VideoExportButton({
                   ? "encode"
                   : "done",
             ratio: progress / 100,
-            message: phaseMessage(phase, encodeSubphase),
-            indeterminate: exportProgressIndeterminate(phase, encodeSubphase),
+            message: exportOverlayMessage(phase, encodeSubphase, progressMessage),
           }}
           onCancel={cancelExport}
         />

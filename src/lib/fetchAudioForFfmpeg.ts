@@ -1,4 +1,5 @@
 import { fetchFile } from "@ffmpeg/util";
+import { readResponseArrayBufferWithProgress } from "./fetchWithProgress";
 
 function isSameOriginUrl(url: string): boolean {
   if (url.startsWith("blob:") || url.startsWith("data:")) return true;
@@ -9,32 +10,48 @@ function isSameOriginUrl(url: string): boolean {
   }
 }
 
+async function fetchUrlBytes(
+  audioUrl: string,
+  onProgress?: (ratio: number) => void
+): Promise<Uint8Array> {
+  const res = await fetch(audioUrl, {
+    mode: isSameOriginUrl(audioUrl) ? "same-origin" : "cors",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    throw new Error(`音源の取得に失敗しました（HTTP ${res.status}）`);
+  }
+  const buf = await readResponseArrayBufferWithProgress(res, onProgress);
+  return new Uint8Array(buf);
+}
+
 /**
  * 音源 URL を FFmpeg.wasm の仮想 FS 用バイナリにする。
  * COEP 下は同一オリジン / blob のみ確実。クロスオリジンは CORP 不足で失敗しやすい。
  */
-export async function fetchAudioForFfmpeg(audioUrl: string): Promise<Uint8Array> {
+export async function fetchAudioForFfmpeg(
+  audioUrl: string,
+  onProgress?: (ratio: number) => void
+): Promise<Uint8Array> {
   if (isSameOriginUrl(audioUrl)) {
     try {
-      return await fetchFile(audioUrl);
+      onProgress?.(0);
+      const data = await fetchFile(audioUrl);
+      onProgress?.(1);
+      return data;
     } catch {
-      const res = await fetch(audioUrl);
-      if (!res.ok) {
-        throw new Error(`音源の取得に失敗しました（HTTP ${res.status}）`);
-      }
-      return new Uint8Array(await res.arrayBuffer());
+      return fetchUrlBytes(audioUrl, onProgress);
     }
   }
 
   try {
-    return await fetchFile(audioUrl);
+    onProgress?.(0);
+    const data = await fetchFile(audioUrl);
+    onProgress?.(1);
+    return data;
   } catch {
     try {
-      const res = await fetch(audioUrl, { mode: "cors", credentials: "include" });
-      if (!res.ok) {
-        throw new Error(`音源の取得に失敗しました（HTTP ${res.status}）`);
-      }
-      return new Uint8Array(await res.arrayBuffer());
+      return await fetchUrlBytes(audioUrl, onProgress);
     } catch (e) {
       const msg =
         e instanceof Error ? e.message : "音源の取得に失敗しました";

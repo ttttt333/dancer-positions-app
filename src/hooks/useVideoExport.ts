@@ -57,6 +57,22 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/** UI スレッドがブロックされても % が動いて見えるよう、上限までゆっくり進める */
+function startProgressCreep(
+  getProgress: () => number,
+  setProgressValue: (n: number) => void,
+  cap: number,
+  intervalMs = 900
+): () => void {
+  const id = window.setInterval(() => {
+    const cur = getProgress();
+    if (cur < cap) {
+      setProgressValue(Math.min(cap, cur + 1));
+    }
+  }, intervalMs);
+  return () => window.clearInterval(id);
+}
+
 function blobFromFfmpegFile(data: Uint8Array | string): Blob {
   if (typeof data === "string") {
     return new Blob([data], { type: "video/mp4" });
@@ -107,14 +123,19 @@ async function muxRecordedWebmToMp4(
     audioUrl: string | null;
     audioStartSec: number;
     durationSec: number;
+  },
+  hooks?: {
+    onAudioProgress?: (ratio: number) => void;
+    onMuxStart?: () => void;
   }
 ): Promise<void> {
   const { inputName, audioUrl, audioStartSec, durationSec } = params;
   const duration = String(durationSec);
 
   if (audioUrl) {
-    const audioData = await fetchAudioForFfmpeg(audioUrl);
+    const audioData = await fetchAudioForFfmpeg(audioUrl, hooks?.onAudioProgress);
     await ffmpeg.writeFile("audio_src", audioData);
+    hooks?.onMuxStart?.();
     await ffmpegExecChecked(ffmpeg, [
       "-y",
       "-i",
@@ -150,6 +171,7 @@ async function muxRecordedWebmToMp4(
     ]);
     await ffmpeg.deleteFile("audio_src").catch(() => {});
   } else {
+    hooks?.onMuxStart?.();
     await ffmpegExecChecked(ffmpeg, [
       "-y",
       "-i",
@@ -177,9 +199,17 @@ async function muxRecordedWebmToMp4(
 export function useVideoExport() {
   const [isExporting, setIsExporting] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState("");
   const [phase, setPhase] = useState<ExportPhase>(null);
   const [encodeSubphase, setEncodeSubphase] = useState<ExportEncodeSubphase>(null);
   const cancelRef = useRef(false);
+  const progressRef = useRef(0);
+
+  const setProgressValue = useCallback((n: number) => {
+    const v = clampExportProgress(n);
+    progressRef.current = v;
+    setProgress(v);
+  }, []);
 
   const startExport = useCallback(async (
     options: ExportOptions
@@ -191,7 +221,8 @@ export function useVideoExport() {
       setIsExporting(true);
       setPhase("recording");
       setEncodeSubphase(null);
-      setProgress(0);
+      setProgressMessage("ステージを描画中…");
+      setProgressValue(0);
 
       const { ctx2d, videoStream: stream, requestFrame } = createExportCanvas(
         options.canvasRef
@@ -242,7 +273,7 @@ export function useVideoExport() {
         }
 
         if (frame % 2 === 0 || frame === totalFrames) {
-          setProgress(clampExportProgress((frame / totalFrames) * 68));
+          setProgressValue((frame / totalFrames) * 68);
           await sleep(0);
         }
       }
@@ -261,43 +292,80 @@ export function useVideoExport() {
 
       setPhase("converting");
       setEncodeSubphase("load");
-      setProgress(70);
+      setProgressMessage("FFmpeg を準備中…");
+      setProgressValue(69);
       await sleep(0);
 
       let notifiedFfmpegLoad = false;
-      const ffmpeg = await loadFFmpegWasm((p) => {
-        setProgress(clampExportProgress(70 + p.ratio * 10));
-        if (p.ratio < 0.05 && !notifiedFfmpegLoad) {
-          options.onFfmpegFirstLoad?.();
-          notifiedFfmpegLoad = true;
-        }
-      });
+      const stopLoadCreep = startProgressCreep(
+        () => progressRef.current,
+        setProgressValue,
+        81
+      );
+      let ffmpeg: FFmpeg;
+      try {
+        ffmpeg = await loadFFmpegWasm((p) => {
+          setProgressValue(69 + p.ratio * 13);
+          setProgressMessage(p.message);
+          if (p.ratio < 0.05 && !notifiedFfmpegLoad) {
+            options.onFfmpegFirstLoad?.();
+            notifiedFfmpegLoad = true;
+          }
+        });
+      } finally {
+        stopLoadCreep();
+      }
 
       setEncodeSubphase("mux");
-      setProgress(82);
+      setProgressMessage("録画データを渡しています…");
+      setProgressValue(83);
       await sleep(0);
 
       const inputName = mimeType.includes("mp4") ? "input.mp4" : "input.webm";
       await ffmpeg.writeFile(inputName, await fetchFile(recordedBlob));
+      setProgressValue(85);
 
-      const onMuxProgress = ({ progress }: { progress: number }) => {
-        if (Number.isFinite(progress) && progress >= 0) {
-          setProgress(clampExportProgress(82 + Math.min(1, progress) * 16));
+      const onMuxProgress = ({ progress: muxRatio }: { progress: number }) => {
+        if (Number.isFinite(muxRatio) && muxRatio >= 0) {
+          setProgressValue(85 + Math.min(1, muxRatio) * 13);
         }
       };
       ffmpeg.on("progress", onMuxProgress);
+      const stopMuxCreep = startProgressCreep(
+        () => progressRef.current,
+        setProgressValue,
+        97
+      );
+      setProgressMessage(
+        options.audioUrl ? "音源を取得して MP4 に結合中…" : "MP4 に変換中…"
+      );
       try {
-        await muxRecordedWebmToMp4(ffmpeg, {
-          inputName,
-          audioUrl: options.audioUrl,
-          audioStartSec: options.audioStartSec ?? 0,
-          durationSec: options.durationSec,
-        });
+        await muxRecordedWebmToMp4(
+          ffmpeg,
+          {
+            inputName,
+            audioUrl: options.audioUrl,
+            audioStartSec: options.audioStartSec ?? 0,
+            durationSec: options.durationSec,
+          },
+          {
+            onAudioProgress: (ratio) => {
+              setProgressValue(85 + ratio * 4);
+              setProgressMessage("音源を取得中…");
+            },
+            onMuxStart: () => {
+              setProgressMessage("MP4 に結合中…（数十秒かかることがあります）");
+              setProgressValue(89);
+            },
+          }
+        );
       } finally {
         ffmpeg.off("progress", onMuxProgress);
+        stopMuxCreep();
       }
 
-      setProgress(98);
+      setProgressMessage("ファイルを仕上げています…");
+      setProgressValue(99);
       const data = await ffmpeg.readFile("output.mp4");
       if (!data || (data instanceof Uint8Array && data.byteLength < 256)) {
         throw new Error("MP4 の生成結果が空です");
@@ -320,11 +388,13 @@ export function useVideoExport() {
 
       setPhase("done");
       setEncodeSubphase(null);
-      setProgress(100);
+      setProgressMessage("完了");
+      setProgressValue(100);
       setTimeout(() => {
         setIsExporting(false);
         setPhase(null);
-        setProgress(0);
+        setProgressValue(0);
+        setProgressMessage("");
       }, 1200);
 
       return { downloadName, shared };
@@ -333,24 +403,27 @@ export function useVideoExport() {
       setIsExporting(false);
       setPhase(null);
       setEncodeSubphase(null);
-      setProgress(0);
+      setProgressValue(0);
+      setProgressMessage("");
       throw error;
     } finally {
       videoStream?.getTracks().forEach((t) => t.stop());
     }
-  }, []);
+  }, [setProgressValue]);
 
   const cancelExport = useCallback(() => {
     cancelRef.current = true;
     setIsExporting(false);
-    setProgress(0);
+    setProgressValue(0);
+    setProgressMessage("");
     setPhase(null);
     setEncodeSubphase(null);
-  }, []);
+  }, [setProgressValue]);
 
   return {
     isExporting,
     progress,
+    progressMessage,
     phase,
     encodeSubphase,
     startExport,
