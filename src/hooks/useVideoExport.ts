@@ -42,6 +42,7 @@ export type ExportOptions = {
   audioStartSec?: number;
   shareAfter?: boolean;
   onFfmpegFirstLoad?: () => void;
+  onAudioSkipped?: () => void;
 };
 
 function clampExportProgress(n: number): number {
@@ -141,72 +142,95 @@ async function muxRecordedWebmToMp4(
     audioUrl: string | null;
     audioStartSec: number;
     durationSec: number;
+    videoFrameCount: number;
   },
   hooks?: {
     onAudioProgress?: (ratio: number) => void;
     onMuxStart?: () => void;
+    onAudioSkipped?: () => void;
   }
 ): Promise<void> {
-  const { inputName, audioUrl, audioStartSec, durationSec } = params;
+  const { inputName, audioUrl, audioStartSec, durationSec, videoFrameCount } =
+    params;
   const duration = String(durationSec);
+  const fps = String(EXPORT_FPS);
+  const videoFilter = `setpts=N/${EXPORT_FPS}/TB`;
 
+  let audioData: Uint8Array | null = null;
   if (audioUrl) {
-    const audioData = await fetchAudioForFfmpeg(audioUrl, hooks?.onAudioProgress);
-    await ffmpeg.writeFile("audio_src", audioData);
-    hooks?.onMuxStart?.();
+    audioData = await fetchAudioForFfmpeg(audioUrl, hooks?.onAudioProgress);
+    if (!audioData) {
+      hooks?.onAudioSkipped?.();
+    } else {
+      await ffmpeg.writeFile("audio_src", audioData);
+    }
+  }
+
+  hooks?.onMuxStart?.();
+
+  const videoEncode = [
+    "-c:v",
+    "libx264",
+    "-preset",
+    "ultrafast",
+    "-crf",
+    "28",
+    "-pix_fmt",
+    "yuv420p",
+    "-r",
+    fps,
+    "-vsync",
+    "cfr",
+    "-frames:v",
+    String(videoFrameCount),
+  ];
+
+  if (audioData) {
     await ffmpegExecChecked(ffmpeg, [
       "-y",
+      "-fflags",
+      "+genpts",
+      "-r",
+      fps,
       "-i",
       inputName,
-      "-ss",
-      String(audioStartSec),
       "-i",
       "audio_src",
-      "-t",
-      duration,
+      "-filter:v",
+      videoFilter,
+      "-filter:a",
+      `atrim=start=${audioStartSec}:duration=${durationSec},asetpts=PTS-STARTPTS`,
       "-map",
       "0:v:0",
       "-map",
       "1:a:0",
-      "-c:v",
-      "libx264",
-      "-preset",
-      "ultrafast",
-      "-crf",
-      "28",
-      "-pix_fmt",
-      "yuv420p",
-      "-r",
-      String(EXPORT_FPS),
+      ...videoEncode,
       "-c:a",
       "aac",
       "-b:a",
       "96k",
-      "-shortest",
+      "-t",
+      duration,
       "-movflags",
       "+faststart",
       "output.mp4",
     ]);
     await ffmpeg.deleteFile("audio_src").catch(() => {});
   } else {
-    hooks?.onMuxStart?.();
     await ffmpegExecChecked(ffmpeg, [
       "-y",
+      "-fflags",
+      "+genpts",
+      "-r",
+      fps,
       "-i",
       inputName,
+      "-filter:v",
+      videoFilter,
+      ...videoEncode,
+      "-an",
       "-t",
       duration,
-      "-c:v",
-      "libx264",
-      "-preset",
-      "ultrafast",
-      "-crf",
-      "28",
-      "-pix_fmt",
-      "yuv420p",
-      "-r",
-      String(EXPORT_FPS),
-      "-an",
       "-movflags",
       "+faststart",
       "output.mp4",
@@ -287,9 +311,8 @@ export function useVideoExport() {
 
         if (requestFrame) {
           requestFrame();
-        } else {
-          await sleep(FRAME_MS);
         }
+        await sleep(FRAME_MS);
 
         if (frame % 2 === 0 || frame === totalFrames) {
           setProgressValue((frame / totalFrames) * 68);
@@ -358,6 +381,7 @@ export function useVideoExport() {
       setProgressMessage(
         options.audioUrl ? "音源を取得して MP4 に結合中…" : "MP4 に変換中…"
       );
+      const videoFrameCount = totalFrames + 1;
       try {
         await muxRecordedWebmToMp4(
           ffmpeg,
@@ -366,6 +390,7 @@ export function useVideoExport() {
             audioUrl: options.audioUrl,
             audioStartSec: options.audioStartSec ?? 0,
             durationSec: options.durationSec,
+            videoFrameCount,
           },
           {
             onAudioProgress: (ratio) => {
@@ -375,6 +400,10 @@ export function useVideoExport() {
             onMuxStart: () => {
               setProgressMessage("MP4 に結合中…（数十秒かかることがあります）");
               setProgressValue(89);
+            },
+            onAudioSkipped: () => {
+              setProgressMessage("音源なしで MP4 に変換中…");
+              options.onAudioSkipped?.();
             },
           }
         );

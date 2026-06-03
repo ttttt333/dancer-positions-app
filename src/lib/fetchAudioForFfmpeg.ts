@@ -1,8 +1,12 @@
 import { fetchFile } from "@ffmpeg/util";
 import { readResponseArrayBufferWithProgress } from "./fetchWithProgress";
 
+function isBlobOrDataUrl(url: string): boolean {
+  return url.startsWith("blob:") || url.startsWith("data:");
+}
+
 function isSameOriginUrl(url: string): boolean {
-  if (url.startsWith("blob:") || url.startsWith("data:")) return true;
+  if (isBlobOrDataUrl(url)) return true;
   try {
     return new URL(url, window.location.href).origin === window.location.origin;
   } catch {
@@ -16,7 +20,7 @@ async function fetchUrlBytes(
 ): Promise<Uint8Array> {
   const res = await fetch(audioUrl, {
     mode: isSameOriginUrl(audioUrl) ? "same-origin" : "cors",
-    credentials: "include",
+    credentials: isSameOriginUrl(audioUrl) ? "same-origin" : "include",
   });
   if (!res.ok) {
     throw new Error(`音源の取得に失敗しました（HTTP ${res.status}）`);
@@ -27,41 +31,31 @@ async function fetchUrlBytes(
 
 /**
  * 音源 URL を FFmpeg.wasm の仮想 FS 用バイナリにする。
- * COEP 下は同一オリジン / blob のみ確実。クロスオリジンは CORP 不足で失敗しやすい。
+ * 失敗時は null（COEP 等）。呼び出し側は映像のみ書き出しにフォールバックする。
  */
 export async function fetchAudioForFfmpeg(
   audioUrl: string,
   onProgress?: (ratio: number) => void
-): Promise<Uint8Array> {
-  if (isSameOriginUrl(audioUrl)) {
-    try {
-      onProgress?.(0);
-      const data = await fetchFile(audioUrl);
-      onProgress?.(1);
-      return data;
-    } catch {
-      return fetchUrlBytes(audioUrl, onProgress);
-    }
-  }
-
+): Promise<Uint8Array | null> {
   try {
     onProgress?.(0);
-    const data = await fetchFile(audioUrl);
+    if (isBlobOrDataUrl(audioUrl) || isSameOriginUrl(audioUrl)) {
+      try {
+        const data = await fetchFile(audioUrl);
+        onProgress?.(1);
+        return data;
+      } catch {
+        const data = await fetchUrlBytes(audioUrl, onProgress);
+        onProgress?.(1);
+        return data;
+      }
+    }
+
+    const data = await fetchUrlBytes(audioUrl, onProgress);
     onProgress?.(1);
     return data;
-  } catch {
-    try {
-      return await fetchUrlBytes(audioUrl, onProgress);
-    } catch (e) {
-      const msg =
-        e instanceof Error ? e.message : "音源の取得に失敗しました";
-      const coep =
-        /NotSameOriginAfterDefaultedToSameOriginByCoep|COEP|blocked/i.test(msg);
-      throw new Error(
-        coep
-          ? `${msg}（音源はこのサイトと同じドメインで配信する必要があります）`
-          : `${msg}。別タブで開き直すか、音源を再取り込みしてからお試しください。`
-      );
-    }
+  } catch (e) {
+    console.warn("[fetchAudioForFfmpeg] 音源取得をスキップ:", e);
+    return null;
   }
 }

@@ -85,6 +85,13 @@ export function VideoExportButton({
               title: "FFmpeg コアを読み込み中…",
               description: "初回は 10〜30 秒かかることがあります",
             }),
+          onAudioSkipped: () =>
+            showToast({
+              kind: "info",
+              title: "音源なしで書き出し",
+              description:
+                "音源の取得に失敗したため、映像のみの MP4 として保存します",
+            }),
         });
 
         if (shareAfter && result.shared) {

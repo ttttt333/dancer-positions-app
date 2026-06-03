@@ -8,6 +8,7 @@ import {
 } from "./dancerColorPalette";
 import { resolveStageExportRange } from "./stageExportRange";
 import { buildStageExportAppearance } from "./stageExportAppearance";
+import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import type { ExportOptions } from "../hooks/useVideoExport";
 import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography";
 
@@ -37,6 +38,16 @@ function cueFormationName(
   return (cueName || f?.name || "フォーメーション").trim() || "フォーメーション";
 }
 
+/** 書き出し尺: UI の duration と `<audio>` 実尺の大きい方を使う */
+function resolveExportTrackDuration(fallbackSec: number): number {
+  const fromEngine = playbackEngine.getDuration();
+  const trusted = usePlaybackUiStore.getState().trustedAudioDurationSec;
+  const candidates = [fallbackSec, fromEngine, trusted ?? 0].filter(
+    (n) => Number.isFinite(n) && n > 0
+  );
+  return candidates.length > 0 ? Math.max(...candidates) : fallbackSec;
+}
+
 /**
  * `useVideoExport` 向けにプロジェクト JSON から ExportOptions を組み立てる。
  * キュー境界に加え、30fps 相当で補間サンプルを入れてギャップ中も動く。
@@ -47,8 +58,9 @@ export function buildVideoExportOptions(
   fileName: string,
   canvasRef: RefObject<HTMLCanvasElement | null>
 ): ExportOptions {
+  const trackDurationSec = resolveExportTrackDuration(durationSec);
   const { startSec, durationSec: span } = resolveStageExportRange(
-    durationSec,
+    trackDurationSec,
     project.trimStartSec ?? 0,
     project.trimEndSec
   );
