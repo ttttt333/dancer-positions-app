@@ -27,8 +27,11 @@ export function buildStageExportAppearance(
     audienceEdge: project.audienceEdge ?? "bottom",
   });
 
-  const W = shell.Wmm;
-  const D = shell.Dmm;
+  const W = shell.Wmm > 0 ? shell.Wmm : 12_000;
+  const D = shell.Dmm > 0 ? shell.Dmm : 8_000;
+  const Smm = shell.Smm;
+  const Bmm = shell.Bmm;
+  const showShell = shell.showShell || Smm > 0 || Bmm > 0;
   let stepXPct: number | null = null;
   let stepYPct: number | null = null;
 
@@ -63,9 +66,9 @@ export function buildStageExportAppearance(
     rotDeg: shell.rot,
     Wmm: W,
     Dmm: D,
-    Smm: shell.Smm,
-    Bmm: shell.Bmm,
-    showShell: shell.showShell,
+    Smm,
+    Bmm,
+    showShell,
     stageGridLinesVertical,
     stageGridLinesHorizontal,
     stepXPct,

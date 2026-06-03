@@ -4,6 +4,8 @@ export type VideoExportOverlayProgress = {
   phase: "prepare" | "frames" | "encode" | "done";
   ratio: number;
   message: string;
+  /** FFmpeg 結合中など UI が更新されにくい区間 */
+  indeterminate?: boolean;
 };
 
 type Props = {
@@ -12,6 +14,7 @@ type Props = {
 };
 
 export function ChoreoViewerVideoExportOverlay({ progress, onCancel }: Props) {
+  const indeterminate = Boolean(progress.indeterminate);
   const pct = Math.round(Math.max(0, Math.min(100, progress.ratio * 100)));
 
   return (
@@ -27,11 +30,17 @@ export function ChoreoViewerVideoExportOverlay({ progress, onCancel }: Props) {
           aria-valuenow={pct}
         >
           <div
-            className="choreo-viewer-video-export-barFill"
-            style={{ width: `${pct}%` }}
+            className={
+              indeterminate
+                ? "choreo-viewer-video-export-barFill choreo-viewer-video-export-barFill--indeterminate"
+                : "choreo-viewer-video-export-barFill"
+            }
+            style={indeterminate ? undefined : { width: `${pct}%` }}
           />
         </div>
-        <p className="choreo-viewer-video-export-pct">{pct}%</p>
+        <p className="choreo-viewer-video-export-pct">
+          {indeterminate ? "処理中…" : `${pct}%`}
+        </p>
         <p className="choreo-viewer-video-export-hint">
           舞台の枠・グリッド・番号を描画して書き出します（12fps・速さ優先）。画面を閉じずにお待ちください。
         </p>

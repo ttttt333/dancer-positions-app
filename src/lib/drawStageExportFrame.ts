@@ -108,12 +108,12 @@ function drawShellChrome(
   ctx.fillStyle = grad;
   ctx.fillRect(main.x, main.y, main.w, main.h);
 
-  ctx.strokeStyle = "#475569";
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = "#94a3b8";
+  ctx.lineWidth = 2.5;
   ctx.strokeRect(main.x + 1, main.y + 1, main.w - 2, main.h - 2);
-  ctx.strokeStyle = "#64748b";
-  ctx.lineWidth = 1;
-  ctx.strokeRect(outer.x + 0.5, outer.y + 0.5, outer.w - 1, outer.h - 1);
+  ctx.strokeStyle = "#cbd5e1";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(outer.x + 1, outer.y + 1, outer.w - 2, outer.h - 2);
 
   const bandH = Math.min(22, main.h * 0.08);
   ctx.fillStyle = "rgba(15,23,42,0.92)";
@@ -125,14 +125,38 @@ function drawShellChrome(
   ctx.fillText("客席", main.x + main.w / 2, main.y + main.h - bandH / 2);
 }
 
+/** 設定オフ時も見えるよう 10% 間隔の基準線 */
+function drawBaselineGrid(
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  main: FloorRect
+) {
+  ctx.strokeStyle = "rgba(100,116,139,0.45)";
+  ctx.lineWidth = 1;
+  for (let p = 10; p < 100; p += 10) {
+    if (Math.abs(p - 50) < 0.5) continue;
+    const x = main.x + (p / 100) * main.w;
+    const y = main.y + (p / 100) * main.h;
+    ctx.beginPath();
+    ctx.moveTo(x, main.y);
+    ctx.lineTo(x, main.y + main.h);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(main.x, y);
+    ctx.lineTo(main.x + main.w, y);
+    ctx.stroke();
+  }
+}
+
 function drawGrid(
   ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
   appearance: StageExportAppearance,
   main: FloorRect
 ) {
+  drawBaselineGrid(ctx, main);
+
   const cx = main.x + main.w / 2;
-  ctx.strokeStyle = "rgba(251,191,36,0.92)";
-  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = "rgba(251,191,36,0.95)";
+  ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(cx, main.y);
   ctx.lineTo(cx, main.y + main.h);
@@ -141,7 +165,7 @@ function drawGrid(
   if (!appearance.stepXPct || !appearance.stepYPct) return;
 
   const maxLines = 48;
-  ctx.strokeStyle = "#475569";
+  ctx.strokeStyle = "rgba(148,163,184,0.7)";
   ctx.lineWidth = 1;
 
   if (appearance.stageGridLinesVertical && appearance.stepXPct > 0) {

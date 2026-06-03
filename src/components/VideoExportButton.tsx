@@ -1,11 +1,16 @@
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
+import { preloadFFmpegWasm } from "../lib/ffmpegWasm";
 import { buildVideoExportOptions } from "../lib/buildVideoExportOptions";
 import {
   checkVideoExportCapabilities,
   formatVideoExportCapabilityHint,
 } from "../lib/videoExportCapabilities";
-import { useVideoExport, type ExportPhase } from "../hooks/useVideoExport";
+import {
+  useVideoExport,
+  type ExportEncodeSubphase,
+  type ExportPhase,
+} from "../hooks/useVideoExport";
 import { useExportToast } from "../hooks/useExportToast";
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
 import { ChoreoViewerVideoExportOverlay } from "./ChoreoViewerVideoExportOverlay";
@@ -25,12 +30,24 @@ const PHASE_LABEL: Record<Exclude<ExportPhase, null>, string> = {
   done: "完了",
 };
 
-function phaseMessage(phase: ExportPhase, progress: number): string {
+function phaseMessage(
+  phase: ExportPhase,
+  encodeSubphase: ExportEncodeSubphase | null
+): string {
   if (!phase) return "";
-  if (phase === "converting" && progress <= 72) {
-    return "MP4 に変換中…（エンジン読み込み）";
+  if (phase === "converting") {
+    if (encodeSubphase === "load") return "FFmpeg を準備中…";
+    if (encodeSubphase === "mux") return "MP4 に結合中…（数十秒かかることがあります）";
+    return "MP4 に変換中…";
   }
   return PHASE_LABEL[phase];
+}
+
+function exportProgressIndeterminate(
+  phase: ExportPhase,
+  encodeSubphase: ExportEncodeSubphase | null
+): boolean {
+  return phase === "converting" && encodeSubphase === "mux";
 }
 
 export function VideoExportButton({
@@ -41,8 +58,12 @@ export function VideoExportButton({
 }: VideoExportButtonProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const { toast, showToast, dismiss } = useExportToast();
-  const { isExporting, progress, phase, startExport, cancelExport } =
+  const { isExporting, progress, phase, encodeSubphase, startExport, cancelExport } =
     useVideoExport();
+
+  useEffect(() => {
+    void preloadFFmpegWasm();
+  }, []);
 
   const capabilities = useMemo(() => checkVideoExportCapabilities(), []);
   const exportBlocked = !capabilities.supported;
@@ -138,7 +159,8 @@ export function VideoExportButton({
                   ? "encode"
                   : "done",
             ratio: progress / 100,
-            message: phaseMessage(phase, progress),
+            message: phaseMessage(phase, encodeSubphase),
+            indeterminate: exportProgressIndeterminate(phase, encodeSubphase),
           }}
           onCancel={cancelExport}
         />
