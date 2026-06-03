@@ -12,6 +12,21 @@ export type FfmpegWasmProgress = {
 };
 
 const FFMPEG_LOAD_TIMEOUT_MS = 180_000;
+const FFMPEG_LOAD_MAX_ATTEMPTS = 3;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function isRetryableFfmpegLoadError(cause: unknown): boolean {
+  const detail =
+    cause instanceof Error
+      ? cause.message
+      : typeof cause === "string"
+        ? cause
+        : String(cause);
+  return /network|timeout|failed to fetch|blocked|load|abort/i.test(detail);
+}
 
 let ffmpegSingleton: FFmpeg | null = null;
 let ffmpegLoadPromise: Promise<FFmpeg> | null = null;
@@ -156,7 +171,28 @@ export async function loadFFmpegWasm(
   }
 
   if (!ffmpegLoadPromise) {
-    ffmpegLoadPromise = instantiateFFmpeg();
+    ffmpegLoadPromise = (async () => {
+      let lastError: unknown;
+      for (let attempt = 1; attempt <= FFMPEG_LOAD_MAX_ATTEMPTS; attempt++) {
+        try {
+          if (attempt > 1) {
+            emitLoadProgress({
+              ratio: 0,
+              message: `FFmpeg を再試行中… (${attempt}/${FFMPEG_LOAD_MAX_ATTEMPTS})`,
+            });
+            await sleep(Math.min(1000 * 2 ** (attempt - 2), 5000));
+          }
+          return await instantiateFFmpeg();
+        } catch (e) {
+          lastError = e;
+          ffmpegSingleton = null;
+          if (attempt >= FFMPEG_LOAD_MAX_ATTEMPTS || !isRetryableFfmpegLoadError(e)) {
+            throw e;
+          }
+        }
+      }
+      throw lastError;
+    })();
   }
 
   try {

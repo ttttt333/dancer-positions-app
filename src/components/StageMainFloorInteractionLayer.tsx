@@ -180,9 +180,10 @@ export function StageMainFloorInteractionLayer({
           const diRaw = stageDancerIndexById.get(ghostId) ?? -1;
           const di = diRaw >= 0 ? diRaw : 0;
           const ghostLabelWmm = effStageWidthMm ?? 0;
+          const labelXPct = d.centerDistanceLabelXPct ?? pos.xPct;
           const circleInnerOptsGhost =
             ghostLabelWmm > 0
-              ? { effXPct: pos.xPct, stageWidthMm: ghostLabelWmm }
+              ? { effXPct: labelXPct, stageWidthMm: ghostLabelWmm }
               : undefined;
           const circleLabel = dancerLabelBelow
             ? dancerCircleInnerBelowLabel(d, di, circleInnerOptsGhost)

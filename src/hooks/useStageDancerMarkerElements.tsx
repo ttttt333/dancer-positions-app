@@ -92,9 +92,10 @@ export function useStageDancerMarkerElements(
           selectedDancerIds.length >= 2 &&
           selectedDancerIds.includes(d.id);
         const markerLabelWmm = effStageWidthMm ?? 0;
+        const labelXPct = d.centerDistanceLabelXPct ?? d.xPct;
         const circleInnerOptsMarker =
           markerLabelWmm > 0
-            ? { effXPct: d.xPct, stageWidthMm: markerLabelWmm }
+            ? { effXPct: labelXPct, stageWidthMm: markerLabelWmm }
             : undefined;
         const circleLabel = dancerLabelBelow
           ? dancerCircleInnerBelowLabel(d, di, circleInnerOptsMarker)

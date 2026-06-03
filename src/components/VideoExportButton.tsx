@@ -6,6 +6,7 @@ import {
   checkVideoExportCapabilities,
   formatVideoExportCapabilityHint,
 } from "../lib/videoExportCapabilities";
+import { formatVideoExportError } from "../lib/videoExportErrors";
 import { useVideoExport } from "../hooks/useVideoExport";
 import { useExportToast } from "../hooks/useExportToast";
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
@@ -68,12 +69,14 @@ export function VideoExportButton({
             title: "共有しました",
             description: `${result.downloadName} を共有シートで送れます`,
           });
-        } else if ("webmFallback" in result && result.webmFallback) {
+        } else if (result.format === "webm") {
           showToast({
             kind: "info",
             title: "WebM で保存しました",
             description:
-              "MP4 変換できなかったため WebM 形式で保存しました。PC では VLC 等で再生できます",
+              result.fallbackReason
+                ? `MP4 変換できなかったため WebM 形式で保存しました（${result.fallbackReason}）`
+                : "MP4 変換できなかったため WebM 形式で保存しました。PC では VLC 等で再生できます",
           });
         } else if (shareAfter) {
           showToast({
@@ -92,18 +95,11 @@ export function VideoExportButton({
         if (e instanceof DOMException && e.name === "AbortError") {
           return;
         }
-        const msg =
-          e instanceof Error ? e.message : "動画の保存に失敗しました";
-        const hint =
-          /crossOriginIsolated|COOP|COEP|NotSameOriginAfterDefaultedToSameOriginByCoep|FFmpeg の読み込み/i.test(
-            msg
-          )
-            ? "（デプロイ反映後にハードリロードしてください）"
-            : "";
+        const { title, description } = formatVideoExportError(e);
         showToast({
           kind: "error",
-          title: "エクスポート失敗",
-          description: `${msg}${hint}`,
+          title,
+          description,
         });
         console.error("Export failed:", e);
       }

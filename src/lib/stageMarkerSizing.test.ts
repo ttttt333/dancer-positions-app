@@ -17,7 +17,7 @@ describe("computeMarkerResizeDraftSizes", () => {
     expect(draft.get("a")).toBe(24);
   });
 
-  it("複数選択は共通倍率で拡縮する", () => {
+  it("複数選択は同一直径になる", () => {
     const draft = computeMarkerResizeDraftSizes({
       startSizes: new Map([
         ["a", 18],
@@ -29,11 +29,11 @@ describe("computeMarkerResizeDraftSizes", () => {
       bulk: true,
       anchorSizePx: 24,
     });
-    expect(draft.get("a")).toBe(23);
+    expect(draft.get("a")).toBe(30);
     expect(draft.get("b")).toBe(30);
   });
 
-  it("複数選択で上限に当たっても倍率は揃う", () => {
+  it("複数選択は上限でクランプしても全員同じ", () => {
     const draft = computeMarkerResizeDraftSizes({
       startSizes: new Map([
         ["a", 30],
@@ -45,7 +45,7 @@ describe("computeMarkerResizeDraftSizes", () => {
       bulk: true,
       anchorSizePx: 40,
     });
-    expect(draft.get("a")).toBe(36);
+    expect(draft.get("a")).toBe(48);
     expect(draft.get("b")).toBe(48);
   });
 });

@@ -276,9 +276,9 @@ export function lerpDancersAcrossGap(
           : alpha < 0.5
             ? a.sizePx
             : b.sizePx;
-      const markerBadge = alpha < 0.5 ? a.markerBadge : b.markerBadge;
-      const markerBadgeSource =
-        alpha < 0.5 ? a.markerBadgeSource : b.markerBadgeSource;
+      const centerDistanceGap =
+        a.markerBadgeSource === "centerDistance" ||
+        b.markerBadgeSource === "centerDistance";
 
       const cp = customPaths?.[a.id];
       const xy = cp
@@ -318,8 +318,27 @@ export function lerpDancersAcrossGap(
           alpha < 0.5 ? a.crewMemberId ?? undefined : b.crewMemberId ?? undefined,
         ...(note ? { note } : {}),
         ...(typeof sizePx === "number" ? { sizePx } : {}),
-        ...(markerBadge !== undefined ? { markerBadge } : {}),
-        ...(markerBadgeSource ? { markerBadgeSource } : {}),
+        ...(centerDistanceGap
+          ? {
+              markerBadgeSource: "centerDistance" as const,
+              centerDistanceLabelXPct: a.xPct,
+            }
+          : {
+              ...(alpha < 0.5
+                ? a.markerBadge !== undefined
+                  ? { markerBadge: a.markerBadge }
+                  : {}
+                : b.markerBadge !== undefined
+                  ? { markerBadge: b.markerBadge }
+                  : {}),
+              ...(alpha < 0.5
+                ? a.markerBadgeSource
+                  ? { markerBadgeSource: a.markerBadgeSource }
+                  : {}
+                : b.markerBadgeSource
+                  ? { markerBadgeSource: b.markerBadgeSource }
+                  : {}),
+            }),
       });
     } else if (a) {
       out.push({ ...a });

@@ -25,6 +25,7 @@ function mapDancers(dancers: DancerSpot[]) {
     name: d.label || "?",
     markerBadge: d.markerBadge,
     markerBadgeSource: d.markerBadgeSource,
+    centerDistanceLabelXPct: d.centerDistanceLabelXPct,
     color: dancerColorHex(d),
     x: d.xPct / 100,
     y: d.yPct / 100,

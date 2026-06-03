@@ -14,19 +14,37 @@ function isSameOriginUrl(url: string): boolean {
   }
 }
 
+function isRetryableFetchError(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e);
+  return /network|failed to fetch|timeout|abort|changed/i.test(msg);
+}
+
 async function fetchUrlBytes(
   audioUrl: string,
   onProgress?: (ratio: number) => void
 ): Promise<Uint8Array> {
-  const res = await fetch(audioUrl, {
-    mode: isSameOriginUrl(audioUrl) ? "same-origin" : "cors",
-    credentials: isSameOriginUrl(audioUrl) ? "same-origin" : "include",
-  });
-  if (!res.ok) {
-    throw new Error(`音源の取得に失敗しました（HTTP ${res.status}）`);
+  const maxAttempts = 3;
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetch(audioUrl, {
+        mode: isSameOriginUrl(audioUrl) ? "same-origin" : "cors",
+        credentials: isSameOriginUrl(audioUrl) ? "same-origin" : "include",
+      });
+      if (!res.ok) {
+        throw new Error(`音源の取得に失敗しました（HTTP ${res.status}）`);
+      }
+      const buf = await readResponseArrayBufferWithProgress(res, onProgress);
+      return new Uint8Array(buf);
+    } catch (e) {
+      lastError = e;
+      if (attempt >= maxAttempts || !isRetryableFetchError(e)) {
+        throw e;
+      }
+      await new Promise((r) => setTimeout(r, 800 * attempt));
+    }
   }
-  const buf = await readResponseArrayBufferWithProgress(res, onProgress);
-  return new Uint8Array(buf);
+  throw lastError;
 }
 
 /**

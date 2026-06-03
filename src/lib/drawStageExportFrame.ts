@@ -10,6 +10,7 @@ export type ExportDancerFrame = {
   name: string;
   markerBadge?: string;
   markerBadgeSource?: DancerSpot["markerBadgeSource"];
+  centerDistanceLabelXPct?: number;
   color: string;
   x: number;
   y: number;
@@ -238,6 +239,7 @@ function resolveExportCircleLabel(
         label: dancer.name,
         markerBadge: dancer.markerBadge,
         markerBadgeSource: dancer.markerBadgeSource,
+        centerDistanceLabelXPct: dancer.centerDistanceLabelXPct,
         xPct,
         yPct: dancer.y * 100,
         colorIndex: 0,

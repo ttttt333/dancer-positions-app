@@ -2,8 +2,8 @@ import type { CSSProperties } from "react";
 import type { DancerSpot, SetPiece, StageFloorTextMarkup } from "../types/choreography";
 import { DEFAULT_DANCER_MARKER_DIAMETER_PX } from "./projectDefaults";
 import {
+  centerDistanceLabelMmFromMarkerCenter,
   formatCenterDistanceCmFine,
-  rawHorizontalDistanceFromStageCenterMm,
 } from "./dancerSpacing";
 import { sliceMarkerBadgeForStorage } from "./markerBadge";
 
@@ -270,8 +270,9 @@ export function dancerCircleInnerBelowLabel(
     opts &&
     opts.stageWidthMm > 0
   ) {
-    const mm = rawHorizontalDistanceFromStageCenterMm(
-      opts.effXPct,
+    const xForLabel = d.centerDistanceLabelXPct ?? opts.effXPct;
+    const mm = centerDistanceLabelMmFromMarkerCenter(
+      xForLabel,
       opts.stageWidthMm
     );
     return formatCenterDistanceCmFine(mm);

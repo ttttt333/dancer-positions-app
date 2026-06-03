@@ -22,6 +22,11 @@ export type DancerSpot = {
    * センターまでの距離を毎回算出（5cm 刻みの整数 cm）。隣同士間隔を変えても表示が追従する。
    */
   markerBadgeSource?: "centerDistance";
+  /**
+   * 再生ギャップ補間時: ○内センター距離の算出 x（印の見た目 xPct とは別）。
+   * 未指定時は xPct を使う。
+   */
+  centerDistanceLabelXPct?: number;
   xPct: number;
   yPct: number;
   /**

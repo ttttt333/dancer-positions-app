@@ -58,7 +58,7 @@ export type MarkerResizeDraftInput = {
   delta: number;
   minPx: number;
   maxPx: number;
-  /** 2 人以上の一括リサイズなら共通倍率、1 人なら差分 */
+  /** 2 人以上の一括リサイズなら全員同一直径、1 人なら差分 */
   bulk: boolean;
   /** 一括時の基準直径（未指定なら startSizes の最大） */
   anchorSizePx?: number;
@@ -66,7 +66,7 @@ export type MarkerResizeDraftInput = {
 
 /**
  * 右下の四角ハンドルドラッグ中の○直径プレビュー。
- * 複数選択時は基準サイズに対する倍率で全員を同時に拡縮する。
+ * 複数選択時は基準直径＋差分の同一直径を全員に適用する。
  */
 export function computeMarkerResizeDraftSizes({
   startSizes,
@@ -93,23 +93,9 @@ export function computeMarkerResizeDraftSizes({
   }
   if (!(anchorSize > 0)) anchorSize = entries[0]![1];
 
-  let scaleLo = 0;
-  let scaleHi = Number.POSITIVE_INFINITY;
-  for (const [, s0] of entries) {
-    if (s0 > 0) {
-      scaleLo = Math.max(scaleLo, minPx / s0);
-      scaleHi = Math.min(scaleHi, maxPx / s0);
-    }
-  }
-  if (!Number.isFinite(scaleHi) || scaleHi < scaleLo) {
-    scaleHi = scaleLo;
-  }
-
-  const rawScale = (anchorSize + delta) / anchorSize;
-  const scale = clamp(rawScale, scaleLo, scaleHi);
-
-  for (const [id, s0] of entries) {
-    draft.set(id, Math.round(clamp(s0 * scale, minPx, maxPx)));
+  const targetPx = Math.round(clamp(anchorSize + delta, minPx, maxPx));
+  for (const [id] of entries) {
+    draft.set(id, targetPx);
   }
   return draft;
 }

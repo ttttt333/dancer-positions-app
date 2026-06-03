@@ -4,6 +4,7 @@ import type {
   PointerEvent as ReactPointerEvent,
 } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import type {
   ChoreographyProjectJson,
   DancerSpot,
@@ -349,7 +350,7 @@ export function StageBoardBody({
   >(null);
   /**
    * 代表ダンサーの右下ハンドルで、選択中のダンサー群の○サイズ（px）を変更するセッション。
-   * 複数選択時は基準直径に対する共通倍率で全員を同時に拡縮する。
+   * 複数選択時は基準直径＋差分の同一直径を全員に適用する。
    */
   const markerResizeRef = useRef<{
     startClientX: number;
@@ -363,8 +364,6 @@ export function StageBoardBody({
     string,
     number
   > | null>(null);
-  const markerDiamDraftRafRef = useRef<number | null>(null);
-  const markerDiamDraftPendingRef = useRef<Map<string, number> | null>(null);
   /**
    * 回転ハンドルドラッグ中の向きプレビュー（選択中の各 ID → 度）。
    * ポインターアップでプロジェクトに確定するまで `facingDeg` 表示に使う。
@@ -2173,7 +2172,7 @@ export function StageBoardBody({
 
   /**
    * 代表ダンサーの右下ハンドル → 選択中のダンサー全員の○サイズ（px）を変える。
-   * 複数選択時は基準直径に対する倍率で○と名下を同時に拡縮する。
+   * 複数選択時は基準直径＋差分の同一直径で○と名下を連動させる。
    */
   const handlePointerDownMarkerResize = useCallback(
     (e: ReactPointerEvent) => {
@@ -3122,14 +3121,9 @@ export function StageBoardBody({
           bulk,
           anchorSizePx: m.anchorSizePx,
         });
-        markerDiamDraftPendingRef.current = draft;
-        if (markerDiamDraftRafRef.current === null) {
-          markerDiamDraftRafRef.current = requestAnimationFrame(() => {
-            markerDiamDraftRafRef.current = null;
-            const pending = markerDiamDraftPendingRef.current;
-            if (pending) setMarkerDiamDraft(new Map(pending));
-          });
-        }
+        flushSync(() => {
+          setMarkerDiamDraft(new Map(draft));
+        });
         setTrashHotIfChanged(false);
         return;
       }
@@ -3300,19 +3294,12 @@ export function StageBoardBody({
       setMarkerGroupPosDraft(null);
       /** ○サイズ確定（選択中の各ダンサーに `sizePx` を保存する） */
       const m = markerResizeRef.current;
-      if (markerDiamDraftRafRef.current !== null) {
-        cancelAnimationFrame(markerDiamDraftRafRef.current);
-        markerDiamDraftRafRef.current = null;
-      }
-      const pendingDiamDraft =
-        markerDiamDraftPendingRef.current ?? markerDiamDraft;
-      markerDiamDraftPendingRef.current = null;
-      if (m && pendingDiamDraft && pendingDiamDraft.size > 0) {
-        const changed = [...pendingDiamDraft.entries()].some(
+      if (m && markerDiamDraft && markerDiamDraft.size > 0) {
+        const changed = [...markerDiamDraft.entries()].some(
           ([id, v]) => m.startSizes.get(id) !== v,
         );
         if (changed) {
-          const nextSizes = new Map(pendingDiamDraft);
+          const nextSizes = new Map(markerDiamDraft);
           setProject((p) => ({
             ...p,
             formations: p.formations.map((f) =>
@@ -3383,11 +3370,6 @@ export function StageBoardBody({
         queuedFormationRafId = null;
       }
       queuedFormationUpdater = null;
-      if (markerDiamDraftRafRef.current !== null) {
-        cancelAnimationFrame(markerDiamDraftRafRef.current);
-        markerDiamDraftRafRef.current = null;
-      }
-      markerDiamDraftPendingRef.current = null;
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);

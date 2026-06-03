@@ -22,9 +22,19 @@ import {
   type ExportPhase,
 } from "../store/videoExportRunStore";
 
+export type VideoExportResult = {
+  downloadName: string;
+  shared: boolean;
+  format: "mp4" | "webm";
+  size: number;
+  fallbackReason?: string;
+  /** @deprecated format === "webm" を使用 */
+  webmFallback?: boolean;
+};
+
 export type { VideoExportCapabilityCheck } from "../lib/videoExportCapabilities";
 export { checkVideoExportCapabilities };
-export type { ExportPhase, ExportEncodeSubphase };
+export type { ExportPhase, ExportEncodeSubphase, VideoExportResult };
 
 export type ExportOptions = {
   canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -85,14 +95,22 @@ function downloadRecordedWebm(blob: Blob, baseName: string): string {
 
 async function tryWebmFallback(
   blob: Blob,
-  options: ExportOptions
-): Promise<{ downloadName: string; shared: boolean; webmFallback: true }> {
+  options: ExportOptions,
+  fallbackReason?: string
+): Promise<VideoExportResult> {
   const downloadName = downloadRecordedWebm(blob, options.fileName);
   let shared = false;
   if (options.shareAfter) {
     shared = await shareVideoFile(blob, downloadName, options.fileName);
   }
-  return { downloadName, shared, webmFallback: true };
+  return {
+    downloadName,
+    shared,
+    format: "webm",
+    size: blob.size,
+    fallbackReason,
+    webmFallback: true,
+  };
 }
 
 function blobFromFfmpegFile(data: Uint8Array | string): Blob {
@@ -253,7 +271,7 @@ export function useVideoExport() {
 
   const startExport = useCallback(async (
     options: ExportOptions
-  ): Promise<{ downloadName: string; shared: boolean; webmFallback?: boolean }> => {
+  ): Promise<VideoExportResult> => {
     let videoStream: MediaStream | null = null;
     let recordedBlob: Blob | null = null;
 
@@ -453,7 +471,12 @@ export function useVideoExport() {
         resetRun();
       }, 1200);
 
-      return { downloadName, shared };
+      return {
+        downloadName,
+        shared,
+        format: "mp4",
+        size: mp4Blob.size,
+      };
     } catch (error) {
       if (
         recordedBlob &&
@@ -468,7 +491,11 @@ export function useVideoExport() {
             progressMessage: "MP4 変換に失敗したため WebM で保存しています…",
           });
           setProgressValue(95);
-          const fallback = await tryWebmFallback(recordedBlob, options);
+          const fallback = await tryWebmFallback(
+            recordedBlob,
+            options,
+            error instanceof Error ? error.message : String(error)
+          );
           patch({
             phase: "done",
             encodeSubphase: null,

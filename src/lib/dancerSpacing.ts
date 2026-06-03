@@ -225,6 +225,24 @@ export function rawHorizontalDistanceFromStageCenterMm(
   return Math.abs(((xPct - 50) / 100) * stageWidthMm);
 }
 
+/**
+ * ○内「センター距離」表示用 mm。
+ * 5cm 格子に x を揃えてから距離を出し、上手・下手で同じ数字になるようにする。
+ */
+export function centerDistanceLabelMmFromMarkerCenter(
+  xPct: number,
+  stageWidthMm: number,
+  gridMm = 50
+): number {
+  if (!(stageWidthMm > 0)) return 0;
+  const snappedXPct = snapXPctToCenterDistanceMmGrid(
+    xPct,
+    stageWidthMm,
+    gridMm
+  );
+  return rawHorizontalDistanceFromStageCenterMm(snappedXPct, stageWidthMm);
+}
+
 /** ○内「センターからの距離」表示用。センターからの水平距離を 5cm 刻みの整数（cm）に丸める。 */
 export function formatCenterDistanceCmFine(mmFromCenter: number): string {
   const cm = mmFromCenter / 10;

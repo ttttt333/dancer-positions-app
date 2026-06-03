@@ -146,10 +146,10 @@ export default defineConfig({
     /** Vite の既定どおり 5173（以前の作業 URL と揃える） */
     port: 5173,
     strictPort: true,
-    /** SharedArrayBuffer（FFmpeg.wasm）用 + 開発時の強キャッシュ防止 */
+    /** SharedArrayBuffer（FFmpeg.wasm）+ クロスオリジン API 両立 */
     headers: {
-      "Cross-Origin-Embedder-Policy": "require-corp",
-      "Cross-Origin-Opener-Policy": "same-origin",
+      "Cross-Origin-Embedder-Policy": "credentialless",
+      "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
       "Cache-Control": "no-store",
     },
     /** open は devOpenBrowserPlugin が担当（concurrently でも確実に開く） */
@@ -163,8 +163,8 @@ export default defineConfig({
   },
   preview: {
     headers: {
-      "Cross-Origin-Embedder-Policy": "require-corp",
-      "Cross-Origin-Opener-Policy": "same-origin",
+      "Cross-Origin-Embedder-Policy": "credentialless",
+      "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
     },
   },
 });
