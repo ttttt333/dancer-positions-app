@@ -5,7 +5,6 @@ import { playbackEngine } from "../core/playbackEngine";
 import { isSupabaseBackend } from "../lib/supabaseClient";
 import {
   supabaseDownloadProjectAudioWithCache,
-  supabaseGetProjectAudioSignedUrl,
 } from "../lib/supabaseAudio";
 import { getFlowLibraryAudio } from "../lib/flowLibraryLocalAudio";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
@@ -385,8 +384,7 @@ export function useTimelineRemoteAudio({
         const alreadyPlayingThisPath =
           persistedSupabaseAudioPath === effectivePath &&
           engineUrl.length > 0 &&
-          (engineUrl === persistedSupabaseAudioBlobUrl ||
-            engineUrl.startsWith("http"));
+          engineUrl === persistedSupabaseAudioBlobUrl;
 
         if (alreadyPlayingThisPath) {
           if (persistedSupabaseAudioBlobUrl) {
@@ -421,27 +419,6 @@ export function useTimelineRemoteAudio({
         const sidecarPromise = supabaseDownloadWavePeaks(effectivePath).catch(
           () => null
         );
-
-        let signedPlaybackUrl: string | null = null;
-        if (!publicShareView) {
-          try {
-            signedPlaybackUrl = await supabaseGetProjectAudioSignedUrl(
-              effectivePath
-            );
-          } catch {
-            /* 署名 URL 不可時は blob ダウンロードへ */
-          }
-        }
-
-        if (signedPlaybackUrl && !cancelled) {
-          syncPlaybackUrl(
-            blobUrlRef,
-            signedPlaybackUrl,
-            clearPlaybackTrustedDurationSec,
-            { revokePrevious: false }
-          );
-          markPlaybackReadyForWaveFetch();
-        }
 
         const sidecar = await sidecarPromise;
         if (sidecar?.peaks.length && !cancelled) {

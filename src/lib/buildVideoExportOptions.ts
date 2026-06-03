@@ -1,13 +1,13 @@
 import type { RefObject } from "react";
 import { sortCuesByStart } from "../core/timelineController";
 import { dancersAtTime } from "../core/stageEngine";
-import { playbackEngine } from "../core/playbackEngine";
 import {
   DANCER_COLOR_PALETTE_HEX,
   modDancerColorIndex,
 } from "./dancerColorPalette";
 import { resolveStageExportRange } from "./stageExportRange";
 import { buildStageExportAppearance } from "./stageExportAppearance";
+import { resolvePlaybackAudioUrlForExport } from "./resolvePlaybackAudioUrlForExport";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import type { ExportOptions } from "../hooks/useVideoExport";
 import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography";
@@ -111,7 +111,7 @@ export function buildVideoExportOptions(
 
   return {
     canvasRef,
-    audioUrl: playbackEngine.getMediaSourceUrl() || null,
+    audioUrl: resolvePlaybackAudioUrlForExport(),
     durationSec: span,
     fileName: safeName,
     formations,

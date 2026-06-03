@@ -2,6 +2,7 @@
  * FFmpeg.wasm 用静的ファイルを public/ffmpeg-core にコピーする。
  * COEP 有効時は CDN（unpkg）がブロックされるため同一オリジン配信が必須。
  */
+import { readFileSync, writeFileSync } from "node:fs";
 import { cpSync, existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -30,4 +31,14 @@ mkdirSync(destDir, { recursive: true });
 for (const { from, to } of copies) {
   cpSync(from, join(destDir, to));
 }
+
+/** Worker フォールバックが unpkg（COEP でブロック）を指さないよう同一オリジンに差し替え */
+const constPath = join(destDir, "const.js");
+let constSrc = readFileSync(constPath, "utf8");
+constSrc = constSrc.replace(
+  /export const CORE_URL = `[^`]+`/,
+  "export const CORE_URL = `/ffmpeg-core/ffmpeg-core.js`"
+);
+writeFileSync(constPath, constSrc);
+
 console.log("[sync-ffmpeg-core] public/ffmpeg-core/ にコピーしました");

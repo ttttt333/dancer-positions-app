@@ -2,7 +2,6 @@
 
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import {
-  ffmpegCoreAbsoluteUrl,
   ffmpegCoreAssetUrl,
 } from "./ffmpegCoreUrls";
 import { readResponseArrayBufferWithProgress } from "./fetchWithProgress";
@@ -114,7 +113,7 @@ async function instantiateFFmpeg(): Promise<FFmpeg> {
   try {
     await Promise.race([
       ff.load({
-        classWorkerURL: ffmpegCoreAbsoluteUrl("ffmpeg-class-worker.js"),
+        classWorkerURL: ffmpegCoreAssetUrl("ffmpeg-class-worker.js"),
         coreURL: coreBlobUrl,
         wasmURL: wasmBlobUrl,
       }),

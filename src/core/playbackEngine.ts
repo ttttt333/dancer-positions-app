@@ -14,6 +14,7 @@
  */
 
 import { configureHtmlAudioElement, mediaElementErrorMessage } from "../lib/audioElementReady";
+import { isCoepSafeMediaUrl, isCrossOriginIsolatedPage } from "../lib/coepMedia";
 
 export type PlaybackTimeListener = (currentTimeSec: number) => void;
 /** true = 再生中、false = 一時停止など */
@@ -173,6 +174,12 @@ export class PlaybackEngine {
   setMediaSourceUrl(url: string, opts?: { force?: boolean }): void {
     const el = this.media;
     if (!el || typeof url !== "string" || url.length === 0) return;
+    if (isCrossOriginIsolatedPage() && !isCoepSafeMediaUrl(url)) {
+      console.warn(
+        "[playback] COEP 下ではクロスオリジン音源を <audio> に設定できません。blob 取得後に再生されます。"
+      );
+      return;
+    }
     const current = this.getMediaSourceUrl();
     if (!opts?.force && current === url) {
       this.emitMeta();
