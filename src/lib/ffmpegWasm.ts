@@ -1,13 +1,18 @@
 /** FFmpeg.wasm の共有ローダー（動画抽出・ステージ動画書き出しで共用） */
 
 import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { ffmpegCoreAssetUrl } from "./ffmpegCoreUrls";
+import {
+  ffmpegCoreAbsoluteUrl,
+  ffmpegCoreAssetUrl,
+} from "./ffmpegCoreUrls";
 import { readResponseArrayBufferWithProgress } from "./fetchWithProgress";
 
 export type FfmpegWasmProgress = {
   ratio: number;
   message: string;
 };
+
+const FFMPEG_LOAD_TIMEOUT_MS = 180_000;
 
 let ffmpegSingleton: FFmpeg | null = null;
 let ffmpegLoadPromise: Promise<FFmpeg> | null = null;
@@ -35,22 +40,97 @@ function wrapFfmpegError(step: string, cause: unknown): Error {
       `${step}: ブラウザのセキュリティ設定（COOP/COEP）により FFmpeg を起動できません。ページを再読み込みしてください。`
     );
   }
+  if (/タイムアウト|timeout/i.test(detail)) {
+    return new Error(
+      `${step}: ${detail} メモリ不足の可能性があります。タブを閉じて再試行するか、短い尺で書き出してください。`
+    );
+  }
   return new Error(`${step}: ${detail}`);
 }
 
-async function fetchAsBlobUrl(
+async function prefetchAsset(
   url: string,
-  mime: string,
   onProgress: (ratio: number) => void
-): Promise<string> {
+): Promise<void> {
   onProgress(0);
-  const res = await fetch(url);
+  const res = await fetch(url, { cache: "force-cache" });
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}`);
   }
-  const buf = await readResponseArrayBufferWithProgress(res, onProgress);
-  const blob = new Blob([buf], { type: mime });
-  return URL.createObjectURL(blob);
+  await readResponseArrayBufferWithProgress(res, onProgress);
+  onProgress(1);
+}
+
+async function instantiateFFmpeg(): Promise<FFmpeg> {
+  emitLoadProgress({ ratio: 0, message: "FFmpeg コア (JS) を取得中…" });
+  await prefetchAsset(ffmpegCoreAssetUrl("ffmpeg-core.js"), (r) => {
+    emitLoadProgress({
+      ratio: r * 0.1,
+      message: "FFmpeg コア (JS) を取得中…",
+    });
+  });
+
+  emitLoadProgress({
+    ratio: 0.1,
+    message: "FFmpeg コア (WASM) を取得中…（初回は 20〜40 秒）",
+  });
+  await prefetchAsset(ffmpegCoreAssetUrl("ffmpeg-core.wasm"), (r) => {
+    emitLoadProgress({
+      ratio: 0.1 + r * 0.55,
+      message: "FFmpeg コア (WASM) を取得中…（初回は 20〜40 秒）",
+    });
+  });
+
+  emitLoadProgress({
+    ratio: 0.68,
+    message: "FFmpeg を起動中…（30秒〜2分かかることがあります）",
+  });
+
+  const ff = new FFmpeg();
+  const loadStarted = Date.now();
+  const bootTimer = window.setInterval(() => {
+    const elapsed = Date.now() - loadStarted;
+    const simulated = 0.68 + Math.min(0.28, (elapsed / FFMPEG_LOAD_TIMEOUT_MS) * 0.28);
+    emitLoadProgress({
+      ratio: simulated,
+      message:
+        elapsed > 45_000
+          ? "FFmpeg を起動中…（まだ処理中です。しばらくお待ちください）"
+          : "FFmpeg を起動中…（30秒〜2分かかることがあります）",
+    });
+  }, 1200);
+
+  try {
+    await Promise.race([
+      ff.load({
+        classWorkerURL: ffmpegCoreAbsoluteUrl("ffmpeg-worker.js"),
+        coreURL: ffmpegCoreAbsoluteUrl("ffmpeg-core.js"),
+        wasmURL: ffmpegCoreAbsoluteUrl("ffmpeg-core.wasm"),
+      }),
+      new Promise<never>((_, reject) => {
+        window.setTimeout(() => {
+          reject(
+            new Error(
+              `FFmpeg 起動が ${Math.round(FFMPEG_LOAD_TIMEOUT_MS / 1000)} 秒でタイムアウトしました`
+            )
+          );
+        }, FFMPEG_LOAD_TIMEOUT_MS);
+      }),
+    ]);
+  } catch (e) {
+    try {
+      ff.terminate();
+    } catch {
+      /* ignore */
+    }
+    throw e;
+  } finally {
+    window.clearInterval(bootTimer);
+  }
+
+  ffmpegSingleton = ff;
+  emitLoadProgress({ ratio: 1, message: "FFmpeg 準備完了" });
+  return ff;
 }
 
 export async function loadFFmpegWasm(
@@ -66,48 +146,20 @@ export async function loadFFmpegWasm(
   }
 
   if (!ffmpegLoadPromise) {
-    ffmpegLoadPromise = (async () => {
-      emitLoadProgress({ ratio: 0, message: "FFmpeg コア (JS) を取得中…" });
-      const ff = new FFmpeg();
-      const coreURL = await fetchAsBlobUrl(
-        ffmpegCoreAssetUrl("ffmpeg-core.js"),
-        "text/javascript",
-        (r) => {
-          emitLoadProgress({
-            ratio: r * 0.12,
-            message: "FFmpeg コア (JS) を取得中…",
-          });
-        }
-      );
-
-      emitLoadProgress({
-        ratio: 0.12,
-        message: "FFmpeg コア (WASM) を取得中…（初回は 20〜40 秒）",
-      });
-      const wasmURL = await fetchAsBlobUrl(
-        ffmpegCoreAssetUrl("ffmpeg-core.wasm"),
-        "application/wasm",
-        (r) => {
-          emitLoadProgress({
-            ratio: 0.12 + r * 0.78,
-            message: "FFmpeg コア (WASM) を取得中…（初回は 20〜40 秒）",
-          });
-        }
-      );
-
-      emitLoadProgress({ ratio: 0.92, message: "FFmpeg を起動中…" });
-      await ff.load({ coreURL, wasmURL });
-      ffmpegSingleton = ff;
-      emitLoadProgress({ ratio: 1, message: "FFmpeg 準備完了" });
-      return ff;
-    })();
+    ffmpegLoadPromise = instantiateFFmpeg();
   }
 
   try {
     return await ffmpegLoadPromise;
   } catch (e) {
     ffmpegLoadPromise = null;
+    const dead = ffmpegSingleton;
     ffmpegSingleton = null;
+    try {
+      dead?.terminate();
+    } catch {
+      /* ignore */
+    }
     throw wrapFfmpegError("FFmpeg の読み込み", e);
   } finally {
     if (onProgress) {
@@ -160,4 +212,14 @@ export function preloadFFmpegWasm(): Promise<void> {
   return loadFFmpegWasm()
     .then(() => undefined)
     .catch(() => undefined);
+}
+
+export function resetFFmpegWasm(): void {
+  try {
+    ffmpegSingleton?.terminate();
+  } catch {
+    /* ignore */
+  }
+  ffmpegSingleton = null;
+  ffmpegLoadPromise = null;
 }

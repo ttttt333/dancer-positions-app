@@ -93,6 +93,13 @@ export function VideoExportButton({
             title: "共有しました",
             description: `${result.downloadName} を共有シートで送れます`,
           });
+        } else if ("webmFallback" in result && result.webmFallback) {
+          showToast({
+            kind: "info",
+            title: "WebM で保存しました",
+            description:
+              "MP4 変換できなかったため WebM 形式で保存しました。PC では VLC 等で再生できます",
+          });
         } else if (shareAfter) {
           showToast({
             kind: "info",

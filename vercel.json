@@ -1,8 +1,38 @@
 {
   "headers": [
     {
-      "source": "/ffmpeg-core/(.*)",
+      "source": "/ffmpeg-core/ffmpeg-core.wasm",
       "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/wasm"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/ffmpeg-core/ffmpeg-core.js",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/javascript"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/ffmpeg-core/ffmpeg-worker.js",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/javascript"
+        },
         {
           "key": "Cache-Control",
           "value": "public, max-age=31536000, immutable"

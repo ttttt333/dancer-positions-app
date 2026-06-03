@@ -7,7 +7,7 @@ import {
   shareVideoFile,
 } from "../lib/shareVideoFile";
 import { fetchAudioForFfmpeg } from "../lib/fetchAudioForFfmpeg";
-import { ffmpegExecChecked, loadFFmpegWasm } from "../lib/ffmpegWasm";
+import { ffmpegExecChecked, loadFFmpegWasm, resetFFmpegWasm } from "../lib/ffmpegWasm";
 import {
   checkVideoExportCapabilities,
   getSupportedRecorderMimeType,
@@ -71,6 +71,24 @@ function startProgressCreep(
     }
   }, intervalMs);
   return () => window.clearInterval(id);
+}
+
+function downloadRecordedWebm(blob: Blob, baseName: string): string {
+  const downloadName = `${safeVideoBaseName(baseName)}.webm`;
+  downloadVideoBlob(blob, downloadName);
+  return downloadName;
+}
+
+async function tryWebmFallback(
+  blob: Blob,
+  options: ExportOptions
+): Promise<{ downloadName: string; shared: boolean; webmFallback: true }> {
+  const downloadName = downloadRecordedWebm(blob, options.fileName);
+  let shared = false;
+  if (options.shareAfter) {
+    shared = await shareVideoFile(blob, downloadName, options.fileName);
+  }
+  return { downloadName, shared, webmFallback: true };
 }
 
 function blobFromFfmpegFile(data: Uint8Array | string): Blob {
@@ -213,8 +231,9 @@ export function useVideoExport() {
 
   const startExport = useCallback(async (
     options: ExportOptions
-  ): Promise<{ downloadName: string; shared: boolean }> => {
+  ): Promise<{ downloadName: string; shared: boolean; webmFallback?: boolean }> => {
     let videoStream: MediaStream | null = null;
+    let recordedBlob: Blob | null = null;
 
     try {
       cancelRef.current = false;
@@ -281,7 +300,7 @@ export function useVideoExport() {
       recorder.stop();
       await recordDone;
 
-      const recordedBlob = new Blob(chunks, {
+      recordedBlob = new Blob(chunks, {
         type: mimeType.split(";")[0] || "video/webm",
       });
       if (recordedBlob.size < 256) {
@@ -300,12 +319,12 @@ export function useVideoExport() {
       const stopLoadCreep = startProgressCreep(
         () => progressRef.current,
         setProgressValue,
-        81
+        88
       );
       let ffmpeg: FFmpeg;
       try {
         ffmpeg = await loadFFmpegWasm((p) => {
-          setProgressValue(69 + p.ratio * 13);
+          setProgressValue(69 + p.ratio * 16);
           setProgressMessage(p.message);
           if (p.ratio < 0.05 && !notifiedFfmpegLoad) {
             options.onFfmpegFirstLoad?.();
@@ -318,7 +337,7 @@ export function useVideoExport() {
 
       setEncodeSubphase("mux");
       setProgressMessage("録画データを渡しています…");
-      setProgressValue(83);
+      setProgressValue(86);
       await sleep(0);
 
       const inputName = mimeType.includes("mp4") ? "input.mp4" : "input.webm";
@@ -399,6 +418,34 @@ export function useVideoExport() {
 
       return { downloadName, shared };
     } catch (error) {
+      if (
+        recordedBlob &&
+        recordedBlob.size >= 256 &&
+        !(error instanceof DOMException && error.name === "AbortError") &&
+        error instanceof Error &&
+        /FFmpeg|MP4|タイムアウト|変換|crossOrigin|COEP|COOP/i.test(error.message)
+      ) {
+        try {
+          resetFFmpegWasm();
+          setProgressMessage("MP4 変換に失敗したため WebM で保存しています…");
+          setProgressValue(95);
+          const fallback = await tryWebmFallback(recordedBlob, options);
+          setPhase("done");
+          setEncodeSubphase(null);
+          setProgressMessage("WebM で保存しました");
+          setProgressValue(100);
+          setTimeout(() => {
+            setIsExporting(false);
+            setPhase(null);
+            setProgressValue(0);
+            setProgressMessage("");
+          }, 1200);
+          return fallback;
+        } catch (fallbackError) {
+          console.error("WebM fallback failed:", fallbackError);
+        }
+      }
+
       console.error("Video export failed:", error);
       setIsExporting(false);
       setPhase(null);
