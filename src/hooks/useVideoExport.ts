@@ -1,11 +1,13 @@
 import { useRef, useState, useCallback, type RefObject } from "react";
 import { fetchFile } from "@ffmpeg/util";
+import type { FFmpeg } from "@ffmpeg/ffmpeg";
 import {
   downloadVideoBlob,
   safeVideoBaseName,
   shareVideoFile,
 } from "../lib/shareVideoFile";
-import { loadFFmpegWasm } from "../lib/ffmpegWasm";
+import { fetchAudioForFfmpeg } from "../lib/fetchAudioForFfmpeg";
+import { ffmpegExecChecked, loadFFmpegWasm } from "../lib/ffmpegWasm";
 import {
   checkVideoExportCapabilities,
   getSupportedRecorderMimeType,
@@ -64,11 +66,7 @@ function blobFromFfmpegFile(data: Uint8Array | string): Blob {
   return new Blob([copy], { type: "video/mp4" });
 }
 
-/** 書き出しは HTML canvas 固定（requestFrame / 録画の互換性） */
-function createExportCanvas(
-  canvasRef: RefObject<HTMLCanvasElement | null>
-): {
-  canvas: HTMLCanvasElement;
+function createExportCanvas(canvasRef: RefObject<HTMLCanvasElement | null>): {
   ctx2d: CanvasRenderingContext2D;
   videoStream: MediaStream;
   requestFrame: (() => void) | null;
@@ -93,18 +91,87 @@ function createExportCanvas(
     );
   }
 
-  const probe = canvas.captureStream(0);
-  const track = probe.getVideoTracks()[0] as
+  const videoStream = canvas.captureStream(0);
+  const track = videoStream.getVideoTracks()[0] as
     | (MediaStreamTrack & { requestFrame?: () => void })
     | undefined;
   const requestFrame = track?.requestFrame?.bind(track) ?? null;
-  probe.getTracks().forEach((t) => t.stop());
 
-  const videoStream = requestFrame
-    ? canvas.captureStream(0)
-    : canvas.captureStream(EXPORT_FPS);
+  return { ctx2d, videoStream, requestFrame };
+}
 
-  return { canvas, ctx2d, videoStream, requestFrame };
+async function muxRecordedWebmToMp4(
+  ffmpeg: FFmpeg,
+  params: {
+    inputName: string;
+    audioUrl: string | null;
+    audioStartSec: number;
+    durationSec: number;
+  }
+): Promise<void> {
+  const { inputName, audioUrl, audioStartSec, durationSec } = params;
+  const duration = String(durationSec);
+
+  if (audioUrl) {
+    const audioData = await fetchAudioForFfmpeg(audioUrl);
+    await ffmpeg.writeFile("audio_src", audioData);
+    await ffmpegExecChecked(ffmpeg, [
+      "-y",
+      "-i",
+      inputName,
+      "-ss",
+      String(audioStartSec),
+      "-i",
+      "audio_src",
+      "-t",
+      duration,
+      "-map",
+      "0:v:0",
+      "-map",
+      "1:a:0",
+      "-c:v",
+      "libx264",
+      "-preset",
+      "ultrafast",
+      "-crf",
+      "28",
+      "-pix_fmt",
+      "yuv420p",
+      "-r",
+      String(EXPORT_FPS),
+      "-c:a",
+      "aac",
+      "-b:a",
+      "96k",
+      "-shortest",
+      "-movflags",
+      "+faststart",
+      "output.mp4",
+    ]);
+    await ffmpeg.deleteFile("audio_src").catch(() => {});
+  } else {
+    await ffmpegExecChecked(ffmpeg, [
+      "-y",
+      "-i",
+      inputName,
+      "-t",
+      duration,
+      "-c:v",
+      "libx264",
+      "-preset",
+      "ultrafast",
+      "-crf",
+      "28",
+      "-pix_fmt",
+      "yuv420p",
+      "-r",
+      String(EXPORT_FPS),
+      "-an",
+      "-movflags",
+      "+faststart",
+      "output.mp4",
+    ]);
+  }
 }
 
 export function useVideoExport() {
@@ -117,6 +184,8 @@ export function useVideoExport() {
   const startExport = useCallback(async (
     options: ExportOptions
   ): Promise<{ downloadName: string; shared: boolean }> => {
+    let videoStream: MediaStream | null = null;
+
     try {
       cancelRef.current = false;
       setIsExporting(true);
@@ -124,22 +193,24 @@ export function useVideoExport() {
       setEncodeSubphase(null);
       setProgress(0);
 
-      const { ctx2d, videoStream, requestFrame } = createExportCanvas(
+      const { ctx2d, videoStream: stream, requestFrame } = createExportCanvas(
         options.canvasRef
       );
+      videoStream = stream;
 
       const mimeType = getSupportedRecorderMimeType();
       if (!mimeType) {
         throw new Error("このブラウザでは WebM 録画に対応していません");
       }
 
-      const recorder = new MediaRecorder(videoStream, { mimeType });
+      const recorder = new MediaRecorder(stream, { mimeType });
       const chunks: Blob[] = [];
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunks.push(e.data);
       };
 
-      const recordDone = new Promise<void>((resolve) => {
+      const recordDone = new Promise<void>((resolve, reject) => {
+        recorder.onerror = () => reject(new Error("画面の録画に失敗しました"));
         recorder.onstop = () => resolve();
       });
 
@@ -147,7 +218,6 @@ export function useVideoExport() {
 
       const fps = EXPORT_FPS;
       const totalFrames = Math.max(1, Math.ceil(options.durationSec * fps));
-      const usePacedFrames = requestFrame == null;
 
       for (let frame = 0; frame <= totalFrames; frame++) {
         if (cancelRef.current) {
@@ -156,19 +226,18 @@ export function useVideoExport() {
           throw new DOMException("Export aborted", "AbortError");
         }
 
-        const tRel = frame / fps;
         drawStageExportFrame(
           ctx2d,
           EXPORT_WIDTH,
           EXPORT_HEIGHT,
-          tRel,
+          frame / fps,
           options.formations,
           options.stageAppearance
         );
 
         if (requestFrame) {
           requestFrame();
-        } else if (usePacedFrames) {
+        } else {
           await sleep(FRAME_MS);
         }
 
@@ -181,8 +250,13 @@ export function useVideoExport() {
       recorder.stop();
       await recordDone;
 
-      if (chunks.length === 0) {
-        throw new Error("録画データがありません");
+      const recordedBlob = new Blob(chunks, {
+        type: mimeType.split(";")[0] || "video/webm",
+      });
+      if (recordedBlob.size < 256) {
+        throw new Error(
+          "録画データが空です。ページを再読み込みしてからもう一度お試しください。"
+        );
       }
 
       setPhase("converting");
@@ -203,88 +277,21 @@ export function useVideoExport() {
       setProgress(82);
       await sleep(0);
 
-      const inputExt = mimeType.includes("mp4") ? "mp4" : "webm";
-      const inputName = `input.${inputExt}`;
-      const recordedBlob = new Blob(chunks, {
-        type: mimeType.split(";")[0] || "video/webm",
-      });
+      const inputName = mimeType.includes("mp4") ? "input.mp4" : "input.webm";
       await ffmpeg.writeFile(inputName, await fetchFile(recordedBlob));
 
-      const audioStart = options.audioStartSec ?? 0;
-      const duration = String(options.durationSec);
-
-      if (options.audioUrl) {
-        await ffmpeg.writeFile("audio_src", await fetchFile(options.audioUrl));
-      }
-
-      setProgress(88);
-      await sleep(0);
-
-      const muxWithAudio = options.audioUrl
-        ? [
-            "-r",
-            String(EXPORT_FPS),
-            "-i",
-            inputName,
-            "-ss",
-            String(audioStart),
-            "-i",
-            "audio_src",
-            "-t",
-            duration,
-            "-map",
-            "0:v:0",
-            "-map",
-            "1:a:0",
-          ]
-        : [
-            "-r",
-            String(EXPORT_FPS),
-            "-i",
-            inputName,
-            "-t",
-            duration,
-            "-map",
-            "0:v:0",
-          ];
-
-      const tailAudio = options.audioUrl
-        ? ["-c:a", "aac", "-b:a", "96k"]
-        : ["-an"];
-
-      try {
-        await ffmpeg.exec([
-          ...muxWithAudio,
-          "-c:v",
-          "copy",
-          ...tailAudio,
-          "-movflags",
-          "+faststart",
-          "output.mp4",
-        ]);
-      } catch {
-        await ffmpeg.deleteFile("output.mp4").catch(() => {});
-        await ffmpeg.exec([
-          ...muxWithAudio,
-          "-c:v",
-          "libx264",
-          "-preset",
-          "ultrafast",
-          "-crf",
-          "28",
-          ...tailAudio,
-          "-movflags",
-          "+faststart",
-          "output.mp4",
-        ]);
-      }
-
-      if (options.audioUrl) {
-        await ffmpeg.deleteFile("audio_src").catch(() => {});
-      }
+      await muxRecordedWebmToMp4(ffmpeg, {
+        inputName,
+        audioUrl: options.audioUrl,
+        audioStartSec: options.audioStartSec ?? 0,
+        durationSec: options.durationSec,
+      });
 
       setProgress(98);
       const data = await ffmpeg.readFile("output.mp4");
+      if (!data || (data instanceof Uint8Array && data.byteLength < 256)) {
+        throw new Error("MP4 の生成結果が空です");
+      }
       const mp4Blob = blobFromFfmpegFile(data);
 
       await ffmpeg.deleteFile(inputName).catch(() => {});
@@ -312,12 +319,14 @@ export function useVideoExport() {
 
       return { downloadName, shared };
     } catch (error) {
-      console.error(error);
+      console.error("Video export failed:", error);
       setIsExporting(false);
       setPhase(null);
       setEncodeSubphase(null);
       setProgress(0);
       throw error;
+    } finally {
+      videoStream?.getTracks().forEach((t) => t.stop());
     }
   }, []);
 

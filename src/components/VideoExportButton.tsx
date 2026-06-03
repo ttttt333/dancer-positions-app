@@ -117,10 +117,14 @@ export function VideoExportButton({
         }
         const msg =
           e instanceof Error ? e.message : "動画の保存に失敗しました";
+        const hint =
+          /crossOriginIsolated|COOP|COEP|FFmpeg の読み込み/i.test(msg)
+            ? "（本番 URL ではデプロイ反映後にハードリロードしてください）"
+            : "";
         showToast({
           kind: "error",
           title: "エクスポート失敗",
-          description: msg,
+          description: `${msg}${hint}`,
         });
         console.error("Export failed:", e);
       }
