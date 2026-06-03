@@ -38,6 +38,11 @@ import {
   snapXPctToCenterDistanceMmGrid,
 } from "../lib/dancerSpacing";
 import { computeMarkerResizeDraftSizes } from "../lib/stageMarkerSizing";
+import {
+  computeNameBelowFontResizeDraftSizes,
+  defaultNameBelowFontPx,
+  effectiveNameBelowFontPx,
+} from "../lib/stageNameBelowFontSizing";
 import { resolveArrangeTargetIds } from "../lib/stageSelectionArrange";
 import type { DancerQuickEditApply } from "./DancerQuickEditDialog";
 import {
@@ -364,6 +369,17 @@ export function StageBoardBody({
     string,
     number
   > | null>(null);
+  /** 名前サイズハンドルドラッグ中のプレビュー（ID → px） */
+  const nameBelowFontResizeRef = useRef<{
+    startClientY: number;
+    startFonts: Map<string, number>;
+    ids: string[];
+    anchorFontPx: number;
+  } | null>(null);
+  const [nameBelowFontDraft, setNameBelowFontDraft] = useState<Map<
+    string,
+    number
+  > | null>(null);
   /**
    * 回転ハンドルドラッグ中の向きプレビュー（選択中の各 ID → 度）。
    * ポインターアップでプロジェクトに確定するまで `facingDeg` 表示に使う。
@@ -488,6 +504,13 @@ export function StageBoardBody({
       return baseMarkerPx;
     },
     [markerDiamDraft, baseMarkerPx],
+  );
+
+  /** 名下ラベルの実効フォント（px）。○サイズとは独立。 */
+  const resolveNameBelowFontPx = useCallback(
+    (d: DancerSpot, markerPx: number) =>
+      effectiveNameBelowFontPx(d, markerPx, nameBelowFontDraft?.get(d.id)),
+    [nameBelowFontDraft],
   );
 
   /** 回転ドラッグ中はドラフト、それ以外は `facingDeg`（未設定は 0）。 */
@@ -2172,7 +2195,7 @@ export function StageBoardBody({
 
   /**
    * 代表ダンサーの右下ハンドル → 選択中のダンサー全員の○サイズ（px）を変える。
-   * 複数選択時は基準直径＋差分の同一直径で○と名下を連動させる。
+   * 複数選択時は基準直径＋差分の同一直径を全員に適用する（名下フォントは青ハンドル）。
    */
   const handlePointerDownMarkerResize = useCallback(
     (e: ReactPointerEvent) => {
@@ -2224,6 +2247,61 @@ export function StageBoardBody({
       activeFormation,
       baseMarkerPx,
       setMarkerDiamDraft,
+    ],
+  );
+
+  /** 選択範囲左上の青ハンドル → 名下フォントサイズ（○とは独立） */
+  const handlePointerDownNameBelowFontResize = useCallback(
+    (e: ReactPointerEvent) => {
+      if (e.button !== 0) return;
+      if (
+        viewMode === "view" ||
+        playbackDancers ||
+        previewDancers ||
+        !stageInteractionsEnabled ||
+        !dancerLabelBelow
+      )
+        return;
+      if (selectedDancerIds.length < 1) return;
+      e.stopPropagation();
+      e.preventDefault();
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      const dancers = writeFormation?.dancers ?? activeFormation?.dancers ?? [];
+      const startFonts = new Map<string, number>();
+      for (const id of selectedDancerIds) {
+        const d = dancers.find((x) => x.id === id);
+        if (!d) continue;
+        const markerPx = effectiveMarkerPx(d);
+        startFonts.set(id, resolveNameBelowFontPx(d, markerPx));
+      }
+      if (startFonts.size === 0) return;
+      let anchorFontPx = 0;
+      for (const v of startFonts.values()) {
+        anchorFontPx = Math.max(anchorFontPx, v);
+      }
+      if (!(anchorFontPx > 0)) {
+        anchorFontPx = defaultNameBelowFontPx(baseMarkerPx);
+      }
+      nameBelowFontResizeRef.current = {
+        startClientY: e.clientY,
+        startFonts,
+        ids: [...selectedDancerIds],
+        anchorFontPx,
+      };
+      setNameBelowFontDraft(new Map(startFonts));
+    },
+    [
+      viewMode,
+      playbackDancers,
+      previewDancers,
+      stageInteractionsEnabled,
+      dancerLabelBelow,
+      selectedDancerIds,
+      writeFormation,
+      activeFormation,
+      effectiveMarkerPx,
+      resolveNameBelowFontPx,
+      baseMarkerPx,
     ],
   );
 
@@ -3105,7 +3183,7 @@ export function StageBoardBody({
         setTrashHotIfChanged(false);
         return;
       }
-      /** 5: 代表ダンサー右下の○サイズハンドル（○と名下を連動。複数は共通倍率） */
+      /** 5: 代表ダンサー右下の○サイズハンドル（○直径のみ。名前サイズは青ハンドル） */
       const m = markerResizeRef.current;
       if (m) {
         const dx = e.clientX - m.startClientX;
@@ -3123,6 +3201,23 @@ export function StageBoardBody({
         });
         flushSync(() => {
           setMarkerDiamDraft(new Map(draft));
+        });
+        setTrashHotIfChanged(false);
+        return;
+      }
+      /** 5b: 名前サイズハンドル（上下ドラッグ・○とは独立） */
+      const nf = nameBelowFontResizeRef.current;
+      if (nf) {
+        const dy = e.clientY - nf.startClientY;
+        const bulk = nf.ids.length >= 2;
+        const draft = computeNameBelowFontResizeDraftSizes({
+          startFonts: nf.startFonts,
+          deltaY: dy,
+          bulk,
+          anchorFontPx: nf.anchorFontPx,
+        });
+        flushSync(() => {
+          setNameBelowFontDraft(new Map(draft));
         });
         setTrashHotIfChanged(false);
         return;
@@ -3319,6 +3414,33 @@ export function StageBoardBody({
       }
       markerResizeRef.current = null;
       setMarkerDiamDraft(null);
+      /** 名下フォントサイズ確定 */
+      const nf = nameBelowFontResizeRef.current;
+      if (nf && nameBelowFontDraft && nameBelowFontDraft.size > 0) {
+        const changed = [...nameBelowFontDraft.entries()].some(
+          ([id, v]) => nf.startFonts.get(id) !== v,
+        );
+        if (changed) {
+          const nextFonts = new Map(nameBelowFontDraft);
+          setProject((p) => ({
+            ...p,
+            formations: p.formations.map((f) =>
+              f.id === formationIdForWrites
+                ? {
+                    ...f,
+                    dancers: f.dancers.map((x) => {
+                      const v = nextFonts.get(x.id);
+                      if (typeof v !== "number") return x;
+                      return { ...x, nameBelowFontPx: v };
+                    }),
+                  }
+                : f,
+            ),
+          }));
+        }
+      }
+      nameBelowFontResizeRef.current = null;
+      setNameBelowFontDraft(null);
       /** マーキー完了 → 範囲内のダンサーを選択 */
       const mq = marqueeSessionRef.current;
       if (mq) {
@@ -3383,6 +3505,7 @@ export function StageBoardBody({
     removeFloorMarkupById,
     setTrashHotIfChanged,
     markerDiamDraft,
+    nameBelowFontDraft,
     setProject,
     writeFormation,
     activeFormation,
@@ -4112,6 +4235,7 @@ export function StageBoardBody({
     dancersForStageMarkers,
     effectiveMarkerPx,
     effectiveFacingDeg,
+    resolveNameBelowFontPx,
     bulkHideDancerGlyphs,
     playbackOrPreview,
     selectedDancerIds,
@@ -4241,9 +4365,11 @@ export function StageBoardBody({
         stageDancerIndexById,
         effStageWidthMm: effStageWidthMm ?? 0,
         nameBelowClearanceExtraPx,
+        resolveNameBelowFontPx,
         rot,
         dancerMarkerElements: stageDancerMarkerElements,
         onMarkerResizePointerDown: handlePointerDownMarkerResize,
+        onNameBelowFontResizePointerDown: handlePointerDownNameBelowFontResize,
         tapStageToEditLayout,
         onTapEditOverlayPointerDown: handleTapOverlayPointerDown,
       },

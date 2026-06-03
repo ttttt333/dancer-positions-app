@@ -12,8 +12,10 @@ import {
 import {
   dancerCircleInnerBelowLabel,
   layoutMarkerCircleInnerLabel,
-  markerBelowLabelFontPx,
 } from "../lib/stageBoardModelHelpers";
+import {
+  dancerNameBelowLabelOffsetPx,
+} from "../lib/stageNameBelowFontSizing";
 import type { DancerSpot } from "../types/choreography";
 import { StageDancerMarkerItem } from "../components/StageDancerMarkerItem";
 import type { StageBoardContextMenuState } from "../components/StageBoardContextMenuLayer";
@@ -28,6 +30,7 @@ export type UseStageDancerMarkerElementsParams = {
   effStageWidthMm: number | null | undefined;
   dancerLabelBelow: boolean;
   nameBelowClearanceExtraPx: number;
+  resolveNameBelowFontPx: (d: DancerSpot, markerPx: number) => number;
   rot: number;
   mmLabel: (xPct: number, yPct: number) => string;
   snapGrid: boolean;
@@ -66,6 +69,7 @@ export function useStageDancerMarkerElements(
     effStageWidthMm,
     dancerLabelBelow,
     nameBelowClearanceExtraPx,
+    resolveNameBelowFontPx,
     rot,
     mmLabel,
     snapGrid,
@@ -108,13 +112,15 @@ export function useStageDancerMarkerElements(
           screenUnrotateDeg
         );
         const dLabelFontPx = circleInnerLabelLayout.fontSizePx;
-        const labelOffsetPx =
-          Math.round(dMarkerPx / 2) + 4 + nameBelowClearanceExtraPx;
+        const labelOffsetPx = dancerNameBelowLabelOffsetPx(
+          dMarkerPx,
+          nameBelowClearanceExtraPx
+        );
         const pivotTransform = playbackOrPreview
           ? `translate3d(-50%, -50%, 0) rotate(${facing}deg)`
           : `translate(-50%, -50%) rotate(${facing}deg)`;
         const halfMarker = dMarkerPx / 2;
-        const belowNameFontPx = markerBelowLabelFontPx(dMarkerPx);
+        const belowNameFontPx = resolveNameBelowFontPx(d, dMarkerPx);
         const belowLabelOriginYpx =
           -labelOffsetPx + Math.round((belowNameFontPx * 1.12) / 2);
         const isStudentHighlight = (() => {
@@ -242,6 +248,7 @@ export function useStageDancerMarkerElements(
       effStageWidthMm,
       dancerLabelBelow,
       nameBelowClearanceExtraPx,
+      resolveNameBelowFontPx,
       rot,
       mmLabel,
       snapGrid,

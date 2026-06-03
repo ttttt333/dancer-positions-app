@@ -21,8 +21,8 @@ export function StagePrimaryMarkerResizeHandle({
 }: StagePrimaryMarkerResizeHandleProps) {
   const bulk = selectedCount >= 2;
   const resizeTip = bulk
-    ? `選択中の ${selectedCount} 人の ○ と名前のサイズを一括変更（基準 ${markerPx}px・ドラッグで変更）`
-    : `○と名前のサイズ（${markerPx}px）・ドラッグで変更`;
+    ? `選択中の ${selectedCount} 人の ○ サイズを一括変更（基準 ${markerPx}px・ドラッグで変更）`
+    : `○ のサイズ（${markerPx}px）・ドラッグで変更`;
   const handleOffset = Math.round(markerPx / 2) + (bulk ? 18 : 14);
   const visualSize = bulk ? 16 : 14;
   const hitSize = bulk ? 44 : 36;

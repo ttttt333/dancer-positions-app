@@ -54,6 +54,11 @@ export type DancerSpot = {
    * 未指定時はプロジェクト共通の `dancerMarkerDiameterPx` を使う。
    */
   sizePx?: number;
+  /**
+   * 「名前は○の下」モードのとき、名下ラベルだけのフォントサイズ（px）。
+   * 未指定時は○直径に連動した既定サイズ。
+   */
+  nameBelowFontPx?: number;
 };
 
 /** 大道具（ChoreoCore §9）。バウンディングボックス内の図形。 */

@@ -2,8 +2,10 @@ import type { DancerSpot } from "../types/choreography";
 import {
   dancerCircleInnerBelowLabel,
   markerCircleLabelFontPx,
-  markerBelowLabelFontPx,
 } from "./stageBoardModelHelpers";
+import {
+  effectiveNameBelowFontPx,
+} from "./stageNameBelowFontSizing";
 import type { StageExportAppearance } from "./stageExportAppearance";
 
 export type ExportDancerFrame = {
@@ -11,6 +13,7 @@ export type ExportDancerFrame = {
   markerBadge?: string;
   markerBadgeSource?: DancerSpot["markerBadgeSource"];
   centerDistanceLabelXPct?: number;
+  nameBelowFontPx?: number;
   color: string;
   x: number;
   y: number;
@@ -288,11 +291,15 @@ function drawDancers(
       const belowName = dancer.name.trim();
       if (belowName) {
         ctx.fillStyle = "rgba(255,255,255,0.8)";
-        const belowFontPx = markerBelowLabelFontPx(markerPx);
+        const belowFontPx = effectiveNameBelowFontPx(
+          { nameBelowFontPx: dancer.nameBelowFontPx },
+          markerPx
+        );
         ctx.font = `${belowFontPx}px system-ui,sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
-        ctx.fillText(belowName, x, y + markerR + 4);
+        const nameGapPx = Math.max(6, Math.round(markerPx * 0.12));
+        ctx.fillText(belowName, x, y + markerR + nameGapPx);
       }
     }
   });

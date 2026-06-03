@@ -4,9 +4,11 @@ import { DEFAULT_DANCER_MARKER_DIAMETER_PX } from "../lib/projectDefaults";
 import {
   dancerCircleInnerBelowLabel,
   layoutMarkerCircleInnerLabel,
-  markerBelowLabelFontPx,
   type GroupBoxHandle,
 } from "../lib/stageBoardModelHelpers";
+import {
+  dancerNameBelowLabelOffsetPx,
+} from "../lib/stageNameBelowFontSizing";
 import {
   DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE,
   modDancerColorIndex,
@@ -19,6 +21,7 @@ import { StageGroupRotateHandleButton } from "./StageGroupRotateHandleButton";
 import { StageGroupSelectionBox } from "./StageGroupSelectionBox";
 import { StageMarqueeOverlay } from "./StageMarqueeOverlay";
 import { StagePrimaryMarkerResizeHandle } from "./StagePrimaryMarkerResizeHandle";
+import { StageNameBelowFontResizeHandle } from "./StageNameBelowFontResizeHandle";
 import { StageTapToEditOverlay } from "./StageTapToEditOverlay";
 
 export type StageSelectionBoxPct = {
@@ -68,10 +71,14 @@ export type StageMainFloorInteractionLayerProps = {
   stageDancerIndexById: Map<string, number>;
   effStageWidthMm: number;
   nameBelowClearanceExtraPx: number;
+  resolveNameBelowFontPx: (d: DancerSpot, markerPx: number) => number;
   /** 客席向き（床ラベル正立などと同じ基準） */
   rot: number;
   dancerMarkerElements: ReactNode;
   onMarkerResizePointerDown: (
+    e: ReactPointerEvent<HTMLDivElement>
+  ) => void;
+  onNameBelowFontResizePointerDown: (
     e: ReactPointerEvent<HTMLDivElement>
   ) => void;
   tapStageToEditLayout: boolean;
@@ -106,6 +113,8 @@ export function StageMainFloorInteractionLayer({
   rot,
   dancerMarkerElements,
   onMarkerResizePointerDown,
+  onNameBelowFontResizePointerDown,
+  resolveNameBelowFontPx,
   tapStageToEditLayout,
   onTapEditOverlayPointerDown,
 }: StageMainFloorInteractionLayerProps) {
@@ -196,11 +205,13 @@ export function StageMainFloorInteractionLayer({
             screenUnrotateDeg
           );
           const dLabelFontPx = circleInnerLabelLayout.fontSizePx;
-          const labelOffsetPx =
-            Math.round(dMarkerPx / 2) + 4 + nameBelowClearanceExtraPx;
+          const labelOffsetPx = dancerNameBelowLabelOffsetPx(
+            dMarkerPx,
+            nameBelowClearanceExtraPx
+          );
           const pivotTransform = `translate(-50%, -50%) rotate(${facing}deg)`;
           const halfMarker = dMarkerPx / 2;
-          const belowNameFontPx = markerBelowLabelFontPx(dMarkerPx);
+          const belowNameFontPx = resolveNameBelowFontPx(d, dMarkerPx);
           const belowLabelOriginYpx =
             -labelOffsetPx + Math.round((belowNameFontPx * 1.12) / 2);
           return (
@@ -226,6 +237,37 @@ export function StageMainFloorInteractionLayer({
           );
         })}
       {dancerMarkerElements}
+      {dancerLabelBelow &&
+      primarySelectedDancer &&
+      !marquee &&
+      !playbackOrPreview &&
+      viewMode !== "view" &&
+      stageInteractionsEnabled &&
+      selectedDancerIds.length >= 1 ? (
+        <StageNameBelowFontResizeHandle
+          xPct={
+            selectionBox && selectedDancerIds.length >= 2
+              ? selectionBox.x0
+              : primarySelectedDancer.xPct
+          }
+          yPct={
+            selectionBox && selectedDancerIds.length >= 2
+              ? selectionBox.y0
+              : primarySelectedDancer.yPct
+          }
+          anchorIsDancerCenter={
+            !(selectionBox && selectedDancerIds.length >= 2)
+          }
+          markerPx={effectiveMarkerPx(primarySelectedDancer)}
+          selectionInsetPx={
+            selectionBox && selectedDancerIds.length >= 2
+              ? Math.round(effectiveMarkerPx(primarySelectedDancer) / 2) + 14
+              : 0
+          }
+          selectedCount={selectedDancerIds.length}
+          onPointerDown={onNameBelowFontResizePointerDown}
+        />
+      ) : null}
       {primarySelectedDancer && !marquee ? (
         <StagePrimaryMarkerResizeHandle
           xPct={
