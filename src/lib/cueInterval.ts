@@ -137,6 +137,21 @@ export function findCueGapContainingTime(
   return null;
 }
 
+/** 再生時刻 t に対応する「現在のキュー」（波形の赤枠・選択同期用） */
+export function cueActiveAtTime(cues: Cue[], tSec: number): Cue | null {
+  const sorted = sortCuesByStart(cues);
+  if (sorted.length === 0) return null;
+  const first = sorted[0]!;
+  if (tSec < first.tStartSec) return first;
+  for (let i = 0; i < sorted.length; i++) {
+    const cur = sorted[i]!;
+    if (tSec >= cur.tStartSec && tSec <= cur.tEndSec) return cur;
+    const next = sorted[i + 1];
+    if (next && tSec > cur.tEndSec && tSec < next.tStartSec) return next;
+  }
+  return sorted[sorted.length - 1] ?? null;
+}
+
 export function cloneFormationForNewCue(
   f: Formation,
   opts?: { preserveName?: boolean }

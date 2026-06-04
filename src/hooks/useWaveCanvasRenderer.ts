@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect } from "react";
 import type { RefObject } from "react";
 import type { Cue } from "../types/choreography";
-import { sortCuesByStart } from "../core/timelineController";
+import { sortCuesByStart, cueActiveAtTime } from "../core/timelineController";
 import { playbackEngine } from "../core/playbackEngine";
 import {
   effectiveWaveViewStartOverride,
@@ -181,6 +181,13 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
       }
       const dragCueId = cueDragRef.current?.cueId ?? null;
       const dragPrev = cueDragPreviewRangeRef.current;
+      const followPlaybackSelection =
+        isPlayingForWaveRef.current &&
+        dragCueId == null &&
+        !playheadScrubDragRef.current?.armed;
+      const playbackActiveCueId = followPlaybackSelection
+        ? cueActiveAtTime(cueList, playheadTime)?.id ?? null
+        : null;
       const drawWaveCueChrome = (
         left: number,
         width: number,
@@ -264,7 +271,9 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
           const left = Math.min(x1, x2);
           const width = Math.max(3, Math.abs(x2 - x1));
           const isDrag = dragCueId === cue.id;
-          const isSel = selectedCueIdsRef.current.includes(cue.id);
+          const isSel = playbackActiveCueId
+            ? cue.id === playbackActiveCueId
+            : selectedCueIdsRef.current.includes(cue.id);
           const hover = waveHoverCueRef.current;
           const isHover = hover?.cueId === cue.id && (!dragCueId || dragCueId !== cue.id);
           drawWaveCueChrome(left, width, {

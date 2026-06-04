@@ -59,7 +59,9 @@ import {
   MIN_CUE_DURATION_SEC,
   DEFAULT_CUE_SPAN_WITH_AUDIO_SEC,
   splitSharedCueFormations,
+  cueActiveAtTime,
 } from "../core/timelineController";
+import { playbackEngine } from "../core/playbackEngine";
 import {
   dancersForLayoutPreset,
   transferDancerIdentitiesByOrder,
@@ -1073,6 +1075,30 @@ export function EditorPage({
       return { ...p, activeFormationId: cue.formationId };
     });
   }, [project, selectedCueId, cueById, setProjectSafe, markHistorySkipNextPush]);
+
+  /** 再生中は波形の赤枠・キュー選択を現在の再生位置に追従 */
+  const playbackFollowCueIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isPlaying || !project || project.cues.length === 0) {
+      playbackFollowCueIdRef.current = null;
+      return;
+    }
+    let raf = 0;
+    const tick = () => {
+      const t = playbackEngine.getCurrentTime();
+      const active = cueActiveAtTime(project.cues, t);
+      const nextId = active?.id ?? null;
+      if (nextId && nextId !== playbackFollowCueIdRef.current) {
+        playbackFollowCueIdRef.current = nextId;
+        setSelectedCueIds((ids) =>
+          ids.length === 1 && ids[0] === nextId ? ids : [nextId]
+        );
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [isPlaying, project, cueIdsSig]);
 
   /** 再生中のみ補間表示 */
   const playbackDancersForStage = !isPlaying ? null : interpolatedDancers;

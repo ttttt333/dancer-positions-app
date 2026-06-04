@@ -197,9 +197,10 @@ export function useWaveCanvasPointerDrag({
   }, [abortActiveWaveDrags]);
 
   useEffect(() => {
+    if (cueDragRef.current?.armed || emptyWaveDragRef.current?.active) return;
     if (viewPortion === 1 && waveViewStartOverride == null) return;
     abortActiveWaveDrags();
-  }, [viewPortion, waveViewStartOverride, abortActiveWaveDrags]);
+  }, [viewPortion, waveViewStartOverride, abortActiveWaveDrags, cueDragRef, emptyWaveDragRef]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -214,12 +215,18 @@ export function useWaveCanvasPointerDrag({
     let lastW = canvas.getBoundingClientRect().width;
     const ro = new ResizeObserver(() => {
       const w = canvas.getBoundingClientRect().width;
-      if (w <= 2 || Math.abs(w - lastW) > 0.5) {
+      if (w <= 2) {
         lastW = w;
-        if (w <= 2 || cueDragRef.current || emptyWaveDragRef.current) {
-          abortActiveWaveDrags();
-        }
+        abortActiveWaveDrags();
+        return;
       }
+      const dragging =
+        cueDragRef.current?.armed === true ||
+        emptyWaveDragRef.current?.active === true;
+      if (!dragging && Math.abs(w - lastW) > 0.5) {
+        abortActiveWaveDrags();
+      }
+      lastW = w;
     });
     ro.observe(canvas);
     return () => ro.disconnect();
@@ -623,9 +630,10 @@ export function useWaveCanvasPointerDrag({
             return;
           }
           const endRect = c.getBoundingClientRect();
+          const widthDelta = Math.abs(endRect.width - startCanvasWidth);
           if (
             endRect.width <= 8 ||
-            Math.abs(endRect.width - startCanvasWidth) > 1
+            widthDelta / Math.max(startCanvasWidth, 1) > 0.12
           ) {
             redraw();
             return;

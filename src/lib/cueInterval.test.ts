@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createEmptyProject } from "./projectDefaults";
-import { applyCueWaveDragCommit, splitSharedCueFormations, expandShortCuesAfterAudioLoad, projectNeedsShortCueExpansion } from "./cueInterval";
+import { applyCueWaveDragCommit, splitSharedCueFormations, expandShortCuesAfterAudioLoad, projectNeedsShortCueExpansion, cueActiveAtTime } from "./cueInterval";
 import type { Cue } from "../types/choreography";
 
 describe("splitSharedCueFormations", () => {
@@ -145,5 +145,21 @@ describe("expandShortCuesAfterAudioLoad", () => {
     };
     const next = expandShortCuesAfterAudioLoad(project, 120);
     expect(next.cues).toEqual(project.cues);
+  });
+});
+
+describe("cueActiveAtTime", () => {
+  const cues: Cue[] = [
+    { id: "a", tStartSec: 0, tEndSec: 4, formationId: "f1" },
+    { id: "b", tStartSec: 8, tEndSec: 12, formationId: "f2" },
+  ];
+
+  it("returns cue containing t", () => {
+    expect(cueActiveAtTime(cues, 2)?.id).toBe("a");
+    expect(cueActiveAtTime(cues, 10)?.id).toBe("b");
+  });
+
+  it("returns next cue during gap", () => {
+    expect(cueActiveAtTime(cues, 6)?.id).toBe("b");
   });
 });
