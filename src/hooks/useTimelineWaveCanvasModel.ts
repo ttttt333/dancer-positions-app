@@ -74,6 +74,7 @@ export function useTimelineWaveCanvasModel({
     grabOffset: number;
     origStart: number;
     origEnd: number;
+    startCanvasWidth: number;
   } | null>(null);
   const cueDragPreviewRangeRef = useRef<{
     cueId: string;

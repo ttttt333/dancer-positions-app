@@ -76,6 +76,7 @@ export type UseWaveCanvasPointerDragArgs = {
     grabOffset: number;
     origStart: number;
     origEnd: number;
+    startCanvasWidth: number;
   } | null>;
   cueDragPreviewRangeRef: RefObject<{ cueId: string; tStart: number; tEnd: number } | null>;
   playheadScrubDragRef: RefObject<{
@@ -215,7 +216,7 @@ export function useWaveCanvasPointerDrag({
       const w = canvas.getBoundingClientRect().width;
       if (w <= 2 || Math.abs(w - lastW) > 0.5) {
         lastW = w;
-        if (cueDragRef.current || emptyWaveDragRef.current) {
+        if (w <= 2 || cueDragRef.current || emptyWaveDragRef.current) {
           abortActiveWaveDrags();
         }
       }
@@ -452,6 +453,7 @@ export function useWaveCanvasPointerDrag({
         const pointerT0 = timeFromClientX(e.clientX);
         const mode = dragKind?.mode ?? "move";
         const grabOffset = pointerT0 - cue.tStartSec;
+        const startCanvasWidth = c.getBoundingClientRect().width;
         cueDragRef.current = {
           pointerId: e.pointerId,
           cueId,
@@ -463,6 +465,7 @@ export function useWaveCanvasPointerDrag({
           grabOffset,
           origStart: cue.tStartSec,
           origEnd: cue.tEndSec,
+          startCanvasWidth,
         };
         cueDragPreviewRangeRef.current = { cueId, tStart: cue.tStartSec, tEnd: cue.tEndSec };
         if (cueDragRef.current.armed) {
@@ -474,10 +477,12 @@ export function useWaveCanvasPointerDrag({
           }
         }
         const MIN_CUE_DUR = 0.05;
-        const applyCueDragAtClientX = (clientX: number) => {
+        const applyCueDragAtClientX = (clientX: number, markMoved = false) => {
           const drag = cueDragRef.current;
           if (!drag) return;
-          drag.moved = true;
+          const rect = c.getBoundingClientRect();
+          if (rect.width <= 8) return;
+          if (markMoved) drag.moved = true;
           const cur = timeFromClientX(clientX);
           let ns = drag.origStart;
           let ne = drag.origEnd;
@@ -508,13 +513,12 @@ export function useWaveCanvasPointerDrag({
           };
           redraw();
         };
-        if (mode === "start" || mode === "end") {
-          applyCueDragAtClientX(e.clientX);
-        }
         if (useTimelineWaveBridgeStore.getState().portraitActive) {
           useTimelineWaveBridgeStore
             .getState()
-            .setPortraitWaveEdgeScrollTick(applyCueDragAtClientX);
+            .setPortraitWaveEdgeScrollTick((clientX) =>
+              applyCueDragAtClientX(clientX, true)
+            );
         }
         const tickCueEdgeScrollLoop = () => {
           cueEdgeScrollRafRef.current = 0;
@@ -524,7 +528,7 @@ export function useWaveCanvasPointerDrag({
           const vpLoop = viewPortionRef.current ?? viewPortion;
           if (vpLoop >= 1 - 1e-9) return;
           applyEdgeScroll(x);
-          applyCueDragAtClientX(x);
+          applyCueDragAtClientX(x, true);
           cueEdgeScrollRafRef.current = requestAnimationFrame(tickCueEdgeScrollLoop);
         };
         const onMove = (ev: PointerEvent) => {
@@ -549,7 +553,7 @@ export function useWaveCanvasPointerDrag({
               false
             );
           }
-          applyCueDragAtClientX(ev.clientX);
+          applyCueDragAtClientX(ev.clientX, true);
           const vpMove = viewPortionRef.current ?? viewPortion;
           if (vpMove < 1 - 1e-9) {
             cueDragScrollClientXRef.current = ev.clientX;
@@ -559,12 +563,35 @@ export function useWaveCanvasPointerDrag({
             }
           }
         };
+        const detachCueDragListeners = () => {
+          window.removeEventListener("pointermove", onMove);
+          window.removeEventListener("pointerup", onUp);
+          window.removeEventListener("pointercancel", onCancel);
+        };
+        const cleanupCueDrag = (redrawAfter = true) => {
+          stopCueEdgeScrollLoop();
+          detachCueDragListeners();
+          if (useTimelineWaveBridgeStore.getState().portraitActive) {
+            useTimelineWaveBridgeStore.getState().setPortraitWaveEdgeScrollTick(null);
+          }
+          cueDragRef.current = null;
+          cueDragPreviewRangeRef.current = null;
+          cueDragViewLockRef.current = null;
+          if (redrawAfter) redraw();
+        };
+        const onCancel = (ev: PointerEvent) => {
+          if (ev.pointerId !== e.pointerId || !cueDragRef.current) return;
+          try {
+            c.releasePointerCapture(ev.pointerId);
+          } catch {
+            /* ignore */
+          }
+          cleanupCueDrag(true);
+        };
         const onUp = (ev: PointerEvent) => {
           if (ev.pointerId !== e.pointerId || !cueDragRef.current) return;
           stopCueEdgeScrollLoop();
-          window.removeEventListener("pointermove", onMove);
-          window.removeEventListener("pointerup", onUp);
-          window.removeEventListener("pointercancel", onUp);
+          detachCueDragListeners();
           if (useTimelineWaveBridgeStore.getState().portraitActive) {
             useTimelineWaveBridgeStore.getState().portraitWaveScrubAtClientX?.(
               ev.clientX,
@@ -587,10 +614,24 @@ export function useWaveCanvasPointerDrag({
             redraw();
             return;
           }
-          const { cueId: cid, mode: dragMode, moved, origStart, origEnd } = drag;
+          const { cueId: cid, mode: dragMode, moved, origStart, origEnd, startCanvasWidth } =
+            drag;
           onSelectedCueIdsChange([cid]);
           if (!moved) {
             cueDragPreviewRangeRef.current = null;
+            redraw();
+            return;
+          }
+          const endRect = c.getBoundingClientRect();
+          if (
+            endRect.width <= 8 ||
+            Math.abs(endRect.width - startCanvasWidth) > 1
+          ) {
+            redraw();
+            return;
+          }
+          const dragPx = Math.hypot(ev.clientX - drag.originX, ev.clientY - drag.originY);
+          if (dragPx < WAVE_DRAG_ARM_PX) {
             redraw();
             return;
           }
@@ -627,7 +668,7 @@ export function useWaveCanvasPointerDrag({
         };
         window.addEventListener("pointermove", onMove);
         window.addEventListener("pointerup", onUp);
-        window.addEventListener("pointercancel", onUp);
+        window.addEventListener("pointercancel", onCancel);
         redraw();
         return;
       }
@@ -811,11 +852,26 @@ export function useWaveCanvasPointerDrag({
         newCueRangePreviewRef.current = { tStart: Math.min(t0, tCur), tEnd: Math.max(t0, tCur) };
         redraw();
       };
+      const onEmptyCancel = (ev: PointerEvent) => {
+        if (ev.pointerId !== e.pointerId || !emptyWaveDragRef.current) return;
+        window.removeEventListener("pointermove", onEmptyMove);
+        window.removeEventListener("pointerup", onEmptyUp);
+        window.removeEventListener("pointercancel", onEmptyCancel);
+        try {
+          c.releasePointerCapture(ev.pointerId);
+        } catch {
+          /* ignore */
+        }
+        emptyWaveDragRef.current = null;
+        newCueRangePreviewRef.current = null;
+        cueDragViewLockRef.current = null;
+        redraw();
+      };
       const onEmptyUp = (ev: PointerEvent) => {
         if (ev.pointerId !== e.pointerId || !emptyWaveDragRef.current) return;
         window.removeEventListener("pointermove", onEmptyMove);
         window.removeEventListener("pointerup", onEmptyUp);
-        window.removeEventListener("pointercancel", onEmptyUp);
+        window.removeEventListener("pointercancel", onEmptyCancel);
         try {
           c.releasePointerCapture(ev.pointerId);
         } catch {
@@ -897,7 +953,7 @@ export function useWaveCanvasPointerDrag({
       };
       window.addEventListener("pointermove", onEmptyMove);
       window.addEventListener("pointerup", onEmptyUp);
-      window.addEventListener("pointercancel", onEmptyUp);
+      window.addEventListener("pointercancel", onEmptyCancel);
       redraw();
     },
     [

@@ -36,6 +36,8 @@ type NeonIconPanelProps = ChoreoCoreToolbarCoreProps & {
   onOpenVideoExport?: () => void;
   collapsed?: boolean;
   onCollapseToggle?: () => void;
+  /** 折りたたみボタン pointerdown（レイアウト変更前に波形ドラッグを破棄） */
+  onCollapsePointerDown?: () => void;
 };
 
 /* ─── Glow filter helper ─── */
@@ -429,6 +431,7 @@ export function NeonIconPanel({
   onOpenStageTransform,
   collapsed = false,
   onCollapseToggle,
+  onCollapsePointerDown,
 }: NeonIconPanelProps) {
   const { t } = useI18n();
   const gridSnap = stageGridLinesEnabled ?? false;
@@ -458,6 +461,7 @@ export function NeonIconPanel({
         <button
           type="button"
           title={t("editor.comp.k033")}
+          onPointerDown={() => onCollapsePointerDown?.()}
           onClick={onCollapseToggle}
           style={{
             width: 22,
@@ -560,6 +564,7 @@ export function NeonIconPanel({
           <button
             type="button"
             title={t("editor.comp.k034")}
+            onPointerDown={() => onCollapsePointerDown?.()}
             onClick={onCollapseToggle}
             style={{
               width: 22,

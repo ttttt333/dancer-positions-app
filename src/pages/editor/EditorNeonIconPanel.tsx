@@ -91,6 +91,11 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
       onOpenStageTransform={() => setStageShapePickerOpen(true)}
       onOpenVideoExport={() => useVideoExportUiStore.getState().openSheet()}
       collapsed={rightPaneCollapsed && wideEditorLayout}
+      onCollapsePointerDown={
+        wideEditorLayout && !rightPaneCollapsed
+          ? () => abortTimelineWavePointerGestures()
+          : undefined
+      }
       onCollapseToggle={
         wideEditorLayout
           ? () =>

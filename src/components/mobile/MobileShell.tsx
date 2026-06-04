@@ -49,6 +49,12 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
   const [landscapePanelOpen, setLandscapePanelOpen] = useState(true)
 
   useEffect(() => {
+    if (!landscapeWaveExpanded) {
+      abortTimelineWavePointerGestures()
+    }
+  }, [landscapeWaveExpanded])
+
+  useEffect(() => {
     const checkDialog = () => {
       const modal = document.querySelector('[role="dialog"][aria-modal="true"]')
       if (modal?.getAttribute('data-editor-sheet') === 'formation-preset-picker') {

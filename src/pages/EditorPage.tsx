@@ -297,9 +297,22 @@ export function EditorPage({
   // 横向きになったら波形エリアも折りたたんでステージ高さを確保
   useEffect(() => {
     if (editorMobileLandscape) {
+      abortTimelineWavePointerGestures();
       setMobileEditorWaveExpanded(false);
     }
   }, [editorMobileLandscape]);
+
+  useEffect(() => {
+    if (!mobileEditorWaveExpanded) {
+      abortTimelineWavePointerGestures();
+    }
+  }, [mobileEditorWaveExpanded]);
+
+  useEffect(() => {
+    if (rightPaneCollapsed) {
+      abortTimelineWavePointerGestures();
+    }
+  }, [rightPaneCollapsed]);
   const [stageSettingsOpen, setStageSettingsOpen] = useState(false);
   const [shortcutsHelpOpen, setShortcutsHelpOpen] = useState(false);
   /** ステージ列ヘッダの「設定」：舞台・グリッド・名前・共有・ヒントを集約 */
@@ -2212,12 +2225,10 @@ export function EditorPage({
             flexShrink: 0,
           }}
           aria-expanded={mobileEditorWaveExpanded}
-          onClick={() => {
-            setMobileEditorWaveExpanded((v) => {
-              if (v) abortTimelineWavePointerGestures();
-              return !v;
-            });
+          onPointerDown={() => {
+            if (mobileEditorWaveExpanded) abortTimelineWavePointerGestures();
           }}
+          onClick={() => setMobileEditorWaveExpanded((v) => !v)}
         >
           {mobileEditorWaveExpanded ? "たたむ" : "ひろげる"}
         </button>

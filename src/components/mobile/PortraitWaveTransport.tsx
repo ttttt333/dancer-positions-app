@@ -939,6 +939,10 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
             <button
               type="button"
               className={styles.rulerCollapseBtn}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                abortTimelineWavePointerGestures();
+              }}
               onClick={(e) => {
                 e.stopPropagation();
                 abortTimelineWavePointerGestures();
