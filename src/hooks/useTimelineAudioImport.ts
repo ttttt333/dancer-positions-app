@@ -167,11 +167,16 @@ export function useTimelineAudioImport({
           await mountLocalPlaybackBlob(blobUrlRef, buf, mime);
           await applyQuickPeaksIfReady(decodePeaksFromBuffer, quickPeaks);
 
-          reportWaveLoadProgress(0.4, "クラウドに保存中…");
           const fd = new FormData();
           fd.append("file", f);
           fd.append("projectId", String(serverProjectId));
-          const up = await audioApiUpload(fd);
+          const up = await audioApiUpload(fd, (ratio, msg) => {
+            reportWaveLoadProgress(
+              ratio < 0.45 ? 0.1 + ratio * 0.7 : 0.4,
+              msg
+            );
+          });
+          reportWaveLoadProgress(0.45, "クラウドに保存中…");
 
           if (up.kind === "supabase") {
             revokePersistedServerAudioBlob();

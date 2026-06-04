@@ -27,6 +27,8 @@ import {
 } from "../lib/viewerPlayback";
 import { hasViewerPlayIntent } from "../lib/playbackViewerIntent";
 import { useWaveformLoadProgressStore } from "../store/waveformLoadProgressStore";
+import { useShareViewAudioLoadStore } from "../store/shareViewAudioLoadStore";
+import { ShareViewAudioLoadBanner } from "./ShareViewAudioLoadBanner";
 
 /** 閲覧共有ステージ上のダンサー印の表示倍率（従来比 2/3） */
 export const PUBLIC_VIEWER_MARKER_DISPLAY_SCALE = 2 / 3;
@@ -70,6 +72,11 @@ export function ChoreoViewerTransportControls({
   onBeforeTransport,
 }: TransportProps) {
   const { t } = useI18n();
+  const shareAudioPhase = useShareViewAudioLoadStore((s) => s.phase);
+  const playReadyGlow =
+    shareAudioPhase === "ready" &&
+    !isPlaying &&
+    Boolean(playbackEngine.getMediaSourceUrl());
   const btnSize = compact ? 40 : 44;
   const iconPrimary = compact ? 22 : 24;
   const iconSecondary = compact ? 18 : 20;
@@ -160,6 +167,11 @@ export function ChoreoViewerTransportControls({
         title={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
         onPointerDown={onPlayPointerDown}
         onClick={togglePlay}
+        className={
+          playReadyGlow && !isPlaying
+            ? "choreo-viewer-play--ready"
+            : undefined
+        }
         style={{
           ...btnAccent,
           minWidth: btnSize + 4,
@@ -525,34 +537,7 @@ export function ChoreoViewerBottomBar({
           {t("editor.layout.viewerChromeCollapseShort")}
         </button>
       </div>
-      {audioLoadError ? (
-        <div
-          role="alert"
-          style={{
-            padding: "6px 10px",
-            fontSize: tightHeight ? 11 : 12,
-            color: "#fecaca",
-            background: "rgba(127, 29, 29, 0.35)",
-            borderBottom: "1px solid rgba(248, 113, 113, 0.35)",
-          }}
-        >
-          {audioLoadError}
-        </div>
-      ) : null}
-      {noShareAudioConfigured ? (
-        <div
-          role="status"
-          style={{
-            padding: "6px 10px",
-            fontSize: tightHeight ? 11 : 12,
-            color: "#fde68a",
-            background: "rgba(120, 83, 9, 0.35)",
-            borderBottom: "1px solid rgba(251, 191, 36, 0.35)",
-          }}
-        >
-          {t("editor.layout.viewerNoAudioConfigured")}
-        </div>
-      ) : null}
+      <ShareViewAudioLoadBanner tight={tightHeight} loadError={audioLoadError} />
       {awaitingAudioTap ? (
         <div
           role="status"

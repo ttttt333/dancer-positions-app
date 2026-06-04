@@ -61,6 +61,11 @@ const JA: MessageBundle = {
   "editor.layout.viewerTapPlayForSound": "音を鳴らすには、もう一度「再生」をタップしてください",
   "editor.layout.viewerNoAudioConfigured":
     "この作品には共有用の音源がありません（編集画面で音源をアップロードしてください）",
+  "editor.layout.viewerAudioLoading": "読み込み中…",
+  "editor.layout.viewerAudioReady": "再生準備完了 — 再生ボタンをタップしてください",
+  "editor.layout.viewerAudioLoadFailed": "音源の読み込みに失敗しました",
+  "editor.layout.viewerCopyrightNotice":
+    "この音源は練習・確認目的でのみご利用ください。著作権は原権利者に帰属します。",
   "editor.layout.showWaveform": "波形を表示",
   "editor.layout.toolsPanel": "操作パネル",
   "editor.layout.toolsExpand": "ひろげる",
@@ -216,6 +221,11 @@ const EN: MessageBundle = {
   "editor.layout.viewerTapPlayForSound": "Tap Play again to hear audio",
   "editor.layout.viewerNoAudioConfigured":
     "No audio is available for this shared link (upload audio in the editor)",
+  "editor.layout.viewerAudioLoading": "Loading audio…",
+  "editor.layout.viewerAudioReady": "Ready — tap Play to hear the music",
+  "editor.layout.viewerAudioLoadFailed": "Failed to load audio",
+  "editor.layout.viewerCopyrightNotice":
+    "This audio is for practice and review only. Rights remain with the copyright holder.",
   "editor.layout.showWaveform": "Show waveform",
   "editor.layout.toolsPanel": "Tools panel",
   "editor.layout.toolsExpand": "Expand",

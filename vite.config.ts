@@ -90,9 +90,7 @@ export default defineConfig({
     ffmpegCoreStaticPlugin(),
     devOpenBrowserPlugin(),
     VitePWA({
-      registerType: "prompt",
-      /** SW を完全無効化（キャッシュ問題根絶） */
-      selfDestroying: true,
+      registerType: "autoUpdate",
       devOptions: {
         enabled: false,
       },
@@ -132,6 +130,21 @@ export default defineConfig({
               expiration: {
                 maxEntries: 2,
                 maxAgeSeconds: 60 * 60 * 24 * 365,
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            urlPattern: ({ url }) =>
+              url.hostname.includes("supabase.co") &&
+              url.pathname.includes("/storage/v1/object/") &&
+              url.pathname.includes("choreocore-audio"),
+            handler: "CacheFirst",
+            options: {
+              cacheName: "choreocore-share-audio-v1",
+              expiration: {
+                maxEntries: 48,
+                maxAgeSeconds: 60 * 60 * 24 * 30,
               },
               cacheableResponse: { statuses: [0, 200] },
             },

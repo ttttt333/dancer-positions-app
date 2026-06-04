@@ -3,6 +3,7 @@ import {
   getSupabaseAccessToken,
   isSupabaseBackend,
 } from "../lib/supabaseClient";
+import { compressAudioFileToMp3ForUpload } from "../lib/compressAudioToMp3";
 import { supabaseUploadProjectAudio } from "../lib/supabaseAudio";
 import {
   supabaseCreateProject,
@@ -303,7 +304,10 @@ export type AudioApiUploadResult =
   | { kind: "legacy"; id: number; mime: string }
   | { kind: "supabase"; path: string; mime: string };
 
-export async function audioApiUpload(formData: FormData): Promise<AudioApiUploadResult> {
+export async function audioApiUpload(
+  formData: FormData,
+  onMp3Progress?: (ratio: number, message: string) => void
+): Promise<AudioApiUploadResult> {
   const token = getToken();
   if (!token) throw new Error("ログインが必要です");
   const file = formData.get("file");
@@ -316,11 +320,15 @@ export async function audioApiUpload(formData: FormData): Promise<AudioApiUpload
     if (!Number.isFinite(pid) || pid <= 0) {
       throw new Error("作品を保存してから音源を取り込んでください（作品 ID が必要です）");
     }
+    onMp3Progress?.(0.05, "MP3 に変換中…");
+    const mp3File = await compressAudioFileToMp3ForUpload(file, (ratio, msg) => {
+      onMp3Progress?.(0.05 + ratio * 0.35, msg);
+    });
     const { path, mime } = await supabaseUploadProjectAudio({
       projectId: pid,
-      file,
-      filename: file.name || "audio",
-      contentType: file.type || "application/octet-stream",
+      file: mp3File,
+      filename: mp3File.name || "audio.mp3",
+      contentType: "audio/mpeg",
     });
     return { kind: "supabase", path, mime };
   }

@@ -125,6 +125,7 @@ import {
 } from "../lib/savedSpotStageSnapshot";
 import { getViewRosterEntries } from "../lib/viewRoster";
 import { resolveAutoStudentPick } from "../lib/shareViewStudentPick";
+import { useShareViewAudioLoadStore } from "../store/shareViewAudioLoadStore";
 import { isCustomStageShapeActive } from "../lib/stageShapePaths";
 import {
   ChoreoStudentViewGate,
@@ -502,7 +503,7 @@ export function EditorPage({
     if (!choreoPublicView) return;
     const path = project?.audioSupabasePath;
     if (typeof path !== "string" || path.trim().length === 0) return;
-    void resyncViewerPlayback({ force: true });
+    void resyncViewerPlayback();
   }, [choreoPublicView, project?.audioSupabasePath, resyncViewerPlayback]);
 
   const {
@@ -540,6 +541,8 @@ export function EditorPage({
   useEffect(() => {
     if (choreoPublicView) {
       setRightPaneCollapsed(true);
+    } else {
+      useShareViewAudioLoadStore.getState().reset();
     }
   }, [choreoPublicView]);
 
