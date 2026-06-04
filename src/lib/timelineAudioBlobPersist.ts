@@ -8,6 +8,10 @@ export let persistedServerAudioAssetId: number | null = null;
 export let persistedSupabaseAudioBlobUrl: string | null = null;
 export let persistedSupabaseAudioPath: string | null = null;
 
+/** フローライブラリ埋め込み音源（IndexedDB キーと blob URL の対） */
+export let persistedFlowLocalAudioKey: string | null = null;
+export let persistedFlowAudioBlobUrl: string | null = null;
+
 export function revokePersistedServerAudioBlob() {
   if (persistedServerAudioBlobUrl) {
     URL.revokeObjectURL(persistedServerAudioBlobUrl);
@@ -24,11 +28,25 @@ export function revokePersistedSupabaseAudioBlob() {
   }
 }
 
+export function revokePersistedFlowAudioBlob() {
+  if (persistedFlowAudioBlobUrl) {
+    URL.revokeObjectURL(persistedFlowAudioBlobUrl);
+    persistedFlowAudioBlobUrl = null;
+    persistedFlowLocalAudioKey = null;
+  }
+}
+
+export function setPersistedFlowAudio(blobUrl: string, flowKey: string) {
+  persistedFlowAudioBlobUrl = blobUrl;
+  persistedFlowLocalAudioKey = flowKey;
+}
+
 /** `blob:` URL の revoke。クラウド用に保持している URL は専用 revoke に回す */
 export function revokeBlobUrlUnlessCloudPersisted(cur: string | null) {
   if (!cur) return;
   if (cur === persistedServerAudioBlobUrl) revokePersistedServerAudioBlob();
   else if (cur === persistedSupabaseAudioBlobUrl) revokePersistedSupabaseAudioBlob();
+  else if (cur === persistedFlowAudioBlobUrl) revokePersistedFlowAudioBlob();
   else URL.revokeObjectURL(cur);
 }
 

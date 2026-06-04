@@ -21,6 +21,12 @@ type Params = {
   publicShareView?: boolean;
 };
 
+function hasActiveFlowAudioKey(
+  flowLocalAudioKey: string | null | undefined
+): flowLocalAudioKey is string {
+  return typeof flowLocalAudioKey === "string" && flowLocalAudioKey.length > 0;
+}
+
 /**
  * タイムライン UI から独立した音源パイプライン。
  * 立ち位置編集や TimelinePanel ref 未接続時でも音源読み込み・インポートが動く。
@@ -34,6 +40,10 @@ export function useEditorAudioSession({
   flowLocalAudioKey,
   publicShareView = false,
 }: Params) {
+  const flowKey =
+    typeof flowLocalAudioKey === "string" && flowLocalAudioKey.length > 0
+      ? flowLocalAudioKey
+      : null;
   const blobUrlRef = useRef<string | null>(null);
   const [reloadRemoteAudioNonce, setReloadRemoteAudioNonce] = useState(0);
 
@@ -88,10 +98,23 @@ export function useEditorAudioSession({
             return;
           }
         }
+        if (hasActiveFlowAudioKey(flowKey)) {
+          const engineUrl = playbackEngine.getMediaSourceUrl();
+          if (engineUrl) {
+            const valid =
+              !engineUrl.startsWith("blob:") ||
+              (await verifyBlobUrl(engineUrl));
+            if (valid) {
+              blobUrlRef.current = engineUrl;
+              await resyncEditorPlaybackMedia(blobUrlRef, opts);
+              return;
+            }
+          }
+        }
         requestRemoteAudioReload();
       });
     },
-    [requestRemoteAudioReload]
+    [requestRemoteAudioReload, flowKey]
   );
 
   /** レイアウト切替・タブ復帰後も blob URL を `<audio>` に再接続 */

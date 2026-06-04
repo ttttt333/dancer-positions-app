@@ -3,6 +3,7 @@ import { playbackEngine } from "../core/playbackEngine";
 import {
   persistedServerAudioBlobUrl,
   persistedSupabaseAudioBlobUrl,
+  persistedFlowAudioBlobUrl,
 } from "./timelineAudioBlobPersist";
 import { verifyBlobUrl } from "./verifyBlobUrl";
 
@@ -15,6 +16,7 @@ export async function resolveEditorPlaybackBlobUrl(
     playbackEngine.getMediaSourceUrl(),
     persistedServerAudioBlobUrl,
     persistedSupabaseAudioBlobUrl,
+    persistedFlowAudioBlobUrl,
   ].filter((u): u is string => typeof u === "string" && u.length > 0);
 
   const seen = new Set<string>();

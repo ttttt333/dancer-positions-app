@@ -17,8 +17,12 @@ import {
   revokeBlobUrlUnlessCloudPersisted,
   revokePersistedServerAudioBlob,
   revokePersistedSupabaseAudioBlob,
+  revokePersistedFlowAudioBlob,
   setPersistedServerAudio,
   setPersistedSupabaseAudio,
+  setPersistedFlowAudio,
+  persistedFlowAudioBlobUrl,
+  persistedFlowLocalAudioKey,
 } from "../lib/timelineAudioBlobPersist";
 import type { DecodePeaksOptions } from "./useTimelineWaveDecode";
 import {
@@ -200,6 +204,7 @@ export function useTimelineRemoteAudio({
     (async () => {
       try {
         revokePersistedSupabaseAudioBlob();
+        revokePersistedFlowAudioBlob();
         const cacheKey = wavePeaksCacheKeyForServerAsset(aid);
         const reuseUrlRaw =
           persistedServerAudioAssetId === aid
@@ -355,6 +360,7 @@ export function useTimelineRemoteAudio({
     (async () => {
       try {
         revokePersistedServerAudioBlob();
+        revokePersistedFlowAudioBlob();
         const cacheKey = wavePeaksCacheKeyForSupabase(effectivePath);
         const reuseUrlRaw =
           persistedSupabaseAudioPath === effectivePath
@@ -533,11 +539,59 @@ export function useTimelineRemoteAudio({
       if (typeof sp === "string" && sp.trim().length > 0) return;
     }
     const flowKey = flowLocalAudioKey;
-    if (typeof flowKey !== "string" || flowKey.length === 0) return;
+    if (typeof flowKey !== "string" || flowKey.length === 0) {
+      revokePersistedFlowAudioBlob();
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
+        if (
+          persistedFlowLocalAudioKey != null &&
+          persistedFlowLocalAudioKey !== flowKey
+        ) {
+          revokePersistedFlowAudioBlob();
+        }
         const cacheKey = wavePeaksCacheKeyForFlow(flowKey);
+        let reuseUrl =
+          persistedFlowLocalAudioKey === flowKey
+            ? persistedFlowAudioBlobUrl
+            : null;
+        if (reuseUrl) {
+          const valid = await verifyBlobUrl(reuseUrl);
+          if (!valid) {
+            revokePersistedFlowAudioBlob();
+            reuseUrl = null;
+          }
+        }
+        if (!reuseUrl) {
+          const engineUrl = playbackEngine.getMediaSourceUrl();
+          if (engineUrl && (await verifyBlobUrl(engineUrl))) {
+            reuseUrl = engineUrl;
+          }
+        }
+        if (reuseUrl) {
+          syncPlaybackUrl(
+            blobUrlRef,
+            reuseUrl,
+            clearPlaybackTrustedDurationSec,
+            { revokePrevious: true }
+          );
+          setPersistedFlowAudio(reuseUrl, flowKey);
+          markPlaybackReadyForWaveFetch();
+          const cached = await getWavePeaksCache(cacheKey);
+          if (cached?.peaks.length) {
+            if (!cancelled) {
+              await decodePeaksRef.current(new ArrayBuffer(0), { cacheKey });
+            }
+            return;
+          }
+          reportWaveLoadProgress(0.4, "波形データを取得中…");
+          const buf = await arrayBufferFromBlobUrl(reuseUrl);
+          if (!cancelled) await decodePeaksRef.current(buf, { cacheKey });
+          return;
+        }
+
         const cached = await getWavePeaksCache(cacheKey);
         if (cached?.peaks.length) {
           if (!cancelled) {
@@ -549,6 +603,7 @@ export function useTimelineRemoteAudio({
         const blob = await getFlowLibraryAudio(flowKey);
         if (cancelled || !blob || blob.size === 0) return;
         const url = URL.createObjectURL(blob);
+        setPersistedFlowAudio(url, flowKey);
         syncPlaybackUrl(blobUrlRef, url, clearPlaybackTrustedDurationSec, {
           revokePrevious: true,
         });
