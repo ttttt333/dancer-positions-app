@@ -123,6 +123,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const publicViewTightHeight = props.publicViewTightHeight as never;
   const viewerChromeCollapsed = props.viewerChromeCollapsed as never;
   const resyncViewerPlayback = props.resyncViewerPlayback as never;
+  const reloadViewerAudio = props.reloadViewerAudio as never;
   const raw = props.raw as never;
   const redo = props.redo as never;
   const result = props.result as never;
@@ -994,6 +995,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 choreoStudentPick &&
                 !viewerChromeCollapsed ? (
                   <ChoreoViewerLandscapeRail
+                    project={project}
                     timelineRef={timelineRef}
                     trimStartSec={project.trimStartSec ?? 0}
                     trimEndSec={project.trimEndSec ?? null}
@@ -1001,7 +1003,10 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     currentTime={currentTime}
                     duration={duration}
                     chromeCollapsed={viewerChromeCollapsed}
-                    onBeforeTransport={() => resyncViewerPlayback({ force: true })}
+                    onBeforeTransport={() => {
+                      reloadViewerAudio();
+                      void resyncViewerPlayback({ force: true });
+                    }}
                   />
                 ) : null}
                 {publicNarrowLayout &&

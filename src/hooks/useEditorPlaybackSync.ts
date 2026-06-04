@@ -12,6 +12,10 @@ import {
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import { bindPlaybackOrientationResume } from "../lib/playbackOrientationResume";
 import { reportWaveLoadError } from "../lib/waveLoadProgress";
+import {
+  advanceViewerPlaybackHead,
+  syncViewerDurationFromProject,
+} from "../lib/viewerPlayback";
 import type { ChoreographyProjectJson } from "../types/choreography";
 
 type Params = {
@@ -96,7 +100,12 @@ export function useEditorPlaybackSync(p: Params): {
     projectRef,
   ]);
 
-  usePlaybackHeadRafSync(projectRef, onPlaybackActiveCueChangeRef);
+  usePlaybackHeadRafSync(projectRef, choreoPublicView, onPlaybackActiveCueChangeRef);
+
+  useEffect(() => {
+    if (!choreoPublicView) return;
+    syncViewerDurationFromProject(projectRef.current);
+  }, [choreoPublicView, projectId, shareToken, projectRef]);
 
   return { playbackAudioElement };
 }
@@ -104,6 +113,7 @@ export function useEditorPlaybackSync(p: Params): {
 /** `useEditorPlaybackSync` 内だけで使う。タイムライン列のマウント有無に依存しない RAF 同期 */
 function usePlaybackHeadRafSync(
   projectRef: MutableRefObject<ChoreographyProjectJson | null>,
+  choreoPublicView: boolean,
   onPlaybackActiveCueChangeRef?: MutableRefObject<
     ((cueId: string) => void) | null
   >
@@ -113,15 +123,31 @@ function usePlaybackHeadRafSync(
   const lastPlaybackStateEmitRef = useRef(0);
   const wasPlayingRef = useRef(false);
   const lastFollowCueIdRef = useRef<string | null>(null);
+  const lastViewerClockMsRef = useRef<number | null>(null);
 
   const tick = useCallback(() => {
-    if (!playbackEngine.isPaused()) {
-      const p = projectRef.current;
-      if (p) {
-        const trimStartSec = p.trimStartSec;
-        const trimEndSec = p.trimEndSec;
-        const { durationSec: duration, setCurrentTimeSec, setIsPlaying } =
-          usePlaybackUiStore.getState();
+    const p = projectRef.current;
+    const storePlaying = usePlaybackUiStore.getState().isPlaying;
+    const enginePlaying = !playbackEngine.isPaused();
+    const useViewerClock =
+      choreoPublicView && storePlaying && !enginePlaying;
+
+    if (p && (enginePlaying || useViewerClock)) {
+      const trimStartSec = p.trimStartSec;
+      const trimEndSec = p.trimEndSec;
+      const { durationSec: duration, setCurrentTimeSec, setIsPlaying } =
+        usePlaybackUiStore.getState();
+
+      if (useViewerClock) {
+        const now = performance.now();
+        const prev = lastViewerClockMsRef.current ?? now;
+        lastViewerClockMsRef.current = now;
+        const dt = (now - prev) / 1000;
+        if (dt > 0 && dt < 0.5) {
+          advanceViewerPlaybackHead(p, dt);
+        }
+      } else {
+        lastViewerClockMsRef.current = null;
         let t = playbackEngine.getCurrentTime();
         if (isPlaybackBeforeTrimStart(t, trimStartSec)) {
           playbackEngine.seek(trimStartSec);
@@ -150,19 +176,23 @@ function usePlaybackHeadRafSync(
           lastPlaybackStateEmitRef.current = now;
           setCurrentTimeSec(rounded);
         }
-        const onCueFollow = onPlaybackActiveCueChangeRef?.current;
-        if (onCueFollow && p.cues.length > 0) {
-          const active = cueActiveAtTime(p.cues, t);
-          const nextId = active?.id ?? null;
-          if (nextId && nextId !== lastFollowCueIdRef.current) {
-            lastFollowCueIdRef.current = nextId;
-            onCueFollow(nextId);
-          }
+      }
+
+      const tHead = usePlaybackUiStore.getState().currentTimeSec;
+      const onCueFollow = onPlaybackActiveCueChangeRef?.current;
+      if (onCueFollow && p.cues.length > 0) {
+        const active = cueActiveAtTime(p.cues, tHead);
+        const nextId = active?.id ?? null;
+        if (nextId && nextId !== lastFollowCueIdRef.current) {
+          lastFollowCueIdRef.current = nextId;
+          onCueFollow(nextId);
         }
       }
+    } else {
+      lastViewerClockMsRef.current = null;
     }
     rafRef.current = requestAnimationFrame(tick);
-  }, [projectRef, onPlaybackActiveCueChangeRef]);
+  }, [projectRef, choreoPublicView, onPlaybackActiveCueChangeRef]);
 
   useEffect(() => {
     if (isPlaying) {
@@ -170,6 +200,7 @@ function usePlaybackHeadRafSync(
       rafRef.current = requestAnimationFrame(tick);
     } else {
       lastFollowCueIdRef.current = null;
+      lastViewerClockMsRef.current = null;
       cancelAnimationFrame(rafRef.current);
     }
     return () => cancelAnimationFrame(rafRef.current);

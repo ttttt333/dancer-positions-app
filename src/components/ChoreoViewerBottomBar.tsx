@@ -20,11 +20,8 @@ import {
   stopPlaybackAtTrimStart,
   togglePlaybackRespectingTrimStart,
 } from "../lib/playbackTransport";
-import {
-  clearViewerPendingPlay,
-  primeAudioForUserGesture,
-  setViewerPendingPlay,
-} from "../lib/playbackViewerIntent";
+import { primeAudioForUserGesture } from "../lib/playbackViewerIntent";
+import { toggleViewerPlayback } from "../lib/viewerPlayback";
 
 /** 閲覧共有ステージ上のダンサー印の表示倍率（従来比 2/3） */
 export const PUBLIC_VIEWER_MARKER_DISPLAY_SCALE = 2 / 3;
@@ -45,6 +42,7 @@ function viewerBarHeightPx(
 }
 
 type TransportProps = {
+  project: ChoreographyProjectJson;
   timelineRef?: RefObject<TimelinePanelHandle | null>;
   trimStartSec: number;
   trimEndSec: number | null;
@@ -56,6 +54,7 @@ type TransportProps = {
 };
 
 export function ChoreoViewerTransportControls({
+  project,
   timelineRef,
   trimStartSec,
   trimEndSec,
@@ -110,16 +109,9 @@ export function ChoreoViewerTransportControls({
   }, [duration, onBeforeTransport, timelineRef, trimEndSec, trimStartSec]);
 
   const togglePlay = useCallback(() => {
-    // iOS: play() はユーザータップの同期スタック内で呼ぶ（await しない）
     void onBeforeTransport?.();
-    if (playbackEngine.getMediaSourceUrl()) {
-      clearViewerPendingPlay();
-      togglePlaybackRespectingTrimStart(trimStartSec);
-      return;
-    }
-    setViewerPendingPlay(trimStartSec);
-    timelineRef?.current?.togglePlay();
-  }, [onBeforeTransport, timelineRef, trimStartSec]);
+    toggleViewerPlayback(project, trimStartSec);
+  }, [onBeforeTransport, project, trimStartSec]);
 
   const stopPlayback = useCallback(() => {
     onBeforeTransport?.();
@@ -198,6 +190,7 @@ export function ChoreoViewerTransportControls({
 }
 
 export type ChoreoViewerLandscapeRailProps = {
+  project: ChoreographyProjectJson;
   timelineRef: RefObject<TimelinePanelHandle | null>;
   trimStartSec: number;
   trimEndSec: number | null;
@@ -210,6 +203,7 @@ export type ChoreoViewerLandscapeRailProps = {
 
 /** 横画面閲覧: 左端の再生コントロール列（畳み可） */
 export function ChoreoViewerLandscapeRail({
+  project,
   timelineRef,
   trimStartSec,
   trimEndSec,
@@ -254,6 +248,7 @@ export function ChoreoViewerLandscapeRail({
       {railOpen ? (
         <div className="choreo-viewer-landscape-rail-controls">
           <ChoreoViewerTransportControls
+            project={project}
             timelineRef={timelineRef}
             trimStartSec={trimStartSec}
             trimEndSec={trimEndSec}
@@ -273,13 +268,7 @@ export function ChoreoViewerLandscapeRail({
           onPointerDown={primeAudioForUserGesture}
           onClick={() => {
             void onBeforeTransport?.();
-            if (playbackEngine.getMediaSourceUrl()) {
-              clearViewerPendingPlay();
-              togglePlaybackRespectingTrimStart(trimStartSec);
-              return;
-            }
-            setViewerPendingPlay(trimStartSec);
-            timelineRef.current?.togglePlay();
+            toggleViewerPlayback(project, trimStartSec);
           }}
         >
           {isPlaying ? (
@@ -397,16 +386,19 @@ export function ChoreoViewerBottomBar({
     >
       <div className="choreo-viewer-playback-row">
         {transportInBar ? (
-          <ChoreoViewerTransportControls
-            timelineRef={timelineRef}
-            trimStartSec={trimStartSec}
-            trimEndSec={trimEndSec}
-            isPlaying={isPlaying}
-            currentTime={currentTime}
-            duration={duration}
-            compact={tightHeight}
-            onBeforeTransport={onBeforeTransport}
-          />
+          <div className="choreo-viewer-transport-group">
+            <ChoreoViewerTransportControls
+              project={project}
+              timelineRef={timelineRef}
+              trimStartSec={trimStartSec}
+              trimEndSec={trimEndSec}
+              isPlaying={isPlaying}
+              currentTime={currentTime}
+              duration={duration}
+              compact={tightHeight}
+              onBeforeTransport={onBeforeTransport}
+            />
+          </div>
         ) : null}
         <button
           type="button"

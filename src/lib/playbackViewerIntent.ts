@@ -20,11 +20,20 @@ export function hasViewerPendingPlay(): boolean {
 
 /** 音源 URL 設定・canplay 後に呼ぶ */
 export function fulfillViewerPendingPlay(): void {
-  const trim = pendingPlayTrimStartSec;
-  if (trim == null) return;
   if (!playbackEngine.getMediaSourceUrl()) return;
-  pendingPlayTrimStartSec = null;
-  togglePlaybackRespectingTrimStart(trim);
+  const trim = pendingPlayTrimStartSec;
+  if (trim != null) {
+    pendingPlayTrimStartSec = null;
+    togglePlaybackRespectingTrimStart(trim);
+    return;
+  }
+  const store = usePlaybackUiStore.getState();
+  if (!store.isPlaying || !playbackEngine.isPaused()) return;
+  const t = store.currentTimeSec;
+  if (Number.isFinite(t) && t >= 0) {
+    playbackEngine.seek(t);
+  }
+  void playbackEngine.play();
 }
 
 /**

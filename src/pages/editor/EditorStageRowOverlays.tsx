@@ -20,6 +20,7 @@ import {
 } from "../../components/ChoreoViewerBottomBar";
 import { VideoExportSheet } from "../../components/VideoExportSheet";
 import { useVideoExportUiStore } from "../../store/videoExportUiStore";
+import { playbackEngine } from "../../core/playbackEngine";
 import { btnAccent, btnSecondary } from "../../components/stageButtonStyles";
 import { panelCard, shell } from "../../theme/choreoShell";
 import { modDancerColorIndex, DANCER_COLOR_PALETTE_HEX } from "../../lib/dancerColorPalette";
@@ -158,6 +159,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
   const setViewerChromeCollapsed = props.setViewerChromeCollapsed as never;
   const onViewerBarHeightChange = props.onViewerBarHeightChange as never;
   const resyncViewerPlayback = props.resyncViewerPlayback as never;
+  const reloadViewerAudio = props.reloadViewerAudio as never;
   const raw = props.raw as never;
   const redo = props.redo as never;
   const result = props.result as never;
@@ -1484,7 +1486,12 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
             chromeCollapsed={viewerChromeCollapsed}
             onChromeCollapsedChange={setViewerChromeCollapsed}
             onBarHeightChange={onViewerBarHeightChange}
-            onBeforeTransport={() => resyncViewerPlayback({ force: true })}
+            onBeforeTransport={() => {
+              if (!playbackEngine.getMediaSourceUrl()) {
+                reloadViewerAudio();
+              }
+              void resyncViewerPlayback({ force: true });
+            }}
             onOpenMemberSheet={() => setChoreoMemberSheetOpen(true)}
             fileName={projectName}
           />

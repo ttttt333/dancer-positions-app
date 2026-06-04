@@ -554,6 +554,25 @@ body {
     min-height: 52px;
     box-sizing: border-box;
   }
+  .choreo-viewer-transport-group {
+    display: flex;
+    flex: 1 1 0;
+    min-width: 0;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+  }
+  .choreo-viewer-playback-row .choreo-viewer-time {
+    flex: 0 1 auto;
+    min-width: 4.5em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .choreo-viewer-playback-row .choreo-viewer-meta-toggle {
+    flex-shrink: 0;
+    margin-left: 2px;
+  }
   .choreo-viewer-bottom-bar--meta-closed .choreo-viewer-playback-row {
     border-bottom: none;
     min-height: 48px;
@@ -568,8 +587,7 @@ body {
     left: max(4px, env(safe-area-inset-left, 0px));
     top: auto;
     bottom: calc(
-      var(--choreo-viewer-bar-h, 52px) + var(--choreo-viewer-cuepager-h, 50px) +
-        max(10px, env(safe-area-inset-bottom, 0px)) + 14px
+      var(--choreo-viewer-bar-h, 52px) + max(8px, env(safe-area-inset-bottom, 0px)) + 12px
     );
     transform: none;
     z-index: 92;
@@ -579,10 +597,9 @@ body {
     gap: 0;
     max-height: min(
       calc(
-        100dvh - var(--choreo-viewer-bar-h, 52px) - var(--choreo-viewer-cuepager-h, 50px) -
-          max(10px, env(safe-area-inset-bottom, 0px)) - 24px
+        100dvh - var(--choreo-viewer-bar-h, 52px) - max(10px, env(safe-area-inset-bottom, 0px)) - 20px
       ),
-      300px
+      320px
     );
     pointer-events: auto;
   }

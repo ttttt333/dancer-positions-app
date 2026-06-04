@@ -164,5 +164,6 @@ export function useEditorAudioSession({
     onPickAudio,
     openAudioImport,
     resyncPlayback,
+    reloadRemoteAudio: requestRemoteAudioReload,
   };
 }

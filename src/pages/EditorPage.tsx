@@ -495,6 +495,7 @@ export function EditorPage({
     publicShareView: choreoPublicView,
   });
   const resyncViewerPlayback = editorAudioSession.resyncPlayback;
+  const reloadViewerAudio = editorAudioSession.reloadRemoteAudio;
 
   /** 閲覧共有: 作品データ取得直後から音源を先読み（パート選択を待たない） */
   useEffect(() => {
@@ -2516,6 +2517,7 @@ export function EditorPage({
     viewerBarHeightPx,
     onViewerBarHeightChange: setViewerBarHeightPx,
     resyncViewerPlayback,
+    reloadViewerAudio,
     redo,
     rightPaneCollapsed,
     rightPaneStackRef,
