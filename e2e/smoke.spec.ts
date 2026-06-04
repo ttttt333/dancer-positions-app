@@ -4,7 +4,7 @@ test.describe("smoke", () => {
   test("home page loads", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("#choreogrid-locale-select")).toBeVisible();
-    await expect(page.getByRole("link", { name: /新規|New project|Start new/i })).toBeVisible();
+    await expect(page.locator('a[href="/editor/new"]')).toBeVisible();
   });
 
   test("new editor session opens", async ({ page }) => {
