@@ -21,6 +21,9 @@ export const EDITOR_GRID_GAP_PX = 10;
 /** 上部波形ドック行の既定高さ（px） */
 export const TOP_DOCK_HEIGHT_PX = 120;
 
+/** 生徒閲覧（狭い画面）の波形ドック既定高さ（px）— ズーム操作ができるよう十分な高さ */
+export const PUBLIC_VIEW_WAVE_DOCK_HEIGHT_PX = 140;
+
 export {
   TOP_DOCK_HEIGHT_WIDE_PX,
   TOP_DOCK_ROW_MIN_WIDE_PX,

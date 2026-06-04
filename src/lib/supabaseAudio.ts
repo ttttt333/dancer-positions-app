@@ -3,6 +3,23 @@ import { getSupabase } from "./supabaseClient";
 /** `supabase/schema.sql` と Storage のバケット作成で同名にすること */
 export const CHOREOCORE_AUDIO_BUCKET = "choreocore-audio";
 
+/** Storage の download 失敗を共有閲覧向けに読みやすくする */
+export function formatChoreocoreAudioDownloadError(
+  path: string,
+  rawMessage: string
+): string {
+  const msg = rawMessage.trim() || "音源のダウンロードに失敗しました";
+  if (/object not found/i.test(msg)) {
+    const p = path.trim() || "（パス未設定）";
+    return (
+      `Storage に音源がありません（${p}）。` +
+      "エディタで音源を再取り込みしクラウド保存してください。" +
+      "Supabase で `share-view-audio-policy.sql` を実行済みか、`choreocore_projects.json` の `audioSupabasePath` が Storage のオブジェクト名と完全一致しているか確認してください。"
+    );
+  }
+  return msg;
+}
+
 function extFromFilename(name: string): string {
   const m = /\.([a-zA-Z0-9]{1,12})$/.exec(name.trim());
   return m ? m[1]!.toLowerCase() : "bin";
@@ -44,7 +61,9 @@ export async function supabaseDownloadProjectAudioBuffer(path: string): Promise<
   const sb = getSupabase();
   const { data, error } = await sb.storage.from(CHOREOCORE_AUDIO_BUCKET).download(path);
   if (error) {
-    throw new Error(error.message || "音源のダウンロードに失敗しました");
+    throw new Error(
+      formatChoreocoreAudioDownloadError(path, error.message || "")
+    );
   }
   return data.arrayBuffer();
 }
@@ -83,7 +102,9 @@ export async function supabaseDownloadProjectAudioWithCache(
   const sb = getSupabase();
   const { data, error } = await sb.storage.from(CHOREOCORE_AUDIO_BUCKET).download(path);
   if (error) {
-    throw new Error(error.message || "音源のダウンロードに失敗しました");
+    throw new Error(
+      formatChoreocoreAudioDownloadError(path, error.message || "")
+    );
   }
   onProgress?.(0.95);
   const buffer = await data.arrayBuffer();

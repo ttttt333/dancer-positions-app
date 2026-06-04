@@ -522,7 +522,11 @@ body {
     padding-right: 0 !important;
     padding-top: 0 !important;
   }
-  /* 生徒閲覧: ステージのみ全面表示（タイムラインは display:none で非表示） */
+  /* 生徒閲覧: 波形は上部ドック（.choreo-viewer-timeline-mount）、ステージは全面 */
+  .choreo-public-view-root .choreo-viewer-timeline-mount {
+    flex-shrink: 0;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  }
   .choreo-public-view-root .editor-three-pane.editor-three-pane--public-narrow {
     grid-template-columns: 1fr !important;
     grid-template-rows: 1fr !important;

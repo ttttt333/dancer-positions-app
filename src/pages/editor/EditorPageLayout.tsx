@@ -20,7 +20,13 @@ import { formatMmSsFloor } from "../../lib/timeFormat";
 import { getViewRosterEntries } from "../../lib/viewRoster";
 import { listStagePresets, saveStagePreset } from "../../lib/stagePresets";
 import { parseMeterCmDraftToMm } from "./stageAreaSettingsDraft";
-import { EDITOR_GRID_GAP_PX, STAGE_RESIZER_PX, TOP_DOCK_HEIGHT_PX, TOP_DOCK_ROW_MIN_PX } from "./editorConstants";
+import {
+  EDITOR_GRID_GAP_PX,
+  PUBLIC_VIEW_WAVE_DOCK_HEIGHT_PX,
+  STAGE_RESIZER_PX,
+  TOP_DOCK_HEIGHT_PX,
+  TOP_DOCK_ROW_MIN_PX,
+} from "./editorConstants";
 import { TOP_DOCK_WAVE_STAGE_RESIZER_PX } from "../../lib/waveDockMetrics";
 import type { EditorLayoutProps } from "./editorLayoutProps";
 
@@ -220,6 +226,7 @@ export function EditorPageLayout(props: EditorLayoutProps) {
   const v = props.v as never;
   const viewerLocalStorageKey = props.viewerLocalStorageKey as never;
   const wideBottomDockPx = props.wideBottomDockPx as never;
+  const publicViewWaveDockPx = props.publicViewWaveDockPx as never;
   const wideEditorLayout = props.wideEditorLayout as never;
   const workbenchInRightRail = props.workbenchInRightRail as never;
   const xPct = props.xPct as never;
@@ -294,22 +301,19 @@ export function EditorPageLayout(props: EditorLayoutProps) {
             width: "100%",
             minWidth: 0,
             height: publicNarrowLayout
-              ? 1
+              ? (publicViewWaveDockPx ?? PUBLIC_VIEW_WAVE_DOCK_HEIGHT_PX)
               : wideEditorLayout
                 ? wideBottomDockPx
                 : TOP_DOCK_HEIGHT_PX,
-            position: publicNarrowLayout ? ("absolute" as const) : "relative",
-            left: publicNarrowLayout ? 0 : undefined,
-            top: publicNarrowLayout ? 0 : undefined,
-            overflow: publicNarrowLayout ? "hidden" : undefined,
-            opacity: publicNarrowLayout ? 0 : undefined,
-            pointerEvents: publicNarrowLayout ? "none" : undefined,
-            background: "transparent",
-            marginBottom: wideEditorLayout ? 0 : publicNarrowLayout ? 0 : 4,
-            display: publicNarrowLayout ? undefined : undefined,
-            visibility: publicNarrowLayout ? ("hidden" as const) : undefined,
+            position: "relative",
+            overflow: "hidden",
+            background: publicNarrowLayout ? "rgba(15, 23, 42, 0.92)" : "transparent",
+            marginBottom: wideEditorLayout ? 0 : publicNarrowLayout ? 2 : 4,
+            zIndex: publicNarrowLayout ? 12 : undefined,
+            borderBottom: publicNarrowLayout
+              ? "1px solid rgba(51, 65, 85, 0.65)"
+              : undefined,
           }}
-          aria-hidden={publicNarrowLayout ? true : undefined}
         >
           {/* Timeline content */}
           <div

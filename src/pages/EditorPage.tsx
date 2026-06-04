@@ -153,6 +153,7 @@ import {
   STAGE_COL_MIN_PX,
   STAGE_RESIZER_PX,
   TIMELINE_FULL_COL_MIN_PX,
+  PUBLIC_VIEW_WAVE_DOCK_HEIGHT_PX,
   TOP_DOCK_HEIGHT_PX,
   TOP_DOCK_HEIGHT_WIDE_PX,
   TOP_DOCK_ROW_MAX_PX,
@@ -2376,12 +2377,18 @@ export function EditorPage({
   const wideBottomDockPx = topDockRowPx != null
     ? Math.max(TOP_DOCK_HEIGHT_WIDE_PX, clampTopDockRowPx(topDockRowPx))
     : TOP_DOCK_HEIGHT_WIDE_PX;
+  const publicViewWaveDockPx =
+    topDockRowPx != null
+      ? clampTopDockRowPx(
+          Math.max(PUBLIC_VIEW_WAVE_DOCK_HEIGHT_PX, topDockRowPx)
+        )
+      : PUBLIC_VIEW_WAVE_DOCK_HEIGHT_PX;
   const editorPaneGridTemplateRows = stageZenLayout
     ? "1fr"
     : wideEditorLayout
       ? "minmax(0, 1fr)"  // 波形バーはflexラッパー下段に独立配置
       : publicNarrowLayout
-        ? "1fr"  // 生徒閲覧: ステージのみ全面表示。タイムラインは display:none で非表示
+        ? "1fr" // 生徒閲覧: 波形は EditorPageLayout 上部ドック、ステージはこのグリッド
         : "auto auto auto auto";
 
   const editorPaneGridTemplateColumns = stageZenLayout
@@ -2675,6 +2682,7 @@ export function EditorPage({
     undo,
     viewerLocalStorageKey,
     wideBottomDockPx,
+    publicViewWaveDockPx,
     wideEditorLayout,
     workbenchInRightRail,
   };
