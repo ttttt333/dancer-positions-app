@@ -156,6 +156,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
   const publicViewTightHeight = props.publicViewTightHeight as never;
   const viewerChromeCollapsed = props.viewerChromeCollapsed as never;
   const setViewerChromeCollapsed = props.setViewerChromeCollapsed as never;
+  const onViewerBarHeightChange = props.onViewerBarHeightChange as never;
   const resyncViewerPlayback = props.resyncViewerPlayback as never;
   const raw = props.raw as never;
   const redo = props.redo as never;
@@ -1482,6 +1483,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
             tightHeight={publicViewTightHeight}
             chromeCollapsed={viewerChromeCollapsed}
             onChromeCollapsedChange={setViewerChromeCollapsed}
+            onBarHeightChange={onViewerBarHeightChange}
             onBeforeTransport={() => resyncViewerPlayback({ force: true })}
             onOpenMemberSheet={() => setChoreoMemberSheetOpen(true)}
             fileName={projectName}

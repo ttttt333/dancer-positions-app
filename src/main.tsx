@@ -3,6 +3,9 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.tsx";
 import { I18nProvider } from "./i18n/I18nContext";
+import { warmShareViewFromCurrentPath } from "./lib/shareViewProjectCache";
+
+warmShareViewFromCurrentPath();
 
 /**
  * 本番: SW + キャッシュを全消去してからリロード（毎セッション1回）。

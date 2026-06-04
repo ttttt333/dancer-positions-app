@@ -47,6 +47,7 @@ import {
 } from "../lib/waveLoadProgress";
 import { verifyBlobUrl } from "../lib/verifyBlobUrl";
 import { waitForAudioElementReady } from "../lib/audioElementReady";
+import { fulfillViewerPendingPlay } from "../lib/playbackViewerIntent";
 import { tryFetchServerWavePeaksReady } from "../lib/wavePeaksServerApi";
 
 type DecodePeaksFn = (
@@ -99,6 +100,7 @@ function scheduleMarkPlaybackReady() {
   void waitForAudioElementReady(playbackEngine.getMediaElement())
     .then(() => {
       clearWaveLoadProgress();
+      fulfillViewerPendingPlay();
     })
     .catch((e) => {
       reportWaveLoadError(

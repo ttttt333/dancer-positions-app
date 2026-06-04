@@ -20,6 +20,11 @@ import {
   stopPlaybackAtTrimStart,
   togglePlaybackRespectingTrimStart,
 } from "../lib/playbackTransport";
+import {
+  clearViewerPendingPlay,
+  primeAudioForUserGesture,
+  setViewerPendingPlay,
+} from "../lib/playbackViewerIntent";
 
 /** 閲覧共有ステージ上のダンサー印の表示倍率（従来比 2/3） */
 export const PUBLIC_VIEWER_MARKER_DISPLAY_SCALE = 2 / 3;
@@ -105,14 +110,15 @@ export function ChoreoViewerTransportControls({
   }, [duration, onBeforeTransport, timelineRef, trimEndSec, trimStartSec]);
 
   const togglePlay = useCallback(() => {
-    void (async () => {
-      await onBeforeTransport?.();
-      if (playbackEngine.getMediaSourceUrl()) {
-        togglePlaybackRespectingTrimStart(trimStartSec);
-        return;
-      }
-      timelineRef?.current?.togglePlay();
-    })();
+    // iOS: play() はユーザータップの同期スタック内で呼ぶ（await しない）
+    void onBeforeTransport?.();
+    if (playbackEngine.getMediaSourceUrl()) {
+      clearViewerPendingPlay();
+      togglePlaybackRespectingTrimStart(trimStartSec);
+      return;
+    }
+    setViewerPendingPlay(trimStartSec);
+    timelineRef?.current?.togglePlay();
   }, [onBeforeTransport, timelineRef, trimStartSec]);
 
   const stopPlayback = useCallback(() => {
@@ -140,6 +146,7 @@ export function ChoreoViewerTransportControls({
         type="button"
         aria-label={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
         title={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
+        onPointerDown={primeAudioForUserGesture}
         onClick={togglePlay}
         style={{
           ...btnAccent,
@@ -263,15 +270,16 @@ export function ChoreoViewerLandscapeRail({
           className="choreo-viewer-landscape-rail-play-mini"
           aria-label={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
           title={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
+          onPointerDown={primeAudioForUserGesture}
           onClick={() => {
-            void (async () => {
-              await onBeforeTransport?.();
-              if (playbackEngine.getMediaSourceUrl()) {
-                togglePlaybackRespectingTrimStart(trimStartSec);
-                return;
-              }
-              timelineRef.current?.togglePlay();
-            })();
+            void onBeforeTransport?.();
+            if (playbackEngine.getMediaSourceUrl()) {
+              clearViewerPendingPlay();
+              togglePlaybackRespectingTrimStart(trimStartSec);
+              return;
+            }
+            setViewerPendingPlay(trimStartSec);
+            timelineRef.current?.togglePlay();
           }}
         >
           {isPlaying ? (
@@ -356,8 +364,8 @@ export function ChoreoViewerBottomBar({
   );
 
   useEffect(() => {
-    onBarHeightChange?.(barHeightPx);
-  }, [barHeightPx, onBarHeightChange]);
+    onBarHeightChange?.(chromeCollapsed ? 0 : barHeightPx);
+  }, [barHeightPx, chromeCollapsed, onBarHeightChange]);
 
   if (chromeCollapsed) {
     return null;

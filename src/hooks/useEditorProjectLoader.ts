@@ -16,6 +16,7 @@ import { normalizeProject } from "../lib/normalizeProject";
 import { loadEditorDraft } from "../lib/editorDraftStorage";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import type { Me } from "../types/authMe";
+import { loadShareViewProject, primeShareViewLoaderState } from "../lib/shareViewProjectCache";
 
 export type UseEditorProjectLoaderOptions = {
   projectId?: string;
@@ -40,11 +41,22 @@ export function useEditorProjectLoader({
   navigate,
   onHistoryReset,
 }: UseEditorProjectLoaderOptions) {
-  const [plainProject, setPlainProject] =
-    useState<ChoreographyProjectJson | null>(null);
-  const [projectName, setProjectName] = useState("無題の作品");
-  const [serverId, setServerId] = useState<number | null>(null);
-  const [serverShareToken, setServerShareToken] = useState<string | null>(null);
+  const sharePrimed =
+    choreoPublicView && shareTokenParam
+      ? primeShareViewLoaderState(shareTokenParam)
+      : null;
+  const [plainProject, setPlainProject] = useState<ChoreographyProjectJson | null>(
+    () => sharePrimed?.plainProject ?? null
+  );
+  const [projectName, setProjectName] = useState(
+    () => sharePrimed?.projectName ?? "無題の作品"
+  );
+  const [serverId, setServerId] = useState<number | null>(
+    () => sharePrimed?.serverId ?? null
+  );
+  const [serverShareToken, setServerShareToken] = useState<string | null>(
+    () => sharePrimed?.serverShareToken ?? null
+  );
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const skipNextProjectFetchRef = useRef<number | null>(null);
@@ -59,34 +71,29 @@ export function useEditorProjectLoader({
   useEffect(() => {
     if (choreoPublicView && shareTokenParam) {
       let cancelled = false;
-      (async () => {
-        setPlainProject(null);
-        setLoadError(null);
-        setServerShareToken(shareTokenParam);
-        try {
-          if (!isSupabaseBackend()) {
-            if (!cancelled) {
-              setLoadError(
-                "共有閲覧には VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY の設定が必要です。"
-              );
-            }
-            return;
-          }
-          const row = await projectApi.getByShareToken(shareTokenParam);
+      setLoadError(null);
+      setServerShareToken(shareTokenParam);
+      if (!isSupabaseBackend()) {
+        setLoadError(
+          "共有閲覧には VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY の設定が必要です。"
+        );
+        return;
+      }
+      void loadShareViewProject(shareTokenParam)
+        .then((payload) => {
           if (cancelled) return;
-          setServerId(row.id);
-          setServerShareToken(row.share_token ?? shareTokenParam);
-          setProjectName(row.name);
-          const baseJson = normalizeProject(row.json);
-          setPlainProject({ ...baseJson, viewMode: "view" });
+          setServerId(payload.serverId);
+          setServerShareToken(payload.serverShareToken);
+          setProjectName(payload.projectName);
+          setPlainProject(payload.project);
           setLoadError(null);
           onHistoryReset();
-        } catch (e) {
+        })
+        .catch((e) => {
           if (!cancelled) {
             setLoadError(e instanceof Error ? e.message : "読み込み失敗");
           }
-        }
-      })();
+        });
       return () => {
         cancelled = true;
       };

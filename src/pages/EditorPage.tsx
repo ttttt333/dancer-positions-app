@@ -4,6 +4,7 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -123,6 +124,7 @@ import {
   mergeStageSnapshotIntoProject,
 } from "../lib/savedSpotStageSnapshot";
 import { getViewRosterEntries } from "../lib/viewRoster";
+import { resolveAutoStudentPick } from "../lib/shareViewStudentPick";
 import { isCustomStageShapeActive } from "../lib/stageShapePaths";
 import {
   ChoreoStudentViewGate,
@@ -330,8 +332,6 @@ export function EditorPage({
   const shareCopiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** 生徒向け /view ルート: メンバー選択後の閲覧 */
   const [choreoStudentPick, setChoreoStudentPick] = useState<StudentPick | null>(null);
-  const [choreoGatePhase, setChoreoGatePhase] = useState<"remind" | "pick">("pick");
-  const [choreoStoredPick, setChoreoStoredPick] = useState<StudentPick | null>(null);
   const [shareLinksOpen, setShareLinksOpen] = useState(false);
   const [choreoMemberSheetOpen, setChoreoMemberSheetOpen] = useState(false);
   /** 編集画面: 生徒用閲覧と同じ「一人強調」をプレビュー */
@@ -357,6 +357,8 @@ export function EditorPage({
   });
   /** 閲覧共有: 下バー・左レール・キューページャを隠してステージを最大化 */
   const [viewerChromeCollapsed, setViewerChromeCollapsed] = useState(false);
+  /** 閲覧下バーの高さ（横画面レール位置・ステージ余白用 CSS 変数） */
+  const [viewerBarHeightPx, setViewerBarHeightPx] = useState(52);
   /** ワイド＋タイムライン表示時: キュー一覧モーダルの開閉（一覧本体はポータルで描画） */
   const [cueListModalOpen, setCueListModalOpen] = useState(false);
   const [aiSuggestOpen, setAiSuggestOpen] = useState(false);
@@ -490,9 +492,17 @@ export function EditorPage({
     audioAssetId: project?.audioAssetId ?? null,
     audioSupabasePath: project?.audioSupabasePath,
     flowLocalAudioKey: project?.flowLocalAudioKey ?? null,
-    publicShareView: choreoPublicView && !!shareTokenParam,
+    publicShareView: choreoPublicView,
   });
   const resyncViewerPlayback = editorAudioSession.resyncPlayback;
+
+  /** 閲覧共有: 作品データ取得直後から音源を先読み（パート選択を待たない） */
+  useEffect(() => {
+    if (!choreoPublicView) return;
+    const path = project?.audioSupabasePath;
+    if (typeof path !== "string" || path.trim().length === 0) return;
+    void resyncViewerPlayback({ force: true });
+  }, [choreoPublicView, project?.audioSupabasePath, resyncViewerPlayback]);
 
   const {
     timelineRef,
@@ -526,53 +536,26 @@ export function EditorPage({
     return projectShareLinks(serverId, serverShareToken);
   }, [serverId, serverShareToken]);
 
-  const storageRemindHandledRef = useRef(false);
-  useEffect(() => {
-    storageRemindHandledRef.current = false;
-  }, [viewerLocalStorageKey]);
-
   useEffect(() => {
     if (choreoPublicView) {
       setRightPaneCollapsed(true);
     }
   }, [choreoPublicView]);
 
-  useEffect(() => {
-    if (!choreoPublicView || !viewerLocalStorageKey) return;
-    if (choreoStudentPick != null) return;
-    if (storageRemindHandledRef.current) return;
-    try {
-      const raw = localStorage.getItem(viewerLocalStorageKey);
-      if (!raw) {
-        storageRemindHandledRef.current = true;
-        return;
+  /** 閲覧共有: 前回パート・1人名簿は確認画面なしで即ステージへ */
+  useLayoutEffect(() => {
+    if (!choreoPublicView || !project || choreoStudentPick != null) return;
+    const pick = resolveAutoStudentPick(project, viewerLocalStorageKey);
+    if (!pick) return;
+    setChoreoStudentPick(pick);
+    if (viewerLocalStorageKey) {
+      try {
+        localStorage.setItem(viewerLocalStorageKey, JSON.stringify(pick));
+      } catch {
+        /* ignore */
       }
-      const parsed = JSON.parse(raw) as {
-        kind?: string;
-        id?: string;
-        label?: string;
-      };
-      if (parsed.kind === "all") {
-        setChoreoStoredPick({ kind: "all" });
-        setChoreoGatePhase("remind");
-      } else if (
-        parsed.kind === "member" &&
-        typeof parsed.id === "string" &&
-        typeof parsed.label === "string"
-      ) {
-        setChoreoStoredPick({
-          kind: "member",
-          id: parsed.id,
-          label: parsed.label,
-        });
-        setChoreoGatePhase("remind");
-      }
-    } catch {
-      /* ignore */
-    } finally {
-      storageRemindHandledRef.current = true;
     }
-  }, [choreoPublicView, viewerLocalStorageKey, choreoStudentPick]);
+  }, [choreoPublicView, project, viewerLocalStorageKey, choreoStudentPick]);
 
   /**
    * 上部波形ドック時は右列を狭くする（未ロード時は false で右列を広めに確保）。
@@ -2272,44 +2255,24 @@ export function EditorPage({
     return <div style={{ padding: 24, color: "#94a3b8" }}>{t("common.loading")}</div>;
   }
 
-  if (choreoPublicView) {
-    if (choreoStudentPick == null) {
-      if (choreoGatePhase === "remind" && choreoStoredPick) {
-        return (
-          <ChoreoStudentViewGate
-            pieceTitle={project.pieceTitle}
-            entries={getViewRosterEntries(project)}
-            gateMode="remind"
-            lastPick={choreoStoredPick}
-            onRemindContinue={() => {
-              setChoreoStudentPick(choreoStoredPick);
-            }}
-            onRemindChooseOther={() => {
-              setChoreoGatePhase("pick");
-              setChoreoStoredPick(null);
-            }}
-            onPick={() => {}}
-          />
-        );
-      }
-      return (
-        <ChoreoStudentViewGate
-          pieceTitle={project.pieceTitle}
-          entries={getViewRosterEntries(project)}
-          gateMode="pick"
-          onPick={(p) => {
-            setChoreoStudentPick(p);
-            if (viewerLocalStorageKey) {
-              try {
-                localStorage.setItem(viewerLocalStorageKey, JSON.stringify(p));
-              } catch {
-                /* ignore */
-              }
+  if (choreoPublicView && choreoStudentPick == null) {
+    return (
+      <ChoreoStudentViewGate
+        pieceTitle={project.pieceTitle}
+        entries={getViewRosterEntries(project)}
+        gateMode="pick"
+        onPick={(p) => {
+          setChoreoStudentPick(p);
+          if (viewerLocalStorageKey) {
+            try {
+              localStorage.setItem(viewerLocalStorageKey, JSON.stringify(p));
+            } catch {
+              /* ignore */
             }
-          }}
-        />
-      );
-    }
+          }
+        }}
+      />
+    );
   }
 
   const stageBoardProject = projectForStageBoard ?? project;
@@ -2395,7 +2358,7 @@ export function EditorPage({
       extractProgress={editorAudioSession.extractProgress}
       onPickAudio={editorAudioSession.onPickAudio}
       onOpenPathEditor={(cueId) => setPathEditorCueId(cueId)}
-      publicShareView={choreoPublicView && !!shareTokenParam}
+      publicShareView={choreoPublicView}
       topDockHeightPx={
         showTopWaveDock && !mobileStackEditor ? wideBottomDockPx : null
       }
@@ -2550,6 +2513,8 @@ export function EditorPage({
     publicViewTightHeight,
     viewerChromeCollapsed,
     setViewerChromeCollapsed,
+    viewerBarHeightPx,
+    onViewerBarHeightChange: setViewerBarHeightPx,
     resyncViewerPlayback,
     redo,
     rightPaneCollapsed,

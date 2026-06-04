@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { clearViewerPendingPlay } from "../lib/playbackViewerIntent";
 
 /**
  * 再生まわりの UI 同期用ストア（段階的に Editor / Timeline から集約）。
@@ -46,11 +47,13 @@ export const usePlaybackUiStore = create<PlaybackUiStore>((set) => ({
       trustedAudioDurationSec:
         typeof v === "number" && Number.isFinite(v) && v > 0 ? v : null,
     }),
-  resetPlaybackUi: () =>
+  resetPlaybackUi: () => {
+    clearViewerPendingPlay();
     set({
       currentTimeSec: 0,
       isPlaying: false,
       durationSec: 0,
       trustedAudioDurationSec: null,
-    }),
+    });
+  },
 }));

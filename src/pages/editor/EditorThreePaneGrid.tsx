@@ -439,13 +439,6 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     : choreoPublicView
                       ? "max(4px, env(safe-area-inset-bottom, 0px))"
                       : undefined,
-                paddingLeft:
-                  choreoPublicView &&
-                  publicViewTightHeight &&
-                  choreoStudentPick &&
-                  !viewerChromeCollapsed
-                    ? "max(52px, calc(44px + env(safe-area-inset-left, 0px)))"
-                    : undefined,
                 marginTop: 0,
               }),
         }}
@@ -497,6 +490,9 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
           className={[
             "editor-stage-section",
             publicNarrowLayout ? "editor-stage-section--public-view" : "",
+            publicNarrowLayout && viewerChromeCollapsed
+              ? "editor-stage-section--public-view-max"
+              : "",
           ]
             .filter(Boolean)
             .join(" ")}

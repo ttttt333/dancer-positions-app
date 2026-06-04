@@ -7,6 +7,7 @@ import { resyncEditorPlaybackMedia, resolveEditorPlaybackBlobUrl } from "../lib/
 import { playbackEngine } from "../core/playbackEngine";
 import { useWavePeaksStore } from "../store/wavePeaksStore";
 import { verifyBlobUrl } from "../lib/verifyBlobUrl";
+import { fulfillViewerPendingPlay } from "../lib/playbackViewerIntent";
 import { useTimelineAudioImport } from "./useTimelineAudioImport";
 import { useTimelineRemoteAudio } from "./useTimelineRemoteAudio";
 import { useTimelineWaveDecode } from "./useTimelineWaveDecode";
@@ -85,6 +86,7 @@ export function useEditorAudioSession({
         if (url) {
           blobUrlRef.current = url;
           await resyncEditorPlaybackMedia(blobUrlRef, opts);
+          fulfillViewerPendingPlay();
           return;
         }
         const peaks = useWavePeaksStore.getState().peaks;
@@ -95,6 +97,7 @@ export function useEditorAudioSession({
           if (valid) {
             blobUrlRef.current = engineUrl;
             await resyncEditorPlaybackMedia(blobUrlRef, opts);
+            fulfillViewerPendingPlay();
             return;
           }
         }
@@ -107,6 +110,7 @@ export function useEditorAudioSession({
             if (valid) {
               blobUrlRef.current = engineUrl;
               await resyncEditorPlaybackMedia(blobUrlRef, opts);
+              fulfillViewerPendingPlay();
               return;
             }
           }

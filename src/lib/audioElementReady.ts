@@ -59,4 +59,6 @@ export function waitForAudioElementReady(
 export function configureHtmlAudioElement(el: HTMLAudioElement): void {
   el.crossOrigin = "anonymous";
   el.preload = "auto";
+  el.setAttribute("playsinline", "true");
+  el.setAttribute("webkit-playsinline", "true");
 }

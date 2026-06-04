@@ -132,6 +132,8 @@ export function EditorPageLayout(props: EditorLayoutProps) {
   const publicNarrowLayout = props.publicNarrowLayout as never;
   const publicViewTightHeight = props.publicViewTightHeight as never;
   const viewerChromeCollapsed = props.viewerChromeCollapsed as never;
+  const viewerBarHeightPx = props.viewerBarHeightPx as never;
+  const publicViewTightHeightForVars = props.publicViewTightHeight as never;
   const raw = props.raw as never;
   const redo = props.redo as never;
   const result = props.result as never;
@@ -260,6 +262,17 @@ export function EditorPageLayout(props: EditorLayoutProps) {
         paddingRight: "env(safe-area-inset-right, 0px)",
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
         boxSizing: "border-box",
+        ...(choreoPublicView
+          ? {
+              ["--choreo-viewer-bar-h" as string]: viewerChromeCollapsed
+                ? "0px"
+                : `${viewerBarHeightPx}px`,
+              ["--choreo-viewer-cuepager-h" as string]:
+                viewerChromeCollapsed || !publicViewTightHeightForVars
+                  ? "0px"
+                  : "50px",
+            }
+          : {}),
       }}
     >
       {playbackAudioElement}
@@ -269,7 +282,10 @@ export function EditorPageLayout(props: EditorLayoutProps) {
       ) : null}
 
       {/* ─── Main layout: column flex (top wave bar + stage row) ─── */}
-      <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "visible" }}>
+      <div
+        className={choreoPublicView ? "choreo-public-view-main" : undefined}
+        style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "visible" }}
+      >
 
       {showTopWaveDock && !stageZenLayout && !mobileStackEditor ? (
         <div

@@ -64,6 +64,7 @@ export function useEditorPlaybackSync(p: Params): {
         controls: false,
         crossOrigin: "anonymous",
         preload: "auto",
+        playsInline: true,
         "aria-hidden": true,
       }),
     [bindPlaybackAudioElementRef]
