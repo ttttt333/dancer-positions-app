@@ -13,6 +13,10 @@ import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import { bindPlaybackOrientationResume } from "../lib/playbackOrientationResume";
 import { reportWaveLoadError } from "../lib/waveLoadProgress";
 import {
+  hasViewerPendingPlay,
+  hasViewerPlayIntent,
+} from "../lib/playbackViewerIntent";
+import {
   advanceViewerPlaybackHead,
   syncViewerDurationFromProject,
 } from "../lib/viewerPlayback";
@@ -76,7 +80,10 @@ export function useEditorPlaybackSync(p: Params): {
 
   useEffect(() => {
     usePlaybackUiStore.getState().resetPlaybackUi();
-    return subscribePlaybackEngineToPlaybackUiStore(setProjectSafe);
+    return subscribePlaybackEngineToPlaybackUiStore(
+      setProjectSafe,
+      choreoPublicView
+    );
   }, [projectId, shareToken, choreoPublicView, setProjectSafe]);
 
   useEffect(() => bindPlaybackOrientationResume(), []);
@@ -228,8 +235,17 @@ function usePlaybackHeadRafSync(
 }
 
 /** `<audio>` の play/pause とストアの `isPlaying` を同期（単一購読） */
-function subscribePlaybackEnginePlayingToStore(): () => void {
+function subscribePlaybackEnginePlayingToStore(
+  choreoPublicView: boolean
+): () => void {
   const unsub = playbackEngine.onPlayingChange((playing) => {
+    if (
+      choreoPublicView &&
+      !playing &&
+      (hasViewerPlayIntent() || hasViewerPendingPlay())
+    ) {
+      return;
+    }
     usePlaybackUiStore.getState().setIsPlaying(playing);
   });
   usePlaybackUiStore.getState().setIsPlaying(!playbackEngine.isPaused());
@@ -260,8 +276,9 @@ function subscribePlaybackEngineMetaToProject(
 
 function subscribePlaybackEngineToPlaybackUiStore(
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>,
+  choreoPublicView: boolean
 ): () => void {
-  const unsubPlay = subscribePlaybackEnginePlayingToStore();
+  const unsubPlay = subscribePlaybackEnginePlayingToStore(choreoPublicView);
   const unsubMeta = subscribePlaybackEngineMetaToProject(setProject);
   return () => {
     unsubPlay();

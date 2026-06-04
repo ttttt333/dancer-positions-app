@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import type { TimelinePanelHandle } from "./timelinePanelTypes";
 import type { StudentPick } from "./ChoreoStudentViewGate";
@@ -21,7 +21,11 @@ import {
   togglePlaybackRespectingTrimStart,
 } from "../lib/playbackTransport";
 import { primeAudioForUserGesture } from "../lib/playbackViewerIntent";
-import { toggleViewerPlayback } from "../lib/viewerPlayback";
+import {
+  toggleViewerPlayback,
+  tryStartViewerPlaybackFromUserGesture,
+} from "../lib/viewerPlayback";
+import { hasViewerPlayIntent } from "../lib/playbackViewerIntent";
 import { useWaveformLoadProgressStore } from "../store/waveformLoadProgressStore";
 
 /** 閲覧共有ステージ上のダンサー印の表示倍率（従来比 2/3） */
@@ -109,8 +113,23 @@ export function ChoreoViewerTransportControls({
     timelineRef?.current?.seekForward5Sec();
   }, [duration, onBeforeTransport, timelineRef, trimEndSec, trimStartSec]);
 
+  const playGestureHandledRef = useRef(false);
+
+  const onPlayPointerDown = useCallback(() => {
+    primeAudioForUserGesture();
+    if (tryStartViewerPlaybackFromUserGesture(project, trimStartSec)) {
+      playGestureHandledRef.current = true;
+    }
+  }, [project, trimStartSec]);
+
   const togglePlay = useCallback(() => {
-    void onBeforeTransport?.();
+    if (playGestureHandledRef.current) {
+      playGestureHandledRef.current = false;
+      return;
+    }
+    if (!playbackEngine.getMediaSourceUrl()) {
+      void onBeforeTransport?.();
+    }
     toggleViewerPlayback(project, trimStartSec);
   }, [onBeforeTransport, project, trimStartSec]);
 
@@ -139,7 +158,7 @@ export function ChoreoViewerTransportControls({
         type="button"
         aria-label={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
         title={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
-        onPointerDown={primeAudioForUserGesture}
+        onPointerDown={onPlayPointerDown}
         onClick={togglePlay}
         style={{
           ...btnAccent,
@@ -216,6 +235,25 @@ export function ChoreoViewerLandscapeRail({
 }: ChoreoViewerLandscapeRailProps) {
   const { t } = useI18n();
   const [railOpen, setRailOpen] = useState(true);
+  const playGestureHandledRef = useRef(false);
+
+  const onPlayPointerDown = useCallback(() => {
+    primeAudioForUserGesture();
+    if (tryStartViewerPlaybackFromUserGesture(project, trimStartSec)) {
+      playGestureHandledRef.current = true;
+    }
+  }, [project, trimStartSec]);
+
+  const onPlayClick = useCallback(() => {
+    if (playGestureHandledRef.current) {
+      playGestureHandledRef.current = false;
+      return;
+    }
+    if (!playbackEngine.getMediaSourceUrl()) {
+      void onBeforeTransport?.();
+    }
+    toggleViewerPlayback(project, trimStartSec);
+  }, [onBeforeTransport, project, trimStartSec]);
 
   if (chromeCollapsed) return null;
 
@@ -266,11 +304,8 @@ export function ChoreoViewerLandscapeRail({
           className="choreo-viewer-landscape-rail-play-mini"
           aria-label={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
           title={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
-          onPointerDown={primeAudioForUserGesture}
-          onClick={() => {
-            void onBeforeTransport?.();
-            toggleViewerPlayback(project, trimStartSec);
-          }}
+          onPointerDown={onPlayPointerDown}
+          onClick={onPlayClick}
         >
           {isPlaying ? (
             <TransportIconPause size={22} />
@@ -345,6 +380,20 @@ export function ChoreoViewerBottomBar({
     waveLoad?.error === true
       ? waveLoad.message?.trim() || null
       : null;
+  const shareAudioPath =
+    typeof project.audioSupabasePath === "string"
+      ? project.audioSupabasePath.trim()
+      : "";
+  const noShareAudioConfigured =
+    shareAudioPath.length === 0 &&
+    (project.audioAssetId == null || project.audioAssetId <= 0);
+  const awaitingAudioTap =
+    !audioLoadError &&
+    !noShareAudioConfigured &&
+    isPlaying &&
+    Boolean(playbackEngine.getMediaSourceUrl()) &&
+    playbackEngine.isPaused() &&
+    hasViewerPlayIntent();
 
   useEffect(() => {
     setMetaExpanded(!tightHeight);
@@ -488,6 +537,34 @@ export function ChoreoViewerBottomBar({
           }}
         >
           {audioLoadError}
+        </div>
+      ) : null}
+      {noShareAudioConfigured ? (
+        <div
+          role="status"
+          style={{
+            padding: "6px 10px",
+            fontSize: tightHeight ? 11 : 12,
+            color: "#fde68a",
+            background: "rgba(120, 83, 9, 0.35)",
+            borderBottom: "1px solid rgba(251, 191, 36, 0.35)",
+          }}
+        >
+          {t("editor.layout.viewerNoAudioConfigured")}
+        </div>
+      ) : null}
+      {awaitingAudioTap ? (
+        <div
+          role="status"
+          style={{
+            padding: "6px 10px",
+            fontSize: tightHeight ? 11 : 12,
+            color: "#bfdbfe",
+            background: "rgba(30, 58, 138, 0.35)",
+            borderBottom: "1px solid rgba(96, 165, 250, 0.35)",
+          }}
+        >
+          {t("editor.layout.viewerTapPlayForSound")}
         </div>
       ) : null}
       {metaExpanded ? (

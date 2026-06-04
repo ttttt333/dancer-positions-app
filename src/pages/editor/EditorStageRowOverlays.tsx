@@ -1490,7 +1490,6 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
               if (!playbackEngine.getMediaSourceUrl()) {
                 reloadViewerAudio();
               }
-              void resyncViewerPlayback({ force: true });
             }}
             onOpenMemberSheet={() => setChoreoMemberSheetOpen(true)}
             fileName={projectName}

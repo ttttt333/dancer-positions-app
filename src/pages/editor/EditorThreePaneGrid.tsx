@@ -9,6 +9,7 @@ import { EDITOR_GRID_GAP_PX, STAGE_RESIZER_PX } from "./editorConstants";
 import type { EditorLayoutProps } from "./editorLayoutProps";
 import { useAssignRef, useAttachElementRef } from "./useSafeElementRef";
 import { formatMmSsFloor } from "../../lib/timeFormat";
+import { playbackEngine } from "../../core/playbackEngine";
 import { createDefaultFloorTextPlaceSession } from "../../lib/floorTextPlaceSession";
 import { useMobileShellBridgeStore } from "../../store/useMobileShellBridgeStore";
 import { useVideoExportUiStore } from "../../store/videoExportUiStore";
@@ -1007,8 +1008,9 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     duration={duration}
                     chromeCollapsed={viewerChromeCollapsed}
                     onBeforeTransport={() => {
-                      reloadViewerAudio();
-                      void resyncViewerPlayback({ force: true });
+                      if (!playbackEngine.getMediaSourceUrl()) {
+                        reloadViewerAudio();
+                      }
                     }}
                   />
                 ) : null}

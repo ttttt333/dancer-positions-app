@@ -83,6 +83,32 @@ export function advanceViewerPlaybackHead(
   store.setCurrentTimeSec(roundPlaybackHeadSec(t));
 }
 
+/**
+ * 閲覧共有: ポインタダウン（ユーザージェスチャ）の同期中に音源再生を開始する。
+ * @returns true なら click 側のトグルはスキップ（二重操作防止）
+ */
+export function tryStartViewerPlaybackFromUserGesture(
+  project: ChoreographyProjectJson,
+  trimStartSec: number
+): boolean {
+  syncViewerDurationFromProject(project);
+  const store = usePlaybackUiStore.getState();
+  const hasUrl = Boolean(playbackEngine.getMediaSourceUrl());
+
+  if (!store.isPlaying) {
+    if (!hasUrl) return false;
+    startViewerEnginePlayback(trimStartSec);
+    return true;
+  }
+
+  if (hasUrl && playbackEngine.isPaused() && hasViewerPlayIntent()) {
+    startViewerEnginePlayback(trimStartSec);
+    return true;
+  }
+
+  return false;
+}
+
 /** 閲覧共有の再生トグル（音源なしでもタイムライン再生） */
 export function toggleViewerPlayback(
   project: ChoreographyProjectJson,

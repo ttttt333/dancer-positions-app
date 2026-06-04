@@ -59,8 +59,9 @@ export function fulfillViewerPendingPlay(): void {
 
   const trim = pendingPlayTrimStartSec ?? 0;
 
+  viewerPlayIntentActive = true;
+
   if (playbackRequiresUserGestureToStart()) {
-    viewerPlayIntentActive = true;
     return;
   }
 

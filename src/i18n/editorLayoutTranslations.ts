@@ -58,6 +58,9 @@ const JA: MessageBundle = {
   "editor.layout.viewerChromeExpandShort": "操作",
   "editor.layout.viewerRailCollapse": "再生コントロールをたたむ",
   "editor.layout.viewerRailExpand": "再生コントロールをひろげる",
+  "editor.layout.viewerTapPlayForSound": "音を鳴らすには、もう一度「再生」をタップしてください",
+  "editor.layout.viewerNoAudioConfigured":
+    "この作品には共有用の音源がありません（編集画面で音源をアップロードしてください）",
   "editor.layout.showWaveform": "波形を表示",
   "editor.layout.toolsPanel": "操作パネル",
   "editor.layout.toolsExpand": "ひろげる",
@@ -210,6 +213,9 @@ const EN: MessageBundle = {
   "editor.layout.viewerChromeExpandShort": "Controls",
   "editor.layout.viewerRailCollapse": "Collapse playback controls",
   "editor.layout.viewerRailExpand": "Expand playback controls",
+  "editor.layout.viewerTapPlayForSound": "Tap Play again to hear audio",
+  "editor.layout.viewerNoAudioConfigured":
+    "No audio is available for this shared link (upload audio in the editor)",
   "editor.layout.showWaveform": "Show waveform",
   "editor.layout.toolsPanel": "Tools panel",
   "editor.layout.toolsExpand": "Expand",
