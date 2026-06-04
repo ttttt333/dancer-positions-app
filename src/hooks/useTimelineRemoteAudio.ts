@@ -405,24 +405,36 @@ export function useTimelineRemoteAudio({
           engineUrl === persistedSupabaseAudioBlobUrl;
 
         if (alreadyPlayingThisPath) {
-          if (persistedSupabaseAudioBlobUrl) {
-            const valid = await verifyBlobUrl(persistedSupabaseAudioBlobUrl);
+          let activeBlobUrl = persistedSupabaseAudioBlobUrl;
+          if (activeBlobUrl) {
+            const valid = await verifyBlobUrl(activeBlobUrl);
             if (valid) {
-              blobUrlRef.current = persistedSupabaseAudioBlobUrl;
+              blobUrlRef.current = activeBlobUrl;
             } else {
               revokePersistedSupabaseAudioBlob();
+              activeBlobUrl = null;
             }
+          }
+          if (!activeBlobUrl) {
+            reportWaveLoadProgress(0.2, "音源を再取得中…");
+            const audio = await supabaseDownloadProjectAudioWithCache(
+              effectivePath
+            );
+            if (cancelled) return;
+            activeBlobUrl = URL.createObjectURL(
+              new Blob([audio.buffer], { type: audio.mime })
+            );
+            setPersistedSupabaseAudio(activeBlobUrl, effectivePath);
+            syncPlaybackUrl(
+              blobUrlRef,
+              activeBlobUrl,
+              clearPlaybackTrustedDurationSec,
+              { revokePrevious: true }
+            );
           }
           markPlaybackReadyForWaveFetch();
           reportWaveLoadProgress(0.4, "波形データを取得中…");
-          const readBuf =
-            persistedSupabaseAudioBlobUrl &&
-            (await verifyBlobUrl(persistedSupabaseAudioBlobUrl))
-              ? () => arrayBufferFromBlobUrl(persistedSupabaseAudioBlobUrl!)
-              : async () =>
-                  (
-                    await supabaseDownloadProjectAudioWithCache(effectivePath)
-                  ).buffer;
+          const readBuf = () => arrayBufferFromBlobUrl(activeBlobUrl!);
           await ensureSupabasePeaksOnly(
             effectivePath,
             readBuf,

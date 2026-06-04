@@ -115,6 +115,11 @@ export function buildVideoExportOptions(
   return {
     canvasRef,
     audioUrl: resolvePlaybackAudioUrlForExport(),
+    audioFallback: {
+      audioAssetId: project.audioAssetId,
+      audioSupabasePath: project.audioSupabasePath,
+      flowLocalAudioKey: project.flowLocalAudioKey,
+    },
     durationSec: span,
     fileName: safeName,
     formations,

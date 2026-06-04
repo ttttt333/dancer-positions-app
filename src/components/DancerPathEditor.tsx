@@ -22,6 +22,72 @@ function defaultCp(
   return { cpX: (ax + bx) / 2, cpY: (ay + by) / 2 };
 }
 
+/** 前後が同じ座標とみなす閾値（%） */
+const STATIONARY_EPS = 0.08;
+/** 動かない動線の制御点をマーカー外へ出す距離（%） */
+const STATIONARY_CP_OFFSET_PCT = 9;
+
+function clamp(n: number, lo: number, hi: number) {
+  return Math.min(hi, Math.max(lo, n));
+}
+
+function isStationaryPath(
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number
+): boolean {
+  return Math.hypot(bx - ax, by - ay) < STATIONARY_EPS;
+}
+
+function stationaryCpOffset(
+  index: number,
+  total: number,
+  ax: number,
+  ay: number
+): { cpX: number; cpY: number } {
+  const angle = ((index + 0.5) / Math.max(1, total)) * 2 * Math.PI - Math.PI / 2;
+  return {
+    cpX: clamp(ax + Math.cos(angle) * STATIONARY_CP_OFFSET_PCT, 0, 100),
+    cpY: clamp(ay + Math.sin(angle) * STATIONARY_CP_OFFSET_PCT, 0, 100),
+  };
+}
+
+function resolvePathControlPoint(
+  dancer: DancerSpot,
+  next: DancerSpot,
+  prevFormation: DancerSpot[],
+  nextById: Map<string, DancerSpot>,
+  existing?: { cpX: number; cpY: number }
+): { cpX: number; cpY: number } {
+  const { xPct: ax, yPct: ay } = dancer;
+  const { xPct: bx, yPct: by } = next;
+  if (!isStationaryPath(ax, ay, bx, by)) {
+    return existing ?? defaultCp(ax, ay, bx, by);
+  }
+
+  const atSpot = prevFormation.filter((d) => {
+    const b = nextById.get(d.id);
+    if (!b) return false;
+    return (
+      isStationaryPath(d.xPct, d.yPct, b.xPct, b.yPct) &&
+      Math.hypot(d.xPct - ax, d.yPct - ay) < STATIONARY_EPS
+    );
+  });
+  const spotIndex = Math.max(
+    0,
+    atSpot.findIndex((d) => d.id === dancer.id)
+  );
+  const ref = stationaryCpOffset(spotIndex, atSpot.length, ax, ay);
+
+  if (!existing) return ref;
+  const mid = defaultCp(ax, ay, bx, by);
+  if (Math.hypot(existing.cpX - mid.cpX, existing.cpY - mid.cpY) < STATIONARY_EPS) {
+    return ref;
+  }
+  return existing;
+}
+
 type LocalPaths = Record<string, { cpX: number; cpY: number }>;
 
 type MarkerSizes = {
@@ -61,10 +127,6 @@ const MIN_VIEW_ZOOM = 1;
 const MAX_VIEW_ZOOM = 5;
 
 type ViewState = { zoom: number; panX: number; panY: number };
-
-function clamp(n: number, lo: number, hi: number) {
-  return Math.min(hi, Math.max(lo, n));
-}
 
 function computeViewBox(
   stageW: number,
@@ -128,8 +190,13 @@ export function DancerPathEditor({
     for (const d of prevFormation) {
       const b = nextById.current.get(d.id);
       if (!b) continue;
-      const existing = existingPaths?.[d.id];
-      init[d.id] = existing ?? defaultCp(d.xPct, d.yPct, b.xPct, b.yPct);
+      init[d.id] = resolvePathControlPoint(
+        d,
+        b,
+        prevFormation,
+        nextById.current,
+        existingPaths?.[d.id]
+      );
     }
     return init;
   });
@@ -367,8 +434,8 @@ export function DancerPathEditor({
       if (!b) continue;
       const cp = paths[d.id];
       if (!cp) continue;
-      const mid = defaultCp(d.xPct, d.yPct, b.xPct, b.yPct);
-      const dist = Math.hypot(cp.cpX - mid.cpX, cp.cpY - mid.cpY);
+      const ref = resolvePathControlPoint(d, b, prevFormation, nextById.current);
+      const dist = Math.hypot(cp.cpX - ref.cpX, cp.cpY - ref.cpY);
       if (dist > 0.3) {
         toSave[d.id] = cp;
       }
@@ -393,7 +460,7 @@ export function DancerPathEditor({
     for (const d of prevFormation) {
       const b = nextById.current.get(d.id);
       if (!b) continue;
-      init[d.id] = defaultCp(d.xPct, d.yPct, b.xPct, b.yPct);
+      init[d.id] = resolvePathControlPoint(d, b, prevFormation, nextById.current);
     }
     setPaths(init);
   }, [prevFormation]);
@@ -446,13 +513,16 @@ export function DancerPathEditor({
       {prevFormation.map((a) => {
         const b = nextById.current.get(a.id);
         if (!b) return null;
-        const cp = paths[a.id] ?? defaultCp(a.xPct, a.yPct, b.xPct, b.yPct);
+        const cp =
+          paths[a.id] ??
+          resolvePathControlPoint(a, b, prevFormation, nextById.current);
         const ax = toSvgX(a.xPct);
         const ay = toSvgY(a.yPct);
         const bx = toSvgX(b.xPct);
         const by = toSvgY(b.yPct);
         const cpx = toSvgX(cp.cpX);
         const cpy = toSvgY(cp.cpY);
+        const stationary = isStationaryPath(a.xPct, a.yPct, b.xPct, b.yPct);
 
         return (
           <g key={a.id}>
@@ -483,47 +553,82 @@ export function DancerPathEditor({
               strokeDasharray="6,3"
             />
 
-            <circle
-              cx={ax}
-              cy={ay}
-              r={markers.formationR}
-              fill="rgba(59,130,246,0.28)"
-              stroke="#3b82f6"
-              strokeWidth={markers.formationStroke}
-            />
-            <text
-              x={ax}
-              y={ay + 1}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              fill="#93c5fd"
-              fontSize={markers.labelFont}
-              fontWeight={700}
-              pointerEvents="none"
-            >
-              {a.label}
-            </text>
+            {stationary ? (
+              <>
+                <circle
+                  cx={ax}
+                  cy={ay}
+                  r={markers.formationR}
+                  fill="rgba(59,130,246,0.28)"
+                  stroke="#3b82f6"
+                  strokeWidth={markers.formationStroke}
+                />
+                <circle
+                  cx={ax}
+                  cy={ay}
+                  r={markers.formationR * 0.58}
+                  fill="rgba(34,197,94,0.32)"
+                  stroke="#22c55e"
+                  strokeWidth={markers.formationStroke * 0.9}
+                />
+                <text
+                  x={ax}
+                  y={ay + 1}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill="#e2e8f0"
+                  fontSize={markers.labelFont}
+                  fontWeight={700}
+                  pointerEvents="none"
+                >
+                  {a.label}
+                </text>
+              </>
+            ) : (
+              <>
+                <circle
+                  cx={ax}
+                  cy={ay}
+                  r={markers.formationR}
+                  fill="rgba(59,130,246,0.28)"
+                  stroke="#3b82f6"
+                  strokeWidth={markers.formationStroke}
+                />
+                <text
+                  x={ax}
+                  y={ay + 1}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill="#93c5fd"
+                  fontSize={markers.labelFont}
+                  fontWeight={700}
+                  pointerEvents="none"
+                >
+                  {a.label}
+                </text>
 
-            <circle
-              cx={bx}
-              cy={by}
-              r={markers.formationR}
-              fill="rgba(34,197,94,0.24)"
-              stroke="#22c55e"
-              strokeWidth={markers.formationStroke}
-            />
-            <text
-              x={bx}
-              y={by + 1}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              fill="#86efac"
-              fontSize={markers.labelFont}
-              fontWeight={700}
-              pointerEvents="none"
-            >
-              {b.label}
-            </text>
+                <circle
+                  cx={bx}
+                  cy={by}
+                  r={markers.formationR}
+                  fill="rgba(34,197,94,0.24)"
+                  stroke="#22c55e"
+                  strokeWidth={markers.formationStroke}
+                />
+                <text
+                  x={bx}
+                  y={by + 1}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill="#86efac"
+                  fontSize={markers.labelFont}
+                  fontWeight={700}
+                  pointerEvents="none"
+                >
+                  {b.label}
+                </text>
+              </>
+            )}
 
             <circle
               cx={cpx}

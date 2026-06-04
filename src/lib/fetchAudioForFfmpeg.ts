@@ -1,5 +1,6 @@
 import { fetchFile } from "@ffmpeg/util";
 import { readResponseArrayBufferWithProgress } from "./fetchWithProgress";
+import { arrayBufferFromBlobUrl } from "./timelineAudioBlobPersist";
 
 function isBlobOrDataUrl(url: string): boolean {
   return url.startsWith("blob:") || url.startsWith("data:");
@@ -57,6 +58,15 @@ export async function fetchAudioForFfmpeg(
 ): Promise<Uint8Array | null> {
   try {
     onProgress?.(0);
+    if (isBlobOrDataUrl(audioUrl)) {
+      try {
+        const buf = await arrayBufferFromBlobUrl(audioUrl);
+        onProgress?.(1);
+        return new Uint8Array(buf);
+      } catch {
+        /* fetchFile / fetch にフォールバック */
+      }
+    }
     if (isBlobOrDataUrl(audioUrl) || isSameOriginUrl(audioUrl)) {
       try {
         const data = await fetchFile(audioUrl);

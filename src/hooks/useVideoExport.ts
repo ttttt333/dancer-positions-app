@@ -8,6 +8,10 @@ import {
 } from "../lib/shareVideoFile";
 import { videoExportDisplayTitle } from "../lib/videoExportFileName";
 import { fetchAudioForFfmpeg } from "../lib/fetchAudioForFfmpeg";
+import {
+  resolveExportAudioBytesForFfmpeg,
+  type ExportAudioFallback,
+} from "../lib/resolveExportAudioForFfmpeg";
 import { ffmpegExecChecked, loadFFmpegWasm, resetFFmpegWasm } from "../lib/ffmpegWasm";
 import {
   checkVideoExportCapabilities,
@@ -40,6 +44,8 @@ export type { ExportPhase, ExportEncodeSubphase, VideoExportResult };
 export type ExportOptions = {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   audioUrl: string | null;
+  /** blob URL 取得失敗時に Cache API / リモート音源へフォールバック */
+  audioFallback?: ExportAudioFallback;
   durationSec: number;
   fileName: string;
   formations: Array<{
@@ -167,6 +173,7 @@ async function muxRecordedWebmToMp4(
   params: {
     inputName: string;
     audioUrl: string | null;
+    audioFallback?: ExportAudioFallback;
     audioStartSec: number;
     durationSec: number;
     videoFrameCount: number;
@@ -179,7 +186,7 @@ async function muxRecordedWebmToMp4(
     onAudioSkipped?: () => void;
   }
 ): Promise<void> {
-  const { inputName, audioUrl, audioStartSec, durationSec, videoFrameCount } =
+  const { inputName, audioUrl, audioFallback, audioStartSec, durationSec, videoFrameCount } =
     params;
   const duration = String(durationSec);
   const fps = String(EXPORT_FPS);
@@ -204,8 +211,15 @@ async function muxRecordedWebmToMp4(
   ] as const;
 
   let audioData: Uint8Array | null = null;
-  if (audioUrl) {
-    audioData = await fetchAudioForFfmpeg(audioUrl, hooks?.onAudioProgress);
+  if (audioUrl || audioFallback) {
+    if (audioFallback) {
+      audioData = await resolveExportAudioBytesForFfmpeg(
+        audioFallback,
+        hooks?.onAudioProgress
+      );
+    } else if (audioUrl) {
+      audioData = await fetchAudioForFfmpeg(audioUrl, hooks?.onAudioProgress);
+    }
     if (!audioData) {
       hooks?.onAudioSkipped?.();
     } else {
@@ -428,7 +442,7 @@ export function useVideoExport() {
         97
       );
       patch({
-        progressMessage: options.audioUrl
+        progressMessage: options.audioUrl || options.audioFallback
           ? "音源を取得して MP4 に結合中…"
           : "MP4 に変換中…",
       });
@@ -439,6 +453,7 @@ export function useVideoExport() {
           {
             inputName,
             audioUrl: options.audioUrl,
+            audioFallback: options.audioFallback,
             audioStartSec: options.audioStartSec ?? 0,
             durationSec: options.durationSec,
             videoFrameCount,

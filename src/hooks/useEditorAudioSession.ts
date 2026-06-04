@@ -6,6 +6,7 @@ import { subscribeEditorViewport } from "../pages/editor/editorViewport";
 import { resyncEditorPlaybackMedia, resolveEditorPlaybackBlobUrl } from "../lib/resyncPlaybackMedia";
 import { playbackEngine } from "../core/playbackEngine";
 import { useWavePeaksStore } from "../store/wavePeaksStore";
+import { verifyBlobUrl } from "../lib/verifyBlobUrl";
 import { useTimelineAudioImport } from "./useTimelineAudioImport";
 import { useTimelineRemoteAudio } from "./useTimelineRemoteAudio";
 import { useTimelineWaveDecode } from "./useTimelineWaveDecode";
@@ -77,8 +78,11 @@ export function useEditorAudioSession({
           return;
         }
         const peaks = useWavePeaksStore.getState().peaks;
-        if (peaks?.length && playbackEngine.getMediaSourceUrl()) {
-          return;
+        const engineUrl = playbackEngine.getMediaSourceUrl();
+        if (peaks?.length && engineUrl) {
+          const valid =
+            !engineUrl.startsWith("blob:") || (await verifyBlobUrl(engineUrl));
+          if (valid) return;
         }
         requestRemoteAudioReload();
       });
