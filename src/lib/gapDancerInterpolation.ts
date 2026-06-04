@@ -276,6 +276,12 @@ export function lerpDancersAcrossGap(
           : alpha < 0.5
             ? a.sizePx
             : b.sizePx;
+      const nameBelowFontPx =
+        a.nameBelowFontPx != null && b.nameBelowFontPx != null
+          ? Math.round(lerp(a.nameBelowFontPx, b.nameBelowFontPx, alpha))
+          : alpha < 0.5
+            ? a.nameBelowFontPx
+            : b.nameBelowFontPx;
       const centerDistanceGap =
         a.markerBadgeSource === "centerDistance" ||
         b.markerBadgeSource === "centerDistance";
@@ -318,6 +324,9 @@ export function lerpDancersAcrossGap(
           alpha < 0.5 ? a.crewMemberId ?? undefined : b.crewMemberId ?? undefined,
         ...(note ? { note } : {}),
         ...(typeof sizePx === "number" ? { sizePx } : {}),
+        ...(typeof nameBelowFontPx === "number"
+          ? { nameBelowFontPx }
+          : {}),
         ...(centerDistanceGap
           ? {
               markerBadgeSource: "centerDistance" as const,

@@ -107,6 +107,7 @@ export function useTimelinePanelSessionBundle(
     viewPortion,
     setViewPortion,
     viewPortionRef,
+    waveViewStartOverride,
     setWaveViewStartOverride,
     waveViewStartOverrideRef,
     waveView,
@@ -260,7 +261,7 @@ export function useTimelinePanelSessionBundle(
       duration,
       setCurrentTime,
     },
-    viewport: { viewPortion, setWaveViewStartOverride },
+    viewport: { viewPortion, waveViewStartOverride, setWaveViewStartOverride },
     projectSlice: {
       cuesSorted,
       trimStartSec,

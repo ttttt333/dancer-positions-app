@@ -16,6 +16,7 @@ export type ExportDancerFrame = {
   markerBadgeSource?: DancerSpot["markerBadgeSource"];
   centerDistanceLabelXPct?: number;
   nameBelowFontPx?: number;
+  sizePx?: number;
   color: string;
   x: number;
   y: number;
@@ -27,6 +28,18 @@ export type ExportFormationFrame = {
 };
 
 type FloorRect = { x: number; y: number; w: number; h: number };
+
+function defaultExportMarkerPx(main: FloorRect): number {
+  return Math.max(20, Math.min(36, main.w * 0.056));
+}
+
+/** 書き出し1人分の印直径（ギャップ補間の sizePx を反映） */
+function exportDancerMarkerPx(main: FloorRect, dancer: ExportDancerFrame): number {
+  if (typeof dancer.sizePx === "number" && Number.isFinite(dancer.sizePx)) {
+    return Math.max(10, Math.min(140, Math.round(dancer.sizePx)));
+  }
+  return defaultExportMarkerPx(main);
+}
 
 function fitStageLayout(
   width: number,
@@ -300,10 +313,9 @@ function drawDancers(
   main: FloorRect,
   appearance: StageExportAppearance
 ) {
-  const markerPx = Math.max(20, Math.min(36, main.w * 0.056));
-  const markerR = markerPx / 2;
-
   formation.dancers.forEach((dancer, di) => {
+    const markerPx = exportDancerMarkerPx(main, dancer);
+    const markerR = markerPx / 2;
     const x = main.x + dancer.x * main.w;
     const y = main.y + dancer.y * main.h;
 

@@ -28,6 +28,7 @@ function mapDancers(dancers: DancerSpot[]) {
     markerBadgeSource: d.markerBadgeSource,
     centerDistanceLabelXPct: d.centerDistanceLabelXPct,
     nameBelowFontPx: d.nameBelowFontPx,
+    sizePx: d.sizePx,
     color: dancerColorHex(d),
     x: d.xPct / 100,
     y: d.yPct / 100,

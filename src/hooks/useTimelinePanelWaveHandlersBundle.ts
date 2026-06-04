@@ -32,7 +32,10 @@ type WaveHandlersBundleParams = {
     PlaybackUiSlice,
     "currentTime" | "duration" | "setCurrentTime"
   >;
-  viewport: Pick<ViewportSlice, "viewPortion" | "setWaveViewStartOverride">;
+  viewport: Pick<
+    ViewportSlice,
+    "viewPortion" | "waveViewStartOverride" | "setWaveViewStartOverride"
+  >;
   projectSlice: Pick<
     ProjectSlice,
     "cuesSorted" | "trimStartSec" | "trimEndSec" | "formations"
@@ -160,6 +163,7 @@ export function useTimelinePanelWaveHandlersBundle({
     formations: projectSlice.formations,
     onFormationChosenFromCueList,
     viewPortion: viewport.viewPortion,
+    waveViewStartOverride: viewport.waveViewStartOverride,
     setWaveViewStartOverride: viewport.setWaveViewStartOverride,
     openGapRouteMenuAtPointer,
     commitWaveDoubleClickAt,

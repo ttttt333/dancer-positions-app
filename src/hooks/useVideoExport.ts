@@ -65,7 +65,7 @@ export type ExportOptions = {
 const EXPORT_WIDTH = 1280;
 const EXPORT_HEIGHT = 720;
 const EXPORT_FPS = 12;
-/** 描画ループで UI に譲る間隔（リアルタイム待ちはしない） */
+/** UI 更新間隔 */
 const RECORD_YIELD_EVERY = 6;
 
 function sleep(ms: number): Promise<void> {
@@ -165,6 +165,8 @@ async function muxRecordedWebmToMp4(
     audioStartSec: number;
     durationSec: number;
     videoFrameCount: number;
+    /** 速撮 WebM のタイムスタンプを書き出し尺に伸縮（音源同期） */
+    inputTimescale?: number;
   },
   hooks?: {
     onAudioProgress?: (ratio: number) => void;
@@ -176,7 +178,25 @@ async function muxRecordedWebmToMp4(
     params;
   const duration = String(durationSec);
   const fps = String(EXPORT_FPS);
-  const videoFilter = `setpts=N/${EXPORT_FPS}/TB`;
+  const videoFilter = `fps=${EXPORT_FPS},setpts=N/${EXPORT_FPS}/TB`;
+
+  const inputTimescale =
+    typeof params.inputTimescale === "number" &&
+    Number.isFinite(params.inputTimescale) &&
+    params.inputTimescale > 0.05 &&
+    Math.abs(params.inputTimescale - 1) > 0.02
+      ? params.inputTimescale
+      : null;
+  const inputHead = [
+    "-y",
+    "-fflags",
+    "+genpts",
+    ...(inputTimescale ? (["-itsscale", String(inputTimescale)] as const) : []),
+    "-r",
+    fps,
+    "-i",
+    inputName,
+  ] as const;
 
   let audioData: Uint8Array | null = null;
   if (audioUrl) {
@@ -209,13 +229,7 @@ async function muxRecordedWebmToMp4(
 
   if (audioData) {
     await ffmpegExecChecked(ffmpeg, [
-      "-y",
-      "-fflags",
-      "+genpts",
-      "-r",
-      fps,
-      "-i",
-      inputName,
+      ...inputHead,
       "-i",
       "audio_src",
       "-filter:v",
@@ -240,13 +254,7 @@ async function muxRecordedWebmToMp4(
     await ffmpeg.deleteFile("audio_src").catch(() => {});
   } else {
     await ffmpegExecChecked(ffmpeg, [
-      "-y",
-      "-fflags",
-      "+genpts",
-      "-r",
-      fps,
-      "-i",
-      inputName,
+      ...inputHead,
       "-filter:v",
       videoFilter,
       ...videoEncode,
@@ -311,6 +319,8 @@ export function useVideoExport() {
 
       const fps = EXPORT_FPS;
       const totalFrames = Math.max(1, Math.ceil(options.durationSec * fps));
+      const recordStartedAt = performance.now();
+      let inputTimescale = 1;
 
       for (let frame = 0; frame <= totalFrames; frame++) {
         if (videoExportCancelRef.current) {
@@ -332,11 +342,23 @@ export function useVideoExport() {
         if (requestFrame) {
           requestFrame();
         }
+
+        /** フレーム落ち防止（1 rAF 待ち）— 尺は FFmpeg の itsscale で音源に合わせる */
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => resolve());
+        });
+
         if (frame % RECORD_YIELD_EVERY === 0 || frame === totalFrames) {
           setProgressValue((frame / totalFrames) * 68);
           await sleep(0);
         }
       }
+
+      const recordDurationSec = Math.max(
+        1 / EXPORT_FPS,
+        (performance.now() - recordStartedAt) / 1000
+      );
+      inputTimescale = options.durationSec / recordDurationSec;
 
       recorder.stop();
       await recordDone;
@@ -415,6 +437,7 @@ export function useVideoExport() {
             audioStartSec: options.audioStartSec ?? 0,
             durationSec: options.durationSec,
             videoFrameCount,
+            inputTimescale,
           },
           {
             onAudioProgress: (ratio) => {

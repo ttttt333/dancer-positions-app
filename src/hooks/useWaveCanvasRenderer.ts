@@ -426,7 +426,7 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
     resolvePlayheadPaintTime,
   ]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (isPlaying) return;
     drawWaveformAt(currentTime);
   }, [

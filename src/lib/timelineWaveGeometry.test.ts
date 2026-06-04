@@ -140,38 +140,29 @@ describe("resolveWaveDrawView", () => {
 });
 
 describe("resolveWaveViewForPointerHit", () => {
-  it("prefers lastDrawRange when provided", () => {
-    const fromDraw = resolveWaveViewForPointerHit({
-      durationSec: 100,
-      viewPortion: 0.2,
-      isPlaying: false,
-      viewStartOverride: 10,
-      anchorTimeSec: 50,
-      lastDrawRange: { viewStart: 40, viewSpan: 20 },
-    });
-    expect(fromDraw.viewStart).toBe(40);
-    expect(fromDraw.viewSpan).toBe(20);
-  });
-
-  it("matches live zoom state instead of stale lastDrawRange", () => {
+  it("uses live zoom state even when lastDrawRange differs", () => {
     const live = resolveWaveViewForPointerHit({
       durationSec: 100,
       viewPortion: 0.2,
       isPlaying: false,
       viewStartOverride: 40,
       anchorTimeSec: 50,
+      lastDrawRange: { viewStart: 0, viewSpan: 100 },
     });
     expect(live.viewStart).toBe(40);
     expect(live.viewSpan).toBeCloseTo(20, 5);
+  });
 
-    const stale = resolveWaveViewForPointerHit({
+  it("matches fully zoomed-out view", () => {
+    const full = resolveWaveViewForPointerHit({
       durationSec: 100,
       viewPortion: 1,
       isPlaying: false,
       viewStartOverride: null,
       anchorTimeSec: 0,
+      lastDrawRange: { viewStart: 40, viewSpan: 20 },
     });
-    expect(stale.viewSpan).toBe(100);
+    expect(full.viewSpan).toBe(100);
   });
 });
 

@@ -67,7 +67,8 @@ export function quantizePlayheadForWaveView(sec: number): number {
 
 /**
  * ポインタのヒット判定・座標変換用。
- * 描画と同じ `resolveWaveDrawView` をその場で求め、lastDrawRange の遅れで当たりがズレないようにする。
+ * 描画と同じ `resolveWaveDrawView` をその場で求める（古い lastDrawRange は使わない）。
+ * ズームやレイアウト切替直後に stale な描画窓で座標変換すると、キュー間ギャップが潰れる誤コミットにつながる。
  */
 export function resolveWaveViewForPointerHit(params: {
   durationSec: number;
@@ -77,29 +78,13 @@ export function resolveWaveViewForPointerHit(params: {
   anchorTimeSec: number;
   playheadScrubArmed?: boolean;
   enginePaused?: boolean;
-  /** 直近の描画窓（あればヒット判定を描画と一致させる） */
+  /** @deprecated 互換用。ヒット判定では参照しない */
   lastDrawRange?: { viewStart: number; viewSpan: number } | null;
 }): { viewStart: number; viewSpan: number } {
-  const {
-    durationSec,
-    viewPortion,
-    isPlaying,
-    viewStartOverride,
-    anchorTimeSec,
-    lastDrawRange,
-  } = params;
+  const { durationSec, viewPortion, isPlaying, viewStartOverride, anchorTimeSec } =
+    params;
   if (durationSec <= 0) {
     return { viewStart: 0, viewSpan: 1 };
-  }
-  if (
-    lastDrawRange &&
-    lastDrawRange.viewSpan > 0 &&
-    Number.isFinite(lastDrawRange.viewStart)
-  ) {
-    return {
-      viewStart: lastDrawRange.viewStart,
-      viewSpan: lastDrawRange.viewSpan,
-    };
   }
   const override = effectiveWaveViewStartOverride(viewStartOverride, {
     viewPortion,
@@ -112,6 +97,23 @@ export function resolveWaveViewForPointerHit(params: {
     viewStartOverride: override,
   });
   return { viewStart: start, viewSpan: span };
+}
+
+export type WavePointerViewLock = {
+  viewStart: number;
+  viewSpan: number;
+};
+
+/** ドラッグ開始時に固定した表示窓で clientX → 秒（リサイズ中の誤変換を防ぐ） */
+export function waveTimeAtClientXWithViewLock(
+  clientX: number,
+  canvas: HTMLCanvasElement,
+  lock: WavePointerViewLock
+): number {
+  const r = canvas.getBoundingClientRect();
+  if (r.width <= 0 || lock.viewSpan <= 0) return lock.viewStart;
+  const x = Math.max(0, Math.min(r.width, clientX - r.left));
+  return waveExtentXToTime(x, lock.viewStart, lock.viewSpan, r.width);
 }
 
 /** 波形キャンバス上のキュー区間帯をクリック判定（CSS ピクセル座標） */

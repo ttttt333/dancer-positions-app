@@ -16,6 +16,9 @@ function roundSpots(spots: DancerSpot[]): DancerSpot[] {
     xPct: Math.round(d.xPct * 100) / 100,
     yPct: Math.round(d.yPct * 100) / 100,
     ...(typeof d.sizePx === "number" ? { sizePx: d.sizePx } : {}),
+    ...(typeof d.nameBelowFontPx === "number"
+      ? { nameBelowFontPx: d.nameBelowFontPx }
+      : {}),
   }));
 }
 
