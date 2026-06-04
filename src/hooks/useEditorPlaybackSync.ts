@@ -130,10 +130,7 @@ function usePlaybackHeadRafSync(
     const storePlaying = usePlaybackUiStore.getState().isPlaying;
     const enginePlaying = !playbackEngine.isPaused();
     const useViewerClock =
-      choreoPublicView &&
-      storePlaying &&
-      !enginePlaying &&
-      !playbackEngine.getMediaSourceUrl();
+      choreoPublicView && storePlaying && !enginePlaying;
 
     if (p && (enginePlaying || useViewerClock)) {
       const trimStartSec = p.trimStartSec;

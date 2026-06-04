@@ -10,6 +10,7 @@ import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import {
   clearViewerPendingPlay,
+  hasViewerPlayIntent,
   setViewerPendingPlay,
   startViewerEnginePlayback,
 } from "./playbackViewerIntent";
@@ -91,6 +92,14 @@ export function toggleViewerPlayback(
   syncViewerDurationFromProject(project);
 
   if (store.isPlaying) {
+    if (
+      playbackEngine.getMediaSourceUrl() &&
+      playbackEngine.isPaused() &&
+      hasViewerPlayIntent()
+    ) {
+      startViewerEnginePlayback(trimStartSec);
+      return;
+    }
     playbackEngine.pause();
     store.setIsPlaying(false);
     clearViewerPendingPlay();

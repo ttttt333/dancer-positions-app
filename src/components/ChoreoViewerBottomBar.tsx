@@ -22,6 +22,7 @@ import {
 } from "../lib/playbackTransport";
 import { primeAudioForUserGesture } from "../lib/playbackViewerIntent";
 import { toggleViewerPlayback } from "../lib/viewerPlayback";
+import { useWaveformLoadProgressStore } from "../store/waveformLoadProgressStore";
 
 /** 閲覧共有ステージ上のダンサー印の表示倍率（従来比 2/3） */
 export const PUBLIC_VIEWER_MARKER_DISPLAY_SCALE = 2 / 3;
@@ -339,6 +340,11 @@ export function ChoreoViewerBottomBar({
   const trimStartSec = project.trimStartSec ?? 0;
   const trimEndSec = project.trimEndSec ?? null;
   const [metaExpanded, setMetaExpanded] = useState(() => !tightHeight);
+  const waveLoad = useWaveformLoadProgressStore((s) => s.progress);
+  const audioLoadError =
+    waveLoad?.error === true
+      ? waveLoad.message?.trim() || null
+      : null;
 
   useEffect(() => {
     setMetaExpanded(!tightHeight);
@@ -470,6 +476,20 @@ export function ChoreoViewerBottomBar({
           {t("editor.layout.viewerChromeCollapseShort")}
         </button>
       </div>
+      {audioLoadError ? (
+        <div
+          role="alert"
+          style={{
+            padding: "6px 10px",
+            fontSize: tightHeight ? 11 : 12,
+            color: "#fecaca",
+            background: "rgba(127, 29, 29, 0.35)",
+            borderBottom: "1px solid rgba(248, 113, 113, 0.35)",
+          }}
+        >
+          {audioLoadError}
+        </div>
+      ) : null}
       {metaExpanded ? (
         <div
           className="choreo-viewer-meta-row"
