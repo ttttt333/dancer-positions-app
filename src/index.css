@@ -563,6 +563,94 @@ body {
     min-height: 44px;
     padding: 6px 10px;
   }
+  .choreo-viewer-landscape-rail {
+    position: fixed;
+    left: max(4px, env(safe-area-inset-left, 0px));
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 92;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 0;
+    max-height: min(72dvh, 320px);
+    pointer-events: auto;
+  }
+  .choreo-viewer-landscape-rail-toggle {
+    align-self: center;
+    min-width: 28px;
+    min-height: 52px;
+    padding: 4px 2px;
+    border-radius: 0 8px 8px 0;
+    border: 1px solid rgba(51, 65, 85, 0.75);
+    border-left: none;
+    background: rgba(15, 23, 42, 0.94);
+    color: #e2e8f0;
+    font-size: 18px;
+    font-weight: 700;
+    touch-action: manipulation;
+  }
+  .choreo-viewer-landscape-rail-controls {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 6px;
+    border-radius: 0 12px 12px 0;
+    background: rgba(15, 23, 42, 0.94);
+    border: 1px solid rgba(51, 65, 85, 0.75);
+    border-left: none;
+    box-shadow: 0 4px 22px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .choreo-viewer-landscape-rail-controls .choreo-viewer-time {
+    font-size: 11px;
+    min-width: 0;
+  }
+  .choreo-viewer-landscape-rail--collapsed .choreo-viewer-landscape-rail-controls {
+    display: none;
+  }
+  .choreo-viewer-landscape-rail-play-mini {
+    min-width: 44px;
+    min-height: 44px;
+    margin: 4px 6px 4px 0;
+    padding: 0;
+    border-radius: 10px;
+    border: 1px solid rgba(51, 65, 85, 0.75);
+    background: rgba(30, 41, 59, 0.95);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+  }
+  .choreo-viewer-restore-fab {
+    position: fixed;
+    right: max(10px, env(safe-area-inset-right, 0px));
+    bottom: max(12px, env(safe-area-inset-bottom, 0px));
+    z-index: 93;
+    min-height: 44px;
+    min-width: 72px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(51, 65, 85, 0.85);
+    background: rgba(15, 23, 42, 0.96);
+    color: #f8fafc;
+    font-size: 14px;
+    font-weight: 700;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+    touch-action: manipulation;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .choreo-public-view-root--chrome-collapsed .editor-three-pane {
+    padding-bottom: max(4px, env(safe-area-inset-bottom, 0px)) !important;
+    padding-left: 0 !important;
+  }
+  .choreo-public-view-root--landscape .editor-stage-section--public-view {
+    padding-left: 0 !important;
+  }
   .choreo-viewer-stage-transport {
     position: fixed;
     left: 50%;

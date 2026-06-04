@@ -80,8 +80,8 @@ export function useEditorAudioSession({
   }, []);
 
   const resyncPlayback = useCallback(
-    (opts?: { force?: boolean }) => {
-      void resolveEditorPlaybackBlobUrl(blobUrlRef).then(async (url) => {
+    (opts?: { force?: boolean }): Promise<void> => {
+      return resolveEditorPlaybackBlobUrl(blobUrlRef).then(async (url) => {
         if (url) {
           blobUrlRef.current = url;
           await resyncEditorPlaybackMedia(blobUrlRef, opts);
@@ -159,5 +159,6 @@ export function useEditorAudioSession({
     audioFileInputRef,
     onPickAudio,
     openAudioImport,
+    resyncPlayback,
   };
 }

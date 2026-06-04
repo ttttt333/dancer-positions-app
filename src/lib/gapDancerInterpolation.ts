@@ -66,6 +66,31 @@ export function parseGapApproachRoute(raw: unknown): GapApproachRoute | undefine
     : undefined;
 }
 
+/** キュー間の個人別ベジェ制御点（正規化・クラウド保存用） */
+export function parseDancerCustomPaths(
+  raw: unknown
+): Record<string, { cpX: number; cpY: number }> | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const out: Record<string, { cpX: number; cpY: number }> = {};
+  for (const [dancerId, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (!dancerId || typeof v !== "object" || v == null) continue;
+    const cp = v as { cpX?: unknown; cpY?: unknown };
+    if (
+      typeof cp.cpX !== "number" ||
+      !Number.isFinite(cp.cpX) ||
+      typeof cp.cpY !== "number" ||
+      !Number.isFinite(cp.cpY)
+    ) {
+      continue;
+    }
+    out[dancerId] = {
+      cpX: Math.max(CLAMP_X_LO, Math.min(CLAMP_X_HI, cp.cpX)),
+      cpY: Math.max(CLAMP_Y_LO, Math.min(CLAMP_Y_HI, cp.cpY)),
+    };
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 export const GAP_APPROACH_OPTIONS: {
   id: GapApproachRoute;
   label: string;

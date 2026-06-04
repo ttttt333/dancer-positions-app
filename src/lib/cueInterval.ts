@@ -6,7 +6,10 @@ import type {
   SetPiece,
 } from "../types/choreography";
 import { cloneFloorMarkupWithNewIds } from "./floorMarkup";
-import { parseGapApproachRoute } from "./gapDancerInterpolation";
+import {
+  parseDancerCustomPaths,
+  parseGapApproachRoute,
+} from "./gapDancerInterpolation";
 
 export function sortCuesByStart(cues: Cue[]): Cue[] {
   return [...cues].sort(
@@ -30,6 +33,7 @@ type RawCue = Record<string, unknown> & {
   name?: unknown;
   note?: unknown;
   gapApproachFromPrev?: unknown;
+  dancerCustomPaths?: unknown;
 };
 
 /**
@@ -50,6 +54,7 @@ export function migrateCuesFromRaw(
     name?: string;
     note?: string;
     gapFromPrev?: GapApproachRoute;
+    dancerCustomPaths?: Record<string, { cpX: number; cpY: number }>;
   }[] = [];
 
   for (const raw of cuesRaw) {
@@ -88,6 +93,7 @@ export function migrateCuesFromRaw(
       name,
       note,
       gapFromPrev: parseGapApproachRoute(c.gapApproachFromPrev),
+      dancerCustomPaths: parseDancerCustomPaths(c.dancerCustomPaths),
     });
   }
 
@@ -115,6 +121,9 @@ export function migrateCuesFromRaw(
       note: row.note,
       ...(i > 0 && row.gapFromPrev
         ? { gapApproachFromPrev: row.gapFromPrev }
+        : {}),
+      ...(row.dancerCustomPaths
+        ? { dancerCustomPaths: row.dancerCustomPaths }
         : {}),
     });
   }

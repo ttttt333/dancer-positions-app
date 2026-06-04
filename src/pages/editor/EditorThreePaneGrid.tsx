@@ -12,7 +12,11 @@ import { formatMmSsFloor } from "../../lib/timeFormat";
 import { createDefaultFloorTextPlaceSession } from "../../lib/floorTextPlaceSession";
 import { useMobileShellBridgeStore } from "../../store/useMobileShellBridgeStore";
 import { useVideoExportUiStore } from "../../store/videoExportUiStore";
-import { ChoreoViewerTransportControls } from "../../components/ChoreoViewerBottomBar";
+import {
+  ChoreoViewerLandscapeRail,
+  ChoreoViewerTransportControls,
+  PUBLIC_VIEWER_MARKER_DISPLAY_SCALE,
+} from "../../components/ChoreoViewerBottomBar";
 
 const Stage3DView = lazy(() =>
   import("../../components/Stage3DView").then((m) => ({ default: m.Stage3DView }))
@@ -117,6 +121,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const projectName = props.projectName as never;
   const publicNarrowLayout = props.publicNarrowLayout as never;
   const publicViewTightHeight = props.publicViewTightHeight as never;
+  const viewerChromeCollapsed = props.viewerChromeCollapsed as never;
+  const resyncViewerPlayback = props.resyncViewerPlayback as never;
   const raw = props.raw as never;
   const redo = props.redo as never;
   const result = props.result as never;
@@ -424,8 +430,21 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     ? "0px 0px 0px 0px"
                     : "6px max(6px, env(safe-area-inset-right, 0px)) calc(max(8px, 2cm) + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
                 paddingBottom:
-                  choreoPublicView && choreoStudentPick
-                    ? "calc(var(--choreo-viewer-bar-h, 104px) + env(safe-area-inset-bottom, 0px))"
+                  choreoPublicView &&
+                  choreoStudentPick &&
+                  !viewerChromeCollapsed
+                    ? publicViewTightHeight
+                      ? "max(4px, env(safe-area-inset-bottom, 0px))"
+                      : "calc(var(--choreo-viewer-bar-h, 104px) + env(safe-area-inset-bottom, 0px))"
+                    : choreoPublicView
+                      ? "max(4px, env(safe-area-inset-bottom, 0px))"
+                      : undefined,
+                paddingLeft:
+                  choreoPublicView &&
+                  publicViewTightHeight &&
+                  choreoStudentPick &&
+                  !viewerChromeCollapsed
+                    ? "max(52px, calc(44px + env(safe-area-inset-left, 0px)))"
                     : undefined,
                 marginTop: 0,
               }),
@@ -832,6 +851,9 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     }
                     viewportTextOverlayRoot={editorSurfaceEl}
                     studentViewerFocus={studentViewerFocusForStage}
+                    markerDisplayScale={
+                      choreoPublicView ? PUBLIC_VIEWER_MARKER_DISPLAY_SCALE : 1
+                    }
                     showMotionArrows={showMotionArrows}
                     onOpenDancerPathEditor={
                       choreoPublicView
@@ -973,31 +995,39 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 })() : null}
                 {publicNarrowLayout &&
                 publicViewTightHeight &&
-                choreoStudentPick ? (
-                  <div className="choreo-viewer-stage-transport">
-                    <ChoreoViewerTransportControls
-                      timelineRef={timelineRef}
-                      isPlaying={isPlaying}
-                      currentTime={currentTime}
-                      duration={duration}
-                      compact
-                    />
-                  </div>
+                choreoStudentPick &&
+                !viewerChromeCollapsed ? (
+                  <ChoreoViewerLandscapeRail
+                    timelineRef={timelineRef}
+                    trimStartSec={project.trimStartSec ?? 0}
+                    trimEndSec={project.trimEndSec ?? null}
+                    isPlaying={isPlaying}
+                    currentTime={currentTime}
+                    duration={duration}
+                    chromeCollapsed={viewerChromeCollapsed}
+                    onBeforeTransport={() => resyncViewerPlayback({ force: true })}
+                  />
                 ) : null}
                 {publicNarrowLayout &&
-                (cuesSortedForStageJump.length > 0 || hasRosterMembers) ? (
+                (cuesSortedForStageJump.length > 0 || hasRosterMembers) &&
+                !viewerChromeCollapsed ? (
                   // 生徒閲覧: タイムラインを非表示にしたため、position:fixed でボトムバーの上にフロート
                   <div
+                    className="choreo-viewer-cuepager"
                     style={{
                       position: "fixed",
                       bottom: publicViewTightHeight
-                        ? "calc(var(--choreo-viewer-bar-h, 44px) + max(8px, env(safe-area-inset-bottom, 0px)) + 58px)"
+                        ? "calc(var(--choreo-viewer-bar-h, 44px) + max(8px, env(safe-area-inset-bottom, 0px)) + 8px)"
                         : "calc(var(--choreo-viewer-bar-h, 104px) + max(8px, env(safe-area-inset-bottom, 0px)) + 8px)",
-                      left: "50%",
+                      left: publicViewTightHeight
+                        ? "50%"
+                        : "50%",
                       transform: "translateX(-50%)",
                       zIndex: 91,
                       pointerEvents: "auto",
-                      maxWidth: "min(calc(100% - 16px), 320px)",
+                      maxWidth: publicViewTightHeight
+                        ? "min(calc(100% - 72px), 320px)"
+                        : "min(calc(100% - 16px), 320px)",
                     }}
                   >
                     <WorkbenchCuePager

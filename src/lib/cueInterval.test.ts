@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { createEmptyProject } from "./projectDefaults";
-import { applyCueWaveDragCommit, splitSharedCueFormations, expandShortCuesAfterAudioLoad, projectNeedsShortCueExpansion, cueActiveAtTime } from "./cueInterval";
+import {
+  applyCueWaveDragCommit,
+  splitSharedCueFormations,
+  expandShortCuesAfterAudioLoad,
+  projectNeedsShortCueExpansion,
+  cueActiveAtTime,
+  migrateCuesFromRaw,
+} from "./cueInterval";
+import { normalizeProject } from "./normalizeProject";
 import type { Cue } from "../types/choreography";
 
 describe("splitSharedCueFormations", () => {
@@ -104,6 +112,66 @@ describe("applyCueWaveDragCommit", () => {
     expect(next.find((c) => c.id === "a")).toMatchObject({
       tStartSec: 2,
       tEndSec: 12,
+    });
+  });
+});
+
+describe("migrateCuesFromRaw", () => {
+  it("preserves gap route and per-dancer custom paths", () => {
+    const base = createEmptyProject();
+    const fid = base.activeFormationId;
+    const raw = [
+      {
+        id: "c1",
+        formationId: fid,
+        tStartSec: 0,
+        tEndSec: 4,
+      },
+      {
+        id: "c2",
+        formationId: fid,
+        tStartSec: 8,
+        tEndSec: 12,
+        gapApproachFromPrev: "kamite_half_via_audience",
+        dancerCustomPaths: {
+          d1: { cpX: 55, cpY: 40 },
+        },
+      },
+    ];
+    const cues = migrateCuesFromRaw(raw, base.formations);
+    expect(cues[1]?.gapApproachFromPrev).toBe("kamite_half_via_audience");
+    expect(cues[1]?.dancerCustomPaths).toEqual({ d1: { cpX: 55, cpY: 40 } });
+  });
+});
+
+describe("normalizeProject gap movement", () => {
+  it("keeps cue gap fields through cloud-save normalization", () => {
+    const base = createEmptyProject();
+    const fid = base.activeFormationId;
+    const raw = {
+      ...base,
+      version: 3,
+      cues: [
+        {
+          id: "c1",
+          formationId: fid,
+          tStartSec: 0,
+          tEndSec: 4,
+        },
+        {
+          id: "c2",
+          formationId: fid,
+          tStartSec: 8,
+          tEndSec: 12,
+          gapApproachFromPrev: "detour_bulge",
+          dancerCustomPaths: { d1: { cpX: 30, cpY: 70 } },
+        },
+      ],
+    };
+    const normalized = normalizeProject(raw);
+    expect(normalized.cues[1]?.gapApproachFromPrev).toBe("detour_bulge");
+    expect(normalized.cues[1]?.dancerCustomPaths).toEqual({
+      d1: { cpX: 30, cpY: 70 },
     });
   });
 });

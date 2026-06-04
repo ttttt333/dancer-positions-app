@@ -131,6 +131,7 @@ export function EditorPageLayout(props: EditorLayoutProps) {
   const projectName = props.projectName as never;
   const publicNarrowLayout = props.publicNarrowLayout as never;
   const publicViewTightHeight = props.publicViewTightHeight as never;
+  const viewerChromeCollapsed = props.viewerChromeCollapsed as never;
   const raw = props.raw as never;
   const redo = props.redo as never;
   const result = props.result as never;
@@ -228,6 +229,12 @@ export function EditorPageLayout(props: EditorLayoutProps) {
     <div
       className={[
         choreoPublicView ? "choreo-public-view-root" : "editor-page-root",
+        choreoPublicView && viewerChromeCollapsed
+          ? "choreo-public-view-root--chrome-collapsed"
+          : "",
+        choreoPublicView && publicViewTightHeight
+          ? "choreo-public-view-root--landscape"
+          : "",
         mobileStackEditor ? "editor-page-root--mobile-editor" : "",
         mobileStackEditor && editorMobileLandscape
           ? "editor-page-root--mobile-landscape"
@@ -266,16 +273,28 @@ export function EditorPageLayout(props: EditorLayoutProps) {
 
       {showTopWaveDock && !stageZenLayout && !mobileStackEditor ? (
         <div
+          className={publicNarrowLayout ? "choreo-viewer-timeline-mount" : undefined}
           style={{
-            flexShrink: 0,
+            flexShrink: publicNarrowLayout ? 0 : undefined,
             width: "100%",
             minWidth: 0,
-            height: wideEditorLayout ? wideBottomDockPx : TOP_DOCK_HEIGHT_PX,
-            position: "relative",
+            height: publicNarrowLayout
+              ? 1
+              : wideEditorLayout
+                ? wideBottomDockPx
+                : TOP_DOCK_HEIGHT_PX,
+            position: publicNarrowLayout ? ("absolute" as const) : "relative",
+            left: publicNarrowLayout ? 0 : undefined,
+            top: publicNarrowLayout ? 0 : undefined,
+            overflow: publicNarrowLayout ? "hidden" : undefined,
+            opacity: publicNarrowLayout ? 0 : undefined,
+            pointerEvents: publicNarrowLayout ? "none" : undefined,
             background: "transparent",
-            marginBottom: wideEditorLayout ? 0 : 4,
-            display: publicNarrowLayout ? "none" : undefined,
+            marginBottom: wideEditorLayout ? 0 : publicNarrowLayout ? 0 : 4,
+            display: publicNarrowLayout ? undefined : undefined,
+            visibility: publicNarrowLayout ? ("hidden" as const) : undefined,
           }}
+          aria-hidden={publicNarrowLayout ? true : undefined}
         >
           {/* Timeline content */}
           <div

@@ -14,7 +14,10 @@ import { EditorSideSheet } from "../../components/EditorSideSheet";
 import { FloorTextSideSheetContent } from "../../components/FloorTextSideSheetContent";
 import { ShareLinksSheetContent } from "../../components/ShareLinksSheetContent";
 import { ViewerModeSheetContent } from "../../components/ViewerModeSheetContent";
-import { ChoreoViewerBottomBar } from "../../components/ChoreoViewerBottomBar";
+import {
+  ChoreoViewerBottomBar,
+  ChoreoViewerChromeRestoreFab,
+} from "../../components/ChoreoViewerBottomBar";
 import { VideoExportSheet } from "../../components/VideoExportSheet";
 import { useVideoExportUiStore } from "../../store/videoExportUiStore";
 import { btnAccent, btnSecondary } from "../../components/stageButtonStyles";
@@ -151,6 +154,9 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
   const projectName = props.projectName as never;
   const publicNarrowLayout = props.publicNarrowLayout as never;
   const publicViewTightHeight = props.publicViewTightHeight as never;
+  const viewerChromeCollapsed = props.viewerChromeCollapsed as never;
+  const setViewerChromeCollapsed = props.setViewerChromeCollapsed as never;
+  const resyncViewerPlayback = props.resyncViewerPlayback as never;
   const raw = props.raw as never;
   const redo = props.redo as never;
   const result = props.result as never;
@@ -1460,17 +1466,27 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
       ) : null}
 
       {choreoPublicView && choreoStudentPick ? (
-        <ChoreoViewerBottomBar
-          timelineRef={timelineRef}
-          project={project}
-          choreoStudentPick={choreoStudentPick}
-          isPlaying={isPlaying}
-          currentTime={currentTime}
-          duration={duration}
-          tightHeight={publicViewTightHeight}
-          onOpenMemberSheet={() => setChoreoMemberSheetOpen(true)}
-          fileName={projectName}
-        />
+        <>
+          {viewerChromeCollapsed ? (
+            <ChoreoViewerChromeRestoreFab
+              onRestore={() => setViewerChromeCollapsed(false)}
+            />
+          ) : null}
+          <ChoreoViewerBottomBar
+            timelineRef={timelineRef}
+            project={project}
+            choreoStudentPick={choreoStudentPick}
+            isPlaying={isPlaying}
+            currentTime={currentTime}
+            duration={duration}
+            tightHeight={publicViewTightHeight}
+            chromeCollapsed={viewerChromeCollapsed}
+            onChromeCollapsedChange={setViewerChromeCollapsed}
+            onBeforeTransport={() => resyncViewerPlayback({ force: true })}
+            onOpenMemberSheet={() => setChoreoMemberSheetOpen(true)}
+            fileName={projectName}
+          />
+        </>
       ) : null}
     </>
   );

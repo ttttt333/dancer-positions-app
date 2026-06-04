@@ -355,6 +355,8 @@ export function EditorPage({
     if (typeof window === "undefined" || !choreoPublicView) return false;
     return window.matchMedia("(max-height: 520px)").matches;
   });
+  /** 閲覧共有: 下バー・左レール・キューページャを隠してステージを最大化 */
+  const [viewerChromeCollapsed, setViewerChromeCollapsed] = useState(false);
   /** ワイド＋タイムライン表示時: キュー一覧モーダルの開閉（一覧本体はポータルで描画） */
   const [cueListModalOpen, setCueListModalOpen] = useState(false);
   const [aiSuggestOpen, setAiSuggestOpen] = useState(false);
@@ -490,6 +492,7 @@ export function EditorPage({
     flowLocalAudioKey: project?.flowLocalAudioKey ?? null,
     publicShareView: choreoPublicView && !!shareTokenParam,
   });
+  const resyncViewerPlayback = editorAudioSession.resyncPlayback;
 
   const {
     timelineRef,
@@ -2545,6 +2548,9 @@ export function EditorPage({
     projectName,
     publicNarrowLayout,
     publicViewTightHeight,
+    viewerChromeCollapsed,
+    setViewerChromeCollapsed,
+    resyncViewerPlayback,
     redo,
     rightPaneCollapsed,
     rightPaneStackRef,

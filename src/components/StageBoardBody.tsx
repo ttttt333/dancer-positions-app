@@ -141,6 +141,7 @@ export function StageBoardBody({
   onGestureHistoryCancel,
   markHistorySkipNextPush,
   studentViewerFocus = null,
+  markerDisplayScale = 1,
   onOpenTextEditSheet,
   showMotionArrows = false,
   onOpenDancerPathEditor,
@@ -486,25 +487,35 @@ export function StageBoardBody({
   const [hoveredStageHandle, setHoveredStageHandle] =
     useState<StageResizeHandleId | null>(null);
 
+  const markerScale =
+    typeof markerDisplayScale === "number" &&
+    Number.isFinite(markerDisplayScale) &&
+    markerDisplayScale > 0
+      ? markerDisplayScale
+      : 1;
+
+  const scaleMarkerPx = useCallback(
+    (px: number) =>
+      Math.max(
+        MARKER_PX_MIN,
+        Math.min(MARKER_PX_MAX, Math.round(px * markerScale)),
+      ),
+    [markerScale],
+  );
+
   /** ダンサー 1 人分の実効サイズ（px）。draft > 個別 sizePx > プロジェクト共通、の順で解決。 */
   const effectiveMarkerPx = useCallback(
     (d: DancerSpot) => {
       const draft = markerDiamDraft?.get(d.id);
       if (typeof draft === "number" && Number.isFinite(draft)) {
-        return Math.max(
-          MARKER_PX_MIN,
-          Math.min(MARKER_PX_MAX, Math.round(draft)),
-        );
+        return scaleMarkerPx(draft);
       }
       if (typeof d.sizePx === "number" && Number.isFinite(d.sizePx)) {
-        return Math.max(
-          MARKER_PX_MIN,
-          Math.min(MARKER_PX_MAX, Math.round(d.sizePx)),
-        );
+        return scaleMarkerPx(d.sizePx);
       }
-      return baseMarkerPx;
+      return scaleMarkerPx(baseMarkerPx);
     },
-    [markerDiamDraft, baseMarkerPx],
+    [markerDiamDraft, baseMarkerPx, scaleMarkerPx],
   );
 
   /** 名下ラベルの実効フォント（px）。床幅連動の ○ 表示サイズではなく保存値ベースで解決。 */

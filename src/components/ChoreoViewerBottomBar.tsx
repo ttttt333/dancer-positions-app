@@ -1,4 +1,4 @@
-import { useEffect, useState, type RefObject } from "react";
+import { useCallback, useEffect, useState, type RefObject } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import type { TimelinePanelHandle } from "./timelinePanelTypes";
 import type { StudentPick } from "./ChoreoStudentViewGate";
@@ -14,12 +14,23 @@ import {
 } from "./mobile/TransportIcons";
 import { VideoExportButton } from "./VideoExportButton";
 import { useI18n } from "../i18n/I18nContext";
+import { playbackEngine } from "../core/playbackEngine";
+import {
+  seekPlaybackClampedAndSyncStore,
+  stopPlaybackAtTrimStart,
+  togglePlaybackRespectingTrimStart,
+} from "../lib/playbackTransport";
+
+/** 閲覧共有ステージ上のダンサー印の表示倍率（従来比 2/3） */
+export const PUBLIC_VIEWER_MARKER_DISPLAY_SCALE = 2 / 3;
 
 function viewerBarHeightPx(
   tight: boolean,
   metaExpanded: boolean,
-  transportInBar: boolean
+  transportInBar: boolean,
+  chromeCollapsed: boolean
 ): number {
+  if (chromeCollapsed) return 0;
   if (tight && !transportInBar) {
     if (!metaExpanded) return 44;
     return 88;
@@ -29,19 +40,25 @@ function viewerBarHeightPx(
 }
 
 type TransportProps = {
-  timelineRef: RefObject<TimelinePanelHandle | null>;
+  timelineRef?: RefObject<TimelinePanelHandle | null>;
+  trimStartSec: number;
+  trimEndSec: number | null;
   isPlaying: boolean;
   currentTime: number;
   duration: number;
   compact?: boolean;
+  onBeforeTransport?: () => void | Promise<void>;
 };
 
 export function ChoreoViewerTransportControls({
   timelineRef,
+  trimStartSec,
+  trimEndSec,
   isPlaying,
   currentTime,
   duration,
   compact = false,
+  onBeforeTransport,
 }: TransportProps) {
   const { t } = useI18n();
   const btnSize = compact ? 40 : 44;
@@ -59,13 +76,61 @@ export function ChoreoViewerTransportControls({
     flexShrink: 0,
   };
 
+  const seekBack = useCallback(() => {
+    onBeforeTransport?.();
+    if (playbackEngine.getMediaSourceUrl()) {
+      seekPlaybackClampedAndSyncStore({
+        t: playbackEngine.getCurrentTime() - 5,
+        durationSec: duration,
+        trimStartSec,
+        trimEndSec,
+      });
+      return;
+    }
+    timelineRef?.current?.seekBackward5Sec();
+  }, [duration, onBeforeTransport, timelineRef, trimEndSec, trimStartSec]);
+
+  const seekForward = useCallback(() => {
+    onBeforeTransport?.();
+    if (playbackEngine.getMediaSourceUrl()) {
+      seekPlaybackClampedAndSyncStore({
+        t: playbackEngine.getCurrentTime() + 5,
+        durationSec: duration,
+        trimStartSec,
+        trimEndSec,
+      });
+      return;
+    }
+    timelineRef?.current?.seekForward5Sec();
+  }, [duration, onBeforeTransport, timelineRef, trimEndSec, trimStartSec]);
+
+  const togglePlay = useCallback(() => {
+    void (async () => {
+      await onBeforeTransport?.();
+      if (playbackEngine.getMediaSourceUrl()) {
+        togglePlaybackRespectingTrimStart(trimStartSec);
+        return;
+      }
+      timelineRef?.current?.togglePlay();
+    })();
+  }, [onBeforeTransport, timelineRef, trimStartSec]);
+
+  const stopPlayback = useCallback(() => {
+    onBeforeTransport?.();
+    if (playbackEngine.getMediaSourceUrl()) {
+      stopPlaybackAtTrimStart(trimStartSec);
+      return;
+    }
+    timelineRef?.current?.stopPlayback();
+  }, [onBeforeTransport, timelineRef, trimStartSec]);
+
   return (
     <>
       <button
         type="button"
         aria-label={t("editor.comp.k002")}
         title={t("editor.comp.k002")}
-        onClick={() => timelineRef.current?.seekBackward5Sec()}
+        onClick={seekBack}
         disabled={duration <= 0}
         style={transportBtn}
       >
@@ -75,7 +140,7 @@ export function ChoreoViewerTransportControls({
         type="button"
         aria-label={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
         title={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
-        onClick={() => timelineRef.current?.togglePlay()}
+        onClick={togglePlay}
         style={{
           ...btnAccent,
           minWidth: btnSize + 4,
@@ -97,7 +162,7 @@ export function ChoreoViewerTransportControls({
         type="button"
         aria-label={t("editor.layout.stop")}
         title={t("editor.comp.k060")}
-        onClick={() => timelineRef.current?.stopPlayback()}
+        onClick={stopPlayback}
         style={transportBtn}
       >
         <TransportIconStop size={iconSecondary} />
@@ -106,7 +171,7 @@ export function ChoreoViewerTransportControls({
         type="button"
         aria-label={t("editor.comp.k003")}
         title={t("editor.comp.k003")}
-        onClick={() => timelineRef.current?.seekForward5Sec()}
+        onClick={seekForward}
         disabled={duration <= 0}
         style={transportBtn}
       >
@@ -125,6 +190,123 @@ export function ChoreoViewerTransportControls({
   );
 }
 
+export type ChoreoViewerLandscapeRailProps = {
+  timelineRef: RefObject<TimelinePanelHandle | null>;
+  trimStartSec: number;
+  trimEndSec: number | null;
+  isPlaying: boolean;
+  currentTime: number;
+  duration: number;
+  chromeCollapsed: boolean;
+  onBeforeTransport?: () => void | Promise<void>;
+};
+
+/** 横画面閲覧: 左端の再生コントロール列（畳み可） */
+export function ChoreoViewerLandscapeRail({
+  timelineRef,
+  trimStartSec,
+  trimEndSec,
+  isPlaying,
+  currentTime,
+  duration,
+  chromeCollapsed,
+  onBeforeTransport,
+}: ChoreoViewerLandscapeRailProps) {
+  const { t } = useI18n();
+  const [railOpen, setRailOpen] = useState(true);
+
+  if (chromeCollapsed) return null;
+
+  return (
+    <div
+      className={[
+        "choreo-viewer-landscape-rail",
+        railOpen ? "choreo-viewer-landscape-rail--open" : "choreo-viewer-landscape-rail--collapsed",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <button
+        type="button"
+        className="choreo-viewer-landscape-rail-toggle"
+        aria-expanded={railOpen}
+        aria-label={
+          railOpen
+            ? t("editor.layout.viewerRailCollapse")
+            : t("editor.layout.viewerRailExpand")
+        }
+        title={
+          railOpen
+            ? t("editor.layout.viewerRailCollapse")
+            : t("editor.layout.viewerRailExpand")
+        }
+        onClick={() => setRailOpen((v) => !v)}
+      >
+        {railOpen ? "‹" : "›"}
+      </button>
+      {railOpen ? (
+        <div className="choreo-viewer-landscape-rail-controls">
+          <ChoreoViewerTransportControls
+            timelineRef={timelineRef}
+            trimStartSec={trimStartSec}
+            trimEndSec={trimEndSec}
+            isPlaying={isPlaying}
+            currentTime={currentTime}
+            duration={duration}
+            compact
+            onBeforeTransport={onBeforeTransport}
+          />
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="choreo-viewer-landscape-rail-play-mini"
+          aria-label={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
+          title={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
+          onClick={() => {
+            void (async () => {
+              await onBeforeTransport?.();
+              if (playbackEngine.getMediaSourceUrl()) {
+                togglePlaybackRespectingTrimStart(trimStartSec);
+                return;
+              }
+              timelineRef.current?.togglePlay();
+            })();
+          }}
+        >
+          {isPlaying ? (
+            <TransportIconPause size={22} />
+          ) : (
+            <TransportIconPlay size={22} />
+          )}
+        </button>
+      )}
+    </div>
+  );
+}
+
+export type ChoreoViewerChromeRestoreFabProps = {
+  onRestore: () => void;
+};
+
+/** コントロールを隠したあと、ワンタップで戻す FAB */
+export function ChoreoViewerChromeRestoreFab({
+  onRestore,
+}: ChoreoViewerChromeRestoreFabProps) {
+  const { t } = useI18n();
+  return (
+    <button
+      type="button"
+      className="choreo-viewer-restore-fab"
+      aria-label={t("editor.layout.viewerChromeExpand")}
+      title={t("editor.layout.viewerChromeExpand")}
+      onClick={onRestore}
+    >
+      {t("editor.layout.viewerChromeExpandShort")}
+    </button>
+  );
+}
+
 export type ChoreoViewerBottomBarProps = {
   timelineRef: RefObject<TimelinePanelHandle | null>;
   project: ChoreographyProjectJson;
@@ -133,6 +315,9 @@ export type ChoreoViewerBottomBarProps = {
   currentTime: number;
   duration: number;
   tightHeight: boolean;
+  chromeCollapsed: boolean;
+  onChromeCollapsedChange: (collapsed: boolean) => void;
+  onBeforeTransport?: () => void;
   onOpenMemberSheet: () => void;
   onBarHeightChange?: (px: number) => void;
   fileName: string;
@@ -146,11 +331,16 @@ export function ChoreoViewerBottomBar({
   currentTime,
   duration,
   tightHeight,
+  chromeCollapsed,
+  onChromeCollapsedChange,
+  onBeforeTransport,
   onOpenMemberSheet,
   onBarHeightChange,
   fileName,
 }: ChoreoViewerBottomBarProps) {
   const { t } = useI18n();
+  const trimStartSec = project.trimStartSec ?? 0;
+  const trimEndSec = project.trimEndSec ?? null;
   const [metaExpanded, setMetaExpanded] = useState(() => !tightHeight);
 
   useEffect(() => {
@@ -158,19 +348,20 @@ export function ChoreoViewerBottomBar({
   }, [tightHeight]);
 
   const transportInBar = !tightHeight;
-  const barHeightPx = viewerBarHeightPx(tightHeight, metaExpanded, transportInBar);
+  const barHeightPx = viewerBarHeightPx(
+    tightHeight,
+    metaExpanded,
+    transportInBar,
+    chromeCollapsed
+  );
 
   useEffect(() => {
     onBarHeightChange?.(barHeightPx);
   }, [barHeightPx, onBarHeightChange]);
 
-  const closeViewer = () => {
-    if (typeof window !== "undefined" && window.history.length > 1) {
-      window.history.back();
-      return;
-    }
-    window.close();
-  };
+  if (chromeCollapsed) {
+    return null;
+  }
 
   return (
     <div
@@ -200,10 +391,13 @@ export function ChoreoViewerBottomBar({
         {transportInBar ? (
           <ChoreoViewerTransportControls
             timelineRef={timelineRef}
+            trimStartSec={trimStartSec}
+            trimEndSec={trimEndSec}
             isPlaying={isPlaying}
             currentTime={currentTime}
             duration={duration}
             compact={tightHeight}
+            onBeforeTransport={onBeforeTransport}
           />
         ) : null}
         <button
@@ -256,7 +450,7 @@ export function ChoreoViewerBottomBar({
         ) : null}
         <button
           type="button"
-          onClick={closeViewer}
+          onClick={() => onChromeCollapsedChange(true)}
           style={{
             ...btnSecondary,
             fontSize: tightHeight ? 12 : 13,
@@ -270,8 +464,10 @@ export function ChoreoViewerBottomBar({
             justifyContent: "center",
             padding: tightHeight ? "4px 10px" : "6px 12px",
           }}
+          aria-label={t("editor.layout.viewerChromeCollapse")}
+          title={t("editor.layout.viewerChromeCollapse")}
         >
-          {t("editor.layout.close")}
+          {t("editor.layout.viewerChromeCollapseShort")}
         </button>
       </div>
       {metaExpanded ? (
