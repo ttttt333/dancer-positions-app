@@ -218,6 +218,35 @@ function cueWaveExpandedHitX(x: number, left: number, right: number): boolean {
   );
 }
 
+/** 端ドラッグは境界線までの距離、移動は帯中心への距離 */
+function cueDragKindPickDistance(
+  x: number,
+  y: number,
+  mid: number,
+  left: number,
+  right: number,
+  mode: CueDragEdgeMode
+): number {
+  const yPart = Math.abs(y - mid) * 0.05;
+  if (mode === "start") return Math.abs(x - left) + yPart;
+  if (mode === "end") return Math.abs(x - right) + yPart;
+  const cx = Math.max(left, Math.min(right, x));
+  return Math.abs(x - cx) + yPart;
+}
+
+/** 隣接キュー境界で end / start が重なるときは左キューの end を優先 */
+function shouldPreferCueDragHit(
+  dist: number,
+  mode: CueDragEdgeMode,
+  best: { mode: CueDragEdgeMode; dist: number }
+): boolean {
+  if (dist < best.dist - 0.5) return true;
+  if (dist > best.dist + 0.5) return false;
+  if (mode === "end" && best.mode === "start") return true;
+  if (mode === "start" && best.mode === "end") return false;
+  return dist < best.dist;
+}
+
 /**
  * 帯上のポインタ操作種別。
  * クリック選択（`pickCueIdAtWave`）より枠外の端グリップも広く拾う。
@@ -275,9 +304,8 @@ export function pickCueDragKindAtWave(
     if (!cueWaveExpandedHitX(x, left, right)) continue;
 
     const mode = pickCueDragModeForCueAtX(x, left, right);
-    const cx = Math.max(left, Math.min(right, x));
-    const dist = Math.abs(x - cx) + Math.abs(y - mid) * 0.05;
-    if (!best || dist < best.dist) {
+    const dist = cueDragKindPickDistance(x, y, mid, left, right, mode);
+    if (!best || shouldPreferCueDragHit(dist, mode, best)) {
       best = { cueId: cue.id, mode, dist };
     }
   }
