@@ -70,7 +70,6 @@ export function useEditorPlaybackSync(p: Params): {
         ref: bindPlaybackAudioElementRef,
         style: { display: "none" },
         controls: false,
-        crossOrigin: "anonymous",
         preload: "auto",
         playsInline: true,
         "aria-hidden": true,

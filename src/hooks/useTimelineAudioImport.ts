@@ -43,6 +43,7 @@ import {
   type WaveformPeaksResult,
 } from "../lib/generateWaveformPeaks";
 import { waitForAudioElementReady } from "../lib/audioElementReady";
+import { resyncEditorPlaybackMedia } from "../lib/resyncPlaybackMedia";
 import { putFlowLibraryAudio } from "../lib/flowLibraryLocalAudio";
 
 type Params = {
@@ -109,6 +110,7 @@ async function mountLocalPlaybackBlob(
   usePlaybackUiStore.getState().setTrustedAudioDurationSec(null);
   playbackEngine.setMediaSourceUrl(url);
   await waitForAudioElementReady(playbackEngine.getMediaElement()).catch(() => {});
+  void resyncEditorPlaybackMedia(blobUrlRef, { force: true }).catch(() => {});
   clearWaveLoadProgress();
   return url;
 }

@@ -89,12 +89,14 @@ export class PlaybackEngine {
     el.addEventListener("durationchange", this.onMeta);
     el.addEventListener("error", this.onErrorEvent);
     el.addEventListener("canplaythrough", this.onCanPlayThrough);
-    if (
-      this.lastMediaSourceUrl &&
-      this.getMediaSourceUrl() !== this.lastMediaSourceUrl
-    ) {
-      el.src = this.lastMediaSourceUrl;
-      el.load();
+    const pending = this.lastMediaSourceUrl;
+    if (pending) {
+      const applied = el.currentSrc === pending || el.src === pending;
+      if (!applied) {
+        configureHtmlAudioElement(el, pending);
+        el.src = pending;
+        el.load();
+      }
     }
     this.emitPlaying(!el.paused);
     this.emitMeta();
@@ -106,17 +108,17 @@ export class PlaybackEngine {
   }
 
   /**
-   * 割り当て済みの音源 URL（`currentSrc` を優先、未設定は空）。
-   * `fetch` や「音源あり」の判定には DOM の `src` 直参照よりこちらを使う。
+   * 割り当て済みの音源 URL（`currentSrc` を優先、未設定は `lastMediaSourceUrl`）。
    */
   getMediaSourceUrl(): string {
     const el = this.media;
-    if (!el) return "";
-    const cur = el.currentSrc;
-    if (typeof cur === "string" && cur.length > 0) return cur;
-    const s = el.src;
-    if (typeof s === "string" && s.length > 0) return s;
-    return "";
+    if (el) {
+      const cur = el.currentSrc;
+      if (typeof cur === "string" && cur.length > 0) return cur;
+      const s = el.src;
+      if (typeof s === "string" && s.length > 0) return s;
+    }
+    return this.lastMediaSourceUrl;
   }
 
   play(): Promise<void> {
@@ -172,14 +174,20 @@ export class PlaybackEngine {
    * URL 変更時は再生位置・再生中状態を可能な限り維持する。
    */
   setMediaSourceUrl(url: string, opts?: { force?: boolean }): void {
-    const el = this.media;
-    if (!el || typeof url !== "string" || url.length === 0) return;
+    if (typeof url !== "string" || url.length === 0) return;
     if (isCrossOriginIsolatedPage() && !isCoepSafeMediaUrl(url)) {
       console.warn(
         "[playback] COEP 下ではクロスオリジン音源を <audio> に設定できません。blob 取得後に再生されます。"
       );
       return;
     }
+
+    const el = this.media;
+    if (!el) {
+      this.lastMediaSourceUrl = url;
+      return;
+    }
+
     const current = this.getMediaSourceUrl();
     if (!opts?.force && current === url) {
       this.emitMeta();
@@ -190,7 +198,7 @@ export class PlaybackEngine {
     const wasPlaying = !el.paused;
     const savedTime = Number.isFinite(el.currentTime) ? el.currentTime : 0;
 
-    configureHtmlAudioElement(el);
+    configureHtmlAudioElement(el, url);
     this.lastMediaSourceUrl = url;
     el.src = url;
     el.load();
@@ -226,11 +234,11 @@ export class PlaybackEngine {
   /** 再生を止め、`src` を外して `load()`（クラウド音源の解除など） */
   clearMediaSource(): void {
     const el = this.media;
+    this.lastMediaSourceUrl = "";
     if (!el) return;
     el.pause();
     el.removeAttribute("src");
     el.load();
-    this.lastMediaSourceUrl = "";
     this.emitPlaying(false);
     this.emitMeta();
     this.emitTime();

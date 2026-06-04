@@ -49,6 +49,7 @@ import {
 import { verifyBlobUrl } from "../lib/verifyBlobUrl";
 import { waitForAudioElementReady } from "../lib/audioElementReady";
 import { fulfillViewerPendingPlay } from "../lib/playbackViewerIntent";
+import { resyncEditorPlaybackMedia } from "../lib/resyncPlaybackMedia";
 import { tryFetchServerWavePeaksReady } from "../lib/wavePeaksServerApi";
 import { useShareViewAudioLoadStore } from "../store/shareViewAudioLoadStore";
 
@@ -91,12 +92,16 @@ function syncPlaybackUrl(
   opts?: { revokePrevious?: boolean; skipEngineIfSame?: boolean }
 ) {
   assignBlobUrlRef(blobUrlRef, url, opts?.revokePrevious ?? false);
-  const engineUrl = playbackEngine.getMediaSourceUrl();
-  if (opts?.skipEngineIfSame !== false && engineUrl === url) {
+  const el = playbackEngine.getMediaElement();
+  const applied = Boolean(
+    el && (el.currentSrc === url || el.src === url)
+  );
+  if (opts?.skipEngineIfSame !== false && applied) {
     return;
   }
   clearPlaybackTrustedDurationSec();
-  playbackEngine.setMediaSourceUrl(url);
+  playbackEngine.setMediaSourceUrl(url, { force: true });
+  void resyncEditorPlaybackMedia(blobUrlRef).catch(() => {});
 }
 
 function reportAudioLoadProgress(
@@ -134,8 +139,12 @@ function scheduleMarkPlaybackReady(publicShareView: boolean) {
     });
 }
 
-function markPlaybackReadyForWaveFetch(publicShareView: boolean) {
+function markPlaybackReadyForWaveFetch(
+  publicShareView: boolean,
+  blobUrlRef: MutableRefObject<string | null>
+) {
   scheduleMarkPlaybackReady(publicShareView);
+  void resyncEditorPlaybackMedia(blobUrlRef, { force: true }).catch(() => {});
 }
 
 async function ensureServerPeaksOnly(
@@ -254,7 +263,7 @@ export function useTimelineRemoteAudio({
             clearPlaybackTrustedDurationSec,
             { revokePrevious: true }
           );
-          markPlaybackReadyForWaveFetch(publicShareView);
+          markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
           const cached = await getWavePeaksCache(cacheKey);
           if (cached?.peaks.length) {
             if (!cancelled) {
@@ -283,7 +292,7 @@ export function useTimelineRemoteAudio({
           const blobValid = await verifyBlobUrl(persistedServerAudioBlobUrl);
           if (blobValid) {
             blobUrlRef.current = persistedServerAudioBlobUrl;
-            markPlaybackReadyForWaveFetch(publicShareView);
+            markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
             reportWaveLoadProgress(0.4, "波形データを取得中…");
             await ensureServerPeaksOnly(
               aid,
@@ -337,7 +346,7 @@ export function useTimelineRemoteAudio({
         syncPlaybackUrl(blobUrlRef, blobUrl, clearPlaybackTrustedDurationSec, {
           revokePrevious: true,
         });
-        markPlaybackReadyForWaveFetch(publicShareView);
+        markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
 
         if (!cancelled) {
           await peaksPromise;
@@ -420,7 +429,7 @@ export function useTimelineRemoteAudio({
             clearPlaybackTrustedDurationSec,
             { revokePrevious: true }
           );
-          markPlaybackReadyForWaveFetch(publicShareView);
+          markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
           const cached = await getWavePeaksCache(cacheKey);
           if (cached?.peaks.length) {
             if (!cancelled) {
@@ -476,7 +485,7 @@ export function useTimelineRemoteAudio({
               { revokePrevious: true }
             );
           }
-          markPlaybackReadyForWaveFetch(publicShareView);
+          markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
           reportWaveLoadProgress(0.4, "波形データを取得中…");
           const readBuf = () => arrayBufferFromBlobUrl(activeBlobUrl!);
           await ensureSupabasePeaksOnly(
@@ -535,10 +544,10 @@ export function useTimelineRemoteAudio({
         assignBlobUrlRef(blobUrlRef, blobUrl, false);
 
         const curEngine = playbackEngine.getMediaSourceUrl();
-        if (curEngine !== blobUrl) {
-          playbackEngine.setMediaSourceUrl(blobUrl);
+        if (curEngine !== blobUrl || !playbackEngine.getMediaElement()?.src) {
+          playbackEngine.setMediaSourceUrl(blobUrl, { force: true });
         }
-        markPlaybackReadyForWaveFetch(publicShareView);
+        markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
 
         if (sidecar?.peaks.length) {
           return;
@@ -627,7 +636,7 @@ export function useTimelineRemoteAudio({
             { revokePrevious: true }
           );
           setPersistedFlowAudio(reuseUrl, flowKey);
-          markPlaybackReadyForWaveFetch(publicShareView);
+          markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
           const cached = await getWavePeaksCache(cacheKey);
           if (cached?.peaks.length) {
             if (!cancelled) {
@@ -656,7 +665,7 @@ export function useTimelineRemoteAudio({
         syncPlaybackUrl(blobUrlRef, url, clearPlaybackTrustedDurationSec, {
           revokePrevious: true,
         });
-        markPlaybackReadyForWaveFetch(publicShareView);
+        markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
         if (cached?.peaks.length) {
           return;
         }

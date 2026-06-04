@@ -55,9 +55,22 @@ export function waitForAudioElementReady(
   });
 }
 
-/** iOS / CORS 向けの HTMLAudioElement 初期設定 */
-export function configureHtmlAudioElement(el: HTMLAudioElement): void {
-  el.crossOrigin = "anonymous";
+/** iOS / CORS 向けの HTMLAudioElement 初期設定（blob は crossOrigin 不要） */
+export function configureHtmlAudioElement(
+  el: HTMLAudioElement,
+  pendingUrl?: string
+): void {
+  const u =
+    pendingUrl ||
+    (typeof el.currentSrc === "string" && el.currentSrc.length > 0
+      ? el.currentSrc
+      : el.src) ||
+    "";
+  if (u.startsWith("blob:") || u.startsWith("data:")) {
+    el.removeAttribute("crossorigin");
+  } else {
+    el.crossOrigin = "anonymous";
+  }
   el.preload = "auto";
   el.setAttribute("playsinline", "true");
   el.setAttribute("webkit-playsinline", "true");

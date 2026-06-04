@@ -2289,44 +2289,58 @@ export function EditorPage({
 
   if (loadError) {
     return (
-      <div style={{ padding: 24, color: "#f87171" }}>
-        {loadError}{" "}
-        <Link to="/" style={{ color: "#93c5fd" }}>
-          {t("common.backProjects")}
-        </Link>
-      </div>
+      <>
+        {playbackAudioElement}
+        <div style={{ padding: 24, color: "#f87171" }}>
+          {loadError}{" "}
+          <Link to="/" style={{ color: "#93c5fd" }}>
+            {t("common.backProjects")}
+          </Link>
+        </div>
+      </>
     );
   }
 
   if (collabActive && !yjsCollab.synced) {
     return (
-      <div style={{ padding: 24, color: "#94a3b8" }}>
-        {t("common.loading")}
-      </div>
+      <>
+        {playbackAudioElement}
+        <div style={{ padding: 24, color: "#94a3b8" }}>
+          {t("common.loading")}
+        </div>
+      </>
     );
   }
 
   if (!project) {
-    return <div style={{ padding: 24, color: "#94a3b8" }}>{t("common.loading")}</div>;
+    return (
+      <>
+        {playbackAudioElement}
+        <div style={{ padding: 24, color: "#94a3b8" }}>{t("common.loading")}</div>
+      </>
+    );
   }
 
   if (choreoPublicView && choreoStudentPick == null) {
     return (
-      <ChoreoStudentViewGate
-        pieceTitle={project.pieceTitle}
-        entries={getViewRosterEntries(project)}
-        gateMode="pick"
-        onPick={(p) => {
-          setChoreoStudentPick(p);
-          if (viewerLocalStorageKey) {
-            try {
-              localStorage.setItem(viewerLocalStorageKey, JSON.stringify(p));
-            } catch {
-              /* ignore */
+      <>
+        {playbackAudioElement}
+        <ChoreoStudentViewGate
+          pieceTitle={project.pieceTitle}
+          entries={getViewRosterEntries(project)}
+          gateMode="pick"
+          onPick={(p) => {
+            setChoreoStudentPick(p);
+            if (viewerLocalStorageKey) {
+              try {
+                localStorage.setItem(viewerLocalStorageKey, JSON.stringify(p));
+              } catch {
+                /* ignore */
+              }
             }
-          }
-        }}
-      />
+          }}
+        />
+      </>
     );
   }
 

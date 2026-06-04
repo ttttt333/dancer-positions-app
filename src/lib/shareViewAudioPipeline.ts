@@ -58,8 +58,8 @@ export function preloadShareViewAudioForPlayback(
       setPersistedSupabaseAudio(blobUrl, path);
 
       const engineUrl = playbackEngine.getMediaSourceUrl();
-      if (engineUrl !== blobUrl) {
-        playbackEngine.setMediaSourceUrl(blobUrl);
+      if (engineUrl !== blobUrl || !playbackEngine.getMediaElement()?.src) {
+        playbackEngine.setMediaSourceUrl(blobUrl, { force: true });
       }
 
       await waitForAudioElementReady(playbackEngine.getMediaElement());

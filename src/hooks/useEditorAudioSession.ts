@@ -133,6 +133,21 @@ export function useEditorAudioSession({
     [requestRemoteAudioReload, flowKey]
   );
 
+  useEffect(() => {
+    if (!authReady && !publicShareView) return;
+    const timer = window.setTimeout(() => {
+      void resyncPlayback({ force: true });
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [
+    audioSupabasePath,
+    audioAssetId,
+    flowLocalAudioKey,
+    authReady,
+    publicShareView,
+    resyncPlayback,
+  ]);
+
   /** レイアウト切替・タブ復帰後も blob URL を `<audio>` に再接続 */
   useEffect(() => {
     if (typeof window === "undefined") return;
