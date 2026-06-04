@@ -42,6 +42,7 @@ import {
   computeNameBelowFontResizeDraftSizes,
   defaultNameBelowFontPx,
   effectiveNameBelowFontPx,
+  stableDancerMarkerPxForNameFont,
 } from "../lib/stageNameBelowFontSizing";
 import { resolveArrangeTargetIds } from "../lib/stageSelectionArrange";
 import type { DancerQuickEditApply } from "./DancerQuickEditDialog";
@@ -506,11 +507,15 @@ export function StageBoardBody({
     [markerDiamDraft, baseMarkerPx],
   );
 
-  /** 名下ラベルの実効フォント（px）。○サイズとは独立。 */
+  /** 名下ラベルの実効フォント（px）。床幅連動の ○ 表示サイズではなく保存値ベースで解決。 */
   const resolveNameBelowFontPx = useCallback(
-    (d: DancerSpot, markerPx: number) =>
-      effectiveNameBelowFontPx(d, markerPx, nameBelowFontDraft?.get(d.id)),
-    [nameBelowFontDraft],
+    (d: DancerSpot, _markerPx?: number) =>
+      effectiveNameBelowFontPx(
+        d,
+        stableDancerMarkerPxForNameFont(d, project.dancerMarkerDiameterPx),
+        nameBelowFontDraft?.get(d.id),
+      ),
+    [nameBelowFontDraft, project.dancerMarkerDiameterPx],
   );
 
   /** 回転ドラッグ中はドラフト、それ以外は `facingDeg`（未設定は 0）。 */
@@ -2254,7 +2259,13 @@ export function StageBoardBody({
         anchorFontPx = Math.max(anchorFontPx, v);
       }
       if (!(anchorFontPx > 0)) {
-        anchorFontPx = defaultNameBelowFontPx(baseMarkerPx);
+        const anchorDancer = dancers.find((x) => x.id === selectedDancerIds[0]);
+        anchorFontPx = defaultNameBelowFontPx(
+          stableDancerMarkerPxForNameFont(
+            anchorDancer ?? { sizePx: undefined },
+            project.dancerMarkerDiameterPx,
+          ),
+        );
       }
       nameBelowFontResizeRef.current = {
         startClientY: e.clientY,
@@ -2275,7 +2286,7 @@ export function StageBoardBody({
       activeFormation,
       effectiveMarkerPx,
       resolveNameBelowFontPx,
-      baseMarkerPx,
+      project.dancerMarkerDiameterPx,
     ],
   );
 

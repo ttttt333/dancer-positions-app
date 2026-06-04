@@ -1,3 +1,8 @@
+import {
+  DEFAULT_DANCER_MARKER_DIAMETER_PX,
+  MARKER_DIAMETER_PX_MAX,
+  MARKER_DIAMETER_PX_MIN,
+} from "./projectDefaults";
 import { markerBelowLabelFontPx } from "./stageBoardModelHelpers";
 
 export const NAME_BELOW_FONT_PX_MIN = 8;
@@ -14,6 +19,29 @@ export function clampNameBelowFontPx(px: number): number {
 /** ○直径から算出する既定の名下フォント（px） */
 export function defaultNameBelowFontPx(markerPx: number): number {
   return markerBelowLabelFontPx(markerPx);
+}
+
+/**
+ * 名下フォント既定値の参照用 ○直径（px）。
+ * 床幅に連動する `baseMarkerPx` ではなく、保存済み `sizePx` / プロジェクト共通直径を使う。
+ */
+export function stableDancerMarkerPxForNameFont(
+  dancer: { sizePx?: number },
+  projectMarkerDiameterPx: number | null | undefined
+): number {
+  if (typeof dancer.sizePx === "number" && Number.isFinite(dancer.sizePx)) {
+    return Math.max(
+      MARKER_DIAMETER_PX_MIN,
+      Math.min(MARKER_DIAMETER_PX_MAX, Math.round(dancer.sizePx))
+    );
+  }
+  const pxRaw = Math.round(
+    projectMarkerDiameterPx ?? DEFAULT_DANCER_MARKER_DIAMETER_PX
+  );
+  return Math.max(
+    MARKER_DIAMETER_PX_MIN,
+    Math.min(MARKER_DIAMETER_PX_MAX, pxRaw)
+  );
 }
 
 /** ドラフト > 個別 `nameBelowFontPx` > ○直径連動、の順で解決 */

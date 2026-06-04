@@ -17,6 +17,7 @@ import type {
   StageShapePresetId,
 } from "../types/choreography";
 import { migrateCuesFromRaw, splitSharedCueFormations } from "../core/timelineController";
+import { clampNameBelowFontPx } from "./stageNameBelowFontSizing";
 import {
   clampStageGridAxisMm,
   createEmptyProject,
@@ -287,6 +288,11 @@ function normalizeDancerSpot(raw: unknown, index: number): DancerSpot {
           Math.min(MARKER_DIAMETER_PX_MAX, Math.round(sizeRaw))
         )
       : undefined;
+  const nbfRaw = d.nameBelowFontPx;
+  const nameBelowFontPx =
+    typeof nbfRaw === "number" && Number.isFinite(nbfRaw)
+      ? clampNameBelowFontPx(nbfRaw)
+      : undefined;
   const hRaw = d.heightCm;
   const heightCm =
     typeof hRaw === "number" && Number.isFinite(hRaw) && hRaw > 0 && hRaw < 300
@@ -324,6 +330,7 @@ function normalizeDancerSpot(raw: unknown, index: number): DancerSpot {
       : {}),
     ...(note ? { note } : {}),
     ...(sizePx != null ? { sizePx } : {}),
+    ...(nameBelowFontPx != null ? { nameBelowFontPx } : {}),
     ...(heightCm != null ? { heightCm } : {}),
     ...(typeof d.gradeLabel === "string" && d.gradeLabel.trim()
       ? { gradeLabel: d.gradeLabel.trim().slice(0, 32) }

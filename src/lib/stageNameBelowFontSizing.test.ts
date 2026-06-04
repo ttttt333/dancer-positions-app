@@ -3,6 +3,7 @@ import {
   clampNameBelowFontPx,
   computeNameBelowFontResizeDraftSizes,
   effectiveNameBelowFontPx,
+  stableDancerMarkerPxForNameFont,
 } from "./stageNameBelowFontSizing";
 
 describe("stageNameBelowFontSizing", () => {
@@ -41,5 +42,18 @@ describe("stageNameBelowFontSizing", () => {
   it("クランプする", () => {
     expect(clampNameBelowFontPx(999)).toBe(48);
     expect(clampNameBelowFontPx(1)).toBe(8);
+  });
+
+  it("名下フォント既定は床幅連動の markerPx ではなく保存直径を使う", () => {
+    expect(stableDancerMarkerPxForNameFont({ sizePx: 22 }, 18)).toBe(22);
+    expect(stableDancerMarkerPxForNameFont({}, 24)).toBe(24);
+    const stablePx = stableDancerMarkerPxForNameFont({}, 24);
+    const floorPx = 99;
+    expect(effectiveNameBelowFontPx({}, stablePx)).toBe(
+      effectiveNameBelowFontPx({}, 24)
+    );
+    expect(effectiveNameBelowFontPx({}, stablePx)).not.toBe(
+      effectiveNameBelowFontPx({}, floorPx)
+    );
   });
 });

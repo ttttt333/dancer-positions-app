@@ -35,4 +35,31 @@ describe("project critical path", () => {
     expect(normalized.pieceTitle).toBe("Legacy");
     expect(normalized.formations.length).toBeGreaterThanOrEqual(1);
   });
+
+  it("normalizeProject preserves dancer nameBelowFontPx", () => {
+    const raw = {
+      version: 3,
+      pieceTitle: "Font",
+      formations: [
+        {
+          id: "f1",
+          name: "F1",
+          dancers: [
+            {
+              id: "d1",
+              label: "1",
+              xPct: 50,
+              yPct: 50,
+              colorIndex: 0,
+              nameBelowFontPx: 22,
+            },
+          ],
+          setPieces: [],
+        },
+      ],
+      cues: [],
+    };
+    const normalized = normalizeProject(raw);
+    expect(normalized.formations[0]?.dancers[0]?.nameBelowFontPx).toBe(22);
+  });
 });
