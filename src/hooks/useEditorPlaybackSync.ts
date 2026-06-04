@@ -3,6 +3,7 @@ import type { Dispatch, MutableRefObject, ReactNode, SetStateAction } from "reac
 import { playbackEngine } from "../core/playbackEngine";
 import {
   expandShortCuesAfterAudioLoad,
+  cueActiveAtTime,
   isPlaybackBeforeTrimStart,
   isPlaybackPastTrimEnd,
   PLAYBACK_HEAD_STORE_MIN_INTERVAL_MS,
@@ -23,6 +24,10 @@ type Params = {
   stageZenFullscreen: boolean;
   /** 依存用。実値は `projectRef` から読む */
   playbackRateSig: number | undefined;
+  /** 再生中にアクティブキューが変わったとき（選択枠追従） */
+  onPlaybackActiveCueChangeRef?: MutableRefObject<
+    ((cueId: string) => void) | null
+  >;
 };
 
 /**
@@ -41,6 +46,7 @@ export function useEditorPlaybackSync(p: Params): {
     wideEditorLayout,
     stageZenFullscreen,
     playbackRateSig,
+    onPlaybackActiveCueChangeRef,
   } = p;
 
   const bindPlaybackAudioElementRef = useCallback(
@@ -89,7 +95,7 @@ export function useEditorPlaybackSync(p: Params): {
     projectRef,
   ]);
 
-  usePlaybackHeadRafSync(projectRef);
+  usePlaybackHeadRafSync(projectRef, onPlaybackActiveCueChangeRef);
 
   return { playbackAudioElement };
 }
@@ -97,11 +103,15 @@ export function useEditorPlaybackSync(p: Params): {
 /** `useEditorPlaybackSync` 内だけで使う。タイムライン列のマウント有無に依存しない RAF 同期 */
 function usePlaybackHeadRafSync(
   projectRef: MutableRefObject<ChoreographyProjectJson | null>,
+  onPlaybackActiveCueChangeRef?: MutableRefObject<
+    ((cueId: string) => void) | null
+  >
 ) {
   const isPlaying = usePlaybackUiStore((s) => s.isPlaying);
   const rafRef = useRef(0);
   const lastPlaybackStateEmitRef = useRef(0);
   const wasPlayingRef = useRef(false);
+  const lastFollowCueIdRef = useRef<string | null>(null);
 
   const tick = useCallback(() => {
     if (!playbackEngine.isPaused()) {
@@ -139,16 +149,26 @@ function usePlaybackHeadRafSync(
           lastPlaybackStateEmitRef.current = now;
           setCurrentTimeSec(rounded);
         }
+        const onCueFollow = onPlaybackActiveCueChangeRef?.current;
+        if (onCueFollow && p.cues.length > 0) {
+          const active = cueActiveAtTime(p.cues, t);
+          const nextId = active?.id ?? null;
+          if (nextId && nextId !== lastFollowCueIdRef.current) {
+            lastFollowCueIdRef.current = nextId;
+            onCueFollow(nextId);
+          }
+        }
       }
     }
     rafRef.current = requestAnimationFrame(tick);
-  }, [projectRef]);
+  }, [projectRef, onPlaybackActiveCueChangeRef]);
 
   useEffect(() => {
     if (isPlaying) {
       lastPlaybackStateEmitRef.current = 0;
       rafRef.current = requestAnimationFrame(tick);
     } else {
+      lastFollowCueIdRef.current = null;
       cancelAnimationFrame(rafRef.current);
     }
     return () => cancelAnimationFrame(rafRef.current);

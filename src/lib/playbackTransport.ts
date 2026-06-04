@@ -223,7 +223,10 @@ export function togglePlaybackRespectingTrimStart(trimStartSec: number): void {
     ) {
       playbackEngine.seek(trimStartSec);
     }
-    void playbackEngine.play();
+    usePlaybackUiStore.getState().setIsPlaying(true);
+    void playbackEngine.play().catch(() => {
+      usePlaybackUiStore.getState().setIsPlaying(false);
+    });
   } else {
     playbackEngine.pause();
   }

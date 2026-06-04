@@ -82,7 +82,11 @@ export function useEditorAudioSession({
         if (peaks?.length && engineUrl) {
           const valid =
             !engineUrl.startsWith("blob:") || (await verifyBlobUrl(engineUrl));
-          if (valid) return;
+          if (valid) {
+            blobUrlRef.current = engineUrl;
+            await resyncEditorPlaybackMedia(blobUrlRef, opts);
+            return;
+          }
         }
         requestRemoteAudioReload();
       });
