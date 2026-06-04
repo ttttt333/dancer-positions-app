@@ -4,8 +4,10 @@ import {
   markerCircleLabelFontPx,
 } from "./stageBoardModelHelpers";
 import {
+  dancerNameBelowLabelOffsetPx,
   effectiveNameBelowFontPx,
 } from "./stageNameBelowFontSizing";
+import { computeCenterFieldGuideLineMarks } from "./stageGuideLineMarks";
 import type { StageExportAppearance } from "./stageExportAppearance";
 
 export type ExportDancerFrame = {
@@ -137,6 +139,42 @@ function drawShellChrome(
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText("客席", main.x + main.w / 2, main.y + main.h - bandH / 2);
+}
+
+function drawAudienceGuideLabels(
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  main: FloorRect,
+  appearance: StageExportAppearance
+) {
+  const marks = computeCenterFieldGuideLineMarks(
+    appearance.Wmm,
+    appearance.centerFieldGuideIntervalMm
+  );
+  if (marks.length === 0) return;
+
+  const bandH = Math.min(22, main.h * 0.08);
+  const labelY = main.y + main.h - bandH - 10;
+  const fontPx = Math.max(10, Math.min(14, Math.round(main.w * 0.016)));
+  const cx = main.x + main.w / 2;
+
+  ctx.fillStyle = "#fbbf24";
+  ctx.beginPath();
+  ctx.arc(cx, main.y + main.h - bandH - 2, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(251,191,36,0.55)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.font = `bold ${fontPx}px system-ui,sans-serif`;
+  ctx.fillStyle = "#fef3c7";
+  ctx.textBaseline = "middle";
+
+  for (const { xp, k } of marks) {
+    const x = main.x + (xp / 100) * main.w;
+    ctx.textAlign =
+      xp <= 1 ? "left" : xp >= 99 ? "right" : "center";
+    ctx.fillText(String(k), x, labelY);
+  }
 }
 
 /** 設定オフ時も見えるよう 10% 間隔の基準線 */
@@ -298,7 +336,12 @@ function drawDancers(
         ctx.font = `${belowFontPx}px system-ui,sans-serif`;
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
-        const nameGapPx = Math.max(6, Math.round(markerPx * 0.12));
+        const nameGapPx = Math.max(
+          6,
+          Math.round(
+            dancerNameBelowLabelOffsetPx(markerPx, 0) - Math.round(markerPx / 2)
+          )
+        );
         ctx.fillText(belowName, x, y + markerR + nameGapPx);
       }
     }
@@ -330,6 +373,7 @@ export function drawStageExportFrame(
 
   drawShellChrome(ctx, width, height, appearance, outer, main);
   drawGrid(ctx, appearance, main);
+  drawAudienceGuideLabels(ctx, main, appearance);
   if (formation) {
     drawDancers(ctx, formation, main, appearance);
   }

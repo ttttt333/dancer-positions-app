@@ -15,6 +15,8 @@ export type StageExportAppearance = {
   stageGridLinesHorizontal: boolean;
   stepXPct: number | null;
   stepYPct: number | null;
+  /** 客席前のセンターガイド間隔（mm）。null なら番号なし */
+  centerFieldGuideIntervalMm: number | null;
 };
 
 export function buildStageExportAppearance(
@@ -76,5 +78,6 @@ export function buildStageExportAppearance(
     stageGridLinesHorizontal,
     stepXPct,
     stepYPct,
+    centerFieldGuideIntervalMm: project.centerFieldGuideIntervalMm ?? null,
   };
 }

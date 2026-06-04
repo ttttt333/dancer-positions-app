@@ -62,10 +62,11 @@ export type ExportOptions = {
   onAudioSkipped?: () => void;
 };
 
-const EXPORT_WIDTH = 960;
-const EXPORT_HEIGHT = 540;
+const EXPORT_WIDTH = 1280;
+const EXPORT_HEIGHT = 720;
 const EXPORT_FPS = 12;
-const FRAME_MS = Math.ceil(1000 / EXPORT_FPS);
+/** 描画ループで UI に譲る間隔（リアルタイム待ちはしない） */
+const RECORD_YIELD_EVERY = 6;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -193,9 +194,9 @@ async function muxRecordedWebmToMp4(
     "-c:v",
     "libx264",
     "-preset",
-    "ultrafast",
+    "veryfast",
     "-crf",
-    "28",
+    "23",
     "-pix_fmt",
     "yuv420p",
     "-r",
@@ -229,7 +230,7 @@ async function muxRecordedWebmToMp4(
       "-c:a",
       "aac",
       "-b:a",
-      "96k",
+      "128k",
       "-t",
       duration,
       "-movflags",
@@ -331,9 +332,7 @@ export function useVideoExport() {
         if (requestFrame) {
           requestFrame();
         }
-        await sleep(FRAME_MS);
-
-        if (frame % 2 === 0 || frame === totalFrames) {
+        if (frame % RECORD_YIELD_EVERY === 0 || frame === totalFrames) {
           setProgressValue((frame / totalFrames) * 68);
           await sleep(0);
         }
