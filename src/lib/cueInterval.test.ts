@@ -100,8 +100,12 @@ describe("applyCueWaveDragCommit", () => {
   });
 
   it("moves cue block without overlap", () => {
+    const withGap: Cue[] = [
+      { id: "a", tStartSec: 0, tEndSec: 10, formationId: "f1" },
+      { id: "b", tStartSec: 15, tEndSec: 20, formationId: "f2" },
+    ];
     const next = applyCueWaveDragCommit(
-      adjacent,
+      withGap,
       "a",
       "move",
       2,

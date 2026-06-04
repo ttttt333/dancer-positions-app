@@ -212,9 +212,15 @@ function pickCueDragModeForCueAtX(
   return "move";
 }
 
+function cueWaveExpandedHitX(x: number, left: number, right: number): boolean {
+  return (
+    x >= left - CUE_EDGE_OUTER_GRAB_PX && x <= right + CUE_EDGE_OUTER_GRAB_PX
+  );
+}
+
 /**
  * 帯上のポインタ操作種別。
- * キュー ID はクリック選択と同じ `pickCueIdAtWave` で決め、隣接キューの端ゾーンが奪い合わないようにする。
+ * クリック選択（`pickCueIdAtWave`）より枠外の端グリップも広く拾う。
  */
 export function pickCueDragKindAtWave(
   clientX: number,
@@ -227,49 +233,56 @@ export function pickCueDragKindAtWave(
 ): { cueId: string; mode: CueDragEdgeMode } | null {
   if (viewSpan <= 0 || cueList.length === 0) return null;
 
-  const cueId = pickCueIdAtWave(
-    clientX,
-    clientY,
-    canvas,
-    cueList,
-    viewStart,
-    viewSpan,
-    dragPreview
-  );
-  if (!cueId) return null;
-
-  const cue = cueList.find((c) => c.id === cueId);
-  if (!cue) return null;
-
   const r = canvas.getBoundingClientRect();
   const x = clientX - r.left;
+  const y = clientY - r.top;
   const w = r.width;
+  const h = r.height;
   if (w <= 0) return null;
 
+  const { top, bottom, mid } = cueWaveVerticalBandPx(h);
+  if (y < top || y > bottom) return null;
+
   const viewEnd = viewStart + viewSpan;
-  const ts =
-    dragPreview && dragPreview.cueId === cue.id ? dragPreview.tStart : cue.tStartSec;
-  const te =
-    dragPreview && dragPreview.cueId === cue.id ? dragPreview.tEnd : cue.tEndSec;
-  if (te < viewStart || ts > viewEnd) return null;
+  let best: { cueId: string; mode: CueDragEdgeMode; dist: number } | null = null;
 
-  let { left, right } = cueWaveHorizontalBoundsPx(
-    ts,
-    te,
-    viewStart,
-    viewSpan,
-    viewEnd,
-    w
-  );
-  const rawWidth = right - left;
-  if (rawWidth < 3) {
-    const mid = (left + right) / 2;
-    left = mid - 1.5;
-    right = mid + 1.5;
+  for (const cue of cueList) {
+    const ts =
+      dragPreview && dragPreview.cueId === cue.id
+        ? dragPreview.tStart
+        : cue.tStartSec;
+    const te =
+      dragPreview && dragPreview.cueId === cue.id
+        ? dragPreview.tEnd
+        : cue.tEndSec;
+    if (te < viewStart || ts > viewEnd) continue;
+
+    let { left, right } = cueWaveHorizontalBoundsPx(
+      ts,
+      te,
+      viewStart,
+      viewSpan,
+      viewEnd,
+      w
+    );
+    const rawWidth = right - left;
+    if (rawWidth < 3) {
+      const bandMid = (left + right) / 2;
+      left = bandMid - 1.5;
+      right = bandMid + 1.5;
+    }
+    if (right - left < 1) continue;
+    if (!cueWaveExpandedHitX(x, left, right)) continue;
+
+    const mode = pickCueDragModeForCueAtX(x, left, right);
+    const cx = Math.max(left, Math.min(right, x));
+    const dist = Math.abs(x - cx) + Math.abs(y - mid) * 0.05;
+    if (!best || dist < best.dist) {
+      best = { cueId: cue.id, mode, dist };
+    }
   }
-  if (right - left < 1) return null;
 
-  return { cueId, mode: pickCueDragModeForCueAtX(x, left, right) };
+  return best ? { cueId: best.cueId, mode: best.mode } : null;
 }
 
 const GAP_LINK_MIN_WIDTH_PX = 6;
