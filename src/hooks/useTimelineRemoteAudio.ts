@@ -139,6 +139,22 @@ async function ensureSupabasePeaksOnly(
   );
 }
 
+async function tryApplyCachedPeaksEarly(
+  cacheKey: string,
+  decodePeaksRef: MutableRefObject<DecodePeaksFn>,
+  cancelled: () => boolean,
+  extra?: Pick<DecodePeaksOptions, "supabaseAudioPath">
+): Promise<boolean> {
+  const cached = await getWavePeaksCache(cacheKey);
+  if (!cached?.peaks.length || cancelled()) return false;
+  await decodePeaksRef.current(new ArrayBuffer(0), {
+    cacheKey,
+    precomputed: { peaks: cached.peaks, durationSec: cached.durationSec },
+    ...extra,
+  });
+  return true;
+}
+
 /**
  * プロジェクトに紐づくリモート／ローカルストア音源（API・Supabase・フローライブラリ）を
  * `playbackEngine` と波形デコードへ同期する。
@@ -249,6 +265,8 @@ export function useTimelineRemoteAudio({
         }
 
         reportWaveLoadProgress(0.05, "音源と波形を並列取得中…");
+
+        await tryApplyCachedPeaksEarly(cacheKey, decodePeaksRef, isCancelled);
 
         const readyPeaks = await tryFetchServerWavePeaksReady(aid);
         if (readyPeaks?.peaks.length && !cancelled) {
@@ -416,6 +434,9 @@ export function useTimelineRemoteAudio({
         }
 
         reportWaveLoadProgress(0.05, "音源と波形を並列取得中…");
+        await tryApplyCachedPeaksEarly(cacheKey, decodePeaksRef, isCancelled, {
+          supabaseAudioPath: effectivePath,
+        });
         const sidecarPromise = supabaseDownloadWavePeaks(effectivePath).catch(
           () => null
         );
@@ -504,7 +525,15 @@ export function useTimelineRemoteAudio({
     let cancelled = false;
     (async () => {
       try {
-        reportWaveLoadProgress(0.05, "ローカル音源を読み込み中…");
+        const cacheKey = wavePeaksCacheKeyForFlow(flowKey);
+        const cached = await getWavePeaksCache(cacheKey);
+        if (cached?.peaks.length) {
+          if (!cancelled) {
+            await decodePeaksRef.current(new ArrayBuffer(0), { cacheKey });
+          }
+        } else {
+          reportWaveLoadProgress(0.05, "ローカル音源を読み込み中…");
+        }
         const blob = await getFlowLibraryAudio(flowKey);
         if (cancelled || !blob || blob.size === 0) return;
         const url = URL.createObjectURL(blob);
@@ -512,12 +541,7 @@ export function useTimelineRemoteAudio({
           revokePrevious: true,
         });
         markPlaybackReadyForWaveFetch();
-        const cacheKey = wavePeaksCacheKeyForFlow(flowKey);
-        const cached = await getWavePeaksCache(cacheKey);
         if (cached?.peaks.length) {
-          if (!cancelled) {
-            await decodePeaksRef.current(new ArrayBuffer(0), { cacheKey });
-          }
           return;
         }
         const buf = await blob.arrayBuffer();

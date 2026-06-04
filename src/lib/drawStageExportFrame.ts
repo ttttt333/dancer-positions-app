@@ -329,7 +329,7 @@ function drawDancers(
 
     const inner = resolveExportCircleLabel(dancer, di, appearance);
     if (inner) {
-      ctx.fillStyle = "#ffffff";
+      ctx.fillStyle = "#0f172a";
       const fontPx = markerCircleLabelFontPx(markerPx, inner);
       ctx.font = `bold ${fontPx}px system-ui,sans-serif`;
       ctx.textAlign = "center";

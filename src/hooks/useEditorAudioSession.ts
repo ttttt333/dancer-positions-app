@@ -3,7 +3,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { EDITOR_WIDE_MIN_PX } from "../pages/editor/editorConstants";
 import { subscribeEditorViewport } from "../pages/editor/editorViewport";
-import { resyncEditorPlaybackMedia } from "../lib/resyncPlaybackMedia";
+import { resyncEditorPlaybackMedia, resolveEditorPlaybackBlobUrl } from "../lib/resyncPlaybackMedia";
+import { playbackEngine } from "../core/playbackEngine";
+import { useWavePeaksStore } from "../store/wavePeaksStore";
 import { useTimelineAudioImport } from "./useTimelineAudioImport";
 import { useTimelineRemoteAudio } from "./useTimelineRemoteAudio";
 import { useTimelineWaveDecode } from "./useTimelineWaveDecode";
@@ -68,8 +70,17 @@ export function useEditorAudioSession({
 
   const resyncPlayback = useCallback(
     (opts?: { force?: boolean }) => {
-      void resyncEditorPlaybackMedia(blobUrlRef, opts).then((result) => {
-        if (result === "reload") requestRemoteAudioReload();
+      void resolveEditorPlaybackBlobUrl(blobUrlRef).then(async (url) => {
+        if (url) {
+          blobUrlRef.current = url;
+          await resyncEditorPlaybackMedia(blobUrlRef, opts);
+          return;
+        }
+        const peaks = useWavePeaksStore.getState().peaks;
+        if (peaks?.length && playbackEngine.getMediaSourceUrl()) {
+          return;
+        }
+        requestRemoteAudioReload();
       });
     },
     [requestRemoteAudioReload]
@@ -88,7 +99,7 @@ export function useEditorAudioSession({
 
     const onPageWake = () => {
       if (document.visibilityState === "hidden") return;
-      scheduleResync(true);
+      scheduleResync(false);
     };
 
     const onLayoutChange = () => scheduleResync(false);

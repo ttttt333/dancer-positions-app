@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createEmptyProject } from "./projectDefaults";
-import { applyCueWaveDragCommit, splitSharedCueFormations } from "./cueInterval";
+import { applyCueWaveDragCommit, splitSharedCueFormations, expandShortCuesAfterAudioLoad, projectNeedsShortCueExpansion } from "./cueInterval";
 import type { Cue } from "../types/choreography";
 
 describe("splitSharedCueFormations", () => {
@@ -105,5 +105,45 @@ describe("applyCueWaveDragCommit", () => {
       tStartSec: 2,
       tEndSec: 12,
     });
+  });
+});
+
+describe("projectNeedsShortCueExpansion", () => {
+  it("returns false when cues have gaps", () => {
+    const cues: Cue[] = [
+      { id: "a", tStartSec: 0, tEndSec: 1, formationId: "f1" },
+      { id: "b", tStartSec: 8, tEndSec: 9, formationId: "f2" },
+    ];
+    expect(projectNeedsShortCueExpansion(cues, 120)).toBe(false);
+  });
+
+  it("returns false when any cue is already long enough", () => {
+    const cues: Cue[] = [
+      { id: "a", tStartSec: 0, tEndSec: 3, formationId: "f1" },
+      { id: "b", tStartSec: 3, tEndSec: 4, formationId: "f2" },
+    ];
+    expect(projectNeedsShortCueExpansion(cues, 120)).toBe(false);
+  });
+
+  it("returns true for abutting short silent-timeline cues", () => {
+    const cues: Cue[] = [
+      { id: "a", tStartSec: 0, tEndSec: 1, formationId: "f1" },
+      { id: "b", tStartSec: 1, tEndSec: 2, formationId: "f2" },
+    ];
+    expect(projectNeedsShortCueExpansion(cues, 120)).toBe(true);
+  });
+});
+
+describe("expandShortCuesAfterAudioLoad", () => {
+  it("does not move cues that already have timeline gaps", () => {
+    const project = {
+      ...createEmptyProject(),
+      cues: [
+        { id: "a", tStartSec: 0, tEndSec: 1, formationId: "f1" },
+        { id: "b", tStartSec: 10, tEndSec: 12, formationId: "f2" },
+      ],
+    };
+    const next = expandShortCuesAfterAudioLoad(project, 120);
+    expect(next.cues).toEqual(project.cues);
   });
 });

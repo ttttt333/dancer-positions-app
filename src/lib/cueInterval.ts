@@ -226,6 +226,30 @@ export const MOBILE_WAVE_DOUBLE_TAP_CUE_SPAN_SEC = WAVE_DOUBLE_CLICK_CUE_SPAN_SE
 /** これ未満の長さは無音時タイムラインで潰れた区間とみなし、音源取り込み後に伸ばす */
 export const SHORT_CUE_EXPANSION_THRESHOLD_SEC = 2;
 
+/** 無音タイムライン由来の極短・隙間なし配置だけを伸ばす対象とみなす */
+export function projectNeedsShortCueExpansion(
+  cues: readonly Cue[],
+  trackDurationSec: number
+): boolean {
+  if (!Number.isFinite(trackDurationSec) || trackDurationSec < 8) return false;
+  if (cues.length === 0) return false;
+  const sorted = sortCuesByStart(cues);
+  for (let i = 0; i < sorted.length; i++) {
+    const c = sorted[i]!;
+    const span = c.tEndSec - c.tStartSec;
+    if (span >= SHORT_CUE_EXPANSION_THRESHOLD_SEC - 1e-9) {
+      return false;
+    }
+    if (i > 0) {
+      const prev = sorted[i - 1]!;
+      if (c.tStartSec - prev.tEndSec > 0.12) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 /**
  * 音源が入ったあと、無音時（仮 1 秒幅など）に作られた極短いキューを約 5 秒相当まで広げる。
  * 波形上でドラッグ・端リサイズできる幅を確保する。
@@ -234,6 +258,9 @@ export function expandShortCuesAfterAudioLoad(
   project: ChoreographyProjectJson,
   trackDurationSec: number
 ): ChoreographyProjectJson {
+  if (!projectNeedsShortCueExpansion(project.cues, trackDurationSec)) {
+    return project;
+  }
   if (!Number.isFinite(trackDurationSec) || trackDurationSec < 8) {
     return project;
   }
