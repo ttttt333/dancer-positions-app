@@ -435,7 +435,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                   choreoStudentPick &&
                   !viewerChromeCollapsed
                     ? publicViewTightHeight
-                      ? "max(4px, env(safe-area-inset-bottom, 0px))"
+                      ? "calc(var(--choreo-viewer-bar-h, 44px) + var(--choreo-viewer-cuepager-h, 46px) + max(4px, env(safe-area-inset-bottom, 0px)))"
                       : "calc(var(--choreo-viewer-bar-h, 104px) + env(safe-area-inset-bottom, 0px))"
                     : choreoPublicView
                       ? "max(4px, env(safe-area-inset-bottom, 0px))"
@@ -851,6 +851,9 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     markerDisplayScale={
                       choreoPublicView ? PUBLIC_VIEWER_MARKER_DISPLAY_SCALE : 1
                     }
+                    compactViewportChrome={
+                      choreoPublicView && publicViewTightHeight
+                    }
                     showMotionArrows={showMotionArrows}
                     onOpenDancerPathEditor={
                       choreoPublicView
@@ -1018,7 +1021,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     style={{
                       position: "fixed",
                       bottom: publicViewTightHeight
-                        ? "calc(var(--choreo-viewer-bar-h, 44px) + max(8px, env(safe-area-inset-bottom, 0px)) + 8px)"
+                        ? "calc(var(--choreo-viewer-bar-h, 44px) + max(4px, env(safe-area-inset-bottom, 0px)) + 4px)"
                         : "calc(var(--choreo-viewer-bar-h, 104px) + max(8px, env(safe-area-inset-bottom, 0px)) + 8px)",
                       left: publicViewTightHeight
                         ? "50%"

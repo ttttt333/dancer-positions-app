@@ -142,6 +142,7 @@ export function StageBoardBody({
   markHistorySkipNextPush,
   studentViewerFocus = null,
   markerDisplayScale = 1,
+  compactViewportChrome = false,
   onOpenTextEditSheet,
   showMotionArrows = false,
   onOpenDancerPathEditor,
@@ -4416,6 +4417,7 @@ export function StageBoardBody({
         }
         stageFrame={
           <StageBoardStageFrame
+            compactViewportChrome={compactViewportChrome}
             hasStageDims={hasStageDims}
             outerWmm={outerWmm}
             outerDmm={outerDmm}

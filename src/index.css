@@ -696,10 +696,39 @@ body {
   }
   .choreo-public-view-root--landscape:not(.choreo-public-view-root--chrome-collapsed)
     .editor-three-pane.editor-three-pane--public-narrow {
-    padding-left: max(52px, calc(44px + env(safe-area-inset-left, 0px))) !important;
+    /* 左レールは fixed で重ねる。ステージの表示幅を広げる */
+    padding-left: max(6px, env(safe-area-inset-left, 0px)) !important;
+    padding-top: 0 !important;
+    min-height: 100%;
+  }
+  .choreo-public-view-root--landscape:not(.choreo-public-view-root--chrome-collapsed)
+    .choreo-public-view-main,
+  .choreo-public-view-root--landscape:not(.choreo-public-view-root--chrome-collapsed)
+    .editor-three-pane.editor-three-pane--public-narrow {
+    flex: 1 1 auto;
+    min-height: 0;
   }
   .choreo-public-view-root--landscape .editor-stage-section--public-view {
     padding-left: 0 !important;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .choreo-public-view-root--landscape .editor-stage-section--public-view > div {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .choreo-public-view-root--landscape .stage-board-fit-viewport,
+  .choreo-public-view-root--landscape .stage-board-fit-viewport-inner,
+  .choreo-public-view-root--landscape .stage-board-stage-wrapper {
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+  }
+  .choreo-public-view-root--landscape .choreo-viewer-cuepager {
+    bottom: calc(
+      var(--choreo-viewer-bar-h, 44px) + max(4px, env(safe-area-inset-bottom, 0px)) + 4px
+    ) !important;
+    max-width: min(calc(100% - 48px), 300px) !important;
   }
   .choreo-viewer-stage-transport {
     position: fixed;

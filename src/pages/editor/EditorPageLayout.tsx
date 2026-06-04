@@ -270,7 +270,7 @@ export function EditorPageLayout(props: EditorLayoutProps) {
               ["--choreo-viewer-cuepager-h" as string]:
                 viewerChromeCollapsed || !publicViewTightHeightForVars
                   ? "0px"
-                  : "50px",
+                  : "46px",
             }
           : {}),
       }}

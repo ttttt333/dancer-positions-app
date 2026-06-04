@@ -14,6 +14,8 @@ export type StageBoardStageFrameProps = Omit<
   "children"
 > & {
   exportColumn: StageExportRootColumnProps;
+  /** 閲覧横画面など: 客席上のときの上下余白を小さくする */
+  compactViewportChrome?: boolean;
 };
 
 /**
@@ -21,6 +23,7 @@ export type StageBoardStageFrameProps = Omit<
  */
 export function StageBoardStageFrame({
   exportColumn,
+  compactViewportChrome = false,
   ...rotatedFrame
 }: StageBoardStageFrameProps) {
   /**
@@ -41,8 +44,15 @@ export function StageBoardStageFrame({
     flex: "1 1 0%",
   };
 
+  const audienceTopPad = compactViewportChrome ? 12 : 28;
+  const audienceBottomPad = compactViewportChrome ? 8 : 20;
+
   return (
-    <StageBoardFitViewport alignTop={isAudienceTop} paddingTop={isAudienceTop ? 28 : undefined} paddingBottom={isAudienceTop ? 20 : undefined}>
+    <StageBoardFitViewport
+      alignTop={isAudienceTop}
+      paddingTop={isAudienceTop ? audienceTopPad : undefined}
+      paddingBottom={isAudienceTop ? audienceBottomPad : undefined}
+    >
       <div className="stage-board-stage-wrapper" style={wrapperStyle}>
         <StageRotatedStageFrame {...rotatedFrame}>
           <StageExportRootColumn {...exportColumn} />

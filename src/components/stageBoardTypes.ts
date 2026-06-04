@@ -120,6 +120,8 @@ export type StageBoardBodyProps = {
     | { kind: "one"; crewMemberId: string; label: string };
   /** 閲覧共有など: ダンサー印の表示倍率（1 = 既定） */
   markerDisplayScale?: number;
+  /** 閲覧横画面: 客席上配置時のビューポート余白を詰めてステージを大きく */
+  compactViewportChrome?: boolean;
   /**
    * ダブルクリックで右パネル編集シートを開くコールバック。
    * 親(EditorPage)が EditorSideSheet を開く。
