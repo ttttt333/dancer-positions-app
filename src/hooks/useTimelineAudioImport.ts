@@ -108,7 +108,7 @@ async function mountLocalPlaybackBlob(
   }
   blobUrlRef.current = url;
   usePlaybackUiStore.getState().setTrustedAudioDurationSec(null);
-  playbackEngine.setMediaSourceUrl(url);
+  playbackEngine.setMediaSourceUrl(url, { force: true });
   await waitForAudioElementReady(playbackEngine.getMediaElement()).catch(() => {});
   void resyncEditorPlaybackMedia(blobUrlRef, { force: true }).catch(() => {});
   clearWaveLoadProgress();

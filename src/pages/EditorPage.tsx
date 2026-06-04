@@ -554,8 +554,17 @@ export function EditorPage({
     if (!choreoPublicView) return;
     const path = project?.audioSupabasePath;
     if (typeof path !== "string" || path.trim().length === 0) return;
-    void resyncViewerPlayback();
+    void resyncViewerPlayback({ force: true });
   }, [choreoPublicView, project?.audioSupabasePath, resyncViewerPlayback]);
+
+  /** 閲覧共有: UI 折りたたみ・タブ復帰後も音源を `<audio>` に再接続 */
+  useEffect(() => {
+    if (!choreoPublicView) return;
+    const timer = window.setTimeout(() => {
+      void resyncViewerPlayback({ force: true });
+    }, 60);
+    return () => window.clearTimeout(timer);
+  }, [choreoPublicView, viewerChromeCollapsed, resyncViewerPlayback]);
 
   const {
     timelineRef,
@@ -2672,6 +2681,7 @@ export function EditorPage({
 
   return (
     <>
+      {playbackAudioElement}
       <TimelineAudioChrome
         audioFileInputRef={editorAudioSession.audioFileInputRef}
         extractProgress={editorAudioSession.extractProgress}

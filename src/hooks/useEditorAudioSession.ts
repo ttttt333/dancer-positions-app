@@ -6,8 +6,8 @@ import { subscribeEditorViewport } from "../pages/editor/editorViewport";
 import { resyncEditorPlaybackMedia, resolveEditorPlaybackBlobUrl } from "../lib/resyncPlaybackMedia";
 import { playbackEngine } from "../core/playbackEngine";
 import { useWavePeaksStore } from "../store/wavePeaksStore";
-import { verifyBlobUrl } from "../lib/verifyBlobUrl";
 import { fulfillViewerPendingPlay } from "../lib/playbackViewerIntent";
+import { isPlaybackBlobAlive } from "../lib/restorePlaybackAudio";
 import { useTimelineAudioImport } from "./useTimelineAudioImport";
 import { useTimelineRemoteAudio } from "./useTimelineRemoteAudio";
 import { useTimelineWaveDecode } from "./useTimelineWaveDecode";
@@ -94,43 +94,45 @@ export function useEditorAudioSession({
 
   const resyncPlayback = useCallback(
     (opts?: { force?: boolean }): Promise<void> => {
-      return resolveEditorPlaybackBlobUrl(blobUrlRef).then(async (url) => {
+      const restoreCtx = {
+        audioSupabasePath,
+        audioAssetId,
+        flowLocalAudioKey,
+      };
+      return resolveEditorPlaybackBlobUrl(blobUrlRef, restoreCtx).then(async (url) => {
         if (url) {
           blobUrlRef.current = url;
-          await resyncEditorPlaybackMedia(blobUrlRef, opts);
+          await resyncEditorPlaybackMedia(blobUrlRef, { ...restoreCtx, ...opts });
           fulfillViewerPendingPlay();
           return;
         }
         const peaks = useWavePeaksStore.getState().peaks;
         const engineUrl = playbackEngine.getMediaSourceUrl();
-        if (peaks?.length && engineUrl) {
-          const valid =
-            !engineUrl.startsWith("blob:") || (await verifyBlobUrl(engineUrl));
-          if (valid) {
-            blobUrlRef.current = engineUrl;
-            await resyncEditorPlaybackMedia(blobUrlRef, opts);
-            fulfillViewerPendingPlay();
-            return;
-          }
+        if (peaks?.length && engineUrl && (await isPlaybackBlobAlive(engineUrl))) {
+          blobUrlRef.current = engineUrl;
+          await resyncEditorPlaybackMedia(blobUrlRef, { ...restoreCtx, ...opts });
+          fulfillViewerPendingPlay();
+          return;
         }
         if (hasActiveFlowAudioKey(flowKey)) {
           const engineUrl = playbackEngine.getMediaSourceUrl();
-          if (engineUrl) {
-            const valid =
-              !engineUrl.startsWith("blob:") ||
-              (await verifyBlobUrl(engineUrl));
-            if (valid) {
-              blobUrlRef.current = engineUrl;
-              await resyncEditorPlaybackMedia(blobUrlRef, opts);
-              fulfillViewerPendingPlay();
-              return;
-            }
+          if (engineUrl && (await isPlaybackBlobAlive(engineUrl))) {
+            blobUrlRef.current = engineUrl;
+            await resyncEditorPlaybackMedia(blobUrlRef, { ...restoreCtx, ...opts });
+            fulfillViewerPendingPlay();
+            return;
           }
         }
         requestRemoteAudioReload();
       });
     },
-    [requestRemoteAudioReload, flowKey]
+    [
+      requestRemoteAudioReload,
+      flowKey,
+      audioSupabasePath,
+      audioAssetId,
+      flowLocalAudioKey,
+    ]
   );
 
   useEffect(() => {
@@ -161,7 +163,18 @@ export function useEditorAudioSession({
 
     const onPageWake = () => {
       if (document.visibilityState === "hidden") return;
-      scheduleResync(false);
+      void (async () => {
+        const engineUrl = playbackEngine.getMediaSourceUrl();
+        if (engineUrl && !(await isPlaybackBlobAlive(engineUrl))) {
+          requestRemoteAudioReload();
+          return;
+        }
+        scheduleResync(true);
+      })();
+    };
+
+    const onPageHide = () => {
+      /* blob URL は OS が失効させることがある — 復帰時に onPageWake で再構築 */
     };
 
     const onLayoutChange = () => scheduleResync(false);
@@ -173,6 +186,7 @@ export function useEditorAudioSession({
     document.addEventListener("visibilitychange", onPageWake);
     window.addEventListener("pageshow", onPageWake);
     window.addEventListener("focus", onPageWake);
+    window.addEventListener("pagehide", onPageHide);
 
     return () => {
       window.clearTimeout(debounce);
@@ -182,8 +196,9 @@ export function useEditorAudioSession({
       document.removeEventListener("visibilitychange", onPageWake);
       window.removeEventListener("pageshow", onPageWake);
       window.removeEventListener("focus", onPageWake);
+      window.removeEventListener("pagehide", onPageHide);
     };
-  }, [resyncPlayback]);
+  }, [resyncPlayback, requestRemoteAudioReload]);
 
   return {
     extractProgress,

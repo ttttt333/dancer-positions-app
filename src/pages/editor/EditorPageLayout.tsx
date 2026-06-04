@@ -275,7 +275,6 @@ export function EditorPageLayout(props: EditorLayoutProps) {
           : {}),
       }}
     >
-      {playbackAudioElement}
       <VideoExportHost />
       {!choreoPublicView && !wideEditorLayout && !editorMobileLandscape ? (
         <EditorPageHeader {...props} />

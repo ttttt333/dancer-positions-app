@@ -52,6 +52,7 @@ import { fulfillViewerPendingPlay } from "../lib/playbackViewerIntent";
 import { resyncEditorPlaybackMedia } from "../lib/resyncPlaybackMedia";
 import { tryFetchServerWavePeaksReady } from "../lib/wavePeaksServerApi";
 import { useShareViewAudioLoadStore } from "../store/shareViewAudioLoadStore";
+import { restorePlaybackBlobUrl } from "../lib/restorePlaybackAudio";
 
 type DecodePeaksFn = (
   buf: ArrayBuffer,
@@ -417,8 +418,15 @@ export function useTimelineRemoteAudio({
         if (reuseUrl) {
           const valid = await verifyBlobUrl(reuseUrl);
           if (!valid) {
-            revokePersistedSupabaseAudioBlob();
-            reuseUrl = null;
+            const rebuilt = await restorePlaybackBlobUrl({
+              audioSupabasePath: effectivePath,
+            });
+            if (rebuilt) {
+              reuseUrl = rebuilt;
+            } else {
+              revokePersistedSupabaseAudioBlob();
+              reuseUrl = null;
+            }
           }
         }
 
@@ -464,8 +472,16 @@ export function useTimelineRemoteAudio({
             if (valid) {
               blobUrlRef.current = activeBlobUrl;
             } else {
-              revokePersistedSupabaseAudioBlob();
-              activeBlobUrl = null;
+              const rebuilt = await restorePlaybackBlobUrl({
+                audioSupabasePath: effectivePath,
+              });
+              if (rebuilt) {
+                activeBlobUrl = rebuilt;
+                blobUrlRef.current = rebuilt;
+              } else {
+                revokePersistedSupabaseAudioBlob();
+                activeBlobUrl = null;
+              }
             }
           }
           if (!activeBlobUrl) {

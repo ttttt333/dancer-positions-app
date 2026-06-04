@@ -6,6 +6,7 @@ import { supabaseDownloadProjectAudioWithCache } from "./supabaseAudio";
 import { useShareViewAudioLoadStore } from "../store/shareViewAudioLoadStore";
 import { setPersistedSupabaseAudio } from "./timelineAudioBlobPersist";
 import { waveMediaCacheKeyForSupabase } from "./waveMediaCache";
+import { restorePlaybackBlobUrl } from "./restorePlaybackAudio";
 
 const inflightPaths = new Set<string>();
 
@@ -65,6 +66,15 @@ export function preloadShareViewAudioForPlayback(
       await waitForAudioElementReady(playbackEngine.getMediaElement());
       useShareViewAudioLoadStore.getState().setReady("再生準備完了");
     } catch (e) {
+      const rebuilt = await restorePlaybackBlobUrl({
+        audioSupabasePath: path,
+      });
+      if (rebuilt) {
+        playbackEngine.setMediaSourceUrl(rebuilt, { force: true });
+        await waitForAudioElementReady(playbackEngine.getMediaElement());
+        useShareViewAudioLoadStore.getState().setReady("再生準備完了");
+        return;
+      }
       const msg =
         e instanceof Error ? e.message : "音源の読み込みに失敗しました";
       useShareViewAudioLoadStore.getState().setError(msg);
