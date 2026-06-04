@@ -11,8 +11,8 @@ import type { ChoreographyProjectJson } from "../types/choreography";
 import {
   clearViewerPendingPlay,
   setViewerPendingPlay,
+  startViewerEnginePlayback,
 } from "./playbackViewerIntent";
-import { togglePlaybackRespectingTrimStart } from "./playbackTransport";
 
 /** キュー終端から閲覧用のタイムライン尺（秒） */
 export function viewerTimelineDurationSec(
@@ -102,8 +102,7 @@ export function toggleViewerPlayback(
   }
 
   if (playbackEngine.getMediaSourceUrl()) {
-    clearViewerPendingPlay();
-    togglePlaybackRespectingTrimStart(trimStartSec);
+    startViewerEnginePlayback(trimStartSec);
     return;
   }
 

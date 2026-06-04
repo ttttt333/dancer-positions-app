@@ -1,6 +1,6 @@
 import { playbackEngine } from "../core/playbackEngine";
+import { isPlaybackBeforeTrimStart } from "../core/timelineController";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
-import { togglePlaybackRespectingTrimStart } from "./playbackTransport";
 
 /** 閲覧共有: 音源未準備のときに押した再生を、読み込み完了後に実行する */
 let pendingPlayTrimStartSec: number | null = null;
@@ -18,22 +18,31 @@ export function hasViewerPendingPlay(): boolean {
   return pendingPlayTrimStartSec != null;
 }
 
+/** 閲覧共有: ストアのヘッド位置で音源エンジンを再生（UI ヘッドと音を一致させる） */
+export function startViewerEnginePlayback(trimStartSec: number): void {
+  if (!playbackEngine.getMediaSourceUrl()) return;
+  const store = usePlaybackUiStore.getState();
+  let t = store.currentTimeSec;
+  if (!Number.isFinite(t) || isPlaybackBeforeTrimStart(t, trimStartSec)) {
+    t = trimStartSec;
+    store.setCurrentTimeSec(t);
+  }
+  clearViewerPendingPlay();
+  playbackEngine.seek(t);
+  store.setIsPlaying(true);
+  void playbackEngine.play().catch(() => {
+    store.setIsPlaying(false);
+  });
+}
+
 /** 音源 URL 設定・canplay 後に呼ぶ */
 export function fulfillViewerPendingPlay(): void {
   if (!playbackEngine.getMediaSourceUrl()) return;
-  const trim = pendingPlayTrimStartSec;
-  if (trim != null) {
-    pendingPlayTrimStartSec = null;
-    togglePlaybackRespectingTrimStart(trim);
-    return;
-  }
+  const trim = pendingPlayTrimStartSec ?? 0;
+  pendingPlayTrimStartSec = null;
   const store = usePlaybackUiStore.getState();
-  if (!store.isPlaying || !playbackEngine.isPaused()) return;
-  const t = store.currentTimeSec;
-  if (Number.isFinite(t) && t >= 0) {
-    playbackEngine.seek(t);
-  }
-  void playbackEngine.play();
+  if (!store.isPlaying) return;
+  startViewerEnginePlayback(trim);
 }
 
 /**
