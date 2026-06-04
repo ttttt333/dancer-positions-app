@@ -191,6 +191,12 @@ export function useWaveCanvasPointerDrag({
   ]);
 
   useEffect(() => {
+    useTimelineWaveBridgeStore.getState().registerAbortPointerGestures(abortActiveWaveDrags);
+    return () => useTimelineWaveBridgeStore.getState().registerAbortPointerGestures(null);
+  }, [abortActiveWaveDrags]);
+
+  useEffect(() => {
+    if (viewPortion === 1 && waveViewStartOverride == null) return;
     abortActiveWaveDrags();
   }, [viewPortion, waveViewStartOverride, abortActiveWaveDrags]);
 
@@ -200,6 +206,23 @@ export function useWaveCanvasPointerDrag({
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, [abortActiveWaveDrags]);
+
+  useEffect(() => {
+    const canvas = resolveActiveWaveCanvas(canvasRef);
+    if (!canvas || typeof ResizeObserver === "undefined") return;
+    let lastW = canvas.getBoundingClientRect().width;
+    const ro = new ResizeObserver(() => {
+      const w = canvas.getBoundingClientRect().width;
+      if (w <= 2 || Math.abs(w - lastW) > 0.5) {
+        lastW = w;
+        if (cueDragRef.current || emptyWaveDragRef.current) {
+          abortActiveWaveDrags();
+        }
+      }
+    });
+    ro.observe(canvas);
+    return () => ro.disconnect();
+  }, [canvasRef, abortActiveWaveDrags, cueDragRef, emptyWaveDragRef]);
 
   const stopCueEdgeScrollLoop = useCallback(() => {
     if (cueEdgeScrollRafRef.current) {
@@ -564,12 +587,9 @@ export function useWaveCanvasPointerDrag({
             redraw();
             return;
           }
-          const { cueId: cid, mode: dragMode, moved, armed, origStart, origEnd } = drag;
+          const { cueId: cid, mode: dragMode, moved, origStart, origEnd } = drag;
           onSelectedCueIdsChange([cid]);
-          if (
-            !moved &&
-            !(armed && (dragMode === "start" || dragMode === "end"))
-          ) {
+          if (!moved) {
             cueDragPreviewRangeRef.current = null;
             redraw();
             return;

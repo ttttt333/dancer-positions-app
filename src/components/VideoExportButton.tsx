@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { buildVideoExportOptions } from "../lib/buildVideoExportOptions";
+import { resolveVideoExportFileName } from "../lib/videoExportFileName";
 import { getVideoExportCanvasRef } from "../lib/videoExportCanvasRef";
 import {
   checkVideoExportCapabilities,
@@ -30,6 +31,10 @@ export function VideoExportButton({
   const { isExporting, progress, startExport } = useVideoExport();
 
   const capabilities = useMemo(() => checkVideoExportCapabilities(), []);
+  const exportBaseName = useMemo(
+    () => resolveVideoExportFileName(project, fileName),
+    [project, fileName]
+  );
   const exportBlocked = !capabilities.supported;
   const capabilityHint = useMemo(
     () => formatVideoExportCapabilityHint(capabilities),
@@ -121,6 +126,12 @@ export function VideoExportButton({
           {capabilityHint}
         </p>
       ) : null}
+      <p
+        className="choreo-viewer-video-export-hint"
+        style={{ marginBottom: compact ? 6 : 10 }}
+      >
+        保存名: {exportBaseName}.mp4
+      </p>
       <div
         className="choreo-viewer-video-export-prompt"
         style={compact ? { gap: 6 } : undefined}

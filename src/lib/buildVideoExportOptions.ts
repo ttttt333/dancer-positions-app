@@ -12,6 +12,7 @@ import { resolvePlaybackAudioUrlForExport } from "./resolvePlaybackAudioUrlForEx
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import type { ExportOptions } from "../hooks/useVideoExport";
 import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography";
+import { resolveVideoExportFileName } from "./videoExportFileName";
 
 /** 書き出しフレームレート（useVideoExport と揃える） */
 const SAMPLE_FPS = 12;
@@ -109,9 +110,7 @@ export function buildVideoExportOptions(
     });
   }
 
-  const safeName =
-    fileName.replace(/[^\w\u3000-\u30ff\u4e00-\u9faf-]+/g, "_").slice(0, 80) ||
-    "choreogrid";
+  const safeName = resolveVideoExportFileName(project, fileName);
 
   return {
     canvasRef,

@@ -10,6 +10,7 @@ import { PortraitBottomBar } from './PortraitBottomBar'
 import { LandscapeSidePanel } from './LandscapeSidePanel'
 import { LandscapeBottomWaveBar } from './LandscapeBottomWaveBar'
 import { type PortraitWaveTransportHandle } from './PortraitWaveTransport'
+import { abortTimelineWavePointerGestures } from '../../lib/abortTimelineWavePointerGestures'
 import { useMobileShellBridgeStore } from '../../store/useMobileShellBridgeStore'
 import styles from './MobileShell.module.css'
 
@@ -185,7 +186,10 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
           onPlayPause={props.onPlayPause}
           onStop={props.onStop}
           onSeek={props.onSeek}
-          onCollapse={() => setLandscapeWaveExpanded(false)}
+          onCollapse={() => {
+            abortTimelineWavePointerGestures()
+            setLandscapeWaveExpanded(false)
+          }}
         />
       ) : null}
 

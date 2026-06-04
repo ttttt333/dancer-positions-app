@@ -1,5 +1,6 @@
 import { NeonIconPanel } from "../../components/NeonIconPanel";
 import { createDefaultFloorTextPlaceSession } from "../../lib/floorTextPlaceSession";
+import { abortTimelineWavePointerGestures } from "../../lib/abortTimelineWavePointerGestures";
 import { useVideoExportUiStore } from "../../store/videoExportUiStore";
 import type { EditorLayoutProps } from "./editorLayoutProps";
 
@@ -91,7 +92,13 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
       onOpenVideoExport={() => useVideoExportUiStore.getState().openSheet()}
       collapsed={rightPaneCollapsed && wideEditorLayout}
       onCollapseToggle={
-        wideEditorLayout ? () => setRightPaneCollapsed((v) => !v) : undefined
+        wideEditorLayout
+          ? () =>
+              setRightPaneCollapsed((v) => {
+                if (!v) abortTimelineWavePointerGestures();
+                return !v;
+              })
+          : undefined
       }
     /></div>
   );

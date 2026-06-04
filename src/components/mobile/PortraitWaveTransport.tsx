@@ -15,6 +15,7 @@ import {
   TransportIconZoomIn,
   TransportIconZoomOut,
 } from "./TransportIcons";
+import { abortTimelineWavePointerGestures } from "../../lib/abortTimelineWavePointerGestures";
 import { useTimelineWaveBridgeStore } from "../../store/timelineWaveBridgeStore";
 import { WaveformLoadOverlay } from "../WaveformLoadOverlay";
 import { useWaveformLoadProgressStore } from "../../store/waveformLoadProgressStore";
@@ -769,6 +770,10 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       clearLongPress();
       clearPendingSingleTap();
+      if (dragArmedRef.current) {
+        abortTimelineWavePointerGestures();
+      }
+      dragArmedRef.current = false;
       pointersRef.current.delete(e.pointerId);
       pinchRef.current = null;
     },
@@ -936,6 +941,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
               className={styles.rulerCollapseBtn}
               onClick={(e) => {
                 e.stopPropagation();
+                abortTimelineWavePointerGestures();
                 onCollapseWave();
               }}
               onPointerDown={(e) => e.stopPropagation()}

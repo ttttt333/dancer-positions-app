@@ -21,6 +21,7 @@ import {
   panWaveViewStartForPlayheadAtClientX,
 } from "../lib/waveTimelineSeek";
 import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
+import { abortTimelineWavePointerGestures } from "../lib/abortTimelineWavePointerGestures";
 import { PLAYHEAD_SCRUB_ARM_PX } from "../lib/waveLongPress";
 import {
   useWaveCanvasPointerDrag,
@@ -534,6 +535,7 @@ export function useTimelineWaveSurfaceHandlers(
 
   const onWaveCanvasPointerLeave = useCallback(() => {
     clearPending();
+    abortTimelineWavePointerGestures();
     waveHoverCueRef.current = null;
     const cnv = canvasRef.current;
     if (cnv) cnv.style.cursor = duration > 0 ? "pointer" : "default";

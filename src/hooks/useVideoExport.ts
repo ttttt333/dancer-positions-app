@@ -6,6 +6,7 @@ import {
   safeVideoBaseName,
   shareVideoFile,
 } from "../lib/shareVideoFile";
+import { videoExportDisplayTitle } from "../lib/videoExportFileName";
 import { fetchAudioForFfmpeg } from "../lib/fetchAudioForFfmpeg";
 import { ffmpegExecChecked, loadFFmpegWasm, resetFFmpegWasm } from "../lib/ffmpegWasm";
 import {
@@ -102,7 +103,11 @@ async function tryWebmFallback(
   const downloadName = downloadRecordedWebm(blob, options.fileName);
   let shared = false;
   if (options.shareAfter) {
-    shared = await shareVideoFile(blob, downloadName, options.fileName);
+    shared = await shareVideoFile(
+      blob,
+      downloadName,
+      videoExportDisplayTitle(options.fileName)
+    );
   }
   return {
     downloadName,
@@ -475,7 +480,11 @@ export function useVideoExport() {
       const downloadName = `${safeVideoBaseName(options.fileName)}.mp4`;
       let shared = false;
       if (options.shareAfter) {
-        shared = await shareVideoFile(mp4Blob, downloadName, options.fileName);
+        shared = await shareVideoFile(
+          mp4Blob,
+          downloadName,
+          videoExportDisplayTitle(options.fileName)
+        );
         if (!shared) {
           downloadVideoBlob(mp4Blob, downloadName);
         }

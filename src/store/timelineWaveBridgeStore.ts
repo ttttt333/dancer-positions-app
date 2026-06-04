@@ -46,6 +46,9 @@ type TimelineWaveBridgeStore = {
   setPortraitWaveEdgeScrollTick: (fn: ((clientX: number) => void) | null) => void;
   /** 縦画面の zoom / viewStart を PC 版波形ビューに同期 */
   syncPortraitView: (viewStart: number, zoom: number) => void;
+  /** TimelinePanel 登録: 畳み・リサイズ時にキュー誤編集を破棄 */
+  abortPointerGestures: (() => void) | null;
+  registerAbortPointerGestures: (fn: (() => void) | null) => void;
 };
 
 export const useTimelineWaveBridgeStore = create<TimelineWaveBridgeStore>((set, get) => ({
@@ -56,6 +59,8 @@ export const useTimelineWaveBridgeStore = create<TimelineWaveBridgeStore>((set, 
   api: null,
   portraitWaveScrubAtClientX: null,
   portraitWaveEdgeScrollTick: null,
+  abortPointerGestures: null,
+  registerAbortPointerGestures: (fn) => set({ abortPointerGestures: fn }),
   register: (api) =>
     set({
       api,

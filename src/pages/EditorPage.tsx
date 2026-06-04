@@ -50,6 +50,7 @@ import {
   dancerMarkerDiameterAfterRosterImport,
   tryMigrateFromLocalStorage,
 } from "../lib/projectDefaults";
+import { abortTimelineWavePointerGestures } from "../lib/abortTimelineWavePointerGestures";
 import { preloadFFmpegWasm } from "../lib/ffmpegWasm";
 import { normalizeProject } from "../lib/normalizeProject";
 import { modDancerColorIndex, DANCER_COLOR_PALETTE_HEX } from "../lib/dancerColorPalette";
@@ -2211,7 +2212,12 @@ export function EditorPage({
             flexShrink: 0,
           }}
           aria-expanded={mobileEditorWaveExpanded}
-          onClick={() => setMobileEditorWaveExpanded((v) => !v)}
+          onClick={() => {
+            setMobileEditorWaveExpanded((v) => {
+              if (v) abortTimelineWavePointerGestures();
+              return !v;
+            });
+          }}
         >
           {mobileEditorWaveExpanded ? "たたむ" : "ひろげる"}
         </button>
