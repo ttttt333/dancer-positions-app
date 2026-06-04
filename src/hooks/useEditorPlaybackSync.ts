@@ -1,4 +1,4 @@
-import { createElement, useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { Dispatch, MutableRefObject, ReactNode, SetStateAction } from "react";
 import { playbackEngine } from "../core/playbackEngine";
 import {
@@ -30,17 +30,15 @@ type Params = {
   choreoPublicView: boolean;
   wideEditorLayout: boolean;
   stageZenFullscreen: boolean;
-  /** 依存用。実値は `projectRef` から読む */
   playbackRateSig: number | undefined;
-  /** 再生中にアクティブキューが変わったとき（選択枠追従） */
   onPlaybackActiveCueChangeRef?: MutableRefObject<
     ((cueId: string) => void) | null
   >;
 };
 
 /**
- * 編集ルートの再生まわりをまとめる:
- * 非表示 `<audio>`、ルート切替時のストア初期化、エンジン購読（再生フラグ・メタ尺）、倍速、再生ヘッド RAF。
+ * 編集ルートの再生まわりをまとめる。
+ * `<audio>` は playbackEngine シングルトンが document.body に 1 つだけ保持する。
  */
 export function useEditorPlaybackSync(p: Params): {
   playbackAudioElement: ReactNode;
@@ -57,25 +55,9 @@ export function useEditorPlaybackSync(p: Params): {
     onPlaybackActiveCueChangeRef,
   } = p;
 
-  const bindPlaybackAudioElementRef = useCallback(
-    (node: HTMLAudioElement | null) => {
-      playbackEngine.attachMediaElement(node);
-    },
-    []
-  );
-
-  const playbackAudioElement = useMemo(
-    () =>
-      createElement("audio", {
-        ref: bindPlaybackAudioElementRef,
-        style: { display: "none" },
-        controls: false,
-        preload: "auto",
-        playsInline: true,
-        "aria-hidden": true,
-      }),
-    [bindPlaybackAudioElementRef]
-  );
+  useEffect(() => {
+    playbackEngine.ensureDomMediaElement();
+  }, []);
 
   useEffect(() => {
     usePlaybackUiStore.getState().resetPlaybackUi();
@@ -113,7 +95,7 @@ export function useEditorPlaybackSync(p: Params): {
     syncViewerDurationFromProject(projectRef.current);
   }, [choreoPublicView, projectId, shareToken, projectRef]);
 
-  return { playbackAudioElement };
+  return { playbackAudioElement: null };
 }
 
 /** `useEditorPlaybackSync` 内だけで使う。タイムライン列のマウント有無に依存しない RAF 同期 */
@@ -233,7 +215,6 @@ function usePlaybackHeadRafSync(
   }, [isPlaying]);
 }
 
-/** `<audio>` の play/pause とストアの `isPlaying` を同期（単一購読） */
 function subscribePlaybackEnginePlayingToStore(
   choreoPublicView: boolean
 ): () => void {
@@ -251,10 +232,6 @@ function subscribePlaybackEnginePlayingToStore(
   return unsub;
 }
 
-/**
- * `loadedmetadata` / durationchange からストアの尺とプロジェクトのキュー伸長を同期。
- * `trustedAudioDurationSec` は Timeline のデコード経路が設定する。
- */
 function subscribePlaybackEngineMetaToProject(
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>,
 ): () => void {

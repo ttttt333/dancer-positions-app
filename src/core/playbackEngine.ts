@@ -15,6 +15,7 @@
 
 import { configureHtmlAudioElement, mediaElementErrorMessage } from "../lib/audioElementReady";
 import { isCoepSafeMediaUrl, isCrossOriginIsolatedPage } from "../lib/coepMedia";
+import { usePlaybackAudioStore } from "../store/playbackAudioStore";
 
 export type PlaybackTimeListener = (currentTimeSec: number) => void;
 /** true = 再生中、false = 一時停止など */
@@ -107,6 +108,30 @@ export class PlaybackEngine {
     return this.media;
   }
 
+  private ownedDomElement: HTMLAudioElement | null = null;
+
+  /**
+   * React の外で `<audio>` を 1 つだけ生成し body に固定。
+   * コンポーネントのアンマウントで音源が消えないようにする。
+   */
+  ensureDomMediaElement(): HTMLAudioElement | null {
+    if (typeof document === "undefined") return this.media;
+    if (this.media?.isConnected) return this.media;
+    if (this.ownedDomElement?.isConnected) {
+      this.attachMediaElement(this.ownedDomElement);
+      return this.ownedDomElement;
+    }
+    const el = document.createElement("audio");
+    el.style.display = "none";
+    el.setAttribute("aria-hidden", "true");
+    el.preload = "auto";
+    el.setAttribute("playsinline", "true");
+    document.body.appendChild(el);
+    this.ownedDomElement = el;
+    this.attachMediaElement(el);
+    return el;
+  }
+
   /**
    * 割り当て済みの音源 URL（`currentSrc` を優先、未設定は `lastMediaSourceUrl`）。
    */
@@ -119,6 +144,12 @@ export class PlaybackEngine {
       if (typeof s === "string" && s.length > 0) return s;
     }
     return this.lastMediaSourceUrl;
+  }
+
+  /** 音源が接続済みか（store の正規ソースまたは DOM src） */
+  hasMediaSource(): boolean {
+    if (this.getMediaSourceUrl().length > 0) return true;
+    return usePlaybackAudioStore.getState().source != null;
   }
 
   play(): Promise<void> {

@@ -1,9 +1,8 @@
-import { supabaseDownloadProjectAudioWithCache } from "./supabaseAudio";
+import { materializeSupabasePlaybackUrl } from "./audioPlaybackCache";
 import {
-  setPersistedSupabaseAudio,
   persistedSupabaseAudioPath,
+  revokeEphemeralSupabaseBlobUrl,
 } from "./timelineAudioBlobPersist";
-import { waveMediaCacheKeyForSupabase } from "./waveMediaCache";
 import { verifyBlobUrl } from "./verifyBlobUrl";
 
 export type PlaybackAudioRestoreContext = {
@@ -12,31 +11,16 @@ export type PlaybackAudioRestoreContext = {
   flowLocalAudioKey?: string | null;
 };
 
-/** Supabase 音源パスから blob URL を再生成（Cache API → ネットワーク） */
+/** Supabase 音源パスから Cache API 経由で短命 blob URL を新規生成 */
 export async function rebuildSupabasePlaybackBlob(
   path: string,
   onProgress?: (ratio: number) => void
 ): Promise<string | null> {
-  const trimmed = path.trim();
-  if (!trimmed) return null;
-  try {
-    const { buffer, mime } = await supabaseDownloadProjectAudioWithCache(
-      trimmed,
-      onProgress
-    );
-    const blobUrl = URL.createObjectURL(
-      new Blob([buffer], { type: mime || "audio/mpeg" })
-    );
-    setPersistedSupabaseAudio(blobUrl, trimmed);
-    return blobUrl;
-  } catch (e) {
-    console.warn("[restorePlaybackAudio] supabase rebuild failed:", e);
-    return null;
-  }
+  return materializeSupabasePlaybackUrl(path, onProgress);
 }
 
 /**
- * 無効化された blob URL のあと、Supabase パスから再生用 URL を復元する。
+ * blob URL 失効後: Cache API → Supabase から再生 URL を再マテリアライズ。
  */
 export async function restorePlaybackBlobUrl(
   ctx: PlaybackAudioRestoreContext,
@@ -46,20 +30,27 @@ export async function restorePlaybackBlobUrl(
     (typeof ctx.audioSupabasePath === "string" &&
     ctx.audioSupabasePath.trim().length > 0
       ? ctx.audioSupabasePath.trim()
-      : null) ??
-    (persistedSupabaseAudioPath?.trim() || null);
+      : null) ?? persistedSupabaseAudioPath?.trim() ?? null;
 
   if (path) {
-    return rebuildSupabasePlaybackBlob(path, onProgress);
+    return materializeSupabasePlaybackUrl(path, onProgress);
   }
   return null;
 }
 
 /** blob URL が生きているか（失効時は false） */
-export async function isPlaybackBlobAlive(url: string | null | undefined): Promise<boolean> {
+export async function isPlaybackBlobAlive(
+  url: string | null | undefined
+): Promise<boolean> {
   if (!url || typeof url !== "string") return false;
   if (!url.startsWith("blob:")) return true;
   return verifyBlobUrl(url);
 }
 
-export { waveMediaCacheKeyForSupabase };
+/** 失効した blob だけ破棄（Supabase パス / Cache は保持） */
+export function discardDeadEphemeralBlob(url: string | null | undefined): void {
+  if (!url?.startsWith("blob:")) return;
+  void verifyBlobUrl(url).then((alive) => {
+    if (!alive) revokeEphemeralSupabaseBlobUrl();
+  });
+}

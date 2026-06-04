@@ -1,8 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
-import { EDITOR_WIDE_MIN_PX } from "../pages/editor/editorConstants";
-import { subscribeEditorViewport } from "../pages/editor/editorViewport";
 import { resyncEditorPlaybackMedia, resolveEditorPlaybackBlobUrl } from "../lib/resyncPlaybackMedia";
 import { playbackEngine } from "../core/playbackEngine";
 import { useWavePeaksStore } from "../store/wavePeaksStore";
@@ -11,6 +9,8 @@ import { isPlaybackBlobAlive } from "../lib/restorePlaybackAudio";
 import { useTimelineAudioImport } from "./useTimelineAudioImport";
 import { useTimelineRemoteAudio } from "./useTimelineRemoteAudio";
 import { useTimelineWaveDecode } from "./useTimelineWaveDecode";
+import { useAudioReconnector } from "./useAudioReconnector";
+import { usePlaybackAudioStore } from "../store/playbackAudioStore";
 
 type Params = {
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>;
@@ -92,6 +92,28 @@ export function useEditorAudioSession({
     setReloadRemoteAudioNonce((n) => n + 1);
   }, []);
 
+  const getRestoreContext = useCallback(
+    () => ({
+      audioSupabasePath,
+      audioAssetId,
+      flowLocalAudioKey,
+    }),
+    [audioSupabasePath, audioAssetId, flowLocalAudioKey]
+  );
+
+  useEffect(() => {
+    if (typeof audioSupabasePath === "string" && audioSupabasePath.trim()) {
+      usePlaybackAudioStore.getState().setSupabaseSource(audioSupabasePath.trim());
+    }
+  }, [audioSupabasePath]);
+
+  useAudioReconnector({
+    enabled: true,
+    blobUrlRef,
+    getRestoreContext,
+    onNeedsRemoteReload: requestRemoteAudioReload,
+  });
+
   const resyncPlayback = useCallback(
     (opts?: { force?: boolean }): Promise<void> => {
       const restoreCtx = {
@@ -149,56 +171,6 @@ export function useEditorAudioSession({
     publicShareView,
     resyncPlayback,
   ]);
-
-  /** レイアウト切替・タブ復帰後も blob URL を `<audio>` に再接続 */
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    let debounce = 0;
-    const scheduleResync = (force = false) => {
-      window.clearTimeout(debounce);
-      debounce = window.setTimeout(() => {
-        resyncPlayback({ force });
-      }, 80);
-    };
-
-    const onPageWake = () => {
-      if (document.visibilityState === "hidden") return;
-      void (async () => {
-        const engineUrl = playbackEngine.getMediaSourceUrl();
-        if (engineUrl && !(await isPlaybackBlobAlive(engineUrl))) {
-          requestRemoteAudioReload();
-          return;
-        }
-        scheduleResync(true);
-      })();
-    };
-
-    const onPageHide = () => {
-      /* blob URL は OS が失効させることがある — 復帰時に onPageWake で再構築 */
-    };
-
-    const onLayoutChange = () => scheduleResync(false);
-
-    const mqWide = window.matchMedia(`(min-width: ${EDITOR_WIDE_MIN_PX}px)`);
-    mqWide.addEventListener("change", onLayoutChange);
-    const unsubViewport = subscribeEditorViewport(onLayoutChange);
-    window.addEventListener("resize", onLayoutChange);
-    document.addEventListener("visibilitychange", onPageWake);
-    window.addEventListener("pageshow", onPageWake);
-    window.addEventListener("focus", onPageWake);
-    window.addEventListener("pagehide", onPageHide);
-
-    return () => {
-      window.clearTimeout(debounce);
-      mqWide.removeEventListener("change", onLayoutChange);
-      unsubViewport();
-      window.removeEventListener("resize", onLayoutChange);
-      document.removeEventListener("visibilitychange", onPageWake);
-      window.removeEventListener("pageshow", onPageWake);
-      window.removeEventListener("focus", onPageWake);
-      window.removeEventListener("pagehide", onPageHide);
-    };
-  }, [resyncPlayback, requestRemoteAudioReload]);
 
   return {
     extractProgress,

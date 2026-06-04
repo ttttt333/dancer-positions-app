@@ -18,6 +18,8 @@ import {
   revokeBlobUrlUnlessCloudPersisted,
   revokePersistedServerAudioBlob,
   revokePersistedSupabaseAudioBlob,
+  revokeEphemeralSupabaseBlobUrl,
+  clearSupabaseAudioSource,
   revokePersistedFlowAudioBlob,
   setPersistedServerAudio,
   setPersistedSupabaseAudio,
@@ -377,7 +379,7 @@ export function useTimelineRemoteAudio({
       const hadSupabaseBlobAttached =
         blobUrlRef.current != null &&
         blobUrlRef.current === persistedSupabaseAudioBlobUrl;
-      revokePersistedSupabaseAudioBlob();
+      clearSupabaseAudioSource();
       if (hadSupabaseBlobAttached) {
         blobUrlRef.current = null;
         clearPlaybackTrustedDurationSec();
@@ -389,7 +391,7 @@ export function useTimelineRemoteAudio({
       persistedSupabaseAudioPath != null &&
       persistedSupabaseAudioPath !== effectivePath
     ) {
-      revokePersistedSupabaseAudioBlob();
+      clearSupabaseAudioSource();
     }
 
     let cancelled = false;
@@ -424,7 +426,7 @@ export function useTimelineRemoteAudio({
             if (rebuilt) {
               reuseUrl = rebuilt;
             } else {
-              revokePersistedSupabaseAudioBlob();
+              revokeEphemeralSupabaseBlobUrl();
               reuseUrl = null;
             }
           }
@@ -479,7 +481,7 @@ export function useTimelineRemoteAudio({
                 activeBlobUrl = rebuilt;
                 blobUrlRef.current = rebuilt;
               } else {
-                revokePersistedSupabaseAudioBlob();
+                revokeEphemeralSupabaseBlobUrl();
                 activeBlobUrl = null;
               }
             }
