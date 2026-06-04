@@ -18,8 +18,8 @@ export const EDITOR_MOBILE_STACK_MAX_PX = 768;
 /** メイン 3 列グリッドの列間・行間 */
 export const EDITOR_GRID_GAP_PX = 10;
 
-/** 上部波形ドック行の既定高さ（px） */
-export const TOP_DOCK_HEIGHT_PX = 120;
+/** 上部波形ドック行の既定高さ（px）— ツールバー＋目盛り＋波形が収まる高さ */
+export const TOP_DOCK_HEIGHT_PX = 180;
 
 /** 生徒閲覧（狭い画面）の波形ドック既定高さ（px）— ズーム操作ができるよう十分な高さ */
 export const PUBLIC_VIEW_WAVE_DOCK_HEIGHT_PX = 140;

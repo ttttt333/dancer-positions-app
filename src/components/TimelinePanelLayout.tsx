@@ -39,6 +39,8 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
           gap: p.compactTopDock ? 0 : tlPx(4),
           minHeight: 0,
           flex: "1 1 auto",
+          height: p.compactTopDock ? "100%" : undefined,
+          overflow: p.compactTopDock ? "hidden" : undefined,
           fontSize:
             p.compactTopDock && p.editorMobileStack
               ? tlPx(10)

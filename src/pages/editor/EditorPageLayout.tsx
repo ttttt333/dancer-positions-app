@@ -25,6 +25,7 @@ import {
   PUBLIC_VIEW_WAVE_DOCK_HEIGHT_PX,
   STAGE_RESIZER_PX,
   TOP_DOCK_HEIGHT_PX,
+  TOP_DOCK_HEIGHT_WIDE_PX,
   TOP_DOCK_ROW_MIN_PX,
 } from "./editorConstants";
 import { TOP_DOCK_WAVE_STAGE_RESIZER_PX } from "../../lib/waveDockMetrics";
@@ -227,6 +228,7 @@ export function EditorPageLayout(props: EditorLayoutProps) {
   const viewerLocalStorageKey = props.viewerLocalStorageKey as never;
   const wideBottomDockPx = props.wideBottomDockPx as never;
   const publicViewWaveDockPx = props.publicViewWaveDockPx as never;
+  const editorTopDockHeightPx = props.editorTopDockHeightPx as never;
   const wideEditorLayout = props.wideEditorLayout as never;
   const workbenchInRightRail = props.workbenchInRightRail as never;
   const xPct = props.xPct as never;
@@ -304,6 +306,11 @@ export function EditorPageLayout(props: EditorLayoutProps) {
               ? (publicViewWaveDockPx ?? PUBLIC_VIEW_WAVE_DOCK_HEIGHT_PX)
               : wideEditorLayout
                 ? wideBottomDockPx
+                : (editorTopDockHeightPx ?? TOP_DOCK_HEIGHT_PX),
+            minHeight: publicNarrowLayout
+              ? undefined
+              : wideEditorLayout
+                ? TOP_DOCK_HEIGHT_WIDE_PX
                 : TOP_DOCK_HEIGHT_PX,
             position: "relative",
             overflow: "hidden",
@@ -324,10 +331,14 @@ export function EditorPageLayout(props: EditorLayoutProps) {
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",
+              minHeight: 0,
+              height: "100%",
               padding: wideEditorLayout ? 0 : "0 4px 4px",
             }}
           >
-            {timelinePanelEl}
+            <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+              {timelinePanelEl}
+            </div>
           </div>
           {/* 波形バーとステージの境目 — 上下ドラッグで高さ調整 */}
           <div

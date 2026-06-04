@@ -2383,6 +2383,11 @@ export function EditorPage({
           Math.max(PUBLIC_VIEW_WAVE_DOCK_HEIGHT_PX, topDockRowPx)
         )
       : PUBLIC_VIEW_WAVE_DOCK_HEIGHT_PX;
+  const editorTopDockHeightPx = wideEditorLayout
+    ? wideBottomDockPx
+    : publicNarrowLayout
+      ? publicViewWaveDockPx
+      : TOP_DOCK_HEIGHT_PX;
   const editorPaneGridTemplateRows = stageZenLayout
     ? "1fr"
     : wideEditorLayout
@@ -2445,7 +2450,7 @@ export function EditorPage({
       onOpenPathEditor={(cueId) => setPathEditorCueId(cueId)}
       publicShareView={choreoPublicView}
       topDockHeightPx={
-        showTopWaveDock && !mobileStackEditor ? wideBottomDockPx : null
+        showTopWaveDock && !mobileStackEditor ? editorTopDockHeightPx : null
       }
     />
   );
@@ -2683,6 +2688,7 @@ export function EditorPage({
     viewerLocalStorageKey,
     wideBottomDockPx,
     publicViewWaveDockPx,
+    editorTopDockHeightPx,
     wideEditorLayout,
     workbenchInRightRail,
   };

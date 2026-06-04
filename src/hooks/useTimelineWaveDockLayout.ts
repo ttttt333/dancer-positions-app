@@ -5,13 +5,13 @@ import {
 } from "../components/TimelineToolbar";
 import {
   estimateWideTopDockWaveChromePx,
+  WAVE_CANVAS_H_PC_COMPACT_DEFAULT,
+  WAVE_CANVAS_H_PC_WIDE_DEFAULT,
 } from "../lib/waveDockMetrics";
 import { WAVE_CANVAS_H_MAX, WAVE_CANVAS_H_MIN } from "./useTimelineWaveHeightDrag";
 
 /** 波形キャンバス既定高さ（CSS px）。`useTimelineWaveHeightDrag` の最小・最大と揃える */
 const WAVE_CANVAS_H_DEFAULT = 36;
-/** 上部ドック時の既定（コンパクト） */
-const WAVE_CANVAS_H_COMPACT_DOCK = 25;
 /** スマホ縦積み: 波形の既定をさらに低く（縦・横でステージを確保） */
 const WAVE_CANVAS_H_MOBILE_STACK = 20;
 
@@ -44,7 +44,8 @@ export function useTimelineWaveDockLayout({
   const [waveCanvasCssH, setWaveCanvasCssH] = useState(() => {
     if (!compactTopDock) return WAVE_CANVAS_H_DEFAULT;
     if (editorMobileStack) return WAVE_CANVAS_H_MOBILE_STACK;
-    return WAVE_CANVAS_H_COMPACT_DOCK;
+    if (wideWorkbench) return WAVE_CANVAS_H_PC_WIDE_DEFAULT;
+    return WAVE_CANVAS_H_PC_COMPACT_DEFAULT;
   });
   const waveCanvasCssHRef = useRef(waveCanvasCssH);
   waveCanvasCssHRef.current = waveCanvasCssH;
@@ -64,11 +65,13 @@ export function useTimelineWaveDockLayout({
     if (!compactTopDock) return;
     const floor = editorMobileStack
       ? WAVE_CANVAS_H_MOBILE_STACK
-      : WAVE_CANVAS_H_COMPACT_DOCK;
+      : wideWorkbench
+        ? WAVE_CANVAS_H_PC_WIDE_DEFAULT
+        : WAVE_CANVAS_H_PC_COMPACT_DEFAULT;
     setWaveCanvasCssH((h) =>
       Math.min(WAVE_CANVAS_H_MAX, Math.max(h, floor))
     );
-  }, [compactTopDock, editorMobileStack]);
+  }, [compactTopDock, editorMobileStack, wideWorkbench]);
 
   /** PC 上部ドック: 再生エリアの高さに合わせて波形キャンバスを伸縮（既定はスマホ同等 96px） */
   useEffect(() => {

@@ -55,6 +55,7 @@ import { resyncEditorPlaybackMedia } from "../lib/resyncPlaybackMedia";
 import { tryFetchServerWavePeaksReady } from "../lib/wavePeaksServerApi";
 import { useShareViewAudioLoadStore } from "../store/shareViewAudioLoadStore";
 import { restorePlaybackBlobUrl } from "../lib/restorePlaybackAudio";
+import { useWavePeaksStore } from "../store/wavePeaksStore";
 
 type DecodePeaksFn = (
   buf: ArrayBuffer,
@@ -148,6 +149,34 @@ function markPlaybackReadyForWaveFetch(
 ) {
   scheduleMarkPlaybackReady(publicShareView);
   void resyncEditorPlaybackMedia(blobUrlRef, { force: true }).catch(() => {});
+}
+
+function hasWavePeaksInStore(): boolean {
+  return (useWavePeaksStore.getState().peaks?.length ?? 0) > 0;
+}
+
+/** キャッシュ済みピークを precomputed 経由で反映（空バッファ decode の失敗を避ける） */
+async function tryApplyCachedPeaksFromStore(
+  decodePeaksRef: MutableRefObject<DecodePeaksFn>,
+  cacheKey: string,
+  cached: { peaks: number[]; durationSec: number } | null | undefined,
+  extra?: Pick<DecodePeaksOptions, "supabaseAudioPath">
+): Promise<boolean> {
+  if (!cached?.peaks.length) return false;
+  try {
+    await decodePeaksRef.current(new ArrayBuffer(0), {
+      cacheKey,
+      ...extra,
+      precomputed: {
+        peaks: cached.peaks,
+        durationSec: cached.durationSec,
+      },
+    });
+    return hasWavePeaksInStore();
+  } catch (e) {
+    console.warn("[wavePeaks] cached peaks apply failed:", e);
+    return false;
+  }
 }
 
 async function ensureServerPeaksOnly(
@@ -266,22 +295,25 @@ export function useTimelineRemoteAudio({
             clearPlaybackTrustedDurationSec,
             { revokePrevious: true }
           );
-          markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
           const cached = await getWavePeaksCache(cacheKey);
-          if (cached?.peaks.length) {
-            if (!cancelled) {
-              await decodePeaksRef.current(new ArrayBuffer(0), { cacheKey });
-            }
-            return;
+          if (
+            !(await tryApplyCachedPeaksFromStore(
+              decodePeaksRef,
+              cacheKey,
+              cached
+            )) &&
+            !cancelled
+          ) {
+            reportWaveLoadProgress(0.4, "波形データを取得中…");
+            await ensureServerPeaksOnly(
+              aid,
+              () => arrayBufferFromBlobUrl(reuseUrl),
+              decodePeaksRef,
+              cacheKey,
+              isCancelled
+            );
           }
-          reportWaveLoadProgress(0.4, "波形データを取得中…");
-          await ensureServerPeaksOnly(
-            aid,
-            () => arrayBufferFromBlobUrl(reuseUrl),
-            decodePeaksRef,
-            cacheKey,
-            isCancelled
-          );
+          markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
           return;
         }
 
@@ -295,7 +327,6 @@ export function useTimelineRemoteAudio({
           const blobValid = await verifyBlobUrl(persistedServerAudioBlobUrl);
           if (blobValid) {
             blobUrlRef.current = persistedServerAudioBlobUrl;
-            markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
             reportWaveLoadProgress(0.4, "波形データを取得中…");
             await ensureServerPeaksOnly(
               aid,
@@ -304,6 +335,7 @@ export function useTimelineRemoteAudio({
               cacheKey,
               isCancelled
             );
+            markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
             return;
           }
           revokePersistedServerAudioBlob();
@@ -349,11 +381,11 @@ export function useTimelineRemoteAudio({
         syncPlaybackUrl(blobUrlRef, blobUrl, clearPlaybackTrustedDurationSec, {
           revokePrevious: true,
         });
-        markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
 
         if (!cancelled) {
           await peaksPromise;
         }
+        markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
       } catch (e) {
         reportWaveLoadError(
           e instanceof Error ? e.message : "音源の読み込みに失敗しました"
@@ -439,25 +471,24 @@ export function useTimelineRemoteAudio({
             clearPlaybackTrustedDurationSec,
             { revokePrevious: true }
           );
-          markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
           const cached = await getWavePeaksCache(cacheKey);
-          if (cached?.peaks.length) {
-            if (!cancelled) {
-              await decodePeaksRef.current(new ArrayBuffer(0), {
-                cacheKey,
-                supabaseAudioPath: effectivePath,
-              });
-            }
-            return;
-          }
-          reportWaveLoadProgress(0.4, "波形データを取得中…");
-          await ensureSupabasePeaksOnly(
-            effectivePath,
-            () => arrayBufferFromBlobUrl(reuseUrl),
+          const peaksApplied = await tryApplyCachedPeaksFromStore(
             decodePeaksRef,
             cacheKey,
-            isCancelled
+            cached,
+            { supabaseAudioPath: effectivePath }
           );
+          if (!peaksApplied && !cancelled) {
+            reportWaveLoadProgress(0.4, "波形データを取得中…");
+            await ensureSupabasePeaksOnly(
+              effectivePath,
+              () => arrayBufferFromBlobUrl(reuseUrl),
+              decodePeaksRef,
+              cacheKey,
+              isCancelled
+            );
+          }
+          markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
           return;
         }
 
@@ -503,7 +534,6 @@ export function useTimelineRemoteAudio({
               { revokePrevious: true }
             );
           }
-          markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
           reportWaveLoadProgress(0.4, "波形データを取得中…");
           const readBuf = () => arrayBufferFromBlobUrl(activeBlobUrl!);
           await ensureSupabasePeaksOnly(
@@ -513,6 +543,7 @@ export function useTimelineRemoteAudio({
             cacheKey,
             isCancelled
           );
+          markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
           return;
         }
 
@@ -565,9 +596,9 @@ export function useTimelineRemoteAudio({
         if (curEngine !== blobUrl || !playbackEngine.getMediaElement()?.src) {
           playbackEngine.setMediaSourceUrl(blobUrl, { force: true });
         }
-        markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
 
         if (sidecar?.peaks.length) {
+          markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
           return;
         }
 
@@ -578,6 +609,7 @@ export function useTimelineRemoteAudio({
             supabaseAudioPath: effectivePath,
             precomputed: mediaPeaks,
           });
+          markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
           return;
         }
 
@@ -588,6 +620,7 @@ export function useTimelineRemoteAudio({
           cacheKey,
           isCancelled
         );
+        markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
       } catch (e) {
         const msg =
           e instanceof Error ? e.message : "音源の読み込みに失敗しました";
@@ -654,24 +687,25 @@ export function useTimelineRemoteAudio({
             { revokePrevious: true }
           );
           setPersistedFlowAudio(reuseUrl, flowKey);
-          markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
           const cached = await getWavePeaksCache(cacheKey);
-          if (cached?.peaks.length) {
-            if (!cancelled) {
-              await decodePeaksRef.current(new ArrayBuffer(0), { cacheKey });
-            }
-            return;
+          const peaksApplied = await tryApplyCachedPeaksFromStore(
+            decodePeaksRef,
+            cacheKey,
+            cached
+          );
+          if (!peaksApplied && !cancelled) {
+            reportWaveLoadProgress(0.4, "波形データを取得中…");
+            const buf = await arrayBufferFromBlobUrl(reuseUrl);
+            if (!cancelled) await decodePeaksRef.current(buf, { cacheKey });
           }
-          reportWaveLoadProgress(0.4, "波形データを取得中…");
-          const buf = await arrayBufferFromBlobUrl(reuseUrl);
-          if (!cancelled) await decodePeaksRef.current(buf, { cacheKey });
+          markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
           return;
         }
 
         const cached = await getWavePeaksCache(cacheKey);
         if (cached?.peaks.length) {
           if (!cancelled) {
-            await decodePeaksRef.current(new ArrayBuffer(0), { cacheKey });
+            await tryApplyCachedPeaksFromStore(decodePeaksRef, cacheKey, cached);
           }
         } else {
           reportWaveLoadProgress(0.05, "ローカル音源を読み込み中…");
@@ -683,12 +717,13 @@ export function useTimelineRemoteAudio({
         syncPlaybackUrl(blobUrlRef, url, clearPlaybackTrustedDurationSec, {
           revokePrevious: true,
         });
-        markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
-        if (cached?.peaks.length) {
+        if (hasWavePeaksInStore()) {
+          markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
           return;
         }
         const buf = await blob.arrayBuffer();
         if (!cancelled) await decodePeaksRef.current(buf, { cacheKey });
+        markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
       } catch (e) {
         reportWaveLoadError(
           e instanceof Error ? e.message : "音源の読み込みに失敗しました"
