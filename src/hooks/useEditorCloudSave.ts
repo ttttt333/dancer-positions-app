@@ -17,6 +17,8 @@ export type UseEditorCloudSaveOptions = {
   setServerShareToken: (token: string | null) => void;
   setSaving: (saving: boolean) => void;
   navigate: NavigateFunction;
+  /** クラウド保存直前: ローカル音源を Supabase MP3 へ上げて JSON を更新 */
+  prepareProjectForCloudSave?: () => Promise<ChoreographyProjectJson | null>;
 };
 
 export function useEditorCloudSave({
@@ -29,6 +31,7 @@ export function useEditorCloudSave({
   setServerShareToken,
   setSaving,
   navigate,
+  prepareProjectForCloudSave,
 }: UseEditorCloudSaveOptions) {
   const { t } = useI18n();
   const [cloudSaveDialogOpen, setCloudSaveDialogOpen] = useState(false);
@@ -44,9 +47,16 @@ export function useEditorCloudSave({
     if (!me) {
       throw new Error(t("editor.cloudSave.errLoginRequired"));
     }
-    const live = projectSaveRef.current;
+    let live = projectSaveRef.current;
     if (!live) {
       throw new Error(t("editor.cloudSave.errNoProject"));
+    }
+    if (prepareProjectForCloudSave) {
+      const prepared = await prepareProjectForCloudSave();
+      if (prepared) {
+        live = prepared;
+        projectSaveRef.current = prepared;
+      }
     }
     await yieldToMain();
     let json: ChoreographyProjectJson;
@@ -105,6 +115,7 @@ export function useEditorCloudSave({
     setServerId,
     setServerShareToken,
     navigate,
+    prepareProjectForCloudSave,
     t,
   ]);
 

@@ -15,11 +15,19 @@ import { useTimelineWaveDecode } from "./useTimelineWaveDecode";
 type Params = {
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>;
   loggedIn: boolean;
+  authReady?: boolean;
   serverProjectId: number | null;
   audioAssetId: number | null;
   audioSupabasePath: string | null | undefined;
   flowLocalAudioKey: string | null | undefined;
   publicShareView?: boolean;
+  /** 音源取り込み直後に作品 JSON をクラウドへ保存（audioSupabasePath を共有 URL に載せる） */
+  persistProjectToCloudAfterAudioImport?: (
+    audioPatch?: Pick<
+      ChoreographyProjectJson,
+      "audioSupabasePath" | "audioAssetId" | "flowLocalAudioKey"
+    >
+  ) => Promise<unknown>;
 };
 
 function hasActiveFlowAudioKey(
@@ -35,11 +43,13 @@ function hasActiveFlowAudioKey(
 export function useEditorAudioSession({
   setProject,
   loggedIn,
+  authReady = true,
   serverProjectId,
   audioAssetId,
   audioSupabasePath,
   flowLocalAudioKey,
   publicShareView = false,
+  persistProjectToCloudAfterAudioImport,
 }: Params) {
   const flowKey =
     typeof flowLocalAudioKey === "string" && flowLocalAudioKey.length > 0
@@ -64,6 +74,7 @@ export function useEditorAudioSession({
     serverProjectId,
     blobUrlRef,
     decodePeaksFromBuffer,
+    persistProjectToCloudAfterAudioImport,
   });
 
   useTimelineRemoteAudio({
@@ -74,6 +85,7 @@ export function useEditorAudioSession({
     flowLocalAudioKey,
     publicShareView,
     reloadRemoteAudioNonce,
+    authReady,
   });
 
   const requestRemoteAudioReload = useCallback(() => {

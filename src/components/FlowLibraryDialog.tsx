@@ -355,6 +355,20 @@ export function FlowLibraryDialog({
 
   const copyFlowItemShare = useCallback(
     async (it: FlowLibraryItem, kind: "collab" | "view") => {
+      if (kind === "view" && syncProjectToCloud) {
+        try {
+          await syncProjectToCloud();
+        } catch (e) {
+          setFeedback({
+            kind: "error",
+            text:
+              e instanceof Error
+                ? e.message
+                : "共有前のクラウド保存に失敗しました。",
+          });
+          return;
+        }
+      }
       const pid = resolveFlowShareProjectId(it, serverId);
       if (pid == null) {
         setFeedback({
@@ -409,7 +423,7 @@ export function FlowLibraryDialog({
         setFeedback({ kind: "error", text: "クリップボードへのコピーに失敗しました。" });
       }
     },
-    [serverId, serverShareToken]
+    [serverId, serverShareToken, syncProjectToCloud]
   );
 
   const doRename = useCallback(

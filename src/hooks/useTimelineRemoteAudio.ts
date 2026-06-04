@@ -1,6 +1,7 @@
 import type { MutableRefObject } from "react";
 import { useEffect } from "react";
 import { fetchAuthorizedAudio, getToken } from "../api/client";
+import { ensureSupabaseAccessToken } from "../lib/supabaseClient";
 import { playbackEngine } from "../core/playbackEngine";
 import { isSupabaseBackend } from "../lib/supabaseClient";
 import {
@@ -66,6 +67,8 @@ type Params = {
   publicShareView?: boolean;
   /** タブ復帰などで blob が無効になったときリモート音源を再取得 */
   reloadRemoteAudioNonce?: number;
+  /** Supabase セッション復元後にリモート音源読み込みを再試行 */
+  authReady?: boolean;
 };
 
 function assignBlobUrlRef(
@@ -195,6 +198,7 @@ export function useTimelineRemoteAudio({
   flowLocalAudioKey,
   publicShareView = false,
   reloadRemoteAudioNonce = 0,
+  authReady = true,
 }: Params) {
   const clearPlaybackTrustedDurationSec = () =>
     usePlaybackUiStore.getState().setTrustedAudioDurationSec(null);
@@ -356,21 +360,18 @@ export function useTimelineRemoteAudio({
     const path =
       typeof rawPath === "string" && rawPath.trim().length > 0 ? rawPath.trim() : null;
     const effectivePath = isSupabaseBackend() ? path : null;
-    const canLoadSupabaseAudio = getToken() || publicShareView;
-    if (effectivePath == null || !canLoadSupabaseAudio) {
-      if (publicShareView && effectivePath == null) {
+    if (effectivePath == null) {
+      if (publicShareView) {
         useShareViewAudioLoadStore.getState().setUnconfigured();
       }
-      if (effectivePath == null) {
-        const hadSupabaseBlobAttached =
-          blobUrlRef.current != null &&
-          blobUrlRef.current === persistedSupabaseAudioBlobUrl;
-        revokePersistedSupabaseAudioBlob();
-        if (hadSupabaseBlobAttached) {
-          blobUrlRef.current = null;
-          clearPlaybackTrustedDurationSec();
-          playbackEngine.clearMediaSource();
-        }
+      const hadSupabaseBlobAttached =
+        blobUrlRef.current != null &&
+        blobUrlRef.current === persistedSupabaseAudioBlobUrl;
+      revokePersistedSupabaseAudioBlob();
+      if (hadSupabaseBlobAttached) {
+        blobUrlRef.current = null;
+        clearPlaybackTrustedDurationSec();
+        playbackEngine.clearMediaSource();
       }
       return;
     }
@@ -386,6 +387,13 @@ export function useTimelineRemoteAudio({
 
     (async () => {
       try {
+        if (!publicShareView) {
+          if (!authReady) return;
+          if (!(await ensureSupabaseAccessToken()) && !getToken()) {
+            reportWaveLoadError("ログイン後に音源を読み込めます");
+            return;
+          }
+        }
         if (publicShareView) {
           useShareViewAudioLoadStore.getState().setLoading(0.05, "音源を読み込み中…");
         }
@@ -564,7 +572,14 @@ export function useTimelineRemoteAudio({
     return () => {
       cancelled = true;
     };
-  }, [audioSupabasePath, blobUrlRef, decodePeaksRef, publicShareView, reloadRemoteAudioNonce]);
+  }, [
+    audioSupabasePath,
+    blobUrlRef,
+    decodePeaksRef,
+    publicShareView,
+    reloadRemoteAudioNonce,
+    authReady,
+  ]);
 
   useEffect(() => {
     if (audioAssetId != null) return;

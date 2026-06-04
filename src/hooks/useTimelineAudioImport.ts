@@ -43,6 +43,7 @@ import {
   type WaveformPeaksResult,
 } from "../lib/generateWaveformPeaks";
 import { waitForAudioElementReady } from "../lib/audioElementReady";
+import { putFlowLibraryAudio } from "../lib/flowLibraryLocalAudio";
 
 type Params = {
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>;
@@ -53,6 +54,12 @@ type Params = {
     buf: ArrayBuffer,
     options?: DecodePeaksOptions
   ) => Promise<void>;
+  persistProjectToCloudAfterAudioImport?: (
+    audioPatch?: Pick<
+      ChoreographyProjectJson,
+      "audioSupabasePath" | "audioAssetId" | "flowLocalAudioKey"
+    >
+  ) => Promise<unknown>;
 };
 
 async function decodePeaksWithNativeFallback(
@@ -112,6 +119,7 @@ export function useTimelineAudioImport({
   serverProjectId,
   blobUrlRef,
   decodePeaksFromBuffer,
+  persistProjectToCloudAfterAudioImport,
 }: Params) {
   const [extractProgress, setExtractProgress] = useState<TimelineExtractProgress | null>(
     null
@@ -188,6 +196,23 @@ export function useTimelineAudioImport({
               audioAssetId: null,
               flowLocalAudioKey: null,
             }));
+            if (persistProjectToCloudAfterAudioImport) {
+              try {
+                await persistProjectToCloudAfterAudioImport({
+                  audioSupabasePath: up.path,
+                  audioAssetId: null,
+                  flowLocalAudioKey: null,
+                });
+              } catch (persistErr) {
+                console.warn(
+                  "[audioImport] cloud project save after upload:",
+                  persistErr
+                );
+                reportWaveLoadError(
+                  "音源はアップロード済みですが作品の保存に失敗しました。上書き保存を実行してください。"
+                );
+              }
+            }
           } else {
             revokePersistedSupabaseAudioBlob();
             revokePersistedServerAudioBlob();
@@ -233,6 +258,11 @@ export function useTimelineAudioImport({
           return;
         } catch (err) {
           console.warn("[audioImport] cloud upload failed, falling back to local:", err);
+          reportWaveLoadError(
+            err instanceof Error
+              ? err.message
+              : "クラウドへの音源保存に失敗しました。ログイン状態とネットワークを確認してください。"
+          );
         }
       }
 
@@ -262,6 +292,16 @@ export function useTimelineAudioImport({
           const mime = f.type || guessAudioMimeFromFilename(f.name);
           await mountLocalPlaybackBlob(blobUrlRef, buf, mime);
           await applyQuickPeaksIfReady(decodePeaksFromBuffer, quickPeaks);
+          if (loggedIn && serverProjectId != null) {
+            const flowKey = crypto.randomUUID();
+            await putFlowLibraryAudio(flowKey, new Blob([buf], { type: mime }));
+            setProject((p) => ({
+              ...p,
+              flowLocalAudioKey: flowKey,
+              audioSupabasePath: null,
+              audioAssetId: null,
+            }));
+          }
           reportWaveLoadProgress(0.45, "波形を高精度化中…");
         }
       } catch (err) {
@@ -323,7 +363,15 @@ export function useTimelineAudioImport({
         playCompletionWoof();
       }
     },
-    [blobUrlRef, decodePeaksFromBuffer, loggedIn, serverProjectId, setProject, updateExtractProgress]
+    [
+      blobUrlRef,
+      decodePeaksFromBuffer,
+      loggedIn,
+      serverProjectId,
+      setProject,
+      updateExtractProgress,
+      persistProjectToCloudAfterAudioImport,
+    ]
   );
 
   const openAudioImport = useCallback(() => {

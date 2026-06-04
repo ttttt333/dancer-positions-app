@@ -126,6 +126,10 @@ import {
 import { getViewRosterEntries } from "../lib/viewRoster";
 import { resolveAutoStudentPick } from "../lib/shareViewStudentPick";
 import { useShareViewAudioLoadStore } from "../store/shareViewAudioLoadStore";
+import { playbackEngine } from "../core/playbackEngine";
+import { ensureProjectAudioOnSupabase } from "../lib/ensureProjectAudioOnSupabase";
+import { reportWaveLoadProgress } from "../lib/waveLoadProgress";
+import { setPersistedSupabaseAudio } from "../lib/timelineAudioBlobPersist";
 import { isCustomStageShapeActive } from "../lib/stageShapePaths";
 import {
   ChoreoStudentViewGate,
@@ -229,23 +233,6 @@ export function EditorPage({
     skipNextProjectFetchRef,
     projectSaveRef,
   } = loader;
-  const {
-    cloudSaveDialogOpen,
-    setCloudSaveDialogOpen,
-    syncProjectToCloud,
-    performCloudSave,
-  } = useEditorCloudSave({
-    me,
-    projectName,
-    serverId,
-    projectSaveRef,
-    setProjectName,
-    setServerId,
-    setServerShareToken,
-    setSaving,
-    navigate,
-  });
-
   const currentTime = usePlaybackUiStore((s) => s.currentTimeSec);
   const isPlaying = usePlaybackUiStore((s) => s.isPlaying);
   const setIsPlaying = usePlaybackUiStore((s) => s.setIsPlaying);
@@ -457,6 +444,59 @@ export function EditorPage({
     isRedoDisabled: stageRedoDisabledFromHistory,
   } = history;
 
+  const prepareProjectForCloudSave = useCallback(async () => {
+    const live = projectSaveRef.current;
+    if (!live || serverId == null || !me) return live;
+    const path = await ensureProjectAudioOnSupabase(
+      serverId,
+      live,
+      async () => {
+        const url = playbackEngine.getMediaSourceUrl();
+        if (!url) return null;
+        try {
+          const res = await fetch(url);
+          if (!res.ok) return null;
+          return await res.blob();
+        } catch {
+          return null;
+        }
+      },
+      (ratio, message) => reportWaveLoadProgress(ratio, message)
+    );
+    if (!path) return live;
+    const next: ChoreographyProjectJson = {
+      ...live,
+      audioSupabasePath: path,
+      audioAssetId: null,
+      flowLocalAudioKey: null,
+    };
+    setProjectSafe(next);
+    projectSaveRef.current = next;
+    const blobUrl = playbackEngine.getMediaSourceUrl();
+    if (blobUrl) {
+      setPersistedSupabaseAudio(blobUrl, path);
+    }
+    return next;
+  }, [me, serverId, setProjectSafe]);
+
+  const {
+    cloudSaveDialogOpen,
+    setCloudSaveDialogOpen,
+    syncProjectToCloud,
+    performCloudSave,
+  } = useEditorCloudSave({
+    me,
+    projectName,
+    serverId,
+    projectSaveRef,
+    setProjectName,
+    setServerId,
+    setServerShareToken,
+    setSaving,
+    navigate,
+    prepareProjectForCloudSave,
+  });
+
   const project = collabActive ? yjsCollab.project : plainProject;
   const projectRef = useRef(project);
   projectRef.current = project;
@@ -489,11 +529,22 @@ export function EditorPage({
   const editorAudioSession = useEditorAudioSession({
     setProject: setProjectSafe,
     loggedIn: !!me,
+    authReady,
     serverProjectId: serverId,
     audioAssetId: project?.audioAssetId ?? null,
     audioSupabasePath: project?.audioSupabasePath,
     flowLocalAudioKey: project?.flowLocalAudioKey ?? null,
     publicShareView: choreoPublicView,
+    persistProjectToCloudAfterAudioImport: me
+      ? async (audioPatch) => {
+          if (audioPatch && projectSaveRef.current) {
+            const merged = { ...projectSaveRef.current, ...audioPatch };
+            setProjectSafe(merged);
+            projectSaveRef.current = merged;
+          }
+          return syncProjectToCloud();
+        }
+      : undefined,
   });
   const resyncViewerPlayback = editorAudioSession.resyncPlayback;
   const reloadViewerAudio = editorAudioSession.reloadRemoteAudio;
