@@ -25,7 +25,6 @@ import {
   PUBLIC_VIEW_WAVE_DOCK_HEIGHT_PX,
   STAGE_RESIZER_PX,
   TOP_DOCK_HEIGHT_PX,
-  TOP_DOCK_HEIGHT_WIDE_PX,
   TOP_DOCK_ROW_MIN_PX,
 } from "./editorConstants";
 import { TOP_DOCK_WAVE_STAGE_RESIZER_PX } from "../../lib/waveDockMetrics";
@@ -307,11 +306,6 @@ export function EditorPageLayout(props: EditorLayoutProps) {
               : wideEditorLayout
                 ? wideBottomDockPx
                 : (editorTopDockHeightPx ?? TOP_DOCK_HEIGHT_PX),
-            minHeight: publicNarrowLayout
-              ? undefined
-              : wideEditorLayout
-                ? TOP_DOCK_HEIGHT_WIDE_PX
-                : TOP_DOCK_HEIGHT_PX,
             position: "relative",
             overflow: "hidden",
             background: publicNarrowLayout ? "rgba(15, 23, 42, 0.92)" : "transparent",
