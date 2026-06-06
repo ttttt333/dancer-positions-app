@@ -56,6 +56,7 @@ import { tryFetchServerWavePeaksReady } from "../lib/wavePeaksServerApi";
 import { useShareViewAudioLoadStore } from "../store/shareViewAudioLoadStore";
 import { restorePlaybackBlobUrl } from "../lib/restorePlaybackAudio";
 import { useWavePeaksStore } from "../store/wavePeaksStore";
+import { hasFreshPeaksForCacheKey, shouldApplyPeaksPayload } from "../lib/wavePeaksSession";
 
 type DecodePeaksFn = (
   buf: ArrayBuffer,
@@ -163,6 +164,15 @@ async function tryApplyCachedPeaksFromStore(
   extra?: Pick<DecodePeaksOptions, "supabaseAudioPath">
 ): Promise<boolean> {
   if (!cached?.peaks.length) return false;
+  if (
+    hasFreshPeaksForCacheKey(cacheKey) ||
+    !shouldApplyPeaksPayload(
+      { peaks: cached.peaks, durationSec: cached.durationSec },
+      cacheKey
+    )
+  ) {
+    return hasWavePeaksInStore();
+  }
   try {
     await decodePeaksRef.current(new ArrayBuffer(0), {
       cacheKey,
@@ -217,8 +227,17 @@ async function tryApplyCachedPeaksEarly(
   cancelled: () => boolean,
   extra?: Pick<DecodePeaksOptions, "supabaseAudioPath">
 ): Promise<boolean> {
+  if (hasFreshPeaksForCacheKey(cacheKey)) return true;
   const cached = await getWavePeaksCache(cacheKey);
   if (!cached?.peaks.length || cancelled()) return false;
+  if (
+    !shouldApplyPeaksPayload(
+      { peaks: cached.peaks, durationSec: cached.durationSec },
+      cacheKey
+    )
+  ) {
+    return hasWavePeaksInStore();
+  }
   await decodePeaksRef.current(new ArrayBuffer(0), {
     cacheKey,
     precomputed: { peaks: cached.peaks, durationSec: cached.durationSec },
@@ -295,6 +314,10 @@ export function useTimelineRemoteAudio({
             clearPlaybackTrustedDurationSec,
             { revokePrevious: true }
           );
+          if (hasFreshPeaksForCacheKey(cacheKey)) {
+            markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
+            return;
+          }
           const cached = await getWavePeaksCache(cacheKey);
           if (
             !(await tryApplyCachedPeaksFromStore(
@@ -408,6 +431,7 @@ export function useTimelineRemoteAudio({
       if (publicShareView) {
         useShareViewAudioLoadStore.getState().setUnconfigured();
       }
+      useWavePeaksStore.getState().resetPeaks();
       const hadSupabaseBlobAttached =
         blobUrlRef.current != null &&
         blobUrlRef.current === persistedSupabaseAudioBlobUrl;
@@ -471,6 +495,10 @@ export function useTimelineRemoteAudio({
             clearPlaybackTrustedDurationSec,
             { revokePrevious: true }
           );
+          if (hasFreshPeaksForCacheKey(cacheKey)) {
+            markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
+            return;
+          }
           const cached = await getWavePeaksCache(cacheKey);
           const peaksApplied = await tryApplyCachedPeaksFromStore(
             decodePeaksRef,
@@ -533,6 +561,10 @@ export function useTimelineRemoteAudio({
               clearPlaybackTrustedDurationSec,
               { revokePrevious: true }
             );
+          }
+          if (hasFreshPeaksForCacheKey(cacheKey)) {
+            markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
+            return;
           }
           reportWaveLoadProgress(0.4, "波形データを取得中…");
           const readBuf = () => arrayBufferFromBlobUrl(activeBlobUrl!);
@@ -687,6 +719,10 @@ export function useTimelineRemoteAudio({
             { revokePrevious: true }
           );
           setPersistedFlowAudio(reuseUrl, flowKey);
+          if (hasFreshPeaksForCacheKey(cacheKey)) {
+            markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
+            return;
+          }
           const cached = await getWavePeaksCache(cacheKey);
           const peaksApplied = await tryApplyCachedPeaksFromStore(
             decodePeaksRef,

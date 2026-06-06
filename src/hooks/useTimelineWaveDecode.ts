@@ -20,6 +20,7 @@ import {
   runIndeterminateDecodeProgress,
 } from "../lib/waveLoadProgress";
 import type { WavePeaksPayload } from "../lib/wavePeaksTypes";
+import { shouldApplyPeaksPayload } from "../lib/wavePeaksSession";
 
 type Params = {
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>;
@@ -63,14 +64,23 @@ export function useTimelineWaveDecode({ setProject }: Params) {
   const setPeaks = useWavePeaksStore((s) => s.setPeaks);
 
   const applyPeaksAndDuration = useCallback(
-    (rawPeaks: number[], durSec: number) => {
+    (rawPeaks: number[], durSec: number, cacheKey?: string | null) => {
+      if (
+        !shouldApplyPeaksPayload(
+          { peaks: rawPeaks, durationSec: durSec },
+          cacheKey ?? null
+        )
+      ) {
+        clearWaveLoadProgress();
+        return;
+      }
       const peaks = refinePeaksForTimeline(rawPeaks, durSec);
       if (Number.isFinite(durSec) && durSec > 0) {
         usePlaybackUiStore.getState().setTrustedAudioDurationSec(durSec);
         setDuration(durSec);
         setProject((p) => expandShortCuesAfterAudioLoad(p, durSec));
       }
-      setPeaks(peaks);
+      setPeaks(peaks, cacheKey ?? null);
       reportWaveLoadProgress(1, "完了");
       clearWaveLoadProgress();
     },
@@ -89,7 +99,7 @@ export function useTimelineWaveDecode({ setProject }: Params) {
             isWavePeaksResolutionStale(pre.peaks, pre.durationSec) && buf.byteLength > 0;
           if (!stale) {
             reportWaveLoadProgress(0.92, "波形を反映中…");
-            applyPeaksAndDuration(pre.peaks, pre.durationSec);
+            applyPeaksAndDuration(pre.peaks, pre.durationSec, cacheKey);
             if (cacheKey) {
               await setWavePeaksCache(cacheKey, pre.peaks, pre.durationSec);
               void putCachedPeaksPayload(cacheKey, pre.peaks, pre.durationSec);
@@ -113,7 +123,7 @@ export function useTimelineWaveDecode({ setProject }: Params) {
               buf.byteLength > 0;
             if (!stale) {
               reportWaveLoadProgress(0.9, "保存済み波形を読み込み中…");
-              applyPeaksAndDuration(cached.peaks, cached.durationSec);
+              applyPeaksAndDuration(cached.peaks, cached.durationSec, cacheKey);
               void putCachedPeaksPayload(cacheKey, cached.peaks, cached.durationSec);
               return;
             }
@@ -129,7 +139,7 @@ export function useTimelineWaveDecode({ setProject }: Params) {
               buf.byteLength > 0;
             if (!stale) {
               reportWaveLoadProgress(0.9, "クラウド波形を反映中…");
-              applyPeaksAndDuration(sidecar.peaks, sidecar.durationSec);
+              applyPeaksAndDuration(sidecar.peaks, sidecar.durationSec, cacheKey);
               if (cacheKey) {
                 await setWavePeaksCache(cacheKey, sidecar.peaks, sidecar.durationSec);
                 void putCachedPeaksPayload(cacheKey, sidecar.peaks, sidecar.durationSec);
@@ -161,7 +171,7 @@ export function useTimelineWaveDecode({ setProject }: Params) {
         } finally {
           stopTick();
         }
-        applyPeaksAndDuration(peaks, durationSec);
+        applyPeaksAndDuration(peaks, durationSec, cacheKey);
         if (cacheKey) {
           await setWavePeaksCache(cacheKey, peaks, durationSec);
           void putCachedPeaksPayload(cacheKey, peaks, durationSec);
