@@ -119,9 +119,7 @@ export function WaveformStrip({
         overflowY: compactTopDock ? "hidden" : "visible",
         background: "#020617",
         position: "relative",
-        flexShrink: compactTopDock ? 1 : 0,
-        minHeight: compactTopDock ? 0 : undefined,
-        maxHeight: compactTopDock ? "100%" : undefined,
+        flexShrink: 0,
       }}
     >
       <div style={{ position: "relative", width: "100%" }}>

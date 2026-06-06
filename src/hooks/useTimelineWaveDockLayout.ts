@@ -55,13 +55,11 @@ export function resolveWaveCanvasHeightInTopDock(
   const waveStripChrome = wideWorkbench
     ? estimateWideTopDockWaveStripChromePx()
     : NARROW_WAVE_STRIP_CHROME_PX;
-  return Math.min(
-    WAVE_CANVAS_H_MAX,
-    Math.max(
-      WAVE_CANVAS_H_MIN,
-      Math.round(innerH - toolbarChrome - waveStripChrome)
-    )
-  );
+  const canvasH = Math.round(innerH - toolbarChrome - waveStripChrome);
+  const floor = wideWorkbench
+    ? WAVE_CANVAS_H_PC_WIDE_DEFAULT
+    : WAVE_CANVAS_H_MIN;
+  return Math.min(WAVE_CANVAS_H_MAX, Math.max(floor, canvasH));
 }
 
 /**
