@@ -10,8 +10,9 @@ import { WaveformLoadOverlay } from "./WaveformLoadOverlay";
 import { useWaveformLoadProgressStore } from "../store/waveformLoadProgressStore";
 import { PC_WAVE_RULER_HEIGHT_CSS } from "../lib/waveDockMetrics";
 
-/** 波形下端の再生位置線のはみ出し（CSS px） */
+/** 波形下端の再生位置線のはみ出し（CSS px）— 上部ドックではクリップを避ける */
 const PLAYHEAD_LINE_BLEED_BOTTOM_CSS = 8;
+const PLAYHEAD_LINE_BLEED_COMPACT_WIDE_PX = 0;
 
 /** PC: 波形上の秒数目盛り行（従来の 2/3） — `waveDockMetrics` と揃える */
 const PC_WAVE_RULER_HEIGHT = PC_WAVE_RULER_HEIGHT_CSS;
@@ -81,7 +82,11 @@ export function WaveformStrip({
   const rulerInteractive = duration > 0 && hasPeaks && viewMode !== "view";
   const usePcWaveRuler = !compactTopDock || wideWorkbench;
   const rulerHeight = usePcWaveRuler ? PC_WAVE_RULER_HEIGHT : MOBILE_WAVE_RULER_HEIGHT;
-  const playheadHeight = `calc(${rulerHeight} + ${waveCanvasCssH}px + ${PLAYHEAD_LINE_BLEED_BOTTOM_CSS}px)`;
+  const playheadBleedPx =
+    compactTopDock && wideWorkbench
+      ? PLAYHEAD_LINE_BLEED_COMPACT_WIDE_PX
+      : PLAYHEAD_LINE_BLEED_BOTTOM_CSS;
+  const playheadHeight = `calc(${rulerHeight} + ${waveCanvasCssH}px + ${playheadBleedPx}px)`;
   const waveLoadProgress = useWaveformLoadProgressStore((s) => s.progress);
   const showWaveLoadOverlay = !hasPeaks && waveLoadProgress != null;
   const drawWaveView = useSyncExternalStore(
@@ -114,7 +119,9 @@ export function WaveformStrip({
         overflowY: compactTopDock ? "hidden" : "visible",
         background: "#020617",
         position: "relative",
-        flexShrink: 0,
+        flexShrink: compactTopDock ? 1 : 0,
+        minHeight: compactTopDock ? 0 : undefined,
+        maxHeight: compactTopDock ? "100%" : undefined,
       }}
     >
       <div style={{ position: "relative", width: "100%" }}>

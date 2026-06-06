@@ -2,7 +2,7 @@
 export const WAVE_PEAK_BIN_COUNT = 8192;
 
 /** 1 秒あたりのピーク本数（ズームイン時の細部表示向け） */
-export const WAVE_PEAK_BINS_PER_SEC = 256;
+export const WAVE_PEAK_BINS_PER_SEC = 384;
 
 export const WAVE_PEAK_BIN_MIN = 8192;
 export const WAVE_PEAK_BIN_MAX = 32768;

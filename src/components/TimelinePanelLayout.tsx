@@ -82,7 +82,16 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
           editorMobileStack={p.editorMobileStack}
           compactDockLeading={p.compactDockLeading}
         />
-        <WaveformStrip
+        <div
+          style={{
+            flex: p.compactTopDock ? "1 1 auto" : undefined,
+            minHeight: p.compactTopDock ? 0 : undefined,
+            overflow: p.compactTopDock ? "hidden" : undefined,
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <WaveformStrip
           waveContainerRef={p.waveContainerRef}
           canvasRef={p.canvasRef}
           playheadLineOverlayRef={p.playheadLineOverlayRef}
@@ -108,6 +117,7 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
           onPlayheadLinePointerUp={p.onPlayheadLinePointerUp}
           onPlayheadLinePointerCancel={p.onPlayheadLinePointerCancel}
         />
+        </div>
         <TimelineCueList
           cuesSorted={p.cuesSorted}
           formations={p.formations}

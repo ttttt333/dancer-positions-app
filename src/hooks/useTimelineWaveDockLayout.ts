@@ -4,16 +4,24 @@ import {
   TIMELINE_BRAND_RAIL_WIDE_CSS,
 } from "../components/TimelineToolbar";
 import {
-  estimateWideTopDockWaveChromePx,
+  estimateWideTopDockToolbarChromePx,
+  estimateWideTopDockWaveStripChromePx,
+  TOP_DOCK_INNER_BOTTOM_INSET_PX,
+  TOP_DOCK_WAVE_STAGE_RESIZER_PX,
+  WAVE_CANVAS_H_PC_WIDE_DEFAULT,
 } from "../lib/waveDockMetrics";
 import { WAVE_CANVAS_H_MAX, WAVE_CANVAS_H_MIN } from "./useTimelineWaveHeightDrag";
 
 /** 波形キャンバス既定高さ（CSS px）。`useTimelineWaveHeightDrag` の最小・最大と揃える */
 const WAVE_CANVAS_H_DEFAULT = 36;
-/** 上部ドック時の既定（コンパクト） */
+/** 上部ドック時の既定（コンパクト・非ワイド） */
 const WAVE_CANVAS_H_COMPACT_DOCK = 25;
 /** スマホ縦積み: 波形の既定をさらに低く（縦・横でステージを確保） */
 const WAVE_CANVAS_H_MOBILE_STACK = 20;
+
+/** 非ワイド上部ドック: ツールバー＋波形ストリップ chrome 目安 */
+const NARROW_TOP_DOCK_TOOLBAR_CHROME_PX = 48;
+const NARROW_WAVE_STRIP_CHROME_PX = 15;
 
 type Params = {
   wideWorkbench: boolean;
@@ -24,12 +32,36 @@ type Params = {
   topDockHeightPx?: number | null;
 };
 
-/** 上部ドック内で波形キャンバス以外（ツールバー・目盛り・余白・リサイズ枠）の目安 */
-export function estimateTopDockWaveChromePx(wideWorkbench: boolean): number {
-  if (wideWorkbench) {
-    return estimateWideTopDockWaveChromePx();
-  }
-  return 48;
+/** 上部ドック外枠からタイムライン内側の高さを求める */
+export function topDockInnerHeightPx(
+  outerHeightPx: number,
+  wideWorkbench: boolean
+): number {
+  const bottomInset = wideWorkbench
+    ? TOP_DOCK_WAVE_STAGE_RESIZER_PX
+    : TOP_DOCK_INNER_BOTTOM_INSET_PX;
+  return Math.max(0, outerHeightPx - bottomInset);
+}
+
+/** 再生行を除いた波形キャンバス用の残り高さ（px） */
+export function resolveWaveCanvasHeightInTopDock(
+  outerHeightPx: number,
+  wideWorkbench: boolean
+): number {
+  const innerH = topDockInnerHeightPx(outerHeightPx, wideWorkbench);
+  const toolbarChrome = wideWorkbench
+    ? estimateWideTopDockToolbarChromePx()
+    : NARROW_TOP_DOCK_TOOLBAR_CHROME_PX;
+  const waveStripChrome = wideWorkbench
+    ? estimateWideTopDockWaveStripChromePx()
+    : NARROW_WAVE_STRIP_CHROME_PX;
+  return Math.min(
+    WAVE_CANVAS_H_MAX,
+    Math.max(
+      WAVE_CANVAS_H_MIN,
+      Math.round(innerH - toolbarChrome - waveStripChrome)
+    )
+  );
 }
 
 /**
@@ -44,6 +76,7 @@ export function useTimelineWaveDockLayout({
   const [waveCanvasCssH, setWaveCanvasCssH] = useState(() => {
     if (!compactTopDock) return WAVE_CANVAS_H_DEFAULT;
     if (editorMobileStack) return WAVE_CANVAS_H_MOBILE_STACK;
+    if (wideWorkbench) return WAVE_CANVAS_H_PC_WIDE_DEFAULT;
     return WAVE_CANVAS_H_COMPACT_DOCK;
   });
   const waveCanvasCssHRef = useRef(waveCanvasCssH);
@@ -59,18 +92,17 @@ export function useTimelineWaveDockLayout({
     [wideWorkbench, compactTopDock, editorMobileStack]
   );
 
-  /** 右列→上部ドックへ切り替えた直後など、波形高さが既定より小さいままだと帯が潰れて見えなくなるのを防ぐ */
   useEffect(() => {
-    if (!compactTopDock) return;
+    if (!compactTopDock || topDockHeightPx != null) return;
     const floor = editorMobileStack
       ? WAVE_CANVAS_H_MOBILE_STACK
       : WAVE_CANVAS_H_COMPACT_DOCK;
     setWaveCanvasCssH((h) =>
       Math.min(WAVE_CANVAS_H_MAX, Math.max(h, floor))
     );
-  }, [compactTopDock, editorMobileStack]);
+  }, [compactTopDock, editorMobileStack, topDockHeightPx]);
 
-  /** PC 上部ドック: 再生エリアの高さに合わせて波形キャンバスを伸縮（既定はスマホ同等 96px） */
+  /** 再生行は固定・波形だけドック内に収める */
   useEffect(() => {
     if (
       editorMobileStack ||
@@ -81,12 +113,9 @@ export function useTimelineWaveDockLayout({
     ) {
       return;
     }
-    const chrome = estimateTopDockWaveChromePx(wideWorkbench);
-    const next = Math.min(
-      WAVE_CANVAS_H_MAX,
-      Math.max(WAVE_CANVAS_H_MIN, Math.round(topDockHeightPx - chrome))
+    setWaveCanvasCssH(
+      resolveWaveCanvasHeightInTopDock(topDockHeightPx, wideWorkbench)
     );
-    setWaveCanvasCssH(next);
   }, [topDockHeightPx, compactTopDock, editorMobileStack, wideWorkbench]);
 
   return {

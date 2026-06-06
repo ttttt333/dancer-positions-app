@@ -14,6 +14,7 @@ import {
 import { publishWaveDrawRange } from "../lib/waveDrawRangeSync";
 import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
 import { drawWavePeaksColumns } from "../lib/drawWavePeaksColumns";
+import { WAVE_CANVAS_BITMAP_HEIGHT_SCALE } from "../lib/waveDockMetrics";
 import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
 
 export type UseWaveCanvasRendererArgs = {
@@ -410,8 +411,9 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         typeof window !== "undefined"
           ? Math.min(window.devicePixelRatio || 1, wideWorkbench ? 2 : 1.35)
           : 1;
+      const heightScale = wideWorkbench ? WAVE_CANVAS_BITMAP_HEIGHT_SCALE : 2;
       const bw = Math.max(280, Math.min(wideWorkbench ? 4096 : 3200, Math.round(cssW * dpr)));
-      const bh = Math.round(waveCanvasCssH * 2);
+      const bh = Math.round(waveCanvasCssH * heightScale);
       if (canvas.width !== bw || canvas.height !== bh) {
         canvas.width = bw;
         canvas.height = bh;

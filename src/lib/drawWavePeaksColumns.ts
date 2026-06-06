@@ -10,7 +10,7 @@ const WAVE_PEAK_HALF_HEIGHT_MAX = 0.47;
 /** 下端の切れ防止: 波形だけ下側をさらに上へ寄せる量（mm） */
 const WAVE_PEAK_BOTTOM_TRIM_MM = 3;
 /** ズーム時: 1 列あたり最低この本数のピークを当てはめる（細部が潰れないように） */
-const MIN_PEAK_BINS_PER_PX = 2;
+const MIN_PEAK_BINS_PER_PX = 3;
 
 function peaksForZoomedDraw(
   peaks: number[],
