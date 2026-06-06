@@ -56,7 +56,7 @@ export function estimateWideTopDockWaveChromePx(): number {
 }
 
 /** PC ワイド上部ドックの波形キャンバス既定高さ（px） */
-export const WAVE_CANVAS_H_PC_WIDE_DEFAULT = 100;
+export const WAVE_CANVAS_H_PC_WIDE_DEFAULT = 50;
 
 /** PC ワイド上部ドックの既定外枠高さ（px）— 再生行・目盛り・波形・下リサイザー */
 export const TOP_DOCK_HEIGHT_WIDE_PX =

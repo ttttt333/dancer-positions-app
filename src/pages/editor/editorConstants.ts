@@ -24,14 +24,20 @@ export const TOP_DOCK_HEIGHT_PX = 120;
 /** 生徒閲覧（狭い画面）の波形ドック既定高さ（px）— ズーム操作ができるよう十分な高さ */
 export const PUBLIC_VIEW_WAVE_DOCK_HEIGHT_PX = 140;
 
-export {
+import {
   TOP_DOCK_HEIGHT_WIDE_PX,
   TOP_DOCK_ROW_MIN_WIDE_PX,
   WAVE_CANVAS_H_PC_WIDE_DEFAULT,
 } from "../../lib/waveDockMetrics";
 
+export {
+  TOP_DOCK_HEIGHT_WIDE_PX,
+  TOP_DOCK_ROW_MIN_WIDE_PX,
+  WAVE_CANVAS_H_PC_WIDE_DEFAULT,
+};
+
 /** ワイド＋上部波形時の固定シェル：波形行の外枠高さのベース（px） */
-export const EDITOR_SHELL_TOP_WAVE_BASE_PX = 160;
+export const EDITOR_SHELL_TOP_WAVE_BASE_PX = TOP_DOCK_HEIGHT_WIDE_PX;
 
 /** 名簿ありで上部に「メンバーを表示」行を出すとき、ベースに足す高さ（px） */
 export const EDITOR_SHELL_TOP_WAVE_ROSTER_ROW_PX = 40;

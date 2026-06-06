@@ -6,6 +6,10 @@ import {
   TOP_DOCK_ROW_MAX_PX,
   TOP_DOCK_ROW_MIN_PX,
 } from "./editorConstants";
+import { TOP_DOCK_HEIGHT_WIDE_PX } from "../../lib/waveDockMetrics";
+
+/** 波形キャンバス半減前のワイド上部ドック既定外枠（px）— 保存レイアウト移行用 */
+const LEGACY_TOP_DOCK_HEIGHT_WIDE_PX = TOP_DOCK_HEIGHT_WIDE_PX + 50;
 
 export type StoredEditorLayout = {
   stageColumnPx: number | null;
@@ -17,6 +21,17 @@ export function clampTopDockRowPx(n: number): number {
     TOP_DOCK_ROW_MAX_PX,
     Math.max(TOP_DOCK_ROW_MIN_PX, Math.round(n))
   );
+}
+
+/** 波形半減に合わせ、旧既定付近の保存ドック高さを下げる */
+function migrateStoredTopDockRowPx(stored: number | null): number | null {
+  if (stored == null) return null;
+  if (stored >= LEGACY_TOP_DOCK_HEIGHT_WIDE_PX - 5) {
+    return clampTopDockRowPx(
+      Math.max(TOP_DOCK_HEIGHT_WIDE_PX, stored - 50)
+    );
+  }
+  return stored;
 }
 
 export function readStoredEditorLayout(): StoredEditorLayout {
@@ -43,13 +58,14 @@ export function readStoredEditorLayout(): StoredEditorLayout {
       o.stageColumnPx >= STAGE_COL_MIN_PX
         ? o.stageColumnPx
         : null;
-    const td =
+    const tdRaw =
       typeof o.topDockRowPx === "number" &&
       Number.isFinite(o.topDockRowPx) &&
       o.topDockRowPx >= TOP_DOCK_ROW_MIN_PX &&
       o.topDockRowPx <= TOP_DOCK_ROW_MAX_PX
         ? Math.round(o.topDockRowPx)
         : null;
+    const td = migrateStoredTopDockRowPx(tdRaw);
     if (!parsedCurrent && legacyRaw) {
       try {
         localStorage.setItem(EDITOR_LAYOUT_STORAGE_KEY, legacyRaw);
