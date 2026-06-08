@@ -27,6 +27,7 @@ import { modDancerColorIndex, DANCER_COLOR_PALETTE_HEX } from "../../lib/dancerC
 import { sortCuesByStart, MIN_CUE_DURATION_SEC, DEFAULT_CUE_SPAN_WITH_AUDIO_SEC } from "../../core/timelineController";
 import { dancersForLayoutPreset, transferDancerIdentitiesByOrder } from "../../lib/formationLayouts";
 import { formatMmSsFloor } from "../../lib/timeFormat";
+import { dancerMarkerDiameterAfterRosterImport } from "../../lib/projectDefaults";
 import { getViewRosterEntries } from "../../lib/viewRoster";
 import { listStagePresets, saveStagePreset } from "../../lib/stagePresets";
 import { parseMeterCmDraftToMm } from "./stageAreaSettingsDraft";
