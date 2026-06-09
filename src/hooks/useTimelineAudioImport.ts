@@ -45,6 +45,7 @@ import {
 import { waitForAudioElementReady } from "../lib/audioElementReady";
 import { resyncEditorPlaybackMedia } from "../lib/resyncPlaybackMedia";
 import { putFlowLibraryAudio } from "../lib/flowLibraryLocalAudio";
+import { persistUsablePeaksForSupabasePath } from "../lib/wavePeaksSession";
 
 type Params = {
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>;
@@ -235,6 +236,10 @@ export function useTimelineAudioImport({
                   supabaseAudioPath: up.path,
                 }
               : { cacheKey: wavePeaksCacheKeyForServerAsset(up.id) };
+
+          if (up.kind === "supabase") {
+            await persistUsablePeaksForSupabasePath(up.path);
+          }
 
           if (up.kind === "server") {
             await resolveServerAssetWavePeaks(

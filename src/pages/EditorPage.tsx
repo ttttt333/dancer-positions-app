@@ -129,6 +129,7 @@ import { useShareViewAudioLoadStore } from "../store/shareViewAudioLoadStore";
 import { playbackEngine } from "../core/playbackEngine";
 import { ensureProjectAudioOnSupabase } from "../lib/ensureProjectAudioOnSupabase";
 import { reportWaveLoadProgress } from "../lib/waveLoadProgress";
+import { persistUsablePeaksForSupabasePath } from "../lib/wavePeaksSession";
 import { setPersistedSupabaseAudio } from "../lib/timelineAudioBlobPersist";
 import { isCustomStageShapeActive } from "../lib/stageShapePaths";
 import {
@@ -477,6 +478,7 @@ export function EditorPage({
     if (blobUrl) {
       setPersistedSupabaseAudio(blobUrl, path);
     }
+    await persistUsablePeaksForSupabasePath(path);
     return next;
   }, [me, serverId, setProjectSafe]);
 

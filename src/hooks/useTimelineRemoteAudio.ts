@@ -30,6 +30,7 @@ import {
 import type { DecodePeaksOptions } from "./useTimelineWaveDecode";
 import {
   getWavePeaksCache,
+  setWavePeaksCache,
   wavePeaksCacheKeyForFlow,
   wavePeaksCacheKeyForServerAsset,
   wavePeaksCacheKeyForSupabase,
@@ -56,7 +57,13 @@ import { tryFetchServerWavePeaksReady } from "../lib/wavePeaksServerApi";
 import { useShareViewAudioLoadStore } from "../store/shareViewAudioLoadStore";
 import { restorePlaybackBlobUrl } from "../lib/restorePlaybackAudio";
 import { useWavePeaksStore } from "../store/wavePeaksStore";
-import { hasFreshPeaksForCacheKey, shouldApplyPeaksPayload } from "../lib/wavePeaksSession";
+import {
+  hasFreshPeaksForCacheKey,
+  hasUsablePeaksInStore,
+  shouldApplyPeaksPayload,
+} from "../lib/wavePeaksSession";
+import { isWavePeaksResolutionStale } from "../lib/computeWavePeaksFromChannelData";
+import { isPlaceholderLikeWavePeaks } from "../lib/placeholderWavePeaks";
 
 type DecodePeaksFn = (
   buf: ArrayBuffer,
@@ -154,6 +161,32 @@ function markPlaybackReadyForWaveFetch(
 
 function hasWavePeaksInStore(): boolean {
   return (useWavePeaksStore.getState().peaks?.length ?? 0) > 0;
+}
+
+/** 表示中の実波形を新しいキャッシュキーへ紐づけ（上書き保存後の再取得スキップ用） */
+async function rebindUsablePeaksToCacheKey(cacheKey: string): Promise<boolean> {
+  if (!hasUsablePeaksInStore()) return false;
+  const { peaks, peaksCacheKey } = useWavePeaksStore.getState();
+  if (!peaks?.length) return false;
+  if (peaksCacheKey === cacheKey) return true;
+  const ui = usePlaybackUiStore.getState();
+  const durationSec =
+    ui.trustedAudioDurationSec ?? ui.durationSec ?? null;
+  if (durationSec == null || !(durationSec > 0)) return false;
+  useWavePeaksStore.getState().setPeaks(peaks, cacheKey);
+  await setWavePeaksCache(cacheKey, peaks, durationSec);
+  void putCachedPeaksPayload(cacheKey, peaks, durationSec);
+  return true;
+}
+
+function sidecarPeaksAreUsable(
+  sidecar: { peaks: number[]; durationSec: number } | null | undefined
+): boolean {
+  if (!sidecar?.peaks.length) return false;
+  return (
+    !isPlaceholderLikeWavePeaks(sidecar.peaks) &&
+    !isWavePeaksResolutionStale(sidecar.peaks, sidecar.durationSec)
+  );
 }
 
 /** キャッシュ済みピークを precomputed 経由で反映（空バッファ decode の失敗を避ける） */
@@ -495,7 +528,10 @@ export function useTimelineRemoteAudio({
             clearPlaybackTrustedDurationSec,
             { revokePrevious: true }
           );
-          if (hasFreshPeaksForCacheKey(cacheKey)) {
+          if (
+            hasFreshPeaksForCacheKey(cacheKey) ||
+            (await rebindUsablePeaksToCacheKey(cacheKey))
+          ) {
             markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
             return;
           }
@@ -562,7 +598,10 @@ export function useTimelineRemoteAudio({
               { revokePrevious: true }
             );
           }
-          if (hasFreshPeaksForCacheKey(cacheKey)) {
+          if (
+            hasFreshPeaksForCacheKey(cacheKey) ||
+            (await rebindUsablePeaksToCacheKey(cacheKey))
+          ) {
             markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
             return;
           }
@@ -588,20 +627,22 @@ export function useTimelineRemoteAudio({
         );
 
         const sidecar = await sidecarPromise;
-        if (sidecar?.peaks.length && !cancelled) {
+        let sidecarApplied = false;
+        if (sidecarPeaksAreUsable(sidecar) && !cancelled) {
           void putCachedPeaksPayload(
             cacheKey,
-            sidecar.peaks,
-            sidecar.durationSec
+            sidecar!.peaks,
+            sidecar!.durationSec
           );
           await decodePeaksRef.current(new ArrayBuffer(0), {
             cacheKey,
             supabaseAudioPath: effectivePath,
             precomputed: {
-              peaks: sidecar.peaks,
-              durationSec: sidecar.durationSec,
+              peaks: sidecar!.peaks,
+              durationSec: sidecar!.durationSec,
             },
           });
+          sidecarApplied = hasWavePeaksInStore();
         }
 
         const audioPromise = supabaseDownloadProjectAudioWithCache(
@@ -629,7 +670,12 @@ export function useTimelineRemoteAudio({
           playbackEngine.setMediaSourceUrl(blobUrl, { force: true });
         }
 
-        if (sidecar?.peaks.length) {
+        if (sidecarApplied) {
+          markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
+          return;
+        }
+
+        if (await rebindUsablePeaksToCacheKey(cacheKey)) {
           markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
           return;
         }
