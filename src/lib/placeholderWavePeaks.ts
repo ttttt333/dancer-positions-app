@@ -10,12 +10,14 @@ export function createPlaceholderWavePeaks(durationSec?: number | null): number[
   return peaks;
 }
 
-/** 正規化済みピークの最大振幅が極端に小さい（プレースホルダー波形） */
+/** `createPlaceholderWavePeaks` が生成する細い横棒パターンか */
 export function isPlaceholderLikeWavePeaks(peaks: number[]): boolean {
   if (peaks.length < 32) return false;
-  let max = 0;
+  let min = Infinity;
+  let max = -Infinity;
   for (const v of peaks) {
+    if (v < min) min = v;
     if (v > max) max = v;
   }
-  return max < 0.35;
+  return min >= 0.1 && max <= 0.22;
 }

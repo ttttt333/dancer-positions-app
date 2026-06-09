@@ -21,13 +21,29 @@ import {
   runIndeterminateDecodeProgress,
 } from "../lib/waveLoadProgress";
 import type { WavePeaksPayload } from "../lib/wavePeaksTypes";
-import { shouldApplyPeaksPayload } from "../lib/wavePeaksSession";
+import { hasUsablePeaksInStore, shouldApplyPeaksPayload } from "../lib/wavePeaksSession";
+import { playbackEngine } from "../core/playbackEngine";
 
 type Params = {
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>;
 };
 
 const CLIENT_DECODE_TIMEOUT_MS = 45_000;
+
+/** 空バッファ経路では再生中 blob から音声を読み直す */
+async function resolveAudioBufferForDecode(buf: ArrayBuffer): Promise<ArrayBuffer> {
+  if (buf.byteLength > 0) return buf;
+  const url = playbackEngine.getMediaSourceUrl();
+  if (!url) return buf;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return buf;
+    const fetched = await res.arrayBuffer();
+    return fetched.byteLength > 0 ? fetched : buf;
+  } catch {
+    return buf;
+  }
+}
 
 function withDecodeTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -155,17 +171,22 @@ export function useTimelineWaveDecode({ setProject }: Params) {
           }
         }
 
-        usePlaybackUiStore.getState().setTrustedAudioDurationSec(null);
-        if (!buf.byteLength) {
+        const audioBuf = await resolveAudioBufferForDecode(buf);
+        if (!audioBuf.byteLength) {
+          if (hasUsablePeaksInStore()) {
+            clearWaveLoadProgress();
+            return;
+          }
           throw new Error("音声データが空です。音源を再度追加してください。");
         }
+        usePlaybackUiStore.getState().setTrustedAudioDurationSec(null);
         reportWaveLoadProgress(0.92, "波形を端末で解析中…");
         const stopTick = runIndeterminateDecodeProgress(0.92, 0.99, "波形を端末で解析中…");
         let peaks: number[];
         let durationSec: number;
         try {
           ({ peaks, durationSec } = await withDecodeTimeout(
-            decodeWavePeaksFromBuffer(buf),
+            decodeWavePeaksFromBuffer(audioBuf),
             CLIENT_DECODE_TIMEOUT_MS
           ));
         } catch (decodeErr) {

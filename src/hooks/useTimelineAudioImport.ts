@@ -259,7 +259,8 @@ export function useTimelineAudioImport({
                 precomputed: payloadToPeaksResult(payload),
               });
             } catch (err) {
-              console.warn("[audioImport] server peaks failed, keeping quick waveform:", err);
+              console.warn("[audioImport] server peaks failed, decoding locally:", err);
+              await decodePeaksFromBuffer(buf, decodeOpts);
             }
           }
           return;

@@ -103,7 +103,15 @@ export async function generateWaveformPeaksFromArrayBuffer(
       const abs = Math.abs(channelData[start + j] ?? 0);
       if (abs > max) max = abs;
     }
-    peaks.push(Math.round(max * 1000) / 1000);
+    peaks.push(max);
+  }
+
+  let peakMax = 1e-6;
+  for (const p of peaks) {
+    if (p > peakMax) peakMax = p;
+  }
+  for (let i = 0; i < peaks.length; i++) {
+    peaks[i] = Math.round((peaks[i]! / peakMax) * 1000) / 1000;
   }
 
   return {
