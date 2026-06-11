@@ -327,6 +327,7 @@ export function ParsePositionFromPhotoDialog({
                 color: "#fecaca",
                 fontSize: 12,
                 lineHeight: 1.45,
+                whiteSpace: "pre-line",
               }}
             >
               {error}

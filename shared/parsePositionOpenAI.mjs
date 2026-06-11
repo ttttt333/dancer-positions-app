@@ -20,9 +20,15 @@ const SYSTEM_PROMPT =
  * @param {string} imageBase64 JPEG/PNG 等の Base64（data: プレフィックスなし）
  * @param {{ mimeType?: string }} [opts]
  */
+function resolveOpenAIApiKey() {
+  const raw = process.env.OPENAI_API_KEY ?? "";
+  const trimmed = String(raw).trim().replace(/^["']|["']$/g, "");
+  return trimmed || null;
+}
+
 export async function parsePositionImageFromBase64(imageBase64, opts = {}) {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey?.trim()) {
+  const apiKey = resolveOpenAIApiKey();
+  if (!apiKey) {
     throw new Error("OPENAI_API_KEY is not configured");
   }
 
@@ -31,7 +37,7 @@ export async function parsePositionImageFromBase64(imageBase64, opts = {}) {
       ? opts.mimeType
       : "image/jpeg";
 
-  const openai = new OpenAI({ apiKey: apiKey.trim() });
+  const openai = new OpenAI({ apiKey });
   const completion = await openai.chat.completions.create({
     model: "gpt-4o",
     messages: [

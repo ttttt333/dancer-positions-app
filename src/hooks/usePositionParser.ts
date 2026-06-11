@@ -3,6 +3,7 @@ import {
   isParseableImageFile,
   prepareImageFileForParse,
 } from "../lib/prepareImageForParse";
+import { formatParsePositionError } from "../lib/parsePositionErrors";
 import type { ParsePositionResponse } from "../lib/parsePositionTypes";
 
 function apiBaseUrl(): string {
@@ -64,9 +65,9 @@ export function usePositionParser() {
 
         return data as ParsePositionResponse;
       } catch (e) {
-        const msg =
+        const raw =
           e instanceof Error ? e.message : "画像の解析に失敗しました";
-        setError(msg);
+        setError(formatParsePositionError(raw));
         return null;
       } finally {
         setLoading(false);
