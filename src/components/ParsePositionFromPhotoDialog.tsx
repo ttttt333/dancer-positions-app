@@ -10,7 +10,7 @@ import {
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { collectMemberNameHints } from "../lib/collectMemberNameHints";
 import { applyParsedPositionsAsCue } from "../lib/applyParsedPositionsAsCue";
-import type { ParsedPosition } from "../lib/parsePositionTypes";
+import type { ParsedLine, ParsedPosition } from "../lib/parsePositionTypes";
 import { usePositionParser } from "../hooks/usePositionParser";
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
 import { shell } from "../theme/choreoShell";
@@ -98,6 +98,8 @@ export function ParsePositionFromPhotoDialog({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { loading, error, clearError, parseImageFile } = usePositionParser();
   const [preview, setPreview] = useState<ParsedPosition[] | null>(null);
+  const [previewLines, setPreviewLines] = useState<ParsedLine[] | null>(null);
+  const [countMismatch, setCountMismatch] = useState(false);
   const [formationName, setFormationName] = useState("写真から取込");
   const [sourceFileName, setSourceFileName] = useState<string | null>(null);
   const memberNameHints = useMemo(
@@ -107,6 +109,8 @@ export function ParsePositionFromPhotoDialog({
 
   const resetState = useCallback(() => {
     setPreview(null);
+    setPreviewLines(null);
+    setCountMismatch(false);
     setFormationName("写真から取込");
     setSourceFileName(null);
     clearError();
@@ -131,11 +135,19 @@ export function ParsePositionFromPhotoDialog({
     });
     if (result?.positions.length) {
       setPreview(result.positions);
+      setPreviewLines(result.lines ?? null);
+      setCountMismatch(result.countMismatch ?? false);
     }
   };
 
   const handleConfirm = () => {
     if (!preview?.length) return;
+    if (countMismatch) {
+      const ok = window.confirm(
+        "画像右側の人数と、読み取った名前の数が一致しない行があります。\nこのままキューに追加しますか？"
+      );
+      if (!ok) return;
+    }
     if (project.cues.length >= 100) {
       window.alert("キューは最大 100 件までです。");
       return;
@@ -260,6 +272,58 @@ export function ParsePositionFromPhotoDialog({
                 キュー開始: {formatSec(currentTimeSec)} · {preview.length} 人
               </p>
               <PositionPreviewThumb positions={preview} />
+              {previewLines && previewLines.length > 0 ? (
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: "10px 12px",
+                    borderRadius: 8,
+                    border: "1px solid #334155",
+                    background: "#0a0f1e",
+                    fontSize: 12,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontWeight: 600,
+                      color: shell.textMuted,
+                      marginBottom: 8,
+                    }}
+                  >
+                    行ごとの名寄せ（右端の人数）
+                  </div>
+                  {previewLines.map((line, rowIdx) => {
+                    const mismatch = line.names.length !== line.count;
+                    return (
+                      <div
+                        key={`line-${rowIdx}`}
+                        style={{
+                          marginBottom: rowIdx < previewLines.length - 1 ? 8 : 0,
+                          color: mismatch ? "#fbbf24" : shell.text,
+                          lineHeight: 1.45,
+                        }}
+                      >
+                        <span style={{ color: "#94a3b8" }}>行{rowIdx + 1}</span>
+                        {" · "}
+                        <strong>{line.count}人</strong>
+                        {mismatch ? (
+                          <span style={{ color: "#f87171" }}>
+                            {" "}
+                            （読取 {line.names.length}人）
+                          </span>
+                        ) : null}
+                        {" → "}
+                        {line.names.join("、") || "—"}
+                      </div>
+                    );
+                  })}
+                  {countMismatch ? (
+                    <p style={{ margin: "8px 0 0", fontSize: 11, color: "#fbbf24" }}>
+                      人数と名前の数が一致しない行があります。確定前に内容を確認してください。
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
               <label
                 style={{
                   display: "block",

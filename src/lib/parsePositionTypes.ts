@@ -7,6 +7,16 @@ export type ParsedPosition = {
   confidence?: "high" | "low";
 };
 
+/** 手書きメモの行（右端数字 = count） */
+export type ParsedLine = {
+  count: number;
+  names: string[];
+};
+
 export type ParsePositionResponse = {
   positions: ParsedPosition[];
+  /** 行ごとの名寄せ結果（手書きメモ向け） */
+  lines?: ParsedLine[];
+  /** 各行の names 数と count が一致しない */
+  countMismatch?: boolean;
 };

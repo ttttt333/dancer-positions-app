@@ -4,6 +4,7 @@ import {
   prepareImageFileForParse,
 } from "../lib/prepareImageForParse";
 import { formatParsePositionError } from "../lib/parsePositionErrors";
+import { refinePositionsWithRoster } from "../lib/matchParsedNamesToRoster";
 import type { ParsePositionResponse } from "../lib/parsePositionTypes";
 
 function apiBaseUrl(): string {
@@ -69,7 +70,14 @@ export function usePositionParser() {
           throw new Error("解析結果の形式が不正です");
         }
 
-        return data as ParsePositionResponse;
+        const parsed = data as ParsePositionResponse;
+        if (options?.memberNameHints?.length) {
+          parsed.positions = refinePositionsWithRoster(
+            parsed.positions,
+            options.memberNameHints
+          );
+        }
+        return parsed;
       } catch (e) {
         const raw =
           e instanceof Error ? e.message : "画像の解析に失敗しました";
