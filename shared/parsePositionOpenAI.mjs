@@ -10,7 +10,8 @@ function buildSystemPrompt(memberNameHints) {
       ? `\n【名簿リスト — 名前は必ずこの中から最も近いものを選ぶ。名簿にない新しい名前を作らない】\n[${roster.join(", ")}]\n`
       : "";
 
-  return `あなたはプロのダンス振付師です。手書きメモ・デジタル立ち位置図を解析します。
+  return `あなたはダンス公演の舞台配置図（フォーメーション図）をデジタル化する専門アシスタントです。
+手書きメモ・方眼紙・デジタル立ち位置図の文字とマーカーを読み取ります。これは芸術公演の制作資料です。
 ${rosterBlock}
 解析手順（この順で内部的に考えてから JSON を出力）:
 1. 画像右端や行の横に書かれた「列の人数」（例: 4, 8, 7）を先にすべて読み取る
@@ -251,16 +252,44 @@ function emptyResponseError(choice) {
   return new Error("Empty response from vision model");
 }
 
+function buildFallbackSystemPrompt(memberNameHints) {
+  const roster = Array.isArray(memberNameHints)
+    ? memberNameHints.map((n) => String(n).trim()).filter(Boolean).slice(0, 80)
+    : [];
+  const rosterLine =
+    roster.length > 0
+      ? `\nCandidate member names: ${roster.join(", ")}`
+      : "";
+  return `You transcribe a dance stage formation diagram for choreography software.
+Read handwritten or printed labels and marker positions. Return JSON only.${rosterLine}
+Format: { "lines": [{ "count": 4, "names": ["A","B"] }], "positions": [{ "name": "A", "x": 50, "y": 30 }] }`;
+}
+
+function buildFallbackUserPrompt() {
+  return "Transcribe this dance formation diagram. Return JSON with lines and/or positions.";
+}
+
 async function callVisionModel(openai, { imageUrl, memberNameHints, attempt }) {
   const imageDetail = attempt === 1 ? "high" : "auto";
+  const useFallback = attempt >= 2;
   return openai.chat.completions.create({
     model: "gpt-4o",
     messages: [
-      { role: "system", content: buildSystemPrompt(memberNameHints) },
+      {
+        role: "system",
+        content: useFallback
+          ? buildFallbackSystemPrompt(memberNameHints)
+          : buildSystemPrompt(memberNameHints),
+      },
       {
         role: "user",
         content: [
-          { type: "text", text: buildUserPrompt(memberNameHints) },
+          {
+            type: "text",
+            text: useFallback
+              ? buildFallbackUserPrompt()
+              : buildUserPrompt(memberNameHints),
+          },
           {
             type: "image_url",
             image_url: { url: imageUrl, detail: imageDetail },
@@ -373,7 +402,7 @@ export async function parsePositionImageFromBase64(imageBase64, opts = {}) {
   });
 
   let lastError = null;
-  for (let attempt = 1; attempt <= 2; attempt += 1) {
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
     logParseRequestDebug({
       mime,
       base64Len: clean.length,

@@ -10,10 +10,16 @@ import {
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { applyParsedPositionsAsCue } from "../lib/applyParsedPositionsAsCue";
 import {
+  isNumericPlaceholderRoster,
+  mergeNameHints,
+} from "../lib/extractRosterNameHints";
+import { parseRosterHintsFromFile } from "../lib/parseRosterHintsFromFile";
+import {
   allRosterMemberIds,
   getRosterHintGroups,
   labelsFromSelectedIds,
 } from "../lib/rosterHintGroups";
+import { ROSTER_FILE_ACCEPT } from "../lib/rosterFileImport";
 import type {
   CountMismatch,
   ParsedLine,
@@ -47,6 +53,9 @@ const overlay: CSSProperties = {
   justifyContent: "center",
   padding: "max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom))",
 };
+
+const ROSTER_HINT_ACCEPT =
+  `${ROSTER_FILE_ACCEPT}image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif`;
 
 const dialog: CSSProperties = {
   width: "min(520px, calc(100vw - 32px))",
@@ -107,31 +116,73 @@ export function ParsePositionFromPhotoDialog({
   onCueCreated,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const rosterFileInputRef = useRef<HTMLInputElement>(null);
   const { loading, error, clearError, parseImageFiles } = usePositionParser();
   const [preview, setPreview] = useState<ParsedPosition[] | null>(null);
   const [previewLines, setPreviewLines] = useState<ParsedLine[] | null>(null);
   const [countMismatches, setCountMismatches] = useState<CountMismatch[]>([]);
   const [formationName, setFormationName] = useState("写真から取込");
   const [sourceFileNames, setSourceFileNames] = useState<string[]>([]);
-  const [useRosterHints, setUseRosterHints] = useState(true);
+  const [useProjectRosterHints, setUseProjectRosterHints] = useState(true);
+  const [useUploadedRosterHints, setUseUploadedRosterHints] = useState(true);
   const [selectedRosterIds, setSelectedRosterIds] = useState<Set<string>>(
     () => new Set()
   );
+  const [uploadedRosterNames, setUploadedRosterNames] = useState<string[]>([]);
+  const [selectedUploadedNames, setSelectedUploadedNames] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [uploadedRosterSource, setUploadedRosterSource] = useState<string | null>(
+    null
+  );
+  const [uploadedRosterNotice, setUploadedRosterNotice] = useState<string | null>(
+    null
+  );
+  const [rosterUploadLoading, setRosterUploadLoading] = useState(false);
+  const [rosterUploadError, setRosterUploadError] = useState<string | null>(null);
   const [parseProgress, setParseProgress] = useState<ParseImageProgress | null>(
     null
   );
-  const [rosterExpanded, setRosterExpanded] = useState(true);
+  const [rosterExpanded, setRosterExpanded] = useState(false);
+  const [uploadedRosterExpanded, setUploadedRosterExpanded] = useState(true);
 
   const rosterGroups = useMemo(
     () => getRosterHintGroups(project),
     [project]
   );
-  const hasRoster = rosterGroups.length > 0;
+  const hasProjectRoster = rosterGroups.length > 0;
+  const allProjectLabels = useMemo(
+    () => labelsFromSelectedIds(rosterGroups, new Set(allRosterMemberIds(rosterGroups))),
+    [rosterGroups]
+  );
+  const projectRosterIsNumeric = isNumericPlaceholderRoster(allProjectLabels);
+  const hasUploadedRoster = uploadedRosterNames.length > 0;
+  const busy = loading || rosterUploadLoading;
 
-  const memberNameHints = useMemo(() => {
-    if (!useRosterHints || !hasRoster) return [];
+  const projectNameHints = useMemo(() => {
+    if (!useProjectRosterHints || !hasProjectRoster) return [];
     return labelsFromSelectedIds(rosterGroups, selectedRosterIds);
-  }, [useRosterHints, hasRoster, rosterGroups, selectedRosterIds]);
+  }, [useProjectRosterHints, hasProjectRoster, rosterGroups, selectedRosterIds]);
+
+  const uploadedNameHints = useMemo(() => {
+    if (!useUploadedRosterHints || !hasUploadedRoster) return [];
+    return uploadedRosterNames.filter((name) => selectedUploadedNames.has(name));
+  }, [
+    useUploadedRosterHints,
+    hasUploadedRoster,
+    uploadedRosterNames,
+    selectedUploadedNames,
+  ]);
+
+  const memberNameHints = useMemo(
+    () => mergeNameHints(projectNameHints, uploadedNameHints),
+    [projectNameHints, uploadedNameHints]
+  );
+
+  const hintsEnabled =
+    (useProjectRosterHints && hasProjectRoster) ||
+    (useUploadedRosterHints && hasUploadedRoster);
+  const hintsReady = !hintsEnabled || memberNameHints.length > 0;
 
   const resetState = useCallback(() => {
     setPreview(null);
@@ -140,11 +191,19 @@ export function ParsePositionFromPhotoDialog({
     setFormationName("写真から取込");
     setSourceFileNames([]);
     setParseProgress(null);
-    setUseRosterHints(true);
-    setRosterExpanded(true);
+    setUploadedRosterNames([]);
+    setSelectedUploadedNames(new Set());
+    setUploadedRosterSource(null);
+    setUploadedRosterNotice(null);
+    setRosterUploadLoading(false);
+    setRosterUploadError(null);
+    setUseUploadedRosterHints(true);
+    setUploadedRosterExpanded(true);
+    setUseProjectRosterHints(!projectRosterIsNumeric);
+    setRosterExpanded(projectRosterIsNumeric);
     setSelectedRosterIds(new Set(allRosterMemberIds(rosterGroups)));
     clearError();
-  }, [clearError, rosterGroups]);
+  }, [clearError, rosterGroups, projectRosterIsNumeric]);
 
   useEffect(() => {
     if (!open) resetState();
@@ -167,8 +226,57 @@ export function ParsePositionFromPhotoDialog({
     setSelectedRosterIds(new Set());
   };
 
+  const selectAllUploaded = () => {
+    setSelectedUploadedNames(new Set(uploadedRosterNames));
+  };
+
+  const clearAllUploaded = () => {
+    setSelectedUploadedNames(new Set());
+  };
+
+  const toggleUploadedName = (name: string) => {
+    setSelectedUploadedNames((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
+  const handleRosterUploadClick = () => {
+    if (busy) return;
+    rosterFileInputRef.current?.click();
+  };
+
+  const handleRosterFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    setRosterUploadLoading(true);
+    setRosterUploadError(null);
+    clearError();
+    try {
+      const result = await parseRosterHintsFromFile(file);
+      setUploadedRosterNames(result.names);
+      setSelectedUploadedNames(new Set(result.names));
+      setUploadedRosterSource(result.sourceLabel);
+      setUploadedRosterNotice(result.notice ?? null);
+      setUseUploadedRosterHints(true);
+      setUploadedRosterExpanded(true);
+      if (projectRosterIsNumeric) {
+        setUseProjectRosterHints(false);
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "名簿の読み込みに失敗しました";
+      setRosterUploadError(msg);
+    } finally {
+      setRosterUploadLoading(false);
+    }
+  };
+
   const handlePickClick = () => {
-    if (loading) return;
+    if (busy) return;
     fileInputRef.current?.click();
   };
 
@@ -240,7 +348,7 @@ export function ParsePositionFromPhotoDialog({
       aria-labelledby="parse-position-photo-title"
       style={overlay}
       onClick={(e) => {
-        if (e.target === e.currentTarget && !loading) onClose();
+        if (e.target === e.currentTarget && !busy) onClose();
       }}
     >
       <div style={dialog} onClick={(e) => e.stopPropagation()}>
@@ -262,14 +370,14 @@ export function ParsePositionFromPhotoDialog({
           <button
             type="button"
             aria-label="閉じる"
-            disabled={loading}
+            disabled={busy}
             onClick={onClose}
             style={{
               background: "none",
               border: "none",
               color: shell.textMuted,
               fontSize: 20,
-              cursor: loading ? "not-allowed" : "pointer",
+              cursor: busy ? "not-allowed" : "pointer",
             }}
           >
             ×
@@ -280,11 +388,190 @@ export function ParsePositionFromPhotoDialog({
           {!preview ? (
             <>
               <p style={{ margin: "0 0 12px", fontSize: 13, color: shell.textMuted, lineHeight: 1.5 }}>
-                立ち位置図や手書き名簿の写真を 1 枚または複数枚選べます（例: 名簿メモ＋デジタル図）。
-                AI が名前と座標（0〜100%）を読み取り、複数枚の結果は統合します。
+                まず名簿（ファイルまたは写真）をアップロードすると、その名前が立ち位置画像の中にあると予測して読み取ります。
+                立ち位置図は 1 枚または複数枚選べます（例: 手書きメモ＋デジタル図）。
               </p>
 
-              {hasRoster ? (
+              <div
+                style={{
+                  marginBottom: 12,
+                  border: `1px solid ${shell.border}`,
+                  borderRadius: 10,
+                  overflow: "hidden",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setUploadedRosterExpanded((v) => !v)}
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "10px 12px",
+                    background: "#0f172a",
+                    border: "none",
+                    color: shell.text,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
+                >
+                  <span>
+                    名簿をアップロード
+                    {hasUploadedRoster
+                      ? `（${uploadedNameHints.length}/${uploadedRosterNames.length} 名）`
+                      : ""}
+                  </span>
+                  <span style={{ color: shell.textMuted, fontSize: 11 }}>
+                    {uploadedRosterExpanded ? "▲" : "▼"}
+                  </span>
+                </button>
+                {uploadedRosterExpanded ? (
+                  <div style={{ padding: "8px 12px 10px" }}>
+                    <p
+                      style={{
+                        margin: "0 0 8px",
+                        fontSize: 11,
+                        color: shell.textMuted,
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      CSV / Excel / PDF または名簿の写真を選ぶと、メンバー名を抽出して立ち位置の読み取りヒントに使います。
+                    </p>
+                    <input
+                      ref={rosterFileInputRef}
+                      type="file"
+                      accept={ROSTER_HINT_ACCEPT}
+                      style={{ display: "none" }}
+                      onChange={(e) => void handleRosterFileChange(e)}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleRosterUploadClick}
+                      disabled={busy || project.viewMode === "view"}
+                      style={{
+                        ...btnSecondary,
+                        width: "100%",
+                        opacity: rosterUploadLoading ? 0.7 : 1,
+                        cursor: rosterUploadLoading ? "wait" : "pointer",
+                      }}
+                    >
+                      {rosterUploadLoading
+                        ? "名簿を読み取り中…"
+                        : hasUploadedRoster
+                          ? "名簿を差し替える"
+                          : "名簿ファイル・写真を選ぶ"}
+                    </button>
+                    {uploadedRosterSource ? (
+                      <p
+                        style={{
+                          margin: "8px 0 0",
+                          fontSize: 11,
+                          color: shell.textMuted,
+                        }}
+                      >
+                        読み込み元: {uploadedRosterSource}
+                      </p>
+                    ) : null}
+                    {uploadedRosterNotice ? (
+                      <p
+                        style={{
+                          margin: "6px 0 0",
+                          fontSize: 11,
+                          color: "#fbbf24",
+                          lineHeight: 1.45,
+                        }}
+                      >
+                        {uploadedRosterNotice}
+                      </p>
+                    ) : null}
+                    {hasUploadedRoster ? (
+                      <>
+                        <label
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            fontSize: 12,
+                            color: shell.text,
+                            margin: "10px 0 8px",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={useUploadedRosterHints}
+                            onChange={(e) => setUseUploadedRosterHints(e.target.checked)}
+                          />
+                          アップロード名簿をヒントとして使う
+                        </label>
+                        {useUploadedRosterHints ? (
+                          <>
+                            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                              <button
+                                type="button"
+                                onClick={selectAllUploaded}
+                                style={{
+                                  ...btnSecondary,
+                                  padding: "4px 10px",
+                                  fontSize: 11,
+                                }}
+                              >
+                                全選択
+                              </button>
+                              <button
+                                type="button"
+                                onClick={clearAllUploaded}
+                                style={{
+                                  ...btnSecondary,
+                                  padding: "4px 10px",
+                                  fontSize: 11,
+                                }}
+                              >
+                                全解除
+                              </button>
+                            </div>
+                            <div
+                              style={{
+                                maxHeight: 120,
+                                overflow: "auto",
+                                display: "flex",
+                                flexWrap: "wrap",
+                                gap: "4px 10px",
+                              }}
+                            >
+                              {uploadedRosterNames.map((name) => (
+                                <label
+                                  key={name}
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    fontSize: 12,
+                                    color: shell.textMuted,
+                                    cursor: "pointer",
+                                  }}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedUploadedNames.has(name)}
+                                    onChange={() => toggleUploadedName(name)}
+                                  />
+                                  {name}
+                                </label>
+                              ))}
+                            </div>
+                          </>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+
+              {hasProjectRoster ? (
                 <div
                   style={{
                     marginBottom: 12,
@@ -311,7 +598,7 @@ export function ParsePositionFromPhotoDialog({
                       textAlign: "left",
                     }}
                   >
-                    <span>名簿ヒント（{memberNameHints.length} 名選択中）</span>
+                    <span>プロジェクト名簿（{projectNameHints.length} 名選択中）</span>
                     <span style={{ color: shell.textMuted, fontSize: 11 }}>
                       {rosterExpanded ? "▲" : "▼"}
                     </span>
@@ -331,12 +618,24 @@ export function ParsePositionFromPhotoDialog({
                       >
                         <input
                           type="checkbox"
-                          checked={useRosterHints}
-                          onChange={(e) => setUseRosterHints(e.target.checked)}
+                          checked={useProjectRosterHints}
+                          onChange={(e) => setUseProjectRosterHints(e.target.checked)}
                         />
-                        名簿をヒントとして使う
+                        プロジェクト名簿をヒントとして使う
                       </label>
-                      {useRosterHints ? (
+                      {projectRosterIsNumeric ? (
+                        <p
+                          style={{
+                            margin: "0 0 8px",
+                            fontSize: 11,
+                            color: "#fbbf24",
+                            lineHeight: 1.45,
+                          }}
+                        >
+                          プロジェクト名簿が番号のみです。本名は上の「名簿をアップロード」から読み込んでください。
+                        </p>
+                      ) : null}
+                      {useProjectRosterHints ? (
                         <>
                           <div
                             style={{
@@ -451,11 +750,7 @@ export function ParsePositionFromPhotoDialog({
               <button
                 type="button"
                 onClick={handlePickClick}
-                disabled={
-                  loading ||
-                  project.viewMode === "view" ||
-                  (useRosterHints && hasRoster && memberNameHints.length === 0)
-                }
+                disabled={busy || project.viewMode === "view" || !hintsReady}
                 style={{
                   ...btnAccent,
                   width: "100%",
@@ -465,7 +760,7 @@ export function ParsePositionFromPhotoDialog({
               >
                 {loading ? "画像を解析中…" : "画像を選ぶ（複数可）"}
               </button>
-              {useRosterHints && hasRoster && memberNameHints.length === 0 ? (
+              {hintsEnabled && !hintsReady ? (
                 <p
                   style={{
                     margin: "8px 0 0",
@@ -473,7 +768,19 @@ export function ParsePositionFromPhotoDialog({
                     color: "#fbbf24",
                   }}
                 >
-                  名簿ヒントを使う場合は、少なくとも 1 名を選択してください。
+                  名簿ヒントを使う場合は、名簿をアップロードするか、少なくとも 1 名を選択してください。
+                </p>
+              ) : null}
+              {memberNameHints.length > 0 ? (
+                <p
+                  style={{
+                    margin: "8px 0 0",
+                    fontSize: 11,
+                    color: "#93c5fd",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  解析ヒント: {memberNameHints.length} 名（画像内の文字をこの名前に寄せて読み取ります）
                 </p>
               ) : null}
               {loading ? (
@@ -624,7 +931,7 @@ export function ParsePositionFromPhotoDialog({
             </>
           )}
 
-          {error ? (
+          {error || rosterUploadError ? (
             <p
               role="alert"
               style={{
@@ -639,7 +946,7 @@ export function ParsePositionFromPhotoDialog({
                 whiteSpace: "pre-line",
               }}
             >
-              {error}
+              {error ?? rosterUploadError}
             </p>
           ) : null}
         </div>
@@ -658,7 +965,7 @@ export function ParsePositionFromPhotoDialog({
               <button
                 type="button"
                 style={btnSecondary}
-                disabled={loading}
+                disabled={busy}
                 onClick={() => {
                   resetState();
                 }}
@@ -668,14 +975,14 @@ export function ParsePositionFromPhotoDialog({
               <button
                 type="button"
                 style={btnAccent}
-                disabled={loading}
+                disabled={busy}
                 onClick={handleConfirm}
               >
                 確定してキューに追加
               </button>
             </>
           ) : (
-            <button type="button" style={btnSecondary} disabled={loading} onClick={onClose}>
+            <button type="button" style={btnSecondary} disabled={busy} onClick={onClose}>
               キャンセル
             </button>
           )}

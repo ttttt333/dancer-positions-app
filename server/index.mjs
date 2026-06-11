@@ -22,6 +22,7 @@ import {
 } from "@y/websocket-server/utils";
 import { applyProjectJsonToDoc } from "./yjsJson.mjs";
 import { handleParsePositionRoute } from "./parsePositionRoute.mjs";
+import { handleParseRosterNamesRoute } from "./parseRosterNamesRoute.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const JWT_SECRET = process.env.JWT_SECRET || "dev-only-change-in-production";
@@ -711,6 +712,7 @@ app.post(
 );
 
 app.post("/api/parse-position", handleParsePositionRoute);
+app.post("/api/parse-roster-names", handleParseRosterNamesRoute);
 
 app.post(
   "/api/audio/upload",
