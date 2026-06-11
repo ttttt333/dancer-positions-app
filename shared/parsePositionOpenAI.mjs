@@ -152,10 +152,10 @@ function linesToPositions(lines) {
   if (valid.length === 0) return [];
 
   const rowCount = valid.length;
+  const maxCols = Math.max(...valid.map((l) => l.names.length), 1);
   const out = [];
   valid.forEach((line, rowIdx) => {
     const names = line.names;
-    const count = names.length;
     const y =
       rowCount <= 1
         ? 50
@@ -163,9 +163,9 @@ function linesToPositions(lines) {
 
     names.forEach((name, colIdx) => {
       const x =
-        count <= 1
+        maxCols <= 1
           ? 50
-          : Math.round((8 + ((colIdx + 0.5) / count) * 84) * 100) / 100;
+          : Math.round((8 + ((colIdx + 0.5) / maxCols) * 84) * 100) / 100;
       out.push({
         name,
         x,

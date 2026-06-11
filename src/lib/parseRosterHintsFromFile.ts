@@ -1,4 +1,8 @@
-import { extractNameHintsFromRows } from "./extractRosterNameHints";
+import {
+  entriesFromFullNames,
+  entriesFromRosterRows,
+  type RosterHintEntry,
+} from "./extractRosterNameHints";
 import {
   isParseableImageFile,
   prepareImageFileForParse,
@@ -50,7 +54,7 @@ async function parseRosterNamesFromImage(file: File): Promise<string[]> {
 }
 
 export type ParsedRosterHints = {
-  names: string[];
+  entries: RosterHintEntry[];
   sourceLabel: string;
   notice?: string;
 };
@@ -62,11 +66,12 @@ export async function parseRosterHintsFromFile(
   try {
     if (isParseableImageFile(file)) {
       const names = await parseRosterNamesFromImage(file);
-      if (!names.length) {
+      const entries = entriesFromFullNames(names);
+      if (!entries.length) {
         throw new Error("名簿写真から名前を検出できませんでした");
       }
       return {
-        names,
+        entries,
         sourceLabel: file.name,
         notice:
           "名簿写真から読み取った名前を、立ち位置画像の解析ヒントとして使います。",
@@ -74,12 +79,12 @@ export async function parseRosterHintsFromFile(
     }
 
     const result = await parseRosterFile(file);
-    const names = extractNameHintsFromRows(result.rows);
-    if (!names.length) {
+    const entries = entriesFromRosterRows(result.rows);
+    if (!entries.length) {
       throw new Error("名簿ファイルから名前を検出できませんでした");
     }
     return {
-      names,
+      entries,
       sourceLabel: file.name,
       notice: result.notice,
     };

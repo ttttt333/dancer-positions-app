@@ -1,4 +1,6 @@
 import type { ChoreographyProjectJson } from "../types/choreography";
+import { entryFromFullName } from "./rosterHintCatalog";
+import type { RosterHintEntry } from "./rosterHintCatalog";
 import { getViewRosterEntries } from "./viewRoster";
 
 export type RosterHintMember = {
@@ -38,6 +40,18 @@ export function getRosterHintGroups(
       members: entries.map((e) => ({ id: e.id, label: e.label })),
     },
   ];
+}
+
+export function rosterHintEntriesFromGroups(
+  groups: RosterHintGroup[]
+): RosterHintEntry[] {
+  const out: RosterHintEntry[] = [];
+  for (const g of groups) {
+    for (const m of g.members) {
+      out.push(entryFromFullName(m.id, m.label));
+    }
+  }
+  return out;
 }
 
 export function allRosterMemberIds(groups: RosterHintGroup[]): string[] {

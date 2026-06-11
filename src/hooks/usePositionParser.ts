@@ -29,8 +29,12 @@ export function usePositionParser() {
   const parseOneImage = useCallback(
     async (
       file: File,
-      memberNameHints?: string[]
+      options?: {
+        memberNameHints?: string[];
+        hintToFullName?: Map<string, string>;
+      }
     ): Promise<ParsePositionResponse> => {
+      const memberNameHints = options?.memberNameHints;
       const prepared = await prepareImageFileForParse(file);
       const base = apiBaseUrl();
       const res = await fetch(`${base}/api/parse-position`, {
@@ -68,7 +72,8 @@ export function usePositionParser() {
 
       return refineParsedPositions(
         data as ParsePositionResponse,
-        memberNameHints ?? []
+        memberNameHints ?? [],
+        { hintToFullName: options?.hintToFullName }
       );
     },
     []
@@ -77,7 +82,10 @@ export function usePositionParser() {
   const parseImageFile = useCallback(
     async (
       file: File,
-      options?: { memberNameHints?: string[] }
+      options?: {
+        memberNameHints?: string[];
+        hintToFullName?: Map<string, string>;
+      }
     ): Promise<ParsePositionResponse | null> => {
       if (!isParseableImageFile(file)) {
         setError("画像ファイル（JPEG / PNG / HEIC など）を選んでください");
@@ -88,7 +96,7 @@ export function usePositionParser() {
       setError(null);
 
       try {
-        return await parseOneImage(file, options?.memberNameHints);
+        return await parseOneImage(file, options);
       } catch (e) {
         const raw =
           e instanceof Error ? e.message : "画像の解析に失敗しました";
@@ -106,6 +114,7 @@ export function usePositionParser() {
       files: File[],
       options?: {
         memberNameHints?: string[];
+        hintToFullName?: Map<string, string>;
         onProgress?: (progress: ParseImageProgress) => void;
       }
     ): Promise<ParsePositionResponse | null> => {
@@ -127,7 +136,10 @@ export function usePositionParser() {
             total: valid.length,
             fileName: file.name,
           });
-          const result = await parseOneImage(file, options?.memberNameHints);
+          const result = await parseOneImage(file, {
+            memberNameHints: options?.memberNameHints,
+            hintToFullName: options?.hintToFullName,
+          });
           if (result.positions.length) results.push(result);
         }
 

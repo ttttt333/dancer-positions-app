@@ -11,13 +11,20 @@ import type { ChoreographyProjectJson } from "../types/choreography";
 import { applyParsedPositionsAsCue } from "../lib/applyParsedPositionsAsCue";
 import {
   isNumericPlaceholderRoster,
+  mergeHintToFullNameMaps,
   mergeNameHints,
 } from "../lib/extractRosterNameHints";
 import { parseRosterHintsFromFile } from "../lib/parseRosterHintsFromFile";
 import {
+  buildHintsFromEntries,
+  hintLabelForEntry,
+  type RosterHintEntry,
+  type RosterHintNameMode,
+} from "../lib/rosterHintCatalog";
+import {
   allRosterMemberIds,
   getRosterHintGroups,
-  labelsFromSelectedIds,
+  rosterHintEntriesFromGroups,
 } from "../lib/rosterHintGroups";
 import { ROSTER_FILE_ACCEPT } from "../lib/rosterFileImport";
 import type {
@@ -56,6 +63,48 @@ const overlay: CSSProperties = {
 
 const ROSTER_HINT_ACCEPT =
   `${ROSTER_FILE_ACCEPT}image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif`;
+
+const NAME_MODE_OPTIONS: { value: RosterHintNameMode; label: string }[] = [
+  { value: "full", label: "フルネーム" },
+  { value: "family_only", label: "苗字のみ" },
+  { value: "given_only", label: "名のみ" },
+];
+
+function RosterNameModePicker({
+  mode,
+  onChange,
+}: {
+  mode: RosterHintNameMode;
+  onChange: (mode: RosterHintNameMode) => void;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 6,
+        marginBottom: 8,
+      }}
+    >
+      {NAME_MODE_OPTIONS.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          onClick={() => onChange(opt.value)}
+          style={{
+            ...btnSecondary,
+            padding: "4px 10px",
+            fontSize: 11,
+            borderColor: mode === opt.value ? "#d4af37" : undefined,
+            color: mode === opt.value ? "#fde68a" : undefined,
+          }}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 const dialog: CSSProperties = {
   width: "min(520px, calc(100vw - 32px))",
@@ -128,10 +177,16 @@ export function ParsePositionFromPhotoDialog({
   const [selectedRosterIds, setSelectedRosterIds] = useState<Set<string>>(
     () => new Set()
   );
-  const [uploadedRosterNames, setUploadedRosterNames] = useState<string[]>([]);
-  const [selectedUploadedNames, setSelectedUploadedNames] = useState<Set<string>>(
+  const [uploadedRosterEntries, setUploadedRosterEntries] = useState<
+    RosterHintEntry[]
+  >([]);
+  const [selectedUploadedIds, setSelectedUploadedIds] = useState<Set<string>>(
     () => new Set()
   );
+  const [uploadedNameMode, setUploadedNameMode] =
+    useState<RosterHintNameMode>("full");
+  const [projectNameMode, setProjectNameMode] =
+    useState<RosterHintNameMode>("full");
   const [uploadedRosterSource, setUploadedRosterSource] = useState<string | null>(
     null
   );
@@ -151,32 +206,64 @@ export function ParsePositionFromPhotoDialog({
     [project]
   );
   const hasProjectRoster = rosterGroups.length > 0;
-  const allProjectLabels = useMemo(
-    () => labelsFromSelectedIds(rosterGroups, new Set(allRosterMemberIds(rosterGroups))),
+  const projectRosterEntries = useMemo(
+    () => rosterHintEntriesFromGroups(rosterGroups),
     [rosterGroups]
   );
+  const allProjectLabels = useMemo(
+    () => projectRosterEntries.map((e) => e.fullName),
+    [projectRosterEntries]
+  );
   const projectRosterIsNumeric = isNumericPlaceholderRoster(allProjectLabels);
-  const hasUploadedRoster = uploadedRosterNames.length > 0;
+  const hasUploadedRoster = uploadedRosterEntries.length > 0;
   const busy = loading || rosterUploadLoading;
 
-  const projectNameHints = useMemo(() => {
-    if (!useProjectRosterHints || !hasProjectRoster) return [];
-    return labelsFromSelectedIds(rosterGroups, selectedRosterIds);
-  }, [useProjectRosterHints, hasProjectRoster, rosterGroups, selectedRosterIds]);
+  const projectHintBuild = useMemo(() => {
+    if (!useProjectRosterHints || !hasProjectRoster) {
+      return { hints: [] as string[], hintToFullName: new Map<string, string>() };
+    }
+    return buildHintsFromEntries(
+      projectRosterEntries,
+      selectedRosterIds,
+      projectNameMode
+    );
+  }, [
+    useProjectRosterHints,
+    hasProjectRoster,
+    projectRosterEntries,
+    selectedRosterIds,
+    projectNameMode,
+  ]);
 
-  const uploadedNameHints = useMemo(() => {
-    if (!useUploadedRosterHints || !hasUploadedRoster) return [];
-    return uploadedRosterNames.filter((name) => selectedUploadedNames.has(name));
+  const uploadedHintBuild = useMemo(() => {
+    if (!useUploadedRosterHints || !hasUploadedRoster) {
+      return { hints: [] as string[], hintToFullName: new Map<string, string>() };
+    }
+    return buildHintsFromEntries(
+      uploadedRosterEntries,
+      selectedUploadedIds,
+      uploadedNameMode
+    );
   }, [
     useUploadedRosterHints,
     hasUploadedRoster,
-    uploadedRosterNames,
-    selectedUploadedNames,
+    uploadedRosterEntries,
+    selectedUploadedIds,
+    uploadedNameMode,
   ]);
 
   const memberNameHints = useMemo(
-    () => mergeNameHints(projectNameHints, uploadedNameHints),
-    [projectNameHints, uploadedNameHints]
+    () => mergeNameHints(projectHintBuild.hints, uploadedHintBuild.hints),
+    [projectHintBuild.hints, uploadedHintBuild.hints]
+  );
+
+  const hintToFullName = useMemo(
+    () =>
+      mergeHintToFullNameMaps(
+        projectHintBuild.hintToFullName,
+        uploadedHintBuild.hintToFullName
+      ),
+    [projectHintBuild.hintToFullName, uploadedHintBuild.hintToFullName]
   );
 
   const hintsEnabled =
@@ -191,8 +278,10 @@ export function ParsePositionFromPhotoDialog({
     setFormationName("写真から取込");
     setSourceFileNames([]);
     setParseProgress(null);
-    setUploadedRosterNames([]);
-    setSelectedUploadedNames(new Set());
+    setUploadedRosterEntries([]);
+    setSelectedUploadedIds(new Set());
+    setUploadedNameMode("full");
+    setProjectNameMode("full");
     setUploadedRosterSource(null);
     setUploadedRosterNotice(null);
     setRosterUploadLoading(false);
@@ -227,18 +316,18 @@ export function ParsePositionFromPhotoDialog({
   };
 
   const selectAllUploaded = () => {
-    setSelectedUploadedNames(new Set(uploadedRosterNames));
+    setSelectedUploadedIds(new Set(uploadedRosterEntries.map((e) => e.id)));
   };
 
   const clearAllUploaded = () => {
-    setSelectedUploadedNames(new Set());
+    setSelectedUploadedIds(new Set());
   };
 
-  const toggleUploadedName = (name: string) => {
-    setSelectedUploadedNames((prev) => {
+  const toggleUploadedEntry = (id: string) => {
+    setSelectedUploadedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else next.add(name);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
@@ -258,8 +347,8 @@ export function ParsePositionFromPhotoDialog({
     clearError();
     try {
       const result = await parseRosterHintsFromFile(file);
-      setUploadedRosterNames(result.names);
-      setSelectedUploadedNames(new Set(result.names));
+      setUploadedRosterEntries(result.entries);
+      setSelectedUploadedIds(new Set(result.entries.map((e) => e.id)));
       setUploadedRosterSource(result.sourceLabel);
       setUploadedRosterNotice(result.notice ?? null);
       setUseUploadedRosterHints(true);
@@ -288,6 +377,7 @@ export function ParsePositionFromPhotoDialog({
     setParseProgress(null);
     const result = await parseImageFiles(files, {
       memberNameHints: memberNameHints.length ? memberNameHints : undefined,
+      hintToFullName: hintToFullName.size ? hintToFullName : undefined,
       onProgress: setParseProgress,
     });
     setParseProgress(null);
@@ -421,7 +511,7 @@ export function ParsePositionFromPhotoDialog({
                   <span>
                     名簿をアップロード
                     {hasUploadedRoster
-                      ? `（${uploadedNameHints.length}/${uploadedRosterNames.length} 名）`
+                      ? `（${uploadedHintBuild.hints.length}/${uploadedRosterEntries.length} 名）`
                       : ""}
                   </span>
                   <span style={{ color: shell.textMuted, fontSize: 11 }}>
@@ -509,6 +599,20 @@ export function ParsePositionFromPhotoDialog({
                         </label>
                         {useUploadedRosterHints ? (
                           <>
+                            <RosterNameModePicker
+                              mode={uploadedNameMode}
+                              onChange={setUploadedNameMode}
+                            />
+                            <p
+                              style={{
+                                margin: "0 0 8px",
+                                fontSize: 11,
+                                color: shell.textMuted,
+                                lineHeight: 1.45,
+                              }}
+                            >
+                              選択した表記を画像の読み取り基準にします。確定時の名前はフルネームに戻します。
+                            </p>
                             <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                               <button
                                 type="button"
@@ -542,26 +646,35 @@ export function ParsePositionFromPhotoDialog({
                                 gap: "4px 10px",
                               }}
                             >
-                              {uploadedRosterNames.map((name) => (
-                                <label
-                                  key={name}
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: 4,
-                                    fontSize: 12,
-                                    color: shell.textMuted,
-                                    cursor: "pointer",
-                                  }}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedUploadedNames.has(name)}
-                                    onChange={() => toggleUploadedName(name)}
-                                  />
-                                  {name}
-                                </label>
-                              ))}
+                              {uploadedRosterEntries.map((entry) => {
+                                const label = hintLabelForEntry(entry, uploadedNameMode);
+                                return (
+                                  <label
+                                    key={entry.id}
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 4,
+                                      fontSize: 12,
+                                      color: shell.textMuted,
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedUploadedIds.has(entry.id)}
+                                      onChange={() => toggleUploadedEntry(entry.id)}
+                                    />
+                                    {label}
+                                    {uploadedNameMode !== "full" &&
+                                    label !== entry.fullName ? (
+                                      <span style={{ opacity: 0.55, fontSize: 10 }}>
+                                        ({entry.fullName})
+                                      </span>
+                                    ) : null}
+                                  </label>
+                                );
+                              })}
                             </div>
                           </>
                         ) : null}
@@ -598,7 +711,7 @@ export function ParsePositionFromPhotoDialog({
                       textAlign: "left",
                     }}
                   >
-                    <span>プロジェクト名簿（{projectNameHints.length} 名選択中）</span>
+                    <span>プロジェクト名簿（{projectHintBuild.hints.length} 名選択中）</span>
                     <span style={{ color: shell.textMuted, fontSize: 11 }}>
                       {rosterExpanded ? "▲" : "▼"}
                     </span>
@@ -637,6 +750,10 @@ export function ParsePositionFromPhotoDialog({
                       ) : null}
                       {useProjectRosterHints ? (
                         <>
+                          <RosterNameModePicker
+                            mode={projectNameMode}
+                            onChange={setProjectNameMode}
+                          />
                           <div
                             style={{
                               display: "flex",
@@ -697,26 +814,41 @@ export function ParsePositionFromPhotoDialog({
                                     gap: "4px 10px",
                                   }}
                                 >
-                                  {group.members.map((m) => (
-                                    <label
-                                      key={m.id}
-                                      style={{
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        gap: 4,
-                                        fontSize: 12,
-                                        color: shell.textMuted,
-                                        cursor: "pointer",
-                                      }}
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={selectedRosterIds.has(m.id)}
-                                        onChange={() => toggleRosterMember(m.id)}
-                                      />
-                                      {m.label}
-                                    </label>
-                                  ))}
+                                  {group.members.map((m) => {
+                                    const entry = projectRosterEntries.find(
+                                      (e) => e.id === m.id
+                                    );
+                                    const label = entry
+                                      ? hintLabelForEntry(entry, projectNameMode)
+                                      : m.label;
+                                    return (
+                                      <label
+                                        key={m.id}
+                                        style={{
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          gap: 4,
+                                          fontSize: 12,
+                                          color: shell.textMuted,
+                                          cursor: "pointer",
+                                        }}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedRosterIds.has(m.id)}
+                                          onChange={() => toggleRosterMember(m.id)}
+                                        />
+                                        {label}
+                                        {entry &&
+                                        projectNameMode !== "full" &&
+                                        label !== entry.fullName ? (
+                                          <span style={{ opacity: 0.55, fontSize: 10 }}>
+                                            ({entry.fullName})
+                                          </span>
+                                        ) : null}
+                                      </label>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             ))}
@@ -780,7 +912,15 @@ export function ParsePositionFromPhotoDialog({
                     lineHeight: 1.45,
                   }}
                 >
-                  解析ヒント: {memberNameHints.length} 名（画像内の文字をこの名前に寄せて読み取ります）
+                  解析ヒント: {memberNameHints.length} 名
+                  {uploadedNameMode !== "full" && useUploadedRosterHints && hasUploadedRoster
+                    ? ` · アップロード名簿=${NAME_MODE_OPTIONS.find((o) => o.value === uploadedNameMode)?.label}`
+                    : ""}
+                  {projectNameMode !== "full" && useProjectRosterHints && hasProjectRoster
+                    ? ` · プロジェクト名簿=${NAME_MODE_OPTIONS.find((o) => o.value === projectNameMode)?.label}`
+                    : ""}
+                  <br />
+                  選択した表記で画像を読み取り、確定時はフルネームでキューに登録します
                 </p>
               ) : null}
               {loading ? (

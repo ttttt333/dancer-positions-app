@@ -1,39 +1,19 @@
-import { rowsToCrewMembers } from "./crewCsvImport";
+import { entriesFromRosterRows, entriesFromFullNames } from "./rosterHintCatalog";
+import type { RosterHintEntry } from "./rosterHintCatalog";
 
-const MAX_HINTS = 80;
+export type { RosterHintEntry };
+export {
+  entriesFromRosterRows,
+  entriesFromFullNames,
+  buildHintsFromEntries,
+  hintLabelForEntry,
+  type RosterHintNameMode,
+  type RosterHintBuildResult,
+} from "./rosterHintCatalog";
 
-/** 名簿ファイルの行データから解析ヒント用の名前リストを作る */
+/** @deprecated entriesFromRosterRows を使用 */
 export function extractNameHintsFromRows(rows: string[][]): string[] {
-  if (!rows.length) return [];
-
-  const members = rowsToCrewMembers(rows, { nameMode: "full" });
-  const seen = new Set<string>();
-  const out: string[] = [];
-
-  for (const m of members) {
-    const label = m.label.trim();
-    if (!label || seen.has(label)) continue;
-    seen.add(label);
-    out.push(label);
-    if (out.length >= MAX_HINTS) break;
-  }
-
-  if (out.length > 0) return out;
-
-  // ヘッダー判定に失敗した単純リスト（1列）向けフォールバック
-  for (const row of rows) {
-    for (const cell of row) {
-      const label = cell.trim();
-      if (!label || seen.has(label)) continue;
-      if (/^(名前|氏名|name|no|番号)$/i.test(label)) continue;
-      seen.add(label);
-      out.push(label);
-      if (out.length >= MAX_HINTS) break;
-    }
-    if (out.length >= MAX_HINTS) break;
-  }
-
-  return out;
+  return entriesFromRosterRows(rows).map((e) => e.fullName);
 }
 
 /** プロジェクト名簿が番号のみ（1, 2, 3…）かどうか */
@@ -51,8 +31,18 @@ export function mergeNameHints(...lists: string[][]): string[] {
       if (!label || seen.has(label)) continue;
       seen.add(label);
       out.push(label);
-      if (out.length >= MAX_HINTS) return out;
+      if (out.length >= 80) return out;
     }
+  }
+  return out;
+}
+
+export function mergeHintToFullNameMaps(
+  ...maps: Map<string, string>[]
+): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const m of maps) {
+    for (const [k, v] of m) out.set(k, v);
   }
   return out;
 }
