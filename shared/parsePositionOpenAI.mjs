@@ -1,68 +1,193 @@
 import OpenAI from "openai";
-import {
-  linesToStagePositions,
-  matchNameToRoster,
-  matchPositionsToRoster,
-  normalizeParsedLines,
-} from "./parsePositionRosterMatch.mjs";
 
-/**
- * @param {string[]} memberNameHints
- */
 function buildSystemPrompt(memberNameHints) {
+  const roster = Array.isArray(memberNameHints)
+    ? memberNameHints.map((n) => String(n).trim()).filter(Boolean).slice(0, 80)
+    : [];
+
   const rosterBlock =
-    memberNameHints.length > 0
-      ? `\n【名簿リスト — 必須】\n読み取った文字は必ず次のいずれかに名寄せすること（新しい名前を invent しない）:\n[${memberNameHints.join(", ")}]\n`
+    roster.length > 0
+      ? `\n【名簿リスト — 名前は必ずこの中から最も近いものを選ぶ。名簿にない新しい名前を作らない】\n[${roster.join(", ")}]\n`
       : "";
 
-  return `あなたはプロのダンス振付師です。手書き・印刷の立ち位置図を解析します。画像は必ず解析対象です。
+  return `あなたはプロのダンス振付師です。手書きメモ・デジタル立ち位置図を解析します。
 ${rosterBlock}
-解析手順（この順で内部的に考える）:
-1. 画像右端に縦に並ぶ数字（例: 4, 8, 7, 8, 7）があれば、上から順に「各行の人数 count」として先に読み取る
-2. 各行の手書き名前を左から右へ読み、名簿リストの中で最も近い名前に変換する
-3. 各行の names 配列の要素数は count と一致させる（不足分は名簿から推測して補完）
-4. 丸印付き配置図の場合は各マーカーの中心座標 x,y（0〜100%）も positions に入れる
+解析手順（この順で内部的に考えてから JSON を出力）:
+1. 画像右端や行の横に書かれた「列の人数」（例: 4, 8, 7）を先にすべて読み取る
+2. 上から下へ各行の名前を読み取り、名簿リストの中から最も近い名前に変換する
+3. 各行の names の数は count と一致させる（不足分は名簿から推測して埋める）
+4. デジタル図（色付き丸・番号）の場合は各丸の中心座標 x,y（0〜100%）も positions に入れる
 
 ルール:
-- かすれ・汚れ・メモ書きでも名簿から推測して名寄せする
-- 絶対に「読み取れない」と返さず JSON のみ返す
-- 文字上の小さな丸（○）は無視
-- 上の行=舞台奥、下の行=客席側（手前）
+- 不明瞭な字・かすれ・汚れでも名簿から推測して補完する
+- 文字の上の小さな丸（○）は無視
+- 絶対に「読み取れない」と返さず、必ず JSON を返す
+- 手書きメモでは lines を必ず返す。デジタル図では positions を必ず返す。両方該当すれば両方
 
 必ず JSON のみ:
 {
   "lines": [
-    { "count": 4, "names": ["名前1", "名前2", "名前3", "名前4"] }
+    { "rowIndex": 1, "count": 4, "names": ["名前1", "名前2", "名前3", "名前4"] }
   ],
   "positions": [
-    { "name": "string", "x": number, "y": number, "confidence": "high" | "low" }
+    { "name": "名前", "x": 50, "y": 30, "confidence": "high" }
   ]
-}
-手書き方眼紙メモでは lines を必ず埋める。配置図では positions も埋める。`;
+}`;
 }
 
-/**
- * @param {string[]} [memberNameHints]
- */
 function buildUserPrompt(memberNameHints) {
-  const hints =
+  const roster =
     Array.isArray(memberNameHints) && memberNameHints.length > 0
       ? memberNameHints
+          .map((n) => String(n).trim())
+          .filter(Boolean)
+          .slice(0, 80)
       : [];
 
   let text =
     "添付画像を解析してください。\n" +
-    "1) 右端の縦数字があれば各行の人数として lines に反映\n" +
-    "2) 各行の名前を名簿に名寄せ\n" +
-    "3) 配置が分かる場合は positions に x,y も付与\n" +
-    "必ず JSON を返してください。";
+    "1) 右端の数字を列の人数（count）として読み取る\n" +
+    "2) 各行の名前を名簿から選んで lines に入れる\n" +
+    "3) 丸印がある図なら positions に座標も入れる";
 
-  if (hints.length > 0) {
+  if (roster.length > 0) {
     text +=
-      "\n\n名簿（この中から選ぶ）:\n" + hints.map((n) => `・${n}`).join("\n");
+      "\n\n名簿（この中から名前を選ぶ）:\n" + roster.map((n) => `・${n}`).join("\n");
   }
 
   return text;
+}
+
+function normalizeNameForMatch(s) {
+  return String(s)
+    .trim()
+    .replace(/[\u30a1-\u30f6]/g, (ch) =>
+      String.fromCharCode(ch.charCodeAt(0) - 0x60)
+    )
+    .replace(/\s+/g, "");
+}
+
+function levenshtein(a, b) {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const row = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i += 1) {
+    let prev = i;
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      const next = Math.min(row[j] + 1, prev + 1, row[j - 1] + cost);
+      row[j - 1] = prev;
+      prev = next;
+    }
+    row[b.length] = prev;
+  }
+  return row[b.length];
+}
+
+function snapNameToRoster(rawName, roster) {
+  const original = String(rawName ?? "").trim();
+  if (!original || !roster.length) {
+    return { name: original || "Unknown", matched: false, original };
+  }
+
+  const normIn = normalizeNameForMatch(original);
+  for (const candidate of roster) {
+    if (normalizeNameForMatch(candidate) === normIn) {
+      return { name: candidate, matched: true, original };
+    }
+  }
+
+  let best = roster[0];
+  let bestDist = Infinity;
+  for (const candidate of roster) {
+    const d = levenshtein(normIn, normalizeNameForMatch(candidate));
+    if (d < bestDist) {
+      bestDist = d;
+      best = candidate;
+    }
+  }
+
+  const threshold =
+    normIn.length <= 3 ? 2 : Math.max(2, Math.ceil(normIn.length * 0.45));
+  if (bestDist <= threshold) {
+    return { name: best, matched: true, original };
+  }
+
+  return { name: original, matched: false, original };
+}
+
+function parseLinesFromRaw(raw) {
+  const linesRaw = raw && typeof raw === "object" ? raw.lines : null;
+  if (!Array.isArray(linesRaw)) return [];
+
+  const out = [];
+  for (let i = 0; i < linesRaw.length; i += 1) {
+    const line = linesRaw[i];
+    if (!line || typeof line !== "object") continue;
+    const count = Number(line.count);
+    const namesRaw = Array.isArray(line.names) ? line.names : [];
+    const names = [];
+    for (const n of namesRaw) {
+      if (typeof n === "string" || typeof n === "number") {
+        const s = String(n).trim();
+        if (s && !/^unknown$/i.test(s)) names.push(s);
+      }
+    }
+    if (names.length === 0) continue;
+    out.push({
+      rowIndex: Number.isFinite(Number(line.rowIndex))
+        ? Number(line.rowIndex)
+        : i + 1,
+      count: Number.isFinite(count) && count > 0 ? count : names.length,
+      names,
+    });
+  }
+  return out;
+}
+
+function linesToPositions(lines) {
+  const valid = lines.filter((l) => l.names?.length > 0);
+  if (valid.length === 0) return [];
+
+  const rowCount = valid.length;
+  const out = [];
+  valid.forEach((line, rowIdx) => {
+    const names = line.names;
+    const count = names.length;
+    const y =
+      rowCount <= 1
+        ? 50
+        : Math.round((10 + (rowIdx / (rowCount - 1)) * 75) * 100) / 100;
+
+    names.forEach((name, colIdx) => {
+      const x =
+        count <= 1
+          ? 50
+          : Math.round((8 + ((colIdx + 0.5) / count) * 84) * 100) / 100;
+      out.push({
+        name,
+        x,
+        y,
+        confidence: "low",
+        lineIndex: rowIdx,
+      });
+    });
+  });
+  return out;
+}
+
+function computeCountMismatches(lines) {
+  const mismatches = [];
+  lines.forEach((line, lineIndex) => {
+    const expected = Number(line.count);
+    const actual = line.names?.length ?? 0;
+    if (!Number.isFinite(expected) || expected <= 0) return;
+    if (actual !== expected) {
+      mismatches.push({ lineIndex, expected, actual });
+    }
+  });
+  return mismatches;
 }
 
 function resolveOpenAIApiKey() {
@@ -71,7 +196,6 @@ function resolveOpenAIApiKey() {
   return trimmed || null;
 }
 
-/** data: プレフィックス付きでも受け取り、純粋 Base64 のみ返す */
 export function normalizeBase64Payload(imageBase64) {
   let raw = String(imageBase64 ?? "").trim();
   const dataUrlMatch = /^data:image\/[\w+.=-]+;base64,(.+)$/is.exec(raw);
@@ -129,74 +253,102 @@ function emptyResponseError(choice) {
 
 async function callVisionModel(openai, { imageUrl, memberNameHints, attempt }) {
   const imageDetail = attempt === 1 ? "high" : "auto";
-  const messages = [
-    { role: "system", content: buildSystemPrompt(memberNameHints) },
-    {
-      role: "user",
-      content: [
-        { type: "text", text: buildUserPrompt(memberNameHints) },
-        {
-          type: "image_url",
-          image_url: { url: imageUrl, detail: imageDetail },
-        },
-      ],
-    },
-  ];
-
   return openai.chat.completions.create({
     model: "gpt-4o",
-    messages,
+    messages: [
+      { role: "system", content: buildSystemPrompt(memberNameHints) },
+      {
+        role: "user",
+        content: [
+          { type: "text", text: buildUserPrompt(memberNameHints) },
+          {
+            type: "image_url",
+            image_url: { url: imageUrl, detail: imageDetail },
+          },
+        ],
+      },
+    ],
     response_format: { type: "json_object" },
     max_tokens: 4096,
   });
 }
 
-function normalizePositionsArray(positions, roster) {
-  const out = [];
-  let fallbackIdx = 0;
-  for (const p of positions) {
-    if (!p || typeof p !== "object") continue;
-    const nameRaw = p.name;
-    let name =
-      typeof nameRaw === "string" || typeof nameRaw === "number"
-        ? String(nameRaw).trim()
-        : "";
-    const unknownLike =
-      !name ||
-      name === "?" ||
-      name === "不明" ||
-      name === "読み取れない" ||
-      /^unknown$/i.test(name);
-    if (unknownLike) {
-      fallbackIdx += 1;
-      name = `メンバー${fallbackIdx}`;
+/**
+ * @param {unknown} raw
+ * @param {{ memberNameHints?: string[] }} [opts]
+ */
+export function normalizeParsePositionResponse(raw, opts = {}) {
+  const roster = Array.isArray(opts.memberNameHints)
+    ? opts.memberNameHints.map((n) => String(n).trim()).filter(Boolean)
+    : [];
+
+  let lines = parseLinesFromRaw(raw);
+  let positions = [];
+
+  const positionsRaw = raw && typeof raw === "object" ? raw.positions : null;
+  if (Array.isArray(positionsRaw)) {
+    let fallbackIdx = 0;
+    for (const p of positionsRaw) {
+      if (!p || typeof p !== "object") continue;
+      const nameRaw = p.name;
+      let name =
+        typeof nameRaw === "string" || typeof nameRaw === "number"
+          ? String(nameRaw).trim()
+          : "";
+      if (!name || /^unknown$/i.test(name) || name === "不明") {
+        fallbackIdx += 1;
+        name = `メンバー${fallbackIdx}`;
+      }
+      const x = Number(p.x);
+      const y = Number(p.y);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+      const confRaw = p.confidence;
+      positions.push({
+        name,
+        x: Math.min(100, Math.max(0, Math.round(x * 100) / 100)),
+        y: Math.min(100, Math.max(0, Math.round(y * 100) / 100)),
+        ...(confRaw === "low" || confRaw === "high" ? { confidence: confRaw } : {}),
+      });
     }
-    const x = Number(p.x);
-    const y = Number(p.y);
-    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
-    const confRaw = p.confidence;
-    let confidence =
-      confRaw === "low" || confRaw === "high" ? confRaw : undefined;
-    if (roster.length) {
-      const matched = matchNameToRoster(name, roster);
-      name = matched.name;
-      if (!confidence) confidence = matched.confidence;
-      else if (!matched.rosterMatched) confidence = "low";
-    }
-    out.push({
-      name,
-      x: Math.min(100, Math.max(0, Math.round(x * 100) / 100)),
-      y: Math.min(100, Math.max(0, Math.round(y * 100) / 100)),
-      ...(confidence ? { confidence } : {}),
-    });
   }
-  return out;
+
+  if (positions.length === 0 && lines.length > 0) {
+    positions = linesToPositions(lines);
+  }
+
+  if (roster.length > 0) {
+    positions = positions.map((p) => {
+      const m = snapNameToRoster(p.name, roster);
+      return {
+        ...p,
+        name: m.name,
+        confidence:
+          m.matched && m.original && m.original !== m.name
+            ? "low"
+            : p.confidence ?? (m.matched ? "high" : "low"),
+        rosterMatched: m.matched,
+      };
+    });
+
+    lines = lines.map((line) => ({
+      ...line,
+      names: line.names.map((n) => snapNameToRoster(n, roster).name),
+    }));
+  }
+
+  if (positions.length === 0) {
+    throw new Error("画像から名前と位置を読み取れませんでした");
+  }
+
+  const countMismatches = computeCountMismatches(lines);
+
+  return {
+    positions,
+    ...(lines.length ? { lines } : {}),
+    ...(countMismatches.length ? { countMismatches } : {}),
+  };
 }
 
-/**
- * @param {string} imageBase64
- * @param {{ mimeType?: string; memberNameHints?: string[] }} [opts]
- */
 export async function parsePositionImageFromBase64(imageBase64, opts = {}) {
   const apiKey = resolveOpenAIApiKey();
   if (!apiKey) {
@@ -209,7 +361,7 @@ export async function parsePositionImageFromBase64(imageBase64, opts = {}) {
       : "image/jpeg";
 
   const memberNameHints = Array.isArray(opts.memberNameHints)
-    ? opts.memberNameHints.filter((n) => typeof n === "string" && n.trim())
+    ? opts.memberNameHints
     : [];
 
   const { clean, url: imageUrl } = buildImageDataUrl(imageBase64, mime);
@@ -252,7 +404,7 @@ export async function parsePositionImageFromBase64(imageBase64, opts = {}) {
         throw new Error("Invalid JSON from vision model");
       }
 
-      return normalizeParsePositionResponse(raw, memberNameHints);
+      return normalizeParsePositionResponse(raw, { memberNameHints });
     } catch (e) {
       lastError = e instanceof Error ? e : new Error(String(e));
       if (attempt < 2) {
@@ -262,75 +414,4 @@ export async function parsePositionImageFromBase64(imageBase64, opts = {}) {
   }
 
   throw lastError ?? new Error("Empty response from vision model");
-}
-
-/**
- * @param {unknown} raw
- * @param {string[]} [memberNameHints]
- */
-export function normalizeParsePositionResponse(raw, memberNameHints = []) {
-  const roster = memberNameHints.map((n) => String(n).trim()).filter(Boolean);
-  const lines = normalizeParsedLines(
-    raw && typeof raw === "object" ? raw.lines : null
-  );
-
-  let positions = [];
-
-  if (lines.length > 0) {
-    const linesWithRoster = lines.map((line) => ({
-      count: line.count,
-      names: line.names.map((name) => matchNameToRoster(name, roster).name),
-    }));
-    positions = linesToStagePositions(linesWithRoster);
-
-    const aiPositions =
-      raw && typeof raw === "object" && Array.isArray(raw.positions)
-        ? normalizePositionsArray(raw.positions, roster)
-        : [];
-
-    if (aiPositions.length > 0) {
-      const byName = new Map(aiPositions.map((p) => [p.name, p]));
-      positions = positions.map((p) => {
-        const refined = byName.get(p.name);
-        if (refined && Number.isFinite(refined.x) && Number.isFinite(refined.y)) {
-          return {
-            ...p,
-            x: refined.x,
-            y: refined.y,
-            confidence:
-              refined.confidence === "high" ? "high" : p.confidence ?? "low",
-          };
-        }
-        return p;
-      });
-    }
-
-    const countMismatch = lines.some((l) => l.names.length !== l.count);
-
-    if (positions.length === 0) {
-      throw new Error("画像から名前と位置を読み取れませんでした");
-    }
-
-    return {
-      positions: matchPositionsToRoster(positions, roster),
-      lines,
-      countMismatch,
-    };
-  }
-
-  const rawPositions =
-    raw && typeof raw === "object" ? raw.positions : null;
-  if (!Array.isArray(rawPositions)) {
-    throw new Error("Invalid positions payload");
-  }
-
-  positions = normalizePositionsArray(rawPositions, roster);
-  if (positions.length === 0) {
-    throw new Error("画像から名前と位置を読み取れませんでした");
-  }
-
-  return {
-    positions: matchPositionsToRoster(positions, roster),
-    countMismatch: false,
-  };
 }

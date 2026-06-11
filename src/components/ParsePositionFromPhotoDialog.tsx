@@ -8,10 +8,21 @@ import {
   type CSSProperties,
 } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
-import { collectMemberNameHints } from "../lib/collectMemberNameHints";
 import { applyParsedPositionsAsCue } from "../lib/applyParsedPositionsAsCue";
-import type { ParsedLine, ParsedPosition } from "../lib/parsePositionTypes";
-import { usePositionParser } from "../hooks/usePositionParser";
+import {
+  allRosterMemberIds,
+  getRosterHintGroups,
+  labelsFromSelectedIds,
+} from "../lib/rosterHintGroups";
+import type {
+  CountMismatch,
+  ParsedLine,
+  ParsedPosition,
+} from "../lib/parsePositionTypes";
+import {
+  usePositionParser,
+  type ParseImageProgress,
+} from "../hooks/usePositionParser";
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
 import { shell } from "../theme/choreoShell";
 
@@ -96,29 +107,65 @@ export function ParsePositionFromPhotoDialog({
   onCueCreated,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { loading, error, clearError, parseImageFile } = usePositionParser();
+  const { loading, error, clearError, parseImageFiles } = usePositionParser();
   const [preview, setPreview] = useState<ParsedPosition[] | null>(null);
   const [previewLines, setPreviewLines] = useState<ParsedLine[] | null>(null);
-  const [countMismatch, setCountMismatch] = useState(false);
+  const [countMismatches, setCountMismatches] = useState<CountMismatch[]>([]);
   const [formationName, setFormationName] = useState("写真から取込");
-  const [sourceFileName, setSourceFileName] = useState<string | null>(null);
-  const memberNameHints = useMemo(
-    () => collectMemberNameHints(project),
+  const [sourceFileNames, setSourceFileNames] = useState<string[]>([]);
+  const [useRosterHints, setUseRosterHints] = useState(true);
+  const [selectedRosterIds, setSelectedRosterIds] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [parseProgress, setParseProgress] = useState<ParseImageProgress | null>(
+    null
+  );
+  const [rosterExpanded, setRosterExpanded] = useState(true);
+
+  const rosterGroups = useMemo(
+    () => getRosterHintGroups(project),
     [project]
   );
+  const hasRoster = rosterGroups.length > 0;
+
+  const memberNameHints = useMemo(() => {
+    if (!useRosterHints || !hasRoster) return [];
+    return labelsFromSelectedIds(rosterGroups, selectedRosterIds);
+  }, [useRosterHints, hasRoster, rosterGroups, selectedRosterIds]);
 
   const resetState = useCallback(() => {
     setPreview(null);
     setPreviewLines(null);
-    setCountMismatch(false);
+    setCountMismatches([]);
     setFormationName("写真から取込");
-    setSourceFileName(null);
+    setSourceFileNames([]);
+    setParseProgress(null);
+    setUseRosterHints(true);
+    setRosterExpanded(true);
+    setSelectedRosterIds(new Set(allRosterMemberIds(rosterGroups)));
     clearError();
-  }, [clearError]);
+  }, [clearError, rosterGroups]);
 
   useEffect(() => {
     if (!open) resetState();
   }, [open, resetState]);
+
+  const toggleRosterMember = (id: string) => {
+    setSelectedRosterIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllRoster = () => {
+    setSelectedRosterIds(new Set(allRosterMemberIds(rosterGroups)));
+  };
+
+  const clearAllRoster = () => {
+    setSelectedRosterIds(new Set());
+  };
 
   const handlePickClick = () => {
     if (loading) return;
@@ -126,25 +173,34 @@ export function ParsePositionFromPhotoDialog({
   };
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const files = Array.from(e.target.files ?? []);
     e.target.value = "";
-    if (!file) return;
-    setSourceFileName(file.name);
-    const result = await parseImageFile(file, {
+    if (!files.length) return;
+    setSourceFileNames(files.map((f) => f.name));
+    setParseProgress(null);
+    const result = await parseImageFiles(files, {
       memberNameHints: memberNameHints.length ? memberNameHints : undefined,
+      onProgress: setParseProgress,
     });
+    setParseProgress(null);
     if (result?.positions.length) {
       setPreview(result.positions);
       setPreviewLines(result.lines ?? null);
-      setCountMismatch(result.countMismatch ?? false);
+      setCountMismatches(result.countMismatches ?? []);
     }
   };
 
   const handleConfirm = () => {
     if (!preview?.length) return;
-    if (countMismatch) {
+    if (countMismatches.length > 0) {
+      const detail = countMismatches
+        .map(
+          (m) =>
+            `列${m.lineIndex + 1}: 画像の人数 ${m.expected} 人 → 読取 ${m.actual} 人`
+        )
+        .join("\n");
       const ok = window.confirm(
-        "画像右側の人数と、読み取った名前の数が一致しない行があります。\nこのままキューに追加しますか？"
+        `列ごとの人数が一致しません。\n${detail}\n\nこのまま確定してキューに追加しますか？`
       );
       if (!ok) return;
     }
@@ -224,15 +280,170 @@ export function ParsePositionFromPhotoDialog({
           {!preview ? (
             <>
               <p style={{ margin: "0 0 12px", fontSize: 13, color: shell.textMuted, lineHeight: 1.5 }}>
-                立ち位置図や方眼紙の手書き名簿の写真をアップロードすると、AI が名前と座標（0〜100%）を読み取ります。
-                汚い字・かすれは文脈と名簿から推測します。結果を確認してからキューとして追加できます。
-                {memberNameHints.length > 0
-                  ? `（名簿 ${memberNameHints.length} 名をヒントとして利用）`
-                  : null}
+                立ち位置図や手書き名簿の写真を 1 枚または複数枚選べます（例: 名簿メモ＋デジタル図）。
+                AI が名前と座標（0〜100%）を読み取り、複数枚の結果は統合します。
               </p>
+
+              {hasRoster ? (
+                <div
+                  style={{
+                    marginBottom: 12,
+                    border: `1px solid ${shell.border}`,
+                    borderRadius: 10,
+                    overflow: "hidden",
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setRosterExpanded((v) => !v)}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "10px 12px",
+                      background: "#0f172a",
+                      border: "none",
+                      color: shell.text,
+                      fontSize: 13,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      textAlign: "left",
+                    }}
+                  >
+                    <span>名簿ヒント（{memberNameHints.length} 名選択中）</span>
+                    <span style={{ color: shell.textMuted, fontSize: 11 }}>
+                      {rosterExpanded ? "▲" : "▼"}
+                    </span>
+                  </button>
+                  {rosterExpanded ? (
+                    <div style={{ padding: "8px 12px 10px" }}>
+                      <label
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          fontSize: 12,
+                          color: shell.text,
+                          marginBottom: 8,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={useRosterHints}
+                          onChange={(e) => setUseRosterHints(e.target.checked)}
+                        />
+                        名簿をヒントとして使う
+                      </label>
+                      {useRosterHints ? (
+                        <>
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: 8,
+                              marginBottom: 8,
+                            }}
+                          >
+                            <button
+                              type="button"
+                              onClick={selectAllRoster}
+                              style={{
+                                ...btnSecondary,
+                                padding: "4px 10px",
+                                fontSize: 11,
+                              }}
+                            >
+                              全選択
+                            </button>
+                            <button
+                              type="button"
+                              onClick={clearAllRoster}
+                              style={{
+                                ...btnSecondary,
+                                padding: "4px 10px",
+                                fontSize: 11,
+                              }}
+                            >
+                              全解除
+                            </button>
+                          </div>
+                          <div
+                            style={{
+                              maxHeight: 160,
+                              overflow: "auto",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 10,
+                            }}
+                          >
+                            {rosterGroups.map((group) => (
+                              <div key={group.id}>
+                                {rosterGroups.length > 1 ? (
+                                  <div
+                                    style={{
+                                      fontSize: 11,
+                                      fontWeight: 600,
+                                      color: "#94a3b8",
+                                      marginBottom: 4,
+                                    }}
+                                  >
+                                    {group.name}
+                                  </div>
+                                ) : null}
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    flexWrap: "wrap",
+                                    gap: "4px 10px",
+                                  }}
+                                >
+                                  {group.members.map((m) => (
+                                    <label
+                                      key={m.id}
+                                      style={{
+                                        display: "inline-flex",
+                                        alignItems: "center",
+                                        gap: 4,
+                                        fontSize: 12,
+                                        color: shell.textMuted,
+                                        cursor: "pointer",
+                                      }}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedRosterIds.has(m.id)}
+                                        onChange={() => toggleRosterMember(m.id)}
+                                      />
+                                      {m.label}
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      ) : (
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: 11,
+                            color: shell.textMuted,
+                            lineHeight: 1.45,
+                          }}
+                        >
+                          名簿ヒントなしで読み取ります（手書きの名前をそのまま使います）。
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
               <input
                 ref={fileInputRef}
                 type="file"
+                multiple
                 accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
                 style={{ display: "none" }}
                 onChange={(e) => void handleFileChange(e)}
@@ -240,7 +451,11 @@ export function ParsePositionFromPhotoDialog({
               <button
                 type="button"
                 onClick={handlePickClick}
-                disabled={loading || project.viewMode === "view"}
+                disabled={
+                  loading ||
+                  project.viewMode === "view" ||
+                  (useRosterHints && hasRoster && memberNameHints.length === 0)
+                }
                 style={{
                   ...btnAccent,
                   width: "100%",
@@ -248,8 +463,19 @@ export function ParsePositionFromPhotoDialog({
                   cursor: loading ? "wait" : "pointer",
                 }}
               >
-                {loading ? "画像を解析中…" : "画像を選ぶ"}
+                {loading ? "画像を解析中…" : "画像を選ぶ（複数可）"}
               </button>
+              {useRosterHints && hasRoster && memberNameHints.length === 0 ? (
+                <p
+                  style={{
+                    margin: "8px 0 0",
+                    fontSize: 11,
+                    color: "#fbbf24",
+                  }}
+                >
+                  名簿ヒントを使う場合は、少なくとも 1 名を選択してください。
+                </p>
+              ) : null}
               {loading ? (
                 <p
                   role="status"
@@ -258,71 +484,64 @@ export function ParsePositionFromPhotoDialog({
                     fontSize: 12,
                     color: "#93c5fd",
                     textAlign: "center",
+                    lineHeight: 1.5,
                   }}
                 >
-                  OpenAI で立ち位置を読み取っています。数十秒かかることがあります…
+                  {parseProgress
+                    ? `解析中 ${parseProgress.current}/${parseProgress.total}: ${parseProgress.fileName}`
+                    : "OpenAI で立ち位置を読み取っています。"}
+                  <br />
+                  複数枚の場合は順番に処理します。数十秒かかることがあります…
                 </p>
               ) : null}
             </>
           ) : (
             <>
               <p style={{ margin: "0 0 8px", fontSize: 12, color: shell.textMuted }}>
-                {sourceFileName ? `ファイル: ${sourceFileName}` : null}
-                {" · "}
+                {sourceFileNames.length > 0
+                  ? `ファイル: ${sourceFileNames.join("、")}`
+                  : null}
+                {sourceFileNames.length > 0 ? " · " : null}
                 キュー開始: {formatSec(currentTimeSec)} · {preview.length} 人
+                {memberNameHints.length > 0
+                  ? ` · 名簿ヒント ${memberNameHints.length} 名`
+                  : null}
               </p>
               <PositionPreviewThumb positions={preview} />
               {previewLines && previewLines.length > 0 ? (
                 <div
                   style={{
-                    marginTop: 12,
-                    padding: "10px 12px",
+                    marginTop: 10,
+                    padding: "8px 10px",
                     borderRadius: 8,
+                    background: "#0f172a",
                     border: "1px solid #334155",
-                    background: "#0a0f1e",
-                    fontSize: 12,
+                    fontSize: 11,
+                    color: shell.textMuted,
+                    lineHeight: 1.5,
                   }}
                 >
-                  <div
-                    style={{
-                      fontWeight: 600,
-                      color: shell.textMuted,
-                      marginBottom: 8,
-                    }}
-                  >
-                    行ごとの名寄せ（右端の人数）
+                  <div style={{ fontWeight: 600, color: shell.text, marginBottom: 4 }}>
+                    列ごとの読取（名簿名寄せ済み）
                   </div>
-                  {previewLines.map((line, rowIdx) => {
-                    const mismatch = line.names.length !== line.count;
-                    return (
-                      <div
-                        key={`line-${rowIdx}`}
-                        style={{
-                          marginBottom: rowIdx < previewLines.length - 1 ? 8 : 0,
-                          color: mismatch ? "#fbbf24" : shell.text,
-                          lineHeight: 1.45,
-                        }}
-                      >
-                        <span style={{ color: "#94a3b8" }}>行{rowIdx + 1}</span>
-                        {" · "}
-                        <strong>{line.count}人</strong>
-                        {mismatch ? (
-                          <span style={{ color: "#f87171" }}>
-                            {" "}
-                            （読取 {line.names.length}人）
-                          </span>
-                        ) : null}
-                        {" → "}
-                        {line.names.join("、") || "—"}
-                      </div>
-                    );
-                  })}
-                  {countMismatch ? (
-                    <p style={{ margin: "8px 0 0", fontSize: 11, color: "#fbbf24" }}>
-                      人数と名前の数が一致しない行があります。確定前に内容を確認してください。
-                    </p>
-                  ) : null}
+                  {previewLines.map((line, i) => (
+                    <div key={`line-${i}`}>
+                      列{i + 1}（{line.count}人）: {line.names.join(" · ")}
+                    </div>
+                  ))}
                 </div>
+              ) : null}
+              {countMismatches.length > 0 ? (
+                <p
+                  style={{
+                    margin: "8px 0 0",
+                    fontSize: 11,
+                    color: "#fbbf24",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  列の人数が画像と一致しません。内容を確認してから確定してください。
+                </p>
               ) : null}
               <label
                 style={{
@@ -389,7 +608,11 @@ export function ParsePositionFromPhotoDialog({
                             fontSize: 11,
                           }}
                         >
-                          {p.confidence === "low" ? "推測" : "—"}
+                          {p.confidence === "low"
+                            ? p.rosterMatched
+                              ? "名寄せ"
+                              : "推測"
+                            : "—"}
                         </td>
                         <td style={{ padding: "6px 10px", textAlign: "right" }}>{p.x.toFixed(1)}</td>
                         <td style={{ padding: "6px 10px", textAlign: "right" }}>{p.y.toFixed(1)}</td>
@@ -440,7 +663,7 @@ export function ParsePositionFromPhotoDialog({
                   resetState();
                 }}
               >
-                別の画像
+                やり直す
               </button>
               <button
                 type="button"

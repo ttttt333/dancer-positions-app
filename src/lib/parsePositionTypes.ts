@@ -5,18 +5,28 @@ export type ParsedPosition = {
   y: number;
   /** AI が推測で補完した可能性（low = 要確認） */
   confidence?: "high" | "low";
+  /** 名簿への名寄せが成功したか */
+  rosterMatched?: boolean;
+  /** 列ベース解析時の行インデックス（0始まり） */
+  lineIndex?: number;
 };
 
-/** 手書きメモの行（右端数字 = count） */
+/** 手書きメモの 1 列 */
 export type ParsedLine = {
+  /** 画像右端などに書かれた列の人数 */
   count: number;
   names: string[];
+  rowIndex?: number;
+};
+
+export type CountMismatch = {
+  lineIndex: number;
+  expected: number;
+  actual: number;
 };
 
 export type ParsePositionResponse = {
   positions: ParsedPosition[];
-  /** 行ごとの名寄せ結果（手書きメモ向け） */
   lines?: ParsedLine[];
-  /** 各行の names 数と count が一致しない */
-  countMismatch?: boolean;
+  countMismatches?: CountMismatch[];
 };
