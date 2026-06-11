@@ -29,6 +29,7 @@ import {
 } from "../lib/formationBox";
 import { mergeStageSnapshotIntoProject } from "../lib/savedSpotStageSnapshot";
 import { FormationBoxItemThumb } from "./FormationBoxItemThumb";
+import { ParsePositionFromPhotoDialog } from "./ParsePositionFromPhotoDialog";
 import { useI18n } from "../i18n/I18nContext";
 
 /**
@@ -357,6 +358,7 @@ export function AddCueWithFormationDialog({
 }: Props) {
   const { t } = useI18n();
   const { viewMode } = project;
+  const [photoParseOpen, setPhotoParseOpen] = useState(false);
   const trimLo = project.trimStartSec;
   const trimHi = trimHiSecForCueTimeline(project.trimEndSec, durationSec);
 
@@ -723,6 +725,10 @@ export function AddCueWithFormationDialog({
     selectedCueId,
   ]);
 
+  useEffect(() => {
+    if (!open) setPhotoParseOpen(false);
+  }, [open]);
+
   if (!open) return null;
 
   const dancers = buildDancers();
@@ -760,6 +766,7 @@ export function AddCueWithFormationDialog({
   ];
 
   return (
+    <>
     <div
       className="add-cue-with-formation-dialog"
       style={panelShellStyle}
@@ -1021,6 +1028,7 @@ export function AddCueWithFormationDialog({
                     flexDirection: "row",
                     gap: "6px",
                     minHeight: "36px",
+                    marginBottom: "5px",
                   }}
                 >
                   <span style={{ fontSize: "13px" }}>📋</span>
@@ -1037,6 +1045,37 @@ export function AddCueWithFormationDialog({
                   </span>
                 </button>
               ) : null}
+              <button
+                type="button"
+                title="立ち位置図の写真から名前と座標を読み取り、キューとして追加します"
+                aria-label="写真から立ち位置を取込"
+                disabled={viewMode === "view"}
+                onClick={() => setPhotoParseOpen(true)}
+                style={{
+                  ...addCueModePickStyle,
+                  borderColor: "#334155",
+                  borderWidth: 1,
+                  background: "#0a0f1e",
+                  color: "#94a3b8",
+                  width: "100%",
+                  flexDirection: "row",
+                  gap: "6px",
+                  minHeight: "36px",
+                }}
+              >
+                <span style={{ fontSize: "13px" }}>🖼</span>
+                <span
+                  style={{
+                    fontWeight: 600,
+                    fontSize: "11px",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  写真から立ち位置
+                </span>
+              </button>
             </div>
           </section>
 
@@ -1276,5 +1315,19 @@ export function AddCueWithFormationDialog({
         </div>
       </div>
     </div>
+    <ParsePositionFromPhotoDialog
+      open={photoParseOpen}
+      onClose={() => setPhotoParseOpen(false)}
+      project={project}
+      setProject={setProject}
+      currentTimeSec={currentTimeSec}
+      durationSec={durationSec}
+      onCueCreated={(cueId, startSec) => {
+        onCueCreated?.(cueId, startSec);
+        setPhotoParseOpen(false);
+        onClose();
+      }}
+    />
+  </>
   );
 }

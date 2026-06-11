@@ -21,6 +21,7 @@ import {
   setContentInitializor,
 } from "@y/websocket-server/utils";
 import { applyProjectJsonToDoc } from "./yjsJson.mjs";
+import { handleParsePositionRoute } from "./parsePositionRoute.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const JWT_SECRET = process.env.JWT_SECRET || "dev-only-change-in-production";
@@ -708,6 +709,8 @@ app.post(
     res.json({ ok: true });
   }
 );
+
+app.post("/api/parse-position", handleParsePositionRoute);
 
 app.post(
   "/api/audio/upload",
