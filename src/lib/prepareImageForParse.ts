@@ -1,5 +1,6 @@
 /** 解析 API へ送る画像の最大辺（px） */
-const PARSE_IMAGE_MAX_PX = 2048;
+/** Vision API タイムアウト回避のため 1024px 上限 */
+const PARSE_IMAGE_MAX_PX = 1024;
 const PARSE_IMAGE_JPEG_QUALITY = 0.88;
 
 const IMAGE_EXT_RE = /\.(jpe?g|png|webp|gif|heic|heif|avif)$/i;

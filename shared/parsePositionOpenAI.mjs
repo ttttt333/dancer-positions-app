@@ -1,28 +1,25 @@
 import OpenAI from "openai";
 
-const SYSTEM_PROMPT = `あなたはプロのダンス振付師であり、立ち位置図・方眼紙名簿の解析専門家です。
-手書きの図面は字が汚い・かすれている・メモ書き混じりのことがありますが、ダンス指導者として文脈から粘り強く読み取ってください。
+const SYSTEM_PROMPT = `あなたはプロのダンス振付師であり、立ち位置図の解析専門家です。
+提供された画像は必ずダンスの立ち位置図・方眼紙名簿・配置メモのいずれかであり、解析対象です。
 
-対応する画像:
-1) ステージ図に丸印と名前がある立ち位置図
-2) 方眼紙に手書きで名前が行・列に並んだシート（写真・スキャン）
-3) 印刷された配置表・走り書きメモ
+視覚的ヒント（必ず画像全体を走査）:
+- 人を示す丸印・番号・イニシャル・ひらがな/カタカナ/漢字の名前
+- 方眼紙の行・列に並んだ手書きテキスト
+- 薄い字・かすれ・汚れ・影・折れ跡があっても無視して読む
+- 文字の上の小さな丸（○）は装飾なので無視
 
-解析手順（この順で内部的に考えてから JSON を出力）:
-1. 画像全体のレイアウト（行・列・ステージの向き）を把握する
-2. 各「人」のかたまり（名前・記号・丸印）を一つずつ特定する
-3. 各かたまりの中心座標 x,y（0〜100%）を決める
+厳密な解析ステップ:
+1. 画像内に人間を示すアイコンや番号、名前の記載がないか、隅から隅まで走査する
+2. 文字がかすれ・汚れていても、フォーメーションと名簿候補から名前を推測し座標を特定する
+3. 名前が見つからない場合でも座標のみ抽出し、name は "Unknown" とする（座標だけでも positions に入れる）
+4. この画像は解析対象。絶対に「何も見つからない」「読み取れない」と返さず、必ず JSON で回答する
 
 ルール:
-- 不明瞭な文字は、フォーメーション・ダンス班・一般的な人名・渡された名簿候補から「最も可能性の高い名前」を推測して補完する
-- 「読み取れない」「不明」「?」だけの名前に諦めない。空欄・null は禁止。推測でも必ず名前文字列を入れる
-- 名前が特定しづらくても、記号・丸・配置から「人」と判断できるものは座標を必ず抽出する
-- 文字の上の小さな丸（○）は装飾なので無視し、名前本体を読む
-- x,y は画像全体に対する相対位置（左上 0,0・右下 100,100）。各名前ブロックの中心
-- 方眼紙は上の行ほど手前、左から右へ並ぶ想定で座標を推定
-- 同じ行の複数名前はそれぞれ別要素にする
-- 確信度が低い推測は confidence:"low"、はっきり読めたら "high"
-- positions は可能な限り多く埋める。メモ書きの除外線や汚れは無視して人の位置だけ拾う
+- 不明瞭な文字は名簿候補・ダンス班の文脈から最も可能性の高い名前を推測
+- positions は可能な限り多く埋める。空配列は最終手段
+- x,y は画像全体のパーセント（左上 0,0・右下 100,100）。各マーカーの中心
+- 確信度: confidence は "high" または "low"
 
 必ず JSON のみ:
 { "positions": [ { "name": "string", "x": number, "y": number, "confidence": "high" | "low" } ] }`;
@@ -40,29 +37,108 @@ function buildUserPrompt(memberNameHints) {
       : [];
 
   let text =
-    "この画像からダンサー名と立ち位置（x,y パーセント）をすべて抽出してください。" +
-    "汚い字・かすれ・メモ書きでも文脈から推測し、空の positions を返さないでください。";
+    "添付画像はダンスの立ち位置図です。ダンサー名と立ち位置（x,y パーセント）をすべて抽出してください。" +
+    "汚い字・かすれ・メモ書きでも文脈から推測し、必ず JSON を返してください。";
 
   if (hints.length > 0) {
     text +=
-      "\n\nこの作品の登録メンバー名簿（いずれかである可能性が高いです）:\n" +
-      hints.map((n) => `・${n}`).join("\n") +
-      "\n手書きが読みにくいときは、上記名簿との音・字形の類似から最も近い名前を選んで補完してください。";
+      "\n\n登録メンバー名簿（いずれかである可能性が高い）:\n" +
+      hints.map((n) => `・${n}`).join("\n");
   }
 
   return text;
 }
 
-/**
- * @param {string} imageBase64 JPEG/PNG 等の Base64（data: プレフィックスなし）
- * @param {{ mimeType?: string; memberNameHints?: string[] }} [opts]
- */
 function resolveOpenAIApiKey() {
   const raw = process.env.OPENAI_API_KEY ?? "";
   const trimmed = String(raw).trim().replace(/^["']|["']$/g, "");
   return trimmed || null;
 }
 
+/** data: プレフィックス付きでも受け取り、純粋 Base64 のみ返す */
+export function normalizeBase64Payload(imageBase64) {
+  let raw = String(imageBase64 ?? "").trim();
+  const dataUrlMatch = /^data:image\/[\w+.=-]+;base64,(.+)$/is.exec(raw);
+  if (dataUrlMatch) {
+    raw = dataUrlMatch[1];
+  }
+  raw = raw.replace(/\s/g, "");
+  if (!raw || raw.length < 64) {
+    throw new Error("Image data is too small or corrupted");
+  }
+  return raw;
+}
+
+function buildImageDataUrl(base64, mime) {
+  const clean = normalizeBase64Payload(base64);
+  const safeMime =
+    typeof mime === "string" && mime.startsWith("image/") ? mime : "image/jpeg";
+  return { clean, url: `data:${safeMime};base64,${clean}` };
+}
+
+function logParseRequestDebug({ mime, base64Len, memberHintCount, attempt }) {
+  console.log("[parse-position] OpenAI request", {
+    attempt,
+    mime,
+    base64Len,
+    memberHintCount,
+    model: "gpt-4o",
+  });
+}
+
+function logParseResponseDebug(choice, attempt) {
+  const msg = choice?.message;
+  console.log("[parse-position] OpenAI response", {
+    attempt,
+    finishReason: choice?.finish_reason,
+    hasContent: Boolean(msg?.content?.trim()),
+    refusal: msg?.refusal ?? null,
+  });
+}
+
+function emptyResponseError(choice) {
+  const refusal = choice?.message?.refusal;
+  const finishReason = choice?.finish_reason;
+  if (refusal) {
+    return new Error(`Vision model refused: ${refusal}`);
+  }
+  if (finishReason === "length") {
+    return new Error("Vision response truncated (image may be too large)");
+  }
+  if (finishReason === "content_filter") {
+    return new Error("Vision response blocked by content filter");
+  }
+  return new Error("Empty response from vision model");
+}
+
+async function callVisionModel(openai, { imageUrl, memberNameHints, attempt }) {
+  const imageDetail = attempt === 1 ? "high" : "auto";
+  const messages = [
+    { role: "system", content: SYSTEM_PROMPT },
+    {
+      role: "user",
+      content: [
+        { type: "text", text: buildUserPrompt(memberNameHints) },
+        {
+          type: "image_url",
+          image_url: { url: imageUrl, detail: imageDetail },
+        },
+      ],
+    },
+  ];
+
+  return openai.chat.completions.create({
+    model: "gpt-4o",
+    messages,
+    response_format: { type: "json_object" },
+    max_tokens: 4096,
+  });
+}
+
+/**
+ * @param {string} imageBase64 JPEG/PNG 等の Base64（data: プレフィックスあり/なし両対応）
+ * @param {{ mimeType?: string; memberNameHints?: string[] }} [opts]
+ */
 export async function parsePositionImageFromBase64(imageBase64, opts = {}) {
   const apiKey = resolveOpenAIApiKey();
   if (!apiKey) {
@@ -78,42 +154,56 @@ export async function parsePositionImageFromBase64(imageBase64, opts = {}) {
     ? opts.memberNameHints
     : [];
 
-  const openai = new OpenAI({ apiKey });
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: buildUserPrompt(memberNameHints),
-          },
-          {
-            type: "image_url",
-            image_url: { url: `data:${mime};base64,${imageBase64}` },
-          },
-        ],
-      },
-    ],
-    response_format: { type: "json_object" },
-    max_tokens: 4096,
+  const { clean, url: imageUrl } = buildImageDataUrl(imageBase64, mime);
+
+  const openai = new OpenAI({
+    apiKey,
+    timeout: 120_000,
+    maxRetries: 1,
   });
 
-  const content = completion.choices[0]?.message?.content;
-  if (!content) {
-    throw new Error("Empty response from vision model");
+  let lastError = null;
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    logParseRequestDebug({
+      mime,
+      base64Len: clean.length,
+      memberHintCount: memberNameHints.length,
+      attempt,
+    });
+
+    try {
+      const completion = await callVisionModel(openai, {
+        imageUrl,
+        memberNameHints,
+        attempt,
+      });
+
+      const choice = completion.choices?.[0];
+      logParseResponseDebug(choice, attempt);
+
+      const content = choice?.message?.content?.trim();
+      if (!content) {
+        lastError = emptyResponseError(choice);
+        continue;
+      }
+
+      let raw;
+      try {
+        raw = JSON.parse(content);
+      } catch {
+        throw new Error("Invalid JSON from vision model");
+      }
+
+      return normalizeParsePositionResponse(raw);
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+      if (attempt < 2) {
+        console.warn("[parse-position] retrying after error:", lastError.message);
+      }
+    }
   }
 
-  let raw;
-  try {
-    raw = JSON.parse(content);
-  } catch {
-    throw new Error("Invalid JSON from vision model");
-  }
-
-  return normalizeParsePositionResponse(raw);
+  throw lastError ?? new Error("Empty response from vision model");
 }
 
 /**
@@ -135,7 +225,13 @@ export function normalizeParsePositionResponse(raw) {
       typeof nameRaw === "string" || typeof nameRaw === "number"
         ? String(nameRaw).trim()
         : "";
-    if (!name || name === "?" || name === "不明" || name === "読み取れない") {
+    const unknownLike =
+      !name ||
+      name === "?" ||
+      name === "不明" ||
+      name === "読み取れない" ||
+      /^unknown$/i.test(name);
+    if (unknownLike) {
       fallbackIdx += 1;
       name = `メンバー${fallbackIdx}`;
     }

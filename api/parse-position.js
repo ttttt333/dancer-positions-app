@@ -38,6 +38,11 @@ export default async function handler(req, res) {
   }
 
   try {
+    console.log("[parse-position] incoming", {
+      mime: imageMime || "image/jpeg",
+      base64Len: imageBase64.length,
+      memberHintCount: memberNameHints?.length ?? 0,
+    });
     const result = await parsePositionImageFromBase64(imageBase64, {
       mimeType: imageMime || undefined,
       memberNameHints,

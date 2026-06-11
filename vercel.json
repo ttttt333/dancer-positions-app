@@ -66,6 +66,11 @@
       ]
     }
   ],
+  "functions": {
+    "api/parse-position.js": {
+      "maxDuration": 60
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",
