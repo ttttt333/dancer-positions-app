@@ -110,6 +110,7 @@ import { EditorSideSheet } from "../components/EditorSideSheet";
 import { ExportDialog } from "../components/ExportDialog";
 import { FlowLibraryDialog } from "../components/FlowLibraryDialog";
 import { AddCueWithFormationDialog } from "../components/AddCueWithFormationDialog";
+import { ParsePositionFromPhotoDialog } from "../components/ParsePositionFromPhotoDialog";
 import { FormationPresetPickerSheet } from "../components/FormationPresetPickerSheet";
 import { isSupabaseBackend } from "../lib/supabaseClient";
 import { isCollabFeatureAvailable } from "../lib/collabAvailability";
@@ -257,6 +258,7 @@ export function EditorPage({
   const [formationBoxManagerOpen, setFormationBoxManagerOpen] = useState(false);
   /** キュー追加 ＋ 形選択 ＋ 形の箱保存を 1 画面に統合したダイアログ */
   const [addCueDialogOpen, _setAddCueDialogOpen] = useState(false);
+  const [photoParseOpen, setPhotoParseOpen] = useState(false);
   /** ステージ左上 Change から開く立ち位置雛形ピッカー */
   const [formationPresetPickerOpen, setFormationPresetPickerOpen] = useState(false);
   const setAddCueDialogOpen = (v: boolean | ((prev: boolean) => boolean)) => {
@@ -1806,6 +1808,29 @@ export function EditorPage({
     ]
   );
 
+  const photoParseDialogEl = useMemo(
+    () =>
+      project ? (
+        <ParsePositionFromPhotoDialog
+          open={photoParseOpen}
+          onClose={() => setPhotoParseOpen(false)}
+          project={project}
+          setProject={setProjectSafe}
+          currentTimeSec={currentTime}
+          durationSec={duration}
+          onCueCreated={handleAddCueCreated}
+        />
+      ) : null,
+    [
+      project,
+      photoParseOpen,
+      setProjectSafe,
+      currentTime,
+      duration,
+      handleAddCueCreated,
+    ]
+  );
+
   const rosterImportSheetEl = useMemo(
     () =>
       project && rosterImportDraft ? (
@@ -2473,6 +2498,9 @@ export function EditorPage({
     undo,
     redo,
     setAddCueDialogOpen,
+    onOpenPhotoParse: wideEditorLayout
+      ? () => setPhotoParseOpen(true)
+      : undefined,
     saveStageToFormationBox,
     setFlowLibraryOpen,
     addDancerFromStageToolbar,
@@ -2521,6 +2549,7 @@ export function EditorPage({
   const editorLayoutProps: EditorLayoutProps = {
     activeFormationId,
     addCueDialogEl,
+    photoParseDialogEl,
     addDancerFromStageToolbar,
     aiSuggestOpen,
     applyStageAreaSettingsDraft,

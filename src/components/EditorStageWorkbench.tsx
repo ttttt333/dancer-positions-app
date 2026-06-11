@@ -349,6 +349,8 @@ export type EditorStageWorkbenchProps = {
   undo: () => void;
   redo: () => void;
   setAddCueDialogOpen: Dispatch<SetStateAction<boolean>>;
+  /** 写真から立ち位置を読み取りキュー追加（右レール） */
+  onOpenPhotoParse?: () => void;
   saveStageToFormationBox: () => void;
   setFlowLibraryOpen: Dispatch<SetStateAction<boolean>>;
   addDancerFromStageToolbar: () => void;
@@ -410,6 +412,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
     undo,
     redo,
     setAddCueDialogOpen,
+    onOpenPhotoParse,
     saveStageToFormationBox,
     setFlowLibraryOpen,
     addDancerFromStageToolbar,
@@ -584,6 +587,20 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
         </div>
 
         <div className="editor-right-tools-col-ordered">
+          {onOpenPhotoParse ? (
+            <button
+              type="button"
+              className="editor-right-tool-sq"
+              style={btnSecondary}
+              disabled={project.viewMode === "view"}
+              title="立ち位置図の写真から名前と座標を読み取り、キューとして追加します"
+              aria-label="画像からキューを設定"
+              onClick={() => onOpenPhotoParse()}
+            >
+              <span>画像</span>
+              <span>キュー</span>
+            </button>
+          ) : null}
           {onOpenCueListModal ? (
             <button
               type="button"

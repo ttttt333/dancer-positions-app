@@ -17,6 +17,7 @@ export type EditorLayoutProps = {
   exportDialogEl: ReactNode;
   flowLibraryDialogEl: ReactNode;
   addCueDialogEl: ReactNode;
+  photoParseDialogEl: ReactNode;
   formationBoxManagerDialogEl: ReactNode;
   formationPresetPickerSheetEl: ReactNode;
   rosterImportSheetEl: ReactNode;
