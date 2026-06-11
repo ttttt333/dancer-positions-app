@@ -1,5 +1,8 @@
 import { useCallback, useState } from "react";
-import { fileToBase64 } from "../lib/fileToBase64";
+import {
+  isParseableImageFile,
+  prepareImageFileForParse,
+} from "../lib/prepareImageForParse";
 import type { ParsePositionResponse } from "../lib/parsePositionTypes";
 
 function apiBaseUrl(): string {
@@ -16,8 +19,8 @@ export function usePositionParser() {
 
   const parseImageFile = useCallback(
     async (file: File): Promise<ParsePositionResponse | null> => {
-      if (!file.type.startsWith("image/")) {
-        setError("画像ファイル（JPEG / PNG など）を選んでください");
+      if (!isParseableImageFile(file)) {
+        setError("画像ファイル（JPEG / PNG / HEIC など）を選んでください");
         return null;
       }
 
@@ -25,12 +28,15 @@ export function usePositionParser() {
       setError(null);
 
       try {
-        const imageBase64 = await fileToBase64(file);
+        const prepared = await prepareImageFileForParse(file);
         const base = apiBaseUrl();
         const res = await fetch(`${base}/api/parse-position`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageBase64 }),
+          body: JSON.stringify({
+            imageBase64: prepared.base64,
+            imageMime: prepared.mimeType,
+          }),
         });
 
         const data = (await res.json().catch(() => ({}))) as

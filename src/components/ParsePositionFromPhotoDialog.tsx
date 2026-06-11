@@ -204,13 +204,13 @@ export function ParsePositionFromPhotoDialog({
           {!preview ? (
             <>
               <p style={{ margin: "0 0 12px", fontSize: 13, color: shell.textMuted, lineHeight: 1.5 }}>
-                立ち位置図の写真をアップロードすると、AI が名前と座標（0〜100%）を読み取ります。
+                立ち位置図や方眼紙の手書き名簿の写真をアップロードすると、AI が名前と座標（0〜100%）を読み取ります。
                 結果を確認してからキューとして追加できます。
               </p>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
+                accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
                 style={{ display: "none" }}
                 onChange={(e) => void handleFileChange(e)}
               />

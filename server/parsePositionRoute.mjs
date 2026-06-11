@@ -4,13 +4,17 @@ import { parsePositionImageFromBase64 } from "../shared/parsePositionOpenAI.mjs"
 export async function handleParsePositionRoute(req, res) {
   const imageBase64 =
     typeof req.body?.imageBase64 === "string" ? req.body.imageBase64.trim() : "";
+  const imageMime =
+    typeof req.body?.imageMime === "string" ? req.body.imageMime.trim() : "";
 
   if (!imageBase64) {
     return res.status(400).json({ error: "Image data is required" });
   }
 
   try {
-    const result = await parsePositionImageFromBase64(imageBase64);
+    const result = await parsePositionImageFromBase64(imageBase64, {
+      mimeType: imageMime || undefined,
+    });
     return res.json(result);
   } catch (error) {
     console.error("[parse-position] route error:", error);

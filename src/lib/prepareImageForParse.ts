@@ -1,0 +1,138 @@
+/** 解析 API へ送る画像の最大辺（px） */
+const PARSE_IMAGE_MAX_PX = 2048;
+const PARSE_IMAGE_JPEG_QUALITY = 0.88;
+
+const IMAGE_EXT_RE = /\.(jpe?g|png|webp|gif|heic|heif|avif)$/i;
+
+export type PreparedParseImage = {
+  base64: string;
+  mimeType: "image/jpeg";
+};
+
+export function isParseableImageFile(file: File): boolean {
+  if (file.type.startsWith("image/")) return true;
+  return IMAGE_EXT_RE.test(file.name);
+}
+
+function loadImageElement(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("画像を表示できませんでした"));
+    };
+    img.src = url;
+  });
+}
+
+async function rasterizeToCanvas(file: File): Promise<HTMLCanvasElement> {
+  if (typeof createImageBitmap === "function") {
+    try {
+      const bitmap = await createImageBitmap(file);
+      const canvas = document.createElement("canvas");
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        bitmap.close();
+        throw new Error("画像の変換に失敗しました");
+      }
+      ctx.drawImage(bitmap, 0, 0);
+      bitmap.close();
+      return canvas;
+    } catch {
+      /* fall through */
+    }
+  }
+
+  const img = await loadImageElement(file);
+  const canvas = document.createElement("canvas");
+  canvas.width = img.naturalWidth || img.width;
+  canvas.height = img.naturalHeight || img.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("画像の変換に失敗しました");
+  }
+  ctx.drawImage(img, 0, 0);
+  return canvas;
+}
+
+function canvasToJpegBase64(canvas: HTMLCanvasElement): Promise<string> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error("画像の変換に失敗しました"));
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = reader.result;
+          if (typeof dataUrl !== "string") {
+            reject(new Error("画像の変換に失敗しました"));
+            return;
+          }
+          const comma = dataUrl.indexOf(",");
+          resolve(comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl);
+        };
+        reader.onerror = () => reject(new Error("画像の変換に失敗しました"));
+        reader.readAsDataURL(blob);
+      },
+      "image/jpeg",
+      PARSE_IMAGE_JPEG_QUALITY
+    );
+  });
+}
+
+/**
+ * 写真・スキャン・HEIC などを JPEG Base64 に正規化（リサイズ含む）。
+ * OpenAI Vision へ送る前にクライアントで呼ぶ。
+ */
+export async function prepareImageFileForParse(file: File): Promise<PreparedParseImage> {
+  if (!isParseableImageFile(file)) {
+    throw new Error("画像ファイル（JPEG / PNG / HEIC など）を選んでください");
+  }
+
+  let sourceCanvas: HTMLCanvasElement;
+  try {
+    sourceCanvas = await rasterizeToCanvas(file);
+  } catch {
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    if (ext === "heic" || ext === "heif") {
+      throw new Error(
+        "HEIC 形式はこのブラウザで開けません。写真アプリで JPEG に変換するか、Safari でお試しください"
+      );
+    }
+    throw new Error("画像を読み込めませんでした。別の形式（JPEG / PNG）でお試しください");
+  }
+
+  const srcW = sourceCanvas.width;
+  const srcH = sourceCanvas.height;
+  if (!srcW || !srcH) {
+    throw new Error("画像のサイズを取得できませんでした");
+  }
+
+  const scale = Math.min(1, PARSE_IMAGE_MAX_PX / Math.max(srcW, srcH));
+  const width = Math.max(1, Math.round(srcW * scale));
+  const height = Math.max(1, Math.round(srcH * scale));
+
+  const out = document.createElement("canvas");
+  out.width = width;
+  out.height = height;
+  const ctx = out.getContext("2d");
+  if (!ctx) {
+    throw new Error("画像の変換に失敗しました");
+  }
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+  ctx.drawImage(sourceCanvas, 0, 0, width, height);
+
+  const base64 = await canvasToJpegBase64(out);
+  return { base64, mimeType: "image/jpeg" };
+}

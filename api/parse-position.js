@@ -24,13 +24,17 @@ export default async function handler(req, res) {
 
   const imageBase64 =
     typeof req.body?.imageBase64 === "string" ? req.body.imageBase64.trim() : "";
+  const imageMime =
+    typeof req.body?.imageMime === "string" ? req.body.imageMime.trim() : "";
 
   if (!imageBase64) {
     return res.status(400).json({ error: "Image data is required" });
   }
 
   try {
-    const result = await parsePositionImageFromBase64(imageBase64);
+    const result = await parsePositionImageFromBase64(imageBase64, {
+      mimeType: imageMime || undefined,
+    });
     return res.status(200).json(result);
   } catch (error) {
     console.error("[parse-position] API error:", error);
