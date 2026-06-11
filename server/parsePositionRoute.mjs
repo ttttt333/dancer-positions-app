@@ -6,6 +6,12 @@ export async function handleParsePositionRoute(req, res) {
     typeof req.body?.imageBase64 === "string" ? req.body.imageBase64.trim() : "";
   const imageMime =
     typeof req.body?.imageMime === "string" ? req.body.imageMime.trim() : "";
+  const memberNameHints = Array.isArray(req.body?.memberNameHints)
+    ? req.body.memberNameHints
+        .filter((n) => typeof n === "string" && n.trim())
+        .map((n) => n.trim())
+        .slice(0, 80)
+    : undefined;
 
   if (!imageBase64) {
     return res.status(400).json({ error: "Image data is required" });
@@ -14,6 +20,7 @@ export async function handleParsePositionRoute(req, res) {
   try {
     const result = await parsePositionImageFromBase64(imageBase64, {
       mimeType: imageMime || undefined,
+      memberNameHints,
     });
     return res.json(result);
   } catch (error) {

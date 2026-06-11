@@ -176,7 +176,10 @@ export async function prepareImageFileForParse(file: File): Promise<PreparedPars
 
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, width, height);
+  // 手書き・薄い字を読みやすくする簡易コントラスト強調
+  ctx.filter = "grayscale(1) contrast(1.4) brightness(1.06)";
   ctx.drawImage(sourceCanvas, 0, 0, width, height);
+  ctx.filter = "none";
 
   const base64 = await canvasToJpegBase64(out);
   return { base64, mimeType: "image/jpeg" };

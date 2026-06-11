@@ -1,12 +1,14 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ChangeEvent,
   type CSSProperties,
 } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
+import { collectMemberNameHints } from "../lib/collectMemberNameHints";
 import { applyParsedPositionsAsCue } from "../lib/applyParsedPositionsAsCue";
 import type { ParsedPosition } from "../lib/parsePositionTypes";
 import { usePositionParser } from "../hooks/usePositionParser";
@@ -98,6 +100,10 @@ export function ParsePositionFromPhotoDialog({
   const [preview, setPreview] = useState<ParsedPosition[] | null>(null);
   const [formationName, setFormationName] = useState("写真から取込");
   const [sourceFileName, setSourceFileName] = useState<string | null>(null);
+  const memberNameHints = useMemo(
+    () => collectMemberNameHints(project),
+    [project]
+  );
 
   const resetState = useCallback(() => {
     setPreview(null);
@@ -120,7 +126,9 @@ export function ParsePositionFromPhotoDialog({
     e.target.value = "";
     if (!file) return;
     setSourceFileName(file.name);
-    const result = await parseImageFile(file);
+    const result = await parseImageFile(file, {
+      memberNameHints: memberNameHints.length ? memberNameHints : undefined,
+    });
     if (result?.positions.length) {
       setPreview(result.positions);
     }
@@ -205,7 +213,10 @@ export function ParsePositionFromPhotoDialog({
             <>
               <p style={{ margin: "0 0 12px", fontSize: 13, color: shell.textMuted, lineHeight: 1.5 }}>
                 立ち位置図や方眼紙の手書き名簿の写真をアップロードすると、AI が名前と座標（0〜100%）を読み取ります。
-                結果を確認してからキューとして追加できます。
+                汚い字・かすれは文脈と名簿から推測します。結果を確認してからキューとして追加できます。
+                {memberNameHints.length > 0
+                  ? `（名簿 ${memberNameHints.length} 名をヒントとして利用）`
+                  : null}
               </p>
               <input
                 ref={fileInputRef}
@@ -296,6 +307,7 @@ export function ParsePositionFromPhotoDialog({
                     <tr style={{ background: "#0f172a", color: "#94a3b8" }}>
                       <th style={{ textAlign: "left", padding: "8px 10px" }}>#</th>
                       <th style={{ textAlign: "left", padding: "8px 10px" }}>名前</th>
+                      <th style={{ textAlign: "center", padding: "8px 6px" }}>確度</th>
                       <th style={{ textAlign: "right", padding: "8px 10px" }}>X%</th>
                       <th style={{ textAlign: "right", padding: "8px 10px" }}>Y%</th>
                     </tr>
@@ -305,6 +317,16 @@ export function ParsePositionFromPhotoDialog({
                       <tr key={`${p.name}-${i}`} style={{ borderTop: "1px solid #1e293b" }}>
                         <td style={{ padding: "6px 10px", color: "#64748b" }}>{i + 1}</td>
                         <td style={{ padding: "6px 10px", color: shell.text }}>{p.name}</td>
+                        <td
+                          style={{
+                            padding: "6px 6px",
+                            textAlign: "center",
+                            color: p.confidence === "low" ? "#fbbf24" : "#64748b",
+                            fontSize: 11,
+                          }}
+                        >
+                          {p.confidence === "low" ? "推測" : "—"}
+                        </td>
                         <td style={{ padding: "6px 10px", textAlign: "right" }}>{p.x.toFixed(1)}</td>
                         <td style={{ padding: "6px 10px", textAlign: "right" }}>{p.y.toFixed(1)}</td>
                       </tr>

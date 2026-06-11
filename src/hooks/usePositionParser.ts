@@ -19,7 +19,10 @@ export function usePositionParser() {
   const clearError = useCallback(() => setError(null), []);
 
   const parseImageFile = useCallback(
-    async (file: File): Promise<ParsePositionResponse | null> => {
+    async (
+      file: File,
+      options?: { memberNameHints?: string[] }
+    ): Promise<ParsePositionResponse | null> => {
       if (!isParseableImageFile(file)) {
         setError("画像ファイル（JPEG / PNG / HEIC など）を選んでください");
         return null;
@@ -37,6 +40,9 @@ export function usePositionParser() {
           body: JSON.stringify({
             imageBase64: prepared.base64,
             imageMime: prepared.mimeType,
+            memberNameHints: options?.memberNameHints?.length
+              ? options.memberNameHints
+              : undefined,
           }),
         });
 

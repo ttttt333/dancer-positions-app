@@ -3,6 +3,8 @@ export type ParsedPosition = {
   name: string;
   x: number;
   y: number;
+  /** AI が推測で補完した可能性（low = 要確認） */
+  confidence?: "high" | "low";
 };
 
 export type ParsePositionResponse = {
