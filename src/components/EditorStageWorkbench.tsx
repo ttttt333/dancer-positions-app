@@ -587,20 +587,6 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
         </div>
 
         <div className="editor-right-tools-col-ordered">
-          {onOpenPhotoParse ? (
-            <button
-              type="button"
-              className="editor-right-tool-sq"
-              style={btnSecondary}
-              disabled={project.viewMode === "view"}
-              title="立ち位置図の写真から名前と座標を読み取り、キューとして追加します"
-              aria-label="画像からキューを設定"
-              onClick={() => onOpenPhotoParse()}
-            >
-              <span>画像</span>
-              <span>キュー</span>
-            </button>
-          ) : null}
           {onOpenCueListModal ? (
             <button
               type="button"
@@ -635,6 +621,19 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
           >
             <span>{t("editor.comp.k039")}</span>
           </button>
+          {onOpenPhotoParse ? (
+            <button
+              type="button"
+              className="editor-right-tool-sq"
+              style={btnSecondary}
+              disabled={project.viewMode === "view"}
+              title={t("editor.comp.k130")}
+              aria-label={t("editor.comp.k130")}
+              onClick={() => onOpenPhotoParse()}
+            >
+              <span>{t("editor.comp.k129")}</span>
+            </button>
+          ) : null}
           {onOpenAudioImport ? (
             <button
               type="button"

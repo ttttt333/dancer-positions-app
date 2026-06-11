@@ -131,6 +131,8 @@ const JA: MessageBundle = {
   "editor.comp.k126": "OFF",
   "editor.comp.k127": " — 格子点に自動整列",
   "editor.comp.k128": "動画書き出し",
+  "editor.comp.k129": "画像キュー",
+  "editor.comp.k130": "画像からキューを設定",
 };
 
 const EN: MessageBundle = {
@@ -262,6 +264,8 @@ const EN: MessageBundle = {
   "editor.comp.k126": "OFF",
   "editor.comp.k127": " — snap to grid points",
   "editor.comp.k128": "Video export",
+  "editor.comp.k129": "Photo cue",
+  "editor.comp.k130": "Set cue from photo",
 };
 
 const KO: MessageBundle = { ...EN };

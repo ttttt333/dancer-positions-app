@@ -25,6 +25,7 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
   const setStageZenFullscreen = props.setStageZenFullscreen as (v: boolean) => void;
   const openAudioImport = props.openAudioImport as () => void;
   const setFlowLibraryOpen = props.setFlowLibraryOpen as (open: boolean) => void;
+  const setPhotoParseOpen = props.setPhotoParseOpen as (open: boolean) => void;
   const importCrewCsvFromStageToolbar = props.importCrewCsvFromStageToolbar as () => void;
   const addDancerFromStageToolbar = props.addDancerFromStageToolbar as () => void;
   const setMemberRosterSheetOpen = props.setMemberRosterSheetOpen as (open: boolean) => void;
@@ -85,6 +86,7 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
       onZoomStage={() => setStageZenFullscreen(true)}
       onOpenAudioImport={openAudioImport}
       onOpenLibrary={() => setFlowLibraryOpen(true)}
+      onOpenPhotoParse={() => setPhotoParseOpen(true)}
       onOpenRosterImport={importCrewCsvFromStageToolbar}
       onAddDancer={addDancerFromStageToolbar}
       onOpenRoster={() => setMemberRosterSheetOpen(true)}

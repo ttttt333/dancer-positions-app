@@ -2650,6 +2650,7 @@ export function EditorPage({
     selectedCueId,
     serverId,
     setAddCueDialogOpen,
+    setPhotoParseOpen,
     setAiSuggestOpen,
     setChoreoMemberSheetOpen,
     setChoreoStudentPick,

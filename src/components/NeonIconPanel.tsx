@@ -31,6 +31,8 @@ type NeonIconPanelProps = ChoreoCoreToolbarCoreProps & {
   onZoomStage?: () => void;
   onOpenAudioImport?: () => void;
   onOpenLibrary?: () => void;
+  /** 写真から立ち位置を読み取りキュー追加 */
+  onOpenPhotoParse?: () => void;
   onOpenRosterImport?: () => void;
   onOpenStageTransform?: () => void;
   onOpenVideoExport?: () => void;
@@ -162,6 +164,18 @@ function IconLibrary() {
       <rect x="5" y="8" width="22" height="18" rx="2" fill="none" stroke={c} strokeWidth="1.5" />
       <polyline points="5,12 12,12 14,8" fill="none" stroke={c} strokeWidth="1.2" />
       <path d="M16 17 L17.5 20 L21 20.5 L18.5 23 L19 26.5 L16 25 L13 26.5 L13.5 23 L11 20.5 L14.5 20 Z" fill="none" stroke={c} strokeWidth="1" />
+    </svg>
+  );
+}
+function IconPhotoCue() {
+  const c = "#fbbf24";
+  return (
+    <svg viewBox="0 0 32 32" style={{ filter: glow(c) }}>
+      <rect x="4" y="6" width="24" height="20" rx="2" fill="none" stroke={c} strokeWidth="1.5" />
+      <circle cx="11" cy="14" r="2.2" fill={c} opacity="0.9" />
+      <circle cx="16" cy="18" r="2.2" fill={c} opacity="0.9" />
+      <circle cx="21" cy="13" r="2.2" fill={c} opacity="0.9" />
+      <path d="M4 22 L10 16 L16 20 L22 12 L28 18" fill="none" stroke={c} strokeWidth="1" opacity="0.35" />
     </svg>
   );
 }
@@ -357,8 +371,13 @@ const labelStyle: CSSProperties = {
   marginTop: 2,
 };
 
-function NeonBtn({ icon, label, onClick, active, disabled }: {
-  icon: ReactNode; label: string; onClick?: () => void; active?: boolean; disabled?: boolean;
+function NeonBtn({ icon, label, title, onClick, active, disabled }: {
+  icon: ReactNode;
+  label: string;
+  title?: string;
+  onClick?: () => void;
+  active?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
@@ -381,7 +400,8 @@ function NeonBtn({ icon, label, onClick, active, disabled }: {
           (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.06)";
         }
       }}
-      title={label}
+      title={title ?? label}
+      aria-label={title ?? label}
     >
       <div style={iconSize}>{icon}</div>
       <span style={labelStyle}>{label}</span>
@@ -427,6 +447,7 @@ export function NeonIconPanel({
   onZoomStage,
   onOpenAudioImport,
   onOpenLibrary,
+  onOpenPhotoParse,
   onOpenRosterImport,
   onOpenStageTransform,
   collapsed = false,
@@ -619,7 +640,17 @@ export function NeonIconPanel({
       <div style={grid3}>
         <NeonBtn icon={<IconCueList />} label={t("editor.comp.k019")} onClick={onOpenCueList} disabled={disabled} />
         <NeonBtn icon={<IconLibrary />} label={t("editor.comp.k039")} onClick={onOpenLibrary} disabled={disabled} />
-        <div />
+        {onOpenPhotoParse ? (
+          <NeonBtn
+            icon={<IconPhotoCue />}
+            label={t("editor.comp.k129")}
+            title={t("editor.comp.k130")}
+            onClick={onOpenPhotoParse}
+            disabled={disabled}
+          />
+        ) : (
+          <div />
+        )}
       </div>
 
       <Divider />
