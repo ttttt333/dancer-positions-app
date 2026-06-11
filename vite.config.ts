@@ -123,6 +123,20 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [
           {
+            /** デプロイ後の古い SW が存在しない JS チャンクを参照するのを防ぐ */
+            urlPattern: /\/assets\/.*\.js$/,
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "choreocore-assets-js-v1",
+              expiration: {
+                maxEntries: 64,
+                maxAgeSeconds: 60 * 60 * 24 * 7,
+              },
+              cacheableResponse: { statuses: [0, 200] },
+              networkTimeoutSeconds: 8,
+            },
+          },
+          {
             urlPattern: /\/ffmpeg-core\/ffmpeg-core\.(js|wasm)$/,
             handler: "CacheFirst",
             options: {

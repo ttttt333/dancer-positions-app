@@ -73,9 +73,11 @@ const NAME_MODE_OPTIONS: { value: RosterHintNameMode; label: string }[] = [
 function RosterNameModePicker({
   mode,
   onChange,
+  prominent,
 }: {
   mode: RosterHintNameMode;
   onChange: (mode: RosterHintNameMode) => void;
+  prominent?: boolean;
 }) {
   return (
     <div
@@ -83,7 +85,7 @@ function RosterNameModePicker({
         display: "flex",
         flexWrap: "wrap",
         gap: 6,
-        marginBottom: 8,
+        marginBottom: prominent ? 0 : 8,
       }}
     >
       {NAME_MODE_OPTIONS.map((opt) => (
@@ -92,11 +94,19 @@ function RosterNameModePicker({
           type="button"
           onClick={() => onChange(opt.value)}
           style={{
-            ...btnSecondary,
-            padding: "4px 10px",
-            fontSize: 11,
+            ...(prominent ? btnAccent : btnSecondary),
+            padding: prominent ? "8px 14px" : "4px 10px",
+            fontSize: prominent ? 12 : 11,
             borderColor: mode === opt.value ? "#d4af37" : undefined,
-            color: mode === opt.value ? "#fde68a" : undefined,
+            color:
+              mode === opt.value
+                ? prominent
+                  ? "#0f172a"
+                  : "#fde68a"
+                : prominent
+                  ? shell.text
+                  : undefined,
+            opacity: prominent && mode !== opt.value ? 0.85 : 1,
           }}
         >
           {opt.label}
@@ -185,6 +195,7 @@ export function ParsePositionFromPhotoDialog({
   );
   const [uploadedNameMode, setUploadedNameMode] =
     useState<RosterHintNameMode>("full");
+  const [uploadedNameModeChosen, setUploadedNameModeChosen] = useState(false);
   const [projectNameMode, setProjectNameMode] =
     useState<RosterHintNameMode>("full");
   const [uploadedRosterSource, setUploadedRosterSource] = useState<string | null>(
@@ -271,6 +282,11 @@ export function ParsePositionFromPhotoDialog({
     (useUploadedRosterHints && hasUploadedRoster);
   const hintsReady = !hintsEnabled || memberNameHints.length > 0;
 
+  const uploadedModeReady =
+    !useUploadedRosterHints || !hasUploadedRoster || uploadedNameModeChosen;
+
+  const canParseImages = hintsReady && uploadedModeReady;
+
   const resetState = useCallback(() => {
     setPreview(null);
     setPreviewLines(null);
@@ -281,6 +297,7 @@ export function ParsePositionFromPhotoDialog({
     setUploadedRosterEntries([]);
     setSelectedUploadedIds(new Set());
     setUploadedNameMode("full");
+    setUploadedNameModeChosen(false);
     setProjectNameMode("full");
     setUploadedRosterSource(null);
     setUploadedRosterNotice(null);
@@ -353,6 +370,8 @@ export function ParsePositionFromPhotoDialog({
       setUploadedRosterNotice(result.notice ?? null);
       setUseUploadedRosterHints(true);
       setUploadedRosterExpanded(true);
+      setUploadedNameMode("family_only");
+      setUploadedNameModeChosen(false);
       if (projectRosterIsNumeric) {
         setUseProjectRosterHints(false);
       }
@@ -579,6 +598,50 @@ export function ParsePositionFromPhotoDialog({
                     ) : null}
                     {hasUploadedRoster ? (
                       <>
+                        <div
+                          style={{
+                            marginTop: 10,
+                            padding: "10px 12px",
+                            borderRadius: 8,
+                            background: uploadedNameModeChosen
+                              ? "#0f172a"
+                              : "rgba(212,175,55,0.12)",
+                            border: uploadedNameModeChosen
+                              ? "1px solid #334155"
+                              : "1px solid rgba(212,175,55,0.45)",
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: uploadedNameModeChosen ? shell.text : "#fde68a",
+                              marginBottom: 8,
+                            }}
+                          >
+                            {uploadedNameModeChosen
+                              ? "読み取り表記"
+                              : "読み取り表記を選んでください"}
+                          </div>
+                          <p
+                            style={{
+                              margin: "0 0 10px",
+                              fontSize: 11,
+                              color: shell.textMuted,
+                              lineHeight: 1.45,
+                            }}
+                          >
+                            立ち位置画像に書かれている表記（苗字だけ・名前だけ等）に合わせて選びます。確定時はフルネームで登録します。
+                          </p>
+                          <RosterNameModePicker
+                            prominent={!uploadedNameModeChosen}
+                            mode={uploadedNameMode}
+                            onChange={(mode) => {
+                              setUploadedNameMode(mode);
+                              setUploadedNameModeChosen(true);
+                            }}
+                          />
+                        </div>
                         <label
                           style={{
                             display: "flex",
@@ -599,20 +662,6 @@ export function ParsePositionFromPhotoDialog({
                         </label>
                         {useUploadedRosterHints ? (
                           <>
-                            <RosterNameModePicker
-                              mode={uploadedNameMode}
-                              onChange={setUploadedNameMode}
-                            />
-                            <p
-                              style={{
-                                margin: "0 0 8px",
-                                fontSize: 11,
-                                color: shell.textMuted,
-                                lineHeight: 1.45,
-                              }}
-                            >
-                              選択した表記を画像の読み取り基準にします。確定時の名前はフルネームに戻します。
-                            </p>
                             <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                               <button
                                 type="button"
@@ -882,7 +931,7 @@ export function ParsePositionFromPhotoDialog({
               <button
                 type="button"
                 onClick={handlePickClick}
-                disabled={busy || project.viewMode === "view" || !hintsReady}
+                disabled={busy || project.viewMode === "view" || !canParseImages}
                 style={{
                   ...btnAccent,
                   width: "100%",
@@ -892,7 +941,17 @@ export function ParsePositionFromPhotoDialog({
               >
                 {loading ? "画像を解析中…" : "画像を選ぶ（複数可）"}
               </button>
-              {hintsEnabled && !hintsReady ? (
+              {!uploadedModeReady ? (
+                <p
+                  style={{
+                    margin: "8px 0 0",
+                    fontSize: 11,
+                    color: "#fbbf24",
+                  }}
+                >
+                  名簿読み込み後、読み取り表記（フルネーム / 苗字のみ / 名のみ）を選んでから画像を選んでください。
+                </p>
+              ) : hintsEnabled && !hintsReady ? (
                 <p
                   style={{
                     margin: "8px 0 0",

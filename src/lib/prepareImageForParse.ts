@@ -1,3 +1,5 @@
+import heic2any from "heic2any";
+
 /** 解析 API へ送る画像の最大辺（px） */
 /** Vision API タイムアウト回避のため 1024px 上限 */
 const PARSE_IMAGE_MAX_PX = 1024;
@@ -34,9 +36,8 @@ function jpegFileName(originalName: string): string {
   return `${base}.jpg`;
 }
 
-/** Chrome 等ネイティブ非対応ブラウザ向け HEIC → JPEG（heic2any は初回のみ動的読込） */
+/** Chrome 等ネイティブ非対応ブラウザ向け HEIC → JPEG */
 async function convertHeicToJpegFile(file: File): Promise<File> {
-  const heic2any = (await import("heic2any")).default;
   const result = await heic2any({
     blob: file,
     toType: "image/jpeg",
@@ -148,10 +149,15 @@ export async function prepareImageFileForParse(file: File): Promise<PreparedPars
   } catch (e) {
     if (isHeicFile(file)) {
       const detail = e instanceof Error ? e.message : "";
+      const staleChunk =
+        detail.includes("Failed to fetch dynamically imported module") ||
+        detail.includes("Importing a module script failed");
       throw new Error(
-        detail
-          ? `HEIC を読み込めませんでした: ${detail}`
-          : "HEIC を読み込めませんでした"
+        staleChunk
+          ? "HEIC の変換モジュールを読み込めませんでした。ページを再読み込み（更新）してからもう一度お試しください。"
+          : detail
+            ? `HEIC を読み込めませんでした: ${detail}`
+            : "HEIC を読み込めませんでした"
       );
     }
     throw new Error("画像を読み込めませんでした。別の形式（JPEG / PNG）でお試しください");
