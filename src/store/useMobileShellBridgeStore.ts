@@ -58,6 +58,8 @@ export type MobileShellBridgeStore = {
   onHelp: () => void;
   /** ライブラリ (stages) */
   onFlowLibrary: () => void;
+  /** 写真からキュー追加 (stages) */
+  onPhotoParse: () => void;
   /** 波形タップで近傍キューを選択 */
   onSelectCueNearTime: (tSec: number) => void;
   /** タイムライン左端（停止ボタンで戻る位置） */
@@ -99,6 +101,7 @@ export const useMobileShellBridgeStore = create<MobileShellBridgeStore>((set) =>
   onShareLinks: () => {},
   onHelp: () => {},
   onFlowLibrary: () => {},
+  onPhotoParse: () => {},
   onSelectCueNearTime: () => {},
   trimStartSec: 0,
   trimEndSec: null,

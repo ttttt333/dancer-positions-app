@@ -2498,9 +2498,7 @@ export function EditorPage({
     undo,
     redo,
     setAddCueDialogOpen,
-    onOpenPhotoParse: wideEditorLayout
-      ? () => setPhotoParseOpen(true)
-      : undefined,
+    onOpenPhotoParse: () => setPhotoParseOpen(true),
     saveStageToFormationBox,
     setFlowLibraryOpen,
     addDancerFromStageToolbar,

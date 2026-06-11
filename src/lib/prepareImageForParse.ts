@@ -9,9 +9,51 @@ export type PreparedParseImage = {
   mimeType: "image/jpeg";
 };
 
+export function isHeicFile(file: File): boolean {
+  const type = file.type.toLowerCase();
+  if (
+    type === "image/heic" ||
+    type === "image/heif" ||
+    type.includes("heic") ||
+    type.includes("heif")
+  ) {
+    return true;
+  }
+  const ext = file.name.split(".").pop()?.toLowerCase();
+  return ext === "heic" || ext === "heif";
+}
+
 export function isParseableImageFile(file: File): boolean {
   if (file.type.startsWith("image/")) return true;
   return IMAGE_EXT_RE.test(file.name);
+}
+
+function jpegFileName(originalName: string): string {
+  const base = originalName.replace(/\.[^.]+$/, "") || "photo";
+  return `${base}.jpg`;
+}
+
+/** Chrome 等ネイティブ非対応ブラウザ向け HEIC → JPEG（heic2any は初回のみ動的読込） */
+async function convertHeicToJpegFile(file: File): Promise<File> {
+  const heic2any = (await import("heic2any")).default;
+  const result = await heic2any({
+    blob: file,
+    toType: "image/jpeg",
+    quality: PARSE_IMAGE_JPEG_QUALITY,
+  });
+  const blob = Array.isArray(result) ? result[0] : result;
+  if (!blob) {
+    throw new Error("HEIC の変換に失敗しました");
+  }
+  return new File([blob], jpegFileName(file.name), {
+    type: "image/jpeg",
+    lastModified: file.lastModified,
+  });
+}
+
+async function decodeFileForRasterize(file: File): Promise<File> {
+  if (!isHeicFile(file)) return file;
+  return convertHeicToJpegFile(file);
 }
 
 function loadImageElement(file: File): Promise<HTMLImageElement> {
@@ -100,12 +142,15 @@ export async function prepareImageFileForParse(file: File): Promise<PreparedPars
 
   let sourceCanvas: HTMLCanvasElement;
   try {
-    sourceCanvas = await rasterizeToCanvas(file);
-  } catch {
-    const ext = file.name.split(".").pop()?.toLowerCase();
-    if (ext === "heic" || ext === "heif") {
+    const decoded = await decodeFileForRasterize(file);
+    sourceCanvas = await rasterizeToCanvas(decoded);
+  } catch (e) {
+    if (isHeicFile(file)) {
+      const detail = e instanceof Error ? e.message : "";
       throw new Error(
-        "HEIC 形式はこのブラウザで開けません。写真アプリで JPEG に変換するか、Safari でお試しください"
+        detail
+          ? `HEIC を読み込めませんでした: ${detail}`
+          : "HEIC を読み込めませんでした"
       );
     }
     throw new Error("画像を読み込めませんでした。別の形式（JPEG / PNG）でお試しください");

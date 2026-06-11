@@ -154,6 +154,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const setFloorTextPlaceSession = props.setFloorTextPlaceSession as never;
   const setFloorTextSideSheetOpen = props.setFloorTextSideSheetOpen as never;
   const setFlowLibraryOpen = props.setFlowLibraryOpen as never;
+  const setPhotoParseOpen = props.setPhotoParseOpen as never;
   const setMemberRosterSheetOpen = props.setMemberRosterSheetOpen as never;
   const setMobileEditorToolsExpanded = props.setMobileEditorToolsExpanded as never;
   const setMobileEditorWaveExpanded = props.setMobileEditorWaveExpanded as never;
@@ -241,6 +242,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const shareLinksOpenFnRef = useRef(setShareLinksOpen as ((open: boolean) => void) | null);
   const helpFnRef = useRef(setShortcutsHelpOpen as ((open: boolean) => void) | null);
   const flowLibraryFnRef = useRef(setFlowLibraryOpen as ((open: boolean) => void) | null);
+  const photoParseFnRef = useRef(setPhotoParseOpen as ((open: boolean) => void) | null);
   const aiSuggestFnRef = useRef(setAiSuggestOpen as ((open: boolean) => void) | null);
   const videoExportFnRef = useRef<(() => void) | null>(null);
 
@@ -272,6 +274,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   shareLinksOpenFnRef.current = setShareLinksOpen as ((open: boolean) => void);
   helpFnRef.current = setShortcutsHelpOpen as ((open: boolean) => void);
   flowLibraryFnRef.current = setFlowLibraryOpen as ((open: boolean) => void);
+  photoParseFnRef.current = setPhotoParseOpen as ((open: boolean) => void);
   aiSuggestFnRef.current = setAiSuggestOpen as ((open: boolean) => void);
   videoExportFnRef.current = () => useVideoExportUiStore.getState().openSheet();
 
@@ -366,6 +369,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
       onShareLinks: () => shareLinksOpenFnRef.current?.(true),
       onHelp: () => helpFnRef.current?.(true),
       onFlowLibrary: () => flowLibraryFnRef.current?.(true),
+      onPhotoParse: () => photoParseFnRef.current?.(true),
       onVideoExport: () => videoExportFnRef.current?.(),
       cueStartTimes: Array.isArray(sortedCuesForEditor)
         ? (sortedCuesForEditor as Array<{ tStartSec: number }>).map((c) => c.tStartSec)
@@ -1681,6 +1685,28 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                   >
                     ⚙
                   </button>
+                  <button
+                    type="button"
+                    style={{
+                      ...btnSecondary,
+                      width: 44,
+                      height: 44,
+                      flexShrink: 0,
+                      borderRadius: 12,
+                      fontSize: 18,
+                      touchAction: "manipulation",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: 0,
+                    }}
+                    disabled={project.viewMode === "view"}
+                    title={t("editor.comp.k130")}
+                    aria-label={t("editor.comp.k130")}
+                    onClick={() => setPhotoParseOpen(true)}
+                  >
+                    🖼
+                  </button>
                   <div
                     style={{
                       flex: "1 1 auto",
@@ -1740,6 +1766,28 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     onClick={() => setStageAreaSettingsOpen(true)}
                   >
                     ⚙
+                  </button>
+                  <button
+                    type="button"
+                    style={{
+                      ...btnSecondary,
+                      minWidth: 52,
+                      minHeight: 52,
+                      flexShrink: 0,
+                      borderRadius: 14,
+                      fontSize: 20,
+                      touchAction: "manipulation",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: 0,
+                    }}
+                    disabled={project.viewMode === "view"}
+                    title={t("editor.comp.k130")}
+                    aria-label={t("editor.comp.k130")}
+                    onClick={() => setPhotoParseOpen(true)}
+                  >
+                    🖼
                   </button>
                   <div style={{ flex: "1 1 auto", minWidth: 0, overflowX: "auto" }}>
                     <EditorStageWorkbench

@@ -95,6 +95,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
   const onHelp        = useMobileShellBridgeStore((s) => s.onHelp)
   const onVideoExport = useMobileShellBridgeStore((s) => s.onVideoExport)
   const onFlowLibrary = useMobileShellBridgeStore((s) => s.onFlowLibrary)
+  const onPhotoParse = useMobileShellBridgeStore((s) => s.onPhotoParse)
 
   const transportDisabled = !audioUrl || duration <= 0
 
@@ -106,6 +107,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
         { label: '舞台設定',         icon: '⚙️', action: onStageSettings },
         { label: 'キュー一覧',       icon: '📋', action: onCueList },
         { label: 'ライブラリ',       icon: '📚', action: onFlowLibrary },
+        { label: '画像キュー',       icon: '🖼️', action: onPhotoParse },
         { label: '立ち位置雛形保存', icon: '💾', action: onSaveSpot },
         { label: 'テキスト追加',     icon: '✏️', action: onAddText },
         { label: '舞台変形',         icon: '🏟️', action: onStageShape },

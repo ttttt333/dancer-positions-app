@@ -32,12 +32,12 @@ const overlay: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
-  padding: 16,
+  padding: "max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom))",
 };
 
 const dialog: CSSProperties = {
   width: "min(520px, calc(100vw - 32px))",
-  maxHeight: "min(640px, calc(100vh - 48px))",
+  maxHeight: "min(640px, calc(100dvh - 48px))",
   background: shell.bgDeep,
   border: `1px solid ${shell.border}`,
   borderRadius: 16,
