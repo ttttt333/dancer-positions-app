@@ -1,4 +1,8 @@
-import { linesToParsedPositions, alignPositionsToLineColumnGrid } from "./linesToParsedPositions";
+import {
+  alignPositionsByRowCentered,
+  alignPositionsToLineColumnGrid,
+  linesToParsedPositions,
+} from "./linesToParsedPositions";
 import { matchNameToRoster } from "./matchNameToRoster";
 import type {
   CountMismatch,
@@ -6,11 +10,6 @@ import type {
   ParsedPosition,
   ParsePositionResponse,
 } from "./parsePositionTypes";
-
-export type RefineParsedOptions = {
-  /** ヒント表記（苗字のみ等）→ キュー用フルネーム */
-  hintToFullName?: Map<string, string>;
-};
 
 export function computeCountMismatches(lines: ParsedLine[]): CountMismatch[] {
   const mismatches: CountMismatch[] = [];
@@ -28,8 +27,7 @@ export function computeCountMismatches(lines: ParsedLine[]): CountMismatch[] {
 /** API 応答を名簿名寄せ・列レイアウト補完済みに整える */
 export function refineParsedPositions(
   raw: ParsePositionResponse,
-  roster: string[],
-  opts: RefineParsedOptions = {}
+  roster: string[]
 ): ParsePositionResponse {
   let lines = raw.lines ?? [];
   let positions = raw.positions ?? [];
@@ -39,20 +37,14 @@ export function refineParsedPositions(
     positions = linesToParsedPositions(lines);
   }
 
-  const hintToFullName = opts.hintToFullName;
-
   if (roster.length > 0) {
     positions = positions.map((p) => {
       const m = matchNameToRoster(p.name, roster);
-      const resolved =
-        m.matched && hintToFullName?.size
-          ? hintToFullName.get(m.name) ?? m.name
-          : m.name;
       return {
         ...p,
-        name: resolved,
+        name: m.name,
         confidence:
-          m.matched && m.original && m.original !== resolved
+          m.matched && m.original && m.original !== m.name
             ? "low"
             : p.confidence ?? (m.matched ? "high" : "low"),
         rosterMatched: m.matched,
@@ -61,18 +53,19 @@ export function refineParsedPositions(
 
     lines = lines.map((line) => ({
       ...line,
-      names: line.names.map((n) => {
-        const m = matchNameToRoster(n, roster);
-        if (m.matched && hintToFullName?.size) {
-          return hintToFullName.get(m.name) ?? m.name;
-        }
-        return m.name;
-      }),
+      names: line.names.map((n) => matchNameToRoster(n, roster).name),
     }));
   }
 
-  if (lines.length > 0 && (!hadDiagramPositions || positions.every((p) => p.lineIndex !== undefined))) {
-    positions = alignPositionsToLineColumnGrid(positions, lines);
+  if (lines.length > 0) {
+    if (
+      !hadDiagramPositions ||
+      positions.every((p) => p.lineIndex !== undefined)
+    ) {
+      positions = alignPositionsToLineColumnGrid(positions, lines);
+    }
+  } else if (positions.length > 1) {
+    positions = alignPositionsByRowCentered(positions);
   }
 
   const countMismatches =

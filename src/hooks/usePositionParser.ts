@@ -29,10 +29,7 @@ export function usePositionParser() {
   const parseOneImage = useCallback(
     async (
       file: File,
-      options?: {
-        memberNameHints?: string[];
-        hintToFullName?: Map<string, string>;
-      }
+      options?: { memberNameHints?: string[] }
     ): Promise<ParsePositionResponse> => {
       const memberNameHints = options?.memberNameHints;
       const prepared = await prepareImageFileForParse(file);
@@ -72,8 +69,7 @@ export function usePositionParser() {
 
       return refineParsedPositions(
         data as ParsePositionResponse,
-        memberNameHints ?? [],
-        { hintToFullName: options?.hintToFullName }
+        memberNameHints ?? []
       );
     },
     []
@@ -82,10 +78,7 @@ export function usePositionParser() {
   const parseImageFile = useCallback(
     async (
       file: File,
-      options?: {
-        memberNameHints?: string[];
-        hintToFullName?: Map<string, string>;
-      }
+      options?: { memberNameHints?: string[] }
     ): Promise<ParsePositionResponse | null> => {
       if (!isParseableImageFile(file)) {
         setError("画像ファイル（JPEG / PNG / HEIC など）を選んでください");
@@ -114,7 +107,6 @@ export function usePositionParser() {
       files: File[],
       options?: {
         memberNameHints?: string[];
-        hintToFullName?: Map<string, string>;
         onProgress?: (progress: ParseImageProgress) => void;
       }
     ): Promise<ParsePositionResponse | null> => {
@@ -138,7 +130,6 @@ export function usePositionParser() {
           });
           const result = await parseOneImage(file, {
             memberNameHints: options?.memberNameHints,
-            hintToFullName: options?.hintToFullName,
           });
           if (result.positions.length) results.push(result);
         }

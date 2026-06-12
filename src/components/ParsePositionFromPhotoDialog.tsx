@@ -11,7 +11,6 @@ import type { ChoreographyProjectJson } from "../types/choreography";
 import { applyParsedPositionsAsCue } from "../lib/applyParsedPositionsAsCue";
 import {
   isNumericPlaceholderRoster,
-  mergeHintToFullNameMaps,
   mergeNameHints,
 } from "../lib/extractRosterNameHints";
 import { parseRosterHintsFromFile } from "../lib/parseRosterHintsFromFile";
@@ -268,15 +267,6 @@ export function ParsePositionFromPhotoDialog({
     [projectHintBuild.hints, uploadedHintBuild.hints]
   );
 
-  const hintToFullName = useMemo(
-    () =>
-      mergeHintToFullNameMaps(
-        projectHintBuild.hintToFullName,
-        uploadedHintBuild.hintToFullName
-      ),
-    [projectHintBuild.hintToFullName, uploadedHintBuild.hintToFullName]
-  );
-
   const hintsEnabled =
     (useProjectRosterHints && hasProjectRoster) ||
     (useUploadedRosterHints && hasUploadedRoster);
@@ -396,7 +386,6 @@ export function ParsePositionFromPhotoDialog({
     setParseProgress(null);
     const result = await parseImageFiles(files, {
       memberNameHints: memberNameHints.length ? memberNameHints : undefined,
-      hintToFullName: hintToFullName.size ? hintToFullName : undefined,
       onProgress: setParseProgress,
     });
     setParseProgress(null);
@@ -631,7 +620,7 @@ export function ParsePositionFromPhotoDialog({
                               lineHeight: 1.45,
                             }}
                           >
-                            立ち位置画像に書かれている表記（苗字だけ・名前だけ等）に合わせて選びます。確定時はフルネームで登録します。
+                            立ち位置画像に書かれている表記（苗字だけ・名前だけ等）に合わせて選びます。ステージ上のラベルもその表記のまま使います。
                           </p>
                           <RosterNameModePicker
                             prominent={!uploadedNameModeChosen}
@@ -979,7 +968,7 @@ export function ParsePositionFromPhotoDialog({
                     ? ` · プロジェクト名簿=${NAME_MODE_OPTIONS.find((o) => o.value === projectNameMode)?.label}`
                     : ""}
                   <br />
-                  選択した表記で画像を読み取り、確定時はフルネームでキューに登録します
+                  選択した表記で画像を読み取り、立ち位置の名前も画像どおりの表記で登録します
                 </p>
               ) : null}
               {loading ? (

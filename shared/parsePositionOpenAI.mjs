@@ -7,7 +7,7 @@ function buildSystemPrompt(memberNameHints) {
 
   const rosterBlock =
     roster.length > 0
-      ? `\n【名簿リスト — 名前は必ずこの中から最も近いものを選ぶ。名簿にない新しい名前を作らない】\n[${roster.join(", ")}]\n`
+      ? `\n【名簿候補 — 誰の名前か特定するためのリスト。出力する文字列は画像に実際に書かれている表記をそのまま使う。候補は名簿の中から選ぶが、フルネームへ勝手に書き換えない】\n[${roster.join(", ")}]\n`
       : "";
 
   return `あなたはダンス公演の舞台配置図（フォーメーション図）をデジタル化する専門アシスタントです。
@@ -15,12 +15,14 @@ function buildSystemPrompt(memberNameHints) {
 ${rosterBlock}
 解析手順（この順で内部的に考えてから JSON を出力）:
 1. 画像右端や行の横に書かれた「列の人数」（例: 4, 8, 7）を先にすべて読み取る
-2. 上から下へ各行の名前を読み取り、名簿リストの中から最も近い名前に変換する
+2. 上から下へ各行の名前を、画像に書かれた文字どおりに読み取る（名簿は誰かの特定にのみ使う）
 3. 各行の names の数は count と一致させる（不足分は名簿から推測して埋める）
 4. デジタル図（色付き丸・番号）の場合は各丸の中心座標 x,y（0〜100%）も positions に入れる
 
 ルール:
-- 不明瞭な字・かすれ・汚れでも名簿から推測して補完する
+- names / positions.name は画像の表記をそのまま出力する（苗字だけなら苗字だけ、名前だけなら名前だけ）
+- 名簿は同一人物の特定に使う。画像にないフルネームを勝手に補完しない
+- 不明瞭な字・かすれ・汚れは名簿候補から推測してよいが、出力は画像の書き方に合わせる
 - 文字の上の小さな丸（○）は無視
 - 絶対に「読み取れない」と返さず、必ず JSON を返す
 - 手書きメモでは lines を必ず返す。デジタル図では positions を必ず返す。両方該当すれば両方
@@ -48,12 +50,13 @@ function buildUserPrompt(memberNameHints) {
   let text =
     "添付画像を解析してください。\n" +
     "1) 右端の数字を列の人数（count）として読み取る\n" +
-    "2) 各行の名前を名簿から選んで lines に入れる\n" +
+    "2) 各行の名前を画像に書かれた表記のまま lines に入れる\n" +
     "3) 丸印がある図なら positions に座標も入れる";
 
   if (roster.length > 0) {
     text +=
-      "\n\n名簿（この中から名前を選ぶ）:\n" + roster.map((n) => `・${n}`).join("\n");
+      "\n\n名簿候補（誰の名前か特定する用。出力は画像の表記どおり）:\n" +
+      roster.map((n) => `・${n}`).join("\n");
   }
 
   return text;
@@ -94,8 +97,25 @@ function snapNameToRoster(rawName, roster) {
 
   const normIn = normalizeNameForMatch(original);
   for (const candidate of roster) {
-    if (normalizeNameForMatch(candidate) === normIn) {
-      return { name: candidate, matched: true, original };
+    const normC = normalizeNameForMatch(candidate);
+    if (normC === normIn) {
+      return {
+        name: pickDisplayNameFromMatch(original, candidate),
+        matched: true,
+        original,
+      };
+    }
+    if (
+      normIn.startsWith(normC) ||
+      normC.startsWith(normIn) ||
+      normIn.includes(normC) ||
+      normC.includes(normIn)
+    ) {
+      return {
+        name: pickDisplayNameFromMatch(original, candidate),
+        matched: true,
+        original,
+      };
     }
   }
 
@@ -112,10 +132,27 @@ function snapNameToRoster(rawName, roster) {
   const threshold =
     normIn.length <= 3 ? 2 : Math.max(2, Math.ceil(normIn.length * 0.45));
   if (bestDist <= threshold) {
-    return { name: best, matched: true, original };
+    return {
+      name: pickDisplayNameFromMatch(original, best),
+      matched: true,
+      original,
+    };
   }
 
   return { name: original, matched: false, original };
+}
+
+function pickDisplayNameFromMatch(original, matchedHint) {
+  const raw = String(original ?? "").trim();
+  const hint = String(matchedHint ?? "").trim();
+  if (!raw) return hint;
+  if (!hint) return raw;
+  const normO = normalizeNameForMatch(raw);
+  const normH = normalizeNameForMatch(hint);
+  if (normO === normH) return raw;
+  if (normO.startsWith(normH) || normH.startsWith(normO)) return raw;
+  if (normO.includes(normH) || normH.includes(normO)) return raw;
+  return hint;
 }
 
 function parseLinesFromRaw(raw) {
@@ -147,6 +184,21 @@ function parseLinesFromRaw(raw) {
   return out;
 }
 
+function yForRow(rowIdx, rowCount) {
+  if (rowCount <= 1) return 50;
+  return Math.round((10 + (rowIdx / (rowCount - 1)) * 75) * 100) / 100;
+}
+
+function xForColumnCentered(colIdx, maxCols) {
+  if (maxCols <= 1) return 50;
+  const colUnit = 10;
+  const maxSpan = 84;
+  const span = Math.min(maxSpan, maxCols * colUnit);
+  const left = 50 - span / 2;
+  const step = span / maxCols;
+  return Math.round((left + (colIdx + 0.5) * step) * 100) / 100;
+}
+
 function linesToPositions(lines) {
   const valid = lines.filter((l) => l.names?.length > 0);
   if (valid.length === 0) return [];
@@ -156,19 +208,12 @@ function linesToPositions(lines) {
   const out = [];
   valid.forEach((line, rowIdx) => {
     const names = line.names;
-    const y =
-      rowCount <= 1
-        ? 50
-        : Math.round((10 + (rowIdx / (rowCount - 1)) * 75) * 100) / 100;
+    const y = yForRow(rowIdx, rowCount);
 
     names.forEach((name, colIdx) => {
-      const x =
-        maxCols <= 1
-          ? 50
-          : Math.round((8 + ((colIdx + 0.5) / maxCols) * 84) * 100) / 100;
       out.push({
         name,
-        x,
+        x: xForColumnCentered(colIdx, maxCols),
         y,
         confidence: "low",
         lineIndex: rowIdx,
