@@ -19,6 +19,7 @@ import {
 } from "../lib/stageSelectionArrange";
 import {
   clusterSelectionColumns,
+  getSelectionSwapAxis,
   swapSelectionColumnsDepth,
   swapSelectionKamiteShimote,
 } from "../lib/stageColumnSwap";
@@ -85,9 +86,16 @@ export function StageDancerContextMenu({
       return [];
     }
   }, [formationDancers, arrangeTargetIds]);
+  const selectionSwapAxis = useMemo(
+    () => getSelectionSwapAxis(formationDancers, arrangeTargetIds),
+    [formationDancers, arrangeTargetIds]
+  );
   const selectionColumnCount = selectionColumns.length;
   const selectionColumnSummary = selectionColumns
-    .map((col, i) => `${i + 1}列目${col.members.length}人`)
+    .map((col, i) => {
+      const unit = selectionSwapAxis === "depth-rows" ? "段" : "列";
+      return `${i + 1}${unit}目${col.members.length}人`;
+    })
     .join("・");
 
   const runColumnDepthSwap = (colA: number, colB: number) => {
@@ -642,7 +650,9 @@ menuInteractionDisabled
       lineHeight: 1.25,
     }}
   >
-    範囲内の横位置から列を自動判定し、選んだ列どうしの前後（Y）だけ入れ替えます。
+    {selectionSwapAxis === "depth-rows"
+      ? "前後の段を自動判定し、選んだ段どうしの前後（Y）だけ入れ替えます。"
+      : "横位置の縦列を自動判定し、選んだ列どうしの前後（Y）だけ入れ替えます。"}
     {selectionColumnSummary
       ? `（${arrangeTargetIds.length}人：${selectionColumnSummary}）`
       : null}
