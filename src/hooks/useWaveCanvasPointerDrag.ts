@@ -30,6 +30,7 @@ import {
 } from "../lib/timelineWaveGeometry";
 import { resolveActiveWaveCanvas, resolveWavePointerCanvas } from "../lib/activeWaveCanvas";
 import {
+  CUE_DRAG_EDGE_SCROLL_PAN_STRENGTH,
   panWaveViewStartAtClientX,
   WAVE_EDGE_SCROLL_ZONE_MIN_PX,
   WAVE_EDGE_SCROLL_ZONE_RATIO,
@@ -291,6 +292,63 @@ export function useWaveCanvasPointerDrag({
     ]
   );
 
+  /** キュー枠ドラッグ中の端スクロール（ゆっくり・表示窓ロックも追従） */
+  const applyCueDragEdgeScroll = useCallback(
+    (clientX: number): boolean => {
+      const c = resolveActiveWaveCanvas(canvasRef);
+      if (!c) return false;
+      let anchorSec = currentTimePropRef.current;
+      if (
+        isPlayingForWaveRef.current &&
+        playbackEngine.getMediaSourceUrl() &&
+        !playbackEngine.isPaused() &&
+        Number.isFinite(playbackEngine.getCurrentTime())
+      ) {
+        anchorSec = playbackEngine.getCurrentTime();
+      }
+      const { viewStart, viewSpan } = resolveWaveViewForPointerHit({
+        durationSec: duration,
+        viewPortion: viewPortionRef.current ?? viewPortion,
+        isPlaying: isPlayingForWaveRef.current,
+        viewStartOverride: waveViewStartOverrideRef.current,
+        anchorTimeSec: anchorSec,
+        playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
+        enginePaused:
+          !isPlayingForWaveRef.current || playbackEngine.isPaused(),
+        lastDrawRange: lastWaveDrawRangeRef.current,
+      });
+      const vp = viewPortionRef.current ?? viewPortion;
+      const nextStart = panWaveViewStartAtClientX({
+        clientX,
+        canvasRect: c.getBoundingClientRect(),
+        viewStart,
+        viewSpan,
+        durationSec: duration,
+        viewPortion: vp,
+        panStrength: CUE_DRAG_EDGE_SCROLL_PAN_STRENGTH,
+      });
+      if (nextStart == null) return false;
+      setWaveViewStartOverride(nextStart);
+      const lock = cueDragViewLockRef.current;
+      if (lock) {
+        cueDragViewLockRef.current = { viewStart: nextStart, viewSpan: lock.viewSpan };
+      }
+      return true;
+    },
+    [
+      canvasRef,
+      duration,
+      currentTimePropRef,
+      isPlayingForWaveRef,
+      lastWaveDrawRangeRef,
+      playheadScrubDragRef,
+      waveViewStartOverrideRef,
+      setWaveViewStartOverride,
+      viewPortion,
+      viewPortionRef,
+    ]
+  );
+
   const stopPlayheadEdgeScrollLoop = useCallback(() => {
     if (playheadEdgeScrollRafRef.current) {
       cancelAnimationFrame(playheadEdgeScrollRafRef.current);
@@ -534,7 +592,7 @@ export function useWaveCanvasPointerDrag({
           if (x == null || !drag?.armed) return;
           const vpLoop = viewPortionRef.current ?? viewPortion;
           if (vpLoop >= 1 - 1e-9) return;
-          applyEdgeScroll(x);
+          applyCueDragEdgeScroll(x);
           applyCueDragAtClientX(x, true);
           cueEdgeScrollRafRef.current = requestAnimationFrame(tickCueEdgeScrollLoop);
         };
@@ -564,7 +622,6 @@ export function useWaveCanvasPointerDrag({
           const vpMove = viewPortionRef.current ?? viewPortion;
           if (vpMove < 1 - 1e-9) {
             cueDragScrollClientXRef.current = ev.clientX;
-            applyEdgeScroll(ev.clientX);
             if (!cueEdgeScrollRafRef.current) {
               cueEdgeScrollRafRef.current = requestAnimationFrame(tickCueEdgeScrollLoop);
             }

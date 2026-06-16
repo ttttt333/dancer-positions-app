@@ -196,6 +196,8 @@ export function useTimelinePanelSessionBundle(
     waveViewStartOverrideRef,
     currentTimePropRef,
     isPlayingForWaveRef,
+    cueDragRef,
+    emptyWaveDragRef,
     setViewPortion,
     setWaveViewStartOverride,
   });

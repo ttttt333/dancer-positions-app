@@ -13,6 +13,8 @@ type Params = {
   waveViewStartOverrideRef: MutableRefObject<number | null>;
   currentTimePropRef: MutableRefObject<number>;
   isPlayingForWaveRef: MutableRefObject<boolean>;
+  cueDragRef: RefObject<{ armed: boolean } | null>;
+  emptyWaveDragRef: RefObject<{ active: boolean } | null>;
   setViewPortion: Dispatch<SetStateAction<number>>;
   setWaveViewStartOverride: Dispatch<SetStateAction<number | null>>;
 };
@@ -31,6 +33,8 @@ export function useTimelineWaveWheelZoom({
   waveViewStartOverrideRef,
   currentTimePropRef,
   isPlayingForWaveRef,
+  cueDragRef,
+  emptyWaveDragRef,
   setViewPortion,
   setWaveViewStartOverride,
 }: Params) {
@@ -40,6 +44,14 @@ export function useTimelineWaveWheelZoom({
     const onWheel = (e: WheelEvent) => {
       const d = durationRef.current;
       if (d <= 0) return;
+      /** キュー枠の移動・リサイズ中はホイールズームを抑止（誤って一気に動くのを防ぐ） */
+      if (
+        cueDragRef.current?.armed === true ||
+        emptyWaveDragRef.current?.active === true
+      ) {
+        e.preventDefault();
+        return;
+      }
       e.preventDefault();
       const dy = e.deltaY;
       if (dy === 0) return;
@@ -104,6 +116,8 @@ export function useTimelineWaveWheelZoom({
     waveViewStartOverrideRef,
     currentTimePropRef,
     isPlayingForWaveRef,
+    cueDragRef,
+    emptyWaveDragRef,
     setViewPortion,
     setWaveViewStartOverride,
   ]);

@@ -13,6 +13,16 @@ export function clampWaveViewStart(
   return Math.max(0, Math.min(Math.max(0, durationSec - span), start));
 }
 
+/** 再生ヘッド追従時の端スクロール速度係数（1 = 既定） */
+export const WAVE_EDGE_SCROLL_PAN_STRENGTH = 1;
+
+/** キュー枠の移動・リサイズ時は端スクロールをゆっくりにする */
+export const CUE_DRAG_EDGE_SCROLL_PAN_STRENGTH = 0.22;
+
+function edgeScrollPanFraction(depth: number, panStrength: number): number {
+  return (0.016 + 0.065 * depth) * panStrength;
+}
+
 /** ズーム中に clientX が端ゾーンなら viewStart のパン量（変化なしは null） */
 export function panWaveViewStartAtClientX(params: {
   clientX: number;
@@ -21,9 +31,18 @@ export function panWaveViewStartAtClientX(params: {
   viewSpan: number;
   durationSec: number;
   viewPortion: number;
+  /** 既定 1。キュー枠ドラッグ時は `CUE_DRAG_EDGE_SCROLL_PAN_STRENGTH` を渡す */
+  panStrength?: number;
 }): number | null {
-  const { clientX, canvasRect, viewStart, viewSpan, durationSec, viewPortion } =
-    params;
+  const {
+    clientX,
+    canvasRect,
+    viewStart,
+    viewSpan,
+    durationSec,
+    viewPortion,
+    panStrength = WAVE_EDGE_SCROLL_PAN_STRENGTH,
+  } = params;
   if (viewPortion >= 1 - 1e-9 || durationSec <= 0 || viewSpan <= 0) return null;
   const zone = Math.max(
     WAVE_EDGE_SCROLL_ZONE_MIN_PX,
@@ -33,14 +52,14 @@ export function panWaveViewStartAtClientX(params: {
   if (clientX <= canvasRect.left + zone) {
     const depth = 1 - Math.max(0, (clientX - canvasRect.left) / zone);
     next = clampWaveViewStart(
-      viewStart - viewSpan * (0.016 + 0.065 * depth),
+      viewStart - viewSpan * edgeScrollPanFraction(depth, panStrength),
       viewSpan,
       durationSec
     );
   } else if (clientX >= canvasRect.right - zone) {
     const depth = 1 - Math.max(0, (canvasRect.right - clientX) / zone);
     next = clampWaveViewStart(
-      viewStart + viewSpan * (0.016 + 0.065 * depth),
+      viewStart + viewSpan * edgeScrollPanFraction(depth, panStrength),
       viewSpan,
       durationSec
     );

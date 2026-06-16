@@ -37,6 +37,12 @@ import {
   resolveWaveDrawView,
 } from "../../lib/timelineWaveGeometry";
 import { PLAYHEAD_SCRUB_ARM_PX } from "../../lib/waveLongPress";
+import {
+  CUE_DRAG_EDGE_SCROLL_PAN_STRENGTH,
+  WAVE_EDGE_SCROLL_PAN_STRENGTH,
+  WAVE_EDGE_SCROLL_ZONE_MIN_PX,
+  WAVE_EDGE_SCROLL_ZONE_RATIO,
+} from "../../lib/waveEdgeScrollDuringScrub";
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 48;
@@ -52,9 +58,6 @@ const DRAG_ARM_PX = 14;
 const TAP_MAX_MOVE_PX = 16;
 /** 長押しキャンセルまでの指の揺れ許容（px） */
 const LONG_PRESS_CANCEL_PX = 18;
-/** 端付近この幅に入ると波形を自動スクロール */
-const EDGE_SCROLL_ZONE_MIN_PX = 32;
-const EDGE_SCROLL_ZONE_RATIO = 0.14;
 
 interface Props {
   audioUrl: string | null;
@@ -317,7 +320,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   );
 
   const edgeScrollAtClientX = useCallback(
-    (clientX: number) => {
+    (clientX: number, panStrength = WAVE_EDGE_SCROLL_PAN_STRENGTH) => {
       const z = zoomRef.current;
       if (z <= 1.001 || duration <= 0) return;
       const el = viewportRef.current;
@@ -325,17 +328,20 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       const r = el.getBoundingClientRect();
       if (r.width <= 0) return;
       const vd = duration / z;
-      const zone = Math.max(EDGE_SCROLL_ZONE_MIN_PX, r.width * EDGE_SCROLL_ZONE_RATIO);
+      const zone = Math.max(
+        WAVE_EDGE_SCROLL_ZONE_MIN_PX,
+        r.width * WAVE_EDGE_SCROLL_ZONE_RATIO
+      );
       const vs = viewStartRef.current;
       let next = vs;
 
       if (clientX <= r.left + zone) {
         const depth = 1 - Math.max(0, (clientX - r.left) / zone);
-        const pan = vd * (0.016 + 0.065 * depth);
+        const pan = vd * (0.016 + 0.065 * depth) * panStrength;
         next = clampViewStart(vs - pan, vd, duration);
       } else if (clientX >= r.right - zone) {
         const depth = 1 - Math.max(0, (r.right - clientX) / zone);
-        const pan = vd * (0.016 + 0.065 * depth);
+        const pan = vd * (0.016 + 0.065 * depth) * panStrength;
         next = clampViewStart(vs + pan, vd, duration);
       } else {
         return;
@@ -349,12 +355,25 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
     [duration, syncPortraitView, bridgeApi, resolvePlayheadTimeForDraw]
   );
 
+  const resolveEdgeScrollPanStrength = useCallback((shouldSeek: boolean) => {
+    if (
+      !shouldSeek &&
+      useTimelineWaveBridgeStore.getState().portraitWaveEdgeScrollTick != null
+    ) {
+      return CUE_DRAG_EDGE_SCROLL_PAN_STRENGTH;
+    }
+    return WAVE_EDGE_SCROLL_PAN_STRENGTH;
+  }, []);
+
   const isInEdgeScrollZone = useCallback((clientX: number) => {
     const el = viewportRef.current;
     const z = zoomRef.current;
     if (!el || z <= 1.001) return false;
     const r = el.getBoundingClientRect();
-    const zone = Math.max(EDGE_SCROLL_ZONE_MIN_PX, r.width * EDGE_SCROLL_ZONE_RATIO);
+    const zone = Math.max(
+      WAVE_EDGE_SCROLL_ZONE_MIN_PX,
+      r.width * WAVE_EDGE_SCROLL_ZONE_RATIO
+    );
     return clientX <= r.left + zone || clientX >= r.right - zone;
   }, []);
 
@@ -398,7 +417,8 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
     const x = scrubClientXRef.current;
     if (x == null) return;
     if (!isInEdgeScrollZone(x)) return;
-    edgeScrollAtClientX(x);
+    const panStrength = resolveEdgeScrollPanStrength(scrubShouldSeekRef.current);
+    edgeScrollAtClientX(x, panStrength);
     if (scrubShouldSeekRef.current) {
       const t = timeFromClientX(x);
       if (t != null) seekDuringScrub(t);
@@ -406,7 +426,13 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       useTimelineWaveBridgeStore.getState().portraitWaveEdgeScrollTick?.(x);
     }
     edgeScrollRafRef.current = requestAnimationFrame(tickEdgeScrollLoop);
-  }, [edgeScrollAtClientX, isInEdgeScrollZone, timeFromClientX, seekDuringScrub]);
+  }, [
+    edgeScrollAtClientX,
+    isInEdgeScrollZone,
+    resolveEdgeScrollPanStrength,
+    timeFromClientX,
+    seekDuringScrub,
+  ]);
 
   const handlePortraitWaveScrub = useCallback(
     (clientX: number, end = false, shouldSeek = true) => {
@@ -420,8 +446,9 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       scrubActiveRef.current = true;
       scrubShouldSeekRef.current = shouldSeek;
       scrubClientXRef.current = clientX;
-      edgeScrollAtClientX(clientX);
+      const panStrength = resolveEdgeScrollPanStrength(shouldSeek);
       if (shouldSeek) {
+        edgeScrollAtClientX(clientX, panStrength);
         const t = timeFromClientX(clientX);
         if (t != null) seekDuringScrub(t);
       }
@@ -432,6 +459,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
     [
       edgeScrollAtClientX,
       isInEdgeScrollZone,
+      resolveEdgeScrollPanStrength,
       timeFromClientX,
       seekDuringScrub,
       stopEdgeScrollLoop,
