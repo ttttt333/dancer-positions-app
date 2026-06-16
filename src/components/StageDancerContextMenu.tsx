@@ -83,8 +83,8 @@ export function StageDancerContextMenu({
   );
 
   const runColumnDepthSwap = (colA: number, colB: number) => {
-    if (selectionColumnCount < 2) {
-      window.alert("列の前後交代は、2 列以上ある範囲を選んでください。");
+    if (arrangeTargetIds.length < 2) {
+      window.alert("列の前後交代は、対象を 2 人以上選んでください。");
       onCloseMenu();
       return;
     }
@@ -623,9 +623,9 @@ menuInteractionDisabled
       lineHeight: 1.25,
     }}
   >
-    範囲内を列として認識し、選んだ列どうしの前後（Y）だけ入れ替えます。
-    {selectionColumnCount > 0
-      ? `（${selectionColumnCount} 列検出）`
+    範囲内を横位置で列に分け、選んだ列どうしの前後（Y）だけ入れ替えます。
+    {arrangeTargetIds.length >= 2
+      ? `（${arrangeTargetIds.length} 人・${Math.max(2, selectionColumnCount)} 列想定）`
       : null}
   </div>
   <div
@@ -636,7 +636,7 @@ menuInteractionDisabled
       marginBottom: "5px",
     }}
   >
-    {selectionColumnCount >= 2 ? (
+    {arrangeTargetIds.length >= 2 ? (
       <button
         type="button"
         disabled={menuInteractionDisabled}
