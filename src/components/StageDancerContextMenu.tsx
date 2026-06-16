@@ -102,14 +102,31 @@ export function StageDancerContextMenu({
     applyDancerArrange(swapSelectionKamiteShimote);
   };
 
+  const panelClass = sheet
+    ? "stage-dancer-menu-sheet"
+    : "stage-dancer-menu-sheet stage-dancer-context-menu-panel";
+
   return (
-    <div className={sheet ? "stage-dancer-menu-sheet" : undefined}>
+    <div className={panelClass}>
+  {!sheet ? (
+    <div className="sdcm-panel-header">
+      <strong className="sdcm-panel-title">立ち位置メニュー</strong>
+      <button
+        type="button"
+        className="sdcm-panel-close"
+        onClick={onCloseMenu}
+        aria-label="メニューを閉じる"
+      >
+        閉じる
+      </button>
+    </div>
+  ) : null}
   <div
     className="sdcm-hint"
     style={{
-      fontSize: sheet ? "12px" : "9px",
+      fontSize: sheet ? "12px" : "12px",
       color: "#64748b",
-      marginBottom: sheet ? "10px" : "5px",
+      marginBottom: sheet ? "10px" : "8px",
       lineHeight: 1.45,
       display: sheet ? "none" : "block",
     }}

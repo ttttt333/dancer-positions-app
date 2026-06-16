@@ -4473,6 +4473,19 @@ export function StageBoardBody({
     /* ステージ上の右クリックメニュー */
     stageContextMenu: (
       <>
+        {stageContextMenu?.kind === "dancer" && contextMenuStyle ? (
+          <div
+            role="presentation"
+            aria-hidden
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 9999,
+              background: "rgba(2, 6, 23, 0.58)",
+            }}
+            onClick={() => setStageContextMenu(null)}
+          />
+        ) : null}
         {stageContextMenu && contextMenuStyle ? (
           <StageBoardContextMenuLayer
             menu={stageContextMenu}

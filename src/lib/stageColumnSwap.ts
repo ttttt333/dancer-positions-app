@@ -1,10 +1,7 @@
 import type { DancerSpot } from "../types/choreography";
 
-/** 同一列とみなす X の差（%） */
-const COLUMN_X_TOLERANCE_PCT = 5;
-
-/** 同一行とみなす Y の差（%） */
-const ROW_Y_TOLERANCE_PCT = 6;
+const MIN_COLUMN_SPLIT_GAP_PCT = 3;
+const MAX_COLUMN_SPLIT_GAP_PCT = 14;
 
 function clampPct(v: number): number {
   return Math.max(0.25, Math.min(99.75, v));
@@ -16,6 +13,26 @@ export type SelectionColumn = {
   centerXPct: number;
   members: DancerSpot[];
 };
+
+/** 隣接 X の差から列の区切り閾値を推定 */
+function columnSplitGap(sortedByX: DancerSpot[]): number {
+  if (sortedByX.length < 2) return MIN_COLUMN_SPLIT_GAP_PCT;
+
+  const gaps: number[] = [];
+  for (let i = 1; i < sortedByX.length; i++) {
+    gaps.push(sortedByX[i]!.xPct - sortedByX[i - 1]!.xPct);
+  }
+  gaps.sort((a, b) => a - b);
+
+  const lo = gaps[Math.floor(gaps.length * 0.25)] ?? gaps[0]!;
+  const hi = gaps[Math.floor(gaps.length * 0.75)] ?? gaps[gaps.length - 1]!;
+  const threshold = (lo + hi) / 2;
+
+  return Math.max(
+    MIN_COLUMN_SPLIT_GAP_PCT,
+    Math.min(MAX_COLUMN_SPLIT_GAP_PCT, threshold)
+  );
+}
 
 /** 選択範囲内のダンサーを X 座標で列クラスタに分ける */
 export function clusterSelectionColumns(
@@ -29,22 +46,21 @@ export function clusterSelectionColumns(
   const sorted = [...subset].sort(
     (a, b) => a.xPct - b.xPct || a.yPct - b.yPct || a.id.localeCompare(b.id)
   );
+  const splitGap = columnSplitGap(sorted);
   const groups: DancerSpot[][] = [];
+  let current: DancerSpot[] = [sorted[0]!];
 
-  for (const d of sorted) {
-    const last = groups[groups.length - 1];
-    if (!last?.length) {
-      groups.push([d]);
-      continue;
-    }
-    const lastCenter =
-      last.reduce((sum, m) => sum + m.xPct, 0) / last.length;
-    if (Math.abs(d.xPct - lastCenter) <= COLUMN_X_TOLERANCE_PCT) {
-      last.push(d);
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i - 1]!;
+    const d = sorted[i]!;
+    if (d.xPct - prev.xPct > splitGap) {
+      groups.push(current);
+      current = [d];
     } else {
-      groups.push([d]);
+      current.push(d);
     }
   }
+  groups.push(current);
 
   return groups.map((members, index) => ({
     index,
@@ -63,7 +79,7 @@ export function countSelectionColumns(
 
 /**
  * 2 列の前後（Y）だけ入れ替え。X は変えない。
- * 行は Y 座標が近いペアで対応づける。
+ * 各列を奥→手前（Y 昇順）に並べ、同じ行インデックス同士で Y を交換する。
  */
 export function swapSelectionColumnsDepth(
   dancers: DancerSpot[],
@@ -78,20 +94,19 @@ export function swapSelectionColumnsDepth(
   const groupB = columns[colB]?.members ?? [];
   if (!groupA.length || !groupB.length) return dancers;
 
-  const yById = new Map<string, number>();
-  const usedB = new Set<string>();
+  const sortByRow = (a: DancerSpot, b: DancerSpot) =>
+    a.yPct - b.yPct || a.xPct - b.xPct || a.id.localeCompare(b.id);
 
-  for (const a of groupA) {
-    const candidates = groupB
-      .filter((b) => !usedB.has(b.id))
-      .sort(
-        (x, y) => Math.abs(x.yPct - a.yPct) - Math.abs(y.yPct - a.yPct)
-      );
-    const partner = candidates[0];
-    if (!partner) continue;
-    usedB.add(partner.id);
-    yById.set(a.id, partner.yPct);
-    yById.set(partner.id, a.yPct);
+  const sortedA = [...groupA].sort(sortByRow);
+  const sortedB = [...groupB].sort(sortByRow);
+  const yById = new Map<string, number>();
+  const pairCount = Math.min(sortedA.length, sortedB.length);
+
+  for (let i = 0; i < pairCount; i++) {
+    const a = sortedA[i]!;
+    const b = sortedB[i]!;
+    yById.set(a.id, b.yPct);
+    yById.set(b.id, a.yPct);
   }
 
   const idSet = new Set(targetIds);

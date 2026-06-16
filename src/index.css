@@ -1872,6 +1872,69 @@ html.choreo-stage-video-export #stage-export-root {
   padding: 10px 12px !important;
 }
 
+/* 右クリック：画面中央の大きな立ち位置メニュー */
+.stage-dancer-context-menu-panel .sdcm-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #334155;
+}
+
+.stage-dancer-context-menu-panel .sdcm-panel-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.stage-dancer-context-menu-panel .sdcm-panel-close {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  min-height: 40px;
+  border-radius: 8px;
+  border: 1px solid #475569;
+  background: #1e293b;
+  color: #e2e8f0;
+  cursor: pointer;
+}
+
+.stage-dancer-context-menu-panel .sdcm-panel-close:hover {
+  background: #334155;
+}
+
+.stage-dancer-context-menu-panel button {
+  font-size: 13px !important;
+  padding: 10px 12px !important;
+  min-height: 44px !important;
+}
+
+.stage-dancer-context-menu-panel .sdcm-section,
+.stage-dancer-context-menu-panel [style*="fontWeight: 600"][style*="color: \"#94a3b8\""] {
+  font-size: 13px !important;
+  margin: 12px 0 6px !important;
+}
+
+.stage-dancer-context-menu-panel .sdcm-hint {
+  font-size: 12px !important;
+}
+
+.stage-dancer-context-menu-panel [style*="color: \"#64748b\""][style*="lineHeight"] {
+  font-size: 12px !important;
+  margin-bottom: 8px !important;
+}
+
+.stage-dancer-context-menu-panel .sdcm-color-grid {
+  gap: 8px !important;
+}
+
+.stage-dancer-context-menu-panel .sdcm-color-btn {
+  min-height: 34px !important;
+}
+
 /* 範囲選択 → 緑ボタン：大きな操作パネル（右クリックメニュー同等） */
 .stage-dancer-menu-sheet [style*="gridTemplateColumns"] {
   gap: 8px !important;
