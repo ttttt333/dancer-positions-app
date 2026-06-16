@@ -18,8 +18,7 @@ import {
   rotateDancerRingOneStep,
 } from "../lib/stageSelectionArrange";
 import {
-  countSelectionColumns,
-  formatSelectionColumnSummary,
+  clusterSelectionColumns,
   swapSelectionColumnsDepth,
   swapSelectionKamiteShimote,
 } from "../lib/stageColumnSwap";
@@ -78,15 +77,18 @@ export function StageDancerContextMenu({
     () => resolveArrangeTargetIds(anchorDancerId, selectedDancerIds),
     [anchorDancerId, selectedDancerIds]
   );
-  const selectionColumnCount = useMemo(
-    () => countSelectionColumns(formationDancers, arrangeTargetIds),
-    [formationDancers, arrangeTargetIds]
-  );
-
-  const selectionColumnSummary = useMemo(
-    () => formatSelectionColumnSummary(formationDancers, arrangeTargetIds),
-    [formationDancers, arrangeTargetIds]
-  );
+  const selectionColumns = useMemo(() => {
+    try {
+      return clusterSelectionColumns(formationDancers, arrangeTargetIds);
+    } catch (err) {
+      console.error("[StageDancerContextMenu] column detection failed", err);
+      return [];
+    }
+  }, [formationDancers, arrangeTargetIds]);
+  const selectionColumnCount = selectionColumns.length;
+  const selectionColumnSummary = selectionColumns
+    .map((col, i) => `${i + 1}列目${col.members.length}人`)
+    .join("・");
 
   const runColumnDepthSwap = (colA: number, colB: number) => {
     if (arrangeTargetIds.length < 2) {

@@ -127,7 +127,7 @@ export default defineConfig({
             urlPattern: /\/assets\/.*\.js$/,
             handler: "NetworkFirst",
             options: {
-              cacheName: "choreocore-assets-js-v1",
+              cacheName: "choreocore-assets-js-v2",
               expiration: {
                 maxEntries: 64,
                 maxAgeSeconds: 60 * 60 * 24 * 7,

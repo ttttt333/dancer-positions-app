@@ -201,12 +201,10 @@ function partitionByXKMeans(
     .map((g) => g.members);
 }
 
-/** @deprecated テスト互換 */
-function assignToColumnCount(
-  subset: DancerSpot[],
-  columnCount: number
-): DancerSpot[][] {
-  return partitionByXKMeans(subset, columnCount);
+function clusterByMergedSlots(subset: DancerSpot[]): DancerSpot[][] {
+  const xTol = withinAxisTolerance(subset.map((d) => d.xPct));
+  const slots = buildXSlots(subset, xTol);
+  return mergeSlotsIntoColumns(slots);
 }
 
 /** 選択範囲の列グループを判定（全員を列に割当） */
@@ -214,13 +212,20 @@ export function detectSelectionColumnGroups(subset: DancerSpot[]): DancerSpot[][
   if (!subset.length) return [];
   if (subset.length === 1) return [subset];
 
-  const xTol = withinAxisTolerance(subset.map((d) => d.xPct));
-  const slots = buildXSlots(subset, xTol);
-  const merged = mergeSlotsIntoColumns(slots);
+  const merged = clusterByMergedSlots(subset);
   const estimated = estimateColumnCount(subset);
 
   if (merged.length === estimated) return merged;
   return partitionByXKMeans(subset, estimated);
+}
+
+function resolveSelectionColumns(
+  subset: DancerSpot[],
+  minColumns: number
+): DancerSpot[][] {
+  const detected = detectSelectionColumnGroups(subset);
+  if (detected.length >= minColumns) return detected;
+  return partitionByXKMeans(subset, minColumns);
 }
 
 /** 選択範囲内のダンサーを X 座標で列クラスタに分ける */
@@ -243,10 +248,7 @@ export function countSelectionColumns(
   dancers: DancerSpot[],
   targetIds: string[]
 ): number {
-  const idSet = new Set(targetIds);
-  const subset = dancers.filter((d) => idSet.has(d.id));
-  if (!subset.length) return 0;
-  return detectSelectionColumnGroups(subset).length;
+  return clusterSelectionColumns(dancers, targetIds).length;
 }
 
 /** 列ごとの人数サマリー（UI 表示用） */
@@ -327,12 +329,10 @@ export function swapSelectionColumnsDepth(
   const subset = dancers.filter((d) => idSet.has(d.id));
   if (subset.length < 2) return dancers;
 
-  const neededColumns = Math.max(
-    estimateColumnCount(subset),
-    colA + 1,
-    colB + 1
+  const columns = resolveSelectionColumns(
+    subset,
+    Math.max(colA, colB) + 1
   );
-  const columns = partitionByXKMeans(subset, neededColumns);
   const groupA = columns[colA] ?? [];
   const groupB = columns[colB] ?? [];
   if (!groupA.length || !groupB.length) return dancers;
