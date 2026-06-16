@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from "react";
+import { useMemo, type Dispatch, type SetStateAction } from "react";
 import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography";
 import { DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE } from "../lib/dancerColorPalette";
 import {
@@ -17,11 +17,17 @@ import {
   resolveArrangeTargetIds,
   rotateDancerRingOneStep,
 } from "../lib/stageSelectionArrange";
+import {
+  countSelectionColumns,
+  swapSelectionColumnsDepth,
+  swapSelectionKamiteShimote,
+} from "../lib/stageColumnSwap";
 import { btnSecondary } from "./stageButtonStyles";
 
 export type StageDancerContextMenuProps = {
   anchorDancerId: string;
   selectedDancerIds: string[];
+  formationDancers: DancerSpot[];
   menuInteractionDisabled: boolean;
   rawDancerLabelPosition: "inside" | "below" | undefined;
   dancerLabelBelow: boolean;
@@ -48,6 +54,7 @@ export type StageDancerContextMenuProps = {
 export function StageDancerContextMenu({
   anchorDancerId,
   selectedDancerIds,
+  formationDancers,
   menuInteractionDisabled,
   rawDancerLabelPosition,
   dancerLabelBelow,
@@ -66,6 +73,35 @@ export function StageDancerContextMenu({
   presentation = "menu",
 }: StageDancerContextMenuProps) {
   const sheet = presentation === "sheet";
+  const arrangeTargetIds = useMemo(
+    () => resolveArrangeTargetIds(anchorDancerId, selectedDancerIds),
+    [anchorDancerId, selectedDancerIds]
+  );
+  const selectionColumnCount = useMemo(
+    () => countSelectionColumns(formationDancers, arrangeTargetIds),
+    [formationDancers, arrangeTargetIds]
+  );
+
+  const runColumnDepthSwap = (colA: number, colB: number) => {
+    if (selectionColumnCount < 2) {
+      window.alert("列の前後交代は、2 列以上ある範囲を選んでください。");
+      onCloseMenu();
+      return;
+    }
+    applyDancerArrange((dancers, targetIds) =>
+      swapSelectionColumnsDepth(dancers, targetIds, colA, colB)
+    );
+  };
+
+  const runKamiteShimoteSwap = () => {
+    if (arrangeTargetIds.length < 2) {
+      window.alert("上手・下手の交代は、対象を 2 人以上選んでください。");
+      onCloseMenu();
+      return;
+    }
+    applyDancerArrange(swapSelectionKamiteShimote);
+  };
+
   return (
     <div className={sheet ? "stage-dancer-menu-sheet" : undefined}>
   <div
@@ -550,6 +586,116 @@ menuInteractionDisabled
       onClick={() => applyPermuteArrange(permuteSlotsBySkillDesc)}
     >
       スキル 大→小
+    </button>
+  </div>
+  <div
+    style={{
+      fontSize: "9px",
+      fontWeight: 600,
+      color: "#94a3b8",
+      margin: "3px 0 1px",
+    }}
+  >
+    列の前後交代（横位置はそのまま）
+  </div>
+  <div
+    style={{
+      fontSize: "8px",
+      color: "#64748b",
+      marginBottom: "3px",
+      lineHeight: 1.25,
+    }}
+  >
+    範囲内を列として認識し、選んだ列どうしの前後（Y）だけ入れ替えます。
+    {selectionColumnCount > 0
+      ? `（${selectionColumnCount} 列検出）`
+      : null}
+  </div>
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: "3px",
+      marginBottom: "5px",
+    }}
+  >
+    {selectionColumnCount >= 2 ? (
+      <button
+        type="button"
+        disabled={menuInteractionDisabled}
+        style={{
+          ...btnSecondary,
+          width: "100%",
+          fontSize: "9px",
+          padding: "4px 5px",
+          textAlign: "center",
+        }}
+        title="1列目と2列目の前後だけ入れ替え（X は不変）"
+        onClick={() => runColumnDepthSwap(0, 1)}
+      >
+        1列目 ⇄ 2列目
+      </button>
+    ) : null}
+    {selectionColumnCount >= 3 ? (
+      <>
+        <button
+          type="button"
+          disabled={menuInteractionDisabled}
+          style={{
+            ...btnSecondary,
+            width: "100%",
+            fontSize: "9px",
+            padding: "4px 5px",
+            textAlign: "center",
+          }}
+          title="1列目と3列目の前後だけ入れ替え（X は不変）"
+          onClick={() => runColumnDepthSwap(0, 2)}
+        >
+          1列目 ⇄ 3列目
+        </button>
+        <button
+          type="button"
+          disabled={menuInteractionDisabled}
+          style={{
+            ...btnSecondary,
+            width: "100%",
+            fontSize: "9px",
+            padding: "4px 5px",
+            textAlign: "center",
+          }}
+          title="2列目と3列目の前後だけ入れ替え（X は不変）"
+          onClick={() => runColumnDepthSwap(1, 2)}
+        >
+          2列目 ⇄ 3列目
+        </button>
+      </>
+    ) : null}
+  </div>
+  <div
+    style={{
+      fontSize: "9px",
+      fontWeight: 600,
+      color: "#94a3b8",
+      margin: "2px 0 1px",
+    }}
+  >
+    上手・下手の交代（前後はそのまま）
+  </div>
+  <div style={{ marginBottom: "5px" }}>
+    <button
+      type="button"
+      disabled={menuInteractionDisabled}
+      style={{
+        ...btnSecondary,
+        width: "100%",
+        fontSize: "9px",
+        padding: "5px 6px",
+        textAlign: "center",
+      }}
+      title="選択範囲の左右を反転（上手 ⇄ 下手）。Y は不変"
+      onClick={runKamiteShimoteSwap}
+    >
+      上手 ⇄ 下手
     </button>
   </div>
   <div

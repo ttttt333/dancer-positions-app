@@ -4061,6 +4061,13 @@ export function StageBoardBody({
     ],
   );
 
+  const arrangeAnchorDancerId =
+    stageContextMenu?.kind === "dancer"
+      ? stageContextMenu.dancerId
+      : dancerSelectionSheetOpen && primarySelectedDancer
+        ? primarySelectedDancer.id
+        : null;
+
   const applyDancerArrange = useCallback(
     (fn: (dancers: DancerSpot[], targetIds: string[]) => DancerSpot[]) => {
       if (
@@ -4070,9 +4077,9 @@ export function StageBoardBody({
         playbackOrPreview
       )
         return;
-      if (!stageContextMenu || stageContextMenu.kind !== "dancer") return;
+      if (!arrangeAnchorDancerId) return;
       const targetIds = resolveArrangeTargetIds(
-        stageContextMenu.dancerId,
+        arrangeAnchorDancerId,
         selectedDancerIds,
       );
       updateActiveFormation((f) => ({
@@ -4080,13 +4087,14 @@ export function StageBoardBody({
         dancers: fn(f.dancers, targetIds),
       }));
       setStageContextMenu(null);
+      setDancerSelectionSheetOpen(false);
     },
     [
       writeFormation,
       viewMode,
       stageInteractionsEnabled,
       playbackOrPreview,
-      stageContextMenu,
+      arrangeAnchorDancerId,
       selectedDancerIds,
       updateActiveFormation,
     ],
@@ -4095,9 +4103,9 @@ export function StageBoardBody({
   /** 位置の形を保った入れ替え（2人以上必須） */
   const applyPermuteArrange = useCallback(
     (fn: (dancers: DancerSpot[], targetIds: string[]) => DancerSpot[]) => {
-      if (!stageContextMenu || stageContextMenu.kind !== "dancer") return;
+      if (!arrangeAnchorDancerId) return;
       const targetIds = resolveArrangeTargetIds(
-        stageContextMenu.dancerId,
+        arrangeAnchorDancerId,
         selectedDancerIds,
       );
       if (targetIds.length < 2) {
@@ -4105,11 +4113,12 @@ export function StageBoardBody({
           "いまの立ち位置のままの並び替えは、対象を 2 人以上選んでください。",
         );
         setStageContextMenu(null);
+        setDancerSelectionSheetOpen(false);
         return;
       }
       applyDancerArrange(fn);
     },
-    [stageContextMenu, selectedDancerIds, applyDancerArrange],
+    [arrangeAnchorDancerId, selectedDancerIds, applyDancerArrange],
   );
 
   const contextMenuStyle: CSSProperties | null = stageContextMenu
@@ -4125,6 +4134,7 @@ export function StageBoardBody({
   const dancerContextMenuShared = useMemo(
     () => ({
       selectedDancerIds,
+      formationDancers: stageDancersForLookup,
       menuInteractionDisabled: dancerMenuInteractionDisabled,
       rawDancerLabelPosition: project.dancerLabelPosition,
       dancerLabelBelow,
@@ -4141,6 +4151,7 @@ export function StageBoardBody({
     }),
     [
       selectedDancerIds,
+      stageDancersForLookup,
       dancerMenuInteractionDisabled,
       project.dancerLabelPosition,
       dancerLabelBelow,
