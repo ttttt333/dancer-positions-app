@@ -39,6 +39,7 @@ import {
 import { PLAYHEAD_SCRUB_ARM_PX } from "../../lib/waveLongPress";
 import {
   CUE_DRAG_EDGE_SCROLL_PAN_STRENGTH,
+  PLAYHEAD_SCRUB_EDGE_SCROLL_PAN_STRENGTH,
   WAVE_EDGE_SCROLL_PAN_STRENGTH,
   WAVE_EDGE_SCROLL_ZONE_MIN_PX,
   WAVE_EDGE_SCROLL_ZONE_RATIO,
@@ -361,6 +362,9 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       useTimelineWaveBridgeStore.getState().portraitWaveEdgeScrollTick != null
     ) {
       return CUE_DRAG_EDGE_SCROLL_PAN_STRENGTH;
+    }
+    if (shouldSeek) {
+      return PLAYHEAD_SCRUB_EDGE_SCROLL_PAN_STRENGTH;
     }
     return WAVE_EDGE_SCROLL_PAN_STRENGTH;
   }, []);

@@ -19,6 +19,12 @@ export const WAVE_EDGE_SCROLL_PAN_STRENGTH = 1;
 /** キュー枠の移動・リサイズ時は端スクロールをゆっくりにする */
 export const CUE_DRAG_EDGE_SCROLL_PAN_STRENGTH = 0.22;
 
+/** 赤い再生バーをドラッグ中の端スクロール（キューよりやや速め・既定より遅め） */
+export const PLAYHEAD_SCRUB_EDGE_SCROLL_PAN_STRENGTH = 0.28;
+
+/** ホイールズーム時に再生バーを置く画面内の横位置（0.5 = 中央） */
+export const WAVE_WHEEL_ZOOM_PLAYHEAD_SCREEN_FRAC = 0.5;
+
 function edgeScrollPanFraction(depth: number, panStrength: number): number {
   return (0.016 + 0.065 * depth) * panStrength;
 }
@@ -31,7 +37,7 @@ export function panWaveViewStartAtClientX(params: {
   viewSpan: number;
   durationSec: number;
   viewPortion: number;
-  /** 既定 1。キュー枠ドラッグ時は `CUE_DRAG_EDGE_SCROLL_PAN_STRENGTH` を渡す */
+  /** 既定 1。キュー枠ドラッグ時は `CUE_DRAG_EDGE_SCROLL_PAN_STRENGTH`、再生バードラッグ時は `PLAYHEAD_SCRUB_EDGE_SCROLL_PAN_STRENGTH` を渡す */
   panStrength?: number;
 }): number | null {
   const {

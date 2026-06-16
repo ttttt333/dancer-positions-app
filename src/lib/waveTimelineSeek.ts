@@ -9,7 +9,10 @@ import {
   waveExtentXToTime,
   waveVisibleSpanSec,
 } from "./timelineWaveGeometry";
-import { clampWaveViewStart } from "./waveEdgeScrollDuringScrub";
+import {
+  clampWaveViewStart,
+  WAVE_WHEEL_ZOOM_PLAYHEAD_SCREEN_FRAC,
+} from "./waveEdgeScrollDuringScrub";
 
 export type WaveTimelineSeekViewContext = {
   durationSec: number;
@@ -40,6 +43,36 @@ export function panWaveViewStartForPlayheadAtClientX(params: {
   const x = Math.max(0, Math.min(width, clientX - canvasRect.left));
   const frac = x / width;
   return clampWaveViewStart(scrubTimeSec - frac * span, span, durationSec);
+}
+
+/**
+ * ホイールズーム時: 再生バー（赤いバー）が画面中央付近に来るよう viewStart を決める。
+ */
+export function waveViewStartForPlayheadAtScreenCenter(params: {
+  playheadTimeSec: number;
+  durationSec: number;
+  viewPortion: number;
+  screenCenterFrac?: number;
+}): number | null {
+  const {
+    playheadTimeSec,
+    durationSec,
+    viewPortion,
+    screenCenterFrac = WAVE_WHEEL_ZOOM_PLAYHEAD_SCREEN_FRAC,
+  } = params;
+  if (
+    viewPortion >= 1 - 1e-9 ||
+    durationSec <= 0 ||
+    !Number.isFinite(playheadTimeSec)
+  ) {
+    return null;
+  }
+  const span = waveVisibleSpanSec(durationSec, viewPortion);
+  return clampWaveViewStart(
+    playheadTimeSec - screenCenterFrac * span,
+    span,
+    durationSec
+  );
 }
 
 export type CommitWaveTimelineSeekParams = WaveTimelineSeekViewContext & {

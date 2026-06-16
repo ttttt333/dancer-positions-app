@@ -32,6 +32,7 @@ import { resolveActiveWaveCanvas, resolveWavePointerCanvas } from "../lib/active
 import {
   CUE_DRAG_EDGE_SCROLL_PAN_STRENGTH,
   panWaveViewStartAtClientX,
+  PLAYHEAD_SCRUB_EDGE_SCROLL_PAN_STRENGTH,
   WAVE_EDGE_SCROLL_ZONE_MIN_PX,
   WAVE_EDGE_SCROLL_ZONE_RATIO,
 } from "../lib/waveEdgeScrollDuringScrub";
@@ -357,31 +358,83 @@ export function useWaveCanvasPointerDrag({
     playheadScrubClientXRef.current = null;
   }, []);
 
-  const applyPlayheadScrubViewPan = useCallback(
+  const applyPlayheadScrubViewFollow = useCallback(
     (clientX: number, scrubTimeSec: number) => {
       const c = resolveActiveWaveCanvas(canvasRef);
       const vp = viewPortionRef.current ?? viewPortion;
-      if (c && vp < 1 - 1e-9) {
-        const followStart = panWaveViewStartForPlayheadAtClientX({
-          scrubTimeSec,
-          clientX,
-          canvasRect: c.getBoundingClientRect(),
-          durationSec: duration,
-          viewPortion: vp,
-        });
-        if (followStart != null) {
-          setWaveViewStartOverride(followStart);
-        }
+      if (!c || vp >= 1 - 1e-9) return;
+      const followStart = panWaveViewStartForPlayheadAtClientX({
+        scrubTimeSec,
+        clientX,
+        canvasRect: c.getBoundingClientRect(),
+        durationSec: duration,
+        viewPortion: vp,
+      });
+      if (followStart != null) {
+        setWaveViewStartOverride(followStart);
       }
-      applyEdgeScroll(clientX);
+    },
+    [canvasRef, duration, setWaveViewStartOverride, viewPortion, viewPortionRef]
+  );
+
+  const applyPlayheadEdgeScroll = useCallback(
+    (clientX: number) => {
+      const c = resolveActiveWaveCanvas(canvasRef);
+      if (!c) return;
+      let anchorSec = currentTimePropRef.current;
+      if (
+        isPlayingForWaveRef.current &&
+        playbackEngine.getMediaSourceUrl() &&
+        !playbackEngine.isPaused() &&
+        Number.isFinite(playbackEngine.getCurrentTime())
+      ) {
+        anchorSec = playbackEngine.getCurrentTime();
+      }
+      const { viewStart, viewSpan } = resolveWaveViewForPointerHit({
+        durationSec: duration,
+        viewPortion: viewPortionRef.current ?? viewPortion,
+        isPlaying: isPlayingForWaveRef.current,
+        viewStartOverride: waveViewStartOverrideRef.current,
+        anchorTimeSec: anchorSec,
+        playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
+        enginePaused:
+          !isPlayingForWaveRef.current || playbackEngine.isPaused(),
+        lastDrawRange: lastWaveDrawRangeRef.current,
+      });
+      const vp = viewPortionRef.current ?? viewPortion;
+      const nextStart = panWaveViewStartAtClientX({
+        clientX,
+        canvasRect: c.getBoundingClientRect(),
+        viewStart,
+        viewSpan,
+        durationSec: duration,
+        viewPortion: vp,
+        panStrength: PLAYHEAD_SCRUB_EDGE_SCROLL_PAN_STRENGTH,
+      });
+      if (nextStart != null) {
+        setWaveViewStartOverride(nextStart);
+      }
     },
     [
-      applyEdgeScroll,
+      canvasRef,
       duration,
+      currentTimePropRef,
+      isPlayingForWaveRef,
+      lastWaveDrawRangeRef,
+      playheadScrubDragRef,
+      waveViewStartOverrideRef,
       setWaveViewStartOverride,
       viewPortion,
       viewPortionRef,
     ]
+  );
+
+  const applyPlayheadScrubViewPan = useCallback(
+    (clientX: number, scrubTimeSec: number) => {
+      applyPlayheadScrubViewFollow(clientX, scrubTimeSec);
+      applyPlayheadEdgeScroll(clientX);
+    },
+    [applyPlayheadScrubViewFollow, applyPlayheadEdgeScroll]
   );
 
   return useCallback(
@@ -779,7 +832,8 @@ export function useWaveCanvasPointerDrag({
           if (useTimelineWaveBridgeStore.getState().portraitActive) {
             useTimelineWaveBridgeStore.getState().portraitWaveScrubAtClientX?.(x, false, false);
           } else {
-            applyPlayheadScrubViewPan(x, scrubT);
+            applyPlayheadEdgeScroll(x);
+            applyPlayheadScrubViewFollow(x, scrubT);
           }
           if (playbackEngine.getMediaElement()) {
             seekTimelineAtClientX(x, drag.scrubSession);
@@ -812,7 +866,7 @@ export function useWaveCanvasPointerDrag({
               false
             );
           } else {
-            applyPlayheadScrubViewPan(ev.clientX, scrubT);
+            applyPlayheadScrubViewFollow(ev.clientX, scrubT);
             const vp = viewPortionRef.current ?? viewPortion;
             if (vp < 1 - 1e-9) {
               playheadScrubClientXRef.current = ev.clientX;
