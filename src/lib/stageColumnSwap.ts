@@ -142,14 +142,11 @@ function estimateColumnCount(subset: DancerSpot[]): number {
   return Math.max(1, Math.min(subset.length, Math.max(fromRows, fromSlots)));
 }
 
-/** 推定列数で全員を列に割り当て（下手→上手） */
-function assignToColumnCount(
+/** 推定列数で全員を X 座標の k-means で列に割り当て（下手→上手） */
+function partitionByXKMeans(
   subset: DancerSpot[],
   columnCount: number
 ): DancerSpot[][] {
-  const detected = detectSelectionColumnGroups(subset);
-  if (detected.length === columnCount) return detected;
-
   const k = Math.max(1, Math.min(columnCount, subset.length));
   if (k === 1) return [subset];
 
@@ -204,6 +201,14 @@ function assignToColumnCount(
     .map((g) => g.members);
 }
 
+/** @deprecated テスト互換 */
+function assignToColumnCount(
+  subset: DancerSpot[],
+  columnCount: number
+): DancerSpot[][] {
+  return partitionByXKMeans(subset, columnCount);
+}
+
 /** 選択範囲の列グループを判定（全員を列に割当） */
 export function detectSelectionColumnGroups(subset: DancerSpot[]): DancerSpot[][] {
   if (!subset.length) return [];
@@ -215,7 +220,7 @@ export function detectSelectionColumnGroups(subset: DancerSpot[]): DancerSpot[][
   const estimated = estimateColumnCount(subset);
 
   if (merged.length === estimated) return merged;
-  return assignToColumnCount(subset, estimated);
+  return partitionByXKMeans(subset, estimated);
 }
 
 /** 選択範囲内のダンサーを X 座標で列クラスタに分ける */
@@ -327,7 +332,7 @@ export function swapSelectionColumnsDepth(
     colA + 1,
     colB + 1
   );
-  const columns = assignToColumnCount(subset, neededColumns);
+  const columns = partitionByXKMeans(subset, neededColumns);
   const groupA = columns[colA] ?? [];
   const groupB = columns[colB] ?? [];
   if (!groupA.length || !groupB.length) return dancers;
@@ -373,7 +378,7 @@ export function partitionSelectionByX(
   subset: DancerSpot[],
   columnCount: number
 ): DancerSpot[][] {
-  return assignToColumnCount(subset, columnCount);
+  return partitionByXKMeans(subset, columnCount);
 }
 
 /** @deprecated テスト互換 */
