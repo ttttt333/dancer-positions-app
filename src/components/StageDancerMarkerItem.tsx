@@ -26,6 +26,12 @@ export type StageDancerMarkerItemProps = {
   hideGlyph: boolean;
   circleLabel: ReactNode;
   circleInnerLabelSpanStyle?: CSSProperties;
+  /** センター距離の微調整中は○内ではなく上に表示 */
+  centerDistanceAboveLabel?: {
+    text: string;
+    fontSizePx: number;
+    screenUnrotateDeg: number;
+  };
   screenUnrotateDeg: number;
   showNameBelow: boolean;
   labelOffsetPx: number;
@@ -63,6 +69,7 @@ export function StageDancerMarkerItem({
   hideGlyph,
   circleLabel,
   circleInnerLabelSpanStyle,
+  centerDistanceAboveLabel,
   screenUnrotateDeg,
   showNameBelow,
   labelOffsetPx,
@@ -167,7 +174,7 @@ export function StageDancerMarkerItem({
           pointerEvents: pointerEventsCss,
         }}
       >
-        {!hideGlyph ? (
+        {!hideGlyph && !centerDistanceAboveLabel ? (
           <span
             style={
               circleInnerLabelSpanStyle ?? {
@@ -185,6 +192,36 @@ export function StageDancerMarkerItem({
           </span>
         ) : null}
       </button>
+      {centerDistanceAboveLabel ? (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: "50%",
+            transform: `translate(-50%, calc(-50% - ${halfMarker + 12}px)) rotate(${centerDistanceAboveLabel.screenUnrotateDeg}deg)`,
+            transformOrigin: "center center",
+            color: "#f8fafc",
+            fontSize: `${centerDistanceAboveLabel.fontSizePx}px`,
+            fontWeight: 800,
+            lineHeight: 1.1,
+            whiteSpace: "nowrap",
+            pointerEvents: "none",
+            userSelect: "none",
+            fontVariantNumeric: "tabular-nums",
+            letterSpacing: "-0.02em",
+            padding: "3px 7px",
+            borderRadius: 6,
+            backgroundColor: "rgba(15, 23, 42, 0.92)",
+            border: "1px solid rgba(251, 191, 36, 0.75)",
+            boxShadow:
+              "0 2px 10px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,0,0,0.25)",
+            zIndex: 2,
+          }}
+        >
+          {centerDistanceAboveLabel.text}
+        </div>
+      ) : null}
       {/* 個人閲覧：↓ 矢印ラベル（自分の位置を示す） */}
       {onePersonMode && isStudentHighlight && (
         <div

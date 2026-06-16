@@ -96,7 +96,18 @@ export function useStageDancerMarkerElements(
           selectedDancerIds.length >= 2 &&
           selectedDancerIds.includes(d.id);
         const markerLabelWmm = effStageWidthMm ?? 0;
-        const labelXPct = d.centerDistanceLabelXPct ?? d.xPct;
+        const facing = normalizeDancerFacingDeg(effectiveFacingDeg(d));
+        const screenUnrotateDeg = -(rot + facing);
+        const showCenterDistanceAbove =
+          d.markerBadgeSource === "centerDistance" &&
+          dancerLabelBelow &&
+          !playbackOrPreview &&
+          viewMode !== "view" &&
+          stageInteractionsEnabled &&
+          selectedDancerIds.includes(d.id);
+        const labelXPct = showCenterDistanceAbove
+          ? d.xPct
+          : d.centerDistanceLabelXPct ?? d.xPct;
         const circleInnerOptsMarker =
           markerLabelWmm > 0
             ? { effXPct: labelXPct, stageWidthMm: markerLabelWmm }
@@ -104,8 +115,20 @@ export function useStageDancerMarkerElements(
         const circleLabel = dancerLabelBelow
           ? dancerCircleInnerBelowLabel(d, di, circleInnerOptsMarker)
           : d.label || "?";
-        const facing = normalizeDancerFacingDeg(effectiveFacingDeg(d));
-        const screenUnrotateDeg = -(rot + facing);
+        const centerDistanceAboveLabel =
+          showCenterDistanceAbove && markerLabelWmm > 0
+            ? {
+                text: dancerCircleInnerBelowLabel(d, di, {
+                  effXPct: d.xPct,
+                  stageWidthMm: markerLabelWmm,
+                }),
+                fontSizePx: Math.max(
+                  13,
+                  Math.min(18, Math.round(dMarkerPx * 0.42)),
+                ),
+                screenUnrotateDeg,
+              }
+            : undefined;
         const circleInnerLabelLayout = layoutMarkerCircleInnerLabel(
           dMarkerPx,
           circleLabel,
@@ -134,7 +157,12 @@ export function useStageDancerMarkerElements(
         })();
         const onePersonMode =
           studentViewerFocus != null && studentViewerFocus.kind === "one";
-        const zMark = onePersonMode && isStudentHighlight ? 8 : 4;
+        const zMark =
+          onePersonMode && isStudentHighlight
+            ? 8
+            : showCenterDistanceAbove
+              ? 7
+              : 4;
         const pivotOpacityDimmed = onePersonMode && !isStudentHighlight;
         const interactionLocked =
           viewMode === "view" ||
@@ -228,6 +256,7 @@ export function useStageDancerMarkerElements(
             hideGlyph={hideGlyph}
             circleLabel={circleLabel}
             circleInnerLabelSpanStyle={circleInnerLabelLayout.spanStyle}
+            centerDistanceAboveLabel={centerDistanceAboveLabel}
             screenUnrotateDeg={screenUnrotateDeg}
             showNameBelow={dancerLabelBelow && !hideGlyph}
             labelOffsetPx={labelOffsetPx}
