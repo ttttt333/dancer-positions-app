@@ -19,6 +19,7 @@ import {
 } from "../lib/stageSelectionArrange";
 import {
   countSelectionColumns,
+  formatSelectionColumnSummary,
   swapSelectionColumnsDepth,
   swapSelectionKamiteShimote,
 } from "../lib/stageColumnSwap";
@@ -82,9 +83,19 @@ export function StageDancerContextMenu({
     [formationDancers, arrangeTargetIds]
   );
 
+  const selectionColumnSummary = useMemo(
+    () => formatSelectionColumnSummary(formationDancers, arrangeTargetIds),
+    [formationDancers, arrangeTargetIds]
+  );
+
   const runColumnDepthSwap = (colA: number, colB: number) => {
     if (arrangeTargetIds.length < 2) {
       window.alert("列の前後交代は、対象を 2 人以上選んでください。");
+      onCloseMenu();
+      return;
+    }
+    if (selectionColumnCount < 2) {
+      window.alert("列を判定できませんでした。範囲を広げるか、横位置が分かれるように並べてください。");
       onCloseMenu();
       return;
     }
@@ -106,6 +117,8 @@ export function StageDancerContextMenu({
     ? "stage-dancer-menu-sheet"
     : "stage-dancer-menu-sheet stage-dancer-context-menu-panel";
 
+  const compactMenu = !sheet;
+
   return (
     <div className={panelClass}>
   {!sheet ? (
@@ -121,6 +134,8 @@ export function StageDancerContextMenu({
       </button>
     </div>
   ) : null}
+  <div className={compactMenu ? "sdcm-compact-body" : undefined}>
+  <div className={compactMenu ? "sdcm-pane sdcm-pane-left" : undefined}>
   <div
     className="sdcm-hint"
     style={{
@@ -128,7 +143,7 @@ export function StageDancerContextMenu({
       color: "#64748b",
       marginBottom: sheet ? "10px" : "8px",
       lineHeight: 1.45,
-      display: sheet ? "none" : "block",
+      display: sheet || compactMenu ? "none" : "block",
     }}
   >
     Shift+クリック／範囲ドラッグで複数選択。右クリック印が選択に含まれるときは
@@ -492,6 +507,8 @@ menuInteractionDisabled
       「丸の下」を選ぶと空白・連番・同じ・センターからの距離を指定できます。
     </div>
   )}
+  </div>
+  <div className={compactMenu ? "sdcm-pane sdcm-pane-right" : undefined}>
   <div
     style={{
       fontSize: "9px",
@@ -623,20 +640,22 @@ menuInteractionDisabled
       lineHeight: 1.25,
     }}
   >
-    範囲内を横位置で列に分け、選んだ列どうしの前後（Y）だけ入れ替えます。
-    {arrangeTargetIds.length >= 2
-      ? `（${arrangeTargetIds.length} 人・${Math.max(2, selectionColumnCount)} 列想定）`
+    範囲内の横位置から列を自動判定し、選んだ列どうしの前後（Y）だけ入れ替えます。
+    {selectionColumnSummary
+      ? `（${arrangeTargetIds.length}人：${selectionColumnSummary}）`
       : null}
   </div>
   <div
+    className="sdcm-col-swap-grid"
     style={{
       display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: "3px",
-      marginBottom: "5px",
+      gridTemplateColumns:
+        selectionColumnCount >= 3 ? "1fr 1fr 1fr" : "1fr 1fr",
+      gap: sheet ? "8px" : "4px",
+      marginBottom: sheet ? "10px" : "4px",
     }}
   >
-    {arrangeTargetIds.length >= 2 ? (
+    {selectionColumnCount >= 2 ? (
       <button
         type="button"
         disabled={menuInteractionDisabled}
@@ -957,6 +976,8 @@ menuInteractionDisabled
       </button>
     </>
   )}
-    </div>
+  </div>
+  </div>
+  </div>
   );
 }

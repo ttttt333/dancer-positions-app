@@ -10,13 +10,13 @@ export type StageContextMenuAnchor = {
 export function computeStageContextMenuStyle(
   menu: StageContextMenuAnchor
 ): CSSProperties {
-  const pad = 12;
+  const pad = 10;
 
   if (menu.kind === "dancer") {
     const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
     const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-    const width = Math.min(420, vw - pad * 2);
-    const maxHeight = Math.min(vh * 0.88, 720);
+    const width = Math.min(720, vw - pad * 2);
+    const maxHeight = Math.min(vh * 0.94, 760);
 
     return {
       position: "fixed",
@@ -27,8 +27,9 @@ export function computeStageContextMenuStyle(
       width: `${width}px`,
       maxHeight: `${maxHeight}px`,
       overflowY: "auto",
-      padding: "14px 16px 16px",
-      borderRadius: "14px",
+      overflowX: "hidden",
+      padding: "10px 14px 12px",
+      borderRadius: "12px",
       border: "1px solid #475569",
       background: "#0f172a",
       boxShadow: "0 24px 80px rgba(0,0,0,0.65)",

@@ -1877,25 +1877,25 @@ html.choreo-stage-video-export #stage-export-root {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-  padding-bottom: 10px;
+  gap: 10px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
   border-bottom: 1px solid #334155;
 }
 
 .stage-dancer-context-menu-panel .sdcm-panel-title {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   color: #e2e8f0;
 }
 
 .stage-dancer-context-menu-panel .sdcm-panel-close {
   flex-shrink: 0;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  padding: 8px 14px;
-  min-height: 40px;
-  border-radius: 8px;
+  padding: 5px 12px;
+  min-height: 30px;
+  border-radius: 6px;
   border: 1px solid #475569;
   background: #1e293b;
   color: #e2e8f0;
@@ -1906,33 +1906,61 @@ html.choreo-stage-video-export #stage-export-root {
   background: #334155;
 }
 
+.stage-dancer-context-menu-panel .sdcm-compact-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  column-gap: 16px;
+  row-gap: 0;
+  align-content: start;
+}
+
+.stage-dancer-context-menu-panel .sdcm-pane {
+  min-width: 0;
+}
+
 .stage-dancer-context-menu-panel button {
-  font-size: 13px !important;
-  padding: 10px 12px !important;
-  min-height: 44px !important;
+  font-size: 11px !important;
+  padding: 5px 8px !important;
+  min-height: 30px !important;
+  line-height: 1.2 !important;
 }
 
 .stage-dancer-context-menu-panel .sdcm-section,
 .stage-dancer-context-menu-panel [style*="fontWeight: 600"][style*="color: \"#94a3b8\""] {
-  font-size: 13px !important;
-  margin: 12px 0 6px !important;
-}
-
-.stage-dancer-context-menu-panel .sdcm-hint {
-  font-size: 12px !important;
+  font-size: 11px !important;
+  margin: 4px 0 2px !important;
 }
 
 .stage-dancer-context-menu-panel [style*="color: \"#64748b\""][style*="lineHeight"] {
-  font-size: 12px !important;
-  margin-bottom: 8px !important;
+  font-size: 10px !important;
+  margin-bottom: 2px !important;
+  line-height: 1.25 !important;
 }
 
 .stage-dancer-context-menu-panel .sdcm-color-grid {
-  gap: 8px !important;
+  gap: 4px !important;
+  margin-bottom: 4px !important;
 }
 
 .stage-dancer-context-menu-panel .sdcm-color-btn {
-  min-height: 34px !important;
+  width: 20px !important;
+  height: 20px !important;
+  min-height: 20px !important;
+  border-radius: 4px !important;
+}
+
+.stage-dancer-context-menu-panel [style*="gridTemplateColumns"] {
+  gap: 4px !important;
+  margin-bottom: 4px !important;
+}
+
+.stage-dancer-context-menu-panel .sdcm-col-swap-grid {
+  gap: 4px !important;
+  margin-bottom: 4px !important;
+}
+
+.stage-dancer-context-menu-panel [style*="gridTemplateColumns: \"1fr 1fr 1fr\""] {
+  gap: 4px !important;
 }
 
 /* 範囲選択 → 緑ボタン：大きな操作パネル（右クリックメニュー同等） */
