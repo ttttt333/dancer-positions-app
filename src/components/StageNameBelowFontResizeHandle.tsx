@@ -22,10 +22,6 @@ export function StageNameBelowFontResizeHandle({
   selectedCount,
   onPointerDown,
 }: StageNameBelowFontResizeHandleProps) {
-  const title =
-    selectedCount >= 2
-      ? `選択中 ${selectedCount} 人の名前サイズを変更（上下ドラッグ）`
-      : "名前のサイズを変更（上下ドラッグ）";
   const inset = Math.round(markerPx / 2) + 14;
   const o = STAGE_AUX_HANDLE_CORNER_OFFSET_PX;
   const left = `calc(${xPct}% - ${inset}px - ${o}px)`;
@@ -36,7 +32,6 @@ export function StageNameBelowFontResizeHandle({
       role="presentation"
       aria-hidden
       data-name-below-font-handle
-      title={title}
       onPointerDown={onPointerDown}
       style={{
         position: "absolute",

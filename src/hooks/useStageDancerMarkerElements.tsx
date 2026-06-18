@@ -71,8 +71,6 @@ export function useStageDancerMarkerElements(
     nameBelowClearanceExtraPx,
     resolveNameBelowFontPx,
     rot,
-    mmLabel,
-    snapGrid,
     handlePointerDownDancer,
     viewMode,
     playbackDancers,
@@ -169,25 +167,6 @@ export function useStageDancerMarkerElements(
           Boolean(playbackDancers) ||
           Boolean(previewDancers) ||
           !stageInteractionsEnabled;
-        const buttonTitle = !playbackOrPreview
-          ? [
-              mmLabel(d.xPct, d.yPct),
-              "ダブルクリックで名前・身長・学年・性別・スキル・備考",
-              "右クリックで削除・並べ替えメニュー",
-              "ポインタを画面の左端へ寄せるとゴミ箱が出ます。そこへドロップで削除",
-              "Shift / Cmd / Ctrl+クリックで複数選択に追加",
-              "空のステージをドラッグで範囲選択",
-              snapGrid ? "Shift+ドラッグで細かいグリッドにスナップ" : null,
-              "Alt+矢印で微移動（Shift+Altでさらに細かく）",
-              "⌘D / Ctrl+D で選択メンバーを複製",
-              "Alt+クリックで重なった印の背面へ切替（§10）",
-              facing !== 0
-                ? `向き ${facing}°（印の下の丸ハンドルをドラッグで変更）`
-                : "印の下の丸いハンドルで向きを変更",
-            ]
-              .filter(Boolean)
-              .join(" · ")
-          : mmLabel(d.xPct, d.yPct) || undefined;
         const borderCss =
           dancerQuickEditId === d.id
             ? "2px solid rgba(99,102,241,0.95)"
@@ -222,7 +201,6 @@ export function useStageDancerMarkerElements(
             zMark={zMark}
             playbackOrPreview={playbackOrPreview}
             pivotOpacityDimmed={pivotOpacityDimmed}
-            buttonTitle={buttonTitle}
             onPointerDownButton={(e) =>
               handlePointerDownDancer(e, d.id, d.xPct, d.yPct)
             }
@@ -279,8 +257,6 @@ export function useStageDancerMarkerElements(
       nameBelowClearanceExtraPx,
       resolveNameBelowFontPx,
       rot,
-      mmLabel,
-      snapGrid,
       handlePointerDownDancer,
       viewMode,
       playbackDancers,

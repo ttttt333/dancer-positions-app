@@ -10,15 +10,11 @@ import type { TimelineWaveMenusProps } from "./TimelineWaveMenus";
 import { WaveformStrip } from "./WaveformStrip";
 import type { WaveformStripProps } from "./WaveformStrip";
 
-/** 波形枠に付与するブラウザ title（ホイール・目盛り・リサイズ等） */
-const WAVE_CHROME_TITLE =
-  "波形上でマウスホイール（またはトラックパッドの縦スクロール）で時間軸の拡大・縮小。上の秒数目盛りをクリックすると再生位置だけ移動します（再生中も移動できます）。波形バーとステージの境目を上下ドラッグすると波形エリアの高さを変更できます（ダブルクリックで既定に戻す）。赤い縦線付近をドラッグすると再生位置を移動できます（再生中も操作できます）。ズーム中は端までドラッグすると左右にスクロールします。選択中のキューは赤枠、それ以外のキューは金枠です。キューは右クリックで設定を開けます。キュー同士の間の白いブロックを長押し（または右クリック・Alt+クリック）すると、その先のキューへの立ち位置の入り方を選べます。";
-
 export type TimelinePanelLayoutProps = Omit<
   TimelineAudioChromeProps,
   "onPreloadFfmpegPointer"
 > &
-  Omit<WaveformStripProps, "chromeTitle"> &
+  WaveformStripProps &
   TimelineToolbarProps &
   TimelineCueListProps &
   TimelineWaveMenusProps & {
@@ -102,7 +98,6 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
           hasPeaks={p.hasPeaks}
           waveView={p.waveView}
           waveCanvasCssH={p.waveCanvasCssH}
-          chromeTitle={WAVE_CHROME_TITLE}
           showWaveHeightResizeHandle={!(p.compactTopDock && p.wideWorkbench)}
           onWaveRulerPointerDown={p.onWaveRulerPointerDown}
           onWaveClick={p.onWaveClick}

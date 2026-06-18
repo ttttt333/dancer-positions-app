@@ -31,6 +31,7 @@ import {
 import { resolveActiveWaveCanvas, resolveWavePointerCanvas } from "../lib/activeWaveCanvas";
 import {
   CUE_DRAG_EDGE_SCROLL_PAN_STRENGTH,
+  isWaveEdgeScrollZone,
   panWaveViewStartAtClientX,
   PLAYHEAD_SCRUB_EDGE_SCROLL_PAN_STRENGTH,
   WAVE_EDGE_SCROLL_ZONE_MIN_PX,
@@ -828,14 +829,25 @@ export function useWaveCanvasPointerDrag({
           const x = playheadScrubClientXRef.current;
           const drag = playheadScrubDragRef.current;
           if (x == null || !drag?.armed) return;
-          const scrubT = rawWaveTimeFromClientX(x);
           if (useTimelineWaveBridgeStore.getState().portraitActive) {
             useTimelineWaveBridgeStore.getState().portraitWaveScrubAtClientX?.(x, false, false);
           } else {
             applyPlayheadEdgeScroll(x);
-            applyPlayheadScrubViewFollow(x, scrubT);
+            if (playbackEngine.getMediaElement()) {
+              const moved = seekTimelineAtClientX(x, drag.scrubSession);
+              const rect = c.getBoundingClientRect();
+              if (
+                moved != null &&
+                !isWaveEdgeScrollZone(x, rect)
+              ) {
+                applyPlayheadScrubViewFollow(x, moved);
+              }
+            }
           }
-          if (playbackEngine.getMediaElement()) {
+          if (
+            useTimelineWaveBridgeStore.getState().portraitActive &&
+            playbackEngine.getMediaElement()
+          ) {
             seekTimelineAtClientX(x, drag.scrubSession);
           }
           const vpLoop = viewPortionRef.current ?? viewPortion;
@@ -858,7 +870,8 @@ export function useWaveCanvasPointerDrag({
             }
           }
           if (!playbackEngine.getMediaElement()) return;
-          const scrubT = rawWaveTimeFromClientX(ev.clientX);
+          const rect = c.getBoundingClientRect();
+          const inEdge = isWaveEdgeScrollZone(ev.clientX, rect);
           if (useTimelineWaveBridgeStore.getState().portraitActive) {
             useTimelineWaveBridgeStore.getState().portraitWaveScrubAtClientX?.(
               ev.clientX,
@@ -866,9 +879,11 @@ export function useWaveCanvasPointerDrag({
               false
             );
           } else {
-            applyPlayheadScrubViewFollow(ev.clientX, scrubT);
             const vp = viewPortionRef.current ?? viewPortion;
             if (vp < 1 - 1e-9) {
+              if (inEdge) {
+                applyPlayheadEdgeScroll(ev.clientX);
+              }
               playheadScrubClientXRef.current = ev.clientX;
               if (!playheadEdgeScrollRafRef.current) {
                 playheadEdgeScrollRafRef.current = requestAnimationFrame(
@@ -877,7 +892,14 @@ export function useWaveCanvasPointerDrag({
               }
             }
           }
-          seekTimelineAtClientX(ev.clientX, drag.scrubSession);
+          const moved = seekTimelineAtClientX(ev.clientX, drag.scrubSession);
+          if (
+            !useTimelineWaveBridgeStore.getState().portraitActive &&
+            moved != null &&
+            !inEdge
+          ) {
+            applyPlayheadScrubViewFollow(ev.clientX, moved);
+          }
         };
         const onPhUp = (ev: PointerEvent) => {
           if (ev.pointerId !== capturePid || !playheadScrubDragRef.current) return;

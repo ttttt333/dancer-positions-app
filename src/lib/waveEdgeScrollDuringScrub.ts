@@ -4,6 +4,26 @@ import { waveVisibleSpanSec } from "./timelineWaveGeometry";
 export const WAVE_EDGE_SCROLL_ZONE_MIN_PX = 32;
 export const WAVE_EDGE_SCROLL_ZONE_RATIO = 0.14;
 
+export function waveEdgeScrollZonePx(canvasWidth: number): number {
+  return Math.max(
+    WAVE_EDGE_SCROLL_ZONE_MIN_PX,
+    canvasWidth * WAVE_EDGE_SCROLL_ZONE_RATIO
+  );
+}
+
+/** clientX が波形キャンバスの左右端スクロールゾーン内か */
+export function isWaveEdgeScrollZone(
+  clientX: number,
+  canvasRect: DOMRect
+): boolean {
+  if (canvasRect.width <= 0) return false;
+  const zone = waveEdgeScrollZonePx(canvasRect.width);
+  return (
+    clientX <= canvasRect.left + zone ||
+    clientX >= canvasRect.right - zone
+  );
+}
+
 export function clampWaveViewStart(
   start: number,
   span: number,
@@ -50,10 +70,7 @@ export function panWaveViewStartAtClientX(params: {
     panStrength = WAVE_EDGE_SCROLL_PAN_STRENGTH,
   } = params;
   if (viewPortion >= 1 - 1e-9 || durationSec <= 0 || viewSpan <= 0) return null;
-  const zone = Math.max(
-    WAVE_EDGE_SCROLL_ZONE_MIN_PX,
-    canvasRect.width * WAVE_EDGE_SCROLL_ZONE_RATIO
-  );
+  const zone = waveEdgeScrollZonePx(canvasRect.width);
   let next = viewStart;
   if (clientX <= canvasRect.left + zone) {
     const depth = 1 - Math.max(0, (clientX - canvasRect.left) / zone);

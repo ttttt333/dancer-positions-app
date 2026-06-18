@@ -1,12 +1,26 @@
 import { describe, expect, it } from "vitest";
 import {
   CUE_DRAG_EDGE_SCROLL_PAN_STRENGTH,
+  isWaveEdgeScrollZone,
   panWaveViewStartAtClientX,
   PLAYHEAD_SCRUB_EDGE_SCROLL_PAN_STRENGTH,
   WAVE_EDGE_SCROLL_PAN_STRENGTH,
 } from "./waveEdgeScrollDuringScrub";
 import { resolveWavePlayheadFollowViewStart } from "./timelineWaveGeometry";
 import { waveViewStartForPlayheadAtScreenCenter } from "./waveTimelineSeek";
+
+describe("isWaveEdgeScrollZone", () => {
+  const rect = { left: 100, right: 500, width: 400, top: 0, bottom: 80 } as DOMRect;
+
+  it("is true near left and right edges", () => {
+    expect(isWaveEdgeScrollZone(110, rect)).toBe(true);
+    expect(isWaveEdgeScrollZone(490, rect)).toBe(true);
+  });
+
+  it("is false in the center", () => {
+    expect(isWaveEdgeScrollZone(300, rect)).toBe(false);
+  });
+});
 
 describe("panWaveViewStartAtClientX", () => {
   const rect = { left: 0, right: 400, width: 400, top: 0, bottom: 80 } as DOMRect;

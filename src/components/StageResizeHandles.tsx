@@ -122,13 +122,6 @@ export function StageResizeHandles({
             key={`stage-resize-${h}`}
             role="presentation"
             aria-label={`${label}（${h}）`}
-            title={
-              isCorner
-                ? "ドラッグでステージ全体のサイズを変更。Shift を押しながらドラッグすると、同じ動きでより大きく伸ばせます（画面外までドラッグ可）"
-                : h === "n" || h === "s"
-                  ? "ドラッグで奥行き（前後）だけを変更。Shift で感度アップ"
-                  : "ドラッグで横幅（左右）だけを変更。Shift で感度アップ"
-            }
             onPointerDown={(e) => onResizePointerDown(h, e)}
             onPointerUp={(e) => {
               try {

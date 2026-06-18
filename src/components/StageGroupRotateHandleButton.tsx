@@ -26,7 +26,6 @@ export function StageGroupRotateHandleButton({
       type="button"
       data-group-rotate-handle
       aria-label="選択メンバーを枠の中心まわりに回転（立ち位置と向き）"
-      title={`選択中の ${selectedCount} 人を、枠の中心を軸に図形ごと回転（立ち位置と向きが一緒にまわります）`}
       onPointerDown={onPointerDown}
       style={{
         position: "absolute",

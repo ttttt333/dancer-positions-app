@@ -33,8 +33,6 @@ export type WaveformStripProps = {
   hasPeaks: boolean;
   waveView: { start: number; end: number; span: number };
   waveCanvasCssH: number;
-  /** 波形枠全体のツールチップ（ホイール・目盛り・リサイズ等の説明） */
-  chromeTitle: string;
   onWaveRulerPointerDown: (e: PointerEvent<HTMLDivElement>) => void;
   onWaveClick: (e: MouseEvent<HTMLCanvasElement>) => void;
   onWaveDoubleClick: (e: MouseEvent<HTMLCanvasElement>) => void;
@@ -65,7 +63,6 @@ export function WaveformStrip({
   hasPeaks,
   waveView,
   waveCanvasCssH,
-  chromeTitle,
   onWaveRulerPointerDown,
   onWaveClick,
   onWaveDoubleClick,
@@ -109,7 +106,6 @@ export function WaveformStrip({
   return (
     <div
       ref={waveContainerRef}
-      title={chromeTitle}
       style={{
         width: "100%",
         borderRadius: "6px",

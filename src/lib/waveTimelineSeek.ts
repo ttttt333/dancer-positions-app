@@ -12,6 +12,7 @@ import {
 } from "./timelineWaveGeometry";
 import {
   clampWaveViewStart,
+  isWaveEdgeScrollZone,
   WAVE_WHEEL_ZOOM_PLAYHEAD_SCREEN_FRAC,
 } from "./waveEdgeScrollDuringScrub";
 
@@ -137,17 +138,19 @@ export function commitWaveTimelineSeekAtClientX(
       : seekPlaybackClampedAndSyncStore(seekParams);
   if (moved == null) return null;
 
-  const nextStart = panWaveViewStartForPlayheadAtClientX({
-    scrubTimeSec: moved,
-    clientX,
-    canvasRect: rect,
-    durationSec,
-    viewPortion,
-  });
-  if (nextStart != null) {
-    setWaveViewStartOverride(nextStart);
-  } else if (viewPortion >= 1 - 1e-9) {
-    setWaveViewStartOverride(null);
+  if (!isWaveEdgeScrollZone(clientX, rect)) {
+    const nextStart = panWaveViewStartForPlayheadAtClientX({
+      scrubTimeSec: moved,
+      clientX,
+      canvasRect: rect,
+      durationSec,
+      viewPortion,
+    });
+    if (nextStart != null) {
+      setWaveViewStartOverride(nextStart);
+    } else if (viewPortion >= 1 - 1e-9) {
+      setWaveViewStartOverride(null);
+    }
   }
   return moved;
 }

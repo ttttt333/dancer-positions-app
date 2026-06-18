@@ -84,24 +84,6 @@ export function SetPieceBlock({
       <button
         type="button"
         aria-label={p.label?.trim() ? p.label : "大道具"}
-        title={
-          setPiecesEditable
-            ? [
-                p.label?.trim() || `大道具（${setPieceKindJa(p.kind)}）`,
-                setPieceLayer(p) === "screen" ? "編集画面基準（%）" : "メイン床基準（%）",
-                "ドラッグで移動",
-                "上の丸ハンドルで回転（Shift で15°刻み）",
-                "角・辺のハンドルでリサイズ",
-                snapGrid ? "Shift+ドラッグで細かいグリッド" : null,
-                "Delete / Backspace で削除",
-                "右クリックでメニュー",
-                "ダブルクリックでキュー間ギャップの補間 ON/OFF",
-                p.interpolateInGaps ? "（補間: ON）" : "（補間: OFF）",
-              ]
-                .filter(Boolean)
-                .join(" · ")
-            : undefined
-        }
         tabIndex={setPiecesEditable ? 0 : -1}
         onPointerDown={(e) => onBodyPointerDown(e, p)}
         onContextMenu={(e) => {

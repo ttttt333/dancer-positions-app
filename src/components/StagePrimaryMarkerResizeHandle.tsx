@@ -24,10 +24,6 @@ export function StagePrimaryMarkerResizeHandle({
   selectedCount,
   onPointerDown,
 }: StagePrimaryMarkerResizeHandleProps) {
-  const resizeTip =
-    selectedCount >= 2
-      ? `選択中の ${selectedCount} 人の ○ サイズを一括変更（基準 ${markerPx}px・ドラッグで変更）`
-      : `○ のサイズ（${markerPx}px）・ドラッグで変更`;
   const inset = Math.round(markerPx / 2) + 14;
   const o = STAGE_AUX_HANDLE_CORNER_OFFSET_PX;
 
@@ -48,7 +44,6 @@ export function StagePrimaryMarkerResizeHandle({
     >
       <div
         data-marker-resize-handle
-        title={resizeTip}
         onPointerDown={onPointerDown}
         style={{
           position: "absolute",

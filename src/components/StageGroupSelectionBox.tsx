@@ -77,11 +77,6 @@ export function StageGroupSelectionBox({
           data-group-box-handle={h}
           role="presentation"
           aria-hidden
-          title={`群のリサイズ（${h}）${
-            h === "n" || h === "s" || h === "e" || h === "w"
-              ? "・Shift で比率保持"
-              : "・Shift で 1 軸のみ"
-          }`}
           onPointerDown={(e) => onHandlePointerDown(e, h)}
           style={{
             position: "absolute",
@@ -119,7 +114,6 @@ export function StageGroupSelectionBox({
           role="presentation"
           aria-hidden
           data-name-below-font-handle
-          title="選択中の名前サイズを変更（上下ドラッグ）"
           onPointerDown={onNameBelowFontPointerDown}
           style={{
             position: "absolute",
@@ -141,7 +135,6 @@ export function StageGroupSelectionBox({
           type="button"
           data-group-selection-menu-handle
           aria-label="選択した立ち位置の設定を開く"
-          title="複製・表示・並べ替えなど（右クリックメニューと同じ）"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
@@ -168,7 +161,6 @@ export function StageGroupSelectionBox({
           role="presentation"
           aria-hidden
           data-marker-resize-handle
-          title="選択中の ○ サイズを変更（ドラッグ）"
           onPointerDown={onMarkerResizePointerDown}
           style={{
             position: "absolute",

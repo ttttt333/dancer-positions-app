@@ -15,7 +15,11 @@ import {
   waveExtentXToTime,
 } from "../lib/timelineWaveGeometry";
 import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
-import { panWaveViewStartAtClientX, PLAYHEAD_SCRUB_EDGE_SCROLL_PAN_STRENGTH } from "../lib/waveEdgeScrollDuringScrub";
+import {
+  isWaveEdgeScrollZone,
+  panWaveViewStartAtClientX,
+  PLAYHEAD_SCRUB_EDGE_SCROLL_PAN_STRENGTH,
+} from "../lib/waveEdgeScrollDuringScrub";
 import {
   commitWaveTimelineSeekAtClientX,
   panWaveViewStartForPlayheadAtClientX,
@@ -332,19 +336,23 @@ export function useTimelineWaveSurfaceHandlers(
     if (x == null || !drag?.armed) return;
     const vp = viewPortionRef.current ?? viewPortion;
     if (vp >= 1 - 1e-9) return;
-    const t = timeAtClientX(x);
-    if (t != null) {
-      applyPlayheadEdgeScrollAtClientX(x);
-      applyPlayheadScrubViewFollow(x, t);
-      seekTimelineAtClientX(x, drag.scrubSession);
+    applyPlayheadEdgeScrollAtClientX(x);
+    const moved = seekTimelineAtClientX(x, drag.scrubSession);
+    const c = resolveActiveWaveCanvas(canvasRef);
+    if (
+      moved != null &&
+      c &&
+      !isWaveEdgeScrollZone(x, c.getBoundingClientRect())
+    ) {
+      applyPlayheadScrubViewFollow(x, moved);
     }
     playheadEdgeScrollRafRef.current = requestAnimationFrame(tickPlayheadEdgeScrollLoop);
   }, [
     applyPlayheadEdgeScrollAtClientX,
     applyPlayheadScrubViewFollow,
+    canvasRef,
     playheadScrubDragRef,
     seekTimelineAtClientX,
-    timeAtClientX,
     viewPortion,
     viewPortionRef,
   ]);
@@ -608,13 +616,22 @@ export function useTimelineWaveSurfaceHandlers(
         drag.scrubSession = beginPlaybackScrubSession();
       }
       e.preventDefault();
+      const c = resolveActiveWaveCanvas(canvasRef);
+      const canvasRect = c?.getBoundingClientRect();
+      const inEdge =
+        zoomed && canvasRect != null && isWaveEdgeScrollZone(e.clientX, canvasRect);
+      if (inEdge) {
+        applyPlayheadEdgeScrollAtClientX(e.clientX);
+      }
       const moved = scrubAtClientX(e.clientX, { edgeLoop: zoomed });
-      if (zoomed && moved != null) {
+      if (zoomed && moved != null && !inEdge) {
         applyPlayheadScrubViewFollow(e.clientX, moved);
       }
     },
     [
+      applyPlayheadEdgeScrollAtClientX,
       applyPlayheadScrubViewFollow,
+      canvasRef,
       playheadScrubDragRef,
       scrubAtClientX,
       viewPortion,
