@@ -181,8 +181,8 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
             (next.dancerCustomPaths != null &&
               Object.keys(next.dancerCustomPaths).length > 0);
           if (configuredGapMovement) {
-            g.fillStyle = "rgba(56, 189, 248, 0.38)";
-            g.strokeStyle = "rgba(37, 99, 235, 0.88)";
+            g.fillStyle = "rgba(248, 113, 113, 0.38)";
+            g.strokeStyle = "rgba(220, 38, 38, 0.88)";
           } else {
             g.fillStyle = "rgba(255, 255, 255, 0.07)";
             g.strokeStyle = "rgba(248, 250, 252, 0.22)";
@@ -216,7 +216,7 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         const top = inset;
         const boxH = h - inset * 2;
         const edgeSeg = Math.min(18, Math.max(6, width * 0.14));
-        const baseLw = opts.isSel ? 2.1 : opts.isDrag ? 1.75 : 1.55;
+        const baseLw = opts.isSel ? 2.25 : 2;
         const gold =
           opts.isSel
             ? "rgba(239, 68, 68, 0.98)"
