@@ -126,6 +126,33 @@ describe("effectiveWaveViewStartOverride", () => {
 });
 
 describe("resolveWaveDrawView", () => {
+  it("keeps user override while playing if playhead remains in the panned window", () => {
+    const v = resolveWaveDrawView({
+      durationSec: 100,
+      viewPortion: 0.2,
+      anchorTimeSec: 25,
+      isPlaying: true,
+      viewStartOverride: 12,
+      playheadScrubArmed: false,
+    });
+    expect(v.start).toBe(12);
+    expect(v.span).toBeCloseTo(20, 5);
+  });
+
+  it("follows playhead at screen center when override no longer contains playhead", () => {
+    const v = resolveWaveDrawView({
+      durationSec: 100,
+      viewPortion: 0.2,
+      anchorTimeSec: 50,
+      isPlaying: true,
+      viewStartOverride: 12,
+      playheadScrubArmed: false,
+    });
+    expect(v.span).toBeCloseTo(20, 5);
+    expect(v.start).toBeCloseTo(40, 5);
+    expect(v.start + v.span * 0.5).toBeCloseTo(50, 5);
+  });
+
   it("follows playhead at screen center while playing even with override set", () => {
     const v = resolveWaveDrawView({
       durationSec: 100,
@@ -162,6 +189,18 @@ describe("resolveWaveDrawView", () => {
       playheadScrubArmed: true,
     });
     expect(v.start).toBe(12);
+  });
+
+  it("keeps override while cue drag is armed during playback", () => {
+    const v = resolveWaveDrawView({
+      durationSec: 100,
+      viewPortion: 0.2,
+      anchorTimeSec: 50,
+      isPlaying: true,
+      viewStartOverride: 18,
+      cueDragArmed: true,
+    });
+    expect(v.start).toBe(18);
   });
 });
 

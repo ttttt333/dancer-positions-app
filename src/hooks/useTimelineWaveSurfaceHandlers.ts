@@ -123,6 +123,7 @@ export function useTimelineWaveSurfaceHandlers(
       viewStartOverride: waveViewStartOverrideRef.current,
       anchorTimeSec: anchorSec,
       playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
+      cueDragArmed: cueDragRef.current?.armed ?? false,
       enginePaused:
         !isPlayingForWaveRef.current || playbackEngine.isPaused(),
       lastDrawRange: lastWaveDrawRangeRef.current,
@@ -136,6 +137,7 @@ export function useTimelineWaveSurfaceHandlers(
     waveViewStartOverrideRef,
     currentTimePropRef,
     playheadScrubDragRef,
+    cueDragRef,
   ]);
 
   const timeAtClientX = useCallback(
@@ -167,6 +169,7 @@ export function useTimelineWaveSurfaceHandlers(
       viewStartOverride: waveViewStartOverrideRef.current,
       anchorTimeSec: anchorSec,
       playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
+      cueDragArmed: cueDragRef.current?.armed ?? false,
       enginePaused:
         !isPlayingForWaveRef.current || playbackEngine.isPaused(),
       lastDrawRange: lastWaveDrawRangeRef.current,
@@ -177,6 +180,7 @@ export function useTimelineWaveSurfaceHandlers(
     isPlayingForWaveRef,
     lastWaveDrawRangeRef,
     playheadScrubDragRef,
+    cueDragRef,
     viewPortion,
     viewPortionRef,
     waveViewStartOverrideRef,
@@ -264,6 +268,7 @@ export function useTimelineWaveSurfaceHandlers(
     viewPortion,
     cuesSorted,
     cueDragPreviewRangeRef,
+    cueDragRef,
     currentTimePropRef,
     isPlayingForWaveRef,
     playheadScrubDragRef,

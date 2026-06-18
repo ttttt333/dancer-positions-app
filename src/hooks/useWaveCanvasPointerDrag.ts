@@ -263,6 +263,7 @@ export function useWaveCanvasPointerDrag({
         viewStartOverride: waveViewStartOverrideRef.current,
         anchorTimeSec: anchorSec,
         playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
+        cueDragArmed: cueDragRef.current?.armed ?? false,
         enginePaused:
           !isPlayingForWaveRef.current || playbackEngine.isPaused(),
         lastDrawRange: lastWaveDrawRangeRef.current,
@@ -315,6 +316,7 @@ export function useWaveCanvasPointerDrag({
         viewStartOverride: waveViewStartOverrideRef.current,
         anchorTimeSec: anchorSec,
         playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
+        cueDragArmed: cueDragRef.current?.armed ?? false,
         enginePaused:
           !isPlayingForWaveRef.current || playbackEngine.isPaused(),
         lastDrawRange: lastWaveDrawRangeRef.current,
@@ -398,6 +400,7 @@ export function useWaveCanvasPointerDrag({
         viewStartOverride: waveViewStartOverrideRef.current,
         anchorTimeSec: anchorSec,
         playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
+        cueDragArmed: cueDragRef.current?.armed ?? false,
         enginePaused:
           !isPlayingForWaveRef.current || playbackEngine.isPaused(),
         lastDrawRange: lastWaveDrawRangeRef.current,
@@ -464,6 +467,7 @@ export function useWaveCanvasPointerDrag({
           viewStartOverride: waveViewStartOverrideRef.current,
           anchorTimeSec: anchorSec(),
           playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
+          cueDragArmed: cueDragRef.current?.armed ?? false,
           enginePaused:
             !isPlayingForWaveRef.current || playbackEngine.isPaused(),
           lastDrawRange: lastWaveDrawRangeRef.current,
@@ -551,6 +555,9 @@ export function useWaveCanvasPointerDrag({
       });
 
       const { viewStart, viewSpan } = viewForPointer();
+      const zoomedPc =
+        (viewPortionRef.current ?? viewPortion) < 1 - 1e-9 &&
+        !useTimelineWaveBridgeStore.getState().portraitActive;
       const dragKind = pickCueDragKindAtWave(
         e.clientX,
         e.clientY,
@@ -793,6 +800,7 @@ export function useWaveCanvasPointerDrag({
       }
 
       if (
+        !zoomedPc &&
         playbackEngine.getMediaSourceUrl() &&
         viewSpan > 0 &&
         hitPlayheadStripForScrub(

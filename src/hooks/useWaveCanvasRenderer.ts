@@ -6,6 +6,7 @@ import { playbackEngine } from "../core/playbackEngine";
 import {
   effectiveWaveViewStartOverride,
   gapConnectorPixelBounds,
+  isPlayheadSecInWaveView,
   playheadOverlayPositionStyles,
   resolveWaveDrawView,
   waveTimeToExtentX,
@@ -29,7 +30,7 @@ export type UseWaveCanvasRendererArgs = {
   viewPortionRef: RefObject<number>;
   trimRef: RefObject<{ start: number; end: number | null }>;
   cuesRef: RefObject<Cue[]>;
-  cueDragRef: RefObject<{ cueId: string } | null>;
+  cueDragRef: RefObject<{ cueId: string; armed?: boolean } | null>;
   cueDragPreviewRangeRef: RefObject<{ cueId: string; tStart: number; tEnd: number } | null>;
   newCueRangePreviewRef: RefObject<{ tStart: number; tEnd: number } | null>;
   selectedCueIdsRef: RefObject<string[]>;
@@ -134,6 +135,7 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         isPlaying: isPlayingForWaveRef.current,
         viewStartOverride: viewOverride,
         playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
+        cueDragArmed: cueDragRef.current?.armed ?? false,
       });
       const viewEnd = viewStart + viewSpan;
       lastWaveDrawRangeRef.current = { viewStart, viewSpan };
@@ -141,8 +143,10 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
       if (
         isPlayingForWaveRef.current &&
         !playheadScrubDragRef.current?.armed &&
+        !(cueDragRef.current?.armed ?? false) &&
         vp < 1 - 1e-9 &&
-        viewOverride !== null
+        viewOverride !== null &&
+        !isPlayheadSecInWaveView(playheadTime, viewOverride, viewSpan)
       ) {
         waveViewStartOverrideRef.current = viewStart;
       }

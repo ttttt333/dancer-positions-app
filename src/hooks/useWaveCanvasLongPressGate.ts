@@ -42,6 +42,7 @@ export type UseWaveCanvasLongPressGateArgs = {
   currentTimePropRef: RefObject<number>;
   isPlayingForWaveRef: RefObject<boolean>;
   playheadScrubDragRef: RefObject<{ armed: boolean } | null>;
+  cueDragRef: RefObject<{ armed?: boolean } | null>;
   suppressNextWaveSeekRef: RefObject<boolean>;
   wavePointerGestureRef: RefObject<{ lastPointerUpAtMs: number }>;
   /** キュー間の動線のみ（長押し）。短いタップでは再生位置を移動 */
@@ -69,6 +70,7 @@ export function useWaveCanvasLongPressGate({
   currentTimePropRef,
   isPlayingForWaveRef,
   playheadScrubDragRef,
+  cueDragRef,
   suppressNextWaveSeekRef,
   wavePointerGestureRef,
   seekTimelineAtClientX,
@@ -129,6 +131,7 @@ export function useWaveCanvasLongPressGate({
         viewStartOverride: waveViewStartOverrideRef.current,
         anchorTimeSec: anchorSec,
         playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
+        cueDragArmed: cueDragRef.current?.armed ?? false,
         enginePaused:
           !isPlayingForWaveRef.current || playbackEngine.isPaused(),
         lastDrawRange: lastWaveDrawRangeRef.current,
@@ -166,7 +169,12 @@ export function useWaveCanvasLongPressGate({
         return;
       }
 
+      const zoomedPc =
+        (viewPortionRef.current ?? viewPortion) < 1 - 1e-9 &&
+        !useTimelineWaveBridgeStore.getState().portraitActive;
+
       if (
+        !zoomedPc &&
         playbackEngine.getMediaSourceUrl() &&
         hitPlayheadStripForScrub(
           e.clientX,
@@ -288,11 +296,13 @@ export function useWaveCanvasLongPressGate({
       canvasRef,
       clearPending,
       cueDragPreviewRangeRef,
+      cueDragRef,
       cuesSorted,
       currentTimePropRef,
       duration,
       isPlayingForWaveRef,
       lastWaveDrawRangeRef,
+      playheadScrubDragRef,
       waveViewStartOverrideRef,
       viewPortionRef,
       viewPortion,

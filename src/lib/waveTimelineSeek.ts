@@ -138,7 +138,9 @@ export function commitWaveTimelineSeekAtClientX(
       : seekPlaybackClampedAndSyncStore(seekParams);
   if (moved == null) return null;
 
-  if (!isWaveEdgeScrollZone(clientX, rect)) {
+  const skipViewPanForEdgeScrub =
+    scrubSession != null && isWaveEdgeScrollZone(clientX, rect);
+  if (!skipViewPanForEdgeScrub) {
     const nextStart = panWaveViewStartForPlayheadAtClientX({
       scrubTimeSec: moved,
       clientX,

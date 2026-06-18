@@ -70,6 +70,16 @@ export function quantizePlayheadForWaveView(sec: number): number {
  * 描画と同じ `resolveWaveDrawView` をその場で求める（古い lastDrawRange は使わない）。
  * ズームやレイアウト切替直後に stale な描画窓で座標変換すると、キュー間ギャップが潰れる誤コミットにつながる。
  */
+/** 再生ヘッドが可視窓内にあるか（目盛りクリック後の固定表示用） */
+export function isPlayheadSecInWaveView(
+  playheadSec: number,
+  viewStart: number,
+  viewSpan: number
+): boolean {
+  if (!Number.isFinite(playheadSec) || viewSpan <= 0) return false;
+  return playheadSec >= viewStart && playheadSec <= viewStart + viewSpan;
+}
+
 export function resolveWaveViewForPointerHit(params: {
   durationSec: number;
   viewPortion: number;
@@ -77,6 +87,7 @@ export function resolveWaveViewForPointerHit(params: {
   viewStartOverride: number | null;
   anchorTimeSec: number;
   playheadScrubArmed?: boolean;
+  cueDragArmed?: boolean;
   enginePaused?: boolean;
   /** @deprecated 互換用。ヒット判定では参照しない */
   lastDrawRange?: { viewStart: number; viewSpan: number } | null;
@@ -96,6 +107,7 @@ export function resolveWaveViewForPointerHit(params: {
     isPlaying,
     viewStartOverride: override,
     playheadScrubArmed: params.playheadScrubArmed ?? false,
+    cueDragArmed: params.cueDragArmed ?? false,
   });
   return { viewStart: start, viewSpan: span };
 }
@@ -555,6 +567,8 @@ export function resolveWaveDrawView(params: {
   viewStartOverride: number | null;
   /** 再生バーをドラッグ中は固定窓（override）を維持 */
   playheadScrubArmed?: boolean;
+  /** キュー枠ドラッグ中は固定窓を維持 */
+  cueDragArmed?: boolean;
 }): { start: number; end: number; span: number } {
   const {
     durationSec,
@@ -563,16 +577,41 @@ export function resolveWaveDrawView(params: {
     isPlaying,
     viewStartOverride,
     playheadScrubArmed = false,
+    cueDragArmed = false,
   } = params;
   if (!Number.isFinite(durationSec) || durationSec <= 0) {
     return { start: 0, end: 1, span: 1 };
   }
   const zoomed = viewPortion < 1 - 1e-9;
   const span = zoomed ? waveVisibleSpanSec(durationSec, viewPortion) : durationSec;
+  const pinOverride = playheadScrubArmed || cueDragArmed;
+
+  if (
+    zoomed &&
+    viewStartOverride !== null &&
+    Number.isFinite(viewStartOverride)
+  ) {
+    if (pinOverride || !isPlaying) {
+      return {
+        start: viewStartOverride,
+        end: viewStartOverride + span,
+        span,
+      };
+    }
+    if (
+      Number.isFinite(anchorTimeSec) &&
+      isPlayheadSecInWaveView(anchorTimeSec, viewStartOverride, span)
+    ) {
+      return {
+        start: viewStartOverride,
+        end: viewStartOverride + span,
+        span,
+      };
+    }
+  }
 
   /**
-   * 再生中はユーザー操作で固定した override より再生バー追従を優先。
-   * override のまま描画すると赤バーだけ進み、波形窓が止まって見える。
+   * 再生中: 赤バーが窓外に出たら中央追従へ（ホイールズーム後の自動スクロール）。
    */
   if (
     zoomed &&
