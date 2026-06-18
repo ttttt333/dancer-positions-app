@@ -176,10 +176,13 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
             h
           );
           if (!b) continue;
-          const nonLinearGapRoute = Boolean(next.gapApproachFromPrev);
-          if (nonLinearGapRoute) {
-            g.fillStyle = "rgba(250, 204, 21, 0.45)";
-            g.strokeStyle = "rgba(180, 83, 9, 0.9)";
+          const configuredGapMovement =
+            Boolean(next.gapApproachFromPrev) ||
+            (next.dancerCustomPaths != null &&
+              Object.keys(next.dancerCustomPaths).length > 0);
+          if (configuredGapMovement) {
+            g.fillStyle = "rgba(56, 189, 248, 0.38)";
+            g.strokeStyle = "rgba(37, 99, 235, 0.88)";
           } else {
             g.fillStyle = "rgba(255, 255, 255, 0.07)";
             g.strokeStyle = "rgba(248, 250, 252, 0.22)";
@@ -213,21 +216,21 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         const top = inset;
         const boxH = h - inset * 2;
         const edgeSeg = Math.min(18, Math.max(6, width * 0.14));
-        const baseLw = opts.isSel ? 2.1 : opts.isDrag ? 1.65 : 1.35;
+        const baseLw = opts.isSel ? 2.1 : opts.isDrag ? 1.75 : 1.55;
         const gold =
           opts.isSel
             ? "rgba(239, 68, 68, 0.98)"
             : opts.isDrag
               ? "rgba(234, 200, 95, 0.98)"
               : opts.isHover
-                ? "rgba(212, 175, 55, 0.92)"
-                : "rgba(212, 175, 55, 0.82)";
+                ? "rgba(212, 175, 55, 0.98)"
+                : "rgba(196, 155, 40, 0.96)";
         const goldEdge =
           opts.isSel
             ? "rgba(252, 165, 165, 0.98)"
             : opts.hoverStart || opts.hoverEnd
               ? "rgba(250, 230, 160, 0.98)"
-              : gold;
+              : "rgba(212, 175, 55, 0.98)";
         g.strokeStyle = gold;
         g.lineWidth = baseLw;
         g.lineJoin = "miter";
