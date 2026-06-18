@@ -17,6 +17,10 @@ import { drawWavePeaksColumns } from "../lib/drawWavePeaksColumns";
 import { WAVE_CANVAS_BITMAP_HEIGHT_SCALE } from "../lib/waveDockMetrics";
 import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
 
+/** 波形上のキュー枠（CSS 表示 px）。ビットマップ線幅は `waveBitmapPxPerCssPx` を掛ける */
+const WAVE_CUE_FRAME_BORDER_CSS_PX = 2;
+const WAVE_CUE_FRAME_BORDER_SELECTED_CSS_PX = 2.25;
+
 export type UseWaveCanvasRendererArgs = {
   canvasRef: RefObject<HTMLCanvasElement>;
   playheadLineOverlayRef: RefObject<HTMLDivElement>;
@@ -114,6 +118,11 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
       const h = c.height;
       const g = c.getContext("2d");
       if (!g) return;
+      const cssRect = c.getBoundingClientRect();
+      const waveBitmapPxPerCssPx = Math.max(
+        w / Math.max(cssRect.width, 1),
+        h / Math.max(cssRect.height, 1)
+      );
       const viewOverride = effectiveWaveViewStartOverride(
         waveViewStartOverrideRef.current,
         { viewPortion: vp }
@@ -216,7 +225,10 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         const top = inset;
         const boxH = h - inset * 2;
         const edgeSeg = Math.min(18, Math.max(6, width * 0.14));
-        const baseLw = opts.isSel ? 2.25 : 2;
+        const baseLw =
+          (opts.isSel
+            ? WAVE_CUE_FRAME_BORDER_SELECTED_CSS_PX
+            : WAVE_CUE_FRAME_BORDER_CSS_PX) * waveBitmapPxPerCssPx;
         const gold =
           opts.isSel
             ? "rgba(239, 68, 68, 0.98)"
@@ -237,7 +249,7 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         g.lineCap = "butt";
         g.strokeRect(left + inset, top, width - inset * 2, boxH);
         g.strokeStyle = goldEdge;
-        g.lineWidth = 3.25;
+        g.lineWidth = baseLw * 1.55;
         g.beginPath();
         g.moveTo(left + inset, top);
         g.lineTo(left + inset + Math.min(edgeSeg, width * 0.45), top);
@@ -255,7 +267,8 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         g.lineTo(left + width - inset, top + boxH);
         g.stroke();
         g.strokeStyle = goldEdge;
-        g.lineWidth = opts.hoverStart || opts.hoverEnd ? 3.6 : 2.4;
+        g.lineWidth =
+          opts.hoverStart || opts.hoverEnd ? baseLw * 1.7 : baseLw * 1.15;
         g.lineCap = "butt";
         if (opts.hoverStart) {
           g.beginPath();
