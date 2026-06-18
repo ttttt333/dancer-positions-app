@@ -126,16 +126,42 @@ describe("effectiveWaveViewStartOverride", () => {
 });
 
 describe("resolveWaveDrawView", () => {
-  it("uses viewStartOverride while playing (draw/hit/scrub stay aligned)", () => {
+  it("follows playhead at screen center while playing even with override set", () => {
     const v = resolveWaveDrawView({
       durationSec: 100,
       viewPortion: 0.2,
       anchorTimeSec: 50,
       isPlaying: true,
       viewStartOverride: 40,
+      playheadScrubArmed: false,
+    });
+    expect(v.span).toBeCloseTo(20, 5);
+    expect(v.start).toBeCloseTo(40, 5);
+    expect(v.start + v.span * 0.5).toBeCloseTo(50, 5);
+  });
+
+  it("keeps frozen override while paused", () => {
+    const v = resolveWaveDrawView({
+      durationSec: 100,
+      viewPortion: 0.2,
+      anchorTimeSec: 50,
+      isPlaying: false,
+      viewStartOverride: 40,
     });
     expect(v.start).toBe(40);
     expect(v.span).toBeCloseTo(20, 5);
+  });
+
+  it("keeps override while playhead scrub is armed during playback", () => {
+    const v = resolveWaveDrawView({
+      durationSec: 100,
+      viewPortion: 0.2,
+      anchorTimeSec: 50,
+      isPlaying: true,
+      viewStartOverride: 12,
+      playheadScrubArmed: true,
+    });
+    expect(v.start).toBe(12);
   });
 });
 

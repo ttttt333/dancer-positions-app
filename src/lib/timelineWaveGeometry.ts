@@ -95,6 +95,7 @@ export function resolveWaveViewForPointerHit(params: {
     anchorTimeSec,
     isPlaying,
     viewStartOverride: override,
+    playheadScrubArmed: params.playheadScrubArmed ?? false,
   });
   return { viewStart: start, viewSpan: span };
 }
@@ -504,6 +505,27 @@ export function computeViewRange(
 
 const WAVE_PLAYHEAD_X_FRAC = 0.11;
 
+/**
+ * ズーム中の再生追従・ホイールズーム後の赤バー位置（画面幅に対する割合）。
+ * 時間軸・スクロール位置・ズーム倍率を一つの式にまとめる。
+ */
+export const WAVE_PLAYHEAD_FOLLOW_SCREEN_FRAC = 0.5;
+
+/** 再生バー時刻から、赤バーを `screenFrac` に置く viewStart を求める */
+export function resolveWavePlayheadFollowViewStart(
+  playheadTimeSec: number,
+  durationSec: number,
+  viewPortion: number,
+  screenFrac: number = WAVE_PLAYHEAD_FOLLOW_SCREEN_FRAC
+): number {
+  const span = waveVisibleSpanSec(durationSec, viewPortion);
+  return clamp(
+    playheadTimeSec - screenFrac * span,
+    0,
+    Math.max(0, durationSec - span)
+  );
+}
+
 export function getWaveViewForDraw(
   durationSec: number,
   viewPortion: number,
@@ -529,18 +551,48 @@ export function resolveWaveDrawView(params: {
   durationSec: number;
   viewPortion: number;
   anchorTimeSec: number;
-  /** @deprecated 互換用。表示窓は `viewStartOverride` の有無で決まる */
   isPlaying: boolean;
   viewStartOverride: number | null;
+  /** 再生バーをドラッグ中は固定窓（override）を維持 */
+  playheadScrubArmed?: boolean;
 }): { start: number; end: number; span: number } {
-  const { durationSec, viewPortion, anchorTimeSec, viewStartOverride } = params;
+  const {
+    durationSec,
+    viewPortion,
+    anchorTimeSec,
+    isPlaying,
+    viewStartOverride,
+    playheadScrubArmed = false,
+  } = params;
+  if (!Number.isFinite(durationSec) || durationSec <= 0) {
+    return { start: 0, end: 1, span: 1 };
+  }
+  const zoomed = viewPortion < 1 - 1e-9;
+  const span = zoomed ? waveVisibleSpanSec(durationSec, viewPortion) : durationSec;
+
+  /**
+   * 再生中はユーザー操作で固定した override より再生バー追従を優先。
+   * override のまま描画すると赤バーだけ進み、波形窓が止まって見える。
+   */
+  if (
+    zoomed &&
+    isPlaying &&
+    !playheadScrubArmed &&
+    Number.isFinite(anchorTimeSec)
+  ) {
+    const start = resolveWavePlayheadFollowViewStart(
+      anchorTimeSec,
+      durationSec,
+      viewPortion
+    );
+    return { start, end: start + span, span };
+  }
+
   if (
     viewStartOverride !== null &&
     Number.isFinite(viewStartOverride) &&
-    Number.isFinite(durationSec) &&
-    durationSec > 0
+    zoomed
   ) {
-    const span = waveVisibleSpanSec(durationSec, viewPortion);
     return {
       start: viewStartOverride,
       end: viewStartOverride + span,

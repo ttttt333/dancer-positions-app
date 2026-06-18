@@ -124,10 +124,19 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         anchorTimeSec: playheadTime,
         isPlaying: isPlayingForWaveRef.current,
         viewStartOverride: viewOverride,
+        playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
       });
       const viewEnd = viewStart + viewSpan;
       lastWaveDrawRangeRef.current = { viewStart, viewSpan };
       publishWaveDrawRange(viewStart, viewSpan);
+      if (
+        isPlayingForWaveRef.current &&
+        !playheadScrubDragRef.current?.armed &&
+        vp < 1 - 1e-9 &&
+        viewOverride !== null
+      ) {
+        waveViewStartOverrideRef.current = viewStart;
+      }
       g.fillStyle = "#0f172a";
       g.fillRect(0, 0, w, h);
       if (d > 0 && trimS > 0) {

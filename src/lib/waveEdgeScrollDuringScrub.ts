@@ -22,7 +22,7 @@ export const CUE_DRAG_EDGE_SCROLL_PAN_STRENGTH = 0.22;
 /** 赤い再生バーをドラッグ中の端スクロール（キューよりやや速め・既定より遅め） */
 export const PLAYHEAD_SCRUB_EDGE_SCROLL_PAN_STRENGTH = 0.28;
 
-/** ホイールズーム時に再生バーを置く画面内の横位置（0.5 = 中央） */
+/** ホイールズーム時に再生バーを置く画面内の横位置（0.5 = 中央）。`WAVE_PLAYHEAD_FOLLOW_SCREEN_FRAC` と揃える */
 export const WAVE_WHEEL_ZOOM_PLAYHEAD_SCREEN_FRAC = 0.5;
 
 function edgeScrollPanFraction(depth: number, panStrength: number): number {

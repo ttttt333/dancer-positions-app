@@ -5,6 +5,7 @@ import {
   PLAYHEAD_SCRUB_EDGE_SCROLL_PAN_STRENGTH,
   WAVE_EDGE_SCROLL_PAN_STRENGTH,
 } from "./waveEdgeScrollDuringScrub";
+import { resolveWavePlayheadFollowViewStart } from "./timelineWaveGeometry";
 import { waveViewStartForPlayheadAtScreenCenter } from "./waveTimelineSeek";
 
 describe("panWaveViewStartAtClientX", () => {
@@ -73,5 +74,15 @@ describe("waveViewStartForPlayheadAtScreenCenter", () => {
     expect(start).not.toBeNull();
     const span = 120 * 0.25;
     expect(start! + span * 0.5).toBeCloseTo(60, 5);
+  });
+
+  it("matches resolveWavePlayheadFollowViewStart", () => {
+    const fromSeek = waveViewStartForPlayheadAtScreenCenter({
+      playheadTimeSec: 42,
+      durationSec: 100,
+      viewPortion: 0.2,
+    });
+    const fromGeom = resolveWavePlayheadFollowViewStart(42, 100, 0.2);
+    expect(fromSeek).toBe(fromGeom);
   });
 });

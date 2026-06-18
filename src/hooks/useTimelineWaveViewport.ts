@@ -14,6 +14,7 @@ import {
   effectiveWaveViewStartOverride,
   quantizePlayheadForWaveView,
   resolveWaveDrawView,
+  resolveWavePlayheadFollowViewStart,
   waveVisibleSpanSec,
 } from "../lib/timelineWaveGeometry";
 
@@ -87,6 +88,7 @@ export function useTimelineWaveViewport({
       anchorTimeSec: waveViewAnchorSec,
       isPlaying,
       viewStartOverride: override,
+      playheadScrubArmed: playheadScrubDragRef?.current?.armed ?? false,
     });
   }, [
     duration,
@@ -95,6 +97,33 @@ export function useTimelineWaveViewport({
     waveViewStartOverride,
     isPlaying,
     playheadScrubDragRef,
+  ]);
+
+  const wasPlayingRef = useRef(false);
+  useEffect(() => {
+    if (
+      wasPlayingRef.current &&
+      !isPlaying &&
+      duration > 0 &&
+      viewPortion < 1 - 1e-9 &&
+      !playheadScrubDragRef?.current?.armed
+    ) {
+      let phSec = currentTime;
+      if (Number.isFinite(playbackEngine.getCurrentTime())) {
+        phSec = playbackEngine.getCurrentTime();
+      }
+      setWaveViewStartOverride(
+        resolveWavePlayheadFollowViewStart(phSec, duration, viewPortion)
+      );
+    }
+    wasPlayingRef.current = isPlaying;
+  }, [
+    isPlaying,
+    currentTime,
+    duration,
+    viewPortion,
+    playheadScrubDragRef,
+    setWaveViewStartOverride,
   ]);
 
   const setViewPortionSynced = useCallback((action: SetStateAction<number>) => {

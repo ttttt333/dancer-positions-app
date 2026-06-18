@@ -6,6 +6,7 @@ import {
 } from "./playbackTransport";
 import {
   resolveWaveViewForPointerHit,
+  resolveWavePlayheadFollowViewStart,
   waveExtentXToTime,
   waveVisibleSpanSec,
 } from "./timelineWaveGeometry";
@@ -67,11 +68,11 @@ export function waveViewStartForPlayheadAtScreenCenter(params: {
   ) {
     return null;
   }
-  const span = waveVisibleSpanSec(durationSec, viewPortion);
-  return clampWaveViewStart(
-    playheadTimeSec - screenCenterFrac * span,
-    span,
-    durationSec
+  return resolveWavePlayheadFollowViewStart(
+    playheadTimeSec,
+    durationSec,
+    viewPortion,
+    screenCenterFrac
   );
 }
 
