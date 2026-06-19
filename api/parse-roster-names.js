@@ -1,15 +1,13 @@
 import { parseRosterNamesFromBase64 } from "../shared/parseRosterNamesOpenAI.mjs";
-
-function setCorsHeaders(res) {
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-}
+import {
+  setParseRouteCors,
+  validateImageBase64,
+  verifyParseRouteAuth,
+} from "../shared/parseRouteSecurity.mjs";
 
 /** Vercel Serverless: POST /api/parse-roster-names */
 export default async function handler(req, res) {
-  setCorsHeaders(res);
+  setParseRouteCors(req, res);
 
   if (req.method === "OPTIONS") {
     return res.status(200).end();
@@ -19,13 +17,19 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  const auth = await verifyParseRouteAuth(req);
+  if (!auth.ok) {
+    return res.status(auth.status).json({ error: auth.error });
+  }
+
   const imageBase64 =
     typeof req.body?.imageBase64 === "string" ? req.body.imageBase64.trim() : "";
   const imageMime =
     typeof req.body?.imageMime === "string" ? req.body.imageMime.trim() : "";
 
-  if (!imageBase64) {
-    return res.status(400).json({ error: "Image data is required" });
+  const sizeCheck = validateImageBase64(imageBase64);
+  if (!sizeCheck.ok) {
+    return res.status(sizeCheck.status).json({ error: sizeCheck.error });
   }
 
   try {

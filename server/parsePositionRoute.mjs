@@ -1,4 +1,5 @@
 import { parsePositionImageFromBase64 } from "../shared/parsePositionOpenAI.mjs";
+import { validateImageBase64 } from "../shared/parseRouteSecurity.mjs";
 
 /** Express: POST /api/parse-position（Vite 開発時のプロキシ先） */
 export async function handleParsePositionRoute(req, res) {
@@ -13,8 +14,9 @@ export async function handleParsePositionRoute(req, res) {
         .slice(0, 80)
     : undefined;
 
-  if (!imageBase64) {
-    return res.status(400).json({ error: "Image data is required" });
+  const sizeCheck = validateImageBase64(imageBase64);
+  if (!sizeCheck.ok) {
+    return res.status(sizeCheck.status).json({ error: sizeCheck.error });
   }
 
   try {

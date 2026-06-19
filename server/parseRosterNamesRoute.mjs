@@ -1,4 +1,5 @@
 import { parseRosterNamesFromBase64 } from "../shared/parseRosterNamesOpenAI.mjs";
+import { validateImageBase64 } from "../shared/parseRouteSecurity.mjs";
 
 /** Express: POST /api/parse-roster-names */
 export async function handleParseRosterNamesRoute(req, res) {
@@ -7,8 +8,9 @@ export async function handleParseRosterNamesRoute(req, res) {
   const imageMime =
     typeof req.body?.imageMime === "string" ? req.body.imageMime.trim() : "";
 
-  if (!imageBase64) {
-    return res.status(400).json({ error: "Image data is required" });
+  const sizeCheck = validateImageBase64(imageBase64);
+  if (!sizeCheck.ok) {
+    return res.status(sizeCheck.status).json({ error: sizeCheck.error });
   }
 
   try {

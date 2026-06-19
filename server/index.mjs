@@ -23,9 +23,16 @@ import {
 import { applyProjectJsonToDoc } from "./yjsJson.mjs";
 import { handleParsePositionRoute } from "./parsePositionRoute.mjs";
 import { handleParseRosterNamesRoute } from "./parseRosterNamesRoute.mjs";
+import { checkParseRateLimit } from "../shared/parseRouteSecurity.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const JWT_SECRET = process.env.JWT_SECRET || "dev-only-change-in-production";
+const isProduction = process.env.NODE_ENV === "production";
+const JWT_SECRET_RAW = String(process.env.JWT_SECRET || "").trim();
+if (isProduction && !JWT_SECRET_RAW) {
+  console.error("[fatal] NODE_ENV=production では JWT_SECRET が必須です");
+  process.exit(1);
+}
+const JWT_SECRET = JWT_SECRET_RAW || "dev-only-change-in-production";
 const PORT = Number(process.env.PORT) || 3001;
 const APP_BASE = process.env.APP_BASE || "http://127.0.0.1:5173";
 
@@ -348,6 +355,17 @@ function requireAuth(req, res, next) {
   next();
 }
 
+function parseRouteRateLimit(req, res, next) {
+  const ip = req.ip || req.socket?.remoteAddress || "unknown";
+  const key = `${req.userId}:${ip}`;
+  if (!checkParseRateLimit(key)) {
+    return res.status(429).json({
+      error: "リクエストが多すぎます。しばらく待ってから再試行してください。",
+    });
+  }
+  next();
+}
+
 function hashToken(t) {
   return createHash("sha256").update(t).digest("hex");
 }
@@ -538,6 +556,9 @@ app.post(
   authMiddleware,
   requireAuth,
   (req, res) => {
+    if (isProduction) {
+      return res.status(404).json({ error: "Not found" });
+    }
     db.prepare(
       "UPDATE users SET entitlement_lifetime = 1 WHERE id = ?"
     ).run(req.userId);
@@ -711,8 +732,20 @@ app.post(
   }
 );
 
-app.post("/api/parse-position", handleParsePositionRoute);
-app.post("/api/parse-roster-names", handleParseRosterNamesRoute);
+app.post(
+  "/api/parse-position",
+  authMiddleware,
+  requireAuth,
+  parseRouteRateLimit,
+  handleParsePositionRoute
+);
+app.post(
+  "/api/parse-roster-names",
+  authMiddleware,
+  requireAuth,
+  parseRouteRateLimit,
+  handleParseRosterNamesRoute
+);
 
 app.post(
   "/api/audio/upload",

@@ -6,6 +6,7 @@ import {
 import { formatParsePositionError } from "../lib/parsePositionErrors";
 import { mergeParseResults } from "../lib/mergeParseResults";
 import { refineParsedPositions } from "../lib/refineParsedPositions";
+import { parseApiRequestHeaders } from "../lib/parseApiHeaders";
 import type { ParsePositionResponse } from "../lib/parsePositionTypes";
 
 export type ParseImageProgress = {
@@ -34,9 +35,10 @@ export function usePositionParser() {
       const memberNameHints = options?.memberNameHints;
       const prepared = await prepareImageFileForParse(file);
       const base = apiBaseUrl();
+      const headers = await parseApiRequestHeaders();
       const res = await fetch(`${base}/api/parse-position`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           imageBase64: prepared.base64,
           imageMime: prepared.mimeType,

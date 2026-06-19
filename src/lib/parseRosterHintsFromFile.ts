@@ -9,6 +9,7 @@ import {
 } from "./prepareImageForParse";
 import { parseRosterFile } from "./rosterFileImport";
 import { formatParsePositionError } from "./parsePositionErrors";
+import { parseApiRequestHeaders } from "./parseApiHeaders";
 
 function apiBaseUrl(): string {
   const raw = import.meta.env.VITE_API_BASE_URL as string | undefined;
@@ -19,9 +20,10 @@ function apiBaseUrl(): string {
 async function parseRosterNamesFromImage(file: File): Promise<string[]> {
   const prepared = await prepareImageFileForParse(file);
   const base = apiBaseUrl();
+  const headers = await parseApiRequestHeaders();
   const res = await fetch(`${base}/api/parse-roster-names`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify({
       imageBase64: prepared.base64,
       imageMime: prepared.mimeType,
@@ -33,22 +35,21 @@ async function parseRosterNamesFromImage(file: File): Promise<string[]> {
     | { error?: string };
 
   if (!res.ok) {
+    const errBody = data as { error?: string };
     const msg =
-      typeof data === "object" &&
-      data &&
-      "error" in data &&
-      typeof data.error === "string"
-        ? data.error
+      typeof errBody.error === "string" && errBody.error
+        ? errBody.error
         : `名簿画像の読み取りに失敗しました（${res.status}）`;
     throw new Error(msg);
   }
 
-  if (!data || typeof data !== "object" || !Array.isArray(data.names)) {
+  const success = data as { names?: string[] };
+  if (!Array.isArray(success.names)) {
     throw new Error("名簿画像の解析結果が不正です");
   }
 
-  return data.names
-    .map((n) => (typeof n === "string" ? n.trim() : ""))
+  return success.names
+    .map((n: string) => (typeof n === "string" ? n.trim() : ""))
     .filter(Boolean)
     .slice(0, 80);
 }
