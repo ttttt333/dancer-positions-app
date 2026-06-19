@@ -111,6 +111,7 @@ create policy "choreocore_audio select shared view"
       select 1
       from public.choreocore_projects p
       where p.share_token is not null
-        and trim(both from coalesce(p.json->>'audioSupabasePath', '')) = name
+        and trim(both from coalesce(p.json->>'audioSupabasePath', '')) = objects.name
+        and split_part(objects.name, '/', 1) = p.user_id::text
     )
   );
