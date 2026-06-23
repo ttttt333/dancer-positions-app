@@ -11,6 +11,7 @@ import { useTimelineCueActions } from "./useTimelineCueActions";
 import { useTimelineWaveHeightDrag } from "./useTimelineWaveHeightDrag";
 import { useTimelineWaveWheelZoom } from "./useTimelineWaveWheelZoom";
 import { useTimelineWaveViewport } from "./useTimelineWaveViewport";
+import { useTimelineWaveButtonZoom } from "./useTimelineWaveButtonZoom";
 import { useTimelineWaveMenuState } from "./useTimelineWaveMenuState";
 import { useTimelineDeleteSelectedCuesOnKey } from "./useTimelineDeleteSelectedCuesOnKey";
 import { useTimelinePanelImperativeHandle } from "./useTimelinePanelImperativeHandle";
@@ -202,6 +203,16 @@ export function useTimelinePanelSessionBundle(
     setWaveViewStartOverride,
   });
 
+  const { zoomWaveIn, zoomWaveOut } = useTimelineWaveButtonZoom({
+    durationRef,
+    currentTimePropRef,
+    isPlayingForWaveRef,
+    cueDragRef,
+    emptyWaveDragRef,
+    setViewPortion,
+    setWaveViewStartOverride,
+  });
+
   const { onWaveBorderResizePointerDown } = useTimelineWaveHeightDrag({
     projectViewMode: project.viewMode,
     waveCanvasCssHRef,
@@ -324,6 +335,8 @@ export function useTimelinePanelSessionBundle(
       stopPlayback,
       seekForward5Sec,
       seekBackward5Sec,
+      onWaveZoomIn: zoomWaveIn,
+      onWaveZoomOut: zoomWaveOut,
       onSave,
       onOpenAudioImport,
       onUndo,

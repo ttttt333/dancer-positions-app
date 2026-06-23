@@ -69,6 +69,8 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
           stopPlayback={p.stopPlayback}
           seekForward5Sec={p.seekForward5Sec}
           seekBackward5Sec={p.seekBackward5Sec}
+          onWaveZoomIn={p.onWaveZoomIn}
+          onWaveZoomOut={p.onWaveZoomOut}
           onSave={p.onSave}
           onOpenAudioImport={p.onOpenAudioImport}
           onUndo={p.onUndo}

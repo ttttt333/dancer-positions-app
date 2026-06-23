@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { flushEditorAutoSaveBeforeLeave } from "../lib/editorAutoSaveBridge";
-import type { CSSProperties, ReactNode } from "react";
-import { memo, useEffect, useLayoutEffect, useRef } from "react";
+import type { CSSProperties, ReactNode, PointerEvent } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { formatMmSsClock } from "../lib/timeFormat";
 import { preloadFFmpeg } from "../lib/extractVideoAudio";
@@ -37,6 +37,27 @@ function IconStop() {
   return (
     <svg width="21" height="21" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
       <rect x="3" y="3" width="18" height="18" rx="2.5" fill={c} />
+    </svg>
+  );
+}
+function IconZoomIn() {
+  const c = "#34d399";
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
+      <circle cx="10" cy="10" r="6.5" fill="none" stroke={c} strokeWidth="2" />
+      <line x1="15.5" y1="15.5" x2="21" y2="21" stroke={c} strokeWidth="2" strokeLinecap="round" />
+      <line x1="8" y1="10" x2="12" y2="10" stroke={c} strokeWidth="2" strokeLinecap="round" />
+      <line x1="10" y1="8" x2="10" y2="12" stroke={c} strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconZoomOut() {
+  const c = "#34d399";
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden style={{ display: "block", filter: neonGlow(c) }}>
+      <circle cx="10" cy="10" r="6.5" fill="none" stroke={c} strokeWidth="2" />
+      <line x1="15.5" y1="15.5" x2="21" y2="21" stroke={c} strokeWidth="2" strokeLinecap="round" />
+      <line x1="8" y1="10" x2="12" y2="10" stroke={c} strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
@@ -112,6 +133,100 @@ function IconAudioImport() {
 export const TIMELINE_UI_SCALE = 1.2;
 export function tlPx(n: number): string {
   return `${Math.round(n * TIMELINE_UI_SCALE * 10) / 10}px`;
+}
+
+function useHoldRepeatAction(action: () => void, disabled: boolean) {
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stop = useCallback(() => {
+    if (timerRef.current != null) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => () => stop(), [stop]);
+
+  const onPointerDown = useCallback(
+    (e: PointerEvent<HTMLButtonElement>) => {
+      if (disabled || e.button !== 0) return;
+      e.currentTarget.setPointerCapture(e.pointerId);
+      action();
+      stop();
+      timerRef.current = setInterval(action, 75);
+    },
+    [action, disabled, stop]
+  );
+
+  return {
+    onPointerDown,
+    onPointerUp: stop,
+    onPointerCancel: stop,
+    onLostPointerCapture: stop,
+  };
+}
+
+function WaveZoomToolbarButtons({
+  disabled,
+  onZoomIn,
+  onZoomOut,
+  buttonStyle,
+  zoomInTitle,
+  zoomOutTitle,
+  zoomInLabel,
+  zoomOutLabel,
+}: {
+  disabled: boolean;
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
+  buttonStyle: CSSProperties;
+  zoomInTitle: string;
+  zoomOutTitle: string;
+  zoomInLabel: string;
+  zoomOutLabel: string;
+}) {
+  const zoomInHold = useHoldRepeatAction(onZoomIn ?? (() => {}), disabled || !onZoomIn);
+  const zoomOutHold = useHoldRepeatAction(onZoomOut ?? (() => {}), disabled || !onZoomOut);
+
+  if (!onZoomIn || !onZoomOut) return null;
+
+  return (
+    <>
+      <button
+        type="button"
+        style={{
+          ...buttonStyle,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          opacity: disabled ? 0.42 : 1,
+          cursor: disabled ? "not-allowed" : "pointer",
+        }}
+        disabled={disabled}
+        title={zoomInTitle}
+        aria-label={zoomInLabel}
+        {...zoomInHold}
+      >
+        <IconZoomIn />
+      </button>
+      <button
+        type="button"
+        style={{
+          ...buttonStyle,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          opacity: disabled ? 0.42 : 1,
+          cursor: disabled ? "not-allowed" : "pointer",
+        }}
+        disabled={disabled}
+        title={zoomOutTitle}
+        aria-label={zoomOutLabel}
+        {...zoomOutHold}
+      >
+        <IconZoomOut />
+      </button>
+    </>
+  );
 }
 
 /**
@@ -321,6 +436,8 @@ export type TimelineToolbarProps = {
   stopPlayback: () => void;
   seekForward5Sec: () => void;
   seekBackward5Sec: () => void;
+  onWaveZoomIn?: () => void;
+  onWaveZoomOut?: () => void;
   onSave?: () => void;
   onOpenAudioImport?: () => void;
   onUndo?: () => void;
@@ -347,6 +464,8 @@ export function TimelineToolbar({
   stopPlayback,
   seekForward5Sec,
   seekBackward5Sec,
+  onWaveZoomIn,
+  onWaveZoomOut,
   onSave,
   onOpenAudioImport,
   onUndo,
@@ -357,6 +476,13 @@ export function TimelineToolbar({
   compactDockLeading,
 }: TimelineToolbarProps) {
   const { t } = useI18n();
+  const waveZoomDisabled = duration <= 0;
+  const waveZoomLabels = {
+    zoomInTitle: t("editor.layout.waveZoomIn"),
+    zoomOutTitle: t("editor.layout.waveZoomOut"),
+    zoomInLabel: t("editor.layout.waveZoomIn"),
+    zoomOutLabel: t("editor.layout.waveZoomOut"),
+  };
   if (!compactTopDock) {
     return (
       <div
@@ -574,6 +700,16 @@ export function TimelineToolbar({
               >
                 <IconStop />
               </button>
+              <WaveZoomToolbarButtons
+                disabled={waveZoomDisabled}
+                onZoomIn={onWaveZoomIn}
+                onZoomOut={onWaveZoomOut}
+                buttonStyle={{
+                  ...timelineToolbarBtn,
+                  padding: `${tlPx(4)} ${tlPx(8)}`,
+                }}
+                {...waveZoomLabels}
+              />
               {onSave && (
                 <button
                   type="button"
@@ -730,6 +866,18 @@ export function TimelineToolbar({
           >
             <IconStop />
           </button>
+          <WaveZoomToolbarButtons
+            disabled={waveZoomDisabled}
+            onZoomIn={onWaveZoomIn}
+            onZoomOut={onWaveZoomOut}
+            buttonStyle={{
+              ...mobileScrollBtn,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            {...waveZoomLabels}
+          />
           {onSave ? (
             <button
               type="button"
@@ -929,6 +1077,18 @@ export function TimelineToolbar({
         >
           <IconStop />
         </button>
+        <WaveZoomToolbarButtons
+          disabled={waveZoomDisabled}
+          onZoomIn={onWaveZoomIn}
+          onZoomOut={onWaveZoomOut}
+          buttonStyle={{
+            ...timelineToolbarBtn,
+            padding: `${tlPx(4)} ${tlPx(9)}`,
+            minHeight: tlPx(28),
+            flexShrink: 0,
+          }}
+          {...waveZoomLabels}
+        />
         {onSave ? (
           <button
             type="button"

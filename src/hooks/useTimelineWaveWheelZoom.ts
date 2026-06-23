@@ -1,7 +1,9 @@
 import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from "react";
 import { useEffect } from "react";
-import { playbackEngine } from "../core/playbackEngine";
-import { waveViewStartForPlayheadAtScreenCenter } from "../lib/waveTimelineSeek";
+import {
+  applyWaveViewportZoomMultiplier,
+  resolveWaveZoomPlayheadSec,
+} from "../lib/waveViewportZoom";
 
 type Params = {
   waveContainerRef: RefObject<HTMLDivElement | null>;
@@ -51,33 +53,24 @@ export function useTimelineWaveWheelZoom({
       if (dy === 0) return;
       /** deltaY>0 で縮小（見える時間幅↑）、<0 で拡大。トラックパッドの細かい delta に追従 */
       const mult = Math.exp(dy * 0.00115);
-
-      let playheadSec = currentTimePropRef.current;
-      if (
-        isPlayingForWaveRef.current &&
-        playbackEngine.getMediaSourceUrl() &&
-        !playbackEngine.isPaused() &&
-        Number.isFinite(playbackEngine.getCurrentTime())
-      ) {
-        playheadSec = playbackEngine.getCurrentTime();
-      }
+      const playheadSec = resolveWaveZoomPlayheadSec({
+        currentTimeSec: currentTimePropRef.current,
+        isPlaying: isPlayingForWaveRef.current,
+      });
 
       setViewPortion((p) => {
-        const newVp = Math.min(1, Math.max(0.025, p * mult));
-
-        if (newVp >= 1 - 1e-9) {
+        const { viewPortion, viewStartOverride } = applyWaveViewportZoomMultiplier({
+          currentViewPortion: p,
+          multiplier: mult,
+          playheadSec,
+          durationSec: d,
+        });
+        if (viewStartOverride != null) {
+          setWaveViewStartOverride(viewStartOverride);
+        } else if (viewPortion >= 1 - 1e-9) {
           setWaveViewStartOverride(null);
-        } else {
-          const newStart = waveViewStartForPlayheadAtScreenCenter({
-            playheadTimeSec: playheadSec,
-            durationSec: d,
-            viewPortion: newVp,
-          });
-          if (newStart != null) {
-            setWaveViewStartOverride(newStart);
-          }
         }
-        return newVp;
+        return viewPortion;
       });
     };
     el.addEventListener("wheel", onWheel, { passive: false });
