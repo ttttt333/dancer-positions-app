@@ -22,6 +22,7 @@ export const StageBoardBodyOverlays = memo(function StageBoardBodyOverlays({
   showTrashDrop,
   trashHot,
   trashDockViewportRef,
+  trashDropEdge = "left",
   dancerQuickEditId,
   quickEditDancerForDialog,
   viewMode,
@@ -73,6 +74,7 @@ export const StageBoardBodyOverlays = memo(function StageBoardBodyOverlays({
         open={showTrashDrop}
         trashHot={trashHot}
         dockRef={trashDockViewportRef}
+        edge={trashDropEdge}
       />
       <DancerQuickEditDialog
         open={Boolean(dancerQuickEditId && quickEditDancerForDialog)}

@@ -859,6 +859,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     compactViewportChrome={
                       choreoPublicView && publicViewTightHeight
                     }
+                    trashDropEdge={mobileStackEditor ? "bottom" : "left"}
                     showMotionArrows={showMotionArrows}
                     onOpenDancerPathEditor={
                       choreoPublicView

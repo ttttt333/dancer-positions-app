@@ -12,6 +12,7 @@ import type {
 } from "../types/choreography";
 import type { DancerQuickEditApply } from "./DancerQuickEditDialog";
 import type { FloorTextDraftPayload } from "./FloorTextMarkupBlock";
+import type { TrashDropEdge } from "../lib/stageBoardRosterAndTrash";
 
 /** `StageBoardLayout` に渡す3スロット（screen オーバーレイ・メイン列・ステージ上コンテキストメニュー） */
 export type StageBoardLayoutSlots = {
@@ -45,6 +46,7 @@ export type StageBoardBodyOverlaysProps = {
   showTrashDrop: boolean;
   trashHot: boolean;
   trashDockViewportRef: RefObject<HTMLDivElement | null>;
+  trashDropEdge?: TrashDropEdge;
   dancerQuickEditId: string | null;
   quickEditDancerForDialog: DancerSpot | null;
   viewMode: "edit" | "view";
@@ -122,6 +124,8 @@ export type StageBoardBodyProps = {
   markerDisplayScale?: number;
   /** 閲覧横画面: 客席上配置時のビューポート余白を詰めてステージを大きく */
   compactViewportChrome?: boolean;
+  /** ドラッグ削除ゴミ箱の位置（モバイル編集は `bottom`） */
+  trashDropEdge?: TrashDropEdge;
   /**
    * ダブルクリックで右パネル編集シートを開くコールバック。
    * 親(EditorPage)が EditorSideSheet を開く。

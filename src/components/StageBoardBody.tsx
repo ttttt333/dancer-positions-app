@@ -75,9 +75,9 @@ import {
 } from "../lib/dancerColorPalette";
 import { sliceMarkerBadgeForStorage } from "../lib/markerBadge";
 import {
+  pointerInViewportTrashDropFallback,
   pointerInViewportTrashRevealZone,
   syncRosterAfterRemovingLinkedMembersFromFirstCue,
-  trashViewportStripWidthPx,
 } from "../lib/stageBoardRosterAndTrash";
 import {
   applySetPieceResizePct,
@@ -143,6 +143,7 @@ export function StageBoardBody({
   studentViewerFocus = null,
   markerDisplayScale = 1,
   compactViewportChrome = false,
+  trashDropEdge = "left",
   onOpenTextEditSheet,
   showMotionArrows = false,
   onOpenDancerPathEditor,
@@ -187,7 +188,7 @@ export function StageBoardBody({
     onFloorMarkupToolChange,
   });
 
-  /** 画面左端のゴミ箱帯（`position: fixed` で body に portal） */
+  /** 画面端のゴミ箱帯（`position: fixed` で body に portal） */
   const trashDockViewportRef = useRef<HTMLDivElement>(null);
   const stageContextMenuRef = useRef<HTMLDivElement>(null);
   const trashHotRef = useRef(false);
@@ -546,7 +547,7 @@ export function StageBoardBody({
 
   /** ゴミ箱ドロップゾーン上でダンサーをドラッグ中 */
   const [trashHot, setTrashHot] = useState(false);
-  /** ポインタが画面左端付近まで来たときだけゴミ箱 UI を出す */
+  /** ポインタが画面端付近まで来たときだけゴミ箱 UI を出す */
   const [trashUiVisible, setTrashUiVisible] = useState(false);
   const trashRevealActiveRef = useRef(false);
   /**
@@ -1713,12 +1714,8 @@ export function StageBoardBody({
         clientY <= r.bottom
       );
     }
-    if (typeof window === "undefined") return false;
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    const strip = trashViewportStripWidthPx(w);
-    return clientX >= 0 && clientX <= strip && clientY >= 0 && clientY <= h;
-  }, []);
+    return pointerInViewportTrashDropFallback(clientX, clientY, trashDropEdge);
+  }, [trashDropEdge]);
 
   const quantizeCoord = useCallback(
     (v: number, axis: "x" | "y", mode: StageDancerSnapMode) => {
@@ -2422,7 +2419,7 @@ export function StageBoardBody({
         !stageInteractionsEnabled
       )
         return;
-      /** ダンサー／大道具／ハンドル以外の床面のときだけ反応（削除ゴミ箱は画面左オーバーレイ） */
+      /** ダンサー／大道具／ハンドル以外の床面のときだけ反応（削除ゴミ箱は画面端オーバーレイ） */
       const target = e.target as HTMLElement;
       if (target.closest("[data-dancer-id]")) return;
       if (target.closest("[data-set-piece-id]")) return;
@@ -2703,7 +2700,7 @@ export function StageBoardBody({
     };
 
     const onMove = (e: PointerEvent) => {
-      /** 1: 単一ダンサーのドラッグ（画面左端のゴミ箱帯へドロップで削除） */
+      /** 1: 単一ダンサーのドラッグ（画面端のゴミ箱帯へドロップで削除） */
       const d = dragRef.current;
       if (d) {
         const next = pxToPct(
@@ -2713,7 +2710,11 @@ export function StageBoardBody({
           true,
         );
         if (!next) return;
-        const reveal = pointerInViewportTrashRevealZone(e.clientX);
+        const reveal = pointerInViewportTrashRevealZone(
+          e.clientX,
+          e.clientY,
+          trashDropEdge,
+        );
         if (reveal !== trashRevealActiveRef.current) {
           trashRevealActiveRef.current = reveal;
           setTrashUiVisible(reveal);
@@ -2823,7 +2824,7 @@ export function StageBoardBody({
         }
         return;
       }
-      /** 1b: 床に置いたテキストの移動（画面左端でゴミ箱表示・ドロップで削除） */
+      /** 1b: 床に置いたテキストの移動（画面端でゴミ箱表示・ドロップで削除） */
       const fmd = floorMarkupTextDragRef.current;
       if (fmd) {
         const rectEl =
@@ -2836,7 +2837,11 @@ export function StageBoardBody({
         const dyPct = ((e.clientY - fmd.startClientY) / rr.height) * 100;
         const nx = round2(clamp(fmd.startXPct + dxPct, -200, 200));
         const ny = round2(clamp(fmd.startYPct + dyPct, -200, 200));
-        const reveal = pointerInViewportTrashRevealZone(e.clientX);
+        const reveal = pointerInViewportTrashRevealZone(
+          e.clientX,
+          e.clientY,
+          trashDropEdge,
+        );
         if (reveal !== trashRevealActiveRef.current) {
           trashRevealActiveRef.current = reveal;
           setTrashUiVisible(reveal);
@@ -2895,7 +2900,11 @@ export function StageBoardBody({
         const rr = rectEl.getBoundingClientRect();
         const dxPct = ((e.clientX - multiDrag.startClientX) / rr.width) * 100;
         const dyPct = ((e.clientY - multiDrag.startClientY) / rr.height) * 100;
-        const reveal = pointerInViewportTrashRevealZone(e.clientX);
+        const reveal = pointerInViewportTrashRevealZone(
+          e.clientX,
+          e.clientY,
+          trashDropEdge,
+        );
         if (reveal !== trashRevealActiveRef.current) {
           trashRevealActiveRef.current = reveal;
           setTrashUiVisible(reveal);
@@ -2955,8 +2964,12 @@ export function StageBoardBody({
         const idSet = new Set(g.ids);
         const STAGE_CENTER_PCT = 50;
         const CENTER_GUIDE_EPS = 0.02;
-        /** 群移動中もポインタが画面左端付近ならゴミ箱 UI を出す */
-        const reveal = pointerInViewportTrashRevealZone(e.clientX);
+        /** 群移動中もポインタが画面端付近ならゴミ箱 UI を出す */
+        const reveal = pointerInViewportTrashRevealZone(
+          e.clientX,
+          e.clientY,
+          trashDropEdge,
+        );
         if (reveal !== trashRevealActiveRef.current) {
           trashRevealActiveRef.current = reveal;
           setTrashUiVisible(reveal);
@@ -3501,6 +3514,7 @@ export function StageBoardBody({
     removeDancersByIds,
     removeFloorMarkupById,
     setTrashHotIfChanged,
+    trashDropEdge,
     markerDiamDraft,
     nameBelowFontDraft,
     setProject,
@@ -4546,6 +4560,7 @@ export function StageBoardBody({
       showTrashDrop,
       trashHot,
       trashDockViewportRef,
+      trashDropEdge,
       dancerQuickEditId,
       quickEditDancerForDialog,
       viewMode,
@@ -4568,6 +4583,7 @@ export function StageBoardBody({
       setFloorMarkupTool,
       showTrashDrop,
       trashDockViewportRef,
+      trashDropEdge,
       trashHot,
       updateActiveFormation,
       viewMode,
