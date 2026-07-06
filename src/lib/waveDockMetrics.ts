@@ -20,8 +20,8 @@ export const PC_WAVE_RULER_CHROME_PX = Math.round(
   ((16 + 5 * CSS_MM_TO_PX) * 2) / 3
 );
 
-/** コンパクト再生ツールバー行（minHeight + padding + border） */
-export const PC_WIDE_TOP_DOCK_TOOLBAR_CHROME_PX = Math.round(28 * 1.2 + 2 * 1.2 + 2);
+/** コンパクト再生ツールバー行（minHeight + padding + border + ズームボタン行） */
+export const PC_WIDE_TOP_DOCK_TOOLBAR_CHROME_PX = Math.round(30 * 1.2 + 2 * 1.2 + 2);
 
 /** 波形ブロック下端の高さリサイズ枠 */
 export const PC_WAVE_BOTTOM_RESIZE_CHROME_PX = 10;
@@ -31,6 +31,9 @@ export const PC_WAVE_FRAME_EXTRA_CHROME_PX = 2;
 
 /** `WaveformStrip` 外枠 border（上下 1px ずつ）— ドック内高さ計算用 */
 export const WAVE_STRIP_BORDER_PX = 2;
+
+/** PC 上部ドック: 波形キャンバス下端の収まり余白（px） */
+export const WAVE_TOP_DOCK_CANVAS_FIT_MARGIN_PX = 5;
 
 /** PC 上部ドック下端: 波形バーとステージの境目リサイズ枠（タイムライン内側の外） */
 export const TOP_DOCK_WAVE_STAGE_RESIZER_PX = 10;
