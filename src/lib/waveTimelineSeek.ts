@@ -15,6 +15,10 @@ import {
   isWaveEdgeScrollZone,
   WAVE_WHEEL_ZOOM_PLAYHEAD_SCREEN_FRAC,
 } from "./waveEdgeScrollDuringScrub";
+import {
+  beginWaveSeekSnapLatch,
+  type WaveSeekSnapLatch,
+} from "./waveSeekSnapLatch";
 
 export type WaveTimelineSeekViewContext = {
   durationSec: number;
@@ -85,6 +89,7 @@ export type CommitWaveTimelineSeekParams = WaveTimelineSeekViewContext & {
   setWaveViewStartOverride: Dispatch<SetStateAction<number | null>>;
   scrubSession?: PlaybackScrubSession | null;
   roundHeadForStore?: boolean;
+  waveSeekSnapLatchRef?: { current: WaveSeekSnapLatch | null };
 };
 
 /**
@@ -108,6 +113,7 @@ export function commitWaveTimelineSeekAtClientX(
     setWaveViewStartOverride,
     scrubSession = null,
     roundHeadForStore = true,
+    waveSeekSnapLatchRef,
   } = params;
   if (durationSec <= 0) return null;
 
@@ -140,6 +146,7 @@ export function commitWaveTimelineSeekAtClientX(
 
   const skipViewPanForEdgeScrub =
     scrubSession != null && isWaveEdgeScrollZone(clientX, rect);
+  let appliedViewStart: number | null = null;
   if (!skipViewPanForEdgeScrub) {
     const nextStart = panWaveViewStartForPlayheadAtClientX({
       scrubTimeSec: moved,
@@ -149,10 +156,21 @@ export function commitWaveTimelineSeekAtClientX(
       viewPortion,
     });
     if (nextStart != null) {
+      appliedViewStart = nextStart;
       setWaveViewStartOverride(nextStart);
     } else if (viewPortion >= 1 - 1e-9) {
       setWaveViewStartOverride(null);
+      appliedViewStart = null;
     }
   }
+
+  if (waveSeekSnapLatchRef) {
+    beginWaveSeekSnapLatch(waveSeekSnapLatchRef, {
+      targetSec: moved,
+      viewStartOverride: appliedViewStart,
+      isPlaying,
+    });
+  }
+
   return moved;
 }

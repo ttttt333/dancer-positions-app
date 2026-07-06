@@ -41,6 +41,7 @@ import {
   commitWaveTimelineSeekAtClientX,
   panWaveViewStartForPlayheadAtClientX,
 } from "../lib/waveTimelineSeek";
+import type { WaveSeekSnapLatch } from "../lib/waveSeekSnapLatch";
 import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
 import {
   isWaveDoubleClickFollowUp,
@@ -102,6 +103,7 @@ export type UseWaveCanvasPointerDragArgs = {
   setCurrentTime: (t: number) => void;
   onSelectedCueIdsChange: Dispatch<SetStateAction<string[]>>;
   suppressNextWaveSeekRef: RefObject<boolean>;
+  waveSeekSnapLatchRef: RefObject<WaveSeekSnapLatch | null>;
   wavePointerGestureRef: RefObject<{ lastPointerUpAtMs: number }>;
   setProject: React.Dispatch<React.SetStateAction<ChoreographyProjectJson>>;
   durationRef: RefObject<number>;
@@ -142,6 +144,7 @@ export function useWaveCanvasPointerDrag({
   setCurrentTime,
   onSelectedCueIdsChange,
   suppressNextWaveSeekRef,
+  waveSeekSnapLatchRef,
   wavePointerGestureRef,
   setProject,
   durationRef,
@@ -522,6 +525,7 @@ export function useWaveCanvasPointerDrag({
           trimEndSec,
           setWaveViewStartOverride,
           scrubSession: scrubSession ?? null,
+          waveSeekSnapLatchRef,
         });
         if (moved != null) {
           currentTimePropRef.current = moved;

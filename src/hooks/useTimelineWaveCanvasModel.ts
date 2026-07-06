@@ -3,6 +3,7 @@ import type { Cue } from "../types/choreography";
 import type { PlaybackScrubSession } from "../lib/playbackTransport";
 import { useWaveCanvasRenderer } from "./useWaveCanvasRenderer";
 import type { CueDragEdgeMode } from "../lib/timelineWaveGeometry";
+import type { WaveSeekSnapLatch } from "../lib/waveSeekSnapLatch";
 
 type Params = {
   peaks: number[] | null;
@@ -93,6 +94,7 @@ export function useTimelineWaveCanvasModel({
     active: boolean;
   } | null>(null);
   const suppressNextWaveSeekRef = useRef(false);
+  const waveSeekSnapLatchRef = useRef<WaveSeekSnapLatch | null>(null);
   /** ダブルクリック直前の pointerup でシーク抑制しないための時刻 */
   const wavePointerGestureRef = useRef({ lastPointerUpAtMs: 0 });
   const waveHoverCueRef = useRef<{
@@ -128,6 +130,7 @@ export function useTimelineWaveCanvasModel({
     lastWaveDrawRangeRef,
     waveViewStartOverrideRef,
     playheadScrubDragRef,
+    waveSeekSnapLatchRef,
     isPlayingForWaveRef,
     currentTimePropRef,
     wideWorkbench,
@@ -161,6 +164,7 @@ export function useTimelineWaveCanvasModel({
     newCueRangePreviewRef,
     emptyWaveDragRef,
     suppressNextWaveSeekRef,
+    waveSeekSnapLatchRef,
     wavePointerGestureRef,
     playheadScrubDragRef,
     waveHoverCueRef,

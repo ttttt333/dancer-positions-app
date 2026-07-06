@@ -80,6 +80,7 @@ export function useTimelineWaveSurfaceHandlers(
     setCurrentTime,
     onSelectedCueIdsChange,
     suppressNextWaveSeekRef,
+    waveSeekSnapLatchRef,
     wavePointerGestureRef,
     setProject,
     durationRef,
@@ -200,6 +201,7 @@ export function useTimelineWaveSurfaceHandlers(
         setWaveViewStartOverride,
         scrubSession: scrubSession ?? null,
         ...waveSeekViewContext(),
+        waveSeekSnapLatchRef,
       });
       if (moved != null) {
         currentTimePropRef.current = moved;
@@ -218,6 +220,7 @@ export function useTimelineWaveSurfaceHandlers(
       trimEndSec,
       trimStartSec,
       waveSeekViewContext,
+      waveSeekSnapLatchRef,
     ]
   );
 
@@ -248,6 +251,7 @@ export function useTimelineWaveSurfaceHandlers(
     setCurrentTime,
     onSelectedCueIdsChange,
     suppressNextWaveSeekRef,
+    waveSeekSnapLatchRef,
     wavePointerGestureRef,
     setProject,
     durationRef,

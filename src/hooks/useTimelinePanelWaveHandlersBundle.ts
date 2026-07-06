@@ -47,6 +47,7 @@ type WaveHandlersBundleParams = {
     | "lastWaveDrawRangeRef"
     | "cueDragPreviewRangeRef"
     | "suppressNextWaveSeekRef"
+    | "waveSeekSnapLatchRef"
     | "wavePointerGestureRef"
     | "waveViewStartOverrideRef"
     | "viewPortionRef"
@@ -95,6 +96,7 @@ export function useTimelinePanelWaveHandlersBundle({
     openWaveCueMenuAtPointer,
   } = useTimelineWaveCanvasActions({
       suppressNextWaveSeekRef: canvas.suppressNextWaveSeekRef,
+      waveSeekSnapLatchRef: canvas.waveSeekSnapLatchRef,
       wavePointerGestureRef: canvas.wavePointerGestureRef,
       currentTimePropRef: canvas.currentTimePropRef,
       drawWaveformAt: canvas.drawWaveformAt,
@@ -155,6 +157,7 @@ export function useTimelinePanelWaveHandlersBundle({
     setCurrentTime: playback.setCurrentTime,
     onSelectedCueIdsChange,
     suppressNextWaveSeekRef: canvas.suppressNextWaveSeekRef,
+    waveSeekSnapLatchRef: canvas.waveSeekSnapLatchRef,
     wavePointerGestureRef: canvas.wavePointerGestureRef,
     setProject,
     durationRef: canvas.durationRef,

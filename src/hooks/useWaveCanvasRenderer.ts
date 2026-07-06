@@ -17,6 +17,11 @@ import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
 import { drawWavePeaksColumns } from "../lib/drawWavePeaksColumns";
 import { WAVE_CANVAS_BITMAP_HEIGHT_SCALE } from "../lib/waveDockMetrics";
 import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
+import type { WaveSeekSnapLatch } from "../lib/waveSeekSnapLatch";
+import {
+  advanceWaveSeekSnapLatch,
+  resolveWaveSeekSnapPaint,
+} from "../lib/waveSeekSnapLatch";
 
 /** 波形上のキュー枠（CSS 表示 px）。ビットマップ線幅は `waveBitmapPxPerCssPx` を掛ける */
 const WAVE_CUE_FRAME_BORDER_CSS_PX = 2;
@@ -40,6 +45,7 @@ export type UseWaveCanvasRendererArgs = {
   /** カーソル位置ズーム用: null でなければ viewStart をこの値で固定 */
   waveViewStartOverrideRef: RefObject<number | null>;
   playheadScrubDragRef: RefObject<{ armed: boolean } | null>;
+  waveSeekSnapLatchRef: RefObject<WaveSeekSnapLatch | null>;
   isPlayingForWaveRef: RefObject<boolean>;
   currentTimePropRef: RefObject<number>;
   wideWorkbench: boolean;
@@ -76,6 +82,7 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
     waveAmpRef,
     lastWaveDrawRangeRef,
     waveViewStartOverrideRef,
+    waveSeekSnapLatchRef,
     playheadScrubDragRef,
     isPlayingForWaveRef,
     currentTimePropRef,
@@ -97,15 +104,30 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
     if (playheadScrubDragRef.current?.armed) {
       return currentTimePropRef.current;
     }
-    if (
+    const engineSec =
       isPlayingForWaveRef.current &&
       !playbackEngine.isPaused() &&
       Number.isFinite(playbackEngine.getCurrentTime())
-    ) {
-      return playbackEngine.getCurrentTime();
+        ? playbackEngine.getCurrentTime()
+        : null;
+    const snap = resolveWaveSeekSnapPaint({
+      latch: waveSeekSnapLatchRef.current,
+      engineSec,
+      fallbackSec: currentTimePropRef.current,
+    });
+    if (snap.pinned) {
+      return snap.paintSec;
+    }
+    if (engineSec != null) {
+      return engineSec;
     }
     return currentTimePropRef.current;
-  }, [currentTimePropRef, isPlayingForWaveRef, playheadScrubDragRef]);
+  }, [
+    currentTimePropRef,
+    isPlayingForWaveRef,
+    playheadScrubDragRef,
+    waveSeekSnapLatchRef,
+  ]);
 
   const drawWaveformAt = useCallback(
     (playheadTime: number) => {
@@ -124,17 +146,39 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         w / Math.max(cssRect.width, 1),
         h / Math.max(cssRect.height, 1)
       );
-      const viewOverride = effectiveWaveViewStartOverride(
-        waveViewStartOverrideRef.current,
-        { viewPortion: vp }
-      );
+      const engineSec =
+        isPlayingForWaveRef.current &&
+        !playbackEngine.isPaused() &&
+        Number.isFinite(playbackEngine.getCurrentTime())
+          ? playbackEngine.getCurrentTime()
+          : null;
+      const snap = resolveWaveSeekSnapPaint({
+        latch: waveSeekSnapLatchRef.current,
+        engineSec,
+        fallbackSec: playheadTime,
+      });
+      if (!snap.pinned) {
+        advanceWaveSeekSnapLatch(waveSeekSnapLatchRef, engineSec);
+      }
+      const paintHeadSec = snap.pinned ? snap.paintSec : playheadTime;
+      const snapPinned = snap.pinned;
+      if (snapPinned && snap.viewStartOverride != null) {
+        waveViewStartOverrideRef.current = snap.viewStartOverride;
+      }
+      const viewOverride = snapPinned && snap.viewStartOverride != null
+        ? snap.viewStartOverride
+        : effectiveWaveViewStartOverride(
+            waveViewStartOverrideRef.current,
+            { viewPortion: vp }
+          );
       const { start: viewStart, span: viewSpan } = resolveWaveDrawView({
         durationSec: d,
         viewPortion: vp,
-        anchorTimeSec: playheadTime,
+        anchorTimeSec: paintHeadSec,
         isPlaying: isPlayingForWaveRef.current,
         viewStartOverride: viewOverride,
-        playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
+        playheadScrubArmed:
+          (playheadScrubDragRef.current?.armed ?? false) || snapPinned,
         cueDragArmed: cueDragRef.current?.armed ?? false,
       });
       const viewEnd = viewStart + viewSpan;
@@ -143,10 +187,11 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
       if (
         isPlayingForWaveRef.current &&
         !playheadScrubDragRef.current?.armed &&
+        !snapPinned &&
         !(cueDragRef.current?.armed ?? false) &&
         vp < 1 - 1e-9 &&
         viewOverride !== null &&
-        !isPlayheadSecInWaveView(playheadTime, viewOverride, viewSpan)
+        !isPlayheadSecInWaveView(paintHeadSec, viewOverride, viewSpan)
       ) {
         waveViewStartOverrideRef.current = viewStart;
       }
@@ -212,7 +257,7 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         dragCueId == null &&
         !playheadScrubDragRef.current?.armed;
       const playbackActiveCueId = followPlaybackSelection
-        ? cueActiveAtTime(cueList, playheadTime)?.id ?? null
+        ? cueActiveAtTime(cueList, paintHeadSec)?.id ?? null
         : null;
       const drawWaveCueChrome = (
         left: number,
@@ -366,7 +411,7 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
       const extentForOverlay = cssW > 0 ? cssW : w;
       if (d > 0 && viewSpan > 0) {
         let xPlay = waveTimeToExtentX(
-          playheadTime,
+          paintHeadSec,
           viewStart,
           viewSpan,
           extentForOverlay
@@ -374,7 +419,7 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         xPlay = Number.isFinite(xPlay)
           ? Math.min(extentForOverlay, Math.max(0, xPlay))
           : 0;
-        const xBitmap = waveTimeToExtentX(playheadTime, viewStart, viewSpan, w);
+        const xBitmap = waveTimeToExtentX(paintHeadSec, viewStart, viewSpan, w);
         const xDraw = Number.isFinite(xBitmap)
           ? Math.min(w, Math.max(0, Math.round(xBitmap * 2) / 2))
           : 0;
@@ -426,6 +471,9 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
       waveHoverCueRef,
       newCueRangePreviewRef,
       playheadLineOverlayRef,
+      waveViewStartOverrideRef,
+      waveSeekSnapLatchRef,
+      playheadScrubDragRef,
     ]
   );
 

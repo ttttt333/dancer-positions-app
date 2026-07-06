@@ -30,6 +30,7 @@ const MOBILE_GAP_TOUCH_PADDING_PX = 40;
 
 export type UseTimelineWaveCanvasActionsParams = {
   suppressNextWaveSeekRef: RefObject<boolean>;
+  waveSeekSnapLatchRef: RefObject<import("../lib/waveSeekSnapLatch").WaveSeekSnapLatch | null>;
   wavePointerGestureRef: RefObject<{ lastPointerUpAtMs: number }>;
   currentTimePropRef: RefObject<number>;
   drawWaveformAt: (playheadTime: number) => void;
@@ -62,6 +63,7 @@ export type UseTimelineWaveCanvasActionsParams = {
  */
 export function useTimelineWaveCanvasActions({
   suppressNextWaveSeekRef,
+  waveSeekSnapLatchRef,
   wavePointerGestureRef,
   currentTimePropRef,
   drawWaveformAt,
@@ -197,6 +199,7 @@ export function useTimelineWaveCanvasActions({
         trimEndSec,
         setWaveViewStartOverride,
         lastDrawRange: lastWaveDrawRangeRef.current,
+        waveSeekSnapLatchRef,
       });
       if (moved != null) {
         currentTimePropRef.current = moved;
@@ -205,6 +208,7 @@ export function useTimelineWaveCanvasActions({
     },
     [
       suppressNextWaveSeekRef,
+      waveSeekSnapLatchRef,
       currentTimePropRef,
       drawWaveformAt,
       canvasRef,
