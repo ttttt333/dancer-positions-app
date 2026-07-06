@@ -26,7 +26,7 @@ export function useTimelineMediaHandle(options: Options = {}) {
   const restoreWavePeaks = useCallback(
     (peaks: number[], durationSec?: number) => {
       if (peaks.length > 0) {
-        useWavePeaksStore.getState().setPeaks([...peaks]);
+        useWavePeaksStore.getState().setPeaks([...peaks], undefined, durationSec);
       }
       if (durationSec != null && Number.isFinite(durationSec) && durationSec > 0) {
         usePlaybackUiStore.getState().setTrustedAudioDurationSec(durationSec);

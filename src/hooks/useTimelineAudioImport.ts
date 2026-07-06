@@ -94,6 +94,7 @@ async function applyQuickPeaksIfReady(
   if (!quick?.peaks.length || !(quick.durationSec > 0)) return;
   await decodePeaksFromBuffer(new ArrayBuffer(0), {
     ...options,
+    previewOnly: true,
     precomputed: { peaks: quick.peaks, durationSec: quick.durationSec },
   });
 }

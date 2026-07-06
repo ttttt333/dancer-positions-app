@@ -23,6 +23,7 @@ import {
 import type { WavePeaksPayload } from "../lib/wavePeaksTypes";
 import { hasUsablePeaksInStore, shouldApplyPeaksPayload } from "../lib/wavePeaksSession";
 import { playbackEngine } from "../core/playbackEngine";
+import { alignPlaybackDurationWithWaveform } from "../lib/wavePlaybackDuration";
 
 type Params = {
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>;
@@ -71,6 +72,11 @@ export type DecodePeaksOptions = {
   precomputed?: { peaks: number[]; durationSec: number } | null;
   /** Supabase 音源パス（サイドカー読み書き用） */
   supabaseAudioPath?: string | null;
+  /**
+   * true のときキャッシュ／precomputed のみ反映（即時プレビュー用）。
+   * 音源バイトが手元にあっても端末デコードは行わない。
+   */
+  previewOnly?: boolean;
 };
 
 /**
@@ -81,7 +87,7 @@ export function useTimelineWaveDecode({ setProject }: Params) {
   const setPeaks = useWavePeaksStore((s) => s.setPeaks);
 
   const applyPeaksAndDuration = useCallback(
-    (rawPeaks: number[], durSec: number, cacheKey?: string | null) => {
+    async (rawPeaks: number[], durSec: number, cacheKey?: string | null) => {
       if (
         !shouldApplyPeaksPayload(
           { peaks: rawPeaks, durationSec: durSec },
@@ -93,11 +99,11 @@ export function useTimelineWaveDecode({ setProject }: Params) {
       }
       const peaks = refinePeaksForTimeline(rawPeaks, durSec);
       if (Number.isFinite(durSec) && durSec > 0) {
-        usePlaybackUiStore.getState().setTrustedAudioDurationSec(durSec);
+        await alignPlaybackDurationWithWaveform(durSec);
         setDuration(durSec);
         setProject((p) => expandShortCuesAfterAudioLoad(p, durSec));
       }
-      setPeaks(peaks, cacheKey ?? null);
+      setPeaks(peaks, cacheKey ?? null, durSec);
       reportWaveLoadProgress(1, "完了");
       clearWaveLoadProgress();
     },
@@ -108,9 +114,9 @@ export function useTimelineWaveDecode({ setProject }: Params) {
     async (buf: ArrayBuffer, options?: DecodePeaksOptions) => {
       const cacheKey = options?.cacheKey ?? null;
       const supabaseAudioPath = options?.supabaseAudioPath ?? null;
+      const previewOnly = options?.previewOnly === true;
 
       const decodeClientPeaks = async (audioBuf: ArrayBuffer) => {
-        usePlaybackUiStore.getState().setTrustedAudioDurationSec(null);
         reportWaveLoadProgress(0.92, "波形を端末で解析中…");
         const stopTick = runIndeterminateDecodeProgress(
           0.92,
@@ -133,7 +139,7 @@ export function useTimelineWaveDecode({ setProject }: Params) {
         } finally {
           stopTick();
         }
-        applyPeaksAndDuration(peaks, durationSec, cacheKey);
+        await applyPeaksAndDuration(peaks, durationSec, cacheKey);
         if (cacheKey) {
           await setWavePeaksCache(cacheKey, peaks, durationSec);
           void putCachedPeaksPayload(cacheKey, peaks, durationSec);
@@ -146,8 +152,8 @@ export function useTimelineWaveDecode({ setProject }: Params) {
       try {
         const audioBuf = await resolveAudioBufferForDecode(buf);
 
-        /** 音源バイトが手元にあるときは端末デコードを優先（尺と波形の一致を保証） */
-        if (buf.byteLength > 0 && audioBuf.byteLength > 0) {
+        /** 再生中の音源バイトが取れるときは常に端末デコード（尺と波形の一致を保証） */
+        if (audioBuf.byteLength > 0 && !previewOnly) {
           await decodeClientPeaks(audioBuf);
           return;
         }
@@ -160,10 +166,10 @@ export function useTimelineWaveDecode({ setProject }: Params) {
           );
           const rejectPrecomputed =
             isPlaceholderLikeWavePeaks(pre.peaks) ||
-            (resolutionStale && buf.byteLength === 0);
+            (resolutionStale && !previewOnly);
           if (!rejectPrecomputed) {
             reportWaveLoadProgress(0.92, "波形を反映中…");
-            applyPeaksAndDuration(pre.peaks, pre.durationSec, cacheKey);
+            await applyPeaksAndDuration(pre.peaks, pre.durationSec, cacheKey);
             if (cacheKey) {
               await setWavePeaksCache(cacheKey, pre.peaks, pre.durationSec);
               void putCachedPeaksPayload(cacheKey, pre.peaks, pre.durationSec);
@@ -187,7 +193,7 @@ export function useTimelineWaveDecode({ setProject }: Params) {
               isPlaceholderLikeWavePeaks(cached.peaks);
             if (!stale) {
               reportWaveLoadProgress(0.9, "保存済み波形を読み込み中…");
-              applyPeaksAndDuration(cached.peaks, cached.durationSec, cacheKey);
+              await applyPeaksAndDuration(cached.peaks, cached.durationSec, cacheKey);
               void putCachedPeaksPayload(cacheKey, cached.peaks, cached.durationSec);
               return;
             }
@@ -203,7 +209,7 @@ export function useTimelineWaveDecode({ setProject }: Params) {
               isPlaceholderLikeWavePeaks(sidecar.peaks);
             if (!stale) {
               reportWaveLoadProgress(0.9, "クラウド波形を反映中…");
-              applyPeaksAndDuration(sidecar.peaks, sidecar.durationSec, cacheKey);
+              await applyPeaksAndDuration(sidecar.peaks, sidecar.durationSec, cacheKey);
               if (cacheKey) {
                 await setWavePeaksCache(cacheKey, sidecar.peaks, sidecar.durationSec);
                 void putCachedPeaksPayload(cacheKey, sidecar.peaks, sidecar.durationSec);
@@ -236,11 +242,12 @@ export function useTimelineWaveDecode({ setProject }: Params) {
   const applyPrecomputedPeaks = useCallback(
     async (
       payload: WavePeaksPayload,
-      options?: Pick<DecodePeaksOptions, "cacheKey" | "supabaseAudioPath">
+      options?: Pick<DecodePeaksOptions, "cacheKey" | "supabaseAudioPath" | "previewOnly">
     ) => {
       await decodePeaksFromBuffer(new ArrayBuffer(0), {
         cacheKey: options?.cacheKey,
         supabaseAudioPath: options?.supabaseAudioPath,
+        previewOnly: options?.previewOnly,
         precomputed: {
           peaks: payload.peaks,
           durationSec: payload.durationSec,

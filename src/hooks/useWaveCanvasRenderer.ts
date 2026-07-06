@@ -16,6 +16,7 @@ import { publishWaveDrawRange } from "../lib/waveDrawRangeSync";
 import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
 import { drawWavePeaksColumns } from "../lib/drawWavePeaksColumns";
 import { WAVE_CANVAS_BITMAP_HEIGHT_SCALE } from "../lib/waveDockMetrics";
+import { useWavePeaksStore } from "../store/wavePeaksStore";
 import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
 import type { WaveSeekSnapLatch } from "../lib/waveSeekSnapLatch";
 import {
@@ -212,7 +213,18 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         }
       }
       g.fillStyle = "#6366f1";
-      drawWavePeaksColumns(g, pk, d, viewStart, viewSpan, w, h, waveAmpRef.current);
+      const peaksDurationSec =
+        useWavePeaksStore.getState().peaksDurationSec ?? d;
+      drawWavePeaksColumns(
+        g,
+        pk,
+        peaksDurationSec,
+        viewStart,
+        viewSpan,
+        w,
+        h,
+        waveAmpRef.current
+      );
       const cueList = cuesRef.current;
       if (d > 0 && viewSpan > 0 && cueList.length >= 2) {
         const sortedWave = sortCuesByStart(cueList);

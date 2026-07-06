@@ -10,6 +10,7 @@ import {
   roundPlaybackHeadSec,
 } from "../core/timelineController";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
+import { useWavePeaksStore } from "../store/wavePeaksStore";
 import { bindPlaybackOrientationResume } from "../lib/playbackOrientationResume";
 import { reportWaveLoadError } from "../lib/waveLoadProgress";
 import {
@@ -239,8 +240,14 @@ function subscribePlaybackEngineMetaToProject(
     const dur = playbackEngine.getDuration();
     if (!Number.isFinite(dur) || dur <= 0) return;
     const ui = usePlaybackUiStore.getState();
-    // 波形ピークは decodeAudioData の尺に合わせている。メタデータで上書きするとずれる
     if (ui.trustedAudioDurationSec != null) {
+      return;
+    }
+    const peaksDur = useWavePeaksStore.getState().peaksDurationSec;
+    if (peaksDur != null && peaksDur > 0) {
+      ui.setTrustedAudioDurationSec(peaksDur);
+      ui.setDurationSec(peaksDur);
+      setProject((p) => expandShortCuesAfterAudioLoad(p, peaksDur));
       return;
     }
     ui.setDurationSec(dur);

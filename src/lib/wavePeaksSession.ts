@@ -91,7 +91,7 @@ export async function persistUsablePeaksForSupabasePath(
   if (durationSec == null || !(durationSec > 0)) return false;
 
   const cacheKey = wavePeaksCacheKeyForSupabase(path);
-  useWavePeaksStore.getState().setPeaks(peaks, cacheKey);
+  useWavePeaksStore.getState().setPeaks(peaks, cacheKey, durationSec);
   await setWavePeaksCache(cacheKey, peaks, durationSec);
   void putCachedPeaksPayload(cacheKey, peaks, durationSec);
   void supabaseUploadWavePeaks(path, peaks, durationSec);

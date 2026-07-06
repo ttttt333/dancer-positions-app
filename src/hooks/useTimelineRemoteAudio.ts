@@ -173,7 +173,7 @@ async function rebindUsablePeaksToCacheKey(cacheKey: string): Promise<boolean> {
   const durationSec =
     ui.trustedAudioDurationSec ?? ui.durationSec ?? null;
   if (durationSec == null || !(durationSec > 0)) return false;
-  useWavePeaksStore.getState().setPeaks(peaks, cacheKey);
+  useWavePeaksStore.getState().setPeaks(peaks, cacheKey, durationSec);
   await setWavePeaksCache(cacheKey, peaks, durationSec);
   void putCachedPeaksPayload(cacheKey, peaks, durationSec);
   return true;
@@ -210,6 +210,7 @@ async function tryApplyCachedPeaksFromStore(
     await decodePeaksRef.current(new ArrayBuffer(0), {
       cacheKey,
       ...extra,
+      previewOnly: true,
       precomputed: {
         peaks: cached.peaks,
         durationSec: cached.durationSec,
@@ -273,6 +274,7 @@ async function tryApplyCachedPeaksEarly(
   }
   await decodePeaksRef.current(new ArrayBuffer(0), {
     cacheKey,
+    previewOnly: true,
     precomputed: { peaks: cached.peaks, durationSec: cached.durationSec },
     ...extra,
   });
@@ -347,20 +349,11 @@ export function useTimelineRemoteAudio({
             clearPlaybackTrustedDurationSec,
             { revokePrevious: true }
           );
-          if (hasFreshPeaksForCacheKey(cacheKey)) {
-            markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
-            return;
-          }
-          const cached = await getWavePeaksCache(cacheKey);
-          if (
-            !(await tryApplyCachedPeaksFromStore(
-              decodePeaksRef,
-              cacheKey,
-              cached
-            )) &&
-            !cancelled
-          ) {
-            reportWaveLoadProgress(0.4, "波形データを取得中…");
+          reportWaveLoadProgress(0.35, "波形を音源から同期中…");
+          const audioBuf = await arrayBufferFromBlobUrl(reuseUrl);
+          if (!cancelled && audioBuf.byteLength > 0) {
+            await decodePeaksRef.current(audioBuf, { cacheKey });
+          } else if (!cancelled) {
             await ensureServerPeaksOnly(
               aid,
               () => arrayBufferFromBlobUrl(reuseUrl),
@@ -405,6 +398,7 @@ export function useTimelineRemoteAudio({
         if (readyPeaks?.peaks.length && !cancelled) {
           await decodePeaksRef.current(new ArrayBuffer(0), {
             cacheKey,
+            previewOnly: true,
             precomputed: readyPeaks,
           });
         }
@@ -528,22 +522,14 @@ export function useTimelineRemoteAudio({
             clearPlaybackTrustedDurationSec,
             { revokePrevious: true }
           );
-          if (
-            hasFreshPeaksForCacheKey(cacheKey) ||
-            (await rebindUsablePeaksToCacheKey(cacheKey))
-          ) {
-            markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
-            return;
-          }
-          const cached = await getWavePeaksCache(cacheKey);
-          const peaksApplied = await tryApplyCachedPeaksFromStore(
-            decodePeaksRef,
-            cacheKey,
-            cached,
-            { supabaseAudioPath: effectivePath }
-          );
-          if (!peaksApplied && !cancelled) {
-            reportWaveLoadProgress(0.4, "波形データを取得中…");
+          reportWaveLoadProgress(0.35, "波形を音源から同期中…");
+          const audioBuf = await arrayBufferFromBlobUrl(reuseUrl);
+          if (!cancelled && audioBuf.byteLength > 0) {
+            await decodePeaksRef.current(audioBuf, {
+              cacheKey,
+              supabaseAudioPath: effectivePath,
+            });
+          } else if (!cancelled) {
             await ensureSupabasePeaksOnly(
               effectivePath,
               () => arrayBufferFromBlobUrl(reuseUrl),
@@ -602,6 +588,14 @@ export function useTimelineRemoteAudio({
             hasFreshPeaksForCacheKey(cacheKey) ||
             (await rebindUsablePeaksToCacheKey(cacheKey))
           ) {
+            reportWaveLoadProgress(0.35, "波形を音源から同期中…");
+            const audioBuf = await arrayBufferFromBlobUrl(activeBlobUrl!);
+            if (!cancelled && audioBuf.byteLength > 0) {
+              await decodePeaksRef.current(audioBuf, {
+                cacheKey,
+                supabaseAudioPath: effectivePath,
+              });
+            }
             markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
             return;
           }
@@ -627,7 +621,6 @@ export function useTimelineRemoteAudio({
         );
 
         const sidecar = await sidecarPromise;
-        let sidecarApplied = false;
         if (sidecarPeaksAreUsable(sidecar) && !cancelled) {
           void putCachedPeaksPayload(
             cacheKey,
@@ -637,12 +630,12 @@ export function useTimelineRemoteAudio({
           await decodePeaksRef.current(new ArrayBuffer(0), {
             cacheKey,
             supabaseAudioPath: effectivePath,
+            previewOnly: true,
             precomputed: {
               peaks: sidecar!.peaks,
               durationSec: sidecar!.durationSec,
             },
           });
-          sidecarApplied = hasWavePeaksInStore();
         }
 
         const audioPromise = supabaseDownloadProjectAudioWithCache(
@@ -670,35 +663,13 @@ export function useTimelineRemoteAudio({
           playbackEngine.setMediaSourceUrl(blobUrl, { force: true });
         }
 
-        if (sidecarApplied) {
-          markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
-          return;
-        }
-
-        if (await rebindUsablePeaksToCacheKey(cacheKey)) {
-          markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
-          return;
-        }
-
-        const mediaPeaks = await getCachedPeaksPayload(cacheKey);
-        if (mediaPeaks?.peaks.length) {
-          await decodePeaksRef.current(new ArrayBuffer(0), {
-            cacheKey,
-            supabaseAudioPath: effectivePath,
-            precomputed: mediaPeaks,
-          });
-          markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
-          return;
-        }
-
-        await ensureSupabasePeaksOnly(
-          effectivePath,
-          () => Promise.resolve(audio.buffer),
-          decodePeaksRef,
+        reportWaveLoadProgress(0.35, "波形を音源から同期中…");
+        await decodePeaksRef.current(audio.buffer, {
           cacheKey,
-          isCancelled
-        );
+          supabaseAudioPath: effectivePath,
+        });
         markPlaybackReadyForWaveFetch(publicShareView, blobUrlRef);
+        return;
       } catch (e) {
         const msg =
           e instanceof Error ? e.message : "音源の読み込みに失敗しました";
