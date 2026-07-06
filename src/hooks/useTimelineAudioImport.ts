@@ -254,7 +254,7 @@ export function useTimelineAudioImport({
                 new Blob([buf], { type: mime }),
                 f.name
               );
-              await decodePeaksFromBuffer(new ArrayBuffer(0), {
+              await decodePeaksFromBuffer(buf, {
                 ...decodeOpts,
                 precomputed: payloadToPeaksResult(payload),
               });

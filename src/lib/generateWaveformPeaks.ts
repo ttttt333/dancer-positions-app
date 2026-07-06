@@ -81,7 +81,7 @@ export async function generateWaveformPeaksFromArrayBuffer(
     };
   }
 
-  const ctx = new AudioContextClass({ sampleRate: 22050 });
+  const ctx = new AudioContextClass();
   let audioBuffer: AudioBuffer;
   try {
     audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
@@ -93,14 +93,17 @@ export async function generateWaveformPeaksFromArrayBuffer(
   const durationSec = Number.isFinite(audioBuffer.duration) ? audioBuffer.duration : 0;
   const numPoints =
     numPointsOverride ?? resolveWavePeakBinCount(durationSec || undefined);
-  const blockSize = Math.max(1, Math.floor(channelData.length / numPoints));
   const peaks: number[] = [];
 
   for (let i = 0; i < numPoints; i++) {
-    const start = i * blockSize;
+    const start = Math.floor((i / numPoints) * channelData.length);
+    const end = Math.max(
+      start + 1,
+      Math.floor(((i + 1) / numPoints) * channelData.length)
+    );
     let max = 0;
-    for (let j = 0; j < blockSize; j++) {
-      const abs = Math.abs(channelData[start + j] ?? 0);
+    for (let j = start; j < end; j++) {
+      const abs = Math.abs(channelData[j] ?? 0);
       if (abs > max) max = abs;
     }
     peaks.push(max);

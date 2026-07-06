@@ -35,14 +35,14 @@ export function computeWavePeaksFromChannelData(
   binCount?: number
 ): number[] {
   const len = Math.max(32, Math.min(WAVE_PEAK_BIN_MAX, binCount ?? WAVE_PEAK_BIN_COUNT));
-  const block = Math.floor(ch.length / len) || 1;
   const out = new Array<number>(len);
   let max = 1e-6;
   for (let i = 0; i < len; i++) {
+    const start = Math.floor((i / len) * ch.length);
+    const end = Math.max(start + 1, Math.floor(((i + 1) / len) * ch.length));
     let peak = 0;
-    const start = i * block;
-    for (let j = 0; j < block; j++) {
-      const abs = Math.abs(ch[start + j] ?? 0);
+    for (let j = start; j < end; j++) {
+      const abs = Math.abs(ch[j] ?? 0);
       if (abs > peak) peak = abs;
     }
     out[i] = peak;

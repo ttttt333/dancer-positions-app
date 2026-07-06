@@ -109,7 +109,49 @@ export function useTimelineWaveDecode({ setProject }: Params) {
       const cacheKey = options?.cacheKey ?? null;
       const supabaseAudioPath = options?.supabaseAudioPath ?? null;
 
+      const decodeClientPeaks = async (audioBuf: ArrayBuffer) => {
+        usePlaybackUiStore.getState().setTrustedAudioDurationSec(null);
+        reportWaveLoadProgress(0.92, "波形を端末で解析中…");
+        const stopTick = runIndeterminateDecodeProgress(
+          0.92,
+          0.99,
+          "波形を端末で解析中…"
+        );
+        let peaks: number[];
+        let durationSec: number;
+        try {
+          ({ peaks, durationSec } = await withDecodeTimeout(
+            decodeWavePeaksFromBuffer(audioBuf),
+            CLIENT_DECODE_TIMEOUT_MS
+          ));
+        } catch (decodeErr) {
+          console.warn("[waveDecode] client decode failed, using placeholder:", decodeErr);
+          const ui = usePlaybackUiStore.getState();
+          durationSec =
+            ui.trustedAudioDurationSec ?? ui.durationSec ?? 120;
+          peaks = createPlaceholderWavePeaks(durationSec);
+        } finally {
+          stopTick();
+        }
+        applyPeaksAndDuration(peaks, durationSec, cacheKey);
+        if (cacheKey) {
+          await setWavePeaksCache(cacheKey, peaks, durationSec);
+          void putCachedPeaksPayload(cacheKey, peaks, durationSec);
+        }
+        if (supabaseAudioPath) {
+          void supabaseUploadWavePeaks(supabaseAudioPath, peaks, durationSec);
+        }
+      };
+
       try {
+        const audioBuf = await resolveAudioBufferForDecode(buf);
+
+        /** 音源バイトが手元にあるときは端末デコードを優先（尺と波形の一致を保証） */
+        if (buf.byteLength > 0 && audioBuf.byteLength > 0) {
+          await decodeClientPeaks(audioBuf);
+          return;
+        }
+
         if (options?.precomputed?.peaks.length) {
           const pre = options.precomputed;
           const resolutionStale = isWavePeaksResolutionStale(
@@ -171,41 +213,16 @@ export function useTimelineWaveDecode({ setProject }: Params) {
           }
         }
 
-        const audioBuf = await resolveAudioBufferForDecode(buf);
-        if (!audioBuf.byteLength) {
-          if (hasUsablePeaksInStore()) {
-            clearWaveLoadProgress();
-            return;
-          }
-          throw new Error("音声データが空です。音源を再度追加してください。");
+        if (audioBuf.byteLength > 0) {
+          await decodeClientPeaks(audioBuf);
+          return;
         }
-        usePlaybackUiStore.getState().setTrustedAudioDurationSec(null);
-        reportWaveLoadProgress(0.92, "波形を端末で解析中…");
-        const stopTick = runIndeterminateDecodeProgress(0.92, 0.99, "波形を端末で解析中…");
-        let peaks: number[];
-        let durationSec: number;
-        try {
-          ({ peaks, durationSec } = await withDecodeTimeout(
-            decodeWavePeaksFromBuffer(audioBuf),
-            CLIENT_DECODE_TIMEOUT_MS
-          ));
-        } catch (decodeErr) {
-          console.warn("[waveDecode] client decode failed, using placeholder:", decodeErr);
-          const ui = usePlaybackUiStore.getState();
-          durationSec =
-            ui.trustedAudioDurationSec ?? ui.durationSec ?? 120;
-          peaks = createPlaceholderWavePeaks(durationSec);
-        } finally {
-          stopTick();
+
+        if (hasUsablePeaksInStore()) {
+          clearWaveLoadProgress();
+          return;
         }
-        applyPeaksAndDuration(peaks, durationSec, cacheKey);
-        if (cacheKey) {
-          await setWavePeaksCache(cacheKey, peaks, durationSec);
-          void putCachedPeaksPayload(cacheKey, peaks, durationSec);
-        }
-        if (supabaseAudioPath) {
-          void supabaseUploadWavePeaks(supabaseAudioPath, peaks, durationSec);
-        }
+        throw new Error("音声データが空です。音源を再度追加してください。");
       } catch (err) {
         reportWaveLoadError(
           err instanceof Error ? err.message : "波形の読み込みに失敗しました"

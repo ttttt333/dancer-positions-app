@@ -7,8 +7,8 @@ import {
 
 /** 半振幅の上限（キャンバス高さに対する比率）。上下に余白を残しつつ約 94% まで描画 */
 const WAVE_PEAK_HALF_HEIGHT_MAX = 0.47;
-/** 下端の切れ防止: 波形だけ下側をさらに上へ寄せる量（mm） */
-const WAVE_PEAK_BOTTOM_TRIM_MM = 3;
+/** コンパクト上部ドック以外での下端余白（mm）。PC ドックではクリップを避けるため 0 */
+const WAVE_PEAK_BOTTOM_TRIM_MM = 0;
 /** ズーム時: 1 列あたり最低この本数のピークを当てはめる（細部が潰れないように） */
 const MIN_PEAK_BINS_PER_PX = 3;
 

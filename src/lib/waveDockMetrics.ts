@@ -29,6 +29,9 @@ export const PC_WAVE_BOTTOM_RESIZE_CHROME_PX = 10;
 /** 波形枠ボーダー等 */
 export const PC_WAVE_FRAME_EXTRA_CHROME_PX = 2;
 
+/** `WaveformStrip` 外枠 border（上下 1px ずつ）— ドック内高さ計算用 */
+export const WAVE_STRIP_BORDER_PX = 2;
+
 /** PC 上部ドック下端: 波形バーとステージの境目リサイズ枠（タイムライン内側の外） */
 export const TOP_DOCK_WAVE_STAGE_RESIZER_PX = 10;
 

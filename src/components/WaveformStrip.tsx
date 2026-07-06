@@ -12,7 +12,7 @@ import { PC_WAVE_RULER_HEIGHT_CSS } from "../lib/waveDockMetrics";
 
 /** 波形下端の再生位置線のはみ出し（CSS px）— 上部ドックではクリップを避ける */
 const PLAYHEAD_LINE_BLEED_BOTTOM_CSS = 8;
-const PLAYHEAD_LINE_BLEED_COMPACT_WIDE_PX = 0;
+const PLAYHEAD_LINE_BLEED_COMPACT_WIDE_PX = 4;
 
 /** PC: 波形上の秒数目盛り行（従来の 2/3） — `waveDockMetrics` と揃える */
 const PC_WAVE_RULER_HEIGHT = PC_WAVE_RULER_HEIGHT_CSS;

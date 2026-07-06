@@ -238,11 +238,12 @@ function subscribePlaybackEngineMetaToProject(
   const syncDurationFromEngine = () => {
     const dur = playbackEngine.getDuration();
     if (!Number.isFinite(dur) || dur <= 0) return;
-    const trusted = usePlaybackUiStore.getState().trustedAudioDurationSec;
-    if (trusted != null && Math.abs(dur - trusted) < 0.25) {
+    const ui = usePlaybackUiStore.getState();
+    // 波形ピークは decodeAudioData の尺に合わせている。メタデータで上書きするとずれる
+    if (ui.trustedAudioDurationSec != null) {
       return;
     }
-    usePlaybackUiStore.getState().setDurationSec(dur);
+    ui.setDurationSec(dur);
     setProject((p) => expandShortCuesAfterAudioLoad(p, dur));
   };
   const unsubMeta = playbackEngine.onMetaChange(syncDurationFromEngine);

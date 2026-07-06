@@ -9,6 +9,7 @@ import {
   TOP_DOCK_INNER_BOTTOM_INSET_PX,
   TOP_DOCK_WAVE_STAGE_RESIZER_PX,
   WAVE_CANVAS_H_PC_WIDE_DEFAULT,
+  WAVE_STRIP_BORDER_PX,
 } from "../lib/waveDockMetrics";
 import { WAVE_CANVAS_H_MAX, WAVE_CANVAS_H_MIN } from "./useTimelineWaveHeightDrag";
 
@@ -55,11 +56,14 @@ export function resolveWaveCanvasHeightInTopDock(
   const waveStripChrome = wideWorkbench
     ? estimateWideTopDockWaveStripChromePx()
     : NARROW_WAVE_STRIP_CHROME_PX;
-  const canvasH = Math.round(innerH - toolbarChrome - waveStripChrome);
-  const floor = wideWorkbench
+  const available = Math.round(
+    innerH - toolbarChrome - waveStripChrome - WAVE_STRIP_BORDER_PX
+  );
+  const preferred = wideWorkbench
     ? WAVE_CANVAS_H_PC_WIDE_DEFAULT
     : WAVE_CANVAS_H_MIN;
-  return Math.min(WAVE_CANVAS_H_MAX, Math.max(floor, canvasH));
+  const canvasH = Math.min(available, preferred);
+  return Math.min(WAVE_CANVAS_H_MAX, Math.max(WAVE_CANVAS_H_MIN, canvasH));
 }
 
 /**
