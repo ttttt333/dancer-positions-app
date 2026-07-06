@@ -1,18 +1,17 @@
 import {
   useCallback,
   useImperativeHandle,
-  type Dispatch,
   type MutableRefObject,
   type Ref,
-  type SetStateAction,
 } from "react";
 import { playbackEngine } from "../core/playbackEngine";
 import type { TimelinePanelHandle } from "../components/timelinePanelTypes";
+import { refinePeaksForTimeline } from "../lib/computeWavePeaksFromChannelData";
+import { commitPeaksToStoreIfAllowed } from "../lib/wavePeaksSession";
 
 type Params = {
   ref: Ref<TimelinePanelHandle>;
   peaksRef: MutableRefObject<number[] | null>;
-  setPeaks: Dispatch<SetStateAction<number[] | null>>;
   setDuration: (sec: number) => void;
   setPlaybackTrustedDurationSec: (sec: number) => void;
   togglePlay: () => void;
@@ -25,7 +24,6 @@ type Params = {
 export function useTimelinePanelImperativeHandle({
   ref,
   peaksRef,
-  setPeaks,
   setDuration,
   setPlaybackTrustedDurationSec,
   togglePlay,
@@ -42,15 +40,19 @@ export function useTimelinePanelImperativeHandle({
 
   const restoreWavePeaks = useCallback(
     (nextPeaks: number[], durationSec?: number) => {
-      if (nextPeaks.length > 0) {
-        setPeaks([...nextPeaks]);
-      }
-      if (durationSec != null && Number.isFinite(durationSec) && durationSec > 0) {
+      if (
+        nextPeaks.length > 0 &&
+        durationSec != null &&
+        Number.isFinite(durationSec) &&
+        durationSec > 0
+      ) {
+        const peaks = refinePeaksForTimeline(nextPeaks, durationSec);
+        commitPeaksToStoreIfAllowed({ peaks, durationSec }, { force: true });
         setPlaybackTrustedDurationSec(durationSec);
         setDuration(durationSec);
       }
     },
-    [setPeaks, setDuration, setPlaybackTrustedDurationSec]
+    [setDuration, setPlaybackTrustedDurationSec]
   );
 
   const getCurrentAudioBlobForFlowLibrary =

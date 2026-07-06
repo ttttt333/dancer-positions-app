@@ -11,6 +11,7 @@ import {
   trimPlaybackEndSec,
 } from "../core/timelineController";
 import { playbackEngine } from "../core/playbackEngine";
+import { getLiveEngineTimeSecOrNull, getLivePlaybackHeadSec } from "../lib/playbackHead";
 import {
   beginPlaybackScrubSession,
   endPlaybackScrubSession,
@@ -179,12 +180,8 @@ export function useWaveCanvasPointerDrag({
     }
     playheadScrubClientXRef.current = null;
     let tRedraw = currentTimePropRef.current;
-    if (
-      isPlayingForWaveRef.current &&
-      !playbackEngine.isPaused() &&
-      Number.isFinite(playbackEngine.getCurrentTime())
-    ) {
-      tRedraw = playbackEngine.getCurrentTime();
+    if (isPlayingForWaveRef.current) {
+      tRedraw = getLivePlaybackHeadSec(tRedraw);
     }
     drawWaveformAt(tRedraw);
   }, [
@@ -251,13 +248,8 @@ export function useWaveCanvasPointerDrag({
       const c = resolveActiveWaveCanvas(canvasRef);
       if (!c) return;
       let anchorSec = currentTimePropRef.current;
-      if (
-        isPlayingForWaveRef.current &&
-        playbackEngine.getMediaSourceUrl() &&
-        !playbackEngine.isPaused() &&
-        Number.isFinite(playbackEngine.getCurrentTime())
-      ) {
-        anchorSec = playbackEngine.getCurrentTime();
+      if (isPlayingForWaveRef.current) {
+        anchorSec = getLivePlaybackHeadSec(anchorSec);
       }
       const { viewStart, viewSpan } = resolveWaveViewForPointerHit({
         durationSec: duration,
@@ -304,13 +296,8 @@ export function useWaveCanvasPointerDrag({
       const c = resolveActiveWaveCanvas(canvasRef);
       if (!c) return false;
       let anchorSec = currentTimePropRef.current;
-      if (
-        isPlayingForWaveRef.current &&
-        playbackEngine.getMediaSourceUrl() &&
-        !playbackEngine.isPaused() &&
-        Number.isFinite(playbackEngine.getCurrentTime())
-      ) {
-        anchorSec = playbackEngine.getCurrentTime();
+      if (isPlayingForWaveRef.current) {
+        anchorSec = getLivePlaybackHeadSec(anchorSec);
       }
       const { viewStart, viewSpan } = resolveWaveViewForPointerHit({
         durationSec: duration,
@@ -388,13 +375,8 @@ export function useWaveCanvasPointerDrag({
       const c = resolveActiveWaveCanvas(canvasRef);
       if (!c) return;
       let anchorSec = currentTimePropRef.current;
-      if (
-        isPlayingForWaveRef.current &&
-        playbackEngine.getMediaSourceUrl() &&
-        !playbackEngine.isPaused() &&
-        Number.isFinite(playbackEngine.getCurrentTime())
-      ) {
-        anchorSec = playbackEngine.getCurrentTime();
+      if (isPlayingForWaveRef.current) {
+        anchorSec = getLivePlaybackHeadSec(anchorSec);
       }
       const { viewStart, viewSpan } = resolveWaveViewForPointerHit({
         durationSec: duration,
@@ -452,13 +434,8 @@ export function useWaveCanvasPointerDrag({
       const c = resolveWavePointerCanvas(canvasRef, e.currentTarget);
       if (!c) return;
       const anchorSec = () => {
-        if (
-          isPlayingForWaveRef.current &&
-          playbackEngine.getMediaSourceUrl() &&
-          !playbackEngine.isPaused() &&
-          Number.isFinite(playbackEngine.getCurrentTime())
-        ) {
-          return playbackEngine.getCurrentTime();
+        if (isPlayingForWaveRef.current) {
+          return getLivePlaybackHeadSec(currentTimePropRef.current);
         }
         return currentTimePropRef.current;
       };
@@ -501,13 +478,8 @@ export function useWaveCanvasPointerDrag({
         });
       const seekTimelineAtClientX = (clientX: number, scrubSession?: PlaybackScrubSession | null) => {
         let anchorSec = currentTimePropRef.current;
-        if (
-          isPlayingForWaveRef.current &&
-          playbackEngine.getMediaSourceUrl() &&
-          !playbackEngine.isPaused() &&
-          Number.isFinite(playbackEngine.getCurrentTime())
-        ) {
-          anchorSec = playbackEngine.getCurrentTime();
+        if (isPlayingForWaveRef.current) {
+          anchorSec = getLivePlaybackHeadSec(anchorSec);
         }
         const moved = commitWaveTimelineSeekAtClientX({
           clientX,
@@ -535,22 +507,13 @@ export function useWaveCanvasPointerDrag({
       };
       const redraw = () => {
         let tRedraw = currentTimePropRef.current;
-        if (
-          isPlayingForWaveRef.current &&
-          !playbackEngine.isPaused() &&
-          Number.isFinite(playbackEngine.getCurrentTime())
-        ) {
-          tRedraw = playbackEngine.getCurrentTime();
+        if (isPlayingForWaveRef.current) {
+          tRedraw = getLivePlaybackHeadSec(tRedraw);
         }
         drawWaveformAt(tRedraw);
       };
 
-      const engineSec =
-        playbackEngine.getMediaSourceUrl() &&
-        !playbackEngine.isPaused() &&
-        Number.isFinite(playbackEngine.getCurrentTime())
-          ? playbackEngine.getCurrentTime()
-          : null;
+      const engineSec = getLiveEngineTimeSecOrNull();
       const playheadSecForHit = resolvePlayheadSecForWaveInteraction({
         currentTimePropSec: currentTimePropRef.current,
         isPlayingForWave: isPlayingForWaveRef.current,

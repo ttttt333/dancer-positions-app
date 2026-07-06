@@ -1,7 +1,6 @@
 import { useCallback, useRef } from "react";
 import type { TimelinePanelHandle } from "../components/timelinePanelTypes";
 import { useWavePeaksStore } from "../store/wavePeaksStore";
-import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import { playbackEngine } from "../core/playbackEngine";
 
 type Options = {
@@ -25,13 +24,6 @@ export function useTimelineMediaHandle(options: Options = {}) {
 
   const restoreWavePeaks = useCallback(
     (peaks: number[], durationSec?: number) => {
-      if (peaks.length > 0) {
-        useWavePeaksStore.getState().setPeaks([...peaks], undefined, durationSec);
-      }
-      if (durationSec != null && Number.isFinite(durationSec) && durationSec > 0) {
-        usePlaybackUiStore.getState().setTrustedAudioDurationSec(durationSec);
-        usePlaybackUiStore.getState().setDurationSec(durationSec);
-      }
       timelineRef.current?.restoreWavePeaks(peaks, durationSec);
     },
     []

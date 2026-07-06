@@ -96,7 +96,6 @@ export function useTimelinePanelSessionBundle(
     setPlaybackTrustedDurationSec,
   } = useTimelinePlaybackUi();
   const peaks = useWavePeaksStore((s) => s.peaks);
-  const setPeaks = useWavePeaksStore((s) => s.setPeaks);
   const playheadScrubDragRef = useRef<{
     pointerId: number;
     scrubSession: PlaybackScrubSession | null;
@@ -230,7 +229,6 @@ export function useTimelinePanelSessionBundle(
   useTimelinePanelImperativeHandle({
     ref,
     peaksRef,
-    setPeaks,
     setDuration,
     setPlaybackTrustedDurationSec,
     togglePlay,

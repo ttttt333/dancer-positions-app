@@ -14,6 +14,7 @@ import type {
   StageFloorTextMarkup,
 } from "../types/choreography";
 import { useStageBoardController } from "../hooks/useStageBoardController";
+import { useStageBoardStageResize } from "../hooks/useStageBoardStageResize";
 import { useStageBoardLayoutAfterDraft } from "../hooks/useStageBoardLayoutAfterDraft";
 import { useSetPieceBlockElements } from "../hooks/useSetPieceBlockElements";
 import { useStageDancerMarkerElements } from "../hooks/useStageDancerMarkerElements";
@@ -28,10 +29,6 @@ import {
   MARKER_DIAMETER_PX_MAX as MARKER_PX_MAX,
   MARKER_DIAMETER_PX_MIN as MARKER_PX_MIN,
 } from "../lib/projectDefaults";
-import {
-  STAGE_MAIN_FLOOR_MM_MAX,
-  STAGE_MAIN_FLOOR_MM_MIN,
-} from "../lib/stageDimensions";
 import {
   DANCER_STAGE_POSITION_PCT_HI,
   DANCER_STAGE_POSITION_PCT_LO,
@@ -66,7 +63,6 @@ import { StageBoardBulkColorToolbar } from "./StageBoardBulkColorToolbar";
 import { StageBoardBulkToolbarSlot } from "./StageBoardBulkToolbarSlot";
 import { StageBoardStageFrame } from "./StageBoardStageFrame";
 import { StageMotionArrowsOverlay } from "./StageMotionArrowsOverlay";
-import { type StageResizeHandleId } from "./StageResizeHandles";
 import type { StageExportRootColumnProps } from "./StageExportRootColumn";
 import { shell } from "../theme/choreoShell";
 import {
@@ -186,6 +182,25 @@ export function StageBoardBody({
     project,
     floorMarkupTool: floorMarkupToolProp,
     onFloorMarkupToolChange,
+  });
+
+  const {
+    stageResizeDraft,
+    hoveredStageHandle,
+    setHoveredStageHandle,
+    onStageCornerResizeDown,
+    resizeDraftActive,
+  } = useStageBoardStageResize({
+    setProject,
+    viewMode,
+    stageInteractionsEnabled,
+    playbackDancers,
+    previewDancers,
+    audienceEdge,
+    stageWidthMm,
+    stageDepthMm,
+    sideStageMm,
+    backStageMm,
   });
 
   /** 画面端のゴミ箱帯（`position: fixed` で body に portal） */
@@ -416,47 +431,6 @@ export function StageBoardBody({
     { xPct: number; yPct: number }
   > | null>(null);
 
-  /**
-   * ステージ枠の四隅ハンドルでステージ全体の寸法を変更するドラッグセッション。
-   *
-   * ローテーション（audienceEdge による舞台の回転）があっても正しく動かせるように、
-   * 画面中心座標・回転角・CSS 軸サイズ・反対コーナーのアンカー位置（CSS座標）を
-   * 開始時点で記録し、ポインタ位置を CSS 軸上に戻してから新寸法を計算する。
-   */
-  const stageResizeRef = useRef<{
-    /**
-     * ハンドルの種類。
-     * - "nw" / "ne" / "se" / "sw" … 四隅。横・奥の両方を同時に変更。
-     * - "n" / "s" … 上下の辺。奥行き（Dmm）のみ変更。
-     * - "e" / "w" … 左右の辺。横幅（Wmm）のみ変更。
-     */
-    handle: "nw" | "ne" | "se" | "sw" | "n" | "s" | "e" | "w";
-    /** 画面上のステージ中心（drag 開始時点） */
-    cx: number;
-    cy: number;
-    /** 回転角（度）。audienceEdge から算出した rot をそのまま使う */
-    rotDeg: number;
-    /** アンカー（対角コーナー）の CSS 座標系での位置（中心基準） */
-    anchorCssX: number;
-    anchorCssY: number;
-    /** 開始時点の要素 CSS 幅・高さ（px、回転前の axis） */
-    W0css: number;
-    H0css: number;
-    /** 開始時点の外枠寸法（mm）と側方/奥方の mm */
-    outerWmm0: number;
-    outerDmm0: number;
-    Smm: number;
-    Bmm: number;
-  } | null>(null);
-  /** コーナーリサイズの最新 mm（rAF で state に反映するため）。ポインタアップで確定にも使う。 */
-  const stageResizeLastMmRef = useRef<{ w: number; d: number } | null>(null);
-  /** setStageResizeDraft を 1 フレームにまとめ、ドラッグ中の過剰再レンダーを防ぐ */
-  const stageResizeDraftRafRef = useRef<number | null>(null);
-  /** ステージ枠ドラッグ中のライブプレビュー値（コミット前の W/D）。 */
-  const [stageResizeDraft, setStageResizeDraft] = useState<{
-    stageWidthMm: number;
-    stageDepthMm: number;
-  } | null>(null);
   const {
     rot,
     effStageWidthMm,
@@ -485,10 +459,6 @@ export function StageBoardBody({
     stageGridLinesVertical,
     stageGridLinesHorizontal,
   });
-  /** 現在カーソルが乗っているステージリサイズハンドル。ホバー時だけ少し大きくする。 */
-  const [hoveredStageHandle, setHoveredStageHandle] =
-    useState<StageResizeHandleId | null>(null);
-
   const markerScale =
     typeof markerDisplayScale === "number" &&
     Number.isFinite(markerDisplayScale) &&
@@ -1328,200 +1298,6 @@ export function StageBoardBody({
       playbackOrPreview,
     ],
   );
-
-  /**
-   * ステージ枠の四隅ハンドルをつかんだら寸法ドラッグを開始する。
-   *
-   * - `stageWidthMm/stageDepthMm` が未設定のプロジェクトでも、
-   *   開始時に既定値（12m × 8m）を仮定してドラッグできる。
-   * - 舞台の客席方向 (audienceEdge) による回転を考慮し、
-   *   ポインタ位置を CSS 軸へ逆回転してから新寸法を計算する。
-   */
-  const onStageCornerResizeDown = useCallback(
-    (
-      handle: "nw" | "ne" | "se" | "sw" | "n" | "s" | "e" | "w",
-      e: ReactPointerEvent<HTMLDivElement>,
-    ) => {
-      if (
-        viewMode === "view" ||
-        !stageInteractionsEnabled ||
-        Boolean(playbackDancers) ||
-        Boolean(previewDancers)
-      )
-        return;
-      if (e.button !== 0) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const el = document.getElementById("stage-export-root");
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      const rotDeg = (audienceRotationDeg(audienceEdge) + 180) % 360;
-      const is90 = rotDeg === 90 || rotDeg === 270;
-      const W0css = is90 ? rect.height : rect.width;
-      const H0css = is90 ? rect.width : rect.height;
-      /**
-       * アンカー（動かない側）の CSS 座標系での位置。
-       * 辺ハンドル（n/s/e/w）の場合、動かない軸は 0（中央）扱いにして
-       * onMove 側で「その軸は元のまま」ロジックと併用する。
-       */
-      const anchorCssX =
-        handle === "ne" || handle === "se" || handle === "e"
-          ? -W0css / 2
-          : handle === "nw" || handle === "sw" || handle === "w"
-            ? W0css / 2
-            : 0;
-      const anchorCssY =
-        handle === "sw" || handle === "se" || handle === "s"
-          ? -H0css / 2
-          : handle === "nw" || handle === "ne" || handle === "n"
-            ? H0css / 2
-            : 0;
-      const curW =
-        stageWidthMm != null && stageWidthMm > 0 ? stageWidthMm : 12000;
-      const curD =
-        stageDepthMm != null && stageDepthMm > 0 ? stageDepthMm : 8000;
-      const SmmStart = sideStageMm != null && sideStageMm > 0 ? sideStageMm : 0;
-      const BmmStart = backStageMm != null && backStageMm > 0 ? backStageMm : 0;
-      stageResizeRef.current = {
-        handle,
-        cx,
-        cy,
-        rotDeg,
-        anchorCssX,
-        anchorCssY,
-        W0css,
-        H0css,
-        outerWmm0: curW + 2 * SmmStart,
-        outerDmm0: curD + BmmStart,
-        Smm: SmmStart,
-        Bmm: BmmStart,
-      };
-      stageResizeLastMmRef.current = { w: curW, d: curD };
-      setStageResizeDraft({ stageWidthMm: curW, stageDepthMm: curD });
-      const target = e.currentTarget as HTMLDivElement;
-      try {
-        target.setPointerCapture?.(e.pointerId);
-      } catch {
-        /* noop */
-      }
-    },
-    [
-      viewMode,
-      stageInteractionsEnabled,
-      playbackDancers,
-      previewDancers,
-      audienceEdge,
-      stageWidthMm,
-      stageDepthMm,
-      sideStageMm,
-      backStageMm,
-    ],
-  );
-
-  /** ドラッグ中: ポインタ位置を CSS 軸へ戻し、対角アンカーからの距離で新寸法を算出。 */
-  useEffect(() => {
-    /**
-     * ピクセル比 → mm 比。Shift 押下で「広い範囲まで」伸ばしやすくする（拡大を加速）。
-     * 縮小時は逆にやや鈍くして誤操作しにくくする。
-     */
-    const resizeRatioGain = (raw: number, shift: boolean): number => {
-      if (!Number.isFinite(raw) || raw <= 0) return raw;
-      if (!shift) return raw;
-      if (raw >= 1) return 1 + (raw - 1) * 2.35;
-      return 1 - (1 - raw) * 0.55;
-    };
-
-    const onMove = (e: PointerEvent) => {
-      const s = stageResizeRef.current;
-      if (!s) return;
-      const dx = e.clientX - s.cx;
-      const dy = e.clientY - s.cy;
-      const rad = (s.rotDeg * Math.PI) / 180;
-      /** 画面座標 → CSS 軸（rotate 前）へ逆回転。 */
-      const lx = dx * Math.cos(rad) + dy * Math.sin(rad);
-      const ly = -dx * Math.sin(rad) + dy * Math.cos(rad);
-      /**
-       * 辺ハンドル（n/s/e/w）の場合は担当軸だけを更新して、
-       * もう片方の寸法は元のまま維持する。コーナーの場合は両軸変更。
-       */
-      const affectsW =
-        s.handle === "e" ||
-        s.handle === "w" ||
-        s.handle === "nw" ||
-        s.handle === "ne" ||
-        s.handle === "se" ||
-        s.handle === "sw";
-      const affectsH =
-        s.handle === "n" ||
-        s.handle === "s" ||
-        s.handle === "nw" ||
-        s.handle === "ne" ||
-        s.handle === "se" ||
-        s.handle === "sw";
-      const newCssW = affectsW
-        ? Math.max(40, Math.abs(lx - s.anchorCssX))
-        : s.W0css;
-      const newCssH = affectsH
-        ? Math.max(40, Math.abs(ly - s.anchorCssY))
-        : s.H0css;
-      const ratioW = affectsW
-        ? resizeRatioGain(newCssW / Math.max(1, s.W0css), e.shiftKey)
-        : 1;
-      const ratioH = affectsH
-        ? resizeRatioGain(newCssH / Math.max(1, s.H0css), e.shiftKey)
-        : 1;
-      const newOuterWmm = s.outerWmm0 * ratioW;
-      const newOuterDmm = s.outerDmm0 * ratioH;
-      let newW = Math.round(newOuterWmm - 2 * s.Smm);
-      let newD = Math.round(newOuterDmm - s.Bmm);
-      newW = Math.min(
-        STAGE_MAIN_FLOOR_MM_MAX,
-        Math.max(STAGE_MAIN_FLOOR_MM_MIN, newW),
-      );
-      newD = Math.min(
-        STAGE_MAIN_FLOOR_MM_MAX,
-        Math.max(STAGE_MAIN_FLOOR_MM_MIN, newD),
-      );
-      stageResizeLastMmRef.current = { w: newW, d: newD };
-      if (stageResizeDraftRafRef.current !== null) return;
-      stageResizeDraftRafRef.current = requestAnimationFrame(() => {
-        stageResizeDraftRafRef.current = null;
-        const p = stageResizeLastMmRef.current;
-        if (!p) return;
-        setStageResizeDraft((prev) =>
-          prev && prev.stageWidthMm === p.w && prev.stageDepthMm === p.d
-            ? prev
-            : { stageWidthMm: p.w, stageDepthMm: p.d },
-        );
-      });
-    };
-    const onUp = () => {
-      if (stageResizeDraftRafRef.current !== null) {
-        cancelAnimationFrame(stageResizeDraftRafRef.current);
-        stageResizeDraftRafRef.current = null;
-      }
-      const s = stageResizeRef.current;
-      const last = stageResizeLastMmRef.current;
-      stageResizeLastMmRef.current = null;
-      stageResizeRef.current = null;
-      setStageResizeDraft(null);
-      if (!s || !last) return;
-      setProject((p) => {
-        if (p.stageWidthMm === last.w && p.stageDepthMm === last.d) return p;
-        return { ...p, stageWidthMm: last.w, stageDepthMm: last.d };
-      });
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
-    return () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
-    };
-  }, [setProject]);
 
   /**
    * 範囲選択でまとめた複数ダンサーを一括で削除する。
@@ -4455,7 +4231,7 @@ export function StageBoardBody({
               !previewDancers
             }
             hoveredHandle={hoveredStageHandle}
-            resizeDraftActive={Boolean(stageResizeDraft)}
+            resizeDraftActive={resizeDraftActive}
             onResizePointerDown={onStageCornerResizeDown}
             onHandlePointerEnter={setHoveredStageHandle}
             onHandlePointerLeave={(h) =>

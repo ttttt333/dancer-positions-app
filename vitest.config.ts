@@ -11,5 +11,7 @@ export default defineConfig({
     include: ["src/**/*.test.{ts,tsx}"],
     globals: false,
     setupFiles: ["src/test/setup.ts"],
+    pool: "vmThreads",
+    maxWorkers: 1,
   },
 });

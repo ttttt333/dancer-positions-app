@@ -134,10 +134,14 @@ export async function fetchAuthorizedAudioBlobUrl(assetId: number): Promise<stri
 /** 認証付き音源を 1 回の取得で blob URL と ArrayBuffer の両方返す（再生・必要時のみデコード用） */
 export async function fetchAuthorizedAudio(
   assetId: number,
-  onDownloadProgress?: (ratio: number) => void
+  onDownloadProgress?: (ratio: number) => void,
+  signal?: AbortSignal
 ): Promise<{ blobUrl: string; buffer: ArrayBuffer }> {
   const token = getToken();
   if (!token) throw new Error("ログインが必要です");
+  if (signal?.aborted) {
+    throw new DOMException("Fetch aborted", "AbortError");
+  }
 
   const {
     getCachedAudioBlob,
@@ -147,6 +151,9 @@ export async function fetchAuthorizedAudio(
   const mediaCacheKey = waveMediaCacheKeyForServerAsset(assetId);
   const cached = await getCachedAudioBlob(mediaCacheKey);
   if (cached) {
+    if (signal?.aborted) {
+      throw new DOMException("Fetch aborted", "AbortError");
+    }
     onDownloadProgress?.(1);
     const buffer = await cached.blob.arrayBuffer();
     const blobUrl = URL.createObjectURL(
@@ -157,6 +164,7 @@ export async function fetchAuthorizedAudio(
 
   const res = await fetch(`${base}/api/audio/${assetId}`, {
     headers: { Authorization: `Bearer ${token}` },
+    signal,
   });
   if (!res.ok) {
     const t = await res.text();
@@ -171,7 +179,11 @@ export async function fetchAuthorizedAudio(
   const { readResponseArrayBufferWithProgress } = await import(
     "../lib/fetchWithProgress"
   );
-  const buffer = await readResponseArrayBufferWithProgress(res, onDownloadProgress);
+  const buffer = await readResponseArrayBufferWithProgress(
+    res,
+    onDownloadProgress,
+    signal
+  );
   const mime = res.headers.get("content-type") || "audio/mpeg";
   const blob = new Blob([buffer], { type: mime });
   void putCachedAudioBlob(mediaCacheKey, blob, mime);

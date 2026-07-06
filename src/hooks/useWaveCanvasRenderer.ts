@@ -3,6 +3,7 @@ import type { RefObject } from "react";
 import type { Cue } from "../types/choreography";
 import { sortCuesByStart, cueActiveAtTime } from "../core/timelineController";
 import { playbackEngine } from "../core/playbackEngine";
+import { getLiveEngineTimeSecOrNull } from "../lib/playbackHead";
 import {
   effectiveWaveViewStartOverride,
   gapConnectorPixelBounds,
@@ -105,12 +106,9 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
     if (playheadScrubDragRef.current?.armed) {
       return currentTimePropRef.current;
     }
-    const engineSec =
-      isPlayingForWaveRef.current &&
-      !playbackEngine.isPaused() &&
-      Number.isFinite(playbackEngine.getCurrentTime())
-        ? playbackEngine.getCurrentTime()
-        : null;
+    const engineSec = isPlayingForWaveRef.current
+      ? getLiveEngineTimeSecOrNull()
+      : null;
     const snap = resolveWaveSeekSnapPaint({
       latch: waveSeekSnapLatchRef.current,
       engineSec,
@@ -147,12 +145,9 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         w / Math.max(cssRect.width, 1),
         h / Math.max(cssRect.height, 1)
       );
-      const engineSec =
-        isPlayingForWaveRef.current &&
-        !playbackEngine.isPaused() &&
-        Number.isFinite(playbackEngine.getCurrentTime())
-          ? playbackEngine.getCurrentTime()
-          : null;
+      const engineSec = isPlayingForWaveRef.current
+        ? getLiveEngineTimeSecOrNull()
+        : null;
       const snap = resolveWaveSeekSnapPaint({
         latch: waveSeekSnapLatchRef.current,
         engineSec,

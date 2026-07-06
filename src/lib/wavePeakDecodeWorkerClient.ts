@@ -10,6 +10,7 @@ type DecodeResult = { peaks: number[]; durationSec: number };
 type PendingJob = {
   resolve: (value: DecodeResult) => void;
   reject: (reason?: unknown) => void;
+  fallback: () => DecodeResult;
 };
 
 let worker: Worker | null = null;
@@ -38,9 +39,13 @@ function getPeakWorker(): Worker | null {
       }
       job.resolve({ peaks: data.peaks, durationSec: data.durationSec });
     };
-    worker.onerror = (err) => {
+    worker.onerror = () => {
       for (const job of pending.values()) {
-        job.reject(err.error ?? new Error("wave peak worker failed"));
+        try {
+          job.resolve(job.fallback());
+        } catch (err) {
+          job.reject(err);
+        }
       }
       pending.clear();
       worker?.terminate();
@@ -69,7 +74,14 @@ function computePeaksViaWorker(
 
   return new Promise<DecodeResult>((resolve, reject) => {
     const id = ++nextJobId;
-    pending.set(id, { resolve, reject });
+    const fallback = (): DecodeResult => ({
+      peaks: computeWavePeaksFromChannelData(
+        channelData,
+        resolveWavePeakBinCount(durationSec)
+      ),
+      durationSec,
+    });
+    pending.set(id, { resolve, reject, fallback });
     const copy = new Float32Array(channelData);
     try {
       w.postMessage({ id, channelData: copy, durationSec }, [copy.buffer]);
@@ -94,6 +106,7 @@ export async function decodeWavePeaksFromBuffer(
   const channelData = audioBuf.getChannelData(0);
   const durationSec = audioBuf.duration;
 
+  /** サンプル数閾値（約45秒@44.1kHz）。CLIENT_DECODE_TIMEOUT_MS とは無関係 */
   if (channelData.length > 44100 * 45) {
     try {
       return await computePeaksViaWorker(channelData, durationSec);

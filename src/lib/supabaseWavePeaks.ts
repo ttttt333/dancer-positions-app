@@ -11,11 +11,20 @@ export function wavePeaksSidecarPath(audioPath: string): string {
 }
 
 export async function supabaseDownloadWavePeaks(
-  audioPath: string
+  audioPath: string,
+  signal?: AbortSignal
 ): Promise<WavePeaksPayload | null> {
+  if (signal?.aborted) {
+    throw new DOMException("Download aborted", "AbortError");
+  }
   const sb = getSupabase();
   const sidecarPath = wavePeaksSidecarPath(audioPath);
-  const { data, error } = await sb.storage.from(CHOREOCORE_AUDIO_BUCKET).download(sidecarPath);
+  const { data, error } = await sb.storage
+    .from(CHOREOCORE_AUDIO_BUCKET)
+    .download(sidecarPath);
+  if (signal?.aborted) {
+    throw new DOMException("Download aborted", "AbortError");
+  }
   if (error || !data) return null;
   try {
     const text = await data.text();

@@ -2,6 +2,10 @@ import { useCallback, useRef } from "react";
 import type { PointerEvent, RefObject } from "react";
 import type { Cue, ChoreographyProjectJson } from "../types/choreography";
 import { playbackEngine } from "../core/playbackEngine";
+import {
+  getLiveEngineTimeSecOrNull,
+  getLivePlaybackHeadSec,
+} from "../lib/playbackHead";
 import { resolveWavePointerCanvas } from "../lib/activeWaveCanvas";
 import {
   hitPlayheadStripForScrub,
@@ -115,13 +119,8 @@ export function useWaveCanvasLongPressGate({
       }
 
       let anchorSec = currentTimePropRef.current;
-      if (
-        isPlayingForWaveRef.current &&
-        playbackEngine.getMediaSourceUrl() &&
-        !playbackEngine.isPaused() &&
-        Number.isFinite(playbackEngine.getCurrentTime())
-      ) {
-        anchorSec = playbackEngine.getCurrentTime();
+      if (isPlayingForWaveRef.current) {
+        anchorSec = getLivePlaybackHeadSec(anchorSec);
       }
 
       const { viewStart, viewSpan } = resolveWaveViewForPointerHit({
@@ -141,12 +140,7 @@ export function useWaveCanvasLongPressGate({
         return;
       }
 
-      const engineSec =
-        playbackEngine.getMediaSourceUrl() &&
-        !playbackEngine.isPaused() &&
-        Number.isFinite(playbackEngine.getCurrentTime())
-          ? playbackEngine.getCurrentTime()
-          : null;
+      const engineSec = getLiveEngineTimeSecOrNull();
       const playheadSec = resolvePlayheadSecForWaveInteraction({
         currentTimePropSec: currentTimePropRef.current,
         isPlayingForWave: isPlayingForWaveRef.current,

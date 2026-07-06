@@ -11,8 +11,9 @@ import {
   tryNativeDecodeAudioFallback,
 } from "../lib/extractVideoAudio";
 import { playCompletionWoof } from "../lib/playCompletionWoof";
-import { playbackEngine } from "../core/playbackEngine";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
+import { mountBlobUrlToPlayback } from "../lib/remoteAudio/playbackBlobSync";
+import { defaultAudioPlayer } from "../lib/remoteAudio/audioPlayer";
 import {
   revokeBlobUrlUnlessCloudPersisted,
   revokePersistedServerAudioBlob,
@@ -45,7 +46,6 @@ import {
 import { waitForAudioElementReady } from "../lib/audioElementReady";
 import { resyncEditorPlaybackMedia } from "../lib/resyncPlaybackMedia";
 import { putFlowLibraryAudio } from "../lib/flowLibraryLocalAudio";
-import { persistUsablePeaksForSupabasePath } from "../lib/wavePeaksSession";
 
 type Params = {
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>;
@@ -105,13 +105,15 @@ async function mountLocalPlaybackBlob(
   mime: string
 ): Promise<string> {
   const url = URL.createObjectURL(new Blob([buf], { type: mime }));
-  if (blobUrlRef.current && blobUrlRef.current !== url) {
-    revokeBlobUrlUnlessCloudPersisted(blobUrlRef.current);
-  }
-  blobUrlRef.current = url;
-  usePlaybackUiStore.getState().setTrustedAudioDurationSec(null);
-  playbackEngine.setMediaSourceUrl(url, { force: true });
-  await waitForAudioElementReady(playbackEngine.getMediaElement()).catch(() => {});
+  const clearTrusted = () =>
+    usePlaybackUiStore.getState().setTrustedAudioDurationSec(null);
+  mountBlobUrlToPlayback(blobUrlRef, url, clearTrusted, defaultAudioPlayer, {
+    revokePrevious: true,
+    forceEngine: true,
+  });
+  await waitForAudioElementReady(defaultAudioPlayer.getMediaElement()).catch(
+    () => {}
+  );
   void resyncEditorPlaybackMedia(blobUrlRef, { force: true }).catch(() => {});
   clearWaveLoadProgress();
   return url;
@@ -167,27 +169,59 @@ export function useTimelineAudioImport({
 
       /** クラウド保存: クイック波形 → 即再生 → アップロード → 高精度波形 */
       if (loggedIn && serverProjectId != null && !isVideo) {
+        let cloudBuf: ArrayBuffer | null = null;
+        let cloudMime =
+          f.type || guessAudioMimeFromFilename(f.name) || "audio/mpeg";
+
         try {
           reportWaveLoadProgress(0.1, "波形を解析中…");
           const [quickPeaks, buf] = await Promise.all([
             generateWaveformPeaksFromFile(f).catch(() => null),
             f.arrayBuffer(),
           ]);
-          const mime =
+          cloudBuf = buf;
+          cloudMime =
             f.type || guessAudioMimeFromFilename(f.name) || "audio/mpeg";
 
-          await mountLocalPlaybackBlob(blobUrlRef, buf, mime);
+          await mountLocalPlaybackBlob(blobUrlRef, buf, cloudMime);
+          /** アップロード前は cacheKey 未確定。previewOnly のため永続化もしない */
           await applyQuickPeaksIfReady(decodePeaksFromBuffer, quickPeaks);
+        } catch (previewErr) {
+          console.warn("[audioImport] quick preview failed:", previewErr);
+          if (!cloudBuf) {
+            try {
+              cloudBuf = await f.arrayBuffer();
+            } catch {
+              reportWaveLoadError("音源ファイルを読み込めませんでした");
+              return;
+            }
+          }
+        }
 
+        let up: Awaited<ReturnType<typeof audioApiUpload>> | null = null;
+        try {
           const fd = new FormData();
           fd.append("file", f);
           fd.append("projectId", String(serverProjectId));
-          const up = await audioApiUpload(fd, (ratio, msg) => {
+          up = await audioApiUpload(fd, (ratio, msg) => {
             reportWaveLoadProgress(
               ratio < 0.45 ? 0.1 + ratio * 0.7 : 0.4,
               msg
             );
           });
+        } catch (uploadErr) {
+          console.warn(
+            "[audioImport] cloud upload failed, falling back to local:",
+            uploadErr
+          );
+          reportWaveLoadError(
+            uploadErr instanceof Error
+              ? uploadErr.message
+              : "クラウドへの音源保存に失敗しました。ログイン状態とネットワークを確認してください。"
+          );
+        }
+
+        if (up && cloudBuf) {
           reportWaveLoadProgress(0.45, "クラウドに保存中…");
 
           if (up.kind === "supabase") {
@@ -238,40 +272,44 @@ export function useTimelineAudioImport({
                 }
               : { cacheKey: wavePeaksCacheKeyForServerAsset(up.id) };
 
-          if (up.kind === "supabase") {
-            await persistUsablePeaksForSupabasePath(up.path);
-          }
-
-          if (up.kind === "server") {
-            await resolveServerAssetWavePeaks(
-              up.id,
-              () => Promise.resolve(buf),
-              decodePeaksFromBuffer,
-              decodeOpts
-            );
-          } else {
-            try {
-              const payload = await computeServerWavePeaksFromBlob(
-                new Blob([buf], { type: mime }),
-                f.name
+          try {
+            if (up.kind === "legacy") {
+              await resolveServerAssetWavePeaks(
+                up.id,
+                () => Promise.resolve(cloudBuf!),
+                decodePeaksFromBuffer,
+                decodeOpts
               );
-              await decodePeaksFromBuffer(buf, {
-                ...decodeOpts,
-                precomputed: payloadToPeaksResult(payload),
-              });
-            } catch (err) {
-              console.warn("[audioImport] server peaks failed, decoding locally:", err);
-              await decodePeaksFromBuffer(buf, decodeOpts);
+            } else {
+              try {
+                const payload = await computeServerWavePeaksFromBlob(
+                  new Blob([cloudBuf], { type: cloudMime }),
+                  f.name
+                );
+                await decodePeaksFromBuffer(cloudBuf, {
+                  ...decodeOpts,
+                  precomputed: payloadToPeaksResult(payload),
+                });
+              } catch (err) {
+                console.warn(
+                  "[audioImport] server peaks failed, decoding locally:",
+                  err
+                );
+                await decodePeaksFromBuffer(cloudBuf, decodeOpts);
+              }
             }
+          } catch (decodeErr) {
+            console.warn(
+              "[audioImport] high-res peaks failed after cloud upload:",
+              decodeErr
+            );
+            reportWaveLoadError(
+              decodeErr instanceof Error
+                ? decodeErr.message
+                : "音源はクラウドに保存済みですが波形の高精度化に失敗しました。ページを再読み込みするか、しばらくしてから再度お試しください。"
+            );
           }
           return;
-        } catch (err) {
-          console.warn("[audioImport] cloud upload failed, falling back to local:", err);
-          reportWaveLoadError(
-            err instanceof Error
-              ? err.message
-              : "クラウドへの音源保存に失敗しました。ログイン状態とネットワークを確認してください。"
-          );
         }
       }
 

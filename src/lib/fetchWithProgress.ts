@@ -1,8 +1,12 @@
 /** レスポンス本文を ArrayBuffer として取得し、Content-Length があれば進捗を報告 */
 export async function readResponseArrayBufferWithProgress(
   res: Response,
-  onProgress?: (ratio: number) => void
+  onProgress?: (ratio: number) => void,
+  signal?: AbortSignal
 ): Promise<ArrayBuffer> {
+  if (signal?.aborted) {
+    throw new DOMException("Fetch aborted", "AbortError");
+  }
   const total = Number(res.headers.get("Content-Length") || 0);
   if (!res.body || total <= 0 || !onProgress) {
     onProgress?.(1);
@@ -12,6 +16,10 @@ export async function readResponseArrayBufferWithProgress(
   const chunks: Uint8Array[] = [];
   let received = 0;
   for (;;) {
+    if (signal?.aborted) {
+      await reader.cancel().catch(() => {});
+      throw new DOMException("Fetch aborted", "AbortError");
+    }
     const { done, value } = await reader.read();
     if (done) break;
     if (value) {

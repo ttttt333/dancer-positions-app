@@ -17,6 +17,7 @@ import type {
   StageShapePresetId,
 } from "../types/choreography";
 import { migrateCuesFromRaw, splitSharedCueFormations } from "../core/timelineController";
+import { pickExclusiveAudioFields } from "./audioSourcePriority";
 import { clampNameBelowFontPx } from "./stageNameBelowFontSizing";
 import {
   clampStageGridAxisMm,
@@ -649,25 +650,32 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
     })(),
     crews,
     savedSpotLayouts,
-    audioAssetId:
-      typeof o.audioAssetId === "number"
-        ? o.audioAssetId
-        : o.audioAssetId === null
-          ? null
-          : defaults.audioAssetId,
-    audioSupabasePath:
-      typeof (o as Partial<ChoreographyProjectJson>).audioSupabasePath === "string" &&
-      String((o as Partial<ChoreographyProjectJson>).audioSupabasePath).trim().length > 0
-        ? String((o as Partial<ChoreographyProjectJson>).audioSupabasePath).trim()
-        : (o as Partial<ChoreographyProjectJson>).audioSupabasePath === null
-          ? null
-          : defaults.audioSupabasePath ?? null,
-    flowLocalAudioKey:
-      typeof o.flowLocalAudioKey === "string" && o.flowLocalAudioKey.length > 0
-        ? o.flowLocalAudioKey
-        : o.flowLocalAudioKey === null
-          ? null
-          : defaults.flowLocalAudioKey,
+    ...pickExclusiveAudioFields({
+      audioAssetId:
+        typeof o.audioAssetId === "number"
+          ? o.audioAssetId
+          : o.audioAssetId === null
+            ? null
+            : defaults.audioAssetId,
+      audioSupabasePath:
+        typeof (o as Partial<ChoreographyProjectJson>).audioSupabasePath ===
+          "string" &&
+        String((o as Partial<ChoreographyProjectJson>).audioSupabasePath)
+          .trim()
+          .length > 0
+          ? String(
+              (o as Partial<ChoreographyProjectJson>).audioSupabasePath
+            ).trim()
+          : (o as Partial<ChoreographyProjectJson>).audioSupabasePath === null
+            ? null
+            : defaults.audioSupabasePath ?? null,
+      flowLocalAudioKey:
+        typeof o.flowLocalAudioKey === "string" && o.flowLocalAudioKey.length > 0
+          ? o.flowLocalAudioKey
+          : o.flowLocalAudioKey === null
+            ? null
+            : defaults.flowLocalAudioKey,
+    }),
     playbackRate:
       typeof o.playbackRate === "number" ? o.playbackRate : defaults.playbackRate,
     trimStartSec:

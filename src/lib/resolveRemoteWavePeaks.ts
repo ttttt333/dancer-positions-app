@@ -8,7 +8,6 @@ import {
 import { supabaseDownloadWavePeaks } from "./supabaseWavePeaks";
 import {
   getCachedPeaksPayload,
-  putCachedPeaksPayload,
 } from "./waveMediaCache";
 import {
   refinePeaksForTimeline,
@@ -55,13 +54,6 @@ async function cacheAndApplyPeaks(
     peaks: refinePeaksForTimeline(peaks.peaks, peaks.durationSec),
     durationSec: peaks.durationSec,
   };
-  if (options.cacheKey) {
-    void putCachedPeaksPayload(
-      options.cacheKey,
-      refined.peaks,
-      refined.durationSec
-    );
-  }
   await applyPrecomputedWavePeaks(applyPeaks, refined, options);
   return true;
 }

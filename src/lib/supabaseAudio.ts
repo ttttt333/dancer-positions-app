@@ -85,8 +85,12 @@ export async function supabaseGetProjectAudioSignedUrl(
 
 export async function supabaseDownloadProjectAudioWithCache(
   path: string,
-  onProgress?: (ratio: number) => void
+  onProgress?: (ratio: number) => void,
+  signal?: AbortSignal
 ): Promise<{ buffer: ArrayBuffer; mime: string }> {
+  if (signal?.aborted) {
+    throw new DOMException("Download aborted", "AbortError");
+  }
   const {
     getCachedAudioBlob,
     putCachedAudioBlob,
@@ -95,12 +99,20 @@ export async function supabaseDownloadProjectAudioWithCache(
   const cacheKey = waveMediaCacheKeyForSupabase(path);
   const cached = await getCachedAudioBlob(cacheKey);
   if (cached) {
+    if (signal?.aborted) {
+      throw new DOMException("Download aborted", "AbortError");
+    }
     onProgress?.(1);
     return { buffer: await cached.blob.arrayBuffer(), mime: cached.mime };
   }
   onProgress?.(0.05);
   const sb = getSupabase();
-  const { data, error } = await sb.storage.from(CHOREOCORE_AUDIO_BUCKET).download(path);
+  const { data, error } = await sb.storage
+    .from(CHOREOCORE_AUDIO_BUCKET)
+    .download(path);
+  if (signal?.aborted) {
+    throw new DOMException("Download aborted", "AbortError");
+  }
   if (error) {
     throw new Error(
       formatChoreocoreAudioDownloadError(path, error.message || "")
