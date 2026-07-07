@@ -1,3 +1,4 @@
+/** @vitest-environment node */
 import { describe, expect, it } from "vitest";
 import {
   computeEditorViewportKey,
@@ -7,18 +8,30 @@ import {
 
 describe("editorViewport", () => {
   it("detects mobile stack when short side < 768", () => {
-    expect(computeEditorViewportKey(390, 844)).toBe("10");
-    expect(computeEditorViewportKey(844, 390)).toBe("11");
+    expect(computeEditorViewportKey(390, 844, { desktopPointer: false })).toBe(
+      "10"
+    );
+    expect(computeEditorViewportKey(844, 390, { desktopPointer: false })).toBe(
+      "11"
+    );
   });
 
   it("detects desktop when short side >= 768", () => {
-    expect(computeEditorViewportKey(1280, 800)).toBe("01");
-    expect(computeEditorViewportKey(800, 1280)).toBe("00");
+    expect(computeEditorViewportKey(1280, 800, { desktopPointer: true })).toBe(
+      "01"
+    );
+    expect(computeEditorViewportKey(800, 1280, { desktopPointer: true })).toBe(
+      "00"
+    );
   });
 
   it("treats layout viewport without scrollbar gutter like clientWidth", () => {
-    expect(computeEditorViewportKey(1263, 800)).toBe("01");
-    expect(computeEditorViewportKey(767, 1024)).toBe("10");
+    expect(computeEditorViewportKey(1263, 800, { desktopPointer: true })).toBe(
+      "01"
+    );
+    expect(computeEditorViewportKey(767, 1024, { desktopPointer: false })).toBe(
+      "10"
+    );
   });
 
   it("does not mobile-stack Windows laptop with scaled short height", () => {
@@ -35,7 +48,7 @@ describe("editorViewport", () => {
       isEditorMobileStackViewport(725, 551, { desktopPointer: true })
     ).toBe(false);
     expect(computeEditorViewportKey(725, 551, { desktopPointer: true })).toBe(
-      "00"
+      "01"
     );
   });
 
