@@ -6,6 +6,7 @@ import { useShareViewAudioLoadStore } from "../store/shareViewAudioLoadStore";
 import { materializeSupabasePlaybackUrl } from "./audioPlaybackCache";
 import { waveMediaCacheKeyForSupabase } from "./waveMediaCache";
 import { restorePlaybackBlobUrl } from "./restorePlaybackAudio";
+import { fulfillViewerPendingPlay } from "./playbackViewerIntent";
 
 const inflightPaths = new Set<string>();
 
@@ -52,7 +53,8 @@ export function preloadShareViewAudioForPlayback(
 
       playbackEngine.setMediaSourceUrl(blobUrl, { force: true });
       await waitForAudioElementReady(playbackEngine.getMediaElement());
-      useShareViewAudioLoadStore.getState().setReady("再生準備完了");
+      useShareViewAudioLoadStore.getState().setReady();
+      fulfillViewerPendingPlay();
     } catch (e) {
       const rebuilt = await restorePlaybackBlobUrl({
         audioSupabasePath: path,
@@ -60,7 +62,8 @@ export function preloadShareViewAudioForPlayback(
       if (rebuilt) {
         playbackEngine.setMediaSourceUrl(rebuilt, { force: true });
         await waitForAudioElementReady(playbackEngine.getMediaElement());
-        useShareViewAudioLoadStore.getState().setReady("再生準備完了");
+        useShareViewAudioLoadStore.getState().setReady();
+        fulfillViewerPendingPlay();
         return;
       }
       const msg =

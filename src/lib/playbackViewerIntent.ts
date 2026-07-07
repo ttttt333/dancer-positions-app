@@ -38,16 +38,20 @@ export function startViewerEnginePlayback(trimStartSec: number): void {
   }
   clearViewerPendingPlay();
   playbackEngine.seek(t);
-  store.setIsPlaying(true);
+
+  const needsGesture = playbackRequiresUserGestureToStart();
+  if (!needsGesture) {
+    store.setIsPlaying(true);
+  }
+
   void playbackEngine.play().then(() => {
+    if (needsGesture) {
+      store.setIsPlaying(true);
+    }
     viewerPlayIntentActive = false;
   }).catch(() => {
-    if (!playbackRequiresUserGestureToStart()) {
-      store.setIsPlaying(false);
-      viewerPlayIntentActive = false;
-    } else {
-      viewerPlayIntentActive = true;
-    }
+    store.setIsPlaying(false);
+    viewerPlayIntentActive = needsGesture;
   });
 }
 
@@ -62,6 +66,11 @@ export function fulfillViewerPendingPlay(): void {
   viewerPlayIntentActive = true;
 
   if (playbackRequiresUserGestureToStart()) {
+    pendingPlayTrimStartSec = null;
+    if (!playbackEngine.isPaused()) {
+      playbackEngine.pause();
+    }
+    store.setIsPlaying(false);
     return;
   }
 

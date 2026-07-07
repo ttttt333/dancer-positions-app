@@ -123,10 +123,11 @@ export function ChoreoViewerTransportControls({
   const playGestureHandledRef = useRef(false);
 
   const onPlayPointerDown = useCallback(() => {
-    primeAudioForUserGesture();
     if (tryStartViewerPlaybackFromUserGesture(project, trimStartSec)) {
       playGestureHandledRef.current = true;
+      return;
     }
+    primeAudioForUserGesture();
   }, [project, trimStartSec]);
 
   const togglePlay = useCallback(() => {
@@ -250,10 +251,11 @@ export function ChoreoViewerLandscapeRail({
   const playGestureHandledRef = useRef(false);
 
   const onPlayPointerDown = useCallback(() => {
-    primeAudioForUserGesture();
     if (tryStartViewerPlaybackFromUserGesture(project, trimStartSec)) {
       playGestureHandledRef.current = true;
+      return;
     }
+    primeAudioForUserGesture();
   }, [project, trimStartSec]);
 
   const onPlayClick = useCallback(() => {
