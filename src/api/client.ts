@@ -14,6 +14,10 @@ import {
   supabaseUpdateProject,
   type ProjectListItem as SupabaseProjectListItem,
 } from "../lib/supabaseProjects";
+import {
+  supabaseCreateCheckoutSession,
+  supabaseVerifyCheckoutSession,
+} from "../lib/supabaseBilling";
 import { summarizeProjectJson } from "../lib/projectListSummary";
 
 /** 本番ログイン前の暫定利用。`refresh` は API を呼ばずダミーユーザーを復元する */
@@ -370,10 +374,19 @@ export async function audioApiUpload(
 export const billingApi = {
   /** Stripe Checkout（サブスク）。レスポンスの url へリダイレクト */
   createCheckoutSession: () =>
-    api<{ url: string }>("/api/billing/create-checkout-session", {
-      method: "POST",
-      body: "{}",
-    }),
+    isSupabaseBackend()
+      ? supabaseCreateCheckoutSession()
+      : api<{ url: string }>("/api/billing/create-checkout-session", {
+          method: "POST",
+          body: "{}",
+        }),
+  verifyCheckoutSession: (sessionId: string) =>
+    isSupabaseBackend()
+      ? supabaseVerifyCheckoutSession(sessionId)
+      : api<{ ok: boolean; status?: string }>("/api/billing/verify-session", {
+          method: "POST",
+          body: JSON.stringify({ session_id: sessionId }),
+        }),
   placeholderPurchase: () =>
     api<{ ok: boolean; message?: string }>("/api/billing/placeholder-purchase", {
       method: "POST",

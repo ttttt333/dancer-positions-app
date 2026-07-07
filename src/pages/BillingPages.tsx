@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { billingApi } from "../api/client";
+import { useAuth } from "../context/AuthContext";
 import { btnSecondary } from "../components/stageButtonStyles";
 
 export function BillingSuccessPage() {
   const [params] = useSearchParams();
   const sessionId = params.get("session_id");
+  const { refresh } = useAuth();
   const [status, setStatus] = useState<"loading" | "ok" | "error">("loading");
 
   useEffect(() => {
@@ -12,17 +15,13 @@ export function BillingSuccessPage() {
       setStatus("error");
       return;
     }
-    fetch("/api/billing/verify-session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ session_id: sessionId }),
-    })
+    billingApi
+      .verifyCheckoutSession(sessionId)
       .then(async (r) => {
         if (r.ok) {
+          await refresh();
           setStatus("ok");
         } else {
-          console.error(await r.text());
           setStatus("error");
         }
       })
@@ -30,7 +29,7 @@ export function BillingSuccessPage() {
         console.error(e);
         setStatus("error");
       });
-  }, [sessionId]);
+  }, [sessionId, refresh]);
 
   return (
     <div

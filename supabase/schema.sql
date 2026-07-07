@@ -127,3 +127,5 @@ create policy "choreocore_audio select shared view"
         and split_part(objects.name, '/', 1) = p.user_id::text
     )
   );
+
+-- Stripe 課金テーブル・作品数上限は supabase/billing-schema.sql を別途実行してください。

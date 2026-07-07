@@ -14,7 +14,7 @@ import {
   isDemoSessionToken,
   setToken,
 } from "../api/client";
-import { buildMeFromSupabaseUser } from "../lib/buildSupabaseMe";
+import { buildMeFromSupabaseUser, buildMeFromSupabaseUserWithBilling } from "../lib/buildSupabaseMe";
 import { clearAuthSessionHashIfPresent } from "../lib/supabaseAuth";
 import {
   getSupabase,
@@ -85,8 +85,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setMe(null);
         return;
       }
-      setMe(buildMeFromSupabaseUser(session.user));
-      clearAuthSessionHashIfPresent();
+      void (async () => {
+        const m = await buildMeFromSupabaseUserWithBilling(session.user);
+        setMe(m);
+        clearAuthSessionHashIfPresent();
+      })();
     },
     []
   );

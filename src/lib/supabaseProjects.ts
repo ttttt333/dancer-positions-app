@@ -1,5 +1,6 @@
 import { getSupabase } from "./supabaseClient";
 import { summarizeProjectJson, type ProjectListSummary } from "./projectListSummary";
+import { assertCanCreateSupabaseProject, isFreeLimitError } from "./supabaseBilling";
 
 export type ProjectRow = {
   id: number;
@@ -103,6 +104,20 @@ export async function supabaseCreateProject(
   if (userErr || !userData.user) {
     throw new Error("ログインが必要です");
   }
+
+  const { count, error: countErr } = await sb
+    .from("choreocore_projects")
+    .select("id", { count: "exact", head: true });
+  if (countErr) throw new Error(errMsg(countErr, "作品数の確認に失敗しました"));
+  try {
+    await assertCanCreateSupabaseProject(count ?? 0);
+  } catch (e) {
+    if (isFreeLimitError(e)) {
+      throw new Error("free_limit: 無料プランの作品数上限（3作品）に達しました");
+    }
+    throw e;
+  }
+
   const now = new Date().toISOString();
   const share = newShareToken();
   const { data, error } = await sb
