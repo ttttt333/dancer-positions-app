@@ -39,6 +39,7 @@ import { VideoExportHost } from "../../components/VideoExportHost";
 import { EditorDesktopLayout } from "./EditorDesktopLayout";
 import { EditorMobileLayout } from "./EditorMobileLayout";
 import { useAssignRef } from "./useSafeElementRef";
+import { useViewerChromeStore } from "../../store/viewerChromeStore";
 
 export function EditorPageLayout(props: EditorLayoutProps) {
   const activeFormationId = props.activeFormationId as never;
@@ -140,6 +141,8 @@ export function EditorPageLayout(props: EditorLayoutProps) {
   const viewerChromeCollapsed = props.viewerChromeCollapsed as never;
   const viewerBarHeightPx = props.viewerBarHeightPx as never;
   const publicViewTightHeightForVars = props.publicViewTightHeight as never;
+  const viewerWaveVisible = useViewerChromeStore((s) => s.waveVisible);
+  const cuePagerVisible = useViewerChromeStore((s) => s.cuePagerVisible);
   const raw = props.raw as never;
   const redo = props.redo as never;
   const result = props.result as never;
@@ -276,7 +279,7 @@ export function EditorPageLayout(props: EditorLayoutProps) {
                 ? "0px"
                 : `${viewerBarHeightPx}px`,
               ["--choreo-viewer-cuepager-h" as string]:
-                viewerChromeCollapsed || !publicViewTightHeightForVars
+                viewerChromeCollapsed || !publicViewTightHeightForVars || !cuePagerVisible
                   ? "0px"
                   : "46px",
             }
@@ -294,7 +297,10 @@ export function EditorPageLayout(props: EditorLayoutProps) {
         style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "visible" }}
       >
 
-      {showTopWaveDock && !stageZenLayout && !mobileStackEditor ? (
+      {showTopWaveDock &&
+      !stageZenLayout &&
+      !mobileStackEditor &&
+      !(choreoPublicView && (!viewerWaveVisible || viewerChromeCollapsed)) ? (
         <div
           className={publicNarrowLayout ? "choreo-viewer-timeline-mount" : undefined}
           style={{

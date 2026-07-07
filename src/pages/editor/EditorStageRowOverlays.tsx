@@ -18,6 +18,8 @@ import {
   ChoreoViewerBottomBar,
   ChoreoViewerChromeRestoreFab,
 } from "../../components/ChoreoViewerBottomBar";
+import { ChoreoViewerChromeDock } from "../../components/ChoreoViewerChromeDock";
+import { useViewerChromeStore } from "../../store/viewerChromeStore";
 import { VideoExportSheet } from "../../components/VideoExportSheet";
 import { useVideoExportUiStore } from "../../store/videoExportUiStore";
 import { playbackEngine } from "../../core/playbackEngine";
@@ -158,7 +160,8 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
   const publicNarrowLayout = props.publicNarrowLayout as never;
   const publicViewTightHeight = props.publicViewTightHeight as never;
   const viewerChromeCollapsed = props.viewerChromeCollapsed as never;
-  const setViewerChromeCollapsed = props.setViewerChromeCollapsed as never;
+  const stageOnly = useViewerChromeStore((s) => s.stageOnly);
+  const exitStageOnly = useViewerChromeStore((s) => s.exitStageOnly);
   const onViewerBarHeightChange = props.onViewerBarHeightChange as never;
   const resyncViewerPlayback = props.resyncViewerPlayback as never;
   const reloadViewerAudio = props.reloadViewerAudio as never;
@@ -1473,11 +1476,11 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
 
       {choreoPublicView && choreoStudentPick ? (
         <>
-          {viewerChromeCollapsed ? (
-            <ChoreoViewerChromeRestoreFab
-              onRestore={() => setViewerChromeCollapsed(false)}
-            />
-          ) : null}
+          {stageOnly ? (
+            <ChoreoViewerChromeRestoreFab onRestore={exitStageOnly} />
+          ) : (
+            <ChoreoViewerChromeDock />
+          )}
           <ChoreoViewerBottomBar
             timelineRef={timelineRef}
             project={project}
@@ -1486,8 +1489,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
             currentTime={currentTime}
             duration={duration}
             tightHeight={publicViewTightHeight}
-            chromeCollapsed={viewerChromeCollapsed}
-            onChromeCollapsedChange={setViewerChromeCollapsed}
+            landscapeMode={publicViewTightHeight}
             onBarHeightChange={onViewerBarHeightChange}
             onBeforeTransport={() => {
               if (!playbackEngine.getMediaSourceUrl()) {

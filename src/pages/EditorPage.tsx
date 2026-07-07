@@ -41,6 +41,7 @@ import {
   pauseAndSeekPlaybackToSec,
 } from "../lib/playbackTransport";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
+import { useViewerChromeStore } from "../store/viewerChromeStore";
 import { useEditorPlaybackSync } from "../hooks/useEditorPlaybackSync";
 import { useEditorKeyboardShortcuts } from "../hooks/useEditorKeyboardShortcuts";
 import { useEditorAudioSession } from "../hooks/useEditorAudioSession";
@@ -347,10 +348,9 @@ export function EditorPage({
     if (typeof window === "undefined" || !choreoPublicView) return false;
     return window.matchMedia("(max-height: 520px)").matches;
   });
-  /** 閲覧共有: 下バー・左レール・キューページャを隠してステージを最大化 */
-  const [viewerChromeCollapsed, setViewerChromeCollapsed] = useState(false);
-  /** 閲覧下バーの高さ（横画面レール位置・ステージ余白用 CSS 変数） */
-  const [viewerBarHeightPx, setViewerBarHeightPx] = useState(52);
+  /** 閲覧共有: 下バーの高さ（横画面レール位置・ステージ余白用 CSS 変数） */
+  const [viewerBarHeightPx, setViewerBarHeightPx] = useState(0);
+  const viewerChromeCollapsed = useViewerChromeStore((s) => s.stageOnly);
   /** ワイド＋タイムライン表示時: キュー一覧モーダルの開閉（一覧本体はポータルで描画） */
   const [cueListModalOpen, setCueListModalOpen] = useState(false);
   const [aiSuggestOpen, setAiSuggestOpen] = useState(false);
@@ -654,9 +654,17 @@ export function EditorPage({
 
   useEffect(() => {
     if (!choreoPublicView) {
-      setPublicViewTightHeight(false);
+      useViewerChromeStore.getState().reset();
       return;
     }
+    if (publicViewTightHeight) {
+      useViewerChromeStore.getState().applyLandscapeDefaults();
+    } else {
+      useViewerChromeStore.getState().applyPortraitDefaults();
+    }
+  }, [choreoPublicView, publicViewTightHeight]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     const mq = window.matchMedia("(max-height: 520px)");
     const read = () => setPublicViewTightHeight(mq.matches);
@@ -2625,7 +2633,6 @@ export function EditorPage({
     publicNarrowLayout,
     publicViewTightHeight,
     viewerChromeCollapsed,
-    setViewerChromeCollapsed,
     viewerBarHeightPx,
     onViewerBarHeightChange: setViewerBarHeightPx,
     resyncViewerPlayback,

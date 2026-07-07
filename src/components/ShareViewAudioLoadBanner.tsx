@@ -5,9 +5,11 @@ import { useShareViewAudioLoadStore } from "../store/shareViewAudioLoadStore";
 export function ShareViewAudioLoadBanner({
   tight,
   loadError,
+  compact = false,
 }: {
   tight?: boolean;
   loadError?: string | null;
+  compact?: boolean;
 }) {
   const { t } = useI18n();
   const phase = useShareViewAudioLoadStore((s) => s.phase);
@@ -15,6 +17,7 @@ export function ShareViewAudioLoadBanner({
   const message = useShareViewAudioLoadStore((s) => s.message);
 
   if (phase === "idle" && !loadError) {
+    if (compact) return null;
     return (
       <p className="choreo-viewer-copyright">{t("editor.layout.viewerCopyrightNotice")}</p>
     );
@@ -68,7 +71,9 @@ export function ShareViewAudioLoadBanner({
           {t("editor.layout.viewerNoAudioConfigured")}
         </div>
       ) : null}
-      <p className="choreo-viewer-copyright">{t("editor.layout.viewerCopyrightNotice")}</p>
+      {!compact ? (
+        <p className="choreo-viewer-copyright">{t("editor.layout.viewerCopyrightNotice")}</p>
+      ) : null}
     </>
   );
 }

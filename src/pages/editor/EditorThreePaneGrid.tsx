@@ -14,10 +14,10 @@ import { createDefaultFloorTextPlaceSession } from "../../lib/floorTextPlaceSess
 import { useMobileShellBridgeStore } from "../../store/useMobileShellBridgeStore";
 import { useVideoExportUiStore } from "../../store/videoExportUiStore";
 import {
-  ChoreoViewerLandscapeRail,
-  ChoreoViewerTransportControls,
   PUBLIC_VIEWER_MARKER_DISPLAY_SCALE,
 } from "../../components/ChoreoViewerBottomBar";
+import { ChoreoViewerStageTransport } from "../../components/ChoreoViewerStageTransport";
+import { useViewerChromeStore } from "../../store/viewerChromeStore";
 
 const Stage3DView = lazy(() =>
   import("../../components/Stage3DView").then((m) => ({ default: m.Stage3DView }))
@@ -123,6 +123,10 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const publicNarrowLayout = props.publicNarrowLayout as never;
   const publicViewTightHeight = props.publicViewTightHeight as never;
   const viewerChromeCollapsed = props.viewerChromeCollapsed as never;
+  const stageOnly = useViewerChromeStore((s) => s.stageOnly);
+  const controlsVisible = useViewerChromeStore((s) => s.controlsVisible);
+  const cuePagerVisible = useViewerChromeStore((s) => s.cuePagerVisible);
+  const chromeCollapsed = stageOnly || viewerChromeCollapsed;
   const resyncViewerPlayback = props.resyncViewerPlayback as never;
   const reloadViewerAudio = props.reloadViewerAudio as never;
   const raw = props.raw as never;
@@ -438,7 +442,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 paddingBottom:
                   choreoPublicView &&
                   choreoStudentPick &&
-                  !viewerChromeCollapsed
+                  !chromeCollapsed
                     ? publicViewTightHeight
                       ? "calc(var(--choreo-viewer-bar-h, 44px) + var(--choreo-viewer-cuepager-h, 46px) + max(4px, env(safe-area-inset-bottom, 0px)))"
                       : "calc(var(--choreo-viewer-bar-h, 104px) + env(safe-area-inset-bottom, 0px))"
@@ -496,7 +500,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
           className={[
             "editor-stage-section",
             publicNarrowLayout ? "editor-stage-section--public-view" : "",
-            publicNarrowLayout && viewerChromeCollapsed
+            publicNarrowLayout && chromeCollapsed
               ? "editor-stage-section--public-view-max"
               : "",
           ]
@@ -1002,8 +1006,9 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 {publicNarrowLayout &&
                 publicViewTightHeight &&
                 choreoStudentPick &&
-                !viewerChromeCollapsed ? (
-                  <ChoreoViewerLandscapeRail
+                controlsVisible &&
+                !chromeCollapsed ? (
+                  <ChoreoViewerStageTransport
                     project={project}
                     timelineRef={timelineRef}
                     trimStartSec={project.trimStartSec ?? 0}
@@ -1011,7 +1016,6 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     isPlaying={isPlaying}
                     currentTime={currentTime}
                     duration={duration}
-                    chromeCollapsed={viewerChromeCollapsed}
                     onBeforeTransport={() => {
                       if (!playbackEngine.getMediaSourceUrl()) {
                         reloadViewerAudio();
@@ -1021,7 +1025,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 ) : null}
                 {publicNarrowLayout &&
                 (cuesSortedForStageJump.length > 0 || hasRosterMembers) &&
-                !viewerChromeCollapsed ? (
+                cuePagerVisible &&
+                !chromeCollapsed ? (
                   // 生徒閲覧: タイムラインを非表示にしたため、position:fixed でボトムバーの上にフロート
                   <div
                     className="choreo-viewer-cuepager"

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import type { RefObject } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import type { TimelinePanelHandle } from "./timelinePanelTypes";
 import type { StudentPick } from "./ChoreoStudentViewGate";
@@ -18,7 +19,6 @@ import { playbackEngine } from "../core/playbackEngine";
 import {
   seekPlaybackClampedAndSyncStore,
   stopPlaybackAtTrimStart,
-  togglePlaybackRespectingTrimStart,
 } from "../lib/playbackTransport";
 import { primeAudioForUserGesture } from "../lib/playbackViewerIntent";
 import {
@@ -28,6 +28,7 @@ import {
 import { hasViewerPlayIntent } from "../lib/playbackViewerIntent";
 import { useWaveformLoadProgressStore } from "../store/waveformLoadProgressStore";
 import { useShareViewAudioLoadStore } from "../store/shareViewAudioLoadStore";
+import { useViewerChromeStore } from "../store/viewerChromeStore";
 import { ShareViewAudioLoadBanner } from "./ShareViewAudioLoadBanner";
 
 /** 閲覧共有ステージ上のダンサー印の表示倍率（従来比 2/3） */
@@ -35,17 +36,15 @@ export const PUBLIC_VIEWER_MARKER_DISPLAY_SCALE = 2 / 3;
 
 function viewerBarHeightPx(
   tight: boolean,
-  metaExpanded: boolean,
-  transportInBar: boolean,
-  chromeCollapsed: boolean
+  showTransportRow: boolean,
+  showDetailsRow: boolean,
+  showAudioRow: boolean
 ): number {
-  if (chromeCollapsed) return 0;
-  if (tight && !transportInBar) {
-    if (!metaExpanded) return 44;
-    return 88;
-  }
-  if (!metaExpanded) return tight ? 54 : 58;
-  return tight ? 96 : 104;
+  let h = 0;
+  if (showTransportRow) h += tight ? 48 : 52;
+  if (showAudioRow) h += tight ? 36 : 40;
+  if (showDetailsRow) h += tight ? 88 : 96;
+  return h;
 }
 
 type TransportProps = {
@@ -212,7 +211,7 @@ export function ChoreoViewerTransportControls({
       <span
         className="choreo-viewer-time"
         aria-live="polite"
-        aria-label={`${formatMmSsFloor(currentTime)} / ${formatMmSsFloor(duration)}`}
+        aria-label={`${currentTime} / ${duration}`}
       >
         {formatMmSsFloor(currentTime)}
         <span className="choreo-viewer-timeSep">/</span>
@@ -222,121 +221,11 @@ export function ChoreoViewerTransportControls({
   );
 }
 
-export type ChoreoViewerLandscapeRailProps = {
-  project: ChoreographyProjectJson;
-  timelineRef: RefObject<TimelinePanelHandle | null>;
-  trimStartSec: number;
-  trimEndSec: number | null;
-  isPlaying: boolean;
-  currentTime: number;
-  duration: number;
-  chromeCollapsed: boolean;
-  onBeforeTransport?: () => void | Promise<void>;
-};
-
-/** 横画面閲覧: 左端の再生コントロール列（畳み可） */
-export function ChoreoViewerLandscapeRail({
-  project,
-  timelineRef,
-  trimStartSec,
-  trimEndSec,
-  isPlaying,
-  currentTime,
-  duration,
-  chromeCollapsed,
-  onBeforeTransport,
-}: ChoreoViewerLandscapeRailProps) {
-  const { t } = useI18n();
-  const [railOpen, setRailOpen] = useState(true);
-  const playGestureHandledRef = useRef(false);
-
-  const onPlayPointerDown = useCallback(() => {
-    if (tryStartViewerPlaybackFromUserGesture(project, trimStartSec)) {
-      playGestureHandledRef.current = true;
-      return;
-    }
-    primeAudioForUserGesture();
-  }, [project, trimStartSec]);
-
-  const onPlayClick = useCallback(() => {
-    if (playGestureHandledRef.current) {
-      playGestureHandledRef.current = false;
-      if (!playbackEngine.isPaused()) return;
-    }
-    if (!playbackEngine.getMediaSourceUrl()) {
-      void onBeforeTransport?.();
-    }
-    toggleViewerPlayback(project, trimStartSec);
-  }, [onBeforeTransport, project, trimStartSec]);
-
-  if (chromeCollapsed) return null;
-
-  return (
-    <div
-      className={[
-        "choreo-viewer-landscape-rail",
-        railOpen ? "choreo-viewer-landscape-rail--open" : "choreo-viewer-landscape-rail--collapsed",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-    >
-      <button
-        type="button"
-        className="choreo-viewer-landscape-rail-toggle"
-        aria-expanded={railOpen}
-        aria-label={
-          railOpen
-            ? t("editor.layout.viewerRailCollapse")
-            : t("editor.layout.viewerRailExpand")
-        }
-        title={
-          railOpen
-            ? t("editor.layout.viewerRailCollapse")
-            : t("editor.layout.viewerRailExpand")
-        }
-        onClick={() => setRailOpen((v) => !v)}
-      >
-        {railOpen ? "‹" : "›"}
-      </button>
-      {railOpen ? (
-        <div className="choreo-viewer-landscape-rail-controls">
-          <ChoreoViewerTransportControls
-            project={project}
-            timelineRef={timelineRef}
-            trimStartSec={trimStartSec}
-            trimEndSec={trimEndSec}
-            isPlaying={isPlaying}
-            currentTime={currentTime}
-            duration={duration}
-            compact
-            onBeforeTransport={onBeforeTransport}
-          />
-        </div>
-      ) : (
-        <button
-          type="button"
-          className="choreo-viewer-landscape-rail-play-mini"
-          aria-label={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
-          title={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
-          onPointerDown={onPlayPointerDown}
-          onClick={onPlayClick}
-        >
-          {isPlaying ? (
-            <TransportIconPause size={22} />
-          ) : (
-            <TransportIconPlay size={22} />
-          )}
-        </button>
-      )}
-    </div>
-  );
-}
-
 export type ChoreoViewerChromeRestoreFabProps = {
   onRestore: () => void;
 };
 
-/** コントロールを隠したあと、ワンタップで戻す FAB */
+/** ステージのみ表示中に操作パネルを戻す FAB */
 export function ChoreoViewerChromeRestoreFab({
   onRestore,
 }: ChoreoViewerChromeRestoreFabProps) {
@@ -362,8 +251,7 @@ export type ChoreoViewerBottomBarProps = {
   currentTime: number;
   duration: number;
   tightHeight: boolean;
-  chromeCollapsed: boolean;
-  onChromeCollapsedChange: (collapsed: boolean) => void;
+  landscapeMode: boolean;
   onBeforeTransport?: () => void;
   onOpenMemberSheet: () => void;
   onBarHeightChange?: (px: number) => void;
@@ -378,8 +266,7 @@ export function ChoreoViewerBottomBar({
   currentTime,
   duration,
   tightHeight,
-  chromeCollapsed,
-  onChromeCollapsedChange,
+  landscapeMode,
   onBeforeTransport,
   onOpenMemberSheet,
   onBarHeightChange,
@@ -388,12 +275,13 @@ export function ChoreoViewerBottomBar({
   const { t } = useI18n();
   const trimStartSec = project.trimStartSec ?? 0;
   const trimEndSec = project.trimEndSec ?? null;
-  const [metaExpanded, setMetaExpanded] = useState(() => !tightHeight);
+  const stageOnly = useViewerChromeStore((s) => s.stageOnly);
+  const controlsVisible = useViewerChromeStore((s) => s.controlsVisible);
+  const detailsVisible = useViewerChromeStore((s) => s.detailsVisible);
+  const shareAudioPhase = useShareViewAudioLoadStore((s) => s.phase);
   const waveLoad = useWaveformLoadProgressStore((s) => s.progress);
   const audioLoadError =
-    waveLoad?.error === true
-      ? waveLoad.message?.trim() || null
-      : null;
+    waveLoad?.error === true ? waveLoad.message?.trim() || null : null;
   const shareAudioPath =
     typeof project.audioSupabasePath === "string"
       ? project.audioSupabasePath.trim()
@@ -409,23 +297,30 @@ export function ChoreoViewerBottomBar({
     playbackEngine.isPaused() &&
     hasViewerPlayIntent();
 
-  useEffect(() => {
-    setMetaExpanded(!tightHeight);
-  }, [tightHeight]);
+  const showTransportRow =
+    !landscapeMode && controlsVisible && !stageOnly;
+  const showAudioRow =
+    !stageOnly &&
+    (shareAudioPhase === "loading" ||
+      shareAudioPhase === "ready" ||
+      shareAudioPhase === "error" ||
+      shareAudioPhase === "unconfigured" ||
+      Boolean(audioLoadError));
+  const showDetailsRow = detailsVisible && !stageOnly;
+  const visible = showTransportRow || showAudioRow || showDetailsRow || awaitingAudioTap;
 
-  const transportInBar = !tightHeight;
   const barHeightPx = viewerBarHeightPx(
     tightHeight,
-    metaExpanded,
-    transportInBar,
-    chromeCollapsed
+    showTransportRow,
+    showDetailsRow,
+    showAudioRow || awaitingAudioTap
   );
 
   useEffect(() => {
-    onBarHeightChange?.(chromeCollapsed ? 0 : barHeightPx);
-  }, [barHeightPx, chromeCollapsed, onBarHeightChange]);
+    onBarHeightChange?.(stageOnly || !visible ? 0 : barHeightPx);
+  }, [barHeightPx, onBarHeightChange, stageOnly, visible]);
 
-  if (chromeCollapsed) {
+  if (stageOnly || !visible) {
     return null;
   }
 
@@ -434,7 +329,9 @@ export function ChoreoViewerBottomBar({
       className={[
         "choreo-viewer-bottom-bar",
         tightHeight ? "choreo-viewer-bottom-bar--tight" : "",
-        metaExpanded ? "choreo-viewer-bottom-bar--meta-open" : "choreo-viewer-bottom-bar--meta-closed",
+        showDetailsRow
+          ? "choreo-viewer-bottom-bar--meta-open"
+          : "choreo-viewer-bottom-bar--meta-closed",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -453,8 +350,8 @@ export function ChoreoViewerBottomBar({
         ["--choreo-viewer-bar-h" as string]: `${barHeightPx}px`,
       }}
     >
-      <div className="choreo-viewer-playback-row">
-        {transportInBar ? (
+      {showTransportRow ? (
+        <div className="choreo-viewer-playback-row">
           <div className="choreo-viewer-transport-group">
             <ChoreoViewerTransportControls
               project={project}
@@ -468,93 +365,21 @@ export function ChoreoViewerBottomBar({
               onBeforeTransport={onBeforeTransport}
             />
           </div>
-        ) : null}
-        <button
-          type="button"
-          className="choreo-viewer-meta-toggle"
-          aria-expanded={metaExpanded}
-          aria-label={
-            metaExpanded
-              ? t("editor.layout.viewerMetaCollapse")
-              : t("editor.layout.viewerMetaExpand")
-          }
-          title={
-            metaExpanded
-              ? t("editor.layout.viewerMetaCollapse")
-              : t("editor.layout.viewerMetaExpand")
-          }
-          onClick={() => setMetaExpanded((v) => !v)}
-          style={{
-            ...btnSecondary,
-            minWidth: tightHeight ? 36 : 40,
-            minHeight: tightHeight ? 36 : 40,
-            padding: tightHeight ? "4px 12px" : "6px 14px",
-            fontSize: tightHeight ? 12 : 13,
-            fontWeight: 600,
-            flexShrink: 0,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 4,
-          }}
-        >
-          {metaExpanded ? "▾" : "▴"}
-          <span>{t("editor.layout.viewerMetaLabel")}</span>
-        </button>
-        {!metaExpanded ? (
-          <button
-            type="button"
-            onClick={() => setMetaExpanded(true)}
-            style={{
-              ...btnAccent,
-              fontSize: tightHeight ? 12 : 13,
-              fontWeight: 700,
-              minHeight: tightHeight ? 36 : 40,
-              padding: tightHeight ? "4px 10px" : "6px 12px",
-              flexShrink: 0,
-            }}
-          >
-            動画
-          </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={() => onChromeCollapsedChange(true)}
-          style={{
-            ...btnSecondary,
-            fontSize: tightHeight ? 12 : 13,
-            fontWeight: 600,
-            flexShrink: 0,
-            minHeight: tightHeight ? 36 : 40,
-            minWidth: 56,
-            marginLeft: "auto",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: tightHeight ? "4px 10px" : "6px 12px",
-          }}
-          aria-label={t("editor.layout.viewerChromeCollapse")}
-          title={t("editor.layout.viewerChromeCollapse")}
-        >
-          {t("editor.layout.viewerChromeCollapseShort")}
-        </button>
-      </div>
-      <ShareViewAudioLoadBanner tight={tightHeight} loadError={audioLoadError} />
+        </div>
+      ) : null}
+      {showAudioRow ? (
+        <ShareViewAudioLoadBanner
+          tight={tightHeight}
+          loadError={audioLoadError}
+          compact
+        />
+      ) : null}
       {awaitingAudioTap ? (
-        <div
-          role="status"
-          style={{
-            padding: "6px 10px",
-            fontSize: tightHeight ? 11 : 12,
-            color: "#bfdbfe",
-            background: "rgba(30, 58, 138, 0.35)",
-            borderBottom: "1px solid rgba(96, 165, 250, 0.35)",
-          }}
-        >
+        <div className="choreo-viewer-audio-tap-hint" role="status">
           {t("editor.layout.viewerTapPlayForSound")}
         </div>
       ) : null}
-      {metaExpanded ? (
+      {showDetailsRow ? (
         <div
           className="choreo-viewer-meta-row"
           style={{
@@ -589,12 +414,7 @@ export function ChoreoViewerBottomBar({
           >
             {t("editor.layout.selectPart")}
           </button>
-          <div
-            style={{
-              flex: "1 1 100%",
-              paddingTop: 4,
-            }}
-          >
+          <div style={{ flex: "1 1 100%", paddingTop: 4 }}>
             <VideoExportButton
               project={project}
               durationSec={duration}
