@@ -111,27 +111,6 @@ function IconViewMode() {
     </svg>
   );
 }
-function IconGrid() {
-  const c = "#a78bfa";
-  return (
-    <svg viewBox="0 0 20 20" style={{ filter: glow(c), width: 16, height: 16 }}>
-      <line x1="7" y1="2" x2="7" y2="18" stroke={c} strokeWidth="1" />
-      <line x1="13" y1="2" x2="13" y2="18" stroke={c} strokeWidth="1" />
-      <line x1="2" y1="7" x2="18" y2="7" stroke={c} strokeWidth="1" />
-      <line x1="2" y1="13" x2="18" y2="13" stroke={c} strokeWidth="1" />
-    </svg>
-  );
-}
-function IconMagnet() {
-  const c = "#a78bfa";
-  return (
-    <svg viewBox="0 0 20 20" style={{ filter: glow(c), width: 16, height: 16 }}>
-      <path d="M5 4 L5 12 C5 15.3 7.7 18 11 18 C14.3 18 17 15.3 17 12 L17 4" fill="none" stroke={c} strokeWidth="1.5" />
-      <line x1="3" y1="4" x2="7" y2="4" stroke={c} strokeWidth="1.5" />
-      <line x1="15" y1="4" x2="19" y2="4" stroke={c} strokeWidth="1.5" />
-    </svg>
-  );
-}
 function IconCueList() {
   return (
     <svg viewBox="0 0 32 32" style={{ filter: glow("#fbbf24") }}>
@@ -420,10 +399,6 @@ function Divider() {
    ═══════════════════════════════════════════ */
 
 export function NeonIconPanel({
-  snapGrid,
-  onToggleSnapGrid,
-  onToggleStageGridLines,
-  stageGridLinesEnabled,
   stageShapeActive,
   onOpenStageShapePicker,
   onOpenSetPiecePicker,
@@ -455,7 +430,6 @@ export function NeonIconPanel({
   onCollapsePointerDown,
 }: NeonIconPanelProps) {
   const { t } = useI18n();
-  const gridSnap = stageGridLinesEnabled ?? false;
 
   /* ── Collapsed thin-bar mode ── */
   if (collapsed) {
@@ -543,40 +517,6 @@ export function NeonIconPanel({
     height: "100%",
   };
 
-  const snapToggleRow: CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    padding: "6px 8px",
-    borderRadius: 8,
-    background: "rgba(255,255,255,0.025)",
-    border: "1px solid rgba(255,255,255,0.06)",
-  };
-
-  const toggleTrack: CSSProperties = {
-    position: "relative",
-    width: 32,
-    height: 18,
-    borderRadius: 9,
-    background: gridSnap ? "#6366f1" : "rgba(255,255,255,0.1)",
-    cursor: "pointer",
-    flexShrink: 0,
-    transition: "background 0.2s",
-    border: "none",
-    padding: 0,
-  };
-  const toggleThumb: CSSProperties = {
-    position: "absolute",
-    top: 2,
-    left: gridSnap ? 14 : 2,
-    width: 14,
-    height: 14,
-    borderRadius: "50%",
-    background: "#fff",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
-    transition: "left 0.2s",
-  };
-
   return (
     <div style={panelStyle}>
       {/* Collapse toggle button */}
@@ -617,21 +557,6 @@ export function NeonIconPanel({
         <NeonBtn icon={<IconText />} label={t("editor.comp.k032")} onClick={onOpenFloorText} disabled={disabled} />
         <NeonBtn icon={<IconZoomIn />} label={t("editor.comp.k084")} onClick={onZoomStage} disabled={disabled} />
         <NeonBtn icon={<IconViewMode />} label={t("editor.comp.k114")} onClick={onOpenViewMode} disabled={disabled} />
-      </div>
-
-      {/* Grid snap toggle */}
-      <div style={snapToggleRow}>
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <IconGrid />
-          <IconMagnet />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 9, color: "rgba(255,255,255,0.6)", fontWeight: 500, lineHeight: 1 }}>{t("editor.comp.k024")}</div>
-          <div style={{ fontSize: 7, color: "rgba(255,255,255,0.25)", marginTop: 2 }}>{gridSnap ? t("editor.comp.k125") : t("editor.comp.k126")}{t("editor.comp.k127")}</div>
-        </div>
-        <button type="button" style={toggleTrack} onClick={onToggleStageGridLines}>
-          <div style={toggleThumb} />
-        </button>
       </div>
 
       <Divider />

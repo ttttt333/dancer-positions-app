@@ -41,24 +41,6 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
   return (
     <div className="editor-neon-icon-panel-wrapper"><NeonIconPanel
       {...choreoToolbarSharedProps}
-      stageGridLinesEnabled={
-        (project.stageGridLinesVerticalEnabled ?? project.stageGridLinesEnabled ?? false) ||
-        (project.stageGridLinesHorizontalEnabled ?? project.stageGridLinesEnabled ?? false)
-      }
-      onToggleStageGridLines={() => {
-        const current =
-          (project.stageGridLinesVerticalEnabled ?? project.stageGridLinesEnabled ?? false) ||
-          (project.stageGridLinesHorizontalEnabled ?? project.stageGridLinesEnabled ?? false);
-        const next = !current;
-        setProjectSafe((p) => ({
-          ...p,
-          stageGridLinesVerticalEnabled: next,
-          stageGridLinesHorizontalEnabled: next,
-          stageGridLinesEnabled: next,
-          snapGrid: next,
-        }));
-      }}
-      snapGrid={project.snapGrid ?? false}
       onOpenStageShapePicker={() => setStageAreaSettingsOpen(true)}
       onUndo={undo}
       onRedo={redo}
