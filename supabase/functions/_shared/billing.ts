@@ -43,6 +43,9 @@ export function requireCheckoutConfig(): string | null {
   if (base) return base;
   if (!STRIPE_PRICE_ID) return "STRIPE_PRICE_ID not configured";
   if (!APP_BASE) return "APP_BASE not configured";
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    return "Supabase service role not configured";
+  }
   return null;
 }
 
@@ -123,22 +126,47 @@ type StripeSubscription = {
   customer: string;
 };
 
+export async function fetchStripeCustomerIdForUser(
+  userId: string
+): Promise<string | null> {
+  // @ts-ignore Deno
+  const { createClient } = await import("npm:@supabase/supabase-js@2");
+  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const { data, error } = await admin
+    .from("choreocore_user_billing")
+    .select("stripe_customer_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  const id = data?.stripe_customer_id;
+  return typeof id === "string" && id.trim().length > 0 ? id.trim() : null;
+}
+
 export async function createCheckoutSession(opts: {
   userId: string;
   email: string;
 }): Promise<{ url: string }> {
+  const existingCustomerId = await fetchStripeCustomerIdForUser(opts.userId);
+
+  const params: Record<string, string> = {
+    mode: "subscription",
+    "line_items[0][price]": STRIPE_PRICE_ID,
+    "line_items[0][quantity]": "1",
+    success_url: `${APP_BASE}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${APP_BASE}/billing/canceled`,
+    client_reference_id: opts.userId,
+  };
+
+  if (existingCustomerId) {
+    params.customer = existingCustomerId;
+  } else {
+    params.customer_email = opts.email;
+  }
+
   const session = await stripeRequest<StripeCheckoutSession>(
     "/checkout/sessions",
     "POST",
-    {
-      mode: "subscription",
-      "line_items[0][price]": STRIPE_PRICE_ID,
-      "line_items[0][quantity]": "1",
-      success_url: `${APP_BASE}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${APP_BASE}/billing/canceled`,
-      client_reference_id: opts.userId,
-      customer_email: opts.email,
-    }
+    params
   );
   if (!session.url) throw new Error("Checkout URL が取得できませんでした");
   return { url: session.url };
@@ -163,22 +191,6 @@ export async function retrieveSubscription(
 }
 
 type StripePortalSession = { url: string };
-
-export async function fetchStripeCustomerIdForUser(
-  userId: string
-): Promise<string | null> {
-  // @ts-ignore Deno
-  const { createClient } = await import("npm:@supabase/supabase-js@2");
-  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-  const { data, error } = await admin
-    .from("choreocore_user_billing")
-    .select("stripe_customer_id")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  const id = data?.stripe_customer_id;
-  return typeof id === "string" && id.trim().length > 0 ? id.trim() : null;
-}
 
 export async function createCustomerPortalSession(
   customerId: string
