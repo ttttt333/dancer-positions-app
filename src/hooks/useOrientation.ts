@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
+import { readLayoutViewportSize } from '../lib/viewportLayoutMetrics'
 
 export type Orientation = 'portrait' | 'landscape'
 
 export function useOrientation(): Orientation {
-  const get = (): Orientation =>
-    typeof window !== 'undefined' && window.innerWidth > window.innerHeight
-      ? 'landscape'
-      : 'portrait'
+  const get = (): Orientation => {
+    if (typeof window === 'undefined') return 'portrait'
+    const { width, height } = readLayoutViewportSize()
+    return width > height ? 'landscape' : 'portrait'
+  }
 
   const [orientation, setOrientation] = useState<Orientation>(get)
 

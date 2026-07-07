@@ -11,4 +11,10 @@ describe("editorViewport", () => {
     expect(computeEditorViewportKey(1280, 800)).toBe("01");
     expect(computeEditorViewportKey(800, 1280)).toBe("00");
   });
+
+  /** Windows 等で innerWidth と clientWidth が数 px ずれる場合、clientWidth 基準に揃える */
+  it("treats layout viewport without scrollbar gutter like clientWidth", () => {
+    expect(computeEditorViewportKey(1263, 800)).toBe("01");
+    expect(computeEditorViewportKey(767, 1024)).toBe("10");
+  });
 });

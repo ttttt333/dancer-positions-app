@@ -1,8 +1,11 @@
 import { useSyncExternalStore } from "react";
+import { readLayoutViewportSize } from "../../lib/viewportLayoutMetrics";
 import { EDITOR_MOBILE_STACK_MAX_PX } from "./editorConstants";
 
 /** stack + landscape を 1 プリミティブにまとめる（useSyncExternalStore の参照安定） */
 export type EditorViewportKey = "00" | "01" | "10" | "11";
+
+export { readLayoutViewportSize } from "../../lib/viewportLayoutMetrics";
 
 export function subscribeEditorViewport(cb: () => void): () => void {
   if (typeof window === "undefined") return () => {};
@@ -18,12 +21,14 @@ export function subscribeEditorViewport(cb: () => void): () => void {
   mqlOrientation.addEventListener("change", run);
   window.addEventListener("resize", run);
   window.addEventListener("orientationchange", run);
+  window.visualViewport?.addEventListener("resize", run);
   return () => {
     mqlW.removeEventListener("change", run);
     mqlH.removeEventListener("change", run);
     mqlOrientation.removeEventListener("change", run);
     window.removeEventListener("resize", run);
     window.removeEventListener("orientationchange", run);
+    window.visualViewport?.removeEventListener("resize", run);
   };
 }
 
@@ -38,7 +43,8 @@ export function computeEditorViewportKey(
 
 export function getEditorViewportKey(): EditorViewportKey {
   if (typeof window === "undefined") return "00";
-  return computeEditorViewportKey(window.innerWidth, window.innerHeight);
+  const { width, height } = readLayoutViewportSize();
+  return computeEditorViewportKey(width, height);
 }
 
 export function useEditorViewport() {

@@ -1,5 +1,6 @@
 import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography";
 import { sortCuesByStart } from "../core/timelineController";
+import { readLayoutViewportSize } from "./viewportLayoutMetrics";
 
 /**
  * 先頭キュー用フォーメーションから印を消したあと、名簿紐付きなら名簿からも外す。
@@ -64,8 +65,7 @@ export function pointerInViewportTrashRevealZone(
   edge: TrashDropEdge = "left"
 ): boolean {
   if (typeof window === "undefined") return false;
-  const w = window.innerWidth;
-  const h = window.innerHeight;
+  const { width: w, height: h } = readLayoutViewportSize();
   if (w <= 0 || h <= 0) return false;
   if (edge === "bottom") {
     const strip = trashViewportStripSizePx(h, "bottom");
@@ -82,8 +82,7 @@ export function pointerInViewportTrashDropFallback(
   edge: TrashDropEdge = "left"
 ): boolean {
   if (typeof window === "undefined") return false;
-  const w = window.innerWidth;
-  const h = window.innerHeight;
+  const { width: w, height: h } = readLayoutViewportSize();
   if (w <= 0 || h <= 0) return false;
   if (edge === "bottom") {
     const strip = trashViewportStripSizePx(h, "bottom");

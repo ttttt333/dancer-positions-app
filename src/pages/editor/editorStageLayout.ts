@@ -24,6 +24,9 @@ export function studentPickToStageFocus(
 /**
  * ステージ列の最大幅（px）。
  * 右列の最小幅＋列間ギャップ＋リサイザを除いた残りまで許可する。
+ *
+ * 幅の基準: `gridEl.getBoundingClientRect().width`（レイアウト後の要素 border box）。
+ * ビューポート判定は `readLayoutViewportSize` を使うこと。
  */
 export function readMaxStageWidthPx(
   gridEl: HTMLElement,

@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import type { ChoreographyProjectJson, Cue } from "../types/choreography";
 import { sortCuesByStart } from "../core/timelineController";
 import { GAP_APPROACH_OPTIONS } from "../lib/gapDancerInterpolation";
+import { readLayoutViewportSize } from "../lib/viewportLayoutMetrics";
 import { btnSecondary } from "./stageButtonStyles";
 import { shell } from "../theme/choreoShell";
 
@@ -113,14 +114,14 @@ export function TimelineWaveMenus({
                     8,
                     Math.min(
                       waveCueMenu.clientX,
-                      (typeof window !== "undefined" ? window.innerWidth : 800) - 240
+                      (readLayoutViewportSize().width || 800) - 240
                     )
                   ),
                   top: Math.max(
                     8,
                     Math.min(
                       waveCueMenu.clientY,
-                      (typeof window !== "undefined" ? window.innerHeight : 600) - 150
+                      (typeof window !== "undefined" ? readLayoutViewportSize().height : 600) - 150
                     )
                   ),
                   zIndex: 2499,
@@ -305,14 +306,14 @@ export function TimelineWaveMenus({
                     8,
                     Math.min(
                       gapRouteMenu.clientX,
-                      (typeof window !== "undefined" ? window.innerWidth : 800) - 576
+                      (readLayoutViewportSize().width || 800) - 576
                     )
                   ),
                   top: Math.max(
                     8,
                     Math.min(
                       gapRouteMenu.clientY,
-                      (typeof window !== "undefined" ? window.innerHeight : 600) - 120
+                      (typeof window !== "undefined" ? readLayoutViewportSize().height : 600) - 120
                     )
                   ),
                   zIndex: 2499,

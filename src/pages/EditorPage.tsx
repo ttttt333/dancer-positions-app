@@ -377,6 +377,7 @@ export function EditorPage({
   const [rosterImportExtraNames, setRosterImportExtraNames] = useState<string[]>(
     []
   );
+  /** `.editor-three-pane` グリッド root。`readMaxStageWidthPx` とドックリサイズの計測基準 */
   const editorPaneRef = useRef<HTMLDivElement>(null);
   /** 画面テキスト用ポータルの基準（グリッド root）。ref だけだと初回描画後に再レンダーされないため state 併用 */
   const [editorSurfaceEl, setEditorSurfaceEl] = useState<HTMLDivElement | null>(

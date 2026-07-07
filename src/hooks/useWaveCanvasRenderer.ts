@@ -140,6 +140,7 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
       const h = c.height;
       const g = c.getContext("2d");
       if (!g) return;
+      /** 幅基準: canvas の layout border box（`readLayoutViewportSize` とは別系統） */
       const cssRect = c.getBoundingClientRect();
       const waveBitmapPxPerCssPx = Math.max(
         w / Math.max(cssRect.width, 1),

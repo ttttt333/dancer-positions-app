@@ -4,6 +4,11 @@ export const PORTRAIT_WAVE_CANVAS_H_PX = 96;
 /** PC 上部ドック: 秒数目盛り行（従来 `calc(16px + 5mm)` の 2/3） */
 export const PC_WAVE_RULER_HEIGHT_CSS = "calc((16px + 5mm) * 2 / 3)";
 
+/**
+ * 波形ドックの chrome／既定高さ定数のみ。DOM 幅は読まない。
+ * キャンバス幅は `useWaveCanvasRenderer` の `getBoundingClientRect` に委ねる。
+ */
+
 /** 5mm を 96dpi で換算した px（目盛り chrome 見積もり用） */
 export const CSS_MM_TO_PX = 96 / 25.4;
 

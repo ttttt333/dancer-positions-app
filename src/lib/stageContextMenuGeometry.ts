@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { readLayoutViewportSize } from "./viewportLayoutMetrics";
 
 export type StageContextMenuAnchor = {
   kind: "dancer" | "floorText" | "setPiece";
@@ -13,8 +14,10 @@ export function computeStageContextMenuStyle(
   const pad = 10;
 
   if (menu.kind === "dancer") {
-    const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
-    const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+    const { width: vw, height: vh } =
+      typeof window !== "undefined"
+        ? readLayoutViewportSize()
+        : { width: 1200, height: 800 };
     const width = Math.min(720, vw - pad * 2);
     const maxHeight = Math.min(vh * 0.94, 760);
 
@@ -39,10 +42,12 @@ export function computeStageContextMenuStyle(
   const mw =
     menu.kind === "floorText" ? 168 : 132;
   const mh = menu.kind === "floorText" ? 88 : 52;
-  const maxL =
-    typeof window !== "undefined" ? window.innerWidth - mw - pad : menu.clientX;
-  const maxT =
-    typeof window !== "undefined" ? window.innerHeight - mh - pad : menu.clientY;
+  const { width: vw, height: vh } =
+    typeof window !== "undefined"
+      ? readLayoutViewportSize()
+      : { width: 1200, height: 800 };
+  const maxL = vw - mw - pad;
+  const maxT = vh - mh - pad;
   return {
     position: "fixed",
     left: Math.max(pad, Math.min(menu.clientX, maxL)),
