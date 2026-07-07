@@ -10,6 +10,7 @@ import {
   type PortraitWaveTransportHandle,
 } from "./PortraitWaveTransport";
 import { LANDSCAPE_WAVE_CANVAS_HEIGHT_PX } from "./landscapeWaveLayout";
+import { abortTimelineWavePointerGestures } from "../../lib/abortTimelineWavePointerGestures";
 
 interface Props {
   waveRef: React.RefObject<PortraitWaveTransportHandle | null>;
@@ -21,6 +22,11 @@ interface Props {
   onStop: () => void;
   onSeek: (sec: number) => void;
   onCollapse: () => void;
+}
+
+function fmtTime(sec: number): string {
+  if (!Number.isFinite(sec) || sec < 0) return "0:00";
+  return `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
 }
 
 export const LandscapeBottomWaveBar: React.FC<Props> = ({
@@ -36,6 +42,34 @@ export const LandscapeBottomWaveBar: React.FC<Props> = ({
 }) => {
   return (
     <div className={styles.dock}>
+      <div className={styles.dockChrome}>
+        <span className={styles.dockTitle}>タイムライン</span>
+        <span className={styles.dockTime} aria-live="polite">
+          {fmtTime(currentTime)}
+          <span className={styles.dockTimeSep}>/</span>
+          {fmtTime(duration)}
+        </span>
+        <button
+          type="button"
+          className={styles.collapseBtn}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            abortTimelineWavePointerGestures();
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            abortTimelineWavePointerGestures();
+            onCollapse();
+          }}
+          aria-label="波形をたたむ"
+          title="波形をたたむ"
+        >
+          <span className={styles.collapseChevron} aria-hidden>
+            ▼
+          </span>
+          <span className={styles.collapseLabel}>たたむ</span>
+        </button>
+      </div>
       <PortraitWaveTransport
         ref={waveRef}
         audioUrl={audioUrl}
@@ -47,8 +81,8 @@ export const LandscapeBottomWaveBar: React.FC<Props> = ({
         onSeek={onSeek}
         showTransportControls={false}
         waveHeightPx={LANDSCAPE_WAVE_CANVAS_HEIGHT_PX}
-        onCollapseWave={onCollapse}
         compactLandscape
+        hideRulerCollapseButton
       />
     </div>
   );

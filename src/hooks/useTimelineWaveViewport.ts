@@ -17,6 +17,7 @@ import {
   resolveWavePlayheadFollowViewStart,
   waveVisibleSpanSec,
 } from "../lib/timelineWaveGeometry";
+import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
 
 type PlayheadScrubDragRef = RefObject<{
   armed: boolean;
@@ -137,7 +138,8 @@ export function useTimelineWaveViewport({
   useEffect(() => {
     setViewPortion(1);
     setWaveViewStartOverride(null);
-  }, [peaks]);
+    useTimelineWaveBridgeStore.getState().resetPortraitViewport();
+  }, [peaks, setWaveViewStartOverride]);
 
   /** プレイヘッドがオーバーライドのビュー範囲外に出たら追従に戻す */
   useEffect(() => {

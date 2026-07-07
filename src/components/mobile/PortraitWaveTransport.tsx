@@ -77,6 +77,8 @@ interface Props {
   onCollapseWave?: () => void;
   /** 横画面下部: 上部余白・時刻表示を省きステージ領域を確保 */
   compactLandscape?: boolean;
+  /** true のとき目盛り左上の折りたたみボタンを出さない（親ドックのヘッダーで操作） */
+  hideRulerCollapseButton?: boolean;
 }
 
 export type PortraitWaveTransportHandle = {
@@ -126,6 +128,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   className,
   onCollapseWave,
   compactLandscape = false,
+  hideRulerCollapseButton = false,
   },
   ref
 ) {
@@ -149,11 +152,15 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   const playheadLineRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const waveTimelineBodyRef = useRef<HTMLDivElement>(null);
-  const [zoom, setZoom] = useState(1);
-  const zoomRef = useRef(1);
+  const storedViewport = useTimelineWaveBridgeStore.getState().portraitViewport;
+  const portraitViewportRevision = useTimelineWaveBridgeStore(
+    (s) => s.portraitViewportRevision
+  );
+  const [zoom, setZoom] = useState(storedViewport.zoom);
+  const zoomRef = useRef(storedViewport.zoom);
   zoomRef.current = zoom;
-  const [viewStart, setViewStart] = useState(0);
-  const viewStartRef = useRef(0);
+  const [viewStart, setViewStart] = useState(storedViewport.viewStart);
+  const viewStartRef = useRef(storedViewport.viewStart);
   viewStartRef.current = viewStart;
   const lastTapRef = useRef(0);
   const pendingSingleTapRef = useRef<number | null>(null);
@@ -220,6 +227,14 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       pendingSingleTapRef.current = null;
     }
   }, []);
+
+  useEffect(() => {
+    const next = useTimelineWaveBridgeStore.getState().portraitViewport;
+    setZoom(next.zoom);
+    zoomRef.current = next.zoom;
+    setViewStart(next.viewStart);
+    viewStartRef.current = next.viewStart;
+  }, [portraitViewportRevision]);
 
   useEffect(() => {
     setPortraitCanvasRef(canvasRef);
@@ -571,21 +586,37 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
     [bridgeApi, clearLongPress]
   );
 
+  const beginPortraitPlayheadDrag = useCallback(
+    (clientX: number, clientY: number, pointerId: number) => {
+      clearPendingSingleTap();
+      clearLongPress();
+      playheadDragRef.current = true;
+      playheadScrubArmedRef.current = true;
+      playheadOriginRef.current = { x: clientX, y: clientY };
+      startScrubSession();
+      portraitSeekAtClientX(clientX);
+      try {
+        waveTimelineBodyRef.current?.setPointerCapture(pointerId);
+      } catch {
+        /* ignore */
+      }
+    },
+    [
+      clearPendingSingleTap,
+      clearLongPress,
+      startScrubSession,
+      portraitSeekAtClientX,
+    ]
+  );
+
   const onPlayheadPointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (e.button !== 0 || !audioUrl || duration <= 0) return;
       e.preventDefault();
       e.stopPropagation();
-      clearPendingSingleTap();
-      clearLongPress();
-      playheadDragRef.current = true;
-      playheadScrubArmedRef.current = true;
-      playheadOriginRef.current = { x: e.clientX, y: e.clientY };
-      startScrubSession();
-      portraitSeekAtClientX(e.clientX);
-      waveTimelineBodyRef.current?.setPointerCapture(e.pointerId);
+      beginPortraitPlayheadDrag(e.clientX, e.clientY, e.pointerId);
     },
-    [audioUrl, duration, clearPendingSingleTap, clearLongPress, startScrubSession, portraitSeekAtClientX]
+    [audioUrl, duration, beginPortraitPlayheadDrag]
   );
 
   const onTimelinePlayheadPointerMove = useCallback(
@@ -661,9 +692,9 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       if (pointersRef.current.size > 2) return;
 
       if (pointersRef.current.size === 1 && isNearPlayhead(e.clientX)) {
-        clearLongPress();
-        dragArmedRef.current = true;
-        bridgeApi.handlers.onWaveCanvasPointerDown(e);
+        e.preventDefault();
+        e.stopPropagation();
+        beginPortraitPlayheadDrag(e.clientX, e.clientY, e.pointerId);
         return;
       }
 
@@ -677,12 +708,18 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
         bridgeApi.openWaveCueMenuAtPointer?.(e.clientX, e.clientY);
       }, LONG_PRESS_MS);
     },
-    [bridgeApi, zoom, currentTime, timeFromClientX, clearLongPress, clearPendingSingleTap, isNearPlayhead]
+    [bridgeApi, zoom, currentTime, timeFromClientX, clearLongPress, clearPendingSingleTap, isNearPlayhead, beginPortraitPlayheadDrag]
   );
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (!bridgeApi?.handlers) return;
+
+      if (playheadDragRef.current && (e.buttons & 1)) {
+        e.preventDefault();
+        portraitSeekAtClientX(e.clientX);
+        return;
+      }
 
       if (pointersRef.current.has(e.pointerId)) {
         pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -713,7 +750,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
         bridgeApi.handlers.onWaveCanvasPointerMove(e);
       }
     },
-    [bridgeApi, applyZoomAt, clearLongPress, clearPendingSingleTap, armCanvasDrag]
+    [bridgeApi, applyZoomAt, clearLongPress, clearPendingSingleTap, armCanvasDrag, portraitSeekAtClientX]
   );
 
   const onClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -967,7 +1004,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
           onPointerCancel={endPlayheadDrag}
         >
         <div className={styles.waveRulerWrap}>
-          {onCollapseWave ? (
+          {onCollapseWave && !hideRulerCollapseButton ? (
             <button
               type="button"
               className={styles.rulerCollapseBtn}
@@ -980,7 +1017,6 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
                 abortTimelineWavePointerGestures();
                 onCollapseWave();
               }}
-              onPointerDown={(e) => e.stopPropagation()}
               aria-label="波形を畳む"
               title="波形を畳む"
             >

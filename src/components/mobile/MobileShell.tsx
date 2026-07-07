@@ -9,6 +9,7 @@ import { useOrientation } from '../../hooks/useOrientation'
 import { PortraitBottomBar } from './PortraitBottomBar'
 import { LandscapeSidePanel } from './LandscapeSidePanel'
 import { LandscapeBottomWaveBar } from './LandscapeBottomWaveBar'
+import { LandscapeWaveExpandTab } from './LandscapeWaveExpandTab'
 import { type PortraitWaveTransportHandle } from './PortraitWaveTransport'
 import { abortTimelineWavePointerGestures } from '../../lib/abortTimelineWavePointerGestures'
 import { useMobileShellBridgeStore } from '../../store/useMobileShellBridgeStore'
@@ -47,6 +48,13 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
   const [hasOpenDialog, setHasOpenDialog] = useState(false)
   const [landscapeWaveExpanded, setLandscapeWaveExpanded] = useState(true)
   const [landscapePanelOpen, setLandscapePanelOpen] = useState(true)
+  const prevOrientationRef = useRef(orientation)
+
+  useEffect(() => {
+    if (prevOrientationRef.current === orientation) return
+    prevOrientationRef.current = orientation
+    abortTimelineWavePointerGestures()
+  }, [orientation])
 
   useEffect(() => {
     if (!landscapeWaveExpanded) {
@@ -197,6 +205,10 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
             setLandscapeWaveExpanded(false)
           }}
         />
+      ) : null}
+
+      {isLandscape && !landscapeWaveExpanded ? (
+        <LandscapeWaveExpandTab onExpand={() => setLandscapeWaveExpanded(true)} />
       ) : null}
 
       {!isLandscape ? (

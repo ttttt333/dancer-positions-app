@@ -1,6 +1,83 @@
 .dock {
   flex-shrink: 0;
   background: #0b1120;
-  border-top: 0.5px solid #1a2540;
+  border-top: 1px solid #1e293b;
   padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.35);
+}
+
+.dockChrome {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 4px 8px 4px 10px;
+  padding-left: max(10px, env(safe-area-inset-left, 10px));
+  padding-right: max(8px, env(safe-area-inset-right, 8px));
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(11, 17, 32, 0.96) 100%);
+}
+
+.dockTitle {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.dockTime {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+.dockTimeSep {
+  color: #64748b;
+  margin: 0 3px;
+}
+
+.collapseBtn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 34px;
+  min-width: 72px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(251, 146, 60, 0.78);
+  background: rgba(15, 23, 42, 0.96);
+  color: #fb923c;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  touch-action: manipulation;
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.42),
+    0 0 10px rgba(251, 146, 60, 0.18);
+}
+
+.collapseBtn:active {
+  background: rgba(30, 41, 59, 0.98);
+  transform: scale(0.97);
+}
+
+.collapseChevron {
+  font-size: 10px;
+  line-height: 1;
+}
+
+.collapseLabel {
+  line-height: 1;
 }

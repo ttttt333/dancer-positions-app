@@ -154,8 +154,8 @@ export const LandscapeSidePanel: React.FC<Props> = ({
         aria-label="波形を展開"
         title="波形を展開"
       >
-        <span className={styles.waveExpandIcon} aria-hidden>〜</span>
-        <span className={styles.waveExpandLabel}>波形</span>
+        <span className={styles.waveExpandIcon} aria-hidden>▲</span>
+        <span className={styles.waveExpandLabel}>波形を表示</span>
       </button>
     ) : null
 

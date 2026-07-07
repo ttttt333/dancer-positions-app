@@ -428,8 +428,8 @@ export function pickGapLinkAtWave(
 }
 
 const PLAYHEAD_SCRUB_HALF_WIDTH_PX = 16;
-/** 縦画面: 再生位置バーのタップ・ドラッグ判定を広げる */
-export const PORTRAIT_PLAYHEAD_SCRUB_HALF_WIDTH_PX = 28;
+/** 縦画面: 再生位置バーのタップ・ドラッグ判定を広げる（指幅に合わせる） */
+export const PORTRAIT_PLAYHEAD_SCRUB_HALF_WIDTH_PX = 44;
 
 /**
  * 波形の赤バー描画・ヒット判定で同じ再生秒を使う。

@@ -158,7 +158,7 @@
 }
 
 .landscapeRoot[data-shell-landscape]:not([data-landscape-wave-collapsed]) {
-  --landscape-wave-dock-h: 65px;
+  --landscape-wave-dock-h: 101px;
 }
 
 .landscapeRoot[data-shell-landscape][data-landscape-wave-collapsed] {

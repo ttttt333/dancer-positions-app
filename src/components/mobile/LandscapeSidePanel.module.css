@@ -152,16 +152,17 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: 3px;
   width: 100%;
-  min-height: 32px;
-  padding: 4px 3px;
-  background: rgba(0, 0, 0, 0.22);
-  border: 0.5px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  color: #94a3b8;
+  min-height: 40px;
+  padding: 6px 4px;
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(251, 146, 60, 0.65);
+  border-radius: 10px;
+  color: #fb923c;
   cursor: pointer;
   touch-action: manipulation;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
 }
 
 .waveExpandBtn:active {
@@ -170,16 +171,18 @@
 }
 
 .waveExpandIcon {
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1;
   letter-spacing: -0.08em;
+  font-weight: 800;
 }
 
 .waveExpandLabel {
-  font-size: 8px;
-  font-weight: 700;
+  font-size: 9px;
+  font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  color: #fdba74;
 }
 
 .collapsedStack .waveExpandBtn {
@@ -191,11 +194,22 @@
 
 .collapsedFloatingStack .waveExpandBtn {
   width: 48px;
-  min-height: 36px;
-  padding: 4px 2px;
-  border-radius: 8px;
-  border-color: rgba(251, 146, 60, 0.45);
+  min-height: 44px;
+  padding: 6px 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(251, 146, 60, 0.78);
   background: rgba(15, 23, 42, 0.96);
+  color: #fb923c;
+  box-shadow:
+    0 4px 18px rgba(0, 0, 0, 0.55),
+    0 0 16px rgba(251, 146, 60, 0.28);
+}
+
+.collapsedFloatingStack .waveExpandLabel {
+  display: block;
+  font-size: 8px;
+  font-weight: 800;
+  color: #fdba74;
 }
 
 .collapsedStack .waveExpandLabel {
