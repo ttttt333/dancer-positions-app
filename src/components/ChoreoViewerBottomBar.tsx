@@ -133,7 +133,7 @@ export function ChoreoViewerTransportControls({
   const togglePlay = useCallback(() => {
     if (playGestureHandledRef.current) {
       playGestureHandledRef.current = false;
-      return;
+      if (!playbackEngine.isPaused()) return;
     }
     if (!playbackEngine.getMediaSourceUrl()) {
       void onBeforeTransport?.();
@@ -261,7 +261,7 @@ export function ChoreoViewerLandscapeRail({
   const onPlayClick = useCallback(() => {
     if (playGestureHandledRef.current) {
       playGestureHandledRef.current = false;
-      return;
+      if (!playbackEngine.isPaused()) return;
     }
     if (!playbackEngine.getMediaSourceUrl()) {
       void onBeforeTransport?.();

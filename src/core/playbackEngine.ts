@@ -132,23 +132,50 @@ export class PlaybackEngine {
     return el;
   }
 
+  /** `<audio>` に実際に設定されている URL（未接続時は空） */
+  getElementSourceUrl(): string {
+    const el = this.media;
+    if (!el) return "";
+    const cur = el.currentSrc;
+    if (typeof cur === "string" && cur.length > 0) return cur;
+    const s = el.src;
+    return typeof s === "string" && s.length > 0 ? s : "";
+  }
+
   /**
    * 割り当て済みの音源 URL（`currentSrc` を優先、未設定は `lastMediaSourceUrl`）。
    */
   getMediaSourceUrl(): string {
-    const el = this.media;
-    if (el) {
-      const cur = el.currentSrc;
-      if (typeof cur === "string" && cur.length > 0) return cur;
-      const s = el.src;
-      if (typeof s === "string" && s.length > 0) return s;
-    }
+    const attached = this.getElementSourceUrl();
+    if (attached.length > 0) return attached;
     return this.lastMediaSourceUrl;
+  }
+
+  /** `<audio>` に音源 URL が接続済みか */
+  isMediaSourceAttached(): boolean {
+    return this.getElementSourceUrl().length > 0;
+  }
+
+  /**
+   * 保持している URL を `<audio>` に同期（未接続のときだけ `load()`）。
+   * @returns 接続できたら true
+   */
+  ensureMediaSourceAttached(): boolean {
+    const url = this.lastMediaSourceUrl;
+    if (!url) return this.isMediaSourceAttached();
+    this.ensureDomMediaElement();
+    const el = this.media;
+    if (!el) return false;
+    const attached = this.getElementSourceUrl();
+    if (attached === url) return true;
+    this.setMediaSourceUrl(url, { force: attached.length > 0 && attached !== url });
+    return this.getElementSourceUrl().length > 0;
   }
 
   /** 音源が接続済みか（store の正規ソースまたは DOM src） */
   hasMediaSource(): boolean {
-    if (this.getMediaSourceUrl().length > 0) return true;
+    if (this.isMediaSourceAttached()) return true;
+    if (this.lastMediaSourceUrl.length > 0) return true;
     return usePlaybackAudioStore.getState().source != null;
   }
 
@@ -219,8 +246,8 @@ export class PlaybackEngine {
       return;
     }
 
-    const current = this.getMediaSourceUrl();
-    if (!opts?.force && current === url) {
+    const attached = this.getElementSourceUrl();
+    if (!opts?.force && attached.length > 0 && attached === url) {
       this.emitMeta();
       this.emitTime();
       return;

@@ -39,20 +39,22 @@ export function preloadShareViewAudioForPlayback(
   if (inflightPaths.has(path)) return;
 
   void (async () => {
-    const engineUrl = playbackEngine.getMediaSourceUrl();
+    const attachedUrl = playbackEngine.getElementSourceUrl();
+    const candidateUrl =
+      attachedUrl ||
+      (persistedSupabaseAudioPath === path ? persistedSupabaseAudioBlobUrl : null);
     const reuseUrl =
       persistedSupabaseAudioPath === path &&
-      typeof engineUrl === "string" &&
-      engineUrl.length > 0 &&
-      (engineUrl === persistedSupabaseAudioBlobUrl ||
-        (await verifyBlobUrl(engineUrl)))
-        ? engineUrl
+      typeof candidateUrl === "string" &&
+      candidateUrl.length > 0 &&
+      (await verifyBlobUrl(candidateUrl))
+        ? candidateUrl
         : null;
 
     if (reuseUrl) {
       playbackEngine.ensureDomMediaElement();
-      if (playbackEngine.getMediaSourceUrl() !== reuseUrl) {
-        playbackEngine.setMediaSourceUrl(reuseUrl);
+      if (playbackEngine.getElementSourceUrl() !== reuseUrl) {
+        playbackEngine.setMediaSourceUrl(reuseUrl, { force: true });
       }
       await waitForAudioElementReady(playbackEngine.getMediaElement());
       store.setReady();

@@ -67,10 +67,10 @@ export async function resyncEditorPlaybackMedia(
 
   blobUrlRef.current = url;
 
+  playbackEngine.ensureDomMediaElement();
   const el = playbackEngine.getMediaElement();
-  const appliedOnEl = Boolean(
-    el && (el.currentSrc === url || el.src === url)
-  );
+  const attachedUrl = playbackEngine.getElementSourceUrl();
+  const appliedOnEl = attachedUrl === url;
   const broken =
     el != null &&
     (el.error != null ||

@@ -29,7 +29,8 @@ export function hasViewerPlayIntent(): boolean {
 
 /** 閲覧共有: ストアのヘッド位置で音源エンジンを再生（UI ヘッドと音を一致させる） */
 export function startViewerEnginePlayback(trimStartSec: number): void {
-  if (!playbackEngine.getMediaSourceUrl()) return;
+  playbackEngine.ensureDomMediaElement();
+  if (!playbackEngine.ensureMediaSourceAttached()) return;
   const store = usePlaybackUiStore.getState();
   let t = store.currentTimeSec;
   if (!Number.isFinite(t) || isPlaybackBeforeTrimStart(t, trimStartSec)) {
@@ -50,6 +51,8 @@ export function startViewerEnginePlayback(trimStartSec: number): void {
 
 /** 音源 URL 設定・canplay 後に呼ぶ */
 export function fulfillViewerPendingPlay(): void {
+  playbackEngine.ensureDomMediaElement();
+  playbackEngine.ensureMediaSourceAttached();
   if (!playbackEngine.getMediaSourceUrl()) return;
   const store = usePlaybackUiStore.getState();
 

@@ -93,15 +93,25 @@ export function tryStartViewerPlaybackFromUserGesture(
 ): boolean {
   syncViewerDurationFromProject(project);
   const store = usePlaybackUiStore.getState();
-  const hasUrl = Boolean(playbackEngine.getMediaSourceUrl());
+  const hasUrl = playbackEngine.isMediaSourceAttached();
 
   if (!store.isPlaying) {
-    if (!hasUrl) return false;
+    if (!hasUrl && !playbackEngine.ensureMediaSourceAttached()) return false;
     startViewerEnginePlayback(trimStartSec);
     return true;
   }
 
   if (hasUrl && playbackEngine.isPaused() && hasViewerPlayIntent()) {
+    startViewerEnginePlayback(trimStartSec);
+    return true;
+  }
+
+  if (
+    !hasUrl &&
+    playbackEngine.ensureMediaSourceAttached() &&
+    playbackEngine.isPaused() &&
+    hasViewerPlayIntent()
+  ) {
     startViewerEnginePlayback(trimStartSec);
     return true;
   }
@@ -119,7 +129,7 @@ export function toggleViewerPlayback(
 
   if (store.isPlaying) {
     if (
-      playbackEngine.getMediaSourceUrl() &&
+      playbackEngine.isMediaSourceAttached() &&
       playbackEngine.isPaused() &&
       hasViewerPlayIntent()
     ) {
@@ -136,7 +146,11 @@ export function toggleViewerPlayback(
     store.setCurrentTimeSec(trimStartSec);
   }
 
-  if (playbackEngine.getMediaSourceUrl()) {
+  playbackEngine.ensureDomMediaElement();
+  if (
+    playbackEngine.isMediaSourceAttached() ||
+    playbackEngine.ensureMediaSourceAttached()
+  ) {
     startViewerEnginePlayback(trimStartSec);
     return;
   }
