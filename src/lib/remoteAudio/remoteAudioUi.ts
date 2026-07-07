@@ -55,5 +55,5 @@ export function markPlaybackReadyForWaveFetch(
   audioPlayer: IAudioPlayer = defaultAudioPlayer
 ) {
   scheduleMarkPlaybackReady(publicShareView, audioPlayer);
-  void resyncEditorPlaybackMedia(blobUrlRef, { force: true }).catch(() => {});
+  void resyncEditorPlaybackMedia(blobUrlRef).catch(() => {});
 }

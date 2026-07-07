@@ -118,8 +118,10 @@ function usePlaybackHeadRafSync(
     const p = projectRef.current;
     const storePlaying = usePlaybackUiStore.getState().isPlaying;
     const enginePlaying = !playbackEngine.isPaused();
+    const hasAudioSource = playbackEngine.getMediaSourceUrl().length > 0;
+    // 音源ありでは engine の currentTime に同期（buffer 中に偽クロックを回さない）
     const useViewerClock =
-      choreoPublicView && storePlaying && !enginePlaying;
+      choreoPublicView && storePlaying && !enginePlaying && !hasAudioSource;
 
     if (p && (enginePlaying || useViewerClock)) {
       const trimStartSec = p.trimStartSec;

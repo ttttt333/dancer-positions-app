@@ -7,6 +7,11 @@ import { materializeSupabasePlaybackUrl } from "./audioPlaybackCache";
 import { waveMediaCacheKeyForSupabase } from "./waveMediaCache";
 import { restorePlaybackBlobUrl } from "./restorePlaybackAudio";
 import { fulfillViewerPendingPlay } from "./playbackViewerIntent";
+import {
+  persistedSupabaseAudioPath,
+  persistedSupabaseAudioBlobUrl,
+} from "./timelineAudioBlobPersist";
+import { verifyBlobUrl } from "./verifyBlobUrl";
 
 const inflightPaths = new Set<string>();
 
@@ -32,12 +37,33 @@ export function preloadShareViewAudioForPlayback(
   }
 
   if (inflightPaths.has(path)) return;
-  inflightPaths.add(path);
-
-  store.setLoading(0.02, "音源を読み込み中…");
-  playbackEngine.ensureDomMediaElement();
 
   void (async () => {
+    const engineUrl = playbackEngine.getMediaSourceUrl();
+    const reuseUrl =
+      persistedSupabaseAudioPath === path &&
+      typeof engineUrl === "string" &&
+      engineUrl.length > 0 &&
+      (engineUrl === persistedSupabaseAudioBlobUrl ||
+        (await verifyBlobUrl(engineUrl)))
+        ? engineUrl
+        : null;
+
+    if (reuseUrl) {
+      playbackEngine.ensureDomMediaElement();
+      if (playbackEngine.getMediaSourceUrl() !== reuseUrl) {
+        playbackEngine.setMediaSourceUrl(reuseUrl);
+      }
+      await waitForAudioElementReady(playbackEngine.getMediaElement());
+      store.setReady();
+      fulfillViewerPendingPlay();
+      return;
+    }
+
+    inflightPaths.add(path);
+    store.setLoading(0.02, "音源を読み込み中…");
+    playbackEngine.ensureDomMediaElement();
+
     try {
       const blobUrl = await materializeSupabasePlaybackUrl(path, (ratio) => {
         useShareViewAudioLoadStore.getState().setLoading(

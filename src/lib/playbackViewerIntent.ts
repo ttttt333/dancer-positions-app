@@ -38,20 +38,13 @@ export function startViewerEnginePlayback(trimStartSec: number): void {
   }
   clearViewerPendingPlay();
   playbackEngine.seek(t);
-
-  const needsGesture = playbackRequiresUserGestureToStart();
-  if (!needsGesture) {
-    store.setIsPlaying(true);
-  }
+  store.setIsPlaying(true);
 
   void playbackEngine.play().then(() => {
-    if (needsGesture) {
-      store.setIsPlaying(true);
-    }
     viewerPlayIntentActive = false;
   }).catch(() => {
     store.setIsPlaying(false);
-    viewerPlayIntentActive = needsGesture;
+    viewerPlayIntentActive = playbackRequiresUserGestureToStart();
   });
 }
 
@@ -59,18 +52,25 @@ export function startViewerEnginePlayback(trimStartSec: number): void {
 export function fulfillViewerPendingPlay(): void {
   if (!playbackEngine.getMediaSourceUrl()) return;
   const store = usePlaybackUiStore.getState();
+
+  // 2 本目のローダー完了などで再生中の音を pause しない
+  if (store.isPlaying && !playbackEngine.isPaused()) {
+    pendingPlayTrimStartSec = null;
+    viewerPlayIntentActive = false;
+    return;
+  }
+
   if (!store.isPlaying && pendingPlayTrimStartSec == null) return;
 
   const trim = pendingPlayTrimStartSec ?? 0;
-
   viewerPlayIntentActive = true;
 
   if (playbackRequiresUserGestureToStart()) {
     pendingPlayTrimStartSec = null;
-    if (!playbackEngine.isPaused()) {
-      playbackEngine.pause();
+    // 音源未接続時の偽クロックだけ止め、既に pause なら触らない
+    if (store.isPlaying && playbackEngine.isPaused()) {
+      store.setIsPlaying(false);
     }
-    store.setIsPlaying(false);
     return;
   }
 

@@ -75,10 +75,20 @@ export async function resyncEditorPlaybackMedia(
     el != null &&
     (el.error != null ||
       (appliedOnEl && el.readyState === HTMLMediaElement.HAVE_NOTHING));
-  const needsReload = opts?.force === true || !appliedOnEl || broken;
+  const healthy =
+    appliedOnEl &&
+    !broken &&
+    el != null &&
+    el.readyState >= HTMLMediaElement.HAVE_METADATA;
+
+  if (healthy) {
+    return "ok";
+  }
+
+  const needsReload = !appliedOnEl || broken || opts?.force === true;
 
   if (needsReload) {
-    playbackEngine.setMediaSourceUrl(url, { force: true });
+    playbackEngine.setMediaSourceUrl(url, { force: broken || !appliedOnEl });
     await waitForAudioElementReady(el).catch(() => {});
   }
 
