@@ -93,6 +93,18 @@ create policy "choreocore_audio insert own"
     and split_part(name, '/', 1) = auth.uid()::text
   );
 
+drop policy if exists "choreocore_audio update own" on storage.objects;
+create policy "choreocore_audio update own"
+  on storage.objects for update to authenticated
+  using (
+    bucket_id = 'choreocore-audio'
+    and split_part(name, '/', 1) = auth.uid()::text
+  )
+  with check (
+    bucket_id = 'choreocore-audio'
+    and split_part(name, '/', 1) = auth.uid()::text
+  );
+
 drop policy if exists "choreocore_audio delete own" on storage.objects;
 create policy "choreocore_audio delete own"
   on storage.objects for delete to authenticated

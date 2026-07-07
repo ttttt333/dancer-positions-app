@@ -1,4 +1,4 @@
-import { getSupabase } from "./supabaseClient";
+import { getSupabase, requireSupabaseAuthSession } from "./supabaseClient";
 import { CHOREOCORE_AUDIO_BUCKET } from "./supabaseAudio";
 import {
   createWavePeaksPayload,
@@ -35,12 +35,19 @@ export async function supabaseDownloadWavePeaks(
   }
 }
 
+/** @returns アップロード成功なら true（セッション無効・RLS 失敗は false） */
 export async function supabaseUploadWavePeaks(
   audioPath: string,
   peaks: number[],
   durationSec: number
-): Promise<void> {
-  if (!peaks.length) return;
+): Promise<boolean> {
+  if (!peaks.length) return false;
+  if (!(await requireSupabaseAuthSession())) {
+    console.warn(
+      "[supabaseWavePeaks] upload skipped: no valid Supabase session (log in and retry)"
+    );
+    return false;
+  }
   const sb = getSupabase();
   const payload = createWavePeaksPayload(peaks, durationSec);
   const sidecarPath = wavePeaksSidecarPath(audioPath);
@@ -55,12 +62,15 @@ export async function supabaseUploadWavePeaks(
   );
   if (error) {
     console.warn("[supabaseWavePeaks] upload failed:", error.message);
+    return false;
   }
+  return true;
 }
 
 export async function supabaseDeleteWavePeaks(audioPath: string): Promise<void> {
   const path = audioPath.trim();
   if (!path) return;
+  if (!(await requireSupabaseAuthSession())) return;
   const sb = getSupabase();
   const sidecarPath = wavePeaksSidecarPath(path);
   const { error } = await sb.storage

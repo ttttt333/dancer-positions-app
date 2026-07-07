@@ -153,7 +153,7 @@ export async function persistWavePeaksPayload(
     void putCachedPeaksPayload(cacheKey, peaks, durationSec);
   }
   if (supabaseAudioPath && !isPlaceholderLikeWavePeaks(peaks)) {
-    void supabaseUploadWavePeaks(supabaseAudioPath, peaks, durationSec);
+    await supabaseUploadWavePeaks(supabaseAudioPath, peaks, durationSec);
   }
 }
 

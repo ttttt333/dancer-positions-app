@@ -44,3 +44,23 @@ export async function ensureSupabaseAccessToken(): Promise<string | null> {
     return null;
   }
 }
+
+/**
+ * Storage 操作直前に呼ぶ。メモリキャッシュに頼らず getSession でセッションを検証する
+ * （autoRefreshToken により期限切れならクライアント側で更新される）。
+ */
+export async function requireSupabaseAuthSession(): Promise<boolean> {
+  if (!isSupabaseBackend()) return false;
+  try {
+    const { data, error } = await getSupabase().auth.getSession();
+    if (error || !data.session?.access_token) {
+      setSupabaseAccessToken(null);
+      return false;
+    }
+    setSupabaseAccessToken(data.session.access_token);
+    return true;
+  } catch {
+    setSupabaseAccessToken(null);
+    return false;
+  }
+}
