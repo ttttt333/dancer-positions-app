@@ -15,7 +15,6 @@ import {
   STRIPE_SECRET_KEY,
   STRIPE_WEBHOOK_SECRET,
   updateBillingBySubscriptionId,
-  upsertBillingRow,
 } from "../_shared/billing.ts";
 
 serve(async (req: Request) => {
@@ -62,7 +61,13 @@ serve(async (req: Request) => {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
         const userId = session.client_reference_id?.trim();
-        if (!userId) break;
+        if (!userId) {
+          console.error(
+            "[billing-webhook] checkout.session.completed missing client_reference_id",
+            session.id
+          );
+          break;
+        }
         await applyCheckoutSessionToUser(userId, {
           id: session.id,
           url: session.url,

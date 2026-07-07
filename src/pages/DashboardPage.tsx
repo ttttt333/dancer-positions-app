@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
 import { billingApi, isDemoSessionToken, projectApi, type ProjectListItem } from "../api/client";
+import { hasStripeCustomerId, isProMe } from "../lib/supabaseBilling";
 import { isCollabFeatureAvailable } from "../lib/collabAvailability";
 import { ChoreoCoreLogo } from "../components/ChoreoCoreLogo";
 import { ProjectFormationThumb } from "../components/dashboard/ProjectFormationThumb";
@@ -74,9 +75,20 @@ export function DashboardPage() {
     }
   };
 
-  const isPro =
-    me?.user?.entitlement_lifetime === 1 ||
-    me?.user?.subscription_status === "active";
+  const openCustomerPortal = async () => {
+    setAccountNotice("");
+    try {
+      const { url } = await billingApi.openCustomerPortal();
+      window.location.href = url;
+    } catch (e) {
+      setAccountNotice(
+        e instanceof Error ? e.message : t("dashboard.portalFail")
+      );
+    }
+  };
+
+  const isPro = isProMe(me);
+  const hasStripeCustomer = hasStripeCustomerId(me);
   const projectLimit = isPro ? Infinity : 3;
   const atProjectLimit = Boolean(me) && !isPro && projects.length >= projectLimit;
 
@@ -167,6 +179,17 @@ export function DashboardPage() {
                     onClick={() => void startStripeSubscription()}
                   >
                     Pro にアップグレード
+                  </button>
+                ) : null}
+                {hasStripeCustomer ? (
+                  <button
+                    type="button"
+                    style={{ ...btnSecondary, padding: "6px 12px", fontSize: "12px" }}
+                    onClick={() => void openCustomerPortal()}
+                  >
+                    {isPro
+                      ? t("dashboard.managePlan")
+                      : t("dashboard.billingHistory")}
                   </button>
                 ) : null}
                 <button
@@ -327,6 +350,17 @@ export function DashboardPage() {
               onClick={() => void startStripeSubscription()}
             >
               Pro にアップグレード
+            </button>
+          ) : null}
+          {me && hasStripeCustomer ? (
+            <button
+              type="button"
+              style={{ ...btnSecondary, width: "100%", padding: "12px 18px", fontSize: "14px" }}
+              onClick={() => void openCustomerPortal()}
+            >
+              {isPro
+                ? t("dashboard.managePlan")
+                : t("dashboard.billingHistory")}
             </button>
           ) : null}
           {!me ? (

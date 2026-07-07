@@ -16,6 +16,7 @@ import {
 } from "../lib/supabaseProjects";
 import {
   supabaseCreateCheckoutSession,
+  supabaseOpenCustomerPortal,
   supabaseVerifyCheckoutSession,
 } from "../lib/supabaseBilling";
 import { summarizeProjectJson } from "../lib/projectListSummary";
@@ -387,6 +388,14 @@ export const billingApi = {
           method: "POST",
           body: JSON.stringify({ session_id: sessionId }),
         }),
+  openCustomerPortal: () =>
+    isSupabaseBackend()
+      ? supabaseOpenCustomerPortal()
+      : Promise.reject(
+          new Error(
+            "契約管理は Supabase バックエンドでのみ利用できます"
+          )
+        ),
   placeholderPurchase: () =>
     api<{ ok: boolean; message?: string }>("/api/billing/placeholder-purchase", {
       method: "POST",

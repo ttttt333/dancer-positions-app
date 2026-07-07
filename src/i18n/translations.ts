@@ -38,6 +38,9 @@ const EN_BASE: MessageBundle = {
   "dashboard.listError": "Failed to load list",
   "dashboard.devPurchaseOk": "Lifetime flag enabled (dev)",
   "dashboard.checkoutFail": "Could not start checkout",
+  "dashboard.portalFail": "Could not open billing portal",
+  "dashboard.managePlan": "Manage plan",
+  "dashboard.billingHistory": "Billing history",
   "dashboard.deleteFail": "Delete failed",
   "dashboard.portableTitle": "Portable backup",
   "dashboard.portableDesc":
@@ -156,6 +159,9 @@ const BASE_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "dashboard.listError": "一覧取得失敗",
     "dashboard.devPurchaseOk": "買い切りフラグを有効にしました（開発）",
     "dashboard.checkoutFail": "Checkout を開始できませんでした",
+    "dashboard.portalFail": "お支払い管理画面を開けませんでした",
+    "dashboard.managePlan": "プランを管理",
+    "dashboard.billingHistory": "お支払い履歴を見る",
     "dashboard.deleteFail": "削除失敗",
     "dashboard.portableTitle": "データの持ち運び（バックアップ）",
     "dashboard.portableDesc":

@@ -101,6 +101,28 @@ export async function supabaseVerifyCheckoutSession(
   );
 }
 
+export async function supabaseOpenCustomerPortal(): Promise<{ url: string }> {
+  const data = await invokeBillingFunction<{ url: string }>(
+    "billing-customer-portal"
+  );
+  if (!data?.url) {
+    throw new Error("Customer Portal URL が取得できませんでした");
+  }
+  return { url: data.url };
+}
+
+export function hasStripeCustomerId(me: Me | null | undefined): boolean {
+  const id = me?.user?.stripe_customer_id;
+  return typeof id === "string" && id.trim().length > 0;
+}
+
+export function isProMe(me: Me | null | undefined): boolean {
+  if (!me?.user) return false;
+  if (me.user.entitlement_lifetime === 1) return true;
+  const s = me.user.subscription_status?.trim();
+  return s === "active" || s === "trialing";
+}
+
 export async function assertCanCreateSupabaseProject(
   existingCount: number
 ): Promise<void> {

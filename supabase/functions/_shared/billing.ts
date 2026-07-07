@@ -65,6 +65,16 @@ export function requireVerifyConfig(): string | null {
   return null;
 }
 
+export function requirePortalConfig(): string | null {
+  const base = requireStripeConfig();
+  if (base) return base;
+  if (!APP_BASE) return "APP_BASE not configured";
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    return "Supabase service role not configured";
+  }
+  return null;
+}
+
 export async function stripeRequest<T>(
   path: string,
   method: "GET" | "POST" = "GET",
@@ -150,6 +160,39 @@ export async function retrieveSubscription(
     `/subscriptions/${encodeURIComponent(subId)}`,
     "GET"
   );
+}
+
+type StripePortalSession = { url: string };
+
+export async function fetchStripeCustomerIdForUser(
+  userId: string
+): Promise<string | null> {
+  // @ts-ignore Deno
+  const { createClient } = await import("npm:@supabase/supabase-js@2");
+  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const { data, error } = await admin
+    .from("choreocore_user_billing")
+    .select("stripe_customer_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  const id = data?.stripe_customer_id;
+  return typeof id === "string" && id.trim().length > 0 ? id.trim() : null;
+}
+
+export async function createCustomerPortalSession(
+  customerId: string
+): Promise<{ url: string }> {
+  const session = await stripeRequest<StripePortalSession>(
+    "/billing_portal/sessions",
+    "POST",
+    {
+      customer: customerId,
+      return_url: `${APP_BASE}/`,
+    }
+  );
+  if (!session.url) throw new Error("Customer Portal URL が取得できませんでした");
+  return { url: session.url };
 }
 
 export type BillingUpsert = {
@@ -248,7 +291,20 @@ export async function applyCheckoutSessionToUser(
 ): Promise<string> {
   const customerId = session.customer ? String(session.customer) : null;
   const subId = subscriptionIdFromSession(session);
-  const status = subscriptionStatusFromSession(session);
+  let status = subscriptionStatusFromSession(session);
+  /** webhook 到着順は保証されないため、subscription ID があれば Stripe から最新状態を取得 */
+  if (subId) {
+    try {
+      const live = await retrieveSubscription(subId);
+      status = live.status;
+    } catch (e) {
+      console.error(
+        "[billing] retrieveSubscription failed; using session status",
+        subId,
+        e
+      );
+    }
+  }
   await upsertBillingRow({
     user_id: userId,
     stripe_customer_id: customerId,
