@@ -57,3 +57,16 @@ export async function supabaseUploadWavePeaks(
     console.warn("[supabaseWavePeaks] upload failed:", error.message);
   }
 }
+
+export async function supabaseDeleteWavePeaks(audioPath: string): Promise<void> {
+  const path = audioPath.trim();
+  if (!path) return;
+  const sb = getSupabase();
+  const sidecarPath = wavePeaksSidecarPath(path);
+  const { error } = await sb.storage
+    .from(CHOREOCORE_AUDIO_BUCKET)
+    .remove([sidecarPath]);
+  if (error) {
+    console.warn("[supabaseWavePeaks] delete failed:", error.message);
+  }
+}

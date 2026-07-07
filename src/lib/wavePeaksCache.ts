@@ -114,3 +114,13 @@ export async function setWavePeaksCache(
     /* IndexedDB 不可でもメモリキャッシュは有効 */
   }
 }
+
+export async function deleteWavePeaksCache(key: string): Promise<void> {
+  memoryCache.delete(key);
+  try {
+    const db = await getDb();
+    await db.delete(STORE, key);
+  } catch {
+    /* ignore */
+  }
+}

@@ -102,3 +102,23 @@ export async function putCachedPeaksPayload(
     /* quota / private mode */
   }
 }
+
+export async function deleteCachedAudioBlob(cacheKey: string): Promise<void> {
+  const cache = await openNamedCache(AUDIO_CACHE);
+  if (!cache) return;
+  try {
+    await cache.delete(cacheKey);
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function deleteCachedPeaksPayload(cacheKey: string): Promise<void> {
+  const cache = await openNamedCache(PEAKS_CACHE);
+  if (!cache) return;
+  try {
+    await cache.delete(wavePeaksMediaCacheKey(cacheKey));
+  } catch {
+    /* ignore */
+  }
+}

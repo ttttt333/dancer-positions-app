@@ -90,12 +90,14 @@ export function useTimelineWaveDecode({ setProject }: Params) {
     async (
       rawPeaks: number[],
       durSec: number,
-      cacheKey?: string | null
+      cacheKey?: string | null,
+      applyOpts?: { force?: boolean }
     ): Promise<SessionWavePeaksPayload | null> => {
       const peaks = refinePeaksForTimeline(rawPeaks, durSec);
       const payload: SessionWavePeaksPayload = { peaks, durationSec: durSec };
       const committed = commitPeaksToStoreIfAllowed(payload, {
         cacheKey: cacheKey ?? null,
+        force: applyOpts?.force,
       });
       if (!committed) {
         clearWaveLoadProgress();
@@ -119,10 +121,51 @@ export function useTimelineWaveDecode({ setProject }: Params) {
       cacheKey: string | null,
       supabaseAudioPath: string | null
     ) => {
-      if (!applied) return;
+      if (!applied || isPlaceholderLikeWavePeaks(applied.peaks)) return;
       await persistWavePeaksPayload(applied, { cacheKey, supabaseAudioPath });
     },
     []
+  );
+
+  const decodeClientPeaks = useCallback(
+    async (
+      audioBuf: ArrayBuffer,
+      cacheKey: string | null,
+      supabaseAudioPath: string | null,
+      commitOpts?: { force?: boolean }
+    ) => {
+      reportWaveLoadProgress(0.92, "波形を端末で解析中…");
+      const stopTick = runIndeterminateDecodeProgress(
+        0.92,
+        0.99,
+        "波形を端末で解析中…"
+      );
+      let peaks: number[];
+      let durationSec: number;
+      let usedPlaceholder = false;
+      try {
+        ({ peaks, durationSec } = await withDecodeTimeout(
+          decodeWavePeaksFromBuffer(audioBuf),
+          CLIENT_DECODE_TIMEOUT_MS
+        ));
+      } catch (decodeErr) {
+        console.warn("[waveDecode] client decode failed, using placeholder:", decodeErr);
+        usedPlaceholder = true;
+        const ui = usePlaybackUiStore.getState();
+        durationSec =
+          ui.trustedAudioDurationSec ?? ui.durationSec ?? 120;
+        peaks = createPlaceholderWavePeaks(durationSec);
+      } finally {
+        stopTick();
+      }
+      const applied = await applyPeaksAndDuration(peaks, durationSec, cacheKey, {
+        force: commitOpts?.force === true && !usedPlaceholder,
+      });
+      if (!usedPlaceholder) {
+        await persistIfApplied(applied, cacheKey, supabaseAudioPath);
+      }
+    },
+    [applyPeaksAndDuration, persistIfApplied]
   );
 
   const decodePeaksFromBuffer = useCallback(
@@ -131,39 +174,14 @@ export function useTimelineWaveDecode({ setProject }: Params) {
       const supabaseAudioPath = options?.supabaseAudioPath ?? null;
       const previewOnly = options?.previewOnly === true;
 
-      const decodeClientPeaks = async (audioBuf: ArrayBuffer) => {
-        reportWaveLoadProgress(0.92, "波形を端末で解析中…");
-        const stopTick = runIndeterminateDecodeProgress(
-          0.92,
-          0.99,
-          "波形を端末で解析中…"
-        );
-        let peaks: number[];
-        let durationSec: number;
-        try {
-          ({ peaks, durationSec } = await withDecodeTimeout(
-            decodeWavePeaksFromBuffer(audioBuf),
-            CLIENT_DECODE_TIMEOUT_MS
-          ));
-        } catch (decodeErr) {
-          console.warn("[waveDecode] client decode failed, using placeholder:", decodeErr);
-          const ui = usePlaybackUiStore.getState();
-          durationSec =
-            ui.trustedAudioDurationSec ?? ui.durationSec ?? 120;
-          peaks = createPlaceholderWavePeaks(durationSec);
-        } finally {
-          stopTick();
-        }
-        const applied = await applyPeaksAndDuration(peaks, durationSec, cacheKey);
-        await persistIfApplied(applied, cacheKey, supabaseAudioPath);
-      };
-
       try {
         const audioBuf = await resolveAudioBufferForDecode(buf);
 
         /** 再生中の音源バイトが取れるときは常に端末デコード（尺と波形の一致を保証） */
         if (audioBuf.byteLength > 0 && !previewOnly) {
-          await decodeClientPeaks(audioBuf);
+          await decodeClientPeaks(audioBuf, cacheKey, supabaseAudioPath, {
+            force: true,
+          });
           return;
         }
 
@@ -230,7 +248,9 @@ export function useTimelineWaveDecode({ setProject }: Params) {
         }
 
         if (audioBuf.byteLength > 0) {
-          await decodeClientPeaks(audioBuf);
+          await decodeClientPeaks(audioBuf, cacheKey, supabaseAudioPath, {
+            force: true,
+          });
           return;
         }
 
@@ -246,7 +266,7 @@ export function useTimelineWaveDecode({ setProject }: Params) {
         throw err;
       }
     },
-    [applyPeaksAndDuration, persistIfApplied]
+    [applyPeaksAndDuration, decodeClientPeaks, persistIfApplied]
   );
 
   const applyPrecomputedPeaks = useCallback(

@@ -2,6 +2,7 @@ import { decodeArrayBufferToAudioBuffer } from "./audioContext";
 import {
   computeWavePeaksFromAudioBuffer,
   computeWavePeaksFromChannelData,
+  mixDownAudioBufferForPeaks,
   resolveWavePeakBinCount,
 } from "./computeWavePeaksFromChannelData";
 
@@ -103,7 +104,7 @@ export async function decodeWavePeaksFromBuffer(
   buf: ArrayBuffer
 ): Promise<DecodeResult> {
   const audioBuf = await decodeArrayBufferToAudioBuffer(buf);
-  const channelData = audioBuf.getChannelData(0);
+  const channelData = mixDownAudioBufferForPeaks(audioBuf);
   const durationSec = audioBuf.duration;
 
   /** サンプル数閾値（約45秒@44.1kHz）。CLIENT_DECODE_TIMEOUT_MS とは無関係 */

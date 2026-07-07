@@ -1,6 +1,7 @@
 import { supabaseDownloadProjectAudioWithCache } from "../../supabaseAudio";
 import { supabaseDownloadWavePeaks } from "../../supabaseWavePeaks";
 import { setPersistedSupabaseAudio } from "../../timelineAudioBlobPersist";
+import { wavePeaksCacheKeyForSupabase } from "../../wavePeaksCache";
 import { reportWaveLoadProgress } from "../../waveLoadProgress";
 import { mountBlobUrlToPlayback } from "../playbackBlobSync";
 import {

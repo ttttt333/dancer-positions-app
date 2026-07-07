@@ -4,6 +4,7 @@
  */
 
 import {
+  mixDownAudioBufferForPeaks,
   resolveWavePeakBinCount,
   WAVE_PEAK_BIN_COUNT,
 } from "./computeWavePeaksFromChannelData";
@@ -89,7 +90,7 @@ export async function generateWaveformPeaksFromArrayBuffer(
     await ctx.close();
   }
 
-  const channelData = audioBuffer.getChannelData(0);
+  const channelData = mixDownAudioBufferForPeaks(audioBuffer);
   const durationSec = Number.isFinite(audioBuffer.duration) ? audioBuffer.duration : 0;
   const numPoints =
     numPointsOverride ?? resolveWavePeakBinCount(durationSec || undefined);

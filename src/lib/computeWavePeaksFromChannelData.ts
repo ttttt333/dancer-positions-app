@@ -29,6 +29,22 @@ export function isWavePeaksResolutionStale(
   return peaks.length < target * WAVE_PEAK_STALE_RATIO;
 }
 
+/** ステレオ等をミックスダウンしてピーク計算用のモノラル PCM を返す */
+export function mixDownAudioBufferForPeaks(audioBuf: AudioBuffer): Float32Array {
+  const len = audioBuf.length;
+  const nCh = audioBuf.numberOfChannels;
+  if (nCh <= 1) return audioBuf.getChannelData(0);
+  const out = new Float32Array(len);
+  for (let i = 0; i < len; i++) {
+    let sum = 0;
+    for (let c = 0; c < nCh; c++) {
+      sum += audioBuf.getChannelData(c)[i] ?? 0;
+    }
+    out[i] = sum / nCh;
+  }
+  return out;
+}
+
 /** PCM チャンネルから正規化済みピーク配列を生成する（各ビンは最大振幅） */
 export function computeWavePeaksFromChannelData(
   ch: Float32Array,
@@ -57,7 +73,7 @@ export function computeWavePeaksFromAudioBuffer(
   binCount?: number
 ): number[] {
   const count = binCount ?? resolveWavePeakBinCount(audioBuf.duration);
-  return computeWavePeaksFromChannelData(audioBuf.getChannelData(0), count);
+  return computeWavePeaksFromChannelData(mixDownAudioBufferForPeaks(audioBuf), count);
 }
 
 /** 低解像度ピーク（旧 400 点キャッシュ等）をタイムライン表示用に拡張（各ビンは最大振幅） */

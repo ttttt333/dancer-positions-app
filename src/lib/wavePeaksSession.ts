@@ -146,6 +146,7 @@ export async function persistWavePeaksPayload(
   const supabaseAudioPath = opts.supabaseAudioPath?.trim() || null;
   const { peaks, durationSec } = payload;
   if (!peaks.length || !(durationSec > 0)) return;
+  if (isPlaceholderLikeWavePeaks(peaks)) return;
 
   if (cacheKey) {
     await setWavePeaksCache(cacheKey, peaks, durationSec);

@@ -179,7 +179,7 @@ async function applyPlaceholderWavePeaks(
       peaks: createPlaceholderWavePeaks(durationSec),
       durationSec,
     },
-    options
+    { ...options, previewOnly: true }
   );
 }
 

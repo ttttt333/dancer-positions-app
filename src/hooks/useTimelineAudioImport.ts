@@ -26,6 +26,7 @@ import {
   wavePeaksCacheKeyForServerAsset,
   wavePeaksCacheKeyForSupabase,
 } from "../lib/wavePeaksCache";
+import { invalidateAudioWaveCaches } from "../lib/invalidateAudioWaveCaches";
 import type { DecodePeaksOptions } from "./useTimelineWaveDecode";
 import {
   computeServerWavePeaksFromBlob,
@@ -158,7 +159,21 @@ export function useTimelineAudioImport({
       }
 
       reportWaveLoadProgress(0.05, "音源ファイルを読み込み中…");
-      setProject((p) => ({ ...p, flowLocalAudioKey: null }));
+      let priorAudio: Pick<
+        ChoreographyProjectJson,
+        "audioAssetId" | "audioSupabasePath" | "flowLocalAudioKey"
+      > | null = null;
+      setProject((p) => {
+        priorAudio = {
+          audioAssetId: p.audioAssetId,
+          audioSupabasePath: p.audioSupabasePath,
+          flowLocalAudioKey: p.flowLocalAudioKey,
+        };
+        return { ...p, flowLocalAudioKey: null };
+      });
+      if (priorAudio) {
+        await invalidateAudioWaveCaches(priorAudio);
+      }
       const isVideo = isVideoFile(f);
       if (isVideo) {
         const ok = window.confirm(
@@ -271,6 +286,12 @@ export function useTimelineAudioImport({
                   supabaseAudioPath: up.path,
                 }
               : { cacheKey: wavePeaksCacheKeyForServerAsset(up.id) };
+
+          await invalidateAudioWaveCaches(
+            up.kind === "supabase"
+              ? { audioSupabasePath: up.path }
+              : { audioAssetId: up.id }
+          );
 
           try {
             if (up.kind === "legacy") {
