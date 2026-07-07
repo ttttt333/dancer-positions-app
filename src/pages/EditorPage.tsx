@@ -8,6 +8,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type CSSProperties,
   type Dispatch,
   type MutableRefObject,
@@ -146,7 +147,6 @@ import {
   EDITOR_PLAYBACK_LAYOUT_SHIFT_UP,
   EDITOR_SHELL_TOP_WAVE_BASE_PX,
   EDITOR_SHELL_TOP_WAVE_ROSTER_ROW_PX,
-  EDITOR_WIDE_MIN_PX,
   HISTORY_CAP,
   RIGHT_RAIL_FR_DEFAULT,
   RIGHT_TOOLS_RAIL_MAX_PX,
@@ -168,7 +168,7 @@ import {
   readStoredEditorLayout,
 } from "./editor/editorLayoutStorage";
 import { readMaxStageWidthPx, round2Pct, studentPickToStageFocus } from "./editor/editorStageLayout";
-import { useEditorViewport } from "./editor/editorViewport";
+import { useEditorViewport, resolveWideEditorLayout, subscribeWideEditorLayout } from "./editor/editorViewport";
 import { EditorPageLayout } from "./editor/EditorPageLayout";
 import type { EditorLayoutProps } from "./editor/editorLayoutProps";
 import {
@@ -337,10 +337,10 @@ export function EditorPage({
   const [stageColumnPx, setStageColumnPx] = useState<number | null>(() => {
     return readStoredEditorLayout().stageColumnPx;
   });
-  const [wideEditorLayout, setWideEditorLayout] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      window.matchMedia(`(min-width: ${EDITOR_WIDE_MIN_PX}px)`).matches
+  const wideEditorLayout = useSyncExternalStore(
+    subscribeWideEditorLayout,
+    resolveWideEditorLayout,
+    () => false
   );
   /** 閲覧: 縦幅が低い（ランドスケープ等）でタイムライン＋下バーがステージを圧迫しやすい */
   const [publicViewTightHeight, setPublicViewTightHeight] = useState(() => {
@@ -651,13 +651,6 @@ export function EditorPage({
   }, [showTopWaveDockForGrid]);
 
   /** FFmpeg.wasm は音源取り込みボタン押下時のみロードする */
-
-  useEffect(() => {
-    const mq = window.matchMedia(`(min-width: ${EDITOR_WIDE_MIN_PX}px)`);
-    const onChange = () => setWideEditorLayout(mq.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
 
   useEffect(() => {
     if (!choreoPublicView) {

@@ -1,11 +1,48 @@
 import { useSyncExternalStore } from "react";
 import { readLayoutViewportSize } from "../../lib/viewportLayoutMetrics";
-import { EDITOR_MOBILE_STACK_MAX_PX } from "./editorConstants";
+import { EDITOR_MOBILE_STACK_MAX_PX, EDITOR_WIDE_MIN_PX, EDITOR_WIDE_POINTER_FALLBACK_MIN_PX } from "./editorConstants";
 
 /** stack + landscape を 1 プリミティブにまとめる（useSyncExternalStore の参照安定） */
 export type EditorViewportKey = "00" | "01" | "10" | "11";
 
 export { readLayoutViewportSize } from "../../lib/viewportLayoutMetrics";
+
+/** マウス／トラックパッド操作のデスクトップ（タッチ専用端末を除外） */
+export function isDesktopPointerDevice(): boolean {
+  if (typeof window === "undefined") return true;
+  return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+}
+
+/**
+ * PC ワイドレイアウト（Mac と同じ 3 ペイン＋上部波形ドック）を使うか。
+ * 通常は幅 ≥1280px。Windows の表示拡大で幅だけ足りない場合は
+ * ポインタ端末かつ幅 ≥1024px でも wide にする。
+ */
+export function resolveWideEditorLayout(): boolean {
+  if (typeof window === "undefined") return false;
+  const { width } = readLayoutViewportSize();
+  if (width >= EDITOR_WIDE_MIN_PX) return true;
+  return (
+    width >= EDITOR_WIDE_POINTER_FALLBACK_MIN_PX && isDesktopPointerDevice()
+  );
+}
+
+export function subscribeWideEditorLayout(cb: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const run = () => cb();
+  const mqWide = window.matchMedia(`(min-width: ${EDITOR_WIDE_MIN_PX}px)`);
+  const mqPointer = window.matchMedia("(hover: hover) and (pointer: fine)");
+  mqWide.addEventListener("change", run);
+  mqPointer.addEventListener("change", run);
+  window.addEventListener("resize", run);
+  window.visualViewport?.addEventListener("resize", run);
+  return () => {
+    mqWide.removeEventListener("change", run);
+    mqPointer.removeEventListener("change", run);
+    window.removeEventListener("resize", run);
+    window.visualViewport?.removeEventListener("resize", run);
+  };
+}
 
 export function subscribeEditorViewport(cb: () => void): () => void {
   if (typeof window === "undefined") return () => {};

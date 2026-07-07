@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { computeEditorViewportKey } from "./editorViewport";
+import {
+  computeEditorViewportKey,
+  resolveWideEditorLayout,
+  subscribeWideEditorLayout,
+} from "./editorViewport";
 
 describe("editorViewport", () => {
   it("detects mobile stack when short side < 768", () => {
@@ -16,5 +20,11 @@ describe("editorViewport", () => {
   it("treats layout viewport without scrollbar gutter like clientWidth", () => {
     expect(computeEditorViewportKey(1263, 800)).toBe("01");
     expect(computeEditorViewportKey(767, 1024)).toBe("10");
+  });
+});
+
+describe("resolveWideEditorLayout", () => {
+  it("is exported and callable", () => {
+    expect(typeof resolveWideEditorLayout).toBe("function");
   });
 });

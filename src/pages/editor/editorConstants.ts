@@ -10,6 +10,12 @@ export const HISTORY_CAP = 200;
 export const EDITOR_WIDE_MIN_PX = 1280;
 
 /**
+ * マウス操作のデスクトップ向けフォールバック（Windows 125% 等で CSS 幅が 1280 未満のとき）。
+ * `(hover: hover) and (pointer: fine)` と組み合わせて wide 判定に使う。
+ */
+export const EDITOR_WIDE_POINTER_FALLBACK_MIN_PX = 1024;
+
+/**
  * スマホ向け縦積みレイアウト：ビューポートの短い辺が未満ならモバイル扱い。
  * 横向きで幅だけ広い（≥768）ときも電話 UI に乗せる。
  */
