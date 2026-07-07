@@ -4,8 +4,10 @@ import "./index.css";
 import App from "./App.tsx";
 import { I18nProvider } from "./i18n/I18nContext";
 import { warmShareViewFromCurrentPath } from "./lib/shareViewProjectCache";
+import { installAudioContextGestureUnlock } from "./lib/audioContext";
 
 warmShareViewFromCurrentPath();
+installAudioContextGestureUnlock();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

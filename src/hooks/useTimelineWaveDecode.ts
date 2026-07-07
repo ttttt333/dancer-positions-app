@@ -24,6 +24,7 @@ import {
 } from "../lib/wavePeaksSession";
 import { playbackEngine } from "../core/playbackEngine";
 import { alignPlaybackDurationWithWaveform } from "../lib/wavePlaybackDuration";
+import { verifyBlobUrl } from "../lib/verifyBlobUrl";
 
 type Params = {
   setProject: Dispatch<SetStateAction<ChoreographyProjectJson>>;
@@ -36,7 +37,7 @@ const CLIENT_DECODE_TIMEOUT_MS = 45_000;
 async function resolveAudioBufferForDecode(buf: ArrayBuffer): Promise<ArrayBuffer> {
   if (buf.byteLength > 0) return buf;
   const url = playbackEngine.getMediaSourceUrl();
-  if (!url) return buf;
+  if (!url || !(await verifyBlobUrl(url))) return buf;
   try {
     const res = await fetch(url);
     if (!res.ok) return buf;

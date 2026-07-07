@@ -21,6 +21,12 @@ export const EDITOR_WIDE_POINTER_FALLBACK_MIN_PX = 1024;
  */
 export const EDITOR_MOBILE_STACK_MAX_PX = 768;
 
+/**
+ * マウス操作のデスクトップで PC レイアウトにする最小幅。
+ * DevTools ドック時（幅 700 台）や Windows 125% 表示でも Mac 同等 UI にする。
+ */
+export const EDITOR_DESKTOP_POINTER_MIN_WIDTH_PX = 640;
+
 /** メイン 3 列グリッドの列間・行間 */
 export const EDITOR_GRID_GAP_PX = 10;
 

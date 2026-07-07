@@ -14,6 +14,7 @@ import { playCompletionWoof } from "../lib/playCompletionWoof";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import { mountBlobUrlToPlayback } from "../lib/remoteAudio/playbackBlobSync";
 import { defaultAudioPlayer } from "../lib/remoteAudio/audioPlayer";
+import { registerActiveBlobUrl } from "../lib/activeBlobUrlRegistry";
 import {
   revokeBlobUrlUnlessCloudPersisted,
   revokePersistedServerAudioBlob,
@@ -106,6 +107,7 @@ async function mountLocalPlaybackBlob(
   mime: string
 ): Promise<string> {
   const url = URL.createObjectURL(new Blob([buf], { type: mime }));
+  registerActiveBlobUrl(url);
   const clearTrusted = () =>
     usePlaybackUiStore.getState().setTrustedAudioDurationSec(null);
   mountBlobUrlToPlayback(blobUrlRef, url, clearTrusted, defaultAudioPlayer, {
@@ -413,6 +415,7 @@ export function useTimelineAudioImport({
           const wavUrl = URL.createObjectURL(
             new Blob([decodedBuf], { type: "audio/wav" })
           );
+          registerActiveBlobUrl(wavUrl);
           if (blobUrlRef.current) {
             revokeBlobUrlUnlessCloudPersisted(blobUrlRef.current);
           }

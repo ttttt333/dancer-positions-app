@@ -1,4 +1,9 @@
 import { usePlaybackAudioStore } from "../store/playbackAudioStore";
+import {
+  registerActiveBlobUrl,
+  unregisterActiveBlobUrl,
+} from "./activeBlobUrlRegistry";
+import { verifyBlobUrl } from "./verifyBlobUrl";
 
 /**
  * サーバ `audioAssetId` 用の署名付き Blob URL。TimelinePanel が名簿モード等でアンマウントされても
@@ -17,6 +22,7 @@ export let persistedFlowAudioBlobUrl: string | null = null;
 
 export function revokePersistedServerAudioBlob() {
   if (persistedServerAudioBlobUrl) {
+    unregisterActiveBlobUrl(persistedServerAudioBlobUrl);
     URL.revokeObjectURL(persistedServerAudioBlobUrl);
     persistedServerAudioBlobUrl = null;
     persistedServerAudioAssetId = null;
@@ -26,6 +32,7 @@ export function revokePersistedServerAudioBlob() {
 /** 短命 blob URL のみ破棄（Supabase パスは保持 → Cache API から再生成可能） */
 export function revokeEphemeralSupabaseBlobUrl() {
   if (persistedSupabaseAudioBlobUrl) {
+    unregisterActiveBlobUrl(persistedSupabaseAudioBlobUrl);
     URL.revokeObjectURL(persistedSupabaseAudioBlobUrl);
     persistedSupabaseAudioBlobUrl = null;
   }
@@ -49,6 +56,7 @@ export function revokePersistedSupabaseAudioBlob() {
 
 export function revokePersistedFlowAudioBlob() {
   if (persistedFlowAudioBlobUrl) {
+    unregisterActiveBlobUrl(persistedFlowAudioBlobUrl);
     URL.revokeObjectURL(persistedFlowAudioBlobUrl);
     persistedFlowAudioBlobUrl = null;
     persistedFlowLocalAudioKey = null;
@@ -56,6 +64,7 @@ export function revokePersistedFlowAudioBlob() {
 }
 
 export function setPersistedFlowAudio(blobUrl: string, flowKey: string) {
+  registerActiveBlobUrl(blobUrl);
   persistedFlowAudioBlobUrl = blobUrl;
   persistedFlowLocalAudioKey = flowKey;
   usePlaybackAudioStore.getState().setFlowSource(flowKey);
@@ -68,10 +77,14 @@ export function revokeBlobUrlUnlessCloudPersisted(cur: string | null) {
   if (cur === persistedServerAudioBlobUrl) revokePersistedServerAudioBlob();
   else if (cur === persistedSupabaseAudioBlobUrl) revokeEphemeralSupabaseBlobUrl();
   else if (cur === persistedFlowAudioBlobUrl) revokePersistedFlowAudioBlob();
-  else URL.revokeObjectURL(cur);
+  else {
+    unregisterActiveBlobUrl(cur);
+    URL.revokeObjectURL(cur);
+  }
 }
 
 export function setPersistedServerAudio(blobUrl: string, assetId: number) {
+  registerActiveBlobUrl(blobUrl);
   persistedServerAudioBlobUrl = blobUrl;
   persistedServerAudioAssetId = assetId;
   usePlaybackAudioStore.getState().setServerSource(assetId);
@@ -79,6 +92,7 @@ export function setPersistedServerAudio(blobUrl: string, assetId: number) {
 }
 
 export function setPersistedSupabaseAudio(blobUrl: string, path: string) {
+  registerActiveBlobUrl(blobUrl);
   persistedSupabaseAudioBlobUrl = blobUrl;
   persistedSupabaseAudioPath = path;
   usePlaybackAudioStore.getState().setSupabaseSource(path);
@@ -87,6 +101,9 @@ export function setPersistedSupabaseAudio(blobUrl: string, path: string) {
 
 /** 既に `blob:` で持っている音源から波形用バッファを取る（Storage／API の二重取得を避ける） */
 export async function arrayBufferFromBlobUrl(blobUrl: string): Promise<ArrayBuffer> {
+  if (!(await verifyBlobUrl(blobUrl))) {
+    throw new Error("blob URL が無効です");
+  }
   const res = await fetch(blobUrl);
   if (!res.ok) throw new Error("blob URL の読み込みに失敗しました");
   return res.arrayBuffer();

@@ -1,4 +1,8 @@
 import type { LoadAbort } from "./loadAbort";
+import {
+  registerActiveBlobUrl,
+  unregisterActiveBlobUrl,
+} from "../activeBlobUrlRegistry";
 
 /** ロードタスク中に作った blob URL を abort 時にまとめて破棄する */
 export class LoadScopedBlobUrls {
@@ -12,12 +16,14 @@ export class LoadScopedBlobUrls {
 
   create(blob: Blob): string {
     const url = URL.createObjectURL(blob);
+    registerActiveBlobUrl(url);
     this.pending.add(url);
     return url;
   }
 
   /** 外部（fetch 等）で生成済みの URL を abort 対象に含める */
   adoptPending(url: string) {
+    registerActiveBlobUrl(url);
     this.pending.add(url);
   }
 
@@ -28,6 +34,7 @@ export class LoadScopedBlobUrls {
 
   private revokePending() {
     for (const url of this.pending) {
+      unregisterActiveBlobUrl(url);
       URL.revokeObjectURL(url);
     }
     this.pending.clear();

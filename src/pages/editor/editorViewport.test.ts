@@ -30,6 +30,15 @@ describe("editorViewport", () => {
     );
   });
 
+  it("does not mobile-stack desktop with DevTools docked (narrow width)", () => {
+    expect(
+      isEditorMobileStackViewport(725, 551, { desktopPointer: true })
+    ).toBe(false);
+    expect(computeEditorViewportKey(725, 551, { desktopPointer: true })).toBe(
+      "00"
+    );
+  });
+
   it("still mobile-stacks phones", () => {
     expect(
       isEditorMobileStackViewport(390, 844, { desktopPointer: false })

@@ -5,6 +5,9 @@ import {
   persistedSupabaseAudioBlobUrl,
   persistedFlowAudioBlobUrl,
   persistedSupabaseAudioPath,
+  revokeEphemeralSupabaseBlobUrl,
+  revokePersistedFlowAudioBlob,
+  revokePersistedServerAudioBlob,
 } from "./timelineAudioBlobPersist";
 import { verifyBlobUrl } from "./verifyBlobUrl";
 import {
@@ -14,6 +17,12 @@ import {
 import { waitForAudioElementReady } from "./audioElementReady";
 
 export type ResolvePlaybackBlobOptions = PlaybackAudioRestoreContext;
+
+function discardDeadPersistedBlobUrl(url: string): void {
+  if (url === persistedSupabaseAudioBlobUrl) revokeEphemeralSupabaseBlobUrl();
+  else if (url === persistedServerAudioBlobUrl) revokePersistedServerAudioBlob();
+  else if (url === persistedFlowAudioBlobUrl) revokePersistedFlowAudioBlob();
+}
 
 /** セッション内で有効な blob / 現在の `<audio>` src を優先順に探す */
 export async function resolveEditorPlaybackBlobUrl(
@@ -33,6 +42,8 @@ export async function resolveEditorPlaybackBlobUrl(
     if (seen.has(url)) continue;
     seen.add(url);
     if (await verifyBlobUrl(url)) return url;
+    if (url.startsWith("blob:")) discardDeadPersistedBlobUrl(url);
+    if (blobUrlRef.current === url) blobUrlRef.current = null;
   }
 
   return restorePlaybackBlobUrl({

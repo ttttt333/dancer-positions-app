@@ -1,6 +1,10 @@
 import { useSyncExternalStore } from "react";
 import { readLayoutViewportSize } from "../../lib/viewportLayoutMetrics";
-import { EDITOR_MOBILE_STACK_MAX_PX, EDITOR_WIDE_MIN_PX } from "./editorConstants";
+import {
+  EDITOR_DESKTOP_POINTER_MIN_WIDTH_PX,
+  EDITOR_MOBILE_STACK_MAX_PX,
+  EDITOR_WIDE_MIN_PX,
+} from "./editorConstants";
 
 /** stack + landscape を 1 プリミティブにまとめる（useSyncExternalStore の参照安定） */
 export type EditorViewportKey = "00" | "01" | "10" | "11";
@@ -19,7 +23,7 @@ export function isDesktopPointerDevice(): boolean {
 /**
  * スマホ縦積み UI（MobileShell / editor-mobile-stack）を使うか。
  * Windows 125〜150% 表示では CSS 高さだけ 768 未満になりやすいため、
- * マウス操作かつ幅 ≥768 のときはモバイル扱いにしない。
+ * マウス操作かつ幅 ≥640 のときはモバイル扱いにしない。
  */
 export function isEditorMobileStackViewport(
   width: number,
@@ -30,7 +34,7 @@ export function isEditorMobileStackViewport(
     opts?.desktopPointer !== undefined
       ? opts.desktopPointer
       : isDesktopPointerDevice();
-  if (desktop && width >= EDITOR_MOBILE_STACK_MAX_PX) {
+  if (desktop && width >= EDITOR_DESKTOP_POINTER_MIN_WIDTH_PX) {
     return false;
   }
   return Math.min(width, height) < EDITOR_MOBILE_STACK_MAX_PX;
@@ -38,13 +42,15 @@ export function isEditorMobileStackViewport(
 
 /**
  * PC ワイドレイアウト（Mac と同じ 3 ペイン＋上部波形ドック）を使うか。
- * 幅 ≥1280px、またはマウス操作のデスクトップで幅 ≥768px。
+ * 幅 ≥1280px、またはマウス操作のデスクトップで幅 ≥640px。
  */
 export function resolveWideEditorLayout(): boolean {
   if (typeof window === "undefined") return false;
   const { width } = readLayoutViewportSize();
   if (width >= EDITOR_WIDE_MIN_PX) return true;
-  return isDesktopPointerDevice() && width >= EDITOR_MOBILE_STACK_MAX_PX;
+  return (
+    isDesktopPointerDevice() && width >= EDITOR_DESKTOP_POINTER_MIN_WIDTH_PX
+  );
 }
 
 /** `/editor/:id` で MobileShell ではなく EditorPage 直出しにするか */
@@ -59,7 +65,7 @@ export function subscribeWideEditorLayout(cb: () => void): () => void {
   const run = () => cb();
   const mqWide = window.matchMedia(`(min-width: ${EDITOR_WIDE_MIN_PX}px)`);
   const mqTablet = window.matchMedia(
-    `(min-width: ${EDITOR_MOBILE_STACK_MAX_PX}px)`
+    `(min-width: ${EDITOR_DESKTOP_POINTER_MIN_WIDTH_PX}px)`
   );
   const mqPointer = window.matchMedia("(hover: hover) and (pointer: fine)");
   const mqAnyFine = window.matchMedia("(any-pointer: fine)");
