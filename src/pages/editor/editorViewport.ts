@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { readLayoutViewportSize } from "../../lib/viewportLayoutMetrics";
-import { EDITOR_MOBILE_STACK_MAX_PX, EDITOR_WIDE_MIN_PX, EDITOR_WIDE_POINTER_FALLBACK_MIN_PX } from "./editorConstants";
+import { EDITOR_MOBILE_STACK_MAX_PX, EDITOR_WIDE_MIN_PX } from "./editorConstants";
 
 /** stack + landscape を 1 プリミティブにまとめる（useSyncExternalStore の参照安定） */
 export type EditorViewportKey = "00" | "01" | "10" | "11";
@@ -10,70 +10,83 @@ export { readLayoutViewportSize } from "../../lib/viewportLayoutMetrics";
 /** マウス／トラックパッド操作のデスクトップ（タッチ専用端末を除外） */
 export function isDesktopPointerDevice(): boolean {
   if (typeof window === "undefined") return true;
-  return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  if (window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
+    return true;
+  }
+  return window.matchMedia("(any-pointer: fine)").matches;
+}
+
+/**
+ * スマホ縦積み UI（MobileShell / editor-mobile-stack）を使うか。
+ * Windows 125〜150% 表示では CSS 高さだけ 768 未満になりやすいため、
+ * マウス操作かつ幅 ≥768 のときはモバイル扱いにしない。
+ */
+export function isEditorMobileStackViewport(
+  width: number,
+  height: number,
+  opts?: { desktopPointer?: boolean }
+): boolean {
+  const desktop =
+    opts?.desktopPointer !== undefined
+      ? opts.desktopPointer
+      : isDesktopPointerDevice();
+  if (desktop && width >= EDITOR_MOBILE_STACK_MAX_PX) {
+    return false;
+  }
+  return Math.min(width, height) < EDITOR_MOBILE_STACK_MAX_PX;
 }
 
 /**
  * PC ワイドレイアウト（Mac と同じ 3 ペイン＋上部波形ドック）を使うか。
- * 通常は幅 ≥1280px。Windows の表示拡大で幅だけ足りない場合は
- * ポインタ端末かつ幅 ≥1024px でも wide にする。
+ * 幅 ≥1280px、またはマウス操作のデスクトップで幅 ≥768px。
  */
 export function resolveWideEditorLayout(): boolean {
   if (typeof window === "undefined") return false;
   const { width } = readLayoutViewportSize();
   if (width >= EDITOR_WIDE_MIN_PX) return true;
-  return (
-    width >= EDITOR_WIDE_POINTER_FALLBACK_MIN_PX && isDesktopPointerDevice()
-  );
+  return isDesktopPointerDevice() && width >= EDITOR_MOBILE_STACK_MAX_PX;
+}
+
+/** `/editor/:id` で MobileShell ではなく EditorPage 直出しにするか */
+export function shouldUseMobileEditorShell(): boolean {
+  if (typeof window === "undefined") return false;
+  const { width, height } = readLayoutViewportSize();
+  return isEditorMobileStackViewport(width, height);
 }
 
 export function subscribeWideEditorLayout(cb: () => void): () => void {
   if (typeof window === "undefined") return () => {};
   const run = () => cb();
   const mqWide = window.matchMedia(`(min-width: ${EDITOR_WIDE_MIN_PX}px)`);
+  const mqTablet = window.matchMedia(
+    `(min-width: ${EDITOR_MOBILE_STACK_MAX_PX}px)`
+  );
   const mqPointer = window.matchMedia("(hover: hover) and (pointer: fine)");
-  mqWide.addEventListener("change", run);
-  mqPointer.addEventListener("change", run);
+  const mqAnyFine = window.matchMedia("(any-pointer: fine)");
+  for (const mq of [mqWide, mqTablet, mqPointer, mqAnyFine]) {
+    mq.addEventListener("change", run);
+  }
   window.addEventListener("resize", run);
   window.visualViewport?.addEventListener("resize", run);
   return () => {
-    mqWide.removeEventListener("change", run);
-    mqPointer.removeEventListener("change", run);
+    for (const mq of [mqWide, mqTablet, mqPointer, mqAnyFine]) {
+      mq.removeEventListener("change", run);
+    }
     window.removeEventListener("resize", run);
     window.visualViewport?.removeEventListener("resize", run);
   };
 }
 
 export function subscribeEditorViewport(cb: () => void): () => void {
-  if (typeof window === "undefined") return () => {};
-  const mq = (q: string) => window.matchMedia(q);
-  const mqlW = mq(`(max-width: ${EDITOR_MOBILE_STACK_MAX_PX - 1}px)`);
-  const mqlH = mq(`(max-height: ${EDITOR_MOBILE_STACK_MAX_PX - 1}px)`);
-  const mqlOrientation = mq("(orientation: landscape)");
-  const run = () => {
-    cb();
-  };
-  mqlW.addEventListener("change", run);
-  mqlH.addEventListener("change", run);
-  mqlOrientation.addEventListener("change", run);
-  window.addEventListener("resize", run);
-  window.addEventListener("orientationchange", run);
-  window.visualViewport?.addEventListener("resize", run);
-  return () => {
-    mqlW.removeEventListener("change", run);
-    mqlH.removeEventListener("change", run);
-    mqlOrientation.removeEventListener("change", run);
-    window.removeEventListener("resize", run);
-    window.removeEventListener("orientationchange", run);
-    window.visualViewport?.removeEventListener("resize", run);
-  };
+  return subscribeWideEditorLayout(cb);
 }
 
 export function computeEditorViewportKey(
   width: number,
-  height: number
+  height: number,
+  opts?: { desktopPointer?: boolean }
 ): EditorViewportKey {
-  const stack = Math.min(width, height) < EDITOR_MOBILE_STACK_MAX_PX;
+  const stack = isEditorMobileStackViewport(width, height, opts);
   const landscape = width > height;
   return `${stack ? "1" : "0"}${landscape ? "1" : "0"}` as EditorViewportKey;
 }

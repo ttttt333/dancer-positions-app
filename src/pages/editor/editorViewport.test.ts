@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   computeEditorViewportKey,
+  isEditorMobileStackViewport,
   resolveWideEditorLayout,
-  subscribeWideEditorLayout,
 } from "./editorViewport";
 
 describe("editorViewport", () => {
@@ -16,10 +16,24 @@ describe("editorViewport", () => {
     expect(computeEditorViewportKey(800, 1280)).toBe("00");
   });
 
-  /** Windows 等で innerWidth と clientWidth が数 px ずれる場合、clientWidth 基準に揃える */
   it("treats layout viewport without scrollbar gutter like clientWidth", () => {
     expect(computeEditorViewportKey(1263, 800)).toBe("01");
     expect(computeEditorViewportKey(767, 1024)).toBe("10");
+  });
+
+  it("does not mobile-stack Windows laptop with scaled short height", () => {
+    expect(
+      isEditorMobileStackViewport(1093, 614, { desktopPointer: true })
+    ).toBe(false);
+    expect(computeEditorViewportKey(1093, 614, { desktopPointer: true })).toBe(
+      "01"
+    );
+  });
+
+  it("still mobile-stacks phones", () => {
+    expect(
+      isEditorMobileStackViewport(390, 844, { desktopPointer: false })
+    ).toBe(true);
   });
 });
 

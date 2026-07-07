@@ -10,8 +10,10 @@ import { VideoPage } from "./pages/VideoPage";
 import { BillingCanceledPage, BillingSuccessPage } from "./pages/BillingPages";
 import { MobileFormationEditorDemoPage } from "./pages/MobileFormationEditorDemoPage";
 import { MobileShell } from "./components/mobile/MobileShell";
-import { EDITOR_MOBILE_STACK_MAX_PX } from "./pages/editor/editorConstants";
-import { readLayoutViewportSize } from "./lib/viewportLayoutMetrics";
+import {
+  shouldUseMobileEditorShell,
+  subscribeWideEditorLayout,
+} from "./pages/editor/editorViewport";
 import { usePlaybackUiStore } from "./store/usePlaybackUiStore";
 import { useMobileShellBridgeStore } from "./store/useMobileShellBridgeStore";
 import { playbackEngine } from "./core/playbackEngine";
@@ -110,19 +112,16 @@ function MobileEditorRoute() {
   const navigate = useNavigate();
 
   // EditorPage の mobileStack と同じ基準（短辺 < 768）。960px だと 1366×768 等の PC が MobileShell になる
-  const checkMobile = () => {
-    const { width, height } = readLayoutViewportSize();
-    return Math.min(width, height) < EDITOR_MOBILE_STACK_MAX_PX;
-  };
+  const checkMobile = () => shouldUseMobileEditorShell();
   const [isMobile, setIsMobile] = useState(checkMobile);
   useEffect(() => {
     const handler = () => {
       requestAnimationFrame(() => setIsMobile(checkMobile()));
     };
-    window.addEventListener("resize", handler);
+    const unsub = subscribeWideEditorLayout(handler);
     window.addEventListener("orientationchange", handler);
     return () => {
-      window.removeEventListener("resize", handler);
+      unsub();
       window.removeEventListener("orientationchange", handler);
     };
   }, []);
