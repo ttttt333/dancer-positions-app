@@ -127,7 +127,12 @@ import {
   mergeStageSnapshotIntoProject,
 } from "../lib/savedSpotStageSnapshot";
 import { getViewRosterEntries } from "../lib/viewRoster";
-import { resolveAutoStudentPick } from "../lib/shareViewStudentPick";
+import {
+  persistViewerStudentPick,
+  resolveAutoStudentPick,
+  toggleStudentPickMode,
+  type MemberStudentPick,
+} from "../lib/shareViewStudentPick";
 import { useShareViewAudioLoadStore } from "../store/shareViewAudioLoadStore";
 import { playbackEngine } from "../core/playbackEngine";
 import { ensureProjectAudioOnSupabase } from "../lib/ensureProjectAudioOnSupabase";
@@ -325,6 +330,7 @@ export function EditorPage({
   const shareCopiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** 生徒向け /view ルート: メンバー選択後の閲覧 */
   const [choreoStudentPick, setChoreoStudentPick] = useState<StudentPick | null>(null);
+  const lastViewerMemberPickRef = useRef<MemberStudentPick | null>(null);
   const [shareLinksOpen, setShareLinksOpen] = useState(false);
   const [choreoMemberSheetOpen, setChoreoMemberSheetOpen] = useState(false);
   /** 編集画面: 生徒用閲覧と同じ「一人強調」をプレビュー */
@@ -598,6 +604,39 @@ export function EditorPage({
     [choreoPublicView, serverId]
   );
 
+  const viewerRosterEntries = useMemo(
+    () => (project ? getViewRosterEntries(project) : []),
+    [project]
+  );
+  const viewerRosterMemberCount = viewerRosterEntries.length;
+
+  const applyChoreoStudentPick = useCallback(
+    (pick: StudentPick) => {
+      if (pick.kind === "member") {
+        lastViewerMemberPickRef.current = pick;
+      }
+      setChoreoStudentPick(pick);
+      persistViewerStudentPick(viewerLocalStorageKey, pick);
+    },
+    [viewerLocalStorageKey]
+  );
+
+  const onPickViewerAll = useCallback(() => {
+    applyChoreoStudentPick({ kind: "all" });
+  }, [applyChoreoStudentPick]);
+
+  const onPickViewerIndividual = useCallback(() => {
+    if (!choreoStudentPick) return;
+    const next = toggleStudentPickMode(
+      choreoStudentPick,
+      viewerRosterEntries,
+      lastViewerMemberPickRef.current
+    );
+    if (next.kind === "member") {
+      applyChoreoStudentPick(next);
+    }
+  }, [applyChoreoStudentPick, choreoStudentPick, viewerRosterEntries]);
+
   const shareLinksUrls = useMemo(() => {
     if (serverId == null) return { collab: "", view: "" };
     if (typeof window === "undefined") return { collab: "", view: "" };
@@ -617,15 +656,14 @@ export function EditorPage({
     if (!choreoPublicView || !project || choreoStudentPick != null) return;
     const pick = resolveAutoStudentPick(project, viewerLocalStorageKey);
     if (!pick) return;
-    setChoreoStudentPick(pick);
-    if (viewerLocalStorageKey) {
-      try {
-        localStorage.setItem(viewerLocalStorageKey, JSON.stringify(pick));
-      } catch {
-        /* ignore */
-      }
-    }
-  }, [choreoPublicView, project, viewerLocalStorageKey, choreoStudentPick]);
+    applyChoreoStudentPick(pick);
+  }, [
+    applyChoreoStudentPick,
+    choreoPublicView,
+    project,
+    viewerLocalStorageKey,
+    choreoStudentPick,
+  ]);
 
   /**
    * 上部波形ドック時は右列を狭くする（未ロード時は false で右列を広めに確保）。
@@ -2369,14 +2407,7 @@ export function EditorPage({
           entries={getViewRosterEntries(project)}
           gateMode="pick"
           onPick={(p) => {
-            setChoreoStudentPick(p);
-            if (viewerLocalStorageKey) {
-              try {
-                localStorage.setItem(viewerLocalStorageKey, JSON.stringify(p));
-              } catch {
-                /* ignore */
-              }
-            }
+            applyChoreoStudentPick(p);
           }}
         />
       </>
@@ -2652,7 +2683,10 @@ export function EditorPage({
     setPhotoParseOpen,
     setAiSuggestOpen,
     setChoreoMemberSheetOpen,
-    setChoreoStudentPick,
+    applyChoreoStudentPick,
+    onPickViewerAll,
+    onPickViewerIndividual,
+    viewerRosterMemberCount,
     setCloudSaveDialogOpen,
     setCueListModalOpen,
     setCueListPortalEl,

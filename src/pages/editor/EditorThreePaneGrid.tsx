@@ -16,7 +16,6 @@ import { useVideoExportUiStore } from "../../store/videoExportUiStore";
 import {
   PUBLIC_VIEWER_MARKER_DISPLAY_SCALE,
 } from "../../components/ChoreoViewerBottomBar";
-import { ChoreoViewerStageTransport } from "../../components/ChoreoViewerStageTransport";
 import { useViewerChromeStore } from "../../store/viewerChromeStore";
 
 const Stage3DView = lazy(() =>
@@ -124,7 +123,6 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const publicViewTightHeight = props.publicViewTightHeight as never;
   const viewerChromeCollapsed = props.viewerChromeCollapsed as never;
   const stageOnly = useViewerChromeStore((s) => s.stageOnly);
-  const controlsVisible = useViewerChromeStore((s) => s.controlsVisible);
   const cuePagerVisible = useViewerChromeStore((s) => s.cuePagerVisible);
   const chromeCollapsed = stageOnly || viewerChromeCollapsed;
   const resyncViewerPlayback = props.resyncViewerPlayback as never;
@@ -147,7 +145,6 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const setAddCueDialogOpen = props.setAddCueDialogOpen as never;
   const setAiSuggestOpen = props.setAiSuggestOpen as never;
   const setChoreoMemberSheetOpen = props.setChoreoMemberSheetOpen as never;
-  const setChoreoStudentPick = props.setChoreoStudentPick as never;
   const setCloudSaveDialogOpen = props.setCloudSaveDialogOpen as never;
   const setCueListModalOpen = props.setCueListModalOpen as never;
   const setCueListPortalEl = props.setCueListPortalEl as never;
@@ -443,9 +440,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                   choreoPublicView &&
                   choreoStudentPick &&
                   !chromeCollapsed
-                    ? publicViewTightHeight
-                      ? "calc(var(--choreo-viewer-bar-h, 44px) + var(--choreo-viewer-cuepager-h, 46px) + max(4px, env(safe-area-inset-bottom, 0px)))"
-                      : "calc(var(--choreo-viewer-bar-h, 104px) + env(safe-area-inset-bottom, 0px))"
+                    ? "max(4px, env(safe-area-inset-bottom, 0px))"
                     : choreoPublicView
                       ? "max(4px, env(safe-area-inset-bottom, 0px))"
                       : undefined,
@@ -1004,46 +999,17 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                   );
                 })() : null}
                 {publicNarrowLayout &&
-                publicViewTightHeight &&
-                choreoStudentPick &&
-                controlsVisible &&
-                !chromeCollapsed ? (
-                  <ChoreoViewerStageTransport
-                    project={project}
-                    timelineRef={timelineRef}
-                    trimStartSec={project.trimStartSec ?? 0}
-                    trimEndSec={project.trimEndSec ?? null}
-                    isPlaying={isPlaying}
-                    currentTime={currentTime}
-                    duration={duration}
-                    onBeforeTransport={() => {
-                      if (!playbackEngine.getMediaSourceUrl()) {
-                        reloadViewerAudio();
-                      }
-                    }}
-                  />
-                ) : null}
-                {publicNarrowLayout &&
                 (cuesSortedForStageJump.length > 0 || hasRosterMembers) &&
                 cuePagerVisible &&
                 !chromeCollapsed ? (
-                  // 生徒閲覧: タイムラインを非表示にしたため、position:fixed でボトムバーの上にフロート
                   <div
                     className="choreo-viewer-cuepager"
                     style={{
                       position: "fixed",
-                      bottom: publicViewTightHeight
-                        ? "calc(var(--choreo-viewer-bar-h, 44px) + max(4px, env(safe-area-inset-bottom, 0px)) + 4px)"
-                        : "calc(var(--choreo-viewer-bar-h, 104px) + max(8px, env(safe-area-inset-bottom, 0px)) + 8px)",
-                      left: publicViewTightHeight
-                        ? "50%"
-                        : "50%",
+                      left: "50%",
                       transform: "translateX(-50%)",
-                      zIndex: 91,
+                      zIndex: 84,
                       pointerEvents: "auto",
-                      maxWidth: publicViewTightHeight
-                        ? "min(calc(100% - 72px), 320px)"
-                        : "min(calc(100% - 16px), 320px)",
                     }}
                   >
                     <WorkbenchCuePager

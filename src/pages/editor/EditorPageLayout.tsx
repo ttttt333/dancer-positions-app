@@ -161,7 +161,10 @@ export function EditorPageLayout(props: EditorLayoutProps) {
   const setAddCueDialogOpen = props.setAddCueDialogOpen as never;
   const setAiSuggestOpen = props.setAiSuggestOpen as never;
   const setChoreoMemberSheetOpen = props.setChoreoMemberSheetOpen as never;
-  const setChoreoStudentPick = props.setChoreoStudentPick as never;
+  const applyChoreoStudentPick = props.applyChoreoStudentPick as never;
+  const onPickViewerAll = props.onPickViewerAll as never;
+  const onPickViewerIndividual = props.onPickViewerIndividual as never;
+  const viewerRosterMemberCount = props.viewerRosterMemberCount as never;
   const setCloudSaveDialogOpen = props.setCloudSaveDialogOpen as never;
   const setCueListModalOpen = props.setCueListModalOpen as never;
   const setCueListPortalEl = props.setCueListPortalEl as never;
@@ -248,6 +251,9 @@ export function EditorPageLayout(props: EditorLayoutProps) {
         choreoPublicView && publicViewTightHeight
           ? "choreo-public-view-root--landscape"
           : "",
+        choreoPublicView && viewerWaveVisible && !viewerChromeCollapsed
+          ? "choreo-public-view-root--wave-visible"
+          : "",
         mobileStackEditor ? "editor-page-root--mobile-editor" : "",
         mobileStackEditor && editorMobileLandscape
           ? "editor-page-root--mobile-landscape"
@@ -278,8 +284,9 @@ export function EditorPageLayout(props: EditorLayoutProps) {
               ["--choreo-viewer-bar-h" as string]: viewerChromeCollapsed
                 ? "0px"
                 : `${viewerBarHeightPx}px`,
+              ["--choreo-viewer-wave-h" as string]: `${publicViewWaveDockPx ?? PUBLIC_VIEW_WAVE_DOCK_HEIGHT_PX}px`,
               ["--choreo-viewer-cuepager-h" as string]:
-                viewerChromeCollapsed || !publicViewTightHeightForVars || !cuePagerVisible
+                viewerChromeCollapsed || !cuePagerVisible
                   ? "0px"
                   : "46px",
             }

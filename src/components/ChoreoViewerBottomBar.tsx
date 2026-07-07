@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useEffect } from "react";
 import type { RefObject } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import type { TimelinePanelHandle } from "./timelinePanelTypes";
-import type { StudentPick } from "./ChoreoStudentViewGate";
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
 import { shell } from "../theme/choreoShell";
 import { formatMmSsFloor } from "../lib/timeFormat";
@@ -16,32 +15,23 @@ import {
 import { VideoExportButton } from "./VideoExportButton";
 import { useI18n } from "../i18n/I18nContext";
 import { playbackEngine } from "../core/playbackEngine";
-import {
-  seekPlaybackClampedAndSyncStore,
-  stopPlaybackAtTrimStart,
-} from "../lib/playbackTransport";
-import { primeAudioForUserGesture } from "../lib/playbackViewerIntent";
-import {
-  toggleViewerPlayback,
-  tryStartViewerPlaybackFromUserGesture,
-} from "../lib/viewerPlayback";
 import { hasViewerPlayIntent } from "../lib/playbackViewerIntent";
 import { useWaveformLoadProgressStore } from "../store/waveformLoadProgressStore";
 import { useShareViewAudioLoadStore } from "../store/shareViewAudioLoadStore";
 import { useViewerChromeStore } from "../store/viewerChromeStore";
 import { ShareViewAudioLoadBanner } from "./ShareViewAudioLoadBanner";
+import { useViewerTransportActions } from "../hooks/useViewerTransportActions";
+import type { StudentPick } from "./ChoreoStudentViewGate";
 
 /** 閲覧共有ステージ上のダンサー印の表示倍率（従来比 2/3） */
 export const PUBLIC_VIEWER_MARKER_DISPLAY_SCALE = 2 / 3;
 
 function viewerBarHeightPx(
   tight: boolean,
-  showTransportRow: boolean,
   showDetailsRow: boolean,
   showAudioRow: boolean
 ): number {
   let h = 0;
-  if (showTransportRow) h += tight ? 48 : 52;
   if (showAudioRow) h += tight ? 36 : 40;
   if (showDetailsRow) h += tight ? 88 : 96;
   return h;
@@ -91,63 +81,15 @@ export function ChoreoViewerTransportControls({
     flexShrink: 0,
   };
 
-  const seekBack = useCallback(() => {
-    onBeforeTransport?.();
-    if (playbackEngine.getMediaSourceUrl()) {
-      seekPlaybackClampedAndSyncStore({
-        t: playbackEngine.getCurrentTime() - 5,
-        durationSec: duration,
-        trimStartSec,
-        trimEndSec,
-      });
-      return;
-    }
-    timelineRef?.current?.seekBackward5Sec();
-  }, [duration, onBeforeTransport, timelineRef, trimEndSec, trimStartSec]);
-
-  const seekForward = useCallback(() => {
-    onBeforeTransport?.();
-    if (playbackEngine.getMediaSourceUrl()) {
-      seekPlaybackClampedAndSyncStore({
-        t: playbackEngine.getCurrentTime() + 5,
-        durationSec: duration,
-        trimStartSec,
-        trimEndSec,
-      });
-      return;
-    }
-    timelineRef?.current?.seekForward5Sec();
-  }, [duration, onBeforeTransport, timelineRef, trimEndSec, trimStartSec]);
-
-  const playGestureHandledRef = useRef(false);
-
-  const onPlayPointerDown = useCallback(() => {
-    if (tryStartViewerPlaybackFromUserGesture(project, trimStartSec)) {
-      playGestureHandledRef.current = true;
-      return;
-    }
-    primeAudioForUserGesture();
-  }, [project, trimStartSec]);
-
-  const togglePlay = useCallback(() => {
-    if (playGestureHandledRef.current) {
-      playGestureHandledRef.current = false;
-      if (!playbackEngine.isPaused()) return;
-    }
-    if (!playbackEngine.getMediaSourceUrl()) {
-      void onBeforeTransport?.();
-    }
-    toggleViewerPlayback(project, trimStartSec);
-  }, [onBeforeTransport, project, trimStartSec]);
-
-  const stopPlayback = useCallback(() => {
-    onBeforeTransport?.();
-    if (playbackEngine.getMediaSourceUrl()) {
-      stopPlaybackAtTrimStart(trimStartSec);
-      return;
-    }
-    timelineRef?.current?.stopPlayback();
-  }, [onBeforeTransport, timelineRef, trimStartSec]);
+  const { seekBack, seekForward, onPlayPointerDown, togglePlay, stopPlayback } =
+    useViewerTransportActions({
+      project,
+      timelineRef,
+      trimStartSec,
+      trimEndSec,
+      duration,
+      onBeforeTransport,
+    });
 
   return (
     <>
@@ -244,39 +186,28 @@ export function ChoreoViewerChromeRestoreFab({
 }
 
 export type ChoreoViewerBottomBarProps = {
-  timelineRef: RefObject<TimelinePanelHandle | null>;
   project: ChoreographyProjectJson;
   choreoStudentPick: StudentPick;
   isPlaying: boolean;
-  currentTime: number;
   duration: number;
   tightHeight: boolean;
-  landscapeMode: boolean;
-  onBeforeTransport?: () => void;
   onOpenMemberSheet: () => void;
   onBarHeightChange?: (px: number) => void;
   fileName: string;
 };
 
 export function ChoreoViewerBottomBar({
-  timelineRef,
   project,
   choreoStudentPick,
   isPlaying,
-  currentTime,
   duration,
   tightHeight,
-  landscapeMode,
-  onBeforeTransport,
   onOpenMemberSheet,
   onBarHeightChange,
   fileName,
 }: ChoreoViewerBottomBarProps) {
   const { t } = useI18n();
-  const trimStartSec = project.trimStartSec ?? 0;
-  const trimEndSec = project.trimEndSec ?? null;
   const stageOnly = useViewerChromeStore((s) => s.stageOnly);
-  const controlsVisible = useViewerChromeStore((s) => s.controlsVisible);
   const detailsVisible = useViewerChromeStore((s) => s.detailsVisible);
   const shareAudioPhase = useShareViewAudioLoadStore((s) => s.phase);
   const waveLoad = useWaveformLoadProgressStore((s) => s.progress);
@@ -297,8 +228,6 @@ export function ChoreoViewerBottomBar({
     playbackEngine.isPaused() &&
     hasViewerPlayIntent();
 
-  const showTransportRow =
-    !landscapeMode && controlsVisible && !stageOnly;
   const showAudioRow =
     !stageOnly &&
     (shareAudioPhase === "loading" ||
@@ -307,11 +236,10 @@ export function ChoreoViewerBottomBar({
       shareAudioPhase === "unconfigured" ||
       Boolean(audioLoadError));
   const showDetailsRow = detailsVisible && !stageOnly;
-  const visible = showTransportRow || showAudioRow || showDetailsRow || awaitingAudioTap;
+  const visible = showAudioRow || showDetailsRow || awaitingAudioTap;
 
   const barHeightPx = viewerBarHeightPx(
     tightHeight,
-    showTransportRow,
     showDetailsRow,
     showAudioRow || awaitingAudioTap
   );
@@ -350,23 +278,6 @@ export function ChoreoViewerBottomBar({
         ["--choreo-viewer-bar-h" as string]: `${barHeightPx}px`,
       }}
     >
-      {showTransportRow ? (
-        <div className="choreo-viewer-playback-row">
-          <div className="choreo-viewer-transport-group">
-            <ChoreoViewerTransportControls
-              project={project}
-              timelineRef={timelineRef}
-              trimStartSec={trimStartSec}
-              trimEndSec={trimEndSec}
-              isPlaying={isPlaying}
-              currentTime={currentTime}
-              duration={duration}
-              compact={tightHeight}
-              onBeforeTransport={onBeforeTransport}
-            />
-          </div>
-        </div>
-      ) : null}
       {showAudioRow ? (
         <ShareViewAudioLoadBanner
           tight={tightHeight}

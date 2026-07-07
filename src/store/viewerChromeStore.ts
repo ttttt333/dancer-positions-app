@@ -27,7 +27,7 @@ export type ViewerChromeStore = {
 };
 
 const portraitDefaults = {
-  waveVisible: true,
+  waveVisible: false,
   controlsVisible: true,
   cuePagerVisible: true,
   detailsVisible: false,
@@ -36,7 +36,7 @@ const portraitDefaults = {
 const landscapeDefaults = {
   waveVisible: false,
   controlsVisible: true,
-  cuePagerVisible: false,
+  cuePagerVisible: true,
   detailsVisible: false,
 };
 
