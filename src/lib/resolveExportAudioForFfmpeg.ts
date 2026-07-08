@@ -44,7 +44,15 @@ export async function resolveExportAudioBytesForFfmpeg(
   }
 
   const aid = fallback.audioAssetId;
-  if (aid != null && getToken()) {
+  const rawPath = fallback.audioSupabasePath;
+  const path =
+    typeof rawPath === "string" && rawPath.trim().length > 0
+      ? rawPath.trim()
+      : null;
+
+  // Cache API は端末ローカルなので認証トークン不要。匿名の共有閲覧でも
+  // 再生時にダウンロード済みの音源をここから読めるよう、トークン判定の外で試す。
+  if (aid != null) {
     const fromCache = await bytesFromMediaCache(
       waveMediaCacheKeyForServerAsset(aid)
     );
@@ -52,6 +60,19 @@ export async function resolveExportAudioBytesForFfmpeg(
       onProgress?.(1);
       return fromCache;
     }
+  }
+  if (path) {
+    const fromCache = await bytesFromMediaCache(
+      waveMediaCacheKeyForSupabase(path)
+    );
+    if (fromCache?.byteLength) {
+      onProgress?.(1);
+      return fromCache;
+    }
+  }
+
+  // リモート再取得は認証が要るためトークンがある場合のみ。
+  if (aid != null && getToken()) {
     try {
       const { buffer } = await fetchAuthorizedAudio(aid, (r) =>
         onProgress?.(0.88 + r * 0.12)
@@ -62,19 +83,7 @@ export async function resolveExportAudioBytesForFfmpeg(
     }
   }
 
-  const rawPath = fallback.audioSupabasePath;
-  const path =
-    typeof rawPath === "string" && rawPath.trim().length > 0
-      ? rawPath.trim()
-      : null;
   if (path && isSupabaseBackend() && getToken()) {
-    const fromCache = await bytesFromMediaCache(
-      waveMediaCacheKeyForSupabase(path)
-    );
-    if (fromCache?.byteLength) {
-      onProgress?.(1);
-      return fromCache;
-    }
     try {
       const { buffer } = await supabaseDownloadProjectAudioWithCache(path, (r) =>
         onProgress?.(0.88 + r * 0.12)

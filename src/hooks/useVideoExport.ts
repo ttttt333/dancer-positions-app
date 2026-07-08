@@ -97,6 +97,18 @@ function resolveQuality(options: ExportOptions): VideoExportQualityPreset {
   return options.quality ?? DEFAULT_VIDEO_EXPORT_QUALITY;
 }
 
+/** 音源が実際に設定されているか（fallback オブジェクトの存在ではなく中身で判定） */
+function isAudioConfigured(options: ExportOptions): boolean {
+  if (options.audioUrl) return true;
+  const f = options.audioFallback;
+  return Boolean(
+    f &&
+      (f.audioAssetId != null ||
+        f.audioSupabasePath ||
+        f.flowLocalAudioKey)
+  );
+}
+
 /** エンコード中に UI が止まって見えない区間向けの緩やかな進捗 */
 function startProgressCreep(
   getProgress: () => number,
@@ -555,8 +567,7 @@ async function tryWebCodecsExport(
 ): Promise<VideoExportResult | null> {
   const { setProgressValue, patch, resetRun } = store;
 
-  const needAudio =
-    Boolean(options.audioUrl) || Boolean(options.audioFallback);
+  const needAudio = isAudioConfigured(options);
   let support;
   try {
     support = await checkWebCodecsMp4Support(quality, needAudio);
@@ -660,6 +671,14 @@ async function tryWebCodecsExport(
         if (muxed) {
           blob = muxed;
           hasAudio = true;
+        } else if (needAudio) {
+          // 音源バイトが取得できなかった。無音で出さず、再生音をそのまま録れる
+          // 直接録画（実時間）へ委譲して音付きを保証する。
+          console.warn(
+            "[tryWebCodecsExport] audio bytes unavailable; falling back to realtime record for audio"
+          );
+          resetRun();
+          return null;
         }
       } finally {
         stopCreep();
@@ -735,14 +754,7 @@ export function useVideoExport() {
 
     // ─── L: Safari/iOS の MP4 直接録画（FFmpeg.wasm を迂回） ───
     const directMime = getDirectMp4RecorderMimeType();
-    const audioConfigured =
-      Boolean(options.audioUrl) ||
-      Boolean(
-        options.audioFallback &&
-          (options.audioFallback.audioAssetId != null ||
-            options.audioFallback.audioSupabasePath ||
-            options.audioFallback.flowLocalAudioKey)
-      );
+    const audioConfigured = isAudioConfigured(options);
     // 音源が設定されているのに再生用 URL が未取得なら、音声解決に強い
     // FFmpeg 経路を使う（無音 MP4 を避ける）。
     const directAudioReady =
