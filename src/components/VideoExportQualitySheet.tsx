@@ -30,9 +30,10 @@ export function VideoExportQualitySheet({
   const isExporting = useVideoExportRunStore((s) => s.isExporting);
 
   // M: 画質選択中に FFmpeg コアを先読み。
-  // Safari 等の MP4 直接出力環境では FFmpeg 自体が不要なので先読みしない。
+  // WebCodecs（本命）や MP4 直接出力が使える環境では FFmpeg 自体が不要なので先読みしない。
   useEffect(() => {
     if (!open) return;
+    if (typeof VideoEncoder !== "undefined") return;
     if (getDirectMp4RecorderMimeType()) return;
     void preloadFFmpegWasm();
   }, [open]);

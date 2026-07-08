@@ -19,6 +19,10 @@ import {
   getSupportedRecorderMimeType,
 } from "../lib/videoExportCapabilities";
 import { recordDirectMp4, ExportBackgroundedError } from "../lib/directMp4Export";
+import {
+  checkWebCodecsMp4Support,
+  exportMp4WithWebCodecs,
+} from "../lib/webCodecsMp4Export";
 import { resolvePlaybackAudioUrlForExport } from "../lib/resolvePlaybackAudioUrlForExport";
 import { drawStageExportFrame } from "../lib/drawStageExportFrame";
 import type { StageExportAppearance } from "../lib/stageExportAppearance";
@@ -462,6 +466,112 @@ async function tryDirectMp4Export(
   }
 }
 
+/**
+ * P: WebCodecs による MP4 書き出し（本命・最速経路）。
+ * tight-loop でエンコードするため曲尺より大幅に速い。FFmpeg.wasm も不要。
+ * 非対応・失敗時は null（直接録画 / FFmpeg 経路へフォールバック）。
+ */
+async function tryWebCodecsExport(
+  options: ExportOptions,
+  quality: VideoExportQualityPreset,
+  store: ExportStoreActions
+): Promise<VideoExportResult | null> {
+  const { setProgressValue, patch, resetRun } = store;
+
+  const needAudio =
+    Boolean(options.audioUrl) || Boolean(options.audioFallback);
+  let support;
+  try {
+    support = await checkWebCodecsMp4Support(quality, needAudio);
+  } catch (e) {
+    console.warn("[tryWebCodecsExport] support check failed:", e);
+    return null;
+  }
+  if (!support.supported || !support.videoCodec) {
+    return null;
+  }
+
+  const canvas = options.canvasRef.current ?? document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  try {
+    videoExportCancelRef.current = false;
+    patch({
+      isExporting: true,
+      phase: "recording",
+      encodeSubphase: null,
+      phaseLabel: VIDEO_EXPORT_PHASE_LABELS.encode,
+      progressMessage: "高速エンコード中…",
+      qualityHint: `${formatVideoExportQualitySpec(quality)} · WebCodecs 高速出力`,
+    });
+    setProgressValue(0);
+
+    const { blob, hasAudio } = await exportMp4WithWebCodecs({
+      canvas,
+      ctx,
+      quality,
+      videoCodec: support.videoCodec,
+      durationSec: options.durationSec,
+      audioStartSec: options.audioStartSec ?? 0,
+      audioUrl: options.audioUrl,
+      audioFallback: options.audioFallback,
+      formations: options.formations,
+      stageAppearance: options.stageAppearance,
+      onProgress: (ratio) => {
+        // エンコード（0〜90%）→ 保存（90〜100%）
+        setProgressValue(Math.min(90, ratio * 90));
+      },
+      onAudioMissing: () => {
+        patch({ progressMessage: "音源なしでエンコード中…" });
+        options.onAudioSkipped?.();
+      },
+      isCancelled: () => videoExportCancelRef.current,
+    });
+
+    if (videoExportCancelRef.current) {
+      resetRun();
+      throw new DOMException("Export aborted", "AbortError");
+    }
+
+    const downloadName = `${safeVideoBaseName(options.fileName)}.mp4`;
+    const shared = await deliverExportedVideo(
+      blob,
+      downloadName,
+      options,
+      setProgressValue,
+      patch
+    );
+
+    patch({
+      phase: "done",
+      encodeSubphase: null,
+      phaseLabel: "完了",
+      progressMessage: shared
+        ? "共有シートを開きました"
+        : hasAudio
+          ? "保存しました"
+          : "音源なしで保存しました",
+    });
+    setProgressValue(100);
+    setTimeout(() => resetRun(), 1200);
+
+    return {
+      downloadName,
+      shared,
+      format: "mp4",
+      size: blob.size,
+    };
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
+    // 失敗時は直接録画 / FFmpeg 経路へフォールバック
+    console.warn("[tryWebCodecsExport] falling back:", error);
+    return null;
+  }
+}
+
 export function useVideoExport() {
   const isExporting = useVideoExportRunStore((s) => s.isExporting);
   const progress = useVideoExportRunStore((s) => s.progress);
@@ -479,6 +589,16 @@ export function useVideoExport() {
     const quality = resolveQuality(options);
     let videoStream: MediaStream | null = null;
     let recordedBlob: Blob | null = null;
+
+    // ─── P: WebCodecs 高速書き出し（最速・本命経路） ───
+    // tight-loop エンコードのため曲尺より大幅に速く、FFmpeg も不要。
+    // 音声も強力なフォールバック連鎖で解決するため、直接録画より優先する。
+    const webCodecsResult = await tryWebCodecsExport(options, quality, {
+      setProgressValue,
+      patch,
+      resetRun,
+    });
+    if (webCodecsResult) return webCodecsResult;
 
     // ─── L: Safari/iOS の MP4 直接録画（FFmpeg.wasm を迂回） ───
     const directMime = getDirectMp4RecorderMimeType();
