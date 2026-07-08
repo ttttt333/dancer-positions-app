@@ -30,17 +30,12 @@ export function VideoExportQualitySheet({
   const isExporting = useVideoExportRunStore((s) => s.isExporting);
 
   // M: 画質選択中に FFmpeg コアを先読み。
-  // 完全な WebCodecs（映像 VideoEncoder + 音声 AudioEncoder）が使える環境では
-  // FFmpeg 自体が不要なので先読みしない。Safari 16.4〜18.7 は映像のみ WebCodecs で、
-  // 音声結合に FFmpeg を使うため先読みしておく。
+  // 音声結合は常に FFmpeg で行う（WebCodecs 映像 + FFmpeg 音声結合）ため、
+  // 音源付き作品ではほぼ確実に FFmpeg を使う。先読みで待ち時間を隠す。
+  // WebCodecs 非対応かつ直接録画のみ可（古い Safari）の場合だけ不要。
   useEffect(() => {
     if (!open) return;
-    const fullWebCodecs =
-      typeof VideoEncoder !== "undefined" &&
-      typeof AudioEncoder !== "undefined";
-    if (fullWebCodecs) return;
     if (getDirectMp4RecorderMimeType() && typeof VideoEncoder === "undefined") {
-      // WebCodecs 非対応かつ直接録画可（古い Safari）→ FFmpeg 不要
       return;
     }
     void preloadFFmpegWasm();

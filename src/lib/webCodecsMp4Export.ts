@@ -139,12 +139,11 @@ export async function checkWebCodecsMp4Support(
     };
   }
 
-  let audioMode: WebCodecsAudioMode = "none";
-  if (needAudio) {
-    // 一般的な 48kHz ステレオで判定（実際の音源に合わせて後で再確認）
-    const aac = await isAacEncodeSupported(48_000, 2);
-    audioMode = aac ? "encode" : "mux-later";
-  }
+  // 音声は常に FFmpeg 結合（mux-later）に一本化する。
+  // AudioEncoder + mp4-muxer 経路はブラウザ差（Safari の planar/interleaved 差など）で
+  // 「音声トラックが空になる＝無音」不具合が起きやすく、端末での検証も難しいため、
+  // 実績のある FFmpeg 結合（映像は -c:v copy で無劣化）に寄せて音を確実に入れる。
+  const audioMode: WebCodecsAudioMode = needAudio ? "mux-later" : "none";
 
   return { supported: true, videoCodec, audioMode };
 }
