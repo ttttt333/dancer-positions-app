@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { EditorSideSheet } from "./EditorSideSheet";
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
 import {
@@ -5,6 +6,8 @@ import {
   VIDEO_EXPORT_QUALITY_PRESETS,
   type VideoExportQualityPreset,
 } from "../lib/videoExportQualityPresets";
+import { getDirectMp4RecorderMimeType } from "../lib/videoExportCapabilities";
+import { preloadFFmpegWasm } from "../lib/ffmpegWasm";
 import { useVideoExportRunStore } from "../store/videoExportRunStore";
 
 type Props = {
@@ -25,6 +28,14 @@ export function VideoExportQualitySheet({
   viewerMode = false,
 }: Props) {
   const isExporting = useVideoExportRunStore((s) => s.isExporting);
+
+  // M: 画質選択中に FFmpeg コアを先読み。
+  // Safari 等の MP4 直接出力環境では FFmpeg 自体が不要なので先読みしない。
+  useEffect(() => {
+    if (!open) return;
+    if (getDirectMp4RecorderMimeType()) return;
+    void preloadFFmpegWasm();
+  }, [open]);
 
   return (
     <EditorSideSheet

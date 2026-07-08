@@ -40,6 +40,31 @@ export function getSupportedRecorderMimeType(): string {
   );
 }
 
+/**
+ * MediaRecorder が H.264 + AAC の MP4 を直接出力できるか判定する。
+ * 対応していれば（主に Safari/iOS）FFmpeg.wasm を丸ごと迂回できる。
+ * 非対応（主に Android Chrome）は null。
+ */
+export function getDirectMp4RecorderMimeType(): string | null {
+  if (typeof MediaRecorder === "undefined") return null;
+  const candidates = [
+    "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
+    "video/mp4;codecs=avc1.42001f,mp4a.40.2",
+    "video/mp4;codecs=avc1,mp4a.40.2",
+    "video/mp4;codecs=avc1.42E01E",
+    "video/mp4;codecs=avc1",
+    "video/mp4",
+  ];
+  for (const m of candidates) {
+    try {
+      if (MediaRecorder.isTypeSupported(m)) return m;
+    } catch {
+      /* ignore */
+    }
+  }
+  return null;
+}
+
 function isIosSafari(): boolean {
   if (typeof navigator === "undefined") return false;
   const ua = navigator.userAgent;

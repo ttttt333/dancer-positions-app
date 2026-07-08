@@ -15,8 +15,11 @@ import {
 import { ffmpegExecChecked, loadFFmpegWasm, resetFFmpegWasm } from "../lib/ffmpegWasm";
 import {
   checkVideoExportCapabilities,
+  getDirectMp4RecorderMimeType,
   getSupportedRecorderMimeType,
 } from "../lib/videoExportCapabilities";
+import { recordDirectMp4 } from "../lib/directMp4Export";
+import { resolvePlaybackAudioUrlForExport } from "../lib/resolvePlaybackAudioUrlForExport";
 import { drawStageExportFrame } from "../lib/drawStageExportFrame";
 import type { StageExportAppearance } from "../lib/stageExportAppearance";
 import {
@@ -351,6 +354,109 @@ async function deliverExportedVideo(
   return false;
 }
 
+type ExportStoreActions = {
+  setProgressValue: (n: number) => void;
+  patch: (partial: {
+    isExporting?: boolean;
+    phase?: ExportPhase;
+    encodeSubphase?: ExportEncodeSubphase | null;
+    phaseLabel?: string;
+    progressMessage?: string;
+    qualityHint?: string;
+  }) => void;
+  resetRun: () => void;
+};
+
+/**
+ * L: MediaRecorder が MP4 を直接出せる環境向けのリアルタイム録画経路。
+ * 成功時は VideoExportResult、使えないときは null（FFmpeg 経路へフォールバック）。
+ */
+async function tryDirectMp4Export(
+  options: ExportOptions,
+  quality: VideoExportQualityPreset,
+  mimeType: string,
+  store: ExportStoreActions
+): Promise<VideoExportResult | null> {
+  const { setProgressValue, patch, resetRun } = store;
+  const canvas = options.canvasRef.current ?? document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  try {
+    videoExportCancelRef.current = false;
+    patch({
+      isExporting: true,
+      phase: "recording",
+      encodeSubphase: null,
+      phaseLabel: VIDEO_EXPORT_PHASE_LABELS.capture,
+      progressMessage: "音源に合わせて録画中…（曲の長さだけかかります）",
+      qualityHint: `${formatVideoExportQualitySpec(quality)} · MP4 直接出力`,
+    });
+    setProgressValue(0);
+
+    const { blob, hasAudio } = await recordDirectMp4({
+      canvas,
+      ctx,
+      mimeType,
+      quality,
+      durationSec: options.durationSec,
+      audioStartSec: options.audioStartSec ?? 0,
+      formations: options.formations,
+      stageAppearance: options.stageAppearance,
+      onProgress: (ratio) => {
+        // 録画（0〜90%）→ 保存（90〜100%）
+        setProgressValue(Math.min(90, ratio * 90));
+      },
+      onAudioMissing: () => {
+        patch({ progressMessage: "音源なしで録画中…" });
+        options.onAudioSkipped?.();
+      },
+      isCancelled: () => videoExportCancelRef.current,
+    });
+
+    if (videoExportCancelRef.current) {
+      resetRun();
+      throw new DOMException("Export aborted", "AbortError");
+    }
+
+    const downloadName = `${safeVideoBaseName(options.fileName)}.mp4`;
+    const shared = await deliverExportedVideo(
+      blob,
+      downloadName,
+      options,
+      setProgressValue,
+      patch
+    );
+
+    patch({
+      phase: "done",
+      encodeSubphase: null,
+      phaseLabel: "完了",
+      progressMessage: shared
+        ? "共有シートを開きました"
+        : hasAudio
+          ? "保存しました"
+          : "音源なしで保存しました",
+    });
+    setProgressValue(100);
+    setTimeout(() => resetRun(), 1200);
+
+    return {
+      downloadName,
+      shared,
+      format: "mp4",
+      size: blob.size,
+    };
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
+    // 直接録画に失敗したら FFmpeg 経路へフォールバック
+    console.warn("[tryDirectMp4Export] falling back to FFmpeg path:", error);
+    return null;
+  }
+}
+
 export function useVideoExport() {
   const isExporting = useVideoExportRunStore((s) => s.isExporting);
   const progress = useVideoExportRunStore((s) => s.progress);
@@ -368,6 +474,30 @@ export function useVideoExport() {
     const quality = resolveQuality(options);
     let videoStream: MediaStream | null = null;
     let recordedBlob: Blob | null = null;
+
+    // ─── L: Safari/iOS の MP4 直接録画（FFmpeg.wasm を迂回） ───
+    const directMime = getDirectMp4RecorderMimeType();
+    const audioConfigured =
+      Boolean(options.audioUrl) ||
+      Boolean(
+        options.audioFallback &&
+          (options.audioFallback.audioAssetId != null ||
+            options.audioFallback.audioSupabasePath ||
+            options.audioFallback.flowLocalAudioKey)
+      );
+    // 音源が設定されているのに再生用 URL が未取得なら、音声解決に強い
+    // FFmpeg 経路を使う（無音 MP4 を避ける）。
+    const directAudioReady =
+      !audioConfigured || resolvePlaybackAudioUrlForExport() != null;
+    if (directMime && directAudioReady) {
+      const directResult = await tryDirectMp4Export(options, quality, directMime, {
+        setProgressValue,
+        patch,
+        resetRun,
+      });
+      if (directResult) return directResult;
+      // 直接録画が使えなかった場合は下の FFmpeg 経路にフォールバック
+    }
 
     try {
       videoExportCancelRef.current = false;
