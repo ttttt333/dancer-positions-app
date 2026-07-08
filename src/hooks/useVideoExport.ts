@@ -55,7 +55,7 @@ export type VideoExportResult = {
 
 export type { VideoExportCapabilityCheck } from "../lib/videoExportCapabilities";
 export { checkVideoExportCapabilities };
-export type { ExportPhase, ExportEncodeSubphase, VideoExportResult };
+export type { ExportPhase, ExportEncodeSubphase };
 export type { VideoExportQualityPreset };
 
 export type ExportOptions = {
@@ -314,6 +314,83 @@ async function muxRecordedWebmToMp4(
   }
 }
 
+/**
+ * 既に H.264 になっている MP4（WebCodecs 出力）へ音声だけを結合する。
+ * 映像は `-c:v copy` で再エンコードしないため軽量・高速。
+ * 音源が取得できない場合は元の映像のみ blob を返す（無音）。
+ */
+async function muxAudioIntoMp4(
+  ffmpeg: FFmpeg,
+  params: {
+    videoBlob: Blob;
+    audioUrl: string | null;
+    audioFallback?: ExportAudioFallback;
+    audioStartSec: number;
+    durationSec: number;
+  },
+  hooks?: {
+    onAudioProgress?: (ratio: number) => void;
+    onMuxStart?: () => void;
+    onAudioSkipped?: () => void;
+  }
+): Promise<Blob | null> {
+  const { videoBlob, audioUrl, audioFallback, audioStartSec, durationSec } =
+    params;
+
+  let audioData: Uint8Array | null = null;
+  if (audioFallback) {
+    audioData = await resolveExportAudioBytesForFfmpeg(
+      audioFallback,
+      hooks?.onAudioProgress
+    );
+  } else if (audioUrl) {
+    audioData = await fetchAudioForFfmpeg(audioUrl, hooks?.onAudioProgress);
+  }
+  if (!audioData) {
+    hooks?.onAudioSkipped?.();
+    return null;
+  }
+
+  await ffmpeg.writeFile("wc_video.mp4", await fetchFile(videoBlob));
+  await ffmpeg.writeFile("wc_audio_src", audioData);
+  hooks?.onMuxStart?.();
+
+  await ffmpegExecChecked(ffmpeg, [
+    "-y",
+    "-i",
+    "wc_video.mp4",
+    "-i",
+    "wc_audio_src",
+    "-filter:a",
+    `atrim=start=${audioStartSec}:duration=${durationSec},asetpts=PTS-STARTPTS`,
+    "-map",
+    "0:v:0",
+    "-map",
+    "1:a:0",
+    "-c:v",
+    "copy",
+    "-c:a",
+    "aac",
+    "-b:a",
+    "128k",
+    "-t",
+    String(durationSec),
+    "-movflags",
+    "+faststart",
+    "wc_output.mp4",
+  ]);
+
+  const data = await ffmpeg.readFile("wc_output.mp4");
+  await ffmpeg.deleteFile("wc_video.mp4").catch(() => {});
+  await ffmpeg.deleteFile("wc_audio_src").catch(() => {});
+  await ffmpeg.deleteFile("wc_output.mp4").catch(() => {});
+
+  if (!data || (data instanceof Uint8Array && data.byteLength < 256)) {
+    throw new Error("音声結合の結果が空です");
+  }
+  return blobFromFfmpegFile(data);
+}
+
 async function deliverExportedVideo(
   blob: Blob,
   downloadName: string,
@@ -495,6 +572,10 @@ async function tryWebCodecsExport(
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
 
+  // mux-later では映像エンコード後に FFmpeg で音声結合するため進捗上限を下げる
+  const needsMuxLater = support.audioMode === "mux-later";
+  const encodeCeil = needsMuxLater ? 65 : 90;
+
   try {
     videoExportCancelRef.current = false;
     patch({
@@ -507,11 +588,12 @@ async function tryWebCodecsExport(
     });
     setProgressValue(0);
 
-    const { blob, hasAudio } = await exportMp4WithWebCodecs({
+    let { blob, hasAudio } = await exportMp4WithWebCodecs({
       canvas,
       ctx,
       quality,
       videoCodec: support.videoCodec,
+      audioMode: support.audioMode,
       durationSec: options.durationSec,
       audioStartSec: options.audioStartSec ?? 0,
       audioUrl: options.audioUrl,
@@ -519,8 +601,7 @@ async function tryWebCodecsExport(
       formations: options.formations,
       stageAppearance: options.stageAppearance,
       onProgress: (ratio) => {
-        // エンコード（0〜90%）→ 保存（90〜100%）
-        setProgressValue(Math.min(90, ratio * 90));
+        setProgressValue(Math.min(encodeCeil, ratio * encodeCeil));
       },
       onAudioMissing: () => {
         patch({ progressMessage: "音源なしでエンコード中…" });
@@ -532,6 +613,58 @@ async function tryWebCodecsExport(
     if (videoExportCancelRef.current) {
       resetRun();
       throw new DOMException("Export aborted", "AbortError");
+    }
+
+    // ── mux-later: 映像は WebCodecs 済み。音声だけ FFmpeg で結合（映像はコピー） ──
+    if (needsMuxLater) {
+      patch({
+        phase: "converting",
+        encodeSubphase: "load",
+        progressMessage: "音源を結合する準備中…",
+      });
+      const ffmpeg = await loadFFmpegWasm((p) => {
+        setProgressValue(65 + p.ratio * 10);
+        patch({ progressMessage: p.message });
+        options.onFfmpegFirstLoad?.();
+      });
+      const stopCreep = startProgressCreep(
+        () => videoExportProgressRef.current,
+        setProgressValue,
+        88
+      );
+      try {
+        const muxed = await muxAudioIntoMp4(
+          ffmpeg,
+          {
+            videoBlob: blob,
+            audioUrl: options.audioUrl,
+            audioFallback: options.audioFallback,
+            audioStartSec: options.audioStartSec ?? 0,
+            durationSec: options.durationSec,
+          },
+          {
+            onAudioProgress: (r) => {
+              setProgressValue(76 + r * 6);
+              patch({ progressMessage: "音源を取得中…" });
+            },
+            onMuxStart: () => {
+              patch({ progressMessage: "音源を結合中…" });
+              setProgressValue(83);
+            },
+            onAudioSkipped: () => {
+              patch({ progressMessage: "音源なしで保存します…" });
+              options.onAudioSkipped?.();
+            },
+          }
+        );
+        if (muxed) {
+          blob = muxed;
+          hasAudio = true;
+        }
+      } finally {
+        stopCreep();
+      }
+      setProgressValue(90);
     }
 
     const downloadName = `${safeVideoBaseName(options.fileName)}.mp4`;

@@ -94,18 +94,27 @@ async function isAacEncodeSupported(
   }
 }
 
+/**
+ * 音声の取り扱い方針。
+ * - `none`: 音声なし（映像のみ）
+ * - `encode`: AudioEncoder で AAC まで WebCodecs 内で完結（Safari 26+ / Chromium）
+ * - `mux-later`: 映像だけ WebCodecs で出し、音声は後段（FFmpeg）で結合
+ *   （AudioEncoder 非対応の Safari 16.4〜18.7 向け。映像はコピーで再エンコード無し）
+ */
+export type WebCodecsAudioMode = "none" | "encode" | "mux-later";
+
 export type WebCodecsSupport = {
+  /** 映像を WebCodecs でエンコードできるか（この経路を使えるか） */
   supported: boolean;
   videoCodec: string | null;
-  /** 音声が必要な場合に AAC エンコードが使えるか */
-  audioSupported: boolean;
+  audioMode: WebCodecsAudioMode;
   reason?: string;
 };
 
 /**
  * WebCodecs 経路が使えるか判定する。
- * `needAudio` が true のときは AAC エンコード非対応なら「無音動画」を避けるため
- * supported=false を返す（呼び出し側でフォールバック）。
+ * 映像エンコードさえ使えれば supported=true とし、音声は audioMode で扱いを分ける。
+ * これにより AudioEncoder 非対応の Safari でも「映像だけ高速化」を享受できる。
  */
 export async function checkWebCodecsMp4Support(
   quality: VideoExportQualityPreset,
@@ -115,7 +124,7 @@ export async function checkWebCodecsMp4Support(
     return {
       supported: false,
       videoCodec: null,
-      audioSupported: false,
+      audioMode: "none",
       reason: "VideoEncoder 非対応",
     };
   }
@@ -125,26 +134,19 @@ export async function checkWebCodecsMp4Support(
     return {
       supported: false,
       videoCodec: null,
-      audioSupported: false,
+      audioMode: "none",
       reason: "H.264 エンコード非対応",
     };
   }
 
-  let audioSupported = false;
+  let audioMode: WebCodecsAudioMode = "none";
   if (needAudio) {
     // 一般的な 48kHz ステレオで判定（実際の音源に合わせて後で再確認）
-    audioSupported = await isAacEncodeSupported(48_000, 2);
-    if (!audioSupported) {
-      return {
-        supported: false,
-        videoCodec,
-        audioSupported: false,
-        reason: "AAC エンコード非対応（無音回避のためフォールバック）",
-      };
-    }
+    const aac = await isAacEncodeSupported(48_000, 2);
+    audioMode = aac ? "encode" : "mux-later";
   }
 
-  return { supported: true, videoCodec, audioSupported };
+  return { supported: true, videoCodec, audioMode };
 }
 
 function getAudioContextCtor(): typeof AudioContext | null {
@@ -261,6 +263,8 @@ export type WebCodecsExportParams = {
   ctx: CanvasRenderingContext2D;
   quality: VideoExportQualityPreset;
   videoCodec: string;
+  /** 音声の取り扱い（none / encode / mux-later） */
+  audioMode: WebCodecsAudioMode;
   durationSec: number;
   audioStartSec: number;
   audioUrl: string | null;
@@ -275,7 +279,10 @@ export type WebCodecsExportParams = {
 
 export type WebCodecsExportResult = {
   blob: Blob;
+  /** この blob 単体に音声が含まれているか */
   hasAudio: boolean;
+  /** true の場合、映像のみ。呼び出し側で音声結合が必要（mux-later） */
+  needsAudioMux: boolean;
 };
 
 const MAX_VIDEO_QUEUE = 8;
@@ -292,6 +299,7 @@ export async function exportMp4WithWebCodecs(
     ctx,
     quality,
     videoCodec,
+    audioMode,
     durationSec,
     audioStartSec,
     audioUrl,
@@ -306,11 +314,10 @@ export async function exportMp4WithWebCodecs(
   canvas.width = quality.width;
   canvas.height = quality.height;
 
-  const needAudio = Boolean(audioUrl) || Boolean(audioFallback);
-
-  // ── 1. 音源をデコード（失敗時は無音で続行） ──
+  // ── 1. 音源をデコード（audioMode==="encode" のときだけ WebCodecs 内で扱う） ──
+  // mux-later の場合は後段の FFmpeg が音声を担うため、ここでは触らない。
   let audioBuffer: AudioBuffer | null = null;
-  if (needAudio) {
+  if (audioMode === "encode") {
     audioBuffer = await decodeExportAudio(audioUrl, audioFallback, (r) =>
       onProgress(Math.min(0.08, r * 0.08))
     );
@@ -444,7 +451,11 @@ export async function exportMp4WithWebCodecs(
     if (blob.size < 256) {
       throw new Error("MP4 の生成結果が空です");
     }
-    return { blob, hasAudio: Boolean(audioBuffer) };
+    return {
+      blob,
+      hasAudio: Boolean(audioBuffer),
+      needsAudioMux: audioMode === "mux-later",
+    };
   } finally {
     try {
       if (videoEncoder.state !== "closed") videoEncoder.close();
