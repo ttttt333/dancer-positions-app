@@ -22,7 +22,6 @@ import { listStagePresets, saveStagePreset } from "../../lib/stagePresets";
 import { parseMeterCmDraftToMm } from "./stageAreaSettingsDraft";
 import {
   EDITOR_GRID_GAP_PX,
-  PUBLIC_VIEW_WAVE_DOCK_HEIGHT_PX,
   STAGE_RESIZER_PX,
   TOP_DOCK_HEIGHT_PX,
   TOP_DOCK_ROW_MIN_PX,
@@ -39,7 +38,6 @@ import { VideoExportHost } from "../../components/VideoExportHost";
 import { EditorDesktopLayout } from "./EditorDesktopLayout";
 import { EditorMobileLayout } from "./EditorMobileLayout";
 import { useAssignRef } from "./useSafeElementRef";
-import { useViewerChromeStore } from "../../store/viewerChromeStore";
 
 export function EditorPageLayout(props: EditorLayoutProps) {
   const activeFormationId = props.activeFormationId as never;
@@ -140,9 +138,8 @@ export function EditorPageLayout(props: EditorLayoutProps) {
   const publicViewTightHeight = props.publicViewTightHeight as never;
   const viewerChromeCollapsed = props.viewerChromeCollapsed as never;
   const viewerBarHeightPx = props.viewerBarHeightPx as never;
+  const viewerChromeInsets = props.viewerChromeInsets as never;
   const publicViewTightHeightForVars = props.publicViewTightHeight as never;
-  const viewerWaveVisible = useViewerChromeStore((s) => s.waveVisible);
-  const cuePagerVisible = useViewerChromeStore((s) => s.cuePagerVisible);
   const raw = props.raw as never;
   const redo = props.redo as never;
   const result = props.result as never;
@@ -232,7 +229,6 @@ export function EditorPageLayout(props: EditorLayoutProps) {
   const v = props.v as never;
   const viewerLocalStorageKey = props.viewerLocalStorageKey as never;
   const wideBottomDockPx = props.wideBottomDockPx as never;
-  const publicViewWaveDockPx = props.publicViewWaveDockPx as never;
   const editorTopDockHeightPx = props.editorTopDockHeightPx as never;
   const wideEditorLayout = props.wideEditorLayout as never;
   const workbenchInRightRail = props.workbenchInRightRail as never;
@@ -250,9 +246,6 @@ export function EditorPageLayout(props: EditorLayoutProps) {
           : "",
         choreoPublicView && publicViewTightHeight
           ? "choreo-public-view-root--landscape"
-          : "",
-        choreoPublicView && viewerWaveVisible && !viewerChromeCollapsed
-          ? "choreo-public-view-root--wave-visible"
           : "",
         mobileStackEditor ? "editor-page-root--mobile-editor" : "",
         mobileStackEditor && editorMobileLandscape
@@ -284,11 +277,16 @@ export function EditorPageLayout(props: EditorLayoutProps) {
               ["--choreo-viewer-bar-h" as string]: viewerChromeCollapsed
                 ? "0px"
                 : `${viewerBarHeightPx}px`,
-              ["--choreo-viewer-wave-h" as string]: `${publicViewWaveDockPx ?? PUBLIC_VIEW_WAVE_DOCK_HEIGHT_PX}px`,
-              ["--choreo-viewer-cuepager-h" as string]:
-                viewerChromeCollapsed || !cuePagerVisible
-                  ? "0px"
-                  : "46px",
+              ["--choreo-viewer-top-bar-h" as string]: viewerChromeCollapsed
+                ? "0px"
+                : `${viewerChromeInsets?.topPx ?? 0}px`,
+              ["--choreo-viewer-transport-bar-h" as string]: viewerChromeCollapsed
+                ? "0px"
+                : `${viewerChromeInsets?.bottomPx ?? 0}px`,
+              ["--choreo-viewer-left-rail-w" as string]: viewerChromeCollapsed
+                ? "0px"
+                : `${viewerChromeInsets?.leftPx ?? 0}px`,
+              ["--choreo-viewer-cuepager-h" as string]: "0px",
             }
           : {}),
       }}
@@ -301,32 +299,33 @@ export function EditorPageLayout(props: EditorLayoutProps) {
       {/* ─── Main layout: column flex (top wave bar + stage row) ─── */}
       <div
         className={choreoPublicView ? "choreo-public-view-main" : undefined}
-        style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "visible" }}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
+          minHeight: 0,
+          overflow: "visible",
+        }}
       >
 
       {showTopWaveDock &&
       !stageZenLayout &&
       !mobileStackEditor &&
-      !(choreoPublicView && (!viewerWaveVisible || viewerChromeCollapsed)) ? (
+      !choreoPublicView ? (
         <div
-          className={publicNarrowLayout ? "choreo-viewer-timeline-mount" : undefined}
           style={{
-            flexShrink: publicNarrowLayout ? 0 : undefined,
+            flexShrink: undefined,
             width: "100%",
             minWidth: 0,
-            height: publicNarrowLayout
-              ? (publicViewWaveDockPx ?? PUBLIC_VIEW_WAVE_DOCK_HEIGHT_PX)
-              : wideEditorLayout
-                ? wideBottomDockPx
-                : (editorTopDockHeightPx ?? TOP_DOCK_HEIGHT_PX),
+            height: wideEditorLayout
+              ? wideBottomDockPx
+              : (editorTopDockHeightPx ?? TOP_DOCK_HEIGHT_PX),
             position: "relative",
             overflow: "hidden",
-            background: publicNarrowLayout ? "rgba(15, 23, 42, 0.92)" : "transparent",
-            marginBottom: wideEditorLayout ? 0 : publicNarrowLayout ? 2 : 4,
-            zIndex: publicNarrowLayout ? 12 : undefined,
-            borderBottom: publicNarrowLayout
-              ? "1px solid rgba(51, 65, 85, 0.65)"
-              : undefined,
+            background: "transparent",
+            marginBottom: wideEditorLayout ? 0 : 4,
+            zIndex: undefined,
+            borderBottom: undefined,
           }}
         >
           {/* Timeline content */}

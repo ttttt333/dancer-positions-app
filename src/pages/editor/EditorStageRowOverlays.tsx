@@ -18,7 +18,7 @@ import {
   ChoreoViewerBottomBar,
   ChoreoViewerChromeRestoreFab,
 } from "../../components/ChoreoViewerBottomBar";
-import { ChoreoViewerStageControls } from "../../components/ChoreoViewerStageControls";
+import { ChoreoViewerControlBars } from "../../components/ChoreoViewerControlBars";
 import { ChoreoViewerChromeDock } from "../../components/ChoreoViewerChromeDock";
 import { useViewerChromeStore } from "../../store/viewerChromeStore";
 import { VideoExportSheet } from "../../components/VideoExportSheet";
@@ -186,6 +186,9 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
   const setAiSuggestOpen = props.setAiSuggestOpen as never;
   const setChoreoMemberSheetOpen = props.setChoreoMemberSheetOpen as never;
   const applyChoreoStudentPick = props.applyChoreoStudentPick as never;
+  const onViewerCuePrev = props.onViewerCuePrev as never;
+  const onViewerCueNext = props.onViewerCueNext as never;
+  const onViewerChromeInsetsChange = props.onViewerChromeInsetsChange as never;
   const onPickViewerAll = props.onPickViewerAll as never;
   const onPickViewerIndividual = props.onPickViewerIndividual as never;
   const viewerRosterMemberCount = props.viewerRosterMemberCount as never;
@@ -1476,18 +1479,22 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
           ) : (
             <>
               <ChoreoViewerChromeDock />
-              {controlsVisible ? (
-                <ChoreoViewerStageControls
+              {!stageOnly ? (
+                <ChoreoViewerControlBars
                   project={project}
                   timelineRef={timelineRef}
                   choreoStudentPick={choreoStudentPick}
                   rosterMemberCount={viewerRosterMemberCount}
+                  selectedCueId={selectedCueId}
                   isPlaying={isPlaying}
-                  currentTime={currentTime}
                   duration={duration}
+                  landscapeMode={publicViewTightHeight}
                   onOpenMemberSheet={() => setChoreoMemberSheetOpen(true)}
                   onPickViewerAll={onPickViewerAll}
                   onPickViewerIndividual={onPickViewerIndividual}
+                  onCuePrev={onViewerCuePrev}
+                  onCueNext={onViewerCueNext}
+                  onInsetsChange={onViewerChromeInsetsChange}
                   onBeforeTransport={() => {
                     if (!playbackEngine.getMediaSourceUrl()) {
                       reloadViewerAudio();

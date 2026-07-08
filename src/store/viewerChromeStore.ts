@@ -2,24 +2,21 @@ import { create } from "zustand";
 
 export type ViewerChromeStore = {
   stageOnly: boolean;
-  waveVisible: boolean;
   controlsVisible: boolean;
   cuePagerVisible: boolean;
   detailsVisible: boolean;
   /** ステージのみに入る直前の表示状態 */
   restoreSnapshot: Pick<
     ViewerChromeStore,
-    "waveVisible" | "controlsVisible" | "cuePagerVisible" | "detailsVisible"
+    "controlsVisible" | "cuePagerVisible" | "detailsVisible"
   > | null;
   applyLandscapeDefaults: () => void;
   applyPortraitDefaults: () => void;
   enterStageOnly: () => void;
   exitStageOnly: () => void;
-  setWaveVisible: (visible: boolean) => void;
   setControlsVisible: (visible: boolean) => void;
   setCuePagerVisible: (visible: boolean) => void;
   setDetailsVisible: (visible: boolean) => void;
-  toggleWave: () => void;
   toggleControls: () => void;
   toggleCuePager: () => void;
   toggleDetails: () => void;
@@ -27,14 +24,12 @@ export type ViewerChromeStore = {
 };
 
 const portraitDefaults = {
-  waveVisible: false,
   controlsVisible: true,
   cuePagerVisible: true,
   detailsVisible: false,
 };
 
 const landscapeDefaults = {
-  waveVisible: false,
   controlsVisible: true,
   cuePagerVisible: true,
   detailsVisible: false,
@@ -56,13 +51,11 @@ export const useViewerChromeStore = create<ViewerChromeStore>((set, get) => ({
     if (s.stageOnly) return;
     set({
       restoreSnapshot: {
-        waveVisible: s.waveVisible,
         controlsVisible: s.controlsVisible,
         cuePagerVisible: s.cuePagerVisible,
         detailsVisible: s.detailsVisible,
       },
       stageOnly: true,
-      waveVisible: false,
       controlsVisible: false,
       cuePagerVisible: false,
       detailsVisible: false,
@@ -78,7 +71,6 @@ export const useViewerChromeStore = create<ViewerChromeStore>((set, get) => ({
     });
   },
 
-  setWaveVisible: (waveVisible) => set({ waveVisible, stageOnly: false }),
   setControlsVisible: (controlsVisible) =>
     set({ controlsVisible, stageOnly: false }),
   setCuePagerVisible: (cuePagerVisible) =>
@@ -86,8 +78,6 @@ export const useViewerChromeStore = create<ViewerChromeStore>((set, get) => ({
   setDetailsVisible: (detailsVisible) =>
     set({ detailsVisible, stageOnly: false }),
 
-  toggleWave: () =>
-    set((s) => ({ waveVisible: !s.waveVisible, stageOnly: false })),
   toggleControls: () =>
     set((s) => ({ controlsVisible: !s.controlsVisible, stageOnly: false })),
   toggleCuePager: () =>

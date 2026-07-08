@@ -123,7 +123,6 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const publicViewTightHeight = props.publicViewTightHeight as never;
   const viewerChromeCollapsed = props.viewerChromeCollapsed as never;
   const stageOnly = useViewerChromeStore((s) => s.stageOnly);
-  const cuePagerVisible = useViewerChromeStore((s) => s.cuePagerVisible);
   const chromeCollapsed = stageOnly || viewerChromeCollapsed;
   const resyncViewerPlayback = props.resyncViewerPlayback as never;
   const reloadViewerAudio = props.reloadViewerAudio as never;
@@ -998,31 +997,6 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     </div>
                   );
                 })() : null}
-                {publicNarrowLayout &&
-                (cuesSortedForStageJump.length > 0 || hasRosterMembers) &&
-                cuePagerVisible &&
-                !chromeCollapsed ? (
-                  <div
-                    className="choreo-viewer-cuepager"
-                    style={{
-                      position: "fixed",
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                      zIndex: 84,
-                      pointerEvents: "auto",
-                    }}
-                  >
-                    <WorkbenchCuePager
-                      variant="inline"
-                      project={project}
-                      cuesSortedForStageJump={cuesSortedForStageJump}
-                      selectedCueId={selectedCueId}
-                      jumpToPagerSlot={jumpToPagerSlot}
-                      includeRosterSlot={hasRosterMembers}
-                      rosterTimelineHidden={project.rosterHidesTimeline === true}
-                    />
-                  </div>
-                ) : null}
                 {mobileStackEditor &&
                 !editorMobileLandscape &&
                 (cuesSortedForStageJump.length > 0 || hasRosterMembers) ? (

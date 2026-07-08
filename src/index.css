@@ -522,11 +522,6 @@ body {
     padding-right: 0 !important;
     padding-top: 0 !important;
   }
-  /* 生徒閲覧: 波形は上部ドック（.choreo-viewer-timeline-mount）、ステージは全面 */
-  .choreo-public-view-root .choreo-viewer-timeline-mount {
-    flex-shrink: 0;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-  }
   .choreo-public-view-root .editor-three-pane.editor-three-pane--public-narrow {
     grid-template-columns: 1fr !important;
     grid-template-rows: 1fr !important;
@@ -569,10 +564,11 @@ body {
   }
   .choreo-viewer-member-mode {
     display: inline-flex;
-    flex: 0 0 auto;
-    align-items: center;
-    gap: 4px;
-    max-width: min(42vw, 168px);
+    flex: 1 1 auto;
+    align-items: stretch;
+    gap: 6px;
+    width: 100%;
+    max-width: none;
   }
   .choreo-viewer-member-mode--compact {
     max-width: min(40vw, 152px);
@@ -580,13 +576,13 @@ body {
   .choreo-viewer-member-mode__seg {
     flex: 1 1 0;
     min-width: 0;
-    min-height: 36px;
-    padding: 4px 8px;
-    border-radius: 8px;
+    min-height: 40px;
+    padding: 8px 12px;
+    border-radius: 10px;
     border: 1px solid rgba(71, 85, 105, 0.9);
     background: rgba(30, 41, 59, 0.92);
     color: #cbd5e1;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 700;
     line-height: 1.2;
     touch-action: manipulation;
@@ -607,29 +603,6 @@ body {
   }
   .choreo-viewer-member-mode__seg-label {
     display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .choreo-viewer-member-mode__change {
-    flex: 0 0 auto;
-    min-width: 32px;
-    min-height: 32px;
-    padding: 2px 6px;
-    border-radius: 8px;
-    border: 1px solid rgba(71, 85, 105, 0.75);
-    background: rgba(30, 41, 59, 0.85);
-    color: #94a3b8;
-    font-size: 11px;
-    font-weight: 600;
-    touch-action: manipulation;
-  }
-  .choreo-viewer-stage-transport .choreo-viewer-member-mode {
-    flex-shrink: 0;
-    max-width: min(38vw, 148px);
-  }
-  .choreo-viewer-playback-row .choreo-viewer-time {
-    flex: 0 1 auto;
-    min-width: 4.5em;
     overflow: hidden;
     text-overflow: ellipsis;
   }
@@ -735,114 +708,110 @@ body {
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
   }
-  .choreo-viewer-stage-controls {
-    position: fixed;
-    inset: 0;
-    z-index: 86;
-    pointer-events: none;
+  .choreo-public-view-root .choreo-public-view-main {
+    padding-top: var(--choreo-viewer-top-bar-h, 0px);
+    padding-bottom: calc(
+      var(--choreo-viewer-transport-bar-h, 0px) + var(--choreo-viewer-bar-h, 0px)
+    );
+    padding-left: var(--choreo-viewer-left-rail-w, 0px);
+    box-sizing: border-box;
   }
-  .choreo-viewer-stage-controls__top {
-    position: absolute;
-    top: max(8px, env(safe-area-inset-top, 0px));
-    left: max(8px, env(safe-area-inset-left, 0px));
-    right: calc(max(56px, env(safe-area-inset-right, 0px)) + 52px);
+  .choreo-public-view-root--landscape .choreo-public-view-main {
+    padding-top: 0;
+    padding-bottom: var(--choreo-viewer-bar-h, 0px);
+  }
+  .choreo-public-view-root--chrome-collapsed .choreo-public-view-main {
+    padding: 0 !important;
+  }
+  .choreo-viewer-bars--portrait .choreo-viewer-bars__top {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 88;
+    display: flex;
+    align-items: stretch;
+    min-height: var(--choreo-viewer-top-bar-h, 52px);
+    padding: max(6px, env(safe-area-inset-top, 0px))
+      max(8px, env(safe-area-inset-right, 0px)) 6px
+      max(8px, env(safe-area-inset-left, 0px));
+    background: rgba(15, 23, 42, 0.96);
+    border-bottom: 1px solid rgba(51, 65, 85, 0.75);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+  }
+  .choreo-viewer-bars__top .choreo-viewer-member-mode {
+    flex: 1;
+    max-width: none;
+  }
+  .choreo-viewer-bars--portrait .choreo-viewer-bars__bottom {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 88;
+    padding: 8px max(10px, env(safe-area-inset-right, 0px))
+      max(16px, env(safe-area-inset-bottom, 0px))
+      max(10px, env(safe-area-inset-left, 0px));
+    background: rgba(15, 23, 42, 0.96);
+    border-top: 1px solid rgba(51, 65, 85, 0.75);
+    box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.3);
+  }
+  .choreo-viewer-bars__transport-inner {
     display: flex;
     align-items: center;
-    gap: 8px;
-    pointer-events: none;
-  }
-  .choreo-viewer-stage-controls__top .choreo-viewer-member-mode {
-    pointer-events: auto;
-    max-width: min(52vw, 200px);
-  }
-  .choreo-viewer-stage-controls__time {
-    margin-left: auto;
-    flex-shrink: 0;
-    padding: 4px 10px;
-    border-radius: 999px;
-    background: rgba(15, 23, 42, 0.72);
-    border: 1px solid rgba(51, 65, 85, 0.65);
-    color: #e2e8f0;
-    font-size: 12px;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    pointer-events: none;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-  }
-  .choreo-viewer-seek-edge {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 44px;
-    height: 72px;
-    display: inline-flex;
-    align-items: center;
     justify-content: center;
-    border: 1px solid rgba(51, 65, 85, 0.55);
-    background: rgba(15, 23, 42, 0.42);
-    color: #f1f5f9;
-    touch-action: manipulation;
-    pointer-events: auto;
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    opacity: 0.72;
-    transition: opacity 0.18s ease, background 0.18s ease;
+    gap: 10px;
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
   }
-  .choreo-viewer-seek-edge:active:not(:disabled),
-  .choreo-viewer-seek-edge:focus-visible {
-    opacity: 1;
-    background: rgba(15, 23, 42, 0.88);
+  .choreo-viewer-bars__cue-label {
+    flex: 0 1 auto;
+    min-width: 4.5em;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: #cbd5e1;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
-  .choreo-viewer-seek-edge:disabled {
-    opacity: 0.28;
-    pointer-events: none;
+  .choreo-viewer-bars--landscape {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 88;
+    width: var(--choreo-viewer-left-rail-w, 76px);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding: max(8px, env(safe-area-inset-top, 0px)) 6px
+      max(8px, env(safe-area-inset-bottom, 0px))
+      max(4px, env(safe-area-inset-left, 0px));
+    background: rgba(15, 23, 42, 0.94);
+    border-right: 1px solid rgba(51, 65, 85, 0.75);
+    box-shadow: 2px 0 16px rgba(0, 0, 0, 0.25);
   }
-  .choreo-viewer-seek-edge--back {
-    left: max(0px, env(safe-area-inset-left, 0px));
-    border-radius: 0 12px 12px 0;
-    border-left: none;
+  .choreo-viewer-bars__left-mode,
+  .choreo-viewer-bars__left-transport {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
   }
-  .choreo-viewer-seek-edge--fwd {
-    right: max(0px, env(safe-area-inset-right, 0px));
-    border-radius: 12px 0 0 12px;
-    border-right: none;
+  .choreo-viewer-bars__left-transport .choreo-viewer-bars__transport-inner {
+    flex-direction: column;
+    max-width: none;
+    gap: 8px;
   }
-  .choreo-viewer-transport-pill {
-    position: absolute;
-    left: 50%;
-    bottom: max(10px, env(safe-area-inset-bottom, 0px));
-    transform: translateX(-50%);
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 8px;
-    border-radius: 999px;
-    background: rgba(15, 23, 42, 0.78);
-    border: 1px solid rgba(51, 65, 85, 0.7);
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
-    pointer-events: auto;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    opacity: 0.88;
-    transition: opacity 0.18s ease;
+  .choreo-viewer-member-mode--stack {
+    flex-direction: column;
+    max-width: none;
+    width: 100%;
   }
-  .choreo-viewer-stage-controls[data-playing] .choreo-viewer-transport-pill,
-  .choreo-viewer-stage-controls[data-playing] .choreo-viewer-seek-edge {
-    opacity: 0.55;
-  }
-  .choreo-viewer-stage-controls[data-playing]:focus-within .choreo-viewer-transport-pill,
-  .choreo-viewer-stage-controls[data-playing]:focus-within .choreo-viewer-seek-edge,
-  .choreo-viewer-stage-controls[data-playing] .choreo-viewer-transport-pill:hover,
-  .choreo-viewer-stage-controls[data-playing] .choreo-viewer-seek-edge:hover {
-    opacity: 1;
-  }
-  .choreo-viewer-cuepager {
-    top: calc(max(8px, env(safe-area-inset-top, 0px)) + 44px) !important;
-    bottom: auto !important;
-  }
-  .choreo-public-view-root--wave-visible .choreo-viewer-cuepager {
-    top: calc(var(--choreo-viewer-wave-h, 140px) + 8px) !important;
+  .choreo-viewer-member-mode--stack .choreo-viewer-member-mode__seg {
+    width: 100%;
   }
   .choreo-viewer-chrome-dock {
     position: fixed;
@@ -864,8 +833,8 @@ body {
     pointer-events: auto;
   }
   .choreo-viewer-chrome-dock__btn {
-    min-width: 44px;
-    min-height: 34px;
+    min-width: 48px;
+    min-height: 40px;
     padding: 4px 6px;
     border-radius: 8px;
     border: 1px solid transparent;

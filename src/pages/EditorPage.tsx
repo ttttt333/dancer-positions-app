@@ -39,7 +39,11 @@ import { TimelinePanel } from "../components/TimelinePanel";
 import { TimelineAudioChrome } from "../components/TimelineAudioChrome";
 import {
   pauseAndSeekPlaybackToSec,
+  seekPlaybackClampedAndSyncStore,
 } from "../lib/playbackTransport";
+import { playbackEngine } from "../core/playbackEngine";
+import { computeViewerCueNavState } from "../lib/viewerCueNavigation";
+import type { ViewerChromeInsets } from "../components/ChoreoViewerControlBars";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import { useViewerChromeStore } from "../store/viewerChromeStore";
 import { useEditorPlaybackSync } from "../hooks/useEditorPlaybackSync";
@@ -134,7 +138,6 @@ import {
   type MemberStudentPick,
 } from "../lib/shareViewStudentPick";
 import { useShareViewAudioLoadStore } from "../store/shareViewAudioLoadStore";
-import { playbackEngine } from "../core/playbackEngine";
 import { ensureProjectAudioOnSupabase } from "../lib/ensureProjectAudioOnSupabase";
 import { reportWaveLoadProgress } from "../lib/waveLoadProgress";
 import { persistUsablePeaksForSupabasePath } from "../lib/wavePeaksSession";
@@ -161,7 +164,6 @@ import {
   STAGE_COL_MIN_PX,
   STAGE_RESIZER_PX,
   TIMELINE_FULL_COL_MIN_PX,
-  PUBLIC_VIEW_WAVE_DOCK_HEIGHT_PX,
   TOP_DOCK_HEIGHT_PX,
   TOP_DOCK_HEIGHT_WIDE_PX,
   TOP_DOCK_ROW_MAX_PX,
@@ -356,6 +358,11 @@ export function EditorPage({
   });
   /** 閲覧共有: 下バーの高さ（横画面レール位置・ステージ余白用 CSS 変数） */
   const [viewerBarHeightPx, setViewerBarHeightPx] = useState(0);
+  const [viewerChromeInsets, setViewerChromeInsets] = useState<ViewerChromeInsets>({
+    topPx: 0,
+    bottomPx: 0,
+    leftPx: 0,
+  });
   const viewerChromeCollapsed = useViewerChromeStore((s) => s.stageOnly);
   /** ワイド＋タイムライン表示時: キュー一覧モーダルの開閉（一覧本体はポータルで描画） */
   const [cueListModalOpen, setCueListModalOpen] = useState(false);
@@ -1094,6 +1101,49 @@ export function EditorPage({
     },
     [setProjectSafe]
   );
+
+  const jumpViewerCueByIndex = useCallback(
+    (cueIndex: number) => {
+      if (!choreoPublicView) return;
+      const p = projectPagerRef.current;
+      if (!p) return;
+      const cuesSorted = sortCuesByStart(p.cues);
+      const cue = cuesSorted[cueIndex];
+      if (!cue) return;
+      setSelectedCueIds([cue.id]);
+      setProjectSafe((prev) => ({
+        ...prev,
+        activeFormationId: cue.formationId,
+        rosterHidesTimeline: false,
+      }));
+      const durationSec = usePlaybackUiStore.getState().durationSec;
+      if (playbackEngine.getMediaSourceUrl()) {
+        seekPlaybackClampedAndSyncStore({
+          t: cue.tStartSec,
+          durationSec,
+          trimStartSec: p.trimStartSec ?? 0,
+          trimEndSec: p.trimEndSec ?? null,
+        });
+      } else {
+        usePlaybackUiStore.getState().setCurrentTimeSec(cue.tStartSec);
+      }
+    },
+    [choreoPublicView, setProjectSafe]
+  );
+
+  const onViewerCuePrev = useCallback(() => {
+    const p = projectPagerRef.current;
+    if (!p) return;
+    const nav = computeViewerCueNavState(p, selectedCueId);
+    if (nav.canPrev) jumpViewerCueByIndex(nav.cueIndex - 1);
+  }, [jumpViewerCueByIndex, selectedCueId]);
+
+  const onViewerCueNext = useCallback(() => {
+    const p = projectPagerRef.current;
+    if (!p) return;
+    const nav = computeViewerCueNavState(p, selectedCueId);
+    if (nav.canNext) jumpViewerCueByIndex(nav.cueIndex + 1);
+  }, [jumpViewerCueByIndex, selectedCueId]);
 
   /** 名簿「決定」直後に最新の jumpToPagerSlot で先頭キューへ飛ばす */
   const jumpToPagerSlotRef = useRef(jumpToPagerSlot);
@@ -2437,17 +2487,9 @@ export function EditorPage({
   const wideBottomDockPx = topDockRowPx != null
     ? Math.max(TOP_DOCK_HEIGHT_WIDE_PX, clampTopDockRowPx(topDockRowPx))
     : TOP_DOCK_HEIGHT_WIDE_PX;
-  const publicViewWaveDockPx =
-    topDockRowPx != null
-      ? clampTopDockRowPx(
-          Math.max(PUBLIC_VIEW_WAVE_DOCK_HEIGHT_PX, topDockRowPx)
-        )
-      : PUBLIC_VIEW_WAVE_DOCK_HEIGHT_PX;
   const editorTopDockHeightPx = wideEditorLayout
     ? wideBottomDockPx
-    : publicNarrowLayout
-      ? publicViewWaveDockPx
-      : TOP_DOCK_HEIGHT_PX;
+    : TOP_DOCK_HEIGHT_PX;
   const editorPaneGridTemplateRows = stageZenLayout
     ? "1fr"
     : wideEditorLayout
@@ -2666,6 +2708,10 @@ export function EditorPage({
     viewerChromeCollapsed,
     viewerBarHeightPx,
     onViewerBarHeightChange: setViewerBarHeightPx,
+    viewerChromeInsets,
+    onViewerChromeInsetsChange: setViewerChromeInsets,
+    onViewerCuePrev,
+    onViewerCueNext,
     resyncViewerPlayback,
     reloadViewerAudio,
     redo,
@@ -2752,7 +2798,6 @@ export function EditorPage({
     undo,
     viewerLocalStorageKey,
     wideBottomDockPx,
-    publicViewWaveDockPx,
     editorTopDockHeightPx,
     wideEditorLayout,
     workbenchInRightRail,
@@ -2761,14 +2806,16 @@ export function EditorPage({
   return (
     <>
       {playbackAudioElement}
-      <TimelineAudioChrome
-        audioFileInputRef={editorAudioSession.audioFileInputRef}
-        extractProgress={editorAudioSession.extractProgress}
-        onPickAudio={editorAudioSession.onPickAudio}
-        onPreloadFfmpegPointer={() => {
-          void preloadFFmpegWasm();
-        }}
-      />
+      {!choreoPublicView ? (
+        <TimelineAudioChrome
+          audioFileInputRef={editorAudioSession.audioFileInputRef}
+          extractProgress={editorAudioSession.extractProgress}
+          onPickAudio={editorAudioSession.onPickAudio}
+          onPreloadFfmpegPointer={() => {
+            void preloadFFmpegWasm();
+          }}
+        />
+      ) : null}
       {collabUnavailableNotice ? (
         <div
           role="status"

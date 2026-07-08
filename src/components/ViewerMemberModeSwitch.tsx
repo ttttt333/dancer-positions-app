@@ -5,17 +5,17 @@ type Props = {
   pick: StudentPick;
   /** 名簿 0 人のときは非表示 */
   memberCount: number;
-  compact?: boolean;
+  layout?: "inline" | "stack";
   onPickAll: () => void;
   onPickIndividual: () => void;
   onOpenMemberPicker?: () => void;
 };
 
-/** 再生中でもシートを開かずに全体／個人を切り替えるセグメント */
+/** 全体 / 個人（名前）の2択セグメント — 生徒閲覧の最重要操作 */
 export function ViewerMemberModeSwitch({
   pick,
   memberCount,
-  compact = false,
+  layout = "inline",
   onPickAll,
   onPickIndividual,
   onOpenMemberPicker,
@@ -29,11 +29,21 @@ export function ViewerMemberModeSwitch({
       ? pick.label.trim() || t("editor.layout.viewerModeIndividual")
       : t("editor.layout.viewerModeIndividual");
 
+  const onIndividualClick = () => {
+    if (isAll) {
+      onPickIndividual();
+      return;
+    }
+    if (memberCount > 1 && onOpenMemberPicker) {
+      onOpenMemberPicker();
+    }
+  };
+
   return (
     <div
       className={[
         "choreo-viewer-member-mode",
-        compact ? "choreo-viewer-member-mode--compact" : "",
+        layout === "stack" ? "choreo-viewer-member-mode--stack" : "",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -65,29 +75,16 @@ export function ViewerMemberModeSwitch({
           .join(" ")}
         aria-pressed={!isAll}
         title={
-          pick.kind === "member"
+          !isAll && pick.kind === "member"
             ? `${individualLabel}${t("editor.layout.memberSuffix")}`
             : undefined
         }
-        onClick={() => {
-          if (isAll) onPickIndividual();
-        }}
+        onClick={onIndividualClick}
       >
         <span className="choreo-viewer-member-mode__seg-label">
           {individualLabel}
         </span>
       </button>
-      {!isAll && memberCount > 1 && onOpenMemberPicker ? (
-        <button
-          type="button"
-          className="choreo-viewer-member-mode__change"
-          aria-label={t("editor.layout.viewerModeChangeMemberTitle")}
-          title={t("editor.layout.viewerModeChangeMemberTitle")}
-          onClick={onOpenMemberPicker}
-        >
-          {t("editor.layout.viewerModeChangeMember")}
-        </button>
-      ) : null}
     </div>
   );
 }

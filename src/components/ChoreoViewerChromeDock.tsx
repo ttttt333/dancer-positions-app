@@ -28,14 +28,12 @@ function DockButton({ active, label, title, onClick }: DockButtonProps) {
   );
 }
 
-/** 共有閲覧: 波形・操作・キュー・詳細を個別に畳むドック（舞台は常に表示） */
+/** 共有閲覧: 操作・キュー・詳細を個別に畳むドック（波形は非表示・舞台は常に表示） */
 export function ChoreoViewerChromeDock() {
   const { t } = useI18n();
-  const waveVisible = useViewerChromeStore((s) => s.waveVisible);
   const controlsVisible = useViewerChromeStore((s) => s.controlsVisible);
   const cuePagerVisible = useViewerChromeStore((s) => s.cuePagerVisible);
   const detailsVisible = useViewerChromeStore((s) => s.detailsVisible);
-  const toggleWave = useViewerChromeStore((s) => s.toggleWave);
   const toggleControls = useViewerChromeStore((s) => s.toggleControls);
   const toggleCuePager = useViewerChromeStore((s) => s.toggleCuePager);
   const toggleDetails = useViewerChromeStore((s) => s.toggleDetails);
@@ -46,12 +44,6 @@ export function ChoreoViewerChromeDock() {
       className="choreo-viewer-chrome-dock"
       aria-label={t("editor.layout.viewerChromeDockAria")}
     >
-      <DockButton
-        active={waveVisible}
-        label={t("editor.layout.viewerChromeWaveShort")}
-        title={t("editor.layout.viewerChromeWaveToggle")}
-        onClick={toggleWave}
-      />
       <DockButton
         active={controlsVisible}
         label={t("editor.layout.viewerChromeControlsShort")}

@@ -33,8 +33,17 @@ export const EDITOR_GRID_GAP_PX = 10;
 /** 上部波形ドック行の既定高さ（px） */
 export const TOP_DOCK_HEIGHT_PX = 120;
 
-/** 生徒閲覧（狭い画面）の波形ドック既定高さ（px）— ズーム操作ができるよう十分な高さ */
-export const PUBLIC_VIEW_WAVE_DOCK_HEIGHT_PX = 140;
+/** @deprecated 生徒閲覧から波形 UI を廃止（0 固定）。編集画面の TOP_DOCK_HEIGHT_PX を使うこと。 */
+export const PUBLIC_VIEW_WAVE_DOCK_HEIGHT_PX = 0;
+
+/** 生徒閲覧: 上部帯（全体/個人切替）の高さ */
+export const VIEWER_TOP_BAR_PX = 52;
+
+/** 生徒閲覧: 下部再生帯の高さ（safe-area は CSS で加算） */
+export const VIEWER_TRANSPORT_BAR_PX = 88;
+
+/** 生徒閲覧: 横画面左レール幅 */
+export const VIEWER_LEFT_RAIL_PX = 76;
 
 import {
   TOP_DOCK_HEIGHT_WIDE_PX,
