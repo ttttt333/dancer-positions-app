@@ -1,13 +1,15 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { buildVideoExportOptions } from "../lib/buildVideoExportOptions";
 import { resolveVideoExportFileName } from "../lib/videoExportFileName";
 import { getVideoExportCanvasRef } from "../lib/videoExportCanvasRef";
 import { checkVideoExportCapabilities } from "../lib/videoExportCapabilities";
 import { formatVideoExportError } from "../lib/videoExportErrors";
+import type { VideoExportQualityPreset } from "../lib/videoExportQualityPresets";
 import { useVideoExport } from "../hooks/useVideoExport";
 import { useExportToast } from "../hooks/useExportToast";
 import { ExportToast } from "./ExportToast";
+import { VideoExportQualitySheet } from "./VideoExportQualitySheet";
 
 type Props = {
   project: ChoreographyProjectJson;
@@ -23,55 +25,93 @@ export function ChoreoViewerVideoSaveButton({
   fileName,
   className,
 }: Props) {
+  const [qualitySheetOpen, setQualitySheetOpen] = useState(false);
   const { toast, showToast, dismiss } = useExportToast();
   const { isExporting, progress, startExport } = useVideoExport();
   const capabilities = checkVideoExportCapabilities();
   const disabled =
     isExporting || durationSec <= 0 || !capabilities.supported;
 
-  const onSave = useCallback(async () => {
-    try {
-      const options = buildVideoExportOptions(
-        project,
-        durationSec,
-        fileName,
-        getVideoExportCanvasRef()
-      );
-      const result = await startExport({
-        ...options,
-        shareAfter: false,
-        onFfmpegFirstLoad: () =>
+  const runExport = useCallback(
+    async (quality: VideoExportQualityPreset) => {
+      try {
+        const options = buildVideoExportOptions(
+          project,
+          durationSec,
+          fileName,
+          getVideoExportCanvasRef(),
+          quality
+        );
+        const result = await startExport({
+          ...options,
+          quality,
+          shareAfter: true,
+          onFfmpegFirstLoad: () =>
+            showToast({
+              kind: "info",
+              title: "FFmpeg コアを読み込み中…",
+              description: "初回は 10〜30 秒かかることがあります",
+            }),
+          onAudioSkipped: () =>
+            showToast({
+              kind: "info",
+              title: "音源なしで書き出し",
+              description:
+                "音源の取得に失敗したため、映像のみの MP4 として保存します",
+            }),
+        });
+
+        if (result.shared) {
           showToast({
-            kind: "info",
-            title: "FFmpeg コアを読み込み中…",
-            description: "初回は 10〜30 秒かかることがあります",
-          }),
-        onAudioSkipped: () =>
-          showToast({
-            kind: "info",
-            title: "音源なしで書き出し",
+            kind: "success",
+            title: "共有シートを開きました",
             description:
-              "音源の取得に失敗したため、映像のみの MP4 として保存します",
-          }),
-      });
-      showToast({
-        kind: "success",
-        title: "エクスポート完了",
-        description: `${result.downloadName} をダウンロードしました`,
-      });
-    } catch (e) {
-      if (e instanceof DOMException && e.name === "AbortError") return;
-      const { title, description } = formatVideoExportError(e);
-      showToast({ kind: "error", title, description });
-      console.error("Viewer video export failed:", e);
-    }
-  }, [project, durationSec, fileName, startExport, showToast]);
+              "「ビデオを保存」をタップするとカメラロールに保存できます",
+          });
+        } else if (result.format === "webm") {
+          showToast({
+            kind: "info",
+            title: "WebM で保存しました",
+            description:
+              result.fallbackReason ??
+              "MP4 変換できなかったため WebM 形式で保存しました",
+          });
+        } else {
+          showToast({
+            kind: "info",
+            title: "ダウンロードしました",
+            description: `共有に未対応のため ${result.downloadName} を保存しました`,
+          });
+        }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        const { title, description } = formatVideoExportError(e);
+        showToast({ kind: "error", title, description });
+        console.error("Viewer video export failed:", e);
+      }
+    },
+    [project, durationSec, fileName, startExport, showToast]
+  );
+
+  const onQualitySelect = useCallback(
+    (quality: VideoExportQualityPreset) => {
+      setQualitySheetOpen(false);
+      void runExport(quality);
+    },
+    [runExport]
+  );
 
   const exportName = resolveVideoExportFileName(project, fileName);
 
   return (
     <>
       <ExportToast toast={toast} onDismiss={dismiss} />
+      <VideoExportQualitySheet
+        open={qualitySheetOpen}
+        onClose={() => setQualitySheetOpen(false)}
+        onSelect={onQualitySelect}
+        viewerMode
+      />
       <button
         type="button"
         className={["choreo-viewer-bars__video-btn", className]
@@ -84,7 +124,7 @@ export function ChoreoViewerVideoSaveButton({
             : capabilities.blockReason ?? "この環境では動画保存に対応していません"
         }
         aria-label="動画を保存"
-        onClick={() => void onSave()}
+        onClick={() => setQualitySheetOpen(true)}
       >
         {isExporting ? `${progress}%` : "動画"}
       </button>

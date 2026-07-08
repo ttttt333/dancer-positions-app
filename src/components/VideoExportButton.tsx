@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { buildVideoExportOptions } from "../lib/buildVideoExportOptions";
 import { resolveVideoExportFileName } from "../lib/videoExportFileName";
@@ -8,10 +8,12 @@ import {
   formatVideoExportCapabilityHint,
 } from "../lib/videoExportCapabilities";
 import { formatVideoExportError } from "../lib/videoExportErrors";
+import type { VideoExportQualityPreset } from "../lib/videoExportQualityPresets";
 import { useVideoExport } from "../hooks/useVideoExport";
 import { useExportToast } from "../hooks/useExportToast";
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
 import { ExportToast } from "./ExportToast";
+import { VideoExportQualitySheet } from "./VideoExportQualitySheet";
 
 export type VideoExportButtonProps = {
   project: ChoreographyProjectJson;
@@ -21,12 +23,16 @@ export type VideoExportButtonProps = {
   compact?: boolean;
 };
 
+type PendingExportMode = "share" | "download";
+
 export function VideoExportButton({
   project,
   durationSec,
   fileName,
   compact = false,
 }: VideoExportButtonProps) {
+  const [qualitySheetOpen, setQualitySheetOpen] = useState(false);
+  const [pendingMode, setPendingMode] = useState<PendingExportMode>("share");
   const { toast, showToast, dismiss } = useExportToast();
   const { isExporting, progress, startExport } = useVideoExport();
 
@@ -42,16 +48,18 @@ export function VideoExportButton({
   );
 
   const run = useCallback(
-    async (shareAfter: boolean) => {
+    async (shareAfter: boolean, quality: VideoExportQualityPreset) => {
       try {
         const options = buildVideoExportOptions(
           project,
           durationSec,
           fileName,
-          getVideoExportCanvasRef()
+          getVideoExportCanvasRef(),
+          quality
         );
         const result = await startExport({
           ...options,
+          quality,
           shareAfter,
           onFfmpegFirstLoad: () =>
             showToast({
@@ -112,12 +120,30 @@ export function VideoExportButton({
     [project, durationSec, fileName, startExport, showToast]
   );
 
+  const openQualitySheet = useCallback((mode: PendingExportMode) => {
+    setPendingMode(mode);
+    setQualitySheetOpen(true);
+  }, []);
+
+  const onQualitySelect = useCallback(
+    (quality: VideoExportQualityPreset) => {
+      setQualitySheetOpen(false);
+      void run(pendingMode === "share", quality);
+    },
+    [pendingMode, run]
+  );
+
   const busy = isExporting;
   const disabled = busy || durationSec <= 0 || exportBlocked;
 
   return (
     <>
       <ExportToast toast={toast} onDismiss={dismiss} />
+      <VideoExportQualitySheet
+        open={qualitySheetOpen}
+        onClose={() => setQualitySheetOpen(false)}
+        onSelect={onQualitySelect}
+      />
       {capabilityHint ? (
         <p
           className="choreo-viewer-video-export-hint"
@@ -146,7 +172,7 @@ export function VideoExportButton({
             minHeight: compact ? 36 : 40,
             fontSize: compact ? 12 : 13,
           }}
-          onClick={() => void run(true)}
+          onClick={() => openQualitySheet("share")}
         >
           {busy ? `${progress}%` : "動画を共有"}
         </button>
@@ -159,7 +185,7 @@ export function VideoExportButton({
             minHeight: compact ? 36 : 40,
             fontSize: compact ? 12 : 13,
           }}
-          onClick={() => void run(false)}
+          onClick={() => openQualitySheet("download")}
         >
           動画を保存
         </button>

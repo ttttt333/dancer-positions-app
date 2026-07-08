@@ -1529,6 +1529,14 @@ html.choreo-stage-video-export #stage-export-root {
   color: #f8fafc;
 }
 
+.choreo-viewer-video-export-phase {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #a5b4fc;
+  letter-spacing: 0.02em;
+}
+
 .choreo-viewer-video-export-msg {
   margin: 0 0 12px;
   font-size: 13px;

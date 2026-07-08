@@ -1,6 +1,7 @@
 import { create } from "zustand";
+import type { VideoExportProgressPhase } from "../lib/videoExportProgress";
 
-export type ExportPhase = "recording" | "converting" | "done" | null;
+export type ExportPhase = "recording" | "converting" | "saving" | "done" | null;
 export type ExportEncodeSubphase = "load" | "mux" | null;
 
 type VideoExportRunState = {
@@ -9,6 +10,8 @@ type VideoExportRunState = {
   progressMessage: string;
   phase: ExportPhase;
   encodeSubphase: ExportEncodeSubphase | null;
+  phaseLabel: string;
+  qualityHint: string;
 };
 
 type VideoExportRunActions = {
@@ -31,16 +34,21 @@ const initialRunState: VideoExportRunState = {
   progressMessage: "",
   phase: null,
   encodeSubphase: null,
+  phaseLabel: "",
+  qualityHint: "",
 };
 
 export const useVideoExportRunStore = create<
   VideoExportRunState & VideoExportRunActions
->((set) => ({
+>((set, get) => ({
   ...initialRunState,
   setProgressValue: (n) => {
     const v = clampExportProgress(n);
-    videoExportProgressRef.current = v;
-    set({ progress: v });
+    const mono = Math.max(videoExportProgressRef.current, v);
+    videoExportProgressRef.current = mono;
+    if (mono !== get().progress) {
+      set({ progress: mono });
+    }
   },
   patch: (partial) => set(partial),
   resetRun: () => {
@@ -58,4 +66,13 @@ export function cancelVideoExportRun(): void {
 
 export function isVideoExportRunning(): boolean {
   return useVideoExportRunStore.getState().isExporting;
+}
+
+export function exportPhaseToProgressPhase(
+  phase: ExportPhase
+): VideoExportProgressPhase | null {
+  if (phase === "recording") return "capture";
+  if (phase === "converting") return "encode";
+  if (phase === "saving") return "save";
+  return null;
 }

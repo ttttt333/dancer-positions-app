@@ -13,9 +13,10 @@ import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import type { ExportOptions } from "../hooks/useVideoExport";
 import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography";
 import { resolveVideoExportFileName } from "./videoExportFileName";
-
-/** 書き出しフレームレート（useVideoExport と揃える） */
-const SAMPLE_FPS = 12;
+import {
+  DEFAULT_VIDEO_EXPORT_QUALITY,
+  type VideoExportQualityPreset,
+} from "./videoExportQualityPresets";
 
 function dancerColorHex(d: DancerSpot): string {
   return DANCER_COLOR_PALETTE_HEX[modDancerColorIndex(d.colorIndex ?? 0)];
@@ -63,8 +64,10 @@ export function buildVideoExportOptions(
   project: ChoreographyProjectJson,
   durationSec: number,
   fileName: string,
-  canvasRef: RefObject<HTMLCanvasElement | null>
+  canvasRef: RefObject<HTMLCanvasElement | null>,
+  quality: VideoExportQualityPreset = DEFAULT_VIDEO_EXPORT_QUALITY
 ): ExportOptions {
+  const sampleFps = quality.sampleFps;
   const trackDurationSec = resolveExportTrackDuration(durationSec);
   const { startSec, durationSec: span } = resolveStageExportRange(
     trackDurationSec,
@@ -73,11 +76,11 @@ export function buildVideoExportOptions(
   );
 
   const formations: ExportOptions["formations"] = [];
-  const totalFrames = Math.max(1, Math.ceil(span * SAMPLE_FPS));
+  const totalFrames = Math.max(1, Math.ceil(span * sampleFps));
   const sorted = sortCuesByStart(project.cues);
 
   for (let frame = 0; frame <= totalFrames; frame++) {
-    const tRel = frame / SAMPLE_FPS;
+    const tRel = frame / sampleFps;
     const tAbs = startSec + tRel;
     const dancers = dancersAtTime(
       tAbs,
@@ -125,5 +128,6 @@ export function buildVideoExportOptions(
     formations,
     stageAppearance: buildStageExportAppearance(project),
     audioStartSec: startSec,
+    quality,
   };
 }

@@ -9,12 +9,6 @@ import {
 } from "../store/videoExportRunStore";
 import { ChoreoViewerVideoExportOverlay } from "./ChoreoViewerVideoExportOverlay";
 
-const PHASE_LABEL: Record<Exclude<ExportPhase, null>, string> = {
-  recording: "ステージを描画中…",
-  converting: "MP4 に変換中…",
-  done: "完了",
-};
-
 function exportOverlayMessage(
   phase: ExportPhase,
   encodeSubphase: ExportEncodeSubphase | null,
@@ -27,7 +21,18 @@ function exportOverlayMessage(
     if (encodeSubphase === "mux") return "MP4 に結合中…";
     return "MP4 に変換中…";
   }
-  return PHASE_LABEL[phase];
+  if (phase === "saving") return "共有シートを開いています…";
+  if (phase === "recording") return "ステージを描画中…";
+  return "完了";
+}
+
+function exportOverlayPhase(
+  phase: ExportPhase
+): "prepare" | "frames" | "encode" | "save" | "done" {
+  if (phase === "recording") return "frames";
+  if (phase === "converting") return "encode";
+  if (phase === "saving") return "save";
+  return "done";
 }
 
 /**
@@ -39,6 +44,8 @@ export function VideoExportHost() {
   const progress = useVideoExportRunStore((s) => s.progress);
   const progressMessage = useVideoExportRunStore((s) => s.progressMessage);
   const encodeSubphase = useVideoExportRunStore((s) => s.encodeSubphase);
+  const phaseLabel = useVideoExportRunStore((s) => s.phaseLabel);
+  const qualityHint = useVideoExportRunStore((s) => s.qualityHint);
   const canvasRef = getVideoExportCanvasRef();
 
   useEffect(() => {
@@ -65,18 +72,15 @@ export function VideoExportHost() {
       {phase ? (
         <ChoreoViewerVideoExportOverlay
           progress={{
-            phase:
-              phase === "recording"
-                ? "frames"
-                : phase === "converting"
-                  ? "encode"
-                  : "done",
+            phase: exportOverlayPhase(phase),
             ratio: progress / 100,
             message: exportOverlayMessage(
               phase,
               encodeSubphase,
               progressMessage
             ),
+            phaseLabel,
+            qualityHint,
           }}
           onCancel={cancelVideoExportRun}
         />
