@@ -18,7 +18,7 @@ import {
   getDirectMp4RecorderMimeType,
   getSupportedRecorderMimeType,
 } from "../lib/videoExportCapabilities";
-import { recordDirectMp4 } from "../lib/directMp4Export";
+import { recordDirectMp4, ExportBackgroundedError } from "../lib/directMp4Export";
 import { resolvePlaybackAudioUrlForExport } from "../lib/resolvePlaybackAudioUrlForExport";
 import { drawStageExportFrame } from "../lib/drawStageExportFrame";
 import type { StageExportAppearance } from "../lib/stageExportAppearance";
@@ -451,7 +451,12 @@ async function tryDirectMp4Export(
     if (error instanceof DOMException && error.name === "AbortError") {
       throw error;
     }
-    // 直接録画に失敗したら FFmpeg 経路へフォールバック
+    // 録画中にバックグラウンド化した場合は、無言でやり直さず明確に中断
+    if (error instanceof ExportBackgroundedError) {
+      resetRun();
+      throw error;
+    }
+    // その他の失敗時は FFmpeg 経路へフォールバック
     console.warn("[tryDirectMp4Export] falling back to FFmpeg path:", error);
     return null;
   }

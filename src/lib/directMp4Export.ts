@@ -34,6 +34,51 @@ type WebkitWindow = typeof window & {
   webkitAudioContext?: typeof AudioContext;
 };
 
+/** 録画中にアプリがバックグラウンドへ移り、録画が中断されたことを表す */
+export class ExportBackgroundedError extends Error {
+  constructor() {
+    super(
+      "録画中はアプリを閉じたり画面を消したりしないでください。最初からやり直してください。"
+    );
+    this.name = "ExportBackgroundedError";
+  }
+}
+
+type WakeLockSentinelLike = {
+  released: boolean;
+  release: () => Promise<void>;
+};
+
+type WakeLockNavigator = Navigator & {
+  wakeLock?: {
+    request: (type: "screen") => Promise<WakeLockSentinelLike>;
+  };
+};
+
+/** 録画中の自動画面ロックを抑止（未対応環境では黙って no-op）。 */
+async function acquireScreenWakeLock(): Promise<WakeLockSentinelLike | null> {
+  if (typeof navigator === "undefined") return null;
+  const nav = navigator as WakeLockNavigator;
+  if (!nav.wakeLock?.request) return null;
+  try {
+    return await nav.wakeLock.request("screen");
+  } catch (e) {
+    console.warn("[recordDirectMp4] wake lock unavailable:", e);
+    return null;
+  }
+}
+
+async function releaseWakeLock(
+  sentinel: WakeLockSentinelLike | null
+): Promise<void> {
+  if (!sentinel || sentinel.released) return;
+  try {
+    await sentinel.release();
+  } catch {
+    /* ignore */
+  }
+}
+
 function waitForAudioReady(el: HTMLAudioElement): Promise<void> {
   return new Promise((resolve, reject) => {
     if (el.readyState >= 3) {
@@ -104,6 +149,9 @@ async function createRealtimeAudioController(
   }
   const dest = ctx.createMediaStreamDestination();
   sourceNode.connect(dest);
+  // 録画中も生徒がスピーカーで曲を聞けるようにする（無音待ち回避）。
+  // 録画データは dest から取得するため二重取りにはならない。
+  sourceNode.connect(ctx.destination);
 
   const track = dest.stream.getAudioTracks()[0];
   if (!track) {
@@ -236,12 +284,33 @@ export async function recordDirectMp4(
     recorder.onstop = () => resolve();
   });
 
+  // 録画中にホーム/タブ切替でバックグラウンド化したら中断フラグを立てる
+  let backgrounded = false;
+  const onVisibilityChange = () => {
+    if (document.visibilityState === "hidden") {
+      backgrounded = true;
+    }
+  };
+  document.addEventListener("visibilitychange", onVisibilityChange);
+
+  let wakeLock: WakeLockSentinelLike | null = null;
+
   const cleanupTracks = () => {
+    try {
+      if (recorder.state !== "inactive") recorder.stop();
+    } catch {
+      /* ignore */
+    }
     stream.getTracks().forEach((t) => t.stop());
     audioCtl?.cleanup();
+    document.removeEventListener("visibilitychange", onVisibilityChange);
+    void releaseWakeLock(wakeLock);
   };
 
   try {
+    // L-1: 録画中の自動画面ロックを抑止
+    wakeLock = await acquireScreenWakeLock();
+
     recorder.start(200);
     if (audioCtl) {
       await audioCtl.start();
@@ -250,9 +319,13 @@ export async function recordDirectMp4(
     const perfStart = performance.now();
     let formationCursor = 0;
 
-    await new Promise<void>((resolve) => {
+    await new Promise<void>((resolve, reject) => {
       let rafId = 0;
       const tick = () => {
+        if (backgrounded) {
+          reject(new ExportBackgroundedError());
+          return;
+        }
         if (isCancelled()) {
           resolve();
           return;

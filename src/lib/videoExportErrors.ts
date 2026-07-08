@@ -36,6 +36,14 @@ export function formatVideoExportError(
 ): VideoExportErrorPresentation {
   const msg = errorText(error);
 
+  if (error instanceof Error && error.name === "ExportBackgroundedError") {
+    return {
+      title: "録画が中断されました",
+      description:
+        "録画中はアプリを閉じたり画面を消したりしないでください。もう一度最初からお試しください。",
+    };
+  }
+
   if (/ERR_NETWORK_CHANGED|network changed/i.test(msg)) {
     return {
       title: "ネットワークが切り替わりました",
