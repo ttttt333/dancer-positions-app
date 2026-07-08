@@ -67,7 +67,7 @@ export function buildVideoExportOptions(
   canvasRef: RefObject<HTMLCanvasElement | null>,
   quality: VideoExportQualityPreset = DEFAULT_VIDEO_EXPORT_QUALITY
 ): ExportOptions {
-  const sampleFps = quality.sampleFps;
+  const sampleFps = quality.captureFps;
   const trackDurationSec = resolveExportTrackDuration(durationSec);
   const { startSec, durationSec: span } = resolveStageExportRange(
     trackDurationSec,

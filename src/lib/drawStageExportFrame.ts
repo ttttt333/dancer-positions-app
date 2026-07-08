@@ -367,10 +367,15 @@ export function drawStageExportFrame(
   height: number,
   t: number,
   formations: ExportFormationFrame[],
-  appearance: StageExportAppearance
+  appearance: StageExportAppearance,
+  /** 書き出しループが時刻順に進むときの O(1) 参照用 */
+  formationIndex?: number
 ) {
   const formation =
-    [...formations].reverse().find((f) => f.startSec <= t) ?? formations[0];
+    formationIndex !== undefined
+      ? formations[formationIndex]
+      : ([...formations].reverse().find((f) => f.startSec <= t) ??
+        formations[0]);
 
   const { outer, main } = fitStageLayout(width, height, appearance);
 

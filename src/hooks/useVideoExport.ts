@@ -79,8 +79,8 @@ export type ExportOptions = {
   onAudioSkipped?: () => void;
 };
 
-/** UI 更新間隔 */
-const RECORD_YIELD_EVERY = 6;
+/** UI 更新間隔（大きいほど撮影ループは速い） */
+const RECORD_YIELD_EVERY = 24;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -405,10 +405,15 @@ export function useVideoExport() {
 
       recorder.start(100);
 
-      const fps = quality.fps;
-      const totalFrames = Math.max(1, Math.ceil(options.durationSec * fps));
+      const captureFps = quality.captureFps;
+      const totalFrames = Math.max(1, Math.ceil(options.durationSec * captureFps));
+      const outputFrameCount = Math.max(
+        1,
+        Math.ceil(options.durationSec * quality.fps)
+      );
       const recordStartedAt = performance.now();
       let inputTimescale = 1;
+      let formationIndex = 0;
 
       for (let frame = 0; frame <= totalFrames; frame++) {
         if (videoExportCancelRef.current) {
@@ -418,22 +423,27 @@ export function useVideoExport() {
           throw new DOMException("Export aborted", "AbortError");
         }
 
+        const t = frame / captureFps;
+        while (
+          formationIndex + 1 < options.formations.length &&
+          options.formations[formationIndex + 1].startSec <= t
+        ) {
+          formationIndex += 1;
+        }
+
         drawStageExportFrame(
           ctx2d,
           quality.width,
           quality.height,
-          frame / fps,
+          t,
           options.formations,
-          options.stageAppearance
+          options.stageAppearance,
+          formationIndex
         );
 
         if (requestFrame) {
           requestFrame();
         }
-
-        await new Promise<void>((resolve) => {
-          requestAnimationFrame(() => resolve());
-        });
 
         if (frame % RECORD_YIELD_EVERY === 0 || frame === totalFrames) {
           setProgressValue(
@@ -444,7 +454,7 @@ export function useVideoExport() {
       }
 
       const recordDurationSec = Math.max(
-        1 / quality.fps,
+        1 / captureFps,
         (performance.now() - recordStartedAt) / 1000
       );
       inputTimescale = options.durationSec / recordDurationSec;
@@ -528,7 +538,7 @@ export function useVideoExport() {
           ? "音源を取得して MP4 に結合中…"
           : "MP4 に変換中…",
       });
-      const videoFrameCount = totalFrames + 1;
+      const videoFrameCount = outputFrameCount;
       try {
         await muxRecordedWebmToMp4(
           ffmpeg,
