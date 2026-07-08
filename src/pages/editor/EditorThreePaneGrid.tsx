@@ -494,9 +494,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
           className={[
             "editor-stage-section",
             publicNarrowLayout ? "editor-stage-section--public-view" : "",
-            publicNarrowLayout && chromeCollapsed
-              ? "editor-stage-section--public-view-max"
-              : "",
+            publicNarrowLayout ? "editor-stage-section--public-view-max" : "",
           ]
             .filter(Boolean)
             .join(" ")}
@@ -854,9 +852,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     markerDisplayScale={
                       choreoPublicView ? PUBLIC_VIEWER_MARKER_DISPLAY_SCALE : 1
                     }
-                    compactViewportChrome={
-                      choreoPublicView && publicViewTightHeight
-                    }
+                    compactViewportChrome={choreoPublicView}
                     trashDropEdge={mobileStackEditor ? "bottom" : "left"}
                     showMotionArrows={showMotionArrows}
                     onOpenDancerPathEditor={

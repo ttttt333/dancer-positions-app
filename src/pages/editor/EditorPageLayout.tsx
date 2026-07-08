@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ChoreoCoreLogo } from "../../components/ChoreoGridLogo";
 import { StageBoard } from "../../components/StageBoard";
@@ -237,6 +237,24 @@ export function EditorPageLayout(props: EditorLayoutProps) {
 
   const attachTopDockSection = useAssignRef(topDockSectionRef);
 
+  useEffect(() => {
+    if (!choreoPublicView) return;
+    const root = document.documentElement;
+    root.classList.add("choreo-public-view-html");
+    const metas = Array.from(
+      document.querySelectorAll('meta[name="theme-color"]')
+    );
+    const prev = metas.map((m) => m.getAttribute("content"));
+    metas.forEach((m) => m.setAttribute("content", "#0f172a"));
+    return () => {
+      root.classList.remove("choreo-public-view-html");
+      metas.forEach((m, i) => {
+        const v = prev[i];
+        if (v != null) m.setAttribute("content", v);
+      });
+    };
+  }, [choreoPublicView]);
+
   return (
     <div
       className={[
@@ -268,8 +286,12 @@ export function EditorPageLayout(props: EditorLayoutProps) {
         WebkitFontSmoothing: "antialiased",
         display: "flex",
         flexDirection: "column",
-        paddingLeft: "env(safe-area-inset-left, 0px)",
-        paddingRight: "env(safe-area-inset-right, 0px)",
+        paddingLeft: choreoPublicView
+          ? "0px"
+          : "env(safe-area-inset-left, 0px)",
+        paddingRight: choreoPublicView
+          ? "0px"
+          : "env(safe-area-inset-right, 0px)",
         paddingBottom: choreoPublicView
           ? "0px"
           : "env(safe-area-inset-bottom, 0px)",

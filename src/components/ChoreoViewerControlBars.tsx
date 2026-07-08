@@ -115,7 +115,8 @@ export function ChoreoViewerControlBars({
     !isPlaying &&
     Boolean(playbackEngine.getMediaSourceUrl());
 
-  const { onPlayPointerDown, togglePlay } = useViewerTransportActions({
+  const { onPlayPointerDown, togglePlay, seekBack, seekForward } =
+    useViewerTransportActions({
     project,
     timelineRef,
     trimStartSec,
@@ -158,8 +159,33 @@ export function ChoreoViewerControlBars({
     </span>
   );
 
+  const seekBtnStyle = {
+    ...btnSecondary,
+    minWidth: 44,
+    minHeight: 44,
+    padding: "0 6px",
+    display: "inline-flex" as const,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    fontSize: 12,
+    fontWeight: 700,
+    fontVariantNumeric: "tabular-nums" as const,
+    flexShrink: 0,
+  };
+
   const transportRow = showTransport ? (
     <div className="choreo-viewer-bars__transport-inner">
+      <button
+        type="button"
+        className="choreo-viewer-bars__seek-btn"
+        aria-label={t("editor.comp.k002")}
+        title={t("editor.comp.k002")}
+        disabled={duration <= 0}
+        onClick={seekBack}
+        style={seekBtnStyle}
+      >
+        −5
+      </button>
       {showCueNav ? (
         <>
           <button
@@ -189,6 +215,17 @@ export function ChoreoViewerControlBars({
       ) : (
         timeLabel
       )}
+      <button
+        type="button"
+        className="choreo-viewer-bars__seek-btn"
+        aria-label={t("editor.comp.k003")}
+        title={t("editor.comp.k003")}
+        disabled={duration <= 0}
+        onClick={seekForward}
+        style={seekBtnStyle}
+      >
+        +5
+      </button>
       <button
         type="button"
         className={[
@@ -221,35 +258,15 @@ export function ChoreoViewerControlBars({
     </div>
   ) : null;
 
-  if (landscapeMode) {
-    return (
-      <aside
-        className="choreo-viewer-bars choreo-viewer-bars--landscape"
-        aria-label={t("editor.layout.viewerControlBarsAria")}
-      >
-        {showTopBar ? (
-          <div className="choreo-viewer-bars__left-mode">
-            <ViewerMemberModeSwitch
-              pick={choreoStudentPick}
-              memberCount={rosterMemberCount}
-              layout="stack"
-              onPickAll={onPickViewerAll}
-              onPickIndividual={onPickViewerIndividual}
-              onOpenMemberPicker={onOpenMemberSheet}
-            />
-            <ViewerTopBarExtras />
-          </div>
-        ) : null}
-        {transportRow ? (
-          <div className="choreo-viewer-bars__left-transport">{transportRow}</div>
-        ) : null}
-      </aside>
-    );
-  }
-
   return (
     <div
-      className="choreo-viewer-bars choreo-viewer-bars--portrait"
+      className={[
+        "choreo-viewer-bars",
+        "choreo-viewer-bars--portrait",
+        landscapeMode ? "choreo-viewer-bars--landscape-host" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       aria-label={t("editor.layout.viewerControlBarsAria")}
     >
       {showTopBar ? (

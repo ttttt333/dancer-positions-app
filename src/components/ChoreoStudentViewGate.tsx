@@ -240,36 +240,30 @@ export function ChoreoStudentViewGate({
   }
   return (
     <div
-      className="choreo-student-view-gate"
+      className="choreo-student-view-gate choreo-student-view-gate--pick"
       style={{
         minHeight: "100dvh",
+        height: "100dvh",
         width: "100%",
         maxWidth: "100vw",
         background: shell.bgDeep,
         color: shell.text,
         display: "flex",
         flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
+        alignItems: "stretch",
         padding:
-          "max(32px, env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-right, 0px)) max(48px, env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px))",
+          "max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px))",
         boxSizing: "border-box",
-        overflowY: "auto",
-        WebkitOverflowScrolling: "touch",
+        overflow: "hidden",
       }}
     >
-      <div
-        style={{
-          maxWidth: 420,
-          width: "100%",
-          textAlign: "center",
-        }}
-      >
+      <div className="choreo-student-view-gate__pick-header">
         <p
           style={{
             margin: "0 0 8px",
             fontSize: 28,
             lineHeight: 1.2,
+            textAlign: "center",
           }}
           aria-hidden
         >
@@ -277,19 +271,24 @@ export function ChoreoStudentViewGate({
         </p>
         <h1
           style={{
-            margin: "0 0 20px",
+            margin: "0 0 12px",
             fontSize: 20,
             fontWeight: 700,
             color: "#e2e8f0",
+            textAlign: "center",
           }}
         >
           {pieceTitle.trim() || "無題の作品"} - 閲覧モード
         </h1>
+      </div>
+      <div className="choreo-student-view-gate__pick-body">
         <ChoreoMemberPickerPanel
           entries={entries}
           onPick={onPick}
           heading="あなたは誰ですか？"
           subheading="スマホでも見やすい閲覧モードです。あなたの立ち位置を大きく光らせるか、全員同じ大きさで表示するかを選びます。"
+          compact
+          publicSheet
         />
       </div>
     </div>

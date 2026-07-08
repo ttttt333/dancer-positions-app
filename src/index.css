@@ -571,6 +571,31 @@ body {
   }
 }
 
+.choreo-student-view-gate--pick {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.choreo-student-view-gate__pick-header {
+  flex-shrink: 0;
+}
+
+.choreo-student-view-gate__pick-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-width: 480px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+html.choreo-public-view-html,
+html.choreo-public-view-html body {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
 .choreo-public-view-root {
   -webkit-tap-highlight-color: transparent;
   /* ホームバー付き端末で下が切れにくい */
@@ -890,10 +915,36 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 6px;
     width: 100%;
-    max-width: 480px;
+    max-width: 520px;
     margin: 0 auto;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .choreo-viewer-bars__seek-btn {
+    touch-action: manipulation;
+  }
+  .choreo-viewer-bars--landscape-host .choreo-viewer-bars__top {
+    padding-top: max(4px, env(safe-area-inset-top, 0px));
+    min-height: 44px;
+  }
+  .choreo-viewer-bars--landscape-host .choreo-viewer-bars__bottom {
+    padding-top: 4px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+  }
+  .choreo-viewer-bars--landscape-host .choreo-viewer-bars__play-btn {
+    min-width: 64px !important;
+    min-height: 64px !important;
+  }
+  .choreo-viewer-bars--landscape-host .choreo-viewer-bars__cue-btn {
+    min-width: 48px !important;
+    min-height: 48px !important;
+  }
+  .choreo-public-view-root--landscape .stage-board-fit-viewport-inner {
+    align-items: center;
+    justify-content: center;
   }
   .choreo-viewer-bars__cue-label {
     flex: 0 1 auto;
@@ -1031,8 +1082,7 @@ body {
   }
   .choreo-public-view-root--landscape:not(.choreo-public-view-root--chrome-collapsed)
     .editor-three-pane.editor-three-pane--public-narrow {
-    /* 左レールは fixed で重ねる。ステージの表示幅を広げる */
-    padding-left: max(6px, env(safe-area-inset-left, 0px)) !important;
+    padding-left: 0 !important;
     padding-top: 0 !important;
     min-height: 100%;
   }

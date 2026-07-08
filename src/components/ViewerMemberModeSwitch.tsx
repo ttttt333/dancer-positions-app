@@ -31,6 +31,10 @@ export function ViewerMemberModeSwitch({
 
   const onIndividualClick = () => {
     if (isAll) {
+      if (memberCount > 1) {
+        onOpenMemberPicker?.();
+        return;
+      }
       onPickIndividual();
       return;
     }
