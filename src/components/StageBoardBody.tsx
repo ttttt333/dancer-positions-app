@@ -139,6 +139,7 @@ export function StageBoardBody({
   studentViewerFocus = null,
   markerDisplayScale = 1,
   compactViewportChrome = false,
+  hideStageFloorTextMarkup = false,
   trashDropEdge = "left",
   onOpenTextEditSheet,
   showMotionArrows = false,
@@ -685,12 +686,13 @@ export function StageBoardBody({
         []);
 
   const screenFloorTexts = useMemo((): StageFloorTextMarkup[] => {
+    if (hideStageFloorTextMarkup) return [];
     const out: StageFloorTextMarkup[] = [];
     for (const m of displayFloorMarkup) {
       if (m.kind === "text" && floorTextLayer(m) === "screen") out.push(m);
     }
     return out;
-  }, [displayFloorMarkup]);
+  }, [displayFloorMarkup, hideStageFloorTextMarkup]);
 
   const stageSetPieces = useMemo(
     () => displaySetPieces.filter((p) => setPieceLayer(p) === "stage"),
@@ -4136,8 +4138,15 @@ export function StageBoardBody({
           handleFloorTextPlacePreviewPointerDown,
         floorTextDraftGhost: floorMarkupTool === "text" ? floorTextDraft : null,
         floorTextGhostPos: floorGhostPos,
+        hideFloorText: hideStageFloorTextMarkup,
       },
-      showStageFloorMarkup: displayFloorMarkup.length > 0 || !!floorLineDraft || (globalFloorMarkup != null && globalFloorMarkup.length > 0) || floorMarkupTool === "text",
+      showStageFloorMarkup:
+        displayFloorMarkup.some((m) => m.kind === "line") ||
+        !!floorLineDraft ||
+        (!hideStageFloorTextMarkup &&
+          (displayFloorMarkup.some((m) => m.kind === "text") ||
+            (globalFloorMarkup ?? []).some((m) => m.kind === "text") ||
+            floorMarkupTool === "text")),
       /* 大道具：最背面レイヤーとして StageShellWithMainFloor に直接渡す */
       setPieceElements: stageSetPieceElements,
       /* 操作層（ダンサー印・マーキー等） */

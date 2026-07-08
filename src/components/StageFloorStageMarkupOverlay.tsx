@@ -13,6 +13,8 @@ import type { FloorTextDraftShape } from "./FloorTextDraftEditorForm";
 export type StageFloorStageMarkupOverlayProps = {
   displayFloorMarkup: StageFloorMarkup[];
   globalFloorMarkup?: StageFloorMarkup[] | null;
+  /** 生徒閲覧: テキストは専用帯へ（線はステージ上に残す） */
+  hideFloorText?: boolean;
   onRemoveGlobalFloorMarkupById?: (id: string) => void;
   floorLineDraft: [number, number][] | null;
   floorMarkupTool: null | "text" | "line" | "erase";
@@ -36,6 +38,7 @@ export type StageFloorStageMarkupOverlayProps = {
 export function StageFloorStageMarkupOverlay({
   displayFloorMarkup,
   globalFloorMarkup,
+  hideFloorText = false,
   onRemoveGlobalFloorMarkupById,
   floorLineDraft,
   floorMarkupTool,
@@ -68,6 +71,7 @@ export function StageFloorStageMarkupOverlay({
       />
       {displayFloorMarkup.map((m) => {
         if (m.kind !== "text") return null;
+        if (hideFloorText) return null;
         if (floorTextLayer(m) === "screen") return null;
         return (
           <FloorTextMarkupBlock
@@ -81,6 +85,7 @@ export function StageFloorStageMarkupOverlay({
       {/* 全編共通テキスト（キュー切替に関係なく常時表示） */}
       {(globalFloorMarkup ?? []).map((m) => {
         if (m.kind !== "text") return null;
+        if (hideFloorText) return null;
         if (floorTextLayer(m) === "screen") return null;
         return (
           <FloorTextMarkupBlock

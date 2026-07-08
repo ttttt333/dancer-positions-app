@@ -16,7 +16,6 @@ import { useVideoExportUiStore } from "../../store/videoExportUiStore";
 import {
   PUBLIC_VIEWER_MARKER_DISPLAY_SCALE,
 } from "../../components/ChoreoViewerBottomBar";
-import { useViewerChromeStore } from "../../store/viewerChromeStore";
 
 const Stage3DView = lazy(() =>
   import("../../components/Stage3DView").then((m) => ({ default: m.Stage3DView }))
@@ -121,9 +120,6 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const projectName = props.projectName as never;
   const publicNarrowLayout = props.publicNarrowLayout as never;
   const publicViewTightHeight = props.publicViewTightHeight as never;
-  const viewerChromeCollapsed = props.viewerChromeCollapsed as never;
-  const stageOnly = useViewerChromeStore((s) => s.stageOnly);
-  const chromeCollapsed = stageOnly || viewerChromeCollapsed;
   const resyncViewerPlayback = props.resyncViewerPlayback as never;
   const reloadViewerAudio = props.reloadViewerAudio as never;
   const raw = props.raw as never;
@@ -435,14 +431,9 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                   : wideEditorLayout
                     ? "0px 0px 0px 0px"
                     : "6px max(6px, env(safe-area-inset-right, 0px)) calc(max(8px, 2cm) + env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px))",
-                paddingBottom:
-                  choreoPublicView &&
-                  choreoStudentPick &&
-                  !chromeCollapsed
-                    ? "max(4px, env(safe-area-inset-bottom, 0px))"
-                    : choreoPublicView
-                      ? "max(4px, env(safe-area-inset-bottom, 0px))"
-                      : undefined,
+                paddingBottom: choreoPublicView
+                  ? "max(4px, env(safe-area-inset-bottom, 0px))"
+                  : undefined,
                 marginTop: 0,
               }),
         }}
@@ -853,6 +844,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                       choreoPublicView ? PUBLIC_VIEWER_MARKER_DISPLAY_SCALE : 1
                     }
                     compactViewportChrome={choreoPublicView}
+                    hideStageFloorTextMarkup={choreoPublicView}
                     trashDropEdge={mobileStackEditor ? "bottom" : "left"}
                     showMotionArrows={showMotionArrows}
                     onOpenDancerPathEditor={

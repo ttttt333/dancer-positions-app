@@ -6,6 +6,8 @@ type Props = {
   /** 名簿 0 人のときは非表示 */
   memberCount: number;
   layout?: "inline" | "stack";
+  /** 下部バー向けのコンパクト表示 */
+  compact?: boolean;
   onPickAll: () => void;
   onPickIndividual: () => void;
   onOpenMemberPicker?: () => void;
@@ -16,6 +18,7 @@ export function ViewerMemberModeSwitch({
   pick,
   memberCount,
   layout = "inline",
+  compact = false,
   onPickAll,
   onPickIndividual,
   onOpenMemberPicker,
@@ -46,6 +49,7 @@ export function ViewerMemberModeSwitch({
       className={[
         "choreo-viewer-member-mode",
         layout === "stack" ? "choreo-viewer-member-mode--stack" : "",
+        compact ? "choreo-viewer-member-mode--compact-bar" : "",
       ]
         .filter(Boolean)
         .join(" ")}

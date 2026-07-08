@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import type { RefObject } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import type { TimelinePanelHandle } from "./timelinePanelTypes";
@@ -16,6 +16,7 @@ import { useShareViewAudioLoadStore } from "../store/shareViewAudioLoadStore";
 import { useViewerChromeStore } from "../store/viewerChromeStore";
 import { useViewerTransportActions } from "../hooks/useViewerTransportActions";
 import { ViewerMemberModeSwitch } from "./ViewerMemberModeSwitch";
+import { ChoreoViewerVideoSaveButton } from "./ChoreoViewerVideoSaveButton";
 import { computeViewerCueNavState } from "../lib/viewerCueNavigation";
 import { VIEWER_LEFT_RAIL_PX } from "../pages/editor/editorConstants";
 
@@ -35,6 +36,7 @@ type Props = {
   currentTime: number;
   duration: number;
   landscapeMode: boolean;
+  fileName: string;
   onBeforeTransport?: () => void | Promise<void>;
   onOpenMemberSheet: () => void;
   onPickViewerAll: () => void;
@@ -43,40 +45,6 @@ type Props = {
   onCueNext: () => void;
   onInsetsChange?: (insets: ViewerChromeInsets) => void;
 };
-
-function ViewerTopBarExtras() {
-  const { t } = useI18n();
-  const detailsVisible = useViewerChromeStore((s) => s.detailsVisible);
-  const toggleDetails = useViewerChromeStore((s) => s.toggleDetails);
-  const enterStageOnly = useViewerChromeStore((s) => s.enterStageOnly);
-
-  return (
-    <div className="choreo-viewer-bars__top-extras">
-      <button
-        type="button"
-        className={[
-          "choreo-viewer-bars__mini-btn",
-          detailsVisible ? "choreo-viewer-bars__mini-btn--active" : "",
-        ]
-          .filter(Boolean)
-          .join(" ")}
-        aria-pressed={detailsVisible}
-        title={t("editor.layout.viewerChromeDetailsToggle")}
-        onClick={toggleDetails}
-      >
-        {t("editor.layout.viewerChromeDetailsShort")}
-      </button>
-      <button
-        type="button"
-        className="choreo-viewer-bars__mini-btn"
-        title={t("editor.layout.viewerChromeCollapse")}
-        onClick={enterStageOnly}
-      >
-        {t("editor.layout.viewerChromeStageShort")}
-      </button>
-    </div>
-  );
-}
 
 function ViewerTransportControls({
   showCueNav,
@@ -179,7 +147,7 @@ function ViewerTransportControls({
   );
 }
 
-/** 生徒閲覧: ステージ全面の上に浮かせる操作帯 */
+/** 生徒閲覧: 操作帯（縦=下部、横=左レール） */
 export function ChoreoViewerControlBars({
   project,
   timelineRef,
@@ -190,6 +158,7 @@ export function ChoreoViewerControlBars({
   currentTime,
   duration,
   landscapeMode,
+  fileName,
   onBeforeTransport,
   onOpenMemberSheet,
   onPickViewerAll,
@@ -201,7 +170,6 @@ export function ChoreoViewerControlBars({
   const { t } = useI18n();
   const trimStartSec = project.trimStartSec ?? 0;
   const trimEndSec = project.trimEndSec ?? null;
-  const stageOnly = useViewerChromeStore((s) => s.stageOnly);
   const controlsVisible = useViewerChromeStore((s) => s.controlsVisible);
   const cuePagerVisible = useViewerChromeStore((s) => s.cuePagerVisible);
 
@@ -226,15 +194,44 @@ export function ChoreoViewerControlBars({
       onBeforeTransport,
     });
 
-  const showTopBar = !stageOnly;
-  const showTransport = !stageOnly && controlsVisible;
+  const showTransport = controlsVisible;
   const showCueNav = showTransport && cuePagerVisible && cueNav.cueCount > 0;
 
-  useEffect(() => {
-    onInsetsChange?.({ topPx: 0, bottomPx: 0, leftPx: 0 });
-  }, [onInsetsChange]);
+  const chromeRef = useRef<HTMLElement | null>(null);
 
-  if (stageOnly) return null;
+  const reportInsets = useCallback(() => {
+    const el = chromeRef.current;
+    if (!el) {
+      onInsetsChange?.({ topPx: 0, bottomPx: 0, leftPx: 0 });
+      return;
+    }
+    const rect = el.getBoundingClientRect();
+    if (landscapeMode) {
+      onInsetsChange?.({
+        topPx: 0,
+        bottomPx: 0,
+        leftPx: Math.ceil(rect.width),
+      });
+      return;
+    }
+    onInsetsChange?.({
+      topPx: 0,
+      bottomPx: Math.ceil(rect.height),
+      leftPx: 0,
+    });
+  }, [landscapeMode, onInsetsChange]);
+
+  useEffect(() => {
+    const el = chromeRef.current;
+    if (!el) {
+      onInsetsChange?.({ topPx: 0, bottomPx: 0, leftPx: 0 });
+      return;
+    }
+    reportInsets();
+    const observer = new ResizeObserver(() => reportInsets());
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [reportInsets, onInsetsChange, landscapeMode, showTransport, rosterMemberCount]);
 
   const timeLabel = (
     <span
@@ -265,51 +262,77 @@ export function ChoreoViewerControlBars({
     />
   ) : null;
 
-  const modeSwitch = (
-    <ViewerMemberModeSwitch
-      pick={choreoStudentPick}
-      memberCount={rosterMemberCount}
-      layout={landscapeMode ? "stack" : "inline"}
-      onPickAll={onPickViewerAll}
-      onPickIndividual={onPickViewerIndividual}
-      onOpenMemberPicker={onOpenMemberSheet}
+  const modeSwitch =
+    rosterMemberCount > 0 ? (
+      <ViewerMemberModeSwitch
+        pick={choreoStudentPick}
+        memberCount={rosterMemberCount}
+        layout={landscapeMode ? "stack" : "inline"}
+        compact={!landscapeMode}
+        onPickAll={onPickViewerAll}
+        onPickIndividual={onPickViewerIndividual}
+        onOpenMemberPicker={onOpenMemberSheet}
+      />
+    ) : null;
+
+  const videoSave = (
+    <ChoreoViewerVideoSaveButton
+      project={project}
+      durationSec={duration}
+      fileName={fileName}
     />
   );
 
   if (landscapeMode) {
     return (
       <aside
+        ref={chromeRef}
         className="choreo-viewer-bars choreo-viewer-bars--landscape"
         style={{ ["--choreo-viewer-left-rail-w" as string]: `${VIEWER_LEFT_RAIL_PX}px` }}
         aria-label={t("editor.layout.viewerControlBarsAria")}
       >
-        {showTopBar ? (
-          <div className="choreo-viewer-bars__left-mode">
-            {modeSwitch}
-            <ViewerTopBarExtras />
-          </div>
-        ) : null}
-        {transportControls ? (
-          <div className="choreo-viewer-bars__left-transport">{transportControls}</div>
-        ) : null}
+        <div className="choreo-viewer-bars__left-stack">
+          {modeSwitch}
+          {videoSave}
+          {transportControls ? (
+            <div className="choreo-viewer-bars__left-transport">
+              {transportControls}
+            </div>
+          ) : null}
+        </div>
       </aside>
     );
   }
 
+  if (!showTransport && !modeSwitch) {
+    return (
+      <footer
+        ref={chromeRef}
+        className="choreo-viewer-bars choreo-viewer-bars--portrait"
+        aria-label={t("editor.layout.viewerControlBarsAria")}
+      >
+        <div className="choreo-viewer-bars__bottom-panel">
+          <div className="choreo-viewer-bars__bottom-meta">{videoSave}</div>
+        </div>
+      </footer>
+    );
+  }
+
   return (
-    <div
+    <footer
+      ref={chromeRef}
       className="choreo-viewer-bars choreo-viewer-bars--portrait"
       aria-label={t("editor.layout.viewerControlBarsAria")}
     >
-      {showTopBar ? (
-        <header className="choreo-viewer-bars__top">
-          {modeSwitch}
-          <ViewerTopBarExtras />
-        </header>
-      ) : null}
-      {transportControls ? (
-        <footer className="choreo-viewer-bars__bottom">{transportControls}</footer>
-      ) : null}
-    </div>
+      <div className="choreo-viewer-bars__bottom-panel">
+        {modeSwitch || videoSave ? (
+          <div className="choreo-viewer-bars__bottom-meta">
+            {modeSwitch}
+            {videoSave}
+          </div>
+        ) : null}
+        {transportControls}
+      </div>
+    </footer>
   );
 }

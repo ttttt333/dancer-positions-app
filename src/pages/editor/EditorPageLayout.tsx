@@ -10,7 +10,7 @@ import { EditorStageWorkbench, WorkbenchCuePager } from "../../components/Editor
 import { StageShapePicker } from "../../components/StageShapePicker";
 import { EditorSideSheet } from "../../components/EditorSideSheet";
 import { ShareLinksSheetContent } from "../../components/ShareLinksSheetContent";
-import { ViewerModeSheetContent } from "../../components/ViewerModeSheetContent";
+import { ChoreoViewerStageMemo } from "../../components/ChoreoViewerStageMemo";
 import { btnAccent, btnSecondary, inputField } from "../../components/stageButtonStyles";
 import { panelCard, shell } from "../../theme/choreoShell";
 import { modDancerColorIndex, DANCER_COLOR_PALETTE_HEX } from "../../lib/dancerColorPalette";
@@ -136,7 +136,7 @@ export function EditorPageLayout(props: EditorLayoutProps) {
   const projectName = props.projectName as never;
   const publicNarrowLayout = props.publicNarrowLayout as never;
   const publicViewTightHeight = props.publicViewTightHeight as never;
-  const viewerChromeCollapsed = props.viewerChromeCollapsed as never;
+  const viewerStageMemoTexts = props.viewerStageMemoTexts as never;
   const viewerBarHeightPx = props.viewerBarHeightPx as never;
   const viewerChromeInsets = props.viewerChromeInsets as never;
   const publicViewTightHeightForVars = props.publicViewTightHeight as never;
@@ -259,9 +259,6 @@ export function EditorPageLayout(props: EditorLayoutProps) {
     <div
       className={[
         choreoPublicView ? "choreo-public-view-root" : "editor-page-root",
-        choreoPublicView && viewerChromeCollapsed
-          ? "choreo-public-view-root--chrome-collapsed"
-          : "",
         choreoPublicView && publicViewTightHeight
           ? "choreo-public-view-root--landscape"
           : "",
@@ -298,18 +295,14 @@ export function EditorPageLayout(props: EditorLayoutProps) {
         boxSizing: "border-box",
         ...(choreoPublicView
           ? {
-              ["--choreo-viewer-bar-h" as string]: viewerChromeCollapsed
-                ? "0px"
-                : `${viewerBarHeightPx}px`,
-              ["--choreo-viewer-top-bar-h" as string]: viewerChromeCollapsed
-                ? "0px"
-                : `${viewerChromeInsets?.topPx ?? 0}px`,
-              ["--choreo-viewer-transport-bar-h" as string]: viewerChromeCollapsed
+              ["--choreo-viewer-bar-h" as string]: `${viewerBarHeightPx}px`,
+              ["--choreo-viewer-top-bar-h" as string]: "0px",
+              ["--choreo-viewer-transport-bar-h" as string]: publicViewTightHeight
                 ? "0px"
                 : `${viewerChromeInsets?.bottomPx ?? 0}px`,
-              ["--choreo-viewer-left-rail-w" as string]: viewerChromeCollapsed
-                ? "0px"
-                : `${viewerChromeInsets?.leftPx ?? 0}px`,
+              ["--choreo-viewer-left-rail-w" as string]: publicViewTightHeight
+                ? `${viewerChromeInsets?.leftPx ?? 0}px`
+                : "0px",
               ["--choreo-viewer-cuepager-h" as string]: "0px",
             }
           : {}),
@@ -412,13 +405,56 @@ export function EditorPageLayout(props: EditorLayoutProps) {
         </div>
       ) : null}
 
+      {choreoPublicView &&
+      choreoStudentPick &&
+      !publicViewTightHeight &&
+      Array.isArray(viewerStageMemoTexts) &&
+      viewerStageMemoTexts.length > 0 ? (
+        <ChoreoViewerStageMemo
+          texts={viewerStageMemoTexts}
+          variant="portrait"
+        />
+      ) : null}
+
       {/* ─── Stage row: editor grid + NeonIconPanel ─── */}
-      <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "visible" }}>
+      <div
+        className={
+          choreoPublicView ? "choreo-public-view-stage-shell" : undefined
+        }
+        style={{
+          display: "flex",
+          flex: 1,
+          minHeight: 0,
+          flexDirection:
+            choreoPublicView && publicViewTightHeight ? "row" : "column",
+          overflow: "visible",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flex: 1,
+            minWidth: 0,
+            minHeight: 0,
+            overflow: "visible",
+          }}
+        >
         {mobileStackEditor ? (
           <EditorMobileLayout {...props} />
         ) : (
           <EditorDesktopLayout {...props} />
         )}
+        </div>
+        {choreoPublicView &&
+        choreoStudentPick &&
+        publicViewTightHeight &&
+        Array.isArray(viewerStageMemoTexts) &&
+        viewerStageMemoTexts.length > 0 ? (
+          <ChoreoViewerStageMemo
+            texts={viewerStageMemoTexts}
+            variant="landscape"
+          />
+        ) : null}
       </div>{/* end stage row */}
 
       </div>{/* end main column wrapper */}

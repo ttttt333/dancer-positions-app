@@ -1,214 +1,35 @@
 import { useEffect } from "react";
-import type { RefObject } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
-import type { TimelinePanelHandle } from "./timelinePanelTypes";
-import { btnAccent, btnSecondary } from "./stageButtonStyles";
 import { shell } from "../theme/choreoShell";
-import { formatMmSsFloor } from "../lib/timeFormat";
-import {
-  TransportIconPause,
-  TransportIconPlay,
-  TransportIconSkipBack,
-  TransportIconSkipForward,
-  TransportIconStop,
-} from "./mobile/TransportIcons";
-import { VideoExportButton } from "./VideoExportButton";
 import { useI18n } from "../i18n/I18nContext";
 import { playbackEngine } from "../core/playbackEngine";
 import { hasViewerPlayIntent } from "../lib/playbackViewerIntent";
 import { useWaveformLoadProgressStore } from "../store/waveformLoadProgressStore";
 import { useShareViewAudioLoadStore } from "../store/shareViewAudioLoadStore";
-import { useViewerChromeStore } from "../store/viewerChromeStore";
 import { ShareViewAudioLoadBanner } from "./ShareViewAudioLoadBanner";
-import { useViewerTransportActions } from "../hooks/useViewerTransportActions";
-import type { StudentPick } from "./ChoreoStudentViewGate";
 
 /** 閲覧共有ステージ上のダンサー印の表示倍率（従来比 2/3） */
 export const PUBLIC_VIEWER_MARKER_DISPLAY_SCALE = 2 / 3;
 
-function viewerBarHeightPx(
-  tight: boolean,
-  showDetailsRow: boolean,
-  showAudioRow: boolean
-): number {
-  let h = 0;
-  if (showAudioRow) h += tight ? 36 : 40;
-  if (showDetailsRow) h += tight ? 88 : 96;
-  return h;
-}
-
-type TransportProps = {
-  project: ChoreographyProjectJson;
-  timelineRef?: RefObject<TimelinePanelHandle | null>;
-  trimStartSec: number;
-  trimEndSec: number | null;
-  isPlaying: boolean;
-  currentTime: number;
-  duration: number;
-  compact?: boolean;
-  onBeforeTransport?: () => void | Promise<void>;
-};
-
-export function ChoreoViewerTransportControls({
-  project,
-  timelineRef,
-  trimStartSec,
-  trimEndSec,
-  isPlaying,
-  currentTime,
-  duration,
-  compact = false,
-  onBeforeTransport,
-}: TransportProps) {
-  const { t } = useI18n();
-  const shareAudioPhase = useShareViewAudioLoadStore((s) => s.phase);
-  const playReadyGlow =
-    shareAudioPhase === "ready" &&
-    !isPlaying &&
-    Boolean(playbackEngine.getMediaSourceUrl());
-  const btnSize = compact ? 40 : 44;
-  const iconPrimary = compact ? 22 : 24;
-  const iconSecondary = compact ? 18 : 20;
-
-  const transportBtn = {
-    ...btnSecondary,
-    minWidth: btnSize,
-    minHeight: btnSize,
-    padding: 0,
-    display: "inline-flex" as const,
-    alignItems: "center" as const,
-    justifyContent: "center" as const,
-    flexShrink: 0,
-  };
-
-  const { seekBack, seekForward, onPlayPointerDown, togglePlay, stopPlayback } =
-    useViewerTransportActions({
-      project,
-      timelineRef,
-      trimStartSec,
-      trimEndSec,
-      duration,
-      onBeforeTransport,
-    });
-
-  return (
-    <>
-      <button
-        type="button"
-        aria-label={t("editor.comp.k002")}
-        title={t("editor.comp.k002")}
-        onClick={seekBack}
-        disabled={duration <= 0}
-        style={transportBtn}
-      >
-        <TransportIconSkipBack size={iconSecondary} />
-      </button>
-      <button
-        type="button"
-        aria-label={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
-        title={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
-        onPointerDown={onPlayPointerDown}
-        onClick={togglePlay}
-        className={
-          playReadyGlow && !isPlaying
-            ? "choreo-viewer-play--ready"
-            : undefined
-        }
-        style={{
-          ...btnAccent,
-          minWidth: btnSize + 4,
-          minHeight: btnSize + 4,
-          padding: 0,
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}
-      >
-        {isPlaying ? (
-          <TransportIconPause size={iconPrimary} />
-        ) : (
-          <TransportIconPlay size={iconPrimary} />
-        )}
-      </button>
-      <button
-        type="button"
-        aria-label={t("editor.layout.stop")}
-        title={t("editor.comp.k060")}
-        onClick={stopPlayback}
-        style={transportBtn}
-      >
-        <TransportIconStop size={iconSecondary} />
-      </button>
-      <button
-        type="button"
-        aria-label={t("editor.comp.k003")}
-        title={t("editor.comp.k003")}
-        onClick={seekForward}
-        disabled={duration <= 0}
-        style={transportBtn}
-      >
-        <TransportIconSkipForward size={iconSecondary} />
-      </button>
-      <span
-        className="choreo-viewer-time"
-        aria-live="polite"
-        aria-label={`${currentTime} / ${duration}`}
-      >
-        {formatMmSsFloor(currentTime)}
-        <span className="choreo-viewer-timeSep">/</span>
-        {formatMmSsFloor(duration)}
-      </span>
-    </>
-  );
-}
-
-export type ChoreoViewerChromeRestoreFabProps = {
-  onRestore: () => void;
-};
-
-/** ステージのみ表示中に操作パネルを戻す FAB */
-export function ChoreoViewerChromeRestoreFab({
-  onRestore,
-}: ChoreoViewerChromeRestoreFabProps) {
-  const { t } = useI18n();
-  return (
-    <button
-      type="button"
-      className="choreo-viewer-restore-fab"
-      aria-label={t("editor.layout.viewerChromeExpand")}
-      title={t("editor.layout.viewerChromeExpand")}
-      onClick={onRestore}
-    >
-      {t("editor.layout.viewerChromeExpandShort")}
-    </button>
-  );
+function viewerBarHeightPx(tight: boolean, showAudioRow: boolean): number {
+  if (!showAudioRow) return 0;
+  return tight ? 36 : 40;
 }
 
 export type ChoreoViewerBottomBarProps = {
   project: ChoreographyProjectJson;
-  choreoStudentPick: StudentPick;
   isPlaying: boolean;
-  duration: number;
   tightHeight: boolean;
-  onOpenMemberSheet: () => void;
   onBarHeightChange?: (px: number) => void;
-  fileName: string;
 };
 
 export function ChoreoViewerBottomBar({
   project,
-  choreoStudentPick,
   isPlaying,
-  duration,
   tightHeight,
-  onOpenMemberSheet,
   onBarHeightChange,
-  fileName,
 }: ChoreoViewerBottomBarProps) {
   const { t } = useI18n();
-  const stageOnly = useViewerChromeStore((s) => s.stageOnly);
-  const detailsVisible = useViewerChromeStore((s) => s.detailsVisible);
   const shareAudioPhase = useShareViewAudioLoadStore((s) => s.phase);
   const waveLoad = useWaveformLoadProgressStore((s) => s.progress);
   const audioLoadError =
@@ -229,25 +50,19 @@ export function ChoreoViewerBottomBar({
     hasViewerPlayIntent();
 
   const showAudioRow =
-    !stageOnly &&
-    (shareAudioPhase === "loading" ||
-      shareAudioPhase === "error" ||
-      shareAudioPhase === "unconfigured" ||
-      Boolean(audioLoadError));
-  const showDetailsRow = detailsVisible && !stageOnly;
-  const visible = showAudioRow || showDetailsRow || awaitingAudioTap;
+    shareAudioPhase === "loading" ||
+    shareAudioPhase === "error" ||
+    shareAudioPhase === "unconfigured" ||
+    Boolean(audioLoadError);
+  const visible = showAudioRow || awaitingAudioTap;
 
-  const barHeightPx = viewerBarHeightPx(
-    tightHeight,
-    showDetailsRow,
-    showAudioRow || awaitingAudioTap
-  );
+  const barHeightPx = viewerBarHeightPx(tightHeight, showAudioRow || awaitingAudioTap);
 
   useEffect(() => {
-    onBarHeightChange?.(stageOnly || !visible ? 0 : barHeightPx);
-  }, [barHeightPx, onBarHeightChange, stageOnly, visible]);
+    onBarHeightChange?.(!visible ? 0 : barHeightPx);
+  }, [barHeightPx, onBarHeightChange, visible]);
 
-  if (stageOnly || !visible) {
+  if (!visible) {
     return null;
   }
 
@@ -255,10 +70,8 @@ export function ChoreoViewerBottomBar({
     <div
       className={[
         "choreo-viewer-bottom-bar",
+        "choreo-viewer-bottom-bar--meta-closed",
         tightHeight ? "choreo-viewer-bottom-bar--tight" : "",
-        showDetailsRow
-          ? "choreo-viewer-bottom-bar--meta-open"
-          : "choreo-viewer-bottom-bar--meta-closed",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -287,51 +100,6 @@ export function ChoreoViewerBottomBar({
       {awaitingAudioTap ? (
         <div className="choreo-viewer-audio-tap-hint" role="status">
           {t("editor.layout.viewerTapPlayForSound")}
-        </div>
-      ) : null}
-      {showDetailsRow ? (
-        <div
-          className="choreo-viewer-meta-row"
-          style={{
-            gap: tightHeight ? 6 : 8,
-            padding: tightHeight ? "6px 10px 8px" : "8px 12px 10px",
-          }}
-        >
-          <span className="choreo-viewer-piece-title">
-            {(project.pieceTitle || t("editor.untitledProject")).trim()}
-            {t("editor.layout.viewingSuffix")}
-          </span>
-          <span className="choreo-viewer-member">
-            {choreoStudentPick.kind === "all"
-              ? t("editor.layout.allMembers")
-              : `${choreoStudentPick.label}${t("editor.layout.memberSuffix")}`}
-            {t("editor.layout.partViewing")}
-          </span>
-          <button
-            type="button"
-            onClick={onOpenMemberSheet}
-            style={{
-              ...btnSecondary,
-              marginLeft: "auto",
-              fontSize: tightHeight ? 12 : 13,
-              fontWeight: 600,
-              minHeight: tightHeight ? 36 : 40,
-              padding: tightHeight ? "4px 10px" : "6px 12px",
-              touchAction: "manipulation",
-              flexShrink: 0,
-            }}
-            title={t("editor.layout.selectPartTitle")}
-          >
-            {t("editor.layout.selectPart")}
-          </button>
-          <div style={{ flex: "1 1 100%", paddingTop: 4 }}>
-            <VideoExportButton
-              project={project}
-              durationSec={duration}
-              fileName={fileName}
-              compact={tightHeight}
-            />
-          </div>
         </div>
       ) : null}
     </div>

@@ -14,13 +14,9 @@ import { EditorSideSheet } from "../../components/EditorSideSheet";
 import { FloorTextSideSheetContent } from "../../components/FloorTextSideSheetContent";
 import { ShareLinksSheetContent } from "../../components/ShareLinksSheetContent";
 import { ViewerModeSheetContent } from "../../components/ViewerModeSheetContent";
-import {
-  ChoreoViewerBottomBar,
-  ChoreoViewerChromeRestoreFab,
-} from "../../components/ChoreoViewerBottomBar";
+import { ChoreoViewerBottomBar } from "../../components/ChoreoViewerBottomBar";
 import { ChoreoViewerControlBars } from "../../components/ChoreoViewerControlBars";
 import { ChoreoViewerMemberSheet } from "../../components/ChoreoViewerMemberSheet";
-import { useViewerChromeStore } from "../../store/viewerChromeStore";
 import { VideoExportSheet } from "../../components/VideoExportSheet";
 import { useVideoExportUiStore } from "../../store/videoExportUiStore";
 import { playbackEngine } from "../../core/playbackEngine";
@@ -160,10 +156,6 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
   const projectName = props.projectName as never;
   const publicNarrowLayout = props.publicNarrowLayout as never;
   const publicViewTightHeight = props.publicViewTightHeight as never;
-  const viewerChromeCollapsed = props.viewerChromeCollapsed as never;
-  const stageOnly = useViewerChromeStore((s) => s.stageOnly);
-  const controlsVisible = useViewerChromeStore((s) => s.controlsVisible);
-  const exitStageOnly = useViewerChromeStore((s) => s.exitStageOnly);
   const onViewerBarHeightChange = props.onViewerBarHeightChange as never;
   const resyncViewerPlayback = props.resyncViewerPlayback as never;
   const reloadViewerAudio = props.reloadViewerAudio as never;
@@ -1431,41 +1423,34 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
 
       {choreoPublicView && choreoStudentPick ? (
         <>
-          {stageOnly ? (
-            <ChoreoViewerChromeRestoreFab onRestore={exitStageOnly} />
-          ) : (
-            <ChoreoViewerControlBars
-              project={project}
-              timelineRef={timelineRef}
-              choreoStudentPick={choreoStudentPick}
-              rosterMemberCount={viewerRosterMemberCount}
-              selectedCueId={selectedCueId}
-              isPlaying={isPlaying}
-              currentTime={currentTime}
-              duration={duration}
-              landscapeMode={publicViewTightHeight}
-              onOpenMemberSheet={() => setChoreoMemberSheetOpen(true)}
-              onPickViewerAll={onPickViewerAll}
-              onPickViewerIndividual={onPickViewerIndividual}
-              onCuePrev={onViewerCuePrev}
-              onCueNext={onViewerCueNext}
-              onInsetsChange={onViewerChromeInsetsChange}
-              onBeforeTransport={() => {
-                if (!playbackEngine.getMediaSourceUrl()) {
-                  reloadViewerAudio();
-                }
-              }}
-            />
-          )}
+          <ChoreoViewerControlBars
+            project={project}
+            timelineRef={timelineRef}
+            choreoStudentPick={choreoStudentPick}
+            rosterMemberCount={viewerRosterMemberCount}
+            selectedCueId={selectedCueId}
+            isPlaying={isPlaying}
+            currentTime={currentTime}
+            duration={duration}
+            landscapeMode={publicViewTightHeight}
+            fileName={projectName}
+            onOpenMemberSheet={() => setChoreoMemberSheetOpen(true)}
+            onPickViewerAll={onPickViewerAll}
+            onPickViewerIndividual={onPickViewerIndividual}
+            onCuePrev={onViewerCuePrev}
+            onCueNext={onViewerCueNext}
+            onInsetsChange={onViewerChromeInsetsChange}
+            onBeforeTransport={() => {
+              if (!playbackEngine.getMediaSourceUrl()) {
+                reloadViewerAudio();
+              }
+            }}
+          />
           <ChoreoViewerBottomBar
             project={project}
-            choreoStudentPick={choreoStudentPick}
             isPlaying={isPlaying}
-            duration={duration}
             tightHeight={publicViewTightHeight}
             onBarHeightChange={onViewerBarHeightChange}
-            onOpenMemberSheet={() => setChoreoMemberSheetOpen(true)}
-            fileName={projectName}
           />
         </>
       ) : null}

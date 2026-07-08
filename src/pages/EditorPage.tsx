@@ -131,6 +131,7 @@ import {
   mergeStageSnapshotIntoProject,
 } from "../lib/savedSpotStageSnapshot";
 import { getViewRosterEntries } from "../lib/viewRoster";
+import { collectViewerStageMemoTexts } from "../lib/viewerStageMemo";
 import {
   persistViewerStudentPick,
   resolveAutoStudentPick,
@@ -363,7 +364,6 @@ export function EditorPage({
     bottomPx: 0,
     leftPx: 0,
   });
-  const viewerChromeCollapsed = useViewerChromeStore((s) => s.stageOnly);
   /** ワイド＋タイムライン表示時: キュー一覧モーダルの開閉（一覧本体はポータルで描画） */
   const [cueListModalOpen, setCueListModalOpen] = useState(false);
   const [aiSuggestOpen, setAiSuggestOpen] = useState(false);
@@ -583,7 +583,7 @@ export function EditorPage({
       void resyncViewerPlayback({ force: true });
     }, 60);
     return () => window.clearTimeout(timer);
-  }, [choreoPublicView, viewerChromeCollapsed, resyncViewerPlayback]);
+  }, [choreoPublicView, resyncViewerPlayback]);
 
   const {
     timelineRef,
@@ -1291,6 +1291,23 @@ export function EditorPage({
     const f = formationById.get(project.activeFormationId);
     return f?.floorMarkup ?? null;
   }, [project, isPlaying, stagePreviewDancers, selectedCue, currentTime, formationById]);
+
+  const viewerStageMemoTexts = useMemo(() => {
+    if (!project || !choreoPublicView) return [];
+    const formationMarkup = isPlaying
+      ? playbackFloorMarkupForStage
+      : browseFloorMarkup;
+    return collectViewerStageMemoTexts(
+      project.globalFloorMarkup,
+      formationMarkup
+    );
+  }, [
+    browseFloorMarkup,
+    choreoPublicView,
+    isPlaying,
+    playbackFloorMarkupForStage,
+    project,
+  ]);
 
   const { playbackAudioElement } = useEditorPlaybackSync({
     projectRef,
@@ -2705,7 +2722,7 @@ export function EditorPage({
     projectName,
     publicNarrowLayout,
     publicViewTightHeight,
-    viewerChromeCollapsed,
+    viewerStageMemoTexts,
     viewerBarHeightPx,
     onViewerBarHeightChange: setViewerBarHeightPx,
     viewerChromeInsets,

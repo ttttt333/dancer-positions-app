@@ -124,6 +124,8 @@ export type StageBoardBodyProps = {
   markerDisplayScale?: number;
   /** 閲覧横画面: 客席上配置時のビューポート余白を詰めてステージを大きく */
   compactViewportChrome?: boolean;
+  /** 生徒閲覧: 床テキストをステージ上に描画せず専用帯へ */
+  hideStageFloorTextMarkup?: boolean;
   /** ドラッグ削除ゴミ箱の位置（モバイル編集は `bottom`） */
   trashDropEdge?: TrashDropEdge;
   /**
