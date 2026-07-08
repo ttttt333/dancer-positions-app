@@ -55,27 +55,33 @@ export function ChoreoMemberPickerPanel({
           : {}),
       }}
     >
-      <p
-        style={{
-          margin: compact ? "0 0 8px" : "0 0 10px",
-          fontSize: compact ? 15 : 17,
-          color: "#e2e8f0",
-          fontWeight: 700,
-          lineHeight: 1.3,
-        }}
-      >
-        {heading}
-      </p>
-      <p
-        style={{
-          margin: "0 0 14px",
-          fontSize: 13,
-          color: "#94a3b8",
-          lineHeight: 1.5,
-        }}
-      >
-        {subheading}
-      </p>
+      {heading ? (
+        <p
+          style={{
+            margin: compact ? "0 0 8px" : "0 0 10px",
+            fontSize: compact ? 15 : 17,
+            color: "#e2e8f0",
+            fontWeight: 700,
+            lineHeight: 1.3,
+            flexShrink: 0,
+          }}
+        >
+          {heading}
+        </p>
+      ) : null}
+      {!publicSheet ? (
+        <p
+          style={{
+            margin: "0 0 14px",
+            fontSize: 13,
+            color: "#94a3b8",
+            lineHeight: 1.5,
+            flexShrink: 0,
+          }}
+        >
+          {subheading}
+        </p>
+      ) : null}
       {entries.length === 0 ? (
         <div>
           <p style={{ color: "#94a3b8", fontSize: 15, marginBottom: 16, lineHeight: 1.45 }}>

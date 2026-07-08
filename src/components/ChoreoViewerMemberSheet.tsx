@@ -61,6 +61,7 @@ export function ChoreoViewerMemberSheet({
             onPick={onPick}
             compact
             publicSheet
+            heading=""
           />
         </div>
       </div>

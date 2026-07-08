@@ -1,9 +1,8 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import type { RefObject } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import type { TimelinePanelHandle } from "./timelinePanelTypes";
 import type { StudentPick } from "./ChoreoStudentViewGate";
-import { btnAccent, btnSecondary } from "./stageButtonStyles";
 import {
   TransportIconPause,
   TransportIconPlay,
@@ -18,6 +17,7 @@ import { useViewerChromeStore } from "../store/viewerChromeStore";
 import { useViewerTransportActions } from "../hooks/useViewerTransportActions";
 import { ViewerMemberModeSwitch } from "./ViewerMemberModeSwitch";
 import { computeViewerCueNavState } from "../lib/viewerCueNavigation";
+import { VIEWER_LEFT_RAIL_PX } from "../pages/editor/editorConstants";
 
 export type ViewerChromeInsets = {
   topPx: number;
@@ -78,6 +78,107 @@ function ViewerTopBarExtras() {
   );
 }
 
+function ViewerTransportControls({
+  showCueNav,
+  cueNav,
+  timeLabel,
+  isPlaying,
+  duration,
+  playReadyGlow,
+  onPlayPointerDown,
+  togglePlay,
+  seekBack,
+  seekForward,
+  onCuePrev,
+  onCueNext,
+}: {
+  showCueNav: boolean;
+  cueNav: ReturnType<typeof computeViewerCueNavState>;
+  timeLabel: ReactNode;
+  isPlaying: boolean;
+  duration: number;
+  playReadyGlow: boolean;
+  onPlayPointerDown: () => void;
+  togglePlay: () => void;
+  seekBack: () => void;
+  seekForward: () => void;
+  onCuePrev: () => void;
+  onCueNext: () => void;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <div className="choreo-viewer-bars__transport-inner">
+      <button
+        type="button"
+        className="choreo-viewer-bars__seek-btn"
+        aria-label={t("editor.comp.k002")}
+        title={t("editor.comp.k002")}
+        disabled={duration <= 0}
+        onClick={seekBack}
+      >
+        −5
+      </button>
+      {showCueNav ? (
+        <>
+          <button
+            type="button"
+            className="choreo-viewer-bars__cue-btn"
+            aria-label={t("editor.layout.viewerCuePrev")}
+            title={t("editor.layout.viewerCuePrev")}
+            disabled={!cueNav.canPrev}
+            onClick={onCuePrev}
+          >
+            <TransportIconSkipBack size={20} />
+          </button>
+          {timeLabel}
+          <button
+            type="button"
+            className="choreo-viewer-bars__cue-btn"
+            aria-label={t("editor.layout.viewerCueNext")}
+            title={t("editor.layout.viewerCueNext")}
+            disabled={!cueNav.canNext}
+            onClick={onCueNext}
+          >
+            <TransportIconSkipForward size={20} />
+          </button>
+        </>
+      ) : (
+        timeLabel
+      )}
+      <button
+        type="button"
+        className="choreo-viewer-bars__seek-btn"
+        aria-label={t("editor.comp.k003")}
+        title={t("editor.comp.k003")}
+        disabled={duration <= 0}
+        onClick={seekForward}
+      >
+        +5
+      </button>
+      <button
+        type="button"
+        className={[
+          "choreo-viewer-bars__play-btn",
+          playReadyGlow && !isPlaying ? "choreo-viewer-play--ready" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        aria-label={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
+        title={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
+        onPointerDown={onPlayPointerDown}
+        onClick={togglePlay}
+      >
+        {isPlaying ? (
+          <TransportIconPause size={24} />
+        ) : (
+          <TransportIconPlay size={24} />
+        )}
+      </button>
+    </div>
+  );
+}
+
 /** 生徒閲覧: ステージ全面の上に浮かせる操作帯 */
 export function ChoreoViewerControlBars({
   project,
@@ -117,13 +218,13 @@ export function ChoreoViewerControlBars({
 
   const { onPlayPointerDown, togglePlay, seekBack, seekForward } =
     useViewerTransportActions({
-    project,
-    timelineRef,
-    trimStartSec,
-    trimEndSec,
-    duration,
-    onBeforeTransport,
-  });
+      project,
+      timelineRef,
+      trimStartSec,
+      trimEndSec,
+      duration,
+      onBeforeTransport,
+    });
 
   const showTopBar = !stageOnly;
   const showTransport = !stageOnly && controlsVisible;
@@ -134,18 +235,6 @@ export function ChoreoViewerControlBars({
   }, [onInsetsChange]);
 
   if (stageOnly) return null;
-
-  const cueBtnStyle = (enabled: boolean) => ({
-    ...btnSecondary,
-    minWidth: 56,
-    minHeight: 56,
-    padding: 0,
-    display: "inline-flex" as const,
-    alignItems: "center" as const,
-    justifyContent: "center" as const,
-    opacity: enabled ? 1 : 0.35,
-    flexShrink: 0,
-  });
 
   const timeLabel = (
     <span
@@ -159,130 +248,67 @@ export function ChoreoViewerControlBars({
     </span>
   );
 
-  const seekBtnStyle = {
-    ...btnSecondary,
-    minWidth: 44,
-    minHeight: 44,
-    padding: "0 6px",
-    display: "inline-flex" as const,
-    alignItems: "center" as const,
-    justifyContent: "center" as const,
-    fontSize: 12,
-    fontWeight: 700,
-    fontVariantNumeric: "tabular-nums" as const,
-    flexShrink: 0,
-  };
-
-  const transportRow = showTransport ? (
-    <div className="choreo-viewer-bars__transport-inner">
-      <button
-        type="button"
-        className="choreo-viewer-bars__seek-btn"
-        aria-label={t("editor.comp.k002")}
-        title={t("editor.comp.k002")}
-        disabled={duration <= 0}
-        onClick={seekBack}
-        style={seekBtnStyle}
-      >
-        −5
-      </button>
-      {showCueNav ? (
-        <>
-          <button
-            type="button"
-            className="choreo-viewer-bars__cue-btn"
-            aria-label={t("editor.layout.viewerCuePrev")}
-            title={t("editor.layout.viewerCuePrev")}
-            disabled={!cueNav.canPrev}
-            onClick={onCuePrev}
-            style={cueBtnStyle(cueNav.canPrev)}
-          >
-            <TransportIconSkipBack size={24} />
-          </button>
-          {timeLabel}
-          <button
-            type="button"
-            className="choreo-viewer-bars__cue-btn"
-            aria-label={t("editor.layout.viewerCueNext")}
-            title={t("editor.layout.viewerCueNext")}
-            disabled={!cueNav.canNext}
-            onClick={onCueNext}
-            style={cueBtnStyle(cueNav.canNext)}
-          >
-            <TransportIconSkipForward size={24} />
-          </button>
-        </>
-      ) : (
-        timeLabel
-      )}
-      <button
-        type="button"
-        className="choreo-viewer-bars__seek-btn"
-        aria-label={t("editor.comp.k003")}
-        title={t("editor.comp.k003")}
-        disabled={duration <= 0}
-        onClick={seekForward}
-        style={seekBtnStyle}
-      >
-        +5
-      </button>
-      <button
-        type="button"
-        className={[
-          "choreo-viewer-bars__play-btn",
-          playReadyGlow && !isPlaying ? "choreo-viewer-play--ready" : "",
-        ]
-          .filter(Boolean)
-          .join(" ")}
-        aria-label={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
-        title={isPlaying ? t("editor.layout.pause") : t("editor.layout.play")}
-        onPointerDown={onPlayPointerDown}
-        onClick={togglePlay}
-        style={{
-          ...btnAccent,
-          minWidth: 72,
-          minHeight: 72,
-          padding: 0,
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}
-      >
-        {isPlaying ? (
-          <TransportIconPause size={28} />
-        ) : (
-          <TransportIconPlay size={28} />
-        )}
-      </button>
-    </div>
+  const transportControls = showTransport ? (
+    <ViewerTransportControls
+      showCueNav={showCueNav}
+      cueNav={cueNav}
+      timeLabel={timeLabel}
+      isPlaying={isPlaying}
+      duration={duration}
+      playReadyGlow={playReadyGlow}
+      onPlayPointerDown={onPlayPointerDown}
+      togglePlay={togglePlay}
+      seekBack={seekBack}
+      seekForward={seekForward}
+      onCuePrev={onCuePrev}
+      onCueNext={onCueNext}
+    />
   ) : null;
+
+  const modeSwitch = (
+    <ViewerMemberModeSwitch
+      pick={choreoStudentPick}
+      memberCount={rosterMemberCount}
+      layout={landscapeMode ? "stack" : "inline"}
+      onPickAll={onPickViewerAll}
+      onPickIndividual={onPickViewerIndividual}
+      onOpenMemberPicker={onOpenMemberSheet}
+    />
+  );
+
+  if (landscapeMode) {
+    return (
+      <aside
+        className="choreo-viewer-bars choreo-viewer-bars--landscape"
+        style={{ ["--choreo-viewer-left-rail-w" as string]: `${VIEWER_LEFT_RAIL_PX}px` }}
+        aria-label={t("editor.layout.viewerControlBarsAria")}
+      >
+        {showTopBar ? (
+          <div className="choreo-viewer-bars__left-mode">
+            {modeSwitch}
+            <ViewerTopBarExtras />
+          </div>
+        ) : null}
+        {transportControls ? (
+          <div className="choreo-viewer-bars__left-transport">{transportControls}</div>
+        ) : null}
+      </aside>
+    );
+  }
 
   return (
     <div
-      className={[
-        "choreo-viewer-bars",
-        "choreo-viewer-bars--portrait",
-        landscapeMode ? "choreo-viewer-bars--landscape-host" : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
+      className="choreo-viewer-bars choreo-viewer-bars--portrait"
       aria-label={t("editor.layout.viewerControlBarsAria")}
     >
       {showTopBar ? (
         <header className="choreo-viewer-bars__top">
-          <ViewerMemberModeSwitch
-            pick={choreoStudentPick}
-            memberCount={rosterMemberCount}
-            onPickAll={onPickViewerAll}
-            onPickIndividual={onPickViewerIndividual}
-            onOpenMemberPicker={onOpenMemberSheet}
-          />
+          {modeSwitch}
           <ViewerTopBarExtras />
         </header>
       ) : null}
-      {transportRow ? (
-        <footer className="choreo-viewer-bars__bottom">{transportRow}</footer>
+      {transportControls ? (
+        <footer className="choreo-viewer-bars__bottom">{transportControls}</footer>
       ) : null}
     </div>
   );

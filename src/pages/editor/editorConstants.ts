@@ -43,7 +43,7 @@ export const VIEWER_TOP_BAR_PX = 52;
 export const VIEWER_TRANSPORT_BAR_PX = 88;
 
 /** 生徒閲覧: 横画面左レール幅 */
-export const VIEWER_LEFT_RAIL_PX = 76;
+export const VIEWER_LEFT_RAIL_PX = 88;
 
 import {
   TOP_DOCK_HEIGHT_WIDE_PX,
