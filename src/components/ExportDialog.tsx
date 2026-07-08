@@ -4,8 +4,17 @@ import { jsPDF } from "jspdf";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { sortCuesByStart } from "../core/timelineController";
 import { playCompletionWoof } from "../lib/playCompletionWoof";
-import { btnSecondary } from "./stageButtonStyles";
+import { btnAccent, btnSecondary } from "./stageButtonStyles";
 import { EditorSideSheet } from "./EditorSideSheet";
+import { buildVideoExportOptions } from "../lib/buildVideoExportOptions";
+import { getVideoExportCanvasRef } from "../lib/videoExportCanvasRef";
+import { formatVideoExportError } from "../lib/videoExportErrors";
+import type { VideoExportQualityPreset } from "../lib/videoExportQualityPresets";
+import { useVideoExport } from "../hooks/useVideoExport";
+import { useExportToast } from "../hooks/useExportToast";
+import { ExportToast } from "./ExportToast";
+import { VideoExportQualitySheet } from "./VideoExportQualitySheet";
+import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 
 const STAGE_ROOT_ID = "stage-export-root";
 
@@ -147,49 +156,10 @@ async function exportPdf(
   doc.save(`${base}-stage.pdf`);
 }
 
-const MIN_WEBM_SEC = 2;
-const MAX_WEBM_SEC = 8;
-
-async function exportWebmStatic(base: string) {
-  const el = document.getElementById(STAGE_ROOT_ID);
-  if (!el) throw new Error("ステージ要素が見つかりません");
-  const canvas = await toCanvas(el, { pixelRatio: 2, cacheBust: true });
-  const stream = canvas.captureStream(12);
-  const mime =
-    MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-      ? "video/webm;codecs=vp9"
-      : MediaRecorder.isTypeSupported("video/webm;codecs=vp8")
-        ? "video/webm;codecs=vp8"
-        : MediaRecorder.isTypeSupported("video/webm")
-          ? "video/webm"
-          : "";
-  if (!mime) throw new Error("このブラウザでは WebM 録画に対応していません");
-  const rec = new MediaRecorder(stream, { mimeType: mime });
-  const chunks: BlobPart[] = [];
-  rec.ondataavailable = (e) => {
-    if (e.data.size > 0) chunks.push(e.data);
-  };
-  const done = new Promise<Blob>((resolve, reject) => {
-    rec.onerror = () => reject(new Error("録画に失敗しました"));
-    rec.onstop = () => {
-      const blob = new Blob(chunks, { type: mime.split(";")[0] });
-      resolve(blob);
-    };
-  });
-  rec.start(200);
-  const sec = Math.min(MAX_WEBM_SEC, Math.max(MIN_WEBM_SEC, 3));
-  await new Promise((r) => setTimeout(r, sec * 1000));
-  rec.stop();
-  const blob = await done;
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `${base}-stage.webm`;
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-
 /**
- * 仕様 §1・§12: PNG / PDF / 動画(WebM) / プロジェクト JSON の書き出し。
+ * 仕様 §1・§12: PNG / PDF / プロジェクト JSON の書き出し。
+ * 動画は生徒閲覧と共通の高速フロー（WebCodecs 映像 + FFmpeg 音声結合）を
+ * 専用シートで開く。
  */
 export function ExportDialog({
   open,
@@ -201,23 +171,26 @@ export function ExportDialog({
   const [wantJson, setWantJson] = useState(true);
   const [wantPng, setWantPng] = useState(true);
   const [wantPdf, setWantPdf] = useState(false);
-  const [wantVideo, setWantVideo] = useState(false);
   /** §11 PDF の 2 ページ目にフォーメーション・ダンサー・キューのメモを載せる */
   const [pdfIncludeMemos, setPdfIncludeMemos] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [videoQualityOpen, setVideoQualityOpen] = useState(false);
+
+  const durationSec = usePlaybackUiStore((s) => s.durationSec);
+  const { startExport, isExporting } = useVideoExport();
+  const { toast, showToast, dismiss } = useExportToast();
 
   const runExport = useCallback(async () => {
     const base = safeBaseName(projectName.trim() || "無題の作品");
     setBusy(true);
     try {
       if (wantJson) await exportJson(project, base);
-      if (wantPng || wantPdf || wantVideo) {
+      if (wantPng || wantPdf) {
         if (!stage2dVisible) {
-          throw new Error("PNG・PDF・動画は 2D ステージ表示中のみ書き出せます");
+          throw new Error("PNG・PDF は 2D ステージ表示中のみ書き出せます");
         }
         if (wantPng) await exportPng(base);
         if (wantPdf) await exportPdf(base, project, pdfIncludeMemos);
-        if (wantVideo) await exportWebmStatic(base);
       }
       playCompletionWoof();
       onClose();
@@ -232,11 +205,89 @@ export function ExportDialog({
     wantJson,
     wantPng,
     wantPdf,
-    wantVideo,
     pdfIncludeMemos,
     stage2dVisible,
     onClose,
   ]);
+
+  /** 動画は生徒閲覧と同じ高速フロー（WebCodecs + FFmpeg 音声結合）。画質3択をすぐ開く */
+  const openVideoExport = useCallback(() => {
+    if (durationSec <= 0) {
+      alert("再生時間がありません。音源を読み込むか、キューを配置してください。");
+      return;
+    }
+    setVideoQualityOpen(true);
+  }, [durationSec]);
+
+  const runVideoExport = useCallback(
+    async (quality: VideoExportQualityPreset) => {
+      const videoFileName =
+        (typeof projectName === "string" && projectName.trim()) || "formation";
+      try {
+        const options = buildVideoExportOptions(
+          project,
+          durationSec,
+          videoFileName,
+          getVideoExportCanvasRef(),
+          quality
+        );
+        const result = await startExport({
+          ...options,
+          quality,
+          shareAfter: true,
+          onFfmpegFirstLoad: () =>
+            showToast({
+              kind: "info",
+              title: "FFmpeg コアを読み込み中…",
+              description: "初回は 10〜30 秒かかることがあります",
+            }),
+          onAudioSkipped: () =>
+            showToast({
+              kind: "info",
+              title: "音源なしで書き出し",
+              description:
+                "音源の取得に失敗したため、映像のみの MP4 として保存します",
+            }),
+        });
+
+        if (result.shared) {
+          showToast({
+            kind: "success",
+            title: "共有しました",
+            description: `${result.downloadName} を共有シートで送れます`,
+          });
+        } else if (result.format === "webm") {
+          showToast({
+            kind: "info",
+            title: "WebM で保存しました",
+            description:
+              result.fallbackReason ??
+              "MP4 変換できなかったため WebM 形式で保存しました",
+          });
+        } else {
+          showToast({
+            kind: "success",
+            title: "エクスポート完了",
+            description: `${result.downloadName} をダウンロードしました`,
+          });
+        }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        const { title, description } = formatVideoExportError(e);
+        showToast({ kind: "error", title, description });
+        console.error("Export (video) failed:", e);
+      }
+    },
+    [project, projectName, durationSec, startExport, showToast]
+  );
+
+  const onVideoQualitySelect = useCallback(
+    (quality: VideoExportQualityPreset) => {
+      setVideoQualityOpen(false);
+      void runVideoExport(quality);
+    },
+    [runVideoExport]
+  );
 
   if (!open) return null;
 
@@ -270,14 +321,21 @@ export function ExportDialog({
   );
 
   return (
-    <EditorSideSheet
-      open
-      zIndex={70}
-      width="min(440px, 46vw)"
-      blockDismiss={busy}
-      onClose={onClose}
-      ariaLabelledBy="export-dialog-title"
-    >
+    <>
+      <ExportToast toast={toast} onDismiss={dismiss} />
+      <VideoExportQualitySheet
+        open={videoQualityOpen}
+        onClose={() => setVideoQualityOpen(false)}
+        onSelect={onVideoQualitySelect}
+      />
+      <EditorSideSheet
+        open
+        zIndex={70}
+        width="min(440px, 46vw)"
+        blockDismiss={busy || isExporting}
+        onClose={onClose}
+        ariaLabelledBy="export-dialog-title"
+      >
       <div style={{ padding: "18px 20px 20px" }}>
         <div
           style={{
@@ -295,7 +353,7 @@ export function ExportDialog({
           </h3>
           <button
             type="button"
-            disabled={busy}
+            disabled={busy || isExporting}
             aria-label="閉じる"
             onClick={onClose}
             style={{ ...btnSecondary, fontSize: "18px", lineHeight: 1, padding: "4px 12px" }}
@@ -304,9 +362,9 @@ export function ExportDialog({
           </button>
         </div>
         <p style={{ margin: "0 0 14px", fontSize: "12px", color: "#94a3b8", lineHeight: 1.5 }}>
-          形式を選んで実行します。PNG・PDF・動画は現在の 2D ステージ（
+          形式を選んで実行します。PNG・PDF は現在の 2D ステージ（
           <code style={{ color: "#cbd5e1" }}>#{STAGE_ROOT_ID}</code>
-          ）の見た目を出力します。動画は静止画を数秒録画した簡易 WebM です。
+          ）の見た目を出力します。動画（音源つき MP4）は下の専用ボタンから書き出せます。
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "18px" }}>
           {chkRow("ex-json", "プロジェクト JSON（再編集用）", wantJson, setWantJson)}
@@ -331,26 +389,49 @@ export function ExportDialog({
             setPdfIncludeMemos,
             !stage2dVisible || !wantPdf
           )}
-          {chkRow(
-            "ex-webm",
-            "動画 WebM（簡易・数秒）",
-            wantVideo,
-            setWantVideo,
-            !stage2dVisible
-          )}
+        </div>
+        <div
+          style={{
+            margin: "0 0 18px",
+            padding: "12px 14px",
+            borderRadius: 10,
+            border: "1px solid rgba(99,102,241,0.35)",
+            background: "rgba(99,102,241,0.08)",
+          }}
+        >
+          <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 700, color: "#e2e8f0" }}>
+            動画（音源つき MP4）
+          </p>
+          <p style={{ margin: "0 0 10px", fontSize: 11, color: "#94a3b8", lineHeight: 1.5 }}>
+            ステージの動きと音源を同期した MP4 を高速に書き出します（生徒の共有と同じ方式）。
+          </p>
+          <button
+            type="button"
+            disabled={busy || isExporting}
+            style={{
+              ...btnAccent,
+              width: "100%",
+              fontWeight: 700,
+              minHeight: 40,
+              opacity: busy || isExporting ? 0.6 : 1,
+            }}
+            onClick={openVideoExport}
+          >
+            {isExporting ? "書き出し中…" : "動画を書き出す（画質を選ぶ）"}
+          </button>
         </div>
         {!stage2dVisible ? (
           <p style={{ margin: "0 0 12px", fontSize: "11px", color: "#fbbf24" }}>
-            画像・PDF・動画はエディタで 2D ステージを表示してください。
+            画像・PDF はエディタで 2D ステージを表示してください。
           </p>
         ) : null}
         <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
-          <button type="button" disabled={busy} style={btnSecondary} onClick={onClose}>
+          <button type="button" disabled={busy || isExporting} style={btnSecondary} onClick={onClose}>
             キャンセル
           </button>
           <button
             type="button"
-            disabled={busy || (!wantJson && !wantPng && !wantPdf && !wantVideo)}
+            disabled={busy || (!wantJson && !wantPng && !wantPdf)}
             style={{
               ...btnSecondary,
               borderColor: "#6366f1",
@@ -364,6 +445,7 @@ export function ExportDialog({
           </button>
         </div>
       </div>
-    </EditorSideSheet>
+      </EditorSideSheet>
+    </>
   );
 }
