@@ -270,7 +270,9 @@ export function EditorPageLayout(props: EditorLayoutProps) {
         flexDirection: "column",
         paddingLeft: "env(safe-area-inset-left, 0px)",
         paddingRight: "env(safe-area-inset-right, 0px)",
-        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+        paddingBottom: choreoPublicView
+          ? "0px"
+          : "env(safe-area-inset-bottom, 0px)",
         boxSizing: "border-box",
         ...(choreoPublicView
           ? {

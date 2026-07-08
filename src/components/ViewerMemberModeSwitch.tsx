@@ -34,9 +34,7 @@ export function ViewerMemberModeSwitch({
       onPickIndividual();
       return;
     }
-    if (memberCount > 1 && onOpenMemberPicker) {
-      onOpenMemberPicker();
-    }
+    onOpenMemberPicker?.();
   };
 
   return (
@@ -77,7 +75,7 @@ export function ViewerMemberModeSwitch({
         title={
           !isAll && pick.kind === "member"
             ? `${individualLabel}${t("editor.layout.memberSuffix")}`
-            : undefined
+            : t("editor.layout.viewerModeChangeMemberTitle")
         }
         onClick={onIndividualClick}
       >

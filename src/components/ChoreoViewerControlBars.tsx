@@ -11,17 +11,13 @@ import {
   TransportIconSkipForward,
 } from "./mobile/TransportIcons";
 import { useI18n } from "../i18n/I18nContext";
+import { formatMmSsFloor } from "../lib/timeFormat";
 import { playbackEngine } from "../core/playbackEngine";
 import { useShareViewAudioLoadStore } from "../store/shareViewAudioLoadStore";
 import { useViewerChromeStore } from "../store/viewerChromeStore";
 import { useViewerTransportActions } from "../hooks/useViewerTransportActions";
 import { ViewerMemberModeSwitch } from "./ViewerMemberModeSwitch";
 import { computeViewerCueNavState } from "../lib/viewerCueNavigation";
-import {
-  VIEWER_LEFT_RAIL_PX,
-  VIEWER_TOP_BAR_PX,
-  VIEWER_TRANSPORT_BAR_PX,
-} from "../pages/editor/editorConstants";
 
 export type ViewerChromeInsets = {
   topPx: number;
@@ -36,6 +32,7 @@ type Props = {
   rosterMemberCount: number;
   selectedCueId: string | null | undefined;
   isPlaying: boolean;
+  currentTime: number;
   duration: number;
   landscapeMode: boolean;
   onBeforeTransport?: () => void | Promise<void>;
@@ -47,7 +44,41 @@ type Props = {
   onInsetsChange?: (insets: ViewerChromeInsets) => void;
 };
 
-/** 生徒閲覧: 固定帯（上部=全体/個人、下部=キュー送り+再生） */
+function ViewerTopBarExtras() {
+  const { t } = useI18n();
+  const detailsVisible = useViewerChromeStore((s) => s.detailsVisible);
+  const toggleDetails = useViewerChromeStore((s) => s.toggleDetails);
+  const enterStageOnly = useViewerChromeStore((s) => s.enterStageOnly);
+
+  return (
+    <div className="choreo-viewer-bars__top-extras">
+      <button
+        type="button"
+        className={[
+          "choreo-viewer-bars__mini-btn",
+          detailsVisible ? "choreo-viewer-bars__mini-btn--active" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        aria-pressed={detailsVisible}
+        title={t("editor.layout.viewerChromeDetailsToggle")}
+        onClick={toggleDetails}
+      >
+        {t("editor.layout.viewerChromeDetailsShort")}
+      </button>
+      <button
+        type="button"
+        className="choreo-viewer-bars__mini-btn"
+        title={t("editor.layout.viewerChromeCollapse")}
+        onClick={enterStageOnly}
+      >
+        {t("editor.layout.viewerChromeStageShort")}
+      </button>
+    </div>
+  );
+}
+
+/** 生徒閲覧: ステージ全面の上に浮かせる操作帯 */
 export function ChoreoViewerControlBars({
   project,
   timelineRef,
@@ -55,6 +86,7 @@ export function ChoreoViewerControlBars({
   rosterMemberCount,
   selectedCueId,
   isPlaying,
+  currentTime,
   duration,
   landscapeMode,
   onBeforeTransport,
@@ -96,26 +128,9 @@ export function ChoreoViewerControlBars({
   const showTransport = !stageOnly && controlsVisible;
   const showCueNav = showTransport && cuePagerVisible && cueNav.cueCount > 0;
 
-  const insets: ViewerChromeInsets = useMemo(() => {
-    if (stageOnly) return { topPx: 0, bottomPx: 0, leftPx: 0 };
-    if (landscapeMode) {
-      const leftPx = VIEWER_LEFT_RAIL_PX;
-      return {
-        topPx: 0,
-        bottomPx: 0,
-        leftPx: showTransport || showTopBar ? leftPx : 0,
-      };
-    }
-    return {
-      topPx: showTopBar ? VIEWER_TOP_BAR_PX : 0,
-      bottomPx: showTransport ? VIEWER_TRANSPORT_BAR_PX : 0,
-      leftPx: 0,
-    };
-  }, [landscapeMode, showTopBar, showTransport, stageOnly]);
-
   useEffect(() => {
-    onInsetsChange?.(insets);
-  }, [insets, onInsetsChange]);
+    onInsetsChange?.({ topPx: 0, bottomPx: 0, leftPx: 0 });
+  }, [onInsetsChange]);
 
   if (stageOnly) return null;
 
@@ -130,6 +145,18 @@ export function ChoreoViewerControlBars({
     opacity: enabled ? 1 : 0.35,
     flexShrink: 0,
   });
+
+  const timeLabel = (
+    <span
+      className="choreo-viewer-bars__time"
+      aria-live="polite"
+      aria-label={`${formatMmSsFloor(currentTime)} / ${formatMmSsFloor(duration)}`}
+    >
+      {formatMmSsFloor(currentTime)}
+      <span className="choreo-viewer-timeSep">/</span>
+      {formatMmSsFloor(duration)}
+    </span>
+  );
 
   const transportRow = showTransport ? (
     <div className="choreo-viewer-bars__transport-inner">
@@ -146,19 +173,7 @@ export function ChoreoViewerControlBars({
           >
             <TransportIconSkipBack size={24} />
           </button>
-          <span
-            className="choreo-viewer-bars__cue-label"
-            aria-live="polite"
-            aria-label={t("editor.layout.viewerCuePositionAria", {
-              current: cueNav.displayIndex,
-              total: cueNav.cueCount,
-            })}
-          >
-            {t("editor.layout.viewerCuePosition", {
-              current: cueNav.displayIndex,
-              total: cueNav.cueCount,
-            })}
-          </span>
+          {timeLabel}
           <button
             type="button"
             className="choreo-viewer-bars__cue-btn"
@@ -171,7 +186,9 @@ export function ChoreoViewerControlBars({
             <TransportIconSkipForward size={24} />
           </button>
         </>
-      ) : null}
+      ) : (
+        timeLabel
+      )}
       <button
         type="button"
         className={[
@@ -220,6 +237,7 @@ export function ChoreoViewerControlBars({
               onPickIndividual={onPickViewerIndividual}
               onOpenMemberPicker={onOpenMemberSheet}
             />
+            <ViewerTopBarExtras />
           </div>
         ) : null}
         {transportRow ? (
@@ -243,6 +261,7 @@ export function ChoreoViewerControlBars({
             onPickIndividual={onPickViewerIndividual}
             onOpenMemberPicker={onOpenMemberSheet}
           />
+          <ViewerTopBarExtras />
         </header>
       ) : null}
       {transportRow ? (

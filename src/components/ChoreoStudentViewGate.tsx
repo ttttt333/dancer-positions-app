@@ -13,6 +13,7 @@ export function ChoreoMemberPickerPanel({
   heading = "表示する人を選ぶ",
   subheading = "あなたの立ち位置を大きく表示するか、全員同じ大きさで表示します。",
   compact = false,
+  publicSheet = false,
 }: {
   entries: ViewRosterEntry[];
   onPick: (p: StudentPick) => void;
@@ -20,19 +21,38 @@ export function ChoreoMemberPickerPanel({
   subheading?: string;
   /** シート内表示で余白を詰める */
   compact?: boolean;
+  /** 生徒閲覧のメンバー変更シート — 全員スクロール表示 */
+  publicSheet?: boolean;
 }) {
   return (
     <div
-      className="choreo-member-picker"
+      className={[
+        "choreo-member-picker",
+        publicSheet ? "choreo-member-picker--sheet" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       style={{
         textAlign: "center" as const,
         padding: compact ? "0" : "0 4px",
-        maxWidth: 420,
+        maxWidth: publicSheet ? "none" : 420,
         width: "100%",
         margin: "0 auto",
         boxSizing: "border-box",
-        paddingLeft: "max(4px, env(safe-area-inset-left, 0px))",
-        paddingRight: "max(4px, env(safe-area-inset-right, 0px))",
+        paddingLeft: publicSheet
+          ? 0
+          : "max(4px, env(safe-area-inset-left, 0px))",
+        paddingRight: publicSheet
+          ? 0
+          : "max(4px, env(safe-area-inset-right, 0px))",
+        ...(publicSheet
+          ? {
+              flex: 1,
+              minHeight: 0,
+              display: "flex",
+              flexDirection: "column" as const,
+            }
+          : {}),
       }}
     >
       <p
@@ -70,7 +90,14 @@ export function ChoreoMemberPickerPanel({
           </button>
         </div>
       ) : (
-        <div className="choreo-member-picker-scroll">
+        <div
+          className={[
+            "choreo-member-picker-scroll",
+            publicSheet ? "choreo-member-picker-scroll--sheet" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
           <div className="choreo-member-picker-grid">
             {entries.map((e) => (
               <button

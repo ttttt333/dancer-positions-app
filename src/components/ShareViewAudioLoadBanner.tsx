@@ -47,7 +47,7 @@ export function ShareViewAudioLoadBanner({
           </div>
         </div>
       ) : null}
-      {phase === "ready" ? (
+      {phase === "ready" && !compact ? (
         <div
           className="choreo-viewer-audio-load choreo-viewer-audio-load--ready"
           role="status"

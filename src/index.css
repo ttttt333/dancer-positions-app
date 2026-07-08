@@ -487,7 +487,7 @@ body {
   gap: 10px;
 }
 
-.choreo-member-picker-scroll {
+  .choreo-member-picker-scroll {
   max-height: min(50vh, 22rem);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -495,6 +495,74 @@ body {
   padding: 0 0 4px;
   margin: 0;
   text-align: left;
+}
+
+.choreo-member-picker-scroll--sheet {
+  max-height: none;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.choreo-member-picker--sheet {
+  text-align: left;
+}
+
+.choreo-viewer-member-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 92;
+  pointer-events: none;
+}
+
+.choreo-viewer-member-sheet__backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  background: rgba(2, 6, 23, 0.55);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.choreo-viewer-member-sheet__panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: min(88dvh, 640px);
+  display: flex;
+  flex-direction: column;
+  background: #0f172a;
+  border-radius: 16px 16px 0 0;
+  border-top: 1px solid rgba(51, 65, 85, 0.85);
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.45);
+  pointer-events: auto;
+  padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+}
+
+.choreo-viewer-member-sheet__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px 8px;
+  flex-shrink: 0;
+}
+
+.choreo-viewer-member-sheet__header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.choreo-viewer-member-sheet__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 0 12px 12px;
 }
 
 @media (max-width: 420px) {
@@ -508,6 +576,7 @@ body {
   /* ホームバー付き端末で下が切れにくい */
   min-height: 100dvh;
   min-height: -webkit-fill-available;
+  background: #0f172a;
 }
 
 .choreo-viewer-bottom-bar a,
@@ -526,6 +595,19 @@ body {
     grid-template-columns: 1fr !important;
     grid-template-rows: 1fr !important;
     min-height: 0;
+    height: 100%;
+  }
+  .choreo-public-view-root .editor-stage-section--public-view,
+  .choreo-public-view-root .editor-stage-section--public-view-max {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: 100% !important;
+  }
+  .choreo-public-view-root .editor-stage-section--public-view > div,
+  .choreo-public-view-root .editor-stage-section--public-view-max > div {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: 100% !important;
   }
   .choreo-public-view-root .editor-stage-section--public-view {
     padding: 0 !important;
@@ -709,16 +791,11 @@ body {
     -webkit-backdrop-filter: blur(10px);
   }
   .choreo-public-view-root .choreo-public-view-main {
-    padding-top: var(--choreo-viewer-top-bar-h, 0px);
-    padding-bottom: calc(
-      var(--choreo-viewer-transport-bar-h, 0px) + var(--choreo-viewer-bar-h, 0px)
-    );
-    padding-left: var(--choreo-viewer-left-rail-w, 0px);
+    padding: 0 !important;
     box-sizing: border-box;
   }
   .choreo-public-view-root--landscape .choreo-public-view-main {
-    padding-top: 0;
-    padding-bottom: var(--choreo-viewer-bar-h, 0px);
+    padding: 0 !important;
   }
   .choreo-public-view-root--chrome-collapsed .choreo-public-view-main {
     padding: 0 !important;
@@ -731,13 +808,47 @@ body {
     z-index: 88;
     display: flex;
     align-items: stretch;
+    gap: 8px;
     min-height: var(--choreo-viewer-top-bar-h, 52px);
     padding: max(6px, env(safe-area-inset-top, 0px))
       max(8px, env(safe-area-inset-right, 0px)) 6px
       max(8px, env(safe-area-inset-left, 0px));
-    background: rgba(15, 23, 42, 0.96);
-    border-bottom: 1px solid rgba(51, 65, 85, 0.75);
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+    background: linear-gradient(
+      180deg,
+      rgba(15, 23, 42, 0.92) 0%,
+      rgba(15, 23, 42, 0.72) 55%,
+      rgba(15, 23, 42, 0) 100%
+    );
+    border-bottom: none;
+    box-shadow: none;
+    pointer-events: none;
+  }
+  .choreo-viewer-bars__top > * {
+    pointer-events: auto;
+  }
+  .choreo-viewer-bars__top-extras {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex-shrink: 0;
+    align-self: center;
+  }
+  .choreo-viewer-bars__mini-btn {
+    min-width: 44px;
+    min-height: 28px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(71, 85, 105, 0.85);
+    background: rgba(30, 41, 59, 0.75);
+    color: #94a3b8;
+    font-size: 11px;
+    font-weight: 700;
+    touch-action: manipulation;
+  }
+  .choreo-viewer-bars__mini-btn--active {
+    border-color: rgba(99, 102, 241, 0.9);
+    background: rgba(67, 56, 202, 0.35);
+    color: #e2e8f0;
   }
   .choreo-viewer-bars__top .choreo-viewer-member-mode {
     flex: 1;
@@ -750,11 +861,30 @@ body {
     bottom: 0;
     z-index: 88;
     padding: 8px max(10px, env(safe-area-inset-right, 0px))
-      max(16px, env(safe-area-inset-bottom, 0px))
+      max(12px, env(safe-area-inset-bottom, 0px))
       max(10px, env(safe-area-inset-left, 0px));
-    background: rgba(15, 23, 42, 0.96);
-    border-top: 1px solid rgba(51, 65, 85, 0.75);
-    box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.3);
+    background: linear-gradient(
+      0deg,
+      rgba(15, 23, 42, 0.94) 0%,
+      rgba(15, 23, 42, 0.72) 55%,
+      rgba(15, 23, 42, 0) 100%
+    );
+    border-top: none;
+    box-shadow: none;
+    pointer-events: none;
+  }
+  .choreo-viewer-bars__bottom > * {
+    pointer-events: auto;
+  }
+  .choreo-viewer-bars__time {
+    flex: 0 1 auto;
+    min-width: 5.5em;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: #e2e8f0;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
   .choreo-viewer-bars__transport-inner {
     display: flex;
@@ -789,9 +919,21 @@ body {
     padding: max(8px, env(safe-area-inset-top, 0px)) 6px
       max(8px, env(safe-area-inset-bottom, 0px))
       max(4px, env(safe-area-inset-left, 0px));
-    background: rgba(15, 23, 42, 0.94);
-    border-right: 1px solid rgba(51, 65, 85, 0.75);
-    box-shadow: 2px 0 16px rgba(0, 0, 0, 0.25);
+    background: linear-gradient(
+      90deg,
+      rgba(15, 23, 42, 0.94) 0%,
+      rgba(15, 23, 42, 0.72) 55%,
+      rgba(15, 23, 42, 0) 100%
+    );
+    border-right: none;
+    box-shadow: none;
+    pointer-events: none;
+  }
+  .choreo-viewer-bars--landscape > * {
+    pointer-events: auto;
+  }
+  .choreo-viewer-bars--landscape .choreo-viewer-bars__top-extras {
+    flex-direction: column;
   }
   .choreo-viewer-bars__left-mode,
   .choreo-viewer-bars__left-transport {

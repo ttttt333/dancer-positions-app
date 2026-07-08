@@ -19,7 +19,7 @@ import {
   ChoreoViewerChromeRestoreFab,
 } from "../../components/ChoreoViewerBottomBar";
 import { ChoreoViewerControlBars } from "../../components/ChoreoViewerControlBars";
-import { ChoreoViewerChromeDock } from "../../components/ChoreoViewerChromeDock";
+import { ChoreoViewerMemberSheet } from "../../components/ChoreoViewerMemberSheet";
 import { useViewerChromeStore } from "../../store/viewerChromeStore";
 import { VideoExportSheet } from "../../components/VideoExportSheet";
 import { useVideoExportUiStore } from "../../store/videoExportUiStore";
@@ -1334,58 +1334,15 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
       ) : null}
 
       {choreoPublicView && project ? (
-        <EditorSideSheet
+        <ChoreoViewerMemberSheet
           open={choreoMemberSheetOpen}
+          entries={getViewRosterEntries(project)}
           onClose={() => setChoreoMemberSheetOpen(false)}
-          zIndex={88}
-          width="min(400px, 92vw)"
-        >
-          <div
-            style={{
-              padding: "8px 16px 0",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 12,
-            }}
-          >
-            <h3
-              style={{
-                margin: 0,
-                fontSize: 16,
-                fontWeight: 700,
-                color: "#e2e8f0",
-              }}
-            >
-              閲覧モード
-            </h3>
-            <button
-              type="button"
-              aria-label={t("editor.layout.close")}
-              onClick={() => setChoreoMemberSheetOpen(false)}
-              style={{
-                ...btnSecondary,
-                fontSize: 18,
-                lineHeight: 1,
-                padding: "4px 12px",
-              }}
-            >
-              ×
-            </button>
-          </div>
-          <div style={{ padding: "0 16px 20px" }}>
-            <ViewerModeSheetContent
-              variant="public"
-              pieceTitle={project.pieceTitle}
-              entries={getViewRosterEntries(project)}
-              canCapture2d={stageView === "2d"}
-              onPick={(p) => {
-                applyChoreoStudentPick(p);
-                setChoreoMemberSheetOpen(false);
-              }}
-            />
-          </div>
-        </EditorSideSheet>
+          onPick={(p) => {
+            applyChoreoStudentPick(p);
+            setChoreoMemberSheetOpen(false);
+          }}
+        />
       ) : null}
 
       {!choreoPublicView && project ? (
@@ -1477,32 +1434,28 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
           {stageOnly ? (
             <ChoreoViewerChromeRestoreFab onRestore={exitStageOnly} />
           ) : (
-            <>
-              <ChoreoViewerChromeDock />
-              {!stageOnly ? (
-                <ChoreoViewerControlBars
-                  project={project}
-                  timelineRef={timelineRef}
-                  choreoStudentPick={choreoStudentPick}
-                  rosterMemberCount={viewerRosterMemberCount}
-                  selectedCueId={selectedCueId}
-                  isPlaying={isPlaying}
-                  duration={duration}
-                  landscapeMode={publicViewTightHeight}
-                  onOpenMemberSheet={() => setChoreoMemberSheetOpen(true)}
-                  onPickViewerAll={onPickViewerAll}
-                  onPickViewerIndividual={onPickViewerIndividual}
-                  onCuePrev={onViewerCuePrev}
-                  onCueNext={onViewerCueNext}
-                  onInsetsChange={onViewerChromeInsetsChange}
-                  onBeforeTransport={() => {
-                    if (!playbackEngine.getMediaSourceUrl()) {
-                      reloadViewerAudio();
-                    }
-                  }}
-                />
-              ) : null}
-            </>
+            <ChoreoViewerControlBars
+              project={project}
+              timelineRef={timelineRef}
+              choreoStudentPick={choreoStudentPick}
+              rosterMemberCount={viewerRosterMemberCount}
+              selectedCueId={selectedCueId}
+              isPlaying={isPlaying}
+              currentTime={currentTime}
+              duration={duration}
+              landscapeMode={publicViewTightHeight}
+              onOpenMemberSheet={() => setChoreoMemberSheetOpen(true)}
+              onPickViewerAll={onPickViewerAll}
+              onPickViewerIndividual={onPickViewerIndividual}
+              onCuePrev={onViewerCuePrev}
+              onCueNext={onViewerCueNext}
+              onInsetsChange={onViewerChromeInsetsChange}
+              onBeforeTransport={() => {
+                if (!playbackEngine.getMediaSourceUrl()) {
+                  reloadViewerAudio();
+                }
+              }}
+            />
           )}
           <ChoreoViewerBottomBar
             project={project}

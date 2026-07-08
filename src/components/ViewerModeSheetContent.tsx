@@ -67,6 +67,19 @@ export function ViewerModeSheetContent({
     }
   };
 
+  if (variant === "public") {
+    return (
+      <ChoreoMemberPickerPanel
+        entries={entries}
+        onPick={onPick}
+        heading="表示する人を選ぶ"
+        subheading="名前を選ぶか、全員表示にしてください。"
+        compact
+        publicSheet
+      />
+    );
+  }
+
   return (
     <div style={{ padding: "0 0 4px" }}>
       <p

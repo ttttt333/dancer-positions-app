@@ -231,7 +231,6 @@ export function ChoreoViewerBottomBar({
   const showAudioRow =
     !stageOnly &&
     (shareAudioPhase === "loading" ||
-      shareAudioPhase === "ready" ||
       shareAudioPhase === "error" ||
       shareAudioPhase === "unconfigured" ||
       Boolean(audioLoadError));
