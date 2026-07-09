@@ -43,6 +43,8 @@ interface Props {
   onZoomOut: () => void
   landscapeWaveExpanded?: boolean
   onWaveExpand?: () => void
+  /** false のとき左パネルを畳めない（波形たたみ後は舞台最大化＋再生を維持） */
+  allowPanelCollapse?: boolean
   onAddCue: () => void
   onStageSettings: () => void
   onViewerList: () => void
@@ -67,6 +69,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
   onZoomOut,
   landscapeWaveExpanded = true,
   onWaveExpand,
+  allowPanelCollapse = true,
   onAddCue,
   onStageSettings,
   onViewerList,
@@ -149,7 +152,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
     !landscapeWaveExpanded && onWaveExpand ? (
       <button
         type="button"
-        className={styles.waveExpandBtn}
+        className={`${styles.waveExpandBtn} ${styles.waveExpandBtnWaveCollapsed}`}
         onClick={onWaveExpand}
         aria-label="波形を展開"
         title="波形を展開"
@@ -183,20 +186,22 @@ export const LandscapeSidePanel: React.FC<Props> = ({
 
   return (
     <div className={styles.panel}>
-      <div className={styles.panelTop}>
-        <button
-          type="button"
-          className={`${styles.panelToggleBtn} ${styles.panelToggleBtnCollapse}`}
-          onClick={() => setPanelOpen(false)}
-          aria-label="左メニューを畳む"
-          title="左メニューを畳む"
-        >
-          <span className={styles.panelToggleChevron} aria-hidden>
-            ‹
-          </span>
-          <span className={styles.panelToggleLabel}>畳む</span>
-        </button>
-      </div>
+      {allowPanelCollapse ? (
+        <div className={styles.panelTop}>
+          <button
+            type="button"
+            className={`${styles.panelToggleBtn} ${styles.panelToggleBtnCollapse}`}
+            onClick={() => setPanelOpen(false)}
+            aria-label="左メニューを畳む"
+            title="左メニューを畳む"
+          >
+            <span className={styles.panelToggleChevron} aria-hidden>
+              ‹
+            </span>
+            <span className={styles.panelToggleLabel}>畳む</span>
+          </button>
+        </div>
+      ) : null}
 
       {waveExpandBtn}
 

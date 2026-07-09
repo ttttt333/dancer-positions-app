@@ -9,7 +9,6 @@ import { useOrientation } from '../../hooks/useOrientation'
 import { PortraitBottomBar } from './PortraitBottomBar'
 import { LandscapeSidePanel } from './LandscapeSidePanel'
 import { LandscapeBottomWaveBar } from './LandscapeBottomWaveBar'
-import { LandscapeWaveExpandTab } from './LandscapeWaveExpandTab'
 import { type PortraitWaveTransportHandle } from './PortraitWaveTransport'
 import { abortTimelineWavePointerGestures } from '../../lib/abortTimelineWavePointerGestures'
 import { useMobileShellBridgeStore } from '../../store/useMobileShellBridgeStore'
@@ -59,6 +58,8 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
   useEffect(() => {
     if (!landscapeWaveExpanded) {
       abortTimelineWavePointerGestures()
+      /** 波形たたみ後は左パネルを開いたままにし、再生など最低限の操作を残す */
+      setLandscapePanelOpen(true)
     }
   }, [landscapeWaveExpanded])
 
@@ -164,6 +165,7 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
             onZoomOut={handleZoomOut}
             landscapeWaveExpanded={landscapeWaveExpanded}
             onWaveExpand={() => setLandscapeWaveExpanded(true)}
+            allowPanelCollapse={landscapeWaveExpanded}
             panelOpen={landscapePanelOpen}
             onPanelOpenChange={setLandscapePanelOpen}
             onAddCue={props.onAddCue}
@@ -202,13 +204,10 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
           onSeek={props.onSeek}
           onCollapse={() => {
             abortTimelineWavePointerGestures()
+            setLandscapePanelOpen(true)
             setLandscapeWaveExpanded(false)
           }}
         />
-      ) : null}
-
-      {isLandscape && !landscapeWaveExpanded ? (
-        <LandscapeWaveExpandTab onExpand={() => setLandscapeWaveExpanded(true)} />
       ) : null}
 
       {!isLandscape ? (

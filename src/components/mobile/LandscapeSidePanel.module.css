@@ -163,6 +163,16 @@
   cursor: pointer;
   touch-action: manipulation;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  flex-shrink: 0;
+}
+
+.waveExpandBtnWaveCollapsed {
+  min-height: 44px;
+  margin-bottom: 2px;
+  border-color: rgba(251, 146, 60, 0.85);
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.42),
+    0 0 10px rgba(251, 146, 60, 0.18);
 }
 
 .waveExpandBtn:active {
