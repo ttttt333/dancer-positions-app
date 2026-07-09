@@ -211,8 +211,9 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
+  /* minmax(0, 1fr): 内容量で行が膨張して画面からはみ出すのを防ぐ */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
   gap: 9px;
 }
 
@@ -223,12 +224,13 @@
 .tile {
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 6px 3px;
+  gap: 5px;
+  padding: 4px 2px;
   border-radius: 16px;
   border: 1px solid rgba(127, 231, 255, 0.3);
   background:
@@ -253,13 +255,13 @@
 }
 
 .iconWrap {
-  width: 38px;
-  height: 38px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  flex: none;
   background: radial-gradient(circle at 50% 45%, rgba(127, 231, 255, 0.16) 0%, rgba(127, 231, 255, 0.03) 70%);
   border: 1px solid rgba(127, 231, 255, 0.4);
   color: var(--neon-strong);
@@ -269,8 +271,12 @@
 }
 
 .sheetLandscape .iconWrap {
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
+}
+
+.sheetLandscape .icon {
+  transform: scale(0.8);
 }
 
 .icon {
@@ -279,65 +285,72 @@
 }
 
 .tileLabel {
-  font-size: 11px;
+  flex: none;
+  font-size: 12px;
   font-weight: 600;
-  line-height: 1.15;
+  line-height: 1.2;
   letter-spacing: 0.01em;
   color: var(--ink);
   text-shadow: 0 0 6px rgba(127, 231, 255, 0.35);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  white-space: nowrap;
   overflow: hidden;
-  word-break: keep-all;
-  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
   max-width: 100%;
 }
 
 .sheetLandscape .tileLabel {
-  font-size: 10px;
+  font-size: 11px;
 }
 
-/* ── 縦画面の低め端末: 文字が切れないよう詰める ── */
-@media (max-height: 740px) and (orientation: portrait) {
+/* ── 縦画面の低め端末: アイコンだけ縮めて文字サイズは維持 ── */
+@media (max-height: 700px) and (orientation: portrait) {
   .grid { gap: 7px; }
-  .tile { gap: 4px; padding: 5px 2px; border-radius: 14px; }
-  .iconWrap { width: 34px; height: 34px; }
-  .tileLabel { font-size: 10px; }
+  .tile { gap: 3px; border-radius: 14px; }
+  .iconWrap { width: 26px; height: 26px; }
+  .icon { transform: scale(0.8); }
 }
 
-/* ── 横画面: 高さが限られるので全体を縮小して1画面に収める ── */
+/* ── 横画面: ヘッダー・パネルを圧縮して 3 行を確実に 1 画面へ ── */
 .sheetLandscape .header {
-  padding: 8px 16px 4px;
+  padding: 6px 14px 2px;
+  padding-top: max(6px, env(safe-area-inset-top, 6px));
 }
 
 .sheetLandscape .title {
+  font-size: 12px;
+}
+
+.sheetLandscape .subtitle {
+  display: none;
+}
+
+.sheetLandscape .closeBtn {
+  width: 28px;
+  height: 28px;
   font-size: 13px;
 }
 
 .sheetLandscape .panel {
-  padding: 8px 9px;
-  gap: 6px;
-  border-radius: 16px;
+  padding: 6px 8px 7px;
+  gap: 4px;
+  border-radius: 14px;
+}
+
+.sheetLandscape .panelTitle {
+  font-size: 9px;
 }
 
 .sheetLandscape .tile {
-  gap: 4px;
-  padding: 4px 2px;
-  border-radius: 13px;
+  gap: 3px;
+  border-radius: 12px;
 }
 
-@media (orientation: landscape) and (max-height: 460px) {
-  .sheetLandscape .iconWrap { width: 28px; height: 28px; }
-  .sheetLandscape .icon { transform: scale(0.85); }
-  .sheetLandscape .tileLabel { font-size: 9px; }
-  .sheetLandscape .panelTitle { font-size: 9px; }
-}
-
-@media (orientation: landscape) and (max-height: 380px) {
-  .sheetLandscape .body { gap: 8px; }
-  .sheetLandscape .panel { padding: 6px 7px; gap: 4px; }
+@media (orientation: landscape) and (max-height: 400px) {
+  .sheetLandscape .header { padding-bottom: 0; }
+  .sheetLandscape .body { gap: 8px; padding-top: 0; }
+  .sheetLandscape .panel { padding: 5px 7px 6px; gap: 3px; }
   .sheetLandscape .grid { gap: 5px; }
-  .sheetLandscape .iconWrap { width: 24px; height: 24px; }
-  .sheetLandscape .tileLabel { font-size: 8.5px; }
+  .sheetLandscape .iconWrap { width: 22px; height: 22px; }
+  .sheetLandscape .icon { transform: scale(0.7); }
+  .sheetLandscape .tileLabel { font-size: 10px; }
 }
