@@ -1,14 +1,23 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   ChoreographyProjectJson,
   DancerSpot,
   RosterStripSortMode,
 } from "../types/choreography";
 import {
-  dancersForLayoutPreset,
   PRESET_CATEGORIES,
   type LayoutPresetId,
 } from "../lib/formationLayouts";
+import {
+  countPresetsAboveTierFrom,
+  DEFAULT_UI_PRESET_MAX_TIER,
+  getPresetTier,
+} from "../lib/formationPresetTiers";
+import {
+  firstPresetIdInCategories,
+  useFormationPresetCategoryPreviews,
+} from "../hooks/useFormationPresetCategoryPreviews";
+import { FormationPresetTierToggle } from "./FormationPresetTierToggle";
 import { EditorSideSheet } from "./EditorSideSheet";
 
 type Props = {
@@ -49,15 +58,21 @@ export function RosterPresetPickModal({
 
   /** 選択中の雛形（未確定状態） */
   const [selectedPresetId, setSelectedPresetId] = useState<LayoutPresetId | null>(null);
+  const [showAllTiers, setShowAllTiers] = useState(false);
 
-  const buildPreview = useCallback(
-    (presetId: LayoutPresetId): DancerSpot[] => {
-      return dancersForLayoutPreset(n, presetId, {
-        dancerSpacingMm: project.dancerSpacingMm,
-        stageWidthMm: project.stageWidthMm,
-      });
-    },
-    [n, project.dancerSpacingMm, project.stageWidthMm]
+  const spacingOpts = useMemo(
+    () => ({
+      dancerSpacingMm: project.dancerSpacingMm,
+      stageWidthMm: project.stageWidthMm,
+    }),
+    [project.dancerSpacingMm, project.stageWidthMm]
+  );
+
+  const categoryPreviews = useFormationPresetCategoryPreviews(n, spacingOpts, showAllTiers);
+
+  const hiddenTierCount = useMemo(
+    () => countPresetsAboveTierFrom(PRESET_CATEGORIES, DEFAULT_UI_PRESET_MAX_TIER),
+    []
   );
 
   /** 雛形をクリック → プレビュー表示（まだ適用しない） */
@@ -83,18 +98,23 @@ export function RosterPresetPickModal({
   const handleClose = useCallback(() => {
     onPreviewPreset?.(null);
     setSelectedPresetId(null);
+    setShowAllTiers(false);
     onClose();
   }, [onPreviewPreset, onClose]);
 
-  /** カテゴリーごとのサムネイルを事前生成 */
-  const categoryPreviews = useMemo(
-    () =>
-      PRESET_CATEGORIES.map((cat) => ({
-        ...cat,
-        items: cat.ids.map((id) => ({ id, dancers: buildPreview(id) })),
-      })),
-    [buildPreview]
-  );
+  useEffect(() => {
+    if (!open) {
+      setSelectedPresetId(null);
+      setShowAllTiers(false);
+      return;
+    }
+    if (!selectedPresetId) return;
+    const maxTier = showAllTiers ? 3 : DEFAULT_UI_PRESET_MAX_TIER;
+    if (getPresetTier(selectedPresetId) > maxTier) {
+      setSelectedPresetId(firstPresetIdInCategories(categoryPreviews));
+      onPreviewPreset?.(firstPresetIdInCategories(categoryPreviews));
+    }
+  }, [open, showAllTiers, selectedPresetId, categoryPreviews, onPreviewPreset]);
 
   const sortSelectValue =
     rosterSortMode === "import" ||
@@ -245,18 +265,31 @@ export function RosterPresetPickModal({
             </p>
           </div>
 
-          {/* カテゴリー別プリセット一覧 */}
           <div
             style={{
-              fontSize: "10px",
-              fontWeight: 600,
-              color: "#94a3b8",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "10px",
               marginBottom: "10px",
             }}
           >
-            2. 立ち位置の雛形を選ぶ
+            <div
+              style={{
+                fontSize: "10px",
+                fontWeight: 600,
+                color: "#94a3b8",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}
+            >
+              2. 立ち位置の雛形を選ぶ
+            </div>
+            <FormationPresetTierToggle
+              showAll={showAllTiers}
+              onToggle={() => setShowAllTiers((v) => !v)}
+              hiddenCount={hiddenTierCount}
+            />
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>

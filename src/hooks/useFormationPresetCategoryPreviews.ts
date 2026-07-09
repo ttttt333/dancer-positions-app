@@ -5,12 +5,12 @@ import {
   LAYOUT_PRESET_LABELS,
   PRESET_CATEGORIES,
   type LayoutPresetId,
-} from "./formationLayouts";
+} from "../lib/formationLayouts";
 import {
   DEFAULT_UI_PRESET_MAX_TIER,
   filterPresetCategories,
   type PresetTier,
-} from "./formationPresetTiers";
+} from "../lib/formationPresetTiers";
 
 export type FormationPresetPreviewItem = {
   id: LayoutPresetId;

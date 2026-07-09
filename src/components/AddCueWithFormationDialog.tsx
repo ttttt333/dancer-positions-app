@@ -23,6 +23,17 @@ import {
   type LayoutPresetId,
 } from "../lib/formationLayouts";
 import {
+  countPresetsAboveTierFrom,
+  DEFAULT_UI_PRESET_MAX_TIER,
+  filterPresetCategories,
+  getPresetTier,
+} from "../lib/formationPresetTiers";
+import {
+  firstPresetIdInCategories,
+  useFormationPresetCategoryPreviews,
+} from "../hooks/useFormationPresetCategoryPreviews";
+import { FormationPresetTierToggle } from "./FormationPresetTierToggle";
+import {
   dancersFromFormationBoxItem,
   FORMATION_BOX_CHANGE_EVENT,
   listFormationBoxItems,
@@ -58,6 +69,10 @@ type Props = {
 };
 
 const PRESETS = LAYOUT_PRESET_OPTIONS;
+const DEFAULT_TEMPLATE_PRESET_ID =
+  filterPresetCategories(PRESET_CATEGORIES, DEFAULT_UI_PRESET_MAX_TIER)[0]?.ids[0] ??
+  PRESETS[0]?.id ??
+  null;
 
 function formatSec(s: number): string {
   if (!Number.isFinite(s) || s < 0) return "0:00.0";
@@ -372,6 +387,7 @@ export function AddCueWithFormationDialog({
   /** 開いた直後は未選択（ステップ3）。ユーザーがモードを選ぶまでプレビュー・確定はできない */
   const [addMode, setAddMode] = useState<AddMode | null>(null);
   const [templatePresetId, setTemplatePresetId] = useState<LayoutPresetId | null>(null);
+  const [showAllPresetTiers, setShowAllPresetTiers] = useState(false);
   const [savedBoxId, setSavedBoxId] = useState<string | null>(null);
   const [savedSlotId, setSavedSlotId] = useState<string | null>(null);
 
@@ -429,21 +445,23 @@ export function AddCueWithFormationDialog({
     return () => window.removeEventListener(FORMATION_BOX_CHANGE_EVENT, handler);
   }, []);
 
-  /** カテゴリごとのプリセットサムネイル（count と spacing に依存） */
-  const presetCategoryPreviews = useMemo(
-    () =>
-      PRESET_CATEGORIES.map((cat) => ({
-        ...cat,
-        items: cat.ids.map((id) => ({
-          id,
-          label: LAYOUT_PRESET_LABELS[id] ?? id,
-          dancers: dancersForLayoutPreset(Math.max(1, count), id, {
-            dancerSpacingMm: project.dancerSpacingMm ?? undefined,
-            stageWidthMm: project.stageWidthMm ?? undefined,
-          }),
-        })),
-      })),
-    [count, project.dancerSpacingMm, project.stageWidthMm]
+  const spacingOpts = useMemo(
+    () => ({
+      dancerSpacingMm: project.dancerSpacingMm,
+      stageWidthMm: project.stageWidthMm,
+    }),
+    [project.dancerSpacingMm, project.stageWidthMm]
+  );
+
+  const presetCategoryPreviews = useFormationPresetCategoryPreviews(
+    count,
+    spacingOpts,
+    showAllPresetTiers
+  );
+
+  const hiddenPresetTierCount = useMemo(
+    () => countPresetsAboveTierFrom(PRESET_CATEGORIES, DEFAULT_UI_PRESET_MAX_TIER),
+    []
   );
 
   const wasOpenRef = useRef(false);
@@ -452,6 +470,7 @@ export function AddCueWithFormationDialog({
       setCount(initialCount);
       setAddMode(null);
       setTemplatePresetId(null);
+      setShowAllPresetTiers(false);
       setSavedBoxId(null);
       setSavedSlotId(null);
       setTimeMode("now");
@@ -465,11 +484,19 @@ export function AddCueWithFormationDialog({
     if (
       (addMode === "template" || addMode === "edit_current") &&
       templatePresetId == null &&
-      PRESETS[0]
+      DEFAULT_TEMPLATE_PRESET_ID
     ) {
-      setTemplatePresetId(PRESETS[0].id);
+      setTemplatePresetId(DEFAULT_TEMPLATE_PRESET_ID);
     }
   }, [addMode, templatePresetId]);
+
+  useEffect(() => {
+    if (!templatePresetId) return;
+    const maxTier = showAllPresetTiers ? 3 : DEFAULT_UI_PRESET_MAX_TIER;
+    if (getPresetTier(templatePresetId) > maxTier) {
+      setTemplatePresetId(firstPresetIdInCategories(presetCategoryPreviews));
+    }
+  }, [showAllPresetTiers, templatePresetId, presetCategoryPreviews]);
 
   const closeAndCleanup = useCallback(() => {
     onStagePreviewChange?.(null);
@@ -487,14 +514,6 @@ export function AddCueWithFormationDialog({
     window.addEventListener("keydown", onKey, { capture: true });
     return () => window.removeEventListener("keydown", onKey, { capture: true } as EventListenerOptions);
   }, [open, closeAndCleanup]);
-
-  const spacingOpts = useMemo(
-    () => ({
-      dancerSpacingMm: project.dancerSpacingMm,
-      stageWidthMm: project.stageWidthMm,
-    }),
-    [project.dancerSpacingMm, project.stageWidthMm]
-  );
 
   const buildDancers = useCallback((): DancerSpot[] => {
     if (addMode == null) return [];
@@ -978,9 +997,9 @@ export function AddCueWithFormationDialog({
                         if (
                           (mode === "template" || mode === "edit_current") &&
                           !templatePresetId &&
-                          PRESETS[0]
+                          DEFAULT_TEMPLATE_PRESET_ID
                         ) {
-                          setTemplatePresetId(PRESETS[0].id);
+                          setTemplatePresetId(DEFAULT_TEMPLATE_PRESET_ID);
                         }
                       }}
                       style={{
@@ -1081,9 +1100,22 @@ export function AddCueWithFormationDialog({
 
           {addMode === "template" || addMode === "edit_current" ? (
             <section>
-              <div style={sectionLabelStyle}>
-                <span style={sectionNumberStyle}>4</span>
-                雛形（プリセット）
+              <div
+                style={{
+                  ...sectionLabelStyle,
+                  justifyContent: "space-between",
+                  paddingRight: "4px",
+                }}
+              >
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                  <span style={sectionNumberStyle}>4</span>
+                  雛形（プリセット）
+                </span>
+                <FormationPresetTierToggle
+                  showAll={showAllPresetTiers}
+                  onToggle={() => setShowAllPresetTiers((v) => !v)}
+                  hiddenCount={hiddenPresetTierCount}
+                />
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "12px", paddingLeft: "4px" }}>
                 {presetCategoryPreviews.map((cat) => (

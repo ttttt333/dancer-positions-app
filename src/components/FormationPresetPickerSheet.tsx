@@ -18,6 +18,7 @@ import {
 import {
   countPresetsAboveTierFrom,
   DEFAULT_UI_PRESET_MAX_TIER,
+  filterPresetCategories,
   getPresetTier,
 } from "../lib/formationPresetTiers";
 import {
@@ -214,14 +215,17 @@ export function FormationPresetPickerSheet({
   useEffect(() => {
     if (open && !wasOpenRef.current) {
       setShowAllTiers(false);
-      setSelectedPresetId(firstPresetIdInCategories(presetCategoryPreviews));
+      const first =
+        filterPresetCategories(PRESET_CATEGORIES, DEFAULT_UI_PRESET_MAX_TIER)[0]
+          ?.ids[0] ?? null;
+      setSelectedPresetId(first);
     }
     wasOpenRef.current = open;
     if (!open) {
       setSelectedPresetId(null);
       setShowAllTiers(false);
     }
-  }, [open, presetCategoryPreviews]);
+  }, [open]);
 
   useEffect(() => {
     if (!open || !selectedPresetId) return;
@@ -480,15 +484,32 @@ export function FormationPresetPickerSheet({
             background: "#07090f",
           }}
         >
-          <h2
-            id="formation-preset-picker-title"
-            style={{ margin: 0, fontSize: "15px", fontWeight: 700 }}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+              gap: "10px",
+            }}
           >
-            立ち位置の雛形
-          </h2>
-          <p style={{ margin: "6px 0 0", fontSize: "11px", color: "#94a3b8", lineHeight: 1.45 }}>
-            {subtitle}
-          </p>
+            <div style={{ minWidth: 0 }}>
+              <h2
+                id="formation-preset-picker-title"
+                style={{ margin: 0, fontSize: "15px", fontWeight: 700 }}
+              >
+                立ち位置の雛形
+              </h2>
+              <p style={{ margin: "6px 0 0", fontSize: "11px", color: "#94a3b8", lineHeight: 1.45 }}>
+                {subtitle}
+              </p>
+            </div>
+            <FormationPresetTierToggle
+              showAll={showAllTiers}
+              onToggle={() => setShowAllTiers((v) => !v)}
+              hiddenCount={hiddenTierCount}
+              style={{ flexShrink: 0, marginTop: 2 }}
+            />
+          </div>
         </div>
         {presetGrid}
         {actionsPanel}
