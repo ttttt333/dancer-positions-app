@@ -69,6 +69,8 @@ export type MobileShellBridgeStore = {
   cuePagerLabel?: string;
   cuePagerCanPrev?: boolean;
   cuePagerCanNext?: boolean;
+  /** MobileShell 横画面で波形を畳んでいる（Editor の重複 UI を抑止） */
+  landscapeWaveCollapsed?: boolean;
   /** タイムライン左端（停止ボタンで戻る位置） */
   trimStartSec: number;
   trimEndSec: number | null;
@@ -115,6 +117,7 @@ export const useMobileShellBridgeStore = create<MobileShellBridgeStore>((set) =>
   cuePagerLabel: "",
   cuePagerCanPrev: false,
   cuePagerCanNext: false,
+  landscapeWaveCollapsed: false,
   trimStartSec: 0,
   trimEndSec: null,
   setMobileShellBridge: (patch) => set(patch),

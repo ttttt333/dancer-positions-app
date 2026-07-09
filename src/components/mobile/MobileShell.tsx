@@ -47,13 +47,17 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
   const [hasOpenDialog, setHasOpenDialog] = useState(false)
   const [landscapeWaveExpanded, setLandscapeWaveExpanded] = useState(true)
   const [landscapePanelOpen, setLandscapePanelOpen] = useState(true)
-  const prevOrientationRef = useRef(orientation)
 
   useEffect(() => {
-    if (prevOrientationRef.current === orientation) return
-    prevOrientationRef.current = orientation
-    abortTimelineWavePointerGestures()
-  }, [orientation])
+    if (isLandscape) {
+      abortTimelineWavePointerGestures()
+      /** EditorPage と同様、横画面では波形を畳んでステージを優先 */
+      setLandscapeWaveExpanded(false)
+      setLandscapePanelOpen(true)
+    } else {
+      setLandscapeWaveExpanded(true)
+    }
+  }, [isLandscape])
 
   useEffect(() => {
     if (!landscapeWaveExpanded) {
@@ -61,7 +65,20 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
       /** 波形たたみ後は左パネルを開いたままにし、再生など最低限の操作を残す */
       setLandscapePanelOpen(true)
     }
-  }, [landscapeWaveExpanded])
+    const collapsed = isLandscape && !landscapeWaveExpanded
+    const root = document.documentElement
+    if (collapsed) {
+      root.setAttribute('data-landscape-wave-collapsed', '')
+    } else {
+      root.removeAttribute('data-landscape-wave-collapsed')
+    }
+    useMobileShellBridgeStore.getState().setMobileShellBridge({
+      landscapeWaveCollapsed: collapsed,
+    })
+    return () => {
+      root.removeAttribute('data-landscape-wave-collapsed')
+    }
+  }, [landscapeWaveExpanded, isLandscape])
 
   useEffect(() => {
     const checkDialog = () => {

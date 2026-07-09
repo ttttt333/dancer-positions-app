@@ -1879,6 +1879,25 @@ html.choreo-stage-video-export #stage-export-root {
   display: none !important;
 }
 
+/* 横画面・波形たたみ: レイアウト変数（グローバル — CSS Modules に依存しない） */
+[data-shell-landscape][data-landscape-wave-collapsed],
+html[data-landscape-wave-collapsed] {
+  --landscape-side-panel-w: 88px;
+  --landscape-stage-stack-w: 0px;
+  --landscape-stage-text-gutter: min(22vw, 168px);
+  --landscape-stage-center-bias: calc(
+    (var(--landscape-stage-text-gutter) - var(--landscape-side-panel-w)) / 2
+  );
+  --landscape-wave-dock-h: 0px;
+}
+
+[data-shell-landscape] {
+  --landscape-side-panel-w: 128px;
+  --landscape-stage-stack-w: 128px;
+  --landscape-stage-text-gutter: 0px;
+  --landscape-wave-dock-h: 101px;
+}
+
 /* 横画面: Change 列（左メニュー直後・隙間なし） */
 [data-shell-landscape] .editor-stage-landscape-stack {
   position: absolute;
@@ -2118,6 +2137,14 @@ html.choreo-stage-video-export #stage-export-root {
 }
 
 [data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-section {
+  padding: 0 !important;
+}
+
+[data-shell-landscape][data-landscape-wave-collapsed] .editor-three-pane.editor-mobile-stack {
+  padding: 0 !important;
+}
+
+[data-shell-landscape][data-landscape-wave-collapsed] .editor-page-root--mobile-landscape {
   padding: 0 !important;
 }
 

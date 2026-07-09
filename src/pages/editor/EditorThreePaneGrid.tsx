@@ -315,6 +315,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   );
 
   const setMobileShellBridge = useMobileShellBridgeStore((s) => s.setMobileShellBridge);
+  const landscapeWaveCollapsed = useMobileShellBridgeStore((s) => s.landscapeWaveCollapsed);
   useEffect(() => {
     const cues = Array.isArray(cuesSortedForStageJump)
       ? (cuesSortedForStageJump as Array<{ id: string }>)
@@ -943,6 +944,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 ) : null}
                 {mobileStackEditor &&
                 editorMobileLandscape &&
+                !landscapeWaveCollapsed &&
                 !choreoPublicView &&
                 project.viewMode !== "view" ? (() => {
                   const cues = Array.isArray(cuesSortedForStageJump)
