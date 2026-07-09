@@ -15,6 +15,16 @@ import {
   transferDancerIdentitiesByOrder,
   type LayoutPresetId,
 } from "../lib/formationLayouts";
+import {
+  countPresetsAboveTierFrom,
+  DEFAULT_UI_PRESET_MAX_TIER,
+  getPresetTier,
+} from "../lib/formationPresetTiers";
+import {
+  firstPresetIdInCategories,
+  useFormationPresetCategoryPreviews,
+} from "../hooks/useFormationPresetCategoryPreviews";
+import { FormationPresetTierToggle } from "./FormationPresetTierToggle";
 import { EditorSideSheet } from "./EditorSideSheet";
 
 type Props = {
@@ -164,6 +174,7 @@ export function FormationPresetPickerSheet({
   const [selectedPresetId, setSelectedPresetId] = useState<LayoutPresetId | null>(
     null
   );
+  const [showAllTiers, setShowAllTiers] = useState(false);
   const wasOpenRef = useRef(false);
   const portraitMobileShell = usePortraitMobileShell();
   const landscapeMobileShell = useLandscapeMobileShell();
@@ -179,17 +190,15 @@ export function FormationPresetPickerSheet({
     [project.dancerSpacingMm, project.stageWidthMm]
   );
 
-  const presetCategoryPreviews = useMemo(
-    () =>
-      PRESET_CATEGORIES.map((cat) => ({
-        ...cat,
-        items: cat.ids.map((id) => ({
-          id,
-          label: LAYOUT_PRESET_LABELS[id] ?? id,
-          dancers: dancersForLayoutPreset(count, id, spacingOpts),
-        })),
-      })),
-    [count, spacingOpts]
+  const presetCategoryPreviews = useFormationPresetCategoryPreviews(
+    count,
+    spacingOpts,
+    showAllTiers
+  );
+
+  const hiddenTierCount = useMemo(
+    () => countPresetsAboveTierFrom(PRESET_CATEGORIES, DEFAULT_UI_PRESET_MAX_TIER),
+    []
   );
 
   const previewDancers = useMemo(() => {
@@ -204,13 +213,23 @@ export function FormationPresetPickerSheet({
 
   useEffect(() => {
     if (open && !wasOpenRef.current) {
-      setSelectedPresetId(PRESET_CATEGORIES[0]?.ids[0] ?? null);
+      setShowAllTiers(false);
+      setSelectedPresetId(firstPresetIdInCategories(presetCategoryPreviews));
     }
     wasOpenRef.current = open;
     if (!open) {
       setSelectedPresetId(null);
+      setShowAllTiers(false);
     }
-  }, [open]);
+  }, [open, presetCategoryPreviews]);
+
+  useEffect(() => {
+    if (!open || !selectedPresetId) return;
+    const maxTier = showAllTiers ? 3 : DEFAULT_UI_PRESET_MAX_TIER;
+    if (getPresetTier(selectedPresetId) > maxTier) {
+      setSelectedPresetId(firstPresetIdInCategories(presetCategoryPreviews));
+    }
+  }, [open, showAllTiers, selectedPresetId, presetCategoryPreviews]);
 
   useEffect(() => {
     if (!open) return;
@@ -368,8 +387,25 @@ export function FormationPresetPickerSheet({
 
   const sheetHeader = (
     <div className="formation-preset-picker-sheet-header">
-      <h2 id="formation-preset-picker-title">立ち位置の雛形</h2>
-      <p>{subtitle}</p>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: "10px",
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
+          <h2 id="formation-preset-picker-title">立ち位置の雛形</h2>
+          <p>{subtitle}</p>
+        </div>
+        <FormationPresetTierToggle
+          showAll={showAllTiers}
+          onToggle={() => setShowAllTiers((v) => !v)}
+          hiddenCount={hiddenTierCount}
+          style={{ flexShrink: 0, marginTop: 2 }}
+        />
+      </div>
     </div>
   );
 

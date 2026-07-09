@@ -11,6 +11,7 @@ import {
   EXTRA_PRESET_CATEGORY,
   tryApplyExtraLayoutPreset,
 } from "./formationLayoutPresetsExtra";
+import { getPresetTier } from "./formationPresetTiers";
 
 /**
  * 場ミリ規格を `dancersForLayoutPreset` / `dancersWithPresetAndWingSurplus`
@@ -152,6 +153,11 @@ function pyramidFrontOneGrowingRowCounts(n: number): number[] {
     rows.push(take);
     rem -= take;
     w += 1;
+  }
+  /** 奥に1人だけ孤立する行は直前行へ統合（n=11 → [1,2,3,5] など） */
+  if (rows.length >= 2 && rows[rows.length - 1] === 1) {
+    rows[rows.length - 2]! += 1;
+    rows.pop();
   }
   return rows;
 }
@@ -411,11 +417,13 @@ export const ALL_LAYOUT_PRESET_IDS: LayoutPresetId[] = LAYOUT_PRESET_OPTIONS.map
 );
 
 /**
- * 立ち位置クイックバー・名簿「未配置を一括でステージへ」で共通利用するプリセット一覧。
- * キュー作成ダイアログ等の `LAYOUT_PRESET_OPTIONS` と同一の並び・種類。
+ * 立ち位置クイックバー用（Tier1 定番のみ）。
  */
 export const COMMON_QUICK_LAYOUT_PRESETS: { id: LayoutPresetId; label: string }[] =
-  LAYOUT_PRESET_OPTIONS.map((o) => ({ id: o.id, label: o.label }));
+  LAYOUT_PRESET_OPTIONS.filter((o) => getPresetTier(o.id) === 1).map((o) => ({
+    id: o.id,
+    label: o.label,
+  }));
 
 /**
  * 雛形選択 UI で使うカテゴリ定義。
@@ -445,7 +453,18 @@ export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
   },
   {
     label: "段",
-    ids: ["front_stair_from_2", "front_stair_from_3", "front_stair_from_4"],
+    ids: [
+      "front_stair_from_2",
+      "front_stair_from_3",
+      "front_stair_from_4",
+      "front_stair_from_5",
+      "front_stair_from_6",
+      "front_stair_from_7",
+      "front_stair_from_8",
+      "front_stair_from_9",
+      "front_stair_from_10",
+      "front_stair_from_11",
+    ],
   },
   {
     label: "➖ 直線・対角線",
