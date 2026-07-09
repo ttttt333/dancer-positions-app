@@ -186,9 +186,6 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
             allowPanelCollapse={landscapeWaveExpanded}
             panelOpen={landscapePanelOpen}
             onPanelOpenChange={setLandscapePanelOpen}
-            onAddCue={props.onAddCue}
-            onStageSettings={props.onStageSettings}
-            onViewerList={props.onViewerList}
             onUndo={onUndo}
             onRedo={onRedo}
             undoDisabled={undoDisabled}
@@ -242,8 +239,6 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
           onCuePrev={props.onCuePrev}
           onCueNext={props.onCueNext}
           onAddCue={props.onAddCue}
-          onStageSettings={props.onStageSettings}
-          onViewerList={props.onViewerList}
           cueStartTimes={cueStartTimes}
         />
       ) : null}

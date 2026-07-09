@@ -3,7 +3,7 @@
  * 横向き専用の左サイドパネル（再生・波形操作・Menu）
  */
 
-import React, { useState, useCallback } from 'react'
+import React, { useState } from 'react'
 import styles from './LandscapeSidePanel.module.css'
 import ctrlStyles from './TransportControls.module.css'
 import {
@@ -19,18 +19,7 @@ import {
 } from './TransportIcons'
 import { useMobileShellBridgeStore } from '../../store/useMobileShellBridgeStore'
 import { formatMmSsFloor } from '../../lib/timeFormat'
-
-interface MenuItem {
-  label: string
-  icon: string
-  action: () => void
-}
-
-interface MenuSection {
-  title: string
-  icon: string
-  items: MenuItem[]
-}
+import { MobileMenuSheet } from './MobileMenuSheet'
 
 interface Props {
   audioUrl: string | null
@@ -47,9 +36,6 @@ interface Props {
   onWaveExpand?: () => void
   /** false のとき左パネルを畳めない（波形たたみ後は舞台最大化＋再生を維持） */
   allowPanelCollapse?: boolean
-  onAddCue: () => void
-  onStageSettings: () => void
-  onViewerList: () => void
   onUndo?: () => void
   onRedo?: () => void
   undoDisabled?: boolean
@@ -73,9 +59,6 @@ export const LandscapeSidePanel: React.FC<Props> = ({
   landscapeWaveExpanded = true,
   onWaveExpand,
   allowPanelCollapse = true,
-  onAddCue,
-  onStageSettings,
-  onViewerList,
   onUndo,
   onRedo,
   undoDisabled,
@@ -87,21 +70,6 @@ export const LandscapeSidePanel: React.FC<Props> = ({
   const panelOpen = panelOpenProp ?? panelOpenInternal
   const setPanelOpen = onPanelOpenChange ?? setPanelOpenInternal
   const [menuOpen, setMenuOpen] = useState(false)
-  const onSaveSpot    = useMobileShellBridgeStore((s) => s.onSaveSpot)
-  const onAddText     = useMobileShellBridgeStore((s) => s.onAddText)
-  const onCueList     = useMobileShellBridgeStore((s) => s.onCueList)
-  const onStageShape  = useMobileShellBridgeStore((s) => s.onStageShape)
-  const onSetPiece    = useMobileShellBridgeStore((s) => s.onSetPiece)
-  const onAudioImport = useMobileShellBridgeStore((s) => s.onAudioImport)
-  const onAiSuggest = useMobileShellBridgeStore((s) => s.onAiSuggest)
-  const onRosterImport = useMobileShellBridgeStore((s) => s.onRosterImport)
-  const onMemberList  = useMobileShellBridgeStore((s) => s.onMemberList)
-  const onMemberAdd   = useMobileShellBridgeStore((s) => s.onMemberAdd)
-  const onShareLinks  = useMobileShellBridgeStore((s) => s.onShareLinks)
-  const onHelp        = useMobileShellBridgeStore((s) => s.onHelp)
-  const onVideoExport = useMobileShellBridgeStore((s) => s.onVideoExport)
-  const onFlowLibrary = useMobileShellBridgeStore((s) => s.onFlowLibrary)
-  const onPhotoParse = useMobileShellBridgeStore((s) => s.onPhotoParse)
   const stageView = useMobileShellBridgeStore((s) => s.stageView)
   const onStageViewChange = useMobileShellBridgeStore((s) => s.onStageViewChange)
   const showFormationChange = useMobileShellBridgeStore((s) => s.showFormationChange)
@@ -113,52 +81,6 @@ export const LandscapeSidePanel: React.FC<Props> = ({
   const onCueNext = useMobileShellBridgeStore((s) => s.onCueNext)
 
   const transportDisabled = !audioUrl || duration <= 0
-
-  const MENU_SECTIONS: MenuSection[] = [
-    {
-      title: 'Stages', icon: '🎭',
-      items: [
-        { label: 'キュー設定',       icon: '🎬', action: onAddCue },
-        { label: '舞台設定',         icon: '⚙️', action: onStageSettings },
-        { label: 'キュー一覧',       icon: '📋', action: onCueList },
-        { label: 'ライブラリ',       icon: '📚', action: onFlowLibrary },
-        { label: '画像キュー',       icon: '🖼️', action: onPhotoParse },
-        { label: '立ち位置雛形保存', icon: '💾', action: onSaveSpot },
-        { label: 'テキスト追加',     icon: '✏️', action: onAddText },
-        { label: '舞台変形',         icon: '🏟️', action: onStageShape },
-        { label: '大道具追加',       icon: '🪑', action: onSetPiece },
-      ],
-    },
-    {
-      title: 'Timeline', icon: '🎵',
-      items: [
-        { label: '音源追加', icon: '🎵', action: onAudioImport },
-        { label: 'AI提案', icon: '✨', action: onAiSuggest },
-        { label: '名簿取込', icon: '📄', action: onRosterImport },
-      ],
-    },
-    {
-      title: 'Team', icon: '👥',
-      items: [
-        { label: 'メンバー表示', icon: '👤', action: onMemberList },
-        { label: 'メンバー追加', icon: '➕', action: onMemberAdd },
-        { label: '閲覧共有',    icon: '🔗', action: onShareLinks },
-      ],
-    },
-    {
-      title: 'Settings', icon: '⚙️',
-      items: [
-        { label: 'エクスポート', icon: '📤', action: onViewerList },
-        { label: '動画書き出し', icon: '🎥', action: onVideoExport },
-        { label: 'ヘルプ',      icon: '❓', action: onHelp },
-      ],
-    },
-  ]
-
-  const handleMenuItemTap = useCallback((action: () => void) => {
-    action()
-    setMenuOpen(false)
-  }, [])
 
   const waveExpandBtn =
     !landscapeWaveExpanded && onWaveExpand ? (
@@ -175,43 +97,11 @@ export const LandscapeSidePanel: React.FC<Props> = ({
     ) : null
 
   const menuOverlay = menuOpen ? (
-    <>
-      <div
-        className={styles.menuBackdrop}
-        onClick={() => setMenuOpen(false)}
-      />
-      <div className={styles.menuSheet} role="dialog" aria-label="メニュー">
-        <div className={styles.menuSheetHeader}>
-          <span className={styles.menuSheetTitle}>Menu</span>
-          <button
-            className={styles.menuSheetClose}
-            onClick={() => setMenuOpen(false)}
-            aria-label="メニューを閉じる"
-          >✕</button>
-        </div>
-        <div className={styles.menuContent}>
-          {MENU_SECTIONS.map((section) => (
-            <div key={section.title} className={styles.menuSection}>
-              <div className={styles.menuSectionTitle}>
-                <span>{section.icon}</span> {section.title}
-              </div>
-              <div className={styles.menuGrid}>
-                {section.items.map((item) => (
-                  <button
-                    key={item.label}
-                    className={styles.menuItem}
-                    onClick={() => handleMenuItemTap(item.action)}
-                  >
-                    <span className={styles.menuItemIcon}>{item.icon}</span>
-                    <span className={styles.menuItemLabel}>{item.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </>
+    <MobileMenuSheet
+      open={menuOpen}
+      onClose={() => setMenuOpen(false)}
+      variant="landscape"
+    />
   ) : null
 
   if (!panelOpen) {
