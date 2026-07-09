@@ -156,6 +156,7 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
           <LandscapeSidePanel
             audioUrl={props.audioUrl}
             isPlaying={props.isPlaying}
+            currentTime={props.currentTime}
             duration={props.duration}
             onPlayPause={props.onPlayPause}
             onStop={props.onStop}

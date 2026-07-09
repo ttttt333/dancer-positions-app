@@ -339,6 +339,25 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
     const total = Math.max(1, hasRoster ? cues.length + 1 : cues.length);
     cueNavRef.current = { slotIdx, total, hasRoster };
 
+    const rosterPageActive = hasRoster && slotIdx === 0;
+    const cueCount = cues.length;
+    const pagerFractionLabel =
+      rosterPageActive && hasRoster
+        ? `名簿 / ${total}`
+        : slotIdx >= 0
+          ? hasRoster
+            ? `${slotIdx} / ${cueCount}`
+            : `${slotIdx + 1} / ${total}`
+          : `— / ${total}`;
+    const pagerCanPrev =
+      (project as { viewMode?: string }).viewMode !== "view" && slotIdx > 0;
+    const pagerCanNext =
+      (project as { viewMode?: string }).viewMode !== "view" &&
+      (slotIdx < 0
+        ? cues.length > 0
+        : slotIdx >= 0 && slotIdx < total - 1);
+    const showPager = cues.length > 0 || hasRoster;
+
     setMobileShellBridge({
       stageView: stageView as "2d" | "3d",
       undoDisabled: stageUndoDisabled as boolean,
@@ -367,6 +386,14 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
       onFlowLibrary: () => flowLibraryFnRef.current?.(true),
       onPhotoParse: () => photoParseFnRef.current?.(true),
       onVideoExport: () => videoExportFnRef.current?.(),
+      showFormationChange:
+        stageView === "2d" &&
+        !choreoPublicView &&
+        (project as { viewMode?: string }).viewMode !== "view",
+      onFormationChange: () => setFormationPresetPickerOpen(true),
+      cuePagerLabel: showPager ? pagerFractionLabel : "",
+      cuePagerCanPrev: pagerCanPrev,
+      cuePagerCanNext: pagerCanNext,
       cueStartTimes: Array.isArray(sortedCuesForEditor)
         ? (sortedCuesForEditor as Array<{ tStartSec: number }>).map((c) => c.tStartSec)
         : [],
@@ -392,6 +419,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
     handleMobileCuePrev,
     handleMobileCueNext,
     handleMobileSelectCueNearTime,
+    choreoPublicView,
+    setFormationPresetPickerOpen,
   ]);
 
   return (

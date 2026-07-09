@@ -3,6 +3,8 @@
 .panel {
   width: var(--landscape-side-panel-w, 128px);
   flex-shrink: 0;
+  position: relative;
+  z-index: 60;
   background: #0b1120;
   border-right: 0.5px solid #1a2540;
   display: flex;
@@ -449,17 +451,20 @@
 }
 
 .panelCompact {
-  padding: 4px 3px;
-  padding-left: max(3px, env(safe-area-inset-left, 3px));
-  gap: 6px;
-  align-items: center;
+  padding: 4px 4px;
+  padding-left: max(4px, env(safe-area-inset-left, 4px));
+  gap: 5px;
+  align-items: stretch;
+  overflow-y: auto;
 }
 
 .waveExpandBtnCompact {
-  width: 44px;
-  min-height: 36px;
+  width: 100%;
+  min-height: 32px;
   padding: 4px 2px;
   border-radius: 8px;
+  align-self: center;
+  max-width: 80px;
 }
 
 .waveExpandBtnCompact .waveExpandLabel {
@@ -467,37 +472,144 @@
 }
 
 .compactTransportCol {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 4px;
   width: 100%;
 }
 
 .compactPlayBtn {
-  width: 44px !important;
-  height: 44px !important;
-  border-radius: 10px !important;
+  width: 100% !important;
+  height: 40px !important;
+  border-radius: 9px !important;
 }
 
 .compactStopBtn {
-  width: 44px !important;
-  height: 32px !important;
-  border-radius: 8px !important;
+  width: 100% !important;
+  height: 40px !important;
+  border-radius: 9px !important;
+}
+
+.compactStageControls {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.compactChangeBtn {
+  width: 100%;
+  min-height: 30px;
+  padding: 0 6px;
+  border-radius: 7px;
+  border: 1px solid #d4af37;
+  background: rgba(15, 23, 42, 0.92);
+  color: #fef3c7;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.compactChangeBtn:active {
+  background: rgba(30, 41, 59, 0.96);
+}
+
+.compactViewRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  width: 100%;
+}
+
+.compactViewBtn {
+  min-height: 28px;
+  padding: 0;
+  border-radius: 7px;
+  border: 1px solid #475569;
+  background: rgba(15, 23, 42, 0.92);
+  color: #e2e8f0;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.compactViewBtnActive {
+  border-color: #6366f1;
+  color: #c7d2fe;
+}
+
+.compactPager {
+  display: grid;
+  grid-template-columns: 28px 1fr 28px;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+}
+
+.compactPagerBtn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid #475569;
+  background: rgba(15, 23, 42, 0.92);
+  color: #cbd5e1;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.compactPagerBtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.compactPagerLabel {
+  min-width: 0;
+  text-align: center;
+  font-size: 9px;
+  font-weight: 700;
+  color: #93c5fd;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compactTime {
+  width: 100%;
+  padding: 4px 2px;
+  border-radius: 6px;
+  background: rgba(11, 17, 32, 0.88);
+  border: 0.5px solid rgba(255, 255, 255, 0.1);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  line-height: 1.2;
+  text-align: center;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.compactTimeCurrent {
+  color: #fbbf24;
+  font-weight: 700;
 }
 
 .compactToolRow {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 4px;
   width: 100%;
   margin-top: auto;
 }
 
 .compactIconBtn {
-  width: 44px;
-  min-height: 36px;
+  width: 100%;
+  min-height: 34px;
   padding: 0;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.12);

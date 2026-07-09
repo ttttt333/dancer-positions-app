@@ -18,6 +18,7 @@ import {
   TransportIconRedo,
 } from './TransportIcons'
 import { useMobileShellBridgeStore } from '../../store/useMobileShellBridgeStore'
+import { formatMmSsFloor } from '../../lib/timeFormat'
 
 interface MenuItem {
   label: string
@@ -34,6 +35,7 @@ interface MenuSection {
 interface Props {
   audioUrl: string | null
   isPlaying: boolean
+  currentTime: number
   duration: number
   onPlayPause: () => void
   onStop: () => void
@@ -60,6 +62,7 @@ interface Props {
 export const LandscapeSidePanel: React.FC<Props> = ({
   audioUrl,
   isPlaying,
+  currentTime,
   duration,
   onPlayPause,
   onStop,
@@ -99,6 +102,15 @@ export const LandscapeSidePanel: React.FC<Props> = ({
   const onVideoExport = useMobileShellBridgeStore((s) => s.onVideoExport)
   const onFlowLibrary = useMobileShellBridgeStore((s) => s.onFlowLibrary)
   const onPhotoParse = useMobileShellBridgeStore((s) => s.onPhotoParse)
+  const stageView = useMobileShellBridgeStore((s) => s.stageView)
+  const onStageViewChange = useMobileShellBridgeStore((s) => s.onStageViewChange)
+  const showFormationChange = useMobileShellBridgeStore((s) => s.showFormationChange)
+  const onFormationChange = useMobileShellBridgeStore((s) => s.onFormationChange)
+  const cuePagerLabel = useMobileShellBridgeStore((s) => s.cuePagerLabel)
+  const cuePagerCanPrev = useMobileShellBridgeStore((s) => s.cuePagerCanPrev)
+  const cuePagerCanNext = useMobileShellBridgeStore((s) => s.cuePagerCanNext)
+  const onCuePrev = useMobileShellBridgeStore((s) => s.onCuePrev)
+  const onCueNext = useMobileShellBridgeStore((s) => s.onCueNext)
 
   const transportDisabled = !audioUrl || duration <= 0
 
@@ -250,6 +262,70 @@ export const LandscapeSidePanel: React.FC<Props> = ({
           >
             <TransportIconStop size={16} className={ctrlStyles.icon} />
           </button>
+        </div>
+
+        <div className={styles.compactStageControls} aria-label="舞台コントロール">
+          {showFormationChange ? (
+            <button
+              type="button"
+              className={styles.compactChangeBtn}
+              onClick={onFormationChange}
+              title="立ち位置の雛形を選ぶ"
+              aria-label="立ち位置の雛形を選ぶ"
+            >
+              Change
+            </button>
+          ) : null}
+          <div className={styles.compactViewRow} role="group" aria-label="ステージ表示">
+            <button
+              type="button"
+              className={`${styles.compactViewBtn}${stageView === '2d' ? ` ${styles.compactViewBtnActive}` : ''}`}
+              onClick={() => onStageViewChange('2d')}
+            >
+              2D
+            </button>
+            <button
+              type="button"
+              className={`${styles.compactViewBtn}${stageView === '3d' ? ` ${styles.compactViewBtnActive}` : ''}`}
+              onClick={() => onStageViewChange('3d')}
+            >
+              3D
+            </button>
+          </div>
+          {cuePagerLabel ? (
+            <div className={styles.compactPager} role="group" aria-label="キュー移動">
+              <button
+                type="button"
+                className={styles.compactPagerBtn}
+                onClick={onCuePrev}
+                disabled={!cuePagerCanPrev}
+                aria-label="前のキュー"
+              >
+                ‹
+              </button>
+              <span className={styles.compactPagerLabel} role="status">
+                {cuePagerLabel}
+              </span>
+              <button
+                type="button"
+                className={styles.compactPagerBtn}
+                onClick={onCueNext}
+                disabled={!cuePagerCanNext}
+                aria-label="次のキュー"
+              >
+                ›
+              </button>
+            </div>
+          ) : null}
+          <div
+            className={styles.compactTime}
+            aria-live="polite"
+            aria-label={`再生位置 ${formatMmSsFloor(currentTime)} / ${formatMmSsFloor(duration)}`}
+          >
+            <span className={styles.compactTimeCurrent}>{formatMmSsFloor(currentTime)}</span>
+            {' / '}
+            {formatMmSsFloor(duration)}
+          </div>
         </div>
 
         <div className={styles.compactToolRow} role="group" aria-label="メニューと操作履歴">

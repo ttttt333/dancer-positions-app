@@ -169,7 +169,10 @@
 
 .landscapeRoot[data-shell-landscape][data-landscape-wave-collapsed] {
   --landscape-wave-dock-h: 0px;
-  --landscape-side-panel-w: 52px;
-  --landscape-stage-stack-w: 72px;
+  --landscape-side-panel-w: 88px;
+  --landscape-stage-stack-w: 0px;
   --landscape-stage-text-gutter: min(22vw, 168px);
+  --landscape-stage-center-bias: calc(
+    (var(--landscape-stage-text-gutter) - var(--landscape-side-panel-w)) / 2
+  );
 }

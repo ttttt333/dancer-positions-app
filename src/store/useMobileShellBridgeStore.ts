@@ -62,6 +62,13 @@ export type MobileShellBridgeStore = {
   onPhotoParse: () => void;
   /** 波形タップで近傍キューを選択 */
   onSelectCueNearTime: (tSec: number) => void;
+  /** 横画面・波形たたみ時の Change ボタン */
+  showFormationChange?: boolean;
+  onFormationChange?: () => void;
+  /** 横画面・波形たたみ時のキューページャ表示 */
+  cuePagerLabel?: string;
+  cuePagerCanPrev?: boolean;
+  cuePagerCanNext?: boolean;
   /** タイムライン左端（停止ボタンで戻る位置） */
   trimStartSec: number;
   trimEndSec: number | null;
@@ -103,6 +110,11 @@ export const useMobileShellBridgeStore = create<MobileShellBridgeStore>((set) =>
   onFlowLibrary: () => {},
   onPhotoParse: () => {},
   onSelectCueNearTime: () => {},
+  showFormationChange: false,
+  onFormationChange: () => {},
+  cuePagerLabel: "",
+  cuePagerCanPrev: false,
+  cuePagerCanNext: false,
   trimStartSec: 0,
   trimEndSec: null,
   setMobileShellBridge: (patch) => set(patch),

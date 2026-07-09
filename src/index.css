@@ -1897,11 +1897,9 @@ html.choreo-stage-video-export #stage-export-root {
   background: rgba(11, 17, 32, 0.72);
 }
 
-/* 波形たたみ時: ステージ左コントロールをコンパクト化 */
+/* 波形たたみ時: ステージ上の重複コントロールは左パネルへ統合 */
 [data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-stack {
-  gap: 2px;
-  padding: 2px 2px 0;
-  background: rgba(11, 17, 32, 0.58);
+  display: none !important;
 }
 
 [data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-btn {
@@ -2088,11 +2086,16 @@ html.choreo-stage-video-export #stage-export-root {
   align-items: stretch !important;
 }
 
-/* 波形たたみ時: 上寄せで最大化＋右にテキスト用余白 */
+/* 波形たたみ時: 上寄せで最大化＋右にテキスト用余白＋画面中央寄せ */
 [data-shell-landscape][data-landscape-wave-collapsed] .stage-board-fit-viewport-inner {
-  align-items: flex-start !important;
+  align-items: center !important;
   justify-content: center !important;
   padding-top: 4px !important;
+  padding-left: var(--landscape-stage-center-bias, 0px) !important;
+}
+
+[data-shell-landscape][data-landscape-wave-collapsed] .stage-board-main-slot {
+  padding-left: 0 !important;
 }
 
 /* 波形表示時: タイムライン直上まで下寄せで最大化 */
