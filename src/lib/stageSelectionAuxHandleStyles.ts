@@ -42,7 +42,7 @@ export function stageAuxHandleVisualStyle(background: string): CSSProperties {
 
 /** 選択枠 div の角（left/top/right/bottom: 0）から外側へ同距離 */
 export function stageAuxHandleCornerTransform(
-  corner: "nw" | "ne" | "se"
+  corner: "nw" | "ne" | "se" | "sw"
 ): string {
   const o = STAGE_AUX_HANDLE_CORNER_OFFSET_PX;
   switch (corner) {
@@ -52,5 +52,7 @@ export function stageAuxHandleCornerTransform(
       return `translate(calc(50% + ${o}px), calc(-50% - ${o}px))`;
     case "se":
       return `translate(calc(50% + ${o}px), calc(50% + ${o}px))`;
+    case "sw":
+      return `translate(calc(-50% - ${o}px), calc(50% + ${o}px))`;
   }
 }

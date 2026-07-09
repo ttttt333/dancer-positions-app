@@ -47,6 +47,7 @@ export type StageBoardBodyOverlaysProps = {
   trashHot: boolean;
   trashDockViewportRef: RefObject<HTMLDivElement | null>;
   trashDropEdge?: TrashDropEdge;
+  onTrashTapDelete?: () => void;
   dancerQuickEditId: string | null;
   quickEditDancerForDialog: DancerSpot | null;
   viewMode: "edit" | "view";

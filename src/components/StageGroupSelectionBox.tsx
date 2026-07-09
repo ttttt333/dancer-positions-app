@@ -41,6 +41,8 @@ export type StageGroupSelectionBoxProps = {
   onMarkerResizePointerDown?: (
     e: ReactPointerEvent<HTMLDivElement>
   ) => void;
+  /** 赤ボタン：選択メンバーを削除 */
+  onDeleteClick?: () => void;
 };
 
 /** 複数選択の点線枠と 8 方向リサイズハンドル */
@@ -51,6 +53,7 @@ export function StageGroupSelectionBox({
   onOpenMenuClick,
   onNameBelowFontPointerDown,
   onMarkerResizePointerDown,
+  onDeleteClick,
 }: StageGroupSelectionBoxProps) {
   const r = handleInsetPx;
   return (
@@ -176,6 +179,51 @@ export function StageGroupSelectionBox({
             style={stageAuxHandleVisualStyle("#fbbf24")}
           />
         </div>
+      ) : null}
+      {onDeleteClick ? (
+        <button
+          type="button"
+          data-dancer-delete-handle
+          aria-label="選択した立ち位置を削除"
+          title="削除"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDeleteClick();
+          }}
+          style={{
+            position: "absolute",
+            left: 0,
+            bottom: 0,
+            transform: stageAuxHandleCornerTransform("sw"),
+            zIndex: 8,
+            ...stageAuxHandleHitStyle("pointer"),
+            borderRadius: "50%",
+            background: "rgba(220, 38, 38, 0.95)",
+            border: "1.5px solid #fff",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.45)",
+            color: "#fff",
+            touchAction: "manipulation",
+          }}
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M3 6h18" />
+            <path d="M8 6V4h8v2" />
+            <path d="M19 6l-1 14H6L5 6" />
+            <path d="M10 11v6" />
+            <path d="M14 11v6" />
+          </svg>
+        </button>
       ) : null}
     </div>
   );

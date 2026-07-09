@@ -896,6 +896,10 @@ export function StageBoardBody({
         ...f,
         floorMarkup: (f.floorMarkup ?? []).filter((x) => x.id !== id),
       }));
+      setSelectedFloorTextId((cur) => (cur === id ? null : cur));
+      setFloorTextEditId((cur) => (cur === id ? null : cur));
+      setSelectedFloorTextIds((prev) => prev.filter((x) => x !== id));
+      setFloorTextInlineRect((cur) => (cur?.id === id ? null : cur));
     },
     [writeFormation, setPiecesEditable, updateActiveFormation],
   );
@@ -904,6 +908,10 @@ export function StageBoardBody({
     (id: string) => {
       if (!onUpdateGlobalFloorMarkup || !setPiecesEditable) return;
       onUpdateGlobalFloorMarkup((prev) => prev.filter((x) => x.id !== id));
+      setSelectedFloorTextId((cur) => (cur === id ? null : cur));
+      setFloorTextEditId((cur) => (cur === id ? null : cur));
+      setSelectedFloorTextIds((prev) => prev.filter((x) => x !== id));
+      setFloorTextInlineRect((cur) => (cur?.id === id ? null : cur));
     },
     [onUpdateGlobalFloorMarkup, setPiecesEditable],
   );
@@ -1351,6 +1359,24 @@ export function StageBoardBody({
     ],
   );
 
+  const handleDeleteSelectedDancers = useCallback(() => {
+    if (
+      viewMode === "view" ||
+      playbackOrPreview ||
+      stageInteractionsEnabled === false ||
+      selectedDancerIds.length === 0
+    ) {
+      return;
+    }
+    removeDancersByIds([...selectedDancerIds]);
+  }, [
+    viewMode,
+    playbackOrPreview,
+    stageInteractionsEnabled,
+    selectedDancerIds,
+    removeDancersByIds,
+  ]);
+
   const removeSetPieceById = useCallback(
     (pieceId: string) => {
       if (
@@ -1465,14 +1491,57 @@ export function StageBoardBody({
       if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement)
         return;
       if (t instanceof HTMLElement && t.isContentEditable) return;
-      if (!selectedSetPieceId || !setPiecesEditable) return;
+      if (!setPiecesEditable) return;
+
+      const removeFloorTextById = (id: string) => {
+        const isGlobal = (globalFloorMarkup ?? []).some((x) => x.id === id);
+        if (isGlobal) {
+          removeGlobalFloorMarkupById?.(id);
+        } else {
+          removeFloorMarkupById(id);
+        }
+      };
+
+      if (selectedFloorTextIds.length > 0) {
+        e.preventDefault();
+        for (const id of selectedFloorTextIds) {
+          removeFloorTextById(id);
+        }
+        setSelectedFloorTextIds([]);
+        setSelectedFloorTextId(null);
+        setFloorTextEditId(null);
+        setFloorTextInlineRect(null);
+        return;
+      }
+
+      const floorTextTargetId = selectedFloorTextId ?? floorTextEditId;
+      if (floorTextTargetId) {
+        e.preventDefault();
+        removeFloorTextById(floorTextTargetId);
+        setSelectedFloorTextId(null);
+        setFloorTextEditId(null);
+        setFloorTextInlineRect(null);
+        return;
+      }
+
+      if (!selectedSetPieceId) return;
       e.preventDefault();
       removeSetPieceById(selectedSetPieceId);
       setSelectedSetPieceId(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedSetPieceId, setPiecesEditable, removeSetPieceById]);
+  }, [
+    selectedSetPieceId,
+    selectedFloorTextId,
+    selectedFloorTextIds,
+    floorTextEditId,
+    setPiecesEditable,
+    removeSetPieceById,
+    removeFloorMarkupById,
+    removeGlobalFloorMarkupById,
+    globalFloorMarkup,
+  ]);
 
   const setTrashHotIfChanged = useCallback((v: boolean) => {
     if (trashHotRef.current === v) return;
@@ -2386,6 +2455,8 @@ export function StageBoardBody({
           setMarquee(null);
           setSelectedDancerIds(allIds);
           setSelectedSetPieceId(null);
+          setTrashUiVisible(true);
+          trashRevealActiveRef.current = true;
           floorDoubleTapRef.current = null;
           return;
         }
@@ -3043,18 +3114,21 @@ export function StageBoardBody({
           e.clientY - tapUp.startClientY,
         );
         if (dist <= FLOOR_TEXT_TAP_DRAG_THRESHOLD_PX && setPiecesEditable) {
+          setSelectedFloorTextIds([]);
           setSelectedFloorTextId(tapUp.id);
-          const tapIsGlobal = globalFloorMarkup.some(
+          setFloorTextEditId(tapUp.id);
+          const tapIsGlobal = (globalFloorMarkup ?? []).some(
             (x) => x.id === tapUp.id,
           );
-          setFloorTextDraft({
+          setFloorTextDraft((d) => ({
+            ...d,
             body: tapUp.text,
             fontSizePx: tapUp.fontSizePx,
             fontWeight: tapUp.fontWeight,
             color: tapUp.color,
             fontFamily: tapUp.fontFamily,
             scope: tapIsGlobal ? "global" : "formation",
-          });
+          }));
         }
       }
       const floorTextDragEnd = floorMarkupTextDragRef.current;
@@ -3498,7 +3572,11 @@ export function StageBoardBody({
     viewMode === "edit" &&
     !playbackDancers &&
     !previewDancers &&
-    trashUiVisible;
+    (trashUiVisible || selectedDancerIds.length >= 1);
+
+  useEffect(() => {
+    trashRevealActiveRef.current = showTrashDrop;
+  }, [showTrashDrop]);
 
   /** 選択中の代表ダンサー（先頭）の座標。○サイズハンドルをその右下に置く。 */
   const primarySelectedDancer = useMemo(() => {
@@ -4176,6 +4254,7 @@ export function StageBoardBody({
         dancerMarkerElements: stageDancerMarkerElements,
         onMarkerResizePointerDown: handlePointerDownMarkerResize,
         onNameBelowFontResizePointerDown: handlePointerDownNameBelowFontResize,
+        onDeleteSelectedDancers: handleDeleteSelectedDancers,
         tapStageToEditLayout,
         onTapEditOverlayPointerDown: handleTapOverlayPointerDown,
       },
@@ -4346,6 +4425,8 @@ export function StageBoardBody({
       trashHot,
       trashDockViewportRef,
       trashDropEdge,
+      onTrashTapDelete:
+        selectedDancerIds.length >= 1 ? handleDeleteSelectedDancers : undefined,
       dancerQuickEditId,
       quickEditDancerForDialog,
       viewMode,
@@ -4360,9 +4441,11 @@ export function StageBoardBody({
       floorTextInlineMarkupScale,
       floorTextInlineRect,
       globalFloorMarkup,
+      handleDeleteSelectedDancers,
       handleFloorTextInlineRequestClose,
       onUpdateGlobalFloorMarkup,
       quickEditDancerForDialog,
+      selectedDancerIds,
       setDancerQuickEditId,
       setFloorTextDraft,
       setFloorMarkupTool,

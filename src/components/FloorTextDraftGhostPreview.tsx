@@ -21,7 +21,8 @@ export function FloorTextDraftGhostPreview({
   markupScale = 1,
 }: FloorTextDraftGhostPreviewProps) {
   const body = draft.body.trim();
-  const label = body || "（ここにテキストを配置）";
+  if (!body) return null;
+  const label = body;
   const fs = Math.round(clamp(draft.fontSizePx ?? 18, 8, 56) * markupScale);
   const fw = Math.round(clamp(draft.fontWeight ?? 600, 300, 900) / 50) * 50;
   const ff = (draft.fontFamily ?? "").trim() || FLOOR_TEXT_DEFAULT_FONT;

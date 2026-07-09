@@ -22,6 +22,9 @@ export function FloorTextPlacePreview({
   maxWidth,
   onPointerDown,
 }: FloorTextPlacePreviewProps) {
+  const body = session.body.trim();
+  if (!body) return null;
+
   const scale = (() => {
     const s = session.scale;
     if (typeof s === "number" && Number.isFinite(s) && s > 0) {
@@ -70,7 +73,7 @@ export function FloorTextPlacePreview({
         background: "rgba(15, 23, 42, 0.35)",
       }}
     >
-      {session.body.trim() ? session.body : "（テキストを入力）"}
+      {body}
     </div>
   );
 }

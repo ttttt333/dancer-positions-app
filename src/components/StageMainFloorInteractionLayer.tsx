@@ -21,6 +21,7 @@ import { StageGroupRotateHandleButton } from "./StageGroupRotateHandleButton";
 import { StageGroupSelectionBox } from "./StageGroupSelectionBox";
 import { StageMarqueeOverlay } from "./StageMarqueeOverlay";
 import { StagePrimaryMarkerResizeHandle } from "./StagePrimaryMarkerResizeHandle";
+import { StageDancerDeleteHandle } from "./StageDancerDeleteHandle";
 import { StageNameBelowFontResizeHandle } from "./StageNameBelowFontResizeHandle";
 import { StageTapToEditOverlay } from "./StageTapToEditOverlay";
 
@@ -75,6 +76,7 @@ export type StageMainFloorInteractionLayerProps = {
   onNameBelowFontResizePointerDown: (
     e: ReactPointerEvent<HTMLDivElement>
   ) => void;
+  onDeleteSelectedDancers?: () => void;
   tapStageToEditLayout: boolean;
   onTapEditOverlayPointerDown: (
     e: ReactPointerEvent<HTMLDivElement>
@@ -107,10 +109,16 @@ export function StageMainFloorInteractionLayer({
   dancerMarkerElements,
   onMarkerResizePointerDown,
   onNameBelowFontResizePointerDown,
+  onDeleteSelectedDancers,
   resolveNameBelowFontPx,
   tapStageToEditLayout,
   onTapEditOverlayPointerDown,
 }: StageMainFloorInteractionLayerProps) {
+  const showDeleteHandles =
+    Boolean(onDeleteSelectedDancers) &&
+    !playbackOrPreview &&
+    viewMode !== "view" &&
+    stageInteractionsEnabled;
   return (
     <>
       {selectionBox &&
@@ -167,6 +175,7 @@ export function StageMainFloorInteractionLayer({
               ? onMarkerResizePointerDown
               : undefined
           }
+          onDeleteClick={showDeleteHandles ? onDeleteSelectedDancers : undefined}
         />
       ) : null}
       {selectionBox &&
@@ -274,6 +283,25 @@ export function StageMainFloorInteractionLayer({
           markerPx={effectiveMarkerPx(primarySelectedDancer)}
           selectedCount={selectedDancerIds.length}
           onPointerDown={onMarkerResizePointerDown}
+        />
+      ) : null}
+      {showDeleteHandles &&
+      primarySelectedDancer &&
+      selectedDancerIds.length === 1 &&
+      !marquee ? (
+        <StageDancerDeleteHandle
+          xPct={primarySelectedDancer.xPct}
+          yPct={primarySelectedDancer.yPct}
+          facingDeg={normalizeDancerFacingDeg(
+            effectiveFacingDeg(primarySelectedDancer)
+          )}
+          markerPx={effectiveMarkerPx(primarySelectedDancer)}
+          selectedCount={selectedDancerIds.length}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onDeleteSelectedDancers?.();
+          }}
         />
       ) : null}
       {tapStageToEditLayout ? (

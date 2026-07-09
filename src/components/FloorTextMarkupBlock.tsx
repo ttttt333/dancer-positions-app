@@ -144,12 +144,22 @@ export function FloorTextMarkupBlock({
     setPiecesEditable &&
     !playbackOrPreview &&
     !floorTextPlaceSession &&
-    floorMarkupTool === null;
+    (floorMarkupTool === null || floorMarkupTool === "text");
 
   const sc = floorTextMarkupScale(m);
   const selected = selectedFloorTextId === m.id;
   const multiSelected = Boolean(selectedFloorTextIds?.includes(m.id));
   const editingInlineHere = floorTextInlineRectId === m.id;
+
+  const hasVisibleText = m.text.trim().length > 0;
+  if (
+    !hasVisibleText &&
+    floorTextEditId !== m.id &&
+    selectedFloorTextId !== m.id &&
+    !multiSelected
+  ) {
+    return null;
+  }
 
   const showChrome =
     (selected || multiSelected) &&
@@ -378,55 +388,110 @@ export function FloorTextMarkupBlock({
             }}
           />
 
-          {onOpenTextEditSheet && !multiSelected ? (
-            <button
-              type="button"
-              aria-label="テキストを編集"
-              title="編集"
-              onPointerDown={(ev) => {
-                ev.preventDefault();
-                ev.stopPropagation();
-              }}
-              onClick={(ev) => {
-                ev.preventDefault();
-                ev.stopPropagation();
-                onOpenTextEditSheet(m, draftFromMarkup());
-              }}
+          {!multiSelected ? (
+            <div
               style={{
                 position: "absolute",
                 top: coarsePointer ? -20 : -16,
                 right: coarsePointer ? -20 : -16,
-                width: coarsePointer ? 36 : 28,
-                height: coarsePointer ? 36 : 28,
-                borderRadius: "50%",
-                border: "1.5px solid #fff",
-                background: "rgba(79, 70, 229, 0.95)",
-                color: "#fff",
+                display: "flex",
+                gap: coarsePointer ? 6 : 4,
                 zIndex: 4,
                 pointerEvents: "auto",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: 0,
-                boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
               }}
             >
-              <svg
-                width={coarsePointer ? 16 : 13}
-                height={coarsePointer ? 16 : 13}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
+              {onOpenTextEditSheet ? (
+                <button
+                  type="button"
+                  aria-label="テキストを編集"
+                  title="編集"
+                  onPointerDown={(ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                  }}
+                  onClick={(ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    onOpenTextEditSheet(m, draftFromMarkup());
+                  }}
+                  style={{
+                    width: coarsePointer ? 36 : 28,
+                    height: coarsePointer ? 36 : 28,
+                    borderRadius: "50%",
+                    border: "1.5px solid #fff",
+                    background: "rgba(79, 70, 229, 0.95)",
+                    color: "#fff",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: 0,
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
+                  }}
+                >
+                  <svg
+                    width={coarsePointer ? 16 : 13}
+                    height={coarsePointer ? 16 : 13}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
+                  >
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+                  </svg>
+                </button>
+              ) : null}
+              <button
+                type="button"
+                aria-label="テキストを削除"
+                title="削除"
+                onPointerDown={(ev) => {
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                }}
+                onClick={(ev) => {
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                  onRemoveFloorMarkup(m.id);
+                }}
+                style={{
+                  width: coarsePointer ? 36 : 28,
+                  height: coarsePointer ? 36 : 28,
+                  borderRadius: "50%",
+                  border: "1.5px solid #fff",
+                  background: "rgba(220, 38, 38, 0.95)",
+                  color: "#fff",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 0,
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
+                }}
               >
-                <path d="M12 20h9" />
-                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
-              </svg>
-            </button>
+                <svg
+                  width={coarsePointer ? 16 : 13}
+                  height={coarsePointer ? 16 : 13}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M3 6h18" />
+                  <path d="M8 6V4h8v2" />
+                  <path d="M19 6l-1 14H6L5 6" />
+                  <path d="M10 11v6" />
+                  <path d="M14 11v6" />
+                </svg>
+              </button>
+            </div>
           ) : null}
 
           {/* コーナーリサイズハンドル（小さい円） */}

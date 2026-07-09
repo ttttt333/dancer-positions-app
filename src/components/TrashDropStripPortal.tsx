@@ -9,6 +9,8 @@ export type TrashDropStripPortalProps = {
   dockRef: RefObject<HTMLDivElement | null>;
   /** デスクトップ=左端、モバイル=下端 */
   edge?: TrashDropEdge;
+  /** タップで選択中メンバーを削除（ドラッグ削除と併用） */
+  onTapDelete?: () => void;
 };
 
 /** 画面端のゴミ箱ドロップ帯（body にポータル） */
@@ -17,6 +19,7 @@ export function TrashDropStripPortal({
   trashHot,
   dockRef,
   edge = "left",
+  onTapDelete,
 }: TrashDropStripPortalProps) {
   if (!open || typeof document === "undefined") return null;
 
@@ -81,21 +84,71 @@ export function TrashDropStripPortal({
           : "4px 0 24px rgba(0,0,0,0.35)",
       }}
     >
-      <span style={{ fontSize: "26px", lineHeight: 1 }} aria-hidden>
-        🗑
-      </span>
-      <span>
-        {isBottom ? (
-          <>
-            画面の下へ
-            <br />
-            ドロップで削除
-          </>
+      <span style={{ fontSize: "10px", lineHeight: 1.35, textAlign: "center" }}>
+        {onTapDelete ? (
+          <button
+            type="button"
+            aria-label="選択中の立ち位置を削除"
+            title="タップで削除"
+            onClick={(e) => {
+              e.stopPropagation();
+              onTapDelete();
+            }}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 6,
+              padding: 0,
+              margin: 0,
+              border: "none",
+              background: "transparent",
+              color: "inherit",
+              font: "inherit",
+              cursor: "pointer",
+              pointerEvents: "auto",
+              touchAction: "manipulation",
+            }}
+          >
+            <span style={{ fontSize: "26px", lineHeight: 1 }} aria-hidden>
+              🗑
+            </span>
+            <span>
+              {isBottom ? (
+                <>
+                  タップまたは下へ
+                  <br />
+                  ドロップで削除
+                </>
+              ) : (
+                <>
+                  タップまたは左へ
+                  <br />
+                  ドロップで削除
+                </>
+              )}
+            </span>
+          </button>
         ) : (
           <>
-            画面の左へ
-            <br />
-            ドロップで削除
+            <span style={{ fontSize: "26px", lineHeight: 1 }} aria-hidden>
+              🗑
+            </span>
+            <span>
+              {isBottom ? (
+                <>
+                  画面の下へ
+                  <br />
+                  ドロップで削除
+                </>
+              ) : (
+                <>
+                  画面の左へ
+                  <br />
+                  ドロップで削除
+                </>
+              )}
+            </span>
           </>
         )}
       </span>
