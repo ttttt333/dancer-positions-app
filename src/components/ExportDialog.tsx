@@ -11,6 +11,7 @@ import { getVideoExportCanvasRef } from "../lib/videoExportCanvasRef";
 import { formatVideoExportError } from "../lib/videoExportErrors";
 import type { VideoExportQualityPreset } from "../lib/videoExportQualityPresets";
 import { useVideoExport } from "../hooks/useVideoExport";
+import { useVideoExportGate } from "../hooks/useVideoExportGate";
 import { useExportToast } from "../hooks/useExportToast";
 import { ExportToast } from "./ExportToast";
 import { VideoExportQualitySheet } from "./VideoExportQualitySheet";
@@ -179,6 +180,13 @@ export function ExportDialog({
   const durationSec = usePlaybackUiStore((s) => s.durationSec);
   const { startExport, isExporting } = useVideoExport();
   const { toast, showToast, dismiss } = useExportToast();
+  const {
+    remaining,
+    limitReached,
+    gateBeforeExport,
+    openUpgradeIfNeeded,
+    upgradeModal,
+  } = useVideoExportGate();
 
   const runExport = useCallback(async () => {
     const base = safeBaseName(projectName.trim() || "無題の作品");
@@ -210,14 +218,21 @@ export function ExportDialog({
     onClose,
   ]);
 
-  /** 動画は生徒閲覧と同じ高速フロー（WebCodecs + FFmpeg 音声結合）。画質3択をすぐ開く */
-  const openVideoExport = useCallback(() => {
+  /** 動画は生徒閲覧と同じ高速フロー。画質3択をすぐ開く（書き出し前にサーバー側チェック） */
+  const openVideoExport = useCallback(async () => {
     if (durationSec <= 0) {
       alert("再生時間がありません。音源を読み込むか、キューを配置してください。");
       return;
     }
-    setVideoQualityOpen(true);
-  }, [durationSec]);
+    if (openUpgradeIfNeeded()) return;
+    try {
+      const ok = await gateBeforeExport();
+      if (ok) setVideoQualityOpen(true);
+    } catch (e) {
+      const { title, description } = formatVideoExportError(e);
+      showToast({ kind: "error", title, description });
+    }
+  }, [durationSec, gateBeforeExport, openUpgradeIfNeeded, showToast]);
 
   const runVideoExport = useCallback(
     async (quality: VideoExportQualityPreset) => {
@@ -323,6 +338,7 @@ export function ExportDialog({
   return (
     <>
       <ExportToast toast={toast} onDismiss={dismiss} />
+      {upgradeModal}
       <VideoExportQualitySheet
         open={videoQualityOpen}
         onClose={() => setVideoQualityOpen(false)}
@@ -404,6 +420,7 @@ export function ExportDialog({
           </p>
           <p style={{ margin: "0 0 10px", fontSize: 11, color: "#94a3b8", lineHeight: 1.5 }}>
             ステージの動きと音源を同期した MP4 を高速に書き出します（生徒の共有と同じ方式）。
+            {remaining != null ? ` あと${remaining}回書き出せます。` : null}
           </p>
           <button
             type="button"
@@ -413,11 +430,15 @@ export function ExportDialog({
               width: "100%",
               fontWeight: 700,
               minHeight: 40,
-              opacity: busy || isExporting ? 0.6 : 1,
+              opacity: limitReached ? 0.55 : busy || isExporting ? 0.6 : 1,
             }}
-            onClick={openVideoExport}
+            onClick={() => void openVideoExport()}
           >
-            {isExporting ? "書き出し中…" : "動画を書き出す（画質を選ぶ）"}
+            {isExporting
+              ? "書き出し中…"
+              : limitReached
+                ? "動画を書き出す（上限・PROへ）"
+                : "動画を書き出す（画質を選ぶ）"}
           </button>
         </div>
         {!stage2dVisible ? (

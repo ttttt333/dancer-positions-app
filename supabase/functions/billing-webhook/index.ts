@@ -15,6 +15,7 @@ import {
   STRIPE_SECRET_KEY,
   STRIPE_WEBHOOK_SECRET,
   updateBillingBySubscriptionId,
+  upsertBillingFromSubscription,
 } from "../_shared/billing.ts";
 
 serve(async (req: Request) => {
@@ -83,6 +84,18 @@ serve(async (req: Request) => {
           payment_status: session.payment_status,
           status: session.status,
           mode: session.mode ?? "subscription",
+        });
+        break;
+      }
+      case "customer.subscription.created": {
+        const sub = event.data.object as Stripe.Subscription;
+        await upsertBillingFromSubscription({
+          id: sub.id,
+          status: sub.status,
+          customer:
+            typeof sub.customer === "string"
+              ? sub.customer
+              : sub.customer?.id ?? "",
         });
         break;
       }

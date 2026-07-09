@@ -3,7 +3,12 @@
 // @ts-ignore Deno
 const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
 // @ts-ignore Deno
-const STRIPE_PRICE_ID = Deno.env.get("STRIPE_PRICE_ID") ?? "";
+const STRIPE_PRICE_ID =
+  Deno.env.get("STRIPE_PRICE_ID_PRO") ??
+  Deno.env.get("STRIPE_PRICE_ID") ??
+  "";
+// @ts-ignore Deno
+const STRIPE_TRIAL_DAYS = Number(Deno.env.get("STRIPE_TRIAL_DAYS") ?? "7");
 // @ts-ignore Deno
 const STRIPE_WEBHOOK_SECRET = Deno.env.get("STRIPE_WEBHOOK_SECRET") ?? "";
 // @ts-ignore Deno
@@ -147,6 +152,10 @@ export async function createCheckoutSession(opts: {
   email: string;
 }): Promise<{ url: string }> {
   const existingCustomerId = await fetchStripeCustomerIdForUser(opts.userId);
+  const trialDays =
+    Number.isFinite(STRIPE_TRIAL_DAYS) && STRIPE_TRIAL_DAYS > 0
+      ? Math.floor(STRIPE_TRIAL_DAYS)
+      : 7;
 
   const params: Record<string, string> = {
     mode: "subscription",
@@ -155,6 +164,9 @@ export async function createCheckoutSession(opts: {
     success_url: `${APP_BASE}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${APP_BASE}/billing/canceled`,
     client_reference_id: opts.userId,
+    "subscription_data[trial_period_days]": String(trialDays),
+    "subscription_data[trial_settings][end_behavior][missing_payment_method]":
+      "cancel",
   };
 
   if (existingCustomerId) {
@@ -259,6 +271,38 @@ export async function updateBillingBySubscriptionId(
     .update(patch)
     .eq("stripe_subscription_id", subscriptionId);
   if (error) throw new Error(error.message);
+}
+
+export async function upsertBillingFromSubscription(sub: {
+  id: string;
+  status: string;
+  customer: string;
+}): Promise<void> {
+  // @ts-ignore Deno
+  const { createClient } = await import("npm:@supabase/supabase-js@2");
+  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const customerId = String(sub.customer);
+
+  const { data: row, error: findErr } = await admin
+    .from("choreocore_user_billing")
+    .select("user_id")
+    .eq("stripe_customer_id", customerId)
+    .maybeSingle();
+  if (findErr) throw new Error(findErr.message);
+  if (!row?.user_id) {
+    console.warn(
+      "[billing] upsertBillingFromSubscription: no user for customer",
+      customerId
+    );
+    return;
+  }
+
+  await upsertBillingRow({
+    user_id: row.user_id,
+    stripe_customer_id: customerId,
+    stripe_subscription_id: sub.id,
+    subscription_status: sub.status,
+  });
 }
 
 export async function getUserFromAuthHeader(

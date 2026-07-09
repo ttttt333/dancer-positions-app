@@ -15,6 +15,7 @@ describe("supabaseBilling", () => {
         stripe_subscription_id: "sub_x",
         subscription_status: "active",
         entitlement_lifetime: false,
+        video_export_count: 0,
       })
     ).toBe(true);
   });
@@ -26,6 +27,7 @@ describe("supabaseBilling", () => {
         stripe_subscription_id: null,
         subscription_status: null,
         entitlement_lifetime: true,
+        video_export_count: 0,
       })
     ).toBe(true);
   });

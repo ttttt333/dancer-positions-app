@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, type CSSProperties } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { buildVideoExportOptions } from "../lib/buildVideoExportOptions";
 import { resolveVideoExportFileName } from "../lib/videoExportFileName";
@@ -10,6 +10,7 @@ import {
 import { formatVideoExportError } from "../lib/videoExportErrors";
 import type { VideoExportQualityPreset } from "../lib/videoExportQualityPresets";
 import { useVideoExport } from "../hooks/useVideoExport";
+import { useVideoExportGate } from "../hooks/useVideoExportGate";
 import { useExportToast } from "../hooks/useExportToast";
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
 import { ExportToast } from "./ExportToast";
@@ -35,6 +36,13 @@ export function VideoExportButton({
   const [pendingMode, setPendingMode] = useState<PendingExportMode>("share");
   const { toast, showToast, dismiss } = useExportToast();
   const { isExporting, progress, startExport } = useVideoExport();
+  const {
+    remaining,
+    limitReached,
+    gateBeforeExport,
+    openUpgradeIfNeeded,
+    upgradeModal,
+  } = useVideoExportGate();
 
   const capabilities = useMemo(() => checkVideoExportCapabilities(), []);
   const exportBaseName = useMemo(
@@ -120,10 +128,21 @@ export function VideoExportButton({
     [project, durationSec, fileName, startExport, showToast]
   );
 
-  const openQualitySheet = useCallback((mode: PendingExportMode) => {
-    setPendingMode(mode);
-    setQualitySheetOpen(true);
-  }, []);
+  const openQualitySheet = useCallback(
+    async (mode: PendingExportMode) => {
+      if (openUpgradeIfNeeded()) return;
+      try {
+        const ok = await gateBeforeExport();
+        if (!ok) return;
+        setPendingMode(mode);
+        setQualitySheetOpen(true);
+      } catch (e) {
+        const { title, description } = formatVideoExportError(e);
+        showToast({ kind: "error", title, description });
+      }
+    },
+    [gateBeforeExport, openUpgradeIfNeeded, showToast]
+  );
 
   const onQualitySelect = useCallback(
     (quality: VideoExportQualityPreset) => {
@@ -135,10 +154,15 @@ export function VideoExportButton({
 
   const busy = isExporting;
   const disabled = busy || durationSec <= 0 || exportBlocked;
+  const exportBtnStyle = (base: CSSProperties): CSSProperties => ({
+    ...base,
+    opacity: limitReached ? 0.55 : busy ? 0.6 : 1,
+  });
 
   return (
     <>
       <ExportToast toast={toast} onDismiss={dismiss} />
+      {upgradeModal}
       <VideoExportQualitySheet
         open={qualitySheetOpen}
         onClose={() => setQualitySheetOpen(false)}
@@ -157,6 +181,7 @@ export function VideoExportButton({
         style={{ marginBottom: compact ? 6 : 10 }}
       >
         保存名: {exportBaseName}.mp4
+        {remaining != null ? ` · あと${remaining}回書き出せます` : null}
       </p>
       <div
         className="choreo-viewer-video-export-prompt"
@@ -165,29 +190,33 @@ export function VideoExportButton({
         <button
           type="button"
           disabled={disabled}
-          style={{
+          style={exportBtnStyle({
             ...btnAccent,
             fontWeight: 700,
             flex: "1 1 auto",
             minHeight: compact ? 36 : 40,
             fontSize: compact ? 12 : 13,
-          }}
-          onClick={() => openQualitySheet("share")}
+          })}
+          onClick={() => void openQualitySheet("share")}
         >
-          {busy ? `${progress}%` : "動画を共有"}
+          {busy
+            ? `${progress}%`
+            : limitReached
+              ? "動画を共有（上限）"
+              : "動画を共有"}
         </button>
         <button
           type="button"
           disabled={disabled}
-          style={{
+          style={exportBtnStyle({
             ...btnSecondary,
             flex: "1 1 auto",
             minHeight: compact ? 36 : 40,
             fontSize: compact ? 12 : 13,
-          }}
-          onClick={() => openQualitySheet("download")}
+          })}
+          onClick={() => void openQualitySheet("download")}
         >
-          動画を保存
+          {limitReached ? "動画を保存（上限）" : "動画を保存"}
         </button>
       </div>
     </>

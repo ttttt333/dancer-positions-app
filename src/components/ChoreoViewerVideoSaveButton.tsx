@@ -7,6 +7,7 @@ import { checkVideoExportCapabilities } from "../lib/videoExportCapabilities";
 import { formatVideoExportError } from "../lib/videoExportErrors";
 import type { VideoExportQualityPreset } from "../lib/videoExportQualityPresets";
 import { useVideoExport } from "../hooks/useVideoExport";
+import { useVideoExportGate } from "../hooks/useVideoExportGate";
 import { useExportToast } from "../hooks/useExportToast";
 import { ExportToast } from "./ExportToast";
 import { VideoExportQualitySheet } from "./VideoExportQualitySheet";
@@ -28,6 +29,13 @@ export function ChoreoViewerVideoSaveButton({
   const [qualitySheetOpen, setQualitySheetOpen] = useState(false);
   const { toast, showToast, dismiss } = useExportToast();
   const { isExporting, progress, startExport } = useVideoExport();
+  const {
+    remaining,
+    limitReached,
+    gateBeforeExport,
+    openUpgradeIfNeeded,
+    upgradeModal,
+  } = useVideoExportGate();
   const capabilities = checkVideoExportCapabilities();
   const disabled =
     isExporting || durationSec <= 0 || !capabilities.supported;
@@ -101,11 +109,23 @@ export function ChoreoViewerVideoSaveButton({
     [runExport]
   );
 
+  const onOpenQualitySheet = useCallback(async () => {
+    if (openUpgradeIfNeeded()) return;
+    try {
+      const ok = await gateBeforeExport();
+      if (ok) setQualitySheetOpen(true);
+    } catch (e) {
+      const { title, description } = formatVideoExportError(e);
+      showToast({ kind: "error", title, description });
+    }
+  }, [gateBeforeExport, openUpgradeIfNeeded, showToast]);
+
   const exportName = resolveVideoExportFileName(project, fileName);
 
   return (
     <>
       <ExportToast toast={toast} onDismiss={dismiss} />
+      {upgradeModal}
       <VideoExportQualitySheet
         open={qualitySheetOpen}
         onClose={() => setQualitySheetOpen(false)}
@@ -117,16 +137,27 @@ export function ChoreoViewerVideoSaveButton({
         className={["choreo-viewer-bars__video-btn", className]
           .filter(Boolean)
           .join(" ")}
+        style={{
+          opacity: limitReached ? 0.55 : disabled ? 0.45 : 1,
+        }}
         disabled={disabled}
         title={
-          capabilities.supported
-            ? `動画を保存（${exportName}.mp4）`
-            : capabilities.blockReason ?? "この環境では動画保存に対応していません"
+          limitReached
+            ? "動画書き出しの上限に達しました（PROで無制限）"
+            : capabilities.supported
+              ? `動画を保存（${exportName}.mp4）`
+              : capabilities.blockReason ?? "この環境では動画保存に対応していません"
         }
         aria-label="動画を保存"
-        onClick={() => setQualitySheetOpen(true)}
+        onClick={() => void onOpenQualitySheet()}
       >
-        {isExporting ? `${progress}%` : "動画"}
+        {isExporting
+          ? `${progress}%`
+          : limitReached
+            ? "動画（上限）"
+            : remaining != null
+              ? `動画（残${remaining}）`
+              : "動画"}
       </button>
     </>
   );

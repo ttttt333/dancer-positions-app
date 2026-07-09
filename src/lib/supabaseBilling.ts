@@ -1,5 +1,6 @@
 import { getSupabase } from "./supabaseClient";
 import type { Me } from "../types/authMe";
+import { getEntitlements } from "./entitlements";
 
 export const FREE_CLOUD_PROJECT_LIMIT = 3;
 
@@ -8,6 +9,7 @@ export type ChoreocoreBillingRow = {
   stripe_subscription_id: string | null;
   subscription_status: string | null;
   entitlement_lifetime: boolean;
+  video_export_count: number;
 };
 
 export function isProFromBilling(
@@ -28,6 +30,7 @@ export function billingFieldsForMe(
     stripe_subscription_id: billing.stripe_subscription_id,
     subscription_status: billing.subscription_status,
     entitlement_lifetime: billing.entitlement_lifetime ? 1 : 0,
+    video_export_count: billing.video_export_count,
   };
 }
 
@@ -39,7 +42,7 @@ export async function fetchChoreocoreBillingRow(): Promise<ChoreocoreBillingRow 
   const { data, error } = await sb
     .from("choreocore_user_billing")
     .select(
-      "stripe_customer_id, stripe_subscription_id, subscription_status, entitlement_lifetime"
+      "stripe_customer_id, stripe_subscription_id, subscription_status, entitlement_lifetime, video_export_count"
     )
     .eq("user_id", userData.user.id)
     .maybeSingle();
@@ -64,6 +67,8 @@ export async function fetchChoreocoreBillingRow(): Promise<ChoreocoreBillingRow 
     subscription_status:
       data.subscription_status != null ? String(data.subscription_status) : null,
     entitlement_lifetime: Boolean(data.entitlement_lifetime),
+    video_export_count:
+      typeof data.video_export_count === "number" ? data.video_export_count : 0,
   };
 }
 
@@ -117,10 +122,7 @@ export function hasStripeCustomerId(me: Me | null | undefined): boolean {
 }
 
 export function isProMe(me: Me | null | undefined): boolean {
-  if (!me?.user) return false;
-  if (me.user.entitlement_lifetime === 1) return true;
-  const s = me.user.subscription_status?.trim();
-  return s === "active" || s === "trialing";
+  return getEntitlements(me).isPro;
 }
 
 export async function assertCanCreateSupabaseProject(

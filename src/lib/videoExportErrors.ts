@@ -1,5 +1,7 @@
 /** 動画書き出し失敗時のユーザー向けメッセージ */
 
+import { VideoExportLimitError } from "./videoExportAllowance";
+
 export type VideoExportErrorPresentation = {
   title: string;
   description: string;
@@ -35,6 +37,14 @@ export function formatVideoExportError(
   error: unknown
 ): VideoExportErrorPresentation {
   const msg = errorText(error);
+
+  if (error instanceof VideoExportLimitError) {
+    return {
+      title: "動画書き出しの上限に達しました",
+      description:
+        "無料プランでは累計10回まで書き出せます。PROプランで無制限になります。",
+    };
+  }
 
   if (error instanceof Error && error.name === "ExportBackgroundedError") {
     return {
