@@ -1,9 +1,11 @@
 import { useMemo } from 'react'
 import { useMobileShellBridgeStore } from '../../store/useMobileShellBridgeStore'
+import type { MobileMenuIconId } from './MobileMenuIcons'
 
 export type MobileMenuItem = {
+  id: string
   label: string
-  icon: string
+  icon: MobileMenuIconId
   action: () => void
 }
 
@@ -36,41 +38,31 @@ export function useMobileMenuSections(): MobileMenuSection[] {
   return useMemo(
     () => [
       {
-        title: 'Stages',
+        title: 'Stage',
         items: [
-          { label: 'キュー設定', icon: '🎬', action: onAddCue },
-          { label: '舞台設定', icon: '⚙️', action: onStageSettings },
-          { label: 'キュー一覧', icon: '📋', action: onCueList },
-          { label: 'ライブラリ', icon: '📚', action: onFlowLibrary },
-          { label: '画像キュー', icon: '🖼️', action: onPhotoParse },
-          { label: '雛形保存', icon: '💾', action: onSaveSpot },
-          { label: 'テキスト', icon: '✏️', action: onAddText },
-          { label: '舞台変形', icon: '🏟️', action: onStageShape },
-          { label: '大道具', icon: '🪑', action: onSetPiece },
+          { id: 'cue', label: 'キュー設定', icon: 'cue', action: onAddCue },
+          { id: 'stage', label: '舞台設定', icon: 'stage', action: onStageSettings },
+          { id: 'list', label: 'キュー一覧', icon: 'list', action: onCueList },
+          { id: 'library', label: 'ライブラリ', icon: 'library', action: onFlowLibrary },
+          { id: 'image', label: '画像キュー', icon: 'image', action: onPhotoParse },
+          { id: 'save', label: '雛形保存', icon: 'save', action: onSaveSpot },
+          { id: 'text', label: 'テキスト', icon: 'text', action: onAddText },
+          { id: 'shape', label: '舞台変形', icon: 'shape', action: onStageShape },
+          { id: 'prop', label: '大道具', icon: 'prop', action: onSetPiece },
         ],
       },
       {
-        title: 'Timeline',
+        title: 'More',
         items: [
-          { label: '音源追加', icon: '🎵', action: onAudioImport },
-          { label: 'AI提案', icon: '✨', action: onAiSuggest },
-          { label: '名簿取込', icon: '📄', action: onRosterImport },
-        ],
-      },
-      {
-        title: 'Team',
-        items: [
-          { label: 'メンバー', icon: '👤', action: onMemberList },
-          { label: '追加', icon: '➕', action: onMemberAdd },
-          { label: '共有', icon: '🔗', action: onShareLinks },
-        ],
-      },
-      {
-        title: 'Settings',
-        items: [
-          { label: 'エクスポート', icon: '📤', action: onViewerList },
-          { label: '動画書出', icon: '🎥', action: onVideoExport },
-          { label: 'ヘルプ', icon: '❓', action: onHelp },
+          { id: 'audio', label: '音源追加', icon: 'audio', action: onAudioImport },
+          { id: 'ai', label: 'AI提案', icon: 'ai', action: onAiSuggest },
+          { id: 'roster', label: '名簿取込', icon: 'roster', action: onRosterImport },
+          { id: 'member', label: 'メンバー', icon: 'member', action: onMemberList },
+          { id: 'add', label: 'メンバー追加', icon: 'add', action: onMemberAdd },
+          { id: 'share', label: '閲覧共有', icon: 'share', action: onShareLinks },
+          { id: 'export', label: 'エクスポート', icon: 'export', action: onViewerList },
+          { id: 'video', label: '動画書出', icon: 'video', action: onVideoExport },
+          { id: 'help', label: 'ヘルプ', icon: 'help', action: onHelp },
         ],
       },
     ],

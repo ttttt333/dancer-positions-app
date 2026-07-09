@@ -1,15 +1,14 @@
-/* MobileMenuSheet — スマホ共通・1画面収まり・シネマティック UI */
+/* MobileMenuSheet — 統一 2×(3×3) グリッド / 縦横対応 */
 
 .backdrop {
   position: fixed;
   inset: 0;
   z-index: 400;
   touch-action: none;
-  background:
-    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(0, 0, 0, 0.55) 0%, rgba(0, 0, 0, 0.82) 100%);
-  backdrop-filter: blur(10px) saturate(120%);
-  -webkit-backdrop-filter: blur(10px) saturate(120%);
-  animation: menuFadeIn 0.28s ease-out;
+  background: rgba(4, 6, 12, 0.72);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  animation: menuFadeIn 0.22s ease-out;
 }
 
 @keyframes menuFadeIn {
@@ -18,21 +17,25 @@
 }
 
 .sheet {
+  --menu-ink: #f3efe6;
+  --menu-muted: rgba(243, 239, 230, 0.55);
+  --menu-line: rgba(212, 175, 55, 0.28);
+  --menu-accent: #d4af37;
+  --menu-tile: rgba(255, 255, 255, 0.045);
+  --menu-tile-border: rgba(255, 255, 255, 0.08);
+
   position: fixed;
   inset: 0;
   z-index: 401;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  color: #f5f0e6;
+  color: var(--menu-ink);
   background:
-    radial-gradient(ellipse 130% 70% at 50% -15%, rgba(180, 140, 60, 0.14) 0%, transparent 52%),
-    radial-gradient(ellipse 70% 50% at 100% 100%, rgba(50, 70, 130, 0.1) 0%, transparent 48%),
-    linear-gradient(175deg, #14121c 0%, #08070d 42%, #0b0d14 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    0 0 80px rgba(0, 0, 0, 0.65);
-  animation: menuSheetIn 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    radial-gradient(ellipse 90% 55% at 50% -8%, rgba(212, 175, 55, 0.12) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(70, 90, 140, 0.12) 0%, transparent 50%),
+    linear-gradient(180deg, #12141c 0%, #07080d 100%);
+  animation: menuSheetIn 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .sheetLandscape {
@@ -41,25 +44,25 @@
   top: 0;
   bottom: 0;
   inset: auto;
-  border-left: 1px solid rgba(212, 175, 55, 0.12);
-  animation: menuSlideRight 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  border-left: 1px solid rgba(212, 175, 55, 0.14);
+  animation: menuSlideRight 0.26s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes menuSheetIn {
   from {
     opacity: 0;
-    transform: translateY(10px) scale(0.985);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
 @keyframes menuSlideRight {
   from {
     opacity: 0;
-    transform: translateX(6%);
+    transform: translateX(4%);
   }
   to {
     opacity: 1;
@@ -72,43 +75,42 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 14px 10px;
-  padding-top: max(8px, env(safe-area-inset-top, 8px));
-  background: linear-gradient(180deg, rgba(212, 175, 55, 0.07) 0%, transparent 100%);
-  border-bottom: 1px solid rgba(212, 175, 55, 0.1);
+  padding: 10px 16px 8px;
+  padding-top: max(10px, env(safe-area-inset-top, 10px));
 }
 
 .headerBrand {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: baseline;
+  gap: 10px;
 }
 
 .title {
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.42em;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: #e8d5a3;
+  color: var(--menu-accent);
   line-height: 1;
 }
 
 .subtitle {
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 400;
-  letter-spacing: 0.14em;
-  color: rgba(232, 213, 163, 0.45);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--menu-muted);
   line-height: 1;
 }
 
 .closeBtn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.04);
-  color: rgba(245, 240, 230, 0.7);
-  font-size: 14px;
+  color: var(--menu-muted);
+  font-size: 15px;
   font-weight: 300;
   line-height: 1;
   cursor: pointer;
@@ -116,8 +118,6 @@
   align-items: center;
   justify-content: center;
   touch-action: manipulation;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .closeBtn:active {
@@ -129,171 +129,192 @@
 .body {
   flex: 1;
   min-height: 0;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding:
-    6px 10px
-    max(8px, env(safe-area-inset-bottom, 8px))
-    max(10px, env(safe-area-inset-left, 10px));
-  padding-right: max(10px, env(safe-area-inset-right, 10px));
+  gap: 10px;
+  padding: 4px 12px max(12px, env(safe-area-inset-bottom, 12px));
+  padding-left: max(12px, env(safe-area-inset-left, 12px));
+  padding-right: max(12px, env(safe-area-inset-right, 12px));
 }
 
-.section {
-  flex: 1;
+.sheetLandscape .body {
+  flex-direction: row;
+  gap: 12px;
+  padding-top: 2px;
+  padding-bottom: max(10px, env(safe-area-inset-bottom, 10px));
+}
+
+.panel {
+  flex: 1 1 0;
   min-height: 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
-.sectionHead {
+.panelHead {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 2px;
 }
 
-.sectionHeadLine {
+.panelHead::after {
+  content: "";
   flex: 1;
   height: 1px;
-  background: linear-gradient(
-    90deg,
-    rgba(212, 175, 55, 0.35) 0%,
-    rgba(212, 175, 55, 0.06) 100%
-  );
+  background: linear-gradient(90deg, var(--menu-line), transparent);
 }
 
-.sectionTitle {
-  flex-shrink: 0;
-  font-size: 7px;
+.panelTitle {
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(212, 175, 55, 0.72);
+  color: rgba(212, 175, 55, 0.85);
   line-height: 1;
 }
 
-.tileGrid {
+.grid {
   flex: 1;
   min-height: 0;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 5px;
-  align-content: stretch;
+  grid-template-rows: repeat(3, 1fr);
+  gap: 8px;
 }
 
-.sheetLandscape .tileGrid {
-  grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
+.sheetLandscape .grid {
+  gap: 7px;
 }
 
 .tile {
+  min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: 5px 3px 4px;
-  border: none;
-  border-radius: 11px;
+  gap: 6px;
+  padding: 8px 4px;
+  border-radius: 14px;
+  border: 1px solid var(--menu-tile-border);
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.08) 0%, var(--menu-tile) 45%, rgba(0, 0, 0, 0.18) 100%);
+  box-shadow:
+    0 8px 20px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  color: var(--menu-ink);
   cursor: pointer;
   touch-action: manipulation;
   text-align: center;
-  background:
-    linear-gradient(155deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.02) 48%, rgba(0, 0, 0, 0.12) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow:
-    0 6px 18px rgba(0, 0, 0, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07);
-  transition:
-    transform 0.12s ease,
-    border-color 0.12s ease,
-    box-shadow 0.12s ease;
+  transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
 .tile:active {
   transform: scale(0.96);
-  border-color: rgba(212, 175, 55, 0.38);
+  border-color: rgba(212, 175, 55, 0.42);
   box-shadow:
-    0 2px 10px rgba(0, 0, 0, 0.4),
-    inset 0 0 20px rgba(212, 175, 55, 0.08);
+    0 2px 10px rgba(0, 0, 0, 0.35),
+    inset 0 0 18px rgba(212, 175, 55, 0.08);
 }
 
-.iconOrb {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
+.iconWrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background:
-    radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.16) 0%, transparent 55%),
-    linear-gradient(145deg, rgba(212, 175, 55, 0.14) 0%, rgba(255, 255, 255, 0.04) 100%);
-  border: 1px solid rgba(212, 175, 55, 0.18);
-  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.1);
-  font-size: 13px;
-  line-height: 1;
+  background: rgba(212, 175, 55, 0.08);
+  border: 1px solid rgba(212, 175, 55, 0.16);
+  color: #e8d5a3;
 }
 
-.sheetLandscape .iconOrb {
-  width: 24px;
-  height: 24px;
-  font-size: 12px;
+.sheetLandscape .iconWrap {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+}
+
+.icon {
+  display: block;
 }
 
 .tileLabel {
-  font-size: 8px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 600;
   line-height: 1.2;
-  letter-spacing: 0.02em;
-  color: rgba(245, 240, 230, 0.92);
+  letter-spacing: 0.01em;
+  color: rgba(243, 239, 230, 0.92);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  word-break: break-all;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
 }
 
 .sheetLandscape .tileLabel {
-  font-size: 7.5px;
+  font-size: 10px;
 }
 
-/* 極小画面: ラベルをさらにコンパクトに */
-@media (max-height: 680px) {
+@media (max-height: 700px) {
   .header {
-    padding-bottom: 6px;
+    padding-bottom: 4px;
   }
 
   .body {
-    gap: 3px;
-    padding-top: 4px;
+    gap: 8px;
   }
 
-  .section {
-    gap: 2px;
+  .panel {
+    gap: 6px;
+    padding: 8px;
   }
 
-  .tileGrid {
-    gap: 4px;
+  .grid {
+    gap: 6px;
   }
 
   .tile {
-    padding: 4px 2px 3px;
-    border-radius: 9px;
+    gap: 4px;
+    padding: 6px 3px;
+    border-radius: 12px;
   }
 
-  .iconOrb {
-    width: 22px;
-    height: 22px;
-    font-size: 11px;
+  .iconWrap {
+    width: 30px;
+    height: 30px;
   }
 
   .tileLabel {
-    font-size: 7px;
+    font-size: 10px;
+  }
+}
+
+@media (max-height: 620px) {
+  .title {
+    font-size: 12px;
+  }
+
+  .subtitle {
+    display: none;
+  }
+
+  .iconWrap {
+    width: 28px;
+    height: 28px;
+  }
+
+  .tileLabel {
+    font-size: 9px;
   }
 }
