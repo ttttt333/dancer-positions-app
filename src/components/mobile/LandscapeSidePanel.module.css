@@ -1,7 +1,7 @@
 /* LandscapeSidePanel.module.css */
 
 .panel {
-  width: 128px;
+  width: var(--landscape-side-panel-w, 128px);
   flex-shrink: 0;
   background: #0b1120;
   border-right: 0.5px solid #1a2540;
@@ -448,10 +448,94 @@
   touch-action: none;
 }
 
+.panelCompact {
+  padding: 4px 3px;
+  padding-left: max(3px, env(safe-area-inset-left, 3px));
+  gap: 6px;
+  align-items: center;
+}
+
+.waveExpandBtnCompact {
+  width: 44px;
+  min-height: 36px;
+  padding: 4px 2px;
+  border-radius: 8px;
+}
+
+.waveExpandBtnCompact .waveExpandLabel {
+  display: none;
+}
+
+.compactTransportCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.compactPlayBtn {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 10px !important;
+}
+
+.compactStopBtn {
+  width: 44px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+}
+
+.compactToolRow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  margin-top: auto;
+}
+
+.compactIconBtn {
+  width: 44px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 23, 42, 0.92);
+  color: #cbd5e1;
+  cursor: pointer;
+  touch-action: manipulation;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.compactIconBtn:active:not(:disabled) {
+  background: rgba(30, 41, 59, 0.98);
+  transform: scale(0.96);
+}
+
+.compactIconBtn:disabled {
+  opacity: 0.28;
+  cursor: default;
+}
+
+.compactIconBtnMenu {
+  border-color: rgba(59, 130, 246, 0.55);
+  color: #93c5fd;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.compactIconBtnHist {
+  border-color: rgba(212, 175, 55, 0.38);
+  color: #fde68a;
+}
+
 .menuSheet {
   position: fixed;
-  /* 左パネル(128px)の右端から画面右端まで */
-  left: 128px;
+  /* 左パネル幅の右端から画面右端まで */
+  left: var(--landscape-side-panel-w, 128px);
   right: 0;
   bottom: 0;
   top: 0;

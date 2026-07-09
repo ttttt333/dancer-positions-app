@@ -152,15 +152,55 @@ export const LandscapeSidePanel: React.FC<Props> = ({
     !landscapeWaveExpanded && onWaveExpand ? (
       <button
         type="button"
-        className={`${styles.waveExpandBtn} ${styles.waveExpandBtnWaveCollapsed}`}
+        className={`${styles.waveExpandBtn} ${styles.waveExpandBtnCompact}`}
         onClick={onWaveExpand}
         aria-label="波形を展開"
         title="波形を展開"
       >
         <span className={styles.waveExpandIcon} aria-hidden>▲</span>
-        <span className={styles.waveExpandLabel}>波形を表示</span>
+        <span className={styles.waveExpandLabel} aria-hidden>波形</span>
       </button>
     ) : null
+
+  const menuOverlay = menuOpen ? (
+    <>
+      <div
+        className={styles.menuBackdrop}
+        onClick={() => setMenuOpen(false)}
+      />
+      <div className={styles.menuSheet} role="dialog" aria-label="メニュー">
+        <div className={styles.menuSheetHeader}>
+          <span className={styles.menuSheetTitle}>Menu</span>
+          <button
+            className={styles.menuSheetClose}
+            onClick={() => setMenuOpen(false)}
+            aria-label="メニューを閉じる"
+          >✕</button>
+        </div>
+        <div className={styles.menuContent}>
+          {MENU_SECTIONS.map((section) => (
+            <div key={section.title} className={styles.menuSection}>
+              <div className={styles.menuSectionTitle}>
+                <span>{section.icon}</span> {section.title}
+              </div>
+              <div className={styles.menuGrid}>
+                {section.items.map((item) => (
+                  <button
+                    key={item.label}
+                    className={styles.menuItem}
+                    onClick={() => handleMenuItemTap(item.action)}
+                  >
+                    <span className={styles.menuItemIcon}>{item.icon}</span>
+                    <span className={styles.menuItemLabel}>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  ) : null
 
   if (!panelOpen) {
     return (
@@ -180,6 +220,71 @@ export const LandscapeSidePanel: React.FC<Props> = ({
             <span className={styles.panelToggleLabel}>Menu</span>
           </button>
         </div>
+      </div>
+    )
+  }
+
+  if (!landscapeWaveExpanded) {
+    return (
+      <div className={`${styles.panel} ${styles.panelCompact}`}>
+        {waveExpandBtn}
+
+        <div className={styles.compactTransportCol}>
+          <button
+            className={`${ctrlStyles.btn} ${ctrlStyles.btnPrimary} ${styles.compactPlayBtn}`}
+            onClick={onPlayPause}
+            disabled={transportDisabled}
+            aria-label={isPlaying ? '一時停止' : '再生'}
+          >
+            {isPlaying ? (
+              <TransportIconPause size={22} className={ctrlStyles.iconPrimary} />
+            ) : (
+              <TransportIconPlay size={22} className={ctrlStyles.iconPrimary} />
+            )}
+          </button>
+          <button
+            className={`${ctrlStyles.btn} ${styles.compactStopBtn}`}
+            onClick={onStop}
+            disabled={transportDisabled}
+            aria-label="停止して先頭へ"
+          >
+            <TransportIconStop size={16} className={ctrlStyles.icon} />
+          </button>
+        </div>
+
+        <div className={styles.compactToolRow} role="group" aria-label="メニューと操作履歴">
+          <button
+            type="button"
+            className={`${styles.compactIconBtn} ${styles.compactIconBtnMenu}`}
+            onClick={() => setMenuOpen(true)}
+            aria-label="メニューを開く"
+            aria-expanded={menuOpen}
+          >
+            ☰
+          </button>
+          <button
+            type="button"
+            className={`${styles.compactIconBtn} ${styles.compactIconBtnHist}`}
+            onClick={onUndo}
+            disabled={undoDisabled}
+            aria-label="元に戻す"
+            title="元に戻す"
+          >
+            <TransportIconUndo size={18} />
+          </button>
+          <button
+            type="button"
+            className={`${styles.compactIconBtn} ${styles.compactIconBtnHist}`}
+            onClick={onRedo}
+            disabled={redoDisabled}
+            aria-label="やり直す"
+            title="やり直す"
+          >
+            <TransportIconRedo size={18} />
+          </button>
+        </div>
+
+        {menuOverlay}
       </div>
     )
   }
@@ -305,45 +410,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
         </div>
       </div>
 
-      {menuOpen && (
-        <>
-          <div
-            className={styles.menuBackdrop}
-            onClick={() => setMenuOpen(false)}
-          />
-          <div className={styles.menuSheet} role="dialog" aria-label="メニュー">
-            <div className={styles.menuSheetHeader}>
-              <span className={styles.menuSheetTitle}>Menu</span>
-              <button
-                className={styles.menuSheetClose}
-                onClick={() => setMenuOpen(false)}
-                aria-label="メニューを閉じる"
-              >✕</button>
-            </div>
-            <div className={styles.menuContent}>
-              {MENU_SECTIONS.map((section) => (
-                <div key={section.title} className={styles.menuSection}>
-                  <div className={styles.menuSectionTitle}>
-                    <span>{section.icon}</span> {section.title}
-                  </div>
-                  <div className={styles.menuGrid}>
-                    {section.items.map((item) => (
-                      <button
-                        key={item.label}
-                        className={styles.menuItem}
-                        onClick={() => handleMenuItemTap(item.action)}
-                      >
-                        <span className={styles.menuItemIcon}>{item.icon}</span>
-                        <span className={styles.menuItemLabel}>{item.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
+      {menuOverlay}
     </div>
   )
 }

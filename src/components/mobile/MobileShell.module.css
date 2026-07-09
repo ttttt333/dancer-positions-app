@@ -157,10 +157,19 @@
   bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
 }
 
+.landscapeRoot[data-shell-landscape] {
+  --landscape-side-panel-w: 128px;
+  --landscape-stage-stack-w: 128px;
+  --landscape-stage-text-gutter: 0px;
+}
+
 .landscapeRoot[data-shell-landscape]:not([data-landscape-wave-collapsed]) {
   --landscape-wave-dock-h: 101px;
 }
 
 .landscapeRoot[data-shell-landscape][data-landscape-wave-collapsed] {
   --landscape-wave-dock-h: 0px;
+  --landscape-side-panel-w: 52px;
+  --landscape-stage-stack-w: 72px;
+  --landscape-stage-text-gutter: min(22vw, 168px);
 }
