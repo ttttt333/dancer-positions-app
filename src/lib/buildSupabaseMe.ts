@@ -3,6 +3,7 @@ import type { Me } from "../types/authMe";
 import {
   billingFieldsForMe,
   fetchChoreocoreBillingRow,
+  fetchChoreocoreIsProMe,
 } from "./supabaseBilling";
 
 export function buildMeFromSupabaseUser(user: User | null | undefined): Me {
@@ -32,6 +33,10 @@ export async function buildMeFromSupabaseUserWithBilling(
     const billing = await fetchChoreocoreBillingRow();
     if (billing) {
       base.user = { ...base.user, ...billingFieldsForMe(billing) };
+    }
+    const isPro = await fetchChoreocoreIsProMe();
+    if (isPro != null) {
+      base.user = { ...base.user, is_pro: isPro };
     }
   } catch {
     /* 課金テーブル未作成時もログインは継続 */

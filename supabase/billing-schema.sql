@@ -1,5 +1,6 @@
 -- CHOREOCORE: Stripe 課金（Supabase Edge Functions 用）
--- Dashboard → SQL エディタで schema.sql のあとに実行してください。
+-- ※ 本番適用は supabase/migrations/009_billing_core_and_pro_grants.up.sql を推奨。
+--   このファイルは参照用・手動実行用のコピーです。
 --
 -- Edge Function のシークレット（Dashboard → Edge Functions → Secrets）:
 --   STRIPE_SECRET_KEY      … Stripe のシークレットキー

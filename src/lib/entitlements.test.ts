@@ -30,6 +30,15 @@ describe("entitlements", () => {
     expect(ent.videoExportLimit).toBeNull();
   });
 
+  it("is_pro from server grant RPC marks Pro", () => {
+    const ent = getEntitlements({
+      ...baseMe,
+      user: { ...baseMe.user, is_pro: true },
+    });
+    expect(ent.isPro).toBe(true);
+    expect(ent.videoExportLimit).toBeNull();
+  });
+
   it("remaining exports decreases with count", () => {
     const me: Me = {
       ...baseMe,

@@ -18,7 +18,10 @@ export function getEntitlements(me: Me | null | undefined): Entitlements {
   const lifetime = me?.user?.entitlement_lifetime === 1;
   const isTrialing = status === "trialing";
   const isPro =
-    lifetime || status === "active" || status === "trialing";
+    me?.user?.is_pro === true ||
+    lifetime ||
+    status === "active" ||
+    isTrialing;
 
   return {
     isPro,

@@ -34,6 +34,21 @@ export function billingFieldsForMe(
   };
 }
 
+export async function fetchChoreocoreIsProMe(): Promise<boolean | null> {
+  const sb = getSupabase();
+  const { data, error } = await sb.rpc("choreocore_is_pro_me");
+  if (error) {
+    if (
+      error.code === "PGRST202" ||
+      error.message?.includes("choreocore_is_pro_me")
+    ) {
+      return null;
+    }
+    throw new Error(error.message);
+  }
+  return Boolean(data);
+}
+
 export async function fetchChoreocoreBillingRow(): Promise<ChoreocoreBillingRow | null> {
   const sb = getSupabase();
   const { data: userData, error: userErr } = await sb.auth.getUser();
@@ -128,8 +143,10 @@ export function isProMe(me: Me | null | undefined): boolean {
 export async function assertCanCreateSupabaseProject(
   existingCount: number
 ): Promise<void> {
+  const isPro = await fetchChoreocoreIsProMe();
+  if (isPro === true) return;
   const billing = await fetchChoreocoreBillingRow();
-  if (isProFromBilling(billing)) return;
+  if (isPro === null && isProFromBilling(billing)) return;
   if (existingCount >= FREE_CLOUD_PROJECT_LIMIT) {
     throw new Error("free_limit");
   }
