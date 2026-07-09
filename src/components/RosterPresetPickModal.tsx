@@ -276,13 +276,7 @@ export function RosterPresetPickModal({
                   {cat.label}
                 </div>
                 {/* プリセットグリッド */}
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "6px",
-                  }}
-                >
+                <div className="add-cue-preset-grid">
                   {cat.items.map((item) => (
                     <PresetButton
                       key={item.id}

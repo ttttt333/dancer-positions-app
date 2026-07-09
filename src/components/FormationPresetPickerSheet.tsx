@@ -329,12 +329,7 @@ export function FormationPresetPickerSheet({
                 ? "formation-preset-picker-grid"
                 : landscapeHorizontal
                   ? "formation-preset-picker-scroll-row"
-                  : undefined
-            }
-            style={
-              portraitFullscreen || landscapeHorizontal
-                ? undefined
-                : { display: "flex", flexWrap: "wrap", gap: "8px" }
+                  : "add-cue-preset-grid"
             }
           >
             {cat.items.map((item) => {
