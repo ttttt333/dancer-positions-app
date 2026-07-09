@@ -115,12 +115,12 @@
   line-height: 1;
 }
 
-/* ── ダイアログ浮遊閉じるボタン ── */
+/* ── ダイアログ浮遊閉じるボタン（全メニュー共通: 左下・左親指位置） ── */
 .floatingClose {
   position: fixed;
   /* 縦画面: 下部バー（波形+1行ツールバー）の上 */
   bottom: calc(env(safe-area-inset-bottom, 0px) + 132px);
-  right: 16px;
+  left: max(16px, env(safe-area-inset-left, 16px));
   z-index: 500;
   background: rgba(17, 24, 39, 0.92);
   color: #f1f5f9;
@@ -151,6 +151,8 @@
 
 .floatingCloseLandscape {
   bottom: calc(env(safe-area-inset-bottom, 0px) + var(--landscape-wave-dock-h, 65px) + 12px);
+  /* 横画面: 左サイドパネルを避けた左下 */
+  left: calc(var(--landscape-side-panel-w, 128px) + 12px);
 }
 
 .landscapeRoot[data-landscape-wave-collapsed] .floatingCloseLandscape {

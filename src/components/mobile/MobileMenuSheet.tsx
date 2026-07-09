@@ -47,14 +47,6 @@ export const MobileMenuSheet: React.FC<Props> = ({
             <span className={styles.title}>Menu</span>
             <span className={styles.subtitle}>Studio</span>
           </div>
-          <button
-            type="button"
-            className={styles.closeBtn}
-            onClick={onClose}
-            aria-label="メニューを閉じる"
-          >
-            ✕
-          </button>
         </header>
 
         <div className={styles.body}>
@@ -81,6 +73,18 @@ export const MobileMenuSheet: React.FC<Props> = ({
             </section>
           ))}
         </div>
+
+        {/* 閉じる: 全メニュー共通で左下（左親指で届く位置） */}
+        <footer className={styles.footer}>
+          <button
+            type="button"
+            className={styles.closeBtn}
+            onClick={onClose}
+            aria-label="メニューを閉じる"
+          >
+            ✕ 閉じる
+          </button>
+        </footer>
       </div>
     </>
   )

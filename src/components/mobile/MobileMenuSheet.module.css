@@ -116,32 +116,44 @@
   line-height: 1;
 }
 
+/* 閉じる: 左下固定（左親指で押しやすい位置に全メニュー統一） */
+.footer {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-start;
+  padding: 6px 14px max(10px, env(safe-area-inset-bottom, 10px));
+  padding-left: max(14px, env(safe-area-inset-left, 14px));
+}
+
 .closeBtn {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
+  min-height: 46px;
+  padding: 0 22px;
+  border-radius: 999px;
   border: 1px solid var(--neon-edge);
-  background: rgba(127, 231, 255, 0.06);
+  background: rgba(127, 231, 255, 0.07);
   color: var(--neon-strong);
-  font-size: 15px;
-  font-weight: 300;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   line-height: 1;
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 6px;
   touch-action: manipulation;
   box-shadow:
-    0 0 10px rgba(127, 231, 255, 0.35),
-    inset 0 0 8px rgba(127, 231, 255, 0.12);
+    0 0 12px rgba(127, 231, 255, 0.35),
+    inset 0 0 10px rgba(127, 231, 255, 0.1);
   text-shadow: 0 0 6px rgba(127, 231, 255, 0.6);
 }
 
 .closeBtn:active {
-  background: rgba(127, 231, 255, 0.16);
+  background: rgba(127, 231, 255, 0.18);
   box-shadow:
-    0 0 16px rgba(127, 231, 255, 0.6),
-    inset 0 0 12px rgba(127, 231, 255, 0.22);
+    0 0 18px rgba(127, 231, 255, 0.6),
+    inset 0 0 14px rgba(127, 231, 255, 0.22);
 }
 
 .body {
@@ -324,9 +336,14 @@
   display: none;
 }
 
+.sheetLandscape .footer {
+  padding-top: 4px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom, 8px));
+}
+
 .sheetLandscape .closeBtn {
-  width: 28px;
-  height: 28px;
+  min-height: 40px;
+  padding: 0 18px;
   font-size: 13px;
 }
 
