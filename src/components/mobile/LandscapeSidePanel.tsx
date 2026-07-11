@@ -155,6 +155,26 @@ export const LandscapeSidePanel: React.FC<Props> = ({
               <TransportIconStop size={16} className={ctrlStyles.icon} />
             </button>
           </div>
+          <div className={styles.compactSkipRow}>
+            <button
+              className={`${ctrlStyles.btn} ${ctrlStyles.skipBtn} ${styles.compactSkipBtn}`}
+              onClick={onSkipBack}
+              disabled={transportDisabled}
+              aria-label="5秒戻す"
+            >
+              <TransportIconSkipBack size={16} className={ctrlStyles.icon} />
+              <span className={ctrlStyles.skipBadge}>5</span>
+            </button>
+            <button
+              className={`${ctrlStyles.btn} ${ctrlStyles.skipBtn} ${styles.compactSkipBtn}`}
+              onClick={onSkipForward}
+              disabled={transportDisabled}
+              aria-label="5秒進める"
+            >
+              <TransportIconSkipForward size={16} className={ctrlStyles.icon} />
+              <span className={ctrlStyles.skipBadge}>5</span>
+            </button>
+          </div>
           <div
             className={styles.compactTime}
             aria-live="polite"

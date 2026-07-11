@@ -182,6 +182,7 @@ export function FormationPresetPickerSheet({
   const portraitFullscreen = open && portraitMobileShell;
   const landscapeHorizontal = open && landscapeMobileShell && !portraitMobileShell;
   const landscapeWaveCollapsed = useLandscapeWaveCollapsed(landscapeHorizontal);
+  const landscapeFullscreen = landscapeHorizontal && landscapeWaveCollapsed;
 
   const spacingOpts = useMemo(
     () => ({
@@ -321,7 +322,7 @@ export function FormationPresetPickerSheet({
   const presetGrid = (
     <div
       className={
-        portraitFullscreen
+        portraitFullscreen || landscapeFullscreen
           ? "formation-preset-picker-sheet-body formation-preset-picker-sheet-body--portrait-full"
           : landscapeHorizontal
             ? "formation-preset-picker-sheet-body formation-preset-picker-sheet-body--landscape"
@@ -348,7 +349,7 @@ export function FormationPresetPickerSheet({
           </div>
           <div
             className={
-              portraitFullscreen
+              portraitFullscreen || landscapeFullscreen
                 ? "formation-preset-picker-grid"
                 : landscapeHorizontal
                   ? "formation-preset-picker-scroll-row"
@@ -376,7 +377,7 @@ export function FormationPresetPickerSheet({
                     cursor: noTarget ? "not-allowed" : "pointer",
                   }}
                 >
-                  <SpotThumb dancers={item.dancers} large={portraitFullscreen} />
+                  <SpotThumb dancers={item.dancers} large={portraitFullscreen || landscapeFullscreen} />
                   <span className="add-cue-preset-label formation-preset-picker-preset-label">
                     {item.label}
                   </span>
@@ -423,11 +424,15 @@ export function FormationPresetPickerSheet({
           aria-modal="true"
           aria-labelledby="formation-preset-picker-title"
           data-editor-sheet="formation-preset-picker"
-          className={`formation-preset-picker-landscape-dock${
-            landscapeWaveCollapsed
-              ? " formation-preset-picker-landscape-dock--wave-collapsed"
-              : ""
-          }`}
+          className={
+            landscapeFullscreen
+              ? "formation-preset-picker-landscape-fullscreen"
+              : `formation-preset-picker-landscape-dock${
+                  landscapeWaveCollapsed
+                    ? " formation-preset-picker-landscape-dock--wave-collapsed"
+                    : ""
+                }`
+          }
         >
           {sheetHeader}
           {presetGrid}

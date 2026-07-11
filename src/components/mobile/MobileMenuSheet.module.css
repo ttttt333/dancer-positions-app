@@ -59,13 +59,15 @@
 }
 
 .sheetLandscape {
-  left: var(--landscape-side-panel-w, 128px);
-  right: 0;
   top: 0;
+  right: 0;
   bottom: 0;
-  inset: auto;
+  left: var(--landscape-side-panel-w, 128px);
+  width: auto;
+  height: auto;
   border-left: 1px solid var(--neon-soft);
   animation: menuSlideRight 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: auto;
 }
 
 @keyframes menuSheetIn {

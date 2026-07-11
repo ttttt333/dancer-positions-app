@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { DancerSpot } from "../types/choreography";
@@ -35,6 +35,7 @@ export function Stage3DView({
 }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<Api | null>(null);
+  const [sceneReady, setSceneReady] = useState(false);
 
   useEffect(() => {
     const el = mountRef.current;
@@ -89,6 +90,7 @@ export function Stage3DView({
       planeGeom,
       planeMat,
     };
+    setSceneReady(true);
     const ro = new ResizeObserver(() => {
       const rw = el.clientWidth;
       const rh = el.clientHeight;
@@ -99,6 +101,7 @@ export function Stage3DView({
     });
     ro.observe(el);
     return () => {
+      setSceneReady(false);
       ro.disconnect();
       cancelAnimationFrame(raf);
       controls.dispose();
@@ -117,7 +120,7 @@ export function Stage3DView({
 
   useEffect(() => {
     const api = apiRef.current;
-    if (!api) return;
+    if (!api || !sceneReady) return;
     const { scene, meshes } = api;
     meshes.forEach((m) => {
       (m.material as THREE.Material).dispose();
@@ -144,7 +147,7 @@ export function Stage3DView({
       scene.add(m);
       meshes.push(m);
     });
-  }, [dancers, markerDiameterPx]);
+  }, [dancers, markerDiameterPx, sceneReady]);
 
   return (
     <div

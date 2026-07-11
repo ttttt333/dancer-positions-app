@@ -42,7 +42,13 @@ export const MobileMenuSheet: React.FC<Props> = ({
   return createPortal(
     <>
       <div className={styles.backdrop} onClick={onClose} aria-hidden />
-      <div className={sheetClass} role="dialog" aria-label="メニュー">
+      <div
+        className={sheetClass}
+        role="dialog"
+        aria-modal="true"
+        aria-label="メニュー"
+        data-mobile-menu-sheet=""
+      >
         <header className={styles.header}>
           <div className={styles.headerBrand}>
             <span className={styles.title}>Menu</span>

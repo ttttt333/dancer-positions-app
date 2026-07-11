@@ -87,6 +87,10 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
         setHasOpenDialog(false)
         return
       }
+      if (modal?.getAttribute('data-mobile-menu-sheet') != null) {
+        setHasOpenDialog(false)
+        return
+      }
       setHasOpenDialog(!!modal)
     }
     const observer = new MutationObserver(checkDialog)
@@ -126,7 +130,9 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
         }
       }
     }
-    const dialog = document.querySelector('[role="dialog"]')
+    const dialog = document.querySelector(
+      '[role="dialog"][aria-modal="true"]:not([data-mobile-menu-sheet])'
+    )
     if (dialog) {
       const closeBtn = dialog.querySelector(
         'button[aria-label*="閉じ"], button[aria-label*="キャンセル"], button[aria-label*="close"]'
@@ -142,12 +148,24 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
   }, [])
 
   const handleSkipBack = useCallback(() => {
-    landscapeWaveRef.current?.skipBack()
-  }, [])
+    if (landscapeWaveRef.current) {
+      landscapeWaveRef.current.skipBack()
+      return
+    }
+    if (props.duration > 0) {
+      props.onSeek(Math.max(0, props.currentTime - 5))
+    }
+  }, [props.currentTime, props.duration, props.onSeek])
 
   const handleSkipForward = useCallback(() => {
-    landscapeWaveRef.current?.skipForward()
-  }, [])
+    if (landscapeWaveRef.current) {
+      landscapeWaveRef.current.skipForward()
+      return
+    }
+    if (props.duration > 0) {
+      props.onSeek(Math.min(props.duration, props.currentTime + 5))
+    }
+  }, [props.currentTime, props.duration, props.onSeek])
 
   const handleZoomIn = useCallback(() => {
     landscapeWaveRef.current?.zoomIn()

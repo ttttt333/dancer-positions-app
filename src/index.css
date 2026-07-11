@@ -2207,8 +2207,8 @@ html[data-landscape-wave-collapsed] {
   top: env(safe-area-inset-top, 0px) !important;
 }
 
-/* ── 横向き: 左サイドパネルを避けてフル幅に ── */
-[data-shell-landscape] [role="dialog"][aria-modal="true"] {
+/* ── 横向き: 左サイドパネルを避けてフル幅に（モバイルメニューは除外） ── */
+[data-shell-landscape] [role="dialog"][aria-modal="true"]:not([data-mobile-menu-sheet]) {
   left: var(--landscape-side-panel-w, 128px) !important;
   right: 0 !important;
   width: auto !important;
@@ -2782,6 +2782,69 @@ html[data-landscape-wave-collapsed] {
 .formation-preset-picker-landscape-dock--wave-collapsed {
   bottom: env(safe-area-inset-bottom, 0px);
   max-height: min(50vh, 280px);
+}
+
+/*
+  横画面・波形たたみ: Change 雛形を画面ほぼ全体に（左パネル右側）
+*/
+.formation-preset-picker-landscape-fullscreen {
+  position: fixed;
+  top: env(safe-area-inset-top, 0px);
+  bottom: env(safe-area-inset-bottom, 0px);
+  left: var(--landscape-side-panel-w, 140px);
+  right: 0;
+  z-index: 400;
+  display: flex;
+  flex-direction: column;
+  background: #07090f;
+  color: #e2e8f0;
+  box-sizing: border-box;
+  overflow: hidden;
+  border-left: 1px solid rgba(212, 175, 55, 0.22);
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.55);
+}
+
+.formation-preset-picker-landscape-fullscreen .formation-preset-picker-sheet-header {
+  flex-shrink: 0;
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.22);
+  background: #07090f;
+}
+
+.formation-preset-picker-landscape-fullscreen .formation-preset-picker-sheet-header h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.formation-preset-picker-landscape-fullscreen .formation-preset-picker-sheet-header p {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.formation-preset-picker-landscape-fullscreen .formation-preset-picker-sheet-body--portrait-full {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+
+.formation-preset-picker-landscape-fullscreen .formation-preset-picker-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.formation-preset-picker-landscape-fullscreen .formation-preset-picker-grid .formation-preset-picker-preset-btn {
+  min-height: 108px;
+}
+
+.formation-preset-picker-landscape-fullscreen .formation-preset-picker-grid .formation-preset-picker-thumb--large {
+  max-width: 72px;
+  max-height: 64px;
+}
+
+.formation-preset-picker-landscape-fullscreen .formation-preset-picker-actions {
+  flex-shrink: 0;
 }
 
 .formation-preset-picker-landscape-dock .formation-preset-picker-sheet-header {

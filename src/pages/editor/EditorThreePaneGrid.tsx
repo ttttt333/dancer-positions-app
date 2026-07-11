@@ -16,6 +16,7 @@ import { useVideoExportUiStore } from "../../store/videoExportUiStore";
 import {
   PUBLIC_VIEWER_MARKER_DISPLAY_SCALE,
 } from "../../components/ChoreoViewerBottomBar";
+import { DEFAULT_DANCER_MARKER_DIAMETER_PX } from "../../lib/projectDefaults";
 
 const Stage3DView = lazy(() =>
   import("../../components/Stage3DView").then((m) => ({ default: m.Stage3DView }))
