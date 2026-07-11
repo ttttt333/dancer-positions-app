@@ -131,8 +131,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
       <div className={`${styles.panel} ${styles.panelCompact}`}>
         {waveExpandBtn}
 
-        <section className={styles.compactBlock} aria-label="再生">
-          <div className={styles.compactBlockHead}>再生</div>
+        <div className={styles.compactStack} aria-label="再生と舞台操作">
           <div className={styles.compactTransportRow}>
             <button
               className={`${ctrlStyles.btn} ${ctrlStyles.btnPrimary} ${styles.compactPlayBtn}`}
@@ -141,9 +140,9 @@ export const LandscapeSidePanel: React.FC<Props> = ({
               aria-label={isPlaying ? '一時停止' : '再生'}
             >
               {isPlaying ? (
-                <TransportIconPause size={20} className={ctrlStyles.iconPrimary} />
+                <TransportIconPause size={18} className={ctrlStyles.iconPrimary} />
               ) : (
-                <TransportIconPlay size={20} className={ctrlStyles.iconPrimary} />
+                <TransportIconPlay size={18} className={ctrlStyles.iconPrimary} />
               )}
             </button>
             <button
@@ -152,7 +151,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
               disabled={transportDisabled}
               aria-label="停止して先頭へ"
             >
-              <TransportIconStop size={16} className={ctrlStyles.icon} />
+              <TransportIconStop size={15} className={ctrlStyles.icon} />
             </button>
           </div>
           <div className={styles.compactSkipRow}>
@@ -162,7 +161,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
               disabled={transportDisabled}
               aria-label="5秒戻す"
             >
-              <TransportIconSkipBack size={16} className={ctrlStyles.icon} />
+              <TransportIconSkipBack size={15} className={ctrlStyles.icon} />
               <span className={ctrlStyles.skipBadge}>5</span>
             </button>
             <button
@@ -171,7 +170,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
               disabled={transportDisabled}
               aria-label="5秒進める"
             >
-              <TransportIconSkipForward size={16} className={ctrlStyles.icon} />
+              <TransportIconSkipForward size={15} className={ctrlStyles.icon} />
               <span className={ctrlStyles.skipBadge}>5</span>
             </button>
           </div>
@@ -184,10 +183,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
             {' / '}
             {formatMmSsFloor(duration)}
           </div>
-        </section>
 
-        <section className={styles.compactBlock} aria-label="舞台コントロール">
-          <div className={styles.compactBlockHead}>舞台</div>
           {showFormationChange ? (
             <button
               type="button"
@@ -240,10 +236,8 @@ export const LandscapeSidePanel: React.FC<Props> = ({
               </button>
             </div>
           ) : null}
-        </section>
 
-        <section className={`${styles.compactBlock} ${styles.compactBlockTools}`} aria-label="メニューと操作履歴">
-          <div className={styles.compactToolRow} role="group">
+          <div className={styles.compactToolRow} role="group" aria-label="メニューと操作履歴">
             <button
               type="button"
               className={`${styles.compactIconBtn} ${styles.compactIconBtnMenu}`}
@@ -261,7 +255,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
               aria-label="元に戻す"
               title="元に戻す"
             >
-              <TransportIconUndo size={18} />
+              <TransportIconUndo size={16} />
             </button>
             <button
               type="button"
@@ -271,10 +265,10 @@ export const LandscapeSidePanel: React.FC<Props> = ({
               aria-label="やり直す"
               title="やり直す"
             >
-              <TransportIconRedo size={18} />
+              <TransportIconRedo size={16} />
             </button>
           </div>
-        </section>
+        </div>
 
         {menuOverlay}
       </div>
