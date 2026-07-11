@@ -1882,12 +1882,10 @@ html.choreo-stage-video-export #stage-export-root {
 /* 横画面・波形たたみ: レイアウト変数（グローバル — CSS Modules に依存しない） */
 [data-shell-landscape][data-landscape-wave-collapsed],
 html[data-landscape-wave-collapsed] {
-  --landscape-side-panel-w: 118px;
+  --landscape-side-panel-w: 140px;
   --landscape-stage-stack-w: 0px;
-  --landscape-stage-text-gutter: min(20vw, 148px);
-  --landscape-stage-center-bias: calc(
-    (var(--landscape-stage-text-gutter) - var(--landscape-side-panel-w)) / 2
-  );
+  --landscape-stage-text-gutter: min(18vw, 136px);
+  --landscape-stage-center-bias: 0px;
   --landscape-wave-dock-h: 0px;
 }
 
@@ -2110,11 +2108,12 @@ html[data-landscape-wave-collapsed] {
   align-items: center !important;
   justify-content: center !important;
   padding-top: 4px !important;
-  padding-left: var(--landscape-stage-center-bias, 0px) !important;
+  padding-left: 0 !important;
 }
 
 [data-shell-landscape][data-landscape-wave-collapsed] .stage-board-main-slot {
-  padding-left: 0 !important;
+  padding-left: 8px !important;
+  padding-right: var(--landscape-stage-text-gutter, 0px) !important;
 }
 
 /* 波形表示時: タイムライン直上まで下寄せで最大化 */
@@ -2208,9 +2207,9 @@ html[data-landscape-wave-collapsed] {
   top: env(safe-area-inset-top, 0px) !important;
 }
 
-/* ── 横向き: 左サイドパネル(128px)を避けてフル幅に ── */
+/* ── 横向き: 左サイドパネルを避けてフル幅に ── */
 [data-shell-landscape] [role="dialog"][aria-modal="true"] {
-  left: 128px !important;
+  left: var(--landscape-side-panel-w, 128px) !important;
   right: 0 !important;
   width: auto !important;
   max-width: none !important;
@@ -2234,7 +2233,7 @@ html[data-landscape-wave-collapsed] {
 [data-shell-landscape] [role="dialog"][aria-modal="false"] {
   top: env(safe-area-inset-top, 0px) !important;
   bottom: env(safe-area-inset-bottom, 0px) !important;
-  left: 128px !important;
+  left: var(--landscape-side-panel-w, 128px) !important;
   right: env(safe-area-inset-right, 0px) !important;
   max-width: none !important;
   max-height: none !important;
@@ -2764,7 +2763,7 @@ html[data-landscape-wave-collapsed] {
 */
 .formation-preset-picker-landscape-dock {
   position: fixed;
-  left: 128px;
+  left: var(--landscape-side-panel-w, 128px);
   right: 0;
   bottom: calc(env(safe-area-inset-bottom, 0px) + 88px);
   z-index: 400;

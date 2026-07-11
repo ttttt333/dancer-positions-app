@@ -4,6 +4,7 @@
  */
 
 import React, { useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import styles from './MobileMenuSheet.module.css'
 import { MobileMenuIcon } from './MobileMenuIcons'
 import { useMobileMenuSections, type MobileMenuItem } from './useMobileMenuSections'
@@ -38,7 +39,7 @@ export const MobileMenuSheet: React.FC<Props> = ({
       ? `${styles.sheet} ${styles.sheetLandscape}`
       : styles.sheet
 
-  return (
+  return createPortal(
     <>
       <div className={styles.backdrop} onClick={onClose} aria-hidden />
       <div className={sheetClass} role="dialog" aria-label="メニュー">
@@ -86,6 +87,7 @@ export const MobileMenuSheet: React.FC<Props> = ({
           </button>
         </footer>
       </div>
-    </>
+    </>,
+    document.body
   )
 }

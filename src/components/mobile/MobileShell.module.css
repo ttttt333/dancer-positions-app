@@ -24,6 +24,7 @@
   display: flex;
   flex-direction: row;
   overflow: hidden;
+  position: relative;
 }
 
 /* ── ステージエリア (縦) ── */
@@ -50,6 +51,7 @@
   min-width: 0;
   overflow: hidden;
   position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
 }

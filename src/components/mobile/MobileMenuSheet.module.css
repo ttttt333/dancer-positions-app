@@ -3,7 +3,7 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  z-index: 400;
+  z-index: 520;
   touch-action: none;
   background: rgba(3, 6, 18, 0.7);
   backdrop-filter: blur(16px) saturate(150%);
@@ -26,7 +26,7 @@
 
   position: fixed;
   inset: 0;
-  z-index: 401;
+  z-index: 521;
   display: flex;
   flex-direction: column;
   overflow: hidden;
