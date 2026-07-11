@@ -1882,9 +1882,9 @@ html.choreo-stage-video-export #stage-export-root {
 /* 横画面・波形たたみ: レイアウト変数（グローバル — CSS Modules に依存しない） */
 [data-shell-landscape][data-landscape-wave-collapsed],
 html[data-landscape-wave-collapsed] {
-  --landscape-side-panel-w: 88px;
+  --landscape-side-panel-w: 118px;
   --landscape-stage-stack-w: 0px;
-  --landscape-stage-text-gutter: min(22vw, 168px);
+  --landscape-stage-text-gutter: min(20vw, 148px);
   --landscape-stage-center-bias: calc(
     (var(--landscape-stage-text-gutter) - var(--landscape-side-panel-w)) / 2
   );

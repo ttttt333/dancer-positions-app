@@ -439,64 +439,97 @@
 }
 
 .panelCompact {
-  padding: 4px 4px;
-  padding-left: max(4px, env(safe-area-inset-left, 4px));
-  gap: 5px;
+  padding: 6px 8px;
+  padding-left: max(8px, env(safe-area-inset-left, 8px));
+  padding-bottom: max(8px, env(safe-area-inset-bottom, 8px));
+  gap: 8px;
   align-items: stretch;
   overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .waveExpandBtnCompact {
   width: 100%;
-  min-height: 32px;
-  padding: 4px 2px;
-  border-radius: 8px;
-  align-self: center;
-  max-width: 80px;
+  min-height: 34px;
+  padding: 5px 4px;
+  border-radius: 10px;
+  align-self: stretch;
 }
 
 .waveExpandBtnCompact .waveExpandLabel {
   display: none;
 }
 
-.compactTransportCol {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
+/* ── 波形たたみ時: ブロック単位の整理レイアウト ── */
+.compactBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 7px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  box-sizing: border-box;
+}
+
+.compactBlockTools {
+  margin-top: auto;
+  padding: 6px 7px;
+}
+
+.compactBlockHead {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.9);
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.compactTransportRow {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 6px;
   width: 100%;
 }
 
 .compactPlayBtn {
-  width: 100% !important;
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto !important;
   height: 40px !important;
-  border-radius: 9px !important;
+  max-width: none;
+  border-radius: 10px !important;
 }
 
 .compactStopBtn {
-  width: 100% !important;
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto !important;
   height: 40px !important;
-  border-radius: 9px !important;
-}
-
-.compactStageControls {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  width: 100%;
+  border-radius: 10px !important;
 }
 
 .compactChangeBtn {
   width: 100%;
-  min-height: 30px;
-  padding: 0 6px;
-  border-radius: 7px;
+  min-height: 34px;
+  padding: 0 8px;
+  border-radius: 9px;
   border: 1px solid #d4af37;
   background: rgba(15, 23, 42, 0.92);
   color: #fef3c7;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
+  letter-spacing: 0.04em;
   cursor: pointer;
   touch-action: manipulation;
+  box-sizing: border-box;
+  white-space: nowrap;
 }
 
 .compactChangeBtn:active {
@@ -506,18 +539,18 @@
 .compactViewRow {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 4px;
+  gap: 6px;
   width: 100%;
 }
 
 .compactViewBtn {
-  min-height: 28px;
+  min-height: 32px;
   padding: 0;
-  border-radius: 7px;
+  border-radius: 8px;
   border: 1px solid #475569;
   background: rgba(15, 23, 42, 0.92);
   color: #e2e8f0;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   cursor: pointer;
   touch-action: manipulation;
@@ -526,25 +559,26 @@
 .compactViewBtnActive {
   border-color: #6366f1;
   color: #c7d2fe;
+  background: rgba(99, 102, 241, 0.12);
 }
 
 .compactPager {
   display: grid;
-  grid-template-columns: 28px 1fr 28px;
+  grid-template-columns: 32px 1fr 32px;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   width: 100%;
 }
 
 .compactPagerBtn {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   padding: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   border: 1px solid #475569;
   background: rgba(15, 23, 42, 0.92);
   color: #cbd5e1;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
@@ -559,7 +593,7 @@
 .compactPagerLabel {
   min-width: 0;
   text-align: center;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
   color: #93c5fd;
   font-variant-numeric: tabular-nums;
@@ -570,16 +604,17 @@
 
 .compactTime {
   width: 100%;
-  padding: 4px 2px;
-  border-radius: 6px;
+  padding: 6px 4px;
+  border-radius: 8px;
   background: rgba(11, 17, 32, 0.88);
   border: 0.5px solid rgba(255, 255, 255, 0.1);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1.2;
   text-align: center;
   color: #94a3b8;
   white-space: nowrap;
+  box-sizing: border-box;
 }
 
 .compactTimeCurrent {
@@ -590,16 +625,15 @@
 .compactToolRow {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 4px;
+  gap: 6px;
   width: 100%;
-  margin-top: auto;
 }
 
 .compactIconBtn {
   width: 100%;
-  min-height: 34px;
+  min-height: 36px;
   padding: 0;
-  border-radius: 8px;
+  border-radius: 9px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(15, 23, 42, 0.92);
   color: #cbd5e1;
@@ -608,6 +642,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
 }
 
 .compactIconBtn:active:not(:disabled) {
