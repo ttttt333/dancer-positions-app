@@ -139,6 +139,7 @@ export function StageBoardBody({
   studentViewerFocus = null,
   markerDisplayScale = 1,
   compactViewportChrome = false,
+  compactLandscapeViewport = false,
   hideStageFloorTextMarkup = false,
   audienceEdgeOverride,
   trashDropEdge = "left",
@@ -4309,6 +4310,7 @@ export function StageBoardBody({
         stageFrame={
           <StageBoardStageFrame
             compactViewportChrome={compactViewportChrome}
+            compactLandscapeViewport={compactLandscapeViewport}
             hasStageDims={hasStageDims}
             outerWmm={outerWmm}
             outerDmm={outerDmm}

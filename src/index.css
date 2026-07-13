@@ -1087,6 +1087,17 @@ html.choreo-public-view-html::backdrop {
   .choreo-public-view-root--landscape .stage-board-fit-viewport-inner {
     align-items: center;
     justify-content: center;
+    overflow: visible;
+  }
+  .choreo-public-view-root .stage-board-main-slot {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+  .choreo-public-view-root .stage-board-fit-viewport,
+  .choreo-public-view-root .stage-board-fit-viewport-inner,
+  .choreo-public-view-root .stage-board-stage-wrapper,
+  .choreo-public-view-root #stage-export-root {
+    overflow: visible !important;
   }
   .choreo-viewer-bars__cue-label {
     flex: 0 1 auto;

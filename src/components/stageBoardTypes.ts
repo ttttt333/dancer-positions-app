@@ -124,8 +124,10 @@ export type StageBoardBodyProps = {
     | { kind: "one"; crewMemberId: string; label: string };
   /** 閲覧共有など: ダンサー印の表示倍率（1 = 既定） */
   markerDisplayScale?: number;
-  /** 閲覧横画面: 客席上配置時のビューポート余白を詰めてステージを大きく */
+  /** 閲覧: 客席帯が aspect 外に出る分のビューポート余白を確保 */
   compactViewportChrome?: boolean;
+  /** 閲覧横画面: `compactViewportChrome` 時の帯余白をさらに詰める */
+  compactLandscapeViewport?: boolean;
   /** 生徒閲覧: 床テキストをステージ上に描画せず専用帯へ */
   hideStageFloorTextMarkup?: boolean;
   /** 閲覧: 客席の向きだけ一時的に上書き（作品データは変更しない） */

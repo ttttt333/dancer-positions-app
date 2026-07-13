@@ -876,6 +876,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                       choreoPublicView ? PUBLIC_VIEWER_MARKER_DISPLAY_SCALE : 1
                     }
                     compactViewportChrome={choreoPublicView}
+                    compactLandscapeViewport={choreoPublicView && publicViewTightHeight}
                     hideStageFloorTextMarkup={choreoPublicView}
                     audienceEdgeOverride={audienceEdgeOverride}
                     trashDropEdge={mobileStackEditor ? "bottom" : "left"}

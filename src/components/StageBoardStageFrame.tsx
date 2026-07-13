@@ -14,8 +14,10 @@ export type StageBoardStageFrameProps = Omit<
   "children"
 > & {
   exportColumn: StageExportRootColumnProps;
-  /** 閲覧横画面など: 客席上のときの上下余白を小さくする */
+  /** 閲覧: 客席帯が aspect 外に出る分のビューポート余白を確保 */
   compactViewportChrome?: boolean;
+  /** 閲覧横画面: `compactViewportChrome` 時の帯余白をさらに詰める */
+  compactLandscapeViewport?: boolean;
 };
 
 /**
@@ -24,6 +26,7 @@ export type StageBoardStageFrameProps = Omit<
 export function StageBoardStageFrame({
   exportColumn,
   compactViewportChrome = false,
+  compactLandscapeViewport = false,
   ...rotatedFrame
 }: StageBoardStageFrameProps) {
   /**
@@ -44,16 +47,41 @@ export function StageBoardStageFrame({
     flex: "1 1 0%",
   };
 
-  // 閲覧画面はステージ全体を最大化する。客席側へ反転した場合も、
-  // ラベルが切れない最小限の余白だけ確保する。
-  const audienceTopPad = compactViewportChrome ? 2 : 28;
-  const audienceBottomPad = compactViewportChrome ? 2 : 20;
+  /**
+   * 客席帯は aspect 比の外（床下）に描くため、上下どちらに出るかに応じて
+   * `cqb` を少しだけ削ってラベルが切れないようにする。
+   */
+  const audienceBandPad = compactViewportChrome
+    ? compactLandscapeViewport
+      ? 22
+      : 42
+    : 28;
+  const backstageBandPad = compactViewportChrome
+    ? compactLandscapeViewport
+      ? 24
+      : 28
+    : 20;
+
+  let paddingTop: number | undefined;
+  let paddingBottom: number | undefined;
+  if (compactViewportChrome) {
+    if (isAudienceTop) {
+      paddingTop = audienceBandPad;
+      paddingBottom = backstageBandPad;
+    } else {
+      paddingTop = backstageBandPad;
+      paddingBottom = audienceBandPad;
+    }
+  } else if (isAudienceTop) {
+    paddingTop = audienceBandPad;
+    paddingBottom = backstageBandPad;
+  }
 
   return (
     <StageBoardFitViewport
       alignTop={isAudienceTop}
-      paddingTop={isAudienceTop ? audienceTopPad : undefined}
-      paddingBottom={isAudienceTop ? audienceBottomPad : undefined}
+      paddingTop={paddingTop}
+      paddingBottom={paddingBottom}
     >
       <div className="stage-board-stage-wrapper" style={wrapperStyle}>
         <StageRotatedStageFrame {...rotatedFrame}>
