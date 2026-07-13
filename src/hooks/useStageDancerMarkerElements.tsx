@@ -16,6 +16,7 @@ import {
 import {
   dancerNameBelowLabelOffsetPx,
 } from "../lib/stageNameBelowFontSizing";
+import { dancerMatchesStudentViewerPick } from "../lib/viewRoster";
 import type { DancerSpot } from "../types/choreography";
 import { StageDancerMarkerItem } from "../components/StageDancerMarkerItem";
 import type { StageBoardContextMenuState } from "../components/StageBoardContextMenuLayer";
@@ -148,10 +149,10 @@ export function useStageDancerMarkerElements(
           if (!studentViewerFocus || studentViewerFocus.kind === "all") {
             return true;
           }
-          const { crewMemberId, label } = studentViewerFocus;
-          if (d.crewMemberId && d.crewMemberId === crewMemberId) return true;
-          if ((d.label ?? "").trim() === (label ?? "").trim()) return true;
-          return false;
+          return dancerMatchesStudentViewerPick(d, di, studentViewerFocus, {
+            dancerLabelBelow,
+            stageWidthMm: effStageWidthMm ?? null,
+          });
         })();
         const onePersonMode =
           studentViewerFocus != null && studentViewerFocus.kind === "one";
