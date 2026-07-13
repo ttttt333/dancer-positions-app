@@ -612,6 +612,13 @@ html.choreo-public-view-html,
 html.choreo-public-view-html body {
   background: #0f172a;
   color: #e2e8f0;
+  /* 端で引っ張った時に白い地が見えないように */
+  overscroll-behavior: none;
+}
+
+html.choreo-public-view-html:fullscreen,
+html.choreo-public-view-html::backdrop {
+  background: #0f172a;
 }
 
 .choreo-viewer-stage-memo--portrait {
@@ -699,9 +706,6 @@ html.choreo-public-view-html body {
       var(--choreo-viewer-transport-bar-h, 0px) + var(--choreo-viewer-bar-h, 0px)
     ) !important;
   }
-  .choreo-public-view-root {
-    --choreo-viewer-perspective-dock-w: 58px;
-  }
   .choreo-public-view-root .editor-stage-section--public-view,
   .choreo-public-view-root .editor-stage-section--public-view-max {
     flex: 1 1 auto !important;
@@ -718,10 +722,7 @@ html.choreo-public-view-html body {
     padding-top: 0 !important;
     padding-bottom: 0 !important;
     padding-left: 0 !important;
-    padding-right: max(
-      2px,
-      calc(var(--choreo-viewer-perspective-dock-w, 58px) - 4px)
-    ) !important;
+    padding-right: 2px !important;
     border: none !important;
     border-radius: 0 !important;
     box-shadow: none !important;
@@ -1103,8 +1104,8 @@ html.choreo-public-view-html body {
     top: 0;
     bottom: 0;
     z-index: 88;
-    width: var(--choreo-viewer-left-rail-w, 88px);
-    max-width: min(var(--choreo-viewer-left-rail-w, 88px), 22vw);
+    width: var(--choreo-viewer-left-rail-w, 172px);
+    max-width: min(var(--choreo-viewer-left-rail-w, 172px), 34vw);
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -1131,13 +1132,29 @@ html.choreo-public-view-html body {
     flex-direction: column;
   }
   .choreo-viewer-bars__left-stack {
-    display: flex;
-    flex-direction: column;
+    /* 横画面: 2列（左=表示切替、右=再生操作）でボタンの重なりを防ぐ */
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     align-items: stretch;
     gap: 6px;
     width: 100%;
     min-width: 0;
     height: 100%;
+  }
+  .choreo-viewer-bars__left-col {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .choreo-viewer-bars__left-col--meta {
+    justify-content: flex-start;
+  }
+  .choreo-viewer-bars__left-col--transport {
+    justify-content: center;
   }
   .choreo-viewer-bars--landscape .choreo-viewer-bars__video-btn {
     width: 100%;
@@ -1249,11 +1266,6 @@ html.choreo-public-view-html body {
     background: rgba(30, 41, 59, 0.35);
     color: #94a3b8;
   }
-  .choreo-viewer-chrome-dock--landscape {
-    top: auto;
-    bottom: max(12px, env(safe-area-inset-bottom, 0px) + 8px);
-    transform: none;
-  }
   .choreo-viewer-perspective {
     display: flex;
     align-items: stretch;
@@ -1261,14 +1273,10 @@ html.choreo-public-view-html body {
     min-width: 0;
     flex-shrink: 0;
   }
-  .choreo-viewer-perspective--stack,
-  .choreo-viewer-perspective--dock {
+  .choreo-viewer-perspective--stack {
     flex-direction: column;
     gap: 4px;
     width: 100%;
-  }
-  .choreo-viewer-perspective--dock {
-    gap: 6px;
   }
   .choreo-viewer-bars__bottom-meta .choreo-viewer-perspective {
     flex: 0 0 auto;
@@ -1292,11 +1300,6 @@ html.choreo-public-view-html body {
     line-height: 1.15;
     touch-action: manipulation;
     white-space: nowrap;
-  }
-  .choreo-viewer-perspective--dock .choreo-viewer-perspective__seg {
-    min-height: 42px;
-    font-size: 11px;
-    padding: 8px 6px;
   }
   .choreo-viewer-perspective__seg--active {
     border-color: rgba(99, 102, 241, 0.9);

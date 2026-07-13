@@ -18,6 +18,7 @@ import { useViewerTransportActions } from "../hooks/useViewerTransportActions";
 import { ViewerMemberModeSwitch } from "./ViewerMemberModeSwitch";
 import { ViewerAudiencePerspectiveSwitch } from "./ViewerAudiencePerspectiveSwitch";
 import { ChoreoViewerVideoSaveButton } from "./ChoreoViewerVideoSaveButton";
+import { ViewerFullscreenButton } from "./ViewerFullscreenButton";
 import { computeViewerCueNavState } from "../lib/viewerCueNavigation";
 import { VIEWER_LEFT_RAIL_PX } from "../pages/editor/editorConstants";
 
@@ -294,6 +295,8 @@ export function ChoreoViewerControlBars({
     />
   );
 
+  const fullscreenBtn = <ViewerFullscreenButton />;
+
   if (landscapeMode) {
     return (
       <aside
@@ -303,14 +306,19 @@ export function ChoreoViewerControlBars({
         aria-label={t("editor.layout.viewerControlBarsAria")}
       >
         <div className="choreo-viewer-bars__left-stack">
-          {modeSwitch}
-          {perspectiveSwitch}
-          {videoSave}
-          {transportControls ? (
-            <div className="choreo-viewer-bars__left-transport">
-              {transportControls}
-            </div>
-          ) : null}
+          <div className="choreo-viewer-bars__left-col choreo-viewer-bars__left-col--meta">
+            {modeSwitch}
+            {perspectiveSwitch}
+            {videoSave}
+            {fullscreenBtn}
+          </div>
+          <div className="choreo-viewer-bars__left-col choreo-viewer-bars__left-col--transport">
+            {transportControls ? (
+              <div className="choreo-viewer-bars__left-transport">
+                {transportControls}
+              </div>
+            ) : null}
+          </div>
         </div>
       </aside>
     );
@@ -327,6 +335,7 @@ export function ChoreoViewerControlBars({
           <div className="choreo-viewer-bars__bottom-meta">
             {perspectiveSwitch}
             {videoSave}
+            {fullscreenBtn}
           </div>
         </div>
       </footer>
@@ -345,6 +354,7 @@ export function ChoreoViewerControlBars({
             {modeSwitch}
             {perspectiveSwitch}
             {videoSave}
+            {fullscreenBtn}
           </div>
         ) : null}
         {transportControls}

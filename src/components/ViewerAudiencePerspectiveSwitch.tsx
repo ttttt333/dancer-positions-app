@@ -3,7 +3,7 @@ import type { ViewerAudiencePerspective } from "../lib/viewerAudiencePerspective
 
 type Props = {
   perspective: ViewerAudiencePerspective;
-  layout?: "inline" | "stack" | "dock";
+  layout?: "inline" | "stack";
   onChange: (next: ViewerAudiencePerspective) => void;
 };
 
@@ -21,7 +21,6 @@ export function ViewerAudiencePerspectiveSwitch({
       className={[
         "choreo-viewer-perspective",
         layout === "stack" ? "choreo-viewer-perspective--stack" : "",
-        layout === "dock" ? "choreo-viewer-perspective--dock" : "",
       ]
         .filter(Boolean)
         .join(" ")}

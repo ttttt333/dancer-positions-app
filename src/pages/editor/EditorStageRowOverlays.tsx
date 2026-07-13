@@ -16,7 +16,6 @@ import { ShareLinksSheetContent } from "../../components/ShareLinksSheetContent"
 import { ViewerModeSheetContent } from "../../components/ViewerModeSheetContent";
 import { ChoreoViewerBottomBar } from "../../components/ChoreoViewerBottomBar";
 import { ChoreoViewerControlBars } from "../../components/ChoreoViewerControlBars";
-import { ChoreoViewerPerspectiveDock } from "../../components/ChoreoViewerPerspectiveDock";
 import { ChoreoViewerMemberSheet } from "../../components/ChoreoViewerMemberSheet";
 import { VideoExportSheet } from "../../components/VideoExportSheet";
 import { useVideoExportUiStore } from "../../store/videoExportUiStore";
@@ -1453,7 +1452,6 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
             tightHeight={publicViewTightHeight}
             onBarHeightChange={onViewerBarHeightChange}
           />
-          <ChoreoViewerPerspectiveDock landscapeMode={publicViewTightHeight} />
         </>
       ) : null}
     </>
