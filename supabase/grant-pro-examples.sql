@@ -25,3 +25,6 @@
 -- join auth.users u on u.id = g.user_id
 -- order by g.created_at desc
 -- limit 20;
+
+-- ■ 動画書き出し RPC（migration 010 / video-export-check Edge Function 未デプロイ時）
+-- Supabase SQL Editor で 010_video_export_allowance_rpc.up.sql を実行してください。
