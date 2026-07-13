@@ -58,7 +58,7 @@ export function StageDancerDeleteHandle({
           position: "absolute",
           left: `calc(50% - ${inset}px - ${o}px)`,
           top: `calc(50% + ${inset}px + ${o}px)`,
-          transform: "translate(-50%, -50%)",
+          transform: `translate(-50%, -50%) rotate(${-facingDeg}deg)`,
           zIndex: 15,
           ...stageAuxHandleHitStyle("pointer"),
           borderRadius: "50%",
