@@ -42,8 +42,8 @@ export const VIEWER_TOP_BAR_PX = 52;
 /** 生徒閲覧: 下部再生帯の高さ（safe-area は CSS で加算） */
 export const VIEWER_TRANSPORT_BAR_PX = 88;
 
-/** 生徒閲覧: 横画面左レール幅（2列レイアウト） */
-export const VIEWER_LEFT_RAIL_PX = 172;
+/** 生徒閲覧: 横画面左レール幅（2列・ステージに重ねるコンパクト表示） */
+export const VIEWER_LEFT_RAIL_PX = 152;
 
 import {
   TOP_DOCK_HEIGHT_WIDE_PX,

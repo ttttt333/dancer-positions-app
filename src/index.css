@@ -1104,8 +1104,8 @@ html.choreo-public-view-html::backdrop {
     top: 0;
     bottom: 0;
     z-index: 88;
-    width: var(--choreo-viewer-left-rail-w, 172px);
-    max-width: min(var(--choreo-viewer-left-rail-w, 172px), 34vw);
+    width: var(--choreo-viewer-left-rail-w, 152px);
+    max-width: min(var(--choreo-viewer-left-rail-w, 152px), 32vw);
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -1339,7 +1339,13 @@ html.choreo-public-view-html::backdrop {
   }
   .choreo-public-view-root--landscape:not(.choreo-public-view-root--chrome-collapsed)
     .editor-three-pane.editor-three-pane--public-narrow {
-    padding-left: var(--choreo-viewer-left-rail-w, 0px) !important;
+    /*
+     * 操作レールはステージの上に重ねる。レール分を差し引かず、
+     * 舞台／客席どちらの向きでも画面全体をフィット領域に使う。
+     */
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    padding-bottom: 0 !important;
     padding-top: 0 !important;
     min-height: 100%;
   }
@@ -1351,7 +1357,7 @@ html.choreo-public-view-html::backdrop {
     min-height: 0;
   }
   .choreo-public-view-root--landscape .editor-stage-section--public-view {
-    padding-left: 0 !important;
+    padding: 0 !important;
     flex: 1 1 auto;
     min-height: 0;
   }

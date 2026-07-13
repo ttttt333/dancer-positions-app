@@ -44,8 +44,10 @@ export function StageBoardStageFrame({
     flex: "1 1 0%",
   };
 
-  const audienceTopPad = compactViewportChrome ? 12 : 28;
-  const audienceBottomPad = compactViewportChrome ? 8 : 20;
+  // 閲覧画面はステージ全体を最大化する。客席側へ反転した場合も、
+  // ラベルが切れない最小限の余白だけ確保する。
+  const audienceTopPad = compactViewportChrome ? 2 : 28;
+  const audienceBottomPad = compactViewportChrome ? 2 : 20;
 
   return (
     <StageBoardFitViewport
