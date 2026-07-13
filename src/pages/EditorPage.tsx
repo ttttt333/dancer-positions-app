@@ -46,6 +46,7 @@ import { computeViewerCueNavState } from "../lib/viewerCueNavigation";
 import type { ViewerChromeInsets } from "../components/ChoreoViewerControlBars";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import { useViewerChromeStore } from "../store/viewerChromeStore";
+import { resolveViewerAudienceEdge } from "../lib/viewerAudiencePerspective";
 import { useEditorPlaybackSync } from "../hooks/useEditorPlaybackSync";
 import { useEditorKeyboardShortcuts } from "../hooks/useEditorKeyboardShortcuts";
 import { useEditorAudioSession } from "../hooks/useEditorAudioSession";
@@ -708,6 +709,40 @@ export function EditorPage({
       useViewerChromeStore.getState().applyPortraitDefaults();
     }
   }, [choreoPublicView, publicViewTightHeight]);
+
+  const audiencePerspective = useViewerChromeStore((s) => s.audiencePerspective);
+
+  const viewerAudienceEdge = useMemo(() => {
+    if (!project || !choreoPublicView) return undefined;
+    return resolveViewerAudienceEdge(
+      project.audienceEdge ?? "bottom",
+      audiencePerspective
+    );
+  }, [project, choreoPublicView, audiencePerspective]);
+
+  useEffect(() => {
+    if (!choreoPublicView || !viewerLocalStorageKey) return;
+    try {
+      const raw = localStorage.getItem(`${viewerLocalStorageKey}:perspective`);
+      if (raw === "stage" || raw === "audience") {
+        useViewerChromeStore.getState().setAudiencePerspective(raw);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [choreoPublicView, viewerLocalStorageKey]);
+
+  useEffect(() => {
+    if (!choreoPublicView || !viewerLocalStorageKey) return;
+    try {
+      localStorage.setItem(
+        `${viewerLocalStorageKey}:perspective`,
+        audiencePerspective
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [choreoPublicView, viewerLocalStorageKey, audiencePerspective]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -2722,6 +2757,7 @@ export function EditorPage({
     projectName,
     publicNarrowLayout,
     publicViewTightHeight,
+    audienceEdgeOverride: viewerAudienceEdge,
     viewerStageMemoTexts,
     viewerBarHeightPx,
     onViewerBarHeightChange: setViewerBarHeightPx,

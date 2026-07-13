@@ -16,6 +16,7 @@ import { useShareViewAudioLoadStore } from "../store/shareViewAudioLoadStore";
 import { useViewerChromeStore } from "../store/viewerChromeStore";
 import { useViewerTransportActions } from "../hooks/useViewerTransportActions";
 import { ViewerMemberModeSwitch } from "./ViewerMemberModeSwitch";
+import { ViewerAudiencePerspectiveSwitch } from "./ViewerAudiencePerspectiveSwitch";
 import { ChoreoViewerVideoSaveButton } from "./ChoreoViewerVideoSaveButton";
 import { computeViewerCueNavState } from "../lib/viewerCueNavigation";
 import { VIEWER_LEFT_RAIL_PX } from "../pages/editor/editorConstants";
@@ -172,6 +173,8 @@ export function ChoreoViewerControlBars({
   const trimEndSec = project.trimEndSec ?? null;
   const controlsVisible = useViewerChromeStore((s) => s.controlsVisible);
   const cuePagerVisible = useViewerChromeStore((s) => s.cuePagerVisible);
+  const audiencePerspective = useViewerChromeStore((s) => s.audiencePerspective);
+  const setAudiencePerspective = useViewerChromeStore((s) => s.setAudiencePerspective);
 
   const cueNav = useMemo(
     () => computeViewerCueNavState(project, selectedCueId),
@@ -275,6 +278,14 @@ export function ChoreoViewerControlBars({
       />
     ) : null;
 
+  const perspectiveSwitch = (
+    <ViewerAudiencePerspectiveSwitch
+      perspective={audiencePerspective}
+      layout={landscapeMode ? "stack" : "inline"}
+      onChange={setAudiencePerspective}
+    />
+  );
+
   const videoSave = (
     <ChoreoViewerVideoSaveButton
       project={project}
@@ -293,6 +304,7 @@ export function ChoreoViewerControlBars({
       >
         <div className="choreo-viewer-bars__left-stack">
           {modeSwitch}
+          {perspectiveSwitch}
           {videoSave}
           {transportControls ? (
             <div className="choreo-viewer-bars__left-transport">
@@ -312,7 +324,10 @@ export function ChoreoViewerControlBars({
         aria-label={t("editor.layout.viewerControlBarsAria")}
       >
         <div className="choreo-viewer-bars__bottom-panel">
-          <div className="choreo-viewer-bars__bottom-meta">{videoSave}</div>
+          <div className="choreo-viewer-bars__bottom-meta">
+            {perspectiveSwitch}
+            {videoSave}
+          </div>
         </div>
       </footer>
     );
@@ -325,9 +340,10 @@ export function ChoreoViewerControlBars({
       aria-label={t("editor.layout.viewerControlBarsAria")}
     >
       <div className="choreo-viewer-bars__bottom-panel">
-        {modeSwitch || videoSave ? (
+        {modeSwitch || perspectiveSwitch || videoSave ? (
           <div className="choreo-viewer-bars__bottom-meta">
             {modeSwitch}
+            {perspectiveSwitch}
             {videoSave}
           </div>
         ) : null}

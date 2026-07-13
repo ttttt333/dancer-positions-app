@@ -140,6 +140,7 @@ export function StageBoardBody({
   markerDisplayScale = 1,
   compactViewportChrome = false,
   hideStageFloorTextMarkup = false,
+  audienceEdgeOverride,
   trashDropEdge = "left",
   onOpenTextEditSheet,
   showMotionArrows = false,
@@ -151,7 +152,7 @@ export function StageBoardBody({
     activeFormationId,
     snapGrid,
     gridSpacingMm,
-    audienceEdge,
+    audienceEdge: projectAudienceEdge,
     stageWidthMm,
     stageDepthMm,
     sideStageMm,
@@ -184,6 +185,7 @@ export function StageBoardBody({
     floorMarkupTool: floorMarkupToolProp,
     onFloorMarkupToolChange,
   });
+  const audienceEdge = audienceEdgeOverride ?? projectAudienceEdge;
 
   const {
     stageResizeDraft,

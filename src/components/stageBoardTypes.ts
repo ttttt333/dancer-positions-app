@@ -3,6 +3,7 @@
  */
 import type { Dispatch, ReactNode, RefObject, SetStateAction } from "react";
 import type {
+  AudienceEdge,
   ChoreographyProjectJson,
   DancerSpot,
   FloorTextPlaceSession,
@@ -127,6 +128,8 @@ export type StageBoardBodyProps = {
   compactViewportChrome?: boolean;
   /** 生徒閲覧: 床テキストをステージ上に描画せず専用帯へ */
   hideStageFloorTextMarkup?: boolean;
+  /** 閲覧: 客席の向きだけ一時的に上書き（作品データは変更しない） */
+  audienceEdgeOverride?: AudienceEdge;
   /** ドラッグ削除ゴミ箱の位置（モバイル編集は `bottom`） */
   trashDropEdge?: TrashDropEdge;
   /**

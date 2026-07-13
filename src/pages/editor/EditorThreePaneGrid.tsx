@@ -199,6 +199,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const startGridNudgeRepeat = props.startGridNudgeRepeat as never;
   const stopGridNudgeRepeat = props.stopGridNudgeRepeat as never;
   const studentViewerFocusForStage = props.studentViewerFocusForStage as never;
+  const audienceEdgeOverride = props.audienceEdgeOverride as never;
   const t = props.t as never;
   const text = props.text as never;
   const textPanelPortalEl = props.textPanelPortalEl as never;
@@ -876,6 +877,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     }
                     compactViewportChrome={choreoPublicView}
                     hideStageFloorTextMarkup={choreoPublicView}
+                    audienceEdgeOverride={audienceEdgeOverride}
                     trashDropEdge={mobileStackEditor ? "bottom" : "left"}
                     showMotionArrows={showMotionArrows}
                     onOpenDancerPathEditor={
