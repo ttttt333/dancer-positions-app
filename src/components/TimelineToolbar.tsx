@@ -79,6 +79,35 @@ function IconSeekFwd() {
     </svg>
   );
 }
+
+function FormationChangeButton({
+  disabled,
+  onClick,
+  style,
+}: {
+  disabled: boolean;
+  onClick: () => void;
+  style: CSSProperties;
+}) {
+  return (
+    <button
+      type="button"
+      style={{
+        ...style,
+        borderColor: "#d4af37",
+        color: "#fef3c7",
+        fontWeight: 700,
+        letterSpacing: "0.02em",
+      }}
+      disabled={disabled}
+      title="立ち位置の雛形を選ぶ"
+      aria-label="立ち位置の雛形を選ぶ"
+      onClick={onClick}
+    >
+      Change
+    </button>
+  );
+}
 function IconSave() {
   const c = "#818cf8"; // indigo neon — matches NeonIconPanel save
   return (
@@ -448,6 +477,9 @@ export type TimelineToolbarProps = {
   editorMobileStack?: boolean;
   /** スマホ: 「波形・再生」＋たたむなど、再生行先頭に同一行で並べる */
   compactDockLeading?: ReactNode;
+  /** PC: 立ち位置雛形（Change）。5秒戻すの左に出す */
+  showFormationChange?: boolean;
+  onOpenFormationChange?: () => void;
 };
 
 export function TimelineToolbar({
@@ -474,6 +506,8 @@ export function TimelineToolbar({
   redoDisabled,
   editorMobileStack = false,
   compactDockLeading,
+  showFormationChange = false,
+  onOpenFormationChange,
 }: TimelineToolbarProps) {
   const { t } = useI18n();
   const waveZoomDisabled = duration <= 0;
@@ -637,6 +671,19 @@ export function TimelineToolbar({
                 minWidth: 0,
               }}
             >
+              {showFormationChange && onOpenFormationChange ? (
+                <FormationChangeButton
+                  disabled={viewMode === "view"}
+                  onClick={onOpenFormationChange}
+                  style={{
+                    ...timelineToolbarBtn,
+                    padding: `${tlPx(4)} ${tlPx(8)}`,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                />
+              ) : null}
               <button
                 type="button"
                 style={{
@@ -1006,6 +1053,21 @@ export function TimelineToolbar({
           minWidth: 0,
         }}
       >
+        {showFormationChange && onOpenFormationChange ? (
+          <FormationChangeButton
+            disabled={viewMode === "view"}
+            onClick={onOpenFormationChange}
+            style={{
+              ...timelineToolbarBtn,
+              padding: `${tlPx(4)} ${tlPx(9)}`,
+              minHeight: tlPx(28),
+              flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          />
+        ) : null}
         <button
           type="button"
           style={{

@@ -291,7 +291,8 @@
   content: "";
   position: absolute;
   top: 11px;
-  bottom: 9px;
+  /* キュー枠の下辺まで届かせる（以前は bottom: 9px で短かった） */
+  bottom: 0;
   left: 50%;
   width: 4px;
   transform: translateX(-50%);

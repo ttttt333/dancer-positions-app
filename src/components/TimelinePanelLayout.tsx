@@ -79,6 +79,8 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
           redoDisabled={p.redoDisabled}
           editorMobileStack={p.editorMobileStack}
           compactDockLeading={p.compactDockLeading}
+          showFormationChange={p.showFormationChange}
+          onOpenFormationChange={p.onOpenFormationChange}
         />
         <div
           style={{

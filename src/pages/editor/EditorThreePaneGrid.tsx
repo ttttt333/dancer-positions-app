@@ -934,7 +934,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 {!choreoPublicView &&
                 project.viewMode !== "view" &&
                 stageView === "2d" &&
-                !(mobileStackEditor && editorMobileLandscape) ? (
+                mobileStackEditor &&
+                !editorMobileLandscape ? (
                   <button
                     type="button"
                     onClick={() => setFormationPresetPickerOpen(true)}

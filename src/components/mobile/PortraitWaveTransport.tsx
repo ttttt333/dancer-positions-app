@@ -55,8 +55,11 @@ const PORTRAIT_WAVE_CSS_H = 96;
 const DEFAULT_WAVE_HEIGHT_PX = PORTRAIT_WAVE_CSS_H;
 /** この距離未満の指の動きはタップ扱い（シーク） */
 const TAP_MAX_MOVE_PX = 16;
-/** 長押しキャンセル＝ドラッグ開始までの指の揺れ許容（px） */
-const LONG_PRESS_CANCEL_PX = 18;
+/**
+ * この距離を超えたらキュー枠ドラッグを開始（長押しメニューはキャンセル）。
+ * ピンチズームは無効化し、拡大縮小は +/- ボタンのみ。
+ */
+const CUE_DRAG_ARM_PX = 12;
 
 interface Props {
   audioUrl: string | null;
@@ -166,8 +169,8 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   const suppressDoubleClickRef = useRef(false);
   const longPressTimerRef = useRef<number | null>(null);
   const longPressFiredRef = useRef(false);
-  const pinchRef = useRef<{ dist: number; zoom: number; anchor: number } | null>(null);
-  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  /** 1本指のみ（2本目は無視。ピンチズームは +/- ボタン専用） */
+  const activePointerIdRef = useRef<number | null>(null);
   const pointerDownRef = useRef<React.PointerEvent<HTMLCanvasElement> | null>(null);
   const dragArmedRef = useRef(false);
   const pointerDownOriginRef = useRef<{ x: number; y: number } | null>(null);
@@ -528,27 +531,6 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
     [portraitSeekAtClientX]
   );
 
-  const applyZoomAt = useCallback(
-    (nextZoom: number, anchorTimeSec: number) => {
-      if (duration <= 0) return;
-      const z = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, nextZoom));
-      const newVd = duration / z;
-      const newPortion = 1 / z;
-      setZoom(z);
-      if (isPlaying) {
-        const { start } = getWaveViewForDraw(duration, newPortion, anchorTimeSec);
-        setViewStart(clampViewStart(start, newVd, duration));
-        return;
-      }
-      const oldVd = duration / zoom;
-      const anchorRatio = oldVd > 0 ? (anchorTimeSec - viewStart) / oldVd : 0.5;
-      setViewStart(
-        clampViewStart(anchorTimeSec - anchorRatio * newVd, newVd, duration)
-      );
-    },
-    [duration, zoom, viewStart, isPlaying]
-  );
-
   /** +/- ボタン: 再生バーの位置を画面中央に保ちながら拡大・縮小 */
   const applyZoomCenteredOnPlayhead = useCallback(
     (nextZoom: number, anchorTimeSec: number) => {
@@ -668,28 +650,18 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   const onPointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (!bridgeApi?.handlers) return;
+      // 2本目以降は無視（ピンチ拡大・縮小は +/- ボタンのみ）
+      if (activePointerIdRef.current != null && activePointerIdRef.current !== e.pointerId) {
+        return;
+      }
       clearPendingSingleTap();
-      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      activePointerIdRef.current = e.pointerId;
       longPressFiredRef.current = false;
       dragArmedRef.current = false;
       pointerDownRef.current = e;
       pointerDownOriginRef.current = { x: e.clientX, y: e.clientY };
 
-      if (pointersRef.current.size === 2) {
-        clearLongPress();
-        pointerDownRef.current = null;
-        pointerDownOriginRef.current = null;
-        const pts = [...pointersRef.current.values()];
-        const dist = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y);
-        const anchor = timeFromClientX((pts[0]!.x + pts[1]!.x) / 2) ?? currentTime;
-        pinchRef.current = { dist, zoom, anchor };
-        e.currentTarget.setPointerCapture(e.pointerId);
-        return;
-      }
-
-      if (pointersRef.current.size > 2) return;
-
-      if (pointersRef.current.size === 1 && isNearPlayhead(e.clientX)) {
+      if (isNearPlayhead(e.clientX)) {
         e.preventDefault();
         e.stopPropagation();
         beginPortraitPlayheadDrag(e.clientX, e.clientY, e.pointerId);
@@ -714,12 +686,15 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
         bridgeApi.openWaveCueMenuAtPointer?.(e.clientX, e.clientY);
       }, LONG_PRESS_MS);
     },
-    [bridgeApi, zoom, currentTime, timeFromClientX, clearLongPress, clearPendingSingleTap, isNearPlayhead, beginPortraitPlayheadDrag]
+    [bridgeApi, clearPendingSingleTap, isNearPlayhead, beginPortraitPlayheadDrag]
   );
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (!bridgeApi?.handlers) return;
+      if (activePointerIdRef.current != null && e.pointerId !== activePointerIdRef.current) {
+        return;
+      }
 
       if (playheadDragRef.current && (e.buttons & 1)) {
         e.preventDefault();
@@ -727,19 +702,10 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
         return;
       }
 
-      if (pointersRef.current.has(e.pointerId)) {
-        pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      }
-
       const origin = pointerDownOriginRef.current;
       if (origin && !longPressFiredRef.current) {
         const dist = Math.hypot(e.clientX - origin.x, e.clientY - origin.y);
-        /*
-         * 長押し（キュー操作メニュー）を優先する。
-         * 以前は小さい移動で先にドラッグへ入ると長押しがほぼ発火せず、
-         * 縦画面で削除メニューが出せなかった。
-         */
-        if (dist > LONG_PRESS_CANCEL_PX) {
+        if (dist > CUE_DRAG_ARM_PX) {
           clearLongPress();
           clearPendingSingleTap();
           if (!dragArmedRef.current && pointerDownRef.current) {
@@ -748,21 +714,11 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
         }
       }
 
-      if (pinchRef.current && pointersRef.current.size >= 2) {
-        const pts = [...pointersRef.current.values()];
-        const dist = Math.hypot(pts[0]!.x - pts[1]!.x, pts[0]!.y - pts[1]!.y);
-        if (pinchRef.current.dist > 0) {
-          const scale = dist / pinchRef.current.dist;
-          applyZoomAt(pinchRef.current.zoom * scale, pinchRef.current.anchor);
-        }
-        return;
-      }
-
       if (dragArmedRef.current) {
         bridgeApi.handlers.onWaveCanvasPointerMove(e);
       }
     },
-    [bridgeApi, applyZoomAt, clearLongPress, clearPendingSingleTap, armCanvasDrag, portraitSeekAtClientX]
+    [bridgeApi, clearLongPress, clearPendingSingleTap, armCanvasDrag, portraitSeekAtClientX]
   );
 
   const onClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -790,14 +746,16 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   const onPointerUp = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (!bridgeApi?.handlers) return;
+      if (activePointerIdRef.current != null && e.pointerId !== activePointerIdRef.current) {
+        return;
+      }
       clearLongPress();
       const origin = pointerDownOriginRef.current;
       const movedPx =
         origin != null
           ? Math.hypot(e.clientX - origin.x, e.clientY - origin.y)
           : 0;
-      pointersRef.current.delete(e.pointerId);
-      pinchRef.current = null;
+      activePointerIdRef.current = null;
       pointerDownRef.current = null;
       pointerDownOriginRef.current = null;
 
@@ -853,14 +811,18 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
 
   const onPointerCancel = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
+      if (activePointerIdRef.current != null && e.pointerId !== activePointerIdRef.current) {
+        return;
+      }
       clearLongPress();
       clearPendingSingleTap();
       if (dragArmedRef.current) {
         abortTimelineWavePointerGestures();
       }
       dragArmedRef.current = false;
-      pointersRef.current.delete(e.pointerId);
-      pinchRef.current = null;
+      activePointerIdRef.current = null;
+      pointerDownRef.current = null;
+      pointerDownOriginRef.current = null;
     },
     [clearLongPress, clearPendingSingleTap]
   );

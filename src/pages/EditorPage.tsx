@@ -2537,6 +2537,13 @@ export function EditorPage({
       editorMobileStack={mobileStackEditor}
       compactDockLeading={mobileTimelineDockLeading}
       cueListPortalTarget={showTopWaveDock ? cueListPortalEl : null}
+      showFormationChange={
+        wideEditorLayout &&
+        !choreoPublicView &&
+        project.viewMode !== "view" &&
+        stageView === "2d"
+      }
+      onOpenFormationChange={() => setFormationPresetPickerOpen(true)}
       onSave={() => setFlowLibraryOpen(true)}
       onOpenAudioImport={openAudioImport}
       audioFileInputRef={editorAudioSession.audioFileInputRef}
