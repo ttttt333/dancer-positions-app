@@ -45,6 +45,9 @@ export type TimelinePanelBodyProps = {
    * 波形帯の直上で再生ボタン類と同一行に並べる。
    */
   compactDockLeading?: ReactNode;
+  /** PC: 立ち位置雛形（Change）。再生バーの5秒戻す左 */
+  showFormationChange?: boolean;
+  onOpenFormationChange?: () => void;
   cueListPortalTarget?: HTMLElement | null;
   onSave?: () => void;
   onOpenAudioImport?: () => void;
