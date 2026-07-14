@@ -53,11 +53,9 @@ const DOUBLE_TAP_MS = 350;
 const LONG_PRESS_MS = 520;
 const PORTRAIT_WAVE_CSS_H = 96;
 const DEFAULT_WAVE_HEIGHT_PX = PORTRAIT_WAVE_CSS_H;
-/** 長押し判定前にドラッグ開始する移動量（px） */
-const DRAG_ARM_PX = 14;
 /** この距離未満の指の動きはタップ扱い（シーク） */
 const TAP_MAX_MOVE_PX = 16;
-/** 長押しキャンセルまでの指の揺れ許容（px） */
+/** 長押しキャンセル＝ドラッグ開始までの指の揺れ許容（px） */
 const LONG_PRESS_CANCEL_PX = 18;
 
 interface Props {
@@ -698,10 +696,18 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
         return;
       }
 
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        /* ignore */
+      }
+
       longPressTimerRef.current = window.setTimeout(() => {
         longPressFiredRef.current = true;
         pointerDownRef.current = null;
         pointerDownOriginRef.current = null;
+        dragArmedRef.current = false;
+        abortTimelineWavePointerGestures();
         if (typeof navigator !== "undefined" && navigator.vibrate) {
           navigator.vibrate(12);
         }
@@ -728,11 +734,17 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       const origin = pointerDownOriginRef.current;
       if (origin && !longPressFiredRef.current) {
         const dist = Math.hypot(e.clientX - origin.x, e.clientY - origin.y);
+        /*
+         * 長押し（キュー操作メニュー）を優先する。
+         * 以前は小さい移動で先にドラッグへ入ると長押しがほぼ発火せず、
+         * 縦画面で削除メニューが出せなかった。
+         */
         if (dist > LONG_PRESS_CANCEL_PX) {
           clearLongPress();
           clearPendingSingleTap();
-        } else if (!dragArmedRef.current && dist > DRAG_ARM_PX && pointerDownRef.current) {
-          armCanvasDrag(pointerDownRef.current);
+          if (!dragArmedRef.current && pointerDownRef.current) {
+            armCanvasDrag(pointerDownRef.current);
+          }
         }
       }
 
@@ -830,10 +842,14 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   );
 
   const onPointerLeave = useCallback(() => {
-    clearLongPress();
+    // pointer capture 中に leave が飛ぶことがあるので、長押し待ちは消さない。
+    // ドラッグ開始後だけ TimelinePanel 側へ leave を伝える。
+    if (longPressTimerRef.current != null && !dragArmedRef.current) return;
     clearPendingSingleTap();
-    bridgeApi?.handlers.onWaveCanvasPointerLeave();
-  }, [bridgeApi, clearLongPress, clearPendingSingleTap]);
+    if (dragArmedRef.current) {
+      bridgeApi?.handlers.onWaveCanvasPointerLeave();
+    }
+  }, [bridgeApi, clearPendingSingleTap]);
 
   const onPointerCancel = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {

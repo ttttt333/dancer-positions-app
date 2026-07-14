@@ -105,3 +105,28 @@
   white-space: nowrap;
 }
 
+.deleteCueBtn {
+  flex: 0 0 auto;
+  height: 40px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(196, 30, 58, 0.55);
+  color: #fca5a5;
+  background: rgba(196, 30, 58, 0.16);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+
+.deleteCueBtn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.deleteCueBtn:not(:disabled):active {
+  background: rgba(196, 30, 58, 0.28);
+}
+

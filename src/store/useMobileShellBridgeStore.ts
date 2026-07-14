@@ -23,6 +23,10 @@ export type MobileShellBridgeStore = {
   onCuePrev: () => void;
   onCueNext: () => void;
   onAddCue: () => void;
+  /** 選択中キューを削除（Undo 可） */
+  onDeleteSelectedCue: () => void;
+  /** 削除ボタンを有効にするか */
+  canDeleteSelectedCue: boolean;
   onStageSettings: () => void;
   onViewerList: () => void;
   /** 動画書き出しシートを開く */
@@ -90,6 +94,8 @@ export const useMobileShellBridgeStore = create<MobileShellBridgeStore>((set) =>
   onCuePrev: () => {},
   onCueNext: () => {},
   onAddCue: () => {},
+  onDeleteSelectedCue: () => {},
+  canDeleteSelectedCue: false,
   onStageSettings: () => {},
   onViewerList: () => {},
   onVideoExport: () => {},

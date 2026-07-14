@@ -21,7 +21,7 @@ import type {
   WaveCueMenuState,
 } from "../components/TimelineWaveMenus";
 import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
-import { WAVE_DOUBLE_CLICK_CUE_SPAN_SEC } from "../lib/cueInterval";
+import { WAVE_DOUBLE_CLICK_CUE_SPAN_SEC, cueActiveAtTime } from "../lib/cueInterval";
 import { PC_GAP_LONG_PRESS_PAD_PX } from "../lib/waveLongPress";
 import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
 
@@ -482,10 +482,42 @@ export function useTimelineWaveCanvasActions({
         viewSpan,
         cueDragPreviewRangeRef.current
       );
-      if (cueId) {
+      // 縦画面: 座標ヒットを外しても再生位置／タップ時刻付近のキューを拾う
+      const fallbackCueId = (() => {
+        if (cueId || !portraitActive || cuesSorted.length === 0) return null;
+        const playheadSec = resolvePlayheadSecForWaveInteraction({
+          currentTimePropSec: currentTime,
+          isPlayingForWave: isPlayingForWaveRef.current,
+          playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
+          engineTimeSec:
+            isPlayingForWaveRef.current &&
+            playbackEngine.getMediaSourceUrl() &&
+            !playbackEngine.isPaused() &&
+            Number.isFinite(playbackEngine.getCurrentTime())
+              ? playbackEngine.getCurrentTime()
+              : null,
+        });
+        const atPlayhead = cueActiveAtTime(cuesSorted, playheadSec)?.id ?? null;
+        if (atPlayhead) return atPlayhead;
+        const t = waveTimeAtClientXOnCanvas(clientX, c, {
+          durationSec: duration,
+          viewPortion: viewPortionRef.current ?? viewPortion,
+          isPlaying: isPlayingForWaveRef.current,
+          viewStartOverride: waveViewStartOverrideRef.current,
+          anchorTimeSec: playheadSec,
+          playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
+          enginePaused:
+            !isPlayingForWaveRef.current || playbackEngine.isPaused(),
+          lastDrawRange: lastWaveDrawRangeRef.current,
+        });
+        if (t == null || !Number.isFinite(t)) return null;
+        return cueActiveAtTime(cuesSorted, t)?.id ?? null;
+      })();
+      const resolvedCueId = cueId ?? fallbackCueId;
+      if (resolvedCueId) {
         setGapRouteMenu(null);
         setWaveCueConfirm(null);
-        onSelectedCueIdsChange([cueId]);
+        onSelectedCueIdsChange([resolvedCueId]);
         const rect = c.getBoundingClientRect();
         const playheadSec = resolvePlayheadSecForWaveInteraction({
           currentTimePropSec: currentTime,
@@ -503,7 +535,7 @@ export function useTimelineWaveCanvasActions({
         const menuClientX = rect.left + (pct / 100) * rect.width;
         const menuClientY = rect.top + rect.height * 0.5;
         setWaveCueMenu({
-          cueId,
+          cueId: resolvedCueId,
           clientX: portraitActive ? menuClientX : clientX,
           clientY: portraitActive ? menuClientY : clientY,
           ...(portraitActive ? { fullscreen: true } : {}),
@@ -547,6 +579,10 @@ export function useTimelineWaveCanvasActions({
       setGapRouteMenu,
       setWaveCueConfirm,
       setWaveCueMenu,
+      viewPortion,
+      viewPortionRef,
+      waveViewStartOverrideRef,
+      lastWaveDrawRangeRef,
     ]
   );
 

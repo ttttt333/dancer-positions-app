@@ -1,6 +1,6 @@
 /**
  * PortraitBottomBar.tsx
- * 縦向き専用ボトム: 波形 / キューナビ / Menu + Undo-Redo
+ * 縦向き専用ボトム: 波形 / キューナビ / Menu + Undo-Redo / キュー削除
  */
 
 import React, { useState } from "react";
@@ -28,7 +28,6 @@ interface Props {
   totalCues: number;
   onCuePrev: () => void;
   onCueNext: () => void;
-  onAddCue: () => void;
   cueStartTimes: number[];
 }
 
@@ -44,8 +43,6 @@ export const PortraitBottomBar: React.FC<Props> = ({
   totalCues,
   onCuePrev,
   onCueNext,
-  onAddCue,
-  cueStartTimes,
 }) => {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -53,6 +50,12 @@ export const PortraitBottomBar: React.FC<Props> = ({
   const onRedo = useMobileShellBridgeStore((s) => s.onRedo);
   const undoDisabled = useMobileShellBridgeStore((s) => s.undoDisabled);
   const redoDisabled = useMobileShellBridgeStore((s) => s.redoDisabled);
+  const onDeleteSelectedCue = useMobileShellBridgeStore(
+    (s) => s.onDeleteSelectedCue
+  );
+  const canDeleteSelectedCue = useMobileShellBridgeStore(
+    (s) => s.canDeleteSelectedCue
+  );
 
   return (
     <div className={styles.bar}>
@@ -113,8 +116,14 @@ export const PortraitBottomBar: React.FC<Props> = ({
             <TransportIconChevronRight size={22} className={ctrlStyles.icon} />
           </button>
         </div>
-        <button className={styles.addCueBtn} onClick={onAddCue}>
-          ＋Cue
+        <button
+          className={styles.deleteCueBtn}
+          onClick={onDeleteSelectedCue}
+          disabled={!canDeleteSelectedCue}
+          title="選択中のキューを削除"
+          aria-label="選択中のキューを削除"
+        >
+          削除
         </button>
       </div>
 

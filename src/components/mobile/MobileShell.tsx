@@ -256,7 +256,6 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
           totalCues={props.totalCues}
           onCuePrev={props.onCuePrev}
           onCueNext={props.onCueNext}
-          onAddCue={props.onAddCue}
           cueStartTimes={cueStartTimes}
         />
       ) : null}

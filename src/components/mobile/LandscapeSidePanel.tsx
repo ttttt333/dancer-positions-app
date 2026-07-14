@@ -79,6 +79,8 @@ export const LandscapeSidePanel: React.FC<Props> = ({
   const cuePagerCanNext = useMobileShellBridgeStore((s) => s.cuePagerCanNext)
   const onCuePrev = useMobileShellBridgeStore((s) => s.onCuePrev)
   const onCueNext = useMobileShellBridgeStore((s) => s.onCueNext)
+  const onDeleteSelectedCue = useMobileShellBridgeStore((s) => s.onDeleteSelectedCue)
+  const canDeleteSelectedCue = useMobileShellBridgeStore((s) => s.canDeleteSelectedCue)
 
   const transportDisabled = !audioUrl || duration <= 0
 
@@ -236,6 +238,16 @@ export const LandscapeSidePanel: React.FC<Props> = ({
               </button>
             </div>
           ) : null}
+          <button
+            type="button"
+            className={styles.compactDeleteCueBtn}
+            onClick={onDeleteSelectedCue}
+            disabled={!canDeleteSelectedCue}
+            title="選択中のキューを削除"
+            aria-label="選択中のキューを削除"
+          >
+            キュー削除
+          </button>
 
           <div className={styles.compactToolRow} role="group" aria-label="メニューと操作履歴">
             <button
@@ -364,6 +376,17 @@ export const LandscapeSidePanel: React.FC<Props> = ({
         >
           <span className={styles.menuBtnIcon}>☰</span>
           <span className={styles.menuBtnLabel}>Menu</span>
+        </button>
+
+        <button
+          type="button"
+          className={styles.deleteCueBtn}
+          onClick={onDeleteSelectedCue}
+          disabled={!canDeleteSelectedCue}
+          title="選択中のキューを削除"
+          aria-label="選択中のキューを削除"
+        >
+          キュー削除
         </button>
 
         <div className={styles.undoRedoRow} role="group" aria-label="操作履歴">

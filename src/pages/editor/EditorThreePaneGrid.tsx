@@ -17,6 +17,7 @@ import {
   PUBLIC_VIEWER_MARKER_DISPLAY_SCALE,
 } from "../../components/ChoreoViewerBottomBar";
 import { DEFAULT_DANCER_MARKER_DIAMETER_PX } from "../../lib/projectDefaults";
+import { sortCuesByStart } from "../../core/timelineController";
 
 const Stage3DView = lazy(() =>
   import("../../components/Stage3DView").then((m) => ({ default: m.Stage3DView }))
@@ -371,6 +372,26 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
       onCueNext: handleMobileCueNext,
       onStageViewChange: (v: "2d" | "3d") => (setStageView as (v: "2d" | "3d") => void)(v),
       onAddCue: () => addCueFnRef.current?.(true),
+      onDeleteSelectedCue: () => {
+        if ((project as { viewMode?: string }).viewMode === "view") return;
+        if (rosterPageActive) return;
+        const id =
+          typeof selectedCueId === "string" && selectedCueId.length > 0
+            ? selectedCueId
+            : null;
+        if (!id || !cues.some((c) => c.id === id)) return;
+        setProjectSafe((prev: { cues: Array<{ id: string }> } & Record<string, unknown>) => ({
+          ...prev,
+          cues: sortCuesByStart(prev.cues.filter((c) => c.id !== id)),
+        }));
+        setSelectedCueIds((prev: string[]) => prev.filter((x) => x !== id));
+      },
+      canDeleteSelectedCue:
+        (project as { viewMode?: string }).viewMode !== "view" &&
+        !rosterPageActive &&
+        typeof selectedCueId === "string" &&
+        selectedCueId.length > 0 &&
+        cues.some((c) => c.id === selectedCueId),
       onStageSettings: () => stageSettingsFnRef.current?.(true),
       onUndo: () => undoFnRef.current?.(),
       onRedo: () => redoFnRef.current?.(),
@@ -424,6 +445,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
     handleMobileSelectCueNearTime,
     choreoPublicView,
     setFormationPresetPickerOpen,
+    setProjectSafe,
+    setSelectedCueIds,
   ]);
 
   return (
