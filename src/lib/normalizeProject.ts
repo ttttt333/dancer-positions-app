@@ -478,10 +478,6 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
           const fmObj = fm as Record<string, unknown>;
           const base = fm as Formation;
           const { stageSnapshot: _rawStageSnap, ...baseClean } = base;
-          const stageSnap = normalizeSavedSpotStageSnapshot(
-            fmObj.stageSnapshot,
-            defaults
-          );
           return {
             ...baseClean,
             note:
@@ -496,7 +492,6 @@ export function normalizeProject(data: unknown): ChoreographyProjectJson {
             dancers: normalizeFormationDancers(fmObj.dancers),
             setPieces: normalizeSetPiecesArray(fmObj.setPieces),
             floorMarkup: normalizeFloorMarkupArray(fmObj.floorMarkup),
-            ...(stageSnap ? { stageSnapshot: stageSnap } : {}),
           };
         })
       : defaults.formations;

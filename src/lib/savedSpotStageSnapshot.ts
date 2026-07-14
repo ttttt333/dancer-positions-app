@@ -100,3 +100,20 @@ export function mergeStageSnapshotIntoProject(
       : {}),
   };
 }
+
+/**
+ * フォーメーションごとの舞台スナップショットを除去する。
+ * 舞台寸法・形状はプロジェクト共通（全キュー連動）にする。
+ */
+export function stripFormationStageSnapshots(
+  p: ChoreographyProjectJson
+): ChoreographyProjectJson {
+  let changed = false;
+  const formations = p.formations.map((f) => {
+    if (!f.stageSnapshot) return f;
+    changed = true;
+    const { stageSnapshot: _removed, ...rest } = f;
+    return rest;
+  });
+  return changed ? { ...p, formations } : p;
+}

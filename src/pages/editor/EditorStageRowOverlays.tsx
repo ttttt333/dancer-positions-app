@@ -29,6 +29,7 @@ import { formatMmSsFloor } from "../../lib/timeFormat";
 import { dancerMarkerDiameterAfterRosterImport } from "../../lib/projectDefaults";
 import { getViewRosterEntries } from "../../lib/viewRoster";
 import { listStagePresets, saveStagePreset } from "../../lib/stagePresets";
+import { stripFormationStageSnapshots } from "../../lib/savedSpotStageSnapshot";
 import { parseMeterCmDraftToMm } from "./stageAreaSettingsDraft";
 import {
   StageAreaDimensionRows,
@@ -1142,12 +1143,14 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
         disabled={project.viewMode === "view"}
         onClose={() => setStageShapePickerOpen(false)}
         onConfirm={(shape) => {
-          setProjectSafe((p) => ({
-            ...p,
-            /** 新しい形を選んだときは旧仕様の花道フラグはオフに統一 */
-            hanamichiEnabled: false,
-            stageShape: shape,
-          }));
+          setProjectSafe((p) =>
+            stripFormationStageSnapshots({
+              ...p,
+              /** 新しい形を選んだときは旧仕様の花道フラグはオフに統一 */
+              hanamichiEnabled: false,
+              stageShape: shape,
+            })
+          );
           setStageShapePickerOpen(false);
         }}
       />

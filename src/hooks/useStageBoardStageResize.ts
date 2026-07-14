@@ -7,6 +7,7 @@ import {
   STAGE_MAIN_FLOOR_MM_MIN,
 } from "../lib/stageDimensions";
 import type { StageResizeHandleId } from "../components/StageResizeHandles";
+import { stripFormationStageSnapshots } from "../lib/savedSpotStageSnapshot";
 
 export type StageResizeDraft = {
   stageWidthMm: number;
@@ -222,7 +223,11 @@ export function useStageBoardStageResize({
       if (!s || !last) return;
       setProject((p) => {
         if (p.stageWidthMm === last.w && p.stageDepthMm === last.d) return p;
-        return { ...p, stageWidthMm: last.w, stageDepthMm: last.d };
+        return stripFormationStageSnapshots({
+          ...p,
+          stageWidthMm: last.w,
+          stageDepthMm: last.d,
+        });
       });
     };
 

@@ -20,6 +20,7 @@ import {
 import {
   captureStageSnapshot,
   mergeStageSnapshotIntoProject,
+  stripFormationStageSnapshots,
 } from "../lib/savedSpotStageSnapshot";
 import {
   dancersFromFormationBoxItem,
@@ -223,7 +224,9 @@ export function QuickFormationBar({
       if (pending?.kind === "slot") {
         const slot = p.savedSpotLayouts.find((s) => s.id === pending.slotId);
         if (slot?.stageSnapshot) {
-          next = mergeStageSnapshotIntoProject(next, slot.stageSnapshot);
+          next = stripFormationStageSnapshots(
+            mergeStageSnapshotIntoProject(next, slot.stageSnapshot)
+          );
         }
       }
       return next;

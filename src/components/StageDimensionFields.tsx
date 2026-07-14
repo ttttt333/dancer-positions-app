@@ -14,6 +14,7 @@ import {
   updateStagePreset,
   type StagePresetItem,
 } from "../lib/stagePresets";
+import { stripFormationStageSnapshots } from "../lib/savedSpotStageSnapshot";
 
 const MAX_MM = STAGE_MAIN_FLOOR_MM_MAX;
 
@@ -409,14 +410,16 @@ export function StageDimensionFields({
   const commit = useCallback(() => {
     if (disabled) return;
     const { width, depth, side, back, guide } = previewMm;
-    setProject((p) => ({
-      ...p,
-      stageWidthMm: width,
-      stageDepthMm: depth,
-      sideStageMm: side,
-      backStageMm: back,
-      centerFieldGuideIntervalMm: guide,
-    }));
+    setProject((p) =>
+      stripFormationStageSnapshots({
+        ...p,
+        stageWidthMm: width,
+        stageDepthMm: depth,
+        sideStageMm: side,
+        backStageMm: back,
+        centerFieldGuideIntervalMm: guide,
+      })
+    );
     onCommit?.();
   }, [disabled, previewMm, setProject, onCommit]);
 

@@ -127,10 +127,7 @@ import { useI18n } from "../i18n/I18nContext";
 import { btnAccent, btnSecondary, inputField } from "../components/stageButtonStyles";
 import { panelCard, shell } from "../theme/choreoShell";
 import { useYjsCollaboration } from "../hooks/useYjsCollaboration";
-import {
-  captureStageSnapshot,
-  mergeStageSnapshotIntoProject,
-} from "../lib/savedSpotStageSnapshot";
+import { stripFormationStageSnapshots } from "../lib/savedSpotStageSnapshot";
 import { getViewRosterEntries } from "../lib/viewRoster";
 import { collectViewerStageMemoTexts } from "../lib/viewerStageMemo";
 import {
@@ -427,8 +424,6 @@ export function EditorPage({
     startH: number;
   } | null>(null);
   const rightPaneStackRef = useRef<HTMLDivElement>(null);
-  /** 舞台設定の保存・復元に使う直前のフォーメーション id（キュー／アクティブ切替） */
-  const lastFormationIdForStageRef = useRef<string | null>(null);
 
   const collabActive =
     collabParam &&
@@ -1027,62 +1022,6 @@ export function EditorPage({
     [project]
   );
 
-  /**
-   * 舞台スナップショット同期は「どのフォーメーションを見ているか」が変わったときだけ走らせる。
-   * `project` 参照を依存に含めない（共同編集で毎同期ごとに新オブジェクトになるのを避ける）。
-   */
-  const navFormationId = useMemo(() => {
-    if (selectedCueId && cueIdsSig.length > 0) {
-      const prefix = `${selectedCueId}:`;
-      for (const part of cueIdsSig.split("|")) {
-        if (!part.startsWith(prefix)) continue;
-        const rest = part.slice(prefix.length);
-        const bits = rest.split(":");
-        if (bits.length >= 3) {
-          const fid = bits[bits.length - 1];
-          if (fid) return fid;
-        }
-      }
-    }
-    return activeFormationId;
-  }, [selectedCueId, activeFormationId, cueIdsSig]);
-
-  useEffect(() => {
-    lastFormationIdForStageRef.current = null;
-  }, [projectId]);
-
-  /**
-   * フォーメーション（ページ）を切り替えたとき、直前ページの舞台設定を `stageSnapshot` に保存し、
-   * 次のページに保存済みがあればプロジェクトの舞台へ復元する。
-   */
-  useEffect(() => {
-    const p = projectRef.current;
-    if (!p || !navFormationId) return;
-    const nextId = navFormationId;
-    const prevId = lastFormationIdForStageRef.current;
-    if (prevId === nextId) return;
-
-    if (prevId !== null) {
-      setProjectSafe((cur) => {
-        const snap = captureStageSnapshot(cur);
-        const formations1 = cur.formations.map((f) =>
-          f.id === prevId ? { ...f, stageSnapshot: snap } : f
-        );
-        const base: ChoreographyProjectJson = { ...cur, formations: formations1 };
-        const nf = formations1.find((f) => f.id === nextId);
-        return nf?.stageSnapshot
-          ? mergeStageSnapshotIntoProject(base, nf.stageSnapshot)
-          : base;
-      });
-    } else {
-      const nf = p.formations.find((f) => f.id === nextId);
-      if (nf?.stageSnapshot) {
-        setProjectSafe((cur) => mergeStageSnapshotIntoProject(cur, nf.stageSnapshot));
-      }
-    }
-    lastFormationIdForStageRef.current = nextId;
-  }, [navFormationId, setProjectSafe]);
-
   const cuesSortedForStageJump = useMemo(
     () => (project ? sortCuesByStart(project.cues) : []),
     [project, cueIdsSig]
@@ -1386,25 +1325,27 @@ export function EditorPage({
     }));
     setGridWidthCmInput(String(gridWidthCm));
     setGridDepthCmInput(String(gridDepthCm));
-    setProjectSafe((p) => ({
-      ...p,
-      audienceEdge: d.audienceEdge,
-      stageWidthMm: w,
-      stageDepthMm: depthMm,
-      sideStageMm: s,
-      backStageMm: b,
-      centerFieldGuideIntervalMm: g,
-      snapGrid: d.stageGridLinesVerticalEnabled || d.stageGridLinesHorizontalEnabled,
-      gridStep: d.gridStep,
-      stageGridLinesVerticalEnabled: d.stageGridLinesVerticalEnabled,
-      stageGridLinesHorizontalEnabled: d.stageGridLinesHorizontalEnabled,
-      stageGridLinesEnabled:
-        d.stageGridLinesVerticalEnabled || d.stageGridLinesHorizontalEnabled,
-      stageGridSpacingWidthMm: gw,
-      stageGridLineSpacingMm: gw,
-      stageGridSpacingDepthMm: gd,
-      dancerLabelPosition: d.dancerLabelPosition,
-    }));
+    setProjectSafe((p) =>
+      stripFormationStageSnapshots({
+        ...p,
+        audienceEdge: d.audienceEdge,
+        stageWidthMm: w,
+        stageDepthMm: depthMm,
+        sideStageMm: s,
+        backStageMm: b,
+        centerFieldGuideIntervalMm: g,
+        snapGrid: d.stageGridLinesVerticalEnabled || d.stageGridLinesHorizontalEnabled,
+        gridStep: d.gridStep,
+        stageGridLinesVerticalEnabled: d.stageGridLinesVerticalEnabled,
+        stageGridLinesHorizontalEnabled: d.stageGridLinesHorizontalEnabled,
+        stageGridLinesEnabled:
+          d.stageGridLinesVerticalEnabled || d.stageGridLinesHorizontalEnabled,
+        stageGridSpacingWidthMm: gw,
+        stageGridLineSpacingMm: gw,
+        stageGridSpacingDepthMm: gd,
+        dancerLabelPosition: d.dancerLabelPosition,
+      })
+    );
   }, [project, setProjectSafe, gridWidthCmInput, gridDepthCmInput]);
 
   const stageAreaDraftHasMainFloor = useMemo(() => {

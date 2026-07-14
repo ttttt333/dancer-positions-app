@@ -38,7 +38,7 @@ import {
   FORMATION_BOX_CHANGE_EVENT,
   listFormationBoxItems,
 } from "../lib/formationBox";
-import { mergeStageSnapshotIntoProject } from "../lib/savedSpotStageSnapshot";
+import { mergeStageSnapshotIntoProject, stripFormationStageSnapshots } from "../lib/savedSpotStageSnapshot";
 import { FormationBoxItemThumb } from "./FormationBoxItemThumb";
 import { ParsePositionFromPhotoDialog } from "./ParsePositionFromPhotoDialog";
 import { useI18n } from "../i18n/I18nContext";
@@ -717,7 +717,9 @@ export function AddCueWithFormationDialog({
       if (addMode === "saved" && savedSlotId) {
         const slot = p.savedSpotLayouts.find((s) => s.id === savedSlotId);
         if (slot?.stageSnapshot) {
-          proj = mergeStageSnapshotIntoProject(proj, slot.stageSnapshot);
+          proj = stripFormationStageSnapshots(
+            mergeStageSnapshotIntoProject(proj, slot.stageSnapshot)
+          );
         }
       }
       return proj;
