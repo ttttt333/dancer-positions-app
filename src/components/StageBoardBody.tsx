@@ -105,6 +105,7 @@ import {
   type StageDancerSnapMode,
 } from "../engine/stage";
 import { useStageBoardInteractionStore } from "../store/stage/stageBoardInteractionStore";
+import { STAGE_BOARD_ABORT_POINTER_GESTURES } from "../lib/stageBoardGestureAbort";
 
 /**
  * ステージボードの実装本体。`useStageDancerMarkerElements` / `useSetPieceBlockElements` 等で束ね、return 直前では次の順にオブジェクトを組み立てる:
@@ -146,6 +147,7 @@ export function StageBoardBody({
   onOpenTextEditSheet,
   showMotionArrows = false,
   onOpenDancerPathEditor,
+  enablePinchViewport = false,
 }: StageBoardBodyProps) {
   const {
     isPlaying,
@@ -604,6 +606,52 @@ export function StageBoardBody({
     setBulkHideDancerGlyphs(false);
     setGroupRotateGuideDeltaDeg(null);
   }, [formationIdForWrites, onGestureHistoryCancel, clearSelectedDancers]);
+
+  /** ピンチ拡大など: 進行中のドラッグを破棄する */
+  useEffect(() => {
+    const abort = () => {
+      const hadGesture =
+        dragRef.current != null ||
+        groupDragRef.current != null ||
+        setPieceDragRef.current != null ||
+        markerResizeRef.current != null ||
+        markerRotateRef.current != null ||
+        floorMarkupTextDragRef.current != null ||
+        floorTextResizeDragRef.current != null ||
+        floorTextPlaceDragRef.current != null ||
+        floorTextMultiDragRef.current != null ||
+        floorTextTapOrDragRef.current != null ||
+        marqueeSessionRef.current != null;
+      if (hadGesture) onGestureHistoryCancel?.();
+      dragRef.current = null;
+      groupDragRef.current = null;
+      setPieceDragRef.current = null;
+      markerResizeRef.current = null;
+      markerRotateRef.current = null;
+      markerFacingDraftRef.current = null;
+      markerGroupPosDraftRef.current = null;
+      floorMarkupTextDragRef.current = null;
+      floorTextTapOrDragRef.current = null;
+      floorTextResizeDragRef.current = null;
+      floorTextPlaceDragRef.current = null;
+      floorTextMultiDragRef.current = null;
+      marqueeSessionRef.current = null;
+      setMarquee(null);
+      setMarkerDiamDraft(null);
+      setMarkerFacingDraft(null);
+      setMarkerGroupPosDraft(null);
+      setDragGhostById(null);
+      setBulkHideDancerGlyphs(false);
+      setAlignGuides({ x: null, y: null });
+      setTrashUiVisible(false);
+      trashRevealActiveRef.current = false;
+      setGroupRotateGuideDeltaDeg(null);
+    };
+    window.addEventListener(STAGE_BOARD_ABORT_POINTER_GESTURES, abort);
+    return () => {
+      window.removeEventListener(STAGE_BOARD_ABORT_POINTER_GESTURES, abort);
+    };
+  }, [onGestureHistoryCancel]);
 
   useEffect(() => {
     setShowStageDancerColorToolbar(false);
@@ -4311,6 +4359,7 @@ export function StageBoardBody({
           <StageBoardStageFrame
             compactViewportChrome={compactViewportChrome}
             compactLandscapeViewport={compactLandscapeViewport}
+            enablePinchViewport={enablePinchViewport}
             hasStageDims={hasStageDims}
             outerWmm={outerWmm}
             outerDmm={outerDmm}

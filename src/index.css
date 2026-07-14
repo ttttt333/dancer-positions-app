@@ -1099,6 +1099,12 @@ html.choreo-public-view-html::backdrop {
   .choreo-public-view-root #stage-export-root {
     overflow: visible !important;
   }
+  .choreo-public-view-root .stage-board-pinch-clip {
+    overflow: hidden !important;
+    min-width: 0;
+    min-height: 0;
+    touch-action: none;
+  }
   .choreo-viewer-bars__cue-label {
     flex: 0 1 auto;
     min-width: 4.5em;
@@ -1378,6 +1384,7 @@ html.choreo-public-view-html::backdrop {
   }
   .choreo-public-view-root--landscape .stage-board-fit-viewport,
   .choreo-public-view-root--landscape .stage-board-fit-viewport-inner,
+  .choreo-public-view-root--landscape .stage-board-pinch-clip,
   .choreo-public-view-root--landscape .stage-board-stage-wrapper {
     flex: 1 1 auto;
     min-height: 0;
@@ -2209,6 +2216,17 @@ html[data-landscape-wave-collapsed] {
 [data-shell-landscape]:not([data-landscape-wave-collapsed]) .stage-board-fit-viewport-inner {
   align-items: stretch !important;
   justify-content: flex-end !important;
+}
+
+[data-shell-landscape]:not([data-landscape-wave-collapsed]) .stage-board-pinch-clip {
+  align-items: flex-end !important;
+  justify-content: center !important;
+  width: 100%;
+  flex: 1 1 auto !important;
+  min-height: 0;
+  align-self: stretch !important;
+  overflow: hidden;
+  touch-action: none;
 }
 
 [data-shell-landscape]:not([data-landscape-wave-collapsed]) .stage-board-stage-wrapper {

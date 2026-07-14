@@ -8,6 +8,7 @@ import {
   StageExportRootColumn,
   type StageExportRootColumnProps,
 } from "./StageExportRootColumn";
+import { useStageBoardPinchViewport } from "../hooks/useStageBoardPinchViewport";
 
 export type StageBoardStageFrameProps = Omit<
   StageRotatedStageFrameProps,
@@ -18,6 +19,8 @@ export type StageBoardStageFrameProps = Omit<
   compactViewportChrome?: boolean;
   /** 閲覧横画面: `compactViewportChrome` 時の帯余白をさらに詰める */
   compactLandscapeViewport?: boolean;
+  /** スマホ: ピンチ拡大縮小（波形とは独立） */
+  enablePinchViewport?: boolean;
 };
 
 /**
@@ -27,6 +30,7 @@ export function StageBoardStageFrame({
   exportColumn,
   compactViewportChrome = false,
   compactLandscapeViewport = false,
+  enablePinchViewport = false,
   ...rotatedFrame
 }: StageBoardStageFrameProps) {
   /**
@@ -38,6 +42,8 @@ export function StageBoardStageFrame({
   const rotNorm = ((rotatedFrame.rotationDeg % 360) + 360) % 360;
   const isAudienceTop = rotNorm === 180;
 
+  const pinch = useStageBoardPinchViewport(enablePinchViewport);
+
   const wrapperStyle: CSSProperties = {
     display: "flex",
     justifyContent: "center",
@@ -45,6 +51,7 @@ export function StageBoardStageFrame({
     minWidth: 0,
     minHeight: 0,
     flex: "1 1 0%",
+    ...pinch.wrapperStyle,
   };
 
   /**
@@ -77,17 +84,39 @@ export function StageBoardStageFrame({
     paddingBottom = backstageBandPad;
   }
 
+  const stageInner = (
+    <div
+      ref={pinch.wrapperRef}
+      className="stage-board-stage-wrapper"
+      style={wrapperStyle}
+    >
+      <StageRotatedStageFrame {...rotatedFrame}>
+        <StageExportRootColumn {...exportColumn} />
+      </StageRotatedStageFrame>
+    </div>
+  );
+
   return (
     <StageBoardFitViewport
       alignTop={isAudienceTop}
       paddingTop={paddingTop}
       paddingBottom={paddingBottom}
     >
-      <div className="stage-board-stage-wrapper" style={wrapperStyle}>
-        <StageRotatedStageFrame {...rotatedFrame}>
-          <StageExportRootColumn {...exportColumn} />
-        </StageRotatedStageFrame>
-      </div>
+      {enablePinchViewport ? (
+        <div
+          ref={pinch.clipRef}
+          className="stage-board-pinch-clip"
+          style={pinch.clipStyle}
+          onPointerDownCapture={pinch.onPointerDownCapture}
+          onPointerMoveCapture={pinch.onPointerMoveCapture}
+          onPointerUpCapture={pinch.onPointerUpCapture}
+          onPointerCancelCapture={pinch.onPointerCancelCapture}
+        >
+          {stageInner}
+        </div>
+      ) : (
+        stageInner
+      )}
     </StageBoardFitViewport>
   );
 }

@@ -149,6 +149,8 @@ export type StageBoardBodyProps = {
    * 指定されたときのみボタンが表示される。
    */
   onOpenDancerPathEditor?: () => void;
+  /** スマホ編集／閲覧: ステージをピンチで拡大縮小する */
+  enablePinchViewport?: boolean;
 };
 
 export type { BuildStageBoardExportColumnInput } from "../lib/buildStageBoardExportColumnProps";

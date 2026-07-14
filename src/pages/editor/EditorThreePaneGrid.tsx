@@ -904,6 +904,9 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     audienceEdgeOverride={audienceEdgeOverride}
                     trashDropEdge={mobileStackEditor ? "bottom" : "left"}
                     showMotionArrows={showMotionArrows}
+                    enablePinchViewport={
+                      Boolean(mobileStackEditor) || Boolean(publicNarrowLayout)
+                    }
                     onOpenDancerPathEditor={
                       choreoPublicView
                         ? undefined
