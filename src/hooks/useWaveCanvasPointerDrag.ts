@@ -162,9 +162,17 @@ export function useWaveCanvasPointerDrag({
   /** レイアウト／ズーム変更で進行中ドラッグを無効化（誤コミット防止） */
   const waveDragSessionRef = useRef(0);
   const cueDragViewLockRef = useRef<WavePointerViewLock | null>(null);
+  /**
+   * 進行中のキュー枠ドラッグ用 window リスナーの解除関数。
+   * abort 時にも必ず呼んで detach し、ダングリングリスナーが残らないようにする
+   * （残ると、以後の別ポインタ操作で古いドラッグ判定が誤発火し得る）。
+   */
+  const cueDragCleanupRef = useRef<(() => void) | null>(null);
 
   const abortActiveWaveDrags = useCallback(() => {
     waveDragSessionRef.current += 1;
+    cueDragCleanupRef.current?.();
+    cueDragCleanupRef.current = null;
     cueDragRef.current = null;
     cueDragPreviewRangeRef.current = null;
     cueDragViewLockRef.current = null;
@@ -660,6 +668,9 @@ export function useWaveCanvasPointerDrag({
           window.removeEventListener("pointermove", onMove);
           window.removeEventListener("pointerup", onUp);
           window.removeEventListener("pointercancel", onCancel);
+          if (cueDragCleanupRef.current === detachCueDragListeners) {
+            cueDragCleanupRef.current = null;
+          }
         };
         const cleanupCueDrag = (redrawAfter = true) => {
           stopCueEdgeScrollLoop();
@@ -763,6 +774,7 @@ export function useWaveCanvasPointerDrag({
         window.addEventListener("pointermove", onMove);
         window.addEventListener("pointerup", onUp);
         window.addEventListener("pointercancel", onCancel);
+        cueDragCleanupRef.current = detachCueDragListeners;
         redraw();
         return;
       }

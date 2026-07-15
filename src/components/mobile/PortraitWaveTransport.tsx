@@ -780,8 +780,17 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
         return;
       }
 
-      const treatAsTap = !dragArmedRef.current || movedPx <= TAP_MAX_MOVE_PX;
+      const wasDragArmed = dragArmedRef.current;
+      const treatAsTap = !wasDragArmed || movedPx <= TAP_MAX_MOVE_PX;
       dragArmedRef.current = false;
+
+      if (treatAsTap && wasDragArmed) {
+        // CUE_DRAG_ARM_PX(12px) < TAP_MAX_MOVE_PX(16px) の間の指のブレで
+        // 一旦キュー枠ドラッグ判定（PC 共通ハンドラ側）が先走って armed になっていた場合、
+        // タップ／ダブルタップ扱いに戻す前に必ず破棄する。
+        // 破棄しないと、次の操作でキュー枠の拡大・移動ができなくなることがあった。
+        abortTimelineWavePointerGestures();
+      }
 
       if (treatAsTap) {
         const now = Date.now();
@@ -916,14 +925,13 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       </div>
       <div className={styles.row}>
         <div className={`${ctrlStyles.controls} ${styles.rowControls}`}>
-          <div className={ctrlStyles.group}>
             <button
               className={`${ctrlStyles.btn} ${ctrlStyles.skipBtn}`}
               onClick={handleSkipBack}
               disabled={!audioUrl}
               aria-label="5秒戻す"
             >
-              <TransportIconSkipBack size={20} className={ctrlStyles.icon} />
+              <TransportIconSkipBack size={18} className={ctrlStyles.icon} />
               <span className={ctrlStyles.skipBadge}>5</span>
             </button>
             <button
@@ -932,7 +940,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
               disabled={!audioUrl}
               aria-label="5秒進める"
             >
-              <TransportIconSkipForward size={20} className={ctrlStyles.icon} />
+              <TransportIconSkipForward size={18} className={ctrlStyles.icon} />
               <span className={ctrlStyles.skipBadge}>5</span>
             </button>
             <button
@@ -942,9 +950,9 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
               aria-label={isPlaying ? "一時停止" : "再生"}
             >
               {isPlaying ? (
-                <TransportIconPause size={22} className={ctrlStyles.iconPrimary} />
+                <TransportIconPause size={20} className={ctrlStyles.iconPrimary} />
               ) : (
-                <TransportIconPlay size={22} className={ctrlStyles.iconPrimary} />
+                <TransportIconPlay size={20} className={ctrlStyles.iconPrimary} />
               )}
             </button>
             <button
@@ -953,11 +961,9 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
               disabled={!audioUrl}
               aria-label="停止して先頭へ"
             >
-              <TransportIconStop size={18} className={ctrlStyles.icon} />
+              <TransportIconStop size={16} className={ctrlStyles.icon} />
             </button>
-          </div>
           <div className={ctrlStyles.divider} aria-hidden />
-          <div className={ctrlStyles.group}>
             <button
               className={ctrlStyles.btn}
               onClick={handleZoomIn}
@@ -965,7 +971,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
               aria-label="波形を拡大"
               title="波形を拡大"
             >
-              <TransportIconZoomIn size={20} className={ctrlStyles.icon} />
+              <TransportIconZoomIn size={18} className={ctrlStyles.icon} />
             </button>
             <button
               className={ctrlStyles.btn}
@@ -974,11 +980,9 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
               aria-label="波形を縮小"
               title="波形を縮小"
             >
-              <TransportIconZoomOut size={20} className={ctrlStyles.icon} />
+              <TransportIconZoomOut size={18} className={ctrlStyles.icon} />
             </button>
-          </div>
           <div className={ctrlStyles.divider} aria-hidden />
-          <div className={ctrlStyles.group}>
             <button
               className={ctrlStyles.btn}
               onClick={handleZoomToBig}
@@ -986,7 +990,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
               aria-label="波形を大きく拡大"
               title="波形を大きく拡大"
             >
-              <TransportIconWaveZoomBig size={20} className={ctrlStyles.icon} />
+              <TransportIconWaveZoomBig size={18} className={ctrlStyles.icon} />
             </button>
             <button
               className={ctrlStyles.btn}
@@ -995,9 +999,8 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
               aria-label="波形を全体表示"
               title="波形を全体表示"
             >
-              <TransportIconWaveZoomFit size={20} className={ctrlStyles.icon} />
+              <TransportIconWaveZoomFit size={18} className={ctrlStyles.icon} />
             </button>
-          </div>
         </div>
       </div>
       </>
