@@ -9,6 +9,10 @@ import {
   type RefObject,
 } from "react";
 import { abortStageBoardPointerGestures } from "../lib/stageBoardGestureAbort";
+import {
+  STAGE_EDIT_ZOOM,
+  useStageBoardPinchViewportStore,
+} from "../store/stageBoardPinchViewportStore";
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
@@ -96,6 +100,34 @@ export function useStageBoardPinchViewport(
     lastTapRef.current = null;
     setView({ zoom: 1, panX: 0, panY: 0 });
   }, [enabled]);
+
+  const zoomToFit = useCallback(() => {
+    setView({ zoom: 1, panX: 0, panY: 0 });
+  }, []);
+
+  const zoomToEdit = useCallback(() => {
+    setView({ zoom: STAGE_EDIT_ZOOM, panX: 0, panY: 0 });
+  }, []);
+
+  useEffect(() => {
+    const store = useStageBoardPinchViewportStore.getState();
+    store.setEnabled(enabled);
+    store.setZoom(view.zoom);
+  }, [enabled, view.zoom]);
+
+  useEffect(() => {
+    if (!enabled) {
+      useStageBoardPinchViewportStore.getState().unregister();
+      return;
+    }
+    useStageBoardPinchViewportStore.getState().register({
+      zoomToEdit,
+      zoomToFit,
+    });
+    return () => {
+      useStageBoardPinchViewportStore.getState().unregister();
+    };
+  }, [enabled, zoomToEdit, zoomToFit]);
 
   const clientToLocal = useCallback(
     (clientX: number, clientY: number, vs = viewRef.current) => {

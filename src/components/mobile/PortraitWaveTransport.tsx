@@ -11,6 +11,8 @@ import {
   TransportIconPlay,
   TransportIconSkipBack,
   TransportIconSkipForward,
+  TransportIconStageZoomEdit,
+  TransportIconStageZoomFit,
   TransportIconStop,
   TransportIconZoomIn,
   TransportIconZoomOut,
@@ -20,6 +22,9 @@ import { useTimelineWaveBridgeStore } from "../../store/timelineWaveBridgeStore"
 import { WaveformLoadOverlay } from "../WaveformLoadOverlay";
 import { useWaveformLoadProgressStore } from "../../store/waveformLoadProgressStore";
 import { useMobileShellBridgeStore } from "../../store/useMobileShellBridgeStore";
+import {
+  useStageBoardPinchViewportStore,
+} from "../../store/stageBoardPinchViewportStore";
 import { playbackEngine } from "../../core/playbackEngine";
 import {
   beginPlaybackScrubSession,
@@ -148,6 +153,10 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   );
   const trimStartSec = useMobileShellBridgeStore((s) => s.trimStartSec);
   const trimEndSec = useMobileShellBridgeStore((s) => s.trimEndSec);
+  const stagePinchEnabled = useStageBoardPinchViewportStore((s) => s.enabled);
+  const stagePinchZoom = useStageBoardPinchViewportStore((s) => s.zoom);
+  const stageZoomToEdit = useStageBoardPinchViewportStore((s) => s.zoomToEdit);
+  const stageZoomToFit = useStageBoardPinchViewportStore((s) => s.zoomToFit);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const playheadLineRef = useRef<HTMLDivElement>(null);
@@ -878,6 +887,14 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       style={{ ["--portrait-wave-h" as string]: `${waveHeightPx}px` } as React.CSSProperties}
     >
       {showTransportControls ? (
+      <>
+      <div className={styles.timeRow}>
+        <span className={styles.timeText}>
+          {fmt(currentTime)}
+          <span className={styles.timeSep}>/</span>
+          {fmt(duration)}
+        </span>
+      </div>
       <div className={styles.row}>
         <div className={`${ctrlStyles.controls} ${styles.rowControls}`}>
           <div className={ctrlStyles.group}>
@@ -887,7 +904,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
               disabled={!audioUrl}
               aria-label="5秒戻す"
             >
-              <TransportIconSkipBack size={22} className={ctrlStyles.icon} />
+              <TransportIconSkipBack size={20} className={ctrlStyles.icon} />
               <span className={ctrlStyles.skipBadge}>5</span>
             </button>
             <button
@@ -896,7 +913,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
               disabled={!audioUrl}
               aria-label="5秒進める"
             >
-              <TransportIconSkipForward size={22} className={ctrlStyles.icon} />
+              <TransportIconSkipForward size={20} className={ctrlStyles.icon} />
               <span className={ctrlStyles.skipBadge}>5</span>
             </button>
             <button
@@ -906,9 +923,9 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
               aria-label={isPlaying ? "一時停止" : "再生"}
             >
               {isPlaying ? (
-                <TransportIconPause size={24} className={ctrlStyles.iconPrimary} />
+                <TransportIconPause size={22} className={ctrlStyles.iconPrimary} />
               ) : (
-                <TransportIconPlay size={24} className={ctrlStyles.iconPrimary} />
+                <TransportIconPlay size={22} className={ctrlStyles.iconPrimary} />
               )}
             </button>
             <button
@@ -917,7 +934,7 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
               disabled={!audioUrl}
               aria-label="停止して先頭へ"
             >
-              <TransportIconStop size={20} className={ctrlStyles.icon} />
+              <TransportIconStop size={18} className={ctrlStyles.icon} />
             </button>
           </div>
           <div className={ctrlStyles.divider} aria-hidden />
@@ -927,27 +944,44 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
               onClick={handleZoomIn}
               disabled={!audioUrl || zoom >= MAX_ZOOM - 0.01}
               aria-label="波形を拡大"
-              title="拡大"
+              title="波形を拡大"
             >
-              <TransportIconZoomIn size={22} className={ctrlStyles.icon} />
+              <TransportIconZoomIn size={20} className={ctrlStyles.icon} />
             </button>
             <button
               className={ctrlStyles.btn}
               onClick={handleZoomOut}
               disabled={!audioUrl || zoom <= MIN_ZOOM + 0.01}
               aria-label="波形を縮小"
-              title="縮小"
+              title="波形を縮小"
             >
-              <TransportIconZoomOut size={22} className={ctrlStyles.icon} />
+              <TransportIconZoomOut size={20} className={ctrlStyles.icon} />
+            </button>
+          </div>
+          <div className={ctrlStyles.divider} aria-hidden />
+          <div className={ctrlStyles.group}>
+            <button
+              className={ctrlStyles.btn}
+              onClick={stageZoomToEdit}
+              disabled={!stagePinchEnabled}
+              aria-label="ステージを編集しやすい倍率へ拡大"
+              title="ステージ拡大"
+            >
+              <TransportIconStageZoomEdit size={20} className={ctrlStyles.icon} />
+            </button>
+            <button
+              className={ctrlStyles.btn}
+              onClick={stageZoomToFit}
+              disabled={!stagePinchEnabled || stagePinchZoom <= 1.01}
+              aria-label="ステージを全体表示へ縮小"
+              title="ステージ全体表示"
+            >
+              <TransportIconStageZoomFit size={20} className={ctrlStyles.icon} />
             </button>
           </div>
         </div>
-        <span className={styles.timeText}>
-          {fmt(currentTime)}
-          <span className={styles.timeSep}>/</span>
-          {fmt(duration)}
-        </span>
       </div>
+      </>
       ) : null}
 
       {!showTransportControls && showWaveOnlyMetaRow ? (

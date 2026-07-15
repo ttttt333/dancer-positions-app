@@ -2,8 +2,8 @@
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  padding: 6px 0 4px;
-  min-height: calc(138px + 5mm);
+  padding: 4px 0 4px;
+  min-height: calc(150px + 5mm);
 }
 
 .transportWaveOnly {
@@ -114,50 +114,82 @@
 .row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   margin-bottom: 6px;
   flex-shrink: 0;
   min-width: 0;
   width: 100%;
   box-sizing: border-box;
-  padding: 0 6px;
+  padding: 0 4px;
+  padding-left: max(4px, env(safe-area-inset-left, 4px));
+  padding-right: max(4px, env(safe-area-inset-right, 4px));
+}
+
+.timeRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 8px 2px;
+  padding-left: max(8px, env(safe-area-inset-left, 8px));
   padding-right: max(8px, env(safe-area-inset-right, 8px));
+  flex-shrink: 0;
 }
 
 .rowControls {
-  flex: 1 1 0;
+  flex: 1 1 auto;
+  flex-shrink: 1;
   min-width: 0;
-  overflow: hidden;
+  width: 100%;
+  overflow: visible;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+}
+
+.rowControls :global(.group) {
+  gap: 3px;
+  flex: 0 0 auto;
+}
+
+.rowControls :global(.divider) {
+  height: 24px;
+  margin: 0 1px;
 }
 
 .rowControls :global(.btn) {
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
 }
 
 .rowControls :global(.btnPrimary) {
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
 }
 
 .rowControls :global(.skipBadge) {
-  right: 3px;
-  bottom: 3px;
+  right: 2px;
+  bottom: 2px;
   font-size: 7px;
 }
 
 .timeText {
-  font-family: monospace;
-  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  font-weight: 700;
   color: #f1f5f9;
   white-space: nowrap;
-  margin-left: auto;
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 4px;
   letter-spacing: -0.02em;
-  padding-right: 1px;
+  font-variant-numeric: tabular-nums;
 }
 .timeSep {
   color: #4b5563;

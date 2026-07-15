@@ -81,6 +81,66 @@ export function TransportIconZoomOut(props: IconProps) {
   );
 }
 
+/** ステージを編集しやすい倍率へ一気に拡大 */
+export function TransportIconStageZoomEdit(props: IconProps) {
+  return (
+    <svg {...iconProps(props)}>
+      <path
+        d="M4.5 9.5V5.5A1 1 0 0 1 5.5 4.5h4"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M14.5 4.5h4A1 1 0 0 1 19.5 5.5v4"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M19.5 14.5v4a1 1 0 0 1-1 1h-4"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M9.5 19.5h-4a1 1 0 0 1-1-1v-4"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M10 8h1.2v6H10V8Zm-2 3.4h6v1.2H8v-1.2Z"
+        fill="currentColor"
+        fillRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+/** ステージ全体が見える倍率へ縮小 */
+export function TransportIconStageZoomFit(props: IconProps) {
+  return (
+    <svg {...iconProps(props)}>
+      <rect
+        x="4.5"
+        y="4.5"
+        width="15"
+        height="15"
+        rx="2"
+        stroke="currentColor"
+        strokeWidth="2"
+        fill="none"
+      />
+      <path d="M8 12h8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function TransportIconChevronLeft(props: IconProps) {
   return (
     <svg {...iconProps(props)}>
