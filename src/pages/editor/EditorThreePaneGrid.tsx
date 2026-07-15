@@ -18,6 +18,7 @@ import {
 } from "../../components/ChoreoViewerBottomBar";
 import { DEFAULT_DANCER_MARKER_DIAMETER_PX } from "../../lib/projectDefaults";
 import { sortCuesByStart } from "../../core/timelineController";
+import { TransportIconUndo, TransportIconRedo } from "../../components/mobile/TransportIcons";
 
 const Stage3DView = lazy(() =>
   import("../../components/Stage3DView").then((m) => ({ default: m.Stage3DView }))
@@ -1046,6 +1047,32 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                           />
                         </div>
                       ) : null}
+                      <div
+                        role="group"
+                        aria-label="操作履歴"
+                        className="editor-stage-landscape-btnRow"
+                      >
+                        <button
+                          type="button"
+                          className="editor-stage-landscape-btn"
+                          onClick={() => undoFnRef.current?.()}
+                          disabled={Boolean(stageUndoDisabled)}
+                          aria-label="元に戻す"
+                          title="元に戻す"
+                        >
+                          <TransportIconUndo size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          className="editor-stage-landscape-btn"
+                          onClick={() => redoFnRef.current?.()}
+                          disabled={Boolean(stageRedoDisabled)}
+                          aria-label="やり直す"
+                          title="やり直す"
+                        >
+                          <TransportIconRedo size={16} />
+                        </button>
+                      </div>
                       <div
                         className="editor-stage-landscape-time"
                         aria-live="polite"

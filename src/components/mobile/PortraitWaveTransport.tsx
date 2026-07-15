@@ -11,9 +11,9 @@ import {
   TransportIconPlay,
   TransportIconSkipBack,
   TransportIconSkipForward,
-  TransportIconStageZoomEdit,
-  TransportIconStageZoomFit,
   TransportIconStop,
+  TransportIconWaveZoomBig,
+  TransportIconWaveZoomFit,
   TransportIconZoomIn,
   TransportIconZoomOut,
 } from "./TransportIcons";
@@ -22,9 +22,6 @@ import { useTimelineWaveBridgeStore } from "../../store/timelineWaveBridgeStore"
 import { WaveformLoadOverlay } from "../WaveformLoadOverlay";
 import { useWaveformLoadProgressStore } from "../../store/waveformLoadProgressStore";
 import { useMobileShellBridgeStore } from "../../store/useMobileShellBridgeStore";
-import {
-  useStageBoardPinchViewportStore,
-} from "../../store/stageBoardPinchViewportStore";
 import { playbackEngine } from "../../core/playbackEngine";
 import {
   beginPlaybackScrubSession,
@@ -54,6 +51,9 @@ const MIN_ZOOM = 1;
 const MAX_ZOOM = 48;
 /** +/- ボタン: 1回あたり 10% ずつ拡大・縮小 */
 const ZOOM_BUTTON_STEP = 1.1;
+/** 「波形を大きく拡大」ボタン: + ボタンを 15 回押した倍率へ一気にズーム */
+const BIG_ZOOM_BUTTON_PRESSES = 15;
+const BIG_ZOOM_TARGET = ZOOM_BUTTON_STEP ** BIG_ZOOM_BUTTON_PRESSES;
 const DOUBLE_TAP_MS = 350;
 const LONG_PRESS_MS = 520;
 const PORTRAIT_WAVE_CSS_H = 96;
@@ -92,6 +92,10 @@ export type PortraitWaveTransportHandle = {
   skipForward: () => void;
   zoomIn: () => void;
   zoomOut: () => void;
+  /** + ボタン15回相当の倍率へ一気にズーム */
+  zoomToBig: () => void;
+  /** 全体が見える最小倍率へ一気にズーム */
+  zoomToFit: () => void;
 };
 
 function fmt(sec: number): string {
@@ -153,10 +157,6 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
   );
   const trimStartSec = useMobileShellBridgeStore((s) => s.trimStartSec);
   const trimEndSec = useMobileShellBridgeStore((s) => s.trimEndSec);
-  const stagePinchEnabled = useStageBoardPinchViewportStore((s) => s.enabled);
-  const stagePinchZoom = useStageBoardPinchViewportStore((s) => s.zoom);
-  const stageZoomToEdit = useStageBoardPinchViewportStore((s) => s.zoomToEdit);
-  const stageZoomToFit = useStageBoardPinchViewportStore((s) => s.zoomToFit);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const playheadLineRef = useRef<HTMLDivElement>(null);
@@ -856,6 +856,16 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
     applyZoomCenteredOnPlayhead(zoom / ZOOM_BUTTON_STEP, playheadSecForUi);
   }, [applyZoomCenteredOnPlayhead, zoom, playheadSecForUi]);
 
+  /** 波形を大きく拡大: + ボタン15回相当の倍率へ一気にズーム */
+  const handleZoomToBig = useCallback(() => {
+    applyZoomCenteredOnPlayhead(BIG_ZOOM_TARGET, playheadSecForUi);
+  }, [applyZoomCenteredOnPlayhead, playheadSecForUi]);
+
+  /** 波形全体表示: 一気に最小倍率へ */
+  const handleZoomToFit = useCallback(() => {
+    applyZoomCenteredOnPlayhead(MIN_ZOOM, playheadSecForUi);
+  }, [applyZoomCenteredOnPlayhead, playheadSecForUi]);
+
   useImperativeHandle(
     ref,
     () => ({
@@ -863,8 +873,17 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
       skipForward: handleSkipForward,
       zoomIn: handleZoomIn,
       zoomOut: handleZoomOut,
+      zoomToBig: handleZoomToBig,
+      zoomToFit: handleZoomToFit,
     }),
-    [handleSkipBack, handleSkipForward, handleZoomIn, handleZoomOut]
+    [
+      handleSkipBack,
+      handleSkipForward,
+      handleZoomIn,
+      handleZoomOut,
+      handleZoomToBig,
+      handleZoomToFit,
+    ]
   );
 
   const waveOnlyStatusText =
@@ -962,21 +981,21 @@ export const PortraitWaveTransport = forwardRef<PortraitWaveTransportHandle, Pro
           <div className={ctrlStyles.group}>
             <button
               className={ctrlStyles.btn}
-              onClick={stageZoomToEdit}
-              disabled={!stagePinchEnabled}
-              aria-label="ステージを編集しやすい倍率へ拡大"
-              title="ステージ拡大"
+              onClick={handleZoomToBig}
+              disabled={!audioUrl || zoom >= BIG_ZOOM_TARGET - 0.01}
+              aria-label="波形を大きく拡大"
+              title="波形を大きく拡大"
             >
-              <TransportIconStageZoomEdit size={20} className={ctrlStyles.icon} />
+              <TransportIconWaveZoomBig size={20} className={ctrlStyles.icon} />
             </button>
             <button
               className={ctrlStyles.btn}
-              onClick={stageZoomToFit}
-              disabled={!stagePinchEnabled || stagePinchZoom <= 1.01}
-              aria-label="ステージを全体表示へ縮小"
-              title="ステージ全体表示"
+              onClick={handleZoomToFit}
+              disabled={!audioUrl || zoom <= MIN_ZOOM + 0.01}
+              aria-label="波形を全体表示"
+              title="波形を全体表示"
             >
-              <TransportIconStageZoomFit size={20} className={ctrlStyles.icon} />
+              <TransportIconWaveZoomFit size={20} className={ctrlStyles.icon} />
             </button>
           </div>
         </div>

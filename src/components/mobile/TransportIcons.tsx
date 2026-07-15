@@ -81,8 +81,8 @@ export function TransportIconZoomOut(props: IconProps) {
   );
 }
 
-/** ステージを編集しやすい倍率へ一気に拡大 */
-export function TransportIconStageZoomEdit(props: IconProps) {
+/** 波形を大きく（+ボタン15回相当）一気に拡大 */
+export function TransportIconWaveZoomBig(props: IconProps) {
   return (
     <svg {...iconProps(props)}>
       <path
@@ -122,8 +122,8 @@ export function TransportIconStageZoomEdit(props: IconProps) {
   );
 }
 
-/** ステージ全体が見える倍率へ縮小 */
-export function TransportIconStageZoomFit(props: IconProps) {
+/** 波形全体が見える倍率へ縮小 */
+export function TransportIconWaveZoomFit(props: IconProps) {
   return (
     <svg {...iconProps(props)}>
       <rect

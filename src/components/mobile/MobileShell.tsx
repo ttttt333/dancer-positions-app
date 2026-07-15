@@ -180,6 +180,14 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
     landscapeWaveRef.current?.zoomOut()
   }, [])
 
+  const handleZoomToBig = useCallback(() => {
+    landscapeWaveRef.current?.zoomToBig()
+  }, [])
+
+  const handleZoomToFit = useCallback(() => {
+    landscapeWaveRef.current?.zoomToFit()
+  }, [])
+
   return (
     <div
       className={isLandscape ? styles.landscapeRoot : styles.portraitRoot}
@@ -204,6 +212,8 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
             onSkipForward={handleSkipForward}
             onZoomIn={handleZoomIn}
             onZoomOut={handleZoomOut}
+            onZoomToBig={handleZoomToBig}
+            onZoomToFit={handleZoomToFit}
             landscapeWaveExpanded={landscapeWaveExpanded}
             onWaveExpand={() => setLandscapeWaveExpanded(true)}
             allowPanelCollapse={false}

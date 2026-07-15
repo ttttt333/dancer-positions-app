@@ -14,6 +14,8 @@ import {
   TransportIconSkipForward,
   TransportIconZoomIn,
   TransportIconZoomOut,
+  TransportIconWaveZoomBig,
+  TransportIconWaveZoomFit,
   TransportIconUndo,
   TransportIconRedo,
 } from './TransportIcons'
@@ -32,6 +34,10 @@ interface Props {
   onSkipForward: () => void
   onZoomIn: () => void
   onZoomOut: () => void
+  /** 波形を + ボタン15回相当の倍率へ一気にズーム */
+  onZoomToBig?: () => void
+  /** 波形全体が見える倍率へ一気にズーム */
+  onZoomToFit?: () => void
   landscapeWaveExpanded?: boolean
   onWaveExpand?: () => void
   /** false のとき左パネルを畳めない（波形たたみ後は舞台最大化＋再生を維持） */
@@ -56,6 +62,8 @@ export const LandscapeSidePanel: React.FC<Props> = ({
   onSkipForward,
   onZoomIn,
   onZoomOut,
+  onZoomToBig,
+  onZoomToFit,
   landscapeWaveExpanded = true,
   onWaveExpand,
   allowPanelCollapse = true,
@@ -349,6 +357,15 @@ export const LandscapeSidePanel: React.FC<Props> = ({
         </button>
         <button
           className={`${ctrlStyles.btn} ${styles.gridBtn}`}
+          onClick={onZoomIn}
+          disabled={transportDisabled}
+          aria-label="波形を拡大"
+          title="拡大"
+        >
+          <TransportIconZoomIn size={20} className={ctrlStyles.icon} />
+        </button>
+        <button
+          className={`${ctrlStyles.btn} ${styles.gridBtn}`}
           onClick={onZoomOut}
           disabled={transportDisabled}
           aria-label="波形を縮小"
@@ -356,14 +373,26 @@ export const LandscapeSidePanel: React.FC<Props> = ({
         >
           <TransportIconZoomOut size={20} className={ctrlStyles.icon} />
         </button>
+      </div>
+
+      <div className={`${ctrlStyles.controls} ${styles.controlGrid}`} role="group" aria-label="波形の拡大縮小プリセット">
         <button
           className={`${ctrlStyles.btn} ${styles.gridBtn}`}
-          onClick={onZoomIn}
-          disabled={transportDisabled}
-          aria-label="波形を拡大"
-          title="拡大"
+          onClick={onZoomToBig}
+          disabled={transportDisabled || !onZoomToBig}
+          aria-label="波形を大きく拡大"
+          title="波形を大きく拡大"
         >
-          <TransportIconZoomIn size={20} className={ctrlStyles.icon} />
+          <TransportIconWaveZoomBig size={20} className={ctrlStyles.icon} />
+        </button>
+        <button
+          className={`${ctrlStyles.btn} ${styles.gridBtn}`}
+          onClick={onZoomToFit}
+          disabled={transportDisabled || !onZoomToFit}
+          aria-label="波形を全体表示"
+          title="波形を全体表示"
+        >
+          <TransportIconWaveZoomFit size={20} className={ctrlStyles.icon} />
         </button>
       </div>
 
@@ -388,35 +417,6 @@ export const LandscapeSidePanel: React.FC<Props> = ({
         >
           キュー削除
         </button>
-
-        <div className={styles.undoRedoRow} role="group" aria-label="操作履歴">
-          <button
-            type="button"
-            className={`${styles.histBtn} ${styles.histBtnUndo}`}
-            onClick={onUndo}
-            disabled={undoDisabled}
-            aria-label="元に戻す"
-            title="元に戻す"
-          >
-            <span className={styles.histIconWrap} aria-hidden>
-              <TransportIconUndo size={20} className={styles.histIconSvg} />
-            </span>
-            <span className={styles.histLabel}>戻る</span>
-          </button>
-          <button
-            type="button"
-            className={`${styles.histBtn} ${styles.histBtnRedo}`}
-            onClick={onRedo}
-            disabled={redoDisabled}
-            aria-label="やり直す"
-            title="やり直す"
-          >
-            <span className={styles.histIconWrap} aria-hidden>
-              <TransportIconRedo size={20} className={styles.histIconSvg} />
-            </span>
-            <span className={styles.histLabel}>進む</span>
-          </button>
-        </div>
       </div>
 
       {menuOverlay}
