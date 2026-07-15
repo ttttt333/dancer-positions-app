@@ -61,4 +61,9 @@ export type TimelinePanelBodyProps = {
   audioFileInputRef?: RefObject<HTMLInputElement | null>;
   extractProgress?: TimelineExtractProgress | null;
   onPickAudio?: (e: ChangeEvent<HTMLInputElement>) => void;
+  /**
+   * 波形の空欄ダブルタップ: キューが1つも無いとき、再生ヘッドをその時刻に合わせた上で
+   * 呼び出し元に「キュー設定」（人数・雛形選択）ダイアログを開くよう通知する。
+   */
+  onRequestAddCueAtTime?: () => void;
 };

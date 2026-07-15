@@ -119,34 +119,6 @@ function useLandscapeMobileShell(): boolean {
   return active;
 }
 
-function useLandscapeWaveCollapsed(active: boolean): boolean {
-  const [collapsed, setCollapsed] = useState(false);
-  useEffect(() => {
-    if (!active) return;
-    const read = () => {
-      const root = document.querySelector("[data-shell-landscape]");
-      setCollapsed(root?.hasAttribute("data-landscape-wave-collapsed") ?? false);
-    };
-    read();
-    const root = document.querySelector("[data-shell-landscape]");
-    const observer = new MutationObserver(read);
-    if (root) {
-      observer.observe(root, {
-        attributes: true,
-        attributeFilter: ["data-landscape-wave-collapsed"],
-      });
-    }
-    window.addEventListener("resize", read);
-    window.addEventListener("orientationchange", read);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", read);
-      window.removeEventListener("orientationchange", read);
-    };
-  }, [active]);
-  return collapsed;
-}
-
 export function FormationPresetPickerSheet({
   open,
   onClose,
@@ -181,8 +153,8 @@ export function FormationPresetPickerSheet({
   const landscapeMobileShell = useLandscapeMobileShell();
   const portraitFullscreen = open && portraitMobileShell;
   const landscapeHorizontal = open && landscapeMobileShell && !portraitMobileShell;
-  const landscapeWaveCollapsed = useLandscapeWaveCollapsed(landscapeHorizontal);
-  const landscapeFullscreen = landscapeHorizontal && landscapeWaveCollapsed;
+  /** 波形表示中でも隠して構わないので、横画面では常に画面いっぱいに大きく表示する */
+  const landscapeFullscreen = landscapeHorizontal;
 
   const spacingOpts = useMemo(
     () => ({

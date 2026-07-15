@@ -1985,8 +1985,8 @@ html[data-landscape-wave-collapsed] {
   --landscape-side-panel-w: 128px;
   --landscape-stage-stack-w: 128px;
   --landscape-stage-text-gutter: 0px;
-  /* 目盛り12 + キャンバス53（chrome 行なし） */
-  --landscape-wave-dock-h: 65px;
+  /* 目盛り12 + キャンバス45（chrome 行なし・ステージ拡大のため通常より 8px=約2mm 低い） */
+  --landscape-wave-dock-h: 57px;
 }
 
 /* 横画面: Change 列（左メニュー直後・隙間なし） */
@@ -2148,6 +2148,24 @@ html[data-landscape-wave-collapsed] {
 [data-shell-landscape] .editor-stage-landscape-btn--wave-collapse:active {
   background: rgba(30, 41, 59, 0.98);
   transform: scale(0.97);
+}
+
+/* Change 列の一番下: キュー削除（左パネルの再生ボタン列から移設） */
+[data-shell-landscape] .editor-stage-landscape-btn--delete-cue {
+  width: 100%;
+  flex: none;
+  min-height: 36px;
+  height: 36px;
+  margin-top: 2px;
+  border-color: rgba(196, 30, 58, 0.55);
+  background: rgba(196, 30, 58, 0.16);
+  color: #fca5a5;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+}
+
+[data-shell-landscape] .editor-stage-landscape-btn--delete-cue:active:not(:disabled) {
+  background: rgba(196, 30, 58, 0.28);
 }
 
 [data-shell-landscape] .editor-stage-landscape-pager {
@@ -2926,7 +2944,7 @@ html[data-landscape-wave-collapsed] {
   left: var(--landscape-side-panel-w, 128px);
   right: 0;
   bottom: calc(
-    var(--landscape-wave-dock-h, 65px) + env(safe-area-inset-bottom, 0px) + 10px
+    var(--landscape-wave-dock-h, 57px) + env(safe-area-inset-bottom, 0px) + 10px
   );
   z-index: 400;
   display: flex;

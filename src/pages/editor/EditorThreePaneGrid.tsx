@@ -323,6 +323,12 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const onLandscapeWaveCollapse = useMobileShellBridgeStore(
     (s) => s.onLandscapeWaveCollapse
   );
+  const bridgeOnDeleteSelectedCue = useMobileShellBridgeStore(
+    (s) => s.onDeleteSelectedCue
+  );
+  const bridgeCanDeleteSelectedCue = useMobileShellBridgeStore(
+    (s) => s.canDeleteSelectedCue
+  );
   useEffect(() => {
     const cues = Array.isArray(cuesSortedForStageJump)
       ? (cuesSortedForStageJump as Array<{ id: string }>)
@@ -676,7 +682,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                   padding: stageFlushTopDock
                     ? "4px 4px 0 0"
                     : mobileStackEditor
-                      ? "12px 2px 2px"
+                      ? "calc(12px + 1cm) 2px 2px"
                       : "0 2px 2px",
                   minWidth: 0,
                   maxWidth: "100%",
@@ -797,8 +803,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     3D
                   </button>
                 </div>
-                {/* 動線矢印トグル（生徒閲覧では非表示） */}
-                {!choreoPublicView && stageView === "2d" && (
+                {/* 動線矢印トグル（生徒閲覧・スマホ縦積みでは非表示） */}
+                {!choreoPublicView && !mobileStackEditor && stageView === "2d" && (
                   <button
                     type="button"
                     style={{
@@ -1088,6 +1094,16 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                         {" / "}
                         {formatMmSsFloor(duration)}
                       </div>
+                      <button
+                        type="button"
+                        className="editor-stage-landscape-btn editor-stage-landscape-btn--delete-cue"
+                        onClick={() => bridgeOnDeleteSelectedCue?.()}
+                        disabled={!bridgeCanDeleteSelectedCue}
+                        title="選択中のキューを削除"
+                        aria-label="選択中のキューを削除"
+                      >
+                        キュー削除
+                      </button>
                     </div>
                   );
                 })() : null}

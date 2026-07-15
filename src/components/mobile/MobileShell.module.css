@@ -152,7 +152,7 @@
 }
 
 .floatingCloseLandscape {
-  bottom: calc(env(safe-area-inset-bottom, 0px) + var(--landscape-wave-dock-h, 65px) + 12px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + var(--landscape-wave-dock-h, 57px) + 12px);
   /* 横画面: 左サイドパネルを避けた左下 */
   left: calc(var(--landscape-side-panel-w, 128px) + 12px);
 }

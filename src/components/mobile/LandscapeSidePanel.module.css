@@ -245,12 +245,13 @@
 
 .controlGrid .gridBtn {
   width: 100% !important;
-  height: 38px !important;
+  /** キュー削除ボタンを Change 列へ移して空いた分、再生・ズームボタンを少し大きく */
+  height: 44px !important;
   border-radius: 9px !important;
 }
 
 .controlGrid :global(.btnPrimary) {
-  height: 42px !important;
+  height: 48px !important;
 }
 
 .controlGrid :global(.skipBadge) {
@@ -311,7 +312,8 @@
 /* ── ☰ Menu ボタン ── */
 .menuBtn {
   width: 100%;
-  padding: 10px 0;
+  /** キュー削除ボタンを Change 列へ移したので、その分あと 2mm ほど小さく調整 */
+  padding: calc(10px - 1mm) 0;
   border-radius: 10px;
   background: linear-gradient(135deg, #1e3a5f 0%, #1a2f4e 100%);
   border: 1px solid #3b82f6;
@@ -340,32 +342,6 @@
   color: #93c5fd;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-}
-
-.deleteCueBtn {
-  width: 100%;
-  min-height: 40px;
-  padding: 0 8px;
-  border-radius: 10px;
-  border: 1px solid rgba(196, 30, 58, 0.55);
-  background: rgba(196, 30, 58, 0.16);
-  color: #fca5a5;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  cursor: pointer;
-  touch-action: manipulation;
-  box-sizing: border-box;
-  white-space: nowrap;
-}
-
-.deleteCueBtn:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-.deleteCueBtn:not(:disabled):active {
-  background: rgba(196, 30, 58, 0.28);
 }
 
 /* ── 戻る / 進む（Menu 下・履歴操作） ── */

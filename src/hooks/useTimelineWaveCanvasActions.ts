@@ -56,6 +56,10 @@ export type UseTimelineWaveCanvasActionsParams = {
   setWaveCueConfirm: Dispatch<SetStateAction<WaveCueConfirmState>>;
   addCueStartingAtTime: (tSec: number) => void;
   duplicateCueAfterSource: (source: Cue) => void;
+  /** 波形の空欄ダブルタップ: 一番近いキューをその時刻にコピーして配置 */
+  duplicateCueAtTime: (source: Cue, tSec: number) => void;
+  /** 波形の空欄ダブルタップ: キューが1つも無いとき「キュー設定」を開く */
+  requestAddCueAtTime: (tSec: number) => void;
 };
 
 /**
@@ -89,6 +93,8 @@ export function useTimelineWaveCanvasActions({
   setWaveCueConfirm,
   addCueStartingAtTime,
   duplicateCueAfterSource,
+  duplicateCueAtTime,
+  requestAddCueAtTime,
 }: UseTimelineWaveCanvasActionsParams) {
   const waveViewAtPointer = useCallback(() => {
     let anchorSec = currentTimePropRef.current;
@@ -389,6 +395,31 @@ export function useTimelineWaveCanvasActions({
         trimEndSec,
         duration
       );
+      /**
+       * キューが何も無い場所のダブルタップ:
+       * - 他にキューが1つも無ければ「キュー設定」（人数・雛形選択）を開く。
+       * - 他にキューがあれば、一番近いキューをその場所にコピーする。
+       */
+      if (cuesSorted.length === 0) {
+        requestAddCueAtTime(clamped);
+        return;
+      }
+      let nearest: Cue | null = null;
+      let nearestDist = Infinity;
+      for (const c0 of cuesSorted) {
+        const dist = Math.min(
+          Math.abs(c0.tStartSec - clamped),
+          Math.abs(c0.tEndSec - clamped)
+        );
+        if (dist < nearestDist) {
+          nearestDist = dist;
+          nearest = c0;
+        }
+      }
+      if (nearest) {
+        duplicateCueAtTime(nearest, clamped);
+        return;
+      }
       addCueStartingAtTime(clamped, WAVE_DOUBLE_CLICK_CUE_SPAN_SEC);
     },
     [
@@ -405,6 +436,8 @@ export function useTimelineWaveCanvasActions({
       suppressNextWaveSeekRef,
       wavePointerGestureRef,
       addCueStartingAtTime,
+      duplicateCueAtTime,
+      requestAddCueAtTime,
       duplicateCueAfterSource,
     ]
   );

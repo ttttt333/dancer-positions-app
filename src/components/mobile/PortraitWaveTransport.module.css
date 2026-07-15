@@ -310,7 +310,11 @@
   background: transparent;
   pointer-events: auto;
   cursor: col-resize;
-  z-index: 4;
+  /**
+   * 波形の先頭付近（曲再生開始直後）は .rulerCollapseBtn（z-index:6）の下に
+   * 隠れて赤い再生ヘッドが数秒間見えなくなっていたため、それより上に描画する。
+   */
+  z-index: 8;
   touch-action: none;
 }
 

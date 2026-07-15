@@ -389,17 +389,6 @@ export const LandscapeSidePanel: React.FC<Props> = ({
           <span className={styles.menuBtnIcon}>☰</span>
           <span className={styles.menuBtnLabel}>Menu</span>
         </button>
-
-        <button
-          type="button"
-          className={styles.deleteCueBtn}
-          onClick={onDeleteSelectedCue}
-          disabled={!canDeleteSelectedCue}
-          title="選択中のキューを削除"
-          aria-label="選択中のキューを削除"
-        >
-          キュー削除
-        </button>
       </div>
 
       {menuOverlay}

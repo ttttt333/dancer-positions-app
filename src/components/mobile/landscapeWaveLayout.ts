@@ -1,5 +1,8 @@
-/** 横画面下部波形キャンバスの高さ（目盛り行は PortraitWaveTransport の CSS のまま） */
-export const LANDSCAPE_WAVE_CANVAS_HEIGHT_PX = Math.round(80 * (2 / 3));
+/**
+ * 横画面下部波形キャンバスの高さ（目盛り行は PortraitWaveTransport の CSS のまま）。
+ * 波形の位置を約 2mm 下げてステージの表示領域を広げるため、通常サイズから 8px 分低くしている。
+ */
+export const LANDSCAPE_WAVE_CANVAS_HEIGHT_PX = Math.round(80 * (2 / 3)) - 8;
 
 /** 横画面: 目盛り行の高さ（コンパクト） */
 export const LANDSCAPE_WAVE_RULER_HEIGHT_PX = 12;

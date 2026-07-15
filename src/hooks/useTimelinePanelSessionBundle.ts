@@ -87,6 +87,7 @@ export function useTimelinePanelSessionBundle(
     audioFileInputRef,
     extractProgress = null,
     onPickAudio,
+    onRequestAddCueAtTime,
   } = props;
 
   const {
@@ -249,6 +250,8 @@ export function useTimelinePanelSessionBundle(
     duplicateCueSameSettings,
     duplicateCueAtTimelineEnd,
     duplicateCueAfterSource,
+    duplicateCueAtTime,
+    requestAddCueAtTime,
     splitCueAtPlayhead,
     saveCueFormationToBoxList,
     adjustFormationDancerCount,
@@ -262,6 +265,7 @@ export function useTimelinePanelSessionBundle(
     formationIdForNewCue,
     trimStartSec,
     trimEndSec,
+    onRequestAddCueAtTime,
   });
 
   const waveBundleParams: TimelinePanelWaveHandlersBundleParams = {
@@ -312,6 +316,8 @@ export function useTimelinePanelSessionBundle(
     cueActions: {
       addCueStartingAtTime,
       duplicateCueAfterSource,
+      duplicateCueAtTime,
+      requestAddCueAtTime,
     },
   };
 

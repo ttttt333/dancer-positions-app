@@ -2544,6 +2544,7 @@ export function EditorPage({
         stageView === "2d"
       }
       onOpenFormationChange={() => setFormationPresetPickerOpen(true)}
+      onRequestAddCueAtTime={() => setAddCueDialogOpen(true)}
       onSave={() => setFlowLibraryOpen(true)}
       onOpenAudioImport={openAudioImport}
       audioFileInputRef={editorAudioSession.audioFileInputRef}

@@ -26,6 +26,8 @@ type Params = {
   formationIdForNewCue: string;
   trimStartSec: number;
   trimEndSec: number | null;
+  /** 波形の空欄ダブルタップ: キューが1つも無いときに「キュー設定」（人数・雛形）を開く */
+  onRequestAddCueAtTime?: () => void;
 };
 
 export function useTimelineCueActions({
@@ -38,6 +40,7 @@ export function useTimelineCueActions({
   formationIdForNewCue,
   trimStartSec,
   trimEndSec,
+  onRequestAddCueAtTime,
 }: Params) {
   const addCueStartingAtTime = useCallback(
     (t0Raw: number, spanSec = DEFAULT_CUE_SPAN_WITH_AUDIO_SEC) => {
@@ -372,6 +375,127 @@ export function useTimelineCueActions({
     ]
   );
 
+  /**
+   * 波形の空欄ダブルタップ用: 既存キュー（`source`）の内容をコピーしつつ、
+   * `duplicateCueAfterSource` の「直後」ではなく指定の時刻 `t0Raw` に配置する。
+   */
+  const duplicateCueAtTime = useCallback(
+    (source: Cue, t0Raw: number) => {
+      if (project.viewMode === "view") return;
+      const newCueId = crypto.randomUUID();
+      let appliedT = 0;
+      setProject((p) => {
+        if (p.cues.length >= 100) return p;
+        const srcFm = p.formations.find((f) => f.id === source.formationId);
+        if (!srcFm) return p;
+        const newFm = cloneFormationForNewCue(srcFm);
+        const trimHi = trimHiSecForCueTimeline(
+          p.trimEndSec,
+          durationRef.current
+        );
+        const trimLo = p.trimStartSec;
+        const dur = Math.max(0.02, source.tEndSec - source.tStartSec);
+        let t0 = Math.round(t0Raw * 100) / 100;
+        t0 = Math.max(trimLo, Math.min(trimHi - 0.02, t0));
+        let t1 = Math.min(trimHi, Math.round((t0 + dur) * 100) / 100);
+        if (t1 <= t0) t1 = Math.round((t0 + 0.5) * 100) / 100;
+        const resolved = resolveCueIntervalNonOverlap(
+          p.cues,
+          newCueId,
+          t0,
+          t1,
+          trimLo,
+          trimHi
+        );
+        t0 = resolved.tStartSec;
+        t1 = resolved.tEndSec;
+        if (!Number.isFinite(t0) || !Number.isFinite(t1)) {
+          t0 = trimLo;
+          t1 = Math.min(
+            trimHi,
+            Math.round((trimLo + MIN_CUE_DURATION_SEC) * 100) / 100
+          );
+        }
+        if (t1 < t0 + MIN_CUE_DURATION_SEC - 1e-9) {
+          t1 = Math.round((t0 + MIN_CUE_DURATION_SEC) * 100) / 100;
+          if (t1 > trimHi) {
+            t1 = trimHi;
+            t0 = Math.round(
+              (Math.max(trimLo, t1 - MIN_CUE_DURATION_SEC)) * 100
+            ) / 100;
+          }
+        }
+        appliedT = t0;
+        const newCue: Cue = {
+          id: newCueId,
+          tStartSec: t0,
+          tEndSec: t1,
+          formationId: newFm.id,
+          name: source.name,
+          note: source.note,
+          ...(source.gapApproachFromPrev
+            ? { gapApproachFromPrev: source.gapApproachFromPrev }
+            : {}),
+        };
+        return {
+          ...p,
+          formations: [...p.formations, newFm],
+          cues: sortCuesByStart([...p.cues, newCue]),
+          activeFormationId: newFm.id,
+        };
+      });
+      syncPlaybackHeadAfterCueEdit({
+        t: appliedT,
+        durationSec: durationRef.current,
+        trimStartSec,
+        trimEndSec,
+      });
+      onSelectedCueIdsChange([newCueId]);
+      onFormationChosenFromCueList?.();
+    },
+    [
+      project.viewMode,
+      setProject,
+      trimStartSec,
+      trimEndSec,
+      onFormationChosenFromCueList,
+      onSelectedCueIdsChange,
+      durationRef,
+    ]
+  );
+
+  /**
+   * 波形の空欄ダブルタップ用: キューが1つも無いとき、その時刻に再生ヘッドを合わせて
+   * 「キュー設定」（人数・立ち位置の決め方）ダイアログを開くよう呼び出し元に通知する。
+   */
+  const requestAddCueAtTime = useCallback(
+    (t0Raw: number) => {
+      if (project.viewMode === "view") return;
+      const trimHi = trimHiSecForCueTimeline(
+        project.trimEndSec,
+        durationRef.current
+      );
+      const trimLo = project.trimStartSec;
+      const t0 = Math.max(trimLo, Math.min(trimHi, t0Raw));
+      syncPlaybackHeadAfterCueEdit({
+        t: t0,
+        durationSec: durationRef.current,
+        trimStartSec,
+        trimEndSec,
+      });
+      onRequestAddCueAtTime?.();
+    },
+    [
+      project.viewMode,
+      project.trimEndSec,
+      project.trimStartSec,
+      durationRef,
+      trimStartSec,
+      trimEndSec,
+      onRequestAddCueAtTime,
+    ]
+  );
+
   const splitCueAtPlayhead = useCallback(
     (cueId: string) => {
       if (project.viewMode === "view") return;
@@ -499,6 +623,8 @@ export function useTimelineCueActions({
     duplicateCueSameSettings,
     duplicateCueAtTimelineEnd,
     duplicateCueAfterSource,
+    duplicateCueAtTime,
+    requestAddCueAtTime,
     splitCueAtPlayhead,
     saveCueFormationToBoxList,
     adjustFormationDancerCount,

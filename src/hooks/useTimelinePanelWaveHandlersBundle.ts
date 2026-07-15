@@ -67,7 +67,13 @@ type WaveHandlersBundleParams = {
     MenuSlice,
     "setWaveCueMenu" | "setGapRouteMenu" | "setWaveCueConfirm"
   >;
-  cueActions: Pick<CueActionsSlice, "addCueStartingAtTime" | "duplicateCueAfterSource">;
+  cueActions: Pick<
+    CueActionsSlice,
+    | "addCueStartingAtTime"
+    | "duplicateCueAfterSource"
+    | "duplicateCueAtTime"
+    | "requestAddCueAtTime"
+  >;
 };
 
 export type TimelinePanelWaveHandlersBundleParams = WaveHandlersBundleParams;
@@ -122,6 +128,8 @@ export function useTimelinePanelWaveHandlersBundle({
       setWaveCueConfirm: menus.setWaveCueConfirm,
       addCueStartingAtTime: cueActions.addCueStartingAtTime,
       duplicateCueAfterSource: cueActions.duplicateCueAfterSource,
+      duplicateCueAtTime: cueActions.duplicateCueAtTime,
+      requestAddCueAtTime: cueActions.requestAddCueAtTime,
     });
 
   const {
