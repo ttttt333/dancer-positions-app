@@ -2914,30 +2914,32 @@ html[data-landscape-wave-collapsed] {
 }
 
 /*
-  横画面: 立ち位置雛形 — 下部ドック + カテゴリごと横スクロール
+  横画面（波形表示中）: 立ち位置雛形 — 波形ドックの上いっぱいに大きく表示
   （Change ボタン / キュー設定の雛形選択）
+  ※ 以前は下部固定 220px 程度の小さいドックだったため雛形がほぼ見えなかった。
+    波形ドックの高さ（--landscape-wave-dock-h）分だけ余白を取り、それ以外は
+    画面上部までいっぱいに使う。
 */
 .formation-preset-picker-landscape-dock {
   position: fixed;
+  top: max(8px, env(safe-area-inset-top, 8px));
   left: var(--landscape-side-panel-w, 128px);
   right: 0;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 88px);
+  bottom: calc(
+    var(--landscape-wave-dock-h, 65px) + env(safe-area-inset-bottom, 0px) + 10px
+  );
   z-index: 400;
   display: flex;
   flex-direction: column;
-  max-height: min(38vh, 220px);
+  max-height: none;
   background: rgba(7, 9, 15, 0.97);
   color: #e2e8f0;
   border-top: 1px solid rgba(212, 175, 55, 0.28);
-  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.45);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  border-left: 1px solid rgba(212, 175, 55, 0.22);
+  border-radius: 10px 0 0 0;
+  box-shadow: 0 0 32px rgba(0, 0, 0, 0.5);
   box-sizing: border-box;
   overflow: hidden;
-}
-
-.formation-preset-picker-landscape-dock--wave-collapsed {
-  bottom: env(safe-area-inset-bottom, 0px);
-  max-height: min(50vh, 280px);
 }
 
 /*
@@ -2980,26 +2982,32 @@ html[data-landscape-wave-collapsed] {
   line-height: 1.4;
 }
 
-.formation-preset-picker-landscape-fullscreen .formation-preset-picker-sheet-body--portrait-full {
+.formation-preset-picker-landscape-fullscreen .formation-preset-picker-sheet-body--portrait-full,
+.formation-preset-picker-landscape-dock .formation-preset-picker-sheet-body--portrait-full {
   padding-left: 12px;
   padding-right: 12px;
 }
 
-.formation-preset-picker-landscape-fullscreen .formation-preset-picker-grid {
+/* 波形表示中のドックも、たたみ時と同じ大きな 4 列グリッドで見やすく表示する */
+.formation-preset-picker-landscape-fullscreen .formation-preset-picker-grid,
+.formation-preset-picker-landscape-dock .formation-preset-picker-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
-.formation-preset-picker-landscape-fullscreen .formation-preset-picker-grid .formation-preset-picker-preset-btn {
+.formation-preset-picker-landscape-fullscreen .formation-preset-picker-grid .formation-preset-picker-preset-btn,
+.formation-preset-picker-landscape-dock .formation-preset-picker-grid .formation-preset-picker-preset-btn {
   min-height: 108px;
 }
 
-.formation-preset-picker-landscape-fullscreen .formation-preset-picker-grid .formation-preset-picker-thumb--large {
+.formation-preset-picker-landscape-fullscreen .formation-preset-picker-grid .formation-preset-picker-thumb--large,
+.formation-preset-picker-landscape-dock .formation-preset-picker-grid .formation-preset-picker-thumb--large {
   max-width: 72px;
   max-height: 64px;
 }
 
-.formation-preset-picker-landscape-fullscreen .formation-preset-picker-actions {
+.formation-preset-picker-landscape-fullscreen .formation-preset-picker-actions,
+.formation-preset-picker-landscape-dock .formation-preset-picker-actions {
   flex-shrink: 0;
 }
 
@@ -3023,19 +3031,6 @@ html[data-landscape-wave-collapsed] {
   line-height: 1.35;
 }
 
-.formation-preset-picker-sheet-body--landscape {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
-  padding: 8px 10px 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.formation-preset-picker-scroll-row,
 [data-shell-landscape] .add-cue-preset-grid {
   display: flex !important;
   flex-direction: row !important;
@@ -3051,7 +3046,6 @@ html[data-landscape-wave-collapsed] {
   scrollbar-width: thin;
 }
 
-.formation-preset-picker-scroll-row .formation-preset-picker-preset-btn,
 [data-shell-landscape] .add-cue-preset-grid .add-cue-preset-btn {
   flex: 0 0 auto !important;
   scroll-snap-align: start;
@@ -3060,7 +3054,6 @@ html[data-landscape-wave-collapsed] {
   max-width: 112px !important;
 }
 
-.formation-preset-picker-scroll-row .formation-preset-picker-preset-btn svg,
 [data-shell-landscape] .add-cue-preset-grid .add-cue-preset-btn svg {
   width: 68px !important;
   height: 42px !important;

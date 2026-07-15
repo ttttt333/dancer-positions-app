@@ -319,17 +319,18 @@ export function FormationPresetPickerSheet({
     </div>
   );
 
+  // 横画面はドック表示・波形たたみ表示のどちらも同じ大きな正方グリッドを使い、見やすさを揃える
+  const useBigGrid = portraitFullscreen || landscapeHorizontal;
+
   const presetGrid = (
     <div
       className={
-        portraitFullscreen || landscapeFullscreen
+        useBigGrid
           ? "formation-preset-picker-sheet-body formation-preset-picker-sheet-body--portrait-full"
-          : landscapeHorizontal
-            ? "formation-preset-picker-sheet-body formation-preset-picker-sheet-body--landscape"
-            : "formation-preset-picker-sheet-body"
+          : "formation-preset-picker-sheet-body"
       }
       style={
-        portraitFullscreen || landscapeHorizontal
+        useBigGrid
           ? undefined
           : {
               flex: 1,
@@ -349,11 +350,7 @@ export function FormationPresetPickerSheet({
           </div>
           <div
             className={
-              portraitFullscreen || landscapeFullscreen
-                ? "formation-preset-picker-grid"
-                : landscapeHorizontal
-                  ? "formation-preset-picker-scroll-row"
-                  : "add-cue-preset-grid"
+              useBigGrid ? "formation-preset-picker-grid" : "add-cue-preset-grid"
             }
           >
             {cat.items.map((item) => {
@@ -377,7 +374,7 @@ export function FormationPresetPickerSheet({
                     cursor: noTarget ? "not-allowed" : "pointer",
                   }}
                 >
-                  <SpotThumb dancers={item.dancers} large={portraitFullscreen || landscapeFullscreen} />
+                  <SpotThumb dancers={item.dancers} large={useBigGrid} />
                   <span className="add-cue-preset-label formation-preset-picker-preset-label">
                     {item.label}
                   </span>
@@ -427,11 +424,7 @@ export function FormationPresetPickerSheet({
           className={
             landscapeFullscreen
               ? "formation-preset-picker-landscape-fullscreen"
-              : `formation-preset-picker-landscape-dock${
-                  landscapeWaveCollapsed
-                    ? " formation-preset-picker-landscape-dock--wave-collapsed"
-                    : ""
-                }`
+              : "formation-preset-picker-landscape-dock"
           }
         >
           {sheetHeader}

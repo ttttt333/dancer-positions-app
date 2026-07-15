@@ -209,7 +209,7 @@
   border-top: 0.5px solid rgba(255, 255, 255, 0.06);
   border-bottom: 0.5px solid rgba(255, 255, 255, 0.06);
   /** 縦画面: 開始地点（0:00・先頭キュー枠）が画面左端に張り付いて見えづらいので少し右から始める */
-  padding-left: 12px;
+  padding-left: calc(12px + 5mm);
 }
 
 /** 横画面下部（波形のみ）は LandscapeBottomWaveBar 側で開始位置の余白を確保済みなので二重にしない */
