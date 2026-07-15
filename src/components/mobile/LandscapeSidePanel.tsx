@@ -316,9 +316,9 @@ export const LandscapeSidePanel: React.FC<Props> = ({
           aria-label={isPlaying ? '一時停止' : '再生'}
         >
           {isPlaying ? (
-            <TransportIconPause size={20} className={ctrlStyles.iconPrimary} />
+            <TransportIconPause size={22} className={ctrlStyles.iconPrimary} />
           ) : (
-            <TransportIconPlay size={20} className={ctrlStyles.iconPrimary} />
+            <TransportIconPlay size={22} className={ctrlStyles.iconPrimary} />
           )}
         </button>
         <button
@@ -327,7 +327,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
           disabled={transportDisabled}
           aria-label="停止して先頭へ"
         >
-          <TransportIconStop size={16} className={ctrlStyles.icon} />
+          <TransportIconStop size={18} className={ctrlStyles.icon} />
         </button>
         <button
           className={`${ctrlStyles.btn} ${ctrlStyles.skipBtn} ${styles.gridBtn}`}
@@ -335,7 +335,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
           disabled={transportDisabled}
           aria-label="5秒戻す"
         >
-          <TransportIconSkipBack size={18} className={ctrlStyles.icon} />
+          <TransportIconSkipBack size={20} className={ctrlStyles.icon} />
           <span className={ctrlStyles.skipBadge}>5</span>
         </button>
         <button
@@ -344,7 +344,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
           disabled={transportDisabled}
           aria-label="5秒進める"
         >
-          <TransportIconSkipForward size={18} className={ctrlStyles.icon} />
+          <TransportIconSkipForward size={20} className={ctrlStyles.icon} />
           <span className={ctrlStyles.skipBadge}>5</span>
         </button>
         <button
@@ -354,7 +354,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
           aria-label="波形を縮小"
           title="縮小"
         >
-          <TransportIconZoomOut size={18} className={ctrlStyles.icon} />
+          <TransportIconZoomOut size={20} className={ctrlStyles.icon} />
         </button>
         <button
           className={`${ctrlStyles.btn} ${styles.gridBtn}`}
@@ -363,7 +363,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
           aria-label="波形を拡大"
           title="拡大"
         >
-          <TransportIconZoomIn size={18} className={ctrlStyles.icon} />
+          <TransportIconZoomIn size={20} className={ctrlStyles.icon} />
         </button>
       </div>
 

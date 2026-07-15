@@ -74,6 +74,11 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
     }
     useMobileShellBridgeStore.getState().setMobileShellBridge({
       landscapeWaveCollapsed: collapsed,
+      onLandscapeWaveCollapse: () => {
+        abortTimelineWavePointerGestures()
+        setLandscapePanelOpen(true)
+        setLandscapeWaveExpanded(false)
+      },
     })
     return () => {
       root.removeAttribute('data-landscape-wave-collapsed')
@@ -201,7 +206,7 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
             onZoomOut={handleZoomOut}
             landscapeWaveExpanded={landscapeWaveExpanded}
             onWaveExpand={() => setLandscapeWaveExpanded(true)}
-            allowPanelCollapse={landscapeWaveExpanded}
+            allowPanelCollapse={false}
             panelOpen={landscapePanelOpen}
             onPanelOpenChange={setLandscapePanelOpen}
             onUndo={onUndo}
@@ -235,11 +240,6 @@ export const MobileShell: React.FC<MobileShellProps> = (props) => {
           onPlayPause={props.onPlayPause}
           onStop={props.onStop}
           onSeek={props.onSeek}
-          onCollapse={() => {
-            abortTimelineWavePointerGestures()
-            setLandscapePanelOpen(true)
-            setLandscapeWaveExpanded(false)
-          }}
         />
       ) : null}
 

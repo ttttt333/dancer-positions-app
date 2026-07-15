@@ -72,7 +72,7 @@ describe("pickCueDragKindAtWave", () => {
 
   it("detects sub-pixel cue bands the same as drawing (min 3px chrome)", () => {
     const cues: Cue[] = [
-      { id: "tiny", tStartSec: 50, tEndSec: 50.05, formationId: "f1" },
+      { id: "tiny", tStartSec: 50, tEndSec: 51, formationId: "f1" },
     ];
     const canvas = mockCanvas(1000, 80);
     const hit = pickCueDragKindAtWave(500, 40, canvas, cues, 0, 100, null);

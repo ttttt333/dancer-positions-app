@@ -319,6 +319,9 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
 
   const setMobileShellBridge = useMobileShellBridgeStore((s) => s.setMobileShellBridge);
   const landscapeWaveCollapsed = useMobileShellBridgeStore((s) => s.landscapeWaveCollapsed);
+  const onLandscapeWaveCollapse = useMobileShellBridgeStore(
+    (s) => s.onLandscapeWaveCollapse
+  );
   useEffect(() => {
     const cues = Array.isArray(cuesSortedForStageJump)
       ? (cuesSortedForStageJump as Array<{ id: string }>)
@@ -998,6 +1001,16 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                           Change
                         </button>
                       ) : null}
+                      <button
+                        type="button"
+                        className="editor-stage-landscape-btn editor-stage-landscape-btn--wave-collapse"
+                        onClick={() => onLandscapeWaveCollapse?.()}
+                        aria-label="波形をたたむ"
+                        title="波形をたたむ"
+                      >
+                        <span aria-hidden>▼</span>
+                        <span>たたむ</span>
+                      </button>
                       <div
                         role="group"
                         aria-label={t("editor.layout.stageViewAria")}

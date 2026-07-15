@@ -239,14 +239,18 @@
 .controlGrid {
   display: grid !important;
   grid-template-columns: 1fr 1fr;
-  gap: 4px;
+  gap: 6px;
   width: 100%;
 }
 
 .controlGrid .gridBtn {
   width: 100% !important;
-  height: 32px !important;
-  border-radius: 8px !important;
+  height: 38px !important;
+  border-radius: 9px !important;
+}
+
+.controlGrid :global(.btnPrimary) {
+  height: 42px !important;
 }
 
 .controlGrid :global(.skipBadge) {
@@ -307,7 +311,7 @@
 /* ── ☰ Menu ボタン ── */
 .menuBtn {
   width: 100%;
-  padding: 8px 0;
+  padding: 10px 0;
   border-radius: 10px;
   background: linear-gradient(135deg, #1e3a5f 0%, #1a2f4e 100%);
   border: 1px solid #3b82f6;
@@ -340,13 +344,13 @@
 
 .deleteCueBtn {
   width: 100%;
-  min-height: 36px;
+  min-height: 40px;
   padding: 0 8px;
   border-radius: 10px;
   border: 1px solid rgba(196, 30, 58, 0.55);
   background: rgba(196, 30, 58, 0.16);
   color: #fca5a5;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.03em;
   cursor: pointer;

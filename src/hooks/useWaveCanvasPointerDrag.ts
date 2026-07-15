@@ -9,6 +9,7 @@ import {
   sortCuesByStart,
   trimHiSecForCueTimeline,
   trimPlaybackEndSec,
+  MIN_CUE_DURATION_SEC,
 } from "../core/timelineController";
 import { playbackEngine } from "../core/playbackEngine";
 import { getLiveEngineTimeSecOrNull, getLivePlaybackHeadSec } from "../lib/playbackHead";
@@ -569,7 +570,7 @@ export function useWaveCanvasPointerDrag({
             /* ignore */
           }
         }
-        const MIN_CUE_DUR = 0.05;
+        const MIN_CUE_DUR = MIN_CUE_DURATION_SEC;
         const applyCueDragAtClientX = (clientX: number, markMoved = false) => {
           const drag = cueDragRef.current;
           if (!drag) return;
