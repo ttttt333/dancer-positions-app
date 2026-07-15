@@ -673,7 +673,11 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                   flexDirection: "column",
                   alignItems: "flex-end",
                   gap: 3,
-                  padding: stageFlushTopDock ? "4px 4px 0 0" : "0 2px 2px",
+                  padding: stageFlushTopDock
+                    ? "4px 4px 0 0"
+                    : mobileStackEditor
+                      ? "12px 2px 2px"
+                      : "0 2px 2px",
                   minWidth: 0,
                   maxWidth: "100%",
                   pointerEvents: "auto",
