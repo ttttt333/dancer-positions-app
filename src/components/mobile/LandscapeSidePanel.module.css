@@ -486,6 +486,8 @@
   border-radius: 8px;
   align-self: stretch;
   flex-shrink: 0;
+  /** 押しやすさのため、パネル最上部からもう少し下げて配置する */
+  margin-top: 5mm;
 }
 
 .waveExpandBtnCompact .waveExpandLabel {
@@ -493,10 +495,11 @@
 }
 
 /* ── 波形たたみ時: 枠なし・1画面に収める ── */
+/* 各行を flex-grow させて余白をなくし、ボタンを画面高に合わせて大きく表示する */
 .compactStack {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 7px;
   width: 100%;
   flex: 1 1 auto;
   min-height: 0;
@@ -509,14 +512,16 @@
   align-items: stretch;
   gap: 4px;
   width: 100%;
-  flex-shrink: 0;
+  flex: 1.4 1 0;
+  min-height: 0;
 }
 
 .compactPlayBtn {
   flex: 1 1 0;
   min-width: 0;
   width: auto !important;
-  height: 34px !important;
+  height: auto !important;
+  min-height: 34px !important;
   max-width: none;
   border-radius: 8px !important;
 }
@@ -525,7 +530,8 @@
   flex: 1 1 0;
   min-width: 0;
   width: auto !important;
-  height: 34px !important;
+  height: auto !important;
+  min-height: 34px !important;
   border-radius: 8px !important;
 }
 
@@ -535,14 +541,16 @@
   align-items: stretch;
   gap: 4px;
   width: 100%;
-  flex-shrink: 0;
+  flex: 1.1 1 0;
+  min-height: 0;
 }
 
 .compactSkipBtn {
   flex: 1 1 0;
   min-width: 0;
   width: auto !important;
-  height: 30px !important;
+  height: auto !important;
+  min-height: 30px !important;
   border-radius: 8px !important;
 }
 
@@ -554,7 +562,6 @@
 
 .compactChangeBtn {
   width: 100%;
-  min-height: 30px;
   padding: 0 6px;
   border-radius: 8px;
   border: 1px solid #d4af37;
@@ -567,7 +574,10 @@
   touch-action: manipulation;
   box-sizing: border-box;
   white-space: nowrap;
-  flex-shrink: 0;
+  flex: 1 1 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .compactChangeBtn:active {
@@ -576,7 +586,6 @@
 
 .compactDeleteCueBtn {
   width: 100%;
-  min-height: 30px;
   padding: 0 6px;
   border-radius: 8px;
   border: 1px solid rgba(196, 30, 58, 0.55);
@@ -589,7 +598,10 @@
   touch-action: manipulation;
   box-sizing: border-box;
   white-space: nowrap;
-  flex-shrink: 0;
+  flex: 1 1 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .compactDeleteCueBtn:disabled {
@@ -601,45 +613,19 @@
   background: rgba(196, 30, 58, 0.28);
 }
 
-.compactViewRow {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  width: 100%;
-  flex-shrink: 0;
-}
-
-.compactViewBtn {
-  min-height: 28px;
-  padding: 0;
-  border-radius: 7px;
-  border: 1px solid #475569;
-  background: rgba(15, 23, 42, 0.92);
-  color: #e2e8f0;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.compactViewBtnActive {
-  border-color: #6366f1;
-  color: #c7d2fe;
-  background: rgba(99, 102, 241, 0.12);
-}
-
 .compactPager {
   display: grid;
   grid-template-columns: 28px 1fr 28px;
-  align-items: center;
+  align-items: stretch;
   gap: 3px;
   width: 100%;
-  flex-shrink: 0;
+  flex: 1 1 28px;
 }
 
 .compactPagerBtn {
-  width: 28px;
-  height: 28px;
+  width: 100%;
+  height: 100%;
+  min-height: 28px;
   padding: 0;
   border-radius: 7px;
   border: 1px solid #475569;
@@ -650,6 +636,9 @@
   line-height: 1;
   cursor: pointer;
   touch-action: manipulation;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .compactPagerBtn:disabled {
@@ -667,6 +656,9 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .compactTime {
@@ -683,7 +675,7 @@
   white-space: nowrap;
   box-sizing: border-box;
   font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
+  flex: 0 0 auto;
 }
 
 .compactTimeCurrent {
@@ -696,12 +688,13 @@
   grid-template-columns: 1fr 1fr 1fr;
   gap: 4px;
   width: 100%;
-  margin-top: auto;
-  flex-shrink: 0;
+  flex: 1.2 1 0;
+  min-height: 0;
 }
 
 .compactIconBtn {
   width: 100%;
+  height: 100%;
   min-height: 32px;
   padding: 0;
   border-radius: 8px;

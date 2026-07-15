@@ -2012,6 +2012,30 @@ html[data-landscape-wave-collapsed] {
   display: none !important;
 }
 
+/* 波形たたみ時: 2D/3D 切替のみ画面右上に表示（左パネルとは重複させない） */
+[data-shell-landscape] .editor-stage-landscape-viewToggle {
+  display: none;
+}
+
+[data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-viewToggle {
+  display: flex;
+  position: absolute;
+  top: max(6px, env(safe-area-inset-top, 6px));
+  right: max(6px, env(safe-area-inset-right, 6px));
+  z-index: 45;
+  gap: 4px;
+  pointer-events: auto;
+}
+
+[data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-viewToggle .editor-stage-landscape-btn {
+  flex: none;
+  width: 40px;
+  height: 34px;
+  font-size: 12px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
 [data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-btn {
   height: 28px;
   font-size: 10px;

@@ -78,8 +78,6 @@ export const LandscapeSidePanel: React.FC<Props> = ({
   const panelOpen = panelOpenProp ?? panelOpenInternal
   const setPanelOpen = onPanelOpenChange ?? setPanelOpenInternal
   const [menuOpen, setMenuOpen] = useState(false)
-  const stageView = useMobileShellBridgeStore((s) => s.stageView)
-  const onStageViewChange = useMobileShellBridgeStore((s) => s.onStageViewChange)
   const showFormationChange = useMobileShellBridgeStore((s) => s.showFormationChange)
   const onFormationChange = useMobileShellBridgeStore((s) => s.onFormationChange)
   const cuePagerLabel = useMobileShellBridgeStore((s) => s.cuePagerLabel)
@@ -205,22 +203,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
               Change
             </button>
           ) : null}
-          <div className={styles.compactViewRow} role="group" aria-label="ステージ表示">
-            <button
-              type="button"
-              className={`${styles.compactViewBtn}${stageView === '2d' ? ` ${styles.compactViewBtnActive}` : ''}`}
-              onClick={() => onStageViewChange('2d')}
-            >
-              2D
-            </button>
-            <button
-              type="button"
-              className={`${styles.compactViewBtn}${stageView === '3d' ? ` ${styles.compactViewBtnActive}` : ''}`}
-              onClick={() => onStageViewChange('3d')}
-            >
-              3D
-            </button>
-          </div>
+          {/* 2D/3D 切替は画面右上の editor-stage-landscape-viewToggle に統合済み */}
           {cuePagerLabel ? (
             <div className={styles.compactPager} role="group" aria-label="キュー移動">
               <button

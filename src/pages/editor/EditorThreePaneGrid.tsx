@@ -1092,6 +1092,34 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                   );
                 })() : null}
                 {mobileStackEditor &&
+                editorMobileLandscape &&
+                landscapeWaveCollapsed &&
+                !choreoPublicView &&
+                project.viewMode !== "view" ? (
+                  <div
+                    role="group"
+                    aria-label={t("editor.layout.stageViewAria")}
+                    className="editor-stage-landscape-viewToggle"
+                  >
+                    <button
+                      type="button"
+                      className={`editor-stage-landscape-btn${stageView === "2d" ? " editor-stage-landscape-btn--active" : ""}`}
+                      title={t("editor.layout.stage2dTitle")}
+                      onClick={() => setStageView("2d")}
+                    >
+                      2D
+                    </button>
+                    <button
+                      type="button"
+                      className={`editor-stage-landscape-btn${stageView === "3d" ? " editor-stage-landscape-btn--active" : ""}`}
+                      title={t("editor.layout.stage3dTitle")}
+                      onClick={() => setStageView("3d")}
+                    >
+                      3D
+                    </button>
+                  </div>
+                ) : null}
+                {mobileStackEditor &&
                 !editorMobileLandscape &&
                 (cuesSortedForStageJump.length > 0 || hasRosterMembers) ? (
                   <div
