@@ -1,7 +1,8 @@
 import { playbackEngine } from "../core/playbackEngine";
 import { waveViewStartForPlayheadAtScreenCenter } from "./waveTimelineSeek";
 
-export const WAVE_VIEWPORT_MIN_PORTION = 0.025;
+/** 最小表示割合（小さいほど拡大できる）。0.3秒キュー操作のため十分に拡大可能にする */
+export const WAVE_VIEWPORT_MIN_PORTION = 0.0075;
 /** ボタン1回あたりの拡大率（ホイールと近い体感） */
 export const WAVE_ZOOM_BUTTON_STEP_MULT = 0.82;
 
