@@ -2547,8 +2547,9 @@ export function transferDancerIdentitiesByOrder(
  * プリセット座標へ、既存ダンサーを「前の立ち位置から一番近いスロット」へ割り当てて
  * id / 表示 / 名簿紐付けを引き継ぐ。
  *
- * 雛形変更・次キュー作成時のデフォルト挙動。距離の短い組から順に一対一で確定する
- * （貪欲マッチ）。未割当の新スロットは新規のまま残す。
+ * 重要: 出力配列の並びは identitySource（前キュー）の順を保つ。
+ * キュー間ギャップ補間は配列インデックスでも結ぶため、雛形スロット順に並べ替えると
+ * 「移動の途中で別人の場所へ入る」見た目になる。座標だけ最寄りスロットへ移す。
  */
 export function transferDancerIdentitiesByNearestPosition(
   positioned: DancerSpot[],
@@ -2572,23 +2573,34 @@ export function transferDancerIdentitiesByNearestPosition(
 
   const usedOld = new Set<number>();
   const usedNew = new Set<number>();
-  const assignment = new Map<number, number>(); // newIndex -> oldIndex
+  /** oldIndex → newSlotIndex */
+  const oldToNew = new Map<number, number>();
 
   for (const p of pairs) {
     if (usedOld.has(p.oi) || usedNew.has(p.ni)) continue;
     usedOld.add(p.oi);
     usedNew.add(p.ni);
-    assignment.set(p.ni, p.oi);
-    if (assignment.size >= Math.min(positioned.length, identitySource.length)) {
+    oldToNew.set(p.oi, p.ni);
+    if (oldToNew.size >= Math.min(positioned.length, identitySource.length)) {
       break;
     }
   }
 
-  return positioned.map((nd, ni) => {
-    const oi = assignment.get(ni);
-    if (oi === undefined) return nd;
-    return mergeDancerIdentityOntoPosition(nd, identitySource[oi]!);
-  });
+  const result: DancerSpot[] = [];
+  for (let oi = 0; oi < identitySource.length; oi++) {
+    const ni = oldToNew.get(oi);
+    if (ni === undefined) continue;
+    result.push(
+      mergeDancerIdentityOntoPosition(positioned[ni]!, identitySource[oi]!)
+    );
+  }
+  // 余った雛形スロット（人数増）は末尾に追加
+  for (let ni = 0; ni < positioned.length; ni++) {
+    if (!usedNew.has(ni)) {
+      result.push({ ...positioned[ni]! });
+    }
+  }
+  return result;
 }
 
 /** 座標は `positioned`、身元は `identity` から引き継ぐ */
