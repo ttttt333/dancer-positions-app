@@ -68,6 +68,7 @@ export function SetPieceBlock({
   return (
     <div
       data-set-piece-id={p.id}
+      data-stage-interactive
       style={{
         position: "absolute",
         left: `${p.xPct}%`,
@@ -184,6 +185,7 @@ export function SetPieceBlock({
               key={h}
               role="presentation"
               aria-hidden
+              data-stage-interactive
               title={`リサイズ（${h}）`}
               onPointerDown={(e) => onResizePointerDown(e, p, h)}
               style={{
@@ -205,6 +207,7 @@ export function SetPieceBlock({
       {selectedSp ? (
         <button
           type="button"
+          data-stage-interactive
           aria-label="大道具を回転"
           title="ドラッグで回転（Shift で15°刻み）"
           onPointerDown={(e) => onRotatePointerDown(e, p)}

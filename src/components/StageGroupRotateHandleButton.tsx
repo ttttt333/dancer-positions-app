@@ -25,6 +25,7 @@ export function StageGroupRotateHandleButton({
     <button
       type="button"
       data-group-rotate-handle
+      data-stage-interactive
       aria-label="選択メンバーを枠の中心まわりに回転（立ち位置と向き）"
       onPointerDown={onPointerDown}
       style={{

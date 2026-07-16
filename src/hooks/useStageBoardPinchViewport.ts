@@ -8,7 +8,10 @@ import {
   type PointerEvent as ReactPointerEvent,
   type RefObject,
 } from "react";
-import { abortStageBoardPointerGestures } from "../lib/stageBoardGestureAbort";
+import {
+  abortStageBoardPointerGestures,
+  isInteractiveStageTarget,
+} from "../lib/stageBoardGestureAbort";
 import {
   STAGE_EDIT_ZOOM,
   useStageBoardPinchViewportStore,
@@ -39,15 +42,6 @@ function clampPan(
     panX: clamp(panX, -maxX, maxX),
     panY: clamp(panY, -maxY, maxY),
   };
-}
-
-function isInteractiveStageTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof Element)) return false;
-  return Boolean(
-    target.closest(
-      "[data-dancer-id], [data-set-piece-id], [data-dancer-delete-handle], [data-stage-resize-handle], button, a, input, textarea, select",
-    ),
-  );
 }
 
 export type StageBoardPinchViewport = {

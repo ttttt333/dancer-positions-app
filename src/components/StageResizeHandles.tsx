@@ -121,6 +121,8 @@ export function StageResizeHandles({
           <div
             key={`stage-resize-${h}`}
             role="presentation"
+            data-stage-resize-handle={h}
+            data-stage-interactive
             aria-label={`${label}（${h}）`}
             onPointerDown={(e) => onResizePointerDown(h, e)}
             onPointerUp={(e) => {

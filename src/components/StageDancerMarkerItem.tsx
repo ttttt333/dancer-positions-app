@@ -145,6 +145,7 @@ export function StageDancerMarkerItem({
       <button
         type="button"
         data-dancer-id={dancerId}
+        data-stage-interactive
         title={buttonTitle}
         onPointerDown={onPointerDownButton}
         onContextMenu={onContextMenuButton}

@@ -106,6 +106,10 @@ import {
 } from "../engine/stage";
 import { useStageBoardInteractionStore } from "../store/stage/stageBoardInteractionStore";
 import { STAGE_BOARD_ABORT_POINTER_GESTURES } from "../lib/stageBoardGestureAbort";
+import {
+  createStageGestureRegistry,
+  type StageGestureType,
+} from "../hooks/useStageGestureRegistry";
 
 /**
  * ステージボードの実装本体。`useStageDancerMarkerElements` / `useSetPieceBlockElements` 等で束ね、return 直前では次の順にオブジェクトを組み立てる:
@@ -558,6 +562,98 @@ export function StageBoardBody({
       ? editFormationId
       : activeFormationId;
 
+  /**
+   * ジェスチャーセッション（ペイロード ref + UI draft）の一括クリア。
+   * pointer capture の解放は gestureRegistry.forceEnd() 側で行う。
+   * ここを唯一の「消し忘れ防止」出口にする（新規ハンドル追加時もここに足す）。
+   */
+  const clearAllStageGestureSessions = useCallback(() => {
+    dragRef.current = null;
+    groupDragRef.current = null;
+    setPieceDragRef.current = null;
+    markerResizeRef.current = null;
+    nameBelowFontResizeRef.current = null;
+    markerRotateRef.current = null;
+    markerFacingDraftRef.current = null;
+    markerGroupPosDraftRef.current = null;
+    floorMarkupTextDragRef.current = null;
+    floorTextTapOrDragRef.current = null;
+    floorTextResizeDragRef.current = null;
+    floorTextPlaceDragRef.current = null;
+    floorTextMultiDragRef.current = null;
+    marqueeSessionRef.current = null;
+    setMarquee(null);
+    setMarkerDiamDraft(null);
+    setNameBelowFontDraft(null);
+    setMarkerFacingDraft(null);
+    setMarkerGroupPosDraft(null);
+    setDragGhostById(null);
+    setBulkHideDancerGlyphs(false);
+    setAlignGuides({ x: null, y: null });
+    setTrashUiVisible(false);
+    trashRevealActiveRef.current = false;
+    setGroupRotateGuideDeltaDeg(null);
+  }, []);
+
+  const clearAllStageGestureSessionsRef = useRef(clearAllStageGestureSessions);
+  clearAllStageGestureSessionsRef.current = clearAllStageGestureSessions;
+
+  const hasActiveStageGesture = useCallback(() => {
+    return (
+      dragRef.current != null ||
+      groupDragRef.current != null ||
+      setPieceDragRef.current != null ||
+      markerResizeRef.current != null ||
+      nameBelowFontResizeRef.current != null ||
+      markerRotateRef.current != null ||
+      floorMarkupTextDragRef.current != null ||
+      floorTextResizeDragRef.current != null ||
+      floorTextPlaceDragRef.current != null ||
+      floorTextMultiDragRef.current != null ||
+      floorTextTapOrDragRef.current != null ||
+      marqueeSessionRef.current != null
+    );
+  }, []);
+
+  const hasActiveStageGestureRef = useRef(hasActiveStageGesture);
+  hasActiveStageGestureRef.current = hasActiveStageGesture;
+
+  const onGestureHistoryCancelRef = useRef(onGestureHistoryCancel);
+  onGestureHistoryCancelRef.current = onGestureHistoryCancel;
+
+  const gestureRegistry = useMemo(
+    () =>
+      createStageGestureRegistry({
+        onForceEnd: () => clearAllStageGestureSessionsRef.current(),
+      }),
+    [],
+  );
+  const gestureRegistryRef = useRef(gestureRegistry);
+  gestureRegistryRef.current = gestureRegistry;
+
+  /** ジェスチャー開始: 防御的リセット + pointer capture をレジストリに委譲 */
+  const beginStageGesture = useCallback(
+    (type: StageGestureType, e: ReactPointerEvent) => {
+      const targetEl =
+        e.currentTarget instanceof HTMLElement
+          ? e.currentTarget
+          : e.target instanceof HTMLElement
+            ? e.target
+            : null;
+      if (!targetEl) return;
+      if (hasActiveStageGestureRef.current()) {
+        onGestureHistoryCancelRef.current?.();
+      }
+      gestureRegistry.start({
+        type,
+        pointerId: e.pointerId,
+        targetEl,
+        startedAt: Date.now(),
+      });
+    },
+    [gestureRegistry],
+  );
+
   const lastFormationResetIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -565,26 +661,12 @@ export function StageBoardBody({
     lastFormationResetIdRef.current = formationIdForWrites;
 
     onGestureHistoryCancel?.();
+    gestureRegistryRef.current.forceEnd();
     setDancerQuickEditId((id) => (id === null ? id : null));
     clearSelectedDancers();
     setStageContextMenu((m) => (m === null ? m : null));
     setDancerSelectionSheetOpen(false);
     setSelectedSetPieceId((id) => (id === null ? id : null));
-    setMarquee(null);
-    marqueeSessionRef.current = null;
-    groupDragRef.current = null;
-    markerResizeRef.current = null;
-    markerRotateRef.current = null;
-    markerFacingDraftRef.current = null;
-    markerGroupPosDraftRef.current = null;
-    floorMarkupTextDragRef.current = null;
-    floorTextTapOrDragRef.current = null;
-    floorTextPlaceDragRef.current = null;
-    floorTextResizeDragRef.current = null;
-    setMarkerDiamDraft(null);
-    setMarkerFacingDraft(null);
-    setMarkerGroupPosDraft(null);
-    setDragGhostById(null);
     setFloorMarkupTool((tool) => (tool === null ? tool : null));
     floorLineSessionRef.current = null;
     setFloorLineDraft(null);
@@ -607,51 +689,50 @@ export function StageBoardBody({
     setGroupRotateGuideDeltaDeg(null);
   }, [formationIdForWrites, onGestureHistoryCancel, clearSelectedDancers]);
 
-  /** ピンチ拡大など: 進行中のドラッグを破棄する */
+  /**
+   * ピンチ拡大・タブ非表示・watchdog 等: 進行中ジェスチャーを破棄する。
+   * 終了パスはすべて gestureRegistry.forceEnd() に集約する。
+   */
   useEffect(() => {
-    const abort = () => {
-      const hadGesture =
-        dragRef.current != null ||
-        groupDragRef.current != null ||
-        setPieceDragRef.current != null ||
-        markerResizeRef.current != null ||
-        markerRotateRef.current != null ||
-        floorMarkupTextDragRef.current != null ||
-        floorTextResizeDragRef.current != null ||
-        floorTextPlaceDragRef.current != null ||
-        floorTextMultiDragRef.current != null ||
-        floorTextTapOrDragRef.current != null ||
-        marqueeSessionRef.current != null;
-      if (hadGesture) onGestureHistoryCancel?.();
-      dragRef.current = null;
-      groupDragRef.current = null;
-      setPieceDragRef.current = null;
-      markerResizeRef.current = null;
-      markerRotateRef.current = null;
-      markerFacingDraftRef.current = null;
-      markerGroupPosDraftRef.current = null;
-      floorMarkupTextDragRef.current = null;
-      floorTextTapOrDragRef.current = null;
-      floorTextResizeDragRef.current = null;
-      floorTextPlaceDragRef.current = null;
-      floorTextMultiDragRef.current = null;
-      marqueeSessionRef.current = null;
-      setMarquee(null);
-      setMarkerDiamDraft(null);
-      setMarkerFacingDraft(null);
-      setMarkerGroupPosDraft(null);
-      setDragGhostById(null);
-      setBulkHideDancerGlyphs(false);
-      setAlignGuides({ x: null, y: null });
-      setTrashUiVisible(false);
-      trashRevealActiveRef.current = false;
-      setGroupRotateGuideDeltaDeg(null);
+    const discardActiveGesture = (reason: string) => {
+      const current = gestureRegistry.getCurrent();
+      const hadGesture = hasActiveStageGestureRef.current() || current != null;
+      if (!hadGesture) return;
+      if (reason === "watchdog") {
+        console.warn(
+          "[StageGesture] stuck gesture detected, force resetting",
+          current?.type ?? "(payload-only)",
+        );
+      }
+      onGestureHistoryCancelRef.current?.();
+      gestureRegistry.forceEnd();
     };
-    window.addEventListener(STAGE_BOARD_ABORT_POINTER_GESTURES, abort);
+
+    const onAbort = () => discardActiveGesture("abort");
+    const onVisibilityChange = () => {
+      if (document.hidden) discardActiveGesture("visibilitychange");
+    };
+    const onBlur = () => discardActiveGesture("blur");
+    const watchdogId = window.setInterval(() => {
+      const current = gestureRegistry.getCurrent();
+      if (current && Date.now() - current.startedAt > 8000) {
+        discardActiveGesture("watchdog");
+      } else if (!current && hasActiveStageGestureRef.current()) {
+        // capture 無しで payload ref だけ残ったケースも保険で落とす
+        discardActiveGesture("watchdog");
+      }
+    }, 2000);
+
+    window.addEventListener(STAGE_BOARD_ABORT_POINTER_GESTURES, onAbort);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("blur", onBlur);
     return () => {
-      window.removeEventListener(STAGE_BOARD_ABORT_POINTER_GESTURES, abort);
+      window.removeEventListener(STAGE_BOARD_ABORT_POINTER_GESTURES, onAbort);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("blur", onBlur);
+      window.clearInterval(watchdogId);
     };
-  }, [onGestureHistoryCancel]);
+  }, [gestureRegistry]);
 
   useEffect(() => {
     setShowStageDancerColorToolbar(false);
@@ -1173,7 +1254,7 @@ export function StageBoardBody({
       if (!floorTextPlaceSession) return;
       e.preventDefault();
       e.stopPropagation();
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      beginStageGesture("floorTextPlace", e);
       floorTextPlaceDragRef.current = {
         startClientX: e.clientX,
         startClientY: e.clientY,
@@ -1182,7 +1263,7 @@ export function StageBoardBody({
         session: { ...floorTextPlaceSession },
       };
     },
-    [floorTextPlaceSession],
+    [floorTextPlaceSession, beginStageGesture],
   );
 
   const beginFloorLineDraw = useCallback(
@@ -1452,7 +1533,7 @@ export function StageBoardBody({
       if (!setPiecesEditable) return;
       setSelectedSetPieceId(piece.id);
       e.stopPropagation();
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      beginStageGesture("setPieceDrag", e);
       const el = getSetPieceCoordRoot(
         piece,
         stageMainFloorRef.current,
@@ -1469,7 +1550,12 @@ export function StageBoardBody({
         offsetYPx: e.clientY - topPx,
       };
     },
-    [setPiecesEditable, stageMainFloorRef, viewportTextOverlayRoot],
+    [
+      setPiecesEditable,
+      stageMainFloorRef,
+      viewportTextOverlayRoot,
+      beginStageGesture,
+    ],
   );
 
   const handlePointerDownSetPieceResize = useCallback(
@@ -1479,6 +1565,7 @@ export function StageBoardBody({
       e.stopPropagation();
       e.preventDefault();
       setSelectedSetPieceId(piece.id);
+      beginStageGesture("setPieceResize", e);
       const el = getSetPieceCoordRoot(
         piece,
         stageMainFloorRef.current,
@@ -1502,7 +1589,12 @@ export function StageBoardBody({
         floorHpx: r.height,
       };
     },
-    [setPiecesEditable, stageMainFloorRef, viewportTextOverlayRoot],
+    [
+      setPiecesEditable,
+      stageMainFloorRef,
+      viewportTextOverlayRoot,
+      beginStageGesture,
+    ],
   );
 
   const handlePointerDownSetPieceRotate = useCallback(
@@ -1512,7 +1604,7 @@ export function StageBoardBody({
       e.stopPropagation();
       e.preventDefault();
       setSelectedSetPieceId(piece.id);
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      beginStageGesture("setPieceRotate", e);
       const el = getSetPieceCoordRoot(
         piece,
         stageMainFloorRef.current,
@@ -1532,7 +1624,12 @@ export function StageBoardBody({
         centerClientY: cy,
       };
     },
-    [setPiecesEditable, stageMainFloorRef, viewportTextOverlayRoot],
+    [
+      setPiecesEditable,
+      stageMainFloorRef,
+      viewportTextOverlayRoot,
+      beginStageGesture,
+    ],
   );
 
   useEffect(() => {
@@ -1893,8 +1990,23 @@ export function StageBoardBody({
         return { ...f, setPieces: pieces };
       });
     };
-    const onUp = () => {
-      setPieceDragRef.current = null;
+    const onUp = (e: PointerEvent) => {
+      // 大道具ジェスチャーのときだけ終了する（ダンサー側 onUp の確定より先に
+      // forceEnd してペイロードを消さないよう type でガードする）
+      const current = gestureRegistryRef.current.getCurrent();
+      const isSetPieceGesture =
+        current != null &&
+        (current.type === "setPieceDrag" ||
+          current.type === "setPieceResize" ||
+          current.type === "setPieceRotate") &&
+        current.pointerId === e.pointerId;
+      if (isSetPieceGesture) {
+        gestureRegistryRef.current.forceEnd();
+        return;
+      }
+      if (setPieceDragRef.current) {
+        setPieceDragRef.current = null;
+      }
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -1968,13 +2080,13 @@ export function StageBoardBody({
         setSelectedDancerIds(nextSelection);
       }
 
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
       const el = stageMainFloorRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
       const cx = r.left + (xPct / 100) * r.width;
       const cy = r.top + (yPct / 100) * r.height;
       if (nextSelection.length <= 1) {
+        beginStageGesture("drag", e);
         dragRef.current = {
           dancerId,
           offsetXPx: e.clientX - cx,
@@ -1987,6 +2099,7 @@ export function StageBoardBody({
         return;
       }
       /** 複数選択の一括移動: 各ダンサーの初期位置を覚えておき、差分だけ一斉に動かす */
+      beginStageGesture("groupDrag", e);
       const dancers = writeFormation?.dancers ?? activeFormation?.dancers ?? [];
       const startPositions = new Map<string, { xPct: number; yPct: number }>();
       for (const id of nextSelection) {
@@ -2020,6 +2133,7 @@ export function StageBoardBody({
       onGestureHistoryBegin,
       setDragGhostById,
       setBulkHideDancerGlyphs,
+      beginStageGesture,
     ],
   );
 
@@ -2041,7 +2155,7 @@ export function StageBoardBody({
       if (selectedDancerIds.length < 2) return;
       e.stopPropagation();
       e.preventDefault();
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      beginStageGesture("groupDrag", e);
       const el = stageMainFloorRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
@@ -2076,6 +2190,7 @@ export function StageBoardBody({
       activeFormation,
       onGestureHistoryBegin,
       setBulkHideDancerGlyphs,
+      beginStageGesture,
     ],
   );
 
@@ -2096,7 +2211,7 @@ export function StageBoardBody({
       if (selectedDancerIds.length < 1) return;
       e.stopPropagation();
       e.preventDefault();
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      beginStageGesture("markerResize", e);
       const dancers = writeFormation?.dancers ?? activeFormation?.dancers ?? [];
       const startSizes = new Map<string, number>();
       for (const id of selectedDancerIds) {
@@ -2133,6 +2248,7 @@ export function StageBoardBody({
       activeFormation,
       baseMarkerPx,
       setMarkerDiamDraft,
+      beginStageGesture,
     ],
   );
 
@@ -2151,7 +2267,7 @@ export function StageBoardBody({
       if (selectedDancerIds.length < 1) return;
       e.stopPropagation();
       e.preventDefault();
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      beginStageGesture("nameBelowFontResize", e);
       const dancers = writeFormation?.dancers ?? activeFormation?.dancers ?? [];
       const startFonts = new Map<string, number>();
       for (const id of selectedDancerIds) {
@@ -2194,6 +2310,7 @@ export function StageBoardBody({
       effectiveMarkerPx,
       resolveNameBelowFontPx,
       project.dancerMarkerDiameterPx,
+      beginStageGesture,
     ],
   );
 
@@ -2259,11 +2376,7 @@ export function StageBoardBody({
         }
       }
       if (startFacings.size === 0) return;
-      try {
-        rotateHandleEl.setPointerCapture(e.pointerId);
-      } catch {
-        /* capture 不可時も window の pointermove で回転は継続 */
-      }
+      beginStageGesture("markerRotate", e);
       markerRotateRef.current = {
         centerClientX,
         centerClientY,
@@ -2303,6 +2416,7 @@ export function StageBoardBody({
       setMarkerGroupPosDraft,
       setBulkHideDancerGlyphs,
       setGroupRotateGuideDeltaDeg,
+      beginStageGesture,
     ],
   );
 
@@ -2518,6 +2632,7 @@ export function StageBoardBody({
       setFloorTextInlineRect(null);
 
       const additive = e.shiftKey || e.metaKey || e.ctrlKey;
+      beginStageGesture("marquee", e);
       marqueeSessionRef.current = {
         startClientX: e.clientX,
         startClientY: e.clientY,
@@ -2562,6 +2677,7 @@ export function StageBoardBody({
       setMarquee,
       writeFormation,
       activeFormation,
+      beginStageGesture,
     ],
   );
 
@@ -3395,6 +3511,8 @@ export function StageBoardBody({
       setDragGhostById(null);
       setBulkHideDancerGlyphs(false);
       setGroupRotateGuideDeltaDeg(null);
+      // 確定後: pointer capture 解放 + 残留セッションの一掃（終了の唯一出口）
+      gestureRegistryRef.current.forceEnd();
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -3457,26 +3575,15 @@ export function StageBoardBody({
       }
 
       if (e.key === "Escape") {
-        groupDragRef.current = null;
-        markerRotateRef.current = null;
-        markerFacingDraftRef.current = null;
-        markerGroupPosDraftRef.current = null;
-        floorMarkupTextDragRef.current = null;
-        floorTextTapOrDragRef.current = null;
+        onGestureHistoryCancelRef.current?.();
+        gestureRegistryRef.current.forceEnd();
         clearSelectedDancers();
-        setMarquee(null);
-        marqueeSessionRef.current = null;
         setFloorMarkupTool(null);
         floorLineSessionRef.current = null;
         setFloorLineDraft(null);
         setFloorTextDraft({ ...EMPTY_FLOOR_TEXT_DRAFT });
         setFloorTextEditId(null);
         setFloorTextInlineRect(null);
-        setDragGhostById(null);
-        setMarkerFacingDraft(null);
-        setMarkerGroupPosDraft(null);
-        setBulkHideDancerGlyphs(false);
-        setGroupRotateGuideDeltaDeg(null);
         return;
       }
       /** 選択中が 1 件以上なら Alt+矢印で微移動。複数選択時は群全体を動かす。 */
