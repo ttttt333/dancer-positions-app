@@ -20,6 +20,8 @@ import {
   LAYOUT_PRESET_OPTIONS,
   LAYOUT_PRESET_LABELS,
   PRESET_CATEGORIES,
+  transferDancerIdentitiesByNearestPosition,
+  transferDancerIdentitiesByOrder,
   type LayoutPresetId,
 } from "../lib/formationLayouts";
 import {
@@ -95,37 +97,6 @@ function parseTimeString(raw: string): number {
   return Number.isFinite(n) ? n : NaN;
 }
 
-function transferIdentitiesByOrder(
-  newDancers: DancerSpot[],
-  oldDancers: DancerSpot[]
-): DancerSpot[] {
-  return newDancers.map((nd, i) => {
-    const od = oldDancers[i];
-    if (!od) return nd;
-    const markerBadge =
-      od.crewMemberId
-        ? ""
-        : od.markerBadge !== undefined
-          ? od.markerBadge
-          : nd.markerBadge;
-    const markerBadgeSource = od.crewMemberId
-      ? undefined
-      : od.markerBadgeSource;
-    return {
-      ...nd,
-      id: od.id,
-      label: od.label,
-      colorIndex: od.colorIndex,
-      crewMemberId: od.crewMemberId,
-      markerBadge,
-      markerBadgeSource,
-      sizePx: od.sizePx ?? nd.sizePx,
-      note: od.note ?? nd.note,
-      heightCm: od.heightCm ?? nd.heightCm,
-    };
-  });
-}
-
 function activeFormationDancers(project: ChoreographyProjectJson): DancerSpot[] {
   const f = project.formations.find((x) => x.id === project.activeFormationId);
   return f ? f.dancers.map((d) => ({ ...d })) : [];
@@ -144,7 +115,7 @@ function dancersForTargetCount(
     dancerSpacingMm: spacing.dancerSpacingMm ?? undefined,
     stageWidthMm: spacing.stageWidthMm ?? undefined,
   });
-  return transferIdentitiesByOrder(grown, base);
+  return transferDancerIdentitiesByOrder(grown, base);
 }
 
 const panelShellStyle: CSSProperties = {
@@ -536,7 +507,7 @@ export function AddCueWithFormationDialog({
           dancerSpacingMm: spacingOpts.dancerSpacingMm ?? undefined,
           stageWidthMm: spacingOpts.stageWidthMm ?? undefined,
         });
-        return transferIdentitiesByOrder(raw, baseDancers);
+        return transferDancerIdentitiesByNearestPosition(raw, baseDancers);
       }
       case "template": {
         if (!templatePresetId) return [];
@@ -544,7 +515,7 @@ export function AddCueWithFormationDialog({
           dancerSpacingMm: spacingOpts.dancerSpacingMm ?? undefined,
           stageWidthMm: spacingOpts.stageWidthMm ?? undefined,
         });
-        return transferIdentitiesByOrder(raw, active);
+        return transferDancerIdentitiesByNearestPosition(raw, active);
       }
       case "saved": {
         if (savedBoxId) {

@@ -14,7 +14,7 @@ import type {
 import {
   COMMON_QUICK_LAYOUT_PRESETS,
   dancersForLayoutPreset,
-  transferDancerIdentitiesByOrder,
+  transferDancerIdentitiesByNearestPosition,
   type LayoutPresetId,
 } from "../lib/formationLayouts";
 import {
@@ -128,7 +128,10 @@ export function QuickFormationBar({
   const pickPreset = useCallback(
     (presetId: LayoutPresetId, label: string) => {
       if (disabled || !targetFormation) return;
-      const dancers = buildPresetDancers(presetId);
+      const dancers = transferDancerIdentitiesByNearestPosition(
+        buildPresetDancers(presetId),
+        targetFormation.dancers
+      );
       const pendingSrc: PendingSource = { kind: "preset", presetId, label };
       setPending(pendingSrc);
       setPendingDancers(dancers);
@@ -211,7 +214,7 @@ export function QuickFormationBar({
               targetFormation.dancers,
               boxItem
             )
-          : transferDancerIdentitiesByOrder(pendingDancers, targetFormation.dancers);
+          : pendingDancers.map((d) => ({ ...d })); // プリセットは pick 時点で nearest 割当済み
     setProject((p) => {
       let next: typeof p = {
         ...p,

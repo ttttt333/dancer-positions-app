@@ -2530,7 +2530,7 @@ export function dancersWithPresetAndWingSurplus(
 
 /**
  * プリセットで得た座標に、既存の id / 表示 / 名簿紐付けを順番で上書きする。
- * （クイックバー適用・名簿一括配置と同じ振る舞い）
+ * （名簿一括配置など、並び順が意味を持つ場合向け）
  */
 export function transferDancerIdentitiesByOrder(
   positioned: DancerSpot[],
@@ -2539,27 +2539,82 @@ export function transferDancerIdentitiesByOrder(
   return positioned.map((nd, i) => {
     const od = identitySource[i];
     if (!od) return nd;
-    /** 名簿紐付け時は「○の下に名前・○内は空」（StageBoard の below モード＋ markerBadge 空） */
-    const markerBadge =
-      od.crewMemberId
-        ? ""
-        : od.markerBadge !== undefined
-          ? od.markerBadge
-          : nd.markerBadge;
-    const markerBadgeSource = od.crewMemberId
-      ? undefined
-      : od.markerBadgeSource;
-    return {
-      ...nd,
-      id: od.id,
-      label: od.label,
-      colorIndex: od.colorIndex,
-      crewMemberId: od.crewMemberId,
-      markerBadge,
-      markerBadgeSource,
-      sizePx: od.sizePx ?? nd.sizePx,
-      note: od.note ?? nd.note,
-      heightCm: od.heightCm ?? nd.heightCm,
-    };
+    return mergeDancerIdentityOntoPosition(nd, od);
   });
+}
+
+/**
+ * プリセット座標へ、既存ダンサーを「前の立ち位置から一番近いスロット」へ割り当てて
+ * id / 表示 / 名簿紐付けを引き継ぐ。
+ *
+ * 雛形変更・次キュー作成時のデフォルト挙動。距離の短い組から順に一対一で確定する
+ * （貪欲マッチ）。未割当の新スロットは新規のまま残す。
+ */
+export function transferDancerIdentitiesByNearestPosition(
+  positioned: DancerSpot[],
+  identitySource: DancerSpot[]
+): DancerSpot[] {
+  if (positioned.length === 0) return [];
+  if (identitySource.length === 0) return positioned.map((d) => ({ ...d }));
+
+  type Pair = { oi: number; ni: number; dist: number };
+  const pairs: Pair[] = [];
+  for (let oi = 0; oi < identitySource.length; oi++) {
+    const od = identitySource[oi]!;
+    for (let ni = 0; ni < positioned.length; ni++) {
+      const nd = positioned[ni]!;
+      const dx = od.xPct - nd.xPct;
+      const dy = od.yPct - nd.yPct;
+      pairs.push({ oi, ni, dist: dx * dx + dy * dy });
+    }
+  }
+  pairs.sort((a, b) => a.dist - b.dist || a.oi - b.oi || a.ni - b.ni);
+
+  const usedOld = new Set<number>();
+  const usedNew = new Set<number>();
+  const assignment = new Map<number, number>(); // newIndex -> oldIndex
+
+  for (const p of pairs) {
+    if (usedOld.has(p.oi) || usedNew.has(p.ni)) continue;
+    usedOld.add(p.oi);
+    usedNew.add(p.ni);
+    assignment.set(p.ni, p.oi);
+    if (assignment.size >= Math.min(positioned.length, identitySource.length)) {
+      break;
+    }
+  }
+
+  return positioned.map((nd, ni) => {
+    const oi = assignment.get(ni);
+    if (oi === undefined) return nd;
+    return mergeDancerIdentityOntoPosition(nd, identitySource[oi]!);
+  });
+}
+
+/** 座標は `positioned`、身元は `identity` から引き継ぐ */
+function mergeDancerIdentityOntoPosition(
+  positioned: DancerSpot,
+  identity: DancerSpot
+): DancerSpot {
+  /** 名簿紐付け時は「○の下に名前・○内は空」（StageBoard の below モード＋ markerBadge 空） */
+  const markerBadge = identity.crewMemberId
+    ? ""
+    : identity.markerBadge !== undefined
+      ? identity.markerBadge
+      : positioned.markerBadge;
+  const markerBadgeSource = identity.crewMemberId
+    ? undefined
+    : identity.markerBadgeSource;
+  return {
+    ...positioned,
+    id: identity.id,
+    label: identity.label,
+    colorIndex: identity.colorIndex,
+    crewMemberId: identity.crewMemberId,
+    markerBadge,
+    markerBadgeSource,
+    sizePx: identity.sizePx ?? positioned.sizePx,
+    note: identity.note ?? positioned.note,
+    heightCm: identity.heightCm ?? positioned.heightCm,
+  };
 }

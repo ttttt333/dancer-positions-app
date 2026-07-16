@@ -3,6 +3,7 @@ import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography"
 import {
   dancersWithPresetAndWingSurplus,
   LAYOUT_PRESET_OPTIONS,
+  transferDancerIdentitiesByNearestPosition,
   type LayoutPresetId,
 } from "../lib/formationLayouts";
 import {
@@ -22,46 +23,8 @@ import { FormationBoxItemThumb } from "./FormationBoxItemThumb";
 /**
  * プリセット / 形の箱から作った新しい立ち位置に、
  * 既存のフォーメーションのダンサー識別子（id・名前・色・名簿リンク等）を
- * 順序通りに引き継ぐ。
- *
- * これにより:
- * - 既存ダンサーの id がそのまま残るので、他のキューにある同じ id の
- *   ダンサーと連動が維持される（cloneFormationForNewCue が id を維持しているため）。
- * - 名簿（Crew）に紐付いた crewMemberId と名前も保持される。
- *
- * 新しい立ち位置の方が多い場合（袖余りなど）、はみ出した分は新規生成された
- * 識別子のまま残す。
+ * 「前の立ち位置から一番近いスロット」へ引き継ぐ。
  */
-function transferIdentitiesByOrder(
-  newDancers: DancerSpot[],
-  oldDancers: DancerSpot[]
-): DancerSpot[] {
-  return newDancers.map((nd, i) => {
-    const od = oldDancers[i];
-    if (!od) return nd;
-    const markerBadge =
-      od.crewMemberId
-        ? ""
-        : od.markerBadge !== undefined
-          ? od.markerBadge
-          : nd.markerBadge;
-    const markerBadgeSource = od.crewMemberId
-      ? undefined
-      : od.markerBadgeSource;
-    return {
-      ...nd,
-      id: od.id,
-      label: od.label,
-      colorIndex: od.colorIndex,
-      crewMemberId: od.crewMemberId,
-      markerBadge,
-      markerBadgeSource,
-      sizePx: od.sizePx ?? nd.sizePx,
-      note: od.note ?? nd.note,
-      heightCm: od.heightCm ?? nd.heightCm,
-    };
-  });
-}
 
 type Props = {
   project: ChoreographyProjectJson;
@@ -141,17 +104,19 @@ export function FormationSuggestionPanel({
 
   useEffect(() => {
     if (pendingPreset == null) return;
+    const f0 = project.formations.find((x) => x.id === targetFormationId);
+    const raw = dancersWithPresetAndWingSurplus(
+      nClamped,
+      pendingPreset,
+      previousBodyCount,
+      surplusToWings,
+      {
+        dancerSpacingMm: project.dancerSpacingMm,
+        stageWidthMm: project.stageWidthMm,
+      }
+    );
     onStagePreviewChange?.(
-      dancersWithPresetAndWingSurplus(
-        nClamped,
-        pendingPreset,
-        previousBodyCount,
-        surplusToWings,
-        {
-          dancerSpacingMm: project.dancerSpacingMm,
-          stageWidthMm: project.stageWidthMm,
-        }
-      )
+      transferDancerIdentitiesByNearestPosition(raw, f0?.dancers ?? [])
     );
   }, [
     nClamped,
@@ -161,6 +126,8 @@ export function FormationSuggestionPanel({
     onStagePreviewChange,
     project.dancerSpacingMm,
     project.stageWidthMm,
+    project.formations,
+    targetFormationId,
   ]);
 
   const applyPreset = useCallback(
@@ -172,7 +139,7 @@ export function FormationSuggestionPanel({
         f0 && f0.dancers.length > 0
           ? f0.confirmedDancerCount ?? f0.dancers.length
           : f0?.confirmedDancerCount ?? n;
-      const dancers = transferIdentitiesByOrder(
+      const dancers = transferDancerIdentitiesByNearestPosition(
         dancersWithPresetAndWingSurplus(n, preset, prev, surplusToWings, {
           dancerSpacingMm: project.dancerSpacingMm,
           stageWidthMm: project.stageWidthMm,

@@ -12,7 +12,7 @@ import {
   dancersForLayoutPreset,
   LAYOUT_PRESET_LABELS,
   PRESET_CATEGORIES,
-  transferDancerIdentitiesByOrder,
+  transferDancerIdentitiesByNearestPosition,
   type LayoutPresetId,
 } from "../lib/formationLayouts";
 import {
@@ -177,8 +177,13 @@ export function FormationPresetPickerSheet({
 
   const previewDancers = useMemo(() => {
     if (!selectedPresetId) return null;
-    return dancersForLayoutPreset(count, selectedPresetId, spacingOpts);
-  }, [count, selectedPresetId, spacingOpts]);
+    const raw = dancersForLayoutPreset(count, selectedPresetId, spacingOpts);
+    if (!targetFormation) return raw;
+    return transferDancerIdentitiesByNearestPosition(
+      raw,
+      targetFormation.dancers
+    );
+  }, [count, selectedPresetId, spacingOpts, targetFormation]);
 
   const closeAndCleanup = useCallback(() => {
     onStagePreviewChange?.(null);
@@ -228,10 +233,8 @@ export function FormationPresetPickerSheet({
 
   const apply = useCallback(() => {
     if (!targetFormation || !selectedPresetId || !previewDancers) return;
-    const dancers = transferDancerIdentitiesByOrder(
-      previewDancers,
-      targetFormation.dancers
-    );
+    // previewDancers は既に nearest 割当済み
+    const dancers = previewDancers;
     setProject((p) => ({
       ...p,
       formations: p.formations.map((f) =>
