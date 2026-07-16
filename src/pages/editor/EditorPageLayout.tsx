@@ -309,7 +309,10 @@ export function EditorPageLayout(props: EditorLayoutProps) {
       }}
     >
       <VideoExportHost />
-      {!choreoPublicView ? <EditorPageHeader {...props} /> : null}
+      {/* PC ワイドは再生バー列に HOME を置くため、別ヘッダー行は出さない */}
+      {!choreoPublicView && !wideEditorLayout && !editorMobileLandscape ? (
+        <EditorPageHeader {...props} />
+      ) : null}
 
       {/* ─── Main layout: column flex (top wave bar + stage row) ─── */}
       <div

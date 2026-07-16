@@ -288,8 +288,8 @@ function WaveZoomToolbarButtons({
  */
 export const TIMELINE_BRAND_RAIL_CSS = "clamp(200px, 28vw, 340px)";
 
-/** PC ワイド上部ドック: 左右レール幅（`TIMELINE_BRAND_RAIL_CSS` の 2/3） */
-export const TIMELINE_BRAND_RAIL_WIDE_CSS = "clamp(133px, 18.67vw, 227px)";
+/** PC ワイド上部ドック: 左右レール幅（HOME + ロゴ用に少し広め） */
+export const TIMELINE_BRAND_RAIL_WIDE_CSS = "clamp(210px, 24vw, 300px)";
 
 const timelineToolbarBtn: CSSProperties = {
   ...btnSecondary,
@@ -352,6 +352,68 @@ function WaveHistoryRoundIcon({
   );
 }
 
+function TimelineHomeButton({ compact }: { compact?: boolean }) {
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  return (
+    <Link
+      to="/"
+      title={t("editor.homeTitle")}
+      aria-label={t("editor.homeTitle")}
+      onClick={(e) => {
+        e.preventDefault();
+        void flushEditorAutoSaveBeforeLeave().finally(() => navigate("/"));
+      }}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: tlPx(4),
+        flexShrink: 0,
+        textDecoration: "none",
+        borderRadius: 999,
+        color: shell.text,
+        background: "rgba(148, 163, 184, 0.14)",
+        border: `1px solid ${shell.border}`,
+        padding: compact
+          ? `${tlPx(4)} ${tlPx(8)} ${tlPx(4)} ${tlPx(6)}`
+          : `${tlPx(5)} ${tlPx(10)} ${tlPx(5)} ${tlPx(8)}`,
+        fontSize: compact ? tlPx(11) : tlPx(12),
+        fontWeight: 700,
+        letterSpacing: "0.02em",
+        lineHeight: 1,
+        touchAction: "manipulation",
+        whiteSpace: "nowrap",
+      }}
+    >
+      <svg
+        width={compact ? 14 : 15}
+        height={compact ? 14 : 15}
+        viewBox="0 0 24 24"
+        aria-hidden
+        style={{ display: "block", flexShrink: 0 }}
+      >
+        <path
+          d="M4.5 11.2 12 4.8l7.5 6.4"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M7 10.8V19h10v-8.2"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+      <span>{t("editor.homeLabel")}</span>
+    </Link>
+  );
+}
+
 function ChoreoCoreHeaderBrand({ compact }: { compact?: boolean }) {
   const { t } = useI18n();
   const navigate = useNavigate();
@@ -372,7 +434,8 @@ function ChoreoCoreHeaderBrand({ compact }: { compact?: boolean }) {
         width: "100%",
         height: "100%",
         minHeight: compact ? tlPx(30) : tlPx(34),
-        flexShrink: 0,
+        flexShrink: 1,
+        minWidth: 0,
         textDecoration: "none",
         borderRadius: tlPx(6),
         overflow: "hidden",
@@ -397,6 +460,39 @@ function ChoreoCoreHeaderBrand({ compact }: { compact?: boolean }) {
         draggable={false}
       />
     </Link>
+  );
+}
+
+function BrandRailWithHome({
+  compact,
+  showHome,
+}: {
+  compact?: boolean;
+  showHome?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        minWidth: 0,
+        maxWidth: "100%",
+        overflow: "hidden",
+        display: "flex",
+        alignItems: "center",
+        gap: showHome ? tlPx(6) : 0,
+      }}
+    >
+      {showHome ? <TimelineHomeButton compact={compact} /> : null}
+      <div
+        style={{
+          flex: "1 1 auto",
+          minWidth: 0,
+          alignSelf: "stretch",
+          display: "flex",
+        }}
+      >
+        <ChoreoCoreHeaderBrand compact={compact} />
+      </div>
+    </div>
   );
 }
 
@@ -672,17 +768,7 @@ export function TimelineToolbar({
               overflowY: "hidden",
             }}
           >
-            <div
-              style={{
-                minWidth: 0,
-                maxWidth: "100%",
-                overflow: "hidden",
-                display: "flex",
-                alignItems: "stretch",
-              }}
-            >
-              <ChoreoCoreHeaderBrand />
-            </div>
+            <BrandRailWithHome showHome={wideWorkbench && !editorMobileStack} />
             <div
               style={{
                 display: "flex",
@@ -1067,17 +1153,10 @@ export function TimelineToolbar({
         background: shell.bgChrome,
       }}
     >
-      <div
-        style={{
-          minWidth: 0,
-          maxWidth: "100%",
-          overflow: "hidden",
-          display: "flex",
-          alignItems: "stretch",
-        }}
-      >
-        <ChoreoCoreHeaderBrand compact />
-      </div>
+      <BrandRailWithHome
+        compact
+        showHome={wideWorkbench && !editorMobileStack}
+      />
       <div
         style={{
           display: "flex",
