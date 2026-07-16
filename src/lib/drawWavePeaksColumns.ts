@@ -11,6 +11,12 @@ const WAVE_PEAK_HALF_HEIGHT_MAX = 0.41;
 const WAVE_PEAK_BOTTOM_TRIM_MM = 1.5;
 /** ズーム時: 1 列あたり最低この本数のピークを当てはめる（細部が潰れないように） */
 const MIN_PEAK_BINS_PER_PX = 3;
+/**
+ * 無音区間でも「何も描かれない空白」にならないよう、常にこの太さの基準線を描く。
+ * これが無いと無音の出だしが背景と区別できず、再生ヘッド（赤バー）が動いていても
+ * 目印が無くて数秒間見えていないように感じられる（mm）。
+ */
+const WAVE_SILENCE_BASELINE_MM = 0.5;
 
 function peaksForZoomedDraw(
   peaks: number[],
@@ -54,6 +60,7 @@ export function drawWavePeaksColumns(
 
   const mid = canvasHeight / 2;
   const bottomTrimBitmap = waveCanvasBitmapPxFromCssMm(WAVE_PEAK_BOTTOM_TRIM_MM);
+  const silenceBaselinePx = waveCanvasBitmapPxFromCssMm(WAVE_SILENCE_BASELINE_MM);
   const indexForTime = (t: number) => {
     const clamped = Math.max(0, Math.min(durationSec, t));
     return (clamped / durationSec) * (peakCount - 1);
@@ -73,9 +80,11 @@ export function drawWavePeaksColumns(
       canvasHeight * WAVE_PEAK_HALF_HEIGHT_MAX,
       ((peak * canvasHeight) / 2) * amplitudeScale
     );
-    const barHeight = Math.max(0, ph * 2 - bottomTrimBitmap);
-    if (barHeight > 0.2) {
-      g.fillRect(px, mid - ph, 1, barHeight);
+    const rawBarHeight = Math.max(0, ph * 2 - bottomTrimBitmap);
+    if (rawBarHeight >= silenceBaselinePx) {
+      g.fillRect(px, mid - ph, 1, rawBarHeight);
+    } else {
+      g.fillRect(px, mid - silenceBaselinePx / 2, 1, silenceBaselinePx);
     }
   }
 }
