@@ -2034,7 +2034,7 @@ html[data-landscape-wave-collapsed] {
   gap: 4px;
 }
 
-[data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-viewToggle .editor-stage-landscape-btn {
+[data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-viewToggle-row .editor-stage-landscape-btn {
   flex: none;
   width: 40px;
   height: 34px;
@@ -2043,7 +2043,15 @@ html[data-landscape-wave-collapsed] {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
+[data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-btn {
+  height: 28px;
+  font-size: 10px;
+  border-radius: 6px;
+}
+
+/* UPDATE LOG / キュー削除（画面右上）: 上記の汎用サイズより後に置いて優先させる */
 [data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-btn--updateLog {
+  flex: none;
   width: 100%;
   height: 26px;
   font-size: 9px;
@@ -2055,10 +2063,15 @@ html[data-landscape-wave-collapsed] {
   white-space: nowrap;
 }
 
-[data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-btn {
-  height: 28px;
-  font-size: 10px;
-  border-radius: 6px;
+/* 波形たたみ時: 画面右上の UPDATE LOG の下にキュー削除を収める */
+[data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-btn--delete-cue-corner {
+  flex: none;
+  width: 100%;
+  min-height: 26px;
+  height: 26px;
+  margin-top: 0;
+  font-size: 9px;
+  letter-spacing: 0.02em;
 }
 
 [data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-btn--change {
@@ -2130,24 +2143,11 @@ html[data-landscape-wave-collapsed] {
   color: #c7d2fe;
 }
 
-/* Change 列の一番上: トップページへ戻る */
-[data-shell-landscape] .editor-stage-landscape-btn--home {
-  width: 100%;
-  flex: none;
-  min-height: 22px;
-  height: 22px;
-  border-color: rgba(96, 165, 250, 0.55);
-  background: rgba(30, 58, 138, 0.35);
-  color: #dbeafe;
-  font-size: 10px;
-  letter-spacing: 0.03em;
-}
-
 [data-shell-landscape] .editor-stage-landscape-btn--change {
   width: 100%;
   flex: none;
-  min-height: 36px;
-  height: 36px;
+  min-height: 38px;
+  height: 38px;
   border-color: #d4af37;
   color: #fef3c7;
   font-size: 13px;

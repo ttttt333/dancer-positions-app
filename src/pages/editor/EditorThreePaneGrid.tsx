@@ -228,7 +228,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   // MobileShell 用: stageView・ダイアログ開閉・undo/redo・タブメニューアクション を bridge store に同期
   // 不安定な関数参照を ref に退避して依存配列ループを防ぐ
   const navigate = useNavigate();
-  const goHomeFromLandscapeStack = useCallback(() => {
+  const goHomeFromStageCorner = useCallback(() => {
     void flushEditorAutoSaveBeforeLeave().finally(() => navigate("/"));
   }, [navigate]);
   const addCueFnRef = useRef(setAddCueDialogOpen as ((open: boolean) => void) | null);
@@ -808,6 +808,37 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     3D
                   </button>
                 </div>
+                {!choreoPublicView && mobileStackEditor && !editorMobileLandscape ? (
+                  <Link
+                    to="/update-log"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="お知らせ・アップデートログ"
+                    aria-label="UPDATE LOG（お知らせ）を開く"
+                    style={{
+                      ...btnSecondary,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "100%",
+                      boxSizing: "border-box",
+                      padding: "4px 6px",
+                      fontSize: 9,
+                      fontWeight: 750,
+                      lineHeight: 1,
+                      letterSpacing: "0.04em",
+                      borderRadius: 8,
+                      whiteSpace: "nowrap",
+                      textAlign: "center",
+                      textDecoration: "none",
+                      borderColor: "rgba(96, 165, 250, 0.55)",
+                      color: "#dbeafe",
+                      background: "rgba(30, 58, 138, 0.55)",
+                    }}
+                  >
+                    UPDATE LOG
+                  </Link>
+                ) : null}
                 {/* 動線矢印トグル（生徒閲覧・スマホ縦積みでは非表示） */}
                 {!choreoPublicView && !mobileStackEditor && stageView === "2d" && (
                   <button
@@ -958,39 +989,57 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 stageView === "2d" &&
                 mobileStackEditor &&
                 !editorMobileLandscape ? (
-                  <button
-                    type="button"
-                    onClick={() => setFormationPresetPickerOpen(true)}
-                    title="立ち位置の雛形を選ぶ"
-                    aria-label="立ち位置の雛形を選ぶ"
+                  <div
                     style={{
                       position: "absolute",
-                      top: mobileStackEditor ? 8 : 6,
-                      left: mobileStackEditor ? 8 : 6,
+                      top: 8,
+                      left: 8,
                       zIndex: 45,
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "stretch",
+                      gap: 4,
                       pointerEvents: "auto",
-                      ...btnSecondary,
-                      ...(mobileStackEditor
-                        ? {
-                            padding: "6px 10px",
-                            fontSize: 11,
-                            fontWeight: 700,
-                            borderRadius: 8,
-                          }
-                        : {
-                            padding: "4px 8px",
-                            fontSize: 10,
-                            fontWeight: 700,
-                            borderRadius: 6,
-                          }),
-                      borderColor: "#d4af37",
-                      color: "#fef3c7",
-                      background: "rgba(15,23,42,0.88)",
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
                     }}
                   >
-                    Change
-                  </button>
+                    <button
+                      type="button"
+                      onClick={goHomeFromStageCorner}
+                      title="トップページに戻る"
+                      aria-label="トップページに戻る"
+                      style={{
+                        ...btnSecondary,
+                        padding: "4px 10px",
+                        fontSize: 10,
+                        fontWeight: 700,
+                        borderRadius: 8,
+                        borderColor: "rgba(96, 165, 250, 0.55)",
+                        color: "#dbeafe",
+                        background: "rgba(30, 58, 138, 0.55)",
+                      }}
+                    >
+                      ホーム
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormationPresetPickerOpen(true)}
+                      title="立ち位置の雛形を選ぶ"
+                      aria-label="立ち位置の雛形を選ぶ"
+                      style={{
+                        ...btnSecondary,
+                        padding: "6px 10px",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        borderRadius: 8,
+                        borderColor: "#d4af37",
+                        color: "#fef3c7",
+                        background: "rgba(15,23,42,0.88)",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
+                      }}
+                    >
+                      Change
+                    </button>
+                  </div>
                 ) : null}
                 {mobileStackEditor &&
                 editorMobileLandscape &&
@@ -1006,15 +1055,6 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
 
                   return (
                     <div className="editor-stage-landscape-stack">
-                      <button
-                        type="button"
-                        className="editor-stage-landscape-btn editor-stage-landscape-btn--home"
-                        onClick={goHomeFromLandscapeStack}
-                        title="トップページに戻る"
-                        aria-label="トップページに戻る"
-                      >
-                        ホーム
-                      </button>
                       {showChangeBtn ? (
                         <button
                           type="button"
@@ -1159,6 +1199,16 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     >
                       UPDATE LOG
                     </Link>
+                    <button
+                      type="button"
+                      className="editor-stage-landscape-btn editor-stage-landscape-btn--delete-cue editor-stage-landscape-btn--delete-cue-corner"
+                      onClick={() => bridgeOnDeleteSelectedCue?.()}
+                      disabled={!bridgeCanDeleteSelectedCue}
+                      title="選択中のキューを削除"
+                      aria-label="選択中のキューを削除"
+                    >
+                      キュー削除
+                    </button>
                   </div>
                 ) : null}
                 {mobileStackEditor &&

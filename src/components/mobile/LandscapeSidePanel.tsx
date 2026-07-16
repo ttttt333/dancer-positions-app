@@ -85,8 +85,6 @@ export const LandscapeSidePanel: React.FC<Props> = ({
   const cuePagerCanNext = useMobileShellBridgeStore((s) => s.cuePagerCanNext)
   const onCuePrev = useMobileShellBridgeStore((s) => s.onCuePrev)
   const onCueNext = useMobileShellBridgeStore((s) => s.onCueNext)
-  const onDeleteSelectedCue = useMobileShellBridgeStore((s) => s.onDeleteSelectedCue)
-  const canDeleteSelectedCue = useMobileShellBridgeStore((s) => s.canDeleteSelectedCue)
 
   const transportDisabled = !audioUrl || duration <= 0
 
@@ -231,44 +229,35 @@ export const LandscapeSidePanel: React.FC<Props> = ({
           ) : null}
           <button
             type="button"
-            className={styles.compactDeleteCueBtn}
-            onClick={onDeleteSelectedCue}
-            disabled={!canDeleteSelectedCue}
-            title="選択中のキューを削除"
-            aria-label="選択中のキューを削除"
+            className={styles.compactMenuBtnStandalone}
+            onClick={() => setMenuOpen(true)}
+            aria-label="メニューを開く"
+            aria-expanded={menuOpen}
           >
-            キュー削除
+            <span aria-hidden>☰</span>
+            <span>Menu</span>
           </button>
 
-          <div className={styles.compactToolRow} role="group" aria-label="メニューと操作履歴">
+          <div className={styles.compactUndoRedoRow} role="group" aria-label="操作履歴">
             <button
               type="button"
-              className={`${styles.compactIconBtn} ${styles.compactIconBtnMenu}`}
-              onClick={() => setMenuOpen(true)}
-              aria-label="メニューを開く"
-              aria-expanded={menuOpen}
-            >
-              ☰
-            </button>
-            <button
-              type="button"
-              className={`${styles.compactIconBtn} ${styles.compactIconBtnHist}`}
+              className={styles.compactHistBtn}
               onClick={onUndo}
               disabled={undoDisabled}
               aria-label="元に戻す"
               title="元に戻す"
             >
-              <TransportIconUndo size={16} />
+              <TransportIconUndo size={18} />
             </button>
             <button
               type="button"
-              className={`${styles.compactIconBtn} ${styles.compactIconBtnHist}`}
+              className={styles.compactHistBtn}
               onClick={onRedo}
               disabled={redoDisabled}
               aria-label="やり直す"
               title="やり直す"
             >
-              <TransportIconRedo size={16} />
+              <TransportIconRedo size={18} />
             </button>
           </div>
         </div>
