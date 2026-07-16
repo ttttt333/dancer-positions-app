@@ -70,7 +70,7 @@
   "library.listError": "Falha ao carregar a lista",
   "library.emptyCloud": "Ainda não há projetos na nuvem. Use «Iniciar novo projeto» acima.",
   "dashboard.demoSessionBanner": "Sessão demo: a lista na nuvem fica indisponível até conectar login/API. Use Sair para voltar à tela de login.",
-  "editor.backTitle": "Voltar à biblioteca",
+  "editor.backTitle": "Voltar ao início",
   "editor.pieceNamePh": "Nome do projeto",
   "editor.headcount": "Elenco",
   "editor.save": "Salvar",
@@ -330,5 +330,7 @@
   "editor.comp.k124": "Ferramentas",
   "editor.comp.k125": "ON",
   "editor.comp.k126": "OFF",
-  "editor.comp.k127": " — snap nos pontos da grade"
+  "editor.comp.k127": " — snap nos pontos da grade",
+  "editor.homeTitle": "Voltar ao início / login",
+  "editor.homeLabel": "Início"
 }

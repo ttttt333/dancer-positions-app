@@ -101,7 +101,9 @@ const EN_BASE: MessageBundle = {
   "library.emptyCloud": "No cloud projects yet. Use “Start new project” above.",
   "dashboard.demoSessionBanner":
     "Demo session: cloud list is unavailable until login/API is connected. Use Log out to return to the sign-in screen.",
-  "editor.backTitle": "Back to library",
+  "editor.backTitle": "Back to home",
+  "editor.homeTitle": "Back to home / login",
+  "editor.homeLabel": "Home",
   "editor.pieceNamePh": "Project name",
   "editor.headcount": "Headcount",
   "editor.save": "Save",
@@ -223,7 +225,9 @@ const BASE_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "library.emptyCloud": "保存された作品はまだありません。上の「新規で作業を始める」からどうぞ。",
     "dashboard.demoSessionBanner":
       "デモ表示中: 本ログイン前のためクラウド一覧は使えません。「ログアウト」で通常のログイン画面に戻れます。",
-    "editor.backTitle": "ライブラリへ戻る",
+    "editor.backTitle": "ホームへ戻る",
+    "editor.homeTitle": "ホーム（ログイン・作品一覧）へ戻る",
+    "editor.homeLabel": "ホーム",
     "editor.pieceNamePh": "作品名",
     "editor.headcount": "人数",
     "editor.save": "保存",
@@ -336,7 +340,9 @@ const BASE_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "library.emptyCloud": "클라우드에 저장된 작품이 없습니다. 위의 새로 시작을 이용하세요.",
     "dashboard.demoSessionBanner":
       "데모: 로그인/API 연결 전이라 클라우드 목록을 사용할 수 없습니다. 로그아웃으로 로그인 화면으로 돌아갑니다.",
-    "editor.backTitle": "라이브러리로",
+    "editor.backTitle": "홈으로",
+    "editor.homeTitle": "홈(로그인·작품 목록)으로",
+    "editor.homeLabel": "홈",
     "editor.pieceNamePh": "작품명",
     "editor.headcount": "인원",
     "editor.save": "저장",
@@ -445,7 +451,9 @@ const BASE_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "library.emptyCloud": "云端暂无作品。请使用上方「新建并开始」。",
     "dashboard.demoSessionBanner":
       "演示中：尚未连接登录/API，无法使用云列表。退出登录可返回登录页。",
-    "editor.backTitle": "返回资料库",
+    "editor.backTitle": "返回首页",
+    "editor.homeTitle": "返回首页（登录 / 作品列表）",
+    "editor.homeLabel": "首页",
     "editor.pieceNamePh": "作品名称",
     "editor.headcount": "人数",
     "editor.save": "保存",

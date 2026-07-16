@@ -35,12 +35,18 @@ export async function shareVideoFile(
 }
 
 export function downloadVideoBlob(blob: Blob, fileName: string): void {
+  // download 属性が効かないと blob URL へ遷移する。即 revoke すると真っ白になるため、
+  // DOM に載せてからクリックし、ダウンロード開始後に遅延 revoke する。
   const a = document.createElement("a");
   const url = URL.createObjectURL(blob);
   a.href = url;
   a.download = fileName;
+  a.rel = "noopener";
+  a.style.display = "none";
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 export function safeVideoBaseName(name: string): string {

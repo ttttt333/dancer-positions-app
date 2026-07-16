@@ -421,6 +421,9 @@ export async function exportMp4WithWebCodecs(
         videoEncoder.encodeQueueSize > MAX_VIDEO_QUEUE &&
         !videoEncoderError
       ) {
+        if (isCancelled()) {
+          throw new DOMException("Export aborted", "AbortError");
+        }
         await sleep(2);
       }
     }

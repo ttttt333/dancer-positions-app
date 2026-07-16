@@ -70,7 +70,7 @@
   "library.listError": "Échec du chargement de la liste",
   "library.emptyCloud": "Aucun projet cloud pour l’instant. Utilisez « Démarrer un nouveau projet » ci-dessus.",
   "dashboard.demoSessionBanner": "Session démo : la liste cloud est indisponible tant que connexion/API n’est pas connectée. Utilisez Se déconnecter pour revenir à l’écran de connexion.",
-  "editor.backTitle": "Retour à la bibliothèque",
+  "editor.backTitle": "Retour à l'accueil",
   "editor.pieceNamePh": "Nom du projet",
   "editor.headcount": "Effectif",
   "editor.save": "Enregistrer",
@@ -330,5 +330,7 @@
   "editor.comp.k124": "Outils",
   "editor.comp.k125": "ON",
   "editor.comp.k126": "OFF",
-  "editor.comp.k127": " — accrochage aux points de grille"
+  "editor.comp.k127": " — accrochage aux points de grille",
+  "editor.homeTitle": "Retour à l'accueil / connexion",
+  "editor.homeLabel": "Accueil"
 }

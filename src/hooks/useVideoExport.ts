@@ -36,6 +36,7 @@ import {
   VIDEO_EXPORT_PHASE_LABELS,
 } from "../lib/videoExportProgress";
 import {
+  cancelVideoExportRun,
   useVideoExportRunStore,
   videoExportCancelRef,
   videoExportProgressRef,
@@ -541,8 +542,12 @@ async function tryDirectMp4Export(
       size: blob.size,
     };
   } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") {
-      throw error;
+    if (
+      videoExportCancelRef.current ||
+      (error instanceof DOMException && error.name === "AbortError")
+    ) {
+      resetRun();
+      throw new DOMException("Export aborted", "AbortError");
     }
     // 録画中にバックグラウンド化した場合は、無言でやり直さず明確に中断
     if (error instanceof ExportBackgroundedError) {
@@ -628,6 +633,10 @@ async function tryWebCodecsExport(
 
     // ── mux-later: 映像は WebCodecs 済み。音声だけ FFmpeg で結合（映像はコピー） ──
     if (needsMuxLater) {
+      if (videoExportCancelRef.current) {
+        resetRun();
+        throw new DOMException("Export aborted", "AbortError");
+      }
       patch({
         phase: "converting",
         encodeSubphase: "load",
@@ -638,6 +647,10 @@ async function tryWebCodecsExport(
         patch({ progressMessage: p.message });
         options.onFfmpegFirstLoad?.();
       });
+      if (videoExportCancelRef.current) {
+        resetRun();
+        throw new DOMException("Export aborted", "AbortError");
+      }
       const stopCreep = startProgressCreep(
         () => videoExportProgressRef.current,
         setProgressValue,
@@ -668,6 +681,10 @@ async function tryWebCodecsExport(
             },
           }
         );
+        if (videoExportCancelRef.current) {
+          resetRun();
+          throw new DOMException("Export aborted", "AbortError");
+        }
         if (muxed) {
           blob = muxed;
           hasAudio = true;
@@ -680,6 +697,15 @@ async function tryWebCodecsExport(
           resetRun();
           return null;
         }
+      } catch (muxError) {
+        if (
+          videoExportCancelRef.current ||
+          (muxError instanceof DOMException && muxError.name === "AbortError")
+        ) {
+          resetRun();
+          throw new DOMException("Export aborted", "AbortError");
+        }
+        throw muxError;
       } finally {
         stopCreep();
       }
@@ -715,8 +741,12 @@ async function tryWebCodecsExport(
       size: blob.size,
     };
   } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") {
-      throw error;
+    if (
+      videoExportCancelRef.current ||
+      (error instanceof DOMException && error.name === "AbortError")
+    ) {
+      resetRun();
+      throw new DOMException("Export aborted", "AbortError");
     }
     // 失敗時は直接録画 / FFmpeg 経路へフォールバック
     console.warn("[tryWebCodecsExport] falling back:", error);
@@ -742,6 +772,14 @@ export function useVideoExport() {
     let videoStream: MediaStream | null = null;
     let recordedBlob: Blob | null = null;
 
+    const abortIfCancelled = (): void => {
+      if (videoExportCancelRef.current) {
+        resetRun();
+        throw new DOMException("Export aborted", "AbortError");
+      }
+    };
+
+    try {
     // ─── P: WebCodecs 高速書き出し（最速・本命経路） ───
     // tight-loop エンコードのため曲尺より大幅に速く、FFmpeg も不要。
     // 音声も強力なフォールバック連鎖で解決するため、直接録画より優先する。
@@ -751,6 +789,7 @@ export function useVideoExport() {
       resetRun,
     });
     if (webCodecsResult) return webCodecsResult;
+    abortIfCancelled();
 
     // ─── L: Safari/iOS の MP4 直接録画（FFmpeg.wasm を迂回） ───
     const directMime = getDirectMp4RecorderMimeType();
@@ -766,6 +805,7 @@ export function useVideoExport() {
         resetRun,
       });
       if (directResult) return directResult;
+      abortIfCancelled();
       // 直接録画が使えなかった場合は下の FFmpeg 経路にフォールバック
     }
 
@@ -871,6 +911,8 @@ export function useVideoExport() {
         );
       }
 
+      abortIfCancelled();
+
       patch({
         phase: "converting",
         encodeSubphase: "load",
@@ -902,6 +944,7 @@ export function useVideoExport() {
       } finally {
         stopLoadCreep();
       }
+      abortIfCancelled();
 
       patch({
         encodeSubphase: "mux",
@@ -912,6 +955,7 @@ export function useVideoExport() {
 
       const inputName = mimeType.includes("mp4") ? "input.mp4" : "input.webm";
       await ffmpeg.writeFile(inputName, await fetchFile(recordedBlob));
+      abortIfCancelled();
       setProgressValue(mapVideoExportPhaseProgress("encode", 0.32));
 
       const encodeMuxStart = 0.32;
@@ -978,6 +1022,7 @@ export function useVideoExport() {
         ffmpeg.off("progress", onMuxProgress);
         stopMuxCreep();
       }
+      abortIfCancelled();
 
       setProgressValue(mapVideoExportPhaseProgress("encode", 1));
       patch({ progressMessage: "ファイルを仕上げています…" });
@@ -1018,9 +1063,15 @@ export function useVideoExport() {
       };
     } catch (error) {
       if (
+        videoExportCancelRef.current ||
+        (error instanceof DOMException && error.name === "AbortError")
+      ) {
+        resetRun();
+        throw new DOMException("Export aborted", "AbortError");
+      }
+      if (
         recordedBlob &&
         recordedBlob.size >= 256 &&
-        !(error instanceof DOMException && error.name === "AbortError") &&
         error instanceof Error &&
         /FFmpeg|MP4|タイムアウト|変換|crossOrigin|COEP|COOP/i.test(error.message)
       ) {
@@ -1056,6 +1107,16 @@ export function useVideoExport() {
       console.error("Video export failed:", error);
       resetRun();
       throw error;
+    }
+    } catch (error) {
+      if (
+        videoExportCancelRef.current ||
+        (error instanceof DOMException && error.name === "AbortError")
+      ) {
+        resetRun();
+        throw new DOMException("Export aborted", "AbortError");
+      }
+      throw error;
     } finally {
       videoStream?.getTracks().forEach((t) => t.stop());
       videoExportCancelRef.current = false;
@@ -1063,9 +1124,8 @@ export function useVideoExport() {
   }, [patch, resetRun, setProgressValue]);
 
   const cancelExport = useCallback(() => {
-    videoExportCancelRef.current = true;
-    resetRun();
-  }, [resetRun]);
+    cancelVideoExportRun();
+  }, []);
 
   return {
     isExporting,

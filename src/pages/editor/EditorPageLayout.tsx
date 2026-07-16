@@ -309,9 +309,7 @@ export function EditorPageLayout(props: EditorLayoutProps) {
       }}
     >
       <VideoExportHost />
-      {!choreoPublicView && !wideEditorLayout && !editorMobileLandscape ? (
-        <EditorPageHeader {...props} />
-      ) : null}
+      {!choreoPublicView ? <EditorPageHeader {...props} /> : null}
 
       {/* ─── Main layout: column flex (top wave bar + stage row) ─── */}
       <div

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { resetFFmpegWasm } from "../lib/ffmpegWasm";
 import type { VideoExportProgressPhase } from "../lib/videoExportProgress";
 
 export type ExportPhase = "recording" | "converting" | "saving" | "done" | null;
@@ -62,6 +63,12 @@ export function cancelVideoExportRun(): void {
   useVideoExportRunStore.getState().patch({
     progressMessage: "キャンセル中…",
   });
+  // FFmpeg.exec はキャンセルフラグを見ないため Worker を止めて即中断する
+  try {
+    resetFFmpegWasm();
+  } catch {
+    /* ignore */
+  }
 }
 
 export function isVideoExportRunning(): boolean {

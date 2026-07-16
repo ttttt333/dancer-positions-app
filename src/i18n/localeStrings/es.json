@@ -70,7 +70,7 @@
   "library.listError": "Error al cargar la lista",
   "library.emptyCloud": "Aún no hay proyectos en la nube. Usa «Iniciar proyecto nuevo» arriba.",
   "dashboard.demoSessionBanner": "Sesión de demostración: la lista en la nube no está disponible hasta conectar inicio de sesión/API. Usa Cerrar sesión para volver a la pantalla de acceso.",
-  "editor.backTitle": "Volver a la biblioteca",
+  "editor.backTitle": "Volver al inicio",
   "editor.pieceNamePh": "Nombre del proyecto",
   "editor.headcount": "Plantilla",
   "editor.save": "Guardar",
@@ -330,5 +330,7 @@
   "editor.comp.k124": "Herramientas",
   "editor.comp.k125": "ON",
   "editor.comp.k126": "OFF",
-  "editor.comp.k127": " — ajuste a puntos de cuadrícula"
+  "editor.comp.k127": " — ajuste a puntos de cuadrícula",
+  "editor.homeTitle": "Volver al inicio / inicio de sesión",
+  "editor.homeLabel": "Inicio"
 }

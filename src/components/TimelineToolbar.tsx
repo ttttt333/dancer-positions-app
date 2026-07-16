@@ -108,6 +108,30 @@ function FormationChangeButton({
     </button>
   );
 }
+
+function UpdateLogToolbarButton({ style }: { style: CSSProperties }) {
+  return (
+    <Link
+      to="/update-log"
+      target="_blank"
+      rel="noopener noreferrer"
+      title="お知らせ・アップデートログ"
+      aria-label="UPDATE LOG（お知らせ）を開く"
+      style={{
+        ...style,
+        borderColor: "rgba(96, 165, 250, 0.55)",
+        color: "#dbeafe",
+        background: "rgba(30, 58, 138, 0.35)",
+        fontWeight: 750,
+        letterSpacing: "0.06em",
+        textDecoration: "none",
+        whiteSpace: "nowrap",
+      }}
+    >
+      UPDATE LOG
+    </Link>
+  );
+}
 function IconSave() {
   const c = "#818cf8"; // indigo neon — matches NeonIconPanel save
   return (
@@ -671,6 +695,18 @@ export function TimelineToolbar({
                 minWidth: 0,
               }}
             >
+              {wideWorkbench && !editorMobileStack ? (
+                <UpdateLogToolbarButton
+                  style={{
+                    ...timelineToolbarBtn,
+                    padding: `${tlPx(4)} ${tlPx(8)}`,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: tlPx(10),
+                  }}
+                />
+              ) : null}
               {showFormationChange && onOpenFormationChange ? (
                 <FormationChangeButton
                   disabled={viewMode === "view"}
@@ -1053,6 +1089,20 @@ export function TimelineToolbar({
           minWidth: 0,
         }}
       >
+        {wideWorkbench && !editorMobileStack ? (
+          <UpdateLogToolbarButton
+            style={{
+              ...timelineToolbarBtn,
+              padding: `${tlPx(4)} ${tlPx(9)}`,
+              minHeight: tlPx(28),
+              flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: tlPx(10),
+            }}
+          />
+        ) : null}
         {showFormationChange && onOpenFormationChange ? (
           <FormationChangeButton
             disabled={viewMode === "view"}

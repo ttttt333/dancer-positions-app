@@ -70,7 +70,7 @@
   "library.listError": "Liste konnte nicht geladen werden",
   "library.emptyCloud": "Noch keine Cloud-Projekte. Nutze oben „Neues Projekt starten“.",
   "dashboard.demoSessionBanner": "Demo-Sitzung: Cloud-Liste ist nicht verfügbar, bis Anmeldung/API verbunden ist. Mit Abmelden kehrst du zum Anmeldebildschirm zurück.",
-  "editor.backTitle": "Zurück zur Bibliothek",
+  "editor.backTitle": "Zurück zur Startseite",
   "editor.pieceNamePh": "Projektname",
   "editor.headcount": "Kopfzahl",
   "editor.save": "Speichern",
@@ -330,5 +330,7 @@
   "editor.comp.k124": "Werkzeuge",
   "editor.comp.k125": "ON",
   "editor.comp.k126": "OFF",
-  "editor.comp.k127": " — an Rasterpunkte snappen"
+  "editor.comp.k127": " — an Rasterpunkte snappen",
+  "editor.homeTitle": "Zur Startseite / Anmeldung",
+  "editor.homeLabel": "Start"
 }

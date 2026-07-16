@@ -8,6 +8,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { VideoPage } from "./pages/VideoPage";
 import { BillingCanceledPage, BillingSuccessPage } from "./pages/BillingPages";
+import { UpdateLogPage } from "./pages/UpdateLogPage";
 import { MobileFormationEditorDemoPage } from "./pages/MobileFormationEditorDemoPage";
 import { MobileShell } from "./components/mobile/MobileShell";
 import {
@@ -229,6 +230,8 @@ function AppShell() {
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/library" element={<Navigate to="/" replace />} />
             <Route path="/video" element={<VideoPage />} />
+            <Route path="/update-log" element={<UpdateLogPage />} />
+            <Route path="/changelog" element={<Navigate to="/update-log" replace />} />
             <Route path="/billing/success" element={<BillingSuccessPage />} />
             <Route path="/billing/canceled" element={<BillingCanceledPage />} />
             <Route path="/editor/:projectId" element={<MobileEditorRoute />} />

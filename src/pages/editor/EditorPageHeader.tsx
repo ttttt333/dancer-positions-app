@@ -5,27 +5,69 @@ import { inputField } from "../../components/stageButtonStyles";
 import { shell } from "../../theme/choreoShell";
 import type { EditorLayoutProps } from "./editorLayoutProps";
 
+function HomeIcon({ size }: { size: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      aria-hidden
+      style={{ display: "block", flexShrink: 0 }}
+    >
+      <path
+        d="M4.5 11.2 12 4.8l7.5 6.4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M7 10.8V19h10v-8.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function EditorPageHeader(props: EditorLayoutProps) {
   const navigate = useNavigate();
   const mobileStackEditor = props.mobileStackEditor as boolean;
   const editorMobileLandscape = props.editorMobileLandscape as boolean;
+  const wideEditorLayout = props.wideEditorLayout as boolean;
   const project = props.project as EditorLayoutProps["project"];
   const setProjectSafe = props.setProjectSafe as EditorLayoutProps["setProjectSafe"];
   const t = props.t as (key: string) => string;
 
+  const goHome = () => {
+    void flushEditorAutoSaveBeforeLeave().finally(() => navigate("/"));
+  };
+
+  const compact = Boolean(wideEditorLayout || mobileStackEditor);
+
   return (
     <header
-      className={mobileStackEditor ? "editor-page-header editor-page-header--mobile" : "editor-page-header"}
+      className={
+        mobileStackEditor
+          ? "editor-page-header editor-page-header--mobile"
+          : "editor-page-header"
+      }
       style={{
         display: "flex",
         flexWrap: "wrap",
-        gap: mobileStackEditor ? "4px" : "8px",
+        gap: compact ? "6px" : "8px",
         alignItems: "center",
         padding: mobileStackEditor
           ? editorMobileLandscape
             ? "max(2px, env(safe-area-inset-top, 0px)) max(4px, env(safe-area-inset-right, 0px)) 1px max(4px, env(safe-area-inset-left, 0px))"
             : "max(2px, env(safe-area-inset-top, 0px)) max(6px, env(safe-area-inset-right, 0px)) 2px max(6px, env(safe-area-inset-left, 0px))"
-          : "max(4px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) 4px max(8px, env(safe-area-inset-left, 0px))",
+          : wideEditorLayout
+            ? "max(4px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px)) 4px max(10px, env(safe-area-inset-left, 0px))"
+            : "max(4px, env(safe-area-inset-top, 0px)) max(8px, env(safe-area-inset-right, 0px)) 4px max(8px, env(safe-area-inset-left, 0px))",
         borderBottom: `1px solid ${shell.border}`,
         background: shell.bgChrome,
         minHeight: 0,
@@ -34,49 +76,32 @@ export function EditorPageHeader(props: EditorLayoutProps) {
     >
       <Link
         to="/"
-        title={t("editor.backTitle")}
-        aria-label={t("editor.backTitle")}
+        title={t("editor.homeTitle")}
+        aria-label={t("editor.homeTitle")}
         onClick={(e) => {
           e.preventDefault();
-          void flushEditorAutoSaveBeforeLeave().finally(() => navigate("/"));
+          goHome();
         }}
         style={{
           display: "inline-flex",
           alignItems: "center",
-          justifyContent: "center",
-          width: mobileStackEditor
-            ? editorMobileLandscape
-              ? 34
-              : 38
-            : 32,
-          height: mobileStackEditor
-            ? editorMobileLandscape
-              ? 34
-              : 38
-            : 32,
+          gap: 6,
           flexShrink: 0,
           textDecoration: "none",
-          borderRadius: 8,
-          color: shell.textMuted,
+          borderRadius: 999,
+          color: shell.text,
+          background: "rgba(148, 163, 184, 0.14)",
+          border: `1px solid ${shell.border}`,
+          padding: compact ? "5px 10px 5px 8px" : "6px 12px 6px 10px",
+          fontSize: compact ? 12 : 13,
+          fontWeight: 700,
+          letterSpacing: "0.02em",
+          lineHeight: 1,
           touchAction: "manipulation",
         }}
       >
-        <span
-          aria-hidden
-          style={{
-            fontSize: mobileStackEditor
-              ? editorMobileLandscape
-                ? "18px"
-                : "20px"
-              : "22px",
-            fontWeight: 500,
-            lineHeight: 1,
-            fontFamily: "ui-serif, 'Hiragino Mincho ProN', serif",
-            letterSpacing: "-0.12em",
-          }}
-        >
-          〉
-        </span>
+        <HomeIcon size={compact ? 15 : 16} />
+        <span>{t("editor.homeLabel")}</span>
       </Link>
       <ChoreoCoreLogo
         height={
@@ -84,7 +109,9 @@ export function EditorPageHeader(props: EditorLayoutProps) {
             ? editorMobileLandscape
               ? 26
               : 30
-            : 40
+            : wideEditorLayout
+              ? 32
+              : 40
         }
         title="ChoreoCore"
         style={{ flexShrink: 0, marginLeft: mobileStackEditor ? 2 : 4 }}
