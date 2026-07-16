@@ -2536,9 +2536,17 @@ export function transferDancerIdentitiesByOrder(
   positioned: DancerSpot[],
   identitySource: DancerSpot[]
 ): DancerSpot[] {
+  const inheritCenterDistance = identitySource.some(
+    (d) => d.markerBadgeSource === "centerDistance"
+  );
   return positioned.map((nd, i) => {
     const od = identitySource[i];
-    if (!od) return nd;
+    if (!od) {
+      return withInheritedCenterDistanceIfNeeded(
+        { ...nd },
+        inheritCenterDistance
+      );
+    }
     return mergeDancerIdentityOntoPosition(nd, od);
   });
 }
@@ -2586,6 +2594,10 @@ export function transferDancerIdentitiesByNearestPosition(
     }
   }
 
+  const inheritCenterDistance = identitySource.some(
+    (d) => d.markerBadgeSource === "centerDistance"
+  );
+
   const result: DancerSpot[] = [];
   for (let oi = 0; oi < identitySource.length; oi++) {
     const ni = oldToNew.get(oi);
@@ -2594,29 +2606,49 @@ export function transferDancerIdentitiesByNearestPosition(
       mergeDancerIdentityOntoPosition(positioned[ni]!, identitySource[oi]!)
     );
   }
-  // 余った雛形スロット（人数増）は末尾に追加
+  // 余った雛形スロット（人数増）は末尾に追加。元がセンター距離表示なら揃える
   for (let ni = 0; ni < positioned.length; ni++) {
     if (!usedNew.has(ni)) {
-      result.push({ ...positioned[ni]! });
+      result.push(
+        withInheritedCenterDistanceIfNeeded(
+          { ...positioned[ni]! },
+          inheritCenterDistance
+        )
+      );
     }
   }
   return result;
 }
 
-/** 座標は `positioned`、身元は `identity` から引き継ぐ */
+/** 座標は `positioned`、身元・○内表示モードは `identity` から引き継ぐ */
 function mergeDancerIdentityOntoPosition(
   positioned: DancerSpot,
   identity: DancerSpot
 ): DancerSpot {
-  /** 名簿紐付け時は「○の下に名前・○内は空」（StageBoard の below モード＋ markerBadge 空） */
-  const markerBadge = identity.crewMemberId
-    ? ""
-    : identity.markerBadge !== undefined
-      ? identity.markerBadge
-      : positioned.markerBadge;
-  const markerBadgeSource = identity.crewMemberId
-    ? undefined
-    : identity.markerBadgeSource;
+  /**
+   * センター距離表示は名簿紐付けの有無に関わらず引き継ぐ。
+   * （紐付け時に○内を空にする旧挙動だと、Change 適用後に距離数字が消える）
+   */
+  const keepCenterDistance = identity.markerBadgeSource === "centerDistance";
+
+  let markerBadge: string | undefined;
+  let markerBadgeSource: DancerSpot["markerBadgeSource"];
+
+  if (keepCenterDistance) {
+    markerBadge = "";
+    markerBadgeSource = "centerDistance";
+  } else if (identity.crewMemberId) {
+    /** 名簿紐付け時は「○の下に名前・○内は空」 */
+    markerBadge = "";
+    markerBadgeSource = undefined;
+  } else {
+    markerBadge =
+      identity.markerBadge !== undefined
+        ? identity.markerBadge
+        : positioned.markerBadge;
+    markerBadgeSource = identity.markerBadgeSource;
+  }
+
   return {
     ...positioned,
     id: identity.id,
@@ -2628,5 +2660,23 @@ function mergeDancerIdentityOntoPosition(
     sizePx: identity.sizePx ?? positioned.sizePx,
     note: identity.note ?? positioned.note,
     heightCm: identity.heightCm ?? positioned.heightCm,
+    ...(typeof identity.nameBelowFontPx === "number"
+      ? { nameBelowFontPx: identity.nameBelowFontPx }
+      : {}),
+    ...(typeof identity.facingDeg === "number"
+      ? { facingDeg: identity.facingDeg }
+      : {}),
+  };
+}
+
+function withInheritedCenterDistanceIfNeeded(
+  spot: DancerSpot,
+  inherit: boolean
+): DancerSpot {
+  if (!inherit || spot.markerBadgeSource === "centerDistance") return spot;
+  return {
+    ...spot,
+    markerBadge: "",
+    markerBadgeSource: "centerDistance",
   };
 }
