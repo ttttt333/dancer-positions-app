@@ -818,15 +818,19 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     style={{
                       ...btnSecondary,
                       display: "flex",
+                      flexDirection: "column",
                       alignItems: "center",
                       justifyContent: "center",
+                      gap: 1,
                       width: "100%",
+                      height: 32,
+                      minHeight: 32,
                       boxSizing: "border-box",
-                      padding: "4px 6px",
+                      padding: "2px 4px",
                       fontSize: 9,
                       fontWeight: 750,
-                      lineHeight: 1,
-                      letterSpacing: "0.04em",
+                      lineHeight: 1.05,
+                      letterSpacing: "0.03em",
                       borderRadius: 8,
                       whiteSpace: "nowrap",
                       textAlign: "center",
@@ -836,7 +840,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                       background: "rgba(30, 58, 138, 0.55)",
                     }}
                   >
-                    UPDATE LOG
+                    <span>UPDATE</span>
+                    <span>LOG</span>
                   </Link>
                 ) : null}
                 {/* 動線矢印トグル（生徒閲覧・スマホ縦積みでは非表示） */}
@@ -1197,7 +1202,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                       title="お知らせ・アップデートログ"
                       aria-label="UPDATE LOG（お知らせ）を開く"
                     >
-                      UPDATE LOG
+                      <span>UPDATE</span>
+                      <span>LOG</span>
                     </Link>
                     <button
                       type="button"

@@ -2050,12 +2050,19 @@ html[data-landscape-wave-collapsed] {
 }
 
 /* UPDATE LOG / キュー削除（画面右上）: 上記の汎用サイズより後に置いて優先させる */
+/* 2D/3D ボタンと同じ高さを確保し、縦長すぎない・横に平べったすぎないバランスにする */
 [data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-btn--updateLog {
   flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
   width: 100%;
-  height: 26px;
+  height: 34px;
   font-size: 9px;
-  letter-spacing: 0.04em;
+  line-height: 1.05;
+  letter-spacing: 0.03em;
   border-color: rgba(96, 165, 250, 0.55);
   color: #dbeafe;
   background: rgba(30, 58, 138, 0.55);
@@ -2067,8 +2074,8 @@ html[data-landscape-wave-collapsed] {
 [data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-btn--delete-cue-corner {
   flex: none;
   width: 100%;
-  min-height: 26px;
-  height: 26px;
+  min-height: 30px;
+  height: 30px;
   margin-top: 0;
   font-size: 9px;
   letter-spacing: 0.02em;
