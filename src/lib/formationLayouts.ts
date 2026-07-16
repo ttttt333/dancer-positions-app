@@ -12,6 +12,7 @@ import {
   tryApplyExtraLayoutPreset,
 } from "./formationLayoutPresetsExtra";
 import { getPresetTier } from "./formationPresetTiers";
+import { minCostBipartiteAssignment } from "./minCostAssignment";
 
 /**
  * 場ミリ規格を `dancersForLayoutPreset` / `dancersWithPresetAndWingSurplus`
@@ -2552,8 +2553,11 @@ export function transferDancerIdentitiesByOrder(
 }
 
 /**
- * プリセット座標へ、既存ダンサーを「前の立ち位置から一番近いスロット」へ割り当てて
+ * プリセット座標へ、既存ダンサーを「前の立ち位置から移動距離の総和が最小」になるよう割り当てて
  * id / 表示 / 名簿紐付けを引き継ぐ。
+ *
+ * 貪欲な「近い順に確定」だと、中央付近の取り合いで端の人が遠くへ押し出されることがあるため、
+ * 最小費用マッチング（Hungarian）で全体最適にする。
  *
  * 重要: 出力配列の並びは identitySource（前キュー）の順を保つ。
  * キュー間ギャップ補間は配列インデックスでも結ぶため、雛形スロット順に並べ替えると
@@ -2566,32 +2570,23 @@ export function transferDancerIdentitiesByNearestPosition(
   if (positioned.length === 0) return [];
   if (identitySource.length === 0) return positioned.map((d) => ({ ...d }));
 
-  type Pair = { oi: number; ni: number; dist: number };
-  const pairs: Pair[] = [];
-  for (let oi = 0; oi < identitySource.length; oi++) {
-    const od = identitySource[oi]!;
-    for (let ni = 0; ni < positioned.length; ni++) {
-      const nd = positioned[ni]!;
+  const cost: number[][] = identitySource.map((od) =>
+    positioned.map((nd) => {
       const dx = od.xPct - nd.xPct;
       const dy = od.yPct - nd.yPct;
-      pairs.push({ oi, ni, dist: dx * dx + dy * dy });
-    }
-  }
-  pairs.sort((a, b) => a.dist - b.dist || a.oi - b.oi || a.ni - b.ni);
+      return dx * dx + dy * dy;
+    })
+  );
+  const assignment = minCostBipartiteAssignment(cost);
 
-  const usedOld = new Set<number>();
   const usedNew = new Set<number>();
   /** oldIndex → newSlotIndex */
   const oldToNew = new Map<number, number>();
-
-  for (const p of pairs) {
-    if (usedOld.has(p.oi) || usedNew.has(p.ni)) continue;
-    usedOld.add(p.oi);
-    usedNew.add(p.ni);
-    oldToNew.set(p.oi, p.ni);
-    if (oldToNew.size >= Math.min(positioned.length, identitySource.length)) {
-      break;
-    }
+  for (let oi = 0; oi < assignment.length; oi++) {
+    const ni = assignment[oi]!;
+    if (ni < 0) continue;
+    oldToNew.set(oi, ni);
+    usedNew.add(ni);
   }
 
   const inheritCenterDistance = identitySource.some(
