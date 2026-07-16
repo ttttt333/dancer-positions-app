@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { flushEditorAutoSaveBeforeLeave } from "../../lib/editorAutoSaveBridge";
 import { StageBoard } from "../../components/StageBoard";
 import { EditorStageWorkbench, WorkbenchCuePager } from "../../components/EditorStageWorkbench";
 import { RosterTimelineStrip } from "../../components/RosterTimelineStrip";
@@ -226,6 +227,10 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
 
   // MobileShell 用: stageView・ダイアログ開閉・undo/redo・タブメニューアクション を bridge store に同期
   // 不安定な関数参照を ref に退避して依存配列ループを防ぐ
+  const navigate = useNavigate();
+  const goHomeFromLandscapeStack = useCallback(() => {
+    void flushEditorAutoSaveBeforeLeave().finally(() => navigate("/"));
+  }, [navigate]);
   const addCueFnRef = useRef(setAddCueDialogOpen as ((open: boolean) => void) | null);
   const stageSettingsFnRef = useRef(setStageAreaSettingsOpen as ((open: boolean) => void) | null);
   const undoFnRef = useRef(undo as (() => void) | null);
@@ -1001,6 +1006,15 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
 
                   return (
                     <div className="editor-stage-landscape-stack">
+                      <button
+                        type="button"
+                        className="editor-stage-landscape-btn editor-stage-landscape-btn--home"
+                        onClick={goHomeFromLandscapeStack}
+                        title="トップページに戻る"
+                        aria-label="トップページに戻る"
+                      >
+                        ホーム
+                      </button>
                       {showChangeBtn ? (
                         <button
                           type="button"
@@ -1117,22 +1131,34 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     aria-label={t("editor.layout.stageViewAria")}
                     className="editor-stage-landscape-viewToggle"
                   >
-                    <button
-                      type="button"
-                      className={`editor-stage-landscape-btn${stageView === "2d" ? " editor-stage-landscape-btn--active" : ""}`}
-                      title={t("editor.layout.stage2dTitle")}
-                      onClick={() => setStageView("2d")}
+                    <div className="editor-stage-landscape-viewToggle-row">
+                      <button
+                        type="button"
+                        className={`editor-stage-landscape-btn${stageView === "2d" ? " editor-stage-landscape-btn--active" : ""}`}
+                        title={t("editor.layout.stage2dTitle")}
+                        onClick={() => setStageView("2d")}
+                      >
+                        2D
+                      </button>
+                      <button
+                        type="button"
+                        className={`editor-stage-landscape-btn${stageView === "3d" ? " editor-stage-landscape-btn--active" : ""}`}
+                        title={t("editor.layout.stage3dTitle")}
+                        onClick={() => setStageView("3d")}
+                      >
+                        3D
+                      </button>
+                    </div>
+                    <Link
+                      to="/update-log"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="editor-stage-landscape-btn editor-stage-landscape-btn--updateLog"
+                      title="お知らせ・アップデートログ"
+                      aria-label="UPDATE LOG（お知らせ）を開く"
                     >
-                      2D
-                    </button>
-                    <button
-                      type="button"
-                      className={`editor-stage-landscape-btn${stageView === "3d" ? " editor-stage-landscape-btn--active" : ""}`}
-                      title={t("editor.layout.stage3dTitle")}
-                      onClick={() => setStageView("3d")}
-                    >
-                      3D
-                    </button>
+                      UPDATE LOG
+                    </Link>
                   </div>
                 ) : null}
                 {mobileStackEditor &&

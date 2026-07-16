@@ -2012,19 +2012,26 @@ html[data-landscape-wave-collapsed] {
   display: none !important;
 }
 
-/* 波形たたみ時: 2D/3D 切替のみ画面右上に表示（左パネルとは重複させない） */
+/* 波形たたみ時: 2D/3D 切替 + UPDATE LOG のみ画面右上に表示（左パネルとは重複させない） */
 [data-shell-landscape] .editor-stage-landscape-viewToggle {
   display: none;
 }
 
 [data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-viewToggle {
   display: flex;
+  flex-direction: column;
+  align-items: stretch;
   position: absolute;
   top: max(6px, env(safe-area-inset-top, 6px));
   right: max(6px, env(safe-area-inset-right, 6px));
   z-index: 45;
   gap: 4px;
   pointer-events: auto;
+}
+
+[data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-viewToggle-row {
+  display: flex;
+  gap: 4px;
 }
 
 [data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-viewToggle .editor-stage-landscape-btn {
@@ -2034,6 +2041,18 @@ html[data-landscape-wave-collapsed] {
   font-size: 12px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+[data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-btn--updateLog {
+  width: 100%;
+  height: 26px;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  border-color: rgba(96, 165, 250, 0.55);
+  color: #dbeafe;
+  background: rgba(30, 58, 138, 0.55);
+  text-decoration: none;
+  white-space: nowrap;
 }
 
 [data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-btn {
@@ -2111,11 +2130,24 @@ html[data-landscape-wave-collapsed] {
   color: #c7d2fe;
 }
 
+/* Change 列の一番上: トップページへ戻る */
+[data-shell-landscape] .editor-stage-landscape-btn--home {
+  width: 100%;
+  flex: none;
+  min-height: 22px;
+  height: 22px;
+  border-color: rgba(96, 165, 250, 0.55);
+  background: rgba(30, 58, 138, 0.35);
+  color: #dbeafe;
+  font-size: 10px;
+  letter-spacing: 0.03em;
+}
+
 [data-shell-landscape] .editor-stage-landscape-btn--change {
   width: 100%;
   flex: none;
-  min-height: 38px;
-  height: 38px;
+  min-height: 36px;
+  height: 36px;
   border-color: #d4af37;
   color: #fef3c7;
   font-size: 13px;
