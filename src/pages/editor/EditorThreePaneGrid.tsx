@@ -219,6 +219,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   /** PCワイド＋上部波形: ステージを波形バー直下まで隙間なく広げる */
   const stageFlushTopDock =
     wideEditorLayout && showTopWaveDock && !stageZenLayout && !mobileStackEditor;
+  /** スマホ縦画面のステージ列（ホーム/Change を左、2D/3D+UPDATE LOG を右に並べる） */
+  const isPortraitMobileStage = Boolean(mobileStackEditor) && !editorMobileLandscape;
   const xPct = props.xPct as never;
   const yPct = props.yPct as never;
 
@@ -681,8 +683,9 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 style={{
                   flexShrink: 0,
                   display: stageZenLayout ? "none" : "flex",
-                  flexDirection: "column",
-                  alignItems: "flex-end",
+                  flexDirection: isPortraitMobileStage ? "row" : "column",
+                  alignItems: isPortraitMobileStage ? "flex-start" : "flex-end",
+                  justifyContent: isPortraitMobileStage ? "space-between" : undefined,
                   gap: 3,
                   padding: stageFlushTopDock
                     ? "4px 4px 0 0"
@@ -702,6 +705,68 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     : {}),
                 }}
               >
+                {!choreoPublicView &&
+                project.viewMode !== "view" &&
+                stageView === "2d" &&
+                isPortraitMobileStage ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "stretch",
+                      gap: 4,
+                      flexShrink: 0,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={goHomeFromStageCorner}
+                      title="トップページに戻る"
+                      aria-label="トップページに戻る"
+                      style={{
+                        ...btnSecondary,
+                        padding: "4px 10px",
+                        fontSize: 10,
+                        fontWeight: 700,
+                        borderRadius: 8,
+                        borderColor: "rgba(96, 165, 250, 0.55)",
+                        color: "#dbeafe",
+                        background: "rgba(30, 58, 138, 0.55)",
+                      }}
+                    >
+                      ホーム
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormationPresetPickerOpen(true)}
+                      title="立ち位置の雛形を選ぶ"
+                      aria-label="立ち位置の雛形を選ぶ"
+                      style={{
+                        ...btnSecondary,
+                        padding: "6px 10px",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        borderRadius: 8,
+                        borderColor: "#d4af37",
+                        color: "#fef3c7",
+                        background: "rgba(15,23,42,0.88)",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
+                      }}
+                    >
+                      Change
+                    </button>
+                  </div>
+                ) : null}
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: isPortraitMobileStage ? "stretch" : "flex-end",
+                    gap: 3,
+                    flexShrink: 0,
+                    minWidth: 0,
+                  }}
+                >
                 {cuesSortedForStageJump.length > 0 || hasRosterMembers ? (
                   !mobileStackEditor && !publicNarrowLayout ? (
                     <div
@@ -883,6 +948,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     {mobileStackEditor ? "→" : t("editor.layout.motionArrowsLabel")}
                   </button>
                 )}
+                </div>
               </div>
               <div
                 style={{
@@ -989,63 +1055,6 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     />
                   </Suspense>
                 )}
-                {!choreoPublicView &&
-                project.viewMode !== "view" &&
-                stageView === "2d" &&
-                mobileStackEditor &&
-                !editorMobileLandscape ? (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: 8,
-                      left: 8,
-                      zIndex: 45,
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "stretch",
-                      gap: 4,
-                      pointerEvents: "auto",
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={goHomeFromStageCorner}
-                      title="トップページに戻る"
-                      aria-label="トップページに戻る"
-                      style={{
-                        ...btnSecondary,
-                        padding: "4px 10px",
-                        fontSize: 10,
-                        fontWeight: 700,
-                        borderRadius: 8,
-                        borderColor: "rgba(96, 165, 250, 0.55)",
-                        color: "#dbeafe",
-                        background: "rgba(30, 58, 138, 0.55)",
-                      }}
-                    >
-                      ホーム
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormationPresetPickerOpen(true)}
-                      title="立ち位置の雛形を選ぶ"
-                      aria-label="立ち位置の雛形を選ぶ"
-                      style={{
-                        ...btnSecondary,
-                        padding: "6px 10px",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        borderRadius: 8,
-                        borderColor: "#d4af37",
-                        color: "#fef3c7",
-                        background: "rgba(15,23,42,0.88)",
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
-                      }}
-                    >
-                      Change
-                    </button>
-                  </div>
-                ) : null}
                 {mobileStackEditor &&
                 editorMobileLandscape &&
                 !landscapeWaveCollapsed &&
