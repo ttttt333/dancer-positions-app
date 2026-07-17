@@ -8,12 +8,11 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography";
-import { sortCuesByStart } from "../lib/cueInterval";
 import {
   dancersForLayoutPreset,
   LAYOUT_PRESET_LABELS,
   PRESET_CATEGORIES,
-  transferDancerIdentitiesByNearestPosition,
+  transferDancerIdentitiesByOrder,
   type LayoutPresetId,
 } from "../lib/formationLayouts";
 import {
@@ -144,28 +143,7 @@ export function FormationPresetPickerSheet({
     [project.formations, targetFormationId]
   );
 
-  /**
-   * Change 適用時の「前の立ち位置」参照。
-   * 直前キューのフォーメーションがあればそちらを優先（次キューへ雛形を載せる用途）。
-   * なければ編集中フォーメーション自体を使う。
-   */
-  const nearestMatchSource = useMemo((): DancerSpot[] => {
-    if (selectedCueId) {
-      const sorted = sortCuesByStart(project.cues);
-      const idx = sorted.findIndex((c) => c.id === selectedCueId);
-      if (idx > 0) {
-        const prev = sorted[idx - 1]!;
-        const prevF = project.formations.find((f) => f.id === prev.formationId);
-        if (prevF && prevF.dancers.length > 0) return prevF.dancers;
-      }
-    }
-    return targetFormation?.dancers ?? [];
-  }, [project.cues, project.formations, selectedCueId, targetFormation]);
-
-  const count = Math.max(
-    1,
-    nearestMatchSource.length || targetFormation?.dancers.length || 1
-  );
+  const count = Math.max(1, targetFormation?.dancers.length ?? 1);
   const [selectedPresetId, setSelectedPresetId] = useState<LayoutPresetId | null>(
     null
   );
@@ -199,10 +177,8 @@ export function FormationPresetPickerSheet({
 
   const previewDancers = useMemo(() => {
     if (!selectedPresetId) return null;
-    const raw = dancersForLayoutPreset(count, selectedPresetId, spacingOpts);
-    if (nearestMatchSource.length === 0) return raw;
-    return transferDancerIdentitiesByNearestPosition(raw, nearestMatchSource);
-  }, [count, selectedPresetId, spacingOpts, nearestMatchSource]);
+    return dancersForLayoutPreset(count, selectedPresetId, spacingOpts);
+  }, [count, selectedPresetId, spacingOpts]);
 
   const closeAndCleanup = useCallback(() => {
     onStagePreviewChange?.(null);
@@ -252,8 +228,10 @@ export function FormationPresetPickerSheet({
 
   const apply = useCallback(() => {
     if (!targetFormation || !selectedPresetId || !previewDancers) return;
-    // previewDancers は既に nearest 割当済み
-    const dancers = previewDancers;
+    const dancers = transferDancerIdentitiesByOrder(
+      previewDancers,
+      targetFormation.dancers
+    );
     setProject((p) => ({
       ...p,
       formations: p.formations.map((f) =>

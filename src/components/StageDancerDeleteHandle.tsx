@@ -47,7 +47,6 @@ export function StageDancerDeleteHandle({
       <button
         type="button"
         data-dancer-delete-handle
-        data-stage-interactive
         aria-label={
           selectedCount >= 2
             ? `選択中の ${selectedCount} 人を削除`

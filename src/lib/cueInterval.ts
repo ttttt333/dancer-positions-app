@@ -233,7 +233,7 @@ export function splitSharedCueFormations(
 }
 
 /** タイムライン上の区間の最短長（秒）。ドラッグ・入力と揃える */
-export const MIN_CUE_DURATION_SEC = 0.3;
+export const MIN_CUE_DURATION_SEC = 1;
 
 /** 音源未確定時に区間解決へ渡す仮の曲長（秒）— 極端に短い trim に潰れないようにする */
 export const PLACEHOLDER_TIMELINE_CAP_SEC = 600;

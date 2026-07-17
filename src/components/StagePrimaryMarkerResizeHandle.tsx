@@ -44,7 +44,6 @@ export function StagePrimaryMarkerResizeHandle({
     >
       <div
         data-marker-resize-handle
-        data-stage-interactive
         onPointerDown={onPointerDown}
         style={{
           position: "absolute",

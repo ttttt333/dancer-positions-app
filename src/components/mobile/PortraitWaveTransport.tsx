@@ -48,8 +48,7 @@ import {
 } from "../../lib/waveEdgeScrollDuringScrub";
 
 const MIN_ZOOM = 1;
-/** 0.3秒キューを操作できるよう、曲長に対して十分に拡大できる上限 */
-const MAX_ZOOM = 160;
+const MAX_ZOOM = 48;
 /** +/- ボタン: 1回あたり 10% ずつ拡大・縮小 */
 const ZOOM_BUTTON_STEP = 1.1;
 /** 「波形を大きく拡大」ボタン: + ボタンを 15 回押した倍率へ一気にズーム */

@@ -261,10 +261,6 @@ function quadBezier(
 /**
  * ギャップ区間での立ち位置補間（区間内ラベル・色などは従来どおり lerp / 閾値切替）。
  * customPaths: ダンサーIDごとの個人軌道制御点。指定があるダンサーはベジェ補間を優先。
- *
- * 同じ id 同士を優先して結び、残りは最寄りの未使用スロットへ結ぶ。
- * （配列インデックスだけで結ぶと、雛形適用後に並びが変わったとき別人同士が補間され、
- * 移動の途中で急に別の場所へ入る見た目になる）
  */
 export function lerpDancersAcrossGap(
   from: DancerSpot[],
@@ -280,139 +276,109 @@ export function lerpDancersAcrossGap(
   const medY = median(ys);
   const sepPct = gapPassingSeparationPct(from, to);
 
+  const n = Math.max(from.length, to.length);
+  const out: DancerSpot[] = [];
+
   function lerp(a: number, b: number, t: number) {
     return a + (b - a) * t;
   }
 
-  function lerpPair(a: DancerSpot, b: DancerSpot): DancerSpot {
-    const note =
-      alpha < 0.5
-        ? a.note?.trim()
-          ? a.note
-          : undefined
-        : b.note?.trim()
-          ? b.note
-          : undefined;
-    const sizePx =
-      a.sizePx != null && b.sizePx != null
-        ? lerp(a.sizePx, b.sizePx, alpha)
-        : alpha < 0.5
-          ? a.sizePx
-          : b.sizePx;
-    const nameBelowFontPx =
-      a.nameBelowFontPx != null && b.nameBelowFontPx != null
-        ? Math.round(lerp(a.nameBelowFontPx, b.nameBelowFontPx, alpha))
-        : alpha < 0.5
-          ? a.nameBelowFontPx
-          : b.nameBelowFontPx;
-    const centerDistanceGap =
-      a.markerBadgeSource === "centerDistance" ||
-      b.markerBadgeSource === "centerDistance";
+  for (let i = 0; i < n; i++) {
+    const a = from[i];
+    const b = to[i];
+    if (a && b) {
+      const note =
+        alpha < 0.5
+          ? a.note?.trim()
+            ? a.note
+            : undefined
+          : b.note?.trim()
+            ? b.note
+            : undefined;
+      const sizePx =
+        a.sizePx != null && b.sizePx != null
+          ? lerp(a.sizePx, b.sizePx, alpha)
+          : alpha < 0.5
+            ? a.sizePx
+            : b.sizePx;
+      const nameBelowFontPx =
+        a.nameBelowFontPx != null && b.nameBelowFontPx != null
+          ? Math.round(lerp(a.nameBelowFontPx, b.nameBelowFontPx, alpha))
+          : alpha < 0.5
+            ? a.nameBelowFontPx
+            : b.nameBelowFontPx;
+      const centerDistanceGap =
+        a.markerBadgeSource === "centerDistance" ||
+        b.markerBadgeSource === "centerDistance";
 
-    const cp = customPaths?.[a.id];
-    const xy = cp
-      ? clampXY(
-          quadBezier(
-            { x: a.xPct, y: a.yPct },
-            { x: cp.cpX, y: cp.cpY },
-            { x: b.xPct, y: b.yPct },
-            alpha
-          ).x,
-          quadBezier(
-            { x: a.xPct, y: a.yPct },
-            { x: cp.cpX, y: cp.cpY },
-            { x: b.xPct, y: b.yPct },
-            alpha
-          ).y
-        )
-      : pairXY(
-          a.xPct,
-          a.yPct,
-          b.xPct,
-          b.yPct,
-          alpha,
-          r,
-          medX,
-          medY,
-          sepPct
-        );
+      const cp = customPaths?.[a.id];
+      const xy = cp
+        ? clampXY(
+            quadBezier(
+              { x: a.xPct, y: a.yPct },
+              { x: cp.cpX, y: cp.cpY },
+              { x: b.xPct, y: b.yPct },
+              alpha
+            ).x,
+            quadBezier(
+              { x: a.xPct, y: a.yPct },
+              { x: cp.cpX, y: cp.cpY },
+              { x: b.xPct, y: b.yPct },
+              alpha
+            ).y
+          )
+        : pairXY(
+            a.xPct,
+            a.yPct,
+            b.xPct,
+            b.yPct,
+            alpha,
+            r,
+            medX,
+            medY,
+            sepPct
+          );
 
-    return {
-      id: a.id,
-      label: a.label,
-      xPct: xy.x,
-      yPct: xy.y,
-      colorIndex: a.colorIndex,
-      crewMemberId: a.crewMemberId ?? undefined,
-      ...(note ? { note } : {}),
-      ...(typeof sizePx === "number" ? { sizePx } : {}),
-      ...(typeof nameBelowFontPx === "number" ? { nameBelowFontPx } : {}),
-      ...(centerDistanceGap
-        ? {
-            markerBadgeSource: "centerDistance" as const,
-            centerDistanceLabelXPct: a.xPct,
-          }
-        : {
-            ...(a.markerBadge !== undefined
-              ? { markerBadge: a.markerBadge }
-              : {}),
-            ...(a.markerBadgeSource
-              ? { markerBadgeSource: a.markerBadgeSource }
-              : {}),
-          }),
-    };
-  }
-
-  const toById = new Map(to.map((d) => [d.id, d] as const));
-  const usedTo = new Set<string>();
-  const out: DancerSpot[] = [];
-
-  // 1) 同じ id を優先して結ぶ（前キューの並び順を維持）
-  const fromUnmatched: DancerSpot[] = [];
-  for (const a of from) {
-    const b = toById.get(a.id);
-    if (b) {
-      usedTo.add(a.id);
-      out.push(lerpPair(a, b));
-    } else {
-      fromUnmatched.push(a);
+      out.push({
+        id: a.id,
+        label: alpha < 0.5 ? a.label : b.label,
+        xPct: xy.x,
+        yPct: xy.y,
+        colorIndex: alpha < 0.5 ? a.colorIndex : b.colorIndex,
+        crewMemberId:
+          alpha < 0.5 ? a.crewMemberId ?? undefined : b.crewMemberId ?? undefined,
+        ...(note ? { note } : {}),
+        ...(typeof sizePx === "number" ? { sizePx } : {}),
+        ...(typeof nameBelowFontPx === "number"
+          ? { nameBelowFontPx }
+          : {}),
+        ...(centerDistanceGap
+          ? {
+              markerBadgeSource: "centerDistance" as const,
+              centerDistanceLabelXPct: a.xPct,
+            }
+          : {
+              ...(alpha < 0.5
+                ? a.markerBadge !== undefined
+                  ? { markerBadge: a.markerBadge }
+                  : {}
+                : b.markerBadge !== undefined
+                  ? { markerBadge: b.markerBadge }
+                  : {}),
+              ...(alpha < 0.5
+                ? a.markerBadgeSource
+                  ? { markerBadgeSource: a.markerBadgeSource }
+                  : {}
+                : b.markerBadgeSource
+                  ? { markerBadgeSource: b.markerBadgeSource }
+                  : {}),
+            }),
+      });
+    } else if (a) {
+      out.push({ ...a });
+    } else if (b) {
+      out.push({ ...b });
     }
   }
-
-  const toUnmatched = to.filter((d) => !usedTo.has(d.id));
-
-  // 2) id が無い組は最寄りで結ぶ（人数増減の余り）
-  if (fromUnmatched.length > 0 && toUnmatched.length > 0) {
-    type Pair = { fi: number; ti: number; dist: number };
-    const pairs: Pair[] = [];
-    for (let fi = 0; fi < fromUnmatched.length; fi++) {
-      const a = fromUnmatched[fi]!;
-      for (let ti = 0; ti < toUnmatched.length; ti++) {
-        const b = toUnmatched[ti]!;
-        const dx = a.xPct - b.xPct;
-        const dy = a.yPct - b.yPct;
-        pairs.push({ fi, ti, dist: dx * dx + dy * dy });
-      }
-    }
-    pairs.sort((x, y) => x.dist - y.dist || x.fi - y.fi || x.ti - y.ti);
-    const usedF = new Set<number>();
-    const usedT = new Set<number>();
-    for (const p of pairs) {
-      if (usedF.has(p.fi) || usedT.has(p.ti)) continue;
-      usedF.add(p.fi);
-      usedT.add(p.ti);
-      out.push(lerpPair(fromUnmatched[p.fi]!, toUnmatched[p.ti]!));
-    }
-    for (let fi = 0; fi < fromUnmatched.length; fi++) {
-      if (!usedF.has(fi)) out.push({ ...fromUnmatched[fi]! });
-    }
-    for (let ti = 0; ti < toUnmatched.length; ti++) {
-      if (!usedT.has(ti)) out.push({ ...toUnmatched[ti]! });
-    }
-  } else {
-    for (const a of fromUnmatched) out.push({ ...a });
-    for (const b of toUnmatched) out.push({ ...b });
-  }
-
   return out;
 }

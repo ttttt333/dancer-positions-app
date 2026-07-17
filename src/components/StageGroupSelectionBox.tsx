@@ -78,7 +78,6 @@ export function StageGroupSelectionBox({
         <div
           key={h}
           data-group-box-handle={h}
-          data-stage-interactive
           role="presentation"
           aria-hidden
           onPointerDown={(e) => onHandlePointerDown(e, h)}
@@ -118,7 +117,6 @@ export function StageGroupSelectionBox({
           role="presentation"
           aria-hidden
           data-name-below-font-handle
-          data-stage-interactive
           onPointerDown={onNameBelowFontPointerDown}
           style={{
             position: "absolute",
@@ -139,7 +137,6 @@ export function StageGroupSelectionBox({
         <button
           type="button"
           data-group-selection-menu-handle
-          data-stage-interactive
           aria-label="選択した立ち位置の設定を開く"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
@@ -167,7 +164,6 @@ export function StageGroupSelectionBox({
           role="presentation"
           aria-hidden
           data-marker-resize-handle
-          data-stage-interactive
           onPointerDown={onMarkerResizePointerDown}
           style={{
             position: "absolute",
@@ -188,7 +184,6 @@ export function StageGroupSelectionBox({
         <button
           type="button"
           data-dancer-delete-handle
-          data-stage-interactive
           aria-label="選択した立ち位置を削除"
           title="削除"
           onPointerDown={(e) => e.stopPropagation()}

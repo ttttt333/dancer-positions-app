@@ -12,7 +12,6 @@ import {
   tryApplyExtraLayoutPreset,
 } from "./formationLayoutPresetsExtra";
 import { getPresetTier } from "./formationPresetTiers";
-import { minCostBipartiteAssignment } from "./minCostAssignment";
 
 /**
  * 場ミリ規格を `dancersForLayoutPreset` / `dancersWithPresetAndWingSurplus`
@@ -2531,147 +2530,36 @@ export function dancersWithPresetAndWingSurplus(
 
 /**
  * プリセットで得た座標に、既存の id / 表示 / 名簿紐付けを順番で上書きする。
- * （名簿一括配置など、並び順が意味を持つ場合向け）
+ * （クイックバー適用・名簿一括配置と同じ振る舞い）
  */
 export function transferDancerIdentitiesByOrder(
   positioned: DancerSpot[],
   identitySource: DancerSpot[]
 ): DancerSpot[] {
-  const inheritCenterDistance = identitySource.some(
-    (d) => d.markerBadgeSource === "centerDistance"
-  );
   return positioned.map((nd, i) => {
     const od = identitySource[i];
-    if (!od) {
-      return withInheritedCenterDistanceIfNeeded(
-        { ...nd },
-        inheritCenterDistance
-      );
-    }
-    return mergeDancerIdentityOntoPosition(nd, od);
+    if (!od) return nd;
+    /** 名簿紐付け時は「○の下に名前・○内は空」（StageBoard の below モード＋ markerBadge 空） */
+    const markerBadge =
+      od.crewMemberId
+        ? ""
+        : od.markerBadge !== undefined
+          ? od.markerBadge
+          : nd.markerBadge;
+    const markerBadgeSource = od.crewMemberId
+      ? undefined
+      : od.markerBadgeSource;
+    return {
+      ...nd,
+      id: od.id,
+      label: od.label,
+      colorIndex: od.colorIndex,
+      crewMemberId: od.crewMemberId,
+      markerBadge,
+      markerBadgeSource,
+      sizePx: od.sizePx ?? nd.sizePx,
+      note: od.note ?? nd.note,
+      heightCm: od.heightCm ?? nd.heightCm,
+    };
   });
-}
-
-/**
- * プリセット座標へ、既存ダンサーを「前の立ち位置から移動距離の総和が最小」になるよう割り当てて
- * id / 表示 / 名簿紐付けを引き継ぐ。
- *
- * 貪欲な「近い順に確定」だと、中央付近の取り合いで端の人が遠くへ押し出されることがあるため、
- * 最小費用マッチング（Hungarian）で全体最適にする。
- *
- * 重要: 出力配列の並びは identitySource（前キュー）の順を保つ。
- * キュー間ギャップ補間は配列インデックスでも結ぶため、雛形スロット順に並べ替えると
- * 「移動の途中で別人の場所へ入る」見た目になる。座標だけ最寄りスロットへ移す。
- */
-export function transferDancerIdentitiesByNearestPosition(
-  positioned: DancerSpot[],
-  identitySource: DancerSpot[]
-): DancerSpot[] {
-  if (positioned.length === 0) return [];
-  if (identitySource.length === 0) return positioned.map((d) => ({ ...d }));
-
-  const cost: number[][] = identitySource.map((od) =>
-    positioned.map((nd) => {
-      const dx = od.xPct - nd.xPct;
-      const dy = od.yPct - nd.yPct;
-      return dx * dx + dy * dy;
-    })
-  );
-  const assignment = minCostBipartiteAssignment(cost);
-
-  const usedNew = new Set<number>();
-  /** oldIndex → newSlotIndex */
-  const oldToNew = new Map<number, number>();
-  for (let oi = 0; oi < assignment.length; oi++) {
-    const ni = assignment[oi]!;
-    if (ni < 0) continue;
-    oldToNew.set(oi, ni);
-    usedNew.add(ni);
-  }
-
-  const inheritCenterDistance = identitySource.some(
-    (d) => d.markerBadgeSource === "centerDistance"
-  );
-
-  const result: DancerSpot[] = [];
-  for (let oi = 0; oi < identitySource.length; oi++) {
-    const ni = oldToNew.get(oi);
-    if (ni === undefined) continue;
-    result.push(
-      mergeDancerIdentityOntoPosition(positioned[ni]!, identitySource[oi]!)
-    );
-  }
-  // 余った雛形スロット（人数増）は末尾に追加。元がセンター距離表示なら揃える
-  for (let ni = 0; ni < positioned.length; ni++) {
-    if (!usedNew.has(ni)) {
-      result.push(
-        withInheritedCenterDistanceIfNeeded(
-          { ...positioned[ni]! },
-          inheritCenterDistance
-        )
-      );
-    }
-  }
-  return result;
-}
-
-/** 座標は `positioned`、身元・○内表示モードは `identity` から引き継ぐ */
-function mergeDancerIdentityOntoPosition(
-  positioned: DancerSpot,
-  identity: DancerSpot
-): DancerSpot {
-  /**
-   * センター距離表示は名簿紐付けの有無に関わらず引き継ぐ。
-   * （紐付け時に○内を空にする旧挙動だと、Change 適用後に距離数字が消える）
-   */
-  const keepCenterDistance = identity.markerBadgeSource === "centerDistance";
-
-  let markerBadge: string | undefined;
-  let markerBadgeSource: DancerSpot["markerBadgeSource"];
-
-  if (keepCenterDistance) {
-    markerBadge = "";
-    markerBadgeSource = "centerDistance";
-  } else if (identity.crewMemberId) {
-    /** 名簿紐付け時は「○の下に名前・○内は空」 */
-    markerBadge = "";
-    markerBadgeSource = undefined;
-  } else {
-    markerBadge =
-      identity.markerBadge !== undefined
-        ? identity.markerBadge
-        : positioned.markerBadge;
-    markerBadgeSource = identity.markerBadgeSource;
-  }
-
-  return {
-    ...positioned,
-    id: identity.id,
-    label: identity.label,
-    colorIndex: identity.colorIndex,
-    crewMemberId: identity.crewMemberId,
-    markerBadge,
-    markerBadgeSource,
-    sizePx: identity.sizePx ?? positioned.sizePx,
-    note: identity.note ?? positioned.note,
-    heightCm: identity.heightCm ?? positioned.heightCm,
-    ...(typeof identity.nameBelowFontPx === "number"
-      ? { nameBelowFontPx: identity.nameBelowFontPx }
-      : {}),
-    ...(typeof identity.facingDeg === "number"
-      ? { facingDeg: identity.facingDeg }
-      : {}),
-  };
-}
-
-function withInheritedCenterDistanceIfNeeded(
-  spot: DancerSpot,
-  inherit: boolean
-): DancerSpot {
-  if (!inherit || spot.markerBadgeSource === "centerDistance") return spot;
-  return {
-    ...spot,
-    markerBadge: "",
-    markerBadgeSource: "centerDistance",
-  };
 }
