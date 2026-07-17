@@ -124,6 +124,8 @@ export function DancerPathEditor({
   );
 
   const dragging = useRef<string | null>(null);
+  /** 黄色い制御点ドラッグ中のダンサー（ラベル強調用・再描画が必要） */
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const viewStateRef = useRef<ViewState>({ zoom: 1, panX: 0, panY: 0 });
   const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
@@ -331,6 +333,7 @@ export function DancerPathEditor({
 
   const onPointerUp = useCallback(() => {
     dragging.current = null;
+    setActiveDragId(null);
   }, []);
 
   const beginControlPointDrag = useCallback(
@@ -340,6 +343,7 @@ export function DancerPathEditor({
       pinchRef.current = null;
       panDragRef.current = null;
       dragging.current = dancerId;
+      setActiveDragId(dancerId);
       try {
         e.currentTarget.setPointerCapture(e.pointerId);
       } catch {
@@ -429,7 +433,14 @@ export function DancerPathEditor({
         strokeWidth={portraitMobile ? 1.5 : 1}
       />
 
-      {prevFormation.map((a) => {
+      {[...prevFormation]
+        .sort((p, q) => {
+          if (activeDragId == null) return 0;
+          if (p.id === activeDragId) return 1;
+          if (q.id === activeDragId) return -1;
+          return 0;
+        })
+        .map((a) => {
         const b = nextById.current.get(a.id);
         if (!b) return null;
         const cp = paths[a.id] ?? {
@@ -443,15 +454,33 @@ export function DancerPathEditor({
         const cpx = toSvgX(cp.cpX);
         const cpy = toSvgY(cp.cpY);
         const stationary = isStationaryPath(a.xPct, a.yPct, b.xPct, b.yPct);
+        const isActive = activeDragId === a.id;
+        const isDimmed = activeDragId != null && !isActive;
+        const labelFont = isActive
+          ? markers.labelFont * 1.35
+          : markers.labelFont;
+        const groupOpacity = isDimmed ? 0.28 : 1;
+        const prevLabelFill = isActive ? "#ffffff" : "#93c5fd";
+        const nextLabelFill = isActive ? "#ffffff" : "#86efac";
+        const stationaryLabelFill = isActive ? "#ffffff" : "#e2e8f0";
+        const pathStroke = isActive ? "#a5b4fc" : "#6366f1";
+        const pathWidth = isActive
+          ? markers.pathStroke * 1.35
+          : markers.pathStroke;
+        const guideStroke = isActive ? "#94a3b8" : "#475569";
 
         return (
-          <g key={a.id}>
+          <g
+            key={a.id}
+            opacity={groupOpacity}
+            style={isActive ? { filter: "drop-shadow(0 0 6px rgba(255,255,255,0.45))" } : undefined}
+          >
             <line
               x1={ax}
               y1={ay}
               x2={cpx}
               y2={cpy}
-              stroke="#475569"
+              stroke={guideStroke}
               strokeWidth={markers.guideStroke}
               strokeDasharray="4,3"
             />
@@ -460,7 +489,7 @@ export function DancerPathEditor({
               y1={by}
               x2={cpx}
               y2={cpy}
-              stroke="#475569"
+              stroke={guideStroke}
               strokeWidth={markers.guideStroke}
               strokeDasharray="4,3"
             />
@@ -468,8 +497,8 @@ export function DancerPathEditor({
             <path
               d={bezierD(a.xPct, a.yPct, cp.cpX, cp.cpY, b.xPct, b.yPct)}
               fill="none"
-              stroke="#6366f1"
-              strokeWidth={markers.pathStroke}
+              stroke={pathStroke}
+              strokeWidth={pathWidth}
               strokeDasharray="6,3"
             />
 
@@ -478,27 +507,30 @@ export function DancerPathEditor({
                 <circle
                   cx={ax}
                   cy={ay}
-                  r={markers.formationR}
-                  fill="rgba(59,130,246,0.28)"
-                  stroke="#3b82f6"
-                  strokeWidth={markers.formationStroke}
+                  r={markers.formationR * (isActive ? 1.12 : 1)}
+                  fill={isActive ? "rgba(59,130,246,0.55)" : "rgba(59,130,246,0.28)"}
+                  stroke={isActive ? "#93c5fd" : "#3b82f6"}
+                  strokeWidth={markers.formationStroke * (isActive ? 1.25 : 1)}
                 />
                 <circle
                   cx={ax}
                   cy={ay}
-                  r={markers.formationR * 0.58}
-                  fill="rgba(34,197,94,0.32)"
-                  stroke="#22c55e"
-                  strokeWidth={markers.formationStroke * 0.9}
+                  r={markers.formationR * 0.58 * (isActive ? 1.12 : 1)}
+                  fill={isActive ? "rgba(34,197,94,0.55)" : "rgba(34,197,94,0.32)"}
+                  stroke={isActive ? "#86efac" : "#22c55e"}
+                  strokeWidth={markers.formationStroke * 0.9 * (isActive ? 1.25 : 1)}
                 />
                 <text
                   x={ax}
                   y={ay + 1}
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  fill="#e2e8f0"
-                  fontSize={markers.labelFont}
-                  fontWeight={700}
+                  fill={stationaryLabelFill}
+                  fontSize={labelFont}
+                  fontWeight={800}
+                  stroke={isActive ? "rgba(15,23,42,0.85)" : "none"}
+                  strokeWidth={isActive ? 3 : 0}
+                  paintOrder="stroke fill"
                   pointerEvents="none"
                 >
                   {a.label}
@@ -509,19 +541,22 @@ export function DancerPathEditor({
                 <circle
                   cx={ax}
                   cy={ay}
-                  r={markers.formationR}
-                  fill="rgba(59,130,246,0.28)"
-                  stroke="#3b82f6"
-                  strokeWidth={markers.formationStroke}
+                  r={markers.formationR * (isActive ? 1.12 : 1)}
+                  fill={isActive ? "rgba(59,130,246,0.55)" : "rgba(59,130,246,0.28)"}
+                  stroke={isActive ? "#93c5fd" : "#3b82f6"}
+                  strokeWidth={markers.formationStroke * (isActive ? 1.25 : 1)}
                 />
                 <text
                   x={ax}
                   y={ay + 1}
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  fill="#93c5fd"
-                  fontSize={markers.labelFont}
-                  fontWeight={700}
+                  fill={prevLabelFill}
+                  fontSize={labelFont}
+                  fontWeight={800}
+                  stroke={isActive ? "rgba(15,23,42,0.85)" : "none"}
+                  strokeWidth={isActive ? 3 : 0}
+                  paintOrder="stroke fill"
                   pointerEvents="none"
                 >
                   {a.label}
@@ -530,19 +565,22 @@ export function DancerPathEditor({
                 <circle
                   cx={bx}
                   cy={by}
-                  r={markers.formationR}
-                  fill="rgba(34,197,94,0.24)"
-                  stroke="#22c55e"
-                  strokeWidth={markers.formationStroke}
+                  r={markers.formationR * (isActive ? 1.12 : 1)}
+                  fill={isActive ? "rgba(34,197,94,0.5)" : "rgba(34,197,94,0.24)"}
+                  stroke={isActive ? "#86efac" : "#22c55e"}
+                  strokeWidth={markers.formationStroke * (isActive ? 1.25 : 1)}
                 />
                 <text
                   x={bx}
                   y={by + 1}
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  fill="#86efac"
-                  fontSize={markers.labelFont}
-                  fontWeight={700}
+                  fill={nextLabelFill}
+                  fontSize={labelFont}
+                  fontWeight={800}
+                  stroke={isActive ? "rgba(15,23,42,0.85)" : "none"}
+                  strokeWidth={isActive ? 3 : 0}
+                  paintOrder="stroke fill"
                   pointerEvents="none"
                 >
                   {b.label}
@@ -553,10 +591,10 @@ export function DancerPathEditor({
             <circle
               cx={cpx}
               cy={cpy}
-              r={markers.controlR}
-              fill="#f59e0b"
+              r={markers.controlR * (isActive ? 1.2 : 1)}
+              fill={isActive ? "#fbbf24" : "#f59e0b"}
               stroke="#fde68a"
-              strokeWidth={markers.controlStroke}
+              strokeWidth={markers.controlStroke * (isActive ? 1.35 : 1)}
               pointerEvents="none"
             />
             <circle
@@ -564,7 +602,7 @@ export function DancerPathEditor({
               cy={cpy}
               r={markers.controlHitR}
               fill="transparent"
-              style={{ cursor: "grab", touchAction: "none" }}
+              style={{ cursor: isActive ? "grabbing" : "grab", touchAction: "none" }}
               onPointerDown={(e) => beginControlPointDrag(a.id, e)}
             />
           </g>
