@@ -58,11 +58,36 @@ describe("buildInitialControlPoints", () => {
     }
   });
 
-  it("preserves explicit custom paths", () => {
-    const prev = [spot("a", 20, 50)];
-    const next = [spot("a", 80, 50)];
-    const custom = { a: { cpX: 50, cpY: 20 } };
-    const paths = buildInitialControlPoints(prev, next, custom);
-    expect(paths.a).toEqual(custom.a);
+  it("keeps yellow CPs clear when moving kamite→shimote (right→left)", () => {
+    const prev = [
+      spot("a", 80, 35),
+      spot("b", 85, 50),
+      spot("c", 82, 65),
+    ];
+    const next = [
+      spot("a", 20, 35),
+      spot("b", 25, 50),
+      spot("c", 22, 65),
+    ];
+    const paths = buildInitialControlPoints(prev, next);
+    const markers = [
+      ...prev.map((d) => ({ x: d.xPct, y: d.yPct })),
+      ...next.map((d) => ({ x: d.xPct, y: d.yPct })),
+    ];
+    const cps = Object.values(paths);
+    for (const cp of cps) {
+      for (const m of markers) {
+        expect(Math.hypot(cp.cpX - m.x, cp.cpY - m.y)).toBeGreaterThanOrEqual(
+          CP_CLEARANCE_PCT - 0.05
+        );
+      }
+    }
+    for (let i = 0; i < cps.length; i++) {
+      for (let j = i + 1; j < cps.length; j++) {
+        expect(
+          Math.hypot(cps[i]!.cpX - cps[j]!.cpX, cps[i]!.cpY - cps[j]!.cpY)
+        ).toBeGreaterThanOrEqual(CP_CLEARANCE_PCT - 0.05);
+      }
+    }
   });
 });
