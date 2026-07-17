@@ -1,6 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography";
+import {
+  buildInitialControlPoints,
+  isStationaryPath,
+  type PathControlPoint,
+} from "../lib/dancerPathControlPoints";
 
 export type DancerPathEditorProps = {
   cueId: string;
@@ -13,82 +18,11 @@ export type DancerPathEditorProps = {
   stageHeightPx?: number;
 };
 
-function defaultCp(
-  ax: number,
-  ay: number,
-  bx: number,
-  by: number
-): { cpX: number; cpY: number } {
-  return { cpX: (ax + bx) / 2, cpY: (ay + by) / 2 };
-}
-
-/** 前後が同じ座標とみなす閾値（%） */
-const STATIONARY_EPS = 0.08;
-/** 動かない動線の制御点をマーカー外へ出す距離（%） */
-const STATIONARY_CP_OFFSET_PCT = 9;
-
 function clamp(n: number, lo: number, hi: number) {
   return Math.min(hi, Math.max(lo, n));
 }
 
-function isStationaryPath(
-  ax: number,
-  ay: number,
-  bx: number,
-  by: number
-): boolean {
-  return Math.hypot(bx - ax, by - ay) < STATIONARY_EPS;
-}
-
-function stationaryCpOffset(
-  index: number,
-  total: number,
-  ax: number,
-  ay: number
-): { cpX: number; cpY: number } {
-  const angle = ((index + 0.5) / Math.max(1, total)) * 2 * Math.PI - Math.PI / 2;
-  return {
-    cpX: clamp(ax + Math.cos(angle) * STATIONARY_CP_OFFSET_PCT, 0, 100),
-    cpY: clamp(ay + Math.sin(angle) * STATIONARY_CP_OFFSET_PCT, 0, 100),
-  };
-}
-
-function resolvePathControlPoint(
-  dancer: DancerSpot,
-  next: DancerSpot,
-  prevFormation: DancerSpot[],
-  nextById: Map<string, DancerSpot>,
-  existing?: { cpX: number; cpY: number }
-): { cpX: number; cpY: number } {
-  const { xPct: ax, yPct: ay } = dancer;
-  const { xPct: bx, yPct: by } = next;
-  if (!isStationaryPath(ax, ay, bx, by)) {
-    return existing ?? defaultCp(ax, ay, bx, by);
-  }
-
-  const atSpot = prevFormation.filter((d) => {
-    const b = nextById.get(d.id);
-    if (!b) return false;
-    return (
-      isStationaryPath(d.xPct, d.yPct, b.xPct, b.yPct) &&
-      Math.hypot(d.xPct - ax, d.yPct - ay) < STATIONARY_EPS
-    );
-  });
-  const spotIndex = Math.max(
-    0,
-    atSpot.findIndex((d) => d.id === dancer.id)
-  );
-  const ref = stationaryCpOffset(spotIndex, atSpot.length, ax, ay);
-
-  if (!existing) return ref;
-  const mid = defaultCp(ax, ay, bx, by);
-  if (Math.hypot(existing.cpX - mid.cpX, existing.cpY - mid.cpY) < STATIONARY_EPS) {
-    return ref;
-  }
-  return existing;
-}
-
-type LocalPaths = Record<string, { cpX: number; cpY: number }>;
+type LocalPaths = Record<string, PathControlPoint>;
 
 type MarkerSizes = {
   formationR: number;
@@ -185,21 +119,14 @@ export function DancerPathEditor({
   nextById.current.clear();
   for (const d of nextFormation) nextById.current.set(d.id, d);
 
-  const [paths, setPaths] = useState<LocalPaths>(() => {
-    const init: LocalPaths = {};
-    for (const d of prevFormation) {
-      const b = nextById.current.get(d.id);
-      if (!b) continue;
-      init[d.id] = resolvePathControlPoint(
-        d,
-        b,
-        prevFormation,
-        nextById.current,
-        existingPaths?.[d.id]
-      );
-    }
-    return init;
-  });
+  const defaultPaths = useMemo(
+    () => buildInitialControlPoints(prevFormation, nextFormation),
+    [prevFormation, nextFormation]
+  );
+
+  const [paths, setPaths] = useState<LocalPaths>(() =>
+    buildInitialControlPoints(prevFormation, nextFormation, existingPaths)
+  );
 
   const dragging = useRef<string | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -428,13 +355,12 @@ export function DancerPathEditor({
   );
 
   const onSave = useCallback(() => {
-    const toSave: Record<string, { cpX: number; cpY: number }> = {};
+    const toSave: Record<string, PathControlPoint> = {};
     for (const d of prevFormation) {
-      const b = nextById.current.get(d.id);
-      if (!b) continue;
       const cp = paths[d.id];
       if (!cp) continue;
-      const ref = resolvePathControlPoint(d, b, prevFormation, nextById.current);
+      const ref = defaultPaths[d.id];
+      if (!ref) continue;
       const dist = Math.hypot(cp.cpX - ref.cpX, cp.cpY - ref.cpY);
       if (dist > 0.3) {
         toSave[d.id] = cp;
@@ -453,17 +379,11 @@ export function DancerPathEditor({
       ),
     }));
     onClose();
-  }, [cueId, paths, prevFormation, setProject, onClose]);
+  }, [cueId, paths, prevFormation, defaultPaths, setProject, onClose]);
 
   const onReset = useCallback(() => {
-    const init: LocalPaths = {};
-    for (const d of prevFormation) {
-      const b = nextById.current.get(d.id);
-      if (!b) continue;
-      init[d.id] = resolvePathControlPoint(d, b, prevFormation, nextById.current);
-    }
-    setPaths(init);
-  }, [prevFormation]);
+    setPaths(buildInitialControlPoints(prevFormation, nextFormation));
+  }, [prevFormation, nextFormation]);
 
   const toSvgX = (pct: number) => (pct / 100) * stageWidthPx;
   const toSvgY = (pct: number) => (pct / 100) * stageHeightPx;
@@ -513,9 +433,8 @@ export function DancerPathEditor({
       {prevFormation.map((a) => {
         const b = nextById.current.get(a.id);
         if (!b) return null;
-        const cp =
-          paths[a.id] ??
-          resolvePathControlPoint(a, b, prevFormation, nextById.current);
+        const cp = paths[a.id] ?? defaultPaths[a.id];
+        if (!cp) return null;
         const ax = toSvgX(a.xPct);
         const ay = toSvgY(a.yPct);
         const bx = toSvgX(b.xPct);
