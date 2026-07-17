@@ -300,15 +300,18 @@ export const GROUP_BOX_HANDLES: readonly {
 
 /**
  * 群リサイズのハンドルからスケール係数と不動点（アンカー）を求める。
- * アンカーは常に選択ボックスの中心。ドラッグした辺／角が動く分だけ
- * センターからの距離比で拡大縮小する（センター基準の間隔調整に向く）。
+ * アンカーは常に選択ボックスの中心。
+ *
+ * `startPointer` を渡すと、ドラッグ開始時のポインタ位置からの差分で辺を動かす
+ *（ハンドルのヒット領域が枠外でも、掴んだ瞬間に sx/sy=1 から滑らかに変化する）。
  */
 export function groupScaleForHandle(
   handle: GroupBoxHandle,
   startBox: { x0: number; y0: number; x1: number; y1: number },
   newX: number,
   newY: number,
-  keepAspect: boolean
+  keepAspect: boolean,
+  startPointer?: { x: number; y: number }
 ): { sx: number; sy: number; ax: number; ay: number } {
   const cx = (startBox.x0 + startBox.x1) / 2;
   const cy = (startBox.y0 + startBox.y1) / 2;
@@ -332,16 +335,43 @@ export function groupScaleForHandle(
   const southDen = Math.max(0.001, startBox.y1 - cy);
   const northDen = Math.max(0.001, cy - startBox.y0);
 
+  /**
+   * 掴み開始時の枠辺を、ポインタ移動量だけ平行移動した位置を「今の辺」とする。
+   * startPointer が無い旧呼び出しはポインタ位置そのものを辺とみなす。
+   */
+  const dx = startPointer ? newX - startPointer.x : 0;
+  const dy = startPointer ? newY - startPointer.y : 0;
+  const edgeX = startPointer
+    ? touchesE
+      ? startBox.x1 + dx
+      : touchesW
+        ? startBox.x0 + dx
+        : newX
+    : newX;
+  const edgeY = startPointer
+    ? touchesS
+      ? startBox.y1 + dy
+      : touchesN
+        ? startBox.y0 + dy
+        : newY
+    : newY;
+
   if (touchesE) {
-    sx = Math.max(0.05, (newX - cx) / eastDen);
+    sx = (edgeX - cx) / eastDen;
   } else if (touchesW) {
-    sx = Math.max(0.05, (cx - newX) / westDen);
+    sx = (cx - edgeX) / westDen;
   }
   if (touchesS) {
-    sy = Math.max(0.05, (newY - cy) / southDen);
+    sy = (edgeY - cy) / southDen;
   } else if (touchesN) {
-    sy = Math.max(0.05, (cy - newY) / northDen);
+    sy = (cy - edgeY) / northDen;
   }
+
+  /** 中心越えで負倍率にならないよう下限。急拡大も抑える。 */
+  const MIN_S = 0.05;
+  const MAX_S = 40;
+  sx = Math.min(MAX_S, Math.max(MIN_S, sx));
+  sy = Math.min(MAX_S, Math.max(MIN_S, sy));
 
   if (!touchesE && !touchesW) sx = keepAspect ? sy : 1;
   if (!touchesN && !touchesS) sy = keepAspect ? sx : 1;

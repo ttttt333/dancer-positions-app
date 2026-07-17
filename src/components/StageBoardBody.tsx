@@ -369,7 +369,7 @@ export function StageBoardBody({
         floorWpx: number;
         floorHpx: number;
       }
-    | {
+      | {
         mode: "scale";
         handle: GroupBoxHandle;
         ids: string[];
@@ -377,6 +377,9 @@ export function StageBoardBody({
         startPositions: Map<string, { xPct: number; yPct: number }>;
         startClientX: number;
         startClientY: number;
+        /** ドラッグ開始時のポインタ位置（床％）。掴みオフセット補正用 */
+        startPointerXPct: number;
+        startPointerYPct: number;
         floorWpx: number;
         floorHpx: number;
       }
@@ -2173,6 +2176,8 @@ export function StageBoardBody({
         startPositions,
         startClientX: e.clientX,
         startClientY: e.clientY,
+        startPointerXPct: ((e.clientX - r.left) / Math.max(1e-6, r.width)) * 100,
+        startPointerYPct: ((e.clientY - r.top) / Math.max(1e-6, r.height)) * 100,
         floorWpx: r.width,
         floorHpx: r.height,
       };
@@ -3097,8 +3102,9 @@ export function StageBoardBody({
         const el = stageMainFloorRef.current;
         if (!el) return;
         const rr = el.getBoundingClientRect();
-        const curXPct = clamp(((e.clientX - rr.left) / rr.width) * 100, 0, 100);
-        const curYPct = clamp(((e.clientY - rr.top) / rr.height) * 100, 0, 100);
+        /** 枠外へのドラッグも拡大に効かせるため、ステージ％はクランプしない */
+        const curXPct = ((e.clientX - rr.left) / Math.max(1e-6, rr.width)) * 100;
+        const curYPct = ((e.clientY - rr.top) / Math.max(1e-6, rr.height)) * 100;
         /**
          * コーナーハンドルは既定で比率（アスペクト保持）スケール。
          * 辺ハンドルは 1 軸のみ。Shift を押すと挙動を反転（コーナーでも 1 軸・辺でも比率保持）。
@@ -3115,6 +3121,7 @@ export function StageBoardBody({
           curXPct,
           curYPct,
           keepAspect,
+          { x: g.startPointerXPct, y: g.startPointerYPct },
         );
         const idSet = new Set(g.ids);
         queueFormationUpdate((f) => ({
