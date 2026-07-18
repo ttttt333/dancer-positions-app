@@ -34,6 +34,11 @@ import {
   DANCER_STAGE_POSITION_PCT_LO,
   snapXPctToCenterDistanceMmGrid,
 } from "../lib/dancerSpacing";
+import {
+  screenDeltaPctToStageDelta,
+  screenPctToStagePct,
+  stagePctToScreenPct,
+} from "../lib/stageRotationCoordinates";
 import { computeMarkerResizeDraftSizes } from "../lib/stageMarkerSizing";
 import {
   applyDancerFieldOverridesToFormations,
@@ -1669,11 +1674,19 @@ export function StageBoardBody({
       shiftKey: boolean,
       /** ダンサー印のドラッグ時のみ true。大道具の移動では false のまま。 */
       snapHorizontalCenter50mm = false,
+      /** CSS回転されたダンサー座標だけ、画面座標から逆変換する。 */
+      rotationDeg = 0,
     ) => {
       const r = rootEl.getBoundingClientRect();
       if (r.width < 1e-6 || r.height < 1e-6) return null;
-      const xPct = ((clientX - r.left) / r.width) * 100;
-      const yPct = ((clientY - r.top) / r.height) * 100;
+      const point = screenPctToStagePct(
+        {
+          xPct: ((clientX - r.left) / r.width) * 100,
+          yPct: ((clientY - r.top) / r.height) * 100,
+        },
+        rotationDeg,
+      );
+      const { xPct, yPct } = point;
       const mode: StageDancerSnapMode = snapGrid
         ? shiftKey
           ? "fine"
@@ -1722,9 +1735,10 @@ export function StageBoardBody({
         clientY,
         shiftKey,
         snapHorizontalCenter50mm,
+        rot,
       );
     },
-    [pointerToPctInRoot],
+    [pointerToPctInRoot, rot],
   );
 
   /**
@@ -1987,8 +2001,9 @@ export function StageBoardBody({
       const el = stageMainFloorRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
-      const cx = r.left + (xPct / 100) * r.width;
-      const cy = r.top + (yPct / 100) * r.height;
+      const screenPoint = stagePctToScreenPct({ xPct, yPct }, rot);
+      const cx = r.left + (screenPoint.xPct / 100) * r.width;
+      const cy = r.top + (screenPoint.yPct / 100) * r.height;
       if (nextSelection.length <= 1) {
         dragRef.current = {
           dancerId,
@@ -2035,6 +2050,7 @@ export function StageBoardBody({
       onGestureHistoryBegin,
       setDragGhostById,
       setBulkHideDancerGlyphs,
+      rot,
     ],
   );
 
@@ -2874,8 +2890,15 @@ export function StageBoardBody({
       /** 2: 複数選択の一括移動（ゴミ箱一括削除付き） */
       const g = groupDragRef.current;
       if (g && g.mode === "move") {
-        let dxPct = ((e.clientX - g.startClientX) / g.floorWpx) * 100;
-        let dyPct = ((e.clientY - g.startClientY) / g.floorHpx) * 100;
+        const stageDelta = screenDeltaPctToStageDelta(
+          {
+            xPct: ((e.clientX - g.startClientX) / g.floorWpx) * 100,
+            yPct: ((e.clientY - g.startClientY) / g.floorHpx) * 100,
+          },
+          rot,
+        );
+        let dxPct = stageDelta.xPct;
+        let dyPct = stageDelta.yPct;
         const idSet = new Set(g.ids);
         const STAGE_CENTER_PCT = 50;
         const CENTER_GUIDE_EPS = 0.02;
@@ -3039,32 +3062,32 @@ export function StageBoardBody({
         return;
       }
       /** 4: 向き（丸い回転ハンドル）— 1 人は向きのみ。複数は枠中心まわりに位置＋向きを剛体回転 */
-      const rot = markerRotateRef.current;
-      if (rot) {
+      const markerRot = markerRotateRef.current;
+      if (markerRot) {
         const curAngle = Math.atan2(
-          e.clientY - rot.centerClientY,
-          e.clientX - rot.centerClientX,
+          e.clientY - markerRot.centerClientY,
+          e.clientX - markerRot.centerClientX,
         );
-        let deltaRad = curAngle - rot.startPointerAngle;
+        let deltaRad = curAngle - markerRot.startPointerAngle;
         while (deltaRad > Math.PI) deltaRad -= 2 * Math.PI;
         while (deltaRad < -Math.PI) deltaRad += 2 * Math.PI;
         const deltaDeg = (deltaRad * 180) / Math.PI;
         const cos = Math.cos(deltaRad);
         const sin = Math.sin(deltaRad);
         const draft = new Map<string, number>();
-        for (const id of rot.ids) {
-          const s = rot.startFacings.get(id) ?? 0;
+        for (const id of markerRot.ids) {
+          const s = markerRot.startFacings.get(id) ?? 0;
           draft.set(id, normalizeDancerFacingDeg(s + deltaDeg));
         }
         markerFacingDraftRef.current = draft;
         setMarkerFacingDraft(draft);
-        if (rot.mode === "groupRigid") {
+        if (markerRot.mode === "groupRigid") {
           setGroupRotateGuideDeltaDeg(deltaDeg);
         }
         if (
-          rot.mode === "groupRigid" &&
-          rot.startPositions &&
-          rot.startPositions.size > 0
+          markerRot.mode === "groupRigid" &&
+          markerRot.startPositions &&
+          markerRot.startPositions.size > 0
         ) {
           const floor = stageMainFloorRef.current;
           if (floor) {
@@ -3076,15 +3099,15 @@ export function StageBoardBody({
                 string,
                 { xPct: number; yPct: number }
               >();
-              for (const id of rot.ids) {
-                const s = rot.startPositions.get(id);
+              for (const id of markerRot.ids) {
+                const s = markerRot.startPositions.get(id);
                 if (!s) continue;
                 const px0 = r.left + (s.xPct / 100) * w;
                 const py0 = r.top + (s.yPct / 100) * h;
-                const vx = px0 - rot.centerClientX;
-                const vy = py0 - rot.centerClientY;
-                const px1 = rot.centerClientX + vx * cos - vy * sin;
-                const py1 = rot.centerClientY + vx * sin + vy * cos;
+                const vx = px0 - markerRot.centerClientX;
+                const vy = py0 - markerRot.centerClientY;
+                const px1 = markerRot.centerClientX + vx * cos - vy * sin;
+                const py1 = markerRot.centerClientY + vx * sin + vy * cos;
                 const nxPct = clamp(
                   ((px1 - r.left) / w) * 100,
                   DANCER_STAGE_POSITION_PCT_LO,
@@ -3435,6 +3458,7 @@ export function StageBoardBody({
     removeGlobalFloorMarkupById,
     displayFloorMarkup,
     setSelectedFloorTextIds,
+    rot,
   ]);
 
   useEffect(() => {
