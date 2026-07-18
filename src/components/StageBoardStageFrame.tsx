@@ -58,13 +58,25 @@ export function StageBoardStageFrame({
    * 客席帯は aspect 比の外（床下）に描くため、上下どちらに出るかに応じて
    * `cqb` を少しだけ削ってラベルが切れないようにする。
    */
-  /** 数字行＋客席ラベル（実高約42px）が反転・端数丸めでも切れない共通余白 */
-  const audienceBandPad = compactLandscapeViewport ? 50 : 56;
-  const backstageBandPad = compactViewportChrome
+  /**
+   * ピンチ表示のスマホだけ数字帯ぶんを広く確保する。
+   * PCは余白を抑え、客席が上でもステージをできるだけ大きく表示する。
+   */
+  const audienceBandPad = enablePinchViewport
     ? compactLandscapeViewport
-      ? 24
-      : 28
-    : 20;
+      ? 40
+      : 42
+    : compactViewportChrome
+      ? 42
+      : 28;
+  const backstageBandPad =
+    enablePinchViewport && !compactViewportChrome
+      ? 0
+      : compactViewportChrome
+        ? compactLandscapeViewport
+          ? 24
+          : 28
+        : 20;
 
   let paddingTop: number | undefined;
   let paddingBottom: number | undefined;

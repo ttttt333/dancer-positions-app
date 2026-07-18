@@ -666,8 +666,12 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 style={{
                   flexShrink: 0,
                   display: stageZenLayout ? "none" : "flex",
-                  flexDirection: "column",
+                  flexDirection:
+                    mobileStackEditor && !editorMobileLandscape
+                      ? "row"
+                      : "column",
                   alignItems: "flex-end",
+                  justifyContent: "flex-end",
                   gap: 3,
                   padding: stageFlushTopDock
                     ? "4px 4px 0 0"
@@ -735,10 +739,12 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     aria-label="UPDATE LOG（お知らせ）を開く"
                     style={{
                       ...btnSecondary,
-                      display: "flex",
+                      display: "inline-flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      width: "100%",
+                      width: "auto",
+                      minWidth: 76,
+                      alignSelf: "flex-end",
                       boxSizing: "border-box",
                       padding: "4px 6px",
                       fontSize: 9,
