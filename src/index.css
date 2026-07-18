@@ -2020,7 +2020,7 @@ html[data-landscape-wave-collapsed] {
 [data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-viewToggle {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
+  align-items: center;
   position: absolute;
   top: max(6px, env(safe-area-inset-top, 6px));
   right: max(6px, env(safe-area-inset-right, 6px));
@@ -2032,14 +2032,15 @@ html[data-landscape-wave-collapsed] {
 
 [data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-viewToggle-row {
   display: flex;
+  width: 70%;
   gap: 4px;
 }
 
 [data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-viewToggle-row .editor-stage-landscape-btn {
   flex: none;
   width: 100%;
-  min-height: 68px;
-  height: 68px;
+  min-height: 34px;
+  height: 34px;
   font-size: 12px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
@@ -2054,7 +2055,7 @@ html[data-landscape-wave-collapsed] {
 /* UPDATE LOG / キュー削除（画面右上）: 上記の汎用サイズより後に置いて優先させる */
 [data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-btn--updateLog {
   flex: none;
-  width: 100%;
+  width: 70%;
   min-height: 52px;
   height: 52px;
   font-size: 10px;
@@ -2069,7 +2070,7 @@ html[data-landscape-wave-collapsed] {
 /* 波形たたみ時: 画面右上の UPDATE LOG の下にキュー削除を収める */
 [data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-btn--delete-cue-corner {
   flex: none;
-  width: 100%;
+  width: 70%;
   min-height: 52px;
   height: 52px;
   margin-top: 0;
@@ -2085,15 +2086,15 @@ html[data-landscape-wave-collapsed] {
 
 [data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-pager button {
   width: 26px !important;
-  height: 26px !important;
+  height: 52px !important;
   min-width: 26px !important;
-  min-height: 26px !important;
+  min-height: 52px !important;
   font-size: 11px !important;
   border-radius: 6px !important;
 }
 
 [data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-pager [role="status"] {
-  min-height: 26px !important;
+  min-height: 52px !important;
   padding: 1px 2px !important;
   font-size: 9px !important;
 }
