@@ -53,9 +53,22 @@ export function EditorPerspectiveToggle({
             }
       }
     >
-      <span aria-hidden style={{ fontSize: compact ? 15 : 16, lineHeight: 1 }}>
-        ↕
-      </span>
+      <svg
+        aria-hidden
+        width={compact ? 15 : 16}
+        height={compact ? 15 : 16}
+        viewBox="0 0 16 16"
+        fill="none"
+        style={{ flex: "0 0 auto" }}
+      >
+        <path
+          d="M8 2.25v11.5M4.75 5.5 8 2.25l3.25 3.25M4.75 10.5 8 13.75l3.25-3.25"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
       <span>{label}</span>
     </button>
   );
