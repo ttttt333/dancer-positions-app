@@ -80,7 +80,13 @@ export function StageBoardStageFrame({
 
   let paddingTop: number | undefined;
   let paddingBottom: number | undefined;
-  if (compactViewportChrome) {
+  const useSymmetricMobileFit =
+    enablePinchViewport && !compactViewportChrome;
+  if (useSymmetricMobileFit) {
+    // 編集中のスマホは上下とも中央フィットにし、反転時だけ縮小しない。
+    paddingTop = undefined;
+    paddingBottom = undefined;
+  } else if (compactViewportChrome) {
     if (isAudienceTop) {
       paddingTop = audienceBandPad;
       paddingBottom = backstageBandPad;
@@ -107,7 +113,7 @@ export function StageBoardStageFrame({
 
   return (
     <StageBoardFitViewport
-      alignTop={isAudienceTop}
+      alignTop={isAudienceTop && !useSymmetricMobileFit}
       paddingTop={paddingTop}
       paddingBottom={paddingBottom}
     >
