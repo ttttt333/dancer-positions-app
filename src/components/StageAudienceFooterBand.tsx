@@ -33,7 +33,7 @@ export function StageAudienceFooterBand({
       className="stage-audience-footer-band"
       style={{
         flex: "0 0 auto",
-        minHeight: hasGuideLabels ? 40 : 26,
+        minHeight: hasGuideLabels ? 28 : 22,
         position: "relative",
         width: "100%",
         pointerEvents: "none",
@@ -41,8 +41,8 @@ export function StageAudienceFooterBand({
         flexDirection: "column",
         alignItems: "stretch",
         justifyContent: "center",
-        gap: 4,
-        paddingTop: 2,
+        gap: 1,
+        paddingTop: 1,
         ...wrapperStyle,
       }}
     >
@@ -68,7 +68,7 @@ export function StageAudienceFooterBand({
           className="stage-audience-footer-band__labels"
           style={{
             position: "relative",
-            height: 18,
+            height: 16,
             width: "100%",
           }}
         >
@@ -111,21 +111,19 @@ export function StageAudienceFooterBand({
           </span>
         </div>
       ) : null}
-      <div
-        className={
-          hasGuideLabels
-            ? "stage-audience-footer-band__caption-row"
-            : "stage-audience-footer-band__caption-row stage-audience-footer-band__caption-row--solo"
-        }
-        style={{
-          textAlign: "center",
-          fontSize: "clamp(9px, 3.5cqw, 15px)",
-          fontWeight: 600,
-          color: audienceCaptionColor,
-        }}
-      >
-        客席
-      </div>
+      {!hasGuideLabels ? (
+        <div
+          className="stage-audience-footer-band__caption-row stage-audience-footer-band__caption-row--solo"
+          style={{
+            textAlign: "center",
+            fontSize: "clamp(9px, 3.5cqw, 15px)",
+            fontWeight: 600,
+            color: audienceCaptionColor,
+          }}
+        >
+          客席
+        </div>
+      ) : null}
     </div>
   );
 }

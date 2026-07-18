@@ -2268,9 +2268,9 @@ html[data-landscape-wave-collapsed] {
   font-weight: 700;
 }
 
-/* デスクトップ: 客席はガイド数字の下に別行（横画面モバイル用インラインは非表示） */
+/* 客席名は数字帯の中央へ収め、舞台枠から離れすぎないようにする */
 .stage-audience-footer-band__caption-inline {
-  display: none;
+  display: block;
 }
 
 /* 横画面: 客席帯をコンパクトに（数字と同じ行に「客席」） */
