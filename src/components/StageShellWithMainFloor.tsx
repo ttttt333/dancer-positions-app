@@ -135,7 +135,8 @@ export function StageShellWithMainFloor({
               centerFrontDotColor={shell.ruby}
               centerFrontRingColor={shell.bgDeep}
               audienceCaptionColor={shell.textMuted}
-              wrapperStyle={labelScreenKeepUpright("bottom center")}
+              // 180°反転時も帯の箱を枠内に保つ。bottom基準だとスマホで外へ押し出される。
+              wrapperStyle={labelScreenKeepUpright("center center")}
             />
           }
         />

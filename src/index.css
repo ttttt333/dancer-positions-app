@@ -1959,7 +1959,7 @@ html.choreo-stage-video-export #stage-export-root {
   display: none !important;
 }
 
-/* 横向き: ステージ内の 2D/3D・キューページャーコントロールを非表示 (右パネルで代替) */
+/* 横向き: ステージ内の視点・キューページャーコントロールを非表示 (専用列で代替) */
 [data-shell-landscape] .editor-stage-viewcontrols {
   display: none !important;
 }
@@ -2012,7 +2012,7 @@ html[data-landscape-wave-collapsed] {
   display: none !important;
 }
 
-/* 波形たたみ時: 2D/3D 切替 + UPDATE LOG のみ画面右上に表示（左パネルとは重複させない） */
+/* 波形たたみ時: 視点切替 + UPDATE LOG のみ画面右上に表示（左パネルとは重複させない） */
 [data-shell-landscape] .editor-stage-landscape-viewToggle {
   display: none;
 }
@@ -2036,7 +2036,7 @@ html[data-landscape-wave-collapsed] {
 
 [data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-viewToggle-row .editor-stage-landscape-btn {
   flex: none;
-  width: 40px;
+  width: 72px;
   height: 34px;
   font-size: 12px;
   border-radius: 8px;
@@ -2141,6 +2141,15 @@ html[data-landscape-wave-collapsed] {
 [data-shell-landscape] .editor-stage-landscape-btn--active {
   border-color: #6366f1;
   color: #c7d2fe;
+}
+
+[data-shell-landscape] .editor-stage-landscape-btn--perspective {
+  width: 100%;
+  flex: none;
+  gap: 4px;
+  border-color: #38bdf8;
+  color: #e0f2fe;
+  background: rgba(14, 116, 144, 0.24);
 }
 
 [data-shell-landscape] .editor-stage-landscape-btn--change {

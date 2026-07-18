@@ -1,7 +1,8 @@
-import { lazy, Suspense, useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { flushEditorAutoSaveBeforeLeave } from "../../lib/editorAutoSaveBridge";
 import { StageBoard } from "../../components/StageBoard";
+import { EditorPerspectiveToggle } from "../../components/EditorPerspectiveToggle";
 import { EditorStageWorkbench, WorkbenchCuePager } from "../../components/EditorStageWorkbench";
 import { RosterTimelineStrip } from "../../components/RosterTimelineStrip";
 import { btnAccent, btnSecondary } from "../../components/stageButtonStyles";
@@ -17,13 +18,8 @@ import { useVideoExportUiStore } from "../../store/videoExportUiStore";
 import {
   PUBLIC_VIEWER_MARKER_DISPLAY_SCALE,
 } from "../../components/ChoreoViewerBottomBar";
-import { DEFAULT_DANCER_MARKER_DIAMETER_PX } from "../../lib/projectDefaults";
 import { sortCuesByStart } from "../../core/timelineController";
 import { TransportIconUndo, TransportIconRedo } from "../../components/mobile/TransportIcons";
-
-const Stage3DView = lazy(() =>
-  import("../../components/Stage3DView").then((m) => ({ default: m.Stage3DView }))
-);
 
 
 export function EditorThreePaneGrid(props: EditorLayoutProps) {
@@ -54,7 +50,6 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const cuesSortedForStageJump = props.cuesSortedForStageJump as never;
   const currentTime = props.currentTime as never;
   const d = props.d as never;
-  const dancersFor3d = props.dancersFor3d as never;
   const defaultName = props.defaultName as never;
   const duration = props.duration as never;
   const dynamicContainerStyle = props.dynamicContainerStyle as never;
@@ -166,7 +161,6 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const setSetPiecePickerOpen = props.setSetPiecePickerOpen as never;
   const setShareLinksOpen = props.setShareLinksOpen as never;
   const setShortcutsHelpOpen = props.setShortcutsHelpOpen as never;
-  const setShowMotionArrows = props.setShowMotionArrows as never;
   const setStageAreaPresetList = props.setStageAreaPresetList as never;
   const setStageAreaPresetSelectNonce = props.setStageAreaPresetSelectNonce as never;
   const setStageAreaSettingsDraft = props.setStageAreaSettingsDraft as never;
@@ -174,13 +168,18 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const setStagePreviewDancers = props.setStagePreviewDancers as never;
   const setStageSettingsOpen = props.setStageSettingsOpen as never;
   const setStageShapePickerOpen = props.setStageShapePickerOpen as never;
-  const setStageView = props.setStageView as never;
+  const editorAudiencePerspective = props.editorAudiencePerspective as
+    | "stage"
+    | "audience";
+  const setEditorAudiencePerspective =
+    props.setEditorAudiencePerspective as (
+      next: "stage" | "audience"
+    ) => void;
   const setStageZenFullscreen = props.setStageZenFullscreen as never;
   const setTextPanelPortalEl = props.setTextPanelPortalEl as never;
   const shareLinksOpen = props.shareLinksOpen as never;
   const shareLinksUrls = props.shareLinksUrls as never;
   const shortcutsHelpOpen = props.shortcutsHelpOpen as never;
-  const showMotionArrows = props.showMotionArrows as never;
   const showTopWaveDock = props.showTopWaveDock as never;
   const sortedCuesForEditor = props.sortedCuesForEditor as never;
   const stageAreaDraftHasMainFloor = props.stageAreaDraftHasMainFloor as never;
@@ -197,7 +196,6 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const stageShapePickerOpen = props.stageShapePickerOpen as never;
   const stageUndoDisabled = props.stageUndoDisabled as never;
   const stageWorkbenchProps = props.stageWorkbenchProps as never;
-  const stageView = props.stageView as never;
   const stageZenLayout = props.stageZenLayout as never;
   const startGridNudgeRepeat = props.startGridNudgeRepeat as never;
   const stopGridNudgeRepeat = props.stopGridNudgeRepeat as never;
@@ -225,7 +223,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const attachEditorPane = useAttachElementRef(setEditorSurfaceEl, editorPaneRef);
   const attachTopDockSection = useAssignRef(topDockSectionRef);
 
-  // MobileShell 用: stageView・ダイアログ開閉・undo/redo・タブメニューアクション を bridge store に同期
+  // MobileShell 用: ダイアログ開閉・undo/redo・タブメニューアクション を bridge store に同期
   // 不安定な関数参照を ref に退避して依存配列ループを防ぐ
   const navigate = useNavigate();
   const goHomeFromStageCorner = useCallback(() => {
@@ -256,14 +254,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   undoFnRef.current = undo as (() => void);
   redoFnRef.current = redo as (() => void);
   saveSpotFnRef.current = saveStageToFormationBox as (() => void);
-  const stageViewRef = useRef(stageView);
-  stageViewRef.current = stageView;
-
   addTextFnRef.current = () => {
-    if (stageViewRef.current !== "2d") {
-      window.alert(t("editor.layout.floorText2dOnly"));
-      return;
-    }
     (setFloorTextPlaceSession as (v: unknown) => void)(
       createDefaultFloorTextPlaceSession()
     );
@@ -378,14 +369,14 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
     const showPager = cues.length > 0 || hasRoster;
 
     setMobileShellBridge({
-      stageView: stageView as "2d" | "3d",
+      stageView: "2d",
       undoDisabled: stageUndoDisabled as boolean,
       redoDisabled: stageRedoDisabled as boolean,
       currentCueIndex: slotIdx >= 0 ? slotIdx : 0,
       totalCues: total,
       onCuePrev: handleMobileCuePrev,
       onCueNext: handleMobileCueNext,
-      onStageViewChange: (v: "2d" | "3d") => (setStageView as (v: "2d" | "3d") => void)(v),
+      onStageViewChange: () => {},
       onAddCue: () => addCueFnRef.current?.(true),
       onDeleteSelectedCue: () => {
         if ((project as { viewMode?: string }).viewMode === "view") return;
@@ -426,7 +417,6 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
       onPhotoParse: () => photoParseFnRef.current?.(true),
       onVideoExport: () => videoExportFnRef.current?.(),
       showFormationChange:
-        stageView === "2d" &&
         !choreoPublicView &&
         (project as { viewMode?: string }).viewMode !== "view",
       onFormationChange: () => setFormationPresetPickerOpen(true),
@@ -445,10 +435,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
         (project as { trimEndSec?: number | null })?.trimEndSec ?? null,
     });
   }, [
-    stageView,
     stageUndoDisabled,
     stageRedoDisabled,
-    setStageView,
     setMobileShellBridge,
     sortedCuesForEditor,
     cuesSortedForStageJump,
@@ -672,10 +660,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 flexDirection: "column",
               }}
             >
-              {/*
-                キュー・2D/3D は床と重ねない（絶対配置＋高 z-index だと回転ハンドルが隠れる）。
-                ステージ列の右上に、床の上の一行として並べる。
-              */}
+              {/* キューと視点切替は床と重ねず、ステージ列の右上に置く。 */}
               <div
                 className="editor-stage-viewcontrols"
                 style={{
@@ -727,7 +712,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 ) : null}
                 <div
                   role="group"
-                  aria-label={t("editor.layout.stageViewAria")}
+                  aria-label="客席側／舞台裏側の視点切り替え"
                   style={{
                     display: choreoPublicView ? "none" : "flex",
                     flexDirection: "row",
@@ -735,78 +720,11 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     flexShrink: 0,
                   }}
                 >
-                  <button
-                    type="button"
-                    style={{
-                      ...btnSecondary,
-                      ...(mobileStackEditor
-                        ? {
-                            width: 36,
-                            height: 32,
-                            minWidth: 36,
-                            minHeight: 32,
-                            padding: 0,
-                            fontSize: 10,
-                            fontWeight: 700,
-                            lineHeight: 1,
-                            borderRadius: 8,
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            boxSizing: "border-box",
-                          }
-                        : {
-                            padding: "2px 6px",
-                            fontSize: "9px",
-                            fontWeight: 700,
-                            lineHeight: 1.2,
-                            borderRadius: 5,
-                          }),
-                      ...(stageView === "2d"
-                        ? { borderColor: "#6366f1", color: "#c7d2fe" }
-                        : {}),
-                    }}
-                    title={t("editor.layout.stage2dTitle")}
-                    onClick={() => setStageView("2d")}
-                  >
-                    2D
-                  </button>
-                  <button
-                    type="button"
-                    style={{
-                      ...btnSecondary,
-                      ...(mobileStackEditor
-                        ? {
-                            width: 36,
-                            height: 32,
-                            minWidth: 36,
-                            minHeight: 32,
-                            padding: 0,
-                            fontSize: 10,
-                            fontWeight: 700,
-                            lineHeight: 1,
-                            borderRadius: 8,
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            boxSizing: "border-box",
-                          }
-                        : {
-                            padding: "2px 6px",
-                            fontSize: "9px",
-                            fontWeight: 700,
-                            lineHeight: 1.2,
-                            borderRadius: 5,
-                          }),
-                      ...(stageView === "3d"
-                        ? { borderColor: "#6366f1", color: "#c7d2fe" }
-                        : {}),
-                    }}
-                    title={t("editor.layout.stage3dTitle")}
-                    onClick={() => setStageView("3d")}
-                  >
-                    3D
-                  </button>
+                  <EditorPerspectiveToggle
+                    perspective={editorAudiencePerspective}
+                    onChange={setEditorAudiencePerspective}
+                    compact={Boolean(mobileStackEditor)}
+                  />
                 </div>
                 {!choreoPublicView && mobileStackEditor && !editorMobileLandscape ? (
                   <Link
@@ -839,45 +757,6 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     UPDATE LOG
                   </Link>
                 ) : null}
-                {/* 動線矢印トグル（生徒閲覧・スマホ縦積みでは非表示） */}
-                {!choreoPublicView && !mobileStackEditor && stageView === "2d" && (
-                  <button
-                    type="button"
-                    style={{
-                      ...btnSecondary,
-                      ...(mobileStackEditor
-                        ? {
-                            width: 36,
-                            height: 32,
-                            minWidth: 36,
-                            minHeight: 32,
-                            padding: 0,
-                            fontSize: 10,
-                            fontWeight: 700,
-                            lineHeight: 1,
-                            borderRadius: 8,
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            boxSizing: "border-box",
-                          }
-                        : {
-                            padding: "2px 6px",
-                            fontSize: "9px",
-                            fontWeight: 700,
-                            lineHeight: 1.2,
-                            borderRadius: 5,
-                          }),
-                      ...(showMotionArrows
-                        ? { borderColor: "#34d399", color: "#6ee7b7", background: "rgba(52,211,153,0.12)" }
-                        : {}),
-                    }}
-                    title={showMotionArrows ? t("editor.layout.motionArrowsHide") : t("editor.layout.motionArrowsShow")}
-                    onClick={() => setShowMotionArrows((v) => !v)}
-                  >
-                    {mobileStackEditor ? "→" : t("editor.layout.motionArrowsLabel")}
-                  </button>
-                )}
               </div>
               <div
                 style={{
@@ -889,8 +768,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                   flexDirection: "column",
                 }}
               >
-                {stageView === "2d" ? (
-                  <StageBoard
+                <StageBoard
                     project={stageBoardProject}
                     setProject={setProjectSafe}
                     playbackDancers={playbackDancersForStage}
@@ -953,7 +831,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     hideStageFloorTextMarkup={choreoPublicView}
                     audienceEdgeOverride={audienceEdgeOverride}
                     trashDropEdge={mobileStackEditor ? "bottom" : "left"}
-                    showMotionArrows={showMotionArrows}
+                    showMotionArrows={false}
                     enablePinchViewport={
                       Boolean(mobileStackEditor) || Boolean(publicNarrowLayout)
                     }
@@ -965,28 +843,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                           : undefined
                     }
                   />
-                ) : (
-                  <Suspense
-                    fallback={
-                      <div
-                        style={{ padding: 24, color: shell.textSubtle, fontSize: "13px" }}
-                      >
-                        3D ビューを読み込み中…
-                      </div>
-                    }
-                  >
-                    <Stage3DView
-                      dancers={dancersFor3d}
-                      markerDiameterPx={
-                        project.dancerMarkerDiameterPx ??
-                        DEFAULT_DANCER_MARKER_DIAMETER_PX
-                      }
-                    />
-                  </Suspense>
-                )}
                 {!choreoPublicView &&
                 project.viewMode !== "view" &&
-                stageView === "2d" &&
                 mobileStackEditor &&
                 !editorMobileLandscape ? (
                   <div
@@ -1051,21 +909,17 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     : [];
                   const hasRoster = Boolean(hasRosterMembers);
                   const rosterHidden = project.rosterHidesTimeline === true;
-                  const showChangeBtn = stageView === "2d";
-
                   return (
                     <div className="editor-stage-landscape-stack">
-                      {showChangeBtn ? (
-                        <button
-                          type="button"
-                          className="editor-stage-landscape-btn editor-stage-landscape-btn--change"
-                          onClick={() => setFormationPresetPickerOpen(true)}
-                          title="立ち位置の雛形を選ぶ"
-                          aria-label="立ち位置の雛形を選ぶ"
-                        >
-                          Change
-                        </button>
-                      ) : null}
+                      <button
+                        type="button"
+                        className="editor-stage-landscape-btn editor-stage-landscape-btn--change"
+                        onClick={() => setFormationPresetPickerOpen(true)}
+                        title="立ち位置の雛形を選ぶ"
+                        aria-label="立ち位置の雛形を選ぶ"
+                      >
+                        Change
+                      </button>
                       <button
                         type="button"
                         className="editor-stage-landscape-btn editor-stage-landscape-btn--wave-collapse"
@@ -1076,28 +930,12 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                         <span aria-hidden>▼</span>
                         <span>たたむ</span>
                       </button>
-                      <div
-                        role="group"
-                        aria-label={t("editor.layout.stageViewAria")}
-                        className="editor-stage-landscape-btnRow"
-                      >
-                        <button
-                          type="button"
-                          className={`editor-stage-landscape-btn${stageView === "2d" ? " editor-stage-landscape-btn--active" : ""}`}
-                          title={t("editor.layout.stage2dTitle")}
-                          onClick={() => setStageView("2d")}
-                        >
-                          2D
-                        </button>
-                        <button
-                          type="button"
-                          className={`editor-stage-landscape-btn${stageView === "3d" ? " editor-stage-landscape-btn--active" : ""}`}
-                          title={t("editor.layout.stage3dTitle")}
-                          onClick={() => setStageView("3d")}
-                        >
-                          3D
-                        </button>
-                      </div>
+                      <EditorPerspectiveToggle
+                        perspective={editorAudiencePerspective}
+                        onChange={setEditorAudiencePerspective}
+                        compact
+                        className="editor-stage-landscape-btn editor-stage-landscape-btn--perspective"
+                      />
                       {cues.length > 0 || hasRoster ? (
                         <div className="editor-stage-landscape-pager">
                           <WorkbenchCuePager
@@ -1168,26 +1006,16 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                 project.viewMode !== "view" ? (
                   <div
                     role="group"
-                    aria-label={t("editor.layout.stageViewAria")}
+                    aria-label="客席側／舞台裏側の視点切り替え"
                     className="editor-stage-landscape-viewToggle"
                   >
                     <div className="editor-stage-landscape-viewToggle-row">
-                      <button
-                        type="button"
-                        className={`editor-stage-landscape-btn${stageView === "2d" ? " editor-stage-landscape-btn--active" : ""}`}
-                        title={t("editor.layout.stage2dTitle")}
-                        onClick={() => setStageView("2d")}
-                      >
-                        2D
-                      </button>
-                      <button
-                        type="button"
-                        className={`editor-stage-landscape-btn${stageView === "3d" ? " editor-stage-landscape-btn--active" : ""}`}
-                        title={t("editor.layout.stage3dTitle")}
-                        onClick={() => setStageView("3d")}
-                      >
-                        3D
-                      </button>
+                      <EditorPerspectiveToggle
+                        perspective={editorAudiencePerspective}
+                        onChange={setEditorAudiencePerspective}
+                        compact
+                        className="editor-stage-landscape-btn editor-stage-landscape-btn--perspective"
+                      />
                     </div>
                     <Link
                       to="/update-log"

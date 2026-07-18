@@ -46,7 +46,10 @@ import { computeViewerCueNavState } from "../lib/viewerCueNavigation";
 import type { ViewerChromeInsets } from "../components/ChoreoViewerControlBars";
 import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
 import { useViewerChromeStore } from "../store/viewerChromeStore";
-import { resolveViewerAudienceEdge } from "../lib/viewerAudiencePerspective";
+import {
+  resolveViewerAudienceEdge,
+  type ViewerAudiencePerspective,
+} from "../lib/viewerAudiencePerspective";
 import { useEditorPlaybackSync } from "../hooks/useEditorPlaybackSync";
 import { useEditorKeyboardShortcuts } from "../hooks/useEditorKeyboardShortcuts";
 import { useEditorAudioSession } from "../hooks/useEditorAudioSession";
@@ -247,7 +250,10 @@ export function EditorPage({
   const isPlaying = usePlaybackUiStore((s) => s.isPlaying);
   const setIsPlaying = usePlaybackUiStore((s) => s.setIsPlaying);
   const duration = usePlaybackUiStore((s) => s.durationSec);
+  /** 編集画面は常に2D。客席側／舞台裏側は表示方向だけを切り替える。 */
   const [stageView, setStageView] = useState<"2d" | "3d">("2d");
+  const [editorAudiencePerspective, setEditorAudiencePerspective] =
+    useState<ViewerAudiencePerspective>("stage");
   const [stagePreviewDancers, setStagePreviewDancers] = useState<DancerSpot[] | null>(
     null
   );
@@ -714,6 +720,14 @@ export function EditorPage({
       audiencePerspective
     );
   }, [project, choreoPublicView, audiencePerspective]);
+
+  const editorAudienceEdge = useMemo(() => {
+    if (!project || choreoPublicView) return undefined;
+    return resolveViewerAudienceEdge(
+      project.audienceEdge ?? "bottom",
+      editorAudiencePerspective
+    );
+  }, [project, choreoPublicView, editorAudiencePerspective]);
 
   useEffect(() => {
     if (!choreoPublicView || !viewerLocalStorageKey) return;
@@ -2706,7 +2720,11 @@ export function EditorPage({
     projectName,
     publicNarrowLayout,
     publicViewTightHeight,
-    audienceEdgeOverride: viewerAudienceEdge,
+    audienceEdgeOverride: choreoPublicView
+      ? viewerAudienceEdge
+      : editorAudienceEdge,
+    editorAudiencePerspective,
+    setEditorAudiencePerspective,
     viewerStageMemoTexts,
     viewerBarHeightPx,
     onViewerBarHeightChange: setViewerBarHeightPx,

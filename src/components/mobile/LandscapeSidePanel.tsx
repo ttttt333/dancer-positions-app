@@ -201,7 +201,7 @@ export const LandscapeSidePanel: React.FC<Props> = ({
               Change
             </button>
           ) : null}
-          {/* 2D/3D 切替は画面右上の editor-stage-landscape-viewToggle に統合済み */}
+          {/* 視点切替は画面右上の editor-stage-landscape-viewToggle に統合済み */}
           {cuePagerLabel ? (
             <div className={styles.compactPager} role="group" aria-label="キュー移動">
               <button
