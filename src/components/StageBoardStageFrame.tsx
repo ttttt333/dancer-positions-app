@@ -41,6 +41,8 @@ export function StageBoardStageFrame({
    */
   const rotNorm = ((rotatedFrame.rotationDeg % 360) + 360) % 360;
   const isAudienceTop = rotNorm === 180;
+  const desktopAudienceTopScale =
+    isAudienceTop && !compactViewportChrome && !enablePinchViewport ? 1.06 : 1;
 
   const pinch = useStageBoardPinchViewport(enablePinchViewport);
 
@@ -84,7 +86,10 @@ export function StageBoardStageFrame({
       className="stage-board-stage-wrapper"
       style={wrapperStyle}
     >
-      <StageRotatedStageFrame {...rotatedFrame}>
+      <StageRotatedStageFrame
+        {...rotatedFrame}
+        displayScale={desktopAudienceTopScale}
+      >
         <StageExportRootColumn {...exportColumn} />
       </StageRotatedStageFrame>
     </div>

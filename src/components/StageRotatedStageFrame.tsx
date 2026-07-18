@@ -10,6 +10,7 @@ export type StageRotatedStageFrameProps = {
   outerDmm: number;
   stageAspectRatio: string;
   rotationDeg: number;
+  displayScale?: number;
   children: ReactNode;
   showResizeHandles: boolean;
   hoveredHandle: StageResizeHandleId | null;
@@ -28,9 +29,15 @@ const frameStyle = ({
   outerDmm,
   stageAspectRatio,
   rotationDeg,
+  displayScale = 1,
 }: Pick<
   StageRotatedStageFrameProps,
-  "hasStageDims" | "outerWmm" | "outerDmm" | "stageAspectRatio" | "rotationDeg"
+  | "hasStageDims"
+  | "outerWmm"
+  | "outerDmm"
+  | "stageAspectRatio"
+  | "rotationDeg"
+  | "displayScale"
 >): CSSProperties => ({
   flexShrink: 0,
   position: "relative",
@@ -40,7 +47,7 @@ const frameStyle = ({
   maxWidth: "100%",
   maxHeight: "100%",
   aspectRatio: stageAspectRatio,
-  transform: `rotate(${rotationDeg}deg)`,
+  transform: `rotate(${rotationDeg}deg) scale(${displayScale})`,
   transformOrigin: "center center",
   transition: "transform 0.2s ease",
   // コンテナクエリコンテキストを設定 → 子要素が cqw/cqh でステージ枠幅を参照できる
@@ -54,6 +61,7 @@ export function StageRotatedStageFrame({
   outerDmm,
   stageAspectRatio,
   rotationDeg,
+  displayScale = 1,
   children,
   showResizeHandles,
   hoveredHandle,
@@ -70,6 +78,7 @@ export function StageRotatedStageFrame({
         outerDmm,
         stageAspectRatio,
         rotationDeg,
+        displayScale,
       })}
     >
       {children}
