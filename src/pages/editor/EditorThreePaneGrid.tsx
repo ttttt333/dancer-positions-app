@@ -670,7 +670,10 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     mobileStackEditor && !editorMobileLandscape
                       ? "row"
                       : "column",
-                  alignItems: "flex-end",
+                  alignItems:
+                    mobileStackEditor && !editorMobileLandscape
+                      ? "stretch"
+                      : "flex-end",
                   justifyContent: "flex-end",
                   gap: 3,
                   padding: stageFlushTopDock
@@ -714,55 +717,132 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     </div>
                   ) : null
                 ) : null}
-                <div
-                  role="group"
-                  aria-label="客席側／舞台裏側の視点切り替え"
-                  style={{
-                    display: choreoPublicView ? "none" : "flex",
-                    flexDirection: "row",
-                    gap: mobileStackEditor ? 4 : 3,
-                    flexShrink: 0,
-                  }}
-                >
-                  <EditorPerspectiveToggle
-                    perspective={editorAudiencePerspective}
-                    onChange={setEditorAudiencePerspective}
-                    compact={Boolean(mobileStackEditor)}
-                  />
-                </div>
-                {!choreoPublicView && mobileStackEditor && !editorMobileLandscape ? (
-                  <Link
-                    to="/update-log"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title="お知らせ・アップデートログ"
-                    aria-label="UPDATE LOG（お知らせ）を開く"
+                {!choreoPublicView &&
+                mobileStackEditor &&
+                !editorMobileLandscape &&
+                project.viewMode !== "view" ? (
+                  <div
                     style={{
-                      ...btnSecondary,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: "auto",
-                      minWidth: 76,
-                      alignSelf: "flex-end",
-                      boxSizing: "border-box",
-                      padding: "4px 6px",
-                      fontSize: 9,
-                      fontWeight: 750,
-                      lineHeight: 1,
-                      letterSpacing: "0.04em",
-                      borderRadius: 8,
-                      whiteSpace: "nowrap",
-                      textAlign: "center",
-                      textDecoration: "none",
-                      borderColor: "rgba(96, 165, 250, 0.55)",
-                      color: "#dbeafe",
-                      background: "rgba(30, 58, 138, 0.55)",
+                      display: "flex",
+                      alignItems: "flex-start",
+                      justifyContent: "space-between",
+                      width: "100%",
+                      gap: 12,
                     }}
                   >
-                    UPDATE LOG
-                  </Link>
-                ) : null}
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "stretch",
+                        gap: 4,
+                        minWidth: 84,
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={goHomeFromStageCorner}
+                        title="トップページに戻る"
+                        aria-label="トップページに戻る"
+                        style={{
+                          ...btnSecondary,
+                          minHeight: 32,
+                          padding: "4px 10px",
+                          fontSize: 10,
+                          fontWeight: 700,
+                          borderRadius: 8,
+                          borderColor: "rgba(96, 165, 250, 0.55)",
+                          color: "#dbeafe",
+                          background: "rgba(30, 58, 138, 0.55)",
+                        }}
+                      >
+                        ホーム
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormationPresetPickerOpen(true)}
+                        title="立ち位置の雛形を選ぶ"
+                        aria-label="立ち位置の雛形を選ぶ"
+                        style={{
+                          ...btnSecondary,
+                          minHeight: 32,
+                          padding: "4px 10px",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          borderRadius: 8,
+                          borderColor: "#d4af37",
+                          color: "#fef3c7",
+                          background: "rgba(15,23,42,0.88)",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
+                        }}
+                      >
+                        Change
+                      </button>
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "stretch",
+                        gap: 4,
+                        minWidth: 84,
+                      }}
+                    >
+                      <EditorPerspectiveToggle
+                        perspective={editorAudiencePerspective}
+                        onChange={setEditorAudiencePerspective}
+                        compact
+                        style={{ width: "100%", minHeight: 32 }}
+                      />
+                      <Link
+                        to="/update-log"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="お知らせ・アップデートログ"
+                        aria-label="UPDATE LOG（お知らせ）を開く"
+                        style={{
+                          ...btnSecondary,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          minHeight: 32,
+                          boxSizing: "border-box",
+                          padding: "4px 6px",
+                          fontSize: 9,
+                          fontWeight: 750,
+                          lineHeight: 1,
+                          letterSpacing: "0.04em",
+                          borderRadius: 8,
+                          whiteSpace: "nowrap",
+                          textAlign: "center",
+                          textDecoration: "none",
+                          borderColor: "rgba(96, 165, 250, 0.55)",
+                          color: "#dbeafe",
+                          background: "rgba(30, 58, 138, 0.55)",
+                        }}
+                      >
+                        UPDATE LOG
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    role="group"
+                    aria-label="客席側／舞台裏側の視点切り替え"
+                    style={{
+                      display: choreoPublicView ? "none" : "flex",
+                      flexDirection: "row",
+                      gap: mobileStackEditor ? 4 : 3,
+                      flexShrink: 0,
+                    }}
+                  >
+                    <EditorPerspectiveToggle
+                      perspective={editorAudiencePerspective}
+                      onChange={setEditorAudiencePerspective}
+                      compact={Boolean(mobileStackEditor)}
+                    />
+                  </div>
+                )}
               </div>
               <div
                 style={{
@@ -849,62 +929,6 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                           : undefined
                     }
                   />
-                {!choreoPublicView &&
-                project.viewMode !== "view" &&
-                mobileStackEditor &&
-                !editorMobileLandscape ? (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: 8,
-                      left: 8,
-                      zIndex: 45,
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "stretch",
-                      gap: 4,
-                      pointerEvents: "auto",
-                    }}
-                  >
-                    <button
-                      type="button"
-                      onClick={goHomeFromStageCorner}
-                      title="トップページに戻る"
-                      aria-label="トップページに戻る"
-                      style={{
-                        ...btnSecondary,
-                        padding: "4px 10px",
-                        fontSize: 10,
-                        fontWeight: 700,
-                        borderRadius: 8,
-                        borderColor: "rgba(96, 165, 250, 0.55)",
-                        color: "#dbeafe",
-                        background: "rgba(30, 58, 138, 0.55)",
-                      }}
-                    >
-                      ホーム
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormationPresetPickerOpen(true)}
-                      title="立ち位置の雛形を選ぶ"
-                      aria-label="立ち位置の雛形を選ぶ"
-                      style={{
-                        ...btnSecondary,
-                        padding: "6px 10px",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        borderRadius: 8,
-                        borderColor: "#d4af37",
-                        color: "#fef3c7",
-                        background: "rgba(15,23,42,0.88)",
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.35)",
-                      }}
-                    >
-                      Change
-                    </button>
-                  </div>
-                ) : null}
                 {mobileStackEditor &&
                 editorMobileLandscape &&
                 !landscapeWaveCollapsed &&
@@ -1023,6 +1047,21 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                         className="editor-stage-landscape-btn editor-stage-landscape-btn--perspective"
                       />
                     </div>
+                    {cuesSortedForStageJump.length > 0 || hasRosterMembers ? (
+                      <div className="editor-stage-landscape-pager">
+                        <WorkbenchCuePager
+                          variant="stageCorner"
+                          project={project}
+                          cuesSortedForStageJump={cuesSortedForStageJump}
+                          selectedCueId={selectedCueId}
+                          jumpToPagerSlot={jumpToPagerSlot}
+                          includeRosterSlot={hasRosterMembers}
+                          rosterTimelineHidden={
+                            project.rosterHidesTimeline === true
+                          }
+                        />
+                      </div>
+                    ) : null}
                     <Link
                       to="/update-log"
                       target="_blank"

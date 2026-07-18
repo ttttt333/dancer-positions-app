@@ -80,12 +80,6 @@ export const LandscapeSidePanel: React.FC<Props> = ({
   const [menuOpen, setMenuOpen] = useState(false)
   const showFormationChange = useMobileShellBridgeStore((s) => s.showFormationChange)
   const onFormationChange = useMobileShellBridgeStore((s) => s.onFormationChange)
-  const cuePagerLabel = useMobileShellBridgeStore((s) => s.cuePagerLabel)
-  const cuePagerCanPrev = useMobileShellBridgeStore((s) => s.cuePagerCanPrev)
-  const cuePagerCanNext = useMobileShellBridgeStore((s) => s.cuePagerCanNext)
-  const onCuePrev = useMobileShellBridgeStore((s) => s.onCuePrev)
-  const onCueNext = useMobileShellBridgeStore((s) => s.onCueNext)
-
   const transportDisabled = !audioUrl || duration <= 0
 
   const waveExpandBtn =
@@ -202,31 +196,6 @@ export const LandscapeSidePanel: React.FC<Props> = ({
             </button>
           ) : null}
           {/* 視点切替は画面右上の editor-stage-landscape-viewToggle に統合済み */}
-          {cuePagerLabel ? (
-            <div className={styles.compactPager} role="group" aria-label="キュー移動">
-              <button
-                type="button"
-                className={styles.compactPagerBtn}
-                onClick={onCuePrev}
-                disabled={!cuePagerCanPrev}
-                aria-label="前のキュー"
-              >
-                ‹
-              </button>
-              <span className={styles.compactPagerLabel} role="status">
-                {cuePagerLabel}
-              </span>
-              <button
-                type="button"
-                className={styles.compactPagerBtn}
-                onClick={onCueNext}
-                disabled={!cuePagerCanNext}
-                aria-label="次のキュー"
-              >
-                ›
-              </button>
-            </div>
-          ) : null}
           <button
             type="button"
             className={styles.compactMenuBtnStandalone}

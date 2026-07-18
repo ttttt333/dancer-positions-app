@@ -2012,7 +2012,7 @@ html[data-landscape-wave-collapsed] {
   display: none !important;
 }
 
-/* 波形たたみ時: 視点切替 + UPDATE LOG のみ画面右上に表示（左パネルとは重複させない） */
+/* 波形たたみ時: キューページャーと舞台操作を右バーへ集約 */
 [data-shell-landscape] .editor-stage-landscape-viewToggle {
   display: none;
 }
@@ -2025,6 +2025,7 @@ html[data-landscape-wave-collapsed] {
   top: max(6px, env(safe-area-inset-top, 6px));
   right: max(6px, env(safe-area-inset-right, 6px));
   z-index: 45;
+  width: 128px;
   gap: 4px;
   pointer-events: auto;
 }
@@ -2036,8 +2037,9 @@ html[data-landscape-wave-collapsed] {
 
 [data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-viewToggle-row .editor-stage-landscape-btn {
   flex: none;
-  width: 72px;
-  height: 34px;
+  width: 100%;
+  min-height: 68px;
+  height: 68px;
   font-size: 12px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
@@ -2053,8 +2055,9 @@ html[data-landscape-wave-collapsed] {
 [data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-btn--updateLog {
   flex: none;
   width: 100%;
-  height: 26px;
-  font-size: 9px;
+  min-height: 52px;
+  height: 52px;
+  font-size: 10px;
   letter-spacing: 0.04em;
   border-color: rgba(96, 165, 250, 0.55);
   color: #dbeafe;
@@ -2067,10 +2070,10 @@ html[data-landscape-wave-collapsed] {
 [data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-btn--delete-cue-corner {
   flex: none;
   width: 100%;
-  min-height: 26px;
-  height: 26px;
+  min-height: 52px;
+  height: 52px;
   margin-top: 0;
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.02em;
 }
 
