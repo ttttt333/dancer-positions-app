@@ -58,35 +58,17 @@ export function StageBoardStageFrame({
    * 客席帯は aspect 比の外（床下）に描くため、上下どちらに出るかに応じて
    * `cqb` を少しだけ削ってラベルが切れないようにする。
    */
-  /**
-   * ピンチ表示のスマホだけ数字帯ぶんを広く確保する。
-   * PCは余白を抑え、客席が上でもステージをできるだけ大きく表示する。
-   */
-  const audienceBandPad = enablePinchViewport
-    ? compactLandscapeViewport
-      ? 40
-      : 42
-    : compactViewportChrome
-      ? 42
-      : 28;
-  const backstageBandPad =
-    enablePinchViewport && !compactViewportChrome
-      ? 0
-      : compactViewportChrome
-        ? compactLandscapeViewport
-          ? 24
-          : 28
-        : 20;
+  const audienceBandPad = compactLandscapeViewport ? 40 : 42;
+  const backstageBandPad = compactLandscapeViewport ? 24 : 28;
 
   let paddingTop: number | undefined;
   let paddingBottom: number | undefined;
-  const useSymmetricMobileFit =
-    enablePinchViewport && !compactViewportChrome;
-  if (useSymmetricMobileFit) {
-    // 編集中のスマホは上下とも中央フィットにし、反転時だけ縮小しない。
+  const useSymmetricEditorFit = !compactViewportChrome;
+  if (useSymmetricEditorFit) {
+    // 編集画面はPC・スマホとも上下を中央フィットにし、反転時だけ縮小しない。
     paddingTop = undefined;
     paddingBottom = undefined;
-  } else if (compactViewportChrome) {
+  } else {
     if (isAudienceTop) {
       paddingTop = audienceBandPad;
       paddingBottom = backstageBandPad;
@@ -94,9 +76,6 @@ export function StageBoardStageFrame({
       paddingTop = backstageBandPad;
       paddingBottom = audienceBandPad;
     }
-  } else if (isAudienceTop) {
-    paddingTop = audienceBandPad;
-    paddingBottom = backstageBandPad;
   }
 
   const stageInner = (
@@ -113,7 +92,7 @@ export function StageBoardStageFrame({
 
   return (
     <StageBoardFitViewport
-      alignTop={isAudienceTop && !useSymmetricMobileFit}
+      alignTop={isAudienceTop && !useSymmetricEditorFit}
       paddingTop={paddingTop}
       paddingBottom={paddingBottom}
     >
