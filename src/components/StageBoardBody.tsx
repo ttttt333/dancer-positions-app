@@ -4240,6 +4240,7 @@ export function StageBoardBody({
         Dmm,
         Wmm,
         Smm,
+        rotationDeg: rot,
         labelScreenKeepUpright,
       },
       stageMainFloorRef,

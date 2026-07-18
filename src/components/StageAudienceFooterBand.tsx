@@ -5,6 +5,7 @@ export type StageAudienceFooterBandProps = {
   centerFrontDotColor: string;
   centerFrontRingColor: string;
   audienceCaptionColor: string;
+  audienceTop?: boolean;
   /** 例: 客席帯の画面正立用 `transform`（親の `labelScreenKeepUpright`） */
   wrapperStyle?: CSSProperties;
 };
@@ -15,6 +16,7 @@ export function StageAudienceFooterBand({
   centerFrontDotColor,
   centerFrontRingColor,
   audienceCaptionColor,
+  audienceTop = false,
   wrapperStyle,
 }: StageAudienceFooterBandProps) {
   const hasGuideLabels = guideLineMarks.length > 0;
@@ -52,7 +54,7 @@ export function StageAudienceFooterBand({
         style={{
           position: "absolute",
           left: "50%",
-          top: 0,
+          top: audienceTop && hasGuideLabels ? "100%" : 0,
           width: "8px",
           height: "8px",
           borderRadius: "50%",
@@ -102,7 +104,7 @@ export function StageAudienceFooterBand({
             style={{
               position: "absolute",
               left: "50%",
-              top: 8,
+              top: audienceTop ? 0 : 8,
               transform: "translateX(-50%)",
               ...captionStyle,
             }}

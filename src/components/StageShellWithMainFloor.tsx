@@ -23,6 +23,7 @@ export type StageShellDimsInput = {
   Dmm: number;
   Wmm: number;
   Smm: number;
+  rotationDeg: number;
   labelScreenKeepUpright: (origin: string) => CSSProperties;
 };
 
@@ -65,6 +66,7 @@ export function StageShellWithMainFloor({
     Dmm,
     Wmm,
     Smm,
+    rotationDeg,
     labelScreenKeepUpright,
   } = shellDims;
 
@@ -135,6 +137,7 @@ export function StageShellWithMainFloor({
               centerFrontDotColor={shell.ruby}
               centerFrontRingColor={shell.bgDeep}
               audienceCaptionColor={shell.textMuted}
+              audienceTop={((rotationDeg % 360) + 360) % 360 === 180}
               // 180°反転時も帯の箱を枠内に保つ。bottom基準だとスマホで外へ押し出される。
               wrapperStyle={labelScreenKeepUpright("center center")}
             />

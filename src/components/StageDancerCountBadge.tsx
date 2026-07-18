@@ -13,7 +13,7 @@ const badgeStyle = (stageRotationDeg: number): CSSProperties => ({
   zIndex: 35,
   pointerEvents: "none",
   transform: `rotate(${-stageRotationDeg}deg)`,
-  transformOrigin: "top right",
+  transformOrigin: "center center",
   padding: "4px 9px",
   borderRadius: "8px",
   border: "1px solid rgba(51, 65, 85, 0.95)",
