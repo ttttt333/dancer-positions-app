@@ -2084,6 +2084,10 @@ html[data-landscape-wave-collapsed] {
   font-size: 10px;
 }
 
+[data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-pager {
+  width: 70%;
+}
+
 [data-shell-landscape][data-landscape-wave-collapsed] .editor-stage-landscape-pager button {
   width: 26px !important;
   height: 52px !important;

@@ -1047,21 +1047,6 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                         className="editor-stage-landscape-btn editor-stage-landscape-btn--perspective"
                       />
                     </div>
-                    {cuesSortedForStageJump.length > 0 || hasRosterMembers ? (
-                      <div className="editor-stage-landscape-pager">
-                        <WorkbenchCuePager
-                          variant="stageCorner"
-                          project={project}
-                          cuesSortedForStageJump={cuesSortedForStageJump}
-                          selectedCueId={selectedCueId}
-                          jumpToPagerSlot={jumpToPagerSlot}
-                          includeRosterSlot={hasRosterMembers}
-                          rosterTimelineHidden={
-                            project.rosterHidesTimeline === true
-                          }
-                        />
-                      </div>
-                    ) : null}
                     <Link
                       to="/update-log"
                       target="_blank"
@@ -1082,6 +1067,21 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     >
                       キュー削除
                     </button>
+                    {cuesSortedForStageJump.length > 0 || hasRosterMembers ? (
+                      <div className="editor-stage-landscape-pager">
+                        <WorkbenchCuePager
+                          variant="stageCorner"
+                          project={project}
+                          cuesSortedForStageJump={cuesSortedForStageJump}
+                          selectedCueId={selectedCueId}
+                          jumpToPagerSlot={jumpToPagerSlot}
+                          includeRosterSlot={hasRosterMembers}
+                          rosterTimelineHidden={
+                            project.rosterHidesTimeline === true
+                          }
+                        />
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
                 {mobileStackEditor &&
