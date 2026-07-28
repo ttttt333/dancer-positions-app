@@ -1,6 +1,9 @@
 -- CHOREOCORE: PRO 無料付与の例（Supabase SQL Editor 用）
 -- 推奨: admin-grant-pro Edge Function（監査ログ付き）
 -- 緊急・単発: 下記 SQL でも可
+--
+-- 無制限 PRO（メール allowlist）は migration 012 を SQL Editor で実行:
+--   supabase/migrations/012_pro_lifetime_email_allowlist.up.sql
 
 -- ■ 方法 A: 付与テーブル（推奨・migration 009 以降）
 -- insert into public.choreocore_pro_grants (user_id, grant_type, note)
@@ -11,6 +14,22 @@
 -- ■ 方法 B: entitlement_lifetime（従来の買い切りフラグ）
 -- insert into public.choreocore_user_billing (user_id, entitlement_lifetime)
 -- select id, true from auth.users where lower(email) = lower('teacher@example.com')
+-- on conflict (user_id) do update
+--   set entitlement_lifetime = true, updated_at = now();
+
+-- ■ interush.info@gmail.com を無制限 PRO にする（012 と同等の単発）
+-- insert into public.choreocore_pro_lifetime_emails (email, note)
+-- values ('interush.info@gmail.com', '無制限PRO（手動付与）')
+-- on conflict (email) do update set note = excluded.note;
+--
+-- insert into public.choreocore_pro_grants (user_id, grant_type, note, expires_at)
+-- select id, 'complimentary', '無制限PRO', null
+-- from auth.users
+-- where lower(email) = lower('interush.info@gmail.com');
+--
+-- insert into public.choreocore_user_billing (user_id, entitlement_lifetime)
+-- select id, true from auth.users
+-- where lower(email) = lower('interush.info@gmail.com')
 -- on conflict (user_id) do update
 --   set entitlement_lifetime = true, updated_at = now();
 

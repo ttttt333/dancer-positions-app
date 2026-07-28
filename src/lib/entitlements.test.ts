@@ -39,6 +39,16 @@ describe("entitlements", () => {
     expect(ent.videoExportLimit).toBeNull();
   });
 
+  it("complimentary lifetime email is Pro", () => {
+    const ent = getEntitlements({
+      ...baseMe,
+      user: { ...baseMe.user, email: "interush.info@gmail.com" },
+    });
+    expect(ent.isPro).toBe(true);
+    expect(ent.maxProjects).toBeNull();
+    expect(ent.videoExportLimit).toBeNull();
+  });
+
   it("remaining exports decreases with count", () => {
     const me: Me = {
       ...baseMe,

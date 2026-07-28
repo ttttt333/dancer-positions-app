@@ -1,4 +1,5 @@
 import type { Me } from "../types/authMe";
+import { isComplimentaryProEmail } from "./complimentaryProEmails";
 
 export const FREE_VIDEO_EXPORT_LIMIT = 10;
 
@@ -16,10 +17,12 @@ export interface Entitlements {
 export function getEntitlements(me: Me | null | undefined): Entitlements {
   const status = me?.user?.subscription_status?.trim() ?? null;
   const lifetime = me?.user?.entitlement_lifetime === 1;
+  const complimentary = isComplimentaryProEmail(me?.user?.email);
   const isTrialing = status === "trialing";
   const isPro =
     me?.user?.is_pro === true ||
     lifetime ||
+    complimentary ||
     status === "active" ||
     isTrialing;
 

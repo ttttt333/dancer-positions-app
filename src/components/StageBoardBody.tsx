@@ -84,7 +84,6 @@ import {
 } from "../lib/dancerColorPalette";
 import { sliceMarkerBadgeForStorage } from "../lib/markerBadge";
 import {
-  pointerInViewportTrashDropFallback,
   pointerInViewportTrashRevealZone,
   syncRosterAfterRemovingLinkedMembersFromFirstCue,
 } from "../lib/stageBoardRosterAndTrash";
@@ -542,7 +541,7 @@ export function StageBoardBody({
   /** ゴミ箱ドロップゾーン上でダンサーをドラッグ中 */
   const [trashHot, setTrashHot] = useState(false);
   /** ポインタが画面端付近まで来たときだけゴミ箱 UI を出す */
-  const [trashUiVisible, setTrashUiVisible] = useState(false);
+  const [, setTrashUiVisible] = useState(false);
   const trashRevealActiveRef = useRef(false);
   /**
    * ドラッグ開始時点の座標を薄く重ね表示（ポインタアップで消える）。
@@ -1620,20 +1619,9 @@ export function StageBoardBody({
     setTrashHot(v);
   }, []);
 
-  const hitTrashDropZone = useCallback((clientX: number, clientY: number) => {
-    if (!trashRevealActiveRef.current) return false;
-    const dock = trashDockViewportRef.current;
-    if (dock) {
-      const r = dock.getBoundingClientRect();
-      return (
-        clientX >= r.left &&
-        clientX <= r.right &&
-        clientY >= r.top &&
-        clientY <= r.bottom
-      );
-    }
-    return pointerInViewportTrashDropFallback(clientX, clientY, trashDropEdge);
-  }, [trashDropEdge]);
+  const hitTrashDropZone = useCallback((_clientX: number, _clientY: number) => {
+    return false;
+  }, []);
 
   const quantizeCoord = useCallback(
     (v: number, axis: "x" | "y", mode: StageDancerSnapMode) => {
@@ -3640,15 +3628,8 @@ export function StageBoardBody({
     [stageWidthMm, stageDepthMm],
   );
 
-  const showTrashDrop =
-    viewMode === "edit" &&
-    !playbackDancers &&
-    !previewDancers &&
-    (trashUiVisible || selectedDancerIds.length >= 1);
-
-  useEffect(() => {
-    trashRevealActiveRef.current = showTrashDrop;
-  }, [showTrashDrop]);
+  /** 画面端の削除帯は出さない（印のゴミ箱・右クリック削除を使う） */
+  const showTrashDrop = false;
 
   /** 選択中の代表ダンサー（先頭）の座標。○サイズハンドルをその右下に置く。 */
   const primarySelectedDancer = useMemo(() => {
