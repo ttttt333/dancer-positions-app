@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 export type EditorSideSheetProps = {
   open: boolean;
@@ -18,6 +18,9 @@ export type EditorSideSheetProps = {
 /**
  * ステージを暗く覆わず、右からスライドする入力パネル。
  * 左側の透明領域クリックで閉じる（blockDismiss 時は無効）。
+ *
+ * 開いた直後〜約 320ms は外側クリックで閉じない
+ * （PC で開く操作の mouseup / 残クリックで即閉じするのを防ぐ）。
  */
 export function EditorSideSheet({
   open,
@@ -29,7 +32,22 @@ export function EditorSideSheet({
   sheetId,
   children,
 }: EditorSideSheetProps) {
+  const [dismissArmed, setDismissArmed] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setDismissArmed(false);
+      return;
+    }
+    setDismissArmed(false);
+    const id = window.setTimeout(() => setDismissArmed(true), 320);
+    return () => window.clearTimeout(id);
+  }, [open]);
+
   if (!open) return null;
+
+  const canDismiss = dismissArmed && !blockDismiss;
+
   return (
     <div
       data-editor-sheet-root={sheetId}
@@ -47,10 +65,10 @@ export function EditorSideSheet({
         type="button"
         aria-label="パネルを閉じる"
         tabIndex={-1}
-        disabled={blockDismiss}
+        disabled={!canDismiss}
         onClick={(e) => {
           e.stopPropagation();
-          if (!blockDismiss) onClose();
+          if (canDismiss) onClose();
         }}
         style={{
           position: "absolute",
@@ -58,8 +76,8 @@ export function EditorSideSheet({
           right: "var(--ed-sheet-w)",
           border: "none",
           background: "transparent",
-          cursor: blockDismiss ? "default" : "pointer",
-          pointerEvents: blockDismiss ? "none" : "auto",
+          cursor: canDismiss ? "pointer" : "default",
+          pointerEvents: canDismiss ? "auto" : "none",
         }}
       />
       <div

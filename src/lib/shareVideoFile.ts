@@ -1,11 +1,32 @@
 /**
  * 動画ファイルを端末の共有シートで送る。未対応なら false。
+ * PC では Web Share が即 Abort / 無意味なことが多いのでダウンロードへ回す。
  */
+function shouldPreferDownloadOverShare(): boolean {
+  if (typeof navigator === "undefined") return true;
+  const ua = navigator.userAgent || "";
+  if (/iPhone|iPad|iPod|Android/i.test(ua)) return false;
+  if (typeof window !== "undefined") {
+    try {
+      const coarse = window.matchMedia("(pointer: coarse)").matches;
+      const hover = window.matchMedia("(hover: hover)").matches;
+      // タッチ主体の端末は共有シートを優先
+      if (coarse && !hover) return false;
+    } catch {
+      /* ignore */
+    }
+  }
+  return true;
+}
+
 export async function shareVideoFile(
   blob: Blob,
   fileName: string,
   title?: string
 ): Promise<boolean> {
+  if (shouldPreferDownloadOverShare()) {
+    return false;
+  }
   if (typeof navigator === "undefined" || !navigator.share) {
     return false;
   }
@@ -28,6 +49,7 @@ export async function shareVideoFile(
       typeof e === "object" &&
       (e as { name?: string }).name === "AbortError"
     ) {
+      // ユーザーが共有シートを閉じた（モバイル）
       return true;
     }
     return false;
