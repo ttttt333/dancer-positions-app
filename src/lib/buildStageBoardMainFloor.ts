@@ -15,6 +15,8 @@ export type BuildStageBoardMainFloorParams = {
   stageMainFloorRef: RefObject<HTMLDivElement | null>;
   isPlaying: boolean;
   trimStartSec: number;
+  /** 生徒共有・ピンチ時は false */
+  stopPlaybackOnFloorTap?: boolean;
   onPointerDownFloor: (e: ReactPointerEvent<HTMLDivElement>) => void;
   mainFloorStyle: CSSProperties;
   setPiecesEditable: boolean;
@@ -41,6 +43,7 @@ export function buildStageBoardMainFloor(
     stageMainFloorRef: p.stageMainFloorRef,
     isPlaying: p.isPlaying,
     trimStartSec: p.trimStartSec,
+    stopPlaybackOnFloorTap: p.stopPlaybackOnFloorTap,
     onPointerDownFloor: p.onPointerDownFloor,
     mainFloorStyle: p.mainFloorStyle,
     floorMarkupToolbar: p.setPiecesEditable

@@ -33,6 +33,11 @@ export type StageShellWithMainFloorProps = {
   isPlaying: boolean;
   /** 再生中の床クリックで停止するときのトリム左端（秒） */
   trimStartSec: number;
+  /**
+   * 再生中に床をタップしたら先頭で止めるか。
+   * 生徒共有・ピンチ拡大時は false（スワイプで曲が止まらないようにする）。
+   */
+  stopPlaybackOnFloorTap?: boolean;
   onPointerDownFloor: (e: ReactPointerEvent<HTMLDivElement>) => void;
   mainFloorStyle: CSSProperties;
   floorMarkupToolbar?: StageFloorMarkupToolbarHostProps;
@@ -52,6 +57,7 @@ export function StageShellWithMainFloor({
   stageMainFloorRef,
   isPlaying,
   trimStartSec,
+  stopPlaybackOnFloorTap = true,
   onPointerDownFloor,
   mainFloorStyle,
   floorMarkupToolbar,
@@ -101,7 +107,10 @@ export function StageShellWithMainFloor({
             <StageMainFloorPanel
               ref={stageMainFloorRef}
               onPointerDownCapture={(e) => {
+                if (!stopPlaybackOnFloorTap) return;
                 if (!isPlaying || e.button !== 0) return;
+                // ピンチの2本目や非プライマリでは止めない
+                if (!e.isPrimary) return;
                 const el = e.target as HTMLElement;
                 if (el.closest("button")) return;
                 e.preventDefault();

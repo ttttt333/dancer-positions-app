@@ -4251,6 +4251,8 @@ export function StageBoardBody({
       stageMainFloorRef,
       isPlaying,
       trimStartSec: project.trimStartSec,
+      stopPlaybackOnFloorTap:
+        viewMode !== "view" && !enablePinchViewport,
       onPointerDownFloor: handlePointerDownFloor,
       mainFloorStyle,
       setPiecesEditable,
