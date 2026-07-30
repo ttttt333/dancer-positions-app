@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { ChoreoCoreLogo } from "../../components/ChoreoGridLogo";
 import { StageBoard } from "../../components/StageBoard";
@@ -236,6 +236,7 @@ export function EditorPageLayout(props: EditorLayoutProps) {
   const yPct = props.yPct as never;
 
   const attachTopDockSection = useAssignRef(topDockSectionRef);
+  const publicRootRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!choreoPublicView) return;
@@ -255,8 +256,49 @@ export function EditorPageLayout(props: EditorLayoutProps) {
     };
   }, [choreoPublicView]);
 
+  /**
+   * 生徒共有: Safari の URL バー表示中も visualViewport の実高に合わせて
+   * ステージ領域を最大化する（100dvh だと余白が残りやすい）。
+   */
+  useEffect(() => {
+    if (!choreoPublicView) return;
+    const el = publicRootRef.current;
+    if (!el) return;
+
+    const apply = () => {
+      const vv = window.visualViewport;
+      const h = Math.max(
+        1,
+        Math.round(vv?.height ?? window.innerHeight ?? 0)
+      );
+      const offsetTop = Math.round(vv?.offsetTop ?? 0);
+      el.style.height = `${h}px`;
+      el.style.minHeight = `${h}px`;
+      el.style.maxHeight = `${h}px`;
+      el.style.transform = offsetTop ? `translateY(${offsetTop}px)` : "";
+    };
+
+    apply();
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", apply);
+    vv?.addEventListener("scroll", apply);
+    window.addEventListener("resize", apply);
+    window.addEventListener("orientationchange", apply);
+    return () => {
+      vv?.removeEventListener("resize", apply);
+      vv?.removeEventListener("scroll", apply);
+      window.removeEventListener("resize", apply);
+      window.removeEventListener("orientationchange", apply);
+      el.style.height = "";
+      el.style.minHeight = "";
+      el.style.maxHeight = "";
+      el.style.transform = "";
+    };
+  }, [choreoPublicView]);
+
   return (
     <div
+      ref={publicRootRef}
       className={[
         choreoPublicView ? "choreo-public-view-root" : "editor-page-root",
         choreoPublicView && publicViewTightHeight

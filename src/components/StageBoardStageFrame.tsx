@@ -57,9 +57,10 @@ export function StageBoardStageFrame({
   /**
    * 客席帯は aspect 比の外（床下）に描くため、上下どちらに出るかに応じて
    * `cqb` を少しだけ削ってラベルが切れないようにする。
+   * 生徒共有の横画面は帯をほぼ重ね描きにして、ステージを画面いっぱいに近づける。
    */
-  const audienceBandPad = compactLandscapeViewport ? 40 : 42;
-  const backstageBandPad = compactLandscapeViewport ? 24 : 28;
+  const audienceBandPad = compactLandscapeViewport ? 6 : 42;
+  const backstageBandPad = compactLandscapeViewport ? 4 : 28;
 
   let paddingTop: number | undefined;
   let paddingBottom: number | undefined;

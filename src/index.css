@@ -1085,9 +1085,56 @@ html.choreo-public-view-html::backdrop {
     color: #f8fafc;
   }
   .choreo-public-view-root--landscape .stage-board-fit-viewport-inner {
-    align-items: center;
-    justify-content: center;
-    overflow: visible;
+    /* 帯余白を潰してステージを画面いっぱいに近づける */
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: visible !important;
+  }
+  /* 左レール分だけステージを右へ寄せ、操作に隠れにくくする（サイズは維持） */
+  .choreo-public-view-root--landscape .stage-board-stage-wrapper {
+    margin-left: calc(var(--choreo-viewer-left-rail-w, 132px) * 0.35);
+  }
+  .choreo-public-view-root--landscape .choreo-viewer-bars--landscape {
+    /* ステータス／ホームインジケータ余白を最小にして縦方向を稼ぐ */
+    padding-top: max(2px, env(safe-area-inset-top, 0px));
+    padding-bottom: max(2px, env(safe-area-inset-bottom, 0px));
+    padding-left: max(2px, env(safe-area-inset-left, 0px));
+    width: min(var(--choreo-viewer-left-rail-w, 132px), 30vw);
+    max-width: min(var(--choreo-viewer-left-rail-w, 132px), 30vw);
+  }
+  /* 客席帯をコンパクトに（横画面共有） */
+  .choreo-public-view-root--landscape .stage-audience-footer-band {
+    min-height: 16px !important;
+    gap: 0 !important;
+    padding-top: 0 !important;
+  }
+  .choreo-public-view-root--landscape .stage-audience-footer-band__labels {
+    height: 12px !important;
+  }
+  .choreo-public-view-root--landscape .stage-audience-footer-band__caption-inline,
+  .choreo-public-view-root--landscape .stage-audience-footer-band__caption-row {
+    font-size: clamp(7px, 2.4cqw, 11px) !important;
+  }
+  /* メモ帯はオーバーレイにしてステージ幅を奪わない */
+  .choreo-public-view-root--landscape .choreo-viewer-stage-memo--landscape {
+    position: fixed !important;
+    top: max(4px, env(safe-area-inset-top, 0px));
+    right: max(4px, env(safe-area-inset-right, 0px));
+    bottom: auto !important;
+    left: auto !important;
+    flex: 0 0 0 !important;
+    width: min(26vw, 140px) !important;
+    max-width: 140px !important;
+    min-width: 0 !important;
+    max-height: min(42vh, 220px);
+    margin: 0 !important;
+    z-index: 80;
+    border: 1px solid rgba(51, 65, 85, 0.65);
+    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.88) !important;
+    pointer-events: auto;
   }
   .choreo-public-view-root .stage-board-main-slot {
     padding: 0 !important;
@@ -1378,6 +1425,9 @@ html.choreo-public-view-html::backdrop {
     flex: 1 1 auto;
     min-height: 0;
   }
+  .choreo-public-view-root--landscape .editor-three-pane.editor-three-pane--public-narrow {
+    padding-bottom: 0 !important;
+  }
   .choreo-public-view-root--landscape .editor-stage-section--public-view > div {
     flex: 1 1 auto;
     min-height: 0;
@@ -1389,6 +1439,8 @@ html.choreo-public-view-html::backdrop {
     flex: 1 1 auto;
     min-height: 0;
     min-width: 0;
+    width: 100%;
+    height: 100%;
   }
   .choreo-public-view-root--landscape .choreo-viewer-cuepager {
     max-width: min(calc(100% - 88px), 300px) !important;
