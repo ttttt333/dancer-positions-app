@@ -356,10 +356,14 @@ export function EditorPage({
     resolveWideEditorLayout,
     () => false
   );
-  /** 閲覧: 縦幅が低い（ランドスケープ等）でタイムライン＋下バーがステージを圧迫しやすい */
+  /** 閲覧: 横向き（または縦幅が低い）で左レール＋ステージ最大化レイアウト */
   const [publicViewTightHeight, setPublicViewTightHeight] = useState(() => {
     if (typeof window === "undefined" || !choreoPublicView) return false;
-    return window.matchMedia("(max-height: 520px)").matches;
+    return (
+      window.matchMedia("(max-height: 520px)").matches ||
+      window.matchMedia("(orientation: landscape)").matches ||
+      window.innerWidth > window.innerHeight
+    );
   });
   /** 閲覧共有: 下バーの高さ（横画面レール位置・ステージ余白用 CSS 変数） */
   const [viewerBarHeightPx, setViewerBarHeightPx] = useState(0);
@@ -754,12 +758,24 @@ export function EditorPage({
   }, [choreoPublicView, viewerLocalStorageKey, audiencePerspective]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(max-height: 520px)");
-    const read = () => setPublicViewTightHeight(mq.matches);
+    if (typeof window === "undefined" || !choreoPublicView) return;
+    const mqH = window.matchMedia("(max-height: 520px)");
+    const mqO = window.matchMedia("(orientation: landscape)");
+    const read = () =>
+      setPublicViewTightHeight(
+        mqH.matches || mqO.matches || window.innerWidth > window.innerHeight
+      );
     read();
-    mq.addEventListener("change", read);
-    return () => mq.removeEventListener("change", read);
+    mqH.addEventListener("change", read);
+    mqO.addEventListener("change", read);
+    window.addEventListener("resize", read);
+    window.addEventListener("orientationchange", read);
+    return () => {
+      mqH.removeEventListener("change", read);
+      mqO.removeEventListener("change", read);
+      window.removeEventListener("resize", read);
+      window.removeEventListener("orientationchange", read);
+    };
   }, [choreoPublicView]);
 
   useEffect(() => {

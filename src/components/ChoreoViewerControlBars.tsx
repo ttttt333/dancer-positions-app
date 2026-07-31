@@ -295,7 +295,7 @@ export function ChoreoViewerControlBars({
     />
   );
 
-  const fullscreenBtn = <ViewerFullscreenButton />;
+  const fullscreenBtn = <ViewerFullscreenButton showLabel={landscapeMode} />;
 
   if (landscapeMode) {
     return (

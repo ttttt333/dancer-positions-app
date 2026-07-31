@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useRef, type CSSProperties } from "react";
 import { StageBoardFitViewport } from "./StageBoardFitViewport";
 import {
   StageRotatedStageFrame,
@@ -9,10 +9,11 @@ import {
   type StageExportRootColumnProps,
 } from "./StageExportRootColumn";
 import { useStageBoardPinchViewport } from "../hooks/useStageBoardPinchViewport";
+import { useFillStageFrameSize } from "../hooks/useFillStageFrameSize";
 
 export type StageBoardStageFrameProps = Omit<
   StageRotatedStageFrameProps,
-  "children"
+  "children" | "forcedSizePx"
 > & {
   exportColumn: StageExportRootColumnProps;
   /** 閲覧: 客席帯が aspect 外に出る分のビューポート余白を確保 */
@@ -43,6 +44,19 @@ export function StageBoardStageFrame({
   const isAudienceTop = rotNorm === 180;
 
   const pinch = useStageBoardPinchViewport(enablePinchViewport);
+  const fitMeasureRef = useRef<HTMLDivElement | null>(null);
+
+  const fillSize = useFillStageFrameSize({
+    enabled: compactLandscapeViewport,
+    containerRef: fitMeasureRef,
+    aspectWidth: rotatedFrame.hasStageDims ? rotatedFrame.outerWmm : 4,
+    aspectDepth: rotatedFrame.hasStageDims ? rotatedFrame.outerDmm : 3,
+    // 左レール分は CSS padding-left で測り領域から除外済み
+    leftInsetPx: 0,
+    topInsetPx: 2,
+    bottomInsetPx: 2,
+    rightInsetPx: 2,
+  });
 
   const wrapperStyle: CSSProperties = {
     display: "flex",
@@ -57,19 +71,18 @@ export function StageBoardStageFrame({
   /**
    * 客席帯は aspect 比の外（床下）に描くため、上下どちらに出るかに応じて
    * `cqb` を少しだけ削ってラベルが切れないようにする。
-   * 生徒共有の横画面は帯をほぼ重ね描きにして、ステージを画面いっぱいに近づける。
+   * 横画面の実測フィット時は帯余白ゼロ（ラベルは重ね描き）。
    */
-  const audienceBandPad = compactLandscapeViewport ? 6 : 42;
-  const backstageBandPad = compactLandscapeViewport ? 4 : 28;
+  const audienceBandPad = compactLandscapeViewport ? 0 : 42;
+  const backstageBandPad = compactLandscapeViewport ? 0 : 28;
 
   let paddingTop: number | undefined;
   let paddingBottom: number | undefined;
   const useSymmetricEditorFit = !compactViewportChrome;
   if (useSymmetricEditorFit) {
-    // 編集画面はPC・スマホとも上下を中央フィットにし、反転時だけ縮小しない。
     paddingTop = undefined;
     paddingBottom = undefined;
-  } else {
+  } else if (!compactLandscapeViewport) {
     if (isAudienceTop) {
       paddingTop = audienceBandPad;
       paddingBottom = backstageBandPad;
@@ -79,13 +92,17 @@ export function StageBoardStageFrame({
     }
   }
 
+  const forcedSizePx = fillSize
+    ? { width: fillSize.widthPx, height: fillSize.heightPx }
+    : null;
+
   const stageInner = (
     <div
       ref={pinch.wrapperRef}
       className="stage-board-stage-wrapper"
       style={wrapperStyle}
     >
-      <StageRotatedStageFrame {...rotatedFrame}>
+      <StageRotatedStageFrame {...rotatedFrame} forcedSizePx={forcedSizePx}>
         <StageExportRootColumn {...exportColumn} />
       </StageRotatedStageFrame>
     </div>
@@ -93,9 +110,15 @@ export function StageBoardStageFrame({
 
   return (
     <StageBoardFitViewport
-      alignTop={isAudienceTop && !useSymmetricEditorFit}
+      measureRef={fitMeasureRef}
+      alignTop={false}
       paddingTop={paddingTop}
       paddingBottom={paddingBottom}
+      className={
+        compactLandscapeViewport
+          ? "stage-board-fit-viewport--public-landscape"
+          : undefined
+      }
     >
       {enablePinchViewport ? (
         <div

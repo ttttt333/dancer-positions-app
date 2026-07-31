@@ -1,41 +1,39 @@
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "../i18n/I18nContext";
-
-type FullscreenElement = HTMLElement & {
-  webkitRequestFullscreen?: () => Promise<void> | void;
-};
+import {
+  isViewerFullscreenActive,
+  isViewerFullscreenSupported,
+  tryEnterViewerFullscreen,
+} from "../lib/viewerFullscreen";
 
 type FullscreenDocument = Document & {
   webkitFullscreenElement?: Element | null;
   webkitExitFullscreen?: () => Promise<void> | void;
 };
 
-function isFullscreenSupported(): boolean {
-  if (typeof document === "undefined") return false;
-  const el = document.documentElement as FullscreenElement;
-  return typeof el.requestFullscreen === "function" ||
-    typeof el.webkitRequestFullscreen === "function";
-}
-
-function currentFullscreenElement(): Element | null {
-  const doc = document as FullscreenDocument;
-  return doc.fullscreenElement ?? doc.webkitFullscreenElement ?? null;
-}
+type Props = {
+  className?: string;
+  /** 横画面レールでは「全画面」文字を出して分かりやすくする */
+  showLabel?: boolean;
+};
 
 /**
  * 閲覧: ブラウザの URL バー・下部バーを隠す全画面ボタン。
  * iPhone の Safari は Fullscreen API 非対応のため、その場合は表示しない。
  */
-export function ViewerFullscreenButton({ className }: { className?: string }) {
+export function ViewerFullscreenButton({
+  className,
+  showLabel = false,
+}: Props) {
   const { t } = useI18n();
-  const [supported] = useState(isFullscreenSupported);
+  const [supported] = useState(isViewerFullscreenSupported);
   const [isFullscreen, setIsFullscreen] = useState(
-    () => typeof document !== "undefined" && currentFullscreenElement() != null
+    () => typeof document !== "undefined" && isViewerFullscreenActive()
   );
 
   useEffect(() => {
     if (!supported) return;
-    const sync = () => setIsFullscreen(currentFullscreenElement() != null);
+    const sync = () => setIsFullscreen(isViewerFullscreenActive());
     document.addEventListener("fullscreenchange", sync);
     document.addEventListener("webkitfullscreenchange", sync);
     return () => {
@@ -46,16 +44,11 @@ export function ViewerFullscreenButton({ className }: { className?: string }) {
 
   const toggle = useCallback(() => {
     const doc = document as FullscreenDocument;
-    if (currentFullscreenElement()) {
+    if (isViewerFullscreenActive()) {
       void (doc.exitFullscreen?.() ?? doc.webkitExitFullscreen?.());
       return;
     }
-    const el = document.documentElement as FullscreenElement;
-    try {
-      void (el.requestFullscreen?.() ?? el.webkitRequestFullscreen?.());
-    } catch {
-      // 全画面にできない環境では何もしない
-    }
+    tryEnterViewerFullscreen();
   }, []);
 
   if (!supported) return null;
@@ -74,6 +67,22 @@ export function ViewerFullscreenButton({ className }: { className?: string }) {
       title={label}
       aria-pressed={isFullscreen}
       onClick={toggle}
+      style={
+        showLabel
+          ? {
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 2,
+              minHeight: 40,
+              padding: "6px 8px",
+              fontSize: 11,
+              fontWeight: 700,
+              lineHeight: 1.15,
+            }
+          : undefined
+      }
     >
       <svg
         width="15"
@@ -85,7 +94,7 @@ export function ViewerFullscreenButton({ className }: { className?: string }) {
         strokeLinecap="round"
         strokeLinejoin="round"
         aria-hidden
-        style={{ display: "block", margin: "0 auto" }}
+        style={{ display: "block", margin: showLabel ? 0 : "0 auto" }}
       >
         {isFullscreen ? (
           <>
@@ -103,6 +112,9 @@ export function ViewerFullscreenButton({ className }: { className?: string }) {
           </>
         )}
       </svg>
+      {showLabel ? (
+        <span>{isFullscreen ? "解除" : "全画面"}</span>
+      ) : null}
     </button>
   );
 }

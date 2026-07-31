@@ -1092,9 +1092,26 @@ html.choreo-public-view-html::backdrop {
     justify-content: center !important;
     overflow: visible !important;
   }
-  /* 左レール分だけステージを右へ寄せ、操作に隠れにくくする（サイズは維持） */
-  .choreo-public-view-root--landscape .stage-board-stage-wrapper {
-    margin-left: calc(var(--choreo-viewer-left-rail-w, 132px) * 0.35);
+  .choreo-public-view-root--landscape .stage-board-main-slot {
+    padding: 0 !important;
+    align-items: stretch !important;
+    justify-content: center !important;
+  }
+  .choreo-public-view-root--landscape .stage-board-fit-viewport--public-landscape,
+  .choreo-public-view-root--landscape .stage-board-fit-viewport--public-landscape .stage-board-fit-viewport-inner,
+  .choreo-public-view-root--landscape .stage-board-fit-viewport--public-landscape .stage-board-pinch-clip {
+    flex: 1 1 auto !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    align-self: stretch !important;
+  }
+  .choreo-public-view-root--landscape
+    .stage-board-fit-viewport--public-landscape
+    .stage-board-fit-viewport-inner {
+    /* 左レール分を除いた領域でステージを最大化（実測フィット） */
+    padding-left: var(--choreo-viewer-left-rail-w, 132px) !important;
+    box-sizing: border-box !important;
   }
   .choreo-public-view-root--landscape .choreo-viewer-bars--landscape {
     /* ステータス／ホームインジケータ余白を最小にして縦方向を稼ぐ */

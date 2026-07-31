@@ -12,6 +12,7 @@ import {
   toggleViewerPlayback,
   tryStartViewerPlaybackFromUserGesture,
 } from "../lib/viewerPlayback";
+import { tryEnterViewerFullscreen } from "../lib/viewerFullscreen";
 
 type Args = {
   project: ChoreographyProjectJson;
@@ -61,6 +62,8 @@ export function useViewerTransportActions({
   }, [duration, onBeforeTransport, timelineRef, trimEndSec, trimStartSec]);
 
   const onPlayPointerDown = useCallback(() => {
+    // Galaxy 等: 再生操作のユーザージェスチャでブラウザ UI を隠して最大化
+    tryEnterViewerFullscreen();
     if (tryStartViewerPlaybackFromUserGesture(project, trimStartSec)) {
       playGestureHandledRef.current = true;
       return;
@@ -76,6 +79,9 @@ export function useViewerTransportActions({
     if (!playbackEngine.getMediaSourceUrl()) {
       void onBeforeTransport?.();
     }
+    const starting =
+      playbackEngine.isPaused() || !playbackEngine.getMediaSourceUrl();
+    if (starting) tryEnterViewerFullscreen();
     toggleViewerPlayback(project, trimStartSec);
   }, [onBeforeTransport, project, trimStartSec]);
 

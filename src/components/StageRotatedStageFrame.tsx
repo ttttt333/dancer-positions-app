@@ -14,6 +14,8 @@ export type StageRotatedStageFrameProps = {
   showResizeHandles: boolean;
   hoveredHandle: StageResizeHandleId | null;
   resizeDraftActive: boolean;
+  /** 生徒共有横画面など: CQ の代わりに実測 px でフィット */
+  forcedSizePx?: { width: number; height: number } | null;
   onResizePointerDown: (
     handle: StageResizeHandleId,
     e: ReactPointerEvent<HTMLDivElement>
@@ -28,25 +30,39 @@ const frameStyle = ({
   outerDmm,
   stageAspectRatio,
   rotationDeg,
+  forcedSizePx,
 }: Pick<
   StageRotatedStageFrameProps,
-  "hasStageDims" | "outerWmm" | "outerDmm" | "stageAspectRatio" | "rotationDeg"
->): CSSProperties => ({
-  flexShrink: 0,
-  position: "relative",
-  width: hasStageDims
-    ? `min(100cqi, calc(100cqb * (${outerWmm}) / (${outerDmm})))`
-    : "min(100cqi, calc(100cqb * 4 / 3))",
-  maxWidth: "100%",
-  maxHeight: "100%",
-  aspectRatio: stageAspectRatio,
-  transform: `rotate(${rotationDeg}deg)`,
-  transformOrigin: "center center",
-  transition: "transform 0.2s ease",
-  // コンテナクエリコンテキストを設定 → 子要素が cqw/cqh でステージ枠幅を参照できる
-  containerType: "size",
-  containerName: "stage-frame",
-});
+  | "hasStageDims"
+  | "outerWmm"
+  | "outerDmm"
+  | "stageAspectRatio"
+  | "rotationDeg"
+  | "forcedSizePx"
+>): CSSProperties => {
+  const forced =
+    forcedSizePx && forcedSizePx.width > 0 && forcedSizePx.height > 0
+      ? forcedSizePx
+      : null;
+  return {
+    flexShrink: 0,
+    position: "relative",
+    width: forced
+      ? `${forced.width}px`
+      : hasStageDims
+        ? `min(100cqi, calc(100cqb * (${outerWmm}) / (${outerDmm})))`
+        : "min(100cqi, calc(100cqb * 4 / 3))",
+    height: forced ? `${forced.height}px` : undefined,
+    maxWidth: "100%",
+    maxHeight: "100%",
+    aspectRatio: forced ? undefined : stageAspectRatio,
+    transform: `rotate(${rotationDeg}deg)`,
+    transformOrigin: "center center",
+    transition: forced ? undefined : "transform 0.2s ease",
+    containerType: "size",
+    containerName: "stage-frame",
+  };
+};
 
 export function StageRotatedStageFrame({
   hasStageDims,
@@ -58,6 +74,7 @@ export function StageRotatedStageFrame({
   showResizeHandles,
   hoveredHandle,
   resizeDraftActive,
+  forcedSizePx = null,
   onResizePointerDown,
   onHandlePointerEnter,
   onHandlePointerLeave,
@@ -70,6 +87,7 @@ export function StageRotatedStageFrame({
         outerDmm,
         stageAspectRatio,
         rotationDeg,
+        forcedSizePx,
       })}
     >
       {children}

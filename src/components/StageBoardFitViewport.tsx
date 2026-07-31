@@ -1,10 +1,11 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, ReactNode, Ref } from "react";
 
 const stretchColumnStyle: CSSProperties = {
   flex: "1 1 0%",
   minHeight: 0,
   minWidth: 0,
   width: "100%",
+  height: "100%",
   display: "flex",
   flexDirection: "column",
   alignItems: "stretch",
@@ -27,18 +28,24 @@ export function StageBoardFitViewport({
   paddingTop,
   paddingBottom,
   alignTop,
+  measureRef,
+  className,
 }: {
   children: ReactNode;
   paddingTop?: number;
   paddingBottom?: number;
   /** true のとき alignItems を flex-start にしてステージを上寄せ */
   alignTop?: boolean;
+  /** 実測フィット用（生徒共有横画面） */
+  measureRef?: Ref<HTMLDivElement | null>;
+  className?: string;
 }) {
   const containerQueryRowStyle: CSSProperties = {
     flex: "1 1 0%",
     minHeight: 0,
     minWidth: 0,
     width: "100%",
+    height: "100%",
     display: "flex",
     flexDirection: "row",
     justifyContent: "center",
@@ -51,8 +58,15 @@ export function StageBoardFitViewport({
   };
 
   return (
-    <div className="stage-board-fit-viewport" style={stretchColumnStyle}>
-      <div className="stage-board-fit-viewport-inner" style={containerQueryRowStyle}>
+    <div
+      className={["stage-board-fit-viewport", className].filter(Boolean).join(" ")}
+      style={stretchColumnStyle}
+    >
+      <div
+        ref={measureRef}
+        className="stage-board-fit-viewport-inner"
+        style={containerQueryRowStyle}
+      >
         {children}
       </div>
     </div>

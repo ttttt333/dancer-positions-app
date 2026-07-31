@@ -257,8 +257,8 @@ export function EditorPageLayout(props: EditorLayoutProps) {
   }, [choreoPublicView]);
 
   /**
-   * 生徒共有: Safari の URL バー表示中も visualViewport の実高に合わせて
-   * ステージ領域を最大化する（100dvh だと余白が残りやすい）。
+   * 生徒共有: 表示領域（visualViewport）に合わせてルート高さを固定。
+   * 一部 Android では vv.height が不安定なので innerHeight とも突合する。
    */
   useEffect(() => {
     if (!choreoPublicView) return;
@@ -267,14 +267,20 @@ export function EditorPageLayout(props: EditorLayoutProps) {
 
     const apply = () => {
       const vv = window.visualViewport;
+      const vvH = vv?.height ?? 0;
+      const innerH = window.innerHeight || 0;
+      // 極端に小さい vv は無視（Galaxy の一部 WebView 対策）
       const h = Math.max(
         1,
-        Math.round(vv?.height ?? window.innerHeight ?? 0)
+        Math.round(
+          vvH > 80 ? Math.min(vvH, innerH || vvH) : innerH || vvH || 1
+        )
       );
-      const offsetTop = Math.round(vv?.offsetTop ?? 0);
+      const offsetTop = vvH > 80 ? Math.round(vv?.offsetTop ?? 0) : 0;
       el.style.height = `${h}px`;
       el.style.minHeight = `${h}px`;
       el.style.maxHeight = `${h}px`;
+      el.style.width = "100%";
       el.style.transform = offsetTop ? `translateY(${offsetTop}px)` : "";
     };
 
@@ -292,6 +298,7 @@ export function EditorPageLayout(props: EditorLayoutProps) {
       el.style.height = "";
       el.style.minHeight = "";
       el.style.maxHeight = "";
+      el.style.width = "";
       el.style.transform = "";
     };
   }, [choreoPublicView]);
