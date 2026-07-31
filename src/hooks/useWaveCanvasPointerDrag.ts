@@ -170,6 +170,7 @@ export function useWaveCanvasPointerDrag({
   const cueDragCleanupRef = useRef<(() => void) | null>(null);
 
   const abortActiveWaveDrags = useCallback(() => {
+    const hadCuePointerSession = cueDragRef.current != null;
     waveDragSessionRef.current += 1;
     cueDragCleanupRef.current?.();
     cueDragCleanupRef.current = null;
@@ -178,6 +179,10 @@ export function useWaveCanvasPointerDrag({
     cueDragViewLockRef.current = null;
     emptyWaveDragRef.current = null;
     newCueRangePreviewRef.current = null;
+    // Abort can drop listeners before pointerup; block the follow-up canvas click seek.
+    if (hadCuePointerSession) {
+      suppressNextWaveSeekRef.current = true;
+    }
     if (cueEdgeScrollRafRef.current) {
       cancelAnimationFrame(cueEdgeScrollRafRef.current);
       cueEdgeScrollRafRef.current = 0;
@@ -201,6 +206,7 @@ export function useWaveCanvasPointerDrag({
     emptyWaveDragRef,
     isPlayingForWaveRef,
     newCueRangePreviewRef,
+    suppressNextWaveSeekRef,
   ]);
 
   useEffect(() => {
@@ -209,7 +215,10 @@ export function useWaveCanvasPointerDrag({
   }, [abortActiveWaveDrags]);
 
   useEffect(() => {
-    if (cueDragRef.current?.armed || emptyWaveDragRef.current?.active) return;
+    // Keep any cue pointer session (including unarmed move before arm threshold).
+    // Zoomed playback updates waveViewStartOverride every frame and used to abort
+    // unarmed moves, which then let onClick seek and rewind audio.
+    if (cueDragRef.current != null || emptyWaveDragRef.current?.active) return;
     if (viewPortion === 1 && waveViewStartOverride == null) return;
     abortActiveWaveDrags();
   }, [viewPortion, waveViewStartOverride, abortActiveWaveDrags, cueDragRef, emptyWaveDragRef]);
@@ -233,7 +242,7 @@ export function useWaveCanvasPointerDrag({
         return;
       }
       const dragging =
-        cueDragRef.current?.armed === true ||
+        cueDragRef.current != null ||
         emptyWaveDragRef.current?.active === true;
       if (!dragging && Math.abs(w - lastW) > 0.5) {
         abortActiveWaveDrags();
@@ -267,7 +276,7 @@ export function useWaveCanvasPointerDrag({
         viewStartOverride: waveViewStartOverrideRef.current,
         anchorTimeSec: anchorSec,
         playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
-        cueDragArmed: cueDragRef.current?.armed ?? false,
+        cueDragArmed: cueDragRef.current != null,
         enginePaused:
           !isPlayingForWaveRef.current || playbackEngine.isPaused(),
         lastDrawRange: lastWaveDrawRangeRef.current,
@@ -315,7 +324,7 @@ export function useWaveCanvasPointerDrag({
         viewStartOverride: waveViewStartOverrideRef.current,
         anchorTimeSec: anchorSec,
         playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
-        cueDragArmed: cueDragRef.current?.armed ?? false,
+        cueDragArmed: cueDragRef.current != null,
         enginePaused:
           !isPlayingForWaveRef.current || playbackEngine.isPaused(),
         lastDrawRange: lastWaveDrawRangeRef.current,
@@ -394,7 +403,7 @@ export function useWaveCanvasPointerDrag({
         viewStartOverride: waveViewStartOverrideRef.current,
         anchorTimeSec: anchorSec,
         playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
-        cueDragArmed: cueDragRef.current?.armed ?? false,
+        cueDragArmed: cueDragRef.current != null,
         enginePaused:
           !isPlayingForWaveRef.current || playbackEngine.isPaused(),
         lastDrawRange: lastWaveDrawRangeRef.current,
@@ -456,7 +465,7 @@ export function useWaveCanvasPointerDrag({
           viewStartOverride: waveViewStartOverrideRef.current,
           anchorTimeSec: anchorSec(),
           playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
-          cueDragArmed: cueDragRef.current?.armed ?? false,
+          cueDragArmed: cueDragRef.current != null,
           enginePaused:
             !isPlayingForWaveRef.current || playbackEngine.isPaused(),
           lastDrawRange: lastWaveDrawRangeRef.current,
@@ -685,6 +694,7 @@ export function useWaveCanvasPointerDrag({
         };
         const onCancel = (ev: PointerEvent) => {
           if (ev.pointerId !== e.pointerId || !cueDragRef.current) return;
+          suppressNextWaveSeekRef.current = true;
           try {
             c.releasePointerCapture(ev.pointerId);
           } catch {
@@ -714,6 +724,8 @@ export function useWaveCanvasPointerDrag({
           cueDragPreviewRangeRef.current = null;
           cueDragViewLockRef.current = null;
           if (!drag) return;
+          // Always suppress the synthetic click seek after any cue pointer session.
+          suppressNextWaveSeekRef.current = true;
           if (waveDragSessionRef.current !== cueDragSession) {
             redraw();
             return;
@@ -740,7 +752,6 @@ export function useWaveCanvasPointerDrag({
             redraw();
             return;
           }
-          suppressNextWaveSeekRef.current = true;
           if (
             preview &&
             Number.isFinite(preview.tStart) &&

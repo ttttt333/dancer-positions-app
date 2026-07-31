@@ -124,7 +124,7 @@ export function useTimelineWaveSurfaceHandlers(
       viewStartOverride: waveViewStartOverrideRef.current,
       anchorTimeSec: anchorSec,
       playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
-      cueDragArmed: cueDragRef.current?.armed ?? false,
+      cueDragArmed: cueDragRef.current != null,
       enginePaused:
         !isPlayingForWaveRef.current || playbackEngine.isPaused(),
       lastDrawRange: lastWaveDrawRangeRef.current,
@@ -170,7 +170,7 @@ export function useTimelineWaveSurfaceHandlers(
       viewStartOverride: waveViewStartOverrideRef.current,
       anchorTimeSec: anchorSec,
       playheadScrubArmed: playheadScrubDragRef.current?.armed ?? false,
-      cueDragArmed: cueDragRef.current?.armed ?? false,
+      cueDragArmed: cueDragRef.current != null,
       enginePaused:
         !isPlayingForWaveRef.current || playbackEngine.isPaused(),
       lastDrawRange: lastWaveDrawRangeRef.current,

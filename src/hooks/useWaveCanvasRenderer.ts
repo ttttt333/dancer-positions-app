@@ -176,7 +176,8 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         viewStartOverride: viewOverride,
         playheadScrubArmed:
           (playheadScrubDragRef.current?.armed ?? false) || snapPinned,
-        cueDragArmed: cueDragRef.current?.armed ?? false,
+        // Pin as soon as a cue pointer session exists (including unarmed move).
+        cueDragArmed: cueDragRef.current != null,
       });
       const viewEnd = viewStart + viewSpan;
       lastWaveDrawRangeRef.current = { viewStart, viewSpan };
@@ -185,7 +186,7 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         isPlayingForWaveRef.current &&
         !playheadScrubDragRef.current?.armed &&
         !snapPinned &&
-        !(cueDragRef.current?.armed ?? false) &&
+        cueDragRef.current == null &&
         vp < 1 - 1e-9 &&
         viewOverride !== null &&
         !isPlayheadSecInWaveView(paintHeadSec, viewOverride, viewSpan)

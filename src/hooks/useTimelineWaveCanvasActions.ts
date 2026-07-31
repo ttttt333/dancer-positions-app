@@ -158,13 +158,12 @@ export function useTimelineWaveCanvasActions({
         } else {
           onSelectedCueIdsChange([hitId]);
         }
-      } else {
-        onSelectedCueIdsChange([]);
+        // Cue click = select only. Seeking here jumps playback backward while audio
+        // is playing (especially after move/resize when suppress flags miss).
+        return;
       }
+      onSelectedCueIdsChange([]);
       if (!playbackEngine.getMediaSourceUrl()) return;
-      const r = c.getBoundingClientRect();
-      const x = e.clientX - r.left;
-      const t = waveExtentXToTime(x, viewStart, viewSpan, r.width);
       if (e.altKey && peaks != null && cuesSorted.length >= 2 && viewMode !== "view") {
         const gapHit = pickGapLinkAtWave(
           e.clientX,
