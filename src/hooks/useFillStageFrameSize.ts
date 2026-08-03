@@ -1,4 +1,4 @@
-import { useEffect, useState, type RefObject } from "react";
+import { useLayoutEffect, useState, type RefObject } from "react";
 
 export type FillStageSize = {
   widthPx: number;
@@ -6,8 +6,9 @@ export type FillStageSize = {
 };
 
 /**
- * 生徒共有の横画面向け: コンテナ実寸からステージの contain フィットサイズを px で算出する。
+ * コンテナ実寸からステージの contain フィットサイズを px で算出する。
  * Galaxy 等で container query (cqi/cqb) が潰れてステージが極小になるのを避ける。
+ * （生徒共有横画面・モバイル編集の縦/横で使用）
  */
 export function useFillStageFrameSize(params: {
   enabled: boolean;
@@ -33,7 +34,7 @@ export function useFillStageFrameSize(params: {
   } = params;
   const [size, setSize] = useState<FillStageSize | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!enabled) {
       setSize(null);
       return;

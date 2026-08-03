@@ -2384,6 +2384,33 @@ html[data-landscape-wave-collapsed] {
   align-items: stretch !important;
 }
 
+/* 縦画面 (MobileShell): ステージ枠を黒領域いっぱいに伸ばす（Galaxy CQ 崩れ対策の測り親） */
+[data-shell-portrait] .editor-three-pane.editor-mobile-stack > .editor-stage-section {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+}
+
+[data-shell-portrait] .stage-board-main-slot {
+  align-items: stretch !important;
+  padding: 2px !important;
+}
+
+[data-shell-portrait] .stage-board-fit-viewport,
+[data-shell-portrait] .stage-board-fit-viewport-inner,
+[data-shell-portrait] .stage-board-pinch-clip,
+[data-shell-portrait] .stage-board-stage-wrapper {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  width: 100% !important;
+  align-self: stretch !important;
+}
+
+[data-shell-portrait] .stage-board-fit-viewport-inner {
+  align-items: center !important;
+  justify-content: center !important;
+}
+
 /* 波形たたみ時: 上寄せで最大化＋右にテキスト用余白＋画面中央寄せ */
 [data-shell-landscape][data-landscape-wave-collapsed] .stage-board-fit-viewport-inner {
   align-items: center !important;

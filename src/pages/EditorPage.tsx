@@ -2342,21 +2342,18 @@ export function EditorPage({
         borderBottom: "none",
       };
     }
-    // 縦画面: flex-1 でステージが残りスペースを最大限確保
-    const moreRoom = !mobileEditorWaveExpanded || !mobileEditorToolsExpanded;
+    // 縦画面 (MobileShell 内): flex-1 でホスト全高を使う。maxHeight はシェル外レイアウト用に残さない
     return {
-      flex: "1 1 0",
-      minHeight: moreRoom ? "min(40dvh, 240px)" : "min(32dvh, 200px)",
-      maxHeight: moreRoom
-        ? "min(72dvh, calc(100dvh - 130px))"
-        : "min(60dvh, calc(100dvh - 200px))",
+      flex: "1 1 0%",
+      minHeight: 0,
+      maxHeight: "none",
       position: "relative",
       borderBottom: "1px solid #1e293b",
       borderRight: "none",
       overflow: "hidden",
       background: "#000",
     };
-  }, [mobileStackEditor, mobileEditorWaveExpanded, mobileEditorToolsExpanded, editorMobileLandscape]);
+  }, [mobileStackEditor, editorMobileLandscape]);
 
   const dynamicToolsAsideStyle = useMemo<CSSProperties>(() => {
     if (!mobileStackEditor) return {};

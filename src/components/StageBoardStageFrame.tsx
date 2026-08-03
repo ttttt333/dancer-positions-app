@@ -13,7 +13,7 @@ import { useFillStageFrameSize } from "../hooks/useFillStageFrameSize";
 
 export type StageBoardStageFrameProps = Omit<
   StageRotatedStageFrameProps,
-  "children" | "forcedSizePx"
+  "children" | "forcedSizePx" | "preferPercentFit"
 > & {
   exportColumn: StageExportRootColumnProps;
   /** 閲覧: 客席帯が aspect 外に出る分のビューポート余白を確保 */
@@ -46,8 +46,18 @@ export function StageBoardStageFrame({
   const pinch = useStageBoardPinchViewport(enablePinchViewport);
   const fitMeasureRef = useRef<HTMLDivElement | null>(null);
 
+  /**
+   * Galaxy 等で cqi/cqb が潰れてステージが極小になるのを避ける。
+   * - 生徒共有横画面: compactLandscapeViewport
+   * - モバイル編集 (縦/横): enablePinchViewport && !compactViewportChrome
+   *   （閲覧縦は帯余白付き CQ のまま）
+   */
+  const fillStageFramePx =
+    compactLandscapeViewport ||
+    (enablePinchViewport && !compactViewportChrome);
+
   const fillSize = useFillStageFrameSize({
-    enabled: compactLandscapeViewport,
+    enabled: fillStageFramePx,
     containerRef: fitMeasureRef,
     aspectWidth: rotatedFrame.hasStageDims ? rotatedFrame.outerWmm : 4,
     aspectDepth: rotatedFrame.hasStageDims ? rotatedFrame.outerDmm : 3,
@@ -102,7 +112,11 @@ export function StageBoardStageFrame({
       className="stage-board-stage-wrapper"
       style={wrapperStyle}
     >
-      <StageRotatedStageFrame {...rotatedFrame} forcedSizePx={forcedSizePx}>
+      <StageRotatedStageFrame
+        {...rotatedFrame}
+        forcedSizePx={forcedSizePx}
+        preferPercentFit={fillStageFramePx && !forcedSizePx}
+      >
         <StageExportRootColumn {...exportColumn} />
       </StageRotatedStageFrame>
     </div>

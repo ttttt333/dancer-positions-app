@@ -14,8 +14,13 @@ export type StageRotatedStageFrameProps = {
   showResizeHandles: boolean;
   hoveredHandle: StageResizeHandleId | null;
   resizeDraftActive: boolean;
-  /** 生徒共有横画面など: CQ の代わりに実測 px でフィット */
+  /** Galaxy 等の CQ 崩れ回避: 実測 px でフィット */
   forcedSizePx?: { width: number; height: number } | null;
+  /**
+   * 実測前のフォールバック。cqi/cqb の代わりに % + aspect-ratio で contain する。
+   * （実測が有効な端末で初回極小フラッシュを防ぐ）
+   */
+  preferPercentFit?: boolean;
   onResizePointerDown: (
     handle: StageResizeHandleId,
     e: ReactPointerEvent<HTMLDivElement>
@@ -31,6 +36,7 @@ const frameStyle = ({
   stageAspectRatio,
   rotationDeg,
   forcedSizePx,
+  preferPercentFit = false,
 }: Pick<
   StageRotatedStageFrameProps,
   | "hasStageDims"
@@ -39,23 +45,28 @@ const frameStyle = ({
   | "stageAspectRatio"
   | "rotationDeg"
   | "forcedSizePx"
+  | "preferPercentFit"
 >): CSSProperties => {
   const forced =
     forcedSizePx && forcedSizePx.width > 0 && forcedSizePx.height > 0
       ? forcedSizePx
       : null;
+  const cqWidth = hasStageDims
+    ? `min(100cqi, calc(100cqb * (${outerWmm}) / (${outerDmm})))`
+    : "min(100cqi, calc(100cqb * 4 / 3))";
   return {
-    flexShrink: 0,
+    flexShrink: preferPercentFit && !forced ? 1 : 0,
     position: "relative",
     width: forced
       ? `${forced.width}px`
-      : hasStageDims
-        ? `min(100cqi, calc(100cqb * (${outerWmm}) / (${outerDmm})))`
-        : "min(100cqi, calc(100cqb * 4 / 3))",
-    height: forced ? `${forced.height}px` : undefined,
+      : preferPercentFit
+        ? "100%"
+        : cqWidth,
+    height: forced ? `${forced.height}px` : preferPercentFit ? "auto" : undefined,
     maxWidth: "100%",
     maxHeight: "100%",
     aspectRatio: forced ? undefined : stageAspectRatio,
+    boxSizing: "border-box",
     transform: `rotate(${rotationDeg}deg)`,
     transformOrigin: "center center",
     transition: forced ? undefined : "transform 0.2s ease",
@@ -75,6 +86,7 @@ export function StageRotatedStageFrame({
   hoveredHandle,
   resizeDraftActive,
   forcedSizePx = null,
+  preferPercentFit = false,
   onResizePointerDown,
   onHandlePointerEnter,
   onHandlePointerLeave,
@@ -88,6 +100,7 @@ export function StageRotatedStageFrame({
         stageAspectRatio,
         rotationDeg,
         forcedSizePx,
+        preferPercentFit,
       })}
     >
       {children}
