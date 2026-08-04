@@ -2,167 +2,118 @@ import "./home.css";
 import { Link } from "react-router-dom";
 import { ChoreoCoreLogo } from "../../components/ChoreoCoreLogo";
 import { LanguageSwitcher } from "../../components/LanguageSwitcher";
-import { btnAccent, btnSecondary } from "../../components/stageButtonStyles";
 import { useI18n } from "../../i18n/I18nContext";
 
-const REASONS: Array<{ id: string; mark: string }> = [
-  { id: "01", mark: "01" },
-  { id: "02", mark: "02" },
-  { id: "03", mark: "03" },
-  { id: "04", mark: "04" },
-  { id: "05", mark: "05" },
-  { id: "06", mark: "06" },
-  { id: "07", mark: "07" },
-  { id: "08", mark: "08" },
-  { id: "09", mark: "09" },
-  { id: "10", mark: "10" },
-  { id: "11", mark: "11" },
+const REASONS: Array<{ id: string; icon: string }> = [
+  { id: "01", icon: "◇" },
+  { id: "02", icon: "◎" },
+  { id: "03", icon: "⚡" },
+  { id: "04", icon: "▣" },
+  { id: "05", icon: "◎" },
+  { id: "06", icon: "♪" },
+  { id: "07", icon: "↻" },
+  { id: "08", icon: "▶" },
+  { id: "09", icon: "○" },
+  { id: "10", icon: "★" },
+  { id: "11", icon: "☁" },
 ];
 
-const STAGE_DOTS: Array<{ x: number; y: number; color: string }> = [
-  { x: 22, y: 38, color: "#38bdf8" },
-  { x: 38, y: 52, color: "#f472b6" },
-  { x: 55, y: 34, color: "#a3e635" },
-  { x: 68, y: 58, color: "#fbbf24" },
-  { x: 48, y: 68, color: "#c084fc" },
-  { x: 78, y: 42, color: "#fb7185" },
+const STAGE_DOTS: Array<{ x: number; y: number; color: string; delay: string }> = [
+  { x: 18, y: 36, color: "#38bdf8", delay: "0s" },
+  { x: 32, y: 54, color: "#f472b6", delay: "0.4s" },
+  { x: 48, y: 30, color: "#a3e635", delay: "0.8s" },
+  { x: 62, y: 58, color: "#fbbf24", delay: "1.1s" },
+  { x: 44, y: 68, color: "#e879f9", delay: "0.2s" },
+  { x: 74, y: 40, color: "#fb7185", delay: "1.5s" },
+  { x: 28, y: 44, color: "#67e8f9", delay: "0.6s" },
+  { x: 56, y: 46, color: "#fde68a", delay: "1.3s" },
 ];
 
 /**
- * 未ログイン向けトップ: ヒーロー + できること。
- * PC / スマホで読みやすいレスポンシブ構成。
+ * 未ログイン向けトップ: 1ビューポートにブランド・価値・登録導線を収める。
  */
 export function GuestLanding() {
   const { t } = useI18n();
 
   return (
-    <div className="home-page">
-      <header className="home-guest-header">
+    <div className="home-page home-landing">
+      <header className="home-guest-header home-landing-header">
         <div className="home-container home-guest-header-inner">
-          <ChoreoCoreLogo height={36} title="ChoreoCore" />
+          <ChoreoCoreLogo height={32} title="ChoreoCore" />
           <div className="home-guest-header-actions">
             <LanguageSwitcher variant="inline" />
-            <Link
-              to="/login"
-              style={{
-                ...btnSecondary,
-                textDecoration: "none",
-                padding: "8px 12px",
-                fontSize: 13,
-              }}
-            >
+            <Link to="/login" className="home-landing-login">
               {t("dashboard.login")}
             </Link>
-            <Link
-              to="/register"
-              style={{
-                ...btnAccent,
-                textDecoration: "none",
-                padding: "8px 12px",
-                fontSize: 13,
-              }}
-            >
+            <Link to="/register" className="home-landing-register-chip">
               {t("dashboard.register")}
             </Link>
           </div>
         </div>
       </header>
 
-      <section className="home-hero" aria-label={t("landing.heroAria")}>
-        <div className="home-hero-bg" aria-hidden />
-        <div className="home-container home-hero-inner">
-          <div className="home-hero-copy">
-            <div className="home-hero-brand">
-              <ChoreoCoreLogo height={56} title="ChoreoCore" />
-            </div>
-            <h1 className="home-display home-hero-title">{t("landing.headline")}</h1>
-            <p className="home-hero-support">{t("landing.support")}</p>
-            <div className="home-hero-ctas">
-              <Link
-                to="/register"
-                style={{
-                  ...btnAccent,
-                  textDecoration: "none",
-                  padding: "14px 22px",
-                  fontSize: 15,
-                  fontWeight: 700,
-                }}
-              >
-                {t("landing.ctaTry")}
-              </Link>
-              <Link
-                to="/register"
-                style={{
-                  ...btnSecondary,
-                  textDecoration: "none",
-                  padding: "14px 22px",
-                  fontSize: 15,
-                }}
-              >
-                {t("landing.ctaRegister")}
-              </Link>
-            </div>
-          </div>
-
-          <div className="home-hero-stage" aria-hidden>
-            <div className="home-hero-stage-label-top">舞台裏</div>
-            <div className="home-hero-dots">
+      <main className="home-landing-fold" aria-label={t("landing.heroAria")}>
+        <div className="home-landing-bg" aria-hidden>
+          <div className="home-landing-stage">
+            <span className="home-landing-stage-label is-top">舞台裏</span>
+            <div className="home-landing-dots">
               {STAGE_DOTS.map((d) => (
                 <span
                   key={`${d.x}-${d.y}`}
-                  className="home-hero-dot"
-                  style={{ left: `${d.x}%`, top: `${d.y}%`, background: d.color }}
+                  className="home-landing-dot"
+                  style={{
+                    left: `${d.x}%`,
+                    top: `${d.y}%`,
+                    background: d.color,
+                    animationDelay: d.delay,
+                  }}
                 />
               ))}
             </div>
-            <div className="home-hero-stage-label-bottom">客席</div>
+            <span className="home-landing-stage-label is-bottom">客席</span>
           </div>
         </div>
-      </section>
 
-      <section className="home-features" aria-labelledby="landing-reasons-title">
-        <div className="home-container">
-          <h2 id="landing-reasons-title" className="home-display home-features-title">
-            {t("landing.reasonsTitle")}
-          </h2>
-          <p className="home-features-lead">{t("landing.reasonsLead")}</p>
-          <ul className="home-features-grid">
-            {REASONS.map((r) => (
-              <li key={r.id} className="home-feature-item">
-                <span className="home-display home-feature-mark" aria-hidden>
-                  {r.mark}
-                </span>
-                <div>
-                  <p className="home-feature-body" style={{ margin: 0 }}>
-                    {t(`landing.reason.${r.id}`)}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-          <div className="home-features-cta">
-            <Link
-              to="/register"
-              style={{
-                ...btnAccent,
-                textDecoration: "none",
-                display: "inline-flex",
-                padding: "14px 22px",
-                fontSize: 15,
-                fontWeight: 700,
-              }}
-            >
-              {t("landing.ctaRegister")}
-            </Link>
-            <p style={{ margin: "10px 0 0", color: "#a8a29e", fontSize: 12, lineHeight: 1.6 }}>
-              {t("landing.registerMethodsHint")}
-            </p>
+        <div className="home-container home-landing-inner">
+          <div className="home-landing-intro">
+            <p className="home-display home-landing-brand">ChoreoCore</p>
+            <h1 className="home-display home-landing-title">{t("landing.headline")}</h1>
+            <p className="home-landing-support">{t("landing.support")}</p>
+            <div className="home-landing-ctas">
+              <Link to="/register" className="home-landing-cta-primary">
+                {t("landing.ctaTry")}
+              </Link>
+              <Link to="/login" className="home-landing-cta-secondary">
+                {t("dashboard.login")}
+              </Link>
+            </div>
+            <p className="home-landing-hint">{t("landing.registerMethodsHint")}</p>
           </div>
-          <div className="home-guest-locale-mobile">
-            <LanguageSwitcher variant="inline" />
-          </div>
+
+          <section className="home-landing-reasons" aria-labelledby="landing-reasons-title">
+            <div className="home-landing-reasons-head">
+              <h2 id="landing-reasons-title" className="home-display home-landing-reasons-title">
+                {t("landing.reasonsTitle")}
+              </h2>
+              <p className="home-landing-reasons-lead">{t("landing.reasonsLead")}</p>
+            </div>
+            <ul className="home-landing-reasons-list">
+              {REASONS.map((r, i) => (
+                <li
+                  key={r.id}
+                  className="home-landing-reason"
+                  style={{ animationDelay: `${0.05 * i}s` }}
+                >
+                  <span className="home-landing-reason-icon" aria-hidden>
+                    {r.icon}
+                  </span>
+                  <span className="home-landing-reason-text">{t(`landing.reason.${r.id}`)}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
         </div>
-      </section>
+      </main>
     </div>
   );
 }
