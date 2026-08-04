@@ -207,7 +207,6 @@ export function HomeLibrary() {
         <HomeSettingsView
           email={email}
           isPro={isPro}
-          hasStripeCustomer={hasStripeCustomer}
           appVersion={APP_VERSION}
           notice={notice}
           storageOpen={settingsStorageOpen}
@@ -223,12 +222,12 @@ export function HomeLibrary() {
             logout: t("dashboard.logout"),
             deleteAccount: t("home.settings.deleteAccount"),
             version: t("home.settings.version"),
-            comingSoon: t("home.comingSoon"),
             proBadge: "PRO",
             freeBadge: `FREE ${projects.length}/3`,
             faq: t("home.drawer.faq"),
             help: t("home.drawer.help"),
-            recentlyDeleted: t("home.drawer.recentlyDeleted"),
+            renamePrompt: t("home.settings.renamePrompt"),
+            deleteConfirm: t("home.settings.deleteConfirm"),
           }}
           onBack={() => {
             setSettingsStorageOpen(false);

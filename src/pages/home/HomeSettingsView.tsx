@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { PortableBackupSection } from "../../components/dashboard/PortableBackupSection";
 import { LanguageSwitcher } from "../../components/LanguageSwitcher";
@@ -14,7 +14,6 @@ import {
 type Props = {
   email: string;
   isPro: boolean;
-  hasStripeCustomer: boolean;
   appVersion: string;
   notice: string;
   labels: {
@@ -29,12 +28,12 @@ type Props = {
     logout: string;
     deleteAccount: string;
     version: string;
-    comingSoon: string;
     proBadge: string;
     freeBadge: string;
     faq: string;
     help: string;
-    recentlyDeleted: string;
+    renamePrompt: string;
+    deleteConfirm: string;
   };
   onBack: () => void;
   onManageSubscription: () => void;
@@ -42,6 +41,10 @@ type Props = {
   onLogout: () => void;
   storageOpen: boolean;
 };
+
+function displayNameStorageKey(email: string): string {
+  return `choreocore.displayName:${email.trim().toLowerCase()}`;
+}
 
 function SettingsRow({
   icon,
@@ -100,14 +103,33 @@ function SettingsRow({
   );
 }
 
+function BackChevron() {
+  return (
+    <svg
+      width="28"
+      height="28"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+      style={{ display: "block" }}
+    >
+      <path
+        d="M15 5L8 12l7 7"
+        stroke="currentColor"
+        strokeWidth="2.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 /**
  * ライブラリのメニュー＝設定を1画面にまとめたビュー。
- * （サイドドロワー → 設定、の2段構成は使わない）
  */
 export function HomeSettingsView({
   email,
   isPro,
-  hasStripeCustomer,
   appVersion,
   notice,
   labels,
@@ -117,8 +139,47 @@ export function HomeSettingsView({
   onLogout,
   storageOpen,
 }: Props) {
-  const name = displayNameFromEmail(email);
+  const fallbackName = displayNameFromEmail(email);
+  const [displayName, setDisplayName] = useState(fallbackName);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(displayNameStorageKey(email));
+      setDisplayName(saved?.trim() || fallbackName);
+    } catch {
+      setDisplayName(fallbackName);
+    }
+  }, [email, fallbackName]);
+
   const initials = initialsFromEmail(email);
+
+  const onChangeName = () => {
+    const next = window.prompt(labels.renamePrompt, displayName);
+    if (next == null) return;
+    const name = next.trim();
+    if (!name) return;
+    try {
+      localStorage.setItem(displayNameStorageKey(email), name);
+    } catch {
+      /* ignore */
+    }
+    setDisplayName(name);
+  };
+
+  const onChangeEmail = () => {
+    window.location.href = `mailto:interush.info@gmail.com?subject=${encodeURIComponent(
+      "ChoreoCore email change"
+    )}&body=${encodeURIComponent(
+      `Current email: ${email}\nRequested new email:\n`
+    )}`;
+  };
+
+  const onDeleteAccount = () => {
+    if (!window.confirm(labels.deleteConfirm)) return;
+    window.location.href = `mailto:interush.info@gmail.com?subject=${encodeURIComponent(
+      "ChoreoCore account deletion"
+    )}&body=${encodeURIComponent(`Please delete my account.\nEmail: ${email}\n`)}`;
+  };
 
   return (
     <div
@@ -132,7 +193,7 @@ export function HomeSettingsView({
       <header
         style={{
           display: "grid",
-          gridTemplateColumns: "44px 1fr 44px",
+          gridTemplateColumns: "52px 1fr 52px",
           alignItems: "center",
           padding: "max(10px, env(safe-area-inset-top, 0px)) 8px 10px",
           borderBottom: `1px solid rgba(255,255,255,0.08)`,
@@ -141,10 +202,10 @@ export function HomeSettingsView({
         <button
           type="button"
           aria-label={labels.back}
-          style={homeIconBtn}
+          style={{ ...homeIconBtn, width: 52, height: 52 }}
           onClick={onBack}
         >
-          ‹
+          <BackChevron />
         </button>
         <h1
           style={{
@@ -184,7 +245,7 @@ export function HomeSettingsView({
           {initials}
         </div>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: 17 }}>{name}</div>
+          <div style={{ fontWeight: 700, fontSize: 17 }}>{displayName}</div>
           <div
             style={{
               fontSize: 13,
@@ -204,7 +265,9 @@ export function HomeSettingsView({
               letterSpacing: "0.06em",
               padding: "2px 8px",
               borderRadius: 4,
-              background: isPro ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.06)",
+              background: isPro
+                ? "rgba(255,255,255,0.12)"
+                : "rgba(255,255,255,0.06)",
               color: shell.textMuted,
             }}
           >
@@ -218,21 +281,17 @@ export function HomeSettingsView({
       <SettingsRow
         icon="★"
         label={labels.manageSub}
-        onClick={
-          hasStripeCustomer || !isPro
-            ? onManageSubscription
-            : () => window.alert(labels.comingSoon)
-        }
+        onClick={onManageSubscription}
       />
       <SettingsRow
         icon="👤"
         label={labels.changeName}
-        onClick={() => window.alert(labels.comingSoon)}
+        onClick={onChangeName}
       />
       <SettingsRow
         icon="✉"
         label={labels.changeEmail}
-        onClick={() => window.alert(labels.comingSoon)}
+        onClick={onChangeEmail}
       />
       <SettingsRow
         icon="☀"
@@ -286,11 +345,6 @@ export function HomeSettingsView({
           )}&body=${encodeURIComponent(`Account: ${email}\nVersion: ${appVersion}`)}`;
         }}
       />
-      <SettingsRow
-        icon="🗑"
-        label={labels.recentlyDeleted}
-        onClick={() => window.alert(labels.comingSoon)}
-      />
 
       <div style={homeDivider} />
 
@@ -302,7 +356,7 @@ export function HomeSettingsView({
         icon="⊖"
         label={labels.deleteAccount}
         danger
-        onClick={() => window.alert(labels.comingSoon)}
+        onClick={onDeleteAccount}
       />
 
       {notice ? (
