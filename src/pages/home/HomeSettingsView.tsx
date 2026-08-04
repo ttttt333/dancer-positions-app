@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { PortableBackupSection } from "../../components/dashboard/PortableBackupSection";
+import { LanguageSwitcher } from "../../components/LanguageSwitcher";
 import { shell } from "../../theme/choreoShell";
 import {
   displayNameFromEmail,
@@ -30,6 +32,9 @@ type Props = {
     comingSoon: string;
     proBadge: string;
     freeBadge: string;
+    faq: string;
+    help: string;
+    recentlyDeleted: string;
   };
   onBack: () => void;
   onManageSubscription: () => void;
@@ -44,33 +49,61 @@ function SettingsRow({
   onClick,
   danger,
   trailing,
+  href,
+  to,
 }: {
   icon: ReactNode;
   label: string;
   onClick?: () => void;
   danger?: boolean;
   trailing?: ReactNode;
+  href?: string;
+  to?: string;
 }) {
-  return (
-    <button
-      type="button"
-      style={{
-        ...homeMenuRow,
-        color: danger ? "#f87171" : shell.text,
-      }}
-      onClick={onClick}
-      disabled={!onClick && !trailing}
-    >
+  const content = (
+    <>
       <span aria-hidden style={{ width: 22, textAlign: "center", opacity: 0.95 }}>
         {icon}
       </span>
       <span style={{ flex: 1 }}>{label}</span>
       {trailing}
+    </>
+  );
+  const style = {
+    ...homeMenuRow,
+    color: danger ? "#f87171" : shell.text,
+    textDecoration: "none" as const,
+  };
+  if (href) {
+    return (
+      <a href={href} style={style} onClick={onClick}>
+        {content}
+      </a>
+    );
+  }
+  if (to) {
+    return (
+      <Link to={to} style={style} onClick={onClick}>
+        {content}
+      </Link>
+    );
+  }
+  return (
+    <button
+      type="button"
+      style={style}
+      onClick={onClick}
+      disabled={!onClick && !trailing}
+    >
+      {content}
     </button>
   );
 }
 
-/** 設定画面（添付メニュー構成） */
+/**
+ * ライブラリのメニュー＝設定を1画面にまとめたビュー。
+ * （サイドドロワー → 設定、の2段構成は使わない）
+ */
 export function HomeSettingsView({
   email,
   isPro,
@@ -101,8 +134,7 @@ export function HomeSettingsView({
           display: "grid",
           gridTemplateColumns: "44px 1fr 44px",
           alignItems: "center",
-          padding:
-            "max(10px, env(safe-area-inset-top, 0px)) 8px 10px",
+          padding: "max(10px, env(safe-area-inset-top, 0px)) 8px 10px",
           borderBottom: `1px solid rgba(255,255,255,0.08)`,
         }}
       >
@@ -127,7 +159,14 @@ export function HomeSettingsView({
         <span />
       </header>
 
-      <div style={{ padding: "20px 18px 12px", display: "flex", gap: 14, alignItems: "center" }}>
+      <div
+        style={{
+          padding: "20px 18px 12px",
+          display: "flex",
+          gap: 14,
+          alignItems: "center",
+        }}
+      >
         <div
           aria-hidden
           style={{
@@ -156,7 +195,19 @@ export function HomeSettingsView({
           >
             {email}
           </div>
-          <div style={{ marginTop: 6, fontSize: 11, color: shell.textSubtle }}>
+          <div
+            style={{
+              marginTop: 6,
+              display: "inline-block",
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              padding: "2px 8px",
+              borderRadius: 4,
+              background: isPro ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.06)",
+              color: shell.textMuted,
+            }}
+          >
             {isPro ? labels.proBadge : labels.freeBadge}
           </div>
         </div>
@@ -220,6 +271,12 @@ export function HomeSettingsView({
 
       <div style={homeDivider} />
 
+      <SettingsRow icon="?" label={labels.faq} to="/update-log" />
+      <SettingsRow
+        icon="✉"
+        label={labels.help}
+        href="mailto:interush.info@gmail.com?subject=ChoreoCore%20help"
+      />
       <SettingsRow
         icon="↗"
         label={labels.sendData}
@@ -228,6 +285,11 @@ export function HomeSettingsView({
             "ChoreoCore app data"
           )}&body=${encodeURIComponent(`Account: ${email}\nVersion: ${appVersion}`)}`;
         }}
+      />
+      <SettingsRow
+        icon="🗑"
+        label={labels.recentlyDeleted}
+        onClick={() => window.alert(labels.comingSoon)}
       />
 
       <div style={homeDivider} />
@@ -255,10 +317,14 @@ export function HomeSettingsView({
         </div>
       ) : null}
 
+      <div style={{ padding: "16px 18px 8px" }}>
+        <LanguageSwitcher variant="inline" />
+      </div>
+
       <p
         style={{
           marginTop: "auto",
-          padding: "24px 18px max(24px, env(safe-area-inset-bottom, 0px))",
+          padding: "16px 18px max(24px, env(safe-area-inset-bottom, 0px))",
           fontSize: 12,
           color: shell.textSubtle,
         }}

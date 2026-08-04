@@ -7,8 +7,6 @@ import {
   type ProjectListItem,
 } from "../../api/client";
 import { ProjectFormationThumb } from "../../components/dashboard/ProjectFormationThumb";
-import { PortableBackupSection } from "../../components/dashboard/PortableBackupSection";
-import { LanguageSwitcher } from "../../components/LanguageSwitcher";
 import { btnAccent } from "../../components/stageButtonStyles";
 import { useAuth } from "../../context/AuthContext";
 import { useI18n } from "../../i18n/I18nContext";
@@ -24,7 +22,6 @@ import { tryMigrateFromLocalStorage } from "../../lib/projectDefaults";
 import { shell } from "../../theme/choreoShell";
 import { homeIconBtn } from "./homeChrome";
 import { HomeSettingsView } from "./HomeSettingsView";
-import { HomeSideDrawer } from "./HomeSideDrawer";
 import {
   ProjectActionSheet,
   type ProjectSheetAction,
@@ -41,11 +38,11 @@ function formatUpdatedAt(iso: string): string {
   }
 }
 
-type Panel = "library" | "settings" | "storage";
+type Panel = "library" | "settings";
 
 const APP_VERSION = "β";
 
-/** ログイン後ホーム: ライブラリ + サイドメニュー + 設定 + 作品メニュー */
+/** ログイン後ホーム: ライブラリ + 設定（メニューは設定に1画面で統合） */
 export function HomeLibrary() {
   const { t } = useI18n();
   const { me, logout } = useAuth();
@@ -54,7 +51,6 @@ export function HomeLibrary() {
   const hasStripeCustomer = hasStripeCustomerId(me);
 
   const [panel, setPanel] = useState<Panel>("library");
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -230,6 +226,9 @@ export function HomeLibrary() {
             comingSoon: t("home.comingSoon"),
             proBadge: "PRO",
             freeBadge: `FREE ${projects.length}/3`,
+            faq: t("home.drawer.faq"),
+            help: t("home.drawer.help"),
+            recentlyDeleted: t("home.drawer.recentlyDeleted"),
           }}
           onBack={() => {
             setSettingsStorageOpen(false);
@@ -243,46 +242,23 @@ export function HomeLibrary() {
     );
   }
 
-  if (panel === "storage") {
-    return (
-      <div className="home-page">
-        <header className="home-library-header">
-          <button
-            type="button"
-            aria-label={t("home.settings.back")}
-            style={homeIconBtn}
-            onClick={() => setPanel("library")}
-          >
-            ‹
-          </button>
-          <h1 className="home-display home-library-title">
-            {t("home.settings.manageStorage")}
-          </h1>
-        </header>
-        <div className="home-library-main">
-          <PortableBackupSection loggedIn />
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="home-page home-library">
       <header className="home-library-header">
         <button
           type="button"
-          aria-label={t("home.menu.open")}
+          aria-label={t("home.settings.title")}
           style={homeIconBtn}
-          onClick={() => setDrawerOpen(true)}
+          onClick={() => {
+            setSettingsStorageOpen(false);
+            setPanel("settings");
+          }}
         >
           <span aria-hidden style={{ fontSize: 22, lineHeight: 1 }}>
             ☰
           </span>
         </button>
         <h1 className="home-display home-library-title">{t("home.libraryTitle")}</h1>
-        <div className="home-header-locale">
-          <LanguageSwitcher variant="inline" />
-        </div>
         {!isPro ? (
           <button
             type="button"
@@ -437,26 +413,6 @@ export function HomeLibrary() {
           +
         </Link>
       )}
-
-      <HomeSideDrawer
-        open={drawerOpen}
-        email={email}
-        onClose={() => setDrawerOpen(false)}
-        onOpenSettings={() => {
-          setSettingsStorageOpen(false);
-          setPanel("settings");
-        }}
-        onOpenStorage={() => setPanel("storage")}
-        labels={{
-          settings: t("home.settings.title"),
-          offline: t("home.drawer.offline"),
-          faq: t("home.drawer.faq"),
-          help: t("home.drawer.help"),
-          recentlyDeleted: t("home.drawer.recentlyDeleted"),
-          close: t("home.menu.close"),
-          comingSoon: t("home.comingSoon"),
-        }}
-      />
 
       <ProjectActionSheet
         open={Boolean(actionProject)}
