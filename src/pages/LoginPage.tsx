@@ -7,7 +7,7 @@ import { useAuth, mapApiMeToContextMe } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
 import { AuthAlternativeMethods, AuthMethodDivider } from "../components/auth/AuthAlternativeMethods";
 import { AuthScreenLayout } from "../components/AuthScreenLayout";
-import { btnAccent, btnSecondary, inputField } from "../components/stageButtonStyles";
+import { btnAccent, inputField } from "../components/stageButtonStyles";
 import { shell } from "../theme/choreoShell";
 
 const labelStyle: CSSProperties = {
@@ -33,7 +33,7 @@ export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const { me, ready, setAuth, logout, skipLoginForNow, refresh } = useAuth();
+  const { me, ready, setAuth, logout, refresh } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -132,33 +132,6 @@ export function LoginPage() {
         <button type="submit" style={{ ...btnAccent, width: "100%", padding: "12px 18px" }}>
           {t("auth.submitLogin")}
         </button>
-        <button
-          type="button"
-          style={{
-            ...btnSecondary,
-            width: "100%",
-            marginTop: 12,
-            padding: "10px 16px",
-            fontSize: "13px",
-          }}
-          onClick={() => {
-            skipLoginForNow();
-            navigate("/", { replace: true });
-          }}
-        >
-          {t("auth.skipLoginButton")}
-        </button>
-        <p
-          style={{
-            marginTop: 10,
-            fontSize: "11px",
-            lineHeight: 1.45,
-            color: shell.textSubtle,
-            textAlign: "center",
-          }}
-        >
-          {t("auth.skipLoginNote")}
-        </p>
         <p
           style={{
             marginTop: "22px",
@@ -175,25 +148,6 @@ export function LoginPage() {
           <span style={{ fontSize: "12px", color: shell.textSubtle }}>{t("auth.loginFooterHint")}</span>
         </p>
       </form>
-      <Link
-        to="/"
-        style={{
-          ...btnAccent,
-          width: "100%",
-          marginTop: 20,
-          padding: "12px 18px",
-          fontSize: "14px",
-          fontWeight: 700,
-          textDecoration: "none",
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          boxSizing: "border-box",
-          textAlign: "center",
-        }}
-      >
-        {t("auth.toLibrary")}
-      </Link>
       </Fragment>
     </AuthScreenLayout>
   );
