@@ -131,7 +131,6 @@ export function GuestLanding() {
                 {t("dashboard.login")}
               </Link>
             </div>
-            <p className="home-cta-note">{t("landing.ctaNote")}</p>
             <p className="home-cta-methods">{t("landing.registerMethodsHint")}</p>
           </div>
 

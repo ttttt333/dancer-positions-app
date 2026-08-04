@@ -193,12 +193,23 @@ function drawAudienceGuideLabels(
 /** 設定オフ時も見えるよう 10% 間隔の基準線 */
 function drawBaselineGrid(
   ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
-  main: FloorRect
+  main: FloorRect,
+  opts?: { stronger?: boolean }
 ) {
-  ctx.strokeStyle = "rgba(100,116,139,0.45)";
-  ctx.lineWidth = 1;
+  const stronger = opts?.stronger === true;
   for (let p = 10; p < 100; p += 10) {
     if (Math.abs(p - 50) < 0.5) continue;
+    const major = p % 25 === 0;
+    if (stronger && major) {
+      ctx.strokeStyle = "rgba(203,213,225,0.72)";
+      ctx.lineWidth = 1.5;
+    } else if (stronger) {
+      ctx.strokeStyle = "rgba(148,163,184,0.5)";
+      ctx.lineWidth = 1.25;
+    } else {
+      ctx.strokeStyle = "rgba(100,116,139,0.45)";
+      ctx.lineWidth = 1;
+    }
     const x = main.x + (p / 100) * main.w;
     const y = main.y + (p / 100) * main.h;
     ctx.beginPath();
@@ -212,13 +223,10 @@ function drawBaselineGrid(
   }
 }
 
-function drawGrid(
+function drawCenterLine(
   ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
-  appearance: StageExportAppearance,
   main: FloorRect
 ) {
-  drawBaselineGrid(ctx, main);
-
   const cx = main.x + main.w / 2;
   ctx.strokeStyle = "rgba(251,191,36,0.95)";
   ctx.lineWidth = 2;
@@ -226,57 +234,80 @@ function drawGrid(
   ctx.moveTo(cx, main.y);
   ctx.lineTo(cx, main.y + main.h);
   ctx.stroke();
+}
 
-  if (!appearance.stepXPct || !appearance.stepYPct) return;
+/**
+ * 細かい mm 刻みを中央から有限本だけ引くと、間隔が狭いとき中央に線が密集する。
+ * 画面幅に対して最低ピクセル間隔を確保し、全域に均等に描く。
+ */
+function drawFineGridAxis(
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  main: FloorRect,
+  stepPct: number,
+  axis: "x" | "y"
+) {
+  const spanPx = axis === "x" ? main.w : main.h;
+  if (!(stepPct > 0) || !(spanPx > 0)) return;
 
-  const maxLines = 48;
-  ctx.strokeStyle = "rgba(148,163,184,0.7)";
-  ctx.lineWidth = 1;
-
-  if (appearance.stageGridLinesVertical && appearance.stepXPct > 0) {
-    for (let k = 1; k <= maxLines; k++) {
-      const off = k * appearance.stepXPct;
-      const r = 50 + off;
-      const l = 50 - off;
-      if (r <= 100) {
-        const x = main.x + (r / 100) * main.w;
-        ctx.beginPath();
-        ctx.moveTo(x, main.y);
-        ctx.lineTo(x, main.y + main.h);
-        ctx.stroke();
-      }
-      if (l >= 0) {
-        const x = main.x + (l / 100) * main.w;
-        ctx.beginPath();
-        ctx.moveTo(x, main.y);
-        ctx.lineTo(x, main.y + main.h);
-        ctx.stroke();
-      }
-      if (r > 100 && l < 0) break;
-    }
+  const minGapPx = 10;
+  const minStepPct = (minGapPx / spanPx) * 100;
+  let step = stepPct;
+  if (step < minStepPct) {
+    // 元の刻みの整数倍に丸めて、見た目の間隔だけ間引く
+    const mult = Math.max(1, Math.ceil(minStepPct / step));
+    step = step * mult;
+  }
+  // 片側あたりの最大本数（中央〜端）
+  const maxHalf = 40;
+  if (50 / step > maxHalf) {
+    step = 50 / maxHalf;
   }
 
-  if (appearance.stageGridLinesHorizontal && appearance.stepYPct > 0) {
-    for (let k = 1; k <= maxLines; k++) {
-      const off = k * appearance.stepYPct;
-      const b = 50 + off;
-      const t = 50 - off;
-      if (b <= 100) {
-        const y = main.y + (b / 100) * main.h;
-        ctx.beginPath();
-        ctx.moveTo(main.x, y);
-        ctx.lineTo(main.x + main.w, y);
-        ctx.stroke();
-      }
-      if (t >= 0) {
-        const y = main.y + (t / 100) * main.h;
-        ctx.beginPath();
-        ctx.moveTo(main.x, y);
-        ctx.lineTo(main.x + main.w, y);
-        ctx.stroke();
-      }
-      if (b > 100 && t < 0) break;
+  ctx.strokeStyle = "rgba(148,163,184,0.45)";
+  ctx.lineWidth = 1;
+
+  for (let p = step; p < 100 - 1e-6; p += step) {
+    if (Math.abs(p - 50) < step * 0.25) continue;
+    if (axis === "x") {
+      const x = main.x + (p / 100) * main.w;
+      ctx.beginPath();
+      ctx.moveTo(x, main.y);
+      ctx.lineTo(x, main.y + main.h);
+      ctx.stroke();
+    } else {
+      const y = main.y + (p / 100) * main.h;
+      ctx.beginPath();
+      ctx.moveTo(main.x, y);
+      ctx.lineTo(main.x + main.w, y);
+      ctx.stroke();
     }
+  }
+}
+
+function drawGrid(
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  appearance: StageExportAppearance,
+  main: FloorRect
+) {
+  const print = appearance.printFriendlyGrid === true;
+  drawBaselineGrid(ctx, main, { stronger: print });
+  drawCenterLine(ctx, main);
+
+  if (print) return;
+
+  if (
+    appearance.stageGridLinesVertical &&
+    appearance.stepXPct != null &&
+    appearance.stepXPct > 0
+  ) {
+    drawFineGridAxis(ctx, main, appearance.stepXPct, "x");
+  }
+  if (
+    appearance.stageGridLinesHorizontal &&
+    appearance.stepYPct != null &&
+    appearance.stepYPct > 0
+  ) {
+    drawFineGridAxis(ctx, main, appearance.stepYPct, "y");
   }
 }
 

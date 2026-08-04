@@ -12,7 +12,7 @@ export { buildChoreographyPdfPages } from "./choreographyPdfPages";
 /** A4 landscape（pt）— 参考 PDF「無題の振付.pdf」と同じ向き */
 const PAGE_W = 842;
 const PAGE_H = 595;
-const SIDEBAR_W = 96;
+const SIDEBAR_W = 112;
 const RENDER_SCALE = 2;
 
 function safeFileBase(name: string): string {
@@ -20,6 +20,62 @@ function safeFileBase(name: string): string {
     name.replace(/[\\/:*?"<>|]+/g, "_").replace(/\s+/g, "_").slice(0, 60) ||
     "choreography"
   );
+}
+
+/** 指定幅に収まるよう折り返し（最大 maxLines、超えたら末尾を…） */
+function wrapTextLines(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  maxLines: number
+): string[] {
+  const raw = text.replace(/\s+/g, " ").trim();
+  if (!raw || maxWidth <= 0 || maxLines <= 0) return [];
+
+  const ell = "…";
+  const fit = (s: string): string => {
+    if (ctx.measureText(s).width <= maxWidth) return s;
+    let lo = 0;
+    let hi = s.length;
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      if (ctx.measureText(s.slice(0, mid) + ell).width <= maxWidth) lo = mid;
+      else hi = mid - 1;
+    }
+    return (s.slice(0, Math.max(0, lo)) + ell).trimEnd() || ell;
+  };
+
+  const chars = [...raw];
+  const lines: string[] = [];
+  let current = "";
+
+  for (let i = 0; i < chars.length; i++) {
+    const next = current + chars[i];
+    if (ctx.measureText(next).width <= maxWidth) {
+      current = next;
+      continue;
+    }
+    if (!current) {
+      // 1文字でも幅超過 → 省略して終了
+      lines.push(fit(chars[i]!));
+      return lines.slice(0, maxLines);
+    }
+    lines.push(current);
+    current = chars[i]!;
+    if (lines.length === maxLines) {
+      const rest = current + chars.slice(i + 1).join("");
+      lines[maxLines - 1] = fit(lines[maxLines - 1]! + rest);
+      return lines;
+    }
+  }
+  if (current) {
+    if (lines.length >= maxLines) {
+      lines[maxLines - 1] = fit(lines[maxLines - 1]! + current);
+    } else {
+      lines.push(current);
+    }
+  }
+  return lines.slice(0, maxLines);
 }
 
 function drawPrintPage(
@@ -34,37 +90,55 @@ function drawPrintPage(
   const H = PAGE_H * RENDER_SCALE;
   const side = SIDEBAR_W * RENDER_SCALE;
   const s = RENDER_SCALE;
+  const contentLeft = side + 24 * s;
+  const contentRight = W - 24 * s;
+  const titleMaxW = contentRight - contentLeft;
 
-  ctx.fillStyle = "#f3f4f6";
+  ctx.fillStyle = "#eef1f5";
   ctx.fillRect(0, 0, side, H);
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(side, 0, W - side, H);
 
+  // サイドバー: 再生時間
   ctx.fillStyle = "#6b7280";
   ctx.font = `600 ${11 * s}px "Noto Sans JP", system-ui, sans-serif`;
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
-  ctx.fillText("再生時間", 18 * s, 28 * s);
+  ctx.fillText("再生時間", 16 * s, 28 * s);
 
   ctx.fillStyle = "#111827";
-  ctx.font = `700 ${16 * s}px "Noto Sans JP", system-ui, sans-serif`;
-  ctx.fillText(page.timeLabel, 18 * s, 48 * s);
+  ctx.font = `700 ${15 * s}px "Noto Sans JP", system-ui, sans-serif`;
+  const timeLines = wrapTextLines(ctx, page.timeLabel, side - 28 * s, 2);
+  timeLines.forEach((line, i) => {
+    ctx.fillText(line, 16 * s, (48 + i * 20) * s);
+  });
 
+  // ヘッダー: タイトル（折り返し）+ 作品名
   ctx.fillStyle = "#111827";
-  ctx.font = `700 ${20 * s}px "Noto Sans JP", system-ui, sans-serif`;
-  ctx.textAlign = "left";
-  ctx.fillText(page.title, side + 28 * s, 24 * s);
+  ctx.font = `700 ${18 * s}px "Noto Sans JP", system-ui, sans-serif`;
+  const titleLines = wrapTextLines(ctx, page.title, titleMaxW, 2);
+  titleLines.forEach((line, i) => {
+    ctx.fillText(line, contentLeft, (20 + i * 22) * s);
+  });
 
+  const titleBlockH = Math.max(1, titleLines.length) * 22 * s;
+  const subY = 20 * s + titleBlockH + 4 * s;
   if (pieceTitle.trim()) {
     ctx.fillStyle = "#6b7280";
     ctx.font = `500 ${11 * s}px "Noto Sans JP", system-ui, sans-serif`;
-    ctx.fillText(pieceTitle.trim(), side + 28 * s, 50 * s);
+    const subLines = wrapTextLines(ctx, pieceTitle.trim(), titleMaxW, 1);
+    subLines.forEach((line) => {
+      ctx.fillText(line, contentLeft, subY);
+    });
   }
 
-  const stageX = side + 20 * s;
-  const stageY = 72 * s;
-  const stageW = W - side - 40 * s;
-  const stageH = H - 120 * s;
+  const headerBottom = subY + (pieceTitle.trim() ? 18 * s : 0);
+  const stageTop = Math.max(headerBottom + 12 * s, 72 * s);
+  const footerH = 36 * s;
+  const stageX = side + 16 * s;
+  const stageY = stageTop;
+  const stageW = W - side - 32 * s;
+  const stageH = H - stageY - footerH;
 
   const stageCanvas = document.createElement("canvas");
   stageCanvas.width = Math.max(2, Math.floor(stageW));
@@ -81,30 +155,32 @@ function drawPrintPage(
     {
       ...appearance,
       dancerLabelBelow: true,
-      stageGridLinesVertical: true,
-      stageGridLinesHorizontal: true,
+      stageGridLinesVertical: false,
+      stageGridLinesHorizontal: false,
+      printFriendlyGrid: true,
     },
     0
   );
   ctx.drawImage(stageCanvas, stageX, stageY);
 
+  // フッター
   ctx.fillStyle = "#111827";
-  ctx.font = `700 ${13 * s}px "Noto Sans JP", system-ui, sans-serif`;
+  ctx.font = `700 ${12 * s}px "Noto Sans JP", system-ui, sans-serif`;
   ctx.textAlign = "left";
   ctx.textBaseline = "bottom";
-  ctx.fillText("ChoreoCore", side + 28 * s, H - 18 * s);
+  ctx.fillText("ChoreoCore", contentLeft, H - 14 * s);
 
   ctx.textAlign = "right";
   ctx.fillText(
     String(pageIndex + 1).padStart(2, "0"),
-    W - 24 * s,
-    H - 18 * s
+    contentRight,
+    H - 14 * s
   );
 
   ctx.fillStyle = "#9ca3af";
   ctx.font = `500 ${10 * s}px "Noto Sans JP", system-ui, sans-serif`;
   ctx.textAlign = "center";
-  ctx.fillText(`${pageIndex + 1} / ${pageCount}`, (side + W) / 2, H - 18 * s);
+  ctx.fillText(`${pageIndex + 1} / ${pageCount}`, (side + W) / 2, H - 14 * s);
 }
 
 /**
