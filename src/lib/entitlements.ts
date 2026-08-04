@@ -2,12 +2,17 @@ import type { Me } from "../types/authMe";
 import { isComplimentaryProEmail } from "./complimentaryProEmails";
 
 export const FREE_VIDEO_EXPORT_LIMIT = 10;
+/** 無料プランの最大人数（10人以上は PRO） */
+export const FREE_MAX_DANCERS = 9;
+/** 無料プランの最大キュー数（20個以上は PRO） */
+export const FREE_MAX_CUES = 19;
 
 export interface Entitlements {
   isPro: boolean;
   isTrialing: boolean;
   maxProjects: number | null;
   maxMembersPerProject: number | null;
+  maxCuesPerProject: number | null;
   videoExportLimit: number | null;
   studentShare: boolean;
   collaboration: boolean;
@@ -30,7 +35,8 @@ export function getEntitlements(me: Me | null | undefined): Entitlements {
     isPro,
     isTrialing,
     maxProjects: isPro ? null : 3,
-    maxMembersPerProject: isPro ? null : 9,
+    maxMembersPerProject: isPro ? null : FREE_MAX_DANCERS,
+    maxCuesPerProject: isPro ? null : FREE_MAX_CUES,
     videoExportLimit: isPro ? null : FREE_VIDEO_EXPORT_LIMIT,
     studentShare: isPro,
     collaboration: isPro,

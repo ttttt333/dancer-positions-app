@@ -18,6 +18,8 @@ describe("entitlements", () => {
     const ent = getEntitlements(baseMe);
     expect(ent.isPro).toBe(false);
     expect(ent.videoExportLimit).toBe(FREE_VIDEO_EXPORT_LIMIT);
+    expect(ent.maxMembersPerProject).toBe(9);
+    expect(ent.maxCuesPerProject).toBe(19);
   });
 
   it("trialing user is Pro", () => {

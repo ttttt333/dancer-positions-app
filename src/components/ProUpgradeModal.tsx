@@ -1,10 +1,18 @@
 import { useCallback, useState } from "react";
 import { billingApi } from "../api/client";
-import { FREE_VIDEO_EXPORT_LIMIT } from "../lib/entitlements";
+import {
+  FREE_MAX_CUES,
+  FREE_MAX_DANCERS,
+  FREE_VIDEO_EXPORT_LIMIT,
+} from "../lib/entitlements";
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
 import { EditorSideSheet } from "./EditorSideSheet";
 
-export type ProUpgradeReason = "export_limit_reached" | "project_limit";
+export type ProUpgradeReason =
+  | "export_limit_reached"
+  | "project_limit"
+  | "dancer_limit"
+  | "cue_limit";
 
 type Props = {
   open: boolean;
@@ -31,12 +39,20 @@ export function ProUpgradeModal({ open, reason, onClose }: Props) {
   const title =
     reason === "export_limit_reached"
       ? "動画書き出しの上限に達しました"
-      : "作品数の上限に達しました";
+      : reason === "project_limit"
+        ? "作品数の上限に達しました"
+        : reason === "dancer_limit"
+          ? "人数の上限に達しました"
+          : "キュー数の上限に達しました";
 
   const description =
     reason === "export_limit_reached"
       ? `無料プランでは動画の書き出しは累計${FREE_VIDEO_EXPORT_LIMIT}回までです。PROプランにアップグレードすると無制限に書き出せます。7日間の無料トライアル付き（¥550/月）。`
-      : "無料プランではクラウド保存は3作品までです。PROプランで無制限に作成できます。7日間の無料トライアル付き（¥550/月）。";
+      : reason === "project_limit"
+        ? "無料プランではクラウド保存は3作品までです。PROプランで無制限に作成できます。7日間の無料トライアル付き（¥550/月）。"
+        : reason === "dancer_limit"
+          ? `無料プランでは1フォーメーションあたり人数は${FREE_MAX_DANCERS}人までです。${FREE_MAX_DANCERS + 1}人以上にするにはPROプランが必要です。7日間の無料トライアル付き（¥550/月）。`
+          : `無料プランではキューは${FREE_MAX_CUES}個までです。${FREE_MAX_CUES + 1}個以上にするにはPROプランが必要です。7日間の無料トライアル付き（¥550/月）。`;
 
   return (
     <EditorSideSheet

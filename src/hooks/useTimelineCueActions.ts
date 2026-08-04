@@ -28,6 +28,10 @@ type Params = {
   trimEndSec: number | null;
   /** 波形の空欄ダブルタップ: キューが1つも無いときに「キュー設定」（人数・雛形）を開く */
   onRequestAddCueAtTime?: () => void;
+  /** 無料枠を超えるキュー追加時。false を返すと追加しない */
+  assertCanAddCue?: () => boolean;
+  /** 無料枠を超える人数変更時。false を返すと変更しない */
+  assertCanSetDancerCount?: (nextCount: number) => boolean;
 };
 
 export function useTimelineCueActions({
@@ -41,10 +45,13 @@ export function useTimelineCueActions({
   trimStartSec,
   trimEndSec,
   onRequestAddCueAtTime,
+  assertCanAddCue,
+  assertCanSetDancerCount,
 }: Params) {
   const addCueStartingAtTime = useCallback(
     (t0Raw: number, spanSec = DEFAULT_CUE_SPAN_WITH_AUDIO_SEC) => {
       if (project.viewMode === "view") return;
+      if (assertCanAddCue && !assertCanAddCue()) return;
       const newCueId = crypto.randomUUID();
       let appliedT = 0;
       const cueSpan = Math.max(MIN_CUE_DURATION_SEC, spanSec);
@@ -125,6 +132,7 @@ export function useTimelineCueActions({
       formationIdForNewCue,
       onSelectedCueIdsChange,
       durationRef,
+      assertCanAddCue,
     ]
   );
 
@@ -176,6 +184,7 @@ export function useTimelineCueActions({
   const duplicateCueSameSettings = useCallback(
     (source: Cue) => {
       if (project.viewMode === "view") return;
+      if (assertCanAddCue && !assertCanAddCue()) return;
       const newCueId = crypto.randomUUID();
       let appliedT = Math.round(currentTime * 100) / 100;
       setProject((p) => {
@@ -238,12 +247,14 @@ export function useTimelineCueActions({
       onFormationChosenFromCueList,
       onSelectedCueIdsChange,
       durationRef,
+      assertCanAddCue,
     ]
   );
 
   const duplicateCueAtTimelineEnd = useCallback(
     (source: Cue) => {
       if (project.viewMode === "view") return;
+      if (assertCanAddCue && !assertCanAddCue()) return;
       const newCueId = crypto.randomUUID();
       setProject((p) => {
         if (p.cues.length >= 100) return p;
@@ -307,12 +318,14 @@ export function useTimelineCueActions({
       onFormationChosenFromCueList,
       onSelectedCueIdsChange,
       durationRef,
+      assertCanAddCue,
     ]
   );
 
   const duplicateCueAfterSource = useCallback(
     (source: Cue) => {
       if (project.viewMode === "view") return;
+      if (assertCanAddCue && !assertCanAddCue()) return;
       const newCueId = crypto.randomUUID();
       setProject((p) => {
         if (p.cues.length >= 100) return p;
@@ -372,6 +385,7 @@ export function useTimelineCueActions({
       onFormationChosenFromCueList,
       onSelectedCueIdsChange,
       durationRef,
+      assertCanAddCue,
     ]
   );
 
@@ -382,6 +396,7 @@ export function useTimelineCueActions({
   const duplicateCueAtTime = useCallback(
     (source: Cue, t0Raw: number) => {
       if (project.viewMode === "view") return;
+      if (assertCanAddCue && !assertCanAddCue()) return;
       const newCueId = crypto.randomUUID();
       let appliedT = 0;
       setProject((p) => {
@@ -461,6 +476,7 @@ export function useTimelineCueActions({
       onFormationChosenFromCueList,
       onSelectedCueIdsChange,
       durationRef,
+      assertCanAddCue,
     ]
   );
 
@@ -499,6 +515,7 @@ export function useTimelineCueActions({
   const splitCueAtPlayhead = useCallback(
     (cueId: string) => {
       if (project.viewMode === "view") return;
+      if (assertCanAddCue && !assertCanAddCue()) return;
       const orig = project.cues.find((c) => c.id === cueId);
       if (!orig) return;
       const splitAt = clampTimelineHeadForCueOps(
@@ -568,6 +585,7 @@ export function useTimelineCueActions({
       onSelectedCueIdsChange,
       onFormationChosenFromCueList,
       durationRef,
+      assertCanAddCue,
     ]
   );
 
@@ -593,12 +611,15 @@ export function useTimelineCueActions({
   const adjustFormationDancerCount = useCallback(
     (formationId: string, delta: number) => {
       if (project.viewMode === "view") return;
+      const fm = project.formations.find((x) => x.id === formationId);
+      if (!fm) return;
+      const cur = fm.dancers.length;
+      const n = Math.max(1, Math.min(100, cur + delta));
+      if (n === cur) return;
+      if (assertCanSetDancerCount && !assertCanSetDancerCount(n)) return;
       setProject((p) => {
-        const fm = p.formations.find((x) => x.id === formationId);
-        if (!fm) return p;
-        const cur = fm.dancers.length;
-        const n = Math.max(1, Math.min(80, cur + delta));
-        if (n === cur) return p;
+        const target = p.formations.find((x) => x.id === formationId);
+        if (!target) return p;
         const dancers = dancersForLayoutPreset(n, "line", {
           dancerSpacingMm: p.dancerSpacingMm,
           stageWidthMm: p.stageWidthMm,
@@ -613,7 +634,7 @@ export function useTimelineCueActions({
         };
       });
     },
-    [project.viewMode, setProject]
+    [project.viewMode, project.formations, setProject, assertCanSetDancerCount]
   );
 
   return {

@@ -23,7 +23,12 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { ChoreoCoreLogo } from "../components/ChoreoGridLogo";
+import { ProUpgradeProvider, useProUpgrade } from "../components/ProUpgradeProvider";
 import { StageBoard, type FloorTextPlaceSession } from "../components/StageBoard";
+import {
+  isDancerCountOverFreeLimit,
+  isNextCueOverFreeLimit,
+} from "../lib/proFeatureLimits";
 import { DancerPathEditor } from "../components/DancerPathEditor";
 import { StageDimensionFields } from "../components/StageDimensionFields";
 import {
@@ -205,6 +210,18 @@ export function EditorPage({
 }: {
   choreoPublicView?: boolean;
 } = {}) {
+  return (
+    <ProUpgradeProvider>
+      <EditorPageContent choreoPublicView={choreoPublicView} />
+    </ProUpgradeProvider>
+  );
+}
+
+function EditorPageContent({
+  choreoPublicView = false,
+}: {
+  choreoPublicView?: boolean;
+}) {
   const { projectId, shareToken: shareTokenParam } = useParams<{
     projectId?: string;
     shareToken?: string;
@@ -214,6 +231,7 @@ export function EditorPage({
   const [searchParams] = useSearchParams();
   const { editorMobileStackBreakpoint, editorMobileLandscape } = useEditorViewport();
   const { me, ready: authReady } = useAuth();
+  const { requestProUpgrade } = useProUpgrade();
   const { t } = useI18n();
   const collabRequested = searchParams.get("collab") === "1" && !choreoPublicView;
   const collabParam = collabRequested && isCollabFeatureAvailable();
@@ -1654,10 +1672,17 @@ export function EditorPage({
       project.formations.find((x) => x.id === project.activeFormationId)?.id ??
       project.formations[0]?.id;
     if (!fid) return;
+    const f0 = project.formations.find((x) => x.id === fid);
+    if (!f0) return;
+    if (isDancerCountOverFreeLimit(me, f0.dancers.length + 1)) {
+      requestProUpgrade("dancer_limit");
+      return;
+    }
     setProjectSafe((p) => {
       const f = p.formations.find((x) => x.id === fid);
       if (!f) return p;
       const n = f.dancers.length;
+      if (isDancerCountOverFreeLimit(me, n + 1)) return p;
       const { xPct, yPct } = pickSpotForAppendedDancer(f.dancers);
       const newDancer = {
         id: crypto.randomUUID(),
@@ -1679,7 +1704,7 @@ export function EditorPage({
         ),
       };
     });
-  }, [project, selectedCue, setProjectSafe]);
+  }, [project, selectedCue, setProjectSafe, me, requestProUpgrade]);
 
   /**
    * ステージ上部の「名簿取り込み」ボタンから名簿ファイルを選んで、

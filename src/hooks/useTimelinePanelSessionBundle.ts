@@ -1,4 +1,4 @@
-import { useRef, type ChangeEvent, type Ref } from "react";
+import { useRef, useCallback, type ChangeEvent, type Ref } from "react";
 import type { PlaybackScrubSession } from "../lib/playbackTransport";
 import { useWavePeaksStore } from "../store/wavePeaksStore";
 import type {
@@ -8,6 +8,12 @@ import type {
 import type { BuildTimelinePanelLayoutInput } from "../lib/timelinePanelLayoutProps";
 import { useTimelinePlayback } from "./useTimelinePlayback";
 import { useTimelineCueActions } from "./useTimelineCueActions";
+import { useAuth } from "../context/AuthContext";
+import { useProUpgrade } from "../components/ProUpgradeProvider";
+import {
+  isDancerCountOverFreeLimit,
+  isNextCueOverFreeLimit,
+} from "../lib/proFeatureLimits";
 import { useTimelineWaveHeightDrag } from "./useTimelineWaveHeightDrag";
 import { useTimelineWaveWheelZoom } from "./useTimelineWaveWheelZoom";
 import { useTimelineWaveViewport } from "./useTimelineWaveViewport";
@@ -243,6 +249,26 @@ export function useTimelinePanelSessionBundle(
 
   useTimelineUnmountStagePreviewClear(onStagePreviewChange);
 
+  const { me } = useAuth();
+  const { requestProUpgrade } = useProUpgrade();
+  const assertCanAddCue = useCallback(() => {
+    if (isNextCueOverFreeLimit(me, project.cues.length)) {
+      requestProUpgrade("cue_limit");
+      return false;
+    }
+    return true;
+  }, [me, project.cues.length, requestProUpgrade]);
+  const assertCanSetDancerCount = useCallback(
+    (nextCount: number) => {
+      if (isDancerCountOverFreeLimit(me, nextCount)) {
+        requestProUpgrade("dancer_limit");
+        return false;
+      }
+      return true;
+    },
+    [me, requestProUpgrade]
+  );
+
   const {
     addCueStartingAtTime,
     removeCue,
@@ -266,6 +292,8 @@ export function useTimelinePanelSessionBundle(
     trimStartSec,
     trimEndSec,
     onRequestAddCueAtTime,
+    assertCanAddCue,
+    assertCanSetDancerCount,
   });
 
   const waveBundleParams: TimelinePanelWaveHandlersBundleParams = {
