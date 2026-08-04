@@ -391,8 +391,12 @@ export function HomeLibrary() {
                   <ProjectFormationThumb dancers={p.previewDancers} size={200} fluid />
                   <div className="home-project-name">{p.name}</div>
                   <div className="home-project-meta">
-                    {t("editor.headcount")}: {p.dancerCount} · {t("dashboard.cueCount")}:{" "}
-                    {p.cueCount}
+                    <div className="home-project-meta-line">
+                      {t("editor.headcount")}: {p.dancerCount}
+                    </div>
+                    <div className="home-project-meta-line">
+                      {t("dashboard.cueCount")}: {p.cueCount}
+                    </div>
                   </div>
                   <div className="home-project-updated">{formatUpdatedAt(p.updated_at)}</div>
                 </Link>
