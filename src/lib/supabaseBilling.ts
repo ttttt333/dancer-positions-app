@@ -104,9 +104,12 @@ function invokeBillingFunction<T>(
   });
 }
 
-export async function supabaseCreateCheckoutSession(): Promise<{ url: string }> {
+export async function supabaseCreateCheckoutSession(opts?: {
+  plan?: "monthly" | "annual";
+}): Promise<{ url: string }> {
   const data = await invokeBillingFunction<{ url: string }>(
-    "billing-create-checkout"
+    "billing-create-checkout",
+    { plan: opts?.plan ?? "monthly" }
   );
   if (!data?.url) throw new Error("Checkout URL が取得できませんでした");
   return { url: data.url };

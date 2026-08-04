@@ -84,6 +84,17 @@ export function ProUpgradeModal({ open, reason, onClose }: Props) {
           >
             PRO にアップグレード（内容を確認）
           </button>
+          <p
+            style={{
+              margin: 0,
+              fontSize: 11,
+              lineHeight: 1.45,
+              color: "#64748b",
+              textAlign: "center",
+            }}
+          >
+            月額（カード）または年額 5,500円（PayPay / カード）を選べます
+          </p>
           <button
             type="button"
             style={{ ...btnSecondary, width: "100%" }}

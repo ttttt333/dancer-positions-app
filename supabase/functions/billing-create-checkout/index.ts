@@ -1,15 +1,19 @@
 /**
  * billing-create-checkout — Stripe Checkout Session を作成
+ * body: { plan?: "monthly" | "annual" }  （省略時 monthly）
  */
 
 // @ts-ignore Deno
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
   CORS_HEADERS,
+  createAnnualCheckoutSession,
   createCheckoutSession,
   getUserFromAuthHeader,
   jsonResponse,
+  requireAnnualCheckoutConfig,
   requireCheckoutConfig,
+  requireMonthlyCheckoutConfig,
 } from "../_shared/billing.ts";
 
 serve(async (req: Request) => {
@@ -20,9 +24,9 @@ serve(async (req: Request) => {
     return jsonResponse({ error: "Method not allowed" }, 405);
   }
 
-  const configErr = requireCheckoutConfig();
-  if (configErr) {
-    return jsonResponse({ error: configErr }, 503);
+  const baseErr = requireCheckoutConfig();
+  if (baseErr) {
+    return jsonResponse({ error: baseErr }, 503);
   }
 
   const user = await getUserFromAuthHeader(req);
@@ -30,12 +34,32 @@ serve(async (req: Request) => {
     return jsonResponse({ error: "ログインが必要です" }, 401);
   }
 
+  let plan: "monthly" | "annual" = "monthly";
   try {
+    const body = (await req.json()) as { plan?: string };
+    if (body?.plan === "annual") plan = "annual";
+  } catch {
+    /* empty body → monthly */
+  }
+
+  try {
+    if (plan === "annual") {
+      const annualErr = requireAnnualCheckoutConfig();
+      if (annualErr) return jsonResponse({ error: annualErr }, 503);
+      const { url } = await createAnnualCheckoutSession({
+        userId: user.id,
+        email: user.email,
+      });
+      return jsonResponse({ url, plan: "annual" });
+    }
+
+    const monthlyErr = requireMonthlyCheckoutConfig();
+    if (monthlyErr) return jsonResponse({ error: monthlyErr }, 503);
     const { url } = await createCheckoutSession({
       userId: user.id,
       email: user.email,
     });
-    return jsonResponse({ url });
+    return jsonResponse({ url, plan: "monthly" });
   } catch (e) {
     console.error("[billing-create-checkout]", e);
     return jsonResponse(

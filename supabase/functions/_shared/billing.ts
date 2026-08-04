@@ -8,6 +8,9 @@ const STRIPE_PRICE_ID =
   Deno.env.get("STRIPE_PRICE_ID") ??
   "";
 // @ts-ignore Deno
+const STRIPE_PRICE_ID_PRO_ANNUAL =
+  Deno.env.get("STRIPE_PRICE_ID_PRO_ANNUAL") ?? "";
+// @ts-ignore Deno
 const STRIPE_TRIAL_DAYS = Number(Deno.env.get("STRIPE_TRIAL_DAYS") ?? "7");
 // @ts-ignore Deno
 const STRIPE_WEBHOOK_SECRET = Deno.env.get("STRIPE_WEBHOOK_SECRET") ?? "";
@@ -46,10 +49,25 @@ export function requireStripeConfig(): string | null {
 export function requireCheckoutConfig(): string | null {
   const base = requireStripeConfig();
   if (base) return base;
-  if (!STRIPE_PRICE_ID) return "STRIPE_PRICE_ID not configured";
   if (!APP_BASE) return "APP_BASE not configured";
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     return "Supabase service role not configured";
+  }
+  return null;
+}
+
+export function requireMonthlyCheckoutConfig(): string | null {
+  const base = requireCheckoutConfig();
+  if (base) return base;
+  if (!STRIPE_PRICE_ID) return "STRIPE_PRICE_ID not configured";
+  return null;
+}
+
+export function requireAnnualCheckoutConfig(): string | null {
+  const base = requireCheckoutConfig();
+  if (base) return base;
+  if (!STRIPE_PRICE_ID_PRO_ANNUAL) {
+    return "STRIPE_PRICE_ID_PRO_ANNUAL not configured";
   }
   return null;
 }
@@ -151,6 +169,9 @@ export async function createCheckoutSession(opts: {
   userId: string;
   email: string;
 }): Promise<{ url: string }> {
+  const cfg = requireMonthlyCheckoutConfig();
+  if (cfg) throw new Error(cfg);
+
   const existingCustomerId = await fetchStripeCustomerIdForUser(opts.userId);
   const trialDays =
     Number.isFinite(STRIPE_TRIAL_DAYS) && STRIPE_TRIAL_DAYS > 0
@@ -167,6 +188,41 @@ export async function createCheckoutSession(opts: {
     "subscription_data[trial_period_days]": String(trialDays),
     "subscription_data[trial_settings][end_behavior][missing_payment_method]":
       "cancel",
+  };
+
+  if (existingCustomerId) {
+    params.customer = existingCustomerId;
+  } else {
+    params.customer_email = opts.email;
+  }
+
+  const session = await stripeRequest<StripeCheckoutSession>(
+    "/checkout/sessions",
+    "POST",
+    params
+  );
+  if (!session.url) throw new Error("Checkout URL が取得できませんでした");
+  return { url: session.url };
+}
+
+/** 年額一括（PayPay / カード）。mode=payment。サブスク非対応の PayPay 向け。 */
+export async function createAnnualCheckoutSession(opts: {
+  userId: string;
+  email: string;
+}): Promise<{ url: string }> {
+  const cfg = requireAnnualCheckoutConfig();
+  if (cfg) throw new Error(cfg);
+
+  const existingCustomerId = await fetchStripeCustomerIdForUser(opts.userId);
+  const params: Record<string, string> = {
+    mode: "payment",
+    "line_items[0][price]": STRIPE_PRICE_ID_PRO_ANNUAL,
+    "line_items[0][quantity]": "1",
+    success_url: `${APP_BASE}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${APP_BASE}/billing/canceled`,
+    client_reference_id: opts.userId,
+    // Dashboard で有効化した PayPay / カード等を表示
+    "automatic_payment_methods[enabled]": "true",
   };
 
   if (existingCustomerId) {
@@ -346,6 +402,19 @@ export async function applyCheckoutSessionToUser(
   session: StripeCheckoutSession
 ): Promise<string> {
   const customerId = session.customer ? String(session.customer) : null;
+  const mode = (session.mode || "subscription").trim();
+  const paid =
+    session.payment_status === "paid" || session.status === "complete";
+
+  /** 年額一括（PayPay 等）→ 1 年 Pro 付与 */
+  if (mode === "payment") {
+    if (!paid) {
+      throw new Error("支払いが完了していません");
+    }
+    await grantPrepaidAnnualFromCheckout(userId, session.id, customerId);
+    return "prepaid_annual";
+  }
+
   const subId = subscriptionIdFromSession(session);
   let status = subscriptionStatusFromSession(session);
   /** webhook 到着順は保証されないため、subscription ID があれば Stripe から最新状態を取得 */
@@ -368,6 +437,75 @@ export async function applyCheckoutSessionToUser(
     subscription_status: subId ? status : null,
   });
   return status;
+}
+
+const PREPAID_ANNUAL_DAYS = 365;
+
+/** Checkout mode=payment 完了時に 1 年 Pro（idempotent by session id） */
+export async function grantPrepaidAnnualFromCheckout(
+  userId: string,
+  checkoutSessionId: string,
+  customerId: string | null
+): Promise<void> {
+  // @ts-ignore Deno
+  const { createClient } = await import("npm:@supabase/supabase-js@2");
+  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+  const { data: existing, error: exErr } = await admin
+    .from("choreocore_pro_grants")
+    .select("id")
+    .eq("stripe_checkout_session_id", checkoutSessionId)
+    .maybeSingle();
+  if (exErr) throw new Error(exErr.message);
+  if (existing?.id) {
+    if (customerId) {
+      await upsertBillingRow({
+        user_id: userId,
+        stripe_customer_id: customerId,
+      });
+    }
+    return;
+  }
+
+  const now = new Date();
+  const { data: activeRows, error: actErr } = await admin
+    .from("choreocore_pro_grants")
+    .select("expires_at")
+    .eq("user_id", userId)
+    .eq("grant_type", "prepaid_annual")
+    .is("revoked_at", null)
+    .gt("expires_at", now.toISOString())
+    .order("expires_at", { ascending: false })
+    .limit(1);
+  if (actErr) throw new Error(actErr.message);
+
+  const latest = activeRows?.[0]?.expires_at
+    ? new Date(String(activeRows[0].expires_at))
+    : null;
+  const base =
+    latest && Number.isFinite(latest.getTime()) && latest > now ? latest : now;
+  const expires = new Date(base.getTime());
+  expires.setUTCDate(expires.getUTCDate() + PREPAID_ANNUAL_DAYS);
+
+  const { error: insErr } = await admin.from("choreocore_pro_grants").insert({
+    user_id: userId,
+    grant_type: "prepaid_annual",
+    expires_at: expires.toISOString(),
+    note: "Stripe annual prepaid (PayPay/card)",
+    stripe_checkout_session_id: checkoutSessionId,
+  });
+  if (insErr) {
+    // 競合（同一 session の二重 webhook）は成功扱い
+    if (/duplicate|unique/i.test(insErr.message)) {
+      return;
+    }
+    throw new Error(insErr.message);
+  }
+
+  await upsertBillingRow({
+    user_id: userId,
+    stripe_customer_id: customerId,
+  });
 }
 
 export { STRIPE_WEBHOOK_SECRET, STRIPE_SECRET_KEY };

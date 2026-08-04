@@ -15,10 +15,31 @@ import {
   type ProjectListItem as SupabaseProjectListItem,
 } from "../lib/supabaseProjects";
 import {
+  ensureSupabaseAccessToken,
+  getSupabaseAccessToken,
+  isSupabaseBackend,
+} from "../lib/supabaseClient";
+import { compressAudioFileToMp3ForUpload } from "../lib/compressAudioToMp3";
+import { supabaseUploadProjectAudio } from "../lib/supabaseAudio";
+import {
+  supabaseCreateProject,
+  supabaseDeleteProject,
+  supabaseGetProject,
+  supabaseGetProjectByShareToken,
+  supabaseListProjects,
+  supabaseUpdateProject,
+  type ProjectListItem as SupabaseProjectListItem,
+} from "../lib/supabaseProjects";
+import {
+  supabaseCreateCheckoutSession,
   supabaseOpenCustomerPortal,
   supabaseVerifyCheckoutSession,
 } from "../lib/supabaseBilling";
-import { STRIPE_PRO_PAYMENT_LINK } from "../lib/stripeProPaymentLink";
+import {
+  STRIPE_PRO_ANNUAL_PAYMENT_LINK,
+  STRIPE_PRO_PAYMENT_LINK,
+  withClientReferenceId,
+} from "../lib/stripeProPaymentLink";
 import { summarizeProjectJson } from "../lib/projectListSummary";
 
 /** 本番ログイン前の暫定利用。`refresh` は API を呼ばずダミーユーザーを復元する */
@@ -373,10 +394,39 @@ export async function audioApiUpload(
 }
 
 export const billingApi = {
-  /** Pro 申込: Stripe Payment Link へ遷移（レスポンスの url へリダイレクト） */
-  createCheckoutSession: async (): Promise<{ url: string }> => ({
-    url: STRIPE_PRO_PAYMENT_LINK,
-  }),
+  /**
+   * Pro 申込。
+   * - monthly: 既存 Payment Link（カード・月額サブスク）
+   * - annual: Edge Checkout（PayPay 可）→ 失敗時は年額 Payment Link
+   */
+  createCheckoutSession: async (opts?: {
+    plan?: "monthly" | "annual";
+    userId?: string;
+  }): Promise<{ url: string }> => {
+    const plan = opts?.plan ?? "monthly";
+    if (plan === "annual") {
+      if (isSupabaseBackend()) {
+        try {
+          return await supabaseCreateCheckoutSession({ plan: "annual" });
+        } catch (e) {
+          console.warn("[billing] annual edge checkout failed, try link", e);
+        }
+      }
+      if (!STRIPE_PRO_ANNUAL_PAYMENT_LINK) {
+        throw new Error(
+          "年額決済が未設定です。Stripe に年額 Price と PayPay を用意し、Edge Secret STRIPE_PRICE_ID_PRO_ANNUAL（または VITE_STRIPE_PRO_ANNUAL_PAYMENT_LINK）を設定してください。"
+        );
+      }
+      const userId = opts?.userId?.trim();
+      if (!userId) {
+        throw new Error("年額決済にはログインが必要です");
+      }
+      return {
+        url: withClientReferenceId(STRIPE_PRO_ANNUAL_PAYMENT_LINK, userId),
+      };
+    }
+    return { url: STRIPE_PRO_PAYMENT_LINK };
+  },
   verifyCheckoutSession: (sessionId: string) =>
     isSupabaseBackend()
       ? supabaseVerifyCheckoutSession(sessionId)

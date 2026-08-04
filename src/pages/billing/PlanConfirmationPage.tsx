@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { billingApi } from "../../api/client";
 import { PlanConfirmation } from "../../components/PlanConfirmation";
 import { useAuth } from "../../context/AuthContext";
+import type { ProCheckoutPlan } from "../../lib/commercialDisclosure";
 
 /**
  * PRO 申込み：Stripe Checkout / Payment Link の直前確認（特商法改正対応）。
@@ -10,6 +11,7 @@ import { useAuth } from "../../context/AuthContext";
 export function PlanConfirmationPage() {
   const navigate = useNavigate();
   const { me, ready } = useAuth();
+  const [plan, setPlan] = useState<ProCheckoutPlan>("monthly");
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -22,13 +24,16 @@ export function PlanConfirmationPage() {
     setBusy(true);
     setError("");
     try {
-      const { url } = await billingApi.createCheckoutSession();
+      const { url } = await billingApi.createCheckoutSession({
+        plan,
+        userId: String(me.user.id),
+      });
       window.location.href = url;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Checkout の開始に失敗しました");
       setBusy(false);
     }
-  }, [navigate, me]);
+  }, [navigate, me, plan]);
 
   return (
     <div
@@ -44,6 +49,11 @@ export function PlanConfirmationPage() {
         <p style={{ color: "#94a3b8", fontSize: 14 }}>読み込み中…</p>
       ) : (
         <PlanConfirmation
+          plan={plan}
+          onPlanChange={(next) => {
+            setPlan(next);
+            setConfirmed(false);
+          }}
           confirmed={confirmed}
           onConfirmedChange={setConfirmed}
           busy={busy}
