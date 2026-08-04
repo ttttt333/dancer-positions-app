@@ -17,6 +17,24 @@
 -- on conflict (user_id) do update
 --   set entitlement_lifetime = true, updated_at = now();
 
+-- ■ 追加メールを無制限 PRO（013 と同等の単発）
+-- insert into public.choreocore_pro_lifetime_emails (email, note)
+-- values
+--   ('zazamin0808@gmail.com', '無制限PRO（手動付与）'),
+--   ('aoi753695@gmail.com', '無制限PRO（手動付与）')
+-- on conflict (email) do update set note = excluded.note;
+--
+-- insert into public.choreocore_pro_grants (user_id, grant_type, note, expires_at)
+-- select id, 'complimentary', '無制限PRO', null
+-- from auth.users
+-- where lower(email) in (lower('zazamin0808@gmail.com'), lower('aoi753695@gmail.com'));
+--
+-- insert into public.choreocore_user_billing (user_id, entitlement_lifetime)
+-- select id, true from auth.users
+-- where lower(email) in (lower('zazamin0808@gmail.com'), lower('aoi753695@gmail.com'))
+-- on conflict (user_id) do update
+--   set entitlement_lifetime = true, updated_at = now();
+
 -- ■ interush.info@gmail.com を無制限 PRO にする（012 と同等の単発）
 -- insert into public.choreocore_pro_lifetime_emails (email, note)
 -- values ('interush.info@gmail.com', '無制限PRO（手動付与）')

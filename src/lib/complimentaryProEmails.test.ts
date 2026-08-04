@@ -5,6 +5,8 @@ describe("complimentaryProEmails", () => {
   it("matches the lifetime Pro email case-insensitively", () => {
     expect(isComplimentaryProEmail("interush.info@gmail.com")).toBe(true);
     expect(isComplimentaryProEmail("Interush.Info@Gmail.com")).toBe(true);
+    expect(isComplimentaryProEmail("zazamin0808@gmail.com")).toBe(true);
+    expect(isComplimentaryProEmail("aoi753695@gmail.com")).toBe(true);
   });
 
   it("rejects unrelated emails", () => {
