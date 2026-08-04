@@ -4,36 +4,84 @@ import { ChoreoCoreLogo } from "../../components/ChoreoCoreLogo";
 import { LanguageSwitcher } from "../../components/LanguageSwitcher";
 import { useI18n } from "../../i18n/I18nContext";
 
-const REASONS: Array<{ id: string; icon: string }> = [
-  { id: "01", icon: "◇" },
+/** ヒーロー直下に出す3項目（残りは詳細セクションへ） */
+const HERO_BENEFITS = [
   { id: "02", icon: "◎" },
   { id: "03", icon: "⚡" },
+  { id: "05", icon: "↗" },
+] as const;
+
+/** ヒーロー以外の機能詳細（既存テキストの移設） */
+const DETAIL_REASONS = [
+  { id: "01", icon: "◇" },
   { id: "04", icon: "▣" },
-  { id: "05", icon: "◎" },
   { id: "06", icon: "♪" },
   { id: "07", icon: "↻" },
   { id: "08", icon: "▶" },
   { id: "09", icon: "○" },
   { id: "10", icon: "★" },
   { id: "11", icon: "☁" },
+] as const;
+
+const FORMATION_DOTS: Array<{ left: string; top: string; tone: "gold" | "pink" }> = [
+  { left: "48%", top: "12%", tone: "gold" },
+  { left: "30%", top: "32%", tone: "gold" },
+  { left: "66%", top: "32%", tone: "gold" },
+  { left: "14%", top: "55%", tone: "pink" },
+  { left: "48%", top: "55%", tone: "gold" },
+  { left: "82%", top: "55%", tone: "gold" },
+  { left: "30%", top: "78%", tone: "gold" },
+  { left: "66%", top: "78%", tone: "pink" },
 ];
 
-const STAGE_DOTS: Array<{ x: number; y: number; color: string; delay: string }> = [
-  { x: 18, y: 36, color: "#38bdf8", delay: "0s" },
-  { x: 32, y: 54, color: "#f472b6", delay: "0.4s" },
-  { x: 48, y: 30, color: "#a3e635", delay: "0.8s" },
-  { x: 62, y: 58, color: "#fbbf24", delay: "1.1s" },
-  { x: 44, y: 68, color: "#e879f9", delay: "0.2s" },
-  { x: 74, y: 40, color: "#fb7185", delay: "1.5s" },
-  { x: 28, y: 44, color: "#67e8f9", delay: "0.6s" },
-  { x: 56, y: 46, color: "#fde68a", delay: "1.3s" },
+const WAVE_BARS: Array<{ h: number; active?: boolean }> = [
+  { h: 38 },
+  { h: 55 },
+  { h: 90, active: true },
+  { h: 42 },
+  { h: 68 },
+  { h: 30 },
+  { h: 74 },
+  { h: 48 },
+  { h: 62 },
+  { h: 36 },
 ];
+
+function FormationMock({ label }: { label: string }) {
+  return (
+    <div className="home-formation-mock" role="img" aria-label={label}>
+      {FORMATION_DOTS.map((d) => (
+        <span
+          key={`${d.left}-${d.top}`}
+          className={`home-formation-dot home-formation-dot--${d.tone}`}
+          style={{ left: d.left, top: d.top }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function WaveformMock() {
+  return (
+    <div className="home-waveform-mock" aria-hidden>
+      {WAVE_BARS.map((b, i) => (
+        <span
+          key={i}
+          className={`home-wave-bar${b.active ? " is-active" : ""}`}
+          style={{ height: `${b.h}%` }}
+        />
+      ))}
+    </div>
+  );
+}
 
 /**
- * 未ログイン向けトップ: 1ビューポートにブランド・価値・登録導線を収める。
+ * 未ログイン向けトップ（ヒーロー改善スペック準拠）。
+ * ファーストビューは価値訴求3点 + アプリプレビュー。残り機能は下部へ。
  */
 export function GuestLanding() {
   const { t } = useI18n();
+  const headlineLines = t("landing.headline").split("\n");
 
   return (
     <div className="home-page home-landing">
@@ -52,68 +100,95 @@ export function GuestLanding() {
         </div>
       </header>
 
-      <main className="home-landing-fold" aria-label={t("landing.heroAria")}>
-        <div className="home-landing-bg" aria-hidden>
-          <div className="home-landing-stage">
-            <span className="home-landing-stage-label is-top">舞台裏</span>
-            <div className="home-landing-dots">
-              {STAGE_DOTS.map((d) => (
-                <span
-                  key={`${d.x}-${d.y}`}
-                  className="home-landing-dot"
-                  style={{
-                    left: `${d.x}%`,
-                    top: `${d.y}%`,
-                    background: d.color,
-                    animationDelay: d.delay,
-                  }}
-                />
-              ))}
+      <section className="home-hero" aria-label={t("landing.heroAria")}>
+        <div className="home-container home-hero-inner">
+          <div className="home-hero-copy">
+            <div className="home-trust-badge">
+              <span className="home-trust-badge-icon" aria-hidden>
+                ◎
+              </span>
+              <span>{t("landing.trustBadge")}</span>
             </div>
-            <span className="home-landing-stage-label is-bottom">客席</span>
-          </div>
-        </div>
 
-        <div className="home-container home-landing-inner">
-          <div className="home-landing-intro">
-            <p className="home-display home-landing-brand">ChoreoCore</p>
-            <h1 className="home-display home-landing-title">{t("landing.headline")}</h1>
-            <p className="home-landing-support">{t("landing.support")}</p>
-            <div className="home-landing-ctas">
-              <Link to="/register" className="home-landing-cta-primary">
+            <p className="home-display home-hero-brand">ChoreoCore</p>
+
+            <h1 className="home-display home-hero-heading">
+              {headlineLines.map((line, i) => (
+                <span key={i}>
+                  {i > 0 ? <br /> : null}
+                  {line}
+                </span>
+              ))}
+            </h1>
+
+            <p className="home-hero-subcopy">{t("landing.support")}</p>
+
+            <div className="home-cta-group">
+              <Link to="/register" className="home-btn home-btn--primary">
                 {t("landing.ctaTry")}
               </Link>
-              <Link to="/login" className="home-landing-cta-secondary">
+              <Link to="/login" className="home-btn home-btn--secondary">
                 {t("dashboard.login")}
               </Link>
             </div>
-            <p className="home-landing-hint">{t("landing.registerMethodsHint")}</p>
+            <p className="home-cta-note">{t("landing.ctaNote")}</p>
+            <p className="home-cta-methods">{t("landing.registerMethodsHint")}</p>
           </div>
 
-          <section className="home-landing-reasons" aria-labelledby="landing-reasons-title">
-            <div className="home-landing-reasons-head">
-              <h2 id="landing-reasons-title" className="home-display home-landing-reasons-title">
-                {t("landing.reasonsTitle")}
-              </h2>
-              <p className="home-landing-reasons-lead">{t("landing.reasonsLead")}</p>
+          <div className="home-app-preview">
+            <div className="home-app-preview-toolbar">
+              <span>{t("landing.previewToolbar")}</span>
+              <span className="home-app-preview-play" aria-hidden>
+                ▶
+              </span>
             </div>
-            <ul className="home-landing-reasons-list">
-              {REASONS.map((r, i) => (
-                <li
-                  key={r.id}
-                  className="home-landing-reason"
-                  style={{ animationDelay: `${0.05 * i}s` }}
-                >
-                  <span className="home-landing-reason-icon" aria-hidden>
-                    {r.icon}
-                  </span>
-                  <span className="home-landing-reason-text">{t(`landing.reason.${r.id}`)}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
+            {/* 本番は img / video(+poster) に差し替え。未準備時は CSS モック */}
+            <FormationMock label={t("landing.previewAria")} />
+            <WaveformMock />
+          </div>
         </div>
-      </main>
+
+        <div className="home-container home-benefits-strip" role="list">
+          {HERO_BENEFITS.map((b) => (
+            <div key={b.id} className="home-benefit" role="listitem">
+              <span className="home-benefit-icon" aria-hidden>
+                {b.icon}
+              </span>
+              <span>{t(`landing.reason.${b.id}`)}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section
+        className="home-features-detail"
+        aria-labelledby="landing-features-detail-title"
+      >
+        <div className="home-container">
+          <h2
+            id="landing-features-detail-title"
+            className="home-display home-features-detail-title"
+          >
+            {t("landing.featuresDetailTitle")}
+          </h2>
+          <p className="home-features-detail-lead">{t("landing.featuresDetailLead")}</p>
+          <ul className="home-features-detail-list">
+            {DETAIL_REASONS.map((r) => (
+              <li key={r.id} className="home-features-detail-item">
+                <span className="home-features-detail-icon" aria-hidden>
+                  {r.icon}
+                </span>
+                <span>{t(`landing.reason.${r.id}`)}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="home-features-detail-cta">
+            <Link to="/register" className="home-btn home-btn--primary">
+              {t("landing.ctaTry")}
+            </Link>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
