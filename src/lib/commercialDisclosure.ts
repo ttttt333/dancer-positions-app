@@ -108,3 +108,19 @@ export const TOKUSHOHO_ROWS: ReadonlyArray<TokushohoRow> = [
     value: "最新版の Google Chrome / Safari / Edge を推奨",
   },
 ];
+
+/** 編集可能な表記ページの初期本文（DB / ローカル未保存時） */
+export function buildDefaultTokushohoBody(): string {
+  const lines = [
+    "特定商取引法に基づく表記",
+    "",
+    "本ページは一般的な情報開示のためのものです。［要記入］の項目は事業者情報が確定次第更新してください。",
+    "",
+  ];
+  for (const row of TOKUSHOHO_ROWS) {
+    lines.push(`■ ${row.label}`);
+    lines.push(row.value);
+    lines.push("");
+  }
+  return lines.join("\n").trimEnd() + "\n";
+}
