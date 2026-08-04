@@ -1,7 +1,9 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { AppLegalFooter } from "../../components/AppLegalFooter";
 import { PortableBackupSection } from "../../components/dashboard/PortableBackupSection";
 import { LanguageSwitcher } from "../../components/LanguageSwitcher";
+import { TOKUSHOHO_PATH } from "../../lib/commercialDisclosure";
 import { shell } from "../../theme/choreoShell";
 import {
   displayNameFromEmail,
@@ -20,6 +22,7 @@ type Props = {
     title: string;
     back: string;
     manageSub: string;
+    legalTokushoho: string;
     changeName: string;
     changeEmail: string;
     darkMode: string;
@@ -284,6 +287,11 @@ export function HomeSettingsView({
         onClick={onManageSubscription}
       />
       <SettingsRow
+        icon="§"
+        label={labels.legalTokushoho}
+        to={TOKUSHOHO_PATH}
+      />
+      <SettingsRow
         icon="👤"
         label={labels.changeName}
         onClick={onChangeName}
@@ -378,13 +386,14 @@ export function HomeSettingsView({
       <p
         style={{
           marginTop: "auto",
-          padding: "16px 18px max(24px, env(safe-area-inset-bottom, 0px))",
+          padding: "16px 18px 8px",
           fontSize: 12,
           color: shell.textSubtle,
         }}
       >
         {labels.version} {appVersion}
       </p>
+      <AppLegalFooter style={{ padding: "0 18px max(24px, env(safe-area-inset-bottom, 0px))" }} />
     </div>
   );
 }

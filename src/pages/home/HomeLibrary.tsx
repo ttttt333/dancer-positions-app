@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   billingApi,
   isDemoSessionToken,
   projectApi,
   type ProjectListItem,
 } from "../../api/client";
+import { AppLegalFooter } from "../../components/AppLegalFooter";
 import { ProjectFormationThumb } from "../../components/dashboard/ProjectFormationThumb";
 import { btnAccent } from "../../components/stageButtonStyles";
 import { useAuth } from "../../context/AuthContext";
 import { useI18n } from "../../i18n/I18nContext";
 import { isCollabFeatureAvailable } from "../../lib/collabAvailability";
+import { PLAN_CONFIRM_PATH } from "../../lib/commercialDisclosure";
 import {
   copyTextToClipboard,
   projectShareLinks,
@@ -45,6 +47,7 @@ const APP_VERSION = "β";
 /** ログイン後ホーム: ライブラリ + 設定（メニューは設定に1画面で統合） */
 export function HomeLibrary() {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const { me, logout } = useAuth();
   const email = me?.user.email ?? "";
   const isPro = isProMe(me);
@@ -76,14 +79,9 @@ export function HomeLibrary() {
     void reload();
   }, [reload]);
 
-  const startStripeSubscription = async () => {
+  const startStripeSubscription = () => {
     setNotice("");
-    try {
-      const { url } = await billingApi.createCheckoutSession();
-      window.location.href = url;
-    } catch (e) {
-      setNotice(e instanceof Error ? e.message : t("dashboard.checkoutFail"));
-    }
+    navigate(PLAN_CONFIRM_PATH);
   };
 
   const openCustomerPortal = async () => {
@@ -98,7 +96,7 @@ export function HomeLibrary() {
 
   const onManageSubscription = () => {
     if (hasStripeCustomer) void openCustomerPortal();
-    else void startStripeSubscription();
+    else startStripeSubscription();
   };
 
   const handleSheetAction = async (action: ProjectSheetAction) => {
@@ -214,6 +212,7 @@ export function HomeLibrary() {
             title: t("home.settings.title"),
             back: t("home.settings.back"),
             manageSub: t("home.settings.manageSub"),
+            legalTokushoho: t("home.settings.legalTokushoho"),
             changeName: t("home.settings.changeName"),
             changeEmail: t("home.settings.changeEmail"),
             darkMode: t("home.settings.darkMode"),

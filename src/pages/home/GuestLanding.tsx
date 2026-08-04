@@ -187,6 +187,25 @@ export function GuestLanding() {
               {t("landing.ctaTry")}
             </Link>
           </div>
+          <footer
+            className="home-landing-footer"
+            style={{
+              marginTop: 40,
+              paddingTop: 20,
+              borderTop: "1px solid rgba(148,163,184,0.2)",
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "8px 16px",
+              fontSize: 12,
+            }}
+          >
+            <Link
+              to="/legal/tokushoho"
+              style={{ color: "#64748b", textDecoration: "underline" }}
+            >
+              特定商取引法に基づく表記
+            </Link>
+          </footer>
         </div>
       </section>
     </div>

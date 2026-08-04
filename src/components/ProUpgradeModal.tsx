@@ -1,10 +1,14 @@
-import { useCallback, useState } from "react";
-import { billingApi } from "../api/client";
+import { useNavigate } from "react-router-dom";
 import {
   FREE_MAX_CUES,
   FREE_MAX_DANCERS,
   FREE_VIDEO_EXPORT_LIMIT,
 } from "../lib/entitlements";
+import {
+  PLAN_CONFIRM_PATH,
+  PRO_PRICE_YEN_TAX_IN,
+  PRO_TRIAL_DAYS,
+} from "../lib/commercialDisclosure";
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
 import { EditorSideSheet } from "./EditorSideSheet";
 
@@ -21,20 +25,12 @@ type Props = {
 };
 
 export function ProUpgradeModal({ open, reason, onClose }: Props) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const navigate = useNavigate();
 
-  const startCheckout = useCallback(async () => {
-    setBusy(true);
-    setError("");
-    try {
-      const { url } = await billingApi.createCheckoutSession();
-      window.location.href = url;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Checkout の開始に失敗しました");
-      setBusy(false);
-    }
-  }, []);
+  const goConfirm = () => {
+    onClose();
+    navigate(PLAN_CONFIRM_PATH);
+  };
 
   const title =
     reason === "export_limit_reached"
@@ -47,18 +43,17 @@ export function ProUpgradeModal({ open, reason, onClose }: Props) {
 
   const description =
     reason === "export_limit_reached"
-      ? `無料プランでは動画の書き出しは累計${FREE_VIDEO_EXPORT_LIMIT}回までです。PROプランにアップグレードすると無制限に書き出せます。7日間の無料トライアル付き（¥550/月）。`
+      ? `無料プランでは動画の書き出しは累計${FREE_VIDEO_EXPORT_LIMIT}回までです。PROプランにアップグレードすると無制限に書き出せます。${PRO_TRIAL_DAYS}日間の無料トライアルのあと月額${PRO_PRICE_YEN_TAX_IN}円（税込・自動更新）。`
       : reason === "project_limit"
-        ? "無料プランではクラウド保存は3作品までです。PROプランで無制限に作成できます。7日間の無料トライアル付き（¥550/月）。"
+        ? `無料プランではクラウド保存は3作品までです。PROプランで無制限に作成できます。${PRO_TRIAL_DAYS}日間の無料トライアルのあと月額${PRO_PRICE_YEN_TAX_IN}円（税込・自動更新）。`
         : reason === "dancer_limit"
-          ? `無料プランでは1フォーメーションあたり人数は${FREE_MAX_DANCERS}人までです。${FREE_MAX_DANCERS + 1}人以上にするにはPROプランが必要です。7日間の無料トライアル付き（¥550/月）。`
-          : `無料プランではキューは${FREE_MAX_CUES}個までです。${FREE_MAX_CUES + 1}個以上にするにはPROプランが必要です。7日間の無料トライアル付き（¥550/月）。`;
+          ? `無料プランでは1フォーメーションあたり人数は${FREE_MAX_DANCERS}人までです。${FREE_MAX_DANCERS + 1}人以上にするにはPROプランが必要です。${PRO_TRIAL_DAYS}日間の無料トライアルのあと月額${PRO_PRICE_YEN_TAX_IN}円（税込・自動更新）。`
+          : `無料プランではキューは${FREE_MAX_CUES}個までです。${FREE_MAX_CUES + 1}個以上にするにはPROプランが必要です。${PRO_TRIAL_DAYS}日間の無料トライアルのあと月額${PRO_PRICE_YEN_TAX_IN}円（税込・自動更新）。`;
 
   return (
     <EditorSideSheet
       open={open}
       onClose={onClose}
-      blockDismiss={busy}
       zIndex={100}
       width="min(400px, 92vw)"
       sheetId="pro-upgrade"
@@ -81,23 +76,16 @@ export function ProUpgradeModal({ open, reason, onClose }: Props) {
         >
           {description}
         </p>
-        {error ? (
-          <p style={{ margin: "0 0 12px", fontSize: 12, color: "#f87171" }}>
-            {error}
-          </p>
-        ) : null}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <button
             type="button"
-            disabled={busy}
             style={{ ...btnAccent, width: "100%", fontWeight: 700, minHeight: 44 }}
-            onClick={() => void startCheckout()}
+            onClick={goConfirm}
           >
-            {busy ? "準備中…" : "PRO にアップグレード（7日間無料）"}
+            PRO にアップグレード（内容を確認）
           </button>
           <button
             type="button"
-            disabled={busy}
             style={{ ...btnSecondary, width: "100%" }}
             onClick={onClose}
           >

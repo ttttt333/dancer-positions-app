@@ -8,6 +8,8 @@ import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { VideoPage } from "./pages/VideoPage";
 import { BillingCanceledPage, BillingSuccessPage } from "./pages/BillingPages";
+import { PlanConfirmationPage } from "./pages/billing/PlanConfirmationPage";
+import { TokushohoPage } from "./pages/legal/TokushohoPage";
 import { UpdateLogPage } from "./pages/UpdateLogPage";
 import { MobileFormationEditorDemoPage } from "./pages/MobileFormationEditorDemoPage";
 import { MobileShell } from "./components/mobile/MobileShell";
@@ -235,6 +237,8 @@ function AppShell() {
             <Route path="/changelog" element={<Navigate to="/update-log" replace />} />
             <Route path="/billing/success" element={<BillingSuccessPage />} />
             <Route path="/billing/canceled" element={<BillingCanceledPage />} />
+            <Route path="/billing/confirm" element={<PlanConfirmationPage />} />
+            <Route path="/legal/tokushoho" element={<TokushohoPage />} />
             <Route path="/editor/:projectId" element={<MobileEditorRoute />} />
             <Route
               path="/view/s/:shareToken"

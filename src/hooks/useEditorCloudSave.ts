@@ -1,6 +1,7 @@
 import { useCallback, useState, type MutableRefObject } from "react";
 import type { NavigateFunction } from "react-router-dom";
-import { billingApi, projectApi } from "../api/client";
+import { projectApi } from "../api/client";
+import { PLAN_CONFIRM_PATH } from "../lib/commercialDisclosure";
 import { normalizeProject } from "../lib/normalizeProject";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import type { Me } from "../types/authMe";
@@ -85,12 +86,7 @@ export function useEditorCloudSave({
       if (msg.includes("free_limit") || msg.includes("無料プラン")) {
         const goUpgrade = window.confirm(t("editor.cloudSave.freeLimitConfirm"));
         if (goUpgrade) {
-          try {
-            const { url } = await billingApi.createCheckoutSession();
-            window.location.href = url;
-          } catch {
-            window.location.href = "/";
-          }
+          navigate(PLAN_CONFIRM_PATH);
         }
         throw e;
       }
