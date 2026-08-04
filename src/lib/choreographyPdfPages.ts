@@ -12,6 +12,7 @@ export type ChoreographyPdfPage = {
   formation: ExportFormationFrame;
 };
 
+/** @deprecated PDF では formatPdfClock / formatPdfTimeRange を使う */
 export function formatSecDot(sec: number): string {
   const v = Math.max(0, Number.isFinite(sec) ? sec : 0);
   let whole = Math.floor(v + 1e-9);
@@ -21,6 +22,20 @@ export function formatSecDot(sec: number): string {
     hundredths = 0;
   }
   return `${String(whole).padStart(2, "0")}.${String(hundredths).padStart(2, "0")}`;
+}
+
+/** 秒 → `0:00` / `1:45` 形式（分:秒） */
+export function formatPdfClock(sec: number): string {
+  const v = Math.max(0, Number.isFinite(sec) ? sec : 0);
+  const totalSec = Math.round(v);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+/** 例: `0:00〜1:45` */
+export function formatPdfTimeRange(startSec: number, endSec: number): string {
+  return `${formatPdfClock(startSec)}〜${formatPdfClock(endSec)}`;
 }
 
 function mapDancers(dancers: DancerSpot[]) {
@@ -43,18 +58,13 @@ export function buildChoreographyPdfPages(
 ): ChoreographyPdfPage[] {
   const cues = sortCuesByStart(project.cues);
   if (cues.length > 0) {
-    return cues.map((cue) => {
+    return cues.map((cue, i) => {
       const formation =
         project.formations.find((f) => f.id === cue.formationId) ??
         project.formations[0];
-      const title =
-        (cue.name?.trim() ||
-          formation?.name?.trim() ||
-          project.pieceTitle?.trim() ||
-          "フォーメーション").trim() || "フォーメーション";
       return {
-        title,
-        timeLabel: `${formatSecDot(cue.tStartSec)}-${formatSecDot(cue.tEndSec)}`,
+        title: `キュー ${i + 1}`,
+        timeLabel: formatPdfTimeRange(cue.tStartSec, cue.tEndSec),
         formation: {
           startSec: cue.tStartSec,
           dancers: mapDancers(formation?.dancers ?? []),
@@ -75,7 +85,7 @@ export function buildChoreographyPdfPages(
   }
 
   return formations.map((f, i) => ({
-    title: (f.name?.trim() || `フォーメーション ${i + 1}`).trim(),
+    title: `フォーメーション ${i + 1}`,
     timeLabel: "—",
     formation: {
       startSec: i,
