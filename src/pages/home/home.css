@@ -334,7 +334,7 @@
 
 .home-project-name {
   margin-top: 10px;
-  font-size: 15px;
+  font-size: 22px;
   font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -343,15 +343,15 @@
 
 .home-project-meta {
   margin-top: 6px;
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 26px;
+  line-height: 1.4;
   color: #c4bfb8;
 }
 
 .home-project-updated {
-  margin-top: 4px;
-  font-size: 12px;
-  line-height: 1.4;
+  margin-top: 6px;
+  font-size: 24px;
+  line-height: 1.35;
   color: #a8a29e;
 }
 
