@@ -5,12 +5,19 @@ import { LanguageSwitcher } from "../../components/LanguageSwitcher";
 import { btnAccent, btnSecondary } from "../../components/stageButtonStyles";
 import { useI18n } from "../../i18n/I18nContext";
 
-const FEATURES = [
-  { key: "landing.featureTimeline", mark: "01" },
-  { key: "landing.featureStage", mark: "02" },
-  { key: "landing.featureShare", mark: "03" },
-  { key: "landing.featureSync", mark: "04" },
-] as const;
+const REASONS: Array<{ id: string; mark: string }> = [
+  { id: "01", mark: "01" },
+  { id: "02", mark: "02" },
+  { id: "03", mark: "03" },
+  { id: "04", mark: "04" },
+  { id: "05", mark: "05" },
+  { id: "06", mark: "06" },
+  { id: "07", mark: "07" },
+  { id: "08", mark: "08" },
+  { id: "09", mark: "09" },
+  { id: "10", mark: "10" },
+  { id: "11", mark: "11" },
+];
 
 const STAGE_DOTS: Array<{ x: number; y: number; color: string }> = [
   { x: 22, y: 38, color: "#38bdf8" },
@@ -72,7 +79,7 @@ export function GuestLanding() {
             <p className="home-hero-support">{t("landing.support")}</p>
             <div className="home-hero-ctas">
               <Link
-                to="/editor/new"
+                to="/register"
                 style={{
                   ...btnAccent,
                   textDecoration: "none",
@@ -113,28 +120,29 @@ export function GuestLanding() {
         </div>
       </section>
 
-      <section className="home-features" aria-labelledby="landing-features-title">
+      <section className="home-features" aria-labelledby="landing-reasons-title">
         <div className="home-container">
-          <h2 id="landing-features-title" className="home-display home-features-title">
-            {t("landing.featuresTitle")}
+          <h2 id="landing-reasons-title" className="home-display home-features-title">
+            {t("landing.reasonsTitle")}
           </h2>
-          <p className="home-features-lead">{t("landing.featuresLead")}</p>
+          <p className="home-features-lead">{t("landing.reasonsLead")}</p>
           <ul className="home-features-grid">
-            {FEATURES.map((f) => (
-              <li key={f.key} className="home-feature-item">
+            {REASONS.map((r) => (
+              <li key={r.id} className="home-feature-item">
                 <span className="home-display home-feature-mark" aria-hidden>
-                  {f.mark}
+                  {r.mark}
                 </span>
                 <div>
-                  <h3 className="home-feature-title">{t(`${f.key}.title`)}</h3>
-                  <p className="home-feature-body">{t(`${f.key}.body`)}</p>
+                  <p className="home-feature-body" style={{ margin: 0 }}>
+                    {t(`landing.reason.${r.id}`)}
+                  </p>
                 </div>
               </li>
             ))}
           </ul>
           <div className="home-features-cta">
             <Link
-              to="/editor/new"
+              to="/register"
               style={{
                 ...btnAccent,
                 textDecoration: "none",
@@ -144,8 +152,11 @@ export function GuestLanding() {
                 fontWeight: 700,
               }}
             >
-              {t("landing.ctaTry")}
+              {t("landing.ctaRegister")}
             </Link>
+            <p style={{ margin: "10px 0 0", color: "#a8a29e", fontSize: 12, lineHeight: 1.6 }}>
+              {t("landing.registerMethodsHint")}
+            </p>
           </div>
           <div className="home-guest-locale-mobile">
             <LanguageSwitcher variant="inline" />
