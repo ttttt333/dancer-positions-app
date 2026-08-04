@@ -4,6 +4,7 @@ import {
   DANCER_STAGE_POSITION_PCT_HI,
   DANCER_STAGE_POSITION_PCT_LO,
 } from "./dancerSpacing";
+import { MAX_DANCERS_PER_FORMATION } from "./dancerCountLimits";
 
 /**
  * 「形の箱（Formation Box）」— ブラウザ内に保存されるユーザ独自の立ち位置ライブラリ。
@@ -16,7 +17,7 @@ import {
 
 const STORAGE_KEY = "choreogrid_formation_box_v1";
 /** 1 形あたりのダンサー上限（1 形が極端に大きくなりすぎるのを防ぐ安全ガード） */
-const MAX_DANCERS = 80;
+const MAX_DANCERS = MAX_DANCERS_PER_FORMATION;
 
 export type FormationBoxSpot = {
   xPct: number;

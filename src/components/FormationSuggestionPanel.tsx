@@ -19,6 +19,14 @@ import {
 import { btnPrimary, btnSecondary } from "./stageButtonStyles";
 import { FormationPresetThumb } from "./FormationPresetThumb";
 import { FormationBoxItemThumb } from "./FormationBoxItemThumb";
+import {
+  clampDancerCount,
+  MAX_DANCERS_PER_FORMATION,
+  MIN_DANCERS_PER_FORMATION,
+} from "../lib/dancerCountLimits";
+import { useAuth } from "../context/AuthContext";
+import { useProUpgrade } from "./ProUpgradeProvider";
+import { isDancerCountOverFreeLimit } from "../lib/proFeatureLimits";
 
 /**
  * プリセット / 形の箱から作った新しい立ち位置に、
@@ -56,6 +64,8 @@ export function FormationSuggestionPanel({
   formationTargetId = null,
 }: Props) {
   const { viewMode } = project;
+  const { me } = useAuth();
+  const { requestProUpgrade } = useProUpgrade();
   const [count, setCount] = useState(6);
   const [pendingPreset, setPendingPreset] = useState<LayoutPresetId | null>(null);
   /** §6 人数が増えたとき、既存メイン人数ぶんだけプリセットを敷き、超過を袖へ */
@@ -84,14 +94,14 @@ export function FormationSuggestionPanel({
     const f = project.formations.find((x) => x.id === targetFormationId);
     if (!f) return;
     const raw = f.confirmedDancerCount ?? f.dancers.length;
-    const n = Math.max(1, Math.min(80, Math.max(1, raw)));
+    const n = clampDancerCount(Math.max(1, raw));
     setCount(n);
     setPendingPreset(null);
     setPendingBoxItemId(null);
     onStagePreviewChange?.(null);
   }, [targetFormationId, project.formations, onStagePreviewChange]);
 
-  const nClamped = Math.max(1, Math.min(80, Math.floor(count) || 1));
+  const nClamped = clampDancerCount(Math.floor(count) || MIN_DANCERS_PER_FORMATION);
 
   const previousBodyCount = (() => {
     const f = project.formations.find((x) => x.id === targetFormationId);
@@ -133,6 +143,10 @@ export function FormationSuggestionPanel({
   const applyPreset = useCallback(
     (preset: LayoutPresetId) => {
       if (viewMode === "view") return;
+      if (isDancerCountOverFreeLimit(me, nClamped)) {
+        requestProUpgrade("dancer_limit");
+        return;
+      }
       const n = nClamped;
       const f0 = project.formations.find((x) => x.id === targetFormationId);
       const prev =
@@ -167,6 +181,8 @@ export function FormationSuggestionPanel({
       project.formations,
       project.dancerSpacingMm,
       project.stageWidthMm,
+      me,
+      requestProUpgrade,
     ]
   );
 
@@ -415,11 +431,18 @@ export function FormationSuggestionPanel({
           人数
           <input
             type="number"
-            min={1}
-            max={80}
+            min={MIN_DANCERS_PER_FORMATION}
+            max={MAX_DANCERS_PER_FORMATION}
             value={count}
             disabled={viewMode === "view"}
-            onChange={(e) => setCount(Number(e.target.value))}
+            onChange={(e) => {
+              const next = clampDancerCount(Number(e.target.value));
+              if (isDancerCountOverFreeLimit(me, next)) {
+                requestProUpgrade("dancer_limit");
+                return;
+              }
+              setCount(next);
+            }}
             style={{
               width: "56px",
               padding: "4px 6px",

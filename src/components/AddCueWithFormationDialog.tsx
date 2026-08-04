@@ -42,6 +42,18 @@ import { mergeStageSnapshotIntoProject, stripFormationStageSnapshots } from "../
 import { FormationBoxItemThumb } from "./FormationBoxItemThumb";
 import { ParsePositionFromPhotoDialog } from "./ParsePositionFromPhotoDialog";
 import { useI18n } from "../i18n/I18nContext";
+import { useAuth } from "../context/AuthContext";
+import { useProUpgrade } from "./ProUpgradeProvider";
+import {
+  isDancerCountOverFreeLimit,
+  isNextCueOverFreeLimit,
+} from "../lib/proFeatureLimits";
+import {
+  clampDancerCount,
+  DANCER_COUNT_QUICK_PICKS,
+  MAX_DANCERS_PER_FORMATION,
+  MIN_DANCERS_PER_FORMATION,
+} from "../lib/dancerCountLimits";
 
 /**
  * ステージの「＋キュー」用の右側パネル。
@@ -372,6 +384,8 @@ export function AddCueWithFormationDialog({
   onImportRoster,
 }: Props) {
   const { t } = useI18n();
+  const { me } = useAuth();
+  const { requestProUpgrade } = useProUpgrade();
   const { viewMode } = project;
   const [photoParseOpen, setPhotoParseOpen] = useState(false);
   const trimLo = project.trimStartSec;
@@ -380,10 +394,12 @@ export function AddCueWithFormationDialog({
   const initialCount = useMemo(() => {
     const f = project.formations.find((x) => x.id === project.activeFormationId);
     const n = f?.dancers.length ?? 6;
-    return Math.max(1, Math.min(30, n));
+    return clampDancerCount(n);
   }, [project.formations, project.activeFormationId]);
 
   const [count, setCount] = useState(initialCount);
+  /** 人数入力欄の下書き（空文字や途中入力を許す） */
+  const [countDraft, setCountDraft] = useState(() => String(initialCount));
   /** 開いた直後は未選択（ステップ3）。ユーザーがモードを選ぶまでプレビュー・確定はできない */
   const [addMode, setAddMode] = useState<AddMode | null>(null);
   const [templatePresetId, setTemplatePresetId] = useState<LayoutPresetId | null>(null);
@@ -420,14 +436,14 @@ export function AddCueWithFormationDialog({
     if (savedSlotId) {
       const slot = project.savedSpotLayouts.find((s) => s.id === savedSlotId);
       if (slot) {
-        setCount(Math.max(1, Math.min(30, slot.dancers.length)));
+        setCount(clampDancerCount(slot.dancers.length));
       }
       return;
     }
     if (savedBoxId) {
       const item = boxItems.find((b) => b.id === savedBoxId);
       if (item) {
-        setCount(Math.max(1, Math.min(30, item.dancerCount)));
+        setCount(clampDancerCount(item.dancerCount));
       }
     }
   }, [
@@ -468,6 +484,7 @@ export function AddCueWithFormationDialog({
   useEffect(() => {
     if (open && !wasOpenRef.current) {
       setCount(initialCount);
+      setCountDraft(String(initialCount));
       setAddMode(null);
       setTemplatePresetId(null);
       setShowAllPresetTiers(false);
@@ -479,6 +496,10 @@ export function AddCueWithFormationDialog({
     }
     wasOpenRef.current = open;
   }, [open, initialCount, currentTimeSec, trimLo, trimHi]);
+
+  useEffect(() => {
+    setCountDraft(String(count));
+  }, [count]);
 
   useEffect(() => {
     if (
@@ -606,6 +627,13 @@ export function AddCueWithFormationDialog({
     if (!canConfirmRef.current) return;
     if (addMode == null) return;
 
+    const dancersPreview = buildDancers();
+    if (dancersPreview.length === 0) return;
+    if (isDancerCountOverFreeLimit(me, dancersPreview.length)) {
+      requestProUpgrade("dancer_limit");
+      return;
+    }
+
     /**
      * 「今の立ち位置を変更」
      * - 選択中キューがある: 新規キューは作らず、そのキューのフォーメーションだけ置き換える
@@ -613,8 +641,7 @@ export function AddCueWithFormationDialog({
      */
     if (addMode === "edit_current" && selectedCueId) {
       const cueId = selectedCueId;
-      const dancers = buildDancers();
-      if (dancers.length === 0) return;
+      const dancers = dancersPreview;
       setProject((p) => {
         const cue = p.cues.find((c) => c.id === cueId);
         if (!cue) return p;
@@ -638,6 +665,11 @@ export function AddCueWithFormationDialog({
       return;
     }
 
+    if (isNextCueOverFreeLimit(me, project.cues.length)) {
+      requestProUpgrade("cue_limit");
+      return;
+    }
+
     if (project.cues.length >= 100) {
       window.alert(t("editor.comp.k018"));
       return;
@@ -651,14 +683,14 @@ export function AddCueWithFormationDialog({
     }
     t0Raw = Math.max(trimLo, Math.min(trimHi - 0.02, t0Raw));
 
-    const dancers = buildDancers();
-    if (dancers.length === 0) return;
+    const dancers = dancersPreview;
 
     const newCueId = crypto.randomUUID();
     const newFmId = crypto.randomUUID();
     let appliedT = 0;
 
     setProject((p) => {
+      if (isNextCueOverFreeLimit(me, p.cues.length)) return p;
       if (p.cues.length >= 100) return p;
       const base = p.formations.find((x) => x.id === p.activeFormationId) ?? p.formations[0];
       const baseTemplate = base
@@ -744,6 +776,9 @@ export function AddCueWithFormationDialog({
     onClose,
     savedSlotId,
     selectedCueId,
+    me,
+    requestProUpgrade,
+    t,
   ]);
 
   useEffect(() => {
@@ -756,7 +791,35 @@ export function AddCueWithFormationDialog({
   const dancerCountPreview = dancers.length;
 
   const bumpCount = (delta: number) => {
-    setCount((c) => Math.max(1, Math.min(30, c + delta)));
+    setCount((c) => {
+      const next = clampDancerCount(c + delta);
+      if (isDancerCountOverFreeLimit(me, next)) {
+        requestProUpgrade("dancer_limit");
+        return c;
+      }
+      return next;
+    });
+  };
+
+  const trySetCount = (raw: number) => {
+    const next = clampDancerCount(raw);
+    if (isDancerCountOverFreeLimit(me, next)) {
+      requestProUpgrade("dancer_limit");
+      return false;
+    }
+    setCount(next);
+    return true;
+  };
+
+  const commitCountDraft = () => {
+    const next = clampDancerCount(Number(countDraft) || MIN_DANCERS_PER_FORMATION);
+    if (isDancerCountOverFreeLimit(me, next)) {
+      requestProUpgrade("dancer_limit");
+      setCountDraft(String(count));
+      return;
+    }
+    setCount(next);
+    setCountDraft(String(next));
   };
 
   const modeCards: {
@@ -906,64 +969,188 @@ export function AddCueWithFormationDialog({
               <span style={sectionNumberStyle}>2</span>
               人数
             </div>
-            <div
-              style={{
-                paddingLeft: "26px",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "10px",
-              }}
-            >
-              <button
-                type="button"
-                aria-label={t("editor.comp.k046")}
-                disabled={viewMode === "view" || count <= 1 || savedLayoutLocked}
-                onClick={() => bumpCount(-1)}
+            <div style={{ paddingLeft: "26px" }}>
+              <div
                 style={{
-                  ...btnBase,
-                  padding: "3px 10px",
-                  fontSize: "14px",
-                  lineHeight: 1,
-                  minWidth: "30px",
+                  display: "inline-flex",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  gap: "6px",
                 }}
               >
-                −
-              </button>
-              <span
-                style={{
-                  fontVariantNumeric: "tabular-nums",
-                  fontWeight: 700,
-                  fontSize: "14px",
-                  color: "#f1f5f9",
-                  minWidth: "2em",
-                  textAlign: "center",
-                }}
-              >
-                {count}
-              </span>
-              <button
-                type="button"
-                aria-label={t("editor.comp.k045")}
-                disabled={viewMode === "view" || count >= 30 || savedLayoutLocked}
-                onClick={() => bumpCount(1)}
-                style={{
-                  ...btnBase,
-                  padding: "3px 10px",
-                  fontSize: "14px",
-                  lineHeight: 1,
-                  minWidth: "30px",
-                }}
-              >
-                ＋
-              </button>
-              <span style={{ fontSize: "11px", color: "#64748b" }}>
-                1〜30 人
-                {savedLayoutLocked ? (
-                  <span style={{ marginLeft: "6px", color: "#38bdf8" }}>
-                    （固定）
-                  </span>
-                ) : null}
-              </span>
+                <button
+                  type="button"
+                  aria-label="人数を10減らす"
+                  disabled={
+                    viewMode === "view" ||
+                    count <= MIN_DANCERS_PER_FORMATION ||
+                    savedLayoutLocked
+                  }
+                  onClick={() => bumpCount(-10)}
+                  style={{
+                    ...btnBase,
+                    padding: "4px 8px",
+                    fontSize: "12px",
+                    lineHeight: 1,
+                    minWidth: "36px",
+                  }}
+                >
+                  −10
+                </button>
+                <button
+                  type="button"
+                  aria-label={t("editor.comp.k046")}
+                  disabled={
+                    viewMode === "view" ||
+                    count <= MIN_DANCERS_PER_FORMATION ||
+                    savedLayoutLocked
+                  }
+                  onClick={() => bumpCount(-1)}
+                  style={{
+                    ...btnBase,
+                    padding: "4px 10px",
+                    fontSize: "14px",
+                    lineHeight: 1,
+                    minWidth: "30px",
+                  }}
+                >
+                  −
+                </button>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={MIN_DANCERS_PER_FORMATION}
+                  max={MAX_DANCERS_PER_FORMATION}
+                  value={countDraft}
+                  disabled={viewMode === "view" || savedLayoutLocked}
+                  aria-label="人数"
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/[^\d]/g, "");
+                    setCountDraft(raw);
+                    if (raw === "") return;
+                    const n = Number(raw);
+                    if (Number.isFinite(n)) trySetCount(n);
+                  }}
+                  onBlur={commitCountDraft}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      commitCountDraft();
+                      (e.target as HTMLInputElement).blur();
+                    }
+                  }}
+                  style={{
+                    width: "64px",
+                    padding: "6px 8px",
+                    borderRadius: "8px",
+                    border: "1px solid #475569",
+                    background: savedLayoutLocked ? "#0f172a" : "#020617",
+                    color: "#f1f5f9",
+                    fontSize: "16px",
+                    fontWeight: 700,
+                    fontVariantNumeric: "tabular-nums",
+                    textAlign: "center",
+                    boxSizing: "border-box",
+                  }}
+                />
+                <button
+                  type="button"
+                  aria-label={t("editor.comp.k045")}
+                  disabled={
+                    viewMode === "view" ||
+                    count >= MAX_DANCERS_PER_FORMATION ||
+                    savedLayoutLocked
+                  }
+                  onClick={() => bumpCount(1)}
+                  style={{
+                    ...btnBase,
+                    padding: "4px 10px",
+                    fontSize: "14px",
+                    lineHeight: 1,
+                    minWidth: "30px",
+                  }}
+                >
+                  ＋
+                </button>
+                <button
+                  type="button"
+                  aria-label="人数を10増やす"
+                  disabled={
+                    viewMode === "view" ||
+                    count >= MAX_DANCERS_PER_FORMATION ||
+                    savedLayoutLocked
+                  }
+                  onClick={() => bumpCount(10)}
+                  style={{
+                    ...btnBase,
+                    padding: "4px 8px",
+                    fontSize: "12px",
+                    lineHeight: 1,
+                    minWidth: "36px",
+                  }}
+                >
+                  ＋10
+                </button>
+                <span style={{ fontSize: "11px", color: "#64748b" }}>
+                  {MIN_DANCERS_PER_FORMATION}〜{MAX_DANCERS_PER_FORMATION} 人
+                  {savedLayoutLocked ? (
+                    <span style={{ marginLeft: "6px", color: "#38bdf8" }}>
+                      （固定）
+                    </span>
+                  ) : null}
+                </span>
+              </div>
+              {!savedLayoutLocked && viewMode !== "view" ? (
+                <p
+                  style={{
+                    margin: "6px 0 0",
+                    fontSize: 11,
+                    color: "#78716c",
+                    lineHeight: 1.4,
+                  }}
+                >
+                  無料プランは人数9人まで・キュー19個まで。超えるとPRO案内が表示されます。
+                </p>
+              ) : null}
+              {!savedLayoutLocked && viewMode !== "view" ? (
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "4px",
+                    marginTop: "8px",
+                  }}
+                >
+                  {DANCER_COUNT_QUICK_PICKS.map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      aria-label={`${n}人に設定`}
+                      onClick={() => trySetCount(n)}
+                      style={{
+                        ...btnBase,
+                        padding: "3px 8px",
+                        fontSize: "11px",
+                        lineHeight: 1.2,
+                        minWidth: "auto",
+                        borderColor:
+                          count === n ? "#d4af37" : "#334155",
+                        background:
+                          count === n
+                            ? "rgba(212,175,55,0.18)"
+                            : "transparent",
+                        color: count === n ? "#f5e199" : "#94a3b8",
+                        opacity:
+                          isDancerCountOverFreeLimit(me, n) && count !== n
+                            ? 0.55
+                            : 1,
+                      }}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
           </section>
 

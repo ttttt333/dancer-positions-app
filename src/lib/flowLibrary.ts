@@ -18,6 +18,7 @@ import {
 } from "./dancerSpacing";
 import { parseGapApproachRoute } from "./gapDancerInterpolation";
 import { clampStageGridAxisMm, parseAudienceEdge } from "./projectDefaults";
+import { MAX_DANCERS_PER_FORMATION } from "./dancerCountLimits";
 import {
   deleteFlowLibraryAudio,
   getFlowLibraryAudio,
@@ -42,7 +43,7 @@ const STORAGE_KEY = "choreogrid_flow_library_v1";
 /** 1 フローあたりのキュー上限・形上限（容量と画面の両方を守るための保険） */
 const MAX_CUES = 200;
 const MAX_FORMATIONS = 200;
-const MAX_DANCERS_PER_FORM = 80;
+const MAX_DANCERS_PER_FORM = MAX_DANCERS_PER_FORMATION;
 const MAX_NAME_LEN = 120;
 
 /**
