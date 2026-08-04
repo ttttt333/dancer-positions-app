@@ -8,6 +8,7 @@ export type ProjectSheetAction =
   | "copyLink"
   | "share"
   | "collab"
+  | "exportPdf"
   | "delete"
   | "close";
 
@@ -22,6 +23,7 @@ type Props = {
     share: string;
     manageAccess: string;
     copyLink: string;
+    exportPdf: string;
     delete: string;
     close: string;
   };
@@ -165,6 +167,12 @@ export function ProjectActionSheet({
           label={labels.copyLink}
           disabled={busy}
           onClick={() => onAction("copyLink")}
+        />
+        <SheetRow
+          icon="⇪"
+          label={labels.exportPdf}
+          disabled={busy}
+          onClick={() => onAction("exportPdf")}
         />
 
         <div style={homeDivider} />

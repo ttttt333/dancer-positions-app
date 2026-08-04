@@ -217,7 +217,8 @@ function MobileEditorRoute() {
 
 function AppShell() {
   const location = useLocation();
-  const hideFloatingLocale = location.pathname.startsWith("/view");
+  const hideFloatingLocale =
+    location.pathname === "/" || location.pathname.startsWith("/view");
 
   return (
     <Fragment>

@@ -8,6 +8,7 @@ import {
 } from "../../api/client";
 import { ProjectFormationThumb } from "../../components/dashboard/ProjectFormationThumb";
 import { PortableBackupSection } from "../../components/dashboard/PortableBackupSection";
+import { LanguageSwitcher } from "../../components/LanguageSwitcher";
 import { btnAccent } from "../../components/stageButtonStyles";
 import { useAuth } from "../../context/AuthContext";
 import { useI18n } from "../../i18n/I18nContext";
@@ -16,16 +17,19 @@ import {
   copyTextToClipboard,
   projectShareLinks,
 } from "../../lib/shareProjectLinks";
+import { exportChoreographyPdf } from "../../lib/exportChoreographyPdf";
+import { normalizeProject } from "../../lib/normalizeProject";
 import { hasStripeCustomerId, isProMe } from "../../lib/supabaseBilling";
 import { tryMigrateFromLocalStorage } from "../../lib/projectDefaults";
 import { shell } from "../../theme/choreoShell";
-import { HOME_DISPLAY, homeIconBtn, homeRootStyle } from "./homeChrome";
+import { homeIconBtn } from "./homeChrome";
 import { HomeSettingsView } from "./HomeSettingsView";
 import { HomeSideDrawer } from "./HomeSideDrawer";
 import {
   ProjectActionSheet,
   type ProjectSheetAction,
 } from "./ProjectActionSheet";
+import "./home.css";
 
 function formatUpdatedAt(iso: string): string {
   try {
@@ -168,6 +172,24 @@ export function HomeLibrary() {
       return;
     }
 
+    if (action === "exportPdf") {
+      setBusy(true);
+      try {
+        const row = await projectApi.get(p.id);
+        const project = normalizeProject(row.json);
+        await exportChoreographyPdf({
+          project,
+          projectName: row.name || p.name,
+        });
+      } catch (e) {
+        window.alert(e instanceof Error ? e.message : t("home.sheet.exportPdfFail"));
+      } finally {
+        setBusy(false);
+        setActionProject(null);
+      }
+      return;
+    }
+
     if (action === "delete") {
       if (!window.confirm(t("dashboard.deleteConfirm"))) return;
       setBusy(true);
@@ -185,7 +207,7 @@ export function HomeLibrary() {
 
   if (panel === "settings") {
     return (
-      <div style={homeRootStyle}>
+      <div className="home-page">
         <HomeSettingsView
           email={email}
           isPro={isPro}
@@ -223,16 +245,8 @@ export function HomeLibrary() {
 
   if (panel === "storage") {
     return (
-      <div style={homeRootStyle}>
-        <header
-          style={{
-            display: "grid",
-            gridTemplateColumns: "44px 1fr 44px",
-            alignItems: "center",
-            padding: "max(10px, env(safe-area-inset-top, 0px)) 8px 10px",
-            borderBottom: `1px solid rgba(255,255,255,0.08)`,
-          }}
-        >
+      <div className="home-page">
+        <header className="home-library-header">
           <button
             type="button"
             aria-label={t("home.settings.back")}
@@ -241,12 +255,11 @@ export function HomeLibrary() {
           >
             ‹
           </button>
-          <h1 style={{ margin: 0, textAlign: "center", fontSize: 17, fontWeight: 700 }}>
+          <h1 className="home-display home-library-title">
             {t("home.settings.manageStorage")}
           </h1>
-          <span />
         </header>
-        <div style={{ padding: 16 }}>
+        <div className="home-library-main">
           <PortableBackupSection loggedIn />
         </div>
       </div>
@@ -254,17 +267,8 @@ export function HomeLibrary() {
   }
 
   return (
-    <div style={{ ...homeRootStyle, display: "flex", flexDirection: "column" }}>
-      <header
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 4,
-          padding:
-            "max(10px, env(safe-area-inset-top, 0px)) 10px 8px max(6px, env(safe-area-inset-left, 0px))",
-          borderBottom: `1px solid rgba(255,255,255,0.06)`,
-        }}
-      >
+    <div className="home-page home-library">
+      <header className="home-library-header">
         <button
           type="button"
           aria-label={t("home.menu.open")}
@@ -275,18 +279,10 @@ export function HomeLibrary() {
             ☰
           </span>
         </button>
-        <h1
-          style={{
-            margin: 0,
-            flex: 1,
-            fontFamily: HOME_DISPLAY,
-            fontSize: 20,
-            fontWeight: 700,
-            letterSpacing: "-0.02em",
-          }}
-        >
-          {t("home.libraryTitle")}
-        </h1>
+        <h1 className="home-display home-library-title">{t("home.libraryTitle")}</h1>
+        <div className="home-header-locale">
+          <LanguageSwitcher variant="inline" />
+        </div>
         {!isPro ? (
           <button
             type="button"
@@ -300,23 +296,27 @@ export function HomeLibrary() {
               padding: "8px 12px",
               borderRadius: 999,
               cursor: "pointer",
-              marginRight: 8,
             }}
           >
             Pro
           </button>
         ) : null}
+        {atProjectLimit ? (
+          <button
+            type="button"
+            className="home-desktop-new"
+            onClick={() => void startStripeSubscription()}
+          >
+            {t("home.limitCta")}
+          </button>
+        ) : (
+          <Link to="/editor/new" className="home-desktop-new">
+            {t("dashboard.newProject")}
+          </Link>
+        )}
       </header>
 
-      <main
-        style={{
-          flex: 1,
-          minHeight: 0,
-          overflow: "auto",
-          padding:
-            "16px max(16px, env(safe-area-inset-right, 0px)) 100px max(16px, env(safe-area-inset-left, 0px))",
-        }}
-      >
+      <main className="home-library-main">
         {isDemoSessionToken() ? (
           <p
             style={{
@@ -363,96 +363,40 @@ export function HomeLibrary() {
           <p style={{ color: "#fca5a5", marginBottom: 12 }}>{error}</p>
         ) : null}
 
-        <h2
-          style={{
-            margin: "0 0 12px",
-            fontSize: 13,
-            fontWeight: 700,
-            letterSpacing: "0.04em",
-            color: shell.textSubtle,
-          }}
-        >
-          {t("home.myLibrary")}
-        </h2>
+        <h2 className="home-library-section-label">{t("home.myLibrary")}</h2>
 
         {projects.length === 0 && !error ? (
-          <div
-            style={{
-              padding: "36px 20px",
-              textAlign: "center",
-              borderRadius: 16,
-              border: `1px solid ${shell.border}`,
-              background: shell.surface,
-            }}
-          >
-            <p style={{ margin: 0, color: shell.textMuted, lineHeight: 1.6 }}>
-              {t("dashboard.emptyProjects")}
-            </p>
-          </div>
-        ) : (
-          <ul
-            style={{
-              listStyle: "none",
-              margin: 0,
-              padding: 0,
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
-              gap: 12,
-            }}
-          >
-            {projects.map((p) => (
-              <li
-                key={p.id}
+          <div className="home-empty">
+            <p style={{ margin: 0 }}>{t("dashboard.emptyProjects")}</p>
+            {!atProjectLimit ? (
+              <Link
+                to="/editor/new"
                 style={{
-                  borderRadius: 14,
-                  border: `1px solid ${shell.border}`,
-                  background: shell.surface,
-                  overflow: "hidden",
-                  display: "flex",
-                  flexDirection: "column",
+                  ...btnAccent,
+                  marginTop: 20,
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  padding: "10px 20px",
                 }}
               >
-                <Link
-                  to={`/editor/${p.id}`}
-                  style={{
-                    textDecoration: "none",
-                    color: shell.text,
-                    padding: 10,
-                    display: "block",
-                  }}
-                >
-                  <ProjectFormationThumb
-                    dancers={p.previewDancers}
-                    size={140}
-                    style={{ width: "100%", height: "auto", borderRadius: 10 }}
-                  />
-                  <div
-                    style={{
-                      marginTop: 10,
-                      fontSize: 14,
-                      fontWeight: 700,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {p.name}
-                  </div>
-                  <div style={{ marginTop: 4, fontSize: 11, color: shell.textMuted }}>
+                {t("dashboard.newProject")}
+              </Link>
+            ) : null}
+          </div>
+        ) : (
+          <ul className="home-project-grid">
+            {projects.map((p) => (
+              <li key={p.id} className="home-project-card">
+                <Link to={`/editor/${p.id}`} className="home-project-link">
+                  <ProjectFormationThumb dancers={p.previewDancers} size={200} fluid />
+                  <div className="home-project-name">{p.name}</div>
+                  <div className="home-project-meta">
                     {t("editor.headcount")}: {p.dancerCount} · {t("dashboard.cueCount")}:{" "}
                     {p.cueCount}
                   </div>
-                  <div style={{ marginTop: 2, fontSize: 10, color: shell.textSubtle }}>
-                    {formatUpdatedAt(p.updated_at)}
-                  </div>
+                  <div className="home-project-updated">{formatUpdatedAt(p.updated_at)}</div>
                 </Link>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    padding: "0 4px 6px",
-                  }}
-                >
+                <div className="home-project-actions">
                   <button
                     type="button"
                     aria-label={t("home.sheet.open")}
@@ -468,127 +412,27 @@ export function HomeLibrary() {
         )}
       </main>
 
-      <nav
-        aria-label={t("home.bottomNav")}
-        style={{
-          position: "fixed",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 40,
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 0,
-          padding: "8px 12px max(10px, env(safe-area-inset-bottom, 0px))",
-          background: "rgba(8,8,8,0.94)",
-          borderTop: `1px solid rgba(255,255,255,0.08)`,
-          backdropFilter: "blur(10px)",
-        }}
-      >
-        <span
-          style={{
-            textAlign: "center",
-            fontSize: 11,
-            fontWeight: 700,
-            color: shell.accent,
-            padding: "6px 0",
-          }}
-        >
-          ▦ {t("home.tabLibrary")}
-        </span>
-        <Link
-          to="/update-log"
-          style={{
-            textAlign: "center",
-            fontSize: 11,
-            fontWeight: 600,
-            color: shell.textMuted,
-            textDecoration: "none",
-            padding: "6px 0",
-          }}
-        >
-          ✦ {t("home.tabExplore")}
+      <nav className="home-bottom-nav" aria-label={t("home.bottomNav")}>
+        <span className="home-bottom-nav-item is-active">{t("home.tabLibrary")}</span>
+        <Link to="/update-log" className="home-bottom-nav-item">
+          {t("home.tabExplore")}
         </Link>
       </nav>
 
       {atProjectLimit ? (
         <button
           type="button"
+          className="home-fab is-pro"
           aria-label={t("home.fabPro")}
           onClick={() => void startStripeSubscription()}
-          style={{
-            position: "fixed",
-            right: "max(18px, env(safe-area-inset-right))",
-            bottom: "max(72px, calc(env(safe-area-inset-bottom, 0px) + 64px))",
-            zIndex: 45,
-            width: 56,
-            height: 56,
-            borderRadius: "50%",
-            border: "none",
-            background: shell.accent,
-            color: "#1a1408",
-            fontSize: 28,
-            fontWeight: 700,
-            cursor: "pointer",
-            boxShadow: "0 8px 28px rgba(0,0,0,0.45)",
-          }}
         >
           +
         </button>
       ) : (
-        <Link
-          to="/editor/new"
-          aria-label={t("dashboard.newProject")}
-          style={{
-            position: "fixed",
-            right: "max(18px, env(safe-area-inset-right))",
-            bottom: "max(72px, calc(env(safe-area-inset-bottom, 0px) + 64px))",
-            zIndex: 45,
-            width: 56,
-            height: 56,
-            borderRadius: "50%",
-            background: "#f5f5f4",
-            color: "#111",
-            fontSize: 32,
-            fontWeight: 600,
-            textDecoration: "none",
-            display: "grid",
-            placeItems: "center",
-            boxShadow: "0 8px 28px rgba(0,0,0,0.45)",
-            lineHeight: 1,
-          }}
-        >
+        <Link to="/editor/new" className="home-fab" aria-label={t("dashboard.newProject")}>
           +
         </Link>
       )}
-
-      {atProjectLimit ? (
-        <div
-          style={{
-            position: "fixed",
-            left: 16,
-            right: 80,
-            bottom: "max(72px, calc(env(safe-area-inset-bottom, 0px) + 64px))",
-            zIndex: 44,
-          }}
-        >
-          <button
-            type="button"
-            style={{
-              ...btnAccent,
-              width: "100%",
-              padding: "12px 14px",
-              fontSize: 13,
-              background: shell.accent,
-              color: "#1a1408",
-              border: "none",
-            }}
-            onClick={() => void startStripeSubscription()}
-          >
-            {t("home.limitCta")}
-          </button>
-        </div>
-      ) : null}
 
       <HomeSideDrawer
         open={drawerOpen}
@@ -621,6 +465,7 @@ export function HomeLibrary() {
           share: t("home.sheet.share"),
           manageAccess: t("home.sheet.manageAccess"),
           copyLink: t("home.sheet.copyLink"),
+          exportPdf: t("home.sheet.exportPdf"),
           delete: t("dashboard.delete"),
           close: t("home.menu.close"),
         }}

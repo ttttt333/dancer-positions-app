@@ -104,9 +104,21 @@ export function useEditorProjectLoader({
       const draft = loadEditorDraft(null);
       const fromDraft =
         draft?.project != null ? normalizeProject(draft.project) : null;
-      setPlainProject((prev) => prev ?? fromDraft ?? migrated ?? createEmptyProject());
-      if (fromDraft && draft?.projectName) {
+      const nameFromQuery = new URLSearchParams(location.search)
+        .get("name")
+        ?.trim();
+      const nextProject = fromDraft ?? migrated ?? createEmptyProject();
+      const namedProject =
+        nameFromQuery && !nextProject.pieceTitle?.trim()
+          ? { ...nextProject, pieceTitle: nameFromQuery }
+          : nextProject;
+      setPlainProject((prev) => prev ?? namedProject);
+      if (nameFromQuery) {
+        setProjectName(nameFromQuery);
+      } else if (fromDraft && draft?.projectName) {
         setProjectName(draft.projectName);
+      } else if (namedProject.pieceTitle?.trim()) {
+        setProjectName(namedProject.pieceTitle.trim());
       }
       setServerId(null);
       setServerShareToken(null);

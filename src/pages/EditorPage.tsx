@@ -64,6 +64,8 @@ import {
 import { abortTimelineWavePointerGestures } from "../lib/abortTimelineWavePointerGestures";
 import { preloadFFmpegWasm } from "../lib/ffmpegWasm";
 import { normalizeProject } from "../lib/normalizeProject";
+import { projectNeedsInitialName } from "../lib/projectNeedsInitialName";
+import { NewProjectNameDialog } from "../components/NewProjectNameDialog";
 import { modDancerColorIndex, DANCER_COLOR_PALETTE_HEX } from "../lib/dancerColorPalette";
 import {
   sortCuesByStart,
@@ -2464,6 +2466,42 @@ export function EditorPage({
       <>
         {playbackAudioElement}
         <div style={{ padding: 24, color: "#94a3b8" }}>{t("common.loading")}</div>
+      </>
+    );
+  }
+
+  if (
+    !choreoPublicView &&
+    (projectId === "new" || !projectId) &&
+    projectNeedsInitialName(project, projectName)
+  ) {
+    return (
+      <>
+        {playbackAudioElement}
+        <NewProjectNameDialog
+          title={t("newProject.title")}
+          label={t("newProject.label")}
+          placeholder={t("newProject.placeholder")}
+          confirmLabel={t("newProject.confirm")}
+          cancelLabel={t("newProject.cancel")}
+          initialValue={
+            projectName.trim() && projectName.trim() !== t("editor.untitledProject")
+              ? projectName
+              : ""
+          }
+          onCancel={() => navigate("/")}
+          onConfirm={(name) => {
+            setProjectName(name);
+            setProjectSafe((p) => (p ? { ...p, pieceTitle: name } : p));
+            navigate(
+              {
+                pathname: "/editor/new",
+                search: `?name=${encodeURIComponent(name)}`,
+              },
+              { replace: true }
+            );
+          }}
+        />
       </>
     );
   }

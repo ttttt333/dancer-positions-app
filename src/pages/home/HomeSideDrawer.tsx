@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ChoreoCoreLogo } from "../../components/ChoreoCoreLogo";
+import { LanguageSwitcher } from "../../components/LanguageSwitcher";
 import { shell } from "../../theme/choreoShell";
 import {
   displayNameFromEmail,
@@ -226,6 +227,10 @@ export function HomeSideDrawer({
             window.alert(labels.comingSoon);
           }}
         />
+
+        <div style={{ marginTop: "auto", padding: "16px 18px" }}>
+          <LanguageSwitcher variant="inline" />
+        </div>
       </aside>
       <button
         type="button"
