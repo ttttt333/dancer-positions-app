@@ -9,6 +9,7 @@ import {
   PRO_PRICE_YEN_TAX_IN,
   PRO_TRIAL_DAYS,
 } from "../lib/commercialDisclosure";
+import { useI18n } from "../i18n/I18nContext";
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
 import { EditorSideSheet } from "./EditorSideSheet";
 
@@ -26,6 +27,7 @@ type Props = {
 
 export function ProUpgradeModal({ open, reason, onClose }: Props) {
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   const goConfirm = () => {
     onClose();
@@ -34,21 +36,38 @@ export function ProUpgradeModal({ open, reason, onClose }: Props) {
 
   const title =
     reason === "export_limit_reached"
-      ? "動画書き出しの上限に達しました"
+      ? t("pro.upgrade.title.export")
       : reason === "project_limit"
-        ? "作品数の上限に達しました"
+        ? t("pro.upgrade.title.project")
         : reason === "dancer_limit"
-          ? "人数の上限に達しました"
-          : "キュー数の上限に達しました";
+          ? t("pro.upgrade.title.dancer")
+          : t("pro.upgrade.title.cue");
 
   const description =
     reason === "export_limit_reached"
-      ? `無料プランでは動画の書き出しは累計${FREE_VIDEO_EXPORT_LIMIT}回までです。PROプランにアップグレードすると無制限に書き出せます。${PRO_TRIAL_DAYS}日間の無料トライアルのあと月額${PRO_PRICE_YEN_TAX_IN}円（税込・自動更新）。`
+      ? t("pro.upgrade.desc.export", {
+          limit: FREE_VIDEO_EXPORT_LIMIT,
+          days: PRO_TRIAL_DAYS,
+          price: PRO_PRICE_YEN_TAX_IN,
+        })
       : reason === "project_limit"
-        ? `無料プランではクラウド保存は3作品までです。PROプランで無制限に作成できます。${PRO_TRIAL_DAYS}日間の無料トライアルのあと月額${PRO_PRICE_YEN_TAX_IN}円（税込・自動更新）。`
+        ? t("pro.upgrade.desc.project", {
+            days: PRO_TRIAL_DAYS,
+            price: PRO_PRICE_YEN_TAX_IN,
+          })
         : reason === "dancer_limit"
-          ? `無料プランでは1フォーメーションあたり人数は${FREE_MAX_DANCERS}人までです。${FREE_MAX_DANCERS + 1}人以上にするにはPROプランが必要です。${PRO_TRIAL_DAYS}日間の無料トライアルのあと月額${PRO_PRICE_YEN_TAX_IN}円（税込・自動更新）。`
-          : `無料プランではキューは${FREE_MAX_CUES}個までです。${FREE_MAX_CUES + 1}個以上にするにはPROプランが必要です。${PRO_TRIAL_DAYS}日間の無料トライアルのあと月額${PRO_PRICE_YEN_TAX_IN}円（税込・自動更新）。`;
+          ? t("pro.upgrade.desc.dancer", {
+              limit: FREE_MAX_DANCERS,
+              min: FREE_MAX_DANCERS + 1,
+              days: PRO_TRIAL_DAYS,
+              price: PRO_PRICE_YEN_TAX_IN,
+            })
+          : t("pro.upgrade.desc.cue", {
+              limit: FREE_MAX_CUES,
+              min: FREE_MAX_CUES + 1,
+              days: PRO_TRIAL_DAYS,
+              price: PRO_PRICE_YEN_TAX_IN,
+            });
 
   return (
     <EditorSideSheet
@@ -82,7 +101,7 @@ export function ProUpgradeModal({ open, reason, onClose }: Props) {
             style={{ ...btnAccent, width: "100%", fontWeight: 700, minHeight: 44 }}
             onClick={goConfirm}
           >
-            PRO にアップグレード（内容を確認）
+            {t("pro.upgrade.cta")}
           </button>
           <p
             style={{
@@ -93,14 +112,14 @@ export function ProUpgradeModal({ open, reason, onClose }: Props) {
               textAlign: "center",
             }}
           >
-            月額（カード）または年額 5,500円（PayPay / カード）を選べます
+            {t("pro.upgrade.hint")}
           </p>
           <button
             type="button"
             style={{ ...btnSecondary, width: "100%" }}
             onClick={onClose}
           >
-            閉じる
+            {t("pro.upgrade.close")}
           </button>
         </div>
       </div>

@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { billingApi } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import { useI18n } from "../i18n/I18nContext";
 import { btnSecondary } from "../components/stageButtonStyles";
 
 export function BillingSuccessPage() {
   const [params] = useSearchParams();
   const sessionId = params.get("session_id");
   const { refresh } = useAuth();
+  const { t } = useI18n();
   const [status, setStatus] = useState<"loading" | "ok" | "error">("loading");
 
   useEffect(() => {
@@ -45,17 +47,17 @@ export function BillingSuccessPage() {
     >
       {status === "loading" && (
         <>
-          <h1 style={{ fontSize: "20px" }}>確認中...</h1>
+          <h1 style={{ fontSize: "20px" }}>{t("billing.success.loadingTitle")}</h1>
           <p style={{ color: "#94a3b8", fontSize: "14px", marginTop: 12 }}>
-            お支払いを確認しています。しばらくお待ちください。
+            {t("billing.success.loadingBody")}
           </p>
         </>
       )}
       {status === "ok" && (
         <>
-          <h1 style={{ fontSize: "20px" }}>🎉 Proプランへようこそ！</h1>
+          <h1 style={{ fontSize: "20px" }}>{t("billing.success.okTitle")}</h1>
           <p style={{ color: "#94a3b8", fontSize: "14px", marginTop: 12 }}>
-            お支払いが確認されました。作品を無制限に作成できます。
+            {t("billing.success.okBody")}
           </p>
           <Link
             to="/"
@@ -66,15 +68,15 @@ export function BillingSuccessPage() {
               marginTop: 16,
             }}
           >
-            作品一覧へ
+            {t("billing.success.toLibrary")}
           </Link>
         </>
       )}
       {status === "error" && (
         <>
-          <h1 style={{ fontSize: "20px" }}>確認に失敗しました</h1>
+          <h1 style={{ fontSize: "20px" }}>{t("billing.success.errorTitle")}</h1>
           <p style={{ color: "#94a3b8", fontSize: "14px", marginTop: 12 }}>
-            お支払いは完了している可能性があります。数分後に再度ログインして確認してください。問題が続く場合はサポートまでご連絡ください。
+            {t("billing.success.errorBody")}
           </p>
           <Link
             to="/"
@@ -85,7 +87,7 @@ export function BillingSuccessPage() {
               marginTop: 16,
             }}
           >
-            作品一覧へ
+            {t("billing.success.toLibrary")}
           </Link>
         </>
       )}
@@ -94,6 +96,7 @@ export function BillingSuccessPage() {
 }
 
 export function BillingCanceledPage() {
+  const { t } = useI18n();
   return (
     <div
       style={{
@@ -106,7 +109,7 @@ export function BillingCanceledPage() {
         fontFamily: "system-ui, sans-serif",
       }}
     >
-      <h1 style={{ fontSize: "20px" }}>チェックアウトをキャンセルしました</h1>
+      <h1 style={{ fontSize: "20px" }}>{t("billing.canceled.title")}</h1>
       <Link
         to="/"
         style={{
@@ -116,7 +119,7 @@ export function BillingCanceledPage() {
           marginTop: 16,
         }}
       >
-        作品一覧へ
+        {t("billing.success.toLibrary")}
       </Link>
     </div>
   );

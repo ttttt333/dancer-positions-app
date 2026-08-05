@@ -26,6 +26,26 @@ function readInitialLocale(): AppLocale {
   } catch {
     /* ignore */
   }
+
+  // 初回訪問時はブラウザ言語を使う。保存済みの選択は常にそちらを優先する。
+  try {
+    const preferred = navigator.languages?.length
+      ? navigator.languages
+      : [navigator.language];
+    for (const tag of preferred) {
+      const base = String(tag).toLowerCase().split("-")[0];
+      if (base === "zh") return "zh";
+      if (base === "ko") return "ko";
+      if (base === "ja") return "ja";
+      if (base === "en") return "en";
+      if (base === "es") return "es";
+      if (base === "fr") return "fr";
+      if (base === "de") return "de";
+      if (base === "pt") return "pt";
+    }
+  } catch {
+    /* SSR / restricted navigator */
+  }
   return "ja";
 }
 

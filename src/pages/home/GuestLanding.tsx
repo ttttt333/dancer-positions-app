@@ -202,7 +202,7 @@ export function GuestLanding() {
               to="/legal/tokushoho"
               style={{ color: "#64748b", textDecoration: "underline" }}
             >
-              特定商取引法に基づく表記
+              {t("legal.tokushoho.link")}
             </Link>
           </footer>
         </div>

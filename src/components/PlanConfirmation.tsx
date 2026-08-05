@@ -1,12 +1,13 @@
 import { Link } from "react-router-dom";
 import {
-  planConfirmationItems,
+  PRO_ANNUAL_DAYS,
   PRO_ANNUAL_PRICE_YEN_TAX_IN,
   PRO_PRICE_YEN_TAX_IN,
   PRO_TRIAL_DAYS,
   TOKUSHOHO_PATH,
   type ProCheckoutPlan,
 } from "../lib/commercialDisclosure";
+import { useI18n } from "../i18n/I18nContext";
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
 
 type Props = {
@@ -33,8 +34,43 @@ export function PlanConfirmation({
   onConfirm,
   onCancel,
 }: Props) {
-  const items = planConfirmationItems(plan);
+  const { t } = useI18n();
   const isAnnual = plan === "annual";
+  const price = isAnnual ? PRO_ANNUAL_PRICE_YEN_TAX_IN : PRO_PRICE_YEN_TAX_IN;
+  const prefix = isAnnual ? "billing.confirm.annual" : "billing.confirm.monthly";
+  const items = [
+    {
+      term: t("billing.confirm.term.plan"),
+      description: t(`${prefix}.plan`),
+    },
+    {
+      term: t("billing.confirm.term.price"),
+      description: t(`${prefix}.price`, {
+        price,
+        days: isAnnual ? PRO_ANNUAL_DAYS : PRO_TRIAL_DAYS,
+      }),
+    },
+    {
+      term: t("billing.confirm.term.payment"),
+      description: t(`${prefix}.payment`, {
+        price: PRO_PRICE_YEN_TAX_IN,
+        days: PRO_TRIAL_DAYS,
+        chargeDay: PRO_TRIAL_DAYS + 1,
+      }),
+    },
+    {
+      term: t("billing.confirm.term.delivery"),
+      description: t(`${prefix}.delivery`),
+    },
+    {
+      term: t("billing.confirm.term.period"),
+      description: t(`${prefix}.period`),
+    },
+    {
+      term: t("billing.confirm.term.cancel"),
+      description: t(`${prefix}.cancel`),
+    },
+  ];
 
   return (
     <div className="plan-confirmation" style={{ maxWidth: 520, margin: "0 auto" }}>
@@ -46,7 +82,7 @@ export function PlanConfirmation({
           color: "#f8fafc",
         }}
       >
-        お申し込み内容の確認
+        {t("billing.confirm.title")}
       </h1>
       <p
         style={{
@@ -56,12 +92,12 @@ export function PlanConfirmation({
           color: "#94a3b8",
         }}
       >
-        プランを選び、下記の内容をご確認のうえお申し込みください。
+        {t("billing.confirm.lead")}
       </p>
 
       <div
         role="radiogroup"
-        aria-label="プラン選択"
+        aria-label={t("billing.confirm.planGroupAria")}
         style={{
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
@@ -72,17 +108,21 @@ export function PlanConfirmation({
         <PlanOption
           selected={!isAnnual}
           disabled={busy}
-          title="月額"
-          subtitle={`${PRO_PRICE_YEN_TAX_IN}円/月（税込）`}
-          hint={`${PRO_TRIAL_DAYS}日無料・カード`}
+          title={t("billing.confirm.monthly")}
+          subtitle={t("billing.confirm.monthlyPrice", {
+            price: PRO_PRICE_YEN_TAX_IN,
+          })}
+          hint={t("billing.confirm.monthlyHint", { days: PRO_TRIAL_DAYS })}
           onSelect={() => onPlanChange("monthly")}
         />
         <PlanOption
           selected={isAnnual}
           disabled={busy}
-          title="年額"
-          subtitle={`${PRO_ANNUAL_PRICE_YEN_TAX_IN}円/年（税込）`}
-          hint="PayPay・カード可"
+          title={t("billing.confirm.annual")}
+          subtitle={t("billing.confirm.annualPrice", {
+            price: PRO_ANNUAL_PRICE_YEN_TAX_IN,
+          })}
+          hint={t("billing.confirm.annualHint")}
           onSelect={() => onPlanChange("annual")}
         />
       </div>
@@ -100,7 +140,9 @@ export function PlanConfirmation({
             <span
               style={{ display: "block", color: "#e2e8f0", fontWeight: 600 }}
             >
-              年額{PRO_ANNUAL_PRICE_YEN_TAX_IN}円（税込）・1年間・自動更新なし
+              {t("billing.confirm.annualHighlight1", {
+                price: PRO_ANNUAL_PRICE_YEN_TAX_IN,
+              })}
             </span>
             <span
               style={{
@@ -110,7 +152,7 @@ export function PlanConfirmation({
                 fontWeight: 600,
               }}
             >
-              PayPay またはクレジットカードで一括支払い（トライアルなし）
+              {t("billing.confirm.annualHighlight2")}
             </span>
           </>
         ) : (
@@ -118,7 +160,9 @@ export function PlanConfirmation({
             <span
               style={{ display: "block", color: "#e2e8f0", fontWeight: 600 }}
             >
-              月額{PRO_PRICE_YEN_TAX_IN}円（税込）・解約しない限り自動更新
+              {t("billing.confirm.monthlyHighlight1", {
+                price: PRO_PRICE_YEN_TAX_IN,
+              })}
             </span>
             <span
               style={{
@@ -128,8 +172,10 @@ export function PlanConfirmation({
                 fontWeight: 600,
               }}
             >
-              本日から{PRO_TRIAL_DAYS}日間無料。その後クレジットカードへ
-              {PRO_PRICE_YEN_TAX_IN}円が課金されます。
+              {t("billing.confirm.monthlyHighlight2", {
+                days: PRO_TRIAL_DAYS,
+                price: PRO_PRICE_YEN_TAX_IN,
+              })}
             </span>
           </>
         )}
@@ -186,14 +232,14 @@ export function PlanConfirmation({
               color: "#94a3b8",
             }}
           >
-            詳細表記
+            {t("billing.confirm.detailLabel")}
           </dt>
           <dd style={{ margin: "6px 0 0", fontSize: 13 }}>
             <Link
               to={TOKUSHOHO_PATH}
               style={{ color: "#93c5fd", textDecoration: "underline" }}
             >
-              特定商取引法に基づく表記
+              {t("legal.tokushoho.link")}
             </Link>
           </dd>
         </div>
@@ -218,7 +264,7 @@ export function PlanConfirmation({
           onChange={(e) => onConfirmedChange(e.target.checked)}
           style={{ marginTop: 3, width: 18, height: 18, flexShrink: 0 }}
         />
-        <span>上記の内容を確認しました</span>
+        <span>{t("billing.confirm.checkbox")}</span>
       </label>
 
       {error ? (
@@ -239,10 +285,10 @@ export function PlanConfirmation({
           onClick={onConfirm}
         >
           {busy
-            ? "決済画面へ移動中…"
+            ? t("billing.confirm.submitBusy")
             : isAnnual
-              ? "この内容で申し込む（PayPay / カード）"
-              : "この内容で申し込む（カード）"}
+              ? t("billing.confirm.submitAnnual")
+              : t("billing.confirm.submitMonthly")}
         </button>
         {onCancel ? (
           <button
@@ -251,7 +297,7 @@ export function PlanConfirmation({
             style={{ ...btnSecondary, width: "100%" }}
             onClick={onCancel}
           >
-            戻る
+            {t("billing.confirm.back")}
           </button>
         ) : null}
       </div>

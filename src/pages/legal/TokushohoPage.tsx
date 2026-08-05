@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { ChoreoCoreLogo } from "../../components/ChoreoCoreLogo";
 import { btnAccent, btnSecondary } from "../../components/stageButtonStyles";
-import { SERVICE_NAME } from "../../lib/commercialDisclosure";
+import { useI18n } from "../../i18n/I18nContext";
 import {
   fetchTokushoho,
   formatTokushohoUpdatedAt,
@@ -28,6 +28,7 @@ const card: CSSProperties = {
 
 export function TokushohoPage() {
   const { me, ready } = useAuth();
+  const { t, locale } = useI18n();
   const [doc, setDoc] = useState<TokushohoDoc | null>(null);
   const [draft, setDraft] = useState("");
   const [editing, setEditing] = useState(false);
@@ -46,11 +47,11 @@ export function TokushohoPage() {
       setDoc(next);
       setDraft(next.body);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "読み込みに失敗しました");
+      setError(e instanceof Error ? e.message : t("legal.tokushoho.loadFail"));
     } finally {
       setLoading(false);
     }
-  }, [email]);
+  }, [email, t]);
 
   useEffect(() => {
     if (!ready) return;
@@ -69,13 +70,14 @@ export function TokushohoPage() {
       setSavedFlash(true);
       window.setTimeout(() => setSavedFlash(false), 2500);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "保存に失敗しました");
+      setError(e instanceof Error ? e.message : t("legal.tokushoho.saveFail"));
     } finally {
       setSaving(false);
     }
   };
 
   const canEdit = Boolean(doc?.canEdit);
+  const langNote = t("legal.tokushoho.langNote");
 
   return (
     <div style={pageWrap}>
@@ -119,7 +121,7 @@ export function TokushohoPage() {
               textDecoration: "none",
             }}
           >
-            ホーム
+            {t("legal.tokushoho.home")}
           </Link>
         </div>
       </header>
@@ -144,19 +146,33 @@ export function TokushohoPage() {
             letterSpacing: "-0.02em",
           }}
         >
-          特定商取引法に基づく表記
+          {t("legal.tokushoho.title")}
         </h1>
         <p style={{ margin: "0 0 18px", fontSize: 13, color: shell.textMuted }}>
-          {SERVICE_NAME} の通信販売に関する表記です。
+          {t("legal.tokushoho.lead")}
           {doc?.updatedAt
-            ? ` 最終更新: ${formatTokushohoUpdatedAt(doc.updatedAt)}`
+            ? ` ${t("legal.tokushoho.updated", {
+                at: formatTokushohoUpdatedAt(doc.updatedAt),
+              })}`
             : null}
           {doc?.source === "local"
-            ? "（この端末に保存）"
+            ? ` ${t("legal.tokushoho.sourceLocal")}`
             : doc?.source === "default"
-              ? "（初期文面）"
+              ? ` ${t("legal.tokushoho.sourceDefault")}`
               : null}
         </p>
+        {locale !== "ja" && langNote ? (
+          <p
+            style={{
+              margin: "0 0 16px",
+              fontSize: 12,
+              lineHeight: 1.5,
+              color: shell.textSubtle,
+            }}
+          >
+            {langNote}
+          </p>
+        ) : null}
 
         {error ? (
           <p
@@ -185,7 +201,7 @@ export function TokushohoPage() {
               fontSize: 13,
             }}
           >
-            更新しました
+            {t("legal.tokushoho.saved")}
           </p>
         ) : null}
 
@@ -206,7 +222,7 @@ export function TokushohoPage() {
                 setEditing(true);
               }}
             >
-              編集する
+              {t("legal.tokushoho.edit")}
             </button>
           ) : null}
           {canEdit && editing ? (
@@ -217,7 +233,7 @@ export function TokushohoPage() {
                 disabled={saving}
                 onClick={() => void onSave()}
               >
-                {saving ? "更新中…" : "更新する"}
+                {saving ? t("legal.tokushoho.saving") : t("legal.tokushoho.save")}
               </button>
               <button
                 type="button"
@@ -229,7 +245,7 @@ export function TokushohoPage() {
                   setError("");
                 }}
               >
-                キャンセル
+                {t("legal.tokushoho.cancel")}
               </button>
             </>
           ) : null}
@@ -239,18 +255,20 @@ export function TokushohoPage() {
             disabled={loading || saving}
             onClick={() => void reload()}
           >
-            再読み込み
+            {t("legal.tokushoho.reload")}
           </button>
         </div>
 
         {loading && !doc ? (
-          <p style={{ color: shell.textMuted, fontSize: 13 }}>読み込み中…</p>
+          <p style={{ color: shell.textMuted, fontSize: 13 }}>
+            {t("legal.tokushoho.loading")}
+          </p>
         ) : editing ? (
           <textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             spellCheck={false}
-            aria-label="特定商取引法に基づく表記本文"
+            aria-label={t("legal.tokushoho.title")}
             style={{
               width: "100%",
               minHeight: "min(70vh, 640px)",
@@ -281,7 +299,7 @@ export function TokushohoPage() {
               color: shell.text,
             }}
           >
-            {doc?.body?.trim() ? doc.body : "（まだ表記がありません）"}
+            {doc?.body?.trim() ? doc.body : t("legal.tokushoho.empty")}
           </article>
         )}
 
@@ -294,9 +312,9 @@ export function TokushohoPage() {
               lineHeight: 1.5,
             }}
           >
-            管理人モード: このページ上で文章を直接書き換えて「更新する」で公開できます。
+            {t("legal.tokushoho.adminHint")}
             {doc?.source !== "supabase"
-              ? " クラウド未接続・未設定のときはこの端末に保存されます（Supabase の 014_tokushoho_doc と管理者メール登録後は全員に共有されます）。"
+              ? t("legal.tokushoho.adminHintLocal")
               : null}
           </p>
         ) : null}

@@ -110,7 +110,11 @@ function drawShellChrome(
     ctx.font = "11px system-ui,sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("舞台裏", outer.x + outer.w / 2, outer.y + bh / 2);
+    ctx.fillText(
+      appearance.stageLabels?.backstage ?? "舞台裏",
+      outer.x + outer.w / 2,
+      outer.y + bh / 2
+    );
   }
 
   if (appearance.showShell && appearance.Smm > 0) {
@@ -122,11 +126,11 @@ function drawShellChrome(
     ctx.font = "10px system-ui,sans-serif";
     ctx.save();
     ctx.translate(outer.x + sw / 2, main.y + main.h / 2);
-    ctx.fillText("サイド", 0, 0);
+    ctx.fillText(appearance.stageLabels?.side ?? "サイド", 0, 0);
     ctx.restore();
     ctx.save();
     ctx.translate(main.x + main.w + sw / 2, main.y + main.h / 2);
-    ctx.fillText("サイド", 0, 0);
+    ctx.fillText(appearance.stageLabels?.side ?? "サイド", 0, 0);
     ctx.restore();
   }
 
@@ -151,7 +155,11 @@ function drawShellChrome(
   ctx.font = "bold 12px system-ui,sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText("客席", main.x + main.w / 2, main.y + main.h - bandH / 2);
+  ctx.fillText(
+    appearance.stageLabels?.audience ?? "客席",
+    main.x + main.w / 2,
+    main.y + main.h - bandH / 2
+  );
 }
 
 function drawAudienceGuideLabels(

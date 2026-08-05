@@ -1,13 +1,26 @@
 import { jsPDF } from "jspdf";
 import {
   buildChoreographyPdfPages,
+  type ChoreographyPdfLabels,
   type ChoreographyPdfPage,
 } from "./choreographyPdfPages";
 import { drawStageExportFrame } from "./drawStageExportFrame";
-import { buildStageExportAppearance } from "./stageExportAppearance";
+import {
+  buildStageExportAppearance,
+  type StageExportAppearance,
+} from "./stageExportAppearance";
 import type { ChoreographyProjectJson } from "../types/choreography";
 
 export { buildChoreographyPdfPages } from "./choreographyPdfPages";
+
+export type ExportChoreographyPdfLabels = ChoreographyPdfLabels & {
+  playbackTime: string;
+  untitled: string;
+  backstage: string;
+  side: string;
+  audience: string;
+  emptyError: string;
+};
 
 /** A4 landscape（pt）— 参考 PDF「無題の振付.pdf」と同じ向き */
 const PAGE_W = 842;
@@ -84,7 +97,8 @@ function drawPrintPage(
   pageIndex: number,
   pageCount: number,
   pieceTitle: string,
-  appearance: ReturnType<typeof buildStageExportAppearance>
+  appearance: StageExportAppearance,
+  playbackTimeLabel: string
 ) {
   const W = PAGE_W * RENDER_SCALE;
   const H = PAGE_H * RENDER_SCALE;
@@ -104,7 +118,7 @@ function drawPrintPage(
   ctx.font = `600 ${11 * s}px "Noto Sans JP", system-ui, sans-serif`;
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
-  ctx.fillText("再生時間", 16 * s, 28 * s);
+  ctx.fillText(playbackTimeLabel, 16 * s, 28 * s);
 
   ctx.fillStyle = "#111827";
   ctx.font = `700 ${15 * s}px "Noto Sans JP", system-ui, sans-serif`;
@@ -190,15 +204,34 @@ function drawPrintPage(
 export async function exportChoreographyPdf(params: {
   project: ChoreographyProjectJson;
   projectName: string;
+  labels?: Partial<ExportChoreographyPdfLabels>;
 }): Promise<void> {
-  const { project, projectName } = params;
-  const pages = buildChoreographyPdfPages(project);
+  const { project, projectName, labels = {} } = params;
+  const pdfLabels: ChoreographyPdfLabels = {
+    cueN: labels.cueN ?? ((n) => `キュー ${n}`),
+    formationN: labels.formationN ?? ((n) => `フォーメーション ${n}`),
+    formationFallback: labels.formationFallback ?? "フォーメーション",
+  };
+  const playbackTime = labels.playbackTime ?? "再生時間";
+  const untitled = labels.untitled ?? "無題の作品";
+  const emptyError =
+    labels.emptyError ?? "書き出すフォーメーションがありません";
+
+  const pages = buildChoreographyPdfPages(project, pdfLabels);
   if (pages.length === 0) {
-    throw new Error("書き出すフォーメーションがありません");
+    throw new Error(emptyError);
   }
 
-  const appearance = buildStageExportAppearance(project);
-  const pieceTitle = project.pieceTitle?.trim() || projectName.trim() || "無題の作品";
+  const appearance: StageExportAppearance = {
+    ...buildStageExportAppearance(project),
+    stageLabels: {
+      backstage: labels.backstage ?? "舞台裏",
+      side: labels.side ?? "サイド",
+      audience: labels.audience ?? "客席",
+    },
+  };
+  const pieceTitle =
+    project.pieceTitle?.trim() || projectName.trim() || untitled;
   const fileBase = safeFileBase(pieceTitle);
 
   const pageCanvas = document.createElement("canvas");
@@ -217,7 +250,15 @@ export async function exportChoreographyPdf(params: {
   for (let i = 0; i < pages.length; i++) {
     const page = pages[i]!;
     ctx.clearRect(0, 0, pageCanvas.width, pageCanvas.height);
-    drawPrintPage(ctx, page, i, pages.length, pieceTitle, appearance);
+    drawPrintPage(
+      ctx,
+      page,
+      i,
+      pages.length,
+      pieceTitle,
+      appearance,
+      playbackTime
+    );
     const dataUrl = pageCanvas.toDataURL("image/jpeg", 0.92);
     if (i > 0) doc.addPage("a4", "landscape");
     doc.addImage(dataUrl, "JPEG", 0, 0, PAGE_W, PAGE_H, undefined, "FAST");

@@ -6,7 +6,6 @@ import {
   projectApi,
   type ProjectListItem,
 } from "../../api/client";
-import { AppLegalFooter } from "../../components/AppLegalFooter";
 import { ProjectFormationThumb } from "../../components/dashboard/ProjectFormationThumb";
 import { btnAccent } from "../../components/stageButtonStyles";
 import { useAuth } from "../../context/AuthContext";
@@ -174,6 +173,17 @@ export function HomeLibrary() {
         await exportChoreographyPdf({
           project,
           projectName: row.name || p.name,
+          labels: {
+            playbackTime: t("pdf.playbackTime"),
+            untitled: t("pdf.untitled"),
+            cueN: (n) => t("pdf.cueN", { n }),
+            formationN: (n) => t("pdf.formationN", { n }),
+            formationFallback: t("pdf.formation"),
+            backstage: t("pdf.backstage"),
+            side: t("pdf.side"),
+            audience: t("pdf.audience"),
+            emptyError: t("pdf.emptyError"),
+          },
         });
       } catch (e) {
         window.alert(e instanceof Error ? e.message : t("home.sheet.exportPdfFail"));

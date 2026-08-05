@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { billingApi } from "../../api/client";
 import { PlanConfirmation } from "../../components/PlanConfirmation";
 import { useAuth } from "../../context/AuthContext";
+import { useI18n } from "../../i18n/I18nContext";
 import type { ProCheckoutPlan } from "../../lib/commercialDisclosure";
 
 /**
@@ -11,6 +12,7 @@ import type { ProCheckoutPlan } from "../../lib/commercialDisclosure";
 export function PlanConfirmationPage() {
   const navigate = useNavigate();
   const { me, ready } = useAuth();
+  const { t } = useI18n();
   const [plan, setPlan] = useState<ProCheckoutPlan>("monthly");
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -30,10 +32,12 @@ export function PlanConfirmationPage() {
       });
       window.location.href = url;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Checkout の開始に失敗しました");
+      setError(
+        e instanceof Error ? e.message : t("billing.confirm.checkoutFail")
+      );
       setBusy(false);
     }
-  }, [navigate, me, plan]);
+  }, [navigate, me, plan, t]);
 
   return (
     <div
@@ -46,7 +50,9 @@ export function PlanConfirmationPage() {
       }}
     >
       {!ready ? (
-        <p style={{ color: "#94a3b8", fontSize: 14 }}>読み込み中…</p>
+        <p style={{ color: "#94a3b8", fontSize: 14 }}>
+          {t("billing.confirm.loading")}
+        </p>
       ) : (
         <PlanConfirmation
           plan={plan}
@@ -57,14 +63,13 @@ export function PlanConfirmationPage() {
           confirmed={confirmed}
           onConfirmedChange={setConfirmed}
           busy={busy}
-          error={
-            !me
-              ? "お申し込みにはログインが必要です。ログイン後に再度お進みください。"
-              : error
-          }
+          error={!me ? t("billing.confirm.needLogin") : error}
           onConfirm={() => {
             if (!me) {
-              navigate("/login", { replace: true, state: { from: "/billing/confirm" } });
+              navigate("/login", {
+                replace: true,
+                state: { from: "/billing/confirm" },
+              });
               return;
             }
             void startCheckout();

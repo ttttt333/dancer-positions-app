@@ -17,11 +17,16 @@ export type StageExportAppearance = {
   stepYPct: number | null;
   /** 客席前のセンターガイド間隔（mm）。null なら番号なし */
   centerFieldGuideIntervalMm: number | null;
-  /**
-   * PDF など印刷向け。
+  /** PDF など印刷向け。
    * true のとき細かい mm グリッドを描かず、読みやすい 10% 基準線 + センター線のみ。
    */
   printFriendlyGrid?: boolean;
+  /** 舞台ラベル（未指定時は日本語） */
+  stageLabels?: {
+    backstage?: string;
+    side?: string;
+    audience?: string;
+  };
 };
 
 export function buildStageExportAppearance(

@@ -12,6 +12,18 @@ export type ChoreographyPdfPage = {
   formation: ExportFormationFrame;
 };
 
+export type ChoreographyPdfLabels = {
+  cueN: (n: number) => string;
+  formationN: (n: number) => string;
+  formationFallback: string;
+};
+
+const DEFAULT_PDF_LABELS: ChoreographyPdfLabels = {
+  cueN: (n) => `キュー ${n}`,
+  formationN: (n) => `フォーメーション ${n}`,
+  formationFallback: "フォーメーション",
+};
+
 /** @deprecated PDF では formatPdfClock / formatPdfTimeRange を使う */
 export function formatSecDot(sec: number): string {
   const v = Math.max(0, Number.isFinite(sec) ? sec : 0);
@@ -54,7 +66,8 @@ function mapDancers(dancers: DancerSpot[]) {
 
 /** キューがあればキュー単位、なければフォーメーション単位でページを作る */
 export function buildChoreographyPdfPages(
-  project: ChoreographyProjectJson
+  project: ChoreographyProjectJson,
+  labels: ChoreographyPdfLabels = DEFAULT_PDF_LABELS
 ): ChoreographyPdfPage[] {
   const cues = sortCuesByStart(project.cues);
   if (cues.length > 0) {
@@ -63,7 +76,7 @@ export function buildChoreographyPdfPages(
         project.formations.find((f) => f.id === cue.formationId) ??
         project.formations[0];
       return {
-        title: `キュー ${i + 1}`,
+        title: labels.cueN(i + 1),
         timeLabel: formatPdfTimeRange(cue.tStartSec, cue.tEndSec),
         formation: {
           startSec: cue.tStartSec,
@@ -77,7 +90,7 @@ export function buildChoreographyPdfPages(
   if (!formations) {
     return [
       {
-        title: (project.pieceTitle?.trim() || "フォーメーション").trim(),
+        title: (project.pieceTitle?.trim() || labels.formationFallback).trim(),
         timeLabel: "—",
         formation: { startSec: 0, dancers: [] },
       },
@@ -85,7 +98,7 @@ export function buildChoreographyPdfPages(
   }
 
   return formations.map((f, i) => ({
-    title: `フォーメーション ${i + 1}`,
+    title: labels.formationN(i + 1),
     timeLabel: "—",
     formation: {
       startSec: i,
