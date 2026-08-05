@@ -14,6 +14,11 @@ import {
 } from "../lib/projectDefaults";
 import { normalizeProject } from "../lib/normalizeProject";
 import { loadEditorDraft } from "../lib/editorDraftStorage";
+import { getEntitlements } from "../lib/entitlements";
+import {
+  analyzeFreePlanExcessFromList,
+  trimProjectToFreeLimits,
+} from "../lib/freePlanCompliance";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import type { Me } from "../types/authMe";
 import { loadShareViewProject, primeShareViewLoaderState } from "../lib/shareViewProjectCache";
@@ -211,6 +216,32 @@ export function useEditorProjectLoader({
             );
           }
         }
+
+        // 無料復帰後: 超過があるときはライブラリで削減してから開く
+        if (!choreoPublicView && me && !getEntitlements(me).isPro) {
+          try {
+            const list = await projectApi.list();
+            const report = analyzeFreePlanExcessFromList(
+              list.map((p) => ({
+                id: p.id,
+                name: p.name,
+                updated_at: p.updated_at,
+                cueCount: p.cueCount,
+                dancerCount: p.dancerCount,
+              }))
+            );
+            const contentOver = trimProjectToFreeLimits(loadedJson).changed;
+            if (report.hasExcess || contentOver) {
+              if (!cancelled) {
+                navigate("/", { replace: true });
+              }
+              return;
+            }
+          } catch {
+            /* 一覧取得失敗時は通常どおり開く */
+          }
+        }
+
         if (collabParam && me) {
           setPlainProject(null);
         } else {

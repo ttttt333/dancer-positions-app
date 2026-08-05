@@ -11,7 +11,7 @@ export function isProUser(me: Me | null | undefined): boolean {
   return getEntitlements(me).isPro;
 }
 
-/** 指定人数が無料枠を超えるか（count が 10 以上） */
+/** 指定人数が無料枠を超えるか（count が 11 以上） */
 export function isDancerCountOverFreeLimit(
   me: Me | null | undefined,
   count: number
@@ -22,7 +22,7 @@ export function isDancerCountOverFreeLimit(
 
 /**
  * キューをあと1つ追加すると無料枠を超えるか。
- * 現在 19 個ある場合に true（20個目で PRO が必要）。
+ * 現在 20 個ある場合に true（21個目で PRO が必要）。
  */
 export function isNextCueOverFreeLimit(
   me: Me | null | undefined,

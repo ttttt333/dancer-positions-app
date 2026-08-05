@@ -1,7 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { AppLegalFooter } from "../../components/AppLegalFooter";
-import { PortableBackupSection } from "../../components/dashboard/PortableBackupSection";
 import { LanguageSwitcher } from "../../components/LanguageSwitcher";
 import { TOKUSHOHO_PATH } from "../../lib/commercialDisclosure";
 import { shell } from "../../theme/choreoShell";
@@ -25,8 +24,6 @@ type Props = {
     legalTokushoho: string;
     changeName: string;
     changeEmail: string;
-    darkMode: string;
-    manageStorage: string;
     sendData: string;
     logout: string;
     deleteAccount: string;
@@ -40,9 +37,7 @@ type Props = {
   };
   onBack: () => void;
   onManageSubscription: () => void;
-  onOpenStorage: () => void;
   onLogout: () => void;
-  storageOpen: boolean;
 };
 
 function displayNameStorageKey(email: string): string {
@@ -138,9 +133,7 @@ export function HomeSettingsView({
   labels,
   onBack,
   onManageSubscription,
-  onOpenStorage,
   onLogout,
-  storageOpen,
 }: Props) {
   const fallbackName = displayNameFromEmail(email);
   const [displayName, setDisplayName] = useState(fallbackName);
@@ -301,40 +294,6 @@ export function HomeSettingsView({
         label={labels.changeEmail}
         onClick={onChangeEmail}
       />
-      <SettingsRow
-        icon="☀"
-        label={labels.darkMode}
-        trailing={
-          <span
-            aria-hidden
-            style={{
-              width: 46,
-              height: 28,
-              borderRadius: 999,
-              background: "#2563eb",
-              position: "relative",
-              flexShrink: 0,
-            }}
-          >
-            <span
-              style={{
-                position: "absolute",
-                top: 3,
-                right: 3,
-                width: 22,
-                height: 22,
-                borderRadius: "50%",
-                background: "#fff",
-              }}
-            />
-          </span>
-        }
-      />
-      <SettingsRow
-        icon="⬇"
-        label={labels.manageStorage}
-        onClick={onOpenStorage}
-      />
 
       <div style={homeDivider} />
 
@@ -371,12 +330,6 @@ export function HomeSettingsView({
         <p style={{ padding: "12px 18px", color: shell.textMuted, fontSize: 13 }}>
           {notice}
         </p>
-      ) : null}
-
-      {storageOpen ? (
-        <div style={{ padding: "8px 12px 24px" }}>
-          <PortableBackupSection loggedIn />
-        </div>
       ) : null}
 
       <div style={{ padding: "16px 18px 8px" }}>

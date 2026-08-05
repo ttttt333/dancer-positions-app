@@ -81,7 +81,18 @@ export function summarizeProjectJson(raw: unknown): ProjectListSummary {
     typeof o.pieceDancerCount === "number" && o.pieceDancerCount > 0
       ? Math.floor(o.pieceDancerCount)
       : 0;
-  const dancerCount = Math.max(previewDancers.length, pieceCount);
+
+  let maxFormationDancers = 0;
+  for (const f of formations) {
+    const n = Array.isArray(f.dancers) ? f.dancers.length : 0;
+    if (n > maxFormationDancers) maxFormationDancers = n;
+  }
+
+  const dancerCount = Math.max(
+    previewDancers.length,
+    maxFormationDancers,
+    pieceCount
+  );
 
   return {
     dancerCount,

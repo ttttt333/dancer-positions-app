@@ -20,13 +20,13 @@ const proMe: Me = {
 };
 
 describe("proFeatureLimits", () => {
-  it("requires Pro for 10+ dancers on free", () => {
+  it("requires Pro for 11+ dancers on free", () => {
     expect(isDancerCountOverFreeLimit(freeMe, FREE_MAX_DANCERS)).toBe(false);
     expect(isDancerCountOverFreeLimit(freeMe, FREE_MAX_DANCERS + 1)).toBe(true);
     expect(isDancerCountOverFreeLimit(proMe, 100)).toBe(false);
   });
 
-  it("requires Pro when adding the 20th cue on free", () => {
+  it("requires Pro when adding the 21st cue on free", () => {
     expect(isNextCueOverFreeLimit(freeMe, FREE_MAX_CUES - 1)).toBe(false);
     expect(isNextCueOverFreeLimit(freeMe, FREE_MAX_CUES)).toBe(true);
     expect(isNextCueOverFreeLimit(proMe, 50)).toBe(false);

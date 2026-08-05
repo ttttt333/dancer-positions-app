@@ -6,6 +6,7 @@ import {
   projectApi,
   type ProjectListItem,
 } from "../../api/client";
+import { FreePlanComplianceModal } from "../../components/FreePlanComplianceModal";
 import { ProjectFormationThumb } from "../../components/dashboard/ProjectFormationThumb";
 import { btnAccent } from "../../components/stageButtonStyles";
 import { useAuth } from "../../context/AuthContext";
@@ -13,12 +14,17 @@ import { useI18n } from "../../i18n/I18nContext";
 import { isCollabFeatureAvailable } from "../../lib/collabAvailability";
 import { PLAN_CONFIRM_PATH } from "../../lib/commercialDisclosure";
 import {
+  analyzeFreePlanExcessFromList,
+  trimProjectToFreeLimits,
+  type FreePlanExcessReport,
+} from "../../lib/freePlanCompliance";
+import {
   copyTextToClipboard,
   projectShareLinks,
 } from "../../lib/shareProjectLinks";
 import { exportChoreographyPdf } from "../../lib/exportChoreographyPdf";
 import { normalizeProject } from "../../lib/normalizeProject";
-import { hasStripeCustomerId, isProMe } from "../../lib/supabaseBilling";
+import { FREE_CLOUD_PROJECT_LIMIT, hasStripeCustomerId, isProMe } from "../../lib/supabaseBilling";
 import { tryMigrateFromLocalStorage } from "../../lib/projectDefaults";
 import { shell } from "../../theme/choreoShell";
 import { homeIconBtn } from "./homeChrome";
@@ -58,10 +64,12 @@ export function HomeLibrary() {
   const [notice, setNotice] = useState("");
   const [actionProject, setActionProject] = useState<ProjectListItem | null>(null);
   const [busy, setBusy] = useState(false);
-  const [settingsStorageOpen, setSettingsStorageOpen] = useState(false);
+  const [complianceBusy, setComplianceBusy] = useState(false);
+  const [complianceReport, setComplianceReport] =
+    useState<FreePlanExcessReport | null>(null);
 
   const legacyProject = useMemo(() => tryMigrateFromLocalStorage(), []);
-  const projectLimit = isPro ? Infinity : 3;
+  const projectLimit = isPro ? Infinity : FREE_CLOUD_PROJECT_LIMIT;
   const atProjectLimit = !isPro && projects.length >= projectLimit;
 
   const reload = useCallback(async () => {
@@ -69,15 +77,88 @@ export function HomeLibrary() {
       const list = await projectApi.list();
       setProjects(list);
       setError("");
+      if (!isProMe(me) && !isDemoSessionToken()) {
+        // 一覧要約に加え、残す候補作品は本文を読んで人数超過を正確に判定する
+        const sorted = [...list].sort((a, b) => {
+          const ta = Date.parse(a.updated_at) || 0;
+          const tb = Date.parse(b.updated_at) || 0;
+          return tb - ta;
+        });
+        const keep = sorted.slice(0, FREE_CLOUD_PROJECT_LIMIT);
+        const refs = await Promise.all(
+          list.map(async (p) => {
+            const base = {
+              id: p.id,
+              name: p.name,
+              updated_at: p.updated_at,
+              cueCount: p.cueCount,
+              dancerCount: p.dancerCount,
+            };
+            if (!keep.some((k) => k.id === p.id)) return base;
+            try {
+              const row = await projectApi.get(p.id);
+              const project = normalizeProject(row.json);
+              const maxDancers = project.formations.reduce(
+                (m, f) => Math.max(m, f.dancers?.length ?? 0),
+                0
+              );
+              return {
+                ...base,
+                cueCount: project.cues.length,
+                dancerCount: maxDancers,
+              };
+            } catch {
+              return base;
+            }
+          })
+        );
+        const report = analyzeFreePlanExcessFromList(refs);
+        setComplianceReport(report.hasExcess ? report : null);
+      } else {
+        setComplianceReport(null);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : t("dashboard.listError"));
     }
-  }, [t]);
+  }, [t, me]);
 
   useEffect(() => {
     void reload();
   }, [reload]);
 
+  const applyFreePlanCompliance = async () => {
+    if (!complianceReport) return;
+    setComplianceBusy(true);
+    setNotice("");
+    try {
+      for (const p of complianceReport.projectsToDelete) {
+        await projectApi.remove(p.id);
+      }
+      const keepIds = new Set(complianceReport.projectsToKeep.map((p) => p.id));
+      const trimTargets = [
+        ...complianceReport.projectsNeedingContentTrim.map((p) => p.id),
+        ...complianceReport.projectsToKeep.map((p) => p.id),
+      ].filter((id, i, arr) => keepIds.has(id) && arr.indexOf(id) === i);
+
+      for (const id of trimTargets) {
+        const row = await projectApi.get(id);
+        const project = normalizeProject(row.json);
+        const trimmed = trimProjectToFreeLimits(project);
+        if (trimmed.changed) {
+          await projectApi.update(id, row.name, trimmed.project);
+        }
+      }
+      setComplianceReport(null);
+      setNotice(t("free.compliance.done"));
+      await reload();
+    } catch (e) {
+      setNotice(
+        e instanceof Error ? e.message : t("free.compliance.fail")
+      );
+    } finally {
+      setComplianceBusy(false);
+    }
+  };
   const startStripeSubscription = () => {
     setNotice("");
     navigate(PLAN_CONFIRM_PATH);
@@ -217,7 +298,6 @@ export function HomeLibrary() {
           isPro={isPro}
           appVersion={APP_VERSION}
           notice={notice}
-          storageOpen={settingsStorageOpen}
           labels={{
             title: t("home.settings.title"),
             back: t("home.settings.back"),
@@ -225,8 +305,6 @@ export function HomeLibrary() {
             legalTokushoho: t("home.settings.legalTokushoho"),
             changeName: t("home.settings.changeName"),
             changeEmail: t("home.settings.changeEmail"),
-            darkMode: t("home.settings.darkMode"),
-            manageStorage: t("home.settings.manageStorage"),
             sendData: t("home.settings.sendData"),
             logout: t("dashboard.logout"),
             deleteAccount: t("home.settings.deleteAccount"),
@@ -238,12 +316,8 @@ export function HomeLibrary() {
             renamePrompt: t("home.settings.renamePrompt"),
             deleteConfirm: t("home.settings.deleteConfirm"),
           }}
-          onBack={() => {
-            setSettingsStorageOpen(false);
-            setPanel("library");
-          }}
+          onBack={() => setPanel("library")}
           onManageSubscription={onManageSubscription}
-          onOpenStorage={() => setSettingsStorageOpen((v) => !v)}
           onLogout={() => logout()}
         />
       </div>
@@ -257,10 +331,7 @@ export function HomeLibrary() {
           type="button"
           aria-label={t("home.settings.title")}
           style={homeIconBtn}
-          onClick={() => {
-            setSettingsStorageOpen(false);
-            setPanel("settings");
-          }}
+          onClick={() => setPanel("settings")}
         >
           <span aria-hidden style={{ fontSize: 22, lineHeight: 1 }}>
             ☰
@@ -438,6 +509,16 @@ export function HomeLibrary() {
           close: t("home.menu.close"),
         }}
         onAction={(a) => void handleSheetAction(a)}
+      />
+
+      <FreePlanComplianceModal
+        open={Boolean(complianceReport?.hasExcess)}
+        report={complianceReport}
+        busy={complianceBusy}
+        onConfirmTrim={() => void applyFreePlanCompliance()}
+        onGoPro={() => {
+          navigate(PLAN_CONFIRM_PATH);
+        }}
       />
     </div>
   );

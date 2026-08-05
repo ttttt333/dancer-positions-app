@@ -2,10 +2,10 @@ import type { Me } from "../types/authMe";
 import { isComplimentaryProEmail } from "./complimentaryProEmails";
 
 export const FREE_VIDEO_EXPORT_LIMIT = 10;
-/** 無料プランの最大人数（10人以上は PRO） */
-export const FREE_MAX_DANCERS = 9;
-/** 無料プランの最大キュー数（20個以上は PRO） */
-export const FREE_MAX_CUES = 19;
+/** 無料プランの最大人数（11人以上は PRO） */
+export const FREE_MAX_DANCERS = 10;
+/** 無料プランの最大キュー数（21個以上は PRO） */
+export const FREE_MAX_CUES = 20;
 
 export interface Entitlements {
   isPro: boolean;
