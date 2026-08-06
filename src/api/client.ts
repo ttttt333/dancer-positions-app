@@ -15,22 +15,6 @@ import {
   type ProjectListItem as SupabaseProjectListItem,
 } from "../lib/supabaseProjects";
 import {
-  ensureSupabaseAccessToken,
-  getSupabaseAccessToken,
-  isSupabaseBackend,
-} from "../lib/supabaseClient";
-import { compressAudioFileToMp3ForUpload } from "../lib/compressAudioToMp3";
-import { supabaseUploadProjectAudio } from "../lib/supabaseAudio";
-import {
-  supabaseCreateProject,
-  supabaseDeleteProject,
-  supabaseGetProject,
-  supabaseGetProjectByShareToken,
-  supabaseListProjects,
-  supabaseUpdateProject,
-  type ProjectListItem as SupabaseProjectListItem,
-} from "../lib/supabaseProjects";
-import {
   supabaseCreateCheckoutSession,
   supabaseOpenCustomerPortal,
   supabaseVerifyCheckoutSession,
