@@ -5,6 +5,7 @@
 import { useState, useCallback, useRef, type CSSProperties, type ChangeEvent } from "react";
 import { shell } from "../theme/choreoShell";
 import { useAiFormationSuggest } from "../hooks/useAiFormationSuggest";
+import { playbackEngine } from "../core/playbackEngine";
 import type { ChoreographyProjectJson } from "../types/choreography";
 
 interface AiSuggestDialogProps {
@@ -264,7 +265,10 @@ export function AiSuggestDialog({
       lyrics.trim() ? `歌詞:\n${lyrics.trim()}` : "",
       additionalNote.trim() ? `その他メモ: ${additionalNote.trim()}` : "",
     ].filter(Boolean).join("\n");
-    suggest(peaks, durationSec, extra || undefined);
+    const mediaUrl = playbackEngine.getMediaSourceUrl();
+    suggest(peaks, durationSec, extra || undefined, {
+      audioUrl: mediaUrl || null,
+    });
   }, [peaks, durationSec, vibes, formationStyle, lyrics, additionalNote, suggest]);
 
   /* ── 適用 ── */
@@ -326,7 +330,7 @@ export function AiSuggestDialog({
               )}
 
               <p style={{ fontSize: 12, color: shell.textMuted, lineHeight: 1.55, margin: "0 0 14px" }}>
-                外部AI（有料API）は使いません。楽曲の変化点を検出し、25人規模の雛形ライブラリから物理的に移動可能な範囲で最もインパクトのある隊列を自動選定します。
+                外部LLMは使いません。クラウドに保存された音源がある場合は Fly の高精度解析（/analyze）を使い、無い場合はブラウザ内解析にフォールバックします。変化点から25人雛形を物理制約つきで自動選定します。
               </p>
 
               {/* 曲のイメージ */}
@@ -508,10 +512,13 @@ export function AiSuggestDialog({
                   {/* 解析サマリー */}
                   <div style={sectionBox}>
                     <p style={{ fontSize: 11, color: shell.textSubtle, marginBottom: 6, fontWeight: 600 }}>楽曲解析結果</p>
-                    <div style={{ display: "flex", gap: 16, fontSize: 13, color: "#e2e8f0" }}>
+                    <div style={{ display: "flex", gap: 16, fontSize: 13, color: "#e2e8f0", flexWrap: "wrap" }}>
                       <span><span style={{ color: shell.textSubtle, fontSize: 10 }}>BPM</span>{" "}<strong>{result.analysis.bpm}</strong></span>
                       <span><span style={{ color: shell.textSubtle, fontSize: 10 }}>長さ</span>{" "}<strong>{Math.floor(result.analysis.durationSec / 60)}:{String(Math.floor(result.analysis.durationSec % 60)).padStart(2, "0")}</strong></span>
                       <span><span style={{ color: shell.textSubtle, fontSize: 10 }}>セクション</span>{" "}<strong>{result.analysis.sections.length}</strong></span>
+                      {result.analysisSource ? (
+                        <span><span style={{ color: shell.textSubtle, fontSize: 10 }}>解析</span>{" "}<strong>{result.analysisSource}</strong></span>
+                      ) : null}
                     </div>
                   </div>
 

@@ -1,5 +1,5 @@
 # supabase/functions/analyze-song
-# 音源解析キャッシュ。ANALYZER_API_URL（Fly.io）が無い場合は 503。
+# 音源解析キャッシュ → Fly.io ANALYZER_API_URL/analyze
 
 // @ts-ignore Deno
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -13,7 +13,8 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const ANALYZER_VERSION = "v1.0.0";
+/** backend/analyzer/services/audio_analyzer.py の ANALYZER_VERSION と一致させる */
+const ANALYZER_VERSION = "algo-v1.0.0";
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -46,17 +47,25 @@ serve(async (req: Request) => {
       .maybeSingle();
 
     if (cached) {
-      return new Response(JSON.stringify({ ...cached, source: "cache" }), {
-        status: 200,
-        headers: { ...CORS, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({
+          ...cached,
+          bpm: cached.bpm,
+          duration: cached.duration_seconds,
+          source: "cache",
+        }),
+        {
+          status: 200,
+          headers: { ...CORS, "Content-Type": "application/json" },
+        }
+      );
     }
 
     if (!ANALYZER_API_URL) {
       return new Response(
         JSON.stringify({
           error:
-            "ANALYZER_API_URL not configured. Deploy services/song-analyzer and set the secret.",
+            "ANALYZER_API_URL not configured. Deploy backend/analyzer to Fly and set the Edge secret.",
         }),
         {
           status: 503,
@@ -72,15 +81,20 @@ serve(async (req: Request) => {
       });
     }
 
-    const analyzeRes = await fetch(`${ANALYZER_API_URL.replace(/\/$/, "")}/analyze`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ audio_url, audio_hash }),
-    });
+    const analyzeRes = await fetch(
+      `${ANALYZER_API_URL.replace(/\/$/, "")}/analyze`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audio_url, audio_hash }),
+      }
+    );
     if (!analyzeRes.ok) {
       const t = await analyzeRes.text();
       return new Response(
-        JSON.stringify({ error: `analyzer failed: ${analyzeRes.status} ${t}` }),
+        JSON.stringify({
+          error: `analyzer failed: ${analyzeRes.status} ${t}`,
+        }),
         {
           status: 502,
           headers: { ...CORS, "Content-Type": "application/json" },
@@ -101,6 +115,7 @@ serve(async (req: Request) => {
           change_points: result.change_points,
           song_dynamism: result.song_dynamism ?? null,
           analyzer_version: ANALYZER_VERSION,
+          analyzed_at: new Date().toISOString(),
         },
         { onConflict: "audio_hash" }
       )
@@ -108,16 +123,32 @@ serve(async (req: Request) => {
       .single();
 
     if (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: { ...CORS, "Content-Type": "application/json" },
-      });
+      // DB 未作成時でも解析結果は返す（フロントは動く）
+      return new Response(
+        JSON.stringify({
+          ...result,
+          audio_hash,
+          source: "fresh",
+          cache_error: error.message,
+        }),
+        {
+          status: 200,
+          headers: { ...CORS, "Content-Type": "application/json" },
+        }
+      );
     }
 
-    return new Response(JSON.stringify({ ...inserted, source: "fresh" }), {
-      status: 200,
-      headers: { ...CORS, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        ...inserted,
+        duration: inserted.duration_seconds,
+        source: "fresh",
+      }),
+      {
+        status: 200,
+        headers: { ...CORS, "Content-Type": "application/json" },
+      }
+    );
   } catch (e) {
     return new Response(
       JSON.stringify({ error: e instanceof Error ? e.message : "error" }),

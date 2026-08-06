@@ -1,12 +1,14 @@
 /**
  * useAiFormationSuggest — 純アルゴリズム版
- * ブラウザ波形解析（フォールバック）または将来の Python /analyze 結果 → choreocore 生成
+ * 優先: Fly /analyze（Edge analyze-song）→ 失敗時ブラウザ波形解析
  */
 
 import { useState, useCallback, useRef } from "react";
 import { analyzeAudio, type AudioAnalysis } from "../lib/audioAnalyze";
 import { analyzeSongStructureFromPeaks } from "../lib/songStructureAnalysis";
+import { fetchRemoteSongAnalysis } from "../lib/songAnalyzeClient";
 import { generateAppFormationsFromChangePoints } from "../lib/choreocore/appBridge";
+import type { ChangePoint } from "../lib/choreocore/types";
 import type {
   ChoreographyProjectJson,
   Formation,
@@ -26,11 +28,18 @@ export interface AiSuggestResult {
   cues: Cue[];
   reasoning: string[];
   analysis: AudioAnalysis;
+  /** fly / cache / browser */
+  analysisSource?: string;
 }
 
 const genId = (): string =>
   crypto.randomUUID?.() ??
   `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+export type SuggestAudioOpts = {
+  /** playbackEngine などから渡す再生中 URL（https のみ Fly から取得可） */
+  audioUrl?: string | null;
+};
 
 export function useAiFormationSuggest(project: ChoreographyProjectJson) {
   const [status, setStatus] = useState<SuggestStatus>("idle");
@@ -39,7 +48,12 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
   const abortRef = useRef<AbortController | null>(null);
 
   const suggest = useCallback(
-    async (peaks: number[], durationSec: number, extraInfo?: string) => {
+    async (
+      peaks: number[],
+      durationSec: number,
+      extraInfo?: string,
+      audioOpts?: SuggestAudioOpts
+    ) => {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -51,9 +65,34 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
       try {
         if (controller.signal.aborted) return;
 
-        const analysis = analyzeAudio(peaks, durationSec);
-        // コスト0: ブラウザ内で変化点推定（Fly の /analyze が使える場合は後で差し替え可能）
-        const structure = analyzeSongStructureFromPeaks(peaks, durationSec);
+        const localAnalysis = analyzeAudio(peaks, durationSec);
+
+        setStatus("requesting");
+
+        const remote = await fetchRemoteSongAnalysis({
+          audioSupabasePath: project.audioSupabasePath,
+          audioUrl: audioOpts?.audioUrl,
+          trackTitle: project.pieceTitle,
+          signal: controller.signal,
+        });
+
+        if (controller.signal.aborted) return;
+
+        const browser = analyzeSongStructureFromPeaks(peaks, durationSec);
+
+        const changePoints: ChangePoint[] = remote
+          ? remote.change_points
+          : browser.change_points;
+        const bpm = remote?.bpm ?? browser.bpm;
+        const duration = remote?.duration ?? browser.duration;
+        const dynamism = remote?.song_dynamism ?? browser.song_dynamism;
+        const sourceLabel = remote
+          ? remote.source === "cache"
+            ? "fly-cache"
+            : remote.source === "direct"
+              ? "fly-direct"
+              : "fly"
+          : "browser";
 
         const activeFormation =
           project.formations.find((f) => f.id === project.activeFormationId) ??
@@ -75,21 +114,20 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
         }
 
         if (controller.signal.aborted) return;
-        setStatus("requesting");
 
         const generated = generateAppFormationsFromChangePoints({
-          changePoints: structure.change_points,
+          changePoints,
           seedDancers,
-          bpm: structure.bpm,
-          durationSec: structure.duration,
-          songDynamism: structure.song_dynamism,
+          bpm,
+          durationSec: duration,
+          songDynamism: dynamism,
         });
 
         if (controller.signal.aborted) return;
 
         const note = extraInfo?.trim();
         const reasoning = [
-          `純アルゴリズム（LLMなし）/ BPM ${structure.bpm} / 変化点 ${structure.change_points.length} / dynamism ${structure.song_dynamism.toFixed(2)}`,
+          `解析ソース: ${sourceLabel} / BPM ${Math.round(bpm)} / 変化点 ${changePoints.length} / dynamism ${dynamism.toFixed(2)}`,
           ...generated.reasoning,
           ...(note ? [`メモ: ${note.slice(0, 80)}`] : []),
         ];
@@ -99,10 +137,11 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
           cues: generated.cues,
           reasoning,
           analysis: {
-            ...analysis,
-            bpm: structure.bpm,
-            durationSec: structure.duration,
+            ...localAnalysis,
+            bpm,
+            durationSec: duration,
           },
+          analysisSource: sourceLabel,
         });
         setStatus("done");
       } catch (e: unknown) {

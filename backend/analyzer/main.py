@@ -9,6 +9,7 @@ import tempfile
 
 import httpx
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from services.audio_analyzer import ANALYZER_VERSION, analyze_track
@@ -17,6 +18,14 @@ app = FastAPI(
     title="ChoreoCore Song Analyzer",
     version=ANALYZER_VERSION,
     description="LLMなし・librosaによる楽曲構造解析",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
