@@ -342,7 +342,7 @@ export function AiSuggestDialog({
               )}
 
               <p style={{ fontSize: 12, color: shell.textMuted, lineHeight: 1.55, margin: "0 0 14px" }}>
-                外部LLMは使いません。曲の展開を解析したうえで、指定したキュー数に収まる重要変化点だけを選んで隊列を提案します。
+                曲の導入〜サビ〜締めに合わせて隊列タイプを変え、同じ並びの連発を抑えます。高精度解析は数秒で打ち切り、遅い場合はブラウザ解析で即提案します。
               </p>
 
               {/* キュー数 */}

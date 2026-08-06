@@ -1,6 +1,6 @@
 /**
  * useAiFormationSuggest — 純アルゴリズム版
- * 優先: Fly /analyze（Edge analyze-song）→ 失敗時ブラウザ波形解析
+ * ブラウザ解析を即時実行しつつ Fly を短時間待つ（遅ければブラウザで確定）
  */
 
 import { useState, useCallback, useRef } from "react";
@@ -68,19 +68,20 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
         if (controller.signal.aborted) return;
 
         const localAnalysis = analyzeAudio(peaks, durationSec);
+        // ブラウザ解析は同期・即時。Fly は並列で短時間だけ待つ。
+        const browser = analyzeSongStructureFromPeaks(peaks, durationSec);
 
         setStatus("requesting");
 
-        const remote = await fetchRemoteSongAnalysis({
+        const remotePromise = fetchRemoteSongAnalysis({
           audioSupabasePath: project.audioSupabasePath,
           audioUrl: audioOpts?.audioUrl,
           trackTitle: project.pieceTitle,
           signal: controller.signal,
         });
 
+        const remote = await remotePromise;
         if (controller.signal.aborted) return;
-
-        const browser = analyzeSongStructureFromPeaks(peaks, durationSec);
 
         const changePoints: ChangePoint[] = remote
           ? remote.change_points

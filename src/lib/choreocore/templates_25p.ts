@@ -22,7 +22,12 @@ function lineY(y: number, n = N, xSpan = 10): Position[] {
 }
 
 /** 複数行（各行の人数を指定） */
-function rows(rowCounts: number[], yStart: number, yStep: number, xSpan = 10): Position[] {
+function rows(
+  rowCounts: number[],
+  yStart: number,
+  yStep: number,
+  xSpan = 10
+): Position[] {
   const out: Position[] = [];
   let yi = 0;
   for (const count of rowCounts) {
@@ -33,7 +38,6 @@ function rows(rowCounts: number[], yStart: number, yStep: number, xSpan = 10): P
     }
     yi += 1;
   }
-  // 人数調整
   while (out.length < N) {
     out.push({ x: 0, y: yStart });
   }
@@ -44,7 +48,6 @@ function vee(pointTowardFront: boolean): Position[] {
   const out: Position[] = [];
   const tipY = pointTowardFront ? 2.5 : -2.5;
   const baseY = pointTowardFront ? -2.0 : 2.0;
-  // tip 1 + expanding rows
   out.push({ x: 0, y: tipY });
   const remaining = N - 1;
   const bands = 6;
@@ -74,7 +77,6 @@ function diamond(): Position[] {
   for (const ring of rings) {
     for (let i = 0; i < ring.n && out.length < N; i++) {
       const a = (Math.PI * 2 * i) / ring.n + Math.PI / 4;
-      // 菱形っぽく x/y スケール
       out.push({
         x: clamp(Math.cos(a) * ring.r * 1.4, -5.5, 5.5),
         y: clamp(Math.sin(a) * ring.r * 0.9, -3.5, 3.5),
@@ -98,7 +100,6 @@ function circle(radius = 3.2): Position[] {
 }
 
 function wings(): Position[] {
-  // 中央密集 + 左右ウィング
   const out: Position[] = [];
   const center = 9;
   for (let i = 0; i < center; i++) {
@@ -108,10 +109,16 @@ function wings(): Position[] {
   }
   const wing = (N - center) / 2;
   for (let i = 0; i < wing; i++) {
-    out.push({ x: -4.5 + (i % 2) * 0.8, y: 2.2 - Math.floor(i / 2) * 1.1 });
+    out.push({
+      x: -4.5 + (i % 2) * 0.8,
+      y: 2.2 - Math.floor(i / 2) * 1.1,
+    });
   }
   for (let i = 0; i < wing; i++) {
-    out.push({ x: 3.7 + (i % 2) * 0.8, y: 2.2 - Math.floor(i / 2) * 1.1 });
+    out.push({
+      x: 3.7 + (i % 2) * 0.8,
+      y: 2.2 - Math.floor(i / 2) * 1.1,
+    });
   }
   while (out.length < N) out.push({ x: 0, y: 0 });
   return out.slice(0, N);
@@ -189,98 +196,168 @@ function xShape(): Position[] {
   return out.slice(0, N);
 }
 
+export type TemplateEnergy = "low" | "mid" | "high";
+export type TemplateShape =
+  | "line"
+  | "grid"
+  | "wedge"
+  | "spread"
+  | "cluster"
+  | "arc";
+
+export type TaggedTemplate = Template & {
+  energy: TemplateEnergy;
+  shape: TemplateShape;
+};
+
 function make(
   id: string,
   tier: ChangeTier,
   name: string,
-  positions: Position[]
-): Template {
-  return { id, tier, name, positions: positions.slice(0, N) };
+  positions: Position[],
+  energy: TemplateEnergy,
+  shape: TemplateShape
+): TaggedTemplate {
+  return {
+    id,
+    tier,
+    name,
+    positions: positions.slice(0, N),
+    energy,
+    shape,
+  };
 }
 
-export const TEMPLATES_25P: Template[] = [
-  // —— major（大きく動く）——
-  make("maj_vee_front", "major", "V字（手前先端）", vee(true)),
-  make("maj_vee_back", "major", "逆V字（奥先端）", vee(false)),
-  make("maj_diamond", "major", "ダイヤモンド", diamond()),
-  make("maj_circle", "major", "円周", circle()),
-  make("maj_wings", "major", "ウィング展開", wings()),
-  make("maj_x", "major", "X字", xShape()),
-  make("maj_fan", "major", "扇状", fan()),
-  make("maj_block3", "major", "3ブロック分散", block3()),
+export const TEMPLATES_25P: TaggedTemplate[] = [
+  make("maj_vee_front", "major", "V字（手前先端）", vee(true), "high", "wedge"),
+  make("maj_vee_back", "major", "逆V字（奥先端）", vee(false), "high", "wedge"),
+  make("maj_diamond", "major", "ダイヤモンド", diamond(), "high", "spread"),
+  make("maj_circle", "major", "円周", circle(), "high", "spread"),
+  make("maj_wings", "major", "ウィング展開", wings(), "high", "spread"),
+  make("maj_x", "major", "X字", xShape(), "high", "spread"),
+  make("maj_fan", "major", "扇状", fan(), "high", "arc"),
+  make("maj_block3", "major", "3ブロック分散", block3(), "mid", "cluster"),
 
-  // —— medium ——
   make(
     "med_rows55",
     "medium",
     "5×5グリッド",
-    rows([5, 5, 5, 5, 5], 2.4, -1.2, 9)
+    rows([5, 5, 5, 5, 5], 2.4, -1.2, 9),
+    "mid",
+    "grid"
   ),
   make(
     "med_pyramid",
     "medium",
     "ピラミッド",
-    rows([3, 5, 7, 10], 2.2, -1.3, 10)
+    rows([3, 5, 7, 10], 2.2, -1.3, 10),
+    "mid",
+    "wedge"
   ),
   make(
     "med_inv_pyramid",
     "medium",
     "逆ピラミッド",
-    rows([10, 7, 5, 3], 2.2, -1.3, 10)
+    rows([10, 7, 5, 3], 2.2, -1.3, 10),
+    "mid",
+    "wedge"
   ),
-  make("med_stagger", "medium", "千鳥", stagger(false)),
-  make("med_stagger_tight", "medium", "千鳥（密）", stagger(true)),
+  make("med_stagger", "medium", "千鳥", stagger(false), "mid", "grid"),
+  make("med_stagger_tight", "medium", "千鳥（密）", stagger(true), "low", "grid"),
   make(
     "med_two_deep",
     "medium",
     "2列厚め",
-    rows([12, 13], 1.2, -2.4, 10)
+    rows([12, 13], 1.2, -2.4, 10),
+    "mid",
+    "line"
   ),
   make(
     "med_three_rows",
     "medium",
     "3列",
-    rows([8, 9, 8], 2.0, -2.0, 10)
+    rows([8, 9, 8], 2.0, -2.0, 10),
+    "mid",
+    "grid"
   ),
-  make("med_arc", "medium", "弧", fan()),
+  make("med_arc", "medium", "弧", fan(), "mid", "arc"),
 
-  // —— minor（微調整）——
-  make("min_line_mid", "minor", "横一列（中）", lineY(0.5, N, 10)),
-  make("min_line_front", "minor", "横一列（手前）", lineY(2.2, N, 10)),
-  make("min_line_back", "minor", "横一列（奥）", lineY(-2.0, N, 10)),
+  make("min_line_mid", "minor", "横一列（中）", lineY(0.5, N, 10), "low", "line"),
+  make(
+    "min_line_front",
+    "minor",
+    "横一列（手前）",
+    lineY(2.2, N, 10),
+    "low",
+    "line"
+  ),
+  make("min_line_back", "minor", "横一列（奥）", lineY(-2.0, N, 10), "low", "line"),
   make(
     "min_two_rows",
     "minor",
     "2列",
-    rows([12, 13], 1.0, -2.0, 9.5)
+    rows([12, 13], 1.0, -2.0, 9.5),
+    "low",
+    "line"
   ),
-  make("min_stagger_soft", "minor", "浅い千鳥", stagger(true)),
+  make("min_stagger_soft", "minor", "浅い千鳥", stagger(true), "low", "grid"),
   make(
     "min_compact",
     "minor",
     "中央密集",
-    rows([5, 5, 5, 5, 5], 1.6, -0.9, 6)
+    rows([5, 5, 5, 5, 5], 1.6, -0.9, 6),
+    "low",
+    "cluster"
   ),
   make(
     "min_wide_line",
     "minor",
     "横一列（広め）",
-    lineY(0.8, N, 11)
+    lineY(0.8, N, 11),
+    "low",
+    "line"
   ),
   make(
     "min_three_soft",
     "minor",
     "3列（浅）",
-    rows([8, 9, 8], 1.4, -1.4, 9)
+    rows([8, 9, 8], 1.4, -1.4, 9),
+    "low",
+    "grid"
   ),
 ];
 
-export function templatesForTier(tier: ChangeTier): Template[] {
+export function templatesForTier(tier: ChangeTier): TaggedTemplate[] {
   return TEMPLATES_25P.filter((t) => t.tier === tier);
 }
 
+export function mirrorTemplate(t: TaggedTemplate): TaggedTemplate {
+  return {
+    ...t,
+    id: `${t.id}__mx`,
+    name: `${t.name}（左右反転）`,
+    positions: t.positions.map((p) => ({ x: -p.x, y: p.y })),
+  };
+}
+
+export function shiftTemplate(
+  t: TaggedTemplate,
+  dy: number,
+  suffix: string
+): TaggedTemplate {
+  return {
+    ...t,
+    id: `${t.id}__${suffix}`,
+    name: `${t.name}（${suffix}）`,
+    positions: t.positions.map((p) => ({
+      x: p.x,
+      y: clamp(p.y + dy, -3.5, 3.5),
+    })),
+  };
+}
+
 /**
- * テンプレ位置を人数 n にリサンプル（等間隔サンプリング）
+ * 人数 n にリサンプル。空間的に離れた点を優先（少人数でも形が潰れにくい）。
  */
 export function resamplePositions(positions: Position[], n: number): Position[] {
   if (n <= 0) return [];
@@ -290,17 +367,41 @@ export function resamplePositions(positions: Position[], n: number): Position[] 
   if (positions.length === n) {
     return positions.map((p) => ({ ...p }));
   }
-  if (n === 1) return [{ ...positions[Math.floor(positions.length / 2)]! }];
-
-  const out: Position[] = [];
-  for (let i = 0; i < n; i++) {
-    const t = i / (n - 1);
-    const idx = Math.min(
-      positions.length - 1,
-      Math.round(t * (positions.length - 1))
-    );
-    out.push({ ...positions[idx]! });
+  if (n === 1) {
+    return [{ ...positions[Math.floor(positions.length / 2)]! }];
   }
+
+  const pts = positions.map((p) => ({ ...p }));
+  const start = Math.floor(pts.length / 2);
+  const chosen: number[] = [start];
+  const chosenSet = new Set<number>([start]);
+  const minDistSq = new Float64Array(pts.length).fill(Number.POSITIVE_INFINITY);
+
+  while (chosen.length < n) {
+    const last = pts[chosen[chosen.length - 1]!]!;
+    for (let i = 0; i < pts.length; i++) {
+      if (chosenSet.has(i)) continue;
+      const p = pts[i]!;
+      const d = (p.x - last.x) ** 2 + (p.y - last.y) ** 2;
+      if (d < minDistSq[i]!) minDistSq[i] = d;
+    }
+    let bestI = -1;
+    let bestD = -1;
+    for (let i = 0; i < pts.length; i++) {
+      if (chosenSet.has(i)) continue;
+      if (minDistSq[i]! > bestD) {
+        bestD = minDistSq[i]!;
+        bestI = i;
+      }
+    }
+    if (bestI < 0) break;
+    chosen.push(bestI);
+    chosenSet.add(bestI);
+  }
+
+  const out = chosen.map((i) => ({ ...pts[i]! }));
+  out.sort((a, b) => a.x - b.x || a.y - b.y);
+
   const seen = new Set<string>();
   return out.map((p, i) => {
     const key = `${p.x.toFixed(2)},${p.y.toFixed(2)}`;
@@ -308,8 +409,8 @@ export function resamplePositions(positions: Position[], n: number): Position[] 
       seen.add(key);
       return p;
     }
-    const jitter = ((i % 5) - 2) * 0.15;
-    const q = { x: p.x + jitter, y: p.y + jitter * 0.5 };
+    const jitter = ((i % 5) - 2) * 0.18;
+    const q = { x: p.x + jitter, y: p.y + jitter * 0.4 };
     seen.add(`${q.x.toFixed(2)},${q.y.toFixed(2)}`);
     return q;
   });

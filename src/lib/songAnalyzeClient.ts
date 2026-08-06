@@ -17,6 +17,9 @@ import type {
 /** Python analyzer / Edge と揃える */
 export const REMOTE_ANALYZER_VERSION = "algo-v1.0.0";
 
+/** Fly 冷起動＋解析が遅いので、これを超えたらブラウザ解析に切替 */
+export const REMOTE_ANALYZE_TIMEOUT_MS = 5500;
+
 export type RemoteSongAnalysis = SongAnalysisResult & {
   source: "cache" | "fresh" | "direct";
   audio_hash?: string;
@@ -112,33 +115,57 @@ async function resolveAnalyzableAudioUrl(opts: {
 }
 
 /**
+ * キャッシュキー。フル音源のダウンロードはしない（提案の体感速度を優先）。
+ */
+async function resolveAudioHash(opts: {
+  audioSupabasePath?: string | null;
+  audioUrl: string;
+}): Promise<string> {
+  const path = opts.audioSupabasePath?.trim();
+  if (path) {
+    return sha256Hex(
+      new TextEncoder().encode(`path:${REMOTE_ANALYZER_VERSION}:${path}`)
+    );
+  }
+  return sha256Hex(
+    new TextEncoder().encode(`url:${REMOTE_ANALYZER_VERSION}:${opts.audioUrl}`)
+  );
+}
+
+function mergeAbortSignals(
+  a?: AbortSignal,
+  b?: AbortSignal
+): AbortSignal | undefined {
+  if (!a && !b) return undefined;
+  if (a && !b) return a;
+  if (!a && b) return b;
+  const ctrl = new AbortController();
+  const onAbort = () => ctrl.abort();
+  a!.addEventListener("abort", onAbort, { once: true });
+  b!.addEventListener("abort", onAbort, { once: true });
+  if (a!.aborted || b!.aborted) ctrl.abort();
+  return ctrl.signal;
+}
+
+/**
  * Edge `analyze-song` → Fly `/analyze`（キャッシュ付き）。
- * Edge が無い／失敗時は `VITE_ANALYZER_API_URL` へ直接 POST。
+ * 既定で数秒タイムアウト。失敗／遅延時は null。
  */
 export async function fetchRemoteSongAnalysis(opts: {
   audioSupabasePath?: string | null;
   audioUrl?: string | null;
   trackTitle?: string | null;
   signal?: AbortSignal;
+  /** 既定 REMOTE_ANALYZE_TIMEOUT_MS。0 で無効 */
+  timeoutMs?: number;
 }): Promise<RemoteSongAnalysis | null> {
   const audioUrl = await resolveAnalyzableAudioUrl(opts);
   if (!audioUrl) return null;
 
-  let audioHash = "";
-  try {
-    const res = await fetch(audioUrl, { signal: opts.signal });
-    if (!res.ok) return null;
-    const buf = await res.arrayBuffer();
-    audioHash = await sha256Hex(buf);
-  } catch {
-    // 署名URLの再取得失敗時は path ベースの弱いキー
-    const path = opts.audioSupabasePath?.trim();
-    if (path) {
-      audioHash = await sha256Hex(new TextEncoder().encode(`path:${path}`));
-    } else {
-      return null;
-    }
-  }
+  const audioHash = await resolveAudioHash({
+    audioSupabasePath: opts.audioSupabasePath,
+    audioUrl,
+  });
 
   const body = {
     audio_url: audioUrl,
@@ -146,59 +173,75 @@ export async function fetchRemoteSongAnalysis(opts: {
     track_title: opts.trackTitle?.trim() || undefined,
   };
 
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-  const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as
-    | string
-    | undefined;
-
-  if (supabaseUrl && supabaseKey) {
-    try {
-      const token = getSupabaseAccessToken() || supabaseKey;
-      const res = await fetch(`${supabaseUrl}/functions/v1/analyze-song`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: supabaseKey,
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
-        signal: opts.signal,
-      });
-      if (res.ok) {
-        const data = (await res.json()) as Record<string, unknown>;
-        const source =
-          data.source === "cache" || data.source === "fresh"
-            ? data.source
-            : "cache";
-        const normalized = normalizeRemotePayload(data, source);
-        if (normalized) return { ...normalized, audio_hash: audioHash };
-      }
-      // 503 など → 直接 Fly を試す
-    } catch {
-      /* direct fallback */
-    }
+  const timeoutMs =
+    opts.timeoutMs === 0
+      ? 0
+      : (opts.timeoutMs ?? REMOTE_ANALYZE_TIMEOUT_MS);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let timeoutSignal: AbortSignal | undefined;
+  if (timeoutMs > 0) {
+    const tc = new AbortController();
+    timeoutSignal = tc.signal;
+    timer = setTimeout(() => tc.abort(), timeoutMs);
   }
-
-  const direct = (
-    import.meta.env.VITE_ANALYZER_API_URL as string | undefined
-  )?.replace(/\/$/, "");
-  if (!direct) return null;
+  const signal = mergeAbortSignals(opts.signal, timeoutSignal);
 
   try {
-    const res = await fetch(`${direct}/analyze`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: opts.signal,
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as Record<string, unknown>;
-    const normalized = normalizeRemotePayload(data, "direct");
-    if (normalized) return { ...normalized, audio_hash: audioHash };
-  } catch {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as
+      | string
+      | undefined;
+
+    if (supabaseUrl && supabaseKey) {
+      try {
+        const token = getSupabaseAccessToken() || supabaseKey;
+        const res = await fetch(`${supabaseUrl}/functions/v1/analyze-song`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: supabaseKey,
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(body),
+          signal,
+        });
+        if (res.ok) {
+          const data = (await res.json()) as Record<string, unknown>;
+          const source =
+            data.source === "cache" || data.source === "fresh"
+              ? data.source
+              : "cache";
+          const normalized = normalizeRemotePayload(data, source);
+          if (normalized) return { ...normalized, audio_hash: audioHash };
+        }
+      } catch {
+        /* direct fallback */
+      }
+    }
+
+    const direct = (
+      import.meta.env.VITE_ANALYZER_API_URL as string | undefined
+    )?.replace(/\/$/, "");
+    if (!direct) return null;
+
+    try {
+      const res = await fetch(`${direct}/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal,
+      });
+      if (!res.ok) return null;
+      const data = (await res.json()) as Record<string, unknown>;
+      const normalized = normalizeRemotePayload(data, "direct");
+      if (normalized) return { ...normalized, audio_hash: audioHash };
+    } catch {
+      return null;
+    }
     return null;
+  } finally {
+    if (timer) clearTimeout(timer);
   }
-  return null;
 }
 
 /** デバッグ用 */

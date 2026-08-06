@@ -15,7 +15,12 @@ export {
   STAGE_DEPTH_M,
   METERS_PER_COUNT,
 } from "./types";
-export { TEMPLATES_25P, templatesForTier, resamplePositions } from "./templates_25p";
+export {
+  TEMPLATES_25P,
+  templatesForTier,
+  resamplePositions,
+  mirrorTemplate,
+} from "./templates_25p";
 export { generateAppFormationsFromChangePoints } from "./appBridge";
 export {
   assignPerformers,
@@ -27,6 +32,8 @@ export {
   pickFormationPushingLimit,
   availableCountsBetween,
   computeMaxFeasibleDistance,
+  buildTemplatePool,
+  songPhaseAt,
 } from "./formation_generator";
 export {
   selectChangePointsForCueCount,
