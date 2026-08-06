@@ -39,6 +39,8 @@ const genId = (): string =>
 export type SuggestAudioOpts = {
   /** playbackEngine などから渡す再生中 URL（https のみ Fly から取得可） */
   audioUrl?: string | null;
+  /** 開始を含む目標キュー数（曲展開から重要変化点を選定） */
+  targetCueCount?: number;
 };
 
 export function useAiFormationSuggest(project: ChoreographyProjectJson) {
@@ -115,19 +117,22 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
 
         if (controller.signal.aborted) return;
 
+        const targetCueCount = audioOpts?.targetCueCount;
+
         const generated = generateAppFormationsFromChangePoints({
           changePoints,
           seedDancers,
           bpm,
           durationSec: duration,
           songDynamism: dynamism,
+          targetCueCount,
         });
 
         if (controller.signal.aborted) return;
 
         const note = extraInfo?.trim();
         const reasoning = [
-          `解析ソース: ${sourceLabel} / BPM ${Math.round(bpm)} / 変化点 ${changePoints.length} / dynamism ${dynamism.toFixed(2)}`,
+          `解析ソース: ${sourceLabel} / BPM ${Math.round(bpm)} / 変化点候補 ${changePoints.length} → キュー ${generated.cues.length}${targetCueCount != null ? `（指定 ${targetCueCount}）` : ""} / dynamism ${dynamism.toFixed(2)}`,
           ...generated.reasoning,
           ...(note ? [`メモ: ${note.slice(0, 80)}`] : []),
         ];

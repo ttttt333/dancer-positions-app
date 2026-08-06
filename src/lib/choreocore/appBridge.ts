@@ -15,6 +15,7 @@ import type {
 } from "./types";
 import { STAGE_DEPTH_M, STAGE_WIDTH_M } from "./types";
 import { generateFormations } from "./formation_generator";
+import { selectChangePointsForCueCount } from "./selectChangePoints";
 
 export function metersToPct(pos: Position): { xPct: number; yPct: number } {
   const xPct = ((pos.x + STAGE_WIDTH_M / 2) / STAGE_WIDTH_M) * 100;
@@ -86,11 +87,21 @@ export function generateAppFormationsFromChangePoints(params: {
   bpm: number;
   durationSec: number;
   songDynamism?: number;
+  /** 開始を含む目標キュー数。未指定なら変化点をすべて使用 */
+  targetCueCount?: number;
 }): AppGenerateResult {
   const seedById = new Map(params.seedDancers.map((d) => [d.id, d] as const));
   const initial = dancersToCoreFormation(params.seedDancers);
+  const points =
+    params.targetCueCount != null
+      ? selectChangePointsForCueCount(
+          params.changePoints,
+          params.targetCueCount,
+          params.durationSec
+        )
+      : params.changePoints;
   const raw: GenerateFormationsResult = generateFormations(
-    params.changePoints,
+    points,
     initial,
     params.bpm,
     {

@@ -28,3 +28,11 @@ export {
   availableCountsBetween,
   computeMaxFeasibleDistance,
 } from "./formation_generator";
+export {
+  selectChangePointsForCueCount,
+  suggestedCueCountForDuration,
+  clampTargetCueCount,
+  AI_SUGGEST_CUE_PRESETS,
+  AI_SUGGEST_CUE_MIN,
+  AI_SUGGEST_CUE_MAX,
+} from "./selectChangePoints";

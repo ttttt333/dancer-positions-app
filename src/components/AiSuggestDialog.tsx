@@ -2,10 +2,16 @@
  * AiSuggestDialog.tsx — AI提案ダイアログ（v2: 曲情報入力 → 提案生成）
  */
 
-import { useState, useCallback, useRef, type CSSProperties, type ChangeEvent } from "react";
+import { useState, useCallback, useRef, useMemo, type CSSProperties, type ChangeEvent } from "react";
 import { shell } from "../theme/choreoShell";
 import { useAiFormationSuggest } from "../hooks/useAiFormationSuggest";
 import { playbackEngine } from "../core/playbackEngine";
+import {
+  AI_SUGGEST_CUE_MAX,
+  AI_SUGGEST_CUE_MIN,
+  AI_SUGGEST_CUE_PRESETS,
+  suggestedCueCountForDuration,
+} from "../lib/choreocore/selectChangePoints";
 import type { ChoreographyProjectJson } from "../types/choreography";
 
 interface AiSuggestDialogProps {
@@ -220,6 +226,11 @@ export function AiSuggestDialog({
   const [vibes, setVibes] = useState<Set<VibeId>>(new Set());
   const [formationStyle, setFormationStyle] = useState<FormationStyleId>("dynamic");
   const [additionalNote, setAdditionalNote] = useState("");
+  const defaultCueCount = useMemo(
+    () => suggestedCueCountForDuration(durationSec),
+    [durationSec]
+  );
+  const [targetCueCount, setTargetCueCount] = useState(defaultCueCount);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { status, result, error, suggest, reset } = useAiFormationSuggest(project);
@@ -268,8 +279,9 @@ export function AiSuggestDialog({
     const mediaUrl = playbackEngine.getMediaSourceUrl();
     suggest(peaks, durationSec, extra || undefined, {
       audioUrl: mediaUrl || null,
+      targetCueCount,
     });
-  }, [peaks, durationSec, vibes, formationStyle, lyrics, additionalNote, suggest]);
+  }, [peaks, durationSec, vibes, formationStyle, lyrics, additionalNote, targetCueCount, suggest]);
 
   /* ── 適用 ── */
   const handleApply = useCallback(() => {
@@ -330,8 +342,76 @@ export function AiSuggestDialog({
               )}
 
               <p style={{ fontSize: 12, color: shell.textMuted, lineHeight: 1.55, margin: "0 0 14px" }}>
-                外部LLMは使いません。クラウドに保存された音源がある場合は Fly の高精度解析（/analyze）を使い、無い場合はブラウザ内解析にフォールバックします。変化点から25人雛形を物理制約つきで自動選定します。
+                外部LLMは使いません。曲の展開を解析したうえで、指定したキュー数に収まる重要変化点だけを選んで隊列を提案します。
               </p>
+
+              {/* キュー数 */}
+              <div style={{ marginBottom: 16 }}>
+                <span style={label}>キュー数（開始を含む）</span>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                  {AI_SUGGEST_CUE_PRESETS.map((n) => {
+                    const selected = targetCueCount === n;
+                    return (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => setTargetCueCount(n)}
+                        style={{
+                          minWidth: 44,
+                          padding: "6px 12px",
+                          borderRadius: 8,
+                          border: `1px solid ${selected ? "#6366f1" : shell.border}`,
+                          background: selected ? "rgba(99,102,241,0.18)" : "rgba(255,255,255,0.04)",
+                          color: selected ? "#a5b4fc" : shell.textMuted,
+                          fontSize: 12,
+                          fontWeight: selected ? 700 : 400,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {n}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <input
+                    type="range"
+                    min={AI_SUGGEST_CUE_MIN}
+                    max={AI_SUGGEST_CUE_MAX}
+                    value={targetCueCount}
+                    onChange={(e) => setTargetCueCount(Number(e.target.value))}
+                    style={{ flex: 1 }}
+                  />
+                  <input
+                    type="number"
+                    min={AI_SUGGEST_CUE_MIN}
+                    max={AI_SUGGEST_CUE_MAX}
+                    value={targetCueCount}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      if (!Number.isFinite(n)) return;
+                      setTargetCueCount(
+                        Math.min(AI_SUGGEST_CUE_MAX, Math.max(AI_SUGGEST_CUE_MIN, Math.round(n)))
+                      );
+                    }}
+                    style={{
+                      width: 56,
+                      boxSizing: "border-box",
+                      background: "rgba(255,255,255,0.04)",
+                      border: `1px solid ${shell.border}`,
+                      borderRadius: 8,
+                      color: shell.text,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      padding: "6px 8px",
+                      textAlign: "center",
+                    }}
+                  />
+                </div>
+                <p style={{ fontSize: 10, color: shell.textSubtle, margin: "6px 0 0", lineHeight: 1.45 }}>
+                  おすすめ {defaultCueCount}（約20秒に1つ）。解析で検出した変化点のうち、重要な転換を優先して選定します。無料プランはキュー上限20件です。
+                </p>
+              </div>
 
               {/* 曲のイメージ */}
               <div style={{ marginBottom: 16 }}>
@@ -516,6 +596,7 @@ export function AiSuggestDialog({
                       <span><span style={{ color: shell.textSubtle, fontSize: 10 }}>BPM</span>{" "}<strong>{result.analysis.bpm}</strong></span>
                       <span><span style={{ color: shell.textSubtle, fontSize: 10 }}>長さ</span>{" "}<strong>{Math.floor(result.analysis.durationSec / 60)}:{String(Math.floor(result.analysis.durationSec % 60)).padStart(2, "0")}</strong></span>
                       <span><span style={{ color: shell.textSubtle, fontSize: 10 }}>セクション</span>{" "}<strong>{result.analysis.sections.length}</strong></span>
+                      <span><span style={{ color: shell.textSubtle, fontSize: 10 }}>キュー</span>{" "}<strong>{result.cues.length}</strong></span>
                       {result.analysisSource ? (
                         <span><span style={{ color: shell.textSubtle, fontSize: 10 }}>解析</span>{" "}<strong>{result.analysisSource}</strong></span>
                       ) : null}
