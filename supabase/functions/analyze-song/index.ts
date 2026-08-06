@@ -1,5 +1,5 @@
-# supabase/functions/analyze-song
-# 音源解析キャッシュ → Fly.io ANALYZER_API_URL/analyze
+// supabase/functions/analyze-song
+// 音源解析キャッシュ → Fly.io ANALYZER_API_URL/analyze
 
 // @ts-ignore Deno
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
