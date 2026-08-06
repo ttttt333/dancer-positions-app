@@ -24,6 +24,7 @@ export {
 export { generateAppFormationsFromChangePoints } from "./appBridge";
 export {
   assignPerformers,
+  assignPerformersOrdered,
   totalTravelMeters,
   maxTravelMeters,
 } from "./assignment";
@@ -32,9 +33,11 @@ export {
   pickFormationPushingLimit,
   availableCountsBetween,
   computeMaxFeasibleDistance,
-  buildTemplatePool,
   songPhaseAt,
+  moodFromSection,
+  sectionAt,
 } from "./formation_generator";
+export { buildRealisticLayouts } from "./layouts_realistic";
 export {
   selectChangePointsForCueCount,
   suggestedCueCountForDuration,

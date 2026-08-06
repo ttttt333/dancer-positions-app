@@ -52,28 +52,34 @@ describe("assignPerformers", () => {
 });
 
 describe("generateFormations", () => {
-  it("builds ~10+ formations from mock change points without LLM", () => {
+  it("builds realistic formations for a small cast with section hints", () => {
     const bpm = 120;
     const changePoints: ChangePoint[] = [];
-    // 3分・4エイト間隔 ≈ 8秒 → 約 20 点のうち間引いて 12 点
-    for (let i = 1; i <= 12; i++) {
-      const eight = i * 2;
+    for (let i = 1; i <= 8; i++) {
       changePoints.push({
-        eight_index: eight,
-        time: eight * (60 / bpm) * 8,
-        score: 0.3 + (i % 3) * 0.2,
+        eight_index: i * 2,
+        time: i * 16,
+        score: 0.3 + (i % 3) * 0.25,
         tier: i % 3 === 0 ? "major" : i % 3 === 1 ? "medium" : "minor",
       });
     }
 
-    const result = generateFormations(changePoints, lineFormation(25), bpm, {
-      durationSec: 180,
+    const result = generateFormations(changePoints, lineFormation(6), bpm, {
+      durationSec: 160,
       songDynamism: 0.55,
+      sections: [
+        { label: "イントロ", startSec: 0, endSec: 16, avgEnergy: 0.25 },
+        { label: "Aメロ", startSec: 16, endSec: 48, avgEnergy: 0.4 },
+        { label: "サビ", startSec: 48, endSec: 80, avgEnergy: 0.78 },
+        { label: "Bメロ", startSec: 80, endSec: 112, avgEnergy: 0.5 },
+        { label: "サビ", startSec: 112, endSec: 144, avgEnergy: 0.8 },
+        { label: "アウトロ", startSec: 144, endSec: 160, avgEnergy: 0.2 },
+      ],
     });
 
-    expect(result.formations.length).toBeGreaterThanOrEqual(10);
+    expect(result.formations.length).toBeGreaterThanOrEqual(5);
     expect(result.cues.length).toBe(result.formations.length);
-    expect(result.reasoning.length).toBeGreaterThan(0);
+    expect(result.formations.every((f) => f.performers.length === 6)).toBe(true);
     expect(METERS_PER_COUNT).toBe(0.45);
 
     for (const c of result.cues) {

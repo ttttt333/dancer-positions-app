@@ -88,6 +88,35 @@ export function assignPerformers(
   return { id: genId(), performers };
 }
 
+/**
+ * 左→右の並び順を保った割り当て（実践的な隊列転換向け）。
+ * Hungarian の入れ替えを避け、誰が端か中央かが崩れにくい。
+ */
+export function assignPerformersOrdered(
+  prev: Formation,
+  nextTemplatePositions: Position[]
+): Formation {
+  const n = Math.min(prev.performers.length, nextTemplatePositions.length);
+  if (n === 0) {
+    return { id: genId(), performers: [] };
+  }
+  const sortedPeople = [...prev.performers].sort(
+    (a, b) =>
+      a.position.x - b.position.x || a.position.y - b.position.y
+  );
+  const sortedSlots = [...nextTemplatePositions]
+    .slice(0, n)
+    .sort((a, b) => a.x - b.x || a.y - b.y);
+
+  return {
+    id: genId(),
+    performers: sortedPeople.slice(0, n).map((p, i) => ({
+      id: p.id,
+      position: { ...sortedSlots[i]! },
+    })),
+  };
+}
+
 /** 同一 id 同士の総移動距離(m) */
 export function totalTravelMeters(prev: Formation, next: Formation): number {
   const byId = new Map(next.performers.map((p) => [p.id, p] as const));

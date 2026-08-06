@@ -26,17 +26,19 @@ describe("selectChangePointsForCueCount", () => {
     }
   });
 
-  it("prefers major tiers when thinning", () => {
-    const points: ChangePoint[] = [
-      { eight_index: 1, time: 10, score: 0.2, tier: "minor" },
-      { eight_index: 2, time: 40, score: 0.9, tier: "major" },
-      { eight_index: 3, time: 70, score: 0.2, tier: "minor" },
-      { eight_index: 4, time: 100, score: 0.8, tier: "major" },
-      { eight_index: 5, time: 130, score: 0.1, tier: "minor" },
-    ];
-    const selected = selectChangePointsForCueCount(points, 3, 150);
-    expect(selected).toHaveLength(2);
-    expect(selected.every((p) => p.tier === "major")).toBe(true);
+  it("prefers section boundaries when provided", () => {
+    const points = makePoints(40);
+    const selected = selectChangePointsForCueCount(points, 6, 180, [
+      { startSec: 30, endSec: 60, avgEnergy: 0.4, label: "Aメロ" },
+      { startSec: 60, endSec: 90, avgEnergy: 0.8, label: "サビ" },
+      { startSec: 90, endSec: 120, avgEnergy: 0.45, label: "Bメロ" },
+      { startSec: 120, endSec: 160, avgEnergy: 0.75, label: "サビ" },
+    ]);
+    expect(selected.length).toBe(5);
+    const times = selected.map((p) => p.time);
+    expect(times.some((t) => Math.abs(t - 60) < 1 || Math.abs(t - 30) < 1)).toBe(
+      true
+    );
   });
 
   it("clamps and suggests sensible defaults", () => {

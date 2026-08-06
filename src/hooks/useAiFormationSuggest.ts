@@ -120,6 +120,13 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
 
         const targetCueCount = audioOpts?.targetCueCount;
 
+        const sections = localAnalysis.sections.map((s) => ({
+          label: s.label,
+          startSec: s.startSec,
+          endSec: s.endSec,
+          avgEnergy: s.avgEnergy,
+        }));
+
         const generated = generateAppFormationsFromChangePoints({
           changePoints,
           seedDancers,
@@ -127,6 +134,8 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
           durationSec: duration,
           songDynamism: dynamism,
           targetCueCount,
+          sections,
+          energyCurve: peaks,
         });
 
         if (controller.signal.aborted) return;
