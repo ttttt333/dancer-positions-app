@@ -16,11 +16,16 @@ export type Formation = {
 
 export type ChangeTier = "major" | "medium" | "minor";
 
+/** 4エイトブロックのセクション種別（RMSサビ判定） */
+export type SectionType = "CHORUS_START" | "CHORUS" | "VERSE";
+
 export type ChangePoint = {
   eight_index: number;
   time: number;
   score: number;
   tier: ChangeTier;
+  /** 解析器が付ける。無い場合は tier から推定 */
+  section_type?: SectionType;
 };
 
 export type Template = {
@@ -66,3 +71,7 @@ export const STAGE_DEPTH_M = 8;
 
 /** 1カウントあたりの最大安全移動距離(m) */
 export const METERS_PER_COUNT = 0.45;
+
+/** 4エイト = 32ビート = 32カウント（フォーメーション移動の基準） */
+export const COUNTS_PER_FOUR_EIGHT_BLOCK = 32;
+export const EIGHTS_PER_BLOCK = 4;

@@ -1,12 +1,13 @@
 /**
  * 楽曲構造解析（ブラウザ実装）。
- * Spec: song-structure-analysis-spec.md
- *
- * librosa 版（Fly.io）が未接続のときのフォールバック。
- * 波形ピークからエイトグリッド・変化点・tier・song_dynamism を推定する。
+ * Fly.io librosa 版と同じ思想:
+ * - peak_pick 廃止
+ * - 4エイト（32ビート）固定ブロック
+ * - 波形エネルギー近似でサビ（上位35%連続）判定
  */
 
 export type ChangeTier = "major" | "medium" | "minor";
+export type SectionType = "CHORUS_START" | "CHORUS" | "VERSE";
 
 export type EightGridEntry = {
   index: number;
@@ -18,6 +19,7 @@ export type ChangePoint = {
   time: number;
   score: number;
   tier: ChangeTier;
+  section_type?: SectionType;
 };
 
 export type SongStructureAnalysis = {
@@ -30,7 +32,10 @@ export type SongStructureAnalysis = {
   source: "browser" | "remote";
 };
 
-export const BROWSER_ANALYZER_VERSION = "browser-v1.0.0";
+export const BROWSER_ANALYZER_VERSION = "browser-v1.1.0";
+
+const BEATS_PER_EIGHT = 8;
+const EIGHTS_PER_BLOCK = 4;
 
 function smooth(arr: number[], windowSize = 8): number[] {
   const out: number[] = [];
@@ -44,22 +49,11 @@ function smooth(arr: number[], windowSize = 8): number[] {
       j++
     ) {
       sum += arr[j]!;
-      count++;
+      count += 1;
     }
     out.push(sum / Math.max(1, count));
   }
   return out;
-}
-
-function normalize(x: number[]): number[] {
-  let min = Infinity;
-  let max = -Infinity;
-  for (const v of x) {
-    if (v < min) min = v;
-    if (v > max) max = v;
-  }
-  const span = max - min + 1e-8;
-  return x.map((v) => (v - min) / span);
 }
 
 /** BPM推定: オートコリレーション (60〜200) */
@@ -80,7 +74,7 @@ export function estimateBpmFromPeaks(
     let count = 0;
     for (let i = 0; i < n - lagSamples; i++) {
       corr += peaks[i]! * peaks[i + lagSamples]!;
-      count++;
+      count += 1;
     }
     corr /= Math.max(1, count);
     if (corr > bestCorr) {
@@ -93,11 +87,10 @@ export function estimateBpmFromPeaks(
 
 function buildEightGrid(bpm: number, durationSec: number): EightGridEntry[] {
   const secPerBeat = 60 / Math.max(1, bpm);
-  const secPerEight = secPerBeat * 8;
+  const secPerEight = secPerBeat * BEATS_PER_EIGHT;
   const eights: EightGridEntry[] = [];
   let t = 0;
   let index = 0;
-  // 曲末の不完全エイトは捨てる（spec と同じ）
   while (t + secPerEight <= durationSec + 1e-6) {
     eights.push({ index, start_time: Math.round(t * 1000) / 1000 });
     t += secPerEight;
@@ -109,161 +102,52 @@ function buildEightGrid(bpm: number, durationSec: number): EightGridEntry[] {
   return eights;
 }
 
-/** エネルギー曲線の局所差（簡易 novelty） */
-function energyNovelty(peaks: number[]): number[] {
-  const s = smooth(peaks, 12);
-  const out = new Array(s.length).fill(0) as number[];
-  const w = 16;
-  for (let i = w; i < s.length - w; i++) {
-    let left = 0;
-    let right = 0;
-    for (let j = 0; j < w; j++) {
-      left += s[i - j - 1]!;
-      right += s[i + j]!;
-    }
-    out[i] = Math.abs(right - left) / w;
-  }
-  return smooth(out, 6);
+function percentile(sortedAsc: number[], p: number): number {
+  if (sortedAsc.length === 0) return 0;
+  const idx = (sortedAsc.length - 1) * p;
+  const lo = Math.floor(idx);
+  const hi = Math.ceil(idx);
+  if (lo === hi) return sortedAsc[lo]!;
+  const w = idx - lo;
+  return sortedAsc[lo]! * (1 - w) + sortedAsc[hi]! * w;
 }
 
-/** Foote 風: 自己相似の対角チェッカーボード近似（1D エネルギー版） */
-function structuralNoveltyApprox(peaks: number[]): number[] {
-  const s = smooth(normalize(peaks), 10);
-  const n = s.length;
-  const out = new Array(n).fill(0) as number[];
-  const half = 24;
-  for (let i = half; i < n - half; i++) {
-    let score = 0;
-    for (let a = 0; a < half; a++) {
-      for (let b = 0; b < half; b++) {
-        const past = s[i - half + a]!;
-        const future = s[i + b]!;
-        // 同側は正、異側は負（チェッカーボード近似）
-        score += past * past + future * future - 2 * past * future;
-      }
+function markChorusBlocks(blockEnergy: number[], topRatio = 0.35): SectionType[] {
+  const n = blockEnergy.length;
+  if (n === 0) return [];
+  if (n === 1) return ["CHORUS_START"];
+  const sorted = [...blockEnergy].sort((a, b) => a - b);
+  const thr = percentile(sorted, 1 - topRatio);
+  const loud = blockEnergy.map((e) => e >= thr);
+  const section: SectionType[] = Array.from({ length: n }, () => "VERSE");
+  let i = 0;
+  while (i < n) {
+    if (!loud[i]) {
+      i += 1;
+      continue;
     }
-    out[i] = Math.max(0, score);
+    let j = i;
+    while (j < n && loud[j]) j += 1;
+    section[i] = "CHORUS_START";
+    for (let k = i + 1; k < j; k++) section[k] = "CHORUS";
+    i = j;
   }
-  return smooth(out, 8);
+  return section;
 }
 
-function gaussianSmooth1d(x: number[], sigma = 2): number[] {
-  const radius = Math.max(1, Math.ceil(sigma * 3));
-  const kernel: number[] = [];
-  let ksum = 0;
-  for (let i = -radius; i <= radius; i++) {
-    const w = Math.exp(-(i * i) / (2 * sigma * sigma));
-    kernel.push(w);
-    ksum += w;
-  }
-  return x.map((_, i) => {
-    let sum = 0;
-    for (let k = -radius; k <= radius; k++) {
-      const j = Math.min(x.length - 1, Math.max(0, i + k));
-      sum += x[j]! * kernel[k + radius]!;
-    }
-    return sum / ksum;
-  });
-}
-
-function peakPick(
-  curve: number[],
-  opts: { preMax: number; postMax: number; delta: number; wait: number }
-): number[] {
-  const { preMax, postMax, delta, wait } = opts;
-  const peaks: number[] = [];
-  let last = -wait - 1;
-  const mean =
-    curve.reduce((a, b) => a + b, 0) / Math.max(1, curve.length);
-  for (let i = preMax; i < curve.length - postMax; i++) {
-    const v = curve[i]!;
-    if (v < mean + delta) continue;
-    if (i - last < wait) continue;
-    let isMax = true;
-    for (let j = i - preMax; j <= i + postMax; j++) {
-      if (j === i) continue;
-      if (curve[j]! > v) {
-        isMax = false;
-        break;
-      }
-    }
-    if (isMax) {
-      peaks.push(i);
-      last = i;
-    }
-  }
-  return peaks;
-}
-
-/** 1D k-means (k=3) → minor/medium/major */
-function scoreToTier(peakScores: number[]): ChangeTier[] {
-  if (peakScores.length === 0) return [];
-  if (peakScores.length < 3) {
-    return peakScores.map(() => "major" as const);
-  }
-
-  const sorted = [...peakScores].sort((a, b) => a - b);
-  let c0 = sorted[Math.floor(sorted.length * 0.2)]!;
-  let c1 = sorted[Math.floor(sorted.length * 0.5)]!;
-  let c2 = sorted[Math.floor(sorted.length * 0.8)]!;
-
-  const labels = new Array(peakScores.length).fill(0);
-  for (let iter = 0; iter < 12; iter++) {
-    const sums = [0, 0, 0];
-    const counts = [0, 0, 0];
-    for (let i = 0; i < peakScores.length; i++) {
-      const s = peakScores[i]!;
-      const d0 = Math.abs(s - c0);
-      const d1 = Math.abs(s - c1);
-      const d2 = Math.abs(s - c2);
-      const lab = d0 <= d1 && d0 <= d2 ? 0 : d1 <= d2 ? 1 : 2;
-      labels[i] = lab;
-      sums[lab]! += s;
-      counts[lab]! += 1;
-    }
-    if (counts[0]) c0 = sums[0]! / counts[0]!;
-    if (counts[1]) c1 = sums[1]! / counts[1]!;
-    if (counts[2]) c2 = sums[2]! / counts[2]!;
-  }
-
-  const centers = [c0, c1, c2];
-  const order = [0, 1, 2].sort((a, b) => centers[a]! - centers[b]!);
-  const map: Record<number, ChangeTier> = {
-    [order[0]!]: "minor",
-    [order[1]!]: "medium",
-    [order[2]!]: "major",
-  };
-  return labels.map((c) => map[c]!);
-}
-
-function computeSongDynamism(curve: number[]): number {
-  if (curve.length === 0) return 0.5;
-  const mean = curve.reduce((a, b) => a + b, 0) / curve.length;
-  let varSum = 0;
-  for (const v of curve) varSum += (v - mean) ** 2;
-  const std = Math.sqrt(varSum / curve.length);
-  const cv = std / (mean + 1e-8);
-  return Math.min(1, Math.max(0, cv / 1.5));
-}
-
-function snapToEight(
-  timeSec: number,
-  eightStarts: number[]
-): { eight_index: number; time: number } {
-  let best = 0;
-  let bestDist = Infinity;
-  for (let i = 0; i < eightStarts.length; i++) {
-    const d = Math.abs(eightStarts[i]! - timeSec);
-    if (d < bestDist) {
-      bestDist = d;
-      best = i;
-    }
-  }
-  return { eight_index: best, time: eightStarts[best]! };
+function meanInRange(peaks: number[], startSec: number, endSec: number, duration: number): number {
+  const n = peaks.length;
+  if (n === 0 || duration <= 0) return 0;
+  const a = Math.max(0, Math.floor((startSec / duration) * n));
+  const b = Math.min(n, Math.ceil((endSec / duration) * n));
+  if (b <= a) return peaks[Math.min(n - 1, a)] ?? 0;
+  let sum = 0;
+  for (let i = a; i < b; i++) sum += peaks[i]!;
+  return sum / (b - a);
 }
 
 /**
- * 波形ピークから楽曲構造を解析する（ブラウザ実装）。
+ * 波形ピークから楽曲構造を解析する（ブラウザ実装・4エイト固定）。
  */
 export function analyzeSongStructureFromPeaks(
   peaks: number[],
@@ -272,63 +156,81 @@ export function analyzeSongStructureFromPeaks(
   const duration = Math.max(0.1, durationSec);
   const bpm = estimateBpmFromPeaks(peaks, duration);
   const eight_grid = buildEightGrid(bpm, duration);
-  const eightStarts = eight_grid.map((e) => e.start_time);
+  const smoothed = smooth(peaks, 12);
 
-  const structural = structuralNoveltyApprox(peaks);
-  const energetic = energyNovelty(peaks);
-  // 長さを揃える
-  const n = Math.min(structural.length, energetic.length);
-  const sN = normalize(structural.slice(0, n));
-  const eN = normalize(energetic.slice(0, n));
-  let combined = sN.map((v, i) => 0.6 * v + 0.4 * eN[i]!);
-  combined = gaussianSmooth1d(combined, 2);
+  type Block = {
+    eight_index: number;
+    time: number;
+    end_time: number;
+    mean_energy: number;
+  };
 
-  const sampleRate = n / duration; // samples per sec
-  const waitSamples = Math.max(8, Math.round(sampleRate * (60 / bpm) * 4)); // ~4拍
-  const peakIdx = peakPick(combined, {
-    preMax: 8,
-    postMax: 8,
-    delta: 0.08,
-    wait: waitSamples,
-  });
-
-  const peakTimes = peakIdx.map((i) => (i / Math.max(1, n - 1)) * duration);
-  const peakScores = peakIdx.map((i) => combined[i]!);
-  const tiers = scoreToTier(peakScores);
-  const song_dynamism = computeSongDynamism(combined);
-
-  const seen = new Set<number>();
-  const change_points: ChangePoint[] = [];
-  for (let i = 0; i < peakTimes.length; i++) {
-    const snapped = snapToEight(peakTimes[i]!, eightStarts);
-    if (seen.has(snapped.eight_index)) continue;
-    // 曲頭の微小変化は無視
-    if (snapped.time < (60 / bpm) * 4) continue;
-    seen.add(snapped.eight_index);
-    change_points.push({
-      eight_index: snapped.eight_index,
-      time: snapped.time,
-      score: peakScores[i]!,
-      tier: tiers[i]!,
+  const blocks: Block[] = [];
+  for (let ei = 0; ei < eight_grid.length; ei += EIGHTS_PER_BLOCK) {
+    const start = eight_grid[ei]!;
+    const endEight = eight_grid[ei + EIGHTS_PER_BLOCK];
+    const end_time = endEight?.start_time ?? duration;
+    const mean_energy = meanInRange(
+      smoothed,
+      start.start_time,
+      end_time,
+      duration
+    );
+    blocks.push({
+      eight_index: start.index,
+      time: start.start_time,
+      end_time,
+      mean_energy,
     });
   }
 
-  change_points.sort((a, b) => a.time - b.time);
-
-  // 変化点が少なすぎる場合は 4 エイトごとに medium を補う
-  if (change_points.length < 2 && eight_grid.length >= 2) {
-    for (let i = 4; i < eight_grid.length; i += 4) {
-      const e = eight_grid[i]!;
-      if (change_points.some((c) => c.eight_index === e.index)) continue;
-      change_points.push({
-        eight_index: e.index,
-        time: e.start_time,
-        score: 0.4,
-        tier: "medium",
-      });
-    }
-    change_points.sort((a, b) => a.time - b.time);
+  if (blocks.length === 0) {
+    blocks.push({
+      eight_index: 0,
+      time: 0,
+      end_time: duration,
+      mean_energy: 0.5,
+    });
   }
+
+  const energies = blocks.map((b) => b.mean_energy);
+  const eMin = Math.min(...energies);
+  const eMax = Math.max(...energies);
+  const span = eMax - eMin + 1e-8;
+  const scores = energies.map((e) => (e - eMin) / span);
+  const sectionTypes = markChorusBlocks(energies, 0.35);
+
+  const mean = energies.reduce((a, b) => a + b, 0) / energies.length;
+  const variance =
+    energies.reduce((a, b) => a + (b - mean) ** 2, 0) / energies.length;
+  const cv = Math.sqrt(variance) / (mean + 1e-8);
+  const song_dynamism = Math.min(1, Math.max(0, cv / 1.5));
+
+  let verseCounter = 0;
+  const change_points: ChangePoint[] = [];
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i]!;
+    if (b.eight_index === 0) continue;
+    const stype = sectionTypes[i]!;
+    const score = scores[i]!;
+    let tier: ChangeTier;
+    if (stype === "CHORUS_START") {
+      tier = "major";
+    } else if (stype === "CHORUS") {
+      tier = score >= 0.75 ? "major" : "medium";
+    } else {
+      tier = verseCounter % 2 === 0 ? "medium" : "minor";
+      verseCounter += 1;
+    }
+    change_points.push({
+      eight_index: b.eight_index,
+      time: b.time,
+      score,
+      tier,
+      section_type: stype,
+    });
+  }
+  change_points.sort((a, b) => a.time - b.time);
 
   return {
     bpm,

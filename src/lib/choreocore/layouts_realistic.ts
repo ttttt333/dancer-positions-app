@@ -19,7 +19,8 @@ export type LayoutKind =
   | "cluster"
   | "split"
   | "stagger"
-  | "wedge";
+  | "wedge"
+  | "cross";
 
 export type RealisticLayout = {
   id: string;
@@ -27,6 +28,8 @@ export type RealisticLayout = {
   kind: LayoutKind;
   /** quiet | verse | lift | chorus | break */
   moods: Array<"quiet" | "verse" | "lift" | "chorus" | "break">;
+  /** サビ頭で最優先するインパクト隊列 */
+  impact?: boolean;
   positions: Position[];
 };
 
@@ -160,6 +163,23 @@ function wedge(n: number): Position[] {
   return [...line(front, 1.9, 9.5), ...line(back, -1.2, 6.5)];
 }
 
+/** クロスチェンジ風（2本の斜め線） */
+function cross(n: number): Position[] {
+  if (n <= 0) return [];
+  if (n === 1) return [{ x: 0, y: 0 }];
+  const a = Math.ceil(n / 2);
+  const b = n - a;
+  const armA = Array.from({ length: a }, (_, i) => {
+    const t = a === 1 ? 0.5 : i / (a - 1);
+    return { x: -4.2 + t * 8.4, y: 2.0 - t * 4.0 };
+  });
+  const armB = Array.from({ length: b }, (_, i) => {
+    const t = b === 1 ? 0.5 : i / (b - 1);
+    return { x: -4.2 + t * 8.4, y: -2.0 + t * 4.0 };
+  });
+  return [...armA, ...armB];
+}
+
 /**
  * 人数 n 用の現実的レイアウト一覧を生成する。
  */
@@ -170,14 +190,15 @@ export function buildRealisticLayouts(n: number): RealisticLayout[] {
     name: string,
     kind: LayoutKind,
     moods: RealisticLayout["moods"],
-    positions: Position[]
-  ): RealisticLayout => ({ id, name, kind, moods, positions });
+    positions: Position[],
+    impact = false
+  ): RealisticLayout => ({ id, name, kind, moods, positions, impact });
 
   const list: RealisticLayout[] = [
     L("line_mid", "横一列（中）", "line", ["quiet", "verse", "break"], line(count, 0.4)),
     L("line_front", "横一列（手前）", "line", ["lift", "chorus"], line(count, 2.1)),
     L("line_back", "横一列（奥）", "line", ["quiet", "break"], line(count, -1.8)),
-    L("line_wide", "横一列（広め）", "line", ["chorus", "lift"], line(count, 1.0, 10.5)),
+    L("line_wide", "横一列（広め）", "line", ["chorus", "lift"], line(count, 1.0, 10.5), true),
     L("two_mid", "2列", "two_row", ["verse", "lift"], twoRows(count, 1.4, -1.0)),
     L(
       "two_front",
@@ -188,16 +209,17 @@ export function buildRealisticLayouts(n: number): RealisticLayout[] {
     ),
     L("diag_fl", "斜め（左前→右奥）", "diag", ["verse", "lift"], diagonal(count, true)),
     L("diag_fr", "斜め（右前→左奥）", "diag", ["verse", "lift"], diagonal(count, false)),
-    L("vee_front", "V字（手前先端）", "vee", ["chorus", "lift"], vee(count, true)),
-    L("vee_back", "逆V字", "vee", ["chorus"], vee(count, false)),
-    L("arc_front", "弧（手前）", "arc", ["lift", "chorus"], arc(count, 1.6, 1.1)),
+    L("vee_front", "大V字（手前先端）", "vee", ["chorus", "lift"], vee(count, true), true),
+    L("vee_back", "逆V字", "vee", ["chorus"], vee(count, false), true),
+    L("arc_front", "扇形（手前）", "arc", ["lift", "chorus"], arc(count, 1.6, 1.3), true),
     L("arc_soft", "浅い弧", "arc", ["verse", "lift"], arc(count, 0.6, 0.7)),
     L("cluster_mid", "中央密集", "cluster", ["quiet", "break"], cluster(count, 0.2, 1.1)),
     L("cluster_front", "手前密集", "cluster", ["break", "chorus"], cluster(count, 1.6, 1.0)),
-    L("split_mid", "左右分割", "split", ["lift", "chorus"], splitLR(count, 0.5)),
+    L("split_mid", "左右分割", "split", ["lift", "chorus"], splitLR(count, 0.5), true),
+    L("cross", "クロスチェンジ", "cross", ["chorus", "lift"], cross(count), true),
     L("stagger", "千鳥", "stagger", ["verse", "lift"], stagger(count, false)),
     L("stagger_tight", "千鳥（密）", "stagger", ["quiet", "verse"], stagger(count, true)),
-    L("wedge", "手前ワイド", "wedge", ["chorus", "lift"], wedge(count)),
+    L("wedge", "手前ワイド", "wedge", ["chorus", "lift"], wedge(count), true),
   ];
 
   if (count >= 7) {

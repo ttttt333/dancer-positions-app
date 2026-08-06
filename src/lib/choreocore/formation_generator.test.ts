@@ -6,6 +6,7 @@ import {
   assignPerformers,
   generateFormations,
   METERS_PER_COUNT,
+  COUNTS_PER_FOUR_EIGHT_BLOCK,
   TEMPLATES_25P,
   templatesForTier,
   type ChangePoint,
@@ -52,35 +53,49 @@ describe("assignPerformers", () => {
 });
 
 describe("generateFormations", () => {
-  it("builds realistic formations for a small cast with section hints", () => {
+  it("syncs to 4-eight blocks and prioritizes CHORUS_START impact", () => {
     const bpm = 120;
-    const changePoints: ChangePoint[] = [];
-    for (let i = 1; i <= 8; i++) {
-      changePoints.push({
-        eight_index: i * 2,
-        time: i * 16,
-        score: 0.3 + (i % 3) * 0.25,
-        tier: i % 3 === 0 ? "major" : i % 3 === 1 ? "medium" : "minor",
-      });
-    }
+    const changePoints: ChangePoint[] = [
+      {
+        eight_index: 4,
+        time: 16,
+        score: 0.4,
+        tier: "medium",
+        section_type: "VERSE",
+      },
+      {
+        eight_index: 8,
+        time: 32,
+        score: 0.9,
+        tier: "major",
+        section_type: "CHORUS_START",
+      },
+      {
+        eight_index: 12,
+        time: 48,
+        score: 0.8,
+        tier: "major",
+        section_type: "CHORUS",
+      },
+      {
+        eight_index: 16,
+        time: 64,
+        score: 0.35,
+        tier: "minor",
+        section_type: "VERSE",
+      },
+    ];
 
     const result = generateFormations(changePoints, lineFormation(6), bpm, {
-      durationSec: 160,
-      songDynamism: 0.55,
-      sections: [
-        { label: "イントロ", startSec: 0, endSec: 16, avgEnergy: 0.25 },
-        { label: "Aメロ", startSec: 16, endSec: 48, avgEnergy: 0.4 },
-        { label: "サビ", startSec: 48, endSec: 80, avgEnergy: 0.78 },
-        { label: "Bメロ", startSec: 80, endSec: 112, avgEnergy: 0.5 },
-        { label: "サビ", startSec: 112, endSec: 144, avgEnergy: 0.8 },
-        { label: "アウトロ", startSec: 144, endSec: 160, avgEnergy: 0.2 },
-      ],
+      durationSec: 96,
     });
 
-    expect(result.formations.length).toBeGreaterThanOrEqual(5);
-    expect(result.cues.length).toBe(result.formations.length);
+    expect(result.formations.length).toBe(5); // start + 4
+    expect(result.cues.length).toBe(5);
     expect(result.formations.every((f) => f.performers.length === 6)).toBe(true);
+    expect(result.cues.some((c) => c.name?.includes("サビ頭"))).toBe(true);
     expect(METERS_PER_COUNT).toBe(0.45);
+    expect(COUNTS_PER_FOUR_EIGHT_BLOCK).toBe(32);
 
     for (const c of result.cues) {
       expect(c.tEndSec).toBeGreaterThanOrEqual(c.tStartSec);

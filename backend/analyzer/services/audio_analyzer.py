@@ -1,6 +1,7 @@
 """
 楽曲構造解析ロジック（librosa）。
-エイトグリッド / Novelty合成 / 動的Tier分類 / song_dynamism
+4エイト（32ビート）固定ブロック + RMS音圧によるサビ判定。
+peak_pick は使わない。
 """
 
 from __future__ import annotations
@@ -9,155 +10,174 @@ from typing import Any
 
 import librosa
 import numpy as np
-from scipy.ndimage import gaussian_filter1d
-from sklearn.cluster import KMeans
 
-ANALYZER_VERSION = "algo-v1.0.0"
+ANALYZER_VERSION = "algo-v1.1.0"
 
-
-def normalize(x: np.ndarray) -> np.ndarray:
-    return (x - x.min()) / (x.max() - x.min() + 1e-8)
+BEATS_PER_EIGHT = 8
+EIGHTS_PER_BLOCK = 4  # 4エイト = 32ビート
+BEATS_PER_BLOCK = BEATS_PER_EIGHT * EIGHTS_PER_BLOCK
 
 
-def foote_novelty(ssm: np.ndarray, kernel_size: int = 32) -> np.ndarray:
-    """チェッカーボードカーネルで SSM 対角上の novelty を計算"""
-    half = kernel_size // 2
-    kernel = np.kron([[1, -1], [-1, 1]], np.ones((half, half)))
-    n = ssm.shape[0]
-    novelty = np.zeros(n)
-    padded = np.pad(ssm, half, mode="constant")
-    for i in range(n):
-        block = padded[i : i + kernel_size, i : i + kernel_size]
-        novelty[i] = np.sum(block * kernel)
-    return novelty
-
-
-def score_to_tier(peak_scores: np.ndarray) -> list[str]:
-    """ピークスコア分布を K-Means(3) で minor/medium/major に動的分類"""
-    if len(peak_scores) == 0:
-        return []
-    if len(peak_scores) < 3:
-        return ["major"] * len(peak_scores)
-
-    X = peak_scores.reshape(-1, 1)
-    km = KMeans(n_clusters=3, n_init=10, random_state=0).fit(X)
-    center_order = np.argsort(km.cluster_centers_.flatten())
-    label_map = {
-        int(center_order[0]): "minor",
-        int(center_order[1]): "medium",
-        int(center_order[2]): "major",
-    }
-    return [label_map[int(c)] for c in km.labels_]
-
-
-def compute_song_dynamism(full_curve: np.ndarray) -> float:
-    """曲全体の起伏 (0〜1)。変動係数ベース"""
-    cv = float(np.std(full_curve) / (np.mean(full_curve) + 1e-8))
+def compute_song_dynamism(block_rms: np.ndarray) -> float:
+    """ブロック音圧の起伏 (0〜1)。変動係数ベース"""
+    if block_rms.size == 0:
+        return 0.5
+    cv = float(np.std(block_rms) / (np.mean(block_rms) + 1e-8))
     return float(np.clip(cv / 1.5, 0.0, 1.0))
+
+
+def mark_chorus_blocks(block_rms: np.ndarray, top_ratio: float = 0.35) -> list[str]:
+    """
+    上位 top_ratio（約35%）の音圧ブロックのうち連続区間を CHORUS とする。
+    各連続区間の先頭は CHORUS_START、それ以外のサビは CHORUS、それ以外は VERSE。
+    """
+    n = len(block_rms)
+    if n == 0:
+        return []
+    if n == 1:
+        return ["CHORUS_START"]
+
+    # 上位35% → パーセンタイル (100 - 35) = 65
+    thr = float(np.percentile(block_rms, 100.0 * (1.0 - top_ratio)))
+    loud = block_rms >= thr
+
+    # 連続ランを抽出
+    section = ["VERSE"] * n
+    i = 0
+    while i < n:
+        if not loud[i]:
+            i += 1
+            continue
+        j = i
+        while j < n and loud[j]:
+            j += 1
+        # ラン [i, j)
+        section[i] = "CHORUS_START"
+        for k in range(i + 1, j):
+            section[k] = "CHORUS"
+        i = j
+    return section
 
 
 def analyze_track(audio_path: str) -> dict[str, Any]:
     y, sr = librosa.load(audio_path, sr=22050, mono=True)
+    duration = float(librosa.get_duration(y=y, sr=sr))
 
-    # --- 1. ビート検出 → エイトグリッド ---
+    # --- 1. ビート検出 ---
     tempo, beat_frames = librosa.beat.beat_track(y=y, sr=sr, units="frames")
     beat_times = librosa.frames_to_time(beat_frames, sr=sr)
     if np.ndim(tempo) > 0:
         tempo_f = float(np.asarray(tempo).flat[0])
     else:
         tempo_f = float(tempo)
+    if not np.isfinite(tempo_f) or tempo_f <= 0:
+        tempo_f = 120.0
 
+    # ビートが極端に少ない場合は等間隔で補完
+    if len(beat_times) < BEATS_PER_BLOCK:
+        sec_per_beat = 60.0 / tempo_f
+        n_beats = max(BEATS_PER_BLOCK, int(duration / sec_per_beat))
+        beat_times = np.arange(n_beats, dtype=float) * sec_per_beat
+        beat_times = beat_times[beat_times < duration + 1e-6]
+
+    # --- 2. エイトグリッド（8ビート） ---
     eights: list[dict[str, Any]] = []
-    for i in range(0, len(beat_times), 8):
-        chunk = beat_times[i : i + 8]
-        if len(chunk) == 8:
-            eights.append({"index": i // 8, "start_time": float(chunk[0])})
-
-    # --- 2. 構造的 novelty (Foote) ---
-    chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
-    ssm = librosa.segment.recurrence_matrix(chroma, mode="affinity", sym=True)
-    structural_novelty = foote_novelty(ssm, kernel_size=32)
-
-    # --- 3. エネルギー的 novelty ---
-    onset_env = librosa.onset.onset_strength(y=y, sr=sr, aggregate=np.median)
-
-    # --- 4. 時間軸を揃えて合成 ---
-    structural_novelty = np.interp(
-        np.linspace(0, 1, len(onset_env)),
-        np.linspace(0, 1, len(structural_novelty)),
-        structural_novelty,
-    )
-    combined = 0.6 * normalize(structural_novelty) + 0.4 * normalize(onset_env)
-    combined = gaussian_filter1d(combined, sigma=2)
-
-    # --- 5. ピーク検出（3分でおおよそ 10〜15 点を狙うパラメータ） ---
-    peaks = librosa.util.peak_pick(
-        combined,
-        pre_max=12,
-        post_max=12,
-        pre_avg=12,
-        post_avg=12,
-        delta=0.12,
-        wait=24,
-    )
-    peak_times = librosa.frames_to_time(peaks, sr=sr)
-    peak_scores = combined[peaks] if len(peaks) else np.array([])
-    tiers = score_to_tier(peak_scores)
-    song_dynamism = compute_song_dynamism(combined)
+    for i in range(0, len(beat_times), BEATS_PER_EIGHT):
+        chunk = beat_times[i : i + BEATS_PER_EIGHT]
+        if len(chunk) == BEATS_PER_EIGHT:
+            eights.append({"index": i // BEATS_PER_EIGHT, "start_time": float(chunk[0])})
 
     if not eights:
         eights = [{"index": 0, "start_time": 0.0}]
-    eight_starts = np.array([e["start_time"] for e in eights], dtype=float)
 
-    # --- 6. エイトにスナップ + 重複除去 ---
-    change_points: list[dict[str, Any]] = []
-    seen: set[int] = set()
-    for t, score, tier in zip(peak_times, peak_scores, tiers):
-        idx = int(np.argmin(np.abs(eight_starts - float(t))))
-        if idx in seen:
+    # --- 3. 4エイト（32ビート）ブロック ---
+    rms = librosa.feature.rms(y=y)[0]
+    rms_times = librosa.frames_to_time(np.arange(len(rms)), sr=sr, hop_length=512)
+
+    blocks: list[dict[str, Any]] = []
+    for bi, eight_i in enumerate(range(0, len(eights), EIGHTS_PER_BLOCK)):
+        start_eight = eights[eight_i]
+        start_t = float(start_eight["start_time"])
+        if eight_i + EIGHTS_PER_BLOCK < len(eights):
+            end_t = float(eights[eight_i + EIGHTS_PER_BLOCK]["start_time"])
+        else:
+            end_t = duration
+        if end_t <= start_t:
             continue
-        # 曲頭のごく早い変化は無視
-        if eight_starts[idx] < 2.0:
-            continue
-        seen.add(idx)
-        change_points.append(
+        mask = (rms_times >= start_t) & (rms_times < end_t)
+        if np.any(mask):
+            mean_rms = float(np.mean(rms[mask]))
+        else:
+            mean_rms = 0.0
+        blocks.append(
             {
-                "eight_index": idx,
-                "time": float(eight_starts[idx]),
-                "score": float(score),
-                "tier": tier,
+                "block_index": bi,
+                "eight_index": int(start_eight["index"]),
+                "time": start_t,
+                "end_time": end_t,
+                "mean_rms": mean_rms,
             }
         )
 
-    # 点が少なすぎる場合は 4 エイトごとに medium を補う
-    if len(change_points) < 8 and len(eights) >= 8:
-        for e in eights[4::4]:
-            if e["index"] in seen:
-                continue
-            if e["start_time"] < 2.0:
-                continue
-            seen.add(int(e["index"]))
-            change_points.append(
-                {
-                    "eight_index": int(e["index"]),
-                    "time": float(e["start_time"]),
-                    "score": 0.35,
-                    "tier": "medium",
-                }
-            )
+    if not blocks:
+        blocks = [
+            {
+                "block_index": 0,
+                "eight_index": 0,
+                "time": 0.0,
+                "end_time": duration,
+                "mean_rms": 0.5,
+            }
+        ]
+
+    block_rms = np.array([b["mean_rms"] for b in blocks], dtype=float)
+    # 正規化スコア（0〜1）
+    rms_min = float(block_rms.min())
+    rms_max = float(block_rms.max())
+    span = rms_max - rms_min + 1e-8
+    block_scores = (block_rms - rms_min) / span
+
+    section_types = mark_chorus_blocks(block_rms, top_ratio=0.35)
+    song_dynamism = compute_song_dynamism(block_rms)
+
+    # --- 4. 変化点（必ず4エイト先頭） ---
+    # VERSE: 2ブロックに1回 medium、それ以外 minor
+    verse_counter = 0
+    change_points: list[dict[str, Any]] = []
+    for b, stype, score in zip(blocks, section_types, block_scores):
+        # 先頭ブロックは開始フォーメーション用に残してもよいが、
+        # 生成側が開始キューを別途持つため eight_index==0 はスキップ
+        if int(b["eight_index"]) == 0:
+            continue
+
+        if stype == "CHORUS_START":
+            tier = "major"
+        elif stype == "CHORUS":
+            tier = "major" if score >= 0.75 else "medium"
+        else:
+            # VERSE
+            tier = "medium" if verse_counter % 2 == 0 else "minor"
+            verse_counter += 1
+
+        change_points.append(
+            {
+                "eight_index": int(b["eight_index"]),
+                "time": float(b["time"]),
+                "score": float(score),
+                "tier": tier,
+                "section_type": stype,
+                "mean_rms": float(b["mean_rms"]),
+            }
+        )
 
     change_points.sort(key=lambda c: c["time"])
 
-    # 多すぎる場合はスコア上位を残しつつ時間順に戻す（最大 18）
-    if len(change_points) > 18:
-        top = sorted(change_points, key=lambda c: c["score"], reverse=True)[:18]
-        change_points = sorted(top, key=lambda c: c["time"])
-
     return {
         "bpm": tempo_f,
-        "duration": float(librosa.get_duration(y=y, sr=sr)),
+        "duration": duration,
         "eight_grid": eights,
         "change_points": change_points,
         "song_dynamism": song_dynamism,
         "analyzer_version": ANALYZER_VERSION,
+        "block_count": len(blocks),
     }

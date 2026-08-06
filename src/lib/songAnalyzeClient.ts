@@ -15,7 +15,7 @@ import type {
 } from "./choreocore/types";
 
 /** Python analyzer / Edge と揃える */
-export const REMOTE_ANALYZER_VERSION = "algo-v1.0.0";
+export const REMOTE_ANALYZER_VERSION = "algo-v1.1.0";
 
 /** Fly 冷起動＋解析が遅いので、これを超えたらブラウザ解析に切替 */
 export const REMOTE_ANALYZE_TIMEOUT_MS = 5500;
@@ -44,11 +44,17 @@ function asChangePoints(raw: unknown): ChangePoint[] {
     const time = Number(o.time);
     const score = Number(o.score);
     if (!Number.isFinite(eight_index) || !Number.isFinite(time)) continue;
+    const st = o.section_type;
+    const section_type =
+      st === "CHORUS_START" || st === "CHORUS" || st === "VERSE"
+        ? st
+        : undefined;
     out.push({
       eight_index,
       time,
       score: Number.isFinite(score) ? score : 0,
       tier,
+      section_type,
     });
   }
   return out.sort((a, b) => a.time - b.time);

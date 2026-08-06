@@ -32,22 +32,28 @@ function seedDancers(n: number): DancerSpot[] {
 }
 
 describe("analyzeSongStructureFromPeaks", () => {
-  it("builds eight grid and change points snapped to eights", () => {
+  it("builds 4-eight change points with RMS-style chorus tags", () => {
     const duration = 120;
     const bpm = 120;
     const analysis = analyzeSongStructureFromPeaks(
       makePeaks(duration, bpm),
       duration
     );
-    expect(analysis.bpm).toBeGreaterThan(60);
+    expect(analysis.bpm).toBeGreaterThanOrEqual(60);
+    expect(analysis.bpm).toBeLessThanOrEqual(200);
     expect(analysis.eight_grid.length).toBeGreaterThan(5);
     expect(analysis.change_points.length).toBeGreaterThan(0);
     for (const cp of analysis.change_points) {
       const eight = analysis.eight_grid.find((e) => e.index === cp.eight_index);
       expect(eight).toBeTruthy();
       expect(cp.time).toBe(eight!.start_time);
+      expect(cp.eight_index % 4).toBe(0);
       expect(["major", "medium", "minor"]).toContain(cp.tier);
+      expect(["CHORUS_START", "CHORUS", "VERSE"]).toContain(cp.section_type);
     }
+    expect(analysis.change_points.some((c) => c.section_type === "CHORUS_START")).toBe(
+      true
+    );
     expect(analysis.song_dynamism).toBeGreaterThanOrEqual(0);
     expect(analysis.song_dynamism).toBeLessThanOrEqual(1);
   });

@@ -1,19 +1,22 @@
+export {
+  STAGE_WIDTH_M,
+  STAGE_DEPTH_M,
+  METERS_PER_COUNT,
+  COUNTS_PER_FOUR_EIGHT_BLOCK,
+  EIGHTS_PER_BLOCK,
+} from "./types";
 export type {
   Position,
   Performer,
   Formation,
   ChangeTier,
   ChangePoint,
+  SectionType,
   Template,
   EightGridEntry,
   SongAnalysisResult,
   GeneratedCue,
   GenerateFormationsResult,
-} from "./types";
-export {
-  STAGE_WIDTH_M,
-  STAGE_DEPTH_M,
-  METERS_PER_COUNT,
 } from "./types";
 export {
   TEMPLATES_25P,
@@ -32,10 +35,13 @@ export {
   generateFormations,
   pickFormationPushingLimit,
   availableCountsBetween,
+  availableCountsForFourEightBlock,
   computeMaxFeasibleDistance,
   songPhaseAt,
   moodFromSection,
   sectionAt,
+  resolveSectionType,
+  snapEightIndexToBlock,
 } from "./formation_generator";
 export { buildRealisticLayouts } from "./layouts_realistic";
 export {
