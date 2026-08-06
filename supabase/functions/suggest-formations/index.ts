@@ -139,7 +139,7 @@ ${extraInfo ? `\n## ユーザーからの追加情報\n${extraInfo}\n` : ""}
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20250414",
+        model: "claude-haiku-4-5-20251001",
         max_tokens: 4096,
         system: "あなたはJSONのみを返すAPIです。マークダウン記法（```json等）は絶対に使用しないこと。説明文・前置き・後書きは不要。回答は常に純粋なJSONオブジェクト { } のみとすること。",
         messages: [

@@ -25,6 +25,8 @@ const overlay: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
+  /* EditorDesktop/MobileLayout が pointerEvents:none で包むため再有効化 */
+  pointerEvents: "auto",
 };
 
 const dialog: CSSProperties = {
