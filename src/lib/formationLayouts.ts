@@ -12,6 +12,7 @@ import {
   tryApplyExtraLayoutPreset,
 } from "./formationLayoutPresetsExtra";
 import { getPresetTier } from "./formationPresetTiers";
+import { minCostBipartiteAssignment } from "./minCostAssignment";
 
 /**
  * 場ミリ規格を `dancersForLayoutPreset` / `dancersWithPresetAndWingSurplus`
@@ -2562,4 +2563,90 @@ export function transferDancerIdentitiesByOrder(
       heightCm: od.heightCm ?? nd.heightCm,
     };
   });
+}
+
+/**
+ * プリセット座標に、既存ダンサーを「位置が近い順」で割り当てる。
+ * 最小費用マッチングで greedy の罠を避ける（AI提案・形の箱適用向け）。
+ */
+export function transferDancerIdentitiesByNearestPosition(
+  positioned: DancerSpot[],
+  identitySource: DancerSpot[]
+): DancerSpot[] {
+  if (positioned.length === 0) return [];
+  if (identitySource.length === 0) return positioned;
+
+  const n = Math.min(positioned.length, identitySource.length);
+  const cost: number[][] = [];
+  for (let i = 0; i < n; i++) {
+    const src = identitySource[i]!;
+    const row: number[] = [];
+    for (let j = 0; j < positioned.length; j++) {
+      const dst = positioned[j]!;
+      const dx = src.xPct - dst.xPct;
+      const dy = src.yPct - dst.yPct;
+      row.push(dx * dx + dy * dy);
+    }
+    cost.push(row);
+  }
+
+  const assignment = minCostBipartiteAssignment(cost);
+  const usedSlots = new Set<number>();
+  const out: DancerSpot[] = positioned.map((p) => ({ ...p }));
+
+  for (let i = 0; i < assignment.length; i++) {
+    const slot = assignment[i]!;
+    if (slot < 0 || slot >= out.length) continue;
+    usedSlots.add(slot);
+    const od = identitySource[i]!;
+    const nd = out[slot]!;
+    const markerBadge =
+      od.crewMemberId
+        ? ""
+        : od.markerBadge !== undefined
+          ? od.markerBadge
+          : nd.markerBadge;
+    const markerBadgeSource = od.crewMemberId
+      ? undefined
+      : od.markerBadgeSource;
+    out[slot] = {
+      ...nd,
+      id: od.id,
+      label: od.label,
+      colorIndex: od.colorIndex,
+      crewMemberId: od.crewMemberId,
+      markerBadge,
+      markerBadgeSource,
+      sizePx: od.sizePx ?? nd.sizePx,
+      note: od.note ?? nd.note,
+      heightCm: od.heightCm ?? nd.heightCm,
+    };
+  }
+
+  // 余った identity は未使用スロットへ順番で埋める
+  let nextId = n;
+  for (let j = 0; j < out.length; j++) {
+    if (usedSlots.has(j)) continue;
+    const od = identitySource[nextId++];
+    if (!od) break;
+    const nd = out[j]!;
+    out[j] = {
+      ...nd,
+      id: od.id,
+      label: od.label,
+      colorIndex: od.colorIndex,
+      crewMemberId: od.crewMemberId,
+      markerBadge: od.crewMemberId
+        ? ""
+        : od.markerBadge !== undefined
+          ? od.markerBadge
+          : nd.markerBadge,
+      markerBadgeSource: od.crewMemberId ? undefined : od.markerBadgeSource,
+      sizePx: od.sizePx ?? nd.sizePx,
+      note: od.note ?? nd.note,
+      heightCm: od.heightCm ?? nd.heightCm,
+    };
+  }
+
+  return out;
 }

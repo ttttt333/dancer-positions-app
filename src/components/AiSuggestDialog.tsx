@@ -325,6 +325,10 @@ export function AiSuggestDialog({
                 </div>
               )}
 
+              <p style={{ fontSize: 12, color: shell.textMuted, lineHeight: 1.55, margin: "0 0 14px" }}>
+                外部AI（有料API）は使いません。楽曲の変化点を検出し、25人規模の雛形ライブラリから物理的に移動可能な範囲で最もインパクトのある隊列を自動選定します。
+              </p>
+
               {/* 曲のイメージ */}
               <div style={{ marginBottom: 16 }}>
                 <span style={label}>曲のイメージ（複数選択OK）</span>
@@ -481,9 +485,9 @@ export function AiSuggestDialog({
                 </>
               ) : (
                 <>
-                  <p style={{ fontSize: 13, color: "#e879f9" }}>Claude がフォーメーションを考えています…</p>
+                  <p style={{ fontSize: 13, color: "#e879f9" }}>純アルゴリズムで隊列を選定しています…</p>
                   <p style={{ fontSize: 11, color: shell.textSubtle, marginTop: 4 }}>
-                    {vibes.size > 0 ? `[${[...vibes].join(" / ")}] のイメージで生成中` : "楽曲構造に最適なフォーメーションを生成中"}
+                    {vibes.size > 0 ? `[${[...vibes].join(" / ")}] のイメージで生成中` : "LLMなし・変化点×25人テンプレ×移動限界チェック"}
                   </p>
                 </>
               )}
