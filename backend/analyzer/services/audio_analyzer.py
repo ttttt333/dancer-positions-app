@@ -11,7 +11,7 @@ from typing import Any
 import librosa
 import numpy as np
 
-ANALYZER_VERSION = "algo-v1.1.0"
+ANALYZER_VERSION = "algo-v1.2.0"
 
 BEATS_PER_EIGHT = 8
 EIGHTS_PER_BLOCK = 4  # 4エイト = 32ビート
@@ -140,6 +140,20 @@ def analyze_track(audio_path: str) -> dict[str, Any]:
     section_types = mark_chorus_blocks(block_rms, top_ratio=0.35)
     song_dynamism = compute_song_dynamism(block_rms)
 
+    # intro / outro / drop を仕様の SectionType に寄せる
+    if section_types:
+        section_types[0] = "INTRO"
+        # 末尾2ブロックは outro（サビ連続中なら維持）
+        for oi in range(max(0, len(section_types) - 2), len(section_types)):
+            if section_types[oi] == "VERSE":
+                section_types[oi] = "OUTRO"
+        for i in range(1, len(block_scores)):
+            rise = float(block_scores[i] - block_scores[i - 1])
+            if rise >= 0.28 and section_types[i] in ("CHORUS_START", "CHORUS", "VERSE"):
+                # 急上昇は DROP（サビ頭を優先）
+                if section_types[i] != "CHORUS_START":
+                    section_types[i] = "DROP"
+
     # --- 4. 変化点（必ず4エイト先頭） ---
     # VERSE: 2ブロックに1回 medium、それ以外 minor
     verse_counter = 0
@@ -150,10 +164,14 @@ def analyze_track(audio_path: str) -> dict[str, Any]:
         if int(b["eight_index"]) == 0:
             continue
 
-        if stype == "CHORUS_START":
+        if stype in ("CHORUS_START", "DROP"):
             tier = "major"
         elif stype == "CHORUS":
             tier = "major" if score >= 0.75 else "medium"
+        elif stype == "OUTRO":
+            tier = "medium"
+        elif stype == "INTRO":
+            tier = "minor"
         else:
             # VERSE
             tier = "medium" if verse_counter % 2 == 0 else "minor"

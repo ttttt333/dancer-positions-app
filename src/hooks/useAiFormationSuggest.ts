@@ -1,14 +1,29 @@
 /**
- * useAiFormationSuggest — Tier1 スコア付き純アルゴリズム提案
- * フィードバック付き再提案に対応
+ * useAiFormationSuggest — 照明連動フォーメーションAI提案
+ * ClassProfile 制約 + FCP/照明テーブル + 被り回避
  */
 
 import { useState, useCallback, useRef } from "react";
 import { analyzeAudio, type AudioAnalysis } from "../lib/audioAnalyze";
 import { analyzeSongStructureFromPeaks } from "../lib/songStructureAnalysis";
 import { fetchRemoteSongAnalysis } from "../lib/songAnalyzeClient";
-import { generateAppFormationsFromChangePoints } from "../lib/choreocore/appBridge";
-import type { FormationScore, SuggestFeedback } from "../lib/choreocore/tier1";
+import {
+  generateLightingSyncSuggestion,
+  lightingSyncPayloadToApp,
+  getClassProfile,
+  CLASS_ADVANCED_MON7,
+  CLASS_ELEMENTARY,
+  CLASS_TODDLER,
+} from "../lib/choreocore/lightingSync";
+import type {
+  ClassProfile,
+  LightingSyncSuggestPayload,
+} from "../lib/choreocore/lightingSync";
+import {
+  DEFAULT_FORMATION_WEIGHTS,
+  type FormationScore,
+  type SuggestFeedback,
+} from "../lib/choreocore/tier1";
 import type { ChangePoint } from "../lib/choreocore/types";
 import type {
   ChoreographyProjectJson,
@@ -32,6 +47,9 @@ export interface AiSuggestResult {
   analysisSource?: string;
   scores: FormationScore[];
   averageScore: number;
+  /** 仕様書 6. 出力 JSON */
+  lightingSyncPayload?: LightingSyncSuggestPayload;
+  classProfileId?: string;
 }
 
 const genId = (): string =>
@@ -42,6 +60,8 @@ export type SuggestAudioOpts = {
   audioUrl?: string | null;
   targetCueCount?: number;
   feedback?: SuggestFeedback;
+  /** ClassProfile.classId（例: toddler_default / mon_07pm） */
+  classProfileId?: string;
 };
 
 type CachedAnalysis = {
@@ -53,14 +73,89 @@ type CachedAnalysis = {
   dynamism: number;
   sourceLabel: string;
   localAnalysis: AudioAnalysis;
-  sections: {
-    label: string;
-    startSec: number;
-    endSec: number;
-    avgEnergy: number;
-  }[];
   seedDancers: DancerSpot[];
 };
+
+function profileFromFeedback(
+  base: ClassProfile,
+  feedback?: SuggestFeedback
+): ClassProfile {
+  if (!feedback) return base;
+  let next = { ...base };
+  if (feedback.preferLessMovement) {
+    next = {
+      ...next,
+      maxMoveDistancePerCount: Math.min(
+        next.maxMoveDistancePerCount,
+        CLASS_TODDLER.maxMoveDistancePerCount + 0.15
+      ),
+      minCountsBetweenChanges: Math.max(
+        next.minCountsBetweenChanges,
+        CLASS_ELEMENTARY.minCountsBetweenChanges
+      ),
+    };
+  }
+  if (feedback.preferFewerCrossings) {
+    next = { ...next, allowCrossMovement: false };
+  }
+  if (feedback.preferMoreImpact) {
+    next = {
+      ...next,
+      allowCrossMovement: true,
+      use3DLeveling: true,
+      maxMoveDistancePerCount: Math.max(
+        next.maxMoveDistancePerCount,
+        CLASS_ADVANCED_MON7.maxMoveDistancePerCount
+      ),
+      minCountsBetweenChanges: Math.min(next.minCountsBetweenChanges, 2),
+    };
+  }
+  return next;
+}
+
+function scoresFromPayload(
+  payload: LightingSyncSuggestPayload
+): { scores: FormationScore[]; averageScore: number } {
+  const weights = { ...DEFAULT_FORMATION_WEIGHTS };
+  const scores: FormationScore[] = payload.formations.map((f) => {
+    const warnN = f.warnings?.length ?? 0;
+    const movePenalty = (f.warnings ?? []).filter((w) => w.code === "MOVE_LIMIT")
+      .length;
+    const crossPenalty = (f.warnings ?? []).filter(
+      (w) => w.code === "CROSS_FORBIDDEN"
+    ).length;
+    const safety = Math.max(0, 100 - warnN * 12 - crossPenalty * 15);
+    const move = Math.max(40, 92 - movePenalty * 15);
+    const visual =
+      f.lightingPreset === "full_bright_warm" ||
+      f.lightingPreset === "strobe_flash"
+        ? 88
+        : f.lightingPreset === "pin_spot_dark"
+          ? 70
+          : 78;
+    const total = Math.round(
+      move * weights.move +
+        safety * weights.safety +
+        visual * weights.visual +
+        75 * weights.music
+    );
+    return {
+      total: Math.max(0, Math.min(100, total)),
+      axes: {
+        move,
+        safety,
+        visual,
+        music: 75,
+      },
+      weights,
+    };
+  });
+  const averageScore =
+    scores.length > 0
+      ? Math.round(scores.reduce((s, x) => s + x.total, 0) / scores.length)
+      : 0;
+  return { scores, averageScore };
+}
 
 export function useAiFormationSuggest(project: ChoreographyProjectJson) {
   const [status, setStatus] = useState<SuggestStatus>("idle");
@@ -74,28 +169,30 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
       cache: CachedAnalysis,
       extraInfo: string | undefined,
       targetCueCount: number | undefined,
-      feedback: SuggestFeedback | undefined
+      feedback: SuggestFeedback | undefined,
+      classProfileId: string | undefined
     ) => {
-      const generated = generateAppFormationsFromChangePoints({
-        changePoints: cache.changePoints,
-        seedDancers: cache.seedDancers,
-        bpm: cache.bpm,
+      const base = getClassProfile(classProfileId ?? "mon_07pm");
+      const profile = profileFromFeedback(base, feedback);
+
+      const payload = generateLightingSyncSuggestion({
+        peaks: cache.peaks,
         durationSec: cache.duration,
-        songDynamism: cache.dynamism,
-        targetCueCount,
-        sections: cache.sections,
-        energyCurve: cache.peaks,
-        feedback,
+        memberIds: cache.seedDancers.map((d) => d.id),
+        classProfile: profile,
+        remoteChangePoints: cache.changePoints,
+        remoteBpm: cache.bpm,
+        targetMaxFormations: targetCueCount,
       });
 
+      const mapped = lightingSyncPayloadToApp(payload, cache.seedDancers);
+      const { scores, averageScore } = scoresFromPayload(payload);
+
       const note = extraInfo?.trim();
-      const avg =
-        generated.scores.length > 0
-          ? generated.scores.reduce((s, x) => s + x.total, 0) /
-            generated.scores.length
-          : 0;
       const reasoning = [
-        `解析ソース: ${cache.sourceLabel} / BPM ${Math.round(cache.bpm)} / 変化点候補 ${cache.changePoints.length} → キュー ${generated.cues.length}${targetCueCount != null ? `（指定 ${targetCueCount}）` : ""} / dynamism ${cache.dynamism.toFixed(2)}`,
+        `照明連動エンジン / クラス: ${profile.className}（${profile.classId}）`,
+        `解析ソース: ${cache.sourceLabel} / BPM ${Math.round(cache.bpm)} / FCP ${payload.formations.length}枠${targetCueCount != null ? `（上限 ${targetCueCount}）` : ""}`,
+        `制約: 最大移動 ${profile.maxMoveDistancePerCount}m/count · 最低間隔 ${profile.minCountsBetweenChanges} counts · 交差${profile.allowCrossMovement ? "可" : "不可"} · 3D姿勢${profile.use3DLeveling ? "ON" : "OFF"}`,
         ...(feedback
           ? [
               `再提案フィードバック: ${[
@@ -108,13 +205,13 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
                 .join(" / ") || "なし"}`,
             ]
           : []),
-        ...generated.reasoning,
+        ...mapped.reasoning,
         ...(note ? [`メモ: ${note.slice(0, 80)}`] : []),
       ];
 
       setResult({
-        formations: generated.formations,
-        cues: generated.cues,
+        formations: mapped.formations,
+        cues: mapped.cues,
         reasoning,
         analysis: {
           ...cache.localAnalysis,
@@ -122,8 +219,10 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
           durationSec: cache.duration,
         },
         analysisSource: cache.sourceLabel,
-        scores: generated.scores,
-        averageScore: Math.round(avg),
+        scores,
+        averageScore,
+        lightingSyncPayload: payload,
+        classProfileId: profile.classId,
       });
       setStatus("done");
     },
@@ -147,7 +246,6 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
       try {
         if (controller.signal.aborted) return;
 
-        // 再提案: キャッシュがあれば解析スキップ
         const canReuse =
           cacheRef.current &&
           cacheRef.current.peaks === peaks &&
@@ -160,7 +258,8 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
             cacheRef.current,
             extraInfo,
             audioOpts?.targetCueCount,
-            audioOpts?.feedback
+            audioOpts?.feedback,
+            audioOpts?.classProfileId
           );
           return;
         }
@@ -215,13 +314,6 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
 
         if (controller.signal.aborted) return;
 
-        const sections = localAnalysis.sections.map((s) => ({
-          label: s.label,
-          startSec: s.startSec,
-          endSec: s.endSec,
-          avgEnergy: s.avgEnergy,
-        }));
-
         const cache: CachedAnalysis = {
           peaks,
           durationSec,
@@ -231,7 +323,6 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
           dynamism,
           sourceLabel,
           localAnalysis,
-          sections,
           seedDancers,
         };
         cacheRef.current = cache;
@@ -240,7 +331,8 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
           cache,
           extraInfo,
           audioOpts?.targetCueCount,
-          audioOpts?.feedback
+          audioOpts?.feedback,
+          audioOpts?.classProfileId
         );
       } catch (e: unknown) {
         if (e instanceof Error && e.name === "AbortError") return;

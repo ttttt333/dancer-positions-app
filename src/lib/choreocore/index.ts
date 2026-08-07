@@ -53,3 +53,16 @@ export {
   AI_SUGGEST_CUE_MAX,
 } from "./selectChangePoints";
 export * from "./tier1";
+export * as lightingSync from "./lightingSync";
+export {
+  generateLightingSyncSuggestion,
+  lightingSyncPayloadToApp,
+  CLASS_PROFILE_PRESETS,
+  CLASS_TODDLER,
+  CLASS_ADVANCED_MON7,
+  CLASS_ELEMENTARY,
+  getClassProfile,
+  corpusSummary,
+  LIGHTING_PLAN_SHOWS,
+  suggestClassProfileId,
+} from "./lightingSync";

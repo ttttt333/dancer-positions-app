@@ -43,6 +43,11 @@ export type DancerSpot = {
    * 身長（cm）。ステージ上には表示しない。任意。
    */
   heightCm?: number;
+  /**
+   * 姿勢レベル（照明連動AI提案）。描画は任意。
+   * stand=立ち / crouch=しゃがみ / sit=座り
+   */
+  poseLevel?: "stand" | "crouch" | "sit";
   /** 学年など（名簿未紐付け時も並び替え・再配置に使用） */
   gradeLabel?: string;
   /** 性別などの表示ラベル（名簿と同期可） */

@@ -12,6 +12,7 @@ import {
   AI_SUGGEST_CUE_PRESETS,
   suggestedCueCountForDuration,
 } from "../lib/choreocore/selectChangePoints";
+import { CLASS_PROFILE_PRESETS, suggestClassProfileId, corpusSummary } from "../lib/choreocore/lightingSync";
 import type { SuggestFeedback } from "../lib/choreocore/tier1";
 import type { ChoreographyProjectJson } from "../types/choreography";
 
@@ -231,7 +232,19 @@ export function AiSuggestDialog({
     () => suggestedCueCountForDuration(durationSec),
     [durationSec]
   );
+  const defaultClassId = useMemo(() => {
+    const active =
+      project.formations.find((f) => f.id === project.activeFormationId) ??
+      project.formations[0];
+    const n =
+      active?.dancers.length ||
+      project.pieceDancerCount ||
+      0;
+    return suggestClassProfileId(n);
+  }, [project]);
   const [targetCueCount, setTargetCueCount] = useState(defaultCueCount);
+  const [classProfileId, setClassProfileId] = useState(defaultClassId);
+  const corpusInfo = useMemo(() => corpusSummary(), []);
   const [fbLessMove, setFbLessMove] = useState(false);
   const [fbLessCross, setFbLessCross] = useState(false);
   const [fbMoreImpact, setFbMoreImpact] = useState(false);
@@ -285,8 +298,9 @@ export function AiSuggestDialog({
     suggest(peaks, durationSec, extra || undefined, {
       audioUrl: mediaUrl || null,
       targetCueCount,
+      classProfileId,
     });
-  }, [peaks, durationSec, vibes, formationStyle, lyrics, additionalNote, targetCueCount, suggest]);
+  }, [peaks, durationSec, vibes, formationStyle, lyrics, additionalNote, targetCueCount, classProfileId, suggest]);
 
   /* ── 適用 ── */
   const handleApply = useCallback(() => {
@@ -333,6 +347,7 @@ export function AiSuggestDialog({
     suggest(peaks, durationSec, extra || undefined, {
       audioUrl: mediaUrl || null,
       targetCueCount,
+      classProfileId,
       feedback,
     });
   }, [
@@ -343,6 +358,7 @@ export function AiSuggestDialog({
     lyrics,
     additionalNote,
     targetCueCount,
+    classProfileId,
     fbLessMove,
     fbLessCross,
     fbMoreImpact,
@@ -362,6 +378,9 @@ export function AiSuggestDialog({
             </svg>
             <span style={{ fontSize: 15, fontWeight: 700, color: "#e2e8f0" }}>
               AI フォーメーション提案
+            </span>
+            <span style={{ fontSize: 10, color: shell.textSubtle }}>
+              照明連動 · 実プラン{corpusInfo.showCount}演目/{corpusInfo.cueCount}キュー
             </span>
           </div>
           <button type="button" style={btnClose} onClick={onClose}>×</button>
@@ -383,8 +402,40 @@ export function AiSuggestDialog({
               )}
 
               <p style={{ fontSize: 12, color: shell.textMuted, lineHeight: 1.55, margin: "0 0 14px" }}>
-                4エイト（32カウント）単位で切り替えます。音圧上位の連続ブロックをサビと判定し、サビ頭は大V字・扇形・クロスなどインパクト隊列を優先します。
+                音声解析（BPM・FCP）と照明プラン連動でフォーメーションを自動生成します。第19回発表会（全クラス）などの実演会照明要望も参照します。
               </p>
+
+              {/* クラス属性 */}
+              <div style={{ marginBottom: 16 }}>
+                <span style={label}>クラス属性（制約）</span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {CLASS_PROFILE_PRESETS.map((p) => {
+                    const selected = classProfileId === p.classId;
+                    return (
+                      <button
+                        key={p.classId}
+                        type="button"
+                        onClick={() => setClassProfileId(p.classId)}
+                        style={{
+                          textAlign: "left",
+                          padding: "8px 12px",
+                          borderRadius: 8,
+                          border: `1px solid ${selected ? "#6366f1" : shell.border}`,
+                          background: selected ? "rgba(99,102,241,0.18)" : "rgba(255,255,255,0.04)",
+                          color: selected ? "#a5b4fc" : shell.textMuted,
+                          fontSize: 12,
+                          cursor: "pointer",
+                        }}
+                      >
+                        <strong style={{ color: selected ? "#e2e8f0" : shell.text }}>{p.className}</strong>
+                        <span style={{ display: "block", fontSize: 10, marginTop: 2, opacity: 0.75, lineHeight: 1.4 }}>
+                          移動≤{p.maxMoveDistancePerCount}m/count · 間隔≥{p.minCountsBetweenChanges} · 交差{p.allowCrossMovement ? "可" : "不可"} · 姿勢{p.use3DLeveling ? "ON" : "OFF"} · スナップ{p.gridSnapMode}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
               {/* キュー数 */}
               <div style={{ marginBottom: 16 }}>
@@ -610,9 +661,9 @@ export function AiSuggestDialog({
                 </>
               ) : (
                 <>
-                  <p style={{ fontSize: 13, color: "#e879f9" }}>純アルゴリズムで隊列を選定しています…</p>
+                  <p style={{ fontSize: 13, color: "#e879f9" }}>照明連動エンジンで隊列を生成しています…</p>
                   <p style={{ fontSize: 11, color: shell.textSubtle, marginTop: 4 }}>
-                    {vibes.size > 0 ? `[${[...vibes].join(" / ")}] のイメージで生成中` : "LLMなし・変化点×25人テンプレ×移動限界チェック"}
+                    FCP抽出 → 照明/フォーメーション割当 → 被り回避 → クラス制約チェック
                   </p>
                 </>
               )}
@@ -641,15 +692,27 @@ export function AiSuggestDialog({
                       {result.analysisSource ? (
                         <span><span style={{ color: shell.textSubtle, fontSize: 10 }}>解析</span>{" "}<strong>{result.analysisSource}</strong></span>
                       ) : null}
-                      <span><span style={{ color: shell.textSubtle, fontSize: 10 }}>Tier1</span>{" "}<strong>{result.averageScore}/100</strong></span>
+                      <span><span style={{ color: shell.textSubtle, fontSize: 10 }}>スコア</span>{" "}<strong>{result.averageScore}/100</strong></span>
+                      {result.classProfileId ? (
+                        <span><span style={{ color: shell.textSubtle, fontSize: 10 }}>クラス</span>{" "}<strong>{result.classProfileId}</strong></span>
+                      ) : null}
+                      {result.lightingSyncPayload ? (
+                        <span>
+                          <span style={{ color: shell.textSubtle, fontSize: 10 }}>照明参照</span>{" "}
+                          <strong>
+                            {result.lightingSyncPayload.formations.filter((f) => f.lightingNote).length}
+                            /{result.lightingSyncPayload.formations.length}
+                          </strong>
+                        </span>
+                      ) : null}
                     </div>
                   </div>
 
-                  {/* Tier1 スコア */}
+                  {/* 評価スコア */}
                   {result.scores.length > 0 && (
                     <div style={sectionBox}>
                       <p style={{ fontSize: 11, color: shell.textSubtle, marginBottom: 6, fontWeight: 600 }}>
-                        評価スコア（MOVE / SAFETY）
+                        評価スコア（移動 / 安全 / 照明連動）
                       </p>
                       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                         {result.scores.map((s, i) => (
@@ -726,6 +789,11 @@ export function AiSuggestDialog({
                         <span style={{ fontSize: 12, color: "#e2e8f0", fontWeight: 600 }}>{f.name}</span>
                         <span style={{ fontSize: 10, color: shell.textSubtle }}>{f.dancers.length}人</span>
                       </div>
+                      {f.note ? (
+                        <p style={{ fontSize: 10, color: "#a5b4fc", margin: "0 0 6px", lineHeight: 1.45, opacity: 0.9 }}>
+                          {f.note.length > 120 ? `${f.note.slice(0, 120)}…` : f.note}
+                        </p>
+                      ) : null}
                       <div style={{
                         position: "relative",
                         width: "100%",

@@ -17,7 +17,14 @@ export type Formation = {
 export type ChangeTier = "major" | "medium" | "minor";
 
 /** 4エイトブロックのセクション種別（RMSサビ判定） */
-export type SectionType = "CHORUS_START" | "CHORUS" | "VERSE";
+export type SectionType =
+  | "CHORUS_START"
+  | "CHORUS"
+  | "VERSE"
+  | "INTRO"
+  | "OUTRO"
+  | "DROP"
+  | "SE_TRIGGER";
 
 export type ChangePoint = {
   eight_index: number;

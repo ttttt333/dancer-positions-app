@@ -49,3 +49,4 @@ src/pages/editor/_*.txt
 src/pages/editor/_*.json
 src/**/* 2.ts
 src/**/* 2.tsx
+supabase/.temp/
