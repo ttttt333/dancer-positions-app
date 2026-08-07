@@ -10,12 +10,12 @@ import type {
 import type {
   ChangePoint,
   Formation as CoreFormation,
-  GenerateFormationsResult,
   Position,
 } from "./types";
 import { STAGE_DEPTH_M, STAGE_WIDTH_M } from "./types";
 import { generateFormations, type SongSectionHint } from "./formation_generator";
 import { selectChangePointsForCueCount } from "./selectChangePoints";
+import type { FormationScore, SuggestFeedback } from "./tier1";
 
 export function metersToPct(pos: Position): { xPct: number; yPct: number } {
   const xPct = ((pos.x + STAGE_WIDTH_M / 2) / STAGE_WIDTH_M) * 100;
@@ -76,6 +76,7 @@ export type AppGenerateResult = {
   formations: AppFormation[];
   cues: Cue[];
   reasoning: string[];
+  scores: FormationScore[];
 };
 
 /**
@@ -87,10 +88,10 @@ export function generateAppFormationsFromChangePoints(params: {
   bpm: number;
   durationSec: number;
   songDynamism?: number;
-  /** 開始を含む目標キュー数。未指定なら変化点をすべて使用 */
   targetCueCount?: number;
   sections?: SongSectionHint[];
   energyCurve?: number[];
+  feedback?: SuggestFeedback;
 }): AppGenerateResult {
   const seedById = new Map(params.seedDancers.map((d) => [d.id, d] as const));
   const initial = dancersToCoreFormation(params.seedDancers);
@@ -103,23 +104,18 @@ export function generateAppFormationsFromChangePoints(params: {
           params.sections
         )
       : params.changePoints;
-  const raw: GenerateFormationsResult = generateFormations(
-    points,
-    initial,
-    params.bpm,
-    {
-      durationSec: params.durationSec,
-      songDynamism: params.songDynamism,
-      sections: params.sections,
-      energyCurve: params.energyCurve,
-    }
-  );
+  const raw = generateFormations(points, initial, params.bpm, {
+    durationSec: params.durationSec,
+    songDynamism: params.songDynamism,
+    sections: params.sections,
+    energyCurve: params.energyCurve,
+    feedback: params.feedback,
+  });
 
   const formations = raw.formations.map((f, i) =>
     coreFormationToApp(f, seedById, raw.cues[i]?.name ?? `提案 ${i + 1}`)
   );
 
-  // cue.formationId は raw の id のまま → formations と同じ id
   const cues: Cue[] = raw.cues.map((c) => ({
     id: c.id,
     formationId: c.formationId,
@@ -128,5 +124,10 @@ export function generateAppFormationsFromChangePoints(params: {
     name: c.name,
   }));
 
-  return { formations, cues, reasoning: raw.reasoning };
+  return {
+    formations,
+    cues,
+    reasoning: raw.reasoning,
+    scores: raw.scores,
+  };
 }

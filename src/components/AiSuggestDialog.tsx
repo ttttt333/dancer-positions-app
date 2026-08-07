@@ -12,6 +12,7 @@ import {
   AI_SUGGEST_CUE_PRESETS,
   suggestedCueCountForDuration,
 } from "../lib/choreocore/selectChangePoints";
+import type { SuggestFeedback } from "../lib/choreocore/tier1";
 import type { ChoreographyProjectJson } from "../types/choreography";
 
 interface AiSuggestDialogProps {
@@ -231,6 +232,10 @@ export function AiSuggestDialog({
     [durationSec]
   );
   const [targetCueCount, setTargetCueCount] = useState(defaultCueCount);
+  const [fbLessMove, setFbLessMove] = useState(false);
+  const [fbLessCross, setFbLessCross] = useState(false);
+  const [fbMoreImpact, setFbMoreImpact] = useState(false);
+  const [fbNote, setFbNote] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { status, result, error, suggest, reset } = useAiFormationSuggest(project);
@@ -308,6 +313,42 @@ export function AiSuggestDialog({
   const handleRetry = useCallback(() => {
     reset();
   }, [reset]);
+
+  /* ── フィードバック再提案 ── */
+  const handleResuggest = useCallback(() => {
+    if (!peaks || peaks.length === 0) return;
+    const extra = [
+      vibes.size > 0 ? `曲のイメージ: ${[...vibes].join(", ")}` : "",
+      formationStyle ? `フォーメーションスタイル: ${formationStyle}` : "",
+      lyrics.trim() ? `歌詞:\n${lyrics.trim()}` : "",
+      additionalNote.trim() ? `その他メモ: ${additionalNote.trim()}` : "",
+    ].filter(Boolean).join("\n");
+    const feedback: SuggestFeedback = {
+      preferLessMovement: fbLessMove,
+      preferFewerCrossings: fbLessCross,
+      preferMoreImpact: fbMoreImpact,
+      note: fbNote.trim() || undefined,
+    };
+    const mediaUrl = playbackEngine.getMediaSourceUrl();
+    suggest(peaks, durationSec, extra || undefined, {
+      audioUrl: mediaUrl || null,
+      targetCueCount,
+      feedback,
+    });
+  }, [
+    peaks,
+    durationSec,
+    vibes,
+    formationStyle,
+    lyrics,
+    additionalNote,
+    targetCueCount,
+    fbLessMove,
+    fbLessCross,
+    fbMoreImpact,
+    fbNote,
+    suggest,
+  ]);
 
   return (
     <div style={overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -600,7 +641,73 @@ export function AiSuggestDialog({
                       {result.analysisSource ? (
                         <span><span style={{ color: shell.textSubtle, fontSize: 10 }}>解析</span>{" "}<strong>{result.analysisSource}</strong></span>
                       ) : null}
+                      <span><span style={{ color: shell.textSubtle, fontSize: 10 }}>Tier1</span>{" "}<strong>{result.averageScore}/100</strong></span>
                     </div>
+                  </div>
+
+                  {/* Tier1 スコア */}
+                  {result.scores.length > 0 && (
+                    <div style={sectionBox}>
+                      <p style={{ fontSize: 11, color: shell.textSubtle, marginBottom: 6, fontWeight: 600 }}>
+                        評価スコア（MOVE / SAFETY）
+                      </p>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        {result.scores.map((s, i) => (
+                          <div key={i} style={{ display: "flex", gap: 10, fontSize: 11, color: "#e2e8f0", flexWrap: "wrap" }}>
+                            <span style={{ color: shell.textSubtle, minWidth: 48 }}>#{i + 1}</span>
+                            <span>総合 <strong>{s.total}</strong></span>
+                            <span>移動 {s.axes.move}</span>
+                            <span>安全 {s.axes.safety}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* フィードバック → 再提案 */}
+                  <div style={sectionBox}>
+                    <p style={{ fontSize: 11, color: shell.textSubtle, marginBottom: 8, fontWeight: 600 }}>
+                      フィードバックして再提案
+                    </p>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                      {(
+                        [
+                          ["移動を減らす", fbLessMove, setFbLessMove],
+                          ["交差を減らす", fbLessCross, setFbLessCross],
+                          ["もっとインパクト", fbMoreImpact, setFbMoreImpact],
+                        ] as const
+                      ).map(([lab, on, set]) => (
+                        <button
+                          key={lab}
+                          type="button"
+                          onClick={() => set(!on)}
+                          style={{
+                            padding: "5px 10px",
+                            borderRadius: 8,
+                            border: `1px solid ${on ? "#6366f1" : shell.border}`,
+                            background: on ? "rgba(99,102,241,0.18)" : "rgba(255,255,255,0.04)",
+                            color: on ? "#a5b4fc" : shell.textMuted,
+                            fontSize: 11,
+                            cursor: "pointer",
+                          }}
+                        >
+                          {lab}
+                        </button>
+                      ))}
+                    </div>
+                    <textarea
+                      style={{ ...textarea, minHeight: 44, marginBottom: 8 }}
+                      placeholder="例：サビの開きをもっと大きく、Aメロは静かに…"
+                      value={fbNote}
+                      onChange={(e) => setFbNote(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      style={{ ...btnPrimary, width: "100%", padding: "8px 16px" }}
+                      onClick={handleResuggest}
+                    >
+                      フィードバックで再提案
+                    </button>
                   </div>
 
                   {/* フォーメーション一覧 */}

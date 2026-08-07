@@ -1,6 +1,6 @@
 /**
- * useAiFormationSuggest — 純アルゴリズム版
- * ブラウザ解析を即時実行しつつ Fly を短時間待つ（遅ければブラウザで確定）
+ * useAiFormationSuggest — Tier1 スコア付き純アルゴリズム提案
+ * フィードバック付き再提案に対応
  */
 
 import { useState, useCallback, useRef } from "react";
@@ -8,6 +8,7 @@ import { analyzeAudio, type AudioAnalysis } from "../lib/audioAnalyze";
 import { analyzeSongStructureFromPeaks } from "../lib/songStructureAnalysis";
 import { fetchRemoteSongAnalysis } from "../lib/songAnalyzeClient";
 import { generateAppFormationsFromChangePoints } from "../lib/choreocore/appBridge";
+import type { FormationScore, SuggestFeedback } from "../lib/choreocore/tier1";
 import type { ChangePoint } from "../lib/choreocore/types";
 import type {
   ChoreographyProjectJson,
@@ -28,8 +29,9 @@ export interface AiSuggestResult {
   cues: Cue[];
   reasoning: string[];
   analysis: AudioAnalysis;
-  /** fly / cache / browser */
   analysisSource?: string;
+  scores: FormationScore[];
+  averageScore: number;
 }
 
 const genId = (): string =>
@@ -37,10 +39,27 @@ const genId = (): string =>
   `ai-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 export type SuggestAudioOpts = {
-  /** playbackEngine などから渡す再生中 URL（https のみ Fly から取得可） */
   audioUrl?: string | null;
-  /** 開始を含む目標キュー数（曲展開から重要変化点を選定） */
   targetCueCount?: number;
+  feedback?: SuggestFeedback;
+};
+
+type CachedAnalysis = {
+  peaks: number[];
+  durationSec: number;
+  changePoints: ChangePoint[];
+  bpm: number;
+  duration: number;
+  dynamism: number;
+  sourceLabel: string;
+  localAnalysis: AudioAnalysis;
+  sections: {
+    label: string;
+    startSec: number;
+    endSec: number;
+    avgEnergy: number;
+  }[];
+  seedDancers: DancerSpot[];
 };
 
 export function useAiFormationSuggest(project: ChoreographyProjectJson) {
@@ -48,6 +67,68 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
   const [result, setResult] = useState<AiSuggestResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const cacheRef = useRef<CachedAnalysis | null>(null);
+
+  const runGenerate = useCallback(
+    (
+      cache: CachedAnalysis,
+      extraInfo: string | undefined,
+      targetCueCount: number | undefined,
+      feedback: SuggestFeedback | undefined
+    ) => {
+      const generated = generateAppFormationsFromChangePoints({
+        changePoints: cache.changePoints,
+        seedDancers: cache.seedDancers,
+        bpm: cache.bpm,
+        durationSec: cache.duration,
+        songDynamism: cache.dynamism,
+        targetCueCount,
+        sections: cache.sections,
+        energyCurve: cache.peaks,
+        feedback,
+      });
+
+      const note = extraInfo?.trim();
+      const avg =
+        generated.scores.length > 0
+          ? generated.scores.reduce((s, x) => s + x.total, 0) /
+            generated.scores.length
+          : 0;
+      const reasoning = [
+        `解析ソース: ${cache.sourceLabel} / BPM ${Math.round(cache.bpm)} / 変化点候補 ${cache.changePoints.length} → キュー ${generated.cues.length}${targetCueCount != null ? `（指定 ${targetCueCount}）` : ""} / dynamism ${cache.dynamism.toFixed(2)}`,
+        ...(feedback
+          ? [
+              `再提案フィードバック: ${[
+                feedback.preferLessMovement ? "移動少なめ" : "",
+                feedback.preferFewerCrossings ? "交差少なめ" : "",
+                feedback.preferMoreImpact ? "インパクト重視" : "",
+                feedback.note ? `メモ:${feedback.note.slice(0, 40)}` : "",
+              ]
+                .filter(Boolean)
+                .join(" / ") || "なし"}`,
+            ]
+          : []),
+        ...generated.reasoning,
+        ...(note ? [`メモ: ${note.slice(0, 80)}`] : []),
+      ];
+
+      setResult({
+        formations: generated.formations,
+        cues: generated.cues,
+        reasoning,
+        analysis: {
+          ...cache.localAnalysis,
+          bpm: cache.bpm,
+          durationSec: cache.duration,
+        },
+        analysisSource: cache.sourceLabel,
+        scores: generated.scores,
+        averageScore: Math.round(avg),
+      });
+      setStatus("done");
+    },
+    []
+  );
 
   const suggest = useCallback(
     async (
@@ -61,26 +142,42 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
       abortRef.current = controller;
 
       setStatus("analyzing");
-      setResult(null);
       setError(null);
 
       try {
         if (controller.signal.aborted) return;
 
+        // 再提案: キャッシュがあれば解析スキップ
+        const canReuse =
+          cacheRef.current &&
+          cacheRef.current.peaks === peaks &&
+          Math.abs(cacheRef.current.durationSec - durationSec) < 0.01 &&
+          audioOpts?.feedback;
+
+        if (canReuse && cacheRef.current) {
+          setStatus("requesting");
+          runGenerate(
+            cacheRef.current,
+            extraInfo,
+            audioOpts?.targetCueCount,
+            audioOpts?.feedback
+          );
+          return;
+        }
+
+        setResult(null);
         const localAnalysis = analyzeAudio(peaks, durationSec);
-        // ブラウザ解析は同期・即時。Fly は並列で短時間だけ待つ。
         const browser = analyzeSongStructureFromPeaks(peaks, durationSec);
 
         setStatus("requesting");
 
-        const remotePromise = fetchRemoteSongAnalysis({
+        const remote = await fetchRemoteSongAnalysis({
           audioSupabasePath: project.audioSupabasePath,
           audioUrl: audioOpts?.audioUrl,
           trackTitle: project.pieceTitle,
           signal: controller.signal,
         });
 
-        const remote = await remotePromise;
         if (controller.signal.aborted) return;
 
         const changePoints: ChangePoint[] = remote
@@ -118,8 +215,6 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
 
         if (controller.signal.aborted) return;
 
-        const targetCueCount = audioOpts?.targetCueCount;
-
         const sections = localAnalysis.sections.map((s) => ({
           label: s.label,
           startSec: s.startSec,
@@ -127,45 +222,33 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
           avgEnergy: s.avgEnergy,
         }));
 
-        const generated = generateAppFormationsFromChangePoints({
+        const cache: CachedAnalysis = {
+          peaks,
+          durationSec,
           changePoints,
-          seedDancers,
           bpm,
-          durationSec: duration,
-          songDynamism: dynamism,
-          targetCueCount,
+          duration,
+          dynamism,
+          sourceLabel,
+          localAnalysis,
           sections,
-          energyCurve: peaks,
-        });
+          seedDancers,
+        };
+        cacheRef.current = cache;
 
-        if (controller.signal.aborted) return;
-
-        const note = extraInfo?.trim();
-        const reasoning = [
-          `解析ソース: ${sourceLabel} / BPM ${Math.round(bpm)} / 変化点候補 ${changePoints.length} → キュー ${generated.cues.length}${targetCueCount != null ? `（指定 ${targetCueCount}）` : ""} / dynamism ${dynamism.toFixed(2)}`,
-          ...generated.reasoning,
-          ...(note ? [`メモ: ${note.slice(0, 80)}`] : []),
-        ];
-
-        setResult({
-          formations: generated.formations,
-          cues: generated.cues,
-          reasoning,
-          analysis: {
-            ...localAnalysis,
-            bpm,
-            durationSec: duration,
-          },
-          analysisSource: sourceLabel,
-        });
-        setStatus("done");
+        runGenerate(
+          cache,
+          extraInfo,
+          audioOpts?.targetCueCount,
+          audioOpts?.feedback
+        );
       } catch (e: unknown) {
         if (e instanceof Error && e.name === "AbortError") return;
         setError(e instanceof Error ? e.message : "提案に失敗しました");
         setStatus("error");
       }
     },
-    [project]
+    [project, runGenerate]
   );
 
   const reset = useCallback(() => {
@@ -173,6 +256,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
     setStatus("idle");
     setResult(null);
     setError(null);
+    cacheRef.current = null;
   }, []);
 
   return { status, result, error, suggest, reset };

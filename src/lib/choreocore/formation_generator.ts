@@ -3,18 +3,23 @@
  * - 4エイト（32カウント）固定の可動域
  * - eight_index 0,4,8,... に同期
  * - CHORUS_START はインパクト隊列を最優先
+ * - Tier1 v6.1: MOVE/SAFETY スコアで決定的に選定
  */
 
 import {
-  assignPerformersOrdered,
-  maxTravelMeters,
-  totalTravelMeters,
-} from "./assignment";
-import {
   buildRealisticLayouts,
-  type LayoutKind,
   type RealisticLayout,
 } from "./layouts_realistic";
+import {
+  computePersonalMaxDist,
+  explainFormationScore,
+  pickBestScoredFormation,
+  pickResultToFormation,
+  type FormationScore,
+  type FormationTemplate,
+  type SuggestFeedback,
+  type Tier as Tier1Tier,
+} from "./tier1";
 import type {
   ChangePoint,
   ChangeTier,
@@ -29,6 +34,18 @@ import {
   METERS_PER_COUNT,
 } from "./types";
 
+function toCoreFormation(
+  f: { id?: string; performers: Formation["performers"] },
+  id: string
+): Formation {
+  return {
+    id,
+    performers: f.performers.map((p) => ({
+      id: p.id,
+      position: { ...p.position },
+    })),
+  };
+}
 export type SongSectionHint = {
   label: string;
   startSec: number;
@@ -82,7 +99,10 @@ export function resolveSectionType(cp: ChangePoint): SectionType {
 
 /** eight_index を 4 の倍数に揃える */
 export function snapEightIndexToBlock(eightIndex: number): number {
-  return Math.max(0, Math.floor(eightIndex / EIGHTS_PER_BLOCK) * EIGHTS_PER_BLOCK);
+  return Math.max(
+    0,
+    Math.floor(eightIndex / EIGHTS_PER_BLOCK) * EIGHTS_PER_BLOCK
+  );
 }
 
 export function sectionAt(
@@ -131,68 +151,54 @@ function sectionTypeJa(st: SectionType): string {
   return "平歌";
 }
 
-function pickLayout(opts: {
-  layouts: RealisticLayout[];
-  mood: EnergyMood;
-  sectionType: SectionType;
-  prev: Formation;
-  availableCounts: number;
-  recentKinds: LayoutKind[];
-  recentIds: string[];
-  salt: number;
-}): { layout: RealisticLayout; formation: Formation } {
-  const maxDist = computeMaxFeasibleDistance(opts.availableCounts);
-  const recentKind = new Set(opts.recentKinds.slice(-3));
-  const recentId = new Set(opts.recentIds.slice(-4));
+function tierForSection(st: SectionType): Tier1Tier {
+  if (st === "CHORUS_START" || st === "CHORUS") return "major";
+  return "medium";
+}
 
-  let pool: RealisticLayout[];
-  if (opts.sectionType === "CHORUS_START") {
-    // 大V字・扇形・クロス等のインパクトを最優先
-    const impact = opts.layouts.filter((l) => l.impact);
-    pool = impact.length >= 2 ? impact : opts.layouts.filter((l) =>
-      l.moods.includes("chorus")
-    );
-  } else if (opts.sectionType === "CHORUS") {
-    const chorus = opts.layouts.filter((l) => l.moods.includes("chorus"));
-    pool = chorus.length >= 2 ? chorus : opts.layouts;
-  } else {
-    const moodPool = opts.layouts.filter((l) => l.moods.includes(opts.mood));
-    pool = moodPool.length >= 3 ? moodPool : opts.layouts;
-  }
-
-  type Cand = {
-    layout: RealisticLayout;
-    formation: Formation;
-    total: number;
-    max: number;
-    score: number;
+function layoutToTemplate(
+  layout: RealisticLayout,
+  tier: Tier1Tier
+): FormationTemplate {
+  const tags: string[] = [...layout.moods];
+  if (layout.impact) tags.push("impact");
+  return {
+    id: layout.id,
+    name: layout.name,
+    tier,
+    tags,
+    slots: layout.positions.map((p, i) => ({
+      id: `${layout.id}_s${String(i).padStart(2, "0")}`,
+      position: { x: p.x, y: p.y },
+    })),
   };
+}
 
-  const evaluated: Cand[] = pool.map((layout, idx) => {
-    const formation = assignPerformersOrdered(opts.prev, layout.positions);
-    const total = totalTravelMeters(opts.prev, formation);
-    const max = maxTravelMeters(opts.prev, formation);
-    const kindPenalty = recentKind.has(layout.kind) ? 1.4 : 0;
-    const idPenalty = recentId.has(layout.id) ? 2.0 : 0;
-    const impactBonus =
-      opts.sectionType === "CHORUS_START" && layout.impact ? 2.5 : 0;
-    // サビ頭は大きめ移動を許容・推奨、平歌は中庸
-    const targetRatio = opts.sectionType === "CHORUS_START" ? 0.72 : 0.48;
-    const target = maxDist * targetRatio;
-    const per = Math.max(1, opts.prev.performers.length);
-    const travelFit = -Math.abs(total / per - target / per);
-    const jitter = ((idx * 19 + opts.salt * 7) % 11) * 0.02;
-    const score =
-      travelFit * 3 - kindPenalty - idPenalty + impactBonus + jitter;
-    return { layout, formation, total, max, score };
-  });
-
-  const feasible = evaluated.filter((c) => c.max <= maxDist + 0.2);
-  const pickFrom = feasible.length > 0 ? feasible : evaluated;
-  const ranked = [...pickFrom].sort((a, b) => b.score - a.score);
-  const top = ranked.slice(0, Math.min(3, ranked.length));
-  const chosen = top[opts.salt % top.length] ?? ranked[0]!;
-  return { layout: chosen.layout, formation: chosen.formation };
+function buildPool(
+  layouts: RealisticLayout[],
+  sectionType: SectionType,
+  mood: EnergyMood
+): { primary: FormationTemplate[]; fallback: FormationTemplate[] } {
+  const tier = tierForSection(sectionType);
+  const all = layouts.map((l) => layoutToTemplate(l, tier));
+  let primaryLayouts: RealisticLayout[];
+  if (sectionType === "CHORUS_START") {
+    const impact = layouts.filter((l) => l.impact);
+    primaryLayouts =
+      impact.length >= 2
+        ? impact
+        : layouts.filter((l) => l.moods.includes("chorus"));
+  } else if (sectionType === "CHORUS") {
+    const chorus = layouts.filter((l) => l.moods.includes("chorus"));
+    primaryLayouts = chorus.length >= 2 ? chorus : layouts;
+  } else {
+    const moodPool = layouts.filter((l) => l.moods.includes(mood));
+    primaryLayouts = moodPool.length >= 3 ? moodPool : layouts;
+  }
+  return {
+    primary: primaryLayouts.map((l) => layoutToTemplate(l, tier)),
+    fallback: all,
+  };
 }
 
 export type GenerateFormationsOptions = {
@@ -200,23 +206,27 @@ export type GenerateFormationsOptions = {
   songDynamism?: number;
   sections?: SongSectionHint[];
   energyCurve?: number[];
+  feedback?: SuggestFeedback;
+};
+
+export type GenerateFormationsResultEx = GenerateFormationsResult & {
+  scores: FormationScore[];
 };
 
 /**
  * 変化点に沿って現実的なフォーメーション列を生成する。
- * 切り替えは 4エイト先頭に同期し、可動域は 32カウント固定。
  */
 export function generateFormations(
   changePoints: ChangePoint[],
   initialFormation: Formation,
   bpm: number,
   opts: GenerateFormationsOptions = {}
-): GenerateFormationsResult {
+): GenerateFormationsResultEx {
   const durationSec =
     opts.durationSec ??
     Math.max(60, ...(changePoints.map((c) => c.time + 16)));
+  const dynamism = opts.songDynamism ?? 0.5;
 
-  // eight_index を 4 の倍数に揃え、近い重複を除去
   const points = [...changePoints]
     .map((cp) => ({
       ...cp,
@@ -232,10 +242,12 @@ export function generateFormations(
   const dancerCount = Math.max(1, initialFormation.performers.length);
   const layouts = buildRealisticLayouts(dancerCount);
   const counts = availableCountsForFourEightBlock();
+  const maxDist = computePersonalMaxDist(counts, bpm, dynamism);
 
   const formations: Formation[] = [];
   const cues: GeneratedCue[] = [];
   const reasoning: string[] = [];
+  const scores: FormationScore[] = [];
 
   let prev: Formation = {
     id: initialFormation.id || genId(),
@@ -244,7 +256,6 @@ export function generateFormations(
       position: { ...p.position },
     })),
   };
-  const recentKinds: LayoutKind[] = [];
   const recentIds: string[] = [];
 
   const startFm: Formation = { ...prev, id: genId() };
@@ -260,7 +271,7 @@ export function generateFormations(
     tier: "minor",
   });
   reasoning.push(
-    `開始（${dancerCount}人 / 4エイト=32カウント固定 / BPM ${Math.round(bpm)}）`
+    `開始（${dancerCount}人 / 4エイト=32カウント / maxDist ${maxDist.toFixed(2)}m / BPM ${Math.round(bpm)}）`
   );
 
   for (let i = 0; i < points.length; i++) {
@@ -276,27 +287,55 @@ export function generateFormations(
       stype
     );
 
-    const picked = pickLayout({
-      layouts,
-      mood,
-      sectionType: stype,
-      prev,
-      availableCounts: counts,
-      recentKinds,
-      recentIds,
-      salt: i + cp.eight_index,
+    const feedback: SuggestFeedback = {
+      ...opts.feedback,
+      preferMoreImpact:
+        Boolean(opts.feedback?.preferMoreImpact) || stype === "CHORUS_START",
+      avoidLayoutIds: [
+        ...(opts.feedback?.avoidLayoutIds ?? []),
+        ...recentIds.slice(-3),
+      ],
+    };
+
+    const { primary, fallback } = buildPool(layouts, stype, mood);
+    const pick = pickBestScoredFormation(prev, primary, {
+      maxFeasibleDistance: maxDist,
+      feedback,
+      fallbackPool: fallback,
     });
 
-    const fm: Formation = { ...picked.formation, id: genId() };
+    let fm: Formation;
+    let layoutName: string;
+    let scoreLine = "";
+    if (pick) {
+      fm = toCoreFormation(pickResultToFormation(prev, pick), genId());
+      layoutName = pick.formation.name ?? pick.formation.id;
+      scores.push(pick.score);
+      scoreLine = ` / スコア${pick.score.total}(移動${pick.score.axes.move}/安全${pick.score.axes.safety}) 交差${pick.crossings.length}`;
+      if (pick.crossings.length > 0) {
+        const c0 = pick.crossings[0]!;
+        scoreLine += ` 例:${c0.performerAId}×${c0.performerBId}`;
+      }
+      recentIds.push(pick.formation.id);
+    } else {
+      fm = { ...prev, id: genId() };
+      layoutName = "現状維持";
+      scores.push({
+        total: 0,
+        axes: { move: 0, safety: 0, visual: null, music: null },
+        weights: { move: 0.6, safety: 0.4, visual: 0, music: 0 },
+      });
+    }
+
     formations.push(fm);
 
     const tStart = cp.time;
     const tEnd = Math.max(tStart + 2, nextT - 0.25);
-    const name = `${sectionTypeJa(stype)} ${picked.layout.name}`;
+    const name = `${sectionTypeJa(stype)} ${layoutName}`;
 
     cues.push({
       id: genId(),
-      formationId: fm.id,
+      formationId: fm.id!,
       tStartSec: Math.round(tStart * 100) / 100,
       tEndSec: Math.round(Math.min(tEnd, durationSec) * 100) / 100,
       name,
@@ -304,14 +343,20 @@ export function generateFormations(
     });
 
     reasoning.push(
-      `${formatClock(cp.time)} 8×${cp.eight_index} ${sectionTypeJa(stype)} → ${picked.layout.name}（32カウント可動）`
+      `${formatClock(cp.time)} 8×${cp.eight_index} ${sectionTypeJa(stype)} → ${layoutName}${scoreLine}`
     );
 
     prev = fm;
-    recentKinds.push(picked.layout.kind);
-    recentIds.push(picked.layout.id);
-    if (recentKinds.length > 6) recentKinds.shift();
     if (recentIds.length > 6) recentIds.shift();
+  }
+
+  if (scores.length > 0) {
+    const avg =
+      scores.reduce((s, x) => s + x.total, 0) / Math.max(1, scores.length);
+    reasoning.unshift(
+      `Tier1評価 平均 ${Math.round(avg)}/100（MOVE+SAFETY）`,
+      ...explainFormationScore(scores[scores.length - 1]!)
+    );
   }
 
   cues.sort((a, b) => a.tStartSec - b.tStartSec);
@@ -323,7 +368,7 @@ export function generateFormations(
     }
   }
 
-  return { formations, cues, reasoning };
+  return { formations, cues, reasoning, scores };
 }
 
 /** 互換: 旧 API */
@@ -333,24 +378,30 @@ export function pickFormationPushingLimit(
   availableCounts: number,
   _avoidTemplateId?: string | null
 ): { template: (typeof pool)[number]; formation: Formation } {
+  const templates: FormationTemplate[] = pool.map((t) => ({
+    id: t.id,
+    name: t.name,
+    tier: "medium" as const,
+    slots: t.positions.map((p, i) => ({
+      id: `${t.id}_${i}`,
+      position: { ...p },
+    })),
+  }));
   const maxDist = computeMaxFeasibleDistance(availableCounts);
-  let best = pool[0]!;
-  let bestFm = assignPerformersOrdered(prev, best.positions);
-  let bestScore = -Infinity;
-  for (const t of pool) {
-    const fm = assignPerformersOrdered(prev, t.positions);
-    const max = maxTravelMeters(prev, fm);
-    const total = totalTravelMeters(prev, fm);
-    if (max > maxDist + 0.2) continue;
-    const target = maxDist * 0.5;
-    const score = -Math.abs(total - target);
-    if (score > bestScore) {
-      bestScore = score;
-      best = t;
-      bestFm = fm;
-    }
+  const pick = pickBestScoredFormation(prev, templates, {
+    maxFeasibleDistance: maxDist,
+  });
+  if (!pick) {
+    return {
+      template: pool[0]!,
+      formation: prev,
+    };
   }
-  return { template: best, formation: bestFm };
+  const template = pool.find((p) => p.id === pick.formation.id) ?? pool[0]!;
+  return {
+    template,
+    formation: toCoreFormation(pickResultToFormation(prev, pick), genId()),
+  };
 }
 
 export function songPhaseAt(
