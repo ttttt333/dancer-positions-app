@@ -48,9 +48,20 @@ serve(async (req: Request) => {
     if (session.client_reference_id !== user.id) {
       return jsonResponse({ error: "不正なセッションです" }, 403);
     }
-    const paid =
-      session.payment_status === "paid" || session.status === "complete";
-    if (!paid) {
+    const mode = (session.mode || "subscription").trim();
+    const paid = session.payment_status === "paid";
+
+    // PayPay 等: Checkout 完了直後は unpaid → フロントは pending 表示して再試行
+    if (mode === "payment" && !paid) {
+      return jsonResponse({
+        ok: false,
+        pending: true,
+        payment_status: session.payment_status,
+        status: "pending_payment",
+      });
+    }
+
+    if (mode !== "payment" && !paid && session.status !== "complete") {
       return jsonResponse(
         {
           error: "支払いが完了していません",
@@ -59,7 +70,16 @@ serve(async (req: Request) => {
         400
       );
     }
+
     const status = await applyCheckoutSessionToUser(user.id, session);
+    if (status === "pending_payment") {
+      return jsonResponse({
+        ok: false,
+        pending: true,
+        payment_status: session.payment_status,
+        status,
+      });
+    }
     return jsonResponse({ ok: true, status });
   } catch (e) {
     console.error("[billing-verify-session]", e);

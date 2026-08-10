@@ -5,32 +5,59 @@ import { useAuth } from "../context/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
 import { btnSecondary } from "../components/stageButtonStyles";
 
+const POLL_MS = 2500;
+const MAX_POLLS = 24; // ~60s（PayPay 非同期確認待ち）
+
 export function BillingSuccessPage() {
   const [params] = useSearchParams();
   const sessionId = params.get("session_id");
   const { refresh } = useAuth();
   const { t } = useI18n();
-  const [status, setStatus] = useState<"loading" | "ok" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "pending" | "ok" | "error">(
+    "loading"
+  );
 
   useEffect(() => {
     if (!sessionId) {
       setStatus("error");
       return;
     }
-    billingApi
-      .verifyCheckoutSession(sessionId)
-      .then(async (r) => {
+
+    let cancelled = false;
+    let polls = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const run = async () => {
+      try {
+        const r = await billingApi.verifyCheckoutSession(sessionId);
+        if (cancelled) return;
         if (r.ok) {
           await refresh();
           setStatus("ok");
-        } else {
-          setStatus("error");
+          return;
         }
-      })
-      .catch((e) => {
-        console.error(e);
+        if (r.pending) {
+          setStatus("pending");
+          polls += 1;
+          if (polls >= MAX_POLLS) {
+            setStatus("error");
+            return;
+          }
+          timer = setTimeout(run, POLL_MS);
+          return;
+        }
         setStatus("error");
-      });
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) setStatus("error");
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
   }, [sessionId, refresh]);
 
   return (
@@ -45,11 +72,17 @@ export function BillingSuccessPage() {
         fontFamily: "system-ui, sans-serif",
       }}
     >
-      {status === "loading" && (
+      {(status === "loading" || status === "pending") && (
         <>
-          <h1 style={{ fontSize: "20px" }}>{t("billing.success.loadingTitle")}</h1>
+          <h1 style={{ fontSize: "20px" }}>
+            {status === "pending"
+              ? t("billing.success.pendingTitle")
+              : t("billing.success.loadingTitle")}
+          </h1>
           <p style={{ color: "#94a3b8", fontSize: "14px", marginTop: 12 }}>
-            {t("billing.success.loadingBody")}
+            {status === "pending"
+              ? t("billing.success.pendingBody")
+              : t("billing.success.loadingBody")}
           </p>
         </>
       )}

@@ -117,11 +117,18 @@ export async function supabaseCreateCheckoutSession(opts?: {
 
 export async function supabaseVerifyCheckoutSession(
   sessionId: string
-): Promise<{ ok: boolean; status?: string }> {
-  return invokeBillingFunction<{ ok: boolean; status?: string }>(
-    "billing-verify-session",
-    { session_id: sessionId }
-  );
+): Promise<{
+  ok: boolean;
+  status?: string;
+  pending?: boolean;
+  payment_status?: string | null;
+}> {
+  return invokeBillingFunction<{
+    ok: boolean;
+    status?: string;
+    pending?: boolean;
+    payment_status?: string | null;
+  }>("billing-verify-session", { session_id: sessionId });
 }
 
 export async function supabaseOpenCustomerPortal(): Promise<{ url: string }> {

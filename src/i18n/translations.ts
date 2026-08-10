@@ -259,6 +259,9 @@ const EN_BASE: MessageBundle = {
   "billing.confirm.loading": "Loading…",
   "billing.success.loadingTitle": "Confirming…",
   "billing.success.loadingBody": "Verifying your payment. Please wait.",
+  "billing.success.pendingTitle": "Waiting for PayPay confirmation…",
+  "billing.success.pendingBody":
+    "PayPay confirmation can take a moment. This page will update automatically. You can close it and return later.",
   "billing.success.okTitle": "Welcome to Pro!",
   "billing.success.okBody": "Payment confirmed. You can create unlimited projects.",
   "billing.success.errorTitle": "Could not confirm payment",
@@ -598,6 +601,9 @@ const BASE_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "billing.success.loadingTitle": "確認中...",
     "billing.success.loadingBody":
       "お支払いを確認しています。しばらくお待ちください。",
+    "billing.success.pendingTitle": "PayPayの確認を待っています…",
+    "billing.success.pendingBody":
+      "PayPayは確定まで少し時間がかかることがあります。この画面は自動で更新されます。閉じても、数分後に再度ログインすれば反映されます。",
     "billing.success.okTitle": "🎉 Proプランへようこそ！",
     "billing.success.okBody":
       "お支払いが確認されました。作品を無制限に作成できます。",
@@ -930,6 +936,9 @@ const BASE_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "billing.confirm.loading": "불러오는 중…",
     "billing.success.loadingTitle": "확인 중…",
     "billing.success.loadingBody": "결제를 확인하고 있습니다. 잠시만 기다려 주세요.",
+    "billing.success.pendingTitle": "PayPay 확인 대기 중…",
+    "billing.success.pendingBody":
+      "PayPay 확정까지 잠시 걸릴 수 있습니다. 이 화면은 자동으로 갱신됩니다. 닫아도 잠시 후 다시 로그인하면 반영됩니다.",
     "billing.success.okTitle": "🎉 Pro에 오신 것을 환영합니다!",
     "billing.success.okBody": "결제가 확인되었습니다. 작품을 무제한으로 만들 수 있습니다.",
     "billing.success.errorTitle": "확인에 실패했습니다",
@@ -1257,6 +1266,9 @@ const BASE_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "billing.confirm.loading": "加载中…",
     "billing.success.loadingTitle": "确认中…",
     "billing.success.loadingBody": "正在验证付款，请稍候。",
+    "billing.success.pendingTitle": "正在等待 PayPay 确认…",
+    "billing.success.pendingBody":
+      "PayPay 确认可能需要一点时间。本页会自动更新。也可稍后重新登录确认。",
     "billing.success.okTitle": "🎉 欢迎加入 Pro！",
     "billing.success.okBody": "付款已确认。您可以创建无限数量的作品。",
     "billing.success.errorTitle": "确认失败",

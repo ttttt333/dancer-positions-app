@@ -221,8 +221,14 @@ export async function createAnnualCheckoutSession(opts: {
     success_url: `${APP_BASE}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${APP_BASE}/billing/canceled`,
     client_reference_id: opts.userId,
-    // Dashboard で有効化した PayPay / カード等を表示
-    "automatic_payment_methods[enabled]": "true",
+    locale: "ja",
+    // PayPay は subscription 非対応。カードと併記（JPY one-time Price 必須）
+    "payment_method_types[0]": "card",
+    "payment_method_types[1]": "paypay",
+    "metadata[plan]": "annual",
+    "metadata[product]": "choreocore_pro",
+    "payment_intent_data[metadata][plan]": "annual",
+    "payment_intent_data[metadata][user_id]": opts.userId,
   };
 
   if (existingCustomerId) {
@@ -403,13 +409,13 @@ export async function applyCheckoutSessionToUser(
 ): Promise<string> {
   const customerId = session.customer ? String(session.customer) : null;
   const mode = (session.mode || "subscription").trim();
-  const paid =
-    session.payment_status === "paid" || session.status === "complete";
+  const paid = session.payment_status === "paid";
 
-  /** 年額一括（PayPay 等）→ 1 年 Pro 付与 */
+  /** 年額一括（PayPay / カード）→ 1 年 Pro 付与。PayPay は非同期完了があり得る。 */
   if (mode === "payment") {
     if (!paid) {
-      throw new Error("支払いが完了していません");
+      // checkout.session.completed 時点では unpaid のことがある → async 待ち
+      return "pending_payment";
     }
     await grantPrepaidAnnualFromCheckout(userId, session.id, customerId);
     return "prepaid_annual";

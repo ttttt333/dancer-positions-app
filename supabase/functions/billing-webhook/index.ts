@@ -59,12 +59,13 @@ serve(async (req: Request) => {
 
   try {
     switch (event.type) {
-      case "checkout.session.completed": {
+      case "checkout.session.completed":
+      case "checkout.session.async_payment_succeeded": {
         const session = event.data.object as Stripe.Checkout.Session;
         const userId = session.client_reference_id?.trim();
         if (!userId) {
           console.error(
-            "[billing-webhook] checkout.session.completed missing client_reference_id",
+            `[billing-webhook] ${event.type} missing client_reference_id`,
             session.id
           );
           break;
@@ -85,6 +86,16 @@ serve(async (req: Request) => {
           status: session.status,
           mode: session.mode ?? "subscription",
         });
+        break;
+      }
+      case "checkout.session.async_payment_failed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        console.warn(
+          "[billing-webhook] async_payment_failed",
+          session.id,
+          session.payment_status,
+          session.client_reference_id
+        );
         break;
       }
       case "customer.subscription.created": {
