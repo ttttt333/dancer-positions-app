@@ -6,9 +6,10 @@
 export const STRIPE_PRO_PAYMENT_LINK =
   "https://buy.stripe.com/eVq7sL9V52DG8I578m1RC00";
 
-/** 年額 5500 円（税込）一括用 Payment Link（未設定なら Edge Function を使う） */
+/** 年額 5500 円（税込）一括用 Payment Link（Edge Checkout 失敗時のフォールバック） */
 export const STRIPE_PRO_ANNUAL_PAYMENT_LINK = String(
-  import.meta.env.VITE_STRIPE_PRO_ANNUAL_PAYMENT_LINK ?? ""
+  import.meta.env.VITE_STRIPE_PRO_ANNUAL_PAYMENT_LINK ??
+    "https://buy.stripe.com/3cI00j9V5fqsf6tcsG1RC01"
 ).trim();
 
 export function withClientReferenceId(
