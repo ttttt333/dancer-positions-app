@@ -25,6 +25,7 @@ import {
 import { exportChoreographyPdf } from "../../lib/exportChoreographyPdf";
 import { normalizeProject } from "../../lib/normalizeProject";
 import { FREE_CLOUD_PROJECT_LIMIT, hasStripeCustomerId, isProMe } from "../../lib/supabaseBilling";
+import { getEntitlements } from "../../lib/entitlements";
 import { tryMigrateFromLocalStorage } from "../../lib/projectDefaults";
 import { shell } from "../../theme/choreoShell";
 import { homeIconBtn } from "./homeChrome";
@@ -338,7 +339,22 @@ export function HomeLibrary() {
           </span>
         </button>
         <h1 className="home-display home-library-title">{t("home.libraryTitle")}</h1>
-        {!isPro ? (
+        {getEntitlements(me).releaseCampaign ? (
+          <span
+            style={{
+              border: "1px solid rgba(212,175,55,0.45)",
+              background: "rgba(212,175,55,0.12)",
+              color: "#e8c547",
+              fontWeight: 700,
+              fontSize: 11,
+              padding: "6px 10px",
+              borderRadius: 999,
+              letterSpacing: "0.04em",
+            }}
+          >
+            {t("landing.campaign.eyebrow")}
+          </span>
+        ) : !isPro ? (
           <button
             type="button"
             onClick={() => void startStripeSubscription()}

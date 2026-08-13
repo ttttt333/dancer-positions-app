@@ -3,6 +3,11 @@ import { Link } from "react-router-dom";
 import { ChoreoCoreLogo } from "../../components/ChoreoCoreLogo";
 import { LanguageSwitcher } from "../../components/LanguageSwitcher";
 import { useI18n } from "../../i18n/I18nContext";
+import {
+  PRO_ANNUAL_PRICE_YEN_TAX_IN,
+  PRO_PRICE_YEN_TAX_IN,
+} from "../../lib/commercialDisclosure";
+import { isReleaseCampaignActive } from "../../lib/releaseCampaign";
 
 /** ヒーロー直下に出す3項目（残りは詳細セクションへ） */
 const HERO_BENEFITS = [
@@ -21,6 +26,15 @@ const DETAIL_REASONS = [
   { id: "09", icon: "○" },
   { id: "10", icon: "★" },
   { id: "11", icon: "☁" },
+] as const;
+
+const CAMPAIGN_PERKS = [
+  "cues",
+  "dancers",
+  "ai",
+  "cloud",
+  "export",
+  "share",
 ] as const;
 
 const FORMATION_DOTS: Array<{ left: string; top: string; tone: "gold" | "pink" }> = [
@@ -82,6 +96,7 @@ function WaveformMock() {
 export function GuestLanding() {
   const { t } = useI18n();
   const headlineLines = t("landing.headline").split("\n");
+  const campaign = isReleaseCampaignActive();
 
   return (
     <div className="home-page home-landing">
@@ -100,6 +115,65 @@ export function GuestLanding() {
         </div>
       </header>
 
+      {campaign ? (
+        <section className="home-campaign" aria-labelledby="landing-campaign-title">
+          <div className="home-container home-campaign-inner">
+            <p className="home-campaign-eyebrow">{t("landing.campaign.eyebrow")}</p>
+            <h2 id="landing-campaign-title" className="home-display home-campaign-title">
+              {t("landing.campaign.title")}
+            </h2>
+            <p className="home-campaign-lead">{t("landing.campaign.lead")}</p>
+
+            <div
+              className="home-campaign-pricing"
+              role="group"
+              aria-label={t("landing.campaign.pricingAria")}
+            >
+              <div className="home-campaign-price-card">
+                <span className="home-campaign-price-label">
+                  {t("landing.campaign.monthly")}
+                </span>
+                <span className="home-campaign-price-was">
+                  ¥{PRO_PRICE_YEN_TAX_IN.toLocaleString()}
+                </span>
+                <span className="home-campaign-price-now">
+                  {t("landing.campaign.freeNow")}
+                </span>
+              </div>
+              <div className="home-campaign-price-card">
+                <span className="home-campaign-price-label">
+                  {t("landing.campaign.annual")}
+                </span>
+                <span className="home-campaign-price-was">
+                  ¥{PRO_ANNUAL_PRICE_YEN_TAX_IN.toLocaleString()}
+                </span>
+                <span className="home-campaign-price-now">
+                  {t("landing.campaign.freeNow")}
+                </span>
+              </div>
+            </div>
+
+            <ul className="home-campaign-perks">
+              {CAMPAIGN_PERKS.map((key) => (
+                <li key={key} className="home-campaign-perk">
+                  <span className="home-campaign-perk-check" aria-hidden>
+                    ✓
+                  </span>
+                  {t(`landing.campaign.perk.${key}`)}
+                </li>
+              ))}
+            </ul>
+
+            <div className="home-campaign-cta">
+              <Link to="/register" className="home-btn home-btn--primary">
+                {t("landing.campaign.cta")}
+              </Link>
+              <p className="home-campaign-note">{t("landing.campaign.note")}</p>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       <section className="home-hero" aria-label={t("landing.heroAria")}>
         <div className="home-container home-hero-inner">
           <div className="home-hero-copy">
@@ -107,7 +181,9 @@ export function GuestLanding() {
               <span className="home-trust-badge-icon" aria-hidden>
                 ◎
               </span>
-              <span>{t("landing.trustBadge")}</span>
+              <span>
+                {campaign ? t("landing.campaign.trustBadge") : t("landing.trustBadge")}
+              </span>
             </div>
 
             <p className="home-display home-hero-brand">ChoreoCore</p>
@@ -121,11 +197,13 @@ export function GuestLanding() {
               ))}
             </h1>
 
-            <p className="home-hero-subcopy">{t("landing.support")}</p>
+            <p className="home-hero-subcopy">
+              {campaign ? t("landing.campaign.support") : t("landing.support")}
+            </p>
 
             <div className="home-cta-group">
               <Link to="/register" className="home-btn home-btn--primary">
-                {t("landing.ctaTry")}
+                {campaign ? t("landing.campaign.cta") : t("landing.ctaTry")}
               </Link>
               <Link to="/login" className="home-btn home-btn--secondary">
                 {t("dashboard.login")}
@@ -141,7 +219,6 @@ export function GuestLanding() {
                 ▶
               </span>
             </div>
-            {/* 本番は img / video(+poster) に差し替え。未準備時は CSS モック */}
             <FormationMock label={t("landing.previewAria")} />
             <WaveformMock />
           </div>
@@ -183,7 +260,7 @@ export function GuestLanding() {
           </ul>
           <div className="home-features-detail-cta">
             <Link to="/register" className="home-btn home-btn--primary">
-              {t("landing.ctaTry")}
+              {campaign ? t("landing.campaign.cta") : t("landing.ctaTry")}
             </Link>
           </div>
           <footer

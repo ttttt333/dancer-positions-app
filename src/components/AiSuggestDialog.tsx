@@ -501,7 +501,7 @@ export function AiSuggestDialog({
                   />
                 </div>
                 <p style={{ fontSize: 10, color: shell.textSubtle, margin: "6px 0 0", lineHeight: 1.45 }}>
-                  おすすめ {defaultCueCount}（約20秒に1つ）。解析で検出した変化点のうち、重要な転換を優先して選定します。無料プランはキュー上限20件です。
+                  おすすめ {defaultCueCount}（約20秒に1つ）。解析で検出した変化点のうち、重要な転換を優先して選定します。リリースキャンペーン中はキュー上限なしで利用できます。
                 </p>
               </div>
 

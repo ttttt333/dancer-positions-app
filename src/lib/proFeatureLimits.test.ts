@@ -2,9 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   isDancerCountOverFreeLimit,
   isNextCueOverFreeLimit,
-  FREE_MAX_CUES,
-  FREE_MAX_DANCERS,
 } from "./proFeatureLimits";
+import { isReleaseCampaignActive } from "./releaseCampaign";
 import type { Me } from "../types/authMe";
 
 const freeMe: Me = {
@@ -20,15 +19,10 @@ const proMe: Me = {
 };
 
 describe("proFeatureLimits", () => {
-  it("requires Pro for 11+ dancers on free", () => {
-    expect(isDancerCountOverFreeLimit(freeMe, FREE_MAX_DANCERS)).toBe(false);
-    expect(isDancerCountOverFreeLimit(freeMe, FREE_MAX_DANCERS + 1)).toBe(true);
+  it("during release campaign, free users are not limited", () => {
+    expect(isReleaseCampaignActive()).toBe(true);
+    expect(isDancerCountOverFreeLimit(freeMe, 100)).toBe(false);
+    expect(isNextCueOverFreeLimit(freeMe, 50)).toBe(false);
     expect(isDancerCountOverFreeLimit(proMe, 100)).toBe(false);
-  });
-
-  it("requires Pro when adding the 21st cue on free", () => {
-    expect(isNextCueOverFreeLimit(freeMe, FREE_MAX_CUES - 1)).toBe(false);
-    expect(isNextCueOverFreeLimit(freeMe, FREE_MAX_CUES)).toBe(true);
-    expect(isNextCueOverFreeLimit(proMe, 50)).toBe(false);
   });
 });

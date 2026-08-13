@@ -692,3 +692,146 @@
     animation: none !important;
   }
 }
+
+/* ── Release campaign banner ── */
+.home-campaign {
+  position: relative;
+  padding: 28px 0 8px;
+  background:
+    radial-gradient(ellipse 80% 70% at 50% 0%, rgba(212, 175, 55, 0.18), transparent 60%),
+    linear-gradient(180deg, #0c0a06 0%, #060606 100%);
+  border-bottom: 1px solid rgba(212, 175, 55, 0.22);
+}
+
+.home-campaign-inner {
+  text-align: center;
+  max-width: 720px;
+}
+
+.home-campaign-eyebrow {
+  display: inline-block;
+  margin: 0 0 12px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  background: rgba(212, 175, 55, 0.1);
+  color: #e8c547;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.home-campaign-title {
+  margin: 0 0 10px;
+  font-size: clamp(1.6rem, 4.5vw, 2.35rem);
+  font-weight: 800;
+  line-height: 1.2;
+  color: #faf7f0;
+}
+
+.home-campaign-lead {
+  margin: 0 auto 22px;
+  max-width: 34em;
+  font-size: 14px;
+  line-height: 1.65;
+  color: rgba(250, 247, 240, 0.72);
+}
+
+.home-campaign-pricing {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 auto 22px;
+  max-width: 440px;
+}
+
+.home-campaign-price-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(212, 175, 55, 0.28);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.home-campaign-price-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(250, 247, 240, 0.55);
+  letter-spacing: 0.04em;
+}
+
+.home-campaign-price-was {
+  font-size: 18px;
+  font-weight: 600;
+  color: rgba(250, 247, 240, 0.4);
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+
+.home-campaign-price-now {
+  font-family: "Syne", "Noto Sans JP", system-ui, sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  color: #e8c547;
+  letter-spacing: 0.02em;
+}
+
+.home-campaign-perks {
+  list-style: none;
+  margin: 0 auto 22px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+  max-width: 520px;
+  text-align: left;
+}
+
+.home-campaign-perk {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: rgba(250, 247, 240, 0.88);
+}
+
+.home-campaign-perk-check {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(212, 175, 55, 0.2);
+  color: #e8c547;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+
+.home-campaign-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.home-campaign-note {
+  margin: 0;
+  font-size: 11px;
+  color: rgba(250, 247, 240, 0.45);
+  line-height: 1.45;
+}
+
+@media (max-width: 520px) {
+  .home-campaign-perks {
+    grid-template-columns: 1fr;
+  }
+}

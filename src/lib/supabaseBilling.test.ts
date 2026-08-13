@@ -47,7 +47,8 @@ describe("supabaseBilling", () => {
       memberOrganizations: [],
     };
     expect(hasStripeCustomerId(me)).toBe(true);
-    expect(isProMe(me)).toBe(false);
+    // Release campaign treats all users as Pro via getEntitlements
+    expect(isProMe(me)).toBe(true);
   });
 
   it("isProMe includes trialing", () => {

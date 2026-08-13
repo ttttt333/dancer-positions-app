@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  FREE_MAX_CUES,
+  FREE_MAX_DANCERS,
   FREE_VIDEO_EXPORT_LIMIT,
   getEntitlements,
   isVideoExportLimitReached,
   remainingVideoExports,
 } from "./entitlements";
+import { isReleaseCampaignActive } from "./releaseCampaign";
 import type { Me } from "../types/authMe";
 
 describe("entitlements", () => {
@@ -14,58 +17,40 @@ describe("entitlements", () => {
     memberOrganizations: [],
   };
 
-  it("FREE user has export limit", () => {
+  it("release campaign unlocks PRO for everyone", () => {
+    expect(isReleaseCampaignActive()).toBe(true);
     const ent = getEntitlements(baseMe);
-    expect(ent.isPro).toBe(false);
-    expect(ent.videoExportLimit).toBe(FREE_VIDEO_EXPORT_LIMIT);
-    expect(ent.maxMembersPerProject).toBe(9);
-    expect(ent.maxCuesPerProject).toBe(19);
+    expect(ent.isPro).toBe(true);
+    expect(ent.releaseCampaign).toBe(true);
+    expect(ent.videoExportLimit).toBeNull();
+    expect(ent.maxProjects).toBeNull();
+    expect(ent.maxMembersPerProject).toBeNull();
+    expect(ent.maxCuesPerProject).toBeNull();
+    expect(ent.aiImport).toBe(true);
+    expect(ent.studentShare).toBe(true);
   });
 
-  it("trialing user is Pro", () => {
+  it("exports FREE limit constants for non-campaign use", () => {
+    expect(FREE_MAX_DANCERS).toBe(10);
+    expect(FREE_MAX_CUES).toBe(20);
+    expect(FREE_VIDEO_EXPORT_LIMIT).toBe(10);
+  });
+
+  it("trialing flag still surfaces during campaign", () => {
     const ent = getEntitlements({
       ...baseMe,
       user: { ...baseMe.user, subscription_status: "trialing" },
     });
     expect(ent.isPro).toBe(true);
     expect(ent.isTrialing).toBe(true);
-    expect(ent.videoExportLimit).toBeNull();
   });
 
-  it("is_pro from server grant RPC marks Pro", () => {
-    const ent = getEntitlements({
-      ...baseMe,
-      user: { ...baseMe.user, is_pro: true },
-    });
-    expect(ent.isPro).toBe(true);
-    expect(ent.videoExportLimit).toBeNull();
-  });
-
-  it("complimentary lifetime email is Pro", () => {
-    const ent = getEntitlements({
-      ...baseMe,
-      user: { ...baseMe.user, email: "interush.info@gmail.com" },
-    });
-    expect(ent.isPro).toBe(true);
-    expect(ent.maxProjects).toBeNull();
-    expect(ent.videoExportLimit).toBeNull();
-  });
-
-  it("remaining exports decreases with count", () => {
+  it("remaining exports is unlimited during campaign", () => {
     const me: Me = {
       ...baseMe,
-      user: { ...baseMe.user, video_export_count: 7 },
+      user: { ...baseMe.user, video_export_count: 99 },
     };
-    expect(remainingVideoExports(me)).toBe(3);
+    expect(remainingVideoExports(me)).toBeNull();
     expect(isVideoExportLimitReached(me)).toBe(false);
-  });
-
-  it("limit reached at 10", () => {
-    const me: Me = {
-      ...baseMe,
-      user: { ...baseMe.user, video_export_count: 10 },
-    };
-    expect(remainingVideoExports(me)).toBe(0);
-    expect(isVideoExportLimitReached(me)).toBe(true);
   });
 });

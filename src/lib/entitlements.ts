@@ -1,10 +1,11 @@
 import type { Me } from "../types/authMe";
 import { isComplimentaryProEmail } from "./complimentaryProEmails";
+import { isReleaseCampaignActive } from "./releaseCampaign";
 
 export const FREE_VIDEO_EXPORT_LIMIT = 10;
-/** 無料プランの最大人数（11人以上は PRO） */
+/** 無料プランの最大人数（11人以上は PRO）※キャンペーン中は無制限 */
 export const FREE_MAX_DANCERS = 10;
-/** 無料プランの最大キュー数（21個以上は PRO） */
+/** 無料プランの最大キュー数（21個以上は PRO）※キャンペーン中は無制限 */
 export const FREE_MAX_CUES = 20;
 
 export interface Entitlements {
@@ -17,6 +18,25 @@ export interface Entitlements {
   studentShare: boolean;
   collaboration: boolean;
   aiImport: boolean;
+  /** リリースキャンペーンによる開放 */
+  releaseCampaign: boolean;
+}
+
+function proEntitlements(
+  partial: Pick<Entitlements, "isTrialing" | "releaseCampaign">
+): Entitlements {
+  return {
+    isPro: true,
+    isTrialing: partial.isTrialing,
+    maxProjects: null,
+    maxMembersPerProject: null,
+    maxCuesPerProject: null,
+    videoExportLimit: null,
+    studentShare: true,
+    collaboration: true,
+    aiImport: true,
+    releaseCampaign: partial.releaseCampaign,
+  };
 }
 
 export function getEntitlements(me: Me | null | undefined): Entitlements {
@@ -24,6 +44,11 @@ export function getEntitlements(me: Me | null | undefined): Entitlements {
   const lifetime = me?.user?.entitlement_lifetime === 1;
   const complimentary = isComplimentaryProEmail(me?.user?.email);
   const isTrialing = status === "trialing";
+
+  if (isReleaseCampaignActive()) {
+    return proEntitlements({ isTrialing, releaseCampaign: true });
+  }
+
   const isPro =
     me?.user?.is_pro === true ||
     lifetime ||
@@ -31,16 +56,21 @@ export function getEntitlements(me: Me | null | undefined): Entitlements {
     status === "active" ||
     isTrialing;
 
+  if (isPro) {
+    return proEntitlements({ isTrialing, releaseCampaign: false });
+  }
+
   return {
-    isPro,
-    isTrialing,
-    maxProjects: isPro ? null : 3,
-    maxMembersPerProject: isPro ? null : FREE_MAX_DANCERS,
-    maxCuesPerProject: isPro ? null : FREE_MAX_CUES,
-    videoExportLimit: isPro ? null : FREE_VIDEO_EXPORT_LIMIT,
-    studentShare: isPro,
-    collaboration: isPro,
-    aiImport: isPro,
+    isPro: false,
+    isTrialing: false,
+    maxProjects: 3,
+    maxMembersPerProject: FREE_MAX_DANCERS,
+    maxCuesPerProject: FREE_MAX_CUES,
+    videoExportLimit: FREE_VIDEO_EXPORT_LIMIT,
+    studentShare: false,
+    collaboration: false,
+    aiImport: false,
+    releaseCampaign: false,
   };
 }
 
