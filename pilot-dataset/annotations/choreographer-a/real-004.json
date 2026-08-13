@@ -1,0 +1,15 @@
+{
+  "id": "ann-real-004-a",
+  "songId": "real-004",
+  "annotatorId": "choreographer-a",
+  "mode": "BLIND",
+  "startedAt": "2026-08-14T00:00:00.000Z",
+  "version": "2.0.0",
+  "duration": 240,
+  "bpm": 110,
+  "sections": [],
+  "cues": [],
+  "formations": [],
+  "sequence": [],
+  "notes": "Human First. Annotate as you would choreograph. Do not view AI output. mode=BLIND."
+}

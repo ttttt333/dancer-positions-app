@@ -12,6 +12,7 @@ import { PlanConfirmationPage } from "./pages/billing/PlanConfirmationPage";
 import { TokushohoPage } from "./pages/legal/TokushohoPage";
 import { UpdateLogPage } from "./pages/UpdateLogPage";
 import { MobileFormationEditorDemoPage } from "./pages/MobileFormationEditorDemoPage";
+import { AnnotationWorkbenchPage } from "./pages/AnnotationWorkbenchPage";
 import { MobileShell } from "./components/mobile/MobileShell";
 import {
   shouldUseMobileEditorShell,
@@ -220,7 +221,9 @@ function MobileEditorRoute() {
 function AppShell() {
   const location = useLocation();
   const hideFloatingLocale =
-    location.pathname === "/" || location.pathname.startsWith("/view");
+    location.pathname === "/" ||
+    location.pathname.startsWith("/view") ||
+    location.pathname.startsWith("/evaluation");
 
   return (
     <Fragment>
@@ -252,6 +255,7 @@ function AppShell() {
               path="/demo/mobile-formation-editor"
               element={<MobileFormationEditorDemoPage />}
             />
+            <Route path="/evaluation/annotate" element={<AnnotationWorkbenchPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </AuthProvider>

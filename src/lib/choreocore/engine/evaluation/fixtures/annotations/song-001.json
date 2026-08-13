@@ -1,0 +1,61 @@
+{
+  "songId": "song-001",
+  "annotationVersion": "1.0.0",
+  "annotations": {
+    "sections": [
+      {
+        "songId": "song-001",
+        "annotatorId": "annotator-a",
+        "startTime": 0,
+        "endTime": 16,
+        "type": "INTRO",
+        "confidence": 0.9
+      },
+      {
+        "songId": "song-001",
+        "annotatorId": "annotator-a",
+        "startTime": 16,
+        "endTime": 32,
+        "type": "CHORUS",
+        "confidence": 0.9
+      }
+    ],
+    "cues": [
+      {
+        "songId": "song-001",
+        "annotatorId": "annotator-a",
+        "time": 16,
+        "action": "MAJOR_CHANGE",
+        "magnitude": "MAX",
+        "importance": 95,
+        "confidence": 0.9
+      }
+    ],
+    "formations": [
+      {
+        "songId": "song-001",
+        "cueId": "cue-main",
+        "annotatorId": "annotator-a",
+        "formationType": "WIDE_V",
+        "score": 95,
+        "musicFit": 95,
+        "visualImpact": 93,
+        "transitionQuality": 90,
+        "execution": 87,
+        "originality": 70
+      }
+    ],
+    "sequence": [
+      {
+        "songId": "song-001",
+        "annotatorId": "annotator-a",
+        "formationIds": ["WIDE_V"],
+        "musicStory": 88,
+        "visualStory": 86,
+        "execution": 84,
+        "variety": 70,
+        "overall": 88
+      }
+    ]
+  }
+}

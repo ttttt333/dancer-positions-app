@@ -1,0 +1,15 @@
+{
+  "id": "song-001",
+  "title": "Synthetic Clear Chorus",
+  "genre": "pop",
+  "bpm": 120,
+  "duration": 32,
+  "audioHash": "hash-PATTERN_01_CLEAR_CHORUS",
+  "metadata": {
+    "source": "synthetic",
+    "notes": "Metadata only. Do not store copyrighted audio in the repository."
+  },
+  "expectedDifficulty": 1,
+  "category": "ENERGY_DRIVEN",
+  "difficulty": "EASY"
+}
