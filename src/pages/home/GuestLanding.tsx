@@ -9,14 +9,6 @@ import {
 } from "../../lib/commercialDisclosure";
 import { isReleaseCampaignActive } from "../../lib/releaseCampaign";
 
-/** ヒーロー直下に出す3項目（残りは詳細セクションへ） */
-const HERO_BENEFITS = [
-  { id: "02", icon: "◎" },
-  { id: "03", icon: "⚡" },
-  { id: "05", icon: "↗" },
-] as const;
-
-/** ヒーロー以外の機能詳細（既存テキストの移設） */
 const DETAIL_REASONS = [
   { id: "01", icon: "◇" },
   { id: "04", icon: "▣" },
@@ -29,69 +21,90 @@ const DETAIL_REASONS = [
 ] as const;
 
 const CAMPAIGN_PERKS = [
-  "cues",
-  "dancers",
-  "ai",
-  "cloud",
-  "export",
-  "share",
+  { key: "cues", icon: "layers" },
+  { key: "dancers", icon: "crew" },
+  { key: "ai", icon: "star" },
+  { key: "cloud", icon: "share" },
+  { key: "export", icon: "layers" },
+  { key: "share", icon: "share" },
 ] as const;
 
-const FORMATION_DOTS: Array<{ left: string; top: string; tone: "gold" | "pink" }> = [
-  { left: "48%", top: "12%", tone: "gold" },
-  { left: "30%", top: "32%", tone: "gold" },
-  { left: "66%", top: "32%", tone: "gold" },
-  { left: "14%", top: "55%", tone: "pink" },
-  { left: "48%", top: "55%", tone: "gold" },
-  { left: "82%", top: "55%", tone: "gold" },
-  { left: "30%", top: "78%", tone: "gold" },
-  { left: "66%", top: "78%", tone: "pink" },
-];
+const BRAND_FEATURES = [
+  { key: "fast", icon: "star" },
+  { key: "crew", icon: "crew" },
+  { key: "share", icon: "share" },
+  { key: "templates", icon: "layers" },
+] as const;
 
-const WAVE_BARS: Array<{ h: number; active?: boolean }> = [
-  { h: 38 },
-  { h: 55 },
-  { h: 90, active: true },
-  { h: 42 },
-  { h: 68 },
-  { h: 30 },
-  { h: 74 },
-  { h: 48 },
-  { h: 62 },
-  { h: 36 },
-];
-
-function FormationMock({ label }: { label: string }) {
-  return (
-    <div className="home-formation-mock" role="img" aria-label={label}>
-      {FORMATION_DOTS.map((d) => (
-        <span
-          key={`${d.left}-${d.top}`}
-          className={`home-formation-dot home-formation-dot--${d.tone}`}
-          style={{ left: d.left, top: d.top }}
+function BrandFeatureIcon({ name }: { name: (typeof BRAND_FEATURES)[number]["icon"] }) {
+  const common = {
+    width: 28,
+    height: 28,
+    viewBox: "0 0 32 32",
+    fill: "none",
+    "aria-hidden": true as const,
+  };
+  if (name === "star") {
+    return (
+      <svg {...common}>
+        <path
+          d="M16 3.5 L18.2 13.2 L28 16 L18.2 18.8 L16 28.5 L13.8 18.8 L4 16 L13.8 13.2 Z"
+          stroke="#e8c547"
+          strokeWidth="1.6"
+          fill="rgba(232,197,71,0.12)"
         />
-      ))}
-    </div>
-  );
-}
-
-function WaveformMock() {
-  return (
-    <div className="home-waveform-mock" aria-hidden>
-      {WAVE_BARS.map((b, i) => (
-        <span
-          key={i}
-          className={`home-wave-bar${b.active ? " is-active" : ""}`}
-          style={{ height: `${b.h}%` }}
+      </svg>
+    );
+  }
+  if (name === "crew") {
+    return (
+      <svg {...common}>
+        <circle cx="16" cy="10" r="3.2" stroke="#e8c547" strokeWidth="1.6" />
+        <circle cx="8.5" cy="12" r="2.4" stroke="#e8c547" strokeWidth="1.5" />
+        <circle cx="23.5" cy="12" r="2.4" stroke="#e8c547" strokeWidth="1.5" />
+        <path
+          d="M8 24c0-3.2 3.2-5.5 8-5.5s8 2.3 8 5.5"
+          stroke="#e8c547"
+          strokeWidth="1.6"
+          strokeLinecap="round"
         />
-      ))}
-    </div>
+        <path
+          d="M5 23c.4-2.2 2.2-3.6 4.6-4"
+          stroke="#e8c547"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+        />
+        <path
+          d="M27 23c-.4-2.2-2.2-3.6-4.6-4"
+          stroke="#e8c547"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+  if (name === "share") {
+    return (
+      <svg {...common}>
+        <circle cx="8" cy="16" r="3" stroke="#e8c547" strokeWidth="1.6" />
+        <circle cx="24" cy="9" r="3" stroke="#e8c547" strokeWidth="1.6" />
+        <circle cx="24" cy="23" r="3" stroke="#e8c547" strokeWidth="1.6" />
+        <path d="M11 14.5 21 10.5M11 17.5 21 21.5" stroke="#e8c547" strokeWidth="1.5" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <rect x="7" y="14" width="14" height="11" rx="2" stroke="#e8c547" strokeWidth="1.6" />
+      <rect x="10" y="10" width="14" height="11" rx="2" stroke="#e8c547" strokeWidth="1.6" />
+      <rect x="13" y="6" width="14" height="11" rx="2" stroke="#e8c547" strokeWidth="1.6" />
+    </svg>
   );
 }
 
 /**
- * 未ログイン向けトップ（ヒーロー改善スペック準拠）。
- * ファーストビューは価値訴求3点 + アプリプレビュー。残り機能は下部へ。
+ * 未ログイン向けトップ。
+ * ファーストビューで CHOREO CORE の文字とブランド写真を見せる。
  */
 export function GuestLanding() {
   const { t } = useI18n();
@@ -102,7 +115,9 @@ export function GuestLanding() {
     <div className="home-page home-landing">
       <header className="home-guest-header home-landing-header">
         <div className="home-container home-guest-header-inner">
-          <ChoreoCoreLogo height={32} title="ChoreoCore" />
+          <Link to="/" className="home-header-brand" aria-label="CHOREO CORE">
+            <ChoreoCoreLogo height={40} title="ChoreoCore" withWordmark />
+          </Link>
           <div className="home-guest-header-actions">
             <LanguageSwitcher variant="inline" />
             <Link to="/login" className="home-landing-login">
@@ -114,6 +129,24 @@ export function GuestLanding() {
           </div>
         </div>
       </header>
+
+      <section className="home-brand-hero" aria-label="CHOREO CORE">
+        <div className="home-container home-brand-hero-inner">
+          <img
+            className="home-brand-hero-mark"
+            src="/brand/app-icon.png"
+            alt=""
+            width={88}
+            height={88}
+          />
+          <p className="home-wordmark home-brand-hero-wordmark">
+            <span className="home-wordmark-choreo">CHOREO</span>
+            <span className="home-wordmark-core"> CORE</span>
+          </p>
+          <p className="home-brand-hero-tag">{t("landing.brand.tagline")}</p>
+          <p className="home-brand-hero-jp">{t("landing.brand.slogan")}</p>
+        </div>
+      </section>
 
       {campaign ? (
         <section className="home-campaign" aria-labelledby="landing-campaign-title">
@@ -154,12 +187,12 @@ export function GuestLanding() {
             </div>
 
             <ul className="home-campaign-perks">
-              {CAMPAIGN_PERKS.map((key) => (
-                <li key={key} className="home-campaign-perk">
-                  <span className="home-campaign-perk-check" aria-hidden>
-                    ✓
+              {CAMPAIGN_PERKS.map((p) => (
+                <li key={p.key} className="home-campaign-perk">
+                  <span className="home-campaign-perk-icon">
+                    <BrandFeatureIcon name={p.icon} />
                   </span>
-                  {t(`landing.campaign.perk.${key}`)}
+                  {t(`landing.campaign.perk.${p.key}`)}
                 </li>
               ))}
             </ul>
@@ -178,15 +211,17 @@ export function GuestLanding() {
         <div className="home-container home-hero-inner">
           <div className="home-hero-copy">
             <div className="home-trust-badge">
-              <span className="home-trust-badge-icon" aria-hidden>
-                ◎
-              </span>
+              <img
+                src="/brand/app-icon.png"
+                alt=""
+                width={22}
+                height={22}
+                className="home-trust-badge-img"
+              />
               <span>
                 {campaign ? t("landing.campaign.trustBadge") : t("landing.trustBadge")}
               </span>
             </div>
-
-            <p className="home-display home-hero-brand">ChoreoCore</p>
 
             <h1 className="home-display home-hero-heading">
               {headlineLines.map((line, i) => (
@@ -212,25 +247,23 @@ export function GuestLanding() {
             <p className="home-cta-methods">{t("landing.registerMethodsHint")}</p>
           </div>
 
-          <div className="home-app-preview">
-            <div className="home-app-preview-toolbar">
-              <span>{t("landing.previewToolbar")}</span>
-              <span className="home-app-preview-play" aria-hidden>
-                ▶
-              </span>
-            </div>
-            <FormationMock label={t("landing.previewAria")} />
-            <WaveformMock />
+          <div className="home-app-preview home-app-preview--photo">
+            <img
+              src="/brand/identity-sheet.png"
+              alt={t("landing.previewAria")}
+              className="home-app-preview-photo"
+            />
           </div>
         </div>
 
-        <div className="home-container home-benefits-strip" role="list">
-          {HERO_BENEFITS.map((b) => (
-            <div key={b.id} className="home-benefit" role="listitem">
-              <span className="home-benefit-icon" aria-hidden>
-                {b.icon}
+        <div className="home-container home-brand-features" role="list">
+          {BRAND_FEATURES.map((f) => (
+            <div key={f.key} className="home-brand-feature" role="listitem">
+              <span className="home-brand-feature-icon">
+                <BrandFeatureIcon name={f.icon} />
               </span>
-              <span>{t(`landing.reason.${b.id}`)}</span>
+              <strong>{t(`landing.brand.feature.${f.key}.title`)}</strong>
+              <span>{t(`landing.brand.feature.${f.key}.body`)}</span>
             </div>
           ))}
         </div>
@@ -251,9 +284,13 @@ export function GuestLanding() {
           <ul className="home-features-detail-list">
             {DETAIL_REASONS.map((r) => (
               <li key={r.id} className="home-features-detail-item">
-                <span className="home-features-detail-icon" aria-hidden>
-                  {r.icon}
-                </span>
+                <img
+                  src="/brand/app-icon.png"
+                  alt=""
+                  className="home-features-detail-mark"
+                  width={28}
+                  height={28}
+                />
                 <span>{t(`landing.reason.${r.id}`)}</span>
               </li>
             ))}

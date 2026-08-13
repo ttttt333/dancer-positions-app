@@ -13,9 +13,10 @@ function BrandMark() {
       }}
     >
       <ChoreoCoreLogo
-        height={80}
+        height={88}
         title="ChoreoCore"
-        style={{ width: "100%", height: "auto", maxHeight: 100 }}
+        withWordmark
+        style={{ maxWidth: "100%" }}
       />
     </div>
   );

@@ -191,7 +191,7 @@ export function LibraryPage() {
               color: shell.text,
             }}
           >
-            <ChoreoCoreLogo height={40} title="ChoreoCore" />
+            <ChoreoCoreLogo height={36} title="ChoreoCore" withWordmark />
             <span>
               <span
                 style={{

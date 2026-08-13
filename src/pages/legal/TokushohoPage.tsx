@@ -109,7 +109,7 @@ export function TokushohoPage() {
               color: shell.text,
             }}
           >
-            <ChoreoCoreLogo height={36} title="ChoreoCore" />
+            <ChoreoCoreLogo height={36} title="ChoreoCore" withWordmark />
           </Link>
           <div style={{ flex: 1, minWidth: 8 }} />
           <Link
