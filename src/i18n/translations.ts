@@ -497,7 +497,7 @@ const BASE_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "landing.campaign.eyebrow": "リリースキャンペーン",
     "landing.campaign.title": "有料プランの全機能を、いま無料開放",
     "landing.campaign.lead":
-      "世界向けリリース記念。月額550円・年額5,500円のPROプランが無料。キュー・人数・AI提案・クラウド作品も制限なしで使えます。",
+      "リリース記念。月額550円・年額5,500円のPROプランが無料。キュー・人数・AI提案・クラウド作品も制限なしで使えます。",
     "landing.campaign.pricingAria": "キャンペーン料金",
     "landing.campaign.monthly": "月額PRO",
     "landing.campaign.annual": "年額PRO",
@@ -509,7 +509,7 @@ const BASE_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
       "音楽連動の立ち位置、AIフォーメーション提案、無制限のキューと人数まで。キャンペーン期間中はすべて無料です。",
     "landing.campaign.perk.cues": "キュー数 無制限",
     "landing.campaign.perk.dancers": "ステージ人数 無制限",
-    "landing.campaign.perk.ai": "AI立ち位置・照明連動提案",
+    "landing.campaign.perk.ai": "AI立ち位置提案",
     "landing.campaign.perk.cloud": "クラウド作品 無制限",
     "landing.campaign.perk.export": "動画書き出し 無制限",
     "landing.campaign.perk.share": "チーム共有・生徒リンク",
