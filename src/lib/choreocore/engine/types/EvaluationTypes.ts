@@ -67,6 +67,8 @@ export type EvaluationSong = {
 export type HumanCueAnnotation = {
   songId: string;
   annotatorId: string;
+  /** Stable id so formation layouts survive time edits. */
+  id?: string;
   time: number;
   action: FormationCueAction;
   magnitude: FormationChangeMagnitude;
@@ -85,6 +87,12 @@ export type HumanSectionAnnotation = {
   confidence: number;
 };
 
+/** Human-drawn stage placement. xPct/yPct are 0–100, y=0 upstage, y=100 audience. */
+export type HumanFormationLayout = {
+  dancerCount: number;
+  positions: Array<{ id: string; xPct: number; yPct: number }>;
+};
+
 export type HumanFormationRating = {
   songId: string;
   cueId: string;
@@ -100,6 +108,8 @@ export type HumanFormationRating = {
   rank?: 1 | 2 | 3;
   formationId?: string;
   notes?: string;
+  /** Optional visual placement. Consensus still keys off formationType. */
+  layout?: HumanFormationLayout;
 };
 
 export type HumanSequenceRating = {

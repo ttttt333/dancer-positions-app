@@ -90,6 +90,7 @@ export type {
   EvaluationSong,
   HumanCueAnnotation,
   HumanSectionAnnotation,
+  HumanFormationLayout,
   HumanFormationRating,
   HumanSequenceRating,
   SongGroundTruth,
