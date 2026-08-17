@@ -33,6 +33,18 @@
     <title>ChoreoCore</title>
   </head>
   <body>
+    <script>
+      (function () {
+        try {
+          var keys = [];
+          for (var i = 0; i < localStorage.length; i++) {
+            var k = localStorage.key(i);
+            if (k && k.indexOf("choreocore-blind-hist:") === 0) keys.push(k);
+          }
+          for (var j = 0; j < keys.length; j++) localStorage.removeItem(keys[j]);
+        } catch (e) {}
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

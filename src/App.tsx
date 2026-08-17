@@ -13,6 +13,7 @@ import { TokushohoPage } from "./pages/legal/TokushohoPage";
 import { UpdateLogPage } from "./pages/UpdateLogPage";
 import { MobileFormationEditorDemoPage } from "./pages/MobileFormationEditorDemoPage";
 import { AnnotationWorkbenchPage } from "./pages/AnnotationWorkbenchPage";
+import { isQuotaError, recoverBlindStorageQuota } from "./pages/annotation/sessionHistory";
 import { MobileShell } from "./components/mobile/MobileShell";
 import {
   shouldUseMobileEditorShell,
@@ -41,6 +42,15 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, EBState> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("[AppErrorBoundary]", error, info.componentStack);
+    if (!isQuotaError(error)) return;
+    recoverBlindStorageQuota();
+    try {
+      if (sessionStorage.getItem("choreocore-quota-reloaded") === "1") return;
+      sessionStorage.setItem("choreocore-quota-reloaded", "1");
+      window.location.reload();
+    } catch {
+      /* ignore */
+    }
   }
 
   render() {
@@ -95,6 +105,28 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, EBState> {
           >
             再読み込み
           </button>
+          {isQuotaError(error) ? (
+            <button
+              type="button"
+              onClick={() => {
+                recoverBlindStorageQuota();
+                window.location.reload();
+              }}
+              style={{
+                marginTop: 16,
+                marginLeft: 8,
+                padding: "8px 20px",
+                background: "#d4af37",
+                color: "#14100a",
+                border: "none",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontSize: 13,
+              }}
+            >
+              保存容量を空けて再読み込み
+            </button>
+          ) : null}
         </div>
       );
     }

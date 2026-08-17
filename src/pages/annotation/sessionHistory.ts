@@ -3,6 +3,7 @@ import type { AnnotationSession } from "../../lib/choreocore/engine/types/Annota
 export const MAX_SESSION_HISTORY = 40;
 export const HISTORY_COALESCE_MS = 400;
 export const BLIND_HISTORY_PREFIX = "choreocore-blind-hist:";
+export const BLIND_DRAFT_PREFIX = "choreocore-blind:";
 
 export type SessionHistory = {
   stack: AnnotationSession[];
@@ -90,11 +91,20 @@ export function parseStoredHistory(raw: string | null, fallback: AnnotationSessi
 }
 
 export function clearBlindHistoryStorage(): void {
+  removeKeys((key) => key.startsWith(BLIND_HISTORY_PREFIX));
+}
+
+export function recoverBlindStorageQuota(keepDraftKey?: string): void {
+  clearBlindHistoryStorage();
+  removeKeys((key) => key.startsWith(BLIND_DRAFT_PREFIX) && key !== keepDraftKey);
+}
+
+function removeKeys(match: (key: string) => boolean): void {
   if (typeof localStorage === "undefined") return;
   const keys: string[] = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key?.startsWith(BLIND_HISTORY_PREFIX)) keys.push(key);
+    if (key && match(key)) keys.push(key);
   }
   for (const key of keys) {
     try {
@@ -105,7 +115,17 @@ export function clearBlindHistoryStorage(): void {
   }
 }
 
-/** Never throws. On quota, drops undo snapshots from localStorage and retries. */
+export function isQuotaError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const err = error as { name?: string; message?: string; code?: number };
+  return (
+    err.name === "QuotaExceededError" ||
+    err.code === 22 ||
+    /exceeded the quota/i.test(err.message ?? "")
+  );
+}
+
+/** Never throws. On quota, drops undo snapshots (then other drafts) and retries. */
 export function writeLocalJson(key: string, value: unknown): boolean {
   if (typeof localStorage === "undefined") return false;
   const raw = typeof value === "string" ? value : JSON.stringify(value);
@@ -118,7 +138,13 @@ export function writeLocalJson(key: string, value: unknown): boolean {
       localStorage.setItem(key, raw);
       return true;
     } catch {
-      return false;
+      recoverBlindStorageQuota(key);
+      try {
+        localStorage.setItem(key, raw);
+        return true;
+      } catch {
+        return false;
+      }
     }
   }
 }
