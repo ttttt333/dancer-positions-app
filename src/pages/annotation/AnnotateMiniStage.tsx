@@ -6,6 +6,7 @@ import { ANNOTATE_PRESETS, STAGE_SIZE_M, layoutPreset, resizeLayout, type Annota
 
 const CENTER_X = 50;
 const HESO_Y = 50;
+const DRAG_PX = 5;
 
 const floor: CSSProperties = {
   position: "relative",
@@ -24,6 +25,10 @@ function clampPct(n: number): number {
   return Math.min(97, Math.max(3, n));
 }
 
+function clamp01(n: number): number {
+  return Math.min(100, Math.max(0, n));
+}
+
 function fromCenterM(pct: number): number {
   return ((pct - 50) / 100) * STAGE_SIZE_M;
 }
@@ -36,15 +41,39 @@ function baMmLabel(xPct: number, yPct: number): string {
   return `${lr}　${fb}`;
 }
 
+function rangeIds(positions: AnnotateSpot[], a: string, b: string): string[] {
+  const i0 = positions.findIndex((p) => p.id === a);
+  const i1 = positions.findIndex((p) => p.id === b);
+  if (i0 < 0 || i1 < 0) return [b];
+  const lo = Math.min(i0, i1);
+  const hi = Math.max(i0, i1);
+  return positions.slice(lo, hi + 1).map((p) => p.id);
+}
+
 const GRID_IDS = Array.from({ length: STAGE_SIZE_M + 1 }, (_, i) => i);
 
-type DragState = {
-  mode: "one" | "all";
-  id: string;
-  startX: number;
-  startY: number;
-  origin: AnnotateSpot[];
-};
+type DragState =
+  | {
+      kind: "move";
+      ids: string[];
+      startX: number;
+      startY: number;
+      origin: AnnotateSpot[];
+    }
+  | {
+      kind: "marquee";
+      startX: number;
+      startY: number;
+    }
+  | {
+      kind: "pending";
+      id: string;
+      clientX: number;
+      clientY: number;
+      startX: number;
+      startY: number;
+      selectMode: "replace" | "toggle" | "range";
+    };
 
 type Props = {
   positions: AnnotateSpot[];
@@ -57,54 +86,107 @@ type Props = {
 export function AnnotateMiniStage({ positions, formationType, onChange, onCopyPrevious, canCopyPrevious }: Props) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
-  const [groupSelected, setGroupSelected] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [anchorId, setAnchorId] = useState<string | null>(null);
+  const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
   const count = Math.max(1, positions.length || 8);
+  const selected = new Set(selectedIds);
 
-  const clientToPct = (clientX: number, clientY: number) => {
+  const clientToPct = (clientX: number, clientY: number, clamp = true) => {
     const box = stageRef.current?.getBoundingClientRect();
     if (!box || box.width <= 0 || box.height <= 0) return { xPct: 50, yPct: 50 };
-    return {
-      xPct: clampPct(((clientX - box.left) / box.width) * 100),
-      yPct: clampPct(((clientY - box.top) / box.height) * 100),
-    };
+    const xPct = ((clientX - box.left) / box.width) * 100;
+    const yPct = ((clientY - box.top) / box.height) * 100;
+    return clamp ? { xPct: clampPct(xPct), yPct: clampPct(yPct) } : { xPct: clamp01(xPct), yPct: clamp01(yPct) };
   };
 
-  const applyDrag = (clientX: number, clientY: number) => {
+  const applyMove = (clientX: number, clientY: number) => {
     const drag = dragRef.current;
-    if (!drag) return;
+    if (!drag || drag.kind !== "move") return;
     const now = clientToPct(clientX, clientY);
     const dx = now.xPct - drag.startX;
     const dy = now.yPct - drag.startY;
-    if (drag.mode === "one") {
-      onChange({
-        formationType: formationType || "CUSTOM",
-        positions: drag.origin.map((p) => (p.id === drag.id ? { ...p, xPct: clampPct(p.xPct + dx), yPct: clampPct(p.yPct + dy) } : p)),
-      });
-      return;
-    }
-    const minDx = Math.max(...drag.origin.map((p) => 3 - p.xPct));
-    const maxDx = Math.min(...drag.origin.map((p) => 97 - p.xPct));
-    const minDy = Math.max(...drag.origin.map((p) => 3 - p.yPct));
-    const maxDy = Math.min(...drag.origin.map((p) => 97 - p.yPct));
+    const ids = new Set(drag.ids);
+    const group = drag.origin.filter((p) => ids.has(p.id));
+    if (group.length === 0) return;
+    const minDx = Math.max(...group.map((p) => 3 - p.xPct));
+    const maxDx = Math.min(...group.map((p) => 97 - p.xPct));
+    const minDy = Math.max(...group.map((p) => 3 - p.yPct));
+    const maxDy = Math.min(...group.map((p) => 97 - p.yPct));
     const gx = Math.min(maxDx, Math.max(minDx, dx));
     const gy = Math.min(maxDy, Math.max(minDy, dy));
     onChange({
       formationType: formationType || "CUSTOM",
-      positions: drag.origin.map((p) => ({ ...p, xPct: clampPct(p.xPct + gx), yPct: clampPct(p.yPct + gy) })),
+      positions: drag.origin.map((p) => (ids.has(p.id) ? { ...p, xPct: clampPct(p.xPct + gx), yPct: clampPct(p.yPct + gy) } : p)),
     });
   };
 
-  const startDrag = (id: string, clientX: number, clientY: number, all: boolean) => {
+  const beginMove = (ids: string[], clientX: number, clientY: number) => {
     const { xPct, yPct } = clientToPct(clientX, clientY);
     dragRef.current = {
-      mode: all ? "all" : "one",
-      id,
+      kind: "move",
+      ids,
       startX: xPct,
       startY: yPct,
       origin: positions.map((p) => ({ ...p })),
     };
-    applyDrag(clientX, clientY);
+    applyMove(clientX, clientY);
   };
+
+  const selectByClick = (id: string, shift: boolean, meta: boolean) => {
+    if (shift && anchorId) {
+      const ids = rangeIds(positions, anchorId, id);
+      setSelectedIds(ids);
+      return;
+    }
+    if (meta) {
+      setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+      setAnchorId(id);
+      return;
+    }
+    if (selectedIds.length === 1 && selectedIds[0] !== id) {
+      setSelectedIds(rangeIds(positions, selectedIds[0]!, id));
+      return;
+    }
+    setSelectedIds([id]);
+    setAnchorId(id);
+  };
+
+  const finishPending = (e: { clientX: number; clientY: number }) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    if (drag.kind === "pending") {
+      const dist = Math.hypot(e.clientX - drag.clientX, e.clientY - drag.clientY);
+      if (dist < DRAG_PX) {
+        selectByClick(drag.id, drag.selectMode === "range", drag.selectMode === "toggle");
+      }
+    }
+    if (drag.kind === "marquee" && marquee) {
+      const x0 = Math.min(marquee.x0, marquee.x1);
+      const x1 = Math.max(marquee.x0, marquee.x1);
+      const y0 = Math.min(marquee.y0, marquee.y1);
+      const y1 = Math.max(marquee.y0, marquee.y1);
+      if (x1 - x0 > 1 && y1 - y0 > 1) {
+        setSelectedIds(positions.filter((p) => p.xPct >= x0 && p.xPct <= x1 && p.yPct >= y0 && p.yPct <= y1).map((p) => p.id));
+      } else {
+        setSelectedIds([]);
+        setAnchorId(null);
+      }
+    }
+    dragRef.current = null;
+    setMarquee(null);
+  };
+
+  const selectedSpots = positions.filter((p) => selected.has(p.id));
+  const bounds =
+    selectedSpots.length > 0
+      ? {
+          x0: Math.min(...selectedSpots.map((p) => p.xPct)),
+          y0: Math.min(...selectedSpots.map((p) => p.yPct)),
+          x1: Math.max(...selectedSpots.map((p) => p.xPct)),
+          y1: Math.max(...selectedSpots.map((p) => p.yPct)),
+        }
+      : null;
 
   return (
     <div>
@@ -132,13 +214,26 @@ export function AnnotateMiniStage({ positions, formationType, onChange, onCopyPr
           style={{
             ...btnSecondary,
             padding: "3px 8px",
-            background: groupSelected ? shell.accentSoft : btnSecondary.backgroundColor,
-            borderColor: groupSelected ? shell.accent : shell.borderStrong,
+            background: selectedIds.length === count ? shell.accentSoft : btnSecondary.backgroundColor,
+            borderColor: selectedIds.length === count ? shell.accent : shell.borderStrong,
           }}
-          onClick={() => setGroupSelected((v) => !v)}
+          onClick={() => {
+            if (selectedIds.length === count) {
+              setSelectedIds([]);
+              setAnchorId(null);
+            } else {
+              setSelectedIds(positions.map((p) => p.id));
+              setAnchorId(positions[0]?.id ?? null);
+            }
+          }}
         >
-          {groupSelected ? "全員選択中" : "全員を選択"}
+          {selectedIds.length === count ? "選択解除" : "全員を選択"}
         </button>
+        {selectedIds.length > 0 ? (
+          <span style={{ fontSize: 11, color: shell.ruby }}>
+            {selectedIds.length}人選択中 · ドラッグでまとめて移動
+          </span>
+        ) : null}
         {onCopyPrevious ? (
           <button type="button" style={{ ...btnSecondary, padding: "3px 8px" }} disabled={!canCopyPrevious} onClick={onCopyPrevious}>
             前のキューからコピー
@@ -158,7 +253,8 @@ export function AnnotateMiniStage({ positions, formationType, onChange, onCopyPr
               borderColor: formationType === preset.id ? shell.accent : shell.borderStrong,
             }}
             onClick={() => {
-              setGroupSelected(false);
+              setSelectedIds([]);
+              setAnchorId(null);
               onChange({ formationType: preset.id, positions: layoutPreset(preset.id, count) });
             }}
           >
@@ -169,21 +265,37 @@ export function AnnotateMiniStage({ positions, formationType, onChange, onCopyPr
       <div
         ref={stageRef}
         style={floor}
+        onPointerDown={(e) => {
+          if ((e.target as HTMLElement).closest("[data-dancer]")) return;
+          const { xPct, yPct } = clientToPct(e.clientX, e.clientY, false);
+          dragRef.current = { kind: "marquee", startX: xPct, startY: yPct };
+          setMarquee({ x0: xPct, y0: yPct, x1: xPct, y1: yPct });
+          (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+        }}
         onPointerMove={(e) => {
-          if (!dragRef.current) return;
-          applyDrag(e.clientX, e.clientY);
+          const drag = dragRef.current;
+          if (!drag) return;
+          if (drag.kind === "pending") {
+            const dist = Math.hypot(e.clientX - drag.clientX, e.clientY - drag.clientY);
+            if (dist < DRAG_PX) return;
+            const ids = selected.has(drag.id) && selectedIds.length > 0 ? selectedIds : [drag.id];
+            if (!selected.has(drag.id)) {
+              setSelectedIds(ids);
+              setAnchorId(drag.id);
+            }
+            beginMove(ids, drag.clientX, drag.clientY);
+            applyMove(e.clientX, e.clientY);
+            return;
+          }
+          if (drag.kind === "marquee") {
+            const now = clientToPct(e.clientX, e.clientY, false);
+            setMarquee({ x0: drag.startX, y0: drag.startY, x1: now.xPct, y1: now.yPct });
+            return;
+          }
+          applyMove(e.clientX, e.clientY);
         }}
-        onPointerUp={() => {
-          dragRef.current = null;
-        }}
-        onPointerLeave={() => {
-          if (!dragRef.current) return;
-          dragRef.current = null;
-        }}
-        onDoubleClick={() => setGroupSelected(true)}
-        onClick={(e) => {
-          if (e.target === stageRef.current) setGroupSelected(false);
-        }}
+        onPointerUp={(e) => finishPending(e)}
+        onPointerCancel={(e) => finishPending(e)}
       >
         <svg
           viewBox={`0 0 ${STAGE_SIZE_M} ${STAGE_SIZE_M}`}
@@ -267,13 +379,54 @@ export function AnnotateMiniStage({ positions, formationType, onChange, onCopyPr
         >
           客席
         </span>
+        {bounds ? (
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              left: `${bounds.x0}%`,
+              top: `${bounds.y0}%`,
+              width: `${Math.max(0.5, bounds.x1 - bounds.x0)}%`,
+              height: `${Math.max(0.5, bounds.y1 - bounds.y0)}%`,
+              marginLeft: -18,
+              marginTop: -18,
+              paddingRight: 36,
+              paddingBottom: 36,
+              border: `1.5px dashed ${shell.ruby}`,
+              borderRadius: 6,
+              background: "rgba(196,30,58,0.06)",
+              pointerEvents: "none",
+              zIndex: 2,
+              boxSizing: "content-box",
+            }}
+          />
+        ) : null}
+        {marquee ? (
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              left: `${Math.min(marquee.x0, marquee.x1)}%`,
+              top: `${Math.min(marquee.y0, marquee.y1)}%`,
+              width: `${Math.abs(marquee.x1 - marquee.x0)}%`,
+              height: `${Math.abs(marquee.y1 - marquee.y0)}%`,
+              border: `1px dashed ${shell.ruby}`,
+              background: "rgba(196,30,58,0.12)",
+              pointerEvents: "none",
+              zIndex: 4,
+            }}
+          />
+        ) : null}
         {positions.map((spot, i) => {
           const color = DANCER_COLOR_PALETTE_HEX[modDancerColorIndex(i)]!;
+          const on = selected.has(spot.id);
           return (
             <button
               key={spot.id}
               type="button"
+              data-dancer={spot.id}
               aria-label={`ダンサー ${i + 1} ${baMmLabel(spot.xPct, spot.yPct)}`}
+              aria-pressed={on}
               style={{
                 position: "absolute",
                 left: `${spot.xPct}%`,
@@ -283,34 +436,47 @@ export function AnnotateMiniStage({ positions, formationType, onChange, onCopyPr
                 marginLeft: -14,
                 marginTop: -14,
                 borderRadius: "50%",
-                border: groupSelected ? `2px solid ${shell.accent}` : "2px solid #fff",
+                border: on ? `2px solid ${shell.ruby}` : "2px solid #fff",
                 background: color,
                 color: "#111",
                 fontWeight: 700,
                 fontSize: 11,
-                cursor: groupSelected ? "move" : "grab",
+                cursor: on ? "move" : "pointer",
                 touchAction: "none",
-                boxShadow: groupSelected ? `0 0 0 3px ${shell.accentSoft}` : "0 2px 8px rgba(0,0,0,0.45)",
-                zIndex: 2,
+                boxShadow: on ? `0 0 0 3px ${shell.rubySoft}` : "0 2px 8px rgba(0,0,0,0.45)",
+                zIndex: 3,
               }}
               onPointerDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                const { xPct, yPct } = clientToPct(e.clientX, e.clientY);
+                const selectMode = e.shiftKey ? "range" : e.metaKey || e.ctrlKey ? "toggle" : "replace";
+                if (selectMode === "range" && anchorId) {
+                  setSelectedIds(rangeIds(positions, anchorId, spot.id));
+                }
+                dragRef.current = {
+                  kind: "pending",
+                  id: spot.id,
+                  clientX: e.clientX,
+                  clientY: e.clientY,
+                  startX: xPct,
+                  startY: yPct,
+                  selectMode,
+                };
                 (e.currentTarget as HTMLButtonElement).setPointerCapture(e.pointerId);
-                startDrag(spot.id, e.clientX, e.clientY, groupSelected);
               }}
               onPointerMove={(e) => {
-                if (!dragRef.current) return;
-                applyDrag(e.clientX, e.clientY);
+                const drag = dragRef.current;
+                if (!drag) return;
+                if (drag.kind === "pending") {
+                  const dist = Math.hypot(e.clientX - drag.clientX, e.clientY - drag.clientY);
+                  if (dist < DRAG_PX) return;
+                  const ids = selected.has(drag.id) && selectedIds.length > 1 ? selectedIds : [drag.id];
+                  beginMove(ids, drag.clientX, drag.clientY);
+                }
+                applyMove(e.clientX, e.clientY);
               }}
-              onPointerUp={() => {
-                dragRef.current = null;
-              }}
-              onDoubleClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setGroupSelected(true);
-              }}
+              onPointerUp={(e) => finishPending(e)}
             >
               {i + 1}
             </button>
@@ -318,7 +484,7 @@ export function AnnotateMiniStage({ positions, formationType, onChange, onCopyPr
         })}
       </div>
       <p style={{ margin: "6px 0 8px", fontSize: 11, color: shell.textSubtle }}>
-        ダブルクリックで全員選択 → ドラッグで全体移動。場は {STAGE_SIZE_M}m × {STAGE_SIZE_M}m、点線は 1m ごと。金がセンター、横の明るい線がヘソです。
+        メンバーをクリックして選択。もう一人をクリックすると番号の間が範囲選択されます。空いている場をドラッグすると囲って選べます。選んだ人はまとめて移動できます。
       </p>
       <div
         style={{
@@ -331,9 +497,23 @@ export function AnnotateMiniStage({ positions, formationType, onChange, onCopyPr
         }}
       >
         {positions.map((spot, i) => (
-          <div key={spot.id} style={{ background: shell.bgChrome, borderRadius: 6, padding: "4px 6px", border: `1px solid ${shell.border}` }}>
+          <button
+            key={spot.id}
+            type="button"
+            onClick={() => selectByClick(spot.id, false, false)}
+            style={{
+              background: selected.has(spot.id) ? "rgba(196,30,58,0.16)" : shell.bgChrome,
+              borderRadius: 6,
+              padding: "4px 6px",
+              border: `1px solid ${selected.has(spot.id) ? shell.ruby : shell.border}`,
+              color: shell.textMuted,
+              textAlign: "left",
+              cursor: "pointer",
+              fontSize: 11,
+            }}
+          >
             {i + 1}　{baMmLabel(spot.xPct, spot.yPct)}
-          </div>
+          </button>
         ))}
       </div>
     </div>
