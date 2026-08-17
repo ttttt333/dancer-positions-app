@@ -40,13 +40,13 @@ import {
 import {
   currentSnapshot,
   emptyHistory,
-  historyStorageKey,
-  parseStoredHistory,
   pushSnapshot,
   redoAll,
   redoStep,
   undoAll,
   undoStep,
+  writeLocalJson,
+  clearBlindHistoryStorage,
   type SessionHistory,
 } from "./annotation/sessionHistory";
 
@@ -146,12 +146,9 @@ function standingNameFor(formationType: string | undefined, custom?: string): st
   return FORMATION_TYPE_JA[type] ?? type;
 }
 
-function loadHistory(annotatorId: string, songId: string, draft: AnnotationSession): SessionHistory {
-  try {
-    return parseStoredHistory(localStorage.getItem(historyStorageKey(annotatorId, songId)), draft);
-  } catch {
-    return emptyHistory(draft);
-  }
+function loadHistory(_annotatorId: string, _songId: string, draft: AnnotationSession): SessionHistory {
+  clearBlindHistoryStorage();
+  return emptyHistory(draft);
 }
 
 export function AnnotationWorkbenchPage() {
@@ -170,9 +167,6 @@ export function AnnotationWorkbenchPage() {
   const sessionRef = useRef(session);
   const historyRef = useRef<SessionHistory>(emptyHistory(session));
   const lastPushRef = useRef(0);
-  const persistTimerRef = useRef<number | null>(null);
-  const identityRef = useRef({ annotatorId, songId });
-  const didBootRef = useRef(false);
   const nameInputRef = useRef<HTMLInputElement | null>(null);
   const composingNameRef = useRef(false);
   const [nameDraft, setNameDraft] = useState("");
@@ -189,20 +183,6 @@ export function AnnotationWorkbenchPage() {
   const now = audioRef.current?.currentTime ?? currentTime;
 
   useEffect(() => {
-    if (persistTimerRef.current != null) {
-      window.clearTimeout(persistTimerRef.current);
-      persistTimerRef.current = null;
-    }
-    if (didBootRef.current) {
-      try {
-        const prev = identityRef.current;
-        localStorage.setItem(historyStorageKey(prev.annotatorId, prev.songId), JSON.stringify(historyRef.current));
-      } catch {
-        /* quota */
-      }
-    }
-    didBootRef.current = true;
-    identityRef.current = { annotatorId, songId };
     const next = loadDraft(annotatorId, songId);
     sessionRef.current = next;
     setSession(next);
@@ -215,7 +195,7 @@ export function AnnotationWorkbenchPage() {
 
   useEffect(() => {
     if (session.songId !== songId || session.annotatorId !== annotatorId) return;
-    localStorage.setItem(draftKey(annotatorId, songId), JSON.stringify(session));
+    writeLocalJson(draftKey(annotatorId, songId), session);
   }, [annotatorId, songId, session]);
 
   useEffect(() => {
@@ -224,23 +204,9 @@ export function AnnotationWorkbenchPage() {
     };
   }, [audioUrl]);
 
-  const persistHistory = useCallback(
-    (immediate = false) => {
-      setHistMeta({ index: historyRef.current.index, length: historyRef.current.stack.length });
-      const write = () => {
-        persistTimerRef.current = null;
-        try {
-          localStorage.setItem(historyStorageKey(annotatorId, songId), JSON.stringify(historyRef.current));
-        } catch {
-          /* quota */
-        }
-      };
-      if (persistTimerRef.current != null) window.clearTimeout(persistTimerRef.current);
-      if (immediate) write();
-      else persistTimerRef.current = window.setTimeout(write, 320);
-    },
-    [annotatorId, songId]
-  );
+  const persistHistory = useCallback(() => {
+    setHistMeta({ index: historyRef.current.index, length: historyRef.current.stack.length });
+  }, []);
 
   const applyHistory = useCallback(
     (nextHistory: SessionHistory) => {
@@ -250,7 +216,7 @@ export function AnnotationWorkbenchPage() {
       lastPushRef.current = 0;
       sessionRef.current = snap;
       setSession(snap);
-      persistHistory(true);
+      persistHistory();
     },
     [persistHistory]
   );

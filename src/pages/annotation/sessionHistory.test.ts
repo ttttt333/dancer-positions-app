@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { AnnotationSession } from "../../lib/choreocore/engine/types/AnnotationTypes";
 import {
+  BLIND_HISTORY_PREFIX,
   MAX_SESSION_HISTORY,
   canRedo,
   canUndo,
@@ -12,6 +13,7 @@ import {
   redoStep,
   undoAll,
   undoStep,
+  writeLocalJson,
 } from "./sessionHistory";
 
 function sess(n: number): AnnotationSession {
@@ -106,5 +108,38 @@ describe("sessionHistory", () => {
     const restored = parseStoredHistory(JSON.stringify(pushed.history), sess(2));
     expect(restored.stack.map((s) => s.id)).toEqual(["s0", "s1", "s2"]);
     expect(restored.index).toBe(2);
+  });
+
+  it("writeLocalJson drops stored undo history when quota is exceeded", () => {
+    const store = new Map<string, string>([[`${BLIND_HISTORY_PREFIX}a:real-001`, "huge"]]);
+    const storage = {
+      get length() {
+        return store.size;
+      },
+      key(index: number) {
+        return [...store.keys()][index] ?? null;
+      },
+      getItem(key: string) {
+        return store.get(key) ?? null;
+      },
+      setItem(key: string, value: string) {
+        if (store.has(`${BLIND_HISTORY_PREFIX}a:real-001`) && key === "draft") {
+          const err = new Error("quota");
+          err.name = "QuotaExceededError";
+          throw err;
+        }
+        store.set(key, value);
+      },
+      removeItem(key: string) {
+        store.delete(key);
+      },
+      clear() {
+        store.clear();
+      },
+    } satisfies Storage;
+    vi.stubGlobal("localStorage", storage);
+    expect(writeLocalJson("draft", { ok: true })).toBe(true);
+    expect(store.get("draft")).toBe(JSON.stringify({ ok: true }));
+    expect(store.has(`${BLIND_HISTORY_PREFIX}a:real-001`)).toBe(false);
   });
 });

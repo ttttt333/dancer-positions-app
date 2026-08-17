@@ -1,7 +1,8 @@
 import type { AnnotationSession } from "../../lib/choreocore/engine/types/AnnotationTypes";
 
-export const MAX_SESSION_HISTORY = 100;
+export const MAX_SESSION_HISTORY = 40;
 export const HISTORY_COALESCE_MS = 400;
+export const BLIND_HISTORY_PREFIX = "choreocore-blind-hist:";
 
 export type SessionHistory = {
   stack: AnnotationSession[];
@@ -13,7 +14,7 @@ export function cloneSession(session: AnnotationSession): AnnotationSession {
 }
 
 export function historyStorageKey(annotatorId: string, songId: string): string {
-  return `choreocore-blind-hist:${annotatorId}:${songId}`;
+  return `${BLIND_HISTORY_PREFIX}${annotatorId}:${songId}`;
 }
 
 export function emptyHistory(session: AnnotationSession): SessionHistory {
@@ -85,5 +86,39 @@ export function parseStoredHistory(raw: string | null, fallback: AnnotationSessi
     return { stack: next, index: next.length - 1 };
   } catch {
     return emptyHistory(fallback);
+  }
+}
+
+export function clearBlindHistoryStorage(): void {
+  if (typeof localStorage === "undefined") return;
+  const keys: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key?.startsWith(BLIND_HISTORY_PREFIX)) keys.push(key);
+  }
+  for (const key of keys) {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/** Never throws. On quota, drops undo snapshots from localStorage and retries. */
+export function writeLocalJson(key: string, value: unknown): boolean {
+  if (typeof localStorage === "undefined") return false;
+  const raw = typeof value === "string" ? value : JSON.stringify(value);
+  try {
+    localStorage.setItem(key, raw);
+    return true;
+  } catch {
+    clearBlindHistoryStorage();
+    try {
+      localStorage.setItem(key, raw);
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
