@@ -20,7 +20,7 @@ import type {
 } from "../lib/choreocore/engine/types/EvaluationTypes";
 import { AnnotateMiniStage } from "./annotation/AnnotateMiniStage";
 import { DEFAULT_DANCER_COUNT, layoutPreset, type AnnotateSpot } from "./annotation/annotateLayouts";
-import { AnnotateSongTimeline, ScoreSlider, TimeField } from "./annotation/annotateUi";
+import { AnnotateSongTimeline, ScoreSlider, TimeField, resolveCueWindows } from "./annotation/annotateUi";
 import {
   CALIBRATION_SONG_IDS,
   CUE_ACTION_JA,
@@ -233,16 +233,38 @@ export function AnnotationWorkbenchPage() {
 
   const addCueAt = (time: number) => {
     const cue = makeCue(time);
-    const rank1 = defaultRank1(cue.id!, undefined);
-    patch({ cues: [...session.cues, cue], formations: [...session.formations, rank1] });
+    const t = Math.max(0, Math.round(time * 10) / 10);
+    cue.time = t;
+    const nextList = [...session.cues, cue].map((c, i) => ({ ...c, id: cueIdOf(c, i) }));
+    const sorted = [...nextList].sort((a, b) => a.time - b.time);
+    const idx = sorted.findIndex((c) => c.id === cue.id);
+    const added = idx >= 0 ? sorted[idx] : undefined;
+    const prev = idx > 0 ? sorted[idx - 1] : undefined;
+    const following = idx >= 0 ? sorted[idx + 1] : undefined;
+    if (prev && (prev.holdEnd == null || prev.holdEnd > t)) {
+      prev.holdEnd = t;
+    }
+    if (added) added.holdEnd = following?.time ?? duration;
+    patch({ cues: sorted, formations: [...session.formations, defaultRank1(cue.id!, undefined)] });
     setSelectedCueId(cue.id!);
     setSelectedSectionIndex(null);
-    seekTo(time);
+    seekTo(t);
   };
 
   const setCueTime = (id: string, time: number) => {
     patch({
-      cues: session.cues.map((cue, i) => (cueIdOf(cue, i) === id ? { ...cue, id, time } : cue)),
+      cues: session.cues.map((cue, i) => {
+        if (cueIdOf(cue, i) !== id) return cue;
+        const t = Math.max(0, time);
+        const holdEnd = cue.holdEnd != null && cue.holdEnd < t + 0.1 ? t + 0.1 : cue.holdEnd;
+        return { ...cue, id, time: t, holdEnd };
+      }),
+    });
+  };
+
+  const setCueHoldEnd = (id: string, holdEnd: number) => {
+    patch({
+      cues: session.cues.map((cue, i) => (cueIdOf(cue, i) === id ? { ...cue, id, holdEnd: Math.max(cue.time + 0.1, holdEnd) } : cue)),
     });
   };
 
@@ -329,6 +351,16 @@ export function AnnotationWorkbenchPage() {
   const prevLayout = prevCueRow ? rankFor(prevCueRow.id, 1) : undefined;
   const selectedRank1 = selectedCueId ? rankFor(selectedCueId, 1) : undefined;
   const selectedSection = selectedSectionIndex != null ? session.sections[selectedSectionIndex] : undefined;
+  const cueWindows = resolveCueWindows(
+    cuesByTime.map((row, n) => ({
+      id: row.id,
+      time: row.cue.time,
+      holdEnd: row.cue.holdEnd,
+      label: String(n + 1),
+    })),
+    duration
+  );
+  const selectedWindow = selectedCueId ? cueWindows.find((w) => w.id === selectedCueId) : undefined;
 
   return (
     <div style={pageWrap}>
@@ -441,6 +473,7 @@ export function AnnotationWorkbenchPage() {
                   setSelectedCueId(null);
                 }}
                 onCueTimeChange={setCueTime}
+                onCueHoldEndChange={setCueHoldEnd}
                 onAddCueAt={addCueAt}
                 sections={session.sections.map((s, index) => ({
                   index,
@@ -451,6 +484,7 @@ export function AnnotationWorkbenchPage() {
                 cues={cuesByTime.map((row, n) => ({
                   id: row.id,
                   time: row.cue.time,
+                  holdEnd: row.cue.holdEnd,
                   label: String(n + 1),
                 }))}
               />
@@ -547,8 +581,9 @@ export function AnnotationWorkbenchPage() {
                   ...btnSecondary,
                   padding: "3px 8px",
                   fontSize: 11,
-                  background: selectedCueId === row.id ? shell.accentSoft : btnSecondary.backgroundColor,
-                  borderColor: selectedCueId === row.id ? shell.accent : shell.borderStrong,
+                  background: selectedCueId === row.id ? "rgba(196,30,58,0.2)" : btnSecondary.backgroundColor,
+                  borderColor: selectedCueId === row.id ? shell.ruby : "rgba(196,30,58,0.45)",
+                  color: shell.text,
                 }}
                 onClick={() => {
                   setSelectedCueId(row.id);
@@ -556,7 +591,8 @@ export function AnnotationWorkbenchPage() {
                   seekTo(row.cue.time);
                 }}
               >
-                Q{n + 1} {formatClock(row.cue.time)} {CUE_ACTION_JA[row.cue.action] ?? row.cue.action}
+                Q{n + 1} {formatClock(row.cue.time)}–{formatClock(cueWindows[n]?.holdEnd ?? row.cue.time)}
+                {cueWindows[n]?.hasMove ? ` →移動` : ""}
               </button>
             ))}
           </div>
@@ -566,7 +602,10 @@ export function AnnotationWorkbenchPage() {
           <div style={panel}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 }}>
               <h2 style={{ fontSize: 13, margin: 0 }}>
-                キュー {selectedCueOrder + 1} · {formatClock(selectedCue.time)}
+                キュー {selectedCueOrder + 1}
+                {selectedWindow
+                  ? ` · 立ち位置 ${formatClock(selectedWindow.time)}–${formatClock(selectedWindow.holdEnd)}`
+                  : ` · ${formatClock(selectedCue.time)}`}
               </h2>
               <button
                 type="button"
@@ -582,8 +621,31 @@ export function AnnotationWorkbenchPage() {
                 このキューを削除
               </button>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
-              <TimeField caption="時刻" value={selectedCue.time} now={now} onSeek={seekTo} onChange={(time) => setCueTime(selectedCueId, time)} />
+            {selectedWindow ? (
+              <p style={{ margin: "0 0 8px", fontSize: 12, color: shell.textMuted, lineHeight: 1.55 }}>
+                立ち位置 {formatClock(selectedWindow.time)}–{formatClock(selectedWindow.holdEnd)}
+                {selectedWindow.hasMove
+                  ? `　／　移動 ${formatClock(selectedWindow.holdEnd)}–${formatClock(selectedWindow.nextTime)}（${(selectedWindow.nextTime - selectedWindow.holdEnd).toFixed(1)}秒）`
+                  : "　／　移動なし（次の形までこの立ち位置）"}
+              </p>
+            ) : null}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
+              <TimeField
+                caption="この形の開始"
+                value={selectedCue.time}
+                now={now}
+                onSeek={seekTo}
+                onChange={(time) => setCueTime(selectedCueId, time)}
+              />
+              <TimeField
+                caption="移動開始（この形の終わり）"
+                value={selectedWindow?.holdEnd ?? selectedCue.holdEnd ?? selectedCue.time}
+                now={now}
+                onSeek={seekTo}
+                onChange={(holdEnd) => setCueHoldEnd(selectedCueId, holdEnd)}
+              />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
               <div>
                 <span style={label}>動き</span>
                 <select

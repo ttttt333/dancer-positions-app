@@ -69,7 +69,13 @@ export type HumanCueAnnotation = {
   annotatorId: string;
   /** Stable id so formation layouts survive time edits. */
   id?: string;
+  /** When this formation is reached (hold starts). Consensus still keys off this. */
   time: number;
+  /**
+   * When this formation hold ends and travel to the next cue starts.
+   * Movement is [holdEnd, next.time). If omitted, hold runs until the next cue.
+   */
+  holdEnd?: number;
   action: FormationCueAction;
   magnitude: FormationChangeMagnitude;
   importance: number;

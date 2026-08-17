@@ -35,6 +35,9 @@ export function validateAnnotationSession(
     if (cue.confidence < 0 || cue.confidence > 100) {
       warnings.push({ field: "cues.confidence", message: "confidence out of range", kind: "WARNING" });
     }
+    if (cue.holdEnd != null && cue.holdEnd + 1e-6 < cue.time) {
+      warnings.push({ field: "cues.holdEnd", message: "holdEnd before cue time", kind: "INVALID" });
+    }
   }
   const seen = new Set<string>();
   for (const cue of cues) {

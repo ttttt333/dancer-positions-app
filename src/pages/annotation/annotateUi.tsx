@@ -96,8 +96,35 @@ export function ScoreSlider({
   );
 }
 
-export type TimelineCue = { id: string; time: number; label: string };
+export type TimelineCue = { id: string; time: number; holdEnd?: number; label: string };
 export type TimelineSection = { index: number; start: number; end: number; label: string };
+
+export type CueWindow = {
+  id: string;
+  label: string;
+  time: number;
+  holdEnd: number;
+  nextTime: number;
+  hasMove: boolean;
+};
+
+export function resolveCueWindows(cues: TimelineCue[], duration: number): CueWindow[] {
+  const total = duration > 0 ? duration : 1;
+  const sorted = [...cues].sort((a, b) => a.time - b.time);
+  return sorted.map((cue, i) => {
+    const nextTime = sorted[i + 1]?.time ?? total;
+    const raw = cue.holdEnd;
+    const holdEnd = raw == null ? nextTime : Math.min(nextTime, Math.max(cue.time, raw));
+    return {
+      id: cue.id,
+      label: cue.label,
+      time: cue.time,
+      holdEnd,
+      nextTime,
+      hasMove: nextTime - holdEnd > 0.05,
+    };
+  });
+}
 
 export function AnnotateSongTimeline({
   duration,
@@ -110,6 +137,7 @@ export function AnnotateSongTimeline({
   onSelectCue,
   onSelectSection,
   onCueTimeChange,
+  onCueHoldEndChange,
   onAddCueAt,
 }: {
   duration: number;
@@ -122,18 +150,34 @@ export function AnnotateSongTimeline({
   onSelectCue: (id: string) => void;
   onSelectSection: (index: number) => void;
   onCueTimeChange: (id: string, time: number) => void;
+  onCueHoldEndChange: (id: string, holdEnd: number) => void;
   onAddCueAt?: (time: number) => void;
 }) {
   const trackRef = useRef<HTMLDivElement | null>(null);
-  const dragRef = useRef<{ id: string; moved: boolean } | null>(null);
+  const dragRef = useRef<{ id: string; moved: boolean; edge?: "start" | "end" } | null>(null);
   const total = duration > 0 ? duration : 1;
   const palette = ["#44403c", "#57534e", "#78716c", "#a8a29e"];
+  const windows = resolveCueWindows(cues, total);
 
   const timeAt = (clientX: number) => {
     const box = trackRef.current?.getBoundingClientRect();
     if (!box || box.width <= 0) return 0;
     const t = ((clientX - box.left) / box.width) * total;
     return Math.max(0, Math.min(total, Math.round(t * 10) / 10));
+  };
+
+  const applyEdge = (id: string, edge: "start" | "end", clientX: number) => {
+    const win = windows.find((w) => w.id === id);
+    if (!win) return;
+    const t = timeAt(clientX);
+    if (edge === "start") {
+      const next = Math.min(win.holdEnd - 0.1, Math.max(0, t));
+      onCueTimeChange(id, Math.max(0, next));
+    } else {
+      const next = Math.min(win.nextTime, Math.max(win.time + 0.1, t));
+      onCueHoldEndChange(id, next);
+    }
+    onSeek(t);
   };
 
   return (
@@ -148,7 +192,7 @@ export function AnnotateSongTimeline({
         style={{
           position: "relative",
           width: "100%",
-          height: 56,
+          height: 78,
           borderRadius: 8,
           border: `1px solid ${shell.borderStrong}`,
           background: shell.bgChrome,
@@ -170,13 +214,11 @@ export function AnnotateSongTimeline({
           const drag = dragRef.current;
           if (!drag) return;
           drag.moved = true;
-          const t = timeAt(e.clientX);
           if (drag.id === "__scrub__") {
-            onSeek(t);
+            onSeek(timeAt(e.clientX));
             return;
           }
-          onCueTimeChange(drag.id, t);
-          onSeek(t);
+          if (drag.edge) applyEdge(drag.id, drag.edge, e.clientX);
         }}
         onPointerUp={() => {
           dragRef.current = null;
@@ -196,7 +238,7 @@ export function AnnotateSongTimeline({
                 left: `${left}%`,
                 width: `${Math.max(width, 1.2)}%`,
                 top: 4,
-                height: 18,
+                height: 16,
                 background: palette[i % palette.length],
                 opacity: selected ? 0.95 : 0.5,
                 borderRadius: 4,
@@ -204,7 +246,7 @@ export function AnnotateSongTimeline({
                 color: shell.text,
                 fontSize: 10,
                 overflow: "hidden",
-                lineHeight: "18px",
+                lineHeight: "16px",
                 padding: 0,
                 cursor: "pointer",
               }}
@@ -220,56 +262,132 @@ export function AnnotateSongTimeline({
             </button>
           );
         })}
-        {cues.map((cue, i) => {
-          const selected = cue.id === selectedCueId;
+        {windows.map((win) => {
+          const selected = win.id === selectedCueId;
+          const holdLeft = (win.time / total) * 100;
+          const holdWidth = Math.max(((win.holdEnd - win.time) / total) * 100, 0.8);
+          const moveLeft = (win.holdEnd / total) * 100;
+          const moveWidth = ((win.nextTime - win.holdEnd) / total) * 100;
           return (
-            <button
-              key={cue.id}
-              type="button"
-              data-cue-marker="1"
-              title={`キュー ${i + 1} ${formatClock(cue.time)}`}
-              style={{
-                position: "absolute",
-                left: `${(cue.time / total) * 100}%`,
-                top: 26,
-                width: 22,
-                height: 22,
-                marginLeft: -11,
-                borderRadius: "50%",
-                border: selected ? `2px solid #fff` : `1px solid ${shell.accentDeep}`,
-                background: selected ? shell.accent : "#a67c2d",
-                color: "#14100a",
-                fontSize: 11,
-                fontWeight: 700,
-                zIndex: selected ? 5 : 3,
-                cursor: "ew-resize",
-                padding: 0,
-                boxShadow: selected ? "0 0 0 3px rgba(212,175,55,0.35)" : "none",
-              }}
-              onPointerDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                dragRef.current = { id: cue.id, moved: false };
-                onSelectCue(cue.id);
-                (e.currentTarget as HTMLButtonElement).setPointerCapture(e.pointerId);
-              }}
-              onPointerMove={(e) => {
-                const drag = dragRef.current;
-                if (!drag || drag.id !== cue.id) return;
-                drag.moved = true;
-                const t = timeAt(e.clientX);
-                onCueTimeChange(drag.id, t);
-                onSeek(t);
-              }}
-              onPointerUp={(e) => {
-                const drag = dragRef.current;
-                if (!drag || drag.id !== cue.id || !drag.moved) onSeek(cue.time);
-                dragRef.current = null;
-                e.stopPropagation();
-              }}
-            >
-              {i + 1}
-            </button>
+            <div key={win.id}>
+              <button
+                type="button"
+                data-cue-marker="1"
+                title={`キュー ${win.label} 立ち位置 ${formatClock(win.time)}–${formatClock(win.holdEnd)}`}
+                style={{
+                  position: "absolute",
+                  left: `${holdLeft}%`,
+                  width: `${holdWidth}%`,
+                  top: 24,
+                  height: 48,
+                  borderRadius: 3,
+                  border: `1.5px solid ${selected ? "#fff" : shell.ruby}`,
+                  background: selected ? "rgba(196,30,58,0.32)" : "rgba(196,30,58,0.16)",
+                  boxShadow: selected ? "0 0 0 1px rgba(196,30,58,0.8)" : "none",
+                  color: shell.text,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  zIndex: selected ? 5 : 3,
+                  cursor: "pointer",
+                  padding: 0,
+                  overflow: "hidden",
+                  lineHeight: "48px",
+                }}
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  dragRef.current = { id: win.id, moved: false };
+                  onSelectCue(win.id);
+                  onSeek(win.time);
+                }}
+              >
+                {win.label}
+                <span
+                  data-cue-marker="1"
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: 8,
+                    cursor: "ew-resize",
+                    background: "rgba(196,30,58,0.35)",
+                  }}
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dragRef.current = { id: win.id, moved: true, edge: "start" };
+                    onSelectCue(win.id);
+                    (e.currentTarget as HTMLSpanElement).setPointerCapture(e.pointerId);
+                  }}
+                  onPointerMove={(e) => {
+                    if (dragRef.current?.id !== win.id || dragRef.current.edge !== "start") return;
+                    applyEdge(win.id, "start", e.clientX);
+                  }}
+                  onPointerUp={() => {
+                    dragRef.current = null;
+                  }}
+                />
+                <span
+                  data-cue-marker="1"
+                  style={{
+                    position: "absolute",
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: 8,
+                    cursor: "ew-resize",
+                    background: "rgba(196,30,58,0.35)",
+                  }}
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dragRef.current = { id: win.id, moved: true, edge: "end" };
+                    onSelectCue(win.id);
+                    (e.currentTarget as HTMLSpanElement).setPointerCapture(e.pointerId);
+                  }}
+                  onPointerMove={(e) => {
+                    if (dragRef.current?.id !== win.id || dragRef.current.edge !== "end") return;
+                    applyEdge(win.id, "end", e.clientX);
+                  }}
+                  onPointerUp={() => {
+                    dragRef.current = null;
+                  }}
+                />
+              </button>
+              {win.hasMove ? (
+                <button
+                  type="button"
+                  data-cue-marker="1"
+                  title={`移動 ${formatClock(win.holdEnd)}–${formatClock(win.nextTime)}`}
+                  style={{
+                    position: "absolute",
+                    left: `${moveLeft}%`,
+                    width: `${Math.max(moveWidth, 0.6)}%`,
+                    top: 28,
+                    height: 40,
+                    borderRadius: 3,
+                    border: `1px dashed ${shell.accent}`,
+                    background:
+                      "repeating-linear-gradient(90deg, rgba(212,175,55,0.08) 0 5px, rgba(212,175,55,0.2) 5px 10px)",
+                    color: shell.accent,
+                    fontSize: 10,
+                    zIndex: 2,
+                    cursor: "pointer",
+                    padding: 0,
+                    overflow: "hidden",
+                  }}
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onSelectCue(win.id);
+                    onSeek(win.holdEnd);
+                  }}
+                >
+                  移動
+                </button>
+              ) : null}
+            </div>
           );
         })}
         <button
@@ -319,7 +437,7 @@ export function AnnotateSongTimeline({
         </button>
       </div>
       <p style={{ margin: "4px 0 0", fontSize: 11, color: shell.textSubtle }}>
-        金の丸がキュー。赤バーをドラッグすると再生位置が変わります。バーをダブルクリックするとそこにキューを打ちます。
+        赤枠が立ち位置の区間、点線が移動です。枠の左右端をドラッグして「いつまでその形か／いつ動き出すか」を直せます。
       </p>
     </div>
   );
