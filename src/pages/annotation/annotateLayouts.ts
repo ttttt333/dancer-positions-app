@@ -1,3 +1,6 @@
+export const STAGE_SIZE_M = 16;
+export const STAGE_GRID_M = 1;
+
 export type AnnotateSpot = {
   id: string;
   xPct: number;

@@ -2,30 +2,41 @@ import { useRef, useState, type CSSProperties } from "react";
 import { DANCER_COLOR_PALETTE_HEX, modDancerColorIndex } from "../../lib/dancerColorPalette";
 import { btnSecondary } from "../../components/stageButtonStyles";
 import { shell } from "../../theme/choreoShell";
-import { ANNOTATE_PRESETS, layoutPreset, resizeLayout, type AnnotateSpot } from "./annotateLayouts";
+import { ANNOTATE_PRESETS, STAGE_SIZE_M, layoutPreset, resizeLayout, type AnnotateSpot } from "./annotateLayouts";
 
 const CENTER_X = 50;
 const HESO_Y = 50;
 
 const floor: CSSProperties = {
   position: "relative",
-  width: "100%",
-  aspectRatio: "16 / 10",
+  width: "min(100%, 70vh, 640px)",
+  aspectRatio: "1 / 1",
   borderRadius: 12,
   background: "linear-gradient(180deg, #1a1814 0%, #0c0b09 55%, #16120e 100%)",
   border: `1px solid ${shell.borderStrong}`,
   touchAction: "none",
   overflow: "hidden",
   cursor: "grab",
+  margin: "0 auto",
 };
 
 function clampPct(n: number): number {
-  return Math.min(94, Math.max(6, n));
+  return Math.min(97, Math.max(3, n));
 }
 
-function fmt(n: number): string {
-  return n.toFixed(1);
+function fromCenterM(pct: number): number {
+  return ((pct - 50) / 100) * STAGE_SIZE_M;
 }
+
+function baMmLabel(xPct: number, yPct: number): string {
+  const x = fromCenterM(xPct);
+  const y = fromCenterM(yPct);
+  const lr = Math.abs(x) < 0.05 ? "センター" : x > 0 ? `右 ${Math.abs(x).toFixed(1)}m` : `左 ${Math.abs(x).toFixed(1)}m`;
+  const fb = Math.abs(y) < 0.05 ? "ヘソ" : y > 0 ? `前 ${Math.abs(y).toFixed(1)}m` : `奥 ${Math.abs(y).toFixed(1)}m`;
+  return `${lr}　${fb}`;
+}
+
+const GRID_IDS = Array.from({ length: STAGE_SIZE_M + 1 }, (_, i) => i);
 
 type DragState = {
   mode: "one" | "all";
@@ -71,10 +82,10 @@ export function AnnotateMiniStage({ positions, formationType, onChange, onCopyPr
       });
       return;
     }
-    const minDx = Math.max(...drag.origin.map((p) => 6 - p.xPct));
-    const maxDx = Math.min(...drag.origin.map((p) => 94 - p.xPct));
-    const minDy = Math.max(...drag.origin.map((p) => 6 - p.yPct));
-    const maxDy = Math.min(...drag.origin.map((p) => 94 - p.yPct));
+    const minDx = Math.max(...drag.origin.map((p) => 3 - p.xPct));
+    const maxDx = Math.min(...drag.origin.map((p) => 97 - p.xPct));
+    const minDy = Math.max(...drag.origin.map((p) => 3 - p.yPct));
+    const maxDy = Math.min(...drag.origin.map((p) => 97 - p.yPct));
     const gx = Math.min(maxDx, Math.max(minDx, dx));
     const gy = Math.min(maxDy, Math.max(minDy, dy));
     onChange({
@@ -174,19 +185,39 @@ export function AnnotateMiniStage({ positions, formationType, onChange, onCopyPr
           if (e.target === stageRef.current) setGroupSelected(false);
         }}
       >
-        <span
-          style={{
-            position: "absolute",
-            left: `${CENTER_X}%`,
-            top: 0,
-            bottom: 22,
-            width: 0,
-            borderLeft: `1px dashed ${shell.accent}`,
-            opacity: 0.7,
-            pointerEvents: "none",
-            zIndex: 1,
-          }}
-        />
+        <svg
+          viewBox={`0 0 ${STAGE_SIZE_M} ${STAGE_SIZE_M}`}
+          preserveAspectRatio="none"
+          aria-hidden
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 1 }}
+        >
+          {GRID_IDS.map((m) => (
+            <line
+              key={`v-${m}`}
+              x1={m}
+              y1={0}
+              x2={m}
+              y2={STAGE_SIZE_M}
+              stroke={m === STAGE_SIZE_M / 2 ? shell.accent : "rgba(250,247,240,0.16)"}
+              strokeWidth={m === STAGE_SIZE_M / 2 ? 1.5 : 1}
+              strokeDasharray={m === STAGE_SIZE_M / 2 ? "5 4" : "4 4"}
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+          {GRID_IDS.map((m) => (
+            <line
+              key={`h-${m}`}
+              x1={0}
+              y1={m}
+              x2={STAGE_SIZE_M}
+              y2={m}
+              stroke={m === STAGE_SIZE_M / 2 ? "rgba(248,250,252,0.7)" : "rgba(250,247,240,0.16)"}
+              strokeWidth={m === STAGE_SIZE_M / 2 ? 1.5 : 1}
+              strokeDasharray={m === STAGE_SIZE_M / 2 ? "5 4" : "4 4"}
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+        </svg>
         <span
           style={{
             position: "absolute",
@@ -204,18 +235,6 @@ export function AnnotateMiniStage({ positions, formationType, onChange, onCopyPr
         <span
           style={{
             position: "absolute",
-            top: `${HESO_Y}%`,
-            left: 0,
-            right: 0,
-            height: 0,
-            borderTop: `1px dashed rgba(248,250,252,0.55)`,
-            pointerEvents: "none",
-            zIndex: 1,
-          }}
-        />
-        <span
-          style={{
-            position: "absolute",
             top: `calc(${HESO_Y}% + 4px)`,
             left: 8,
             fontSize: 10,
@@ -228,6 +247,9 @@ export function AnnotateMiniStage({ positions, formationType, onChange, onCopyPr
           ヘソ
         </span>
         <span style={{ position: "absolute", top: 8, left: 12, fontSize: 11, color: shell.textSubtle, zIndex: 1 }}>奥</span>
+        <span style={{ position: "absolute", top: 8, right: 12, fontSize: 10, color: shell.textSubtle, zIndex: 1 }}>
+          {STAGE_SIZE_M}m × {STAGE_SIZE_M}m
+        </span>
         <span
           style={{
             position: "absolute",
@@ -251,7 +273,7 @@ export function AnnotateMiniStage({ positions, formationType, onChange, onCopyPr
             <button
               key={spot.id}
               type="button"
-              aria-label={`ダンサー ${i + 1} x${fmt(spot.xPct)} y${fmt(spot.yPct)}`}
+              aria-label={`ダンサー ${i + 1} ${baMmLabel(spot.xPct, spot.yPct)}`}
               style={{
                 position: "absolute",
                 left: `${spot.xPct}%`,
@@ -296,12 +318,12 @@ export function AnnotateMiniStage({ positions, formationType, onChange, onCopyPr
         })}
       </div>
       <p style={{ margin: "6px 0 8px", fontSize: 11, color: shell.textSubtle }}>
-        ダブルクリックで全員選択 → そのままドラッグで全体移動。金の点線がセンター、白い横線がヘソです。
+        ダブルクリックで全員選択 → ドラッグで全体移動。場は {STAGE_SIZE_M}m × {STAGE_SIZE_M}m、点線は 1m ごと。金がセンター、横の明るい線がヘソです。
       </p>
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(108px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fill, minmax(148px, 1fr))",
           gap: 4,
           fontSize: 11,
           fontVariantNumeric: "tabular-nums",
@@ -310,7 +332,7 @@ export function AnnotateMiniStage({ positions, formationType, onChange, onCopyPr
       >
         {positions.map((spot, i) => (
           <div key={spot.id} style={{ background: shell.bgChrome, borderRadius: 6, padding: "4px 6px", border: `1px solid ${shell.border}` }}>
-            {i + 1}　X {fmt(spot.xPct)}　Y {fmt(spot.yPct)}
+            {i + 1}　{baMmLabel(spot.xPct, spot.yPct)}
           </div>
         ))}
       </div>

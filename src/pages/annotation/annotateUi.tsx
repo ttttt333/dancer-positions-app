@@ -158,6 +158,8 @@ export function AnnotateSongTimeline({
         }}
         onPointerDown={(e) => {
           if ((e.target as HTMLElement).closest("[data-cue-marker]")) return;
+          dragRef.current = { id: "__scrub__", moved: true };
+          (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
           onSeek(timeAt(e.clientX));
         }}
         onDoubleClick={(e) => {
@@ -169,6 +171,10 @@ export function AnnotateSongTimeline({
           if (!drag) return;
           drag.moved = true;
           const t = timeAt(e.clientX);
+          if (drag.id === "__scrub__") {
+            onSeek(t);
+            return;
+          }
           onCueTimeChange(drag.id, t);
           onSeek(t);
         }}
@@ -205,7 +211,9 @@ export function AnnotateSongTimeline({
               onPointerDown={(e) => {
                 e.stopPropagation();
                 onSelectSection(s.index);
-                onSeek(s.start);
+                dragRef.current = { id: "__scrub__", moved: true };
+                trackRef.current?.setPointerCapture(e.pointerId);
+                onSeek(timeAt(e.clientX));
               }}
             >
               {s.label}
@@ -264,21 +272,54 @@ export function AnnotateSongTimeline({
             </button>
           );
         })}
-        <span
+        <button
+          type="button"
+          aria-label="再生位置"
+          title="ドラッグで再生位置を移動"
           style={{
             position: "absolute",
             left: `${(currentTime / total) * 100}%`,
             top: 0,
             bottom: 0,
-            width: 2,
-            background: shell.ruby,
-            zIndex: 4,
-            pointerEvents: "none",
+            width: 18,
+            marginLeft: -9,
+            padding: 0,
+            border: "none",
+            background: "transparent",
+            cursor: "ew-resize",
+            zIndex: 6,
           }}
-        />
+          onPointerDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dragRef.current = { id: "__scrub__", moved: true };
+            (e.currentTarget as HTMLButtonElement).setPointerCapture(e.pointerId);
+            onSeek(timeAt(e.clientX));
+          }}
+          onPointerMove={(e) => {
+            if (dragRef.current?.id !== "__scrub__") return;
+            onSeek(timeAt(e.clientX));
+          }}
+          onPointerUp={() => {
+            dragRef.current = null;
+          }}
+        >
+          <span
+            style={{
+              position: "absolute",
+              left: 8,
+              top: 0,
+              bottom: 0,
+              width: 2,
+              background: shell.ruby,
+              boxShadow: "0 0 0 1px rgba(196,30,58,0.35)",
+              pointerEvents: "none",
+            }}
+          />
+        </button>
       </div>
       <p style={{ margin: "4px 0 0", fontSize: 11, color: shell.textSubtle }}>
-        金の丸がキュー。ドラッグで秒数を修正、クリックで選択。バーをダブルクリックするとそこにキューを打ちます。赤が再生位置。
+        金の丸がキュー。赤バーをドラッグすると再生位置が変わります。バーをダブルクリックするとそこにキューを打ちます。
       </p>
     </div>
   );
