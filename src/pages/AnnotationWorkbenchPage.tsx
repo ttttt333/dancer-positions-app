@@ -136,6 +136,8 @@ export function AnnotationWorkbenchPage() {
   const [currentTime, setCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [selectedCueId, setSelectedCueId] = useState<string | null>(null);
+  const [selectedSectionIndex, setSelectedSectionIndex] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const songs = useMemo(
@@ -149,7 +151,10 @@ export function AnnotationWorkbenchPage() {
   const now = audioRef.current?.currentTime ?? currentTime;
 
   useEffect(() => {
-    setSession(loadDraft(annotatorId, songId));
+    const next = loadDraft(annotatorId, songId);
+    setSession(next);
+    setSelectedCueId(next.cues[0] ? cueIdOf(next.cues[0], 0) : null);
+    setSelectedSectionIndex(null);
   }, [annotatorId, songId]);
 
   useEffect(() => {
@@ -210,6 +215,8 @@ export function AnnotationWorkbenchPage() {
       confidence: 90,
     };
     patch({ sections: [...session.sections, next] });
+    setSelectedSectionIndex(session.sections.length);
+    setSelectedCueId(null);
   };
 
   const makeCue = (time: number): HumanCueAnnotation => ({
@@ -228,6 +235,15 @@ export function AnnotationWorkbenchPage() {
     const cue = makeCue(time);
     const rank1 = defaultRank1(cue.id!, undefined);
     patch({ cues: [...session.cues, cue], formations: [...session.formations, rank1] });
+    setSelectedCueId(cue.id!);
+    setSelectedSectionIndex(null);
+    seekTo(time);
+  };
+
+  const setCueTime = (id: string, time: number) => {
+    patch({
+      cues: session.cues.map((cue, i) => (cueIdOf(cue, i) === id ? { ...cue, id, time } : cue)),
+    });
   };
 
   const defaultRank1 = (cueId: string, from: HumanFormationRating | undefined): HumanFormationRating => {
@@ -303,6 +319,17 @@ export function AnnotationWorkbenchPage() {
     setSequence({ ...sequence, songId, annotatorId, formationIds: ids });
   };
 
+  const selectedCueIndex = session.cues.findIndex((c, i) => cueIdOf(c, i) === selectedCueId);
+  const selectedCue = selectedCueIndex >= 0 ? session.cues[selectedCueIndex]! : null;
+  const cuesByTime = session.cues
+    .map((cue, i) => ({ cue, i, id: cueIdOf(cue, i) }))
+    .sort((a, b) => a.cue.time - b.cue.time);
+  const selectedCueOrder = selectedCueId ? cuesByTime.findIndex((row) => row.id === selectedCueId) : -1;
+  const prevCueRow = selectedCueOrder > 0 ? cuesByTime[selectedCueOrder - 1] : undefined;
+  const prevLayout = prevCueRow ? rankFor(prevCueRow.id, 1) : undefined;
+  const selectedRank1 = selectedCueId ? rankFor(selectedCueId, 1) : undefined;
+  const selectedSection = selectedSectionIndex != null ? session.sections[selectedSectionIndex] : undefined;
+
   return (
     <div style={pageWrap}>
       <div style={card}>
@@ -312,26 +339,25 @@ export function AnnotationWorkbenchPage() {
           </Link>
           {" / evaluation / annotate"}
         </p>
-        <h1 style={{ fontSize: 22, margin: "0 0 8px" }}>BLIND Annotation</h1>
-        <p style={{ color: shell.textMuted, fontSize: 13, margin: "0 0 16px", lineHeight: 1.55 }}>
-          AI の推奨は表示しません。数字を細かく打つのではなく、曲を聴きながら「自分ならこう置く」を舞台に置いてください。最初は{" "}
-          <strong>real-001 と real-002</strong>。Schema {ANNOTATION_WORKFLOW_VERSION}.
+        <h1 style={{ fontSize: 20, margin: "0 0 6px" }}>BLIND Annotation</h1>
+        <p style={{ color: shell.textMuted, fontSize: 12, margin: "0 0 12px", lineHeight: 1.5 }}>
+          AI の推奨は表示しません。音源バーのキューを直接直して、選んだ1件だけ舞台に置きます。Schema {ANNOTATION_WORKFLOW_VERSION}.
         </p>
 
-        <div style={panel}>
-          <h2 style={{ fontSize: 14, margin: "0 0 10px" }}>ルール</h2>
-          <ul style={{ margin: 0, paddingLeft: 18, color: shell.textMuted, fontSize: 13, lineHeight: 1.65 }}>
+        <details style={{ ...panel, padding: "8px 12px" }}>
+          <summary style={{ cursor: "pointer", fontSize: 13, color: shell.textMuted }}>ルール</summary>
+          <ul style={{ margin: "8px 0 0", paddingLeft: 18, color: shell.textMuted, fontSize: 12, lineHeight: 1.55 }}>
             {instructions.map((line) => (
               <li key={line}>{line}</li>
             ))}
           </ul>
-        </div>
+        </details>
 
-        <div style={panel}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={{ ...panel, padding: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             <div>
               <span style={label}>Annotator</span>
-              <select value={annotatorId} onChange={(e) => setAnnotatorId(e.target.value)} style={{ ...input, width: "100%" }}>
+              <select value={annotatorId} onChange={(e) => setAnnotatorId(e.target.value)} style={{ ...input, width: "100%", padding: "5px 8px" }}>
                 {PILOT_ANNOTATORS.map((id) => (
                   <option key={id} value={id}>
                     {id}
@@ -341,7 +367,7 @@ export function AnnotationWorkbenchPage() {
             </div>
             <div>
               <span style={label}>Song</span>
-              <select value={songId} onChange={(e) => setSongId(e.target.value)} style={{ ...input, width: "100%" }}>
+              <select value={songId} onChange={(e) => setSongId(e.target.value)} style={{ ...input, width: "100%", padding: "5px 8px" }}>
                 {songs.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.id} — {s.title}
@@ -351,7 +377,7 @@ export function AnnotationWorkbenchPage() {
               </select>
             </div>
           </div>
-          <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12, fontSize: 13, color: shell.textMuted }}>
+          <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8, fontSize: 12, color: shell.textMuted }}>
             <input
               type="checkbox"
               checked={calibrationOnly}
@@ -364,266 +390,290 @@ export function AnnotationWorkbenchPage() {
             />
             Calibration only（real-001 / real-002）
           </label>
-          <p style={{ margin: "10px 0 0", fontSize: 12, color: shell.textSubtle }}>
-            {song.structure} · {song.category} · {song.bpm} BPM · {formatClock(song.duration)} · {song.difficulty}
-          </p>
         </div>
 
-        <div style={panel}>
-          <h2 style={{ fontSize: 14, margin: "0 0 8px" }}>Audio（ローカルのみ・リポジトリに保存しません）</h2>
-          <input
-            type="file"
-            accept="audio/*,.wav,.mp3,.m4a,.aiff"
-            onChange={(e) => onAudioFile(e.target.files?.[0])}
-          />
+        <div
+          style={{
+            ...panel,
+            position: "sticky",
+            top: 0,
+            zIndex: 30,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+            <h2 style={{ fontSize: 13, margin: 0 }}>音源 · セクション · キュー</h2>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <button type="button" style={{ ...btnSecondary, padding: "5px 10px", fontSize: 12 }} onClick={addSection}>
+                今の位置からセクション
+              </button>
+              <button type="button" style={{ ...btnAccent, padding: "5px 12px", fontSize: 12 }} onClick={() => addCueAt(now)}>
+                今の位置にキュー
+              </button>
+            </div>
+          </div>
+          <input type="file" accept="audio/*,.wav,.mp3,.m4a,.aiff" onChange={(e) => onAudioFile(e.target.files?.[0])} />
           {audioUrl ? (
-            <div style={{ marginTop: 12 }}>
+            <div style={{ marginTop: 8 }}>
               <audio
                 ref={audioRef}
                 src={audioUrl}
                 controls
-                style={{ width: "100%" }}
+                style={{ width: "100%", height: 36 }}
                 onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
                 onLoadedMetadata={(e) => setAudioDuration(e.currentTarget.duration || 0)}
               />
-              <p style={{ margin: "8px 0 10px", fontSize: 12, color: shell.textMuted }}>Now {formatClock(currentTime)}</p>
+              <p style={{ margin: "4px 0 6px", fontSize: 12, color: shell.textMuted, fontVariantNumeric: "tabular-nums" }}>
+                再生 {formatClock(currentTime)} / {formatClock(duration)}
+              </p>
               <AnnotateSongTimeline
                 duration={duration}
                 currentTime={currentTime}
+                selectedCueId={selectedCueId}
+                selectedSectionIndex={selectedSectionIndex}
                 onSeek={seekTo}
-                marks={[
-                  ...session.sections.map((s) => ({
-                    start: s.startTime,
-                    end: s.endTime,
-                    label: SECTION_TYPE_JA[s.type] ?? s.type,
-                    kind: "section" as const,
-                  })),
-                  ...session.cues.map((c) => ({ start: c.time, label: "cue", kind: "cue" as const })),
-                ]}
+                onSelectCue={(id) => {
+                  setSelectedCueId(id);
+                  setSelectedSectionIndex(null);
+                }}
+                onSelectSection={(index) => {
+                  setSelectedSectionIndex(index);
+                  setSelectedCueId(null);
+                }}
+                onCueTimeChange={setCueTime}
+                onAddCueAt={addCueAt}
+                sections={session.sections.map((s, index) => ({
+                  index,
+                  start: s.startTime,
+                  end: s.endTime,
+                  label: SECTION_TYPE_JA[s.type] ?? s.type,
+                }))}
+                cues={cuesByTime.map((row, n) => ({
+                  id: row.id,
+                  time: row.cue.time,
+                  label: String(n + 1),
+                }))}
               />
             </div>
           ) : (
-            <p style={{ margin: "8px 0 0", fontSize: 12, color: shell.textSubtle }}>
-              ブラウザはローカルパスを直接読めません。ライセンス済み音源をここで開いてください。
-            </p>
+            <p style={{ margin: "8px 0 0", fontSize: 12, color: shell.textSubtle }}>ライセンス済み音源をここで開いてください。</p>
           )}
-        </div>
 
-        <div style={panel}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <h2 style={{ fontSize: 14, margin: 0 }}>A. セクション（曲の区切り）</h2>
-            <button type="button" style={btnSecondary} onClick={addSection}>
-              今の位置から追加
-            </button>
-          </div>
-          {session.sections.map((section, i) => (
-            <div key={`sec-${i}`} style={{ borderTop: i ? `1px solid ${shell.border}` : undefined, paddingTop: i ? 12 : 0, marginTop: i ? 12 : 0 }}>
-              <div style={{ display: "grid", gap: 10 }}>
+          {selectedSection ? (
+            <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${shell.border}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <strong style={{ fontSize: 12 }}>セクション {(selectedSectionIndex ?? 0) + 1}</strong>
+                <button
+                  type="button"
+                  style={{ ...btnSecondary, padding: "3px 8px" }}
+                  onClick={() => {
+                    patch({ sections: session.sections.filter((_, j) => j !== selectedSectionIndex) });
+                    setSelectedSectionIndex(null);
+                  }}
+                >
+                  削除
+                </button>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 140px", gap: 8 }}>
                 <TimeField
                   caption="開始"
-                  value={section.startTime}
+                  value={selectedSection.startTime}
                   now={now}
                   onSeek={seekTo}
                   onChange={(startTime) => {
                     const next = [...session.sections];
-                    next[i] = { ...section, startTime };
+                    next[selectedSectionIndex!] = { ...selectedSection, startTime };
                     patch({ sections: next });
                   }}
                 />
                 <TimeField
                   caption="終了"
-                  value={section.endTime}
+                  value={selectedSection.endTime}
                   now={now}
                   onSeek={seekTo}
                   onChange={(endTime) => {
                     const next = [...session.sections];
-                    next[i] = { ...section, endTime };
+                    next[selectedSectionIndex!] = { ...selectedSection, endTime };
                     patch({ sections: next });
                   }}
                 />
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 36px", gap: 8, alignItems: "end" }}>
-                  <div>
-                    <span style={label}>種類</span>
-                    <select
-                      style={{ ...input, width: "100%" }}
-                      value={section.type}
-                      onChange={(e) => {
-                        const next = [...session.sections];
-                        next[i] = { ...section, type: e.target.value as HumanSectionAnnotation["type"] };
-                        patch({ sections: next });
-                      }}
-                    >
-                      {SECTION_TYPES.map((t) => (
-                        <option key={t} value={t}>
-                          {SECTION_TYPE_JA[t] ?? t}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <button
-                    type="button"
-                    style={{ ...btnSecondary, padding: "7px 8px" }}
-                    onClick={() => patch({ sections: session.sections.filter((_, j) => j !== i) })}
+                <div>
+                  <span style={label}>種類</span>
+                  <select
+                    style={{ ...input, width: "100%" }}
+                    value={selectedSection.type}
+                    onChange={(e) => {
+                      const next = [...session.sections];
+                      next[selectedSectionIndex!] = { ...selectedSection, type: e.target.value as HumanSectionAnnotation["type"] };
+                      patch({ sections: next });
+                    }}
                   >
-                    ×
-                  </button>
+                    {SECTION_TYPES.map((t) => (
+                      <option key={t} value={t}>
+                        {SECTION_TYPE_JA[t] ?? t}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <ScoreSlider
-                  caption="確信度"
-                  value={section.confidence > 1 ? section.confidence : Math.round(section.confidence * 100)}
-                  onChange={(confidence) => {
-                    const next = [...session.sections];
-                    next[i] = { ...section, confidence };
-                    patch({ sections: next });
-                  }}
-                />
               </div>
             </div>
-          ))}
-        </div>
+          ) : null}
 
-        <div style={panel}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, gap: 8, flexWrap: "wrap" }}>
-            <h2 style={{ fontSize: 14, margin: 0 }}>B. キュー（立ち位置を変える瞬間）</h2>
-            <button type="button" style={btnAccent} onClick={() => addCueAt(now)}>
-              今の再生位置にキューを打つ
-            </button>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8 }}>
+            {session.sections.map((section, i) => (
+              <button
+                key={`secchip-${i}`}
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  padding: "3px 8px",
+                  fontSize: 11,
+                  background: selectedSectionIndex === i ? shell.accentSoft : btnSecondary.backgroundColor,
+                }}
+                onClick={() => {
+                  setSelectedSectionIndex(i);
+                  setSelectedCueId(null);
+                  seekTo(section.startTime);
+                }}
+              >
+                {SECTION_TYPE_JA[section.type] ?? section.type} {formatClock(section.startTime)}–{formatClock(section.endTime)}
+              </button>
+            ))}
+            {cuesByTime.map((row, n) => (
+              <button
+                key={row.id}
+                type="button"
+                style={{
+                  ...btnSecondary,
+                  padding: "3px 8px",
+                  fontSize: 11,
+                  background: selectedCueId === row.id ? shell.accentSoft : btnSecondary.backgroundColor,
+                  borderColor: selectedCueId === row.id ? shell.accent : shell.borderStrong,
+                }}
+                onClick={() => {
+                  setSelectedCueId(row.id);
+                  setSelectedSectionIndex(null);
+                  seekTo(row.cue.time);
+                }}
+              >
+                Q{n + 1} {formatClock(row.cue.time)} {CUE_ACTION_JA[row.cue.action] ?? row.cue.action}
+              </button>
+            ))}
           </div>
-          {session.cues.map((cue, i) => {
-            const cueId = cueIdOf(cue, i);
-            const rank1 = rankFor(cueId, 1);
-            const prevCue = session.cues[i - 1];
-            const prevLayout = prevCue ? rankFor(cueIdOf(prevCue, i - 1), 1) : undefined;
-            return (
-              <div key={cueId} style={{ borderTop: i ? `1px solid ${shell.border}` : undefined, paddingTop: i ? 16 : 0, marginTop: i ? 16 : 0 }}>
-                <TimeField
-                  caption={`時刻 · キュー ${i + 1}`}
-                  value={cue.time}
-                  now={now}
-                  onSeek={seekTo}
-                  onChange={(time) => {
-                    const next = [...session.cues];
-                    next[i] = { ...cue, id: cueId, time };
-                    patch({ cues: next });
-                  }}
-                />
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 36px", gap: 8, margin: "10px 0", alignItems: "end" }}>
-                  <div>
-                    <span style={label}>動き</span>
-                    <select
-                      style={{ ...input, width: "100%" }}
-                      value={cue.action}
-                      onChange={(e) => {
-                        const next = [...session.cues];
-                        next[i] = { ...cue, action: e.target.value as HumanCueAnnotation["action"] };
-                        patch({ cues: next });
-                      }}
-                    >
-                      {CUE_ACTIONS.map((a) => (
-                        <option key={a} value={a}>
-                          {CUE_ACTION_JA[a] ?? a}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <span style={label}>変化の大きさ</span>
-                    <select
-                      style={{ ...input, width: "100%" }}
-                      value={cue.magnitude}
-                      onChange={(e) => {
-                        const next = [...session.cues];
-                        next[i] = { ...cue, magnitude: e.target.value as HumanCueAnnotation["magnitude"] };
-                        patch({ cues: next });
-                      }}
-                    >
-                      {CUE_MAGNITUDES.map((m) => (
-                        <option key={m} value={m}>
-                          {CUE_MAGNITUDE_JA[m] ?? m}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <button
-                    type="button"
-                    style={{ ...btnSecondary, padding: "7px 8px" }}
-                    onClick={() =>
-                      patch({
-                        cues: session.cues.filter((_, j) => j !== i),
-                        formations: session.formations.filter((f) => f.cueId !== cueId),
-                      })
-                    }
-                  >
-                    ×
-                  </button>
-                </div>
-                <ScoreSlider
-                  caption={`重要度 (${importanceBand(cue.importance)})`}
-                  value={cue.importance}
-                  onChange={(importance) => {
-                    const next = [...session.cues];
-                    next[i] = { ...cue, importance };
-                    patch({ cues: next });
-                  }}
-                />
-                <ScoreSlider
-                  caption="確信度"
-                  value={cue.confidence > 1 ? cue.confidence : Math.round(cue.confidence * 100)}
-                  onChange={(confidence) => {
-                    const next = [...session.cues];
-                    next[i] = { ...cue, confidence };
-                    patch({ cues: next });
-                  }}
-                />
-
-                <h3 style={{ fontSize: 13, margin: "14px 0 8px" }}>C. この瞬間の立ち位置（自分ならこう置く）</h3>
-                <AnnotateMiniStage
-                  formationType={rank1?.formationType || "LINE"}
-                  positions={layoutOf(rank1).length ? layoutOf(rank1) : layoutPreset("LINE", DEFAULT_DANCER_COUNT)}
-                  canCopyPrevious={Boolean(prevLayout?.layout?.positions.length)}
-                  onCopyPrevious={() => {
-                    if (!prevLayout) return;
-                    upsertFormation(defaultRank1(cueId, prevLayout));
-                  }}
-                  onChange={({ positions, formationType }) => {
-                    const base = rank1 ?? defaultRank1(cueId, undefined);
-                    upsertFormation({
-                      ...base,
-                      formationType,
-                      formationId: formationType,
-                      layout: { dancerCount: positions.length, positions },
-                    });
-                  }}
-                />
-                <p style={{ fontSize: 12, color: shell.textSubtle, margin: "12px 0 8px" }}>
-                  他にあり得る形（任意・2位 / 3位）。{FORMATION_RUBRIC.musicFit}
-                </p>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                  {([2, 3] as const).map((rank) => {
-                    const current = rankFor(cueId, rank);
-                    return (
-                      <div key={rank}>
-                        <span style={label}>{rank}位</span>
-                        <select
-                          style={{ ...input, width: "100%" }}
-                          value={current?.formationType ?? ""}
-                          onChange={(e) => setAltRank(cueId, rank, e.target.value)}
-                        >
-                          <option value="">—</option>
-                          {FORMATION_TYPES.map((t) => (
-                            <option key={t} value={t}>
-                              {FORMATION_TYPE_JA[t] ?? t}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
         </div>
+
+        {selectedCue && selectedCueId ? (
+          <div style={panel}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 }}>
+              <h2 style={{ fontSize: 13, margin: 0 }}>
+                キュー {selectedCueOrder + 1} · {formatClock(selectedCue.time)}
+              </h2>
+              <button
+                type="button"
+                style={{ ...btnSecondary, padding: "3px 8px" }}
+                onClick={() => {
+                  patch({
+                    cues: session.cues.filter((_, j) => j !== selectedCueIndex),
+                    formations: session.formations.filter((f) => f.cueId !== selectedCueId),
+                  });
+                  setSelectedCueId(null);
+                }}
+              >
+                このキューを削除
+              </button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
+              <TimeField caption="時刻" value={selectedCue.time} now={now} onSeek={seekTo} onChange={(time) => setCueTime(selectedCueId, time)} />
+              <div>
+                <span style={label}>動き</span>
+                <select
+                  style={{ ...input, width: "100%" }}
+                  value={selectedCue.action}
+                  onChange={(e) => {
+                    const next = [...session.cues];
+                    next[selectedCueIndex] = { ...selectedCue, action: e.target.value as HumanCueAnnotation["action"] };
+                    patch({ cues: next });
+                  }}
+                >
+                  {CUE_ACTIONS.map((a) => (
+                    <option key={a} value={a}>
+                      {CUE_ACTION_JA[a] ?? a}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <span style={label}>変化</span>
+                <select
+                  style={{ ...input, width: "100%" }}
+                  value={selectedCue.magnitude}
+                  onChange={(e) => {
+                    const next = [...session.cues];
+                    next[selectedCueIndex] = { ...selectedCue, magnitude: e.target.value as HumanCueAnnotation["magnitude"] };
+                    patch({ cues: next });
+                  }}
+                >
+                  {CUE_MAGNITUDES.map((m) => (
+                    <option key={m} value={m}>
+                      {CUE_MAGNITUDE_JA[m] ?? m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <ScoreSlider
+              caption={`重要度 (${importanceBand(selectedCue.importance)})`}
+              value={selectedCue.importance}
+              onChange={(importance) => {
+                const next = [...session.cues];
+                next[selectedCueIndex] = { ...selectedCue, importance };
+                patch({ cues: next });
+              }}
+            />
+            <h3 style={{ fontSize: 13, margin: "10px 0 8px" }}>この瞬間の立ち位置</h3>
+            <AnnotateMiniStage
+              formationType={selectedRank1?.formationType || "LINE"}
+              positions={layoutOf(selectedRank1).length ? layoutOf(selectedRank1) : layoutPreset("LINE", DEFAULT_DANCER_COUNT)}
+              canCopyPrevious={Boolean(prevLayout?.layout?.positions.length)}
+              onCopyPrevious={() => {
+                if (!prevLayout) return;
+                upsertFormation(defaultRank1(selectedCueId, prevLayout));
+              }}
+              onChange={({ positions, formationType }) => {
+                const base = selectedRank1 ?? defaultRank1(selectedCueId, undefined);
+                upsertFormation({
+                  ...base,
+                  formationType,
+                  formationId: formationType,
+                  layout: { dancerCount: positions.length, positions },
+                });
+              }}
+            />
+            <p style={{ fontSize: 11, color: shell.textSubtle, margin: "10px 0 6px" }}>他にあり得る形（任意）{FORMATION_RUBRIC.musicFit}</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {([2, 3] as const).map((rank) => {
+                const current = rankFor(selectedCueId, rank);
+                return (
+                  <div key={rank}>
+                    <span style={label}>{rank}位</span>
+                    <select style={{ ...input, width: "100%" }} value={current?.formationType ?? ""} onChange={(e) => setAltRank(selectedCueId, rank, e.target.value)}>
+                      <option value="">—</option>
+                      {FORMATION_TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {FORMATION_TYPE_JA[t] ?? t}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div style={panel}>
+            <p style={{ margin: 0, fontSize: 13, color: shell.textMuted }}>バーのキューを選ぶか、「今の位置にキュー」で立ち位置を付けてください。</p>
+          </div>
+        )}
 
         <div style={panel}>
           <h2 style={{ fontSize: 14, margin: "0 0 10px" }}>D. 曲全体の流れ</h2>

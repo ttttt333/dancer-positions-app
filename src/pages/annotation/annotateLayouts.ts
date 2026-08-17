@@ -36,6 +36,31 @@ function spots(points: Array<{ xPct: number; yPct: number }>): AnnotateSpot[] {
   }));
 }
 
+/** Back (upstage) is 1, then rows get wider toward the audience. n=8 → 1-3-4. */
+export function pyramidRowCounts(n: number): number[] {
+  const count = clamp(Math.round(n), 1, 16);
+  if (count === 1) return [1];
+  let k = 1;
+  while (((k + 1) * (k + 2)) / 2 <= count) k += 1;
+  const rows = Array.from({ length: k }, (_, i) => i + 1);
+  let remain = count - (k * (k + 1)) / 2;
+  let i = rows.length - 1;
+  while (remain > 0) {
+    rows[i] += 1;
+    remain -= 1;
+    i -= 1;
+    if (i < 0) i = rows.length - 1;
+  }
+  return rows;
+}
+
+function triangleRowCounts(n: number): number[] {
+  if (n <= 2) return pyramidRowCounts(n);
+  const front = Math.ceil(n / 2);
+  const mid = Math.max(1, n - 1 - front);
+  return [1, mid, front];
+}
+
 function linspace(count: number, start: number, end: number): number[] {
   if (count <= 0) return [];
   if (count === 1) return [(start + end) / 2];
@@ -112,20 +137,13 @@ export function layoutPreset(type: string, count: number): AnnotateSpot[] {
     ]);
   }
   if (type === "PYRAMID" || type === "TRIANGLE") {
-    const rows: number[] = [];
-    let remain = n;
-    let row = 1;
-    while (remain > 0) {
-      const take = Math.min(row, remain);
-      rows.push(take);
-      remain -= take;
-      row += 1;
-    }
+    const rows = type === "TRIANGLE" && n >= 3 ? triangleRowCounts(n) : pyramidRowCounts(n);
+    const slot = 12;
+    const ys = linspace(rows.length, 24, 70);
     const pts: Array<{ xPct: number; yPct: number }> = [];
     rows.forEach((countInRow, r) => {
-      const y = 28 + (r / Math.max(1, rows.length - 1)) * 44;
-      const span = 18 + r * 12;
-      linspace(countInRow, 50 - span, 50 + span).forEach((x) => pts.push({ xPct: x, yPct: y }));
+      const half = ((countInRow - 1) * slot) / 2;
+      linspace(countInRow, 50 - half, 50 + half).forEach((x) => pts.push({ xPct: x, yPct: ys[r] ?? 50 }));
     });
     return spots(pts);
   }
