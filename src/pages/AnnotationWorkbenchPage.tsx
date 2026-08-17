@@ -429,7 +429,15 @@ export function AnnotationWorkbenchPage() {
   const setSequence = (next: HumanSequenceRating) => patch({ sequence: [next] });
 
   const fillSequenceFromCues = () => {
-    const ids = session.cues.map((cue, i) => rankFor(cueIdOf(cue, i), 1)?.formationType).filter((x): x is string => Boolean(x));
+    const ids = [...session.cues]
+      .map((cue, i) => ({ cue, id: cueIdOf(cue, i) }))
+      .sort((a, b) => a.cue.time - b.cue.time)
+      .map((row) => {
+        const rank = rankFor(row.id, 1);
+        if (!rank) return "";
+        return standingNameFor(rank.formationType, rank.name);
+      })
+      .filter(Boolean);
     setSequence({ ...sequence, songId, annotatorId, formationIds: ids });
   };
 
@@ -945,7 +953,7 @@ export function AnnotationWorkbenchPage() {
         <div style={panel}>
           <h2 style={{ fontSize: 14, margin: "0 0 10px" }}>D. 曲全体の流れ</h2>
           <p style={{ fontSize: 12, color: shell.textSubtle, margin: "0 0 8px" }}>
-            キューで置いた立ち位置の順番です。必要なら手で直してください。
+            上で付けた立ち位置の名前を、時間順に入れます。必要なら手で直してください。
           </p>
           <button type="button" style={{ ...btnSecondary, marginBottom: 10 }} onClick={fillSequenceFromCues}>
             キューの立ち位置から入れる
