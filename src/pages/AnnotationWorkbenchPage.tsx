@@ -139,6 +139,13 @@ function layoutOf(row: HumanFormationRating | undefined): AnnotateSpot[] {
   return row?.layout?.positions ?? [];
 }
 
+function standingNameFor(formationType: string | undefined, custom?: string): string {
+  const trimmed = custom?.trim();
+  if (trimmed) return trimmed;
+  const type = formationType || "LINE";
+  return FORMATION_TYPE_JA[type] ?? type;
+}
+
 function loadHistory(annotatorId: string, songId: string, draft: AnnotationSession): SessionHistory {
   try {
     return parseStoredHistory(localStorage.getItem(historyStorageKey(annotatorId, songId)), draft);
@@ -166,6 +173,9 @@ export function AnnotationWorkbenchPage() {
   const persistTimerRef = useRef<number | null>(null);
   const identityRef = useRef({ annotatorId, songId });
   const didBootRef = useRef(false);
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
+  const composingNameRef = useRef(false);
+  const [nameDraft, setNameDraft] = useState("");
   sessionRef.current = session;
 
   const songs = useMemo(
@@ -381,7 +391,8 @@ export function AnnotationWorkbenchPage() {
   };
 
   const defaultRank1 = (cueId: string, from: HumanFormationRating | undefined): HumanFormationRating => {
-    const positions = from?.layout?.positions ?? layoutPreset("LINE", from?.layout?.dancerCount ?? DEFAULT_DANCER_COUNT);
+    const source = from?.layout?.positions ?? layoutPreset("LINE", from?.layout?.dancerCount ?? DEFAULT_DANCER_COUNT);
+    const positions = source.map((spot) => ({ ...spot }));
     const formationType = from?.formationType || "LINE";
     const layout: HumanFormationLayout = { dancerCount: positions.length, positions };
     return {
@@ -399,7 +410,7 @@ export function AnnotationWorkbenchPage() {
       execution: 88,
       originality: 70,
       layout,
-      name: from?.name,
+      name: standingNameFor(formationType),
     };
   };
 
@@ -485,6 +496,30 @@ export function AnnotationWorkbenchPage() {
     if (session.cues.some((cue, i) => cueIdOf(cue, i) === selectedCueId)) return;
     setSelectedCueId(session.cues[0] ? cueIdOf(session.cues[0], 0) : null);
   }, [session, selectedCueId]);
+
+  useEffect(() => {
+    if (composingNameRef.current) return;
+    if (typeof document !== "undefined" && document.activeElement === nameInputRef.current) return;
+    setNameDraft(standingNameFor(selectedRank1?.formationType, selectedRank1?.name));
+  }, [selectedCueId, selectedRank1?.name, selectedRank1?.formationType]);
+
+  const focusNameField = () => {
+    window.requestAnimationFrame(() => {
+      const el = nameInputRef.current;
+      if (!el) return;
+      el.focus();
+      el.select();
+    });
+  };
+
+  const commitCueName = (raw: string) => {
+    if (!selectedCueId) return;
+    const current = sessionRef.current.formations.find((f) => f.cueId === selectedCueId && f.rank === 1);
+    const base = current ?? defaultRank1(selectedCueId, undefined);
+    const name = standingNameFor(base.formationType, raw);
+    upsertFormation({ ...base, name });
+    setNameDraft(name);
+  };
 
   return (
     <div style={pageWrap}>
@@ -841,16 +876,35 @@ export function AnnotationWorkbenchPage() {
             <div style={{ marginBottom: 8 }}>
               <span style={label}>立ち位置の名前</span>
               <input
+                ref={nameInputRef}
                 style={{ ...input, width: "100%" }}
-                value={selectedRank1?.name ?? ""}
-                placeholder={`例）${FORMATION_TYPE_JA[selectedRank1?.formationType || "LINE"] ?? "サビの2列"}（広め）`}
+                value={nameDraft}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder="ピラミッド、2列（広め）など"
                 onChange={(e) => {
-                  const base = selectedRank1 ?? defaultRank1(selectedCueId, undefined);
-                  upsertFormation({ ...base, name: e.target.value });
+                  const value = e.target.value;
+                  setNameDraft(value);
+                  if (!composingNameRef.current) {
+                    const current = sessionRef.current.formations.find((f) => f.cueId === selectedCueId && f.rank === 1);
+                    const base = current ?? defaultRank1(selectedCueId, undefined);
+                    upsertFormation({ ...base, name: value });
+                  }
+                }}
+                onCompositionStart={() => {
+                  composingNameRef.current = true;
+                }}
+                onCompositionEnd={(e) => {
+                  composingNameRef.current = false;
+                  commitCueName(e.currentTarget.value);
+                }}
+                onBlur={(e) => {
+                  if (composingNameRef.current) return;
+                  commitCueName(e.currentTarget.value);
                 }}
               />
               <p style={{ margin: "4px 0 0", fontSize: 11, color: shell.textSubtle, lineHeight: 1.45 }}>
-                2列やピラミッドを直したあとの、このキューだけの呼び方です。下のプリセット名とは別に付けられます。
+                キューごとに書き換えられます。ピラミッドや2列を直したら、この欄の名前も合わせて変えてください。
               </p>
             </div>
             <AnnotateMiniStage
@@ -872,16 +926,26 @@ export function AnnotationWorkbenchPage() {
               onCopyFrom={(id) => {
                 const src = rankFor(id, 1);
                 if (!src) return;
-                upsertFormation(defaultRank1(selectedCueId, src));
+                const next = defaultRank1(selectedCueId, src);
+                upsertFormation(next);
+                setNameDraft(next.name ?? standingNameFor(next.formationType));
+                focusNameField();
               }}
               onChange={({ positions, formationType }) => {
                 const base = selectedRank1 ?? defaultRank1(selectedCueId, undefined);
+                const typeChanged = formationType !== (base.formationType || "LINE");
+                const nextName = typeChanged ? standingNameFor(formationType) : standingNameFor(formationType, base.name);
                 upsertFormation({
                   ...base,
                   formationType,
                   formationId: formationType,
                   layout: { dancerCount: positions.length, positions },
+                  name: nextName,
                 });
+                if (typeChanged) {
+                  setNameDraft(nextName);
+                  focusNameField();
+                }
               }}
             />
             <p style={{ fontSize: 11, color: shell.textSubtle, margin: "10px 0 6px" }}>他にあり得る形（任意）{FORMATION_RUBRIC.musicFit}</p>
