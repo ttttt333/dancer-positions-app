@@ -315,6 +315,13 @@ describe("Phase 9 Annotation Workflow", () => {
     expect(parsed.cues).toHaveLength(1);
   });
 
+  it("JSON roundtrip keeps custom formation name", () => {
+    const src = makeSession({ songId: "s", annotatorId: "a" });
+    src.formations = src.formations.map((row, i) => (i === 0 ? { ...row, name: "サビの2列（広め）" } : row));
+    const parsed = importAnnotationJson(exportAnnotationJson(src));
+    expect(parsed.formations[0]?.name).toBe("サビの2列（広め）");
+  });
+
   it("10-song pilot", () => {
     const { annotations } = realWorldPilotDataset();
     const songs = [...new Set(annotations.map((a) => a.songId))];

@@ -96,12 +96,13 @@ export function ScoreSlider({
   );
 }
 
-export type TimelineCue = { id: string; time: number; holdEnd?: number; label: string };
+export type TimelineCue = { id: string; time: number; holdEnd?: number; label: string; name?: string };
 export type TimelineSection = { index: number; start: number; end: number; label: string };
 
 export type CueWindow = {
   id: string;
   label: string;
+  name?: string;
   time: number;
   holdEnd: number;
   nextTime: number;
@@ -118,6 +119,7 @@ export function resolveCueWindows(cues: TimelineCue[], duration: number): CueWin
     return {
       id: cue.id,
       label: cue.label,
+      name: cue.name,
       time: cue.time,
       holdEnd,
       nextTime,
@@ -273,7 +275,7 @@ export function AnnotateSongTimeline({
               <button
                 type="button"
                 data-cue-marker="1"
-                title={`キュー ${win.label} 立ち位置 ${formatClock(win.time)}–${formatClock(win.holdEnd)}`}
+                title={`キュー ${win.label}${win.name ? ` ${win.name}` : ""} 立ち位置 ${formatClock(win.time)}–${formatClock(win.holdEnd)}`}
                 style={{
                   position: "absolute",
                   left: `${holdLeft}%`,
@@ -291,7 +293,9 @@ export function AnnotateSongTimeline({
                   cursor: "pointer",
                   padding: 0,
                   overflow: "hidden",
-                  lineHeight: "48px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                 }}
                 onPointerDown={(e) => {
                   e.preventDefault();
@@ -301,7 +305,21 @@ export function AnnotateSongTimeline({
                   onSeek(win.time);
                 }}
               >
-                {win.label}
+                <span
+                  style={{
+                    pointerEvents: "none",
+                    padding: "0 10px",
+                    maxWidth: "100%",
+                    overflow: "hidden",
+                    lineHeight: 1.15,
+                    textAlign: "center",
+                  }}
+                >
+                  {win.label}
+                  {win.name ? (
+                    <span style={{ display: "block", fontSize: 9, fontWeight: 600, opacity: 0.92 }}>{win.name}</span>
+                  ) : null}
+                </span>
                 <span
                   data-cue-marker="1"
                   style={{

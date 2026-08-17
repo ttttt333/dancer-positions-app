@@ -114,6 +114,8 @@ export type HumanFormationRating = {
   rank?: 1 | 2 | 3;
   formationId?: string;
   notes?: string;
+  /** Human-given name for this cue's placement, e.g. "サビの2列". Consensus still keys off formationType. */
+  name?: string;
   /** Optional visual placement. Consensus still keys off formationType. */
   layout?: HumanFormationLayout;
 };

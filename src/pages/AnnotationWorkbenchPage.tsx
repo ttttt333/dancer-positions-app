@@ -37,6 +37,18 @@ import {
   draftKey,
   formatClock,
 } from "./annotation/pilotCatalog";
+import {
+  currentSnapshot,
+  emptyHistory,
+  historyStorageKey,
+  parseStoredHistory,
+  pushSnapshot,
+  redoAll,
+  redoStep,
+  undoAll,
+  undoStep,
+  type SessionHistory,
+} from "./annotation/sessionHistory";
 
 const pageWrap: CSSProperties = {
   minHeight: "100dvh",
@@ -127,6 +139,14 @@ function layoutOf(row: HumanFormationRating | undefined): AnnotateSpot[] {
   return row?.layout?.positions ?? [];
 }
 
+function loadHistory(annotatorId: string, songId: string, draft: AnnotationSession): SessionHistory {
+  try {
+    return parseStoredHistory(localStorage.getItem(historyStorageKey(annotatorId, songId)), draft);
+  } catch {
+    return emptyHistory(draft);
+  }
+}
+
 export function AnnotationWorkbenchPage() {
   const [annotatorId, setAnnotatorId] = useState<string>(PILOT_ANNOTATORS[0]);
   const [calibrationOnly, setCalibrationOnly] = useState(true);
@@ -138,7 +158,15 @@ export function AnnotationWorkbenchPage() {
   const [copied, setCopied] = useState(false);
   const [selectedCueId, setSelectedCueId] = useState<string | null>(null);
   const [selectedSectionIndex, setSelectedSectionIndex] = useState<number | null>(null);
+  const [histMeta, setHistMeta] = useState({ index: 0, length: 1 });
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const sessionRef = useRef(session);
+  const historyRef = useRef<SessionHistory>(emptyHistory(session));
+  const lastPushRef = useRef(0);
+  const persistTimerRef = useRef<number | null>(null);
+  const identityRef = useRef({ annotatorId, songId });
+  const didBootRef = useRef(false);
+  sessionRef.current = session;
 
   const songs = useMemo(
     () => (calibrationOnly ? PILOT_SONGS.filter((s) => CALIBRATION_SONG_IDS.includes(s.id as (typeof CALIBRATION_SONG_IDS)[number])) : PILOT_SONGS),
@@ -151,13 +179,32 @@ export function AnnotationWorkbenchPage() {
   const now = audioRef.current?.currentTime ?? currentTime;
 
   useEffect(() => {
+    if (persistTimerRef.current != null) {
+      window.clearTimeout(persistTimerRef.current);
+      persistTimerRef.current = null;
+    }
+    if (didBootRef.current) {
+      try {
+        const prev = identityRef.current;
+        localStorage.setItem(historyStorageKey(prev.annotatorId, prev.songId), JSON.stringify(historyRef.current));
+      } catch {
+        /* quota */
+      }
+    }
+    didBootRef.current = true;
+    identityRef.current = { annotatorId, songId };
     const next = loadDraft(annotatorId, songId);
+    sessionRef.current = next;
     setSession(next);
+    historyRef.current = loadHistory(annotatorId, songId, next);
+    lastPushRef.current = 0;
+    setHistMeta({ index: historyRef.current.index, length: historyRef.current.stack.length });
     setSelectedCueId(next.cues[0] ? cueIdOf(next.cues[0], 0) : null);
     setSelectedSectionIndex(null);
   }, [annotatorId, songId]);
 
   useEffect(() => {
+    if (session.songId !== songId || session.annotatorId !== annotatorId) return;
     localStorage.setItem(draftKey(annotatorId, songId), JSON.stringify(session));
   }, [annotatorId, songId, session]);
 
@@ -167,9 +214,72 @@ export function AnnotationWorkbenchPage() {
     };
   }, [audioUrl]);
 
-  const patch = useCallback((next: Partial<AnnotationSession>) => {
-    setSession((prev) => ({ ...prev, ...next, mode: "BLIND", version: ANNOTATION_WORKFLOW_VERSION }));
-  }, []);
+  const persistHistory = useCallback(
+    (immediate = false) => {
+      setHistMeta({ index: historyRef.current.index, length: historyRef.current.stack.length });
+      const write = () => {
+        persistTimerRef.current = null;
+        try {
+          localStorage.setItem(historyStorageKey(annotatorId, songId), JSON.stringify(historyRef.current));
+        } catch {
+          /* quota */
+        }
+      };
+      if (persistTimerRef.current != null) window.clearTimeout(persistTimerRef.current);
+      if (immediate) write();
+      else persistTimerRef.current = window.setTimeout(write, 320);
+    },
+    [annotatorId, songId]
+  );
+
+  const applyHistory = useCallback(
+    (nextHistory: SessionHistory) => {
+      const snap = currentSnapshot(nextHistory);
+      if (!snap) return;
+      historyRef.current = nextHistory;
+      lastPushRef.current = 0;
+      sessionRef.current = snap;
+      setSession(snap);
+      persistHistory(true);
+    },
+    [persistHistory]
+  );
+
+  const patch = useCallback(
+    (next: Partial<AnnotationSession>) => {
+      const merged: AnnotationSession = {
+        ...sessionRef.current,
+        ...next,
+        mode: "BLIND",
+        version: ANNOTATION_WORKFLOW_VERSION,
+      };
+      sessionRef.current = merged;
+      setSession(merged);
+      const pushed = pushSnapshot(historyRef.current, merged, Date.now(), lastPushRef.current);
+      historyRef.current = pushed.history;
+      lastPushRef.current = pushed.lastPushAt;
+      persistHistory();
+    },
+    [persistHistory]
+  );
+
+  const undo = useCallback(() => applyHistory(undoStep(historyRef.current)), [applyHistory]);
+  const redo = useCallback(() => applyHistory(redoStep(historyRef.current)), [applyHistory]);
+  const undoToStart = useCallback(() => applyHistory(undoAll(historyRef.current)), [applyHistory]);
+  const redoToEnd = useCallback(() => applyHistory(redoAll(historyRef.current)), [applyHistory]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      const key = e.key.toLowerCase();
+      if (key !== "z" && key !== "y") return;
+      e.preventDefault();
+      if (key === "y" || e.shiftKey) redo();
+      else undo();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo]);
 
   const json = useMemo(() => exportAnnotationJson(session), [session]);
 
@@ -204,18 +314,19 @@ export function AnnotationWorkbenchPage() {
   };
 
   const addSection = () => {
-    const last = session.sections[session.sections.length - 1];
+    const current = sessionRef.current;
+    const last = current.sections[current.sections.length - 1];
     const start = last ? last.endTime : now || 0;
     const next: HumanSectionAnnotation = {
       songId,
       annotatorId,
       startTime: start,
       endTime: Math.min(duration, start + 16),
-      type: session.sections.length === 0 ? "INTRO" : "VERSE",
+      type: current.sections.length === 0 ? "INTRO" : "VERSE",
       confidence: 90,
     };
-    patch({ sections: [...session.sections, next] });
-    setSelectedSectionIndex(session.sections.length);
+    patch({ sections: [...current.sections, next] });
+    setSelectedSectionIndex(current.sections.length);
     setSelectedCueId(null);
   };
 
@@ -232,10 +343,11 @@ export function AnnotationWorkbenchPage() {
   });
 
   const addCueAt = (time: number) => {
+    const current = sessionRef.current;
     const cue = makeCue(time);
     const t = Math.max(0, Math.round(time * 10) / 10);
     cue.time = t;
-    const nextList = [...session.cues, cue].map((c, i) => ({ ...c, id: cueIdOf(c, i) }));
+    const nextList = [...current.cues, cue].map((c, i) => ({ ...c, id: cueIdOf(c, i) }));
     const sorted = [...nextList].sort((a, b) => a.time - b.time);
     const idx = sorted.findIndex((c) => c.id === cue.id);
     const added = idx >= 0 ? sorted[idx] : undefined;
@@ -245,7 +357,7 @@ export function AnnotationWorkbenchPage() {
       prev.holdEnd = t;
     }
     if (added) added.holdEnd = following?.time ?? duration;
-    patch({ cues: sorted, formations: [...session.formations, defaultRank1(cue.id!, undefined)] });
+    patch({ cues: sorted, formations: [...current.formations, defaultRank1(cue.id!, undefined)] });
     setSelectedCueId(cue.id!);
     setSelectedSectionIndex(null);
     seekTo(t);
@@ -253,7 +365,7 @@ export function AnnotationWorkbenchPage() {
 
   const setCueTime = (id: string, time: number) => {
     patch({
-      cues: session.cues.map((cue, i) => {
+      cues: sessionRef.current.cues.map((cue, i) => {
         if (cueIdOf(cue, i) !== id) return cue;
         const t = Math.max(0, time);
         const holdEnd = cue.holdEnd != null && cue.holdEnd < t + 0.1 ? t + 0.1 : cue.holdEnd;
@@ -264,7 +376,7 @@ export function AnnotationWorkbenchPage() {
 
   const setCueHoldEnd = (id: string, holdEnd: number) => {
     patch({
-      cues: session.cues.map((cue, i) => (cueIdOf(cue, i) === id ? { ...cue, id, holdEnd: Math.max(cue.time + 0.1, holdEnd) } : cue)),
+      cues: sessionRef.current.cues.map((cue, i) => (cueIdOf(cue, i) === id ? { ...cue, id, holdEnd: Math.max(cue.time + 0.1, holdEnd) } : cue)),
     });
   };
 
@@ -287,6 +399,7 @@ export function AnnotationWorkbenchPage() {
       execution: 88,
       originality: 70,
       layout,
+      name: from?.name,
     };
   };
 
@@ -294,7 +407,7 @@ export function AnnotationWorkbenchPage() {
     session.formations.find((f) => f.cueId === cueId && f.rank === rank);
 
   const upsertFormation = (row: HumanFormationRating) => {
-    const others = session.formations.filter((f) => !(f.cueId === row.cueId && f.rank === row.rank));
+    const others = sessionRef.current.formations.filter((f) => !(f.cueId === row.cueId && f.rank === row.rank));
     patch({
       formations: [...others, row].sort((a, b) => a.cueId.localeCompare(b.cueId) || (a.rank ?? 9) - (b.rank ?? 9)),
     });
@@ -302,7 +415,7 @@ export function AnnotationWorkbenchPage() {
 
   const setAltRank = (cueId: string, rank: 2 | 3, formationType: string) => {
     if (!formationType) {
-      patch({ formations: session.formations.filter((f) => !(f.cueId === cueId && f.rank === rank)) });
+      patch({ formations: sessionRef.current.formations.filter((f) => !(f.cueId === cueId && f.rank === rank)) });
       return;
     }
     const defaults: Record<2 | 3, number> = { 2: 88, 3: 80 };
@@ -348,7 +461,9 @@ export function AnnotationWorkbenchPage() {
     .sort((a, b) => a.cue.time - b.cue.time);
   const selectedCueOrder = selectedCueId ? cuesByTime.findIndex((row) => row.id === selectedCueId) : -1;
   const prevCueRow = selectedCueOrder > 0 ? cuesByTime[selectedCueOrder - 1] : undefined;
+  const nextCueRow = selectedCueOrder >= 0 && selectedCueOrder < cuesByTime.length - 1 ? cuesByTime[selectedCueOrder + 1] : undefined;
   const prevLayout = prevCueRow ? rankFor(prevCueRow.id, 1) : undefined;
+  const nextLayout = nextCueRow ? rankFor(nextCueRow.id, 1) : undefined;
   const selectedRank1 = selectedCueId ? rankFor(selectedCueId, 1) : undefined;
   const selectedSection = selectedSectionIndex != null ? session.sections[selectedSectionIndex] : undefined;
   const cueWindows = resolveCueWindows(
@@ -357,10 +472,19 @@ export function AnnotationWorkbenchPage() {
       time: row.cue.time,
       holdEnd: row.cue.holdEnd,
       label: String(n + 1),
+      name: rankFor(row.id, 1)?.name?.trim() || undefined,
     })),
     duration
   );
   const selectedWindow = selectedCueId ? cueWindows.find((w) => w.id === selectedCueId) : undefined;
+  const undoEnabled = histMeta.index > 0;
+  const redoEnabled = histMeta.index < histMeta.length - 1;
+
+  useEffect(() => {
+    if (!selectedCueId) return;
+    if (session.cues.some((cue, i) => cueIdOf(cue, i) === selectedCueId)) return;
+    setSelectedCueId(session.cues[0] ? cueIdOf(session.cues[0], 0) : null);
+  }, [session, selectedCueId]);
 
   return (
     <div style={pageWrap}>
@@ -436,6 +560,21 @@ export function AnnotationWorkbenchPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
             <h2 style={{ fontSize: 13, margin: 0 }}>音源 · セクション · キュー</h2>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <button type="button" style={{ ...btnSecondary, padding: "5px 10px", fontSize: 12, opacity: undoEnabled ? 1 : 0.4 }} disabled={!undoEnabled} onClick={undo} title="⌘Z">
+                戻す
+              </button>
+              <button type="button" style={{ ...btnSecondary, padding: "5px 10px", fontSize: 12, opacity: redoEnabled ? 1 : 0.4 }} disabled={!redoEnabled} onClick={redo} title="⇧⌘Z">
+                進む
+              </button>
+              <button type="button" style={{ ...btnSecondary, padding: "5px 10px", fontSize: 12, opacity: undoEnabled ? 1 : 0.4 }} disabled={!undoEnabled} onClick={undoToStart}>
+                最初まで戻す
+              </button>
+              <button type="button" style={{ ...btnSecondary, padding: "5px 10px", fontSize: 12, opacity: redoEnabled ? 1 : 0.4 }} disabled={!redoEnabled} onClick={redoToEnd}>
+                最新まで進む
+              </button>
+              <span style={{ alignSelf: "center", fontSize: 11, color: shell.textSubtle, fontVariantNumeric: "tabular-nums" }}>
+                {histMeta.index + 1}/{histMeta.length}
+              </span>
               <button type="button" style={{ ...btnSecondary, padding: "5px 10px", fontSize: 12 }} onClick={addSection}>
                 今の位置からセクション
               </button>
@@ -486,6 +625,7 @@ export function AnnotationWorkbenchPage() {
                   time: row.cue.time,
                   holdEnd: row.cue.holdEnd,
                   label: String(n + 1),
+                  name: rankFor(row.id, 1)?.name?.trim() || undefined,
                 }))}
               />
             </div>
@@ -573,7 +713,9 @@ export function AnnotationWorkbenchPage() {
                 {SECTION_TYPE_JA[section.type] ?? section.type} {formatClock(section.startTime)}–{formatClock(section.endTime)}
               </button>
             ))}
-            {cuesByTime.map((row, n) => (
+            {cuesByTime.map((row, n) => {
+              const customName = rankFor(row.id, 1)?.name?.trim();
+              return (
               <button
                 key={row.id}
                 type="button"
@@ -591,10 +733,12 @@ export function AnnotationWorkbenchPage() {
                   seekTo(row.cue.time);
                 }}
               >
-                Q{n + 1} {formatClock(row.cue.time)}–{formatClock(cueWindows[n]?.holdEnd ?? row.cue.time)}
+                Q{n + 1}
+                {customName ? ` ${customName}` : ""} {formatClock(row.cue.time)}–{formatClock(cueWindows[n]?.holdEnd ?? row.cue.time)}
                 {cueWindows[n]?.hasMove ? ` →移動` : ""}
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -603,6 +747,7 @@ export function AnnotationWorkbenchPage() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 }}>
               <h2 style={{ fontSize: 13, margin: 0 }}>
                 キュー {selectedCueOrder + 1}
+                {selectedRank1?.name?.trim() ? ` · ${selectedRank1.name.trim()}` : ""}
                 {selectedWindow
                   ? ` · 立ち位置 ${formatClock(selectedWindow.time)}–${formatClock(selectedWindow.holdEnd)}`
                   : ` · ${formatClock(selectedCue.time)}`}
@@ -693,13 +838,41 @@ export function AnnotationWorkbenchPage() {
               }}
             />
             <h3 style={{ fontSize: 13, margin: "10px 0 8px" }}>この瞬間の立ち位置</h3>
+            <div style={{ marginBottom: 8 }}>
+              <span style={label}>立ち位置の名前</span>
+              <input
+                style={{ ...input, width: "100%" }}
+                value={selectedRank1?.name ?? ""}
+                placeholder={`例）${FORMATION_TYPE_JA[selectedRank1?.formationType || "LINE"] ?? "サビの2列"}（広め）`}
+                onChange={(e) => {
+                  const base = selectedRank1 ?? defaultRank1(selectedCueId, undefined);
+                  upsertFormation({ ...base, name: e.target.value });
+                }}
+              />
+              <p style={{ margin: "4px 0 0", fontSize: 11, color: shell.textSubtle, lineHeight: 1.45 }}>
+                2列やピラミッドを直したあとの、このキューだけの呼び方です。下のプリセット名とは別に付けられます。
+              </p>
+            </div>
             <AnnotateMiniStage
               formationType={selectedRank1?.formationType || "LINE"}
               positions={layoutOf(selectedRank1).length ? layoutOf(selectedRank1) : layoutPreset("LINE", DEFAULT_DANCER_COUNT)}
-              canCopyPrevious={Boolean(prevLayout?.layout?.positions.length)}
-              onCopyPrevious={() => {
-                if (!prevLayout) return;
-                upsertFormation(defaultRank1(selectedCueId, prevLayout));
+              copyPrevId={prevLayout?.layout?.positions.length ? prevCueRow?.id : null}
+              copyNextId={nextLayout?.layout?.positions.length ? nextCueRow?.id : null}
+              copySources={cuesByTime
+                .map((row, n) => {
+                  const src = rankFor(row.id, 1);
+                  if (row.id === selectedCueId || !src?.layout?.positions.length) return null;
+                  const customName = src.name?.trim();
+                  return {
+                    id: row.id,
+                    label: `Q${n + 1}${customName ? ` ${customName}` : ""} ${formatClock(row.cue.time)}`,
+                  };
+                })
+                .filter((row): row is { id: string; label: string } => Boolean(row))}
+              onCopyFrom={(id) => {
+                const src = rankFor(id, 1);
+                if (!src) return;
+                upsertFormation(defaultRank1(selectedCueId, src));
               }}
               onChange={({ positions, formationType }) => {
                 const base = selectedRank1 ?? defaultRank1(selectedCueId, undefined);

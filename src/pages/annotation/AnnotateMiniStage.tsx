@@ -75,15 +75,27 @@ type DragState =
       selectMode: "replace" | "toggle" | "range";
     };
 
+export type CopyCueOption = { id: string; label: string };
+
 type Props = {
   positions: AnnotateSpot[];
   formationType: string;
   onChange: (next: { positions: AnnotateSpot[]; formationType: string }) => void;
-  onCopyPrevious?: () => void;
-  canCopyPrevious?: boolean;
+  copyPrevId?: string | null;
+  copyNextId?: string | null;
+  copySources?: CopyCueOption[];
+  onCopyFrom?: (id: string) => void;
 };
 
-export function AnnotateMiniStage({ positions, formationType, onChange, onCopyPrevious, canCopyPrevious }: Props) {
+export function AnnotateMiniStage({
+  positions,
+  formationType,
+  onChange,
+  copyPrevId,
+  copyNextId,
+  copySources = [],
+  onCopyFrom,
+}: Props) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<DragState | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -234,10 +246,47 @@ export function AnnotateMiniStage({ positions, formationType, onChange, onCopyPr
             {selectedIds.length}人選択中 · ドラッグでまとめて移動
           </span>
         ) : null}
-        {onCopyPrevious ? (
-          <button type="button" style={{ ...btnSecondary, padding: "3px 8px" }} disabled={!canCopyPrevious} onClick={onCopyPrevious}>
-            前のキューからコピー
-          </button>
+        {onCopyFrom ? (
+          <>
+            <button
+              type="button"
+              style={{ ...btnSecondary, padding: "3px 8px" }}
+              disabled={!copyPrevId}
+              onClick={() => copyPrevId && onCopyFrom(copyPrevId)}
+            >
+              前のキューからコピー
+            </button>
+            <button
+              type="button"
+              style={{ ...btnSecondary, padding: "3px 8px" }}
+              disabled={!copyNextId}
+              onClick={() => copyNextId && onCopyFrom(copyNextId)}
+            >
+              次のキューからコピー
+            </button>
+            {copySources.length > 0 ? (
+              <select
+                style={{
+                  ...btnSecondary,
+                  padding: "3px 8px",
+                  fontSize: 12,
+                  minWidth: 160,
+                }}
+                value=""
+                onChange={(e) => {
+                  const id = e.target.value;
+                  if (id) onCopyFrom(id);
+                }}
+              >
+                <option value="">他のキューからコピー</option>
+                {copySources.map((src) => (
+                  <option key={src.id} value={src.id}>
+                    {src.label}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+          </>
         ) : null}
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 8 }}>
