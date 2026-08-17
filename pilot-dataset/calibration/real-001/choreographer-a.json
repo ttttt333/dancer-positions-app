@@ -7,9 +7,1189 @@
   "version": "2.0.0",
   "duration": 210,
   "bpm": 96,
-  "sections": [],
-  "cues": [],
-  "formations": [],
-  "sequence": [],
+  "sections": [
+    {
+      "songId": "real-001",
+      "annotatorId": "choreographer-a",
+      "startTime": 0,
+      "endTime": 20,
+      "type": "INTRO",
+      "confidence": 90
+    },
+    {
+      "songId": "real-001",
+      "annotatorId": "choreographer-a",
+      "startTime": 20,
+      "endTime": 28,
+      "type": "INTRO",
+      "confidence": 90
+    },
+    {
+      "songId": "real-001",
+      "annotatorId": "choreographer-a",
+      "startTime": 28,
+      "endTime": 44.472676,
+      "type": "VERSE",
+      "confidence": 90
+    },
+    {
+      "songId": "real-001",
+      "annotatorId": "choreographer-a",
+      "startTime": 44.5,
+      "endTime": 60,
+      "type": "PRE_CHORUS",
+      "confidence": 90
+    },
+    {
+      "songId": "real-001",
+      "annotatorId": "choreographer-a",
+      "startTime": 60,
+      "endTime": 77.273556,
+      "type": "CHORUS",
+      "confidence": 90
+    },
+    {
+      "songId": "real-001",
+      "annotatorId": "choreographer-a",
+      "startTime": 77.273556,
+      "endTime": 96.729156,
+      "type": "CHORUS",
+      "confidence": 90
+    },
+    {
+      "songId": "real-001",
+      "annotatorId": "choreographer-a",
+      "startTime": 96.8,
+      "endTime": 105.1,
+      "type": "INTRO",
+      "confidence": 90
+    },
+    {
+      "songId": "real-001",
+      "annotatorId": "choreographer-a",
+      "startTime": 105.212698,
+      "endTime": 120.170925,
+      "type": "VERSE",
+      "confidence": 90
+    },
+    {
+      "songId": "real-001",
+      "annotatorId": "choreographer-a",
+      "startTime": 120.170925,
+      "endTime": 135.2,
+      "type": "VERSE",
+      "confidence": 90
+    },
+    {
+      "songId": "real-001",
+      "annotatorId": "choreographer-a",
+      "startTime": 135.2,
+      "endTime": 150.3,
+      "type": "VERSE",
+      "confidence": 90
+    },
+    {
+      "songId": "real-001",
+      "annotatorId": "choreographer-a",
+      "startTime": 150.3,
+      "endTime": 165.7,
+      "type": "CHORUS",
+      "confidence": 90
+    },
+    {
+      "songId": "real-001",
+      "annotatorId": "choreographer-a",
+      "startTime": 165.7,
+      "endTime": 181.6,
+      "type": "FINAL_CHORUS",
+      "confidence": 90
+    }
+  ],
+  "cues": [
+    {
+      "songId": "real-001",
+      "annotatorId": "choreographer-a",
+      "time": 0,
+      "action": "MERGE",
+      "magnitude": "MAX",
+      "importance": 89,
+      "confidence": 90,
+      "notes": "",
+      "id": "cue-0-25",
+      "holdEnd": 19.7
+    },
+    {
+      "id": "cue-5580bcb4-f460-4550-a998-dc1a25676792",
+      "songId": "real-001",
+      "annotatorId": "choreographer-a",
+      "time": 28,
+      "action": "MAJOR_CHANGE",
+      "magnitude": "MAX",
+      "importance": 90,
+      "confidence": 90,
+      "notes": "",
+      "holdEnd": 42.4
+    },
+    {
+      "id": "cue-45e14496-61d1-45ac-9bde-a28611bfaa01",
+      "songId": "real-001",
+      "annotatorId": "choreographer-a",
+      "time": 44.5,
+      "action": "MAJOR_CHANGE",
+      "magnitude": "MAX",
+      "importance": 90,
+      "confidence": 90,
+      "notes": "",
+      "holdEnd": 56.6
+    },
+    {
+      "id": "cue-5dc42b19-bc80-4721-a1c3-a3afc93adb08",
+      "songId": "real-001",
+      "annotatorId": "choreographer-a",
+      "time": 60,
+      "action": "MAJOR_CHANGE",
+      "magnitude": "MAX",
+      "importance": 90,
+      "confidence": 90,
+      "notes": "",
+      "holdEnd": 77
+    },
+    {
+      "id": "cue-9231db27-f3d1-4e76-a926-48161097987f",
+      "songId": "real-001",
+      "annotatorId": "choreographer-a",
+      "time": 77.1,
+      "action": "MAJOR_CHANGE",
+      "magnitude": "MAX",
+      "importance": 90,
+      "confidence": 90,
+      "notes": "",
+      "holdEnd": 85.6
+    },
+    {
+      "id": "cue-14c398b9-de70-4559-80ba-7801ed1dbbe4",
+      "songId": "real-001",
+      "annotatorId": "choreographer-a",
+      "time": 88.9,
+      "action": "MAJOR_CHANGE",
+      "magnitude": "MAX",
+      "importance": 90,
+      "confidence": 90,
+      "notes": "",
+      "holdEnd": 96.9
+    },
+    {
+      "id": "cue-56eafbbd-5509-4e47-af7b-f523974b75d5",
+      "songId": "real-001",
+      "annotatorId": "choreographer-a",
+      "time": 100.3,
+      "action": "MAJOR_CHANGE",
+      "magnitude": "MAX",
+      "importance": 90,
+      "confidence": 90,
+      "notes": "",
+      "holdEnd": 103.6
+    },
+    {
+      "id": "cue-96bf3e39-e693-4c07-8860-5630903790c8",
+      "songId": "real-001",
+      "annotatorId": "choreographer-a",
+      "time": 105,
+      "action": "MAJOR_CHANGE",
+      "magnitude": "MAX",
+      "importance": 90,
+      "confidence": 90,
+      "notes": "",
+      "holdEnd": 117.6
+    },
+    {
+      "id": "cue-56a5d222-fa78-4856-b82d-1eb5b09e6dfd",
+      "songId": "real-001",
+      "annotatorId": "choreographer-a",
+      "time": 119.8,
+      "action": "MAJOR_CHANGE",
+      "magnitude": "MAX",
+      "importance": 90,
+      "confidence": 90,
+      "notes": "",
+      "holdEnd": 133.1
+    },
+    {
+      "id": "cue-8096fb7c-49b1-4413-b300-2122062f4ab1",
+      "songId": "real-001",
+      "annotatorId": "choreographer-a",
+      "time": 135,
+      "action": "MAJOR_CHANGE",
+      "magnitude": "MAX",
+      "importance": 90,
+      "confidence": 90,
+      "notes": "",
+      "holdEnd": 148.7
+    },
+    {
+      "id": "cue-0383445f-166b-465a-9519-4bf89ce337ff",
+      "songId": "real-001",
+      "annotatorId": "choreographer-a",
+      "time": 149.8,
+      "action": "MAJOR_CHANGE",
+      "magnitude": "MAX",
+      "importance": 90,
+      "confidence": 90,
+      "notes": "",
+      "holdEnd": 161.1
+    },
+    {
+      "id": "cue-ddcb6058-8d5e-4247-9eec-5313612d0f49",
+      "songId": "real-001",
+      "annotatorId": "choreographer-a",
+      "time": 165.1,
+      "action": "MAJOR_CHANGE",
+      "magnitude": "MAX",
+      "importance": 90,
+      "confidence": 90,
+      "notes": "",
+      "holdEnd": 186.062517
+    }
+  ],
+  "formations": [
+    {
+      "songId": "real-001",
+      "cueId": "cue-0-25",
+      "annotatorId": "choreographer-a",
+      "formationType": "PYRAMID",
+      "formationId": "PYRAMID",
+      "rank": 1,
+      "score": 95,
+      "overall": 95,
+      "musicFit": 95,
+      "visualImpact": 93,
+      "transitionQuality": 91,
+      "execution": 88,
+      "originality": 70,
+      "layout": {
+        "dancerCount": 11,
+        "positions": [
+          {
+            "id": "d1",
+            "xPct": 50.0728970197408,
+            "yPct": 62.554403375640405
+          },
+          {
+            "id": "d2",
+            "xPct": 46.31536200495049,
+            "yPct": 56.56064356435644
+          },
+          {
+            "id": "d3",
+            "xPct": 54.433101814321006,
+            "yPct": 56.560581009768846
+          },
+          {
+            "id": "d4",
+            "xPct": 42.19098081683167,
+            "yPct": 49.375000000000014
+          },
+          {
+            "id": "d5",
+            "xPct": 50.16785272277227,
+            "yPct": 49.510313531353155
+          },
+          {
+            "id": "d6",
+            "xPct": 57.97967867122398,
+            "yPct": 49.680762676913524
+          },
+          {
+            "id": "d7",
+            "xPct": 37.725479579207914,
+            "yPct": 42.48638613861388
+          },
+          {
+            "id": "d8",
+            "xPct": 45.85278265827145,
+            "yPct": 42.44103346766145
+          },
+          {
+            "id": "d9",
+            "xPct": 54.089608125384814,
+            "yPct": 42.78391599375002
+          },
+          {
+            "id": "d10",
+            "xPct": 62.29138304455444,
+            "yPct": 42.74814356435644
+          },
+          {
+            "id": "d11",
+            "xPct": 49.86253117641321,
+            "yPct": 37.263693238027564
+          }
+        ]
+      },
+      "name": "ピラミッド"
+    },
+    {
+      "songId": "real-001",
+      "cueId": "cue-0383445f-166b-465a-9519-4bf89ce337ff",
+      "annotatorId": "choreographer-a",
+      "formationType": "PYRAMID",
+      "formationId": "PYRAMID",
+      "rank": 1,
+      "score": 95,
+      "overall": 95,
+      "musicFit": 95,
+      "visualImpact": 93,
+      "transitionQuality": 91,
+      "execution": 88,
+      "originality": 70,
+      "layout": {
+        "dancerCount": 11,
+        "positions": [
+          {
+            "id": "d1",
+            "xPct": 50.1472613842969,
+            "yPct": 84.82307090618984
+          },
+          {
+            "id": "d2",
+            "xPct": 40.64072610476833,
+            "yPct": 84.42852524028898
+          },
+          {
+            "id": "d3",
+            "xPct": 59.086044673770445,
+            "yPct": 84.54968494043528
+          },
+          {
+            "id": "d4",
+            "xPct": 45.602440584695586,
+            "yPct": 78.36035579428449
+          },
+          {
+            "id": "d5",
+            "xPct": 41.23205949839719,
+            "yPct": 72.20883239047058
+          },
+          {
+            "id": "d6",
+            "xPct": 54.943368510567204,
+            "yPct": 78.61735089745443
+          },
+          {
+            "id": "d7",
+            "xPct": 30.906798199779832,
+            "yPct": 72.02978231244946
+          },
+          {
+            "id": "d8",
+            "xPct": 36.54774923269534,
+            "yPct": 78.37089176302577
+          },
+          {
+            "id": "d9",
+            "xPct": 64.66432779654963,
+            "yPct": 78.51591727564052
+          },
+          {
+            "id": "d10",
+            "xPct": 68.88248862049704,
+            "yPct": 71.69796869777068
+          },
+          {
+            "id": "d11",
+            "xPct": 59.484193120704255,
+            "yPct": 72.29204809876128
+          }
+        ]
+      },
+      "name": "３列3.4.4"
+    },
+    {
+      "songId": "real-001",
+      "cueId": "cue-14c398b9-de70-4559-80ba-7801ed1dbbe4",
+      "annotatorId": "choreographer-a",
+      "formationType": "PYRAMID",
+      "formationId": "PYRAMID",
+      "rank": 1,
+      "score": 95,
+      "overall": 95,
+      "musicFit": 95,
+      "visualImpact": 93,
+      "transitionQuality": 91,
+      "execution": 88,
+      "originality": 70,
+      "layout": {
+        "dancerCount": 11,
+        "positions": [
+          {
+            "id": "d1",
+            "xPct": 50.09170736961332,
+            "yPct": 83.85816962569268
+          },
+          {
+            "id": "d2",
+            "xPct": 31.228764727574465,
+            "yPct": 84.17145045869803
+          },
+          {
+            "id": "d3",
+            "xPct": 68.69970717318068,
+            "yPct": 84.50718748331593
+          },
+          {
+            "id": "d4",
+            "xPct": 40.54124346505025,
+            "yPct": 83.880845142053
+          },
+          {
+            "id": "d5",
+            "xPct": 45.383753738531155,
+            "yPct": 77.86726430397086
+          },
+          {
+            "id": "d6",
+            "xPct": 59.207924849936234,
+            "yPct": 84.10579298247723
+          },
+          {
+            "id": "d7",
+            "xPct": 26.187071631486766,
+            "yPct": 77.60182595246113
+          },
+          {
+            "id": "d8",
+            "xPct": 35.964112062331715,
+            "yPct": 77.58503714612988
+          },
+          {
+            "id": "d9",
+            "xPct": 75.33276324807014,
+            "yPct": 77.96484369233855
+          },
+          {
+            "id": "d10",
+            "xPct": 64.52981467938287,
+            "yPct": 78.36867610626174
+          },
+          {
+            "id": "d11",
+            "xPct": 54.542128216918165,
+            "yPct": 77.79372709665734
+          }
+        ]
+      },
+      "name": "横２列"
+    },
+    {
+      "songId": "real-001",
+      "cueId": "cue-45e14496-61d1-45ac-9bde-a28611bfaa01",
+      "annotatorId": "choreographer-a",
+      "formationType": "PYRAMID",
+      "formationId": "PYRAMID",
+      "rank": 1,
+      "score": 95,
+      "overall": 95,
+      "musicFit": 95,
+      "visualImpact": 93,
+      "transitionQuality": 91,
+      "execution": 88,
+      "originality": 70,
+      "layout": {
+        "dancerCount": 11,
+        "positions": [
+          {
+            "id": "d1",
+            "xPct": 49.87016324889266,
+            "yPct": 78.62053220563668
+          },
+          {
+            "id": "d2",
+            "xPct": 40.928635145164215,
+            "yPct": 78.9317229997673
+          },
+          {
+            "id": "d3",
+            "xPct": 59.64008533088107,
+            "yPct": 78.69130597458654
+          },
+          {
+            "id": "d4",
+            "xPct": 31.33462222189513,
+            "yPct": 78.99990768994975
+          },
+          {
+            "id": "d5",
+            "xPct": 45.523089663512685,
+            "yPct": 84.8995484377891
+          },
+          {
+            "id": "d6",
+            "xPct": 68.60682966956585,
+            "yPct": 78.81451123130334
+          },
+          {
+            "id": "d7",
+            "xPct": 26.357758139589137,
+            "yPct": 84.65292043615187
+          },
+          {
+            "id": "d8",
+            "xPct": 35.746051339735594,
+            "yPct": 84.82284176929589
+          },
+          {
+            "id": "d9",
+            "xPct": 64.62688745211364,
+            "yPct": 85.02081493340366
+          },
+          {
+            "id": "d10",
+            "xPct": 73.62357382330293,
+            "yPct": 85.031023359254
+          },
+          {
+            "id": "d11",
+            "xPct": 54.52053114854602,
+            "yPct": 84.68110186849478
+          }
+        ]
+      },
+      "name": "横２列前後入れ替え"
+    },
+    {
+      "songId": "real-001",
+      "cueId": "cue-5580bcb4-f460-4550-a998-dc1a25676792",
+      "annotatorId": "choreographer-a",
+      "formationType": "PYRAMID",
+      "formationId": "PYRAMID",
+      "rank": 1,
+      "score": 95,
+      "overall": 95,
+      "musicFit": 95,
+      "visualImpact": 93,
+      "transitionQuality": 91,
+      "execution": 88,
+      "originality": 70,
+      "layout": {
+        "dancerCount": 11,
+        "positions": [
+          {
+            "id": "d1",
+            "xPct": 49.9196275022611,
+            "yPct": 84.23716334164249
+          },
+          {
+            "id": "d2",
+            "xPct": 40.978099398532656,
+            "yPct": 84.54835413577311
+          },
+          {
+            "id": "d3",
+            "xPct": 59.68954958424951,
+            "yPct": 84.30793711059235
+          },
+          {
+            "id": "d4",
+            "xPct": 31.384086475263572,
+            "yPct": 84.61653882595556
+          },
+          {
+            "id": "d5",
+            "xPct": 45.39072053478023,
+            "yPct": 77.68334088299525
+          },
+          {
+            "id": "d6",
+            "xPct": 68.6562939229343,
+            "yPct": 84.43114236730915
+          },
+          {
+            "id": "d7",
+            "xPct": 26.225389010856677,
+            "yPct": 77.43671288135803
+          },
+          {
+            "id": "d8",
+            "xPct": 35.61368221100314,
+            "yPct": 77.60663421450205
+          },
+          {
+            "id": "d9",
+            "xPct": 64.49451832338117,
+            "yPct": 77.80460737860982
+          },
+          {
+            "id": "d10",
+            "xPct": 73.49120469457047,
+            "yPct": 77.81481580446015
+          },
+          {
+            "id": "d11",
+            "xPct": 54.388162019813564,
+            "yPct": 77.46489431370094
+          }
+        ]
+      },
+      "name": "横２列"
+    },
+    {
+      "songId": "real-001",
+      "cueId": "cue-56a5d222-fa78-4856-b82d-1eb5b09e6dfd",
+      "annotatorId": "choreographer-a",
+      "formationType": "PYRAMID",
+      "formationId": "PYRAMID",
+      "rank": 1,
+      "score": 95,
+      "overall": 95,
+      "musicFit": 95,
+      "visualImpact": 93,
+      "transitionQuality": 91,
+      "execution": 88,
+      "originality": 70,
+      "layout": {
+        "dancerCount": 11,
+        "positions": [
+          {
+            "id": "d1",
+            "xPct": 50.1472613842969,
+            "yPct": 84.82307090618984
+          },
+          {
+            "id": "d2",
+            "xPct": 31.585981019843086,
+            "yPct": 84.3045162670554
+          },
+          {
+            "id": "d3",
+            "xPct": 68.57342780576334,
+            "yPct": 85.02830384274688
+          },
+          {
+            "id": "d4",
+            "xPct": 40.7117496178436,
+            "yPct": 84.50019332859596
+          },
+          {
+            "id": "d5",
+            "xPct": 45.30206186710792,
+            "yPct": 78.00451019007765
+          },
+          {
+            "id": "d6",
+            "xPct": 59.62226887144726,
+            "yPct": 84.63735953628178
+          },
+          {
+            "id": "d7",
+            "xPct": 27.08202705903663,
+            "yPct": 77.08767638927925
+          },
+          {
+            "id": "d8",
+            "xPct": 36.5080384940756,
+            "yPct": 78.3451146169042
+          },
+          {
+            "id": "d9",
+            "xPct": 73.6027273841153,
+            "yPct": 79.06350746081799
+          },
+          {
+            "id": "d10",
+            "xPct": 64.69335403592713,
+            "yPct": 78.77693036645769
+          },
+          {
+            "id": "d11",
+            "xPct": 55.400953839120334,
+            "yPct": 78.369881146456
+          }
+        ]
+      },
+      "name": "横２列"
+    },
+    {
+      "songId": "real-001",
+      "cueId": "cue-56eafbbd-5509-4e47-af7b-f523974b75d5",
+      "annotatorId": "choreographer-a",
+      "formationType": "PYRAMID",
+      "formationId": "PYRAMID",
+      "rank": 1,
+      "score": 95,
+      "overall": 95,
+      "musicFit": 95,
+      "visualImpact": 93,
+      "transitionQuality": 91,
+      "execution": 88,
+      "originality": 70,
+      "layout": {
+        "dancerCount": 11,
+        "positions": [
+          {
+            "id": "d1",
+            "xPct": 50.09170736961332,
+            "yPct": 83.85816962569268
+          },
+          {
+            "id": "d2",
+            "xPct": 12.493656254556868,
+            "yPct": 84.72391740124984
+          },
+          {
+            "id": "d3",
+            "xPct": 87.50866368643851,
+            "yPct": 84.21736875935431
+          },
+          {
+            "id": "d4",
+            "xPct": 30.98349569094165,
+            "yPct": 84.50925016371974
+          },
+          {
+            "id": "d5",
+            "xPct": 40.5411336657978,
+            "yPct": 84.10324362651957
+          },
+          {
+            "id": "d6",
+            "xPct": 68.85902769378245,
+            "yPct": 84.50011365017495
+          },
+          {
+            "id": "d7",
+            "xPct": 3.11791921191843,
+            "yPct": 84.82918038125351
+          },
+          {
+            "id": "d8",
+            "xPct": 21.866103172699706,
+            "yPct": 84.17144632000718
+          },
+          {
+            "id": "d9",
+            "xPct": 96.55432130238327,
+            "yPct": 84.22311676288433
+          },
+          {
+            "id": "d10",
+            "xPct": 77.98896835297452,
+            "yPct": 84.40958513383633
+          },
+          {
+            "id": "d11",
+            "xPct": 59.38196157115189,
+            "yPct": 83.92659783471973
+          }
+        ]
+      },
+      "name": "横一列"
+    },
+    {
+      "songId": "real-001",
+      "cueId": "cue-5dc42b19-bc80-4721-a1c3-a3afc93adb08",
+      "annotatorId": "choreographer-a",
+      "formationType": "PYRAMID",
+      "formationId": "PYRAMID",
+      "rank": 1,
+      "score": 95,
+      "overall": 95,
+      "musicFit": 95,
+      "visualImpact": 93,
+      "transitionQuality": 91,
+      "execution": 88,
+      "originality": 70,
+      "layout": {
+        "dancerCount": 11,
+        "positions": [
+          {
+            "id": "d1",
+            "xPct": 49.98511538700244,
+            "yPct": 84.21626295289524
+          },
+          {
+            "id": "d2",
+            "xPct": 40.87986757142069,
+            "yPct": 84.51003675640317
+          },
+          {
+            "id": "d3",
+            "xPct": 59.51328963914788,
+            "yPct": 84.23687578885175
+          },
+          {
+            "id": "d4",
+            "xPct": 35.736940771686825,
+            "yPct": 78.14438511056309
+          },
+          {
+            "id": "d5",
+            "xPct": 45.171266452934304,
+            "yPct": 77.92160531471364
+          },
+          {
+            "id": "d6",
+            "xPct": 64.44347223111751,
+            "yPct": 77.93460486504492
+          },
+          {
+            "id": "d7",
+            "xPct": 30.828351292621793,
+            "yPct": 70.7792423857401
+          },
+          {
+            "id": "d8",
+            "xPct": 40.32880991237839,
+            "yPct": 70.82654810490038
+          },
+          {
+            "id": "d9",
+            "xPct": 60.68925421213538,
+            "yPct": 70.72843242842237
+          },
+          {
+            "id": "d10",
+            "xPct": 70.93439047115926,
+            "yPct": 71.03124629673394
+          },
+          {
+            "id": "d11",
+            "xPct": 55.116192227842106,
+            "yPct": 78.16575401635805
+          }
+        ]
+      },
+      "name": "横３列"
+    },
+    {
+      "songId": "real-001",
+      "cueId": "cue-8096fb7c-49b1-4413-b300-2122062f4ab1",
+      "annotatorId": "choreographer-a",
+      "formationType": "PYRAMID",
+      "formationId": "PYRAMID",
+      "rank": 1,
+      "score": 95,
+      "overall": 95,
+      "musicFit": 95,
+      "visualImpact": 93,
+      "transitionQuality": 91,
+      "execution": 88,
+      "originality": 70,
+      "layout": {
+        "dancerCount": 11,
+        "positions": [
+          {
+            "id": "d1",
+            "xPct": 50.1472613842969,
+            "yPct": 84.82307090618984
+          },
+          {
+            "id": "d2",
+            "xPct": 31.06416798078722,
+            "yPct": 84.52954378590059
+          },
+          {
+            "id": "d3",
+            "xPct": 69.04786663032549,
+            "yPct": 84.92798197676017
+          },
+          {
+            "id": "d4",
+            "xPct": 40.7117496178436,
+            "yPct": 84.50019332859596
+          },
+          {
+            "id": "d5",
+            "xPct": 49.89596731374924,
+            "yPct": 77.67428404787141
+          },
+          {
+            "id": "d6",
+            "xPct": 59.53797063683343,
+            "yPct": 84.77390874276368
+          },
+          {
+            "id": "d7",
+            "xPct": 40.77805180509691,
+            "yPct": 77.45343319235582
+          },
+          {
+            "id": "d8",
+            "xPct": 31.585300264477866,
+            "yPct": 76.93224833759139
+          },
+          {
+            "id": "d9",
+            "xPct": 69.23802953406862,
+            "yPct": 77.63531422975721
+          },
+          {
+            "id": "d10",
+            "xPct": 59.57554551135522,
+            "yPct": 77.89005720395022
+          },
+          {
+            "id": "d11",
+            "xPct": 50.28802207192276,
+            "yPct": 70.32950159539635
+          }
+        ]
+      },
+      "name": "グリッド"
+    },
+    {
+      "songId": "real-001",
+      "cueId": "cue-9231db27-f3d1-4e76-a926-48161097987f",
+      "annotatorId": "choreographer-a",
+      "formationType": "PYRAMID",
+      "formationId": "PYRAMID",
+      "rank": 1,
+      "score": 95,
+      "overall": 95,
+      "musicFit": 95,
+      "visualImpact": 93,
+      "transitionQuality": 91,
+      "execution": 88,
+      "originality": 70,
+      "layout": {
+        "dancerCount": 11,
+        "positions": [
+          {
+            "id": "d1",
+            "xPct": 50.09170736961332,
+            "yPct": 83.85816962569268
+          },
+          {
+            "id": "d2",
+            "xPct": 40.98645955403157,
+            "yPct": 84.15194342920061
+          },
+          {
+            "id": "d3",
+            "xPct": 59.61988162175876,
+            "yPct": 83.8787824616492
+          },
+          {
+            "id": "d4",
+            "xPct": 40.894460034878456,
+            "yPct": 77.07985864370414
+          },
+          {
+            "id": "d5",
+            "xPct": 50.02015664229183,
+            "yPct": 77.42626610140428
+          },
+          {
+            "id": "d6",
+            "xPct": 59.559748060514615,
+            "yPct": 77.45180588498388
+          },
+          {
+            "id": "d7",
+            "xPct": 40.64596056682096,
+            "yPct": 69.8909758639828
+          },
+          {
+            "id": "d8",
+            "xPct": 40.94397802117188,
+            "yPct": 63.151228677292366
+          },
+          {
+            "id": "d9",
+            "xPct": 59.62403106565153,
+            "yPct": 70.41631995646372
+          },
+          {
+            "id": "d10",
+            "xPct": 59.554128798292155,
+            "yPct": 63.47505908498513
+          },
+          {
+            "id": "d11",
+            "xPct": 49.83118059329237,
+            "yPct": 70.30302776964986
+          }
+        ]
+      },
+      "name": "縦３列"
+    },
+    {
+      "songId": "real-001",
+      "cueId": "cue-96bf3e39-e693-4c07-8860-5630903790c8",
+      "annotatorId": "choreographer-a",
+      "formationType": "PYRAMID",
+      "formationId": "PYRAMID",
+      "rank": 1,
+      "score": 95,
+      "overall": 95,
+      "musicFit": 95,
+      "visualImpact": 93,
+      "transitionQuality": 91,
+      "execution": 88,
+      "originality": 70,
+      "layout": {
+        "dancerCount": 11,
+        "positions": [
+          {
+            "id": "d1",
+            "xPct": 50.14238462692255,
+            "yPct": 77.23831982981982
+          },
+          {
+            "id": "d2",
+            "xPct": 31.5692607088453,
+            "yPct": 77.56065749794897
+          },
+          {
+            "id": "d3",
+            "xPct": 69.3112115285406,
+            "yPct": 77.84902030807314
+          },
+          {
+            "id": "d4",
+            "xPct": 44.55533110845932,
+            "yPct": 84.8311161504271
+          },
+          {
+            "id": "d5",
+            "xPct": 40.42321445387937,
+            "yPct": 77.62551647412788
+          },
+          {
+            "id": "d6",
+            "xPct": 55.46030479224873,
+            "yPct": 84.63735953628178
+          },
+          {
+            "id": "d7",
+            "xPct": 25.047025874681268,
+            "yPct": 70.98267283621317
+          },
+          {
+            "id": "d8",
+            "xPct": 36.20707289611548,
+            "yPct": 71.31352716271088
+          },
+          {
+            "id": "d9",
+            "xPct": 73.87512911745422,
+            "yPct": 71.01407107463453
+          },
+          {
+            "id": "d10",
+            "xPct": 64.7525718040443,
+            "yPct": 70.70380687302737
+          },
+          {
+            "id": "d11",
+            "xPct": 59.682050134178084,
+            "yPct": 77.29838788334797
+          }
+        ]
+      },
+      "name": "３列2.5.4"
+    },
+    {
+      "songId": "real-001",
+      "cueId": "cue-ddcb6058-8d5e-4247-9eec-5313612d0f49",
+      "annotatorId": "choreographer-a",
+      "formationType": "PYRAMID",
+      "formationId": "PYRAMID",
+      "rank": 1,
+      "score": 95,
+      "overall": 95,
+      "musicFit": 95,
+      "visualImpact": 93,
+      "transitionQuality": 91,
+      "execution": 88,
+      "originality": 70,
+      "layout": {
+        "dancerCount": 11,
+        "positions": [
+          {
+            "id": "d1",
+            "xPct": 45.24124346569695,
+            "yPct": 78.43800214391086
+          },
+          {
+            "id": "d2",
+            "xPct": 49.94000573803618,
+            "yPct": 84.5309371451504
+          },
+          {
+            "id": "d3",
+            "xPct": 68.17005030294183,
+            "yPct": 84.3427710918377
+          },
+          {
+            "id": "d4",
+            "xPct": 39.87016063095511,
+            "yPct": 84.51830699884357
+          },
+          {
+            "id": "d5",
+            "xPct": 35.502566263156346,
+            "yPct": 78.61549822112168
+          },
+          {
+            "id": "d6",
+            "xPct": 59.484326305715534,
+            "yPct": 84.53007087404599
+          },
+          {
+            "id": "d7",
+            "xPct": 25.14804442029287,
+            "yPct": 78.72417682818745
+          },
+          {
+            "id": "d8",
+            "xPct": 30.627365780229788,
+            "yPct": 84.3818435667293
+          },
+          {
+            "id": "d9",
+            "xPct": 54.784017356108784,
+            "yPct": 78.41211201152927
+          },
+          {
+            "id": "d10",
+            "xPct": 72.33105276379013,
+            "yPct": 78.35752923226327
+          },
+          {
+            "id": "d11",
+            "xPct": 63.82032710612972,
+            "yPct": 78.63392272429597
+          }
+        ]
+      },
+      "name": "横２列"
+    }
+  ],
+  "formationTop3": [],
+  "sequence": [
+    {
+      "songId": "real-001",
+      "annotatorId": "choreographer-a",
+      "formationIds": [
+        "ピラミッド",
+        "横２列",
+        "横２列前後入れ替え",
+        "横３列",
+        "縦３列",
+        "横２列",
+        "横一列",
+        "３列2.5.4",
+        "横２列",
+        "グリッド",
+        "３列3.4.4",
+        "横２列"
+      ],
+      "musicStory": 79,
+      "visualStory": 80,
+      "execution": 80,
+      "variety": 70,
+      "overall": 80
+    }
+  ],
   "notes": "Human First. Annotate as you would choreograph. Do not view AI output. mode=BLIND."
 }
