@@ -151,6 +151,8 @@ function loadHistory(_annotatorId: string, _songId: string, draft: AnnotationSes
   return emptyHistory(draft);
 }
 
+clearBlindHistoryStorage();
+
 export function AnnotationWorkbenchPage() {
   const [annotatorId, setAnnotatorId] = useState<string>(PILOT_ANNOTATORS[0]);
   const [calibrationOnly, setCalibrationOnly] = useState(true);
