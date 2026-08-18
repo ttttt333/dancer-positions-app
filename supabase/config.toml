@@ -1,0 +1,5 @@
+# JWT 検証は関数側のシークレット / ユーザ JWT で行う
+project_id = "iiziplsgfoijvnrsehms"
+
+[functions.notify-new-user]
+verify_jwt = false

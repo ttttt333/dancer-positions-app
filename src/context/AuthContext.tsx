@@ -14,7 +14,8 @@ import {
   isDemoSessionToken,
   setToken,
 } from "../api/client";
-import { buildMeFromSupabaseUser, buildMeFromSupabaseUserWithBilling } from "../lib/buildSupabaseMe";
+import { buildMeFromSupabaseUserWithBilling } from "../lib/buildSupabaseMe";
+import { notifyNewSignupIfNeeded } from "../lib/notifyNewSignup";
 import { clearAuthSessionHashIfPresent } from "../lib/supabaseAuth";
 import {
   getSupabase,
@@ -85,6 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setMe(null);
         return;
       }
+      notifyNewSignupIfNeeded(session.user);
       void (async () => {
         const m = await buildMeFromSupabaseUserWithBilling(session.user);
         setMe(m);

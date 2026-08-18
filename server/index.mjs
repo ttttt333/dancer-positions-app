@@ -24,6 +24,7 @@ import { applyProjectJsonToDoc } from "./yjsJson.mjs";
 import { handleParsePositionRoute } from "./parsePositionRoute.mjs";
 import { handleParseRosterNamesRoute } from "./parseRosterNamesRoute.mjs";
 import { checkParseRateLimit } from "../shared/parseRouteSecurity.mjs";
+import { notifyLocalSignup } from "./signupNotify.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const isProduction = process.env.NODE_ENV === "production";
@@ -423,6 +424,12 @@ app.post("/api/auth/register", async (req, res) => {
     );
   }
   const token = jwt.sign({ sub: userId }, JWT_SECRET, { expiresIn: "30d" });
+  void notifyLocalSignup({
+    email,
+    userId,
+    createdAt: now,
+    provider: "email",
+  });
   res.json({ token, user: { id: userId, email } });
 });
 
