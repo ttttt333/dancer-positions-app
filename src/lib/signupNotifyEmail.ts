@@ -1,5 +1,8 @@
 /** 新規登録通知メール本文 */
 
+import type { SignupGeo, SignupGeoSource } from "./signupCountry";
+import { formatSignupCountry, geoFromHints } from "./signupCountry";
+
 export const SIGNUP_NOTIFY_TO = "interush.info@gmail.com";
 
 export type SignupNotifyInfo = {
@@ -10,7 +13,21 @@ export type SignupNotifyInfo = {
   displayName: string;
   emailConfirmed: boolean;
   sample?: boolean;
+  countryCode?: string;
+  countryName?: string;
+  timezone?: string;
+  locale?: string;
+  geoSource?: SignupGeoSource;
 };
+
+export function signupGeoFromInfo(info: SignupNotifyInfo): SignupGeo | null {
+  return geoFromHints({
+    countryCode: info.countryCode,
+    timezone: info.timezone,
+    locale: info.locale,
+    source: info.geoSource,
+  });
+}
 
 export function providerLabel(provider: string): string {
   const p = provider.trim().toLowerCase();
@@ -42,14 +59,19 @@ export function buildSignupNotifyEmail(info: SignupNotifyInfo): {
   const when = formatTokyo(info.createdAt);
   const method = providerLabel(info.provider);
   const name = info.displayName.trim() || "（未設定）";
+  const country = formatSignupCountry(signupGeoFromInfo(info));
   const prefix = info.sample ? "【サンプル】" : "";
-  const subject = `${prefix}【ChoreoCore】新規ユーザー登録: ${info.email}`;
+  const countrySubject = info.countryCode
+    ? `（${info.countryName || info.countryCode}）`
+    : "";
+  const subject = `${prefix}【ChoreoCore】新規ユーザー登録: ${info.email}${countrySubject}`;
   const text = [
     info.sample ? "これは通知メールのテスト送信です。" : "ChoreoCore に新しいユーザーが登録しました。",
     "",
     `メール: ${info.email}`,
     `表示名: ${name}`,
     `登録方法: ${method}`,
+    `国・地域: ${country}`,
     `ユーザーID: ${info.userId}`,
     `登録日時: ${when}（日本時間）`,
     `メール確認: ${info.emailConfirmed ? "済み" : "未確認"}`,
@@ -67,6 +89,7 @@ export function buildSignupNotifyEmail(info: SignupNotifyInfo): {
       <tr><td style="padding:8px 0;color:#9a9284;width:120px;">メール</td><td style="padding:8px 0;">${escapeHtml(info.email)}</td></tr>
       <tr><td style="padding:8px 0;color:#9a9284;">表示名</td><td style="padding:8px 0;">${escapeHtml(name)}</td></tr>
       <tr><td style="padding:8px 0;color:#9a9284;">登録方法</td><td style="padding:8px 0;">${escapeHtml(method)}</td></tr>
+      <tr><td style="padding:8px 0;color:#9a9284;">国・地域</td><td style="padding:8px 0;">${escapeHtml(country)}</td></tr>
       <tr><td style="padding:8px 0;color:#9a9284;">ユーザーID</td><td style="padding:8px 0;font-family:ui-monospace,monospace;font-size:12px;">${escapeHtml(info.userId)}</td></tr>
       <tr><td style="padding:8px 0;color:#9a9284;">登録日時</td><td style="padding:8px 0;">${escapeHtml(when)}（日本時間）</td></tr>
       <tr><td style="padding:8px 0;color:#9a9284;">メール確認</td><td style="padding:8px 0;">${info.emailConfirmed ? "済み" : "未確認"}</td></tr>
@@ -97,6 +120,11 @@ export function sampleSignupNotifyInfo(): SignupNotifyInfo {
     displayName: "サンプル 花子",
     emailConfirmed: true,
     sample: true,
+    countryCode: "JP",
+    countryName: "日本",
+    timezone: "Asia/Tokyo",
+    locale: "ja-JP",
+    geoSource: "ip",
   };
 }
 
@@ -116,6 +144,20 @@ export function infoFromAuthRecord(record: {
   const providerFromList = Array.isArray(providers) ? String(providers[0] ?? "") : "";
   const provider = String(app.provider ?? providerFromList ?? "email") || "email";
   const displayName = String(meta.full_name ?? meta.name ?? meta.user_name ?? "").trim();
+  const rawSource = String(meta.signup_geo_source ?? "").trim();
+  const geoSource =
+    rawSource === "ip" ||
+    rawSource === "timezone" ||
+    rawSource === "locale" ||
+    rawSource === "unknown"
+      ? rawSource
+      : undefined;
+  const geo = geoFromHints({
+    countryCode: String(meta.signup_country_code ?? "").trim(),
+    timezone: String(meta.signup_timezone ?? "").trim(),
+    locale: String(meta.signup_locale ?? "").trim(),
+    source: geoSource,
+  });
   return {
     email: String(record.email ?? "").trim() || "(no email)",
     userId: String(record.id ?? ""),
@@ -123,5 +165,10 @@ export function infoFromAuthRecord(record: {
     provider,
     displayName,
     emailConfirmed: Boolean(record.email_confirmed_at),
+    countryCode: geo?.countryCode,
+    countryName: geo?.countryName,
+    timezone: geo?.timezone,
+    locale: geo?.locale,
+    geoSource: geo?.source,
   };
 }

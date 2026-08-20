@@ -5,7 +5,7 @@
  *   RESEND_API_KEY
  *   SIGNUP_NOTIFY_SECRET … DB webhook / サンプル送信用
  *   SIGNUP_NOTIFY_TO … 省略時 interush.info@gmail.com
- *   SIGNUP_NOTIFY_FROM … 省略時 ChoreoCore <beth.t@example.com>
+ *   SIGNUP_NOTIFY_FROM … 省略時 ChoreoCore <onboarding@resend.dev>
  *
  * 呼び出し:
  *   - ログイン直後のクライアント（JWT）
@@ -24,6 +24,13 @@ import {
   sampleSignupNotifyInfo,
   type SignupNotifyInfo,
 } from "../_shared/signupNotifyEmail.ts";
+import {
+  countryDisplayName,
+  geoFromHints,
+  normalizeCountryCode,
+  parseClientIp,
+  type SignupGeo,
+} from "../_shared/signupCountry.ts";
 
 // @ts-ignore Deno
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
@@ -33,7 +40,7 @@ const SIGNUP_NOTIFY_SECRET = Deno.env.get("SIGNUP_NOTIFY_SECRET") ?? "";
 const SIGNUP_NOTIFY_TO_ENV = (Deno.env.get("SIGNUP_NOTIFY_TO") ?? SIGNUP_NOTIFY_TO).trim();
 // @ts-ignore Deno
 const SIGNUP_NOTIFY_FROM =
-  (Deno.env.get("SIGNUP_NOTIFY_FROM") ?? "ChoreoCore <beth.t@example.com>").trim();
+  (Deno.env.get("SIGNUP_NOTIFY_FROM") ?? "ChoreoCore <onboarding@resend.dev>").trim();
 // @ts-ignore Deno
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
@@ -76,10 +83,109 @@ async function sendResend(info: SignupNotifyInfo): Promise<{ id?: string }> {
   return json;
 }
 
-async function markSent(userId: string): Promise<boolean> {
+async function lookupCountryByIp(ip: string): Promise<string> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 2500);
+  try {
+    const res = await fetch(`https://ipwho.is/${encodeURIComponent(ip)}`, {
+      signal: ctrl.signal,
+    });
+    const json = (await res.json().catch(() => ({}))) as {
+      success?: boolean;
+      country_code?: string;
+    };
+    if (json.success === false) return "";
+    return normalizeCountryCode(json.country_code);
+  } catch {
+    return "";
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function resolveGeo(opts: {
+  req: Request;
+  allowIpLookup: boolean;
+  timezone?: string;
+  locale?: string;
+  existing?: SignupNotifyInfo | null;
+}): Promise<SignupGeo | null> {
+  const timezone = String(opts.timezone || opts.existing?.timezone || "").trim();
+  const locale = String(opts.locale || opts.existing?.locale || "").trim();
+  let ipCountry = "";
+  if (opts.allowIpLookup) {
+    ipCountry = normalizeCountryCode(
+      opts.req.headers.get("cf-ipcountry") ||
+        opts.req.headers.get("x-vercel-ip-country") ||
+        opts.req.headers.get("x-country-code")
+    );
+    if (!ipCountry) {
+      const ip = parseClientIp(opts.req.headers);
+      if (ip) ipCountry = await lookupCountryByIp(ip);
+    }
+  }
+  return geoFromHints({
+    countryCode: ipCountry || opts.existing?.countryCode,
+    timezone,
+    locale,
+    source: ipCountry ? "ip" : opts.existing?.geoSource,
+  });
+}
+
+function applyGeo(info: SignupNotifyInfo, geo: SignupGeo | null): SignupNotifyInfo {
+  if (!geo) return info;
+  return {
+    ...info,
+    countryCode: geo.countryCode || info.countryCode,
+    countryName: geo.countryName || info.countryName || countryDisplayName(geo.countryCode),
+    timezone: geo.timezone || info.timezone,
+    locale: geo.locale || info.locale,
+    geoSource: geo.source || info.geoSource,
+  };
+}
+
+async function persistGeo(userId: string, geo: SignupGeo | null, meta: Record<string, unknown>) {
+  if (!userId || !geo) return;
+  try {
+    const admin = await createServiceClient();
+    await admin.auth.admin.updateUserById(userId, {
+      user_metadata: {
+        ...meta,
+        signup_country_code: geo.countryCode || meta.signup_country_code,
+        signup_country_name: geo.countryName || meta.signup_country_name,
+        signup_timezone: geo.timezone || meta.signup_timezone,
+        signup_locale: geo.locale || meta.signup_locale,
+        signup_geo_source: geo.source || meta.signup_geo_source,
+      },
+    });
+  } catch (e) {
+    console.error("[notify-new-user] persist geo", e);
+  }
+}
+
+async function markSent(userId: string, geo: SignupGeo | null): Promise<boolean> {
   if (!userId) return true;
   const admin = await createServiceClient();
-  const { error } = await admin.from("choreocore_signup_notices").insert({ user_id: userId });
+  const payload = {
+    user_id: userId,
+    country_code: geo?.countryCode || null,
+    country_name: geo?.countryName || null,
+    timezone: geo?.timezone || null,
+    locale: geo?.locale || null,
+    geo_source: geo?.source || null,
+  };
+  const { data: existing } = await admin
+    .from("choreocore_signup_notices")
+    .select("user_id, country_code")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (existing) {
+    if (!existing.country_code && geo?.countryCode) {
+      await admin.from("choreocore_signup_notices").update(payload).eq("user_id", userId);
+    }
+    return false;
+  }
+  const { error } = await admin.from("choreocore_signup_notices").insert(payload);
   if (!error) return true;
   if (error.code === "23505") return false;
   console.error("[notify-new-user] dedup insert", error);
@@ -118,9 +224,21 @@ serve(async (req: Request) => {
     }
 
     let info: SignupNotifyInfo | null = null;
-    const record = (body.record ?? body) as Record<string, unknown>;
-    if (hasSecret(req) && typeof record.email === "string") {
-      info = infoFromAuthRecord(record);
+    let existingMeta: Record<string, unknown> = {};
+    const webhookRecord = body.record;
+    const isWebhook =
+      hasSecret(req) &&
+      webhookRecord !== null &&
+      typeof webhookRecord === "object" &&
+      typeof (webhookRecord as { email?: unknown }).email === "string";
+    const timezone = String(body.timezone ?? "").trim();
+    const locale = String(body.locale ?? "").trim();
+
+    if (isWebhook) {
+      info = infoFromAuthRecord(webhookRecord as Record<string, unknown>);
+      existingMeta =
+        ((webhookRecord as { raw_user_meta_data?: Record<string, unknown> }).raw_user_meta_data ??
+          {}) as Record<string, unknown>;
     } else {
       const user = await getUserFromAuthHeader(req);
       if (!user) {
@@ -132,13 +250,14 @@ serve(async (req: Request) => {
         return jsonResponse({ error: error?.message ?? "user lookup failed" }, 500);
       }
       const u = data.user;
+      existingMeta = (u.user_metadata ?? {}) as Record<string, unknown>;
       info = infoFromAuthRecord({
         id: u.id,
         email: u.email,
         created_at: u.created_at,
         email_confirmed_at: u.email_confirmed_at,
         raw_app_meta_data: u.app_metadata as Record<string, unknown>,
-        raw_user_meta_data: u.user_metadata as Record<string, unknown>,
+        raw_user_meta_data: existingMeta,
       });
       const createdAt = Date.parse(info.createdAt);
       if (Number.isFinite(createdAt) && Date.now() - createdAt > 30 * 60 * 1000) {
@@ -150,14 +269,33 @@ serve(async (req: Request) => {
       return jsonResponse({ error: "user id missing" }, 400);
     }
 
-    const first = await markSent(info.userId);
+    const geo = await resolveGeo({
+      req,
+      allowIpLookup: !isWebhook,
+      timezone,
+      locale,
+      existing: info,
+    });
+    info = applyGeo(info, geo);
+    await persistGeo(info.userId, geo, existingMeta);
+
+    const first = await markSent(info.userId, geo);
     if (!first) {
-      return jsonResponse({ ok: true, skipped: "already_notified" });
+      return jsonResponse({
+        ok: true,
+        skipped: "already_notified",
+        country: info.countryCode || null,
+      });
     }
 
     try {
       const sent = await sendResend(info);
-      return jsonResponse({ ok: true, to: SIGNUP_NOTIFY_TO_ENV, id: sent.id });
+      return jsonResponse({
+        ok: true,
+        to: SIGNUP_NOTIFY_TO_ENV,
+        id: sent.id,
+        country: info.countryCode || null,
+      });
     } catch (sendErr) {
       await unmarkSent(info.userId);
       throw sendErr;

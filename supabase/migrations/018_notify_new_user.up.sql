@@ -2,8 +2,9 @@
 -- Secrets（Dashboard → Edge Functions → Secrets）:
 --   RESEND_API_KEY
 --   SIGNUP_NOTIFY_SECRET
--- SQL 側シークレット（Dashboard → SQL。Edge の SIGNUP_NOTIFY_SECRET と同じ値）:
---   alter database postgres set app.settings.notify_new_user_secret = '同じ値';
+-- SQL 側シークレットは public.choreocore_app_settings に入れる:
+--   notify_new_user_secret … Edge の SIGNUP_NOTIFY_SECRET と同じ値
+--   supabase_anon_key … VITE_SUPABASE_ANON_KEY
 
 create table if not exists public.choreocore_signup_notices (
   user_id uuid primary key references auth.users (id) on delete cascade,
@@ -17,6 +18,18 @@ alter table public.choreocore_signup_notices enable row level security;
 
 revoke all on table public.choreocore_signup_notices from public, anon, authenticated;
 grant all on table public.choreocore_signup_notices to service_role;
+
+create table if not exists public.choreocore_app_settings (
+  key text primary key,
+  value text not null
+);
+
+comment on table public.choreocore_app_settings is
+  'Private app settings for SECURITY DEFINER triggers. Not exposed via RLS.';
+
+alter table public.choreocore_app_settings enable row level security;
+
+revoke all on table public.choreocore_app_settings from public, anon, authenticated;
 
 create extension if not exists pg_net;
 
@@ -32,28 +45,24 @@ declare
   anon text;
   headers jsonb;
 begin
-  begin
-    secret := nullif(current_setting('app.settings.notify_new_user_secret', true), '');
-  exception when others then
-    secret := null;
-  end;
+  select value into secret
+  from public.choreocore_app_settings
+  where key = 'notify_new_user_secret';
 
-  if secret is null then
+  if secret is null or secret = '' then
     return new;
   end if;
+
+  select value into anon
+  from public.choreocore_app_settings
+  where key = 'supabase_anon_key';
 
   fn_url := 'https://iiziplsgfoijvnrsehms.supabase.co/functions/v1/notify-new-user';
   headers := jsonb_build_object(
     'Content-Type', 'application/json',
     'x-choreocore-notify-secret', secret
   );
-
-  begin
-    anon := nullif(current_setting('app.settings.supabase_anon_key', true), '');
-  exception when others then
-    anon := null;
-  end;
-  if anon is not null then
+  if anon is not null and anon <> '' then
     headers := headers || jsonb_build_object(
       'Authorization', 'Bearer ' || anon,
       'apikey', anon

@@ -2,7 +2,7 @@
 
 const TO = (process.env.SIGNUP_NOTIFY_TO || "interush.info@gmail.com").trim();
 const FROM = (
-  process.env.SIGNUP_NOTIFY_FROM || "ChoreoCore <beth.t@example.com>"
+  process.env.SIGNUP_NOTIFY_FROM || "ChoreoCore <onboarding@resend.dev>"
 ).trim();
 
 function tokyo(iso) {

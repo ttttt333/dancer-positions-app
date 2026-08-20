@@ -1,3 +1,4 @@
+import { collectBrowserSignupHints } from "./signupCountry";
 import { getSupabase } from "./supabaseClient";
 
 const NEW_USER_WINDOW_MS = 15 * 60 * 1000;
@@ -22,7 +23,7 @@ export function notifyNewSignupIfNeeded(user: {
   }
   try {
     void getSupabase()
-      .functions.invoke("notify-new-user", { body: {} })
+      .functions.invoke("notify-new-user", { body: collectBrowserSignupHints() })
       .catch(() => {});
   } catch {
     /* 未設定・オフラインでも登録は止めない */

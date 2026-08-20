@@ -17,6 +17,8 @@ describe("signup notify email", () => {
     expect(mail.subject).toContain("【サンプル】");
     expect(mail.subject).toContain("sample.user@example.com");
     expect(mail.text).toContain("Google");
+    expect(mail.text).toContain("日本");
+    expect(mail.subject).toContain("日本");
     expect(mail.text.toLowerCase()).not.toContain("password");
     expect(mail.html.toLowerCase()).not.toContain("password");
   });

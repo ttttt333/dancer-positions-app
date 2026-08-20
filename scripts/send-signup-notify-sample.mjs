@@ -54,17 +54,18 @@ loadEnvFile();
 
 const TO = (process.env.SIGNUP_NOTIFY_TO || "interush.info@gmail.com").trim();
 const FROM = (
-  process.env.SIGNUP_NOTIFY_FROM || "ChoreoCore <beth.t@example.com>"
+  process.env.SIGNUP_NOTIFY_FROM || "ChoreoCore <onboarding@resend.dev>"
 ).trim();
 const createdAt = new Date().toISOString();
 const when = tokyo(createdAt);
-const subject = "【サンプル】【ChoreoCore】新規ユーザー登録: sample.user@example.com";
+const subject = "【サンプル】【ChoreoCore】新規ユーザー登録: sample.user@example.com（日本）";
 const text = [
   "これは通知メールのテスト送信です。",
   "",
   "メール: sample.user@example.com",
   "表示名: サンプル 花子",
   "登録方法: Google",
+  "国・地域: 日本（JP）・接続元IPから推定",
   "ユーザーID: 00000000-0000-4000-8000-sample000001",
   `登録日時: ${when}（日本時間）`,
   "メール確認: 済み",
@@ -82,6 +83,7 @@ const html = `<!doctype html>
       <tr><td style="padding:8px 0;color:#9a9284;width:120px;">メール</td><td style="padding:8px 0;">sample.user@example.com</td></tr>
       <tr><td style="padding:8px 0;color:#9a9284;">表示名</td><td style="padding:8px 0;">サンプル 花子</td></tr>
       <tr><td style="padding:8px 0;color:#9a9284;">登録方法</td><td style="padding:8px 0;">Google</td></tr>
+      <tr><td style="padding:8px 0;color:#9a9284;">国・地域</td><td style="padding:8px 0;">日本（JP）・接続元IPから推定</td></tr>
       <tr><td style="padding:8px 0;color:#9a9284;">ユーザーID</td><td style="padding:8px 0;font-family:ui-monospace,monospace;font-size:12px;">00000000-0000-4000-8000-sample000001</td></tr>
       <tr><td style="padding:8px 0;color:#9a9284;">登録日時</td><td style="padding:8px 0;">${when}（日本時間）</td></tr>
       <tr><td style="padding:8px 0;color:#9a9284;">メール確認</td><td style="padding:8px 0;">済み</td></tr>
