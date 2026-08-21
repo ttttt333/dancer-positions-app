@@ -21,6 +21,7 @@ import type {
 import { AnnotateMiniStage } from "./annotation/AnnotateMiniStage";
 import { DEFAULT_DANCER_COUNT, layoutPreset, type AnnotateSpot } from "./annotation/annotateLayouts";
 import {
+  adoptAnnotationSession,
   deleteSavedAnnotation,
   listSavedAnnotations,
   loadSavedAnnotation,
@@ -41,6 +42,7 @@ import {
   PILOT_SONGS,
   SECTION_TYPE_JA,
   SECTION_TYPES,
+  annotatorLabel,
   annotatorShort,
   draftKey,
   formatClock,
@@ -301,7 +303,7 @@ export function AnnotationWorkbenchPage() {
     const blob = new Blob([json], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `${songId}.json`;
+    a.download = `${annotatorId}-${songId}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
   };
@@ -321,15 +323,18 @@ export function AnnotationWorkbenchPage() {
     setAudioUrl(URL.createObjectURL(file));
   };
 
-  const applyLoadedSession = (nextRaw: AnnotationSession, nextSave?: { id: string; title: string }) => {
-    const next = withCueIds(nextRaw);
+  const applyLoadedSession = (
+    nextRaw: AnnotationSession,
+    options?: { save?: { id: string; title: string }; adopt?: boolean },
+  ) => {
+    const next = withCueIds(options?.adopt ? adoptAnnotationSession(nextRaw, annotatorId) : nextRaw);
     if (next.annotatorId !== annotatorId || next.songId !== songId) {
       skipSongLoadRef.current = true;
     }
     if (!(CALIBRATION_SONG_IDS as readonly string[]).includes(next.songId)) {
       setCalibrationOnly(false);
     }
-    setAnnotatorId(next.annotatorId);
+    if (!options?.adopt) setAnnotatorId(next.annotatorId);
     setSongId(next.songId);
     sessionRef.current = next;
     setSession(next);
@@ -338,9 +343,16 @@ export function AnnotationWorkbenchPage() {
     setHistMeta({ index: 0, length: 1 });
     setSelectedCueId(next.cues[0] ? cueIdOf(next.cues[0], 0) : null);
     setSelectedSectionIndex(null);
-    setSaveId(nextSave?.id ?? null);
-    setSaveTitle(nextSave?.title ?? "");
+    setSaveId(options?.save?.id ?? null);
+    setSaveTitle(options?.save?.title ?? "");
     writeLocalJson(draftKey(next.annotatorId, next.songId), next);
+  };
+
+  const sessionHasWork = (row: AnnotationSession) => row.cues.length > 0 || row.sections.length > 0;
+
+  const confirmReplaceCurrent = (message: string) => {
+    if (!sessionHasWork(sessionRef.current)) return true;
+    return window.confirm(message);
   };
 
   const onSaveNamed = () => {
@@ -357,9 +369,7 @@ export function AnnotationWorkbenchPage() {
   };
 
   const onNewSession = () => {
-    if (session.cues.length > 0 || session.sections.length > 0) {
-      if (!window.confirm("今の内容を閉じて新規にします。先に「保存」していない変更は消えます。よろしいですか？")) return;
-    }
+    if (!confirmReplaceCurrent("今の内容を閉じて新規にします。先に「保存」していない変更は消えます。よろしいですか？")) return;
     applyLoadedSession(emptySession(annotatorId, songId));
     setSaveHint("新規を開きました");
   };
@@ -371,8 +381,26 @@ export function AnnotationWorkbenchPage() {
       return;
     }
     const meta = saves.find((row) => row.id === id);
-    applyLoadedSession(loaded, meta ? { id: meta.id, title: meta.title } : undefined);
+    applyLoadedSession(loaded, meta ? { save: { id: meta.id, title: meta.title } } : undefined);
     setSaveHint("呼び出しました");
+  };
+
+  const onAdoptSave = (id: string) => {
+    const loaded = loadSavedAnnotation(id);
+    if (!loaded) {
+      setSaveHint("読み込めませんでした");
+      return;
+    }
+    const sourceLabel = annotatorLabel(loaded.annotatorId);
+    if (
+      !confirmReplaceCurrent(
+        `${sourceLabel}の保存を、今の${annotatorLabel(annotatorId)}用にコピーします。曲の構成（セクション・キュー時刻）はそのまま残します。先に「保存」していない変更は消えます。よろしいですか？`,
+      )
+    ) {
+      return;
+    }
+    applyLoadedSession(loaded, { adopt: true });
+    setSaveHint(`${sourceLabel}の曲構成をコピーしました。立ち位置などをアレンジして、自分の名前で保存してください。`);
   };
 
   const onDeleteSave = (id: string) => {
@@ -388,8 +416,24 @@ export function AnnotationWorkbenchPage() {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        applyLoadedSession(parseAnnotationFile(String(reader.result ?? "")));
-        setSaveHint(`${file.name} を開きました`);
+        const loaded = parseAnnotationFile(String(reader.result ?? ""));
+        const sourceLabel = annotatorLabel(loaded.annotatorId);
+        const samePerson = loaded.annotatorId === annotatorId;
+        if (
+          !confirmReplaceCurrent(
+            samePerson
+              ? `${file.name} を開きます。先に「保存」していない変更は消えます。よろしいですか？`
+              : `${file.name}（${sourceLabel}）を、今の${annotatorLabel(annotatorId)}用にコピーします。曲の構成はそのまま残します。先に「保存」していない変更は消えます。よろしいですか？`,
+          )
+        ) {
+          return;
+        }
+        applyLoadedSession(loaded, { adopt: !samePerson });
+        setSaveHint(
+          samePerson
+            ? `${file.name} を開きました`
+            : `${file.name}（${sourceLabel}）の曲構成をコピーしました。立ち位置などをアレンジして、自分の名前で保存してください。`,
+        );
       } catch {
         setSaveHint("JSONを開けませんでした");
       }
@@ -572,6 +616,15 @@ export function AnnotationWorkbenchPage() {
   const selectedWindow = selectedCueId ? cueWindows.find((w) => w.id === selectedCueId) : undefined;
   const undoEnabled = histMeta.index > 0;
   const redoEnabled = histMeta.index < histMeta.length - 1;
+  const mySaves = useMemo(() => saves.filter((row) => row.annotatorId === annotatorId), [saves, annotatorId]);
+  const otherSaves = useMemo(
+    () =>
+      saves
+        .filter((row) => row.annotatorId !== annotatorId)
+        .slice()
+        .sort((a, b) => Number(b.songId === songId) - Number(a.songId === songId) || (a.savedAt < b.savedAt ? 1 : -1)),
+    [saves, annotatorId, songId]
+  );
 
   useEffect(() => {
     if (!selectedCueId) return;
@@ -701,43 +754,78 @@ export function AnnotationWorkbenchPage() {
             <p style={{ margin: "0 0 8px", fontSize: 12, color: shell.accent }}>{saveHint}</p>
           ) : (
             <p style={{ margin: "0 0 8px", fontSize: 12, color: shell.textSubtle }}>
-              このページ内に名前を付けて保存できます。下書きは曲ごとに自動でも残ります。
+              このページ内に名前を付けて保存できます。下書きは曲ごとに自動でも残ります。他のコレオグラファーの保存や JSON
+              は、曲の構成（セクション・キュー時刻）を残したまま自分用にコピーしてアレンジできます。JSON を開く前に、上で自分のコレオグラファーを選んでください。
             </p>
           )}
-          {saves.filter((row) => row.annotatorId === annotatorId).length === 0 ? (
+          {saves.length === 0 ? (
             <p style={{ margin: 0, fontSize: 12, color: shell.textMuted }}>まだ保存はありません。</p>
           ) : (
-            <div style={{ display: "grid", gap: 6 }}>
-              {saves
-                .filter((row) => row.annotatorId === annotatorId)
-                .map((row) => (
-                  <div
-                    key={row.id}
-                    style={{
-                      display: "flex",
-                      gap: 8,
-                      alignItems: "center",
-                      flexWrap: "wrap",
-                      padding: "8px 10px",
-                      borderRadius: 8,
-                      border: `1px solid ${saveId === row.id ? shell.accent : shell.border}`,
-                      background: saveId === row.id ? shell.accentSoft : "transparent",
-                    }}
-                  >
-                    <div style={{ flex: "1 1 180px", minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600 }}>{row.title}</div>
-                      <div style={{ fontSize: 11, color: shell.textSubtle }}>
-                        {row.songId} · {row.cueCount}キュー · {formatSavedAt(row.savedAt)}
+            <div style={{ display: "grid", gap: 12 }}>
+              {mySaves.length > 0 ? (
+                <div style={{ display: "grid", gap: 6 }}>
+                  <p style={{ margin: 0, fontSize: 11, color: shell.textSubtle }}>{annotatorLabel(annotatorId)}の保存</p>
+                  {mySaves.map((row) => (
+                    <div
+                      key={row.id}
+                      style={{
+                        display: "flex",
+                        gap: 8,
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        border: `1px solid ${saveId === row.id ? shell.accent : shell.border}`,
+                        background: saveId === row.id ? shell.accentSoft : "transparent",
+                      }}
+                    >
+                      <div style={{ flex: "1 1 180px", minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>{row.title}</div>
+                        <div style={{ fontSize: 11, color: shell.textSubtle }}>
+                          {row.songId} · {row.cueCount}キュー · {formatSavedAt(row.savedAt)}
+                        </div>
                       </div>
+                      <button type="button" style={{ ...btnAccent, padding: "4px 10px", fontSize: 12 }} onClick={() => onRecallSave(row.id)}>
+                        呼び出す
+                      </button>
+                      <button type="button" style={{ ...btnSecondary, padding: "4px 10px", fontSize: 12 }} onClick={() => onDeleteSave(row.id)}>
+                        削除
+                      </button>
                     </div>
-                    <button type="button" style={{ ...btnAccent, padding: "4px 10px", fontSize: 12 }} onClick={() => onRecallSave(row.id)}>
-                      呼び出す
-                    </button>
-                    <button type="button" style={{ ...btnSecondary, padding: "4px 10px", fontSize: 12 }} onClick={() => onDeleteSave(row.id)}>
-                      削除
-                    </button>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              ) : (
+                <p style={{ margin: 0, fontSize: 12, color: shell.textMuted }}>{annotatorLabel(annotatorId)}の保存はまだありません。</p>
+              )}
+              {otherSaves.length > 0 ? (
+                <div style={{ display: "grid", gap: 6 }}>
+                  <p style={{ margin: 0, fontSize: 11, color: shell.textSubtle }}>他のコレオグラファーの保存（この構成で始める）</p>
+                  {otherSaves.map((row) => (
+                    <div
+                      key={row.id}
+                      style={{
+                        display: "flex",
+                        gap: 8,
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        border: `1px solid ${shell.border}`,
+                      }}
+                    >
+                      <div style={{ flex: "1 1 180px", minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>{row.title}</div>
+                        <div style={{ fontSize: 11, color: shell.textSubtle }}>
+                          {annotatorLabel(row.annotatorId)} · {row.songId} · {row.cueCount}キュー · {formatSavedAt(row.savedAt)}
+                        </div>
+                      </div>
+                      <button type="button" style={{ ...btnAccent, padding: "4px 10px", fontSize: 12 }} onClick={() => onAdoptSave(row.id)}>
+                        この構成で始める
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </div>
           )}
         </div>
@@ -1184,7 +1272,7 @@ export function AnnotationWorkbenchPage() {
           </p>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button type="button" style={btnAccent} onClick={download}>
-              Download {songId}.json
+              Download {annotatorId}-{songId}.json
             </button>
             <button type="button" style={btnSecondary} onClick={() => void copy()}>
               {copied ? "Copied" : "Copy JSON"}

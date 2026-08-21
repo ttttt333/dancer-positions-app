@@ -130,6 +130,10 @@ export function annotatorShort(annotatorId: string): string {
   return tail.slice(0, 1);
 }
 
+export function annotatorLabel(annotatorId: string): string {
+  return `コレオグラファー ${annotatorShort(annotatorId).toUpperCase()}`;
+}
+
 export function formatClock(seconds: number): string {
   const safe = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
   const m = Math.floor(safe / 60);

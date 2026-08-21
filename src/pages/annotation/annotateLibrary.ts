@@ -1,6 +1,7 @@
 import { importAnnotationJson } from "../../lib/choreocore/engine/annotation";
 import type { AnnotationSession } from "../../lib/choreocore/engine/types/AnnotationTypes";
-import { writeLocalJson } from "./sessionHistory";
+import { annotatorShort } from "./pilotCatalog";
+import { cloneSession, writeLocalJson } from "./sessionHistory";
 
 export const SAVES_INDEX_KEY = "choreocore-blind-saves";
 
@@ -80,4 +81,30 @@ export function deleteSavedAnnotation(id: string): void {
 
 export function parseAnnotationFile(raw: string): AnnotationSession {
   return importAnnotationJson(raw);
+}
+
+/**
+ * Copy another choreographer's session onto the current annotator.
+ * Song structure (sections, cue times, cue ids) stays; nested annotator ids are rewritten
+ * so the copy can be arranged and saved as a separate A/B/C record.
+ */
+export function adoptAnnotationSession(
+  source: AnnotationSession,
+  annotatorId: string,
+  now = new Date(),
+): AnnotationSession {
+  const copy = cloneSession(source);
+  const songId = copy.songId;
+  return {
+    ...copy,
+    id: `ann-${songId}-${annotatorShort(annotatorId)}`,
+    annotatorId,
+    startedAt: now.toISOString(),
+    completedAt: undefined,
+    sections: copy.sections.map((row) => ({ ...row, songId, annotatorId })),
+    cues: copy.cues.map((row) => ({ ...row, songId, annotatorId })),
+    formations: copy.formations.map((row) => ({ ...row, songId, annotatorId })),
+    formationTop3: (copy.formationTop3 ?? []).map((row) => ({ ...row, songId, annotatorId })),
+    sequence: copy.sequence.map((row) => ({ ...row, songId, annotatorId })),
+  };
 }
