@@ -1,6 +1,7 @@
 import { getSupabase } from "./supabaseClient";
 import type { Me } from "../types/authMe";
 import { getEntitlements } from "./entitlements";
+import { isReleaseCampaignActive } from "./releaseCampaign";
 
 export const FREE_CLOUD_PROJECT_LIMIT = 3;
 
@@ -153,6 +154,7 @@ export function isProMe(me: Me | null | undefined): boolean {
 export async function assertCanCreateSupabaseProject(
   existingCount: number
 ): Promise<void> {
+  if (isReleaseCampaignActive()) return;
   const isPro = await fetchChoreocoreIsProMe();
   if (isPro === true) return;
   const billing = await fetchChoreocoreBillingRow();

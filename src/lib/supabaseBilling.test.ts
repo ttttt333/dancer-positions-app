@@ -1,6 +1,7 @@
 /** @vitest-environment node */
 import { describe, expect, it } from "vitest";
 import {
+  assertCanCreateSupabaseProject,
   hasStripeCustomerId,
   isProFromBilling,
   isProMe,
@@ -49,6 +50,10 @@ describe("supabaseBilling", () => {
     expect(hasStripeCustomerId(me)).toBe(true);
     // Release campaign treats all users as Pro via getEntitlements
     expect(isProMe(me)).toBe(true);
+  });
+
+  it("skips the 3-project free cap while the release campaign is on", async () => {
+    await expect(assertCanCreateSupabaseProject(99)).resolves.toBeUndefined();
   });
 
   it("isProMe includes trialing", () => {
