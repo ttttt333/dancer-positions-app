@@ -16,12 +16,31 @@ import {
   MARKER_DIAMETER_PX_MIN,
 } from "../lib/projectDefaults";
 import { shell } from "../theme/choreoShell";
+import type {
+  SelectionAlignEdge,
+  SelectionDistributeAxis,
+  SelectionFlipAxis,
+} from "../lib/stageSelectionTransform";
+import type { StageEditMode } from "../lib/stageEditMode";
+import {
+  STAGE_SHAPE_PRESETS,
+  type StageShapePresetId,
+} from "../lib/stageShapeGenerator";
 
-type PopoverKind = "name" | "size" | "color" | null;
+type PopoverKind =
+  | "name"
+  | "size"
+  | "color"
+  | "align"
+  | "distribute"
+  | "flip"
+  | "shape"
+  | null;
 
 export type StageDancerContextToolbarProps = {
   dancerLabel: string;
   selectedCount: number;
+  editMode?: StageEditMode;
   xPct: number;
   yPct: number;
   markerPx: number;
@@ -37,6 +56,13 @@ export type StageDancerContextToolbarProps = {
   onOpenMore: () => void;
   onSizeGestureBegin?: () => void;
   onSizeGestureEnd?: () => void;
+  onAlign?: (edge: SelectionAlignEdge) => void;
+  onDistribute?: (axis: SelectionDistributeAxis) => void;
+  onFlip?: (axis: SelectionFlipAxis) => void;
+  shapePreviewActive?: boolean;
+  onBeginShapePreview?: (presetId: StageShapePresetId) => void;
+  onCancelShapePreview?: () => void;
+  onApplyShapePreview?: () => void;
 };
 
 const BTN_BORDER = "#334155";
@@ -64,12 +90,6 @@ const btn: CSSProperties = {
   fontWeight: 700,
   cursor: "pointer",
   lineHeight: 1,
-};
-
-const btnLater: CSSProperties = {
-  ...btn,
-  opacity: 0.55,
-  cursor: "default",
 };
 
 const caption: CSSProperties = {
@@ -100,6 +120,7 @@ function popoverStyle(placeAbove: boolean): CSSProperties {
 export function StageDancerContextToolbar({
   dancerLabel,
   selectedCount,
+  editMode = "none",
   xPct,
   yPct,
   markerPx,
@@ -115,6 +136,13 @@ export function StageDancerContextToolbar({
   onOpenMore,
   onSizeGestureBegin,
   onSizeGestureEnd,
+  onAlign,
+  onDistribute,
+  onFlip,
+  shapePreviewActive = false,
+  onBeginShapePreview,
+  onCancelShapePreview,
+  onApplyShapePreview,
 }: StageDancerContextToolbarProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const barRef = useRef<HTMLDivElement | null>(null);
@@ -122,6 +150,7 @@ export function StageDancerContextToolbar({
   const [open, setOpen] = useState<PopoverKind>(null);
   const [showAllColors, setShowAllColors] = useState(false);
   const multi = selectedCount >= 2;
+  const formationEdit = editMode === "formation";
 
   useLayoutEffect(() => {
     const host = hostRef.current;
@@ -160,19 +189,25 @@ export function StageDancerContextToolbar({
     handleOutsetPx,
     multi,
     selectedCount,
+    editMode,
+    shapePreviewActive,
   ]);
 
   const colors = showAllColors ? DANCER_PALETTE : DANCER_PALETTE.slice(0, 8);
   const selectedColor = modDancerColorIndex(colorIndex);
-  const ariaLabel = multi
-    ? `${selectedCount}人選択中`
-    : `${dancerLabel}を編集中`;
+  const ariaLabel = formationEdit
+    ? "FORMATION EDIT"
+    : multi
+      ? `${selectedCount}人選択中`
+      : `${dancerLabel}を編集中`;
 
   return (
     <div
       ref={hostRef}
       data-dancer-context-toolbar
-      data-toolbar-mode={multi ? "multi" : "single"}
+      data-toolbar-mode={
+        formationEdit ? "formation" : multi ? "multi" : "single"
+      }
       role="toolbar"
       aria-label={ariaLabel}
       onPointerDown={(e) => e.stopPropagation()}
@@ -186,33 +221,107 @@ export function StageDancerContextToolbar({
       }}
     >
       <div ref={barRef} style={{ ...bar, position: "relative" }}>
-        {multi ? <span style={caption}>{selectedCount}人選択中</span> : null}
+        {formationEdit ? (
+          <span
+            style={{
+              ...caption,
+              color: "#fbbf24",
+              letterSpacing: "0.04em",
+            }}
+          >
+            FORMATION EDIT
+          </span>
+        ) : multi ? (
+          <span style={caption}>{selectedCount}人選択中</span>
+        ) : null}
         <button type="button" style={btn} title="ステージ上をドラッグして移動">
           移動
         </button>
+        {formationEdit && onBeginShapePreview ? (
+          <button
+            type="button"
+            style={{
+              ...btn,
+              borderColor:
+                open === "shape" || shapePreviewActive
+                  ? "rgba(251,191,36,0.9)"
+                  : BTN_BORDER,
+            }}
+            title="フォーメーションの形"
+            aria-expanded={open === "shape"}
+            onClick={() => setOpen((v) => (v === "shape" ? null : "shape"))}
+          >
+            形
+          </button>
+        ) : null}
+        {formationEdit && shapePreviewActive ? (
+          <>
+            <button
+              type="button"
+              style={btn}
+              title="形のプレビューを取り消す"
+              onClick={() => {
+                setOpen(null);
+                onCancelShapePreview?.();
+              }}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              style={{
+                ...btn,
+                borderColor: "rgba(52,211,153,0.9)",
+                color: "#6ee7b7",
+              }}
+              title="形を適用する"
+              onClick={() => {
+                setOpen(null);
+                onApplyShapePreview?.();
+              }}
+            >
+              適用
+            </button>
+          </>
+        ) : null}
         {multi ? (
           <>
             <button
               type="button"
-              style={btnLater}
-              title="整列（次の段階で接続）"
-              aria-disabled
+              style={{
+                ...btn,
+                borderColor: open === "align" ? "rgba(96,165,250,0.9)" : BTN_BORDER,
+              }}
+              title="整列"
+              aria-expanded={open === "align"}
+              onClick={() => setOpen((v) => (v === "align" ? null : "align"))}
             >
               整列
             </button>
             <button
               type="button"
-              style={btnLater}
-              title="等間隔（次の段階で接続）"
-              aria-disabled
+              style={{
+                ...btn,
+                borderColor:
+                  open === "distribute" ? "rgba(52,211,153,0.9)" : BTN_BORDER,
+              }}
+              title="等間隔"
+              aria-expanded={open === "distribute"}
+              onClick={() =>
+                setOpen((v) => (v === "distribute" ? null : "distribute"))
+              }
             >
               等間隔
             </button>
             <button
               type="button"
-              style={btnLater}
-              title="反転（次の段階で接続）"
-              aria-disabled
+              style={{
+                ...btn,
+                borderColor: open === "flip" ? "rgba(251,146,60,0.9)" : BTN_BORDER,
+              }}
+              title="反転"
+              aria-expanded={open === "flip"}
+              onClick={() => setOpen((v) => (v === "flip" ? null : "flip"))}
             >
               反転
             </button>
@@ -340,6 +449,120 @@ export function StageDancerContextToolbar({
                 {showAllColors ? "色を減らす" : "もっと見る"}
               </button>
             ) : null}
+          </div>
+        ) : null}
+        {multi && open === "align" ? (
+          <div style={popoverStyle(pos.placeAbove)}>
+            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>
+              整列
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+              {(
+                [
+                  ["left", "左"],
+                  ["centerX", "中央"],
+                  ["right", "右"],
+                  ["top", "上"],
+                  ["centerY", "中央"],
+                  ["bottom", "下"],
+                ] as const
+              ).map(([edge, label]) => (
+                <button
+                  key={edge}
+                  type="button"
+                  style={{ ...btn, width: "100%", minWidth: 0 }}
+                  title={
+                    edge === "left"
+                      ? "左揃え"
+                      : edge === "centerX"
+                        ? "左右中央"
+                        : edge === "right"
+                          ? "右揃え"
+                          : edge === "top"
+                            ? "上揃え"
+                            : edge === "centerY"
+                              ? "上下中央"
+                              : "下揃え"
+                  }
+                  onClick={() => onAlign?.(edge)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {multi && open === "distribute" ? (
+          <div style={popoverStyle(pos.placeAbove)}>
+            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>
+              等間隔
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button
+                type="button"
+                style={{ ...btn, flex: 1 }}
+                title="横方向に等間隔（両端は固定）"
+                onClick={() => onDistribute?.("x")}
+              >
+                横
+              </button>
+              <button
+                type="button"
+                style={{ ...btn, flex: 1 }}
+                title="縦方向に等間隔（両端は固定）"
+                onClick={() => onDistribute?.("y")}
+              >
+                縦
+              </button>
+            </div>
+          </div>
+        ) : null}
+        {multi && open === "flip" ? (
+          <div style={popoverStyle(pos.placeAbove)}>
+            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>
+              反転
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button
+                type="button"
+                style={{ ...btn, flex: 1 }}
+                title="選択範囲の左右を反転"
+                onClick={() => onFlip?.("x")}
+              >
+                左右
+              </button>
+              <button
+                type="button"
+                style={{ ...btn, flex: 1 }}
+                title="選択範囲の上下を反転"
+                onClick={() => onFlip?.("y")}
+              >
+                上下
+              </button>
+            </div>
+          </div>
+        ) : null}
+        {formationEdit && open === "shape" ? (
+          <div style={popoverStyle(pos.placeAbove)}>
+            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 8 }}>
+              FORMATION SHAPE
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {STAGE_SHAPE_PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  style={{ ...btn, width: "100%", minWidth: 0, textAlign: "left" }}
+                  title={`${preset.label}のプレビュー`}
+                  onClick={() => {
+                    onBeginShapePreview?.(preset.id);
+                    setOpen(null);
+                  }}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
           </div>
         ) : null}
       </div>

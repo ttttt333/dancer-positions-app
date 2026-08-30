@@ -52,6 +52,21 @@ import {
   stableDancerMarkerPxForNameFont,
 } from "../lib/stageNameBelowFontSizing";
 import { resolveArrangeTargetIds } from "../lib/stageSelectionArrange";
+import {
+  alignSelectedDancers,
+  distributeSelectedDancers,
+  flipSelectedDancers,
+} from "../lib/stageSelectionTransform";
+import { resolveStageEditMode } from "../lib/stageEditMode";
+import {
+  applyEffectivePositions,
+  getEffectiveDancerPosition,
+} from "../lib/stageEffectivePosition";
+import {
+  applyShapePositionsToDancers,
+  generateShapePreview,
+  type StageShapePresetId,
+} from "../lib/stageShapeGenerator";
 import type { DancerQuickEditApply } from "./DancerQuickEditDialog";
 import {
   StageSizeApplyScopeDialog,
@@ -454,6 +469,11 @@ export function StageBoardBody({
     string,
     { xPct: number; yPct: number }
   > | null>(null);
+  const [shapePreviewById, setShapePreviewById] = useState<Map<
+    string,
+    { xPct: number; yPct: number }
+  > | null>(null);
+  const shapePreviewKeyRef = useRef<string>("");
 
   const {
     rot,
@@ -712,16 +732,19 @@ export function StageBoardBody({
     activeFormation?.dancers ??
     [];
 
-  /** 群の剛体回転ドラッグ中は仮座標で上書き（印の位置表示用） */
-  const dancersForStageMarkers = useMemo(() => {
-    const base = displayDancers;
-    if (!markerGroupPosDraft || markerGroupPosDraft.size === 0) return base;
-    return base.map((d) => {
-      const o = markerGroupPosDraft.get(d.id);
-      if (!o) return d;
-      return { ...d, xPct: o.xPct, yPct: o.yPct };
-    });
-  }, [displayDancers, markerGroupPosDraft]);
+  const positionOverlays = useMemo(
+    () => ({
+      shapePreviewById,
+      groupPosDraft: markerGroupPosDraft,
+    }),
+    [shapePreviewById, markerGroupPosDraft],
+  );
+
+  /** 群の剛体回転ドラッグ中／形プレビュー中は仮座標で上書き（合成は getEffectiveDancerPosition） */
+  const dancersForStageMarkers = useMemo(
+    () => applyEffectivePositions(displayDancers, positionOverlays),
+    [displayDancers, positionOverlays],
+  );
 
   /**
    * ドラッグゴースト描画は pointermove ごとに走るため、
@@ -730,6 +753,14 @@ export function StageBoardBody({
   const stageDancersForLookup = useMemo(
     () => writeFormation?.dancers ?? activeFormation?.dancers ?? [],
     [writeFormation?.dancers, activeFormation?.dancers],
+  );
+  const stageEditMode = useMemo(
+    () =>
+      resolveStageEditMode(
+        selectedDancerIds,
+        stageDancersForLookup.map((d) => d.id)
+      ),
+    [selectedDancerIds, stageDancersForLookup],
   );
   const stageDancerById = useMemo(
     () => new Map(stageDancersForLookup.map((d) => [d.id, d] as const)),
@@ -803,8 +834,10 @@ export function StageBoardBody({
     let x1 = -Infinity;
     let y1 = -Infinity;
     for (const d of ds) {
-      const ox = markerGroupPosDraft?.get(d.id)?.xPct ?? d.xPct;
-      const oy = markerGroupPosDraft?.get(d.id)?.yPct ?? d.yPct;
+      const { xPct: ox, yPct: oy } = getEffectiveDancerPosition(
+        d,
+        positionOverlays,
+      );
       if (ox < x0) x0 = ox;
       if (oy < y0) y0 = oy;
       if (ox > x1) x1 = ox;
@@ -824,7 +857,7 @@ export function StageBoardBody({
     activeFormation,
     playbackOrPreview,
     viewMode,
-    markerGroupPosDraft,
+    positionOverlays,
   ]);
 
   /**
@@ -1943,6 +1976,10 @@ export function StageBoardBody({
         !stageInteractionsEnabled
       )
         return;
+      if (shapePreviewKeyRef.current) {
+        setShapePreviewById(null);
+        shapePreviewKeyRef.current = "";
+      }
       if (e.altKey && stageMainFloorRef.current) {
         const floor = stageMainFloorRef.current;
         const stack = document
@@ -2059,6 +2096,10 @@ export function StageBoardBody({
       )
         return;
       if (selectedDancerIds.length < 2) return;
+      if (shapePreviewKeyRef.current) {
+        setShapePreviewById(null);
+        shapePreviewKeyRef.current = "";
+      }
       e.stopPropagation();
       e.preventDefault();
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
@@ -2231,6 +2272,10 @@ export function StageBoardBody({
       )
         return;
       if (selectedDancerIds.length < 1) return;
+      if (shapePreviewKeyRef.current) {
+        setShapePreviewById(null);
+        shapePreviewKeyRef.current = "";
+      }
       e.stopPropagation();
       e.preventDefault();
       const rotateHandleEl = e.currentTarget;
@@ -3470,6 +3515,12 @@ export function StageBoardBody({
       }
 
       if (e.key === "Escape") {
+        if (shapePreviewById && shapePreviewById.size > 0) {
+          e.preventDefault();
+          setShapePreviewById(null);
+          shapePreviewKeyRef.current = "";
+          return;
+        }
         groupDragRef.current = null;
         markerRotateRef.current = null;
         markerFacingDraftRef.current = null;
@@ -3545,6 +3596,7 @@ export function StageBoardBody({
     duplicateDancerIds,
     stageWidthMm,
     clearSelectedDancers,
+    shapePreviewById,
   ]);
 
   /**
@@ -3645,8 +3697,8 @@ export function StageBoardBody({
     const id = selectedDancerIds[0]!;
     const base = ds.find((x) => x.id === id) ?? null;
     if (!base) return null;
-    const pos = markerGroupPosDraft?.get(id);
-    if (!pos) return base;
+    const pos = getEffectiveDancerPosition(base, positionOverlays);
+    if (pos.xPct === base.xPct && pos.yPct === base.yPct) return base;
     return { ...base, xPct: pos.xPct, yPct: pos.yPct };
   }, [
     selectedDancerIds,
@@ -3655,7 +3707,7 @@ export function StageBoardBody({
     playbackOrPreview,
     viewMode,
     stageInteractionsEnabled,
-    markerGroupPosDraft,
+    positionOverlays,
   ]);
 
   const quickEditDancer = useMemo(() => {
@@ -3855,6 +3907,94 @@ export function StageBoardBody({
       viewMode,
       stageInteractionsEnabled,
       playbackOrPreview,
+    ],
+  );
+
+  const cancelShapePreview = useCallback(() => {
+    setShapePreviewById(null);
+    shapePreviewKeyRef.current = "";
+  }, []);
+
+  const beginShapePreview = useCallback(
+    (presetId: StageShapePresetId) => {
+      if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
+        return;
+      if (dancerQuickEditId) return;
+      const persistDancers =
+        writeFormation?.dancers ?? activeFormation?.dancers ?? [];
+      const result = generateShapePreview({
+        dancers: persistDancers,
+        selectedIds: selectedDancerIds,
+        presetId,
+        layoutOpts: {
+          dancerSpacingMm: project.dancerSpacingMm,
+          stageWidthMm: project.stageWidthMm,
+        },
+      });
+      if (result.positions.size === 0) return;
+      setShapePreviewById(result.positions);
+      shapePreviewKeyRef.current = selectedDancerIds.join("\0");
+    },
+    [
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+      dancerQuickEditId,
+      writeFormation,
+      activeFormation,
+      selectedDancerIds,
+      project.dancerSpacingMm,
+      project.stageWidthMm,
+    ],
+  );
+
+  const applyShapePreview = useCallback(() => {
+    if (!shapePreviewById || shapePreviewById.size === 0) return;
+    if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
+      return;
+    updateActiveFormation((f) => ({
+      ...f,
+      dancers: applyShapePositionsToDancers(f.dancers, shapePreviewById),
+    }));
+    cancelShapePreview();
+  }, [
+    shapePreviewById,
+    viewMode,
+    stageInteractionsEnabled,
+    playbackOrPreview,
+    updateActiveFormation,
+    cancelShapePreview,
+  ]);
+
+  useEffect(() => {
+    const key = selectedDancerIds.join("\0");
+    if (
+      shapePreviewById &&
+      shapePreviewKeyRef.current &&
+      key !== shapePreviewKeyRef.current
+    ) {
+      cancelShapePreview();
+    }
+  }, [selectedDancerIds, shapePreviewById, cancelShapePreview]);
+
+  const applySelectedTransform = useCallback(
+    (fn: (dancers: DancerSpot[], targetIds: string[]) => DancerSpot[]) => {
+      if (selectedDancerIds.length < 2) return;
+      if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
+        return;
+      cancelShapePreview();
+      updateActiveFormation((f) => ({
+        ...f,
+        dancers: fn(f.dancers, selectedDancerIds),
+      }));
+    },
+    [
+      selectedDancerIds,
+      updateActiveFormation,
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+      cancelShapePreview,
     ],
   );
 
@@ -4425,6 +4565,23 @@ export function StageBoardBody({
         onOpenToolbarMore: handleOpenToolbarMore,
         onSizeGestureBegin: onGestureHistoryBegin,
         onSizeGestureEnd: onGestureHistoryEnd,
+        onAlignSelected: (edge) =>
+          applySelectedTransform((dancers, ids) =>
+            alignSelectedDancers(dancers, ids, edge)
+          ),
+        onDistributeSelected: (axis) =>
+          applySelectedTransform((dancers, ids) =>
+            distributeSelectedDancers(dancers, ids, axis)
+          ),
+        onFlipSelected: (axis) =>
+          applySelectedTransform((dancers, ids) =>
+            flipSelectedDancers(dancers, ids, axis)
+          ),
+        shapePreviewActive: Boolean(shapePreviewById && shapePreviewById.size > 0),
+        onBeginShapePreview: beginShapePreview,
+        onCancelShapePreview: cancelShapePreview,
+        onApplyShapePreview: applyShapePreview,
+        editMode: stageEditMode,
         tapStageToEditLayout,
         onTapEditOverlayPointerDown: handleTapOverlayPointerDown,
       },

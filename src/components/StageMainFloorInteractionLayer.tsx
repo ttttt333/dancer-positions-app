@@ -26,6 +26,13 @@ import { StageNameBelowFontResizeHandle } from "./StageNameBelowFontResizeHandle
 import { StageTapToEditOverlay } from "./StageTapToEditOverlay";
 import { StageDancerContextToolbar } from "./StageDancerContextToolbar";
 import { nameBelowToolbarSouthExtraPx } from "../lib/placeStageContextToolbar";
+import type {
+  SelectionAlignEdge,
+  SelectionDistributeAxis,
+  SelectionFlipAxis,
+} from "../lib/stageSelectionTransform";
+import type { StageEditMode } from "../lib/stageEditMode";
+import type { StageShapePresetId } from "../lib/stageShapeGenerator";
 
 export type StageSelectionBoxPct = {
   x0: number;
@@ -90,6 +97,14 @@ export type StageMainFloorInteractionLayerProps = {
   onOpenToolbarMore?: () => void;
   onSizeGestureBegin?: () => void;
   onSizeGestureEnd?: () => void;
+  onAlignSelected?: (edge: SelectionAlignEdge) => void;
+  onDistributeSelected?: (axis: SelectionDistributeAxis) => void;
+  onFlipSelected?: (axis: SelectionFlipAxis) => void;
+  editMode?: StageEditMode;
+  shapePreviewActive?: boolean;
+  onBeginShapePreview?: (presetId: StageShapePresetId) => void;
+  onCancelShapePreview?: () => void;
+  onApplyShapePreview?: () => void;
 };
 
 /** メイン床: 大道具・選択 UI・ゴースト印・本印・リサイズ・タップ編集オーバーレイ */
@@ -128,6 +143,14 @@ export function StageMainFloorInteractionLayer({
   onOpenToolbarMore,
   onSizeGestureBegin,
   onSizeGestureEnd,
+  onAlignSelected,
+  onDistributeSelected,
+  onFlipSelected,
+  editMode,
+  shapePreviewActive = false,
+  onBeginShapePreview,
+  onCancelShapePreview,
+  onApplyShapePreview,
 }: StageMainFloorInteractionLayerProps) {
   const showDeleteHandles =
     Boolean(onDeleteSelectedDancers) &&
@@ -312,6 +335,7 @@ export function StageMainFloorInteractionLayer({
         <StageDancerContextToolbar
           dancerLabel={primarySelectedDancer.label || "立ち位置"}
           selectedCount={selectedDancerIds.length}
+          editMode={editMode}
           xPct={
             selectionBox
               ? (selectionBox.x0 + selectionBox.x1) / 2
@@ -352,6 +376,13 @@ export function StageMainFloorInteractionLayer({
           onOpenMore={onOpenToolbarMore ?? onOpenSelectionMenuClick!}
           onSizeGestureBegin={onSizeGestureBegin}
           onSizeGestureEnd={onSizeGestureEnd}
+          onAlign={onAlignSelected}
+          onDistribute={onDistributeSelected}
+          onFlip={onFlipSelected}
+          shapePreviewActive={shapePreviewActive}
+          onBeginShapePreview={onBeginShapePreview}
+          onCancelShapePreview={onCancelShapePreview}
+          onApplyShapePreview={onApplyShapePreview}
         />
       ) : null}
       {showDeleteHandles &&
