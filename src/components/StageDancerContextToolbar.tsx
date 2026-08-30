@@ -20,6 +20,10 @@ import type {
 import type { StageEditMode } from "../lib/stageEditMode";
 import type { StageShapePresetId } from "../lib/stageShapeGenerator";
 import type { DepthSwapInspect } from "../lib/stageDepthPreview";
+import {
+  isStageTidyAvailable,
+  STAGE_TIDY_ACTIONS,
+} from "../lib/stageTidyActions";
 import { StageFormationShapeCards } from "./StageFormationShapeCards";
 
 type PopoverKind = "name" | "size" | "color" | "tidy" | "flip" | "shape" | "depth" | null;
@@ -151,6 +155,7 @@ export function StageDancerContextToolbar({
   const formationEdit = editMode === "formation";
   const groupEdit = editMode === "group";
   const dancerEdit = editMode === "dancer";
+  const tidyAvailable = isStageTidyAvailable(editMode);
   const previewKind = shapePreviewActive
     ? "shape"
     : depthPreviewActive
@@ -292,9 +297,10 @@ export function StageDancerContextToolbar({
                 前後
               </button>
             ) : null}
-            {formationEdit || groupEdit ? (
+            {tidyAvailable ? (
               <button
                 type="button"
+                data-tidy-entry
                 style={{
                   ...btn,
                   borderColor:
@@ -461,73 +467,52 @@ export function StageDancerContextToolbar({
             ) : null}
           </div>
         ) : null}
-        {(formationEdit || groupEdit) && open === "tidy" ? (
-          <div style={popoverStyle()}>
-            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>
-              整列
-            </div>
+        {tidyAvailable && open === "tidy" ? (
+          <div
+            data-tidy-panel
+            style={{ ...popoverStyle(), minWidth: 280 }}
+          >
             <div
-              style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}
+              style={{
+                fontSize: 13,
+                fontWeight: 700,
+                color: "#e2e8f0",
+                marginBottom: 10,
+              }}
             >
-              {(
-                [
-                  ["left", "左"],
-                  ["centerX", "中央"],
-                  ["right", "右"],
-                  ["top", "上"],
-                  ["centerY", "中央"],
-                  ["bottom", "下"],
-                ] as const
-              ).map(([edge, label]) => (
-                <button
-                  key={edge}
-                  type="button"
-                  style={{ ...btn, width: "100%", minWidth: 0 }}
-                  title={
-                    edge === "left"
-                      ? "左揃え"
-                      : edge === "centerX"
-                        ? "左右中央"
-                        : edge === "right"
-                          ? "右揃え"
-                          : edge === "top"
-                            ? "上揃え"
-                            : edge === "centerY"
-                              ? "上下中央"
-                              : "下揃え"
-                  }
-                  onClick={() => onAlign?.(edge)}
-                >
-                  {label}
-                </button>
-              ))}
+              整える
             </div>
             <div
               style={{
-                fontSize: 11,
-                color: "#94a3b8",
-                margin: "10px 0 6px",
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 6,
               }}
             >
-              等間隔
-            </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button
-                type="button"
-                style={{ ...btn, flex: 1 }}
-                title="横方向に等間隔（両端は固定）"
-                onClick={() => onDistribute?.("x")}
-              >
-                横
-              </button>
-              <button
-                type="button"
-                style={{ ...btn, flex: 1 }}
-                title="縦方向に等間隔（両端は固定）"
-                onClick={() => onDistribute?.("y")}
-              >
-                縦
-              </button>
+              {STAGE_TIDY_ACTIONS.map((action) => (
+                <button
+                  key={action.id}
+                  type="button"
+                  data-tidy-action={action.id}
+                  style={{
+                    ...btn,
+                    width: "100%",
+                    minWidth: 0,
+                    height: "auto",
+                    minHeight: 32,
+                    padding: "7px 8px",
+                    fontSize: 11,
+                  }}
+                  title={action.label}
+                  onClick={() => {
+                    if (action.kind === "align") onAlign?.(action.edge);
+                    else onDistribute?.(action.axis);
+                    setOpen(null);
+                  }}
+                >
+                  {action.label}
+                </button>
+              ))}
             </div>
           </div>
         ) : null}

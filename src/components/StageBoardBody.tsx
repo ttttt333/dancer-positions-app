@@ -4107,6 +4107,7 @@ export function StageBoardBody({
       if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
         return;
       cancelShapePreview();
+      // 整える / 反転: 1操作 = updateActiveFormation 1回 = Undo 1手
       updateActiveFormation((f) => ({
         ...f,
         dancers: fn(f.dancers, selectedDancerIds),
