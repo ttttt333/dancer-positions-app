@@ -33,6 +33,7 @@ import type {
 } from "../lib/stageSelectionTransform";
 import type { StageEditMode } from "../lib/stageEditMode";
 import type { StageShapePresetId } from "../lib/stageShapeGenerator";
+import type { DepthSwapInspect } from "../lib/stageDepthPreview";
 
 export type StageSelectionBoxPct = {
   x0: number;
@@ -102,7 +103,11 @@ export type StageMainFloorInteractionLayerProps = {
   onFlipSelected?: (axis: SelectionFlipAxis) => void;
   editMode?: StageEditMode;
   shapePreviewActive?: boolean;
+  depthPreviewActive?: boolean;
+  depthPreviewPair?: { colA: number; colB: number } | null;
+  depthSwapInspect?: DepthSwapInspect;
   onBeginShapePreview?: (presetId: StageShapePresetId) => void;
+  onBeginDepthPreview?: (colA: number, colB: number) => void;
   onCancelShapePreview?: () => void;
   onApplyShapePreview?: () => void;
 };
@@ -148,7 +153,11 @@ export function StageMainFloorInteractionLayer({
   onFlipSelected,
   editMode,
   shapePreviewActive = false,
+  depthPreviewActive = false,
+  depthPreviewPair = null,
+  depthSwapInspect,
   onBeginShapePreview,
+  onBeginDepthPreview,
   onCancelShapePreview,
   onApplyShapePreview,
 }: StageMainFloorInteractionLayerProps) {
@@ -380,7 +389,11 @@ export function StageMainFloorInteractionLayer({
           onDistribute={onDistributeSelected}
           onFlip={onFlipSelected}
           shapePreviewActive={shapePreviewActive}
+          depthPreviewActive={depthPreviewActive}
+          depthPreviewPair={depthPreviewPair}
+          depthSwapInspect={depthSwapInspect}
           onBeginShapePreview={onBeginShapePreview}
+          onBeginDepthPreview={onBeginDepthPreview}
           onCancelShapePreview={onCancelShapePreview}
           onApplyShapePreview={onApplyShapePreview}
         />

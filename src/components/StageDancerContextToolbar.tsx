@@ -26,6 +26,7 @@ import {
   STAGE_SHAPE_PRESETS,
   type StageShapePresetId,
 } from "../lib/stageShapeGenerator";
+import type { DepthSwapInspect } from "../lib/stageDepthPreview";
 
 type PopoverKind =
   | "name"
@@ -35,6 +36,7 @@ type PopoverKind =
   | "distribute"
   | "flip"
   | "shape"
+  | "depth"
   | null;
 
 export type StageDancerContextToolbarProps = {
@@ -60,7 +62,11 @@ export type StageDancerContextToolbarProps = {
   onDistribute?: (axis: SelectionDistributeAxis) => void;
   onFlip?: (axis: SelectionFlipAxis) => void;
   shapePreviewActive?: boolean;
+  depthPreviewActive?: boolean;
+  depthPreviewPair?: { colA: number; colB: number } | null;
+  depthSwapInspect?: DepthSwapInspect;
   onBeginShapePreview?: (presetId: StageShapePresetId) => void;
+  onBeginDepthPreview?: (colA: number, colB: number) => void;
   onCancelShapePreview?: () => void;
   onApplyShapePreview?: () => void;
 };
@@ -140,7 +146,11 @@ export function StageDancerContextToolbar({
   onDistribute,
   onFlip,
   shapePreviewActive = false,
+  depthPreviewActive = false,
+  depthPreviewPair = null,
+  depthSwapInspect,
   onBeginShapePreview,
+  onBeginDepthPreview,
   onCancelShapePreview,
   onApplyShapePreview,
 }: StageDancerContextToolbarProps) {
@@ -149,6 +159,10 @@ export function StageDancerContextToolbar({
   const [pos, setPos] = useState({ leftPx: 0, topPx: 0, placeAbove: true });
   const [open, setOpen] = useState<PopoverKind>(null);
   const [showAllColors, setShowAllColors] = useState(false);
+  const [depthNoChangePair, setDepthNoChangePair] = useState<{
+    markA: string;
+    markB: string;
+  } | null>(null);
   const multi = selectedCount >= 2;
   const formationEdit = editMode === "formation";
 
@@ -191,6 +205,7 @@ export function StageDancerContextToolbar({
     selectedCount,
     editMode,
     shapePreviewActive,
+    depthPreviewActive,
   ]);
 
   const colors = showAllColors ? DANCER_PALETTE : DANCER_PALETTE.slice(0, 8);
@@ -254,12 +269,32 @@ export function StageDancerContextToolbar({
             形
           </button>
         ) : null}
-        {formationEdit && shapePreviewActive ? (
+        {formationEdit && onBeginDepthPreview ? (
+          <button
+            type="button"
+            style={{
+              ...btn,
+              borderColor:
+                open === "depth" || depthPreviewActive
+                  ? "rgba(125,211,252,0.9)"
+                  : BTN_BORDER,
+            }}
+            title="前後の立ち位置を交換"
+            aria-expanded={open === "depth"}
+            onClick={() => {
+              setDepthNoChangePair(null);
+              setOpen((v) => (v === "depth" ? null : "depth"));
+            }}
+          >
+            前後
+          </button>
+        ) : null}
+        {formationEdit && (shapePreviewActive || depthPreviewActive) ? (
           <>
             <button
               type="button"
               style={btn}
-              title="形のプレビューを取り消す"
+              title="プレビューを取り消す"
               onClick={() => {
                 setOpen(null);
                 onCancelShapePreview?.();
@@ -274,7 +309,7 @@ export function StageDancerContextToolbar({
                 borderColor: "rgba(52,211,153,0.9)",
                 color: "#6ee7b7",
               }}
-              title="形を適用する"
+              title="プレビューを適用する"
               onClick={() => {
                 setOpen(null);
                 onApplyShapePreview?.();
@@ -282,6 +317,32 @@ export function StageDancerContextToolbar({
             >
               適用
             </button>
+            {depthPreviewActive && depthPreviewPair && depthSwapInspect
+              ? (() => {
+                  const pair = depthSwapInspect.pairs.find(
+                    (p) =>
+                      p.colA === depthPreviewPair.colA &&
+                      p.colB === depthPreviewPair.colB
+                  );
+                  if (!pair) return null;
+                  return (
+                    <span
+                      style={{
+                        padding: "0 4px",
+                        fontSize: 10,
+                        fontWeight: 700,
+                        color: "#94a3b8",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {pair.markA} ⇄ {pair.markB}
+                      {pair.noChange
+                        ? " 変化なし"
+                        : ` 移動：${pair.movementLabel}`}
+                    </span>
+                  );
+                })()
+              : null}
           </>
         ) : null}
         {multi ? (
@@ -563,6 +624,147 @@ export function StageDancerContextToolbar({
                 </button>
               ))}
             </div>
+          </div>
+        ) : null}
+        {formationEdit && open === "depth" ? (
+          <div style={{ ...popoverStyle(pos.placeAbove), minWidth: 228 }}>
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 700,
+                color: "#e2e8f0",
+                marginBottom: 8,
+              }}
+            >
+              前後の位置を入れ替える
+            </div>
+            {depthSwapInspect && depthSwapInspect.groupCount >= 2 ? (
+              <>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: "#e2e8f0",
+                    marginBottom: 4,
+                  }}
+                >
+                  {depthSwapInspect.groupCount}グループ
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "#94a3b8",
+                    lineHeight: 1.45,
+                    marginBottom: 6,
+                  }}
+                >
+                  {depthSwapInspect.groupLines.map((line) => (
+                    <div key={line}>{line}</div>
+                  ))}
+                </div>
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: "#64748b",
+                    marginBottom: 8,
+                  }}
+                >
+                  {depthSwapInspect.axisHint}
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                  }}
+                >
+                  {depthSwapInspect.pairs.map((pair) => (
+                    <button
+                      key={`${pair.colA}-${pair.colB}`}
+                      type="button"
+                      style={{
+                        ...btn,
+                        width: "100%",
+                        minWidth: 0,
+                        height: "auto",
+                        minHeight: 32,
+                        padding: "7px 8px",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                      title={
+                        pair.noChange
+                          ? `${pair.markA}と${pair.markB}は前後位置が同じです`
+                          : `${pair.markA}と${pair.markB}の前後を交換（左右は動かない）`
+                      }
+                      onClick={() => {
+                        if (pair.noChange) {
+                          setDepthNoChangePair({
+                            markA: pair.markA,
+                            markB: pair.markB,
+                          });
+                          return;
+                        }
+                        setDepthNoChangePair(null);
+                        onBeginDepthPreview?.(pair.colA, pair.colB);
+                        setOpen(null);
+                      }}
+                    >
+                      <span>
+                        {pair.markA} ⇄ {pair.markB}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: pair.noChange ? "#fbbf24" : "#94a3b8",
+                        }}
+                      >
+                        {pair.noChange
+                          ? "変化なし"
+                          : `移動：${pair.movementLabel}`}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {depthNoChangePair ? (
+                  <p
+                    style={{
+                      margin: "8px 0 0",
+                      fontSize: 11,
+                      color: "#fde68a",
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    {depthNoChangePair.markA} ⇄ {depthNoChangePair.markB}
+                    <br />
+                    前後位置が同じため、配置は変わりません。
+                  </p>
+                ) : null}
+                <p
+                  style={{
+                    margin: "8px 0 0",
+                    fontSize: 10,
+                    color: "#64748b",
+                  }}
+                >
+                  ※左右の位置は変わりません
+                </p>
+              </>
+            ) : (
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 11,
+                  color: "#94a3b8",
+                  lineHeight: 1.45,
+                }}
+              >
+                グループを判定できませんでした。前後の位置が分かれるように並べてください。
+              </p>
+            )}
           </div>
         ) : null}
       </div>

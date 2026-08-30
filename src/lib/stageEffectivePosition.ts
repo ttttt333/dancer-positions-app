@@ -5,19 +5,22 @@ export type StagePosPct = {
 
 export type StagePositionOverlays = {
   shapePreviewById?: ReadonlyMap<string, StagePosPct> | null;
+  depthPreviewById?: ReadonlyMap<string, StagePosPct> | null;
   groupPosDraft?: ReadonlyMap<string, StagePosPct> | null;
 };
 
 /**
  * ステージ上の実効座標。合成はここだけ。
- * preview → 回転ドラフト → 永続 xPct/yPct
+ * shape preview → depth preview → 回転ドラフト → 永続 xPct/yPct
  */
 export function getEffectiveDancerPosition(
   dancer: { id: string; xPct: number; yPct: number },
   overlays: StagePositionOverlays = {}
 ): StagePosPct {
-  const preview = overlays.shapePreviewById?.get(dancer.id);
-  if (preview) return preview;
+  const shape = overlays.shapePreviewById?.get(dancer.id);
+  if (shape) return shape;
+  const depth = overlays.depthPreviewById?.get(dancer.id);
+  if (depth) return depth;
   const draft = overlays.groupPosDraft?.get(dancer.id);
   if (draft) return draft;
   return { xPct: dancer.xPct, yPct: dancer.yPct };
@@ -27,7 +30,11 @@ export function applyEffectivePositions<T extends { id: string; xPct: number; yP
   dancers: readonly T[],
   overlays: StagePositionOverlays
 ): T[] {
-  if (!overlays.shapePreviewById?.size && !overlays.groupPosDraft?.size) {
+  if (
+    !overlays.shapePreviewById?.size &&
+    !overlays.depthPreviewById?.size &&
+    !overlays.groupPosDraft?.size
+  ) {
     return dancers as T[];
   }
   return dancers.map((d) => {

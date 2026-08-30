@@ -67,6 +67,10 @@ import {
   generateShapePreview,
   type StageShapePresetId,
 } from "../lib/stageShapeGenerator";
+import {
+  generateDepthSwapPreview,
+  inspectFormationDepthSwap,
+} from "../lib/stageDepthPreview";
 import type { DancerQuickEditApply } from "./DancerQuickEditDialog";
 import {
   StageSizeApplyScopeDialog,
@@ -473,6 +477,14 @@ export function StageBoardBody({
     string,
     { xPct: number; yPct: number }
   > | null>(null);
+  const [depthPreviewById, setDepthPreviewById] = useState<Map<
+    string,
+    { xPct: number; yPct: number }
+  > | null>(null);
+  const [depthPreviewPair, setDepthPreviewPair] = useState<{
+    colA: number;
+    colB: number;
+  } | null>(null);
   const shapePreviewKeyRef = useRef<string>("");
 
   const {
@@ -735,9 +747,10 @@ export function StageBoardBody({
   const positionOverlays = useMemo(
     () => ({
       shapePreviewById,
+      depthPreviewById,
       groupPosDraft: markerGroupPosDraft,
     }),
-    [shapePreviewById, markerGroupPosDraft],
+    [shapePreviewById, depthPreviewById, markerGroupPosDraft],
   );
 
   /** 群の剛体回転ドラッグ中／形プレビュー中は仮座標で上書き（合成は getEffectiveDancerPosition） */
@@ -1978,6 +1991,8 @@ export function StageBoardBody({
         return;
       if (shapePreviewKeyRef.current) {
         setShapePreviewById(null);
+        setDepthPreviewById(null);
+        setDepthPreviewPair(null);
         shapePreviewKeyRef.current = "";
       }
       if (e.altKey && stageMainFloorRef.current) {
@@ -2098,6 +2113,8 @@ export function StageBoardBody({
       if (selectedDancerIds.length < 2) return;
       if (shapePreviewKeyRef.current) {
         setShapePreviewById(null);
+        setDepthPreviewById(null);
+        setDepthPreviewPair(null);
         shapePreviewKeyRef.current = "";
       }
       e.stopPropagation();
@@ -2274,6 +2291,8 @@ export function StageBoardBody({
       if (selectedDancerIds.length < 1) return;
       if (shapePreviewKeyRef.current) {
         setShapePreviewById(null);
+        setDepthPreviewById(null);
+        setDepthPreviewPair(null);
         shapePreviewKeyRef.current = "";
       }
       e.stopPropagation();
@@ -3515,9 +3534,14 @@ export function StageBoardBody({
       }
 
       if (e.key === "Escape") {
-        if (shapePreviewById && shapePreviewById.size > 0) {
+        if (
+          (shapePreviewById && shapePreviewById.size > 0) ||
+          (depthPreviewById && depthPreviewById.size > 0)
+        ) {
           e.preventDefault();
           setShapePreviewById(null);
+          setDepthPreviewById(null);
+          setDepthPreviewPair(null);
           shapePreviewKeyRef.current = "";
           return;
         }
@@ -3597,6 +3621,7 @@ export function StageBoardBody({
     stageWidthMm,
     clearSelectedDancers,
     shapePreviewById,
+    depthPreviewById,
   ]);
 
   /**
@@ -3912,6 +3937,8 @@ export function StageBoardBody({
 
   const cancelShapePreview = useCallback(() => {
     setShapePreviewById(null);
+    setDepthPreviewById(null);
+    setDepthPreviewPair(null);
     shapePreviewKeyRef.current = "";
   }, []);
 
@@ -3932,6 +3959,8 @@ export function StageBoardBody({
         },
       });
       if (result.positions.size === 0) return;
+      setDepthPreviewById(null);
+      setDepthPreviewPair(null);
       setShapePreviewById(result.positions);
       shapePreviewKeyRef.current = selectedDancerIds.join("\0");
     },
@@ -3949,16 +3978,22 @@ export function StageBoardBody({
   );
 
   const applyShapePreview = useCallback(() => {
-    if (!shapePreviewById || shapePreviewById.size === 0) return;
+    const preview = shapePreviewById?.size
+      ? shapePreviewById
+      : depthPreviewById?.size
+        ? depthPreviewById
+        : null;
+    if (!preview) return;
     if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
       return;
     updateActiveFormation((f) => ({
       ...f,
-      dancers: applyShapePositionsToDancers(f.dancers, shapePreviewById),
+      dancers: applyShapePositionsToDancers(f.dancers, preview),
     }));
     cancelShapePreview();
   }, [
     shapePreviewById,
+    depthPreviewById,
     viewMode,
     stageInteractionsEnabled,
     playbackOrPreview,
@@ -3966,16 +4001,52 @@ export function StageBoardBody({
     cancelShapePreview,
   ]);
 
+  const persistDancersForShape = writeFormation?.dancers ?? activeFormation?.dancers ?? [];
+  const depthSwapInspect = useMemo(
+    () => inspectFormationDepthSwap(persistDancersForShape, selectedDancerIds),
+    [persistDancersForShape, selectedDancerIds],
+  );
+
+  const beginDepthPreview = useCallback(
+    (colA: number, colB: number) => {
+      if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
+        return;
+      if (dancerQuickEditId) return;
+      const persistDancers =
+        writeFormation?.dancers ?? activeFormation?.dancers ?? [];
+      const byId = generateDepthSwapPreview(
+        persistDancers,
+        selectedDancerIds,
+        colA,
+        colB,
+      );
+      if (byId.size === 0) return;
+      setShapePreviewById(null);
+      setDepthPreviewById(byId);
+      setDepthPreviewPair({ colA, colB });
+      shapePreviewKeyRef.current = selectedDancerIds.join("\0");
+    },
+    [
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+      dancerQuickEditId,
+      writeFormation,
+      activeFormation,
+      selectedDancerIds,
+    ],
+  );
+
   useEffect(() => {
     const key = selectedDancerIds.join("\0");
-    if (
-      shapePreviewById &&
-      shapePreviewKeyRef.current &&
-      key !== shapePreviewKeyRef.current
-    ) {
+    const hasPreview = Boolean(
+      (shapePreviewById && shapePreviewById.size > 0) ||
+        (depthPreviewById && depthPreviewById.size > 0)
+    );
+    if (hasPreview && shapePreviewKeyRef.current && key !== shapePreviewKeyRef.current) {
       cancelShapePreview();
     }
-  }, [selectedDancerIds, shapePreviewById, cancelShapePreview]);
+  }, [selectedDancerIds, shapePreviewById, depthPreviewById, cancelShapePreview]);
 
   const applySelectedTransform = useCallback(
     (fn: (dancers: DancerSpot[], targetIds: string[]) => DancerSpot[]) => {
@@ -4578,7 +4649,11 @@ export function StageBoardBody({
             flipSelectedDancers(dancers, ids, axis)
           ),
         shapePreviewActive: Boolean(shapePreviewById && shapePreviewById.size > 0),
+        depthPreviewActive: Boolean(depthPreviewById && depthPreviewById.size > 0),
+        depthPreviewPair,
+        depthSwapInspect,
         onBeginShapePreview: beginShapePreview,
+        onBeginDepthPreview: beginDepthPreview,
         onCancelShapePreview: cancelShapePreview,
         onApplyShapePreview: applyShapePreview,
         editMode: stageEditMode,

@@ -18,7 +18,7 @@ type XSlot = {
   members: DancerSpot[];
 };
 
-type SwapAxis = "depth-rows" | "vertical-columns";
+export type SwapAxis = "depth-rows" | "vertical-columns";
 
 function sortByStageRow(a: DancerSpot, b: DancerSpot): number {
   return a.yPct - b.yPct || a.xPct - b.xPct || a.id.localeCompare(b.id);
