@@ -32,6 +32,7 @@ export function StageNameBelowFontResizeHandle({
       role="presentation"
       aria-hidden
       data-name-below-font-handle
+      title="名前サイズ"
       onPointerDown={onPointerDown}
       style={{
         position: "absolute",

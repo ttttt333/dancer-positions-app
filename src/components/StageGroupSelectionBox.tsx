@@ -117,6 +117,7 @@ export function StageGroupSelectionBox({
           role="presentation"
           aria-hidden
           data-name-below-font-handle
+          title="名前サイズ"
           onPointerDown={onNameBelowFontPointerDown}
           style={{
             position: "absolute",
@@ -138,6 +139,7 @@ export function StageGroupSelectionBox({
           type="button"
           data-group-selection-menu-handle
           aria-label="選択した立ち位置の設定を開く"
+          title="その他の操作"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
@@ -164,6 +166,7 @@ export function StageGroupSelectionBox({
           role="presentation"
           aria-hidden
           data-marker-resize-handle
+          title="ダンサーサイズ"
           onPointerDown={onMarkerResizePointerDown}
           style={{
             position: "absolute",

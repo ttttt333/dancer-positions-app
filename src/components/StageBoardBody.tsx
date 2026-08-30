@@ -45,6 +45,7 @@ import {
   type DancerSizeApplyScope,
 } from "../lib/applyDancerSizeOverrides";
 import {
+  clampNameBelowFontPx,
   computeNameBelowFontResizeDraftSizes,
   defaultNameBelowFontPx,
   effectiveNameBelowFontPx,
@@ -2342,6 +2343,7 @@ export function StageBoardBody({
       if (target.closest("[data-set-piece-id]")) return;
       if (target.closest("[data-group-box-handle]")) return;
       if (target.closest("[data-group-selection-menu-handle]")) return;
+      if (target.closest("[data-dancer-context-toolbar]")) return;
       if (target.closest("[data-group-rotate-handle]")) return;
       if (target.closest("[data-marker-resize-handle]")) return;
       if (target.closest("[data-marker-rotate-handle]")) return;
@@ -3833,6 +3835,50 @@ export function StageBoardBody({
     ],
   );
 
+  const applySelectedMarkerSizePx = useCallback(
+    (px: number) => {
+      if (selectedDancerIds.length === 0) return;
+      if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
+        return;
+      const next = Math.max(MARKER_PX_MIN, Math.min(MARKER_PX_MAX, Math.round(px)));
+      const idSet = new Set(selectedDancerIds);
+      updateActiveFormation((f) => ({
+        ...f,
+        dancers: f.dancers.map((d) => (idSet.has(d.id) ? { ...d, sizePx: next } : d)),
+      }));
+    },
+    [
+      selectedDancerIds,
+      updateActiveFormation,
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+    ],
+  );
+
+  const applySelectedNameBelowFontPx = useCallback(
+    (px: number) => {
+      if (selectedDancerIds.length === 0) return;
+      if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
+        return;
+      const next = clampNameBelowFontPx(px);
+      const idSet = new Set(selectedDancerIds);
+      updateActiveFormation((f) => ({
+        ...f,
+        dancers: f.dancers.map((d) =>
+          idSet.has(d.id) ? { ...d, nameBelowFontPx: next } : d
+        ),
+      }));
+    },
+    [
+      selectedDancerIds,
+      updateActiveFormation,
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+    ],
+  );
+
   /**
    * 名前を○の下にしているとき、選択した全員の○内表示をフォーメーション順で連番にする。
    */
@@ -4131,6 +4177,33 @@ export function StageBoardBody({
     setDancerSelectionSheetOpen(true);
   }, [dancerMenuInteractionDisabled, selectedDancerIds.length]);
 
+  /** 1人選択ツールバーの「⋯」：既存の右クリック小窓を開く */
+  const handleOpenToolbarMore = useCallback(() => {
+    if (dancerMenuInteractionDisabled) return;
+    if (selectedDancerIds.length >= 2) {
+      handleOpenSelectionMenu();
+      return;
+    }
+    const d = primarySelectedDancer;
+    const el = stageMainFloorRef.current;
+    if (!d || !el) return;
+    const r = el.getBoundingClientRect();
+    setShowStageDancerColorToolbar(true);
+    setDancerSelectionSheetOpen(false);
+    setStageContextMenu({
+      kind: "dancer",
+      clientX: r.left + (d.xPct / 100) * r.width,
+      clientY: r.top + (d.yPct / 100) * r.height,
+      dancerId: d.id,
+    });
+  }, [
+    dancerMenuInteractionDisabled,
+    selectedDancerIds.length,
+    handleOpenSelectionMenu,
+    primarySelectedDancer,
+    stageMainFloorRef,
+  ]);
+
   useEffect(() => {
     if (selectedDancerIds.length < 2) {
       setDancerSelectionSheetOpen(false);
@@ -4343,6 +4416,13 @@ export function StageBoardBody({
         onMarkerResizePointerDown: handlePointerDownMarkerResize,
         onNameBelowFontResizePointerDown: handlePointerDownNameBelowFontResize,
         onDeleteSelectedDancers: handleDeleteSelectedDancers,
+        onApplySelectedNameFontPx: applySelectedNameBelowFontPx,
+        onApplySelectedMarkerSizePx: applySelectedMarkerSizePx,
+        onApplySelectedColorIndex: (i) =>
+          applyBulkColorToDancerIds(selectedDancerIds, i),
+        onOpenToolbarMore: handleOpenToolbarMore,
+        onSizeGestureBegin: onGestureHistoryBegin,
+        onSizeGestureEnd: onGestureHistoryEnd,
         tapStageToEditLayout,
         onTapEditOverlayPointerDown: handleTapOverlayPointerDown,
       },

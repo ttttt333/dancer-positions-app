@@ -24,6 +24,7 @@ import { StagePrimaryMarkerResizeHandle } from "./StagePrimaryMarkerResizeHandle
 import { StageDancerDeleteHandle } from "./StageDancerDeleteHandle";
 import { StageNameBelowFontResizeHandle } from "./StageNameBelowFontResizeHandle";
 import { StageTapToEditOverlay } from "./StageTapToEditOverlay";
+import { StageDancerContextToolbar } from "./StageDancerContextToolbar";
 
 export type StageSelectionBoxPct = {
   x0: number;
@@ -81,6 +82,13 @@ export type StageMainFloorInteractionLayerProps = {
   onTapEditOverlayPointerDown: (
     e: ReactPointerEvent<HTMLDivElement>
   ) => void;
+  onApplySelectedNameFontPx?: (px: number) => void;
+  onApplySelectedMarkerSizePx?: (px: number) => void;
+  onApplySelectedColorIndex?: (index: number) => void;
+  /** 1人選択時の「⋯」。未指定なら緑ハンドルと同じ一括シートを開く */
+  onOpenToolbarMore?: () => void;
+  onSizeGestureBegin?: () => void;
+  onSizeGestureEnd?: () => void;
 };
 
 /** メイン床: 大道具・選択 UI・ゴースト印・本印・リサイズ・タップ編集オーバーレイ */
@@ -113,6 +121,12 @@ export function StageMainFloorInteractionLayer({
   resolveNameBelowFontPx,
   tapStageToEditLayout,
   onTapEditOverlayPointerDown,
+  onApplySelectedNameFontPx,
+  onApplySelectedMarkerSizePx,
+  onApplySelectedColorIndex,
+  onOpenToolbarMore,
+  onSizeGestureBegin,
+  onSizeGestureEnd,
 }: StageMainFloorInteractionLayerProps) {
   const showDeleteHandles =
     Boolean(onDeleteSelectedDancers) &&
@@ -283,6 +297,35 @@ export function StageMainFloorInteractionLayer({
           markerPx={effectiveMarkerPx(primarySelectedDancer)}
           selectedCount={selectedDancerIds.length}
           onPointerDown={onMarkerResizePointerDown}
+        />
+      ) : null}
+      {primarySelectedDancer &&
+      selectedDancerIds.length === 1 &&
+      !marquee &&
+      !playbackOrPreview &&
+      viewMode !== "view" &&
+      stageInteractionsEnabled &&
+      onApplySelectedNameFontPx &&
+      onApplySelectedMarkerSizePx &&
+      onApplySelectedColorIndex &&
+      onOpenSelectionMenuClick ? (
+        <StageDancerContextToolbar
+          dancerLabel={primarySelectedDancer.label || "立ち位置"}
+          xPct={primarySelectedDancer.xPct}
+          yPct={primarySelectedDancer.yPct}
+          markerPx={effectiveMarkerPx(primarySelectedDancer)}
+          colorIndex={primarySelectedDancer.colorIndex}
+          nameFontPx={resolveNameBelowFontPx(
+            primarySelectedDancer,
+            effectiveMarkerPx(primarySelectedDancer)
+          )}
+          dancerLabelBelow={dancerLabelBelow}
+          onNameFontChange={onApplySelectedNameFontPx}
+          onMarkerSizeChange={onApplySelectedMarkerSizePx}
+          onColorChange={onApplySelectedColorIndex}
+          onOpenMore={onOpenToolbarMore ?? onOpenSelectionMenuClick}
+          onSizeGestureBegin={onSizeGestureBegin}
+          onSizeGestureEnd={onSizeGestureEnd}
         />
       ) : null}
       {showDeleteHandles &&

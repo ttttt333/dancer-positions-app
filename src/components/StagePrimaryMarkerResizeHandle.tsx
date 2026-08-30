@@ -44,6 +44,7 @@ export function StagePrimaryMarkerResizeHandle({
     >
       <div
         data-marker-resize-handle
+        title="ダンサーサイズ"
         onPointerDown={onPointerDown}
         style={{
           position: "absolute",
