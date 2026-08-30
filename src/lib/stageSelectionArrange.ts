@@ -1,5 +1,19 @@
 import type { DancerSpot } from "../types/choreography";
 import { gradeSortKey, skillSortKey } from "./rosterSortKeys";
+import {
+  clusterSelectionByDepthRows,
+  clusterSelectionByVerticalColumns,
+} from "./stageColumnSwap";
+
+export type PositionSortAxis = "height" | "grade" | "skill";
+export type PositionSortScope = "all" | "row" | "col";
+export type PositionSortDirection = "asc" | "desc";
+
+export type PositionSortRequest = {
+  axis: PositionSortAxis;
+  scope: PositionSortScope;
+  direction: PositionSortDirection;
+};
 
 function clampPct(v: number): number {
   return Math.max(0.25, Math.min(99.75, v));
@@ -445,4 +459,126 @@ export function lineUpBySkillLargeToBack(
     if (!np) return d;
     return { ...d, xPct: np.xPct, yPct: np.yPct };
   });
+}
+
+function peopleSortCmp(
+  axis: PositionSortAxis,
+  direction: PositionSortDirection
+): (a: DancerSpot, b: DancerSpot) => number {
+  const sign = direction === "asc" ? 1 : -1;
+  return (a, b) => {
+    let raw = 0;
+    if (axis === "height") raw = heightCmp(a, b);
+    else if (axis === "grade") {
+      raw = gradeSortKey(a.gradeLabel) - gradeSortKey(b.gradeLabel);
+    } else {
+      raw = skillSortKey(a.skillRankLabel) - skillSortKey(b.skillRankLabel);
+    }
+    if (raw !== 0) return raw * sign;
+    return a.label.localeCompare(b.label, "ja");
+  };
+}
+
+function lineUpAlongAxis(
+  dancers: DancerSpot[],
+  targetIds: string[],
+  sortPeople: (a: DancerSpot, b: DancerSpot) => number,
+  along: "x" | "y"
+): DancerSpot[] {
+  const idSet = new Set(targetIds);
+  const subset = dancers.filter((d) => idSet.has(d.id));
+  if (subset.length <= 1) return dancers;
+
+  const sorted = [...subset].sort(sortPeople);
+  const box = bboxOf(subset);
+  const n = sorted.length;
+  const newPos = new Map<string, { xPct: number; yPct: number }>();
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1);
+    if (along === "x") {
+      newPos.set(sorted[i]!.id, {
+        xPct: clampPct(box.minX + (box.maxX - box.minX) * t),
+        yPct: clampPct(box.cy),
+      });
+    } else {
+      newPos.set(sorted[i]!.id, {
+        xPct: clampPct(box.cx),
+        yPct: clampPct(box.minY + (box.maxY - box.minY) * t),
+      });
+    }
+  }
+  return dancers.map((d) => {
+    const np = newPos.get(d.id);
+    if (!np) return d;
+    return { ...d, xPct: np.xPct, yPct: np.yPct };
+  });
+}
+
+/**
+ * 選択メンバーを軸×範囲×方向で並べ替える。
+ * - all: 位置の集合はそのまま人だけ割当（旧「位置のまま入替」）
+ * - row: Y で段を分け、各段を横一列として独立に並べる
+ * - col: X で縦列を分け、各列を縦一列として独立に並べる
+ */
+export function applyPositionSort(
+  dancers: DancerSpot[],
+  targetIds: string[],
+  request: PositionSortRequest
+): DancerSpot[] {
+  if (targetIds.length < 2) return dancers;
+  const cmp = peopleSortCmp(request.axis, request.direction);
+  if (request.scope === "all") {
+    return permutePreservingSlotPositions(dancers, targetIds, cmp);
+  }
+  const groups =
+    request.scope === "row"
+      ? clusterSelectionByDepthRows(dancers, targetIds)
+      : clusterSelectionByVerticalColumns(dancers, targetIds);
+  const along = request.scope === "row" ? "x" : "y";
+  let next = dancers;
+  for (const group of groups) {
+    if (group.length < 2) continue;
+    next = lineUpAlongAxis(
+      next,
+      group.map((d) => d.id),
+      cmp,
+      along
+    );
+  }
+  return next;
+}
+
+const AXIS_LABEL: Record<PositionSortAxis, string> = {
+  height: "身長",
+  grade: "学年",
+  skill: "スキル",
+};
+
+const SCOPE_LABEL: Record<PositionSortScope, string> = {
+  all: "全体",
+  row: "横一列",
+  col: "縦一列",
+};
+
+const DIRECTION_LABEL: Record<
+  PositionSortAxis,
+  Record<PositionSortDirection, string>
+> = {
+  height: { asc: "低い順", desc: "高い順" },
+  grade: { asc: "低学年から", desc: "高学年から" },
+  skill: { asc: "小さい順", desc: "大きい順" },
+};
+
+export function formatPositionSortPreview(request: PositionSortRequest): string {
+  const axis = AXIS_LABEL[request.axis];
+  const dir = DIRECTION_LABEL[request.axis][request.direction];
+  const scope = SCOPE_LABEL[request.scope];
+  return `${axis}が${dir}、${scope}で並べ替えます`;
+}
+
+export function positionSortDirectionLabels(axis: PositionSortAxis): {
+  asc: string;
+  desc: string;
+} {
+  return DIRECTION_LABEL[axis];
 }

@@ -322,6 +322,30 @@ export function getSelectionSwapAxis(
   return chooseSwapAxis(subset);
 }
 
+/** 並べ替え用：前後の段（Y）だけでグループ化。1列目＝手前 */
+export function clusterSelectionByDepthRows(
+  dancers: DancerSpot[],
+  targetIds: string[]
+): DancerSpot[][] {
+  const idSet = new Set(targetIds);
+  const subset = dancers.filter((d) => idSet.has(d.id));
+  if (!subset.length) return [];
+  if (subset.length === 1) return [subset];
+  return detectDepthRowGroups(subset);
+}
+
+/** 並べ替え用：横位置の縦列（X）だけでグループ化 */
+export function clusterSelectionByVerticalColumns(
+  dancers: DancerSpot[],
+  targetIds: string[]
+): DancerSpot[][] {
+  const idSet = new Set(targetIds);
+  const subset = dancers.filter((d) => idSet.has(d.id));
+  if (!subset.length) return [];
+  if (subset.length === 1) return [subset];
+  return detectVerticalColumnGroups(subset);
+}
+
 export function clusterSelectionColumns(
   dancers: DancerSpot[],
   targetIds: string[]
