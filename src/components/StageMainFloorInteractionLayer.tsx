@@ -25,6 +25,7 @@ import { StageDancerDeleteHandle } from "./StageDancerDeleteHandle";
 import { StageNameBelowFontResizeHandle } from "./StageNameBelowFontResizeHandle";
 import { StageTapToEditOverlay } from "./StageTapToEditOverlay";
 import { StageDancerContextToolbar } from "./StageDancerContextToolbar";
+import { nameBelowToolbarSouthExtraPx } from "../lib/placeStageContextToolbar";
 
 export type StageSelectionBoxPct = {
   x0: number;
@@ -300,19 +301,27 @@ export function StageMainFloorInteractionLayer({
         />
       ) : null}
       {primarySelectedDancer &&
-      selectedDancerIds.length === 1 &&
+      selectedDancerIds.length >= 1 &&
       !marquee &&
       !playbackOrPreview &&
       viewMode !== "view" &&
       stageInteractionsEnabled &&
-      onApplySelectedNameFontPx &&
       onApplySelectedMarkerSizePx &&
       onApplySelectedColorIndex &&
-      onOpenSelectionMenuClick ? (
+      (onOpenToolbarMore || onOpenSelectionMenuClick) ? (
         <StageDancerContextToolbar
           dancerLabel={primarySelectedDancer.label || "立ち位置"}
-          xPct={primarySelectedDancer.xPct}
-          yPct={primarySelectedDancer.yPct}
+          selectedCount={selectedDancerIds.length}
+          xPct={
+            selectionBox
+              ? (selectionBox.x0 + selectionBox.x1) / 2
+              : primarySelectedDancer.xPct
+          }
+          yPct={
+            selectionBox
+              ? (selectionBox.y0 + selectionBox.y1) / 2
+              : primarySelectedDancer.yPct
+          }
           markerPx={effectiveMarkerPx(primarySelectedDancer)}
           colorIndex={primarySelectedDancer.colorIndex}
           nameFontPx={resolveNameBelowFontPx(
@@ -320,10 +329,27 @@ export function StageMainFloorInteractionLayer({
             effectiveMarkerPx(primarySelectedDancer)
           )}
           dancerLabelBelow={dancerLabelBelow}
+          southExtraPx={
+            dancerLabelBelow
+              ? nameBelowToolbarSouthExtraPx(
+                  resolveNameBelowFontPx(
+                    primarySelectedDancer,
+                    effectiveMarkerPx(primarySelectedDancer)
+                  ),
+                  nameBelowClearanceExtraPx
+                )
+              : 0
+          }
+          boxPct={selectionBox ?? undefined}
+          handleOutsetPx={
+            selectionBox
+              ? Math.round(effectiveMarkerPx(primarySelectedDancer) / 2) + 14
+              : undefined
+          }
           onNameFontChange={onApplySelectedNameFontPx}
           onMarkerSizeChange={onApplySelectedMarkerSizePx}
           onColorChange={onApplySelectedColorIndex}
-          onOpenMore={onOpenToolbarMore ?? onOpenSelectionMenuClick}
+          onOpenMore={onOpenToolbarMore ?? onOpenSelectionMenuClick!}
           onSizeGestureBegin={onSizeGestureBegin}
           onSizeGestureEnd={onSizeGestureEnd}
         />

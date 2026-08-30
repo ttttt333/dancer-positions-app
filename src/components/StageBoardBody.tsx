@@ -2344,6 +2344,8 @@ export function StageBoardBody({
       if (target.closest("[data-group-box-handle]")) return;
       if (target.closest("[data-group-selection-menu-handle]")) return;
       if (target.closest("[data-dancer-context-toolbar]")) return;
+      if (target.closest("[data-name-below-font-handle]")) return;
+      if (target.closest("[data-dancer-delete-handle]")) return;
       if (target.closest("[data-group-rotate-handle]")) return;
       if (target.closest("[data-marker-resize-handle]")) return;
       if (target.closest("[data-marker-rotate-handle]")) return;

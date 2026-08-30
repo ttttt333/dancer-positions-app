@@ -7,7 +7,10 @@ import {
   NAME_BELOW_FONT_PX_MAX,
   NAME_BELOW_FONT_PX_MIN,
 } from "../lib/stageNameBelowFontSizing";
-import { placeStageContextToolbar } from "../lib/placeStageContextToolbar";
+import {
+  placeStageContextToolbar,
+  type StageContextToolbarBoxPct,
+} from "../lib/placeStageContextToolbar";
 import {
   MARKER_DIAMETER_PX_MAX,
   MARKER_DIAMETER_PX_MIN,
@@ -18,13 +21,17 @@ type PopoverKind = "name" | "size" | "color" | null;
 
 export type StageDancerContextToolbarProps = {
   dancerLabel: string;
+  selectedCount: number;
   xPct: number;
   yPct: number;
   markerPx: number;
   colorIndex: number;
   nameFontPx: number;
   dancerLabelBelow: boolean;
-  onNameFontChange: (px: number) => void;
+  southExtraPx?: number;
+  boxPct?: StageContextToolbarBoxPct;
+  handleOutsetPx?: number;
+  onNameFontChange?: (px: number) => void;
   onMarkerSizeChange: (px: number) => void;
   onColorChange: (index: number) => void;
   onOpenMore: () => void;
@@ -59,28 +66,49 @@ const btn: CSSProperties = {
   lineHeight: 1,
 };
 
-const popover: CSSProperties = {
-  position: "absolute",
-  left: 0,
-  top: "100%",
-  marginTop: 6,
-  minWidth: 196,
-  padding: 10,
-  borderRadius: 10,
-  border: `1px solid ${shell.borderStrong}`,
-  background: "rgba(8, 11, 18, 0.96)",
-  boxShadow: "0 8px 20px rgba(0,0,0,0.4)",
-  zIndex: 2,
+const btnLater: CSSProperties = {
+  ...btn,
+  opacity: 0.55,
+  cursor: "default",
 };
+
+const caption: CSSProperties = {
+  padding: "0 6px 0 4px",
+  fontSize: 11,
+  fontWeight: 700,
+  color: "#94a3b8",
+  whiteSpace: "nowrap",
+};
+
+function popoverStyle(placeAbove: boolean): CSSProperties {
+  return {
+    position: "absolute",
+    left: 0,
+    minWidth: 196,
+    padding: 10,
+    borderRadius: 10,
+    border: `1px solid ${shell.borderStrong}`,
+    background: "rgba(8, 11, 18, 0.96)",
+    boxShadow: "0 8px 20px rgba(0,0,0,0.4)",
+    zIndex: 2,
+    ...(placeAbove
+      ? { bottom: "100%", top: "auto", marginBottom: 6 }
+      : { top: "100%", bottom: "auto", marginTop: 6 }),
+  };
+}
 
 export function StageDancerContextToolbar({
   dancerLabel,
+  selectedCount,
   xPct,
   yPct,
   markerPx,
   colorIndex,
   nameFontPx,
   dancerLabelBelow,
+  southExtraPx = 0,
+  boxPct,
+  handleOutsetPx,
   onNameFontChange,
   onMarkerSizeChange,
   onColorChange,
@@ -90,9 +118,10 @@ export function StageDancerContextToolbar({
 }: StageDancerContextToolbarProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const barRef = useRef<HTMLDivElement | null>(null);
-  const [pos, setPos] = useState({ leftPx: 0, topPx: 0 });
+  const [pos, setPos] = useState({ leftPx: 0, topPx: 0, placeAbove: true });
   const [open, setOpen] = useState<PopoverKind>(null);
   const [showAllColors, setShowAllColors] = useState(false);
+  const multi = selectedCount >= 2;
 
   useLayoutEffect(() => {
     const host = hostRef.current;
@@ -105,23 +134,47 @@ export function StageDancerContextToolbar({
       xPct,
       yPct,
       markerRadiusPx: markerPx / 2,
-      toolbarW: barRect.width || 220,
+      toolbarW: barRect.width || (multi ? 320 : 220),
       toolbarH: barRect.height || 40,
       stageW: stageRect.width,
       stageH: stageRect.height,
+      southExtraPx,
+      boxPct,
+      handleOutsetPx,
     });
-    setPos({ leftPx: next.leftPx, topPx: next.topPx });
-  }, [xPct, yPct, markerPx, open]);
+    setPos({
+      leftPx: next.leftPx,
+      topPx: next.topPx,
+      placeAbove: next.placeAbove,
+    });
+  }, [
+    xPct,
+    yPct,
+    markerPx,
+    open,
+    southExtraPx,
+    boxPct?.x0,
+    boxPct?.y0,
+    boxPct?.x1,
+    boxPct?.y1,
+    handleOutsetPx,
+    multi,
+    selectedCount,
+  ]);
 
   const colors = showAllColors ? DANCER_PALETTE : DANCER_PALETTE.slice(0, 8);
   const selectedColor = modDancerColorIndex(colorIndex);
+  const ariaLabel = multi
+    ? `${selectedCount}人選択中`
+    : `${dancerLabel}を編集中`;
 
   return (
     <div
       ref={hostRef}
       data-dancer-context-toolbar
+      data-toolbar-mode={multi ? "multi" : "single"}
       role="toolbar"
-      aria-label={`${dancerLabel}を編集中`}
+      aria-label={ariaLabel}
       onPointerDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
       style={{
@@ -133,21 +186,55 @@ export function StageDancerContextToolbar({
       }}
     >
       <div ref={barRef} style={{ ...bar, position: "relative" }}>
+        {multi ? <span style={caption}>{selectedCount}人選択中</span> : null}
         <button type="button" style={btn} title="ステージ上をドラッグして移動">
           移動
         </button>
-        <button
-          type="button"
-          style={{
-            ...btn,
-            borderColor: open === "name" ? "rgba(59,130,246,0.9)" : BTN_BORDER,
-          }}
-          title={dancerLabelBelow ? "名前サイズ" : "名前サイズ（丸の下表示のとき）"}
-          aria-expanded={open === "name"}
-          onClick={() => setOpen((v) => (v === "name" ? null : "name"))}
-        >
-          Aa
-        </button>
+        {multi ? (
+          <>
+            <button
+              type="button"
+              style={btnLater}
+              title="整列（次の段階で接続）"
+              aria-disabled
+            >
+              整列
+            </button>
+            <button
+              type="button"
+              style={btnLater}
+              title="等間隔（次の段階で接続）"
+              aria-disabled
+            >
+              等間隔
+            </button>
+            <button
+              type="button"
+              style={btnLater}
+              title="反転（次の段階で接続）"
+              aria-disabled
+            >
+              反転
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            style={{
+              ...btn,
+              borderColor: open === "name" ? "rgba(59,130,246,0.9)" : BTN_BORDER,
+            }}
+            title={
+              dancerLabelBelow
+                ? "名前サイズ"
+                : "名前サイズ（丸の下表示のとき）"
+            }
+            aria-expanded={open === "name"}
+            onClick={() => setOpen((v) => (v === "name" ? null : "name"))}
+          >
+            Aa
+          </button>
+        )}
         <button
           type="button"
           style={{
@@ -158,7 +245,7 @@ export function StageDancerContextToolbar({
           aria-expanded={open === "size"}
           onClick={() => setOpen((v) => (v === "size" ? null : "size"))}
         >
-          ◯
+          {multi ? "サイズ" : "◯"}
         </button>
         <button
           type="button"
@@ -176,8 +263,8 @@ export function StageDancerContextToolbar({
           ⋯
         </button>
 
-        {open === "name" ? (
-          <div style={popover}>
+        {!multi && open === "name" && onNameFontChange ? (
+          <div style={popoverStyle(pos.placeAbove)}>
             <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>
               名前サイズ
             </div>
@@ -196,7 +283,7 @@ export function StageDancerContextToolbar({
           </div>
         ) : null}
         {open === "size" ? (
-          <div style={popover}>
+          <div style={popoverStyle(pos.placeAbove)}>
             <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>
               ダンサーサイズ
             </div>
@@ -215,8 +302,10 @@ export function StageDancerContextToolbar({
           </div>
         ) : null}
         {open === "color" ? (
-          <div style={popover}>
-            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>色</div>
+          <div style={popoverStyle(pos.placeAbove)}>
+            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>
+              色
+            </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {colors.map((hex, i) => (
                 <button
