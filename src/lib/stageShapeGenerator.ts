@@ -266,6 +266,51 @@ export function generateShapePreview(
   return assignSlotsByMinMovement(selected, slots);
 }
 
+export type TryShapePreviewOutcome =
+  | {
+      ok: true;
+      result: ShapeGeneratorResult;
+      /** 場ミリ付きが失敗し、間隔制約なしで置いた */
+      ignoredSpacing: boolean;
+    }
+  | { ok: false };
+
+function layoutOptsHaveSpacing(opts?: LayoutPresetOptions): boolean {
+  return (
+    typeof opts?.dancerSpacingMm === "number" &&
+    opts.dancerSpacingMm > 0 &&
+    typeof opts?.stageWidthMm === "number" &&
+    opts.stageWidthMm > 0
+  );
+}
+
+/**
+ * 場ミリ付きで slot が作れない（幅不足の overlap など）ときは間隔なしで再試行する。
+ * 呼び出し側は ignoredSpacing / ok:false を必ずユーザーへ知らせること。
+ */
+export function tryGenerateShapePreview(
+  input: ShapeGeneratorInput
+): TryShapePreviewOutcome {
+  try {
+    return {
+      ok: true,
+      result: generateShapePreview(input),
+      ignoredSpacing: false,
+    };
+  } catch {
+    if (!layoutOptsHaveSpacing(input.layoutOpts)) return { ok: false };
+    try {
+      return {
+        ok: true,
+        result: generateShapePreview({ ...input, layoutOpts: undefined }),
+        ignoredSpacing: true,
+      };
+    } catch {
+      return { ok: false };
+    }
+  }
+}
+
 export function applyShapePositionsToDancers(
   dancers: DancerSpot[],
   positions: ReadonlyMap<string, StagePosPct>

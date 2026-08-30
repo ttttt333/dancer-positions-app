@@ -8,6 +8,7 @@ import {
   applyShapePositionsToDancers,
   generateShapePreview,
   generateShapeSlots,
+  tryGenerateShapePreview,
   shapeSlotsOverlap,
 } from "./stageShapeGenerator";
 import { getEffectiveDancerPosition } from "./stageEffectivePosition";
@@ -228,6 +229,22 @@ describe("generateShapePreview", () => {
       presetId: "line",
     });
     expect(result.positions.size).toBe(11);
+  });
+
+  it("11人・場ミリ・横一列: overlap したら ignoredSpacing でフォールバックする", () => {
+    const dancers = Array.from({ length: 11 }, (_, i) =>
+      spot(`d${i}`, 10 + i * 7, 40)
+    );
+    const outcome = tryGenerateShapePreview({
+      dancers,
+      selectedIds: dancers.map((d) => d.id),
+      presetId: "line",
+      layoutOpts: { dancerSpacingMm: 1500, stageWidthMm: 8000 },
+    });
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.ignoredSpacing).toBe(true);
+    expect(outcome.result.positions.size).toBe(11);
   });
 });
 

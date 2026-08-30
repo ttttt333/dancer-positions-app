@@ -64,7 +64,7 @@ import {
 } from "../lib/stageEffectivePosition";
 import {
   applyShapePositionsToDancers,
-  generateShapePreview,
+  tryGenerateShapePreview,
   type StageShapePresetId,
 } from "../lib/stageShapeGenerator";
 import {
@@ -96,6 +96,8 @@ import { StageDancerContextToolbar } from "./StageDancerContextToolbar";
 import { StageBoardPreviewFormationBanner } from "./StageBoardPreviewFormationBanner";
 import { StageBoardScreenOverlay } from "./StageBoardScreenOverlay";
 import { StageBoardBodyOverlays } from "./StageBoardBodyOverlays";
+import { ExportToast } from "./ExportToast";
+import { useExportToast } from "../hooks/useExportToast";
 import { StageBoardBulkColorToolbar } from "./StageBoardBulkColorToolbar";
 import { StageBoardBulkToolbarSlot } from "./StageBoardBulkToolbarSlot";
 import { StageBoardStageFrame } from "./StageBoardStageFrame";
@@ -490,6 +492,11 @@ export function StageBoardBody({
     colB: number;
   } | null>(null);
   const [depthGuidesVisible, setDepthGuidesVisible] = useState(false);
+  const {
+    toast: shapePreviewToast,
+    showToast: showShapePreviewToast,
+    dismiss: dismissShapePreviewToast,
+  } = useExportToast(5200);
   const shapePreviewKeyRef = useRef<string>("");
 
   const {
@@ -3954,31 +3961,35 @@ export function StageBoardBody({
       if (dancerQuickEditId) return;
       const persistDancers =
         writeFormation?.dancers ?? activeFormation?.dancers ?? [];
-      const input = {
+      const outcome = tryGenerateShapePreview({
         dancers: persistDancers,
         selectedIds: selectedDancerIds,
         presetId,
-      };
-      let result;
-      try {
-        result = generateShapePreview({
-          ...input,
-          layoutOpts: {
-            dancerSpacingMm: project.dancerSpacingMm,
-            stageWidthMm: project.stageWidthMm,
-          },
+        layoutOpts: {
+          dancerSpacingMm: project.dancerSpacingMm,
+          stageWidthMm: project.stageWidthMm,
+        },
+      });
+      if (!outcome.ok) {
+        showShapePreviewToast({
+          kind: "error",
+          title: "この形には配置できませんでした",
+          description: "人数または間隔がステージに収まりません。",
         });
-      } catch {
-        try {
-          result = generateShapePreview(input);
-        } catch {
-          return;
-        }
+        return;
       }
-      if (result.positions.size === 0) return;
+      if (outcome.result.positions.size === 0) return;
+      if (outcome.ignoredSpacing) {
+        showShapePreviewToast({
+          kind: "info",
+          title: "間隔を詰めて配置しています",
+          description:
+            "このステージ幅では指定の最小間隔を守れないため、間隔制約を外して並べました。",
+        });
+      }
       setDepthPreviewById(null);
       setDepthPreviewPair(null);
-      setShapePreviewById(result.positions);
+      setShapePreviewById(outcome.result.positions);
       shapePreviewKeyRef.current = selectedDancerIds.join("\0");
     },
     [
@@ -3991,6 +4002,7 @@ export function StageBoardBody({
       selectedDancerIds,
       project.dancerSpacingMm,
       project.stageWidthMm,
+      showShapePreviewToast,
     ],
   );
 
@@ -4951,6 +4963,10 @@ export function StageBoardBody({
       overlays={
         <>
           <StageBoardBodyOverlays {...stageBoardOverlaysProps} />
+          <ExportToast
+            toast={shapePreviewToast}
+            onDismiss={dismissShapePreviewToast}
+          />
           {sizeApplyPending ? (
             <StageSizeApplyScopeDialog
               kind={sizeApplyPending.kind}
