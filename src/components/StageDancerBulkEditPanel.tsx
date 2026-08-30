@@ -161,8 +161,6 @@ export function StageDancerBulkEditPanel({
   applyBulkMarkerCenterDistance,
   applyPermuteArrange,
   applyDancerArrange,
-  onCloseMenu,
-  onOpenPathEditor,
   selectionColumnCount,
   selectionColumnSummary,
   selectionSwapAxis,
@@ -521,34 +519,6 @@ export function StageDancerBulkEditPanel({
             ) : null}
           </div>
         </div>
-      ) : null}
-
-      {onOpenPathEditor ? (
-        <>
-          <div style={{ height: 1, background: "#1e293b", margin: "16px 0 12px" }} />
-          <button
-            type="button"
-            onClick={() => {
-              onCloseMenu();
-              onOpenPathEditor();
-            }}
-            style={{
-              width: "100%",
-              padding: "10px 12px",
-              borderRadius: 8,
-              border: "1px solid rgba(99,102,241,0.5)",
-              background: "rgba(99,102,241,0.12)",
-              color: "#c7d2fe",
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: "pointer",
-              textAlign: "center",
-            }}
-            title="このキューに入る前のギャップでの各ダンサーの移動軌道を個別に設定します"
-          >
-            動線を個人設定…
-          </button>
-        </>
       ) : null}
     </div>
   );
