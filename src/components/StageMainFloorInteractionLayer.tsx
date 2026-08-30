@@ -24,16 +24,8 @@ import { StagePrimaryMarkerResizeHandle } from "./StagePrimaryMarkerResizeHandle
 import { StageDancerDeleteHandle } from "./StageDancerDeleteHandle";
 import { StageNameBelowFontResizeHandle } from "./StageNameBelowFontResizeHandle";
 import { StageTapToEditOverlay } from "./StageTapToEditOverlay";
-import { StageDancerContextToolbar } from "./StageDancerContextToolbar";
-import { nameBelowToolbarSouthExtraPx } from "../lib/placeStageContextToolbar";
-import type {
-  SelectionAlignEdge,
-  SelectionDistributeAxis,
-  SelectionFlipAxis,
-} from "../lib/stageSelectionTransform";
-import type { StageEditMode } from "../lib/stageEditMode";
-import type { StageShapePresetId } from "../lib/stageShapeGenerator";
-import type { DepthSwapInspect } from "../lib/stageDepthPreview";
+import { StageDepthGroupMarksOverlay } from "./StageDepthGroupMarksOverlay";
+import type { DepthGroupMarkOnStage } from "../lib/stageDepthPreview";
 
 export type StageSelectionBoxPct = {
   x0: number;
@@ -91,25 +83,7 @@ export type StageMainFloorInteractionLayerProps = {
   onTapEditOverlayPointerDown: (
     e: ReactPointerEvent<HTMLDivElement>
   ) => void;
-  onApplySelectedNameFontPx?: (px: number) => void;
-  onApplySelectedMarkerSizePx?: (px: number) => void;
-  onApplySelectedColorIndex?: (index: number) => void;
-  /** 1人選択時の「⋯」。未指定なら緑ハンドルと同じ一括シートを開く */
-  onOpenToolbarMore?: () => void;
-  onSizeGestureBegin?: () => void;
-  onSizeGestureEnd?: () => void;
-  onAlignSelected?: (edge: SelectionAlignEdge) => void;
-  onDistributeSelected?: (axis: SelectionDistributeAxis) => void;
-  onFlipSelected?: (axis: SelectionFlipAxis) => void;
-  editMode?: StageEditMode;
-  shapePreviewActive?: boolean;
-  depthPreviewActive?: boolean;
-  depthPreviewPair?: { colA: number; colB: number } | null;
-  depthSwapInspect?: DepthSwapInspect;
-  onBeginShapePreview?: (presetId: StageShapePresetId) => void;
-  onBeginDepthPreview?: (colA: number, colB: number) => void;
-  onCancelShapePreview?: () => void;
-  onApplyShapePreview?: () => void;
+  depthGroupMarks?: readonly DepthGroupMarkOnStage[];
 };
 
 /** メイン床: 大道具・選択 UI・ゴースト印・本印・リサイズ・タップ編集オーバーレイ */
@@ -142,24 +116,7 @@ export function StageMainFloorInteractionLayer({
   resolveNameBelowFontPx,
   tapStageToEditLayout,
   onTapEditOverlayPointerDown,
-  onApplySelectedNameFontPx,
-  onApplySelectedMarkerSizePx,
-  onApplySelectedColorIndex,
-  onOpenToolbarMore,
-  onSizeGestureBegin,
-  onSizeGestureEnd,
-  onAlignSelected,
-  onDistributeSelected,
-  onFlipSelected,
-  editMode,
-  shapePreviewActive = false,
-  depthPreviewActive = false,
-  depthPreviewPair = null,
-  depthSwapInspect,
-  onBeginShapePreview,
-  onBeginDepthPreview,
-  onCancelShapePreview,
-  onApplyShapePreview,
+  depthGroupMarks = [],
 }: StageMainFloorInteractionLayerProps) {
   const showDeleteHandles =
     Boolean(onDeleteSelectedDancers) &&
@@ -303,6 +260,9 @@ export function StageMainFloorInteractionLayer({
           );
         })}
       {dancerMarkerElements}
+      {depthGroupMarks.length > 0 && !playbackOrPreview ? (
+        <StageDepthGroupMarksOverlay marks={depthGroupMarks} rot={rot} />
+      ) : null}
       {dancerLabelBelow &&
       primarySelectedDancer &&
       selectedDancerIds.length === 1 &&
@@ -330,72 +290,6 @@ export function StageMainFloorInteractionLayer({
           markerPx={effectiveMarkerPx(primarySelectedDancer)}
           selectedCount={selectedDancerIds.length}
           onPointerDown={onMarkerResizePointerDown}
-        />
-      ) : null}
-      {primarySelectedDancer &&
-      selectedDancerIds.length >= 1 &&
-      !marquee &&
-      !playbackOrPreview &&
-      viewMode !== "view" &&
-      stageInteractionsEnabled &&
-      onApplySelectedMarkerSizePx &&
-      onApplySelectedColorIndex &&
-      (onOpenToolbarMore || onOpenSelectionMenuClick) ? (
-        <StageDancerContextToolbar
-          dancerLabel={primarySelectedDancer.label || "立ち位置"}
-          selectedCount={selectedDancerIds.length}
-          editMode={editMode}
-          xPct={
-            selectionBox
-              ? (selectionBox.x0 + selectionBox.x1) / 2
-              : primarySelectedDancer.xPct
-          }
-          yPct={
-            selectionBox
-              ? (selectionBox.y0 + selectionBox.y1) / 2
-              : primarySelectedDancer.yPct
-          }
-          markerPx={effectiveMarkerPx(primarySelectedDancer)}
-          colorIndex={primarySelectedDancer.colorIndex}
-          nameFontPx={resolveNameBelowFontPx(
-            primarySelectedDancer,
-            effectiveMarkerPx(primarySelectedDancer)
-          )}
-          dancerLabelBelow={dancerLabelBelow}
-          southExtraPx={
-            dancerLabelBelow
-              ? nameBelowToolbarSouthExtraPx(
-                  resolveNameBelowFontPx(
-                    primarySelectedDancer,
-                    effectiveMarkerPx(primarySelectedDancer)
-                  ),
-                  nameBelowClearanceExtraPx
-                )
-              : 0
-          }
-          boxPct={selectionBox ?? undefined}
-          handleOutsetPx={
-            selectionBox
-              ? Math.round(effectiveMarkerPx(primarySelectedDancer) / 2) + 14
-              : undefined
-          }
-          onNameFontChange={onApplySelectedNameFontPx}
-          onMarkerSizeChange={onApplySelectedMarkerSizePx}
-          onColorChange={onApplySelectedColorIndex}
-          onOpenMore={onOpenToolbarMore ?? onOpenSelectionMenuClick!}
-          onSizeGestureBegin={onSizeGestureBegin}
-          onSizeGestureEnd={onSizeGestureEnd}
-          onAlign={onAlignSelected}
-          onDistribute={onDistributeSelected}
-          onFlip={onFlipSelected}
-          shapePreviewActive={shapePreviewActive}
-          depthPreviewActive={depthPreviewActive}
-          depthPreviewPair={depthPreviewPair}
-          depthSwapInspect={depthSwapInspect}
-          onBeginShapePreview={onBeginShapePreview}
-          onBeginDepthPreview={onBeginDepthPreview}
-          onCancelShapePreview={onCancelShapePreview}
-          onApplyShapePreview={onApplyShapePreview}
         />
       ) : null}
       {showDeleteHandles &&

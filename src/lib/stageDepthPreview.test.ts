@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { DancerSpot } from "../types/choreography";
 import {
+  adjacentDepthSwapPairs,
+  circleMark,
   generateDepthSwapPreview,
   inspectFormationDepthSwap,
+  layoutDepthGroupMarksOnStage,
+  mapDancerDepthGroupMarks,
 } from "./stageDepthPreview";
 import {
   applyShapePositionsToDancers,
@@ -46,7 +50,6 @@ describe("inspectFormationDepthSwap", () => {
     expect(info.groupLines).toEqual(["① 2人", "② 2人", "③ 2人"]);
     expect(info.pairs.map((p) => ({ colA: p.colA, colB: p.colB }))).toEqual([
       { colA: 0, colB: 1 },
-      { colA: 0, colB: 2 },
       { colA: 1, colB: 2 },
     ]);
     expect(info.pairs.every((p) => p.noChange)).toBe(true);
@@ -89,7 +92,6 @@ describe("inspectFormationDepthSwap", () => {
     expect(info.pairs.some((p) => !p.noChange)).toBe(true);
     expect(info.pairs.map((p) => `${p.markA}⇄${p.markB}`)).toEqual([
       "①⇄②",
-      "①⇄③",
       "②⇄③",
     ]);
   });
@@ -110,6 +112,100 @@ describe("inspectFormationDepthSwap", () => {
     expect(info.axisHint).toBe("3列として判定");
     expect(info.pairs[0]?.noChange).toBe(false);
     expect(info.pairs[0]?.movementLabel).not.toBe("なし");
+  });
+
+  it("lists every adjacent pair including ④, not skip pairs", () => {
+    const dancers = [
+      spot("a", 50, 20),
+      spot("b", 50, 40),
+      spot("c", 50, 60),
+      spot("d", 50, 80),
+    ];
+    const info = inspectFormationDepthSwap(
+      dancers,
+      dancers.map((d) => d.id)
+    );
+    expect(info.groupCount).toBe(4);
+    expect(info.groupSummaryLine).toContain("④");
+    expect(info.pairs.map((p) => `${p.markA}⇄${p.markB}`)).toEqual([
+      "①⇄②",
+      "②⇄③",
+      "③⇄④",
+    ]);
+    expect(info.pairs.every((p) => p.colB === p.colA + 1)).toBe(true);
+  });
+
+  it("keeps ④ on a 4-person diagonal", () => {
+    const dancers = [
+      spot("a", 20, 20),
+      spot("b", 40, 40),
+      spot("c", 60, 60),
+      spot("d", 80, 80),
+    ];
+    const info = inspectFormationDepthSwap(
+      dancers,
+      dancers.map((d) => d.id)
+    );
+    expect(info.groupCount).toBe(4);
+    expect(info.pairs).toHaveLength(3);
+    expect(info.pairs[2]?.markB).toBe(circleMark(3));
+  });
+});
+
+describe("adjacentDepthSwapPairs", () => {
+  it("is empty below 2 groups", () => {
+    expect(adjacentDepthSwapPairs(0)).toEqual([]);
+    expect(adjacentDepthSwapPairs(1)).toEqual([]);
+  });
+
+  it("returns only neighbors: ①⇄② ②⇄③ ③⇄④", () => {
+    expect(adjacentDepthSwapPairs(4)).toEqual([
+      { colA: 0, colB: 1 },
+      { colA: 1, colB: 2 },
+      { colA: 2, colB: 3 },
+    ]);
+  });
+});
+
+describe("depth group marks stay on people during preview", () => {
+  it("①⇄② moves bodies but keeps ① on the original front group", () => {
+    const dancers = [
+      spot("front", 50, 80),
+      spot("mid", 50, 50),
+      spot("back", 50, 20),
+    ];
+    const ids = dancers.map((d) => d.id);
+    const persistMarks = mapDancerDepthGroupMarks(dancers, ids);
+    expect(persistMarks.find((m) => m.dancerId === "front")?.mark).toBe("①");
+    expect(persistMarks.find((m) => m.dancerId === "mid")?.mark).toBe("②");
+    expect(persistMarks.find((m) => m.dancerId === "back")?.mark).toBe("③");
+
+    const preview = generateDepthSwapPreview(dancers, ids, 0, 1);
+    expect(preview.size).toBeGreaterThan(0);
+    expect(preview.get("front")?.xPct).toBe(50);
+    expect(preview.get("front")?.yPct).toBe(50);
+    expect(preview.get("mid")?.yPct).toBe(80);
+
+    const overlay = layoutDepthGroupMarksOnStage(
+      persistMarks,
+      new Map(
+        dancers.map((d) => [
+          d.id,
+          getEffectiveDancerPosition(d, { depthPreviewById: preview }),
+        ])
+      )
+    );
+    const frontMark = overlay.find((m) => m.dancerId === "front");
+    const midMark = overlay.find((m) => m.dancerId === "mid");
+    expect(frontMark?.mark).toBe("①");
+    expect(midMark?.mark).toBe("②");
+    expect(midMark!.yPct).toBeGreaterThan(frontMark!.yPct);
+
+    const reclusters = mapDancerDepthGroupMarks(
+      applyShapePositionsToDancers(dancers, preview),
+      ids
+    );
+    expect(reclusters.find((m) => m.dancerId === "mid")?.mark).toBe("①");
   });
 });
 

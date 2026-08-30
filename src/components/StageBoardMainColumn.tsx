@@ -3,8 +3,12 @@ import type { ReactNode } from "react";
 export type StageBoardMainColumnProps = {
   /** フォーメーション案プレビュー時の帯など。不要なら `null`。 */
   previewBanner: ReactNode;
+  /** ステージ枠の外・上側。編集レベル（DANCER / GROUP / FORMATION）。 */
+  editModeHeader?: ReactNode;
   /** `StageBoardFitViewport` 〜ステージ本体まで。 */
   stageFrame: ReactNode;
+  /** ステージ枠の外・客席側。編集ドック。 */
+  editDock?: ReactNode;
   /** 床下の一括ツールバー等。不要なら `null`。 */
   bulkToolbar: ReactNode;
 };
@@ -14,7 +18,9 @@ export type StageBoardMainColumnProps = {
  */
 export function StageBoardMainColumn({
   previewBanner,
+  editModeHeader = null,
   stageFrame,
+  editDock = null,
   bulkToolbar,
 }: StageBoardMainColumnProps) {
   return (
@@ -50,7 +56,13 @@ export function StageBoardMainColumn({
           overflow: "visible",
         }}
       >
+        {editModeHeader ? (
+          <div style={{ flexShrink: 0, width: "100%" }}>{editModeHeader}</div>
+        ) : null}
         {stageFrame}
+        {editDock ? (
+          <div style={{ flexShrink: 0, width: "100%" }}>{editDock}</div>
+        ) : null}
         {bulkToolbar}
       </div>
     </div>

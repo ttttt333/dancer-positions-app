@@ -70,6 +70,8 @@ import {
 import {
   generateDepthSwapPreview,
   inspectFormationDepthSwap,
+  layoutDepthGroupMarksOnStage,
+  mapDancerDepthGroupMarks,
 } from "../lib/stageDepthPreview";
 import type { DancerQuickEditApply } from "./DancerQuickEditDialog";
 import {
@@ -89,6 +91,8 @@ import { StageDancerContextMenuSheet } from "./StageDancerContextMenuSheet";
 import { StageBoardLayout } from "./StageBoardLayout";
 import { StageBoardShell } from "./StageBoardShell";
 import { StageBoardMainColumn } from "./StageBoardMainColumn";
+import { StageEditModeHeader } from "./StageEditModeHeader";
+import { StageDancerContextToolbar } from "./StageDancerContextToolbar";
 import { StageBoardPreviewFormationBanner } from "./StageBoardPreviewFormationBanner";
 import { StageBoardScreenOverlay } from "./StageBoardScreenOverlay";
 import { StageBoardBodyOverlays } from "./StageBoardBodyOverlays";
@@ -481,10 +485,11 @@ export function StageBoardBody({
     string,
     { xPct: number; yPct: number }
   > | null>(null);
-  const [depthPreviewPair, setDepthPreviewPair] = useState<{
+  const [, setDepthPreviewPair] = useState<{
     colA: number;
     colB: number;
   } | null>(null);
+  const [depthGuidesVisible, setDepthGuidesVisible] = useState(false);
   const shapePreviewKeyRef = useRef<string>("");
 
   const {
@@ -4006,6 +4011,30 @@ export function StageBoardBody({
     () => inspectFormationDepthSwap(persistDancersForShape, selectedDancerIds),
     [persistDancersForShape, selectedDancerIds],
   );
+  const depthGroupMarks = useMemo(() => {
+    if (!depthGuidesVisible) return [];
+    if (stageEditMode !== "formation") return [];
+    const marks = mapDancerDepthGroupMarks(
+      persistDancersForShape,
+      selectedDancerIds
+    );
+    const pos = new Map(
+      dancersForStageMarkers.map((d) => [
+        d.id,
+        { xPct: d.xPct, yPct: d.yPct },
+      ])
+    );
+    return layoutDepthGroupMarksOnStage(marks, pos);
+  }, [
+    depthGuidesVisible,
+    stageEditMode,
+    persistDancersForShape,
+    selectedDancerIds,
+    dancersForStageMarkers,
+  ]);
+  const handleDepthGuidesVisibleChange = useCallback((visible: boolean) => {
+    setDepthGuidesVisible(visible);
+  }, []);
 
   const beginDepthPreview = useCallback(
     (colA: number, colB: number) => {
@@ -4629,36 +4658,9 @@ export function StageBoardBody({
         onMarkerResizePointerDown: handlePointerDownMarkerResize,
         onNameBelowFontResizePointerDown: handlePointerDownNameBelowFontResize,
         onDeleteSelectedDancers: handleDeleteSelectedDancers,
-        onApplySelectedNameFontPx: applySelectedNameBelowFontPx,
-        onApplySelectedMarkerSizePx: applySelectedMarkerSizePx,
-        onApplySelectedColorIndex: (i) =>
-          applyBulkColorToDancerIds(selectedDancerIds, i),
-        onOpenToolbarMore: handleOpenToolbarMore,
-        onSizeGestureBegin: onGestureHistoryBegin,
-        onSizeGestureEnd: onGestureHistoryEnd,
-        onAlignSelected: (edge) =>
-          applySelectedTransform((dancers, ids) =>
-            alignSelectedDancers(dancers, ids, edge)
-          ),
-        onDistributeSelected: (axis) =>
-          applySelectedTransform((dancers, ids) =>
-            distributeSelectedDancers(dancers, ids, axis)
-          ),
-        onFlipSelected: (axis) =>
-          applySelectedTransform((dancers, ids) =>
-            flipSelectedDancers(dancers, ids, axis)
-          ),
-        shapePreviewActive: Boolean(shapePreviewById && shapePreviewById.size > 0),
-        depthPreviewActive: Boolean(depthPreviewById && depthPreviewById.size > 0),
-        depthPreviewPair,
-        depthSwapInspect,
-        onBeginShapePreview: beginShapePreview,
-        onBeginDepthPreview: beginDepthPreview,
-        onCancelShapePreview: cancelShapePreview,
-        onApplyShapePreview: applyShapePreview,
-        editMode: stageEditMode,
         tapStageToEditLayout,
         onTapEditOverlayPointerDown: handleTapOverlayPointerDown,
+        depthGroupMarks,
       },
     } satisfies BuildStageBoardExportColumnInput);
 
@@ -4706,6 +4708,11 @@ export function StageBoardBody({
             show={Boolean(previewDancers && previewDancers.length > 0)}
           />
         }
+        editModeHeader={
+          canStageBulkTools ? (
+            <StageEditModeHeader mode={stageEditMode} />
+          ) : null
+        }
         stageFrame={
           <StageBoardStageFrame
             compactViewportChrome={compactViewportChrome}
@@ -4731,6 +4738,74 @@ export function StageBoardBody({
             }
             exportColumn={stageBoardExportColumn}
           />
+        }
+        editDock={
+          canStageBulkTools &&
+          primarySelectedDancer &&
+          selectedDancerIds.length >= 1 &&
+          !marquee ? (
+            <div
+              style={{
+                flexShrink: 0,
+                width: "100%",
+                display: "flex",
+                justifyContent: "center",
+                padding: "4px 0 8px",
+              }}
+            >
+              <StageDancerContextToolbar
+                dancerLabel={primarySelectedDancer.label || "立ち位置"}
+                selectedCount={selectedDancerIds.length}
+                editMode={stageEditMode}
+                markerPx={effectiveMarkerPx(primarySelectedDancer)}
+                colorIndex={primarySelectedDancer.colorIndex}
+                nameFontPx={resolveNameBelowFontPx(
+                  primarySelectedDancer,
+                  effectiveMarkerPx(primarySelectedDancer)
+                )}
+                dancerLabelBelow={dancerLabelBelow}
+                onNameFontChange={applySelectedNameBelowFontPx}
+                onMarkerSizeChange={applySelectedMarkerSizePx}
+                onColorChange={(i) =>
+                  applyBulkColorToDancerIds(selectedDancerIds, i)
+                }
+                onOpenMore={handleOpenToolbarMore}
+                onSizeGestureBegin={onGestureHistoryBegin}
+                onSizeGestureEnd={onGestureHistoryEnd}
+                onAlign={(edge) =>
+                  applySelectedTransform((dancers, ids) =>
+                    alignSelectedDancers(dancers, ids, edge)
+                  )
+                }
+                onDistribute={(axis) =>
+                  applySelectedTransform((dancers, ids) =>
+                    distributeSelectedDancers(dancers, ids, axis)
+                  )
+                }
+                onFlip={(axis) =>
+                  applySelectedTransform((dancers, ids) =>
+                    flipSelectedDancers(dancers, ids, axis)
+                  )
+                }
+                shapePreviewActive={Boolean(
+                  shapePreviewById && shapePreviewById.size > 0
+                )}
+                depthPreviewActive={Boolean(
+                  depthPreviewById && depthPreviewById.size > 0
+                )}
+                depthSwapInspect={depthSwapInspect}
+                onBeginShapePreview={beginShapePreview}
+                onBeginDepthPreview={beginDepthPreview}
+                onCancelShapePreview={cancelShapePreview}
+                onApplyShapePreview={applyShapePreview}
+                onDepthGuidesVisibleChange={handleDepthGuidesVisibleChange}
+                shapeLayoutOpts={{
+                  dancerSpacingMm: project.dancerSpacingMm,
+                  stageWidthMm: project.stageWidthMm,
+                }}
+              />
+            </div>
+          ) : null
         }
         bulkToolbar={
           canStageBulkTools ? (

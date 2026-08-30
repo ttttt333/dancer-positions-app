@@ -11,6 +11,7 @@ import {
   shapeSlotsOverlap,
 } from "./stageShapeGenerator";
 import { getEffectiveDancerPosition } from "./stageEffectivePosition";
+import { shapeCardDots } from "../components/StageFormationShapeCards";
 
 function spot(
   id: string,
@@ -55,7 +56,7 @@ describe("generateShapeSlots", () => {
 });
 
 describe("FORMATION SHAPE vee slots", () => {
-  const counts = [3, 4, 5, 6, 7, 8, 9] as const;
+  const counts = [3, 4, 5, 6, 7, 8, 9, 11] as const;
 
   it.each(counts)("n=%i: slot count, no overlap, in range", (n) => {
     const slots = generateShapeSlots(n, "vee");
@@ -70,7 +71,7 @@ describe("FORMATION SHAPE vee slots", () => {
   });
 
   it("odd n has one independent center tip at the audience side", () => {
-    for (const n of [3, 5, 7, 9]) {
+    for (const n of [3, 5, 7, 9, 11]) {
       const slots = generateShapeSlots(n, "vee");
       const maxY = Math.max(...slots.map((s) => s.yPct));
       const front = slots.filter((s) => Math.abs(s.yPct - maxY) < 0.2);
@@ -229,5 +230,17 @@ describe("getEffectiveDancerPosition", () => {
         groupPosDraft: new Map([["a", { xPct: 70, yPct: 80 }]]),
       })
     ).toEqual({ xPct: 40, yPct: 50 });
+  });
+});
+
+describe("shape cards use generator slot count", () => {
+  it("5 / 8 / 11 people get that many slots and card dots", () => {
+    for (const n of [5, 8, 11] as const) {
+      for (const id of ["line", "line_vertical", "vee"] as const) {
+        const slots = generateShapeSlots(n, id);
+        expect(slots).toHaveLength(n);
+        expect(shapeCardDots(slots)).toHaveLength(n);
+      }
+    }
   });
 });

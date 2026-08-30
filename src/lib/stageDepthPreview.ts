@@ -31,12 +31,103 @@ export type DepthSwapInspect = {
   groupCount: number;
   groupSizes: number[];
   groupLines: string[];
+  /** ① 1人　② 3人　③ 5人　④ 2人 */
+  groupSummaryLine: string;
   summary: string;
   lines: string[];
   pairs: DepthSwapPairInfo[];
 };
 
-const CIRCLE_MARKS = ["①", "②", "③", "④", "⑤"] as const;
+export type DepthGroupMark = {
+  dancerId: string;
+  groupIndex: number;
+  mark: string;
+};
+
+/**
+ * クラスタ結果をダンサー id に固定する。Preview 中も再クラスタしないこと。
+ * 番号は人の ID ではなく、判定時点のグループ位置（①＝先頭グループ）。
+ */
+export function mapDancerDepthGroupMarks(
+  dancers: readonly DancerSpot[],
+  selectedIds: readonly string[]
+): DepthGroupMark[] {
+  const columns = clusterSelectionColumns([...dancers], [...selectedIds]);
+  const out: DepthGroupMark[] = [];
+  columns.forEach((col, i) => {
+    const mark = circleMark(i);
+    for (const member of col.members) {
+      out.push({ dancerId: member.id, groupIndex: i, mark });
+    }
+  });
+  return out;
+}
+
+export type DepthGroupMarkOnStage = {
+  dancerId: string;
+  mark: string;
+  xPct: number;
+  yPct: number;
+};
+
+/** ステージ表示用。番号は persist クラスタ、座標は実効位置（Preview 後も①が同じ人に付く） */
+export function layoutDepthGroupMarksOnStage(
+  marks: readonly DepthGroupMark[],
+  positionById: ReadonlyMap<string, StagePosPct>
+): DepthGroupMarkOnStage[] {
+  const byGroup = new Map<number, DepthGroupMark[]>();
+  for (const m of marks) {
+    const arr = byGroup.get(m.groupIndex) ?? [];
+    arr.push(m);
+    byGroup.set(m.groupIndex, arr);
+  }
+  const out: DepthGroupMarkOnStage[] = [];
+  for (const group of byGroup.values()) {
+    const xs: number[] = [];
+    for (const g of group) {
+      const pos = positionById.get(g.dancerId);
+      if (pos) xs.push(pos.xPct);
+    }
+    const meanX = xs.length ? xs.reduce((s, v) => s + v, 0) / xs.length : 50;
+    for (const g of group) {
+      const pos = positionById.get(g.dancerId);
+      if (!pos) continue;
+      let dx = 0;
+      if (pos.xPct < meanX - 0.8) dx = -4.2;
+      else if (pos.xPct > meanX + 0.8) dx = 4.2;
+      out.push({
+        dancerId: g.dancerId,
+        mark: g.mark,
+        xPct: Math.max(2, Math.min(98, pos.xPct + dx)),
+        yPct: Math.max(2, Math.min(98, pos.yPct - 6)),
+      });
+    }
+  }
+  return out;
+}
+
+const CIRCLE_MARKS = [
+  "①",
+  "②",
+  "③",
+  "④",
+  "⑤",
+  "⑥",
+  "⑦",
+  "⑧",
+  "⑨",
+  "⑩",
+  "⑪",
+  "⑫",
+  "⑬",
+  "⑭",
+  "⑮",
+  "⑯",
+  "⑰",
+  "⑱",
+  "⑲",
+  "⑳",
+] as const;
 
 export function circleMark(index: number): string {
   return CIRCLE_MARKS[index] ?? String(index + 1);
@@ -49,12 +140,14 @@ export function labelDepthMovement(costPct: number): DepthMovementLabel {
   return "大";
 }
 
-/** 一括シートと同じ 3 グループまでの前後ペア */
-function pairsForGroupCount(groupCount: number): DepthSwapPair[] {
+/**
+ * 隣接グループだけ。①⇄②, ②⇄③, ③⇄④ …（飛び越し ①⇄③ などは今回出さない）
+ */
+export function adjacentDepthSwapPairs(groupCount: number): DepthSwapPair[] {
   if (groupCount < 2) return [];
-  const pairs: DepthSwapPair[] = [{ colA: 0, colB: 1 }];
-  if (groupCount >= 3) {
-    pairs.push({ colA: 0, colB: 2 }, { colA: 1, colB: 2 });
+  const pairs: DepthSwapPair[] = [];
+  for (let i = 0; i < groupCount - 1; i++) {
+    pairs.push({ colA: i, colB: i + 1 });
   }
   return pairs;
 }
@@ -69,7 +162,10 @@ export function inspectFormationDepthSwap(
   const columns = clusterSelectionColumns(list, ids);
   const unit = axis === "depth-rows" ? "段" : "列";
   const groupSizes = columns.map((col) => col.members.length);
-  const pairs = pairsForGroupCount(columns.length).map((pair) => {
+  const groupLines = columns.map(
+    (col, i) => `${circleMark(i)} ${col.members.length}人`
+  );
+  const pairs = adjacentDepthSwapPairs(columns.length).map((pair) => {
     const ev = evaluateDepthSwapPair(list, ids, pair.colA, pair.colB);
     return {
       ...pair,
@@ -91,9 +187,8 @@ export function inspectFormationDepthSwap(
     axisHint: `${columns.length}${unit}として判定`,
     groupCount: columns.length,
     groupSizes,
-    groupLines: columns.map(
-      (col, i) => `${circleMark(i)} ${col.members.length}人`
-    ),
+    groupLines,
+    groupSummaryLine: groupLines.join("　"),
     summary: formatSelectionColumnSummary(list, ids, axis),
     lines,
     pairs,
