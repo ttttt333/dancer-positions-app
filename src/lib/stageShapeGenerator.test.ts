@@ -11,7 +11,7 @@ import {
   shapeSlotsOverlap,
 } from "./stageShapeGenerator";
 import { getEffectiveDancerPosition } from "./stageEffectivePosition";
-import { shapeCardDots } from "../components/StageFormationShapeCards";
+import { safeShapeCardSlots, shapeCardDots } from "../components/StageFormationShapeCards";
 
 function spot(
   id: string,
@@ -209,6 +209,26 @@ describe("generateShapePreview", () => {
     expect(tip.yPct).toBeGreaterThan(left.yPct);
     expect(tip.xPct).toBeCloseTo(50, 5);
   });
+
+  it("falls back without 場ミリ when packed line slots would overlap", () => {
+    const dancers = Array.from({ length: 11 }, (_, i) =>
+      spot(`d${i}`, 10 + i * 7, 40)
+    );
+    expect(() =>
+      generateShapePreview({
+        dancers,
+        selectedIds: dancers.map((d) => d.id),
+        presetId: "line",
+        layoutOpts: { dancerSpacingMm: 1500, stageWidthMm: 8000 },
+      })
+    ).toThrow(/overlap/);
+    const result = generateShapePreview({
+      dancers,
+      selectedIds: dancers.map((d) => d.id),
+      presetId: "line",
+    });
+    expect(result.positions.size).toBe(11);
+  });
 });
 
 describe("getEffectiveDancerPosition", () => {
@@ -241,6 +261,20 @@ describe("shape cards use generator slot count", () => {
         expect(slots).toHaveLength(n);
         expect(shapeCardDots(slots)).toHaveLength(n);
       }
+    }
+  });
+
+  it("does not throw when opening cards for 11 on a typical 場ミリ stage", () => {
+    expect(() =>
+      generateShapeSlots(11, "line", {
+        dancerSpacingMm: 1500,
+        stageWidthMm: 8000,
+      })
+    ).toThrow(/overlap/);
+    for (const id of ["line", "line_vertical", "vee"] as const) {
+      const slots = safeShapeCardSlots(11, id);
+      expect(slots).toHaveLength(11);
+      expect(shapeCardDots(slots)).toHaveLength(11);
     }
   });
 });

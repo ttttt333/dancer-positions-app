@@ -3954,15 +3954,27 @@ export function StageBoardBody({
       if (dancerQuickEditId) return;
       const persistDancers =
         writeFormation?.dancers ?? activeFormation?.dancers ?? [];
-      const result = generateShapePreview({
+      const input = {
         dancers: persistDancers,
         selectedIds: selectedDancerIds,
         presetId,
-        layoutOpts: {
-          dancerSpacingMm: project.dancerSpacingMm,
-          stageWidthMm: project.stageWidthMm,
-        },
-      });
+      };
+      let result;
+      try {
+        result = generateShapePreview({
+          ...input,
+          layoutOpts: {
+            dancerSpacingMm: project.dancerSpacingMm,
+            stageWidthMm: project.stageWidthMm,
+          },
+        });
+      } catch {
+        try {
+          result = generateShapePreview(input);
+        } catch {
+          return;
+        }
+      }
       if (result.positions.size === 0) return;
       setDepthPreviewById(null);
       setDepthPreviewPair(null);
@@ -4799,10 +4811,6 @@ export function StageBoardBody({
                 onCancelShapePreview={cancelShapePreview}
                 onApplyShapePreview={applyShapePreview}
                 onDepthGuidesVisibleChange={handleDepthGuidesVisibleChange}
-                shapeLayoutOpts={{
-                  dancerSpacingMm: project.dancerSpacingMm,
-                  stageWidthMm: project.stageWidthMm,
-                }}
               />
             </div>
           ) : null

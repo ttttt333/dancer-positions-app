@@ -5,7 +5,6 @@ import {
   type StageShapePresetId,
 } from "../lib/stageShapeGenerator";
 import type { StagePosPct } from "../lib/stageEffectivePosition";
-import type { LayoutPresetOptions } from "../lib/formationLayouts";
 
 const VB_W = 100;
 const VB_H = 78;
@@ -37,6 +36,53 @@ export function shapeCardDots(slots: readonly StagePosPct[]): {
   }));
 }
 
+/** カード専用。場ミリは使わない（clamp 重なりで描画が落ちないようにする） */
+function schematicFallback(
+  n: number,
+  presetId: StageShapePresetId
+): StagePosPct[] {
+  if (n <= 0) return [];
+  if (presetId === "line") {
+    return Array.from({ length: n }, (_, i) => ({
+      xPct: n === 1 ? 50 : 12 + (i * 76) / (n - 1),
+      yPct: 50,
+    }));
+  }
+  if (presetId === "line_vertical") {
+    return Array.from({ length: n }, (_, i) => ({
+      xPct: 50,
+      yPct: n === 1 ? 50 : 18 + (i * 64) / (n - 1),
+    }));
+  }
+  const slots: StagePosPct[] = [];
+  const odd = n % 2 === 1;
+  const rows = odd ? (n + 1) / 2 : n / 2;
+  const gaps = Math.max(1, rows - 1);
+  for (let r = 0; r < rows; r++) {
+    const t = rows === 1 ? 0 : r / gaps;
+    const y = 72 - t * 40;
+    const half = (odd ? 0 : 6) + t * 28;
+    if (odd && r === 0) {
+      slots.push({ xPct: 50, yPct: y });
+    } else {
+      slots.push({ xPct: 50 - half, yPct: y });
+      slots.push({ xPct: 50 + half, yPct: y });
+    }
+  }
+  return slots.slice(0, n);
+}
+
+export function safeShapeCardSlots(
+  n: number,
+  presetId: StageShapePresetId
+): StagePosPct[] {
+  try {
+    return generateShapeSlots(n, presetId);
+  } catch {
+    return schematicFallback(n, presetId);
+  }
+}
+
 const cardBtn: CSSProperties = {
   flex: "1 1 0",
   minWidth: 88,
@@ -55,17 +101,15 @@ const cardBtn: CSSProperties = {
 
 export type StageFormationShapeCardsProps = {
   selectedCount: number;
-  layoutOpts?: LayoutPresetOptions;
   onPick: (presetId: StageShapePresetId) => void;
 };
 
 /**
  * FORMATION SHAPE の3カード。ドット数＝現在の選択人数。
- * 座標は既存 generateShapeSlots を読むだけ（ロジックは変更しない）。
+ * サムネは generateShapeSlots の既定形状。場ミリは渡さない（描画で throw しない）。
  */
 export function StageFormationShapeCards({
   selectedCount,
-  layoutOpts,
   onPick,
 }: StageFormationShapeCardsProps) {
   const n = Math.max(1, selectedCount);
@@ -83,7 +127,7 @@ export function StageFormationShapeCards({
       }}
     >
       {STAGE_SHAPE_PRESETS.map((preset) => {
-        const slots = generateShapeSlots(n, preset.id, layoutOpts);
+        const slots = safeShapeCardSlots(n, preset.id);
         const dots = shapeCardDots(slots);
         return (
           <button

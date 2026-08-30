@@ -21,7 +21,6 @@ import type { StageEditMode } from "../lib/stageEditMode";
 import type { StageShapePresetId } from "../lib/stageShapeGenerator";
 import type { DepthSwapInspect } from "../lib/stageDepthPreview";
 import { StageFormationShapeCards } from "./StageFormationShapeCards";
-import type { LayoutPresetOptions } from "../lib/formationLayouts";
 
 type PopoverKind = "name" | "size" | "color" | "tidy" | "flip" | "shape" | "depth" | null;
 
@@ -50,7 +49,6 @@ export type StageDancerContextToolbarProps = {
   onCancelShapePreview?: () => void;
   onApplyShapePreview?: () => void;
   onDepthGuidesVisibleChange?: (visible: boolean) => void;
-  shapeLayoutOpts?: LayoutPresetOptions;
 };
 
 const BTN_BORDER = "#334155";
@@ -142,7 +140,6 @@ export function StageDancerContextToolbar({
   onCancelShapePreview,
   onApplyShapePreview,
   onDepthGuidesVisibleChange,
-  shapeLayoutOpts,
 }: StageDancerContextToolbarProps) {
   const barRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState<PopoverKind>(null);
@@ -566,7 +563,6 @@ export function StageDancerContextToolbar({
             </div>
             <StageFormationShapeCards
               selectedCount={selectedCount}
-              layoutOpts={shapeLayoutOpts}
               onPick={(presetId) => {
                 onBeginShapePreview?.(presetId);
                 setOpen(null);
