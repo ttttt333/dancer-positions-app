@@ -328,30 +328,44 @@ export function useTimelineCueActions({
       if (project.viewMode === "view") return;
       if (assertCanAddCue && !assertCanAddCue()) return;
       const newCueId = crypto.randomUUID();
+      let appliedT: number | null = null;
       setProject((p) => {
         const trimHi = trimHiSecForCueTimeline(
           p.trimEndSec,
           durationRef.current
         );
-        return (
-          duplicateCueAfterSourceInProject(
-            p,
-            source,
-            newCueId,
-            p.trimStartSec,
-            trimHi
-          ) ?? p
+        const next = duplicateCueAfterSourceInProject(
+          p,
+          source,
+          newCueId,
+          p.trimStartSec,
+          trimHi
         );
+        if (!next) return p;
+        appliedT = next.cues.find((c) => c.id === newCueId)?.tStartSec ?? null;
+        return next;
       });
+      if (appliedT != null) {
+        syncPlaybackHeadAfterCueEdit({
+          t: appliedT,
+          durationSec: durationRef.current,
+          trimStartSec,
+          trimEndSec,
+        });
+      }
       onSelectedCueIdsChange([newCueId]);
       onFormationChosenFromCueList?.();
     },
     [
       project.viewMode,
+      project.trimStartSec,
+      project.trimEndSec,
       setProject,
       onFormationChosenFromCueList,
       onSelectedCueIdsChange,
       durationRef,
+      trimStartSec,
+      trimEndSec,
       assertCanAddCue,
     ]
   );

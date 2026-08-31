@@ -154,6 +154,8 @@ export type StageBoardBodyProps = {
    * 未指定時は ⋯ に出さない（GROUP / DANCER / キュー未選択）。
    */
   onCreateNextCue?: () => void;
+  /** 現在編集中の Cue。ステージ上部にキュー番号を出す */
+  editCueId?: string | null;
   /** スマホ編集／閲覧: ステージをピンチで拡大縮小する */
   enablePinchViewport?: boolean;
 };

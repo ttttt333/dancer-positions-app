@@ -51,6 +51,7 @@ export type StageDancerContextToolbarProps = {
   dancerLabel: string;
   selectedCount: number;
   editMode?: StageEditMode;
+  cueOrdinal?: number | null;
   markerPx: number;
   colorIndex: number;
   nameFontPx: number;
@@ -148,6 +149,7 @@ export function StageDancerContextToolbar({
   dancerLabel,
   selectedCount,
   editMode = "none",
+  cueOrdinal = null,
   markerPx,
   colorIndex,
   nameFontPx,
@@ -257,7 +259,10 @@ export function StageDancerContextToolbar({
       }}
     >
       {!previewKind && formationEdit ? (
-        <div style={caption}>FORMATION EDIT</div>
+        <div style={caption}>
+          FORMATION EDIT
+          {cueOrdinal != null ? ` · キュー ${cueOrdinal}` : ""}
+        </div>
       ) : null}
       {!previewKind && groupEdit ? (
         <div style={{ ...caption, color: "#94a3b8", letterSpacing: 0 }}>

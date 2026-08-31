@@ -17,6 +17,19 @@ export function isFormationEditSelection(
   return true;
 }
 
+/**
+ * フォーメーション切替時、新しい Formation にまだいる人だけ選択を残す。
+ * clone は dancer id を維持するので、FORMATION EDIT のまま次キューへ入れる。
+ */
+export function retainDancerIdsInFormation(
+  selectedIds: readonly string[],
+  formationDancerIds: readonly string[]
+): string[] {
+  if (selectedIds.length === 0) return [];
+  const live = new Set(formationDancerIds);
+  return selectedIds.filter((id) => live.has(id));
+}
+
 export function resolveStageEditMode(
   selectedIds: readonly string[],
   formationDancerIds: readonly string[]

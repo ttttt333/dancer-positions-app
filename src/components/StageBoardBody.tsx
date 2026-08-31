@@ -57,7 +57,11 @@ import {
   distributeSelectedDancers,
   flipSelectedDancers,
 } from "../lib/stageSelectionTransform";
-import { resolveStageEditMode } from "../lib/stageEditMode";
+import {
+  resolveStageEditMode,
+  retainDancerIdsInFormation,
+} from "../lib/stageEditMode";
+import { cueNumberById } from "../lib/cueInterval";
 import {
   applyEffectivePositions,
   getEffectiveDancerPosition,
@@ -188,6 +192,7 @@ export function StageBoardBody({
   onOpenDancerPathEditor,
   enablePinchViewport = false,
   onCreateNextCue,
+  editCueId = null,
 }: StageBoardBodyProps) {
   const {
     isPlaying,
@@ -641,7 +646,19 @@ export function StageBoardBody({
 
     onGestureHistoryCancel?.();
     setDancerQuickEditId((id) => (id === null ? id : null));
-    clearSelectedDancers();
+    const liveIds = (
+      formations.find((f) => f.id === formationIdForWrites)?.dancers ?? []
+    ).map((d) => d.id);
+    setSelectedDancerIds((ids) => {
+      const next = retainDancerIdsInFormation(ids, liveIds);
+      if (
+        next.length === ids.length &&
+        next.every((id, i) => id === ids[i])
+      ) {
+        return ids;
+      }
+      return next;
+    });
     setStageContextMenu((m) => (m === null ? m : null));
     setDancerSelectionSheetOpen(false);
     setSelectedSetPieceId((id) => (id === null ? id : null));
@@ -682,7 +699,12 @@ export function StageBoardBody({
     setShowStageDancerColorToolbar(false);
     setBulkHideDancerGlyphs(false);
     setGroupRotateGuideDeltaDeg(null);
-  }, [formationIdForWrites, onGestureHistoryCancel, clearSelectedDancers]);
+  }, [
+    formationIdForWrites,
+    formations,
+    onGestureHistoryCancel,
+    setSelectedDancerIds,
+  ]);
 
   /** ピンチ拡大など: 進行中のドラッグを破棄する */
   useEffect(() => {
@@ -800,6 +822,10 @@ export function StageBoardBody({
         stageDancersForLookup.map((d) => d.id)
       ),
     [selectedDancerIds, stageDancersForLookup],
+  );
+  const editCueOrdinal = useMemo(
+    () => cueNumberById(project.cues, editCueId),
+    [project.cues, editCueId],
   );
   const stageDancerById = useMemo(
     () => new Map(stageDancersForLookup.map((d) => [d.id, d] as const)),
@@ -4802,7 +4828,10 @@ export function StageBoardBody({
         }
         editModeHeader={
           canStageBulkTools ? (
-            <StageEditModeHeader mode={stageEditMode} />
+            <StageEditModeHeader
+              mode={stageEditMode}
+              cueOrdinal={editCueOrdinal}
+            />
           ) : null
         }
         stageFrame={
@@ -4849,6 +4878,7 @@ export function StageBoardBody({
                 dancerLabel={primarySelectedDancer.label || "立ち位置"}
                 selectedCount={selectedDancerIds.length}
                 editMode={stageEditMode}
+                cueOrdinal={editCueOrdinal}
                 markerPx={effectiveMarkerPx(primarySelectedDancer)}
                 colorIndex={primarySelectedDancer.colorIndex}
                 nameFontPx={resolveNameBelowFontPx(

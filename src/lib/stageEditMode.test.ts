@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isFormationEditSelection,
   resolveStageEditMode,
+  retainDancerIdsInFormation,
 } from "./stageEditMode";
 
 describe("isFormationEditSelection", () => {
@@ -52,5 +53,23 @@ describe("resolveStageEditMode", () => {
 
   it("returns none when nothing is selected", () => {
     expect(resolveStageEditMode([], formation)).toBe("none");
+  });
+});
+
+describe("retainDancerIdsInFormation", () => {
+  it("keeps a full formation selection when dancer ids are cloned", () => {
+    const kept = retainDancerIdsInFormation(["a", "b", "c"], ["a", "b", "c"]);
+    expect(kept).toEqual(["a", "b", "c"]);
+    expect(resolveStageEditMode(kept, ["a", "b", "c"])).toBe("formation");
+  });
+
+  it("drops ids that are not in the next formation", () => {
+    expect(retainDancerIdsInFormation(["a", "b", "stale"], ["a", "b", "c"])).toEqual(
+      ["a", "b"]
+    );
+  });
+
+  it("clears selection when no selected dancer exists in the next formation", () => {
+    expect(retainDancerIdsInFormation(["x", "y"], ["a", "b", "c"])).toEqual([]);
   });
 });

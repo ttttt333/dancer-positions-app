@@ -8,6 +8,7 @@ import {
   cueActiveAtTime,
   migrateCuesFromRaw,
   duplicateCueAfterSourceInProject,
+  cueNumberById,
 } from "./cueInterval";
 import { normalizeProject } from "./normalizeProject";
 import type { Cue } from "../types/choreography";
@@ -150,6 +151,38 @@ describe("duplicateCueAfterSourceInProject", () => {
     );
     expect(next!.formations.find((f) => f.id === fid)!.dancers).toEqual(dancers);
     expect(next!.activeFormationId).toBe(cloned.id);
+
+    const moved = {
+      ...next!,
+      formations: next!.formations.map((f) =>
+        f.id === cloned.id
+          ? {
+              ...f,
+              dancers: f.dancers.map((d, i) =>
+                i === 0 ? { ...d, xPct: 99 } : d
+              ),
+            }
+          : f
+      ),
+    };
+    expect(moved.formations.find((f) => f.id === fid)!.dancers[0]!.xPct).toBe(
+      30
+    );
+    expect(
+      moved.formations.find((f) => f.id === cloned.id)!.dancers[0]!.xPct
+    ).toBe(99);
+  });
+});
+
+describe("cueNumberById", () => {
+  it("numbers cues by start time", () => {
+    const cues: Cue[] = [
+      { id: "b", tStartSec: 8, tEndSec: 16, formationId: "fb" },
+      { id: "a", tStartSec: 0, tEndSec: 8, formationId: "fa" },
+    ];
+    expect(cueNumberById(cues, "a")).toBe(1);
+    expect(cueNumberById(cues, "b")).toBe(2);
+    expect(cueNumberById(cues, "missing")).toBeNull();
   });
 });
 

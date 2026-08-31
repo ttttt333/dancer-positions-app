@@ -935,6 +935,9 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                         ? undefined
                         : () => timelineRef.current?.duplicateCueAfterSelected()
                     }
+                    editCueId={
+                      typeof selectedCueId === "string" ? selectedCueId : null
+                    }
                   />
                 {mobileStackEditor &&
                 editorMobileLandscape &&

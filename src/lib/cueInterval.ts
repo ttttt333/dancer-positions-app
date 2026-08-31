@@ -20,6 +20,16 @@ export function sortCuesByStart(cues: Cue[]): Cue[] {
   );
 }
 
+/** 開始時刻順の 1 始まり番号。見つからなければ null。 */
+export function cueNumberById(
+  cues: Cue[],
+  cueId: string | null | undefined
+): number | null {
+  if (!cueId) return null;
+  const i = sortCuesByStart(cues).findIndex((c) => c.id === cueId);
+  return i >= 0 ? i + 1 : null;
+}
+
 function randomId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 11)}`;
 }

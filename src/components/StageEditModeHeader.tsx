@@ -38,18 +38,27 @@ const sep: CSSProperties = {
 
 export type StageEditModeHeaderProps = {
   mode: StageEditMode;
+  /** 開始時刻順のキュー番号（1始まり）。未選択なら出さない */
+  cueOrdinal?: number | null;
 };
 
 /**
  * ステージ枠の外・上側。選択から自動判定した編集レベルだけ下線。
  * タップでレベルは切り替えない。
  */
-export function StageEditModeHeader({ mode }: StageEditModeHeaderProps) {
+export function StageEditModeHeader({
+  mode,
+  cueOrdinal = null,
+}: StageEditModeHeaderProps) {
   return (
     <div
       data-stage-edit-mode-header
       role="status"
-      aria-label="編集レベル"
+      aria-label={
+        cueOrdinal != null
+          ? `編集レベル、キュー ${cueOrdinal}`
+          : "編集レベル"
+      }
       style={row}
     >
       {LEVELS.map((level, i) => {
@@ -70,6 +79,21 @@ export function StageEditModeHeader({ mode }: StageEditModeHeaderProps) {
           </span>
         );
       })}
+      {cueOrdinal != null ? (
+        <span
+          data-edit-cue-ordinal
+          style={{
+            ...item,
+            marginLeft: 10,
+            letterSpacing: "0.04em",
+            color: "#94a3b8",
+            borderBottomColor: "transparent",
+            fontWeight: 700,
+          }}
+        >
+          キュー {cueOrdinal}
+        </span>
+      ) : null}
     </div>
   );
 }

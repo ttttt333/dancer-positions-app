@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 /**
  * ステージ上のインタラクション状態（編集ページでは Stage が 1 枚想定）。
- * フォーメーション切替時は `clearStageBoardInteraction` でリセットする。
+ * フォーメーション切替時は、新しい Formation にいない選択だけ外す（clone の identity は残す）。
  */
 export type StageBoardInteractionStore = {
   selectedDancerIds: string[];
