@@ -3605,6 +3605,16 @@ export function StageBoardBody({
     rot,
   ]);
 
+  const cancelShapePreview = useCallback(() => {
+    setShapePreviewById(null);
+    setShapePreviewMeta(null);
+    setDepthPreviewById(null);
+    setDepthPreviewPair(null);
+    setRotationPreviewById(null);
+    setRotationPreviewDir(null);
+    shapePreviewKeyRef.current = "";
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (viewMode === "view") return;
@@ -4022,16 +4032,6 @@ export function StageBoardBody({
       playbackOrPreview,
     ],
   );
-
-  const cancelShapePreview = useCallback(() => {
-    setShapePreviewById(null);
-    setShapePreviewMeta(null);
-    setDepthPreviewById(null);
-    setDepthPreviewPair(null);
-    setRotationPreviewById(null);
-    setRotationPreviewDir(null);
-    shapePreviewKeyRef.current = "";
-  }, []);
 
   const handleCreateNextCue = useCallback(() => {
     if (!onCreateNextCue) return;
