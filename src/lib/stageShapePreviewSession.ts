@@ -7,6 +7,10 @@ import {
   type ShapeGeneratorInput,
   type StageShapePresetId,
 } from "./stageShapeGenerator";
+import {
+  classifyMovementCostPct,
+  type MovementGrade,
+} from "./stageMovementGrade";
 
 export type ShapePreviewDraft = {
   presetId: StageShapePresetId;
@@ -14,7 +18,7 @@ export type ShapePreviewDraft = {
   movementCostPct: number;
 };
 
-export type ShapeMovementGrade = "小" | "中" | "大";
+export type ShapeMovementGrade = MovementGrade;
 
 export type ShapePreviewEscAction = "close-picker" | "cancel-draft" | "none";
 
@@ -32,9 +36,7 @@ export function classifyShapeMovementCost(
   dancerCount: number
 ): ShapeMovementGrade {
   const avg = dancerCount <= 0 ? 0 : totalCostPct / dancerCount;
-  if (avg < 8) return "小";
-  if (avg < 25) return "中";
-  return "大";
+  return classifyMovementCostPct(avg);
 }
 
 /**

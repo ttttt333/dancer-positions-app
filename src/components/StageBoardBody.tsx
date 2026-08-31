@@ -107,6 +107,12 @@ import { StageBoardBulkColorToolbar } from "./StageBoardBulkColorToolbar";
 import { StageBoardBulkToolbarSlot } from "./StageBoardBulkToolbarSlot";
 import { StageBoardStageFrame } from "./StageBoardStageFrame";
 import { StageMotionArrowsOverlay } from "./StageMotionArrowsOverlay";
+import { StagePrevCueCompareOverlay } from "./StagePrevCueCompareOverlay";
+import {
+  buildPrevCueCompareMarks,
+  resolvePreviousCueDancers,
+  summarizePrevCueCompare,
+} from "../lib/stagePrevCueCompare";
 import type { StageExportRootColumnProps } from "./StageExportRootColumn";
 import { shell } from "../theme/choreoShell";
 import {
@@ -625,6 +631,7 @@ export function StageBoardBody({
   /** 範囲選択枠の緑ボタンから開く大きな操作パネル */
   const [dancerSelectionSheetOpen, setDancerSelectionSheetOpen] =
     useState(false);
+  const [prevCueCompareOn, setPrevCueCompareOn] = useState(false);
   /**
    * 複数の一括移動・枠スケール・剛体回転ドラッグ中は、選択メンバーの○内番号と名前を隠す。
    */
@@ -827,6 +834,10 @@ export function StageBoardBody({
     () => cueNumberById(project.cues, editCueId),
     [project.cues, editCueId],
   );
+  const prevCueDancers = useMemo(
+    () => resolvePreviousCueDancers(project.cues, formations, editCueId),
+    [project.cues, formations, editCueId],
+  );
   const stageDancerById = useMemo(
     () => new Map(stageDancersForLookup.map((d) => [d.id, d] as const)),
     [stageDancersForLookup],
@@ -881,6 +892,31 @@ export function StageBoardBody({
   }, [displayFloorMarkup, floorTextInlineRect?.id]);
 
   const playbackOrPreview = Boolean(playbackDancers || previewDancers);
+  const prevCueCompareAvailable = Boolean(prevCueDancers && !playbackOrPreview);
+  const prevCueCompareMarks = useMemo(() => {
+    if (!prevCueCompareOn || !prevCueDancers || playbackOrPreview) return [];
+    return buildPrevCueCompareMarks({
+      prevDancers: prevCueDancers,
+      currentDancers: dancersForStageMarkers,
+    });
+  }, [
+    prevCueCompareOn,
+    prevCueDancers,
+    playbackOrPreview,
+    dancersForStageMarkers,
+  ]);
+  const prevCueCompareSummary = useMemo(() => {
+    if (!prevCueCompareOn || !prevCueDancers || playbackOrPreview) return null;
+    return summarizePrevCueCompare({
+      prevDancers: prevCueDancers,
+      currentDancers: dancersForStageMarkers,
+    });
+  }, [
+    prevCueCompareOn,
+    prevCueDancers,
+    playbackOrPreview,
+    dancersForStageMarkers,
+  ]);
 
   /** 選択中ダンサーを囲む bounding box（pct 単位）。2 件以上で表示。`handlePointerDownMarkerRotate` 等が依存するため早期に定義する。 */
   const selectionBox = useMemo(() => {
@@ -4796,6 +4832,15 @@ export function StageBoardBody({
       />
     );
   }
+  if (prevCueCompareMarks.length > 0) {
+    const existing = stageBoardExportColumn.mainFloor.motionArrowsOverlay;
+    stageBoardExportColumn.mainFloor.motionArrowsOverlay = (
+      <>
+        <StagePrevCueCompareOverlay marks={prevCueCompareMarks} />
+        {existing}
+      </>
+    );
+  }
 
   const stageBoardLayoutSlots = {
     /* screen レイヤー（床テキスト・大道具など） */
@@ -4933,6 +4978,14 @@ export function StageBoardBody({
                 onCancelShapePreview={cancelShapePreview}
                 onApplyShapePreview={applyShapePreview}
                 onDepthGuidesVisibleChange={handleDepthGuidesVisibleChange}
+                prevCueCompareAvailable={prevCueCompareAvailable}
+                prevCueCompareOn={prevCueCompareOn}
+                prevCueCompareSummary={prevCueCompareSummary}
+                onTogglePrevCueCompare={
+                  prevCueCompareAvailable
+                    ? () => setPrevCueCompareOn((v) => !v)
+                    : undefined
+                }
               />
             </div>
           ) : null

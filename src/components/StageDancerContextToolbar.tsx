@@ -34,6 +34,8 @@ import {
   STAGE_TIDY_ACTIONS,
 } from "../lib/stageTidyActions";
 import { StageFormationShapeCards } from "./StageFormationShapeCards";
+import { StagePrevCueCompareSummary } from "./StagePrevCueCompareOverlay";
+import type { PrevCueCompareSummary } from "../lib/stagePrevCueCompare";
 
 type PopoverKind =
   | "name"
@@ -79,6 +81,10 @@ export type StageDancerContextToolbarProps = {
   onCancelShapePreview?: () => void;
   onApplyShapePreview?: () => void;
   onDepthGuidesVisibleChange?: (visible: boolean) => void;
+  prevCueCompareAvailable?: boolean;
+  prevCueCompareOn?: boolean;
+  prevCueCompareSummary?: PrevCueCompareSummary | null;
+  onTogglePrevCueCompare?: () => void;
 };
 
 const BTN_BORDER = "#334155";
@@ -177,6 +183,10 @@ export function StageDancerContextToolbar({
   onCancelShapePreview,
   onApplyShapePreview,
   onDepthGuidesVisibleChange,
+  prevCueCompareAvailable = false,
+  prevCueCompareOn = false,
+  prevCueCompareSummary = null,
+  onTogglePrevCueCompare,
 }: StageDancerContextToolbarProps) {
   const barRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState<PopoverKind>(null);
@@ -583,6 +593,25 @@ export function StageDancerContextToolbar({
                 }
               >
                 位置交換
+              </button>
+            ) : null}
+            {formationEdit && prevCueCompareAvailable && onTogglePrevCueCompare ? (
+              <button
+                type="button"
+                data-prev-cue-compare
+                style={{
+                  ...btn,
+                  borderColor: prevCueCompareOn
+                    ? "rgba(148,163,184,0.95)"
+                    : BTN_BORDER,
+                  color: prevCueCompareOn ? "#e2e8f0" : "#e2e8f0",
+                  background: prevCueCompareOn ? "#1e293b" : "#0b1220",
+                }}
+                title="前のキューの位置を薄い○で重ねる"
+                aria-pressed={prevCueCompareOn}
+                onClick={() => onTogglePrevCueCompare()}
+              >
+                比較
               </button>
             ) : null}
             {dancerEdit ? (
@@ -1061,6 +1090,9 @@ export function StageDancerContextToolbar({
           </div>
         ) : null}
       </div>
+      {prevCueCompareOn && prevCueCompareSummary ? (
+        <StagePrevCueCompareSummary summary={prevCueCompareSummary} />
+      ) : null}
     </div>
   );
 }
