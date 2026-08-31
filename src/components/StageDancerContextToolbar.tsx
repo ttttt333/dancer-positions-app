@@ -21,12 +21,30 @@ import type { StageEditMode } from "../lib/stageEditMode";
 import type { StageShapePresetId } from "../lib/stageShapeGenerator";
 import type { DepthSwapInspect } from "../lib/stageDepthPreview";
 import {
+  classifyShapeMovementCost,
+  resolveShapePreviewEsc,
+  shapePreviewLabel,
+} from "../lib/stageShapePreviewSession";
+import {
+  positionRotationLabel,
+  type PositionRotationDir,
+} from "../lib/stagePositionRotation";
+import {
   isStageTidyAvailable,
   STAGE_TIDY_ACTIONS,
 } from "../lib/stageTidyActions";
 import { StageFormationShapeCards } from "./StageFormationShapeCards";
 
-type PopoverKind = "name" | "size" | "color" | "tidy" | "flip" | "shape" | "depth" | null;
+type PopoverKind =
+  | "name"
+  | "size"
+  | "color"
+  | "tidy"
+  | "flip"
+  | "shape"
+  | "depth"
+  | "rotate"
+  | null;
 
 export type StageDancerContextToolbarProps = {
   dancerLabel: string;
@@ -47,9 +65,14 @@ export type StageDancerContextToolbarProps = {
   onFlip?: (axis: SelectionFlipAxis) => void;
   shapePreviewActive?: boolean;
   depthPreviewActive?: boolean;
+  rotationPreviewActive?: boolean;
+  rotationPreviewDir?: PositionRotationDir | null;
+  shapePreviewPresetId?: StageShapePresetId | null;
+  shapePreviewMovementCostPct?: number;
   depthSwapInspect?: DepthSwapInspect;
   onBeginShapePreview?: (presetId: StageShapePresetId) => void;
   onBeginDepthPreview?: (colA: number, colB: number) => void;
+  onBeginRotationPreview?: (direction: PositionRotationDir) => void;
   onCancelShapePreview?: () => void;
   onApplyShapePreview?: () => void;
   onDepthGuidesVisibleChange?: (visible: boolean) => void;
@@ -138,9 +161,14 @@ export function StageDancerContextToolbar({
   onFlip,
   shapePreviewActive = false,
   depthPreviewActive = false,
+  rotationPreviewActive = false,
+  rotationPreviewDir = null,
+  shapePreviewPresetId = null,
+  shapePreviewMovementCostPct = 0,
   depthSwapInspect,
   onBeginShapePreview,
   onBeginDepthPreview,
+  onBeginRotationPreview,
   onCancelShapePreview,
   onApplyShapePreview,
   onDepthGuidesVisibleChange,
@@ -160,11 +188,29 @@ export function StageDancerContextToolbar({
     ? "shape"
     : depthPreviewActive
       ? "depth"
-      : null;
+      : rotationPreviewActive
+        ? "rotation"
+        : null;
 
   useEffect(() => {
-    if (previewKind) setOpen(null);
+    if (previewKind === "depth") setOpen(null);
   }, [previewKind]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const action = resolveShapePreviewEsc({
+        pickerOpen: open !== null,
+        draftActive: Boolean(previewKind),
+      });
+      if (action !== "close-picker") return;
+      e.preventDefault();
+      e.stopPropagation();
+      setOpen(null);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [open, previewKind]);
 
   useEffect(() => {
     onDepthGuidesVisibleChange?.(open === "depth" || depthPreviewActive);
@@ -179,7 +225,9 @@ export function StageDancerContextToolbar({
   const ariaLabel = previewKind
     ? previewKind === "shape"
       ? "形をプレビュー中"
-      : "前後をプレビュー中"
+      : previewKind === "depth"
+        ? "前後をプレビュー中"
+        : "位置をプレビュー中"
     : formationEdit
       ? "FORMATION EDIT"
       : groupEdit
@@ -220,7 +268,190 @@ export function StageDancerContextToolbar({
           position: "relative",
         }}
       >
-        {previewKind ? (
+        {previewKind === "shape" ? (
+          <div
+            data-shape-preview-chrome
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              width: "100%",
+              padding: "2px 2px 0",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: "#e2e8f0",
+              }}
+            >
+              形をプレビュー中
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 8,
+                fontSize: 13,
+                fontWeight: 700,
+                color: "#fbbf24",
+              }}
+            >
+              <span data-shape-preview-label>
+                {shapePreviewPresetId
+                  ? shapePreviewLabel(shapePreviewPresetId)
+                  : "形"}
+              </span>
+              <span data-shape-preview-move>
+                移動：
+                {classifyShapeMovementCost(
+                  shapePreviewMovementCostPct,
+                  selectedCount
+                )}
+              </span>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 4,
+              }}
+            >
+              <button
+                type="button"
+                data-shape-change
+                style={{
+                  ...btn,
+                  borderColor:
+                    open === "shape" ? "rgba(251,191,36,0.9)" : BTN_BORDER,
+                }}
+                title="プレビュー中の形を変更"
+                aria-expanded={open === "shape"}
+                onClick={() =>
+                  setOpen((v) => (v === "shape" ? null : "shape"))
+                }
+              >
+                形を変更
+              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <button
+                  type="button"
+                  style={btn}
+                  title="プレビューを取り消す"
+                  onClick={() => {
+                    setOpen(null);
+                    onCancelShapePreview?.();
+                  }}
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    ...btn,
+                    borderColor: "rgba(52,211,153,0.9)",
+                    color: "#6ee7b7",
+                  }}
+                  title="プレビューを適用する"
+                  onClick={() => {
+                    setOpen(null);
+                    onApplyShapePreview?.();
+                  }}
+                >
+                  適用
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : previewKind === "rotation" ? (
+          <div
+            data-rotation-preview-chrome
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              width: "100%",
+              padding: "2px 2px 0",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: "#e2e8f0",
+              }}
+            >
+              位置をプレビュー中
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 700,
+                color: "#fbbf24",
+              }}
+              data-rotation-preview-label
+            >
+              {rotationPreviewDir
+                ? positionRotationLabel(rotationPreviewDir)
+                : "位置交換"}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 4,
+              }}
+            >
+              <button
+                type="button"
+                data-rotation-change
+                style={{
+                  ...btn,
+                  borderColor:
+                    open === "rotate" ? "rgba(251,191,36,0.9)" : BTN_BORDER,
+                }}
+                title="ずらす方向を変更"
+                aria-expanded={open === "rotate"}
+                onClick={() =>
+                  setOpen((v) => (v === "rotate" ? null : "rotate"))
+                }
+              >
+                方向を変更
+              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <button
+                  type="button"
+                  style={btn}
+                  title="プレビューを取り消す"
+                  onClick={() => {
+                    setOpen(null);
+                    onCancelShapePreview?.();
+                  }}
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    ...btn,
+                    borderColor: "rgba(52,211,153,0.9)",
+                    color: "#6ee7b7",
+                  }}
+                  title="プレビューを適用する"
+                  onClick={() => {
+                    setOpen(null);
+                    onApplyShapePreview?.();
+                  }}
+                >
+                  適用
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : previewKind === "depth" ? (
           <>
             <span
               style={{
@@ -231,7 +462,7 @@ export function StageDancerContextToolbar({
                 whiteSpace: "nowrap",
               }}
             >
-              {previewKind === "shape" ? "形をプレビュー中" : "前後をプレビュー中"}
+              前後をプレビュー中
             </span>
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <button
@@ -326,6 +557,24 @@ export function StageDancerContextToolbar({
                 onClick={() => setOpen((v) => (v === "flip" ? null : "flip"))}
               >
                 反転
+              </button>
+            ) : null}
+            {formationEdit && onBeginRotationPreview ? (
+              <button
+                type="button"
+                data-rotation-entry
+                style={{
+                  ...btn,
+                  borderColor:
+                    open === "rotate" ? "rgba(167,139,250,0.9)" : BTN_BORDER,
+                }}
+                title="形はそのまま、人だけを1つずらす"
+                aria-expanded={open === "rotate"}
+                onClick={() =>
+                  setOpen((v) => (v === "rotate" ? null : "rotate"))
+                }
+              >
+                位置交換
               </button>
             ) : null}
             {dancerEdit ? (
@@ -541,13 +790,64 @@ export function StageDancerContextToolbar({
             </div>
           </div>
         ) : null}
+        {formationEdit && open === "rotate" ? (
+          <div style={popoverStyle()} data-rotation-panel>
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 700,
+                color: "#e2e8f0",
+                marginBottom: 4,
+              }}
+            >
+              位置交換
+            </div>
+            <p
+              style={{
+                margin: "0 0 8px",
+                fontSize: 11,
+                color: "#94a3b8",
+                lineHeight: 1.45,
+              }}
+            >
+              形はそのまま。人だけを1つずらします。
+            </p>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button
+                type="button"
+                data-rotation-dir="cw"
+                style={{ ...btn, flex: 1 }}
+                title="右回りに1人ずらす"
+                onClick={() => {
+                  onBeginRotationPreview?.("cw");
+                  setOpen(null);
+                }}
+              >
+                右回り 1人
+              </button>
+              <button
+                type="button"
+                data-rotation-dir="ccw"
+                style={{ ...btn, flex: 1 }}
+                title="左回りに1人ずらす"
+                onClick={() => {
+                  onBeginRotationPreview?.("ccw");
+                  setOpen(null);
+                }}
+              >
+                左回り 1人
+              </button>
+            </div>
+          </div>
+        ) : null}
         {formationEdit && open === "shape" ? (
-          <div style={{ ...popoverStyle(), minWidth: 318, left: "50%" }}>
+          <div style={{ ...popoverStyle(), minWidth: 360, maxWidth: 440, left: "50%" }}>
             <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 8 }}>
               FORMATION SHAPE
             </div>
             <StageFormationShapeCards
               selectedCount={selectedCount}
+              activePresetId={shapePreviewPresetId}
               onPick={(presetId) => {
                 onBeginShapePreview?.(presetId);
                 setOpen(null);

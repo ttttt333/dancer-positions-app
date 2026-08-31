@@ -12,11 +12,15 @@ import {
 import { minCostBipartiteAssignment } from "./minCostAssignment";
 import type { StagePosPct } from "./stageEffectivePosition";
 
-/** Phase 4-B で使う形。line 系は既存 formationLayouts、vee は専用 geometry。 */
+/** FORMATION SHAPE。line 系は既存 formationLayouts、vee 以降は Generator 側 geometry。 */
 export const STAGE_SHAPE_PRESETS = [
   { id: "line", label: "横一列" },
   { id: "line_vertical", label: "縦一列" },
   { id: "vee", label: "V字" },
+  { id: "w", label: "W字" },
+  { id: "circle", label: "円形" },
+  { id: "triangle", label: "三角形" },
+  { id: "diagonal", label: "斜め" },
 ] as const;
 
 export type StageShapePresetId = (typeof STAGE_SHAPE_PRESETS)[number]["id"];
@@ -54,6 +58,34 @@ export const SHAPE_VEE_BBOX = {
   x1: 80,
   y0: 30,
   y1: 68,
+} as const;
+
+export const SHAPE_W_BBOX = {
+  x0: 16,
+  x1: 84,
+  y0: 30,
+  y1: 68,
+} as const;
+
+export const SHAPE_CIRCLE_BBOX = {
+  x0: 22,
+  x1: 78,
+  y0: 26,
+  y1: 74,
+} as const;
+
+export const SHAPE_TRIANGLE_BBOX = {
+  x0: 22,
+  x1: 78,
+  y0: 28,
+  y1: 70,
+} as const;
+
+export const SHAPE_DIAGONAL_BBOX = {
+  x0: 22,
+  x1: 78,
+  y0: 28,
+  y1: 72,
 } as const;
 
 const DEFAULT_MIN_SPACING_PCT = 8;
@@ -179,9 +211,162 @@ export function generateVeeSlots(
   return slots;
 }
 
+function clampPos(s: StagePosPct): StagePosPct {
+  return { xPct: clampStagePct(s.xPct), yPct: clampStagePct(s.yPct) };
+}
+
+function pointAlongOpen(
+  vertices: readonly StagePosPct[],
+  t01: number
+): StagePosPct {
+  if (vertices.length === 0) return { xPct: 50, yPct: 50 };
+  if (vertices.length === 1) return { ...vertices[0]! };
+  const lengths: number[] = [];
+  let total = 0;
+  for (let i = 1; i < vertices.length; i++) {
+    const d = movementCostPct(vertices[i - 1]!, vertices[i]!);
+    lengths.push(d);
+    total += d;
+  }
+  if (total < 1e-9) return { ...vertices[0]! };
+  const target = Math.max(0, Math.min(1, t01)) * total;
+  let acc = 0;
+  for (let i = 0; i < lengths.length; i++) {
+    const len = lengths[i]!;
+    const a = vertices[i]!;
+    const b = vertices[i + 1]!;
+    if (acc + len >= target - 1e-12 || i === lengths.length - 1) {
+      const u = len < 1e-12 ? 0 : Math.max(0, Math.min(1, (target - acc) / len));
+      return {
+        xPct: a.xPct + (b.xPct - a.xPct) * u,
+        yPct: a.yPct + (b.yPct - a.yPct) * u,
+      };
+    }
+    acc += len;
+  }
+  return { ...vertices[vertices.length - 1]! };
+}
+
+function sampleOpenPath(
+  vertices: readonly StagePosPct[],
+  count: number
+): StagePosPct[] {
+  if (count <= 0) return [];
+  return Array.from({ length: count }, (_, i) =>
+    pointAlongOpen(vertices, count === 1 ? 0.5 : i / (count - 1))
+  );
+}
+
+function sampleClosedPath(
+  vertices: readonly StagePosPct[],
+  count: number
+): StagePosPct[] {
+  if (count <= 0 || vertices.length === 0) return [];
+  const loop = [...vertices, vertices[0]!];
+  return Array.from({ length: count }, (_, i) =>
+    pointAlongOpen(loop, i / count)
+  );
+}
+
+/**
+ * 客席側に谷が2つ、奥に峰が3つ。2人は谷だけ、3人は谷+中央峰。
+ * 既存 formationLayouts の w_shape は使わない。
+ */
+export function generateWSlots(
+  count: number,
+  geometry: ShapeGeometry
+): StagePosPct[] {
+  if (count <= 0) return [];
+  const cx = (geometry.x0 + geometry.x1) / 2;
+  const yBack = geometry.y0;
+  const yFront = geometry.y1;
+  const w = geometry.x1 - geometry.x0;
+  const leftBack = { xPct: geometry.x0, yPct: yBack };
+  const leftFront = { xPct: geometry.x0 + w * 0.25, yPct: yFront };
+  const midBack = { xPct: cx, yPct: yBack };
+  const rightFront = { xPct: geometry.x0 + w * 0.75, yPct: yFront };
+  const rightBack = { xPct: geometry.x1, yPct: yBack };
+
+  if (count === 1) {
+    return [clampPos({ xPct: cx, yPct: (yBack + yFront) / 2 })];
+  }
+  if (count === 2) return [leftFront, rightFront].map(clampPos);
+  if (count === 3) return [leftFront, midBack, rightFront].map(clampPos);
+  if (count === 4) {
+    return [leftBack, leftFront, rightFront, rightBack].map(clampPos);
+  }
+  return sampleOpenPath(
+    [leftBack, leftFront, midBack, rightFront, rightBack],
+    count
+  ).map(clampPos);
+}
+
+/**
+ * 客席側（y 大）から等角度。1人は中心。
+ */
+export function generateCircleSlots(
+  count: number,
+  geometry: ShapeGeometry
+): StagePosPct[] {
+  if (count <= 0) return [];
+  const cx = (geometry.x0 + geometry.x1) / 2;
+  const cy = (geometry.y0 + geometry.y1) / 2;
+  if (count === 1) return [clampPos({ xPct: cx, yPct: cy })];
+
+  const rx = (geometry.x1 - geometry.x0) / 2;
+  const ry = (geometry.y1 - geometry.y0) / 2;
+  void geometry.minSpacingPct;
+
+  return Array.from({ length: count }, (_, i) => {
+    const ang = Math.PI / 2 + (2 * Math.PI * i) / count;
+    return clampPos({
+      xPct: cx + rx * Math.cos(ang),
+      yPct: cy + ry * Math.sin(ang),
+    });
+  });
+}
+
+/**
+ * 先端は客席側中央。辺上に等間隔（閉じる頂点は重ねない）。
+ */
+export function generateTriangleSlots(
+  count: number,
+  geometry: ShapeGeometry
+): StagePosPct[] {
+  if (count <= 0) return [];
+  const cx = (geometry.x0 + geometry.x1) / 2;
+  const tip = { xPct: cx, yPct: geometry.y1 };
+  const leftBack = { xPct: geometry.x0, yPct: geometry.y0 };
+  const rightBack = { xPct: geometry.x1, yPct: geometry.y0 };
+  if (count === 1) {
+    return [
+      clampPos({
+        xPct: cx,
+        yPct: (geometry.y0 + geometry.y1) / 2,
+      }),
+    ];
+  }
+  if (count === 2) return [leftBack, rightBack].map(clampPos);
+  if (count === 3) return [tip, leftBack, rightBack].map(clampPos);
+  return sampleClosedPath([tip, leftBack, rightBack], count).map(clampPos);
+}
+
+/**
+ * 左奥 → 右手前。1人は中点。
+ */
+export function generateDiagonalSlots(
+  count: number,
+  geometry: ShapeGeometry
+): StagePosPct[] {
+  if (count <= 0) return [];
+  const a = { xPct: geometry.x0, yPct: geometry.y0 };
+  const b = { xPct: geometry.x1, yPct: geometry.y1 };
+  return sampleOpenPath([a, b], count).map(clampPos);
+}
+
 function generateLineSlotsFromPreset(
   count: number,
-  presetId: Exclude<StageShapePresetId, "vee">,
+  presetId: "line" | "line_vertical",
   layoutOpts?: LayoutPresetOptions
 ): StagePosPct[] {
   return dancersForLayoutPreset(count, presetId as LayoutPresetId, layoutOpts).map(
@@ -199,13 +384,41 @@ export function generateShapeSlots(
   layoutOpts?: LayoutPresetOptions
 ): StagePosPct[] {
   if (count <= 0) return [];
-  const raw =
-    presetId === "vee"
-      ? generateVeeSlots(count, {
-          ...SHAPE_VEE_BBOX,
-          minSpacingPct: resolveMinSpacingPct(layoutOpts),
-        })
-      : generateLineSlotsFromPreset(count, presetId, layoutOpts);
+  const minSpacingPct = resolveMinSpacingPct(layoutOpts);
+  let raw: StagePosPct[];
+  switch (presetId) {
+    case "line":
+    case "line_vertical":
+      raw = generateLineSlotsFromPreset(count, presetId, layoutOpts);
+      break;
+    case "vee":
+      raw = generateVeeSlots(count, {
+        ...SHAPE_VEE_BBOX,
+        minSpacingPct,
+      });
+      break;
+    case "w":
+      raw = generateWSlots(count, { ...SHAPE_W_BBOX, minSpacingPct });
+      break;
+    case "circle":
+      raw = generateCircleSlots(count, {
+        ...SHAPE_CIRCLE_BBOX,
+        minSpacingPct,
+      });
+      break;
+    case "triangle":
+      raw = generateTriangleSlots(count, {
+        ...SHAPE_TRIANGLE_BBOX,
+        minSpacingPct,
+      });
+      break;
+    case "diagonal":
+      raw = generateDiagonalSlots(count, {
+        ...SHAPE_DIAGONAL_BBOX,
+        minSpacingPct,
+      });
+      break;
+  }
   return validateShapeSlots(raw, count);
 }
 

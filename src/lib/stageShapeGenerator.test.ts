@@ -8,6 +8,7 @@ import {
   applyShapePositionsToDancers,
   generateShapePreview,
   generateShapeSlots,
+  STAGE_SHAPE_PRESETS,
   tryGenerateShapePreview,
   shapeSlotsOverlap,
 } from "./stageShapeGenerator";
@@ -37,8 +38,8 @@ function identityFields(d: DancerSpot) {
 }
 
 describe("generateShapeSlots", () => {
-  it("returns only coordinates for line / vertical / vee", () => {
-    for (const id of ["line", "line_vertical", "vee"] as const) {
+  it("returns only coordinates for all FORMATION SHAPE presets", () => {
+    for (const { id } of STAGE_SHAPE_PRESETS) {
       const slots = generateShapeSlots(5, id);
       expect(slots).toHaveLength(5);
       for (const s of slots) {
@@ -273,7 +274,7 @@ describe("getEffectiveDancerPosition", () => {
 describe("shape cards use generator slot count", () => {
   it("5 / 8 / 11 people get that many slots and card dots", () => {
     for (const n of [5, 8, 11] as const) {
-      for (const id of ["line", "line_vertical", "vee"] as const) {
+      for (const { id } of STAGE_SHAPE_PRESETS) {
         const slots = generateShapeSlots(n, id);
         expect(slots).toHaveLength(n);
         expect(shapeCardDots(slots)).toHaveLength(n);
@@ -288,10 +289,160 @@ describe("shape cards use generator slot count", () => {
         stageWidthMm: 8000,
       })
     ).toThrow(/overlap/);
-    for (const id of ["line", "line_vertical", "vee"] as const) {
+    for (const { id } of STAGE_SHAPE_PRESETS) {
       const slots = safeShapeCardSlots(11, id);
       expect(slots).toHaveLength(11);
       expect(shapeCardDots(slots)).toHaveLength(11);
     }
   });
+
+  it("exposes 7 FORMATION SHAPE presets", () => {
+    expect(STAGE_SHAPE_PRESETS.map((p) => p.label)).toEqual([
+      "横一列",
+      "縦一列",
+      "V字",
+      "W字",
+      "円形",
+      "三角形",
+      "斜め",
+    ]);
+  });
+});
+
+const STEP8_COUNTS = [3, 4, 5, 6, 7, 8, 9, 11] as const;
+const STEP8_PRESETS = ["w", "circle", "triangle", "diagonal"] as const;
+
+function naiveOrderCost(
+  dancers: DancerSpot[],
+  slots: { xPct: number; yPct: number }[]
+): number {
+  let t = 0;
+  for (let i = 0; i < dancers.length; i++) {
+    const d = dancers[i]!;
+    const s = slots[i]!;
+    t += Math.hypot(d.xPct - s.xPct, d.yPct - s.yPct);
+  }
+  return t;
+}
+
+describe("STEP 8 W / circle / triangle / diagonal", () => {
+  it.each(STEP8_PRESETS)(
+    "%s: slot count, no overlap, in range for 3–11",
+    (presetId) => {
+      for (const n of STEP8_COUNTS) {
+        const slots = generateShapeSlots(n, presetId);
+        expect(slots).toHaveLength(n);
+        expect(shapeSlotsOverlap(slots)).toBe(false);
+        for (const s of slots) {
+          expect(s.xPct).toBeGreaterThanOrEqual(DANCER_STAGE_POSITION_PCT_LO);
+          expect(s.xPct).toBeLessThanOrEqual(DANCER_STAGE_POSITION_PCT_HI);
+          expect(s.yPct).toBeGreaterThanOrEqual(DANCER_STAGE_POSITION_PCT_LO);
+          expect(s.yPct).toBeLessThanOrEqual(DANCER_STAGE_POSITION_PCT_HI);
+        }
+      }
+    }
+  );
+
+  it("W: two independent front valleys (audience side)", () => {
+    for (const n of [3, 4, 5, 8, 11] as const) {
+      const slots = generateShapeSlots(n, "w");
+      const maxY = Math.max(...slots.map((s) => s.yPct));
+      const front = slots.filter((s) => Math.abs(s.yPct - maxY) < 1.2);
+      expect(front.length).toBeGreaterThanOrEqual(2);
+      const xs = [...new Set(front.map((s) => s.xPct.toFixed(2)))];
+      expect(xs.length).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it("circle: points sit on an ellipse around center", () => {
+    const slots = generateShapeSlots(8, "circle");
+    const cx = slots.reduce((s, p) => s + p.xPct, 0) / slots.length;
+    const cy = slots.reduce((s, p) => s + p.yPct, 0) / slots.length;
+    const rs = slots.map((s) =>
+      Math.hypot((s.xPct - cx) / 28, (s.yPct - cy) / 24)
+    );
+    const mean = rs.reduce((a, b) => a + b, 0) / rs.length;
+    for (const r of rs) {
+      expect(Math.abs(r - mean)).toBeLessThan(0.08);
+    }
+  });
+
+  it("triangle: one audience-side tip near center x", () => {
+    for (const n of [3, 5, 8, 11] as const) {
+      const slots = generateShapeSlots(n, "triangle");
+      const maxY = Math.max(...slots.map((s) => s.yPct));
+      const tip = slots.filter((s) => Math.abs(s.yPct - maxY) < 1.5);
+      expect(tip.length).toBeGreaterThanOrEqual(1);
+      expect(tip[0]!.xPct).toBeCloseTo(50, 0);
+    }
+  });
+
+  it("diagonal: x and y increase together (left-back → right-front)", () => {
+    const slots = [...generateShapeSlots(7, "diagonal")].sort(
+      (a, b) => a.xPct - b.xPct
+    );
+    for (let i = 1; i < slots.length; i++) {
+      expect(slots[i]!.xPct).toBeGreaterThan(slots[i - 1]!.xPct);
+      expect(slots[i]!.yPct).toBeGreaterThan(slots[i - 1]!.yPct);
+    }
+  });
+
+  it.each(STEP8_PRESETS)(
+    "%s: identity stays, only x/y, unselected untouched",
+    (presetId) => {
+      for (const n of [3, 5, 8, 11] as const) {
+        const selected = Array.from({ length: n }, (_, i) =>
+          spot(`d${i}`, 12 + i * 6, 20 + (i % 3) * 12, {
+            colorIndex: i,
+            label: `L${i}`,
+          })
+        );
+        const other = spot("other", 90, 90, { label: "keep", colorIndex: 9 });
+        const dancers = [...selected, other];
+        const result = generateShapePreview({
+          dancers,
+          selectedIds: selected.map((d) => d.id),
+          presetId,
+        });
+        expect(result.positions.size).toBe(n);
+        expect(result.positions.has("other")).toBe(false);
+
+        const next = applyShapePositionsToDancers(dancers, result.positions);
+        expect(next.map((d) => d.id)).toEqual(dancers.map((d) => d.id));
+        expect(next[n]).toEqual(other);
+        for (let i = 0; i < n; i++) {
+          expect(identityFields(next[i]!)).toEqual(identityFields(selected[i]!));
+          const pos = result.positions.get(selected[i]!.id)!;
+          expect(next[i]!.xPct).toBe(pos.xPct);
+          expect(next[i]!.yPct).toBe(pos.yPct);
+        }
+      }
+    }
+  );
+
+  it.each(STEP8_PRESETS)(
+    "%s: min-cost assignment keeps people on nearby slots (not array order)",
+    (presetId) => {
+      for (const n of [5, 8, 11] as const) {
+        const slots = generateShapeSlots(n, presetId);
+        const dancers = slots
+          .map((s, i) => spot(`p${i}`, s.xPct, s.yPct))
+          .reverse();
+        const result = generateShapePreview({
+          dancers,
+          selectedIds: dancers.map((d) => d.id),
+          presetId,
+        });
+        expect(result.movementCostPct).toBeLessThan(0.001);
+        expect(result.movementCostPct).toBeLessThan(
+          naiveOrderCost(dancers, slots) - 1
+        );
+        for (const d of dancers) {
+          const pos = result.positions.get(d.id)!;
+          expect(pos.xPct).toBeCloseTo(d.xPct, 5);
+          expect(pos.yPct).toBeCloseTo(d.yPct, 5);
+        }
+      }
+    }
+  );
 });
