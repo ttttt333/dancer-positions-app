@@ -37,7 +37,9 @@ import {
   type StageTidyAction,
 } from "../lib/stageTidyActions";
 import { StageFormationShapeCards } from "./StageFormationShapeCards";
+import { StageFormationRanksPanel } from "./StageFormationRanksPanel";
 import { StagePrevCueCompareSummary } from "./StagePrevCueCompareOverlay";
+import { useMobileShellBridgeStore } from "../store/useMobileShellBridgeStore";
 import type { PrevCueCompareSummary } from "../lib/stagePrevCueCompare";
 
 type PopoverKind =
@@ -262,6 +264,21 @@ export function StageDancerContextToolbar({
   const groupEdit = editMode === "group";
   const dancerEdit = editMode === "dancer";
   const tidyAvailable = isStageTidyAvailable(editMode);
+  const openFormationPresets = useMobileShellBridgeStore(
+    (s) => s.onFormationChange
+  );
+  const canOpenFormationPresets = useMobileShellBridgeStore(
+    (s) => s.showFormationChange
+  );
+  const goToShapePicker = () => {
+    setOpen(null);
+    if (canOpenFormationPresets) {
+      onCancelShapePreview?.();
+      openFormationPresets();
+      return;
+    }
+    setOpen("shape");
+  };
   const previewKind = shapePreviewActive
     ? "shape"
     : tidyPreviewActive
@@ -293,8 +310,19 @@ export function StageDancerContextToolbar({
   }, [open, previewKind]);
 
   useEffect(() => {
-    onDepthGuidesVisibleChange?.(open === "depth" || depthPreviewActive);
-  }, [open, depthPreviewActive, onDepthGuidesVisibleChange]);
+    onDepthGuidesVisibleChange?.(
+      open === "depth" ||
+        depthPreviewActive ||
+        (side && formationEdit && !previewKind)
+    );
+  }, [
+    open,
+    depthPreviewActive,
+    side,
+    formationEdit,
+    previewKind,
+    onDepthGuidesVisibleChange,
+  ]);
 
   useEffect(() => {
     return () => onDepthGuidesVisibleChange?.(false);
@@ -434,9 +462,7 @@ export function StageDancerContextToolbar({
                 }}
                 title="プレビュー中の形を変更"
                 aria-expanded={open === "shape"}
-                onClick={() =>
-                  setOpen((v) => (v === "shape" ? null : "shape"))
-                }
+                onClick={goToShapePicker}
               >
                 形を変更
               </button>
@@ -686,7 +712,7 @@ export function StageDancerContextToolbar({
           </>
         ) : (
           <>
-            {formationEdit && onBeginShapePreview ? (
+            {formationEdit && (onBeginShapePreview || canOpenFormationPresets) ? (
               <button
                 type="button"
                 style={{
@@ -694,20 +720,22 @@ export function StageDancerContextToolbar({
                   borderColor:
                     open === "shape" ? "rgba(251,191,36,0.9)" : BTN_BORDER,
                 }}
-                title="フォーメーションの形"
+                title="雛形から形を選ぶ"
                 aria-expanded={open === "shape"}
-                onClick={() => setOpen((v) => (v === "shape" ? null : "shape"))}
+                onClick={goToShapePicker}
               >
                 形
               </button>
             ) : null}
-            {formationEdit && onBeginDepthPreview ? (
+            {formationEdit && onBeginDepthPreview && !side ? (
               <button
                 type="button"
                 style={{
                   ...btn,
                   borderColor:
-                    open === "depth" ? "rgba(125,211,252,0.9)" : BTN_BORDER,
+                    open === "depth"
+                      ? "rgba(125,211,252,0.9)"
+                      : BTN_BORDER,
                 }}
                 title="前後の立ち位置を交換"
                 aria-expanded={open === "depth"}
@@ -750,7 +778,7 @@ export function StageDancerContextToolbar({
                 反転
               </button>
             ) : null}
-            {formationEdit && onBeginRotationPreview ? (
+            {formationEdit && onBeginRotationPreview && !side ? (
               <button
                 type="button"
                 data-rotation-entry
@@ -1166,186 +1194,95 @@ export function StageDancerContextToolbar({
             />
           </div>
         ) : null}
-        {formationEdit && open === "depth" ? (
-          <div style={{ ...popoverStyle(side), minWidth: side ? 0 : 228 }}>
-            <div
-              style={{
-                fontSize: side ? 18 : 13,
-                fontWeight: 800,
-                color: "#e2e8f0",
-                marginBottom: 10,
+        {formationEdit && !side && open === "depth" && depthSwapInspect ? (
+          <div style={{ ...popoverStyle(false), minWidth: 280 }}>
+            <StageFormationRanksPanel
+              inspect={depthSwapInspect}
+              onSwapPair={(colA, colB, noChange) => {
+                const pair = depthSwapInspect.pairs.find(
+                  (x) => x.colA === colA && x.colB === colB
+                );
+                if (noChange && pair) {
+                  setDepthNoChangePair({
+                    markA: pair.markA,
+                    markB: pair.markB,
+                  });
+                  return;
+                }
+                setDepthNoChangePair(null);
+                onBeginDepthPreview?.(colA, colB);
+                setOpen(null);
               }}
-            >
-              前後の位置を入れ替える
-            </div>
-            {depthSwapInspect && depthSwapInspect.groupCount >= 2 ? (
-              <>
-                <div
-                  style={{
-                    fontSize: side ? 16 : 13,
-                    fontWeight: 800,
-                    color: "#fde68a",
-                    marginBottom: 8,
-                  }}
-                >
-                  {depthSwapInspect.groupCount}グループ
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: 6,
-                    marginBottom: 12,
-                  }}
-                >
-                  {depthSwapInspect.groupLines.map((line) => (
-                    <span
-                      key={line}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        padding: side ? "6px 10px" : "4px 8px",
-                        borderRadius: 999,
-                        border: "1px solid rgba(251,191,36,0.55)",
-                        background: "rgba(8,11,18,0.9)",
-                        color: "#fde68a",
-                        fontSize: side ? 14 : 11,
-                        fontWeight: 800,
-                      }}
-                    >
-                      {line}
-                    </span>
-                  ))}
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: side ? 10 : 6,
-                  }}
-                >
-                  {depthSwapInspect.pairs.map((pair) => (
-                    <button
-                      key={`${pair.colA}-${pair.colB}`}
-                      type="button"
-                      style={{
-                        ...btn,
-                        width: "100%",
-                        minWidth: 0,
-                        height: "auto",
-                        minHeight: side ? 64 : 36,
-                        padding: side ? "10px 10px" : "7px 8px",
-                        display: "grid",
-                        gridTemplateColumns: "1fr auto 1fr",
-                        alignItems: "center",
-                        gap: 8,
-                      }}
-                      title={
-                        pair.noChange
-                          ? `${pair.markA}と${pair.markB}は前後位置が同じです`
-                          : `${pair.markA}と${pair.markB}の前後を交換（左右は動かない）`
-                      }
-                      onClick={() => {
-                        if (pair.noChange) {
-                          setDepthNoChangePair({
-                            markA: pair.markA,
-                            markB: pair.markB,
-                          });
-                          return;
-                        }
-                        setDepthNoChangePair(null);
-                        onBeginDepthPreview?.(pair.colA, pair.colB);
-                        setOpen(null);
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: side ? 28 : 16,
-                          fontWeight: 900,
-                          color: "#fde68a",
-                          textAlign: "center",
-                          lineHeight: 1,
-                        }}
-                      >
-                        {pair.markA}
-                      </span>
-                      <span
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          gap: 2,
-                          color: "#cbd5e1",
-                        }}
-                      >
-                        <span style={{ fontSize: side ? 22 : 14, lineHeight: 1 }}>
-                          ↕
-                        </span>
-                        <span
-                          style={{
-                            fontSize: side ? 13 : 10,
-                            fontWeight: 800,
-                            color: pair.noChange ? "#fbbf24" : "#94a3b8",
-                          }}
-                        >
-                          {pair.noChange
-                            ? "変化なし"
-                            : `移動 ${pair.movementLabel}`}
-                        </span>
-                      </span>
-                      <span
-                        style={{
-                          fontSize: side ? 28 : 16,
-                          fontWeight: 900,
-                          color: "#fde68a",
-                          textAlign: "center",
-                          lineHeight: 1,
-                        }}
-                      >
-                        {pair.markB}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                {depthNoChangePair ? (
-                  <p
-                    style={{
-                      margin: "10px 0 0",
-                      fontSize: side ? 13 : 11,
-                      color: "#fde68a",
-                      lineHeight: 1.45,
-                    }}
-                  >
-                    {depthNoChangePair.markA} ⇄ {depthNoChangePair.markB}
-                    <br />
-                    前後位置が同じため、配置は変わりません。
-                  </p>
-                ) : null}
-                <p
-                  style={{
-                    margin: "10px 0 0",
-                    fontSize: side ? 12 : 10,
-                    color: "#94a3b8",
-                  }}
-                >
-                  ※左右の位置は変わりません
-                </p>
-              </>
-            ) : (
+              onKamiteShimote={() => onFlip?.("x")}
+              onRotate={(dir) => {
+                onBeginRotationPreview?.(dir);
+                setOpen(null);
+              }}
+            />
+            {depthNoChangePair ? (
               <p
                 style={{
-                  margin: 0,
-                  fontSize: side ? 13 : 11,
-                  color: "#94a3b8",
+                  margin: "10px 0 0",
+                  fontSize: 12,
+                  color: "#fde68a",
                   lineHeight: 1.45,
                 }}
               >
-                グループを判定できませんでした。前後の位置が分かれるように並べてください。
+                {depthNoChangePair.markA} ⇄ {depthNoChangePair.markB}
+                <br />
+                前後位置が同じため、配置は変わりません。
               </p>
-            )}
+            ) : null}
           </div>
         ) : null}
       </div>
+      {side && formationEdit && !previewKind && depthSwapInspect ? (
+        <div style={{ marginTop: 10 }}>
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 800,
+              color: "#e2e8f0",
+              margin: "0 0 8px",
+            }}
+          >
+            隊列
+          </div>
+          <StageFormationRanksPanel
+            inspect={depthSwapInspect}
+            onSwapPair={(colA, colB, noChange) => {
+              const pair = depthSwapInspect.pairs.find(
+                (x) => x.colA === colA && x.colB === colB
+              );
+              if (noChange && pair) {
+                setDepthNoChangePair({
+                  markA: pair.markA,
+                  markB: pair.markB,
+                });
+                return;
+              }
+              setDepthNoChangePair(null);
+              onBeginDepthPreview?.(colA, colB);
+            }}
+            onKamiteShimote={() => onFlip?.("x")}
+            onRotate={(dir) => onBeginRotationPreview?.(dir)}
+          />
+          {depthNoChangePair ? (
+            <p
+              style={{
+                margin: "10px 0 0",
+                fontSize: 13,
+                color: "#fde68a",
+                lineHeight: 1.45,
+              }}
+            >
+              {depthNoChangePair.markA} ⇄ {depthNoChangePair.markB}
+              <br />
+              前後位置が同じため、配置は変わりません。
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       {prevCueCompareSummary && (prevCueCompareOn || prevCueMotionViewOn) ? (
         <StagePrevCueCompareSummary
           summary={prevCueCompareSummary}

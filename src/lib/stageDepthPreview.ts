@@ -21,6 +21,8 @@ export type DepthSwapPairInfo = DepthSwapPair & {
   noChange: boolean;
   movementCostPct: number;
   movementLabel: DepthMovementLabel;
+  /** （① 3人 ⇄ ② 7人） */
+  pairLabel: string;
 };
 
 export type DepthSwapInspect = {
@@ -140,6 +142,20 @@ export function circleMark(index: number): string {
   return CIRCLE_MARKS[index] ?? String(index + 1);
 }
 
+export function wrapDepthGroupLabel(mark: string, count: number): string {
+  return `${mark} ${count}人`;
+}
+
+/** 2列ぶんの入れ替えは、対をひとつのカッコでくくる */
+export function formatDepthSwapPairLabel(pair: {
+  markA: string;
+  markB: string;
+  countA: number;
+  countB: number;
+}): string {
+  return `（${wrapDepthGroupLabel(pair.markA, pair.countA)} ⇄ ${wrapDepthGroupLabel(pair.markB, pair.countB)}）`;
+}
+
 export function labelDepthMovement(costPct: number): DepthMovementLabel {
   if (costPct < 0.05) return "なし";
   if (costPct < 20) return "小";
@@ -170,11 +186,11 @@ export function inspectFormationDepthSwap(
   const unit = axis === "depth-rows" ? "段" : "列";
   const groupSizes = columns.map((col) => col.members.length);
   const groupLines = columns.map(
-    (col, i) => `${circleMark(i)} ${col.members.length}人`
+    (col, i) => wrapDepthGroupLabel(circleMark(i), col.members.length)
   );
   const pairs = adjacentDepthSwapPairs(columns.length).map((pair) => {
     const ev = evaluateDepthSwapPair(list, ids, pair.colA, pair.colB);
-    return {
+    const info = {
       ...pair,
       markA: circleMark(pair.colA),
       markB: circleMark(pair.colB),
@@ -183,7 +199,10 @@ export function inspectFormationDepthSwap(
       noChange: ev.noChange,
       movementCostPct: ev.movementCostPct,
       movementLabel: ev.movementLabel,
+      pairLabel: "",
     };
+    info.pairLabel = formatDepthSwapPairLabel(info);
+    return info;
   });
   const lines = columns.map(
     (col, i) => `${i + 1}${unit}目 ${col.members.length}人`

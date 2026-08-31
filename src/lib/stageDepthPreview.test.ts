@@ -52,6 +52,7 @@ describe("inspectFormationDepthSwap", () => {
       { colA: 0, colB: 1 },
       { colA: 1, colB: 2 },
     ]);
+    expect(info.pairs[0]?.pairLabel).toBe("（① 2人 ⇄ ② 2人）");
     expect(info.pairs.every((p) => p.noChange)).toBe(true);
     expect(info.pairs.every((p) => p.movementLabel === "なし")).toBe(true);
   });
@@ -75,7 +76,7 @@ describe("inspectFormationDepthSwap", () => {
     expect(info.unit).toBe("段");
     expect(info.groupCount).toBeGreaterThanOrEqual(2);
     expect(info.axisHint).toContain("段として判定");
-    expect(info.groupLines[0]?.startsWith("①")).toBe(true);
+    expect(info.groupLines[0]?.includes("①")).toBe(true);
   });
 
   it("keeps V5 as 3 groups in ①②③ form even if axis is columns", () => {
@@ -133,6 +134,7 @@ describe("inspectFormationDepthSwap", () => {
       "③⇄④",
     ]);
     expect(info.pairs.every((p) => p.colB === p.colA + 1)).toBe(true);
+    expect(info.pairs[0]?.pairLabel).toBe("（① 1人 ⇄ ② 1人）");
   });
 
   it("keeps ④ on a 4-person diagonal", () => {
