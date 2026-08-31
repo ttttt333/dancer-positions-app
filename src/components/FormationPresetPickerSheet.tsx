@@ -9,12 +9,14 @@ import {
 import { createPortal } from "react-dom";
 import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography";
 import {
-  dancersForLayoutPreset,
-  LAYOUT_PRESET_LABELS,
   PRESET_CATEGORIES,
-  transferDancerIdentitiesByOrder,
   type LayoutPresetId,
 } from "../lib/formationLayouts";
+import {
+  applyLayoutPresetToTargetDancers,
+  resolveChangeTargetIds,
+} from "../lib/applyLayoutPresetToSelection";
+import { useStageBoardInteractionStore } from "../store/stage/stageBoardInteractionStore";
 import {
   countPresetsAboveTierFrom,
   DEFAULT_UI_PRESET_MAX_TIER,
@@ -143,7 +145,22 @@ export function FormationPresetPickerSheet({
     [project.formations, targetFormationId]
   );
 
-  const count = Math.max(1, targetFormation?.dancers.length ?? 1);
+  const selectedDancerIds = useStageBoardInteractionStore(
+    (s) => s.selectedDancerIds
+  );
+  const formationDancerIds = useMemo(
+    () => targetFormation?.dancers.map((d) => d.id) ?? [],
+    [targetFormation]
+  );
+  const targetIds = useMemo(
+    () => resolveChangeTargetIds(formationDancerIds, selectedDancerIds),
+    [formationDancerIds, selectedDancerIds]
+  );
+  const isSubsetApply =
+    Boolean(targetFormation) &&
+    targetIds.length >= 2 &&
+    targetIds.length < (targetFormation?.dancers.length ?? 0);
+  const count = Math.max(1, targetIds.length || targetFormation?.dancers.length || 1);
   const [selectedPresetId, setSelectedPresetId] = useState<LayoutPresetId | null>(
     null
   );
@@ -176,9 +193,14 @@ export function FormationPresetPickerSheet({
   );
 
   const previewDancers = useMemo(() => {
-    if (!selectedPresetId) return null;
-    return dancersForLayoutPreset(count, selectedPresetId, spacingOpts);
-  }, [count, selectedPresetId, spacingOpts]);
+    if (!selectedPresetId || !targetFormation) return null;
+    return applyLayoutPresetToTargetDancers(
+      targetFormation.dancers,
+      targetIds,
+      selectedPresetId,
+      spacingOpts
+    );
+  }, [targetFormation, targetIds, selectedPresetId, spacingOpts]);
 
   const closeAndCleanup = useCallback(() => {
     onStagePreviewChange?.(null);
@@ -228,26 +250,20 @@ export function FormationPresetPickerSheet({
 
   const apply = useCallback(() => {
     if (!targetFormation || !selectedPresetId || !previewDancers) return;
-    const dancers = transferDancerIdentitiesByOrder(
-      previewDancers,
-      targetFormation.dancers
-    );
     setProject((p) => ({
       ...p,
       formations: p.formations.map((f) =>
         f.id === targetFormation.id
-          ? { ...f, dancers, confirmedDancerCount: dancers.length }
+          ? {
+              ...f,
+              dancers: previewDancers,
+              confirmedDancerCount: previewDancers.length,
+            }
           : f
       ),
     }));
     closeAndCleanup();
-  }, [
-    targetFormation,
-    selectedPresetId,
-    previewDancers,
-    setProject,
-    closeAndCleanup,
-  ]);
+  }, [targetFormation, selectedPresetId, previewDancers, setProject, closeAndCleanup]);
 
   const cueLabel = useMemo(() => {
     if (!selectedCueId) return null;
@@ -257,11 +273,14 @@ export function FormationPresetPickerSheet({
 
   const noTarget = !targetFormation;
 
+  const untouchedCount = (targetFormation?.dancers.length ?? 0) - targetIds.length;
   const subtitle = noTarget
     ? "適用先のフォーメーションがありません"
-    : cueLabel
-      ? `「${cueLabel}」に反映（${count} 人）`
-      : `現在のフォーメーションに反映（${count} 人）`;
+    : isSubsetApply
+      ? `選択中の ${targetIds.length} 人に反映（他の ${untouchedCount} 人はそのまま）`
+      : cueLabel
+        ? `「${cueLabel}」に反映（${count} 人）`
+        : `現在のフォーメーションに反映（${count} 人）`;
 
   const actionsPanel = (
     <div
