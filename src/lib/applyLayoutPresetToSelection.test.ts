@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { DancerSpot } from "../types/choreography";
 import {
   applyLayoutPresetToTargetDancers,
+  layoutPresetPositionsById,
   resolveChangeTargetIds,
   translateSpotsToMatchCentroid,
 } from "./applyLayoutPresetToSelection";
@@ -148,6 +149,20 @@ describe("applyLayoutPresetToTargetDancers", () => {
     const cy =
       moved.reduce((s, d) => s + d.yPct, 0) / moved.length;
     expect(cy).toBeGreaterThan(55);
+  });
+
+  it("layoutPresetPositionsById keeps dancer ids and returns new coordinates", () => {
+    const dancers = [
+      spot("a", 10, 40),
+      spot("b", 50, 40),
+      spot("c", 90, 40),
+    ];
+    const pos = layoutPresetPositionsById(dancers, ["a", "b", "c"], "pyramid");
+    expect(pos.size).toBe(3);
+    expect(pos.has("a")).toBe(true);
+    expect(pos.has("b")).toBe(true);
+    expect(pos.has("c")).toBe(true);
+    expect(dancers.map((d) => d.id)).toEqual(["a", "b", "c"]);
   });
 });
 

@@ -10,6 +10,7 @@ import {
   type LayoutPresetId,
   type LayoutPresetOptions,
 } from "./formationLayouts";
+import type { StagePosPct } from "./stageEffectivePosition";
 import { retainDancerIdsInFormation } from "./stageEditMode";
 
 /**
@@ -136,4 +137,35 @@ export function applyLayoutPresetToTargetDancers(
     if (!next) return d;
     return { ...d, xPct: next.xPct, yPct: next.yPct };
   });
+}
+
+/**
+ * 形プレビュー用。配列順は変えない。id → 新座標だけ返す。
+ * 全員対象でも順番入れ替えはしない（Apply は x/y だけ書く）。
+ */
+export function layoutPresetPositionsById(
+  dancers: readonly DancerSpot[],
+  targetIds: readonly string[],
+  presetId: LayoutPresetId,
+  opts?: LayoutPresetOptions
+): Map<string, StagePosPct> {
+  const positions = new Map<string, StagePosPct>();
+  const idSet = new Set(targetIds);
+  const targets = dancers.filter((d) => idSet.has(d.id));
+  if (targets.length === 0) return positions;
+
+  const positioned = dancersForLayoutPreset(targets.length, presetId, opts);
+  if (positioned.length === 0) return positions;
+
+  const assigned = transferDancerIdentitiesByNearestPosition(
+    positioned,
+    targets
+  );
+  const placed = isFullFormationTarget(dancers, targetIds)
+    ? assigned
+    : translateSpotsToMatchCentroid(assigned, targets);
+  for (const d of placed) {
+    positions.set(d.id, { xPct: d.xPct, yPct: d.yPct });
+  }
+  return positions;
 }

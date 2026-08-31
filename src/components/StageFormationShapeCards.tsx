@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import {
   generateCircleSlots,
   generateDiagonalSlots,
@@ -13,6 +13,18 @@ import {
   type StageShapePresetId,
 } from "../lib/stageShapeGenerator";
 import type { StagePosPct } from "../lib/stageEffectivePosition";
+import {
+  LAYOUT_PRESET_LABELS,
+  PRESET_CATEGORIES,
+  type LayoutPresetId,
+} from "../lib/formationLayouts";
+import {
+  countPresetsAboveTierFrom,
+  DEFAULT_UI_PRESET_MAX_TIER,
+  filterPresetCategories,
+} from "../lib/formationPresetTiers";
+import { FormationPresetThumb } from "./FormationPresetThumb";
+import { FormationPresetTierToggle } from "./FormationPresetTierToggle";
 
 const VB_W = 100;
 const VB_H = 78;
@@ -107,9 +119,8 @@ export function safeShapeCardSlots(
 
 const cardBtn: CSSProperties = {
   flex: "0 0 auto",
-  width: 96,
-  minWidth: 96,
-  maxWidth: 96,
+  width: "100%",
+  minWidth: 0,
   padding: "8px 6px 7px",
   borderRadius: 10,
   border: "1px solid #334155",
@@ -125,34 +136,53 @@ const cardBtn: CSSProperties = {
 export type StageFormationShapeCardsProps = {
   selectedCount: number;
   onPick: (presetId: StageShapePresetId) => void;
-  activePresetId?: StageShapePresetId | null;
+  onPickLayoutPreset?: (presetId: LayoutPresetId) => void;
+  activePresetId?: string | null;
+  compact?: boolean;
 };
 
+function sectionLabel(text: string): CSSProperties {
+  return {
+    fontSize: 12,
+    fontWeight: 800,
+    color: "#e2e8f0",
+    letterSpacing: "0.04em",
+    margin: "0 0 8px",
+  };
+}
+
 /**
- * FORMATION SHAPE のカード。ドット数＝現在の選択人数。
- * サムネは generateShapeSlots の既定形状。場ミリは渡さない（描画で throw しない）。
+ * 形ピッカー。上段＝最小移動のジェネレータ、下段＝Change と同じ雛形。
  */
 export function StageFormationShapeCards({
   selectedCount,
   onPick,
+  onPickLayoutPreset,
   activePresetId = null,
+  compact = false,
 }: StageFormationShapeCardsProps) {
   const n = Math.max(1, selectedCount);
   const r = n >= 9 ? 2.4 : n >= 6 ? 2.8 : 3.2;
+  const [showAllTiers, setShowAllTiers] = useState(false);
+  const maxTier = showAllTiers ? 3 : DEFAULT_UI_PRESET_MAX_TIER;
+  const categories = useMemo(
+    () => filterPresetCategories(PRESET_CATEGORIES, maxTier as 1 | 2 | 3),
+    [maxTier]
+  );
+  const hiddenTierCount = useMemo(
+    () => countPresetsAboveTierFrom(PRESET_CATEGORIES, DEFAULT_UI_PRESET_MAX_TIER),
+    []
+  );
 
   return (
-    <div style={{ width: "100%", maxWidth: 420 }}>
+    <div style={{ width: "100%", minWidth: 0 }}>
+      <div style={sectionLabel("最小移動で置く")}>最小移動で置く</div>
       <div
         data-formation-shape-cards
         style={{
-          display: "flex",
+          display: "grid",
+          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
           gap: 8,
-          alignItems: "stretch",
-          flexWrap: "nowrap",
-          overflowX: "auto",
-          overflowY: "hidden",
-          WebkitOverflowScrolling: "touch",
-          paddingBottom: 6,
         }}
       >
         {STAGE_SHAPE_PRESETS.map((preset) => {
@@ -180,7 +210,7 @@ export function StageFormationShapeCards({
                 width="100%"
                 viewBox={`0 0 ${VB_W} ${VB_H}`}
                 aria-hidden
-                style={{ display: "block", maxHeight: 72 }}
+                style={{ display: "block", maxHeight: compact ? 56 : 72 }}
               >
                 {dots.map((d, i) => (
                   <circle
@@ -194,10 +224,10 @@ export function StageFormationShapeCards({
               </svg>
               <span
                 style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  lineHeight: 1,
-                  color: "#cbd5e1",
+                  fontSize: compact ? 12 : 13,
+                  fontWeight: 800,
+                  lineHeight: 1.2,
+                  color: "#e2e8f0",
                 }}
               >
                 {preset.label}
@@ -209,13 +239,100 @@ export function StageFormationShapeCards({
       {n <= 3 ? (
         <div
           style={{
-            marginTop: 4,
-            fontSize: 10,
+            marginTop: 6,
+            fontSize: 11,
             color: "#94a3b8",
             lineHeight: 1.4,
           }}
         >
           3人では円形は円周上の3点になります
+        </div>
+      ) : null}
+
+      {onPickLayoutPreset ? (
+        <div style={{ marginTop: 14 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+              marginBottom: 8,
+            }}
+          >
+            <div style={{ ...sectionLabel("雛形"), margin: 0 }}>雛形</div>
+            <FormationPresetTierToggle
+              showAll={showAllTiers}
+              onToggle={() => setShowAllTiers((v) => !v)}
+              hiddenCount={hiddenTierCount}
+            />
+          </div>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}
+          >
+            {categories.map((cat) => (
+              <div key={cat.label}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: "#94a3b8",
+                    marginBottom: 6,
+                  }}
+                >
+                  {cat.label}
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+                    gap: 8,
+                  }}
+                >
+                  {cat.ids.map((id) => {
+                    const active = activePresetId === id;
+                    const label = LAYOUT_PRESET_LABELS[id] ?? id;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        data-layout-preset={id}
+                        title={`${label}（${n}人）`}
+                        onClick={() => onPickLayoutPreset(id)}
+                        style={{
+                          ...cardBtn,
+                          padding: "8px 6px 8px",
+                          borderColor: active
+                            ? "rgba(212,175,55,0.95)"
+                            : "#334155",
+                          background: active
+                            ? "rgba(212,175,55,0.12)"
+                            : "#0b1220",
+                        }}
+                      >
+                        <FormationPresetThumb preset={id} width={compact ? 72 : 88} />
+                        <span
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 800,
+                            lineHeight: 1.25,
+                            color: "#e2e8f0",
+                            textAlign: "center",
+                          }}
+                        >
+                          {label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       ) : null}
     </div>

@@ -6,6 +6,7 @@ import {
   type SelectionDistributeAxis,
 } from "./stageSelectionTransform";
 import type { DancerSpot } from "../types/choreography";
+import type { StagePosPct } from "./stageEffectivePosition";
 
 export type StageTidyAction = {
   id:
@@ -50,4 +51,38 @@ export function applyStageTidyAction(
     return alignSelectedDancers(dancers, targetIds, action.edge);
   }
   return distributeSelectedDancers(dancers, targetIds, action.axis);
+}
+
+export function tidyActionLabel(actionId: StageTidyAction["id"]): string {
+  return STAGE_TIDY_ACTIONS.find((a) => a.id === actionId)?.label ?? "整える";
+}
+
+export type TidyPreviewDraft = {
+  actionId: StageTidyAction["id"];
+  label: string;
+  positions: Map<string, StagePosPct>;
+};
+
+/**
+ * 永続 dancers は変えない。変わった id の座標だけ返す。
+ * 変化がなければ null（呼び出し側は既存ドラフトを残す／何もしない）。
+ */
+export function draftTidyPreview(
+  dancers: readonly DancerSpot[],
+  targetIds: readonly string[],
+  actionId: StageTidyAction["id"]
+): TidyPreviewDraft | null {
+  const action = STAGE_TIDY_ACTIONS.find((a) => a.id === actionId);
+  if (!action) return null;
+  const next = applyStageTidyAction([...dancers], targetIds, actionId);
+  const prevById = new Map(dancers.map((d) => [d.id, d] as const));
+  const positions = new Map<string, StagePosPct>();
+  for (const d of next) {
+    const prev = prevById.get(d.id);
+    if (!prev) continue;
+    if (prev.xPct === d.xPct && prev.yPct === d.yPct) continue;
+    positions.set(d.id, { xPct: d.xPct, yPct: d.yPct });
+  }
+  if (positions.size === 0) return null;
+  return { actionId, label: action.label, positions };
 }

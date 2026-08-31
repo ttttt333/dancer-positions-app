@@ -19,6 +19,7 @@ import type {
 } from "../lib/stageSelectionTransform";
 import type { StageEditMode } from "../lib/stageEditMode";
 import type { StageShapePresetId } from "../lib/stageShapeGenerator";
+import type { LayoutPresetId } from "../lib/formationLayouts";
 import type { DepthSwapInspect } from "../lib/stageDepthPreview";
 import {
   classifyShapeMovementCost,
@@ -32,6 +33,8 @@ import {
 import {
   isStageTidyAvailable,
   STAGE_TIDY_ACTIONS,
+  tidyActionLabel,
+  type StageTidyAction,
 } from "../lib/stageTidyActions";
 import { StageFormationShapeCards } from "./StageFormationShapeCards";
 import { StagePrevCueCompareSummary } from "./StagePrevCueCompareOverlay";
@@ -72,12 +75,16 @@ export type StageDancerContextToolbarProps = {
   depthPreviewActive?: boolean;
   rotationPreviewActive?: boolean;
   rotationPreviewDir?: PositionRotationDir | null;
-  shapePreviewPresetId?: StageShapePresetId | null;
+  tidyPreviewActive?: boolean;
+  tidyPreviewActionId?: StageTidyAction["id"] | null;
+  shapePreviewPresetId?: string | null;
   shapePreviewMovementCostPct?: number;
   depthSwapInspect?: DepthSwapInspect;
   onBeginShapePreview?: (presetId: StageShapePresetId) => void;
+  onBeginLayoutPresetPreview?: (presetId: LayoutPresetId) => void;
   onBeginDepthPreview?: (colA: number, colB: number) => void;
   onBeginRotationPreview?: (direction: PositionRotationDir) => void;
+  onBeginTidyPreview?: (actionId: StageTidyAction["id"]) => void;
   onCancelShapePreview?: () => void;
   onApplyShapePreview?: () => void;
   onDepthGuidesVisibleChange?: (visible: boolean) => void;
@@ -196,12 +203,16 @@ export function StageDancerContextToolbar({
   depthPreviewActive = false,
   rotationPreviewActive = false,
   rotationPreviewDir = null,
+  tidyPreviewActive = false,
+  tidyPreviewActionId = null,
   shapePreviewPresetId = null,
   shapePreviewMovementCostPct = 0,
   depthSwapInspect,
   onBeginShapePreview,
+  onBeginLayoutPresetPreview,
   onBeginDepthPreview,
   onBeginRotationPreview,
+  onBeginTidyPreview,
   onCancelShapePreview,
   onApplyShapePreview,
   onDepthGuidesVisibleChange,
@@ -221,8 +232,9 @@ export function StageDancerContextToolbar({
         ...floorBtn,
         minWidth: 0,
         width: "100%",
-        height: 40,
-        fontSize: 13,
+        height: 46,
+        fontSize: 15,
+        fontWeight: 800,
         padding: "0 8px",
       }
     : floorBtn;
@@ -234,9 +246,9 @@ export function StageDancerContextToolbar({
         alignItems: "stretch",
         justifyContent: "stretch",
         flexWrap: "nowrap",
-        gap: 6,
+        gap: 8,
         width: "100%",
-        padding: "6px 4px",
+        padding: "8px 4px",
       }
     : bar;
   const barRef = useRef<HTMLDivElement | null>(null);
@@ -252,11 +264,13 @@ export function StageDancerContextToolbar({
   const tidyAvailable = isStageTidyAvailable(editMode);
   const previewKind = shapePreviewActive
     ? "shape"
-    : depthPreviewActive
-      ? "depth"
-      : rotationPreviewActive
-        ? "rotation"
-        : null;
+    : tidyPreviewActive
+      ? "tidy"
+      : depthPreviewActive
+        ? "depth"
+        : rotationPreviewActive
+          ? "rotation"
+          : null;
 
   useEffect(() => {
     if (previewKind === "depth") setOpen(null);
@@ -291,9 +305,11 @@ export function StageDancerContextToolbar({
   const ariaLabel = previewKind
     ? previewKind === "shape"
       ? "形をプレビュー中"
-      : previewKind === "depth"
-        ? "前後をプレビュー中"
-        : "位置をプレビュー中"
+      : previewKind === "tidy"
+        ? "整えるをプレビュー中"
+        : previewKind === "depth"
+          ? "前後をプレビュー中"
+          : "位置をプレビュー中"
     : formationEdit
       ? "FORMATION EDIT"
       : groupEdit
@@ -317,6 +333,8 @@ export function StageDancerContextToolbar({
         position: "relative",
         width: "100%",
         maxWidth: side ? "100%" : "min(100%, 640px)",
+        maxHeight: side ? "min(72vh, 680px)" : undefined,
+        overflowY: side ? "auto" : undefined,
         pointerEvents: "auto",
       }}
     >
@@ -324,7 +342,8 @@ export function StageDancerContextToolbar({
         <div
           style={{
             ...caption,
-            fontSize: side ? 13 : 11,
+            fontSize: side ? 15 : 11,
+            fontWeight: side ? 800 : 700,
             textAlign: side ? "left" : "center",
             whiteSpace: side ? "normal" : "nowrap",
           }}
@@ -339,7 +358,8 @@ export function StageDancerContextToolbar({
             ...caption,
             color: "#94a3b8",
             letterSpacing: 0,
-            fontSize: side ? 13 : 11,
+            fontSize: side ? 15 : 11,
+            fontWeight: side ? 800 : 700,
             textAlign: side ? "left" : "center",
           }}
         >
@@ -419,6 +439,92 @@ export function StageDancerContextToolbar({
                 }
               >
                 形を変更
+              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <button
+                  type="button"
+                  style={btn}
+                  title="プレビューを取り消す"
+                  onClick={() => {
+                    setOpen(null);
+                    onCancelShapePreview?.();
+                  }}
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  style={{
+                    ...btn,
+                    borderColor: "rgba(52,211,153,0.9)",
+                    color: "#6ee7b7",
+                  }}
+                  title="プレビューを適用する"
+                  onClick={() => {
+                    setOpen(null);
+                    onApplyShapePreview?.();
+                  }}
+                >
+                  適用
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : previewKind === "tidy" ? (
+          <div
+            data-tidy-preview-chrome
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              width: "100%",
+              padding: "2px 2px 0",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: "#e2e8f0",
+              }}
+            >
+              整えるをプレビュー中
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 700,
+                color: "#fbbf24",
+              }}
+              data-tidy-preview-label
+            >
+              {tidyPreviewActionId
+                ? tidyActionLabel(tidyPreviewActionId)
+                : "整える"}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 4,
+              }}
+            >
+              <button
+                type="button"
+                data-tidy-change
+                style={{
+                  ...btn,
+                  borderColor:
+                    open === "tidy" ? "rgba(96,165,250,0.9)" : BTN_BORDER,
+                }}
+                title="整える操作を変更"
+                aria-expanded={open === "tidy"}
+                onClick={() =>
+                  setOpen((v) => (v === "tidy" ? null : "tidy"))
+                }
+              >
+                操作を変更
               </button>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <button
@@ -870,8 +976,13 @@ export function StageDancerContextToolbar({
                   }}
                   title={action.label}
                   onClick={() => {
-                    if (action.kind === "align") onAlign?.(action.edge);
-                    else onDistribute?.(action.axis);
+                    if (onBeginTidyPreview) {
+                      onBeginTidyPreview(action.id);
+                    } else if (action.kind === "align") {
+                      onAlign?.(action.edge);
+                    } else {
+                      onDistribute?.(action.axis);
+                    }
                     setOpen(null);
                   }}
                 >
@@ -1036,16 +1147,22 @@ export function StageDancerContextToolbar({
         ) : null}
         {formationEdit && open === "shape" ? (
           <div style={{ ...popoverStyle(side), minWidth: side ? 0 : 360, maxWidth: side ? "100%" : 440, left: side ? "auto" : "50%" }}>
-            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 8 }}>
-              FORMATION SHAPE
-            </div>
             <StageFormationShapeCards
               selectedCount={selectedCount}
+              compact={side}
               activePresetId={shapePreviewPresetId}
               onPick={(presetId) => {
                 onBeginShapePreview?.(presetId);
                 setOpen(null);
               }}
+              onPickLayoutPreset={
+                onBeginLayoutPresetPreview
+                  ? (presetId) => {
+                      onBeginLayoutPresetPreview(presetId);
+                      setOpen(null);
+                    }
+                  : undefined
+              }
             />
           </div>
         ) : null}
@@ -1053,10 +1170,10 @@ export function StageDancerContextToolbar({
           <div style={{ ...popoverStyle(side), minWidth: side ? 0 : 228 }}>
             <div
               style={{
-                fontSize: side ? 15 : 13,
-                fontWeight: 700,
+                fontSize: side ? 18 : 13,
+                fontWeight: 800,
                 color: "#e2e8f0",
-                marginBottom: 8,
+                marginBottom: 10,
               }}
             >
               前後の位置を入れ替える
@@ -1065,30 +1182,46 @@ export function StageDancerContextToolbar({
               <>
                 <div
                   style={{
-                    fontSize: 13,
-                    fontWeight: 700,
-                    color: "#e2e8f0",
-                    marginBottom: 4,
+                    fontSize: side ? 16 : 13,
+                    fontWeight: 800,
+                    color: "#fde68a",
+                    marginBottom: 8,
                   }}
                 >
                   {depthSwapInspect.groupCount}グループ
                 </div>
                 <div
                   style={{
-                    fontSize: 11,
-                    color: "#94a3b8",
-                    lineHeight: 1.45,
-                    marginBottom: 10,
-                    whiteSpace: "normal",
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 6,
+                    marginBottom: 12,
                   }}
                 >
-                  {depthSwapInspect.groupSummaryLine}
+                  {depthSwapInspect.groupLines.map((line) => (
+                    <span
+                      key={line}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        padding: side ? "6px 10px" : "4px 8px",
+                        borderRadius: 999,
+                        border: "1px solid rgba(251,191,36,0.55)",
+                        background: "rgba(8,11,18,0.9)",
+                        color: "#fde68a",
+                        fontSize: side ? 14 : 11,
+                        fontWeight: 800,
+                      }}
+                    >
+                      {line}
+                    </span>
+                  ))}
                 </div>
                 <div
                   style={{
                     display: "flex",
                     flexDirection: "column",
-                    gap: 6,
+                    gap: side ? 10 : 6,
                   }}
                 >
                   {depthSwapInspect.pairs.map((pair) => (
@@ -1100,10 +1233,10 @@ export function StageDancerContextToolbar({
                         width: "100%",
                         minWidth: 0,
                         height: "auto",
-                        minHeight: 32,
-                        padding: "7px 8px",
-                        display: "flex",
-                        justifyContent: "space-between",
+                        minHeight: side ? 64 : 36,
+                        padding: side ? "10px 10px" : "7px 8px",
+                        display: "grid",
+                        gridTemplateColumns: "1fr auto 1fr",
                         alignItems: "center",
                         gap: 8,
                       }}
@@ -1125,19 +1258,51 @@ export function StageDancerContextToolbar({
                         setOpen(null);
                       }}
                     >
-                      <span style={{ fontSize: side ? 18 : 13, fontWeight: 800 }}>
-                        {pair.markA} ⇄ {pair.markB}
+                      <span
+                        style={{
+                          fontSize: side ? 28 : 16,
+                          fontWeight: 900,
+                          color: "#fde68a",
+                          textAlign: "center",
+                          lineHeight: 1,
+                        }}
+                      >
+                        {pair.markA}
                       </span>
                       <span
                         style={{
-                          fontSize: 10,
-                          fontWeight: 700,
-                          color: pair.noChange ? "#fbbf24" : "#94a3b8",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          gap: 2,
+                          color: "#cbd5e1",
                         }}
                       >
-                        {pair.noChange
-                          ? "変化なし"
-                          : `移動：${pair.movementLabel}`}
+                        <span style={{ fontSize: side ? 22 : 14, lineHeight: 1 }}>
+                          ↕
+                        </span>
+                        <span
+                          style={{
+                            fontSize: side ? 13 : 10,
+                            fontWeight: 800,
+                            color: pair.noChange ? "#fbbf24" : "#94a3b8",
+                          }}
+                        >
+                          {pair.noChange
+                            ? "変化なし"
+                            : `移動 ${pair.movementLabel}`}
+                        </span>
+                      </span>
+                      <span
+                        style={{
+                          fontSize: side ? 28 : 16,
+                          fontWeight: 900,
+                          color: "#fde68a",
+                          textAlign: "center",
+                          lineHeight: 1,
+                        }}
+                      >
+                        {pair.markB}
                       </span>
                     </button>
                   ))}
@@ -1145,8 +1310,8 @@ export function StageDancerContextToolbar({
                 {depthNoChangePair ? (
                   <p
                     style={{
-                      margin: "8px 0 0",
-                      fontSize: 11,
+                      margin: "10px 0 0",
+                      fontSize: side ? 13 : 11,
                       color: "#fde68a",
                       lineHeight: 1.45,
                     }}
@@ -1158,9 +1323,9 @@ export function StageDancerContextToolbar({
                 ) : null}
                 <p
                   style={{
-                    margin: "8px 0 0",
-                    fontSize: 10,
-                    color: "#64748b",
+                    margin: "10px 0 0",
+                    fontSize: side ? 12 : 10,
+                    color: "#94a3b8",
                   }}
                 >
                   ※左右の位置は変わりません
@@ -1170,7 +1335,7 @@ export function StageDancerContextToolbar({
               <p
                 style={{
                   margin: 0,
-                  fontSize: 11,
+                  fontSize: side ? 13 : 11,
                   color: "#94a3b8",
                   lineHeight: 1.45,
                 }}

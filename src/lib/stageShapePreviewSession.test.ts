@@ -192,5 +192,6 @@ describe("shape preview session (no Project mutation until Apply)", () => {
     expect(shapePreviewLabel("vee")).toBe("V字");
     expect(shapePreviewLabel("circle")).toBe("円形");
     expect(shapePreviewLabel("triangle")).toBe("三角形");
+    expect(shapePreviewLabel("pyramid")).toBe("ピラミッド");
   });
 });

@@ -7,9 +7,13 @@ import {
 } from "./stageSelectionTransform";
 import {
   applyStageTidyAction,
+  draftTidyPreview,
   isStageTidyAvailable,
   STAGE_TIDY_ACTIONS,
+  tidyActionLabel,
 } from "./stageTidyActions";
+import { applyShapePositionsToDancers } from "./stageShapeGenerator";
+import { getEffectiveDancerPosition } from "./stageEffectivePosition";
 
 function spot(
   id: string,
@@ -199,5 +203,53 @@ describe("applyStageTidyAction", () => {
       expect(after.xPct).toBe(before.xPct);
       expect(identityFields(after)).toEqual(identityFields(before));
     }
+  });
+});
+
+describe("draftTidyPreview", () => {
+  it("does not change persist dancers and only returns moved ids", () => {
+    const dancers = [
+      spot("a", 20, 30),
+      spot("b", 55, 80),
+      spot("c", 40, 50),
+      spot("other", 90, 10),
+    ];
+    const ids = ["a", "b", "c"];
+    const draft = draftTidyPreview(dancers, ids, "align-row");
+    expect(draft).not.toBeNull();
+    expect(draft!.label).toBe(tidyActionLabel("align-row"));
+    expect(dancers[0]!.yPct).toBe(30);
+    expect(draft!.positions.has("other")).toBe(false);
+    expect(draft!.positions.size).toBeGreaterThan(0);
+
+    const applied = applyShapePositionsToDancers(dancers, draft!.positions);
+    expect(applied.map((d) => d.id)).toEqual(dancers.map((d) => d.id));
+    expect(applied[3]).toEqual(dancers[3]);
+    expect(applied[0]!.yPct).toBe(applied[1]!.yPct);
+    expect(applied[0]!.xPct).toBe(20);
+  });
+
+  it("returns null when the selection is already tidy", () => {
+    const dancers = [
+      spot("a", 20, 50),
+      spot("b", 40, 50),
+      spot("c", 70, 50),
+    ];
+    expect(draftTidyPreview(dancers, ["a", "b", "c"], "align-row")).toBeNull();
+  });
+
+  it("shows the draft position through getEffectiveDancerPosition", () => {
+    const dancers = [spot("a", 20, 30), spot("b", 55, 80)];
+    const draft = draftTidyPreview(dancers, ["a", "b"], "align-row");
+    expect(draft).not.toBeNull();
+    const a = getEffectiveDancerPosition(dancers[0]!, {
+      tidyPreviewById: draft!.positions,
+    });
+    const b = getEffectiveDancerPosition(dancers[1]!, {
+      tidyPreviewById: draft!.positions,
+    });
+    expect(a.yPct).toBe(b.yPct);
+    expect(a.xPct).toBe(20);
+    expect(b.xPct).toBe(55);
   });
 });

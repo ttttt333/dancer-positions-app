@@ -207,6 +207,31 @@ describe("depth group marks stay on people during preview", () => {
     );
     expect(reclusters.find((m) => m.dancerId === "mid")?.mark).toBe("①");
   });
+
+  it("puts one mark at the leftmost dancer of each row", () => {
+    const persistMarks = [
+      { dancerId: "a", groupIndex: 0, mark: "①" },
+      { dancerId: "b", groupIndex: 0, mark: "①" },
+      { dancerId: "c", groupIndex: 0, mark: "①" },
+      { dancerId: "d", groupIndex: 1, mark: "②" },
+      { dancerId: "e", groupIndex: 1, mark: "②" },
+    ];
+    const overlay = layoutDepthGroupMarksOnStage(
+      persistMarks,
+      new Map([
+        ["a", { xPct: 20, yPct: 72 }],
+        ["b", { xPct: 50, yPct: 72 }],
+        ["c", { xPct: 80, yPct: 72 }],
+        ["d", { xPct: 22, yPct: 40 }],
+        ["e", { xPct: 78, yPct: 40 }],
+      ])
+    );
+    expect(overlay).toHaveLength(2);
+    expect(overlay.map((m) => m.dancerId).sort()).toEqual(["a", "d"]);
+    expect(overlay.find((m) => m.dancerId === "a")?.mark).toBe("①");
+    expect(overlay.find((m) => m.dancerId === "d")?.mark).toBe("②");
+    expect(overlay.find((m) => m.dancerId === "a")!.xPct).toBeLessThan(20);
+  });
 });
 
 describe("generateDepthSwapPreview", () => {

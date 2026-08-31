@@ -80,8 +80,13 @@ import {
   applyShapePositionsToDancers,
   type StageShapePresetId,
 } from "../lib/stageShapeGenerator";
-import { draftShapePreview } from "../lib/stageShapePreviewSession";
+import { draftShapePreview, draftLayoutPresetPreview } from "../lib/stageShapePreviewSession";
+import type { LayoutPresetId } from "../lib/formationLayouts";
 import { draftPositionRotation } from "../lib/stagePositionRotation";
+import {
+  draftTidyPreview,
+  type StageTidyAction,
+} from "../lib/stageTidyActions";
 import {
   generateDepthSwapPreview,
   inspectFormationDepthSwap,
@@ -502,7 +507,7 @@ export function StageBoardBody({
     { xPct: number; yPct: number }
   > | null>(null);
   const [shapePreviewMeta, setShapePreviewMeta] = useState<{
-    presetId: StageShapePresetId;
+    presetId: string;
     movementCostPct: number;
   } | null>(null);
   const [depthPreviewById, setDepthPreviewById] = useState<Map<
@@ -515,6 +520,13 @@ export function StageBoardBody({
   > | null>(null);
   const [rotationPreviewDir, setRotationPreviewDir] = useState<
     "cw" | "ccw" | null
+  >(null);
+  const [tidyPreviewById, setTidyPreviewById] = useState<Map<
+    string,
+    { xPct: number; yPct: number }
+  > | null>(null);
+  const [tidyPreviewActionId, setTidyPreviewActionId] = useState<
+    StageTidyAction["id"] | null
   >(null);
   const [, setDepthPreviewPair] = useState<{
     colA: number;
@@ -814,9 +826,10 @@ export function StageBoardBody({
       shapePreviewById,
       depthPreviewById,
       rotationPreviewById,
+      tidyPreviewById,
       groupPosDraft: markerGroupPosDraft,
     }),
-    [shapePreviewById, depthPreviewById, rotationPreviewById, markerGroupPosDraft],
+    [shapePreviewById, depthPreviewById, rotationPreviewById, tidyPreviewById, markerGroupPosDraft],
   );
 
   /** 群の剛体回転ドラッグ中／形プレビュー中は仮座標で上書き（合成は getEffectiveDancerPosition） */
@@ -3619,6 +3632,8 @@ export function StageBoardBody({
     setDepthPreviewPair(null);
     setRotationPreviewById(null);
     setRotationPreviewDir(null);
+    setTidyPreviewById(null);
+    setTidyPreviewActionId(null);
     shapePreviewKeyRef.current = "";
   }, []);
 
@@ -3642,7 +3657,8 @@ export function StageBoardBody({
         if (
           (shapePreviewById && shapePreviewById.size > 0) ||
           (depthPreviewById && depthPreviewById.size > 0) ||
-          (rotationPreviewById && rotationPreviewById.size > 0)
+          (rotationPreviewById && rotationPreviewById.size > 0) ||
+          (tidyPreviewById && tidyPreviewById.size > 0)
         ) {
           e.preventDefault();
           cancelShapePreview();
@@ -3726,6 +3742,7 @@ export function StageBoardBody({
     shapePreviewById,
     depthPreviewById,
     rotationPreviewById,
+    tidyPreviewById,
     cancelShapePreview,
   ]);
 
@@ -4082,10 +4099,63 @@ export function StageBoardBody({
       setDepthPreviewPair(null);
       setRotationPreviewById(null);
       setRotationPreviewDir(null);
+      setTidyPreviewById(null);
+      setTidyPreviewActionId(null);
       setShapePreviewById(next.draft.positions);
       setShapePreviewMeta({
         presetId: next.draft.presetId,
         movementCostPct: next.draft.movementCostPct,
+      });
+      shapePreviewKeyRef.current = selectedDancerIds.join("\0");
+    },
+    [
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+      dancerQuickEditId,
+      writeFormation,
+      activeFormation,
+      selectedDancerIds,
+      project.dancerSpacingMm,
+      project.stageWidthMm,
+      showShapePreviewToast,
+    ],
+  );
+
+  const beginLayoutPresetPreview = useCallback(
+    (presetId: LayoutPresetId) => {
+      if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
+        return;
+      if (dancerQuickEditId) return;
+      const persistDancers =
+        writeFormation?.dancers ?? activeFormation?.dancers ?? [];
+      const draft = draftLayoutPresetPreview({
+        dancers: persistDancers,
+        selectedIds: selectedDancerIds,
+        presetId,
+        layoutOpts: {
+          dancerSpacingMm: project.dancerSpacingMm,
+          stageWidthMm: project.stageWidthMm,
+        },
+      });
+      if (!draft) {
+        showShapePreviewToast({
+          kind: "error",
+          title: "この形には配置できませんでした",
+          description: "人数または間隔がステージに収まりません。",
+        });
+        return;
+      }
+      setDepthPreviewById(null);
+      setDepthPreviewPair(null);
+      setRotationPreviewById(null);
+      setRotationPreviewDir(null);
+      setTidyPreviewById(null);
+      setTidyPreviewActionId(null);
+      setShapePreviewById(draft.positions);
+      setShapePreviewMeta({
+        presetId: draft.presetId,
+        movementCostPct: draft.movementCostPct,
       });
       shapePreviewKeyRef.current = selectedDancerIds.join("\0");
     },
@@ -4110,7 +4180,9 @@ export function StageBoardBody({
         ? depthPreviewById
         : rotationPreviewById?.size
           ? rotationPreviewById
-          : null;
+          : tidyPreviewById?.size
+            ? tidyPreviewById
+            : null;
     if (!preview) return;
     if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
       return;
@@ -4123,6 +4195,7 @@ export function StageBoardBody({
     shapePreviewById,
     depthPreviewById,
     rotationPreviewById,
+    tidyPreviewById,
     viewMode,
     stageInteractionsEnabled,
     playbackOrPreview,
@@ -4178,6 +4251,8 @@ export function StageBoardBody({
       setShapePreviewMeta(null);
       setRotationPreviewById(null);
       setRotationPreviewDir(null);
+      setTidyPreviewById(null);
+      setTidyPreviewActionId(null);
       setDepthPreviewById(byId);
       setDepthPreviewPair({ colA, colB });
       shapePreviewKeyRef.current = selectedDancerIds.join("\0");
@@ -4210,6 +4285,8 @@ export function StageBoardBody({
       setShapePreviewMeta(null);
       setDepthPreviewById(null);
       setDepthPreviewPair(null);
+      setTidyPreviewById(null);
+      setTidyPreviewActionId(null);
       setRotationPreviewById(next.positions);
       setRotationPreviewDir(next.direction);
       shapePreviewKeyRef.current = selectedDancerIds.join("\0");
@@ -4225,17 +4302,61 @@ export function StageBoardBody({
     ],
   );
 
+  const beginTidyPreview = useCallback(
+    (actionId: StageTidyAction["id"]) => {
+      if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
+        return;
+      if (dancerQuickEditId) return;
+      if (selectedDancerIds.length < 2) return;
+      const persistDancers =
+        writeFormation?.dancers ?? activeFormation?.dancers ?? [];
+      const draft = draftTidyPreview(
+        persistDancers,
+        selectedDancerIds,
+        actionId
+      );
+      if (!draft) {
+        showShapePreviewToast({
+          kind: "info",
+          title: "すでに整っています",
+          description: "この操作では立ち位置は変わりません。",
+        });
+        return;
+      }
+      setShapePreviewById(null);
+      setShapePreviewMeta(null);
+      setDepthPreviewById(null);
+      setDepthPreviewPair(null);
+      setRotationPreviewById(null);
+      setRotationPreviewDir(null);
+      setTidyPreviewById(draft.positions);
+      setTidyPreviewActionId(draft.actionId);
+      shapePreviewKeyRef.current = selectedDancerIds.join("\0");
+    },
+    [
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+      dancerQuickEditId,
+      writeFormation,
+      activeFormation,
+      selectedDancerIds,
+      showShapePreviewToast,
+    ],
+  );
+
   useEffect(() => {
     const key = selectedDancerIds.join("\0");
     const hasPreview = Boolean(
       (shapePreviewById && shapePreviewById.size > 0) ||
         (depthPreviewById && depthPreviewById.size > 0) ||
-        (rotationPreviewById && rotationPreviewById.size > 0)
+        (rotationPreviewById && rotationPreviewById.size > 0) ||
+        (tidyPreviewById && tidyPreviewById.size > 0)
     );
     if (hasPreview && shapePreviewKeyRef.current && key !== shapePreviewKeyRef.current) {
       cancelShapePreview();
     }
-  }, [selectedDancerIds, shapePreviewById, depthPreviewById, rotationPreviewById, cancelShapePreview]);
+  }, [selectedDancerIds, shapePreviewById, depthPreviewById, rotationPreviewById, tidyPreviewById, cancelShapePreview]);
 
   const applySelectedTransform = useCallback(
     (fn: (dancers: DancerSpot[], targetIds: string[]) => DancerSpot[]) => {
@@ -4243,7 +4364,7 @@ export function StageBoardBody({
       if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
         return;
       cancelShapePreview();
-      // 整える / 反転: 1操作 = updateActiveFormation 1回 = Undo 1手
+      // 反転: 1操作 = updateActiveFormation 1回 = Undo 1手
       updateActiveFormation((f) => ({
         ...f,
         dancers: fn(f.dancers, selectedDancerIds),
@@ -4911,10 +5032,14 @@ export function StageBoardBody({
         rotationPreviewById && rotationPreviewById.size > 0
       )}
       rotationPreviewDir={rotationPreviewDir}
+      tidyPreviewActive={Boolean(tidyPreviewById && tidyPreviewById.size > 0)}
+      tidyPreviewActionId={tidyPreviewActionId}
       depthSwapInspect={depthSwapInspect}
       onBeginShapePreview={beginShapePreview}
+      onBeginLayoutPresetPreview={beginLayoutPresetPreview}
       onBeginDepthPreview={beginDepthPreview}
       onBeginRotationPreview={beginRotationPreview}
+      onBeginTidyPreview={beginTidyPreview}
       onCancelShapePreview={cancelShapePreview}
       onApplyShapePreview={applyShapePreview}
       onDepthGuidesVisibleChange={handleDepthGuidesVisibleChange}

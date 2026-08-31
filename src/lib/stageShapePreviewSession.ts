@@ -1,11 +1,16 @@
 import type { DancerSpot } from "../types/choreography";
 import type { StagePosPct } from "./stageEffectivePosition";
 import {
+  layoutPresetPositionsById,
+  resolveChangeTargetIds,
+} from "./applyLayoutPresetToSelection";
+import { LAYOUT_PRESET_LABELS, type LayoutPresetId } from "./formationLayouts";
+import {
   applyShapePositionsToDancers,
+  movementCostPct,
   STAGE_SHAPE_PRESETS,
   tryGenerateShapePreview,
   type ShapeGeneratorInput,
-  type StageShapePresetId,
 } from "./stageShapeGenerator";
 import {
   classifyMovementCostPct,
@@ -13,7 +18,7 @@ import {
 } from "./stageMovementGrade";
 
 export type ShapePreviewDraft = {
-  presetId: StageShapePresetId;
+  presetId: string;
   positions: Map<string, StagePosPct>;
   movementCostPct: number;
 };
@@ -23,8 +28,11 @@ export type ShapeMovementGrade = MovementGrade;
 export type ShapePreviewEscAction = "close-picker" | "cancel-draft" | "none";
 
 /** プレビュー中の形ラベル。geometry は触らない。 */
-export function shapePreviewLabel(presetId: StageShapePresetId): string {
-  return STAGE_SHAPE_PRESETS.find((p) => p.id === presetId)?.label ?? "形";
+export function shapePreviewLabel(presetId: string): string {
+  const gen = STAGE_SHAPE_PRESETS.find((p) => p.id === presetId);
+  if (gen) return gen.label;
+  const layout = LAYOUT_PRESET_LABELS[presetId as LayoutPresetId];
+  return layout ?? "形";
 }
 
 /**
@@ -68,6 +76,38 @@ export function draftShapePreview(
       movementCostPct: outcome.result.movementCostPct,
     },
     ignoredSpacing: outcome.ignoredSpacing,
+  };
+}
+
+/** Change と同じ雛形。選択 2人以上ならその人だけ。配列順は変えない。 */
+export function draftLayoutPresetPreview(input: {
+  dancers: readonly DancerSpot[];
+  selectedIds: readonly string[];
+  presetId: LayoutPresetId;
+  layoutOpts?: ShapeGeneratorInput["layoutOpts"];
+}): ShapePreviewDraft | null {
+  const targetIds = resolveChangeTargetIds(
+    input.dancers.map((d) => d.id),
+    input.selectedIds
+  );
+  const positions = layoutPresetPositionsById(
+    input.dancers,
+    targetIds,
+    input.presetId,
+    input.layoutOpts
+  );
+  if (positions.size === 0) return null;
+  const prevById = new Map(input.dancers.map((d) => [d.id, d] as const));
+  let cost = 0;
+  for (const [id, pos] of positions) {
+    const prev = prevById.get(id);
+    if (!prev) continue;
+    cost += movementCostPct(prev, pos);
+  }
+  return {
+    presetId: input.presetId,
+    positions,
+    movementCostPct: cost,
   };
 }
 

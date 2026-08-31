@@ -70,7 +70,18 @@ export type DepthGroupMarkOnStage = {
   yPct: number;
 };
 
-/** ステージ表示用。番号は persist クラスタ、座標は実効位置（Preview 後も①が同じ人に付く） */
+const LEFT_MARK_OFFSET_PCT = 5.5;
+
+function isLeftOf(
+  a: StagePosPct,
+  b: StagePosPct
+): boolean {
+  if (a.xPct < b.xPct - 0.05) return true;
+  if (a.xPct > b.xPct + 0.05) return false;
+  return a.yPct < b.yPct;
+}
+
+/** ステージ表示用。各グループは列の左端に番号を1つだけ置く。 */
 export function layoutDepthGroupMarksOnStage(
   marks: readonly DepthGroupMark[],
   positionById: ReadonlyMap<string, StagePosPct>
@@ -83,25 +94,21 @@ export function layoutDepthGroupMarksOnStage(
   }
   const out: DepthGroupMarkOnStage[] = [];
   for (const group of byGroup.values()) {
-    const xs: number[] = [];
-    for (const g of group) {
-      const pos = positionById.get(g.dancerId);
-      if (pos) xs.push(pos.xPct);
-    }
-    const meanX = xs.length ? xs.reduce((s, v) => s + v, 0) / xs.length : 50;
+    let leftmost: { mark: DepthGroupMark; pos: StagePosPct } | null = null;
     for (const g of group) {
       const pos = positionById.get(g.dancerId);
       if (!pos) continue;
-      let dx = 0;
-      if (pos.xPct < meanX - 0.8) dx = -4.2;
-      else if (pos.xPct > meanX + 0.8) dx = 4.2;
-      out.push({
-        dancerId: g.dancerId,
-        mark: g.mark,
-        xPct: Math.max(2, Math.min(98, pos.xPct + dx)),
-        yPct: Math.max(2, Math.min(98, pos.yPct - 6)),
-      });
+      if (!leftmost || isLeftOf(pos, leftmost.pos)) {
+        leftmost = { mark: g, pos };
+      }
     }
+    if (!leftmost) continue;
+    out.push({
+      dancerId: leftmost.mark.dancerId,
+      mark: leftmost.mark.mark,
+      xPct: Math.max(2, Math.min(98, leftmost.pos.xPct - LEFT_MARK_OFFSET_PCT)),
+      yPct: Math.max(2, Math.min(98, leftmost.pos.yPct)),
+    });
   }
   return out;
 }
