@@ -9,15 +9,23 @@ export type StageDepthGroupMarksOverlayProps = {
 
 const markStyle: CSSProperties = {
   position: "absolute",
-  transform: "translate(-50%, -50%)",
-  fontSize: 13,
-  fontWeight: 700,
-  color: "rgba(226, 232, 240, 0.42)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  minWidth: 22,
+  height: 22,
+  padding: "0 5px",
+  borderRadius: 999,
+  border: "1px solid rgba(251, 191, 36, 0.7)",
+  background: "rgba(8, 11, 18, 0.92)",
+  color: "#fde68a",
+  fontSize: 14,
+  fontWeight: 800,
   letterSpacing: "0.02em",
   lineHeight: 1,
   pointerEvents: "none",
   userSelect: "none",
-  textShadow: "0 1px 2px rgba(0,0,0,0.55)",
+  boxShadow: "0 1px 4px rgba(0,0,0,0.7)",
   zIndex: 14,
 };
 
