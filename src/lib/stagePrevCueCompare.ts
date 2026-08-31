@@ -1,5 +1,5 @@
 import type { Cue, DancerSpot, Formation } from "../types/choreography";
-import { sortCuesByStart } from "./cueInterval";
+import { cueNumberById, sortCuesByStart } from "./cueInterval";
 import { classifyMovementCostPct } from "./stageMovementGrade";
 import { movementCostPct } from "./stageShapeGenerator";
 
@@ -28,6 +28,16 @@ export function resolvePreviousCueDancers(
   const prev = sorted[i - 1]!;
   const f = formations.find((x) => x.id === prev.formationId);
   return f?.dancers ?? null;
+}
+
+/** 直前 Cue の 1 始まり番号。先頭 Cue / 不明なら null。 */
+export function resolvePreviousCueOrdinal(
+  cues: Cue[],
+  currentCueId: string | null | undefined
+): number | null {
+  const n = cueNumberById(cues, currentCueId);
+  if (n == null || n <= 1) return null;
+  return n - 1;
 }
 
 /**

@@ -3,9 +3,10 @@ import { createEmptyProject } from "./projectDefaults";
 import {
   buildPrevCueCompareMarks,
   resolvePreviousCueDancers,
+  resolvePreviousCueOrdinal,
   summarizePrevCueCompare,
 } from "./stagePrevCueCompare";
-import { classifyMovementCostPct } from "./stageMovementGrade";
+import { classifyMovementCostPct, describePrevCueChangeFact } from "./stageMovementGrade";
 import { movementCostPct } from "./stageShapeGenerator";
 import type { DancerSpot } from "../types/choreography";
 
@@ -46,6 +47,18 @@ describe("resolvePreviousCueDancers", () => {
     const prev = resolvePreviousCueDancers(p.cues, p.formations, "b");
     expect(prev).toBe(fA.dancers);
     expect(prev![0]!.xPct).toBe(30);
+  });
+});
+
+describe("resolvePreviousCueOrdinal", () => {
+  it("returns null on the first cue and current-1 afterwards", () => {
+    const p = createEmptyProject();
+    p.cues = [
+      { id: "a", tStartSec: 0, tEndSec: 8, formationId: "fa" },
+      { id: "b", tStartSec: 8, tEndSec: 16, formationId: "fb" },
+    ];
+    expect(resolvePreviousCueOrdinal(p.cues, "a")).toBeNull();
+    expect(resolvePreviousCueOrdinal(p.cues, "b")).toBe(1);
   });
 });
 
@@ -131,5 +144,22 @@ describe("classifyMovementCostPct", () => {
     expect(classifyMovementCostPct(8)).toBe("中");
     expect(classifyMovementCostPct(24.9)).toBe("中");
     expect(classifyMovementCostPct(25)).toBe("大");
+  });
+});
+
+describe("describePrevCueChangeFact", () => {
+  it("states size from max movementCostPct without judging good or bad", () => {
+    expect(
+      describePrevCueChangeFact({ movedCount: 0, maxMovePct: 0 })
+    ).toBe("位置はほぼそのまま");
+    expect(
+      describePrevCueChangeFact({ movedCount: 2, maxMovePct: 7 })
+    ).toBe("この変化は小さい");
+    expect(
+      describePrevCueChangeFact({ movedCount: 2, maxMovePct: 20 })
+    ).toBe("この変化は中くらい");
+    expect(
+      describePrevCueChangeFact({ movedCount: 1, maxMovePct: 42 })
+    ).toBe("この変化は大きい");
   });
 });

@@ -85,6 +85,10 @@ export type StageDancerContextToolbarProps = {
   prevCueCompareOn?: boolean;
   prevCueCompareSummary?: PrevCueCompareSummary | null;
   onTogglePrevCueCompare?: () => void;
+  prevCueMotionViewOn?: boolean;
+  prevCueFromOrdinal?: number | null;
+  prevCueToOrdinal?: number | null;
+  onTogglePrevCueMotionView?: () => void;
 };
 
 const BTN_BORDER = "#334155";
@@ -187,6 +191,10 @@ export function StageDancerContextToolbar({
   prevCueCompareOn = false,
   prevCueCompareSummary = null,
   onTogglePrevCueCompare,
+  prevCueMotionViewOn = false,
+  prevCueFromOrdinal = null,
+  prevCueToOrdinal = null,
+  onTogglePrevCueMotionView,
 }: StageDancerContextToolbarProps) {
   const barRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState<PopoverKind>(null);
@@ -923,6 +931,30 @@ export function StageDancerContextToolbar({
             >
               次のキューを作る
             </button>
+            {prevCueCompareAvailable && onTogglePrevCueMotionView ? (
+              <button
+                type="button"
+                data-prev-cue-motion-view
+                aria-pressed={prevCueMotionViewOn}
+                title="前のキューから誰がどれだけ動くかを見る（Transitionは作らない）"
+                style={{
+                  ...btn,
+                  width: "100%",
+                  height: 34,
+                  marginTop: 6,
+                  borderColor: prevCueMotionViewOn
+                    ? "rgba(148,163,184,0.95)"
+                    : BTN_BORDER,
+                  background: prevCueMotionViewOn ? "#1e293b" : "#0b1220",
+                }}
+                onClick={() => {
+                  setOpen(null);
+                  onTogglePrevCueMotionView();
+                }}
+              >
+                動きを見る
+              </button>
+            ) : null}
             <button
               type="button"
               style={{
@@ -1090,8 +1122,16 @@ export function StageDancerContextToolbar({
           </div>
         ) : null}
       </div>
-      {prevCueCompareOn && prevCueCompareSummary ? (
-        <StagePrevCueCompareSummary summary={prevCueCompareSummary} />
+      {prevCueCompareSummary && (prevCueCompareOn || prevCueMotionViewOn) ? (
+        <StagePrevCueCompareSummary
+          summary={prevCueCompareSummary}
+          motionViewOn={prevCueMotionViewOn}
+          fromCueOrdinal={prevCueFromOrdinal}
+          toCueOrdinal={prevCueToOrdinal}
+          onToggleMotionView={
+            prevCueCompareAvailable ? onTogglePrevCueMotionView : undefined
+          }
+        />
       ) : null}
     </div>
   );

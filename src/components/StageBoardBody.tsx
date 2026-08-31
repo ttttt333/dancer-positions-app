@@ -111,6 +111,7 @@ import { StagePrevCueCompareOverlay } from "./StagePrevCueCompareOverlay";
 import {
   buildPrevCueCompareMarks,
   resolvePreviousCueDancers,
+  resolvePreviousCueOrdinal,
   summarizePrevCueCompare,
 } from "../lib/stagePrevCueCompare";
 import type { StageExportRootColumnProps } from "./StageExportRootColumn";
@@ -632,6 +633,7 @@ export function StageBoardBody({
   const [dancerSelectionSheetOpen, setDancerSelectionSheetOpen] =
     useState(false);
   const [prevCueCompareOn, setPrevCueCompareOn] = useState(false);
+  const [prevCueMotionViewOn, setPrevCueMotionViewOn] = useState(false);
   /**
    * 複数の一括移動・枠スケール・剛体回転ドラッグ中は、選択メンバーの○内番号と名前を隠す。
    */
@@ -893,30 +895,26 @@ export function StageBoardBody({
 
   const playbackOrPreview = Boolean(playbackDancers || previewDancers);
   const prevCueCompareAvailable = Boolean(prevCueDancers && !playbackOrPreview);
+  const prevCueOverlayOn =
+    prevCueCompareAvailable && (prevCueCompareOn || prevCueMotionViewOn);
+  const prevCueFromOrdinal = useMemo(
+    () => resolvePreviousCueOrdinal(project.cues, editCueId),
+    [project.cues, editCueId],
+  );
   const prevCueCompareMarks = useMemo(() => {
-    if (!prevCueCompareOn || !prevCueDancers || playbackOrPreview) return [];
+    if (!prevCueOverlayOn || !prevCueDancers) return [];
     return buildPrevCueCompareMarks({
       prevDancers: prevCueDancers,
       currentDancers: dancersForStageMarkers,
     });
-  }, [
-    prevCueCompareOn,
-    prevCueDancers,
-    playbackOrPreview,
-    dancersForStageMarkers,
-  ]);
+  }, [prevCueOverlayOn, prevCueDancers, dancersForStageMarkers]);
   const prevCueCompareSummary = useMemo(() => {
-    if (!prevCueCompareOn || !prevCueDancers || playbackOrPreview) return null;
+    if (!prevCueOverlayOn || !prevCueDancers) return null;
     return summarizePrevCueCompare({
       prevDancers: prevCueDancers,
       currentDancers: dancersForStageMarkers,
     });
-  }, [
-    prevCueCompareOn,
-    prevCueDancers,
-    playbackOrPreview,
-    dancersForStageMarkers,
-  ]);
+  }, [prevCueOverlayOn, prevCueDancers, dancersForStageMarkers]);
 
   /** 選択中ダンサーを囲む bounding box（pct 単位）。2 件以上で表示。`handlePointerDownMarkerRotate` 等が依存するため早期に定義する。 */
   const selectionBox = useMemo(() => {
@@ -4836,7 +4834,10 @@ export function StageBoardBody({
     const existing = stageBoardExportColumn.mainFloor.motionArrowsOverlay;
     stageBoardExportColumn.mainFloor.motionArrowsOverlay = (
       <>
-        <StagePrevCueCompareOverlay marks={prevCueCompareMarks} />
+        <StagePrevCueCompareOverlay
+          marks={prevCueCompareMarks}
+          showMotionArrows={prevCueMotionViewOn}
+        />
         {existing}
       </>
     );
@@ -4979,11 +4980,33 @@ export function StageBoardBody({
                 onApplyShapePreview={applyShapePreview}
                 onDepthGuidesVisibleChange={handleDepthGuidesVisibleChange}
                 prevCueCompareAvailable={prevCueCompareAvailable}
-                prevCueCompareOn={prevCueCompareOn}
+                prevCueCompareOn={prevCueOverlayOn}
                 prevCueCompareSummary={prevCueCompareSummary}
                 onTogglePrevCueCompare={
                   prevCueCompareAvailable
-                    ? () => setPrevCueCompareOn((v) => !v)
+                    ? () => {
+                        if (prevCueCompareOn || prevCueMotionViewOn) {
+                          setPrevCueCompareOn(false);
+                          setPrevCueMotionViewOn(false);
+                        } else {
+                          setPrevCueCompareOn(true);
+                        }
+                      }
+                    : undefined
+                }
+                prevCueMotionViewOn={prevCueMotionViewOn}
+                prevCueFromOrdinal={prevCueFromOrdinal}
+                prevCueToOrdinal={editCueOrdinal}
+                onTogglePrevCueMotionView={
+                  prevCueCompareAvailable
+                    ? () => {
+                        if (prevCueMotionViewOn) {
+                          setPrevCueMotionViewOn(false);
+                        } else {
+                          setPrevCueCompareOn(true);
+                          setPrevCueMotionViewOn(true);
+                        }
+                      }
                     : undefined
                 }
               />
