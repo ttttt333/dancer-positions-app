@@ -5,6 +5,7 @@ import {
   clampTimelineHeadForCueOps,
   cloneFormationForNewCue,
   DEFAULT_CUE_SPAN_WITH_AUDIO_SEC,
+  duplicateCueAfterSourceInProject,
   MIN_CUE_DURATION_SEC,
   resolveCueIntervalNonOverlap,
   roundPlaybackHeadSec,
@@ -328,53 +329,19 @@ export function useTimelineCueActions({
       if (assertCanAddCue && !assertCanAddCue()) return;
       const newCueId = crypto.randomUUID();
       setProject((p) => {
-        if (p.cues.length >= 100) return p;
-        const srcFm = p.formations.find((f) => f.id === source.formationId);
-        if (!srcFm) return p;
-        const newFm = cloneFormationForNewCue(srcFm);
         const trimHi = trimHiSecForCueTimeline(
           p.trimEndSec,
           durationRef.current
         );
-        const trimLo = p.trimStartSec;
-        const dur = Math.max(0.02, source.tEndSec - source.tStartSec);
-        let t0 = Math.round(source.tEndSec * 100) / 100;
-        let t1 = Math.round((t0 + dur) * 100) / 100;
-        if (t1 > trimHi) {
-          t1 = trimHi;
-          t0 = Math.round((t1 - dur) * 100) / 100;
-        }
-        if (t0 < trimLo) {
-          t0 = trimLo;
-          t1 = Math.round(Math.min(trimHi, t0 + dur) * 100) / 100;
-        }
-        const resolved = resolveCueIntervalNonOverlap(
-          p.cues,
-          newCueId,
-          t0,
-          t1,
-          trimLo,
-          trimHi
+        return (
+          duplicateCueAfterSourceInProject(
+            p,
+            source,
+            newCueId,
+            p.trimStartSec,
+            trimHi
+          ) ?? p
         );
-        t0 = resolved.tStartSec;
-        t1 = resolved.tEndSec;
-        const newCue: Cue = {
-          id: newCueId,
-          tStartSec: t0,
-          tEndSec: t1,
-          formationId: newFm.id,
-          name: source.name,
-          note: source.note,
-          ...(source.gapApproachFromPrev
-            ? { gapApproachFromPrev: source.gapApproachFromPrev }
-            : {}),
-        };
-        return {
-          ...p,
-          formations: [...p.formations, newFm],
-          cues: sortCuesByStart([...p.cues, newCue]),
-          activeFormationId: newFm.id,
-        };
       });
       onSelectedCueIdsChange([newCueId]);
       onFormationChosenFromCueList?.();

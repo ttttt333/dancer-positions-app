@@ -928,6 +928,13 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                           ? () => setPathEditorCueId(selectedCueId)
                           : undefined
                     }
+                    onCreateNextCue={
+                      choreoPublicView ||
+                      project.viewMode === "view" ||
+                      !selectedCue
+                        ? undefined
+                        : () => timelineRef.current?.duplicateCueAfterSelected()
+                    }
                   />
                 {mobileStackEditor &&
                 editorMobileLandscape &&

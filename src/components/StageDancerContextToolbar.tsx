@@ -44,6 +44,7 @@ type PopoverKind =
   | "shape"
   | "depth"
   | "rotate"
+  | "more"
   | null;
 
 export type StageDancerContextToolbarProps = {
@@ -58,6 +59,7 @@ export type StageDancerContextToolbarProps = {
   onMarkerSizeChange: (px: number) => void;
   onColorChange: (index: number) => void;
   onOpenMore: () => void;
+  onCreateNextCue?: () => void;
   onSizeGestureBegin?: () => void;
   onSizeGestureEnd?: () => void;
   onAlign?: (edge: SelectionAlignEdge) => void;
@@ -154,6 +156,7 @@ export function StageDancerContextToolbar({
   onMarkerSizeChange,
   onColorChange,
   onOpenMore,
+  onCreateNextCue,
   onSizeGestureBegin,
   onSizeGestureEnd,
   onAlign,
@@ -628,9 +631,21 @@ export function StageDancerContextToolbar({
             ) : null}
             <button
               type="button"
-              style={btn}
+              data-toolbar-more
+              style={{
+                ...btn,
+                borderColor:
+                  open === "more" ? "rgba(148,163,184,0.9)" : BTN_BORDER,
+              }}
               title="その他の操作"
-              onClick={onOpenMore}
+              aria-expanded={open === "more"}
+              onClick={() => {
+                if (formationEdit && onCreateNextCue) {
+                  setOpen((v) => (v === "more" ? null : "more"));
+                  return;
+                }
+                onOpenMore();
+              }}
             >
               ⋯
             </button>
@@ -838,6 +853,60 @@ export function StageDancerContextToolbar({
                 左回り 1人
               </button>
             </div>
+          </div>
+        ) : null}
+        {formationEdit && onCreateNextCue && open === "more" ? (
+          <div style={popoverStyle()} data-create-next-cue-panel>
+            <div
+              style={{
+                fontSize: 13,
+                fontWeight: 700,
+                color: "#e2e8f0",
+                marginBottom: 4,
+              }}
+            >
+              このフォーメーション
+            </div>
+            <p
+              style={{
+                margin: "0 0 8px",
+                fontSize: 11,
+                color: "#94a3b8",
+                lineHeight: 1.45,
+              }}
+            >
+              今の隊形を引き継いだキューを、直後に追加します。
+            </p>
+            <button
+              type="button"
+              data-create-next-cue
+              style={{ ...btn, width: "100%", height: 34 }}
+              title="今の隊形を引き継いで、次のキューを作る"
+              onClick={() => {
+                setOpen(null);
+                onCreateNextCue();
+              }}
+            >
+              次のキューを作る
+            </button>
+            <button
+              type="button"
+              style={{
+                ...btn,
+                width: "100%",
+                height: 32,
+                marginTop: 6,
+                fontWeight: 600,
+                color: "#94a3b8",
+              }}
+              title="選択した立ち位置の操作"
+              onClick={() => {
+                setOpen(null);
+                onOpenMore();
+              }}
+            >
+              その他の操作
+            </button>
           </div>
         ) : null}
         {formationEdit && open === "shape" ? (

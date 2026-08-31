@@ -8,6 +8,8 @@ export type TimelinePanelHandle = {
   stopPlayback: () => void;
   seekForward5Sec: () => void;
   seekBackward5Sec: () => void;
+  /** FORMATION「次のキューを作る」: 選択中 Cue の直後へ clone 挿入 */
+  duplicateCueAfterSelected: () => void;
   /** 音源ファイル選択ダイアログを開く（エディタ上部ツールバー用） */
   openAudioImport: () => void;
   /** フローライブラリ保存用。現在の波形ピーク（無ければ null） */

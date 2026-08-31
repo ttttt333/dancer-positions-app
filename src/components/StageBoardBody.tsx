@@ -187,6 +187,7 @@ export function StageBoardBody({
   showMotionArrows = false,
   onOpenDancerPathEditor,
   enablePinchViewport = false,
+  onCreateNextCue,
 }: StageBoardBodyProps) {
   const {
     isPlaying,
@@ -488,6 +489,10 @@ export function StageBoardBody({
     presetId: StageShapePresetId;
     movementCostPct: number;
   } | null>(null);
+  const [depthPreviewById, setDepthPreviewById] = useState<Map<
+    string,
+    { xPct: number; yPct: number }
+  > | null>(null);
   const [rotationPreviewById, setRotationPreviewById] = useState<Map<
     string,
     { xPct: number; yPct: number }
@@ -3966,6 +3971,12 @@ export function StageBoardBody({
     shapePreviewKeyRef.current = "";
   }, []);
 
+  const handleCreateNextCue = useCallback(() => {
+    if (!onCreateNextCue) return;
+    cancelShapePreview();
+    onCreateNextCue();
+  }, [cancelShapePreview, onCreateNextCue]);
+
   const beginShapePreview = useCallback(
     (presetId: StageShapePresetId) => {
       if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
@@ -4851,6 +4862,9 @@ export function StageBoardBody({
                   applyBulkColorToDancerIds(selectedDancerIds, i)
                 }
                 onOpenMore={handleOpenToolbarMore}
+                onCreateNextCue={
+                  stageEditMode === "formation" ? handleCreateNextCue : undefined
+                }
                 onSizeGestureBegin={onGestureHistoryBegin}
                 onSizeGestureEnd={onGestureHistoryEnd}
                 onAlign={(edge) =>

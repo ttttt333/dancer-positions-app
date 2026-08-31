@@ -235,18 +235,6 @@ export function useTimelinePanelSessionBundle(
       trimEndSec,
     });
 
-  useTimelinePanelImperativeHandle({
-    ref,
-    peaksRef,
-    setDuration,
-    setPlaybackTrustedDurationSec,
-    togglePlay,
-    stopPlayback,
-    seekForward5Sec,
-    seekBackward5Sec,
-    openAudioImport,
-  });
-
   useTimelineUnmountStagePreviewClear(onStagePreviewChange);
 
   const { me } = useAuth();
@@ -294,6 +282,30 @@ export function useTimelinePanelSessionBundle(
     onRequestAddCueAtTime,
     assertCanAddCue,
     assertCanSetDancerCount,
+  });
+
+  const duplicateCueAfterSelected = useCallback(() => {
+    const sourceId =
+      selectedCueIds.length === 0
+        ? null
+        : selectedCueIds[selectedCueIds.length - 1]!;
+    if (!sourceId) return;
+    const source = project.cues.find((c) => c.id === sourceId);
+    if (!source) return;
+    duplicateCueAfterSource(source);
+  }, [selectedCueIds, project.cues, duplicateCueAfterSource]);
+
+  useTimelinePanelImperativeHandle({
+    ref,
+    peaksRef,
+    setDuration,
+    setPlaybackTrustedDurationSec,
+    togglePlay,
+    stopPlayback,
+    seekForward5Sec,
+    seekBackward5Sec,
+    openAudioImport,
+    duplicateCueAfterSelected,
   });
 
   const waveBundleParams: TimelinePanelWaveHandlersBundleParams = {

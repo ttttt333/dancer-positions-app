@@ -149,6 +149,11 @@ export type StageBoardBodyProps = {
    * 指定されたときのみボタンが表示される。
    */
   onOpenDancerPathEditor?: () => void;
+  /**
+   * FORMATION「次のキューを作る」。選択中 Cue の直後へ clone 挿入。
+   * 未指定時は ⋯ に出さない（GROUP / DANCER / キュー未選択）。
+   */
+  onCreateNextCue?: () => void;
   /** スマホ編集／閲覧: ステージをピンチで拡大縮小する */
   enablePinchViewport?: boolean;
 };

@@ -188,6 +188,62 @@ export function cloneFormationForNewCue(
 }
 
 /**
+ * 選択中キューの直後に、その Formation を clone した新しい Cue を挿入する。
+ * 既存 Cue / Formation は変更しない。次 Cue があっても上書きしない。
+ * `duplicateCueAfterSource` の project 更新本体。
+ */
+export function duplicateCueAfterSourceInProject(
+  p: ChoreographyProjectJson,
+  source: Cue,
+  newCueId: string,
+  trimLo: number,
+  trimHi: number
+): ChoreographyProjectJson | null {
+  if (p.cues.length >= 100) return null;
+  const srcFm = p.formations.find((f) => f.id === source.formationId);
+  if (!srcFm) return null;
+  const newFm = cloneFormationForNewCue(srcFm);
+  const dur = Math.max(0.02, source.tEndSec - source.tStartSec);
+  let t0 = Math.round(source.tEndSec * 100) / 100;
+  let t1 = Math.round((t0 + dur) * 100) / 100;
+  if (t1 > trimHi) {
+    t1 = trimHi;
+    t0 = Math.round((t1 - dur) * 100) / 100;
+  }
+  if (t0 < trimLo) {
+    t0 = trimLo;
+    t1 = Math.round(Math.min(trimHi, t0 + dur) * 100) / 100;
+  }
+  const resolved = resolveCueIntervalNonOverlap(
+    p.cues,
+    newCueId,
+    t0,
+    t1,
+    trimLo,
+    trimHi
+  );
+  t0 = resolved.tStartSec;
+  t1 = resolved.tEndSec;
+  const newCue: Cue = {
+    id: newCueId,
+    tStartSec: t0,
+    tEndSec: t1,
+    formationId: newFm.id,
+    name: source.name,
+    note: source.note,
+    ...(source.gapApproachFromPrev
+      ? { gapApproachFromPrev: source.gapApproachFromPrev }
+      : {}),
+  };
+  return {
+    ...p,
+    formations: [...p.formations, newFm],
+    cues: sortCuesByStart([...p.cues, newCue]),
+    activeFormationId: newFm.id,
+  };
+}
+
+/**
  * 複数キューが同じ formationId を参照している場合、先頭キュー以外に
  * フォーメーションの複製を割り当てる（立ち位置編集が他キューに波及しないようにする）。
  */

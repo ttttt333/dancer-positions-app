@@ -19,6 +19,7 @@ type Params = {
   seekForward5Sec: () => void;
   seekBackward5Sec: () => void;
   openAudioImport: () => void;
+  duplicateCueAfterSelected: () => void;
 };
 
 export function useTimelinePanelImperativeHandle({
@@ -31,6 +32,7 @@ export function useTimelinePanelImperativeHandle({
   seekForward5Sec,
   seekBackward5Sec,
   openAudioImport,
+  duplicateCueAfterSelected,
 }: Params) {
   const getWavePeaksSnapshot = useCallback((): number[] | null => {
     const p = peaksRef.current;
@@ -76,6 +78,7 @@ export function useTimelinePanelImperativeHandle({
       seekForward5Sec,
       seekBackward5Sec,
       openAudioImport,
+      duplicateCueAfterSelected,
       getWavePeaksSnapshot,
       restoreWavePeaks,
       getCurrentAudioBlobForFlowLibrary,
@@ -86,6 +89,7 @@ export function useTimelinePanelImperativeHandle({
       seekForward5Sec,
       seekBackward5Sec,
       openAudioImport,
+      duplicateCueAfterSelected,
       getWavePeaksSnapshot,
       restoreWavePeaks,
       getCurrentAudioBlobForFlowLibrary,

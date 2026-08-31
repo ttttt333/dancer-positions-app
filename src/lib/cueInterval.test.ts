@@ -7,6 +7,7 @@ import {
   projectNeedsShortCueExpansion,
   cueActiveAtTime,
   migrateCuesFromRaw,
+  duplicateCueAfterSourceInProject,
 } from "./cueInterval";
 import { normalizeProject } from "./normalizeProject";
 import type { Cue } from "../types/choreography";
@@ -70,6 +71,85 @@ describe("splitSharedCueFormations", () => {
       ],
     };
     expect(splitSharedCueFormations(project)).toBe(project);
+  });
+});
+
+describe("duplicateCueAfterSourceInProject", () => {
+  function projectWithCueA(extraCues: Cue[] = []) {
+    const base = createEmptyProject();
+    const fid = base.activeFormationId;
+    const dancers = [
+      { id: "d-sakura", label: "さくら", xPct: 30, yPct: 40, colorIndex: 2 },
+      { id: "d-yuki", label: "ゆき", xPct: 50, yPct: 70, colorIndex: 4 },
+    ];
+    const cueA: Cue = {
+      id: "cue-a",
+      tStartSec: 0,
+      tEndSec: 8,
+      formationId: fid,
+      name: "A",
+    };
+    return {
+      base: {
+        ...base,
+        formations: [
+          {
+            ...base.formations[0]!,
+            id: fid,
+            name: "V字",
+            dancers,
+          },
+        ],
+        cues: [cueA, ...extraCues],
+      },
+      cueA,
+      fid,
+      dancers,
+    };
+  }
+
+  it("inserts a cloned cue after A without changing A or overwriting the next cue", () => {
+    const cueC: Cue = {
+      id: "cue-c",
+      tStartSec: 16,
+      tEndSec: 24,
+      formationId: "formation-c",
+    };
+    const { base, cueA, fid, dancers } = projectWithCueA([cueC]);
+    const next = duplicateCueAfterSourceInProject(
+      {
+        ...base,
+        formations: [
+          ...base.formations,
+          { id: "formation-c", name: "C", dancers: [] },
+        ],
+      },
+      cueA,
+      "cue-b",
+      0,
+      120
+    );
+    expect(next).not.toBeNull();
+    const cueAAfter = next!.cues.find((c) => c.id === "cue-a")!;
+    const cueB = next!.cues.find((c) => c.id === "cue-b")!;
+    const cueCAfter = next!.cues.find((c) => c.id === "cue-c")!;
+    expect(cueAAfter).toEqual(cueA);
+    expect(cueCAfter.formationId).toBe("formation-c");
+    expect(cueCAfter.tStartSec).toBe(16);
+    expect(cueCAfter.tEndSec).toBe(24);
+    expect(cueB.formationId).not.toBe(fid);
+    expect(cueB.tStartSec).toBe(8);
+    expect(next!.cues).toHaveLength(3);
+
+    const cloned = next!.formations.find((f) => f.id === cueB.formationId)!;
+    expect(cloned.dancers.map((d) => d.id)).toEqual(["d-sakura", "d-yuki"]);
+    expect(cloned.dancers.map((d) => d.label)).toEqual(["さくら", "ゆき"]);
+    expect(cloned.dancers.map((d) => d.colorIndex)).toEqual([2, 4]);
+    expect(cloned.dancers.map((d) => ({ x: d.xPct, y: d.yPct }))).toEqual(
+      dancers.map((d) => ({ x: d.xPct, y: d.yPct }))
+    );
+    expect(next!.formations.find((f) => f.id === fid)!.dancers).toEqual(dancers);
+    expect(next!.activeFormationId).toBe(cloned.id);
   });
 });
 
