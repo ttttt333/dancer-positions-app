@@ -3,8 +3,8 @@ import type {
   MouseEvent as ReactMouseEvent,
   PointerEvent as ReactPointerEvent,
 } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { flushSync } from "react-dom";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal, flushSync } from "react-dom";
 import type {
   ChoreographyProjectJson,
   DancerSpot,
@@ -63,6 +63,16 @@ import {
 } from "../lib/stageEditMode";
 import { cueNumberById } from "../lib/cueInterval";
 import {
+  getStageEditDockHost,
+  subscribeStageEditDockHost,
+} from "../lib/stageEditDockHost";
+import {
+  buildPrevCueCompareMarks,
+  resolvePreviousCueDancers,
+  resolvePreviousCueOrdinal,
+  summarizePrevCueCompare,
+} from "../lib/stagePrevCueCompare";
+import {
   applyEffectivePositions,
   getEffectiveDancerPosition,
 } from "../lib/stageEffectivePosition";
@@ -108,12 +118,6 @@ import { StageBoardBulkToolbarSlot } from "./StageBoardBulkToolbarSlot";
 import { StageBoardStageFrame } from "./StageBoardStageFrame";
 import { StageMotionArrowsOverlay } from "./StageMotionArrowsOverlay";
 import { StagePrevCueCompareOverlay } from "./StagePrevCueCompareOverlay";
-import {
-  buildPrevCueCompareMarks,
-  resolvePreviousCueDancers,
-  resolvePreviousCueOrdinal,
-  summarizePrevCueCompare,
-} from "../lib/stagePrevCueCompare";
 import type { StageExportRootColumnProps } from "./StageExportRootColumn";
 import { shell } from "../theme/choreoShell";
 import {
@@ -634,6 +638,11 @@ export function StageBoardBody({
     useState(false);
   const [prevCueCompareOn, setPrevCueCompareOn] = useState(false);
   const [prevCueMotionViewOn, setPrevCueMotionViewOn] = useState(false);
+  const stageEditDockHost = useSyncExternalStore(
+    subscribeStageEditDockHost,
+    getStageEditDockHost,
+    getStageEditDockHost
+  );
   /**
    * 複数の一括移動・枠スケール・剛体回転ドラッグ中は、選択メンバーの○内番号と名前を隠す。
    */
@@ -4843,6 +4852,105 @@ export function StageBoardBody({
     );
   }
 
+  const showStageEditDock =
+    canStageBulkTools &&
+    Boolean(primarySelectedDancer) &&
+    selectedDancerIds.length >= 1 &&
+    !marquee;
+  const stageEditDock = showStageEditDock && primarySelectedDancer ? (
+    <StageDancerContextToolbar
+      placement={stageEditDockHost ? "side" : "floor"}
+      dancerLabel={primarySelectedDancer.label || "立ち位置"}
+      selectedCount={selectedDancerIds.length}
+      editMode={stageEditMode}
+      cueOrdinal={editCueOrdinal}
+      markerPx={effectiveMarkerPx(primarySelectedDancer)}
+      colorIndex={primarySelectedDancer.colorIndex}
+      nameFontPx={resolveNameBelowFontPx(
+        primarySelectedDancer,
+        effectiveMarkerPx(primarySelectedDancer)
+      )}
+      dancerLabelBelow={dancerLabelBelow}
+      onNameFontChange={applySelectedNameBelowFontPx}
+      onMarkerSizeChange={applySelectedMarkerSizePx}
+      onColorChange={(i) =>
+        applyBulkColorToDancerIds(selectedDancerIds, i)
+      }
+      onOpenMore={handleOpenToolbarMore}
+      onCreateNextCue={
+        stageEditMode === "formation" ? handleCreateNextCue : undefined
+      }
+      onSizeGestureBegin={onGestureHistoryBegin}
+      onSizeGestureEnd={onGestureHistoryEnd}
+      onAlign={(edge) =>
+        applySelectedTransform((dancers, ids) =>
+          alignSelectedDancers(dancers, ids, edge)
+        )
+      }
+      onDistribute={(axis) =>
+        applySelectedTransform((dancers, ids) =>
+          distributeSelectedDancers(dancers, ids, axis)
+        )
+      }
+      onFlip={(axis) =>
+        applySelectedTransform((dancers, ids) =>
+          flipSelectedDancers(dancers, ids, axis)
+        )
+      }
+      shapePreviewActive={Boolean(
+        shapePreviewById && shapePreviewById.size > 0
+      )}
+      shapePreviewPresetId={shapePreviewMeta?.presetId ?? null}
+      shapePreviewMovementCostPct={
+        shapePreviewMeta?.movementCostPct ?? 0
+      }
+      depthPreviewActive={Boolean(
+        depthPreviewById && depthPreviewById.size > 0
+      )}
+      rotationPreviewActive={Boolean(
+        rotationPreviewById && rotationPreviewById.size > 0
+      )}
+      rotationPreviewDir={rotationPreviewDir}
+      depthSwapInspect={depthSwapInspect}
+      onBeginShapePreview={beginShapePreview}
+      onBeginDepthPreview={beginDepthPreview}
+      onBeginRotationPreview={beginRotationPreview}
+      onCancelShapePreview={cancelShapePreview}
+      onApplyShapePreview={applyShapePreview}
+      onDepthGuidesVisibleChange={handleDepthGuidesVisibleChange}
+      prevCueCompareAvailable={prevCueCompareAvailable}
+      prevCueCompareOn={prevCueOverlayOn}
+      prevCueCompareSummary={prevCueCompareSummary}
+      onTogglePrevCueCompare={
+        prevCueCompareAvailable
+          ? () => {
+              if (prevCueCompareOn || prevCueMotionViewOn) {
+                setPrevCueCompareOn(false);
+                setPrevCueMotionViewOn(false);
+              } else {
+                setPrevCueCompareOn(true);
+              }
+            }
+          : undefined
+      }
+      prevCueMotionViewOn={prevCueMotionViewOn}
+      prevCueFromOrdinal={prevCueFromOrdinal}
+      prevCueToOrdinal={editCueOrdinal}
+      onTogglePrevCueMotionView={
+        prevCueCompareAvailable
+          ? () => {
+              if (prevCueMotionViewOn) {
+                setPrevCueMotionViewOn(false);
+              } else {
+                setPrevCueCompareOn(true);
+                setPrevCueMotionViewOn(true);
+              }
+            }
+          : undefined
+      }
+    />
+  ) : null;
+
   const stageBoardLayoutSlots = {
     /* screen レイヤー（床テキスト・大道具など） */
     screenOverlay: (
@@ -4907,10 +5015,7 @@ export function StageBoardBody({
           />
         }
         editDock={
-          canStageBulkTools &&
-          primarySelectedDancer &&
-          selectedDancerIds.length >= 1 &&
-          !marquee ? (
+          !stageEditDockHost && stageEditDock ? (
             <div
               style={{
                 flexShrink: 0,
@@ -4920,96 +5025,7 @@ export function StageBoardBody({
                 padding: "4px 0 8px",
               }}
             >
-              <StageDancerContextToolbar
-                dancerLabel={primarySelectedDancer.label || "立ち位置"}
-                selectedCount={selectedDancerIds.length}
-                editMode={stageEditMode}
-                cueOrdinal={editCueOrdinal}
-                markerPx={effectiveMarkerPx(primarySelectedDancer)}
-                colorIndex={primarySelectedDancer.colorIndex}
-                nameFontPx={resolveNameBelowFontPx(
-                  primarySelectedDancer,
-                  effectiveMarkerPx(primarySelectedDancer)
-                )}
-                dancerLabelBelow={dancerLabelBelow}
-                onNameFontChange={applySelectedNameBelowFontPx}
-                onMarkerSizeChange={applySelectedMarkerSizePx}
-                onColorChange={(i) =>
-                  applyBulkColorToDancerIds(selectedDancerIds, i)
-                }
-                onOpenMore={handleOpenToolbarMore}
-                onCreateNextCue={
-                  stageEditMode === "formation" ? handleCreateNextCue : undefined
-                }
-                onSizeGestureBegin={onGestureHistoryBegin}
-                onSizeGestureEnd={onGestureHistoryEnd}
-                onAlign={(edge) =>
-                  applySelectedTransform((dancers, ids) =>
-                    alignSelectedDancers(dancers, ids, edge)
-                  )
-                }
-                onDistribute={(axis) =>
-                  applySelectedTransform((dancers, ids) =>
-                    distributeSelectedDancers(dancers, ids, axis)
-                  )
-                }
-                onFlip={(axis) =>
-                  applySelectedTransform((dancers, ids) =>
-                    flipSelectedDancers(dancers, ids, axis)
-                  )
-                }
-                shapePreviewActive={Boolean(
-                  shapePreviewById && shapePreviewById.size > 0
-                )}
-                shapePreviewPresetId={shapePreviewMeta?.presetId ?? null}
-                shapePreviewMovementCostPct={
-                  shapePreviewMeta?.movementCostPct ?? 0
-                }
-                depthPreviewActive={Boolean(
-                  depthPreviewById && depthPreviewById.size > 0
-                )}
-                rotationPreviewActive={Boolean(
-                  rotationPreviewById && rotationPreviewById.size > 0
-                )}
-                rotationPreviewDir={rotationPreviewDir}
-                depthSwapInspect={depthSwapInspect}
-                onBeginShapePreview={beginShapePreview}
-                onBeginDepthPreview={beginDepthPreview}
-                onBeginRotationPreview={beginRotationPreview}
-                onCancelShapePreview={cancelShapePreview}
-                onApplyShapePreview={applyShapePreview}
-                onDepthGuidesVisibleChange={handleDepthGuidesVisibleChange}
-                prevCueCompareAvailable={prevCueCompareAvailable}
-                prevCueCompareOn={prevCueOverlayOn}
-                prevCueCompareSummary={prevCueCompareSummary}
-                onTogglePrevCueCompare={
-                  prevCueCompareAvailable
-                    ? () => {
-                        if (prevCueCompareOn || prevCueMotionViewOn) {
-                          setPrevCueCompareOn(false);
-                          setPrevCueMotionViewOn(false);
-                        } else {
-                          setPrevCueCompareOn(true);
-                        }
-                      }
-                    : undefined
-                }
-                prevCueMotionViewOn={prevCueMotionViewOn}
-                prevCueFromOrdinal={prevCueFromOrdinal}
-                prevCueToOrdinal={editCueOrdinal}
-                onTogglePrevCueMotionView={
-                  prevCueCompareAvailable
-                    ? () => {
-                        if (prevCueMotionViewOn) {
-                          setPrevCueMotionViewOn(false);
-                        } else {
-                          setPrevCueCompareOn(true);
-                          setPrevCueMotionViewOn(true);
-                        }
-                      }
-                    : undefined
-                }
-              />
+              {stageEditDock}
             </div>
           ) : null
         }
@@ -5148,6 +5164,9 @@ export function StageBoardBody({
       main={<StageBoardLayout {...stageBoardLayoutSlots} />}
       overlays={
         <>
+          {stageEditDockHost && stageEditDock
+            ? createPortal(stageEditDock, stageEditDockHost)
+            : null}
           <StageBoardBodyOverlays {...stageBoardOverlaysProps} />
           <ExportToast
             toast={shapePreviewToast}

@@ -89,6 +89,8 @@ export type StageDancerContextToolbarProps = {
   prevCueFromOrdinal?: number | null;
   prevCueToOrdinal?: number | null;
   onTogglePrevCueMotionView?: () => void;
+  /** side: 右メニュー。floor: ステージ下（portal がないとき） */
+  placement?: "floor" | "side";
 };
 
 const BTN_BORDER = "#334155";
@@ -113,7 +115,7 @@ const previewBar: CSSProperties = {
   padding: "6px 8px",
 };
 
-const btn: CSSProperties = {
+const floorBtn: CSSProperties = {
   minWidth: 34,
   height: 32,
   padding: "0 7px",
@@ -137,7 +139,23 @@ const caption: CSSProperties = {
   textAlign: "center",
 };
 
-function popoverStyle(): CSSProperties {
+function popoverStyle(side: boolean): CSSProperties {
+  if (side) {
+    return {
+      position: "relative",
+      left: "auto",
+      transform: "none",
+      width: "100%",
+      minWidth: 0,
+      marginTop: 8,
+      marginBottom: 4,
+      padding: 10,
+      borderRadius: 10,
+      border: `1px solid ${shell.borderStrong}`,
+      background: "rgba(8, 11, 18, 0.96)",
+      zIndex: 2,
+    };
+  }
   return {
     position: "absolute",
     left: "50%",
@@ -195,7 +213,32 @@ export function StageDancerContextToolbar({
   prevCueFromOrdinal = null,
   prevCueToOrdinal = null,
   onTogglePrevCueMotionView,
+  placement = "floor",
 }: StageDancerContextToolbarProps) {
+  const side = placement === "side";
+  const btn: CSSProperties = side
+    ? {
+        ...floorBtn,
+        minWidth: 0,
+        width: "100%",
+        height: 40,
+        fontSize: 13,
+        padding: "0 8px",
+      }
+    : floorBtn;
+  const barStyle: CSSProperties = side
+    ? {
+        ...bar,
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        alignItems: "stretch",
+        justifyContent: "stretch",
+        flexWrap: "nowrap",
+        gap: 6,
+        width: "100%",
+        padding: "6px 4px",
+      }
+    : bar;
   const barRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState<PopoverKind>(null);
   const [showAllColors, setShowAllColors] = useState(false);
@@ -265,6 +308,7 @@ export function StageDancerContextToolbar({
         formationEdit ? "formation" : groupEdit ? "group" : "dancer"
       }
       data-preview-kind={previewKind ?? undefined}
+      data-edit-dock-placement={placement}
       role="toolbar"
       aria-label={ariaLabel}
       onPointerDown={(e) => e.stopPropagation()}
@@ -272,25 +316,40 @@ export function StageDancerContextToolbar({
       style={{
         position: "relative",
         width: "100%",
-        maxWidth: "min(100%, 640px)",
+        maxWidth: side ? "100%" : "min(100%, 640px)",
         pointerEvents: "auto",
       }}
     >
       {!previewKind && formationEdit ? (
-        <div style={caption}>
+        <div
+          style={{
+            ...caption,
+            fontSize: side ? 13 : 11,
+            textAlign: side ? "left" : "center",
+            whiteSpace: side ? "normal" : "nowrap",
+          }}
+        >
           FORMATION EDIT
           {cueOrdinal != null ? ` · キュー ${cueOrdinal}` : ""}
         </div>
       ) : null}
       {!previewKind && groupEdit ? (
-        <div style={{ ...caption, color: "#94a3b8", letterSpacing: 0 }}>
+        <div
+          style={{
+            ...caption,
+            color: "#94a3b8",
+            letterSpacing: 0,
+            fontSize: side ? 13 : 11,
+            textAlign: side ? "left" : "center",
+          }}
+        >
           {selectedCount}人を編集中
         </div>
       ) : null}
       <div
         ref={barRef}
         style={{
-          ...(previewKind ? previewBar : bar),
+          ...(previewKind ? previewBar : barStyle),
           position: "relative",
         }}
       >
@@ -695,7 +754,7 @@ export function StageDancerContextToolbar({
         )}
 
         {dancerEdit && open === "name" && onNameFontChange ? (
-          <div style={popoverStyle()}>
+          <div style={popoverStyle(side)}>
             <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>
               名前サイズ
             </div>
@@ -714,7 +773,7 @@ export function StageDancerContextToolbar({
           </div>
         ) : null}
         {dancerEdit && open === "size" ? (
-          <div style={popoverStyle()}>
+          <div style={popoverStyle(side)}>
             <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>
               ダンサーサイズ
             </div>
@@ -733,7 +792,7 @@ export function StageDancerContextToolbar({
           </div>
         ) : null}
         {dancerEdit && open === "color" ? (
-          <div style={popoverStyle()}>
+          <div style={popoverStyle(side)}>
             <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>
               色
             </div>
@@ -776,7 +835,7 @@ export function StageDancerContextToolbar({
         {tidyAvailable && open === "tidy" ? (
           <div
             data-tidy-panel
-            style={{ ...popoverStyle(), minWidth: 280 }}
+            style={{ ...popoverStyle(side), minWidth: side ? 0 : 280 }}
           >
             <div
               style={{
@@ -823,7 +882,7 @@ export function StageDancerContextToolbar({
           </div>
         ) : null}
         {(formationEdit || groupEdit) && open === "flip" ? (
-          <div style={popoverStyle()}>
+          <div style={popoverStyle(side)}>
             <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>
               反転
             </div>
@@ -848,7 +907,7 @@ export function StageDancerContextToolbar({
           </div>
         ) : null}
         {formationEdit && open === "rotate" ? (
-          <div style={popoverStyle()} data-rotation-panel>
+          <div style={popoverStyle(side)} data-rotation-panel>
             <div
               style={{
                 fontSize: 13,
@@ -898,7 +957,7 @@ export function StageDancerContextToolbar({
           </div>
         ) : null}
         {formationEdit && onCreateNextCue && open === "more" ? (
-          <div style={popoverStyle()} data-create-next-cue-panel>
+          <div style={popoverStyle(side)} data-create-next-cue-panel>
             <div
               style={{
                 fontSize: 13,
@@ -976,7 +1035,7 @@ export function StageDancerContextToolbar({
           </div>
         ) : null}
         {formationEdit && open === "shape" ? (
-          <div style={{ ...popoverStyle(), minWidth: 360, maxWidth: 440, left: "50%" }}>
+          <div style={{ ...popoverStyle(side), minWidth: side ? 0 : 360, maxWidth: side ? "100%" : 440, left: side ? "auto" : "50%" }}>
             <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 8 }}>
               FORMATION SHAPE
             </div>
@@ -991,10 +1050,10 @@ export function StageDancerContextToolbar({
           </div>
         ) : null}
         {formationEdit && open === "depth" ? (
-          <div style={{ ...popoverStyle(), minWidth: 228 }}>
+          <div style={{ ...popoverStyle(side), minWidth: side ? 0 : 228 }}>
             <div
               style={{
-                fontSize: 13,
+                fontSize: side ? 15 : 13,
                 fontWeight: 700,
                 color: "#e2e8f0",
                 marginBottom: 8,
@@ -1066,7 +1125,7 @@ export function StageDancerContextToolbar({
                         setOpen(null);
                       }}
                     >
-                      <span>
+                      <span style={{ fontSize: side ? 18 : 13, fontWeight: 800 }}>
                         {pair.markA} ⇄ {pair.markB}
                       </span>
                       <span

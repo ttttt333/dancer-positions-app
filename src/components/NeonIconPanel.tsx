@@ -1,7 +1,8 @@
-import { type CSSProperties, type ReactNode } from "react";
+import { useEffect, type CSSProperties, type ReactNode } from "react";
 import { shell } from "../theme/choreoShell";
 import type { ChoreoCoreToolbarCoreProps } from "./ChoreoCoreToolbar";
 import { useI18n } from "../i18n/I18nContext";
+import { registerStageEditDockHost } from "../lib/stageEditDockHost";
 
 /* ═══════════════════════════════════════════════════════════
    NeonIconPanel — matches ChoreoCore v2 RightPanel exactly
@@ -430,6 +431,9 @@ export function NeonIconPanel({
   onCollapsePointerDown,
 }: NeonIconPanelProps) {
   const { t } = useI18n();
+  useEffect(() => {
+    return () => registerStageEditDockHost(null);
+  }, []);
 
   /* ── Collapsed thin-bar mode ── */
   if (collapsed) {
@@ -549,6 +553,12 @@ export function NeonIconPanel({
           </button>
         </div>
       )}
+      <div
+        ref={registerStageEditDockHost}
+        id="stage-edit-dock-host"
+        data-stage-edit-dock-host
+        style={{ flexShrink: 0, width: "100%" }}
+      />
       {/* Block 1: 舞台・編集 (3×2) */}
       <div style={grid3}>
         <NeonBtn icon={<IconStage />} label={t("editor.comp.k101")} onClick={onOpenStageShapePicker} active={stageShapeActive} disabled={disabled} />
