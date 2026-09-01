@@ -187,4 +187,78 @@ describe("swapSelectionColumnSetsDepth", () => {
     expect(ysB[1]).toBeCloseTo(origA[1], 5);
     expect(byId.get("r1")!.yPct).toBe(dancers[0]!.yPct);
   });
+
+  it("does not collapse a wide row onto a narrow row's Ys", () => {
+    const dancers = dancersForLayoutPreset(75, "pyramid_inverse");
+    const ids = dancers.map((d) => d.id);
+    const groups = detectSelectionColumnGroups(dancers);
+    expect(groups.length).toBeGreaterThanOrEqual(3);
+    const front = groups[0]!;
+    const back = groups[groups.length - 1]!;
+    expect(front.length).toBeGreaterThan(back.length);
+
+    const next = swapSelectionColumnsDepth(
+      dancers,
+      ids,
+      0,
+      groups.length - 1
+    );
+    const byId = new Map(next.map((d) => [d.id, d]));
+
+    for (const d of front) {
+      expect(byId.get(d.id)!.xPct).toBe(d.xPct);
+    }
+    const frontXs = new Set(front.map((d) => d.xPct.toFixed(3)));
+    expect(new Set(front.map((d) => byId.get(d.id)!.xPct.toFixed(3)))).toEqual(
+      frontXs
+    );
+
+    const movedFrontYs = front.map((d) => byId.get(d.id)!.yPct);
+    const frontYSpan =
+      Math.max(...movedFrontYs) - Math.min(...movedFrontYs);
+    const origFrontSpan =
+      Math.max(...front.map((d) => d.yPct)) -
+      Math.min(...front.map((d) => d.yPct));
+    expect(frontYSpan).toBeCloseTo(origFrontSpan, 5);
+
+    const origBackMean =
+      back.reduce((s, d) => s + d.yPct, 0) / back.length;
+    const origFrontMean =
+      front.reduce((s, d) => s + d.yPct, 0) / front.length;
+    const newFrontMean =
+      movedFrontYs.reduce((s, y) => s + y, 0) / movedFrontYs.length;
+    expect(newFrontMean).toBeCloseTo(origBackMean, 5);
+    const movedBackMean =
+      back.reduce((s, d) => s + byId.get(d.id)!.yPct, 0) / back.length;
+    expect(movedBackMean).toBeCloseTo(origFrontMean, 5);
+  });
+
+  it("keeps two selected ranks as two rows when swapped with one rank", () => {
+    const dancers = dancersForLayoutPreset(75, "pyramid_inverse");
+    const ids = dancers.map((d) => d.id);
+    const groups = detectSelectionColumnGroups(dancers);
+    expect(groups.length).toBeGreaterThanOrEqual(4);
+    const block = [groups.length - 2, groups.length - 1];
+    const next = swapSelectionColumnSetsDepth(dancers, ids, [0], block);
+    const byId = new Map(next.map((d) => [d.id, d]));
+    const movedYs = [
+      ...new Set(
+        block.flatMap((i) =>
+          (groups[i] ?? []).map((d) => byId.get(d.id)!.yPct.toFixed(2))
+        )
+      ),
+    ];
+    expect(movedYs.length).toBe(2);
+    const origSpans = block.map((i) => {
+      const g = groups[i]!;
+      return Math.max(...g.map((d) => d.yPct)) - Math.min(...g.map((d) => d.yPct));
+    });
+    const newSpans = block.map((i) => {
+      const g = groups[i]!;
+      const ys = g.map((d) => byId.get(d.id)!.yPct);
+      return Math.max(...ys) - Math.min(...ys);
+    });
+    expect(newSpans[0]).toBeCloseTo(origSpans[0]!, 5);
+    expect(newSpans[1]).toBeCloseTo(origSpans[1]!, 5);
+  });
 });

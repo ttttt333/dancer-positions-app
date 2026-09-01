@@ -404,44 +404,55 @@ export function formatSelectionColumnSummary(
     .join("・");
 }
 
-function remapYValues(sourceYs: number[], targetCount: number): number[] {
-  if (targetCount <= 0) return [];
-  if (!sourceYs.length) return [];
-  if (sourceYs.length === targetCount) return [...sourceYs];
-  if (sourceYs.length === 1) {
-    return Array.from({ length: targetCount }, () => sourceYs[0]!);
-  }
-
-  const result: number[] = [];
-  for (let i = 0; i < targetCount; i++) {
-    const t = targetCount === 1 ? 0 : i / (targetCount - 1);
-    const pos = t * (sourceYs.length - 1);
-    const lo = Math.floor(pos);
-    const hi = Math.min(sourceYs.length - 1, Math.ceil(pos));
-    const frac = pos - lo;
-    result.push(sourceYs[lo]! * (1 - frac) + sourceYs[hi]! * frac);
-  }
-  return result;
+/**
+ * 人数が違っても形を崩さない。グループ全体を前後に平行移動して平均 Y を入れ替える。
+ * X は変えない。人数差で Y を補間すると、広い列が1本に潰れる。
+ */
+function swapYByRigidTranslate(
+  groupA: DancerSpot[],
+  groupB: DancerSpot[]
+): Map<string, number> {
+  const meanA = rowCenter(groupA);
+  const meanB = rowCenter(groupB);
+  const yById = new Map<string, number>();
+  for (const d of groupA) yById.set(d.id, d.yPct + (meanB - meanA));
+  for (const d of groupB) yById.set(d.id, d.yPct + (meanA - meanB));
+  return yById;
 }
 
-/** 2 グループの Y 座標を、横位置（X）の並びで対応づけて入れ替える */
-function swapYBetweenGroups(groupA: DancerSpot[], groupB: DancerSpot[]): Map<string, number> {
-  const sortedA = [...groupA].sort(sortByStageX);
-  const sortedB = [...groupB].sort(sortByStageX);
-  const ysA = sortedA.map((d) => d.yPct);
-  const ysB = sortedB.map((d) => d.yPct);
-  const newYsA = remapYValues(ysB, sortedA.length);
-  const newYsB = remapYValues(ysA, sortedB.length);
-  const yById = new Map<string, number>();
-
-  sortedA.forEach((d, i) => yById.set(d.id, newYsA[i]!));
-  sortedB.forEach((d, i) => yById.set(d.id, newYsB[i]!));
-
-  for (const d of [...groupA, ...groupB]) {
-    if (!yById.has(d.id)) yById.set(d.id, d.yPct);
+/** 縦列どうし：手前から同じ順番の人の Y だけ交換。人数が違うときは平行移動。 */
+function swapYBetweenVerticalColumns(
+  groupA: DancerSpot[],
+  groupB: DancerSpot[]
+): Map<string, number> {
+  if (groupA.length !== groupB.length) {
+    return swapYByRigidTranslate(groupA, groupB);
   }
-
+  const sortedA = [...groupA].sort(sortByStageRow);
+  const sortedB = [...groupB].sort(sortByStageRow);
+  const yById = new Map<string, number>();
+  for (let i = 0; i < sortedA.length; i++) {
+    yById.set(sortedA[i]!.id, sortedB[i]!.yPct);
+    yById.set(sortedB[i]!.id, sortedA[i]!.yPct);
+  }
   return yById;
+}
+
+function mergeYMaps(
+  into: Map<string, number>,
+  part: Map<string, number>
+): void {
+  for (const [id, y] of part) into.set(id, y);
+}
+
+function swapGroupYs(
+  groupA: DancerSpot[],
+  groupB: DancerSpot[],
+  axis: SwapAxis
+): Map<string, number> {
+  return axis === "vertical-columns"
+    ? swapYBetweenVerticalColumns(groupA, groupB)
+    : swapYByRigidTranslate(groupA, groupB);
 }
 
 function normalizeColumnIndexSet(indices: readonly number[]): number[] {
@@ -475,11 +486,23 @@ export function swapSelectionColumnSetsDepth(
     axis,
     Math.max(a[a.length - 1]!, b[b.length - 1]!) + 1
   );
-  const groupA = a.flatMap((i) => groups[i] ?? []);
-  const groupB = b.flatMap((i) => groups[i] ?? []);
-  if (!groupA.length || !groupB.length) return dancers;
 
-  const yById = swapYBetweenGroups(groupA, groupB);
+  const yById = new Map<string, number>();
+  if (a.length === b.length) {
+    for (let i = 0; i < a.length; i++) {
+      const groupA = groups[a[i]!] ?? [];
+      const groupB = groups[b[i]!] ?? [];
+      if (!groupA.length || !groupB.length) continue;
+      mergeYMaps(yById, swapGroupYs(groupA, groupB, axis));
+    }
+  } else {
+    const groupA = a.flatMap((i) => groups[i] ?? []);
+    const groupB = b.flatMap((i) => groups[i] ?? []);
+    if (groupA.length && groupB.length) {
+      mergeYMaps(yById, swapGroupYs(groupA, groupB, axis));
+    }
+  }
+  if (!yById.size) return dancers;
 
   return dancers.map((d) => {
     if (!idSet.has(d.id)) return d;
