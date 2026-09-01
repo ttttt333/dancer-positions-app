@@ -8,17 +8,19 @@ const DEFAULT_UNTITLED = new Set([
   "未命名作品",
 ]);
 
+export function isUntitledProjectName(name: string | null | undefined): boolean {
+  return DEFAULT_UNTITLED.has((name ?? "").trim());
+}
+
 /** 新規作成直後で、まだ作品名が決まっていないか */
 export function projectNeedsInitialName(
   project: ChoreographyProjectJson | null | undefined,
   projectName: string
 ): boolean {
   if (!project) return true;
-  const name = projectName.trim() || project.pieceTitle?.trim() || "";
-  if (!DEFAULT_UNTITLED.has(name)) return false;
-
-  if (project.cues.length > 0) return false;
-  if (project.formations.some((f) => (f.dancers?.length ?? 0) > 0)) return false;
-  if (project.audio?.kind) return false;
+  const title = project.pieceTitle?.trim() ?? "";
+  const listed = projectName.trim();
+  if (!isUntitledProjectName(title) && title) return false;
+  if (!isUntitledProjectName(listed) && listed) return false;
   return true;
 }

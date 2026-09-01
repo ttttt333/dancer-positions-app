@@ -665,12 +665,20 @@
 }
 
 .home-project-name {
-  margin-top: 8px;
+  margin-top: 0;
   font-size: clamp(14px, 3.8vw, 17px);
   font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: inherit;
+  text-decoration: none;
+  display: block;
+}
+
+.home-project-body {
+  padding: 4px 10px 10px;
+  min-width: 0;
 }
 
 .home-project-meta {
@@ -699,8 +707,35 @@
 
 .home-project-actions {
   display: flex;
-  justify-content: flex-end;
-  padding: 0 4px 6px;
+  gap: 8px;
+  justify-content: stretch;
+  padding: 10px 0 0;
+}
+
+.home-project-text-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 36px;
+  padding: 0 8px;
+  border-radius: 9px;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  background: rgba(212, 175, 55, 0.12);
+  color: #e8c547;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.home-project-text-btn.is-menu {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: #faf7f0;
+}
+
+.home-project-text-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .home-empty {

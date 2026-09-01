@@ -69,7 +69,7 @@ import {
 import { abortTimelineWavePointerGestures } from "../lib/abortTimelineWavePointerGestures";
 import { preloadFFmpegWasm } from "../lib/ffmpegWasm";
 import { normalizeProject } from "../lib/normalizeProject";
-import { projectNeedsInitialName } from "../lib/projectNeedsInitialName";
+import { projectNeedsInitialName, isUntitledProjectName } from "../lib/projectNeedsInitialName";
 import { NewProjectNameDialog } from "../components/NewProjectNameDialog";
 import { modDancerColorIndex, DANCER_COLOR_PALETTE_HEX } from "../lib/dancerColorPalette";
 import {
@@ -556,12 +556,18 @@ function EditorPageContent({
     [project]
   );
 
+  const awaitingInitialName =
+    !choreoPublicView &&
+    (projectId === "new" || !projectId) &&
+    projectNeedsInitialName(project, projectName);
+
   useEditorAutoSave({
     enabled:
       !!me &&
       !choreoPublicView &&
       !collabActive &&
-      project?.viewMode !== "view",
+      project?.viewMode !== "view" &&
+      !awaitingInitialName,
     projectRef,
     projectName,
     serverId,
@@ -2495,11 +2501,7 @@ function EditorPageContent({
     );
   }
 
-  if (
-    !choreoPublicView &&
-    (projectId === "new" || !projectId) &&
-    projectNeedsInitialName(project, projectName)
-  ) {
+  if (awaitingInitialName) {
     return (
       <>
         {playbackAudioElement}
@@ -2509,10 +2511,9 @@ function EditorPageContent({
           placeholder={t("newProject.placeholder")}
           confirmLabel={t("newProject.confirm")}
           cancelLabel={t("newProject.cancel")}
+          hint={t("newProject.hint")}
           initialValue={
-            projectName.trim() && projectName.trim() !== t("editor.untitledProject")
-              ? projectName
-              : ""
+            !isUntitledProjectName(projectName) ? projectName : ""
           }
           onCancel={() => navigate("/")}
           onConfirm={(name) => {

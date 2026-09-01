@@ -34,6 +34,7 @@ import {
   ProjectActionSheet,
   type ProjectSheetAction,
 } from "./ProjectActionSheet";
+import { NewProjectNameDialog } from "../../components/NewProjectNameDialog";
 import "./home.css";
 
 function formatUpdatedAt(iso: string): string {
@@ -64,6 +65,7 @@ export function HomeLibrary() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [actionProject, setActionProject] = useState<ProjectListItem | null>(null);
+  const [renameProject, setRenameProject] = useState<ProjectListItem | null>(null);
   const [busy, setBusy] = useState(false);
   const [complianceBusy, setComplianceBusy] = useState(false);
   const [complianceReport, setComplianceReport] =
@@ -189,24 +191,8 @@ export function HomeLibrary() {
     if (!p) return;
 
     if (action === "rename") {
-      const next = window.prompt(t("home.sheet.renamePrompt"), p.name);
-      if (next == null) return;
-      const name = next.trim();
-      if (!name || name === p.name) {
-        setActionProject(null);
-        return;
-      }
-      setBusy(true);
-      try {
-        const row = await projectApi.get(p.id);
-        await projectApi.update(p.id, name, row.json);
-        await reload();
-      } catch (e) {
-        window.alert(e instanceof Error ? e.message : t("home.sheet.renameFail"));
-      } finally {
-        setBusy(false);
-        setActionProject(null);
-      }
+      setRenameProject(p);
+      setActionProject(null);
       return;
     }
 
@@ -288,6 +274,27 @@ export function HomeLibrary() {
         setBusy(false);
         setActionProject(null);
       }
+    }
+  };
+
+  const applyRename = async (nextName: string) => {
+    const p = renameProject;
+    if (!p) return;
+    const name = nextName.trim();
+    if (!name || name === p.name) {
+      setRenameProject(null);
+      return;
+    }
+    setBusy(true);
+    try {
+      const row = await projectApi.get(p.id);
+      await projectApi.update(p.id, name, row.json);
+      await reload();
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : t("home.sheet.renameFail"));
+    } finally {
+      setBusy(false);
+      setRenameProject(null);
     }
   };
 
@@ -460,7 +467,11 @@ export function HomeLibrary() {
               <li key={p.id} className="home-project-card">
                 <Link to={`/editor/${p.id}`} className="home-project-link">
                   <ProjectFormationThumb dancers={p.previewDancers} size={200} fluid />
-                  <div className="home-project-name">{p.name}</div>
+                </Link>
+                <div className="home-project-body">
+                  <Link to={`/editor/${p.id}`} className="home-project-name">
+                    {p.name}
+                  </Link>
                   <div className="home-project-meta">
                     <div className="home-project-meta-line">
                       {t("editor.headcount")}: {p.dancerCount}
@@ -470,16 +481,25 @@ export function HomeLibrary() {
                     </div>
                   </div>
                   <div className="home-project-updated">{formatUpdatedAt(p.updated_at)}</div>
-                </Link>
-                <div className="home-project-actions">
-                  <button
-                    type="button"
-                    aria-label={t("home.sheet.open")}
-                    style={{ ...homeIconBtn, width: 36, height: 36 }}
-                    onClick={() => setActionProject(p)}
-                  >
-                    ···
-                  </button>
+                  <div className="home-project-actions">
+                    <button
+                      type="button"
+                      className="home-project-text-btn"
+                      disabled={busy}
+                      onClick={() => setRenameProject(p)}
+                    >
+                      {t("home.card.rename")}
+                    </button>
+                    <button
+                      type="button"
+                      className="home-project-text-btn is-menu"
+                      disabled={busy}
+                      aria-label={t("home.sheet.open")}
+                      onClick={() => setActionProject(p)}
+                    >
+                      {t("home.card.menu")}
+                    </button>
+                  </div>
                 </div>
               </li>
             ))}
@@ -526,6 +546,19 @@ export function HomeLibrary() {
         }}
         onAction={(a) => void handleSheetAction(a)}
       />
+
+      {renameProject ? (
+        <NewProjectNameDialog
+          title={t("home.sheet.rename")}
+          label={t("home.sheet.renamePrompt")}
+          placeholder={t("home.sheet.renamePrompt")}
+          confirmLabel={t("home.card.renameSave")}
+          cancelLabel={t("home.menu.close")}
+          initialValue={renameProject.name}
+          onCancel={() => setRenameProject(null)}
+          onConfirm={(name) => void applyRename(name)}
+        />
+      ) : null}
 
       <FreePlanComplianceModal
         open={Boolean(complianceReport?.hasExcess)}

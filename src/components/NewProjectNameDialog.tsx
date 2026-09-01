@@ -9,6 +9,8 @@ type Props = {
   confirmLabel: string;
   cancelLabel: string;
   initialValue?: string;
+  /** 入力欄の下に出す短い案内 */
+  hint?: string;
   /** キャンセル時。未指定ならキャンセルボタン非表示 */
   onCancel?: () => void;
   onConfirm: (name: string) => void;
@@ -22,11 +24,13 @@ export function NewProjectNameDialog({
   confirmLabel,
   cancelLabel,
   initialValue = "",
+  hint,
   onCancel,
   onConfirm,
 }: Props) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
+  const composingRef = useRef(false);
   const [value, setValue] = useState(initialValue);
   const trimmed = value.trim();
   const canSubmit = trimmed.length > 0;
@@ -37,7 +41,7 @@ export function NewProjectNameDialog({
   }, []);
 
   const submit = () => {
-    if (!canSubmit) return;
+    if (composingRef.current || !canSubmit) return;
     onConfirm(trimmed);
   };
 
@@ -99,9 +103,18 @@ export function NewProjectNameDialog({
           id={inputId}
           value={value}
           onChange={(e) => setValue(e.target.value)}
+          onCompositionStart={() => {
+            composingRef.current = true;
+          }}
+          onCompositionEnd={() => {
+            composingRef.current = false;
+          }}
           placeholder={placeholder}
           maxLength={80}
           autoComplete="off"
+          enterKeyHint="done"
+          required
+          aria-required="true"
           style={{
             width: "100%",
             boxSizing: "border-box",
@@ -115,6 +128,18 @@ export function NewProjectNameDialog({
             outline: "none",
           }}
         />
+        {hint ? (
+          <p
+            style={{
+              margin: "8px 0 0",
+              fontSize: 12,
+              lineHeight: 1.45,
+              color: shell.textMuted,
+            }}
+          >
+            {hint}
+          </p>
+        ) : null}
         <div
           style={{
             display: "flex",
