@@ -86,6 +86,7 @@ import {
 import { dancersAtTime } from "../core/stageEngine";
 import { floorMarkupAtTime, setPiecesAtTime } from "../lib/interpolateSetPieces";
 import { FormationBoxManagerDialog } from "../components/FormationBoxManagerDialog";
+import { workFormationSnapshotsFromProject } from "../lib/formationBox";
 import {
   listStagePresets,
   saveStagePreset,
@@ -1898,11 +1899,25 @@ function EditorPageContent({
     return project.formations.find((x) => x.id === fid)?.dancers ?? [];
   }, [project, selectedCue]);
 
+  const formationBoxWorkSnapshots = useMemo(
+    () => (project ? workFormationSnapshotsFromProject(project) : []),
+    [project]
+  );
+
+  const formationBoxCueOrdinal = useMemo(() => {
+    if (!selectedCueId) return null;
+    const idx = sortedCuesForEditor.findIndex((c) => c.id === selectedCueId);
+    return idx >= 0 ? idx + 1 : null;
+  }, [selectedCueId, sortedCuesForEditor]);
+
   const formationBoxManagerDialogEl = (
     <FormationBoxManagerDialog
       open={formationBoxManagerOpen}
       onClose={() => setFormationBoxManagerOpen(false)}
       currentDancers={formationBoxCurrentDancers}
+      pieceTitle={project?.pieceTitle?.trim() || projectName}
+      currentCueOrdinal={formationBoxCueOrdinal}
+      workSnapshots={formationBoxWorkSnapshots}
     />
   );
 

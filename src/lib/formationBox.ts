@@ -1,4 +1,5 @@
-import type { DancerSpot } from "../types/choreography";
+import type { Cue, DancerSpot, Formation } from "../types/choreography";
+import { sortCuesByStart } from "./cueInterval";
 import { modDancerColorIndex } from "./dancerColorPalette";
 import {
   DANCER_STAGE_POSITION_PCT_HI,
@@ -32,7 +33,7 @@ export type FormationBoxSpot = {
 
 export type FormationBoxItem = {
   id: string;
-  /** ユーザ命名（空なら自動命名） */
+  /** ユーザ命名（空なら自動命名）。後から変更可。 */
   name: string;
   /** 保存時の人数。フィルタ表示に使う。 */
   dancerCount: number;
@@ -40,6 +41,10 @@ export type FormationBoxItem = {
   dancers: FormationBoxSpot[];
   createdAt: number;
   updatedAt: number;
+  /** 一括保存したときの作品名（日付＋作品名グループ用） */
+  sourcePieceTitle?: string;
+  /** 一括保存したときのキュー番号（1始まり） */
+  sourceCueOrdinal?: number;
 };
 
 function clamp(n: number, lo: number, hi: number): number {
@@ -95,6 +100,13 @@ function normalize(raw: FormationBoxItem): FormationBoxItem {
     dancers,
     createdAt: typeof raw.createdAt === "number" ? raw.createdAt : Date.now(),
     updatedAt: typeof raw.updatedAt === "number" ? raw.updatedAt : Date.now(),
+    ...(typeof raw.sourcePieceTitle === "string" && raw.sourcePieceTitle.trim()
+      ? { sourcePieceTitle: raw.sourcePieceTitle.trim().slice(0, 120) }
+      : {}),
+    ...(typeof raw.sourceCueOrdinal === "number" &&
+    Number.isFinite(raw.sourceCueOrdinal)
+      ? { sourceCueOrdinal: Math.max(1, Math.floor(raw.sourceCueOrdinal)) }
+      : {}),
   };
 }
 
@@ -182,35 +194,31 @@ export function countByDancerCount(): Record<number, number> {
   return result;
 }
 
-export type FormationBoxSaveResult =
-  | { ok: true; item: FormationBoxItem }
-  | { ok: false; reason: "empty" | "quota" | "unknown"; message: string };
+export type FormationBoxSaveMeta = {
+  sourcePieceTitle?: string;
+  sourceCueOrdinal?: number;
+};
 
-/**
- * 現在のステージから立ち位置を箱に保存。
- * 件数上限は設けないので自動削除は発生しない。容量枯渇は呼び出し側で告知する。
- */
-export function saveFormationToBox(
-  name: string,
-  dancers: DancerSpot[]
-): FormationBoxSaveResult {
-  const clean = dancers
+export type WorkFormationSnapshot = {
+  cueOrdinal: number;
+  dancers: DancerSpot[];
+};
+
+/** 作品名＋キュー番号の初期名。あとから rename できる。 */
+export function defaultWorkCueFormationName(
+  pieceTitle: string,
+  cueOrdinal: number
+): string {
+  const title = (pieceTitle || "").trim().slice(0, 80) || "無題の作品";
+  const n = Math.max(1, Math.floor(cueOrdinal));
+  return `${title} キュー${n}`.slice(0, 120);
+}
+
+function spotsFromDancers(dancers: DancerSpot[]): FormationBoxSpot[] {
+  return dancers
     .filter((d) => Number.isFinite(d.xPct) && Number.isFinite(d.yPct))
-    .slice(0, MAX_DANCERS);
-  if (clean.length === 0) {
-    return {
-      ok: false,
-      reason: "empty",
-      message: "保存する立ち位置がありません。",
-    };
-  }
-  const now = Date.now();
-  const trimmed = (name || "").trim().slice(0, 120);
-  const item: FormationBoxItem = {
-    id: crypto.randomUUID(),
-    name: trimmed || `${clean.length}人の形`,
-    dancerCount: clean.length,
-    dancers: clean.map((d) => {
+    .slice(0, MAX_DANCERS)
+    .map((d) => {
       const spot: FormationBoxSpot = {
         xPct: clamp(d.xPct, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI),
         yPct: clamp(d.yPct, DANCER_STAGE_POSITION_PCT_LO, DANCER_STAGE_POSITION_PCT_HI),
@@ -225,10 +233,130 @@ export function saveFormationToBox(
         spot.crewMemberId = d.crewMemberId;
       }
       return spot;
-    }),
+    });
+}
+
+function itemFromDancers(
+  name: string,
+  dancers: DancerSpot[],
+  now: number,
+  meta?: FormationBoxSaveMeta
+): FormationBoxItem | null {
+  const spots = spotsFromDancers(dancers);
+  if (spots.length === 0) return null;
+  const trimmed = (name || "").trim().slice(0, 120);
+  const title = meta?.sourcePieceTitle?.trim().slice(0, 120);
+  const ordinal =
+    typeof meta?.sourceCueOrdinal === "number" &&
+    Number.isFinite(meta.sourceCueOrdinal)
+      ? Math.max(1, Math.floor(meta.sourceCueOrdinal))
+      : undefined;
+  return {
+    id: crypto.randomUUID(),
+    name: trimmed || `${spots.length}人の形`,
+    dancerCount: spots.length,
+    dancers: spots,
     createdAt: now,
     updatedAt: now,
+    ...(title ? { sourcePieceTitle: title } : {}),
+    ...(ordinal != null ? { sourceCueOrdinal: ordinal } : {}),
   };
+}
+
+/** 作品のキュー順立ち位置（空の形は除く）。キューが無いときはフォーメーション順。 */
+export function workFormationSnapshotsFromProject(project: {
+  cues: Cue[];
+  formations: Formation[];
+}): WorkFormationSnapshot[] {
+  const byId = new Map(project.formations.map((f) => [f.id, f]));
+  const cues = sortCuesByStart(project.cues);
+  if (cues.length > 0) {
+    const out: WorkFormationSnapshot[] = [];
+    cues.forEach((cue, i) => {
+      const dancers = byId.get(cue.formationId)?.dancers ?? [];
+      if (dancers.length === 0) return;
+      out.push({ cueOrdinal: i + 1, dancers });
+    });
+    return out;
+  }
+  return project.formations
+    .filter((f) => (f.dancers?.length ?? 0) > 0)
+    .map((f, i) => ({ cueOrdinal: i + 1, dancers: f.dancers }));
+}
+
+export type FormationBoxDateWorkGroup = {
+  key: string;
+  dateLabel: string;
+  workTitle: string;
+  items: FormationBoxItem[];
+};
+
+function dateLabelFromMs(ms: number): string {
+  const d = new Date(ms);
+  if (Number.isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}/${m}/${day}`;
+}
+
+/** 日付＋作品名でグループ化（新しい日付が先）。 */
+export function groupFormationBoxByDateAndWork(
+  items: FormationBoxItem[]
+): FormationBoxDateWorkGroup[] {
+  const map = new Map<string, FormationBoxItem[]>();
+  for (const item of items) {
+    const dateLabel = dateLabelFromMs(item.createdAt) || "日付不明";
+    const workTitle = item.sourcePieceTitle?.trim() || "（作品名なし）";
+    const key = `${dateLabel}\t${workTitle}`;
+    const arr = map.get(key) ?? [];
+    arr.push(item);
+    map.set(key, arr);
+  }
+  return Array.from(map.entries())
+    .map(([key, groupItems]) => {
+      const [dateLabel, workTitle] = key.split("\t");
+      const sorted = [...groupItems].sort((a, b) => {
+        const oa = a.sourceCueOrdinal ?? 9999;
+        const ob = b.sourceCueOrdinal ?? 9999;
+        if (oa !== ob) return oa - ob;
+        return a.name.localeCompare(b.name, "ja");
+      });
+      return {
+        key,
+        dateLabel: dateLabel || "日付不明",
+        workTitle: workTitle || "（作品名なし）",
+        items: sorted,
+      };
+    })
+    .sort((a, b) => {
+      if (a.dateLabel !== b.dateLabel) return a.dateLabel < b.dateLabel ? 1 : -1;
+      return a.workTitle.localeCompare(b.workTitle, "ja");
+    });
+}
+
+export type FormationBoxSaveResult =
+  | { ok: true; item: FormationBoxItem }
+  | { ok: false; reason: "empty" | "quota" | "unknown"; message: string };
+
+/**
+ * 現在のステージから立ち位置を箱に保存。
+ * 件数上限は設けないので自動削除は発生しない。容量枯渇は呼び出し側で告知する。
+ */
+export function saveFormationToBox(
+  name: string,
+  dancers: DancerSpot[],
+  meta?: FormationBoxSaveMeta
+): FormationBoxSaveResult {
+  const now = Date.now();
+  const item = itemFromDancers(name, dancers, now, meta);
+  if (!item) {
+    return {
+      ok: false,
+      reason: "empty",
+      message: "保存する立ち位置がありません。",
+    };
+  }
   const cur = safeParseAll();
   cur.unshift(item);
   try {
@@ -243,6 +371,58 @@ export function saveFormationToBox(
       reason: "unknown",
       message:
         e instanceof Error ? e.message : "保存中に予期しないエラーが発生しました。",
+    };
+  }
+}
+
+export type SaveAllWorkFormationsResult =
+  | { ok: true; saved: number; skipped: number }
+  | { ok: false; reason: "empty" | "quota" | "unknown"; message: string; saved: number };
+
+/** 作品内の立ち位置をまとめて箱へ入れる。名前は作品名＋キュー番号。 */
+export function saveAllWorkFormationsToBox(params: {
+  pieceTitle: string;
+  snapshots: WorkFormationSnapshot[];
+}): SaveAllWorkFormationsResult {
+  const now = Date.now();
+  const title = (params.pieceTitle || "").trim().slice(0, 120) || "無題の作品";
+  const created: FormationBoxItem[] = [];
+  let skipped = 0;
+  for (const snap of params.snapshots) {
+    const name = defaultWorkCueFormationName(title, snap.cueOrdinal);
+    const item = itemFromDancers(name, snap.dancers, now, {
+      sourcePieceTitle: title,
+      sourceCueOrdinal: snap.cueOrdinal,
+    });
+    if (!item) {
+      skipped += 1;
+      continue;
+    }
+    created.push(item);
+  }
+  if (created.length === 0) {
+    return {
+      ok: false,
+      reason: "empty",
+      message: "保存できる立ち位置がありません。",
+      saved: 0,
+    };
+  }
+  const cur = safeParseAll();
+  cur.unshift(...created);
+  try {
+    writeAll(cur);
+    return { ok: true, saved: created.length, skipped };
+  } catch (e) {
+    if (e instanceof FormationBoxQuotaError) {
+      return { ok: false, reason: "quota", message: e.message, saved: 0 };
+    }
+    return {
+      ok: false,
+      reason: "unknown",
+      message:
+        e instanceof Error ? e.message : "保存中に予期しないエラーが発生しました。",
+      saved: 0,
     };
   }
 }

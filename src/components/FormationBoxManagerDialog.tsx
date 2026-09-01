@@ -9,11 +9,14 @@ import type { DancerSpot } from "../types/choreography";
 import {
   deleteFormationBoxItem,
   FORMATION_BOX_CHANGE_EVENT,
+  groupFormationBoxByDateAndWork,
   listFormationBoxItems,
   renameFormationBoxItem,
+  saveAllWorkFormationsToBox,
   saveFormationToBox,
   updateFormationBoxItem,
   type FormationBoxItem,
+  type WorkFormationSnapshot,
 } from "../lib/formationBox";
 import { FormationBoxItemThumb } from "./FormationBoxItemThumb";
 import { EditorSideSheet } from "./EditorSideSheet";
@@ -23,6 +26,12 @@ type Props = {
   onClose: () => void;
   /** 現在ステージに表示されているダンサー（新規保存・上書き時に使用） */
   currentDancers: DancerSpot[];
+  /** いまの作品名。一括保存の初期名に使う */
+  pieceTitle?: string;
+  /** いまのキュー番号（1始まり）。現在ステージ保存のメタに付ける */
+  currentCueOrdinal?: number | null;
+  /** 作品内の全立ち位置（空のキューは除く） */
+  workSnapshots?: WorkFormationSnapshot[];
 };
 
 const inputBase: CSSProperties = {
@@ -197,7 +206,10 @@ function ItemRow({ item, currentDancers, onRefresh }: ItemRowProps) {
         )}
 
         <div style={{ fontSize: "11px", color: "#64748b" }}>
-          {item.dancerCount}人 · {fmtDate(item.updatedAt)}
+          {item.dancerCount}人
+          {item.sourceCueOrdinal != null ? ` · キュー${item.sourceCueOrdinal}` : ""}
+          {" · "}
+          {fmtDate(item.updatedAt)}
         </div>
 
         {feedback && (
@@ -357,14 +369,120 @@ function GroupedItemList({ items, currentDancers, onRefresh }: GroupedListProps)
   );
 }
 
+/** 日付＋作品名でグループ化した一覧 */
+function DateWorkGroupedList({ items, currentDancers, onRefresh }: GroupedListProps) {
+  const groups = groupFormationBoxByDateAndWork(items);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  const toggleGroup = (key: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+      <div
+        style={{
+          fontSize: "11px",
+          fontWeight: 600,
+          color: "#94a3b8",
+          letterSpacing: "0.04em",
+        }}
+      >
+        保存済み（{items.length}件 / {groups.length}グループ）
+      </div>
+
+      {groups.map((group) => {
+        const isOpen = !collapsed.has(group.key);
+        return (
+          <div key={group.key}>
+            <button
+              type="button"
+              onClick={() => toggleGroup(group.key)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "7px",
+                width: "100%",
+                background: "none",
+                border: "none",
+                padding: "5px 0",
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "11px",
+                  color: isOpen ? "#38bdf8" : "#64748b",
+                  display: "inline-block",
+                  transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
+                  lineHeight: 1,
+                }}
+              >
+                ▶
+              </span>
+              <span
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  color: isOpen ? "#cbd5e1" : "#64748b",
+                }}
+              >
+                {group.dateLabel} {group.workTitle}
+              </span>
+              <span style={{ fontSize: "11px", color: "#475569" }}>
+                {group.items.length}件
+              </span>
+              <span
+                style={{
+                  flex: 1,
+                  height: "1px",
+                  background: "#1e293b",
+                  marginLeft: "4px",
+                }}
+              />
+            </button>
+            {isOpen && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                {group.items.map((item) => (
+                  <ItemRow
+                    key={item.id}
+                    item={item}
+                    currentDancers={currentDancers}
+                    onRefresh={onRefresh}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /**
  * 「立ち位置保存」ボタンから開く管理ダイアログ。
  * - 現在のステージを新規保存
- * - 保存済みの立ち位置の一覧表示・名前変更・上書き・削除
+ * - 作品の立ち位置を全て保存
+ * - 保存済みの一覧（日付＋作品名 / 人数）・名前変更・上書き・削除
  */
-export function FormationBoxManagerDialog({ open, onClose, currentDancers }: Props) {
+export function FormationBoxManagerDialog({
+  open,
+  onClose,
+  currentDancers,
+  pieceTitle = "",
+  currentCueOrdinal = null,
+  workSnapshots = [],
+}: Props) {
   const [items, setItems] = useState<FormationBoxItem[]>([]);
   const [newName, setNewName] = useState("");
+  const [listMode, setListMode] = useState<"dateWork" | "count">("dateWork");
   const [saveFeedback, setSaveFeedback] = useState<{
     type: "ok" | "err";
     msg: string;
@@ -394,7 +512,10 @@ export function FormationBoxManagerDialog({ open, onClose, currentDancers }: Pro
     }
     const trimmed = newName.trim();
     const fallback = `${currentDancers.length}人の形 ${items.filter((x) => x.dancerCount === currentDancers.length).length + 1}`;
-    const result = saveFormationToBox(trimmed || fallback, currentDancers);
+    const result = saveFormationToBox(trimmed || fallback, currentDancers, {
+      sourcePieceTitle: pieceTitle.trim() || undefined,
+      sourceCueOrdinal: currentCueOrdinal ?? undefined,
+    });
     if (result.ok) {
       setSaveFeedback({ type: "ok", msg: `「${result.item.name}」を保存しました` });
       setNewName("");
@@ -402,7 +523,25 @@ export function FormationBoxManagerDialog({ open, onClose, currentDancers }: Pro
     } else {
       setSaveFeedback({ type: "err", msg: result.message });
     }
-  }, [currentDancers, newName, items, refresh]);
+  }, [currentDancers, newName, items, refresh, pieceTitle, currentCueOrdinal]);
+
+  const handleSaveAll = useCallback(() => {
+    const result = saveAllWorkFormationsToBox({
+      pieceTitle,
+      snapshots: workSnapshots,
+    });
+    if (result.ok) {
+      const extra =
+        result.skipped > 0 ? `（空のキュー ${result.skipped} 件はスキップ）` : "";
+      setSaveFeedback({
+        type: "ok",
+        msg: `作品の立ち位置を ${result.saved} 件保存しました${extra}`,
+      });
+      refresh();
+    } else {
+      setSaveFeedback({ type: "err", msg: result.message });
+    }
+  }, [pieceTitle, workSnapshots, refresh]);
 
   const headerId = "fbm-dialog-title";
 
@@ -506,6 +645,31 @@ export function FormationBoxManagerDialog({ open, onClose, currentDancers }: Pro
               ＋ 保存
             </button>
           </div>
+          <button
+            type="button"
+            onClick={handleSaveAll}
+            disabled={workSnapshots.length === 0}
+            style={{
+              ...btnPrimary,
+              width: "100%",
+              marginTop: 10,
+              padding: "9px 14px",
+              opacity: workSnapshots.length === 0 ? 0.4 : 1,
+            }}
+          >
+            作品の立ち位置を全て保存
+            {workSnapshots.length > 0 ? `（${workSnapshots.length}件）` : ""}
+          </button>
+          <p
+            style={{
+              margin: "8px 0 0",
+              fontSize: 11,
+              lineHeight: 1.45,
+              color: "#64748b",
+            }}
+          >
+            名前は「作品名 キュー1」のように付き、あとからクリックで変えられます。
+          </p>
           {saveFeedback && (
             <div
               style={{
@@ -533,14 +697,66 @@ export function FormationBoxManagerDialog({ open, onClose, currentDancers }: Pro
             >
               保存された立ち位置はありません。
               <br />
-              上のボタンから現在のステージを保存できます。
+              「作品の立ち位置を全て保存」で、この作品の形をまとめて残せます。
             </div>
           ) : (
-            <GroupedItemList
-              items={items}
-              currentDancers={currentDancers}
-              onRefresh={refresh}
-            />
+            <>
+              <div
+                role="tablist"
+                aria-label="一覧の並び"
+                style={{ display: "flex", gap: 6, marginBottom: 12 }}
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={listMode === "dateWork"}
+                  onClick={() => setListMode("dateWork")}
+                  style={{
+                    ...btnSecondary,
+                    flex: 1,
+                    padding: "7px 8px",
+                    fontWeight: 700,
+                    color: listMode === "dateWork" ? "#e2e8f0" : "#94a3b8",
+                    borderColor: listMode === "dateWork" ? "#38bdf8" : "#334155",
+                    background:
+                      listMode === "dateWork" ? "rgba(56,189,248,0.12)" : "transparent",
+                  }}
+                >
+                  日付・作品名
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={listMode === "count"}
+                  onClick={() => setListMode("count")}
+                  style={{
+                    ...btnSecondary,
+                    flex: 1,
+                    padding: "7px 8px",
+                    fontWeight: 700,
+                    color: listMode === "count" ? "#e2e8f0" : "#94a3b8",
+                    borderColor: listMode === "count" ? "#38bdf8" : "#334155",
+                    background:
+                      listMode === "count" ? "rgba(56,189,248,0.12)" : "transparent",
+                  }}
+                >
+                  人数
+                </button>
+              </div>
+              {listMode === "dateWork" ? (
+                <DateWorkGroupedList
+                  items={items}
+                  currentDancers={currentDancers}
+                  onRefresh={refresh}
+                />
+              ) : (
+                <GroupedItemList
+                  items={items}
+                  currentDancers={currentDancers}
+                  onRefresh={refresh}
+                />
+              )}
+            </>
           )}
         </div>
       </div>
