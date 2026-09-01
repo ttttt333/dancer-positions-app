@@ -1,4 +1,4 @@
-import { useState, type Dispatch, type SetStateAction } from "react";
+import { useState, type CSSProperties, type Dispatch, type SetStateAction } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE } from "../lib/dancerColorPalette";
 import { btnSecondary } from "./stageButtonStyles";
@@ -10,6 +10,19 @@ import {
 } from "./stageDockPanelStyles";
 
 const PRIMARY_COLOR_COUNT = 8;
+
+const markerActionBtn: CSSProperties = {
+  ...dockActionBtn,
+  minWidth: 0,
+  padding: "8px 8px",
+  fontSize: 12,
+  lineHeight: 1.35,
+  whiteSpace: "normal",
+  overflow: "visible",
+  textOverflow: "clip",
+  wordBreak: "keep-all",
+  overflowWrap: "normal",
+};
 
 export type StageSelectionDisplayPanelProps = {
   selectedCount: number;
@@ -77,11 +90,17 @@ export function StageSelectionDisplayPanel({
         {dancerLabelBelow ? (
           <>
             <div style={{ ...dockSectionTitle, marginTop: 8 }}>丸の内</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 8,
+              }}
+            >
               <button
                 type="button"
                 disabled={busy}
-                style={dockActionBtn}
+                style={markerActionBtn}
                 onClick={() => applyBulkMarkerClear(ids)}
               >
                 空白
@@ -89,7 +108,7 @@ export function StageSelectionDisplayPanel({
               <button
                 type="button"
                 disabled={busy}
-                style={dockActionBtn}
+                style={markerActionBtn}
                 onClick={() => {
                   const raw = window.prompt(
                     "連番の開始番号（整数）。フォーメーション順で丸の内に入れます。",
@@ -104,27 +123,27 @@ export function StageSelectionDisplayPanel({
                   applyBulkMarkerSequence(ids, v);
                 }}
               >
-                連番…
+                連番
               </button>
               <button
                 type="button"
                 disabled={busy}
-                style={dockActionBtn}
+                style={markerActionBtn}
                 onClick={() => {
                   const raw = window.prompt("全員の丸の内を同じ内容に（最大3文字）。", "1");
                   if (raw == null || raw.trim() === "") return;
                   applyBulkMarkerSame(ids, raw);
                 }}
               >
-                同じ…
+                同じ
               </button>
               <button
                 type="button"
                 disabled={busy}
-                style={dockActionBtn}
+                style={{ ...markerActionBtn, gridColumn: "1 / -1" }}
                 onClick={() => applyBulkMarkerCenterDistance(ids)}
               >
-                センター距離
+                センターからの距離
               </button>
             </div>
           </>
