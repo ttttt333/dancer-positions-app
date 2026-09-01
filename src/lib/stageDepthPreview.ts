@@ -105,11 +105,20 @@ export function layoutDepthGroupMarksOnStage(
       }
     }
     if (!leftmost) continue;
+    const meanY =
+      group.reduce((sum, g) => {
+        const pos = positionById.get(g.dancerId);
+        return pos ? sum + pos.yPct : sum;
+      }, 0) /
+      Math.max(
+        1,
+        group.filter((g) => positionById.has(g.dancerId)).length
+      );
     out.push({
       dancerId: leftmost.mark.dancerId,
       mark: leftmost.mark.mark,
       xPct: Math.max(2, Math.min(98, leftmost.pos.xPct - LEFT_MARK_OFFSET_PCT)),
-      yPct: Math.max(2, Math.min(98, leftmost.pos.yPct)),
+      yPct: Math.max(2, Math.min(98, meanY)),
     });
   }
   return out;

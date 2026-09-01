@@ -6,6 +6,7 @@ import {
   swapSelectionColumnsDepth,
 } from "./stageColumnSwap";
 import type { DancerSpot } from "../types/choreography";
+import { dancersForLayoutPreset } from "./formationLayouts";
 
 function spot(id: string, xPct: number, yPct: number): DancerSpot {
   return { id, name: id, xPct, yPct, colorIndex: 0 };
@@ -44,12 +45,39 @@ describe("depth row detection", () => {
       spot("f5", 75, 78),
     ];
     const ids = dancers.map((d) => d.id);
-    const next = swapSelectionColumnsDepth(dancers, ids, 0, 2);
+    const next = swapSelectionColumnsDepth(dancers, ids, 0, 1);
     const changed = next.filter((d) => {
       const prev = dancers.find((x) => x.id === d.id)!;
       return Math.abs(prev.yPct - d.yPct) > 0.01;
     });
-    expect(changed.length).toBeGreaterThanOrEqual(5);
+    expect(changed.length).toBe(dancers.length);
+  });
+
+  it("keeps each inverse-pyramid visual row as its own group", () => {
+    const dancers = dancersForLayoutPreset(75, "pyramid_inverse");
+    const ids = dancers.map((d) => d.id);
+    expect(getSelectionSwapAxis(dancers, ids)).toBe("depth-rows");
+    const groups = detectSelectionColumnGroups(dancers);
+    const uniqueY = new Set(dancers.map((d) => d.yPct.toFixed(3))).size;
+    expect(groups).toHaveLength(uniqueY);
+    expect(groups.length).toBeGreaterThanOrEqual(8);
+    for (const g of groups) {
+      const ys = g.map((d) => d.yPct);
+      expect(Math.max(...ys) - Math.min(...ys)).toBeLessThan(1);
+    }
+  });
+
+  it("keeps each pyramid visual row as its own group", () => {
+    const dancers = dancersForLayoutPreset(75, "pyramid");
+    const ids = dancers.map((d) => d.id);
+    expect(getSelectionSwapAxis(dancers, ids)).toBe("depth-rows");
+    const groups = detectSelectionColumnGroups(dancers);
+    const uniqueY = new Set(dancers.map((d) => d.yPct.toFixed(3))).size;
+    expect(groups).toHaveLength(uniqueY);
+    for (const g of groups) {
+      const ys = g.map((d) => d.yPct);
+      expect(Math.max(...ys) - Math.min(...ys)).toBeLessThan(1);
+    }
   });
 });
 

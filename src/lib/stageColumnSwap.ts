@@ -157,50 +157,66 @@ function estimateVerticalColumnCount(subset: DancerSpot[]): number {
   return Math.max(1, Math.min(subset.length, Math.max(fromGaps, fromMerged)));
 }
 
-function estimateDepthRowCount(subset: DancerSpot[]): number {
-  return detectDepthRowGroups(subset).length;
-}
-
-function depthRowTolerance(subset: DancerSpot[]): number {
-  const base = withinAxisTolerance(subset.map((d) => d.yPct));
-  return Math.max(5, base);
-}
-
-function mergeDepthRowSlots(slots: AxisSlot[]): DancerSpot[][] {
-  if (!slots.length) return [];
-  if (slots.length === 1) return [slots[0]!.members];
-
-  const gaps = slots.slice(1).map((slot, i) => slot.center - slots[i]!.center);
-  const maxGap = Math.max(...gaps);
-  const threshold = Math.max(MIN_COLUMN_SPLIT_GAP_PCT, maxGap * 0.45);
-
-  const groups: DancerSpot[][] = [];
-  let current = [...slots[0]!.members];
-  for (let i = 1; i < slots.length; i++) {
-    const gap = slots[i]!.center - slots[i - 1]!.center;
-    if (gap > threshold) {
-      groups.push(current);
-      current = [...slots[i]!.members];
-    } else {
-      current.push(...slots[i]!.members);
-    }
+function consecutivePositiveGaps(values: number[]): number[] {
+  const sorted = [...values].sort((a, b) => a - b);
+  const gaps: number[] = [];
+  for (let i = 1; i < sorted.length; i++) {
+    const d = sorted[i]! - sorted[i - 1]!;
+    if (d > 0.08) gaps.push(d);
   }
-  groups.push(current);
-  return groups;
+  return gaps;
+}
+
+/**
+ * 段の許容差。同じ段のわずかな前後ブレはまとめ、隣の段はまたがない。
+ * ピラミッドのように段間隔が揃っているときは、間隔の半分未満に抑える。
+ */
+function depthRowTolerance(subset: DancerSpot[]): number {
+  const gaps = consecutivePositiveGaps(subset.map((d) => d.yPct));
+  if (!gaps.length) return 1.2;
+  const minGap = Math.min(...gaps);
+  const maxGap = Math.max(...gaps);
+  const sortedGaps = [...gaps].sort((a, b) => a - b);
+  const p30 = sortedGaps[Math.floor(sortedGaps.length * 0.3)] ?? minGap;
+  const uniform = maxGap / Math.max(minGap, 0.2) < 2.4;
+  if (uniform) {
+    return Math.max(0.35, Math.min(minGap * 0.45, 3.2));
+  }
+  const cap = Math.min(maxGap * 0.4, 8);
+  return Math.max(0.8, Math.min(p30 * 1.35 + 0.3, cap));
 }
 
 /** 前後の段（Y）を手前→奥の順に並べる。1列目 = 手前 */
 function detectDepthRowGroups(subset: DancerSpot[]): DancerSpot[][] {
   const yTol = depthRowTolerance(subset);
   const slots = buildAxisSlots(subset, "yPct", yTol);
-  const rows = mergeDepthRowSlots(slots);
-  return [...rows].reverse();
+  return slots.map((slot) => slot.members).reverse();
+}
+
+/** ピラミッド／段の列のように、横一列の段が前後に並んでいる */
+function rowsLookLikeFrontBackRanks(rows: DancerSpot[][]): boolean {
+  if (rows.length < 4) return false;
+  const tight = rows.every((r) => {
+    const ys = r.map((d) => d.yPct);
+    return Math.max(...ys) - Math.min(...ys) <= 4.5;
+  });
+  if (!tight) return false;
+  const filled = rows.filter((r) => r.length >= 2).length;
+  if (filled < 3) return false;
+  const sizes = rows.map((r) => r.length);
+  const diffs = sizes.slice(1).map((s, i) => s - sizes[i]!);
+  const increasing = diffs.every((d) => d >= 0) && diffs.some((d) => d > 0);
+  const decreasing = diffs.every((d) => d <= 0) && diffs.some((d) => d < 0);
+  return increasing || decreasing || rows.length >= 6;
 }
 
 /** 前後の段か、横位置の縦列か、どちらで入れ替えるか */
 function chooseSwapAxis(subset: DancerSpot[]): SwapAxis {
+  const rows = detectDepthRowGroups(subset);
+  const rowCount = rows.length;
   const colCount = estimateVerticalColumnCount(subset);
-  const rowCount = estimateDepthRowCount(subset);
+
+  if (rowsLookLikeFrontBackRanks(rows)) return "depth-rows";
 
   // 前に広がるくさび形（奥 2 人・中 4 人・手前 5 人など）→ 段単位
   if (colCount > rowCount + 1) return "depth-rows";
@@ -208,7 +224,10 @@ function chooseSwapAxis(subset: DancerSpot[]): SwapAxis {
   // 縦 2〜3 列 × 複数段の定番フォーメーション → 縦列単位
   if (colCount >= 2 && colCount >= rowCount - 1) return "vertical-columns";
 
-  if (rowCount > colCount) return "depth-rows";
+  if (rowCount > colCount) {
+    const filledRows = rows.filter((r) => r.length >= 2).length;
+    if (filledRows >= 2) return "depth-rows";
+  }
   return colCount >= 2 ? "vertical-columns" : "depth-rows";
 }
 
