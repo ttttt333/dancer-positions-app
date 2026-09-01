@@ -469,18 +469,23 @@ export function HomeLibrary() {
                   <ProjectFormationThumb dancers={p.previewDancers} size={200} fluid />
                 </Link>
                 <div className="home-project-body">
-                  <Link to={`/editor/${p.id}`} className="home-project-name">
-                    {p.name}
+                  <Link to={`/editor/${p.id}`} className="home-project-title-row">
+                    <span className="home-project-name">{p.name}</span>
+                    <span className="home-project-headcount">
+                      {t("editor.headcount")} {p.dancerCount}
+                    </span>
                   </Link>
                   <div className="home-project-meta">
-                    <div className="home-project-meta-line">
-                      {t("editor.headcount")}: {p.dancerCount}
-                    </div>
-                    <div className="home-project-meta-line">
-                      {t("dashboard.cueCount")}: {p.cueCount}
-                    </div>
+                    <span>
+                      {t("dashboard.cueCount")} {p.cueCount}
+                    </span>
+                    <span className="home-project-meta-sep" aria-hidden>
+                      ·
+                    </span>
+                    <span className="home-project-updated">
+                      {formatUpdatedAt(p.updated_at)}
+                    </span>
                   </div>
-                  <div className="home-project-updated">{formatUpdatedAt(p.updated_at)}</div>
                   <div className="home-project-actions">
                     <button
                       type="button"
