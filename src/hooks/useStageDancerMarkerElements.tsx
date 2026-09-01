@@ -221,6 +221,7 @@ export function useStageDancerMarkerElements(
               e.preventDefault();
               e.stopPropagation();
               if (interactionLocked) return;
+              if (selectedDancerIds.length >= 2) return;
               setDancerQuickEditId(d.id);
             }}
             halfMarker={halfMarker}

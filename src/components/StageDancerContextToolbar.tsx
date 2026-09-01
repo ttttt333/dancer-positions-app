@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type Dispatch, type SetStateAction } from "react";
 import {
   DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE,
   modDancerColorIndex,
@@ -21,6 +21,7 @@ import type { StageEditMode } from "../lib/stageEditMode";
 import type { StageShapePresetId } from "../lib/stageShapeGenerator";
 import type { LayoutPresetId } from "../lib/formationLayouts";
 import type { DepthSwapInspect } from "../lib/stageDepthPreview";
+import { formatRankIndexSetLabel } from "../lib/stageDepthPreview";
 import {
   classifyShapeMovementCost,
   resolveShapePreviewEsc,
@@ -38,19 +39,30 @@ import {
 } from "../lib/stageTidyActions";
 import { StageFormationShapeCards } from "./StageFormationShapeCards";
 import { StageFormationRanksPanel } from "./StageFormationRanksPanel";
+import { StageSelectionArrangePanel } from "./StageSelectionArrangePanel";
+import { StageSelectionDisplayPanel } from "./StageSelectionDisplayPanel";
+import { StageSelectionComparePanel } from "./StageSelectionComparePanel";
 import { StagePrevCueCompareSummary } from "./StagePrevCueCompareOverlay";
+import {
+  dockActionBtn,
+  dockCard,
+  dockSectionHint,
+  dockSectionTitle,
+} from "./stageDockPanelStyles";
 import { useMobileShellBridgeStore } from "../store/useMobileShellBridgeStore";
 import type { PrevCueCompareSummary } from "../lib/stagePrevCueCompare";
+import type { DancerSpot, ChoreographyProjectJson } from "../types/choreography";
 
 type PopoverKind =
   | "name"
   | "size"
   | "color"
   | "tidy"
-  | "flip"
   | "shape"
   | "depth"
-  | "rotate"
+  | "sort"
+  | "display"
+  | "compare"
   | "more"
   | null;
 
@@ -73,6 +85,20 @@ export type StageDancerContextToolbarProps = {
   onAlign?: (edge: SelectionAlignEdge) => void;
   onDistribute?: (axis: SelectionDistributeAxis) => void;
   onFlip?: (axis: SelectionFlipAxis) => void;
+  onPermuteSelection?: (
+    fn: (dancers: DancerSpot[], targetIds: string[]) => DancerSpot[]
+  ) => void;
+  onArrangeSelection?: (
+    fn: (dancers: DancerSpot[], targetIds: string[]) => DancerSpot[]
+  ) => void;
+  selectedDancerIds?: readonly string[];
+  rawDancerLabelPosition?: "inside" | "below";
+  setProject?: Dispatch<SetStateAction<ChoreographyProjectJson>>;
+  applyBulkColorToDancerIds?: (ids: string[], colorIndex: number) => void;
+  applyBulkMarkerClear?: (ids: string[]) => void;
+  applyBulkMarkerSequence?: (ids: string[], start: number) => void;
+  applyBulkMarkerSame?: (ids: string[], badgeRaw: string) => void;
+  applyBulkMarkerCenterDistance?: (ids: string[]) => void;
   shapePreviewActive?: boolean;
   depthPreviewActive?: boolean;
   rotationPreviewActive?: boolean;
@@ -84,7 +110,15 @@ export type StageDancerContextToolbarProps = {
   depthSwapInspect?: DepthSwapInspect;
   onBeginShapePreview?: (presetId: StageShapePresetId) => void;
   onBeginLayoutPresetPreview?: (presetId: LayoutPresetId) => void;
-  onBeginDepthPreview?: (colA: number, colB: number) => void;
+  onBeginDepthPreview?: (
+    colsA: number | readonly number[],
+    colsB: number | readonly number[]
+  ) => boolean | void;
+  rankPickSlot?: "a" | "b";
+  rankPickA?: readonly number[];
+  rankPickB?: readonly number[];
+  onRankPickSlot?: (slot: "a" | "b") => void;
+  onToggleRankPick?: (index: number) => void;
   onBeginRotationPreview?: (direction: PositionRotationDir) => void;
   onBeginTidyPreview?: (actionId: StageTidyAction["id"]) => void;
   onCancelShapePreview?: () => void;
@@ -149,36 +183,19 @@ const caption: CSSProperties = {
 };
 
 function popoverStyle(side: boolean): CSSProperties {
-  if (side) {
-    return {
-      position: "relative",
-      left: "auto",
-      transform: "none",
-      width: "100%",
-      minWidth: 0,
-      marginTop: 8,
-      marginBottom: 4,
-      padding: 10,
-      borderRadius: 10,
-      border: `1px solid ${shell.borderStrong}`,
-      background: "rgba(8, 11, 18, 0.96)",
-      zIndex: 2,
-    };
-  }
   return {
-    position: "absolute",
-    left: "50%",
-    transform: "translateX(-50%)",
-    minWidth: 196,
+    position: "relative",
+    left: "auto",
+    transform: "none",
+    width: "100%",
+    minWidth: side ? 0 : 196,
+    marginTop: 8,
+    marginBottom: 4,
     padding: 10,
     borderRadius: 10,
     border: `1px solid ${shell.borderStrong}`,
     background: "rgba(8, 11, 18, 0.96)",
-    boxShadow: "0 8px 20px rgba(0,0,0,0.4)",
     zIndex: 2,
-    bottom: "100%",
-    top: "auto",
-    marginBottom: 6,
   };
 }
 
@@ -201,6 +218,16 @@ export function StageDancerContextToolbar({
   onAlign,
   onDistribute,
   onFlip,
+  onPermuteSelection,
+  onArrangeSelection,
+  selectedDancerIds = [],
+  rawDancerLabelPosition,
+  setProject,
+  applyBulkColorToDancerIds,
+  applyBulkMarkerClear,
+  applyBulkMarkerSequence,
+  applyBulkMarkerSame,
+  applyBulkMarkerCenterDistance,
   shapePreviewActive = false,
   depthPreviewActive = false,
   rotationPreviewActive = false,
@@ -213,6 +240,11 @@ export function StageDancerContextToolbar({
   onBeginShapePreview,
   onBeginLayoutPresetPreview,
   onBeginDepthPreview,
+  rankPickSlot = "a",
+  rankPickA = [],
+  rankPickB = [],
+  onRankPickSlot,
+  onToggleRankPick,
   onBeginRotationPreview,
   onBeginTidyPreview,
   onCancelShapePreview,
@@ -263,6 +295,7 @@ export function StageDancerContextToolbar({
   const formationEdit = editMode === "formation";
   const groupEdit = editMode === "group";
   const dancerEdit = editMode === "dancer";
+  const multiEdit = formationEdit || groupEdit;
   const tidyAvailable = isStageTidyAvailable(editMode);
   const openFormationPresets = useMobileShellBridgeStore(
     (s) => s.onFormationChange
@@ -617,12 +650,12 @@ export function StageDancerContextToolbar({
                 style={{
                   ...btn,
                   borderColor:
-                    open === "rotate" ? "rgba(251,191,36,0.9)" : BTN_BORDER,
+                    open === "sort" ? "rgba(251,191,36,0.9)" : BTN_BORDER,
                 }}
                 title="ずらす方向を変更"
-                aria-expanded={open === "rotate"}
+                aria-expanded={open === "sort"}
                 onClick={() =>
-                  setOpen((v) => (v === "rotate" ? null : "rotate"))
+                  setOpen((v) => (v === "sort" ? null : "sort"))
                 }
               >
                 方向を変更
@@ -701,7 +734,7 @@ export function StageDancerContextToolbar({
           </>
         ) : (
           <>
-            {formationEdit && (onBeginShapePreview || canOpenFormationPresets) ? (
+            {multiEdit && (onBeginShapePreview || canOpenFormationPresets) ? (
               <button
                 type="button"
                 style={{
@@ -716,7 +749,7 @@ export function StageDancerContextToolbar({
                 形
               </button>
             ) : null}
-            {formationEdit && onBeginDepthPreview ? (
+            {multiEdit && onBeginDepthPreview ? (
               <button
                 type="button"
                 data-ranks-entry
@@ -727,14 +760,14 @@ export function StageDancerContextToolbar({
                       ? "rgba(125,211,252,0.9)"
                       : BTN_BORDER,
                 }}
-                title="隊列の列を表示して前後を入れ替える"
+                title="列番号を表示して前後を入れ替える"
                 aria-expanded={open === "depth"}
                 onClick={() => {
                   setDepthNoChangePair(null);
                   setOpen((v) => (v === "depth" ? null : "depth"));
                 }}
               >
-                隊列
+                列
               </button>
             ) : null}
             {tidyAvailable ? (
@@ -753,54 +786,60 @@ export function StageDancerContextToolbar({
                 整える
               </button>
             ) : null}
-            {formationEdit || groupEdit ? (
+            {multiEdit && onArrangeSelection && onPermuteSelection ? (
               <button
                 type="button"
+                data-arrange-entry
                 style={{
                   ...btn,
                   borderColor:
-                    open === "flip" ? "rgba(251,146,60,0.9)" : BTN_BORDER,
+                    open === "sort" ? "rgba(251,146,60,0.9)" : BTN_BORDER,
                 }}
-                title="反転"
-                aria-expanded={open === "flip"}
-                onClick={() => setOpen((v) => (v === "flip" ? null : "flip"))}
+                title="並べ替え・反転・位置交換"
+                aria-expanded={open === "sort"}
+                onClick={() => setOpen((v) => (v === "sort" ? null : "sort"))}
               >
-                反転
+                並べ替え
               </button>
             ) : null}
-            {formationEdit && onBeginRotationPreview && !side ? (
+            {multiEdit && setProject && applyBulkColorToDancerIds ? (
               <button
                 type="button"
-                data-rotation-entry
+                data-display-entry
                 style={{
                   ...btn,
                   borderColor:
-                    open === "rotate" ? "rgba(167,139,250,0.9)" : BTN_BORDER,
+                    open === "display" ? "rgba(167,139,250,0.9)" : BTN_BORDER,
                 }}
-                title="形はそのまま、人だけを1つずらす"
-                aria-expanded={open === "rotate"}
+                title="名前と色の表示"
+                aria-expanded={open === "display"}
                 onClick={() =>
-                  setOpen((v) => (v === "rotate" ? null : "rotate"))
+                  setOpen((v) => (v === "display" ? null : "display"))
                 }
               >
-                位置交換
+                表示
               </button>
             ) : null}
-            {formationEdit && prevCueCompareAvailable && onTogglePrevCueCompare ? (
+            {multiEdit ? (
               <button
                 type="button"
                 data-prev-cue-compare
                 style={{
                   ...btn,
-                  borderColor: prevCueCompareOn
-                    ? "rgba(148,163,184,0.95)"
-                    : BTN_BORDER,
-                  color: prevCueCompareOn ? "#e2e8f0" : "#e2e8f0",
-                  background: prevCueCompareOn ? "#1e293b" : "#0b1220",
+                  borderColor:
+                    open === "compare" || prevCueCompareOn
+                      ? "rgba(148,163,184,0.95)"
+                      : BTN_BORDER,
+                  background:
+                    prevCueCompareOn || prevCueMotionViewOn
+                      ? "#1e293b"
+                      : "#0b1220",
                 }}
-                title="前のキューの位置を薄い○で重ねる"
-                aria-pressed={prevCueCompareOn}
-                onClick={() => onTogglePrevCueCompare()}
+                title="前のキューと比べる"
+                aria-expanded={open === "compare"}
+                onClick={() =>
+                  setOpen((v) => (v === "compare" ? null : "compare"))
+                }
               >
                 比較
               </button>
@@ -859,6 +898,7 @@ export function StageDancerContextToolbar({
               data-toolbar-more
               style={{
                 ...btn,
+                ...(side ? { gridColumn: "1 / -1", height: 40, fontSize: 14 } : {}),
                 borderColor:
                   open === "more" ? "rgba(148,163,184,0.9)" : BTN_BORDER,
               }}
@@ -876,6 +916,7 @@ export function StageDancerContextToolbar({
             </button>
           </>
         )}
+      </div>
 
         {dancerEdit && open === "name" && onNameFontChange ? (
           <div style={popoverStyle(side)}>
@@ -961,128 +1002,91 @@ export function StageDancerContextToolbar({
             data-tidy-panel
             style={{ ...popoverStyle(side), minWidth: side ? 0 : 280 }}
           >
-            <div
-              style={{
-                fontSize: 13,
-                fontWeight: 700,
-                color: "#e2e8f0",
-                marginBottom: 10,
-              }}
-            >
-              整える
+            <div style={{ ...dockCard, marginBottom: 0 }}>
+              <div style={dockSectionTitle}>整える</div>
+              <p style={dockSectionHint}>
+                選択した人の位置だけを動かします。形の雛形は変わりません。
+              </p>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 8,
+                }}
+              >
+                {STAGE_TIDY_ACTIONS.map((action) => (
+                  <button
+                    key={action.id}
+                    type="button"
+                    data-tidy-action={action.id}
+                    style={dockActionBtn}
+                    title={action.label}
+                    onClick={() => {
+                      if (onBeginTidyPreview) {
+                        onBeginTidyPreview(action.id);
+                      } else if (action.kind === "align") {
+                        onAlign?.(action.edge);
+                      } else {
+                        onDistribute?.(action.axis);
+                      }
+                      setOpen(null);
+                    }}
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 6,
-              }}
-            >
-              {STAGE_TIDY_ACTIONS.map((action) => (
-                <button
-                  key={action.id}
-                  type="button"
-                  data-tidy-action={action.id}
-                  style={{
-                    ...btn,
-                    width: "100%",
-                    minWidth: 0,
-                    height: "auto",
-                    minHeight: 32,
-                    padding: "7px 8px",
-                    fontSize: 11,
-                  }}
-                  title={action.label}
-                  onClick={() => {
-                    if (onBeginTidyPreview) {
-                      onBeginTidyPreview(action.id);
-                    } else if (action.kind === "align") {
-                      onAlign?.(action.edge);
-                    } else {
-                      onDistribute?.(action.axis);
+          </div>
+        ) : null}
+        {multiEdit && open === "sort" && onArrangeSelection && onPermuteSelection ? (
+          <div style={{ ...popoverStyle(side), minWidth: side ? 0 : 280 }}>
+            <StageSelectionArrangePanel
+              selectedCount={selectedCount}
+              onPermute={onPermuteSelection}
+              onArrange={onArrangeSelection}
+              onFlip={onFlip}
+              onBeginRotationPreview={
+                onBeginRotationPreview
+                  ? (dir) => {
+                      setOpen(null);
+                      onBeginRotationPreview(dir);
                     }
-                    setOpen(null);
-                  }}
-                >
-                  {action.label}
-                </button>
-              ))}
-            </div>
+                  : undefined
+              }
+            />
           </div>
         ) : null}
-        {(formationEdit || groupEdit) && open === "flip" ? (
+        {multiEdit && open === "display" && setProject && applyBulkColorToDancerIds ? (
+          <div style={{ ...popoverStyle(side), minWidth: side ? 0 : 280 }}>
+            <StageSelectionDisplayPanel
+              selectedCount={selectedCount}
+              selectedDancerIds={selectedDancerIds}
+              rawDancerLabelPosition={rawDancerLabelPosition}
+              dancerLabelBelow={dancerLabelBelow}
+              setProject={setProject}
+              applyBulkColorToDancerIds={applyBulkColorToDancerIds}
+              applyBulkMarkerClear={applyBulkMarkerClear ?? (() => {})}
+              applyBulkMarkerSequence={applyBulkMarkerSequence ?? (() => {})}
+              applyBulkMarkerSame={applyBulkMarkerSame ?? (() => {})}
+              applyBulkMarkerCenterDistance={
+                applyBulkMarkerCenterDistance ?? (() => {})
+              }
+            />
+          </div>
+        ) : null}
+        {multiEdit && open === "compare" ? (
           <div style={popoverStyle(side)}>
-            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>
-              反転
-            </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button
-                type="button"
-                style={{ ...btn, flex: 1 }}
-                title="選択範囲の左右を反転"
-                onClick={() => onFlip?.("x")}
-              >
-                左右
-              </button>
-              <button
-                type="button"
-                style={{ ...btn, flex: 1 }}
-                title="選択範囲の上下を反転"
-                onClick={() => onFlip?.("y")}
-              >
-                上下
-              </button>
-            </div>
-          </div>
-        ) : null}
-        {formationEdit && open === "rotate" ? (
-          <div style={popoverStyle(side)} data-rotation-panel>
-            <div
-              style={{
-                fontSize: 13,
-                fontWeight: 700,
-                color: "#e2e8f0",
-                marginBottom: 4,
-              }}
-            >
-              位置交換
-            </div>
-            <p
-              style={{
-                margin: "0 0 8px",
-                fontSize: 11,
-                color: "#94a3b8",
-                lineHeight: 1.45,
-              }}
-            >
-              形はそのまま。人だけを1つずらします。
-            </p>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button
-                type="button"
-                data-rotation-dir="cw"
-                style={{ ...btn, flex: 1 }}
-                title="右回りに1人ずらす"
-                onClick={() => {
-                  onBeginRotationPreview?.("cw");
-                  setOpen(null);
-                }}
-              >
-                右回り 1人
-              </button>
-              <button
-                type="button"
-                data-rotation-dir="ccw"
-                style={{ ...btn, flex: 1 }}
-                title="左回りに1人ずらす"
-                onClick={() => {
-                  onBeginRotationPreview?.("ccw");
-                  setOpen(null);
-                }}
-              >
-                左回り 1人
-              </button>
-            </div>
+            <StageSelectionComparePanel
+              prevCueCompareAvailable={prevCueCompareAvailable}
+              prevCueCompareOn={prevCueCompareOn}
+              prevCueMotionViewOn={prevCueMotionViewOn}
+              prevCueCompareSummary={prevCueCompareSummary}
+              prevCueFromOrdinal={prevCueFromOrdinal}
+              prevCueToOrdinal={prevCueToOrdinal}
+              onTogglePrevCueCompare={onTogglePrevCueCompare}
+              onTogglePrevCueMotionView={onTogglePrevCueMotionView}
+            />
           </div>
         ) : null}
         {formationEdit && onCreateNextCue && open === "more" ? (
@@ -1119,30 +1123,6 @@ export function StageDancerContextToolbar({
             >
               次のキューを作る
             </button>
-            {prevCueCompareAvailable && onTogglePrevCueMotionView ? (
-              <button
-                type="button"
-                data-prev-cue-motion-view
-                aria-pressed={prevCueMotionViewOn}
-                title="前のキューから誰がどれだけ動くかを見る（Transitionは作らない）"
-                style={{
-                  ...btn,
-                  width: "100%",
-                  height: 34,
-                  marginTop: 6,
-                  borderColor: prevCueMotionViewOn
-                    ? "rgba(148,163,184,0.95)"
-                    : BTN_BORDER,
-                  background: prevCueMotionViewOn ? "#1e293b" : "#0b1220",
-                }}
-                onClick={() => {
-                  setOpen(null);
-                  onTogglePrevCueMotionView();
-                }}
-              >
-                動きを見る
-              </button>
-            ) : null}
             <button
               type="button"
               style={{
@@ -1163,7 +1143,7 @@ export function StageDancerContextToolbar({
             </button>
           </div>
         ) : null}
-        {formationEdit && open === "shape" ? (
+        {multiEdit && open === "shape" ? (
           <div style={{ ...popoverStyle(side), minWidth: side ? 0 : 360, maxWidth: side ? "100%" : 440, left: side ? "auto" : "50%" }}>
             <StageFormationShapeCards
               selectedCount={selectedCount}
@@ -1184,7 +1164,7 @@ export function StageDancerContextToolbar({
             />
           </div>
         ) : null}
-        {formationEdit && open === "depth" && depthSwapInspect ? (
+        {multiEdit && open === "depth" && depthSwapInspect ? (
           <div
             style={{
               ...popoverStyle(side),
@@ -1193,24 +1173,23 @@ export function StageDancerContextToolbar({
           >
             <StageFormationRanksPanel
               inspect={depthSwapInspect}
-              onSwapPair={(colA, colB, noChange) => {
-                const pair = depthSwapInspect.pairs.find(
-                  (x) => x.colA === colA && x.colB === colB
-                );
-                if (noChange && pair) {
+              pickSlot={rankPickSlot}
+              selectedA={rankPickA}
+              selectedB={rankPickB}
+              onPickSlot={(slot) => onRankPickSlot?.(slot)}
+              onToggleIndex={(i) => onToggleRankPick?.(i)}
+              onSwapSets={(a, b) => {
+                const moved = onBeginDepthPreview?.(a, b);
+                if (moved === false) {
                   setDepthNoChangePair({
-                    markA: pair.markA,
-                    markB: pair.markB,
+                    markA:
+                      formatRankIndexSetLabel(a, depthSwapInspect.unit) || "列",
+                    markB:
+                      formatRankIndexSetLabel(b, depthSwapInspect.unit) || "列",
                   });
                   return;
                 }
                 setDepthNoChangePair(null);
-                onBeginDepthPreview?.(colA, colB);
-                if (!side) setOpen(null);
-              }}
-              onKamiteShimote={() => onFlip?.("x")}
-              onRotate={(dir) => {
-                onBeginRotationPreview?.(dir);
                 if (!side) setOpen(null);
               }}
             />
@@ -1230,7 +1209,6 @@ export function StageDancerContextToolbar({
             ) : null}
           </div>
         ) : null}
-      </div>
       {prevCueCompareSummary && (prevCueCompareOn || prevCueMotionViewOn) ? (
         <StagePrevCueCompareSummary
           summary={prevCueCompareSummary}

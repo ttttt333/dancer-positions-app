@@ -444,16 +444,26 @@ function swapYBetweenGroups(groupA: DancerSpot[], groupB: DancerSpot[]): Map<str
   return yById;
 }
 
+function normalizeColumnIndexSet(indices: readonly number[]): number[] {
+  return [...new Set(indices.filter((n) => Number.isInteger(n) && n >= 0))].sort(
+    (a, b) => a - b
+  );
+}
+
 /**
  * 2 列／段の前後（Y）だけ入れ替え。X は変えない。
+ * 複数列をまとめて一方のブロックとして交代できる（4・5列目 ⇄ 10・11列目）。
  */
-export function swapSelectionColumnsDepth(
+export function swapSelectionColumnSetsDepth(
   dancers: DancerSpot[],
   targetIds: string[],
-  colA: number,
-  colB: number
+  colsA: readonly number[],
+  colsB: readonly number[]
 ): DancerSpot[] {
-  if (colA === colB) return dancers;
+  const a = normalizeColumnIndexSet(colsA);
+  const b = normalizeColumnIndexSet(colsB);
+  if (!a.length || !b.length) return dancers;
+  if (a.some((i) => b.includes(i))) return dancers;
 
   const idSet = new Set(targetIds);
   const subset = dancers.filter((d) => idSet.has(d.id));
@@ -463,10 +473,10 @@ export function swapSelectionColumnsDepth(
   const groups = resolveSwapGroups(
     subset,
     axis,
-    Math.max(colA, colB) + 1
+    Math.max(a[a.length - 1]!, b[b.length - 1]!) + 1
   );
-  const groupA = groups[colA] ?? [];
-  const groupB = groups[colB] ?? [];
+  const groupA = a.flatMap((i) => groups[i] ?? []);
+  const groupB = b.flatMap((i) => groups[i] ?? []);
   if (!groupA.length || !groupB.length) return dancers;
 
   const yById = swapYBetweenGroups(groupA, groupB);
@@ -477,6 +487,18 @@ export function swapSelectionColumnsDepth(
     if (nextY === undefined) return d;
     return { ...d, yPct: clampPct(nextY) };
   });
+}
+
+/**
+ * 2 列／段の前後（Y）だけ入れ替え。X は変えない。
+ */
+export function swapSelectionColumnsDepth(
+  dancers: DancerSpot[],
+  targetIds: string[],
+  colA: number,
+  colB: number
+): DancerSpot[] {
+  return swapSelectionColumnSetsDepth(dancers, targetIds, [colA], [colB]);
 }
 
 export function swapSelectionKamiteShimote(

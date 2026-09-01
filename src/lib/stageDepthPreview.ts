@@ -4,7 +4,7 @@ import {
   clusterSelectionColumns,
   formatSelectionColumnSummary,
   getSelectionSwapAxis,
-  swapSelectionColumnsDepth,
+  swapSelectionColumnSetsDepth,
   type SwapAxis,
 } from "./stageColumnSwap";
 import { movementCostPct } from "./stageShapeGenerator";
@@ -68,6 +68,7 @@ export function mapDancerDepthGroupMarks(
 export type DepthGroupMarkOnStage = {
   dancerId: string;
   mark: string;
+  groupIndex: number;
   xPct: number;
   yPct: number;
 };
@@ -116,7 +117,8 @@ export function layoutDepthGroupMarksOnStage(
       );
     out.push({
       dancerId: leftmost.mark.dancerId,
-      mark: leftmost.mark.mark,
+      mark: String(leftmost.mark.groupIndex + 1),
+      groupIndex: leftmost.mark.groupIndex,
       xPct: Math.max(2, Math.min(98, leftmost.pos.xPct - LEFT_MARK_OFFSET_PCT)),
       yPct: Math.max(2, Math.min(98, meanY)),
     });
@@ -153,6 +155,18 @@ export function circleMark(index: number): string {
 
 export function wrapDepthGroupLabel(mark: string, count: number): string {
   return `${mark} ${count}人`;
+}
+
+export function formatRankIndexSetLabel(
+  indices: readonly number[],
+  unit: "列" | "段"
+): string {
+  const nums = [...new Set(indices.filter((n) => Number.isInteger(n) && n >= 0))]
+    .sort((a, b) => a - b)
+    .map((i) => i + 1);
+  if (!nums.length) return "";
+  if (nums.length === 1) return `${nums[0]}${unit}目`;
+  return `${nums.join("・")}${unit}目`;
 }
 
 /** 2列ぶんの入れ替えは、対をひとつのカッコでくくる */
@@ -230,6 +244,10 @@ export function inspectFormationDepthSwap(
   };
 }
 
+function asIndexSet(cols: number | readonly number[]): number[] {
+  return Array.isArray(cols) ? [...cols] : [cols];
+}
+
 /**
  * 永続配列は変えない。swap 後に座標が変わった id だけの Map。
  * xPct は既存ロジックどおり変わらない想定。
@@ -237,12 +255,17 @@ export function inspectFormationDepthSwap(
 export function generateDepthSwapPreview(
   dancers: readonly DancerSpot[],
   selectedIds: readonly string[],
-  colA: number,
-  colB: number
+  colA: number | readonly number[],
+  colB: number | readonly number[]
 ): Map<string, StagePosPct> {
   const list = [...dancers];
   const ids = [...selectedIds];
-  const next = swapSelectionColumnsDepth(list, ids, colA, colB);
+  const next = swapSelectionColumnSetsDepth(
+    list,
+    ids,
+    asIndexSet(colA),
+    asIndexSet(colB)
+  );
   const prevById = new Map(list.map((d) => [d.id, d] as const));
   const byId = new Map<string, StagePosPct>();
   const idSet = new Set(ids);
@@ -259,8 +282,8 @@ export function generateDepthSwapPreview(
 export function evaluateDepthSwapPair(
   dancers: readonly DancerSpot[],
   selectedIds: readonly string[],
-  colA: number,
-  colB: number
+  colA: number | readonly number[],
+  colB: number | readonly number[]
 ): {
   byId: Map<string, StagePosPct>;
   movementCostPct: number;

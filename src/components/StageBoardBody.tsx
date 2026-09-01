@@ -533,6 +533,9 @@ export function StageBoardBody({
     colB: number;
   } | null>(null);
   const [depthGuidesVisible, setDepthGuidesVisible] = useState(false);
+  const [rankPickSlot, setRankPickSlot] = useState<"a" | "b">("a");
+  const [rankPickA, setRankPickA] = useState<number[]>([]);
+  const [rankPickB, setRankPickB] = useState<number[]>([]);
   const {
     toast: shapePreviewToast,
     showToast: showShapePreviewToast,
@@ -4210,7 +4213,7 @@ export function StageBoardBody({
   );
   const depthGroupMarks = useMemo(() => {
     if (!depthGuidesVisible) return [];
-    if (stageEditMode !== "formation") return [];
+    if (stageEditMode !== "formation" && stageEditMode !== "group") return [];
     const marks = mapDancerDepthGroupMarks(
       persistDancersForShape,
       selectedDancerIds
@@ -4233,20 +4236,46 @@ export function StageBoardBody({
     setDepthGuidesVisible(visible);
   }, []);
 
+  useEffect(() => {
+    if (depthGuidesVisible) return;
+    setRankPickSlot("a");
+    setRankPickA([]);
+    setRankPickB([]);
+  }, [depthGuidesVisible]);
+
+  const toggleRankPick = useCallback((index: number) => {
+    const addOrRemove = (prev: number[]) =>
+      prev.includes(index)
+        ? prev.filter((i) => i !== index)
+        : [...prev, index].sort((a, b) => a - b);
+    if (rankPickSlot === "a") {
+      setRankPickB((prev) => prev.filter((i) => i !== index));
+      setRankPickA(addOrRemove);
+      return;
+    }
+    setRankPickA((prev) => prev.filter((i) => i !== index));
+    setRankPickB(addOrRemove);
+  }, [rankPickSlot]);
+
   const beginDepthPreview = useCallback(
-    (colA: number, colB: number) => {
+    (
+      colA: number | readonly number[],
+      colB: number | readonly number[]
+    ): boolean => {
       if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
-        return;
-      if (dancerQuickEditId) return;
+        return false;
+      if (dancerQuickEditId) return false;
       const persistDancers =
         writeFormation?.dancers ?? activeFormation?.dancers ?? [];
+      const a = Array.isArray(colA) ? [...colA] : [colA];
+      const b = Array.isArray(colB) ? [...colB] : [colB];
       const byId = generateDepthSwapPreview(
         persistDancers,
         selectedDancerIds,
-        colA,
-        colB,
+        a,
+        b,
       );
-      if (byId.size === 0) return;
+      if (byId.size === 0) return false;
       setShapePreviewById(null);
       setShapePreviewMeta(null);
       setRotationPreviewById(null);
@@ -4254,8 +4283,9 @@ export function StageBoardBody({
       setTidyPreviewById(null);
       setTidyPreviewActionId(null);
       setDepthPreviewById(byId);
-      setDepthPreviewPair({ colA, colB });
+      setDepthPreviewPair({ colA: a[0] ?? 0, colB: b[0] ?? 1 });
       shapePreviewKeyRef.current = selectedDancerIds.join("\0");
+      return true;
     },
     [
       viewMode,
@@ -4646,6 +4676,48 @@ export function StageBoardBody({
     [arrangeAnchorDancerId, selectedDancerIds, applyDancerArrange],
   );
 
+  const applySelectedArrange = useCallback(
+    (fn: (dancers: DancerSpot[], targetIds: string[]) => DancerSpot[]) => {
+      if (
+        !writeFormation ||
+        viewMode === "view" ||
+        stageInteractionsEnabled === false ||
+        playbackOrPreview
+      )
+        return;
+      const targetIds = [...selectedDancerIds];
+      if (targetIds.length < 2) {
+        window.alert("対象を 2 人以上選んでください。");
+        return;
+      }
+      updateActiveFormation((f) => ({
+        ...f,
+        dancers: fn(f.dancers, targetIds),
+      }));
+    },
+    [
+      writeFormation,
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+      selectedDancerIds,
+      updateActiveFormation,
+    ],
+  );
+
+  const applySelectedPermute = useCallback(
+    (fn: (dancers: DancerSpot[], targetIds: string[]) => DancerSpot[]) => {
+      if (selectedDancerIds.length < 2) {
+        window.alert(
+          "いまの立ち位置のままの並び替えは、対象を 2 人以上選んでください。",
+        );
+        return;
+      }
+      applySelectedArrange(fn);
+    },
+    [selectedDancerIds.length, applySelectedArrange],
+  );
+
   const contextMenuStyle: CSSProperties | null = stageContextMenu
     ? computeStageContextMenuStyle(stageContextMenu)
     : null;
@@ -4943,6 +5015,9 @@ export function StageBoardBody({
         tapStageToEditLayout,
         onTapEditOverlayPointerDown: handleTapOverlayPointerDown,
         depthGroupMarks,
+        depthRankSelectedA: rankPickA,
+        depthRankSelectedB: rankPickB,
+        onDepthRankSelect: toggleRankPick,
       },
     } satisfies BuildStageBoardExportColumnInput);
 
@@ -5018,6 +5093,16 @@ export function StageBoardBody({
           flipSelectedDancers(dancers, ids, axis)
         )
       }
+      onPermuteSelection={applySelectedPermute}
+      onArrangeSelection={applySelectedArrange}
+      selectedDancerIds={selectedDancerIds}
+      rawDancerLabelPosition={project.dancerLabelPosition}
+      setProject={setProject}
+      applyBulkColorToDancerIds={applyBulkColorToDancerIds}
+      applyBulkMarkerClear={applyBulkMarkerClear}
+      applyBulkMarkerSequence={applyBulkMarkerSequence}
+      applyBulkMarkerSame={applyBulkMarkerSame}
+      applyBulkMarkerCenterDistance={applyBulkMarkerCenterDistance}
       shapePreviewActive={Boolean(
         shapePreviewById && shapePreviewById.size > 0
       )}
@@ -5038,6 +5123,11 @@ export function StageBoardBody({
       onBeginShapePreview={beginShapePreview}
       onBeginLayoutPresetPreview={beginLayoutPresetPreview}
       onBeginDepthPreview={beginDepthPreview}
+      rankPickSlot={rankPickSlot}
+      rankPickA={rankPickA}
+      rankPickB={rankPickB}
+      onRankPickSlot={setRankPickSlot}
+      onToggleRankPick={toggleRankPick}
       onBeginRotationPreview={beginRotationPreview}
       onBeginTidyPreview={beginTidyPreview}
       onCancelShapePreview={cancelShapePreview}

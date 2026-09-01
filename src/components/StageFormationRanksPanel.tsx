@@ -1,43 +1,12 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import type { DepthSwapInspect } from "../lib/stageDepthPreview";
+import { formatRankIndexSetLabel } from "../lib/stageDepthPreview";
 import { btnSecondary } from "./stageButtonStyles";
-
-const card: CSSProperties = {
-  border: "1px solid #1e293b",
-  borderRadius: 10,
-  padding: "10px 10px 12px",
-  marginBottom: 12,
-  background: "#080b12",
-};
-
-const sectionTitle: CSSProperties = {
-  fontSize: 12,
-  fontWeight: 600,
-  color: "#94a3b8",
-  margin: "0 0 6px",
-};
-
-const sectionHint: CSSProperties = {
-  fontSize: 11,
-  color: "#64748b",
-  margin: "0 0 8px",
-  lineHeight: 1.45,
-};
-
-const rowCard: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  width: "100%",
-  padding: "12px 14px",
-  borderRadius: 10,
-  border: "1px solid #334155",
-  background: "#020617",
-  color: "#e2e8f0",
-  fontSize: 16,
-  fontWeight: 800,
-  minHeight: 48,
-  boxSizing: "border-box",
-};
+import {
+  dockCard,
+  dockSectionHint,
+  dockSectionTitle,
+} from "./stageDockPanelStyles";
 
 function RankButton({
   children,
@@ -76,109 +45,177 @@ function RankButton({
 
 export type StageFormationRanksPanelProps = {
   inspect: DepthSwapInspect;
-  onSwapPair: (colA: number, colB: number, noChange: boolean) => void;
-  onKamiteShimote: () => void;
-  onRotate: (dir: "cw" | "ccw") => void;
+  pickSlot: "a" | "b";
+  selectedA: readonly number[];
+  selectedB: readonly number[];
+  onPickSlot: (slot: "a" | "b") => void;
+  onToggleIndex: (index: number) => void;
+  onSwapSets: (colsA: number[], colsB: number[]) => void;
 };
 
+function NumberChip({
+  index,
+  slot,
+  onClick,
+}: {
+  index: number;
+  slot: "a" | "b" | null;
+  onClick: () => void;
+}) {
+  const selected = slot != null;
+  return (
+    <button
+      type="button"
+      data-rank-chip={index}
+      aria-pressed={selected}
+      title={`${index + 1}列目`}
+      onClick={onClick}
+      style={{
+        width: 40,
+        height: 40,
+        borderRadius: "50%",
+        padding: 0,
+        border:
+          slot === "a"
+            ? "2px solid rgba(251, 191, 36, 0.95)"
+            : slot === "b"
+              ? "2px solid rgba(125, 211, 252, 0.95)"
+              : "1px solid #334155",
+        background:
+          slot === "a"
+            ? "rgba(251, 191, 36, 0.92)"
+            : slot === "b"
+              ? "rgba(14, 116, 144, 0.92)"
+              : "#020617",
+        color: slot === "a" ? "#14100a" : slot === "b" ? "#ecfeff" : "#e2e8f0",
+        fontSize: 15,
+        fontWeight: 800,
+        cursor: "pointer",
+      }}
+    >
+      {index + 1}
+    </button>
+  );
+}
+
 /**
- * ⋯「その他の操作」→ 隊列タブと同じカード構成。
- * 列は1列ずつ並べ、2列を1つに括らない。
+ * 舞台の番号を選んで、任意の列どうし（まとめても可）を前後交代する。
  */
 export function StageFormationRanksPanel({
   inspect,
-  onSwapPair,
-  onKamiteShimote,
-  onRotate,
+  pickSlot,
+  selectedA,
+  selectedB,
+  onPickSlot,
+  onToggleIndex,
+  onSwapSets,
 }: StageFormationRanksPanelProps) {
+  const unit = inspect.unit;
+  const overlap = selectedA.some((i) => selectedB.includes(i));
+  const canRun =
+    inspect.groupCount >= 2 &&
+    selectedA.length > 0 &&
+    selectedB.length > 0 &&
+    !overlap;
+  const labelA = formatRankIndexSetLabel(selectedA, unit);
+  const labelB = formatRankIndexSetLabel(selectedB, unit);
+
+  const chipSlot = useMemo(() => {
+    const map = new Map<number, "a" | "b">();
+    for (const i of selectedA) map.set(i, "a");
+    for (const i of selectedB) map.set(i, "b");
+    return map;
+  }, [selectedA, selectedB]);
+
   return (
     <div data-formation-ranks-panel>
-      <div style={card}>
-        <div style={sectionTitle}>列の前後交代（横位置はそのまま）</div>
-        <p style={sectionHint}>
-          {inspect.axis === "depth-rows"
-            ? "前後の段を自動判定し、選んだ段どうしの前後だけ入れ替えます。"
-            : "横位置の縦列を自動判定し、選んだ列どうしの前後だけ入れ替えます。"}
+      <div style={{ ...dockCard, marginBottom: 0 }}>
+        <div style={dockSectionTitle}>列の前後交代（横位置はそのまま）</div>
+        <p style={dockSectionHint}>
+          舞台左の番号、または下の数字を選んでから実行します。3列目と5列目、4・5列目と10・11列目のようにまとめられます。
           {inspect.summary ? `（${inspect.summary}）` : null}
         </p>
-        {inspect.groupCount >= 1 ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {inspect.groupLines.map((line, i) => {
-              const pair = inspect.pairs.find((p) => p.colA === i);
-              if (!pair) {
-                return (
-                  <div key={`${line}-${i}`} style={rowCard}>
-                    {line}
-                  </div>
-                );
+        {inspect.groupCount >= 2 ? (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+              <button
+                type="button"
+                aria-pressed={pickSlot === "a"}
+                onClick={() => onPickSlot("a")}
+                style={{
+                  ...btnSecondary,
+                  minHeight: 40,
+                  fontWeight: 800,
+                  border:
+                    pickSlot === "a"
+                      ? "1px solid rgba(251, 191, 36, 0.95)"
+                      : "1px solid #334155",
+                  color: pickSlot === "a" ? "#fde68a" : "#e2e8f0",
+                }}
+              >
+                1つ目を選ぶ
+              </button>
+              <button
+                type="button"
+                aria-pressed={pickSlot === "b"}
+                onClick={() => onPickSlot("b")}
+                style={{
+                  ...btnSecondary,
+                  minHeight: 40,
+                  fontWeight: 800,
+                  border:
+                    pickSlot === "b"
+                      ? "1px solid rgba(125, 211, 252, 0.95)"
+                      : "1px solid #334155",
+                  color: pickSlot === "b" ? "#bae6fd" : "#e2e8f0",
+                }}
+              >
+                2つ目を選ぶ
+              </button>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 8,
+                marginBottom: 10,
+              }}
+            >
+              {inspect.groupLines.map((_, i) => (
+                <NumberChip
+                  key={i}
+                  index={i}
+                  slot={chipSlot.get(i) ?? null}
+                  onClick={() => onToggleIndex(i)}
+                />
+              ))}
+            </div>
+            <p style={{ ...dockSectionHint, margin: "0 0 10px" }}>
+              {labelA && labelB
+                ? `${labelA} ⇄ ${labelB}`
+                : pickSlot === "a"
+                  ? "1つ目の列番号を選んでください。"
+                  : "2つ目の列番号を選んでください。"}
+            </p>
+            <RankButton
+              disabled={!canRun}
+              title={
+                overlap
+                  ? "同じ列は両方に選べません"
+                  : canRun
+                    ? `${labelA}と${labelB}の前後を交換`
+                    : "1つ目と2つ目の列を選んでください"
               }
-              return (
-                <RankButton
-                  key={`${line}-${i}`}
-                  title={
-                    pair.noChange
-                      ? `${line}の前後は隣の列と同じです`
-                      : `${line}と次の列の前後を交換（左右は動かない）`
-                  }
-                  onClick={() =>
-                    onSwapPair(pair.colA, pair.colB, pair.noChange)
-                  }
-                >
-                  <span
-                    style={{
-                      display: "block",
-                      fontSize: 16,
-                      fontWeight: 800,
-                      color: "#e2e8f0",
-                    }}
-                  >
-                    {line}
-                  </span>
-                  <span
-                    style={{
-                      display: "block",
-                      marginTop: 3,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: pair.noChange ? "#64748b" : "#94a3b8",
-                    }}
-                  >
-                    {pair.noChange
-                      ? "変化なし"
-                      : `次の列と前後入れ替え · 移動 ${pair.movementLabel}`}
-                  </span>
-                </RankButton>
-              );
-            })}
-          </div>
+              onClick={() => onSwapSets([...selectedA], [...selectedB])}
+            >
+              前後を入れ替え
+            </RankButton>
+          </>
         ) : (
-          <p style={{ ...sectionHint, margin: 0 }}>
+          <p style={{ ...dockSectionHint, margin: 0 }}>
             列を判定するには、横位置が分かれる 2 人以上を選んでください。
           </p>
         )}
-      </div>
-
-      <div style={card}>
-        <div style={sectionTitle}>上手・下手の交代（前後はそのまま）</div>
-        <p style={sectionHint}>選択範囲の左右を反転します。前後は動きません。</p>
-        <RankButton title="選択範囲の左右を反転" onClick={onKamiteShimote}>
-          上手 ⇄ 下手
-        </RankButton>
-      </div>
-
-      <div style={{ ...card, marginBottom: 0 }}>
-        <div style={sectionTitle}>位置の入れ替え（2人以上）</div>
-        <p style={sectionHint}>
-          形はそのまま、人だけを重心まわりに 1 つずらします。
-        </p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-          <RankButton title="右回りに1人ずらす" onClick={() => onRotate("cw")}>
-            右回り 1人
-          </RankButton>
-          <RankButton title="左回りに1人ずらす" onClick={() => onRotate("ccw")}>
-            左回り 1人
-          </RankButton>
-        </div>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import type { DancerSpot } from "../types/choreography";
 import {
   adjacentDepthSwapPairs,
   circleMark,
+  formatRankIndexSetLabel,
   generateDepthSwapPreview,
   inspectFormationDepthSwap,
   layoutDepthGroupMarksOnStage,
@@ -154,6 +155,14 @@ describe("inspectFormationDepthSwap", () => {
   });
 });
 
+describe("formatRankIndexSetLabel", () => {
+  it("formats one rank and a consecutive pair", () => {
+    expect(formatRankIndexSetLabel([2], "列")).toBe("3列目");
+    expect(formatRankIndexSetLabel([3, 4], "列")).toBe("4・5列目");
+    expect(formatRankIndexSetLabel([9, 10], "段")).toBe("10・11段目");
+  });
+});
+
 describe("adjacentDepthSwapPairs", () => {
   it("is empty below 2 groups", () => {
     expect(adjacentDepthSwapPairs(0)).toEqual([]);
@@ -199,8 +208,8 @@ describe("depth group marks stay on people during preview", () => {
     );
     const frontMark = overlay.find((m) => m.dancerId === "front");
     const midMark = overlay.find((m) => m.dancerId === "mid");
-    expect(frontMark?.mark).toBe("①");
-    expect(midMark?.mark).toBe("②");
+    expect(frontMark?.mark).toBe("1");
+    expect(midMark?.mark).toBe("2");
     expect(midMark!.yPct).toBeGreaterThan(frontMark!.yPct);
 
     const reclusters = mapDancerDepthGroupMarks(
@@ -230,8 +239,8 @@ describe("depth group marks stay on people during preview", () => {
     );
     expect(overlay).toHaveLength(2);
     expect(overlay.map((m) => m.dancerId).sort()).toEqual(["a", "d"]);
-    expect(overlay.find((m) => m.dancerId === "a")?.mark).toBe("①");
-    expect(overlay.find((m) => m.dancerId === "d")?.mark).toBe("②");
+    expect(overlay.find((m) => m.dancerId === "a")?.mark).toBe("1");
+    expect(overlay.find((m) => m.dancerId === "d")?.mark).toBe("2");
     expect(overlay.find((m) => m.dancerId === "a")!.xPct).toBeLessThan(20);
   });
 });

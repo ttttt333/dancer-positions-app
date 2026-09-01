@@ -3,6 +3,7 @@ import {
   clusterSelectionColumns,
   detectSelectionColumnGroups,
   getSelectionSwapAxis,
+  swapSelectionColumnSetsDepth,
   swapSelectionColumnsDepth,
 } from "./stageColumnSwap";
 import type { DancerSpot } from "../types/choreography";
@@ -144,5 +145,46 @@ describe("cluster metadata", () => {
     const dancers = [spot("a", 30, 10), spot("b", 70, 10)];
     const cols = clusterSelectionColumns(dancers, dancers.map((d) => d.id));
     expect(cols).toHaveLength(2);
+  });
+});
+
+describe("swapSelectionColumnSetsDepth", () => {
+  it("swaps non-adjacent depth rows (3rd with 5th)", () => {
+    const dancers = [
+      spot("r1", 50, 80),
+      spot("r2", 50, 65),
+      spot("r3", 50, 50),
+      spot("r4", 50, 35),
+      spot("r5", 50, 20),
+    ];
+    const ids = dancers.map((d) => d.id);
+    expect(getSelectionSwapAxis(dancers, ids)).toBe("depth-rows");
+    const next = swapSelectionColumnSetsDepth(dancers, ids, [2], [4]);
+    const byId = new Map(next.map((d) => [d.id, d]));
+    expect(byId.get("r3")!.yPct).toBeCloseTo(20, 5);
+    expect(byId.get("r5")!.yPct).toBeCloseTo(50, 5);
+    expect(byId.get("r1")!.yPct).toBe(80);
+    expect(byId.get("r2")!.yPct).toBe(65);
+    expect(byId.get("r4")!.yPct).toBe(35);
+  });
+
+  it("swaps two rank blocks (4・5 with 10・11)", () => {
+    const dancers = Array.from({ length: 11 }, (_, i) =>
+      spot(`r${i + 1}`, 50, 80 - i * 6)
+    );
+    const ids = dancers.map((d) => d.id);
+    const next = swapSelectionColumnSetsDepth(dancers, ids, [3, 4], [9, 10]);
+    const byId = new Map(next.map((d) => [d.id, d]));
+    const ysA = [byId.get("r4")!.yPct, byId.get("r5")!.yPct].sort((a, b) => a - b);
+    const ysB = [byId.get("r10")!.yPct, byId.get("r11")!.yPct].sort(
+      (a, b) => a - b
+    );
+    const origB = [dancers[9]!.yPct, dancers[10]!.yPct].sort((a, b) => a - b);
+    const origA = [dancers[3]!.yPct, dancers[4]!.yPct].sort((a, b) => a - b);
+    expect(ysA[0]).toBeCloseTo(origB[0], 5);
+    expect(ysA[1]).toBeCloseTo(origB[1], 5);
+    expect(ysB[0]).toBeCloseTo(origA[0], 5);
+    expect(ysB[1]).toBeCloseTo(origA[1], 5);
+    expect(byId.get("r1")!.yPct).toBe(dancers[0]!.yPct);
   });
 });

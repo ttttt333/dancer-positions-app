@@ -84,6 +84,9 @@ export type StageMainFloorInteractionLayerProps = {
     e: ReactPointerEvent<HTMLDivElement>
   ) => void;
   depthGroupMarks?: readonly DepthGroupMarkOnStage[];
+  depthRankSelectedA?: readonly number[];
+  depthRankSelectedB?: readonly number[];
+  onDepthRankSelect?: (groupIndex: number) => void;
 };
 
 /** メイン床: 大道具・選択 UI・ゴースト印・本印・リサイズ・タップ編集オーバーレイ */
@@ -117,6 +120,9 @@ export function StageMainFloorInteractionLayer({
   tapStageToEditLayout,
   onTapEditOverlayPointerDown,
   depthGroupMarks = [],
+  depthRankSelectedA = [],
+  depthRankSelectedB = [],
+  onDepthRankSelect,
 }: StageMainFloorInteractionLayerProps) {
   const showDeleteHandles =
     Boolean(onDeleteSelectedDancers) &&
@@ -261,7 +267,13 @@ export function StageMainFloorInteractionLayer({
         })}
       {dancerMarkerElements}
       {depthGroupMarks.length > 0 && !playbackOrPreview ? (
-        <StageDepthGroupMarksOverlay marks={depthGroupMarks} rot={rot} />
+        <StageDepthGroupMarksOverlay
+          marks={depthGroupMarks}
+          rot={rot}
+          selectedA={depthRankSelectedA}
+          selectedB={depthRankSelectedB}
+          onSelectIndex={onDepthRankSelect}
+        />
       ) : null}
       {dancerLabelBelow &&
       primarySelectedDancer &&
