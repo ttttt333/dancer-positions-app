@@ -46,7 +46,6 @@ import { StagePrevCueCompareSummary } from "./StagePrevCueCompareOverlay";
 import {
   dockActionBtn,
   dockCard,
-  dockSectionHint,
   dockSectionTitle,
 } from "./stageDockPanelStyles";
 import { useMobileShellBridgeStore } from "../store/useMobileShellBridgeStore";
@@ -352,7 +351,6 @@ export function StageDancerContextToolbar({
 
   const colors = showAllColors ? DANCER_PALETTE : DANCER_PALETTE.slice(0, 8);
   const selectedColor = modDancerColorIndex(colorIndex);
-  const depthChrome = open === "depth" || previewKind === "depth";
   const dockExpanded = open != null || previewKind != null;
   const fillSideDock = Boolean(
     side && (previewKind || (multiEdit && open != null))
@@ -390,15 +388,10 @@ export function StageDancerContextToolbar({
         position: "relative",
         width: "100%",
         minWidth: 0,
-        height: side && fillSideDock ? "100%" : undefined,
         maxWidth: side ? "100%" : "min(100%, 640px)",
-        maxHeight: side
-          ? fillSideDock
-            ? "100%"
-            : "min(72vh, 680px)"
-          : undefined,
+        maxHeight: side && !fillSideDock ? "min(72vh, 680px)" : undefined,
         overflowX: "hidden",
-        overflowY: side ? (depthChrome ? "hidden" : "auto") : undefined,
+        overflowY: side && !fillSideDock ? "auto" : "visible",
         pointerEvents: "auto",
       }}
     >
@@ -1054,13 +1047,15 @@ export function StageDancerContextToolbar({
         {tidyAvailable && open === "tidy" ? (
           <div
             data-tidy-panel
-            style={{ ...popoverStyle(side), minWidth: side ? 0 : 280 }}
+            style={{
+              ...popoverStyle(side),
+              minWidth: 0,
+              marginTop: side ? 6 : 8,
+              padding: side ? 6 : 10,
+            }}
           >
-            <div style={{ ...dockCard, marginBottom: 0 }}>
-              <div style={dockSectionTitle}>整える</div>
-              <p style={dockSectionHint}>
-                選択した人の位置だけを動かします。形の雛形は変わりません。
-              </p>
+            <div style={{ ...dockCard, marginBottom: 0, padding: "8px 8px 10px" }}>
+              <div style={{ ...dockSectionTitle, marginBottom: 8 }}>整える</div>
               <div
                 style={{
                   display: "grid",
@@ -1119,7 +1114,14 @@ export function StageDancerContextToolbar({
           </div>
         ) : null}
         {multiEdit && open === "display" && setProject && applyBulkColorToDancerIds ? (
-          <div style={{ ...popoverStyle(side), minWidth: side ? 0 : 280 }}>
+          <div
+            style={{
+              ...popoverStyle(side),
+              minWidth: 0,
+              marginTop: side ? 6 : 8,
+              padding: side ? 6 : 10,
+            }}
+          >
             <StageSelectionDisplayPanel
               selectedCount={selectedCount}
               selectedDancerIds={selectedDancerIds}

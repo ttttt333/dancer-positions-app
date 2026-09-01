@@ -517,8 +517,7 @@ export function NeonIconPanel({
     flexShrink: 0,
     padding: "8px 10px",
     gap: 6,
-    overflowX: "hidden",
-    overflowY: "auto",
+    overflow: "hidden",
     height: "100%",
     minWidth: 0,
   };
@@ -526,17 +525,18 @@ export function NeonIconPanel({
   return (
     <div data-choreo-right-panel style={panelStyle}>
       <style>{`
+        [data-stage-edit-dock-host] {
+          flex-shrink: 0;
+        }
         [data-choreo-right-panel]:has([data-dock-fill]) [data-neon-tool-blocks] {
           display: none;
-        }
-        [data-choreo-right-panel]:has([data-dock-fill]) {
-          overflow: hidden;
         }
         [data-choreo-right-panel]:has([data-dock-fill]) [data-stage-edit-dock-host] {
           flex: 1 1 auto;
           min-height: 0;
           min-width: 0;
-          overflow: hidden;
+          overflow-x: hidden;
+          overflow-y: auto;
         }
       `}</style>
       {/* Collapse toggle button */}
@@ -573,9 +573,18 @@ export function NeonIconPanel({
         ref={registerStageEditDockHost}
         id="stage-edit-dock-host"
         data-stage-edit-dock-host
-        style={{ flexShrink: 0, width: "100%", minWidth: 0, overflow: "hidden" }}
+        style={{ width: "100%", minWidth: 0 }}
       />
-      <div data-neon-tool-blocks>
+      <div
+        data-neon-tool-blocks
+        style={{
+          flex: 1,
+          minHeight: 0,
+          minWidth: 0,
+          overflowX: "hidden",
+          overflowY: "auto",
+        }}
+      >
       {/* Block 1: 舞台・編集 (3×2) */}
       <div style={grid3}>
         <NeonBtn icon={<IconStage />} label={t("editor.comp.k101")} onClick={onOpenStageShapePicker} active={stageShapeActive} disabled={disabled} />

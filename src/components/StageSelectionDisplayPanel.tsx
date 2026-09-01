@@ -45,10 +45,9 @@ export function StageSelectionDisplayPanel({
 
   return (
     <div data-selection-display-panel>
-      <div style={dockCard}>
-        <div style={dockSectionTitle}>名前の表示</div>
-        <p style={dockSectionHint}>ステージ上のすべての印に共通です。</p>
-        <div style={{ display: "flex", gap: 8, marginBottom: dancerLabelBelow ? 10 : 0 }}>
+      <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
+        <div style={{ ...dockSectionTitle, marginBottom: 8 }}>名前の表示</div>
+        <div style={{ display: "flex", gap: 8, marginBottom: dancerLabelBelow ? 8 : 0 }}>
           {(["inside", "below"] as const).map((pos) => {
             const current = rawDancerLabelPosition ?? "inside";
             const on = current === pos;
@@ -136,8 +135,8 @@ export function StageSelectionDisplayPanel({
         )}
       </div>
 
-      <div style={{ ...dockCard, marginBottom: 0 }}>
-        <div style={dockSectionTitle}>印の色（選択に一括）</div>
+      <div style={{ ...dockCard, marginBottom: 0, padding: "8px 8px 10px" }}>
+        <div style={{ ...dockSectionTitle, marginBottom: 8 }}>印の色（選択に一括）</div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
           {colors.map((hex, i) => (
             <button
