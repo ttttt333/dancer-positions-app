@@ -31,4 +31,15 @@ describe("groupScaleForHandle", () => {
     // 南辺 70-10=60、sy=(60-50)/(70-50)=0.5
     expect(r1.sy).toBeCloseTo(0.5, 5);
   });
+
+  it("keeps aspect-ratio corners at scale 1 on grab, then follows pointer delta", () => {
+    const start = { x: 88, y: 78 };
+    const r0 = groupScaleForHandle("se", box, start.x, start.y, true, start);
+    expect(r0.sx).toBeCloseTo(1, 5);
+    expect(r0.sy).toBeCloseTo(1, 5);
+
+    const r1 = groupScaleForHandle("se", box, 94, 78, true, start);
+    expect(r1.sx).toBeCloseTo(1.2, 5);
+    expect(r1.sy).toBeCloseTo(1.2, 5);
+  });
 });

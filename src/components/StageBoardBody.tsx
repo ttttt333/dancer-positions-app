@@ -3185,8 +3185,12 @@ export function StageBoardBody({
         const el = stageMainFloorRef.current;
         if (!el) return;
         const rr = el.getBoundingClientRect();
-        const curXPct = clamp(((e.clientX - rr.left) / rr.width) * 100, 0, 100);
-        const curYPct = clamp(((e.clientY - rr.top) / rr.height) * 100, 0, 100);
+        const floorW = rr.width || 1;
+        const floorH = rr.height || 1;
+        const curXPct = ((e.clientX - rr.left) / floorW) * 100;
+        const curYPct = ((e.clientY - rr.top) / floorH) * 100;
+        const grabXPct = ((g.startClientX - rr.left) / floorW) * 100;
+        const grabYPct = ((g.startClientY - rr.top) / floorH) * 100;
         /**
          * コーナーハンドルは既定で比率（アスペクト保持）スケール。
          * 辺ハンドルは 1 軸のみ。Shift を押すと挙動を反転（コーナーでも 1 軸・辺でも比率保持）。
@@ -3203,6 +3207,7 @@ export function StageBoardBody({
           curXPct,
           curYPct,
           keepAspect,
+          { x: grabXPct, y: grabYPct },
         );
         const idSet = new Set(g.ids);
         queueFormationUpdate((f) => ({

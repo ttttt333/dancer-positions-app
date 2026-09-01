@@ -300,15 +300,16 @@ export const GROUP_BOX_HANDLES: readonly {
 
 /**
  * 群リサイズのハンドルからスケール係数と不動点（アンカー）を求める。
- * アンカーは常に選択ボックスの中心。ドラッグした辺／角が動く分だけ
- * センターからの距離比で拡大縮小する（センター基準の間隔調整に向く）。
+ * アンカーは常に選択ボックスの中心。白いハンドルは bbox より外側にあるため、
+ * 掴み始めた座標 `grab` からの差分だけ辺を動かし、掴んだ瞬間の倍率が 1 になる。
  */
 export function groupScaleForHandle(
   handle: GroupBoxHandle,
   startBox: { x0: number; y0: number; x1: number; y1: number },
   newX: number,
   newY: number,
-  keepAspect: boolean
+  keepAspect: boolean,
+  grab: { x: number; y: number }
 ): { sx: number; sy: number; ax: number; ay: number } {
   const cx = (startBox.x0 + startBox.x1) / 2;
   const cy = (startBox.y0 + startBox.y1) / 2;
@@ -332,15 +333,18 @@ export function groupScaleForHandle(
   const southDen = Math.max(0.001, startBox.y1 - cy);
   const northDen = Math.max(0.001, cy - startBox.y0);
 
+  const dx = newX - grab.x;
+  const dy = newY - grab.y;
+
   if (touchesE) {
-    sx = Math.max(0.05, (newX - cx) / eastDen);
+    sx = Math.max(0.05, (eastDen + dx) / eastDen);
   } else if (touchesW) {
-    sx = Math.max(0.05, (cx - newX) / westDen);
+    sx = Math.max(0.05, (westDen - dx) / westDen);
   }
   if (touchesS) {
-    sy = Math.max(0.05, (newY - cy) / southDen);
+    sy = Math.max(0.05, (southDen + dy) / southDen);
   } else if (touchesN) {
-    sy = Math.max(0.05, (cy - newY) / northDen);
+    sy = Math.max(0.05, (northDen - dy) / northDen);
   }
 
   if (!touchesE && !touchesW) sx = keepAspect ? sy : 1;
