@@ -12,6 +12,7 @@ import {
   groupFormationBoxByDateAndWork,
   listFormationBoxItems,
   renameFormationBoxItem,
+  renameFormationBoxWorkTitle,
   saveAllWorkFormationsToBox,
   saveFormationToBox,
   updateFormationBoxItem,
@@ -373,6 +374,9 @@ function GroupedItemList({ items, currentDancers, onRefresh }: GroupedListProps)
 function DateWorkGroupedList({ items, currentDancers, onRefresh }: GroupedListProps) {
   const groups = groupFormationBoxByDateAndWork(items);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
   const toggleGroup = (key: string) => {
     setCollapsed((prev) => {
@@ -381,6 +385,24 @@ function DateWorkGroupedList({ items, currentDancers, onRefresh }: GroupedListPr
       else next.add(key);
       return next;
     });
+  };
+
+  const startRenameWork = (key: string, workTitle: string) => {
+    setEditingKey(key);
+    setEditTitle(workTitle === "（作品名なし）" ? "" : workTitle);
+    setTimeout(() => titleInputRef.current?.focus(), 30);
+  };
+
+  const commitRenameWork = (groupItems: FormationBoxItem[]) => {
+    const next = editTitle.trim();
+    if (next) {
+      renameFormationBoxWorkTitle(
+        groupItems.map((x) => x.id),
+        next
+      );
+      onRefresh();
+    }
+    setEditingKey(null);
   };
 
   return (
@@ -398,55 +420,129 @@ function DateWorkGroupedList({ items, currentDancers, onRefresh }: GroupedListPr
 
       {groups.map((group) => {
         const isOpen = !collapsed.has(group.key);
+        const isEditing = editingKey === group.key;
         return (
           <div key={group.key}>
-            <button
-              type="button"
-              onClick={() => toggleGroup(group.key)}
+            <div
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: "7px",
                 width: "100%",
-                background: "none",
-                border: "none",
                 padding: "5px 0",
-                cursor: "pointer",
-                textAlign: "left",
               }}
             >
-              <span
+              <button
+                type="button"
+                onClick={() => toggleGroup(group.key)}
+                aria-expanded={isOpen}
+                aria-label={`${group.dateLabel} ${group.workTitle}を${isOpen ? "閉じる" : "開く"}`}
                 style={{
-                  fontSize: "11px",
-                  color: isOpen ? "#38bdf8" : "#64748b",
-                  display: "inline-block",
-                  transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
-                  lineHeight: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "7px",
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  cursor: "pointer",
+                  color: "inherit",
+                  flexShrink: 0,
                 }}
               >
-                ▶
-              </span>
-              <span
-                style={{
-                  fontSize: "12px",
-                  fontWeight: 700,
-                  color: isOpen ? "#cbd5e1" : "#64748b",
-                }}
-              >
-                {group.dateLabel} {group.workTitle}
-              </span>
-              <span style={{ fontSize: "11px", color: "#475569" }}>
-                {group.items.length}件
-              </span>
-              <span
-                style={{
-                  flex: 1,
-                  height: "1px",
-                  background: "#1e293b",
-                  marginLeft: "4px",
-                }}
-              />
-            </button>
+                <span
+                  style={{
+                    fontSize: "11px",
+                    color: isOpen ? "#38bdf8" : "#64748b",
+                    display: "inline-block",
+                    transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
+                    lineHeight: 1,
+                  }}
+                >
+                  ▶
+                </span>
+                <span
+                  style={{
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    color: isOpen ? "#cbd5e1" : "#64748b",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {group.dateLabel}
+                </span>
+              </button>
+              {isEditing ? (
+                <div style={{ display: "flex", gap: 6, flex: 1, minWidth: 0 }}>
+                  <input
+                    ref={titleInputRef}
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") commitRenameWork(group.items);
+                      if (e.key === "Escape") setEditingKey(null);
+                    }}
+                    placeholder="作品名"
+                    style={{ ...inputBase, fontSize: "13px", padding: "4px 8px" }}
+                  />
+                  <button
+                    type="button"
+                    style={btnPrimary}
+                    onClick={() => commitRenameWork(group.items)}
+                  >
+                    一括変更
+                  </button>
+                  <button
+                    type="button"
+                    style={btnSecondary}
+                    onClick={() => setEditingKey(null)}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    title="作品名を変えると、このグループのキュー名もまとめて変わります"
+                    onClick={() => startRenameWork(group.key, group.workTitle)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      cursor: "pointer",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      color: isOpen ? "#cbd5e1" : "#64748b",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      minWidth: 0,
+                      textAlign: "left",
+                    }}
+                  >
+                    {group.workTitle}
+                  </button>
+                  <button
+                    type="button"
+                    style={{ ...btnSecondary, padding: "3px 8px" }}
+                    onClick={() => startRenameWork(group.key, group.workTitle)}
+                  >
+                    作品名を変更
+                  </button>
+                  <span style={{ fontSize: "11px", color: "#475569", flexShrink: 0 }}>
+                    {group.items.length}件
+                  </span>
+                  <span
+                    style={{
+                      flex: 1,
+                      height: "1px",
+                      background: "#1e293b",
+                      marginLeft: "4px",
+                    }}
+                  />
+                </>
+              )}
+            </div>
             {isOpen && (
               <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                 {group.items.map((item) => (

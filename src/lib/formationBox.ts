@@ -450,6 +450,50 @@ export function renameFormationBoxItem(id: string, name: string): boolean {
   }
 }
 
+/**
+ * 同じ作品グループの作品名を一括変更し、まだ自動名（作品名 キューn）の立ち位置名も追従させる。
+ * 個別に改名済みの名前は、旧作品名で始まっているときだけ先頭を差し替える。
+ */
+export function renameFormationBoxWorkTitle(
+  itemIds: string[],
+  nextTitle: string
+): number {
+  const title = (nextTitle || "").trim().slice(0, 80);
+  if (!title || itemIds.length === 0) return 0;
+  const idSet = new Set(itemIds);
+  let changed = 0;
+  try {
+    writeAll(
+      safeParseAll().map((x) => {
+        if (!idSet.has(x.id)) return x;
+        const oldTitle = x.sourcePieceTitle?.trim() || "";
+        let name = x.name;
+        if (oldTitle && name.startsWith(oldTitle)) {
+          name = `${title}${name.slice(oldTitle.length)}`.slice(0, 120);
+        } else if (x.sourceCueOrdinal != null) {
+          const expected = defaultWorkCueFormationName(
+            oldTitle || "無題の作品",
+            x.sourceCueOrdinal
+          );
+          if (name === expected) {
+            name = defaultWorkCueFormationName(title, x.sourceCueOrdinal);
+          }
+        }
+        changed += 1;
+        return {
+          ...x,
+          name,
+          sourcePieceTitle: title,
+          updatedAt: Date.now(),
+        };
+      })
+    );
+    return changed;
+  } catch {
+    return 0;
+  }
+}
+
 /** 既存の形を現在のステージで上書き更新（同じ id、同じ人数） */
 export function updateFormationBoxItem(
   id: string,

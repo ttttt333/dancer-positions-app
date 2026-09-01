@@ -5,6 +5,7 @@ import {
   groupFormationBoxByDateAndWork,
   listFormationBoxItems,
   renameFormationBoxItem,
+  renameFormationBoxWorkTitle,
   saveAllWorkFormationsToBox,
   workFormationSnapshotsFromProject,
   type FormationBoxItem,
@@ -89,5 +90,29 @@ describe("work formation box save-all", () => {
     const item = listFormationBoxItems()[0] as FormationBoxItem;
     expect(renameFormationBoxItem(item.id, "オープニングV")).toBe(true);
     expect(listFormationBoxItems()[0]?.name).toBe("オープニングV");
+  });
+
+  it("renames the work title and follows auto cue names in bulk", () => {
+    saveAllWorkFormationsToBox({
+      pieceTitle: "春公演",
+      snapshots: [
+        { cueOrdinal: 1, dancers: [spot("a", 40, 50)] },
+        { cueOrdinal: 2, dancers: [spot("b", 60, 50)] },
+      ],
+    });
+    const items = listFormationBoxItems();
+    renameFormationBoxItem(items.find((x) => x.sourceCueOrdinal === 2)!.id, "サビ");
+    const n = renameFormationBoxWorkTitle(
+      items.map((x) => x.id),
+      "夏フェス"
+    );
+    expect(n).toBe(2);
+    const next = listFormationBoxItems().sort(
+      (a, b) => (a.sourceCueOrdinal ?? 0) - (b.sourceCueOrdinal ?? 0)
+    );
+    expect(next[0]?.sourcePieceTitle).toBe("夏フェス");
+    expect(next[0]?.name).toBe("夏フェス キュー1");
+    expect(next[1]?.name).toBe("サビ");
+    expect(next[1]?.sourcePieceTitle).toBe("夏フェス");
   });
 });
