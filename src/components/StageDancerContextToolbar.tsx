@@ -310,19 +310,8 @@ export function StageDancerContextToolbar({
   }, [open, previewKind]);
 
   useEffect(() => {
-    onDepthGuidesVisibleChange?.(
-      open === "depth" ||
-        depthPreviewActive ||
-        (side && formationEdit && !previewKind)
-    );
-  }, [
-    open,
-    depthPreviewActive,
-    side,
-    formationEdit,
-    previewKind,
-    onDepthGuidesVisibleChange,
-  ]);
+    onDepthGuidesVisibleChange?.(open === "depth" || depthPreviewActive);
+  }, [open, depthPreviewActive, onDepthGuidesVisibleChange]);
 
   useEffect(() => {
     return () => onDepthGuidesVisibleChange?.(false);
@@ -727,9 +716,10 @@ export function StageDancerContextToolbar({
                 形
               </button>
             ) : null}
-            {formationEdit && onBeginDepthPreview && !side ? (
+            {formationEdit && onBeginDepthPreview ? (
               <button
                 type="button"
+                data-ranks-entry
                 style={{
                   ...btn,
                   borderColor:
@@ -737,14 +727,14 @@ export function StageDancerContextToolbar({
                       ? "rgba(125,211,252,0.9)"
                       : BTN_BORDER,
                 }}
-                title="前後の立ち位置を交換"
+                title="隊列の列を表示して前後を入れ替える"
                 aria-expanded={open === "depth"}
                 onClick={() => {
                   setDepthNoChangePair(null);
                   setOpen((v) => (v === "depth" ? null : "depth"));
                 }}
               >
-                前後
+                隊列
               </button>
             ) : null}
             {tidyAvailable ? (
@@ -1194,8 +1184,13 @@ export function StageDancerContextToolbar({
             />
           </div>
         ) : null}
-        {formationEdit && !side && open === "depth" && depthSwapInspect ? (
-          <div style={{ ...popoverStyle(false), minWidth: 280 }}>
+        {formationEdit && open === "depth" && depthSwapInspect ? (
+          <div
+            style={{
+              ...popoverStyle(side),
+              minWidth: side ? 0 : 280,
+            }}
+          >
             <StageFormationRanksPanel
               inspect={depthSwapInspect}
               onSwapPair={(colA, colB, noChange) => {
@@ -1211,19 +1206,19 @@ export function StageDancerContextToolbar({
                 }
                 setDepthNoChangePair(null);
                 onBeginDepthPreview?.(colA, colB);
-                setOpen(null);
+                if (!side) setOpen(null);
               }}
               onKamiteShimote={() => onFlip?.("x")}
               onRotate={(dir) => {
                 onBeginRotationPreview?.(dir);
-                setOpen(null);
+                if (!side) setOpen(null);
               }}
             />
             {depthNoChangePair ? (
               <p
                 style={{
                   margin: "10px 0 0",
-                  fontSize: 12,
+                  fontSize: side ? 13 : 12,
                   color: "#fde68a",
                   lineHeight: 1.45,
                 }}
@@ -1236,53 +1231,6 @@ export function StageDancerContextToolbar({
           </div>
         ) : null}
       </div>
-      {side && formationEdit && !previewKind && depthSwapInspect ? (
-        <div style={{ marginTop: 10 }}>
-          <div
-            style={{
-              fontSize: 13,
-              fontWeight: 800,
-              color: "#e2e8f0",
-              margin: "0 0 8px",
-            }}
-          >
-            隊列
-          </div>
-          <StageFormationRanksPanel
-            inspect={depthSwapInspect}
-            onSwapPair={(colA, colB, noChange) => {
-              const pair = depthSwapInspect.pairs.find(
-                (x) => x.colA === colA && x.colB === colB
-              );
-              if (noChange && pair) {
-                setDepthNoChangePair({
-                  markA: pair.markA,
-                  markB: pair.markB,
-                });
-                return;
-              }
-              setDepthNoChangePair(null);
-              onBeginDepthPreview?.(colA, colB);
-            }}
-            onKamiteShimote={() => onFlip?.("x")}
-            onRotate={(dir) => onBeginRotationPreview?.(dir)}
-          />
-          {depthNoChangePair ? (
-            <p
-              style={{
-                margin: "10px 0 0",
-                fontSize: 13,
-                color: "#fde68a",
-                lineHeight: 1.45,
-              }}
-            >
-              {depthNoChangePair.markA} ⇄ {depthNoChangePair.markB}
-              <br />
-              前後位置が同じため、配置は変わりません。
-            </p>
-          ) : null}
-        </div>
-      ) : null}
       {prevCueCompareSummary && (prevCueCompareOn || prevCueMotionViewOn) ? (
         <StagePrevCueCompareSummary
           summary={prevCueCompareSummary}

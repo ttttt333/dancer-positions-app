@@ -24,6 +24,21 @@ const sectionHint: CSSProperties = {
   lineHeight: 1.45,
 };
 
+const rowCard: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  width: "100%",
+  padding: "12px 14px",
+  borderRadius: 10,
+  border: "1px solid #334155",
+  background: "#020617",
+  color: "#e2e8f0",
+  fontSize: 16,
+  fontWeight: 800,
+  minHeight: 48,
+  boxSizing: "border-box",
+};
+
 function RankButton({
   children,
   onClick,
@@ -68,7 +83,7 @@ export type StageFormationRanksPanelProps = {
 
 /**
  * ⋯「その他の操作」→ 隊列タブと同じカード構成。
- * 前後交代は 2 列をひとつのカッコでくくる。
+ * 列は1列ずつ並べ、2列を1つに括らない。
  */
 export function StageFormationRanksPanel({
   inspect,
@@ -86,76 +101,55 @@ export function StageFormationRanksPanel({
             : "横位置の縦列を自動判定し、選んだ列どうしの前後だけ入れ替えます。"}
           {inspect.summary ? `（${inspect.summary}）` : null}
         </p>
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 6,
-            marginBottom: 10,
-          }}
-        >
-          {inspect.groupLines.map((line) => (
-            <span
-              key={line}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                padding: "6px 10px",
-                borderRadius: 999,
-                border: "1px solid #334155",
-                background: "#020617",
-                color: "#e2e8f0",
-                fontSize: 13,
-                fontWeight: 700,
-              }}
-            >
-              {line}
-            </span>
-          ))}
-        </div>
-        {inspect.groupCount >= 2 ? (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns:
-                inspect.pairs.length >= 3 ? "1fr 1fr" : "1fr",
-              gap: 8,
-            }}
-          >
-            {inspect.pairs.map((pair) => (
-              <RankButton
-                key={`${pair.colA}-${pair.colB}`}
-                title={
-                  pair.noChange
-                    ? `${pair.pairLabel}は前後位置が同じです`
-                    : `${pair.pairLabel}の前後を交換（左右は動かない）`
-                }
-                onClick={() => onSwapPair(pair.colA, pair.colB, pair.noChange)}
-              >
-                <span
-                  style={{
-                    display: "block",
-                    fontSize: 14,
-                    fontWeight: 800,
-                    color: "#e2e8f0",
-                    letterSpacing: 0,
-                  }}
+        {inspect.groupCount >= 1 ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {inspect.groupLines.map((line, i) => {
+              const pair = inspect.pairs.find((p) => p.colA === i);
+              if (!pair) {
+                return (
+                  <div key={`${line}-${i}`} style={rowCard}>
+                    {line}
+                  </div>
+                );
+              }
+              return (
+                <RankButton
+                  key={`${line}-${i}`}
+                  title={
+                    pair.noChange
+                      ? `${line}の前後は隣の列と同じです`
+                      : `${line}と次の列の前後を交換（左右は動かない）`
+                  }
+                  onClick={() =>
+                    onSwapPair(pair.colA, pair.colB, pair.noChange)
+                  }
                 >
-                  {pair.pairLabel}
-                </span>
-                <span
-                  style={{
-                    display: "block",
-                    marginTop: 3,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: pair.noChange ? "#64748b" : "#94a3b8",
-                  }}
-                >
-                  {pair.noChange ? "変化なし" : `移動 ${pair.movementLabel}`}
-                </span>
-              </RankButton>
-            ))}
+                  <span
+                    style={{
+                      display: "block",
+                      fontSize: 16,
+                      fontWeight: 800,
+                      color: "#e2e8f0",
+                    }}
+                  >
+                    {line}
+                  </span>
+                  <span
+                    style={{
+                      display: "block",
+                      marginTop: 3,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: pair.noChange ? "#64748b" : "#94a3b8",
+                    }}
+                  >
+                    {pair.noChange
+                      ? "変化なし"
+                      : `次の列と前後入れ替え · 移動 ${pair.movementLabel}`}
+                  </span>
+                </RankButton>
+              );
+            })}
           </div>
         ) : (
           <p style={{ ...sectionHint, margin: 0 }}>
