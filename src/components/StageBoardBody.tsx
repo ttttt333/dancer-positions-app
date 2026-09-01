@@ -111,7 +111,6 @@ import { StageDancerContextMenuSheet } from "./StageDancerContextMenuSheet";
 import { StageBoardLayout } from "./StageBoardLayout";
 import { StageBoardShell } from "./StageBoardShell";
 import { StageBoardMainColumn } from "./StageBoardMainColumn";
-import { StageEditModeHeader } from "./StageEditModeHeader";
 import { StageDancerContextToolbar } from "./StageDancerContextToolbar";
 import { StageBoardPreviewFormationBanner } from "./StageBoardPreviewFormationBanner";
 import { StageBoardScreenOverlay } from "./StageBoardScreenOverlay";
@@ -5195,14 +5194,7 @@ export function StageBoardBody({
             show={Boolean(previewDancers && previewDancers.length > 0)}
           />
         }
-        editModeHeader={
-          canStageBulkTools ? (
-            <StageEditModeHeader
-              mode={stageEditMode}
-              cueOrdinal={editCueOrdinal}
-            />
-          ) : null
-        }
+        editModeHeader={null}
         stageFrame={
           <StageBoardStageFrame
             compactViewportChrome={compactViewportChrome}
