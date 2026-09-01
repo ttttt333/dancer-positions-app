@@ -1,6 +1,14 @@
 import { useState, type CSSProperties, type Dispatch, type SetStateAction } from "react";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { DANCER_COLOR_PALETTE_HEX as DANCER_PALETTE } from "../lib/dancerColorPalette";
+import {
+  NAME_BELOW_FONT_PX_MAX,
+  NAME_BELOW_FONT_PX_MIN,
+} from "../lib/stageNameBelowFontSizing";
+import {
+  MARKER_DIAMETER_PX_MAX,
+  MARKER_DIAMETER_PX_MIN,
+} from "../lib/projectDefaults";
 import { btnSecondary } from "./stageButtonStyles";
 import {
   dockActionBtn,
@@ -24,6 +32,66 @@ const markerActionBtn: CSSProperties = {
   overflowWrap: "normal",
 };
 
+function SizeSlider({
+  label,
+  value,
+  min,
+  max,
+  unit,
+  disabled,
+  onChange,
+  onGestureBegin,
+  onGestureEnd,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  unit: string;
+  disabled?: boolean;
+  onChange: (px: number) => void;
+  onGestureBegin?: () => void;
+  onGestureEnd?: () => void;
+}) {
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div
+        style={{
+          ...dockSectionTitle,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          gap: 8,
+        }}
+      >
+        <span>{label}</span>
+        <span style={{ color: "#e2e8f0", fontVariantNumeric: "tabular-nums" }}>
+          {value}
+          {unit}
+        </span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={value}
+        disabled={disabled}
+        aria-label={label}
+        onPointerDown={() => onGestureBegin?.()}
+        onPointerUp={() => onGestureEnd?.()}
+        onPointerCancel={() => onGestureEnd?.()}
+        onChange={(e) => onChange(Number(e.target.value))}
+        style={{
+          width: "100%",
+          margin: 0,
+          opacity: disabled ? 0.45 : 1,
+          cursor: disabled ? "not-allowed" : "pointer",
+        }}
+      />
+    </div>
+  );
+}
+
 export type StageSelectionDisplayPanelProps = {
   selectedCount: number;
   disabled?: boolean;
@@ -36,6 +104,12 @@ export type StageSelectionDisplayPanelProps = {
   applyBulkMarkerSame: (ids: string[], badgeRaw: string) => void;
   applyBulkMarkerCenterDistance: (ids: string[]) => void;
   selectedDancerIds: readonly string[];
+  markerPx: number;
+  nameFontPx: number;
+  onMarkerSizeChange: (px: number) => void;
+  onNameFontChange?: (px: number) => void;
+  onSizeGestureBegin?: () => void;
+  onSizeGestureEnd?: () => void;
 };
 
 export function StageSelectionDisplayPanel({
@@ -50,6 +124,12 @@ export function StageSelectionDisplayPanel({
   applyBulkMarkerSame,
   applyBulkMarkerCenterDistance,
   selectedDancerIds,
+  markerPx,
+  nameFontPx,
+  onMarkerSizeChange,
+  onNameFontChange,
+  onSizeGestureBegin,
+  onSizeGestureEnd,
 }: StageSelectionDisplayPanelProps) {
   const [showAllColors, setShowAllColors] = useState(false);
   const colors = showAllColors ? DANCER_PALETTE : DANCER_PALETTE.slice(0, PRIMARY_COLOR_COUNT);
@@ -152,6 +232,32 @@ export function StageSelectionDisplayPanel({
             「丸の下」にすると、丸の内に連番などを入れられます。
           </p>
         )}
+      </div>
+
+      <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
+        <div style={{ ...dockSectionTitle, marginBottom: 8 }}>大きさ</div>
+        <SizeSlider
+          label="丸の大きさ"
+          value={markerPx}
+          min={MARKER_DIAMETER_PX_MIN}
+          max={MARKER_DIAMETER_PX_MAX}
+          unit="px"
+          disabled={busy}
+          onChange={onMarkerSizeChange}
+          onGestureBegin={onSizeGestureBegin}
+          onGestureEnd={onSizeGestureEnd}
+        />
+        <SizeSlider
+          label="丸の下の名前"
+          value={nameFontPx}
+          min={NAME_BELOW_FONT_PX_MIN}
+          max={NAME_BELOW_FONT_PX_MAX}
+          unit="px"
+          disabled={busy || !onNameFontChange}
+          onChange={(px) => onNameFontChange?.(px)}
+          onGestureBegin={onSizeGestureBegin}
+          onGestureEnd={onSizeGestureEnd}
+        />
       </div>
 
       <div style={{ ...dockCard, marginBottom: 0, padding: "8px 8px 10px" }}>

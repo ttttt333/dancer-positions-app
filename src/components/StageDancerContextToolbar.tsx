@@ -1135,6 +1135,12 @@ export function StageDancerContextToolbar({
               applyBulkMarkerCenterDistance={
                 applyBulkMarkerCenterDistance ?? (() => {})
               }
+              markerPx={markerPx}
+              nameFontPx={nameFontPx}
+              onMarkerSizeChange={onMarkerSizeChange}
+              onNameFontChange={onNameFontChange}
+              onSizeGestureBegin={onSizeGestureBegin}
+              onSizeGestureEnd={onSizeGestureEnd}
             />
           </div>
         ) : null}
