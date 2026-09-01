@@ -13,7 +13,6 @@ import type { PositionRotationDir } from "../lib/stagePositionRotation";
 import {
   dockActionBtn,
   dockCard,
-  dockSectionHint,
   dockSectionTitle,
 } from "./stageDockPanelStyles";
 
@@ -45,13 +44,13 @@ function Segment<T extends string>({
             onClick={() => onChange(opt.id)}
             style={{
               flex: "1 1 0",
-              minWidth: 64,
-              padding: "9px 8px",
+              minWidth: 0,
+              padding: "8px 6px",
               borderRadius: 8,
               border: on ? "1px solid rgba(251,191,36,0.9)" : "1px solid #334155",
               background: on ? "rgba(251,191,36,0.16)" : "#020617",
               color: on ? "#fde68a" : "#94a3b8",
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: 600,
               cursor: "pointer",
             }}
@@ -99,12 +98,9 @@ export function StageSelectionArrangePanel({
 
   return (
     <div data-selection-arrange-panel>
-      <div style={dockCard}>
-        <div style={dockSectionTitle}>属性で並べ替え</div>
-        <p style={dockSectionHint}>
-          立ち位置の形はそのまま、人だけを入れ替えます。印の色は変わりません。
-        </p>
-        <div style={{ marginBottom: 10 }}>
+      <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
+        <div style={{ ...dockSectionTitle, marginBottom: 8 }}>属性で並べ替え</div>
+        <div style={{ marginBottom: 8 }}>
           <div style={dockSectionTitle}>軸</div>
           <Segment
             ariaLabel="並べ替えの軸"
@@ -117,7 +113,7 @@ export function StageSelectionArrangePanel({
             ]}
           />
         </div>
-        <div style={{ marginBottom: 10 }}>
+        <div style={{ marginBottom: 8 }}>
           <div style={dockSectionTitle}>範囲</div>
           <Segment
             ariaLabel="並べ替えの範囲"
@@ -130,7 +126,7 @@ export function StageSelectionArrangePanel({
             ]}
           />
         </div>
-        <div style={{ marginBottom: 10 }}>
+        <div style={{ marginBottom: 8 }}>
           <div style={dockSectionTitle}>方向</div>
           <Segment
             ariaLabel="並べ替えの方向"
@@ -144,14 +140,14 @@ export function StageSelectionArrangePanel({
         </div>
         <p
           style={{
-            margin: "0 0 10px",
-            padding: "10px 12px",
+            margin: "0 0 8px",
+            padding: "8px 10px",
             borderRadius: 8,
             background: "rgba(251,191,36,0.1)",
             border: "1px solid rgba(251,191,36,0.35)",
             color: "#fde68a",
-            fontSize: 13,
-            lineHeight: 1.45,
+            fontSize: 12,
+            lineHeight: 1.4,
             fontWeight: 600,
           }}
         >
@@ -174,9 +170,8 @@ export function StageSelectionArrangePanel({
         </button>
       </div>
 
-      <div style={dockCard}>
-        <div style={dockSectionTitle}>反転</div>
-        <p style={dockSectionHint}>選択範囲を鏡のようにひっくり返します。</p>
+      <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
+        <div style={{ ...dockSectionTitle, marginBottom: 8 }}>反転</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
           <button
             type="button"
@@ -200,11 +195,8 @@ export function StageSelectionArrangePanel({
       </div>
 
       {onBeginRotationPreview ? (
-        <div style={{ ...dockCard, marginBottom: 0 }}>
-          <div style={dockSectionTitle}>位置の入れ替え</div>
-          <p style={dockSectionHint}>
-            形はそのまま、人だけを重心まわりに 1 つずらします。
-          </p>
+        <div style={{ ...dockCard, marginBottom: 0, padding: "8px 8px 10px" }}>
+          <div style={{ ...dockSectionTitle, marginBottom: 8 }}>位置の入れ替え</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             <button
               type="button"

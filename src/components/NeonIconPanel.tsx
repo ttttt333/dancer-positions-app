@@ -526,16 +526,13 @@ export function NeonIconPanel({
   return (
     <div data-choreo-right-panel style={panelStyle}>
       <style>{`
-        [data-choreo-right-panel]:has([data-toolbar-open="depth"]) [data-neon-tool-blocks],
-        [data-choreo-right-panel]:has([data-preview-kind="depth"]) [data-neon-tool-blocks] {
+        [data-choreo-right-panel]:has([data-dock-fill]) [data-neon-tool-blocks] {
           display: none;
         }
-        [data-choreo-right-panel]:has([data-toolbar-open="depth"]),
-        [data-choreo-right-panel]:has([data-preview-kind="depth"]) {
+        [data-choreo-right-panel]:has([data-dock-fill]) {
           overflow: hidden;
         }
-        [data-choreo-right-panel]:has([data-toolbar-open="depth"]) [data-stage-edit-dock-host],
-        [data-choreo-right-panel]:has([data-preview-kind="depth"]) [data-stage-edit-dock-host] {
+        [data-choreo-right-panel]:has([data-dock-fill]) [data-stage-edit-dock-host] {
           flex: 1 1 auto;
           min-height: 0;
           min-width: 0;

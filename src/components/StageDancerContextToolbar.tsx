@@ -353,6 +353,10 @@ export function StageDancerContextToolbar({
   const colors = showAllColors ? DANCER_PALETTE : DANCER_PALETTE.slice(0, 8);
   const selectedColor = modDancerColorIndex(colorIndex);
   const depthChrome = open === "depth" || previewKind === "depth";
+  const dockExpanded = open != null || previewKind != null;
+  const fillSideDock = Boolean(
+    side && (previewKind || (multiEdit && open != null))
+  );
   const ariaLabel = previewKind
     ? previewKind === "shape"
       ? "形をプレビュー中"
@@ -376,6 +380,7 @@ export function StageDancerContextToolbar({
       }
       data-toolbar-open={open ?? undefined}
       data-preview-kind={previewKind ?? undefined}
+      data-dock-fill={fillSideDock ? "1" : undefined}
       data-edit-dock-placement={placement}
       role="toolbar"
       aria-label={ariaLabel}
@@ -385,9 +390,10 @@ export function StageDancerContextToolbar({
         position: "relative",
         width: "100%",
         minWidth: 0,
+        height: side && fillSideDock ? "100%" : undefined,
         maxWidth: side ? "100%" : "min(100%, 640px)",
         maxHeight: side
-          ? depthChrome
+          ? fillSideDock
             ? "100%"
             : "min(72vh, 680px)"
           : undefined,
@@ -396,7 +402,7 @@ export function StageDancerContextToolbar({
         pointerEvents: "auto",
       }}
     >
-      {!previewKind && !depthChrome && formationEdit ? (
+      {!previewKind && !dockExpanded && formationEdit ? (
         <div
           style={{
             ...caption,
@@ -410,7 +416,7 @@ export function StageDancerContextToolbar({
           {cueOrdinal != null ? ` · キュー ${cueOrdinal}` : ""}
         </div>
       ) : null}
-      {!previewKind && !depthChrome && groupEdit ? (
+      {!previewKind && !dockExpanded && groupEdit ? (
         <div
           style={{
             ...caption,
@@ -1088,7 +1094,14 @@ export function StageDancerContextToolbar({
           </div>
         ) : null}
         {multiEdit && open === "sort" && onArrangeSelection && onPermuteSelection ? (
-          <div style={{ ...popoverStyle(side), minWidth: side ? 0 : 280 }}>
+          <div
+            style={{
+              ...popoverStyle(side),
+              minWidth: 0,
+              marginTop: side ? 6 : 8,
+              padding: side ? 6 : 10,
+            }}
+          >
             <StageSelectionArrangePanel
               selectedCount={selectedCount}
               onPermute={onPermuteSelection}
