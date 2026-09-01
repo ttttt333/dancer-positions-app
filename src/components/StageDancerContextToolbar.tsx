@@ -352,6 +352,7 @@ export function StageDancerContextToolbar({
 
   const colors = showAllColors ? DANCER_PALETTE : DANCER_PALETTE.slice(0, 8);
   const selectedColor = modDancerColorIndex(colorIndex);
+  const depthChrome = open === "depth" || previewKind === "depth";
   const ariaLabel = previewKind
     ? previewKind === "shape"
       ? "形をプレビュー中"
@@ -373,6 +374,7 @@ export function StageDancerContextToolbar({
       data-toolbar-mode={
         formationEdit ? "formation" : groupEdit ? "group" : "dancer"
       }
+      data-toolbar-open={open ?? undefined}
       data-preview-kind={previewKind ?? undefined}
       data-edit-dock-placement={placement}
       role="toolbar"
@@ -382,13 +384,19 @@ export function StageDancerContextToolbar({
       style={{
         position: "relative",
         width: "100%",
+        minWidth: 0,
         maxWidth: side ? "100%" : "min(100%, 640px)",
-        maxHeight: side ? "min(72vh, 680px)" : undefined,
-        overflowY: side ? "auto" : undefined,
+        maxHeight: side
+          ? depthChrome
+            ? "100%"
+            : "min(72vh, 680px)"
+          : undefined,
+        overflowX: "hidden",
+        overflowY: side ? (depthChrome ? "hidden" : "auto") : undefined,
         pointerEvents: "auto",
       }}
     >
-      {!previewKind && formationEdit ? (
+      {!previewKind && !depthChrome && formationEdit ? (
         <div
           style={{
             ...caption,
@@ -402,7 +410,7 @@ export function StageDancerContextToolbar({
           {cueOrdinal != null ? ` · キュー ${cueOrdinal}` : ""}
         </div>
       ) : null}
-      {!previewKind && groupEdit ? (
+      {!previewKind && !depthChrome && groupEdit ? (
         <div
           style={{
             ...caption,
@@ -419,7 +427,19 @@ export function StageDancerContextToolbar({
       <div
         ref={barRef}
         style={{
-          ...(previewKind ? previewBar : barStyle),
+          ...(previewKind === "depth"
+            ? {
+                ...previewBar,
+                flexWrap: "wrap",
+                flexDirection: "column",
+                alignItems: "stretch",
+                minWidth: 0,
+                overflow: "hidden",
+                width: "100%",
+              }
+            : previewKind
+              ? previewBar
+              : barStyle),
           position: "relative",
         }}
       >
@@ -691,22 +711,46 @@ export function StageDancerContextToolbar({
             </div>
           </div>
         ) : previewKind === "depth" ? (
-          <>
-            <span
+          <div
+            data-depth-preview-chrome
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+              width: "100%",
+              minWidth: 0,
+              overflow: "hidden",
+              padding: side ? "4px 2px 2px" : "2px 2px 0",
+            }}
+          >
+            <div
               style={{
-                padding: "0 8px",
-                fontSize: 13,
-                fontWeight: 700,
+                fontSize: side ? 14 : 13,
+                fontWeight: 800,
                 color: "#e2e8f0",
-                whiteSpace: "nowrap",
+                lineHeight: 1.3,
               }}
             >
               前後をプレビュー中
-            </span>
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 8,
+                width: "100%",
+                minWidth: 0,
+              }}
+            >
               <button
                 type="button"
-                style={btn}
+                style={{
+                  ...btn,
+                  width: "100%",
+                  minWidth: 0,
+                  height: side ? 48 : 36,
+                  fontSize: side ? 14 : 12,
+                }}
                 title="プレビューを取り消す"
                 onClick={() => {
                   setOpen(null);
@@ -719,6 +763,10 @@ export function StageDancerContextToolbar({
                 type="button"
                 style={{
                   ...btn,
+                  width: "100%",
+                  minWidth: 0,
+                  height: side ? 48 : 36,
+                  fontSize: side ? 14 : 12,
                   borderColor: "rgba(52,211,153,0.9)",
                   color: "#6ee7b7",
                 }}
@@ -731,7 +779,7 @@ export function StageDancerContextToolbar({
                 適用
               </button>
             </div>
-          </>
+          </div>
         ) : (
           <>
             {multiEdit && (onBeginShapePreview || canOpenFormationPresets) ? (
@@ -1168,7 +1216,10 @@ export function StageDancerContextToolbar({
           <div
             style={{
               ...popoverStyle(side),
-              minWidth: side ? 0 : 280,
+              minWidth: 0,
+              marginTop: side ? 6 : 8,
+              padding: side ? 6 : 10,
+              overflow: "hidden",
             }}
           >
             <StageFormationRanksPanel

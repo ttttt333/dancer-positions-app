@@ -71,8 +71,8 @@ function NumberChip({
       title={`${index + 1}列目`}
       onClick={onClick}
       style={{
-        width: 40,
-        height: 40,
+        width: 44,
+        height: 44,
         borderRadius: "50%",
         padding: 0,
         border:
@@ -129,22 +129,20 @@ export function StageFormationRanksPanel({
 
   return (
     <div data-formation-ranks-panel>
-      <div style={{ ...dockCard, marginBottom: 0 }}>
-        <div style={dockSectionTitle}>列の前後交代（横位置はそのまま）</div>
-        <p style={dockSectionHint}>
-          舞台左の番号、または下の数字を選んでから実行します。3列目と5列目、4・5列目と10・11列目のようにまとめられます。
-          {inspect.summary ? `（${inspect.summary}）` : null}
-        </p>
+      <div style={{ ...dockCard, marginBottom: 0, padding: "8px 8px 10px" }}>
+        <div style={{ ...dockSectionTitle, marginBottom: 8, fontSize: 13 }}>
+          列の前後交代
+        </div>
         {inspect.groupCount >= 2 ? (
           <>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
               <button
                 type="button"
                 aria-pressed={pickSlot === "a"}
                 onClick={() => onPickSlot("a")}
                 style={{
                   ...btnSecondary,
-                  minHeight: 40,
+                  minHeight: 44,
                   fontWeight: 800,
                   border:
                     pickSlot === "a"
@@ -161,7 +159,7 @@ export function StageFormationRanksPanel({
                 onClick={() => onPickSlot("b")}
                 style={{
                   ...btnSecondary,
-                  minHeight: 40,
+                  minHeight: 44,
                   fontWeight: 800,
                   border:
                     pickSlot === "b"
@@ -175,10 +173,11 @@ export function StageFormationRanksPanel({
             </div>
             <div
               style={{
-                display: "flex",
-                flexWrap: "wrap",
+                display: "grid",
+                gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
                 gap: 8,
-                marginBottom: 10,
+                marginBottom: 8,
+                justifyItems: "center",
               }}
             >
               {inspect.groupLines.map((_, i) => (
@@ -190,7 +189,7 @@ export function StageFormationRanksPanel({
                 />
               ))}
             </div>
-            <p style={{ ...dockSectionHint, margin: "0 0 10px" }}>
+            <p style={{ ...dockSectionHint, margin: "0 0 8px", minHeight: 16 }}>
               {labelA && labelB
                 ? `${labelA} ⇄ ${labelB}`
                 : pickSlot === "a"

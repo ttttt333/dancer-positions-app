@@ -517,12 +517,31 @@ export function NeonIconPanel({
     flexShrink: 0,
     padding: "8px 10px",
     gap: 6,
+    overflowX: "hidden",
     overflowY: "auto",
     height: "100%",
+    minWidth: 0,
   };
 
   return (
-    <div style={panelStyle}>
+    <div data-choreo-right-panel style={panelStyle}>
+      <style>{`
+        [data-choreo-right-panel]:has([data-toolbar-open="depth"]) [data-neon-tool-blocks],
+        [data-choreo-right-panel]:has([data-preview-kind="depth"]) [data-neon-tool-blocks] {
+          display: none;
+        }
+        [data-choreo-right-panel]:has([data-toolbar-open="depth"]),
+        [data-choreo-right-panel]:has([data-preview-kind="depth"]) {
+          overflow: hidden;
+        }
+        [data-choreo-right-panel]:has([data-toolbar-open="depth"]) [data-stage-edit-dock-host],
+        [data-choreo-right-panel]:has([data-preview-kind="depth"]) [data-stage-edit-dock-host] {
+          flex: 1 1 auto;
+          min-height: 0;
+          min-width: 0;
+          overflow: hidden;
+        }
+      `}</style>
       {/* Collapse toggle button */}
       {onCollapseToggle && (
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 2 }}>
@@ -557,8 +576,9 @@ export function NeonIconPanel({
         ref={registerStageEditDockHost}
         id="stage-edit-dock-host"
         data-stage-edit-dock-host
-        style={{ flexShrink: 0, width: "100%" }}
+        style={{ flexShrink: 0, width: "100%", minWidth: 0, overflow: "hidden" }}
       />
+      <div data-neon-tool-blocks>
       {/* Block 1: 舞台・編集 (3×2) */}
       <div style={grid3}>
         <NeonBtn icon={<IconStage />} label={t("editor.comp.k101")} onClick={onOpenStageShapePicker} active={stageShapeActive} disabled={disabled} />
@@ -613,12 +633,12 @@ export function NeonIconPanel({
       {/* Spacer */}
       <div style={{ flex: 1 }} />
 
-      {/* Undo / Redo */}
-      <div style={{ borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: 4 }}>
-        <div style={grid3}>
-          <NeonBtn icon={<IconUndo />} label={t("editor.comp.k056")} onClick={onUndo} disabled={undoDisabled ?? disabled} />
-          <NeonBtn icon={<IconRedo />} label={t("editor.comp.k014")} onClick={onRedo} disabled={redoDisabled ?? disabled} />
-          <div />
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.04)", paddingTop: 4 }}>
+          <div style={grid3}>
+            <NeonBtn icon={<IconUndo />} label={t("editor.comp.k056")} onClick={onUndo} disabled={undoDisabled ?? disabled} />
+            <NeonBtn icon={<IconRedo />} label={t("editor.comp.k014")} onClick={onRedo} disabled={redoDisabled ?? disabled} />
+            <div />
+          </div>
         </div>
       </div>
     </div>
