@@ -20,10 +20,11 @@ import {
 } from "../../components/ChoreoViewerBottomBar";
 import { sortCuesByStart } from "../../core/timelineController";
 import { TransportIconUndo, TransportIconRedo } from "../../components/mobile/TransportIcons";
+import { useI18n } from "../../i18n/I18nContext";
 
 
 export function EditorThreePaneGrid(props: EditorLayoutProps) {
-  const activeFormationId = props.activeFormationId as never;
+  const { t } = useI18n();  const activeFormationId = props.activeFormationId as never;
   const addCueDialogEl = props.addCueDialogEl as never;
   const addDancerFromStageToolbar = props.addDancerFromStageToolbar as never;
   const aiSuggestOpen = props.aiSuggestOpen as never;
@@ -798,8 +799,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                         to="/update-log"
                         target="_blank"
                         rel="noopener noreferrer"
-                        title="お知らせ・アップデートログ"
-                        aria-label="UPDATE LOG（お知らせ）を開く"
+                        title={t("updateLog.openTitle")}
+                        aria-label={t("updateLog.openAria")}
                         style={{
                           ...btnSecondary,
                           display: "inline-flex",
@@ -1062,8 +1063,8 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="editor-stage-landscape-btn editor-stage-landscape-btn--updateLog"
-                      title="お知らせ・アップデートログ"
-                      aria-label="UPDATE LOG（お知らせ）を開く"
+                      title={t("updateLog.openTitle")}
+                      aria-label={t("updateLog.openAria")}
                     >
                       UPDATE LOG
                     </Link>

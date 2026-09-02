@@ -110,13 +110,14 @@ function FormationChangeButton({
 }
 
 function UpdateLogToolbarButton({ style }: { style: CSSProperties }) {
+  const { t } = useI18n();
   return (
     <Link
       to="/update-log"
       target="_blank"
       rel="noopener noreferrer"
-      title="お知らせ・アップデートログ"
-      aria-label="UPDATE LOG（お知らせ）を開く"
+      title={t("updateLog.openTitle")}
+      aria-label={t("updateLog.openAria")}
       style={{
         ...style,
         borderColor: "rgba(96, 165, 250, 0.55)",

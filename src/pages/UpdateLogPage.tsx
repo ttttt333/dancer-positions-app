@@ -3,13 +3,20 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { ChoreoCoreLogo } from "../components/ChoreoGridLogo";
 import { btnAccent, btnSecondary } from "../components/stageButtonStyles";
+import { useI18n } from "../i18n/I18nContext";
 import { shell } from "../theme/choreoShell";
 import {
   fetchUpdateLog,
   formatUpdateLogUpdatedAt,
+  pickUpdateLogBody,
   saveUpdateLog,
+  updateLogSourceDraft,
   type UpdateLogDoc,
 } from "../lib/updateLog";
+import {
+  translateUpdateLogBodies,
+  updateLogHasOtherLocales,
+} from "../lib/translateUpdateLog";
 
 const pageWrap: CSSProperties = {
   minHeight: "100dvh",
@@ -27,13 +34,16 @@ const card: CSSProperties = {
 
 export function UpdateLogPage() {
   const { me, ready } = useAuth();
+  const { t, locale } = useI18n();
   const [doc, setDoc] = useState<UpdateLogDoc | null>(null);
   const [draft, setDraft] = useState("");
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [savedFlash, setSavedFlash] = useState(false);
+  const [savedFlash, setSavedFlash] = useState<"full" | "partial" | false>(
+    false
+  );
 
   const email = me?.user?.email ?? null;
 
@@ -43,13 +53,13 @@ export function UpdateLogPage() {
     try {
       const next = await fetchUpdateLog(email);
       setDoc(next);
-      setDraft(next.body);
+      setDraft(updateLogSourceDraft(next));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "読み込みに失敗しました");
+      setError(e instanceof Error ? e.message : t("updateLog.loadFail"));
     } finally {
       setLoading(false);
     }
-  }, [email]);
+  }, [email, t]);
 
   useEffect(() => {
     if (!ready) return;
@@ -61,20 +71,34 @@ export function UpdateLogPage() {
     setError("");
     setSavedFlash(false);
     try {
-      const next = await saveUpdateLog(draft, email);
+      let bodies = { ja: draft };
+      let translatedOk = false;
+      try {
+        bodies = await translateUpdateLogBodies(draft);
+        translatedOk = updateLogHasOtherLocales(bodies);
+      } catch {
+        bodies = { ja: draft };
+      }
+      const next = await saveUpdateLog(draft, email, bodies);
       setDoc(next);
-      setDraft(next.body);
+      setDraft(updateLogSourceDraft(next));
       setEditing(false);
-      setSavedFlash(true);
-      window.setTimeout(() => setSavedFlash(false), 2500);
+      setSavedFlash(translatedOk ? "full" : "partial");
+      window.setTimeout(() => setSavedFlash(false), 2800);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "保存に失敗しました");
+      setError(e instanceof Error ? e.message : t("updateLog.saveFail"));
     } finally {
       setSaving(false);
     }
   };
 
   const canEdit = Boolean(doc?.canEdit);
+  const displayBody = doc ? pickUpdateLogBody(doc, locale) : "";
+  const updatedLabel = doc?.updatedAt
+    ? t("updateLog.updated", {
+        at: formatUpdateLogUpdatedAt(doc.updatedAt, locale),
+      })
+    : "";
 
   return (
     <div style={pageWrap}>
@@ -118,7 +142,7 @@ export function UpdateLogPage() {
               textDecoration: "none",
             }}
           >
-            ホーム
+            {t("updateLog.home")}
           </Link>
         </div>
       </header>
@@ -133,7 +157,7 @@ export function UpdateLogPage() {
             color: shell.accent,
           }}
         >
-          UPDATE LOG
+          {t("updateLog.kicker")}
         </p>
         <h1
           style={{
@@ -143,17 +167,15 @@ export function UpdateLogPage() {
             letterSpacing: "-0.02em",
           }}
         >
-          お知らせ・更新情報
+          {t("updateLog.title")}
         </h1>
         <p style={{ margin: "0 0 18px", fontSize: 13, color: shell.textMuted }}>
-          バージョンアップや修正の内容を掲載しています。
-          {doc?.updatedAt
-            ? ` 最終更新: ${formatUpdateLogUpdatedAt(doc.updatedAt)}`
-            : null}
+          {t("updateLog.lead")}
+          {updatedLabel ? ` ${updatedLabel}` : null}
           {doc?.source === "local"
-            ? "（この端末に保存）"
+            ? t("updateLog.sourceLocal")
             : doc?.source === "default"
-              ? "（初期文面）"
+              ? t("updateLog.sourceDefault")
               : null}
         </p>
 
@@ -184,7 +206,9 @@ export function UpdateLogPage() {
               fontSize: 13,
             }}
           >
-            更新しました
+            {savedFlash === "full"
+              ? t("updateLog.saved")
+              : t("updateLog.savedPartial")}
           </p>
         ) : null}
 
@@ -201,11 +225,11 @@ export function UpdateLogPage() {
               type="button"
               style={{ ...btnAccent, padding: "8px 14px", fontSize: 13 }}
               onClick={() => {
-                setDraft(doc?.body ?? "");
+                setDraft(updateLogSourceDraft(doc));
                 setEditing(true);
               }}
             >
-              編集する
+              {t("updateLog.edit")}
             </button>
           ) : null}
           {canEdit && editing ? (
@@ -216,19 +240,19 @@ export function UpdateLogPage() {
                 disabled={saving}
                 onClick={() => void onSave()}
               >
-                {saving ? "更新中…" : "更新する"}
+                {saving ? t("updateLog.translating") : t("updateLog.save")}
               </button>
               <button
                 type="button"
                 style={{ ...btnSecondary, padding: "8px 14px", fontSize: 13 }}
                 disabled={saving}
                 onClick={() => {
-                  setDraft(doc?.body ?? "");
+                  setDraft(updateLogSourceDraft(doc));
                   setEditing(false);
                   setError("");
                 }}
               >
-                キャンセル
+                {t("updateLog.cancel")}
               </button>
             </>
           ) : null}
@@ -238,34 +262,47 @@ export function UpdateLogPage() {
             disabled={loading || saving}
             onClick={() => void reload()}
           >
-            再読み込み
+            {t("updateLog.reload")}
           </button>
         </div>
 
         {loading && !doc ? (
-          <p style={{ color: shell.textMuted, fontSize: 13 }}>読み込み中…</p>
+          <p style={{ color: shell.textMuted, fontSize: 13 }}>
+            {t("updateLog.loading")}
+          </p>
         ) : editing ? (
-          <textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            spellCheck={false}
-            aria-label="アップデートログ本文"
-            style={{
-              width: "100%",
-              minHeight: "min(70vh, 640px)",
-              boxSizing: "border-box",
-              resize: "vertical",
-              padding: "16px 16px",
-              borderRadius: 12,
-              border: `1px solid ${shell.borderStrong}`,
-              background: shell.surface,
-              color: shell.text,
-              fontSize: 14,
-              lineHeight: 1.65,
-              fontFamily:
-                "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-            }}
-          />
+          <>
+            <p
+              style={{
+                margin: "0 0 8px",
+                fontSize: 12,
+                color: shell.textMuted,
+              }}
+            >
+              {t("updateLog.editSourceLabel")}
+            </p>
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              spellCheck={false}
+              aria-label={t("updateLog.bodyAria")}
+              style={{
+                width: "100%",
+                minHeight: "min(70vh, 640px)",
+                boxSizing: "border-box",
+                resize: "vertical",
+                padding: "16px 16px",
+                borderRadius: 12,
+                border: `1px solid ${shell.borderStrong}`,
+                background: shell.surface,
+                color: shell.text,
+                fontSize: 14,
+                lineHeight: 1.65,
+                fontFamily:
+                  "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+              }}
+            />
+          </>
         ) : (
           <article
             style={{
@@ -280,7 +317,7 @@ export function UpdateLogPage() {
               color: shell.text,
             }}
           >
-            {doc?.body?.trim() ? doc.body : "（まだお知らせはありません）"}
+            {displayBody.trim() ? displayBody : t("updateLog.empty")}
           </article>
         )}
 
@@ -293,10 +330,8 @@ export function UpdateLogPage() {
               lineHeight: 1.5,
             }}
           >
-            管理人モード: このページ上で文章を直接書き換えて「更新する」で公開できます。
-            {doc?.source !== "supabase"
-              ? " クラウド未接続・未設定のときはこの端末に保存されます（Supabase の 011_update_log と管理者メール登録後は全員に共有されます）。"
-              : null}
+            {t("updateLog.adminHint")} {t("updateLog.adminTranslateHint")}
+            {doc?.source !== "supabase" ? t("updateLog.adminHintLocal") : null}
           </p>
         ) : null}
       </main>
