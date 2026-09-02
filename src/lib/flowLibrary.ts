@@ -17,7 +17,11 @@ import {
   DANCER_STAGE_POSITION_PCT_LO,
 } from "./dancerSpacing";
 import { parseGapApproachRoute } from "./gapDancerInterpolation";
-import { clampStageGridAxisMm, parseAudienceEdge } from "./projectDefaults";
+import {
+  clampStageGridAxisMm,
+  createEmptyProject,
+  parseAudienceEdge,
+} from "./projectDefaults";
 import { MAX_DANCERS_PER_FORMATION } from "./dancerCountLimits";
 import {
   deleteFlowLibraryAudio,
@@ -1610,6 +1614,137 @@ export function expandFlowToProject(
       ? normalizeStageSettings(item.stageSettings) ?? null
       : null;
   return { formations, cues: cuesOut, activeFormationId, stageSettings };
+}
+
+/** 展開済みフローを現在のプロジェクトへ差し込む（ダイアログ読み込みとホームからの復元で共用） */
+export function mergeExpandedFlowIntoProject(
+  prev: ChoreographyProjectJson,
+  expanded: ExpandedFlow,
+  opts?: { keepPrevAudioIfMementoOmits?: boolean }
+): ChoreographyProjectJson {
+  const keepPrevAudio = opts?.keepPrevAudioIfMementoOmits !== false;
+  let next: ChoreographyProjectJson = {
+    ...prev,
+    formations: expanded.formations,
+    cues: expanded.cues,
+    activeFormationId: expanded.activeFormationId,
+  };
+  if (!expanded.memento) {
+    next = { ...next, crews: [] };
+  }
+  if (expanded.stageSettings) {
+    next = applyFlowStageSettingsToProject(next, expanded.stageSettings);
+  }
+  if (expanded.memento) {
+    const m = expanded.memento;
+    const embedKey =
+      typeof m.flowEmbeddedAudioKey === "string" && m.flowEmbeddedAudioKey.length > 0
+        ? m.flowEmbeddedAudioKey
+        : null;
+    let audioPatch: Pick<
+      ChoreographyProjectJson,
+      "audioAssetId" | "audioSupabasePath" | "flowLocalAudioKey"
+    >;
+    if (embedKey) {
+      audioPatch = {
+        audioAssetId: null,
+        audioSupabasePath: null,
+        flowLocalAudioKey: embedKey,
+      };
+    } else {
+      const sup =
+        typeof m.audioSupabasePath === "string" && m.audioSupabasePath.trim().length > 0
+          ? m.audioSupabasePath.trim()
+          : null;
+      if (sup) {
+        audioPatch = {
+          audioSupabasePath: sup,
+          audioAssetId: null,
+          flowLocalAudioKey: null,
+        };
+      } else {
+        const numericAid =
+          typeof m.audioAssetId === "number" && Number.isFinite(m.audioAssetId)
+            ? m.audioAssetId
+            : null;
+        if (numericAid != null) {
+          audioPatch = {
+            audioAssetId: numericAid,
+            audioSupabasePath: null,
+            flowLocalAudioKey: null,
+          };
+        } else if (keepPrevAudio) {
+          audioPatch = {
+            audioAssetId: prev.audioAssetId,
+            audioSupabasePath: prev.audioSupabasePath ?? null,
+            flowLocalAudioKey: null,
+          };
+        } else {
+          audioPatch = {
+            audioAssetId: null,
+            audioSupabasePath: null,
+            flowLocalAudioKey: null,
+          };
+        }
+      }
+    }
+    next = {
+      ...next,
+      crews: m.crews,
+      savedSpotLayouts: m.savedSpotLayouts,
+      ...(m.rosterStripSortMode != null
+        ? { rosterStripSortMode: m.rosterStripSortMode }
+        : {}),
+      ...(m.rosterHidesTimeline !== undefined
+        ? { rosterHidesTimeline: m.rosterHidesTimeline }
+        : {}),
+      ...(m.rosterStripCollapsed !== undefined
+        ? { rosterStripCollapsed: m.rosterStripCollapsed }
+        : {}),
+      pieceDancerCount: m.pieceDancerCount,
+      ...(m.dancerLabelPosition === "inside" || m.dancerLabelPosition === "below"
+        ? { dancerLabelPosition: m.dancerLabelPosition }
+        : {}),
+      ...(typeof m.dancerMarkerDiameterPx === "number" &&
+      Number.isFinite(m.dancerMarkerDiameterPx)
+        ? { dancerMarkerDiameterPx: m.dancerMarkerDiameterPx }
+        : {}),
+      ...audioPatch,
+      playbackRate: m.playbackRate,
+      trimStartSec: m.trimStartSec,
+      trimEndSec: m.trimEndSec,
+      ...(m.waveformAmplitudeScale != null &&
+      Number.isFinite(m.waveformAmplitudeScale)
+        ? { waveformAmplitudeScale: m.waveformAmplitudeScale }
+        : {}),
+    };
+  }
+  return ensureCrewsFromFormationsIfEmpty(next);
+}
+
+export function getFlowLibraryItem(id: string): FlowLibraryItem | null {
+  const key = id.trim();
+  if (!key) return null;
+  return listFlowLibraryItems().find((x) => x.id === key) ?? null;
+}
+
+/** ホームなどから端末ライブラリの 1 件を、新規エディタ用の作品データにする */
+export function materializeFlowLibraryItemAsProject(
+  item: FlowLibraryItem
+): ChoreographyProjectJson {
+  const expanded = expandFlowToProject(item, {
+    replaceTiming: true,
+    totalDurationSec:
+      item.memento?.audioDurationSec != null && item.memento.audioDurationSec > 0
+        ? item.memento.audioDurationSec
+        : null,
+    minCueLengthSec: 0.8,
+  });
+  const next = mergeExpandedFlowIntoProject(createEmptyProject(), expanded, {
+    keepPrevAudioIfMementoOmits: false,
+  });
+  const title = item.name.trim();
+  return title ? { ...next, pieceTitle: title.slice(0, 200) } : next;
 }
 
 /** バックアップ: フロー全件を JSON 文字列に（音源は含まない。`exportFlowLibraryJsonAsync` を推奨） */

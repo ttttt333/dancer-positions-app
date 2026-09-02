@@ -10,12 +10,11 @@ import { Link } from "react-router-dom";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import {
   FLOW_LIBRARY_CHANGE_EVENT,
-  applyFlowStageSettingsToProject,
-  ensureCrewsFromFormationsIfEmpty,
   type FlowLibraryItem,
   deleteFlowItem,
   expandFlowToProject,
   getFlowLibraryFirstFormation,
+  mergeExpandedFlowIntoProject,
   listFlowLibraryItems,
   overwriteFlowFromProjectAsync,
   renameFlowItem,
@@ -470,99 +469,12 @@ export function FlowLibraryDialog({
           });
           await yieldToMain();
           startTransition(() => {
-            setProject((prev) => {
-        let next: ChoreographyProjectJson = {
-          ...prev,
-          formations: expanded.formations,
-          cues: expanded.cues,
-          activeFormationId: expanded.activeFormationId,
-        };
-        /** memento 無し（旧フロー）のときは名簿を残さず、下で印から名簿を組み立てる */
-        if (!expanded.memento) {
-          next = { ...next, crews: [] };
-        }
-        if (expanded.stageSettings) {
-          next = applyFlowStageSettingsToProject(next, expanded.stageSettings);
-        }
-        if (expanded.memento) {
-          const m = expanded.memento;
-          const embedKey =
-            typeof m.flowEmbeddedAudioKey === "string" && m.flowEmbeddedAudioKey.length > 0
-              ? m.flowEmbeddedAudioKey
-              : null;
-          next = {
-            ...next,
-            crews: m.crews,
-            savedSpotLayouts: m.savedSpotLayouts,
-            ...(m.rosterStripSortMode != null
-              ? { rosterStripSortMode: m.rosterStripSortMode }
-              : {}),
-            ...(m.rosterHidesTimeline !== undefined
-              ? { rosterHidesTimeline: m.rosterHidesTimeline }
-              : {}),
-            ...(m.rosterStripCollapsed !== undefined
-              ? { rosterStripCollapsed: m.rosterStripCollapsed }
-              : {}),
-            pieceDancerCount: m.pieceDancerCount,
-            ...(m.dancerLabelPosition === "inside" || m.dancerLabelPosition === "below"
-              ? { dancerLabelPosition: m.dancerLabelPosition }
-              : {}),
-            ...(typeof m.dancerMarkerDiameterPx === "number" &&
-            Number.isFinite(m.dancerMarkerDiameterPx)
-              ? { dancerMarkerDiameterPx: m.dancerMarkerDiameterPx }
-              : {}),
-            ...(embedKey
-              ? {
-                  audioAssetId: null,
-                  audioSupabasePath: null,
-                  flowLocalAudioKey: embedKey,
-                }
-              : (() => {
-                  const sup =
-                    typeof m.audioSupabasePath === "string" && m.audioSupabasePath.trim().length > 0
-                      ? m.audioSupabasePath.trim()
-                      : null;
-                  if (sup) {
-                    return {
-                      audioSupabasePath: sup,
-                      audioAssetId: null,
-                      flowLocalAudioKey: null,
-                    };
-                  }
-                  const numericAid =
-                    typeof m.audioAssetId === "number" && Number.isFinite(m.audioAssetId)
-                      ? m.audioAssetId
-                      : null;
-                  if (numericAid != null) {
-                    return {
-                      audioAssetId: numericAid,
-                      audioSupabasePath: null,
-                      flowLocalAudioKey: null,
-                    };
-                  }
-                  /**
-                   * memento の `audioAssetId: null` は「保存時にサーバ音源が無かった」ことが多く、
-                   * ここで上書きすると既に読み込んでいるサーバ Blob を revoke しただけで `<audio>` が死 URLのままになり再生不能になる。
-                   * 数値が入っているときだけフロー側の id を採用する。Supabase パスも同様に、明示されているときだけ採用する。
-                   */
-                  return {
-                    audioAssetId: prev.audioAssetId,
-                    audioSupabasePath: prev.audioSupabasePath ?? null,
-                    flowLocalAudioKey: null,
-                  };
-                })()),
-            playbackRate: m.playbackRate,
-            trimStartSec: m.trimStartSec,
-            trimEndSec: m.trimEndSec,
-            ...(m.waveformAmplitudeScale != null &&
-            Number.isFinite(m.waveformAmplitudeScale)
-              ? { waveformAmplitudeScale: m.waveformAmplitudeScale }
-              : {}),
-          };
-        }
-        return ensureCrewsFromFormationsIfEmpty(next);
+            setProject((prev) =>
+              mergeExpandedFlowIntoProject(prev, expanded, {
+                keepPrevAudioIfMementoOmits: true,
+              })
+            );
           });
-        });
         const restoreDur =
           expanded.memento?.audioDurationSec != null &&
           expanded.memento.audioDurationSec > 0

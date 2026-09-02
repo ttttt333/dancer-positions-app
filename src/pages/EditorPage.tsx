@@ -287,8 +287,6 @@ function EditorPageContent({
     selectedCueIds.length === 0
       ? null
       : selectedCueIds[selectedCueIds.length - 1]!;
-  /** ライブラリの立ち位置サムネから `?cue=` で飛んできたとき、一度だけ選択・シークする */
-  const appliedLibraryCueRef = useRef<string | null>(null);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [flowLibraryOpen, setFlowLibraryOpen] = useState(false);
   /** 立ち位置保存ボタンから開く管理ダイアログ */
@@ -1202,41 +1200,9 @@ function EditorPageContent({
   }, []);
 
   useEffect(() => {
-    appliedLibraryCueRef.current = null;
-  }, [projectId]);
-
-  useEffect(() => {
     if (!project) return;
     if (project.cues.length === 0) {
       setSelectedCueIds((ids) => (ids.length === 0 ? ids : []));
-      return;
-    }
-    const requestedCueId = searchParams.get("cue");
-    if (
-      requestedCueId &&
-      appliedLibraryCueRef.current !== requestedCueId &&
-      cueById.has(requestedCueId)
-    ) {
-      appliedLibraryCueRef.current = requestedCueId;
-      const cue = cueById.get(requestedCueId)!;
-      setSelectedCueIds([requestedCueId]);
-      if (
-        project.rosterHidesTimeline ||
-        project.activeFormationId !== cue.formationId
-      ) {
-        markHistorySkipNextPush();
-        setProjectSafe({
-          ...project,
-          rosterHidesTimeline: false,
-          activeFormationId: cue.formationId,
-        });
-      }
-      pauseAndSeekPlaybackToSec({
-        tRaw: cue.tStartSec,
-        durationSec: usePlaybackUiStore.getState().durationSec,
-        trimStartSec: project.trimStartSec ?? 0,
-        trimEndSec: project.trimEndSec ?? null,
-      });
       return;
     }
     setSelectedCueIds((ids) => {
@@ -1267,15 +1233,7 @@ function EditorPageContent({
       }
       return next;
     });
-  }, [
-    project,
-    cueIdsSig,
-    cueById,
-    cuesSortedForStageJump,
-    searchParams,
-    setProjectSafe,
-    markHistorySkipNextPush,
-  ]);
+  }, [project, cueIdsSig, cueById, cuesSortedForStageJump]);
 
   /** 複数キューが同一フォーメーションを共有している旧データを、編集時に自動分離 */
   const sharedFormationSplitSigRef = useRef<string | null>(null);

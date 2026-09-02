@@ -27,6 +27,16 @@ import { normalizeProject } from "../../lib/normalizeProject";
 import { FREE_CLOUD_PROJECT_LIMIT, hasStripeCustomerId, isProMe } from "../../lib/supabaseBilling";
 import { getEntitlements } from "../../lib/entitlements";
 import { tryMigrateFromLocalStorage } from "../../lib/projectDefaults";
+import {
+  FLOW_LIBRARY_CHANGE_EVENT,
+  getFlowLibraryFirstFormation,
+  listFlowLibraryItems,
+  resolveFlowLibraryDancerCount,
+  resolveFlowLibraryDurationSec,
+  type FlowLibraryItem,
+} from "../../lib/flowLibrary";
+import { formatMmSsFloor } from "../../lib/timeFormat";
+import type { ProjectThumbDancer } from "../../lib/projectListSummary";
 import { shell } from "../../theme/choreoShell";
 import { homeIconBtn } from "./homeChrome";
 import { HomeSettingsView } from "./HomeSettingsView";
@@ -45,6 +55,34 @@ function formatUpdatedAt(iso: string): string {
   } catch {
     return iso;
   }
+}
+
+function formatFlowUpdatedAt(ms: number): string {
+  try {
+    const d = new Date(ms);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  } catch {
+    return "";
+  }
+}
+
+function flowPreviewDancers(item: FlowLibraryItem): ProjectThumbDancer[] {
+  const formation = getFlowLibraryFirstFormation(item);
+  return (formation?.dancers ?? []).map((d, i) => ({
+    xPct: d.xPct,
+    yPct: d.yPct,
+    colorIndex:
+      typeof d.colorIndex === "number" && Number.isFinite(d.colorIndex)
+        ? d.colorIndex
+        : i,
+  }));
+}
+
+function flowDurationLabel(item: FlowLibraryItem): string {
+  const sec = resolveFlowLibraryDurationSec(item);
+  if (sec == null || !Number.isFinite(sec) || sec <= 0) return "—";
+  return formatMmSsFloor(sec);
 }
 
 type Panel = "library" | "settings";
@@ -70,6 +108,23 @@ export function HomeLibrary() {
   const [complianceBusy, setComplianceBusy] = useState(false);
   const [complianceReport, setComplianceReport] =
     useState<FreePlanExcessReport | null>(null);
+  const [flowItems, setFlowItems] = useState<FlowLibraryItem[]>(() =>
+    typeof window === "undefined" ? [] : listFlowLibraryItems()
+  );
+
+  useEffect(() => {
+    const refresh = () => setFlowItems(listFlowLibraryItems());
+    refresh();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === null || e.key.includes("flow_library")) refresh();
+    };
+    window.addEventListener(FLOW_LIBRARY_CHANGE_EVENT, refresh);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(FLOW_LIBRARY_CHANGE_EVENT, refresh);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
 
   const legacyProject = useMemo(() => tryMigrateFromLocalStorage(), []);
   const projectLimit = isPro ? Infinity : FREE_CLOUD_PROJECT_LIMIT;
@@ -441,9 +496,63 @@ export function HomeLibrary() {
           <p style={{ color: "#fca5a5", marginBottom: 12 }}>{error}</p>
         ) : null}
 
-        <h2 className="home-library-section-label">{t("home.myLibrary")}</h2>
+        {flowItems.length > 0 ? (
+          <>
+            <h2 className="home-library-section-label">{t("home.myLibrary")}</h2>
+            <p className="home-library-section-hint">{t("home.flowLibraryHint")}</p>
+            <ul className="home-project-grid">
+              {flowItems.map((it) => {
+                const href = `/editor/new?flow=${encodeURIComponent(it.id)}`;
+                const dancerCount = resolveFlowLibraryDancerCount(it);
+                return (
+                  <li key={it.id} className="home-project-card">
+                    <Link to={href} className="home-project-link">
+                      <ProjectFormationThumb
+                        dancers={flowPreviewDancers(it)}
+                        size={200}
+                        fluid
+                      />
+                    </Link>
+                    <div className="home-project-body">
+                      <Link to={href} className="home-project-title-row">
+                        <span className="home-project-name">{it.name}</span>
+                        <span className="home-project-headcount">
+                          {t("editor.headcount")} {dancerCount}
+                        </span>
+                      </Link>
+                      <div className="home-project-meta">
+                        <span>
+                          {t("home.flowLibraryMeta", {
+                            cues: it.cueCount,
+                            dancers: dancerCount,
+                            dur: flowDurationLabel(it),
+                          })}
+                        </span>
+                      </div>
+                      <div className="home-project-meta">
+                        <span className="home-project-updated">
+                          {t("home.flowLibraryUpdated", {
+                            date: formatFlowUpdatedAt(it.updatedAt),
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            {projects.length > 0 ? (
+              <h2 className="home-library-section-label home-library-section-label--next">
+                {t("home.cloudLibrary")}
+              </h2>
+            ) : null}
+          </>
+        ) : (
+          <h2 className="home-library-section-label">{t("home.myLibrary")}</h2>
+        )}
 
         {projects.length === 0 && !error ? (
+          flowItems.length > 0 ? null : (
           <div className="home-empty">
             <p style={{ margin: 0 }}>{t("dashboard.emptyProjects")}</p>
             {!atProjectLimit ? (
@@ -461,82 +570,16 @@ export function HomeLibrary() {
               </Link>
             ) : null}
           </div>
+          )
         ) : (
           <ul className="home-project-grid">
-            {projects.map((p) => {
-              const hasCueThumbs = (p.cuePreviews?.length ?? 0) > 0;
-              const hasSavedSpots = (p.savedSpotPreviews?.length ?? 0) > 0;
-              const openHref =
-                hasCueThumbs && p.cuePreviews[0]
-                  ? `/editor/${p.id}?cue=${encodeURIComponent(p.cuePreviews[0].cueId)}`
-                  : `/editor/${p.id}`;
-              return (
+            {projects.map((p) => (
               <li key={p.id} className="home-project-card">
-                {hasCueThumbs ? (
-                  <div
-                    className={
-                      p.cuePreviews.length === 1
-                        ? "home-cue-strip is-solo"
-                        : "home-cue-strip"
-                    }
-                    role="list"
-                    aria-label={t("home.card.cueStrip")}
-                  >
-                    {p.cuePreviews.map((cue) => (
-                      <Link
-                        key={cue.cueId}
-                        to={`/editor/${p.id}?cue=${encodeURIComponent(cue.cueId)}`}
-                        className="home-cue-strip-item"
-                        role="listitem"
-                        title={
-                          cue.name
-                            ? `${t("editor.layout.cueName", { n: cue.ordinal })} · ${cue.name}`
-                            : t("editor.layout.cueName", { n: cue.ordinal })
-                        }
-                      >
-                        <ProjectFormationThumb
-                          dancers={cue.dancers}
-                          size={p.cuePreviews.length === 1 ? 200 : 88}
-                          fluid
-                        />
-                        <span className="home-cue-strip-label">
-                          {cue.name || t("editor.layout.cueName", { n: cue.ordinal })}
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <Link to={openHref} className="home-project-link">
-                    <ProjectFormationThumb dancers={p.previewDancers} size={200} fluid />
-                  </Link>
-                )}
-                {hasSavedSpots ? (
-                  <div
-                    className="home-cue-strip home-cue-strip--saved"
-                    role="list"
-                    aria-label={t("home.card.savedSpots")}
-                  >
-                    <span className="home-cue-strip-caption" aria-hidden>
-                      {t("home.card.savedSpots")}
-                    </span>
-                    {p.savedSpotPreviews.map((slot) => (
-                      <Link
-                        key={slot.slotId}
-                        to={openHref}
-                        className="home-cue-strip-item"
-                        role="listitem"
-                        title={slot.name || t("home.card.savedSpots")}
-                      >
-                        <ProjectFormationThumb dancers={slot.dancers} size={72} fluid />
-                        <span className="home-cue-strip-label">
-                          {slot.name || t("home.card.savedSpots")}
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-                ) : null}
+                <Link to={`/editor/${p.id}`} className="home-project-link">
+                  <ProjectFormationThumb dancers={p.previewDancers} size={200} fluid />
+                </Link>
                 <div className="home-project-body">
-                  <Link to={openHref} className="home-project-title-row">
+                  <Link to={`/editor/${p.id}`} className="home-project-title-row">
                     <span className="home-project-name">{p.name}</span>
                     <span className="home-project-headcount">
                       {t("editor.headcount")} {p.dancerCount}
@@ -574,8 +617,7 @@ export function HomeLibrary() {
                   </div>
                 </div>
               </li>
-              );
-            })}
+            ))}
           </ul>
         )}
       </main>

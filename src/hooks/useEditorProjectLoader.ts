@@ -9,6 +9,10 @@ import type { Location, NavigateFunction } from "react-router-dom";
 import { projectApi } from "../api/client";
 import { isSupabaseBackend } from "../lib/supabaseClient";
 import {
+  getFlowLibraryItem,
+  materializeFlowLibraryItemAsProject,
+} from "../lib/flowLibrary";
+import {
   createEmptyProject,
   tryMigrateFromLocalStorage,
 } from "../lib/projectDefaults";
@@ -105,13 +109,38 @@ export function useEditorProjectLoader({
     }
 
     if (projectId === "new" || !projectId) {
+      const search = new URLSearchParams(location.search);
+      const flowId = search.get("flow")?.trim();
+      if (flowId) {
+        const item = getFlowLibraryItem(flowId);
+        if (!item) {
+          setPlainProject(createEmptyProject());
+          setProjectName("無題の作品");
+          setServerId(null);
+          setServerShareToken(null);
+          setLoadError("端末ライブラリにその作品がありません");
+          onHistoryReset();
+          return;
+        }
+        const fromFlow = normalizeProject(materializeFlowLibraryItemAsProject(item));
+        setPlainProject(fromFlow);
+        setProjectName(fromFlow.pieceTitle?.trim() || item.name || "無題の作品");
+        const linkId = item.linkedServerProjectId;
+        setServerId(
+          typeof linkId === "number" && Number.isFinite(linkId) && linkId > 0
+            ? linkId
+            : null
+        );
+        setServerShareToken(null);
+        setLoadError(null);
+        onHistoryReset();
+        return;
+      }
       const migrated = tryMigrateFromLocalStorage();
       const draft = loadEditorDraft(null);
       const fromDraft =
         draft?.project != null ? normalizeProject(draft.project) : null;
-      const nameFromQuery = new URLSearchParams(location.search)
-        .get("name")
-        ?.trim();
+      const nameFromQuery = search.get("name")?.trim();
       const nextProject = fromDraft ?? migrated ?? createEmptyProject();
       const namedProject =
         nameFromQuery && !nextProject.pieceTitle?.trim()
