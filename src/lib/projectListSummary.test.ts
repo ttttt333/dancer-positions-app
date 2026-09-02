@@ -17,6 +17,37 @@ describe("summarizeProjectJson", () => {
     expect(summary.cueCount).toBe(2);
     expect(summary.previewDancers).toHaveLength(1);
     expect(summary.previewDancers[0]?.xPct).toBe(10);
+    expect(summary.cuePreviews).toHaveLength(2);
+    expect(summary.cuePreviews[0]).toMatchObject({
+      cueId: "c1",
+      ordinal: 1,
+      name: "A",
+    });
+    expect(summary.cuePreviews[1]?.cueId).toBe("c2");
+    expect(summary.cuePreviews[1]?.dancers[0]?.xPct).toBe(50);
+  });
+
+  it("includes saved spot layouts from the project file", () => {
+    const summary = summarizeProjectJson({
+      formations: [
+        { id: "f1", name: "A", dancers: [{ xPct: 10, yPct: 20, colorIndex: 0 }] },
+      ],
+      cues: [],
+      savedSpotLayouts: [
+        {
+          id: "slot-1",
+          name: "サビ",
+          dancers: [{ xPct: 30, yPct: 40, colorIndex: 2 }],
+        },
+      ],
+    });
+    expect(summary.savedSpotPreviews).toEqual([
+      {
+        slotId: "slot-1",
+        name: "サビ",
+        dancers: [{ xPct: 30, yPct: 40, colorIndex: 2 }],
+      },
+    ]);
   });
 
   it("returns empty summary for invalid json", () => {
@@ -24,6 +55,8 @@ describe("summarizeProjectJson", () => {
       dancerCount: 0,
       cueCount: 0,
       previewDancers: [],
+      cuePreviews: [],
+      savedSpotPreviews: [],
     });
   });
 });

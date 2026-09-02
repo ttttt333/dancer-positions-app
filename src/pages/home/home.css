@@ -654,6 +654,78 @@
   overflow: hidden;
 }
 
+.home-cue-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 8px 8px 4px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+}
+
+.home-cue-strip.is-solo {
+  display: block;
+  overflow: hidden;
+}
+
+.home-cue-strip--saved {
+  padding-top: 0;
+  border-top: 1px solid rgba(212, 175, 55, 0.08);
+}
+
+.home-cue-strip-caption {
+  flex: 0 0 auto;
+  align-self: center;
+  margin: 0 0 0 2px;
+  max-width: 4.5em;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #78716c;
+  letter-spacing: 0.02em;
+}
+
+.home-cue-strip-item {
+  flex: 0 0 76px;
+  width: 76px;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+}
+
+.home-cue-strip.is-solo .home-cue-strip-item {
+  display: block;
+  flex: none;
+  width: auto;
+  padding: 0;
+}
+
+.home-cue-strip.is-solo .home-cue-strip-item .home-project-thumb,
+.home-cue-strip.is-solo .home-cue-strip-item svg {
+  width: 100%;
+}
+
+.home-cue-strip-label {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #a8a29e;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-cue-strip.is-solo .home-cue-strip-label {
+  padding: 0 10px 2px;
+  text-align: left;
+  font-size: 11px;
+}
+
 .home-project-thumb {
   width: 100%;
   max-width: 100%;

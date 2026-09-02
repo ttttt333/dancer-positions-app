@@ -463,13 +463,80 @@ export function HomeLibrary() {
           </div>
         ) : (
           <ul className="home-project-grid">
-            {projects.map((p) => (
+            {projects.map((p) => {
+              const hasCueThumbs = (p.cuePreviews?.length ?? 0) > 0;
+              const hasSavedSpots = (p.savedSpotPreviews?.length ?? 0) > 0;
+              const openHref =
+                hasCueThumbs && p.cuePreviews[0]
+                  ? `/editor/${p.id}?cue=${encodeURIComponent(p.cuePreviews[0].cueId)}`
+                  : `/editor/${p.id}`;
+              return (
               <li key={p.id} className="home-project-card">
-                <Link to={`/editor/${p.id}`} className="home-project-link">
-                  <ProjectFormationThumb dancers={p.previewDancers} size={200} fluid />
-                </Link>
+                {hasCueThumbs ? (
+                  <div
+                    className={
+                      p.cuePreviews.length === 1
+                        ? "home-cue-strip is-solo"
+                        : "home-cue-strip"
+                    }
+                    role="list"
+                    aria-label={t("home.card.cueStrip")}
+                  >
+                    {p.cuePreviews.map((cue) => (
+                      <Link
+                        key={cue.cueId}
+                        to={`/editor/${p.id}?cue=${encodeURIComponent(cue.cueId)}`}
+                        className="home-cue-strip-item"
+                        role="listitem"
+                        title={
+                          cue.name
+                            ? `${t("editor.layout.cueName", { n: cue.ordinal })} · ${cue.name}`
+                            : t("editor.layout.cueName", { n: cue.ordinal })
+                        }
+                      >
+                        <ProjectFormationThumb
+                          dancers={cue.dancers}
+                          size={p.cuePreviews.length === 1 ? 200 : 88}
+                          fluid
+                        />
+                        <span className="home-cue-strip-label">
+                          {cue.name || t("editor.layout.cueName", { n: cue.ordinal })}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <Link to={openHref} className="home-project-link">
+                    <ProjectFormationThumb dancers={p.previewDancers} size={200} fluid />
+                  </Link>
+                )}
+                {hasSavedSpots ? (
+                  <div
+                    className="home-cue-strip home-cue-strip--saved"
+                    role="list"
+                    aria-label={t("home.card.savedSpots")}
+                  >
+                    <span className="home-cue-strip-caption" aria-hidden>
+                      {t("home.card.savedSpots")}
+                    </span>
+                    {p.savedSpotPreviews.map((slot) => (
+                      <Link
+                        key={slot.slotId}
+                        to={openHref}
+                        className="home-cue-strip-item"
+                        role="listitem"
+                        title={slot.name || t("home.card.savedSpots")}
+                      >
+                        <ProjectFormationThumb dancers={slot.dancers} size={72} fluid />
+                        <span className="home-cue-strip-label">
+                          {slot.name || t("home.card.savedSpots")}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                ) : null}
                 <div className="home-project-body">
-                  <Link to={`/editor/${p.id}`} className="home-project-title-row">
+                  <Link to={openHref} className="home-project-title-row">
                     <span className="home-project-name">{p.name}</span>
                     <span className="home-project-headcount">
                       {t("editor.headcount")} {p.dancerCount}
@@ -507,7 +574,8 @@ export function HomeLibrary() {
                   </div>
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </main>
