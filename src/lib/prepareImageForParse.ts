@@ -1,7 +1,6 @@
-/** 解析 API へ送る画像の最大辺（px） */
-/** Vision API タイムアウト回避のため 1024px 上限 */
-const PARSE_IMAGE_MAX_PX = 1024;
-const PARSE_IMAGE_JPEG_QUALITY = 0.88;
+/** 解析 API へ送る画像の最大辺（px）。手書きの丸＋名前が潰れないよう 1536。 */
+const PARSE_IMAGE_MAX_PX = 1536;
+const PARSE_IMAGE_JPEG_QUALITY = 0.92;
 
 /**
  * ファイル選択ダイアログ用。
@@ -321,10 +320,8 @@ export async function prepareImageFileForParse(file: File): Promise<PreparedPars
 
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, width, height);
-  // 手書き・薄い字を読みやすくする簡易コントラスト強調
-  ctx.filter = "grayscale(1) contrast(1.4) brightness(1.06)";
+  // ノート罫線を強調すると手書きの丸・名前が潰れるので、色のまま縮小だけする
   ctx.drawImage(sourceCanvas, 0, 0, width, height);
-  ctx.filter = "none";
 
   const base64 = await canvasToJpegBase64(out);
   return { base64, mimeType: "image/jpeg" };

@@ -262,7 +262,7 @@ export function ParsePositionFromPhotoDialog({
   ]);
 
   const memberNameHints = useMemo(
-    () => mergeNameHints(projectHintBuild.hints, uploadedHintBuild.hints),
+    () => mergeNameHints(uploadedHintBuild.hints, projectHintBuild.hints),
     [projectHintBuild.hints, uploadedHintBuild.hints]
   );
 

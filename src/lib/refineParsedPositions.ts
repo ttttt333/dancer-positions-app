@@ -1,9 +1,8 @@
 import {
   alignPositionsByRowCentered,
-  alignPositionsToLineColumnGrid,
   linesToParsedPositions,
 } from "./linesToParsedPositions";
-import { matchNameToRoster } from "./matchNameToRoster";
+import { matchNamesToRosterUnique } from "./matchNameToRoster";
 import type {
   CountMismatch,
   ParsedLine,
@@ -24,48 +23,70 @@ export function computeCountMismatches(lines: ParsedLine[]): CountMismatch[] {
   return mismatches;
 }
 
-/** API 応答を名簿名寄せ・列レイアウト補完済みに整える */
+function withRosterFlags(
+  p: ParsedPosition,
+  name: string,
+  matched: boolean,
+  originalName: string
+): ParsedPosition {
+  return {
+    ...p,
+    name,
+    confidence:
+      matched && originalName.trim() !== name
+        ? "low"
+        : p.confidence ?? (matched ? "high" : "low"),
+    rosterMatched: matched,
+  };
+}
+
+/**
+ * API 応答を名簿名寄せ・列レイアウト補完済みに整える。
+ * 手書きの lines があるときは座標より行構造を優先する（3-4-3-1 などが潰れない）。
+ */
 export function refineParsedPositions(
   raw: ParsePositionResponse,
   roster: string[]
 ): ParsePositionResponse {
   let lines = raw.lines ?? [];
   let positions = raw.positions ?? [];
-  const hadDiagramPositions = positions.length > 0;
-
-  if (positions.length === 0 && lines.length > 0) {
-    positions = linesToParsedPositions(lines);
-  }
-
-  if (roster.length > 0) {
-    positions = positions.map((p) => {
-      const m = matchNameToRoster(p.name, roster);
-      return {
-        ...p,
-        name: m.name,
-        confidence:
-          m.matched && m.original && m.original !== m.name
-            ? "low"
-            : p.confidence ?? (m.matched ? "high" : "low"),
-        rosterMatched: m.matched,
-      };
-    });
-
-    lines = lines.map((line) => ({
-      ...line,
-      names: line.names.map((n) => matchNameToRoster(n, roster).name),
-    }));
-  }
 
   if (lines.length > 0) {
-    if (
-      !hadDiagramPositions ||
-      positions.every((p) => p.lineIndex !== undefined)
-    ) {
-      positions = alignPositionsToLineColumnGrid(positions, lines);
+    const validLines = lines.filter(
+      (line) => Array.isArray(line.names) && line.names.length > 0
+    );
+    const flat = validLines.flatMap((line) =>
+      line.names.map((n) => String(n).trim()).filter(Boolean)
+    );
+    const snapped = matchNamesToRosterUnique(flat, roster);
+    let i = 0;
+    lines = validLines.map((line) => ({
+      ...line,
+      names: line.names
+        .map((n) => String(n).trim())
+        .filter(Boolean)
+        .map(() => {
+          const m = snapped[i]!;
+          i += 1;
+          return m.name;
+        }),
+    }));
+    positions = linesToParsedPositions(lines).map((p, idx) => {
+      const m = snapped[idx]!;
+      return withRosterFlags(p, m.name, m.matched, m.original ?? p.name);
+    });
+  } else {
+    const snapped = matchNamesToRosterUnique(
+      positions.map((p) => p.name),
+      roster
+    );
+    positions = positions.map((p, idx) => {
+      const m = snapped[idx]!;
+      return withRosterFlags(p, m.name, m.matched, m.original ?? p.name);
+    });
+    if (positions.length > 1) {
+      positions = alignPositionsByRowCentered(positions);
     }
-  } else if (positions.length > 1) {
-    positions = alignPositionsByRowCentered(positions);
   }
 
   const countMismatches =

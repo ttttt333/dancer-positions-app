@@ -94,18 +94,15 @@ export function dancersFromParsedPositions(
     );
     if (exact) return exact;
 
-    const partial = source.filter((d) => {
+    if (norm.length < 2) return undefined;
+
+    const prefixHits = source.filter((d) => {
       if (usedSourceIds.has(d.id)) return false;
       const n = normalizeNameForMatch(d.label);
-      if (!n) return false;
-      return (
-        n.startsWith(norm) ||
-        norm.startsWith(n) ||
-        n.includes(norm) ||
-        norm.includes(n)
-      );
+      if (!n || n.length < 2) return false;
+      return n.startsWith(norm) || norm.startsWith(n);
     });
-    return partial.length === 1 ? partial[0] : undefined;
+    return prefixHits.length === 1 ? prefixHits[0] : undefined;
   };
 
   return capped.map((p, i) => {

@@ -17,7 +17,16 @@ export function xForColumnCentered(colIdx: number, maxCols: number): number {
   return Math.round((left + (colIdx + 0.5) * step) * 100) / 100;
 }
 
-/** 手書きメモの「列」からステージ座標（%）へ変換。列番号は行をまたいで縦揃え。 */
+export function formationRowsAreRagged(rowLengths: number[]): boolean {
+  const uniq = new Set(rowLengths.filter((n) => n > 0));
+  return uniq.size > 1;
+}
+
+function colsForRow(rowLen: number, maxCols: number, ragged: boolean): number {
+  return ragged ? Math.max(rowLen, 1) : maxCols;
+}
+
+/** 手書きメモの「列」からステージ座標（%）へ変換。行人数が違うときは行ごとに中央揃え。 */
 export function linesToParsedPositions(lines: ParsedLine[]): ParsedPosition[] {
   const valid = lines.filter(
     (line) => Array.isArray(line.names) && line.names.length > 0
@@ -25,17 +34,20 @@ export function linesToParsedPositions(lines: ParsedLine[]): ParsedPosition[] {
   if (valid.length === 0) return [];
 
   const rowCount = valid.length;
-  const maxCols = Math.max(...valid.map((line) => line.names.length), 1);
+  const lengths = valid.map((line) => line.names.length);
+  const maxCols = Math.max(...lengths, 1);
+  const ragged = formationRowsAreRagged(lengths);
   const out: ParsedPosition[] = [];
 
   valid.forEach((line, rowIdx) => {
     const names = line.names.map((n) => String(n).trim()).filter(Boolean);
     const y = yForRow(rowIdx, rowCount);
+    const cols = colsForRow(names.length, maxCols, ragged);
 
     names.forEach((name, colIdx) => {
       out.push({
         name,
-        x: xForColumnCentered(colIdx, maxCols),
+        x: xForColumnCentered(colIdx, cols),
         y,
         confidence: "low",
         lineIndex: rowIdx,
@@ -55,7 +67,9 @@ export function alignPositionsToLineColumnGrid(
   if (!valid.length || !positions.length) return positions;
 
   const rowCount = valid.length;
-  const maxCols = Math.max(...valid.map((l) => l.names.length), 1);
+  const lengths = valid.map((l) => l.names.length);
+  const maxCols = Math.max(...lengths, 1);
+  const ragged = formationRowsAreRagged(lengths);
   const byLine = new Map<number, ParsedPosition[]>();
 
   for (const p of positions) {
@@ -75,6 +89,7 @@ export function alignPositionsToLineColumnGrid(
     const rowPositions = byLine.get(rowIdx) ?? [];
     const y = yForRow(rowIdx, rowCount);
     const names = line.names.map((n) => String(n).trim()).filter(Boolean);
+    const cols = colsForRow(names.length, maxCols, ragged);
 
     const ordered =
       rowPositions.length === names.length
@@ -85,7 +100,7 @@ export function alignPositionsToLineColumnGrid(
       used.add(p);
       realigned.push({
         ...p,
-        x: xForColumnCentered(colIdx, maxCols),
+        x: xForColumnCentered(colIdx, cols),
         y,
         lineIndex: rowIdx,
       });
@@ -99,18 +114,31 @@ export function alignPositionsToLineColumnGrid(
   return realigned;
 }
 
-function clusterPositionsByRow(
-  positions: ParsedPosition[],
-  tolerance = 6
+/**
+ * Y の隙間で行を切る。固定 % だと手書きの 3-4-3-1 が 1-3-5-2 に潰れる。
+ */
+export function clusterPositionsByRow(
+  positions: ParsedPosition[]
 ): ParsedPosition[][] {
   const sorted = [...positions].sort((a, b) => a.y - b.y || a.x - b.x);
-  const rows: ParsedPosition[][] = [];
-  for (const p of sorted) {
-    const last = rows[rows.length - 1];
-    if (!last?.length || Math.abs(p.y - last[0]!.y) > tolerance) {
-      rows.push([p]);
+  if (sorted.length === 0) return [];
+  if (sorted.length === 1) return [sorted];
+
+  const gaps: number[] = [];
+  for (let i = 1; i < sorted.length; i += 1) {
+    gaps.push(sorted[i]!.y - sorted[i - 1]!.y);
+  }
+
+  const sortedGaps = [...gaps].sort((a, b) => a - b);
+  const median = sortedGaps[Math.floor(sortedGaps.length / 2)] ?? 0;
+  const threshold = Math.max(4.5, median * 2.2);
+
+  const rows: ParsedPosition[][] = [[sorted[0]!]];
+  for (let i = 1; i < sorted.length; i += 1) {
+    if (gaps[i - 1]! > threshold) {
+      rows.push([sorted[i]!]);
     } else {
-      last.push(p);
+      rows[rows.length - 1]!.push(sorted[i]!);
     }
   }
   return rows;
@@ -123,18 +151,22 @@ export function alignPositionsByRowCentered(
   if (positions.length <= 1) return positions;
 
   const rows = clusterPositionsByRow(positions);
-  const maxCols = Math.max(...rows.map((r) => r.length), 1);
+  const lengths = rows.map((r) => r.length);
+  const maxCols = Math.max(...lengths, 1);
+  const ragged = formationRowsAreRagged(lengths);
   const rowCount = rows.length;
   const out: ParsedPosition[] = [];
 
   rows.forEach((row, rowIdx) => {
     const sorted = [...row].sort((a, b) => a.x - b.x);
     const y = yForRow(rowIdx, rowCount);
+    const cols = colsForRow(sorted.length, maxCols, ragged);
     sorted.forEach((p, colIdx) => {
       out.push({
         ...p,
-        x: xForColumnCentered(colIdx, maxCols),
+        x: xForColumnCentered(colIdx, cols),
         y,
+        lineIndex: rowIdx,
       });
     });
   });

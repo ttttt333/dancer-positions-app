@@ -7,25 +7,25 @@ function buildSystemPrompt(memberNameHints) {
 
   const rosterBlock =
     roster.length > 0
-      ? `\n【名簿候補 — 誰の名前か特定するためのリスト。出力する文字列は画像に実際に書かれている表記をそのまま使う。候補は名簿の中から選ぶが、フルネームへ勝手に書き換えない】\n[${roster.join(", ")}]\n`
+      ? `\n【名簿候補 — 手書きの読み取りと同一人物の特定に使う。明らかに同じ人物なら名簿の表記を出力する。似ているだけの別人には割り当てない。画像にいない人を名簿から足さない】\n[${roster.join(", ")}]\n`
       : "";
 
   return `あなたはダンス公演の舞台配置図（フォーメーション図）をデジタル化する専門アシスタントです。
-手書きメモ・方眼紙・デジタル立ち位置図の文字とマーカーを読み取ります。これは芸術公演の制作資料です。
+手書きメモ・ノート・方眼紙・デジタル立ち位置図の文字とマーカーを読み取ります。これは芸術公演の制作資料です。
 ${rosterBlock}
 解析手順（この順で内部的に考えてから JSON を出力）:
-1. 画像右端や行の横に書かれた「列の人数」（例: 4, 8, 7）を先にすべて読み取る
-2. 上から下へ各行の名前を、画像に書かれた文字どおりに読み取る（名簿は誰かの特定にのみ使う）
-3. 各行の names の数は count と一致させる（不足分は名簿から推測して埋める）
-4. デジタル図（色付き丸・番号）の場合は各丸の中心座標 x,y（0〜100%）も positions に入れる
+1. 人は「小さな丸（○・●）＋すぐ下（または中）の名前」の組で数える。右端に人数が書いてあれば検算する。書いていなければ丸の数だけが count
+2. 行は画像の上から下。上が舞台奥、下が客席（手前）。各行の人数は独立（例: 奥から 1-3-4-3、手前から数えると 3-4-3-1）
+3. 各行の names は左から右。count はその行の丸の数と一致させる
+4. 名簿があるとき: 手書きが名簿のどれかと明らかに同じ人物なら、その名簿の表記を使う。似ているだけの別人（かえで≠かんな、たけし≠たいち、あおい≠ありす）には割り当てない。同じ名簿名を2人に使わない
+5. 人数が足りないからといって名簿の未使用名を埋めない。右端に数字が書いてあり、その人数だけ丸が見えるときだけ補完する
+6. デジタル図（色付き丸）なら各丸の中心 x,y（画像の幅・高さに対する 0〜100%）も positions に入れる
 
 ルール:
-- names / positions.name は画像の表記をそのまま出力する（苗字だけなら苗字だけ、名前だけなら名前だけ）
-- 名簿は同一人物の特定に使う。画像にないフルネームを勝手に補完しない
-- 不明瞭な字・かすれ・汚れは名簿候補から推測してよいが、出力は画像の書き方に合わせる
-- 文字の上の小さな丸（○）は無視
+- 手書きメモでは lines を必ず返す（行構造が精度の本体）
+- デジタル図では positions を必ず返す
+- ノートの罫線・影・汚れは人ではない
 - 絶対に「読み取れない」と返さず、必ず JSON を返す
-- 手書きメモでは lines を必ず返す。デジタル図では positions を必ず返す。両方該当すれば両方
 
 必ず JSON のみ:
 {
@@ -49,13 +49,14 @@ function buildUserPrompt(memberNameHints) {
 
   let text =
     "添付画像を解析してください。\n" +
-    "1) 右端の数字を列の人数（count）として読み取る\n" +
-    "2) 各行の名前を画像に書かれた表記のまま lines に入れる\n" +
-    "3) 丸印がある図なら positions に座標も入れる";
+    "1) 丸＋名前の組を人として数える。右端の数字は書いてあるときだけ検算\n" +
+    "2) 行は画像の上（舞台奥）から下（客席）。各行の人数は独立。例: 1,3,4,3\n" +
+    "3) 各行 names は左→右。手書きなら lines を必ず返す\n" +
+    "4) 名簿は読み取りの手がかり。別人の似た名前には割り当てない";
 
   if (roster.length > 0) {
     text +=
-      "\n\n名簿候補（誰の名前か特定する用。出力は画像の表記どおり）:\n" +
+      "\n\n名簿候補（読み取りの手がかり。明らかに同じ人物ならこの表記を使う。似ている別人には使わない）:\n" +
       roster.map((n) => `・${n}`).join("\n");
   }
 
@@ -89,57 +90,51 @@ function levenshtein(a, b) {
   return row[b.length];
 }
 
-function snapNameToRoster(rawName, roster) {
-  const original = String(rawName ?? "").trim();
-  if (!original || !roster.length) {
-    return { name: original || "Unknown", matched: false, original };
-  }
-
-  const normIn = normalizeNameForMatch(original);
+function uniqueRosterLabels(roster) {
+  const seen = new Set();
+  const out = [];
   for (const candidate of roster) {
-    const normC = normalizeNameForMatch(candidate);
-    if (normC === normIn) {
-      return {
-        name: pickDisplayNameFromMatch(original, candidate),
-        matched: true,
-        original,
-      };
-    }
-    if (
-      normIn.startsWith(normC) ||
-      normC.startsWith(normIn) ||
-      normIn.includes(normC) ||
-      normC.includes(normIn)
-    ) {
-      return {
-        name: pickDisplayNameFromMatch(original, candidate),
-        matched: true,
-        original,
-      };
-    }
+    const norm = normalizeNameForMatch(candidate);
+    if (!norm || seen.has(norm)) continue;
+    seen.add(norm);
+    out.push(candidate);
   }
+  return out;
+}
 
-  let best = roster[0];
-  let bestDist = Infinity;
-  for (const candidate of roster) {
-    const d = levenshtein(normIn, normalizeNameForMatch(candidate));
-    if (d < bestDist) {
-      bestDist = d;
-      best = candidate;
-    }
+function editDistanceThreshold(a, b) {
+  const maxLen = Math.max(a.length, b.length);
+  if (maxLen <= 3) return 1;
+  return Math.max(1, Math.ceil(maxLen * 0.25));
+}
+
+function allowFuzzyDistance(a, b, d) {
+  if (d <= 0) return false;
+  const maxLen = Math.max(a.length, b.length);
+  if (maxLen <= 3) {
+    if (d !== 1) return false;
+    return a.length >= 2 && b.length >= 2 && a.slice(0, 2) === b.slice(0, 2);
   }
+  return d <= editDistanceThreshold(a, b);
+}
 
-  const threshold =
-    normIn.length <= 3 ? 2 : Math.max(2, Math.ceil(normIn.length * 0.45));
-  if (bestDist <= threshold) {
-    return {
-      name: pickDisplayNameFromMatch(original, best),
-      matched: true,
-      original,
-    };
+function scoreNameToRosterCandidate(rawName, candidate) {
+  const normIn = normalizeNameForMatch(rawName);
+  const normC = normalizeNameForMatch(candidate);
+  if (!normIn || !normC) return null;
+  if (normIn === normC) return 0;
+  const shorter = normIn.length <= normC.length ? normIn : normC;
+  const longer = normIn.length <= normC.length ? normC : normIn;
+  if (
+    shorter.length >= 2 &&
+    longer.startsWith(shorter) &&
+    longer.length > shorter.length
+  ) {
+    return 0.5;
   }
-
-  return { name: original, matched: false, original };
+  const d = levenshtein(normIn, normC);
+  if (allowFuzzyDistance(normIn, normC, d)) return d;
+  return null;
 }
 
 function pickDisplayNameFromMatch(original, matchedHint) {
@@ -151,8 +146,48 @@ function pickDisplayNameFromMatch(original, matchedHint) {
   const normH = normalizeNameForMatch(hint);
   if (normO === normH) return raw;
   if (normO.startsWith(normH) || normH.startsWith(normO)) return raw;
-  if (normO.includes(normH) || normH.includes(normO)) return raw;
   return hint;
+}
+
+function snapNamesToRosterUnique(names, roster) {
+  const results = names.map((raw) => {
+    const original = String(raw ?? "").trim();
+    return { name: original || "Unknown", matched: false, original };
+  });
+  if (!roster.length) return results;
+  const rosterUnique = uniqueRosterLabels(roster);
+
+  const usedNorm = new Set();
+  const assignPass = (allow) => {
+    for (let i = 0; i < names.length; i += 1) {
+      if (results[i].matched) continue;
+      const original = String(names[i] ?? "").trim();
+      if (!original) continue;
+      const scored = [];
+      for (const candidate of rosterUnique) {
+        const normC = normalizeNameForMatch(candidate);
+        if (!normC || usedNorm.has(normC)) continue;
+        const score = scoreNameToRosterCandidate(original, candidate);
+        if (score == null || !allow(score)) continue;
+        scored.push({ candidate, score });
+      }
+      if (scored.length === 0) continue;
+      scored.sort((a, b) => a.score - b.score);
+      if (scored.length >= 2 && scored[0].score === scored[1].score) continue;
+      const best = scored[0].candidate;
+      usedNorm.add(normalizeNameForMatch(best));
+      results[i] = {
+        name: pickDisplayNameFromMatch(original, best),
+        matched: true,
+        original,
+      };
+    }
+  };
+
+  assignPass((score) => score === 0);
+  assignPass((score) => score === 0.5);
+  assignPass((score) => score >= 1);
+  return results;
 }
 
 function parseLinesFromRaw(raw) {
@@ -199,21 +234,29 @@ function xForColumnCentered(colIdx, maxCols) {
   return Math.round((left + (colIdx + 0.5) * step) * 100) / 100;
 }
 
+function formationRowsAreRagged(rowLengths) {
+  const uniq = new Set(rowLengths.filter((n) => n > 0));
+  return uniq.size > 1;
+}
+
 function linesToPositions(lines) {
   const valid = lines.filter((l) => l.names?.length > 0);
   if (valid.length === 0) return [];
 
   const rowCount = valid.length;
-  const maxCols = Math.max(...valid.map((l) => l.names.length), 1);
+  const lengths = valid.map((l) => l.names.length);
+  const maxCols = Math.max(...lengths, 1);
+  const ragged = formationRowsAreRagged(lengths);
   const out = [];
   valid.forEach((line, rowIdx) => {
     const names = line.names;
     const y = yForRow(rowIdx, rowCount);
+    const cols = ragged ? Math.max(names.length, 1) : maxCols;
 
     names.forEach((name, colIdx) => {
       out.push({
         name,
-        x: xForColumnCentered(colIdx, maxCols),
+        x: xForColumnCentered(colIdx, cols),
         y,
         confidence: "low",
         lineIndex: rowIdx,
@@ -306,7 +349,7 @@ function buildFallbackSystemPrompt(memberNameHints) {
       ? `\nCandidate member names: ${roster.join(", ")}`
       : "";
   return `You transcribe a dance stage formation diagram for choreography software.
-Read handwritten or printed labels and marker positions. Return JSON only.${rosterLine}
+Count each circle plus the name under it as one person. Rows go top (backstage) to bottom (audience). Row sizes are independent (e.g. 1-3-4-3). Do not assign lookalike roster names (かえで≠かんな). Return JSON only.${rosterLine}
 Format: { "lines": [{ "count": 4, "names": ["A","B"] }], "positions": [{ "name": "A", "x": 50, "y": 30 }] }`;
 }
 
@@ -386,13 +429,31 @@ export function normalizeParsePositionResponse(raw, opts = {}) {
     }
   }
 
-  if (positions.length === 0 && lines.length > 0) {
-    positions = linesToPositions(lines);
-  }
+  const applySnap = (list) => {
+    if (!roster.length) {
+      return list.map((name) => ({
+        name,
+        matched: false,
+        original: name,
+      }));
+    }
+    return snapNamesToRosterUnique(list, roster);
+  };
 
-  if (roster.length > 0) {
-    positions = positions.map((p) => {
-      const m = snapNameToRoster(p.name, roster);
+  if (lines.length > 0) {
+    const flat = lines.flatMap((line) => line.names);
+    const snapped = applySnap(flat);
+    let i = 0;
+    lines = lines.map((line) => ({
+      ...line,
+      names: line.names.map(() => {
+        const m = snapped[i];
+        i += 1;
+        return m.name;
+      }),
+    }));
+    positions = linesToPositions(lines).map((p, idx) => {
+      const m = snapped[idx];
       return {
         ...p,
         name: m.name,
@@ -403,11 +464,20 @@ export function normalizeParsePositionResponse(raw, opts = {}) {
         rosterMatched: m.matched,
       };
     });
-
-    lines = lines.map((line) => ({
-      ...line,
-      names: line.names.map((n) => snapNameToRoster(n, roster).name),
-    }));
+  } else if (roster.length > 0) {
+    const snapped = applySnap(positions.map((p) => p.name));
+    positions = positions.map((p, idx) => {
+      const m = snapped[idx];
+      return {
+        ...p,
+        name: m.name,
+        confidence:
+          m.matched && m.original && m.original !== m.name
+            ? "low"
+            : p.confidence ?? (m.matched ? "high" : "low"),
+        rosterMatched: m.matched,
+      };
+    });
   }
 
   if (positions.length === 0) {
