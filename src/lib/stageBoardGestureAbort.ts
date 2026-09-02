@@ -17,7 +17,30 @@ export function isInteractiveStageTarget(el: EventTarget | null): boolean {
   );
 }
 
+const MOUSE_POINTER_IDS = [0, 1];
+
+/** モーダルを開く前に、ステージ側に残った pointer capture を外す */
+export function releaseOrphanPointerCaptures(): void {
+  if (typeof document === "undefined") return;
+  const nodes = document.querySelectorAll("*");
+  for (const el of nodes) {
+    for (const pointerId of MOUSE_POINTER_IDS) {
+      try {
+        if (
+          typeof el.hasPointerCapture === "function" &&
+          el.hasPointerCapture(pointerId)
+        ) {
+          el.releasePointerCapture(pointerId);
+        }
+      } catch {
+        /* 要素が既に外れている等 */
+      }
+    }
+  }
+}
+
 export function abortStageBoardPointerGestures(): void {
   if (typeof window === "undefined") return;
+  releaseOrphanPointerCaptures();
   window.dispatchEvent(new CustomEvent(STAGE_BOARD_ABORT_POINTER_GESTURES));
 }

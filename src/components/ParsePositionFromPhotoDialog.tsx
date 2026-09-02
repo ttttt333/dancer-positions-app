@@ -7,6 +7,7 @@ import {
   type ChangeEvent,
   type CSSProperties,
 } from "react";
+import { createPortal } from "react-dom";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { applyParsedPositionsAsCue } from "../lib/applyParsedPositionsAsCue";
 import {
@@ -51,7 +52,7 @@ type Props = {
 const overlay: CSSProperties = {
   position: "fixed",
   inset: 0,
-  zIndex: 9200,
+  zIndex: 300000,
   background: "rgba(0,0,0,0.75)",
   backdropFilter: "blur(6px)",
   display: "flex",
@@ -173,8 +174,6 @@ export function ParsePositionFromPhotoDialog({
   durationSec,
   onCueCreated,
 }: Props) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const rosterFileInputRef = useRef<HTMLInputElement>(null);
   const { loading, error, clearError, reset, parseImageFiles } = usePositionParser();
   const [preview, setPreview] = useState<ParsedPosition[] | null>(null);
   const [previewLines, setPreviewLines] = useState<ParsedLine[] | null>(null);
@@ -267,15 +266,18 @@ export function ParsePositionFromPhotoDialog({
     [projectHintBuild.hints, uploadedHintBuild.hints]
   );
 
-  const hintsEnabled =
-    (useProjectRosterHints && hasProjectRoster) ||
-    (useUploadedRosterHints && hasUploadedRoster);
+  const projectHintsActive =
+    useProjectRosterHints && hasProjectRoster && selectedRosterIds.size > 0;
+  const uploadedHintsActive =
+    useUploadedRosterHints && hasUploadedRoster;
+  const hintsEnabled = projectHintsActive || uploadedHintsActive;
   const hintsReady = !hintsEnabled || memberNameHints.length > 0;
 
   const uploadedModeReady =
     !useUploadedRosterHints || !hasUploadedRoster || uploadedNameModeChosen;
 
-  const canParseImages = hintsReady && uploadedModeReady;
+  /** 名簿ヒント未準備でも画像は選べる。アップロード名簿の表記選択だけ必須 */
+  const canParseImages = uploadedModeReady;
 
   const resetState = useCallback(() => {
     reset();
@@ -301,9 +303,13 @@ export function ParsePositionFromPhotoDialog({
     setSelectedRosterIds(new Set(allRosterMemberIds(rosterGroups)));
   }, [reset, rosterGroups, projectRosterIsNumeric]);
 
+  const resetStateRef = useRef(resetState);
+  resetStateRef.current = resetState;
+
   useEffect(() => {
-    if (!open) resetState();
-  }, [open, resetState]);
+    if (open) resetStateRef.current();
+    else reset();
+  }, [open, reset]);
 
   const toggleRosterMember = (id: string) => {
     setSelectedRosterIds((prev) => {
@@ -339,11 +345,6 @@ export function ParsePositionFromPhotoDialog({
     });
   };
 
-  const handleRosterUploadClick = () => {
-    if (busy) return;
-    rosterFileInputRef.current?.click();
-  };
-
   const handleRosterFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -371,11 +372,6 @@ export function ParsePositionFromPhotoDialog({
     } finally {
       setRosterUploadLoading(false);
     }
-  };
-
-  const handlePickClick = () => {
-    if (busy) return;
-    fileInputRef.current?.click();
   };
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -430,8 +426,13 @@ export function ParsePositionFromPhotoDialog({
   };
 
   if (!open) return null;
+  if (typeof document === "undefined") return null;
 
-  return (
+  const imagePickDisabled =
+    busy || project.viewMode === "view" || !canParseImages;
+  const rosterPickDisabled = busy || project.viewMode === "view";
+
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -529,30 +530,39 @@ export function ParsePositionFromPhotoDialog({
                     >
                       CSV / Excel / PDF または名簿の写真を選ぶと、メンバー名を抽出して立ち位置の読み取りヒントに使います。
                     </p>
-                    <input
-                      ref={rosterFileInputRef}
-                      type="file"
-                      accept={ROSTER_HINT_ACCEPT}
-                      style={{ display: "none" }}
-                      onChange={(e) => void handleRosterFileChange(e)}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleRosterUploadClick}
-                      disabled={busy || project.viewMode === "view"}
+                    <label
                       style={{
                         ...btnSecondary,
                         width: "100%",
-                        opacity: rosterUploadLoading ? 0.7 : 1,
-                        cursor: rosterUploadLoading ? "wait" : "pointer",
+                        display: "block",
+                        textAlign: "center",
+                        boxSizing: "border-box",
+                        opacity: rosterPickDisabled
+                          ? 0.45
+                          : rosterUploadLoading
+                            ? 0.7
+                            : 1,
+                        cursor: rosterPickDisabled
+                          ? "not-allowed"
+                          : rosterUploadLoading
+                            ? "wait"
+                            : "pointer",
+                        pointerEvents: rosterPickDisabled ? "none" : "auto",
                       }}
                     >
+                      <input
+                        type="file"
+                        accept={ROSTER_HINT_ACCEPT}
+                        disabled={rosterPickDisabled}
+                        style={{ display: "none" }}
+                        onChange={(e) => void handleRosterFileChange(e)}
+                      />
                       {rosterUploadLoading
                         ? "名簿を読み取り中…"
                         : hasUploadedRoster
                           ? "名簿を差し替える"
                           : "名簿ファイル・写真を選ぶ"}
-                    </button>
+                    </label>
                     {uploadedRosterSource ? (
                       <p
                         style={{
@@ -900,27 +910,32 @@ export function ParsePositionFromPhotoDialog({
                 </div>
               ) : null}
 
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
-                style={{ display: "none" }}
-                onChange={(e) => void handleFileChange(e)}
-              />
-              <button
-                type="button"
-                onClick={handlePickClick}
-                disabled={busy || project.viewMode === "view" || !canParseImages}
+              <label
                 style={{
                   ...btnAccent,
                   width: "100%",
-                  opacity: loading ? 0.7 : 1,
-                  cursor: loading ? "wait" : "pointer",
+                  display: "block",
+                  textAlign: "center",
+                  boxSizing: "border-box",
+                  opacity: imagePickDisabled ? 0.45 : loading ? 0.7 : 1,
+                  cursor: imagePickDisabled
+                    ? "not-allowed"
+                    : loading
+                      ? "wait"
+                      : "pointer",
+                  pointerEvents: imagePickDisabled ? "none" : "auto",
                 }}
               >
+                <input
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
+                  disabled={imagePickDisabled}
+                  style={{ display: "none" }}
+                  onChange={(e) => void handleFileChange(e)}
+                />
                 {loading ? "画像を解析中…" : "画像を選ぶ（複数可）"}
-              </button>
+              </label>
               {!uploadedModeReady ? (
                 <p
                   style={{
@@ -1166,6 +1181,7 @@ export function ParsePositionFromPhotoDialog({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

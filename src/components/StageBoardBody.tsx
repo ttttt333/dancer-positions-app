@@ -786,6 +786,9 @@ export function StageBoardBody({
       setTrashUiVisible(false);
       trashRevealActiveRef.current = false;
       setGroupRotateGuideDeltaDeg(null);
+      setStageContextMenu(null);
+      setFloorTextEditId(null);
+      setFloorTextInlineRect(null);
     };
     window.addEventListener(STAGE_BOARD_ABORT_POINTER_GESTURES, abort);
     return () => {
