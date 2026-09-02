@@ -27,6 +27,7 @@ import {
   rosterHintEntriesFromGroups,
 } from "../lib/rosterHintGroups";
 import { ROSTER_FILE_ACCEPT } from "../lib/rosterFileImport";
+import { PARSE_IMAGE_FILE_ACCEPT } from "../lib/prepareImageForParse";
 import type {
   CountMismatch,
   ParsedLine,
@@ -61,8 +62,7 @@ const overlay: CSSProperties = {
   padding: "max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom))",
 };
 
-const ROSTER_HINT_ACCEPT =
-  `${ROSTER_FILE_ACCEPT}image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif`;
+const ROSTER_HINT_ACCEPT = `${ROSTER_FILE_ACCEPT},${PARSE_IMAGE_FILE_ACCEPT}`;
 
 const NAME_MODE_OPTIONS: { value: RosterHintNameMode; label: string }[] = [
   { value: "full", label: "フルネーム" },
@@ -929,13 +929,23 @@ export function ParsePositionFromPhotoDialog({
                 <input
                   type="file"
                   multiple
-                  accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif"
+                  accept={PARSE_IMAGE_FILE_ACCEPT}
                   disabled={imagePickDisabled}
                   style={{ display: "none" }}
                   onChange={(e) => void handleFileChange(e)}
                 />
                 {loading ? "画像を解析中…" : "画像を選ぶ（複数可）"}
               </label>
+              <p
+                style={{
+                  margin: "8px 0 0",
+                  fontSize: 11,
+                  color: shell.textMuted,
+                  lineHeight: 1.5,
+                }}
+              >
+                iPhone の写真（HEIC / HEIF）もそのまま選べます。JPEG・PNG・WebP・GIF にも対応しています。
+              </p>
               {!uploadedModeReady ? (
                 <p
                   style={{

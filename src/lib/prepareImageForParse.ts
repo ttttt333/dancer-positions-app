@@ -1,34 +1,118 @@
-import heic2any from "heic2any";
-
 /** 解析 API へ送る画像の最大辺（px） */
 /** Vision API タイムアウト回避のため 1024px 上限 */
 const PARSE_IMAGE_MAX_PX = 1024;
 const PARSE_IMAGE_JPEG_QUALITY = 0.88;
 
-const IMAGE_EXT_RE = /\.(jpe?g|png|webp|gif|heic|heif|avif)$/i;
+/**
+ * ファイル選択ダイアログ用。
+ * `image/*` を先頭に置くと iOS の写真アプリで HEIC が出る。
+ * 拡張子は Files / Android 用の保険。
+ */
+export const PARSE_IMAGE_FILE_ACCEPT = [
+  "image/*",
+  "image/heic",
+  "image/heif",
+  "image/heic-sequence",
+  "image/heif-sequence",
+  ".heic",
+  ".heif",
+  ".heics",
+  ".heifs",
+  ".hif",
+  ".avif",
+  ".jpg",
+  ".jpeg",
+  ".jpe",
+  ".png",
+  ".webp",
+  ".gif",
+  ".bmp",
+  ".tif",
+  ".tiff",
+].join(",");
+
+const IMAGE_EXT_RE =
+  /\.(jpe?g|jpe|png|webp|gif|bmp|tiff?|heic|heics|heif|heifs|hif|avif)$/i;
+
+const HEIF_EXT_RE = /\.(heic|heics|heif|heifs|hif)$/i;
+
+/** ISO BMFF `ftyp` の major brand（HEIF/HEIC 系） */
+const HEIF_BRANDS = new Set([
+  "heic",
+  "heix",
+  "hevc",
+  "hevx",
+  "heim",
+  "heis",
+  "hevm",
+  "heif",
+  "mif1",
+  "msf1",
+]);
 
 export type PreparedParseImage = {
   base64: string;
   mimeType: "image/jpeg";
 };
 
-export function isHeicFile(file: File): boolean {
-  const type = file.type.toLowerCase();
+function fileExt(name: string): string {
+  const i = name.lastIndexOf(".");
+  return i >= 0 ? name.slice(i + 1).toLowerCase() : "";
+}
+
+export function heifBrandFromBytes(bytes: Uint8Array): string | null {
+  if (bytes.length < 12) return null;
   if (
-    type === "image/heic" ||
-    type === "image/heif" ||
-    type.includes("heic") ||
-    type.includes("heif")
+    bytes[4] !== 0x66 ||
+    bytes[5] !== 0x74 ||
+    bytes[6] !== 0x79 ||
+    bytes[7] !== 0x70
   ) {
-    return true;
+    return null;
   }
-  const ext = file.name.split(".").pop()?.toLowerCase();
-  return ext === "heic" || ext === "heif";
+  return String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11]);
+}
+
+export function isHeifBrand(brand: string | null | undefined): boolean {
+  return Boolean(brand && HEIF_BRANDS.has(brand));
+}
+
+function mimeLooksLikeHeif(type: string): boolean {
+  const t = type.toLowerCase();
+  if (!t) return false;
+  return (
+    t === "image/heic" ||
+    t === "image/heif" ||
+    t === "image/heic-sequence" ||
+    t === "image/heif-sequence" ||
+    t.includes("heic") ||
+    t.includes("heif")
+  );
+}
+
+export function isHeicFile(file: File): boolean {
+  if (mimeLooksLikeHeif(file.type)) return true;
+  return HEIF_EXT_RE.test(file.name);
 }
 
 export function isParseableImageFile(file: File): boolean {
-  if (file.type.startsWith("image/")) return true;
-  return IMAGE_EXT_RE.test(file.name);
+  const type = (file.type || "").toLowerCase();
+  if (type.startsWith("image/")) return true;
+  if (IMAGE_EXT_RE.test(file.name)) return true;
+  if (type === "" || type === "application/octet-stream") {
+    return IMAGE_EXT_RE.test(file.name);
+  }
+  return false;
+}
+
+async function fileLooksLikeHeif(file: File): Promise<boolean> {
+  if (isHeicFile(file)) return true;
+  try {
+    const buf = await file.slice(0, 32).arrayBuffer();
+    return isHeifBrand(heifBrandFromBytes(new Uint8Array(buf)));
+  } catch {
+    return false;
+  }
 }
 
 function jpegFileName(originalName: string): string {
@@ -36,10 +120,16 @@ function jpegFileName(originalName: string): string {
   return `${base}.jpg`;
 }
 
+function heicBlobForConverter(file: File): Blob {
+  if (mimeLooksLikeHeif(file.type)) return file;
+  return file.slice(0, file.size, "image/heic");
+}
+
 /** Chrome 等ネイティブ非対応ブラウザ向け HEIC → JPEG */
 async function convertHeicToJpegFile(file: File): Promise<File> {
+  const { default: heic2any } = await import("heic2any");
   const result = await heic2any({
-    blob: file,
+    blob: heicBlobForConverter(file),
     toType: "image/jpeg",
     quality: PARSE_IMAGE_JPEG_QUALITY,
   });
@@ -53,9 +143,19 @@ async function convertHeicToJpegFile(file: File): Promise<File> {
   });
 }
 
-async function decodeFileForRasterize(file: File): Promise<File> {
-  if (!isHeicFile(file)) return file;
-  return convertHeicToJpegFile(file);
+function wrapHeicError(e: unknown): Error {
+  const detail = e instanceof Error ? e.message : "";
+  const staleChunk =
+    detail.includes("Failed to fetch dynamically imported module") ||
+    detail.includes("Importing a module script failed");
+  if (staleChunk) {
+    return new Error(
+      "HEIC の変換モジュールを読み込めませんでした。ページを再読み込み（更新）してからもう一度お試しください。"
+    );
+  }
+  return new Error(
+    detail ? `HEIC を読み込めませんでした: ${detail}` : "HEIC を読み込めませんでした"
+  );
 }
 
 function loadImageElement(file: File): Promise<HTMLImageElement> {
@@ -106,6 +206,21 @@ async function rasterizeToCanvas(file: File): Promise<HTMLCanvasElement> {
   return canvas;
 }
 
+async function rasterizeImageFile(file: File): Promise<HTMLCanvasElement> {
+  try {
+    return await rasterizeToCanvas(file);
+  } catch (nativeErr) {
+    const tryHeic = await fileLooksLikeHeif(file);
+    if (!tryHeic) throw nativeErr;
+    try {
+      const jpeg = await convertHeicToJpegFile(file);
+      return await rasterizeToCanvas(jpeg);
+    } catch (heicErr) {
+      throw wrapHeicError(heicErr);
+    }
+  }
+}
+
 function canvasToJpegBase64(canvas: HTMLCanvasElement): Promise<string> {
   return new Promise((resolve, reject) => {
     canvas.toBlob(
@@ -138,29 +253,21 @@ function canvasToJpegBase64(canvas: HTMLCanvasElement): Promise<string> {
  * OpenAI Vision へ送る前にクライアントで呼ぶ。
  */
 export async function prepareImageFileForParse(file: File): Promise<PreparedParseImage> {
-  if (!isParseableImageFile(file)) {
+  if (!isParseableImageFile(file) && !(await fileLooksLikeHeif(file))) {
     throw new Error("画像ファイル（JPEG / PNG / HEIC など）を選んでください");
   }
 
   let sourceCanvas: HTMLCanvasElement;
   try {
-    const decoded = await decodeFileForRasterize(file);
-    sourceCanvas = await rasterizeToCanvas(decoded);
+    sourceCanvas = await rasterizeImageFile(file);
   } catch (e) {
-    if (isHeicFile(file)) {
-      const detail = e instanceof Error ? e.message : "";
-      const staleChunk =
-        detail.includes("Failed to fetch dynamically imported module") ||
-        detail.includes("Importing a module script failed");
-      throw new Error(
-        staleChunk
-          ? "HEIC の変換モジュールを読み込めませんでした。ページを再読み込み（更新）してからもう一度お試しください。"
-          : detail
-            ? `HEIC を読み込めませんでした: ${detail}`
-            : "HEIC を読み込めませんでした"
-      );
+    if (e instanceof Error && e.message.includes("HEIC")) throw e;
+    if (isHeicFile(file) || fileExt(file.name) === "") {
+      throw wrapHeicError(e);
     }
-    throw new Error("画像を読み込めませんでした。別の形式（JPEG / PNG）でお試しください");
+    throw new Error(
+      "画像を読み込めませんでした。JPEG / PNG / HEIC（iPhone の写真）でお試しください"
+    );
   }
 
   const srcW = sourceCanvas.width;
