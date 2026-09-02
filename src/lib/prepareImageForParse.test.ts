@@ -5,6 +5,7 @@ import {
   isHeifBrand,
   isParseableImageFile,
   PARSE_IMAGE_FILE_ACCEPT,
+  browserDecodesHeicNatively,
 } from "./prepareImageForParse";
 
 function ftypBytes(brand: string): Uint8Array {
@@ -73,6 +74,12 @@ describe("isParseableImageFile", () => {
     expect(
       isParseableImageFile(new File([], "notes.txt", { type: "text/plain" }))
     ).toBe(false);
+  });
+});
+
+describe("browserDecodesHeicNatively", () => {
+  it("is a boolean in this environment", () => {
+    expect(typeof browserDecodesHeicNatively()).toBe("boolean");
   });
 });
 

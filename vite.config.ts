@@ -114,7 +114,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,wasm}"],
         /** 大きめのチャンク（FFmpeg.wasm コア 等）もプリキャッシュ対象に含める */
         maximumFileSizeToCacheInBytes: 40 * 1024 * 1024,
         /** SPA ルート直アクセス時も index.html を返す */

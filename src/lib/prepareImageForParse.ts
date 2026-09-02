@@ -115,9 +115,18 @@ async function fileLooksLikeHeif(file: File): Promise<boolean> {
   }
 }
 
-function jpegFileName(originalName: string): string {
-  const base = originalName.replace(/\.[^.]+$/, "") || "photo";
-  return `${base}.jpg`;
+function errorToMessage(e: unknown): string {
+  if (e instanceof Error && e.message.trim()) return e.message;
+  if (typeof e === "string" && e.trim()) return e;
+  return "";
+}
+
+/** iPhone / iPad / macOS Safari は HEIC をネイティブ表示できる。Chrome 等は不可。 */
+export function browserDecodesHeicNatively(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  if (/iPhone|iPad|iPod/i.test(ua)) return true;
+  return /Safari/i.test(ua) && !/Chrome|Chromium|Edg|OPR|Firefox|CriOS|FxiOS|Android/i.test(ua);
 }
 
 function heicBlobForConverter(file: File): Blob {
@@ -125,26 +134,47 @@ function heicBlobForConverter(file: File): Blob {
   return file.slice(0, file.size, "image/heic");
 }
 
-/** Chrome 等ネイティブ非対応ブラウザ向け HEIC → JPEG */
-async function convertHeicToJpegFile(file: File): Promise<File> {
-  const { default: heic2any } = await import("heic2any");
-  const result = await heic2any({
-    blob: heicBlobForConverter(file),
-    toType: "image/jpeg",
-    quality: PARSE_IMAGE_JPEG_QUALITY,
-  });
-  const blob = Array.isArray(result) ? result[0] : result;
-  if (!blob) {
+function bitmapToCanvas(bitmap: ImageBitmap): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx || !bitmap.width || !bitmap.height) {
+    bitmap.close();
     throw new Error("HEIC の変換に失敗しました");
   }
-  return new File([blob], jpegFileName(file.name), {
-    type: "image/jpeg",
-    lastModified: file.lastModified,
-  });
+  ctx.drawImage(bitmap, 0, 0);
+  bitmap.close();
+  return canvas;
+}
+
+/**
+ * heic2any は Worker + 古い libheif で本番（Vite / COEP）が落ちやすい。
+ * heic-to/csp は新しい libheif を本体に含み、eval なしで動く。
+ */
+async function decodeHeicToCanvas(file: File): Promise<HTMLCanvasElement> {
+  const { heicTo } = await import("heic-to/csp");
+  const blob = heicBlobForConverter(file);
+  try {
+    const bitmap = await heicTo({ blob, type: "bitmap" });
+    return bitmapToCanvas(bitmap);
+  } catch {
+    const jpeg = await heicTo({
+      blob,
+      type: "image/jpeg",
+      quality: PARSE_IMAGE_JPEG_QUALITY,
+    });
+    return rasterizeToCanvas(
+      new File([jpeg], "photo.jpg", {
+        type: "image/jpeg",
+        lastModified: file.lastModified,
+      })
+    );
+  }
 }
 
 function wrapHeicError(e: unknown): Error {
-  const detail = e instanceof Error ? e.message : "";
+  const detail = errorToMessage(e);
   const staleChunk =
     detail.includes("Failed to fetch dynamically imported module") ||
     detail.includes("Importing a module script failed");
@@ -154,7 +184,9 @@ function wrapHeicError(e: unknown): Error {
     );
   }
   return new Error(
-    detail ? `HEIC を読み込めませんでした: ${detail}` : "HEIC を読み込めませんでした"
+    detail
+      ? `HEIC を読み込めませんでした（${detail}）`
+      : "HEIC を読み込めませんでした。ページを再読み込みしてから、もう一度写真を選んでください。"
   );
 }
 
@@ -178,17 +210,10 @@ async function rasterizeToCanvas(file: File): Promise<HTMLCanvasElement> {
   if (typeof createImageBitmap === "function") {
     try {
       const bitmap = await createImageBitmap(file);
-      const canvas = document.createElement("canvas");
-      canvas.width = bitmap.width;
-      canvas.height = bitmap.height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        bitmap.close();
-        throw new Error("画像の変換に失敗しました");
+      if (bitmap.width > 0 && bitmap.height > 0) {
+        return bitmapToCanvas(bitmap);
       }
-      ctx.drawImage(bitmap, 0, 0);
       bitmap.close();
-      return canvas;
     } catch {
       /* fall through */
     }
@@ -207,14 +232,20 @@ async function rasterizeToCanvas(file: File): Promise<HTMLCanvasElement> {
 }
 
 async function rasterizeImageFile(file: File): Promise<HTMLCanvasElement> {
+  const heif = await fileLooksLikeHeif(file);
+  if (heif && !browserDecodesHeicNatively()) {
+    try {
+      return await decodeHeicToCanvas(file);
+    } catch (heicErr) {
+      throw wrapHeicError(heicErr);
+    }
+  }
   try {
     return await rasterizeToCanvas(file);
   } catch (nativeErr) {
-    const tryHeic = await fileLooksLikeHeif(file);
-    if (!tryHeic) throw nativeErr;
+    if (!heif) throw nativeErr;
     try {
-      const jpeg = await convertHeicToJpegFile(file);
-      return await rasterizeToCanvas(jpeg);
+      return await decodeHeicToCanvas(file);
     } catch (heicErr) {
       throw wrapHeicError(heicErr);
     }
