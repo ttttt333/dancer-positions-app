@@ -627,7 +627,13 @@ export function NeonIconPanel({
 
       {/* Block 4: 共有・出力 (3×2) */}
       <div style={grid3}>
-        <NeonBtn icon={<IconShareUrl />} label={t("editor.comp.k059")} onClick={onOpenShareLinks} disabled={disabled} />
+        <NeonBtn
+          icon={<IconShareUrl />}
+          label={t("editor.comp.k059")}
+          title={t("editor.comp.k031")}
+          onClick={onOpenShareLinks}
+          disabled={disabled}
+        />
         <NeonBtn icon={<IconStageTransform />} label={t("editor.comp.k100")} onClick={onOpenStageTransform} disabled={disabled} />
         <NeonBtn icon={<IconExportPackage />} label={t("editor.comp.k016")} onClick={onOpenExport} disabled={disabled} />
         <NeonBtn icon={<IconVideoExport />} label={t("editor.comp.k128")} onClick={onOpenVideoExport} disabled={disabled} />

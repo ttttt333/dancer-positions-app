@@ -158,8 +158,6 @@ import {
   ChoreoStudentViewGate,
   type StudentPick,
 } from "../components/ChoreoStudentViewGate";
-import { ShareLinksSheetContent } from "../components/ShareLinksSheetContent";
-import { ViewerModeSheetContent } from "../components/ViewerModeSheetContent";
 import { formatMmSsFloor } from "../lib/timeFormat";
 import {
   EDITOR_GRID_GAP_PX,

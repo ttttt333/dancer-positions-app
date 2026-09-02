@@ -843,7 +843,7 @@ export function EditorStageWorkbench(props: EditorStageWorkbenchProps) {
                   onClick={onOpenShareLinks}
                 >
                   <span>{t("editor.comp.k058")}</span>
-                  <span>URL</span>
+                  <span>{t("shareSheet.railSub")}</span>
                 </button>
               ) : null}
               {onOpenCloudSave ? (

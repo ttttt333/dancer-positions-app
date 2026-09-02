@@ -1,3 +1,7 @@
+import { sortCuesByStart } from "../core/timelineController";
+import type { ChoreographyProjectJson } from "../types/choreography";
+import { formatPdfClock } from "./choreographyPdfPages";
+
 /**
  * クラウドに保存した作品（projectId）向けの共有 URL。
  * 閲覧用は `viewToken` がある場合は推奨の `/view/s/{token}`（生徒はログイン不要）。
@@ -118,4 +122,45 @@ export async function copyTextToClipboard(text: string): Promise<boolean> {
       return false;
     }
   }
+}
+
+function csvCell(value: string): string {
+  if (/[",\r\n]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+export type CueSheetCsvLabels = {
+  cueFallback: (n: number) => string;
+};
+
+/** キュー番号・名前・開始/終了時刻・人数の一覧（表計算・LINE 添付向け） */
+export function buildCueSheetCsv(
+  project: ChoreographyProjectJson,
+  labels: CueSheetCsvLabels = { cueFallback: (n) => `Cue ${n}` }
+): string {
+  const cues = sortCuesByStart(project.cues ?? []);
+  const lines = ["cue,name,start,end,dancers"];
+  cues.forEach((cue, i) => {
+    const n = i + 1;
+    const name = cue.name?.trim() || labels.cueFallback(n);
+    const formation =
+      project.formations.find((f) => f.id === cue.formationId) ?? null;
+    const dancers = formation?.dancers?.length ?? 0;
+    lines.push(
+      [
+        String(n),
+        csvCell(name),
+        formatPdfClock(cue.tStartSec),
+        formatPdfClock(cue.tEndSec),
+        String(dancers),
+      ].join(",")
+    );
+  });
+  return `${lines.join("\r\n")}\r\n`;
+}
+
+export function downloadCueSheetCsv(filename: string, csv: string): void {
+  downloadTextFile(filename, `\uFEFF${csv}`, "text/csv;charset=utf-8");
 }

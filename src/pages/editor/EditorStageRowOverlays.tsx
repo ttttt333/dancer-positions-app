@@ -1274,7 +1274,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
           open={shareLinksOpen}
           onClose={() => setShareLinksOpen(false)}
           zIndex={75}
-          width="min(440px, 92vw)"
+          width="min(460px, 94vw)"
           ariaLabelledBy="share-links-panel-title"
         >
           <div style={{ padding: "16px 18px 22px" }}>
@@ -1296,7 +1296,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                   color: "#e2e8f0",
                 }}
               >
-                共有 URL
+                {t("shareSheet.title")}
               </h3>
               <button
                 type="button"
@@ -1320,8 +1320,11 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
               pieceTitle={
                 project?.pieceTitle?.trim() ||
                 projectName.trim() ||
-                "無題の作品"
+                ""
               }
+              project={project ?? null}
+              projectName={typeof projectName === "string" ? projectName : ""}
+              canCapture2d={stageView === "2d"}
               onClose={() => setShareLinksOpen(false)}
             />
           </div>
