@@ -41,6 +41,7 @@ import {
 import { mergeStageSnapshotIntoProject, stripFormationStageSnapshots } from "../lib/savedSpotStageSnapshot";
 import { FormationBoxItemThumb } from "./FormationBoxItemThumb";
 import { ParsePositionFromPhotoDialog } from "./ParsePositionFromPhotoDialog";
+import { abortStageBoardPointerGestures } from "../lib/stageBoardGestureAbort";
 import { useI18n } from "../i18n/I18nContext";
 import { useAuth } from "../context/AuthContext";
 import { useProUpgrade } from "./ProUpgradeProvider";
@@ -1540,7 +1541,11 @@ export function AddCueWithFormationDialog({
       open={photoParseOpen}
       onClose={() => setPhotoParseOpen(false)}
       project={project}
-      setProject={setProject}
+      setProject={(action) => {
+        abortStageBoardPointerGestures();
+        onStagePreviewChange?.(null);
+        setProject(action);
+      }}
       currentTimeSec={currentTimeSec}
       durationSec={durationSec}
       onCueCreated={(cueId, startSec) => {

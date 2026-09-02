@@ -677,6 +677,15 @@ export function StageBoardBody({
     lastFormationResetIdRef.current = formationIdForWrites;
 
     onGestureHistoryCancel?.();
+    setShapePreviewById(null);
+    setShapePreviewMeta(null);
+    setDepthPreviewById(null);
+    setDepthPreviewPair(null);
+    setRotationPreviewById(null);
+    setRotationPreviewDir(null);
+    setTidyPreviewById(null);
+    setTidyPreviewActionId(null);
+    shapePreviewKeyRef.current = "";
     setDancerQuickEditId((id) => (id === null ? id : null));
     const liveIds = (
       formations.find((f) => f.id === formationIdForWrites)?.dancers ?? []

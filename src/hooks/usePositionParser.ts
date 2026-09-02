@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   isParseableImageFile,
   prepareImageFileForParse,
@@ -21,24 +21,43 @@ function apiBaseUrl(): string {
   return String(raw).trim().replace(/\/+$/, "");
 }
 
+function isAbortError(e: unknown): boolean {
+  return (
+    (e instanceof DOMException && e.name === "AbortError") ||
+    (e instanceof Error && e.name === "AbortError")
+  );
+}
+
 export function usePositionParser() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const clearError = useCallback(() => setError(null), []);
+
+  const reset = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setLoading(false);
+    setError(null);
+  }, []);
 
   const parseOneImage = useCallback(
     async (
       file: File,
-      options?: { memberNameHints?: string[] }
+      options?: { memberNameHints?: string[]; signal?: AbortSignal }
     ): Promise<ParsePositionResponse> => {
       const memberNameHints = options?.memberNameHints;
       const prepared = await prepareImageFileForParse(file);
+      if (options?.signal?.aborted) {
+        throw new DOMException("Aborted", "AbortError");
+      }
       const base = apiBaseUrl();
       const headers = await parseApiRequestHeaders();
       const res = await fetch(`${base}/api/parse-position`, {
         method: "POST",
         headers,
+        signal: options?.signal,
         body: JSON.stringify({
           imageBase64: prepared.base64,
           imageMime: prepared.mimeType,
@@ -87,17 +106,25 @@ export function usePositionParser() {
         return null;
       }
 
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
       setLoading(true);
       setError(null);
 
       try {
-        return await parseOneImage(file, options);
+        return await parseOneImage(file, {
+          ...options,
+          signal: controller.signal,
+        });
       } catch (e) {
+        if (isAbortError(e)) return null;
         const raw =
           e instanceof Error ? e.message : "画像の解析に失敗しました";
         setError(formatParsePositionError(raw));
         return null;
       } finally {
+        if (abortRef.current === controller) abortRef.current = null;
         setLoading(false);
       }
     },
@@ -118,12 +145,16 @@ export function usePositionParser() {
         return null;
       }
 
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
       setLoading(true);
       setError(null);
 
       try {
         const results: ParsePositionResponse[] = [];
         for (let i = 0; i < valid.length; i++) {
+          if (controller.signal.aborted) return null;
           const file = valid[i]!;
           options?.onProgress?.({
             current: i + 1,
@@ -132,6 +163,7 @@ export function usePositionParser() {
           });
           const result = await parseOneImage(file, {
             memberNameHints: options?.memberNameHints,
+            signal: controller.signal,
           });
           if (result.positions.length) results.push(result);
         }
@@ -142,11 +174,13 @@ export function usePositionParser() {
 
         return valid.length === 1 ? results[0]! : mergeParseResults(results);
       } catch (e) {
+        if (isAbortError(e)) return null;
         const raw =
           e instanceof Error ? e.message : "画像の解析に失敗しました";
         setError(formatParsePositionError(raw));
         return null;
       } finally {
+        if (abortRef.current === controller) abortRef.current = null;
         setLoading(false);
       }
     },
@@ -157,6 +191,7 @@ export function usePositionParser() {
     loading,
     error,
     clearError,
+    reset,
     parseImageFile,
     parseImageFiles,
   };

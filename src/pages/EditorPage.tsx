@@ -67,6 +67,7 @@ import {
   tryMigrateFromLocalStorage,
 } from "../lib/projectDefaults";
 import { abortTimelineWavePointerGestures } from "../lib/abortTimelineWavePointerGestures";
+import { abortStageBoardPointerGestures } from "../lib/stageBoardGestureAbort";
 import { preloadFFmpegWasm } from "../lib/ffmpegWasm";
 import { normalizeProject } from "../lib/normalizeProject";
 import { projectNeedsInitialName, isUntitledProjectName } from "../lib/projectNeedsInitialName";
@@ -488,6 +489,19 @@ function EditorPageContent({
     isUndoDisabled: stageUndoDisabledFromHistory,
     isRedoDisabled: stageRedoDisabledFromHistory,
   } = history;
+
+  const setPhotoParseOpenWrapped = useCallback(
+    (open: boolean) => {
+      if (open) {
+        abortStageBoardPointerGestures();
+        abortTimelineWavePointerGestures();
+        cancelGestureHistory();
+        setStagePreviewDancers(null);
+      }
+      setPhotoParseOpen(open);
+    },
+    [cancelGestureHistory]
+  );
 
   const prepareProjectForCloudSave = useCallback(async () => {
     const live = projectSaveRef.current;
@@ -1231,11 +1245,13 @@ function EditorPageContent({
     }
     const hasShared = [...counts.values()].some((n) => n > 1);
     if (!hasShared) return;
+    const next = splitSharedCueFormations(project);
+    if (next === project) return;
     const sig = project.cues.map((c) => `${c.id}:${c.formationId}`).join("|");
     if (sharedFormationSplitSigRef.current === sig) return;
     sharedFormationSplitSigRef.current = sig;
     markHistorySkipNextPush();
-    setProjectSafe((p) => splitSharedCueFormations(p));
+    setProjectSafe(next);
   }, [project, cueIdsSig, setProjectSafe, markHistorySkipNextPush]);
 
   /** キュー選択と activeFormationId を同期（舞台スナップショット・表示のずれ防止） */
@@ -1244,10 +1260,7 @@ function EditorPageContent({
     const cue = cueById.get(selectedCueId);
     if (!cue || project.activeFormationId === cue.formationId) return;
     markHistorySkipNextPush();
-    setProjectSafe((p) => {
-      if (p.activeFormationId === cue.formationId) return p;
-      return { ...p, activeFormationId: cue.formationId };
-    });
+    setProjectSafe({ ...project, activeFormationId: cue.formationId });
   }, [project, selectedCueId, cueById, setProjectSafe, markHistorySkipNextPush]);
 
   const playbackActiveCueFollowRef = useRef<((cueId: string) => void) | null>(
@@ -1828,6 +1841,9 @@ function EditorPageContent({
 
   const handleAddCueCreated = useCallback(
     (cueId: string, startSec: number) => {
+      abortStageBoardPointerGestures();
+      cancelGestureHistory();
+      setStagePreviewDancers(null);
       setSelectedCueIds([cueId]);
       if (typeof startSec === "number" && Number.isFinite(startSec)) {
         const proj = projectRef.current;
@@ -1839,7 +1855,7 @@ function EditorPageContent({
         });
       }
     },
-    []
+    [cancelGestureHistory]
   );
 
   const exportDialogEl = useMemo(
@@ -1974,9 +1990,13 @@ function EditorPageContent({
       project ? (
         <ParsePositionFromPhotoDialog
           open={photoParseOpen}
-          onClose={() => setPhotoParseOpen(false)}
+          onClose={() => setPhotoParseOpenWrapped(false)}
           project={project}
-          setProject={setProjectSafe}
+          setProject={(action) => {
+            abortStageBoardPointerGestures();
+            cancelGestureHistory();
+            setProjectSafe(action);
+          }}
           currentTimeSec={currentTime}
           durationSec={duration}
           onCueCreated={handleAddCueCreated}
@@ -1989,6 +2009,8 @@ function EditorPageContent({
       currentTime,
       duration,
       handleAddCueCreated,
+      setPhotoParseOpenWrapped,
+      cancelGestureHistory,
     ]
   );
 
@@ -2680,7 +2702,7 @@ function EditorPageContent({
     undo,
     redo,
     setAddCueDialogOpen,
-    onOpenPhotoParse: () => setPhotoParseOpen(true),
+    onOpenPhotoParse: () => setPhotoParseOpenWrapped(true),
     saveStageToFormationBox,
     setFlowLibraryOpen,
     addDancerFromStageToolbar,
@@ -2838,7 +2860,7 @@ function EditorPageContent({
     selectedCueId,
     serverId,
     setAddCueDialogOpen,
-    setPhotoParseOpen,
+    setPhotoParseOpen: setPhotoParseOpenWrapped,
     setAiSuggestOpen,
     setChoreoMemberSheetOpen,
     applyChoreoStudentPick,

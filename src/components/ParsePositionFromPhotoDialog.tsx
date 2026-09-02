@@ -175,7 +175,7 @@ export function ParsePositionFromPhotoDialog({
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const rosterFileInputRef = useRef<HTMLInputElement>(null);
-  const { loading, error, clearError, parseImageFiles } = usePositionParser();
+  const { loading, error, clearError, reset, parseImageFiles } = usePositionParser();
   const [preview, setPreview] = useState<ParsedPosition[] | null>(null);
   const [previewLines, setPreviewLines] = useState<ParsedLine[] | null>(null);
   const [countMismatches, setCountMismatches] = useState<CountMismatch[]>([]);
@@ -278,6 +278,7 @@ export function ParsePositionFromPhotoDialog({
   const canParseImages = hintsReady && uploadedModeReady;
 
   const resetState = useCallback(() => {
+    reset();
     setPreview(null);
     setPreviewLines(null);
     setCountMismatches([]);
@@ -298,8 +299,7 @@ export function ParsePositionFromPhotoDialog({
     setUseProjectRosterHints(!projectRosterIsNumeric);
     setRosterExpanded(projectRosterIsNumeric);
     setSelectedRosterIds(new Set(allRosterMemberIds(rosterGroups)));
-    clearError();
-  }, [clearError, rosterGroups, projectRosterIsNumeric]);
+  }, [reset, rosterGroups, projectRosterIsNumeric]);
 
   useEffect(() => {
     if (!open) resetState();
@@ -414,27 +414,19 @@ export function ParsePositionFromPhotoDialog({
       window.alert("キューは最大 100 件までです。");
       return;
     }
-    let appliedCueId: string | null = null;
-    let appliedStart = currentTimeSec;
-    setProject((p) => {
-      const applied = applyParsedPositionsAsCue(p, {
-        positions: preview,
-        tStartSec: currentTimeSec,
-        durationSec,
-        formationName,
-      });
-      if (!applied) {
-        window.alert("キューを追加できませんでした。");
-        return p;
-      }
-      appliedCueId = applied.result.cueId;
-      appliedStart = applied.result.tStartSec;
-      return applied.project;
+    const applied = applyParsedPositionsAsCue(project, {
+      positions: preview,
+      tStartSec: currentTimeSec,
+      durationSec,
+      formationName,
     });
-    if (appliedCueId) {
-      onCueCreated?.(appliedCueId, appliedStart);
-      onClose();
+    if (!applied) {
+      window.alert("キューを追加できませんでした。");
+      return;
     }
+    setProject(applied.project);
+    onCueCreated?.(applied.result.cueId, applied.result.tStartSec);
+    onClose();
   };
 
   if (!open) return null;
@@ -446,7 +438,7 @@ export function ParsePositionFromPhotoDialog({
       aria-labelledby="parse-position-photo-title"
       style={overlay}
       onClick={(e) => {
-        if (e.target === e.currentTarget && !busy) onClose();
+        if (e.target === e.currentTarget) onClose();
       }}
     >
       <div style={dialog} onClick={(e) => e.stopPropagation()}>
@@ -468,14 +460,13 @@ export function ParsePositionFromPhotoDialog({
           <button
             type="button"
             aria-label="閉じる"
-            disabled={busy}
             onClick={onClose}
             style={{
               background: "none",
               border: "none",
               color: shell.textMuted,
               fontSize: 20,
-              cursor: busy ? "not-allowed" : "pointer",
+              cursor: "pointer",
             }}
           >
             ×
@@ -1153,7 +1144,6 @@ export function ParsePositionFromPhotoDialog({
               <button
                 type="button"
                 style={btnSecondary}
-                disabled={busy}
                 onClick={() => {
                   resetState();
                 }}
@@ -1170,7 +1160,7 @@ export function ParsePositionFromPhotoDialog({
               </button>
             </>
           ) : (
-            <button type="button" style={btnSecondary} disabled={busy} onClick={onClose}>
+            <button type="button" style={btnSecondary} onClick={onClose}>
               キャンセル
             </button>
           )}

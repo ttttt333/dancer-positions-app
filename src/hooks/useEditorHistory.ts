@@ -63,13 +63,8 @@ export function useEditorHistory({
   }, []);
 
   const cancelGestureHistory = useCallback(() => {
-    if (gestureHistoryDepthRef.current > 0) {
-      gestureHistoryDepthRef.current -= 1;
-    }
-    if (gestureHistoryDepthRef.current <= 0) {
-      gestureHistoryDepthRef.current = 0;
-      gestureHistoryBaselineRef.current = null;
-    }
+    gestureHistoryDepthRef.current = 0;
+    gestureHistoryBaselineRef.current = null;
   }, []);
 
   const beginGestureHistory = useCallback(() => {

@@ -5,7 +5,14 @@ import {
   sortCuesByStart,
   trimHiSecForCueTimeline,
 } from "../core/timelineController";
-import { modDancerColorIndex } from "../lib/dancerColorPalette";
+import { cueActiveAtTime } from "./cueInterval";
+import { MAX_DANCERS_PER_FORMATION } from "./dancerCountLimits";
+import { modDancerColorIndex } from "./dancerColorPalette";
+import {
+  DANCER_STAGE_POSITION_PCT_HI,
+  DANCER_STAGE_POSITION_PCT_LO,
+} from "./dancerSpacing";
+import { normalizeNameForMatch } from "./matchNameToRoster";
 import type {
   ChoreographyProjectJson,
   Cue,
@@ -28,14 +35,105 @@ export type ApplyParsedPositionsResult = {
   tStartSec: number;
 };
 
-function dancersFromParsedPositions(positions: ParsedPosition[]): DancerSpot[] {
-  return positions.map((p, i) => ({
-    id: crypto.randomUUID(),
-    label: p.name,
-    xPct: p.x,
-    yPct: p.y,
-    colorIndex: modDancerColorIndex(i),
-  }));
+function clampPct(n: number): number {
+  if (!Number.isFinite(n)) return 50;
+  return Math.min(
+    DANCER_STAGE_POSITION_PCT_HI,
+    Math.max(DANCER_STAGE_POSITION_PCT_LO, n)
+  );
+}
+
+function sourceDancersForPhotoCue(
+  project: ChoreographyProjectJson,
+  tStartSec: number
+): DancerSpot[] {
+  const cue =
+    cueActiveAtTime(project.cues, tStartSec) ??
+    project.cues.find((c) => c.formationId === project.activeFormationId) ??
+    null;
+  const fid = cue?.formationId ?? project.activeFormationId;
+  return project.formations.find((f) => f.id === fid)?.dancers ?? [];
+}
+
+function uniqueCrewMemberIdForName(
+  project: ChoreographyProjectJson,
+  name: string
+): string | undefined {
+  const norm = normalizeNameForMatch(name);
+  if (!norm) return undefined;
+  const hits: string[] = [];
+  for (const crew of project.crews ?? []) {
+    for (const member of crew.members) {
+      if (normalizeNameForMatch(member.label) === norm) {
+        hits.push(member.id);
+      }
+    }
+  }
+  return hits.length === 1 ? hits[0] : undefined;
+}
+
+/**
+ * 写真の名前を、いまのステージ上の人物 id に載せる。
+ * 他キューとの同一性は dancer id（と既存の crewMemberId）で保つ。
+ */
+export function dancersFromParsedPositions(
+  positions: ParsedPosition[],
+  source: readonly DancerSpot[],
+  project?: ChoreographyProjectJson
+): DancerSpot[] {
+  const capped = positions.slice(0, MAX_DANCERS_PER_FORMATION);
+  const usedSourceIds = new Set<string>();
+
+  const takeSource = (name: string): DancerSpot | undefined => {
+    const norm = normalizeNameForMatch(name);
+    if (!norm) return undefined;
+
+    const exact = source.find(
+      (d) =>
+        !usedSourceIds.has(d.id) && normalizeNameForMatch(d.label) === norm
+    );
+    if (exact) return exact;
+
+    const partial = source.filter((d) => {
+      if (usedSourceIds.has(d.id)) return false;
+      const n = normalizeNameForMatch(d.label);
+      if (!n) return false;
+      return (
+        n.startsWith(norm) ||
+        norm.startsWith(n) ||
+        n.includes(norm) ||
+        norm.includes(n)
+      );
+    });
+    return partial.length === 1 ? partial[0] : undefined;
+  };
+
+  return capped.map((p, i) => {
+    const src = takeSource(p.name);
+    if (src) usedSourceIds.add(src.id);
+    const xPct = clampPct(p.x);
+    const yPct = clampPct(p.y);
+    if (src) {
+      return {
+        ...src,
+        label: p.name,
+        xPct,
+        yPct,
+      };
+    }
+    const spot: DancerSpot = {
+      id: crypto.randomUUID(),
+      label: p.name,
+      xPct,
+      yPct,
+      colorIndex: modDancerColorIndex(i),
+    };
+    const crewMemberId = project
+      ? uniqueCrewMemberIdForName(project, p.name)
+      : undefined;
+    if (crewMemberId) spot.crewMemberId = crewMemberId;
+    return spot;
+  });
 }
 
 /**
@@ -47,7 +145,12 @@ export function applyParsedPositionsAsCue(
   opts: ApplyParsedPositionsOptions
 ): { project: ChoreographyProjectJson; result: ApplyParsedPositionsResult } | null {
   if (project.cues.length >= 100) return null;
-  const dancers = dancersFromParsedPositions(opts.positions);
+  const tStartSec = opts.tStartSec ?? 0;
+  const dancers = dancersFromParsedPositions(
+    opts.positions,
+    sourceDancersForPhotoCue(project, tStartSec),
+    project
+  );
   if (dancers.length === 0) return null;
 
   const newCueId = crypto.randomUUID();
@@ -57,7 +160,7 @@ export function applyParsedPositionsAsCue(
     opts.durationSec ?? null
   );
   const lo = project.trimStartSec ?? 0;
-  let t0 = Math.round((opts.tStartSec ?? 0) * 100) / 100;
+  let t0 = Math.round(tStartSec * 100) / 100;
   t0 = Math.max(lo, Math.min(hi - 0.02, t0));
   let t1 = Math.min(
     hi,
