@@ -20,11 +20,9 @@ import {
 } from "../../components/ChoreoViewerBottomBar";
 import { sortCuesByStart } from "../../core/timelineController";
 import { TransportIconUndo, TransportIconRedo } from "../../components/mobile/TransportIcons";
-import { useI18n } from "../../i18n/I18nContext";
-
 
 export function EditorThreePaneGrid(props: EditorLayoutProps) {
-  const { t } = useI18n();  const activeFormationId = props.activeFormationId as never;
+  const activeFormationId = props.activeFormationId as never;
   const addCueDialogEl = props.addCueDialogEl as never;
   const addDancerFromStageToolbar = props.addDancerFromStageToolbar as never;
   const aiSuggestOpen = props.aiSuggestOpen as never;
