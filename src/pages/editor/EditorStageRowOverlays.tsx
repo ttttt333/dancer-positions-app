@@ -1274,60 +1274,31 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
           open={shareLinksOpen}
           onClose={() => setShareLinksOpen(false)}
           zIndex={75}
-          width="min(460px, 94vw)"
+          width="min(420px, 94vw)"
           ariaLabelledBy="share-links-panel-title"
+          sheetId="share-links"
+          panelStyle={{
+            background: "#060606",
+            borderLeft: "1px solid rgba(212, 175, 55, 0.22)",
+            boxShadow:
+              "-18px 0 50px rgba(0, 0, 0, 0.55), inset 1px 0 0 rgba(212, 175, 55, 0.08)",
+          }}
         >
-          <div style={{ padding: "16px 18px 22px" }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 12,
-                marginBottom: 4,
-              }}
-            >
-              <h3
-                id="share-links-panel-title"
-                style={{
-                  margin: 0,
-                  fontSize: 16,
-                  fontWeight: 700,
-                  color: "#e2e8f0",
-                }}
-              >
-                {t("shareSheet.title")}
-              </h3>
-              <button
-                type="button"
-                aria-label={t("editor.layout.close")}
-                onClick={() => setShareLinksOpen(false)}
-                style={{
-                  ...btnSecondary,
-                  fontSize: 18,
-                  lineHeight: 1,
-                  padding: "4px 12px",
-                }}
-              >
-                ×
-              </button>
-            </div>
-            <ShareLinksSheetContent
-              open={shareLinksOpen}
-              collabUrl={shareLinksUrls.collab}
-              viewUrl={shareLinksUrls.view}
-              hasServerId={serverId != null}
-              pieceTitle={
-                project?.pieceTitle?.trim() ||
-                projectName.trim() ||
-                ""
-              }
-              project={project ?? null}
-              projectName={typeof projectName === "string" ? projectName : ""}
-              canCapture2d={stageView === "2d"}
-              onClose={() => setShareLinksOpen(false)}
-            />
-          </div>
+          <ShareLinksSheetContent
+            open={shareLinksOpen}
+            collabUrl={shareLinksUrls.collab}
+            viewUrl={shareLinksUrls.view}
+            hasServerId={serverId != null}
+            pieceTitle={
+              project?.pieceTitle?.trim() ||
+              projectName.trim() ||
+              ""
+            }
+            project={project ?? null}
+            projectName={typeof projectName === "string" ? projectName : ""}
+            canCapture2d={stageView === "2d"}
+            onClose={() => setShareLinksOpen(false)}
+          />
         </EditorSideSheet>
       ) : null}
 

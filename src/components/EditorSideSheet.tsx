@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 
 export type EditorSideSheetProps = {
   open: boolean;
@@ -12,6 +12,8 @@ export type EditorSideSheetProps = {
   ariaLabelledBy?: string;
   /** モバイル CSS 上書き用（例: formation-preset-picker） */
   sheetId?: string;
+  /** 右パネル面の上書き（共有シートなどブランド面） */
+  panelStyle?: CSSProperties;
   children: ReactNode;
 };
 
@@ -30,6 +32,7 @@ export function EditorSideSheet({
   blockDismiss = false,
   ariaLabelledBy,
   sheetId,
+  panelStyle,
   children,
 }: EditorSideSheetProps) {
   const [dismissArmed, setDismissArmed] = useState(false);
@@ -99,6 +102,7 @@ export function EditorSideSheet({
           borderLeft: "1px solid #334155",
           boxShadow: "-12px 0 40px rgba(0, 0, 0, 0.35)",
           overflow: "hidden",
+          ...panelStyle,
         }}
       >
         <div
