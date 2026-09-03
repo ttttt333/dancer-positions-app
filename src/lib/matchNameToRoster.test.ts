@@ -34,17 +34,32 @@ const PHOTO_ROSTER = [
 describe("matchNameToRoster", () => {
   it("does not map 3-mora lookalikes onto the wrong roster names", () => {
     expect(matchNameToRoster("かえで", PROJECT_ROSTER).matched).toBe(false);
-    expect(matchNameToRoster("かえで", PROJECT_ROSTER).name).toBe("かえで");
+    expect(matchNameToRoster("かえで", PROJECT_ROSTER).name).toBe("");
     expect(matchNameToRoster("たけし", PROJECT_ROSTER).matched).toBe(false);
     expect(matchNameToRoster("あおい", PROJECT_ROSTER).matched).toBe(false);
   });
 
-  it("maps a 1-edit OCR slip onto the unique roster name", () => {
-    const m = matchNameToRoster("かえご", PHOTO_ROSTER);
-    expect(m).toMatchObject({ matched: true, name: "かえで" });
+  it("does not treat a 1-edit slip as the same person", () => {
+    expect(matchNameToRoster("かえご", PHOTO_ROSTER).matched).toBe(false);
+    expect(matchNameToRoster("かえご", PHOTO_ROSTER).name).toBe("");
+    expect(matchNameToRoster("はなか", ["ほなか"]).matched).toBe(false);
+    expect(matchNameToRoster("はなか", ["ほなか"]).name).toBe("");
   });
 
-  it("keeps an exact given name", () => {
+  it("does not invent kanji when the roster is hiragana", () => {
+    const m = matchNameToRoster("花香", ["はなか", "さくら"]);
+    expect(m.matched).toBe(false);
+    expect(m.name).toBe("");
+  });
+
+  it("uses the roster spelling, not the OCR spelling", () => {
+    expect(matchNameToRoster("リセ", PHOTO_ROSTER)).toMatchObject({
+      matched: true,
+      name: "りせ",
+    });
+  });
+
+  it("keeps an exact given name from the roster", () => {
     expect(matchNameToRoster("りせ", PHOTO_ROSTER)).toMatchObject({
       matched: true,
       name: "りせ",
@@ -80,12 +95,32 @@ describe("matchNamesToRosterUnique", () => {
     const matched = names.filter((m) => m.matched);
     expect(matched).toHaveLength(1);
     expect(matched[0]?.name).toBe("みゆ");
-    expect(names[1]?.name).toBe("みゆ");
+    expect(names[1]?.name).toBe("");
     expect(names[1]?.matched).toBe(false);
   });
 
   it("does not treat みゆ and みお as the same person", () => {
-    const names = matchNamesToRosterUnique(["みゆ", "みお"], PHOTO_ROSTER);
+    const names = matchNamesToRosterUnique(["みゆ", "みお"], [
+      "みゆ",
+      "みお",
+      "りせ",
+    ]);
     expect(names.map((m) => m.name)).toEqual(["みゆ", "みお"]);
+  });
+
+  it("does not invent a lookalike that is missing from the roster", () => {
+    const names = matchNamesToRosterUnique(["みゆ", "みお"], PHOTO_ROSTER);
+    expect(names.map((m) => m.name)).toEqual(["みゆ", ""]);
+  });
+
+  it("never returns a name that is not on the roster", () => {
+    const names = matchNamesToRosterUnique(
+      ["はなか", "ほなか", "花香"],
+      ["さくら", "みゆ"]
+    );
+    expect(names.every((m) => m.name === "" || ["さくら", "みゆ"].includes(m.name))).toBe(
+      true
+    );
+    expect(names.every((m) => !m.matched)).toBe(true);
   });
 });

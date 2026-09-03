@@ -40,7 +40,7 @@ export function linesToParsedPositions(lines: ParsedLine[]): ParsedPosition[] {
   const out: ParsedPosition[] = [];
 
   valid.forEach((line, rowIdx) => {
-    const names = line.names.map((n) => String(n).trim()).filter(Boolean);
+    const names = line.names.map((n) => String(n).trim());
     const y = yForRow(rowIdx, rowCount);
     const cols = colsForRow(names.length, maxCols, ragged);
 
@@ -88,7 +88,7 @@ export function alignPositionsToLineColumnGrid(
   valid.forEach((line, rowIdx) => {
     const rowPositions = byLine.get(rowIdx) ?? [];
     const y = yForRow(rowIdx, rowCount);
-    const names = line.names.map((n) => String(n).trim()).filter(Boolean);
+    const names = line.names.map((n) => String(n).trim());
     const cols = colsForRow(names.length, maxCols, ragged);
 
     const ordered =

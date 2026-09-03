@@ -49,7 +49,7 @@ export function reconstructFormation(
 
   const named = canonical.map((d, i) => ({
     ...d,
-    recognizedName: snapped[i]?.name || d.recognizedName,
+    recognizedName: snapped[i] != null ? snapped[i].name : d.recognizedName,
     matched: snapped[i]?.matched ?? false,
   }));
 

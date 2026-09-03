@@ -138,7 +138,27 @@ describe("reconstructFormation", () => {
       { roster: ["りせ", "るな"] }
     );
     expect(result.dancers).toHaveLength(2);
-    expect(result.warnings.some((w) => w.kind === "duplicate_name")).toBe(true);
+    expect(result.dancers.filter((d) => d.recognizedName === "りせ")).toHaveLength(
+      1
+    );
+    expect(result.dancers.some((d) => d.recognizedName === "")).toBe(true);
+    expect(result.dancers.map((d) => d.recognizedName)).not.toContain("るな");
+  });
+
+  it("never keeps OCR names that are not on the roster", () => {
+    const result = reconstructFormation(
+      [
+        person("a", "花香", 10, 10),
+        person("b", "ほなか", 40, 10),
+        person("c", "はなか", 70, 10),
+      ],
+      { roster: ["はなか", "さくら"] }
+    );
+    const names = result.dancers.map((d) => d.recognizedName);
+    expect(names).toEqual(["", "", "はなか"]);
+    expect(names.every((n) => n === "" || n === "はなか" || n === "さくら")).toBe(
+      true
+    );
   });
 
   it("keeps raw and suggested stage positions as separate values", () => {

@@ -260,7 +260,9 @@ export function ParsePositionPreviewEditor({
                   {p.confidence === "low"
                     ? p.rosterMatched
                       ? "名寄せ"
-                      : "推測"
+                      : rosterHints.length > 0
+                        ? "未確定"
+                        : "推測"
                     : "—"}
                 </td>
                 <td style={{ padding: "6px 10px", textAlign: "right" }}>

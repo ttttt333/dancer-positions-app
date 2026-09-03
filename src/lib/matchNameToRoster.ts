@@ -8,24 +8,6 @@ export function normalizeNameForMatch(s: string): string {
     .replace(/\s+/g, "");
 }
 
-function levenshtein(a: string, b: string): number {
-  if (a === b) return 0;
-  if (!a.length) return b.length;
-  if (!b.length) return a.length;
-  const row = Array.from({ length: b.length + 1 }, (_, i) => i);
-  for (let i = 1; i <= a.length; i += 1) {
-    let prev = i;
-    for (let j = 1; j <= b.length; j += 1) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      const next = Math.min(row[j] + 1, prev + 1, row[j - 1] + cost);
-      row[j - 1] = prev;
-      prev = next;
-    }
-    row[b.length] = prev;
-  }
-  return row[b.length];
-}
-
 export type RosterMatchResult = {
   name: string;
   matched: boolean;
@@ -33,21 +15,12 @@ export type RosterMatchResult = {
   original?: string;
 };
 
-/** 画像の表記を優先しつつ、名簿ヒントで同定した表示名を決める */
+/** 名簿に載っている表記をそのまま使う。画像の漢字化・別表記へ置き換えない */
 export function pickDisplayNameFromMatch(
-  original: string,
+  _original: string,
   matchedHint: string
 ): string {
-  const raw = original.trim();
-  const hint = matchedHint.trim();
-  if (!raw) return hint;
-  if (!hint) return raw;
-
-  const normO = normalizeNameForMatch(raw);
-  const normH = normalizeNameForMatch(hint);
-  if (normO === normH) return raw;
-  if (normO.startsWith(normH) || normH.startsWith(normO)) return raw;
-  return hint;
+  return matchedHint.trim();
 }
 
 function uniqueRosterLabels(roster: readonly string[]): string[] {
@@ -62,25 +35,9 @@ function uniqueRosterLabels(roster: readonly string[]): string[] {
   return out;
 }
 
-function editDistanceThreshold(a: string, b: string): number {
-  const maxLen = Math.max(a.length, b.length);
-  if (maxLen <= 3) return 1;
-  return Math.max(1, Math.ceil(maxLen * 0.25));
-}
-
-function allowFuzzyDistance(a: string, b: string, d: number): boolean {
-  if (d <= 0) return false;
-  const maxLen = Math.max(a.length, b.length);
-  if (maxLen <= 3) {
-    if (d !== 1) return false;
-    return a.length >= 2 && b.length >= 2 && a.slice(0, 2) === b.slice(0, 2);
-  }
-  return d <= editDistanceThreshold(a, b);
-}
-
 /**
  * 小さいほど近い。一致なしは null。
- * 3 文字前後のひらがな同士を編集距離 2 で結び付けない（かえで ≠ かんな）。
+ * 編集距離は使わない（はなか ≠ ほなか、かえご ≠ かえで）。
  */
 export function scoreNameToRosterCandidate(
   rawName: string,
@@ -93,12 +50,8 @@ export function scoreNameToRosterCandidate(
 
   const shorter = normIn.length <= normC.length ? normIn : normC;
   const longer = normIn.length <= normC.length ? normC : normIn;
-  if (shorter.length >= 2 && longer.startsWith(shorter) && longer.length > shorter.length) {
-    return 0.5;
-  }
-
-  const d = levenshtein(normIn, normC);
-  if (allowFuzzyDistance(normIn, normC, d)) return d;
+  if (shorter.length < 2 || longer.length <= shorter.length) return null;
+  if (longer.startsWith(shorter) || longer.endsWith(shorter)) return 0.5;
   return null;
 }
 
@@ -123,9 +76,13 @@ function bestUniqueCandidate(
   return scored[0]!.candidate;
 }
 
+function unmatchedName(original: string, roster: readonly string[]): string {
+  return roster.length > 0 ? "" : original;
+}
+
 /**
  * 読み取り名を名簿のいずれかに名寄せ。
- * 名簿が空のときは入力をそのまま返す。
+ * 名簿があるときは名簿の表記だけを返す。載っていない読みは空文字。
  */
 export function matchNameToRoster(
   rawName: string,
@@ -134,13 +91,16 @@ export function matchNameToRoster(
 ): RosterMatchResult {
   const original = rawName.trim();
   const rosterUnique = uniqueRosterLabels(roster);
-  if (!original || rosterUnique.length === 0) {
+  if (rosterUnique.length === 0) {
     return { name: original || rawName, matched: false };
+  }
+  if (!original) {
+    return { name: "", matched: false, original };
   }
 
   const best = bestUniqueCandidate(original, rosterUnique, usedNorm);
   if (!best) {
-    return { name: original, matched: false, original };
+    return { name: unmatchedName(original, rosterUnique), matched: false, original };
   }
 
   return {
@@ -151,7 +111,8 @@ export function matchNameToRoster(
 }
 
 /**
- * 1 つの名簿名を複数人に割り当てない。完全一致 → 接頭辞 → 編集距離の順。
+ * 1 つの名簿名を複数人に割り当てない。完全一致 → 一意な接頭辞/接尾辞。
+ * 名簿外の文字列は残さない。
  */
 export function matchNamesToRosterUnique(
   names: string[],
@@ -170,7 +131,10 @@ export function matchNamesToRosterUnique(
     for (let i = 0; i < names.length; i += 1) {
       if (results[i]!.matched) continue;
       const original = names[i]!.trim();
-      if (!original) continue;
+      if (!original) {
+        results[i] = { name: "", matched: false, original };
+        continue;
+      }
 
       const scored: { candidate: string; score: number }[] = [];
       for (const candidate of rosterUnique) {
@@ -197,7 +161,16 @@ export function matchNamesToRosterUnique(
 
   assignPass((score) => score === 0);
   assignPass((score) => score === 0.5);
-  assignPass((score) => score >= 1);
+
+  for (let i = 0; i < results.length; i += 1) {
+    if (results[i]!.matched) continue;
+    const original = names[i]?.trim() || results[i]!.original || "";
+    results[i] = {
+      name: unmatchedName(original, rosterUnique),
+      matched: false,
+      original,
+    };
+  }
 
   return results;
 }

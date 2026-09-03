@@ -69,20 +69,17 @@ function snapLines(lines: ParsedLine[], roster: string[]): ParsedLine[] {
     (line) => Array.isArray(line.names) && line.names.length > 0
   );
   const flat = validLines.flatMap((line) =>
-    line.names.map((n) => String(n).trim()).filter(Boolean)
+    line.names.map((n) => String(n).trim())
   );
   const snapped = matchNamesToRosterUnique(flat, roster);
   let i = 0;
   return validLines.map((line) => ({
     ...line,
-    names: line.names
-      .map((n) => String(n).trim())
-      .filter(Boolean)
-      .map(() => {
-        const m = snapped[i]!;
-        i += 1;
-        return m.name;
-      }),
+    names: line.names.map(() => {
+      const m = snapped[i]!;
+      i += 1;
+      return m.name;
+    }),
   }));
 }
 

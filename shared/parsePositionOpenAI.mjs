@@ -7,7 +7,7 @@ function buildSystemPrompt(memberNameHints) {
 
   const rosterBlock =
     roster.length > 0
-      ? `\n【名簿候補 — 手書きの読み取りと同一人物の特定に使う。明らかに同じ人物なら名簿の表記を出力する。似ているだけの別人には割り当てない。画像にいない人を名簿から足さない】\n[${roster.join(", ")}]\n`
+      ? `\n【名簿 — 出力する名前はこのリストの文字列だけ。一字一句そのままコピーする。リストに無い名前は出さない。似ている別の名簿名に置き換えない（はなか≠ほなか）。ひらがなの名簿を漢字にしない。同じ名簿名を2人に使わない】\n[${roster.join(", ")}]\n`
       : "";
 
   return `あなたはダンス公演の舞台配置図（フォーメーション図）をデジタル化する専門アシスタントです。
@@ -17,8 +17,8 @@ ${rosterBlock}
 1. 人は「小さな丸（○・●）」が本体。丸の中心が立ち位置。すぐ下（または中）の名前はラベルだけ
 2. 行は画像の上から下。上が舞台奥、下が客席（手前）。各行の人数は独立（例: 奥から 1-3-4-3、手前から数えると 3-4-3-1）
 3. 各行の names は左から右。count はその行の丸の数と一致させる
-4. 名簿があるとき: 手書きが名簿のどれかと明らかに同じ人物なら、その名簿の表記を使う。似ているだけの別人（かえで≠かんな、たけし≠たいち、あおい≠ありす）には割り当てない。同じ名簿名を2人に使わない
-5. 人数が足りないからといって名簿の未使用名を埋めない。右端に数字が書いてあり、その人数だけ丸が見えるときだけ補完する
+4. 名簿があるとき: names / positions.name は上の名簿から選んだ文字列だけを使う。手書きが名簿と（ひらがな・カタカナの違いを除き）同じならその名簿表記。似ているだけの別人（はなか≠ほなか、かえで≠かんな）には割り当てない。名簿に無い読みは空文字にする。漢字を推測して作らない
+5. 人数が足りないからといって名簿の未使用名を埋めない。右端に数字が書いてあり、その人数だけ丸が見えるときだけ、位置だけ返し名前は空でもよい
 6. 手書きでもデジタルでも、各人の positions を必ず返す。x,y は名前の文字領域ではなく ○ の中心（画像の幅・高さに対する 0〜100%）
 
 ルール:
@@ -54,11 +54,11 @@ function buildUserPrompt(memberNameHints) {
     "1) 人は丸。x,y は ○ の中心（名前の文字中心ではない）\n" +
     "2) 行は画像の上（舞台奥）から下（客席）。各行の人数は独立。例: 1,3,4,3\n" +
     "3) 手書きでも lines と positions の両方を返す。右端の人数を count にする。隣の行は隙間に互い違い\n" +
-    "4) 名簿は読み取りの手がかり。別人の似た名前には割り当てない";
+    "4) 名簿があるとき、名前は名簿の表記だけ。名簿に無い名前・似た名前・漢字の推測は禁止";
 
   if (roster.length > 0) {
     text +=
-      "\n\n名簿候補（読み取りの手がかり。明らかに同じ人物ならこの表記を使う。似ている別人には使わない）:\n" +
+      "\n\n使える名前（これ以外は出力禁止。表記をそのまま使う）:\n" +
       roster.map((n) => `・${n}`).join("\n");
   }
 
@@ -74,24 +74,6 @@ function normalizeNameForMatch(s) {
     .replace(/\s+/g, "");
 }
 
-function levenshtein(a, b) {
-  if (a === b) return 0;
-  if (!a.length) return b.length;
-  if (!b.length) return a.length;
-  const row = Array.from({ length: b.length + 1 }, (_, i) => i);
-  for (let i = 1; i <= a.length; i += 1) {
-    let prev = i;
-    for (let j = 1; j <= b.length; j += 1) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      const next = Math.min(row[j] + 1, prev + 1, row[j - 1] + cost);
-      row[j - 1] = prev;
-      prev = next;
-    }
-    row[b.length] = prev;
-  }
-  return row[b.length];
-}
-
 function uniqueRosterLabels(roster) {
   const seen = new Set();
   const out = [];
@@ -104,22 +86,6 @@ function uniqueRosterLabels(roster) {
   return out;
 }
 
-function editDistanceThreshold(a, b) {
-  const maxLen = Math.max(a.length, b.length);
-  if (maxLen <= 3) return 1;
-  return Math.max(1, Math.ceil(maxLen * 0.25));
-}
-
-function allowFuzzyDistance(a, b, d) {
-  if (d <= 0) return false;
-  const maxLen = Math.max(a.length, b.length);
-  if (maxLen <= 3) {
-    if (d !== 1) return false;
-    return a.length >= 2 && b.length >= 2 && a.slice(0, 2) === b.slice(0, 2);
-  }
-  return d <= editDistanceThreshold(a, b);
-}
-
 function scoreNameToRosterCandidate(rawName, candidate) {
   const normIn = normalizeNameForMatch(rawName);
   const normC = normalizeNameForMatch(candidate);
@@ -127,34 +93,19 @@ function scoreNameToRosterCandidate(rawName, candidate) {
   if (normIn === normC) return 0;
   const shorter = normIn.length <= normC.length ? normIn : normC;
   const longer = normIn.length <= normC.length ? normC : normIn;
-  if (
-    shorter.length >= 2 &&
-    longer.startsWith(shorter) &&
-    longer.length > shorter.length
-  ) {
-    return 0.5;
-  }
-  const d = levenshtein(normIn, normC);
-  if (allowFuzzyDistance(normIn, normC, d)) return d;
+  if (shorter.length < 2 || longer.length <= shorter.length) return null;
+  if (longer.startsWith(shorter) || longer.endsWith(shorter)) return 0.5;
   return null;
 }
 
-function pickDisplayNameFromMatch(original, matchedHint) {
-  const raw = String(original ?? "").trim();
-  const hint = String(matchedHint ?? "").trim();
-  if (!raw) return hint;
-  if (!hint) return raw;
-  const normO = normalizeNameForMatch(raw);
-  const normH = normalizeNameForMatch(hint);
-  if (normO === normH) return raw;
-  if (normO.startsWith(normH) || normH.startsWith(normO)) return raw;
-  return hint;
+function pickDisplayNameFromMatch(_original, matchedHint) {
+  return String(matchedHint ?? "").trim();
 }
 
 function snapNamesToRosterUnique(names, roster) {
   const results = names.map((raw) => {
     const original = String(raw ?? "").trim();
-    return { name: original || "Unknown", matched: false, original };
+    return { name: original, matched: false, original };
   });
   if (!roster.length) return results;
   const rosterUnique = uniqueRosterLabels(roster);
@@ -164,7 +115,10 @@ function snapNamesToRosterUnique(names, roster) {
     for (let i = 0; i < names.length; i += 1) {
       if (results[i].matched) continue;
       const original = String(names[i] ?? "").trim();
-      if (!original) continue;
+      if (!original) {
+        results[i] = { name: "", matched: false, original };
+        continue;
+      }
       const scored = [];
       for (const candidate of rosterUnique) {
         const normC = normalizeNameForMatch(candidate);
@@ -188,7 +142,11 @@ function snapNamesToRosterUnique(names, roster) {
 
   assignPass((score) => score === 0);
   assignPass((score) => score === 0.5);
-  assignPass((score) => score >= 1);
+  for (let i = 0; i < results.length; i += 1) {
+    if (results[i].matched) continue;
+    const original = String(names[i] ?? "").trim();
+    results[i] = { name: "", matched: false, original };
+  }
   return results;
 }
 
@@ -206,7 +164,8 @@ function parseLinesFromRaw(raw) {
     for (const n of namesRaw) {
       if (typeof n === "string" || typeof n === "number") {
         const s = String(n).trim();
-        if (s && !/^unknown$/i.test(s)) names.push(s);
+        if (/^unknown$/i.test(s) || s === "不明") names.push("");
+        else names.push(s);
       }
     }
     if (names.length === 0) continue;
@@ -351,7 +310,7 @@ function buildFallbackSystemPrompt(memberNameHints) {
       ? `\nCandidate member names: ${roster.join(", ")}`
       : "";
   return `You transcribe a dance stage formation diagram for choreography software.
-Count each circle as a person. x,y must be the circle center, not the text. Rows go top (backstage) to bottom (audience). Row sizes are independent (e.g. 1-3-4-3). Keep relative spacing. Do not assign lookalike roster names (かえで≠かんな). Return JSON only.${rosterLine}
+Never invent names. If a roster is given, copy those strings exactly; never substitute lookalikes (はなか≠ほなか) or guess kanji from hiragana. Return JSON only.${rosterLine}
 Format: { "imageFrontDirection": "bottom", "lines": [{ "count": 4, "names": ["A","B"] }], "positions": [{ "name": "A", "x": 50, "y": 30, "labelX": 50, "labelY": 36 }] }`;
 }
 
@@ -415,8 +374,12 @@ export function normalizeParsePositionResponse(raw, opts = {}) {
           ? String(nameRaw).trim()
           : "";
       if (!name || /^unknown$/i.test(name) || name === "不明") {
-        fallbackIdx += 1;
-        name = `メンバー${fallbackIdx}`;
+        if (roster.length > 0) {
+          name = "";
+        } else {
+          fallbackIdx += 1;
+          name = `メンバー${fallbackIdx}`;
+        }
       }
       const x = Number(p.markerX ?? p.x);
       const y = Number(p.markerY ?? p.y);

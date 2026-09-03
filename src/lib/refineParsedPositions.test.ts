@@ -130,4 +130,25 @@ describe("refineParsedPositions", () => {
     expect(refined.positions.find((p) => p.name === "かんな")).toBeUndefined();
     expect(refined.positions.find((p) => p.name === "たいち")).toBeUndefined();
   });
+
+  it("drops invented kanji and lookalikes when a roster is present", () => {
+    const roster = ["はなか", "さくら", "みゆ"];
+    const refined = refineParsedPositions(
+      {
+        positions: [
+          { name: "花香", x: 20, y: 50, markerX: 20, markerY: 50 },
+          { name: "ほなか", x: 50, y: 50, markerX: 50, markerY: 50 },
+          { name: "はなか", x: 80, y: 50, markerX: 80, markerY: 50 },
+        ],
+      },
+      roster,
+      { useFormationEngine: true, placement: "raw" }
+    );
+    const names = refined.positions.map((p) => p.name);
+    expect(names).toHaveLength(3);
+    expect(names.filter((n) => n === "はなか")).toHaveLength(1);
+    expect(names).not.toContain("花香");
+    expect(names).not.toContain("ほなか");
+    expect(names.every((n) => n === "" || roster.includes(n))).toBe(true);
+  });
 });
