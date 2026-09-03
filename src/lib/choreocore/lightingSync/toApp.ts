@@ -13,6 +13,7 @@ import type {
   MemberPosition,
   PoseLevel,
 } from "./types";
+import { cueWindowsForHits, ensureTravelGaps } from "./suggestTravelTiming";
 
 function metersToPct(x: number, y: number): { xPct: number; yPct: number } {
   const xPct = ((x + STAGE_WIDTH_M / 2) / STAGE_WIDTH_M) * 100;
@@ -82,10 +83,25 @@ export function lightingSyncPayloadToApp(
   const sorted = [...payload.formations].sort(
     (a, b) => a.timestamp - b.timestamp
   );
+  const bpm = payload.audioAnalysis.bpm > 0 ? payload.audioAnalysis.bpm : 120;
+  const lastTs = sorted[sorted.length - 1]?.timestamp ?? 0;
+  const fromCounts =
+    payload.audioAnalysis.totalCounts > 0
+      ? (payload.audioAnalysis.totalCounts * 60) / bpm
+      : 0;
+  const durationSec = Math.max(lastTs + 8, fromCounts);
+  const windows = cueWindowsForHits(
+    sorted.map((f) => f.timestamp),
+    durationSec,
+    bpm
+  );
 
   for (let i = 0; i < sorted.length; i++) {
     const frame = sorted[i]!;
-    const next = sorted[i + 1];
+    const window = windows[i] ?? {
+      tStartSec: frame.timestamp,
+      tEndSec: frame.timestamp + 8,
+    };
     const id =
       crypto.randomUUID?.() ??
       `ls-${frame.fcpId}-${Math.random().toString(36).slice(2, 8)}`;
@@ -110,10 +126,8 @@ export function lightingSyncPayloadToApp(
     cues.push({
       id: crypto.randomUUID?.() ?? `cue-${id}`,
       formationId: id,
-      tStartSec: frame.timestamp,
-      tEndSec: next
-        ? Math.max(frame.timestamp + 0.5, next.timestamp)
-        : frame.timestamp + 8,
+      tStartSec: window.tStartSec,
+      tEndSec: window.tEndSec,
       name: `${frame.fcpId} ${frame.presetName}`,
     });
 
@@ -129,16 +143,6 @@ export function lightingSyncPayloadToApp(
     );
   }
 
-  // キュー終端の重なり補正
-  cues.sort((a, b) => a.tStartSec - b.tStartSec);
-  for (let i = 0; i < cues.length - 1; i++) {
-    if (cues[i]!.tEndSec > cues[i + 1]!.tStartSec) {
-      cues[i]!.tEndSec = Math.max(
-        cues[i]!.tStartSec + 0.5,
-        cues[i + 1]!.tStartSec
-      );
-    }
-  }
-
-  return { formations, cues, reasoning, payload };
+  const gapped = ensureTravelGaps(cues, bpm);
+  return { formations, cues: gapped, reasoning, payload };
 }

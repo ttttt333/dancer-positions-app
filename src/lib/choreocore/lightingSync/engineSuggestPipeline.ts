@@ -31,7 +31,11 @@ import type {
   FormationType,
 } from "../engine/types/FormationTypes";
 import type { FormationStyle, StageConfig } from "../engine/types/CueTypes";
-import type { CueAnalysisResult, FormationCue } from "../engine/types/CueTypes";
+import type {
+  CueAnalysisResult,
+  FormationCue,
+  FormationCueIntent,
+} from "../engine/types/CueTypes";
 import type {
   ChangePointType,
   EventCluster,
@@ -58,6 +62,13 @@ import {
 import type { LayoutPresetId, LayoutPresetOptions } from "../../formationLayouts";
 import { evaluateMoveConstraints } from "./constraintEngine";
 import { resolveOverlaps } from "./overlapAvoidance";
+import {
+  FORMATION_TRAVEL_COUNTS,
+  cueWindowsForHits,
+  ensureTravelGaps,
+  minHitGapSec,
+  travelDurationSec,
+} from "./suggestTravelTiming";
 import {
   DEFAULT_FORMATION_WEIGHTS,
   type FormationScore,
@@ -363,6 +374,164 @@ function layoutCandidatesForCue(input: {
   return out;
 }
 
+const MIN_MEAN_TRAVEL_PCT = 10;
+
+function meanTravelPct(a: DancerSpot[], b: DancerSpot[]): number {
+  const byId = new Map(b.map((d) => [d.id, d] as const));
+  let sum = 0;
+  let n = 0;
+  for (const p of a) {
+    const q = byId.get(p.id);
+    if (!q) continue;
+    sum += Math.hypot(p.xPct - q.xPct, p.yPct - q.yPct);
+    n += 1;
+  }
+  return n > 0 ? sum / n : 0;
+}
+
+function isSongChangeCue(
+  cue: FormationCue,
+  remote: AppChangePoint[] | undefined
+): boolean {
+  if (cue.isMajor || cue.action === "MAJOR_CHANGE") return true;
+  if (cue.reasonCodes.includes("SECTION_CHANGE")) return true;
+  return Boolean(
+    remote?.some(
+      (cp) =>
+        Math.abs(cp.time - cue.rawTime) < 2 &&
+        (cp.tier === "major" ||
+          cp.section_type === "CHORUS_START" ||
+          cp.section_type === "CHORUS" ||
+          cp.section_type === "DROP")
+    )
+  );
+}
+
+function promoteCuesAtSongChanges(
+  analysis: CueAnalysisResult,
+  remote: AppChangePoint[] | undefined
+): CueAnalysisResult {
+  const intents: Record<string, FormationCueIntent> = { ...analysis.intents };
+  const cues = analysis.cues.map((c) => {
+    if (c.suppressed || !isSongChangeCue(c, remote)) return c;
+    if (c.action !== "HOLD" && c.action !== "MICRO_SHIFT") return c;
+    intents[c.id] = {
+      primary: "MAJOR_CHANGE",
+      secondary: ["EXPAND", "V"],
+      prohibited: ["HOLD"],
+    };
+    return {
+      ...c,
+      action: "MAJOR_CHANGE" as const,
+      isMajor: true,
+      reasonCodes: [...c.reasonCodes, "PROMOTED_SECTION_CHANGE"],
+    };
+  });
+  return { ...analysis, cues, intents };
+}
+
+function thinCuesForTravel(
+  analysis: CueAnalysisResult,
+  bpm: number
+): CueAnalysisResult {
+  const minGap = minHitGapSec(bpm);
+  const active = analysis.cues
+    .filter((c) => !c.suppressed)
+    .sort((a, b) => a.rawTime - b.rawTime || a.id.localeCompare(b.id));
+  const kept: FormationCue[] = [];
+  const keptIds = new Set<string>();
+  for (const cue of active) {
+    const last = kept[kept.length - 1];
+    if (!last || cue.rawTime - last.rawTime >= minGap - 1e-6) {
+      kept.push(cue);
+      keptIds.add(cue.id);
+      continue;
+    }
+    const better =
+      Number(cue.isMajor) - Number(last.isMajor) ||
+      cue.priority - last.priority;
+    if (better > 0) {
+      keptIds.delete(last.id);
+      kept[kept.length - 1] = cue;
+      keptIds.add(cue.id);
+    }
+  }
+  return {
+    ...analysis,
+    cues: analysis.cues.map((c) =>
+      c.suppressed || keptIds.has(c.id) ? c : { ...c, suppressed: true }
+    ),
+  };
+}
+
+function isTrueHold(cue: FormationCue): boolean {
+  return (
+    cue.action === "HOLD" &&
+    !cue.isMajor &&
+    !cue.reasonCodes.includes("SECTION_CHANGE") &&
+    !cue.reasonCodes.includes("PROMOTED_SECTION_CHANGE")
+  );
+}
+
+function resolveDistinctLayoutSpots(input: {
+  preferred: LayoutPresetId | null;
+  seeds: DancerSpot[];
+  prevSpots: DancerSpot[];
+  cue: FormationCue;
+  section: SectionType;
+  tasteBias: SuggestTasteBias;
+  profile: ClassProfile;
+  layoutOpts: LayoutPresetOptions | undefined;
+  recent: LayoutPresetId[];
+  salt: number;
+}): { layoutId: LayoutPresetId | null; dancers: DancerSpot[] } {
+  const ranked = rankLayoutPresets(
+    {
+      family: familyForCueAction(input.cue.action, input.section),
+      sectionType: input.section,
+      salt: input.salt,
+      dancerCount: input.seeds.length,
+      allowCross: allowCrossOf(input.profile),
+      taste: input.tasteBias,
+      recent: input.recent,
+    },
+    16
+  );
+  const ordered = input.preferred
+    ? [input.preferred, ...ranked.filter((id) => id !== input.preferred)]
+    : ranked;
+
+  let fallback: { layoutId: LayoutPresetId; dancers: DancerSpot[] } | null =
+    null;
+  for (const id of ordered) {
+    if (!allowCrossOf(input.profile) && isCrossLayoutPreset(id)) continue;
+    const raw = spotsForLayoutPreset(
+      id,
+      input.seeds,
+      input.prevSpots,
+      input.layoutOpts
+    );
+    const dancers = refineSpotsForClass(
+      raw,
+      input.seeds,
+      input.prevSpots,
+      input.profile,
+      FORMATION_TRAVEL_COUNTS,
+      input.layoutOpts
+    );
+    if (!fallback) fallback = { layoutId: id, dancers };
+    if (meanTravelPct(input.prevSpots, dancers) >= MIN_MEAN_TRAVEL_PCT) {
+      return { layoutId: id, dancers };
+    }
+  }
+  return (
+    fallback ?? {
+      layoutId: null,
+      dancers: input.prevSpots.map((s) => ({ ...s })),
+    }
+  );
+}
+
 export function phase1FromPeaks(
   peaks: number[],
   durationSec: number,
@@ -541,22 +710,6 @@ function currentFromSeeds(
   };
 }
 
-function spotsFromEngine(
-  formation: EngineFormation,
-  stage: StageConfig,
-  seeds: DancerSpot[]
-): DancerSpot[] {
-  return seeds.map((seed) => {
-    const point = formation.positions[seed.id];
-    if (!point) return { ...seed };
-    return {
-      ...seed,
-      xPct: clamp((point.x / stage.width) * 100, 5, 95),
-      yPct: clamp((point.y / stage.depth) * 100, 8, 92),
-    };
-  });
-}
-
 /**
  * 曲理解エンジンで提案を作る。キューが取れないときは null（呼び出し側が照明連動へフォールバック）。
  * 隊形の中身はエンジンテンプレではなく、エディタ雛形 + 近い位置での人の引き継ぎ。
@@ -586,7 +739,12 @@ export function runEngineAppSuggest(
     lowPriorityCooldownBeats: cooldown * 2,
     microShiftThreshold: input.profile.targetAgeGroup === "toddler" ? 48 : 35,
   });
+  cueAnalysis = promoteCuesAtSongChanges(
+    cueAnalysis,
+    input.remoteChangePoints
+  );
   cueAnalysis = capCueAnalysis(cueAnalysis, maxCues);
+  cueAnalysis = thinCuesForTravel(cueAnalysis, bpm);
   const active = cueAnalysis.cues.filter((c) => !c.suppressed);
   if (active.length === 0) return null;
 
@@ -639,21 +797,29 @@ export function runEngineAppSuggest(
   if (sequence.formations.length === 0) return null;
 
   const sortedCues = [...sequence.cues].sort((a, b) => a.rawTime - b.rawTime);
+  const hitTimes = sortedCues.map((c) => clamp(c.rawTime, 0, duration));
+  const windows = cueWindowsForHits(hitTimes, duration, bpm);
+  const travelSec = travelDurationSec(bpm);
   const formations: AppFormation[] = [];
   const cues: Cue[] = [];
   const reasoning: string[] = [
     `曲理解エンジン Phase1–6 / エディタ雛形 / スタイル ${style} / キュー ${sortedCues.length} / 総合 ${Math.round(sequence.totalScore)}`,
+    `移動は変化の ${FORMATION_TRAVEL_COUNTS} カウント前から（約 ${travelSec.toFixed(1)} 秒）`,
   ];
   const payloadFormations: LightingSyncSuggestPayload["formations"] = [];
   let prevLighting: ReturnType<typeof adviseLightingFromCorpus>["lightingPreset"] | undefined;
   let corpusHits = 0;
   let prevSpots: DancerSpot[] = seeds;
+  const recentLayouts: LayoutPresetId[] = [];
 
   for (let i = 0; i < sequence.formations.length; i += 1) {
     const eng = sequence.formations[i]!;
     const cue = sortedCues[i] ?? sortedCues[sortedCues.length - 1]!;
-    const next = sortedCues[i + 1];
     const t = clamp(cue.rawTime, 0, duration);
+    const window = windows[i] ?? {
+      tStartSec: t,
+      tEndSec: Math.min(duration, t + 8),
+    };
     const section = structure.sections.find(
       (s) => t >= s.startTime && t < s.endTime
     );
@@ -670,40 +836,30 @@ export function runEngineAppSuggest(
     prevLighting = advice.lightingPreset;
     if (advice.preferCorpus) corpusHits += 1;
 
-    const layoutId = layoutPresetIdFromTags(eng.tags);
-    const availableCounts = Math.max(
-      1,
-      Math.round((((next?.rawTime ?? t + 8) - t) * bpm) / 60)
-    );
-    const keepHold =
-      cue.action === "HOLD" ||
-      eng.tags.includes("current") ||
-      eng.tags.includes("seed");
+    const preferred = layoutPresetIdFromTags(eng.tags);
+    let layoutId: LayoutPresetId | null = preferred;
     let dancers: DancerSpot[];
-    if (keepHold) {
-      dancers = spotsFromEngine(eng, STAGE, seeds);
-    } else if (layoutId) {
-      dancers = spotsForLayoutPreset(layoutId, seeds, prevSpots, layoutOpts);
-      dancers = refineSpotsForClass(
-        dancers,
-        seeds,
-        prevSpots,
-        input.profile,
-        availableCounts,
-        layoutOpts
-      );
+    if (isTrueHold(cue) && i > 0) {
+      dancers = prevSpots.map((s) => ({ ...s }));
+      layoutId = recentLayouts[recentLayouts.length - 1] ?? preferred;
     } else {
-      dancers = spotsFromEngine(eng, STAGE, seeds);
-      dancers = refineSpotsForClass(
-        dancers,
+      const picked = resolveDistinctLayoutSpots({
+        preferred,
         seeds,
         prevSpots,
-        input.profile,
-        availableCounts,
-        layoutOpts
-      );
+        cue,
+        section: lightingSection,
+        tasteBias: input.tasteBias,
+        profile: input.profile,
+        layoutOpts,
+        recent: recentLayouts.slice(-3),
+        salt: i + Math.round(cue.energyAfter),
+      });
+      layoutId = picked.layoutId;
+      dancers = picked.dancers;
     }
     prevSpots = dancers;
+    if (layoutId) recentLayouts.push(layoutId);
 
     const typeJa = TYPE_JA[eng.type] ?? eng.type;
     const actionJa = ACTION_JA[cue.action] ?? cue.action;
@@ -730,8 +886,8 @@ export function runEngineAppSuggest(
     cues.push({
       id: crypto.randomUUID?.() ?? `cue-${id}`,
       formationId: id,
-      tStartSec: t,
-      tEndSec: next ? Math.max(t + 0.5, next.rawTime) : Math.min(duration, t + 8),
+      tStartSec: window.tStartSec,
+      tEndSec: window.tEndSec,
       name,
     });
 
@@ -743,8 +899,8 @@ export function runEngineAppSuggest(
     }));
     payloadFormations.push({
       fcpId: cue.id,
-      timestamp: t,
-      count: Math.round((t * bpm) / 60) || 1,
+      timestamp: window.tStartSec,
+      count: Math.round((window.tStartSec * bpm) / 60) || 1,
       presetName: name,
       lightingPreset: advice.lightingPreset,
       colorMood: advice.colorMood,
@@ -768,11 +924,9 @@ export function runEngineAppSuggest(
     );
   }
 
-  for (let i = 0; i < cues.length - 1; i += 1) {
-    if (cues[i]!.tEndSec > cues[i + 1]!.tStartSec) {
-      cues[i]!.tEndSec = Math.max(cues[i]!.tStartSec + 0.5, cues[i + 1]!.tStartSec);
-    }
-  }
+  const gapped = ensureTravelGaps(cues, bpm);
+  cues.length = 0;
+  cues.push(...gapped);
 
   if (corpusHits > 0) {
     reasoning.splice(

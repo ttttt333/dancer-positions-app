@@ -3,6 +3,7 @@ import { LAYOUT_PRESET_LABELS } from "../../formationLayouts";
 import { CLASS_ADVANCED_MON7, CLASS_TODDLER } from "./classProfiles";
 import { resolveSuggestTaste } from "./suggestTaste";
 import { isCrossLayoutPreset } from "./layoutPresetBridge";
+import { travelDurationSec } from "./suggestTravelTiming";
 import { phase1FromPeaks, runEngineAppSuggest } from "./engineSuggestPipeline";
 import type { DancerSpot } from "../../types/choreography";
 
@@ -115,5 +116,67 @@ describe("engineSuggestPipeline", () => {
       .map((f) => f.layoutPresetId)
       .filter((id): id is string => Boolean(id));
     expect(layoutIds.some(isCrossLayoutPreset)).toBe(false);
+  });
+
+  it("leaves a 4-count travel gap between formations", () => {
+    const bpm = 120;
+    const result = runEngineAppSuggest({
+      peaks: peaksWithChorus(80),
+      durationSec: 80,
+      bpm,
+      remoteChangePoints: [
+        { eight_index: 0, time: 0, score: 0.4, tier: "minor" },
+        { eight_index: 8, time: 16, score: 0.9, tier: "major", section_type: "CHORUS_START" },
+        { eight_index: 16, time: 32, score: 0.8, tier: "major", section_type: "CHORUS" },
+        { eight_index: 24, time: 48, score: 0.7, tier: "medium" },
+      ],
+      seedDancers: seeds(6),
+      profile: CLASS_ADVANCED_MON7,
+      tasteBias: resolveSuggestTaste({ style: "dynamic" }),
+      targetCueCount: 8,
+    });
+    expect(result).not.toBeNull();
+    expect(result!.cues.length).toBeGreaterThan(1);
+    const travel = travelDurationSec(bpm);
+    const sorted = [...result!.cues].sort((a, b) => a.tStartSec - b.tStartSec);
+    for (let i = 0; i < sorted.length - 1; i += 1) {
+      const gap = sorted[i + 1]!.tStartSec - sorted[i]!.tEndSec;
+      expect(gap).toBeGreaterThanOrEqual(travel - 0.06);
+    }
+  });
+
+  it("changes dancer positions at a chorus hit", () => {
+    const people = seeds(6);
+    const result = runEngineAppSuggest({
+      peaks: peaksWithChorus(80),
+      durationSec: 80,
+      bpm: 120,
+      remoteChangePoints: [
+        { eight_index: 0, time: 0, score: 0.4, tier: "minor" },
+        { eight_index: 8, time: 16, score: 0.9, tier: "major", section_type: "CHORUS_START" },
+        { eight_index: 16, time: 32, score: 0.8, tier: "major", section_type: "CHORUS" },
+      ],
+      seedDancers: people,
+      profile: CLASS_ADVANCED_MON7,
+      tasteBias: resolveSuggestTaste({ style: "dynamic", vibes: ["energetic"] }),
+      targetCueCount: 8,
+    });
+    expect(result).not.toBeNull();
+    const sorted = [...result!.cues].sort((a, b) => a.tStartSec - b.tStartSec);
+    const chorusCue =
+      sorted.find((c) => Math.abs(c.tStartSec - 16) < 4) ??
+      sorted.find((c) => c.tStartSec >= 12 && c.tStartSec <= 28);
+    expect(chorusCue).toBeDefined();
+    const prevCue = sorted.filter((c) => c.tStartSec < (chorusCue!.tStartSec - 0.05)).at(-1);
+    expect(prevCue).toBeDefined();
+    const byId = new Map(result!.formations.map((f) => [f.id, f] as const));
+    const a = byId.get(prevCue!.formationId)!.dancers;
+    const b = byId.get(chorusCue!.formationId)!.dancers;
+    const mean = a.reduce((sum, d) => {
+      const n = b.find((x) => x.id === d.id);
+      if (!n) return sum;
+      return sum + Math.hypot(d.xPct - n.xPct, d.yPct - n.yPct);
+    }, 0) / a.length;
+    expect(mean).toBeGreaterThan(8);
   });
 });
