@@ -117,4 +117,6 @@ export type ReconstructFormationOptions = {
   imageFrontDirection?: ImageFrontDirection;
   orientationConfidence?: number;
   placement?: PlacementMode;
+  /** 画像右端などに書かれた列人数。上（奥）から。合計が人数と一致するとき行分けに使う */
+  rowCounts?: number[];
 };

@@ -31,7 +31,7 @@ export function reconstructFormation(
 ): FormationImportResult {
   const direction = opts.imageFrontDirection ?? "bottom";
   const orientationConfidence = opts.orientationConfidence ?? 0.7;
-  const placement = opts.placement ?? "raw";
+  const placement = opts.placement ?? "suggested";
   const imageWidth = opts.imageWidth ?? inferExtent(detections, "x");
   const imageHeight = opts.imageHeight ?? inferExtent(detections, "y");
 
@@ -54,7 +54,7 @@ export function reconstructFormation(
   }));
 
   const box = formationBoundingBox(named.map((d) => d.marker));
-  const rows = detectRows(named);
+  const rows = detectRows(named, opts.rowCounts);
   const columns = assignColumns(rows);
   const rowLengths = rows.map((r) => r.members.length);
   const pattern = inferPattern(rowLengths);

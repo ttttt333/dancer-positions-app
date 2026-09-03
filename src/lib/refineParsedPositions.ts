@@ -107,6 +107,11 @@ function refineWithFormationEngine(
       imageHeight: 100,
       imageFrontDirection: raw.imageFrontDirection ?? "bottom",
       placement,
+      rowCounts: lines.map((l) =>
+        Number.isFinite(Number(l.count)) && Number(l.count) > 0
+          ? Number(l.count)
+          : l.names.length
+      ),
     }
   );
 
@@ -191,7 +196,7 @@ export function refineParsedPositions(
     return refineWithFormationEngine(
       raw,
       roster,
-      opts.placement ?? "raw"
+      opts.placement ?? "suggested"
     );
   }
   return refineLegacy(raw, roster);

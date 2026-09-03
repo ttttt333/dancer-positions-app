@@ -10,12 +10,16 @@ export type RowCluster<T extends { id: string; marker: Point }> = {
  * 既存の clusterPositionsByRow（6% 固定）は使わない。
  */
 export function detectRows<T extends { id: string; marker: Point }>(
-  items: T[]
+  items: T[],
+  rowCounts?: number[]
 ): RowCluster<T>[] {
   if (items.length === 0) return [];
   if (items.length === 1) {
     return [{ row: 0, members: [items[0]!] }];
   }
+
+  const fromCounts = rowsFromWrittenCounts(items, rowCounts);
+  if (fromCounts) return fromCounts;
 
   const points = items.map((it) => it.marker);
   const nn = medianNearestNeighborDistance(points);
@@ -43,6 +47,31 @@ export function detectRows<T extends { id: string; marker: Point }>(
     row,
     members: [...members].sort((a, b) => a.marker.x - b.marker.x),
   }));
+}
+
+/** 写真右端の 1,3,4,3 のように、書いてある人数で上から行を切る */
+export function rowsFromWrittenCounts<T extends { id: string; marker: Point }>(
+  items: T[],
+  rowCounts?: number[]
+): RowCluster<T>[] | null {
+  if (!rowCounts?.length) return null;
+  const counts = rowCounts.filter((n) => Number.isFinite(n) && n > 0);
+  const total = counts.reduce((s, n) => s + n, 0);
+  if (total !== items.length) return null;
+
+  const sorted = [...items].sort(
+    (a, b) => a.marker.y - b.marker.y || a.marker.x - b.marker.x
+  );
+  const rows: RowCluster<T>[] = [];
+  let i = 0;
+  counts.forEach((count, row) => {
+    const members = sorted
+      .slice(i, i + count)
+      .sort((a, b) => a.marker.x - b.marker.x);
+    i += count;
+    rows.push({ row, members });
+  });
+  return rows;
 }
 
 export function assignColumns<T extends { id: string; marker: Point }>(

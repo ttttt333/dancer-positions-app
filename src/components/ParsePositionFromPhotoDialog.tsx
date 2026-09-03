@@ -183,7 +183,7 @@ export function ParsePositionFromPhotoDialog({
   const [suggestedPreview, setSuggestedPreview] = useState<ParsedPosition[] | null>(
     null
   );
-  const [placement, setPlacement] = useState<"raw" | "suggested">("raw");
+  const [placement, setPlacement] = useState<"raw" | "suggested">("suggested");
   const [importWarnings, setImportWarnings] = useState<ParseImportWarning[]>([]);
   const [formationName, setFormationName] = useState("写真から取込");
   const [sourceFileNames, setSourceFileNames] = useState<string[]>([]);
@@ -293,7 +293,7 @@ export function ParsePositionFromPhotoDialog({
     setCountMismatches([]);
     setRawPreview(null);
     setSuggestedPreview(null);
-    setPlacement("raw");
+    setPlacement("suggested");
     setImportWarnings([]);
     setFormationName("写真から取込");
     setSourceFileNames([]);
@@ -401,7 +401,7 @@ export function ParsePositionFromPhotoDialog({
       const suggested = result.suggestedPositions ?? null;
       setRawPreview(raw);
       setSuggestedPreview(suggested);
-      setPlacement(result.placement ?? "raw");
+      setPlacement(result.placement ?? "suggested");
       setPreview(result.positions);
       setPreviewLines(result.lines ?? null);
       setCountMismatches(result.countMismatches ?? []);
@@ -1047,8 +1047,8 @@ export function ParsePositionFromPhotoDialog({
                 >
                   {(
                     [
-                      ["raw", "原画に忠実"],
                       ["suggested", "形を整える"],
+                      ["raw", "原画に忠実"],
                     ] as const
                   ).map(([mode, label]) => (
                     <button

@@ -3,6 +3,7 @@ import { isFormationImportEngineEnabled } from "./featureFlag";
 import { formationBoundingBox } from "./geometry";
 import { reconstructFormation } from "./reconstruct";
 import { detectRows } from "./rowColumn";
+import { staggeredXsForRow, stepForMaxRowCount } from "./mapping";
 import type { PersonDetection } from "./types";
 
 function person(
@@ -58,6 +59,23 @@ describe("detectRows", () => {
       "たけし",
       "りこ",
     ]);
+  });
+
+  it("uses written row counts when they match the dancer total", () => {
+    const rows = detectRows(handwritten3431(), [1, 3, 4, 3]);
+    expect(rows.map((r) => r.members.length)).toEqual([1, 3, 4, 3]);
+  });
+});
+
+describe("staggeredXsForRow", () => {
+  it("puts a 4-person row in the gaps of a 3-person row", () => {
+    const step = stepForMaxRowCount(4);
+    const three = staggeredXsForRow(3, step);
+    const four = staggeredXsForRow(4, step);
+    expect(four[1]).toBeCloseTo((three[0]! + three[1]!) / 2);
+    expect(four[2]).toBeCloseTo((three[1]! + three[2]!) / 2);
+    expect(four[0]).toBeLessThan(three[0]!);
+    expect(four[3]).toBeGreaterThan(three[2]!);
   });
 });
 
@@ -137,5 +155,23 @@ describe("reconstructFormation", () => {
     expect(result.dancers[0]?.stagePosition).toEqual(
       result.dancers[0]?.rawStagePosition
     );
+  });
+
+  it("staggers the 4-person row into the gaps of the 3-person row", () => {
+    const result = reconstructFormation(handwritten3431(), {
+      placement: "suggested",
+      rowCounts: [1, 3, 4, 3],
+      imageWidth: 400,
+      imageHeight: 320,
+    });
+    const xOf = (name: string) =>
+      result.dancers.find((d) => d.recognizedName === name)?.suggestedStagePosition.x;
+    expect(xOf("みゆ")).not.toBeCloseTo(xOf("そら") ?? 0, 0);
+    expect(xOf("よしの")).toBeGreaterThan(xOf("りゅうた") ?? 0);
+    expect(xOf("よしの")).toBeLessThan(xOf("そら") ?? 0);
+    expect(xOf("みゆ")).toBeGreaterThan(xOf("そら") ?? 0);
+    expect(xOf("みゆ")).toBeLessThan(xOf("るな") ?? 0);
+    expect(xOf("かえで")).toBeCloseTo(xOf("そら") ?? 0);
+    expect(xOf("たけし")).toBeCloseTo(xOf("そら") ?? 0);
   });
 });

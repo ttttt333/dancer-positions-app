@@ -32,7 +32,19 @@ export function reconstructFromParseResponse(
   raw: ParsePositionResponse,
   opts: ReconstructFormationOptions = {}
 ): FormationImportResult {
-  return reconstructFormation(detectionsFromParseResponse(raw), opts);
+  const rowCounts =
+    opts.rowCounts ??
+    (raw.lines ?? [])
+      .map((line) => {
+        const count = Number(line.count);
+        if (Number.isFinite(count) && count > 0) return count;
+        return line.names?.length ?? 0;
+      })
+      .filter((n) => n > 0);
+  return reconstructFormation(detectionsFromParseResponse(raw), {
+    ...opts,
+    rowCounts: rowCounts.length ? rowCounts : opts.rowCounts,
+  });
 }
 
 /** 既存キュー適用が読める形へ。エンジン経路でも dancer id はここでは作らない */
