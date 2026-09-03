@@ -3,6 +3,7 @@ import { EditorSideSheet } from "./EditorSideSheet";
 import { VideoExportButton } from "./VideoExportButton";
 import { btnSecondary } from "./stageButtonStyles";
 import { useVideoExportRunStore } from "../store/videoExportRunStore";
+import { shell } from "../theme/choreoShell";
 
 type Props = {
   open: boolean;
@@ -13,7 +14,7 @@ type Props = {
 };
 
 /**
- * エディタ用: 動画の共有・保存 UI（閲覧者下バーと同じ `VideoExportButton`）。
+ * 右バー1ページでサイズを選んで MP4 を書き出す。
  */
 export function VideoExportSheet({
   open,
@@ -30,31 +31,38 @@ export function VideoExportSheet({
       onClose={onClose}
       blockDismiss={isExporting}
       zIndex={76}
-      width="min(400px, 92vw)"
+      width="min(300px, 92vw)"
       sheetId="video-export"
       ariaLabelledBy="video-export-sheet-title"
+      panelStyle={{
+        background: shell.bgDeep,
+        borderLeft: `1px solid ${shell.borderStrong}`,
+      }}
     >
-      <div style={{ padding: "16px 18px 22px" }}>
+      <div style={{ padding: "16px 16px 22px" }}>
         <div
           style={{
             display: "flex",
-            alignItems: "center",
+            alignItems: "flex-start",
             justifyContent: "space-between",
             gap: 12,
-            marginBottom: 12,
+            marginBottom: 8,
           }}
         >
-          <h2
-            id="video-export-sheet-title"
-            style={{
-              margin: 0,
-              fontSize: 16,
-              fontWeight: 700,
-              color: "#e2e8f0",
-            }}
-          >
-            動画書き出し
-          </h2>
+          <div>
+            <h2
+              id="video-export-sheet-title"
+              style={{
+                margin: 0,
+                fontSize: 18,
+                fontWeight: 800,
+                color: shell.text,
+                letterSpacing: "0.01em",
+              }}
+            >
+              動画書き出し
+            </h2>
+          </div>
           <button
             type="button"
             aria-label="閉じる"
@@ -73,13 +81,13 @@ export function VideoExportSheet({
         </div>
         <p
           style={{
-            margin: "0 0 14px",
+            margin: "0 0 16px",
             fontSize: 12,
-            lineHeight: 1.5,
-            color: "#94a3b8",
+            lineHeight: 1.55,
+            color: shell.textMuted,
           }}
         >
-          ステージの動きと音源を同期した MP4 を作成します。初回は変換エンジンの読み込みに時間がかかることがあります。
+          サイズを選んで書き出します。共有できる端末では保存のあと共有シートが開きます。
         </p>
         <VideoExportButton
           project={project}

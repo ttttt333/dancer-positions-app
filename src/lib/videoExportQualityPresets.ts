@@ -69,3 +69,8 @@ export function getVideoExportQualityPreset(
 export function formatVideoExportQualitySpec(preset: VideoExportQualityPreset): string {
   return `${preset.width}×${preset.height} · ${preset.fps}fps`;
 }
+
+/** 選択 UI 用のサイズ名（540p など） */
+export function formatVideoExportSizeLabel(preset: VideoExportQualityPreset): string {
+  return `${preset.height}p`;
+}
