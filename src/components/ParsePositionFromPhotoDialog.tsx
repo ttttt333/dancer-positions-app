@@ -28,6 +28,7 @@ import {
 } from "../lib/rosterHintGroups";
 import { ROSTER_FILE_ACCEPT } from "../lib/rosterFileImport";
 import { PARSE_IMAGE_FILE_ACCEPT } from "../lib/prepareImageForParse";
+import { mergePreviewNames } from "../lib/formationImport/previewAdjust";
 import type {
   CountMismatch,
   ParsedLine,
@@ -39,6 +40,7 @@ import {
   type ParseImageProgress,
 } from "../hooks/usePositionParser";
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
+import { ParsePositionPreviewEditor } from "./ParsePositionPreviewEditor";
 import { shell } from "../theme/choreoShell";
 
 type Props = {
@@ -129,41 +131,17 @@ const dialog: CSSProperties = {
   boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
 };
 
+const dialogReview: CSSProperties = {
+  ...dialog,
+  width: "min(880px, calc(100vw - 24px))",
+  maxHeight: "min(900px, calc(100dvh - 24px))",
+};
+
 function formatSec(s: number): string {
   if (!Number.isFinite(s) || s < 0) return "0:00.0";
   const m = Math.floor(s / 60);
   const sec = s - m * 60;
   return `${m}:${sec.toFixed(1).padStart(4, "0")}`;
-}
-
-function PositionPreviewThumb({ positions }: { positions: ParsedPosition[] }) {
-  return (
-    <svg
-      viewBox="0 0 100 60"
-      width="100%"
-      height={120}
-      aria-hidden
-      style={{
-        display: "block",
-        background: "#0a0f1e",
-        borderRadius: 8,
-        border: "1px solid #334155",
-      }}
-    >
-      <rect x="0" y="48" width="100" height="12" fill="#94a3b8" fillOpacity={0.12} rx="2" />
-      {positions.map((p, i) => (
-        <g key={`${p.name}-${i}`}>
-          <circle
-            cx={Math.max(4, Math.min(96, p.x))}
-            cy={2 + (Math.max(0, Math.min(100, p.y)) / 100) * 56}
-            r={3.2}
-            fill="#d4af37"
-            fillOpacity={0.95}
-          />
-        </g>
-      ))}
-    </svg>
-  );
 }
 
 export function ParsePositionFromPhotoDialog({
@@ -459,7 +437,7 @@ export function ParsePositionFromPhotoDialog({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div style={dialog} onClick={(e) => e.stopPropagation()}>
+      <div style={preview ? dialogReview : dialog} onClick={(e) => e.stopPropagation()}>
         <div
           style={{
             display: "flex",
@@ -1035,13 +1013,12 @@ export function ParsePositionFromPhotoDialog({
                   ? ` · 名簿ヒント ${memberNameHints.length} 名`
                   : null}
               </p>
-              <PositionPreviewThumb positions={preview} />
               {rawPreview && suggestedPreview ? (
                 <div
                   style={{
                     display: "flex",
                     gap: 6,
-                    marginTop: 10,
+                    marginBottom: 10,
                     flexWrap: "wrap",
                   }}
                 >
@@ -1055,10 +1032,12 @@ export function ParsePositionFromPhotoDialog({
                       key={mode}
                       type="button"
                       onClick={() => {
+                        if (!preview) return;
+                        const coords =
+                          mode === "suggested" ? suggestedPreview : rawPreview;
+                        if (!coords) return;
                         setPlacement(mode);
-                        setPreview(
-                          mode === "suggested" ? suggestedPreview : rawPreview
-                        );
+                        setPreview(mergePreviewNames(preview, coords));
                       }}
                       style={{
                         ...btnSecondary,
@@ -1074,6 +1053,11 @@ export function ParsePositionFromPhotoDialog({
                   ))}
                 </div>
               ) : null}
+              <ParsePositionPreviewEditor
+                positions={preview}
+                rosterHints={memberNameHints}
+                onChange={setPreview}
+              />
               {importWarnings.length > 0 ? (
                 <ul
                   style={{
@@ -1151,57 +1135,6 @@ export function ParsePositionFromPhotoDialog({
                   }}
                 />
               </label>
-              <div
-                style={{
-                  marginTop: 12,
-                  maxHeight: 220,
-                  overflow: "auto",
-                  border: "1px solid #334155",
-                  borderRadius: 8,
-                }}
-              >
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                    fontSize: 12,
-                  }}
-                >
-                  <thead>
-                    <tr style={{ background: "#0f172a", color: "#94a3b8" }}>
-                      <th style={{ textAlign: "left", padding: "8px 10px" }}>#</th>
-                      <th style={{ textAlign: "left", padding: "8px 10px" }}>名前</th>
-                      <th style={{ textAlign: "center", padding: "8px 6px" }}>確度</th>
-                      <th style={{ textAlign: "right", padding: "8px 10px" }}>X%</th>
-                      <th style={{ textAlign: "right", padding: "8px 10px" }}>Y%</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {preview.map((p, i) => (
-                      <tr key={`${p.name}-${i}`} style={{ borderTop: "1px solid #1e293b" }}>
-                        <td style={{ padding: "6px 10px", color: "#64748b" }}>{i + 1}</td>
-                        <td style={{ padding: "6px 10px", color: shell.text }}>{p.name}</td>
-                        <td
-                          style={{
-                            padding: "6px 6px",
-                            textAlign: "center",
-                            color: p.confidence === "low" ? "#fbbf24" : "#64748b",
-                            fontSize: 11,
-                          }}
-                        >
-                          {p.confidence === "low"
-                            ? p.rosterMatched
-                              ? "名寄せ"
-                              : "推測"
-                            : "—"}
-                        </td>
-                        <td style={{ padding: "6px 10px", textAlign: "right" }}>{p.x.toFixed(1)}</td>
-                        <td style={{ padding: "6px 10px", textAlign: "right" }}>{p.y.toFixed(1)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
             </>
           )}
 
@@ -1251,7 +1184,7 @@ export function ParsePositionFromPhotoDialog({
                 disabled={busy}
                 onClick={handleConfirm}
               >
-                確定してキューに追加
+                この内容でキューに追加
               </button>
             </>
           ) : (
