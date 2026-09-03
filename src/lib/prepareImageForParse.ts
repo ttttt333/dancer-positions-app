@@ -1,5 +1,5 @@
-/** 解析 API へ送る画像の最大辺（px）。手書きの丸＋名前が潰れないよう 1536。 */
-const PARSE_IMAGE_MAX_PX = 1536;
+/** 解析 API へ送る画像の最大辺（px）。手書き1文字が潰れると名簿照合が落ちるので 2048。 */
+const PARSE_IMAGE_MAX_PX = 2048;
 const PARSE_IMAGE_JPEG_QUALITY = 0.92;
 
 /**

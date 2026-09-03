@@ -7,35 +7,39 @@ function buildSystemPrompt(memberNameHints) {
 
   const rosterBlock =
     roster.length > 0
-      ? `\n【名簿 — 出力する名前はこのリストの文字列だけ。一字一句そのままコピーする。リストに無い名前は出さない。似ている別の名簿名に置き換えない（はなか≠ほなか）。ひらがなの名簿を漢字にしない。同じ名簿名を2人に使わない】\n[${roster.join(", ")}]\n`
+      ? `\n【名簿 — name に出す文字列はこのリストだけ。一字一句コピー。漢字を作らない。同じ名簿名を2人に使わない。は と ほ は別人（はなか≠ほなか）。ただし手書きの癖で1字だけ崩れているときは、字形が最も近い名簿名を選ぶ（ほのあ→ほのか）】\n[${roster.join(", ")}]\n`
       : "";
 
   return `あなたはダンス公演の舞台配置図（フォーメーション図）をデジタル化する専門アシスタントです。
 手書きメモ・ノート・方眼紙・デジタル立ち位置図の文字とマーカーを読み取ります。これは芸術公演の制作資料です。
 ${rosterBlock}
 解析手順（この順で内部的に考えてから JSON を出力）:
-1. 人は「小さな丸（○・●）」が本体。丸の中心が立ち位置。すぐ下（または中）の名前はラベルだけ
-2. 行は画像の上から下。上が舞台奥、下が客席（手前）。各行の人数は独立（例: 奥から 1-3-4-3、手前から数えると 3-4-3-1）
-3. 各行の names は左から右。count はその行の丸の数と一致させる
-4. 名簿があるとき: names / positions.name は上の名簿から選んだ文字列だけを使う。手書きが名簿と（ひらがな・カタカナの違いを除き）同じならその名簿表記。似ているだけの別人（はなか≠ほなか、かえで≠かんな）には割り当てない。名簿に無い読みは空文字にする。漢字を推測して作らない
-5. 人数が足りないからといって名簿の未使用名を埋めない。右端に数字が書いてあり、その人数だけ丸が見えるときだけ、位置だけ返し名前は空でもよい
-6. 手書きでもデジタルでも、各人の positions を必ず返す。x,y は名前の文字領域ではなく ○ の中心（画像の幅・高さに対する 0〜100%）
+1. 人は「小さな丸（○・●）」が本体。丸の中心が立ち位置。すぐ下（または中・右・縦書き）の名前はラベルだけ
+2. 行は画像の上から下。上が舞台奥、下が客席（手前）。右端に人数が書いてあればそれを count にする（例: 7,7,5,4）
+3. 各行の names は左から右。count はその行の丸の数と一致させる。隣の名前と繋げない
+4. 各ラベルを「1文字ずつ」読む。罫線は文字ではない。この書き手の癖をページ全体で揃える
+   - ほ は横棒が は より1本多い。はなか と ほのか を取り違えない
+   - か は右上の払いがある。あ の丸だけと混同しやすい（ほのあ と読めたら ほのか を疑う）
+   - め と あ、う と ゆ、な と た も崩れる。縦に詰まった3文字（ほのか、ゆうゆ）は上から全部読む
+   - みゆう（3文字）と みゆ（2文字）は別人が多い
+5. 名簿があるとき: rawRead に目で見た仮名を入れる。name は名簿から選んだ表記。名簿に無い読みは name を空文字。漢字は作らない。人数が足りないから未使用名を埋めない
+6. 手書きでも positions を必ず返す。x,y は ○ の中心（0〜100%）
 
 ルール:
 - 手書きメモでは lines と positions の両方を返す
 - x,y に文字の中心を入れない。labelX / labelY に名前の中心を入れてもよい
-- ノートの罫線・影・汚れは人ではない
-- 画像を同じXの縦列に積まない。人数が多い行は、隣の行のメンバーの隙間に均等に入る（互い違い）
+- ノートの罫線・影・汚れ・右端の人数・①は人ではない
+- 画像を同じXの縦列に積まない。人数が多い行は隣の行の隙間に互い違い
 - 絶対に「読み取れない」と返さず、必ず JSON を返す
 
 必ず JSON のみ:
 {
   "imageFrontDirection": "bottom",
   "lines": [
-    { "rowIndex": 1, "count": 4, "names": ["名前1", "名前2", "名前3", "名前4"] }
+    { "rowIndex": 1, "count": 7, "names": ["名前1", "名前2"] }
   ],
   "positions": [
-    { "name": "名前", "x": 50, "y": 30, "labelX": 50, "labelY": 36, "confidence": "high" }
+    { "name": "名前", "rawRead": "ほのあ", "x": 50, "y": 30, "labelX": 50, "labelY": 36, "confidence": "high" }
   ]
 }`;
 }
@@ -50,15 +54,16 @@ function buildUserPrompt(memberNameHints) {
       : [];
 
   let text =
-    "添付画像を解析してください。\n" +
+    "添付画像を1文字ずつ解析してください。\n" +
     "1) 人は丸。x,y は ○ の中心（名前の文字中心ではない）\n" +
-    "2) 行は画像の上（舞台奥）から下（客席）。各行の人数は独立。例: 1,3,4,3\n" +
-    "3) 手書きでも lines と positions の両方を返す。右端の人数を count にする。隣の行は隙間に互い違い\n" +
-    "4) 名簿があるとき、名前は名簿の表記だけ。名簿に無い名前・似た名前・漢字の推測は禁止";
+    "2) 行は画像の上（舞台奥）から下（客席）。右端の人数を count にする。隣の行は隙間に互い違い\n" +
+    "3) 各名前は丸の直下（または縦書き）だけ。隣と繋げない。詰まった3文字は全部読む\n" +
+    "4) rawRead に目で見た仮名。名簿があるとき name は名簿の表記。は≠ほ。あ/か・め/あ・う/ゆの癖は名簿の近い名前へ\n" +
+    "5) 漢字の推測禁止。名簿に無い名前は出さない";
 
   if (roster.length > 0) {
     text +=
-      "\n\n使える名前（これ以外は出力禁止。表記をそのまま使う）:\n" +
+      "\n\n使える名前（name はこれ以外禁止。表記をそのまま使う）:\n" +
       roster.map((n) => `・${n}`).join("\n");
   }
 
@@ -86,6 +91,102 @@ function uniqueRosterLabels(roster) {
   return out;
 }
 
+const HIRAGANA_CONFUSION_GROUPS = [
+  ["あ", "お"],
+  ["あ", "め"],
+  ["あ", "か"],
+  ["め", "ぬ"],
+  ["ぬ", "の"],
+  ["か", "が"],
+  ["き", "ぎ", "さ"],
+  ["く", "ぐ"],
+  ["け", "げ"],
+  ["こ", "ご"],
+  ["さ", "ざ"],
+  ["し", "じ", "つ"],
+  ["す", "ず"],
+  ["せ", "ぜ"],
+  ["そ", "ぞ", "ん", "る"],
+  ["た", "だ"],
+  ["ち", "ぢ"],
+  ["つ", "う", "ら"],
+  ["て", "で"],
+  ["と", "ど"],
+  ["な", "た"],
+  ["ね", "れ", "わ"],
+  ["は", "ば", "ぱ"],
+  ["ひ", "び", "ぴ", "い"],
+  ["ふ", "ぶ", "ぷ"],
+  ["へ", "べ", "ぺ"],
+  ["ほ", "ぼ", "ぽ"],
+  ["ま", "も"],
+  ["や", "ゃ"],
+  ["ゆ", "ゅ", "う"],
+  ["よ", "ょ"],
+  ["り", "い"],
+  ["る", "ろ"],
+];
+const HIRAGANA_SKIPPABLE = new Set(["っ", "ぁ", "ぃ", "ぅ", "ぇ", "ぉ", "ゃ", "ゅ", "ょ", "ー"]);
+const HIRAGANA_CONFUSABLE = new Set();
+for (const group of HIRAGANA_CONFUSION_GROUPS) {
+  for (let i = 0; i < group.length; i += 1) {
+    for (let j = 0; j < group.length; j += 1) {
+      if (i === j) continue;
+      HIRAGANA_CONFUSABLE.add(`${group[i]}\0${group[j]}`);
+    }
+  }
+}
+
+function hiraganaConfusable(a, b) {
+  return a === b || HIRAGANA_CONFUSABLE.has(`${a}\0${b}`);
+}
+
+function hiraganaAlignCost(a, b) {
+  if (a.length !== b.length) return null;
+  let cost = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] === b[i]) continue;
+    if (!hiraganaConfusable(a[i], b[i])) return null;
+    cost += 1;
+  }
+  return cost;
+}
+
+function dropOneSkippableKana(s) {
+  const out = [];
+  const seen = new Set();
+  for (let i = 0; i < s.length; i += 1) {
+    if (!HIRAGANA_SKIPPABLE.has(s[i]) && s[i] !== "う") continue;
+    const next = s.slice(0, i) + s.slice(i + 1);
+    if (!next || seen.has(next)) continue;
+    seen.add(next);
+    out.push(next);
+  }
+  return out;
+}
+
+function handwritingNameCost(raw, candidate) {
+  if (!raw || !candidate) return null;
+  if (raw === candidate) return 0;
+  const same = hiraganaAlignCost(raw, candidate);
+  if (same === 0) return 0;
+  if (same === 1) return 1;
+  if (same === 2 && raw.length >= 4 && candidate.length >= 4) return 2;
+  if (Math.abs(raw.length - candidate.length) !== 1) return null;
+  const longer = raw.length > candidate.length ? raw : candidate;
+  const shorter = raw.length > candidate.length ? candidate : raw;
+  let best = null;
+  for (const dropped of dropOneSkippableKana(longer)) {
+    if (dropped.length !== shorter.length) continue;
+    const cost = hiraganaAlignCost(dropped, shorter);
+    if (cost == null) continue;
+    const total = cost + 1;
+    if (total > 2) continue;
+    if (best == null || total < best) best = total;
+  }
+  return best;
+}
+
 function scoreNameToRosterCandidate(rawName, candidate) {
   const normIn = normalizeNameForMatch(rawName);
   const normC = normalizeNameForMatch(candidate);
@@ -93,9 +194,12 @@ function scoreNameToRosterCandidate(rawName, candidate) {
   if (normIn === normC) return 0;
   const shorter = normIn.length <= normC.length ? normIn : normC;
   const longer = normIn.length <= normC.length ? normC : normIn;
-  if (shorter.length < 2 || longer.length <= shorter.length) return null;
-  if (longer.startsWith(shorter) || longer.endsWith(shorter)) return 0.5;
-  return null;
+  if (shorter.length >= 2 && longer.length > shorter.length) {
+    if (longer.startsWith(shorter) || longer.endsWith(shorter)) return 0.5;
+  }
+  const hw = handwritingNameCost(normIn, normC);
+  if (hw == null || hw === 0) return hw;
+  return hw;
 }
 
 function pickDisplayNameFromMatch(_original, matchedHint) {
@@ -142,6 +246,8 @@ function snapNamesToRosterUnique(names, roster) {
 
   assignPass((score) => score === 0);
   assignPass((score) => score === 0.5);
+  assignPass((score) => score === 1);
+  assignPass((score) => score === 2);
   for (let i = 0; i < results.length; i += 1) {
     if (results[i].matched) continue;
     const original = String(names[i] ?? "").trim();
@@ -310,8 +416,8 @@ function buildFallbackSystemPrompt(memberNameHints) {
       ? `\nCandidate member names: ${roster.join(", ")}`
       : "";
   return `You transcribe a dance stage formation diagram for choreography software.
-Never invent names. If a roster is given, copy those strings exactly; never substitute lookalikes (はなか≠ほなか) or guess kanji from hiragana. Return JSON only.${rosterLine}
-Format: { "imageFrontDirection": "bottom", "lines": [{ "count": 4, "names": ["A","B"] }], "positions": [{ "name": "A", "x": 50, "y": 30, "labelX": 50, "labelY": 36 }] }`;
+Never invent names. If a roster is given, copy those strings into name. Put the literal kana you see in rawRead. Distinguish は vs ほ (はなか≠ほなか). Recover handwriting quirks (ほのあ→ほのか). Never guess kanji from hiragana. Return JSON only.${rosterLine}
+Format: { "imageFrontDirection": "bottom", "lines": [{ "count": 4, "names": ["A","B"] }], "positions": [{ "name": "A", "rawRead": "A", "x": 50, "y": 30, "labelX": 50, "labelY": 36 }] }`;
 }
 
 function buildFallbackUserPrompt() {
@@ -369,6 +475,10 @@ export function normalizeParsePositionResponse(raw, opts = {}) {
     for (const p of positionsRaw) {
       if (!p || typeof p !== "object") continue;
       const nameRaw = p.name;
+      const rawRead =
+        typeof p.rawRead === "string" || typeof p.rawRead === "number"
+          ? String(p.rawRead).trim()
+          : "";
       let name =
         typeof nameRaw === "string" || typeof nameRaw === "number"
           ? String(nameRaw).trim()
@@ -381,6 +491,7 @@ export function normalizeParsePositionResponse(raw, opts = {}) {
           name = `メンバー${fallbackIdx}`;
         }
       }
+      const snapSource = rawRead || name;
       const x = Number(p.markerX ?? p.x);
       const y = Number(p.markerY ?? p.y);
       if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
@@ -388,7 +499,7 @@ export function normalizeParsePositionResponse(raw, opts = {}) {
       const labelX = Number(p.labelX);
       const labelY = Number(p.labelY);
       positions.push({
-        name,
+        name: snapSource,
         x: Math.min(100, Math.max(0, Math.round(x * 100) / 100)),
         y: Math.min(100, Math.max(0, Math.round(y * 100) / 100)),
         markerX: Math.min(100, Math.max(0, Math.round(x * 100) / 100)),

@@ -1,3 +1,5 @@
+import { handwritingNameCost } from "./handwritingKana";
+
 /** カタカナ → ひらがな（比較用の簡易正規化） */
 export function normalizeNameForMatch(s: string): string {
   return s
@@ -37,7 +39,8 @@ function uniqueRosterLabels(roster: readonly string[]): string[] {
 
 /**
  * 小さいほど近い。一致なしは null。
- * 編集距離は使わない（はなか ≠ ほなか、かえご ≠ かえで）。
+ * 0 完全一致、0.5 一意な接頭辞/接尾辞、1〜2 手書きの字形ゆれ。
+ * はなか ≠ ほなか、かえご ≠ かえで（任意の1文字違いでは結ばない）。
  */
 export function scoreNameToRosterCandidate(
   rawName: string,
@@ -50,9 +53,13 @@ export function scoreNameToRosterCandidate(
 
   const shorter = normIn.length <= normC.length ? normIn : normC;
   const longer = normIn.length <= normC.length ? normC : normIn;
-  if (shorter.length < 2 || longer.length <= shorter.length) return null;
-  if (longer.startsWith(shorter) || longer.endsWith(shorter)) return 0.5;
-  return null;
+  if (shorter.length >= 2 && longer.length > shorter.length) {
+    if (longer.startsWith(shorter) || longer.endsWith(shorter)) return 0.5;
+  }
+
+  const hw = handwritingNameCost(normIn, normC);
+  if (hw == null || hw === 0) return hw;
+  return hw;
 }
 
 function bestUniqueCandidate(
@@ -111,8 +118,8 @@ export function matchNameToRoster(
 }
 
 /**
- * 1 つの名簿名を複数人に割り当てない。完全一致 → 一意な接頭辞/接尾辞。
- * 名簿外の文字列は残さない。
+ * 1 つの名簿名を複数人に割り当てない。
+ * 完全一致 → 接頭辞/接尾辞 → 手書きの字形ゆれ。名簿外の文字列は残さない。
  */
 export function matchNamesToRosterUnique(
   names: string[],
@@ -161,6 +168,8 @@ export function matchNamesToRosterUnique(
 
   assignPass((score) => score === 0);
   assignPass((score) => score === 0.5);
+  assignPass((score) => score === 1);
+  assignPass((score) => score === 2);
 
   for (let i = 0; i < results.length; i += 1) {
     if (results[i]!.matched) continue;

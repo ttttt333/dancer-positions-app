@@ -46,6 +46,17 @@ describe("matchNameToRoster", () => {
     expect(matchNameToRoster("はなか", ["ほなか"]).name).toBe("");
   });
 
+  it("recovers handwriting quirks onto the unique roster spelling", () => {
+    expect(matchNameToRoster("ほのあ", ["ほのか", "はなか", "さくら"])).toMatchObject({
+      matched: true,
+      name: "ほのか",
+    });
+    expect(matchNameToRoster("うあ", ["うめ", "くれあ"])).toMatchObject({
+      matched: true,
+      name: "うめ",
+    });
+  });
+
   it("does not invent kanji when the roster is hiragana", () => {
     const m = matchNameToRoster("花香", ["はなか", "さくら"]);
     expect(m.matched).toBe(false);
@@ -122,5 +133,13 @@ describe("matchNamesToRosterUnique", () => {
       true
     );
     expect(names.every((m) => !m.matched)).toBe(true);
+  });
+
+  it("assigns cramped OCR to unique roster names without swapping はなか", () => {
+    const names = matchNamesToRosterUnique(
+      ["ほのあ", "はなか", "ゆあ"],
+      ["ほのか", "はなか", "ゆうゆ", "うめ"]
+    );
+    expect(names.map((m) => m.name)).toEqual(["ほのか", "はなか", ""]);
   });
 });

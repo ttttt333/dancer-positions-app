@@ -151,4 +151,22 @@ describe("refineParsedPositions", () => {
     expect(names).not.toContain("ほなか");
     expect(names.every((n) => n === "" || roster.includes(n))).toBe(true);
   });
+
+  it("recovers handwriting quirks onto roster spellings", () => {
+    const roster = ["ほのか", "はなか", "うめ", "くれあ"];
+    const refined = refineParsedPositions(
+      {
+        positions: [
+          { name: "ほのあ", x: 20, y: 40, markerX: 20, markerY: 40 },
+          { name: "はなか", x: 50, y: 40, markerX: 50, markerY: 40 },
+          { name: "うあ", x: 80, y: 70, markerX: 80, markerY: 70 },
+        ],
+      },
+      roster,
+      { useFormationEngine: true, placement: "raw" }
+    );
+    expect(refined.positions.map((p) => p.name).sort()).toEqual(
+      ["うめ", "はなか", "ほのか"].sort()
+    );
+  });
 });
