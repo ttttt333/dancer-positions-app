@@ -1,8 +1,38 @@
+import type { DancerSpot } from "../types/choreography";
 import {
   DEFAULT_DANCER_MARKER_DIAMETER_PX,
   MARKER_DIAMETER_PX_MAX,
   MARKER_DIAMETER_PX_MIN,
 } from "./projectDefaults";
+
+/** しゃがみ・座りをステージ印の大きさで区別する（id・座標は変えない） */
+export const POSE_LEVEL_MARKER_SCALE = {
+  stand: 1,
+  crouch: 0.78,
+  sit: 0.62,
+} as const;
+
+export const POSE_LEVEL_LABEL_JA = {
+  stand: "立ち",
+  crouch: "しゃがみ",
+  sit: "座り",
+} as const;
+
+export function poseLevelMarkerScale(
+  pose: DancerSpot["poseLevel"] | undefined
+): number {
+  if (pose === "sit") return POSE_LEVEL_MARKER_SCALE.sit;
+  if (pose === "crouch") return POSE_LEVEL_MARKER_SCALE.crouch;
+  return POSE_LEVEL_MARKER_SCALE.stand;
+}
+
+export function poseLevelLabelJa(
+  pose: DancerSpot["poseLevel"] | undefined
+): string {
+  if (pose === "sit") return POSE_LEVEL_LABEL_JA.sit;
+  if (pose === "crouch") return POSE_LEVEL_LABEL_JA.crouch;
+  return POSE_LEVEL_LABEL_JA.stand;
+}
 
 function clamp(n: number, min: number, max: number) {
   return Math.min(max, Math.max(min, n));

@@ -1266,6 +1266,7 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
           peaks={getWavePeaksSnapshot()}
           durationSec={duration}
           onClose={() => setAiSuggestOpen(false)}
+          onStagePreviewChange={setStagePreviewDancers}
         />
       ) : null}
 

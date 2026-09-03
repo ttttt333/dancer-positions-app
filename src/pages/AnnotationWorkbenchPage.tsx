@@ -23,10 +23,13 @@ import { DEFAULT_DANCER_COUNT, layoutPreset, type AnnotateSpot } from "./annotat
 import {
   adoptAnnotationSession,
   deleteSavedAnnotation,
+  listExtraSongs,
   listSavedAnnotations,
+  listSavedAnnotationsForSong,
   loadSavedAnnotation,
   parseAnnotationFile,
   saveAnnotation,
+  upsertExtraSong,
   type SavedAnnotationMeta,
 } from "./annotation/annotateLibrary";
 import { AnnotateSongTimeline, ScoreSlider, TimeField, resolveCueWindows } from "./annotation/annotateUi";
@@ -47,6 +50,14 @@ import {
   draftKey,
   formatClock,
 } from "./annotation/pilotCatalog";
+import {
+  extraSongCardFromProject,
+  isChoreographyProjectJson,
+  projectToAnnotationSession,
+  runQualityGatesForSong,
+  type RealSongGateReport,
+} from "../lib/choreocore/lightingSync";
+import { computeWavePeaksFromAudioBuffer } from "../lib/computeWavePeaksFromChannelData";
 import {
   currentSnapshot,
   emptyHistory,
@@ -114,15 +125,22 @@ function withCueIds(session: AnnotationSession): AnnotationSession {
   };
 }
 
-function emptySession(annotatorId: string, songId: string): AnnotationSession {
-  const song = PILOT_SONGS.find((s) => s.id === songId) ?? PILOT_SONGS[0]!;
+function emptySession(
+  annotatorId: string,
+  songId: string,
+  songMeta?: { duration: number; bpm: number }
+): AnnotationSession {
+  const song =
+    songMeta ??
+    PILOT_SONGS.find((s) => s.id === songId) ??
+    PILOT_SONGS[0]!;
   return createAnnotationSession({
-    songId: song.id,
+    songId,
     annotatorId,
     duration: song.duration,
     bpm: song.bpm,
     mode: "BLIND",
-    id: `ann-${song.id}-${annotatorShort(annotatorId)}`,
+    id: `ann-${songId}-${annotatorShort(annotatorId)}`,
     now: new Date("2026-08-14T00:00:00.000Z"),
     notes: "Human First. Annotate as you would choreograph. Do not view AI output. mode=BLIND.",
   });
@@ -135,7 +153,8 @@ function loadDraft(annotatorId: string, songId: string): AnnotationSession {
   } catch {
     /* ignore */
   }
-  return emptySession(annotatorId, songId);
+  const extra = listExtraSongs().find((s) => s.id === songId);
+  return emptySession(annotatorId, songId, extra);
 }
 
 function importanceBand(n: number): string {
@@ -188,6 +207,10 @@ export function AnnotationWorkbenchPage() {
   const [saveId, setSaveId] = useState<string | null>(null);
   const [saveTitle, setSaveTitle] = useState("");
   const [saves, setSaves] = useState<SavedAnnotationMeta[]>(() => listSavedAnnotations());
+  const [extraSongs, setExtraSongs] = useState(() => listExtraSongs());
+  const [gateReport, setGateReport] = useState<RealSongGateReport | null>(null);
+  const [gateHint, setGateHint] = useState("");
+  const [gateRunning, setGateRunning] = useState(false);
   const [saveHint, setSaveHint] = useState("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const skipSongLoadRef = useRef(false);
@@ -200,12 +223,20 @@ export function AnnotationWorkbenchPage() {
   const [nameDraft, setNameDraft] = useState("");
   sessionRef.current = session;
 
-  const songs = useMemo(
-    () => (calibrationOnly ? PILOT_SONGS.filter((s) => CALIBRATION_SONG_IDS.includes(s.id as (typeof CALIBRATION_SONG_IDS)[number])) : PILOT_SONGS),
-    [calibrationOnly]
-  );
-  const song = PILOT_SONGS.find((s) => s.id === songId) ?? PILOT_SONGS[0]!;
-  const duration = audioDuration > 0 ? audioDuration : song.duration;
+  const songs = useMemo(() => {
+    const pilots = calibrationOnly
+      ? PILOT_SONGS.filter((s) =>
+          CALIBRATION_SONG_IDS.includes(s.id as (typeof CALIBRATION_SONG_IDS)[number])
+        )
+      : PILOT_SONGS;
+    const extras = extraSongs.filter((s) => !pilots.some((p) => p.id === s.id));
+    return [...pilots, ...extras];
+  }, [calibrationOnly, extraSongs]);
+  const song =
+    songs.find((s) => s.id === songId) ??
+    extraSongs.find((s) => s.id === songId) ??
+    PILOT_SONGS[0]!;
+  const duration = audioDuration > 0 ? audioDuration : song.duration || session.duration;
   const instructions = useMemo(() => ANNOTATION_INSTRUCTIONS.split("\n"), []);
   const check = validateAnnotationSession(session);
   const now = audioRef.current?.currentTime ?? currentTime;
@@ -416,7 +447,28 @@ export function AnnotationWorkbenchPage() {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const loaded = parseAnnotationFile(String(reader.result ?? ""));
+        const raw = String(reader.result ?? "");
+        const parsed = JSON.parse(raw) as unknown;
+        if (isChoreographyProjectJson(parsed)) {
+          if (
+            !confirmReplaceCurrent(
+              `${file.name} はエディタの作品です。実曲注釈として取り込みます。先に「保存」していない変更は消えます。よろしいですか？`
+            )
+          ) {
+            return;
+          }
+          const card = extraSongCardFromProject(parsed);
+          const imported = projectToAnnotationSession(parsed, {
+            annotatorId,
+            songId: card.id,
+          });
+          setExtraSongs(upsertExtraSong(card));
+          setCalibrationOnly(false);
+          applyLoadedSession(imported, { adopt: true });
+          setSaveHint(`${file.name} を実曲注釈として取り込みました（${imported.cues.length}キュー）。保存してから品質ゲートを回せます。`);
+          return;
+        }
+        const loaded = parseAnnotationFile(raw);
         const sourceLabel = annotatorLabel(loaded.annotatorId);
         const samePerson = loaded.annotatorId === annotatorId;
         if (
@@ -439,6 +491,54 @@ export function AnnotationWorkbenchPage() {
       }
     };
     reader.readAsText(file);
+  };
+
+  const onRunQualityGates = async () => {
+    setGateRunning(true);
+    setGateHint("");
+    try {
+      const byAnnotator = new Map<string, AnnotationSession>();
+      for (const meta of listSavedAnnotationsForSong(songId)) {
+        const loaded = loadSavedAnnotation(meta.id);
+        if (loaded && loaded.cues.length > 0) byAnnotator.set(loaded.annotatorId, loaded);
+      }
+      if (session.cues.length > 0) {
+        byAnnotator.set(session.annotatorId, session);
+      }
+      const sessions = [...byAnnotator.values()];
+      if (sessions.length === 0) {
+        setGateHint("この曲の注釈にキューがありません。キューを付けて保存するか、作品 JSON を取り込んでください。");
+        setGateReport(null);
+        return;
+      }
+      let peaks: number[] | undefined;
+      if (audioUrl) {
+        try {
+          const ctx = new AudioContext();
+          const buf = await fetch(audioUrl).then((r) => r.arrayBuffer());
+          const audio = await ctx.decodeAudioData(buf);
+          peaks = computeWavePeaksFromAudioBuffer(audio, 512);
+          await ctx.close();
+        } catch {
+          peaks = undefined;
+        }
+      }
+      const report = runQualityGatesForSong({ sessions, peaks });
+      setGateReport(report);
+      const passed = report.gates.filter((g) => g.verdict === "PASS").length;
+      setGateHint(
+        `注釈${report.annotatorCount}人` +
+          (report.usedConsensus ? "（合意）" : "") +
+          (report.ceilingEstimated ? " · Human Ceiling は1人のため参考値" : "") +
+          (peaks ? " · 実音源" : " · セクションからピーク合成") +
+          ` · ゲート ${passed}/${report.gates.length} PASS`
+      );
+    } catch (err) {
+      setGateReport(null);
+      setGateHint(err instanceof Error ? err.message : "品質ゲートを実行できませんでした");
+    } finally {
+      setGateRunning(false);
+    }
   };
 
   const addSection = () => {
@@ -737,7 +837,7 @@ export function AnnotationWorkbenchPage() {
               新規作成
             </button>
             <button type="button" style={{ ...btnSecondary, padding: "7px 14px", fontSize: 12 }} onClick={() => jsonFileRef.current?.click()}>
-              JSONを開く
+              JSON / 作品を開く
             </button>
             <input
               ref={jsonFileRef}
@@ -755,7 +855,7 @@ export function AnnotationWorkbenchPage() {
           ) : (
             <p style={{ margin: "0 0 8px", fontSize: 12, color: shell.textSubtle }}>
               このページ内に名前を付けて保存できます。下書きは曲ごとに自動でも残ります。他のコレオグラファーの保存や JSON
-              は、曲の構成（セクション・キュー時刻）を残したまま自分用にコピーしてアレンジできます。JSON を開く前に、上で自分のコレオグラファーを選んでください。
+              は、曲の構成（セクション・キュー時刻）を残したまま自分用にコピーしてアレンジできます。エディタの作品 JSON も実曲注釈として取り込めます。JSON を開く前に、上で自分のコレオグラファーを選んでください。
             </p>
           )}
           {saves.length === 0 ? (
@@ -828,6 +928,43 @@ export function AnnotationWorkbenchPage() {
               ) : null}
             </div>
           )}
+        </div>
+
+        <div style={panel}>
+          <h2 style={{ fontSize: 13, margin: "0 0 8px" }}>品質ゲート（本番エンジン）</h2>
+          <p style={{ margin: "0 0 10px", fontSize: 12, color: shell.textSubtle, lineHeight: 1.5 }}>
+            この曲の保存済み注釈（と今の下書き）を人手ラベルにして、いまの曲理解エンジンを採点します。音源を載せているときは実ピーク、なければセクションから合成します。2人以上いると合意ラベルと Human Ceiling を使います。
+          </p>
+          <button
+            type="button"
+            style={{ ...btnAccent, padding: "7px 14px", fontSize: 12, opacity: gateRunning ? 0.6 : 1 }}
+            disabled={gateRunning}
+            onClick={() => void onRunQualityGates()}
+          >
+            {gateRunning ? "実行中…" : "この曲でゲートを回す"}
+          </button>
+          {gateHint ? (
+            <p style={{ margin: "8px 0 0", fontSize: 12, color: shell.accent }}>{gateHint}</p>
+          ) : null}
+          {gateReport ? (
+            <div style={{ marginTop: 12, display: "grid", gap: 6 }}>
+              <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: gateReport.overall === "PASS" ? "#4ade80" : gateReport.overall === "WATCH" ? "#fbbf24" : "#f87171" }}>
+                総合 {gateReport.overall} · Cue F1 {(gateReport.evaluation.cueMetrics.f1 * 100).toFixed(0)}%
+              </p>
+              {gateReport.gates.map((g) => {
+                const color = g.verdict === "PASS" ? "#4ade80" : g.verdict === "WATCH" ? "#fbbf24" : "#f87171";
+                return (
+                  <div key={g.id} style={{ display: "flex", gap: 10, fontSize: 12, color: shell.text, flexWrap: "wrap" }}>
+                    <span style={{ minWidth: 52, fontWeight: 700, color }}>{g.verdict}</span>
+                    <span style={{ flex: "1 1 140px" }}>{g.label}</span>
+                    <span style={{ color: shell.textSubtle, fontVariantNumeric: "tabular-nums" }}>
+                      {(g.actual * 100).toFixed(0)} / 目標 {(g.target * 100).toFixed(0)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
 
         <div

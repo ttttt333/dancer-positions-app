@@ -5,6 +5,12 @@
 
 import { pickPattern, ruleForSection } from "./lightingTable";
 import { buildPatternPositions } from "./formationFromSection";
+import {
+  buildLayoutMemberPositions,
+  layoutPresetLabel,
+  pickLayoutPreset,
+} from "./layoutPresetBridge";
+import type { LayoutPresetId } from "../../formationLayouts";
 import { resolveOverlaps } from "./overlapAvoidance";
 import {
   evaluateGapConstraint,
@@ -22,10 +28,15 @@ import {
 import type { ChangePoint } from "../types";
 import type {
   ClassProfile,
+  FormationPatternId,
   LightingSyncSuggestPayload,
   MemberPosition,
   SuggestedFormationFrame,
 } from "./types";
+import {
+  resolveSuggestTaste,
+  type SuggestTaste,
+} from "./suggestTaste";
 
 export type LightingSyncGenerateInput = {
   peaks: number[];
@@ -38,6 +49,8 @@ export type LightingSyncGenerateInput = {
   targetMaxFormations?: number;
   /** false でコーパス参照をオフ（テスト用） */
   useLightingCorpus?: boolean;
+  /** 曲イメージ・スタイル・歌詞。隊形選びと変化の大きさに使う */
+  taste?: SuggestTaste;
 };
 
 function countsBetween(a: number, b: number): number {
@@ -74,6 +87,7 @@ export function generateLightingSyncSuggestion(
             : "mon_07pm"
         )
       : input.classProfile;
+  const tasteBias = resolveSuggestTaste(input.taste);
 
   const memberIds =
     input.memberIds.length > 0
@@ -118,13 +132,18 @@ export function generateLightingSyncSuggestion(
     const intro = markers.filter((m) => m.sectionType === "intro").slice(0, 1);
     const rest = markers.filter((m) => m.sectionType !== "intro");
     const need = maxF - intro.length;
+    const chorusBoost = 2 * (1 + tasteBias.energyWeight);
     rest.sort((a, b) => {
       const wa =
-        (a.sectionType === "chorus" || a.sectionType === "drop" ? 2 : 0) +
-        a.energyLevel;
+        (a.sectionType === "chorus" || a.sectionType === "drop"
+          ? chorusBoost
+          : 0) +
+        a.energyLevel * (1 + Math.max(0, tasteBias.energyWeight) * 0.4);
       const wb =
-        (b.sectionType === "chorus" || b.sectionType === "drop" ? 2 : 0) +
-        b.energyLevel;
+        (b.sectionType === "chorus" || b.sectionType === "drop"
+          ? chorusBoost
+          : 0) +
+        b.energyLevel * (1 + Math.max(0, tasteBias.energyWeight) * 0.4);
       return wb - wa;
     });
     markers = [...intro, ...rest.slice(0, need)].sort(
@@ -136,6 +155,7 @@ export function generateLightingSyncSuggestion(
   let prevPos: MemberPosition[] | null = null;
   let prevCount = 1;
   let prevLighting: SuggestedFormationFrame["lightingPreset"] | undefined;
+  const recentLayouts: LayoutPresetId[] = [];
 
   const sectionJa: Record<string, string> = {
     intro: "導入",
@@ -164,19 +184,36 @@ export function generateLightingSyncSuggestion(
       : null;
 
     const corpusTags = advice?.matches[0]?.cue.tags;
-    const pattern = pickPattern(
+    const pattern: FormationPatternId = pickPattern(
       fcp.sectionType,
       i + Math.round(fcp.energyLevel * 10),
       profile.allowCrossMovement,
-      corpusTags
+      corpusTags,
+      {
+        preferPatterns: tasteBias.preferPatterns,
+        avoidPatterns: tasteBias.avoidPatterns,
+      }
     );
 
-    let positions = buildPatternPositions(
-      pattern,
+    const layoutId = pickLayoutPreset({
+      family: pattern,
+      sectionType: fcp.sectionType,
+      salt: i + Math.round(fcp.energyLevel * 10),
+      dancerCount: memberIds.length,
+      allowCross: profile.allowCrossMovement,
+      taste: tasteBias,
+      recent: recentLayouts.slice(-3),
+    });
+
+    let positions = buildLayoutMemberPositions(
+      layoutId,
       memberIds,
       profile,
-      i
+      prevPos
     );
+    if (positions.length !== memberIds.length) {
+      positions = buildPatternPositions(pattern, memberIds, profile, i);
+    }
     positions = resolveOverlaps(positions, profile);
 
     const gapWarn = evaluateGapConstraint(prevCount, fcp.countNumber, profile);
@@ -195,11 +232,18 @@ export function generateLightingSyncSuggestion(
       warnings = [...warnings, ...moveWarns];
     }
 
+    let usedLayout = layoutId;
     if (
       warnings.some((w) => w.code === "CROSS_FORBIDDEN") &&
       !profile.allowCrossMovement
     ) {
-      positions = buildPatternPositions("silhouette_line", memberIds, profile, i);
+      usedLayout = "line";
+      positions = buildLayoutMemberPositions(
+        "line",
+        memberIds,
+        profile,
+        prevPos
+      );
       positions = resolveOverlaps(positions, profile);
       if (prevPos) {
         const again = evaluateMoveConstraints(
@@ -221,7 +265,7 @@ export function generateLightingSyncSuggestion(
     const secLabel = sectionJa[fcp.sectionType] ?? fcp.sectionType;
     const presetName = [
       secLabel,
-      rule.presetName,
+      layoutPresetLabel(usedLayout),
       color ? color : null,
     ]
       .filter(Boolean)
@@ -240,11 +284,14 @@ export function generateLightingSyncSuggestion(
         : undefined,
       positions,
       warnings: warnings.length ? warnings : undefined,
+      formationPattern: pattern,
+      layoutPresetId: usedLayout,
     });
 
     prevPos = positions;
     prevCount = fcp.countNumber;
     prevLighting = lightingPreset;
+    recentLayouts.push(usedLayout);
   }
 
   return {

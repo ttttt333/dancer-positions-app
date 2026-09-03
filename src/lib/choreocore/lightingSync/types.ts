@@ -80,6 +80,10 @@ export type SuggestedFormationFrame = {
   referenceShowTitle?: string;
   positions: MemberPosition[];
   warnings?: ConstraintWarning[];
+  /** 実際に選んだ隊形ファミリー */
+  formationPattern?: FormationPatternId;
+  /** エディタ雛形 id（約200種から選定） */
+  layoutPresetId?: string;
 };
 
 export type ConstraintWarning = {

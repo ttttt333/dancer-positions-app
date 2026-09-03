@@ -17,6 +17,10 @@ import {
   dancerNameBelowLabelOffsetPx,
 } from "../lib/stageNameBelowFontSizing";
 import { dancerMatchesStudentViewerPick } from "../lib/viewRoster";
+import {
+  poseLevelLabelJa,
+  poseLevelMarkerScale,
+} from "../lib/stageMarkerSizing";
 import type { DancerSpot } from "../types/choreography";
 import { StageDancerMarkerItem } from "../components/StageDancerMarkerItem";
 import type { StageBoardContextMenuState } from "../components/StageBoardContextMenuLayer";
@@ -189,8 +193,14 @@ export function useStageDancerMarkerElements(
           onePersonMode && isStudentHighlight
             ? "0 0 0 2px rgba(250, 204, 21, 0.95), 0 4px 18px rgba(0,0,0,0.5)"
             : "0 4px 14px rgba(0,0,0,0.35)";
-        const scaleTransform =
-          onePersonMode && isStudentHighlight ? "scale(1.12)" : "scale(1)";
+        const highlightScale =
+          onePersonMode && isStudentHighlight ? 1.12 : 1;
+        const poseScale = poseLevelMarkerScale(d.poseLevel);
+        const scaleTransform = `scale(${highlightScale * poseScale})`;
+        const poseTitle =
+          d.poseLevel && d.poseLevel !== "stand"
+            ? `${d.label || "?"}（${poseLevelLabelJa(d.poseLevel)}）`
+            : undefined;
         return (
           <StageDancerMarkerItem
             key={d.id}
@@ -202,6 +212,7 @@ export function useStageDancerMarkerElements(
             zMark={zMark}
             playbackOrPreview={playbackOrPreview}
             pivotOpacityDimmed={pivotOpacityDimmed}
+            buttonTitle={poseTitle}
             onPointerDownButton={(e) =>
               handlePointerDownDancer(e, d.id, d.xPct, d.yPct)
             }

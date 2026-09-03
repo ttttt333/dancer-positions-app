@@ -1,9 +1,10 @@
 import { importAnnotationJson } from "../../lib/choreocore/engine/annotation";
 import type { AnnotationSession } from "../../lib/choreocore/engine/types/AnnotationTypes";
-import { annotatorShort } from "./pilotCatalog";
+import { annotatorShort, type PilotSongCard } from "./pilotCatalog";
 import { cloneSession, writeLocalJson } from "./sessionHistory";
 
 export const SAVES_INDEX_KEY = "choreocore-blind-saves";
+export const EXTRA_SONGS_KEY = "choreocore-real-songs";
 
 export type SavedAnnotationMeta = {
   id: string;
@@ -107,4 +108,31 @@ export function adoptAnnotationSession(
     formationTop3: (copy.formationTop3 ?? []).map((row) => ({ ...row, songId, annotatorId })),
     sequence: copy.sequence.map((row) => ({ ...row, songId, annotatorId })),
   };
+}
+
+export function listSavedAnnotationsForSong(songId: string): SavedAnnotationMeta[] {
+  return listSavedAnnotations().filter((row) => row.songId === songId);
+}
+
+export function listExtraSongs(): PilotSongCard[] {
+  if (typeof localStorage === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(EXTRA_SONGS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (row): row is PilotSongCard =>
+        Boolean(row && typeof row === "object" && typeof (row as PilotSongCard).id === "string")
+    );
+  } catch {
+    return [];
+  }
+}
+
+export function upsertExtraSong(song: PilotSongCard): PilotSongCard[] {
+  const others = listExtraSongs().filter((row) => row.id !== song.id);
+  const next = [song, ...others];
+  writeLocalJson(EXTRA_SONGS_KEY, next);
+  return next;
 }

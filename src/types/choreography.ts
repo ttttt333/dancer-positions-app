@@ -44,7 +44,7 @@ export type DancerSpot = {
    */
   heightCm?: number;
   /**
-   * 姿勢レベル（照明連動AI提案）。描画は任意。
+   * 姿勢レベル（照明連動AI提案）。ステージ印の大きさで区別する。
    * stand=立ち / crouch=しゃがみ / sit=座り
    */
   poseLevel?: "stand" | "crouch" | "sit";

@@ -14,11 +14,17 @@ import {
   CLASS_ADVANCED_MON7,
   CLASS_ELEMENTARY,
   CLASS_TODDLER,
+  applyTasteToProfile,
+  isEmptyTaste,
+  resolveSuggestTaste,
+  runEngineAppSuggest,
+  type SuggestTaste,
 } from "../lib/choreocore/lightingSync";
 import type {
   ClassProfile,
   LightingSyncSuggestPayload,
 } from "../lib/choreocore/lightingSync";
+import type { AiEvaluationOutput } from "../lib/choreocore/engine/types/EvaluationTypes";
 import {
   DEFAULT_FORMATION_WEIGHTS,
   type FormationScore,
@@ -50,6 +56,7 @@ export interface AiSuggestResult {
   /** 仕様書 6. 出力 JSON */
   lightingSyncPayload?: LightingSyncSuggestPayload;
   classProfileId?: string;
+  evaluation?: AiEvaluationOutput;
 }
 
 const genId = (): string =>
@@ -62,6 +69,8 @@ export type SuggestAudioOpts = {
   feedback?: SuggestFeedback;
   /** ClassProfile.classId（例: toddler_default / mon_07pm） */
   classProfileId?: string;
+  /** 曲イメージ・スタイル・歌詞。隊形選びと移動量に反映 */
+  taste?: SuggestTaste;
 };
 
 type CachedAnalysis = {
@@ -170,10 +179,74 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
       extraInfo: string | undefined,
       targetCueCount: number | undefined,
       feedback: SuggestFeedback | undefined,
-      classProfileId: string | undefined
+      classProfileId: string | undefined,
+      taste: SuggestTaste | undefined
     ) => {
       const base = getClassProfile(classProfileId ?? "mon_07pm");
-      const profile = profileFromFeedback(base, feedback);
+      const tasteBias = resolveSuggestTaste(taste);
+      const withTaste = isEmptyTaste(taste)
+        ? base
+        : applyTasteToProfile(base, tasteBias);
+      const profile = profileFromFeedback(withTaste, feedback);
+
+      const constraintLine = `制約: 最大移動 ${profile.maxMoveDistancePerCount}m/count · 最低間隔 ${profile.minCountsBetweenChanges} counts · 交差${profile.allowCrossMovement ? "可" : "不可"} · 3D姿勢${profile.use3DLeveling ? "ON" : "OFF"}`;
+      const tasteLine = tasteBias.summary
+        ? `曲の指定を隊形に反映: ${tasteBias.summary}`
+        : null;
+      const feedbackLine = feedback
+        ? `再提案フィードバック: ${[
+            feedback.preferLessMovement ? "移動少なめ" : "",
+            feedback.preferFewerCrossings ? "交差少なめ" : "",
+            feedback.preferMoreImpact ? "インパクト重視" : "",
+            feedback.note ? `メモ:${feedback.note.slice(0, 40)}` : "",
+          ]
+            .filter(Boolean)
+            .join(" / ") || "なし"}`
+        : null;
+      const note = extraInfo?.trim();
+
+      try {
+        const engine = runEngineAppSuggest({
+          peaks: cache.peaks,
+          durationSec: cache.duration,
+          bpm: cache.bpm,
+          remoteChangePoints: cache.changePoints,
+          seedDancers: cache.seedDancers,
+          profile,
+          tasteBias,
+          targetCueCount,
+        });
+        if (engine && engine.formations.length > 0) {
+          setResult({
+            formations: engine.formations,
+            cues: engine.cues,
+            reasoning: [
+              `曲理解エンジン / クラス: ${profile.className}（${profile.classId}）`,
+              `解析ソース: ${cache.sourceLabel} / BPM ${Math.round(cache.bpm)} / キュー ${engine.cues.length}枠${targetCueCount != null ? `（上限 ${targetCueCount}）` : ""}`,
+              constraintLine,
+              ...(tasteLine ? [tasteLine] : []),
+              ...(feedbackLine ? [feedbackLine] : []),
+              ...engine.reasoning,
+              ...(note ? [`メモ: ${note.slice(0, 80)}`] : []),
+            ],
+            analysis: {
+              ...cache.localAnalysis,
+              bpm: cache.bpm,
+              durationSec: cache.duration,
+            },
+            analysisSource: `${cache.sourceLabel} · engine`,
+            scores: engine.scores,
+            averageScore: engine.averageScore,
+            lightingSyncPayload: engine.lightingSyncPayload,
+            classProfileId: profile.classId,
+            evaluation: engine.evaluation,
+          });
+          setStatus("done");
+          return;
+        }
+      } catch {
+        /* 照明連動へフォールバック */
+      }
 
       const payload = generateLightingSyncSuggestion({
         peaks: cache.peaks,
@@ -183,28 +256,18 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
         remoteChangePoints: cache.changePoints,
         remoteBpm: cache.bpm,
         targetMaxFormations: targetCueCount,
+        taste,
       });
 
       const mapped = lightingSyncPayloadToApp(payload, cache.seedDancers);
       const { scores, averageScore } = scoresFromPayload(payload);
 
-      const note = extraInfo?.trim();
       const reasoning = [
-        `照明連動エンジン / クラス: ${profile.className}（${profile.classId}）`,
+        `照明連動エンジン（予備） / クラス: ${profile.className}（${profile.classId}）`,
         `解析ソース: ${cache.sourceLabel} / BPM ${Math.round(cache.bpm)} / FCP ${payload.formations.length}枠${targetCueCount != null ? `（上限 ${targetCueCount}）` : ""}`,
-        `制約: 最大移動 ${profile.maxMoveDistancePerCount}m/count · 最低間隔 ${profile.minCountsBetweenChanges} counts · 交差${profile.allowCrossMovement ? "可" : "不可"} · 3D姿勢${profile.use3DLeveling ? "ON" : "OFF"}`,
-        ...(feedback
-          ? [
-              `再提案フィードバック: ${[
-                feedback.preferLessMovement ? "移動少なめ" : "",
-                feedback.preferFewerCrossings ? "交差少なめ" : "",
-                feedback.preferMoreImpact ? "インパクト重視" : "",
-                feedback.note ? `メモ:${feedback.note.slice(0, 40)}` : "",
-              ]
-                .filter(Boolean)
-                .join(" / ") || "なし"}`,
-            ]
-          : []),
+        constraintLine,
+        ...(tasteLine ? [tasteLine] : []),
+        ...(feedbackLine ? [feedbackLine] : []),
         ...mapped.reasoning,
         ...(note ? [`メモ: ${note.slice(0, 80)}`] : []),
       ];
@@ -259,7 +322,8 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
             extraInfo,
             audioOpts?.targetCueCount,
             audioOpts?.feedback,
-            audioOpts?.classProfileId
+            audioOpts?.classProfileId,
+            audioOpts?.taste
           );
           return;
         }
@@ -332,7 +396,8 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
           extraInfo,
           audioOpts?.targetCueCount,
           audioOpts?.feedback,
-          audioOpts?.classProfileId
+          audioOpts?.classProfileId,
+          audioOpts?.taste
         );
       } catch (e: unknown) {
         if (e instanceof Error && e.name === "AbortError") return;

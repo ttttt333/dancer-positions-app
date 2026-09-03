@@ -3,7 +3,11 @@ import {
   MARKER_DIAMETER_PX_MAX,
   MARKER_DIAMETER_PX_MIN,
 } from "./projectDefaults";
-import { computeMarkerResizeDraftSizes } from "./stageMarkerSizing";
+import {
+  computeMarkerResizeDraftSizes,
+  poseLevelLabelJa,
+  poseLevelMarkerScale,
+} from "./stageMarkerSizing";
 
 describe("computeMarkerResizeDraftSizes", () => {
   it("単体選択は差分で拡縮する", () => {
@@ -47,5 +51,18 @@ describe("computeMarkerResizeDraftSizes", () => {
     });
     expect(draft.get("a")).toBe(48);
     expect(draft.get("b")).toBe(48);
+  });
+});
+
+describe("poseLevelMarkerScale", () => {
+  it("shrinks crouch and sit without changing stand", () => {
+    expect(poseLevelMarkerScale(undefined)).toBe(1);
+    expect(poseLevelMarkerScale("stand")).toBe(1);
+    expect(poseLevelMarkerScale("crouch")).toBeLessThan(1);
+    expect(poseLevelMarkerScale("sit")).toBeLessThan(
+      poseLevelMarkerScale("crouch")
+    );
+    expect(poseLevelLabelJa("crouch")).toBe("しゃがみ");
+    expect(poseLevelLabelJa("sit")).toBe("座り");
   });
 });

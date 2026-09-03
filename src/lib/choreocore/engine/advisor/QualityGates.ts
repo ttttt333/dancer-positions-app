@@ -41,3 +41,9 @@ export function evaluateQualityGates(
 export function gateById(rows: QualityGateRow[], id: QualityGateId): QualityGateRow | undefined {
   return rows.find((r) => r.id === id);
 }
+
+export function overallGateVerdict(rows: QualityGateRow[]): GateVerdict {
+  if (rows.some((r) => r.verdict === "FAIL")) return "FAIL";
+  if (rows.some((r) => r.verdict === "WATCH")) return "WATCH";
+  return "PASS";
+}

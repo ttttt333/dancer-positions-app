@@ -135,4 +135,44 @@ describe("lightingSync pipeline", () => {
     expect(withNote.length).toBeGreaterThan(0);
     expect(payload.formations.some((f) => f.colorMood)).toBe(true);
   });
+
+  it("taste changes which formation patterns are chosen", () => {
+    const ids = ["m1", "m2", "m3", "m4", "m5", "m6"];
+    const base = {
+      peaks: peaksWithChorus(),
+      durationSec: 120,
+      memberIds: ids,
+      classProfile: CLASS_ADVANCED_MON7,
+      targetMaxFormations: 8,
+      useLightingCorpus: false as const,
+    };
+    const none = generateLightingSyncSuggestion(base);
+    const wave = generateLightingSyncSuggestion({
+      ...base,
+      taste: { style: "wave" },
+    });
+    const lyrics = generateLightingSyncSuggestion({
+      ...base,
+      taste: { lyrics: "大きな円になって" },
+    });
+    expect(wave.formations.some((f) => f.formationPattern === "circle")).toBe(
+      true
+    );
+    expect(lyrics.formations.some((f) => f.formationPattern === "circle")).toBe(
+      true
+    );
+    expect(lyrics.formations.some((f) => f.layoutPresetId === "circle")).toBe(
+      true
+    );
+    const noneSig = none.formations.map((f) => f.layoutPresetId ?? f.formationPattern).join(",");
+    const waveSig = wave.formations.map((f) => f.layoutPresetId ?? f.formationPattern).join(",");
+    expect(waveSig).not.toBe(noneSig);
+    expect(
+      new Set(
+        [...none.formations, ...wave.formations]
+          .map((f) => f.layoutPresetId)
+          .filter(Boolean)
+      ).size
+    ).toBeGreaterThan(2);
+  });
 });

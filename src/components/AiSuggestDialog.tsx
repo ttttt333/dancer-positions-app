@@ -2,7 +2,7 @@
  * AiSuggestDialog.tsx — AI提案ダイアログ（v2: 曲情報入力 → 提案生成）
  */
 
-import { useState, useCallback, useRef, useMemo, type CSSProperties, type ChangeEvent } from "react";
+import { useState, useCallback, useRef, useMemo, useEffect, type CSSProperties, type ChangeEvent } from "react";
 import { shell } from "../theme/choreoShell";
 import { useAiFormationSuggest } from "../hooks/useAiFormationSuggest";
 import { playbackEngine } from "../core/playbackEngine";
@@ -12,9 +12,19 @@ import {
   AI_SUGGEST_CUE_PRESETS,
   suggestedCueCountForDuration,
 } from "../lib/choreocore/selectChangePoints";
-import { CLASS_PROFILE_PRESETS, suggestClassProfileId, corpusSummary } from "../lib/choreocore/lightingSync";
+import { CLASS_PROFILE_PRESETS, suggestClassProfileId, corpusSummary, SUGGEST_VIBES, SUGGEST_FORMATION_STYLES } from "../lib/choreocore/lightingSync";
+import type { SuggestVibeId, SuggestFormationStyleId } from "../lib/choreocore/lightingSync";
 import type { SuggestFeedback } from "../lib/choreocore/tier1";
-import type { ChoreographyProjectJson } from "../types/choreography";
+import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography";
+import {
+  applyAiSuggestToProject,
+  filterAcceptedSuggestion,
+  pairSuggestionCues,
+  type AiSuggestApplyMode,
+} from "../lib/applyAiSuggestResult";
+import { poseLevelLabelJa, poseLevelMarkerScale } from "../lib/stageMarkerSizing";
+import { scoreAiAgainstProject } from "../lib/choreocore/lightingSync";
+import { EditorSideSheet } from "./EditorSideSheet";
 
 interface AiSuggestDialogProps {
   project: ChoreographyProjectJson;
@@ -22,34 +32,10 @@ interface AiSuggestDialogProps {
   peaks: number[] | null;
   durationSec: number;
   onClose: () => void;
+  onStagePreviewChange?: (dancers: DancerSpot[] | null) => void;
 }
 
 /* ─── Styles ─── */
-const overlay: CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  zIndex: 9000,
-  background: "rgba(0,0,0,0.75)",
-  backdropFilter: "blur(6px)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  /* EditorDesktop/MobileLayout が pointerEvents:none で包むため再有効化 */
-  pointerEvents: "auto",
-};
-
-const dialog: CSSProperties = {
-  width: "min(560px, calc(100vw - 32px))",
-  maxHeight: "min(720px, calc(100vh - 48px))",
-  background: shell.bgDeep,
-  border: `1px solid ${shell.border}`,
-  borderRadius: 16,
-  display: "flex",
-  flexDirection: "column",
-  overflow: "hidden",
-  boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
-};
-
 const header: CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -57,12 +43,14 @@ const header: CSSProperties = {
   padding: "14px 20px",
   borderBottom: `1px solid ${shell.border}`,
   flexShrink: 0,
+  position: "sticky",
+  top: 0,
+  zIndex: 1,
+  background: shell.bgDeep,
 };
 
 const body: CSSProperties = {
-  flex: 1,
-  overflow: "auto",
-  padding: "16px 20px",
+  padding: "16px 20px 24px",
 };
 
 const btnClose: CSSProperties = {
@@ -130,29 +118,13 @@ const textarea: CSSProperties = {
   minHeight: 80,
 };
 
-/* ─── 曲のイメージ選択肢 ─── */
-const VIBES = [
-  { id: "energetic",   label: "⚡ エネルギッシュ",  desc: "激しい・パワフル" },
-  { id: "emotional",   label: "💜 エモーショナル",  desc: "感動・叙情的" },
-  { id: "cute",        label: "🌸 キュート",        desc: "かわいい・ポップ" },
-  { id: "cool",        label: "🌙 クール",          desc: "スタイリッシュ・洗練" },
-  { id: "mysterious",  label: "✨ ミステリアス",    desc: "幻想的・神秘的" },
-  { id: "upbeat",      label: "🎉 アップビート",    desc: "明るい・楽しい" },
-  { id: "serious",     label: "🎭 シリアス",        desc: "重厚・ドラマチック" },
-  { id: "romantic",    label: "🌹 ロマンチック",    desc: "甘い・優雅" },
-] as const;
+const VIBES = SUGGEST_VIBES;
 
-type VibeId = (typeof VIBES)[number]["id"];
+type VibeId = SuggestVibeId;
 
-/* ─── フォーメーションスタイル ─── */
-const FORMATION_STYLES = [
-  { id: "dynamic",    label: "ダイナミック",  desc: "大きな移動・変化重視" },
-  { id: "symmetric",  label: "シンメトリー",  desc: "左右対称・整然" },
-  { id: "freestyle",  label: "フリースタイル",desc: "自由・個性的" },
-  { id: "wave",       label: "ウェーブ",      desc: "流れるような配置" },
-] as const;
+const FORMATION_STYLES = SUGGEST_FORMATION_STYLES;
 
-type FormationStyleId = (typeof FORMATION_STYLES)[number]["id"];
+type FormationStyleId = SuggestFormationStyleId;
 
 /* ─── Spinner ─── */
 function Spinner() {
@@ -221,6 +193,7 @@ export function AiSuggestDialog({
   peaks,
   durationSec,
   onClose,
+  onStagePreviewChange,
 }: AiSuggestDialogProps) {
   /* ── 入力状態 ── */
   const [lyrics, setLyrics] = useState("");
@@ -253,6 +226,69 @@ export function AiSuggestDialog({
 
   const { status, result, error, suggest, reset } = useAiFormationSuggest(project);
 
+  const [acceptedCueIds, setAcceptedCueIds] = useState<Set<string>>(new Set());
+  const [previewCueId, setPreviewCueId] = useState<string | null>(null);
+  const [applyMode, setApplyMode] = useState<AiSuggestApplyMode>("replace");
+
+  const pairedCues = useMemo(
+    () => (result ? pairSuggestionCues(result.formations, result.cues) : []),
+    [result]
+  );
+  const acceptedCount = useMemo(
+    () => pairedCues.filter((p) => acceptedCueIds.has(p.cue.id)).length,
+    [pairedCues, acceptedCueIds]
+  );
+  const gateReport = useMemo(() => {
+    if (!result?.evaluation || project.cues.length < 1) return null;
+    try {
+      return scoreAiAgainstProject(project, result.evaluation);
+    } catch {
+      return null;
+    }
+  }, [result, project]);
+
+  const clearStagePreview = useCallback(() => {
+    onStagePreviewChange?.(null);
+  }, [onStagePreviewChange]);
+
+  const handleClose = useCallback(() => {
+    clearStagePreview();
+    onClose();
+  }, [clearStagePreview, onClose]);
+
+  useEffect(() => {
+    return () => {
+      onStagePreviewChange?.(null);
+    };
+  }, [onStagePreviewChange]);
+
+  useEffect(() => {
+    if (!result) {
+      setAcceptedCueIds(new Set());
+      setPreviewCueId(null);
+      return;
+    }
+    setAcceptedCueIds(new Set(result.cues.map((c) => c.id)));
+    setPreviewCueId(result.cues[0]?.id ?? null);
+  }, [result]);
+
+  useEffect(() => {
+    if (!result) onStagePreviewChange?.(null);
+  }, [result, onStagePreviewChange]);
+
+  useEffect(() => {
+    if (!result || !previewCueId) {
+      clearStagePreview();
+      return;
+    }
+    const cue = result.cues.find((c) => c.id === previewCueId);
+    const formation = result.formations.find((f) => f.id === cue?.formationId);
+    onStagePreviewChange?.(formation?.dancers?.length ? formation.dancers : null);
+    if (cue && playbackEngine.isPaused()) {
+      playbackEngine.seek(cue.tStartSec);
+    }
+  }, [result, previewCueId, onStagePreviewChange, clearStagePreview]);
+
   const noPeaks = !peaks || peaks.length === 0 || durationSec <= 0;
 
   /* 現在のステップ */
@@ -260,6 +296,22 @@ export function AiSuggestDialog({
     status === "idle" ? 1
     : status === "analyzing" || status === "requesting" ? 2
     : 3;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (step === 2) return;
+      e.stopPropagation();
+      handleClose();
+    };
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () =>
+      window.removeEventListener(
+        "keydown",
+        onKey,
+        { capture: true } as EventListenerOptions
+      );
+  }, [step, handleClose]);
 
   /* ── 歌詞ファイル読み込み ── */
   const handleLyricsFile = useCallback((e: ChangeEvent<HTMLInputElement>) => {
@@ -288,55 +340,76 @@ export function AiSuggestDialog({
   /* ── 提案実行 ── */
   const handleSuggest = useCallback(() => {
     if (!peaks || peaks.length === 0) return;
-    const extra = [
-      vibes.size > 0 ? `曲のイメージ: ${[...vibes].join(", ")}` : "",
-      formationStyle ? `フォーメーションスタイル: ${formationStyle}` : "",
-      lyrics.trim() ? `歌詞:\n${lyrics.trim()}` : "",
-      additionalNote.trim() ? `その他メモ: ${additionalNote.trim()}` : "",
-    ].filter(Boolean).join("\n");
     const mediaUrl = playbackEngine.getMediaSourceUrl();
-    suggest(peaks, durationSec, extra || undefined, {
+    suggest(peaks, durationSec, undefined, {
       audioUrl: mediaUrl || null,
       targetCueCount,
       classProfileId,
+      taste: {
+        vibes: [...vibes],
+        style: formationStyle,
+        lyrics: lyrics.trim() || undefined,
+        note: additionalNote.trim() || undefined,
+      },
     });
   }, [peaks, durationSec, vibes, formationStyle, lyrics, additionalNote, targetCueCount, classProfileId, suggest]);
 
   /* ── 適用 ── */
   const handleApply = useCallback(() => {
     if (!result) return;
+    const accepted = filterAcceptedSuggestion(
+      result.formations,
+      result.cues,
+      acceptedCueIds
+    );
+    if (accepted.cues.length === 0) return;
     const confirmed = window.confirm(
-      "AI提案を適用します。\n既存のキュー（タイムライン）は上書きされます。\n元に戻す（Ctrl+Z）で戻せます。\n\n適用しますか？"
+      applyMode === "append"
+        ? "既存のキューはそのまま残し、採用した提案をタイムラインに追加します。\n時間が重なる場合は空きにずらします。\n元に戻す（Ctrl+Z）で戻せます。\n\n追加しますか？"
+        : "採用したキューでタイムラインを置き換えます。\n却下した提案は入りません。\n元に戻す（Ctrl+Z）で戻せます。\n\n適用しますか？"
     );
     if (!confirmed) return;
-    setProject((prev) => {
-      const existingFormations = prev.formations.filter(
-        (f) => !result.formations.some((rf) => rf.id === f.id)
-      );
-      return {
-        ...prev,
-        formations: [...existingFormations, ...result.formations],
-        cues: result.cues,
-        activeFormationId: result.formations[0]?.id ?? prev.activeFormationId,
-      };
-    });
+    setProject((prev) =>
+      applyAiSuggestToProject(prev, accepted, applyMode, { durationSec })
+    );
+    clearStagePreview();
     onClose();
-  }, [result, setProject, onClose]);
+  }, [
+    result,
+    acceptedCueIds,
+    applyMode,
+    durationSec,
+    setProject,
+    clearStagePreview,
+    onClose,
+  ]);
+
+  const toggleAccepted = useCallback((cueId: string) => {
+    setAcceptedCueIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(cueId)) next.delete(cueId);
+      else next.add(cueId);
+      return next;
+    });
+  }, []);
+
+  const acceptAll = useCallback(() => {
+    setAcceptedCueIds(new Set(pairedCues.map((p) => p.cue.id)));
+  }, [pairedCues]);
+
+  const rejectAll = useCallback(() => {
+    setAcceptedCueIds(new Set());
+  }, []);
 
   /* ── やり直し ── */
   const handleRetry = useCallback(() => {
+    clearStagePreview();
     reset();
-  }, [reset]);
+  }, [reset, clearStagePreview]);
 
   /* ── フィードバック再提案 ── */
   const handleResuggest = useCallback(() => {
     if (!peaks || peaks.length === 0) return;
-    const extra = [
-      vibes.size > 0 ? `曲のイメージ: ${[...vibes].join(", ")}` : "",
-      formationStyle ? `フォーメーションスタイル: ${formationStyle}` : "",
-      lyrics.trim() ? `歌詞:\n${lyrics.trim()}` : "",
-      additionalNote.trim() ? `その他メモ: ${additionalNote.trim()}` : "",
-    ].filter(Boolean).join("\n");
     const feedback: SuggestFeedback = {
       preferLessMovement: fbLessMove,
       preferFewerCrossings: fbLessCross,
@@ -344,11 +417,17 @@ export function AiSuggestDialog({
       note: fbNote.trim() || undefined,
     };
     const mediaUrl = playbackEngine.getMediaSourceUrl();
-    suggest(peaks, durationSec, extra || undefined, {
+    suggest(peaks, durationSec, undefined, {
       audioUrl: mediaUrl || null,
       targetCueCount,
       classProfileId,
       feedback,
+      taste: {
+        vibes: [...vibes],
+        style: formationStyle,
+        lyrics: lyrics.trim() || undefined,
+        note: additionalNote.trim() || undefined,
+      },
     });
   }, [
     peaks,
@@ -367,8 +446,20 @@ export function AiSuggestDialog({
   ]);
 
   return (
-    <div style={overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div style={dialog}>
+    <EditorSideSheet
+      open
+      onClose={handleClose}
+      width="min(520px, 92vw)"
+      zIndex={9000}
+      blockDismiss={step === 2}
+      ariaLabelledBy="ai-suggest-dialog-title"
+      sheetId="ai-suggest"
+      panelStyle={{
+        background: shell.bgDeep,
+        borderLeft: `1px solid ${shell.border}`,
+        boxShadow: "-18px 0 50px rgba(0, 0, 0, 0.55)",
+      }}
+    >
         {/* Header */}
         <div style={header}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -376,14 +467,14 @@ export function AiSuggestDialog({
               <path d="M16 4 L18 10 L24 10 L19 14 L21 20 L16 16 L11 20 L13 14 L8 10 L14 10 Z" fill="none" stroke="#e879f9" strokeWidth="1.5" strokeLinejoin="round" />
               <text x="13.5" y="30" fontSize="5" fontWeight="bold" fill="#e879f9" fontFamily="sans-serif" opacity="0.7">AI</text>
             </svg>
-            <span style={{ fontSize: 15, fontWeight: 700, color: "#e2e8f0" }}>
+            <span id="ai-suggest-dialog-title" style={{ fontSize: 15, fontWeight: 700, color: "#e2e8f0" }}>
               AI フォーメーション提案
             </span>
             <span style={{ fontSize: 10, color: shell.textSubtle }}>
               照明連動 · 実プラン{corpusInfo.showCount}演目/{corpusInfo.cueCount}キュー
             </span>
           </div>
-          <button type="button" style={btnClose} onClick={onClose}>×</button>
+          <button type="button" style={btnClose} onClick={handleClose}>×</button>
         </div>
 
         {/* Body */}
@@ -402,7 +493,7 @@ export function AiSuggestDialog({
               )}
 
               <p style={{ fontSize: 12, color: shell.textMuted, lineHeight: 1.55, margin: "0 0 14px" }}>
-                音声解析（BPM・FCP）と照明プラン連動でフォーメーションを自動生成します。第19回発表会（全クラス）などの実演会照明要望も参照します。
+                音声解析と曲理解エンジンでフォーメーションを自動生成します。イメージ・スタイル・歌詞は隊形に反映し、発表会の照明プランはムードの参照に使います。
               </p>
 
               {/* クラス属性 */}
@@ -575,7 +666,7 @@ export function AiSuggestDialog({
                   <div style={{ flex: 1 }}>
                     <textarea
                       style={textarea}
-                      placeholder={"歌詞をここに貼り付け...\n（セクション構成の把握に使われます）"}
+                      placeholder={"歌詞をここに貼り付け...\n円・光・走る などの言葉は隊形のヒントになります"}
                       value={lyrics}
                       onChange={(e) => { setLyrics(e.target.value); setLyricsFileName(null); }}
                     />
@@ -661,9 +752,9 @@ export function AiSuggestDialog({
                 </>
               ) : (
                 <>
-                  <p style={{ fontSize: 13, color: "#e879f9" }}>照明連動エンジンで隊列を生成しています…</p>
+                  <p style={{ fontSize: 13, color: "#e879f9" }}>曲の区切りと隊列を組み立てています…</p>
                   <p style={{ fontSize: 11, color: shell.textSubtle, marginTop: 4 }}>
-                    FCP抽出 → 照明/フォーメーション割当 → 被り回避 → クラス制約チェック
+                    変化点 → キュー判定 → 隊形の並び → 照明ムード参照
                   </p>
                 </>
               )}
@@ -707,6 +798,32 @@ export function AiSuggestDialog({
                       ) : null}
                     </div>
                   </div>
+
+                  {gateReport ? (
+                    <div style={sectionBox}>
+                      <p style={{ fontSize: 11, color: shell.textSubtle, marginBottom: 6, fontWeight: 600 }}>
+                        既存キューとの品質ゲート（総合 {gateReport.overall}）
+                      </p>
+                      <p style={{ fontSize: 10, color: shell.textSubtle, margin: "0 0 8px", lineHeight: 1.45 }}>
+                        いまのタイムラインを人手ラベルとして、今回のエンジン提案を採点しています。
+                        {gateReport.ceilingEstimated ? " 注釈が1系統のため Human Ceiling は参考値です。" : ""}
+                      </p>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        {gateReport.gates.map((g) => {
+                          const color = g.verdict === "PASS" ? "#4ade80" : g.verdict === "WATCH" ? "#fbbf24" : "#f87171";
+                          return (
+                            <div key={g.id} style={{ display: "flex", gap: 10, fontSize: 11, color: "#e2e8f0", flexWrap: "wrap" }}>
+                              <span style={{ minWidth: 40, fontWeight: 700, color }}>{g.verdict}</span>
+                              <span style={{ flex: "1 1 120px" }}>{g.label}</span>
+                              <span style={{ color: shell.textSubtle }}>
+                                {(g.actual * 100).toFixed(0)} / {(g.target * 100).toFixed(0)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
 
                   {/* 評価スコア */}
                   {result.scores.length > 0 && (
@@ -773,56 +890,141 @@ export function AiSuggestDialog({
                     </button>
                   </div>
 
-                  {/* フォーメーション一覧 */}
-                  <p style={{ fontSize: 11, color: shell.textSubtle, marginBottom: 6, fontWeight: 600 }}>
-                    提案フォーメーション ({result.formations.length}件)
-                  </p>
-                  {result.formations.map((f, idx) => (
-                    <div key={f.id} style={sectionBox}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                        <span style={{
-                          width: 20, height: 20, borderRadius: 6,
-                          background: "rgba(99,102,241,0.2)", color: "#818cf8",
-                          fontSize: 10, fontWeight: 700,
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                        }}>{idx + 1}</span>
-                        <span style={{ fontSize: 12, color: "#e2e8f0", fontWeight: 600 }}>{f.name}</span>
-                        <span style={{ fontSize: 10, color: shell.textSubtle }}>{f.dancers.length}人</span>
-                      </div>
-                      {f.note ? (
-                        <p style={{ fontSize: 10, color: "#a5b4fc", margin: "0 0 6px", lineHeight: 1.45, opacity: 0.9 }}>
-                          {f.note.length > 120 ? `${f.note.slice(0, 120)}…` : f.note}
-                        </p>
-                      ) : null}
-                      <div style={{
-                        position: "relative",
-                        width: "100%",
-                        height: 60,
-                        background: "rgba(0,0,0,0.3)",
-                        borderRadius: 6,
-                        overflow: "hidden",
-                        border: "1px solid rgba(255,255,255,0.04)",
-                      }}>
-                        {f.dancers.map((d) => {
-                          const colors = ["#f87171","#fb923c","#fbbf24","#a3e635","#34d399","#22d3ee","#60a5fa","#a78bfa","#f472b6","#e879f9","#94a3b8","#fcd34d"];
-                          return (
-                            <div key={d.id} title={d.label} style={{
-                              position: "absolute",
-                              left: `${d.xPct}%`,
-                              top: `${d.yPct}%`,
-                              transform: "translate(-50%, -50%)",
-                              width: 8, height: 8, borderRadius: "50%",
-                              background: colors[d.colorIndex % colors.length],
-                              boxShadow: `0 0 4px ${colors[d.colorIndex % colors.length]}60`,
-                            }} />
-                          );
-                        })}
-                        <div style={{ position: "absolute", bottom: 2, left: "50%", transform: "translateX(-50%)", fontSize: 7, color: "rgba(255,255,255,0.2)", letterSpacing: 2 }}>
-                          客席
+                  {/* フォーメーション一覧（クリックで舞台プレビュー、採用/却下） */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+                    <p style={{ fontSize: 11, color: shell.textSubtle, margin: 0, fontWeight: 600 }}>
+                      提案キュー（クリックで舞台にプレビュー） · 採用 {acceptedCount}/{pairedCues.length}
+                    </p>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button type="button" style={{ ...btnSecondary, padding: "4px 8px", fontSize: 10 }} onClick={acceptAll}>
+                        すべて採用
+                      </button>
+                      <button type="button" style={{ ...btnSecondary, padding: "4px 8px", fontSize: 10 }} onClick={rejectAll}>
+                        すべて却下
+                      </button>
+                    </div>
+                  </div>
+                  {pairedCues.map(({ cue, formation }, idx) => {
+                    const accepted = acceptedCueIds.has(cue.id);
+                    const previewing = previewCueId === cue.id;
+                    const poseSummary = (() => {
+                      const counts = { stand: 0, crouch: 0, sit: 0 };
+                      for (const d of formation.dancers) {
+                        const p = d.poseLevel ?? "stand";
+                        counts[p] += 1;
+                      }
+                      const parts: string[] = [];
+                      if (counts.crouch) parts.push(`しゃがみ${counts.crouch}`);
+                      if (counts.sit) parts.push(`座り${counts.sit}`);
+                      return parts.join(" · ");
+                    })();
+                    return (
+                      <div
+                        key={cue.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setPreviewCueId(cue.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setPreviewCueId(cue.id);
+                          }
+                        }}
+                        style={{
+                          ...sectionBox,
+                          cursor: "pointer",
+                          opacity: accepted ? 1 : 0.45,
+                          borderColor: previewing
+                            ? "#6366f1"
+                            : accepted
+                              ? shell.border
+                              : "rgba(248,113,113,0.25)",
+                          boxShadow: previewing ? "0 0 0 1px #6366f1" : undefined,
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                          <span style={{
+                            width: 20, height: 20, borderRadius: 6,
+                            background: previewing ? "rgba(99,102,241,0.45)" : "rgba(99,102,241,0.2)",
+                            color: "#818cf8",
+                            fontSize: 10, fontWeight: 700,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                          }}>{idx + 1}</span>
+                          <span style={{ fontSize: 12, color: "#e2e8f0", fontWeight: 600, flex: 1 }}>
+                            {formation.name}
+                          </span>
+                          <span style={{ fontSize: 10, color: shell.textSubtle }}>
+                            {Math.floor(cue.tStartSec / 60)}:{String(Math.floor(cue.tStartSec % 60)).padStart(2, "0")}
+                            –{Math.floor(cue.tEndSec / 60)}:{String(Math.floor(cue.tEndSec % 60)).padStart(2, "0")}
+                          </span>
+                          <span style={{ fontSize: 10, color: shell.textSubtle }}>{formation.dancers.length}人</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleAccepted(cue.id);
+                            }}
+                            style={{
+                              ...btnSecondary,
+                              padding: "4px 10px",
+                              fontSize: 11,
+                              fontWeight: 700,
+                              color: accepted ? "#4ade80" : "#f87171",
+                              borderColor: accepted ? "rgba(74,222,128,0.35)" : "rgba(248,113,113,0.35)",
+                            }}
+                          >
+                            {accepted ? "採用" : "却下"}
+                          </button>
+                        </div>
+                        {formation.note ? (
+                          <p style={{ fontSize: 10, color: "#a5b4fc", margin: "0 0 6px", lineHeight: 1.45, opacity: 0.9 }}>
+                            {formation.note.length > 120 ? `${formation.note.slice(0, 120)}…` : formation.note}
+                          </p>
+                        ) : null}
+                        {poseSummary ? (
+                          <p style={{ fontSize: 10, color: "#fbbf24", margin: "0 0 6px" }}>
+                            姿勢 {poseSummary}
+                          </p>
+                        ) : null}
+                        <div style={{
+                          position: "relative",
+                          width: "100%",
+                          height: 72,
+                          background: "rgba(0,0,0,0.3)",
+                          borderRadius: 6,
+                          overflow: "hidden",
+                          border: "1px solid rgba(255,255,255,0.04)",
+                        }}>
+                          {formation.dancers.map((d) => {
+                            const colors = ["#f87171","#fb923c","#fbbf24","#a3e635","#34d399","#22d3ee","#60a5fa","#a78bfa","#f472b6","#e879f9","#94a3b8","#fcd34d"];
+                            const poseScale = poseLevelMarkerScale(d.poseLevel);
+                            const size = 8 * poseScale;
+                            const radius = d.poseLevel === "sit" ? "2px" : "50%";
+                            return (
+                              <div
+                                key={d.id}
+                                title={`${d.label}（${poseLevelLabelJa(d.poseLevel)}）`}
+                                style={{
+                                  position: "absolute",
+                                  left: `${d.xPct}%`,
+                                  top: `${d.yPct}%`,
+                                  transform: "translate(-50%, -50%)",
+                                  width: size,
+                                  height: size,
+                                  borderRadius: radius,
+                                  background: colors[d.colorIndex % colors.length],
+                                  boxShadow: `0 0 4px ${colors[d.colorIndex % colors.length]}60`,
+                                }}
+                              />
+                            );
+                          })}
+                          <div style={{ position: "absolute", bottom: 2, left: "50%", transform: "translateX(-50%)", fontSize: 7, color: "rgba(255,255,255,0.2)", letterSpacing: 2 }}>
+                            客席
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
 
                   {/* AIの考え */}
                   {result.reasoning.length > 0 && (
@@ -834,25 +1036,43 @@ export function AiSuggestDialog({
                     </div>
                   )}
 
-                  {/* キュー一覧 */}
-                  <div style={{ marginTop: 12 }}>
+                  {/* 適用方法 */}
+                  <div style={{ marginTop: 16 }}>
                     <p style={{ fontSize: 11, color: shell.textSubtle, marginBottom: 6, fontWeight: 600 }}>
-                      タイムライン ({result.cues.length}キュー)
+                      適用方法
                     </p>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                      {result.cues.map((c, idx) => (
-                        <span key={c.id} style={{
-                          padding: "3px 8px", borderRadius: 6,
-                          background: "rgba(99,102,241,0.1)", border: "1px solid rgba(99,102,241,0.2)",
-                          fontSize: 10, color: "#a5b4fc",
-                        }}>
-                          {idx + 1}. {c.name || `キュー${idx + 1}`}
-                          <span style={{ color: "rgba(255,255,255,0.3)", marginLeft: 4 }}>
-                            {Math.floor(c.tStartSec / 60)}:{String(Math.floor(c.tStartSec % 60)).padStart(2, "0")}
-                            –{Math.floor(c.tEndSec / 60)}:{String(Math.floor(c.tEndSec % 60)).padStart(2, "0")}
-                          </span>
-                        </span>
-                      ))}
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {(
+                        [
+                          ["replace", "上書き", "タイムラインのキューを採用分で置き換え"],
+                          ["append", "追加", "既存キューはそのまま、採用分を足す"],
+                        ] as const
+                      ).map(([mode, lab, desc]) => {
+                        const selected = applyMode === mode;
+                        return (
+                          <button
+                            key={mode}
+                            type="button"
+                            onClick={() => setApplyMode(mode)}
+                            style={{
+                              flex: 1,
+                              textAlign: "left",
+                              padding: "8px 12px",
+                              borderRadius: 8,
+                              border: `1px solid ${selected ? "#6366f1" : shell.border}`,
+                              background: selected ? "rgba(99,102,241,0.18)" : "rgba(255,255,255,0.04)",
+                              color: selected ? "#a5b4fc" : shell.textMuted,
+                              fontSize: 12,
+                              cursor: "pointer",
+                            }}
+                          >
+                            <strong style={{ color: selected ? "#e2e8f0" : shell.text }}>{lab}</strong>
+                            <span style={{ display: "block", fontSize: 10, marginTop: 2, opacity: 0.75, lineHeight: 1.4 }}>
+                              {desc}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -863,12 +1083,24 @@ export function AiSuggestDialog({
                     </button>
                     <button
                       type="button"
-                      style={btnPrimary}
+                      style={{
+                        ...btnPrimary,
+                        opacity: acceptedCount === 0 ? 0.4 : 1,
+                        cursor: acceptedCount === 0 ? "not-allowed" : "pointer",
+                      }}
+                      disabled={acceptedCount === 0}
                       onClick={handleApply}
-                      onMouseEnter={(e) => { (e.target as HTMLButtonElement).style.background = "#4f46e5"; }}
-                      onMouseLeave={(e) => { (e.target as HTMLButtonElement).style.background = "#6366f1"; }}
+                      onMouseEnter={(e) => {
+                        if (acceptedCount === 0) return;
+                        (e.target as HTMLButtonElement).style.background = "#4f46e5";
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.target as HTMLButtonElement).style.background = "#6366f1";
+                      }}
                     >
-                      プロジェクトに適用
+                      {applyMode === "append"
+                        ? `採用したキューを追加（${acceptedCount}）`
+                        : `採用したキューで上書き（${acceptedCount}）`}
                     </button>
                   </div>
                 </>
@@ -876,8 +1108,7 @@ export function AiSuggestDialog({
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </EditorSideSheet>
   );
 }
 

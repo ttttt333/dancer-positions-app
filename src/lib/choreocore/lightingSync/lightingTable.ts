@@ -75,11 +75,31 @@ export function ruleForSection(sectionType: SectionType): SectionLightingRule {
   );
 }
 
+export type PatternTasteHint = {
+  preferPatterns?: FormationPatternId[];
+  avoidPatterns?: FormationPatternId[];
+};
+
+function prependUnique(
+  front: FormationPatternId[],
+  rest: FormationPatternId[]
+): FormationPatternId[] {
+  const seen = new Set<FormationPatternId>();
+  const out: FormationPatternId[] = [];
+  for (const p of [...front, ...rest]) {
+    if (seen.has(p)) continue;
+    seen.add(p);
+    out.push(p);
+  }
+  return out;
+}
+
 export function pickPattern(
   sectionType: SectionType,
   salt: number,
   allowCross: boolean,
-  corpusTags?: string[]
+  corpusTags?: string[],
+  taste?: PatternTasteHint
 ): FormationPatternId {
   const rule = ruleForSection(sectionType);
   let patterns = [...rule.patterns];
@@ -92,28 +112,24 @@ export function pickPattern(
   // 実プランのタグでフォーメーション優先度を寄せる
   const tags = new Set((corpusTags ?? []).map((t) => t.toLowerCase()));
   if (tags.has("pin_spot") || tags.has("center") || tags.has("solo")) {
-    patterns = [
-      "center_condensed",
-      "silhouette_line",
-      ...patterns.filter(
-        (p) => p !== "center_condensed" && p !== "silhouette_line"
-      ),
-    ];
+    patterns = prependUnique(
+      ["center_condensed", "silhouette_line"],
+      patterns
+    );
   } else if (tags.has("bright") || tags.has("chorus") || tags.has("lively")) {
-    patterns = [
-      "vee",
-      "wide_spread",
-      "double_u",
-      ...patterns.filter(
-        (p) => p !== "vee" && p !== "wide_spread" && p !== "double_u"
-      ),
-    ];
+    patterns = prependUnique(["vee", "wide_spread", "double_u"], patterns);
   } else if (tags.has("buildup") || tags.has("energy_up")) {
-    patterns = [
-      "fast_shift",
-      "circle",
-      ...patterns.filter((p) => p !== "fast_shift" && p !== "circle"),
-    ];
+    patterns = prependUnique(["fast_shift", "circle"], patterns);
+  }
+
+  const prefer = taste?.preferPatterns ?? [];
+  const avoid = new Set(taste?.avoidPatterns ?? []);
+  if (prefer.length) {
+    patterns = prependUnique(prefer, patterns);
+  }
+  if (avoid.size) {
+    const kept = patterns.filter((p) => !avoid.has(p));
+    if (kept.length) patterns = kept;
   }
 
   if (!allowCross) {

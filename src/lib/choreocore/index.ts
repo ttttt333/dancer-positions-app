@@ -65,6 +65,10 @@ export {
   corpusSummary,
   LIGHTING_PLAN_SHOWS,
   suggestClassProfileId,
+  SUGGEST_VIBES,
+  SUGGEST_FORMATION_STYLES,
+  resolveSuggestTaste,
+  applyTasteToProfile,
 } from "./lightingSync";
 export * as musicEngine from "./engine";
 export {
