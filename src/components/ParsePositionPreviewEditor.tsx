@@ -165,6 +165,18 @@ export function ParsePositionPreviewEditor({
         <button type="button" style={toolBtn} onClick={() => onChange(scalePreviewPositions(positions, 0.88))}>
           全体を縮小
         </button>
+        <button type="button" style={toolBtn} onClick={() => onChange(scalePreviewPositions(positions, 1.12, "x"))}>
+          横を広げる
+        </button>
+        <button type="button" style={toolBtn} onClick={() => onChange(scalePreviewPositions(positions, 0.88, "x"))}>
+          横を狭める
+        </button>
+        <button type="button" style={toolBtn} onClick={() => onChange(scalePreviewPositions(positions, 1.12, "y"))}>
+          前後を広げる
+        </button>
+        <button type="button" style={toolBtn} onClick={() => onChange(scalePreviewPositions(positions, 0.88, "y"))}>
+          前後を狭める
+        </button>
         <button type="button" style={toolBtn} onClick={() => onChange(nudgePreviewPositions(positions, -3, 0))}>
           ←
         </button>

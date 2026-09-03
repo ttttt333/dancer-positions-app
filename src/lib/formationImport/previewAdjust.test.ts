@@ -29,6 +29,26 @@ describe("scalePreviewPositions", () => {
     expect(next[1]?.x).toBe(70);
     expect(next[0]?.y).toBe(50);
   });
+
+  it("widens left-right without changing front-back", () => {
+    const next = scalePreviewPositions(
+      [p("a", 40, 40), p("b", 60, 60)],
+      2,
+      "x"
+    );
+    expect(next[0]).toMatchObject({ x: 30, y: 40 });
+    expect(next[1]).toMatchObject({ x: 70, y: 60 });
+  });
+
+  it("widens front-back without changing left-right", () => {
+    const next = scalePreviewPositions(
+      [p("a", 40, 40), p("b", 60, 60)],
+      2,
+      "y"
+    );
+    expect(next[0]).toMatchObject({ x: 40, y: 30 });
+    expect(next[1]).toMatchObject({ x: 60, y: 70 });
+  });
 });
 
 describe("nudgePreviewPositions", () => {

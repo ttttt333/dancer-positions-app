@@ -21,18 +21,24 @@ function centroid(positions: ParsedPosition[]): { x: number; y: number } {
   return { x, y };
 }
 
+export type PreviewScaleAxis = "xy" | "x" | "y";
+
+/** 重心まわりに拡大縮小。`x` は横幅だけ、`y` は前後の幅だけ。 */
 export function scalePreviewPositions(
   positions: ParsedPosition[],
-  factor: number
+  factor: number,
+  axis: PreviewScaleAxis = "xy"
 ): ParsedPosition[] {
   if (positions.length === 0 || !Number.isFinite(factor) || factor <= 0) {
     return positions;
   }
   const c = centroid(positions);
+  const scaleX = axis === "y" ? 1 : factor;
+  const scaleY = axis === "x" ? 1 : factor;
   return positions.map((p) => ({
     ...p,
-    x: clampPreviewPct(c.x + (p.x - c.x) * factor),
-    y: clampPreviewPct(c.y + (p.y - c.y) * factor),
+    x: clampPreviewPct(c.x + (p.x - c.x) * scaleX),
+    y: clampPreviewPct(c.y + (p.y - c.y) * scaleY),
   }));
 }
 
