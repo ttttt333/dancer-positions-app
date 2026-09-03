@@ -2,12 +2,20 @@
  * 楽曲構造解析（ブラウザ実装）。
  * Fly.io librosa 版と同じ思想:
  * - peak_pick 廃止
- * - 4エイト（32ビート）固定ブロック
- * - 波形エネルギー近似でサビ（上位35%連続）判定
+ * - 4エイト（32ビート）でイントロ／Aメロ／サビ／アウトロをラベル
+ * - Aメロ終わりはサビの 2 エイト前（PRE_CHORUS）
  */
 
 export type ChangeTier = "major" | "medium" | "minor";
-export type SectionType = "CHORUS_START" | "CHORUS" | "VERSE";
+export type SectionType =
+  | "CHORUS_START"
+  | "CHORUS"
+  | "VERSE"
+  | "INTRO"
+  | "OUTRO"
+  | "DROP"
+  | "PRE_CHORUS"
+  | "SE_TRIGGER";
 
 export type EightGridEntry = {
   index: number;
@@ -32,7 +40,7 @@ export type SongStructureAnalysis = {
   source: "browser" | "remote";
 };
 
-export const BROWSER_ANALYZER_VERSION = "browser-v1.1.0";
+export const BROWSER_ANALYZER_VERSION = "browser-v1.2.0";
 
 const BEATS_PER_EIGHT = 8;
 const EIGHTS_PER_BLOCK = 4;
@@ -112,13 +120,24 @@ function percentile(sortedAsc: number[], p: number): number {
   return sortedAsc[lo]! * (1 - w) + sortedAsc[hi]! * w;
 }
 
-function markChorusBlocks(blockEnergy: number[], topRatio = 0.35): SectionType[] {
+function markSectionBlocks(blockEnergy: number[]): SectionType[] {
   const n = blockEnergy.length;
   if (n === 0) return [];
-  if (n === 1) return ["CHORUS_START"];
   const sorted = [...blockEnergy].sort((a, b) => a - b);
-  const thr = percentile(sorted, 1 - topRatio);
-  const loud = blockEnergy.map((e) => e >= thr);
+  const median = percentile(sorted, 0.5);
+  const p65 = percentile(sorted, 0.65);
+  const mean = blockEnergy.reduce((a, b) => a + b, 0) / n;
+  const span = Math.max(
+    1e-8,
+    Math.max(...blockEnergy) - Math.min(...blockEnergy)
+  );
+
+  const loud = blockEnergy.map((e, i) => {
+    const prev = i > 0 ? blockEnergy[i - 1]! : e;
+    const jump = (e - prev) / span;
+    return e >= p65 || (e > median && jump >= 0.18) || e >= mean + 0.12 * span;
+  });
+
   const section: SectionType[] = Array.from({ length: n }, () => "VERSE");
   let i = 0;
   while (i < n) {
@@ -132,7 +151,110 @@ function markChorusBlocks(blockEnergy: number[], topRatio = 0.35): SectionType[]
     for (let k = i + 1; k < j; k++) section[k] = "CHORUS";
     i = j;
   }
+  if (section[0] === "VERSE") section[0] = "INTRO";
+  for (let oi = Math.max(0, n - 2); oi < n; oi++) {
+    if (section[oi] === "VERSE") section[oi] = "OUTRO";
+  }
+  for (let k = 1; k < n; k++) {
+    const rise = (blockEnergy[k]! - blockEnergy[k - 1]!) / span;
+    if (
+      rise >= 0.28 &&
+      section[k] !== "CHORUS_START" &&
+      section[k] !== "INTRO"
+    ) {
+      section[k] = "DROP";
+    }
+  }
   return section;
+}
+
+function emitStructuralChangePoints(
+  blocks: Array<{ eight_index: number; time: number; mean_energy: number }>,
+  sectionTypes: SectionType[],
+  scores: number[],
+  eightGrid: EightGridEntry[],
+  bpm: number
+): ChangePoint[] {
+  const secPerEight = (60 / Math.max(1, bpm)) * BEATS_PER_EIGHT;
+  const eightTime = new Map(eightGrid.map((e) => [e.index, e.start_time]));
+  const out: ChangePoint[] = [];
+  const seen = new Set<number>();
+
+  const push = (
+    eight_index: number,
+    time: number,
+    score: number,
+    tier: ChangeTier,
+    section_type: SectionType
+  ) => {
+    if (!Number.isFinite(time) || time < 0.4) return;
+    const key = Math.round(time * 10);
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({
+      eight_index: Math.max(0, eight_index),
+      time: Math.round(time * 1000) / 1000,
+      score,
+      tier,
+      section_type,
+    });
+  };
+
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i]!;
+    const stype = sectionTypes[i] ?? "VERSE";
+    const score = scores[i] ?? 0;
+    const prevType = i > 0 ? sectionTypes[i - 1] : undefined;
+
+    if (stype === "CHORUS_START") {
+      if (
+        prevType === "VERSE" ||
+        prevType === "INTRO" ||
+        prevType === "OUTRO"
+      ) {
+        const preEight = b.eight_index - 2;
+        push(
+          preEight,
+          eightTime.get(preEight) ?? b.time - 2 * secPerEight,
+          Math.min(1, score * 0.85),
+          "medium",
+          "PRE_CHORUS"
+        );
+      }
+      push(b.eight_index, b.time, score, "major", "CHORUS_START");
+      continue;
+    }
+    if (stype === "DROP") {
+      push(b.eight_index, b.time, score, "major", "DROP");
+      continue;
+    }
+    if (stype === "CHORUS") {
+      const run =
+        i > 0 && (sectionTypes[i - 1] === "CHORUS" || sectionTypes[i - 1] === "CHORUS_START")
+          ? 1
+          : 0;
+      // 長いサビの中盤だけ絵を変える（毎回は変えない）
+      if (run && i % 2 === 1) {
+        push(b.eight_index, b.time, score, score >= 0.75 ? "major" : "medium", "CHORUS");
+      }
+      continue;
+    }
+    if (stype === "OUTRO" && prevType !== "OUTRO") {
+      push(b.eight_index, b.time, score, "medium", "OUTRO");
+      continue;
+    }
+    if (
+      stype === "VERSE" &&
+      (prevType === "CHORUS" ||
+        prevType === "CHORUS_START" ||
+        prevType === "DROP")
+    ) {
+      push(b.eight_index, b.time, score, "medium", "VERSE");
+    }
+  }
+
+  out.sort((a, b) => a.time - b.time);
+  return out;
 }
 
 function meanInRange(peaks: number[], startSec: number, endSec: number, duration: number): number {
@@ -198,7 +320,7 @@ export function analyzeSongStructureFromPeaks(
   const eMax = Math.max(...energies);
   const span = eMax - eMin + 1e-8;
   const scores = energies.map((e) => (e - eMin) / span);
-  const sectionTypes = markChorusBlocks(energies, 0.35);
+  const sectionTypes = markSectionBlocks(energies);
 
   const mean = energies.reduce((a, b) => a + b, 0) / energies.length;
   const variance =
@@ -206,31 +328,13 @@ export function analyzeSongStructureFromPeaks(
   const cv = Math.sqrt(variance) / (mean + 1e-8);
   const song_dynamism = Math.min(1, Math.max(0, cv / 1.5));
 
-  let verseCounter = 0;
-  const change_points: ChangePoint[] = [];
-  for (let i = 0; i < blocks.length; i++) {
-    const b = blocks[i]!;
-    if (b.eight_index === 0) continue;
-    const stype = sectionTypes[i]!;
-    const score = scores[i]!;
-    let tier: ChangeTier;
-    if (stype === "CHORUS_START") {
-      tier = "major";
-    } else if (stype === "CHORUS") {
-      tier = score >= 0.75 ? "major" : "medium";
-    } else {
-      tier = verseCounter % 2 === 0 ? "medium" : "minor";
-      verseCounter += 1;
-    }
-    change_points.push({
-      eight_index: b.eight_index,
-      time: b.time,
-      score,
-      tier,
-      section_type: stype,
-    });
-  }
-  change_points.sort((a, b) => a.time - b.time);
+  const change_points = emitStructuralChangePoints(
+    blocks,
+    sectionTypes,
+    scores,
+    eight_grid,
+    bpm
+  );
 
   return {
     bpm,

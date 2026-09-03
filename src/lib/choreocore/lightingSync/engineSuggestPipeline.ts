@@ -374,7 +374,7 @@ function layoutCandidatesForCue(input: {
   return out;
 }
 
-const MIN_MEAN_TRAVEL_PCT = 10;
+const MIN_MEAN_TRAVEL_PCT = 7;
 
 function meanTravelPct(a: DancerSpot[], b: DancerSpot[]): number {
   const byId = new Map(b.map((d) => [d.id, d] as const));
@@ -402,7 +402,9 @@ function isSongChangeCue(
         (cp.tier === "major" ||
           cp.section_type === "CHORUS_START" ||
           cp.section_type === "CHORUS" ||
-          cp.section_type === "DROP")
+          cp.section_type === "PRE_CHORUS" ||
+          cp.section_type === "DROP" ||
+          cp.section_type === "OUTRO")
     )
   );
 }
@@ -415,6 +417,23 @@ function promoteCuesAtSongChanges(
   const cues = analysis.cues.map((c) => {
     if (c.suppressed || !isSongChangeCue(c, remote)) return c;
     if (c.action !== "HOLD" && c.action !== "MICRO_SHIFT") return c;
+    const near = remote?.find((cp) => Math.abs(cp.time - c.rawTime) < 2);
+    const preChorus =
+      near?.section_type === "PRE_CHORUS" ||
+      c.reasonCodes.includes("PRE_CHORUS");
+    if (preChorus) {
+      intents[c.id] = {
+        primary: "EXPAND",
+        secondary: ["V", "LINE"],
+        prohibited: ["HOLD"],
+      };
+      return {
+        ...c,
+        action: "EXPAND" as const,
+        isMajor: true,
+        reasonCodes: [...c.reasonCodes, "PROMOTED_VERSE_END"],
+      };
+    }
     intents[c.id] = {
       primary: "MAJOR_CHANGE",
       secondary: ["EXPAND", "V"],
@@ -469,7 +488,8 @@ function isTrueHold(cue: FormationCue): boolean {
     cue.action === "HOLD" &&
     !cue.isMajor &&
     !cue.reasonCodes.includes("SECTION_CHANGE") &&
-    !cue.reasonCodes.includes("PROMOTED_SECTION_CHANGE")
+    !cue.reasonCodes.includes("PROMOTED_SECTION_CHANGE") &&
+    !cue.reasonCodes.includes("PROMOTED_VERSE_END")
   );
 }
 
@@ -495,7 +515,7 @@ function resolveDistinctLayoutSpots(input: {
       taste: input.tasteBias,
       recent: input.recent,
     },
-    16
+    8
   );
   const ordered = input.preferred
     ? [input.preferred, ...ranked.filter((id) => id !== input.preferred)]
@@ -505,6 +525,13 @@ function resolveDistinctLayoutSpots(input: {
     null;
   for (const id of ordered) {
     if (!allowCrossOf(input.profile) && isCrossLayoutPreset(id)) continue;
+    if (/^extra_/.test(id) && input.tasteBias.style !== "freestyle") continue;
+    if (
+      input.tasteBias.style !== "freestyle" &&
+      /pinwheel|heart|spiral|scatter/.test(id)
+    ) {
+      continue;
+    }
     const raw = spotsForLayoutPreset(
       id,
       input.seeds,
@@ -591,66 +618,233 @@ function lightingSectionFromMusic(type: MusicSectionType | undefined): SectionTy
   if (type === "INTRO") return "intro";
   if (type === "DROP") return "drop";
   if (type === "OUTRO") return "outro";
-  if (type === "CHORUS" || type === "FINAL_CHORUS" || type === "PRE_CHORUS") {
-    return "chorus";
+  if (type === "CHORUS" || type === "FINAL_CHORUS") return "chorus";
+  if (
+    type === "PRE_CHORUS" ||
+    type === "BREAK" ||
+    type === "BRIDGE"
+  ) {
+    return "se_trigger";
   }
-  if (type === "BREAK" || type === "BRIDGE") return "se_trigger";
   return "verse";
 }
 
+function musicSectionTypeFromCp(
+  cp: AppChangePoint
+): MusicSectionType {
+  if (cp.section_type === "INTRO") return "INTRO";
+  if (cp.section_type === "CHORUS_START" || cp.section_type === "CHORUS") {
+    return "CHORUS";
+  }
+  if (cp.section_type === "DROP") return "DROP";
+  if (cp.section_type === "OUTRO") return "OUTRO";
+  if (cp.section_type === "PRE_CHORUS" || cp.section_type === "SE_TRIGGER") {
+    return "PRE_CHORUS";
+  }
+  return "VERSE";
+}
+
+function overlaySectionsFromChangePoints(
+  structure: MusicStructureAnalysisResult,
+  remote: AppChangePoint[] | undefined,
+  duration: number,
+  bpm: number
+): void {
+  if (!remote?.length) return;
+  const sorted = [...remote]
+    .filter((cp) => Number.isFinite(cp.time))
+    .sort((a, b) => a.time - b.time);
+  if (sorted.length === 0) return;
+  const bar = 8 * (60 / Math.max(1, bpm));
+  const emptyProfile = {
+    bass: 0.3,
+    lowMid: 0.2,
+    mid: 0.2,
+    highMid: 0.15,
+    high: 0.15,
+  };
+  const sections: MusicStructureAnalysisResult["sections"] = [];
+  const push = (
+    type: MusicSectionType,
+    startTime: number,
+    endTime: number,
+    energy: number
+  ) => {
+    if (endTime <= startTime + 0.2) return;
+    sections.push({
+      id: `sec-${type}-${Math.round(startTime * 1000)}`,
+      type,
+      startTime,
+      endTime,
+      startBar: Math.floor(startTime / bar),
+      endBar: Math.floor(endTime / bar),
+      barCount: Math.max(1, Math.round((endTime - startTime) / bar)),
+      energyMean: energy,
+      energyPeak: Math.min(100, energy + 10),
+      energyDelta: 8,
+      rhythmicDensity: 0.5,
+      spectralProfile: emptyProfile,
+      confidence: 0.86,
+    });
+  };
+  const first = sorted[0]!;
+  if (first.time > 0.8) {
+    push("INTRO", 0, first.time, 32);
+  }
+  for (let i = 0; i < sorted.length; i += 1) {
+    const cp = sorted[i]!;
+    const end = sorted[i + 1]?.time ?? duration;
+    const energy =
+      cp.tier === "major" ? 78 : cp.tier === "medium" ? 58 : 42;
+    push(musicSectionTypeFromCp(cp), cp.time, end, energy);
+  }
+  if (sections.length > 0) structure.sections = sections;
+}
+
+function inferredRemoteSection(cp: AppChangePoint): string {
+  if (cp.section_type) return cp.section_type;
+  if (cp.tier === "major") return "CHORUS_START";
+  return "VERSE";
+}
+
+/** 旧解析（4エイトごと）が来ても、サビ頭・A終わり・サビ後Aに間引く */
+function thinStructuralChangePoints(
+  remote: AppChangePoint[] | undefined
+): AppChangePoint[] | undefined {
+  if (!remote?.length) return remote;
+  const sorted = [...remote]
+    .filter((cp) => Number.isFinite(cp.time))
+    .sort((a, b) => a.time - b.time);
+  const out: AppChangePoint[] = [];
+  let prev: string | undefined;
+  for (const cp of sorted) {
+    const st = inferredRemoteSection(cp);
+    if (st === "PRE_CHORUS") {
+      out.push(cp);
+      prev = st;
+      continue;
+    }
+    if (st === "CHORUS_START" || st === "DROP") {
+      out.push(cp);
+      prev = st;
+      continue;
+    }
+    if (st === "OUTRO") {
+      if (prev !== "OUTRO") {
+        out.push(cp);
+        prev = st;
+      }
+      continue;
+    }
+    if (st === "CHORUS") {
+      const last = out[out.length - 1];
+      if (last && cp.time - last.time < 20) continue;
+      out.push(cp);
+      prev = st;
+      continue;
+    }
+    if (st === "VERSE" || st === "SE_TRIGGER") {
+      if (
+        prev === "CHORUS" ||
+        prev === "CHORUS_START" ||
+        prev === "DROP"
+      ) {
+        out.push(cp);
+        prev = "VERSE";
+      }
+      continue;
+    }
+    if (cp.tier === "major") {
+      out.push(cp);
+      prev = st;
+    }
+  }
+  return out.length > 0 ? out : sorted.slice(0, 8);
+}
+
 function clusterTypeForRemote(cp: AppChangePoint): ChangePointType[] {
-  if (cp.section_type === "DROP") return ["ENERGY_RISE"];
-  if (cp.section_type === "CHORUS_START" || cp.tier === "major") {
+  const st = inferredRemoteSection(cp);
+  if (st === "PRE_CHORUS") return ["ENERGY_RISE"];
+  if (st === "DROP" || st === "CHORUS_START" || st === "CHORUS") {
     return ["SECTION_CHANGE", "ENERGY_RISE"];
   }
+  if (st === "OUTRO" || st === "VERSE") return ["SECTION_CHANGE"];
   if (cp.tier === "minor") return ["PHRASE_CHANGE"];
+  if (cp.tier === "major") return ["SECTION_CHANGE", "ENERGY_RISE"];
   return ["ENERGY_RISE"];
 }
 
-function injectRemoteClusters(
-  clusters: EventCluster[],
+function clusterFromRemote(
+  cp: AppChangePoint,
+  bpm: number,
+  extraTypes?: ChangePointType[]
+): EventCluster {
+  const beat = 60 / Math.max(60, bpm);
+  const types = extraTypes ?? clusterTypeForRemote(cp);
+  const energyBefore = 35;
+  const energyAfter =
+    cp.tier === "major" ? 78 : cp.tier === "medium" ? 58 : 45;
+  const st = inferredRemoteSection(cp);
+  const isMajor =
+    st === "CHORUS_START" ||
+    st === "CHORUS" ||
+    st === "DROP" ||
+    (cp.tier === "major" && st !== "PRE_CHORUS");
+  const changePoints = types.map((type, i) => ({
+    id: `fly-${type}-${Math.round(cp.time * 1000)}-${i}`,
+    time: cp.time,
+    rawTime: cp.time,
+    beatTime: cp.time,
+    barTime: Math.floor(cp.time / 2) * 2,
+    barIndex: Math.floor(cp.time / 2),
+    beatIndex: Math.round(cp.time / beat),
+    type,
+    strength: clamp((cp.score || 0.5) * 100, 40, 95),
+    confidence: 0.82,
+    sourceEventIds: [`fly-${Math.round(cp.time * 1000)}`],
+    energyBefore,
+    energyAfter,
+    deltaEnergy: energyAfter - energyBefore,
+    priority: isMajor ? 85 : cp.tier === "medium" ? 60 : 40,
+  }));
+  return {
+    id: `fly-ec-${Math.round(cp.time * 1000)}`,
+    time: cp.time,
+    changePoints,
+    dominantType: types[0]!,
+    totalStrength: changePoints[0]?.strength ?? 50,
+    confidence: 0.82,
+    isMajor,
+  };
+}
+
+function clustersFromRemoteChangePoints(
   remote: AppChangePoint[] | undefined,
   bpm: number
 ): EventCluster[] {
-  if (!remote?.length) return clusters;
-  const out = [...clusters];
-  const beat = 60 / Math.max(60, bpm);
-  for (const cp of remote) {
-    if (!Number.isFinite(cp.time)) continue;
-    const near = out.some((c) => Math.abs(c.time - cp.time) < beat * 2);
-    if (near) continue;
-    const types = clusterTypeForRemote(cp);
-    const energyBefore = 35;
-    const energyAfter = cp.tier === "major" ? 78 : cp.tier === "medium" ? 58 : 45;
-    const changePoints = types.map((type, i) => ({
-      id: `fly-${type}-${Math.round(cp.time * 1000)}-${i}`,
-      time: cp.time,
-      rawTime: cp.time,
-      beatTime: cp.time,
-      barTime: Math.floor(cp.time / 2) * 2,
-      barIndex: Math.floor(cp.time / 2),
-      beatIndex: Math.round(cp.time / beat),
-      type,
-      strength: clamp((cp.score || 0.5) * 100, 40, 95),
-      confidence: 0.82,
-      sourceEventIds: [`fly-${Math.round(cp.time * 1000)}`],
-      energyBefore,
-      energyAfter,
-      deltaEnergy: energyAfter - energyBefore,
-      priority: cp.tier === "major" ? 85 : cp.tier === "medium" ? 60 : 40,
-    }));
-    out.push({
-      id: `fly-ec-${Math.round(cp.time * 1000)}`,
-      time: cp.time,
-      changePoints,
-      dominantType: types[0]!,
-      totalStrength: changePoints[0]?.strength ?? 50,
-      confidence: 0.82,
-      isMajor: cp.tier === "major",
-    });
+  const thinned = thinStructuralChangePoints(remote) ?? [];
+  const out: EventCluster[] = [];
+  const hasEarly = thinned.some((cp) => cp.time < 2);
+  if (!hasEarly) {
+    out.push(
+      clusterFromRemote(
+        {
+          eight_index: 0,
+          time: 0,
+          score: 0.35,
+          tier: "minor",
+          section_type: "INTRO",
+        },
+        bpm,
+        ["PHRASE_CHANGE"]
+      )
+    );
   }
-  out.sort((a, b) => a.time - b.time);
-  return out;
+  for (const cp of thinned) {
+    if (!Number.isFinite(cp.time) || cp.time < 0.35) continue;
+    out.push(clusterFromRemote(cp, bpm));
+  }
+  return out.sort((a, b) => a.time - b.time);
 }
 
 function capCueAnalysis(
@@ -726,11 +920,11 @@ export function runEngineAppSuggest(
 
   const phase1 = phase1FromPeaks(input.peaks, duration, bpm);
   const structure = analyzeMusicStructure(phase1);
-  structure.eventClusters = injectRemoteClusters(
-    structure.eventClusters,
-    input.remoteChangePoints,
-    bpm
-  );
+  const structuralCps = thinStructuralChangePoints(input.remoteChangePoints);
+  overlaySectionsFromChangePoints(structure, structuralCps, duration, bpm);
+  if (structuralCps?.length) {
+    structure.eventClusters = clustersFromRemoteChangePoints(structuralCps, bpm);
+  }
 
   const cooldown = Math.max(4, input.profile.minCountsBetweenChanges);
   let cueAnalysis = generateFormationCues(structure, phase1, {
@@ -739,10 +933,7 @@ export function runEngineAppSuggest(
     lowPriorityCooldownBeats: cooldown * 2,
     microShiftThreshold: input.profile.targetAgeGroup === "toddler" ? 48 : 35,
   });
-  cueAnalysis = promoteCuesAtSongChanges(
-    cueAnalysis,
-    input.remoteChangePoints
-  );
+  cueAnalysis = promoteCuesAtSongChanges(cueAnalysis, structuralCps);
   cueAnalysis = capCueAnalysis(cueAnalysis, maxCues);
   cueAnalysis = thinCuesForTravel(cueAnalysis, bpm);
   const active = cueAnalysis.cues.filter((c) => !c.suppressed);
@@ -802,9 +993,15 @@ export function runEngineAppSuggest(
   const travelSec = travelDurationSec(bpm);
   const formations: AppFormation[] = [];
   const cues: Cue[] = [];
+  const structureLabels = (structuralCps ?? [])
+    .map((cp) => cp.section_type)
+    .filter((t): t is NonNullable<typeof t> => Boolean(t));
   const reasoning: string[] = [
     `曲理解エンジン Phase1–6 / エディタ雛形 / スタイル ${style} / キュー ${sortedCues.length} / 総合 ${Math.round(sequence.totalScore)}`,
     `移動は変化の ${FORMATION_TRAVEL_COUNTS} カウント前から（約 ${travelSec.toFixed(1)} 秒）`,
+    structureLabels.length
+      ? `曲の区切り: ${structureLabels.join(" → ")}（Aメロ終わり=PRE_CHORUS、サビ頭=CHORUS_START）`
+      : "曲の区切り: 波形ピークから推定",
   ];
   const payloadFormations: LightingSyncSuggestPayload["formations"] = [];
   let prevLighting: ReturnType<typeof adviseLightingFromCorpus>["lightingPreset"] | undefined;

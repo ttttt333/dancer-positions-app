@@ -11,7 +11,7 @@ from typing import Any
 import librosa
 import numpy as np
 
-ANALYZER_VERSION = "algo-v1.2.0"
+ANALYZER_VERSION = "algo-v1.3.0"
 
 BEATS_PER_EIGHT = 8
 EIGHTS_PER_BLOCK = 4  # 4エイト = 32ビート
@@ -28,20 +28,30 @@ def compute_song_dynamism(block_rms: np.ndarray) -> float:
 
 def mark_chorus_blocks(block_rms: np.ndarray, top_ratio: float = 0.35) -> list[str]:
     """
-    上位 top_ratio（約35%）の音圧ブロックのうち連続区間を CHORUS とする。
-    各連続区間の先頭は CHORUS_START、それ以外のサビは CHORUS、それ以外は VERSE。
+    音圧の山をサビ連続区間にする。
+    先頭が静ければ INTRO、末尾の VERSE は OUTRO、急上昇は DROP。
     """
     n = len(block_rms)
     if n == 0:
         return []
     if n == 1:
-        return ["CHORUS_START"]
+        return ["INTRO"]
 
-    # 上位35% → パーセンタイル (100 - 35) = 65
-    thr = float(np.percentile(block_rms, 100.0 * (1.0 - top_ratio)))
-    loud = block_rms >= thr
+    median = float(np.percentile(block_rms, 50.0))
+    p65 = float(np.percentile(block_rms, 100.0 * (1.0 - top_ratio)))
+    mean = float(np.mean(block_rms))
+    span = float(block_rms.max() - block_rms.min()) + 1e-8
 
-    # 連続ランを抽出
+    loud = []
+    for i, e in enumerate(block_rms):
+        prev = float(block_rms[i - 1]) if i > 0 else float(e)
+        jump = (float(e) - prev) / span
+        loud.append(
+            float(e) >= p65
+            or (float(e) > median and jump >= 0.18)
+            or float(e) >= mean + 0.12 * span
+        )
+
     section = ["VERSE"] * n
     i = 0
     while i < n:
@@ -51,11 +61,20 @@ def mark_chorus_blocks(block_rms: np.ndarray, top_ratio: float = 0.35) -> list[s
         j = i
         while j < n and loud[j]:
             j += 1
-        # ラン [i, j)
         section[i] = "CHORUS_START"
         for k in range(i + 1, j):
             section[k] = "CHORUS"
         i = j
+
+    if section[0] == "VERSE":
+        section[0] = "INTRO"
+    for oi in range(max(0, n - 2), n):
+        if section[oi] == "VERSE":
+            section[oi] = "OUTRO"
+    for i in range(1, n):
+        rise = (float(block_rms[i]) - float(block_rms[i - 1])) / span
+        if rise >= 0.28 and section[i] not in ("CHORUS_START", "INTRO"):
+            section[i] = "DROP"
     return section
 
 
@@ -140,53 +159,54 @@ def analyze_track(audio_path: str) -> dict[str, Any]:
     section_types = mark_chorus_blocks(block_rms, top_ratio=0.35)
     song_dynamism = compute_song_dynamism(block_rms)
 
-    # intro / outro / drop を仕様の SectionType に寄せる
-    if section_types:
-        section_types[0] = "INTRO"
-        # 末尾2ブロックは outro（サビ連続中なら維持）
-        for oi in range(max(0, len(section_types) - 2), len(section_types)):
-            if section_types[oi] == "VERSE":
-                section_types[oi] = "OUTRO"
-        for i in range(1, len(block_scores)):
-            rise = float(block_scores[i] - block_scores[i - 1])
-            if rise >= 0.28 and section_types[i] in ("CHORUS_START", "CHORUS", "VERSE"):
-                # 急上昇は DROP（サビ頭を優先）
-                if section_types[i] != "CHORUS_START":
-                    section_types[i] = "DROP"
+    sec_per_eight = (60.0 / tempo_f) * BEATS_PER_EIGHT
+    eight_time = {int(e["index"]): float(e["start_time"]) for e in eights}
 
-    # --- 4. 変化点（必ず4エイト先頭） ---
-    # VERSE: 2ブロックに1回 medium、それ以外 minor
-    verse_counter = 0
     change_points: list[dict[str, Any]] = []
-    for b, stype, score in zip(blocks, section_types, block_scores):
-        # 先頭ブロックは開始フォーメーション用に残してもよいが、
-        # 生成側が開始キューを別途持つため eight_index==0 はスキップ
-        if int(b["eight_index"]) == 0:
-            continue
+    seen_times: set[int] = set()
 
-        if stype in ("CHORUS_START", "DROP"):
-            tier = "major"
-        elif stype == "CHORUS":
-            tier = "major" if score >= 0.75 else "medium"
-        elif stype == "OUTRO":
-            tier = "medium"
-        elif stype == "INTRO":
-            tier = "minor"
-        else:
-            # VERSE
-            tier = "medium" if verse_counter % 2 == 0 else "minor"
-            verse_counter += 1
-
+    def push(eight_index: int, time: float, score: float, tier: str, stype: str) -> None:
+        if not np.isfinite(time) or time < 0.4:
+            return
+        key = int(round(time * 10))
+        if key in seen_times:
+            return
+        seen_times.add(key)
         change_points.append(
             {
-                "eight_index": int(b["eight_index"]),
-                "time": float(b["time"]),
+                "eight_index": max(0, int(eight_index)),
+                "time": float(time),
                 "score": float(score),
                 "tier": tier,
                 "section_type": stype,
-                "mean_rms": float(b["mean_rms"]),
             }
         )
+
+    for i, (b, stype, score) in enumerate(zip(blocks, section_types, block_scores)):
+        prev = section_types[i - 1] if i > 0 else None
+        eight_i = int(b["eight_index"])
+        t = float(b["time"])
+        if stype == "CHORUS_START":
+            if prev in ("VERSE", "INTRO", "OUTRO"):
+                pre_eight = eight_i - 2
+                pre_t = eight_time.get(pre_eight, t - 2 * sec_per_eight)
+                push(pre_eight, pre_t, min(1.0, float(score) * 0.85), "medium", "PRE_CHORUS")
+            push(eight_i, t, float(score), "major", "CHORUS_START")
+        elif stype == "DROP":
+            push(eight_i, t, float(score), "major", "DROP")
+        elif stype == "CHORUS":
+            if prev in ("CHORUS", "CHORUS_START") and i % 2 == 1:
+                push(
+                    eight_i,
+                    t,
+                    float(score),
+                    "major" if float(score) >= 0.75 else "medium",
+                    "CHORUS",
+                )
+        elif stype == "OUTRO" and prev != "OUTRO":
+            push(eight_i, t, float(score), "medium", "OUTRO")
+        elif stype == "VERSE" and prev in ("CHORUS", "CHORUS_START", "DROP"):
+            push(eight_i, t, float(score), "medium", "VERSE")
 
     change_points.sort(key=lambda c: c["time"])
 

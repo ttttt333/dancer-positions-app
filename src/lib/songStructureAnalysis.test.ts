@@ -32,7 +32,7 @@ function seedDancers(n: number): DancerSpot[] {
 }
 
 describe("analyzeSongStructureFromPeaks", () => {
-  it("builds 4-eight change points with RMS-style chorus tags", () => {
+  it("marks A-melody end (PRE_CHORUS) before chorus, not every 4-eight block", () => {
     const duration = 120;
     const bpm = 120;
     const analysis = analyzeSongStructureFromPeaks(
@@ -43,17 +43,34 @@ describe("analyzeSongStructureFromPeaks", () => {
     expect(analysis.bpm).toBeLessThanOrEqual(200);
     expect(analysis.eight_grid.length).toBeGreaterThan(5);
     expect(analysis.change_points.length).toBeGreaterThan(0);
+    const blockCount = Math.ceil(analysis.eight_grid.length / 4);
+    expect(analysis.change_points.length).toBeLessThan(blockCount);
     for (const cp of analysis.change_points) {
       const eight = analysis.eight_grid.find((e) => e.index === cp.eight_index);
       expect(eight).toBeTruthy();
-      expect(cp.time).toBe(eight!.start_time);
-      expect(cp.eight_index % 4).toBe(0);
+      expect(cp.time).toBeCloseTo(eight!.start_time, 2);
+      expect(cp.eight_index % 2).toBe(0);
       expect(["major", "medium", "minor"]).toContain(cp.tier);
-      expect(["CHORUS_START", "CHORUS", "VERSE"]).toContain(cp.section_type);
+      expect([
+        "CHORUS_START",
+        "CHORUS",
+        "VERSE",
+        "INTRO",
+        "OUTRO",
+        "DROP",
+        "PRE_CHORUS",
+        "SE_TRIGGER",
+      ]).toContain(cp.section_type);
     }
-    expect(analysis.change_points.some((c) => c.section_type === "CHORUS_START")).toBe(
-      true
+    const chorus = analysis.change_points.find(
+      (c) => c.section_type === "CHORUS_START"
     );
+    expect(chorus).toBeTruthy();
+    const pre = analysis.change_points.find(
+      (c) => c.section_type === "PRE_CHORUS"
+    );
+    expect(pre).toBeTruthy();
+    expect(pre!.time).toBeLessThan(chorus!.time);
     expect(analysis.song_dynamism).toBeGreaterThanOrEqual(0);
     expect(analysis.song_dynamism).toBeLessThanOrEqual(1);
   });

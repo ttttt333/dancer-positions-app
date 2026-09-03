@@ -99,6 +99,26 @@ describe("layoutPresetBridge", () => {
     });
     expect(ranked.length).toBeGreaterThan(3);
     expect(ranked.every((id) => ALL_LAYOUT_PRESET_IDS.includes(id))).toBe(true);
+    expect(ranked.some((id) => id.startsWith("extra_"))).toBe(false);
+    expect(ranked.slice(0, 3).some((id) =>
+      ["vee", "diamond", "fan_front", "inverse_vee"].includes(id)
+    )).toBe(true);
+
+    const verse = rankLayoutPresets({
+      family: "silhouette_line",
+      sectionType: "verse",
+      salt: 0,
+      dancerCount: 8,
+      allowCross: true,
+    });
+    expect(
+      verse.slice(0, 4).some((id) =>
+        ["two_rows", "stagger", "line", "pyramid"].includes(id)
+      )
+    ).toBe(true);
+    expect(verse.some((id) => /pinwheel|heart|spiral|scatter/.test(id))).toBe(
+      false
+    );
 
     const seeds: DancerSpot[] = [
       { id: "alice", label: "A", xPct: 20, yPct: 40, colorIndex: 0 },

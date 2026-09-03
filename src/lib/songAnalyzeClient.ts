@@ -15,10 +15,10 @@ import type {
 } from "./choreocore/types";
 
 /** Python analyzer / Edge と揃える */
-export const REMOTE_ANALYZER_VERSION = "algo-v1.1.0";
+export const REMOTE_ANALYZER_VERSION = "algo-v1.3.0";
 
 /** Fly 冷起動＋解析が遅いので、これを超えたらブラウザ解析に切替 */
-export const REMOTE_ANALYZE_TIMEOUT_MS = 5500;
+export const REMOTE_ANALYZE_TIMEOUT_MS = 12000;
 
 export type RemoteSongAnalysis = SongAnalysisResult & {
   source: "cache" | "fresh" | "direct";
@@ -46,7 +46,14 @@ function asChangePoints(raw: unknown): ChangePoint[] {
     if (!Number.isFinite(eight_index) || !Number.isFinite(time)) continue;
     const st = o.section_type;
     const section_type =
-      st === "CHORUS_START" || st === "CHORUS" || st === "VERSE"
+      st === "CHORUS_START" ||
+      st === "CHORUS" ||
+      st === "VERSE" ||
+      st === "INTRO" ||
+      st === "OUTRO" ||
+      st === "DROP" ||
+      st === "PRE_CHORUS" ||
+      st === "SE_TRIGGER"
         ? st
         : undefined;
     out.push({

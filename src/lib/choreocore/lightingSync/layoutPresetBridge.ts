@@ -142,61 +142,32 @@ const FAMILY_LAYOUTS: Record<FormationPatternId, string[]> = {
 };
 
 const SECTION_LAYOUTS: Record<SectionType, string[]> = {
-  intro: ["line_back", "cluster_tight", "pyramid", "line", "extra_block_back"],
+  intro: ["line_back", "pyramid", "line", "cluster_tight", "two_rows"],
   verse: [
     "two_rows",
     "stagger",
-    "grid",
-    "arc",
-    "block_lr",
+    "line",
     "pyramid",
-    "extra_three_lines",
+    "grid",
+    "block_lr",
+    "line_back",
   ],
   chorus: [
     "vee",
-    "circle",
     "diamond",
     "fan_front",
+    "inverse_vee",
     "wing_spread",
-    "hourglass",
     "w_shape",
-    "extra_v_double",
+    "pyramid_inverse",
   ],
-  drop: [
-    "x_shape",
-    "radial_burst",
-    "pinwheel",
-    "scatter_wide",
-    "star_5",
-    "extra_star_8",
-  ],
-  se_trigger: [
-    "cross_split",
-    "figure_eight",
-    "spiral",
-    "arrow_front",
-    "extra_runway",
-  ],
-  outro: [
-    "arc",
-    "line_front",
-    "front_stair_from_2",
-    "asymmetric_l",
-    "heart",
-    "extra_arc_deep",
-  ],
+  drop: ["vee", "fan_wide", "wing_spread", "diamond", "v_open"],
+  se_trigger: ["v_tight", "wedge", "wing_spread", "two_rows", "fan_back"],
+  outro: ["line_front", "arc", "two_rows", "pyramid", "line"],
 };
 
 const STYLE_LAYOUTS: Record<string, string[]> = {
-  dynamic: [
-    "vee",
-    "v_open",
-    "wing_spread",
-    "scatter_wide",
-    "radial_burst",
-    "x_shape",
-    "fan_wide",
-  ],
+  dynamic: ["vee", "v_open", "wing_spread", "fan_wide", "diamond"],
   symmetric: [
     "vee",
     "diamond",
@@ -204,7 +175,6 @@ const STYLE_LAYOUTS: Record<string, string[]> = {
     "pyramid",
     "two_rows",
     "hourglass",
-    "bowtie",
   ],
   freestyle: [
     "scatter",
@@ -215,15 +185,7 @@ const STYLE_LAYOUTS: Record<string, string[]> = {
     "figure_eight",
     "star_5",
   ],
-  wave: [
-    "wave",
-    "wave_double",
-    "sine_deep",
-    "s_curve",
-    "arc",
-    "spiral",
-    "extra_arc_wide",
-  ],
+  wave: ["wave", "wave_double", "sine_deep", "s_curve", "arc"],
 };
 
 function onlyValid(ids: string[]): LayoutPresetId[] {
@@ -272,10 +234,6 @@ function clamp(v: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, v));
 }
 
-function tierFiller(maxTier: 1 | 2 | 3): string[] {
-  return ALL_LAYOUT_PRESET_IDS.filter((id) => getPresetTier(id) <= maxTier);
-}
-
 const STAPLE_LAYOUTS: LayoutPresetId[] = [
   "line",
   "two_rows",
@@ -301,6 +259,20 @@ export type PickLayoutPresetInput = {
   recent?: LayoutPresetId[];
 };
 
+function isPracticalLayout(id: string, style?: string): boolean {
+  if (style === "freestyle") return true;
+  if (style === "wave" && /wave|arc|sine|s_curve/.test(id)) return true;
+  if (/^extra_/.test(id)) return false;
+  if (
+    /scatter|pinwheel|heart|spiral|star_|figure_eight|radial|bowtie|concentric|ring_inner|runway|horseshoe|asymmetric/.test(
+      id
+    )
+  ) {
+    return false;
+  }
+  return getPresetTier(id) <= 2;
+}
+
 function rankedLayoutPool(input: PickLayoutPresetInput): LayoutPresetId[] {
   const n = input.dancerCount;
   const styleId = input.taste?.style;
@@ -308,20 +280,16 @@ function rankedLayoutPool(input: PickLayoutPresetInput): LayoutPresetId[] {
   const fromFamilies = preferFamilies.flatMap(
     (p) => FAMILY_LAYOUTS[p] ?? []
   );
-  const maxTier: 1 | 2 | 3 =
-    styleId === "freestyle" || (input.taste?.energyWeight ?? 0) >= 0.35
-      ? 3
-      : 2;
 
   const ranked = onlyValid([
     ...fromFamilies,
-    ...(FAMILY_LAYOUTS[input.family] ?? []),
     ...(SECTION_LAYOUTS[input.sectionType] ?? []),
+    ...(FAMILY_LAYOUTS[input.family] ?? []),
     ...(styleId ? STYLE_LAYOUTS[styleId] ?? [] : []),
-    ...tierFiller(maxTier),
+    ...STAPLE_LAYOUTS,
   ]).filter((id) => layoutFitsCount(id, n));
 
-  let pool = ranked;
+  let pool = ranked.filter((id) => isPracticalLayout(id, styleId));
   if (!input.allowCross) {
     const noCross = pool.filter((id) => !CROSS_LAYOUTS.has(id));
     if (noCross.length) pool = noCross;
@@ -335,14 +303,14 @@ function rankedLayoutPool(input: PickLayoutPresetInput): LayoutPresetId[] {
 
 export function pickLayoutPreset(input: PickLayoutPresetInput): LayoutPresetId {
   const pool = rankedLayoutPool(input);
-  const window = pool.slice(0, Math.min(24, pool.length));
+  const window = pool.slice(0, Math.min(8, pool.length));
   return window[Math.abs(input.salt) % window.length]!;
 }
 
 /** 曲の意図に合うエディタ雛形を、スコア順に複数返す */
 export function rankLayoutPresets(
   input: PickLayoutPresetInput,
-  limit = 12
+  limit = 8
 ): LayoutPresetId[] {
   const n = input.dancerCount;
   const primary = rankedLayoutPool(input);
@@ -379,8 +347,9 @@ export function familyForCueAction(
       return "circle";
     case "MAJOR_CHANGE":
       if (section === "chorus") return "vee";
-      if (section === "drop") return "dynamic_cross";
-      if (section === "outro") return "wide_spread";
+      if (section === "drop") return "vee";
+      if (section === "outro") return "silhouette_line";
+      if (section === "se_trigger") return "vee";
       return "fast_shift";
     case "HOLD":
     case "MICRO_SHIFT":

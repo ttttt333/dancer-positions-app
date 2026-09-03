@@ -24,7 +24,8 @@ export type SectionType =
   | "INTRO"
   | "OUTRO"
   | "DROP"
-  | "SE_TRIGGER";
+  | "SE_TRIGGER"
+  | "PRE_CHORUS";
 
 export type ChangePoint = {
   eight_index: number;

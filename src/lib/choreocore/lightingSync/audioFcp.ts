@@ -201,7 +201,8 @@ export function changePointsToFcpMarkers(
     else if (st === "CHORUS_START" || st === "CHORUS") sectionType = "chorus";
     else if (st === "DROP") sectionType = "drop";
     else if (st === "OUTRO") sectionType = "outro";
-    else if (st === "SE_TRIGGER" || st === "SE") sectionType = "se_trigger";
+    else if (st === "SE_TRIGGER" || st === "SE" || st === "PRE_CHORUS")
+      sectionType = "se_trigger";
     else if (cp.score >= 0.78 && cp.tier === "major") sectionType = "drop";
     else if (cp.time / Math.max(1, duration) > 0.9) sectionType = "outro";
     else sectionType = "verse";

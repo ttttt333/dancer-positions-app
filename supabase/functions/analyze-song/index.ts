@@ -14,7 +14,7 @@ const CORS = {
 };
 
 /** backend/analyzer/services/audio_analyzer.py の ANALYZER_VERSION と一致させる */
-const ANALYZER_VERSION = "algo-v1.1.0";
+const ANALYZER_VERSION = "algo-v1.3.0";
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {

@@ -179,4 +179,45 @@ describe("engineSuggestPipeline", () => {
     }, 0) / a.length;
     expect(mean).toBeGreaterThan(8);
   });
+
+  it("places a formation at A-melody end and a different one at chorus", () => {
+    const people = seeds(6);
+    const result = runEngineAppSuggest({
+      peaks: peaksWithChorus(80),
+      durationSec: 80,
+      bpm: 120,
+      remoteChangePoints: [
+        { eight_index: 6, time: 12, score: 0.7, tier: "medium", section_type: "PRE_CHORUS" },
+        { eight_index: 10, time: 20, score: 0.95, tier: "major", section_type: "CHORUS_START" },
+        { eight_index: 18, time: 36, score: 0.6, tier: "medium", section_type: "VERSE" },
+      ],
+      seedDancers: people,
+      profile: CLASS_ADVANCED_MON7,
+      tasteBias: resolveSuggestTaste({ style: "symmetric" }),
+      targetCueCount: 8,
+    });
+    expect(result).not.toBeNull();
+    const sorted = [...result!.cues].sort((a, b) => a.tStartSec - b.tStartSec);
+    const pre = sorted.find((c) => Math.abs(c.tStartSec - 12) < 3);
+    const chorus = sorted.find((c) => Math.abs(c.tStartSec - 20) < 3);
+    expect(pre).toBeDefined();
+    expect(chorus).toBeDefined();
+    expect(pre!.formationId).not.toBe(chorus!.formationId);
+    const byId = new Map(result!.formations.map((f) => [f.id, f] as const));
+    const a = byId.get(pre!.formationId)!.dancers;
+    const b = byId.get(chorus!.formationId)!.dancers;
+    const mean =
+      a.reduce((sum, d) => {
+        const n = b.find((x) => x.id === d.id);
+        if (!n) return sum;
+        return sum + Math.hypot(d.xPct - n.xPct, d.yPct - n.yPct);
+      }, 0) / a.length;
+    expect(mean).toBeGreaterThan(5);
+    const layoutIds = result!.lightingSyncPayload.formations
+      .map((f) => f.layoutPresetId)
+      .filter((id): id is string => Boolean(id));
+    expect(layoutIds.some((id) => id.startsWith("extra_"))).toBe(false);
+    expect(layoutIds.some((id) => /pinwheel|heart|spiral/.test(id))).toBe(false);
+    expect(result!.reasoning.some((l) => l.includes("PRE_CHORUS"))).toBe(true);
+  });
 });
