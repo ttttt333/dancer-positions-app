@@ -108,3 +108,47 @@ export function handwritingNameCost(raw: string, candidate: string): number | nu
   }
   return best;
 }
+
+function kanaEditDistance(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const row = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i += 1) {
+    let prev = i;
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      const next = Math.min(row[j]! + 1, prev + 1, row[j - 1]! + cost);
+      row[j - 1] = prev;
+      prev = next;
+    }
+    row[b.length] = prev;
+  }
+  return row[b.length]!;
+}
+
+function isHaHoMinimalPair(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let haHo = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] === b[i]) continue;
+    const swap =
+      (a[i] === "は" && b[i] === "ほ") || (a[i] === "ほ" && b[i] === "は");
+    if (!swap) return false;
+    haHo += 1;
+  }
+  return haHo === 1;
+}
+
+/**
+ * 残り少人数の再照合用。全体名簿では使わない。
+ * 3 = 1文字差、4 = 3文字以上の2文字差。はなか≠ほなか は結ばない。
+ */
+export function smallSetNameCost(raw: string, candidate: string): number | null {
+  if (!raw || !candidate || raw === candidate) return null;
+  if (isHaHoMinimalPair(raw, candidate)) return null;
+  const d = kanaEditDistance(raw, candidate);
+  if (d === 1) return 3;
+  if (d === 2 && Math.min(raw.length, candidate.length) >= 3) return 4;
+  return null;
+}

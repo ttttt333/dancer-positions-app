@@ -1,4 +1,4 @@
-import { handwritingNameCost } from "./handwritingKana";
+import { handwritingNameCost, smallSetNameCost } from "./handwritingKana";
 
 /** カタカナ → ひらがな（比較用の簡易正規化） */
 export function normalizeNameForMatch(s: string): string {
@@ -119,7 +119,8 @@ export function matchNameToRoster(
 
 /**
  * 1 つの名簿名を複数人に割り当てない。
- * 完全一致 → 接頭辞/接尾辞 → 手書きの字形ゆれ。名簿外の文字列は残さない。
+ * 完全一致 → 接頭辞/接尾辞 → 手書きの字形ゆれ → 残り少人数の再照合 → 残り1人の消去法。
+ * 名簿外の文字列は残さない。
  */
 export function matchNamesToRosterUnique(
   names: string[],
@@ -181,5 +182,122 @@ export function matchNamesToRosterUnique(
     };
   }
 
+  rematchSmallRemaining(results, names, rosterUnique, usedNorm);
+  assignLastRemainingByElimination(results, rosterUnique, usedNorm);
+
   return results;
+}
+
+const SMALL_REMAINING = 8;
+
+function unusedRosterLabels(
+  rosterUnique: readonly string[],
+  usedNorm: Set<string>
+): string[] {
+  return rosterUnique.filter(
+    (candidate) => !usedNorm.has(normalizeNameForMatch(candidate))
+  );
+}
+
+function unmatchedIndices(results: RosterMatchResult[]): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < results.length; i += 1) {
+    if (!results[i]!.matched) out.push(i);
+  }
+  return out;
+}
+
+function scoreAmongRemaining(rawName: string, candidate: string): number | null {
+  const strict = scoreNameToRosterCandidate(rawName, candidate);
+  if (strict != null) return strict;
+  return smallSetNameCost(
+    normalizeNameForMatch(rawName),
+    normalizeNameForMatch(candidate)
+  );
+}
+
+/**
+ * 確かな名寄せのあと、残った少人数と残った名簿だけで再照合する。
+ * 一意に近い人から付け、争うときはどちらにも付けない。
+ */
+function rematchSmallRemaining(
+  results: RosterMatchResult[],
+  names: string[],
+  rosterUnique: readonly string[],
+  usedNorm: Set<string>
+): void {
+  for (const allow of [(s: number) => s === 3, (s: number) => s === 4]) {
+    let progress = true;
+    while (progress) {
+      progress = false;
+      const unused = unusedRosterLabels(rosterUnique, usedNorm);
+      const idxs = unmatchedIndices(results).filter((i) => names[i]!.trim());
+      if (
+        idxs.length === 0 ||
+        unused.length === 0 ||
+        idxs.length > SMALL_REMAINING ||
+        unused.length > SMALL_REMAINING
+      ) {
+        return;
+      }
+
+      const picks: { i: number; candidate: string; score: number }[] = [];
+      for (const i of idxs) {
+        const original = names[i]!.trim();
+        const scored: { candidate: string; score: number }[] = [];
+        for (const candidate of unused) {
+          const score = scoreAmongRemaining(original, candidate);
+          if (score == null || !allow(score)) continue;
+          scored.push({ candidate, score });
+        }
+        if (scored.length === 0) continue;
+        scored.sort((a, b) => a.score - b.score);
+        if (scored.length >= 2 && scored[0]!.score === scored[1]!.score) continue;
+        picks.push({
+          i,
+          candidate: scored[0]!.candidate,
+          score: scored[0]!.score,
+        });
+      }
+
+      const claimed = new Map<string, number>();
+      for (const pick of picks) {
+        const key = normalizeNameForMatch(pick.candidate);
+        claimed.set(key, (claimed.get(key) ?? 0) + 1);
+      }
+      for (const pick of picks) {
+        if (claimed.get(normalizeNameForMatch(pick.candidate)) !== 1) continue;
+        if (results[pick.i]!.matched) continue;
+        if (usedNorm.has(normalizeNameForMatch(pick.candidate))) continue;
+        usedNorm.add(normalizeNameForMatch(pick.candidate));
+        const original = names[pick.i]!.trim();
+        results[pick.i] = {
+          name: pickDisplayNameFromMatch(original, pick.candidate),
+          matched: true,
+          original,
+        };
+        progress = true;
+      }
+    }
+  }
+}
+
+/** 確かな名寄せのあと、空欄1人かつ名簿の残り1人ならその名簿名を付ける */
+function assignLastRemainingByElimination(
+  results: RosterMatchResult[],
+  rosterUnique: readonly string[],
+  usedNorm: Set<string>
+): void {
+  const unused = unusedRosterLabels(rosterUnique, usedNorm);
+  const unmatchedIdx = unmatchedIndices(results);
+  if (unused.length !== 1 || unmatchedIdx.length !== 1) return;
+
+  const last = unused[0]!;
+  const i = unmatchedIdx[0]!;
+  usedNorm.add(normalizeNameForMatch(last));
+  results[i] = {
+    name: pickDisplayNameFromMatch(results[i]!.original ?? "", last),
+    matched: true,
+    original: results[i]!.original,
+  };
 }

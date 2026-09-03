@@ -103,11 +103,8 @@ describe("matchNamesToRosterUnique", () => {
 
   it("does not assign the same roster name to two people", () => {
     const names = matchNamesToRosterUnique(["みゆ", "みゆ"], ["みゆ", "みお"]);
-    const matched = names.filter((m) => m.matched);
-    expect(matched).toHaveLength(1);
-    expect(matched[0]?.name).toBe("みゆ");
-    expect(names[1]?.name).toBe("");
-    expect(names[1]?.matched).toBe(false);
+    expect(names.map((m) => m.name).sort()).toEqual(["みお", "みゆ"]);
+    expect(names.filter((m) => m.matched)).toHaveLength(2);
   });
 
   it("does not treat みゆ and みお as the same person", () => {
@@ -141,5 +138,50 @@ describe("matchNamesToRosterUnique", () => {
       ["ほのか", "はなか", "ゆうゆ", "うめ"]
     );
     expect(names.map((m) => m.name)).toEqual(["ほのか", "はなか", ""]);
+  });
+
+  it("fills the last empty slot by elimination when one roster name remains", () => {
+    const names = matchNamesToRosterUnique(
+      ["やまと", "ななせ", "けいた", "", "さくら"],
+      ["やまと", "ななせ", "けいた", "めい", "さくら"]
+    );
+    expect(names.map((m) => m.name)).toEqual([
+      "やまと",
+      "ななせ",
+      "けいた",
+      "めい",
+      "さくら",
+    ]);
+    expect(names[3]?.matched).toBe(true);
+  });
+
+  it("does not fill by elimination when more than one name is still free", () => {
+    const names = matchNamesToRosterUnique(
+      ["やまと", "", ""],
+      ["やまと", "めい", "さくら"]
+    );
+    expect(names.map((m) => m.name)).toEqual(["やまと", "", ""]);
+  });
+
+  it("re-guesses a small leftover set onto unique roster names", () => {
+    const names = matchNamesToRosterUnique(
+      ["やまと", "まりあ", "れむ", "しょう", "けいた"],
+      ["やまと", "まあ", "れお", "しゅう", "けいた"]
+    );
+    expect(names.map((m) => m.name)).toEqual([
+      "やまと",
+      "まあ",
+      "れお",
+      "しゅう",
+      "けいた",
+    ]);
+  });
+
+  it("re-guesses leftovers then fills the last empty by elimination", () => {
+    const names = matchNamesToRosterUnique(
+      ["やまと", "まりあ", "", "けいた"],
+      ["やまと", "まあ", "めい", "けいた"]
+    );
+    expect(names.map((m) => m.name)).toEqual(["やまと", "まあ", "めい", "けいた"]);
   });
 });

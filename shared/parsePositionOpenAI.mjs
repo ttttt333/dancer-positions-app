@@ -7,7 +7,7 @@ function buildSystemPrompt(memberNameHints) {
 
   const rosterBlock =
     roster.length > 0
-      ? `\n【名簿 — name に出す文字列はこのリストだけ。一字一句コピー。漢字を作らない。同じ名簿名を2人に使わない。は と ほ は別人（はなか≠ほなか）。ただし手書きの癖で1字だけ崩れているときは、字形が最も近い名簿名を選ぶ（ほのあ→ほのか）】\n[${roster.join(", ")}]\n`
+      ? `\n【名簿 — name に出す文字列はこのリストだけ。一字一句コピー。漢字を作らない。同じ名簿名を2人に使わない。は と ほ は別人（はなか≠ほなか）。ただし手書きの癖で1字だけ崩れているときは、字形が最も近い名簿名を選ぶ（ほのあ→ほのか）。確かな名前を付け終わったあと、残りの人数が少ないときは残った名簿だけで再照合する。空欄1人・名簿残り1人ならその名簿名を付ける】\n[${roster.join(", ")}]\n`
       : "";
 
   return `あなたはダンス公演の舞台配置図（フォーメーション図）をデジタル化する専門アシスタントです。
@@ -22,7 +22,7 @@ ${rosterBlock}
    - か は右上の払いがある。あ の丸だけと混同しやすい（ほのあ と読めたら ほのか を疑う）
    - め と あ、う と ゆ、な と た も崩れる。縦に詰まった3文字（ほのか、ゆうゆ）は上から全部読む
    - みゆう（3文字）と みゆ（2文字）は別人が多い
-5. 名簿があるとき: rawRead に目で見た仮名を入れる。name は名簿から選んだ表記。名簿に無い読みは name を空文字。漢字は作らない。人数が足りないから未使用名を埋めない
+5. 名簿があるとき: rawRead に目で見た仮名を入れる。name は名簿から選んだ表記。名簿に無い読みは name を空文字。漢字は作らない。人数が足りないから未使用名を埋めない。確かな割り当て後、残りが少人数なら残った名簿だけで再照合し、空欄1人・名簿残り1人ならその名簿名を付ける
 6. 手書きでも positions を必ず返す。x,y は ○ の中心（0〜100%）
 
 ルール:
@@ -187,6 +187,46 @@ function handwritingNameCost(raw, candidate) {
   return best;
 }
 
+function kanaEditDistance(a, b) {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const row = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i += 1) {
+    let prev = i;
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      const next = Math.min(row[j] + 1, prev + 1, row[j - 1] + cost);
+      row[j - 1] = prev;
+      prev = next;
+    }
+    row[b.length] = prev;
+  }
+  return row[b.length];
+}
+
+function isHaHoMinimalPair(a, b) {
+  if (a.length !== b.length) return false;
+  let haHo = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] === b[i]) continue;
+    const swap =
+      (a[i] === "は" && b[i] === "ほ") || (a[i] === "ほ" && b[i] === "は");
+    if (!swap) return false;
+    haHo += 1;
+  }
+  return haHo === 1;
+}
+
+function smallSetNameCost(raw, candidate) {
+  if (!raw || !candidate || raw === candidate) return null;
+  if (isHaHoMinimalPair(raw, candidate)) return null;
+  const d = kanaEditDistance(raw, candidate);
+  if (d === 1) return 3;
+  if (d === 2 && Math.min(raw.length, candidate.length) >= 3) return 4;
+  return null;
+}
+
 function scoreNameToRosterCandidate(rawName, candidate) {
   const normIn = normalizeNameForMatch(rawName);
   const normC = normalizeNameForMatch(candidate);
@@ -253,7 +293,93 @@ function snapNamesToRosterUnique(names, roster) {
     const original = String(names[i] ?? "").trim();
     results[i] = { name: "", matched: false, original };
   }
+  rematchSmallRemaining(results, names, rosterUnique, usedNorm);
+  const unused = rosterUnique.filter(
+    (candidate) => !usedNorm.has(normalizeNameForMatch(candidate))
+  );
+  const unmatchedIdx = [];
+  for (let i = 0; i < results.length; i += 1) {
+    if (!results[i].matched) unmatchedIdx.push(i);
+  }
+  if (unused.length === 1 && unmatchedIdx.length === 1) {
+    const last = unused[0];
+    const i = unmatchedIdx[0];
+    usedNorm.add(normalizeNameForMatch(last));
+    results[i] = {
+      name: pickDisplayNameFromMatch(results[i].original ?? "", last),
+      matched: true,
+      original: results[i].original,
+    };
+  }
   return results;
+}
+
+const SMALL_REMAINING = 8;
+
+function scoreAmongRemaining(rawName, candidate) {
+  const strict = scoreNameToRosterCandidate(rawName, candidate);
+  if (strict != null) return strict;
+  return smallSetNameCost(
+    normalizeNameForMatch(rawName),
+    normalizeNameForMatch(candidate)
+  );
+}
+
+function rematchSmallRemaining(results, names, rosterUnique, usedNorm) {
+  for (const allow of [(s) => s === 3, (s) => s === 4]) {
+    let progress = true;
+    while (progress) {
+      progress = false;
+      const unused = rosterUnique.filter(
+        (candidate) => !usedNorm.has(normalizeNameForMatch(candidate))
+      );
+      const idxs = [];
+      for (let i = 0; i < results.length; i += 1) {
+        if (!results[i].matched && String(names[i] ?? "").trim()) idxs.push(i);
+      }
+      if (
+        idxs.length === 0 ||
+        unused.length === 0 ||
+        idxs.length > SMALL_REMAINING ||
+        unused.length > SMALL_REMAINING
+      ) {
+        return;
+      }
+      const picks = [];
+      for (const i of idxs) {
+        const original = String(names[i] ?? "").trim();
+        const scored = [];
+        for (const candidate of unused) {
+          const score = scoreAmongRemaining(original, candidate);
+          if (score == null || !allow(score)) continue;
+          scored.push({ candidate, score });
+        }
+        if (scored.length === 0) continue;
+        scored.sort((a, b) => a.score - b.score);
+        if (scored.length >= 2 && scored[0].score === scored[1].score) continue;
+        picks.push({ i, candidate: scored[0].candidate, score: scored[0].score });
+      }
+      const claimed = new Map();
+      for (const pick of picks) {
+        const key = normalizeNameForMatch(pick.candidate);
+        claimed.set(key, (claimed.get(key) ?? 0) + 1);
+      }
+      for (const pick of picks) {
+        const key = normalizeNameForMatch(pick.candidate);
+        if (claimed.get(key) !== 1) continue;
+        if (results[pick.i].matched) continue;
+        if (usedNorm.has(key)) continue;
+        usedNorm.add(key);
+        const original = String(names[pick.i] ?? "").trim();
+        results[pick.i] = {
+          name: pickDisplayNameFromMatch(original, pick.candidate),
+          matched: true,
+          original,
+        };
+        progress = true;
+      }
+    }
+  }
 }
 
 function parseLinesFromRaw(raw) {

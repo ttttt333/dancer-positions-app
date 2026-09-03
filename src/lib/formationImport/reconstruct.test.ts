@@ -138,11 +138,10 @@ describe("reconstructFormation", () => {
       { roster: ["りせ", "るな"] }
     );
     expect(result.dancers).toHaveLength(2);
-    expect(result.dancers.filter((d) => d.recognizedName === "りせ")).toHaveLength(
-      1
-    );
-    expect(result.dancers.some((d) => d.recognizedName === "")).toBe(true);
-    expect(result.dancers.map((d) => d.recognizedName)).not.toContain("るな");
+    expect(result.dancers.map((d) => d.recognizedName).sort()).toEqual([
+      "りせ",
+      "るな",
+    ]);
   });
 
   it("never keeps OCR names that are not on the roster", () => {
