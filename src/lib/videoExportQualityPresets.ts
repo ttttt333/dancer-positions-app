@@ -1,4 +1,4 @@
-export type VideoExportQualityId = "low" | "medium" | "high";
+export type VideoExportQualityId = "low" | "medium" | "high" | "ultra";
 
 export type VideoExportQualityPreset = {
   id: VideoExportQualityId;
@@ -51,6 +51,17 @@ export const VIDEO_EXPORT_QUALITY_PRESETS: VideoExportQualityPreset[] = [
     captureFps: 15,
     ffmpegPreset: "veryfast",
     crf: 23,
+  },
+  {
+    id: "ultra",
+    label: "最高画質",
+    timeHint: "発表・保存用（時間がかかります）",
+    width: 1920,
+    height: 1080,
+    fps: 30,
+    captureFps: 18,
+    ffmpegPreset: "fast",
+    crf: 20,
   },
 ];
 

@@ -31,7 +31,7 @@ export function VideoExportSheet({
       onClose={onClose}
       blockDismiss={isExporting}
       zIndex={76}
-      width="min(300px, 92vw)"
+      width="min(320px, 92vw)"
       sheetId="video-export"
       ariaLabelledBy="video-export-sheet-title"
       panelStyle={{

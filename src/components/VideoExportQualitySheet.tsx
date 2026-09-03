@@ -19,7 +19,7 @@ type Props = {
 };
 
 /**
- * 書き出し開始前の画質選択シート（低・中・高）。
+ * 書き出し開始前の画質選択シート（低・中・高・最高）。
  */
 export function VideoExportQualitySheet({
   open,

@@ -198,7 +198,7 @@ async function createRealtimeAudioController(
 
 function estimateVideoBitrate(quality: VideoExportQualityPreset): number {
   const pixels = quality.width * quality.height;
-  const perPixelPerFrame = 0.08;
+  const perPixelPerFrame = quality.height >= 1080 ? 0.1 : 0.08;
   return Math.round(pixels * quality.fps * perPixelPerFrame);
 }
 

@@ -24,13 +24,22 @@ type WebkitWindow = typeof window & {
   webkitAudioContext?: typeof AudioContext;
 };
 
-/** 解像度・レベル順に試す H.264 コーデック文字列（対応する最初のものを採用） */
-const AVC_CODEC_CANDIDATES = [
+/** 720p 以下向け。解像度・レベル順に試す H.264（対応する最初のものを採用） */
+const AVC_CODEC_CANDIDATES_HD = [
   "avc1.42E01F", // Baseline 3.1（〜1280x720@30）
   "avc1.4D401F", // Main 3.1
   "avc1.640028", // High 4.0
   "avc1.42E01E", // Baseline 3.0（〜720x480）
   "avc1.42001F",
+] as const;
+
+/** 1080p 向け。High / Main 4.x を先に試す */
+const AVC_CODEC_CANDIDATES_FHD = [
+  "avc1.640029", // High 4.1（〜1920x1080@30）
+  "avc1.640028", // High 4.0
+  "avc1.4D4028", // Main 4.0
+  "avc1.4D401F", // Main 3.1
+  "avc1.42E01F",
 ] as const;
 
 const AUDIO_CODEC = "mp4a.40.2"; // AAC-LC
@@ -44,7 +53,7 @@ function hasVideoEncoder(): boolean {
 
 function estimateVideoBitrate(quality: VideoExportQualityPreset): number {
   const pixels = quality.width * quality.height;
-  const perPixelPerFrame = 0.08;
+  const perPixelPerFrame = quality.height >= 1080 ? 0.1 : 0.08;
   return Math.round(pixels * quality.fps * perPixelPerFrame);
 }
 
@@ -61,11 +70,17 @@ function baseVideoConfig(
   };
 }
 
+function avcCodecCandidates(quality: VideoExportQualityPreset): readonly string[] {
+  return quality.width * quality.height > 1280 * 720
+    ? AVC_CODEC_CANDIDATES_FHD
+    : AVC_CODEC_CANDIDATES_HD;
+}
+
 async function pickSupportedAvcCodec(
   quality: VideoExportQualityPreset
 ): Promise<string | null> {
   const base = baseVideoConfig(quality);
-  for (const codec of AVC_CODEC_CANDIDATES) {
+  for (const codec of avcCodecCandidates(quality)) {
     try {
       const res = await VideoEncoder.isConfigSupported({ ...base, codec });
       if (res.supported) return codec;

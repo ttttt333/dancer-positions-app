@@ -56,8 +56,8 @@ export function VideoExportHost() {
     <>
       <canvas
         ref={canvasRef}
-        width={1280}
-        height={720}
+        width={1920}
+        height={1080}
         aria-hidden
         style={{
           position: "fixed",
