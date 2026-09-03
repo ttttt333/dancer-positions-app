@@ -15,4 +15,9 @@ interface ImportMetaEnv {
   readonly VITE_API_BASE_URL?: string;
   /** 例: wss://api.example.com （未設定時は開発では hostname:3001） */
   readonly VITE_COLLAB_WS?: string;
+  /**
+   * Formation Reconstruction Engine。未設定は ON。
+   * `"0"` / `"false"` / `"off"` で旧経路に戻す。
+   */
+  readonly VITE_FORMATION_IMPORT_ENGINE?: string;
 }

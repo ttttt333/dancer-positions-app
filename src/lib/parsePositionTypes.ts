@@ -9,6 +9,17 @@ export type ParsedPosition = {
   rosterMatched?: boolean;
   /** 列ベース解析時の行インデックス（0始まり） */
   lineIndex?: number;
+  /** 人マーカー（○）中心。未指定なら x/y がマーカー */
+  markerX?: number;
+  markerY?: number;
+  /** 名前テキストの中心（位置には使わない） */
+  labelX?: number;
+  labelY?: number;
+};
+
+export type ParseImportWarning = {
+  kind: string;
+  message: string;
 };
 
 /** 手書きメモの 1 列 */
@@ -29,4 +40,9 @@ export type ParsePositionResponse = {
   positions: ParsedPosition[];
   lines?: ParsedLine[];
   countMismatches?: CountMismatch[];
+  rawPositions?: ParsedPosition[];
+  suggestedPositions?: ParsedPosition[];
+  importWarnings?: ParseImportWarning[];
+  placement?: "raw" | "suggested";
+  imageFrontDirection?: "top" | "bottom" | "left" | "right";
 };

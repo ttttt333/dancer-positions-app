@@ -14,26 +14,28 @@ function buildSystemPrompt(memberNameHints) {
 手書きメモ・ノート・方眼紙・デジタル立ち位置図の文字とマーカーを読み取ります。これは芸術公演の制作資料です。
 ${rosterBlock}
 解析手順（この順で内部的に考えてから JSON を出力）:
-1. 人は「小さな丸（○・●）＋すぐ下（または中）の名前」の組で数える。右端に人数が書いてあれば検算する。書いていなければ丸の数だけが count
+1. 人は「小さな丸（○・●）」が本体。丸の中心が立ち位置。すぐ下（または中）の名前はラベルだけ
 2. 行は画像の上から下。上が舞台奥、下が客席（手前）。各行の人数は独立（例: 奥から 1-3-4-3、手前から数えると 3-4-3-1）
 3. 各行の names は左から右。count はその行の丸の数と一致させる
 4. 名簿があるとき: 手書きが名簿のどれかと明らかに同じ人物なら、その名簿の表記を使う。似ているだけの別人（かえで≠かんな、たけし≠たいち、あおい≠ありす）には割り当てない。同じ名簿名を2人に使わない
 5. 人数が足りないからといって名簿の未使用名を埋めない。右端に数字が書いてあり、その人数だけ丸が見えるときだけ補完する
-6. デジタル図（色付き丸）なら各丸の中心 x,y（画像の幅・高さに対する 0〜100%）も positions に入れる
+6. 手書きでもデジタルでも、各人の positions を必ず返す。x,y は名前の文字領域ではなく ○ の中心（画像の幅・高さに対する 0〜100%）
 
 ルール:
-- 手書きメモでは lines を必ず返す（行構造が精度の本体）
-- デジタル図では positions を必ず返す
+- 手書きメモでは lines と positions の両方を返す
+- x,y に文字の中心を入れない。labelX / labelY に名前の中心を入れてもよい
 - ノートの罫線・影・汚れは人ではない
+- 画像を均等グリッドに並べ直さない。丸同士の相対位置を保つ
 - 絶対に「読み取れない」と返さず、必ず JSON を返す
 
 必ず JSON のみ:
 {
+  "imageFrontDirection": "bottom",
   "lines": [
     { "rowIndex": 1, "count": 4, "names": ["名前1", "名前2", "名前3", "名前4"] }
   ],
   "positions": [
-    { "name": "名前", "x": 50, "y": 30, "confidence": "high" }
+    { "name": "名前", "x": 50, "y": 30, "labelX": 50, "labelY": 36, "confidence": "high" }
   ]
 }`;
 }
@@ -49,9 +51,9 @@ function buildUserPrompt(memberNameHints) {
 
   let text =
     "添付画像を解析してください。\n" +
-    "1) 丸＋名前の組を人として数える。右端の数字は書いてあるときだけ検算\n" +
+    "1) 人は丸。x,y は ○ の中心（名前の文字中心ではない）\n" +
     "2) 行は画像の上（舞台奥）から下（客席）。各行の人数は独立。例: 1,3,4,3\n" +
-    "3) 各行 names は左→右。手書きなら lines を必ず返す\n" +
+    "3) 手書きでも lines と positions の両方を返す。相対位置を保つ\n" +
     "4) 名簿は読み取りの手がかり。別人の似た名前には割り当てない";
 
   if (roster.length > 0) {
@@ -349,8 +351,8 @@ function buildFallbackSystemPrompt(memberNameHints) {
       ? `\nCandidate member names: ${roster.join(", ")}`
       : "";
   return `You transcribe a dance stage formation diagram for choreography software.
-Count each circle plus the name under it as one person. Rows go top (backstage) to bottom (audience). Row sizes are independent (e.g. 1-3-4-3). Do not assign lookalike roster names (かえで≠かんな). Return JSON only.${rosterLine}
-Format: { "lines": [{ "count": 4, "names": ["A","B"] }], "positions": [{ "name": "A", "x": 50, "y": 30 }] }`;
+Count each circle as a person. x,y must be the circle center, not the text. Rows go top (backstage) to bottom (audience). Row sizes are independent (e.g. 1-3-4-3). Keep relative spacing. Do not assign lookalike roster names (かえで≠かんな). Return JSON only.${rosterLine}
+Format: { "imageFrontDirection": "bottom", "lines": [{ "count": 4, "names": ["A","B"] }], "positions": [{ "name": "A", "x": 50, "y": 30, "labelX": 50, "labelY": 36 }] }`;
 }
 
 function buildFallbackUserPrompt() {
@@ -416,14 +418,24 @@ export function normalizeParsePositionResponse(raw, opts = {}) {
         fallbackIdx += 1;
         name = `メンバー${fallbackIdx}`;
       }
-      const x = Number(p.x);
-      const y = Number(p.y);
+      const x = Number(p.markerX ?? p.x);
+      const y = Number(p.markerY ?? p.y);
       if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
       const confRaw = p.confidence;
+      const labelX = Number(p.labelX);
+      const labelY = Number(p.labelY);
       positions.push({
         name,
         x: Math.min(100, Math.max(0, Math.round(x * 100) / 100)),
         y: Math.min(100, Math.max(0, Math.round(y * 100) / 100)),
+        markerX: Math.min(100, Math.max(0, Math.round(x * 100) / 100)),
+        markerY: Math.min(100, Math.max(0, Math.round(y * 100) / 100)),
+        ...(Number.isFinite(labelX) && Number.isFinite(labelY)
+          ? {
+              labelX: Math.min(100, Math.max(0, Math.round(labelX * 100) / 100)),
+              labelY: Math.min(100, Math.max(0, Math.round(labelY * 100) / 100)),
+            }
+          : {}),
         ...(confRaw === "low" || confRaw === "high" ? { confidence: confRaw } : {}),
       });
     }
@@ -452,7 +464,12 @@ export function normalizeParsePositionResponse(raw, opts = {}) {
         return m.name;
       }),
     }));
-    positions = linesToPositions(lines).map((p, idx) => {
+  }
+
+  const markerPositions = positions;
+  if (markerPositions.length > 0) {
+    const snapped = applySnap(markerPositions.map((p) => p.name));
+    positions = markerPositions.map((p, idx) => {
       const m = snapped[idx];
       return {
         ...p,
@@ -464,9 +481,9 @@ export function normalizeParsePositionResponse(raw, opts = {}) {
         rosterMatched: m.matched,
       };
     });
-  } else if (roster.length > 0) {
-    const snapped = applySnap(positions.map((p) => p.name));
-    positions = positions.map((p, idx) => {
+  } else if (lines.length > 0) {
+    const snapped = applySnap(lines.flatMap((line) => line.names));
+    positions = linesToPositions(lines).map((p, idx) => {
       const m = snapped[idx];
       return {
         ...p,
@@ -485,11 +502,21 @@ export function normalizeParsePositionResponse(raw, opts = {}) {
   }
 
   const countMismatches = computeCountMismatches(lines);
+  const frontRaw =
+    raw && typeof raw === "object" ? raw.imageFrontDirection : null;
+  const imageFrontDirection =
+    frontRaw === "top" ||
+    frontRaw === "bottom" ||
+    frontRaw === "left" ||
+    frontRaw === "right"
+      ? frontRaw
+      : undefined;
 
   return {
     positions,
     ...(lines.length ? { lines } : {}),
     ...(countMismatches.length ? { countMismatches } : {}),
+    ...(imageFrontDirection ? { imageFrontDirection } : {}),
   };
 }
 

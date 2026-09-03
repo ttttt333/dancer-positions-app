@@ -2,6 +2,59 @@ import { describe, expect, it } from "vitest";
 import { refineParsedPositions } from "./refineParsedPositions";
 
 describe("refineParsedPositions", () => {
+  it("engine path keeps marker spacing instead of an even name grid", () => {
+    const refined = refineParsedPositions(
+      {
+        positions: [
+          { name: "かえで", x: 50, y: 12, markerX: 50, markerY: 12 },
+          { name: "りゅうた", x: 32, y: 38, markerX: 32, markerY: 38 },
+          { name: "そら", x: 50, y: 39, markerX: 50, markerY: 39 },
+          { name: "るな", x: 68, y: 38, markerX: 68, markerY: 38 },
+          { name: "くるみ", x: 22, y: 62, markerX: 22, markerY: 62 },
+          { name: "よしの", x: 40, y: 63, markerX: 40, markerY: 63 },
+          { name: "みゆ", x: 58, y: 62, markerX: 58, markerY: 62 },
+          { name: "りせ", x: 76, y: 63, markerX: 76, markerY: 63 },
+          { name: "あおい", x: 32, y: 88, markerX: 32, markerY: 88 },
+          { name: "たけし", x: 50, y: 89, markerX: 50, markerY: 89 },
+          { name: "りこ", x: 68, y: 88, markerX: 68, markerY: 88 },
+        ],
+        lines: [
+          { count: 1, names: ["かえで"] },
+          { count: 3, names: ["りゅうた", "そら", "るな"] },
+          { count: 4, names: ["くるみ", "よしの", "みゆ", "りせ"] },
+          { count: 3, names: ["あおい", "たけし", "りこ"] },
+        ],
+      },
+      [
+        "かえで",
+        "りゅうた",
+        "そら",
+        "るな",
+        "くるみ",
+        "よしの",
+        "みゆ",
+        "りせ",
+        "あおい",
+        "たけし",
+        "りこ",
+        "かんな",
+      ],
+      { useFormationEngine: true, placement: "raw" }
+    );
+
+    expect(refined.lines?.map((l) => l.names.length)).toEqual([1, 3, 4, 3]);
+    const kurumi = refined.positions.find((p) => p.name === "くるみ");
+    const rise = refined.positions.find((p) => p.name === "りせ");
+    const yoshino = refined.positions.find((p) => p.name === "よしの");
+    expect(kurumi && rise && yoshino).toBeTruthy();
+    const leftGap = (yoshino?.x ?? 0) - (kurumi?.x ?? 0);
+    const wideGap = (rise?.x ?? 0) - (yoshino?.x ?? 0);
+    expect(wideGap).toBeGreaterThan(leftGap);
+    expect(refined.rawPositions?.length).toBe(11);
+    expect(refined.suggestedPositions?.length).toBe(11);
+    expect(refined.positions.find((p) => p.name === "かんな")).toBeUndefined();
+  });
+
   it("rebuilds a 3-4-3-1 layout from lines even if positions are a 1-3-5-2 mess", () => {
     const projectRoster = [
       "かんな",

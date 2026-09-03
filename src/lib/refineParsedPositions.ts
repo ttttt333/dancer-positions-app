@@ -2,6 +2,10 @@ import {
   alignPositionsByRowCentered,
   linesToParsedPositions,
 } from "./linesToParsedPositions";
+import {
+  importedDancersToParsedPositions,
+  reconstructFromParseResponse,
+} from "./formationImport";
 import { matchNamesToRosterUnique } from "./matchNameToRoster";
 import type {
   CountMismatch,
@@ -9,6 +13,12 @@ import type {
   ParsedPosition,
   ParsePositionResponse,
 } from "./parsePositionTypes";
+
+export type RefineParsedPositionsOptions = {
+  /** true のとき Formation Reconstruction Engine。未指定は旧経路 */
+  useFormationEngine?: boolean;
+  placement?: "raw" | "suggested";
+};
 
 export function computeCountMismatches(lines: ParsedLine[]): CountMismatch[] {
   const mismatches: CountMismatch[] = [];
@@ -40,11 +50,108 @@ function withRosterFlags(
   };
 }
 
-/**
- * API 応答を名簿名寄せ・列レイアウト補完済みに整える。
- * 手書きの lines があるときは座標より行構造を優先する（3-4-3-1 などが潰れない）。
- */
-export function refineParsedPositions(
+function snapPositionNames(
+  positions: ParsedPosition[],
+  roster: string[]
+): ParsedPosition[] {
+  const snapped = matchNamesToRosterUnique(
+    positions.map((p) => p.name),
+    roster
+  );
+  return positions.map((p, idx) => {
+    const m = snapped[idx]!;
+    return withRosterFlags(p, m.name, m.matched, m.original ?? p.name);
+  });
+}
+
+function snapLines(lines: ParsedLine[], roster: string[]): ParsedLine[] {
+  const validLines = lines.filter(
+    (line) => Array.isArray(line.names) && line.names.length > 0
+  );
+  const flat = validLines.flatMap((line) =>
+    line.names.map((n) => String(n).trim()).filter(Boolean)
+  );
+  const snapped = matchNamesToRosterUnique(flat, roster);
+  let i = 0;
+  return validLines.map((line) => ({
+    ...line,
+    names: line.names
+      .map((n) => String(n).trim())
+      .filter(Boolean)
+      .map(() => {
+        const m = snapped[i]!;
+        i += 1;
+        return m.name;
+      }),
+  }));
+}
+
+function refineWithFormationEngine(
+  raw: ParsePositionResponse,
+  roster: string[],
+  placement: "raw" | "suggested"
+): ParsePositionResponse {
+  const lines = snapLines(raw.lines ?? [], roster);
+  let positions = snapPositionNames(raw.positions ?? [], roster);
+
+  if (positions.length === 0 && lines.length > 0) {
+    positions = linesToParsedPositions(lines);
+  }
+
+  const reconstructed = reconstructFromParseResponse(
+    { ...raw, positions, lines },
+    {
+      roster,
+      rosterCount: roster.length > 0 ? roster.length : undefined,
+      imageWidth: 100,
+      imageHeight: 100,
+      imageFrontDirection: raw.imageFrontDirection ?? "bottom",
+      placement,
+    }
+  );
+
+  const rawPositions = importedDancersToParsedPositions({
+    ...reconstructed,
+    dancers: reconstructed.dancers.map((d) => ({
+      ...d,
+      stagePosition: d.rawStagePosition,
+    })),
+  });
+  const suggestedPositions = importedDancersToParsedPositions({
+    ...reconstructed,
+    dancers: reconstructed.dancers.map((d) => ({
+      ...d,
+      stagePosition: d.suggestedStagePosition,
+    })),
+  });
+
+  const engineLines: ParsedLine[] =
+    reconstructed.formation.rows.map((row, i) => ({
+      rowIndex: i + 1,
+      count: row.dancerIds.length,
+      names: row.dancerIds.map((id) => {
+        const d = reconstructed.dancers.find((x) => x.id === id);
+        return d?.recognizedName ?? id;
+      }),
+    })) ?? [];
+
+  const outLines = engineLines.length ? engineLines : lines;
+  const countMismatches =
+    raw.countMismatches ?? computeCountMismatches(outLines);
+
+  return {
+    positions: placement === "suggested" ? suggestedPositions : rawPositions,
+    lines: outLines.length ? outLines : undefined,
+    countMismatches: countMismatches.length ? countMismatches : undefined,
+    rawPositions,
+    suggestedPositions,
+    importWarnings: reconstructed.warnings,
+    placement,
+    imageFrontDirection: reconstructed.orientation.imageFrontDirection,
+  };
+}
+
+function refineLegacy(
   raw: ParsePositionResponse,
   roster: string[]
 ): ParsePositionResponse {
@@ -52,38 +159,10 @@ export function refineParsedPositions(
   let positions = raw.positions ?? [];
 
   if (lines.length > 0) {
-    const validLines = lines.filter(
-      (line) => Array.isArray(line.names) && line.names.length > 0
-    );
-    const flat = validLines.flatMap((line) =>
-      line.names.map((n) => String(n).trim()).filter(Boolean)
-    );
-    const snapped = matchNamesToRosterUnique(flat, roster);
-    let i = 0;
-    lines = validLines.map((line) => ({
-      ...line,
-      names: line.names
-        .map((n) => String(n).trim())
-        .filter(Boolean)
-        .map(() => {
-          const m = snapped[i]!;
-          i += 1;
-          return m.name;
-        }),
-    }));
-    positions = linesToParsedPositions(lines).map((p, idx) => {
-      const m = snapped[idx]!;
-      return withRosterFlags(p, m.name, m.matched, m.original ?? p.name);
-    });
+    lines = snapLines(lines, roster);
+    positions = snapPositionNames(linesToParsedPositions(lines), roster);
   } else {
-    const snapped = matchNamesToRosterUnique(
-      positions.map((p) => p.name),
-      roster
-    );
-    positions = positions.map((p, idx) => {
-      const m = snapped[idx]!;
-      return withRosterFlags(p, m.name, m.matched, m.original ?? p.name);
-    });
+    positions = snapPositionNames(positions, roster);
     if (positions.length > 1) {
       positions = alignPositionsByRowCentered(positions);
     }
@@ -97,4 +176,23 @@ export function refineParsedPositions(
     lines: lines.length ? lines : undefined,
     countMismatches: countMismatches.length ? countMismatches : undefined,
   };
+}
+
+/**
+ * API 応答を名簿名寄せ・列レイアウト補完済みに整える。
+ * エンジン OFF のときは従来どおり lines → 均等グリッド。
+ */
+export function refineParsedPositions(
+  raw: ParsePositionResponse,
+  roster: string[],
+  opts: RefineParsedPositionsOptions = {}
+): ParsePositionResponse {
+  if (opts.useFormationEngine && (raw.positions?.length || raw.lines?.length)) {
+    return refineWithFormationEngine(
+      raw,
+      roster,
+      opts.placement ?? "raw"
+    );
+  }
+  return refineLegacy(raw, roster);
 }

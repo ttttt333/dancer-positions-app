@@ -32,6 +32,7 @@ import type {
   CountMismatch,
   ParsedLine,
   ParsedPosition,
+  ParseImportWarning,
 } from "../lib/parsePositionTypes";
 import {
   usePositionParser,
@@ -178,6 +179,12 @@ export function ParsePositionFromPhotoDialog({
   const [preview, setPreview] = useState<ParsedPosition[] | null>(null);
   const [previewLines, setPreviewLines] = useState<ParsedLine[] | null>(null);
   const [countMismatches, setCountMismatches] = useState<CountMismatch[]>([]);
+  const [rawPreview, setRawPreview] = useState<ParsedPosition[] | null>(null);
+  const [suggestedPreview, setSuggestedPreview] = useState<ParsedPosition[] | null>(
+    null
+  );
+  const [placement, setPlacement] = useState<"raw" | "suggested">("raw");
+  const [importWarnings, setImportWarnings] = useState<ParseImportWarning[]>([]);
   const [formationName, setFormationName] = useState("写真から取込");
   const [sourceFileNames, setSourceFileNames] = useState<string[]>([]);
   const [useProjectRosterHints, setUseProjectRosterHints] = useState(true);
@@ -284,6 +291,10 @@ export function ParsePositionFromPhotoDialog({
     setPreview(null);
     setPreviewLines(null);
     setCountMismatches([]);
+    setRawPreview(null);
+    setSuggestedPreview(null);
+    setPlacement("raw");
+    setImportWarnings([]);
     setFormationName("写真から取込");
     setSourceFileNames([]);
     setParseProgress(null);
@@ -386,9 +397,15 @@ export function ParsePositionFromPhotoDialog({
     });
     setParseProgress(null);
     if (result?.positions.length) {
+      const raw = result.rawPositions ?? result.positions;
+      const suggested = result.suggestedPositions ?? null;
+      setRawPreview(raw);
+      setSuggestedPreview(suggested);
+      setPlacement(result.placement ?? "raw");
       setPreview(result.positions);
       setPreviewLines(result.lines ?? null);
       setCountMismatches(result.countMismatches ?? []);
+      setImportWarnings(result.importWarnings ?? []);
     }
   };
 
@@ -1019,6 +1036,59 @@ export function ParsePositionFromPhotoDialog({
                   : null}
               </p>
               <PositionPreviewThumb positions={preview} />
+              {rawPreview && suggestedPreview ? (
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 6,
+                    marginTop: 10,
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {(
+                    [
+                      ["raw", "原画に忠実"],
+                      ["suggested", "形を整える"],
+                    ] as const
+                  ).map(([mode, label]) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => {
+                        setPlacement(mode);
+                        setPreview(
+                          mode === "suggested" ? suggestedPreview : rawPreview
+                        );
+                      }}
+                      style={{
+                        ...btnSecondary,
+                        padding: "6px 12px",
+                        fontSize: 12,
+                        borderColor:
+                          placement === mode ? "#d4af37" : undefined,
+                        color: placement === mode ? "#fde68a" : undefined,
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {importWarnings.length > 0 ? (
+                <ul
+                  style={{
+                    margin: "8px 0 0",
+                    paddingLeft: 18,
+                    fontSize: 11,
+                    color: "#fbbf24",
+                    lineHeight: 1.45,
+                  }}
+                >
+                  {importWarnings.map((w, i) => (
+                    <li key={`${w.kind}-${i}`}>{w.message}</li>
+                  ))}
+                </ul>
+              ) : null}
               {previewLines && previewLines.length > 0 ? (
                 <div
                   style={{

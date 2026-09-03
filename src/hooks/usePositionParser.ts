@@ -5,6 +5,7 @@ import {
 } from "../lib/prepareImageForParse";
 import { formatParsePositionError } from "../lib/parsePositionErrors";
 import { mergeParseResults } from "../lib/mergeParseResults";
+import { isFormationImportEngineEnabled } from "../lib/formationImport";
 import { refineParsedPositions } from "../lib/refineParsedPositions";
 import { parseApiRequestHeaders } from "../lib/parseApiHeaders";
 import type { ParsePositionResponse } from "../lib/parsePositionTypes";
@@ -90,7 +91,8 @@ export function usePositionParser() {
 
       return refineParsedPositions(
         data as ParsePositionResponse,
-        memberNameHints ?? []
+        memberNameHints ?? [],
+        { useFormationEngine: isFormationImportEngineEnabled() }
       );
     },
     []
