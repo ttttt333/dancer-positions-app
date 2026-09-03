@@ -83,6 +83,8 @@ type CachedAnalysis = {
   sourceLabel: string;
   localAnalysis: AudioAnalysis;
   seedDancers: DancerSpot[];
+  dancerSpacingMm?: number;
+  stageWidthMm: number | null;
 };
 
 function profileFromFeedback(
@@ -215,6 +217,8 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
           profile,
           tasteBias,
           targetCueCount,
+          dancerSpacingMm: cache.dancerSpacingMm,
+          stageWidthMm: cache.stageWidthMm,
         });
         if (engine && engine.formations.length > 0) {
           setResult({
@@ -257,6 +261,8 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
         remoteBpm: cache.bpm,
         targetMaxFormations: targetCueCount,
         taste,
+        dancerSpacingMm: cache.dancerSpacingMm,
+        stageWidthMm: cache.stageWidthMm,
       });
 
       const mapped = lightingSyncPayloadToApp(payload, cache.seedDancers);
@@ -388,6 +394,8 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
           sourceLabel,
           localAnalysis,
           seedDancers,
+          dancerSpacingMm: project.dancerSpacingMm,
+          stageWidthMm: project.stageWidthMm,
         };
         cacheRef.current = cache;
 

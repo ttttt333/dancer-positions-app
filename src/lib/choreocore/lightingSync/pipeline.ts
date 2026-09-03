@@ -51,6 +51,8 @@ export type LightingSyncGenerateInput = {
   useLightingCorpus?: boolean;
   /** 曲イメージ・スタイル・歌詞。隊形選びと変化の大きさに使う */
   taste?: SuggestTaste;
+  dancerSpacingMm?: number | null;
+  stageWidthMm?: number | null;
 };
 
 function countsBetween(a: number, b: number): number {
@@ -88,6 +90,18 @@ export function generateLightingSyncSuggestion(
         )
       : input.classProfile;
   const tasteBias = resolveSuggestTaste(input.taste);
+  const layoutOpts =
+    typeof input.dancerSpacingMm === "number" &&
+    Number.isFinite(input.dancerSpacingMm) &&
+    input.dancerSpacingMm > 0 &&
+    typeof input.stageWidthMm === "number" &&
+    Number.isFinite(input.stageWidthMm) &&
+    input.stageWidthMm > 0
+      ? {
+          dancerSpacingMm: input.dancerSpacingMm,
+          stageWidthMm: input.stageWidthMm,
+        }
+      : undefined;
 
   const memberIds =
     input.memberIds.length > 0
@@ -209,7 +223,8 @@ export function generateLightingSyncSuggestion(
       layoutId,
       memberIds,
       profile,
-      prevPos
+      prevPos,
+      layoutOpts
     );
     if (positions.length !== memberIds.length) {
       positions = buildPatternPositions(pattern, memberIds, profile, i);
@@ -242,7 +257,8 @@ export function generateLightingSyncSuggestion(
         "line",
         memberIds,
         profile,
-        prevPos
+        prevPos,
+        layoutOpts
       );
       positions = resolveOverlaps(positions, profile);
       if (prevPos) {

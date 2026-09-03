@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { CLASS_ADVANCED_MON7 } from "./classProfiles";
+import { LAYOUT_PRESET_LABELS } from "../../formationLayouts";
+import { CLASS_ADVANCED_MON7, CLASS_TODDLER } from "./classProfiles";
 import { resolveSuggestTaste } from "./suggestTaste";
+import { isCrossLayoutPreset } from "./layoutPresetBridge";
 import { phase1FromPeaks, runEngineAppSuggest } from "./engineSuggestPipeline";
 import type { DancerSpot } from "../../types/choreography";
 
@@ -61,6 +63,14 @@ describe("engineSuggestPipeline", () => {
     }
     expect(result!.cues.length).toBe(result!.formations.length);
     expect(result!.reasoning.some((l) => l.includes("曲理解エンジン"))).toBe(true);
+    expect(result!.reasoning.some((l) => l.includes("エディタ雛形"))).toBe(true);
+    const labels = Object.values(LAYOUT_PRESET_LABELS);
+    expect(
+      result!.formations.some((f) => labels.some((label) => f.name.includes(label)))
+    ).toBe(true);
+    for (const f of result!.formations) {
+      expect(f.dancers.map((d) => d.id)).toEqual(people.map((p) => p.id));
+    }
   });
 
   it("respects target cue count as an upper bound", () => {
@@ -83,5 +93,27 @@ describe("engineSuggestPipeline", () => {
     expect(result!.formations.length).toBeLessThanOrEqual(6);
     expect(result!.evaluation.cues.length).toBeGreaterThan(0);
     expect(result!.evaluation.formationRankings.length).toBe(result!.formations.length);
+  });
+
+  it("toddler suggestions never pick cross layouts", () => {
+    const result = runEngineAppSuggest({
+      peaks: peaksWithChorus(80),
+      durationSec: 80,
+      bpm: 120,
+      remoteChangePoints: [
+        { eight_index: 0, time: 0, score: 0.4, tier: "minor" },
+        { eight_index: 8, time: 16, score: 0.9, tier: "major", section_type: "CHORUS_START" },
+        { eight_index: 16, time: 32, score: 0.8, tier: "major", section_type: "DROP" },
+      ],
+      seedDancers: seeds(6),
+      profile: CLASS_TODDLER,
+      tasteBias: resolveSuggestTaste({ style: "dynamic" }),
+      targetCueCount: 6,
+    });
+    expect(result).not.toBeNull();
+    const layoutIds = result!.lightingSyncPayload.formations
+      .map((f) => f.layoutPresetId)
+      .filter((id): id is string => Boolean(id));
+    expect(layoutIds.some(isCrossLayoutPreset)).toBe(false);
   });
 });

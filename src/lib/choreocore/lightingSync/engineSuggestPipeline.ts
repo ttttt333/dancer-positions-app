@@ -1,5 +1,6 @@
 /**
- * 曲理解エンジン（Phase 1–6）でキューと隊形列を作り、
+ * 曲理解エンジン（Phase 1–6）で「いつ変えるか」を決め、
+ * 立ち位置はエディタ雛形（約200種）から載せる。
  * 照明コーパスはムード／メモの参照だけに使う。
  */
 
@@ -8,16 +9,29 @@ import type {
   DancerSpot,
   Formation as AppFormation,
 } from "../../types/choreography";
+import type { ChangePoint as AppChangePoint } from "../types";
 import { STAGE_DEPTH_M, STAGE_WIDTH_M } from "../types";
 import { generateFormationCues } from "../engine/cue/CueEngine";
-import { generateFormationCandidates } from "../engine/formation/FormationCandidateGenerator";
 import { DEFAULT_STAGE } from "../engine/formation/formationFixtures";
+import { COMPLEXITY_BY_TYPE } from "../engine/formation/formationConfig";
+import { intentMatchScore } from "../engine/formation/FormationIntentMapper";
+import {
+  spacingScore,
+  symmetryScore,
+  visualImpactScore,
+  normalizedSignature,
+} from "../engine/formation/FormationNormalizer";
+import { stageCoverage } from "../engine/formation/FormationScaler";
 import { analyzeMusicStructure } from "../engine/music/MusicStructureAnalyzer";
 import { createSyntheticPhase1Analysis } from "../engine/music/syntheticPhase1";
 import { optimizeFormationSequence } from "../engine/scoring/FormationOptimizer";
-import type { Formation as EngineFormation } from "../engine/types/FormationTypes";
+import type {
+  Formation as EngineFormation,
+  FormationCandidate,
+  FormationType,
+} from "../engine/types/FormationTypes";
 import type { FormationStyle, StageConfig } from "../engine/types/CueTypes";
-import type { CueAnalysisResult } from "../engine/types/CueTypes";
+import type { CueAnalysisResult, FormationCue } from "../engine/types/CueTypes";
 import type {
   ChangePointType,
   EventCluster,
@@ -27,11 +41,23 @@ import type {
 import type { AiEvaluationOutput } from "../engine/types/EvaluationTypes";
 import { ANALYSIS_VERSION } from "../engine/constants";
 import type { FormationSequenceResult } from "../engine/types/ScoringTypes";
-import type { ClassProfile } from "./types";
+import type { ClassProfile, MemberPosition, PoseLevel } from "./types";
 import type { LightingSyncSuggestPayload } from "./types";
 import { adviseLightingFromCorpus } from "./corpus";
 import type { SectionType } from "./types";
 import type { SuggestTasteBias } from "./suggestTaste";
+import {
+  engineTypeForLayoutPreset,
+  familyForCueAction,
+  isCrossLayoutPreset,
+  layoutPresetIdFromTags,
+  layoutPresetLabel,
+  rankLayoutPresets,
+  spotsForLayoutPreset,
+} from "./layoutPresetBridge";
+import type { LayoutPresetId, LayoutPresetOptions } from "../../formationLayouts";
+import { evaluateMoveConstraints } from "./constraintEngine";
+import { resolveOverlaps } from "./overlapAvoidance";
 import {
   DEFAULT_FORMATION_WEIGHTS,
   type FormationScore,
@@ -85,6 +111,9 @@ export type EngineAppSuggestInput = {
   profile: ClassProfile;
   tasteBias: SuggestTasteBias;
   targetCueCount?: number;
+  /** 場ミリ規格。両方あるとき雛形の間隔に使う */
+  dancerSpacingMm?: number | null;
+  stageWidthMm?: number | null;
 };
 
 export type EngineAppSuggestResult = {
@@ -133,6 +162,205 @@ export function aiEvaluationFromEngine(input: {
 
 function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n));
+}
+
+function layoutOptsOf(input: EngineAppSuggestInput): LayoutPresetOptions | undefined {
+  const spacing = input.dancerSpacingMm;
+  const width = input.stageWidthMm;
+  if (
+    typeof spacing === "number" &&
+    Number.isFinite(spacing) &&
+    spacing > 0 &&
+    typeof width === "number" &&
+    Number.isFinite(width) &&
+    width > 0
+  ) {
+    return { dancerSpacingMm: spacing, stageWidthMm: width };
+  }
+  return undefined;
+}
+
+function allowCrossOf(profile: ClassProfile): boolean {
+  return profile.allowCrossMovement && profile.targetAgeGroup !== "toddler";
+}
+
+function spotsToMembers(
+  spots: DancerSpot[],
+  profile: ClassProfile
+): MemberPosition[] {
+  return spots.map((d) => {
+    const x = (d.xPct / 100) * STAGE_WIDTH_M - STAGE_WIDTH_M / 2;
+    const y = (d.yPct / 100) * STAGE_DEPTH_M - STAGE_DEPTH_M / 2;
+    const snap =
+      profile.gridSnapMode === "integer"
+        ? (v: number) => Math.round(v)
+        : (v: number) => Math.round(v * 20) / 20;
+    return {
+      memberId: d.id,
+      x: snap(clamp(x, -5.5, 5.5)),
+      y: snap(clamp(y, -3.2, 3.2)),
+      poseLevel: (d.poseLevel ?? "stand") as PoseLevel,
+    };
+  });
+}
+
+function membersToSpots(
+  members: MemberPosition[],
+  seeds: DancerSpot[]
+): DancerSpot[] {
+  const byId = new Map(members.map((m) => [m.memberId, m] as const));
+  return seeds.map((seed) => {
+    const m = byId.get(seed.id);
+    if (!m) return { ...seed };
+    return {
+      ...seed,
+      xPct: clamp(((m.x + STAGE_WIDTH_M / 2) / STAGE_WIDTH_M) * 100, 5, 95),
+      yPct: clamp(((m.y + STAGE_DEPTH_M / 2) / STAGE_DEPTH_M) * 100, 8, 92),
+      poseLevel: m.poseLevel,
+    };
+  });
+}
+
+function refineSpotsForClass(
+  spots: DancerSpot[],
+  seeds: DancerSpot[],
+  prev: DancerSpot[] | null,
+  profile: ClassProfile,
+  availableCounts: number,
+  layoutOpts: LayoutPresetOptions | undefined
+): DancerSpot[] {
+  let members = resolveOverlaps(spotsToMembers(spots, profile), profile);
+  if (prev && prev.length > 0) {
+    const prevM = spotsToMembers(prev, profile);
+    const { corrected, warnings } = evaluateMoveConstraints(
+      prevM,
+      members,
+      profile,
+      availableCounts
+    );
+    members = corrected;
+    if (
+      warnings.some((w) => w.code === "CROSS_FORBIDDEN") &&
+      !allowCrossOf(profile)
+    ) {
+      const line = spotsForLayoutPreset("line", seeds, prev, layoutOpts);
+      members = resolveOverlaps(spotsToMembers(line, profile), profile);
+      members = evaluateMoveConstraints(
+        prevM,
+        members,
+        profile,
+        availableCounts
+      ).corrected;
+    }
+  }
+  return membersToSpots(members, seeds);
+}
+
+function engineFormationFromSpots(
+  spots: DancerSpot[],
+  stage: StageConfig,
+  type: FormationType,
+  presetId: LayoutPresetId
+): EngineFormation {
+  const positions: EngineFormation["positions"] = {};
+  for (const d of spots) {
+    positions[d.id] = {
+      x: clamp((d.xPct / 100) * stage.width, 0, stage.width),
+      y: clamp((d.yPct / 100) * stage.depth, 0, stage.depth),
+    };
+  }
+  const coverage = stageCoverage(positions, stage);
+  return {
+    id: `layout-${presetId}`,
+    type,
+    positions,
+    symmetry: symmetryScore(positions, stage),
+    complexity: COMPLEXITY_BY_TYPE[type] ?? 30,
+    stageCoverage: coverage,
+    visualImpact: visualImpactScore(coverage, undefined, type),
+    tags: [`layout:${presetId}`, "editor-preset"],
+  };
+}
+
+function layoutCandidatesForCue(input: {
+  cue: FormationCue;
+  intent: CueAnalysisResult["intents"][string];
+  seeds: DancerSpot[];
+  stage: StageConfig;
+  section: SectionType;
+  tasteBias: SuggestTasteBias;
+  profile: ClassProfile;
+  layoutOpts: LayoutPresetOptions | undefined;
+  salt: number;
+}): FormationCandidate[] {
+  const n = input.seeds.length;
+  const ids = rankLayoutPresets({
+    family: familyForCueAction(input.cue.action, input.section),
+    sectionType: input.section,
+    salt: input.salt,
+    dancerCount: n,
+    allowCross: allowCrossOf(input.profile),
+    taste: input.tasteBias,
+  });
+  const out: FormationCandidate[] = [];
+  const seen = new Set<string>();
+  for (const presetId of ids) {
+    if (seen.has(presetId)) continue;
+    seen.add(presetId);
+    if (!allowCrossOf(input.profile) && isCrossLayoutPreset(presetId)) continue;
+    const spots = spotsForLayoutPreset(
+      presetId,
+      input.seeds,
+      input.seeds,
+      input.layoutOpts
+    );
+    if (spots.length !== n) continue;
+    const type = engineTypeForLayoutPreset(presetId);
+    const formation = engineFormationFromSpots(
+      spots,
+      input.stage,
+      type,
+      presetId
+    );
+    const intentMatch = intentMatchScore(type, input.intent);
+    const spacingPreview = spacingScore(
+      formation.positions,
+      input.stage.minDancerDistance
+    );
+    const scores = {
+      intentMatch,
+      dancerCountFit: 100,
+      stageFit: 80,
+      spacingPreview,
+      visualImpact: formation.visualImpact,
+      symmetry: formation.symmetry,
+      complexity: formation.complexity,
+    };
+    const preliminary =
+      scores.intentMatch * 0.3 +
+      scores.dancerCountFit * 0.2 +
+      scores.stageFit * 0.2 +
+      scores.spacingPreview * 0.1 +
+      scores.visualImpact * 0.1 +
+      scores.symmetry * 0.05 +
+      scores.complexity * 0.05;
+    out.push({
+      id: `cand-layout-${presetId}-${input.cue.id}`,
+      formation,
+      templateId: presetId,
+      stageCoverage: formation.stageCoverage,
+      ...scores,
+      rejected: false,
+      rejectionReasons: [],
+      metadata: {
+        generatedFromCueId: input.cue.id,
+        generationStrategy: "editor-layout-preset",
+        preliminaryScore: preliminary,
+        signature: normalizedSignature(type, formation.positions, input.stage),
+      },
+    });
+  }
+  return out;
 }
 
 export function phase1FromPeaks(
@@ -316,28 +544,22 @@ function currentFromSeeds(
 function spotsFromEngine(
   formation: EngineFormation,
   stage: StageConfig,
-  seedById: Map<string, DancerSpot>
+  seeds: DancerSpot[]
 ): DancerSpot[] {
-  return Object.entries(formation.positions).map(([id, point], i) => {
-    const seed = seedById.get(id);
+  return seeds.map((seed) => {
+    const point = formation.positions[seed.id];
+    if (!point) return { ...seed };
     return {
-      id,
-      label: seed?.label ?? String(i + 1),
+      ...seed,
       xPct: clamp((point.x / stage.width) * 100, 5, 95),
       yPct: clamp((point.y / stage.depth) * 100, 8, 92),
-      colorIndex: seed?.colorIndex ?? i % 12,
-      crewMemberId: seed?.crewMemberId,
-      markerBadge: seed?.markerBadge,
-      markerBadgeSource: seed?.markerBadgeSource,
-      sizePx: seed?.sizePx,
-      note: seed?.note,
-      heightCm: seed?.heightCm,
     };
   });
 }
 
 /**
  * 曲理解エンジンで提案を作る。キューが取れないときは null（呼び出し側が照明連動へフォールバック）。
+ * 隊形の中身はエンジンテンプレではなく、エディタ雛形 + 近い位置での人の引き継ぎ。
  */
 export function runEngineAppSuggest(
   input: EngineAppSuggestInput
@@ -369,23 +591,29 @@ export function runEngineAppSuggest(
   if (active.length === 0) return null;
 
   const current = currentFromSeeds(seeds, STAGE);
-  const candidatesByCue: Record<
-    string,
-    ReturnType<typeof generateFormationCandidates>
-  > = {};
-  for (const cue of active) {
+  const layoutOpts = layoutOptsOf(input);
+  const candidatesByCue: Record<string, FormationCandidate[]> = {};
+  for (let i = 0; i < active.length; i += 1) {
+    const cue = active[i]!;
+    const section = structure.sections.find(
+      (s) => cue.rawTime >= s.startTime && cue.rawTime < s.endTime
+    );
+    const lightingSection = lightingSectionFromMusic(section?.type);
     try {
-      candidatesByCue[cue.id] = generateFormationCandidates({
-        dancerCount: seeds.length,
+      candidatesByCue[cue.id] = layoutCandidatesForCue({
         cue,
         intent: cueAnalysis.intents[cue.id] ?? {
           primary: cue.action,
           secondary: [],
           prohibited: [],
         },
+        seeds,
         stage: STAGE,
-        style,
-        currentFormation: { id: current.id, positions: current.positions },
+        section: lightingSection,
+        tasteBias: input.tasteBias,
+        profile: input.profile,
+        layoutOpts,
+        salt: i + Math.round(cue.energyAfter),
       });
     } catch {
       candidatesByCue[cue.id] = [];
@@ -404,22 +632,22 @@ export function runEngineAppSuggest(
     config: {
       beamWidth: 4,
       lookAhead: 2,
-      minimumCandidateScore: 28,
-      minimumFeasibility: 45,
+      minimumCandidateScore: 20,
+      minimumFeasibility: 35,
     },
   });
   if (sequence.formations.length === 0) return null;
 
-  const seedById = new Map(seeds.map((d) => [d.id, d] as const));
   const sortedCues = [...sequence.cues].sort((a, b) => a.rawTime - b.rawTime);
   const formations: AppFormation[] = [];
   const cues: Cue[] = [];
   const reasoning: string[] = [
-    `曲理解エンジン Phase1–6 / スタイル ${style} / キュー ${sortedCues.length} / 総合 ${Math.round(sequence.totalScore)}`,
+    `曲理解エンジン Phase1–6 / エディタ雛形 / スタイル ${style} / キュー ${sortedCues.length} / 総合 ${Math.round(sequence.totalScore)}`,
   ];
   const payloadFormations: LightingSyncSuggestPayload["formations"] = [];
   let prevLighting: ReturnType<typeof adviseLightingFromCorpus>["lightingPreset"] | undefined;
   let corpusHits = 0;
+  let prevSpots: DancerSpot[] = seeds;
 
   for (let i = 0; i < sequence.formations.length; i += 1) {
     const eng = sequence.formations[i]!;
@@ -442,14 +670,49 @@ export function runEngineAppSuggest(
     prevLighting = advice.lightingPreset;
     if (advice.preferCorpus) corpusHits += 1;
 
+    const layoutId = layoutPresetIdFromTags(eng.tags);
+    const availableCounts = Math.max(
+      1,
+      Math.round((((next?.rawTime ?? t + 8) - t) * bpm) / 60)
+    );
+    const keepHold =
+      cue.action === "HOLD" ||
+      eng.tags.includes("current") ||
+      eng.tags.includes("seed");
+    let dancers: DancerSpot[];
+    if (keepHold) {
+      dancers = spotsFromEngine(eng, STAGE, seeds);
+    } else if (layoutId) {
+      dancers = spotsForLayoutPreset(layoutId, seeds, prevSpots, layoutOpts);
+      dancers = refineSpotsForClass(
+        dancers,
+        seeds,
+        prevSpots,
+        input.profile,
+        availableCounts,
+        layoutOpts
+      );
+    } else {
+      dancers = spotsFromEngine(eng, STAGE, seeds);
+      dancers = refineSpotsForClass(
+        dancers,
+        seeds,
+        prevSpots,
+        input.profile,
+        availableCounts,
+        layoutOpts
+      );
+    }
+    prevSpots = dancers;
+
     const typeJa = TYPE_JA[eng.type] ?? eng.type;
     const actionJa = ACTION_JA[cue.action] ?? cue.action;
+    const layoutJa = layoutId ? layoutPresetLabel(layoutId) : typeJa;
     const color =
       advice.colorMood && advice.colorMood !== "neutral" ? advice.colorMood : "";
-    const name = [actionJa, typeJa, color].filter(Boolean).join(" · ");
+    const name = [actionJa, layoutJa, color].filter(Boolean).join(" · ");
     const id =
       crypto.randomUUID?.() ?? `eng-${Math.round(t * 1000)}-${i}`;
-    const dancers = spotsFromEngine(eng, STAGE, seedById);
     const noteParts = [
       advice.preferCorpus ? `照明: ${advice.referenceNote}` : null,
       advice.preferCorpus && advice.referenceShowTitle
@@ -476,7 +739,7 @@ export function runEngineAppSuggest(
       memberId: d.id,
       x: (d.xPct / 100) * STAGE_WIDTH_M - STAGE_WIDTH_M / 2,
       y: (d.yPct / 100) * STAGE_DEPTH_M - STAGE_DEPTH_M / 2,
-      poseLevel: "stand" as const,
+      poseLevel: (d.poseLevel ?? "stand") as PoseLevel,
     }));
     payloadFormations.push({
       fcpId: cue.id,
@@ -490,11 +753,14 @@ export function runEngineAppSuggest(
         ? advice.referenceShowTitle
         : undefined,
       positions: mm,
-      formationPattern: undefined,
+      formationPattern: layoutId
+        ? familyForCueAction(cue.action, lightingSection)
+        : undefined,
+      layoutPresetId: layoutId ?? undefined,
     });
 
     reasoning.push(
-      `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")} ${actionJa} → ${typeJa}${
+      `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")} ${actionJa} → ${layoutJa}${
         advice.preferCorpus && advice.referenceShowTitle
           ? ` [${advice.referenceShowTitle}]`
           : ""

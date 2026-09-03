@@ -3,9 +3,13 @@ import { ALL_LAYOUT_PRESET_IDS } from "../../formationLayouts";
 import { CLASS_ADVANCED_MON7 } from "./classProfiles";
 import {
   buildLayoutMemberPositions,
+  isCrossLayoutPreset,
   pickLayoutPreset,
+  rankLayoutPresets,
+  spotsForLayoutPreset,
 } from "./layoutPresetBridge";
 import { resolveSuggestTaste } from "./suggestTaste";
+import type { DancerSpot } from "../../types/choreography";
 
 describe("layoutPresetBridge", () => {
   it("picks a real editor layout id", () => {
@@ -83,5 +87,40 @@ describe("layoutPresetBridge", () => {
     });
     expect(id).not.toMatch(/rows_1[0-9]/);
     expect(id).not.toMatch(/columns_1[0-9]/);
+  });
+
+  it("ranks multiple editor presets and keeps people by nearest id", () => {
+    const ranked = rankLayoutPresets({
+      family: "vee",
+      sectionType: "chorus",
+      salt: 0,
+      dancerCount: 8,
+      allowCross: true,
+    });
+    expect(ranked.length).toBeGreaterThan(3);
+    expect(ranked.every((id) => ALL_LAYOUT_PRESET_IDS.includes(id))).toBe(true);
+
+    const seeds: DancerSpot[] = [
+      { id: "alice", label: "A", xPct: 20, yPct: 40, colorIndex: 0 },
+      { id: "bob", label: "B", xPct: 50, yPct: 40, colorIndex: 1 },
+      { id: "cara", label: "C", xPct: 80, yPct: 40, colorIndex: 2 },
+    ];
+    const line = spotsForLayoutPreset("line", seeds, seeds);
+    expect(line.map((d) => d.id)).toEqual(["alice", "bob", "cara"]);
+    expect(line.map((d) => d.label)).toEqual(["A", "B", "C"]);
+    const ys = line.map((d) => d.yPct);
+    expect(Math.max(...ys) - Math.min(...ys)).toBeLessThan(4);
+  });
+
+  it("toddler ranking never includes cross layouts", () => {
+    const ids = rankLayoutPresets({
+      family: "dynamic_cross",
+      sectionType: "drop",
+      salt: 0,
+      dancerCount: 8,
+      allowCross: false,
+    });
+    expect(ids.length).toBeGreaterThan(0);
+    expect(ids.some(isCrossLayoutPreset)).toBe(false);
   });
 });

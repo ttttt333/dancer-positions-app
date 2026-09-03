@@ -9,9 +9,13 @@ import {
   dancersForLayoutPreset,
   transferDancerIdentitiesByNearestPosition,
   type LayoutPresetId,
+  type LayoutPresetOptions,
 } from "../../formationLayouts";
+import type { DancerSpot } from "../../types/choreography";
 import { getPresetTier } from "../../formationPresetTiers";
 import { STAGE_DEPTH_M, STAGE_WIDTH_M } from "../types";
+import type { FormationCueAction } from "../engine/types/CueTypes";
+import type { FormationType } from "../engine/types/FormationTypes";
 import type {
   ClassProfile,
   FormationPatternId,
@@ -272,6 +276,21 @@ function tierFiller(maxTier: 1 | 2 | 3): string[] {
   return ALL_LAYOUT_PRESET_IDS.filter((id) => getPresetTier(id) <= maxTier);
 }
 
+const STAPLE_LAYOUTS: LayoutPresetId[] = [
+  "line",
+  "two_rows",
+  "vee",
+  "circle",
+  "pyramid",
+  "arc",
+  "diamond",
+  "wing_spread",
+];
+
+export function isCrossLayoutPreset(id: string): boolean {
+  return CROSS_LAYOUTS.has(id);
+}
+
 export type PickLayoutPresetInput = {
   family: FormationPatternId;
   sectionType: SectionType;
@@ -282,7 +301,7 @@ export type PickLayoutPresetInput = {
   recent?: LayoutPresetId[];
 };
 
-export function pickLayoutPreset(input: PickLayoutPresetInput): LayoutPresetId {
+function rankedLayoutPool(input: PickLayoutPresetInput): LayoutPresetId[] {
   const n = input.dancerCount;
   const styleId = input.taste?.style;
   const preferFamilies = input.taste?.preferPatterns ?? [];
@@ -311,9 +330,118 @@ export function pickLayoutPreset(input: PickLayoutPresetInput): LayoutPresetId {
   const fresh = pool.filter((id) => !avoid.has(id));
   if (fresh.length) pool = fresh;
   if (pool.length === 0) pool = onlyValid(["line", "two_rows", "vee", "circle"]);
+  return pool;
+}
 
+export function pickLayoutPreset(input: PickLayoutPresetInput): LayoutPresetId {
+  const pool = rankedLayoutPool(input);
   const window = pool.slice(0, Math.min(24, pool.length));
   return window[Math.abs(input.salt) % window.length]!;
+}
+
+/** 曲の意図に合うエディタ雛形を、スコア順に複数返す */
+export function rankLayoutPresets(
+  input: PickLayoutPresetInput,
+  limit = 12
+): LayoutPresetId[] {
+  const n = input.dancerCount;
+  const primary = rankedLayoutPool(input);
+  const staples = STAPLE_LAYOUTS.filter((id) => {
+    if (!layoutFitsCount(id, n)) return false;
+    if (!input.allowCross && CROSS_LAYOUTS.has(id)) return false;
+    return true;
+  });
+  return onlyValid([...primary, ...staples]).slice(0, Math.max(1, limit));
+}
+
+export function familyForCueAction(
+  action: FormationCueAction,
+  section: SectionType
+): FormationPatternId {
+  switch (action) {
+    case "EXPAND":
+      return "wide_spread";
+    case "CONTRACT":
+    case "CLUSTER":
+    case "MERGE":
+    case "CENTER":
+      return "center_condensed";
+    case "SPLIT":
+      return "split_lr";
+    case "LINE":
+      return "silhouette_line";
+    case "DIAGONAL":
+      return section === "drop" ? "dynamic_cross" : "front_asymmetry";
+    case "V":
+    case "TRIANGLE":
+      return "vee";
+    case "ARC":
+      return "circle";
+    case "MAJOR_CHANGE":
+      if (section === "chorus") return "vee";
+      if (section === "drop") return "dynamic_cross";
+      if (section === "outro") return "wide_spread";
+      return "fast_shift";
+    case "HOLD":
+    case "MICRO_SHIFT":
+    default:
+      return "fast_shift";
+  }
+}
+
+/** エディタ雛形 id → 曲理解エンジンの FormationType（採点用） */
+export function engineTypeForLayoutPreset(id: string): FormationType {
+  if (/(?:^|_)(?:vee|v_open|v_tight|wedge|triple_vee)/.test(id)) return "V";
+  if (/chevron|inverse_vee|w_shape|m_shape/.test(id)) return "WIDE_V";
+  if (/pyramid/.test(id)) return "PYRAMID";
+  if (/triangle/.test(id)) return "TRIANGLE";
+  if (/diamond|hourglass|bowtie/.test(id)) return "DIAMOND";
+  if (/arrow/.test(id)) return "ARROW";
+  if (/cluster|scatter_center|block_center|concentric/.test(id)) return "CLUSTER";
+  if (/circle|ring|ellipse|oval/.test(id)) return "ARC";
+  if (/arc|fan/.test(id)) return "ARC";
+  if (/x_shape|cross|diagonal/.test(id)) return "DIAGONAL";
+  if (/grid|columns_|rows_/.test(id)) return "GRID";
+  if (/two_rows|three_lines|stagger/.test(id)) return "DOUBLE_LINE";
+  if (/split|wing|block_lr|bracket/.test(id)) return "SPLIT";
+  if (/center/.test(id)) return "CENTER";
+  if (/line/.test(id)) return "LINE";
+  return "CUSTOM";
+}
+
+export function layoutPresetIdFromTags(
+  tags: string[] | undefined
+): LayoutPresetId | null {
+  const raw = tags?.find((t) => t.startsWith("layout:"))?.slice("layout:".length);
+  if (!raw || !VALID.has(raw)) return null;
+  return raw as LayoutPresetId;
+}
+
+/**
+ * 雛形の幾何に、既存の人を近い位置で載せる。戻りは seed と同じ順・同じ id。
+ */
+export function spotsForLayoutPreset(
+  presetId: LayoutPresetId,
+  seeds: DancerSpot[],
+  identityFrom: DancerSpot[],
+  layoutOpts?: LayoutPresetOptions
+): DancerSpot[] {
+  if (seeds.length === 0) return [];
+  const raw = dancersForLayoutPreset(seeds.length, presetId, layoutOpts);
+  if (raw.length === 0) return seeds.map((s) => ({ ...s }));
+  const source = identityFrom.length > 0 ? identityFrom : seeds;
+  const labeled = transferDancerIdentitiesByNearestPosition(raw, source);
+  const byId = new Map(labeled.map((d) => [d.id, d] as const));
+  return seeds.map((seed) => {
+    const hit = byId.get(seed.id);
+    if (!hit) return { ...seed };
+    return {
+      ...seed,
+      xPct: hit.xPct,
+      yPct: hit.yPct,
+      poseLevel: hit.poseLevel ?? seed.poseLevel,
+    };
+  });
 }
 
 export function layoutPresetLabel(id: LayoutPresetId): string {
@@ -324,11 +452,12 @@ export function buildLayoutMemberPositions(
   presetId: LayoutPresetId,
   memberIds: string[],
   profile: ClassProfile,
-  prev: MemberPosition[] | null
+  prev: MemberPosition[] | null,
+  layoutOpts?: LayoutPresetOptions
 ): MemberPosition[] {
   const n = memberIds.length;
   if (n <= 0) return [];
-  const raw = dancersForLayoutPreset(n, presetId);
+  const raw = dancersForLayoutPreset(n, presetId, layoutOpts);
   if (raw.length === 0) return [];
 
   let labeled = raw;
