@@ -12,6 +12,43 @@ export {
 
 export { analyzeAudio, extractAudioFeatureFrames, calculateRms } from "./audio/AudioAnalyzer";
 export { decodeAudio } from "./audio/AudioDecode";
+export { isMusicEnginePhase12Enabled, setMusicEnginePhase12EnabledForTests } from "./audio/musicEngineFlag";
+export {
+  getRealPhase1Cached,
+  setRealPhase1Cached,
+  clearRealPhase1Cache,
+  realPhase1StorageKey,
+} from "./audio/realPhase1Cache";
+export {
+  analyzeAndCacheRealPhase1,
+  audioBufferToEngineBuffer,
+} from "./audio/analyzeAndCacheRealPhase1";
+export type {
+  MusicAnalysisSource,
+  UnifiedMusicTimeline,
+  MusicEngineTrace,
+  MusicAccuracyCase,
+  MusicAccuracyMetrics,
+  Phase2FallbackReason,
+  Phase2OverwriteSite,
+} from "./music/productionTimeline";
+export { MUSIC_ACCURACY_CASES } from "./music/musicAccuracyFixtures";
+export {
+  timelineFromPhase2,
+  cloneMusicStructureResult,
+  finalizeProductionTimeline,
+  timelineToMusicStructure,
+  sortTimelineArrays,
+  ensurePreChorusBeforeChorus,
+  recordMusicEngineTrace,
+  getLastMusicEngineTrace,
+  resetMusicEngineTrace,
+  isRealPhase1Provenance,
+} from "./music/productionTimeline";
+export {
+  analyzeRealPhase2FromCache,
+  realPhase1RejectReason,
+} from "./music/analyzeRealPhase2FromCache";
 export {
   calculateEnergyCurve,
   detectEnergyInflections,
@@ -52,11 +89,49 @@ export { classifyHits } from "./music/HitClassifier";
 export { snapToBeatGrid } from "./music/structureMath";
 export { generateFormationCues } from "./cue/CueEngine";
 export {
+  generateChoreographicIntent,
+  generateChoreographicIntentSequence,
+  intentContrast,
+  CHOREOGRAPHIC_INTENT_VERSION,
+} from "./intent/ChoreographicIntentEngine";
+export type {
+  ChoreographicIntent,
+  ChoreographicIntentCandidate,
+  ChoreographicIntentContext,
+  ChoreographicIntentSequence,
+  ChoreographicIntentType,
+} from "./intent/ChoreographicIntentTypes";
+export {
+  evaluateCueQuality,
+  compareCueQuality,
+  classifyCueKinds,
+  cuesAreTimeOrdered,
+} from "./cue/cueQuality";
+export type {
+  CueQualityReport,
+  CueQualityRow,
+  CueQualityComparison,
+  CueHumanRating,
+  CueKind,
+} from "./cue/cueQuality";
+export {
   CUE_ANALYSIS_VERSION,
   DEFAULT_CUE_ENGINE_CONFIG,
   resolveCueEngineConfig,
 } from "./cue/cueConfig";
 export { generateFormationCandidates } from "./formation/FormationCandidateGenerator";
+export {
+  recommendFormationsForIntent,
+  recommendFormationsForIntentSequence,
+  generateIntentFormationCandidates,
+  FORMATION_INTELLIGENCE_VERSION,
+} from "./formation/intentFormationIntelligence";
+export type {
+  FormationIntelligenceReport,
+  FormationRecommendation,
+  RankedFormationCandidate,
+  FormationCandidateHumanRating,
+} from "./formation/intentFormationTypes";
 export {
   defaultFormationTemplateRegistry,
   FormationTemplateRegistry,
@@ -84,6 +159,95 @@ export { evaluateFormations } from "./evaluation/FormationEvaluator";
 export { evaluateTransitions } from "./evaluation/TransitionEvaluator";
 export { evaluateSequence } from "./evaluation/SequenceEvaluator";
 export { humanCueAgreement, humanFormationAgreement } from "./evaluation/HumanRatingEvaluator";
+export {
+  HUMAN_EVALUATION_VERSION,
+  FORMATION_WEIGHTS_VERSION,
+  createHumanEvaluationRecord,
+  recordFromFormationCandidate,
+  recordFromTransitionCandidate,
+  createPairwiseEvaluation,
+  createHumanEvaluationStore,
+  appendHumanEvaluation,
+  exportHumanEvaluationDataset,
+  importHumanEvaluationDataset,
+  analyzeAiHumanCalibration,
+  proposeWeightAdjustments,
+  simulateWeightChange,
+  humanEvaluationPreferenceFixture,
+  HUMAN_FEEDBACK_VERSION,
+  buildOriginsFromSuggestion,
+  captureSuggestionOutcome,
+  captureProjectEditsAgainstOrigins,
+  feedbackToEvaluationStore,
+  HumanFeedbackSession,
+  captureEditorSuggestionApply,
+  observeEditorProjectChange,
+  exportHumanFeedbackJson,
+  exportHumanFeedbackCsv,
+  DISCREPANCY_ANALYSIS_VERSION,
+  analyzeDiscrepancy,
+  analyzeDiscrepancyFromRecords,
+  formatDiscrepancyReport,
+  discrepancyPatternFixture,
+  WEIGHT_APPROVAL_VERSION,
+  buildWeightApprovalPackage,
+  buildWeightApprovalPackages,
+  reviewWeightApproval,
+  formatWeightApprovalReport,
+  SHADOW_EVALUATION_VERSION,
+  evaluateApprovedShadow,
+  formatShadowReport,
+  RELEASE_GATE_VERSION,
+  buildReleaseCandidate,
+  reviewRelease,
+  resolveReleaseWeights,
+  rollbackRelease,
+  formatReleaseReport,
+  REAL_WORLD_EVIDENCE_VERSION,
+  analyzeRealWorldEvidence,
+  canReleaseFormationV2,
+  formatRealWorldEvidenceReport,
+  RELEASE_DECISION_VERSION,
+  evaluateReleaseReadiness,
+  evaluateProductionReleaseReadiness,
+  reviewReleaseDecision,
+  canProceedToCanary,
+  formatReleaseDecisionReport,
+  FORMATION_CANARY_VERSION,
+  activateFormationCanary,
+  resolveFormationCanaryWeights,
+  rollbackFormationCanary,
+  formatFormationCanaryReport,
+  DATA_QUALITY_VERSION,
+  analyzeProductionDataQuality,
+  formatRealWorldDataQualityReport,
+} from "./calibration";
+export type {
+  HumanEvaluationRecord,
+  HumanEvaluationStore,
+  CalibrationReport,
+  WeightProposal,
+  HumanEvalDecision,
+  HumanFeedbackEvent,
+  HumanFeedbackAction,
+  AiCandidateOrigin,
+  DiscrepancyReport,
+  DiscrepancyFinding,
+  WeightApprovalPackage,
+  WeightApprovalStatus,
+  ShadowReport,
+  ReleasePackage,
+  ReleaseStatus,
+  RealWorldEvidenceReport,
+  EvidenceReadiness,
+  ReleaseDecisionReport,
+  ReleaseEvidenceReview,
+  ReleaseDecisionStatus,
+  FormationCanaryActivation,
+  CanaryHealthReport,
+  RealWorldDataQualityReport,
+  DataQualityStatus,
+} from "./calibration";
 export { formatBenchmarkReport } from "./evaluation/BenchmarkReport";
 export { resolveBenchmarkConfig, DEFAULT_BENCHMARK_CONFIG } from "./evaluation/EvaluationConfig";
 export { syntheticBenchmarkDataset } from "./evaluation/syntheticDataset";
@@ -159,6 +323,20 @@ export {
 } from "./movement/CollisionDetector";
 export { calculateTransitionScore } from "./movement/TransitionScorer";
 export { assignDancersToTargets } from "./movement/AssignmentAdapter";
+export {
+  recommendTransition,
+  recommendTransitionsForFormationIntelligence,
+  generateTransitionPaths,
+  resolveAvailableDuration,
+  TRANSITION_INTELLIGENCE_VERSION,
+} from "./movement/transitionIntelligence";
+export type {
+  TransitionIntelligenceReport,
+  TransitionRecommendation,
+  RankedTransitionCandidate,
+  TransitionEvaluation,
+  TransitionHumanRating,
+} from "./movement/transitionIntelligenceTypes";
 export { calculatePushingLimit } from "./movement/PushingLimitAdapter";
 export {
   resolveMovementTiming,
@@ -186,6 +364,7 @@ export type {
   EnergyWeights,
   AudioAnalysisConfig,
   MusicAnalysisResultPhase1,
+  Phase1Provenance,
   AnalysisSummary,
   MusicSectionType,
   MusicSection,

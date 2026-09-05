@@ -5,6 +5,7 @@ import {
   mixDownAudioBufferForPeaks,
   resolveWavePeakBinCount,
 } from "./computeWavePeaksFromChannelData";
+import { scheduleRealPhase1FromDecodedAudio } from "./choreocore/engine/audio/analyzeAndCacheRealPhase1";
 
 type DecodeResult = { peaks: number[]; durationSec: number };
 
@@ -101,11 +102,14 @@ function computePeaksViaWorker(
 
 /** 音声バッファをデコードして波形ピークを返す（iOS 対応・Worker はピーク計算のみ） */
 export async function decodeWavePeaksFromBuffer(
-  buf: ArrayBuffer
+  buf: ArrayBuffer,
+  opts?: { cacheKey?: string | null }
 ): Promise<DecodeResult> {
   const audioBuf = await decodeArrayBufferToAudioBuffer(buf);
   const channelData = mixDownAudioBufferForPeaks(audioBuf);
   const durationSec = audioBuf.duration;
+
+  scheduleRealPhase1FromDecodedAudio(audioBuf, opts?.cacheKey ?? null);
 
   /** サンプル数閾値（約45秒@44.1kHz）。CLIENT_DECODE_TIMEOUT_MS とは無関係 */
   if (channelData.length > 44100 * 45) {

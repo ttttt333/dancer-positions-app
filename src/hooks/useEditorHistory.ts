@@ -15,6 +15,7 @@ import {
   type EditorHistoryStacks,
 } from "../pages/editor/editorHistoryStack";
 import { HISTORY_CAP } from "../pages/editor/editorConstants";
+import { observeEditorProjectChange } from "../lib/choreocore/engine/calibration/humanFeedbackCapture";
 
 type YjsCollabHistory = {
   undo: () => void;
@@ -102,6 +103,7 @@ export function useEditorHistory({
     }
     if (curStr === baseline) return;
     pushEditorHistorySnapshot(historyRef.current, baseline, HISTORY_CAP);
+    observeEditorProjectChange(cur);
   }, [collabActive, projectForHistoryRef]);
 
   const markHistorySkipNextPush = useCallback(() => {
@@ -142,6 +144,7 @@ export function useEditorHistory({
             JSON.stringify(prev),
             HISTORY_CAP
           );
+          observeEditorProjectChange(next);
           return next;
         });
       },

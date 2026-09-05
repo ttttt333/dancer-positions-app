@@ -1,0 +1,5 @@
+drop policy if exists choreocore_human_feedback_delete_own on public.choreocore_human_feedback_events;
+drop policy if exists choreocore_human_feedback_no_update on public.choreocore_human_feedback_events;
+drop policy if exists choreocore_human_feedback_insert_own on public.choreocore_human_feedback_events;
+drop policy if exists choreocore_human_feedback_select_own on public.choreocore_human_feedback_events;
+drop table if exists public.choreocore_human_feedback_events;

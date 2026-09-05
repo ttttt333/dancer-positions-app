@@ -14,3 +14,5 @@ export * from "./suggestTravelTiming";
 export * from "./engineSuggestPipeline";
 export * from "./projectToAnnotation";
 export * from "./realSongQualityGate";
+export * from "./musicEngineFlag";
+export * from "./musicAnalysisContracts";

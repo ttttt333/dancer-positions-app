@@ -1,0 +1,149 @@
+---
+description: 音楽解析。複数特徴量・適応グリッド・変化点・confidence。RMS/32拍固定を絶対視しない。
+globs: src/lib/songStructureAnalysis.ts,src/lib/songAnalyzeClient.ts,src/lib/choreocore/engine/audio/**/*.ts,src/lib/choreocore/engine/music/**/*.ts,src/lib/choreocore/types.ts,backend/analyzer/**/*.py,supabase/functions/analyze-song/**
+alwaysApply: false
+---
+
+# Music Intelligence
+
+解析の仕事は「音量の山」ではなく **What changed?** である。静かなサビ、無音、ボーカルだけ、低音だけ、一瞬の Hit もイベントになり得る。
+
+## いまの本番と、既にあるエンジン
+
+**本番 AI 提案が今使っている変化点**
+
+- Fly: `backend/analyzer/services/audio_analyzer.py`（`algo-v1.3.0`、librosa RMS + 4エイトブロック）
+- Browser fallback: `src/lib/songStructureAnalysis.ts`（`browser-v1.2.0`、peaks 自己相関 BPM）
+- 取り込み: `src/lib/songAnalyzeClient.ts`（12s で browser）
+- 上書き: `engineSuggestPipeline.ts` の `thinStructuralChangePoints` / `overlaySectionsFromChangePoints`
+
+これは暫定のマクロ構造（INTRO/VERSE/PRE_CHORUS/CHORUS/DROP/OUTRO）である。**最終形ではない。**
+
+**既に存在する複数特徴量エンジン（潰さない・無視しない）**
+
+- Phase1: `src/lib/choreocore/engine/audio/AudioAnalyzer.ts`
+  - RMS `rms.ts` / Energy `EnergyAnalyzer.ts` / Flux+Centroid `SpectralAnalyzer.ts`
+  - Bands `FrequencyBandAnalyzer.ts` / Onset `OnsetDetector.ts` / Beat `BeatDetector.ts`
+- Phase2: `MusicStructureAnalyzer.ts` → `SectionDetector` / `PhraseDetector` / `ChangePointDetector` / `HitClassifier`
+- 型: `engine/types/AudioTypes.ts`, `MusicTypes.ts`
+- 閾値: `engine/music/structureConfig.ts`（名前付き定数。マジックナンバーを増やさない）
+
+本番を賢くするときは、peaks 用の別ロジックを肥大化させるより、**Phase1/2 を本番経路に接続する**方向を優先する。接続は CLASS C。Feature flag で Fly RMS 経路を残す。
+
+## 単位（固定32拍を絶対視しない）
+
+扱う単位は Beat / Bar / Phrase / Section / ChangePoint / Musical Event。
+4エイトブロックは **初期仮説** であって、サビ境界の定義ではない。変化点は beat grid へ snap する（既存 `snapToBeatGrid`、`beatSnapTolerance: 0.15`）。
+
+目的は機械グリッドではなく、Musical Meaning + Beat Alignment + 振付として使える時刻。
+
+マルチスケール:
+
+- micro: 1–2 beats（HIT, STRONG_HIT）
+- meso: 4–16 beats（BUILD, BREAK, PHRASE）
+- macro: phrase / section（CHORUS_START, PRE_CHORUS）
+
+## 特徴量（単一特徴で chorus/drop を決めない）
+
+フレームは既存 `AudioFeatureFrame` を拡張するときも、この形を壊さない。
+
+```ts
+type AudioFeatureFrame = {
+  time: number;
+  rms: number;
+  spectralFlux: number;
+  spectralCentroid: number;
+  bassEnergy: number;
+  lowMidEnergy: number;
+  midEnergy: number;
+  highMidEnergy: number;
+  highEnergy: number;
+  onsetStrength: number;
+};
+```
+
+不足分（harmonic/percussive、silenceProbability、MFCC 距離）を足すなら Phase1 に **named fields + tests** で足す。UI や Fly に計算を散らさない。
+
+Novelty（変化の大きさ）は加重和。重みは `DEFAULT_SECTION_BOUNDARY_WEIGHTS` を使う:
+
+```
+novelty = 0.30 * |Δenergy|
+        + 0.20 * spectralDistance
+        + 0.20 * |Δrhythm|
+        + 0.10 * |Δbass|
+        + 0.10 * onsetPeak
+        + 0.10 * phraseBreak
+```
+
+正規化は区間内 z-score または min-max。0除算・NaN は `signalMath` 経由。Energy は点ではなく曲線: `energyBefore`, `energyNow`, `energyAfter`, trend ∈ {RISING, FALLING, STABLE}。
+
+**Music Energy / Visual Energy / Movement Energy / Transition Impact を同一視しない。**
+
+## イベントと構造を分ける
+
+`structuralImportance` と `instantaneousImpact` は別スコア。
+
+セクション変更がなくても HIT / REVEAL / CENTER SHIFT を出してよい。
+逆に CHORUS_START は Hit である必要はない。
+
+既存 `ChangePointType` を壊さず、分類は既存検出器に寄せる。
+
+| 現象 | 既存 type の目安 | 判定の核（複数必須） |
+|---|---|---|
+| DROP | ENERGY_RISE + BASS_ENTRY + SECTION_CHANGE | bass↑ かつ flux↑ かつ beat 近傍。RMS↑ だけでは不可 |
+| BUILD | ENERGY_RISE（major でない）+ 上昇 trend | 数バーに渡る単調上昇。一瞬のピークではない |
+| BREAK | DRUM_BREAK / ENERGY_DROP / SILENCE | onset↓ または rms↓ かつ spectral 変化 |
+| SILENCE | SILENCE | `silenceThreshold` + `silenceMinimumDuration` |
+| PRE_CHORUS | PHRASE_CHANGE or SECTION 前 | サビ境界の **準備**（今の「2エイト前」はヒューリスティック。最終形は novelty + エネルギー上昇の開始） |
+| CHORUS | SECTION_CHANGE | 境界スコア ≥ `sectionBoundaryThreshold`（28）かつ confidence |
+| HIT | HIT | onset + 局所 energy。セクション境界と独立 |
+
+擬似コード（新規検出を足すとき）:
+
+```
+if (bassDelta > bassRiseThreshold && flux > spectralChangeThreshold && nearBeat)
+  emit DROP with confidence = min(1, 0.4*bassN + 0.3*fluxN + 0.3*beatN)
+else if (energyTrend === "RISING" for >= 4 bars && !localPeakOnly)
+  emit BUILD
+else if (onsetDensityDrop && energyDrop)
+  emit BREAK
+```
+
+低 confidence を確定ラベルにしない。目安: `< 0.55` は UNKNOWN/候補、UI では「確度低」。
+
+## いまの PRE_CHORUS / CHORUS_START 契約
+
+本番の説明可能性のため、ラベル意味を変えるときは UI とテストを同時に更新する。
+
+- `PRE_CHORUS` = Aメロ終わり（サビ準備）。medium。隊形は EXPAND 系
+- `CHORUS_START` = サビ頭。major
+- `VERSE` 変化点は「サビ/DROP の直後の戻り」だけ（毎ブロック出さない）
+
+Fly と browser と Edge の `ANALYZER_VERSION` をずらしてデプロイしない。
+
+## Confidence と説明
+
+重要な判断は reason codes を残す（既存 Cue の `reasonCodes` と同じ思想）。
+
+```
+DROP detected + energy increase + spectral change + beat alignment
+→ high-confidence transition
+```
+
+将来 UI で「なぜこのキューか」を出す。スコアをブラックボックスの1個の数字にしない。
+
+## 評価セット
+
+1曲成功を成功条件にしない。想定: K-POP / Hip-Hop / EDM / Pop / Ballad / 静かなサビ / マスタリングで潰れた曲 / 短セクション / 反復。
+
+既存資産を壊さない:
+
+- `engine/audio/*.test.ts`, `engine/music/*.test.ts`
+- `songStructureAnalysis.test.ts`（PRE_CHORUS が CHORUS_START より前）
+- evaluation / realworld / annotation（Phase 相当のテスト郡）
+
+Golden track を足すなら expected beats / events / section boundaries をデータとして置き、コードに曲名ハードコードしない。
+
+## 性能
+
+FFT / MFCC / 長尺 AudioBuffer は UI スレッドを塞がない。Fly は重い DSP の本番先。browser はタイムアウトでフォールバック。新しい依存（librosa 相当の JS FFT ライブラリ等）は Need / bundle / license を満たすまで足さない。

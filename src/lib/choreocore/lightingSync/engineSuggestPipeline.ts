@@ -12,6 +12,22 @@ import type {
 import type { ChangePoint as AppChangePoint } from "../types";
 import { STAGE_DEPTH_M, STAGE_WIDTH_M } from "../types";
 import { generateFormationCues } from "../engine/cue/CueEngine";
+import { evaluateCueQuality, type CueQualityReport } from "../engine/cue/cueQuality";
+import { generateChoreographicIntentSequence } from "../engine/intent/ChoreographicIntentEngine";
+import type { ChoreographicIntentSequence } from "../engine/intent/ChoreographicIntentTypes";
+import {
+  recommendFormationsForIntentSequence,
+  type FormationIntelligenceReport,
+} from "../engine/formation/intentFormationIntelligence";
+import {
+  resolveFormationCanaryWeights,
+  scoreWeightsForSuggest,
+} from "../engine/calibration/formationCanary";
+import type { FormationCanaryActivation } from "../engine/calibration/formationCanaryTypes";
+import {
+  recommendTransitionsForFormationIntelligence,
+  type TransitionIntelligenceReport,
+} from "../engine/movement/transitionIntelligence";
 import { DEFAULT_STAGE } from "../engine/formation/formationFixtures";
 import { COMPLEXITY_BY_TYPE } from "../engine/formation/formationConfig";
 import { intentMatchScore } from "../engine/formation/FormationIntentMapper";
@@ -22,7 +38,20 @@ import {
   normalizedSignature,
 } from "../engine/formation/FormationNormalizer";
 import { stageCoverage } from "../engine/formation/FormationScaler";
+import { isMusicEnginePhase12Enabled } from "../engine/audio/musicEngineFlag";
+import { analyzeRealPhase2FromCache } from "../engine/music/analyzeRealPhase2FromCache";
 import { analyzeMusicStructure } from "../engine/music/MusicStructureAnalyzer";
+import {
+  finalizeProductionTimeline,
+  getLastMusicEngineTrace,
+  recordMusicEngineTrace,
+  timelineToMusicStructure,
+  type MusicAnalysisSource,
+  type Phase2FallbackReason,
+  type Phase2OverwriteSite,
+  type UnifiedMusicTimeline,
+} from "../engine/music/productionTimeline";
+import { appChangePointsFromTimeline } from "./productionChangePointAdapter";
 import { createSyntheticPhase1Analysis } from "../engine/music/syntheticPhase1";
 import { optimizeFormationSequence } from "../engine/scoring/FormationOptimizer";
 import type {
@@ -42,6 +71,7 @@ import type {
   MusicSectionType,
   MusicStructureAnalysisResult,
 } from "../engine/types/MusicTypes";
+import type { MusicAnalysisResultPhase1 } from "../engine/types/AnalysisTypes";
 import type { AiEvaluationOutput } from "../engine/types/EvaluationTypes";
 import { ANALYSIS_VERSION } from "../engine/constants";
 import type { FormationSequenceResult } from "../engine/types/ScoringTypes";
@@ -125,6 +155,26 @@ export type EngineAppSuggestInput = {
   /** 場ミリ規格。両方あるとき雛形の間隔に使う */
   dancerSpacingMm?: number | null;
   stageWidthMm?: number | null;
+  /** wave cacheKey。FLAG ON の Real Phase1 lookup に使う */
+  audioCacheKey?: string | null;
+  /** Canary 割当の安定キー。未指定かつ未起動なら既存 V1 経路 */
+  projectKey?: string;
+  /** テスト用。本番シングルトンは使わない */
+  canaryActivation?: FormationCanaryActivation;
+};
+
+export type EngineAppSuggestMusicEngine = {
+  analysisSource: MusicAnalysisSource;
+  phase1Provenance: "real" | "synthetic";
+  preservedPhase2: MusicStructureAnalysisResult | null;
+  timeline?: UnifiedMusicTimeline;
+  overwriteSites: Phase2OverwriteSite[];
+  fallbackReason?: Phase2FallbackReason;
+  cueQuality?: CueQualityReport;
+  choreographicIntents?: ChoreographicIntentSequence;
+  /** FLAG ON の付加情報。本番のエディタ雛形適用は置き換えない */
+  formationIntelligence?: FormationIntelligenceReport;
+  transitionIntelligence?: TransitionIntelligenceReport;
 };
 
 export type EngineAppSuggestResult = {
@@ -136,6 +186,8 @@ export type EngineAppSuggestResult = {
   lightingSyncPayload: LightingSyncSuggestPayload;
   /** 品質ゲート用。本番提案と同じエンジン出力 */
   evaluation: AiEvaluationOutput;
+  /** FLAG ON のとき。Cue が参照する Production Timeline と同じ実体 */
+  musicEngine?: EngineAppSuggestMusicEngine;
 };
 
 export function aiEvaluationFromEngine(input: {
@@ -559,6 +611,10 @@ function resolveDistinctLayoutSpots(input: {
   );
 }
 
+/**
+ * Legacy Compatibility Path。Real Phase 1 ではない。
+ * peaks の平均を energy / bass / onset / high に複製するだけ。
+ */
 export function phase1FromPeaks(
   peaks: number[],
   durationSec: number,
@@ -650,6 +706,7 @@ function overlaySectionsFromChangePoints(
   duration: number,
   bpm: number
 ): void {
+  // Stage 3: Real Phase2 sections をここで全置換しない。
   if (!remote?.length) return;
   const sorted = [...remote]
     .filter((cp) => Number.isFinite(cp.time))
@@ -822,6 +879,7 @@ function clustersFromRemoteChangePoints(
   remote: AppChangePoint[] | undefined,
   bpm: number
 ): EventCluster[] {
+  // Stage 3: Real Phase2 eventClusters をここで全置換しない。
   const thinned = thinStructuralChangePoints(remote) ?? [];
   const out: EventCluster[] = [];
   const hasEarly = thinned.some((cp) => cp.time < 2);
@@ -908,6 +966,32 @@ function currentFromSeeds(
  * 曲理解エンジンで提案を作る。キューが取れないときは null（呼び出し側が照明連動へフォールバック）。
  * 隊形の中身はエンジンテンプレではなく、エディタ雛形 + 近い位置での人の引き継ぎ。
  */
+function applyRemoteProductionOverwrite(
+  structure: MusicStructureAnalysisResult,
+  remote: AppChangePoint[] | undefined,
+  duration: number,
+  bpm: number
+): {
+  structuralCps: AppChangePoint[] | undefined;
+  overwriteSites: Phase2OverwriteSite[];
+} {
+  const overwriteSites: Phase2OverwriteSite[] = [];
+  const sectionsBefore = structure.sections;
+  const clustersBefore = structure.eventClusters;
+  const structuralCps = thinStructuralChangePoints(remote);
+  overlaySectionsFromChangePoints(structure, structuralCps, duration, bpm);
+  if (structure.sections !== sectionsBefore) {
+    overwriteSites.push("overlaySectionsFromChangePoints");
+  }
+  if (structuralCps?.length) {
+    structure.eventClusters = clustersFromRemoteChangePoints(structuralCps, bpm);
+    if (structure.eventClusters !== clustersBefore) {
+      overwriteSites.push("clustersFromRemoteChangePoints");
+    }
+  }
+  return { structuralCps, overwriteSites };
+}
+
 export function runEngineAppSuggest(
   input: EngineAppSuggestInput
 ): EngineAppSuggestResult | null {
@@ -918,14 +1002,126 @@ export function runEngineAppSuggest(
   const style = engineStyle(input.tasteBias);
   const maxCues = Math.max(3, Math.min(20, input.targetCueCount ?? 10));
 
-  const phase1 = phase1FromPeaks(input.peaks, duration, bpm);
-  const structure = analyzeMusicStructure(phase1);
-  const structuralCps = thinStructuralChangePoints(input.remoteChangePoints);
-  overlaySectionsFromChangePoints(structure, structuralCps, duration, bpm);
-  if (structuralCps?.length) {
-    structure.eventClusters = clustersFromRemoteChangePoints(structuralCps, bpm);
+  let phase1: MusicAnalysisResultPhase1;
+  let structure: MusicStructureAnalysisResult;
+  let musicEngine: EngineAppSuggestMusicEngine | undefined;
+  let skipRemoteOverwrite = false;
+  let structuralCpsFromTimeline: AppChangePoint[] | undefined;
+
+  if (isMusicEnginePhase12Enabled()) {
+    const real = analyzeRealPhase2FromCache({
+      cacheKey: input.audioCacheKey,
+    });
+    if (real.ok) {
+      const finalized = finalizeProductionTimeline(real.timeline, {
+        bpm,
+        duration,
+      });
+      if (finalized.ok) {
+        phase1 = real.phase1;
+        structure = timelineToMusicStructure(finalized.timeline);
+        skipRemoteOverwrite = true;
+        structuralCpsFromTimeline = appChangePointsFromTimeline(
+          finalized.timeline,
+          bpm
+        );
+        musicEngine = {
+          analysisSource: "engine-phase12",
+          phase1Provenance: "real",
+          preservedPhase2: structure,
+          timeline: finalized.timeline,
+          overwriteSites: [],
+        };
+        const prev = getLastMusicEngineTrace();
+        if (prev) {
+          recordMusicEngineTrace({
+            ...prev,
+            phase2OverwriteSites: [],
+            changePointCount: finalized.timeline.changePoints.length,
+          });
+        }
+      } else {
+        phase1 = phase1FromPeaks(input.peaks, duration, bpm);
+        structure = analyzeMusicStructure(phase1);
+        musicEngine = {
+          analysisSource: "synthetic-legacy",
+          phase1Provenance: "synthetic",
+          preservedPhase2: null,
+          overwriteSites: [],
+          fallbackReason: finalized.reason,
+        };
+      }
+    } else {
+      phase1 = phase1FromPeaks(input.peaks, duration, bpm);
+      structure = analyzeMusicStructure(phase1);
+      musicEngine = {
+        analysisSource: "synthetic-legacy",
+        phase1Provenance: "synthetic",
+        preservedPhase2: null,
+        overwriteSites: [],
+        fallbackReason: real.fallbackReason,
+      };
+    }
+  } else {
+    phase1 = phase1FromPeaks(input.peaks, duration, bpm);
+    structure = analyzeMusicStructure(phase1);
   }
 
+  let structuralCps = structuralCpsFromTimeline;
+  if (!skipRemoteOverwrite) {
+    const applied = applyRemoteProductionOverwrite(
+      structure,
+      input.remoteChangePoints,
+      duration,
+      bpm
+    );
+    structuralCps = applied.structuralCps;
+    if (musicEngine) {
+      musicEngine = {
+        ...musicEngine,
+        overwriteSites: applied.overwriteSites,
+      };
+    }
+  }
+
+  return finishEngineAppSuggest({
+    input,
+    seeds,
+    duration,
+    bpm,
+    style,
+    maxCues,
+    phase1,
+    structure,
+    structuralCps,
+    musicEngine,
+  });
+}
+
+function finishEngineAppSuggest(args: {
+  input: EngineAppSuggestInput;
+  seeds: DancerSpot[];
+  duration: number;
+  bpm: number;
+  style: FormationStyle;
+  maxCues: number;
+  phase1: MusicAnalysisResultPhase1;
+  structure: MusicStructureAnalysisResult;
+  structuralCps: AppChangePoint[] | undefined;
+  musicEngine?: EngineAppSuggestMusicEngine;
+}): EngineAppSuggestResult | null {
+  const {
+    input,
+    seeds,
+    duration,
+    bpm,
+    style,
+    maxCues,
+    phase1,
+    structure,
+    structuralCps,
+    musicEngine,
+  } = args;
   const cooldown = Math.max(4, input.profile.minCountsBetweenChanges);
   let cueAnalysis = generateFormationCues(structure, phase1, {
     mediumPriorityCooldownBeats: cooldown,
@@ -936,10 +1132,69 @@ export function runEngineAppSuggest(
   cueAnalysis = promoteCuesAtSongChanges(cueAnalysis, structuralCps);
   cueAnalysis = capCueAnalysis(cueAnalysis, maxCues);
   cueAnalysis = thinCuesForTravel(cueAnalysis, bpm);
+  if (musicEngine?.timeline) {
+    musicEngine.cueQuality = evaluateCueQuality({
+      analysis: cueAnalysis,
+      sections: musicEngine.timeline.sections,
+      eventClusters: musicEngine.timeline.eventClusters,
+      bpm,
+      source: musicEngine.analysisSource,
+    });
+    try {
+      musicEngine.choreographicIntents = generateChoreographicIntentSequence({
+        analysis: cueAnalysis,
+        eventClusters: musicEngine.timeline.eventClusters,
+        sections: musicEngine.timeline.sections,
+        durationSec: duration,
+      });
+    } catch {
+      /* Intent は付加情報。失敗しても Cue 経路は維持 */
+    }
+  }
   const active = cueAnalysis.cues.filter((c) => !c.suppressed);
   if (active.length === 0) return null;
 
   const current = currentFromSeeds(seeds, STAGE);
+  if (musicEngine?.choreographicIntents) {
+    const canary = resolveFormationCanaryWeights({
+      projectKey: input.projectKey ?? input.audioCacheKey ?? "unknown-project",
+      activation: input.canaryActivation,
+    });
+    const scoreWeights = scoreWeightsForSuggest(canary);
+    const sequenceInput = {
+      intents: musicEngine.choreographicIntents.intents,
+      cues: cueAnalysis.cues,
+      currentFormation: current,
+      dancerCount: seeds.length,
+      stage: STAGE,
+      bpm,
+    };
+    try {
+      musicEngine.formationIntelligence = recommendFormationsForIntentSequence({
+        ...sequenceInput,
+        scoreWeights,
+      });
+    } catch {
+      try {
+        musicEngine.formationIntelligence = recommendFormationsForIntentSequence(sequenceInput);
+      } catch {
+        /* Formation Intelligence は付加。既存雛形経路は維持 */
+      }
+    }
+    if (musicEngine.formationIntelligence) {
+      try {
+        musicEngine.transitionIntelligence = recommendTransitionsForFormationIntelligence({
+          report: musicEngine.formationIntelligence,
+          currentFormation: current,
+          cues: cueAnalysis.cues,
+          stage: STAGE,
+          bpm,
+        });
+      } catch {
+        /* Transition Intelligence は付加。既存移動・雛形経路は維持 */
+      }
+    }
+  }
   const layoutOpts = layoutOptsOf(input);
   const candidatesByCue: Record<string, FormationCandidate[]> = {};
   for (let i = 0; i < active.length; i += 1) {
@@ -1168,5 +1423,6 @@ export function runEngineAppSuggest(
       cueAnalysis,
       sequence,
     }),
+    ...(musicEngine ? { musicEngine } : {}),
   };
 }

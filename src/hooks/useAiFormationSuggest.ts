@@ -37,6 +37,7 @@ import type {
   Cue,
   DancerSpot,
 } from "../types/choreography";
+import { useWavePeaksStore } from "../store/wavePeaksStore";
 
 export type SuggestStatus =
   | "idle"
@@ -85,6 +86,7 @@ type CachedAnalysis = {
   seedDancers: DancerSpot[];
   dancerSpacingMm?: number;
   stageWidthMm: number | null;
+  audioCacheKey?: string | null;
 };
 
 function profileFromFeedback(
@@ -219,6 +221,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
           targetCueCount,
           dancerSpacingMm: cache.dancerSpacingMm,
           stageWidthMm: cache.stageWidthMm,
+          audioCacheKey: cache.audioCacheKey,
         });
         if (engine && engine.formations.length > 0) {
           setResult({
@@ -396,6 +399,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
           seedDancers,
           dancerSpacingMm: project.dancerSpacingMm,
           stageWidthMm: project.stageWidthMm,
+          audioCacheKey: useWavePeaksStore.getState().peaksCacheKey,
         };
         cacheRef.current = cache;
 

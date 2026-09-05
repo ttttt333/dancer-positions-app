@@ -1,3 +1,8 @@
+/**
+ * Legacy Compatibility: peaks / 手書きセグメントから Phase1 形のオブジェクトを作る。
+ * Real Phase 1（AudioAnalyzer.analyzeAudio）ではない。
+ * bass / onset / high は独立特徴ではなく入力エネルギーの複製に近い。
+ */
 import { DEFAULT_BEATS_PER_BAR } from "../constants";
 import { barIndexFromBeatIndex } from "../audio/meter";
 import type {
@@ -120,6 +125,7 @@ export function createSyntheticPhase1Analysis(
     hits,
     analysisVersion: "3.0.0-phase1",
     confidence: 0.85,
+    provenance: "synthetic",
   };
 }
 

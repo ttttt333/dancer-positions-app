@@ -1,0 +1,80 @@
+---
+description: 振付エンジン。Intent・候補生成と評価の分離・視覚対比・エディタ雛形。id で人を追跡する。
+globs: src/lib/choreocore/engine/formation/**/*.ts,src/lib/choreocore/engine/cue/**/*.ts,src/lib/choreocore/engine/scoring/**/*.ts,src/lib/choreocore/lightingSync/**/*.ts,src/lib/choreocore/tier1/**/*.ts,src/lib/formationLayouts.ts
+alwaysApply: false
+---
+
+# Choreography Engine
+
+セクション名だけで隊形を決めてはいけない。入力は:
+
+Musical Event + Energy + Energy direction + Previous formation + Current formation + Stage + Feasibility + Visual contrast
+
+（将来: dancer roles。今は YAGNI。id と ClassProfile 以上の属性を先に作らない）
+
+## 本番の置き方
+
+`runEngineAppSuggest`（`lightingSync/engineSuggestPipeline.ts`）が本番。
+隊形の幾何はエンジン抽象テンプレではなく **エディタ雛形** `layoutPresetBridge.ts` + `formationLayouts.ts`。
+人は `transferDancerIdentitiesByNearestPosition` 系で **id を維持**する。index 合わせは禁止。
+
+エンジンの `FormationCandidateGenerator` / `FormationOptimizer` / `ScoreWeights.ts` は採点・系列最適化に使う。雛形 id をエンジン内部座標で上書きしない。
+
+照明コーパス（`lightingSync/corpus`）はムード参照だけ。切替時刻を決めてはいけない。
+
+## Intent
+
+既存 `FormationCueAction`（`CueGenerator.ts` の `decideActionAndIntent`）を主語にする。
+
+HOLD / MICRO_SHIFT / EXPAND / CONTRACT / SPLIT / MERGE / MAJOR_CHANGE / V / LINE …
+
+音楽イベントとの対応を巨大 switch に足し続けるなら、テーブル化してテストする。PRE_CHORUS → EXPAND、CHORUS_START → MAJOR_CHANGE は現行契約。
+
+## 候補生成と評価を混ぜない
+
+```
+generateCandidates() → evaluateCandidate() → rankCandidates() → selectBestCandidate()
+```
+
+既存の分かれ方:
+
+- 生成: `layoutCandidatesForCue` / `rankLayoutPresets` / `FormationCandidateGenerator`
+- 評価: `CandidateScorer.ts`, `MusicFitScore`, `VisualImpactScore`, `TransitionQualityScore`, `FeasibilityScore`
+- 系列: `FormationOptimizer` + `DEFAULT_CANDIDATE_WEIGHTS` / `DEFAULT_SEQUENCE_WEIGHTS`
+
+重みは `ScoreWeights.ts` の名前付き定数を使う。`if (score > 0.73)` を書かない。
+
+単一候補の見た目だけで選ばない。必ず **前隊形 → 遷移 → 次隊形**:
+
+- shapeContrast / positionDifference / centerShift
+- densityChange / symmetryChange / stageCoverageChange
+- **Visual Impact per Movement**（小さい移動 + 形の対比 + 同期 を、遠いだけの移動より高くてよい）
+
+移動距離最大化は禁止。
+
+## 教室向けプール（現行）
+
+`SECTION_LAYOUTS`（`layoutPresetBridge.ts`）:
+
+- verse: two_rows, stagger, line, pyramid
+- se_trigger（A終わり）: v_tight, wedge, wing_spread
+- chorus/drop: vee, diamond, fan_front
+- extra_* / pinwheel / heart / spiral / scatter は freestyle 以外出さない
+
+直前の雛形は `recent` で避け、系統は崩さない（同じ絵の連打も、毎回来る前衛も失敗）。
+
+歌詞味付け（`suggestTaste.ts`）は `preferPatterns` で先頭に寄せる。「円」→ circle。味付けで `extra_*` を解禁しない。
+
+## 制約込み生成
+
+不可能な隊形を大量生成して後から修理する設計に依存しない。最初から:
+
+- 人数に合わない rows_N / columns_N を落とす（既存 `layoutFitsCount`）
+- 交差禁止クラスで cross 雛形を除外
+- 移動時間は `FORMATION_TRAVEL_COUNTS`
+- 平均移動が小さすぎる同一絵は `MIN_MEAN_TRAVEL_PCT` で次候補
+
+## 複数候補と決定性
+
+重要な場面では A/B/C を返せる構造を優先（optimizer の beam が既にある）。
+同一入力は同一結果。乱数を足すなら seed を明示。提案のたびに理由なく形が変わるのは禁止。

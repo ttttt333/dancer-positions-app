@@ -1,0 +1,40 @@
+---
+description: AI提案UX。人間が採用・却下・編集。説明可能性。日本語UI。確度を断定しない。
+globs: src/components/AiSuggestDialog.tsx,src/hooks/useAiFormationSuggest.ts,src/lib/applyAiSuggestResult.ts,src/pages/editor/EditorStageRowOverlays.tsx
+alwaysApply: false
+---
+
+# Product UX
+
+AI は振付師を置き換えない。GENERATE / RECOMMEND / RANK / EXPLAIN / SUGGEST。
+人間が ACCEPT / REJECT / EDIT / SWAP / LOCK。
+
+入口: `AiSuggestDialog.tsx`（右シート）。適用: `applyAiSuggestResult.ts`。
+
+## ユーザーに出す情報
+
+アルゴリズム詳細（RMS パーセンタイル、beam width）をそのまま出さない。出すのは:
+
+- 何が起きたか（Aメロ終わり、サビ頭、サビ明け）
+- なぜか（解析ソース fly/browser、`PRE_CHORUS → CHORUS_START` などの reason）
+- 次に何をすればいいか（採用／却下／再提案）
+
+提案を「正しい確定」として書かない。必要なら confidence / 代替 / 理由。
+重要な局面では1案強制より A インパクト / B センター / C 非対称 を出せる余地を残す。
+
+## 既存 UI 契約
+
+- 楽曲が無い（peaks 空）ときは提案不可。先にタイムラインへ音源
+- クラス・キュー数・イメージ・スタイル・歌詞は味付け。解析の偽造には使わない
+- 結果はキュー単位で採用／却下。プレビューは舞台に載せる
+- 適用は上書き or 追加。追加は既存を残し、重なりは空きへずらす
+- 再提案フィードバックは制約を締める。解析キャッシュは peaks が同じなら再利用してよい
+
+日本語 UI を保つ。内部 enum（CHORUS_START）をユーザー向けラベルに翻訳する。
+
+## 信頼
+
+解析が browser フォールバックなら、その旨を隠さない（既存 `analysisSource`）。
+Fly 未デプロイやタイムアウトを「高度な AI」と偽らない。
+
+将来の嗜好学習（symmetry 好み等）は設計上妨げないが、今は実装しない（YAGNI）。

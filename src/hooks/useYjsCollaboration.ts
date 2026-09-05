@@ -23,6 +23,7 @@ import {
   applyUndoPlain,
   pushEditorHistorySnapshot,
 } from "../pages/editor/editorHistoryStack";
+import { observeEditorProjectChange } from "../lib/choreocore/engine/calibration/humanFeedbackCapture";
 
 function collabWsBase(): string {
   const env = import.meta.env.VITE_COLLAB_WS as string | undefined;
@@ -198,6 +199,7 @@ export function useYjsCollaboration(
           JSON.stringify(prev),
           HISTORY_CAP
         );
+        observeEditorProjectChange(next);
       }
       applyProjectJsonToDoc(ydoc, next);
       scheduleSyncStackInfo();

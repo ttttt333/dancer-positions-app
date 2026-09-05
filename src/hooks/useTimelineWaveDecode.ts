@@ -146,7 +146,7 @@ export function useTimelineWaveDecode({ setProject }: Params) {
       let usedPlaceholder = false;
       try {
         ({ peaks, durationSec } = await withDecodeTimeout(
-          decodeWavePeaksFromBuffer(audioBuf),
+          decodeWavePeaksFromBuffer(audioBuf, { cacheKey }),
           CLIENT_DECODE_TIMEOUT_MS
         ));
       } catch (decodeErr) {

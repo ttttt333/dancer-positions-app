@@ -1,0 +1,63 @@
+---
+description: 実装品質。層分離・pure function・型・エラー・性能・依存・巨大関数禁止。
+globs: src/**/*.{ts,tsx},backend/**/*.py,supabase/functions/**/*.ts
+alwaysApply: false
+---
+
+# Engineering Quality
+
+## 層
+
+UI（`components/`, `hooks/`）
+→ Use case（`useAiFormationSuggest.ts`）
+→ Domain（`choreocore/engine/*`, `songStructureAnalysis.ts`）
+→ Infrastructure（`songAnalyzeClient.ts`, Fly, Edge, Supabase）
+
+Domain を React や fetch に漏らさない。DSP/幾何を Edge Function や LLM に投げない。
+
+## 既存資産
+
+エンジンは既に audio / music / cue / formation / movement / scoring / evaluation に分かれている。
+新しい `analyzeSong()` に全部を再実装しない。既存の pure 関数を呼ぶ。
+
+巨大化しやすい入口:
+
+- `analyzeSongStructureFromPeaks`
+- `runEngineAppSuggest`
+- `generateFormationCues`
+- `AudioAnalyzer`
+
+処理が増えたら detector / scorer に切り出す。
+
+## TypeScript
+
+- `any` 禁止。`unknown` は narrowing
+- 判別可能な union（既存 `ChangePointType`, `FormationCueAction`, `MusicSectionType`）
+- `as any` でテストや実装の型を黙らせない
+- 数値: NaN / Inf / 0除算 / 負の duration・distance。既存 `signalMath` / `scoreMath` を使う
+
+## 決定性と I/O
+
+feature 正規化、event/change-point/formation スコア、座標変換、ランキングは pure。
+I/O（decode, fetch, IndexedDB）は端に置く。同一入力→同一出力。
+
+## エラー
+
+空 peaks、不正 audio、解析失敗、部分結果、12s タイムアウト、壊れたキャッシュ JSON を設計する。
+Fly 失敗時は browser。browser 失敗を coerced な偽サビで埋めない。
+
+## 性能・依存
+
+FFT・候補生成・衝突・K-means は計算量を書く。UI スレッドで長尺 decode+FFT を同期実行しない。
+依存追加は Need / 既存代替 / bundle / ライセンス / 保守。便利だから足すな。
+
+## Feature flag と互換
+
+大きな解析置換は OFF → 内部 → 本番。既存作品・保存隊形・書き出し・API を黙って壊さない。
+破壊的変更には Reason / Impact / Migration / Rollback をレポートに書く。
+
+## レビュー観点
+
+意味のある定数は名前を付ける（`structureConfig.ts`, `ScoreWeights.ts`, `suggestTravelTiming.ts`）。
+WHY をコメントする。WHAT の複写は不要。
+重複ロジック（Fly Python と browser TS のセクション規則）を変えるときは **両方とテストと ANALYZER_VERSION** を揃える。

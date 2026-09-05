@@ -1,0 +1,49 @@
+---
+description: 移動実現性。距離・速度・衝突・交差・4カウント移動隙間。幼児は交差禁止。
+globs: src/lib/choreocore/engine/movement/**/*.ts,src/lib/choreocore/lightingSync/suggestTravelTiming.ts,src/lib/choreocore/lightingSync/classProfiles.ts,src/lib/dancerPath*.ts,src/lib/applyAiSuggestResult.ts
+alwaysApply: false
+---
+
+# Motion Feasibility
+
+移動可能性は必須評価であり、衝突の有無だけではない。
+
+## 再生契約（壊さない）
+
+`src/lib/choreocore/lightingSync/suggestTravelTiming.ts`
+
+- `FORMATION_TRAVEL_COUNTS = 4` … 次の hit の 4カウント前から移動開始、hit で着く
+- `FORMATION_MIN_HOLD_COUNTS = 4` … 最低キープ
+- 最短 hit 間隔 = 8 カウント
+- キュー `[tStart, tEnd]` は静止。移動は `(tEnd, next.tStart)` の補間のみ
+
+`applyAiSuggestResult.ts` の `stitchOverlappingEnds` は重なりだけ潰す。**隙間（移動時間）を潰してはいけない。** append は既存キューを短くしない。
+
+## 基礎量
+
+既存型 `MovementTypes.ts` / 実装:
+
+- 距離: `TravelDistance.ts`
+- 速度比: `MovementSpeed.ts` … `requiredSpeed = distance / availableTime`
+- タイミング: `MovementTiming.ts`
+- 衝突: `CollisionDetector.ts`
+- 交差ペナルティ: `MovementAbility.crossingPenalty`
+- 押し合い: `PushingLimitAdapter.ts`
+- 採点: `TransitionScorer.ts`, `FeasibilityScore.ts`
+
+見るもの: distance, duration, speed, acceleration, direction change, pathLength, crossingRisk, collisionRisk。
+
+`requiredSpeed > maxSpeed`（クラスの `maxMoveDistancePerCount` × 能力）ならその候補は落とすか、より近い雛形へ。後処理で無理矢理ワープさせない。
+
+## クラス制約
+
+`classProfiles.ts` を尊重する。
+
+- toddler: `allowCrossMovement === false`。スタイルが dynamic でも交差雛形を出さない
+- `minCountsBetweenChanges` は CueEngine cooldown と travel gap の両方に効く
+- 再提案フィードバック（移動少なめ／交差少なめ）は profile を締めるだけ。解析を偽造しない
+
+## 生成時から時間予算を見る
+
+`availableSeconds = travelDurationSec(bpm)` を候補生成の入力にする。
+キープ中に次の隊形へ滑らせない。hit より早く着いても、絵は hit まで前の隊形のまま。

@@ -191,6 +191,7 @@ export async function analyzeAudio(
     hits,
     analysisVersion: ANALYSIS_VERSION,
     confidence,
+    provenance: "real",
   };
 }
 

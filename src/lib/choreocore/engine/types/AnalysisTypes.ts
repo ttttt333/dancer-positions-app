@@ -24,7 +24,13 @@ export type AudioAnalysisConfig = {
 /**
  * Phase 1 pipeline output. Section / phrase / cue fields are intentionally
  * omitted so Phase 2 can extend this without breaking callers.
+ *
+ * provenance は必須:
+ * - "real" … PCM から AudioAnalyzer が出した本物
+ * - "synthetic" … peaks から作った Legacy Compatibility（Phase1 ではない）
  */
+export type Phase1Provenance = "real" | "synthetic";
+
 export type MusicAnalysisResultPhase1 = {
   duration: number;
   sampleRate: number;
@@ -35,6 +41,7 @@ export type MusicAnalysisResultPhase1 = {
   hits: HitEvent[];
   analysisVersion: string;
   confidence: number;
+  provenance: Phase1Provenance;
 };
 
 export type AnalysisSummary = {

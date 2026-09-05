@@ -22,6 +22,7 @@ import {
   pairSuggestionCues,
   type AiSuggestApplyMode,
 } from "../lib/applyAiSuggestResult";
+import { captureEditorSuggestionApply } from "../lib/choreocore/engine/calibration/humanFeedbackCapture";
 import { poseLevelLabelJa, poseLevelMarkerScale } from "../lib/stageMarkerSizing";
 import { scoreAiAgainstProject } from "../lib/choreocore/lightingSync";
 import { EditorSideSheet } from "./EditorSideSheet";
@@ -369,6 +370,29 @@ export function AiSuggestDialog({
         : "採用したキューでタイムラインを置き換えます。\n却下した提案は入りません。\n元に戻す（Ctrl+Z）で戻せます。\n\n適用しますか？"
     );
     if (!confirmed) return;
+    captureEditorSuggestionApply(
+      {
+        musicId: project.pieceTitle.trim() || undefined,
+        acceptedCueIds: [...acceptedCueIds],
+        cues: result.cues,
+        formations: result.formations,
+        scoreByFormationId: Object.fromEntries(
+          result.formations.map((f, i) => [
+            f.id,
+            {
+              overall: result.scores[i]?.total ?? 0,
+              breakdown: {
+                move: result.scores[i]?.axes.move ?? 0,
+                safety: result.scores[i]?.axes.safety ?? 0,
+              },
+              weights: {},
+              weightsVersion: "WEIGHTS_FORMATION_V1",
+            },
+          ])
+        ),
+      },
+      acceptedCueIds
+    );
     setProject((prev) =>
       applyAiSuggestToProject(prev, accepted, applyMode, { durationSec })
     );
@@ -379,6 +403,7 @@ export function AiSuggestDialog({
     acceptedCueIds,
     applyMode,
     durationSec,
+    project.pieceTitle,
     setProject,
     clearStagePreview,
     onClose,

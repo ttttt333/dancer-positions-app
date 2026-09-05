@@ -19,6 +19,7 @@ export type {
   EnergyWeights,
   AudioAnalysisConfig,
   MusicAnalysisResultPhase1,
+  Phase1Provenance,
   AnalysisSummary,
 } from "./AnalysisTypes";
 export type {

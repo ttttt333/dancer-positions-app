@@ -1,0 +1,41 @@
+---
+description: 検証。既存エンジン／提案テストを壊さない。未実行を PASS と書かない。
+globs: **/*.{test,spec}.ts,src/lib/choreocore/engine/evaluation/**/*.ts,src/lib/choreocore/engine/realworld/**/*.ts,src/lib/choreocore/engine/annotation/**/*.ts,src/lib/choreocore/lightingSync/realSongQualityGate.ts
+alwaysApply: false
+---
+
+# Testing and Validation
+
+実装したら、触った領域で可能な限り `npx vitest run <paths>` と `npm run type-check` を実行する。
+ビルド（`npm run build`）は UI/バンドルに関わる変更で。**実行していないものを PASS と書かない。** Verified / Partially verified / Not verified を分ける。
+
+## 壊してはいけない資産
+
+エンジン側（Phase 相当）のテストを「提案を簡単にするため」に弱めない。
+
+- audio: `OnsetDetector`, `BeatDetector`, `SpectralAnalyzer`, `EnergyAnalyzer`, `AudioPipeline`
+- music: `SectionDetector`, `PhraseDetector`, `ChangePointDetector`, `HitClassifier`, `MusicStructureAnalyzer`
+- cue: `CueEngine.test.ts`
+- formation / scoring / movement / evaluation / realworld / annotation / advisor / pilot
+
+本番提案:
+
+- `songStructureAnalysis.test.ts` … PRE_CHORUS が CHORUS_START より前。4エイト全部が変化点ではない
+- `engineSuggestPipeline.test.ts` … dancer id、幼児クロス無し、4カウント隙間、サビで位置が変わる、A終わりとサビで別隊形
+- `layoutPresetBridge.test.ts` … 円→circle、chorus が vee 系、extra_* を既定で出さない
+- `suggestTravelTiming.test.ts`, `applyAiSuggestResult.test.ts`, `lightingSync.test.ts`
+
+バグ修正は Reproduce → failing test → fix → 関連テスト → 必要なら広め。
+
+## 音楽解析で最低限想定する入力
+
+normal / 静か / 強マスタリング / drop / build / break / silence / 短いセクション / 反復 / 不規則フレーズ。
+1曲の目視成功をマージ条件にしない。
+
+計測できるものは測る: 境界の timing error、false chorus、候補の多様性、衝突率。
+「良くなった気がする」だけで閾値をいじらない。
+
+## 品質ゲート
+
+既存 `engine/advisor/QualityGates.ts` と `lightingSync/realSongQualityGate.ts` を、提案の自己申告スコアで置き換えない。
+Golden / annotation データがある変更は、その評価ランナーを優先して回す。

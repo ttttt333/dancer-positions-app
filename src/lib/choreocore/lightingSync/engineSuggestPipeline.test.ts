@@ -1,10 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { LAYOUT_PRESET_LABELS } from "../../formationLayouts";
 import { CLASS_ADVANCED_MON7, CLASS_TODDLER } from "./classProfiles";
 import { resolveSuggestTaste } from "./suggestTaste";
 import { isCrossLayoutPreset } from "./layoutPresetBridge";
 import { travelDurationSec } from "./suggestTravelTiming";
 import { phase1FromPeaks, runEngineAppSuggest } from "./engineSuggestPipeline";
+import { cuesAreTimeOrdered } from "../engine/cue/cueQuality";
+import { setMusicEnginePhase12EnabledForTests } from "./musicEngineFlag";
+import { analyzeAndCacheRealPhase1 } from "../engine/audio/analyzeAndCacheRealPhase1";
+import { clearRealPhase1Cache } from "../engine/audio/realPhase1Cache";
+import { makeQuietThenHit } from "../engine/audio/testBuffers";
+import { resetMusicEngineTrace } from "../engine/music/productionTimeline";
 import type { DancerSpot } from "../../types/choreography";
 
 function peaksWithChorus(duration = 80, bpm = 120): number[] {
@@ -32,6 +38,12 @@ function seeds(n = 6): DancerSpot[] {
 }
 
 describe("engineSuggestPipeline", () => {
+  afterEach(() => {
+    setMusicEnginePhase12EnabledForTests(undefined);
+    clearRealPhase1Cache();
+    resetMusicEngineTrace();
+  });
+
   it("builds phase1 whose duration matches the song", () => {
     const phase1 = phase1FromPeaks(peaksWithChorus(64), 64, 128);
     expect(phase1.duration).toBeGreaterThan(60);
@@ -219,5 +231,122 @@ describe("engineSuggestPipeline", () => {
     expect(layoutIds.some((id) => id.startsWith("extra_"))).toBe(false);
     expect(layoutIds.some((id) => /pinwheel|heart|spiral/.test(id))).toBe(false);
     expect(result!.reasoning.some((l) => l.includes("PRE_CHORUS"))).toBe(true);
+  });
+
+  it("F. FLAG OFF does not attach Real Phase2 musicEngine", () => {
+    const result = runEngineAppSuggest({
+      peaks: peaksWithChorus(80),
+      durationSec: 80,
+      bpm: 120,
+      remoteChangePoints: [
+        { eight_index: 8, time: 16, score: 0.9, tier: "major", section_type: "CHORUS_START" },
+      ],
+      seedDancers: seeds(6),
+      profile: CLASS_ADVANCED_MON7,
+      tasteBias: resolveSuggestTaste({}),
+      targetCueCount: 6,
+    });
+    expect(result).not.toBeNull();
+    expect(result!.musicEngine).toBeUndefined();
+    expect(result!.musicEngine?.formationIntelligence).toBeUndefined();
+  });
+
+  it("D. FLAG ON cache miss falls back to legacy suggest", () => {
+    setMusicEnginePhase12EnabledForTests(true);
+    const result = runEngineAppSuggest({
+      peaks: peaksWithChorus(80),
+      durationSec: 80,
+      bpm: 120,
+      audioCacheKey: "missing-stage2",
+      remoteChangePoints: [
+        { eight_index: 8, time: 16, score: 0.9, tier: "major", section_type: "CHORUS_START" },
+      ],
+      seedDancers: seeds(6),
+      profile: CLASS_ADVANCED_MON7,
+      tasteBias: resolveSuggestTaste({}),
+      targetCueCount: 6,
+    });
+    expect(result).not.toBeNull();
+    expect(result!.musicEngine?.analysisSource).toBe("synthetic-legacy");
+    expect(result!.musicEngine?.fallbackReason).toBe("cache-miss");
+    expect(result!.musicEngine?.preservedPhase2).toBeNull();
+    expect(result!.musicEngine?.formationIntelligence).toBeUndefined();
+    expect(result!.musicEngine?.transitionIntelligence).toBeUndefined();
+    expect(result!.formations.length).toBeGreaterThan(0);
+  });
+
+  it("C+gap. FLAG ON cache hit: Cue uses Real Timeline, remote does not overwrite", async () => {
+    setMusicEnginePhase12EnabledForTests(true);
+    await analyzeAndCacheRealPhase1({
+      audioBuffer: makeQuietThenHit({ durationSec: 3.0, hitTimeSec: 1.4 }),
+      cacheKey: "stage2-suggest",
+      force: true,
+    });
+    const remote = [
+      { eight_index: 0, time: 0, score: 0.4, tier: "minor" as const },
+      {
+        eight_index: 8,
+        time: 16,
+        score: 0.9,
+        tier: "major" as const,
+        section_type: "CHORUS_START" as const,
+      },
+    ];
+    const result = runEngineAppSuggest({
+      peaks: peaksWithChorus(80),
+      durationSec: 80,
+      bpm: 120,
+      audioCacheKey: "stage2-suggest",
+      remoteChangePoints: remote,
+      seedDancers: seeds(6),
+      profile: CLASS_ADVANCED_MON7,
+      tasteBias: resolveSuggestTaste({ style: "dynamic" }),
+      targetCueCount: 6,
+    });
+    expect(result).not.toBeNull();
+    expect(result!.musicEngine?.analysisSource).toBe("engine-phase12");
+    expect(result!.musicEngine?.phase1Provenance).toBe("real");
+    expect(result!.musicEngine?.overwriteSites).toEqual([]);
+    const preserved = result!.musicEngine?.preservedPhase2;
+    expect(preserved).toBeTruthy();
+    expect(preserved!.sections.length).toBeGreaterThan(0);
+    expect(preserved!.phrases.length).toBeGreaterThan(0);
+    expect(Array.isArray(preserved!.changePoints)).toBe(true);
+    expect(Array.isArray(preserved!.eventClusters)).toBe(true);
+    const cueSections = result!.evaluation.sections.map((s) => s.id).join("|");
+    const preservedIds = preserved!.sections.map((s) => s.id).join("|");
+    expect(cueSections).toBe(preservedIds);
+    expect(result!.evaluation.sections.some((s) => s.id.includes("16000"))).toBe(
+      false
+    );
+    expect(
+      preserved!.eventClusters.some((c) => c.id.startsWith("fly-ec-"))
+    ).toBe(false);
+    expect(result!.musicEngine?.timeline?.source).toBe("engine-phase12");
+    expect(result!.musicEngine?.cueQuality?.source).toBe("engine-phase12");
+    expect(result!.musicEngine?.cueQuality?.preChorusBeforeChorus).toBe(true);
+    expect(cuesAreTimeOrdered(result!.evaluation.cues)).toBe(true);
+    const qualityRows = result!.musicEngine?.cueQuality?.rows ?? [];
+    expect(qualityRows.some((r) => r.sourceEventId.length > 0)).toBe(true);
+    const intents = result!.musicEngine?.choreographicIntents?.intents ?? [];
+    expect(intents.length).toBeGreaterThan(0);
+    expect(intents.every((i) => i.primary.sourceEventIds.length > 0)).toBe(true);
+    expect(
+      intents.every(
+        (i) => !("x" in i.primary) && !("positions" in i.primary)
+      )
+    ).toBe(true);
+    const intel = result!.musicEngine?.formationIntelligence;
+    expect(intel?.recommendations.length).toBeGreaterThan(0);
+    expect(intel?.recommendations.some((r) => r.primary)).toBe(true);
+    const motion = result!.musicEngine?.transitionIntelligence;
+    expect(motion?.recommendations.length).toBeGreaterThan(0);
+    expect(motion?.analysisVersion.startsWith("7.")).toBe(true);
+    const people = seeds(6);
+    const ids = people.map((p) => p.id);
+    for (const f of result!.formations) {
+      expect(f.dancers.map((d) => d.id)).toEqual(ids);
+    }
+    expect(result!.reasoning.some((l) => l.includes("エディタ雛形"))).toBe(true);
   });
 });
