@@ -155,9 +155,9 @@ const SECTION_LAYOUTS: Record<SectionType, string[]> = {
     "diamond",
     "grid",
     "stagger",
-    "w_shape",
-    "u_shape",
     "vee",
+    "two_rows",
+    "hourglass",
   ],
   drop: ["diamond", "x_shape", "pyramid_inverse", "radial_burst", "v_open"],
   se_trigger: ["cluster_tight", "pyramid", "stagger", "asymmetric_l", "wedge"],
@@ -171,7 +171,7 @@ const STYLE_LAYOUTS: Record<string, string[]> = {
     "grid",
     "diamond",
     "radial_burst",
-    "u_shape",
+    "wedge",
     "pyramid_inverse",
   ],
   symmetric: [
@@ -269,7 +269,7 @@ const HORIZONTAL_WIDE = new Set<string>([
   "extra_arc_wide",
 ]);
 
-/** キュー番号でローテする「見せ場」隊形 */
+/** キュー番号でローテする「見せ場」隊形（後半でも周期が短く潰れないよう長め） */
 export const SHOW_VARIETY_CYCLE: LayoutPresetId[] = [
   "pyramid",
   "stagger",
@@ -277,12 +277,24 @@ export const SHOW_VARIETY_CYCLE: LayoutPresetId[] = [
   "diamond",
   "two_rows",
   "cluster_tight",
-  "u_shape",
+  "block_3_depth",
   "pyramid_inverse",
   "three_clusters",
   "vee",
   "hourglass",
   "block_3",
+  "wedge",
+  "inverse_vee",
+  "column_pair",
+  "arc",
+  "block_lr",
+  "two_wings",
+  "scatter_center",
+  "concentric",
+  "t_shape",
+  "square_outline",
+  "line_vertical",
+  "block_4",
 ];
 
 export function isCrossLayoutPreset(id: string): boolean {
@@ -345,9 +357,20 @@ function rankedLayoutPool(input: PickLayoutPresetInput): LayoutPresetId[] {
   );
   const varietyBoost: LayoutPresetId[] = [];
   if (input.cueIndex != null && SHOW_VARIETY_CYCLE.length > 0) {
-    const i = ((input.cueIndex % SHOW_VARIETY_CYCLE.length) + SHOW_VARIETY_CYCLE.length) % SHOW_VARIETY_CYCLE.length;
+    // salt を混ぜて再提案・後半キューでも同じ周期に落ちないようにする
+    const step = 1 + (Math.abs(input.salt) % 5);
+    const i =
+      (((input.cueIndex * step + Math.abs(input.salt)) %
+        SHOW_VARIETY_CYCLE.length) +
+        SHOW_VARIETY_CYCLE.length) %
+      SHOW_VARIETY_CYCLE.length;
     varietyBoost.push(SHOW_VARIETY_CYCLE[i]!);
-    varietyBoost.push(SHOW_VARIETY_CYCLE[(i + 1) % SHOW_VARIETY_CYCLE.length]!);
+    varietyBoost.push(
+      SHOW_VARIETY_CYCLE[(i + step) % SHOW_VARIETY_CYCLE.length]!
+    );
+    varietyBoost.push(
+      SHOW_VARIETY_CYCLE[(i + step * 2) % SHOW_VARIETY_CYCLE.length]!
+    );
   }
 
   const ranked = onlyValid([
@@ -365,11 +388,14 @@ function rankedLayoutPool(input: PickLayoutPresetInput): LayoutPresetId[] {
     if (noCross.length) pool = noCross;
   }
 
-  const avoid = new Set(input.recent ?? []);
+  // 使った雛形IDは全体で避ける。形の系統は直近だけ見て枯渇を防ぐ
+  const used = input.recent ?? [];
+  const avoid = new Set(used);
+  const recentForBucket = used.slice(-4);
   const recentBuckets = new Set(
-    (input.recent ?? []).map((id) => layoutShapeBucket(id))
+    recentForBucket.map((id) => layoutShapeBucket(id))
   );
-  const recentHadHLine = (input.recent ?? []).some(isHorizontalWideLayout);
+  const recentHadHLine = recentForBucket.some(isHorizontalWideLayout);
 
   const preferDepth = pool.filter((id) => {
     if (avoid.has(id)) return false;
@@ -416,7 +442,18 @@ export function rankLayoutPresets(
     if (!input.allowCross && CROSS_LAYOUTS.has(id)) return false;
     return true;
   });
-  return onlyValid([...primary, ...staples]).slice(0, Math.max(1, limit));
+  const cycle = SHOW_VARIETY_CYCLE.filter((id) => {
+    if (!layoutFitsCount(id, n)) return false;
+    if (!input.allowCross && CROSS_LAYOUTS.has(id)) return false;
+    return isPracticalLayout(id, input.taste?.style);
+  });
+  // 後半キュー向けに候補枠を広げ、未使用の見せ場を末尾にも載せる
+  const used = new Set(input.recent ?? []);
+  const unusedCycle = cycle.filter((id) => !used.has(id));
+  return onlyValid([...primary, ...unusedCycle, ...staples, ...cycle]).slice(
+    0,
+    Math.max(1, limit)
+  );
 }
 
 const MAJOR_FAMILIES: Record<SectionType, FormationPatternId[]> = {

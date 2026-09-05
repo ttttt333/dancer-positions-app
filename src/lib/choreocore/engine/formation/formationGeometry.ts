@@ -72,7 +72,56 @@ export function scaleSpotsFromCenterSafe<T extends { xPct: number; yPct: number 
 ): T[] {
   const minTemplateDistance = minPairDistanceMeters(spots);
   const scale = clampScaleForMinDistance(minTemplateDistance, requestedScale);
-  return enforceSymmetryPct(scaleRawPct(spots, scale));
+  return enforceSymmetryPct(
+    ensureMinPairDistancePct(scaleRawPct(spots, scale), DANCER_MIN_DISTANCE)
+  );
+}
+
+/**
+ * ペア間距離が minMeters 未満なら、中心から反発させて広げる。
+ * 密集雛形や移動補正の潰れを見た目で許容しないための最終ガード。
+ */
+export function ensureMinPairDistancePct<T extends { xPct: number; yPct: number }>(
+  spots: T[],
+  minMeters: number = DANCER_MIN_DISTANCE
+): T[] {
+  if (spots.length < 2) return spots;
+  const minM = Math.max(0.35, minMeters);
+  const out = spots.map((s) => ({ ...s }));
+  const maxIter = 48;
+
+  for (let iter = 0; iter < maxIter; iter += 1) {
+    let moved = false;
+    for (let i = 0; i < out.length; i += 1) {
+      for (let j = i + 1; j < out.length; j += 1) {
+        const a = out[i]!;
+        const b = out[j]!;
+        const { dx, dy } = pctDeltaToMeters(a.xPct - b.xPct, a.yPct - b.yPct);
+        const d = Math.hypot(dx, dy);
+        if (d >= minM - 1e-6) continue;
+        const need = (minM - Math.max(d, 1e-4)) / 2;
+        let ux: number;
+        let uy: number;
+        if (d < 1e-4) {
+          const ang = (i * 2.399963 + j) % (Math.PI * 2);
+          ux = Math.cos(ang);
+          uy = Math.sin(ang);
+        } else {
+          ux = dx / d;
+          uy = dy / d;
+        }
+        const dxPct = (need * ux) / STAGE_WIDTH_M * 100;
+        const dyPct = (need * uy) / STAGE_DEPTH_M * 100;
+        a.xPct = Math.min(96, Math.max(4, a.xPct + dxPct));
+        a.yPct = Math.min(94, Math.max(6, a.yPct + dyPct));
+        b.xPct = Math.min(96, Math.max(4, b.xPct - dxPct));
+        b.yPct = Math.min(94, Math.max(6, b.yPct - dyPct));
+        moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+  return out;
 }
 
 /**

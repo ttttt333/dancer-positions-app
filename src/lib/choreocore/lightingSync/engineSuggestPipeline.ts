@@ -25,7 +25,7 @@ import {
   type ChorusLayoutMemory,
   type ChorusShapeMemory,
 } from "../engine/formation/chorusCallback";
-import { enforceSymmetryPct } from "../engine/formation/formationGeometry";
+import { enforceSymmetryPct, ensureMinPairDistancePct, DANCER_MIN_DISTANCE, minPairDistanceMeters } from "../engine/formation/formationGeometry";
 import {
   recommendFormationsForIntentSequence,
   type FormationIntelligenceReport,
@@ -181,6 +181,8 @@ export type EngineAppSuggestInput = {
   projectKey?: string;
   /** テスト用。本番シングルトンは使わない */
   canaryActivation?: FormationCanaryActivation;
+  /** 再提案フィードバック等で隊形ローテをずらすソルト */
+  layoutVarietySalt?: number;
 };
 
 export type EngineAppSuggestMusicEngine = {
@@ -304,6 +306,21 @@ function membersToSpots(
   });
 }
 
+function memberSpanMeters(members: MemberPosition[]): number {
+  if (members.length < 2) return 0;
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const m of members) {
+    minX = Math.min(minX, m.x);
+    maxX = Math.max(maxX, m.x);
+    minY = Math.min(minY, m.y);
+    maxY = Math.max(maxY, m.y);
+  }
+  return Math.hypot(maxX - minX, maxY - minY);
+}
+
 function refineSpotsForClass(
   spots: DancerSpot[],
   seeds: DancerSpot[],
@@ -312,18 +329,48 @@ function refineSpotsForClass(
   availableCounts: number,
   layoutOpts: LayoutPresetOptions | undefined
 ): DancerSpot[] {
-  let members = resolveOverlaps(spotsToMembers(spots, profile), profile);
+  const targetMembers = resolveOverlaps(spotsToMembers(spots, profile), profile);
+  let members = targetMembers;
   if (prev && prev.length > 0) {
     const prevM = spotsToMembers(prev, profile);
-    const { corrected, warnings } = evaluateMoveConstraints(
+    const hard = evaluateMoveConstraints(
       prevM,
-      members,
+      targetMembers,
       profile,
       availableCounts
     );
-    members = corrected;
+    members = hard.corrected;
+    const targetSpan = memberSpanMeters(targetMembers);
+    const correctedSpan = memberSpanMeters(members);
+    const collapsed =
+      targetSpan > 2.5 && correctedSpan < targetSpan * 0.55;
+    const tooTight =
+      minPairDistanceMeters(
+        members.map((m) => ({
+          xPct: ((m.x + STAGE_WIDTH_M / 2) / STAGE_WIDTH_M) * 100,
+          yPct: ((m.y + STAGE_DEPTH_M / 2) / STAGE_DEPTH_M) * 100,
+        }))
+      ) < DANCER_MIN_DISTANCE * 0.75;
+
+    // 移動上限で隊形が潰れたら、予算を緩めて雛形の広がりを優先
+    if (collapsed || tooTight) {
+      const softProfile: ClassProfile = {
+        ...profile,
+        maxMoveDistancePerCount: Math.max(
+          profile.maxMoveDistancePerCount * 2.2,
+          1.4
+        ),
+      };
+      members = evaluateMoveConstraints(
+        prevM,
+        targetMembers,
+        softProfile,
+        Math.max(availableCounts, FORMATION_TRAVEL_COUNTS) * 2
+      ).corrected;
+    }
+
     if (
-      warnings.some((w) => w.code === "CROSS_FORBIDDEN") &&
+      hard.warnings.some((w) => w.code === "CROSS_FORBIDDEN") &&
       !allowCrossOf(profile)
     ) {
       const line = spotsForLayoutPreset("line", seeds, prev, layoutOpts);
@@ -336,7 +383,10 @@ function refineSpotsForClass(
       ).corrected;
     }
   }
-  return membersToSpots(members, seeds);
+  return ensureMinPairDistancePct(
+    membersToSpots(members, seeds),
+    DANCER_MIN_DISTANCE
+  );
 }
 
 function engineFormationFromSpots(
@@ -549,16 +599,26 @@ function promoteCuesAtSongChanges(
   return { ...analysis, cues, intents };
 }
 
-function isTrueHold(cue: FormationCue): boolean {
-  return (
-    cue.action === "HOLD" &&
-    !cue.isMajor &&
-    !cue.reasonCodes.includes("SECTION_CHANGE") &&
-    !cue.reasonCodes.includes("PROMOTED_SECTION_CHANGE") &&
-    !cue.reasonCodes.includes("PROMOTED_VERSE_END") &&
-    !cue.reasonCodes.includes("TENSION_CONTRACT")
-  );
+function finalizeSuggestSpots(
+  dancers: DancerSpot[],
+  scaleMax: boolean | undefined
+): DancerSpot[] {
+  let next = dancers;
+  if (scaleMax) next = scaleSpotsFromCenter(next, FINAL_CHORUS_SCALE);
+  next = enforceSymmetryPct(next);
+  return ensureMinPairDistancePct(next, DANCER_MIN_DISTANCE);
 }
+
+const CALLBACK_LOCK_ACTIONS = new Set<FormationCueAction>([
+  "EXPAND",
+  "MAJOR_CHANGE",
+  "V",
+  "TRIANGLE",
+  "ARC",
+  "DIAGONAL",
+  "SPLIT",
+  "LINE",
+]);
 
 function resolveDistinctLayoutSpots(input: {
   preferred: LayoutPresetId | null;
@@ -569,6 +629,7 @@ function resolveDistinctLayoutSpots(input: {
   tasteBias: SuggestTasteBias;
   profile: ClassProfile;
   layoutOpts: LayoutPresetOptions | undefined;
+  /** これまでの全使用雛形（同一IDの再出を抑える） */
   recent: LayoutPresetId[];
   salt: number;
   cueIndex: number;
@@ -582,18 +643,23 @@ function resolveDistinctLayoutSpots(input: {
       input.prevSpots,
       input.layoutOpts
     );
-    let dancers = refineSpotsForClass(
-      raw,
-      input.seeds,
-      input.prevSpots,
-      input.profile,
-      FORMATION_TRAVEL_COUNTS,
-      input.layoutOpts
+    const dancers = finalizeSuggestSpots(
+      refineSpotsForClass(
+        raw,
+        input.seeds,
+        input.prevSpots,
+        input.profile,
+        FORMATION_TRAVEL_COUNTS,
+        input.layoutOpts
+      ),
+      input.scaleMax
     );
-    if (input.scaleMax) dancers = scaleSpotsFromCenter(dancers, FINAL_CHORUS_SCALE);
-    dancers = enforceSymmetryPct(dancers);
     return { layoutId: input.lockLayoutId, dancers };
   }
+  const rankLimit = Math.min(
+    28,
+    Math.max(14, 8 + input.recent.length)
+  );
   const ranked = rankLayoutPresets(
     {
       family: familyForSuggestCue(
@@ -610,24 +676,37 @@ function resolveDistinctLayoutSpots(input: {
       recent: input.recent,
       cueIndex: input.cueIndex,
     },
-    10
+    rankLimit
   );
-  // 横広がり preferred はローテを潰すので後回し
-  const ordered =
+  const lastId = input.recent[input.recent.length - 1] ?? null;
+  const preferredOk =
     input.preferred &&
-    (!isHorizontalWideLayout(input.preferred) || input.lockLayoutId)
-      ? [input.preferred, ...ranked.filter((id) => id !== input.preferred)]
-      : ranked;
+    !isHorizontalWideLayout(input.preferred) &&
+    !input.recent.includes(input.preferred) &&
+    input.preferred !== lastId;
+  const ordered = preferredOk
+    ? [input.preferred!, ...ranked.filter((id) => id !== input.preferred)]
+    : ranked.filter((id) => id !== lastId).concat(lastId ? [lastId] : []);
 
-  const recentBuckets = new Set(input.recent.map((id) => layoutShapeBucket(id)));
-  const recentHadHLine = input.recent.some(isHorizontalWideLayout);
+  const usedExact = new Set(input.recent);
+  const recentBuckets = new Set(
+    input.recent.slice(-5).map((id) => layoutShapeBucket(id))
+  );
+  const recentHadHLine = input.recent.slice(-5).some(isHorizontalWideLayout);
+  // 同じ「丸系」連発（U字など）を特に抑える
+  const lastBucket = lastId ? layoutShapeBucket(lastId) : null;
 
   let fallback: { layoutId: LayoutPresetId; dancers: DancerSpot[] } | null =
     null;
-  for (const pass of [0, 1] as const) {
+  // pass0: 未使用 + 直近バケツ違い / pass1: 未使用 / pass2: 直前以外
+  for (const pass of [0, 1, 2] as const) {
     for (const id of ordered) {
-      if (pass === 0 && input.recent.includes(id)) continue;
+      if (pass <= 1 && usedExact.has(id)) continue;
+      if (pass === 2 && id === lastId) continue;
       if (pass === 0 && recentBuckets.has(layoutShapeBucket(id))) continue;
+      if (pass === 0 && lastBucket === "round" && layoutShapeBucket(id) === "round") {
+        continue;
+      }
       if (pass === 0 && recentHadHLine && isHorizontalWideLayout(id)) continue;
       if (!allowCrossOf(input.profile) && isCrossLayoutPreset(id)) continue;
       if (/^extra_/.test(id) && input.tasteBias.style !== "freestyle") continue;
@@ -643,24 +722,32 @@ function resolveDistinctLayoutSpots(input: {
         input.prevSpots,
         input.layoutOpts
       );
-      const dancers = refineSpotsForClass(
-        raw,
-        input.seeds,
-        input.prevSpots,
-        input.profile,
-        FORMATION_TRAVEL_COUNTS,
-        input.layoutOpts
+      const dancers = finalizeSuggestSpots(
+        refineSpotsForClass(
+          raw,
+          input.seeds,
+          input.prevSpots,
+          input.profile,
+          FORMATION_TRAVEL_COUNTS,
+          input.layoutOpts
+        ),
+        input.scaleMax && CALLBACK_LOCK_ACTIONS.has(input.cue.action)
       );
-      if (!fallback) fallback = { layoutId: id, dancers: enforceSymmetryPct(dancers) };
-      if (meanTravelPct(input.prevSpots, dancers) >= MIN_MEAN_TRAVEL_PCT) {
-        return { layoutId: id, dancers: enforceSymmetryPct(dancers) };
+      if (!fallback) fallback = { layoutId: id, dancers };
+      const travelFloor =
+        pass === 2 ? MIN_MEAN_TRAVEL_PCT * 0.45 : MIN_MEAN_TRAVEL_PCT;
+      if (meanTravelPct(input.prevSpots, dancers) >= travelFloor) {
+        return { layoutId: id, dancers };
       }
     }
   }
   return (
     fallback ?? {
       layoutId: null,
-      dancers: enforceSymmetryPct(input.prevSpots.map((s) => ({ ...s }))),
+      dancers: finalizeSuggestSpots(
+        input.prevSpots.map((s) => ({ ...s })),
+        false
+      ),
     }
   );
 }
@@ -1593,6 +1680,7 @@ function finishEngineAppSuggest(args: {
     }
   }
   const layoutOpts = layoutOptsOf(input);
+  const varietySalt = Math.abs(Math.round(input.layoutVarietySalt ?? 0));
   const candidatesByCue: Record<string, FormationCandidate[]> = {};
   for (let i = 0; i < active.length; i += 1) {
     const cue = active[i]!;
@@ -1614,7 +1702,7 @@ function finishEngineAppSuggest(args: {
         tasteBias: input.tasteBias,
         profile: input.profile,
         layoutOpts,
-        salt: i + Math.round(cue.energyAfter),
+        salt: i + Math.round(cue.energyAfter) + varietySalt,
         cueIndex: i,
       });
     } catch {
@@ -1692,32 +1780,31 @@ function finishEngineAppSuggest(args: {
     const preferred = layoutPresetIdFromTags(eng.tags);
     let layoutId: LayoutPresetId | null = preferred;
     let dancers: DancerSpot[];
-    if (isTrueHold(cue) && i > 0) {
-      dancers = enforceSymmetryPct(prevSpots.map((s) => ({ ...s })));
-      layoutId = recentLayouts[recentLayouts.length - 1] ?? preferred;
-    } else {
-      const lock =
-        callback.bypassRecentAvoidance && callback.rememberedLayoutId
-          ? (callback.rememberedLayoutId as LayoutPresetId)
-          : null;
-      const picked = resolveDistinctLayoutSpots({
-        preferred: lock ?? preferred,
-        seeds,
-        prevSpots,
-        cue,
-        section: lightingSection,
-        tasteBias: input.tasteBias,
-        profile: input.profile,
-        layoutOpts,
-        recent: callback.bypassRecentAvoidance ? [] : recentLayouts.slice(-3),
-        salt: i + Math.round(cue.energyAfter),
-        cueIndex: i,
-        lockLayoutId: lock,
-        scaleMax: callback.scaleMax,
-      });
-      layoutId = picked.layoutId;
-      dancers = picked.dancers;
-    }
+    // サビコールバック再利用は「見せ場」アクションのみ。キープ/閉じるでは固定しない
+    const allowCallbackLock =
+      (callback.variation === "repeat" || callback.variation === "final") &&
+      CALLBACK_LOCK_ACTIONS.has(cue.action);
+    const lock =
+      allowCallbackLock && callback.rememberedLayoutId
+        ? (callback.rememberedLayoutId as LayoutPresetId)
+        : null;
+    const picked = resolveDistinctLayoutSpots({
+      preferred: lock ?? preferred,
+      seeds,
+      prevSpots,
+      cue,
+      section: lightingSection,
+      tasteBias: input.tasteBias,
+      profile: input.profile,
+      layoutOpts,
+      recent: recentLayouts,
+      salt: i + Math.round(cue.energyAfter) + varietySalt,
+      cueIndex: i,
+      lockLayoutId: lock,
+      scaleMax: allowCallbackLock && callback.scaleMax,
+    });
+    layoutId = picked.layoutId;
+    dancers = picked.dancers;
     prevSpots = dancers;
     if (layoutId) recentLayouts.push(layoutId);
     rememberChorusLayout(

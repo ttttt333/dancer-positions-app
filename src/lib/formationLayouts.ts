@@ -1225,17 +1225,21 @@ export function dancersForLayoutPreset(
       break;
     }
     case "cluster_tight": {
-      const base: [number, number][] = [
-        [48, 50],
-        [52, 52],
-        [46, 54],
-        [54, 48],
-        [50, 48],
-      ];
+      // 密集でも 0.8m 相当は確保。Vogel スパイラルで人数に応じて半径を広げる
+      if (n === 1) {
+        pushSpot(out, 0, 50, 50);
+        break;
+      }
+      const r = Math.min(26, Math.max(14, 10 + Math.sqrt(n) * 3.4));
       for (let i = 0; i < n; i++) {
-        const [bx, by] = base[i % base.length]!;
-        const ring = Math.floor(i / base.length);
-        pushSpot(out, i, bx + (ring % 2) * 1.4, by + ring * 1.1);
+        const ang = i * 2.399963;
+        const rad = r * Math.sqrt((i + 0.5) / n);
+        pushSpot(
+          out,
+          i,
+          50 + rad * Math.cos(ang),
+          50 + rad * Math.sin(ang) * 0.88
+        );
       }
       break;
     }
@@ -2268,15 +2272,20 @@ export function dancersForLayoutPreset(
       break;
     }
     case "scatter_center": {
-      const pts = [
-        [50,50],[44,44],[56,44],[56,56],[44,56],[50,38],[62,50],[50,62],
-        [38,50],[46,42],[54,42],[58,48],[58,58],[54,60],[46,60],[42,54],
-        [42,46],[50,35],[64,50],[50,65],[36,50],[52,38],[60,44],[64,56],
-        [56,64],[44,64],[36,56],[36,44],
-      ];
+      if (n === 1) {
+        pushSpot(out, 0, 50, 50);
+        break;
+      }
+      const r = Math.min(28, Math.max(16, 12 + Math.sqrt(n) * 3.6));
       for (let i = 0; i < n; i++) {
-        const p = pts[i % pts.length]!;
-        pushSpot(out, i, p[0]!, p[1]!);
+        const ang = i * 2.399963 + 0.35;
+        const rad = r * Math.sqrt((i + 0.35) / n);
+        pushSpot(
+          out,
+          i,
+          50 + rad * Math.cos(ang),
+          50 + rad * Math.sin(ang) * 0.9
+        );
       }
       break;
     }

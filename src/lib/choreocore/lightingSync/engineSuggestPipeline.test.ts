@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { LAYOUT_PRESET_LABELS } from "../../formationLayouts";
 import { CLASS_ADVANCED_MON7, CLASS_TODDLER } from "./classProfiles";
-import { resolveSuggestTaste } from "./suggestTaste";
+import { resolveSuggestTaste, applyFeedbackToTaste, feedbackVarietySalt } from "./suggestTaste";
 import { isCrossLayoutPreset } from "./layoutPresetBridge";
 import { travelDurationSec } from "./suggestTravelTiming";
 import { phase1FromPeaks, runEngineAppSuggest } from "./engineSuggestPipeline";
@@ -606,5 +606,132 @@ describe("engineSuggestPipeline", () => {
       };
       expect(span(finaleSpots)).toBeGreaterThan(span(firstSpots) - 0.01);
     }
+  });
+
+  it("keeps late cues from reusing the same layout many times in a row", () => {
+    setMusicEnginePhase12EnabledForTests(false);
+    const result = runEngineAppSuggest({
+      peaks: peaksWithChorus(240),
+      durationSec: 240,
+      bpm: 120,
+      remoteChangePoints: Array.from({ length: 28 }, (_, i) => ({
+        eight_index: i * 3,
+        time: i * 8,
+        score: 0.55 + (i % 5) * 0.08,
+        tier: i % 3 === 0 ? ("major" as const) : ("medium" as const),
+        section_type:
+          i % 7 === 0
+            ? ("CHORUS_START" as const)
+            : i % 7 === 6
+              ? ("PRE_CHORUS" as const)
+              : ("VERSE" as const),
+      })),
+      seedDancers: seeds(8),
+      profile: CLASS_ADVANCED_MON7,
+      tasteBias: resolveSuggestTaste({ style: "dynamic", vibes: ["energetic"] }),
+      targetCueCount: 16,
+    });
+    expect(result).not.toBeNull();
+    const layouts = result!.lightingSyncPayload.formations.map(
+      (f) => f.layoutPresetId ?? f.presetName
+    );
+    expect(layouts.length).toBe(16);
+    let maxRun = 1;
+    let run = 1;
+    for (let i = 1; i < layouts.length; i += 1) {
+      if (layouts[i] === layouts[i - 1]) run += 1;
+      else run = 1;
+      maxRun = Math.max(maxRun, run);
+    }
+    expect(maxRun).toBeLessThanOrEqual(2);
+    const unique = new Set(layouts.filter(Boolean));
+    expect(unique.size).toBeGreaterThanOrEqual(8);
+    const uCount = layouts.filter((id) => id === "u_shape").length;
+    expect(uCount).toBeLessThanOrEqual(3);
+  });
+
+  it("keeps suggested formations from collapsing into a center pile", () => {
+    setMusicEnginePhase12EnabledForTests(false);
+    const people = seeds(16);
+    const result = runEngineAppSuggest({
+      peaks: peaksWithChorus(120),
+      durationSec: 120,
+      bpm: 120,
+      remoteChangePoints: Array.from({ length: 18 }, (_, i) => ({
+        eight_index: i * 2,
+        time: i * 6,
+        score: 0.7,
+        tier: i % 4 === 0 ? ("major" as const) : ("medium" as const),
+      })),
+      seedDancers: people,
+      profile: CLASS_ADVANCED_MON7,
+      tasteBias: resolveSuggestTaste({ style: "dynamic" }),
+      targetCueCount: 12,
+    });
+    expect(result).not.toBeNull();
+    for (const f of result!.formations) {
+      const minD = Math.min(
+        ...f.dancers.flatMap((a, i) =>
+          f.dancers.slice(i + 1).map((b) => {
+            const dx = ((a.xPct - b.xPct) / 100) * 12;
+            const dy = ((a.yPct - b.yPct) / 100) * 8;
+            return Math.hypot(dx, dy);
+          })
+        )
+      );
+      expect(minD).toBeGreaterThanOrEqual(0.75);
+      const xs = f.dancers.map((d) => d.xPct);
+      const spanX = Math.max(...xs) - Math.min(...xs);
+      expect(spanX).toBeGreaterThan(12);
+    }
+  });
+
+  it("changes standing layouts when feedback salt and taste are applied", () => {
+    setMusicEnginePhase12EnabledForTests(false);
+    const baseInput = {
+      peaks: peaksWithChorus(120),
+      durationSec: 120,
+      bpm: 120,
+      remoteChangePoints: Array.from({ length: 16 }, (_, i) => ({
+        eight_index: i * 2,
+        time: i * 6,
+        score: 0.6,
+        tier: "medium" as const,
+      })),
+      seedDancers: seeds(6),
+      profile: CLASS_ADVANCED_MON7,
+      targetCueCount: 10,
+    };
+    const plainBias = resolveSuggestTaste({ style: "symmetric" });
+    const a = runEngineAppSuggest({
+      ...baseInput,
+      tasteBias: plainBias,
+      layoutVarietySalt: 0,
+    });
+    const feedback = {
+      preferMoreImpact: true,
+      note: "円とV字でインパクトを",
+    };
+    const b = runEngineAppSuggest({
+      ...baseInput,
+      tasteBias: applyFeedbackToTaste(plainBias, feedback),
+      layoutVarietySalt: feedbackVarietySalt(feedback),
+    });
+    expect(a).not.toBeNull();
+    expect(b).not.toBeNull();
+    const sig = (
+      frames: NonNullable<typeof a>["lightingSyncPayload"]["formations"]
+    ) =>
+      frames
+        .map(
+          (f) =>
+            `${f.layoutPresetId ?? ""}:${(f.positions ?? [])
+              .map((m) => `${Math.round(m.x * 10)},${Math.round(m.y * 10)}`)
+              .join("|")}`
+        )
+        .join("||");
+    expect(sig(a!.lightingSyncPayload.formations)).not.toBe(
+      sig(b!.lightingSyncPayload.formations)
+    );
   });
 });

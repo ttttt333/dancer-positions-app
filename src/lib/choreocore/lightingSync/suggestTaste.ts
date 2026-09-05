@@ -264,7 +264,9 @@ export function resolveSuggestTaste(taste?: SuggestTaste | null): SuggestTasteBi
   );
   const style: SuggestFormationStyleId | undefined =
     taste?.style && taste.style in STYLE_BIAS ? taste.style : undefined;
-  const lyrics = scanLyrics(taste?.lyrics);
+  const lyrics = scanLyrics(
+    [taste?.lyrics, taste?.note].filter(Boolean).join("\n")
+  );
 
   const prefer: FormationPatternId[] = [];
   const avoid: FormationPatternId[] = [];
@@ -347,6 +349,98 @@ export function applyTasteToProfile(
   );
   if (bias.gridSnap) next.gridSnapMode = bias.gridSnap;
   return next;
+}
+
+/** 再提案フィードバックを隊形バイアスへ反映（立ち位置の選びに効かせる） */
+export function applyFeedbackToTaste(
+  bias: SuggestTasteBias,
+  feedback?: {
+    preferLessMovement?: boolean;
+    preferFewerCrossings?: boolean;
+    preferMoreImpact?: boolean;
+    note?: string;
+  } | null
+): SuggestTasteBias {
+  if (!feedback) return bias;
+  let prefer = [...bias.preferPatterns];
+  let avoid = [...bias.avoidPatterns];
+  let energyWeight = bias.energyWeight;
+  let movementScale = bias.movementScale;
+  let allowCross = bias.allowCross;
+  let style = bias.style;
+  const hits = [...bias.lyricsHits];
+  const summaryParts = [bias.summary].filter(Boolean);
+
+  if (feedback.preferMoreImpact) {
+    style = "dynamic";
+    energyWeight = Math.max(energyWeight, 0.5);
+    movementScale = Math.max(movementScale, 1.3);
+    prefer = uniquePatterns([
+      ...prefer,
+      "vee",
+      "dynamic_cross",
+      "front_asymmetry",
+      "wide_spread",
+      "double_u",
+    ]);
+    summaryParts.push("FB:インパクト");
+  }
+  if (feedback.preferLessMovement) {
+    energyWeight = Math.min(energyWeight, -0.1);
+    movementScale = Math.min(movementScale, 0.8);
+    prefer = uniquePatterns([
+      ...prefer,
+      "center_condensed",
+      "small_groups",
+      "fast_shift",
+    ]);
+    avoid = uniquePatterns([...avoid, "dynamic_cross"]);
+    summaryParts.push("FB:移動少なめ");
+  }
+  if (feedback.preferFewerCrossings) {
+    allowCross = false;
+    avoid = uniquePatterns([...avoid, "dynamic_cross"]);
+    summaryParts.push("FB:交差少なめ");
+  }
+  if (feedback.note?.trim()) {
+    const fromNote = scanLyrics(feedback.note);
+    prefer = uniquePatterns([...fromNote.patterns, ...prefer]);
+    energyWeight += fromNote.energy;
+    hits.push(...fromNote.hits);
+    summaryParts.push(`FBメモ:${feedback.note.trim().slice(0, 40)}`);
+  }
+
+  return {
+    preferPatterns: prefer,
+    avoidPatterns: avoid,
+    style,
+    energyWeight: Math.max(-0.6, Math.min(1.2, energyWeight)),
+    allowCross,
+    movementScale,
+    minCountsDelta: bias.minCountsDelta,
+    gridSnap: bias.gridSnap,
+    lyricsHits: [...new Set(hits)],
+    summary: summaryParts.filter(Boolean).join(" / "),
+  };
+}
+
+/** 再提案ごとに隊形ローテをずらすソルト */
+export function feedbackVarietySalt(feedback?: {
+  preferLessMovement?: boolean;
+  preferFewerCrossings?: boolean;
+  preferMoreImpact?: boolean;
+  note?: string;
+} | null): number {
+  if (!feedback) return 0;
+  let s = 0;
+  if (feedback.preferLessMovement) s += 17;
+  if (feedback.preferFewerCrossings) s += 29;
+  if (feedback.preferMoreImpact) s += 43;
+  const note = feedback.note?.trim() ?? "";
+  for (let i = 0; i < note.length; i += 1) {
+    s += note.charCodeAt(i) * (i + 3);
+  }
+  return s % 997;
 }
 
 export function isEmptyTaste(taste?: SuggestTaste | null): boolean {

@@ -158,6 +158,7 @@ export {
   clampScaleForMinDistance,
   enforceSymmetryMeters,
   enforceSymmetryPct,
+  ensureMinPairDistancePct,
   minPairDistanceMeters,
   scaleSpotsFromCenterSafe,
 } from "./formation/formationGeometry";

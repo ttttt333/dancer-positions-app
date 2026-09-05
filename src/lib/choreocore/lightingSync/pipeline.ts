@@ -216,7 +216,7 @@ export function generateLightingSyncSuggestion(
       dancerCount: memberIds.length,
       allowCross: profile.allowCrossMovement,
       taste: tasteBias,
-      recent: recentLayouts.slice(-3),
+      recent: recentLayouts,
     });
 
     let positions = buildLayoutMemberPositions(

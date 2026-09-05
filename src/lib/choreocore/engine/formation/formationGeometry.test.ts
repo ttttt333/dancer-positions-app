@@ -4,6 +4,7 @@ import {
   clampScaleForMinDistance,
   enforceSymmetryMeters,
   enforceSymmetryPct,
+  ensureMinPairDistancePct,
   minPairDistanceMeters,
   scaleSpotsFromCenterSafe,
 } from "./formationGeometry";
@@ -31,6 +32,20 @@ describe("formationGeometry", () => {
 
   it("allows expand without clamping", () => {
     expect(clampScaleForMinDistance(2, 1.32)).toBe(1.32);
+  });
+
+  it("pushes overlapping dancers apart to at least 0.8m", () => {
+    const piled = [
+      { id: "a", xPct: 50, yPct: 50 },
+      { id: "b", xPct: 51, yPct: 50.5 },
+      { id: "c", xPct: 49.5, yPct: 49.5 },
+      { id: "d", xPct: 50.2, yPct: 50.1 },
+    ];
+    expect(minPairDistanceMeters(piled)).toBeLessThan(0.4);
+    const spread = ensureMinPairDistancePct(piled, DANCER_MIN_DISTANCE);
+    expect(minPairDistanceMeters(spread)).toBeGreaterThanOrEqual(
+      DANCER_MIN_DISTANCE - 1e-3
+    );
   });
 
   it("mirrors left from right masters and pins center", () => {

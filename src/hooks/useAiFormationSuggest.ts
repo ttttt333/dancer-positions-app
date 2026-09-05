@@ -17,6 +17,8 @@ import {
   CLASS_ELEMENTARY,
   CLASS_TODDLER,
   applyTasteToProfile,
+  applyFeedbackToTaste,
+  feedbackVarietySalt,
   isEmptyTaste,
   resolveSuggestTaste,
   runEngineAppSuggest,
@@ -195,10 +197,14 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
       taste: SuggestTaste | undefined
     ) => {
       const base = getClassProfile(classProfileId ?? "mon_07pm");
-      const tasteBias = resolveSuggestTaste(taste);
-      const withTaste = isEmptyTaste(taste)
-        ? base
-        : applyTasteToProfile(base, tasteBias);
+      const tasteBias = applyFeedbackToTaste(
+        resolveSuggestTaste(taste),
+        feedback
+      );
+      const withTaste =
+        isEmptyTaste(taste) && !feedback
+          ? base
+          : applyTasteToProfile(base, tasteBias);
       const profile = profileFromFeedback(withTaste, feedback);
 
       const constraintLine = `制約: 最大移動 ${profile.maxMoveDistancePerCount}m/count · 最低間隔 ${profile.minCountsBetweenChanges} counts · 交差${profile.allowCrossMovement ? "可" : "不可"} · 3D姿勢${profile.use3DLeveling ? "ON" : "OFF"}`;
@@ -216,6 +222,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
             .join(" / ") || "なし"}`
         : null;
       const note = extraInfo?.trim();
+      const varietySalt = feedbackVarietySalt(feedback);
 
       const publishOverlay = (
         changePoints: typeof cache.changePoints,
@@ -249,6 +256,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
           dancerSpacingMm: cache.dancerSpacingMm,
           stageWidthMm: cache.stageWidthMm,
           audioCacheKey: cache.audioCacheKey,
+          layoutVarietySalt: varietySalt,
         });
         if (engine && engine.formations.length > 0) {
           publishOverlay(

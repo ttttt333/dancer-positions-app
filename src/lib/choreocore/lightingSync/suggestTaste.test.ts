@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { pickPattern } from "./lightingTable";
 import {
   applyTasteToProfile,
+  applyFeedbackToTaste,
+  feedbackVarietySalt,
   resolveSuggestTaste,
 } from "./suggestTaste";
 import { CLASS_TODDLER, CLASS_ADVANCED_MON7 } from "./classProfiles";
@@ -51,5 +53,38 @@ describe("suggestTaste", () => {
         preferPatterns: ["circle"],
       })
     ).toBe("circle");
+  });
+
+  it("applyFeedbackToTaste steers layout preferences from resuggest feedback", () => {
+    const base = resolveSuggestTaste({ style: "symmetric" });
+    const withImpact = applyFeedbackToTaste(base, {
+      preferMoreImpact: true,
+      note: "大きな円と交差で盛り上げて",
+    });
+    expect(withImpact.preferPatterns).toContain("vee");
+    expect(withImpact.preferPatterns).toContain("circle");
+    expect(withImpact.energyWeight).toBeGreaterThan(base.energyWeight);
+    expect(withImpact.summary).toContain("FB:インパクト");
+
+    const quieter = applyFeedbackToTaste(base, {
+      preferLessMovement: true,
+      preferFewerCrossings: true,
+    });
+    expect(quieter.allowCross).toBe(false);
+    expect(quieter.avoidPatterns).toContain("dynamic_cross");
+    expect(quieter.movementScale).toBeLessThanOrEqual(0.8);
+  });
+
+  it("feedbackVarietySalt changes when the note or flags change", () => {
+    expect(feedbackVarietySalt(undefined)).toBe(0);
+    const a = feedbackVarietySalt({ preferMoreImpact: true });
+    const b = feedbackVarietySalt({
+      preferMoreImpact: true,
+      note: "もっと広がりを",
+    });
+    const c = feedbackVarietySalt({ preferLessMovement: true });
+    expect(a).not.toBe(0);
+    expect(a).not.toBe(b);
+    expect(a).not.toBe(c);
   });
 });
