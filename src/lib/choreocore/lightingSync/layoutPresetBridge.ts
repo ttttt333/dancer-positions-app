@@ -142,39 +142,47 @@ const FAMILY_LAYOUTS: Record<FormationPatternId, string[]> = {
 };
 
 const SECTION_LAYOUTS: Record<SectionType, string[]> = {
-  intro: ["line_back", "pyramid", "line", "cluster_tight", "two_rows"],
+  intro: ["line_back", "pyramid", "cluster_tight", "two_rows", "circle"],
   verse: [
     "two_rows",
     "stagger",
-    "line",
     "pyramid",
     "grid",
-    "block_lr",
-    "line_back",
+    "three_clusters",
+    "block_3",
+    "line_vertical",
   ],
   chorus: [
-    "vee",
     "diamond",
-    "fan_front",
-    "inverse_vee",
-    "wing_spread",
-    "w_shape",
     "pyramid_inverse",
+    "w_shape",
+    "u_shape",
+    "vee",
+    "hourglass",
+    "radial_burst",
   ],
-  drop: ["vee", "fan_wide", "wing_spread", "diamond", "v_open"],
-  se_trigger: ["v_tight", "wedge", "wing_spread", "two_rows", "fan_back"],
-  outro: ["line_front", "arc", "two_rows", "pyramid", "line"],
+  drop: ["x_shape", "diamond", "radial_burst", "v_open", "double_diagonal"],
+  se_trigger: ["cluster_tight", "wedge", "v_tight", "asymmetric_l", "pyramid"],
+  outro: ["arc", "pyramid", "line_front", "circle", "two_rows"],
 };
 
 const STYLE_LAYOUTS: Record<string, string[]> = {
-  dynamic: ["vee", "v_open", "wing_spread", "fan_wide", "diamond"],
+  dynamic: [
+    "diamond",
+    "radial_burst",
+    "v_open",
+    "w_shape",
+    "double_diagonal",
+    "pyramid_inverse",
+    "u_shape",
+  ],
   symmetric: [
-    "vee",
     "diamond",
     "circle",
     "pyramid",
     "two_rows",
     "hourglass",
+    "concentric",
   ],
   freestyle: [
     "scatter",
@@ -235,14 +243,16 @@ function clamp(v: number, lo: number, hi: number): number {
 }
 
 const STAPLE_LAYOUTS: LayoutPresetId[] = [
-  "line",
-  "two_rows",
-  "vee",
-  "circle",
   "pyramid",
-  "arc",
   "diamond",
-  "wing_spread",
+  "two_rows",
+  "circle",
+  "u_shape",
+  "vee",
+  "cluster_tight",
+  "hourglass",
+  "grid",
+  "arc",
 ];
 
 export function isCrossLayoutPreset(id: string): boolean {
@@ -259,15 +269,29 @@ export type PickLayoutPresetInput = {
   recent?: LayoutPresetId[];
 };
 
+/** 連続で同じ「形の系統」にならないためのバケツ */
+export function layoutShapeBucket(id: string): string {
+  if (/(?:^|_)(?:vee|v_open|v_tight|wedge|chevron)/.test(id)) return "vee";
+  if (/line|two_rows|three_lines|stagger|grid|columns|rows_/.test(id)) return "line";
+  if (/block_lr|wing|bracket|split|two_wings/.test(id)) return "split";
+  if (/cluster|pyramid|center|concentric|scatter_center|block_3|block_4/.test(id)) {
+    return "center";
+  }
+  if (/circle|ring|arc|oval|ellipse|fan|horseshoe|u_shape|w_shape|m_shape/.test(id)) {
+    return "round";
+  }
+  if (/diag|cross|x_shape|pinwheel|radial/.test(id)) return "cross";
+  if (/diamond|hourglass|bowtie|star_/.test(id)) return "geo";
+  if (/asymmetric|l_shape|t_shape|comb|scatter/.test(id)) return "asym";
+  return id;
+}
+
 function isPracticalLayout(id: string, style?: string): boolean {
   if (style === "freestyle") return true;
   if (style === "wave" && /wave|arc|sine|s_curve/.test(id)) return true;
   if (/^extra_/.test(id)) return false;
-  if (
-    /scatter|pinwheel|heart|spiral|star_|figure_eight|radial|bowtie|concentric|ring_inner|runway|horseshoe|asymmetric/.test(
-      id
-    )
-  ) {
+  // ショー向けの幾何は許可。ハート・螺旋・星などは freestyle のみ
+  if (/heart|spiral|star_|figure_eight|pinwheel|runway|bowtie/.test(id)) {
     return false;
   }
   return getPresetTier(id) <= 2;
@@ -281,10 +305,11 @@ function rankedLayoutPool(input: PickLayoutPresetInput): LayoutPresetId[] {
     (p) => FAMILY_LAYOUTS[p] ?? []
   );
 
+  // 歌詞ヒント → 曲の意図（family）→ セクション → スタイル
   const ranked = onlyValid([
     ...fromFamilies,
-    ...(SECTION_LAYOUTS[input.sectionType] ?? []),
     ...(FAMILY_LAYOUTS[input.family] ?? []),
+    ...(SECTION_LAYOUTS[input.sectionType] ?? []),
     ...(styleId ? STYLE_LAYOUTS[styleId] ?? [] : []),
     ...STAPLE_LAYOUTS,
   ]).filter((id) => layoutFitsCount(id, n));
@@ -295,9 +320,20 @@ function rankedLayoutPool(input: PickLayoutPresetInput): LayoutPresetId[] {
     if (noCross.length) pool = noCross;
   }
   const avoid = new Set(input.recent ?? []);
-  const fresh = pool.filter((id) => !avoid.has(id));
-  if (fresh.length) pool = fresh;
-  if (pool.length === 0) pool = onlyValid(["line", "two_rows", "vee", "circle"]);
+  const recentBuckets = new Set(
+    (input.recent ?? []).map((id) => layoutShapeBucket(id))
+  );
+  const freshShape = pool.filter(
+    (id) => !avoid.has(id) && !recentBuckets.has(layoutShapeBucket(id))
+  );
+  if (freshShape.length) pool = freshShape;
+  else {
+    const fresh = pool.filter((id) => !avoid.has(id));
+    if (fresh.length) pool = fresh;
+  }
+  if (pool.length === 0) {
+    pool = onlyValid(["pyramid", "diamond", "two_rows", "circle", "cluster_tight"]);
+  }
   return pool;
 }
 
@@ -322,13 +358,35 @@ export function rankLayoutPresets(
   return onlyValid([...primary, ...staples]).slice(0, Math.max(1, limit));
 }
 
+const MAJOR_FAMILIES: Record<SectionType, FormationPatternId[]> = {
+  intro: ["center_condensed", "silhouette_line", "small_groups"],
+  verse: ["small_groups", "fast_shift", "front_asymmetry", "silhouette_line"],
+  chorus: ["vee", "double_u", "wide_spread", "circle", "front_asymmetry"],
+  drop: ["dynamic_cross", "vee", "split_lr", "wide_spread"],
+  se_trigger: ["front_asymmetry", "center_condensed", "split_lr", "vee"],
+  outro: ["silhouette_line", "circle", "center_condensed"],
+};
+
+const EXPAND_FAMILIES: Record<SectionType, FormationPatternId[]> = {
+  intro: ["wide_spread", "silhouette_line"],
+  verse: ["split_lr", "front_asymmetry", "wide_spread"],
+  chorus: ["wide_spread", "vee", "double_u", "circle"],
+  drop: ["wide_spread", "dynamic_cross", "split_lr"],
+  se_trigger: ["split_lr", "front_asymmetry", "vee"],
+  outro: ["wide_spread", "circle"],
+};
+
 export function familyForCueAction(
   action: FormationCueAction,
-  section: SectionType
+  section: SectionType,
+  salt = 0
 ): FormationPatternId {
+  const pick = (pool: FormationPatternId[]): FormationPatternId =>
+    pool[Math.abs(salt) % pool.length]!;
+
   switch (action) {
     case "EXPAND":
-      return "wide_spread";
+      return pick(EXPAND_FAMILIES[section] ?? ["wide_spread"]);
     case "CONTRACT":
     case "CLUSTER":
     case "MERGE":
@@ -346,16 +404,43 @@ export function familyForCueAction(
     case "ARC":
       return "circle";
     case "MAJOR_CHANGE":
-      if (section === "chorus") return "vee";
-      if (section === "drop") return "vee";
-      if (section === "outro") return "silhouette_line";
-      if (section === "se_trigger") return "vee";
-      return "fast_shift";
+      return pick(MAJOR_FAMILIES[section] ?? ["fast_shift"]);
     case "HOLD":
     case "MICRO_SHIFT":
     default:
-      return "fast_shift";
+      return pick(
+        section === "verse"
+          ? ["fast_shift", "small_groups", "silhouette_line"]
+          : ["fast_shift", "center_condensed"]
+      );
   }
+}
+
+/** 理由コード付きで曲の意図ファミリーを決める */
+export function familyForSuggestCue(
+  action: FormationCueAction,
+  section: SectionType,
+  reasonCodes: string[] | undefined,
+  salt = 0
+): FormationPatternId {
+  const reasons = reasonCodes ?? [];
+  if (
+    reasons.includes("TENSION_CONTRACT") ||
+    reasons.includes("PROMOTED_VERSE_END") ||
+    reasons.includes("PRE_CHORUS")
+  ) {
+    return "center_condensed";
+  }
+  if (reasons.includes("OUTRO")) {
+    return Math.abs(salt) % 2 === 0 ? "silhouette_line" : "circle";
+  }
+  if (
+    reasons.some((r) => r === "DROP" || r.includes("DROP")) &&
+    action === "MAJOR_CHANGE"
+  ) {
+    return familyForCueAction("MAJOR_CHANGE", "drop", salt);
+  }
+  return familyForCueAction(action, section, salt);
 }
 
 /** エディタ雛形 id → 曲理解エンジンの FormationType（採点用） */

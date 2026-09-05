@@ -3,6 +3,8 @@ import { ALL_LAYOUT_PRESET_IDS } from "../../formationLayouts";
 import { CLASS_ADVANCED_MON7 } from "./classProfiles";
 import {
   buildLayoutMemberPositions,
+  familyForCueAction,
+  familyForSuggestCue,
   isCrossLayoutPreset,
   pickLayoutPreset,
   rankLayoutPresets,
@@ -100,8 +102,8 @@ describe("layoutPresetBridge", () => {
     expect(ranked.length).toBeGreaterThan(3);
     expect(ranked.every((id) => ALL_LAYOUT_PRESET_IDS.includes(id))).toBe(true);
     expect(ranked.some((id) => id.startsWith("extra_"))).toBe(false);
-    expect(ranked.slice(0, 3).some((id) =>
-      ["vee", "diamond", "fan_front", "inverse_vee"].includes(id)
+    expect(ranked.slice(0, 4).some((id) =>
+      ["vee", "diamond", "inverse_vee", "v_open", "wedge", "v_tight"].includes(id)
     )).toBe(true);
 
     const verse = rankLayoutPresets({
@@ -112,8 +114,10 @@ describe("layoutPresetBridge", () => {
       allowCross: true,
     });
     expect(
-      verse.slice(0, 4).some((id) =>
-        ["two_rows", "stagger", "line", "pyramid"].includes(id)
+      verse.slice(0, 5).some((id) =>
+        ["line", "line_back", "line_front", "line_vertical", "two_rows", "stagger", "pyramid"].includes(
+          id
+        )
       )
     ).toBe(true);
     expect(verse.some((id) => /pinwheel|heart|spiral|scatter/.test(id))).toBe(
@@ -142,5 +146,20 @@ describe("layoutPresetBridge", () => {
     });
     expect(ids.length).toBeGreaterThan(0);
     expect(ids.some(isCrossLayoutPreset)).toBe(false);
+  });
+
+  it("rotates major-change families so chorus is not always vee", () => {
+    const set = new Set(
+      [0, 1, 2, 3, 4].map((salt) =>
+        familyForCueAction("MAJOR_CHANGE", "chorus", salt)
+      )
+    );
+    expect(set.size).toBeGreaterThan(1);
+  });
+
+  it("contracts pre-chorus reasons to center_condensed", () => {
+    expect(
+      familyForSuggestCue("MAJOR_CHANGE", "chorus", ["TENSION_CONTRACT"], 0)
+    ).toBe("center_condensed");
   });
 });

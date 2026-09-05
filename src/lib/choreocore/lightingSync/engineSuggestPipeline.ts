@@ -93,10 +93,11 @@ import { ruleForSection } from "./lightingTable";
 import type { SuggestTasteBias } from "./suggestTaste";
 import {
   engineTypeForLayoutPreset,
-  familyForCueAction,
+  familyForSuggestCue,
   isCrossLayoutPreset,
   layoutPresetIdFromTags,
   layoutPresetLabel,
+  layoutShapeBucket,
   rankLayoutPresets,
   spotsForLayoutPreset,
 } from "./layoutPresetBridge";
@@ -377,7 +378,12 @@ function layoutCandidatesForCue(input: {
 }): FormationCandidate[] {
   const n = input.seeds.length;
   const ids = rankLayoutPresets({
-    family: familyForCueAction(input.cue.action, input.section),
+    family: familyForSuggestCue(
+      input.cue.action,
+      input.section,
+      input.cue.reasonCodes,
+      input.salt
+    ),
     sectionType: input.section,
     salt: input.salt,
     dancerCount: n,
@@ -586,7 +592,12 @@ function resolveDistinctLayoutSpots(input: {
   }
   const ranked = rankLayoutPresets(
     {
-      family: familyForCueAction(input.cue.action, input.section),
+      family: familyForSuggestCue(
+        input.cue.action,
+        input.section,
+        input.cue.reasonCodes,
+        input.salt
+      ),
       sectionType: input.section,
       salt: input.salt,
       dancerCount: input.seeds.length,
@@ -600,11 +611,14 @@ function resolveDistinctLayoutSpots(input: {
     ? [input.preferred, ...ranked.filter((id) => id !== input.preferred)]
     : ranked;
 
+  const recentBuckets = new Set(input.recent.map((id) => layoutShapeBucket(id)));
+
   let fallback: { layoutId: LayoutPresetId; dancers: DancerSpot[] } | null =
     null;
   for (const pass of [0, 1] as const) {
     for (const id of ordered) {
       if (pass === 0 && input.recent.includes(id)) continue;
+      if (pass === 0 && recentBuckets.has(layoutShapeBucket(id))) continue;
       if (!allowCrossOf(input.profile) && isCrossLayoutPreset(id)) continue;
       if (/^extra_/.test(id) && input.tasteBias.style !== "freestyle") continue;
       if (
@@ -705,13 +719,9 @@ function lightingSectionFromMusic(type: MusicSectionType | undefined): SectionTy
   if (type === "DROP") return "drop";
   if (type === "OUTRO") return "outro";
   if (type === "CHORUS" || type === "FINAL_CHORUS") return "chorus";
-  if (
-    type === "PRE_CHORUS" ||
-    type === "BREAK" ||
-    type === "BRIDGE"
-  ) {
-    return "se_trigger";
-  }
+  // Bメロ終わりは「閉じる」隊形と相性の良い verse 扱い
+  if (type === "PRE_CHORUS") return "verse";
+  if (type === "BREAK" || type === "BRIDGE") return "se_trigger";
   return "verse";
 }
 
@@ -1687,7 +1697,12 @@ function finishEngineAppSuggest(args: {
       lightingPreset,
       positions: mm,
       formationPattern: layoutId
-        ? familyForCueAction(cue.action, lightingSection)
+        ? familyForSuggestCue(
+            cue.action,
+            lightingSection,
+            cue.reasonCodes,
+            i + Math.round(cue.energyAfter)
+          )
         : undefined,
       layoutPresetId: layoutId ?? undefined,
       chorusFamilyId: callback.chorusFamilyId ?? undefined,

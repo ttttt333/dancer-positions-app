@@ -663,9 +663,12 @@ export function AiSuggestDialog({
                 </p>
               </div>
 
-              {/* クラス属性 */}
+              {/* 移動ルール */}
               <div style={{ marginBottom: 16 }}>
-                <span style={label}>クラス属性（制約）</span>
+                <span style={label}>移動ルール（難易度）</span>
+                <p style={{ fontSize: 10, color: shell.textSubtle, margin: "0 0 8px", lineHeight: 1.4 }}>
+                  1歩の大きさ・変化の間隔・交差の可否を決めます（スタジオのクラス名ではありません）
+                </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {CLASS_PROFILE_PRESETS.map((p) => {
                     const selected = classProfileId === p.classId;
@@ -683,9 +686,10 @@ export function AiSuggestDialog({
                           ...(selected ? chipSelected : chipIdle),
                         }}
                       >
-                        <strong style={{ color: selected ? shell.text : shell.text }}>{p.className}</strong>
-                        <span style={{ display: "block", fontSize: 10, marginTop: 2, opacity: 0.75, lineHeight: 1.4 }}>
-                          移動≤{p.maxMoveDistancePerCount}m/count · 間隔≥{p.minCountsBetweenChanges} · 交差{p.allowCrossMovement ? "可" : "不可"} · 姿勢{p.use3DLeveling ? "ON" : "OFF"} · スナップ{p.gridSnapMode}
+                        <strong style={{ color: shell.text }}>{p.className}</strong>
+                        <span style={{ display: "block", fontSize: 10, marginTop: 2, opacity: 0.8, lineHeight: 1.4 }}>
+                          {p.summary ??
+                            `移動≤${p.maxMoveDistancePerCount}m/count · 間隔≥${p.minCountsBetweenChanges} · 交差${p.allowCrossMovement ? "可" : "不可"}`}
                         </span>
                       </button>
                     );

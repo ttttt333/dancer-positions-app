@@ -36,6 +36,8 @@ export type FormationPatternId =
 export type ClassProfile = {
   classId: string;
   className: string;
+  /** UI用の一行説明（移動ルールの中身） */
+  summary?: string;
   targetAgeGroup: "toddler" | "elementary" | "advanced";
   maxMoveDistancePerCount: number;
   minCountsBetweenChanges: number;

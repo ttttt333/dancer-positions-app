@@ -1,13 +1,15 @@
 /**
- * クラス属性プリセット
+ * 移動ルール（難易度）プリセット
+ * ※スタジオのクラス名ではなく、提案時の移動・交差の制約セット
  */
 
 import type { ClassProfile } from "./types";
 
-/** チビチビクラス（幼児〜低学年） */
+/** 安全・ゆっくり：移動少なめ・交差なし（幼児〜低学年想定） */
 export const CLASS_TODDLER: ClassProfile = {
   classId: "toddler_default",
-  className: "チビチビクラス",
+  className: "安全・ゆっくり",
+  summary: "移動少なめ · 交差なし · 整数スナップ",
   targetAgeGroup: "toddler",
   maxMoveDistancePerCount: 0.3,
   minCountsBetweenChanges: 8,
@@ -16,10 +18,11 @@ export const CLASS_TODDLER: ClassProfile = {
   use3DLeveling: false,
 };
 
-/** 月曜7時クラス（高学年・一般） */
+/** 大胆・交差あり：大きめ移動（上級想定） */
 export const CLASS_ADVANCED_MON7: ClassProfile = {
   classId: "mon_07pm",
-  className: "月曜7時クラス",
+  className: "大胆・交差あり",
+  summary: "大きめ移動 · 交差OK · 姿勢ON",
   targetAgeGroup: "advanced",
   maxMoveDistancePerCount: 1.0,
   minCountsBetweenChanges: 3,
@@ -28,9 +31,11 @@ export const CLASS_ADVANCED_MON7: ClassProfile = {
   use3DLeveling: true,
 };
 
+/** 標準バランス：中くらいの移動・交差なし */
 export const CLASS_ELEMENTARY: ClassProfile = {
   classId: "elementary_default",
-  className: "小学生クラス",
+  className: "標準バランス",
+  summary: "中くらいの移動 · 交差なし · 姿勢ON",
   targetAgeGroup: "elementary",
   maxMoveDistancePerCount: 0.55,
   minCountsBetweenChanges: 4,
@@ -52,7 +57,7 @@ export function getClassProfile(classId: string): ClassProfile {
   );
 }
 
-/** 出演人数から妥当なクラス制約を推定 */
+/** 出演人数から妥当な移動ルールを推定 */
 export function suggestClassProfileId(dancerCount: number): string {
   if (dancerCount > 0 && dancerCount <= 14) return CLASS_TODDLER.classId;
   if (dancerCount <= 28) return CLASS_ELEMENTARY.classId;
