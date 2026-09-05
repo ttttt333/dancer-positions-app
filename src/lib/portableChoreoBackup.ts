@@ -1,6 +1,11 @@
 import { openDB } from "idb";
 import { FORMATION_BOX_CHANGE_EVENT } from "./formationBox";
-import { FLOW_LIBRARY_CHANGE_EVENT } from "./flowLibrary";
+import {
+  FLOW_LIBRARY_CHANGE_EVENT,
+  FLOW_LIBRARY_STORAGE_KEY,
+  exportFlowLibraryCatalogJsonString,
+  ingestFlowLibraryFromLocalStorage,
+} from "./flowLibrary";
 import {
   exportFlowLibraryAudioBackupMap,
   importFlowLibraryAudioBackupMap,
@@ -15,7 +20,7 @@ const VIDEO_DB_VERSION = 1;
 export const PORTABLE_ARCHIVE_FORMAT = "choreocore-portable-archive-v1" as const;
 
 const LOCALSTORAGE_EXACT_KEYS = [
-  "choreogrid_flow_library_v1",
+  FLOW_LIBRARY_STORAGE_KEY,
   "choreogrid_formation_box_v1",
   "choreogrid_stage_presets_v1",
   "choreogrid_locale",
@@ -165,6 +170,14 @@ export async function buildPortableArchiveAsync(opts?: {
   includeCloudProjects?: boolean;
 }): Promise<PortableArchiveV1> {
   const localStorageSnap = collectLocalStorageSnapshot();
+  try {
+    const catalogJson = await exportFlowLibraryCatalogJsonString();
+    if (catalogJson && catalogJson !== "[]") {
+      localStorageSnap[FLOW_LIBRARY_STORAGE_KEY] = catalogJson;
+    }
+  } catch {
+    /** カタログが空でもバックアップ自体は続ける */
+  }
   const flowLibraryIndexedAudio = await exportFlowLibraryAudioBackupMap();
   const videoModule = await exportVideoModuleSnapshot();
   const wavePeaksCache = await exportAllWavePeaksCache();
@@ -310,9 +323,13 @@ export async function importPortableArchiveJsonAsync(
     }
 
     try {
-      window.dispatchEvent(new Event(FLOW_LIBRARY_CHANGE_EVENT));
+      await ingestFlowLibraryFromLocalStorage();
     } catch {
-      /** ignore */
+      try {
+        window.dispatchEvent(new Event(FLOW_LIBRARY_CHANGE_EVENT));
+      } catch {
+        /** ignore */
+      }
     }
     try {
       window.dispatchEvent(new Event(FORMATION_BOX_CHANGE_EVENT));

@@ -12,6 +12,7 @@ import {
   FLOW_LIBRARY_CHANGE_EVENT,
   type FlowLibraryItem,
   deleteFlowItem,
+  ensureFlowLibraryReady,
   expandFlowToProject,
   getFlowLibraryFirstFormation,
   mergeExpandedFlowIntoProject,
@@ -177,7 +178,7 @@ export function FlowLibraryDialog({
 
   useEffect(() => {
     if (!open) return;
-    refresh();
+    void ensureFlowLibraryReady().then(() => refresh());
     setFeedback(null);
     if (!name) {
       const base = project.pieceTitle?.trim() || "フロー";
@@ -345,9 +346,10 @@ export function FlowLibraryDialog({
   const doDelete = useCallback(
     (id: string, label: string) => {
       if (!confirm(`「${label}」を削除します。よろしいですか？`)) return;
-      deleteFlowItem(id);
-      refresh();
-      setFeedback({ kind: "info", text: `「${label}」を削除しました。` });
+      void deleteFlowItem(id).then(() => {
+        refresh();
+        setFeedback({ kind: "info", text: `「${label}」を削除しました。` });
+      });
     },
     [refresh]
   );
@@ -429,12 +431,13 @@ export function FlowLibraryDialog({
     (id: string, current: string) => {
       const next = window.prompt("新しい名前", current);
       if (!next || next.trim() === current) return;
-      const ok = renameFlowItem(id, next.trim());
-      if (!ok) {
-        setFeedback({ kind: "error", text: "名前の変更に失敗しました。" });
-        return;
-      }
-      refresh();
+      void renameFlowItem(id, next.trim()).then((ok) => {
+        if (!ok) {
+          setFeedback({ kind: "error", text: "名前の変更に失敗しました。" });
+          return;
+        }
+        refresh();
+      });
     },
     [refresh]
   );

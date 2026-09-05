@@ -28,6 +28,10 @@ import {
   getFlowLibraryAudio,
   putFlowLibraryAudio,
 } from "./flowLibraryLocalAudio";
+import {
+  readFlowLibraryCatalogRaw,
+  writeFlowLibraryCatalogRaw,
+} from "./flowLibraryCatalog";
 import { yieldToMain } from "./yieldToMain";
 
 /**
@@ -36,14 +40,16 @@ import { yieldToMain } from "./yieldToMain";
  *
  * - プロジェクト `savedSpotLayouts`（1 形だけのスナップショット）や、
  *   `形の箱`（個別の立ち位置単位の倉庫）とは別軸の **「曲構成テンプレ」** にあたる。
- * - 保存先は `localStorage`。プロジェクト本体（.json）には載らないので、
- *   保存量は端末の容量次第（5MB 上限）。
+ * - 保存先は IndexedDB（`flowLibraryCatalog`）。旧 `localStorage` 件は初回起動で移す。
+ *   ブラウザの 5MB 枠は使わない。ディスク上限自体は残る（通常は数百 MB〜）。
  * - 任意で「秒数タイミング」も含められる。違う曲に当てるときはオフが既定。
  * - 保存時点の **ステージ幅・奥行・場ミリ（dancerSpacingMm）・客席向き・変形舞台** なども
  *   `stageSettings` として保持し、呼び出し時にキューとともに復元する（旧データは従来どおり）。
  */
 
-const STORAGE_KEY = "choreogrid_flow_library_v1";
+/** 旧 localStorage キー。移行後は空にする。バックアップ JSON でも同じキー名を使う。 */
+export const FLOW_LIBRARY_STORAGE_KEY = "choreogrid_flow_library_v1";
+const STORAGE_KEY = FLOW_LIBRARY_STORAGE_KEY;
 /** 1 フローあたりのキュー上限・形上限（容量と画面の両方を守るための保険） */
 const MAX_CUES = 200;
 const MAX_FORMATIONS = 200;
@@ -914,23 +920,146 @@ function normalize(raw: FlowLibraryItem): FlowLibraryItem {
   };
 }
 
-function safeParseAll(): FlowLibraryItem[] {
+function parseItemsFromUnknown(raw: unknown): FlowLibraryItem[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(isValidItem).map(normalize);
+}
+
+function parseFromLocalStorage(): FlowLibraryItem[] {
   if (typeof localStorage === "undefined") return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
-    const arr = JSON.parse(raw);
-    if (!Array.isArray(arr)) return [];
-    return arr.filter(isValidItem).map(normalize);
+    return parseItemsFromUnknown(JSON.parse(raw));
   } catch {
     return [];
   }
 }
 
+/** メモリキャッシュ。hydrate 前は null。 */
+let memoryItems: FlowLibraryItem[] | null = null;
+let hydratePromise: Promise<void> | null = null;
+
+/** テスト専用。本番からは呼ばない。 */
+export function resetFlowLibraryPersistForTests(): void {
+  memoryItems = null;
+  hydratePromise = null;
+}
+
+function mergeFlowItemsByIdPreferNewer(
+  a: FlowLibraryItem[],
+  b: FlowLibraryItem[]
+): FlowLibraryItem[] {
+  const byId = new Map<string, FlowLibraryItem>();
+  for (const it of a) byId.set(it.id, it);
+  for (const it of b) {
+    const prev = byId.get(it.id);
+    if (!prev || it.updatedAt >= prev.updatedAt) byId.set(it.id, it);
+  }
+  return [...byId.values()];
+}
+
+async function hydrateFlowLibraryOnce(): Promise<void> {
+  let idbItems: FlowLibraryItem[] = [];
+  try {
+    const raw = await readFlowLibraryCatalogRaw();
+    if (raw) idbItems = parseItemsFromUnknown(raw);
+  } catch {
+    idbItems = [];
+  }
+  const lsItems = parseFromLocalStorage();
+
+  if (memoryItems !== null) {
+    const merged = mergeFlowItemsByIdPreferNewer(
+      memoryItems,
+      mergeFlowItemsByIdPreferNewer(idbItems, lsItems)
+    );
+    memoryItems = merged;
+    try {
+      await writeFlowLibraryCatalogRaw(merged);
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        /** 移行後の 5MB 枠を空ける。失敗しても致命ではない */
+      }
+    } catch {
+      /** IndexedDB 不可なら localStorage に残す */
+    }
+    notifyChanged();
+    return;
+  }
+
+  if (idbItems.length > 0) {
+    memoryItems =
+      lsItems.length > 0
+        ? mergeFlowItemsByIdPreferNewer(idbItems, lsItems)
+        : idbItems;
+    if (lsItems.length > 0) {
+      try {
+        await writeFlowLibraryCatalogRaw(memoryItems);
+      } catch {
+        /** マージ結果の再保存に失敗しても IDB 側は残る */
+      }
+    }
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /** ignore */
+    }
+    notifyChanged();
+    return;
+  }
+
+  if (lsItems.length > 0) {
+    memoryItems = lsItems;
+    try {
+      await writeFlowLibraryCatalogRaw(lsItems);
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        /** ignore */
+      }
+    } catch {
+      /** IndexedDB が使えない環境は localStorage のまま */
+    }
+    notifyChanged();
+    return;
+  }
+
+  memoryItems = [];
+  notifyChanged();
+}
+
+/**
+ * IndexedDB（なければ旧 localStorage）を読み終わるまで待つ。
+ * 一覧・保存・`?flow=` 読み込みの前に呼ぶ。
+ */
+export async function ensureFlowLibraryReady(): Promise<void> {
+  if (!hydratePromise) {
+    hydratePromise = hydrateFlowLibraryOnce().catch(() => {
+      if (memoryItems === null) memoryItems = parseFromLocalStorage();
+    });
+  }
+  await hydratePromise;
+}
+
+const isVitest =
+  typeof import.meta !== "undefined" &&
+  Boolean(import.meta.env?.VITEST || import.meta.env?.MODE === "test");
+
+if (typeof window !== "undefined" && !isVitest) {
+  void ensureFlowLibraryReady();
+}
+
+function safeParseAll(): FlowLibraryItem[] {
+  if (memoryItems !== null) return memoryItems;
+  return parseFromLocalStorage();
+}
+
 class FlowLibraryQuotaError extends Error {
   constructor() {
     super(
-      "ブラウザ内の保存領域が一杯です。古いフローを削除するか、JSON にバックアップしてからやり直してください。"
+      "ブラウザの保存領域が一杯です。古いフローを削除するか、JSON にバックアップしてからやり直してください。"
     );
     this.name = "FlowLibraryQuotaError";
   }
@@ -1000,22 +1129,80 @@ async function rehydrateEmbeddedAudioFromJsonItems(
   return out;
 }
 
-function writeAll(items: FlowLibraryItem[]): void {
-  if (typeof localStorage === "undefined") return;
+function isQuotaError(e: unknown): boolean {
+  const name = (e as { name?: string } | null)?.name ?? "";
+  return name === "QuotaExceededError" || name === "NS_ERROR_DOM_QUOTA_REACHED";
+}
+
+function writeLocalStorageFallback(stripped: FlowLibraryItem[]): void {
+  if (typeof localStorage === "undefined") {
+    throw new FlowLibraryQuotaError();
+  }
   try {
-    const stripped = items.map(stripItemForLocalStorage);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stripped));
-    notifyChanged();
   } catch (e) {
-    const name = (e as { name?: string } | null)?.name ?? "";
-    if (
-      name === "QuotaExceededError" ||
-      name === "NS_ERROR_DOM_QUOTA_REACHED"
-    ) {
-      throw new FlowLibraryQuotaError();
-    }
+    if (isQuotaError(e)) throw new FlowLibraryQuotaError();
     throw e;
   }
+}
+
+async function writeAllAsync(items: FlowLibraryItem[]): Promise<void> {
+  await ensureFlowLibraryReady();
+  const stripped = items.map(stripItemForLocalStorage);
+  memoryItems = stripped;
+  try {
+    await writeFlowLibraryCatalogRaw(stripped);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /** IndexedDB に書けたら 5MB 枠は空ける */
+    }
+    notifyChanged();
+    return;
+  } catch (e) {
+    if (isQuotaError(e)) {
+      try {
+        writeLocalStorageFallback(stripped);
+        notifyChanged();
+      } catch {
+        throw new FlowLibraryQuotaError();
+      }
+      throw new FlowLibraryQuotaError();
+    }
+    try {
+      writeLocalStorageFallback(stripped);
+      notifyChanged();
+    } catch (lsErr) {
+      if (isQuotaError(lsErr) || lsErr instanceof FlowLibraryQuotaError) {
+        throw new FlowLibraryQuotaError();
+      }
+      throw lsErr;
+    }
+  }
+}
+
+function writeAll(items: FlowLibraryItem[]): void {
+  memoryItems = items.map(stripItemForLocalStorage);
+  notifyChanged();
+  void writeAllAsync(items);
+}
+
+/**
+ * バックアップ取り込みなど、外部が旧 localStorage キーを書いたあとに
+ * カタログへ再読込する。
+ */
+export async function ingestFlowLibraryFromLocalStorage(): Promise<void> {
+  await ensureFlowLibraryReady();
+  const lsItems = parseFromLocalStorage();
+  if (lsItems.length === 0) return;
+  const merged = mergeFlowItemsByIdPreferNewer(safeParseAll(), lsItems);
+  await writeAllAsync(merged);
+}
+
+/** バックアップ用: 現在のカタログを旧キー形式の JSON 文字列にする */
+export async function exportFlowLibraryCatalogJsonString(): Promise<string> {
+  await ensureFlowLibraryReady();
+  return JSON.stringify(listFlowLibraryItems().map(stripItemForLocalStorage));
 }
 
 function resolveFirstCueFormationDancerCount(
@@ -1305,6 +1492,7 @@ export async function saveFlowFromProjectAsync(
   project: ChoreographyProjectJson,
   opts: FlowSaveOpts
 ): Promise<FlowSaveResult> {
+  await ensureFlowLibraryReady();
   await yieldToMain();
   const built = await buildFlowLibraryItemFromProjectAsync(name, project, opts);
   if (!built.ok) return built;
@@ -1312,7 +1500,7 @@ export async function saveFlowFromProjectAsync(
   cur.unshift(built.item);
   await yieldToMain();
   try {
-    writeAll(cur);
+    await writeAllAsync(cur);
     return built;
   } catch (e) {
     if (e instanceof FlowLibraryQuotaError) {
@@ -1362,6 +1550,7 @@ export async function overwriteFlowFromProjectAsync(
   project: ChoreographyProjectJson,
   opts: FlowSaveOpts
 ): Promise<FlowSaveResult> {
+  await ensureFlowLibraryReady();
   await yieldToMain();
   const cur = safeParseAll();
   const target = cur.find((x) => x.id === id);
@@ -1395,7 +1584,7 @@ export async function overwriteFlowFromProjectAsync(
   );
   await yieldToMain();
   try {
-    writeAll(next);
+    await writeAllAsync(next);
     const updated = next.find((x) => x.id === id)!;
     return { ok: true, item: updated };
   } catch (e) {
@@ -1462,11 +1651,12 @@ export function overwriteFlowFromProject(
   }
 }
 
-export function renameFlowItem(id: string, name: string): boolean {
+export async function renameFlowItem(id: string, name: string): Promise<boolean> {
   const trimmed = (name || "").trim().slice(0, MAX_NAME_LEN);
   if (!trimmed) return false;
   try {
-    writeAll(
+    await ensureFlowLibraryReady();
+    await writeAllAsync(
       safeParseAll().map((x) =>
         x.id === id ? { ...x, name: trimmed, updatedAt: Date.now() } : x
       )
@@ -1477,16 +1667,17 @@ export function renameFlowItem(id: string, name: string): boolean {
   }
 }
 
-export function deleteFlowItem(id: string): void {
+export async function deleteFlowItem(id: string): Promise<void> {
   try {
+    await ensureFlowLibraryReady();
     const cur = safeParseAll();
     const target = cur.find((x) => x.id === id);
     const oldKey = target?.memento?.flowEmbeddedAudioKey;
     if (oldKey) void deleteFlowLibraryAudio(oldKey);
-    writeAll(cur.filter((x) => x.id !== id));
+    await writeAllAsync(cur.filter((x) => x.id !== id));
   } catch {
     try {
-      writeAll(safeParseAll().filter((x) => x.id !== id));
+      await writeAllAsync(safeParseAll().filter((x) => x.id !== id));
     } catch {
       /** 一部環境で失敗しても致命ではない */
     }
@@ -1728,6 +1919,13 @@ export function getFlowLibraryItem(id: string): FlowLibraryItem | null {
   return listFlowLibraryItems().find((x) => x.id === key) ?? null;
 }
 
+export async function getFlowLibraryItemAsync(
+  id: string
+): Promise<FlowLibraryItem | null> {
+  await ensureFlowLibraryReady();
+  return getFlowLibraryItem(id);
+}
+
 /** ホームなどから端末ライブラリの 1 件を、新規エディタ用の作品データにする */
 export function materializeFlowLibraryItemAsProject(
   item: FlowLibraryItem
@@ -1824,6 +2022,7 @@ export async function importFlowLibraryJsonAsync(text: string): Promise<{
         e instanceof Error ? e.message : "同梱音源の復元中にエラーが発生しました。",
     };
   }
+  await ensureFlowLibraryReady();
   const cur = safeParseAll();
   const byId = new Map(cur.map((x) => [x.id, x]));
   let added = 0;
@@ -1842,7 +2041,7 @@ export async function importFlowLibraryJsonAsync(text: string): Promise<{
     }
   }
   try {
-    writeAll([...byId.values()]);
+    await writeAllAsync([...byId.values()]);
     return { added, updated, skipped };
   } catch (e) {
     if (e instanceof FlowLibraryQuotaError) {

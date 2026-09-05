@@ -29,6 +29,7 @@ import { getEntitlements } from "../../lib/entitlements";
 import { tryMigrateFromLocalStorage } from "../../lib/projectDefaults";
 import {
   FLOW_LIBRARY_CHANGE_EVENT,
+  ensureFlowLibraryReady,
   getFlowLibraryFirstFormation,
   listFlowLibraryItems,
   resolveFlowLibraryDancerCount,
@@ -114,7 +115,7 @@ export function HomeLibrary() {
 
   useEffect(() => {
     const refresh = () => setFlowItems(listFlowLibraryItems());
-    refresh();
+    void ensureFlowLibraryReady().then(refresh);
     const onStorage = (e: StorageEvent) => {
       if (e.key === null || e.key.includes("flow_library")) refresh();
     };

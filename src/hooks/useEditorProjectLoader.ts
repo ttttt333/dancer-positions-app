@@ -9,7 +9,7 @@ import type { Location, NavigateFunction } from "react-router-dom";
 import { projectApi } from "../api/client";
 import { isSupabaseBackend } from "../lib/supabaseClient";
 import {
-  getFlowLibraryItem,
+  getFlowLibraryItemAsync,
   materializeFlowLibraryItemAsProject,
 } from "../lib/flowLibrary";
 import {
@@ -112,29 +112,34 @@ export function useEditorProjectLoader({
       const search = new URLSearchParams(location.search);
       const flowId = search.get("flow")?.trim();
       if (flowId) {
-        const item = getFlowLibraryItem(flowId);
-        if (!item) {
-          setPlainProject(createEmptyProject());
-          setProjectName("無題の作品");
-          setServerId(null);
+        let cancelled = false;
+        void getFlowLibraryItemAsync(flowId).then((item) => {
+          if (cancelled) return;
+          if (!item) {
+            setPlainProject(createEmptyProject());
+            setProjectName("無題の作品");
+            setServerId(null);
+            setServerShareToken(null);
+            setLoadError("端末ライブラリにその作品がありません");
+            onHistoryReset();
+            return;
+          }
+          const fromFlow = normalizeProject(materializeFlowLibraryItemAsProject(item));
+          setPlainProject(fromFlow);
+          setProjectName(fromFlow.pieceTitle?.trim() || item.name || "無題の作品");
+          const linkId = item.linkedServerProjectId;
+          setServerId(
+            typeof linkId === "number" && Number.isFinite(linkId) && linkId > 0
+              ? linkId
+              : null
+          );
           setServerShareToken(null);
-          setLoadError("端末ライブラリにその作品がありません");
+          setLoadError(null);
           onHistoryReset();
-          return;
-        }
-        const fromFlow = normalizeProject(materializeFlowLibraryItemAsProject(item));
-        setPlainProject(fromFlow);
-        setProjectName(fromFlow.pieceTitle?.trim() || item.name || "無題の作品");
-        const linkId = item.linkedServerProjectId;
-        setServerId(
-          typeof linkId === "number" && Number.isFinite(linkId) && linkId > 0
-            ? linkId
-            : null
-        );
-        setServerShareToken(null);
-        setLoadError(null);
-        onHistoryReset();
-        return;
+        });
+        return () => {
+          cancelled = true;
+        };
       }
       const migrated = tryMigrateFromLocalStorage();
       const draft = loadEditorDraft(null);
