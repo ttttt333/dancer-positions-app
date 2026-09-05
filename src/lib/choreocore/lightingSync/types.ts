@@ -84,6 +84,10 @@ export type SuggestedFormationFrame = {
   formationPattern?: FormationPatternId;
   /** エディタ雛形 id（約200種から選定） */
   layoutPresetId?: string;
+  chorusFamilyId?: string;
+  callbackVariation?: "first" | "repeat" | "final";
+  /** ラスサビの画面カバレッジ最大 */
+  scale?: "max" | "default";
 };
 
 export type ConstraintWarning = {

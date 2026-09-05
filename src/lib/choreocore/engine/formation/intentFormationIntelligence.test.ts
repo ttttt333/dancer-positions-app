@@ -9,7 +9,9 @@ import {
   generateIntentFormationCandidates,
   isFormationHardInfeasible,
   recommendFormationsForIntent,
+  recommendFormationsForIntentSequence,
 } from "./intentFormationIntelligence";
+import { CALLBACK_REPEAT, CALLBACK_SCALE_MAX } from "./chorusCallback";
 import { HARD_CONSTRAINTS, VISUAL_IMPACT_PER_MOVEMENT } from "./intentFormationConfig";
 import { analyzeFormationTransition } from "../movement/TransitionAnalyzer";
 import { makeMovementTiming } from "../movement/MovementTiming";
@@ -289,5 +291,48 @@ describe("intentFormationIntelligence", () => {
 
   it("locked epsilon is the named hard-constraint constant", () => {
     expect(HARD_CONSTRAINTS.lockedPositionEpsilon).toBeGreaterThan(0);
+  });
+
+  it("sequence reuses the first chorus shapeFamily and marks final as max scale", () => {
+    const current = formationFromPositions("cur-line", "LINE", lineFormation(6));
+    const report = recommendFormationsForIntentSequence({
+      intents: [
+        makeChoreoIntent("EXPAND", 0.9, {
+          cueId: "c-first",
+          chorusFamilyId: "chorus-A",
+          variation: "first",
+        }),
+        makeChoreoIntent("CONTRACT", 0.7, { cueId: "c-verse" }),
+        makeChoreoIntent("EXPAND", 0.9, {
+          cueId: "c-repeat",
+          chorusFamilyId: "chorus-A",
+          variation: "repeat",
+        }),
+        makeChoreoIntent("EXPAND", 0.95, {
+          cueId: "c-final",
+          chorusFamilyId: "chorus-A",
+          variation: "final",
+        }),
+      ],
+      cues: [
+        makeCue("EXPAND", "LARGE", { id: "c-first", rawTime: 20 }),
+        makeCue("CONTRACT", "MEDIUM", { id: "c-verse", rawTime: 36 }),
+        makeCue("EXPAND", "LARGE", { id: "c-repeat", rawTime: 52 }),
+        makeCue("EXPAND", "MAX", { id: "c-final", rawTime: 84 }),
+      ],
+      currentFormation: current,
+      dancerCount: 6,
+      stage: DEFAULT_STAGE,
+      bpm: 120,
+    });
+    const first = report.recommendations[0]!;
+    const repeat = report.recommendations[2]!;
+    const finale = report.recommendations[3]!;
+    expect(first.primary).not.toBeNull();
+    expect(repeat.primary!.shapeFamily).toBe(first.primary!.shapeFamily);
+    expect(repeat.primary!.reasonCodes).toContain(CALLBACK_REPEAT);
+    expect(finale.primary!.shapeFamily).toBe(first.primary!.shapeFamily);
+    expect(finale.callback?.scale).toBe(1);
+    expect(finale.primary!.reasonCodes).toContain(CALLBACK_SCALE_MAX);
   });
 });

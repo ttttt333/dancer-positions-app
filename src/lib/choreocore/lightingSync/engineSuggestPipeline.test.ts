@@ -5,6 +5,7 @@ import { resolveSuggestTaste } from "./suggestTaste";
 import { isCrossLayoutPreset } from "./layoutPresetBridge";
 import { travelDurationSec } from "./suggestTravelTiming";
 import { phase1FromPeaks, runEngineAppSuggest } from "./engineSuggestPipeline";
+import { MOCK_CALLBACK_CHORUS_FAMILIES } from "../engine/music/sectionFamilyFixtures";
 import { cuesAreTimeOrdered } from "../engine/cue/cueQuality";
 import { setMusicEnginePhase12EnabledForTests } from "./musicEngineFlag";
 import { analyzeAndCacheRealPhase1 } from "../engine/audio/analyzeAndCacheRealPhase1";
@@ -378,5 +379,56 @@ describe("engineSuggestPipeline", () => {
       expect(f.dancers.map((d) => d.id)).toEqual(ids);
     }
     expect(result!.reasoning.some((l) => l.includes("エディタ雛形"))).toBe(true);
+  });
+
+  it("reuses the first chorus layout on repeat and scales the final chorus", () => {
+    setMusicEnginePhase12EnabledForTests(false);
+    const people = seeds(6);
+    const result = runEngineAppSuggest({
+      peaks: peaksWithChorus(104),
+      durationSec: 104,
+      bpm: 120,
+      remoteChangePoints: [
+        { eight_index: 2, time: 4, score: 0.4, tier: "minor", section_type: "VERSE" },
+        { eight_index: 8, time: 16, score: 0.7, tier: "medium", section_type: "PRE_CHORUS" },
+        { eight_index: 10, time: 20, score: 0.95, tier: "major", section_type: "CHORUS_START" },
+        { eight_index: 18, time: 36, score: 0.5, tier: "medium", section_type: "VERSE" },
+        { eight_index: 26, time: 52, score: 0.93, tier: "major", section_type: "CHORUS_START" },
+        { eight_index: 42, time: 84, score: 0.97, tier: "major", section_type: "CHORUS" },
+      ],
+      sectionFamilies: MOCK_CALLBACK_CHORUS_FAMILIES,
+      seedDancers: people,
+      profile: CLASS_ADVANCED_MON7,
+      tasteBias: resolveSuggestTaste({ style: "symmetric" }),
+      targetCueCount: 8,
+    });
+    expect(result).not.toBeNull();
+    const frames = result!.lightingSyncPayload.formations;
+    const first = frames.find((f) => f.timestamp >= 20 && f.timestamp < 36);
+    const repeat = frames.find((f) => f.timestamp >= 52 && f.timestamp < 68);
+    const finale = frames.find((f) => f.timestamp >= 84 && f.timestamp < 100);
+    expect(first?.chorusFamilyId).toBe("chorus-A");
+    expect(repeat?.chorusFamilyId).toBe("chorus-A");
+    expect(repeat?.layoutPresetId).toBe(first?.layoutPresetId);
+    expect(repeat?.callbackVariation).toBe("repeat");
+    expect(finale?.chorusFamilyId).toBe("chorus-A");
+    expect(finale?.layoutPresetId).toBe(first?.layoutPresetId);
+    expect(finale?.callbackVariation).toBe("final");
+    expect(finale?.scale).toBe("max");
+    expect(finale?.presetName).toContain("特大");
+    const byId = new Map(result!.formations.map((f) => [f.id, f] as const));
+    const repeatCue = result!.cues.find((c) => Math.abs(c.tStartSec - (repeat?.timestamp ?? -1)) < 0.2);
+    const finaleCue = result!.cues.find((c) => Math.abs(c.tStartSec - (finale?.timestamp ?? -1)) < 0.2);
+    const firstCue = result!.cues.find((c) => Math.abs(c.tStartSec - (first?.timestamp ?? -1)) < 0.2);
+    const firstSpots = firstCue ? byId.get(firstCue.formationId)?.dancers : undefined;
+    const finaleSpots = finaleCue ? byId.get(finaleCue.formationId)?.dancers : undefined;
+    expect(repeatCue?.name).toContain("コールバック");
+    if (firstSpots && finaleSpots && firstSpots.length === finaleSpots.length) {
+      const span = (spots: typeof firstSpots) => {
+        const xs = spots.map((d) => d.xPct);
+        return Math.max(...xs) - Math.min(...xs);
+      };
+      expect(span(finaleSpots)).toBeGreaterThan(span(firstSpots) - 0.01);
+    }
   });
 });

@@ -15,8 +15,16 @@ import { generateFormationCues } from "../engine/cue/CueEngine";
 import { evaluateCueQuality, type CueQualityReport } from "../engine/cue/cueQuality";
 import { generateChoreographicIntentSequence } from "../engine/intent/ChoreographicIntentEngine";
 import type { ChoreographicIntentSequence } from "../engine/intent/ChoreographicIntentTypes";
-import { toMusicalEvents } from "../engine/music/musicalEvents";
+import { musicalEventAt, toMusicalEvents } from "../engine/music/musicalEvents";
 import type { SectionFamily } from "../engine/music/sectionFamilies";
+import {
+  FINAL_CHORUS_SCALE,
+  decideChorusCallback,
+  rememberChorusLayout,
+  scaleSpotsFromCenter,
+  type ChorusLayoutMemory,
+  type ChorusShapeMemory,
+} from "../engine/formation/chorusCallback";
 import {
   recommendFormationsForIntentSequence,
   type FormationIntelligenceReport,
@@ -583,7 +591,27 @@ function resolveDistinctLayoutSpots(input: {
   layoutOpts: LayoutPresetOptions | undefined;
   recent: LayoutPresetId[];
   salt: number;
+  lockLayoutId?: LayoutPresetId | null;
+  scaleMax?: boolean;
 }): { layoutId: LayoutPresetId | null; dancers: DancerSpot[] } {
+  if (input.lockLayoutId) {
+    const raw = spotsForLayoutPreset(
+      input.lockLayoutId,
+      input.seeds,
+      input.prevSpots,
+      input.layoutOpts
+    );
+    let dancers = refineSpotsForClass(
+      raw,
+      input.seeds,
+      input.prevSpots,
+      input.profile,
+      FORMATION_TRAVEL_COUNTS,
+      input.layoutOpts
+    );
+    if (input.scaleMax) dancers = scaleSpotsFromCenter(dancers, FINAL_CHORUS_SCALE);
+    return { layoutId: input.lockLayoutId, dancers };
+  }
   const ranked = rankLayoutPresets(
     {
       family: familyForCueAction(input.cue.action, input.section),
@@ -1162,6 +1190,12 @@ function finishEngineAppSuggest(args: {
   cueAnalysis = promoteCuesAtSongChanges(cueAnalysis, structuralCps);
   cueAnalysis = thinCuesForTravel(cueAnalysis, bpm);
   cueAnalysis = capCueAnalysis(cueAnalysis, maxCues);
+  const musicalEvents = toMusicalEvents({
+    structure,
+    bpm,
+    durationSec: duration,
+    sectionFamilies: input.sectionFamilies,
+  });
   if (musicEngine?.timeline) {
     musicEngine.cueQuality = evaluateCueQuality({
       analysis: cueAnalysis,
@@ -1176,12 +1210,7 @@ function finishEngineAppSuggest(args: {
         eventClusters: musicEngine.timeline.eventClusters,
         sections: musicEngine.timeline.sections,
         durationSec: duration,
-        musicalEvents: toMusicalEvents({
-          structure,
-          bpm,
-          durationSec: duration,
-          sectionFamilies: input.sectionFamilies,
-        }),
+        musicalEvents,
       });
     } catch {
       /* Intent は付加情報。失敗しても Cue 経路は維持 */
@@ -1297,6 +1326,8 @@ function finishEngineAppSuggest(args: {
   const payloadFormations: LightingSyncSuggestPayload["formations"] = [];
   let prevSpots: DancerSpot[] = seeds;
   const recentLayouts: LayoutPresetId[] = [];
+  const chorusLayoutMemory: ChorusLayoutMemory = new Map();
+  const chorusShapeMemory: ChorusShapeMemory = new Map();
 
   for (let i = 0; i < sequence.formations.length; i += 1) {
     const eng = sequence.formations[i]!;
@@ -1312,6 +1343,19 @@ function finishEngineAppSuggest(args: {
     const lightingSection = lightingSectionFromMusic(section?.type);
     const lightingPreset = ruleForSection(lightingSection).lightingPreset;
 
+    const musical = musicalEventAt(musicalEvents, t);
+    const intentHit = musicEngine?.choreographicIntents?.intents.find(
+      (it) => it.cueId === cue.id
+    );
+    const callback = decideChorusCallback(
+      {
+        chorusFamilyId:
+          intentHit?.chorusFamilyId ?? musical?.chorusFamilyId ?? null,
+        variation: intentHit?.variation ?? musical?.variation ?? "none",
+      },
+      chorusShapeMemory,
+      chorusLayoutMemory
+    );
     const preferred = layoutPresetIdFromTags(eng.tags);
     let layoutId: LayoutPresetId | null = preferred;
     let dancers: DancerSpot[];
@@ -1319,8 +1363,12 @@ function finishEngineAppSuggest(args: {
       dancers = prevSpots.map((s) => ({ ...s }));
       layoutId = recentLayouts[recentLayouts.length - 1] ?? preferred;
     } else {
+      const lock =
+        callback.bypassRecentAvoidance && callback.rememberedLayoutId
+          ? (callback.rememberedLayoutId as LayoutPresetId)
+          : null;
       const picked = resolveDistinctLayoutSpots({
-        preferred,
+        preferred: lock ?? preferred,
         seeds,
         prevSpots,
         cue,
@@ -1328,19 +1376,33 @@ function finishEngineAppSuggest(args: {
         tasteBias: input.tasteBias,
         profile: input.profile,
         layoutOpts,
-        recent: recentLayouts.slice(-3),
+        recent: callback.bypassRecentAvoidance ? [] : recentLayouts.slice(-3),
         salt: i + Math.round(cue.energyAfter),
+        lockLayoutId: lock,
+        scaleMax: callback.scaleMax,
       });
       layoutId = picked.layoutId;
       dancers = picked.dancers;
     }
     prevSpots = dancers;
     if (layoutId) recentLayouts.push(layoutId);
+    rememberChorusLayout(
+      chorusLayoutMemory,
+      callback.chorusFamilyId,
+      callback.variation === "none" ? "none" : callback.variation,
+      layoutId
+    );
 
     const typeJa = TYPE_JA[eng.type] ?? eng.type;
     const actionJa = ACTION_JA[cue.action] ?? cue.action;
     const layoutJa = layoutId ? layoutPresetLabel(layoutId) : typeJa;
-    const name = [actionJa, layoutJa].filter(Boolean).join(" · ");
+    const callbackJa =
+      callback.variation === "final"
+        ? "特大"
+        : callback.variation === "repeat"
+          ? "コールバック"
+          : "";
+    const name = [actionJa, layoutJa, callbackJa].filter(Boolean).join(" · ");
     const id =
       crypto.randomUUID?.() ?? `eng-${Math.round(t * 1000)}-${i}`;
 
@@ -1375,6 +1437,10 @@ function finishEngineAppSuggest(args: {
         ? familyForCueAction(cue.action, lightingSection)
         : undefined,
       layoutPresetId: layoutId ?? undefined,
+      chorusFamilyId: callback.chorusFamilyId ?? undefined,
+      callbackVariation:
+        callback.variation === "none" ? undefined : callback.variation,
+      scale: callback.scaleMax ? "max" : callback.variation === "none" ? undefined : "default",
     });
 
     reasoning.push(

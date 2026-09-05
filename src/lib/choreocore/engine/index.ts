@@ -141,9 +141,22 @@ export {
   generateIntentFormationCandidates,
   FORMATION_INTELLIGENCE_VERSION,
 } from "./formation/intentFormationIntelligence";
+export {
+  applyChorusCallbackToRecommendation,
+  decideChorusCallback,
+  rememberChorusLayout,
+  rememberChorusShape,
+  scaleSpotsFromCenter,
+  CALLBACK_FINAL,
+  CALLBACK_REPEAT,
+  CALLBACK_REMEMBERED,
+  CALLBACK_SCALE_MAX,
+  FINAL_CHORUS_SCALE,
+} from "./formation/chorusCallback";
 export type {
   FormationIntelligenceReport,
   FormationRecommendation,
+  FormationCallbackTrace,
   RankedFormationCandidate,
   FormationCandidateHumanRating,
   FormationProfile,

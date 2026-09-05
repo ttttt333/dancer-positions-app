@@ -4,6 +4,10 @@
  */
 
 import type { ChoreographicIntent, ChoreographicIntentType } from "../intent/ChoreographicIntentTypes";
+import {
+  applyChorusCallbackToRecommendation,
+  type ChorusShapeMemory,
+} from "./chorusCallback";
 import type { FormationCue, StageConfig } from "../types/CueTypes";
 import type { Formation, FormationCandidate } from "../types/FormationTypes";
 import { FORMATION_FAMILY } from "../types/ScoringTypes";
@@ -626,26 +630,30 @@ export function recommendFormationsForIntentSequence(input: {
 }): FormationIntelligenceReport {
   const cueById = new Map(input.cues.map((c) => [c.id, c]));
   const recommendations: FormationRecommendation[] = [];
+  const chorusMemory: ChorusShapeMemory = new Map();
   for (let i = 0; i < input.intents.length; i += 1) {
     const intent = input.intents[i]!;
     const cue = cueById.get(intent.cueId) ?? input.cues[i];
     if (!cue) continue;
     const nextIntent = input.intents[i + 1]?.primary.intent ?? null;
     recommendations.push(
-      recommendFormationsForIntent({
-        intent,
-        cue,
-        currentFormation: input.currentFormation,
-        dancerCount: input.dancerCount,
-        stage: input.stage,
-        previousIntent: intent.previousIntent,
-        nextIntent,
-        scoreWeights: input.scoreWeights,
-        constraints: {
-          ...input.constraints,
-          bpm: input.constraints?.bpm ?? input.bpm,
-        },
-      })
+      applyChorusCallbackToRecommendation(
+        recommendFormationsForIntent({
+          intent,
+          cue,
+          currentFormation: input.currentFormation,
+          dancerCount: input.dancerCount,
+          stage: input.stage,
+          previousIntent: intent.previousIntent,
+          nextIntent,
+          scoreWeights: input.scoreWeights,
+          constraints: {
+            ...input.constraints,
+            bpm: input.constraints?.bpm ?? input.bpm,
+          },
+        }),
+        chorusMemory
+      )
     );
   }
   return {

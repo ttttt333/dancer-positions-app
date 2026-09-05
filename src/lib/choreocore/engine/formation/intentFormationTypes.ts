@@ -54,12 +54,21 @@ export type RankedFormationCandidate = {
   humanRating?: FormationCandidateHumanRating;
 };
 
+export type FormationCallbackTrace = {
+  chorusFamilyId: string;
+  variation: "first" | "repeat" | "final";
+  /** 1 = ラスサビ最大。repeat / first は基準より小さくする */
+  scale: number;
+  rememberedShapeFamily: FormationFamily | null;
+};
+
 export type FormationRecommendation = {
   intent: ChoreographicIntent;
   primary: RankedFormationCandidate | null;
   alternatives: RankedFormationCandidate[];
   ranked: RankedFormationCandidate[];
   discardedCount: number;
+  callback?: FormationCallbackTrace;
 };
 
 export type FormationIntelligenceMetrics = {
