@@ -317,7 +317,7 @@ export function AiSuggestDialog({
   /* 現在のステップ */
   const step: 1 | 2 | 3 =
     status === "idle" ? 1
-    : status === "analyzing" || status === "requesting" ? 2
+    : status === "analyzing" || status === "structuring" || status === "requesting" ? 2
     : 3;
 
   useEffect(() => {
@@ -843,7 +843,14 @@ export function AiSuggestDialog({
               {status === "analyzing" ? (
                 <>
                   <p style={{ fontSize: 13, color: shell.accent }}>音楽を解析しています…</p>
-                  <p style={{ fontSize: 11, color: shell.textSubtle, marginTop: 4 }}>拍・帯域・変化点を解析中。準備できなければ従来経路に戻します</p>
+                  <p style={{ fontSize: 11, color: shell.textSubtle, marginTop: 4 }}>拍・帯域・変化点を解析中</p>
+                </>
+              ) : status === "structuring" ? (
+                <>
+                  <p style={{ fontSize: 13, color: shell.accent }}>楽曲構造を精密解析中…</p>
+                  <p style={{ fontSize: 11, color: shell.textSubtle, marginTop: 4 }}>
+                    Real Phase1/2 の完了を待ってからキューを組み立てます（少々お待ちください）
+                  </p>
                 </>
               ) : (
                 <>

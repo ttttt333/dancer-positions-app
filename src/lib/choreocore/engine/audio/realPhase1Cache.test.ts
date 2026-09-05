@@ -163,6 +163,24 @@ describe("Stage 1: Real PCM → cache", () => {
     expect(a).not.toBeNull();
     expect(b).toBe(a);
   });
+
+  it("waitForRealPhase1Cache without timeout waits past 12s-style short windows", async () => {
+    const buffer = makeQuietThenHit({ durationSec: 0.8, hitTimeSec: 0.4 });
+    const started = analyzeAndCacheRealPhase1({
+      audioBuffer: buffer,
+      cacheKey: "track-wait-forever",
+    });
+    // Suggest path: null timeout = wait until done (not the old 12s race)
+    const waited = await waitForRealPhase1Cache("track-wait-forever", null);
+    const done = await started;
+    expect(waited).not.toBeNull();
+    expect(waited).toBe(done);
+  });
+
+  it("waitForRealPhase1Cache with finite timeout can still time out", async () => {
+    // No in-flight → immediate null (nothing to wait for)
+    expect(await waitForRealPhase1Cache("no-inflight", 1)).toBeNull();
+  });
 });
 
 describe("Stage 0: accuracy evaluation is not implied by cache tests", () => {

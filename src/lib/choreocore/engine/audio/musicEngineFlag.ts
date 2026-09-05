@@ -1,6 +1,7 @@
 /**
- * Real Phase 1/2 を本番へ載せるゲート。未設定は ON。
- * `"0"` / `"false"` / `"off"` で現行 RMS + 4エイトに戻す。
+ * Real Phase 1/2 を本番へ載せるゲート。
+ * 未設定・空文字は常に ON（最新解析優先）。
+ * `"0"` / `"false"` / `"off"` のときだけ旧 RMS + peaks 経路。
  */
 
 let testOverride: boolean | undefined;
@@ -17,5 +18,6 @@ export function isMusicEnginePhase12Enabled(): boolean {
   const raw = String(import.meta.env.VITE_MUSIC_ENGINE_PHASE12 ?? "1")
     .trim()
     .toLowerCase();
+  // 明示オフ以外はすべて ON（空・未定義・"1"/"true"/"on"）
   return raw !== "0" && raw !== "false" && raw !== "off";
 }

@@ -51,6 +51,7 @@ import {
 export type SuggestStatus =
   | "idle"
   | "analyzing"
+  | "structuring"
   | "requesting"
   | "done"
   | "error";
@@ -273,7 +274,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
             cues: engine.cues,
             reasoning: [
               `曲理解エンジン / クラス: ${profile.className}（${profile.classId}）`,
-              `解析ソース: ${cache.sourceLabel} / ${engine.musicEngine?.analysisSource === "engine-phase12" ? "曲理解 Phase1/2" : "暫定（従来経路）"} / BPM ${Math.round(cache.bpm)} / キュー ${engine.cues.length}枠${targetCueCount != null ? `（指定 ${targetCueCount}）` : ""}`,
+              `解析ソース: ${cache.sourceLabel} / ${engine.musicEngine?.analysisSource === "engine-phase12" ? "曲理解 Phase1/2" : `暫定（従来経路）${engine.musicEngine?.fallbackReason ? ` · ${engine.musicEngine.fallbackReason}` : ""}`} / BPM ${Math.round(cache.bpm)} / キュー ${engine.cues.length}枠${targetCueCount != null ? `（指定 ${targetCueCount}）` : ""}`,
               constraintLine,
               ...(tasteLine ? [tasteLine] : []),
               ...(feedbackLine ? [feedbackLine] : []),
@@ -288,7 +289,11 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
             analysisSource:
               engine.musicEngine?.analysisSource === "engine-phase12"
                 ? `${cache.sourceLabel} · 曲理解 Phase1/2`
-                : `${cache.sourceLabel} · 暫定`,
+                : `${cache.sourceLabel} · 暫定${
+                    engine.musicEngine?.fallbackReason
+                      ? `（${engine.musicEngine.fallbackReason}）`
+                      : ""
+                  }`,
             scores: engine.scores,
             averageScore: engine.averageScore,
             lightingSyncPayload: engine.lightingSyncPayload,
@@ -375,6 +380,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
 
         if (canReuse && cacheRef.current) {
           if (isMusicEnginePhase12Enabled()) {
+            setStatus("structuring");
             await ensureRealPhase1ForSuggest({
               cacheKey: cacheRef.current.audioCacheKey,
               audioUrl: audioOpts?.audioUrl,
@@ -446,6 +452,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
 
         const audioCacheKey = useWavePeaksStore.getState().peaksCacheKey;
         if (isMusicEnginePhase12Enabled()) {
+          setStatus("structuring");
           await ensureRealPhase1ForSuggest({
             cacheKey: audioCacheKey,
             audioUrl: audioOpts?.audioUrl,
@@ -454,6 +461,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
         }
         if (controller.signal.aborted) return;
 
+        setStatus("requesting");
         const cache: CachedAnalysis = {
           peaks,
           durationSec,

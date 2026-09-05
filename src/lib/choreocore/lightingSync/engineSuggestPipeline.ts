@@ -1506,6 +1506,12 @@ export function runEngineAppSuggest(
           });
         }
       } else {
+        console.warn(
+          "[ChoreoCore MusicEngine] provisional: timeline finalize failed —",
+          finalized.reason,
+          "cacheKey=",
+          input.audioCacheKey ?? "(none)"
+        );
         phase1 = phase1FromPeaks(input.peaks, duration, bpm);
         structure = analyzeMusicStructure(phase1);
         musicEngine = {
@@ -1517,6 +1523,15 @@ export function runEngineAppSuggest(
         };
       }
     } else {
+      console.warn(
+        "[ChoreoCore MusicEngine] provisional: Phase2 unavailable —",
+        real.fallbackReason,
+        "cacheKey=",
+        input.audioCacheKey ?? "(none)",
+        input.audioCacheKey
+          ? "(Real Phase1 cache miss or rejected — ensure suggest awaited ensureRealPhase1ForSuggest)"
+          : "(peaksCacheKey missing)"
+      );
       phase1 = phase1FromPeaks(input.peaks, duration, bpm);
       structure = analyzeMusicStructure(phase1);
       musicEngine = {
@@ -1528,6 +1543,9 @@ export function runEngineAppSuggest(
       };
     }
   } else {
+    console.warn(
+      "[ChoreoCore MusicEngine] provisional: VITE_MUSIC_ENGINE_PHASE12 disabled — using peaks synthetic path"
+    );
     phase1 = phase1FromPeaks(input.peaks, duration, bpm);
     structure = analyzeMusicStructure(phase1);
   }
