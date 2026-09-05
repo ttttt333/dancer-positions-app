@@ -4,6 +4,8 @@
  */
 
 import { energyContext } from "../cue/CueScorer";
+import { musicalEventAt } from "../music/musicalEvents";
+import type { MusicalEvent } from "../music/musicalEventTypes";
 import type { CueAnalysisResult, FormationCue } from "../types/CueTypes";
 import type { EventCluster, MusicSection } from "../types/MusicTypes";
 import type {
@@ -14,7 +16,7 @@ import type {
   ChoreographicIntentType,
 } from "./ChoreographicIntentTypes";
 
-export const CHOREOGRAPHIC_INTENT_VERSION = "5.0.0-intent";
+export const CHOREOGRAPHIC_INTENT_VERSION = "5.1.0-intent";
 
 const CONTRAST: Array<[ChoreographicIntentType, ChoreographicIntentType]> = [
   ["CONTRACT", "EXPAND"],
@@ -95,10 +97,21 @@ export function generateChoreographicIntent(
   if (cue.isMajor) {
     add(bag, "MAJOR_CHANGE", 0.12, "MAJOR_CUE");
   }
+  const isPreChorusTension =
+    sectionType === "PRE_CHORUS" ||
+    reasonsCue.includes("PREPARATION") ||
+    reasonsCue.includes("PHRASE_PREPARATION") ||
+    reasonsCue.includes("ANTICIPATION") ||
+    reasonsCue.includes("SECTION_PRE_CHORUS") ||
+    reasonsCue.includes("TENSION_CONTRACT") ||
+    context.musicalEvent?.kind === "BUILD";
+
   if (types.has("ENERGY_RISE") || reasonsCue.includes("ENERGY_RISE")) {
-    add(bag, "EXPAND", 0.22, "ENERGY_RISE");
-    add(bag, "SPLIT", 0.14, "ENERGY_RISE");
-    add(bag, "REVEAL", 0.1, "ENERGY_RISE");
+    add(bag, "EXPAND", isPreChorusTension ? 0.08 : 0.22, "ENERGY_RISE");
+    if (!isPreChorusTension) {
+      add(bag, "SPLIT", 0.14, "ENERGY_RISE");
+      add(bag, "REVEAL", 0.1, "ENERGY_RISE");
+    }
   }
   if (types.has("ENERGY_DROP") || reasonsCue.includes("ENERGY_DROP")) {
     add(bag, "CONTRACT", 0.2, "ENERGY_DROP");
@@ -136,23 +149,18 @@ export function generateChoreographicIntent(
     add(bag, "REVEAL", 0.1, "CHORUS_START");
     add(bag, "HIT", 0.08, "CHORUS_START");
   }
-  if (
-    sectionType === "PRE_CHORUS" ||
-    reasonsCue.includes("PREPARATION") ||
-    reasonsCue.includes("PHRASE_PREPARATION") ||
-    reasonsCue.includes("ANTICIPATION")
-  ) {
-    add(bag, "CONTRACT", 0.2, "BUILD_UP");
-    add(bag, "MICRO_SHIFT", 0.18, "BUILD_UP");
-    add(bag, "TRAVEL", 0.1, "BUILD_UP");
-    add(bag, "ROTATE", 0.08, "BUILD_UP");
+  if (isPreChorusTension) {
+    add(bag, "CONTRACT", 0.32, "TENSION_CONTRACT");
+    add(bag, "MICRO_SHIFT", 0.14, "BUILD_UP");
+    add(bag, "TRAVEL", 0.08, "BUILD_UP");
+    add(bag, "ROTATE", 0.06, "BUILD_UP");
   }
   if (sectionType === "OUTRO") {
     add(bag, "HOLD", 0.18, "ENERGY_RELEASE");
     add(bag, "RESET", 0.16, "ENERGY_RELEASE");
     add(bag, "HIDE", 0.1, "ENERGY_RELEASE");
   }
-  if (energyTrend === "RISING") {
+  if (energyTrend === "RISING" && !isPreChorusTension) {
     add(bag, "EXPAND", 0.08, "ENERGY_RISE");
   }
   if (energyTrend === "FALLING") {
@@ -229,7 +237,28 @@ export function generateChoreographicIntent(
     alternatives,
     contrastFromPrevious: intentContrast(prev, primary.intent),
     previousIntent: prev,
+    sourceEventId:
+      context.musicalEvent?.id ??
+      event?.id ??
+      cue.sourceEventClusterId ??
+      cue.id,
+    chorusFamilyId: context.musicalEvent?.chorusFamilyId ?? null,
+    variation: intentVariation(section, context.musicalEvent),
   };
+}
+
+function intentVariation(
+  section: MusicSection | null | undefined,
+  musicalEvent: MusicalEvent | null | undefined
+): ChoreographicIntent["variation"] {
+  if (musicalEvent?.flags.isLastChorus || section?.type === "FINAL_CHORUS") {
+    return "final";
+  }
+  if (musicalEvent?.chorusOccurrence === 1) return "first";
+  if (musicalEvent?.chorusOccurrence != null && musicalEvent.chorusOccurrence >= 2) {
+    return "repeat";
+  }
+  return "none";
 }
 
 function itemAt(
@@ -260,6 +289,7 @@ export function generateChoreographicIntentSequence(input: {
   eventClusters: EventCluster[];
   sections: MusicSection[];
   durationSec: number;
+  musicalEvents?: MusicalEvent[];
 }): ChoreographicIntentSequence {
   const clusterById = new Map(input.eventClusters.map((c) => [c.id, c]));
   const duration = Math.max(0.5, input.durationSec);
@@ -272,6 +302,9 @@ export function generateChoreographicIntentSequence(input: {
   for (const cue of active) {
     const event = clusterById.get(cue.sourceEventClusterId) ?? null;
     const energy = energyContext(cue.energyBefore, cue.energyAfter);
+    const musicalEvent = input.musicalEvents
+      ? musicalEventAt(input.musicalEvents, cue.rawTime)
+      : null;
     const next = generateChoreographicIntent({
       cue,
       event,
@@ -282,6 +315,7 @@ export function generateChoreographicIntentSequence(input: {
       musicEnergy: cue.energyAfter,
       previousIntent,
       timelinePosition: clamp01(cue.rawTime / duration),
+      musicalEvent,
     });
     intents.push(next);
     previousIntent = next.primary.intent;

@@ -215,6 +215,8 @@ describe("engineSuggestPipeline", () => {
     const chorus = sorted.find((c) => Math.abs(c.tStartSec - 20) < 3);
     expect(pre).toBeDefined();
     expect(chorus).toBeDefined();
+    expect(pre!.name).toContain("閉じる");
+    expect(chorus!.name).toMatch(/広げる|大転換/);
     expect(pre!.formationId).not.toBe(chorus!.formationId);
     const byId = new Map(result!.formations.map((f) => [f.id, f] as const));
     const a = byId.get(pre!.formationId)!.dancers;
@@ -234,7 +236,34 @@ describe("engineSuggestPipeline", () => {
     expect(result!.reasoning.some((l) => l.includes("PRE_CHORUS"))).toBe(true);
   });
 
+  it("PRE_CHORUS contracts on the legacy path as well (FLAG OFF)", () => {
+    setMusicEnginePhase12EnabledForTests(false);
+    const result = runEngineAppSuggest({
+      peaks: peaksWithChorus(80),
+      durationSec: 80,
+      bpm: 120,
+      remoteChangePoints: [
+        { eight_index: 6, time: 12, score: 0.7, tier: "medium", section_type: "PRE_CHORUS" },
+        { eight_index: 10, time: 20, score: 0.95, tier: "major", section_type: "CHORUS_START" },
+      ],
+      seedDancers: seeds(6),
+      profile: CLASS_ADVANCED_MON7,
+      tasteBias: resolveSuggestTaste({ style: "symmetric" }),
+      targetCueCount: 8,
+    });
+    expect(result).not.toBeNull();
+    const sorted = [...result!.cues].sort((a, b) => a.tStartSec - b.tStartSec);
+    const pre = sorted.find((c) => Math.abs(c.tStartSec - 12) < 3);
+    const chorus = sorted.find((c) => Math.abs(c.tStartSec - 20) < 3);
+    expect(pre).toBeDefined();
+    expect(chorus).toBeDefined();
+    expect(pre!.name).toContain("閉じる");
+    expect(chorus!.name).toMatch(/広げる|大転換/);
+    expect(result!.musicEngine).toBeUndefined();
+  });
+
   it("F. FLAG OFF does not attach Real Phase2 musicEngine", () => {
+    setMusicEnginePhase12EnabledForTests(false);
     const result = runEngineAppSuggest({
       peaks: peaksWithChorus(80),
       durationSec: 80,

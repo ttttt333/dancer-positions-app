@@ -9,6 +9,7 @@ import type {
   FormationCue,
 } from "../types/CueTypes";
 import type { EventCluster, MusicSection } from "../types/MusicTypes";
+import type { MusicalEvent } from "../music/musicalEventTypes";
 
 export type ChoreographicIntentType =
   | "HOLD"
@@ -24,7 +25,8 @@ export type ChoreographicIntentType =
   | "HIT"
   | "TRAVEL"
   | "RESET"
-  | "ROTATE";
+  | "ROTATE"
+  | "FREEZE";
 
 export type ChoreographicIntentCandidate = {
   intent: ChoreographicIntentType;
@@ -44,6 +46,9 @@ export type ChoreographicIntent = {
   alternatives: ChoreographicIntentCandidate[];
   contrastFromPrevious: number;
   previousIntent: ChoreographicIntentType | null;
+  sourceEventId: string;
+  chorusFamilyId: string | null;
+  variation: "first" | "repeat" | "final" | "none";
 };
 
 export type ChoreographicIntentContext = {
@@ -56,6 +61,7 @@ export type ChoreographicIntentContext = {
   musicEnergy?: number;
   previousIntent?: ChoreographicIntentType | null;
   timelinePosition: number;
+  musicalEvent?: MusicalEvent | null;
 };
 
 export type ChoreographicIntentSequence = {

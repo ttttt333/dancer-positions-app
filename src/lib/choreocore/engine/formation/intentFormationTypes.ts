@@ -89,3 +89,14 @@ export type FormationShapeMetrics = {
   groupSeparation: number;
   centroid: Point;
 };
+
+/** 隊形の見た目エネルギー。座標は持たない。コールバック用の familyId を後で使う。未配線。 */
+export type FormationProfile = {
+  familyId: string;
+  metrics: FormationShapeMetrics;
+  density: number;
+  visualEnergy: number;
+  scale: number;
+  freezeSuitable: boolean;
+  reasonCodes: string[];
+};

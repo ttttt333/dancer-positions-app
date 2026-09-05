@@ -126,6 +126,11 @@ describe("ChoreographicIntentEngine", () => {
     expect(set.has("CONTRACT") || set.has("MICRO_SHIFT") || set.has("TRAVEL")).toBe(
       true
     );
+    expect(result.primary.intent).toBe("CONTRACT");
+    expect(result.primary.reasonCodes).toContain("TENSION_CONTRACT");
+    expect(result.sourceEventId.length).toBeGreaterThan(0);
+    expect(result.chorusFamilyId).toBeNull();
+    expect(result.variation).toBe("none");
   });
 
   it("C. BREAK includes HOLD as a candidate", () => {
@@ -310,5 +315,7 @@ describe("ChoreographicIntentEngine", () => {
     });
     expect(seq.intents.map((i) => i.cueId)).toEqual(["a", "b"]);
     expect(seq.intents[1]!.previousIntent).toBe(seq.intents[0]!.primary.intent);
+    expect(seq.intents.every((i) => i.sourceEventId.length > 0)).toBe(true);
+    expect(seq.intents.every((i) => i.chorusFamilyId === null)).toBe(true);
   });
 });

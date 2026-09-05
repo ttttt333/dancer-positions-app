@@ -81,6 +81,7 @@ export const TARGET_COVERAGE_DELTA_AT_FULL = {
   TRAVEL: 12,
   RESET: -8,
   ROTATE: 8,
+  FREEZE: 0,
 } as const;
 
 export const TARGET_SHAPE_CONTRAST_AT_FULL = {
@@ -98,6 +99,7 @@ export const TARGET_SHAPE_CONTRAST_AT_FULL = {
   TRAVEL: 30,
   RESET: 20,
   ROTATE: 28,
+  FREEZE: 8,
 } as const;
 
 export const COVERAGE_FIT_SCALE = 1.6;

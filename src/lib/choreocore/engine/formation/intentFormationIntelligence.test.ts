@@ -43,6 +43,9 @@ function makeChoreoIntent(
     alternatives: [],
     contrastFromPrevious: extra.contrastFromPrevious ?? 0,
     previousIntent: extra.previousIntent ?? null,
+    sourceEventId: extra.sourceEventId ?? "ec-1",
+    chorusFamilyId: extra.chorusFamilyId ?? null,
+    variation: extra.variation ?? "none",
   };
 }
 

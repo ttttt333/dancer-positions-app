@@ -22,6 +22,8 @@ export {
 export {
   analyzeAndCacheRealPhase1,
   audioBufferToEngineBuffer,
+  ensureRealPhase1ForSuggest,
+  waitForRealPhase1Cache,
 } from "./audio/analyzeAndCacheRealPhase1";
 export type {
   MusicAnalysisSource,
@@ -88,6 +90,12 @@ export { detectChangePoints, clusterChangePoints } from "./music/ChangePointDete
 export { classifyHits } from "./music/HitClassifier";
 export { snapToBeatGrid } from "./music/structureMath";
 export { generateFormationCues } from "./cue/CueEngine";
+export { toMusicalEvents, musicalEventAt } from "./music/musicalEvents";
+export type {
+  MusicalEvent,
+  MusicalEventKind,
+  MusicalEventVariation,
+} from "./music/musicalEventTypes";
 export {
   generateChoreographicIntent,
   generateChoreographicIntentSequence,
@@ -131,6 +139,8 @@ export type {
   FormationRecommendation,
   RankedFormationCandidate,
   FormationCandidateHumanRating,
+  FormationProfile,
+  FormationShapeMetrics,
 } from "./formation/intentFormationTypes";
 export {
   defaultFormationTemplateRegistry,

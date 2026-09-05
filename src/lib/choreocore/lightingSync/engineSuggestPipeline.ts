@@ -15,6 +15,7 @@ import { generateFormationCues } from "../engine/cue/CueEngine";
 import { evaluateCueQuality, type CueQualityReport } from "../engine/cue/cueQuality";
 import { generateChoreographicIntentSequence } from "../engine/intent/ChoreographicIntentEngine";
 import type { ChoreographicIntentSequence } from "../engine/intent/ChoreographicIntentTypes";
+import { toMusicalEvents } from "../engine/music/musicalEvents";
 import {
   recommendFormationsForIntentSequence,
   type FormationIntelligenceReport,
@@ -462,31 +463,52 @@ function isSongChangeCue(
   );
 }
 
+function uniqueReasons(codes: string[]): string[] {
+  return codes.filter((code, i) => codes.indexOf(code) === i);
+}
+
+function isPreChorusCue(
+  cue: FormationCue,
+  remote: AppChangePoint[] | undefined
+): boolean {
+  if (
+    cue.reasonCodes.includes("PRE_CHORUS") ||
+    cue.reasonCodes.includes("SECTION_PRE_CHORUS") ||
+    cue.reasonCodes.includes("TENSION_CONTRACT")
+  ) {
+    return true;
+  }
+  if (cue.reasonCodes.some((r) => r.endsWith("_TO_PRE_CHORUS"))) return true;
+  const near = remote?.find((cp) => Math.abs(cp.time - cue.rawTime) < 2);
+  return near?.section_type === "PRE_CHORUS";
+}
+
 function promoteCuesAtSongChanges(
   analysis: CueAnalysisResult,
   remote: AppChangePoint[] | undefined
 ): CueAnalysisResult {
   const intents: Record<string, FormationCueIntent> = { ...analysis.intents };
   const cues = analysis.cues.map((c) => {
-    if (c.suppressed || !isSongChangeCue(c, remote)) return c;
-    if (c.action !== "HOLD" && c.action !== "MICRO_SHIFT") return c;
-    const near = remote?.find((cp) => Math.abs(cp.time - c.rawTime) < 2);
-    const preChorus =
-      near?.section_type === "PRE_CHORUS" ||
-      c.reasonCodes.includes("PRE_CHORUS");
-    if (preChorus) {
+    if (c.suppressed) return c;
+    if (isPreChorusCue(c, remote)) {
       intents[c.id] = {
-        primary: "EXPAND",
-        secondary: ["V", "LINE"],
-        prohibited: ["HOLD"],
+        primary: "CONTRACT",
+        secondary: ["CLUSTER", "CENTER"],
+        prohibited: ["EXPAND", "V"],
       };
       return {
         ...c,
-        action: "EXPAND" as const,
+        action: "CONTRACT" as const,
         isMajor: true,
-        reasonCodes: [...c.reasonCodes, "PROMOTED_VERSE_END"],
+        reasonCodes: uniqueReasons([
+          ...c.reasonCodes,
+          "PROMOTED_VERSE_END",
+          "TENSION_CONTRACT",
+        ]),
       };
     }
+    if (!isSongChangeCue(c, remote)) return c;
+    if (c.action !== "HOLD" && c.action !== "MICRO_SHIFT") return c;
     intents[c.id] = {
       primary: "MAJOR_CHANGE",
       secondary: ["EXPAND", "V"],
@@ -496,7 +518,7 @@ function promoteCuesAtSongChanges(
       ...c,
       action: "MAJOR_CHANGE" as const,
       isMajor: true,
-      reasonCodes: [...c.reasonCodes, "PROMOTED_SECTION_CHANGE"],
+      reasonCodes: uniqueReasons([...c.reasonCodes, "PROMOTED_SECTION_CHANGE"]),
     };
   });
   return { ...analysis, cues, intents };
@@ -542,7 +564,8 @@ function isTrueHold(cue: FormationCue): boolean {
     !cue.isMajor &&
     !cue.reasonCodes.includes("SECTION_CHANGE") &&
     !cue.reasonCodes.includes("PROMOTED_SECTION_CHANGE") &&
-    !cue.reasonCodes.includes("PROMOTED_VERSE_END")
+    !cue.reasonCodes.includes("PROMOTED_VERSE_END") &&
+    !cue.reasonCodes.includes("TENSION_CONTRACT")
   );
 }
 
@@ -1150,6 +1173,11 @@ function finishEngineAppSuggest(args: {
         eventClusters: musicEngine.timeline.eventClusters,
         sections: musicEngine.timeline.sections,
         durationSec: duration,
+        musicalEvents: toMusicalEvents({
+          structure,
+          bpm,
+          durationSec: duration,
+        }),
       });
     } catch {
       /* Intent は付加情報。失敗しても Cue 経路は維持 */

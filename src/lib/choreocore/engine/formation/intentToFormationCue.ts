@@ -27,6 +27,7 @@ const CHOREO_TO_CUE_PRIMARY: Record<ChoreographicIntentType, FormationCueAction>
   TRAVEL: "MICRO_SHIFT",
   RESET: "HOLD",
   ROTATE: "MICRO_SHIFT",
+  FREEZE: "HOLD",
 };
 
 /**
@@ -48,6 +49,7 @@ const CHOREO_DIVERSITY_SECONDARIES: Record<ChoreographicIntentType, FormationCue
   TRAVEL: ["DIAGONAL", "LINE"],
   RESET: ["CENTER", "LINE"],
   ROTATE: ["ARC", "V"],
+  FREEZE: ["LINE", "CLUSTER"],
 };
 
 export function choreographicIntentToCueAction(
