@@ -1188,6 +1188,46 @@ function EditorPageContent({
     if (nav.canNext) jumpViewerCueByIndex(nav.cueIndex + 1);
   }, [jumpViewerCueByIndex, selectedCueId]);
 
+  /** 停止中の ←/→ : 選択キューの前後へ移動してシーク */
+  const selectAdjacentCueByKeyboard = useCallback(
+    (direction: -1 | 1) => {
+      const p = projectPagerRef.current;
+      if (!p || p.cues.length === 0) return;
+      const nav = computeViewerCueNavState(p, selectedCueId);
+      const nextIndex = nav.cueIndex + direction;
+      if (nextIndex < 0 || nextIndex >= nav.cueCount) return;
+      const cue = nav.cuesSorted[nextIndex];
+      if (!cue) return;
+      if (choreoPublicView) {
+        jumpViewerCueByIndex(nextIndex);
+        return;
+      }
+      setSelectedCueIds([cue.id]);
+      setProjectSafe((prev) => ({
+        ...prev,
+        activeFormationId: cue.formationId,
+        rosterHidesTimeline: false,
+      }));
+      pauseAndSeekPlaybackToSec({
+        tRaw: cue.tStartSec,
+        durationSec: usePlaybackUiStore.getState().durationSec,
+        trimStartSec: p.trimStartSec ?? 0,
+        trimEndSec: p.trimEndSec ?? null,
+      });
+    },
+    [choreoPublicView, jumpViewerCueByIndex, selectedCueId, setProjectSafe]
+  );
+
+  const getKeyboardSeekContext = useCallback(() => {
+    const p = projectRef.current;
+    if (!p) return null;
+    return {
+      durationSec: usePlaybackUiStore.getState().durationSec,
+      trimStartSec: p.trimStartSec ?? 0,
+      trimEndSec: p.trimEndSec ?? null,
+    };
+  }, []);
+
   /** 名簿「決定」直後に最新の jumpToPagerSlot で先頭キューへ飛ばす */
   const jumpToPagerSlotRef = useRef(jumpToPagerSlot);
   jumpToPagerSlotRef.current = jumpToPagerSlot;
@@ -2356,6 +2396,8 @@ function EditorPageContent({
     undo,
     redo,
     getTrimStartSec: () => projectRef.current?.trimStartSec ?? 0,
+    onSelectAdjacentCue: selectAdjacentCueByKeyboard,
+    getSeekContext: getKeyboardSeekContext,
   });
 
   /**

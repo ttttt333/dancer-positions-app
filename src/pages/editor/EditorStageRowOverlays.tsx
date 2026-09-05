@@ -1089,6 +1089,10 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                 を薄い印で重ね表示します（指を離すと消えます）
               </li>
               <li>
+                <strong style={{ color: "#e2e8f0" }}>← / →</strong>{" "}
+                再生中は5秒戻す／進む。停止中は選択中キューの前／次へ移動
+              </li>
+              <li>
                 <strong style={{ color: "#e2e8f0" }}>Alt+矢印</strong>{" "}
                 で選択ダンサーを微移動（<strong style={{ color: "#e2e8f0" }}>Shift+Alt</strong>{" "}
                 でさらに細かく）

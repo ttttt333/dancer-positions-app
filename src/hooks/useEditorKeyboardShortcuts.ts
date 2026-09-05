@@ -1,5 +1,13 @@
 import { useEffect } from "react";
-import { togglePlaybackRespectingTrimStart } from "../lib/playbackTransport";
+import { playbackEngine } from "../core/playbackEngine";
+import {
+  seekPlaybackClampedAndSyncStore,
+  togglePlaybackRespectingTrimStart,
+} from "../lib/playbackTransport";
+import { usePlaybackUiStore } from "../store/usePlaybackUiStore";
+
+/** 再生中の ←/→ による相対シーク秒 */
+export const KEYBOARD_SEEK_STEP_SEC = 5;
 
 export type UseEditorKeyboardShortcutsArgs = {
   stageZenFullscreen: boolean;
@@ -24,9 +32,17 @@ export type UseEditorKeyboardShortcutsArgs = {
   undo: () => void;
   redo: () => void;
   getTrimStartSec: () => number;
+  /** 停止中の ←/→ で前後キューへ（-1=前, +1=次） */
+  onSelectAdjacentCue?: (direction: -1 | 1) => void;
+  /** 再生中の相対シーク用（トリム／尺） */
+  getSeekContext?: () => {
+    durationSec: number;
+    trimStartSec: number;
+    trimEndSec: number | null;
+  } | null;
 };
 
-/** Escape で各種モーダルを閉じ、Space で再生、⌘Z/⌘⇧Z で Undo/Redo。 */
+/** Escape で各種モーダルを閉じ、Space で再生、←/→ でシークまたはキュー送り、⌘Z/⌘⇧Z で Undo/Redo。 */
 export function useEditorKeyboardShortcuts({
   stageZenFullscreen,
   setStageZenFullscreen,
@@ -50,6 +66,8 @@ export function useEditorKeyboardShortcuts({
   undo,
   redo,
   getTrimStartSec,
+  onSelectAdjacentCue,
+  getSeekContext,
 }: UseEditorKeyboardShortcutsArgs): void {
   useEffect(() => {
     if (!stageZenFullscreen) return;
@@ -68,6 +86,7 @@ export function useEditorKeyboardShortcuts({
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement ||
         (e.target as HTMLElement).isContentEditable
       ) {
         return;
@@ -114,7 +133,33 @@ export function useEditorKeyboardShortcuts({
       if (e.code === "Space") {
         e.preventDefault();
         togglePlaybackRespectingTrimStart(getTrimStartSec());
+        return;
       }
+
+      // Alt+矢印はステージ上のダンサー微移動に任せる
+      if (e.altKey) return;
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      if (e.metaKey || e.ctrlKey) return;
+
+      e.preventDefault();
+      const direction: -1 | 1 = e.key === "ArrowLeft" ? -1 : 1;
+      const playing =
+        usePlaybackUiStore.getState().isPlaying || !playbackEngine.isPaused();
+
+      if (playing) {
+        const ctx = getSeekContext?.();
+        if (!ctx) return;
+        const head = usePlaybackUiStore.getState().currentTimeSec;
+        seekPlaybackClampedAndSyncStore({
+          t: head + direction * KEYBOARD_SEEK_STEP_SEC,
+          durationSec: ctx.durationSec,
+          trimStartSec: ctx.trimStartSec,
+          trimEndSec: ctx.trimEndSec,
+        });
+        return;
+      }
+
+      onSelectAdjacentCue?.(direction);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -139,5 +184,7 @@ export function useEditorKeyboardShortcuts({
     setRosterImportExtraNames,
     cueListModalOpen,
     setCueListModalOpen,
+    onSelectAdjacentCue,
+    getSeekContext,
   ]);
 }
