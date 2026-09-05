@@ -60,9 +60,10 @@ export function spreadForCue(
   const contract: Record<FormationChangeMagnitude, number> = {
     NONE: 0.52,
     SMALL: 0.44,
-    MEDIUM: 0.36,
-    LARGE: 0.3,
-    MAX: 0.22,
+    MEDIUM: 0.38,
+    LARGE: 0.34,
+    /** 0.22 は密集しすぎるため下限を引き上げ（最終は scale 側でも 0.8m クランプ） */
+    MAX: 0.3,
   };
   if (action === "CONTRACT" || action === "CLUSTER") return contract[magnitude];
   if (action === "HOLD" || action === "MICRO_SHIFT") {

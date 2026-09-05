@@ -40,6 +40,11 @@ import type {
   DancerSpot,
 } from "../types/choreography";
 import { useWavePeaksStore } from "../store/wavePeaksStore";
+import { useMusicSectionOverlayStore } from "../store/musicSectionOverlayStore";
+import {
+  segmentsFromChangePoints,
+  segmentsFromMusicSections,
+} from "../lib/musicSectionOverlay";
 
 export type SuggestStatus =
   | "idle"
@@ -212,6 +217,24 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
         : null;
       const note = extraInfo?.trim();
 
+      const publishOverlay = (
+        changePoints: typeof cache.changePoints,
+        duration: number,
+        evalSections?: Array<{ type: string; startTime: number; endTime: number }>
+      ) => {
+        const fromEval =
+          evalSections && evalSections.length > 0
+            ? segmentsFromMusicSections(evalSections, duration)
+            : [];
+        const segments =
+          fromEval.length > 0
+            ? fromEval
+            : segmentsFromChangePoints(changePoints, duration);
+        useMusicSectionOverlayStore
+          .getState()
+          .setSegments(segments, duration, cache.sourceLabel);
+      };
+
       try {
         const engine = runEngineAppSuggest({
           peaks: cache.peaks,
@@ -228,6 +251,15 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
           audioCacheKey: cache.audioCacheKey,
         });
         if (engine && engine.formations.length > 0) {
+          publishOverlay(
+            cache.changePoints,
+            cache.duration,
+            engine.evaluation.sections?.map((s) => ({
+              type: s.type,
+              startTime: s.startTime,
+              endTime: s.endTime,
+            }))
+          );
           setResult({
             formations: engine.formations,
             cues: engine.cues,
@@ -276,6 +308,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
         stageWidthMm: cache.stageWidthMm,
       });
 
+      publishOverlay(cache.changePoints, cache.duration);
       const mapped = lightingSyncPayloadToApp(payload, cache.seedDancers);
       const { scores, averageScore } = scoresFromPayload(payload);
 

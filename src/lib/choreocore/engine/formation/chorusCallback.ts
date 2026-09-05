@@ -6,6 +6,7 @@
 import type { ChoreographicIntent } from "../intent/ChoreographicIntentTypes";
 import type { FormationFamily } from "../types/ScoringTypes";
 import type { FormationRecommendation, RankedFormationCandidate } from "./intentFormationTypes";
+import { scaleSpotsFromCenterSafe } from "./formationGeometry";
 
 export const CALLBACK_REMEMBERED = "CALLBACK_REMEMBERED";
 export const CALLBACK_REPEAT = "CALLBACK_REPEAT";
@@ -163,10 +164,5 @@ export function scaleSpotsFromCenter<T extends { xPct: number; yPct: number }>(
   spots: T[],
   factor: number
 ): T[] {
-  const f = Number.isFinite(factor) && factor > 0 ? factor : 1;
-  return spots.map((s) => ({
-    ...s,
-    xPct: Math.min(96, Math.max(4, 50 + (s.xPct - 50) * f)),
-    yPct: Math.min(94, Math.max(6, 50 + (s.yPct - 50) * f)),
-  }));
+  return scaleSpotsFromCenterSafe(spots, factor);
 }

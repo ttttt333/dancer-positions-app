@@ -153,6 +153,14 @@ export {
   CALLBACK_SCALE_MAX,
   FINAL_CHORUS_SCALE,
 } from "./formation/chorusCallback";
+export {
+  DANCER_MIN_DISTANCE,
+  clampScaleForMinDistance,
+  enforceSymmetryMeters,
+  enforceSymmetryPct,
+  minPairDistanceMeters,
+  scaleSpotsFromCenterSafe,
+} from "./formation/formationGeometry";
 export type {
   FormationIntelligenceReport,
   FormationRecommendation,

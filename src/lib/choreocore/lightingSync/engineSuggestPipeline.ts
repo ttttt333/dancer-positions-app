@@ -25,6 +25,7 @@ import {
   type ChorusLayoutMemory,
   type ChorusShapeMemory,
 } from "../engine/formation/chorusCallback";
+import { enforceSymmetryPct } from "../engine/formation/formationGeometry";
 import {
   recommendFormationsForIntentSequence,
   type FormationIntelligenceReport,
@@ -590,6 +591,7 @@ function resolveDistinctLayoutSpots(input: {
       input.layoutOpts
     );
     if (input.scaleMax) dancers = scaleSpotsFromCenter(dancers, FINAL_CHORUS_SCALE);
+    dancers = enforceSymmetryPct(dancers);
     return { layoutId: input.lockLayoutId, dancers };
   }
   const ranked = rankLayoutPresets(
@@ -649,16 +651,16 @@ function resolveDistinctLayoutSpots(input: {
         FORMATION_TRAVEL_COUNTS,
         input.layoutOpts
       );
-      if (!fallback) fallback = { layoutId: id, dancers };
+      if (!fallback) fallback = { layoutId: id, dancers: enforceSymmetryPct(dancers) };
       if (meanTravelPct(input.prevSpots, dancers) >= MIN_MEAN_TRAVEL_PCT) {
-        return { layoutId: id, dancers };
+        return { layoutId: id, dancers: enforceSymmetryPct(dancers) };
       }
     }
   }
   return (
     fallback ?? {
       layoutId: null,
-      dancers: input.prevSpots.map((s) => ({ ...s })),
+      dancers: enforceSymmetryPct(input.prevSpots.map((s) => ({ ...s }))),
     }
   );
 }
@@ -1691,7 +1693,7 @@ function finishEngineAppSuggest(args: {
     let layoutId: LayoutPresetId | null = preferred;
     let dancers: DancerSpot[];
     if (isTrueHold(cue) && i > 0) {
-      dancers = prevSpots.map((s) => ({ ...s }));
+      dancers = enforceSymmetryPct(prevSpots.map((s) => ({ ...s })));
       layoutId = recentLayouts[recentLayouts.length - 1] ?? preferred;
     } else {
       const lock =

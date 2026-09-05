@@ -402,16 +402,39 @@ export function resamplePositions(positions: Position[], n: number): Position[] 
   const out = chosen.map((i) => ({ ...pts[i]! }));
   out.sort((a, b) => a.x - b.x || a.y - b.y);
 
+  // 重複座標は棄却せず、次に離れた未使用点があれば差し替え。揺らぎ（jitter）は入れない。
   const seen = new Set<string>();
-  return out.map((p, i) => {
-    const key = `${p.x.toFixed(2)},${p.y.toFixed(2)}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      return p;
+  const unique: Position[] = [];
+  for (const p of out) {
+    const key = `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(p);
+  }
+  if (unique.length >= n) return unique.slice(0, n);
+
+  // 足りない分は未使用テンプレ点から追加（距離優先）
+  while (unique.length < n) {
+    let bestI = -1;
+    let bestD = -1;
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i]!;
+      const key = `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
+      if (seen.has(key)) continue;
+      let minD = Infinity;
+      for (const u of unique) {
+        const d = (p.x - u.x) ** 2 + (p.y - u.y) ** 2;
+        if (d < minD) minD = d;
+      }
+      if (minD > bestD) {
+        bestD = minD;
+        bestI = i;
+      }
     }
-    const jitter = ((i % 5) - 2) * 0.18;
-    const q = { x: p.x + jitter, y: p.y + jitter * 0.4 };
-    seen.add(`${q.x.toFixed(2)},${q.y.toFixed(2)}`);
-    return q;
-  });
+    if (bestI < 0) break;
+    const p = pts[bestI]!;
+    seen.add(`${p.x.toFixed(3)},${p.y.toFixed(3)}`);
+    unique.push({ ...p });
+  }
+  return unique;
 }

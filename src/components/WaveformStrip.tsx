@@ -8,7 +8,10 @@ import { formatMmSs, waveRulerTicks } from "../lib/timeFormat";
 import { waveTimeToPercent } from "../lib/timelineWaveGeometry";
 import { WaveformLoadOverlay } from "./WaveformLoadOverlay";
 import { useWaveformLoadProgressStore } from "../store/waveformLoadProgressStore";
+import { useMusicSectionOverlayStore } from "../store/musicSectionOverlayStore";
 import { PC_WAVE_RULER_HEIGHT_CSS } from "../lib/waveDockMetrics";
+
+const SECTION_BAR_HEIGHT = 10;
 
 /** 波形下端の再生位置線のはみ出し（CSS px）— 上部ドックではクリップを避ける */
 const PLAYHEAD_LINE_BLEED_BOTTOM_CSS = 8;
@@ -83,9 +86,12 @@ export function WaveformStrip({
     compactTopDock && wideWorkbench
       ? PLAYHEAD_LINE_BLEED_COMPACT_WIDE_PX
       : PLAYHEAD_LINE_BLEED_BOTTOM_CSS;
-  const playheadHeight = `calc(${rulerHeight} + ${waveCanvasCssH}px + ${playheadBleedPx}px)`;
   const waveLoadProgress = useWaveformLoadProgressStore((s) => s.progress);
   const showWaveLoadOverlay = !hasPeaks && waveLoadProgress != null;
+  const sectionSegments = useMusicSectionOverlayStore((s) => s.segments);
+  const playheadHeight = `calc(${rulerHeight} + ${
+    sectionSegments.length > 0 ? SECTION_BAR_HEIGHT : 0
+  }px + ${waveCanvasCssH}px + ${playheadBleedPx}px)`;
   const drawWaveView = useSyncExternalStore(
     subscribeWaveDrawRange,
     getWaveDrawRangeSnapshot,
@@ -166,6 +172,50 @@ export function WaveformStrip({
               })
             : null}
         </div>
+        {sectionSegments.length > 0 && duration > 0 ? (
+          <div
+            aria-label="AIが認識した曲のセクション"
+            title="AIの曲理解（セクション）"
+            style={{
+              position: "relative",
+              height: SECTION_BAR_HEIGHT,
+              borderBottom: "1px solid #1e293b",
+              background: "rgba(15, 23, 42, 0.9)",
+              overflow: "hidden",
+            }}
+          >
+            {sectionSegments.map((seg, i) => {
+              const left = waveTimeToPercent(
+                seg.startSec,
+                rulerView.start,
+                rulerView.span
+              );
+              const right = waveTimeToPercent(
+                seg.endSec,
+                rulerView.start,
+                rulerView.span
+              );
+              const width = Math.max(0, right - left);
+              if (width < 0.05) return null;
+              return (
+                <div
+                  key={`${seg.sectionType}-${seg.startSec}-${i}`}
+                  title={`${seg.label} ${formatMmSs(seg.startSec)}–${formatMmSs(seg.endSec)}`}
+                  style={{
+                    position: "absolute",
+                    left: `${left}%`,
+                    width: `${width}%`,
+                    top: 1,
+                    bottom: 1,
+                    background: seg.color,
+                    borderRadius: 2,
+                    pointerEvents: "none",
+                  }}
+                />
+              );
+            })}
+          </div>
+        ) : null}
         <div style={{ position: "relative", width: "100%" }}>
           <canvas
             ref={canvasRef}
