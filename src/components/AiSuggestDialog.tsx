@@ -68,12 +68,13 @@ const btnPrimary: CSSProperties = {
   padding: "10px 24px",
   borderRadius: 10,
   border: "none",
-  background: "#6366f1",
-  color: "#fff",
+  background: shell.accent,
+  color: "#1a1408",
   fontSize: 13,
   fontWeight: 700,
   cursor: "pointer",
-  transition: "background 0.2s",
+  transition: "background 0.2s, box-shadow 0.2s",
+  boxShadow: `0 0 0 1px ${shell.brandRing}`,
 };
 
 const btnSecondary: CSSProperties = {
@@ -87,7 +88,7 @@ const btnSecondary: CSSProperties = {
 };
 
 const sectionBox: CSSProperties = {
-  background: "rgba(255,255,255,0.025)",
+  background: shell.surface,
   border: `1px solid ${shell.border}`,
   borderRadius: 10,
   padding: "10px 14px",
@@ -119,6 +120,20 @@ const textarea: CSSProperties = {
   minHeight: 80,
 };
 
+const chipSelected: CSSProperties = {
+  border: `1px solid ${shell.accent}`,
+  background: shell.accentSoft,
+  color: shell.accent,
+  fontWeight: 700,
+};
+
+const chipIdle: CSSProperties = {
+  border: `1px solid ${shell.border}`,
+  background: "rgba(255,255,255,0.04)",
+  color: shell.textMuted,
+  fontWeight: 400,
+};
+
 const VIBES = SUGGEST_VIBES;
 
 type VibeId = SuggestVibeId;
@@ -126,6 +141,14 @@ type VibeId = SuggestVibeId;
 const FORMATION_STYLES = SUGGEST_FORMATION_STYLES;
 
 type FormationStyleId = SuggestFormationStyleId;
+
+function musicLinkBadge(name: string): string | null {
+  if (name.includes("特大")) return "大サビ · 特大";
+  if (name.includes("コールバック")) return "サビ再登場";
+  if (name.includes("閉じる")) return "Bメロ終わり";
+  if (/広げる|大転換/.test(name)) return "サビ頭";
+  return null;
+}
 
 /* ─── Spinner ─── */
 function Spinner() {
@@ -135,8 +158,8 @@ function Spinner() {
         style={{
           width: 40,
           height: 40,
-          border: "3px solid rgba(99,102,241,0.2)",
-          borderTop: "3px solid #6366f1",
+          border: `3px solid ${shell.accentSoft}`,
+          borderTop: `3px solid ${shell.accent}`,
           borderRadius: "50%",
           animation: "ai-spin 0.8s linear infinite",
         }}
@@ -148,11 +171,11 @@ function Spinner() {
 
 /* ─── Step indicator ─── */
 function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
-  const steps = ["曲の情報", "生成中", "結果確認"];
+  const steps = ["曲とキュー", "生成中", "結果確認"];
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 20 }}>
       {steps.map((s, i) => {
-        const n = i + 1 as 1 | 2 | 3;
+        const n = (i + 1) as 1 | 2 | 3;
         const active = n === step;
         const done = n < step;
         return (
@@ -160,16 +183,16 @@ function StepIndicator({ step }: { step: 1 | 2 | 3 }) {
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
               <div style={{
                 width: 24, height: 24, borderRadius: "50%",
-                background: active ? "#6366f1" : done ? "#4ade80" : "rgba(255,255,255,0.07)",
-                border: `2px solid ${active ? "#6366f1" : done ? "#4ade80" : "rgba(255,255,255,0.15)"}`,
-                color: active || done ? "#fff" : shell.textMuted,
+                background: active ? shell.accent : done ? "rgba(74,222,128,0.85)" : "rgba(255,255,255,0.07)",
+                border: `2px solid ${active ? shell.accent : done ? "#4ade80" : "rgba(255,255,255,0.15)"}`,
+                color: active ? "#1a1408" : done ? "#052e16" : shell.textMuted,
                 fontSize: 11, fontWeight: 700,
                 display: "flex", alignItems: "center", justifyContent: "center",
                 transition: "all 0.2s",
               }}>
                 {done ? "✓" : n}
               </div>
-              <span style={{ fontSize: 10, color: active ? "#a5b4fc" : shell.textSubtle, whiteSpace: "nowrap" }}>
+              <span style={{ fontSize: 10, color: active ? shell.accent : shell.textSubtle, whiteSpace: "nowrap" }}>
                 {s}
               </span>
             </div>
@@ -487,13 +510,23 @@ export function AiSuggestDialog({
         {/* Header */}
         <div style={header}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <svg viewBox="0 0 32 32" style={{ width: 22, height: 22, filter: "drop-shadow(0 0 4px #e879f960)" }}>
-              <path d="M16 4 L18 10 L24 10 L19 14 L21 20 L16 16 L11 20 L13 14 L8 10 L14 10 Z" fill="none" stroke="#e879f9" strokeWidth="1.5" strokeLinejoin="round" />
-              <text x="13.5" y="30" fontSize="5" fontWeight="bold" fill="#e879f9" fontFamily="sans-serif" opacity="0.7">AI</text>
-            </svg>
-            <span id="ai-suggest-dialog-title" style={{ fontSize: 15, fontWeight: 700, color: "#e2e8f0" }}>
-              AI フォーメーション提案
-            </span>
+            <div
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: "50%",
+                border: `1.5px solid ${shell.brandRing}`,
+                background: `radial-gradient(circle at 50% 45%, ${shell.ruby} 0 18%, transparent 19%), ${shell.surfaceRaised}`,
+                boxShadow: `0 0 12px ${shell.brandGlow}`,
+                flexShrink: 0,
+              }}
+            />
+            <div>
+              <span id="ai-suggest-dialog-title" style={{ fontSize: 15, fontWeight: 700, color: shell.text, display: "block", letterSpacing: "0.02em" }}>
+                ChoreoCore 提案
+              </span>
+              <span style={{ fontSize: 10, color: shell.textSubtle }}>曲の区切りに合わせて隊形を置く</span>
+            </div>
           </div>
           <button type="button" style={btnClose} onClick={handleClose}>×</button>
         </div>
@@ -513,48 +546,31 @@ export function AiSuggestDialog({
                 </div>
               )}
 
-              <p style={{ fontSize: 12, color: shell.textMuted, lineHeight: 1.55, margin: "0 0 14px" }}>
-                曲の変化に合わせて、指定した数のキューで隊形を提案します。イメージ・スタイル・歌詞は隊形選びに使います。
-              </p>
-
-              {/* クラス属性 */}
-              <div style={{ marginBottom: 16 }}>
-                <span style={label}>クラス属性（制約）</span>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {CLASS_PROFILE_PRESETS.map((p) => {
-                    const selected = classProfileId === p.classId;
-                    return (
-                      <button
-                        key={p.classId}
-                        type="button"
-                        onClick={() => setClassProfileId(p.classId)}
-                        style={{
-                          textAlign: "left",
-                          padding: "8px 12px",
-                          borderRadius: 8,
-                          border: `1px solid ${selected ? "#6366f1" : shell.border}`,
-                          background: selected ? "rgba(99,102,241,0.18)" : "rgba(255,255,255,0.04)",
-                          color: selected ? "#a5b4fc" : shell.textMuted,
-                          fontSize: 12,
-                          cursor: "pointer",
-                        }}
-                      >
-                        <strong style={{ color: selected ? "#e2e8f0" : shell.text }}>{p.className}</strong>
-                        <span style={{ display: "block", fontSize: 10, marginTop: 2, opacity: 0.75, lineHeight: 1.4 }}>
-                          移動≤{p.maxMoveDistancePerCount}m/count · 間隔≥{p.minCountsBetweenChanges} · 交差{p.allowCrossMovement ? "可" : "不可"} · 姿勢{p.use3DLeveling ? "ON" : "OFF"} · スナップ{p.gridSnapMode}
-                        </span>
-                      </button>
-                    );
-                  })}
+              {/* キュー数（主役） */}
+              <div
+                style={{
+                  ...sectionBox,
+                  marginBottom: 16,
+                  padding: "14px 16px",
+                  background: `linear-gradient(165deg, ${shell.surfaceRaised} 0%, ${shell.bgChrome} 100%)`,
+                  borderColor: shell.borderStrong,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
+                  <div>
+                    <span style={{ ...label, marginBottom: 2 }}>キュー数（この数が結果に出ます）</span>
+                    <p style={{ fontSize: 10, color: shell.textSubtle, margin: 0, lineHeight: 1.4 }}>
+                      Bメロ終わり・サビ頭を優先して配置します
+                    </p>
+                  </div>
+                  <span style={{ fontSize: 28, fontWeight: 800, color: shell.accent, letterSpacing: "-0.02em", lineHeight: 1 }}>
+                    {targetCueCount}
+                  </span>
                 </div>
-              </div>
-
-              {/* キュー数 */}
-              <div style={{ marginBottom: 16 }}>
-                <span style={label}>キュー数（開始を含む）</span>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
                   {AI_SUGGEST_CUE_PRESETS.map((n) => {
                     const selected = targetCueCount === n;
+                    const recommended = n === defaultCueCount;
                     return (
                       <button
                         key={n}
@@ -562,17 +578,15 @@ export function AiSuggestDialog({
                         onClick={() => setTargetCueCount(n)}
                         style={{
                           minWidth: 44,
-                          padding: "6px 12px",
+                          padding: "7px 12px",
                           borderRadius: 8,
-                          border: `1px solid ${selected ? "#6366f1" : shell.border}`,
-                          background: selected ? "rgba(99,102,241,0.18)" : "rgba(255,255,255,0.04)",
-                          color: selected ? "#a5b4fc" : shell.textMuted,
                           fontSize: 12,
-                          fontWeight: selected ? 700 : 400,
                           cursor: "pointer",
+                          ...(selected ? chipSelected : chipIdle),
+                          boxShadow: recommended && !selected ? `inset 0 0 0 1px ${shell.borderStrong}` : undefined,
                         }}
                       >
-                        {n}
+                        {n}{recommended ? " · 推奨" : ""}
                       </button>
                     );
                   })}
@@ -584,7 +598,7 @@ export function AiSuggestDialog({
                     max={AI_SUGGEST_CUE_MAX}
                     value={targetCueCount}
                     onChange={(e) => setTargetCueCount(Number(e.target.value))}
-                    style={{ flex: 1 }}
+                    style={{ flex: 1, accentColor: shell.accent }}
                   />
                   <input
                     type="number"
@@ -602,7 +616,7 @@ export function AiSuggestDialog({
                       width: 56,
                       boxSizing: "border-box",
                       background: "rgba(255,255,255,0.04)",
-                      border: `1px solid ${shell.border}`,
+                      border: `1px solid ${shell.borderStrong}`,
                       borderRadius: 8,
                       color: shell.text,
                       fontSize: 13,
@@ -612,9 +626,71 @@ export function AiSuggestDialog({
                     }}
                   />
                 </div>
-                <p style={{ fontSize: 10, color: shell.textSubtle, margin: "6px 0 0", lineHeight: 1.45 }}>
-                  指定した数（開始を含む）で提案します。おすすめ {defaultCueCount}（約20秒に1つ）。近すぎる変化は移動時間を確保するため間引きます。
+                <div
+                  style={{
+                    marginTop: 12,
+                    display: "grid",
+                    gridTemplateColumns: "repeat(4, 1fr)",
+                    gap: 4,
+                    fontSize: 9,
+                    color: shell.textSubtle,
+                    textAlign: "center",
+                  }}
+                >
+                  {[
+                    ["導入", "開始"],
+                    ["Bメロ", "閉じる"],
+                    ["サビ", "開く"],
+                    ["大サビ", "特大"],
+                  ].map(([a, b]) => (
+                    <div
+                      key={a}
+                      style={{
+                        padding: "6px 4px",
+                        borderRadius: 6,
+                        background: "rgba(0,0,0,0.25)",
+                        border: `1px solid ${shell.border}`,
+                      }}
+                    >
+                      <div style={{ color: shell.accent, fontWeight: 700 }}>{a}</div>
+                      <div>{b}</div>
+                    </div>
+                  ))}
+                </div>
+                <p style={{ fontSize: 10, color: shell.textSubtle, margin: "10px 0 0", lineHeight: 1.45 }}>
+                  曲長 {Math.floor(durationSec / 60)}:{String(Math.floor(durationSec % 60)).padStart(2, "0")}
+                  のおすすめは {defaultCueCount}（約20秒に1つ）。近すぎる変化は移動4カウント分を確保して間引きます。
                 </p>
+              </div>
+
+              {/* クラス属性 */}
+              <div style={{ marginBottom: 16 }}>
+                <span style={label}>クラス属性（制約）</span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {CLASS_PROFILE_PRESETS.map((p) => {
+                    const selected = classProfileId === p.classId;
+                    return (
+                      <button
+                        key={p.classId}
+                        type="button"
+                        onClick={() => setClassProfileId(p.classId)}
+                        style={{
+                          textAlign: "left",
+                          padding: "8px 12px",
+                          borderRadius: 8,
+                          fontSize: 12,
+                          cursor: "pointer",
+                          ...(selected ? chipSelected : chipIdle),
+                        }}
+                      >
+                        <strong style={{ color: selected ? shell.text : shell.text }}>{p.className}</strong>
+                        <span style={{ display: "block", fontSize: 10, marginTop: 2, opacity: 0.75, lineHeight: 1.4 }}>
+                          移動≤{p.maxMoveDistancePerCount}m/count · 間隔≥{p.minCountsBetweenChanges} · 交差{p.allowCrossMovement ? "可" : "不可"} · 姿勢{p.use3DLeveling ? "ON" : "OFF"} · スナップ{p.gridSnapMode}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* 曲のイメージ */}
@@ -631,14 +707,11 @@ export function AiSuggestDialog({
                         title={v.desc}
                         style={{
                           padding: "6px 12px",
-                          borderRadius: 20,
-                          border: `1px solid ${selected ? "#6366f1" : shell.border}`,
-                          background: selected ? "rgba(99,102,241,0.18)" : "rgba(255,255,255,0.04)",
-                          color: selected ? "#a5b4fc" : shell.textMuted,
+                          borderRadius: 8,
                           fontSize: 12,
                           cursor: "pointer",
                           transition: "all 0.15s",
-                          fontWeight: selected ? 600 : 400,
+                          ...(selected ? chipSelected : chipIdle),
                         }}
                       >
                         {v.label}
@@ -663,13 +736,10 @@ export function AiSuggestDialog({
                         style={{
                           padding: "6px 14px",
                           borderRadius: 8,
-                          border: `1px solid ${selected ? "#a78bfa" : shell.border}`,
-                          background: selected ? "rgba(167,139,250,0.15)" : "rgba(255,255,255,0.04)",
-                          color: selected ? "#c4b5fd" : shell.textMuted,
                           fontSize: 12,
                           cursor: "pointer",
                           transition: "all 0.15s",
-                          fontWeight: selected ? 700 : 400,
+                          ...(selected ? chipSelected : chipIdle),
                         }}
                       >
                         {fs.label}
@@ -756,7 +826,7 @@ export function AiSuggestDialog({
                   disabled={noPeaks}
                   onClick={handleSuggest}
                 >
-                  ✨ フォーメーションを提案してもらう
+                  フォーメーションを提案する（{targetCueCount}枠）
                 </button>
               </div>
             </div>
@@ -768,14 +838,14 @@ export function AiSuggestDialog({
               <Spinner />
               {status === "analyzing" ? (
                 <>
-                  <p style={{ fontSize: 13, color: "#c084fc" }}>音楽を解析しています…</p>
-                  <p style={{ fontSize: 11, color: shell.textSubtle, marginTop: 4 }}>BPM・セクション・エネルギーを推定中</p>
+                  <p style={{ fontSize: 13, color: shell.accent }}>音楽を解析しています…</p>
+                  <p style={{ fontSize: 11, color: shell.textSubtle, marginTop: 4 }}>拍・帯域・変化点を解析中。準備できなければ従来経路に戻します</p>
                 </>
               ) : (
                 <>
-                  <p style={{ fontSize: 13, color: "#e879f9" }}>曲の区切りと隊列を組み立てています…</p>
+                  <p style={{ fontSize: 13, color: shell.text }}>曲の区切りと隊列を組み立てています…</p>
                   <p style={{ fontSize: 11, color: shell.textSubtle, marginTop: 4 }}>
-                    変化点 → キュー判定 → 隊形の並び
+                    指定 {targetCueCount} 枠 · Bメロ閉じる → サビ開く → コールバック
                   </p>
                 </>
               )}
@@ -796,11 +866,15 @@ export function AiSuggestDialog({
                   {/* 解析サマリー */}
                   <div style={sectionBox}>
                     <p style={{ fontSize: 11, color: shell.textSubtle, marginBottom: 6, fontWeight: 600 }}>楽曲解析結果</p>
-                    <div style={{ display: "flex", gap: 16, fontSize: 13, color: "#e2e8f0", flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: 16, fontSize: 13, color: shell.text, flexWrap: "wrap", alignItems: "baseline" }}>
+                      <span>
+                        <span style={{ color: shell.textSubtle, fontSize: 10 }}>キュー</span>{" "}
+                        <strong style={{ color: shell.accent, fontSize: 18 }}>{result.cues.length}</strong>
+                        <span style={{ color: shell.textSubtle, fontSize: 11 }}> / 指定 {targetCueCount}</span>
+                      </span>
                       <span><span style={{ color: shell.textSubtle, fontSize: 10 }}>BPM</span>{" "}<strong>{result.analysis.bpm}</strong></span>
                       <span><span style={{ color: shell.textSubtle, fontSize: 10 }}>長さ</span>{" "}<strong>{Math.floor(result.analysis.durationSec / 60)}:{String(Math.floor(result.analysis.durationSec % 60)).padStart(2, "0")}</strong></span>
                       <span><span style={{ color: shell.textSubtle, fontSize: 10 }}>セクション</span>{" "}<strong>{result.analysis.sections.length}</strong></span>
-                      <span><span style={{ color: shell.textSubtle, fontSize: 10 }}>キュー</span>{" "}<strong>{result.cues.length}</strong></span>
                       {result.analysisSource ? (
                         <span><span style={{ color: shell.textSubtle, fontSize: 10 }}>解析</span>{" "}<strong>{result.analysisSource}</strong></span>
                       ) : null}
@@ -809,6 +883,15 @@ export function AiSuggestDialog({
                         <span><span style={{ color: shell.textSubtle, fontSize: 10 }}>クラス</span>{" "}<strong>{result.classProfileId}</strong></span>
                       ) : null}
                     </div>
+                    {result.cues.length !== targetCueCount ? (
+                      <p style={{ fontSize: 10, color: "#fbbf24", margin: "8px 0 0", lineHeight: 1.4 }}>
+                        指定と結果がずれています。もう一度提案するか、キュー数を変えてみてください。
+                      </p>
+                    ) : (
+                      <p style={{ fontSize: 10, color: shell.textSubtle, margin: "8px 0 0", lineHeight: 1.4 }}>
+                        曲の区切り（Bメロ終わり・サビ頭など）を優先して {result.cues.length} 枠に合わせました。
+                      </p>
+                    )}
                   </div>
 
                   {gateReport ? (
@@ -876,11 +959,9 @@ export function AiSuggestDialog({
                           style={{
                             padding: "5px 10px",
                             borderRadius: 8,
-                            border: `1px solid ${on ? "#6366f1" : shell.border}`,
-                            background: on ? "rgba(99,102,241,0.18)" : "rgba(255,255,255,0.04)",
-                            color: on ? "#a5b4fc" : shell.textMuted,
                             fontSize: 11,
                             cursor: "pointer",
+                            ...(on ? chipSelected : chipIdle),
                           }}
                         >
                           {lab}
@@ -919,6 +1000,7 @@ export function AiSuggestDialog({
                   {pairedCues.map(({ cue, formation }, idx) => {
                     const accepted = acceptedCueIds.has(cue.id);
                     const previewing = previewCueId === cue.id;
+                    const linkBadge = musicLinkBadge(formation.name);
                     const poseSummary = (() => {
                       const counts = { stand: 0, crouch: 0, sit: 0 };
                       for (const d of formation.dancers) {
@@ -947,24 +1029,38 @@ export function AiSuggestDialog({
                           cursor: "pointer",
                           opacity: accepted ? 1 : 0.45,
                           borderColor: previewing
-                            ? "#6366f1"
+                            ? shell.accent
                             : accepted
                               ? shell.border
                               : "rgba(248,113,113,0.25)",
-                          boxShadow: previewing ? "0 0 0 1px #6366f1" : undefined,
+                          boxShadow: previewing ? `0 0 0 1px ${shell.accent}` : undefined,
                         }}
                       >
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                           <span style={{
                             width: 20, height: 20, borderRadius: 6,
-                            background: previewing ? "rgba(99,102,241,0.45)" : "rgba(99,102,241,0.2)",
-                            color: "#818cf8",
+                            background: previewing ? shell.accent : shell.accentSoft,
+                            color: previewing ? "#1a1408" : shell.accent,
                             fontSize: 10, fontWeight: 700,
                             display: "flex", alignItems: "center", justifyContent: "center",
                           }}>{idx + 1}</span>
-                          <span style={{ fontSize: 12, color: "#e2e8f0", fontWeight: 600, flex: 1 }}>
+                          <span style={{ fontSize: 12, color: shell.text, fontWeight: 600, flex: 1 }}>
                             {formation.name}
                           </span>
+                          {linkBadge ? (
+                            <span style={{
+                              fontSize: 9,
+                              fontWeight: 700,
+                              color: shell.accent,
+                              background: shell.accentSoft,
+                              border: `1px solid ${shell.borderStrong}`,
+                              borderRadius: 4,
+                              padding: "2px 6px",
+                              whiteSpace: "nowrap",
+                            }}>
+                              {linkBadge}
+                            </span>
+                          ) : null}
                           <span style={{ fontSize: 10, color: shell.textSubtle }}>
                             {Math.floor(cue.tStartSec / 60)}:{String(Math.floor(cue.tStartSec % 60)).padStart(2, "0")}
                             –{Math.floor(cue.tEndSec / 60)}:{String(Math.floor(cue.tEndSec % 60)).padStart(2, "0")}
@@ -989,7 +1085,7 @@ export function AiSuggestDialog({
                           </button>
                         </div>
                         {formation.note ? (
-                          <p style={{ fontSize: 10, color: "#a5b4fc", margin: "0 0 6px", lineHeight: 1.45, opacity: 0.9 }}>
+                          <p style={{ fontSize: 10, color: shell.accent, margin: "0 0 6px", lineHeight: 1.45, opacity: 0.9 }}>
                             {formation.note.length > 120 ? `${formation.note.slice(0, 120)}…` : formation.note}
                           </p>
                         ) : null}
@@ -1071,14 +1167,12 @@ export function AiSuggestDialog({
                               textAlign: "left",
                               padding: "8px 12px",
                               borderRadius: 8,
-                              border: `1px solid ${selected ? "#6366f1" : shell.border}`,
-                              background: selected ? "rgba(99,102,241,0.18)" : "rgba(255,255,255,0.04)",
-                              color: selected ? "#a5b4fc" : shell.textMuted,
                               fontSize: 12,
                               cursor: "pointer",
+                              ...(selected ? chipSelected : chipIdle),
                             }}
                           >
-                            <strong style={{ color: selected ? "#e2e8f0" : shell.text }}>{lab}</strong>
+                            <strong style={{ color: shell.text }}>{lab}</strong>
                             <span style={{ display: "block", fontSize: 10, marginTop: 2, opacity: 0.75, lineHeight: 1.4 }}>
                               {desc}
                             </span>
@@ -1104,10 +1198,12 @@ export function AiSuggestDialog({
                       onClick={handleApply}
                       onMouseEnter={(e) => {
                         if (acceptedCount === 0) return;
-                        (e.target as HTMLButtonElement).style.background = "#4f46e5";
+                        (e.target as HTMLButtonElement).style.background = shell.accentDeep;
+                        (e.target as HTMLButtonElement).style.color = shell.text;
                       }}
                       onMouseLeave={(e) => {
-                        (e.target as HTMLButtonElement).style.background = "#6366f1";
+                        (e.target as HTMLButtonElement).style.background = shell.accent;
+                        (e.target as HTMLButtonElement).style.color = "#1a1408";
                       }}
                     >
                       {applyMode === "append"

@@ -6,13 +6,17 @@ import { makeSineBuffer, makeQuietThenHit } from "./testBuffers";
 import {
   analyzeAndCacheRealPhase1,
   clearRealPhase1Inflight,
+  waitForRealPhase1Cache,
 } from "./analyzeAndCacheRealPhase1";
 import {
   clearRealPhase1Cache,
   getRealPhase1Cached,
   setRealPhase1Cached,
 } from "./realPhase1Cache";
-import { isMusicEnginePhase12Enabled } from "./musicEngineFlag";
+import {
+  isMusicEnginePhase12Enabled,
+  setMusicEnginePhase12EnabledForTests,
+} from "./musicEngineFlag";
 import {
   getLastMusicEngineTrace,
   isRealPhase1Provenance,
@@ -24,6 +28,7 @@ afterEach(() => {
   clearRealPhase1Cache();
   clearRealPhase1Inflight();
   resetMusicEngineTrace();
+  setMusicEnginePhase12EnabledForTests(undefined);
 });
 
 describe("Stage 0 contracts: real vs synthetic Phase1", () => {
@@ -50,8 +55,8 @@ describe("Stage 0 contracts: real vs synthetic Phase1", () => {
 });
 
 describe("Stage 1: Real PCM → cache", () => {
-  it("feature flag defaults to OFF", () => {
-    expect(isMusicEnginePhase12Enabled()).toBe(false);
+  it("feature flag defaults to ON", () => {
+    expect(isMusicEnginePhase12Enabled()).toBe(true);
   });
 
   it("caches real Phase1 and hits on the same key+version", async () => {
@@ -93,6 +98,7 @@ describe("Stage 1: Real PCM → cache", () => {
   });
 
   it("does not run Phase1 when flag is OFF and force is false", async () => {
+    setMusicEnginePhase12EnabledForTests(false);
     const buffer = makeSineBuffer({
       frequency: 110,
       durationSec: 0.4,
@@ -144,6 +150,18 @@ describe("Stage 1: Real PCM → cache", () => {
     ]);
     expect(a).not.toBeNull();
     expect(a).toBe(b);
+  });
+
+  it("waitForRealPhase1Cache joins an in-flight analyze", async () => {
+    const buffer = makeQuietThenHit({ durationSec: 0.8, hitTimeSec: 0.4 });
+    const started = analyzeAndCacheRealPhase1({
+      audioBuffer: buffer,
+      cacheKey: "track-wait",
+    });
+    const waited = waitForRealPhase1Cache("track-wait");
+    const [a, b] = await Promise.all([started, waited]);
+    expect(a).not.toBeNull();
+    expect(b).toBe(a);
   });
 });
 

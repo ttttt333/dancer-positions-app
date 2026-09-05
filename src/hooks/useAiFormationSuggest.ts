@@ -5,6 +5,8 @@
 
 import { useState, useCallback, useRef } from "react";
 import { analyzeAudio, type AudioAnalysis } from "../lib/audioAnalyze";
+import { ensureRealPhase1ForSuggest } from "../lib/choreocore/engine/audio/analyzeAndCacheRealPhase1";
+import { isMusicEnginePhase12Enabled } from "../lib/choreocore/engine/audio/musicEngineFlag";
 import { analyzeSongStructureFromPeaks } from "../lib/songStructureAnalysis";
 import { fetchRemoteSongAnalysis } from "../lib/songAnalyzeClient";
 import {
@@ -231,7 +233,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
             cues: engine.cues,
             reasoning: [
               `曲理解エンジン / クラス: ${profile.className}（${profile.classId}）`,
-              `解析ソース: ${cache.sourceLabel} / BPM ${Math.round(cache.bpm)} / キュー ${engine.cues.length}枠${targetCueCount != null ? `（指定 ${targetCueCount}）` : ""}`,
+              `解析ソース: ${cache.sourceLabel} / ${engine.musicEngine?.analysisSource === "engine-phase12" ? "曲理解 Phase1/2" : "暫定（従来経路）"} / BPM ${Math.round(cache.bpm)} / キュー ${engine.cues.length}枠${targetCueCount != null ? `（指定 ${targetCueCount}）` : ""}`,
               constraintLine,
               ...(tasteLine ? [tasteLine] : []),
               ...(feedbackLine ? [feedbackLine] : []),
@@ -243,7 +245,10 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
               bpm: cache.bpm,
               durationSec: cache.duration,
             },
-            analysisSource: `${cache.sourceLabel} · engine`,
+            analysisSource:
+              engine.musicEngine?.analysisSource === "engine-phase12"
+                ? `${cache.sourceLabel} · 曲理解 Phase1/2`
+                : `${cache.sourceLabel} · 暫定`,
             scores: engine.scores,
             averageScore: engine.averageScore,
             lightingSyncPayload: engine.lightingSyncPayload,
@@ -328,6 +333,14 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
           audioOpts?.feedback;
 
         if (canReuse && cacheRef.current) {
+          if (isMusicEnginePhase12Enabled()) {
+            await ensureRealPhase1ForSuggest({
+              cacheKey: cacheRef.current.audioCacheKey,
+              audioUrl: audioOpts?.audioUrl,
+              signal: controller.signal,
+            });
+          }
+          if (controller.signal.aborted) return;
           setStatus("requesting");
           runGenerate(
             cacheRef.current,
@@ -390,6 +403,16 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
 
         if (controller.signal.aborted) return;
 
+        const audioCacheKey = useWavePeaksStore.getState().peaksCacheKey;
+        if (isMusicEnginePhase12Enabled()) {
+          await ensureRealPhase1ForSuggest({
+            cacheKey: audioCacheKey,
+            audioUrl: audioOpts?.audioUrl,
+            signal: controller.signal,
+          });
+        }
+        if (controller.signal.aborted) return;
+
         const cache: CachedAnalysis = {
           peaks,
           durationSec,
@@ -403,7 +426,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
           seedDancers,
           dancerSpacingMm: project.dancerSpacingMm,
           stageWidthMm: project.stageWidthMm,
-          audioCacheKey: useWavePeaksStore.getState().peaksCacheKey,
+          audioCacheKey,
         };
         cacheRef.current = cache;
 

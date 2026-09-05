@@ -52,7 +52,9 @@ export function clampTargetCueCount(n: number): number {
 
 function importance(cp: ChangePoint): number {
   let w = TIER_WEIGHT[cp.tier] * 10 + (Number.isFinite(cp.score) ? cp.score : 0);
-  if (cp.section_type === "CHORUS_START") w += 40;
+  if (cp.section_type === "CHORUS_START" || cp.section_type === "DROP") w += 40;
+  else if (cp.section_type === "PRE_CHORUS") w += 36;
+  else if (cp.section_type === "OUTRO") w += 22;
   else if (cp.section_type === "CHORUS") w += 15;
   // 4エイト境界を優遇
   if (cp.eight_index % 4 === 0) w += 5;

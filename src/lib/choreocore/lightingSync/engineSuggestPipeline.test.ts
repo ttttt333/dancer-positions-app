@@ -110,6 +110,75 @@ describe("engineSuggestPipeline", () => {
     expect(result!.evaluation.formationRankings.length).toBe(result!.formations.length);
   });
 
+  it("honors both fewer and more cue counts than the default dozen", () => {
+    const base = {
+      peaks: peaksWithChorus(240),
+      durationSec: 240,
+      bpm: 120,
+      remoteChangePoints: [
+        { eight_index: 0, time: 0, score: 0.4, tier: "minor" as const },
+        {
+          eight_index: 8,
+          time: 32,
+          score: 0.75,
+          tier: "medium" as const,
+          section_type: "PRE_CHORUS" as const,
+        },
+        {
+          eight_index: 12,
+          time: 48,
+          score: 0.95,
+          tier: "major" as const,
+          section_type: "CHORUS_START" as const,
+        },
+        {
+          eight_index: 24,
+          time: 96,
+          score: 0.7,
+          tier: "medium" as const,
+          section_type: "PRE_CHORUS" as const,
+        },
+        {
+          eight_index: 28,
+          time: 112,
+          score: 0.9,
+          tier: "major" as const,
+          section_type: "CHORUS_START" as const,
+        },
+        {
+          eight_index: 40,
+          time: 160,
+          score: 0.85,
+          tier: "major" as const,
+          section_type: "DROP" as const,
+        },
+        {
+          eight_index: 52,
+          time: 208,
+          score: 0.6,
+          tier: "medium" as const,
+          section_type: "OUTRO" as const,
+        },
+        ...Array.from({ length: 18 }, (_, i) => ({
+          eight_index: 2 + i * 3,
+          time: 12 + i * 12,
+          score: 0.55,
+          tier: "medium" as const,
+        })),
+      ],
+      seedDancers: seeds(8),
+      profile: CLASS_ADVANCED_MON7,
+      tasteBias: resolveSuggestTaste({}),
+    };
+    const six = runEngineAppSuggest({ ...base, targetCueCount: 6 });
+    const sixteen = runEngineAppSuggest({ ...base, targetCueCount: 16 });
+    expect(six!.cues.length).toBe(6);
+    expect(sixteen!.cues.length).toBe(16);
+    const sixTimes = six!.cues.map((c) => c.tStartSec);
+    expect(sixTimes.some((t) => Math.abs(t - 32) < 4)).toBe(true);
+    expect(sixTimes.some((t) => Math.abs(t - 48) < 4)).toBe(true);
+  });
+
   it("toddler suggestions never pick cross layouts", () => {
     const result = runEngineAppSuggest({
       peaks: peaksWithChorus(80),

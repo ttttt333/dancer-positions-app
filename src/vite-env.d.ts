@@ -21,8 +21,8 @@ interface ImportMetaEnv {
    */
   readonly VITE_FORMATION_IMPORT_ENGINE?: string;
   /**
-   * Real Phase1/2 本番経路。未設定は OFF（現行 RMS + 4エイト）。
-   * `"1"` / `"true"` / `"on"` で ON。
+   * Real Phase1/2 本番経路。未設定は ON。
+   * `"0"` / `"false"` / `"off"` で旧 RMS + 4エイトに戻す。
    */
   readonly VITE_MUSIC_ENGINE_PHASE12?: string;
 }

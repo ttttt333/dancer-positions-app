@@ -1,7 +1,7 @@
 /**
  * 曲理解エンジン（Phase 1–6）で「いつ変えるか」を決め、
  * 立ち位置はエディタ雛形（約200種）から載せる。
- * 照明プランコーパスは参照しない。キュー数は指定値を上限にする。
+ * 照明プランコーパスは参照しない。キュー数は曲の区切り優先で指定数に合わせる。
  */
 
 import type {
@@ -73,6 +73,7 @@ import type { FormationStyle, StageConfig } from "../engine/types/CueTypes";
 import type {
   CueAnalysisResult,
   FormationCue,
+  FormationCueAction,
   FormationCueIntent,
 } from "../engine/types/CueTypes";
 import type {
@@ -113,7 +114,12 @@ import {
   DEFAULT_FORMATION_WEIGHTS,
   type FormationScore,
 } from "../tier1";
-import { AI_SUGGEST_CUE_MAX, AI_SUGGEST_CUE_MIN } from "../selectChangePoints";
+import {
+  AI_SUGGEST_CUE_MAX,
+  AI_SUGGEST_CUE_MIN,
+  selectChangePointsForCueCount,
+  type SectionAnchor,
+} from "../selectChangePoints";
 
 const STAGE: StageConfig = DEFAULT_STAGE;
 
@@ -535,40 +541,6 @@ function promoteCuesAtSongChanges(
   return { ...analysis, cues, intents };
 }
 
-function thinCuesForTravel(
-  analysis: CueAnalysisResult,
-  bpm: number
-): CueAnalysisResult {
-  const minGap = minHitGapSec(bpm);
-  const active = analysis.cues
-    .filter((c) => !c.suppressed)
-    .sort((a, b) => a.rawTime - b.rawTime || a.id.localeCompare(b.id));
-  const kept: FormationCue[] = [];
-  const keptIds = new Set<string>();
-  for (const cue of active) {
-    const last = kept[kept.length - 1];
-    if (!last || cue.rawTime - last.rawTime >= minGap - 1e-6) {
-      kept.push(cue);
-      keptIds.add(cue.id);
-      continue;
-    }
-    const better =
-      Number(cue.isMajor) - Number(last.isMajor) ||
-      cue.priority - last.priority;
-    if (better > 0) {
-      keptIds.delete(last.id);
-      kept[kept.length - 1] = cue;
-      keptIds.add(cue.id);
-    }
-  }
-  return {
-    ...analysis,
-    cues: analysis.cues.map((c) =>
-      c.suppressed || keptIds.has(c.id) ? c : { ...c, suppressed: true }
-    ),
-  };
-}
-
 function isTrueHold(cue: FormationCue): boolean {
   return (
     cue.action === "HOLD" &&
@@ -630,32 +602,35 @@ function resolveDistinctLayoutSpots(input: {
 
   let fallback: { layoutId: LayoutPresetId; dancers: DancerSpot[] } | null =
     null;
-  for (const id of ordered) {
-    if (!allowCrossOf(input.profile) && isCrossLayoutPreset(id)) continue;
-    if (/^extra_/.test(id) && input.tasteBias.style !== "freestyle") continue;
-    if (
-      input.tasteBias.style !== "freestyle" &&
-      /pinwheel|heart|spiral|scatter/.test(id)
-    ) {
-      continue;
-    }
-    const raw = spotsForLayoutPreset(
-      id,
-      input.seeds,
-      input.prevSpots,
-      input.layoutOpts
-    );
-    const dancers = refineSpotsForClass(
-      raw,
-      input.seeds,
-      input.prevSpots,
-      input.profile,
-      FORMATION_TRAVEL_COUNTS,
-      input.layoutOpts
-    );
-    if (!fallback) fallback = { layoutId: id, dancers };
-    if (meanTravelPct(input.prevSpots, dancers) >= MIN_MEAN_TRAVEL_PCT) {
-      return { layoutId: id, dancers };
+  for (const pass of [0, 1] as const) {
+    for (const id of ordered) {
+      if (pass === 0 && input.recent.includes(id)) continue;
+      if (!allowCrossOf(input.profile) && isCrossLayoutPreset(id)) continue;
+      if (/^extra_/.test(id) && input.tasteBias.style !== "freestyle") continue;
+      if (
+        input.tasteBias.style !== "freestyle" &&
+        /pinwheel|heart|spiral|scatter/.test(id)
+      ) {
+        continue;
+      }
+      const raw = spotsForLayoutPreset(
+        id,
+        input.seeds,
+        input.prevSpots,
+        input.layoutOpts
+      );
+      const dancers = refineSpotsForClass(
+        raw,
+        input.seeds,
+        input.prevSpots,
+        input.profile,
+        FORMATION_TRAVEL_COUNTS,
+        input.layoutOpts
+      );
+      if (!fallback) fallback = { layoutId: id, dancers };
+      if (meanTravelPct(input.prevSpots, dancers) >= MIN_MEAN_TRAVEL_PCT) {
+        return { layoutId: id, dancers };
+      }
     }
   }
   return (
@@ -960,29 +935,302 @@ function clustersFromRemoteChangePoints(
   return out.sort((a, b) => a.time - b.time);
 }
 
-function capCueAnalysis(
+function sectionAnchorsFromRemote(
+  remote: AppChangePoint[] | undefined,
+  duration: number
+): SectionAnchor[] {
+  if (!remote?.length) return [];
+  const sorted = [...remote]
+    .filter((cp) => Number.isFinite(cp.time) && cp.time >= 0)
+    .sort((a, b) => a.time - b.time);
+  const out: SectionAnchor[] = [];
+  for (let i = 0; i < sorted.length; i += 1) {
+    const cp = sorted[i]!;
+    if (cp.time < 1.5) continue;
+    const next = sorted[i + 1];
+    out.push({
+      startSec: cp.time,
+      endSec: next?.time ?? duration,
+      avgEnergy:
+        cp.tier === "major" ? 0.85 : cp.tier === "medium" ? 0.55 : 0.35,
+      label: cp.section_type,
+    });
+  }
+  return out;
+}
+
+function cueStructureScore(
+  cue: FormationCue,
+  remote: AppChangePoint[] | undefined
+): number {
+  let score = cue.priority + (cue.isMajor ? 40 : 0);
+  if (
+    cue.reasonCodes.includes("TENSION_CONTRACT") ||
+    cue.reasonCodes.includes("PROMOTED_VERSE_END")
+  ) {
+    score += 45;
+  }
+  if (cue.reasonCodes.includes("PROMOTED_SECTION_CHANGE")) score += 35;
+  if (cue.reasonCodes.includes("INJECTED_STRUCTURE")) score += 30;
+  const near = remote?.find((cp) => Math.abs(cp.time - cue.rawTime) < 2.5);
+  if (!near?.section_type) return score;
+  if (near.section_type === "CHORUS_START" || near.section_type === "DROP") {
+    score += 50;
+  } else if (near.section_type === "PRE_CHORUS") {
+    score += 48;
+  } else if (near.section_type === "OUTRO") {
+    score += 28;
+  } else if (near.section_type === "CHORUS") {
+    score += 22;
+  }
+  return score;
+}
+
+function syntheticCueAt(
+  time: number,
+  bpm: number,
+  cp: AppChangePoint | undefined,
+  index: number
+): { cue: FormationCue; intent: FormationCueIntent } {
+  const st = cp?.section_type ?? (cp ? inferredRemoteSection(cp) : undefined);
+  let action: FormationCueAction = "MAJOR_CHANGE";
+  let intent: FormationCueIntent = {
+    primary: "MAJOR_CHANGE",
+    secondary: ["EXPAND", "V"],
+    prohibited: ["HOLD"],
+  };
+  const reasonCodes = ["INJECTED_STRUCTURE", "TARGET_CUE_FILL"];
+  if (st === "PRE_CHORUS") {
+    action = "CONTRACT";
+    intent = {
+      primary: "CONTRACT",
+      secondary: ["CLUSTER", "CENTER"],
+      prohibited: ["EXPAND", "V"],
+    };
+    reasonCodes.push("TENSION_CONTRACT", "PROMOTED_VERSE_END", "PRE_CHORUS");
+  } else if (st === "OUTRO") {
+    action = "CONTRACT";
+    intent = {
+      primary: "CONTRACT",
+      secondary: ["CENTER"],
+      prohibited: [],
+    };
+    reasonCodes.push("SECTION_CHANGE", "OUTRO");
+  } else if (st === "CHORUS_START" || st === "DROP" || st === "CHORUS") {
+    reasonCodes.push("PROMOTED_SECTION_CHANGE", st);
+  } else {
+    reasonCodes.push("SECTION_CHANGE");
+  }
+  const id = `synth-cue-${Math.round(time * 1000)}-${index}`;
+  const energyAfter =
+    st === "PRE_CHORUS" ? 58 : st === "OUTRO" ? 40 : st === "DROP" ? 88 : 76;
+  return {
+    cue: {
+      id,
+      rawTime: time,
+      beatTime: time,
+      barTime: Math.floor(time / 2) * 2,
+      action,
+      magnitude: action === "CONTRACT" ? "MEDIUM" : "LARGE",
+      priority: st === "PRE_CHORUS" || st === "CHORUS_START" || st === "DROP" ? 92 : 72,
+      confidence: 0.78,
+      reasonCodes,
+      sourceEventClusterId: `synth-ec-${id}`,
+      sourceChangePointIds: [],
+      energyBefore: 42,
+      energyAfter,
+      deltaEnergy: energyAfter - 42,
+      isMajor: true,
+      isLocked: false,
+      suppressed: false,
+    },
+    intent,
+  };
+}
+
+/**
+ * 指定キュー数に合わせて、曲の区切りを優先して選定・不足分を補完する。
+ * 移動に必要な最短間隔も守る。
+ */
+function selectCuesForTargetCount(
   analysis: CueAnalysisResult,
-  max: number
+  targetCount: number,
+  bpm: number,
+  duration: number,
+  remote: AppChangePoint[] | undefined
 ): CueAnalysisResult {
+  const target = Math.max(
+    AI_SUGGEST_CUE_MIN,
+    Math.min(AI_SUGGEST_CUE_MAX, targetCount)
+  );
+  const minGap = minHitGapSec(bpm);
+  /** 曲全体に散らすための目安間隔（移動最短より広め） */
+  const spreadGap = Math.max(minGap, (duration / Math.max(target, 1)) * 0.55);
   const active = analysis.cues
     .filter((c) => !c.suppressed)
     .sort((a, b) => a.rawTime - b.rawTime || a.id.localeCompare(b.id));
-  if (active.length <= max) return analysis;
-  const first = active[0]!;
-  const rest = active
-    .slice(1)
+
+  const intents: Record<string, FormationCueIntent> = { ...analysis.intents };
+  const picked: FormationCue[] = [];
+  const used = new Set<string>();
+  let synthIndex = 0;
+
+  const fitsGap = (time: number, gap = spreadGap): boolean =>
+    !picked.some((p) => Math.abs(p.rawTime - time) < gap - 1e-6);
+
+  const takeCue = (cue: FormationCue, gap = spreadGap): boolean => {
+    if (used.has(cue.id) || picked.length >= target) return false;
+    if (!fitsGap(cue.rawTime, gap)) return false;
+    picked.push(cue);
+    used.add(cue.id);
+    return true;
+  };
+
+  const takeSynthetic = (
+    time: number,
+    cp?: AppChangePoint,
+    gap = spreadGap
+  ): boolean => {
+    if (picked.length >= target || time < 0 || time > duration - 0.4) return false;
+    if (!fitsGap(time, gap)) return false;
+    const syn = syntheticCueAt(time, bpm, cp, synthIndex++);
+    intents[syn.cue.id] = syn.intent;
+    picked.push(syn.cue);
+    used.add(syn.cue.id);
+    return true;
+  };
+
+  const startCue =
+    active.find((c) => c.rawTime < 1.5) ??
+    active[0] ??
+    null;
+  if (startCue) {
+    picked.push({ ...startCue, suppressed: false });
+    used.add(startCue.id);
+  } else {
+    takeSynthetic(0, undefined, 0);
+  }
+
+  /** 曲の骨格（Bメロ終わり・サビ頭など）を先に確保 */
+  const structuralPriority = (st: AppChangePoint["section_type"] | undefined) => {
+    if (st === "CHORUS_START" || st === "DROP") return 5;
+    if (st === "PRE_CHORUS") return 4;
+    if (st === "OUTRO") return 3;
+    if (st === "CHORUS") return 2;
+    return 0;
+  };
+  const structuralRemote = [...(remote ?? [])]
+    .filter((cp) => structuralPriority(cp.section_type) > 0 && cp.time >= 2)
     .sort(
       (a, b) =>
-        Number(b.isMajor) - Number(a.isMajor) ||
-        b.priority - a.priority ||
+        structuralPriority(b.section_type) - structuralPriority(a.section_type) ||
+        a.time - b.time
+    );
+  for (const cp of structuralRemote) {
+    if (picked.length >= target) break;
+    let best: FormationCue | null = null;
+    let bestDist = Infinity;
+    for (const cue of active) {
+      if (used.has(cue.id)) continue;
+      const dist = Math.abs(cue.rawTime - cp.time);
+      if (dist < bestDist && dist <= 3.5) {
+        best = cue;
+        bestDist = dist;
+      }
+    }
+    if (best && takeCue(best, minGap)) continue;
+    takeSynthetic(cp.time, cp, minGap);
+  }
+
+  const noveltyPoints = active
+    .filter((c) => c.rawTime >= 2)
+    .map((c) => ({
+      eight_index: Math.max(0, Math.round(c.rawTime / 4)),
+      time: c.rawTime,
+      score: Math.min(1, c.priority / 100),
+      tier: (c.isMajor
+        ? "major"
+        : c.priority >= 50
+          ? "medium"
+          : "minor") as AppChangePoint["tier"],
+      section_type: remote?.find((cp) => Math.abs(cp.time - c.rawTime) < 2)
+        ?.section_type,
+    }));
+  const remotePoints = (remote ?? []).filter((cp) => cp.time >= 2);
+  const selectedTimes = selectChangePointsForCueCount(
+    [...remotePoints, ...noveltyPoints],
+    target,
+    duration,
+    sectionAnchorsFromRemote(remote, duration)
+  );
+
+  for (const point of selectedTimes) {
+    if (picked.length >= target) break;
+    let best: FormationCue | null = null;
+    let bestDist = Infinity;
+    for (const cue of active) {
+      if (used.has(cue.id)) continue;
+      const dist = Math.abs(cue.rawTime - point.time);
+      if (dist < bestDist && dist <= 3.5) {
+        best = cue;
+        bestDist = dist;
+      }
+    }
+    if (best && takeCue(best)) continue;
+    const cp =
+      remote?.find((r) => Math.abs(r.time - point.time) < 1.5) ??
+      ({
+        eight_index: point.eight_index,
+        time: point.time,
+        score: point.score,
+        tier: point.tier,
+        section_type: point.section_type,
+      } satisfies AppChangePoint);
+    takeSynthetic(point.time, cp);
+  }
+
+  const ranked = [...active]
+    .filter((c) => !used.has(c.id))
+    .sort(
+      (a, b) =>
+        cueStructureScore(b, remote) - cueStructureScore(a, remote) ||
         a.rawTime - b.rawTime
     );
-  const keep = new Set([first.id, ...rest.slice(0, max - 1).map((c) => c.id)]);
+  for (const gap of [spreadGap, minGap, minGap * 0.75, minGap * 0.5]) {
+    for (const cue of ranked) {
+      if (picked.length >= target) break;
+      if (used.has(cue.id)) continue;
+      if (!fitsGap(cue.rawTime, gap)) continue;
+      picked.push(cue);
+      used.add(cue.id);
+    }
+    if (picked.length >= target) break;
+  }
+
+  if (picked.length < target) {
+    const need = target - picked.length;
+    for (let i = 1; i <= need + 8 && picked.length < target; i += 1) {
+      const t = (duration / (need + 1)) * i;
+      takeSynthetic(Math.min(duration - 1, Math.max(2, t)), undefined, minGap * 0.5);
+    }
+  }
+
+  picked.sort((a, b) => a.rawTime - b.rawTime);
+  const keep = new Set(picked.slice(0, target).map((c) => c.id));
+  const existingIds = new Set(analysis.cues.map((c) => c.id));
+  const extras = picked.filter((c) => keep.has(c.id) && !existingIds.has(c.id));
+
   return {
     ...analysis,
-    cues: analysis.cues.map((c) =>
-      keep.has(c.id) ? c : { ...c, suppressed: true }
-    ),
+    intents,
+    cues: [
+      ...analysis.cues.map((c) =>
+        keep.has(c.id)
+          ? { ...c, suppressed: false }
+          : { ...c, suppressed: true }
+      ),
+      ...extras,
+    ],
   };
 }
 
@@ -1188,8 +1436,13 @@ function finishEngineAppSuggest(args: {
     microShiftThreshold: input.profile.targetAgeGroup === "toddler" ? 48 : 35,
   });
   cueAnalysis = promoteCuesAtSongChanges(cueAnalysis, structuralCps);
-  cueAnalysis = thinCuesForTravel(cueAnalysis, bpm);
-  cueAnalysis = capCueAnalysis(cueAnalysis, maxCues);
+  cueAnalysis = selectCuesForTargetCount(
+    cueAnalysis,
+    maxCues,
+    bpm,
+    duration,
+    structuralCps
+  );
   const musicalEvents = toMusicalEvents({
     structure,
     bpm,
@@ -1317,7 +1570,7 @@ function finishEngineAppSuggest(args: {
     .map((cp) => cp.section_type)
     .filter((t): t is NonNullable<typeof t> => Boolean(t));
   const reasoning: string[] = [
-    `曲理解エンジン Phase1–6 / エディタ雛形 / スタイル ${style} / キュー ${sortedCues.length} / 総合 ${Math.round(sequence.totalScore)}`,
+    `曲理解エンジン Phase1–6 / エディタ雛形 / スタイル ${style} / キュー ${sortedCues.length}（指定 ${maxCues}） / 総合 ${Math.round(sequence.totalScore)}`,
     `移動は変化の ${FORMATION_TRAVEL_COUNTS} カウント前から（約 ${travelSec.toFixed(1)} 秒）`,
     structureLabels.length
       ? `曲の区切り: ${structureLabels.join(" → ")}（Aメロ終わり=PRE_CHORUS、サビ頭=CHORUS_START）`
