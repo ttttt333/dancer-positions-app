@@ -71,7 +71,7 @@ export function lightingSyncPayloadToApp(
   const formations: AppFormation[] = [];
   const cues: Cue[] = [];
   const reasoning: string[] = [
-    `照明連動エンジン / class=${payload.classId} / BPM ${payload.audioAnalysis.bpm} / 総カウント ${payload.audioAnalysis.totalCounts}`,
+    `予備エンジン / class=${payload.classId} / BPM ${payload.audioAnalysis.bpm} / 総カウント ${payload.audioAnalysis.totalCounts}`,
   ];
   const corpusHits = payload.formations.filter((f) => f.lightingNote).length;
   if (corpusHits > 0) {

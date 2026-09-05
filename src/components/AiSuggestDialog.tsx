@@ -12,7 +12,7 @@ import {
   AI_SUGGEST_CUE_PRESETS,
   suggestedCueCountForDuration,
 } from "../lib/choreocore/selectChangePoints";
-import { CLASS_PROFILE_PRESETS, suggestClassProfileId, corpusSummary, SUGGEST_VIBES, SUGGEST_FORMATION_STYLES } from "../lib/choreocore/lightingSync";
+import { CLASS_PROFILE_PRESETS, suggestClassProfileId, SUGGEST_VIBES, SUGGEST_FORMATION_STYLES } from "../lib/choreocore/lightingSync";
 import type { SuggestVibeId, SuggestFormationStyleId } from "../lib/choreocore/lightingSync";
 import type { SuggestFeedback } from "../lib/choreocore/tier1";
 import type { ChoreographyProjectJson, DancerSpot } from "../types/choreography";
@@ -218,7 +218,6 @@ export function AiSuggestDialog({
   }, [project]);
   const [targetCueCount, setTargetCueCount] = useState(defaultCueCount);
   const [classProfileId, setClassProfileId] = useState(defaultClassId);
-  const corpusInfo = useMemo(() => corpusSummary(), []);
   const [fbLessMove, setFbLessMove] = useState(false);
   const [fbLessCross, setFbLessCross] = useState(false);
   const [fbMoreImpact, setFbMoreImpact] = useState(false);
@@ -495,9 +494,6 @@ export function AiSuggestDialog({
             <span id="ai-suggest-dialog-title" style={{ fontSize: 15, fontWeight: 700, color: "#e2e8f0" }}>
               AI フォーメーション提案
             </span>
-            <span style={{ fontSize: 10, color: shell.textSubtle }}>
-              照明連動 · 実プラン{corpusInfo.showCount}演目/{corpusInfo.cueCount}キュー
-            </span>
           </div>
           <button type="button" style={btnClose} onClick={handleClose}>×</button>
         </div>
@@ -518,7 +514,7 @@ export function AiSuggestDialog({
               )}
 
               <p style={{ fontSize: 12, color: shell.textMuted, lineHeight: 1.55, margin: "0 0 14px" }}>
-                音声解析と曲理解エンジンでフォーメーションを自動生成します。イメージ・スタイル・歌詞は隊形に反映し、発表会の照明プランはムードの参照に使います。
+                曲の変化に合わせて、指定した数のキューで隊形を提案します。イメージ・スタイル・歌詞は隊形選びに使います。
               </p>
 
               {/* クラス属性 */}
@@ -617,7 +613,7 @@ export function AiSuggestDialog({
                   />
                 </div>
                 <p style={{ fontSize: 10, color: shell.textSubtle, margin: "6px 0 0", lineHeight: 1.45 }}>
-                  おすすめ {defaultCueCount}（約20秒に1つ）。解析で検出した変化点のうち、重要な転換を優先して選定します。リリースキャンペーン中はキュー上限なしで利用できます。
+                  指定した数（開始を含む）で提案します。おすすめ {defaultCueCount}（約20秒に1つ）。近すぎる変化は移動時間を確保するため間引きます。
                 </p>
               </div>
 
@@ -779,7 +775,7 @@ export function AiSuggestDialog({
                 <>
                   <p style={{ fontSize: 13, color: "#e879f9" }}>曲の区切りと隊列を組み立てています…</p>
                   <p style={{ fontSize: 11, color: shell.textSubtle, marginTop: 4 }}>
-                    変化点 → キュー判定 → 隊形の並び → 照明ムード参照
+                    変化点 → キュー判定 → 隊形の並び
                   </p>
                 </>
               )}
@@ -811,15 +807,6 @@ export function AiSuggestDialog({
                       <span><span style={{ color: shell.textSubtle, fontSize: 10 }}>スコア</span>{" "}<strong>{result.averageScore}/100</strong></span>
                       {result.classProfileId ? (
                         <span><span style={{ color: shell.textSubtle, fontSize: 10 }}>クラス</span>{" "}<strong>{result.classProfileId}</strong></span>
-                      ) : null}
-                      {result.lightingSyncPayload ? (
-                        <span>
-                          <span style={{ color: shell.textSubtle, fontSize: 10 }}>照明参照</span>{" "}
-                          <strong>
-                            {result.lightingSyncPayload.formations.filter((f) => f.lightingNote).length}
-                            /{result.lightingSyncPayload.formations.length}
-                          </strong>
-                        </span>
                       ) : null}
                     </div>
                   </div>
@@ -854,7 +841,7 @@ export function AiSuggestDialog({
                   {result.scores.length > 0 && (
                     <div style={sectionBox}>
                       <p style={{ fontSize: 11, color: shell.textSubtle, marginBottom: 6, fontWeight: 600 }}>
-                        評価スコア（移動 / 安全 / 照明連動）
+                        評価スコア（移動 / 安全）
                       </p>
                       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                         {result.scores.map((s, i) => (

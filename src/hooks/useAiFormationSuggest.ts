@@ -1,6 +1,6 @@
 /**
- * useAiFormationSuggest — 照明連動フォーメーションAI提案
- * ClassProfile 制約 + FCP/照明テーブル + 被り回避
+ * useAiFormationSuggest — フォーメーションAI提案
+ * ClassProfile 制約 + 曲理解エンジン + エディタ雛形
  */
 
 import { useState, useCallback, useRef } from "react";
@@ -229,7 +229,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
             cues: engine.cues,
             reasoning: [
               `曲理解エンジン / クラス: ${profile.className}（${profile.classId}）`,
-              `解析ソース: ${cache.sourceLabel} / BPM ${Math.round(cache.bpm)} / キュー ${engine.cues.length}枠${targetCueCount != null ? `（上限 ${targetCueCount}）` : ""}`,
+              `解析ソース: ${cache.sourceLabel} / BPM ${Math.round(cache.bpm)} / キュー ${engine.cues.length}枠${targetCueCount != null ? `（指定 ${targetCueCount}）` : ""}`,
               constraintLine,
               ...(tasteLine ? [tasteLine] : []),
               ...(feedbackLine ? [feedbackLine] : []),
@@ -252,7 +252,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
           return;
         }
       } catch {
-        /* 照明連動へフォールバック */
+        /* 予備エンジンへフォールバック */
       }
 
       const payload = generateLightingSyncSuggestion({
@@ -263,6 +263,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
         remoteChangePoints: cache.changePoints,
         remoteBpm: cache.bpm,
         targetMaxFormations: targetCueCount,
+        useLightingCorpus: false,
         taste,
         dancerSpacingMm: cache.dancerSpacingMm,
         stageWidthMm: cache.stageWidthMm,
@@ -272,8 +273,8 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
       const { scores, averageScore } = scoresFromPayload(payload);
 
       const reasoning = [
-        `照明連動エンジン（予備） / クラス: ${profile.className}（${profile.classId}）`,
-        `解析ソース: ${cache.sourceLabel} / BPM ${Math.round(cache.bpm)} / FCP ${payload.formations.length}枠${targetCueCount != null ? `（上限 ${targetCueCount}）` : ""}`,
+        `予備エンジン / クラス: ${profile.className}（${profile.classId}）`,
+        `解析ソース: ${cache.sourceLabel} / BPM ${Math.round(cache.bpm)} / キュー ${payload.formations.length}枠${targetCueCount != null ? `（指定 ${targetCueCount}）` : ""}`,
         constraintLine,
         ...(tasteLine ? [tasteLine] : []),
         ...(feedbackLine ? [feedbackLine] : []),

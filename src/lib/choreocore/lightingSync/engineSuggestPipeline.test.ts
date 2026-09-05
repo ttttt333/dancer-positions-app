@@ -86,7 +86,7 @@ describe("engineSuggestPipeline", () => {
     }
   });
 
-  it("respects target cue count as an upper bound", () => {
+  it("uses the specified cue count when change points are far enough apart", () => {
     const result = runEngineAppSuggest({
       peaks: peaksWithChorus(90),
       durationSec: 90,
@@ -103,7 +103,8 @@ describe("engineSuggestPipeline", () => {
       targetCueCount: 6,
     });
     expect(result).not.toBeNull();
-    expect(result!.formations.length).toBeLessThanOrEqual(6);
+    expect(result!.formations.length).toBe(6);
+    expect(result!.cues.length).toBe(6);
     expect(result!.evaluation.cues.length).toBeGreaterThan(0);
     expect(result!.evaluation.formationRankings.length).toBe(result!.formations.length);
   });

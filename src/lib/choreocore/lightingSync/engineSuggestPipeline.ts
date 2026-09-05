@@ -1,7 +1,7 @@
 /**
  * 曲理解エンジン（Phase 1–6）で「いつ変えるか」を決め、
  * 立ち位置はエディタ雛形（約200種）から載せる。
- * 照明コーパスはムード／メモの参照だけに使う。
+ * 照明プランコーパスは参照しない。キュー数は指定値を上限にする。
  */
 
 import type {
@@ -77,8 +77,8 @@ import { ANALYSIS_VERSION } from "../engine/constants";
 import type { FormationSequenceResult } from "../engine/types/ScoringTypes";
 import type { ClassProfile, MemberPosition, PoseLevel } from "./types";
 import type { LightingSyncSuggestPayload } from "./types";
-import { adviseLightingFromCorpus } from "./corpus";
 import type { SectionType } from "./types";
+import { ruleForSection } from "./lightingTable";
 import type { SuggestTasteBias } from "./suggestTaste";
 import {
   engineTypeForLayoutPreset,
@@ -103,6 +103,7 @@ import {
   DEFAULT_FORMATION_WEIGHTS,
   type FormationScore,
 } from "../tier1";
+import { AI_SUGGEST_CUE_MAX, AI_SUGGEST_CUE_MIN } from "../selectChangePoints";
 
 const STAGE: StageConfig = DEFAULT_STAGE;
 
@@ -1000,7 +1001,10 @@ export function runEngineAppSuggest(
   const duration = Math.max(0.5, input.durationSec);
   const bpm = input.bpm > 0 ? input.bpm : 120;
   const style = engineStyle(input.tasteBias);
-  const maxCues = Math.max(3, Math.min(20, input.targetCueCount ?? 10));
+  const maxCues = Math.max(
+    AI_SUGGEST_CUE_MIN,
+    Math.min(AI_SUGGEST_CUE_MAX, input.targetCueCount ?? 10)
+  );
 
   let phase1: MusicAnalysisResultPhase1;
   let structure: MusicStructureAnalysisResult;
@@ -1130,8 +1134,8 @@ function finishEngineAppSuggest(args: {
     microShiftThreshold: input.profile.targetAgeGroup === "toddler" ? 48 : 35,
   });
   cueAnalysis = promoteCuesAtSongChanges(cueAnalysis, structuralCps);
-  cueAnalysis = capCueAnalysis(cueAnalysis, maxCues);
   cueAnalysis = thinCuesForTravel(cueAnalysis, bpm);
+  cueAnalysis = capCueAnalysis(cueAnalysis, maxCues);
   if (musicEngine?.timeline) {
     musicEngine.cueQuality = evaluateCueQuality({
       analysis: cueAnalysis,
@@ -1259,8 +1263,6 @@ function finishEngineAppSuggest(args: {
       : "曲の区切り: 波形ピークから推定",
   ];
   const payloadFormations: LightingSyncSuggestPayload["formations"] = [];
-  let prevLighting: ReturnType<typeof adviseLightingFromCorpus>["lightingPreset"] | undefined;
-  let corpusHits = 0;
   let prevSpots: DancerSpot[] = seeds;
   const recentLayouts: LayoutPresetId[] = [];
 
@@ -1276,17 +1278,7 @@ function finishEngineAppSuggest(args: {
       (s) => t >= s.startTime && t < s.endTime
     );
     const lightingSection = lightingSectionFromMusic(section?.type);
-    const advice = adviseLightingFromCorpus({
-      progress: t / duration,
-      sectionType: lightingSection,
-      energyLevel: clamp(cue.energyAfter / 100, 0.1, 1),
-      dancerCount: seeds.length,
-      ageGroup: input.profile.targetAgeGroup,
-      avoidPreset: prevLighting,
-      fallbackPreset: lightingSection === "chorus" ? "full_bright_warm" : "guide_mono",
-    });
-    prevLighting = advice.lightingPreset;
-    if (advice.preferCorpus) corpusHits += 1;
+    const lightingPreset = ruleForSection(lightingSection).lightingPreset;
 
     const preferred = layoutPresetIdFromTags(eng.tags);
     let layoutId: LayoutPresetId | null = preferred;
@@ -1316,24 +1308,15 @@ function finishEngineAppSuggest(args: {
     const typeJa = TYPE_JA[eng.type] ?? eng.type;
     const actionJa = ACTION_JA[cue.action] ?? cue.action;
     const layoutJa = layoutId ? layoutPresetLabel(layoutId) : typeJa;
-    const color =
-      advice.colorMood && advice.colorMood !== "neutral" ? advice.colorMood : "";
-    const name = [actionJa, layoutJa, color].filter(Boolean).join(" · ");
+    const name = [actionJa, layoutJa].filter(Boolean).join(" · ");
     const id =
       crypto.randomUUID?.() ?? `eng-${Math.round(t * 1000)}-${i}`;
-    const noteParts = [
-      advice.preferCorpus ? `照明: ${advice.referenceNote}` : null,
-      advice.preferCorpus && advice.referenceShowTitle
-        ? `参照: ${advice.referenceShowTitle}`
-        : null,
-    ].filter(Boolean);
 
     formations.push({
       id,
       name,
       setPieces: [],
       dancers,
-      note: noteParts.length ? noteParts.join(" / ") : undefined,
     });
     cues.push({
       id: crypto.randomUUID?.() ?? `cue-${id}`,
@@ -1354,12 +1337,7 @@ function finishEngineAppSuggest(args: {
       timestamp: window.tStartSec,
       count: Math.round((window.tStartSec * bpm) / 60) || 1,
       presetName: name,
-      lightingPreset: advice.lightingPreset,
-      colorMood: advice.colorMood,
-      lightingNote: advice.preferCorpus ? advice.referenceNote : undefined,
-      referenceShowTitle: advice.preferCorpus
-        ? advice.referenceShowTitle
-        : undefined,
+      lightingPreset,
       positions: mm,
       formationPattern: layoutId
         ? familyForCueAction(cue.action, lightingSection)
@@ -1368,25 +1346,13 @@ function finishEngineAppSuggest(args: {
     });
 
     reasoning.push(
-      `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")} ${actionJa} → ${layoutJa}${
-        advice.preferCorpus && advice.referenceShowTitle
-          ? ` [${advice.referenceShowTitle}]`
-          : ""
-      }`
+      `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")} ${actionJa} → ${layoutJa}`
     );
   }
 
   const gapped = ensureTravelGaps(cues, bpm);
   cues.length = 0;
   cues.push(...gapped);
-
-  if (corpusHits > 0) {
-    reasoning.splice(
-      1,
-      0,
-      `実演会照明プラン参照: ${corpusHits}/${formations.length} 枠（ムード・メモ）`
-    );
-  }
 
   const scores: FormationScore[] = sequence.candidateScores.map((s) => ({
     total: Math.round(clamp(s.totalScore, 0, 100)),
