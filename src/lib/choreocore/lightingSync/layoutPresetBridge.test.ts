@@ -162,4 +162,30 @@ describe("layoutPresetBridge", () => {
       familyForSuggestCue("MAJOR_CHANGE", "chorus", ["TENSION_CONTRACT"], 0)
     ).toBe("center_condensed");
   });
+
+  it("boosts pyramid/stagger/grid by cue index instead of horizontal lines", () => {
+    const a = rankLayoutPresets({
+      family: "wide_spread",
+      sectionType: "chorus",
+      salt: 0,
+      dancerCount: 12,
+      allowCross: true,
+      cueIndex: 0,
+      recent: ["line", "fan_wide"],
+    });
+    const b = rankLayoutPresets({
+      family: "wide_spread",
+      sectionType: "chorus",
+      salt: 0,
+      dancerCount: 12,
+      allowCross: true,
+      cueIndex: 1,
+      recent: ["line", "fan_wide"],
+    });
+    expect(a[0]).toBe("pyramid");
+    expect(b[0]).toBe("stagger");
+    expect(a.slice(0, 4).some((id) => /line$|fan_wide|wing_spread/.test(id))).toBe(
+      false
+    );
+  });
 });

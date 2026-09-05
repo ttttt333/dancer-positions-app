@@ -179,6 +179,113 @@ describe("engineSuggestPipeline", () => {
     expect(sixTimes.some((t) => Math.abs(t - 48) < 4)).toBe(true);
   });
 
+  it("places cues on irregular music times instead of even clock slices", () => {
+    const duration = 266;
+    const peaks = peaksWithChorus(duration);
+    const remote = [
+      { eight_index: 0, time: 0, score: 0.3, tier: "minor" as const },
+      {
+        eight_index: 4,
+        time: 18,
+        score: 0.7,
+        tier: "medium" as const,
+        section_type: "PRE_CHORUS" as const,
+      },
+      {
+        eight_index: 8,
+        time: 32,
+        score: 0.95,
+        tier: "major" as const,
+        section_type: "CHORUS_START" as const,
+      },
+      {
+        eight_index: 16,
+        time: 64,
+        score: 0.6,
+        tier: "medium" as const,
+        section_type: "VERSE" as const,
+      },
+      {
+        eight_index: 22,
+        time: 88,
+        score: 0.75,
+        tier: "medium" as const,
+        section_type: "PRE_CHORUS" as const,
+      },
+      {
+        eight_index: 26,
+        time: 104,
+        score: 0.92,
+        tier: "major" as const,
+        section_type: "CHORUS_START" as const,
+      },
+      {
+        eight_index: 36,
+        time: 144,
+        score: 0.55,
+        tier: "medium" as const,
+      },
+      {
+        eight_index: 42,
+        time: 168,
+        score: 0.8,
+        tier: "major" as const,
+        section_type: "DROP" as const,
+      },
+      {
+        eight_index: 50,
+        time: 200,
+        score: 0.5,
+        tier: "medium" as const,
+      },
+      {
+        eight_index: 58,
+        time: 232,
+        score: 0.65,
+        tier: "medium" as const,
+        section_type: "OUTRO" as const,
+      },
+    ];
+    const result = runEngineAppSuggest({
+      peaks,
+      durationSec: duration,
+      bpm: 120,
+      remoteChangePoints: remote,
+      seedDancers: seeds(12),
+      profile: CLASS_ADVANCED_MON7,
+      tasteBias: resolveSuggestTaste({ style: "dynamic" }),
+      targetCueCount: 12,
+    });
+    expect(result).not.toBeNull();
+    expect(result!.cues.length).toBe(12);
+    const starts = [...result!.cues]
+      .map((c) => c.tStartSec)
+      .sort((a, b) => a - b);
+    const gaps = starts.slice(1).map((t, i) => t - starts[i]!);
+    const mean = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+    const variance =
+      gaps.reduce((a, g) => a + (g - mean) ** 2, 0) / Math.max(1, gaps.length);
+    // 均等割り（約22秒）だと分散がほぼ0。音楽連動ならギャップがバラつく
+    expect(variance).toBeGreaterThan(8);
+    expect(starts.some((t) => Math.abs(t - 32) < 3)).toBe(true);
+    expect(starts.some((t) => Math.abs(t - 104) < 3)).toBe(true);
+
+    const layouts = result!.lightingSyncPayload.formations
+      .map((f) => f.layoutPresetId)
+      .filter((id): id is string => Boolean(id));
+    const unique = new Set(layouts);
+    expect(unique.size).toBeGreaterThanOrEqual(5);
+    expect(
+      layouts.some((id) =>
+        /pyramid|stagger|grid|diamond|two_rows|cluster/.test(id)
+      )
+    ).toBe(true);
+    const hWide = layouts.filter((id) =>
+      /^(line|line_front|fan_wide|wing_spread|arc)$/.test(id)
+    ).length;
+    expect(hWide).toBeLessThanOrEqual(Math.ceil(layouts.length / 3));
+  });
+
   it("toddler suggestions never pick cross layouts", () => {
     const result = runEngineAppSuggest({
       peaks: peaksWithChorus(80),

@@ -95,6 +95,7 @@ import {
   engineTypeForLayoutPreset,
   familyForSuggestCue,
   isCrossLayoutPreset,
+  isHorizontalWideLayout,
   layoutPresetIdFromTags,
   layoutPresetLabel,
   layoutShapeBucket,
@@ -118,8 +119,6 @@ import {
 import {
   AI_SUGGEST_CUE_MAX,
   AI_SUGGEST_CUE_MIN,
-  selectChangePointsForCueCount,
-  type SectionAnchor,
 } from "../selectChangePoints";
 
 const STAGE: StageConfig = DEFAULT_STAGE;
@@ -375,6 +374,7 @@ function layoutCandidatesForCue(input: {
   profile: ClassProfile;
   layoutOpts: LayoutPresetOptions | undefined;
   salt: number;
+  cueIndex: number;
 }): FormationCandidate[] {
   const n = input.seeds.length;
   const ids = rankLayoutPresets({
@@ -389,6 +389,7 @@ function layoutCandidatesForCue(input: {
     dancerCount: n,
     allowCross: allowCrossOf(input.profile),
     taste: input.tasteBias,
+    cueIndex: input.cueIndex,
   });
   const out: FormationCandidate[] = [];
   const seen = new Set<string>();
@@ -569,6 +570,7 @@ function resolveDistinctLayoutSpots(input: {
   layoutOpts: LayoutPresetOptions | undefined;
   recent: LayoutPresetId[];
   salt: number;
+  cueIndex: number;
   lockLayoutId?: LayoutPresetId | null;
   scaleMax?: boolean;
 }): { layoutId: LayoutPresetId | null; dancers: DancerSpot[] } {
@@ -604,14 +606,19 @@ function resolveDistinctLayoutSpots(input: {
       allowCross: allowCrossOf(input.profile),
       taste: input.tasteBias,
       recent: input.recent,
+      cueIndex: input.cueIndex,
     },
-    8
+    10
   );
-  const ordered = input.preferred
-    ? [input.preferred, ...ranked.filter((id) => id !== input.preferred)]
-    : ranked;
+  // 横広がり preferred はローテを潰すので後回し
+  const ordered =
+    input.preferred &&
+    (!isHorizontalWideLayout(input.preferred) || input.lockLayoutId)
+      ? [input.preferred, ...ranked.filter((id) => id !== input.preferred)]
+      : ranked;
 
   const recentBuckets = new Set(input.recent.map((id) => layoutShapeBucket(id)));
+  const recentHadHLine = input.recent.some(isHorizontalWideLayout);
 
   let fallback: { layoutId: LayoutPresetId; dancers: DancerSpot[] } | null =
     null;
@@ -619,6 +626,7 @@ function resolveDistinctLayoutSpots(input: {
     for (const id of ordered) {
       if (pass === 0 && input.recent.includes(id)) continue;
       if (pass === 0 && recentBuckets.has(layoutShapeBucket(id))) continue;
+      if (pass === 0 && recentHadHLine && isHorizontalWideLayout(id)) continue;
       if (!allowCrossOf(input.profile) && isCrossLayoutPreset(id)) continue;
       if (/^extra_/.test(id) && input.tasteBias.style !== "freestyle") continue;
       if (
@@ -945,30 +953,6 @@ function clustersFromRemoteChangePoints(
   return out.sort((a, b) => a.time - b.time);
 }
 
-function sectionAnchorsFromRemote(
-  remote: AppChangePoint[] | undefined,
-  duration: number
-): SectionAnchor[] {
-  if (!remote?.length) return [];
-  const sorted = [...remote]
-    .filter((cp) => Number.isFinite(cp.time) && cp.time >= 0)
-    .sort((a, b) => a.time - b.time);
-  const out: SectionAnchor[] = [];
-  for (let i = 0; i < sorted.length; i += 1) {
-    const cp = sorted[i]!;
-    if (cp.time < 1.5) continue;
-    const next = sorted[i + 1];
-    out.push({
-      startSec: cp.time,
-      endSec: next?.time ?? duration,
-      avgEnergy:
-        cp.tier === "major" ? 0.85 : cp.tier === "medium" ? 0.55 : 0.35,
-      label: cp.section_type,
-    });
-  }
-  return out;
-}
-
 function cueStructureScore(
   cue: FormationCue,
   remote: AppChangePoint[] | undefined
@@ -1062,20 +1046,81 @@ function syntheticCueAt(
  * 指定キュー数に合わせて、曲の区切りを優先して選定・不足分を補完する。
  * 移動に必要な最短間隔も守る。
  */
+function peakRidgeCandidates(
+  peaks: number[],
+  duration: number
+): Array<{ time: number; score: number }> {
+  const n = peaks.length;
+  if (n < 8 || duration <= 0) return [];
+  const mean =
+    peaks.reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0) / n;
+  const raw: Array<{ time: number; score: number }> = [];
+  for (let i = 2; i < n - 2; i += 1) {
+    const a = peaks[i - 2] ?? 0;
+    const b = peaks[i - 1] ?? 0;
+    const c = peaks[i] ?? 0;
+    const d = peaks[i + 1] ?? 0;
+    const localMax = c >= b && c >= d && c > mean * 0.8;
+    const sharpRise = c - b > 0.1 && c - a > 0.06;
+    const sharpDrop = b - c > 0.1 && a > c;
+    if (!localMax && !sharpRise && !sharpDrop) continue;
+    const t = (i / Math.max(1, n - 1)) * duration;
+    if (t < 2 || t > duration - 1.5) continue;
+    raw.push({
+      time: t,
+      score: localMax ? c * 1.2 : Math.abs(c - b),
+    });
+  }
+  raw.sort((x, y) => x.time - y.time);
+  const dedup: Array<{ time: number; score: number }> = [];
+  for (const p of raw) {
+    const last = dedup[dedup.length - 1];
+    if (last && p.time - last.time < 2.2) {
+      if (p.score > last.score) dedup[dedup.length - 1] = p;
+    } else {
+      dedup.push(p);
+    }
+  }
+  return dedup;
+}
+
+function nearestPeakTime(
+  time: number,
+  peaks: Array<{ time: number; score: number }>,
+  maxDist: number
+): number | null {
+  let best: { time: number; score: number } | null = null;
+  let bestDist = Infinity;
+  for (const p of peaks) {
+    const d = Math.abs(p.time - time);
+    if (d < bestDist && d <= maxDist) {
+      best = p;
+      bestDist = d;
+    }
+  }
+  return best?.time ?? null;
+}
+
+/**
+ * 指定キュー数に合わせて、曲の区切り・波形の山を優先して選定する。
+ * 均等時刻への埋めは最終手段にし、理想の「フレーズ幅のバラつき」を保つ。
+ */
 function selectCuesForTargetCount(
   analysis: CueAnalysisResult,
   targetCount: number,
   bpm: number,
   duration: number,
-  remote: AppChangePoint[] | undefined
+  structuralCps: AppChangePoint[] | undefined,
+  opts?: {
+    allChangePoints?: AppChangePoint[];
+    peaks?: number[];
+  }
 ): CueAnalysisResult {
   const target = Math.max(
     AI_SUGGEST_CUE_MIN,
     Math.min(AI_SUGGEST_CUE_MAX, targetCount)
   );
   const minGap = minHitGapSec(bpm);
-  /** 曲全体に散らすための目安間隔（移動最短より広め） */
-  const spreadGap = Math.max(minGap, (duration / Math.max(target, 1)) * 0.55);
   const active = analysis.cues
     .filter((c) => !c.suppressed)
     .sort((a, b) => a.rawTime - b.rawTime || a.id.localeCompare(b.id));
@@ -1085,10 +1130,10 @@ function selectCuesForTargetCount(
   const used = new Set<string>();
   let synthIndex = 0;
 
-  const fitsGap = (time: number, gap = spreadGap): boolean =>
+  const fitsGap = (time: number, gap = minGap): boolean =>
     !picked.some((p) => Math.abs(p.rawTime - time) < gap - 1e-6);
 
-  const takeCue = (cue: FormationCue, gap = spreadGap): boolean => {
+  const takeCue = (cue: FormationCue, gap = minGap): boolean => {
     if (used.has(cue.id) || picked.length >= target) return false;
     if (!fitsGap(cue.rawTime, gap)) return false;
     picked.push(cue);
@@ -1099,7 +1144,7 @@ function selectCuesForTargetCount(
   const takeSynthetic = (
     time: number,
     cp?: AppChangePoint,
-    gap = spreadGap
+    gap = minGap
   ): boolean => {
     if (picked.length >= target || time < 0 || time > duration - 0.4) return false;
     if (!fitsGap(time, gap)) return false;
@@ -1108,6 +1153,25 @@ function selectCuesForTargetCount(
     picked.push(syn.cue);
     used.add(syn.cue.id);
     return true;
+  };
+
+  const takeNearTime = (
+    time: number,
+    gap = minGap,
+    cp?: AppChangePoint
+  ): boolean => {
+    let best: FormationCue | null = null;
+    let bestDist = Infinity;
+    for (const cue of active) {
+      if (used.has(cue.id)) continue;
+      const dist = Math.abs(cue.rawTime - time);
+      if (dist < bestDist && dist <= 3.5) {
+        best = cue;
+        bestDist = dist;
+      }
+    }
+    if (best && takeCue(best, gap)) return true;
+    return takeSynthetic(time, cp, gap);
   };
 
   const startCue =
@@ -1121,7 +1185,6 @@ function selectCuesForTargetCount(
     takeSynthetic(0, undefined, 0);
   }
 
-  /** 曲の骨格（Bメロ終わり・サビ頭など）を先に確保 */
   const structuralPriority = (st: AppChangePoint["section_type"] | undefined) => {
     if (st === "CHORUS_START" || st === "DROP") return 5;
     if (st === "PRE_CHORUS") return 4;
@@ -1129,7 +1192,7 @@ function selectCuesForTargetCount(
     if (st === "CHORUS") return 2;
     return 0;
   };
-  const structuralRemote = [...(remote ?? [])]
+  const structuralRemote = [...(structuralCps ?? opts?.allChangePoints ?? [])]
     .filter((cp) => structuralPriority(cp.section_type) > 0 && cp.time >= 2)
     .sort(
       (a, b) =>
@@ -1138,91 +1201,88 @@ function selectCuesForTargetCount(
     );
   for (const cp of structuralRemote) {
     if (picked.length >= target) break;
-    let best: FormationCue | null = null;
-    let bestDist = Infinity;
-    for (const cue of active) {
-      if (used.has(cue.id)) continue;
-      const dist = Math.abs(cue.rawTime - cp.time);
-      if (dist < bestDist && dist <= 3.5) {
-        best = cue;
-        bestDist = dist;
-      }
-    }
-    if (best && takeCue(best, minGap)) continue;
-    takeSynthetic(cp.time, cp, minGap);
+    takeNearTime(cp.time, minGap, cp);
   }
 
-  const noveltyPoints = active
-    .filter((c) => c.rawTime >= 2)
-    .map((c) => ({
-      eight_index: Math.max(0, Math.round(c.rawTime / 4)),
-      time: c.rawTime,
-      score: Math.min(1, c.priority / 100),
-      tier: (c.isMajor
-        ? "major"
-        : c.priority >= 50
-          ? "medium"
-          : "minor") as AppChangePoint["tier"],
-      section_type: remote?.find((cp) => Math.abs(cp.time - c.rawTime) < 2)
-        ?.section_type,
-    }));
-  const remotePoints = (remote ?? []).filter((cp) => cp.time >= 2);
-  const selectedTimes = selectChangePointsForCueCount(
-    [...remotePoints, ...noveltyPoints],
-    target,
-    duration,
-    sectionAnchorsFromRemote(remote, duration)
-  );
-
-  for (const point of selectedTimes) {
-    if (picked.length >= target) break;
-    let best: FormationCue | null = null;
-    let bestDist = Infinity;
-    for (const cue of active) {
-      if (used.has(cue.id)) continue;
-      const dist = Math.abs(cue.rawTime - point.time);
-      if (dist < bestDist && dist <= 3.5) {
-        best = cue;
-        bestDist = dist;
-      }
-    }
-    if (best && takeCue(best)) continue;
-    const cp =
-      remote?.find((r) => Math.abs(r.time - point.time) < 1.5) ??
-      ({
-        eight_index: point.eight_index,
-        time: point.time,
-        score: point.score,
-        tier: point.tier,
-        section_type: point.section_type,
-      } satisfies AppChangePoint);
-    takeSynthetic(point.time, cp);
+  const peakRidges = peakRidgeCandidates(opts?.peaks ?? [], duration);
+  type Cand = {
+    time: number;
+    score: number;
+    cp?: AppChangePoint;
+    source: "remote" | "peak" | "engine";
+  };
+  const candidates: Cand[] = [];
+  for (const cp of opts?.allChangePoints ?? []) {
+    if (cp.time < 2 || cp.time > duration - 1.5) continue;
+    const boost = structuralPriority(cp.section_type) * 20;
+    candidates.push({
+      time: cp.time,
+      score:
+        boost +
+        (cp.tier === "major" ? 40 : cp.tier === "medium" ? 22 : 10) +
+        (Number.isFinite(cp.score) ? cp.score * 30 : 0),
+      cp,
+      source: "remote",
+    });
   }
+  for (const p of peakRidges) {
+    candidates.push({ time: p.time, score: 18 + p.score * 40, source: "peak" });
+  }
+  for (const cue of active) {
+    if (cue.rawTime < 2) continue;
+    candidates.push({
+      time: cue.rawTime,
+      score: cueStructureScore(cue, opts?.allChangePoints ?? structuralCps) * 0.6,
+      source: "engine",
+    });
+  }
+  candidates.sort((a, b) => b.score - a.score || a.time - b.time);
 
-  const ranked = [...active]
-    .filter((c) => !used.has(c.id))
-    .sort(
-      (a, b) =>
-        cueStructureScore(b, remote) - cueStructureScore(a, remote) ||
-        a.rawTime - b.rawTime
+  /** 最大の空き区間へ候補を落とす（均等割りを避ける） */
+  const largestGap = (): { from: number; to: number } | null => {
+    const times = [...picked.map((c) => c.rawTime), duration].sort(
+      (a, b) => a - b
     );
-  for (const gap of [spreadGap, minGap, minGap * 0.75, minGap * 0.5]) {
-    for (const cue of ranked) {
-      if (picked.length >= target) break;
-      if (used.has(cue.id)) continue;
-      if (!fitsGap(cue.rawTime, gap)) continue;
-      picked.push(cue);
-      used.add(cue.id);
+    let best: { from: number; to: number; size: number } | null = null;
+    let prev = 0;
+    for (const t of times) {
+      const size = t - prev;
+      if (size >= minGap * 2.2 && (!best || size > best.size)) {
+        best = { from: prev, to: t, size };
+      }
+      prev = t;
     }
-    if (picked.length >= target) break;
+    return best ? { from: best.from, to: best.to } : null;
+  };
+
+  while (picked.length < target) {
+    const gap = largestGap();
+    if (!gap) break;
+    const lo = gap.from + minGap;
+    const hi = gap.to - minGap;
+    if (hi <= lo) break;
+
+    let placed = false;
+    for (const cand of candidates) {
+      if (cand.time < lo || cand.time > hi) continue;
+      if (!fitsGap(cand.time, minGap)) continue;
+      if (takeNearTime(cand.time, minGap, cand.cp)) {
+        placed = true;
+        break;
+      }
+    }
+    if (placed) continue;
+
+    const mid = (lo + hi) / 2;
+    const snapped =
+      nearestPeakTime(mid, peakRidges, Math.min(8, (hi - lo) / 2)) ?? mid;
+    if (!takeNearTime(snapped, minGap * 0.85)) break;
   }
 
-  if (picked.length < target) {
-    const need = target - picked.length;
-    for (let i = 1; i <= need + 8 && picked.length < target; i += 1) {
-      const t = (duration / (need + 1)) * i;
-      takeSynthetic(Math.min(duration - 1, Math.max(2, t)), undefined, minGap * 0.5);
-    }
+  // まだ足りなければ、残り候補をスコア順で（均等埋めはしない）
+  for (const cand of candidates) {
+    if (picked.length >= target) break;
+    takeNearTime(cand.time, minGap * 0.75, cand.cp);
   }
 
   picked.sort((a, b) => a.rawTime - b.rawTime);
@@ -1445,13 +1505,20 @@ function finishEngineAppSuggest(args: {
     lowPriorityCooldownBeats: cooldown * 2,
     microShiftThreshold: input.profile.targetAgeGroup === "toddler" ? 48 : 35,
   });
-  cueAnalysis = promoteCuesAtSongChanges(cueAnalysis, structuralCps);
+  cueAnalysis = promoteCuesAtSongChanges(
+    cueAnalysis,
+    input.remoteChangePoints ?? structuralCps
+  );
   cueAnalysis = selectCuesForTargetCount(
     cueAnalysis,
     maxCues,
     bpm,
     duration,
-    structuralCps
+    structuralCps,
+    {
+      allChangePoints: input.remoteChangePoints,
+      peaks: input.peaks,
+    }
   );
   const musicalEvents = toMusicalEvents({
     structure,
@@ -1546,6 +1613,7 @@ function finishEngineAppSuggest(args: {
         profile: input.profile,
         layoutOpts,
         salt: i + Math.round(cue.energyAfter),
+        cueIndex: i,
       });
     } catch {
       candidatesByCue[cue.id] = [];
@@ -1641,6 +1709,7 @@ function finishEngineAppSuggest(args: {
         layoutOpts,
         recent: callback.bypassRecentAvoidance ? [] : recentLayouts.slice(-3),
         salt: i + Math.round(cue.energyAfter),
+        cueIndex: i,
         lockLayoutId: lock,
         scaleMax: callback.scaleMax,
       });

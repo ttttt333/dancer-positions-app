@@ -93,29 +93,27 @@ const FAMILY_LAYOUTS: Record<FormationPatternId, string[]> = {
     "extra_c_shape",
   ],
   wide_spread: [
-    "line_front",
+    "pyramid_inverse",
+    "grid",
+    "stagger",
     "spread_loose",
-    "arc",
     "fan_front",
-    "fan_wide",
-    "extra_arc_wide",
+    "diamond",
   ],
   fast_shift: [
-    "two_rows",
     "stagger",
-    "line_front",
-    "line_back",
+    "two_rows",
+    "grid",
+    "pyramid",
     "three_lines_depth",
-    "extra_three_lines",
+    "block_3",
   ],
   circle: [
     "circle",
     "hollow_ring",
     "double_ring",
-    "arc",
     "concentric",
     "ellipse",
-    "oval_wide",
     "fan_360",
     "extra_horseshoe",
   ],
@@ -132,20 +130,20 @@ const FAMILY_LAYOUTS: Record<FormationPatternId, string[]> = {
   front_asymmetry: [
     "asymmetric_l",
     "asymmetric_r",
-    "scatter",
     "comb",
     "l_shape",
     "t_shape",
+    "stagger",
     "extra_fan_half_left",
     "extra_fan_half_right",
   ],
 };
 
 const SECTION_LAYOUTS: Record<SectionType, string[]> = {
-  intro: ["line_back", "pyramid", "cluster_tight", "two_rows", "circle"],
+  intro: ["pyramid", "cluster_tight", "two_rows", "grid", "line_back"],
   verse: [
-    "two_rows",
     "stagger",
+    "two_rows",
     "pyramid",
     "grid",
     "three_clusters",
@@ -153,33 +151,34 @@ const SECTION_LAYOUTS: Record<SectionType, string[]> = {
     "line_vertical",
   ],
   chorus: [
-    "diamond",
     "pyramid_inverse",
+    "diamond",
+    "grid",
+    "stagger",
     "w_shape",
     "u_shape",
     "vee",
-    "hourglass",
-    "radial_burst",
   ],
-  drop: ["x_shape", "diamond", "radial_burst", "v_open", "double_diagonal"],
-  se_trigger: ["cluster_tight", "wedge", "v_tight", "asymmetric_l", "pyramid"],
-  outro: ["arc", "pyramid", "line_front", "circle", "two_rows"],
+  drop: ["diamond", "x_shape", "pyramid_inverse", "radial_burst", "v_open"],
+  se_trigger: ["cluster_tight", "pyramid", "stagger", "asymmetric_l", "wedge"],
+  outro: ["pyramid", "arc", "two_rows", "circle", "grid"],
 };
 
 const STYLE_LAYOUTS: Record<string, string[]> = {
   dynamic: [
+    "pyramid",
+    "stagger",
+    "grid",
     "diamond",
     "radial_burst",
-    "v_open",
-    "w_shape",
-    "double_diagonal",
-    "pyramid_inverse",
     "u_shape",
+    "pyramid_inverse",
   ],
   symmetric: [
+    "pyramid",
+    "grid",
     "diamond",
     "circle",
-    "pyramid",
     "two_rows",
     "hourglass",
     "concentric",
@@ -244,19 +243,57 @@ function clamp(v: number, lo: number, hi: number): number {
 
 const STAPLE_LAYOUTS: LayoutPresetId[] = [
   "pyramid",
+  "stagger",
+  "grid",
   "diamond",
   "two_rows",
-  "circle",
-  "u_shape",
-  "vee",
   "cluster_tight",
+  "u_shape",
+  "pyramid_inverse",
+  "three_clusters",
   "hourglass",
-  "grid",
+];
+
+/** 連続で横広がりばかりにならないよう抑える */
+const HORIZONTAL_WIDE = new Set<string>([
+  "line",
+  "line_front",
+  "line_back",
+  "fan_wide",
+  "fan_front",
+  "fan_back",
+  "wing_spread",
+  "spread_loose",
   "arc",
+  "oval_wide",
+  "extra_arc_wide",
+]);
+
+/** キュー番号でローテする「見せ場」隊形 */
+export const SHOW_VARIETY_CYCLE: LayoutPresetId[] = [
+  "pyramid",
+  "stagger",
+  "grid",
+  "diamond",
+  "two_rows",
+  "cluster_tight",
+  "u_shape",
+  "pyramid_inverse",
+  "three_clusters",
+  "vee",
+  "hourglass",
+  "block_3",
 ];
 
 export function isCrossLayoutPreset(id: string): boolean {
   return CROSS_LAYOUTS.has(id);
+}
+
+export function isHorizontalWideLayout(id: string): boolean {
+  if (HORIZONTAL_WIDE.has(id)) return true;
+  if (/^line($|_)/.test(id) && !/vertical|diag/.test(id)) return true;
+  if (/fan_wide|wing_spread|spread_loose/.test(id)) return true;
+  return false;
 }
 
 export type PickLayoutPresetInput = {
@@ -267,22 +304,25 @@ export type PickLayoutPresetInput = {
   allowCross: boolean;
   taste?: SuggestTasteBias;
   recent?: LayoutPresetId[];
+  /** キュー通し番号。ピラミッド→千鳥→グリッドのローテに使う */
+  cueIndex?: number;
 };
 
 /** 連続で同じ「形の系統」にならないためのバケツ */
 export function layoutShapeBucket(id: string): string {
+  if (isHorizontalWideLayout(id)) return "hline";
   if (/(?:^|_)(?:vee|v_open|v_tight|wedge|chevron)/.test(id)) return "vee";
-  if (/line|two_rows|three_lines|stagger|grid|columns|rows_/.test(id)) return "line";
-  if (/block_lr|wing|bracket|split|two_wings/.test(id)) return "split";
+  if (/stagger|two_rows|three_lines|grid|columns|rows_/.test(id)) return "depth";
   if (/cluster|pyramid|center|concentric|scatter_center|block_3|block_4/.test(id)) {
     return "center";
   }
-  if (/circle|ring|arc|oval|ellipse|fan|horseshoe|u_shape|w_shape|m_shape/.test(id)) {
+  if (/circle|ring|oval|ellipse|horseshoe|u_shape|w_shape|m_shape/.test(id)) {
     return "round";
   }
   if (/diag|cross|x_shape|pinwheel|radial/.test(id)) return "cross";
   if (/diamond|hourglass|bowtie|star_/.test(id)) return "geo";
   if (/asymmetric|l_shape|t_shape|comb|scatter/.test(id)) return "asym";
+  if (/block_lr|wing|bracket|split|two_wings/.test(id)) return "split";
   return id;
 }
 
@@ -290,7 +330,6 @@ function isPracticalLayout(id: string, style?: string): boolean {
   if (style === "freestyle") return true;
   if (style === "wave" && /wave|arc|sine|s_curve/.test(id)) return true;
   if (/^extra_/.test(id)) return false;
-  // ショー向けの幾何は許可。ハート・螺旋・星などは freestyle のみ
   if (/heart|spiral|star_|figure_eight|pinwheel|runway|bowtie/.test(id)) {
     return false;
   }
@@ -304,9 +343,15 @@ function rankedLayoutPool(input: PickLayoutPresetInput): LayoutPresetId[] {
   const fromFamilies = preferFamilies.flatMap(
     (p) => FAMILY_LAYOUTS[p] ?? []
   );
+  const varietyBoost: LayoutPresetId[] = [];
+  if (input.cueIndex != null && SHOW_VARIETY_CYCLE.length > 0) {
+    const i = ((input.cueIndex % SHOW_VARIETY_CYCLE.length) + SHOW_VARIETY_CYCLE.length) % SHOW_VARIETY_CYCLE.length;
+    varietyBoost.push(SHOW_VARIETY_CYCLE[i]!);
+    varietyBoost.push(SHOW_VARIETY_CYCLE[(i + 1) % SHOW_VARIETY_CYCLE.length]!);
+  }
 
-  // 歌詞ヒント → 曲の意図（family）→ セクション → スタイル
   const ranked = onlyValid([
+    ...varietyBoost,
     ...fromFamilies,
     ...(FAMILY_LAYOUTS[input.family] ?? []),
     ...(SECTION_LAYOUTS[input.sectionType] ?? []),
@@ -319,20 +364,36 @@ function rankedLayoutPool(input: PickLayoutPresetInput): LayoutPresetId[] {
     const noCross = pool.filter((id) => !CROSS_LAYOUTS.has(id));
     if (noCross.length) pool = noCross;
   }
+
   const avoid = new Set(input.recent ?? []);
   const recentBuckets = new Set(
     (input.recent ?? []).map((id) => layoutShapeBucket(id))
   );
-  const freshShape = pool.filter(
-    (id) => !avoid.has(id) && !recentBuckets.has(layoutShapeBucket(id))
-  );
-  if (freshShape.length) pool = freshShape;
-  else {
-    const fresh = pool.filter((id) => !avoid.has(id));
+  const recentHadHLine = (input.recent ?? []).some(isHorizontalWideLayout);
+
+  const preferDepth = pool.filter((id) => {
+    if (avoid.has(id)) return false;
+    if (recentBuckets.has(layoutShapeBucket(id))) return false;
+    if (recentHadHLine && isHorizontalWideLayout(id)) return false;
+    return true;
+  });
+  if (preferDepth.length) {
+    pool = preferDepth;
+  } else {
+    const fresh = pool.filter(
+      (id) => !avoid.has(id) && !(recentHadHLine && isHorizontalWideLayout(id))
+    );
     if (fresh.length) pool = fresh;
   }
+
+  // 横広がりを後ろへ
+  pool = [
+    ...pool.filter((id) => !isHorizontalWideLayout(id)),
+    ...pool.filter((id) => isHorizontalWideLayout(id)),
+  ];
+
   if (pool.length === 0) {
-    pool = onlyValid(["pyramid", "diamond", "two_rows", "circle", "cluster_tight"]);
+    pool = onlyValid(["pyramid", "stagger", "grid", "diamond", "two_rows"]);
   }
   return pool;
 }
