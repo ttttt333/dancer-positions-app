@@ -1,6 +1,6 @@
 /**
  * MusicStructureAnalysisResult → MusicalEvent。
- * 解析器は呼ばない。家族ID / SSM は後工程（今は null）。
+ * 解析器は呼ばない。section_families があれば chorusFamilyId を流す。
  */
 
 import type {
@@ -9,6 +9,10 @@ import type {
   MusicStructureAnalysisResult,
 } from "../types/MusicTypes";
 import type { MusicalEvent, MusicalEventKind } from "./musicalEventTypes";
+import {
+  sectionFamilyAt,
+  type SectionFamily,
+} from "./sectionFamilies";
 
 function clamp01(n: number): number {
   if (!Number.isFinite(n)) return 0;
@@ -41,15 +45,48 @@ function sectionAt(time: number, sections: MusicSection[]): MusicSection | null 
   return sections[sections.length - 1] ?? null;
 }
 
+function familyFields(
+  time: number,
+  sectionType: MusicSection["type"],
+  families: SectionFamily[] | undefined
+): Pick<
+  MusicalEvent,
+  "chorusFamilyId" | "chorusOccurrence" | "variation" | "flags"
+> & { familyReason: string | null } {
+  const hit = sectionFamilyAt(families, time);
+  const variation = hit?.occurrence.variation ?? "none";
+  const isLastChorus =
+    variation === "final" ||
+    sectionType === "FINAL_CHORUS" ||
+    hit?.family.type === "FINAL_CHORUS";
+  return {
+    chorusFamilyId: hit?.family.familyId ?? null,
+    chorusOccurrence: hit ? hit.occurrenceIndex + 1 : null,
+    variation,
+    familyReason: hit ? `FAMILY_${hit.family.familyId}` : null,
+    flags: {
+      isDownbeatAligned: false,
+      isQuietChorus: false,
+      isLastChorus,
+    },
+  };
+}
+
 export function toMusicalEvents(input: {
   structure: MusicStructureAnalysisResult;
   bpm?: number;
   durationSec?: number;
+  sectionFamilies?: SectionFamily[];
 }): MusicalEvent[] {
   const { structure } = input;
   const events: MusicalEvent[] = [];
 
   for (const section of structure.sections) {
+    const family = familyFields(
+      section.startTime,
+      section.type,
+      input.sectionFamilies
+    );
     events.push({
       id: `me-sec-${section.id}`,
       time: section.startTime,
@@ -63,19 +100,24 @@ export function toMusicalEvents(input: {
       energyBefore: Math.max(0, section.energyMean - section.energyDelta / 2),
       energyAfter: section.energyMean,
       sourceEventIds: [section.id],
-      reasonCodes: [`SECTION_${section.type}`],
-      chorusFamilyId: null,
-      chorusOccurrence: null,
-      flags: {
-        isDownbeatAligned: false,
-        isQuietChorus: false,
-        isLastChorus: section.type === "FINAL_CHORUS",
-      },
+      reasonCodes: [
+        `SECTION_${section.type}`,
+        ...(family.familyReason ? [family.familyReason] : []),
+      ],
+      chorusFamilyId: family.chorusFamilyId,
+      chorusOccurrence: family.chorusOccurrence,
+      variation: family.variation,
+      flags: family.flags,
     });
   }
 
   for (const cluster of structure.eventClusters) {
     const section = sectionAt(cluster.time, structure.sections);
+    const family = familyFields(
+      cluster.time,
+      section?.type ?? "UNKNOWN",
+      input.sectionFamilies
+    );
     events.push({
       id: `me-ec-${cluster.id}`,
       time: cluster.time,
@@ -89,15 +131,18 @@ export function toMusicalEvents(input: {
       energyBefore: cluster.changePoints[0]?.energyBefore ?? 0,
       energyAfter: cluster.changePoints[0]?.energyAfter ?? 0,
       sourceEventIds: [cluster.id, ...cluster.changePoints.map((p) => p.id)],
-      reasonCodes: [cluster.dominantType],
-      chorusFamilyId: null,
-      chorusOccurrence: null,
+      reasonCodes: [
+        cluster.dominantType,
+        ...(family.familyReason ? [family.familyReason] : []),
+      ],
+      chorusFamilyId: family.chorusFamilyId,
+      chorusOccurrence: family.chorusOccurrence,
+      variation: family.variation,
       flags: {
+        ...family.flags,
         isDownbeatAligned: cluster.changePoints.some(
           (p) => p.beatTime != null && Math.abs(p.time - p.beatTime) < 0.08
         ),
-        isQuietChorus: false,
-        isLastChorus: section?.type === "FINAL_CHORUS",
       },
     });
   }

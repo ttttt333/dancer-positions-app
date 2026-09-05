@@ -91,11 +91,18 @@ export { classifyHits } from "./music/HitClassifier";
 export { snapToBeatGrid } from "./music/structureMath";
 export { generateFormationCues } from "./cue/CueEngine";
 export { toMusicalEvents, musicalEventAt } from "./music/musicalEvents";
+export { parseSectionFamilies, sectionFamilyAt } from "./music/sectionFamilies";
 export type {
   MusicalEvent,
   MusicalEventKind,
   MusicalEventVariation,
 } from "./music/musicalEventTypes";
+export type {
+  SectionFamily,
+  SectionFamilyHit,
+  SectionFamilyOccurrence,
+  SectionFamilyVariation,
+} from "./music/sectionFamilies";
 export {
   generateChoreographicIntent,
   generateChoreographicIntentSequence,

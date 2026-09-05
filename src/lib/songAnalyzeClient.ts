@@ -8,6 +8,7 @@ import {
   CHOREOCORE_AUDIO_BUCKET,
   supabaseGetProjectAudioSignedUrl,
 } from "./supabaseAudio";
+import { parseSectionFamilies } from "./choreocore/engine/music/sectionFamilies";
 import type {
   ChangePoint,
   EightGridEntry,
@@ -81,6 +82,14 @@ function asEightGrid(raw: unknown): EightGridEntry[] {
     .filter((x): x is EightGridEntry => x != null);
 }
 
+/** テストとデバッグ用。Fly の生 JSON を既存経路が読める形に揃える */
+export function normalizeRemoteSongAnalysis(
+  data: Record<string, unknown>,
+  source: RemoteSongAnalysis["source"]
+): RemoteSongAnalysis | null {
+  return normalizeRemotePayload(data, source);
+}
+
 function normalizeRemotePayload(
   data: Record<string, unknown>,
   source: RemoteSongAnalysis["source"]
@@ -94,6 +103,7 @@ function normalizeRemotePayload(
     return null;
   }
   if (change_points.length === 0) return null;
+  const section_families = parseSectionFamilies(data.section_families);
   return {
     bpm,
     duration,
@@ -107,6 +117,7 @@ function normalizeRemotePayload(
     source,
     audio_hash:
       typeof data.audio_hash === "string" ? data.audio_hash : undefined,
+    section_families: section_families.length > 0 ? section_families : undefined,
   };
 }
 

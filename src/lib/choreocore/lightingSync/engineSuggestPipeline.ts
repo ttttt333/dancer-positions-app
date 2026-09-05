@@ -16,6 +16,7 @@ import { evaluateCueQuality, type CueQualityReport } from "../engine/cue/cueQual
 import { generateChoreographicIntentSequence } from "../engine/intent/ChoreographicIntentEngine";
 import type { ChoreographicIntentSequence } from "../engine/intent/ChoreographicIntentTypes";
 import { toMusicalEvents } from "../engine/music/musicalEvents";
+import type { SectionFamily } from "../engine/music/sectionFamilies";
 import {
   recommendFormationsForIntentSequence,
   type FormationIntelligenceReport,
@@ -150,6 +151,8 @@ export type EngineAppSuggestInput = {
   durationSec: number;
   bpm: number;
   remoteChangePoints?: AppChangePoint[];
+  /** Fly SSM クラスタ。無いときは MusicalEvent の family は null */
+  sectionFamilies?: SectionFamily[];
   seedDancers: DancerSpot[];
   profile: ClassProfile;
   tasteBias: SuggestTasteBias;
@@ -1177,6 +1180,7 @@ function finishEngineAppSuggest(args: {
           structure,
           bpm,
           durationSec: duration,
+          sectionFamilies: input.sectionFamilies,
         }),
       });
     } catch {

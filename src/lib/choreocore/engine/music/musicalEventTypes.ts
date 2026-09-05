@@ -32,6 +32,7 @@ export type MusicalEvent = {
   reasonCodes: string[];
   chorusFamilyId: string | null;
   chorusOccurrence: number | null;
+  variation: MusicalEventVariation;
   flags: {
     isDownbeatAligned: boolean;
     isQuietChorus: boolean;

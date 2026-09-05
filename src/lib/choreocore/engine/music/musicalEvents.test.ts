@@ -23,6 +23,7 @@ describe("toMusicalEvents", () => {
     expect(pre!.time).toBe(12);
     expect(pre!.chorusFamilyId).toBeNull();
     expect(pre!.chorusOccurrence).toBeNull();
+    expect(pre!.variation).toBe("none");
     expect(pre!.reasonCodes).toContain("SECTION_PRE_CHORUS");
   });
 

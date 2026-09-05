@@ -2,6 +2,8 @@
  * ChoreoCore 純アルゴリズム版 — 共有型
  */
 
+import type { SectionFamily } from "./engine/music/sectionFamilies";
+
 export type Position = { x: number; y: number };
 
 export type Performer = {
@@ -56,7 +58,11 @@ export type SongAnalysisResult = {
   change_points: ChangePoint[];
   song_dynamism: number;
   analyzer_version?: string;
+  /** Fly SSM クラスタ。未実装の解析器では欠ける */
+  section_families?: SectionFamily[];
 };
+
+export type { SectionFamily, SectionFamilyOccurrence, SectionFamilyVariation } from "./engine/music/sectionFamilies";
 
 export type GeneratedCue = {
   id: string;

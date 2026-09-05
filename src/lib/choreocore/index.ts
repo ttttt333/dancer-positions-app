@@ -15,6 +15,9 @@ export type {
   Template,
   EightGridEntry,
   SongAnalysisResult,
+  SectionFamily,
+  SectionFamilyOccurrence,
+  SectionFamilyVariation,
   GeneratedCue,
   GenerateFormationsResult,
 } from "./types";

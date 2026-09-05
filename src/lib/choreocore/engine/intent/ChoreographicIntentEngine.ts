@@ -251,6 +251,9 @@ function intentVariation(
   section: MusicSection | null | undefined,
   musicalEvent: MusicalEvent | null | undefined
 ): ChoreographicIntent["variation"] {
+  if (musicalEvent?.variation && musicalEvent.variation !== "none") {
+    return musicalEvent.variation;
+  }
   if (musicalEvent?.flags.isLastChorus || section?.type === "FINAL_CHORUS") {
     return "final";
   }
