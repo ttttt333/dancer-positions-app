@@ -1,6 +1,7 @@
 """
 楽曲構造解析ロジック（librosa）。
 4エイト（32ビート）固定ブロック + RMS音圧によるサビ判定。
+後段で Chroma+MFCC のビート同期類似度から section_families を付ける。
 peak_pick は使わない。
 """
 
@@ -11,7 +12,9 @@ from typing import Any
 import librosa
 import numpy as np
 
-ANALYZER_VERSION = "algo-v1.3.0"
+from services.section_families import build_section_families
+
+ANALYZER_VERSION = "algo-v1.4.0"
 
 BEATS_PER_EIGHT = 8
 EIGHTS_PER_BLOCK = 4  # 4エイト = 32ビート
@@ -210,6 +213,19 @@ def analyze_track(audio_path: str) -> dict[str, Any]:
 
     change_points.sort(key=lambda c: c["time"])
 
+    # --- 4. SSM 相当: 区間ごとの Chroma+MFCC 類似 → section_families ---
+    section_families: list[dict[str, Any]] = []
+    try:
+        section_families = build_section_families(
+            y,
+            sr,
+            beat_times,
+            change_points,
+            duration,
+        )
+    except Exception:  # noqa: BLE001
+        section_families = []
+
     return {
         "bpm": tempo_f,
         "duration": duration,
@@ -218,4 +234,5 @@ def analyze_track(audio_path: str) -> dict[str, Any]:
         "song_dynamism": song_dynamism,
         "analyzer_version": ANALYZER_VERSION,
         "block_count": len(blocks),
+        "section_families": section_families,
     }

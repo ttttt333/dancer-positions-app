@@ -30,7 +30,7 @@ import {
   type FormationScore,
   type SuggestFeedback,
 } from "../lib/choreocore/tier1";
-import type { ChangePoint } from "../lib/choreocore/types";
+import type { ChangePoint, SectionFamily } from "../lib/choreocore/types";
 import type {
   ChoreographyProjectJson,
   Formation,
@@ -78,6 +78,7 @@ type CachedAnalysis = {
   peaks: number[];
   durationSec: number;
   changePoints: ChangePoint[];
+  sectionFamilies?: SectionFamily[];
   bpm: number;
   duration: number;
   dynamism: number;
@@ -215,6 +216,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
           durationSec: cache.duration,
           bpm: cache.bpm,
           remoteChangePoints: cache.changePoints,
+          sectionFamilies: cache.sectionFamilies,
           seedDancers: cache.seedDancers,
           profile,
           tasteBias,
@@ -392,6 +394,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
           peaks,
           durationSec,
           changePoints,
+          sectionFamilies: remote?.section_families,
           bpm,
           duration,
           dynamism,

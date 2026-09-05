@@ -28,3 +28,6 @@ npx supabase functions deploy analyze-song --project-ref iiziplsgfoijvnrsehms
 
 音源をクラウド保存（`audioSupabasePath`）した作品で AI提案を実行。
 結果の「解析」が `fly` / `fly-cache` になれば接続成功。失敗時は `browser` にフォールバック。
+
+`algo-v1.4.0` 以降はレスポンスに `section_families`（サビのコールバック用クラスタ）が付く。
+Dashboard SQL で `017_song_analysis_section_families.up.sql` も実行すること。

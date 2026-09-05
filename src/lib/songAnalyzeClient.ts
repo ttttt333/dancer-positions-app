@@ -16,7 +16,7 @@ import type {
 } from "./choreocore/types";
 
 /** Python analyzer / Edge と揃える */
-export const REMOTE_ANALYZER_VERSION = "algo-v1.3.0";
+export const REMOTE_ANALYZER_VERSION = "algo-v1.4.0";
 
 /** Fly 冷起動＋解析が遅いので、これを超えたらブラウザ解析に切替 */
 export const REMOTE_ANALYZE_TIMEOUT_MS = 12000;

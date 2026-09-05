@@ -14,7 +14,7 @@ const CORS = {
 };
 
 /** backend/analyzer/services/audio_analyzer.py の ANALYZER_VERSION と一致させる */
-const ANALYZER_VERSION = "algo-v1.3.0";
+const ANALYZER_VERSION = "algo-v1.4.0";
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -113,6 +113,7 @@ serve(async (req: Request) => {
           duration_seconds: result.duration,
           eight_grid: result.eight_grid,
           change_points: result.change_points,
+          section_families: result.section_families ?? null,
           song_dynamism: result.song_dynamism ?? null,
           analyzer_version: ANALYZER_VERSION,
           analyzed_at: new Date().toISOString(),

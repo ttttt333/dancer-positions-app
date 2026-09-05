@@ -66,6 +66,6 @@ export const MOCK_REMOTE_ANALYSIS_WITH_FAMILIES = {
     },
   ],
   song_dynamism: 0.62,
-  analyzer_version: "algo-v1.3.0",
+  analyzer_version: "algo-v1.4.0",
   section_families: MOCK_CALLBACK_CHORUS_FAMILIES,
 };
