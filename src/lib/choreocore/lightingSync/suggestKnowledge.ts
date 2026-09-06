@@ -268,3 +268,26 @@ export function knowledgeVarietySalt(
   const preferBump = knowledge.preferLayoutIds.length * 7;
   return (base + attemptBump + avoidBump + preferBump) % 9973;
 }
+
+/** UI / 結果オブジェクト用のスナップショット */
+export function snapshotSuggestKnowledge(knowledge: SuggestKnowledge): {
+  attempt: number;
+  summary: string;
+  avoidLayoutIds: string[];
+  preferLayoutIds: string[];
+  flags: SuggestKnowledge["flags"];
+  notes: string[];
+  outroClimax: boolean;
+  avoidFlatGrid: boolean;
+} {
+  return {
+    attempt: knowledge.attempt,
+    summary: knowledge.summary,
+    avoidLayoutIds: [...knowledge.avoidLayoutIds],
+    preferLayoutIds: [...knowledge.preferLayoutIds],
+    flags: { ...knowledge.flags },
+    notes: [...knowledge.notes],
+    outroClimax: knowledge.outroClimax,
+    avoidFlatGrid: knowledge.avoidFlatGrid,
+  };
+}

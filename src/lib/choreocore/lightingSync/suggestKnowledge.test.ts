@@ -5,6 +5,7 @@ import {
   createEmptySuggestKnowledge,
   inferKnowledgeFromNote,
   knowledgeVarietySalt,
+  snapshotSuggestKnowledge,
 } from "./suggestKnowledge";
 import { resolveSuggestTaste } from "./suggestTaste";
 import { rankLayoutPresets } from "./layoutPresetBridge";
@@ -91,5 +92,18 @@ describe("suggestKnowledge accumulation", () => {
     );
     // 知見で避けた雛形は上位から消える（プール枯渇時を除く）
     expect(ranked[0]).not.toBe("grid");
+  });
+
+  it("snapshotSuggestKnowledge exposes attempt and avoid list for UI", () => {
+    let k = createEmptySuggestKnowledge();
+    k = accumulateSuggestKnowledge(k, {
+      isResuggest: true,
+      feedback: { preferLessMovement: true },
+      rejectedLayoutIds: ["grid", "stagger"],
+    });
+    const snap = snapshotSuggestKnowledge(k);
+    expect(snap.attempt).toBe(1);
+    expect(snap.avoidLayoutIds).toEqual(expect.arrayContaining(["grid", "stagger"]));
+    expect(snap.flags.preferLessMovement).toBe(true);
   });
 });

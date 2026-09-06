@@ -27,6 +27,7 @@ import {
   applyKnowledgeToTaste,
   createEmptySuggestKnowledge,
   knowledgeVarietySalt,
+  snapshotSuggestKnowledge,
   type SuggestKnowledge,
 } from "../lib/choreocore/lightingSync/suggestKnowledge";
 import type {
@@ -78,6 +79,21 @@ export interface AiSuggestResult {
   lightingSyncPayload?: LightingSyncSuggestPayload;
   classProfileId?: string;
   evaluation?: AiEvaluationOutput;
+  /** 再提案で積み上がった知見（UI 表示用） */
+  knowledge?: {
+    attempt: number;
+    summary: string;
+    avoidLayoutIds: string[];
+    preferLayoutIds: string[];
+    flags: {
+      preferLessMovement: boolean;
+      preferFewerCrossings: boolean;
+      preferMoreImpact: boolean;
+    };
+    notes: string[];
+    outroClimax: boolean;
+    avoidFlatGrid: boolean;
+  };
 }
 
 const genId = (): string =>
@@ -351,6 +367,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
             lightingSyncPayload: engine.lightingSyncPayload,
             classProfileId: profile.classId,
             evaluation: engine.evaluation,
+            knowledge: snapshotSuggestKnowledge(knowledge),
           });
           setStatus("done");
           return;
@@ -402,6 +419,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
         averageScore,
         lightingSyncPayload: payload,
         classProfileId: profile.classId,
+        knowledge: snapshotSuggestKnowledge(knowledge),
       });
       setStatus("done");
     },
@@ -448,7 +466,12 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
             audioOpts?.targetCueCount,
             audioOpts?.feedback,
             audioOpts?.classProfileId,
-            audioOpts?.taste
+            audioOpts?.taste,
+            {
+              rejectedLayoutIds: audioOpts?.rejectedLayoutIds,
+              acceptedLayoutIds: audioOpts?.acceptedLayoutIds,
+              isResuggest: true,
+            }
           );
           return;
         }

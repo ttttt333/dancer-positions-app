@@ -466,7 +466,8 @@ export function AiSuggestDialog({
         payloadForms.find((f) => f.fcpId === cue.id)?.layoutPresetId;
       if (layoutId) cueIdToLayout.set(cue.id, layoutId);
     }
-    const rejectedLayoutIds = pairedCues
+    const previousRunLayouts = [...new Set([...cueIdToLayout.values()])];
+    const explicitRejected = pairedCues
       .filter((p) => !acceptedCueIds.has(p.cue.id))
       .map((p) => cueIdToLayout.get(p.cue.id))
       .filter((id): id is string => !!id);
@@ -475,12 +476,18 @@ export function AiSuggestDialog({
       .map((p) => cueIdToLayout.get(p.cue.id))
       .filter((id): id is string => !!id);
 
+    // 明示却下があればそれだけ避ける。全採用のまま再提案なら前回雛形一式を避けて作り直す
+    const avoidForImprove =
+      explicitRejected.length > 0 ? explicitRejected : previousRunLayouts;
+    const keepPreferred =
+      explicitRejected.length > 0 ? acceptedLayoutIds : [];
+
     const feedback: SuggestFeedback = {
       preferLessMovement: fbLessMove,
       preferFewerCrossings: fbLessCross,
       preferMoreImpact: fbMoreImpact,
       note: fbNote.trim() || undefined,
-      avoidLayoutIds: rejectedLayoutIds,
+      avoidLayoutIds: avoidForImprove,
     };
     const mediaUrl = playbackEngine.getMediaSourceUrl();
     suggest(peaks, durationSec, undefined, {
@@ -488,8 +495,8 @@ export function AiSuggestDialog({
       targetCueCount,
       classProfileId,
       feedback,
-      rejectedLayoutIds,
-      acceptedLayoutIds,
+      rejectedLayoutIds: avoidForImprove,
+      acceptedLayoutIds: keepPreferred,
       taste: {
         vibes: [...vibes],
         style: formationStyle,
@@ -979,9 +986,41 @@ export function AiSuggestDialog({
                     <p style={{ fontSize: 11, color: shell.textSubtle, marginBottom: 8, fontWeight: 600 }}>
                       フィードバックして再提案
                     </p>
-                    <p style={{ fontSize: 10, color: shell.textMuted, marginBottom: 8, lineHeight: 1.45 }}>
-                      不採用の Cue の雛形は次回以降避け、採用した雛形・チップ・メモは知見として積み上がります。同じ条件でも再提案のたびに別候補へずれます。
-                    </p>
+                    {result.knowledge && result.knowledge.attempt > 0 ? (
+                      <div
+                        style={{
+                          marginBottom: 10,
+                          padding: "8px 10px",
+                          borderRadius: 8,
+                          background: "rgba(56, 189, 248, 0.08)",
+                          border: "1px solid rgba(56, 189, 248, 0.35)",
+                        }}
+                      >
+                        <p style={{ fontSize: 11, fontWeight: 700, color: shell.brandRing, margin: "0 0 4px" }}>
+                          蓄積中の知見 · 再提案 {result.knowledge.attempt} 回目
+                        </p>
+                        <p style={{ fontSize: 10, color: shell.textMuted, margin: "0 0 4px", lineHeight: 1.45 }}>
+                          {result.knowledge.summary || "（フラグなし）"}
+                        </p>
+                        {result.knowledge.avoidLayoutIds.length > 0 && (
+                          <p style={{ fontSize: 10, color: shell.textSubtle, margin: 0, lineHeight: 1.4 }}>
+                            避けている雛形: {result.knowledge.avoidLayoutIds.slice(0, 8).join(", ")}
+                            {result.knowledge.avoidLayoutIds.length > 8
+                              ? ` 他${result.knowledge.avoidLayoutIds.length - 8}`
+                              : ""}
+                          </p>
+                        )}
+                        {result.knowledge.notes.length > 0 && (
+                          <p style={{ fontSize: 10, color: shell.textSubtle, margin: "4px 0 0", lineHeight: 1.4 }}>
+                            メモ: {result.knowledge.notes[result.knowledge.notes.length - 1]}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p style={{ fontSize: 10, color: shell.textMuted, marginBottom: 8, lineHeight: 1.45 }}>
+                        気に入らない Cue は「却下」してから再提案すると、その雛形を避けます。チップやメモだけでも前回の並びは避けて作り直します。
+                      </p>
+                    )}
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
                       {(
                         [
