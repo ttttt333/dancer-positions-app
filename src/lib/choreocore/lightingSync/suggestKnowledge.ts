@@ -1,5 +1,5 @@
 /**
- * 再提案フィードバックの知見をセッション内で積み上げる。
+ * 制作者メモ（初回指示）と再提案フィードバックの知見をセッション内で積み上げる。
  * 同じチップを押しても attempt が増え、避けた雛形は次回以降も除外される。
  */
 
@@ -7,6 +7,11 @@ import type { SuggestFeedback } from "../tier1/types";
 import type { FormationPatternId } from "./types";
 import type { SuggestTasteBias } from "./suggestTaste";
 import { applyFeedbackToTaste, feedbackVarietySalt } from "./suggestTaste";
+import {
+  formatCueLayoutPins,
+  parseCueLayoutPins,
+  type CueLayoutPin,
+} from "./cueLayoutPins";
 
 export type SuggestKnowledge = {
   /** 再提案回数（初回提案後の 1 回目再提案で 1） */
@@ -15,6 +20,8 @@ export type SuggestKnowledge = {
   avoidPatterns: FormationPatternId[];
   avoidLayoutIds: string[];
   preferLayoutIds: string[];
+  /** 「最初と最後はピラミッド」など Cue 位置の強制ピン */
+  cueLayoutPins: CueLayoutPin[];
   flags: {
     preferLessMovement: boolean;
     preferFewerCrossings: boolean;
@@ -35,6 +42,7 @@ export function createEmptySuggestKnowledge(): SuggestKnowledge {
     avoidPatterns: [],
     avoidLayoutIds: [],
     preferLayoutIds: [],
+    cueLayoutPins: [],
     flags: {
       preferLessMovement: false,
       preferFewerCrossings: false,
@@ -66,6 +74,7 @@ export function inferKnowledgeFromNote(note: string): Partial<SuggestKnowledge> 
   let avoidFlatGrid = false;
   let preferLessMovement = false;
   let preferMoreImpact = false;
+  const cueLayoutPins = parseCueLayoutPins(n);
 
   if (/四角|グリッド|整列|並列|棒立ち|のっぺり|平坦/.test(n)) {
     avoidFlatGrid = true;
@@ -100,11 +109,13 @@ export function inferKnowledgeFromNote(note: string): Partial<SuggestKnowledge> 
   if (/V字|ブイ|vee/.test(n)) preferPatterns.push("vee");
   if (/扇|弧|アーチ/.test(n)) preferPatterns.push("circle", "double_u");
   if (/密集|コンパクト|寄せ/.test(n)) preferPatterns.push("center_condensed");
+  if (/ピラミッド|pyramid/i.test(n)) preferPatterns.push("center_condensed");
 
   return {
     preferPatterns,
     avoidPatterns,
     avoidLayoutIds,
+    cueLayoutPins,
     outroClimax,
     avoidFlatGrid,
     flags: {
@@ -113,6 +124,16 @@ export function inferKnowledgeFromNote(note: string): Partial<SuggestKnowledge> 
       preferMoreImpact,
     },
   };
+}
+
+function mergeCueLayoutPins(
+  prev: CueLayoutPin[],
+  next: CueLayoutPin[]
+): CueLayoutPin[] {
+  const map = new Map<CueLayoutPin["slot"], CueLayoutPin>();
+  for (const p of prev) map.set(p.slot, p);
+  for (const p of next) map.set(p.slot, p); // 新しいメモを優先
+  return [...map.values()];
 }
 
 const FLAT_GRID_LAYOUTS = [
@@ -127,14 +148,84 @@ const FLAT_GRID_LAYOUTS = [
   "line_back",
 ] as const;
 
+function collectCreatorNotes(input: {
+  creatorNote?: string | null;
+  creatorNotes?: Array<string | null | undefined>;
+  feedbackNote?: string | null;
+}): string[] {
+  const raw = [
+    ...(input.creatorNotes ?? []),
+    input.creatorNote,
+    input.feedbackNote,
+  ];
+  return uniqueStrings(
+    raw.map((n) => n?.trim() ?? "").filter(Boolean)
+  );
+}
+
+function mergeInferredFromNotes(
+  notes: string[]
+): Partial<SuggestKnowledge> {
+  let preferPatterns: FormationPatternId[] = [];
+  let avoidPatterns: FormationPatternId[] = [];
+  let avoidLayoutIds: string[] = [];
+  let cueLayoutPins: CueLayoutPin[] = [];
+  let outroClimax = false;
+  let avoidFlatGrid = false;
+  let preferLessMovement = false;
+  let preferMoreImpact = false;
+
+  for (const note of notes) {
+    const part = inferKnowledgeFromNote(note);
+    preferPatterns = uniquePatterns([
+      ...preferPatterns,
+      ...(part.preferPatterns ?? []),
+    ]);
+    avoidPatterns = uniquePatterns([
+      ...avoidPatterns,
+      ...(part.avoidPatterns ?? []),
+    ]);
+    avoidLayoutIds = uniqueStrings([
+      ...avoidLayoutIds,
+      ...(part.avoidLayoutIds ?? []),
+    ]);
+    cueLayoutPins = mergeCueLayoutPins(
+      cueLayoutPins,
+      part.cueLayoutPins ?? []
+    );
+    outroClimax = outroClimax || !!part.outroClimax;
+    avoidFlatGrid = avoidFlatGrid || !!part.avoidFlatGrid;
+    preferLessMovement =
+      preferLessMovement || !!part.flags?.preferLessMovement;
+    preferMoreImpact = preferMoreImpact || !!part.flags?.preferMoreImpact;
+  }
+
+  return {
+    preferPatterns,
+    avoidPatterns,
+    avoidLayoutIds,
+    cueLayoutPins,
+    outroClimax,
+    avoidFlatGrid,
+    flags: {
+      preferLessMovement,
+      preferFewerCrossings: false,
+      preferMoreImpact,
+    },
+  };
+}
+
 /**
- * 前回知見に今回のフィードバック／採否をマージする。
- * `isResuggest=false` の初回は空に近い状態へリセットしてから適用しない（呼び出し側で empty を渡す）。
+ * 前回知見に今回の制作者メモ／フィードバック／採否をマージする。
+ * `isResuggest=false` の初回はリセットしてから制作者メモだけを適用する。
  */
 export function accumulateSuggestKnowledge(
   prev: SuggestKnowledge,
   input: {
     feedback?: SuggestFeedback | null;
+    /** 初回「その他・AIへの指示」など制作者メモ（フィードバック以外） */
+    creatorNote?: string | null;
+    creatorNotes?: Array<string | null | undefined>;
     rejectedLayoutIds?: string[];
     acceptedLayoutIds?: string[];
     isResuggest?: boolean;
@@ -144,7 +235,22 @@ export function accumulateSuggestKnowledge(
   const base = isResuggest ? prev : createEmptySuggestKnowledge();
   const fb = input.feedback;
 
-  const fromNote = fb?.note ? inferKnowledgeFromNote(fb.note) : {};
+  const noteTexts = collectCreatorNotes({
+    creatorNote: input.creatorNote,
+    creatorNotes: input.creatorNotes,
+    feedbackNote: fb?.note,
+  });
+  // 再提案時は既に蓄積済みのメモも再解釈（初回指示を落とさない）
+  const notesToInfer = uniqueStrings([
+    ...(isResuggest ? base.notes : []),
+    ...noteTexts,
+  ]);
+  const fromNote = mergeInferredFromNotes(notesToInfer);
+  const cueLayoutPins = mergeCueLayoutPins(
+    base.cueLayoutPins,
+    fromNote.cueLayoutPins ?? []
+  );
+  const pinnedIds = new Set(cueLayoutPins.map((p) => p.layoutId));
 
   const flags = {
     preferLessMovement:
@@ -167,11 +273,12 @@ export function accumulateSuggestKnowledge(
     ...(fromNote.avoidFlatGrid || base.avoidFlatGrid
       ? [...FLAT_GRID_LAYOUTS]
       : []),
-  ]);
+  ]).filter((id) => !pinnedIds.has(id)); // ピン指定は避けリストから外す
 
   const preferLayoutIds = uniqueStrings([
     ...base.preferLayoutIds,
     ...(input.acceptedLayoutIds ?? []),
+    ...cueLayoutPins.map((p) => p.layoutId),
   ]).filter((id) => !avoidLayoutIds.includes(id));
 
   const preferPatterns = uniquePatterns([
@@ -185,7 +292,7 @@ export function accumulateSuggestKnowledge(
 
   const notes = uniqueStrings([
     ...base.notes,
-    ...(fb?.note?.trim() ? [fb.note.trim()] : []),
+    ...noteTexts,
   ]).slice(-8);
 
   const attempt = isResuggest ? base.attempt + 1 : 0;
@@ -198,11 +305,13 @@ export function accumulateSuggestKnowledge(
     flags.preferMoreImpact ||
     outroClimax;
 
+  const pinSummary = formatCueLayoutPins(cueLayoutPins);
   const summaryParts = [
-    attempt > 0 ? `知見#${attempt}` : "",
+    attempt > 0 ? `知見#${attempt}` : notes.length ? "初回指示" : "",
     flags.preferLessMovement ? "移動↓" : "",
     flags.preferFewerCrossings ? "交差↓" : "",
     flags.preferMoreImpact ? "インパクト↑" : "",
+    pinSummary ? `指定:${pinSummary}` : "",
     avoidLayoutIds.length ? `避け雛形:${avoidLayoutIds.length}` : "",
     preferLayoutIds.length ? `採用雛形:${preferLayoutIds.length}` : "",
     outroClimax ? "OUTROキメ" : "",
@@ -215,6 +324,7 @@ export function accumulateSuggestKnowledge(
     avoidPatterns,
     avoidLayoutIds,
     preferLayoutIds,
+    cueLayoutPins,
     flags,
     notes,
     outroClimax,
@@ -254,6 +364,7 @@ export function applyKnowledgeToTaste(
     preferLayoutIds: knowledge.preferLayoutIds,
     outroClimax: knowledge.outroClimax,
     avoidFlatGrid: knowledge.avoidFlatGrid,
+    cueLayoutPins: knowledge.cueLayoutPins,
   };
 }
 
@@ -266,7 +377,8 @@ export function knowledgeVarietySalt(
   const attemptBump = knowledge.attempt * 97;
   const avoidBump = knowledge.avoidLayoutIds.length * 13;
   const preferBump = knowledge.preferLayoutIds.length * 7;
-  return (base + attemptBump + avoidBump + preferBump) % 9973;
+  const pinBump = knowledge.cueLayoutPins.length * 19;
+  return (base + attemptBump + avoidBump + preferBump + pinBump) % 9973;
 }
 
 /** UI / 結果オブジェクト用のスナップショット */
@@ -275,6 +387,7 @@ export function snapshotSuggestKnowledge(knowledge: SuggestKnowledge): {
   summary: string;
   avoidLayoutIds: string[];
   preferLayoutIds: string[];
+  cueLayoutPins: CueLayoutPin[];
   flags: SuggestKnowledge["flags"];
   notes: string[];
   outroClimax: boolean;
@@ -285,6 +398,7 @@ export function snapshotSuggestKnowledge(knowledge: SuggestKnowledge): {
     summary: knowledge.summary,
     avoidLayoutIds: [...knowledge.avoidLayoutIds],
     preferLayoutIds: [...knowledge.preferLayoutIds],
+    cueLayoutPins: knowledge.cueLayoutPins.map((p) => ({ ...p })),
     flags: { ...knowledge.flags },
     notes: [...knowledge.notes],
     outroClimax: knowledge.outroClimax,

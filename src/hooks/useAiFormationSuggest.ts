@@ -85,6 +85,11 @@ export interface AiSuggestResult {
     summary: string;
     avoidLayoutIds: string[];
     preferLayoutIds: string[];
+    cueLayoutPins?: Array<{
+      slot: "first" | "last" | "intro" | "outro";
+      layoutId: string;
+      label: string;
+    }>;
     flags: {
       preferLessMovement: boolean;
       preferFewerCrossings: boolean;
@@ -235,8 +240,10 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
       }
     ) => {
       const isResuggest = !!knowledgeExtras?.isResuggest || !!feedback;
+      const creatorNote = taste?.note?.trim() || undefined;
       knowledgeRef.current = accumulateSuggestKnowledge(knowledgeRef.current, {
         feedback,
+        creatorNote,
         rejectedLayoutIds: knowledgeExtras?.rejectedLayoutIds,
         acceptedLayoutIds: knowledgeExtras?.acceptedLayoutIds,
         isResuggest,
@@ -248,25 +255,33 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
         resolveSuggestTaste(taste),
         knowledge
       );
+      const hasCreatorIntent =
+        knowledge.cueLayoutPins.length > 0 ||
+        knowledge.notes.length > 0 ||
+        knowledge.summary.length > 0 ||
+        knowledge.flags.preferLessMovement ||
+        knowledge.flags.preferFewerCrossings ||
+        knowledge.flags.preferMoreImpact;
       const withTaste =
-        isEmptyTaste(taste) && knowledge.attempt === 0 && !feedback
+        isEmptyTaste(taste) && !hasCreatorIntent && !feedback
           ? base
           : applyTasteToProfile(base, tasteBias);
       const profile = profileFromFeedback(withTaste, {
         preferLessMovement: knowledge.flags.preferLessMovement,
         preferFewerCrossings: knowledge.flags.preferFewerCrossings,
         preferMoreImpact: knowledge.flags.preferMoreImpact,
-        note: feedback?.note,
+        note: feedback?.note ?? creatorNote,
       });
 
       const constraintLine = `制約: 最大移動 ${profile.maxMoveDistancePerCount}m/count · 最低間隔 ${profile.minCountsBetweenChanges} counts · 交差${profile.allowCrossMovement ? "可" : "不可"} · 3D姿勢${profile.use3DLeveling ? "ON" : "OFF"}`;
       const tasteLine = tasteBias.summary
         ? `曲の指定を隊形に反映: ${tasteBias.summary}`
         : null;
-      const knowledgeLine =
-        knowledge.attempt > 0
+      const knowledgeLine = knowledge.summary
+        ? knowledge.attempt > 0
           ? `フィードバック知見: ${knowledge.summary}`
-          : null;
+          : `制作者の意図: ${knowledge.summary}`
+        : null;
       const feedbackLine = feedback
         ? `再提案フィードバック: ${[
             feedback.preferLessMovement ? "移動少なめ" : "",
@@ -280,7 +295,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
             .filter(Boolean)
             .join(" / ") || "なし"}`
         : null;
-      const note = extraInfo?.trim();
+      const note = extraInfo?.trim() || creatorNote;
       const varietySalt = knowledgeVarietySalt(knowledge, feedback);
 
       const publishOverlay = (

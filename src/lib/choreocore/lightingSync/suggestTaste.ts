@@ -4,6 +4,7 @@
  */
 
 import type { ClassProfile, FormationPatternId } from "./types";
+import type { CueLayoutPin } from "./cueLayoutPins";
 
 export const SUGGEST_VIBES = [
   { id: "energetic", label: "⚡ エネルギッシュ", desc: "激しい・パワフル" },
@@ -55,6 +56,8 @@ export type SuggestTasteBias = {
   outroClimax?: boolean;
   /** 知見: 平坦 GRID 系を避ける */
   avoidFlatGrid?: boolean;
+  /** 「最初／最後はピラミッド」など Cue 位置の強制ピン */
+  cueLayoutPins?: CueLayoutPin[];
 };
 
 export const PATTERN_LABEL_JA: Record<FormationPatternId, string> = {

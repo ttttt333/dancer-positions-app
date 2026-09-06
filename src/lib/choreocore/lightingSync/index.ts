@@ -10,6 +10,7 @@ export * from "./toApp";
 export * from "./corpus";
 export * from "./suggestTaste";
 export * from "./suggestKnowledge";
+export * from "./cueLayoutPins";
 export * from "./layoutPresetBridge";
 export * from "./suggestTravelTiming";
 export * from "./engineSuggestPipeline";

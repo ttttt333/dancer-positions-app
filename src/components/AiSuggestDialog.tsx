@@ -848,7 +848,7 @@ export function AiSuggestDialog({
                 <span style={label}>その他・AIへの指示（任意）</span>
                 <textarea
                   style={{ ...textarea, minHeight: 56 }}
-                  placeholder="例：サビで全員が前に出てくる演出にしたい、Aメロはばらけた配置で…"
+                  placeholder="例：最初と最後はピラミッド、サビはV字で、Aメロはばらけた配置で…"
                   value={additionalNote}
                   onChange={(e) => setAdditionalNote(e.target.value)}
                 />
@@ -986,7 +986,11 @@ export function AiSuggestDialog({
                     <p style={{ fontSize: 11, color: shell.textSubtle, marginBottom: 8, fontWeight: 600 }}>
                       フィードバックして再提案
                     </p>
-                    {result.knowledge && result.knowledge.attempt > 0 ? (
+                    {result.knowledge &&
+                    (result.knowledge.attempt > 0 ||
+                      (result.knowledge.cueLayoutPins?.length ?? 0) > 0 ||
+                      result.knowledge.notes.length > 0 ||
+                      !!result.knowledge.summary) ? (
                       <div
                         style={{
                           marginBottom: 10,
@@ -997,7 +1001,9 @@ export function AiSuggestDialog({
                         }}
                       >
                         <p style={{ fontSize: 11, fontWeight: 700, color: shell.brandRing, margin: "0 0 4px" }}>
-                          蓄積中の知見 · 再提案 {result.knowledge.attempt} 回目
+                          {result.knowledge.attempt > 0
+                            ? `蓄積中の知見 · 再提案 ${result.knowledge.attempt} 回目`
+                            : "制作者の意図を反映中"}
                         </p>
                         <p style={{ fontSize: 10, color: shell.textMuted, margin: "0 0 4px", lineHeight: 1.45 }}>
                           {result.knowledge.summary || "（フラグなし）"}
@@ -1008,6 +1014,23 @@ export function AiSuggestDialog({
                             {result.knowledge.avoidLayoutIds.length > 8
                               ? ` 他${result.knowledge.avoidLayoutIds.length - 8}`
                               : ""}
+                          </p>
+                        )}
+                        {result.knowledge.cueLayoutPins &&
+                          result.knowledge.cueLayoutPins.length > 0 && (
+                          <p style={{ fontSize: 10, color: shell.brandRing, margin: "4px 0 0", lineHeight: 1.4, fontWeight: 600 }}>
+                            位置指定:{" "}
+                            {result.knowledge.cueLayoutPins
+                              .map((p) => {
+                                const slot =
+                                  p.slot === "first"
+                                    ? "最初"
+                                    : p.slot === "last"
+                                      ? "最後"
+                                      : p.slot;
+                                return `${slot}=${p.label}`;
+                              })
+                              .join(" · ")}
                           </p>
                         )}
                         {result.knowledge.notes.length > 0 && (
@@ -1047,7 +1070,7 @@ export function AiSuggestDialog({
                     </div>
                     <textarea
                       style={{ ...textarea, minHeight: 44, marginBottom: 8 }}
-                      placeholder="例：ラストが四角でつまらない、2人しか動かない、もっとV字で…"
+                      placeholder="例：最初と最後はピラミッド、ラストはV字で…（スタート時の指示も引き継ぎます）"
                       value={fbNote}
                       onChange={(e) => setFbNote(e.target.value)}
                     />

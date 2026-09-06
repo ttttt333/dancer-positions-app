@@ -121,6 +121,7 @@ import {
   rankLayoutPresets,
   spotsForLayoutPreset,
 } from "./layoutPresetBridge";
+import { resolvePinnedLayoutForCue } from "./cueLayoutPins";
 import type { LayoutPresetId, LayoutPresetOptions } from "../../formationLayouts";
 import { evaluateMoveConstraints } from "./constraintEngine";
 import { resolveOverlaps } from "./overlapAvoidance";
@@ -2026,10 +2027,19 @@ function finishEngineAppSuggest(args: {
     const allowCallbackLock =
       (callback.variation === "repeat" || callback.variation === "final") &&
       CALLBACK_LOCK_ACTIONS.has(cue.action);
-    const lock =
+    const userPin = resolvePinnedLayoutForCue({
+      pins: input.tasteBias.cueLayoutPins ?? [],
+      cueIndex: i,
+      cueCount: sequence.formations.length,
+      reasonCodes: cue.reasonCodes,
+      sectionLabel: songSection?.label,
+    });
+    const callbackLock =
       allowCallbackLock && callback.rememberedLayoutId
         ? (callback.rememberedLayoutId as LayoutPresetId)
         : null;
+    // ユーザー指定ピンが最優先（「最初と最後はピラミッド」など）
+    const lock = (userPin as LayoutPresetId | null) ?? callbackLock;
     const picked = resolveDistinctLayoutSpots({
       preferred: lock ?? preferred,
       seeds,
@@ -2043,7 +2053,7 @@ function finishEngineAppSuggest(args: {
       salt: i + Math.round(cue.energyAfter) + varietySalt,
       cueIndex: i,
       lockLayoutId: lock,
-      scaleMax: allowCallbackLock && callback.scaleMax,
+      scaleMax: allowCallbackLock && callback.scaleMax && !userPin,
       songSection,
     });
     layoutId = picked.layoutId;
