@@ -114,6 +114,10 @@ async def analyze_structure_v2(req: AnalyzeRequest):
     try:
         tmp_path = await _download_audio_to_temp(req.audio_url)
         result = analyze_structure(str(tmp_path))
+        # フロント StructureResultV2.source 用（既存 chroma-ssm-v2 を維持しつつ経路を明示）
+        if not result.get("source"):
+            result["source"] = "fly_song_structure_v2"
+        result.setdefault("analyzer_path", "api/v2/analyze-structure")
         if req.audio_hash:
             result["audio_hash"] = req.audio_hash
         return result
