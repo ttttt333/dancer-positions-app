@@ -25,6 +25,7 @@ import type {
 } from "./types";
 import type { SuggestTasteBias } from "./suggestTaste";
 import { orderLayoutsByGoldenPreference } from "../engine/formation/goldenFormationFilter";
+import type { SongSectionV2 } from "../types/songStructure";
 
 const VALID = new Set<string>(ALL_LAYOUT_PRESET_IDS);
 
@@ -321,6 +322,8 @@ export type PickLayoutPresetInput = {
   cueIndex?: number;
   /** Cue action（CONTRACT / EXPAND / V など）。黄金構造の Intent ボーナスに使う */
   cueAction?: FormationCueAction | string;
+  /** song_structure_v2 セクション（モチーフ一貫性・ダイナミクス） */
+  songSection?: SongSectionV2;
 };
 
 /** 連続で同じ「形の系統」にならないためのバケツ */
@@ -421,10 +424,11 @@ function rankedLayoutPool(input: PickLayoutPresetInput): LayoutPresetId[] {
     ...pool.filter((id) => isHorizontalWideLayout(id)),
   ];
 
-  // Step 3: 黄金の7大構造を前へ、奇抜・散開を後ろへ（Cue action があるとき Intent も反映）
+  // Step 3: 黄金の7大構造を前へ、奇抜・散開を後ろへ（Cue action / モチーフも反映）
   pool = orderLayoutsByGoldenPreference(pool, {
     intentPrimary: input.cueAction,
     demoteNonGolden: true,
+    section: input.songSection,
   }) as LayoutPresetId[];
 
   if (pool.length === 0) {
@@ -463,6 +467,7 @@ export function rankLayoutPresets(
   const ordered = orderLayoutsByGoldenPreference(ranked, {
     intentPrimary: input.cueAction,
     demoteNonGolden: true,
+    section: input.songSection,
   }) as LayoutPresetId[];
   return ordered.slice(0, Math.max(1, limit));
 }

@@ -5,6 +5,11 @@
 
 import type { Position2D } from "./geometricGridQuantizer";
 import { evaluateTidiness } from "./tidinessEvaluator";
+import {
+  estimatePresetRadiusOrWidth,
+  evaluateMotifAndDynamicsScore,
+} from "./motifConsistencyRule";
+import type { SongSectionV2 } from "../../types/songStructure";
 
 /**
  * プロのダンス演出で多用される「黄金の7大構造」種別
@@ -155,13 +160,19 @@ export function classifyPresetFamily(
   return "UNKNOWN_NON_GOLDEN";
 }
 
+export type GoldenScoreContext = {
+  /** song_structure_v2 のセクション（モチーフ / ダイナミクス補正用） */
+  section?: SongSectionV2;
+};
+
 /**
  * 雛形の幾何／ID から7大構造適合度とスコア補正を返す。
  */
 export function scorePresetAgainstGoldenRules<T extends LayoutPresetCandidate>(
   preset: T,
   targetIntentPrimary?: string,
-  options?: Partial<GoldenFilterOptions>
+  options?: Partial<GoldenFilterOptions>,
+  context?: GoldenScoreContext
 ): {
   preset: T;
   familyType: GoldenFamilyType;
@@ -234,6 +245,18 @@ export function scorePresetAgainstGoldenRules<T extends LayoutPresetCandidate>(
     }
   }
 
+  // 楽曲解析 v2: モチーフ一貫性 + 音響ダイナミクス
+  if (context?.section) {
+    scoreAdjustment += evaluateMotifAndDynamicsScore({
+      section: context.section,
+      presetCategory: familyType,
+      presetRadiusOrWidth: estimatePresetRadiusOrWidth(
+        preset.id,
+        preset.positions
+      ),
+    });
+  }
+
   return {
     preset,
     familyType,
@@ -257,18 +280,26 @@ export function orderLayoutsByGoldenPreference(
      * "score" … Intent ボーナス込みで黄金内も並べ替え
      */
     mode?: "stable" | "score";
+    /** song_structure_v2 セクション（モチーフ一貫性・ダイナミクス） */
+    section?: SongSectionV2;
   }
 ): string[] {
   const demote = opts?.demoteNonGolden !== false;
-  const mode = opts?.mode ?? "stable";
+  const mode =
+    opts?.mode ?? (opts?.section ? "score" : "stable");
+  const scoreCtx: GoldenScoreContext | undefined = opts?.section
+    ? { section: opts.section }
+    : undefined;
 
-  if (!demote && mode === "stable") return [...layoutIds];
+  if (!demote && mode === "stable" && !opts?.section) return [...layoutIds];
 
   if (mode === "score") {
     const scored = layoutIds.map((id, index) => {
       const evaled = scorePresetAgainstGoldenRules(
         { id },
-        opts?.intentPrimary
+        opts?.intentPrimary,
+        undefined,
+        scoreCtx
       );
       const score = evaled.scoreAdjustment * 100 - index * 0.01;
       return { id, score, isGolden: evaled.isGolden };
@@ -296,8 +327,12 @@ export function orderLayoutsByGoldenPreference(
   const matched: string[] = [];
   const unmatched: string[] = [];
   for (const id of golden) {
-    const adj = scorePresetAgainstGoldenRules({ id }, opts.intentPrimary)
-      .scoreAdjustment;
+    const adj = scorePresetAgainstGoldenRules(
+      { id },
+      opts.intentPrimary,
+      undefined,
+      scoreCtx
+    ).scoreAdjustment;
     if (adj >= DEFAULT_GOLDEN_FILTER_OPTIONS.intentMatchBonus - 1e-6) {
       matched.push(id);
     } else {

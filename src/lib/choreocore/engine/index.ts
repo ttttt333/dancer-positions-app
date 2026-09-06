@@ -185,6 +185,7 @@ export {
 export type {
   GoldenFamilyType,
   GoldenFilterOptions,
+  GoldenScoreContext,
   LayoutPresetCandidate,
 } from "./formation/goldenFormationFilter";
 export {
@@ -198,6 +199,16 @@ export type {
 } from "./formation/dancerPathGuard";
 export { evaluateTidiness } from "./formation/tidinessEvaluator";
 export type { TidinessScoreResult } from "./formation/tidinessEvaluator";
+export {
+  evaluateMotifAndDynamicsScore,
+  motifRegistry,
+  onPresetSelected,
+  calculatePresetWidth,
+  estimatePresetRadiusOrWidth,
+  calculateMotifBonus,
+  registerClusterMotif,
+} from "./formation/motifConsistencyRule";
+export type { MotifRuleContext } from "./formation/motifConsistencyRule";
 export type {
   FormationIntelligenceReport,
   FormationRecommendation,

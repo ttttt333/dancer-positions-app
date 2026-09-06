@@ -29,6 +29,18 @@ import { ensureMinPairDistancePct, DANCER_MIN_DISTANCE, minPairDistanceMeters } 
 import { quantizeFormationGeometry } from "../engine/formation/geometricGridQuantizer";
 import { repairPathCrossings } from "../engine/formation/dancerPathGuard";
 import {
+  classifyLayoutPresetId,
+} from "../engine/formation/goldenFormationFilter";
+import {
+  motifRegistry,
+  onPresetSelected,
+} from "../engine/formation/motifConsistencyRule";
+import {
+  resolveSongSectionV2,
+  type StructureResultV2,
+  type SongSectionV2,
+} from "../types/songStructure";
+import {
   recommendFormationsForIntentSequence,
   type FormationIntelligenceReport,
 } from "../engine/formation/intentFormationIntelligence";
@@ -186,6 +198,11 @@ export type EngineAppSuggestInput = {
   canaryActivation?: FormationCanaryActivation;
   /** 再提案フィードバック等で隊形ローテをずらすソルト */
   layoutVarietySalt?: number;
+  /**
+   * Fly song_structure_v2 の解析結果。
+   * あるときモチーフ一貫性（cluster_id）と energy_trend を選定に使う。
+   */
+  structureV2?: StructureResultV2 | null;
 };
 
 export type EngineAppSuggestMusicEngine = {
@@ -429,6 +446,7 @@ function layoutCandidatesForCue(input: {
   layoutOpts: LayoutPresetOptions | undefined;
   salt: number;
   cueIndex: number;
+  songSection?: SongSectionV2;
 }): FormationCandidate[] {
   const n = input.seeds.length;
   const ids = rankLayoutPresets({
@@ -444,6 +462,8 @@ function layoutCandidatesForCue(input: {
     allowCross: allowCrossOf(input.profile),
     taste: input.tasteBias,
     cueIndex: input.cueIndex,
+    cueAction: input.cue.action,
+    songSection: input.songSection,
   });
   const out: FormationCandidate[] = [];
   const seen = new Set<string>();
@@ -728,7 +748,21 @@ function resolveDistinctLayoutSpots(input: {
   cueIndex: number;
   lockLayoutId?: LayoutPresetId | null;
   scaleMax?: boolean;
+  songSection?: SongSectionV2;
 }): { layoutId: LayoutPresetId | null; dancers: DancerSpot[] } {
+  const finish = (
+    layoutId: LayoutPresetId | null,
+    dancers: DancerSpot[]
+  ): { layoutId: LayoutPresetId | null; dancers: DancerSpot[] } => {
+    if (input.songSection && layoutId) {
+      onPresetSelected(
+        input.songSection.cluster_id,
+        classifyLayoutPresetId(layoutId)
+      );
+    }
+    return { layoutId, dancers };
+  };
+
   if (input.lockLayoutId) {
     const raw = spotsForLayoutPreset(
       input.lockLayoutId,
@@ -748,7 +782,7 @@ function resolveDistinctLayoutSpots(input: {
       input.scaleMax,
       input.prevSpots
     );
-    return { layoutId: input.lockLayoutId, dancers };
+    return finish(input.lockLayoutId, dancers);
   }
   const rankLimit = Math.min(
     28,
@@ -770,6 +804,7 @@ function resolveDistinctLayoutSpots(input: {
       recent: input.recent,
       cueIndex: input.cueIndex,
       cueAction: input.cue.action,
+      songSection: input.songSection,
     },
     rankLimit
   );
@@ -833,19 +868,18 @@ function resolveDistinctLayoutSpots(input: {
       const travelFloor =
         pass === 2 ? MIN_MEAN_TRAVEL_PCT * 0.45 : MIN_MEAN_TRAVEL_PCT;
       if (meanTravelPct(input.prevSpots, dancers) >= travelFloor) {
-        return { layoutId: id, dancers };
+        return finish(id, dancers);
       }
     }
   }
-  return (
-    fallback ?? {
-      layoutId: null,
-      dancers: finalizeSuggestSpots(
-        input.prevSpots.map((s) => ({ ...s })),
-        false,
-        input.prevSpots
-      ),
-    }
+  if (fallback) return finish(fallback.layoutId, fallback.dancers);
+  return finish(
+    null,
+    finalizeSuggestSpots(
+      input.prevSpots.map((s) => ({ ...s })),
+      false,
+      input.prevSpots
+    )
   );
 }
 
@@ -1810,6 +1844,8 @@ function finishEngineAppSuggest(args: {
   }
   const layoutOpts = layoutOptsOf(input);
   const varietySalt = Math.abs(Math.round(input.layoutVarietySalt ?? 0));
+  // 曲通しのモチーフロックをリセット（suggest 1 回単位）
+  motifRegistry.clear();
   const candidatesByCue: Record<string, FormationCandidate[]> = {};
   for (let i = 0; i < active.length; i += 1) {
     const cue = active[i]!;
@@ -1817,6 +1853,11 @@ function finishEngineAppSuggest(args: {
       (s) => cue.rawTime >= s.startTime && cue.rawTime < s.endTime
     );
     const lightingSection = lightingSectionFromMusic(section?.type);
+    const songSection = resolveSongSectionV2({
+      timeSec: cue.rawTime,
+      structureV2: input.structureV2,
+      legacySection: section,
+    });
     try {
       candidatesByCue[cue.id] = layoutCandidatesForCue({
         cue,
@@ -1833,6 +1874,7 @@ function finishEngineAppSuggest(args: {
         layoutOpts,
         salt: i + Math.round(cue.energyAfter) + varietySalt,
         cueIndex: i,
+        songSection,
       });
     } catch {
       candidatesByCue[cue.id] = [];
@@ -1872,6 +1914,9 @@ function finishEngineAppSuggest(args: {
     `タイミング: 8カウント頭へスナップ（選定 ${beforeSnapCount} → 吸着後 ${afterSnapCount}）`,
     `立ち位置: 0.9m×1.0m 格子・千鳥・左右対称・最小 ${DANCER_MIN_DISTANCE}m`,
     `雛形: 黄金の7大構造を優先（奇抜・散開は減点）`,
+    input.structureV2
+      ? `曲構造 v2: クラスタモチーフ一貫性 + energy_trend 展開（source=${input.structureV2.source ?? "v2"}）`
+      : `曲構造: レガシーセクションからモチーフ近似（Fly v2 未接続時）`,
     structureLabels.length
       ? `曲の区切り: ${structureLabels.join(" → ")}（Aメロ終わり=PRE_CHORUS、サビ頭=CHORUS_START）`
       : "曲の区切り: 波形ピークから推定",
@@ -1894,6 +1939,11 @@ function finishEngineAppSuggest(args: {
       (s) => t >= s.startTime && t < s.endTime
     );
     const lightingSection = lightingSectionFromMusic(section?.type);
+    const songSection = resolveSongSectionV2({
+      timeSec: t,
+      structureV2: input.structureV2,
+      legacySection: section,
+    });
     const lightingPreset = ruleForSection(lightingSection).lightingPreset;
 
     const musical = musicalEventAt(musicalEvents, t);
@@ -1934,6 +1984,7 @@ function finishEngineAppSuggest(args: {
       cueIndex: i,
       lockLayoutId: lock,
       scaleMax: allowCallbackLock && callback.scaleMax,
+      songSection,
     });
     layoutId = picked.layoutId;
     dancers = picked.dancers;
