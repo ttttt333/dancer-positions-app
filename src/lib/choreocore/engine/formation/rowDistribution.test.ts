@@ -1,10 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
+  ARC_ROW_MAP,
+  DIAMOND_ROW_MAP,
   STAGGERED_ROW_MAP,
   PYRAMID_ROW_MAP,
+  WEDGE_ROW_MAP,
+  W_SHAPE_ROW_MAP,
   countNearOcclusions,
+  generateStructuredArc,
+  generateStructuredDiamond,
   generateStructuredPyramid,
   generateStructuredStaggered,
+  generateStructuredWedge,
+  generateStructuredWShape,
   resolveRowSplit,
 } from "./rowDistribution";
 
@@ -134,5 +142,66 @@ describe("generateStructuredStaggered / Pyramid occlusion", () => {
     const gap1 = (backXs[1]! + backXs[2]!) / 2;
     expect(Math.abs(frontXs[0]! - gap0)).toBeLessThan(0.5);
     expect(Math.abs(frontXs[1]! - gap1)).toBeLessThan(0.5);
+  });
+});
+
+describe("W / wedge / diamond / arc expansions", () => {
+  it("W uses pyramid-family splits (5→[1,2,2], 7→[1,2,4])", () => {
+    expect(W_SHAPE_ROW_MAP[5]).toEqual([1, 2, 2]);
+    expect(W_SHAPE_ROW_MAP[7]).toEqual([1, 2, 4]);
+    expect(generateStructuredWShape(5)).toHaveLength(5);
+    expect(generateStructuredWShape(7)).toHaveLength(7);
+  });
+
+  it("wedge is reverse of pyramid (front-wide umbrella)", () => {
+    expect(WEDGE_ROW_MAP[5]).toEqual([2, 2, 1]);
+    expect(WEDGE_ROW_MAP[7]).toEqual([4, 2, 1]);
+    const pts = generateStructuredWedge(5);
+    expect(pts).toHaveLength(5);
+    const ys = [...new Set(pts.map((p) => p.yPct))].sort((a, b) => b - a);
+    const counts = ys.map((y) => pts.filter((p) => p.yPct === y).length);
+    expect(counts[0]).toBe(2); // front
+    expect(counts[counts.length - 1]).toBe(1); // back tip
+  });
+
+  it("diamond maps match symmetric layers", () => {
+    expect(DIAMOND_ROW_MAP[4]).toEqual([1, 2, 1]);
+    expect(DIAMOND_ROW_MAP[5]).toEqual([1, 3, 1]);
+    expect(DIAMOND_ROW_MAP[9]).toEqual([1, 2, 3, 2, 1]);
+    for (let n = 3; n <= 10; n += 1) {
+      const pts = generateStructuredDiamond(n);
+      expect(pts).toHaveLength(n);
+      const split = resolveRowSplit(DIAMOND_ROW_MAP, n, 5);
+      expect(split.reduce((a, b) => a + b, 0)).toBe(n);
+    }
+  });
+
+  it("arc dual-ring places inner in angular gaps for 2-3 style", () => {
+    const pts = generateStructuredArc(5);
+    expect(pts).toHaveLength(5);
+    // outer 2 + inner 3 (stagger map)
+    const byR = new Map<string, number>();
+    for (const p of pts) {
+      const dx = p.xPct - 50;
+      const dy = p.yPct - 52;
+      const r = Math.hypot(dx, dy).toFixed(0);
+      byR.set(r, (byR.get(r) ?? 0) + 1);
+    }
+    expect([...byR.values()].reduce((a, b) => a + b, 0)).toBe(5);
+    expect(byR.size).toBeGreaterThanOrEqual(2);
+  });
+
+  it("W / wedge / diamond / arc maps sum to N for 1..16", () => {
+    for (let n = 1; n <= 16; n += 1) {
+      for (const [map, rows] of [
+        [W_SHAPE_ROW_MAP, 3],
+        [WEDGE_ROW_MAP, 3],
+        [DIAMOND_ROW_MAP, 5],
+        [ARC_ROW_MAP, 2],
+      ] as const) {
+        const split = resolveRowSplit(map, n, rows);
+        expect(split.reduce((a, b) => a + b, 0)).toBe(n);
+      }
+    }
   });
 });

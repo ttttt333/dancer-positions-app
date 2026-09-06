@@ -54,6 +54,44 @@ export const PYRAMID_ROW_MAP: Record<number, number[]> = {
 };
 
 /**
+ * W字: ピラミッド同系の行配分（5→[1,2,2], 7→[1,2,4]）。
+ * 見た目は先端＋翼の広がりで W / 扇の骨格になる。
+ */
+export const W_SHAPE_ROW_MAP: Record<number, number[]> = { ...PYRAMID_ROW_MAP };
+
+/**
+ * 楔・傘（逆V）: 手前が広く奥に先端。ピラミッド行配分の前後反転。
+ */
+export const WEDGE_ROW_MAP: Record<number, number[]> = Object.fromEntries(
+  Object.entries(PYRAMID_ROW_MAP).map(([k, rows]) => [Number(k), [...rows].reverse()])
+) as Record<number, number[]>;
+
+/**
+ * ひし形: 前後対称の層（中央が最厚、先端が客席側トップ）。
+ */
+export const DIAMOND_ROW_MAP: Record<number, number[]> = {
+  1: [1],
+  2: [1, 1],
+  3: [1, 1, 1],
+  4: [1, 2, 1],
+  5: [1, 3, 1],
+  6: [1, 2, 2, 1],
+  7: [1, 2, 3, 1],
+  8: [1, 3, 3, 1],
+  9: [1, 2, 3, 2, 1],
+  10: [1, 2, 4, 2, 1],
+  11: [1, 2, 5, 2, 1],
+  12: [1, 3, 4, 3, 1],
+  14: [1, 3, 6, 3, 1],
+  16: [1, 3, 4, 4, 3, 1],
+};
+
+/**
+ * 扇・弓の2列: 千鳥と同配分（外弧=手前、内弧=奥）。
+ */
+export const ARC_ROW_MAP: Record<number, number[]> = { ...STAGGERED_ROW_MAP };
+
+/**
  * 未定義人数向けフォールバック。
  * counts[0]=最前列、余りは奥側へ足す。
  */
@@ -184,23 +222,27 @@ export function generateStructuredStaggered(
   return points;
 }
 
+type LayeredOptions = {
+  rowYGapPct?: number;
+  colXGapPct?: number;
+  centerYPct?: number;
+  maxHalfWidthPct?: number;
+};
+
 /**
- * 明示行配分のピラミッド（先端=最前列=客席側）。
- * 奥列から確定し、手前は奥の隙間へ置く（千鳥と同じ被り防止）。
- * 同人数の隣接行のみ、奥を広げて視線をずらす。
+ * 奥から手前へ隙間配置する多層ジェネレータ（ピラミッド系共通）。
+ * @param preferFrontWide 楔など手前広・奥狭。同人数隣接行では手前を広くする。
  */
-export function generateStructuredPyramid(
+function generateLayeredFromMap(
+  map: Record<number, number[]>,
   dancerCount: number,
-  options?: {
-    rowYGapPct?: number;
-    colXGapPct?: number;
-    centerYPct?: number;
-    maxHalfWidthPct?: number;
-  }
+  fallbackRows: number,
+  options?: LayeredOptions & { preferFrontWide?: boolean }
 ): Point2DPct[] {
-  const rowSplit = resolveRowSplit(PYRAMID_ROW_MAP, dancerCount, 3);
+  const rowSplit = resolveRowSplit(map, dancerCount, fallbackRows);
   if (rowSplit.length === 0) return [];
 
+  const preferFrontWide = options?.preferFrontWide ?? false;
   const colGap = options?.colXGapPct ?? 16;
   const maxHalf = options?.maxHalfWidthPct ?? 34;
   const rowCount = rowSplit.length;
@@ -233,11 +275,22 @@ export function generateStructuredPyramid(
     }
 
     if (cnt === behind.length) {
-      // 同人数: 手前を狭く・奥を広げ、|Δx| が十分開くようにする
       const narrowStep = Math.max(10, step * 0.7);
       const wideStep = narrowStep + 10;
-      pointsByRow[r] = evenXs(cnt, 50, narrowStep, 50 - maxHalf, 50 + maxHalf);
-      pointsByRow[r + 1] = evenXs(cnt, 50, wideStep, 50 - maxHalf, 50 + maxHalf);
+      if (preferFrontWide) {
+        pointsByRow[r] = evenXs(cnt, 50, wideStep, 50 - maxHalf, 50 + maxHalf);
+        pointsByRow[r + 1] = evenXs(cnt, 50, narrowStep, 50 - maxHalf, 50 + maxHalf);
+      } else {
+        pointsByRow[r] = evenXs(cnt, 50, narrowStep, 50 - maxHalf, 50 + maxHalf);
+        pointsByRow[r + 1] = evenXs(cnt, 50, wideStep, 50 - maxHalf, 50 + maxHalf);
+      }
+      continue;
+    }
+
+    // 手前の方が多い → 手前を広く
+    if (cnt > behind.length) {
+      const wideStep = step + 8;
+      pointsByRow[r] = evenXs(cnt, 50, wideStep, 50 - maxHalf, 50 + maxHalf);
       continue;
     }
 
@@ -256,7 +309,6 @@ export function generateStructuredPyramid(
       continue;
     }
 
-    // 手前の方が多い（通常は起きない）: 中央揃え
     pointsByRow[r] = evenXs(cnt, 50, step, 50 - maxHalf, 50 + maxHalf);
   }
 
@@ -271,6 +323,161 @@ export function generateStructuredPyramid(
     }
   }
   return points;
+}
+
+/**
+ * 明示行配分のピラミッド（先端=最前列=客席側）。
+ */
+export function generateStructuredPyramid(
+  dancerCount: number,
+  options?: LayeredOptions
+): Point2DPct[] {
+  return generateLayeredFromMap(PYRAMID_ROW_MAP, dancerCount, 3, options);
+}
+
+/**
+ * W字: ピラミッド同系の行配分で先端＋多層翼。
+ */
+export function generateStructuredWShape(
+  dancerCount: number,
+  options?: LayeredOptions
+): Point2DPct[] {
+  return generateLayeredFromMap(W_SHAPE_ROW_MAP, dancerCount, 3, {
+    rowYGapPct: 13,
+    colXGapPct: 17,
+    ...options,
+  });
+}
+
+/**
+ * 楔・傘: 手前広・奥先端（行配分はピラミッドの反転）。
+ */
+export function generateStructuredWedge(
+  dancerCount: number,
+  options?: LayeredOptions
+): Point2DPct[] {
+  return generateLayeredFromMap(WEDGE_ROW_MAP, dancerCount, 3, {
+    rowYGapPct: 13,
+    centerYPct: 50,
+    preferFrontWide: true,
+    ...options,
+  });
+}
+
+/**
+ * ひし形: 前後対称層。センター縦軸のトップ（客席側先端）を強調。
+ */
+export function generateStructuredDiamond(
+  dancerCount: number,
+  options?: LayeredOptions
+): Point2DPct[] {
+  return generateLayeredFromMap(DIAMOND_ROW_MAP, dancerCount, 5, {
+    rowYGapPct: 12,
+    colXGapPct: 15,
+    maxHalfWidthPct: 32,
+    ...options,
+  });
+}
+
+/**
+ * 扇・弓形: 2列時は外弧（手前）と内弧（奥）を放射状に半ピッチずらす。
+ * 1列相当の人数では単一弧。
+ */
+export function generateStructuredArc(
+  dancerCount: number,
+  options?: {
+    a0?: number;
+    a1?: number;
+    cxPct?: number;
+    cyPct?: number;
+    outerR?: number;
+    innerR?: number;
+    /** true なら奥向き半円（上向き開口） */
+    openBack?: boolean;
+  }
+): Point2DPct[] {
+  if (dancerCount <= 0) return [];
+  if (dancerCount === 1) {
+    return [{ xPct: 50, yPct: options?.cyPct ?? 52 }];
+  }
+
+  const a0 = options?.a0 ?? Math.PI * 0.2;
+  const a1 = options?.a1 ?? Math.PI * 0.8;
+  const cx = options?.cxPct ?? 50;
+  const cy = options?.cyPct ?? 52;
+  const openBack = options?.openBack ?? false;
+
+  const rowSplit = resolveRowSplit(ARC_ROW_MAP, dancerCount, 2);
+  const useTwoArcs = rowSplit.length >= 2 && dancerCount >= 4;
+
+  const placeOnArc = (
+    count: number,
+    radius: number,
+    angleOffset: number
+  ): Point2DPct[] => {
+    if (count <= 0) return [];
+    if (count === 1) {
+      const a = (a0 + a1) / 2 + angleOffset;
+      const ySign = openBack ? 1 : -1;
+      return [
+        {
+          xPct: Number((cx + radius * Math.cos(a)).toFixed(2)),
+          yPct: Number((cy + ySign * radius * Math.sin(a)).toFixed(2)),
+        },
+      ];
+    }
+    const out: Point2DPct[] = [];
+    for (let i = 0; i < count; i += 1) {
+      const u = i / (count - 1);
+      const a = a0 + (a1 - a0) * u + angleOffset;
+      const ySign = openBack ? 1 : -1;
+      out.push({
+        xPct: Number((cx + radius * Math.cos(a)).toFixed(2)),
+        yPct: Number((cy + ySign * radius * Math.sin(a)).toFixed(2)),
+      });
+    }
+    return out;
+  };
+
+  if (!useTwoArcs) {
+    const r = options?.outerR ?? 26 + Math.min(8, dancerCount * 0.35);
+    return placeOnArc(dancerCount, r, 0);
+  }
+
+  const frontCount = rowSplit[0]!;
+  const backCount = rowSplit.slice(1).reduce((a, b) => a + b, 0);
+  // 残りが複数行マップでも弧は内外2本に畳む
+  const outerN = frontCount;
+  const innerN = dancerCount - outerN;
+  void backCount;
+
+  const outerR = options?.outerR ?? 28 + Math.min(6, dancerCount * 0.25);
+  const innerR = options?.innerR ?? Math.max(14, outerR - 12);
+
+  // 外弧を基準に、内弧は半スロットずらして隙間から見える
+  const slot = (a1 - a0) / Math.max(outerN - 1, 1);
+  const innerOffset = innerN === outerN ? slot / 2 : 0;
+
+  const outer = placeOnArc(outerN, outerR, 0);
+  let inner: Point2DPct[];
+  if (innerN === outerN - 1 && outerN >= 2) {
+    // 外弧の隣接点の中間角へ
+    inner = [];
+    for (let i = 0; i < innerN; i += 1) {
+      const u0 = i / Math.max(outerN - 1, 1);
+      const u1 = (i + 1) / Math.max(outerN - 1, 1);
+      const a = a0 + (a1 - a0) * ((u0 + u1) / 2);
+      const ySign = openBack ? 1 : -1;
+      inner.push({
+        xPct: Number((cx + innerR * Math.cos(a)).toFixed(2)),
+        yPct: Number((cy + ySign * innerR * Math.sin(a)).toFixed(2)),
+      });
+    }
+  } else {
+    inner = placeOnArc(innerN, innerR, innerOffset);
+  }
+
+  return [...outer, ...inner];
 }
 
 /**

@@ -14,8 +14,12 @@ import {
 import { getPresetTier } from "./formationPresetTiers";
 import { minCostBipartiteAssignment } from "./minCostAssignment";
 import {
+  generateStructuredArc,
+  generateStructuredDiamond,
   generateStructuredPyramid,
   generateStructuredStaggered,
+  generateStructuredWedge,
+  generateStructuredWShape,
 } from "./choreocore/engine/formation/rowDistribution";
 
 /**
@@ -828,28 +832,22 @@ export function dancersForLayoutPreset(
       break;
     }
     case "arc": {
-      const a0 = Math.PI * 0.2;
-      const a1 = Math.PI * 0.8;
-      for (let i = 0; i < n; i++) {
-        const u = n === 1 ? 0.5 : i / (n - 1);
-        const a = a0 + (a1 - a0) * u;
-        const cx = 50;
-        const cy = 52;
-        const r = 26 + Math.min(8, n * 0.35);
-        pushSpot(out, i, cx + r * Math.cos(a), cy - r * Math.sin(a));
+      const pts = generateStructuredArc(n);
+      for (let i = 0; i < pts.length; i += 1) {
+        pushSpot(out, i, pts[i]!.xPct, pts[i]!.yPct);
       }
       break;
     }
     case "arc_tight": {
-      const a0 = Math.PI * 0.35;
-      const a1 = Math.PI * 0.65;
-      for (let i = 0; i < n; i++) {
-        const u = n === 1 ? 0.5 : i / (n - 1);
-        const a = a0 + (a1 - a0) * u;
-        const cx = 50;
-        const cy = 54;
-        const r = 16 + Math.min(5, n * 0.2);
-        pushSpot(out, i, cx + r * Math.cos(a), cy - r * Math.sin(a));
+      const pts = generateStructuredArc(n, {
+        a0: Math.PI * 0.35,
+        a1: Math.PI * 0.65,
+        cyPct: 54,
+        outerR: 16 + Math.min(5, n * 0.2),
+        innerR: 10 + Math.min(3, n * 0.12),
+      });
+      for (let i = 0; i < pts.length; i += 1) {
+        pushSpot(out, i, pts[i]!.xPct, pts[i]!.yPct);
       }
       break;
     }
@@ -884,23 +882,9 @@ export function dancersForLayoutPreset(
       break;
     }
     case "diamond": {
-      if (n === 1) {
-        pushSpot(out, 0, 50, 50);
-        break;
-      }
-      const verts = [
-        { x: 50, y: 28 },
-        { x: 78, y: 50 },
-        { x: 50, y: 72 },
-        { x: 22, y: 50 },
-      ];
-      for (let i = 0; i < n; i++) {
-        const pos = (i / n) * 4;
-        const seg = Math.floor(pos) % 4;
-        const t = pos - seg;
-        const a = verts[seg];
-        const b = verts[(seg + 1) % 4];
-        pushSpot(out, i, a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+      const pts = generateStructuredDiamond(n);
+      for (let i = 0; i < pts.length; i += 1) {
+        pushSpot(out, i, pts[i]!.xPct, pts[i]!.yPct);
       }
       break;
     }
@@ -1102,12 +1086,9 @@ export function dancersForLayoutPreset(
       break;
     }
     case "wedge": {
-      for (let i = 0; i < n; i++) {
-        const u = n === 1 ? 0.5 : i / (n - 1);
-        const spread = 18 + u * 52;
-        const x = 50 + (u - 0.5) * spread;
-        const y = 66 - u * 32;
-        pushSpot(out, i, x, y);
+      const pts = generateStructuredWedge(n);
+      for (let i = 0; i < pts.length; i += 1) {
+        pushSpot(out, i, pts[i]!.xPct, pts[i]!.yPct);
       }
       break;
     }
@@ -1807,9 +1788,16 @@ export function dancersForLayoutPreset(
       break;
     }
     case "semicircle_back": {
-      for (let i = 0; i < n; i++) {
-        const t = n <= 1 ? Math.PI / 2 : (Math.PI * i) / (n - 1);
-        pushSpot(out, i, 50 + 38 * Math.cos(t), 35 + 22 * Math.sin(t));
+      const pts = generateStructuredArc(n, {
+        a0: 0,
+        a1: Math.PI,
+        cyPct: 35,
+        outerR: 38,
+        innerR: 24,
+        openBack: true,
+      });
+      for (let i = 0; i < pts.length; i += 1) {
+        pushSpot(out, i, pts[i]!.xPct, pts[i]!.yPct);
       }
       break;
     }
@@ -2389,15 +2377,9 @@ export function dancersForLayoutPreset(
       break;
     }
     case "w_shape": {
-      if (n <= 1) { pushSpot(out, 0, 50, 50); break; }
-      const peaks = [14, 36, 50, 64, 86];
-      const valleys = [25, 50, 75];
-      const allPts = [peaks[0], valleys[0], peaks[1], valleys[1], peaks[2], valleys[1], peaks[3], valleys[2], peaks[4]].map(
-        (x, k) => ({ x: x!, y: k % 2 === 0 ? 28 : 68 })
-      );
-      for (let i = 0; i < n; i++) {
-        const p = allPts[i % allPts.length]!;
-        pushSpot(out, i, p.x, p.y + Math.floor(i / allPts.length) * 8);
+      const pts = generateStructuredWShape(n);
+      for (let i = 0; i < pts.length; i += 1) {
+        pushSpot(out, i, pts[i]!.xPct, pts[i]!.yPct);
       }
       break;
     }
