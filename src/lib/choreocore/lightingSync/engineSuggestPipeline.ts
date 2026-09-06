@@ -121,7 +121,10 @@ import {
   rankLayoutPresets,
   spotsForLayoutPreset,
 } from "./layoutPresetBridge";
-import { resolvePinnedLayoutForCue } from "./cueLayoutPins";
+import {
+  knowledgePrefersChorusCues,
+  resolvePinnedLayoutForCue,
+} from "./cueLayoutPins";
 import type { LayoutPresetId, LayoutPresetOptions } from "../../formationLayouts";
 import { evaluateMoveConstraints } from "./constraintEngine";
 import { resolveOverlaps } from "./overlapAvoidance";
@@ -1218,7 +1221,8 @@ function clustersFromRemoteChangePoints(
 
 function cueStructureScore(
   cue: FormationCue,
-  remote: AppChangePoint[] | undefined
+  remote: AppChangePoint[] | undefined,
+  preferChorus = false
 ): number {
   let score = cue.priority + (cue.isMajor ? 40 : 0);
   if (
@@ -1232,13 +1236,14 @@ function cueStructureScore(
   const near = remote?.find((cp) => Math.abs(cp.time - cue.rawTime) < 2.5);
   if (!near?.section_type) return score;
   if (near.section_type === "CHORUS_START" || near.section_type === "DROP") {
-    score += 50;
+    score += preferChorus ? 70 : 50;
   } else if (near.section_type === "PRE_CHORUS") {
     score += 48;
   } else if (near.section_type === "OUTRO") {
     score += 28;
   } else if (near.section_type === "CHORUS") {
-    score += 22;
+    // サビ指定があるときは中盤サビも頭と同格で残す
+    score += preferChorus ? 55 : 22;
   }
   return score;
 }
@@ -1377,8 +1382,11 @@ function selectCuesForTargetCount(
   opts?: {
     allChangePoints?: AppChangePoint[];
     peaks?: number[];
+    /** 制作者が「サビは〜」指定しているときサビ頭・中盤を優先 */
+    preferChorusCues?: boolean;
   }
 ): CueAnalysisResult {
+  const preferChorus = !!opts?.preferChorusCues;
   const target = Math.max(
     AI_SUGGEST_CUE_MIN,
     Math.min(AI_SUGGEST_CUE_MAX, targetCount)
@@ -1452,7 +1460,8 @@ function selectCuesForTargetCount(
     if (st === "CHORUS_START" || st === "DROP") return 5;
     if (st === "PRE_CHORUS") return 4;
     if (st === "OUTRO") return 3;
-    if (st === "CHORUS") return 2;
+    // サビ指定あり → 再サビも必ず候補に残す
+    if (st === "CHORUS") return preferChorus ? 5 : 2;
     return 0;
   };
   const structuralRemote = [...(structuralCps ?? opts?.allChangePoints ?? [])]
@@ -1495,7 +1504,12 @@ function selectCuesForTargetCount(
     if (cue.rawTime < 2) continue;
     candidates.push({
       time: cue.rawTime,
-      score: cueStructureScore(cue, opts?.allChangePoints ?? structuralCps) * 0.6,
+      score:
+        cueStructureScore(
+          cue,
+          opts?.allChangePoints ?? structuralCps,
+          preferChorus
+        ) * 0.6,
       source: "engine",
     });
   }
@@ -1813,6 +1827,9 @@ function finishEngineAppSuggest(args: {
     {
       allChangePoints: input.remoteChangePoints,
       peaks: input.peaks,
+      preferChorusCues: knowledgePrefersChorusCues(
+        input.tasteBias.cueLayoutPins ?? []
+      ),
     }
   );
   // Step 1: 枠数確定後に 8カウント頭へスナップ（promote 近傍マッチは既に完了）
@@ -2033,12 +2050,13 @@ function finishEngineAppSuggest(args: {
       cueCount: sequence.formations.length,
       reasonCodes: cue.reasonCodes,
       sectionLabel: songSection?.label,
+      lightingSection,
     });
     const callbackLock =
       allowCallbackLock && callback.rememberedLayoutId
         ? (callback.rememberedLayoutId as LayoutPresetId)
         : null;
-    // ユーザー指定ピンが最優先（「最初と最後はピラミッド」など）
+    // ユーザー指定ピンが最優先（「サビはV字」「最初と最後はピラミッド」など）
     const lock = (userPin as LayoutPresetId | null) ?? callbackLock;
     const picked = resolveDistinctLayoutSpots({
       preferred: lock ?? preferred,

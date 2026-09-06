@@ -1027,7 +1027,13 @@ export function AiSuggestDialog({
                                     ? "最初"
                                     : p.slot === "last"
                                       ? "最後"
-                                      : p.slot;
+                                      : p.slot === "chorus"
+                                        ? "サビ"
+                                        : p.slot === "verse"
+                                          ? "Aメロ"
+                                          : p.slot === "pre_chorus"
+                                            ? "Bメロ"
+                                            : p.slot;
                                 return `${slot}=${p.label}`;
                               })
                               .join(" · ")}

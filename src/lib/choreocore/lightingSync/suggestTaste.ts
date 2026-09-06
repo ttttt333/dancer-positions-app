@@ -268,6 +268,20 @@ function scanLyrics(lyrics: string | undefined): {
   return { patterns, energy, hits };
 }
 
+/** 「サビはV字」などセクション固定指示は歌詞キーワード優遇から外す */
+function stripSectionLayoutDirectives(note: string | undefined): string {
+  if (!note?.trim()) return "";
+  return note
+    .replace(
+      /(?:サビ|大サビ|Aメロ|エーメロ|Bメロ|ビーメロ|プレサビ|最初|最後|はじめ|おわり|イントロ|アウトロ)[^。．\n;]{0,48}(?:逆?ピラミッド|V字|ブイ字|ブイ|千鳥|円|扇|W字|グリッド|ばらけ|ダイヤ(?:モンド)?|楔|ワイド)[^。．\n;]*/gi,
+      " "
+    )
+    .replace(
+      /(?:逆?ピラミッド|V字|ブイ字|千鳥|円|扇|W字|グリッド|ばらけ|ダイヤ(?:モンド)?|楔)[^。．\n;]{0,24}(?:サビ|大サビ|Aメロ|Bメロ|最初|最後)/gi,
+      " "
+    );
+}
+
 export function resolveSuggestTaste(taste?: SuggestTaste | null): SuggestTasteBias {
   const vibes = (taste?.vibes ?? []).filter(
     (id, i, arr): id is SuggestVibeId =>
@@ -276,7 +290,9 @@ export function resolveSuggestTaste(taste?: SuggestTaste | null): SuggestTasteBi
   const style: SuggestFormationStyleId | undefined =
     taste?.style && taste.style in STYLE_BIAS ? taste.style : undefined;
   const lyrics = scanLyrics(
-    [taste?.lyrics, taste?.note].filter(Boolean).join("\n")
+    [taste?.lyrics, stripSectionLayoutDirectives(taste?.note)]
+      .filter(Boolean)
+      .join("\n")
   );
 
   const prefer: FormationPatternId[] = [];
@@ -414,7 +430,7 @@ export function applyFeedbackToTaste(
     summaryParts.push("FB:交差少なめ");
   }
   if (feedback.note?.trim()) {
-    const fromNote = scanLyrics(feedback.note);
+    const fromNote = scanLyrics(stripSectionLayoutDirectives(feedback.note));
     prefer = uniquePatterns([...fromNote.patterns, ...prefer]);
     energyWeight += fromNote.energy;
     hits.push(...fromNote.hits);

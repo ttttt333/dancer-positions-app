@@ -106,10 +106,26 @@ export function inferKnowledgeFromNote(note: string): Partial<SuggestKnowledge> 
     preferPatterns.push("vee", "circle", "silhouette_line");
     avoidPatterns.push("front_asymmetry");
   }
-  if (/V字|ブイ|vee/.test(n)) preferPatterns.push("vee");
-  if (/扇|弧|アーチ/.test(n)) preferPatterns.push("circle", "double_u");
-  if (/密集|コンパクト|寄せ/.test(n)) preferPatterns.push("center_condensed");
-  if (/ピラミッド|pyramid/i.test(n)) preferPatterns.push("center_condensed");
+  // セクション限定の指定（「サビはV字」）はグローバル好みにしない（ピンで固定する）
+  const sectionScopedLayout =
+    /(?:サビ|大サビ|Aメロ|エーメロ|Bメロ|ビーメロ|プレサビ|イントロ|アウトロ).{0,24}(?:V字|ブイ|ピラミッド|千鳥|円|扇|W字|グリッド|ばらけ|ダイヤ|楔)/i.test(
+      n
+    ) ||
+    /(?:V字|ブイ|ピラミッド|千鳥|円|扇|W字|グリッド|ばらけ|ダイヤ|楔).{0,24}(?:サビ|大サビ|Aメロ|Bメロ|プレサビ)/i.test(
+      n
+    );
+  if (!sectionScopedLayout) {
+    if (/V字|ブイ|vee/.test(n)) preferPatterns.push("vee");
+    if (/扇|弧|アーチ/.test(n)) preferPatterns.push("circle", "double_u");
+    if (/密集|コンパクト|寄せ/.test(n)) preferPatterns.push("center_condensed");
+    if (/ピラミッド|pyramid/i.test(n)) preferPatterns.push("center_condensed");
+  } else {
+    // セクション外の一般語だけ拾う
+    if (/扇|弧|アーチ/.test(n) && !/(サビ|Aメロ|Bメロ).{0,12}(扇|弧)/.test(n)) {
+      preferPatterns.push("circle", "double_u");
+    }
+    if (/密集|コンパクト|寄せ/.test(n)) preferPatterns.push("center_condensed");
+  }
 
   return {
     preferPatterns,
