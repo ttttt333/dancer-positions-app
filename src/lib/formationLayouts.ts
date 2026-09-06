@@ -33,6 +33,8 @@ export interface LayoutPresetOptions {
   dancerSpacingMm?: number | null;
   /** ステージ幅（mm）。`stageWidthMm` と同じ。 */
   stageWidthMm?: number | null;
+  /** 密集指定（ピラミッド等を中心寄り・短ピッチに） */
+  compact?: boolean;
 }
 
 function clamp(n: number, lo: number, hi: number) {
@@ -891,7 +893,18 @@ export function dancersForLayoutPreset(
       break;
     }
     case "pyramid": {
-      const pts = generateStructuredPyramid(n);
+      const dense = !!opts?.compact;
+      const pts = generateStructuredPyramid(
+        n,
+        dense
+          ? {
+              rowYGapPct: GOLDEN_GEOMETRY.ROW_GAP_PCT * 0.72,
+              colXGapPct: GOLDEN_GEOMETRY.COL_GAP_PCT * 0.78,
+              maxHalfWidthPct: 24,
+              centerYPct: 50,
+            }
+          : undefined
+      );
       for (let i = 0; i < pts.length; i += 1) {
         pushSpot(out, i, pts[i]!.xPct, pts[i]!.yPct);
       }
@@ -974,11 +987,19 @@ export function dancersForLayoutPreset(
       break;
     }
     case "two_rows": {
-      // 2列も黄金行配分テーブル（同人数は半ピッチ千鳥）を共有
-      const pts = generateStructuredStaggered(n);
-      for (let i = 0; i < pts.length; i += 1) {
-        pushSpot(out, i, pts[i]!.xPct, pts[i]!.yPct);
-      }
+      // シンプルなバランス二列（前後とも中央揃え・等間隔。千鳥にしない）
+      const rowCounts = evenRowCounts(n, 2);
+      const front = rowCounts[0] ?? Math.ceil(n / 2);
+      const back = rowCounts[1] ?? n - front;
+      const margin = opts?.compact ? 18 : 12;
+      const step = opts?.compact ? TARGET_STEP_X * 0.85 : TARGET_STEP_X;
+      const xsFront = evenSpacingPositions(front, 50, step, margin, 100 - margin);
+      const xsBack = evenSpacingPositions(back, 50, step, margin, 100 - margin);
+      const yFront = opts?.compact ? 58 : 62;
+      const yBack = opts?.compact ? 36 : 32;
+      let idx = 0;
+      for (let j = 0; j < front; j += 1) pushSpot(out, idx++, xsFront[j]!, yFront);
+      for (let j = 0; j < back; j += 1) pushSpot(out, idx++, xsBack[j]!, yBack);
       break;
     }
     case "stagger_inverse": {
@@ -1594,12 +1615,15 @@ export function dancersForLayoutPreset(
       break;
     }
     case "two_rows_equal": {
-      const half = Math.ceil(n / 2);
-      const half2 = n - half;
-      const xs1 = evenSpacingPositions(half, 50, TARGET_STEP_X, 10, 90);
-      const xs2 = evenSpacingPositions(half2, 50, TARGET_STEP_X, 10, 90);
-      for (let j = 0; j < half; j++) pushSpot(out, j, xs1[j]!, 68);
-      for (let j = 0; j < half2; j++) pushSpot(out, half + j, xs2[j]!, 34);
+      // two_rows と同じシンプル均等二列
+      const rowCounts = evenRowCounts(n, 2);
+      const front = rowCounts[0] ?? Math.ceil(n / 2);
+      const back = rowCounts[1] ?? n - front;
+      const xs1 = evenSpacingPositions(front, 50, TARGET_STEP_X, 10, 90);
+      const xs2 = evenSpacingPositions(back, 50, TARGET_STEP_X, 10, 90);
+      let idx = 0;
+      for (let j = 0; j < front; j += 1) pushSpot(out, idx++, xs1[j]!, 62);
+      for (let j = 0; j < back; j += 1) pushSpot(out, idx++, xs2[j]!, 34);
       break;
     }
     case "three_rows_equal": {

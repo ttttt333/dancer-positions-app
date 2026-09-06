@@ -760,6 +760,10 @@ function resolveDistinctLayoutSpots(input: {
   salt: number;
   cueIndex: number;
   lockLayoutId?: LayoutPresetId | null;
+  /** ユーザーピンの密集指定 */
+  lockCompact?: boolean;
+  /** ユーザー指定ロック時は移動制約・格子で形を壊さない */
+  preserveLockedGeometry?: boolean;
   scaleMax?: boolean;
   songSection?: SongSectionV2;
 }): { layoutId: LayoutPresetId | null; dancers: DancerSpot[] } {
@@ -768,7 +772,7 @@ function resolveDistinctLayoutSpots(input: {
     dancers: DancerSpot[]
   ): { layoutId: LayoutPresetId | null; dancers: DancerSpot[] } => {
     let out = dancers;
-    if (layoutId && out.length > 0) {
+    if (layoutId && out.length > 0 && !input.preserveLockedGeometry) {
       const category = resolveSectionRuleCategory(
         classifyLayoutPresetId(layoutId),
         layoutId
@@ -784,6 +788,9 @@ function resolveDistinctLayoutSpots(input: {
       }));
       // 鏡像補正で距離が潰れた場合に再確保
       out = ensureMinPairDistancePct(out, DANCER_MIN_DISTANCE);
+    } else if (layoutId && out.length > 0 && input.preserveLockedGeometry) {
+      // ピン指定: 左右対称だけ軽く整え、間隔は最低限
+      out = ensureMinPairDistancePct(out, DANCER_MIN_DISTANCE * 0.92);
     }
     if (input.songSection && layoutId) {
       onPresetSelected(
@@ -795,12 +802,23 @@ function resolveDistinctLayoutSpots(input: {
   };
 
   if (input.lockLayoutId) {
+    const lockOpts = {
+      ...input.layoutOpts,
+      ...(input.lockCompact ? { compact: true } : {}),
+    };
     const raw = spotsForLayoutPreset(
       input.lockLayoutId,
       input.seeds,
       input.prevSpots,
-      input.layoutOpts
+      lockOpts
     );
+    if (input.preserveLockedGeometry) {
+      // 制作者ピン: 雛形の幾何を優先（移動上限で潰さない）
+      return finish(
+        input.lockLayoutId,
+        ensureMinPairDistancePct(raw, DANCER_MIN_DISTANCE * 0.9)
+      );
+    }
     const dancers = finalizeSuggestSpots(
       refineSpotsForClass(
         raw,
@@ -808,7 +826,7 @@ function resolveDistinctLayoutSpots(input: {
         input.prevSpots,
         input.profile,
         FORMATION_TRAVEL_COUNTS,
-        input.layoutOpts
+        lockOpts
       ),
       input.scaleMax,
       input.prevSpots,
@@ -2056,8 +2074,8 @@ function finishEngineAppSuggest(args: {
       allowCallbackLock && callback.rememberedLayoutId
         ? (callback.rememberedLayoutId as LayoutPresetId)
         : null;
-    // ユーザー指定ピンが最優先（「サビはV字」「最初と最後はピラミッド」など）
-    const lock = (userPin as LayoutPresetId | null) ?? callbackLock;
+    // ユーザー指定ピンが最優先（「サビは2列」「初めと最後は密集ピラミッド」など）
+    const lock = (userPin?.layoutId as LayoutPresetId | null) ?? callbackLock;
     const picked = resolveDistinctLayoutSpots({
       preferred: lock ?? preferred,
       seeds,
@@ -2071,6 +2089,8 @@ function finishEngineAppSuggest(args: {
       salt: i + Math.round(cue.energyAfter) + varietySalt,
       cueIndex: i,
       lockLayoutId: lock,
+      lockCompact: !!userPin?.compact,
+      preserveLockedGeometry: !!userPin,
       scaleMax: allowCallbackLock && callback.scaleMax && !userPin,
       songSection,
     });

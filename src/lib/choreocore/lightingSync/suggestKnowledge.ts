@@ -108,10 +108,10 @@ export function inferKnowledgeFromNote(note: string): Partial<SuggestKnowledge> 
   }
   // セクション限定の指定（「サビはV字」）はグローバル好みにしない（ピンで固定する）
   const sectionScopedLayout =
-    /(?:サビ|大サビ|Aメロ|エーメロ|Bメロ|ビーメロ|プレサビ|イントロ|アウトロ).{0,24}(?:V字|ブイ|ピラミッド|千鳥|円|扇|W字|グリッド|ばらけ|ダイヤ|楔)/i.test(
+    /(?:サビ|大サビ|Aメロ|エーメロ|Bメロ|ビーメロ|プレサビ|イントロ|アウトロ).{0,24}(?:V字|ブイ|ピラミッド|千鳥|円|扇|W字|グリッド|ばらけ|ダイヤ|楔|二列|[2２]列)/i.test(
       n
     ) ||
-    /(?:V字|ブイ|ピラミッド|千鳥|円|扇|W字|グリッド|ばらけ|ダイヤ|楔).{0,24}(?:サビ|大サビ|Aメロ|Bメロ|プレサビ)/i.test(
+    /(?:V字|ブイ|ピラミッド|千鳥|円|扇|W字|グリッド|ばらけ|ダイヤ|楔|二列|[2２]列).{0,24}(?:サビ|大サビ|Aメロ|Bメロ|プレサビ)/i.test(
       n
     );
   if (!sectionScopedLayout) {
@@ -147,8 +147,8 @@ function mergeCueLayoutPins(
   next: CueLayoutPin[]
 ): CueLayoutPin[] {
   const map = new Map<CueLayoutPin["slot"], CueLayoutPin>();
-  for (const p of prev) map.set(p.slot, p);
-  for (const p of next) map.set(p.slot, p); // 新しいメモを優先
+  for (const p of prev) map.set(p.slot, { ...p });
+  for (const p of next) map.set(p.slot, { ...p }); // 新しいメモを優先
   return [...map.values()];
 }
 

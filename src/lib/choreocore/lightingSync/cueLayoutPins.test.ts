@@ -35,7 +35,7 @@ describe("cueLayoutPins", () => {
         cueIndex: 2,
         cueCount: 6,
         sectionLabel: "CHORUS",
-      })
+      })?.layoutId
     ).toBe("vee");
     expect(
       resolvePinnedLayoutForCue({
@@ -43,7 +43,7 @@ describe("cueLayoutPins", () => {
         cueIndex: 2,
         cueCount: 6,
         reasonCodes: ["CHORUS_START", "PROMOTED_SECTION_CHANGE"],
-      })
+      })?.layoutId
     ).toBe("vee");
     expect(
       resolvePinnedLayoutForCue({
@@ -53,6 +53,31 @@ describe("cueLayoutPins", () => {
         sectionLabel: "A_MELO",
       })
     ).toBeNull();
+  });
+
+  it("parses 初めと最後は密集ピラミッド and サビは２列", () => {
+    const pins = parseCueLayoutPins(
+      "初めと最後はなるべく密集したピラミッド。サビは２列"
+    );
+    expect(pins).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          slot: "first",
+          layoutId: "pyramid",
+          compact: true,
+        }),
+        expect.objectContaining({
+          slot: "last",
+          layoutId: "pyramid",
+          compact: true,
+        }),
+        expect.objectContaining({ slot: "chorus", layoutId: "two_rows" }),
+      ])
+    );
+    expect(pins.find((p) => p.slot === "chorus")?.layoutId).toBe("two_rows");
+    expect(pins.some((p) => p.slot === "chorus" && p.layoutId === "pyramid")).toBe(
+      false
+    );
   });
 
   it("locks chorus cues to vee when creator note says サビはV字", () => {
@@ -211,7 +236,7 @@ describe("cueLayoutPins", () => {
         pins,
         cueIndex: 0,
         cueCount: 5,
-      })
+      })?.layoutId
     ).toBe("pyramid");
     expect(
       resolvePinnedLayoutForCue({
@@ -225,7 +250,7 @@ describe("cueLayoutPins", () => {
         pins,
         cueIndex: 4,
         cueCount: 5,
-      })
+      })?.layoutId
     ).toBe("pyramid");
   });
 
@@ -323,22 +348,127 @@ describe("cueLayoutPins", () => {
     expect(layouts[layouts.length - 1]).toBe("pyramid");
   });
 
-  it("keeps initial creator pins when feedback adds another pin", () => {
+  it("locks dense pyramid ends and balanced two_rows on chorus", () => {
+    setMusicEnginePhase12EnabledForTests(false);
+    const note = "初めと最後はなるべく密集したピラミッド。サビは２列";
     let k = createEmptySuggestKnowledge();
     k = accumulateSuggestKnowledge(k, {
       isResuggest: false,
-      creatorNote: "最初は千鳥",
+      creatorNote: note,
     });
-    k = accumulateSuggestKnowledge(k, {
-      isResuggest: true,
-      creatorNote: "最初は千鳥",
-      feedback: { note: "最後はV字" },
+    expect(k.cueLayoutPins.find((p) => p.slot === "first")?.compact).toBe(true);
+    expect(k.cueLayoutPins.find((p) => p.slot === "chorus")?.layoutId).toBe(
+      "two_rows"
+    );
+    const tasteBias = applyKnowledgeToTaste(resolveSuggestTaste({ note }), k);
+    const seeds = Array.from({ length: 8 }, (_, i) => ({
+      id: `d${i}`,
+      label: String(i + 1),
+      xPct: 20 + i * 8,
+      yPct: 40,
+      colorIndex: i,
+    }));
+    const result = runEngineAppSuggest({
+      peaks: Array.from({ length: 128 }, (_, i) => (i % 8 === 0 ? 0.9 : 0.2)),
+      durationSec: 96,
+      bpm: 120,
+      structureV2: {
+        bpm: 120,
+        duration: 96,
+        source: "test",
+        sections: [
+          {
+            label: "INTRO",
+            start_eight: 0,
+            end_eight: 2,
+            start_time: 0,
+            end_time: 8,
+            cluster_id: 0,
+            mean_energy: 0.3,
+            energy_trend: 0,
+            repeat_count: 1,
+            confidence: 0.8,
+          },
+          {
+            label: "A_MELO",
+            start_eight: 2,
+            end_eight: 6,
+            start_time: 8,
+            end_time: 24,
+            cluster_id: 1,
+            mean_energy: 0.4,
+            energy_trend: 0,
+            repeat_count: 1,
+            confidence: 0.8,
+          },
+          {
+            label: "CHORUS",
+            start_eight: 6,
+            end_eight: 10,
+            start_time: 24,
+            end_time: 40,
+            cluster_id: 3,
+            mean_energy: 0.9,
+            energy_trend: 0,
+            repeat_count: 2,
+            confidence: 0.95,
+          },
+          {
+            label: "A_MELO",
+            start_eight: 10,
+            end_eight: 14,
+            start_time: 40,
+            end_time: 56,
+            cluster_id: 1,
+            mean_energy: 0.4,
+            energy_trend: 0,
+            repeat_count: 2,
+            confidence: 0.8,
+          },
+          {
+            label: "CHORUS",
+            start_eight: 14,
+            end_eight: 18,
+            start_time: 56,
+            end_time: 72,
+            cluster_id: 3,
+            mean_energy: 0.92,
+            energy_trend: 0,
+            repeat_count: 2,
+            confidence: 0.95,
+          },
+          {
+            label: "OUTRO",
+            start_eight: 18,
+            end_eight: 24,
+            start_time: 72,
+            end_time: 96,
+            cluster_id: 4,
+            mean_energy: 0.35,
+            energy_trend: -0.02,
+            repeat_count: 1,
+            confidence: 0.8,
+          },
+        ],
+        change_points: [],
+      },
+      seedDancers: seeds,
+      profile: CLASS_ADVANCED_MON7,
+      tasteBias,
+      targetCueCount: 6,
     });
-    expect(k.cueLayoutPins.find((p) => p.slot === "first")?.layoutId).toBe(
-      "stagger"
-    );
-    expect(k.cueLayoutPins.find((p) => p.slot === "last")?.layoutId).toBe(
-      "vee"
-    );
+    expect(result).not.toBeNull();
+    const forms = result!.lightingSyncPayload.formations;
+    const cues = [...result!.cues].sort((a, b) => a.tStartSec - b.tStartSec);
+    expect(forms[0]?.layoutPresetId).toBe("pyramid");
+    expect(forms[forms.length - 1]?.layoutPresetId).toBe("pyramid");
+    const chorusLayouts = forms.filter((_, i) => {
+      const t = cues[i]?.tStartSec ?? -1;
+      return (t >= 24 && t < 40) || (t >= 56 && t < 72);
+    });
+    expect(chorusLayouts.length).toBeGreaterThan(0);
+    for (const f of chorusLayouts) {
+      expect(f.layoutPresetId).toBe("two_rows");
+    }
   });
 });

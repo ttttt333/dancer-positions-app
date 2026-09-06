@@ -848,7 +848,7 @@ export function AiSuggestDialog({
                 <span style={label}>その他・AIへの指示（任意）</span>
                 <textarea
                   style={{ ...textarea, minHeight: 56 }}
-                  placeholder="例：最初と最後はピラミッド、サビはV字で、Aメロはばらけた配置で…"
+                  placeholder="例：初めと最後は密集したピラミッド、サビは２列、Aメロはばらけた配置で…"
                   value={additionalNote}
                   onChange={(e) => setAdditionalNote(e.target.value)}
                 />

@@ -16,6 +16,8 @@ export type CueLayoutPin = {
   slot: CueLayoutSlot;
   layoutId: string;
   label: string;
+  /** 「密集したピラミッド」など */
+  compact?: boolean;
 };
 
 const LAYOUT_HINTS: Array<{ re: RegExp; id: string; label: string }> = [
@@ -30,15 +32,25 @@ const LAYOUT_HINTS: Array<{ re: RegExp; id: string; label: string }> = [
   { re: /W字|ダブリュー|\bw[_\s-]?shape\b/i, id: "w_shape", label: "W字形" },
   { re: /楔|ウェッジ|wedge/i, id: "wedge", label: "楔" },
   { re: /ばらけ|散ら|ワイド|広がり|開き/i, id: "wide_spread", label: "ワイド" },
-  { re: /二列|2列|two[_\s-]?rows/i, id: "two_rows", label: "二列" },
+  { re: /二列|[2２]列|two[_\s-]?rows/i, id: "two_rows", label: "二列" },
   { re: /グリッド|格子|\bgrid\b/i, id: "grid", label: "グリッド" },
 ];
 
-const FIRST_RE = /最初|はじめ|先頭|1番目|一番目|イントロ|intro/i;
+const FIRST_RE = /最初|はじめ|初め|先頭|1番目|一番目|イントロ|intro/i;
 const LAST_RE = /最後|ラスト|終わり|終盤|アウトロ|outro|フィナーレ/i;
 const CHORUS_RE = /サビ|大サビ|chorus/i;
 const VERSE_RE = /Aメロ|エーメロ|ヴァース|verse(?!\s*end)/i;
 const PRE_CHORUS_RE = /Bメロ|ビーメロ|プレサビ|pre[_\s-]?chorus/i;
+const COMPACT_RE = /密集|コンパクト|寄せ|ぎゅ|タイト|tight|dense|なるべく密/i;
+
+/** 全角数字などを正規化（２列 → 2列） */
+export function normalizeCreatorNote(note: string): string {
+  return note
+    .replace(/[０-９]/g, (ch) =>
+      String.fromCharCode(ch.charCodeAt(0) - 0xfee0)
+    )
+    .replace(/\u3000/g, " ");
+}
 
 function findLayoutsInText(text: string): Array<{ id: string; label: string }> {
   const hits: Array<{ id: string; label: string }> = [];
@@ -51,10 +63,16 @@ function findLayoutsInText(text: string): Array<{ id: string; label: string }> {
 function upsertPin(
   pins: CueLayoutPin[],
   slot: CueLayoutSlot,
-  layout: { id: string; label: string }
+  layout: { id: string; label: string },
+  compact?: boolean
 ): void {
   const idx = pins.findIndex((p) => p.slot === slot);
-  const next = { slot, layoutId: layout.id, label: layout.label };
+  const next: CueLayoutPin = {
+    slot,
+    layoutId: layout.id,
+    label: compact ? `密集${layout.label}` : layout.label,
+    ...(compact ? { compact: true } : {}),
+  };
   if (idx >= 0) pins[idx] = next;
   else pins.push(next);
 }
@@ -62,80 +80,58 @@ function upsertPin(
 function splitClauses(note: string): string[] {
   return note
     .split(/\n+/)
-    .flatMap((line) => line.split(/[。．]+/))
-    .flatMap((part) => part.split(/[;、]/))
+    .flatMap((line) => line.split(/[。．！！?!？]+/))
+    .flatMap((part) => part.split(/[;；]/))
+    .flatMap((part) => part.split(/[、,]/))
     .map((s) => s.trim())
     .filter(Boolean);
 }
 
-function pinSectionLayouts(
-  pins: CueLayoutPin[],
-  note: string,
-  slot: CueLayoutSlot,
-  sectionSrc: string
-): void {
-  for (const layout of LAYOUT_HINTS) {
-    const layoutSrc = layout.re.source;
-    const hit =
-      new RegExp(
-        `(?:${sectionSrc}).{0,16}(?:は|を|で|に|へ)?.{0,8}(?:${layoutSrc})`,
-        "i"
-      ).test(note) ||
-      new RegExp(
-        `(?:${layoutSrc}).{0,16}(?:の|で|に)?.{0,8}(?:${sectionSrc})`,
-        "i"
-      ).test(note);
-    if (hit) upsertPin(pins, slot, layout);
-  }
+function isAvoidClause(clause: string): boolean {
+  return /やめて|しない|禁止|避け|ダメ|駄目|不要|なし|無し/.test(clause);
 }
 
 /**
  * 「最初と最後はピラミッド」「サビはV字」などを CueLayoutPin に変換。
  */
 export function parseCueLayoutPins(note: string): CueLayoutPin[] {
-  const n = note.trim();
+  const n = normalizeCreatorNote(note).trim();
   if (!n) return [];
   const pins: CueLayoutPin[] = [];
 
-  // 一文で「最初と最後はX」（intro/outro 英単語は誤爆しやすいので使わない）
-  for (const layout of LAYOUT_HINTS) {
-    const layoutSrc = layout.re.source;
-    const both =
-      new RegExp(
-        `(?:最初|はじめ|先頭).{0,10}(?:と|・|/|,|、).{0,10}(?:最後|ラスト|終わり|終盤).{0,24}(?:${layoutSrc})`,
-        "i"
-      ).test(n) ||
-      new RegExp(
-        `(?:最後|ラスト|終わり|終盤).{0,10}(?:と|・|/|,|、).{0,10}(?:最初|はじめ|先頭).{0,24}(?:${layoutSrc})`,
-        "i"
-      ).test(n) ||
-      new RegExp(
-        `(?:${layoutSrc}).{0,16}(?:最初|はじめ|先頭).{0,10}(?:と|・|/|,|、).{0,10}(?:最後|ラスト|終わり|終盤)`,
-        "i"
-      ).test(n) ||
-      new RegExp(
-        `(?:最初と最後|はじめとおわり|先頭と末尾).{0,12}(?:${layoutSrc})`,
-        "i"
-      ).test(n);
-    if (both) {
-      upsertPin(pins, "first", layout);
-      upsertPin(pins, "last", layout);
+  // 一文で「最初と最後はX」（clause 単位で判定し、隣接文への誤爆を防ぐ）
+  for (const clause of splitClauses(n)) {
+    if (isAvoidClause(clause)) continue;
+    const compact = COMPACT_RE.test(clause);
+    for (const layout of LAYOUT_HINTS) {
+      const layoutSrc = layout.re.source;
+      const both =
+        new RegExp(
+          `(?:最初|はじめ|初め|先頭).{0,12}(?:と|・|/|,|、).{0,12}(?:最後|ラスト|終わり|終盤).{0,28}(?:${layoutSrc})`,
+          "i"
+        ).test(clause) ||
+        new RegExp(
+          `(?:最後|ラスト|終わり|終盤).{0,12}(?:と|・|/|,|、).{0,12}(?:最初|はじめ|初め|先頭).{0,28}(?:${layoutSrc})`,
+          "i"
+        ).test(clause) ||
+        new RegExp(
+          `(?:最初と最後|はじめとおわり|初めと最後|先頭と末尾).{0,16}(?:${layoutSrc})`,
+          "i"
+        ).test(clause);
+      if (both) {
+        upsertPin(pins, "first", layout, compact);
+        upsertPin(pins, "last", layout, compact);
+      }
     }
   }
 
-  pinSectionLayouts(pins, n, "chorus", CHORUS_RE.source);
-  pinSectionLayouts(pins, n, "verse", VERSE_RE.source);
-  pinSectionLayouts(pins, n, "pre_chorus", PRE_CHORUS_RE.source);
-
-  // 「最初はX」「最後をY」「サビはZ」などスロット単独
+  // 「最初はX」「サビは2列」などスロット単独（clause 単位）
   for (const clause of splitClauses(n)) {
-    // 「グリッドはやめて」はピンではなく避け（inferKnowledgeFromNote 側で処理）
-    if (/やめて|しない|禁止|避け|ダメ|駄目|不要|なし|無し/.test(clause)) {
-      continue;
-    }
+    if (isAvoidClause(clause)) continue;
     const layouts = findLayoutsInText(clause);
     if (layouts.length === 0) continue;
     const layout = layouts[0]!;
+    const compact = COMPACT_RE.test(clause);
     const hasFirst = FIRST_RE.test(clause);
     const hasLast = LAST_RE.test(clause);
     const hasChorus = CHORUS_RE.test(clause);
@@ -143,22 +139,28 @@ export function parseCueLayoutPins(note: string): CueLayoutPin[] {
     const hasPre = PRE_CHORUS_RE.test(clause);
 
     if (hasFirst && hasLast) {
-      upsertPin(pins, "first", layout);
-      upsertPin(pins, "last", layout);
+      upsertPin(pins, "first", layout, compact);
+      upsertPin(pins, "last", layout, compact);
     } else if (hasFirst) {
-      upsertPin(pins, /イントロ|intro/i.test(clause) ? "intro" : "first", layout);
+      upsertPin(
+        pins,
+        /イントロ|intro/i.test(clause) ? "intro" : "first",
+        layout,
+        compact
+      );
     } else if (hasLast) {
       upsertPin(
         pins,
         /アウトロ|outro|フィナーレ/i.test(clause) ? "outro" : "last",
-        layout
+        layout,
+        compact
       );
     } else if (hasChorus) {
-      upsertPin(pins, "chorus", layout);
+      upsertPin(pins, "chorus", layout, compact);
     } else if (hasPre) {
-      upsertPin(pins, "pre_chorus", layout);
+      upsertPin(pins, "pre_chorus", layout, compact);
     } else if (hasVerse) {
-      upsertPin(pins, "verse", layout);
+      upsertPin(pins, "verse", layout, compact);
     }
   }
 
@@ -179,8 +181,7 @@ function isChorusContext(input: {
       r === "CHORUS_START" ||
       r === "DROP" ||
       r === "FINAL_CHORUS" ||
-      r.includes("CHORUS") ||
-      r === "DROP"
+      r.includes("CHORUS")
   );
 }
 
@@ -191,10 +192,7 @@ function isVerseContext(input: {
 }): boolean {
   const { reasons, label, lightingSection } = input;
   if (label === "A_MELO" || label === "VERSE") return true;
-  if (lightingSection === "verse" && label !== "B_MELO") {
-    // lighting の verse は PRE_CHORUS も含むことがあるのでラベル優先
-    if (label === "B_MELO" || label === "PRE_CHORUS") return false;
-  }
+  if (label === "B_MELO" || label === "PRE_CHORUS") return false;
   if (lightingSection === "verse" && !label) return true;
   return reasons.some(
     (r) =>
@@ -208,7 +206,6 @@ function isVerseContext(input: {
 function isPreChorusContext(input: {
   reasons: string[];
   label: string;
-  lightingSection?: string | null;
 }): boolean {
   const { reasons, label } = input;
   if (label === "B_MELO" || label === "PRE_CHORUS") return true;
@@ -222,7 +219,7 @@ function isPreChorusContext(input: {
 }
 
 /**
- * キュー位置に対応する強制雛形を返す。
+ * キュー位置に対応する強制ピンを返す。
  * 端点指定（最初／最後）をセクション指定より優先する。
  */
 export function resolvePinnedLayoutForCue(input: {
@@ -232,7 +229,7 @@ export function resolvePinnedLayoutForCue(input: {
   reasonCodes?: string[];
   sectionLabel?: string;
   lightingSection?: string | null;
-}): string | null {
+}): CueLayoutPin | null {
   const {
     pins,
     cueIndex,
@@ -247,13 +244,13 @@ export function resolvePinnedLayoutForCue(input: {
   const ctx = { reasons, label, lightingSection };
 
   for (const pin of pins) {
-    if (pin.slot === "first" && cueIndex === 0) return pin.layoutId;
-    if (pin.slot === "last" && cueIndex === cueCount - 1) return pin.layoutId;
+    if (pin.slot === "first" && cueIndex === 0) return pin;
+    if (pin.slot === "last" && cueIndex === cueCount - 1) return pin;
     if (
       pin.slot === "intro" &&
       (cueIndex === 0 || reasons.includes("INTRO") || label === "INTRO")
     ) {
-      return pin.layoutId;
+      return pin;
     }
     if (
       pin.slot === "outro" &&
@@ -261,16 +258,14 @@ export function resolvePinnedLayoutForCue(input: {
         reasons.includes("OUTRO") ||
         label === "OUTRO")
     ) {
-      return pin.layoutId;
+      return pin;
     }
   }
 
   for (const pin of pins) {
-    if (pin.slot === "chorus" && isChorusContext(ctx)) return pin.layoutId;
-    if (pin.slot === "pre_chorus" && isPreChorusContext(ctx)) {
-      return pin.layoutId;
-    }
-    if (pin.slot === "verse" && isVerseContext(ctx)) return pin.layoutId;
+    if (pin.slot === "chorus" && isChorusContext(ctx)) return pin;
+    if (pin.slot === "pre_chorus" && isPreChorusContext(ctx)) return pin;
+    if (pin.slot === "verse" && isVerseContext(ctx)) return pin;
   }
   return null;
 }
