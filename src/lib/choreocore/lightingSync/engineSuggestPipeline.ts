@@ -458,7 +458,8 @@ function layoutCandidatesForCue(input: {
       input.cue.action,
       input.section,
       input.cue.reasonCodes,
-      input.salt
+      input.salt,
+      { outroClimax: input.tasteBias.outroClimax }
     ),
     sectionType: input.section,
     salt: input.salt,
@@ -777,6 +778,8 @@ function resolveDistinctLayoutSpots(input: {
         xPct: sym.enforcedPositions[i]?.xPct ?? s.xPct,
         yPct: sym.enforcedPositions[i]?.yPct ?? s.yPct,
       }));
+      // 鏡像補正で距離が潰れた場合に再確保
+      out = ensureMinPairDistancePct(out, DANCER_MIN_DISTANCE);
     }
     if (input.songSection && layoutId) {
       onPresetSelected(
@@ -819,7 +822,8 @@ function resolveDistinctLayoutSpots(input: {
         input.cue.action,
         input.section,
         input.cue.reasonCodes,
-        input.salt
+        input.salt,
+        { outroClimax: input.tasteBias.outroClimax }
       ),
       sectionType: input.section,
       salt: input.salt,
@@ -2098,7 +2102,8 @@ function finishEngineAppSuggest(args: {
             cue.action,
             lightingSection,
             cue.reasonCodes,
-            i + Math.round(cue.energyAfter)
+            i + Math.round(cue.energyAfter),
+            { outroClimax: input.tasteBias.outroClimax }
           )
         : undefined,
       layoutPresetId: layoutId ?? undefined,

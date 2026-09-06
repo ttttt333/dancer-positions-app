@@ -457,11 +457,30 @@ export function AiSuggestDialog({
   /* ── フィードバック再提案 ── */
   const handleResuggest = useCallback(() => {
     if (!peaks || peaks.length === 0) return;
+    const payloadForms = result?.lightingSyncPayload?.formations ?? [];
+    const cueIdToLayout = new Map<string, string>();
+    for (let i = 0; i < pairedCues.length; i += 1) {
+      const cue = pairedCues[i]!.cue;
+      const layoutId =
+        payloadForms[i]?.layoutPresetId ??
+        payloadForms.find((f) => f.fcpId === cue.id)?.layoutPresetId;
+      if (layoutId) cueIdToLayout.set(cue.id, layoutId);
+    }
+    const rejectedLayoutIds = pairedCues
+      .filter((p) => !acceptedCueIds.has(p.cue.id))
+      .map((p) => cueIdToLayout.get(p.cue.id))
+      .filter((id): id is string => !!id);
+    const acceptedLayoutIds = pairedCues
+      .filter((p) => acceptedCueIds.has(p.cue.id))
+      .map((p) => cueIdToLayout.get(p.cue.id))
+      .filter((id): id is string => !!id);
+
     const feedback: SuggestFeedback = {
       preferLessMovement: fbLessMove,
       preferFewerCrossings: fbLessCross,
       preferMoreImpact: fbMoreImpact,
       note: fbNote.trim() || undefined,
+      avoidLayoutIds: rejectedLayoutIds,
     };
     const mediaUrl = playbackEngine.getMediaSourceUrl();
     suggest(peaks, durationSec, undefined, {
@@ -469,6 +488,8 @@ export function AiSuggestDialog({
       targetCueCount,
       classProfileId,
       feedback,
+      rejectedLayoutIds,
+      acceptedLayoutIds,
       taste: {
         vibes: [...vibes],
         style: formationStyle,
@@ -490,6 +511,9 @@ export function AiSuggestDialog({
     fbMoreImpact,
     fbNote,
     suggest,
+    result,
+    pairedCues,
+    acceptedCueIds,
   ]);
 
   return (
@@ -955,6 +979,9 @@ export function AiSuggestDialog({
                     <p style={{ fontSize: 11, color: shell.textSubtle, marginBottom: 8, fontWeight: 600 }}>
                       フィードバックして再提案
                     </p>
+                    <p style={{ fontSize: 10, color: shell.textMuted, marginBottom: 8, lineHeight: 1.45 }}>
+                      不採用の Cue の雛形は次回以降避け、採用した雛形・チップ・メモは知見として積み上がります。同じ条件でも再提案のたびに別候補へずれます。
+                    </p>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
                       {(
                         [
@@ -981,7 +1008,7 @@ export function AiSuggestDialog({
                     </div>
                     <textarea
                       style={{ ...textarea, minHeight: 44, marginBottom: 8 }}
-                      placeholder="例：サビの開きをもっと大きく、Aメロは静かに…"
+                      placeholder="例：ラストが四角でつまらない、2人しか動かない、もっとV字で…"
                       value={fbNote}
                       onChange={(e) => setFbNote(e.target.value)}
                     />

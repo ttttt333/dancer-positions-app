@@ -428,6 +428,12 @@ function rankedLayoutPool(input: PickLayoutPresetInput): LayoutPresetId[] {
   const n = input.dancerCount;
   const styleId = input.taste?.style;
   const preferFamilies = input.taste?.preferPatterns ?? [];
+  const avoidFamilies = new Set(input.taste?.avoidPatterns ?? []);
+  const avoidLayoutIds = new Set(input.taste?.avoidLayoutIds ?? []);
+  const preferLayoutIds = (input.taste?.preferLayoutIds ?? []).filter(
+    (id): id is LayoutPresetId => typeof id === "string" && id.length > 0
+  ) as LayoutPresetId[];
+
   const fromFamilies = preferFamilies.flatMap(
     (p) => FAMILY_LAYOUTS[p] ?? []
   );
@@ -450,6 +456,7 @@ function rankedLayoutPool(input: PickLayoutPresetInput): LayoutPresetId[] {
   }
 
   const ranked = onlyValid([
+    ...preferLayoutIds,
     ...varietyBoost,
     ...fromFamilies,
     ...(FAMILY_LAYOUTS[input.family] ?? []),
@@ -462,6 +469,21 @@ function rankedLayoutPool(input: PickLayoutPresetInput): LayoutPresetId[] {
   if (!input.allowCross) {
     const noCross = pool.filter((id) => !CROSS_LAYOUTS.has(id));
     if (noCross.length) pool = noCross;
+  }
+
+  // 知見: 避けたい雛形・ファミリーを除外（全滅するときは緩和）
+  const isAvoided = (id: LayoutPresetId): boolean => {
+    if (avoidLayoutIds.has(id)) return true;
+    for (const fam of avoidFamilies) {
+      if ((FAMILY_LAYOUTS[fam] ?? []).includes(id)) return true;
+    }
+    return false;
+  };
+  const filteredAvoid = pool.filter((id) => !isAvoided(id));
+  if (filteredAvoid.length >= 3) {
+    pool = filteredAvoid;
+  } else if (filteredAvoid.length > 0) {
+    pool = filteredAvoid;
   }
 
   // 使った雛形IDは全体で避ける。形の系統は直近だけ見て枯渇を防ぐ
@@ -607,7 +629,8 @@ export function familyForSuggestCue(
   action: FormationCueAction,
   section: SectionType,
   reasonCodes: string[] | undefined,
-  salt = 0
+  salt = 0,
+  opts?: { outroClimax?: boolean }
 ): FormationPatternId {
   const reasons = reasonCodes ?? [];
   if (
@@ -618,6 +641,15 @@ export function familyForSuggestCue(
     return "center_condensed";
   }
   if (reasons.includes("OUTRO")) {
+    if (opts?.outroClimax) {
+      const climax: FormationPatternId[] = [
+        "vee",
+        "wide_spread",
+        "circle",
+        "double_u",
+      ];
+      return climax[Math.abs(salt) % climax.length]!;
+    }
     return Math.abs(salt) % 2 === 0 ? "silhouette_line" : "circle";
   }
   if (

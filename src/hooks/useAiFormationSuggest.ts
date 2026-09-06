@@ -17,13 +17,18 @@ import {
   CLASS_ELEMENTARY,
   CLASS_TODDLER,
   applyTasteToProfile,
-  applyFeedbackToTaste,
-  feedbackVarietySalt,
   isEmptyTaste,
   resolveSuggestTaste,
   runEngineAppSuggest,
   type SuggestTaste,
 } from "../lib/choreocore/lightingSync";
+import {
+  accumulateSuggestKnowledge,
+  applyKnowledgeToTaste,
+  createEmptySuggestKnowledge,
+  knowledgeVarietySalt,
+  type SuggestKnowledge,
+} from "../lib/choreocore/lightingSync/suggestKnowledge";
 import type {
   ClassProfile,
   LightingSyncSuggestPayload,
@@ -87,6 +92,10 @@ export type SuggestAudioOpts = {
   classProfileId?: string;
   /** 曲イメージ・スタイル・歌詞。隊形選びと移動量に反映 */
   taste?: SuggestTaste;
+  /** 不採用 Cue の雛形 ID（知見に蓄積） */
+  rejectedLayoutIds?: string[];
+  /** 採用 Cue の雛形 ID */
+  acceptedLayoutIds?: string[];
 };
 
 type CachedAnalysis = {
@@ -193,6 +202,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const cacheRef = useRef<CachedAnalysis | null>(null);
+  const knowledgeRef = useRef<SuggestKnowledge>(createEmptySuggestKnowledge());
 
   const runGenerate = useCallback(
     (
@@ -201,35 +211,61 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
       targetCueCount: number | undefined,
       feedback: SuggestFeedback | undefined,
       classProfileId: string | undefined,
-      taste: SuggestTaste | undefined
+      taste: SuggestTaste | undefined,
+      knowledgeExtras?: {
+        rejectedLayoutIds?: string[];
+        acceptedLayoutIds?: string[];
+        isResuggest?: boolean;
+      }
     ) => {
+      const isResuggest = !!knowledgeExtras?.isResuggest || !!feedback;
+      knowledgeRef.current = accumulateSuggestKnowledge(knowledgeRef.current, {
+        feedback,
+        rejectedLayoutIds: knowledgeExtras?.rejectedLayoutIds,
+        acceptedLayoutIds: knowledgeExtras?.acceptedLayoutIds,
+        isResuggest,
+      });
+      const knowledge = knowledgeRef.current;
+
       const base = getClassProfile(classProfileId ?? "mon_07pm");
-      const tasteBias = applyFeedbackToTaste(
+      const tasteBias = applyKnowledgeToTaste(
         resolveSuggestTaste(taste),
-        feedback
+        knowledge
       );
       const withTaste =
-        isEmptyTaste(taste) && !feedback
+        isEmptyTaste(taste) && knowledge.attempt === 0 && !feedback
           ? base
           : applyTasteToProfile(base, tasteBias);
-      const profile = profileFromFeedback(withTaste, feedback);
+      const profile = profileFromFeedback(withTaste, {
+        preferLessMovement: knowledge.flags.preferLessMovement,
+        preferFewerCrossings: knowledge.flags.preferFewerCrossings,
+        preferMoreImpact: knowledge.flags.preferMoreImpact,
+        note: feedback?.note,
+      });
 
       const constraintLine = `制約: 最大移動 ${profile.maxMoveDistancePerCount}m/count · 最低間隔 ${profile.minCountsBetweenChanges} counts · 交差${profile.allowCrossMovement ? "可" : "不可"} · 3D姿勢${profile.use3DLeveling ? "ON" : "OFF"}`;
       const tasteLine = tasteBias.summary
         ? `曲の指定を隊形に反映: ${tasteBias.summary}`
         : null;
+      const knowledgeLine =
+        knowledge.attempt > 0
+          ? `フィードバック知見: ${knowledge.summary}`
+          : null;
       const feedbackLine = feedback
         ? `再提案フィードバック: ${[
             feedback.preferLessMovement ? "移動少なめ" : "",
             feedback.preferFewerCrossings ? "交差少なめ" : "",
             feedback.preferMoreImpact ? "インパクト重視" : "",
             feedback.note ? `メモ:${feedback.note.slice(0, 40)}` : "",
+            feedback.avoidLayoutIds?.length
+              ? `避け:${feedback.avoidLayoutIds.length}件`
+              : "",
           ]
             .filter(Boolean)
             .join(" / ") || "なし"}`
         : null;
       const note = extraInfo?.trim();
-      const varietySalt = feedbackVarietySalt(feedback);
+      const varietySalt = knowledgeVarietySalt(knowledge, feedback);
 
       const publishOverlay = (
         changePoints: typeof cache.changePoints,
@@ -292,6 +328,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
               `解析ソース: ${cache.sourceLabel}${cache.structureV2 ? " · structure-v2" : ""} / ${engine.musicEngine?.analysisSource === "engine-phase12" ? "曲理解 Phase1/2" : `暫定（従来経路）${engine.musicEngine?.fallbackReason ? ` · ${engine.musicEngine.fallbackReason}` : ""}`} / BPM ${Math.round(cache.bpm)} / キュー ${engine.cues.length}枠${targetCueCount != null ? `（指定 ${targetCueCount}）` : ""}`,
               constraintLine,
               ...(tasteLine ? [tasteLine] : []),
+              ...(knowledgeLine ? [knowledgeLine] : []),
               ...(feedbackLine ? [feedbackLine] : []),
               ...engine.reasoning,
               ...(note ? [`メモ: ${note.slice(0, 80)}`] : []),
@@ -345,6 +382,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
         `解析ソース: ${cache.sourceLabel} / BPM ${Math.round(cache.bpm)} / キュー ${payload.formations.length}枠${targetCueCount != null ? `（指定 ${targetCueCount}）` : ""}`,
         constraintLine,
         ...(tasteLine ? [tasteLine] : []),
+        ...(knowledgeLine ? [knowledgeLine] : []),
         ...(feedbackLine ? [feedbackLine] : []),
         ...mapped.reasoning,
         ...(note ? [`メモ: ${note.slice(0, 80)}`] : []),
@@ -498,13 +536,24 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
         };
         cacheRef.current = cache;
 
+        const hasFb = !!audioOpts?.feedback;
+        const hasReject = (audioOpts?.rejectedLayoutIds?.length ?? 0) > 0;
+        if (!hasFb && !hasReject) {
+          knowledgeRef.current = createEmptySuggestKnowledge();
+        }
+
         runGenerate(
           cache,
           extraInfo,
           audioOpts?.targetCueCount,
           audioOpts?.feedback,
           audioOpts?.classProfileId,
-          audioOpts?.taste
+          audioOpts?.taste,
+          {
+            rejectedLayoutIds: audioOpts?.rejectedLayoutIds,
+            acceptedLayoutIds: audioOpts?.acceptedLayoutIds,
+            isResuggest: hasFb || hasReject,
+          }
         );
       } catch (e: unknown) {
         if (e instanceof Error && e.name === "AbortError") return;
@@ -521,6 +570,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
     setResult(null);
     setError(null);
     cacheRef.current = null;
+    knowledgeRef.current = createEmptySuggestKnowledge();
   }, []);
 
   return { status, result, error, suggest, reset };

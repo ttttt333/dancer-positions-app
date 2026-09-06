@@ -9,6 +9,7 @@ export * from "./pipeline";
 export * from "./toApp";
 export * from "./corpus";
 export * from "./suggestTaste";
+export * from "./suggestKnowledge";
 export * from "./layoutPresetBridge";
 export * from "./suggestTravelTiming";
 export * from "./engineSuggestPipeline";

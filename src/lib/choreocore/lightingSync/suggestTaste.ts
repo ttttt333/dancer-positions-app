@@ -38,6 +38,10 @@ export type SuggestTaste = {
 export type SuggestTasteBias = {
   preferPatterns: FormationPatternId[];
   avoidPatterns: FormationPatternId[];
+  /** 再提案で避けたいエディタ雛形 ID（知見の蓄積） */
+  avoidLayoutIds?: string[];
+  /** 採用した雛形 ID（同系統の再選出を優遇） */
+  preferLayoutIds?: string[];
   style?: SuggestFormationStyleId;
   /** サビ/ドロップを残す重み。正で派手、負で均等・静かに */
   energyWeight: number;
@@ -47,6 +51,10 @@ export type SuggestTasteBias = {
   gridSnap: ClassProfile["gridSnapMode"] | null;
   lyricsHits: string[];
   summary: string;
+  /** 知見: OUTRO をキメ隊形寄りに */
+  outroClimax?: boolean;
+  /** 知見: 平坦 GRID 系を避ける */
+  avoidFlatGrid?: boolean;
 };
 
 export const PATTERN_LABEL_JA: Record<FormationPatternId, string> = {
