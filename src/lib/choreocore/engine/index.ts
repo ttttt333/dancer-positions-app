@@ -162,6 +162,31 @@ export {
   minPairDistanceMeters,
   scaleSpotsFromCenterSafe,
 } from "./formation/formationGeometry";
+export {
+  buildPhraseTimestamps,
+  quantizeCueTimings,
+} from "./grid/phraseGridQuantizer";
+export type { QuantizeCueTimingsInput } from "./grid/phraseGridQuantizer";
+export {
+  quantizeFormationGeometry,
+  DEFAULT_GEOMETRIC_GRID_CONFIG,
+} from "./formation/geometricGridQuantizer";
+export type {
+  GeometricGridConfig,
+  Position2D,
+} from "./formation/geometricGridQuantizer";
+export {
+  classifyLayoutPresetId,
+  classifyPresetFamily,
+  isGoldenLayoutPresetId,
+  orderLayoutsByGoldenPreference,
+  scorePresetAgainstGoldenRules,
+} from "./formation/goldenFormationFilter";
+export type {
+  GoldenFamilyType,
+  GoldenFilterOptions,
+  LayoutPresetCandidate,
+} from "./formation/goldenFormationFilter";
 export type {
   FormationIntelligenceReport,
   FormationRecommendation,

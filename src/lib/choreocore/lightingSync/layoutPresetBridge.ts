@@ -24,6 +24,7 @@ import type {
   SectionType,
 } from "./types";
 import type { SuggestTasteBias } from "./suggestTaste";
+import { orderLayoutsByGoldenPreference } from "../engine/formation/goldenFormationFilter";
 
 const VALID = new Set<string>(ALL_LAYOUT_PRESET_IDS);
 
@@ -318,6 +319,8 @@ export type PickLayoutPresetInput = {
   recent?: LayoutPresetId[];
   /** キュー通し番号。ピラミッド→千鳥→グリッドのローテに使う */
   cueIndex?: number;
+  /** Cue action（CONTRACT / EXPAND / V など）。黄金構造の Intent ボーナスに使う */
+  cueAction?: FormationCueAction | string;
 };
 
 /** 連続で同じ「形の系統」にならないためのバケツ */
@@ -418,6 +421,12 @@ function rankedLayoutPool(input: PickLayoutPresetInput): LayoutPresetId[] {
     ...pool.filter((id) => isHorizontalWideLayout(id)),
   ];
 
+  // Step 3: 黄金の7大構造を前へ、奇抜・散開を後ろへ（Cue action があるとき Intent も反映）
+  pool = orderLayoutsByGoldenPreference(pool, {
+    intentPrimary: input.cueAction,
+    demoteNonGolden: true,
+  }) as LayoutPresetId[];
+
   if (pool.length === 0) {
     pool = onlyValid(["pyramid", "stagger", "grid", "diamond", "two_rows"]);
   }
@@ -450,10 +459,12 @@ export function rankLayoutPresets(
   // 後半キュー向けに候補枠を広げ、未使用の見せ場を末尾にも載せる
   const used = new Set(input.recent ?? []);
   const unusedCycle = cycle.filter((id) => !used.has(id));
-  return onlyValid([...primary, ...unusedCycle, ...staples, ...cycle]).slice(
-    0,
-    Math.max(1, limit)
-  );
+  const ranked = onlyValid([...primary, ...unusedCycle, ...staples, ...cycle]);
+  const ordered = orderLayoutsByGoldenPreference(ranked, {
+    intentPrimary: input.cueAction,
+    demoteNonGolden: true,
+  }) as LayoutPresetId[];
+  return ordered.slice(0, Math.max(1, limit));
 }
 
 const MAJOR_FAMILIES: Record<SectionType, FormationPatternId[]> = {

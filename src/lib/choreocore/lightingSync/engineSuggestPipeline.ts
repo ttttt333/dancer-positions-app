@@ -25,7 +25,8 @@ import {
   type ChorusLayoutMemory,
   type ChorusShapeMemory,
 } from "../engine/formation/chorusCallback";
-import { enforceSymmetryPct, ensureMinPairDistancePct, DANCER_MIN_DISTANCE, minPairDistanceMeters } from "../engine/formation/formationGeometry";
+import { ensureMinPairDistancePct, DANCER_MIN_DISTANCE, minPairDistanceMeters } from "../engine/formation/formationGeometry";
+import { quantizeFormationGeometry } from "../engine/formation/geometricGridQuantizer";
 import {
   recommendFormationsForIntentSequence,
   type FormationIntelligenceReport,
@@ -113,6 +114,7 @@ import {
   minHitGapSec,
   travelDurationSec,
 } from "./suggestTravelTiming";
+import { quantizeCueTimings } from "../engine/grid/phraseGridQuantizer";
 import {
   DEFAULT_FORMATION_WEIGHTS,
   type FormationScore,
@@ -605,7 +607,33 @@ function finalizeSuggestSpots(
 ): DancerSpot[] {
   let next = dancers;
   if (scaleMax) next = scaleSpotsFromCenter(next, FINAL_CHORUS_SCALE);
-  next = enforceSymmetryPct(next);
+
+  // Step 2: メートル格子（0.9×1.0）・千鳥・左右対称・最小距離
+  const inMeters = next.map((d) => ({
+    ...d,
+    x: (d.xPct / 100) * STAGE_WIDTH_M - STAGE_WIDTH_M / 2,
+    y: (d.yPct / 100) * STAGE_DEPTH_M - STAGE_DEPTH_M / 2,
+  }));
+  const quantized = quantizeFormationGeometry(inMeters, {
+    xGridStep: 0.9,
+    yGridStep: 1.0,
+    minDancerDistance: DANCER_MIN_DISTANCE,
+    centerTolerance: 0.3,
+    enableStaggering: true,
+  });
+  const byId = new Map(quantized.map((d) => [d.id, d] as const));
+  // 列グループ化で配列順が変わっても、seed/prev と同じ id 順を維持する
+  next = next.map((d) => {
+    const q = byId.get(d.id);
+    if (!q) return d;
+    return {
+      ...d,
+      xPct: clamp(((q.x + STAGE_WIDTH_M / 2) / STAGE_WIDTH_M) * 100, 4, 96),
+      yPct: clamp(((q.y + STAGE_DEPTH_M / 2) / STAGE_DEPTH_M) * 100, 6, 94),
+    };
+  });
+
+  // 最終安全網（格子押し出し後の再接近を防ぐ）
   return ensureMinPairDistancePct(next, DANCER_MIN_DISTANCE);
 }
 
@@ -675,6 +703,7 @@ function resolveDistinctLayoutSpots(input: {
       taste: input.tasteBias,
       recent: input.recent,
       cueIndex: input.cueIndex,
+      cueAction: input.cue.action,
     },
     rankLimit
   );
@@ -1627,6 +1656,20 @@ function finishEngineAppSuggest(args: {
       peaks: input.peaks,
     }
   );
+  // Step 1: 枠数確定後に 8カウント頭へスナップ（promote 近傍マッチは既に完了）
+  const beforeSnapCount = cueAnalysis.cues.filter((c) => !c.suppressed).length;
+  cueAnalysis = {
+    ...cueAnalysis,
+    cues: quantizeCueTimings({
+      cues: cueAnalysis.cues,
+      bpm,
+      durationSec: duration,
+      beats: phase1.beats.map((b) => b.time),
+      phraseBeats: 8,
+      minGapBeats: 16,
+    }),
+  };
+  const afterSnapCount = cueAnalysis.cues.filter((c) => !c.suppressed).length;
   const musicalEvents = toMusicalEvents({
     structure,
     bpm,
@@ -1758,6 +1801,9 @@ function finishEngineAppSuggest(args: {
   const reasoning: string[] = [
     `曲理解エンジン Phase1–6 / エディタ雛形 / スタイル ${style} / キュー ${sortedCues.length}（指定 ${maxCues}） / 総合 ${Math.round(sequence.totalScore)}`,
     `移動は変化の ${FORMATION_TRAVEL_COUNTS} カウント前から（約 ${travelSec.toFixed(1)} 秒）`,
+    `タイミング: 8カウント頭へスナップ（選定 ${beforeSnapCount} → 吸着後 ${afterSnapCount}）`,
+    `立ち位置: 0.9m×1.0m 格子・千鳥・左右対称・最小 ${DANCER_MIN_DISTANCE}m`,
+    `雛形: 黄金の7大構造を優先（奇抜・散開は減点）`,
     structureLabels.length
       ? `曲の区切り: ${structureLabels.join(" → ")}（Aメロ終わり=PRE_CHORUS、サビ頭=CHORUS_START）`
       : "曲の区切り: 波形ピークから推定",

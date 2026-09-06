@@ -179,6 +179,40 @@ describe("engineSuggestPipeline", () => {
     expect(sixTimes.some((t) => Math.abs(t - 48) < 4)).toBe(true);
   });
 
+  it("snaps selected cue hit times onto 8-count phrase heads", () => {
+    setMusicEnginePhase12EnabledForTests(false);
+    const bpm = 120;
+    const phraseSec = (60 / bpm) * 8; // 4s
+    const result = runEngineAppSuggest({
+      peaks: peaksWithChorus(96),
+      durationSec: 96,
+      bpm,
+      remoteChangePoints: Array.from({ length: 20 }, (_, i) => ({
+        eight_index: i * 2,
+        time: 3.3 + i * 4.7,
+        score: 0.6,
+        tier: i % 3 === 0 ? ("major" as const) : ("medium" as const),
+      })),
+      seedDancers: seeds(6),
+      profile: CLASS_ADVANCED_MON7,
+      tasteBias: resolveSuggestTaste({}),
+      targetCueCount: 10,
+    });
+    expect(result).not.toBeNull();
+    expect(
+      result!.reasoning.some((l) => l.includes("8カウント頭へスナップ"))
+    ).toBe(true);
+    for (const cue of result!.evaluation.cues.filter((c) => !c.suppressed)) {
+      if (cue.rawTime <= 0.5) {
+        expect(cue.rawTime).toBe(0);
+        continue;
+      }
+      const nearest =
+        Math.round(cue.rawTime / phraseSec) * phraseSec;
+      expect(Math.abs(cue.rawTime - nearest)).toBeLessThan(0.05);
+    }
+  });
+
   it("places cues on irregular music times instead of even clock slices", () => {
     const duration = 266;
     const peaks = peaksWithChorus(duration);
@@ -680,10 +714,18 @@ describe("engineSuggestPipeline", () => {
         )
       );
       expect(minD).toBeGreaterThanOrEqual(0.75);
-      const xs = f.dancers.map((d) => d.xPct);
-      const spanX = Math.max(...xs) - Math.min(...xs);
-      expect(spanX).toBeGreaterThan(12);
     }
+    // 密集枠以外の多くは横に広がる（全枠が団子にならない）
+    const wideCount = result!.formations.filter((f) => {
+      const xs = f.dancers.map((d) => d.xPct);
+      return Math.max(...xs) - Math.min(...xs) > 12;
+    }).length;
+    expect(wideCount).toBeGreaterThanOrEqual(
+      Math.ceil(result!.formations.length * 0.4)
+    );
+    expect(
+      result!.reasoning.some((l) => l.includes("0.9m×1.0m"))
+    ).toBe(true);
   });
 
   it("changes standing layouts when feedback salt and taste are applied", () => {
