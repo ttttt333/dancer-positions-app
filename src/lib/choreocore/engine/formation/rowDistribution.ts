@@ -8,6 +8,8 @@
  * - rowCounts[0] = 最前列（客席側）、末尾 = 最奥列
  */
 
+import { GOLDEN_GEOMETRY } from "./goldenParameters";
+
 export type Point2DPct = {
   xPct: number;
   yPct: number;
@@ -170,7 +172,7 @@ export function generateStructuredStaggered(
   const rowSplit = resolveRowSplit(STAGGERED_ROW_MAP, dancerCount, 2);
   if (rowSplit.length === 0) return [];
 
-  const colGap = options?.colXGapPct ?? 18;
+  const colGap = options?.colXGapPct ?? GOLDEN_GEOMETRY.COL_GAP_PCT;
   const rowCount = rowSplit.length;
 
   let ys: number[];
@@ -179,7 +181,7 @@ export function generateStructuredStaggered(
     const backY = options?.backYPct ?? 30;
     ys = [frontY, backY];
   } else {
-    const rowYGap = options?.rowYGapPct ?? 15;
+    const rowYGap = options?.rowYGapPct ?? GOLDEN_GEOMETRY.ROW_GAP_PCT;
     const centerY = options?.centerYPct ?? 48;
     const totalYSpan = (rowCount - 1) * rowYGap;
     const frontY = centerY + totalYSpan / 2;
@@ -243,10 +245,10 @@ function generateLayeredFromMap(
   if (rowSplit.length === 0) return [];
 
   const preferFrontWide = options?.preferFrontWide ?? false;
-  const colGap = options?.colXGapPct ?? 16;
+  const colGap = options?.colXGapPct ?? GOLDEN_GEOMETRY.COL_GAP_PCT;
   const maxHalf = options?.maxHalfWidthPct ?? 34;
   const rowCount = rowSplit.length;
-  const rowYGap = options?.rowYGapPct ?? 14;
+  const rowYGap = options?.rowYGapPct ?? GOLDEN_GEOMETRY.ROW_GAP_PCT;
   const centerY = options?.centerYPct ?? 48;
   const totalYSpan = (rowCount - 1) * rowYGap;
   const frontY = centerY + totalYSpan / 2;
@@ -343,8 +345,8 @@ export function generateStructuredWShape(
   options?: LayeredOptions
 ): Point2DPct[] {
   return generateLayeredFromMap(W_SHAPE_ROW_MAP, dancerCount, 3, {
-    rowYGapPct: 13,
-    colXGapPct: 17,
+    rowYGapPct: GOLDEN_GEOMETRY.ROW_GAP_PCT,
+    colXGapPct: GOLDEN_GEOMETRY.COL_GAP_PCT,
     ...options,
   });
 }
@@ -357,7 +359,7 @@ export function generateStructuredWedge(
   options?: LayeredOptions
 ): Point2DPct[] {
   return generateLayeredFromMap(WEDGE_ROW_MAP, dancerCount, 3, {
-    rowYGapPct: 13,
+    rowYGapPct: GOLDEN_GEOMETRY.ROW_GAP_PCT,
     centerYPct: 50,
     preferFrontWide: true,
     ...options,
@@ -372,8 +374,8 @@ export function generateStructuredDiamond(
   options?: LayeredOptions
 ): Point2DPct[] {
   return generateLayeredFromMap(DIAMOND_ROW_MAP, dancerCount, 5, {
-    rowYGapPct: 12,
-    colXGapPct: 15,
+    rowYGapPct: GOLDEN_GEOMETRY.ROW_GAP_PCT,
+    colXGapPct: GOLDEN_GEOMETRY.COL_GAP_PCT,
     maxHalfWidthPct: 32,
     ...options,
   });
@@ -440,7 +442,7 @@ export function generateStructuredArc(
   };
 
   if (!useTwoArcs) {
-    const r = options?.outerR ?? 26 + Math.min(8, dancerCount * 0.35);
+    const r = options?.outerR ?? GOLDEN_GEOMETRY.ARC_RADIUS_PCT;
     return placeOnArc(dancerCount, r, 0);
   }
 
@@ -451,7 +453,7 @@ export function generateStructuredArc(
   const innerN = dancerCount - outerN;
   void backCount;
 
-  const outerR = options?.outerR ?? 28 + Math.min(6, dancerCount * 0.25);
+  const outerR = options?.outerR ?? GOLDEN_GEOMETRY.ARC_RADIUS_PCT;
   const innerR = options?.innerR ?? Math.max(14, outerR - 12);
 
   // 外弧を基準に、内弧は半スロットずらして隙間から見える

@@ -21,6 +21,8 @@ import {
   generateStructuredWedge,
   generateStructuredWShape,
 } from "./choreocore/engine/formation/rowDistribution";
+import { enforceCenterAxisLock } from "./choreocore/engine/formation/centerAxisLock";
+import { GOLDEN_GEOMETRY } from "./choreocore/engine/formation/goldenParameters";
 
 /**
  * 場ミリ規格を `dancersForLayoutPreset` / `dancersWithPresetAndWingSurplus`
@@ -2425,7 +2427,10 @@ export function dancersForLayoutPreset(
     opts?.stageWidthMm,
     refPct
   );
-  return relabelByAudienceCenterOut(scaled);
+  const locked = enforceCenterAxisLock(scaled, {
+    centerTolerancePct: GOLDEN_GEOMETRY.CENTER_AXIS_TOLERANCE,
+  });
+  return relabelByAudienceCenterOut(locked);
 }
 
 /**
