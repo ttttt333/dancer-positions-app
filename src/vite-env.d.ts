@@ -25,4 +25,10 @@ interface ImportMetaEnv {
    * `"0"` / `"false"` / `"off"` で旧 RMS + 4エイトに戻す。
    */
   readonly VITE_MUSIC_ENGINE_PHASE12?: string;
+  /**
+   * Fly.io song analyzer（末尾スラッシュなし）。
+   * 例: https://choreocore-song-analyzer.fly.dev
+   * Edge Function 経由が失敗したときの direct フォールバックに使う。
+   */
+  readonly VITE_ANALYZER_API_URL?: string;
 }

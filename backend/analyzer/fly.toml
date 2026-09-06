@@ -5,6 +5,12 @@
 #   fly deploy
 # Then set Supabase Edge secret:
 #   npx supabase secrets set ANALYZER_API_URL=https://choreocore-song-analyzer.fly.dev --project-ref <ref>
+#
+# Endpoints:
+#   GET  /health
+#   POST /analyze                      (v1: blocks + section_families)
+#   POST /api/v2/analyze-structure     (v2: StructureResultV2 / chroma-SSM)
+#   POST /analyze-structure            (alias of v2)
 
 app = "choreocore-song-analyzer"
 primary_region = "nrt"

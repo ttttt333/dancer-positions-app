@@ -1,5 +1,5 @@
 // supabase/functions/analyze-song
-// 音源解析キャッシュ → Fly.io ANALYZER_API_URL/analyze
+// 音源解析キャッシュ → Fly.io ANALYZER_API_URL/analyze (+ /api/v2/analyze-structure)
 
 // @ts-ignore Deno
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -15,6 +15,30 @@ const CORS = {
 
 /** backend/analyzer/services/audio_analyzer.py の ANALYZER_VERSION と一致させる */
 const ANALYZER_VERSION = "algo-v1.4.0";
+
+async function fetchStructureV2(
+  analyzerBase: string,
+  audio_url: string,
+  audio_hash: string
+): Promise<Record<string, unknown> | null> {
+  try {
+    const res = await fetch(
+      `${analyzerBase.replace(/\/$/, "")}/api/v2/analyze-structure`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audio_url, audio_hash }),
+      }
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as Record<string, unknown>;
+    if (!data || typeof data !== "object") return null;
+    if (!Array.isArray(data.sections) || data.sections.length === 0) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
 
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -47,11 +71,33 @@ serve(async (req: Request) => {
       .maybeSingle();
 
     if (cached) {
+      let structure_v2 = cached.structure_v2 ?? null;
+      // 旧キャッシュに v2 が無いときだけ Fly から補完（失敗しても v1 は返す）
+      if (
+        !structure_v2 &&
+        ANALYZER_API_URL &&
+        typeof audio_url === "string" &&
+        audio_url
+      ) {
+        structure_v2 = await fetchStructureV2(
+          ANALYZER_API_URL,
+          audio_url,
+          audio_hash
+        );
+        if (structure_v2) {
+          await supabase
+            .from("song_analysis")
+            .update({ structure_v2 })
+            .eq("audio_hash", audio_hash)
+            .eq("analyzer_version", ANALYZER_VERSION);
+        }
+      }
       return new Response(
         JSON.stringify({
           ...cached,
           bpm: cached.bpm,
           duration: cached.duration_seconds,
+          structure_v2,
           source: "cache",
         }),
         {
@@ -81,14 +127,16 @@ serve(async (req: Request) => {
       });
     }
 
-    const analyzeRes = await fetch(
-      `${ANALYZER_API_URL.replace(/\/$/, "")}/analyze`,
-      {
+    const base = ANALYZER_API_URL.replace(/\/$/, "");
+    const [analyzeRes, structureV2] = await Promise.all([
+      fetch(`${base}/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ audio_url, audio_hash }),
-      }
-    );
+      }),
+      fetchStructureV2(base, audio_url, audio_hash),
+    ]);
+
     if (!analyzeRes.ok) {
       const t = await analyzeRes.text();
       return new Response(
@@ -115,6 +163,7 @@ serve(async (req: Request) => {
           change_points: result.change_points,
           section_families: result.section_families ?? null,
           song_dynamism: result.song_dynamism ?? null,
+          structure_v2: structureV2,
           analyzer_version: ANALYZER_VERSION,
           analyzed_at: new Date().toISOString(),
         },
@@ -124,10 +173,11 @@ serve(async (req: Request) => {
       .single();
 
     if (error) {
-      // DB 未作成時でも解析結果は返す（フロントは動く）
+      // DB 未作成時 / カラム未追加時でも解析結果は返す
       return new Response(
         JSON.stringify({
           ...result,
+          structure_v2: structureV2,
           audio_hash,
           source: "fresh",
           cache_error: error.message,
@@ -143,6 +193,7 @@ serve(async (req: Request) => {
       JSON.stringify({
         ...inserted,
         duration: inserted.duration_seconds,
+        structure_v2: inserted.structure_v2 ?? structureV2,
         source: "fresh",
       }),
       {

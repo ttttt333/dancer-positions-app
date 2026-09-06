@@ -35,6 +35,7 @@ import {
   type SuggestFeedback,
 } from "../lib/choreocore/tier1";
 import type { ChangePoint, SectionFamily } from "../lib/choreocore/types";
+import type { StructureResultV2 } from "../lib/choreocore/types/songStructure";
 import type {
   ChoreographyProjectJson,
   Formation,
@@ -89,6 +90,7 @@ type CachedAnalysis = {
   durationSec: number;
   changePoints: ChangePoint[];
   sectionFamilies?: SectionFamily[];
+  structureV2?: StructureResultV2;
   bpm: number;
   duration: number;
   dynamism: number;
@@ -250,6 +252,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
           bpm: cache.bpm,
           remoteChangePoints: cache.changePoints,
           sectionFamilies: cache.sectionFamilies,
+          structureV2: cache.structureV2,
           seedDancers: cache.seedDancers,
           profile,
           tasteBias,
@@ -274,7 +277,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
             cues: engine.cues,
             reasoning: [
               `曲理解エンジン / クラス: ${profile.className}（${profile.classId}）`,
-              `解析ソース: ${cache.sourceLabel} / ${engine.musicEngine?.analysisSource === "engine-phase12" ? "曲理解 Phase1/2" : `暫定（従来経路）${engine.musicEngine?.fallbackReason ? ` · ${engine.musicEngine.fallbackReason}` : ""}`} / BPM ${Math.round(cache.bpm)} / キュー ${engine.cues.length}枠${targetCueCount != null ? `（指定 ${targetCueCount}）` : ""}`,
+              `解析ソース: ${cache.sourceLabel}${cache.structureV2 ? " · structure-v2" : ""} / ${engine.musicEngine?.analysisSource === "engine-phase12" ? "曲理解 Phase1/2" : `暫定（従来経路）${engine.musicEngine?.fallbackReason ? ` · ${engine.musicEngine.fallbackReason}` : ""}`} / BPM ${Math.round(cache.bpm)} / キュー ${engine.cues.length}枠${targetCueCount != null ? `（指定 ${targetCueCount}）` : ""}`,
               constraintLine,
               ...(tasteLine ? [tasteLine] : []),
               ...(feedbackLine ? [feedbackLine] : []),
@@ -411,6 +414,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
           audioUrl: audioOpts?.audioUrl,
           trackTitle: project.pieceTitle,
           signal: controller.signal,
+          timeoutMs: 60000,
         });
 
         if (controller.signal.aborted) return;
@@ -467,6 +471,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
           durationSec,
           changePoints,
           sectionFamilies: remote?.section_families,
+          structureV2: remote?.structure_v2,
           bpm,
           duration,
           dynamism,
