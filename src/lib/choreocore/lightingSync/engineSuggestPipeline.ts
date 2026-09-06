@@ -2058,31 +2058,58 @@ function finishEngineAppSuggest(args: {
     const preferred = layoutPresetIdFromTags(eng.tags);
     let layoutId: LayoutPresetId | null = preferred;
     let dancers: DancerSpot[];
-    // サビコールバック再利用は「見せ場」アクションのみ。キープ/閉じるでは固定しない
-    const allowCallbackLock =
-      (callback.variation === "repeat" || callback.variation === "final") &&
-      CALLBACK_LOCK_ACTIONS.has(cue.action);
+    const pins = input.tasteBias.cueLayoutPins ?? [];
     const userPin = resolvePinnedLayoutForCue({
-      pins: input.tasteBias.cueLayoutPins ?? [],
+      pins,
       cueIndex: i,
       cueCount: sequence.formations.length,
       reasonCodes: cue.reasonCodes,
       sectionLabel: songSection?.label,
       lightingSection,
     });
+    const inChorusSection =
+      songSection?.label === "CHORUS" ||
+      songSection?.label === "FINAL_CHORUS" ||
+      cue.reasonCodes.some((r) =>
+        ["CHORUS", "CHORUS_START", "DROP", "FINAL_CHORUS", "SECTION_CHORUS"].includes(
+          r
+        )
+      );
+    // サビコールバック再利用は「見せ場」かつ実際のサビ区間のみ
+    const allowCallbackLock =
+      inChorusSection &&
+      (callback.variation === "repeat" || callback.variation === "final") &&
+      CALLBACK_LOCK_ACTIONS.has(cue.action);
     const callbackLock =
       allowCallbackLock && callback.rememberedLayoutId
         ? (callback.rememberedLayoutId as LayoutPresetId)
         : null;
     // ユーザー指定ピンが最優先（「サビは2列」「初めと最後は密集ピラミッド」など）
     const lock = (userPin?.layoutId as LayoutPresetId | null) ?? callbackLock;
+    // セクション限定ピン（サビ=2列等）は該当外キューでは避ける
+    const sectionOnlyLayouts = pins
+      .filter(
+        (p) =>
+          p.slot === "chorus" || p.slot === "verse" || p.slot === "pre_chorus"
+      )
+      .map((p) => p.layoutId);
+    const tasteForCue =
+      userPin || sectionOnlyLayouts.length === 0
+        ? input.tasteBias
+        : {
+            ...input.tasteBias,
+            avoidLayoutIds: [
+              ...(input.tasteBias.avoidLayoutIds ?? []),
+              ...sectionOnlyLayouts.filter((id) => id !== lock),
+            ],
+          };
     const picked = resolveDistinctLayoutSpots({
       preferred: lock ?? preferred,
       seeds,
       prevSpots,
       cue,
       section: lightingSection,
-      tasteBias: input.tasteBias,
+      tasteBias: tasteForCue,
       profile: input.profile,
       layoutOpts,
       recent: recentLayouts,

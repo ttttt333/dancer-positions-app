@@ -470,5 +470,16 @@ describe("cueLayoutPins", () => {
     for (const f of chorusLayouts) {
       expect(f.layoutPresetId).toBe("two_rows");
     }
+    const nonChorus = forms.filter((_, i) => {
+      const t = cues[i]?.tStartSec ?? -1;
+      const isEnd = i === 0 || i === forms.length - 1;
+      const isChorus = (t >= 24 && t < 40) || (t >= 56 && t < 72);
+      return !isEnd && !isChorus;
+    });
+    // Aメロ等は 2列だらけにしない
+    const twoRowNonChorus = nonChorus.filter((f) => f.layoutPresetId === "two_rows");
+    expect(twoRowNonChorus.length).toBeLessThanOrEqual(
+      Math.max(1, Math.floor(nonChorus.length / 2))
+    );
   });
 });

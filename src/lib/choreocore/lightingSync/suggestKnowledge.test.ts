@@ -94,6 +94,17 @@ describe("suggestKnowledge accumulation", () => {
     expect(ranked[0]).not.toBe("grid");
   });
 
+  it("section pins do not flood preferLayoutIds globally", () => {
+    let k = createEmptySuggestKnowledge();
+    k = accumulateSuggestKnowledge(k, {
+      isResuggest: false,
+      creatorNote: "初めと最後は密集ピラミッド。サビは２列",
+    });
+    expect(k.cueLayoutPins.some((p) => p.slot === "chorus")).toBe(true);
+    expect(k.preferLayoutIds).not.toContain("two_rows");
+    expect(k.preferLayoutIds).not.toContain("pyramid");
+  });
+
   it("snapshotSuggestKnowledge exposes attempt and avoid list for UI", () => {
     let k = createEmptySuggestKnowledge();
     k = accumulateSuggestKnowledge(k, {

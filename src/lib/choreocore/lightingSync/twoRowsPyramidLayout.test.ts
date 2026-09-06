@@ -25,6 +25,18 @@ describe("two_rows / dense pyramid presets", () => {
     expect(midFront).toBeCloseTo(50, 0);
   });
 
+  it("compact pyramid stays within ~±2 grid width (dense like reference)", () => {
+    const dense = dancersForLayoutPreset(16, "pyramid", {
+      compact: true,
+      dancerSpacingMm: 1500,
+      stageWidthMm: 10000,
+    });
+    const xs = dense.map((s) => s.xPct);
+    const half = (Math.max(...xs) - Math.min(...xs)) / 2;
+    // 場ミリ拡大をスキップし、半幅 20% 未満（ステージ ±2 相当）
+    expect(half).toBeLessThan(20);
+  });
+
   it("compact pyramid is tighter than default pyramid", () => {
     const normal = dancersForLayoutPreset(9, "pyramid");
     const dense = dancersForLayoutPreset(9, "pyramid", { compact: true });
@@ -32,6 +44,6 @@ describe("two_rows / dense pyramid presets", () => {
       const xs = spots.map((s) => s.xPct);
       return Math.max(...xs) - Math.min(...xs);
     };
-    expect(span(dense)).toBeLessThan(span(normal));
+    expect(span(dense)).toBeLessThan(span(normal) * 0.75);
   });
 });

@@ -294,7 +294,7 @@ export function accumulateSuggestKnowledge(
   const preferLayoutIds = uniqueStrings([
     ...base.preferLayoutIds,
     ...(input.acceptedLayoutIds ?? []),
-    ...cueLayoutPins.map((p) => p.layoutId),
+    // セクション／端点ピンはハードロック専用。prefer に混ぜると「サビは2列」が全曲に広がる
   ]).filter((id) => !avoidLayoutIds.includes(id));
 
   const preferPatterns = uniquePatterns([

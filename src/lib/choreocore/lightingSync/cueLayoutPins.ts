@@ -172,16 +172,17 @@ function isChorusContext(input: {
   label: string;
   lightingSection?: string | null;
 }): boolean {
-  const { reasons, label, lightingSection } = input;
+  const { reasons, label } = input;
+  // structure_v2 のラベルを最優先（lightingSection 単独は誤爆しやすい）
   if (label === "CHORUS" || label === "FINAL_CHORUS") return true;
-  if (lightingSection === "chorus") return true;
+  // 理由コードは明示的なサビ系のみ（includes("CHORUS") の曖昧一致はしない）
   return reasons.some(
     (r) =>
       r === "CHORUS" ||
       r === "CHORUS_START" ||
       r === "DROP" ||
       r === "FINAL_CHORUS" ||
-      r.includes("CHORUS")
+      r === "SECTION_CHORUS"
   );
 }
 

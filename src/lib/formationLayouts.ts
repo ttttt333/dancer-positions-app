@@ -894,17 +894,16 @@ export function dancersForLayoutPreset(
     }
     case "pyramid": {
       const dense = !!opts?.compact;
-      const pts = generateStructuredPyramid(
-        n,
-        dense
-          ? {
-              rowYGapPct: GOLDEN_GEOMETRY.ROW_GAP_PCT * 0.72,
-              colXGapPct: GOLDEN_GEOMETRY.COL_GAP_PCT * 0.78,
-              maxHalfWidthPct: 24,
-              centerYPct: 50,
-            }
-          : undefined
-      );
+      // 密集指定: 写真のようなコンパクトな先端付き形（ひし形寄り・短ピッチ）
+      // 場ミリ rescale は後段でスキップして広がりを防ぐ
+      const pts = dense
+        ? generateStructuredDiamond(n, {
+            rowYGapPct: 8.5,
+            colXGapPct: 9.5,
+            maxHalfWidthPct: 15,
+            centerYPct: 50,
+          })
+        : generateStructuredPyramid(n);
       for (let i = 0; i < pts.length; i += 1) {
         pushSpot(out, i, pts[i]!.xPct, pts[i]!.yPct);
       }
@@ -2443,14 +2442,17 @@ export function dancersForLayoutPreset(
   /**
    * 場ミリ規格があれば等比リスケール、その後に「客席に近い側から・中央→左→右」
    * ルールで番号を振り直す（プリセットの生成順に依存しない一貫番号）。
+   * 密集指定時は意図したコンパクトさを場ミリ拡大で壊さない。
    */
   const refPct = lineSpacingReferencePct ?? TARGET_STEP_X;
-  const scaled = rescaleSpotsForSpacing(
-    out,
-    opts?.dancerSpacingMm,
-    opts?.stageWidthMm,
-    refPct
-  );
+  const scaled = opts?.compact
+    ? out
+    : rescaleSpotsForSpacing(
+        out,
+        opts?.dancerSpacingMm,
+        opts?.stageWidthMm,
+        refPct
+      );
   const locked = enforceCenterAxisLock(scaled, {
     centerTolerancePct: GOLDEN_GEOMETRY.CENTER_AXIS_TOLERANCE,
   });
