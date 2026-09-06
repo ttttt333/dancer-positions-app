@@ -187,6 +187,17 @@ export type {
   GoldenFilterOptions,
   LayoutPresetCandidate,
 } from "./formation/goldenFormationFilter";
+export {
+  repairPathCrossings,
+  segmentsCross,
+  countPathCrossings,
+} from "./formation/dancerPathGuard";
+export type {
+  PathGuardOptions,
+  Position2D as PathGuardPosition2D,
+} from "./formation/dancerPathGuard";
+export { evaluateTidiness } from "./formation/tidinessEvaluator";
+export type { TidinessScoreResult } from "./formation/tidinessEvaluator";
 export type {
   FormationIntelligenceReport,
   FormationRecommendation,

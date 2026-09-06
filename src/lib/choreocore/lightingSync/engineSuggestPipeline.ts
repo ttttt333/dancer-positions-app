@@ -27,6 +27,7 @@ import {
 } from "../engine/formation/chorusCallback";
 import { ensureMinPairDistancePct, DANCER_MIN_DISTANCE, minPairDistanceMeters } from "../engine/formation/formationGeometry";
 import { quantizeFormationGeometry } from "../engine/formation/geometricGridQuantizer";
+import { repairPathCrossings } from "../engine/formation/dancerPathGuard";
 import {
   recommendFormationsForIntentSequence,
   type FormationIntelligenceReport,
@@ -601,9 +602,72 @@ function promoteCuesAtSongChanges(
   return { ...analysis, cues, intents };
 }
 
+function spotToMeters(d: { xPct: number; yPct: number }): {
+  x: number;
+  y: number;
+} {
+  return {
+    x: (d.xPct / 100) * STAGE_WIDTH_M - STAGE_WIDTH_M / 2,
+    y: (d.yPct / 100) * STAGE_DEPTH_M - STAGE_DEPTH_M / 2,
+  };
+}
+
+function metersToSpotPct(x: number, y: number): { xPct: number; yPct: number } {
+  return {
+    xPct: clamp(((x + STAGE_WIDTH_M / 2) / STAGE_WIDTH_M) * 100, 4, 96),
+    yPct: clamp(((y + STAGE_DEPTH_M / 2) / STAGE_DEPTH_M) * 100, 6, 94),
+  };
+}
+
+/**
+ * 格子・最低間隔の後に、前コマ→今コマの移動線交差をローカルスワップで修復する。
+ * ダンサー id は維持し、幾何スロットだけ付け替える。
+ */
+function applyPathCrossingRepair(
+  next: DancerSpot[],
+  prevSpots: DancerSpot[] | undefined
+): DancerSpot[] {
+  if (!prevSpots || prevSpots.length < 2 || next.length < 2) return next;
+  if (prevSpots.length !== next.length) return next;
+
+  const prevById = new Map(prevSpots.map((d) => [d.id, d] as const));
+  const orderedPrev: DancerSpot[] = [];
+  for (const d of next) {
+    const p = prevById.get(d.id);
+    if (!p) return next;
+    orderedPrev.push(p);
+  }
+
+  const currentPositions = orderedPrev.map(spotToMeters);
+  const targetSpots = next.map(spotToMeters);
+  const identity = targetSpots.map((_, i) => i);
+  const repaired = repairPathCrossings(
+    currentPositions,
+    targetSpots,
+    identity,
+    { costTolerance: 1.15 }
+  );
+
+  let changed = false;
+  for (let i = 0; i < repaired.length; i += 1) {
+    if (repaired[i] !== i) {
+      changed = true;
+      break;
+    }
+  }
+  if (!changed) return next;
+
+  return next.map((d, dancerIdx) => {
+    const spotIdx = repaired[dancerIdx]!;
+    const src = next[spotIdx]!;
+    return { ...d, xPct: src.xPct, yPct: src.yPct };
+  });
+}
+
 function finalizeSuggestSpots(
   dancers: DancerSpot[],
-  scaleMax: boolean | undefined
+  scaleMax: boolean | undefined,
+  prevSpots?: DancerSpot[]
 ): DancerSpot[] {
   let next = dancers;
   if (scaleMax) next = scaleSpotsFromCenter(next, FINAL_CHORUS_SCALE);
@@ -611,8 +675,7 @@ function finalizeSuggestSpots(
   // Step 2: メートル格子（0.9×1.0）・千鳥・左右対称・最小距離
   const inMeters = next.map((d) => ({
     ...d,
-    x: (d.xPct / 100) * STAGE_WIDTH_M - STAGE_WIDTH_M / 2,
-    y: (d.yPct / 100) * STAGE_DEPTH_M - STAGE_DEPTH_M / 2,
+    ...spotToMeters(d),
   }));
   const quantized = quantizeFormationGeometry(inMeters, {
     xGridStep: 0.9,
@@ -628,13 +691,15 @@ function finalizeSuggestSpots(
     if (!q) return d;
     return {
       ...d,
-      xPct: clamp(((q.x + STAGE_WIDTH_M / 2) / STAGE_WIDTH_M) * 100, 4, 96),
-      yPct: clamp(((q.y + STAGE_DEPTH_M / 2) / STAGE_DEPTH_M) * 100, 6, 94),
+      ...metersToSpotPct(q.x, q.y),
     };
   });
 
   // 最終安全網（格子押し出し後の再接近を防ぐ）
-  return ensureMinPairDistancePct(next, DANCER_MIN_DISTANCE);
+  next = ensureMinPairDistancePct(next, DANCER_MIN_DISTANCE);
+
+  // Step 3: 前コマとの動線交差を 2-opt 修復（幾何の美しさを保つ）
+  return applyPathCrossingRepair(next, prevSpots);
 }
 
 const CALLBACK_LOCK_ACTIONS = new Set<FormationCueAction>([
@@ -680,7 +745,8 @@ function resolveDistinctLayoutSpots(input: {
         FORMATION_TRAVEL_COUNTS,
         input.layoutOpts
       ),
-      input.scaleMax
+      input.scaleMax,
+      input.prevSpots
     );
     return { layoutId: input.lockLayoutId, dancers };
   }
@@ -760,7 +826,8 @@ function resolveDistinctLayoutSpots(input: {
           FORMATION_TRAVEL_COUNTS,
           input.layoutOpts
         ),
-        input.scaleMax && CALLBACK_LOCK_ACTIONS.has(input.cue.action)
+        input.scaleMax && CALLBACK_LOCK_ACTIONS.has(input.cue.action),
+        input.prevSpots
       );
       if (!fallback) fallback = { layoutId: id, dancers };
       const travelFloor =
@@ -775,7 +842,8 @@ function resolveDistinctLayoutSpots(input: {
       layoutId: null,
       dancers: finalizeSuggestSpots(
         input.prevSpots.map((s) => ({ ...s })),
-        false
+        false,
+        input.prevSpots
       ),
     }
   );

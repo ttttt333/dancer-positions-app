@@ -89,4 +89,27 @@ describe("goldenFormationFilter", () => {
     ]);
     expect(family).toBe("V_SHAPE");
   });
+
+  it("penalizes uneven nearest-neighbor spacing via tidiness CV", () => {
+    const tidy = scorePresetAgainstGoldenRules({
+      id: "stagger",
+      positions: [
+        { x: 0, y: 0 },
+        { x: 1, y: 0 },
+        { x: 0, y: 1 },
+        { x: 1, y: 1 },
+      ],
+    });
+    const messy = scorePresetAgainstGoldenRules({
+      id: "stagger",
+      positions: [
+        { x: 0, y: 0 },
+        { x: 0.1, y: 0 },
+        { x: 0.2, y: 0 },
+        { x: 8, y: 0 },
+      ],
+    });
+    expect(messy.scoreAdjustment).toBeLessThan(tidy.scoreAdjustment);
+    expect(messy.scoreAdjustment).toBeLessThan(0);
+  });
 });

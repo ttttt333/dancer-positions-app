@@ -4,6 +4,7 @@
  */
 
 import type { Position2D } from "./geometricGridQuantizer";
+import { evaluateTidiness } from "./tidinessEvaluator";
 
 /**
  * プロのダンス演出で多用される「黄金の7大構造」種別
@@ -202,6 +203,14 @@ export function scorePresetAgainstGoldenRules<T extends LayoutPresetCandidate>(
   let scoreAdjustment = 0;
   if (!isGolden) scoreAdjustment += opts.nonGoldenPenalty;
   if (symmetryRatio < 0.7) scoreAdjustment += opts.asymmetryPenalty;
+
+  // 間隔のばらつき（CV）が大きい雛形を減点（最大おおよそ -0.3）
+  if (preset.positions && preset.positions.length >= 2) {
+    const tidiness = evaluateTidiness(preset.positions);
+    if (tidiness.spacingCv > 0.4) {
+      scoreAdjustment -= (tidiness.spacingCv - 0.4) * 0.5;
+    }
+  }
 
   if (targetIntentPrimary) {
     const intent = targetIntentPrimary.toUpperCase();
