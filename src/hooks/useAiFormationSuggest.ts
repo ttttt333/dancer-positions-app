@@ -47,7 +47,11 @@ import { useMusicSectionOverlayStore } from "../store/musicSectionOverlayStore";
 import {
   segmentsFromChangePoints,
   segmentsFromMusicSections,
+  segmentsFromStructureV2Sections,
 } from "../lib/musicSectionOverlay";
+import {
+  appChangePointsFromStructureV2,
+} from "../lib/choreocore/lightingSync/productionChangePointAdapter";
 
 export type SuggestStatus =
   | "idle"
@@ -232,14 +236,22 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
         duration: number,
         evalSections?: Array<{ type: string; startTime: number; endTime: number }>
       ) => {
+        const fromV2 = cache.structureV2
+          ? segmentsFromStructureV2Sections(
+              cache.structureV2.sections,
+              duration
+            )
+          : [];
         const fromEval =
           evalSections && evalSections.length > 0
             ? segmentsFromMusicSections(evalSections, duration)
             : [];
         const segments =
-          fromEval.length > 0
-            ? fromEval
-            : segmentsFromChangePoints(changePoints, duration);
+          fromV2.length > 0
+            ? fromV2
+            : fromEval.length > 0
+              ? fromEval
+              : segmentsFromChangePoints(changePoints, duration);
         useMusicSectionOverlayStore
           .getState()
           .setSegments(segments, duration, cache.sourceLabel);
@@ -419,9 +431,11 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
 
         if (controller.signal.aborted) return;
 
-        const changePoints: ChangePoint[] = remote
-          ? remote.change_points
-          : browser.change_points;
+        const changePoints: ChangePoint[] =
+          (remote?.structure_v2
+            ? appChangePointsFromStructureV2(remote.structure_v2)
+            : undefined) ??
+          (remote ? remote.change_points : browser.change_points);
         const bpm = remote?.bpm ?? browser.bpm;
         const duration = remote?.duration ?? browser.duration;
         const dynamism = remote?.song_dynamism ?? browser.song_dynamism;

@@ -76,7 +76,7 @@ import {
   type Phase2OverwriteSite,
   type UnifiedMusicTimeline,
 } from "../engine/music/productionTimeline";
-import { appChangePointsFromTimeline } from "./productionChangePointAdapter";
+import { appChangePointsFromTimeline, preferStructuralChangePoints } from "./productionChangePointAdapter";
 import { createSyntheticPhase1Analysis } from "../engine/music/syntheticPhase1";
 import { optimizeFormationSequence } from "../engine/scoring/FormationOptimizer";
 import type {
@@ -1682,10 +1682,17 @@ export function runEngineAppSuggest(
   }
 
   let structuralCps = structuralCpsFromTimeline;
+  // 構造 Cue の主入力: structureV2 → timeline → v1 remote
+  const preferredRemote = preferStructuralChangePoints({
+    structureV2: input.structureV2,
+    timelineCps: structuralCpsFromTimeline,
+    remote: input.remoteChangePoints,
+  });
+
   if (!skipRemoteOverwrite) {
     const applied = applyRemoteProductionOverwrite(
       structure,
-      input.remoteChangePoints,
+      preferredRemote,
       duration,
       bpm
     );
@@ -1696,10 +1703,17 @@ export function runEngineAppSuggest(
         overwriteSites: applied.overwriteSites,
       };
     }
+  } else if (preferredRemote?.length) {
+    // Phase12 でも promote/select は v2 優先の変化点を使う
+    structuralCps = thinStructuralChangePoints(preferredRemote);
   }
 
   return finishEngineAppSuggest({
-    input,
+    input: {
+      ...input,
+      // promote / select が常に同じ優先ソースを見る
+      remoteChangePoints: preferredRemote ?? input.remoteChangePoints,
+    },
     seeds,
     duration,
     bpm,
@@ -1918,7 +1932,11 @@ function finishEngineAppSuggest(args: {
       ? `曲構造 v2: クラスタモチーフ一貫性 + energy_trend 展開（source=${input.structureV2.source ?? "v2"}）`
       : `曲構造: レガシーセクションからモチーフ近似（Fly v2 未接続時）`,
     structureLabels.length
-      ? `曲の区切り: ${structureLabels.join(" → ")}（Aメロ終わり=PRE_CHORUS、サビ頭=CHORUS_START）`
+      ? `曲の区切り: ${structureLabels.join(" → ")}（${
+          input.structureV2
+            ? "structure-v2 主入力"
+            : "Aメロ終わり=PRE_CHORUS、サビ頭=CHORUS_START"
+        }）`
       : "曲の区切り: 波形ピークから推定",
   ];
   const payloadFormations: LightingSyncSuggestPayload["formations"] = [];

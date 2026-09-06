@@ -102,3 +102,41 @@ export function segmentsFromMusicSections(
     })
     .filter((s) => s.endSec - s.startSec >= 0.35);
 }
+
+/** StructureResultV2.sections → 波形オーバーレイ */
+export function segmentsFromStructureV2Sections(
+  sections:
+    | Array<{
+        label: string;
+        start_time: number;
+        end_time: number;
+      }>
+    | undefined,
+  durationSec: number
+): MusicSectionOverlaySegment[] {
+  if (!sections?.length || durationSec <= 0) return [];
+  return sections
+    .map((s) => {
+      const type = labelV2ToOverlayType(s.label);
+      const meta = sectionOverlayStyle(type);
+      return {
+        startSec: Math.max(0, s.start_time),
+        endSec: Math.min(durationSec, Math.max(s.start_time, s.end_time)),
+        sectionType: type,
+        label: meta.label,
+        color: meta.color,
+      };
+    })
+    .filter((s) => s.endSec - s.startSec >= 0.35);
+}
+
+function labelV2ToOverlayType(label: string): MusicSectionType | "UNKNOWN" {
+  const u = label.toUpperCase();
+  if (u === "INTRO") return "INTRO";
+  if (u === "OUTRO") return "OUTRO";
+  if (u === "A_MELO") return "VERSE";
+  if (u === "B_MELO") return "PRE_CHORUS";
+  if (u === "CHORUS") return "CHORUS";
+  if (u === "BREAKDOWN") return "BREAK";
+  return "UNKNOWN";
+}
