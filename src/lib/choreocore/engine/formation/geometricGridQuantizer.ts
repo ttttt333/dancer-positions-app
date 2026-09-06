@@ -21,6 +21,13 @@ export type GeometricGridConfig = {
   centerTolerance: number;
   /** 千鳥配置を自動適用するか。既定: true */
   enableStaggering: boolean;
+  /** 左右ミラー対称を強制するか。既定: true */
+  enableSymmetry: boolean;
+  /**
+   * 0.9×1.0m 格子へ吸着するか。既定: true。
+   * false のときはセンター固定＋衝突回避のみ（V/弧など曲線雛形用）。
+   */
+  enableLattice: boolean;
 };
 
 export const DEFAULT_GEOMETRIC_GRID_CONFIG: GeometricGridConfig = {
@@ -29,6 +36,8 @@ export const DEFAULT_GEOMETRIC_GRID_CONFIG: GeometricGridConfig = {
   minDancerDistance: 0.8,
   centerTolerance: 0.3,
   enableStaggering: true,
+  enableSymmetry: true,
+  enableLattice: true,
 };
 
 /**
@@ -47,58 +56,72 @@ export function quantizeFormationGeometry<T extends Position2D>(
     minDancerDistance,
     centerTolerance,
     enableStaggering,
+    enableSymmetry,
+    enableLattice,
   } = config;
 
-  // 1. Y（前後・列）を格子化
-  const yQuantized = positions.map((p) => {
-    const snappedY = Math.round(p.y / yGridStep) * yGridStep;
-    return { ...p, y: round2(snappedY) };
-  });
+  let working: T[];
 
-  // 2. 列ごとに X 量子化 + 千鳥
-  const rowGroups = new Map<number, T[]>();
-  for (const pos of yQuantized) {
-    const rowY = pos.y;
-    const list = rowGroups.get(rowY);
-    if (list) list.push(pos);
-    else rowGroups.set(rowY, [pos]);
-  }
+  if (!enableLattice) {
+    // 曲線・斜め雛形: 格子破壊を避け、センター付近だけ X=0 に固定
+    working = positions.map((p) =>
+      Math.abs(p.x) <= centerTolerance ? { ...p, x: 0 } : { ...p }
+    );
+  } else {
+    // 1. Y（前後・列）を格子化
+    const yQuantized = positions.map((p) => {
+      const snappedY = Math.round(p.y / yGridStep) * yGridStep;
+      return { ...p, y: round2(snappedY) };
+    });
 
-  const sortedYKeys = [...rowGroups.keys()].sort((a, b) => a - b);
-  const previousRowXSet = new Set<number>();
-  const xQuantized: T[] = [];
-
-  for (let rowIndex = 0; rowIndex < sortedYKeys.length; rowIndex += 1) {
-    const yKey = sortedYKeys[rowIndex]!;
-    const rowPositions = rowGroups.get(yKey)!;
-    const snappedXs: number[] = [];
-
-    for (const pos of rowPositions) {
-      let snappedX = snapX(pos.x, xGridStep, centerTolerance);
-
-      if (
-        enableStaggering &&
-        rowIndex > 0 &&
-        snappedX !== 0 &&
-        previousRowXSet.has(round2(snappedX))
-      ) {
-        const offset = (xGridStep / 2) * (snappedX > 0 ? 1 : -1);
-        snappedX = round2(snappedX + offset);
-      }
-
-      snappedXs.push(snappedX);
-      xQuantized.push({
-        ...pos,
-        x: snappedX,
-      });
+    // 2. 列ごとに X 量子化 + 千鳥
+    const rowGroups = new Map<number, T[]>();
+    for (const pos of yQuantized) {
+      const rowY = pos.y;
+      const list = rowGroups.get(rowY);
+      if (list) list.push(pos);
+      else rowGroups.set(rowY, [pos]);
     }
 
-    previousRowXSet.clear();
-    for (const x of snappedXs) previousRowXSet.add(round2(x));
+    const sortedYKeys = [...rowGroups.keys()].sort((a, b) => a - b);
+    const previousRowXSet = new Set<number>();
+    const xQuantized: T[] = [];
+
+    for (let rowIndex = 0; rowIndex < sortedYKeys.length; rowIndex += 1) {
+      const yKey = sortedYKeys[rowIndex]!;
+      const rowPositions = rowGroups.get(yKey)!;
+      const snappedXs: number[] = [];
+
+      for (const pos of rowPositions) {
+        let snappedX = snapX(pos.x, xGridStep, centerTolerance);
+
+        if (
+          enableStaggering &&
+          rowIndex > 0 &&
+          snappedX !== 0 &&
+          previousRowXSet.has(round2(snappedX))
+        ) {
+          const offset = (xGridStep / 2) * (snappedX > 0 ? 1 : -1);
+          snappedX = round2(snappedX + offset);
+        }
+
+        snappedXs.push(snappedX);
+        xQuantized.push({
+          ...pos,
+          x: snappedX,
+        });
+      }
+
+      previousRowXSet.clear();
+      for (const x of snappedXs) previousRowXSet.add(round2(x));
+    }
+    working = xQuantized;
   }
 
   // 3. 左右完全ミラー（右をマスター）
-  const mirrored = enforceRightMasterSymmetry(xQuantized, centerTolerance);
+  const mirrored = enableSymmetry
+    ? enforceRightMasterSymmetry(working, centerTolerance)
+    : working;
 
   // 4. 最小距離クランプ
   return resolveCollisions(mirrored, minDancerDistance, xGridStep);

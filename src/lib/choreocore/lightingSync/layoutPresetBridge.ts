@@ -334,7 +334,7 @@ export function layoutShapeBucket(id: string): string {
   if (/cluster|pyramid|center|concentric|scatter_center|block_3|block_4/.test(id)) {
     return "center";
   }
-  if (/circle|ring|oval|ellipse|horseshoe|u_shape|w_shape|m_shape/.test(id)) {
+  if (/circle|ring|oval|ellipse|horseshoe|u_shape|w_shape|m_shape|arc|fan_/.test(id)) {
     return "round";
   }
   if (/diag|cross|x_shape|pinwheel|radial/.test(id)) return "cross";
@@ -342,6 +342,74 @@ export function layoutShapeBucket(id: string): string {
   if (/asymmetric|l_shape|t_shape|comb|scatter/.test(id)) return "asym";
   if (/block_lr|wing|bracket|split|two_wings/.test(id)) return "split";
   return id;
+}
+
+/**
+ * AI finalize の格子補正ポリシー。
+ * 雛形がすでに持つ幾何（千鳥・斜め・曲線）を二重補正で壊さない。
+ */
+export function quantizePolicyForLayoutPreset(layoutId: string | null | undefined): {
+  enableStaggering: boolean;
+  enableSymmetry: boolean;
+  enableLattice: boolean;
+} {
+  if (!layoutId) {
+    return {
+      enableStaggering: true,
+      enableSymmetry: true,
+      enableLattice: true,
+    };
+  }
+  // 横広がり分類に入っていても、弧・斜めは格子吸着しない
+  if (
+    /(?:^|_)(?:arc|oval|circle|ellipse|diamond|vee|v_open|v_tight|wedge|chevron|horseshoe|u_shape)/.test(
+      layoutId
+    )
+  ) {
+    return {
+      enableStaggering: false,
+      enableSymmetry: !/asymmetric/.test(layoutId),
+      enableLattice: false,
+    };
+  }
+  const bucket = layoutShapeBucket(layoutId);
+  switch (bucket) {
+    case "depth":
+      // 千鳥・グリッドは雛形側でオフセット済み → 再千鳥しない
+      return {
+        enableStaggering: false,
+        enableSymmetry: true,
+        enableLattice: true,
+      };
+    case "vee":
+    case "round":
+    case "geo":
+      // 斜め・曲線は格子吸着すると被り・角が崩れる
+      return {
+        enableStaggering: false,
+        enableSymmetry: true,
+        enableLattice: false,
+      };
+    case "asym":
+    case "cross":
+      return {
+        enableStaggering: false,
+        enableSymmetry: false,
+        enableLattice: true,
+      };
+    case "hline":
+      return {
+        enableStaggering: false,
+        enableSymmetry: true,
+        enableLattice: true,
+      };
+    default:
+      return {
+        enableStaggering: true,
+        enableSymmetry: true,
+        enableLattice: true,
+      };
+  }
 }
 
 function isPracticalLayout(id: string, style?: string): boolean {

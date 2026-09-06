@@ -114,6 +114,7 @@ import {
   layoutPresetIdFromTags,
   layoutPresetLabel,
   layoutShapeBucket,
+  quantizePolicyForLayoutPreset,
   rankLayoutPresets,
   spotsForLayoutPreset,
 } from "./layoutPresetBridge";
@@ -687,12 +688,14 @@ function applyPathCrossingRepair(
 function finalizeSuggestSpots(
   dancers: DancerSpot[],
   scaleMax: boolean | undefined,
-  prevSpots?: DancerSpot[]
+  prevSpots?: DancerSpot[],
+  layoutId?: LayoutPresetId | null
 ): DancerSpot[] {
   let next = dancers;
   if (scaleMax) next = scaleSpotsFromCenter(next, FINAL_CHORUS_SCALE);
 
-  // Step 2: メートル格子（0.9×1.0）・千鳥・左右対称・最小距離
+  const policy = quantizePolicyForLayoutPreset(layoutId);
+  // Step 2: 雛形系統に応じて格子・千鳥・対称の強度を変える（二重補正で形を壊さない）
   const inMeters = next.map((d) => ({
     ...d,
     ...spotToMeters(d),
@@ -702,7 +705,9 @@ function finalizeSuggestSpots(
     yGridStep: 1.0,
     minDancerDistance: DANCER_MIN_DISTANCE,
     centerTolerance: 0.3,
-    enableStaggering: true,
+    enableStaggering: policy.enableStaggering,
+    enableSymmetry: policy.enableSymmetry,
+    enableLattice: policy.enableLattice,
   });
   const byId = new Map(quantized.map((d) => [d.id, d] as const));
   // 列グループ化で配列順が変わっても、seed/prev と同じ id 順を維持する
@@ -780,7 +785,8 @@ function resolveDistinctLayoutSpots(input: {
         input.layoutOpts
       ),
       input.scaleMax,
-      input.prevSpots
+      input.prevSpots,
+      input.lockLayoutId
     );
     return finish(input.lockLayoutId, dancers);
   }
@@ -862,7 +868,8 @@ function resolveDistinctLayoutSpots(input: {
           input.layoutOpts
         ),
         input.scaleMax && CALLBACK_LOCK_ACTIONS.has(input.cue.action),
-        input.prevSpots
+        input.prevSpots,
+        id
       );
       if (!fallback) fallback = { layoutId: id, dancers };
       const travelFloor =

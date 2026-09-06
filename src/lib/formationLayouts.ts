@@ -850,17 +850,20 @@ export function dancersForLayoutPreset(
       break;
     }
     case "vee": {
+      // 先端(客席寄りセンター)は左アームが担当。右は tip 直前までで重複座標を避ける
+      if (n === 1) {
+        pushSpot(out, 0, 50, 64);
+        break;
+      }
       const leftN = Math.ceil(n / 2);
-      for (let i = 0; i < n; i++) {
-        if (i < leftN) {
-          const t = leftN <= 1 ? 0.5 : i / (leftN - 1);
-          pushSpot(out, i, 28 + t * 22, 36 + t * 28);
-        } else {
-          const j = i - leftN;
-          const rightN = n - leftN;
-          const t = rightN <= 1 ? 0.5 : j / (rightN - 1);
-          pushSpot(out, i, 72 - t * 22, 36 + t * 28);
-        }
+      const rightN = n - leftN;
+      for (let i = 0; i < leftN; i++) {
+        const t = leftN <= 1 ? 1 : i / (leftN - 1);
+        pushSpot(out, i, 28 + t * 22, 36 + t * 28);
+      }
+      for (let j = 0; j < rightN; j++) {
+        const t = rightN <= 0 ? 0 : j / rightN; // < 1: tip 非共有
+        pushSpot(out, leftN + j, 72 - t * 22, 36 + t * 28);
       }
       break;
     }

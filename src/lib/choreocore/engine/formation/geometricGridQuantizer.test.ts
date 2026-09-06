@@ -68,15 +68,25 @@ describe("geometricGridQuantizer", () => {
     expect(d).toBeGreaterThanOrEqual(0.8 - 1e-3);
   });
 
-  it("enforceRightMasterSymmetry mirrors left from right", () => {
-    const out = enforceRightMasterSymmetry(
+  it("skips lattice snap when enableLattice is false (preserves diagonal)", () => {
+    const out = quantizeFormationGeometry(
       [
-        { id: "r", x: 1.8, y: 0 },
-        { id: "l", x: -1.1, y: 0 },
+        { id: "tip", x: 0.05, y: 2.1 },
+        { id: "l", x: -1.7, y: 0.4 },
+        { id: "r", x: 1.7, y: 0.4 },
       ],
-      0.3
+      {
+        enableLattice: false,
+        enableStaggering: false,
+        enableSymmetry: true,
+      }
     );
-    expect(out.find((p) => p.id === "r")!.x).toBe(1.8);
-    expect(out.find((p) => p.id === "l")!.x).toBe(-1.8);
+    const tip = out.find((p) => p.id === "tip")!;
+    const l = out.find((p) => p.id === "l")!;
+    const r = out.find((p) => p.id === "r")!;
+    expect(tip.x).toBe(0);
+    expect(tip.y).toBeCloseTo(2.1, 2);
+    expect(l.y).toBeCloseTo(0.4, 2);
+    expect(r.x).toBeCloseTo(-l.x, 2);
   });
 });
