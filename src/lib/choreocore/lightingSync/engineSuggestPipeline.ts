@@ -35,6 +35,9 @@ import {
   motifRegistry,
   onPresetSelected,
 } from "../engine/formation/motifConsistencyRule";
+import { evaluateMotionDynamics } from "../engine/formation/motionDynamicsEvaluator";
+import { resolveSectionRuleCategory } from "../engine/formation/sectionContextRules";
+import { enforceAndEvaluateSymmetry } from "../engine/formation/symmetryGuard";
 import {
   resolveSongSectionV2,
   type StructureResultV2,
@@ -759,13 +762,29 @@ function resolveDistinctLayoutSpots(input: {
     layoutId: LayoutPresetId | null,
     dancers: DancerSpot[]
   ): { layoutId: LayoutPresetId | null; dancers: DancerSpot[] } => {
+    let out = dancers;
+    if (layoutId && out.length > 0) {
+      const category = resolveSectionRuleCategory(
+        classifyLayoutPresetId(layoutId),
+        layoutId
+      );
+      const sym = enforceAndEvaluateSymmetry(
+        out.map((s) => ({ xPct: s.xPct, yPct: s.yPct })),
+        category
+      );
+      out = out.map((s, i) => ({
+        ...s,
+        xPct: sym.enforcedPositions[i]?.xPct ?? s.xPct,
+        yPct: sym.enforcedPositions[i]?.yPct ?? s.yPct,
+      }));
+    }
     if (input.songSection && layoutId) {
       onPresetSelected(
         input.songSection.cluster_id,
         classifyLayoutPresetId(layoutId)
       );
     }
-    return { layoutId, dancers };
+    return { layoutId, dancers: out };
   };
 
   if (input.lockLayoutId) {
@@ -811,6 +830,10 @@ function resolveDistinctLayoutSpots(input: {
       cueIndex: input.cueIndex,
       cueAction: input.cue.action,
       songSection: input.songSection,
+      prevSpotsPct: input.prevSpots.map((s) => ({
+        xPct: s.xPct,
+        yPct: s.yPct,
+      })),
     },
     rankLimit
   );
@@ -874,6 +897,14 @@ function resolveDistinctLayoutSpots(input: {
       if (!fallback) fallback = { layoutId: id, dancers };
       const travelFloor =
         pass === 2 ? MIN_MEAN_TRAVEL_PCT * 0.45 : MIN_MEAN_TRAVEL_PCT;
+      const motion = evaluateMotionDynamics(
+        input.prevSpots.map((s) => ({ xPct: s.xPct, yPct: s.yPct })),
+        dancers.map((s) => ({ xPct: s.xPct, yPct: s.yPct }))
+      );
+      // 局所移動（参加率低）は pass0/1 でスキップ。pass2 はフォールバック許容。
+      if (pass < 2 && motion.movingRatio < 0.35) {
+        continue;
+      }
       if (meanTravelPct(input.prevSpots, dancers) >= travelFloor) {
         return finish(id, dancers);
       }

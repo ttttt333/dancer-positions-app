@@ -324,6 +324,8 @@ export type PickLayoutPresetInput = {
   cueAction?: FormationCueAction | string;
   /** song_structure_v2 セクション（モチーフ一貫性・ダイナミクス） */
   songSection?: SongSectionV2;
+  /** 直前 Cue 座標（移動ダイナミクス採点） */
+  prevSpotsPct?: Array<{ xPct: number; yPct: number }>;
 };
 
 /** 連続で同じ「形の系統」にならないためのバケツ */
@@ -497,6 +499,7 @@ function rankedLayoutPool(input: PickLayoutPresetInput): LayoutPresetId[] {
     intentPrimary: input.cueAction,
     demoteNonGolden: true,
     section: input.songSection,
+    prevSpots: input.prevSpotsPct,
   }) as LayoutPresetId[];
 
   if (pool.length === 0) {
@@ -536,6 +539,7 @@ export function rankLayoutPresets(
     intentPrimary: input.cueAction,
     demoteNonGolden: true,
     section: input.songSection,
+    prevSpots: input.prevSpotsPct,
   }) as LayoutPresetId[];
   return ordered.slice(0, Math.max(1, limit));
 }

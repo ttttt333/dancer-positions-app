@@ -10,6 +10,12 @@ import {
   evaluateMotifAndDynamicsScore,
 } from "./motifConsistencyRule";
 import type { SongSectionV2 } from "../../types/songStructure";
+import {
+  evaluateSectionContextScore,
+  resolveSectionRuleCategory,
+} from "./sectionContextRules";
+import { evaluateMotionDynamics } from "./motionDynamicsEvaluator";
+import { enforceAndEvaluateSymmetry } from "./symmetryGuard";
 
 /**
  * プロのダンス演出で多用される「黄金の7大構造」種別
@@ -163,7 +169,34 @@ export function classifyPresetFamily(
 export type GoldenScoreContext = {
   /** song_structure_v2 のセクション（モチーフ / ダイナミクス補正用） */
   section?: SongSectionV2;
+  /** 直前 Cue の座標（%）。移動ダイナミクス評価に使う */
+  prevSpots?: Array<{ xPct: number; yPct: number }>;
+  /** 舞台一辺のメートル（既定 10） */
+  stageSizeMeters?: number;
 };
+
+const DEFAULT_STAGE_M = 10;
+
+/** Position2D（中央原点メートル）→ 舞台 % */
+export function position2DToPct(
+  p: Position2D,
+  stageSizeMeters = DEFAULT_STAGE_M
+): { xPct: number; yPct: number } {
+  return {
+    xPct: 50 + (p.x / stageSizeMeters) * 100,
+    yPct: 50 + (p.y / stageSizeMeters) * 100,
+  };
+}
+
+export function pctToPosition2D(
+  p: { xPct: number; yPct: number },
+  stageSizeMeters = DEFAULT_STAGE_M
+): Position2D {
+  return {
+    x: ((p.xPct - 50) / 100) * stageSizeMeters,
+    y: ((p.yPct - 50) / 100) * stageSizeMeters,
+  };
+}
 
 /**
  * 雛形の幾何／ID から7大構造適合度とスコア補正を返す。
@@ -255,6 +288,42 @@ export function scorePresetAgainstGoldenRules<T extends LayoutPresetCandidate>(
         preset.positions
       ),
     });
+
+    // 1. セクション演出ルール (OUTROでのGRID排除・キメ隊形優遇)
+    const sectionCategory = resolveSectionRuleCategory(familyType, preset.id);
+    scoreAdjustment += evaluateSectionContextScore(
+      context.section.label,
+      sectionCategory
+    );
+  }
+
+  const stageM = context?.stageSizeMeters ?? DEFAULT_STAGE_M;
+  const sectionCategory = resolveSectionRuleCategory(familyType, preset.id);
+
+  // 2. 移動ダイナミクス (2人しか動かない静止提案のペナルティ)
+  if (
+    context?.prevSpots &&
+    context.prevSpots.length > 0 &&
+    preset.positions &&
+    preset.positions.length === context.prevSpots.length
+  ) {
+    const candPct = preset.positions.map((p) => position2DToPct(p, stageM));
+    const motion = evaluateMotionDynamics(
+      context.prevSpots,
+      candPct,
+      stageM
+    );
+    scoreAdjustment += motion.scoreAdjustment;
+  }
+
+  // 3. シンメトリー強制補正と歪み採点
+  if (preset.positions && preset.positions.length > 0) {
+    const asPct = preset.positions.map((p) => position2DToPct(p, stageM));
+    const sym = enforceAndEvaluateSymmetry(asPct, sectionCategory);
+    scoreAdjustment += sym.scoreAdjustment;
+    preset.positions = sym.enforcedPositions.map((p) =>
+      pctToPosition2D(p, stageM)
+    ) as T["positions"];
   }
 
   return {
@@ -282,14 +351,17 @@ export function orderLayoutsByGoldenPreference(
     mode?: "stable" | "score";
     /** song_structure_v2 セクション（モチーフ一貫性・ダイナミクス） */
     section?: SongSectionV2;
+    /** 直前 Cue 座標（移動ダイナミクス。positions 付き採点時のみ有効） */
+    prevSpots?: Array<{ xPct: number; yPct: number }>;
   }
 ): string[] {
   const demote = opts?.demoteNonGolden !== false;
   const mode =
     opts?.mode ?? (opts?.section ? "score" : "stable");
-  const scoreCtx: GoldenScoreContext | undefined = opts?.section
-    ? { section: opts.section }
-    : undefined;
+  const scoreCtx: GoldenScoreContext | undefined =
+    opts?.section || opts?.prevSpots
+      ? { section: opts?.section, prevSpots: opts?.prevSpots }
+      : undefined;
 
   if (!demote && mode === "stable" && !opts?.section) return [...layoutIds];
 

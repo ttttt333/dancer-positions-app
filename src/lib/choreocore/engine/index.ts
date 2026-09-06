@@ -209,6 +209,14 @@ export {
   registerClusterMotif,
 } from "./formation/motifConsistencyRule";
 export type { MotifRuleContext } from "./formation/motifConsistencyRule";
+export { evaluateSectionContextScore, resolveSectionRuleCategory } from "./formation/sectionContextRules";
+export { evaluateMotionDynamics } from "./formation/motionDynamicsEvaluator";
+export type { MotionDynamicsResult } from "./formation/motionDynamicsEvaluator";
+export {
+  enforceAndEvaluateSymmetry,
+  isSymmetricFormationCategory,
+} from "./formation/symmetryGuard";
+export type { Point2DPct as SymmetryPoint2DPct } from "./formation/symmetryGuard";
 export type {
   FormationIntelligenceReport,
   FormationRecommendation,
