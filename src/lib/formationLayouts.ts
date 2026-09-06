@@ -13,6 +13,10 @@ import {
 } from "./formationLayoutPresetsExtra";
 import { getPresetTier } from "./formationPresetTiers";
 import { minCostBipartiteAssignment } from "./minCostAssignment";
+import {
+  generateStructuredPyramid,
+  generateStructuredStaggered,
+} from "./choreocore/engine/formation/rowDistribution";
 
 /**
  * 場ミリ規格を `dancersForLayoutPreset` / `dancersWithPresetAndWingSurplus`
@@ -901,35 +905,9 @@ export function dancersForLayoutPreset(
       break;
     }
     case "pyramid": {
-      /** rowCounts[0] が最前列（客席側・y 大）。以降、奥へ 1 行ずつ。 */
-      const rowCounts = pyramidFrontOneGrowingRowCounts(n);
-      const nr = rowCounts.length;
-      /**
-       * 各行 r は「本来 (r+1) 人並ぶ幅」を占める想定で配置する。
-       * これで奥の行ほど横幅が広がり、実人数が仮想枠より少ない行では
-       * その枠の中に等間隔で均等配置されるため三角形のシルエットを保てる。
-       */
-      const maxVirtualW = nr;
-      const maxHalfWidth = 32;
-      const stepCap =
-        maxVirtualW > 1 ? (maxHalfWidth * 2) / (maxVirtualW - 1) : TARGET_STEP_X;
-      const step = Math.min(TARGET_STEP_X, stepCap);
-      let idx = 0;
-      for (let r = 0; r < nr; r++) {
-        const cnt = rowCounts[r]!;
-        const virtualW = r + 1;
-        const y = yPctPyramidRow(nr - 1 - r, nr);
-        /** 仮想枠の幅（％）。この行が本来並ぶ左右幅。 */
-        const span = step * (virtualW - 1);
-        if (cnt === 1) {
-          pushSpot(out, idx++, 50, y);
-        } else {
-          /** 実人数 cnt を仮想枠の中に等間隔で展開する */
-          for (let j = 0; j < cnt; j++) {
-            const x = 50 - span / 2 + (span / (cnt - 1)) * j;
-            pushSpot(out, idx++, x, y);
-          }
-        }
+      const pts = generateStructuredPyramid(n);
+      for (let i = 0; i < pts.length; i += 1) {
+        pushSpot(out, i, pts[i]!.xPct, pts[i]!.yPct);
       }
       break;
     }
@@ -1003,16 +981,17 @@ export function dancersForLayoutPreset(
       break;
     }
     case "stagger": {
-      const rows = 2;
-      const per = Math.ceil(n / rows);
-      const xs = evenSpacingPositions(per, 50, TARGET_STEP_X, 12, 88);
-      /** 千鳥: 手前列（客席寄り・y 大）を横に半ステップずらす */
-      for (let i = 0; i < n; i++) {
-        const r = i % rows;
-        const col = Math.floor(i / rows);
-        const offset = r === 1 ? TARGET_STEP_X / 2 : 0;
-        /** 奥行きを確保（名前が○の下のときの重なり防止） */
-        pushSpot(out, i, (xs[col] ?? 50) + offset, r === 0 ? 30 : 60);
+      const pts = generateStructuredStaggered(n);
+      for (let i = 0; i < pts.length; i += 1) {
+        pushSpot(out, i, pts[i]!.xPct, pts[i]!.yPct);
+      }
+      break;
+    }
+    case "two_rows": {
+      // 2列も黄金行配分テーブル（同人数は半ピッチ千鳥）を共有
+      const pts = generateStructuredStaggered(n);
+      for (let i = 0; i < pts.length; i += 1) {
+        pushSpot(out, i, pts[i]!.xPct, pts[i]!.yPct);
       }
       break;
     }
@@ -1063,20 +1042,6 @@ export function dancersForLayoutPreset(
 
       for (let j = 0; j < nFront; j++) {
         pushSpot(out, idx++, xsFront[j] ?? 50, yFront);
-      }
-      break;
-    }
-    case "two_rows": {
-      const front = Math.ceil(n / 2);
-      const back = n - front;
-      const xsFront = evenSpacingPositions(front, 50, TARGET_STEP_X, 10, 90);
-      const xsBack = evenSpacingPositions(back, 50, TARGET_STEP_X, 12, 88);
-      for (let i = 0; i < n; i++) {
-        const isFront = i < front;
-        const idx = isFront ? i : i - front;
-        const x = isFront ? xsFront[idx]! : (xsBack[idx] ?? 50);
-        const y = isFront ? 62 : 28;
-        pushSpot(out, i, x, y);
       }
       break;
     }
