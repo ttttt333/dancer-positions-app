@@ -16,6 +16,14 @@ import {
   EXTRA_LAYOUT_PRESET_OPTIONS,
   tryApplyExtraLayoutPreset,
 } from "./formationLayoutPresetsExtra";
+import {
+  GALLERY_LAYOUT_PRESET_OPTIONS,
+  tryApplyGalleryLayoutPreset,
+} from "./formationLayoutPresetsGallery";
+import {
+  COMPOSITE_LAYOUT_PRESET_OPTIONS,
+  tryApplyCompositeLayoutPreset,
+} from "./formationLayoutPresetsComposite";
 import { getPresetTier } from "./formationPresetTiers";
 import { minCostBipartiteAssignment } from "./minCostAssignment";
 import {
@@ -641,6 +649,8 @@ export const LAYOUT_PRESET_OPTIONS = [
   { id: "m_shape_deep", label: "M字形（深）" },
   { id: "fan_360", label: "360°扇形（全周）" },
   ...EXTRA_LAYOUT_PRESET_OPTIONS,
+  ...GALLERY_LAYOUT_PRESET_OPTIONS,
+  ...COMPOSITE_LAYOUT_PRESET_OPTIONS,
 ] as const;
 
 export type LayoutPresetId = (typeof LAYOUT_PRESET_OPTIONS)[number]["id"];
@@ -704,6 +714,12 @@ export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
       "m_shape",
       "m_shape_wide",
       "m_shape_deep",
+      "gallery_twin_peaks",
+      "gallery_twin_peaks_wide",
+      "gallery_dense_m_base",
+      "gallery_w_layered",
+      "gallery_flat_pyramid",
+      "gallery_front_pair_back_wide",
     ],
   },
   {
@@ -741,6 +757,7 @@ export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
       "extra_triple_line_back",
       "extra_parallel_3",
       "extra_parallel_4",
+      "gallery_slant_block",
     ],
   },
   {
@@ -761,6 +778,11 @@ export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
       "front_stair_from_11",
       "extra_stair_inv_3",
       "extra_stair_inv_4",
+      "gallery_back_taper_3",
+      "gallery_back_taper_4",
+      "gallery_mid_heavy_3",
+      "gallery_trapezoid_2",
+      "gallery_trapezoid_arc",
     ],
   },
   {
@@ -811,6 +833,8 @@ export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
       "columns_11",
       "columns_12",
       "column_pair",
+      "gallery_pointed_col_up",
+      "gallery_pointed_col_down",
     ],
   },
   {
@@ -839,6 +863,7 @@ export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
       "extra_horseshoe_tight",
       "extra_c_shape",
       "extra_c_shape_open",
+      "gallery_u_square",
       "concentric",
     ],
   },
@@ -863,6 +888,7 @@ export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
       "extra_wings_only",
       "wing_spread",
       "bracket_lr",
+      "gallery_twin_pyramids",
     ],
   },
   {
@@ -937,6 +963,31 @@ export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
       "s_curve",
       "u_deep",
       "fan_360",
+    ],
+  },
+  {
+    label: "複合・グループ",
+    ids: [
+      "comp_dense_inv_triangle",
+      "comp_wings_diamond",
+      "comp_wings_wedge",
+      "comp_edge_diag_caps",
+      "comp_diag_pair_accents",
+      "comp_grid_column",
+      "comp_grid_heart_column",
+      "comp_grid_x",
+      "comp_dual_stagger",
+      "comp_chorus_front_pair",
+      "comp_chorus_front_solo",
+      "comp_flank_frontline",
+      "comp_flank_midline",
+      "comp_backblock_sides_point",
+      "comp_twin_blocks_line",
+      "comp_twin_blocks_pyramid",
+      "comp_t_layout",
+      "comp_fan_focal",
+      "comp_triple_inv_vee",
+      "comp_tilt_block_wing",
     ],
   },
 ];
@@ -2829,7 +2880,11 @@ export function dancersForLayoutPreset(
       break;
     }
     default: {
-      if (!tryApplyExtraLayoutPreset(preset, n, out)) {
+      if (
+        !tryApplyExtraLayoutPreset(preset, n, out) &&
+        !tryApplyGalleryLayoutPreset(preset, n, out) &&
+        !tryApplyCompositeLayoutPreset(preset, n, out)
+      ) {
         for (let i = 0; i < n; i++) {
           const x = n === 1 ? 50 : 12 + ((76 * i) / (n - 1 || 1));
           pushSpot(out, i, x, 44);
