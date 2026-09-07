@@ -11,6 +11,7 @@ import {
   listStagePresets,
   renameStagePreset,
   saveStagePreset,
+  STAGE_PRESETS_CHANGE_EVENT,
   updateStagePreset,
   type StagePresetItem,
 } from "../lib/stagePresets";
@@ -431,6 +432,13 @@ export function StageDimensionFields({
   const [presets, setPresets] = useState<StagePresetItem[]>(() => listStagePresets());
   const reloadPresets = useCallback(() => setPresets(listStagePresets()), []);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onChange = () => reloadPresets();
+    window.addEventListener(STAGE_PRESETS_CHANGE_EVENT, onChange);
+    return () => window.removeEventListener(STAGE_PRESETS_CHANGE_EVENT, onChange);
+  }, [reloadPresets]);
+
 
   const applyPreset = useCallback((p: StagePresetItem) => {
     setDraft({

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { LayoutPresetId } from "../lib/formationLayouts";
 import {
+  FORMATION_PRESET_FAVORITES_CHANGE_EVENT,
   FORMATION_PRESET_FAVORITES_STORAGE_KEY,
   loadFormationPresetFavoriteIds,
   saveFormationPresetFavoriteIds,
@@ -17,12 +18,17 @@ export function useFormationPresetFavorites() {
   const [favoritesOnly, setFavoritesOnly] = useState(false);
 
   useEffect(() => {
+    const reload = () => setFavoriteIds(loadFormationPresetFavoriteIds());
     const onStorage = (e: StorageEvent) => {
       if (e.key !== FORMATION_PRESET_FAVORITES_STORAGE_KEY) return;
-      setFavoriteIds(loadFormationPresetFavoriteIds());
+      reload();
     };
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    window.addEventListener(FORMATION_PRESET_FAVORITES_CHANGE_EVENT, reload);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(FORMATION_PRESET_FAVORITES_CHANGE_EVENT, reload);
+    };
   }, []);
 
   const favoriteSet = useMemo(() => new Set<string>(favoriteIds), [favoriteIds]);

@@ -2,6 +2,7 @@ import { Component, Fragment, type ReactNode, type ErrorInfo, useState, useEffec
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { AuthProvider } from "./context/AuthContext";
+import { useUserLibraryCloudSync } from "./hooks/useUserLibraryCloudSync";
 import { DashboardPage } from "./pages/DashboardPage";
 import { EditorPage } from "./pages/EditorPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -250,6 +251,11 @@ function MobileEditorRoute() {
   );
 }
 
+function UserLibraryCloudSyncBridge() {
+  useUserLibraryCloudSync();
+  return null;
+}
+
 function AppShell() {
   const location = useLocation();
   const hideFloatingLocale =
@@ -262,6 +268,7 @@ function AppShell() {
       {!hideFloatingLocale ? <LanguageSwitcher variant="floating" /> : null}
       <div className="app-shell">
         <AuthProvider>
+          <UserLibraryCloudSyncBridge />
           <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/login" element={<LoginPage />} />
