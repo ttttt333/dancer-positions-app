@@ -1,12 +1,26 @@
 /**
  * ステージ情報プリセット — よく使う舞台寸法（メイン幅・奥行・サイド・バック・
- * センターからの場ミリ）を名前付きで `localStorage` に保存するライブラリ。
+ * センターからの場ミリ）を名前付きで保存するライブラリ。
  *
- * プロジェクト毎に毎回手で入力し直さなくて済むよう、端末横断のグローバル倉庫として扱う。
+ * プロジェクト毎に毎回手で入力し直さなくて済むよう、作品横断のグローバル倉庫として扱う。
+ * ログイン時は `userLibrarySync` 経由でクラウドと端末間同期する。
  */
 
-const STORAGE_KEY = "choreogrid_stage_presets_v1";
+export const STAGE_PRESETS_STORAGE_KEY = "choreogrid_stage_presets_v1";
+const STORAGE_KEY = STAGE_PRESETS_STORAGE_KEY;
 const MAX_NAME_LEN = 120;
+
+/** 同一タブでプリセット変更を購読するときのイベント名 */
+export const STAGE_PRESETS_CHANGE_EVENT = "stagePresets:changed";
+
+function notifyChanged(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.dispatchEvent(new Event(STAGE_PRESETS_CHANGE_EVENT));
+  } catch {
+    /* ignore */
+  }
+}
 
 export type StagePresetDimensions = {
   stageWidthMm: number | null;
@@ -86,6 +100,7 @@ function writeAll(items: StagePresetItem[]): void {
   if (typeof localStorage === "undefined") return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    notifyChanged();
   } catch (e) {
     if (
       typeof DOMException !== "undefined" &&
@@ -224,5 +239,60 @@ export function deleteStagePreset(id: string): void {
     writeAll(list);
   } catch {
     /* quota は削除なら起きない想定 */
+  }
+}
+
+export type StagePresetMergeResult = {
+  added: number;
+  updated: number;
+  changed: boolean;
+};
+
+function normalizeItem(item: StagePresetItem): StagePresetItem {
+  return {
+    ...item,
+    name: (item.name || "").slice(0, MAX_NAME_LEN),
+    stageWidthMm: normalizeDim(item.stageWidthMm),
+    stageDepthMm: normalizeDim(item.stageDepthMm),
+    sideStageMm: normalizeDim(item.sideStageMm),
+    backStageMm: normalizeDim(item.backStageMm),
+    centerFieldGuideIntervalMm: normalizeDim(item.centerFieldGuideIntervalMm),
+    createdAt: typeof item.createdAt === "number" ? item.createdAt : Date.now(),
+    updatedAt: typeof item.updatedAt === "number" ? item.updatedAt : Date.now(),
+  };
+}
+
+/** クラウド／バックアップからのマージ（同一 id は新しい updatedAt を採用） */
+export function mergeStagePresetItems(
+  incomingRaw: unknown[]
+): StagePresetMergeResult {
+  const incoming = incomingRaw.filter(isValidItem).map(normalizeItem);
+  if (incoming.length === 0) {
+    return { added: 0, updated: 0, changed: false };
+  }
+  const cur = readAll();
+  const byId = new Map(cur.map((x) => [x.id, x]));
+  let added = 0;
+  let updated = 0;
+  for (const it of incoming) {
+    const existing = byId.get(it.id);
+    if (!existing) {
+      byId.set(it.id, it);
+      added += 1;
+      continue;
+    }
+    if (existing.updatedAt < it.updatedAt) {
+      byId.set(it.id, it);
+      updated += 1;
+    }
+  }
+  if (added === 0 && updated === 0) {
+    return { added: 0, updated: 0, changed: false };
+  }
+  try {
+    writeAll(Array.from(byId.values()));
+    return { added, updated, changed: true };
+  } catch {
+    return { added: -1, updated: 0, changed: false };
   }
 }

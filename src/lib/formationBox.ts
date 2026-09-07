@@ -8,15 +8,16 @@ import {
 import { MAX_DANCERS_PER_FORMATION } from "./dancerCountLimits";
 
 /**
- * 「形の箱（Formation Box）」— ブラウザ内に保存されるユーザ独自の立ち位置ライブラリ。
+ * 「形の箱（Formation Box）」— ユーザ独自の立ち位置ライブラリ。
  *
- * プロジェクト `savedSpotLayouts` とは独立した **端末横断のグローバル倉庫**。
+ * プロジェクト `savedSpotLayouts` とは独立した **作品横断のグローバル倉庫**。
  * 3 人〜任意人数の形をどんどん放り込んで、別プロジェクトでも再利用できる。
  *
- * 保管先は `localStorage`（5MB quota で十分、同期不要）。
+ * 保管先は `localStorage`。ログイン時は `userLibrarySync` 経由でクラウドと端末間同期する。
  */
 
-const STORAGE_KEY = "choreogrid_formation_box_v1";
+export const FORMATION_BOX_STORAGE_KEY = "choreogrid_formation_box_v1";
+const STORAGE_KEY = FORMATION_BOX_STORAGE_KEY;
 /** 1 形あたりのダンサー上限（1 形が極端に大きくなりすぎるのを防ぐ安全ガード） */
 const MAX_DANCERS = MAX_DANCERS_PER_FORMATION;
 
@@ -637,6 +638,53 @@ export function exportFormationBoxJson(): string {
   return JSON.stringify({ version: 1, items: listFormationBoxItems() }, null, 2);
 }
 
+export type FormationBoxMergeResult = {
+  /** 新規 id として増えた件数 */
+  added: number;
+  /** 既存 id が新しい版で上書きされた件数 */
+  updated: number;
+  /** localStorage への書き込みが発生したか */
+  changed: boolean;
+};
+
+/**
+ * 別ソース（バックアップ・クラウド）の形を ID でマージする。
+ * 同一 id は `updatedAt` が新しい方を採用。削除の tombstone は無い（v1）。
+ */
+export function mergeFormationBoxItems(
+  incomingRaw: unknown[]
+): FormationBoxMergeResult {
+  const incoming = incomingRaw.filter(isValidItem).map(normalize);
+  if (incoming.length === 0) {
+    return { added: 0, updated: 0, changed: false };
+  }
+  const cur = safeParseAll();
+  const byId = new Map(cur.map((x) => [x.id, x]));
+  let added = 0;
+  let updated = 0;
+  for (const it of incoming) {
+    const existing = byId.get(it.id);
+    if (!existing) {
+      byId.set(it.id, it);
+      added += 1;
+      continue;
+    }
+    if (existing.updatedAt < it.updatedAt) {
+      byId.set(it.id, it);
+      updated += 1;
+    }
+  }
+  if (added === 0 && updated === 0) {
+    return { added: 0, updated: 0, changed: false };
+  }
+  try {
+    writeAll(Array.from(byId.values()));
+    return { added, updated, changed: true };
+  } catch {
+    return { added: -1, updated: 0, changed: false };
+  }
+}
+
 /**
  * JSON テキストから取り込み。重複は ID でマージ（新しい方を採用）。
  * 追加件数を返す（容量不足やエラー時は負値）。
@@ -646,24 +694,7 @@ export function importFormationBoxJson(jsonText: string): number {
     const parsed = JSON.parse(jsonText);
     const items = Array.isArray(parsed?.items) ? parsed.items : parsed;
     if (!Array.isArray(items)) return 0;
-    const incoming = items.filter(isValidItem).map(normalize);
-    if (incoming.length === 0) return 0;
-    const cur = safeParseAll();
-    const byId = new Map(cur.map((x) => [x.id, x]));
-    let added = 0;
-    for (const it of incoming) {
-      const existing = byId.get(it.id);
-      if (!existing || existing.updatedAt < it.updatedAt) {
-        byId.set(it.id, it);
-        if (!existing) added += 1;
-      }
-    }
-    try {
-      writeAll(Array.from(byId.values()));
-      return added;
-    } catch {
-      return -1;
-    }
+    return mergeFormationBoxItems(items).added;
   } catch {
     return 0;
   }
