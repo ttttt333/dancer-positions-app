@@ -62,6 +62,31 @@ export function resolveArrangeTargetIds(
 }
 
 /**
+ * 選んだちょうど 2 人の立ち位置（xPct / yPct）を交換する。
+ * 人の属性（名前・色・向きなど）はそのまま、座標だけ入れ替える。
+ */
+export function swapTwoDancerPositions(
+  dancers: DancerSpot[],
+  targetIds: string[]
+): DancerSpot[] {
+  if (targetIds.length !== 2) return dancers;
+  const [idA, idB] = targetIds;
+  if (!idA || !idB || idA === idB) return dancers;
+  const a = dancers.find((d) => d.id === idA);
+  const b = dancers.find((d) => d.id === idB);
+  if (!a || !b) return dancers;
+  const ax = clampPct(a.xPct);
+  const ay = clampPct(a.yPct);
+  const bx = clampPct(b.xPct);
+  const by = clampPct(b.yPct);
+  return dancers.map((d) => {
+    if (d.id === idA) return { ...d, xPct: bx, yPct: by };
+    if (d.id === idB) return { ...d, xPct: ax, yPct: ay };
+    return d;
+  });
+}
+
+/**
  * 選択メンバーを重心まわりの角度で並べ、各スロットを右回り／左回りに 1 つずつずらす。
  */
 export function rotateDancerRingOneStep(

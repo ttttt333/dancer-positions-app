@@ -4,6 +4,7 @@ import {
   applyPositionSort,
   formatPositionSortPreview,
   permuteSlotsByHeightAsc,
+  swapTwoDancerPositions,
 } from "./stageSelectionArrange";
 
 function spot(
@@ -14,6 +15,36 @@ function spot(
 ): DancerSpot {
   return { id, label: id, xPct, yPct, colorIndex: 0, ...extra };
 }
+
+describe("swapTwoDancerPositions", () => {
+  it("exchanges x/y for exactly two dancers and keeps identity", () => {
+    const dancers = [
+      spot("a", 20, 30, { label: "A", facingDeg: 90 }),
+      spot("b", 80, 70, { label: "B", facingDeg: 180 }),
+      spot("c", 50, 50, { label: "C" }),
+    ];
+    const next = swapTwoDancerPositions(dancers, ["a", "b"]);
+    expect(next.find((d) => d.id === "a")).toMatchObject({
+      xPct: 80,
+      yPct: 70,
+      label: "A",
+      facingDeg: 90,
+    });
+    expect(next.find((d) => d.id === "b")).toMatchObject({
+      xPct: 20,
+      yPct: 30,
+      label: "B",
+      facingDeg: 180,
+    });
+    expect(next.find((d) => d.id === "c")).toEqual(dancers[2]);
+  });
+
+  it("no-ops unless exactly two ids", () => {
+    const dancers = [spot("a", 10, 10), spot("b", 90, 90)];
+    expect(swapTwoDancerPositions(dancers, ["a"])).toEqual(dancers);
+    expect(swapTwoDancerPositions(dancers, ["a", "b", "a"])).toEqual(dancers);
+  });
+});
 
 describe("applyPositionSort", () => {
   it("all + height + asc matches the old slot permute", () => {

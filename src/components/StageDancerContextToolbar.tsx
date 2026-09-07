@@ -37,6 +37,7 @@ import {
   tidyActionLabel,
   type StageTidyAction,
 } from "../lib/stageTidyActions";
+import { swapTwoDancerPositions } from "../lib/stageSelectionArrange";
 import { StageFormationShapeCards } from "./StageFormationShapeCards";
 import { StageFormationRanksPanel } from "./StageFormationRanksPanel";
 import { StageSelectionArrangePanel } from "./StageSelectionArrangePanel";
@@ -847,6 +848,29 @@ export function StageDancerContextToolbar({
                 onClick={() => setOpen((v) => (v === "sort" ? null : "sort"))}
               >
                 並べ替え
+              </button>
+            ) : null}
+            {multiEdit &&
+            selectedCount === 2 &&
+            onPermuteSelection ? (
+              <button
+                type="button"
+                data-swap-pair
+                style={{
+                  ...btn,
+                  borderColor: "rgba(56,189,248,0.9)",
+                  background: "rgba(14,165,233,0.18)",
+                  color: "#e0f2fe",
+                  fontWeight: 700,
+                }}
+                title="選んだ2人の立ち位置を交換（Shift/⌘で2人選択、ショートカット X）"
+                onClick={() =>
+                  onPermuteSelection((dancers, ids) =>
+                    swapTwoDancerPositions(dancers, ids)
+                  )
+                }
+              >
+                交換
               </button>
             ) : null}
             {multiEdit && setProject && applyBulkColorToDancerIds ? (

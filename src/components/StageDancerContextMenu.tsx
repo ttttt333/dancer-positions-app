@@ -16,6 +16,7 @@ import {
   permuteSlotsBySkillDesc,
   resolveArrangeTargetIds,
   rotateDancerRingOneStep,
+  swapTwoDancerPositions,
 } from "../lib/stageSelectionArrange";
 import {
   clusterSelectionColumns,
@@ -746,6 +747,43 @@ menuInteractionDisabled
       上手 ⇄ 下手
     </button>
   </div>
+  <div
+    style={{
+      fontSize: "9px",
+      fontWeight: 600,
+      color: "#94a3b8",
+      margin: "2px 0 1px",
+    }}
+  >
+    2人の立ち位置を交換
+  </div>
+  <button
+    type="button"
+    style={{
+      ...btnSecondary,
+      width: "100%",
+      fontSize: "9px",
+      padding: "5px 6px",
+      textAlign: "center",
+      marginBottom: "5px",
+      opacity: selectedDancerIds.length === 2 ? 1 : 0.55,
+    }}
+    title="ちょうど2人を選択して交換"
+    onClick={() => {
+      const ids = resolveArrangeTargetIds(
+        anchorDancerId,
+        selectedDancerIds
+      );
+      if (ids.length !== 2) {
+        window.alert("立ち位置の交換は、ちょうど 2 人を選んでください。");
+        onCloseMenu();
+        return;
+      }
+      applyDancerArrange((dancers, t) => swapTwoDancerPositions(dancers, t));
+    }}
+  >
+    立ち位置を交換
+  </button>
   <div
     style={{
       fontSize: "9px",

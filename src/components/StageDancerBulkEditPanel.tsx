@@ -6,6 +6,7 @@ import {
   positionSortDirectionLabels,
   resolveArrangeTargetIds,
   rotateDancerRingOneStep,
+  swapTwoDancerPositions,
   type PositionSortAxis,
   type PositionSortDirection,
   type PositionSortScope,
@@ -345,6 +346,28 @@ export function StageDancerBulkEditPanel({
             <p style={sectionHint}>選択範囲の左右を反転します。前後（Y）は動きません。</p>
             <ActionButton disabled={menuInteractionDisabled} onClick={runKamiteShimoteSwap}>
               上手 ⇄ 下手
+            </ActionButton>
+          </div>
+
+          <div style={{ ...card, marginBottom: 0 }}>
+            <div style={sectionTitle}>2人の立ち位置を交換</div>
+            <p style={sectionHint}>
+              Shift / ⌘ クリックでちょうど 2 人を選び、立ち位置だけ入れ替えます。
+            </p>
+            <ActionButton
+              disabled={menuInteractionDisabled || targetIds.length !== 2}
+              title="選んだ2人の立ち位置を交換"
+              onClick={() => {
+                if (targetIds.length !== 2) {
+                  window.alert("立ち位置の交換は、ちょうど 2 人を選んでください。");
+                  return;
+                }
+                applyDancerArrange((dancers, t) =>
+                  swapTwoDancerPositions(dancers, t)
+                );
+              }}
+            >
+              立ち位置を交換
             </ActionButton>
           </div>
 

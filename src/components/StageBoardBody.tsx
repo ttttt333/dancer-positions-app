@@ -51,7 +51,7 @@ import {
   effectiveNameBelowFontPx,
   stableDancerMarkerPxForNameFont,
 } from "../lib/stageNameBelowFontSizing";
-import { resolveArrangeTargetIds } from "../lib/stageSelectionArrange";
+import { resolveArrangeTargetIds, swapTwoDancerPositions } from "../lib/stageSelectionArrange";
 import {
   alignSelectedDancers,
   distributeSelectedDancers,
@@ -4733,6 +4733,47 @@ export function StageBoardBody({
     },
     [selectedDancerIds.length, applySelectedArrange],
   );
+
+  const handleSwapSelectedPair = useCallback(() => {
+    if (
+      viewMode === "view" ||
+      playbackOrPreview ||
+      stageInteractionsEnabled === false ||
+      selectedDancerIds.length !== 2
+    ) {
+      return;
+    }
+    applySelectedArrange((dancers, ids) =>
+      swapTwoDancerPositions(dancers, ids)
+    );
+  }, [
+    viewMode,
+    playbackOrPreview,
+    stageInteractionsEnabled,
+    selectedDancerIds.length,
+    applySelectedArrange,
+  ]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "x" && e.key !== "X") return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target;
+      if (
+        t instanceof HTMLElement &&
+        (t.tagName === "INPUT" ||
+          t.tagName === "TEXTAREA" ||
+          t.isContentEditable)
+      ) {
+        return;
+      }
+      if (selectedDancerIds.length !== 2) return;
+      e.preventDefault();
+      handleSwapSelectedPair();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedDancerIds.length, handleSwapSelectedPair]);
 
   const contextMenuStyle: CSSProperties | null = stageContextMenu
     ? computeStageContextMenuStyle(stageContextMenu)

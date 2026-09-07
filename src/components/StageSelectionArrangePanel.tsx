@@ -4,6 +4,7 @@ import {
   applyPositionSort,
   formatPositionSortPreview,
   positionSortDirectionLabels,
+  swapTwoDancerPositions,
   type PositionSortAxis,
   type PositionSortDirection,
   type PositionSortScope,
@@ -95,9 +96,48 @@ export function StageSelectionArrangePanel({
   );
   const dirLabels = positionSortDirectionLabels(axis);
   const canSort = selectedCount >= 2 && !disabled;
+  const canSwapPair = selectedCount === 2 && !disabled;
 
   return (
     <div data-selection-arrange-panel>
+      <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
+        <div style={{ ...dockSectionTitle, marginBottom: 6 }}>2人の立ち位置を交換</div>
+        <p
+          style={{
+            margin: "0 0 8px",
+            color: "#94a3b8",
+            fontSize: 11,
+            lineHeight: 1.4,
+          }}
+        >
+          Shift / ⌘ クリックで2人を選び、「交換」を押します。
+        </p>
+        <button
+          type="button"
+          disabled={!canSwapPair}
+          title={
+            canSwapPair
+              ? "選んだ2人の立ち位置を入れ替える"
+              : "ちょうど2人を選択してください"
+          }
+          style={{
+            ...actionBtn,
+            opacity: canSwapPair ? 1 : 0.55,
+            borderColor: canSwapPair
+              ? "rgba(56,189,248,0.85)"
+              : undefined,
+            background: canSwapPair ? "rgba(14,165,233,0.18)" : undefined,
+            color: canSwapPair ? "#e0f2fe" : undefined,
+            fontWeight: 700,
+          }}
+          onClick={() =>
+            onPermute((dancers, ids) => swapTwoDancerPositions(dancers, ids))
+          }
+        >
+          立ち位置を交換
+        </button>
+      </div>
+
       <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
         <div style={{ ...dockSectionTitle, marginBottom: 8 }}>属性で並べ替え</div>
         <div style={{ marginBottom: 8 }}>
