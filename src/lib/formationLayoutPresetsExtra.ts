@@ -227,6 +227,7 @@ export type ExtraLayoutPresetId =
   (typeof EXTRA_LAYOUT_PRESET_OPTIONS)[number]["id"];
 
 export const EXTRA_PRESET_CATEGORY = {
+  /** @deprecated UI では系統カテゴリへ埋め込み済み。ID 一覧の参照用に残す */
   label: "✨ 追加Vol.2",
   ids: EXTRA_LAYOUT_PRESET_OPTIONS.map((o) => o.id),
 } as const;

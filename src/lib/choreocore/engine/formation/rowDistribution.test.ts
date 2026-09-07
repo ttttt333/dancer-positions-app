@@ -36,11 +36,11 @@ describe("rowDistribution golden tables", () => {
     5: [1, 2, 2],
     6: [1, 2, 3],
     7: [1, 2, 4],
-    8: [1, 3, 4],
-    9: [1, 3, 5],
-    10: [1, 4, 5],
+    8: [1, 2, 5],
+    9: [1, 2, 3, 3],
+    10: [1, 2, 3, 4],
     15: [1, 2, 3, 4, 5],
-    17: [1, 2, 3, 5, 6],
+    17: [1, 2, 3, 4, 7],
     21: [1, 2, 3, 4, 5, 6],
   };
 
@@ -81,9 +81,11 @@ describe("rowDistribution golden tables", () => {
     }
   });
 
-  it("pyramidFallbackRowSplit never returns even 3-slab for 17", () => {
-    expect(pyramidFallbackRowSplit(17)).toEqual([1, 2, 3, 5, 6]);
+  it("pyramidFallbackRowSplit keeps triangle base and puts extras on the back", () => {
+    expect(pyramidFallbackRowSplit(10)).toEqual([1, 2, 3, 4]);
+    expect(pyramidFallbackRowSplit(17)).toEqual([1, 2, 3, 4, 7]);
     expect(pyramidFallbackRowSplit(17)).not.toEqual([5, 6, 6]);
+    expect(pyramidFallbackRowSplit(17)).not.toEqual([1, 4, 5]);
   });
 });
 
@@ -111,43 +113,65 @@ describe("generateStructuredStaggered / Pyramid occlusion", () => {
         expect(new Set(xs).size).toBe(xs.length);
       }
 
-      // ピラミッドは先端〜センター縦並びが意図的。それ以外の視線被りは 0。
-      const sorted = [...pts].sort((a, b) => b.yPct - a.yPct);
-      const frontY = sorted[0]!.yPct;
-      const frontRow = sorted.filter((p) => p.yPct === frontY);
-      const apex =
-        frontRow.length === 1 ? frontRow[0]! : null;
-
+      // 隣接する前後列だけ見る（三角形の斜辺上で祖父列と近づくのは許容）
+      const ys = [...new Set(pts.map((p) => p.yPct))].sort((a, b) => b - a);
       let bad = 0;
-      for (let i = 0; i < sorted.length; i += 1) {
-        const front = sorted[i]!;
-        for (let j = i + 1; j < sorted.length; j += 1) {
-          const back = sorted[j]!;
-          if (front.yPct - back.yPct < 5) continue;
-          if (Math.abs(front.xPct - back.xPct) >= 5) continue;
-          const isApexCenter =
-            apex != null &&
-            front === apex &&
-            Math.abs(back.xPct - 50) < 1;
-          if (!isApexCenter) bad += 1;
+      for (let ri = 0; ri < ys.length - 1; ri += 1) {
+        const frontRow = pts.filter((p) => p.yPct === ys[ri]!);
+        const backRow = pts.filter((p) => p.yPct === ys[ri + 1]!);
+        for (const front of frontRow) {
+          for (const back of backRow) {
+            if (Math.abs(front.xPct - back.xPct) >= 3.5) continue;
+            const onCenterline =
+              Math.abs(front.xPct - 50) < 1 && Math.abs(back.xPct - 50) < 1;
+            if (!onCenterline) bad += 1;
+          }
         }
       }
       expect(bad).toBe(0);
     }
   });
 
-  it("pyramid layouts for N=17 keep tip front and five growing rows", () => {
-    const pts = generateStructuredPyramid(17);
-    expect(pts).toHaveLength(17);
-    const ys = [...new Set(pts.map((p) => p.yPct))].sort((a, b) => b - a);
-    expect(ys.length).toBe(5);
-    const counts = ys.map(
-      (y) => pts.filter((p) => p.yPct === y).length
-    );
-    expect(counts).toEqual([1, 2, 3, 5, 6]);
-    const tip = pts.filter((p) => p.yPct === ys[0]!);
-    expect(tip).toHaveLength(1);
-    expect(tip[0]!.xPct).toBeCloseTo(50, 0);
+  it("pyramid layouts for N=10 and N=17 stay in a centered triangle", () => {
+    for (const [n, expected] of [
+      [10, [1, 2, 3, 4]],
+      [17, [1, 2, 3, 4, 7]],
+    ] as const) {
+      const pts = generateStructuredPyramid(n);
+      expect(pts).toHaveLength(n);
+      const ys = [...new Set(pts.map((p) => p.yPct))].sort((a, b) => b - a);
+      expect(ys.length).toBe(expected.length);
+      const counts = ys.map(
+        (y) => pts.filter((p) => p.yPct === y).length
+      );
+      expect(counts).toEqual([...expected]);
+
+      const tip = pts.filter((p) => p.yPct === ys[0]!);
+      expect(tip).toHaveLength(1);
+      expect(tip[0]!.xPct).toBeCloseTo(50, 0);
+
+      // 各行は左右対称（中心 50）
+      for (const y of ys) {
+        const xs = pts
+          .filter((p) => p.yPct === y)
+          .map((p) => p.xPct)
+          .sort((a, b) => a - b);
+        const mid = (xs[0]! + xs[xs.length - 1]!) / 2;
+        expect(mid).toBeCloseTo(50, 0);
+      }
+
+      // 奥へ向かって横幅が非減少（三角形）
+      let prevSpan = -1;
+      for (const y of ys) {
+        const xs = pts
+          .filter((p) => p.yPct === y)
+          .map((p) => p.xPct);
+        const span =
+          xs.length <= 1 ? 0 : Math.max(...xs) - Math.min(...xs);
+        expect(span).toBeGreaterThanOrEqual(prevSpan - 0.01);
+        prevSpan = span;
+      }
+    }
   });
 
   it("front row (higher y) comes first in row order semantics", () => {

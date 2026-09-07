@@ -37,7 +37,9 @@ export const STAGGERED_ROW_MAP: Record<number, number[]> = {
 
 /**
  * ピラミッド・多層 V: 前列 → 後列（先端が客席側）
- * 人数が多いときも先端=1・奥へ非減少の三角シルエットを保つ。
+ *
+ * 基本は三角数 [1,2,…,k]。余りは最奥行だけに足して三角形の枠に収める。
+ * （途中行を飛ばして [1,4,5] のような段差にしない）
  */
 export const PYRAMID_ROW_MAP: Record<number, number[]> = {
   1: [1],
@@ -47,29 +49,29 @@ export const PYRAMID_ROW_MAP: Record<number, number[]> = {
   5: [1, 2, 2],
   6: [1, 2, 3],
   7: [1, 2, 4],
-  8: [1, 3, 4],
-  9: [1, 3, 5],
-  10: [1, 4, 5],
+  8: [1, 2, 5],
+  9: [1, 2, 3, 3],
+  10: [1, 2, 3, 4],
   11: [1, 2, 3, 5],
-  12: [1, 2, 4, 5],
-  13: [1, 3, 4, 5],
-  14: [1, 3, 5, 5],
+  12: [1, 2, 3, 6],
+  13: [1, 2, 3, 7],
+  14: [1, 2, 3, 4, 4],
   15: [1, 2, 3, 4, 5],
-  16: [1, 2, 3, 5, 5],
-  17: [1, 2, 3, 5, 6],
-  18: [1, 2, 4, 5, 6],
-  19: [1, 3, 4, 5, 6],
+  16: [1, 2, 3, 4, 6],
+  17: [1, 2, 3, 4, 7],
+  18: [1, 2, 3, 4, 8],
+  19: [1, 2, 3, 4, 9],
   20: [1, 2, 3, 4, 5, 5],
   21: [1, 2, 3, 4, 5, 6],
-  22: [1, 2, 3, 4, 6, 6],
-  23: [1, 2, 3, 5, 6, 6],
-  24: [1, 2, 3, 5, 6, 7],
-  25: [1, 2, 4, 5, 6, 7],
-  26: [1, 2, 3, 4, 5, 5, 6],
+  22: [1, 2, 3, 4, 5, 7],
+  23: [1, 2, 3, 4, 5, 8],
+  24: [1, 2, 3, 4, 5, 9],
+  25: [1, 2, 3, 4, 5, 10],
+  26: [1, 2, 3, 4, 5, 11],
   27: [1, 2, 3, 4, 5, 6, 6],
   28: [1, 2, 3, 4, 5, 6, 7],
-  30: [1, 2, 3, 4, 5, 7, 8],
-  32: [1, 2, 3, 4, 6, 8, 8],
+  30: [1, 2, 3, 4, 5, 6, 9],
+  32: [1, 2, 3, 4, 5, 6, 11],
 };
 
 /**
@@ -127,64 +129,33 @@ export function fallbackRowSplit(total: number, maxRows: number): number[] {
 }
 
 /**
- * ピラミッド用フォールバック: 先端=1、奥へ向かって増える三角配分。
- * 均等分割（例: 17→[5,6,6]）はピラミッドに見えないので使わない。
+ * ピラミッド用フォールバック: 最大の完全三角 [1..k] に収め、余りは最奥行へ。
+ * 余りが k 以上なら新しい最奥行を開き、極端に太い1列を避ける。
+ * 2列だけが「先端1 + 奥の塊」になる小さ人数は 3 列 [1,2,rest] に落とす。
  */
 export function pyramidFallbackRowSplit(total: number): number[] {
   if (total <= 0) return [];
   if (total === 1) return [1];
   if (total === 2) return [1, 1];
 
-  // 三角数の根 ≈ 行数。薄すぎる列・厚すぎる列を避ける
-  let rowCount = Math.round((Math.sqrt(8 * total + 1) - 1) / 2);
-  rowCount = Math.max(3, Math.min(rowCount, Math.ceil(total / 2.5)));
-  while (rowCount > 3 && total / rowCount < 2.2) rowCount -= 1;
-  while (rowCount < total && total / rowCount > 7.5) rowCount += 1;
+  let k = Math.floor((Math.sqrt(8 * total + 1) - 1) / 2);
+  k = Math.max(2, k);
+  const tri = (k * (k + 1)) / 2;
+  const rem = total - tri;
 
-  for (let k = rowCount; k >= 2; k -= 1) {
-    const counts = Array.from({ length: k }, (_, i) => i + 1);
-    const tri = (k * (k + 1)) / 2;
-    if (tri === total) return counts;
-    if (tri > total) continue;
-
-    let extra = total - tri;
-    // 余りは奥から往復で足す（先端は原則 1 のまま）
-    let i = k - 1;
-    while (extra > 0) {
-      counts[i]! += 1;
-      extra -= 1;
-      i -= 1;
-      if (i < 1) i = k - 1;
-    }
-
-    // シルエット: 先端1・手前→奥で大きく崩れない（急減を均す）
-    counts[0] = 1;
-    for (let r = 1; r < k; r += 1) {
-      if (counts[r]! < counts[r - 1]!) {
-        const need = counts[r - 1]! - counts[r]!;
-        counts[r]! += need;
-        counts[k - 1]! -= need;
-      }
-    }
-    // 奥が負になったら次の行数へ
-    if (counts.some((c) => c <= 0)) continue;
-    if (counts.reduce((a, b) => a + b, 0) !== total) continue;
-    // 奥が極端に飛び出すときは1人ずつ前の列へ戻す
-    while (
-      k >= 3 &&
-      counts[k - 1]! > counts[k - 2]! + 2 &&
-      counts[k - 1]! > counts[0]!
-    ) {
-      counts[k - 1]! -= 1;
-      counts[k - 2]! += 1;
-    }
-    return counts;
+  // 先端1+奥の太い1列だけ、にならないよう 5人以上は最低3列
+  if (k === 2 && rem >= 2 && total >= 5) {
+    return [1, 2, total - 3];
   }
 
-  // 最終手段: 先端1 + 残りを奥寄りの列へ
-  const back = Math.min(4, Math.max(2, Math.ceil((total - 1) / 4)));
-  const rest = fallbackRowSplit(total - 1, back);
-  return [1, ...rest];
+  const base = Array.from({ length: k }, (_, i) => i + 1);
+  if (rem <= 0) return base;
+  // 余りが行数分以上あるときは新行を開く（例: 9→[1,2,3,3], 27→[1..6,6]）
+  if (rem >= k) {
+    return [...base, rem];
+  }
+  base[k - 1]! += rem;
+  return base;
 }
 
 export function resolveRowSplit(
@@ -436,15 +407,118 @@ function generateLayeredFromMap(
 
 /**
  * 明示行配分のピラミッド（先端=最前列=客席側）。
+ * 三角形の横幅枠を奥へ線形に広げ、手前は奥の隙間に載せて左右対称を保つ。
+ * 最奥に余りが乗っても枠内で詰めるためシルエットは三角形のまま。
  */
 export function generateStructuredPyramid(
   dancerCount: number,
   options?: LayeredOptions
 ): Point2DPct[] {
-  return generateLayeredFromMap(PYRAMID_ROW_MAP, dancerCount, 3, {
-    ...options,
-    resolveSplit: resolvePyramidRowSplit,
-  });
+  const rowSplit = resolvePyramidRowSplit(dancerCount);
+  if (rowSplit.length === 0) return [];
+
+  const rowCount = rowSplit.length;
+  const maxCnt = Math.max(...rowSplit);
+  const autoHalf = maxCnt >= 8 ? 40 : maxCnt >= 6 ? 36 : 32;
+  const maxHalf = options?.maxHalfWidthPct ?? autoHalf;
+  const baseRowGap = options?.rowYGapPct ?? GOLDEN_GEOMETRY.ROW_GAP_PCT;
+  const rowYGap =
+    options?.rowYGapPct != null
+      ? baseRowGap
+      : rowCount >= 6
+        ? baseRowGap * 0.85
+        : rowCount >= 5
+          ? baseRowGap * 0.92
+          : baseRowGap;
+  const centerY = options?.centerYPct ?? 48;
+  const frontY = centerY + ((rowCount - 1) * rowYGap) / 2;
+
+  const halfForRow = (r: number) => {
+    if (rowCount <= 1) return maxHalf;
+    return maxHalf * (r / (rowCount - 1));
+  };
+
+  const fillEnvelope = (cnt: number, half: number): number[] => {
+    if (cnt <= 1) return [50];
+    const h = Math.max(half, 6);
+    const step = (h * 2) / (cnt - 1);
+    const start = 50 - h;
+    return Array.from({ length: cnt }, (_, i) => start + i * step);
+  };
+
+  /** 奥の隙間から cnt 個を等間隔インデックスで選び、左右対称の入れ子にする */
+  const nestedInGaps = (behind: number[], cnt: number): number[] => {
+    if (cnt <= 0) return [];
+    if (cnt === 1) return [50];
+    if (behind.length < 2) return fillEnvelope(cnt, 12);
+    const gaps: number[] = [];
+    for (let i = 0; i < behind.length - 1; i += 1) {
+      gaps.push((behind[i]! + behind[i + 1]!) / 2);
+    }
+    if (gaps.length < cnt) {
+      return fillEnvelope(
+        cnt,
+        Math.max(8, (Math.max(...behind) - Math.min(...behind)) / 2)
+      );
+    }
+    let picked: number[];
+    if (gaps.length === cnt) {
+      picked = [...gaps];
+    } else {
+      picked = [];
+      const used = new Set<number>();
+      for (let i = 0; i < cnt; i += 1) {
+        let idx = Math.round((i * (gaps.length - 1)) / (cnt - 1));
+        if (used.has(idx)) {
+          const right = [...Array(gaps.length).keys()].find(
+            (j) => j > idx && !used.has(j)
+          );
+          const left = [...Array(gaps.length).keys()]
+            .reverse()
+            .find((j) => j < idx && !used.has(j));
+          idx = right ?? left ?? idx;
+        }
+        used.add(idx);
+        picked.push(gaps[idx]!);
+      }
+      picked.sort((a, b) => a - b);
+    }
+    const mean = picked.reduce((a, b) => a + b, 0) / cnt;
+    const shift = Math.abs(50 - mean) < 3 ? 50 - mean : 0;
+    // 一列おきに奥の人と縦に重ならないよう、わずかに内側へ縮める
+    const inset = 0.88;
+    return picked.map((x) => 50 + (x + shift - 50) * inset);
+  };
+
+  const pointsByRow: number[][] = new Array(rowCount);
+  const backIdx = rowCount - 1;
+  pointsByRow[backIdx] = fillEnvelope(rowSplit[backIdx]!, halfForRow(backIdx));
+
+  for (let r = backIdx - 1; r >= 0; r -= 1) {
+    const cnt = rowSplit[r]!;
+    const behind = pointsByRow[r + 1]!;
+    if (cnt <= 1) {
+      pointsByRow[r] = [50];
+      continue;
+    }
+    if (cnt < behind.length) {
+      pointsByRow[r] = nestedInGaps(behind, cnt);
+      continue;
+    }
+    pointsByRow[r] = fillEnvelope(cnt, halfForRow(r));
+  }
+
+  const points: Point2DPct[] = [];
+  for (let r = 0; r < rowCount; r += 1) {
+    const y = frontY - r * rowYGap;
+    for (const x of pointsByRow[r]!) {
+      points.push({
+        xPct: Number(x.toFixed(2)),
+        yPct: Number(y.toFixed(2)),
+      });
+    }
+  }
+  return points;
 }
 
 /**
