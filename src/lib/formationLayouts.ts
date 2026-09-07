@@ -315,6 +315,50 @@ function frontAudienceGrowingRowCounts(n: number, firstRow: number): number[] {
   return rows;
 }
 
+/**
+ * 前後が広く中央が細い 3 段配分（例: preferredWing=4, n=11 → [4,3,4]）。
+ * 前後は同人数を優先し、中央は前後より細く保つ。
+ * rowCounts[0]=最前列（客席側）。
+ */
+export function waistBarbellRowCounts(
+  n: number,
+  preferredWing: number
+): number[] {
+  const total = Math.max(0, Math.floor(n));
+  if (total <= 0) return [];
+  if (total === 1) return [1];
+  if (total === 2) return [1, 1];
+  if (total === 3) return [1, 1, 1];
+
+  const want = Math.max(2, Math.floor(preferredWing));
+  // 中央に最低1人残す
+  const maxWing = Math.max(1, Math.floor((total - 1) / 2));
+  let wing = Math.min(want, maxWing);
+  let mid = total - 2 * wing;
+
+  // 中央1人だけは寂しいので、可能な範囲で翼を縮める（例: 9人・翼4 → 3-3-3）
+  if (mid === 1 && wing > 2) {
+    wing -= 1;
+    mid = total - 2 * wing;
+  }
+
+  // 中央が前後以上に太いときは翼を広げて中細にする（例: 12人・翼4 → 5-2-5）
+  // 広げた結果中央が1人以下になるならやめる（例: 9人は 3-3-3 のまま）
+  while (mid >= wing && wing < maxWing) {
+    const nextWing = wing + 1;
+    const nextMid = total - 2 * nextWing;
+    if (nextMid < 2) break;
+    wing = nextWing;
+    mid = nextMid;
+  }
+
+  if (mid < 1) {
+    const a = Math.ceil(total / 2);
+    return [a, total - a];
+  }
+  return [wing, mid, wing];
+}
+
 /** 2分割: 左右/前後で人数差が最大1 */
 function balancedPairSizes(n: number): [number, number] {
   const a = Math.ceil(n / 2);
@@ -426,6 +470,9 @@ export const LAYOUT_PRESET_OPTIONS = [
   { id: "front_stair_from_2", label: "２段" },
   { id: "front_stair_from_3", label: "３段" },
   { id: "front_stair_from_4", label: "４段" },
+  { id: "waist_stair_from_3", label: "３段（中細）" },
+  { id: "waist_stair_from_4", label: "４段（中細・４３４）" },
+  { id: "waist_stair_from_5", label: "５段（中細）" },
   { id: "front_stair_from_5", label: "段の列５（手前5人〜）" },
   { id: "front_stair_from_6", label: "段の列６（手前6人〜）" },
   { id: "front_stair_from_7", label: "段の列７（手前7人〜）" },
@@ -702,6 +749,9 @@ export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
       "front_stair_from_2",
       "front_stair_from_3",
       "front_stair_from_4",
+      "waist_stair_from_3",
+      "waist_stair_from_4",
+      "waist_stair_from_5",
       "front_stair_from_5",
       "front_stair_from_6",
       "front_stair_from_7",
@@ -1157,6 +1207,23 @@ export function dancersForLayoutPreset(
         n,
         Math.max(2, Math.min(11, first))
       );
+      const nr = rowCounts.length;
+      const maxCnt = Math.max(1, ...rowCounts);
+      let idx = 0;
+      for (let r = 0; r < nr; r++) {
+        const cnt = rowCounts[r]!;
+        const y = yPctPyramidRow(nr - 1 - r, nr);
+        for (let j = 0; j < cnt; j++) {
+          pushSpot(out, idx++, xPctInPyramidGrid(j, cnt, maxCnt, nr), y);
+        }
+      }
+      break;
+    }
+    case "waist_stair_from_3":
+    case "waist_stair_from_4":
+    case "waist_stair_from_5": {
+      const wing = parseInt(preset.replace("waist_stair_from_", ""), 10);
+      const rowCounts = waistBarbellRowCounts(n, Math.max(3, Math.min(5, wing)));
       const nr = rowCounts.length;
       const maxCnt = Math.max(1, ...rowCounts);
       let idx = 0;

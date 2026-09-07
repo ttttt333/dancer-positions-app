@@ -179,6 +179,52 @@ export function FormationPresetThumb({ preset, width = 36, className }: Props) {
       pts = thumbPointsFrontStair(Math.max(2, Math.min(11, Number.isFinite(k) ? k : 2)));
       break;
     }
+    case "waist_stair_from_3":
+      // 3-?-3 の中細: 手前・奥が広く中央が細い
+      pts = [
+        [28, 50],
+        [50, 50],
+        [72, 50],
+        [42, 32],
+        [58, 32],
+        [28, 14],
+        [50, 14],
+        [72, 14],
+      ];
+      break;
+    case "waist_stair_from_4":
+      // 4-3-4 の中細イメージ
+      pts = [
+        [22, 50],
+        [40, 50],
+        [60, 50],
+        [78, 50],
+        [36, 32],
+        [50, 32],
+        [64, 32],
+        [22, 14],
+        [40, 14],
+        [60, 14],
+        [78, 14],
+      ];
+      break;
+    case "waist_stair_from_5":
+      pts = [
+        [18, 50],
+        [34, 50],
+        [50, 50],
+        [66, 50],
+        [82, 50],
+        [38, 32],
+        [50, 32],
+        [62, 32],
+        [18, 14],
+        [34, 14],
+        [50, 14],
+        [66, 14],
+        [82, 14],
+      ];
+      break;
     case "rows_3":
       pts = [
         [30, 46],

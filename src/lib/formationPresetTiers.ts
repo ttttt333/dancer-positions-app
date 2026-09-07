@@ -34,6 +34,9 @@ export const PRESET_TIER_BY_ID: Record<string, PresetTier> = {
   front_stair_from_2: 1,
   front_stair_from_3: 1,
   front_stair_from_4: 1,
+  waist_stair_from_3: 1,
+  waist_stair_from_4: 1,
+  waist_stair_from_5: 2,
   diagonal_se: 1,
   diagonal_ne: 1,
 
