@@ -421,17 +421,28 @@ export function generateStructuredPyramid(
   const maxCnt = Math.max(...rowSplit);
   const autoHalf = maxCnt >= 8 ? 40 : maxCnt >= 6 ? 36 : 32;
   const maxHalf = options?.maxHalfWidthPct ?? autoHalf;
+  const yUp = 10;
+  const yDn = 88;
   const baseRowGap = options?.rowYGapPct ?? GOLDEN_GEOMETRY.ROW_GAP_PCT;
+  // 多段でもステージ内に収まるよう行間を自動圧縮（clamp で行が潰れるのを防ぐ）
+  const maxGap =
+    rowCount <= 1 ? baseRowGap : (yDn - yUp) / (rowCount - 1);
   const rowYGap =
     options?.rowYGapPct != null
       ? baseRowGap
-      : rowCount >= 6
-        ? baseRowGap * 0.85
-        : rowCount >= 5
-          ? baseRowGap * 0.92
-          : baseRowGap;
+      : Math.min(
+          baseRowGap *
+            (rowCount >= 8 ? 0.7 : rowCount >= 6 ? 0.85 : rowCount >= 5 ? 0.92 : 1),
+          maxGap
+        );
   const centerY = options?.centerYPct ?? 48;
-  const frontY = centerY + ((rowCount - 1) * rowYGap) / 2;
+  const totalYSpan = (rowCount - 1) * rowYGap;
+  const frontY = Math.min(yDn, centerY + totalYSpan / 2);
+  const backY = Math.max(yUp, frontY - totalYSpan);
+  const yForRow = (r: number) =>
+    rowCount <= 1
+      ? centerY
+      : frontY - (r / (rowCount - 1)) * (frontY - backY);
 
   const halfForRow = (r: number) => {
     if (rowCount <= 1) return maxHalf;
@@ -510,7 +521,7 @@ export function generateStructuredPyramid(
 
   const points: Point2DPct[] = [];
   for (let r = 0; r < rowCount; r += 1) {
-    const y = frontY - r * rowYGap;
+    const y = yForRow(r);
     for (const x of pointsByRow[r]!) {
       points.push({
         xPct: Number(x.toFixed(2)),

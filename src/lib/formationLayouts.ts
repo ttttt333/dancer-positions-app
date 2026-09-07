@@ -7,6 +7,12 @@ import {
 } from "./dancerSpacing";
 import { modDancerColorIndex } from "./dancerColorPalette";
 import {
+  balancedHorizontalLineSpots,
+  balancedVerticalColumnSpots,
+  letterShapeSpots,
+  tripleVeeSpots,
+} from "./formationBalance";
+import {
   EXTRA_LAYOUT_PRESET_OPTIONS,
   tryApplyExtraLayoutPreset,
 } from "./formationLayoutPresetsExtra";
@@ -18,7 +24,6 @@ import {
   generateStructuredPyramid,
   generateStructuredStaggered,
   generateStructuredWedge,
-  generateStructuredWShape,
 } from "./choreocore/engine/formation/rowDistribution";
 import { enforceCenterAxisLock } from "./choreocore/engine/formation/centerAxisLock";
 import { GOLDEN_GEOMETRY } from "./choreocore/engine/formation/goldenParameters";
@@ -582,7 +587,11 @@ export const LAYOUT_PRESET_OPTIONS = [
   { id: "rows_12", label: "12列" },
   { id: "column_pair", label: "2列縦ペア" },
   { id: "w_shape", label: "W字形" },
+  { id: "w_shape_wide", label: "W字形（広）" },
+  { id: "w_shape_deep", label: "W字形（深）" },
   { id: "m_shape", label: "M字形" },
+  { id: "m_shape_wide", label: "M字形（広）" },
+  { id: "m_shape_deep", label: "M字形（深）" },
   { id: "fan_360", label: "360°扇形（全周）" },
   ...EXTRA_LAYOUT_PRESET_OPTIONS,
 ] as const;
@@ -642,6 +651,12 @@ export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
       "arrow_front",
       "arrow_left",
       "arrow_right",
+      "w_shape",
+      "w_shape_wide",
+      "w_shape_deep",
+      "m_shape",
+      "m_shape_wide",
+      "m_shape_deep",
     ],
   },
   {
@@ -871,8 +886,6 @@ export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
       "two_diag_lines",
       "s_curve",
       "u_deep",
-      "w_shape",
-      "m_shape",
       "fan_360",
     ],
   },
@@ -1302,14 +1315,13 @@ export function dancersForLayoutPreset(
       break;
     }
     case "columns_4": {
-      const cols = Math.min(4, Math.max(1, n));
-      const per = Math.ceil(n / cols);
-      const xs = evenSpacingPositions(cols, 50, TARGET_STEP_X, 14, 86);
-      const ys = evenSpacingPositions(per, 48, TARGET_STEP_Y, 16, 80);
-      for (let i = 0; i < n; i++) {
-        const c = i % cols;
-        const r = Math.floor(i / cols);
-        pushSpot(out, i, xs[c]!, ys[r]!);
+      const pts = balancedVerticalColumnSpots(n, 4, {
+        stepX: TARGET_STEP_X,
+        xMin: 14,
+        xMax: 86,
+      });
+      for (let i = 0; i < pts.length; i += 1) {
+        pushSpot(out, i, pts[i]!.xPct, pts[i]!.yPct);
       }
       break;
     }
@@ -1497,20 +1509,24 @@ export function dancersForLayoutPreset(
     case "columns_9":
     case "columns_10": {
       const cols =
-        preset === "columns_5" ? 5
-        : preset === "columns_6" ? 6
-        : preset === "columns_7" ? 7
-        : preset === "columns_8" ? 8
-        : preset === "columns_9" ? 9
-        : 10;
-      const actualCols = Math.min(cols, Math.max(1, n));
-      const per = Math.ceil(n / actualCols);
-      const xs = evenSpacingPositions(actualCols, 50, TARGET_STEP_X, 8, 92);
-      const ys = evenSpacingPositions(per, 48, TARGET_STEP_Y, 16, 80);
-      for (let i = 0; i < n; i++) {
-        const c = i % actualCols;
-        const r = Math.floor(i / actualCols);
-        pushSpot(out, i, xs[c]!, ys[r]!);
+        preset === "columns_5"
+          ? 5
+          : preset === "columns_6"
+            ? 6
+            : preset === "columns_7"
+              ? 7
+              : preset === "columns_8"
+                ? 8
+                : preset === "columns_9"
+                  ? 9
+                  : 10;
+      const pts = balancedVerticalColumnSpots(n, cols, {
+        stepX: TARGET_STEP_X * (cols >= 8 ? 0.85 : 1),
+        xMin: cols >= 8 ? 8 : 10,
+        xMax: cols >= 8 ? 92 : 90,
+      });
+      for (let i = 0; i < pts.length; i += 1) {
+        pushSpot(out, i, pts[i]!.xPct, pts[i]!.yPct);
       }
       break;
     }
@@ -1675,7 +1691,7 @@ export function dancersForLayoutPreset(
     case "split_lr_stagger": {
       const [leftN, rightN] = balancedPairSizes(n);
       let idx = 0;
-      const placeStagger = (cnt: number, cx: number) => {
+      const placeStagger = (cnt: number, cx: number, mirror: 1 | -1) => {
         const front = Math.ceil(cnt / 2);
         const back = cnt - front;
         const xsF = evenSpacingPositions(
@@ -1692,14 +1708,15 @@ export function dancersForLayoutPreset(
           cx - 16,
           cx + 16
         );
-        const shift = TARGET_STEP_X * 0.35;
+        const shift = TARGET_STEP_X * 0.35 * mirror;
         for (let j = 0; j < front; j += 1)
           pushSpot(out, idx++, xsF[j]! + shift * 0.5, 60);
         for (let j = 0; j < back; j += 1)
           pushSpot(out, idx++, xsB[j]! - shift * 0.5, 36);
       };
-      placeStagger(leftN, 26);
-      placeStagger(rightN, 74);
+      // 左右をミラーして客席から見て対称に
+      placeStagger(leftN, 26, 1);
+      placeStagger(rightN, 74, -1);
       break;
     }
     case "split_lr_arc": {
@@ -2061,26 +2078,26 @@ export function dancersForLayoutPreset(
     }
     // ── 追加: グリッド・縦列 系 ──────────────────────────────────────
     case "columns_3": {
-      const perCol = Math.ceil(n / 3);
-      const xs = evenSpacingPositions(3, 50, TARGET_STEP_X * 2, 15, 85);
-      for (let i = 0; i < n; i++) {
-        const col = i % 3;
-        const row = Math.floor(i / 3);
-        const ys = evenSpacingPositions(perCol, 50, TARGET_STEP_Y, 20, 78);
-        pushSpot(out, i, xs[col]!, ys[row] ?? 50);
+      const pts = balancedVerticalColumnSpots(n, 3, {
+        stepX: TARGET_STEP_X * 2,
+        xMin: 15,
+        xMax: 85,
+      });
+      for (let i = 0; i < pts.length; i += 1) {
+        pushSpot(out, i, pts[i]!.xPct, pts[i]!.yPct);
       }
       break;
     }
     case "columns_11":
     case "columns_12": {
       const nCols = preset === "columns_11" ? 11 : 12;
-      const perCol = Math.ceil(n / nCols);
-      const xs = evenSpacingPositions(nCols, 50, TARGET_STEP_X * 0.8, 5, 95);
-      for (let i = 0; i < n; i++) {
-        const col = i % nCols;
-        const row = Math.floor(i / nCols);
-        const ys = evenSpacingPositions(perCol, 50, TARGET_STEP_Y, 20, 78);
-        pushSpot(out, i, xs[col]!, ys[row] ?? 50);
+      const pts = balancedVerticalColumnSpots(n, nCols, {
+        stepX: TARGET_STEP_X * 0.8,
+        xMin: 5,
+        xMax: 95,
+      });
+      for (let i = 0; i < pts.length; i += 1) {
+        pushSpot(out, i, pts[i]!.xPct, pts[i]!.yPct);
       }
       break;
     }
@@ -2249,19 +2266,9 @@ export function dancersForLayoutPreset(
       break;
     }
     case "triple_vee": {
-      const third = Math.ceil(n / 3);
-      let idx = 0;
-      const tips = [50, 35, 65];
-      for (let arc = 0; arc < 3 && idx < n; arc++) {
-        const cnt = arc < 2 ? third : n - idx;
-        const tipX = tips[arc]!;
-        if (cnt === 0) break;
-        pushSpot(out, idx++, tipX, 28);
-        for (let i = 1; i < cnt; i++) {
-          const u = i / cnt;
-          const side = i % 2 === 1 ? -1 : 1;
-          pushSpot(out, idx++, tipX + side * u * 18, 28 + u * 44);
-        }
+      const pts = tripleVeeSpots(n);
+      for (let i = 0; i < pts.length; i += 1) {
+        pushSpot(out, i, pts[i]!.xPct, pts[i]!.yPct);
       }
       break;
     }
@@ -2722,23 +2729,27 @@ export function dancersForLayoutPreset(
       for (let i = 0; i < half2; i++) pushSpot(out, half + i, 62, ys2[i]!);
       break;
     }
-    case "w_shape": {
-      const pts = generateStructuredWShape(n);
+    case "w_shape":
+    case "w_shape_wide":
+    case "w_shape_deep":
+    case "m_shape":
+    case "m_shape_wide":
+    case "m_shape_deep": {
+      const kind =
+        preset === "w_shape"
+          ? "W"
+          : preset === "w_shape_wide"
+            ? "W_wide"
+            : preset === "w_shape_deep"
+              ? "W_deep"
+              : preset === "m_shape"
+                ? "M"
+                : preset === "m_shape_wide"
+                  ? "M_wide"
+                  : "M_deep";
+      const pts = letterShapeSpots(n, kind);
       for (let i = 0; i < pts.length; i += 1) {
         pushSpot(out, i, pts[i]!.xPct, pts[i]!.yPct);
-      }
-      break;
-    }
-    case "m_shape": {
-      if (n <= 1) { pushSpot(out, 0, 50, 50); break; }
-      const allPts = [
-        { x: 14, y: 72 }, { x: 14, y: 28 }, { x: 32, y: 50 },
-        { x: 50, y: 28 }, { x: 68, y: 50 }, { x: 86, y: 28 },
-        { x: 86, y: 72 }
-      ];
-      for (let i = 0; i < n; i++) {
-        const p = allPts[i % allPts.length]!;
-        pushSpot(out, i, p.x, p.y + Math.floor(i / allPts.length) * 7);
       }
       break;
     }

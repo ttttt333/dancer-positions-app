@@ -1,6 +1,10 @@
 import type { DancerSpot } from "../types/choreography";
 import { modDancerColorIndex } from "./dancerColorPalette";
 import { FORMATION_REFERENCE_STEP_PCT } from "./dancerSpacing";
+import {
+  balancedHorizontalLineSpots,
+  balancedVerticalColumnSpots,
+} from "./formationBalance";
 
 const TARGET_STEP_X = FORMATION_REFERENCE_STEP_PCT;
 const TARGET_STEP_Y = 14;
@@ -99,13 +103,15 @@ function applyStaggerRows(n: number, targetRows: number, out: DancerSpot[]) {
 }
 
 function applyEvenLines(n: number, numLines: number, out: DancerSpot[]) {
-  const per = Math.ceil(n / numLines);
-  const ys = evenSpacingPositions(numLines, 48, TARGET_STEP_Y, 18, 78);
-  for (let i = 0; i < n; i++) {
-    const line = i % numLines;
-    const col = Math.floor(i / numLines);
-    const xs = evenSpacingPositions(per, 50, TARGET_STEP_X, 8, 92);
-    pushSpot(out, i, xs[col] ?? 50, ys[line]!);
+  const pts = balancedHorizontalLineSpots(n, numLines, {
+    stepX: TARGET_STEP_X,
+    xMin: 8,
+    xMax: 92,
+    yUp: 18,
+    yDn: 78,
+  });
+  for (let i = 0; i < pts.length; i += 1) {
+    pushSpot(out, i, pts[i]!.xPct, pts[i]!.yPct);
   }
 }
 
@@ -568,22 +574,28 @@ export function tryApplyExtraLayoutPreset(
       break;
     }
     case "extra_parallel_3": {
-      const per = Math.ceil(n / 3);
-      const xs = [32, 50, 68];
-      const ys = evenSpacingPositions(per, 50, TARGET_STEP_Y, 20, 78);
-      for (let i = 0; i < n; i++) {
-        const col = i % 3;
-        const row = Math.floor(i / 3);
-        pushSpot(out, i, xs[col]!, ys[row] ?? 50);
+      const pts = balancedVerticalColumnSpots(n, 3, {
+        stepX: TARGET_STEP_X * 1.4,
+        xMin: 28,
+        xMax: 72,
+        yUp: 20,
+        yDn: 78,
+      });
+      for (let i = 0; i < pts.length; i += 1) {
+        pushSpot(out, i, pts[i]!.xPct, pts[i]!.yPct);
       }
       break;
     }
     case "extra_parallel_4": {
-      const per = Math.ceil(n / 4);
-      const xs = evenSpacingPositions(4, 50, TARGET_STEP_X, 12, 88);
-      const ys = evenSpacingPositions(per, 50, TARGET_STEP_Y, 20, 78);
-      for (let i = 0; i < n; i++) {
-        pushSpot(out, i, xs[i % 4]!, ys[Math.floor(i / 4)] ?? 50);
+      const pts = balancedVerticalColumnSpots(n, 4, {
+        stepX: TARGET_STEP_X,
+        xMin: 12,
+        xMax: 88,
+        yUp: 20,
+        yDn: 78,
+      });
+      for (let i = 0; i < pts.length; i += 1) {
+        pushSpot(out, i, pts[i]!.xPct, pts[i]!.yPct);
       }
       break;
     }
