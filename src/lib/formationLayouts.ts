@@ -228,6 +228,72 @@ function evenRowCounts(n: number, targetRows: number): number[] {
 }
 
 /**
+ * グリッドの横人数を選ぶ（ほぼ正方形）。奥に1人だけ残る配分は避ける。
+ */
+function chooseGridCols(n: number): number {
+  if (n <= 1) return 1;
+  if (n === 2) return 2;
+  let cols = Math.round(Math.sqrt(n));
+  cols = Math.max(2, Math.min(cols, n));
+  const lonely = (c: number) => n % c === 1;
+  if (lonely(cols)) {
+    if (cols > 2 && !lonely(cols - 1)) return cols - 1;
+    if (cols + 1 <= n && !lonely(cols + 1)) return cols + 1;
+  }
+  return cols;
+}
+
+/**
+ * グリッド行配分: 客席側からフル幅で埋め、余りは最奥列へ。
+ * counts[0]=最前列（客席側）、末尾=最奥（人数が少ないとき中央揃え）。
+ */
+function gridRowCountsFrontFilled(n: number, cols: number): number[] {
+  if (n <= 0 || cols <= 0) return [];
+  const width = Math.min(cols, n);
+  const fullRows = Math.floor(n / width);
+  const rem = n % width;
+  const counts: number[] = [];
+  for (let i = 0; i < fullRows; i += 1) counts.push(width);
+  if (rem > 0) counts.push(rem);
+  return counts;
+}
+
+/**
+ * 客席側から埋めたグリッド座標を生成する。
+ * 不完全な奥列は中央揃えでバランスを取る。
+ */
+function pushGridFrontFilled(
+  out: DancerSpot[],
+  n: number,
+  opts: {
+    xMin: number;
+    xMax: number;
+    yUp: number;
+    yDn: number;
+    stepX?: number;
+  }
+): void {
+  if (n <= 0) return;
+  const cols = chooseGridCols(n);
+  const rowCounts = gridRowCountsFrontFilled(n, cols);
+  const nr = rowCounts.length;
+  const stepX = opts.stepX ?? TARGET_STEP_X;
+  let idx = 0;
+  for (let r = 0; r < nr; r += 1) {
+    const cnt = rowCounts[r]!;
+    // r=0 が客席側（y 大）
+    const y =
+      nr <= 1
+        ? (opts.yUp + opts.yDn) / 2
+        : yPctPyramidRow(nr - 1 - r, nr, opts.yUp, opts.yDn);
+    const xs = evenSpacingPositions(cnt, 50, stepX, opts.xMin, opts.xMax);
+    for (let j = 0; j < cnt; j += 1) {
+      pushSpot(out, idx++, xs[j]!, y);
+    }
+  }
+}
+
+/**
  * 客席側（y 大）の列から埋める行人数: first, first+1, first+2, …（最後の列は余りのみ）。
  * rowCounts[0] が最前列（手前）。
  */
@@ -243,6 +309,94 @@ function frontAudienceGrowingRowCounts(n: number, firstRow: number): number[] {
     w += 1;
   }
   return rows;
+}
+
+/** 2分割: 左右/前後で人数差が最大1 */
+function balancedPairSizes(n: number): [number, number] {
+  const a = Math.ceil(n / 2);
+  return [a, n - a];
+}
+
+/**
+ * 3分割（左・中・右）: 左右対称を優先。
+ * rem=1 → 中央、rem=2 → 左右。
+ */
+function balancedTripleSizes(n: number): [number, number, number] {
+  if (n <= 0) return [0, 0, 0];
+  const base = Math.floor(n / 3);
+  const rem = n % 3;
+  if (rem === 0) return [base, base, base];
+  if (rem === 1) return [base, base + 1, base];
+  return [base + 1, base, base + 1];
+}
+
+/**
+ * 各グループ内をコンパクトな小グリッドで配置（客席側から埋めて中央揃え）。
+ * 3密集・左右分割などで「それぞれの場所でバランスよく」見せる。
+ */
+function pushCompactCluster(
+  out: DancerSpot[],
+  startIdx: number,
+  count: number,
+  cx: number,
+  cy: number,
+  opts?: { stepX?: number; stepY?: number; maxHalf?: number }
+): number {
+  if (count <= 0) return startIdx;
+  if (count === 1) {
+    pushSpot(out, startIdx, cx, cy);
+    return startIdx + 1;
+  }
+  const stepX = opts?.stepX ?? TARGET_STEP_X * 0.72;
+  const stepY = opts?.stepY ?? TARGET_STEP_Y * 0.72;
+  const maxHalf = opts?.maxHalf ?? Math.min(14, 6 + count * 1.1);
+  const cols = Math.min(count, Math.max(1, Math.round(Math.sqrt(count))));
+  const rowCounts = gridRowCountsFrontFilled(count, cols);
+  const nr = rowCounts.length;
+  const maxCnt = Math.max(...rowCounts);
+  let idx = startIdx;
+  for (let r = 0; r < nr; r += 1) {
+    const cnt = rowCounts[r]!;
+    const yOff =
+      nr <= 1 ? 0 : ((nr - 1) / 2 - r) * stepY; // r=0 客席側 → +y
+    for (let j = 0; j < cnt; j += 1) {
+      const xOff = (j - (cnt - 1) / 2) * Math.min(stepX, (maxHalf * 2) / Math.max(maxCnt - 1, 1));
+      pushSpot(out, idx++, cx + xOff, cy + yOff);
+    }
+  }
+  return idx;
+}
+
+/** 縦一列（奥→手前 or 指定方向） */
+function pushVerticalLine(
+  out: DancerSpot[],
+  startIdx: number,
+  count: number,
+  cx: number,
+  y0: number,
+  y1: number
+): number {
+  if (count <= 0) return startIdx;
+  const ys = evenSpacingPositions(count, (y0 + y1) / 2, TARGET_STEP_Y, Math.min(y0, y1), Math.max(y0, y1));
+  let idx = startIdx;
+  for (let i = 0; i < count; i += 1) pushSpot(out, idx++, cx, ys[i]!);
+  return idx;
+}
+
+/** 横一列 */
+function pushHorizontalLine(
+  out: DancerSpot[],
+  startIdx: number,
+  count: number,
+  cy: number,
+  x0: number,
+  x1: number
+): number {
+  if (count <= 0) return startIdx;
+  const xs = evenSpacingPositions(count, (x0 + x1) / 2, TARGET_STEP_X, Math.min(x0, x1), Math.max(x0, x1));
+  let idx = startIdx;
+  for (let i = 0; i < count; i += 1) pushSpot(out, idx++, xs[i]!, cy);
+  return idx;
 }
 
 /** UI 順・ラベル（id は dancersForLayoutPreset と一致させる） */
@@ -315,8 +469,23 @@ export const LAYOUT_PRESET_OPTIONS = [
   { id: "block_3", label: "3ブロック（左・中・右）" },
   { id: "block_3_depth", label: "3グループ（前・中・奥）" },
   { id: "three_clusters", label: "3密集（前+左奥+右奥）" },
+  { id: "three_clusters_line", label: "3密集（左・中・右）" },
+  { id: "three_clusters_front", label: "3密集（左前・中前・右前）" },
   { id: "wing_spread", label: "翼形（中央+左右ウィング）" },
   { id: "cross_split", label: "十字グループ" },
+  /** ─ 2分割バリエーション ─ */
+  { id: "split_lr_cluster", label: "2分割・左右密集" },
+  { id: "split_lr_line", label: "2分割・左右縦列" },
+  { id: "split_lr_two_rows", label: "2分割・左右2列" },
+  { id: "split_lr_front", label: "2分割・左右（手前）" },
+  { id: "split_lr_back", label: "2分割・左右（奥）" },
+  { id: "split_lr_corridor", label: "2分割・中央通路" },
+  { id: "split_fb_cluster", label: "2分割・前後密集" },
+  { id: "split_fb_line", label: "2分割・前後横列" },
+  { id: "split_diag_lr", label: "2分割・斜め（＼／）" },
+  { id: "split_diag_rl", label: "2分割・斜め（／＼）" },
+  { id: "split_lr_stagger", label: "2分割・左右千鳥" },
+  { id: "split_lr_arc", label: "2分割・左右弧" },
   /** ─ 幾何形・枠形 ─ */
   { id: "diamond", label: "ひし形周り" },
   { id: "square_outline", label: "四角枠（周り）" },
@@ -525,8 +694,22 @@ export const PRESET_CATEGORIES: { label: string; ids: LayoutPresetId[] }[] = [
       "block_3",
       "block_3_depth",
       "three_clusters",
+      "three_clusters_line",
+      "three_clusters_front",
       "wing_spread",
       "cross_split",
+      "split_lr_cluster",
+      "split_lr_line",
+      "split_lr_two_rows",
+      "split_lr_front",
+      "split_lr_back",
+      "split_lr_corridor",
+      "split_fb_cluster",
+      "split_fb_line",
+      "split_diag_lr",
+      "split_diag_rl",
+      "split_lr_stagger",
+      "split_lr_arc",
     ],
   },
   {
@@ -874,15 +1057,12 @@ export function dancersForLayoutPreset(
       break;
     }
     case "grid": {
-      const cols = Math.ceil(Math.sqrt(n));
-      const rows = Math.ceil(n / cols);
-      const xs = evenSpacingPositions(cols, 50, TARGET_STEP_X, 10, 90);
-      const ys = evenSpacingPositions(rows, 48, TARGET_STEP_Y, 16, 80);
-      for (let i = 0; i < n; i++) {
-        const row = Math.floor(i / cols);
-        const col = i % cols;
-        pushSpot(out, i, xs[col]!, ys[row]!);
-      }
+      pushGridFrontFilled(out, n, {
+        xMin: 10,
+        xMax: 90,
+        yUp: 16,
+        yDn: 80,
+      });
       break;
     }
     case "diamond": {
@@ -1140,27 +1320,10 @@ export function dancersForLayoutPreset(
       break;
     }
     case "block_lr": {
-      const leftN = Math.ceil(n / 2);
-      const rightN = n - leftN;
-      const cols = 2;
-      const leftRows = Math.ceil(leftN / cols);
-      const rightRows = Math.ceil(rightN / cols);
-      const xsLeft = evenSpacingPositions(cols, 28, TARGET_STEP_X, 10, 44);
-      const xsRight = evenSpacingPositions(cols, 72, TARGET_STEP_X, 56, 90);
-      const ysLeft = evenSpacingPositions(leftRows, 48, TARGET_STEP_Y, 20, 76);
-      const ysRight = evenSpacingPositions(rightRows, 48, TARGET_STEP_Y, 20, 76);
-      for (let i = 0; i < n; i++) {
-        if (i < leftN) {
-          const col = i % cols;
-          const row = Math.floor(i / cols);
-          pushSpot(out, i, xsLeft[col] ?? 28, ysLeft[row] ?? 48);
-        } else {
-          const j = i - leftN;
-          const col = j % cols;
-          const row = Math.floor(j / cols);
-          pushSpot(out, i, xsRight[col] ?? 72, ysRight[row] ?? 48);
-        }
-      }
+      const [leftN, rightN] = balancedPairSizes(n);
+      let idx = 0;
+      idx = pushCompactCluster(out, idx, leftN, 26, 50, { maxHalf: 16 });
+      idx = pushCompactCluster(out, idx, rightN, 74, 50, { maxHalf: 16 });
       break;
     }
     case "two_rows_dense_back": {
@@ -1336,51 +1499,195 @@ export function dancersForLayoutPreset(
       break;
     }
     case "block_3": {
-      /** 3ブロック横（左・中・右）: 1/3ずつ3つのグループに縦に積む */
-      const sizes = [Math.ceil(n / 3), Math.ceil((n - Math.ceil(n / 3)) / 2), n - Math.ceil(n / 3) - Math.ceil((n - Math.ceil(n / 3)) / 2)];
-      const centers = [22, 50, 78];
+      /** 3ブロック横（左・中・右）: 対称人数＋各ブロック内コンパクト */
+      const [leftN, midN, rightN] = balancedTripleSizes(n);
       let idx = 0;
-      for (let g = 0; g < 3; g++) {
-        const cnt = Math.max(0, sizes[g]!);
-        const rows = Math.ceil(cnt / 2);
-        const ys = evenSpacingPositions(Math.max(1, rows), 48, TARGET_STEP_Y * 0.9, 20, 76);
-        for (let k = 0; k < cnt; k++) {
-          const col = k % 2;
-          const row = Math.floor(k / 2);
-          const xOff = (col === 0 ? -TARGET_STEP_X / 2 : TARGET_STEP_X / 2);
-          pushSpot(out, idx++, centers[g]! + xOff, ys[row] ?? 48);
-        }
-      }
+      idx = pushCompactCluster(out, idx, leftN, 20, 50, { maxHalf: 12 });
+      idx = pushCompactCluster(out, idx, midN, 50, 50, { maxHalf: 12 });
+      idx = pushCompactCluster(out, idx, rightN, 80, 50, { maxHalf: 12 });
       break;
     }
     case "block_3_depth": {
-      /** 3グループ（前・中・奥）: 深さ方向に3分割、各グループは横一列 */
-      const sizeF = Math.ceil(n / 3);
-      const sizeM = Math.ceil((n - sizeF) / 2);
-      const sizeB = n - sizeF - sizeM;
-      const groups = [
-        { cnt: Math.max(0, sizeF), y: 72 },
-        { cnt: Math.max(0, sizeM), y: 48 },
-        { cnt: Math.max(0, sizeB), y: 24 },
-      ];
+      /** 3グループ（前・中・奥）: 人数バランス＋各段は中央揃え横一列 */
+      const [frontN, midN, backN] = balancedTripleSizes(n);
       let idx = 0;
-      for (const g of groups) {
-        const xs = evenSpacingPositions(Math.max(1, g.cnt), 50, TARGET_STEP_X, 10, 90);
-        for (let k = 0; k < g.cnt; k++) pushSpot(out, idx++, xs[k]!, g.y);
-      }
+      idx = pushHorizontalLine(out, idx, frontN, 72, 12, 88);
+      idx = pushHorizontalLine(out, idx, midN, 48, 12, 88);
+      idx = pushHorizontalLine(out, idx, backN, 24, 12, 88);
       break;
     }
     case "three_clusters": {
-      /** 3密集グループ（前中央・左奥・右奥）: 三角形に配置した3つの密集体 */
-      const clusterCenters: [number, number][] = [[50, 74], [22, 24], [78, 24]];
-      for (let i = 0; i < n; i++) {
-        const g = i % 3;
-        const k = Math.floor(i / 3);
-        const [cx, cy] = clusterCenters[g]!;
-        /** 各クラスターは螺旋状に広がる */
-        const ang = k * 2.4;
-        const r = k === 0 ? 0 : 3 + k * 2.5;
-        pushSpot(out, i, cx + r * Math.cos(ang), cy + r * Math.sin(ang) * 0.7);
+      /** 3密集（前中央・左奥・右奥）: 三角配置・人数バランス・各群コンパクト */
+      const base = Math.floor(n / 3);
+      const rem = n % 3;
+      const front = rem === 1 ? base + 1 : base;
+      const left = rem === 2 ? base + 1 : base;
+      const right = n - front - left;
+      let idx = 0;
+      idx = pushCompactCluster(out, idx, front, 50, 70, { maxHalf: 11 });
+      idx = pushCompactCluster(out, idx, left, 22, 28, { maxHalf: 11 });
+      idx = pushCompactCluster(out, idx, right, 78, 28, { maxHalf: 11 });
+      break;
+    }
+    case "three_clusters_line": {
+      /** 3密集（左・中・右）横並び */
+      const [leftN, midN, rightN] = balancedTripleSizes(n);
+      let idx = 0;
+      idx = pushCompactCluster(out, idx, leftN, 20, 50, { maxHalf: 11 });
+      idx = pushCompactCluster(out, idx, midN, 50, 50, { maxHalf: 11 });
+      idx = pushCompactCluster(out, idx, rightN, 80, 50, { maxHalf: 11 });
+      break;
+    }
+    case "three_clusters_front": {
+      /** 3密集（左前・中前・右前）客席寄り */
+      const [leftN, midN, rightN] = balancedTripleSizes(n);
+      let idx = 0;
+      idx = pushCompactCluster(out, idx, leftN, 22, 64, { maxHalf: 11 });
+      idx = pushCompactCluster(out, idx, midN, 50, 68, { maxHalf: 11 });
+      idx = pushCompactCluster(out, idx, rightN, 78, 64, { maxHalf: 11 });
+      break;
+    }
+    case "split_lr_cluster": {
+      const [leftN, rightN] = balancedPairSizes(n);
+      let idx = 0;
+      idx = pushCompactCluster(out, idx, leftN, 24, 50, { maxHalf: 15 });
+      idx = pushCompactCluster(out, idx, rightN, 76, 50, { maxHalf: 15 });
+      break;
+    }
+    case "split_lr_line": {
+      const [leftN, rightN] = balancedPairSizes(n);
+      let idx = 0;
+      idx = pushVerticalLine(out, idx, leftN, 28, 22, 78);
+      idx = pushVerticalLine(out, idx, rightN, 72, 22, 78);
+      break;
+    }
+    case "split_lr_two_rows": {
+      const [leftN, rightN] = balancedPairSizes(n);
+      let idx = 0;
+      const placeSide = (cnt: number, cx: number) => {
+        if (cnt <= 0) return;
+        const rowCounts = gridRowCountsFrontFilled(cnt, Math.min(2, cnt));
+        const nr = rowCounts.length;
+        for (let r = 0; r < nr; r += 1) {
+          const c = rowCounts[r]!;
+          const y = nr <= 1 ? 50 : yPctPyramidRow(nr - 1 - r, nr, 22, 78);
+          const xs = evenSpacingPositions(
+            c,
+            cx,
+            TARGET_STEP_X * 0.85,
+            cx - 14,
+            cx + 14
+          );
+          for (let j = 0; j < c; j += 1) pushSpot(out, idx++, xs[j]!, y);
+        }
+      };
+      placeSide(leftN, 26);
+      placeSide(rightN, 74);
+      break;
+    }
+    case "split_lr_front": {
+      const [leftN, rightN] = balancedPairSizes(n);
+      let idx = 0;
+      idx = pushCompactCluster(out, idx, leftN, 26, 64, { maxHalf: 14 });
+      idx = pushCompactCluster(out, idx, rightN, 74, 64, { maxHalf: 14 });
+      break;
+    }
+    case "split_lr_back": {
+      const [leftN, rightN] = balancedPairSizes(n);
+      let idx = 0;
+      idx = pushCompactCluster(out, idx, leftN, 26, 34, { maxHalf: 14 });
+      idx = pushCompactCluster(out, idx, rightN, 74, 34, { maxHalf: 14 });
+      break;
+    }
+    case "split_lr_corridor": {
+      const [leftN, rightN] = balancedPairSizes(n);
+      let idx = 0;
+      idx = pushCompactCluster(out, idx, leftN, 20, 50, { maxHalf: 12 });
+      idx = pushCompactCluster(out, idx, rightN, 80, 50, { maxHalf: 12 });
+      break;
+    }
+    case "split_fb_cluster": {
+      const [frontN, backN] = balancedPairSizes(n);
+      let idx = 0;
+      idx = pushCompactCluster(out, idx, frontN, 50, 68, { maxHalf: 18 });
+      idx = pushCompactCluster(out, idx, backN, 50, 30, { maxHalf: 18 });
+      break;
+    }
+    case "split_fb_line": {
+      const [frontN, backN] = balancedPairSizes(n);
+      let idx = 0;
+      idx = pushHorizontalLine(out, idx, frontN, 68, 12, 88);
+      idx = pushHorizontalLine(out, idx, backN, 30, 12, 88);
+      break;
+    }
+    case "split_diag_lr": {
+      const [aN, bN] = balancedPairSizes(n);
+      let idx = 0;
+      for (let i = 0; i < aN; i += 1) {
+        const u = aN <= 1 ? 0.5 : i / (aN - 1);
+        pushSpot(out, idx++, 22 + u * 18, 70 - u * 40);
+      }
+      for (let i = 0; i < bN; i += 1) {
+        const u = bN <= 1 ? 0.5 : i / (bN - 1);
+        pushSpot(out, idx++, 78 - u * 18, 70 - u * 40);
+      }
+      break;
+    }
+    case "split_diag_rl": {
+      const [aN, bN] = balancedPairSizes(n);
+      let idx = 0;
+      for (let i = 0; i < aN; i += 1) {
+        const u = aN <= 1 ? 0.5 : i / (aN - 1);
+        pushSpot(out, idx++, 22 + u * 20, 30 + u * 40);
+      }
+      for (let i = 0; i < bN; i += 1) {
+        const u = bN <= 1 ? 0.5 : i / (bN - 1);
+        pushSpot(out, idx++, 78 - u * 20, 30 + u * 40);
+      }
+      break;
+    }
+    case "split_lr_stagger": {
+      const [leftN, rightN] = balancedPairSizes(n);
+      let idx = 0;
+      const placeStagger = (cnt: number, cx: number) => {
+        const front = Math.ceil(cnt / 2);
+        const back = cnt - front;
+        const xsF = evenSpacingPositions(
+          front,
+          cx,
+          TARGET_STEP_X * 0.9,
+          cx - 16,
+          cx + 16
+        );
+        const xsB = evenSpacingPositions(
+          back,
+          cx,
+          TARGET_STEP_X * 0.9,
+          cx - 16,
+          cx + 16
+        );
+        const shift = TARGET_STEP_X * 0.35;
+        for (let j = 0; j < front; j += 1)
+          pushSpot(out, idx++, xsF[j]! + shift * 0.5, 60);
+        for (let j = 0; j < back; j += 1)
+          pushSpot(out, idx++, xsB[j]! - shift * 0.5, 36);
+      };
+      placeStagger(leftN, 26);
+      placeStagger(rightN, 74);
+      break;
+    }
+    case "split_lr_arc": {
+      const [leftN, rightN] = balancedPairSizes(n);
+      let idx = 0;
+      for (let i = 0; i < leftN; i += 1) {
+        const u = leftN <= 1 ? 0.5 : i / (leftN - 1);
+        const a = Math.PI * 0.55 + u * Math.PI * 0.55;
+        pushSpot(out, idx++, 38 + 22 * Math.cos(a), 50 + 26 * Math.sin(a));
+      }
+      for (let i = 0; i < rightN; i += 1) {
+        const u = rightN <= 1 ? 0.5 : i / (rightN - 1);
+        const a = Math.PI * 0.1 - u * Math.PI * 0.55;
+        pushSpot(out, idx++, 62 + 22 * Math.cos(a), 50 + 26 * Math.sin(a));
       }
       break;
     }
@@ -1752,29 +2059,23 @@ export function dancersForLayoutPreset(
       break;
     }
     case "grid_tight": {
-      const cols = Math.max(2, Math.round(Math.sqrt(n)));
-      const rows = Math.ceil(n / cols);
-      let idx = 0;
-      for (let r = 0; r < rows && idx < n; r++) {
-        for (let c = 0; c < cols && idx < n; c++) {
-          const x = 30 + c * (40 / Math.max(cols - 1, 1));
-          const y = 65 - r * (30 / Math.max(rows - 1, 1));
-          pushSpot(out, idx++, x, y);
-        }
-      }
+      pushGridFrontFilled(out, n, {
+        xMin: 28,
+        xMax: 72,
+        yUp: 30,
+        yDn: 68,
+        stepX: TARGET_STEP_X * 0.85,
+      });
       break;
     }
     case "grid_wide": {
-      const cols = Math.max(2, Math.round(Math.sqrt(n)));
-      const rows = Math.ceil(n / cols);
-      let idx = 0;
-      for (let r = 0; r < rows && idx < n; r++) {
-        for (let c = 0; c < cols && idx < n; c++) {
-          const x = 10 + c * (80 / Math.max(cols - 1, 1));
-          const y = 80 - r * (60 / Math.max(rows - 1, 1));
-          pushSpot(out, idx++, x, y);
-        }
-      }
+      pushGridFrontFilled(out, n, {
+        xMin: 8,
+        xMax: 92,
+        yUp: 14,
+        yDn: 84,
+        stepX: TARGET_STEP_X * 1.05,
+      });
       break;
     }
     case "brick_pattern": {
@@ -1971,17 +2272,11 @@ export function dancersForLayoutPreset(
       break;
     }
     case "block_lr_depth": {
-      const half = Math.ceil(n / 2);
-      for (let i = 0; i < half; i++) {
-        const u = half <= 1 ? 0.5 : i / (half - 1);
-        pushSpot(out, i, 28, 22 + u * 56);
-      }
-      for (let i = half; i < n; i++) {
-        const j = i - half;
-        const rest = n - half;
-        const u = rest <= 1 ? 0.5 : j / (rest - 1);
-        pushSpot(out, i, 72, 22 + u * 56);
-      }
+      const [leftN, rightN] = balancedPairSizes(n);
+      let idx = 0;
+      idx = pushCompactCluster(out, idx, leftN, 26, 48, { maxHalf: 12 });
+      // 右を少し奥にずらして奥行き差を出す
+      idx = pushCompactCluster(out, idx, rightN, 74, 40, { maxHalf: 12 });
       break;
     }
     case "quad_corners": {

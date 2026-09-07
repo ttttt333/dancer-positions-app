@@ -13,6 +13,8 @@ import {
   generateStructuredStaggered,
   generateStructuredWedge,
   generateStructuredWShape,
+  pyramidFallbackRowSplit,
+  resolvePyramidRowSplit,
   resolveRowSplit,
 } from "./rowDistribution";
 
@@ -37,6 +39,9 @@ describe("rowDistribution golden tables", () => {
     8: [1, 3, 4],
     9: [1, 3, 5],
     10: [1, 4, 5],
+    15: [1, 2, 3, 4, 5],
+    17: [1, 2, 3, 5, 6],
+    21: [1, 2, 3, 4, 5, 6],
   };
 
   it("matches staggered golden row splits for N=3..10", () => {
@@ -46,20 +51,39 @@ describe("rowDistribution golden tables", () => {
     }
   });
 
-  it("matches pyramid golden row splits for N=3..10", () => {
+  it("matches pyramid golden row splits including large N", () => {
     for (const n of Object.keys(expectedPyramid).map(Number)) {
-      expect(resolveRowSplit(PYRAMID_ROW_MAP, n, 3)).toEqual(expectedPyramid[n]);
+      expect(resolvePyramidRowSplit(n)).toEqual(expectedPyramid[n]);
       expect(PYRAMID_ROW_MAP[n]).toEqual(expectedPyramid[n]);
     }
   });
 
   it("row splits sum to N", () => {
-    for (let n = 1; n <= 16; n += 1) {
+    for (let n = 1; n <= 28; n += 1) {
       const s = resolveRowSplit(STAGGERED_ROW_MAP, n, 2);
-      const p = resolveRowSplit(PYRAMID_ROW_MAP, n, 3);
+      const p = resolvePyramidRowSplit(n);
       expect(s.reduce((a, b) => a + b, 0)).toBe(n);
       expect(p.reduce((a, b) => a + b, 0)).toBe(n);
     }
+  });
+
+  it("pyramid large-N keeps tip=1 and does not flatten to even slabs", () => {
+    for (const n of [13, 17, 18, 19, 22, 24, 27, 29, 31]) {
+      const split = resolvePyramidRowSplit(n);
+      expect(split[0]).toBe(1);
+      expect(split.length).toBeGreaterThanOrEqual(3);
+      // 均等3列 [5,6,6] のような板状ではない
+      expect(split[0]).toBeLessThan(split[split.length - 1]!);
+      // 急減しない（手前→奥）
+      for (let i = 1; i < split.length; i += 1) {
+        expect(split[i]!).toBeGreaterThanOrEqual(split[i - 1]! - 0);
+      }
+    }
+  });
+
+  it("pyramidFallbackRowSplit never returns even 3-slab for 17", () => {
+    expect(pyramidFallbackRowSplit(17)).toEqual([1, 2, 3, 5, 6]);
+    expect(pyramidFallbackRowSplit(17)).not.toEqual([5, 6, 6]);
   });
 });
 
@@ -110,6 +134,20 @@ describe("generateStructuredStaggered / Pyramid occlusion", () => {
       }
       expect(bad).toBe(0);
     }
+  });
+
+  it("pyramid layouts for N=17 keep tip front and five growing rows", () => {
+    const pts = generateStructuredPyramid(17);
+    expect(pts).toHaveLength(17);
+    const ys = [...new Set(pts.map((p) => p.yPct))].sort((a, b) => b - a);
+    expect(ys.length).toBe(5);
+    const counts = ys.map(
+      (y) => pts.filter((p) => p.yPct === y).length
+    );
+    expect(counts).toEqual([1, 2, 3, 5, 6]);
+    const tip = pts.filter((p) => p.yPct === ys[0]!);
+    expect(tip).toHaveLength(1);
+    expect(tip[0]!.xPct).toBeCloseTo(50, 0);
   });
 
   it("front row (higher y) comes first in row order semantics", () => {

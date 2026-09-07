@@ -37,6 +37,7 @@ export const STAGGERED_ROW_MAP: Record<number, number[]> = {
 
 /**
  * ピラミッド・多層 V: 前列 → 後列（先端が客席側）
+ * 人数が多いときも先端=1・奥へ非減少の三角シルエットを保つ。
  */
 export const PYRAMID_ROW_MAP: Record<number, number[]> = {
   1: [1],
@@ -49,10 +50,26 @@ export const PYRAMID_ROW_MAP: Record<number, number[]> = {
   8: [1, 3, 4],
   9: [1, 3, 5],
   10: [1, 4, 5],
-  11: [1, 3, 3, 4],
-  12: [1, 3, 4, 4],
+  11: [1, 2, 3, 5],
+  12: [1, 2, 4, 5],
+  13: [1, 3, 4, 5],
   14: [1, 3, 5, 5],
-  16: [1, 4, 5, 6],
+  15: [1, 2, 3, 4, 5],
+  16: [1, 2, 3, 5, 5],
+  17: [1, 2, 3, 5, 6],
+  18: [1, 2, 4, 5, 6],
+  19: [1, 3, 4, 5, 6],
+  20: [1, 2, 3, 4, 5, 5],
+  21: [1, 2, 3, 4, 5, 6],
+  22: [1, 2, 3, 4, 6, 6],
+  23: [1, 2, 3, 5, 6, 6],
+  24: [1, 2, 3, 5, 6, 7],
+  25: [1, 2, 4, 5, 6, 7],
+  26: [1, 2, 3, 4, 5, 5, 6],
+  27: [1, 2, 3, 4, 5, 6, 6],
+  28: [1, 2, 3, 4, 5, 6, 7],
+  30: [1, 2, 3, 4, 5, 7, 8],
+  32: [1, 2, 3, 4, 6, 8, 8],
 };
 
 /**
@@ -109,17 +126,90 @@ export function fallbackRowSplit(total: number, maxRows: number): number[] {
   return result;
 }
 
+/**
+ * ピラミッド用フォールバック: 先端=1、奥へ向かって増える三角配分。
+ * 均等分割（例: 17→[5,6,6]）はピラミッドに見えないので使わない。
+ */
+export function pyramidFallbackRowSplit(total: number): number[] {
+  if (total <= 0) return [];
+  if (total === 1) return [1];
+  if (total === 2) return [1, 1];
+
+  // 三角数の根 ≈ 行数。薄すぎる列・厚すぎる列を避ける
+  let rowCount = Math.round((Math.sqrt(8 * total + 1) - 1) / 2);
+  rowCount = Math.max(3, Math.min(rowCount, Math.ceil(total / 2.5)));
+  while (rowCount > 3 && total / rowCount < 2.2) rowCount -= 1;
+  while (rowCount < total && total / rowCount > 7.5) rowCount += 1;
+
+  for (let k = rowCount; k >= 2; k -= 1) {
+    const counts = Array.from({ length: k }, (_, i) => i + 1);
+    const tri = (k * (k + 1)) / 2;
+    if (tri === total) return counts;
+    if (tri > total) continue;
+
+    let extra = total - tri;
+    // 余りは奥から往復で足す（先端は原則 1 のまま）
+    let i = k - 1;
+    while (extra > 0) {
+      counts[i]! += 1;
+      extra -= 1;
+      i -= 1;
+      if (i < 1) i = k - 1;
+    }
+
+    // シルエット: 先端1・手前→奥で大きく崩れない（急減を均す）
+    counts[0] = 1;
+    for (let r = 1; r < k; r += 1) {
+      if (counts[r]! < counts[r - 1]!) {
+        const need = counts[r - 1]! - counts[r]!;
+        counts[r]! += need;
+        counts[k - 1]! -= need;
+      }
+    }
+    // 奥が負になったら次の行数へ
+    if (counts.some((c) => c <= 0)) continue;
+    if (counts.reduce((a, b) => a + b, 0) !== total) continue;
+    // 奥が極端に飛び出すときは1人ずつ前の列へ戻す
+    while (
+      k >= 3 &&
+      counts[k - 1]! > counts[k - 2]! + 2 &&
+      counts[k - 1]! > counts[0]!
+    ) {
+      counts[k - 1]! -= 1;
+      counts[k - 2]! += 1;
+    }
+    return counts;
+  }
+
+  // 最終手段: 先端1 + 残りを奥寄りの列へ
+  const back = Math.min(4, Math.max(2, Math.ceil((total - 1) / 4)));
+  const rest = fallbackRowSplit(total - 1, back);
+  return [1, ...rest];
+}
+
 export function resolveRowSplit(
   map: Record<number, number[]>,
   dancerCount: number,
-  fallbackRows: number
+  fallbackRows: number,
+  fallback?: (n: number) => number[]
 ): number[] {
   if (dancerCount <= 0) return [];
   const hit = map[dancerCount];
   if (hit && hit.reduce((a, b) => a + b, 0) === dancerCount) {
     return [...hit];
   }
+  if (fallback) return fallback(dancerCount);
   return fallbackRowSplit(dancerCount, fallbackRows);
+}
+
+/** ピラミッド専用（テーブル → 三角フォールバック） */
+export function resolvePyramidRowSplit(dancerCount: number): number[] {
+  return resolveRowSplit(
+    PYRAMID_ROW_MAP,
+    dancerCount,
+    3,
+    pyramidFallbackRowSplit
+  );
 }
 
 function evenXs(
@@ -239,21 +329,38 @@ function generateLayeredFromMap(
   map: Record<number, number[]>,
   dancerCount: number,
   fallbackRows: number,
-  options?: LayeredOptions & { preferFrontWide?: boolean }
+  options?: LayeredOptions & {
+    preferFrontWide?: boolean;
+    resolveSplit?: (n: number) => number[];
+  }
 ): Point2DPct[] {
-  const rowSplit = resolveRowSplit(map, dancerCount, fallbackRows);
+  const rowSplit = options?.resolveSplit
+    ? options.resolveSplit(dancerCount)
+    : resolveRowSplit(map, dancerCount, fallbackRows);
   if (rowSplit.length === 0) return [];
 
   const preferFrontWide = options?.preferFrontWide ?? false;
   const colGap = options?.colXGapPct ?? GOLDEN_GEOMETRY.COL_GAP_PCT;
-  const maxHalf = options?.maxHalfWidthPct ?? 34;
+  // 人数が多いほど奥行が広いので、横半幅を少し広げて潰れた板状に見えないようにする
+  const maxCnt = Math.max(...rowSplit);
+  const autoHalf =
+    maxCnt >= 7 ? 38 : maxCnt >= 5 ? 36 : 34;
+  const maxHalf = options?.maxHalfWidthPct ?? autoHalf;
   const rowCount = rowSplit.length;
-  const rowYGap = options?.rowYGapPct ?? GOLDEN_GEOMETRY.ROW_GAP_PCT;
+  // 多段時は行間をわずかに詰めて全体が縦に伸びすぎないようにする
+  const baseRowGap = options?.rowYGapPct ?? GOLDEN_GEOMETRY.ROW_GAP_PCT;
+  const rowYGap =
+    options?.rowYGapPct != null
+      ? baseRowGap
+      : rowCount >= 6
+        ? baseRowGap * 0.85
+        : rowCount >= 5
+          ? baseRowGap * 0.92
+          : baseRowGap;
   const centerY = options?.centerYPct ?? 48;
   const totalYSpan = (rowCount - 1) * rowYGap;
   const frontY = centerY + totalYSpan / 2;
 
-  const maxCnt = Math.max(...rowSplit);
   const stepCap = maxCnt > 1 ? (maxHalf * 2) / (maxCnt - 1) : colGap;
   const step = Math.min(colGap, stepCap);
 
@@ -334,7 +441,10 @@ export function generateStructuredPyramid(
   dancerCount: number,
   options?: LayeredOptions
 ): Point2DPct[] {
-  return generateLayeredFromMap(PYRAMID_ROW_MAP, dancerCount, 3, options);
+  return generateLayeredFromMap(PYRAMID_ROW_MAP, dancerCount, 3, {
+    ...options,
+    resolveSplit: resolvePyramidRowSplit,
+  });
 }
 
 /**
@@ -347,6 +457,7 @@ export function generateStructuredWShape(
   return generateLayeredFromMap(W_SHAPE_ROW_MAP, dancerCount, 3, {
     rowYGapPct: GOLDEN_GEOMETRY.ROW_GAP_PCT,
     colXGapPct: GOLDEN_GEOMETRY.COL_GAP_PCT,
+    resolveSplit: resolvePyramidRowSplit,
     ...options,
   });
 }
@@ -362,6 +473,7 @@ export function generateStructuredWedge(
     rowYGapPct: GOLDEN_GEOMETRY.ROW_GAP_PCT,
     centerYPct: 50,
     preferFrontWide: true,
+    resolveSplit: (n) => [...resolvePyramidRowSplit(n)].reverse(),
     ...options,
   });
 }
