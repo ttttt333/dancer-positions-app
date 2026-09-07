@@ -34,6 +34,12 @@ import {
 } from "../hooks/useFormationPresetCategoryPreviews";
 import { FormationPresetTierToggle } from "./FormationPresetTierToggle";
 import {
+  FormationPresetFavoriteStar,
+  FormationPresetFavoritesFilter,
+} from "./FormationPresetFavoriteControls";
+import { useFormationPresetFavorites } from "../hooks/useFormationPresetFavorites";
+import { filterPresetItemsByFavorites } from "../lib/formationPresetFavorites";
+import {
   dancersFromFormationBoxItem,
   FORMATION_BOX_CHANGE_EVENT,
   listFormationBoxItems,
@@ -405,6 +411,14 @@ export function AddCueWithFormationDialog({
   const [addMode, setAddMode] = useState<AddMode | null>(null);
   const [templatePresetId, setTemplatePresetId] = useState<LayoutPresetId | null>(null);
   const [showAllPresetTiers, setShowAllPresetTiers] = useState(false);
+  const {
+    favoriteSet,
+    favoriteCount,
+    isFavorite,
+    toggleFavorite,
+    favoritesOnly,
+    toggleFavoritesOnly,
+  } = useFormationPresetFavorites();
   const [savedBoxId, setSavedBoxId] = useState<string | null>(null);
   const [savedSlotId, setSavedSlotId] = useState<string | null>(null);
 
@@ -476,6 +490,16 @@ export function AddCueWithFormationDialog({
     showAllPresetTiers
   );
 
+  const visiblePresetCategories = useMemo(
+    () =>
+      filterPresetItemsByFavorites(
+        presetCategoryPreviews,
+        favoriteSet,
+        favoritesOnly
+      ),
+    [presetCategoryPreviews, favoriteSet, favoritesOnly]
+  );
+
   const hiddenPresetTierCount = useMemo(
     () => countPresetsAboveTierFrom(PRESET_CATEGORIES, DEFAULT_UI_PRESET_MAX_TIER),
     []
@@ -515,10 +539,13 @@ export function AddCueWithFormationDialog({
   useEffect(() => {
     if (!templatePresetId) return;
     const maxTier = showAllPresetTiers ? 3 : DEFAULT_UI_PRESET_MAX_TIER;
-    if (getPresetTier(templatePresetId) > maxTier) {
-      setTemplatePresetId(firstPresetIdInCategories(presetCategoryPreviews));
+    const stillVisible = visiblePresetCategories.some((cat) =>
+      cat.items.some((item) => item.id === templatePresetId)
+    );
+    if (getPresetTier(templatePresetId) > maxTier || !stillVisible) {
+      setTemplatePresetId(firstPresetIdInCategories(visiblePresetCategories));
     }
-  }, [showAllPresetTiers, templatePresetId, presetCategoryPreviews]);
+  }, [showAllPresetTiers, templatePresetId, visiblePresetCategories]);
 
   const closeAndCleanup = useCallback(() => {
     onStagePreviewChange?.(null);
@@ -1301,14 +1328,28 @@ export function AddCueWithFormationDialog({
                   <span style={sectionNumberStyle}>4</span>
                   雛形（プリセット）
                 </span>
-                <FormationPresetTierToggle
-                  showAll={showAllPresetTiers}
-                  onToggle={() => setShowAllPresetTiers((v) => !v)}
-                  hiddenCount={hiddenPresetTierCount}
-                />
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  <FormationPresetTierToggle
+                    showAll={showAllPresetTiers}
+                    onToggle={() => setShowAllPresetTiers((v) => !v)}
+                    hiddenCount={hiddenPresetTierCount}
+                  />
+                  <FormationPresetFavoritesFilter
+                    active={favoritesOnly}
+                    onToggle={toggleFavoritesOnly}
+                    count={favoriteCount}
+                  />
+                </span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "12px", paddingLeft: "4px" }}>
-                {presetCategoryPreviews.map((cat) => (
+                {visiblePresetCategories.length === 0 ? (
+                  <div style={{ fontSize: 12, color: "#64748b", padding: "8px 2px" }}>
+                    {favoritesOnly
+                      ? "お気に入りの雛形がありません。☆を押して追加できます。"
+                      : "表示できる雛形がありません。"}
+                  </div>
+                ) : (
+                  visiblePresetCategories.map((cat) => (
                   <div key={cat.label}>
                     {/* カテゴリラベル */}
                     <div
@@ -1337,6 +1378,7 @@ export function AddCueWithFormationDialog({
                             title={item.label}
                             style={{
                               ...addCuePresetBtnStyle,
+                              position: "relative",
                               border: active ? "2px solid #d4af37" : addCuePresetBtnStyle.border,
                               background: active ? "rgba(212,175,55,0.15)" : addCuePresetBtnStyle.background,
                               boxShadow: active ? "0 0 0 1px rgba(212,175,55,0.35)" : "none",
@@ -1346,12 +1388,17 @@ export function AddCueWithFormationDialog({
                             <span className="add-cue-preset-label" style={addCuePresetLabelStyle}>
                               {item.label}
                             </span>
+                            <FormationPresetFavoriteStar
+                              active={isFavorite(item.id)}
+                              onToggle={() => toggleFavorite(item.id)}
+                            />
                           </button>
                         );
                       })}
                     </div>
                   </div>
-                ))}
+                  ))
+                )}
               </div>
             </section>
           ) : null}

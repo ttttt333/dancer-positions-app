@@ -23,6 +23,7 @@ const LOCALSTORAGE_EXACT_KEYS = [
   FLOW_LIBRARY_STORAGE_KEY,
   "choreogrid_formation_box_v1",
   "choreogrid_stage_presets_v1",
+  "choreogrid_formation_preset_favorites_v1",
   "choreogrid_locale",
   "dancer-positions.editorLayout.v2",
   "dancer-positions.editorLayout.v1",

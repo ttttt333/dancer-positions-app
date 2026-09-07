@@ -18,7 +18,13 @@ import {
   useFormationPresetCategoryPreviews,
 } from "../hooks/useFormationPresetCategoryPreviews";
 import { FormationPresetTierToggle } from "./FormationPresetTierToggle";
+import {
+  FormationPresetFavoriteStar,
+  FormationPresetFavoritesFilter,
+} from "./FormationPresetFavoriteControls";
 import { EditorSideSheet } from "./EditorSideSheet";
+import { useFormationPresetFavorites } from "../hooks/useFormationPresetFavorites";
+import { filterPresetItemsByFavorites } from "../lib/formationPresetFavorites";
 
 type Props = {
   open: boolean;
@@ -59,6 +65,15 @@ export function RosterPresetPickModal({
   /** 選択中の雛形（未確定状態） */
   const [selectedPresetId, setSelectedPresetId] = useState<LayoutPresetId | null>(null);
   const [showAllTiers, setShowAllTiers] = useState(false);
+  const {
+    favoriteSet,
+    favoriteCount,
+    isFavorite,
+    toggleFavorite,
+    favoritesOnly,
+    setFavoritesOnly,
+    toggleFavoritesOnly,
+  } = useFormationPresetFavorites();
 
   const spacingOpts = useMemo(
     () => ({
@@ -69,6 +84,11 @@ export function RosterPresetPickModal({
   );
 
   const categoryPreviews = useFormationPresetCategoryPreviews(n, spacingOpts, showAllTiers);
+  const visibleCategories = useMemo(
+    () =>
+      filterPresetItemsByFavorites(categoryPreviews, favoriteSet, favoritesOnly),
+    [categoryPreviews, favoriteSet, favoritesOnly]
+  );
 
   const hiddenTierCount = useMemo(
     () => countPresetsAboveTierFrom(PRESET_CATEGORIES, DEFAULT_UI_PRESET_MAX_TIER),
@@ -99,22 +119,35 @@ export function RosterPresetPickModal({
     onPreviewPreset?.(null);
     setSelectedPresetId(null);
     setShowAllTiers(false);
+    setFavoritesOnly(false);
     onClose();
-  }, [onPreviewPreset, onClose]);
+  }, [onPreviewPreset, onClose, setFavoritesOnly]);
 
   useEffect(() => {
     if (!open) {
       setSelectedPresetId(null);
       setShowAllTiers(false);
+      setFavoritesOnly(false);
       return;
     }
     if (!selectedPresetId) return;
     const maxTier = showAllTiers ? 3 : DEFAULT_UI_PRESET_MAX_TIER;
-    if (getPresetTier(selectedPresetId) > maxTier) {
-      setSelectedPresetId(firstPresetIdInCategories(categoryPreviews));
-      onPreviewPreset?.(firstPresetIdInCategories(categoryPreviews));
+    const stillVisible = visibleCategories.some((cat) =>
+      cat.items.some((item) => item.id === selectedPresetId)
+    );
+    if (getPresetTier(selectedPresetId) > maxTier || !stillVisible) {
+      const next = firstPresetIdInCategories(visibleCategories);
+      setSelectedPresetId(next);
+      onPreviewPreset?.(next);
     }
-  }, [open, showAllTiers, selectedPresetId, categoryPreviews, onPreviewPreset]);
+  }, [
+    open,
+    showAllTiers,
+    selectedPresetId,
+    visibleCategories,
+    onPreviewPreset,
+    setFavoritesOnly,
+  ]);
 
   const sortSelectValue =
     rosterSortMode === "import" ||
@@ -293,7 +326,14 @@ export function RosterPresetPickModal({
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-            {categoryPreviews.map((cat) => (
+            {visibleCategories.length === 0 ? (
+              <div style={{ fontSize: 12, color: "#64748b", padding: "8px 0" }}>
+                {favoritesOnly
+                  ? "お気に入りの雛形がありません。☆を押して追加できます。"
+                  : "表示できる雛形がありません。"}
+              </div>
+            ) : (
+              visibleCategories.map((cat) => (
               <div key={cat.label}>
                 {/* カテゴリーヘッダー */}
                 <div
@@ -317,12 +357,15 @@ export function RosterPresetPickModal({
                       dancers={item.dancers}
                       disabled={disabled}
                       isSelected={item.id === selectedPresetId}
+                      isFavorite={isFavorite(item.id)}
+                      onToggleFavorite={() => toggleFavorite(item.id)}
                       onPick={handleSelect}
                     />
                   ))}
                 </div>
               </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 
@@ -381,6 +424,12 @@ export function RosterPresetPickModal({
           >
             ✓ 決定
           </button>
+          <FormationPresetFavoritesFilter
+            active={favoritesOnly}
+            onToggle={toggleFavoritesOnly}
+            count={favoriteCount}
+            style={{ marginLeft: "auto" }}
+          />
         </div>
       </div>
     </EditorSideSheet>
@@ -392,12 +441,16 @@ function PresetButton({
   dancers,
   disabled,
   isSelected,
+  isFavorite,
+  onToggleFavorite,
   onPick,
 }: {
   id: LayoutPresetId;
   dancers: DancerSpot[];
   disabled: boolean;
   isSelected?: boolean;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
   onPick: (id: LayoutPresetId) => void;
 }) {
   /** LayoutPresetOptions の label を逆引き */
@@ -409,6 +462,7 @@ function PresetButton({
       onClick={() => onPick(id)}
       title={label}
       style={{
+        position: "relative",
         flexShrink: 0,
         display: "flex",
         flexDirection: "column",
@@ -441,6 +495,13 @@ function PresetButton({
       <span className="add-cue-preset-label">
         {label}
       </span>
+      {onToggleFavorite ? (
+        <FormationPresetFavoriteStar
+          active={!!isFavorite}
+          onToggle={onToggleFavorite}
+          disabled={disabled}
+        />
+      ) : null}
     </button>
   );
 }

@@ -25,6 +25,12 @@ import {
 } from "../lib/formationPresetTiers";
 import { FormationPresetThumb } from "./FormationPresetThumb";
 import { FormationPresetTierToggle } from "./FormationPresetTierToggle";
+import {
+  FormationPresetFavoriteStar,
+  FormationPresetFavoritesFilter,
+} from "./FormationPresetFavoriteControls";
+import { useFormationPresetFavorites } from "../hooks/useFormationPresetFavorites";
+import { filterPresetIdsByFavorites } from "../lib/formationPresetFavorites";
 
 const VB_W = 100;
 const VB_H = 78;
@@ -164,10 +170,22 @@ export function StageFormationShapeCards({
   const n = Math.max(1, selectedCount);
   const r = n >= 9 ? 2.4 : n >= 6 ? 2.8 : 3.2;
   const [showAllTiers, setShowAllTiers] = useState(false);
+  const {
+    favoriteSet,
+    favoriteCount,
+    isFavorite,
+    toggleFavorite,
+    favoritesOnly,
+    toggleFavoritesOnly,
+  } = useFormationPresetFavorites();
   const maxTier = showAllTiers ? 3 : DEFAULT_UI_PRESET_MAX_TIER;
   const categories = useMemo(
     () => filterPresetCategories(PRESET_CATEGORIES, maxTier as 1 | 2 | 3),
     [maxTier]
+  );
+  const visibleCategories = useMemo(
+    () => filterPresetIdsByFavorites(categories, favoriteSet, favoritesOnly),
+    [categories, favoriteSet, favoritesOnly]
   );
   const hiddenTierCount = useMemo(
     () => countPresetsAboveTierFrom(PRESET_CATEGORIES, DEFAULT_UI_PRESET_MAX_TIER),
@@ -261,11 +279,18 @@ export function StageFormationShapeCards({
             }}
           >
             <div style={{ ...sectionLabel("雛形"), margin: 0 }}>雛形</div>
-            <FormationPresetTierToggle
-              showAll={showAllTiers}
-              onToggle={() => setShowAllTiers((v) => !v)}
-              hiddenCount={hiddenTierCount}
-            />
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <FormationPresetTierToggle
+                showAll={showAllTiers}
+                onToggle={() => setShowAllTiers((v) => !v)}
+                hiddenCount={hiddenTierCount}
+              />
+              <FormationPresetFavoritesFilter
+                active={favoritesOnly}
+                onToggle={toggleFavoritesOnly}
+                count={favoriteCount}
+              />
+            </span>
           </div>
           <div
             style={{
@@ -274,7 +299,14 @@ export function StageFormationShapeCards({
               gap: 10,
             }}
           >
-            {categories.map((cat) => (
+            {visibleCategories.length === 0 ? (
+              <div style={{ fontSize: 12, color: "#64748b" }}>
+                {favoritesOnly
+                  ? "お気に入りの雛形がありません。☆を押して追加できます。"
+                  : "表示できる雛形がありません。"}
+              </div>
+            ) : (
+              visibleCategories.map((cat) => (
               <div key={cat.label}>
                 <div
                   style={{
@@ -305,6 +337,7 @@ export function StageFormationShapeCards({
                         onClick={() => onPickLayoutPreset(id)}
                         style={{
                           ...cardBtn,
+                          position: "relative",
                           padding: "8px 6px 8px",
                           borderColor: active
                             ? "rgba(212,175,55,0.95)"
@@ -326,12 +359,17 @@ export function StageFormationShapeCards({
                         >
                           {label}
                         </span>
+                        <FormationPresetFavoriteStar
+                          active={isFavorite(id)}
+                          onToggle={() => toggleFavorite(id)}
+                        />
                       </button>
                     );
                   })}
                 </div>
               </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       ) : null}

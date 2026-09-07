@@ -28,7 +28,13 @@ import {
   useFormationPresetCategoryPreviews,
 } from "../hooks/useFormationPresetCategoryPreviews";
 import { FormationPresetTierToggle } from "./FormationPresetTierToggle";
+import {
+  FormationPresetFavoriteStar,
+  FormationPresetFavoritesFilter,
+} from "./FormationPresetFavoriteControls";
 import { EditorSideSheet } from "./EditorSideSheet";
+import { useFormationPresetFavorites } from "../hooks/useFormationPresetFavorites";
+import { filterPresetItemsByFavorites } from "../lib/formationPresetFavorites";
 
 type Props = {
   open: boolean;
@@ -165,6 +171,15 @@ export function FormationPresetPickerSheet({
     null
   );
   const [showAllTiers, setShowAllTiers] = useState(false);
+  const {
+    favoriteSet,
+    favoriteCount,
+    isFavorite,
+    toggleFavorite,
+    favoritesOnly,
+    setFavoritesOnly,
+    toggleFavoritesOnly,
+  } = useFormationPresetFavorites();
   const wasOpenRef = useRef(false);
   const portraitMobileShell = usePortraitMobileShell();
   const landscapeMobileShell = useLandscapeMobileShell();
@@ -185,6 +200,16 @@ export function FormationPresetPickerSheet({
     count,
     spacingOpts,
     showAllTiers
+  );
+
+  const visiblePresetCategories = useMemo(
+    () =>
+      filterPresetItemsByFavorites(
+        presetCategoryPreviews,
+        favoriteSet,
+        favoritesOnly
+      ),
+    [presetCategoryPreviews, favoriteSet, favoritesOnly]
   );
 
   const hiddenTierCount = useMemo(
@@ -210,6 +235,7 @@ export function FormationPresetPickerSheet({
   useEffect(() => {
     if (open && !wasOpenRef.current) {
       setShowAllTiers(false);
+      setFavoritesOnly(false);
       const first =
         filterPresetCategories(PRESET_CATEGORIES, DEFAULT_UI_PRESET_MAX_TIER)[0]
           ?.ids[0] ?? null;
@@ -219,16 +245,25 @@ export function FormationPresetPickerSheet({
     if (!open) {
       setSelectedPresetId(null);
       setShowAllTiers(false);
+      setFavoritesOnly(false);
     }
-  }, [open]);
+  }, [open, setFavoritesOnly]);
 
   useEffect(() => {
     if (!open || !selectedPresetId) return;
     const maxTier = showAllTiers ? 3 : DEFAULT_UI_PRESET_MAX_TIER;
-    if (getPresetTier(selectedPresetId) > maxTier) {
-      setSelectedPresetId(firstPresetIdInCategories(presetCategoryPreviews));
+    const stillVisible = visiblePresetCategories.some((cat) =>
+      cat.items.some((item) => item.id === selectedPresetId)
+    );
+    if (getPresetTier(selectedPresetId) > maxTier || !stillVisible) {
+      setSelectedPresetId(firstPresetIdInCategories(visiblePresetCategories));
     }
-  }, [open, showAllTiers, selectedPresetId, presetCategoryPreviews]);
+  }, [
+    open,
+    showAllTiers,
+    selectedPresetId,
+    visiblePresetCategories,
+  ]);
 
   useEffect(() => {
     if (!open) return;
@@ -307,6 +342,12 @@ export function FormationPresetPickerSheet({
       >
         適用
       </button>
+      <FormationPresetFavoritesFilter
+        active={favoritesOnly}
+        onToggle={toggleFavoritesOnly}
+        count={favoriteCount}
+        style={{ marginLeft: "auto" }}
+      />
     </div>
   );
 
@@ -334,7 +375,22 @@ export function FormationPresetPickerSheet({
             }
       }
     >
-      {presetCategoryPreviews.map((cat) => (
+      {visiblePresetCategories.length === 0 ? (
+        <div
+          style={{
+            padding: "24px 12px",
+            textAlign: "center",
+            color: "#64748b",
+            fontSize: 12,
+            lineHeight: 1.5,
+          }}
+        >
+          {favoritesOnly
+            ? "お気に入りの雛形がありません。☆を押して追加できます。"
+            : "表示できる雛形がありません。"}
+        </div>
+      ) : (
+        visiblePresetCategories.map((cat) => (
         <div key={cat.label} className="formation-preset-picker-category">
           <div className="add-cue-preset-category formation-preset-picker-category-label">
             {cat.label}
@@ -356,6 +412,7 @@ export function FormationPresetPickerSheet({
                   title={item.label}
                   style={{
                     ...presetBtnStyle,
+                    position: "relative",
                     border: active ? "2px solid #d4af37" : presetBtnStyle.border,
                     background: active
                       ? "rgba(212,175,55,0.15)"
@@ -369,12 +426,18 @@ export function FormationPresetPickerSheet({
                   <span className="add-cue-preset-label formation-preset-picker-preset-label">
                     {item.label}
                   </span>
+                  <FormationPresetFavoriteStar
+                    active={isFavorite(item.id)}
+                    onToggle={() => toggleFavorite(item.id)}
+                    disabled={noTarget}
+                  />
                 </button>
               );
             })}
           </div>
         </div>
-      ))}
+        ))
+      )}
     </div>
   );
 

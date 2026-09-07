@@ -3408,6 +3408,11 @@ html[data-landscape-wave-collapsed] {
   word-break: keep-all;
   cursor: pointer;
   transition: border-color 0.12s, background 0.12s;
+  position: relative;
+}
+
+.formation-preset-favorite-star {
+  pointer-events: auto;
 }
 
 .add-cue-preset-btn svg {
