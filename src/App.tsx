@@ -11,6 +11,7 @@ import { BillingCanceledPage, BillingSuccessPage } from "./pages/BillingPages";
 import { PlanConfirmationPage } from "./pages/billing/PlanConfirmationPage";
 import { TokushohoPage } from "./pages/legal/TokushohoPage";
 import { UpdateLogPage } from "./pages/UpdateLogPage";
+import { AppealPage } from "./pages/appeal/AppealPage";
 import { MobileFormationEditorDemoPage } from "./pages/MobileFormationEditorDemoPage";
 import { AnnotationWorkbenchPage } from "./pages/AnnotationWorkbenchPage";
 import { isQuotaError, recoverBlindStorageQuota } from "./pages/annotation/sessionHistory";
@@ -254,6 +255,7 @@ function AppShell() {
   const location = useLocation();
   const hideFloatingLocale =
     location.pathname === "/" ||
+    location.pathname.startsWith("/appeal") ||
     location.pathname.startsWith("/view") ||
     location.pathname.startsWith("/evaluation");
 
@@ -269,6 +271,8 @@ function AppShell() {
             <Route path="/library" element={<Navigate to="/" replace />} />
             <Route path="/video" element={<VideoPage />} />
             <Route path="/update-log" element={<UpdateLogPage />} />
+            <Route path="/appeal" element={<AppealPage />} />
+            <Route path="/lp" element={<Navigate to="/appeal" replace />} />
             <Route path="/changelog" element={<Navigate to="/update-log" replace />} />
             <Route path="/billing/success" element={<BillingSuccessPage />} />
             <Route path="/billing/canceled" element={<BillingCanceledPage />} />

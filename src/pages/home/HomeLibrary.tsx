@@ -376,6 +376,7 @@ export function HomeLibrary() {
             proBadge: "PRO",
             freeBadge: `FREE ${projects.length}/3`,
             faq: t("home.drawer.faq"),
+            appeal: t("home.tabAppeal"),
             help: t("home.drawer.help"),
             renamePrompt: t("home.settings.renamePrompt"),
             deleteConfirm: t("home.settings.deleteConfirm"),
@@ -448,6 +449,9 @@ export function HomeLibrary() {
             {t("dashboard.newProject")}
           </Link>
         )}
+        <Link to="/appeal" className="home-desktop-new home-desktop-appeal">
+          {t("home.tabAppeal")}
+        </Link>
       </header>
 
       <main className="home-library-main">
@@ -625,6 +629,9 @@ export function HomeLibrary() {
 
       <nav className="home-bottom-nav" aria-label={t("home.bottomNav")}>
         <span className="home-bottom-nav-item is-active">{t("home.tabLibrary")}</span>
+        <Link to="/appeal" className="home-bottom-nav-item">
+          {t("home.tabAppeal")}
+        </Link>
         <Link to="/update-log" className="home-bottom-nav-item">
           {t("home.tabExplore")}
         </Link>

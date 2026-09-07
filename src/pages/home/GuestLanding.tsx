@@ -120,6 +120,9 @@ export function GuestLanding() {
           </Link>
           <div className="home-guest-header-actions">
             <LanguageSwitcher variant="inline" />
+            <Link to="/appeal" className="home-landing-login">
+              {t("home.tabAppeal")}
+            </Link>
             <Link to="/login" className="home-landing-login">
               {t("dashboard.login")}
             </Link>
@@ -239,6 +242,9 @@ export function GuestLanding() {
             <div className="home-cta-group">
               <Link to="/register" className="home-btn home-btn--primary">
                 {campaign ? t("landing.campaign.cta") : t("landing.ctaTry")}
+              </Link>
+              <Link to="/appeal" className="home-btn home-btn--secondary">
+                {t("home.tabAppeal")}
               </Link>
               <Link to="/login" className="home-btn home-btn--secondary">
                 {t("dashboard.login")}

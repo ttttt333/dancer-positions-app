@@ -414,8 +414,7 @@
   "home.libraryTitle": "Biblioteca",
   "home.myLibrary": "Mi biblioteca",
   "home.cloudLibrary": "Nube",
-  "home.flowLibraryHint":
-    "Obras guardadas en la biblioteca del editor en este dispositivo.",
+  "home.flowLibraryHint": "Obras guardadas en la biblioteca del editor en este dispositivo.",
   "home.flowLibraryMeta": "Cues {cues} / Personas {dancers} / Duración {dur}",
   "home.flowLibraryUpdated": "Actualizado {date}",
   "home.bottomNav": "Navegación de inicio",
@@ -550,19 +549,15 @@
   "updateLog.reload": "Recargar",
   "updateLog.loading": "Cargando…",
   "updateLog.saved": "Publicado en todos los idiomas.",
-  "updateLog.savedPartial":
-    "Publicado. Los demás idiomas mostrarán japonés hasta que la traducción funcione. Vuelve a publicar.",
+  "updateLog.savedPartial": "Publicado. Los demás idiomas mostrarán japonés hasta que la traducción funcione. Vuelve a publicar.",
   "updateLog.empty": "(Aún no hay novedades)",
   "updateLog.loadFail": "Error al cargar",
   "updateLog.saveFail": "Error al guardar",
   "updateLog.bodyAria": "Registro de actualizaciones (japonés)",
-  "updateLog.editSourceLabel":
-    "Escribe en japonés. Al publicar se traduce al resto de idiomas.",
+  "updateLog.editSourceLabel": "Escribe en japonés. Al publicar se traduce al resto de idiomas.",
   "updateLog.adminHint": "Modo administrador: edita esta página en japonés y publícala.",
-  "updateLog.adminTranslateHint":
-    "Al publicar se traduce a inglés, coreano, chino, español, francés, alemán y portugués.",
-  "updateLog.adminHintLocal":
-    " Si la nube no está lista, los cambios quedan en este dispositivo.",
+  "updateLog.adminTranslateHint": "Al publicar se traduce a inglés, coreano, chino, español, francés, alemán y portugués.",
+  "updateLog.adminHintLocal": " Si la nube no está lista, los cambios quedan en este dispositivo.",
   "updateLog.openTitle": "Novedades y registro de actualizaciones",
   "updateLog.openAria": "Abrir el registro de actualizaciones",
   "pro.upgrade.title.export": "Límite de exportación de vídeo alcanzado",
@@ -601,18 +596,14 @@
   "pdf.audience": "Público",
   "pdf.emptyError": "No hay formaciones para exportar",
   "shareSheet.title": "Compartir",
-  "shareSheet.lead":
-    "Elige el destino. El enlace de colaboración, el de alumnos y los archivos son distintos.",
+  "shareSheet.lead": "Elige el destino. El enlace de colaboración, el de alumnos y los archivos son distintos.",
   "shareSheet.railSub": "URL · PDF",
   "shareSheet.collabTitle": "Coreógrafos y colaboradores",
-  "shareSheet.collabDesc":
-    "Pueden editar la misma obra juntos. Quien reciba el enlace inicia sesión y abre la URL de colaboración.",
+  "shareSheet.collabDesc": "Pueden editar la misma obra juntos. Quien reciba el enlace inicia sesión y abre la URL de colaboración.",
   "shareSheet.studentTitle": "Alumnos",
-  "shareSheet.studentDesc":
-    "Solo ver posiciones y elegir el nombre en la lista. Sin edición. En el móvil basta con abrir la URL (sin iniciar sesión).",
+  "shareSheet.studentDesc": "Solo ver posiciones y elegir el nombre en la lista. Sin edición. En el móvil basta con abrir la URL (sin iniciar sesión).",
   "shareSheet.pdfTitle": "PDF de cues (tiempo + posiciones)",
-  "shareSheet.pdfDesc":
-    "Una página por cue con el tiempo de reproducción y el diagrama del escenario. Se puede enviar o imprimir. No hace falta guardar en la nube.",
+  "shareSheet.pdfDesc": "Una página por cue con el tiempo de reproducción y el diagrama del escenario. Se puede enviar o imprimir. No hace falta guardar en la nube.",
   "shareSheet.pdfButton": "Descargar PDF",
   "shareSheet.pdfBusy": "Creando PDF…",
   "shareSheet.pdfDone": "Descargado",
@@ -681,5 +672,6 @@
   "editor.layout.viewerCuePositionAria": "Cue {current} de {total}",
   "editor.comp.k128": "Exportar vídeo",
   "editor.comp.k129": "Cue desde foto",
-  "editor.comp.k130": "Definir cue desde una foto"
+  "editor.comp.k130": "Definir cue desde una foto",
+  "home.tabAppeal": "Destacados"
 }

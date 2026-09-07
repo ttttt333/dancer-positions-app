@@ -414,8 +414,7 @@
   "home.libraryTitle": "Bibliothèque",
   "home.myLibrary": "Ma bibliothèque",
   "home.cloudLibrary": "Cloud",
-  "home.flowLibraryHint":
-    "Œuvres enregistrées dans la bibliothèque de l’éditeur sur cet appareil.",
+  "home.flowLibraryHint": "Œuvres enregistrées dans la bibliothèque de l’éditeur sur cet appareil.",
   "home.flowLibraryMeta": "Cues {cues} / Personnes {dancers} / Durée {dur}",
   "home.flowLibraryUpdated": "Mis à jour {date}",
   "home.bottomNav": "Navigation d’accueil",
@@ -550,19 +549,15 @@
   "updateLog.reload": "Recharger",
   "updateLog.loading": "Chargement…",
   "updateLog.saved": "Publié dans toutes les langues.",
-  "updateLog.savedPartial":
-    "Publié. Les autres langues afficheront le japonais tant que la traduction échoue. Republiez.",
+  "updateLog.savedPartial": "Publié. Les autres langues afficheront le japonais tant que la traduction échoue. Republiez.",
   "updateLog.empty": "(Pas encore d’actualités)",
   "updateLog.loadFail": "Échec du chargement",
   "updateLog.saveFail": "Échec de l’enregistrement",
   "updateLog.bodyAria": "Journal des mises à jour (japonais)",
-  "updateLog.editSourceLabel":
-    "Rédigez en japonais. La publication traduit les autres langues.",
+  "updateLog.editSourceLabel": "Rédigez en japonais. La publication traduit les autres langues.",
   "updateLog.adminHint": "Mode admin : modifiez cette page en japonais puis publiez.",
-  "updateLog.adminTranslateHint":
-    "La publication traduit en anglais, coréen, chinois, espagnol, français, allemand et portugais.",
-  "updateLog.adminHintLocal":
-    " Si le cloud n’est pas prêt, les changements restent sur cet appareil.",
+  "updateLog.adminTranslateHint": "La publication traduit en anglais, coréen, chinois, espagnol, français, allemand et portugais.",
+  "updateLog.adminHintLocal": " Si le cloud n’est pas prêt, les changements restent sur cet appareil.",
   "updateLog.openTitle": "Actualités et journal des mises à jour",
   "updateLog.openAria": "Ouvrir le journal des mises à jour",
   "pro.upgrade.title.export": "Limite d’export vidéo atteinte",
@@ -601,18 +596,14 @@
   "pdf.audience": "Public",
   "pdf.emptyError": "Aucune formation à exporter",
   "shareSheet.title": "Partager",
-  "shareSheet.lead":
-    "Choisissez la destination. Les liens collab, élèves et les fichiers sont distincts.",
+  "shareSheet.lead": "Choisissez la destination. Les liens collab, élèves et les fichiers sont distincts.",
   "shareSheet.railSub": "URL · PDF",
   "shareSheet.collabTitle": "Chorégraphes et collaborateurs",
-  "shareSheet.collabDesc":
-    "Modifier ensemble la même œuvre. Les destinataires se connectent et ouvrent l’URL de collaboration.",
+  "shareSheet.collabDesc": "Modifier ensemble la même œuvre. Les destinataires se connectent et ouvrent l’URL de collaboration.",
   "shareSheet.studentTitle": "Élèves",
-  "shareSheet.studentDesc":
-    "Consultation des positions et choix du nom dans la liste. Pas d’édition. Sur téléphone, ouvrir l’URL suffit (sans connexion).",
+  "shareSheet.studentDesc": "Consultation des positions et choix du nom dans la liste. Pas d’édition. Sur téléphone, ouvrir l’URL suffit (sans connexion).",
   "shareSheet.pdfTitle": "PDF des cues (temps + positions)",
-  "shareSheet.pdfDesc":
-    "Une page par cue avec le temps de lecture et le schéma de scène. À envoyer ou imprimer. Possible sans enregistrement cloud.",
+  "shareSheet.pdfDesc": "Une page par cue avec le temps de lecture et le schéma de scène. À envoyer ou imprimer. Possible sans enregistrement cloud.",
   "shareSheet.pdfButton": "Télécharger le PDF",
   "shareSheet.pdfBusy": "Création du PDF…",
   "shareSheet.pdfDone": "Téléchargé",
@@ -681,5 +672,6 @@
   "editor.layout.viewerCuePositionAria": "Cue {current} sur {total}",
   "editor.comp.k128": "Exporter la vidéo",
   "editor.comp.k129": "Cue photo",
-  "editor.comp.k130": "Définir le cue à partir d’une photo"
+  "editor.comp.k130": "Définir le cue à partir d’une photo",
+  "home.tabAppeal": "Atouts"
 }

@@ -414,8 +414,7 @@
   "home.libraryTitle": "Bibliothek",
   "home.myLibrary": "Meine Bibliothek",
   "home.cloudLibrary": "Cloud",
-  "home.flowLibraryHint":
-    "Werke aus der Editor-Bibliothek auf diesem Gerät.",
+  "home.flowLibraryHint": "Werke aus der Editor-Bibliothek auf diesem Gerät.",
   "home.flowLibraryMeta": "Cues {cues} / Personen {dancers} / Länge {dur}",
   "home.flowLibraryUpdated": "Aktualisiert {date}",
   "home.bottomNav": "Startnavigation",
@@ -550,19 +549,15 @@
   "updateLog.reload": "Neu laden",
   "updateLog.loading": "Laden…",
   "updateLog.saved": "In allen Sprachen veröffentlicht.",
-  "updateLog.savedPartial":
-    "Veröffentlicht. Andere Sprachen zeigen Japanisch, bis die Übersetzung klappt. Erneut veröffentlichen.",
+  "updateLog.savedPartial": "Veröffentlicht. Andere Sprachen zeigen Japanisch, bis die Übersetzung klappt. Erneut veröffentlichen.",
   "updateLog.empty": "(Noch keine Neuigkeiten)",
   "updateLog.loadFail": "Laden fehlgeschlagen",
   "updateLog.saveFail": "Speichern fehlgeschlagen",
   "updateLog.bodyAria": "Updateprotokoll (Japanisch)",
-  "updateLog.editSourceLabel":
-    "Auf Japanisch schreiben. Beim Veröffentlichen werden die anderen Sprachen übersetzt.",
+  "updateLog.editSourceLabel": "Auf Japanisch schreiben. Beim Veröffentlichen werden die anderen Sprachen übersetzt.",
   "updateLog.adminHint": "Admin-Modus: diese Seite auf Japanisch bearbeiten und veröffentlichen.",
-  "updateLog.adminTranslateHint":
-    "Beim Veröffentlichen wird ins Englische, Koreanische, Chinesische, Spanische, Französische, Deutsche und Portugiesische übersetzt.",
-  "updateLog.adminHintLocal":
-    " Ist die Cloud nicht bereit, bleiben Änderungen auf diesem Gerät.",
+  "updateLog.adminTranslateHint": "Beim Veröffentlichen wird ins Englische, Koreanische, Chinesische, Spanische, Französische, Deutsche und Portugiesische übersetzt.",
+  "updateLog.adminHintLocal": " Ist die Cloud nicht bereit, bleiben Änderungen auf diesem Gerät.",
   "updateLog.openTitle": "Neuigkeiten und Updateprotokoll",
   "updateLog.openAria": "Updateprotokoll öffnen",
   "pro.upgrade.title.export": "Videoexport-Limit erreicht",
@@ -601,18 +596,14 @@
   "pdf.audience": "Publikum",
   "pdf.emptyError": "Keine Formationen zum Export",
   "shareSheet.title": "Teilen",
-  "shareSheet.lead":
-    "Wähle das Ziel. Kollab-Links, Schüler-Links und Dateien sind jeweils anders.",
+  "shareSheet.lead": "Wähle das Ziel. Kollab-Links, Schüler-Links und Dateien sind jeweils anders.",
   "shareSheet.railSub": "URL · PDF",
   "shareSheet.collabTitle": "Choreografen & Mitwirkende",
-  "shareSheet.collabDesc":
-    "Dieselbe Arbeit gemeinsam bearbeiten. Empfänger melden sich an und öffnen die Kollab-URL.",
+  "shareSheet.collabDesc": "Dieselbe Arbeit gemeinsam bearbeiten. Empfänger melden sich an und öffnen die Kollab-URL.",
   "shareSheet.studentTitle": "Schüler",
-  "shareSheet.studentDesc":
-    "Nur Positionen ansehen und den eigenen Namen in der Liste wählen. Keine Bearbeitung. Am Handy reicht das Öffnen der URL (ohne Login).",
+  "shareSheet.studentDesc": "Nur Positionen ansehen und den eigenen Namen in der Liste wählen. Keine Bearbeitung. Am Handy reicht das Öffnen der URL (ohne Login).",
   "shareSheet.pdfTitle": "Cue-PDF (Zeit + Positionen)",
-  "shareSheet.pdfDesc":
-    "Eine Seite pro Cue mit Wiedergabezeit und Bühnenbild. Zum Senden oder Drucken. Geht ohne Cloud-Speichern.",
+  "shareSheet.pdfDesc": "Eine Seite pro Cue mit Wiedergabezeit und Bühnenbild. Zum Senden oder Drucken. Geht ohne Cloud-Speichern.",
   "shareSheet.pdfButton": "PDF herunterladen",
   "shareSheet.pdfBusy": "PDF wird erstellt…",
   "shareSheet.pdfDone": "Heruntergeladen",
@@ -681,5 +672,6 @@
   "editor.layout.viewerCuePositionAria": "Cue {current} von {total}",
   "editor.comp.k128": "Video exportieren",
   "editor.comp.k129": "Foto-Cue",
-  "editor.comp.k130": "Cue aus einem Foto setzen"
+  "editor.comp.k130": "Cue aus einem Foto setzen",
+  "home.tabAppeal": "Highlights"
 }
