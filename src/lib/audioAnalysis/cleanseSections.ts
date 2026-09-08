@@ -18,10 +18,156 @@ function resolveMinDuration(opts: CleanseSectionsOpts): number {
     return opts.minDurationSec;
   }
   const bpm = opts.bpm && opts.bpm > 0 ? opts.bpm : 120;
-  const twoEights = secondsPerEightCount(bpm) * 2;
-  const target = Math.max(8, twoEights);
-  // 短いクリップでは曲の ~12% まで落とす（最低 2s）
-  return Math.min(target, Math.max(2, opts.duration * 0.12));
+  // 最低 8秒 または 4小節（= 2×8カウント）相当
+  const fourBars = secondsPerEightCount(bpm) * 2;
+  const target = Math.max(8, fourBars);
+  // 短いクリップでは曲の ~10% まで落とす（最低 2.5s）
+  return Math.min(target, Math.max(2.5, opts.duration * 0.1));
+}
+
+/**
+ * EDIT 曲でサビが大半を占めるとき、余剰サビを Aメロ/ブリッジへ降格。
+ * 単一の長大サビは中盤だけ残して前後を分割する。
+ */
+export function rebalanceChorusHeavySections(
+  sections: MusicSection[],
+  duration: number,
+  maxChorusFraction = 0.42
+): MusicSection[] {
+  if (!(duration > 0) || sections.length === 0) return sections;
+  let list = mergeAdjacentSameType(sections.map((s) => ({ ...s })));
+  const maxChorusSec = duration * maxChorusFraction;
+
+  const chorusDur = list
+    .filter((s) => s.type === "chorus")
+    .reduce((acc, s) => acc + Math.max(0, s.endTime - s.startTime), 0);
+  if (chorusDur <= maxChorusSec + 1e-6) return list;
+
+  const next: MusicSection[] = [];
+  for (const s of list) {
+    if (s.type !== "chorus") {
+      next.push(s);
+      continue;
+    }
+    const span = Math.max(0, s.endTime - s.startTime);
+    if (span <= maxChorusSec + 1e-6) {
+      next.push(s);
+      continue;
+    }
+    // 長大サビ: 中盤 maxChorusSec だけ残し、前後を verse / bridge に
+    const keep = maxChorusSec;
+    const mid = (s.startTime + s.endTime) / 2;
+    let keepStart = mid - keep / 2;
+    let keepEnd = mid + keep / 2;
+    if (keepStart < s.startTime) {
+      keepStart = s.startTime;
+      keepEnd = s.startTime + keep;
+    }
+    if (keepEnd > s.endTime) {
+      keepEnd = s.endTime;
+      keepStart = s.endTime - keep;
+    }
+    keepStart = Math.max(s.startTime, keepStart);
+    keepEnd = Math.min(s.endTime, keepEnd);
+
+    if (keepStart - s.startTime > 0.25) {
+      const type: SectionType =
+        (s.startTime + keepStart) / 2 / duration < 0.45 ? "verse" : "pre_chorus";
+      const meta = sectionDisplayMeta(type);
+      next.push({
+        ...s,
+        id: `${s.id}-pre`,
+        type,
+        label: meta.label,
+        color: meta.color,
+        startTime: s.startTime,
+        endTime: keepStart,
+      });
+    }
+    next.push({
+      ...s,
+      startTime: keepStart,
+      endTime: keepEnd,
+    });
+    if (s.endTime - keepEnd > 0.25) {
+      const midFrac = (keepEnd + s.endTime) / 2 / duration;
+      const type: SectionType =
+        midFrac < 0.7 ? "verse" : midFrac < 0.88 ? "bridge" : "outro";
+      const meta = sectionDisplayMeta(type);
+      next.push({
+        ...s,
+        id: `${s.id}-post`,
+        type,
+        label: meta.label,
+        color: meta.color,
+        startTime: keepEnd,
+        endTime: s.endTime,
+      });
+    }
+  }
+
+  // 複数サビが残ってなお超過なら、中盤以外を降格
+  list = mergeAdjacentSameType(next);
+  let cDur = list
+    .filter((s) => s.type === "chorus")
+    .reduce((acc, s) => acc + Math.max(0, s.endTime - s.startTime), 0);
+  if (cDur <= maxChorusSec + 1e-6) return list;
+
+  const ranked = list
+    .map((s, i) => ({ s, i }))
+    .filter(({ s }) => s.type === "chorus")
+    .sort((a, b) => {
+      const midA = (a.s.startTime + a.s.endTime) / 2 / duration;
+      const midB = (b.s.startTime + b.s.endTime) / 2 / duration;
+      return Math.abs(midA - 0.55) - Math.abs(midB - 0.55);
+    });
+
+  let kept = 0;
+  const keepIds = new Set<string>();
+  for (const { s } of ranked) {
+    const span = Math.max(0, s.endTime - s.startTime);
+    if (kept > maxChorusSec * 0.9 && keepIds.size >= 1) break;
+    keepIds.add(s.id);
+    kept += span;
+  }
+
+  list = list.map((s) => {
+    if (s.type !== "chorus" || keepIds.has(s.id)) return s;
+    const mid = (s.startTime + s.endTime) / 2 / duration;
+    const type: SectionType =
+      mid < 0.4 ? "verse" : mid < 0.55 ? "pre_chorus" : mid < 0.78 ? "verse" : "bridge";
+    const meta = sectionDisplayMeta(type);
+    return { ...s, type, label: meta.label, color: meta.color };
+  });
+
+  return mergeAdjacentSameType(list);
+}
+
+/**
+ * マージ → 短尺吸収 → 再マージ → 隙間埋め → サビ過多の再配分。
+ */
+export function cleanseMusicSections(
+  sections: MusicSection[],
+  opts: CleanseSectionsOpts
+): MusicSection[] {
+  if (!sections.length || !(opts.duration > 0)) return sections;
+  const minDur = resolveMinDuration(opts);
+  let list = mergeAdjacentSameType(sections);
+  list = absorbShortSections(list, minDur);
+  list = mergeAdjacentSameType(list);
+  list = fillSectionGaps(list, opts.duration);
+  list = rebalanceChorusHeavySections(list, opts.duration);
+  list = mergeAdjacentSameType(list);
+  list = fillSectionGaps(list, opts.duration);
+  // ラベルを type に合わせて正規化
+  return list.map((s) => {
+    const meta = sectionDisplayMeta(s.type);
+    return {
+      ...s,
+      label: meta.label,
+      color: meta.color,
+    };
+  });
 }
 
 /** 連続する同一 type を結合 */
@@ -111,30 +257,6 @@ export function fillSectionGaps(
   }
   list[list.length - 1]!.endTime = duration;
   return list.filter((s) => s.endTime - s.startTime > 0.05);
-}
-
-/**
- * マージ → 短尺吸収 → 再マージ → 隙間埋め。
- */
-export function cleanseMusicSections(
-  sections: MusicSection[],
-  opts: CleanseSectionsOpts
-): MusicSection[] {
-  if (!sections.length || !(opts.duration > 0)) return sections;
-  const minDur = resolveMinDuration(opts);
-  let list = mergeAdjacentSameType(sections);
-  list = absorbShortSections(list, minDur);
-  list = mergeAdjacentSameType(list);
-  list = fillSectionGaps(list, opts.duration);
-  // ラベルを type に合わせて正規化
-  return list.map((s) => {
-    const meta = sectionDisplayMeta(s.type);
-    return {
-      ...s,
-      label: meta.label,
-      color: meta.color,
-    };
-  });
 }
 
 /**

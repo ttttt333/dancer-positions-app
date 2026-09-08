@@ -17,6 +17,7 @@ import { publishWaveDrawRange } from "../lib/waveDrawRangeSync";
 import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
 import { drawWavePeaksColumns } from "../lib/drawWavePeaksColumns";
 import { drawEightCountGrid } from "../lib/audioAnalysis/drawEightCountGrid";
+import { drawMusicSectionBands } from "../lib/audioAnalysis/drawMusicSectionBands";
 import { WAVE_CANVAS_BITMAP_HEIGHT_SCALE } from "../lib/waveDockMetrics";
 import { useWavePeaksStore } from "../store/wavePeaksStore";
 import { useMusicSectionOverlayStore } from "../store/musicSectionOverlayStore";
@@ -233,6 +234,10 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
           canvasWidth: w,
           canvasHeight: h,
         });
+      }
+      const sectionSegs = useMusicSectionOverlayStore.getState().segments;
+      if (sectionSegs.length > 0) {
+        drawMusicSectionBands(g, sectionSegs, viewStart, viewSpan, w, h);
       }
       const cueList = cuesRef.current;
       if (d > 0 && viewSpan > 0 && cueList.length >= 2) {
@@ -553,10 +558,10 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
     waveCanvasCssH,
   ]);
 
-  // 自動解析完了で beats が入ったら、停止中でもグリッドを即再描画
+  // 自動解析完了で beats / sections が入ったら、停止中でも即再描画
   useEffect(() => {
     return useMusicSectionOverlayStore.subscribe((state, prev) => {
-      if (state.beats === prev.beats) return;
+      if (state.beats === prev.beats && state.segments === prev.segments) return;
       if (isPlayingForWaveRef.current) return;
       drawWaveformAt(resolvePlayheadPaintTime());
     });

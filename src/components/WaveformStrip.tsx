@@ -5,7 +5,11 @@ import {
 } from "../lib/waveDrawRangeSync";
 import type { ChoreographyProjectJson } from "../types/choreography";
 import { formatMmSs, waveRulerTicks } from "../lib/timeFormat";
-import { waveTimeToPercent } from "../lib/timelineWaveGeometry";
+import {
+  resolveCanonicalTimelineView,
+  timelineClientXToTime,
+  timelineTimeToPercent,
+} from "../hooks/useTimelinePixels";
 import { WaveformLoadOverlay } from "./WaveformLoadOverlay";
 import { useWaveformLoadProgressStore } from "../store/waveformLoadProgressStore";
 import { useMusicSectionOverlayStore } from "../store/musicSectionOverlayStore";
@@ -103,15 +107,17 @@ export function WaveformStrip({
     getWaveDrawRangeSnapshot,
     getWaveDrawRangeSnapshot
   );
-  const rulerView =
-    drawWaveView.span > 0 && drawWaveView.span < duration - 1e-6
-      ? drawWaveView
-      : waveView;
+  /** Canvas 公開レンジと常に同じ窓（フル表示でも fallback しない） */
+  const rulerView = resolveCanonicalTimelineView(
+    drawWaveView,
+    waveView,
+    duration
+  );
   /** ズーム中のみ赤バー上でポインタを受け、ドラッグで波形を横スクロール（非ズーム時はキャンバスでキュー操作を優先） */
   const zoomedWaveView =
     duration > 0 &&
-    drawWaveView.span > 0 &&
-    drawWaveView.span < duration - 1e-6;
+    rulerView.span > 0 &&
+    rulerView.span < duration - 1e-6;
   const playheadStripPointerEvents =
     zoomedWaveView && hasPeaks && viewMode !== "view" ? "auto" : "none";
 
@@ -153,7 +159,7 @@ export function WaveformStrip({
         >
           {duration > 0
             ? waveRulerTicks(rulerView.start, rulerView.end, 10).map((tick) => {
-                const p = waveTimeToPercent(tick, rulerView.start, rulerView.span);
+                const p = timelineTimeToPercent(tick, rulerView);
                 const pRounded = Math.round(p * 10000) / 10000;
                 return (
                   <span
@@ -192,27 +198,10 @@ export function WaveformStrip({
             }}
           >
             {sectionSegments.map((seg, i) => {
-              const left = waveTimeToPercent(
-                seg.startSec,
-                rulerView.start,
-                rulerView.span
-              );
-              const right = waveTimeToPercent(
-                seg.endSec,
-                rulerView.start,
-                rulerView.span
-              );
+              const left = timelineTimeToPercent(seg.startSec, rulerView);
+              const right = timelineTimeToPercent(seg.endSec, rulerView);
               const width = Math.max(0, right - left);
               if (width < 0.05) return null;
-              const clientXToTime = (clientX: number, trackEl: HTMLElement) => {
-                const rect = trackEl.getBoundingClientRect();
-                if (rect.width <= 0) return null;
-                const ratio = (clientX - rect.left) / rect.width;
-                return (
-                  rulerView.start +
-                  Math.max(0, Math.min(1, ratio)) * rulerView.span
-                );
-              };
               return (
                 <div
                   key={`${seg.sectionType}-${seg.startSec}-${i}`}
@@ -257,14 +246,22 @@ export function WaveformStrip({
                       <SectionEdgeHandle
                         edge="start"
                         onDrag={(clientX, trackEl) => {
-                          const t = clientXToTime(clientX, trackEl);
+                          const t = timelineClientXToTime(
+                            clientX,
+                            trackEl,
+                            rulerView
+                          );
                           if (t != null) updateSectionBoundary(i, "start", t);
                         }}
                       />
                       <SectionEdgeHandle
                         edge="end"
                         onDrag={(clientX, trackEl) => {
-                          const t = clientXToTime(clientX, trackEl);
+                          const t = timelineClientXToTime(
+                            clientX,
+                            trackEl,
+                            rulerView
+                          );
                           if (t != null) updateSectionBoundary(i, "end", t);
                         }}
                       />

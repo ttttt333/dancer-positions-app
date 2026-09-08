@@ -351,8 +351,9 @@ function PracticePlaybackControls({
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: compact ? 4 : 6,
+        gap: compact ? 3 : 4,
         flexShrink: 0,
+        maxWidth: "100%",
       }}
     >
       <button
@@ -363,15 +364,16 @@ function PracticePlaybackControls({
             ? "カウントイン ON（再生前に 5-6-7-8）"
             : "カウントイン OFF"
         }
-        aria-label="カウントイン"
+        aria-label="カウントイン 5-6-7-8"
         aria-pressed={countInEnabled}
         onClick={() => setCountInEnabled(!countInEnabled)}
         style={{
           ...timelineToolbarBtn,
-          padding: compact ? `${tlPx(2)} ${tlPx(6)}` : `${tlPx(3)} ${tlPx(8)}`,
-          fontSize: compact ? 10 : 11,
-          fontWeight: 700,
-          letterSpacing: "0.02em",
+          padding: compact ? `${tlPx(2)} ${tlPx(5)}` : `${tlPx(3)} ${tlPx(7)}`,
+          fontSize: compact ? 9 : 10,
+          fontWeight: 800,
+          letterSpacing: "-0.02em",
+          minWidth: 0,
           color: countInEnabled ? "#0f172a" : "#cbd5e1",
           background: countInEnabled
             ? "linear-gradient(180deg, #38bdf8, #0ea5e9)"
@@ -380,47 +382,37 @@ function PracticePlaybackControls({
           opacity: disabled ? 0.45 : 1,
         }}
       >
-        5-6-7-8
+        {compact ? "8" : "5-6-7-8"}
       </button>
       {onPlaybackRateChange ? (
-        <label
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 4,
-            fontSize: compact ? 10 : 11,
-            color: "#94a3b8",
-            fontWeight: 600,
-          }}
+        <select
+          value={String(rate)}
+          disabled={disabled}
+          aria-label="再生速度（ピッチ固定）"
           title="ピッチ固定の再生速度"
+          onChange={(e) => {
+            const next = Number(e.target.value);
+            if (Number.isFinite(next)) onPlaybackRateChange(next);
+          }}
+          style={{
+            borderRadius: 6,
+            border: `1px solid ${shell.border}`,
+            background: "rgba(15,23,42,0.95)",
+            color: "#e2e8f0",
+            fontSize: compact ? 10 : 11,
+            fontWeight: 700,
+            padding: compact ? "2px 2px" : "3px 4px",
+            cursor: disabled ? "not-allowed" : "pointer",
+            maxWidth: compact ? 52 : 64,
+            flexShrink: 0,
+          }}
         >
-          <span aria-hidden>速度</span>
-          <select
-            value={String(rate)}
-            disabled={disabled}
-            aria-label="再生速度（ピッチ固定）"
-            onChange={(e) => {
-              const next = Number(e.target.value);
-              if (Number.isFinite(next)) onPlaybackRateChange(next);
-            }}
-            style={{
-              borderRadius: 6,
-              border: `1px solid ${shell.border}`,
-              background: "rgba(15,23,42,0.95)",
-              color: "#e2e8f0",
-              fontSize: compact ? 10 : 11,
-              fontWeight: 700,
-              padding: compact ? "2px 4px" : "3px 6px",
-              cursor: disabled ? "not-allowed" : "pointer",
-            }}
-          >
-            {PRACTICE_PLAYBACK_RATES.map((r) => (
-              <option key={r} value={String(r)}>
-                {r === 1 ? "1.0x" : `${r}x`}
-              </option>
-            ))}
-          </select>
-        </label>
+          {PRACTICE_PLAYBACK_RATES.map((r) => (
+            <option key={r} value={String(r)}>
+              {r === 1 ? "1x" : `${r}x`}
+            </option>
+          ))}
+        </select>
       ) : null}
     </span>
   );

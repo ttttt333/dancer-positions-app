@@ -6,6 +6,7 @@ import {
   buildFormRatioSections,
   isDegenerateSectionLayout,
   repairDegenerateSections,
+  rebalanceChorusHeavySections,
 } from "./cleanseSections";
 import type { MusicSection } from "../../types/audioAnalysis";
 
@@ -58,7 +59,9 @@ describe("cleanseMusicSections", () => {
       bpm: 120,
       minDurationSec: 8,
     });
-    expect(cleaned.length).toBeLessThanOrEqual(2);
+    // 細切れは統合されるが、長大サビは中盤キャップで前後に分割され得る
+    expect(cleaned.length).toBeGreaterThanOrEqual(1);
+    expect(cleaned.length).toBeLessThanOrEqual(4);
     expect(cleaned.some((s) => s.type === "chorus")).toBe(true);
     const chorus = cleaned.find((s) => s.type === "chorus")!;
     expect(chorus.endTime - chorus.startTime).toBeGreaterThanOrEqual(8);
@@ -141,5 +144,35 @@ describe("isDegenerateSectionLayout / repairDegenerateSections", () => {
     });
     expect(isDegenerateSectionLayout(repaired, 96)).toBe(false);
     expect(new Set(repaired.map((s) => s.type)).size).toBeGreaterThan(1);
+  });
+});
+
+describe("rebalanceChorusHeavySections", () => {
+  it("demotes excess chorus so it no longer dominates the track", () => {
+    const merged: MusicSection[] = [
+      {
+        id: "v",
+        type: "verse",
+        label: "Aメロ",
+        startTime: 0,
+        endTime: 10,
+        color: "b",
+      },
+      {
+        id: "c",
+        type: "chorus",
+        label: "サビ",
+        startTime: 10,
+        endTime: 100,
+        color: "r",
+      },
+    ];
+    const next = rebalanceChorusHeavySections(merged, 100, 0.42);
+    const chorusDur = next
+      .filter((s) => s.type === "chorus")
+      .reduce((a, s) => a + (s.endTime - s.startTime), 0);
+    expect(chorusDur / 100).toBeLessThanOrEqual(0.42 + 1e-6);
+    expect(next.some((s) => s.type !== "chorus")).toBe(true);
+    expect(next.length).toBeGreaterThan(2);
   });
 });
