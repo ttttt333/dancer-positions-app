@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type { MusicSectionOverlaySegment } from "../lib/musicSectionOverlay";
 import type { AudioAnalysisResult, BeatInfo } from "../types/audioAnalysis";
 import { snapToNearestBeat } from "../lib/audioAnalysis/snapToDownbeat";
+import { buildEvenBeatGrid } from "../lib/audioAnalysis/evenBeatGrid";
 
 type MusicSectionOverlayState = {
   segments: MusicSectionOverlaySegment[];
@@ -30,8 +31,11 @@ type MusicSectionOverlayState = {
   updateBoundary: (
     index: number,
     edge: "start" | "end",
-    rawTime: number
+    rawTime: number,
+    opts?: { realignGrid?: boolean; skipMagnet?: boolean }
   ) => void;
+  /** ダウンビート位相を deltaSec ずらす（現場ナッジ） */
+  nudgeBeatGrid: (deltaSec: number) => void;
   clear: () => void;
 };
 
@@ -90,18 +94,21 @@ export const useMusicSectionOverlayStore = create<MusicSectionOverlayState>(
     },
     setAnalyzing: (analyzing, status = null) =>
       set({ analyzing, analyzeStatus: status }),
-    updateBoundary: (index, edge, rawTime) => {
+    updateBoundary: (index, edge, rawTime, opts) => {
       const state = get();
       const seg = state.segments[index];
       if (!seg) return;
+      const skipMagnet = opts?.skipMagnet === true;
       const snapped =
-        state.beats.length > 0
+        !skipMagnet && state.beats.length > 0
           ? snapToNearestBeat(rawTime, state.beats)
           : rawTime;
       const clamped = Math.max(
         0,
         Math.min(state.durationSec || snapped, snapped)
       );
+      const oldEdge =
+        edge === "start" ? seg.startSec : seg.endSec;
       const next = state.segments.map((s, i) => {
         if (i !== index) return s;
         if (edge === "start") {
@@ -128,13 +135,62 @@ export const useMusicSectionOverlayStore = create<MusicSectionOverlayState>(
         }
       }
 
+      const newEdge =
+        edge === "start" ? next[index]!.startSec : next[index]!.endSec;
+
+      // セクション頭ドラッグ → その時刻をダウンビート1としてグリッド再整列
+      let beats = state.beats;
+      const realign =
+        opts?.realignGrid !== false &&
+        edge === "start" &&
+        Math.abs(newEdge - oldEdge) > 1e-4;
+      if (realign) {
+        const bpm =
+          state.analysis?.bpm && state.analysis.bpm > 0
+            ? state.analysis.bpm
+            : 120;
+        const duration =
+          state.durationSec > 0
+            ? state.durationSec
+            : state.analysis?.duration ?? 0;
+        if (duration > 0) {
+          beats = buildEvenBeatGrid({
+            bpm,
+            duration,
+            firstDownbeatTime: newEdge,
+          });
+        }
+      }
+
       const analysis = state.analysis
         ? {
             ...state.analysis,
             sections: segmentsToAnalysisSections(next, state.analysis),
+            beats,
+            bpm: state.analysis.bpm,
           }
         : null;
-      set({ segments: next, analysis, userEdited: true });
+      set({ segments: next, analysis, beats, userEdited: true });
+    },
+    nudgeBeatGrid: (deltaSec) => {
+      const state = get();
+      if (!(state.durationSec > 0) || state.beats.length < 2) return;
+      const bpm =
+        state.analysis?.bpm && state.analysis.bpm > 0
+          ? state.analysis.bpm
+          : 120;
+      const first =
+        state.beats.find((b) => b.isDownbeat)?.timestamp ??
+        state.beats[0]!.timestamp;
+      const beats = buildEvenBeatGrid({
+        bpm,
+        duration: state.durationSec,
+        firstDownbeatTime: first + deltaSec,
+      });
+      const analysis = state.analysis
+        ? { ...state.analysis, beats }
+        : null;
+      set({ beats, analysis, userEdited: true });
     },
     clear: () =>
       set({

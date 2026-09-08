@@ -24,6 +24,7 @@ import {
   isDegenerateSectionLayout,
   repairDegenerateSections,
 } from "./cleanseSections";
+import { refineSectionsForEditTrack } from "./editTrackRefine";
 import {
   inferTempoFromEightTimes,
   logAudioAnalysisEngine,
@@ -47,6 +48,18 @@ export function publishAudioAnalysisOverlay(
     duration: final.duration,
     bpm,
   });
+  if (opts?.peaks && opts.peaks.length > 0) {
+    sections = refineSectionsForEditTrack({
+      sections,
+      peaks: opts.peaks,
+      duration: final.duration,
+      bpm,
+    });
+    sections = cleanseMusicSections(sections, {
+      duration: final.duration,
+      bpm,
+    });
+  }
   const wasDegenerate = isDegenerateSectionLayout(sections, final.duration);
   sections = repairDegenerateSections({
     sections,
@@ -56,7 +69,7 @@ export function publishAudioAnalysisOverlay(
   });
   if (
     wasDegenerate &&
-    !/form-ratio|browser-auto/i.test(final.sourceLabel ?? "")
+    !/form-ratio|browser-auto|edit-aware/i.test(final.sourceLabel ?? "")
   ) {
     final = {
       ...final,

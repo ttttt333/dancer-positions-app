@@ -97,6 +97,7 @@ export function WaveformStrip({
   const sectionAnalyzing = useMusicSectionOverlayStore((s) => s.analyzing);
   const sectionAnalyzeStatus = useMusicSectionOverlayStore((s) => s.analyzeStatus);
   const updateSectionBoundary = useMusicSectionOverlayStore((s) => s.updateBoundary);
+  const nudgeBeatGrid = useMusicSectionOverlayStore((s) => s.nudgeBeatGrid);
   const canEditSections =
     viewMode !== "view" && sectionSegments.length > 0 && !sectionAnalyzing;
   const playheadHeight = `calc(${rulerHeight} + ${
@@ -197,6 +198,56 @@ export function WaveformStrip({
               overflow: "hidden",
             }}
           >
+            {canEditSections ? (
+              <div
+                style={{
+                  position: "absolute",
+                  right: 4,
+                  top: 2,
+                  zIndex: 3,
+                  display: "flex",
+                  gap: 2,
+                  pointerEvents: "auto",
+                }}
+              >
+                <button
+                  type="button"
+                  title="グリッドを -10ms（ビートナッジ）"
+                  aria-label="グリッドを10ミリ秒早める"
+                  onClick={() => nudgeBeatGrid(-0.01)}
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 800,
+                    padding: "1px 5px",
+                    borderRadius: 4,
+                    border: "1px solid rgba(212,175,55,0.35)",
+                    background: "rgba(10,9,8,0.75)",
+                    color: "#e8d48b",
+                    cursor: "pointer",
+                  }}
+                >
+                  −10ms
+                </button>
+                <button
+                  type="button"
+                  title="グリッドを +10ms（ビートナッジ）"
+                  aria-label="グリッドを10ミリ秒遅らせる"
+                  onClick={() => nudgeBeatGrid(0.01)}
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 800,
+                    padding: "1px 5px",
+                    borderRadius: 4,
+                    border: "1px solid rgba(212,175,55,0.35)",
+                    background: "rgba(10,9,8,0.75)",
+                    color: "#e8d48b",
+                    cursor: "pointer",
+                  }}
+                >
+                  +10ms
+                </button>
+              </div>
+            ) : null}
             {sectionSegments.map((seg, i) => {
               const left = timelineTimeToPercent(seg.startSec, rulerView);
               const right = timelineTimeToPercent(seg.endSec, rulerView);
@@ -205,7 +256,7 @@ export function WaveformStrip({
               return (
                 <div
                   key={`${seg.sectionType}-${seg.startSec}-${i}`}
-                  title={`${seg.label} ${formatMmSs(seg.startSec)}–${formatMmSs(seg.endSec)}`}
+                  title={`${seg.label} ${formatMmSs(seg.startSec)}–${formatMmSs(seg.endSec)}（左端ドラッグでビート整列）`}
                   style={{
                     position: "absolute",
                     left: `${left}%`,
@@ -251,7 +302,12 @@ export function WaveformStrip({
                             trackEl,
                             rulerView
                           );
-                          if (t != null) updateSectionBoundary(i, "start", t);
+                          if (t != null) {
+                            updateSectionBoundary(i, "start", t, {
+                              skipMagnet: true,
+                              realignGrid: true,
+                            });
+                          }
                         }}
                       />
                       <SectionEdgeHandle

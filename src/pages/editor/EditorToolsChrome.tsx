@@ -1,11 +1,15 @@
-import { EditorFloatingHomeButton, EditorFloatingTools } from "../../components/EditorFloatingTools";
+import {
+  FloatingHeaderToolbar,
+  MobilePrimaryFloatingTools,
+} from "../../components/editor/FloatingHeaderToolbar";
+import { EditorFloatingTools } from "../../components/EditorFloatingTools";
 import type { EditorLayoutProps } from "./editorLayoutProps";
 import { EditorNeonIconPanel } from "./EditorNeonIconPanel";
 
 /**
- * ワイド没入 UI: Glass 縦ツール + ホーム（Neon は「その他」で展開）。
- * モバイル縦積み: FAB。
- * その他: 従来 NeonIconPanel。
+ * ワイド: 上部横並び Glass ツール（常時視認）。
+ * モバイル: 追加/隊形は常時FAB、Undo等は展開FAB。
+ * 詳細 Neon は「その他」で展開。
  */
 export function EditorToolsChrome(props: EditorLayoutProps) {
   const wideEditorLayout = props.wideEditorLayout as boolean;
@@ -34,33 +38,54 @@ export function EditorToolsChrome(props: EditorLayoutProps) {
 
   if (choreoPublicView) return null;
 
-  const common = {
-    disabled: project?.viewMode === "view",
-    onAddDancer: addDancerFromStageToolbar,
-    onOpenFormationPresets: () => setFormationPresetPickerOpen(true),
-    onUndo: undo,
-    onRedo: redo,
-    undoDisabled: stageUndoDisabled,
-    redoDisabled: stageRedoDisabled,
-    onSave: saveStageToFormationBox,
-    onOpenLibrary: () => setFlowLibraryOpen(true),
-    onOpenExport: () => setExportDialogOpen(true),
-    onOpenShareLinks: () => setShareLinksOpen(true),
-    onOpenAISuggest: () => setAiSuggestOpen(true),
-    onOpenCueSettings: () => setAddCueDialogOpen(true),
-    onOpenAudioImport: openAudioImport,
-    onOpenMore: () => setRightPaneCollapsed(false),
-  };
+  const disabled = project?.viewMode === "view";
 
   if (mobileStackEditor) {
-    return <EditorFloatingTools variant="mobile" {...common} />;
+    return (
+      <>
+        <MobilePrimaryFloatingTools
+          disabled={disabled}
+          onAddDancer={addDancerFromStageToolbar}
+          onOpenFormationPresets={() => setFormationPresetPickerOpen(true)}
+        />
+        <EditorFloatingTools
+          variant="mobile"
+          hidePrimaryActions
+          disabled={disabled}
+          onAddDancer={addDancerFromStageToolbar}
+          onOpenFormationPresets={() => setFormationPresetPickerOpen(true)}
+          onUndo={undo}
+          onRedo={redo}
+          undoDisabled={stageUndoDisabled}
+          redoDisabled={stageRedoDisabled}
+          onSave={saveStageToFormationBox}
+          onOpenLibrary={() => setFlowLibraryOpen(true)}
+          onOpenExport={() => setExportDialogOpen(true)}
+          onOpenShareLinks={() => setShareLinksOpen(true)}
+          onOpenAISuggest={() => setAiSuggestOpen(true)}
+          onOpenCueSettings={() => setAddCueDialogOpen(true)}
+          onOpenAudioImport={openAudioImport}
+          onOpenMore={() => setRightPaneCollapsed(false)}
+        />
+      </>
+    );
   }
 
   if (wideEditorLayout) {
     return (
       <>
-        <EditorFloatingHomeButton />
-        <EditorFloatingTools variant="desktop" {...common} />
+        <FloatingHeaderToolbar
+          disabled={disabled}
+          onAddDancer={addDancerFromStageToolbar}
+          onOpenFormationPresets={() => setFormationPresetPickerOpen(true)}
+          onUndo={undo}
+          onRedo={redo}
+          undoDisabled={stageUndoDisabled}
+          redoDisabled={stageRedoDisabled}
+          onSave={saveStageToFormationBox}
+          onOpenMore={() => setRightPaneCollapsed(false)}
+          showHome
+        />
         {!rightPaneCollapsed ? <EditorNeonIconPanel {...props} /> : null}
       </>
     );

@@ -11,6 +11,8 @@ import { flushEditorAutoSaveBeforeLeave } from "../lib/editorAutoSaveBridge";
 import { useI18n } from "../i18n/I18nContext";
 
 export type EditorFloatingToolsProps = {
+  /** モバイルで Add/隊形を別FABに出したとき、展開メニューから除外 */
+  hidePrimaryActions?: boolean;
   disabled?: boolean;
   onAddDancer?: () => void;
   onOpenFormationPresets?: () => void;
@@ -200,6 +202,7 @@ function ToolsCluster({
   const { t } = useI18n();
   const [moreOpen, setMoreOpen] = useState(false);
   const disabled = props.disabled;
+  const hidePrimary = props.hidePrimaryActions === true;
 
   return (
     <div
@@ -211,20 +214,24 @@ function ToolsCluster({
         position: "relative",
       }}
     >
-      <ToolBtn
-        title={t("editor.comp.k001")}
-        disabled={disabled}
-        onClick={props.onAddDancer}
-      >
-        <IconPlus />
-      </ToolBtn>
-      <ToolBtn
-        title="隊形プリセット"
-        disabled={disabled}
-        onClick={props.onOpenFormationPresets}
-      >
-        <IconFormation />
-      </ToolBtn>
+      {!hidePrimary ? (
+        <>
+          <ToolBtn
+            title={t("editor.comp.k001")}
+            disabled={disabled}
+            onClick={props.onAddDancer}
+          >
+            <IconPlus />
+          </ToolBtn>
+          <ToolBtn
+            title="隊形プリセット"
+            disabled={disabled}
+            onClick={props.onOpenFormationPresets}
+          >
+            <IconFormation />
+          </ToolBtn>
+        </>
+      ) : null}
       <ToolBtn
         title={t("editor.comp.k056")}
         disabled={props.undoDisabled ?? disabled}

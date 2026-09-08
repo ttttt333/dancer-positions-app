@@ -42,7 +42,7 @@ let lastStartedKey: string | null = null;
 let inFlightKey: string | null = null;
 
 /** ロジック改訂時に上げて、同一音源でも再解析させる */
-const AUTO_ANALYSIS_LOGIC_VERSION = "v5-ui-sync-chorus-cap";
+const AUTO_ANALYSIS_LOGIC_VERSION = "v6-edit-silence-vocal-nudge";
 
 function analysisKey(input: AutoAudioAnalysisInput): string {
   return [
