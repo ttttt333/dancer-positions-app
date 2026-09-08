@@ -317,7 +317,7 @@ function EditorPageContent({
    * 畳んでもステージ上にグリッド用ツールバーが出るほか、ステージ上部のページャーから
    * キュー切替は引き続き可能。狭いビューポート（!wideEditorLayout）では無効。
    */
-  const [rightPaneCollapsed, setRightPaneCollapsed] = useState(false);
+  const [rightPaneCollapsed, setRightPaneCollapsed] = useState(true);
   /** スマホ縦積み: 波形・再生ブロックの表示（TimelinePanel はマウントしたまま） */
   const [mobileEditorWaveExpanded, setMobileEditorWaveExpanded] = useState(true);
   /** スマホ縦積み: 右下の操作列（ツールバー・ワークベンチ等）の表示。モバイルではステージを広く使うため初期は折りたたむ */

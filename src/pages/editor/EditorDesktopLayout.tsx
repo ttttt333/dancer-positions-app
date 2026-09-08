@@ -1,7 +1,7 @@
 import type { EditorLayoutProps } from "./editorLayoutProps";
 import { EditorThreePaneGrid } from "./EditorThreePaneGrid";
 import { EditorStageRowOverlays } from "./EditorStageRowOverlays";
-import { EditorNeonIconPanel } from "./EditorNeonIconPanel";
+import { EditorToolsChrome } from "./EditorToolsChrome";
 
 /**
  * デスクトップ編集レイアウト。
@@ -16,7 +16,7 @@ export function EditorDesktopLayout(props: EditorLayoutProps) {
     <>
       <EditorThreePaneGrid {...props} />
       {!choreoPublicView && !mobileStackEditor ? (
-        <EditorNeonIconPanel {...props} />
+        <EditorToolsChrome {...props} />
       ) : null}
       <div
         style={{

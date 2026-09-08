@@ -1380,7 +1380,9 @@ export function TimelineToolbar({
       className="wave-compact-time-above-wave"
       style={{
         display: "grid",
-        gridTemplateColumns: `${brandRailCss} minmax(0, 1fr) ${brandRailCss}`,
+        gridTemplateColumns: hideInlinePlayback
+          ? "minmax(0, 1fr)"
+          : `${brandRailCss} minmax(0, 1fr) ${brandRailCss}`,
         alignItems: "stretch",
         columnGap: tlPx(6),
         width: "100%",
@@ -1394,10 +1396,12 @@ export function TimelineToolbar({
         background: hideInlinePlayback ? "transparent" : shell.bgChrome,
       }}
     >
-      <BrandRailWithHome
-        compact
-        showHome={wideWorkbench && !editorMobileStack}
-      />
+      {!hideInlinePlayback ? (
+        <BrandRailWithHome
+          compact
+          showHome={wideWorkbench && !editorMobileStack}
+        />
+      ) : null}
       <div
         style={{
           display: "flex",
@@ -1634,7 +1638,7 @@ export function TimelineToolbar({
             />
           </>
         ) : null}
-        {onUndo ? (
+        {!hideInlinePlayback && onUndo ? (
           <button
             type="button"
             style={{
@@ -1687,7 +1691,9 @@ export function TimelineToolbar({
           </button>
         ) : null}
       </div>
-      <div aria-hidden style={{ minWidth: 0 }} />
+      {!hideInlinePlayback ? (
+        <div aria-hidden style={{ minWidth: 0 }} />
+      ) : null}
     </div>
   );
 }
