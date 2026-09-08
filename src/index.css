@@ -634,10 +634,11 @@ body {
 
 .choreo-viewer-viral-cta--viewer {
   position: fixed;
-  z-index: 91;
+  z-index: 96;
   left: max(8px, env(safe-area-inset-left, 0px));
   right: max(8px, env(safe-area-inset-right, 0px));
   top: max(8px, env(safe-area-inset-top, 0px));
+  pointer-events: auto;
 }
 
 .choreo-viewer-viral-cta--landscape {
