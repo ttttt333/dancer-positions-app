@@ -612,11 +612,13 @@ export function resolveWaveDrawView(params: {
 
   /**
    * 再生中: 赤バーが窓外に出たら中央追従へ（ホイールズーム後の自動スクロール）。
+   * キュー枠ドラッグ中は追従しない（赤バーが中央に張り付いて止まったように見えるのを防ぐ）。
    */
   if (
     zoomed &&
     isPlaying &&
     !playheadScrubArmed &&
+    !cueDragArmed &&
     Number.isFinite(anchorTimeSec)
   ) {
     const start = resolveWavePlayheadFollowViewStart(

@@ -151,6 +151,7 @@ import {
 } from "../lib/shareViewStudentPick";
 import { useShareViewAudioLoadStore } from "../store/shareViewAudioLoadStore";
 import { ensureProjectAudioOnSupabase } from "../lib/ensureProjectAudioOnSupabase";
+import { patchProjectAudioCloudFields } from "../lib/projectConflict";
 import { reportWaveLoadProgress } from "../lib/waveLoadProgress";
 import { persistUsablePeaksForSupabasePath } from "../lib/wavePeaksSession";
 import { setPersistedSupabaseAudio } from "../lib/timelineAudioBlobPersist";
@@ -509,11 +510,11 @@ function EditorPageContent({
   );
 
   const prepareProjectForCloudSave = useCallback(async () => {
-    const live = projectSaveRef.current;
-    if (!live || serverId == null || !me) return live;
+    const startLive = projectSaveRef.current;
+    if (!startLive || serverId == null || !me) return startLive;
     const path = await ensureProjectAudioOnSupabase(
       serverId,
-      live,
+      startLive,
       async () => {
         const url = playbackEngine.getMediaSourceUrl();
         if (!url) return null;
@@ -527,21 +528,23 @@ function EditorPageContent({
       },
       (ratio, message) => reportWaveLoadProgress(ratio, message)
     );
-    if (!path) return live;
-    const next: ChoreographyProjectJson = {
-      ...live,
-      audioSupabasePath: path,
-      audioAssetId: null,
-      flowLocalAudioKey: null,
-    };
-    setProjectSafe(next);
+    if (!path) return projectSaveRef.current ?? startLive;
+    // アップロード中に進んだ編集を潰さない: 音声パスだけを最新 project に載せる
+    const latest = projectSaveRef.current ?? startLive;
+    const next = patchProjectAudioCloudFields(latest, path);
     projectSaveRef.current = next;
+    setProjectSafe((prev) => patchProjectAudioCloudFields(prev, path));
     const blobUrl = playbackEngine.getMediaSourceUrl();
     if (blobUrl) {
       setPersistedSupabaseAudio(blobUrl, path);
     }
     await persistUsablePeaksForSupabasePath(path);
-    return next;
+    const forCloud = patchProjectAudioCloudFields(
+      projectSaveRef.current ?? next,
+      path
+    );
+    projectSaveRef.current = forCloud;
+    return forCloud;
   }, [me, serverId, setProjectSafe]);
 
   const [saveConflict, setSaveConflict] = useState<{
@@ -2713,7 +2716,9 @@ function EditorPageContent({
       serverProjectId={serverId}
       loggedIn={!!me}
       onStagePreviewChange={setStagePreviewDancers}
-      onFormationChosenFromCueList={() => setIsPlaying(false)}
+      onFormationChosenFromCueList={() => {
+        /* キュー複製・作成では再生を止めない（赤バー RAF が止まる不具合の修正） */
+      }}
       onUndo={undo}
       onRedo={redo}
       undoDisabled={

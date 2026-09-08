@@ -6,6 +6,7 @@ import {
   saveEditorDraft,
 } from "../lib/editorDraftStorage";
 import { registerEditorAutoSaveFlush } from "../lib/editorAutoSaveBridge";
+import { shouldClearEditorDraftAfterCloudSave } from "../lib/projectConflict";
 import type { ChoreographyProjectJson } from "../types/choreography";
 
 const CLOUD_DEBOUNCE_MS = 2000;
@@ -86,8 +87,22 @@ export function useEditorAutoSave({
           persistLocalDraft();
           return;
         }
+        // 保存開始時のスナップショットより新しい編集があれば草稿を消さない
+        let liveJson = "";
+        try {
+          liveJson = projectRef.current
+            ? JSON.stringify(projectRef.current)
+            : "";
+        } catch {
+          liveJson = "";
+        }
         lastCloudJsonRef.current = json;
-        clearEditorDraft(serverId);
+        if (shouldClearEditorDraftAfterCloudSave(json, liveJson)) {
+          clearEditorDraft(serverId);
+        } else {
+          persistLocalDraft();
+          cloudPendingRef.current = true;
+        }
       } catch {
         persistLocalDraft();
       } finally {

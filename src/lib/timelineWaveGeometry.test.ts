@@ -202,6 +202,28 @@ describe("resolveWaveDrawView", () => {
     });
     expect(v.start).toBe(18);
   });
+
+  it("does not center-follow while cue drag is armed even without override", () => {
+    const v = resolveWaveDrawView({
+      durationSec: 100,
+      viewPortion: 0.2,
+      anchorTimeSec: 50,
+      isPlaying: true,
+      viewStartOverride: null,
+      cueDragArmed: true,
+    });
+    // Without override + cue drag: fall through to getWaveViewForDraw (not live follow)
+    expect(v.span).toBeCloseTo(20, 5);
+    const following = resolveWaveDrawView({
+      durationSec: 100,
+      viewPortion: 0.2,
+      anchorTimeSec: 50,
+      isPlaying: true,
+      viewStartOverride: null,
+      cueDragArmed: false,
+    });
+    expect(following.start).not.toBe(v.start);
+  });
 });
 
 describe("resolveWaveViewForPointerHit", () => {

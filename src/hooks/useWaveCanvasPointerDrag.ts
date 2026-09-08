@@ -152,7 +152,7 @@ export function useWaveCanvasPointerDrag({
   durationRef,
   formationIdForNewCue,
   formations,
-  onFormationChosenFromCueList,
+  onFormationChosenFromCueList: _unusedOnFormationChosenFromCueList,
   commitWaveDoubleClickAt,
 }: UseWaveCanvasPointerDragArgs) {
   const playheadEdgeScrollRafRef = useRef(0);
@@ -560,6 +560,9 @@ export function useWaveCanvasPointerDrag({
         if (!cue) return;
         const cueDragSession = waveDragSessionRef.current;
         cueDragViewLockRef.current = { viewStart, viewSpan };
+        // 再生中ズーム追従を止め、赤バーが中央に張り付かないよう窓を固定する
+        waveViewStartOverrideRef.current = viewStart;
+        setWaveViewStartOverride(viewStart);
         onSelectedCueIdsChange([cueId]);
         const pointerT0 = timeFromClientX(e.clientX);
         const mode = dragKind?.mode ?? "move";
@@ -962,6 +965,8 @@ export function useWaveCanvasPointerDrag({
       const emptyDragSession = waveDragSessionRef.current;
       const { viewStart: emptyViewStart, viewSpan: emptyViewSpan } = viewForPointer();
       cueDragViewLockRef.current = { viewStart: emptyViewStart, viewSpan: emptyViewSpan };
+      waveViewStartOverrideRef.current = emptyViewStart;
+      setWaveViewStartOverride(emptyViewStart);
       emptyWaveDragRef.current = {
         pointerId: e.pointerId,
         startClientX: e.clientX,
@@ -1086,7 +1091,6 @@ export function useWaveCanvasPointerDrag({
               trimEndSec,
             });
             onSelectedCueIdsChange([newCueId]);
-            onFormationChosenFromCueList?.();
           }
         }
         redraw();
@@ -1131,9 +1135,9 @@ export function useWaveCanvasPointerDrag({
       newCueRangePreviewRef,
       formations.length,
       formationIdForNewCue,
-      onFormationChosenFromCueList,
       commitWaveDoubleClickAt,
       waveViewStartOverride,
+      setWaveViewStartOverride,
       abortActiveWaveDrags,
     ]
   );
