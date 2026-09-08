@@ -324,33 +324,51 @@ def label_sections(segment_bounds, cluster_labels, seg_beat_ranges,
     labels = [None] * n_seg
     median_energy = float(np.median([s["mean_energy"] for s in stats]))
 
-    for i, s in enumerate(stats):
-        if s["cluster"] == chorus_cluster:
-            labels[i] = "CHORUS"
+    # セグメント1本だけのときは全曲CHORUSにしない（INTRO/Aメロへ）
+    if n_seg == 1:
+        labels[0] = "INTRO" if stats[0]["mean_energy"] <= median_energy else "A_MELO"
+    else:
+        for i, s in enumerate(stats):
+            if s["cluster"] == chorus_cluster:
+                labels[i] = "CHORUS"
 
-    if labels[0] is None and (stats[0]["mean_energy"] <= median_energy or n_seg == 1):
-        labels[0] = "INTRO"
-    if n_seg > 1 and labels[-1] is None and stats[-1]["mean_energy"] <= median_energy:
-        labels[-1] = "OUTRO"
+        # 全セグメントが同一クラスタ→全部CHORUSになるのを防ぐ
+        chorus_idxs = [i for i, lab in enumerate(labels) if lab == "CHORUS"]
+        if len(chorus_idxs) == n_seg:
+            # 中盤かつ最高エネルギーの1本だけサビ、他は Aメロ
+            best = max(
+                chorus_idxs,
+                key=lambda i: (
+                    stats[i]["mean_energy"],
+                    -abs((i + 0.5) / n_seg - 0.55),
+                ),
+            )
+            for i in chorus_idxs:
+                labels[i] = "CHORUS" if i == best else None
 
-    for i, s in enumerate(stats):
-        if labels[i] is not None:
-            continue
-        next_is_chorus = (i + 1 < n_seg) and (stats[i + 1]["cluster"] == chorus_cluster)
-        short_ish = s["len_beats"] <= 12
-        if next_is_chorus and s["trend"] > 0.005 and short_ish:
-            labels[i] = "B_MELO"
+        if labels[0] is None and stats[0]["mean_energy"] <= median_energy:
+            labels[0] = "INTRO"
+        if labels[-1] is None and stats[-1]["mean_energy"] <= median_energy:
+            labels[-1] = "OUTRO"
 
-    for i in range(n_seg):
-        if labels[i] is None:
-            labels[i] = "A_MELO"
+        for i, s in enumerate(stats):
+            if labels[i] is not None:
+                continue
+            next_is_chorus = (i + 1 < n_seg) and (labels[i + 1] == "CHORUS" or stats[i + 1]["cluster"] == chorus_cluster)
+            short_ish = s["len_beats"] <= 12
+            if next_is_chorus and s["trend"] > 0.005 and short_ish:
+                labels[i] = "B_MELO"
 
-    # BREAKDOWN パス: 直前からの急降下 + 低エネルギーなら上書き（OUTROは除く）
-    for i in range(1, n_seg):
-        pos = segment_bounds[i]
-        delta = energy_delta_by_pos.get(pos, 0.0)
-        if delta < -0.05 and stats[i]["mean_energy"] < median_energy and labels[i] != "OUTRO":
-            labels[i] = "BREAKDOWN"
+        for i in range(n_seg):
+            if labels[i] is None:
+                labels[i] = "A_MELO"
+
+        # BREAKDOWN パス: 直前からの急降下 + 低エネルギーなら上書き（OUTROは除く）
+        for i in range(1, n_seg):
+            pos = segment_bounds[i]
+            delta = energy_delta_by_pos.get(pos, 0.0)
+            if delta < -0.05 and stats[i]["mean_energy"] < median_energy and labels[i] != "OUTRO":
+                labels[i] = "BREAKDOWN"
 
     sections = []
     for i in range(n_seg):
@@ -399,7 +417,7 @@ def sections_to_change_points(sections: list[Section]) -> list[ChangePointV2]:
 # ---------------------------------------------------------------------
 
 STRUCTURE_V2_SOURCE = "chroma-ssm-v2"
-STRUCTURE_V2_VERSION = "structure-v2.0.0"
+STRUCTURE_V2_VERSION = "structure-v2.0.1"
 
 
 def _json_safe(value):

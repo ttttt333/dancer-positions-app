@@ -18,6 +18,7 @@ import {
   generateAutoKeyframes,
   projectAllowsSilentAutoKeyframes,
 } from "../lib/formation/generateAutoKeyframes";
+import { isDegenerateSectionLayout } from "../lib/audioAnalysis/cleanseSections";
 
 type Params = {
   project: ChoreographyProjectJson | null;
@@ -65,16 +66,18 @@ export function useSectionAutoKeyframes({
       if (!opts?.force && !projectAllowsSilentAutoKeyframes(p)) {
         return false;
       }
+      const duration =
+        a.duration > 0
+          ? a.duration
+          : Math.max(0, ...p.cues.map((c) => c.tEndSec), 60);
+      if (isDegenerateSectionLayout(a.sections, duration)) {
+        return false;
+      }
 
       const seed =
         p.formations.find((f) => f.id === p.activeFormationId) ??
         p.formations[0];
       if (!seed) return false;
-
-      const duration =
-        a.duration > 0
-          ? a.duration
-          : Math.max(0, ...p.cues.map((c) => c.tEndSec), 60);
 
       const slice = generateAutoKeyframes({
         sections: a.sections,
@@ -111,6 +114,9 @@ export function useSectionAutoKeyframes({
     if (appliedSigRef.current === sig) return;
 
     if (projectAllowsSilentAutoKeyframes(p)) {
+      if (isDegenerateSectionLayout(analysis.sections, analysis.duration || 1)) {
+        return;
+      }
       applyFromAnalysis({ force: true });
       return;
     }

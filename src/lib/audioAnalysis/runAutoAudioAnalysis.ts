@@ -17,6 +17,7 @@ import type { AudioAnalysisResult } from "../../types/audioAnalysis";
 import {
   buildFormRatioSections,
   energyAtFromPeaks,
+  isDegenerateSectionLayout,
 } from "./cleanseSections";
 import { logAudioAnalysisEngine } from "./evenBeatGrid";
 
@@ -41,7 +42,7 @@ let lastStartedKey: string | null = null;
 let inFlightKey: string | null = null;
 
 /** ロジック改訂時に上げて、同一音源でも再解析させる */
-const AUTO_ANALYSIS_LOGIC_VERSION = "v3-all-in-one";
+const AUTO_ANALYSIS_LOGIC_VERSION = "v4-degenerate-guard";
 
 function analysisKey(input: AutoAudioAnalysisInput): string {
   return [
@@ -132,6 +133,7 @@ export async function runAutoAudioAnalysis(
           changePoints: remote.change_points,
           eightTimes: remote.structure_v2?.eight_times,
           bpm: remote.bpm,
+          peaks: input.peaks,
         });
         published =
           result != null ||
@@ -151,6 +153,17 @@ export async function runAutoAudioAnalysis(
     }
 
     if (!published || useMusicSectionOverlayStore.getState().segments.length === 0) {
+      publishBrowserFallback(input.peaks, input.durationSec);
+    }
+
+    // リモートが「全部サビ」等でも peaks 付き form-ratio で直す
+    const mid = useMusicSectionOverlayStore.getState();
+    const midSections = mid.analysis?.sections ?? [];
+    const midDur = mid.analysis?.duration || input.durationSec;
+    if (
+      midSections.length > 0 &&
+      isDegenerateSectionLayout(midSections, midDur)
+    ) {
       publishBrowserFallback(input.peaks, input.durationSec);
     }
 

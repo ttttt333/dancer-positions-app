@@ -137,6 +137,54 @@ export function cleanseMusicSections(
   });
 }
 
+/**
+ * 解析不良の典型: 全曲サビ1本 / 同一 type だけ / サビが曲の大半。
+ * このときキーフレームも1本になり、波形上も「全部サビ」に見える。
+ */
+export function isDegenerateSectionLayout(
+  sections: MusicSection[],
+  duration: number
+): boolean {
+  if (!(duration > 0) || sections.length === 0) return true;
+  if (sections.length === 1) {
+    const only = sections[0]!;
+    return only.type === "chorus" || only.type === "unknown";
+  }
+  const types = new Set(sections.map((s) => s.type));
+  if (types.size === 1) return true;
+
+  let chorusDur = 0;
+  for (const s of sections) {
+    if (s.type === "chorus") {
+      chorusDur += Math.max(0, s.endTime - s.startTime);
+    }
+  }
+  return chorusDur / duration >= 0.72;
+}
+
+/**
+ * 不良レイアウトなら構成比率フォールバックへ差し替え。
+ * peaks があればエネルギーでサビ位置を寄せる。
+ */
+export function repairDegenerateSections(opts: {
+  sections: MusicSection[];
+  duration: number;
+  bpm?: number;
+  peaks?: number[];
+}): MusicSection[] {
+  const { sections, duration } = opts;
+  if (!isDegenerateSectionLayout(sections, duration)) return sections;
+  const bpm = opts.bpm && opts.bpm > 0 ? opts.bpm : 120;
+  return buildFormRatioSections({
+    duration,
+    bpm,
+    energyByTime:
+      opts.peaks && opts.peaks.length > 0
+        ? (t) => energyAtFromPeaks(opts.peaks!, duration, t)
+        : undefined,
+  });
+}
+
 /** フォールバック用: 構成比率＋相対エネルギーでラベル割当 */
 export function buildFormRatioSections(opts: {
   duration: number;
@@ -180,17 +228,62 @@ export function buildFormRatioSections(opts: {
 
   const energies = soft.map((s) => s.energy).sort((a, b) => a - b);
   const p80 = energies[Math.floor((energies.length - 1) * 0.8)] ?? 0.7;
+  const p90 = energies[Math.floor((energies.length - 1) * 0.9)] ?? p80;
+  const energySpread =
+    (energies[energies.length - 1] ?? 0) - (energies[0] ?? 0);
+  // 相対上位（明確なピークがあるときだけ）。平坦なら構成比率のみ。
+  const chorusFloor =
+    energySpread >= 0.12 ? Math.max(p90, p80 + 1e-6) : Number.POSITIVE_INFINITY;
 
   const types: SectionType[] = soft.map((s, i) => {
     const frac = s.start / duration;
     if (i === 0) return "intro";
     if (i === soft.length - 1) return "outro";
-    if (s.energy >= p80 && frac > 0.15 && frac < 0.9) return "chorus";
+    if (s.energy >= chorusFloor && frac > 0.15 && frac < 0.9) return "chorus";
     if (frac < 0.35) return "verse";
     if (frac < 0.45) return "pre_chorus";
     if (frac < 0.75) return "verse";
     return "bridge";
   });
+
+  // エネルギーでサビが取れなければ、中盤の最高エネルギー枠を1本サビにする
+  if (!types.includes("chorus") && soft.length >= 3) {
+    let best = 1;
+    for (let i = 1; i < soft.length - 1; i += 1) {
+      const frac = soft[i]!.start / duration;
+      if (frac <= 0.15 || frac >= 0.9) continue;
+      if (soft[i]!.energy > soft[best]!.energy) best = i;
+    }
+    types[best] = "chorus";
+  }
+
+  // サビが曲の大半になる場合は上位エネルギー枠だけ残す
+  const chorusIdx = types
+    .map((t, i) => (t === "chorus" ? i : -1))
+    .filter((i) => i >= 0);
+  if (chorusIdx.length > 0) {
+    const chorusDur = chorusIdx.reduce(
+      (acc, i) => acc + (soft[i]!.end - soft[i]!.start),
+      0
+    );
+    if (chorusDur / duration > 0.45) {
+      const ranked = [...chorusIdx].sort(
+        (a, b) => soft[b]!.energy - soft[a]!.energy
+      );
+      const keep = new Set<number>();
+      let keptDur = 0;
+      for (const i of ranked) {
+        if (keptDur / duration > 0.35 && keep.size >= 1) break;
+        keep.add(i);
+        keptDur += soft[i]!.end - soft[i]!.start;
+      }
+      for (const i of chorusIdx) {
+        if (keep.has(i)) continue;
+        const frac = soft[i]!.start / duration;
+        types[i] = frac < 0.45 ? "verse" : frac < 0.75 ? "verse" : "bridge";
+      }
+    }
+  }
 
   // サビの直前ブロックを Bメロへ
   for (let i = 1; i < types.length; i += 1) {

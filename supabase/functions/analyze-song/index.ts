@@ -14,7 +14,7 @@ const CORS = {
 };
 
 /** backend/analyzer/services/audio_analyzer.py の ANALYZER_VERSION と一致させる */
-const ANALYZER_VERSION = "algo-v1.4.0";
+const ANALYZER_VERSION = "algo-v1.5.0";
 
 async function fetchStructureV2(
   analyzerBase: string,

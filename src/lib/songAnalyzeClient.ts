@@ -22,7 +22,7 @@ import type {
 } from "./choreocore/types/songStructure";
 
 /** Python analyzer / Edge と揃える */
-export const REMOTE_ANALYZER_VERSION = "algo-v1.4.0";
+export const REMOTE_ANALYZER_VERSION = "algo-v1.5.0";
 
 /**
  * Fly 冷起動 + v1/v2 並列解析を見込む。

@@ -19,7 +19,11 @@ import {
 } from "./fromStructureV2";
 import { mapEngineTypeToSectionType } from "./sectionMeta";
 import { applyDownbeatSnapToAnalysis } from "./snapToDownbeat";
-import { cleanseMusicSections } from "./cleanseSections";
+import {
+  cleanseMusicSections,
+  isDegenerateSectionLayout,
+  repairDegenerateSections,
+} from "./cleanseSections";
 import {
   inferTempoFromEightTimes,
   logAudioAnalysisEngine,
@@ -27,7 +31,7 @@ import {
 
 export function publishAudioAnalysisOverlay(
   analysis: AudioAnalysisResult,
-  opts?: { applySnap?: boolean; force?: boolean }
+  opts?: { applySnap?: boolean; force?: boolean; peaks?: number[] }
 ): void {
   if (useMusicSectionOverlayStore.getState().userEdited && !opts?.force) {
     useMusicSectionOverlayStore.getState().setAnalyzing(false);
@@ -39,13 +43,27 @@ export function publishAudioAnalysisOverlay(
       : applyDownbeatSnapToAnalysis(analysis);
 
   const bpm = final.bpm && final.bpm > 0 ? final.bpm : 120;
-  final = {
-    ...final,
-    sections: cleanseMusicSections(final.sections, {
-      duration: final.duration,
-      bpm,
-    }),
-  };
+  let sections = cleanseMusicSections(final.sections, {
+    duration: final.duration,
+    bpm,
+  });
+  const wasDegenerate = isDegenerateSectionLayout(sections, final.duration);
+  sections = repairDegenerateSections({
+    sections,
+    duration: final.duration,
+    bpm,
+    peaks: opts?.peaks,
+  });
+  if (
+    wasDegenerate &&
+    !/form-ratio|browser-auto/i.test(final.sourceLabel ?? "")
+  ) {
+    final = {
+      ...final,
+      sourceLabel: `${final.sourceLabel ?? "remote"}+form-ratio-repair`,
+    };
+  }
+  final = { ...final, sections };
 
   // ビートが不揃い／空なら BPM 均等グリッドで差し替え
   // All-In-One 由来の精密ダウンビートは上書きしない
@@ -97,10 +115,11 @@ export function publishSnappedOverlayFromSources(opts: {
   evalSections?: Array<{ type: string; startTime: number; endTime: number }>;
   eightTimes?: number[];
   bpm?: number;
+  peaks?: number[];
   /** true のとき手動編集済みでも上書き（AI提案など明示操作） */
   force?: boolean;
 }): AudioAnalysisResult | null {
-  const { duration, sourceLabel, force } = opts;
+  const { duration, sourceLabel, force, peaks } = opts;
 
   if (
     useMusicSectionOverlayStore.getState().userEdited &&
@@ -116,7 +135,11 @@ export function publishSnappedOverlayFromSources(opts: {
       cleanse: true,
     });
     if (sourceLabel) analysis.sourceLabel = sourceLabel;
-    publishAudioAnalysisOverlay(analysis, { applySnap: false, force });
+    publishAudioAnalysisOverlay(analysis, {
+      applySnap: false,
+      force,
+      peaks,
+    });
     return analysis;
   }
 
@@ -182,6 +205,10 @@ export function publishSnappedOverlayFromSources(opts: {
     sourceLabel,
   });
 
-  publishAudioAnalysisOverlay(analysis, { applySnap: false, force });
+  publishAudioAnalysisOverlay(analysis, {
+    applySnap: false,
+    force,
+    peaks,
+  });
   return analysis;
 }

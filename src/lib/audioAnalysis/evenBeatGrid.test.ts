@@ -4,6 +4,8 @@ import {
   cleanseMusicSections,
   mergeAdjacentSameType,
   buildFormRatioSections,
+  isDegenerateSectionLayout,
+  repairDegenerateSections,
 } from "./cleanseSections";
 import type { MusicSection } from "../../types/audioAnalysis";
 
@@ -97,5 +99,47 @@ describe("buildFormRatioSections", () => {
     expect(types.has("chorus")).toBe(true);
     expect(types.size).toBeGreaterThan(1);
     expect(sections.every((s) => s.endTime - s.startTime >= 2)).toBe(true);
+  });
+});
+
+describe("isDegenerateSectionLayout / repairDegenerateSections", () => {
+  it("flags a single full-track chorus", () => {
+    expect(
+      isDegenerateSectionLayout(
+        [
+          {
+            id: "c",
+            type: "chorus",
+            label: "サビ",
+            startTime: 0,
+            endTime: 100,
+            color: "r",
+          },
+        ],
+        100
+      )
+    ).toBe(true);
+  });
+
+  it("repairs whole-track chorus into multi-type form", () => {
+    const repaired = repairDegenerateSections({
+      sections: [
+        {
+          id: "c",
+          type: "chorus",
+          label: "サビ",
+          startTime: 0,
+          endTime: 96,
+          color: "r",
+        },
+      ],
+      duration: 96,
+      bpm: 120,
+      peaks: Array.from({ length: 96 }, (_, i) =>
+        i > 40 && i < 60 ? 1 : 0.2
+      ),
+    });
+    expect(isDegenerateSectionLayout(repaired, 96)).toBe(false);
+    expect(new Set(repaired.map((s) => s.type)).size).toBeGreaterThan(1);
   });
 });
