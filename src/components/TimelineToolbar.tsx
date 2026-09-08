@@ -728,6 +728,11 @@ export type TimelineToolbarProps = {
   /** PC: 立ち位置雛形（Change）。5秒戻すの左に出す */
   showFormationChange?: boolean;
   onOpenFormationChange?: () => void;
+  /**
+   * true: 再生系は PlaybackFloatingBar に委譲し、ツールバーはユーティリティのみ。
+   * ワイド浮遊 UI 用。
+   */
+  floatingChrome?: boolean;
 };
 
 export function TimelineToolbar({
@@ -762,9 +767,11 @@ export function TimelineToolbar({
   compactDockLeading,
   showFormationChange = false,
   onOpenFormationChange,
+  floatingChrome = false,
 }: TimelineToolbarProps) {
   const { t } = useI18n();
   const isCountingIn = usePracticePlaybackStore((s) => s.isCountingIn);
+  const hideInlinePlayback = floatingChrome && !editorMobileStack;
   const waveZoomDisabled = duration <= 0;
   const waveZoomLabels = {
     zoomInTitle: t("editor.layout.waveZoomIn"),
@@ -1380,9 +1387,11 @@ export function TimelineToolbar({
         minWidth: 0,
         marginTop: 0,
         padding: `${tlPx(0)} ${tlPx(6)} ${tlPx(2)}`,
-        borderBottom: `1px solid ${shell.border}`,
+        borderBottom: hideInlinePlayback
+          ? "1px solid rgba(255,255,255,0.06)"
+          : `1px solid ${shell.border}`,
         flexShrink: 0,
-        background: shell.bgChrome,
+        background: hideInlinePlayback ? "transparent" : shell.bgChrome,
       }}
     >
       <BrandRailWithHome
@@ -1429,6 +1438,8 @@ export function TimelineToolbar({
             }}
           />
         ) : null}
+        {!hideInlinePlayback ? (
+          <>
         <button
           type="button"
           style={{
@@ -1512,6 +1523,8 @@ export function TimelineToolbar({
         >
           <IconStop />
         </button>
+          </>
+        ) : null}
         <WaveZoomToolbarButtons
           disabled={waveZoomDisabled}
           onZoomIn={onWaveZoomIn}
@@ -1605,18 +1618,22 @@ export function TimelineToolbar({
             <IconSectionFormations />
           </button>
         ) : null}
-        <PracticePlaybackControls
-          viewMode={viewMode}
-          playbackRate={playbackRate}
-          onPlaybackRateChange={onPlaybackRateChange}
-          compact
-        />
-        <PlaybackClockReadout
-          isPlaying={isPlaying || isCountingIn}
-          idleTimeSec={currentTime}
-          durationSec={duration}
-          monoFontSizePx={12 * TIMELINE_UI_SCALE}
-        />
+        {!hideInlinePlayback ? (
+          <>
+            <PracticePlaybackControls
+              viewMode={viewMode}
+              playbackRate={playbackRate}
+              onPlaybackRateChange={onPlaybackRateChange}
+              compact
+            />
+            <PlaybackClockReadout
+              isPlaying={isPlaying || isCountingIn}
+              idleTimeSec={currentTime}
+              durationSec={duration}
+              monoFontSizePx={12 * TIMELINE_UI_SCALE}
+            />
+          </>
+        ) : null}
         {onUndo ? (
           <button
             type="button"

@@ -362,7 +362,7 @@ export function EditorPageLayout(props: EditorLayoutProps) {
         <EditorPageHeader {...props} />
       ) : null}
 
-      {/* ─── Main layout: column flex (top wave bar + stage row) ─── */}
+      {/* ─── Main layout: column flex (stage first on wide floating UI) ─── */}
       <div
         className={choreoPublicView ? "choreo-public-view-main" : undefined}
         style={{
@@ -374,45 +374,46 @@ export function EditorPageLayout(props: EditorLayoutProps) {
         }}
       >
 
-      {showTopWaveDock &&
-      !stageZenLayout &&
-      !mobileStackEditor &&
-      !choreoPublicView ? (
+      {(() => {
+        const showWaveDock =
+          showTopWaveDock &&
+          !stageZenLayout &&
+          !mobileStackEditor &&
+          !choreoPublicView;
+        if (!showWaveDock) return null;
+        const floatingWide = Boolean(wideEditorLayout);
+        // ワイドは下部浮遊。非ワイドは従来どおり上部。
+        if (floatingWide) return null;
+        return (
         <div
           style={{
             flexShrink: undefined,
             width: "100%",
             minWidth: 0,
-            height: wideEditorLayout
-              ? wideBottomDockPx
-              : (editorTopDockHeightPx ?? TOP_DOCK_HEIGHT_PX),
+            height: editorTopDockHeightPx ?? TOP_DOCK_HEIGHT_PX,
             position: "relative",
             overflow: "hidden",
             background: "transparent",
-            marginBottom: wideEditorLayout ? 0 : 4,
-            zIndex: undefined,
-            borderBottom: undefined,
+            marginBottom: 4,
           }}
         >
-          {/* Timeline content */}
           <div
             ref={attachTopDockSection}
             style={{
               position: "absolute",
-              inset: wideEditorLayout ? `0 0 ${TOP_DOCK_WAVE_STAGE_RESIZER_PX}px 0` : "0 0 8px 0",
+              inset: "0 0 8px 0",
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",
               minHeight: 0,
               height: "100%",
-              padding: wideEditorLayout ? 0 : "0 4px 4px",
+              padding: "0 4px 4px",
             }}
           >
             <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
               {timelinePanelEl}
             </div>
           </div>
-          {/* 波形バーとステージの境目 — 上下ドラッグで高さ調整 */}
           <div
             role="separator"
             aria-orientation="horizontal"
@@ -452,7 +453,8 @@ export function EditorPageLayout(props: EditorLayoutProps) {
             />
           </div>
         </div>
-      ) : null}
+        );
+      })()}
 
       {choreoPublicView &&
       choreoStudentPick &&
@@ -505,6 +507,92 @@ export function EditorPageLayout(props: EditorLayoutProps) {
           />
         ) : null}
       </div>{/* end stage row */}
+
+      {showTopWaveDock &&
+      !stageZenLayout &&
+      !mobileStackEditor &&
+      !choreoPublicView &&
+      wideEditorLayout ? (
+        <div
+          style={{
+            flexShrink: 0,
+            minWidth: 0,
+            height: wideBottomDockPx,
+            position: "relative",
+            overflow: "visible",
+            background: "transparent",
+            marginTop: 8,
+            marginBottom: "max(10px, env(safe-area-inset-bottom, 0px))",
+            marginLeft: 14,
+            marginRight: 14,
+            width: "auto",
+            zIndex: 20,
+          }}
+        >
+          {/* 波形バー上端 — リサイズ（下部配置のため上辺） */}
+          <div
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label={t("editor.layout.wavePlaybackResizeAria")}
+            title={t("editor.layout.wavePlaybackResizeTitle")}
+            onPointerDown={onTopDockResizeDown}
+            onPointerMove={onTopDockResizeMove}
+            onPointerUp={endTopDockResize}
+            onPointerCancel={endTopDockResize}
+            onDoubleClick={onTopDockResizeDoubleClick}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: TOP_DOCK_WAVE_STAGE_RESIZER_PX,
+              cursor: "row-resize",
+              touchAction: "none",
+              userSelect: "none",
+              zIndex: 10,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <div
+              aria-hidden
+              style={{
+                width: "min(100%, 120px)",
+                height: 3,
+                borderRadius: 2,
+                background: "rgba(212,175,55,0.45)",
+                boxShadow: "0 0 0 1px rgba(212,175,55,0.2)",
+              }}
+            />
+          </div>
+          <div
+            ref={attachTopDockSection}
+            style={{
+              position: "absolute",
+              inset: `${TOP_DOCK_WAVE_STAGE_RESIZER_PX}px 0 0 0`,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "visible",
+              minHeight: 0,
+              height: "auto",
+              bottom: 0,
+            }}
+          >
+            <div
+              style={{
+                flex: 1,
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
+                overflow: "visible",
+              }}
+            >
+              {timelinePanelEl}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       </div>{/* end main column wrapper */}
 

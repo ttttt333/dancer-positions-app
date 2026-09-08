@@ -2793,6 +2793,7 @@ function EditorPageContent({
       aiSectionKeyframesAvailable={sectionAutoKeyframes.canOffer}
       onApplySectionFormationPatterns={sectionFormationPatterns.openDialog}
       sectionFormationPatternsAvailable={sectionFormationPatterns.canOffer}
+      floatingChrome={wideEditorLayout && !mobileStackEditor}
       playbackRate={project.playbackRate ?? 1}
       onPlaybackRateChange={(rate) => {
         setProjectSafe((p) => ({ ...p, playbackRate: rate }));

@@ -58,6 +58,8 @@ export type TimelinePanelBodyProps = {
   /** セクション種別ごとの隊形一括適用 */
   onApplySectionFormationPatterns?: () => void;
   sectionFormationPatternsAvailable?: boolean;
+  /** ワイド: 再生を浮遊ピルへ分離 */
+  floatingChrome?: boolean;
   playbackRate?: number;
   onPlaybackRateChange?: (rate: number) => void;
   /** ギャップ右クリックメニューから個人軌道エディタを開くコールバック */
