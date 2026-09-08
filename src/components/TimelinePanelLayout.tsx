@@ -73,6 +73,8 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
           onWaveZoomOut={p.onWaveZoomOut}
           onSave={p.onSave}
           onOpenAudioImport={p.onOpenAudioImport}
+          onApplyAiSectionKeyframes={p.onApplyAiSectionKeyframes}
+          aiSectionKeyframesAvailable={p.aiSectionKeyframesAvailable}
           onUndo={p.onUndo}
           onRedo={p.onRedo}
           undoDisabled={p.undoDisabled}

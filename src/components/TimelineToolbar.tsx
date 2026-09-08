@@ -183,6 +183,18 @@ function IconAudioImport() {
   );
 }
 
+function IconSectionKeyframes() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden style={{ display: "block" }}>
+      <rect x="3" y="5" width="18" height="4" rx="1" fill="#38bdf8" opacity="0.85" />
+      <rect x="3" y="11" width="18" height="4" rx="1" fill="#a78bfa" opacity="0.85" />
+      <rect x="3" y="17" width="18" height="4" rx="1" fill="#f87171" opacity="0.9" />
+      <line x1="8" y1="4" x2="8" y2="22" stroke="#f8fafc" strokeWidth="1.5" />
+      <line x1="14" y1="4" x2="14" y2="22" stroke="#f8fafc" strokeWidth="1.5" opacity="0.7" />
+    </svg>
+  );
+}
+
 /** タイムライン上部ツールバー用（再生・波形周りの縦スペース節約） */
 export const TIMELINE_UI_SCALE = 1.2;
 export function tlPx(n: number): string {
@@ -590,6 +602,9 @@ export type TimelineToolbarProps = {
   onWaveZoomOut?: () => void;
   onSave?: () => void;
   onOpenAudioImport?: () => void;
+  /** AI解析セクション頭へキーフレームを配置 */
+  onApplyAiSectionKeyframes?: () => void;
+  aiSectionKeyframesAvailable?: boolean;
   onUndo?: () => void;
   onRedo?: () => void;
   undoDisabled: boolean;
@@ -621,6 +636,8 @@ export function TimelineToolbar({
   onWaveZoomOut,
   onSave,
   onOpenAudioImport,
+  onApplyAiSectionKeyframes,
+  aiSectionKeyframesAvailable = false,
   onUndo,
   onRedo,
   undoDisabled,
@@ -916,6 +933,24 @@ export function TimelineToolbar({
                   <IconAudioImport />
                 </button>
               )}
+              {onApplyAiSectionKeyframes && aiSectionKeyframesAvailable ? (
+                <button
+                  type="button"
+                  style={{
+                    ...timelineToolbarBtn,
+                    padding: `${tlPx(4)} ${tlPx(8)}`,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  disabled={viewMode === "view"}
+                  title="AIセクションからキーフレームを自動配置"
+                  aria-label="AIセクションからキーフレームを自動配置"
+                  onClick={onApplyAiSectionKeyframes}
+                >
+                  <IconSectionKeyframes />
+                </button>
+              ) : null}
               <PlaybackClockReadout
                 isPlaying={isPlaying}
                 idleTimeSec={currentTime}
@@ -1070,6 +1105,18 @@ export function TimelineToolbar({
               onPointerEnter={() => { void preloadFFmpeg(); }}
             >
               <IconAudioImport />
+            </button>
+          ) : null}
+          {onApplyAiSectionKeyframes && aiSectionKeyframesAvailable ? (
+            <button
+              type="button"
+              style={{ ...mobileScrollBtn, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+              disabled={viewMode === "view"}
+              title="AIセクションからキーフレームを自動配置"
+              aria-label="AIセクションからキーフレームを自動配置"
+              onClick={onApplyAiSectionKeyframes}
+            >
+              <IconSectionKeyframes />
             </button>
           ) : null}
           {onUndo ? (
@@ -1319,6 +1366,26 @@ export function TimelineToolbar({
             onPointerEnter={() => { void preloadFFmpeg(); }}
           >
             <IconAudioImport />
+          </button>
+        ) : null}
+        {onApplyAiSectionKeyframes && aiSectionKeyframesAvailable ? (
+          <button
+            type="button"
+            style={{
+              ...timelineToolbarBtn,
+              padding: `${tlPx(4)} ${tlPx(9)}`,
+              minHeight: tlPx(28),
+              flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            disabled={viewMode === "view"}
+            title="AIセクションからキーフレームを自動配置"
+            aria-label="AIセクションからキーフレームを自動配置"
+            onClick={onApplyAiSectionKeyframes}
+          >
+            <IconSectionKeyframes />
           </button>
         ) : null}
         <PlaybackClockReadout

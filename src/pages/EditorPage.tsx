@@ -59,6 +59,9 @@ import {
 import { useEditorPlaybackSync } from "../hooks/useEditorPlaybackSync";
 import { useEditorKeyboardShortcuts } from "../hooks/useEditorKeyboardShortcuts";
 import { useEditorAudioSession } from "../hooks/useEditorAudioSession";
+import { useSectionAutoKeyframes } from "../hooks/useSectionAutoKeyframes";
+import { ApplyAiSectionKeyframesDialog } from "../components/ApplyAiSectionKeyframesDialog";
+import { useMusicSectionOverlayStore } from "../store/musicSectionOverlayStore";
 import { useTimelineMediaHandle } from "../hooks/useTimelineMediaHandle";
 import { RosterTimelineStrip } from "../components/RosterTimelineStrip";
 import {
@@ -631,6 +634,16 @@ function EditorPageContent({
   });
   const resyncViewerPlayback = editorAudioSession.resyncPlayback;
   const reloadViewerAudio = editorAudioSession.reloadRemoteAudio;
+
+  const sectionAutoKeyframes = useSectionAutoKeyframes({
+    project,
+    setProject: setProjectSafe,
+    enabled: !choreoPublicView,
+    publicShareView: choreoPublicView,
+  });
+  const analysisSectionCount = useMusicSectionOverlayStore(
+    (s) => s.analysis?.sections.length ?? 0
+  );
 
   /** 閲覧共有: 作品データ取得直後から音源を先読み（パート選択を待たない） */
   useEffect(() => {
@@ -1934,6 +1947,15 @@ function EditorPageContent({
     [project, exportDialogOpen, projectName, stageView]
   );
 
+  const aiSectionKeyframesDialogEl = (
+    <ApplyAiSectionKeyframesDialog
+      open={sectionAutoKeyframes.confirmOpen}
+      sectionCount={analysisSectionCount}
+      onConfirm={sectionAutoKeyframes.confirmApplyAiSectionKeyframes}
+      onCancel={sectionAutoKeyframes.dismissConfirm}
+    />
+  );
+
   const flowLibraryDialogEl = useMemo(
     () =>
       project ? (
@@ -2748,6 +2770,10 @@ function EditorPageContent({
       onRequestAddCueAtTime={() => setAddCueDialogOpen(true)}
       onSave={() => setFlowLibraryOpen(true)}
       onOpenAudioImport={openAudioImport}
+      onApplyAiSectionKeyframes={
+        sectionAutoKeyframes.requestApplyAiSectionKeyframes
+      }
+      aiSectionKeyframesAvailable={sectionAutoKeyframes.canOffer}
       audioFileInputRef={editorAudioSession.audioFileInputRef}
       extractProgress={editorAudioSession.extractProgress}
       onPickAudio={editorAudioSession.onPickAudio}
@@ -3091,6 +3117,67 @@ function EditorPageContent({
         </div>
       ) : null}
       <EditorPageLayout {...editorLayoutProps} />
+      {aiSectionKeyframesDialogEl}
+      {sectionAutoKeyframes.pendingOffer &&
+      sectionAutoKeyframes.canOffer &&
+      !sectionAutoKeyframes.confirmOpen ? (
+        <div
+          role="status"
+          style={{
+            position: "fixed",
+            right: 16,
+            bottom: 16,
+            zIndex: 70,
+            maxWidth: 320,
+            padding: "12px 14px",
+            borderRadius: 12,
+            border: "1px solid #334155",
+            background: "rgba(15, 23, 42, 0.96)",
+            color: "#e2e8f0",
+            boxShadow: "0 12px 28px rgba(0,0,0,0.4)",
+            fontSize: 13,
+            lineHeight: 1.45,
+          }}
+        >
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>
+            AIセクションのキーフレームを置けます
+          </div>
+          <div style={{ color: "#94a3b8", marginBottom: 10 }}>
+            解析結果のセクション頭に合わせて、タイムラインのキューを再配置できます。
+          </div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <button
+              type="button"
+              onClick={sectionAutoKeyframes.dismissPendingOffer}
+              style={{
+                border: "1px solid #475569",
+                background: "transparent",
+                color: "#cbd5e1",
+                borderRadius: 8,
+                padding: "6px 10px",
+                cursor: "pointer",
+              }}
+            >
+              あとで
+            </button>
+            <button
+              type="button"
+              onClick={sectionAutoKeyframes.requestApplyAiSectionKeyframes}
+              style={{
+                border: "1px solid #f59e0b",
+                background: "#f59e0b",
+                color: "#0f172a",
+                borderRadius: 8,
+                padding: "6px 10px",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              配置する
+            </button>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

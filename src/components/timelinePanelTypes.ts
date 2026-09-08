@@ -53,6 +53,8 @@ export type TimelinePanelBodyProps = {
   cueListPortalTarget?: HTMLElement | null;
   onSave?: () => void;
   onOpenAudioImport?: () => void;
+  onApplyAiSectionKeyframes?: () => void;
+  aiSectionKeyframesAvailable?: boolean;
   /** ギャップ右クリックメニューから個人軌道エディタを開くコールバック */
   onOpenPathEditor?: (cueId: string) => void;
   /** 生徒閲覧（/view/s/…）: ログインなしで Supabase 音源を読む */
