@@ -13,13 +13,13 @@ import {
 import { isReleaseCampaignActive } from "../../lib/releaseCampaign";
 import { LandingHeroVisual } from "./landing/LandingHeroVisual";
 
-const FLOW_STEPS = [
-  { key: "music", title: "MUSIC", body: "Start with the song." },
-  { key: "structure", title: "STRUCTURE", body: "Understand where the musical moments happen." },
-  { key: "formation", title: "FORMATION", body: "Explore formation possibilities." },
-  { key: "transition", title: "TRANSITION", body: "Design how dancers get there." },
-  { key: "feasibility", title: "FEASIBILITY", body: "Make sure the formation works on stage." },
-  { key: "refine", title: "REFINE", body: "Your choreography. Your decisions." },
+const FLOW_STEP_KEYS = [
+  "music",
+  "structure",
+  "formation",
+  "transition",
+  "feasibility",
+  "refine",
 ] as const;
 
 const STRUCTURE_CUES = [
@@ -33,115 +33,45 @@ const STRUCTURE_CUES = [
 ] as const;
 
 const CANDIDATES = [
-  {
-    id: "A",
-    title: "Candidate A",
-    traits: ["Symmetry", "Clear lanes", "Center focus"],
-    layout: "sym",
-  },
-  {
-    id: "B",
-    title: "Candidate B",
-    traits: ["Asymmetry", "Depth", "Visual impact"],
-    layout: "depth",
-  },
-  {
-    id: "C",
-    title: "Candidate C",
-    traits: ["Wide coverage", "Spacing", "Wings"],
-    layout: "wide",
-  },
+  { id: "A", layout: "sym", traits: ["sym1", "sym2", "sym3"] },
+  { id: "B", layout: "depth", traits: ["depth1", "depth2", "depth3"] },
+  { id: "C", layout: "wide", traits: ["wide1", "wide2", "wide3"] },
 ] as const;
 
-const AUDIENCES = [
-  { title: "SOLO", body: "Build formations faster." },
-  { title: "CREWS", body: "Design synchronized stage pictures." },
-  { title: "COMPETITION TEAMS", body: "Turn musical moments into visual impact." },
-  { title: "STUDIOS", body: "Create, teach and organize choreography." },
-  {
-    title: "PROFESSIONAL CHOREOGRAPHERS",
-    body: "Spend less time managing positions. Spend more time creating.",
-  },
-] as const;
+const AUDIENCE_KEYS = ["solo", "crews", "comp", "studios", "pro"] as const;
 
 const COMPARE_ROWS: {
-  label: string;
-  traditional: string;
-  choreocore: string;
-  status?: "available" | "assisted" | "designed";
+  key: string;
+  status: "available" | "assisted" | "designed";
 }[] = [
-  {
-    label: "Starting point",
-    traditional: "Empty grid",
-    choreocore: "Your music + timeline",
-    status: "available",
-  },
-  {
-    label: "Song structure",
-    traditional: "Manual",
-    choreocore: "Music-aware analysis",
-    status: "assisted",
-  },
-  {
-    label: "Formation",
-    traditional: "Manual only",
-    choreocore: "Presets + AI-assisted ideas",
-    status: "available",
-  },
-  {
-    label: "Transitions",
-    traditional: "Manual",
-    choreocore: "Cue-timed paths & approaches",
-    status: "available",
-  },
-  {
-    label: "Stage awareness",
-    traditional: "Basic",
-    choreocore: "Stage board & boundaries",
-    status: "available",
-  },
-  {
-    label: "Spacing / feasibility",
-    traditional: "Manual",
-    choreocore: "Assisted checks in suggestions",
-    status: "designed",
-  },
-  {
-    label: "Creative control",
-    traditional: "You",
-    choreocore: "You — AI proposes, you decide",
-    status: "available",
-  },
+  { key: "start", status: "available" },
+  { key: "struct", status: "assisted" },
+  { key: "form", status: "available" },
+  { key: "trans", status: "available" },
+  { key: "stage", status: "available" },
+  { key: "space", status: "designed" },
+  { key: "ctrl", status: "available" },
 ];
 
-const STATUS_LABEL = {
-  available: "Available",
-  assisted: "AI-assisted",
-  designed: "Designed for",
-} as const;
-
 /**
- * Guest landing v2 — Music-aware Choreography Intelligence narrative.
- * English-primary story; keeps campaign / auth / legal intact.
+ * 未ログイン向けトップ（Landing v2）。
+ * 日本語がデフォルト。他言語はヘッダーの LanguageSwitcher で切替。
  */
 export function GuestLanding() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const campaign = isReleaseCampaignActive();
 
   useEffect(() => {
     const prevTitle = document.title;
     const desc = document.querySelector('meta[name="description"]');
     const prevDesc = desc?.getAttribute("content") ?? null;
-    document.title = "ChoreoCore — Turn Music Into Movement";
-    desc?.setAttribute(
-      "content",
-      "ChoreoCore helps choreographers turn music into formations, transitions and stage-ready choreography."
-    );
+    document.title = t("landing.v2.docTitle");
+    desc?.setAttribute("content", t("landing.v2.docDesc"));
     return () => {
       document.title = prevTitle;
       if (desc && prevDesc != null) desc.setAttribute("content", prevDesc);
     };
-  }, []);
+  }, [t, locale]);
 
   return (
     <div className="home-page home-landing lv2">
@@ -153,7 +83,7 @@ export function GuestLanding() {
           <div className="home-guest-header-actions">
             <LanguageSwitcher variant="inline" />
             <a href="#how-it-works" className="home-landing-login">
-              How it works
+              {t("landing.v2.navHow")}
             </a>
             <Link to="/appeal" className="home-landing-login">
               {t("home.tabAppeal")}
@@ -168,41 +98,32 @@ export function GuestLanding() {
         </div>
       </header>
 
-      {/* ── HERO ── */}
-      <section className="lv2-hero" aria-label="ChoreoCore introduction">
+      <section className="lv2-hero" aria-label={t("landing.heroAria")}>
         <div className="home-container lv2-hero-inner">
           <div className="lv2-hero-copy">
-            <p className="lv2-eyebrow">MUSIC-AWARE CHOREOGRAPHY INTELLIGENCE</p>
+            <p className="lv2-eyebrow">{t("landing.v2.eyebrow")}</p>
             <h1 className="home-display lv2-hero-title">
-              TURN MUSIC
+              {t("landing.v2.heroTitle1")}
               <br />
-              INTO <span>MOVEMENT.</span>
+              <span>{t("landing.v2.heroTitle2")}</span>
             </h1>
-            <p className="lv2-hero-sub">
-              From song structure to stage formation — ChoreoCore helps
-              choreographers design formations that move with the music.
-            </p>
-            <p className="lv2-hero-jp" lang="ja">
-              音楽を聴けば、フォーメーションが見えてくる。
-            </p>
-            <p className="lv2-pill-row" aria-label="Audience">
-              Built for choreographers, crews, competitions &amp; studios.
-            </p>
+            <p className="lv2-hero-sub">{t("landing.v2.heroSub")}</p>
+            <p className="lv2-hero-jp">{t("landing.v2.heroTag")}</p>
+            <p className="lv2-pill-row">{t("landing.v2.audience")}</p>
             <div className="lv2-cta-row">
               <Link to="/register" className="home-btn home-btn--primary lv2-btn-lg">
-                {campaign ? t("landing.campaign.cta") : "Start free"}
+                {campaign ? t("landing.campaign.cta") : t("landing.v2.ctaStart")}
               </Link>
               <a href="#how-it-works" className="home-btn home-btn--secondary lv2-btn-lg">
-                See how it works
+                {t("landing.v2.ctaHow")}
               </a>
             </div>
             <p className="lv2-cta-note">
-              {campaign
-                ? t("landing.campaign.note")
-                : "Free to start · Sign up with email or Google · No credit card required for Free"}
+              {campaign ? t("landing.campaign.note") : t("landing.v2.ctaNote")}
             </p>
             <p className="lv2-brand-line">
-              Most tools place dancers. <strong>ChoreoCore helps you choreograph.</strong>
+              {t("landing.v2.brandLine")}{" "}
+              <strong>{t("landing.v2.brandLineStrong")}</strong>
             </p>
           </div>
           <LandingHeroVisual />
@@ -247,88 +168,81 @@ export function GuestLanding() {
         </section>
       ) : null}
 
-      {/* ── PROBLEM ── */}
       <section className="lv2-section" aria-labelledby="lv2-problem-title">
         <div className="home-container">
-          <p className="lv2-eyebrow">THE PROBLEM</p>
+          <p className="lv2-eyebrow">{t("landing.v2.problem.eyebrow")}</p>
           <h2 id="lv2-problem-title" className="home-display lv2-h2">
-            STOP MOVING DOTS.
+            {t("landing.v2.problem.title1")}
             <br />
-            START DESIGNING CHOREOGRAPHY.
+            {t("landing.v2.problem.title2")}
           </h2>
-          <p className="lv2-lead">
-            Most formation tools start with an empty grid. You place every dancer. You adjust
-            every position. You repeat it for every section of the song.
-          </p>
+          <p className="lv2-lead">{t("landing.v2.problem.body")}</p>
           <p className="lv2-contrast">
-            ChoreoCore starts from the <em>music</em>.
+            {t("landing.v2.problem.contrastBefore")}
+            <em>{t("landing.v2.problem.contrastEm")}</em>
+            {t("landing.v2.problem.contrastAfter")}
           </p>
           <div className="lv2-compare-flow">
             <div className="lv2-flow-col">
-              <h3>TRADITIONAL</h3>
+              <h3>{t("landing.v2.problem.tradTitle")}</h3>
               <ol>
-                <li>Empty Stage</li>
-                <li>Place Dancers</li>
-                <li>Adjust Positions</li>
-                <li>Repeat</li>
-                <li>Check</li>
+                <li>{t("landing.v2.problem.trad1")}</li>
+                <li>{t("landing.v2.problem.trad2")}</li>
+                <li>{t("landing.v2.problem.trad3")}</li>
+                <li>{t("landing.v2.problem.trad4")}</li>
+                <li>{t("landing.v2.problem.trad5")}</li>
               </ol>
             </div>
             <div className="lv2-flow-col is-accent">
-              <h3>CHOREOCORE</h3>
+              <h3>{t("landing.v2.problem.ccTitle")}</h3>
               <ol>
-                <li>Music</li>
-                <li>Structure</li>
-                <li>Formation</li>
-                <li>Transition</li>
-                <li>Refine</li>
+                <li>{t("landing.v2.problem.cc1")}</li>
+                <li>{t("landing.v2.problem.cc2")}</li>
+                <li>{t("landing.v2.problem.cc3")}</li>
+                <li>{t("landing.v2.problem.cc4")}</li>
+                <li>{t("landing.v2.problem.cc5")}</li>
               </ol>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── THE NEW WAY ── */}
       <section
         id="how-it-works"
         className="lv2-section lv2-section--alt"
         aria-labelledby="lv2-way-title"
       >
         <div className="home-container">
-          <p className="lv2-eyebrow">THE NEW WAY</p>
+          <p className="lv2-eyebrow">{t("landing.v2.way.eyebrow")}</p>
           <h2 id="lv2-way-title" className="home-display lv2-h2">
-            FROM MUSIC
+            {t("landing.v2.way.title1")}
             <br />
-            TO FORMATION.
+            {t("landing.v2.way.title2")}
           </h2>
-          <p className="lv2-pillars">Music × Space × Time × Dancers</p>
+          <p className="lv2-pillars">{t("landing.v2.way.pillars")}</p>
           <div className="lv2-steps">
-            {FLOW_STEPS.map((s, i) => (
-              <article key={s.key} className="lv2-step">
+            {FLOW_STEP_KEYS.map((key, i) => (
+              <article key={key} className="lv2-step">
                 <span className="lv2-step__n">{String(i + 1).padStart(2, "0")}</span>
-                <h3>{s.title}</h3>
-                <p>{s.body}</p>
+                <h3>{t(`landing.v2.step.${key}.title`)}</h3>
+                <p>{t(`landing.v2.step.${key}.body`)}</p>
               </article>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── MUSIC STRUCTURE ── */}
       <section className="lv2-section" aria-labelledby="lv2-structure-title">
         <div className="home-container lv2-split">
           <div>
-            <p className="lv2-eyebrow">MUSIC STRUCTURE</p>
+            <p className="lv2-eyebrow">{t("landing.v2.structure.eyebrow")}</p>
             <h2 id="lv2-structure-title" className="home-display lv2-h2">
-              IT DOESN&apos;T JUST HEAR THE BEAT.
+              {t("landing.v2.structure.title1")}
               <br />
-              IT UNDERSTANDS THE SONG.
+              {t("landing.v2.structure.title2")}
             </h2>
-            <p className="lv2-lead">
-              Intro. Verse. Pre-chorus. Chorus. Break. Outro. ChoreoCore turns the structure of
-              your music into a choreography timeline.
-            </p>
-            <p className="lv2-status">Available · Song analysis + cue timeline</p>
+            <p className="lv2-lead">{t("landing.v2.structure.body")}</p>
+            <p className="lv2-status">{t("landing.v2.structure.status")}</p>
           </div>
           <div className="lv2-structure-panel" aria-hidden>
             <ul className="lv2-structure-list">
@@ -365,72 +279,62 @@ export function GuestLanding() {
         </div>
       </section>
 
-      {/* ── TRANSITION ── */}
       <section className="lv2-section lv2-section--alt" aria-labelledby="lv2-trans-title">
         <div className="home-container lv2-split">
           <div className="lv2-arrival" aria-hidden>
             <div className="lv2-arrival__beat">
-              <span>BEAT</span>
+              <span>{t("landing.v2.trans.beat")}</span>
               <div className="lv2-arrival__line" />
-              <strong>SECTION CHANGE</strong>
+              <strong>{t("landing.v2.trans.sectionChange")}</strong>
             </div>
             <div className="lv2-arrival__path">
-              <span>DANCERS MOVE</span>
+              <span>{t("landing.v2.trans.move")}</span>
               <span>→</span>
-              <span className="is-on">TRANSITION</span>
+              <span className="is-on">{t("landing.v2.trans.transition")}</span>
               <span>→</span>
-              <span>ARRIVAL</span>
+              <span>{t("landing.v2.trans.arrival")}</span>
               <span>→</span>
-              <span className="is-hit">MUSICAL HIT</span>
+              <span className="is-hit">{t("landing.v2.trans.hit")}</span>
             </div>
-            <p className="lv2-arrival__note">
-              Design movement so dancers arrive for the moment — not scramble on the beat.
-            </p>
+            <p className="lv2-arrival__note">{t("landing.v2.trans.note")}</p>
           </div>
           <div>
-            <p className="lv2-eyebrow">TRANSITION</p>
+            <p className="lv2-eyebrow">{t("landing.v2.trans.eyebrow")}</p>
             <h2 id="lv2-trans-title" className="home-display lv2-h2">
-              DON&apos;T CHANGE ON THE BEAT.
+              {t("landing.v2.trans.title1")}
               <br />
-              ARRIVE FOR THE MOMENT.
+              {t("landing.v2.trans.title2")}
             </h2>
-            <p className="lv2-lead">
-              A formation is not just where dancers stand. It&apos;s how they get there.
-            </p>
-            <p className="lv2-status">
-              Available · Cue-timed transitions &amp; approach paths between formations
-            </p>
+            <p className="lv2-lead">{t("landing.v2.trans.body")}</p>
+            <p className="lv2-status">{t("landing.v2.trans.status")}</p>
           </div>
         </div>
       </section>
 
-      {/* ── AI FORMATION ── */}
       <section className="lv2-section" aria-labelledby="lv2-ai-title">
         <div className="home-container">
-          <p className="lv2-eyebrow">AI FORMATION GENERATION</p>
+          <p className="lv2-eyebrow">{t("landing.v2.ai.eyebrow")}</p>
           <h2 id="lv2-ai-title" className="home-display lv2-h2">
-            ONE SONG.
+            {t("landing.v2.ai.title1")}
             <br />
-            INFINITE POSSIBILITIES.
+            {t("landing.v2.ai.title2")}
           </h2>
-          <p className="lv2-lead">
-            Explore formation ideas generated around your music, stage and dancers.
-          </p>
-          <div className="lv2-ai-flow" aria-label="AI proposes, you decide">
-            <span>AI PROPOSES</span>
+          <p className="lv2-lead">{t("landing.v2.ai.body")}</p>
+          <div className="lv2-ai-flow">
+            <span>{t("landing.v2.ai.flow1")}</span>
             <span>→</span>
-            <span>CHOREOGRAPHER SELECTS</span>
+            <span>{t("landing.v2.ai.flow2")}</span>
             <span>→</span>
-            <span>CHOREOGRAPHER REFINES</span>
+            <span>{t("landing.v2.ai.flow3")}</span>
           </div>
           <div className="lv2-candidates">
             {CANDIDATES.map((c) => (
               <article key={c.id} className="lv2-candidate">
                 <header>
-                  <h3>{c.title}</h3>
+                  <h3>{t("landing.v2.ai.candidate", { id: c.id })}</h3>
                   <ul>
                     {c.traits.map((tr) => (
-                      <li key={tr}>{tr}</li>
+                      <li key={tr}>{t(`landing.v2.ai.trait.${tr}`)}</li>
                     ))}
                   </ul>
                 </header>
@@ -442,90 +346,84 @@ export function GuestLanding() {
               </article>
             ))}
           </div>
-          <p className="lv2-status">Available · AI formation suggestions (you always choose)</p>
+          <p className="lv2-status">{t("landing.v2.ai.status")}</p>
         </div>
       </section>
 
-      {/* ── CONTROL ── */}
       <section className="lv2-section lv2-section--alt" aria-labelledby="lv2-control-title">
         <div className="home-container">
-          <p className="lv2-eyebrow">CHOREOGRAPHER CONTROL</p>
+          <p className="lv2-eyebrow">{t("landing.v2.control.eyebrow")}</p>
           <h2 id="lv2-control-title" className="home-display lv2-h2">
-            AI PROPOSES.
+            {t("landing.v2.control.title1")}
             <br />
-            YOU CHOREOGRAPH.
+            {t("landing.v2.control.title2")}
           </h2>
-          <p className="lv2-lead">
-            ChoreoCore doesn&apos;t replace your creative decisions. It gives you more
-            possibilities to work with.
-          </p>
+          <p className="lv2-lead">{t("landing.v2.control.body")}</p>
           <div className="lv2-control-rail" aria-hidden>
-            {["AI Suggestion", "Edit", "Swap", "Align", "Flip", "Refine"].map((label) => (
-              <span key={label}>{label}</span>
+            {(
+              [
+                "landing.v2.control.rail1",
+                "landing.v2.control.rail2",
+                "landing.v2.control.rail3",
+                "landing.v2.control.rail4",
+                "landing.v2.control.rail5",
+                "landing.v2.control.rail6",
+              ] as const
+            ).map((key) => (
+              <span key={key}>{t(key)}</span>
             ))}
           </div>
-          <p className="lv2-status">
-            Available · Editor tools including swap, align, presets, and refine
-          </p>
+          <p className="lv2-status">{t("landing.v2.control.status")}</p>
         </div>
       </section>
 
-      {/* ── FEASIBILITY ── */}
       <section className="lv2-section" aria-labelledby="lv2-feas-title">
         <div className="home-container">
-          <p className="lv2-eyebrow">MOVEMENT FEASIBILITY</p>
+          <p className="lv2-eyebrow">{t("landing.v2.feas.eyebrow")}</p>
           <h2 id="lv2-feas-title" className="home-display lv2-h2">
-            BEAUTIFUL FORMATIONS
+            {t("landing.v2.feas.title1")}
             <br />
-            AREN&apos;T ENOUGH.
+            {t("landing.v2.feas.title2")}
           </h2>
-          <p className="lv2-contrast">THEY HAVE TO BE DANCEABLE.</p>
-          <p className="lv2-lead">
-            A formation can look perfect on screen and still fail in rehearsal. ChoreoCore is
-            designed to think about spacing, stage boundaries, transitions and dancer movement.
-          </p>
+          <p className="lv2-contrast">{t("landing.v2.feas.contrast")}</p>
+          <p className="lv2-lead">{t("landing.v2.feas.body")}</p>
           <div className="lv2-feas-grid">
             <div className="lv2-feas-card is-bad">
-              <h3>WATCH FOR</h3>
+              <h3>{t("landing.v2.feas.badTitle")}</h3>
               <ul>
-                <li>Dancer collision</li>
-                <li>Too close</li>
-                <li>Outside stage</li>
+                <li>{t("landing.v2.feas.bad1")}</li>
+                <li>{t("landing.v2.feas.bad2")}</li>
+                <li>{t("landing.v2.feas.bad3")}</li>
               </ul>
             </div>
             <div className="lv2-feas-card is-check">
-              <h3>CHECK</h3>
-              <p>Spacing · Boundaries · Paths</p>
+              <h3>{t("landing.v2.feas.checkTitle")}</h3>
+              <p>{t("landing.v2.feas.checkBody")}</p>
             </div>
             <div className="lv2-feas-card is-good">
-              <h3>AIM FOR</h3>
+              <h3>{t("landing.v2.feas.goodTitle")}</h3>
               <ul>
-                <li>Clear spacing</li>
-                <li>Safe stage area</li>
-                <li>Smooth transition</li>
+                <li>{t("landing.v2.feas.good1")}</li>
+                <li>{t("landing.v2.feas.good2")}</li>
+                <li>{t("landing.v2.feas.good3")}</li>
               </ul>
             </div>
           </div>
-          <p className="lv2-status">
-            Designed for · Feasibility signals in AI suggestions; you verify on stage
-          </p>
+          <p className="lv2-status">{t("landing.v2.feas.status")}</p>
         </div>
       </section>
 
-      {/* ── PRECISION ── */}
       <section className="lv2-section lv2-section--alt" aria-labelledby="lv2-prec-title">
         <div className="home-container lv2-split">
           <div>
-            <p className="lv2-eyebrow">PRECISION</p>
+            <p className="lv2-eyebrow">{t("landing.v2.prec.eyebrow")}</p>
             <h2 id="lv2-prec-title" className="home-display lv2-h2">
-              DESIGN WITH PRECISE
+              {t("landing.v2.prec.title1")}
               <br />
-              STAGE COORDINATES.
+              {t("landing.v2.prec.title2")}
             </h2>
-            <p className="lv2-lead">
-              Precise positions. Clear spacing. A stage you can actually work with.
-            </p>
-            <p className="lv2-status">Available · Stage board grid &amp; coordinate editing</p>
+            <p className="lv2-lead">{t("landing.v2.prec.body")}</p>
+            <p className="lv2-status">{t("landing.v2.prec.status")}</p>
           </div>
           <div className="lv2-precision" aria-hidden>
             <div className="lv2-precision__grid">
@@ -534,68 +432,69 @@ export function GuestLanding() {
               ))}
             </div>
             <div className="lv2-precision__meta">
-              <span>x · y</span>
-              <span>spacing</span>
-              <span>boundary</span>
+              <span>{t("landing.v2.prec.meta1")}</span>
+              <span>{t("landing.v2.prec.meta2")}</span>
+              <span>{t("landing.v2.prec.meta3")}</span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── STUDIO ── */}
       <section className="lv2-section" aria-labelledby="lv2-studio-title">
         <div className="home-container">
-          <p className="lv2-eyebrow">FROM SCREEN TO STUDIO</p>
+          <p className="lv2-eyebrow">{t("landing.v2.studio.eyebrow")}</p>
           <h2 id="lv2-studio-title" className="home-display lv2-h2">
-            FROM SCREEN
+            {t("landing.v2.studio.title1")}
             <br />
-            TO STUDIO.
+            {t("landing.v2.studio.title2")}
           </h2>
           <div className="lv2-workflow">
-            {["DESIGN", "REVIEW", "EXPORT", "REHEARSE", "REFINE"].map((step) => (
-              <div key={step} className="lv2-workflow__step">
-                {step}
+            {(
+              [
+                "landing.v2.studio.w1",
+                "landing.v2.studio.w2",
+                "landing.v2.studio.w3",
+                "landing.v2.studio.w4",
+                "landing.v2.studio.w5",
+              ] as const
+            ).map((key) => (
+              <div key={key} className="lv2-workflow__step">
+                {t(key)}
               </div>
             ))}
           </div>
-          <p className="lv2-lead">
-            Share student links, export materials, and bring the plan into rehearsal — then
-            refine.
-          </p>
-          <p className="lv2-status">Available · Cloud projects, share links, PDF / video export</p>
+          <p className="lv2-lead">{t("landing.v2.studio.body")}</p>
+          <p className="lv2-status">{t("landing.v2.studio.status")}</p>
         </div>
       </section>
 
-      {/* ── WHY ── */}
       <section className="lv2-section lv2-section--alt" aria-labelledby="lv2-why-title">
         <div className="home-container">
-          <p className="lv2-eyebrow">WHY CHOREOCORE</p>
+          <p className="lv2-eyebrow">{t("landing.v2.why.eyebrow")}</p>
           <h2 id="lv2-why-title" className="home-display lv2-h2">
-            MOST TOOLS PLACE DANCERS.
+            {t("landing.v2.why.title1")}
             <br />
-            CHOREOCORE HELPS YOU CHOREOGRAPH.
+            {t("landing.v2.why.title2")}
           </h2>
           <div className="lv2-table-wrap">
             <table className="lv2-table">
               <thead>
                 <tr>
                   <th scope="col"> </th>
-                  <th scope="col">Traditional formation tools</th>
-                  <th scope="col">ChoreoCore</th>
+                  <th scope="col">{t("landing.v2.why.colTrad")}</th>
+                  <th scope="col">{t("landing.v2.why.colCc")}</th>
                 </tr>
               </thead>
               <tbody>
                 {COMPARE_ROWS.map((row) => (
-                  <tr key={row.label}>
-                    <th scope="row">{row.label}</th>
-                    <td>{row.traditional}</td>
+                  <tr key={row.key}>
+                    <th scope="row">{t(`landing.v2.why.row.${row.key}`)}</th>
+                    <td>{t(`landing.v2.why.row.${row.key}.t`)}</td>
                     <td>
-                      {row.choreocore}
-                      {row.status ? (
-                        <span className={`lv2-badge is-${row.status}`}>
-                          {STATUS_LABEL[row.status]}
-                        </span>
-                      ) : null}
+                      {t(`landing.v2.why.row.${row.key}.c`)}
+                      <span className={`lv2-badge is-${row.status}`}>
+                        {t(`landing.v2.badge.${row.status}`)}
+                      </span>
                     </td>
                   </tr>
                 ))}
@@ -605,102 +504,99 @@ export function GuestLanding() {
         </div>
       </section>
 
-      {/* ── WHO ── */}
       <section className="lv2-section" aria-labelledby="lv2-who-title">
         <div className="home-container">
-          <p className="lv2-eyebrow">WHO IT&apos;S FOR</p>
+          <p className="lv2-eyebrow">{t("landing.v2.who.eyebrow")}</p>
           <h2 id="lv2-who-title" className="home-display lv2-h2">
-            BUILT FOR PEOPLE
+            {t("landing.v2.who.title1")}
             <br />
-            WHO BUILD THE SHOW.
+            {t("landing.v2.who.title2")}
           </h2>
           <div className="lv2-who">
-            {AUDIENCES.map((a) => (
-              <article key={a.title} className="lv2-who-card">
-                <h3>{a.title}</h3>
-                <p>{a.body}</p>
+            {AUDIENCE_KEYS.map((key) => (
+              <article key={key} className="lv2-who-card">
+                <h3>{t(`landing.v2.who.${key}.title`)}</h3>
+                <p>{t(`landing.v2.who.${key}.body`)}</p>
               </article>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── PRICING ── */}
       <section id="pricing" className="lv2-section lv2-section--alt" aria-labelledby="lv2-price-title">
         <div className="home-container">
-          <p className="lv2-eyebrow">PRICING</p>
+          <p className="lv2-eyebrow">{t("landing.v2.price.eyebrow")}</p>
           <h2 id="lv2-price-title" className="home-display lv2-h2">
-            START FREE.
+            {t("landing.v2.price.title1")}
             <br />
-            GO PRO WHEN YOU NEED MORE.
+            {t("landing.v2.price.title2")}
           </h2>
           <div className="lv2-pricing">
             <article className="lv2-price-card">
-              <h3>FREE</h3>
+              <h3>{t("landing.v2.price.free")}</h3>
               <p className="lv2-price-card__price">¥0</p>
               <ul>
-                <li>Music timeline &amp; formation cues</li>
-                <li>Stage board editing</li>
-                <li>Presets &amp; core tools</li>
-                <li>Cloud projects (limited)</li>
-                <li>Share &amp; export (plan limits apply)</li>
+                <li>{t("landing.v2.price.free1")}</li>
+                <li>{t("landing.v2.price.free2")}</li>
+                <li>{t("landing.v2.price.free3")}</li>
+                <li>{t("landing.v2.price.free4")}</li>
+                <li>{t("landing.v2.price.free5")}</li>
               </ul>
               <Link to="/register" className="home-btn home-btn--secondary">
-                Start free
+                {t("landing.v2.ctaStart")}
               </Link>
             </article>
             <article className="lv2-price-card is-pro">
-              <h3>PRO</h3>
+              <h3>{t("landing.v2.price.pro")}</h3>
               <p className="lv2-price-card__price">
                 ¥{PRO_PRICE_YEN_TAX_IN.toLocaleString()}
-                <span>/mo</span>
+                <span>{t("landing.v2.price.perMo")}</span>
               </p>
               <p className="lv2-price-card__alt">
-                or ¥{PRO_ANNUAL_PRICE_YEN_TAX_IN.toLocaleString()}/yr
+                {t("landing.v2.price.orYear", {
+                  price: PRO_ANNUAL_PRICE_YEN_TAX_IN.toLocaleString(),
+                })}
               </p>
               <ul>
-                <li>Higher / unlimited cues &amp; cast size</li>
-                <li>Unlimited cloud projects</li>
-                <li>AI formation suggestions</li>
-                <li>Expanded export &amp; sharing</li>
+                <li>{t("landing.v2.price.pro1")}</li>
+                <li>{t("landing.v2.price.pro2")}</li>
+                <li>{t("landing.v2.price.pro3")}</li>
+                <li>{t("landing.v2.price.pro4")}</li>
                 <li>
                   {campaign
-                    ? "Campaign: PRO features unlocked free"
-                    : `${PRO_TRIAL_DAYS}-day trial on monthly`}
+                    ? t("landing.v2.price.proCampaign")
+                    : t("landing.v2.price.proTrial", { days: PRO_TRIAL_DAYS })}
                 </li>
               </ul>
               <Link to="/register" className="home-btn home-btn--primary">
-                {campaign ? t("landing.campaign.cta") : "Start creating"}
+                {campaign ? t("landing.campaign.cta") : t("landing.v2.price.ctaCreate")}
               </Link>
             </article>
           </div>
-          <p className="lv2-cta-note">
-            Actual limits and trial terms are shown in-app at upgrade. No fictional TEAM plan.
-          </p>
+          <p className="lv2-cta-note">{t("landing.v2.price.note")}</p>
         </div>
       </section>
 
-      {/* ── FINAL CTA ── */}
       <section className="lv2-final" aria-labelledby="lv2-final-title">
         <div className="home-container">
           <h2 id="lv2-final-title" className="home-display lv2-h2">
-            YOUR MUSIC ALREADY KNOWS
+            {t("landing.v2.final.title1")}
             <br />
-            WHERE THE MOMENT SHOULD HAPPEN.
+            {t("landing.v2.final.title2")}
           </h2>
-          <p className="lv2-lead">ChoreoCore helps you find it.</p>
+          <p className="lv2-lead">{t("landing.v2.final.sub")}</p>
           <div className="lv2-cta-row lv2-cta-row--center">
             <Link to="/register" className="home-btn home-btn--primary lv2-btn-lg">
-              START CREATING
+              {t("landing.v2.final.ctaPrimary")}
             </Link>
             <a href="#how-it-works" className="home-btn home-btn--secondary lv2-btn-lg">
-              EXPLORE CHOREOCORE
+              {t("landing.v2.final.ctaSecondary")}
             </a>
           </div>
           <p className="lv2-brand-line lv2-brand-line--final">
-            Most tools place dancers.
+            {t("landing.v2.brandLine")}
             <br />
-            <strong>ChoreoCore helps you choreograph.</strong>
+            <strong>{t("landing.v2.brandLineStrong")}</strong>
           </p>
           <footer className="lv2-footer">
             <Link to="/legal/tokushoho">{t("legal.tokushoho.link")}</Link>

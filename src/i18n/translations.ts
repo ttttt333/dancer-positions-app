@@ -2,6 +2,7 @@ import type { AppLocale } from "./types";
 import { buildLocaleBundle } from "./buildLocaleBundle";
 import { mergeEditorLayoutTranslations } from "./editorLayoutTranslations";
 import { mergeEditorComponentTranslations } from "./editorComponentTranslations";
+import { LANDING_V2_EN, LANDING_V2_JA } from "./landingV2Messages";
 
 export type MessageBundle = Record<string, string>;
 
@@ -443,6 +444,7 @@ const EN_BASE: MessageBundle = {
   "shareSheet.saved": "Saved",
   "shareSheet.needCloud": "Save this work to the cloud first to create a share URL.",
   "shareSheet.urlPlaceholder": "URL appears after cloud save",
+  ...LANDING_V2_EN,
 };
 
 const BASE_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
@@ -889,6 +891,7 @@ const BASE_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "shareSheet.saved": "保存しました",
     "shareSheet.needCloud": "先に作品をクラウドへ保存すると、共有 URL を作れます。",
     "shareSheet.urlPlaceholder": "クラウド保存後に URL が表示されます",
+    ...LANDING_V2_JA,
   },
   en: EN_BASE,
   ko: {

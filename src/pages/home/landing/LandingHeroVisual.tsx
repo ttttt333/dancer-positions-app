@@ -1,4 +1,11 @@
-import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from "react";
+import {
+  Component,
+  useEffect,
+  useState,
+  type ErrorInfo,
+  type ReactNode,
+} from "react";
+import { useI18n } from "../../../i18n/I18nContext";
 
 type Spot = { x: number; y: number };
 
@@ -162,6 +169,7 @@ class HeroVisualBoundary extends Component<
  * Pure CSS/RAF demo — not a product screenshot.
  */
 function LandingHeroVisualInner() {
+  const { t } = useI18n();
   const [phase, setPhase] = useState(0);
 
   useEffect(() => {
@@ -201,10 +209,14 @@ function LandingHeroVisualInner() {
   return (
     <div className="lv2-hero-visual" aria-hidden>
       <div className="lv2-hero-visual__chrome">
-        <span className="lv2-hero-visual__live">SYNC</span>
-        <span>Music × Formation</span>
+        <span className="lv2-hero-visual__live">{t("landing.v2.hero.sync")}</span>
+        <span>{t("landing.v2.hero.musicFormation")}</span>
         <span className="lv2-hero-visual__mode">
-          {inTransition ? "TRANSITION" : `FORMATION ${String.fromCharCode(65 + sectionIndex)}`}
+          {inTransition
+            ? t("landing.v2.hero.transition")
+            : t("landing.v2.hero.formation", {
+                letter: String.fromCharCode(65 + sectionIndex),
+              })}
         </span>
       </div>
 
@@ -237,8 +249,12 @@ function LandingHeroVisualInner() {
 
       <div className={`lv2-hero-stage ${inTransition ? "is-transitioning" : ""}`}>
         <div className="lv2-hero-stage__grid" />
-        <div className="lv2-hero-stage__label lv2-hero-stage__label--back">UPSTAGE</div>
-        <div className="lv2-hero-stage__label lv2-hero-stage__label--aud">AUDIENCE</div>
+        <div className="lv2-hero-stage__label lv2-hero-stage__label--back">
+          {t("landing.v2.hero.upstage")}
+        </div>
+        <div className="lv2-hero-stage__label lv2-hero-stage__label--aud">
+          {t("landing.v2.hero.audience")}
+        </div>
         {spots.map((p, i) => (
           <div
             key={i}
@@ -254,17 +270,21 @@ function LandingHeroVisualInner() {
         ))}
         {inTransition ? (
           <div className="lv2-hero-transition-chip">
-            Arrive for the moment · {Math.round(blend * 100)}%
+            {t("landing.v2.hero.arrive", { pct: Math.round(blend * 100) })}
           </div>
         ) : null}
       </div>
 
       <div className="lv2-hero-track">
-        <span className={inTransition ? undefined : "is-on"}>FORMATION</span>
+        <span className={inTransition ? undefined : "is-on"}>
+          {t("landing.v2.hero.trackForm")}
+        </span>
         <span className="lv2-hero-track__arrow">→</span>
-        <span className={inTransition ? "is-on" : undefined}>TRANSITION</span>
+        <span className={inTransition ? "is-on" : undefined}>
+          {t("landing.v2.hero.trackTrans")}
+        </span>
         <span className="lv2-hero-track__arrow">→</span>
-        <span>ARRIVAL</span>
+        <span>{t("landing.v2.hero.trackArrive")}</span>
       </div>
     </div>
   );
