@@ -132,7 +132,7 @@ import { FlowLibraryDialog } from "../components/FlowLibraryDialog";
 import { AddCueWithFormationDialog } from "../components/AddCueWithFormationDialog";
 import { ParsePositionFromPhotoDialog } from "../components/ParsePositionFromPhotoDialog";
 import { FormationPresetPickerSheet } from "../components/FormationPresetPickerSheet";
-import { ProUpgradeProvider } from "../components/ProUpgradeProvider";
+import { ProUpgradeProvider, useProUpgrade } from "../components/ProUpgradeProvider";
 import { isSupabaseBackend } from "../lib/supabaseClient";
 import { isCollabFeatureAvailable } from "../lib/collabAvailability";
 import { projectShareLinks } from "../lib/shareProjectLinks";
