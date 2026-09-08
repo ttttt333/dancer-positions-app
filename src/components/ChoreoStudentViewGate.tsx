@@ -1,6 +1,7 @@
 import { btnAccent, btnSecondary } from "./stageButtonStyles";
 import { shell } from "../theme/choreoShell";
 import type { ViewRosterEntry } from "../lib/viewRoster";
+import { ChoreoViewerViralCta } from "./ChoreoViewerViralCta";
 
 export type StudentPick =
   | { kind: "all" }
@@ -240,6 +241,9 @@ export function ChoreoStudentViewGate({
               </button>
             </div>
           </div>
+          <div style={{ marginTop: 20 }}>
+            <ChoreoViewerViralCta variant="gate" />
+          </div>
         </div>
       </div>
     );
@@ -296,6 +300,9 @@ export function ChoreoStudentViewGate({
           compact
           publicSheet
         />
+      </div>
+      <div className="choreo-student-view-gate__viral">
+        <ChoreoViewerViralCta variant="gate" />
       </div>
     </div>
   );

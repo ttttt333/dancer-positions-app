@@ -23,7 +23,8 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { ChoreoCoreLogo } from "../components/ChoreoGridLogo";
-import { ProUpgradeProvider, useProUpgrade } from "../components/ProUpgradeProvider";
+import { ProjectConflictDialog } from "../components/ProjectConflictDialog";
+import { clearEditorDraft } from "../lib/editorDraftStorage";
 import { StageBoard, type FloorTextPlaceSession } from "../components/StageBoard";
 import {
   isDancerCountOverFreeLimit,
@@ -260,6 +261,11 @@ function EditorPageContent({
     setServerId,
     serverShareToken,
     setServerShareToken,
+    knownServerUpdatedAt,
+    setKnownServerUpdatedAt,
+    pendingLoadConflict,
+    resolveLoadConflictKeepLocal,
+    resolveLoadConflictTakeServer,
     loadError,
     saving,
     setSaving,
@@ -537,6 +543,13 @@ function EditorPageContent({
     return next;
   }, [me, serverId, setProjectSafe]);
 
+  const [saveConflict, setSaveConflict] = useState<{
+    kind: "save-stale";
+    serverUpdatedAt: string;
+    serverJson: import("../types/choreography").ChoreographyProjectJson;
+    serverName: string;
+  } | null>(null);
+
   const {
     cloudSaveDialogOpen,
     setCloudSaveDialogOpen,
@@ -546,6 +559,8 @@ function EditorPageContent({
     me,
     projectName,
     serverId,
+    knownServerUpdatedAt,
+    setKnownServerUpdatedAt,
     projectSaveRef,
     setProjectName,
     setServerId,
@@ -553,6 +568,7 @@ function EditorPageContent({
     setSaving,
     navigate,
     prepareProjectForCloudSave,
+    onSaveConflict: setSaveConflict,
   });
 
   const project = collabActive ? yjsCollab.project : plainProject;
@@ -1041,14 +1057,19 @@ function EditorPageContent({
   }, []);
 
   const interpolatedDancers = useMemo(() => {
+    // 停止中は補間不要（ステージは active formation を描く）。再生・スクラブ時のみ計算。
     if (!project || project.cues.length === 0) return null;
+    if (!isPlaying && !choreoPublicView) {
+      // 編集画面の停止中はスキップ。閲覧はシーク操作があり得るため計算する。
+      return null;
+    }
     return dancersAtTime(
       currentTime,
       project.cues,
       project.formations,
       project.activeFormationId
     );
-  }, [project, currentTime]);
+  }, [project, currentTime, isPlaying, choreoPublicView]);
 
   const interpolatedSetPieces = useMemo(() => {
     if (!project || project.cues.length === 0) return null;
@@ -2980,6 +3001,43 @@ function EditorPageContent({
   return (
     <>
       {playbackAudioElement}
+      <ProjectConflictDialog
+        open={Boolean(pendingLoadConflict)}
+        kind="load-draft"
+        serverUpdatedAt={pendingLoadConflict?.serverUpdatedAt}
+        localSavedAt={pendingLoadConflict?.localSavedAt}
+        onKeepLocal={resolveLoadConflictKeepLocal}
+        onTakeServer={resolveLoadConflictTakeServer}
+      />
+      <ProjectConflictDialog
+        open={Boolean(saveConflict)}
+        kind="save-stale"
+        serverUpdatedAt={saveConflict?.serverUpdatedAt}
+        onKeepLocal={() => {
+          void (async () => {
+            setSaving(true);
+            try {
+              await syncProjectToCloud({ force: true });
+              setSaveConflict(null);
+            } catch (e) {
+              alert(
+                e instanceof Error ? e.message : t("editor.cloudSave.errSaveFailed")
+              );
+            } finally {
+              setSaving(false);
+            }
+          })();
+        }}
+        onTakeServer={() => {
+          if (!saveConflict) return;
+          setPlainProject(saveConflict.serverJson);
+          setProjectName(saveConflict.serverName);
+          setKnownServerUpdatedAt(saveConflict.serverUpdatedAt);
+          if (serverId != null) clearEditorDraft(serverId);
+          setSaveConflict(null);
+        }}
+        onCancel={() => setSaveConflict(null)}
+      />
       {!choreoPublicView ? (
         <TimelineAudioChrome
           audioFileInputRef={editorAudioSession.audioFileInputRef}

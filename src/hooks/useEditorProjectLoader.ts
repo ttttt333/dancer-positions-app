@@ -17,7 +17,7 @@ import {
   tryMigrateFromLocalStorage,
 } from "../lib/projectDefaults";
 import { normalizeProject } from "../lib/normalizeProject";
-import { loadEditorDraft } from "../lib/editorDraftStorage";
+import { clearEditorDraft, loadEditorDraft } from "../lib/editorDraftStorage";
 import { getEntitlements } from "../lib/entitlements";
 import {
   analyzeFreePlanExcessFromList,
@@ -26,6 +26,17 @@ import {
 import type { ChoreographyProjectJson } from "../types/choreography";
 import type { Me } from "../types/authMe";
 import { loadShareViewProject, primeShareViewLoaderState } from "../lib/shareViewProjectCache";
+import { projectJsonDiffers } from "../lib/projectConflict";
+
+export type PendingLoadConflict = {
+  kind: "load-draft";
+  serverUpdatedAt: string;
+  localSavedAt: string;
+  serverJson: ChoreographyProjectJson;
+  draftJson: ChoreographyProjectJson;
+  draftName: string;
+  serverName: string;
+};
 
 export type UseEditorProjectLoaderOptions = {
   projectId?: string;
@@ -68,6 +79,11 @@ export function useEditorProjectLoader({
   );
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [knownServerUpdatedAt, setKnownServerUpdatedAt] = useState<string | null>(
+    null
+  );
+  const [pendingLoadConflict, setPendingLoadConflict] =
+    useState<PendingLoadConflict | null>(null);
   const skipNextProjectFetchRef = useRef<number | null>(null);
 
   const projectSaveRef = useRef<ChoreographyProjectJson | null>(null);
@@ -228,27 +244,34 @@ export function useEditorProjectLoader({
         setServerId(row.id);
         setServerShareToken(row.share_token ?? null);
         setProjectName(row.name);
+        setKnownServerUpdatedAt(row.updated_at);
         const baseJson = normalizeProject(row.json);
         const draft = loadEditorDraft(id);
         let loadedJson = baseJson;
+        let deferredConflict: PendingLoadConflict | null = null;
+
+        // 下書きがあり内容が違う場合は無言適用せず、ユーザーに選択させる
         if (
+          !choreoPublicView &&
           draft &&
           draft.serverId === id &&
-          draft.project
+          draft.project &&
+          projectJsonDiffers(draft.project, baseJson)
         ) {
-          const draftMs = Date.parse(draft.savedAt);
-          const serverMs = Date.parse(row.updated_at);
-          if (
-            Number.isFinite(draftMs) &&
-            (!Number.isFinite(serverMs) || draftMs > serverMs + 500)
-          ) {
-            loadedJson = normalizeProject(draft.project);
-            setProjectName(
+          deferredConflict = {
+            kind: "load-draft",
+            serverUpdatedAt: row.updated_at,
+            localSavedAt: draft.savedAt,
+            serverJson: baseJson,
+            draftJson: normalizeProject(draft.project),
+            draftName:
               draft.projectName?.trim() ||
-                draft.project.pieceTitle?.trim() ||
-                row.name
-            );
-          }
+              draft.project.pieceTitle?.trim() ||
+              row.name,
+            serverName: row.name,
+          };
+          // 暫定でクラウドを表示し、ダイアログで切替可能にする
+          loadedJson = baseJson;
         }
 
         // 無料復帰後: 超過があるときはライブラリで削減してから開く
@@ -283,6 +306,7 @@ export function useEditorProjectLoader({
             choreoPublicView ? { ...loadedJson, viewMode: "view" } : loadedJson
           );
         }
+        setPendingLoadConflict(deferredConflict);
         setLoadError(null);
         onHistoryReset();
       } catch (e) {
@@ -308,6 +332,26 @@ export function useEditorProjectLoader({
     onHistoryReset,
   ]);
 
+  const resolveLoadConflictKeepLocal = () => {
+    const c = pendingLoadConflict;
+    if (!c) return;
+    setPlainProject(c.draftJson);
+    setProjectName(c.draftName);
+    setPendingLoadConflict(null);
+    onHistoryReset();
+  };
+
+  const resolveLoadConflictTakeServer = () => {
+    const c = pendingLoadConflict;
+    if (!c) return;
+    setPlainProject(c.serverJson);
+    setProjectName(c.serverName);
+    setKnownServerUpdatedAt(c.serverUpdatedAt);
+    if (serverId != null) clearEditorDraft(serverId);
+    setPendingLoadConflict(null);
+    onHistoryReset();
+  };
+
   return {
     plainProject,
     setPlainProject,
@@ -317,6 +361,11 @@ export function useEditorProjectLoader({
     setServerId,
     serverShareToken,
     setServerShareToken,
+    knownServerUpdatedAt,
+    setKnownServerUpdatedAt,
+    pendingLoadConflict,
+    resolveLoadConflictKeepLocal,
+    resolveLoadConflictTakeServer,
     loadError,
     setLoadError,
     saving,

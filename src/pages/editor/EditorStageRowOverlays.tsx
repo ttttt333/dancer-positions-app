@@ -17,6 +17,7 @@ import { ViewerModeSheetContent } from "../../components/ViewerModeSheetContent"
 import { ChoreoViewerBottomBar } from "../../components/ChoreoViewerBottomBar";
 import { ChoreoViewerControlBars } from "../../components/ChoreoViewerControlBars";
 import { ChoreoViewerMemberSheet } from "../../components/ChoreoViewerMemberSheet";
+import { ChoreoViewerViralCta } from "../../components/ChoreoViewerViralCta";
 import { VideoExportSheet } from "../../components/VideoExportSheet";
 import { useVideoExportUiStore } from "../../store/videoExportUiStore";
 import { playbackEngine } from "../../core/playbackEngine";
@@ -1405,6 +1406,10 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
 
       {choreoPublicView && choreoStudentPick ? (
         <>
+          <ChoreoViewerViralCta
+            variant="viewer"
+            landscape={Boolean(publicViewTightHeight)}
+          />
           <ChoreoViewerControlBars
             project={project}
             timelineRef={timelineRef}

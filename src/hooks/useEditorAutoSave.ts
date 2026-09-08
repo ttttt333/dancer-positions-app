@@ -16,7 +16,13 @@ type Params = {
   projectRef: MutableRefObject<ChoreographyProjectJson | null>;
   projectName: string;
   serverId: number | null;
-  syncProjectToCloud: () => Promise<{ id: number; share_token?: string | null }>;
+  syncProjectToCloud: (opts?: {
+    force?: boolean;
+  }) => Promise<{
+    id: number;
+    share_token?: string | null;
+    conflict?: unknown;
+  }>;
   setSaving: (saving: boolean) => void;
   /** プロジェクト内容の変化検知用（JSON シグネチャ等） */
   projectChangeSig: string;
@@ -74,7 +80,12 @@ export function useEditorAutoSave({
       cloudInFlightRef.current = true;
       if (!opts?.silent) setSaving(true);
       try {
-        await syncProjectToCloud();
+        const result = await syncProjectToCloud();
+        if (result.conflict) {
+          // 競合時はクラウドへ書かず下書きを残す（ダイアログは cloud save 側）
+          persistLocalDraft();
+          return;
+        }
         lastCloudJsonRef.current = json;
         clearEditorDraft(serverId);
       } catch {

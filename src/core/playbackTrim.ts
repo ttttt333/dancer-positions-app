@@ -67,7 +67,7 @@ export function roundPlaybackHeadSec(t: number): number {
  * 再生中にストアの `currentTimeSec` を更新する最小間隔（ms）。
  * ステージ補間の滑らかさと再描画負荷の兼ね合い（RAF は毎フレーム回し、書き込みだけ間引く）。
  */
-export const PLAYBACK_HEAD_STORE_MIN_INTERVAL_MS = 12;
+export const PLAYBACK_HEAD_STORE_MIN_INTERVAL_MS = 16; // ~60fps 上限。旧 12ms から緩和し中低価格帯端末の setState 負荷を抑える
 
 export type CanSplitCueAtTimeParams = {
   splitAtSec: number;
