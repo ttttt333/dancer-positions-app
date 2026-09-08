@@ -700,16 +700,24 @@ body {
 
 .choreo-viewer-viral-cta__dismiss {
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
+  position: relative;
+  z-index: 1;
+  width: 32px;
+  height: 32px;
   border: none;
   border-radius: 8px;
-  background: transparent;
-  color: #94a3b8;
-  font-size: 18px;
+  background: rgba(15, 23, 42, 0.55);
+  color: #e2e8f0;
+  font-size: 20px;
   line-height: 1;
   cursor: pointer;
   padding: 0;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.choreo-viewer-viral-cta__dismiss:active {
+  background: rgba(51, 65, 85, 0.9);
 }
 
 .choreo-viewer-viral-cta--chip {
