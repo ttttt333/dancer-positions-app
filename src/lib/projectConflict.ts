@@ -10,7 +10,11 @@ export function parseIsoMs(iso: string | null | undefined): number {
   return Number.isFinite(n) ? n : NaN;
 }
 
-/** サーバーがローカル認識より新しい（または未知）なら競合 */
+/**
+ * サーバーがローカル認識より新しいなら競合。
+ * 基準未設定（null）は「未知」ではなく「まだ学習していない」扱い → 競合にしない。
+ * （基準未設定で true にすると、flow 紐付け直後の自動保存でダイアログが連発する）
+ */
 export function isServerNewerThanKnown(
   knownUpdatedAt: string | null | undefined,
   serverUpdatedAt: string | null | undefined
@@ -18,8 +22,8 @@ export function isServerNewerThanKnown(
   const known = parseIsoMs(knownUpdatedAt);
   const server = parseIsoMs(serverUpdatedAt);
   if (!Number.isFinite(server)) return false;
-  if (!Number.isFinite(known)) return true;
-  // 同一時刻は競合にしない（自分の直前保存）
+  if (!Number.isFinite(known)) return false;
+  // 同一時刻は競合にしない（自分の直前保存）。時計誤差を見て 50ms 余裕。
   return server > known + 50;
 }
 

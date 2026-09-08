@@ -1,4 +1,4 @@
-import { useCallback, useState, type MutableRefObject } from "react";
+import { useCallback, useRef, useState, type MutableRefObject } from "react";
 import type { NavigateFunction } from "react-router-dom";
 import { projectApi } from "../api/client";
 import { PLAN_CONFIRM_PATH } from "../lib/commercialDisclosure";
@@ -7,7 +7,10 @@ import type { ChoreographyProjectJson } from "../types/choreography";
 import type { Me } from "../types/authMe";
 import { useI18n } from "../i18n/I18nContext";
 import { yieldToMain } from "../lib/yieldToMain";
-import { isServerNewerThanKnown } from "../lib/projectConflict";
+import {
+  isServerNewerThanKnown,
+  projectJsonDiffers,
+} from "../lib/projectConflict";
 
 export type CloudSaveConflict = {
   kind: "save-stale";
@@ -50,14 +53,19 @@ export function useEditorCloudSave({
 }: UseEditorCloudSaveOptions) {
   const { t } = useI18n();
   const [cloudSaveDialogOpen, setCloudSaveDialogOpen] = useState(false);
+  /** 自動保存と手動保存の競合で古い known を掴まないよう ref で常に最新を見る */
+  const knownServerUpdatedAtRef = useRef(knownServerUpdatedAt);
+  knownServerUpdatedAtRef.current = knownServerUpdatedAt;
 
   /**
    * いまの編集内容をクラウドに upsert。
    * 既存作品は保存前に updated_at を照合し、新しければ上書きせず conflict を返す。
+   * `quietConflict`: 自動保存用。ダイアログを出さず conflict だけ返す。
    */
   const syncProjectToCloud = useCallback(
     async (opts?: {
       force?: boolean;
+      quietConflict?: boolean;
     }): Promise<{
       id: number;
       share_token?: string | null;
@@ -88,21 +96,40 @@ export function useEditorCloudSave({
       }
       await yieldToMain();
       const title =
-        json.pieceTitle?.trim() || projectName.trim() || t("editor.untitledProject");
+        json.pieceTitle?.trim() ||
+        projectName.trim() ||
+        t("editor.untitledProject");
       const body: ChoreographyProjectJson = { ...json, pieceTitle: title };
       if (serverId != null) {
         if (!opts?.force) {
           const latest = await projectApi.get(serverId);
-          if (
-            isServerNewerThanKnown(knownServerUpdatedAt, latest.updated_at)
-          ) {
+          const known = knownServerUpdatedAtRef.current;
+
+          // 基準未学習: サーバー時刻を覚え、内容が違うときだけ手動保存で警告
+          if (!known) {
+            setKnownServerUpdatedAt(latest.updated_at);
+            knownServerUpdatedAtRef.current = latest.updated_at;
+            const serverJson = normalizeProject(latest.json);
+            if (projectJsonDiffers(body, serverJson)) {
+              const conflict: CloudSaveConflict = {
+                kind: "save-stale",
+                serverUpdatedAt: latest.updated_at,
+                serverJson,
+                serverName: latest.name,
+              };
+              if (!opts?.quietConflict) onSaveConflict?.(conflict);
+              return { id: serverId, conflict };
+            }
+            // 同内容ならそのまま下の update へ
+          } else if (isServerNewerThanKnown(known, latest.updated_at)) {
             const conflict: CloudSaveConflict = {
               kind: "save-stale",
               serverUpdatedAt: latest.updated_at,
               serverJson: normalizeProject(latest.json),
               serverName: latest.name,
             };
-            onSaveConflict?.(conflict);
+            // 自動保存ではダイアログを出さない（連発して編集を妨げるため）
+            if (!opts?.quietConflict) onSaveConflict?.(conflict);
             return { id: serverId, conflict };
           }
         }
@@ -110,6 +137,7 @@ export function useEditorCloudSave({
         setProjectName(title);
         if (row.share_token) setServerShareToken(row.share_token);
         setKnownServerUpdatedAt(row.updated_at);
+        knownServerUpdatedAtRef.current = row.updated_at;
         return { id: serverId, share_token: row.share_token ?? null };
       }
       let row: Awaited<ReturnType<typeof projectApi.create>>;
@@ -118,7 +146,9 @@ export function useEditorCloudSave({
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "";
         if (msg.includes("free_limit") || msg.includes("無料プラン")) {
-          const goUpgrade = window.confirm(t("editor.cloudSave.freeLimitConfirm"));
+          const goUpgrade = window.confirm(
+            t("editor.cloudSave.freeLimitConfirm")
+          );
           if (goUpgrade) {
             navigate(PLAN_CONFIRM_PATH);
           }
@@ -129,6 +159,7 @@ export function useEditorCloudSave({
       setServerId(row.id);
       if (row.share_token) setServerShareToken(row.share_token);
       setKnownServerUpdatedAt(row.updated_at);
+      knownServerUpdatedAtRef.current = row.updated_at;
       navigate(`/editor/${row.id}`, {
         replace: true,
         state: {
@@ -143,7 +174,6 @@ export function useEditorCloudSave({
       projectName,
       projectSaveRef,
       serverId,
-      knownServerUpdatedAt,
       setKnownServerUpdatedAt,
       setProjectName,
       setServerId,
@@ -160,10 +190,13 @@ export function useEditorCloudSave({
     setCloudSaveDialogOpen(false);
     setSaving(true);
     try {
-      const result = await syncProjectToCloud();
+      // 手動保存・⌘S のみダイアログ可
+      const result = await syncProjectToCloud({ quietConflict: false });
       if (result.conflict) return;
     } catch (e) {
-      alert(e instanceof Error ? e.message : t("editor.cloudSave.errSaveFailed"));
+      alert(
+        e instanceof Error ? e.message : t("editor.cloudSave.errSaveFailed")
+      );
     } finally {
       setSaving(false);
     }

@@ -20,6 +20,15 @@ describe("projectConflict", () => {
     ).toBe(false);
   });
 
+  it("does not treat unknown baseline as conflict", () => {
+    expect(
+      isServerNewerThanKnown(null, "2026-01-01T00:01:00.000Z")
+    ).toBe(false);
+    expect(
+      isServerNewerThanKnown(undefined, "2026-01-01T00:01:00.000Z")
+    ).toBe(false);
+  });
+
   it("detects json differences", () => {
     expect(projectJsonDiffers({ a: 1 }, { a: 1 })).toBe(false);
     expect(projectJsonDiffers({ a: 1 }, { a: 2 })).toBe(true);

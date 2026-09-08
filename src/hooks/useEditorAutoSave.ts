@@ -18,6 +18,7 @@ type Params = {
   serverId: number | null;
   syncProjectToCloud: (opts?: {
     force?: boolean;
+    quietConflict?: boolean;
   }) => Promise<{
     id: number;
     share_token?: string | null;
@@ -80,9 +81,9 @@ export function useEditorAutoSave({
       cloudInFlightRef.current = true;
       if (!opts?.silent) setSaving(true);
       try {
-        const result = await syncProjectToCloud();
+        // 自動保存は競合ダイアログを出さない（手動保存・⌘S のみ警告）
+        const result = await syncProjectToCloud({ quietConflict: true });
         if (result.conflict) {
-          // 競合時はクラウドへ書かず下書きを残す（ダイアログは cloud save 側）
           persistLocalDraft();
           return;
         }

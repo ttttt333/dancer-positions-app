@@ -144,12 +144,27 @@ export function useEditorProjectLoader({
           setPlainProject(fromFlow);
           setProjectName(fromFlow.pieceTitle?.trim() || item.name || "無題の作品");
           const linkId = item.linkedServerProjectId;
-          setServerId(
+          const linkedId =
             typeof linkId === "number" && Number.isFinite(linkId) && linkId > 0
               ? linkId
-              : null
-          );
+              : null;
+          setServerId(linkedId);
           setServerShareToken(null);
+          // 紐付け済みなら updated_at を学習（未設定のままだと保存のたびに誤競合しやすい）
+          if (linkedId != null && me) {
+            void projectApi
+              .get(linkedId)
+              .then((row) => {
+                if (cancelled) return;
+                setKnownServerUpdatedAt(row.updated_at);
+                if (row.share_token) setServerShareToken(row.share_token);
+              })
+              .catch(() => {
+                /* 取得失敗時は初回保存で学習 */
+              });
+          } else {
+            setKnownServerUpdatedAt(null);
+          }
           setLoadError(null);
           onHistoryReset();
         });
