@@ -12,6 +12,12 @@ import type {
 } from "../../types/audioAnalysis";
 import { mapLabelToSectionType, sectionDisplayMeta } from "./sectionMeta";
 import { applyDownbeatSnapToAnalysis } from "./snapToDownbeat";
+import { cleanseMusicSections } from "./cleanseSections";
+import {
+  buildEvenBeatGrid,
+  inferTempoFromEightTimes,
+  logAudioAnalysisEngine,
+} from "./evenBeatGrid";
 
 function newSectionId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -20,7 +26,7 @@ function newSectionId(): string {
   return `sec-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-/** Phase1 BeatEvent → BeatInfo（beatInBar === 0 をダウンビート） */
+/** Phase1 BeatEvent → BeatInfo（参考用。表示グリッドは BPM 均等を優先） */
 export function beatsFromBeatEvents(events: BeatEvent[]): BeatInfo[] {
   return events.map((b) => ({
     timestamp: b.time,
@@ -30,43 +36,43 @@ export function beatsFromBeatEvents(events: BeatEvent[]): BeatInfo[] {
 }
 
 /**
- * 8カウント先頭時刻列 → BeatInfo。
- * 各 eight をダウンビートとし、間を等分して 1–8 を埋める（グリッド表示・マグネット用）。
+ * @deprecated 不揃い eight_times を分割するとグリッドが歪む。
+ * 新規は `buildEvenBeatGrid` / `beatsFromTempo` を使う。
  */
 export function beatsFromEightTimes(
   eightTimes: number[],
   duration: number,
   beatsPerEight = 8
 ): BeatInfo[] {
-  if (eightTimes.length === 0) return [];
-  const sorted = [...eightTimes]
-    .filter((t) => Number.isFinite(t) && t >= 0)
-    .sort((a, b) => a - b);
-  if (sorted.length === 0) return [];
-
-  const out: BeatInfo[] = [];
-  for (let i = 0; i < sorted.length; i += 1) {
-    const start = sorted[i]!;
-    const next = sorted[i + 1];
-    const end =
-      next != null && next > start
-        ? next
-        : duration > start
-          ? duration
-          : start + (60 / 120) * beatsPerEight;
-    const span = Math.max(1e-6, end - start);
-    const step = span / beatsPerEight;
-    for (let n = 0; n < beatsPerEight; n += 1) {
-      const t = start + step * n;
-      if (duration > 0 && t > duration + 1e-6) break;
-      out.push({
-        timestamp: t,
-        isDownbeat: n === 0,
-        beatNumber: n + 1,
-      });
-    }
+  const inferred = inferTempoFromEightTimes(eightTimes);
+  if (inferred) {
+    return buildEvenBeatGrid({
+      bpm: inferred.bpm,
+      duration,
+      firstDownbeatTime: inferred.firstDownbeatTime,
+      beatsPerCycle: beatsPerEight,
+    });
   }
-  return out;
+  return buildEvenBeatGrid({
+    bpm: 120,
+    duration,
+    firstDownbeatTime: 0,
+    beatsPerCycle: beatsPerEight,
+  });
+}
+
+/** BPM ベースの均等グリッド（推奨） */
+export function beatsFromTempo(opts: {
+  bpm: number;
+  duration: number;
+  firstDownbeatTime?: number;
+}): BeatInfo[] {
+  return buildEvenBeatGrid({
+    bpm: opts.bpm,
+    duration: opts.duration,
+    firstDownbeatTime: opts.firstDownbeatTime ?? 0,
+    beatsPerCycle: 8,
+  });
 }
 
 export function musicSectionFromRaw(opts: {
@@ -89,36 +95,73 @@ export function musicSectionFromRaw(opts: {
   };
 }
 
-/** StructureResultV2 → AudioAnalysisResult（未スナップ） */
+function resolveTempoFromV2(v2: StructureResultV2): {
+  bpm: number;
+  firstDownbeatTime: number;
+} {
+  const inferred = v2.eight_times?.length
+    ? inferTempoFromEightTimes(v2.eight_times)
+    : null;
+  const bpm =
+    v2.bpm > 0 ? v2.bpm : inferred?.bpm && inferred.bpm > 0 ? inferred.bpm : 120;
+  const firstDownbeatTime =
+    inferred?.firstDownbeatTime ??
+    (v2.eight_times?.[0] != null && Number.isFinite(v2.eight_times[0])
+      ? v2.eight_times[0]
+      : 0);
+  return { bpm, firstDownbeatTime };
+}
+
+/** StructureResultV2 → AudioAnalysisResult（均等グリッド＋セクションクレンジング） */
 export function audioAnalysisFromStructureV2(
   v2: StructureResultV2,
-  opts?: { applySnap?: boolean }
+  opts?: { applySnap?: boolean; cleanse?: boolean }
 ): AudioAnalysisResult {
   const duration = v2.duration > 0 ? v2.duration : 0;
-  const beats =
-    v2.eight_times?.length > 0
-      ? beatsFromEightTimes(v2.eight_times, duration)
-      : [];
+  const { bpm, firstDownbeatTime } = resolveTempoFromV2(v2);
+  const beats = beatsFromTempo({ bpm, duration, firstDownbeatTime });
 
-  const sections: MusicSection[] = (v2.sections ?? []).map((s) => {
+  let sections: MusicSection[] = (v2.sections ?? []).map((s) => {
     const type = mapLabelToSectionType(s.label);
     return musicSectionFromRaw({
       type,
       startTime: s.start_time,
       endTime: s.end_time,
-      bpm: v2.bpm > 0 ? v2.bpm : undefined,
+      bpm,
     });
   });
+
+  if (opts?.cleanse !== false) {
+    sections = cleanseMusicSections(sections, { duration, bpm });
+  }
 
   const raw: AudioAnalysisResult = {
     duration,
     beats,
     sections,
     sourceLabel: v2.source ?? "structure-v2",
-    bpm: v2.bpm > 0 ? v2.bpm : undefined,
+    bpm,
   };
 
-  return opts?.applySnap === false ? raw : applyDownbeatSnapToAnalysis(raw);
+  const final =
+    opts?.applySnap === false ? raw : applyDownbeatSnapToAnalysis(raw);
+
+  if (opts?.cleanse !== false) {
+    final.sections = cleanseMusicSections(final.sections, {
+      duration: final.duration,
+      bpm,
+    });
+  }
+
+  logAudioAnalysisEngine({
+    engine: v2.source ?? "structure-v2",
+    bpm,
+    beatsCount: final.beats.length,
+    sectionsCount: final.sections.length,
+    sourceLabel: final.sourceLabel,
+  });
+
+  return final;
 }
 
 /** AudioAnalysisResult.sections → 既存オーバーレイセグメント形 */

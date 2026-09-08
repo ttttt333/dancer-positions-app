@@ -4,22 +4,21 @@
  */
 
 import { fetchRemoteSongAnalysis } from "../songAnalyzeClient";
-import { analyzeSongStructureFromPeaks } from "../songStructureAnalysis";
+import { estimateBpmFromPeaks } from "../songStructureAnalysis";
 import { isPlaceholderLikeWavePeaks } from "../placeholderWavePeaks";
 import { useMusicSectionOverlayStore } from "../../store/musicSectionOverlayStore";
 import { showAppToast } from "../../store/appToastStore";
-import {
-  beatsFromEightTimes,
-  musicSectionFromRaw,
-} from "./fromStructureV2";
-import { mapEngineTypeToSectionType } from "./sectionMeta";
-import { applyDownbeatSnapToAnalysis } from "./snapToDownbeat";
+import { beatsFromTempo } from "./fromStructureV2";
 import {
   publishAudioAnalysisOverlay,
   publishSnappedOverlayFromSources,
 } from "./publishOverlay";
 import type { AudioAnalysisResult } from "../../types/audioAnalysis";
-import { segmentsFromChangePoints } from "../musicSectionOverlay";
+import {
+  buildFormRatioSections,
+  energyAtFromPeaks,
+} from "./cleanseSections";
+import { logAudioAnalysisEngine } from "./evenBeatGrid";
 
 export type AutoAudioAnalysisInput = {
   audioSupabasePath?: string | null;
@@ -41,8 +40,12 @@ export type AutoAudioAnalysisOutcome =
 let lastStartedKey: string | null = null;
 let inFlightKey: string | null = null;
 
+/** ロジック改訂時に上げて、同一音源でも再解析させる */
+const AUTO_ANALYSIS_LOGIC_VERSION = "v2-even-grid-cleanse";
+
 function analysisKey(input: AutoAudioAnalysisInput): string {
   return [
+    AUTO_ANALYSIS_LOGIC_VERSION,
     input.cacheKey ?? "",
     input.audioSupabasePath ?? "",
     input.audioUrl ?? "",
@@ -77,7 +80,6 @@ export async function runAutoAudioAnalysis(
 
   const key = analysisKey(input);
   if (inFlightKey === key || lastStartedKey === key) {
-    // 既に同じ音源で成功／実行中
     if (store.segments.length > 0 || store.beats.length > 0) return "skipped";
     if (inFlightKey === key) return "skipped";
   }
@@ -143,7 +145,6 @@ export async function runAutoAudioAnalysis(
       return "aborted";
     }
 
-    // 手動編集が割り込んだら上書きしない
     if (useMusicSectionOverlayStore.getState().userEdited) {
       useMusicSectionOverlayStore.getState().setAnalyzing(false);
       return "skipped";
@@ -153,7 +154,6 @@ export async function runAutoAudioAnalysis(
       publishBrowserFallback(input.peaks, input.durationSec);
     }
 
-    // beats だけでもグリッドを出したい場合の最終フォールバック
     const after = useMusicSectionOverlayStore.getState();
     if (after.beats.length === 0 && after.segments.length === 0) {
       publishBrowserFallback(input.peaks, input.durationSec);
@@ -176,38 +176,40 @@ export async function runAutoAudioAnalysis(
   }
 }
 
+/**
+ * ブラウザフォールバック: ピーク連鎖の「全部サビ」を避け、
+ * BPM均等グリッド＋構成比率/エネルギーでラベルを割る。
+ */
 function publishBrowserFallback(peaks: number[], durationSec: number): void {
   if (useMusicSectionOverlayStore.getState().userEdited) return;
 
-  const browser = analyzeSongStructureFromPeaks(peaks, durationSec);
-  const eightTimes = browser.eight_grid.map((e) => e.start_time);
-  const beats = beatsFromEightTimes(eightTimes, browser.duration, 8);
-  const overlaySegs = segmentsFromChangePoints(
-    browser.change_points,
-    browser.duration
-  );
-
-  const sections = overlaySegs.map((seg) =>
-    musicSectionFromRaw({
-      type: mapEngineTypeToSectionType(seg.sectionType),
-      startTime: seg.startSec,
-      endTime: seg.endSec,
-      label: seg.label,
-      bpm: browser.bpm,
-    })
-  );
-
-  const analysis: AudioAnalysisResult = applyDownbeatSnapToAnalysis({
-    duration: browser.duration,
-    beats,
-    sections: sections.map((s, i) => ({
-      ...s,
-      color: overlaySegs[i]?.color ?? s.color,
-      label: overlaySegs[i]?.label ?? s.label,
-    })),
-    sourceLabel: "browser-auto",
-    bpm: browser.bpm,
+  const bpm = estimateBpmFromPeaks(peaks, durationSec);
+  const beats = beatsFromTempo({
+    bpm,
+    duration: durationSec,
+    firstDownbeatTime: 0,
+  });
+  const sections = buildFormRatioSections({
+    duration: durationSec,
+    bpm,
+    energyByTime: (t) => energyAtFromPeaks(peaks, durationSec, t),
   });
 
-  publishAudioAnalysisOverlay(analysis, { applySnap: false });
+  const analysis: AudioAnalysisResult = {
+    duration: durationSec,
+    beats,
+    sections,
+    sourceLabel: "browser-auto",
+    bpm,
+  };
+
+  logAudioAnalysisEngine({
+    engine: "browser-auto",
+    bpm,
+    beatsCount: beats.length,
+    sectionsCount: sections.length,
+    sourceLabel: "browser-auto",
+  });
+
+  publishAudioAnalysisOverlay(analysis, { applySnap: true });
 }

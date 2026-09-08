@@ -13,12 +13,17 @@ import type { ChangePoint } from "../choreocore/types";
 import { useMusicSectionOverlayStore } from "../../store/musicSectionOverlayStore";
 import {
   audioAnalysisFromStructureV2,
-  beatsFromEightTimes,
+  beatsFromTempo,
   musicSectionFromRaw,
   overlaySegmentsFromAnalysis,
 } from "./fromStructureV2";
 import { mapEngineTypeToSectionType } from "./sectionMeta";
 import { applyDownbeatSnapToAnalysis } from "./snapToDownbeat";
+import { cleanseMusicSections } from "./cleanseSections";
+import {
+  inferTempoFromEightTimes,
+  logAudioAnalysisEngine,
+} from "./evenBeatGrid";
 
 export function publishAudioAnalysisOverlay(
   analysis: AudioAnalysisResult,
@@ -28,16 +33,50 @@ export function publishAudioAnalysisOverlay(
     useMusicSectionOverlayStore.getState().setAnalyzing(false);
     return;
   }
-  const final =
+  let final =
     opts?.applySnap === false
       ? analysis
       : applyDownbeatSnapToAnalysis(analysis);
+
+  const bpm = final.bpm && final.bpm > 0 ? final.bpm : 120;
+  final = {
+    ...final,
+    sections: cleanseMusicSections(final.sections, {
+      duration: final.duration,
+      bpm,
+    }),
+  };
+
+  // ビートが不揃い／空なら BPM 均等グリッドで差し替え
+  if (final.beats.length < 2 || !isEvenGrid(final.beats, bpm)) {
+    final = {
+      ...final,
+      beats: beatsFromTempo({
+        bpm,
+        duration: final.duration,
+        firstDownbeatTime: final.beats.find((b) => b.isDownbeat)?.timestamp ?? 0,
+      }),
+    };
+  }
+
   const segments = overlaySegmentsFromAnalysis(
     final
   ) as MusicSectionOverlaySegment[];
   useMusicSectionOverlayStore
     .getState()
     .setFromAnalysis(final, segments, { force: opts?.force });
+}
+
+function isEvenGrid(beats: AudioAnalysisResult["beats"], bpm: number): boolean {
+  if (beats.length < 3) return false;
+  const spb = 60 / Math.max(1, bpm);
+  let checked = 0;
+  for (let i = 1; i < Math.min(beats.length, 24); i += 1) {
+    const gap = beats[i]!.timestamp - beats[i - 1]!.timestamp;
+    if (Math.abs(gap - spb) > spb * 0.12) return false;
+    checked += 1;
+  }
+  return checked > 0;
 }
 
 /** Structure v2 優先。無ければ changePoints / eval sections にフォールバック。 */
@@ -65,6 +104,7 @@ export function publishSnappedOverlayFromSources(opts: {
   if (opts.structureV2?.sections?.length) {
     const analysis = audioAnalysisFromStructureV2(opts.structureV2, {
       applySnap: true,
+      cleanse: true,
     });
     if (sourceLabel) analysis.sourceLabel = sourceLabel;
     publishAudioAnalysisOverlay(analysis, { applySnap: false, force });
@@ -84,10 +124,17 @@ export function publishSnappedOverlayFromSources(opts: {
     opts.eightTimes?.length
       ? opts.eightTimes
       : opts.structureV2?.eight_times ?? [];
-  const beats =
-    eightTimes.length > 0
-      ? beatsFromEightTimes(eightTimes, duration)
-      : [];
+  const inferred = eightTimes.length
+    ? inferTempoFromEightTimes(eightTimes)
+    : null;
+  const bpm =
+    opts.bpm && opts.bpm > 0
+      ? opts.bpm
+      : inferred?.bpm && inferred.bpm > 0
+        ? inferred.bpm
+        : 120;
+  const firstDownbeatTime = inferred?.firstDownbeatTime ?? 0;
+  const beats = beatsFromTempo({ bpm, duration, firstDownbeatTime });
 
   if (segments.length === 0 && beats.length === 0) {
     useMusicSectionOverlayStore
@@ -96,7 +143,7 @@ export function publishSnappedOverlayFromSources(opts: {
     return null;
   }
 
-  const analysis: AudioAnalysisResult = applyDownbeatSnapToAnalysis({
+  let analysis: AudioAnalysisResult = {
     duration,
     beats,
     sections: segments.map((seg) =>
@@ -105,14 +152,27 @@ export function publishSnappedOverlayFromSources(opts: {
         startTime: seg.startSec,
         endTime: seg.endSec,
         label: seg.label,
-        bpm: opts.bpm,
+        bpm,
       })
     ),
     sourceLabel: sourceLabel ?? undefined,
-    bpm: opts.bpm,
+    bpm,
+  };
+
+  analysis = applyDownbeatSnapToAnalysis(analysis);
+  analysis = {
+    ...analysis,
+    sections: cleanseMusicSections(analysis.sections, { duration, bpm }),
+  };
+
+  logAudioAnalysisEngine({
+    engine: sourceLabel ?? "change-points",
+    bpm,
+    beatsCount: analysis.beats.length,
+    sectionsCount: analysis.sections.length,
+    sourceLabel,
   });
 
-  // スナップ後の時刻でオーバーレイ色を再構築
   publishAudioAnalysisOverlay(analysis, { applySnap: false, force });
   return analysis;
 }
