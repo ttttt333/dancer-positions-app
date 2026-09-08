@@ -41,7 +41,7 @@ let lastStartedKey: string | null = null;
 let inFlightKey: string | null = null;
 
 /** ロジック改訂時に上げて、同一音源でも再解析させる */
-const AUTO_ANALYSIS_LOGIC_VERSION = "v2-even-grid-cleanse";
+const AUTO_ANALYSIS_LOGIC_VERSION = "v3-all-in-one";
 
 function analysisKey(input: AutoAudioAnalysisInput): string {
   return [

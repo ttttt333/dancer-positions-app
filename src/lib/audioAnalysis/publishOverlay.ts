@@ -48,13 +48,22 @@ export function publishAudioAnalysisOverlay(
   };
 
   // ビートが不揃い／空なら BPM 均等グリッドで差し替え
-  if (final.beats.length < 2 || !isEvenGrid(final.beats, bpm)) {
+  // All-In-One 由来の精密ダウンビートは上書きしない
+  const preferKeepAiBeats = /all-in-one|aio|replicate/i.test(
+    final.sourceLabel ?? ""
+  );
+
+  if (
+    !preferKeepAiBeats &&
+    (final.beats.length < 2 || !isEvenGrid(final.beats, bpm))
+  ) {
     final = {
       ...final,
       beats: beatsFromTempo({
         bpm,
         duration: final.duration,
-        firstDownbeatTime: final.beats.find((b) => b.isDownbeat)?.timestamp ?? 0,
+        firstDownbeatTime:
+          final.beats.find((b) => b.isDownbeat)?.timestamp ?? 0,
       }),
     };
   }

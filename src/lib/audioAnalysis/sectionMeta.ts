@@ -80,6 +80,9 @@ export function mapLabelToSectionType(raw: string | undefined | null): SectionTy
   if (
     u === "BRIDGE" ||
     u === "INTERLUDE" ||
+    u === "INST" ||
+    u === "INSTRUMENTAL" ||
+    u === "SOLO" ||
     u === "BREAK" ||
     u === "BREAKDOWN" ||
     u === "SE_TRIGGER"

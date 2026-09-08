@@ -40,6 +40,12 @@ export type StructureResultV2 = {
   sections: SongSectionV2[];
   change_points: ChangePointV2[];
   source?: string;
+  /**
+   * All-In-One 等の学習済みモデルが返すビート／ダウンビート（秒）。
+   * ある場合は BPM 均等グリッドより優先して波形グリッドに使う。
+   */
+  beats?: number[];
+  downbeats?: number[];
 };
 
 /**

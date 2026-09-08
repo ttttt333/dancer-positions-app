@@ -21,6 +21,7 @@ async function fetchStructureV2(
   audio_url: string,
   audio_hash: string
 ): Promise<Record<string, unknown> | null> {
+  // /api/v2/analyze-structure は内部で All-In-One → chroma の順に解決する
   try {
     const res = await fetch(
       `${analyzerBase.replace(/\/$/, "")}/api/v2/analyze-structure`,

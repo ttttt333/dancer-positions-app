@@ -2,12 +2,14 @@
 ChoreoCore 純アルゴリズム版 — 音源解析 FastAPI
 
 - POST /analyze                     … 既存 v1（ブロック RMS + section_families）
-- POST /api/v2/analyze-structure    … song_structure_v2（chroma-SSM / StructureResultV2）
-- POST /analyze-structure           … 上記のエイリアス
+- POST /api/v2/analyze-structure    … All-In-One(Replicate) 優先 → chroma-SSM フォールバック
+- POST /api/v2/analyze-structure-aio … All-In-One のみ（モック可）
+- POST /analyze-structure           … analyze-structure のエイリアス
 """
 
 from __future__ import annotations
 
+import os
 import tempfile
 from pathlib import Path
 
@@ -21,11 +23,15 @@ from services.song_structure_v2 import (
     STRUCTURE_V2_VERSION,
     analyze_structure,
 )
+from services.all_in_one_structure import (
+    AIO_VERSION,
+    analyze_structure_aio,
+)
 
 app = FastAPI(
     title="ChoreoCore Song Analyzer",
     version=ANALYZER_VERSION,
-    description="LLMなし・librosaによる楽曲構造解析（v1 + chroma-SSM v2）",
+    description="楽曲構造解析（All-In-One / chroma-SSM v2 / librosa v1）",
 )
 
 app.add_middleware(
@@ -40,6 +46,9 @@ app.add_middleware(
 class AnalyzeRequest(BaseModel):
     audio_url: str = Field(..., description="公開可能な音源URL (mp3/wav/m4a)")
     audio_hash: str | None = Field(None, description="任意: SHA256 などキャッシュキー")
+    duration_hint: float | None = Field(
+        None, description="モック AIO 用の尺ヒント（秒）"
+    )
 
 
 def _suffix_from_url(audio_url: str) -> str:
@@ -67,13 +76,23 @@ async def _download_audio_to_temp(audio_url: str) -> Path:
 
 @app.get("/health")
 async def health():
+    has_replicate = bool(os.environ.get("REPLICATE_API_TOKEN", "").strip())
+    aio_mock = os.environ.get("REPLICATE_AIO_MOCK", "").strip() in (
+        "1",
+        "true",
+        "TRUE",
+        "yes",
+    )
     return {
         "ok": True,
         "version": ANALYZER_VERSION,
         "structure_v2_version": STRUCTURE_V2_VERSION,
+        "all_in_one_version": AIO_VERSION,
+        "all_in_one_ready": has_replicate or aio_mock,
         "endpoints": [
             "/analyze",
             "/api/v2/analyze-structure",
+            "/api/v2/analyze-structure-aio",
             "/analyze-structure",
         ],
     }
@@ -100,21 +119,51 @@ async def analyze(req: AnalyzeRequest):
             tmp_path.unlink(missing_ok=True)
 
 
+@app.post("/api/v2/analyze-structure-aio")
+async def analyze_structure_aio_route(req: AnalyzeRequest):
+    """
+    All-In-One（Replicate）専用。トークン無しかつ MOCK 無しなら 503。
+    """
+    if not req.audio_url:
+        raise HTTPException(status_code=400, detail="audio_url is required")
+
+    result = analyze_structure_aio(
+        req.audio_url,
+        duration_hint=req.duration_hint,
+    )
+    if result is None:
+        raise HTTPException(
+            status_code=503,
+            detail="All-In-One unavailable (set REPLICATE_API_TOKEN or REPLICATE_AIO_MOCK=1)",
+        )
+    if req.audio_hash:
+        result["audio_hash"] = req.audio_hash
+    return result
+
+
 @app.post("/api/v2/analyze-structure")
 @app.post("/analyze-structure")
 async def analyze_structure_v2(req: AnalyzeRequest):
     """
-    song_structure_v2.py による StructureResultV2 互換 JSON。
-    フロントの EngineAppSuggestInput.structureV2 にそのまま渡せる形。
+    1) All-In-One（Replicate / mock）が使えればそれを返す（beats/downbeats 付き）
+    2) そうでない場合は chroma-SSM v2（ローカル librosa）にフォールバック
     """
     if not req.audio_url:
         raise HTTPException(status_code=400, detail="audio_url is required")
+
+    aio = analyze_structure_aio(
+        req.audio_url,
+        duration_hint=req.duration_hint,
+    )
+    if aio is not None and aio.get("sections"):
+        if req.audio_hash:
+            aio["audio_hash"] = req.audio_hash
+        return aio
 
     tmp_path: Path | None = None
     try:
         tmp_path = await _download_audio_to_temp(req.audio_url)
         result = analyze_structure(str(tmp_path))
-        # フロント StructureResultV2.source 用（既存 chroma-ssm-v2 を維持しつつ経路を明示）
         if not result.get("source"):
             result["source"] = "fly_song_structure_v2"
         result.setdefault("analyzer_path", "api/v2/analyze-structure")

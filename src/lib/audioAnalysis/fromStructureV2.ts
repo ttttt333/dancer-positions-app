@@ -18,6 +18,7 @@ import {
   inferTempoFromEightTimes,
   logAudioAnalysisEngine,
 } from "./evenBeatGrid";
+import { beatInfosFromAllInOne } from "./fromAllInOne";
 
 function newSectionId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -119,7 +120,13 @@ export function audioAnalysisFromStructureV2(
 ): AudioAnalysisResult {
   const duration = v2.duration > 0 ? v2.duration : 0;
   const { bpm, firstDownbeatTime } = resolveTempoFromV2(v2);
-  const beats = beatsFromTempo({ bpm, duration, firstDownbeatTime });
+
+  // All-In-One 等の精密ビートがあれば優先。無いときだけ BPM 均等グリッド。
+  const hasAiBeats =
+    (v2.beats?.length ?? 0) > 0 || (v2.downbeats?.length ?? 0) > 0;
+  const beats = hasAiBeats
+    ? beatInfosFromAllInOne(v2.beats ?? [], v2.downbeats ?? [], duration)
+    : beatsFromTempo({ bpm, duration, firstDownbeatTime });
 
   let sections: MusicSection[] = (v2.sections ?? []).map((s) => {
     const type = mapLabelToSectionType(s.label);

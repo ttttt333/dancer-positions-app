@@ -190,6 +190,15 @@ export function normalizeStructureResultV2(
         .filter((t) => Number.isFinite(t))
     : [];
 
+  const beats = Array.isArray(data.beats)
+    ? data.beats.map((t) => Number(t)).filter((t) => Number.isFinite(t) && t >= 0)
+    : undefined;
+  const downbeats = Array.isArray(data.downbeats)
+    ? data.downbeats
+        .map((t) => Number(t))
+        .filter((t) => Number.isFinite(t) && t >= 0)
+    : undefined;
+
   return {
     bpm,
     duration,
@@ -200,6 +209,8 @@ export function normalizeStructureResultV2(
       typeof data.source === "string" && data.source
         ? data.source
         : "chroma-ssm-v2",
+    ...(beats && beats.length > 0 ? { beats } : {}),
+    ...(downbeats && downbeats.length > 0 ? { downbeats } : {}),
   };
 }
 
