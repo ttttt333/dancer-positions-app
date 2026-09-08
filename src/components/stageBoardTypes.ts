@@ -113,6 +113,10 @@ export type StageBoardBodyProps = {
   onGestureHistoryEnd?: () => void;
   /** フォーメーション切替などドラッグ中断時に深度だけリセット */
   onGestureHistoryCancel?: () => void;
+  /**
+   * Undo/Redo のたびに親が増やす世代。形／列プレビューなど仮配置を破棄する。
+   */
+  historyOverlayEpoch?: number;
   /** ゴミ箱ドロップ直後の 1 回だけ、次の setProject で undo に積まない */
   markHistorySkipNextPush?: () => void;
   /**

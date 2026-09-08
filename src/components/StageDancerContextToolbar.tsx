@@ -229,7 +229,7 @@ export function StageDancerContextToolbar({
   applyBulkMarkerSame,
   applyBulkMarkerCenterDistance,
   shapePreviewActive = false,
-  depthPreviewActive = false,
+  depthPreviewActive: _depthPreviewActive = false,
   rotationPreviewActive = false,
   rotationPreviewDir = null,
   tidyPreviewActive = false,
@@ -316,15 +316,9 @@ export function StageDancerContextToolbar({
     ? "shape"
     : tidyPreviewActive
       ? "tidy"
-      : depthPreviewActive
-        ? "depth"
-        : rotationPreviewActive
-          ? "rotation"
-          : null;
-
-  useEffect(() => {
-    if (previewKind === "depth") setOpen(null);
-  }, [previewKind]);
+      : rotationPreviewActive
+        ? "rotation"
+        : null;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -343,8 +337,9 @@ export function StageDancerContextToolbar({
   }, [open, previewKind]);
 
   useEffect(() => {
-    onDepthGuidesVisibleChange?.(open === "depth" || depthPreviewActive);
-  }, [open, depthPreviewActive, onDepthGuidesVisibleChange]);
+    // 列番号ガイドはパネル開放中のみ（即適用のためプレビュー中フラグは使わない）
+    onDepthGuidesVisibleChange?.(open === "depth");
+  }, [open, onDepthGuidesVisibleChange]);
 
   useEffect(() => {
     return () => onDepthGuidesVisibleChange?.(false);
@@ -361,9 +356,7 @@ export function StageDancerContextToolbar({
       ? "形をプレビュー中"
       : previewKind === "tidy"
         ? "整えるをプレビュー中"
-        : previewKind === "depth"
-          ? "前後をプレビュー中"
-          : "位置をプレビュー中"
+        : "位置をプレビュー中"
     : formationEdit
       ? "FORMATION EDIT"
       : groupEdit
@@ -710,76 +703,6 @@ export function StageDancerContextToolbar({
               </div>
             </div>
           </div>
-        ) : previewKind === "depth" ? (
-          <div
-            data-depth-preview-chrome
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 10,
-              width: "100%",
-              minWidth: 0,
-              overflow: "hidden",
-              padding: side ? "4px 2px 2px" : "2px 2px 0",
-            }}
-          >
-            <div
-              style={{
-                fontSize: side ? 14 : 13,
-                fontWeight: 800,
-                color: "#e2e8f0",
-                lineHeight: 1.3,
-              }}
-            >
-              前後をプレビュー中
-            </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 8,
-                width: "100%",
-                minWidth: 0,
-              }}
-            >
-              <button
-                type="button"
-                style={{
-                  ...btn,
-                  width: "100%",
-                  minWidth: 0,
-                  height: side ? 48 : 36,
-                  fontSize: side ? 14 : 12,
-                }}
-                title="プレビューを取り消す"
-                onClick={() => {
-                  setOpen(null);
-                  onCancelShapePreview?.();
-                }}
-              >
-                取消
-              </button>
-              <button
-                type="button"
-                style={{
-                  ...btn,
-                  width: "100%",
-                  minWidth: 0,
-                  height: side ? 48 : 36,
-                  fontSize: side ? 14 : 12,
-                  borderColor: "rgba(52,211,153,0.9)",
-                  color: "#6ee7b7",
-                }}
-                title="プレビューを適用する"
-                onClick={() => {
-                  setOpen(null);
-                  onApplyShapePreview?.();
-                }}
-              >
-                適用
-              </button>
-            </div>
-          </div>
         ) : (
           <>
             {multiEdit && (onBeginShapePreview || canOpenFormationPresets) ? (
@@ -808,7 +731,7 @@ export function StageDancerContextToolbar({
                       ? "rgba(125,211,252,0.9)"
                       : BTN_BORDER,
                 }}
-                title="列番号を表示して前後を入れ替える"
+                title="列番号を選んで前後を入れ替える（すぐ反映）"
                 aria-expanded={open === "depth"}
                 onClick={() => {
                   setDepthNoChangePair(null);
@@ -1275,6 +1198,7 @@ export function StageDancerContextToolbar({
               onPickSlot={(slot) => onRankPickSlot?.(slot)}
               onToggleIndex={(i) => onToggleRankPick?.(i)}
               onSwapSets={(a, b) => {
+                // 即適用。変わらなければメッセージのみ
                 const moved = onBeginDepthPreview?.(a, b);
                 if (moved === false) {
                   setDepthNoChangePair({

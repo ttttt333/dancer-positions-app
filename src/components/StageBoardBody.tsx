@@ -194,6 +194,7 @@ export function StageBoardBody({
   onGestureHistoryBegin,
   onGestureHistoryEnd,
   onGestureHistoryCancel,
+  historyOverlayEpoch = 0,
   markHistorySkipNextPush,
   studentViewerFocus = null,
   markerDisplayScale = 1,
@@ -676,7 +677,8 @@ export function StageBoardBody({
     if (lastFormationResetIdRef.current === formationIdForWrites) return;
     lastFormationResetIdRef.current = formationIdForWrites;
 
-    onGestureHistoryCancel?.();
+    // 切替時もドラッグ結果を Undo 可能に残す（Cancel だと立ち位置だけ変わり履歴が消える）
+    onGestureHistoryEnd?.();
     setShapePreviewById(null);
     setShapePreviewMeta(null);
     setDepthPreviewById(null);
@@ -743,9 +745,26 @@ export function StageBoardBody({
   }, [
     formationIdForWrites,
     formations,
-    onGestureHistoryCancel,
+    onGestureHistoryEnd,
     setSelectedDancerIds,
   ]);
+
+  /** Undo/Redo 後は仮配置プレビューを捨て、永続座標だけを見せる */
+  useEffect(() => {
+    if (historyOverlayEpoch === 0) return;
+    setShapePreviewById(null);
+    setShapePreviewMeta(null);
+    setDepthPreviewById(null);
+    setDepthPreviewPair(null);
+    setRotationPreviewById(null);
+    setRotationPreviewDir(null);
+    setTidyPreviewById(null);
+    setTidyPreviewActionId(null);
+    shapePreviewKeyRef.current = "";
+    markerGroupPosDraftRef.current = null;
+    setMarkerGroupPosDraft(null);
+    setDragGhostById(null);
+  }, [historyOverlayEpoch]);
 
   /** ピンチ拡大など: 進行中のドラッグを破棄する */
   useEffect(() => {
@@ -762,7 +781,11 @@ export function StageBoardBody({
         floorTextMultiDragRef.current != null ||
         floorTextTapOrDragRef.current != null ||
         marqueeSessionRef.current != null;
-      if (hadGesture) onGestureHistoryCancel?.();
+      // 既に動いた立ち位置を Undo できるように End（Cancel だと履歴が消える）
+      if (hadGesture) {
+        if (onGestureHistoryEnd) onGestureHistoryEnd();
+        else onGestureHistoryCancel?.();
+      }
       dragRef.current = null;
       groupDragRef.current = null;
       setPieceDragRef.current = null;
@@ -794,7 +817,7 @@ export function StageBoardBody({
     return () => {
       window.removeEventListener(STAGE_BOARD_ABORT_POINTER_GESTURES, abort);
     };
-  }, [onGestureHistoryCancel]);
+  }, [onGestureHistoryEnd, onGestureHistoryCancel]);
 
   useEffect(() => {
     setShowStageDancerColorToolbar(false);
@@ -4273,6 +4296,7 @@ export function StageBoardBody({
     setRankPickB(addOrRemove);
   }, [rankPickSlot]);
 
+  /** 列の前後交代はプレビューなしで即書き込み（1 操作 = Undo 1 手） */
   const beginDepthPreview = useCallback(
     (
       colA: number | readonly number[],
@@ -4292,15 +4316,11 @@ export function StageBoardBody({
         b,
       );
       if (byId.size === 0) return false;
-      setShapePreviewById(null);
-      setShapePreviewMeta(null);
-      setRotationPreviewById(null);
-      setRotationPreviewDir(null);
-      setTidyPreviewById(null);
-      setTidyPreviewActionId(null);
-      setDepthPreviewById(byId);
-      setDepthPreviewPair({ colA: a[0] ?? 0, colB: b[0] ?? 1 });
-      shapePreviewKeyRef.current = selectedDancerIds.join("\0");
+      cancelShapePreview();
+      updateActiveFormation((f) => ({
+        ...f,
+        dancers: applyShapePositionsToDancers(f.dancers, byId),
+      }));
       return true;
     },
     [
@@ -4311,6 +4331,8 @@ export function StageBoardBody({
       writeFormation,
       activeFormation,
       selectedDancerIds,
+      cancelShapePreview,
+      updateActiveFormation,
     ],
   );
 

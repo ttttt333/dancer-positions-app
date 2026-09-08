@@ -62,6 +62,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const editorSurfaceEl = props.editorSurfaceEl as never;
   const editorViewerSheetOpen = props.editorViewerSheetOpen as never;
   const endGestureHistory = props.endGestureHistory as never;
+  const historyOverlayEpoch = props.historyOverlayEpoch as never;
   const endSplitDrag = props.endSplitDrag as never;
   const endTopDockResize = props.endTopDockResize as never;
   const exportDialogEl = props.exportDialogEl as never;
@@ -902,6 +903,9 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     }
                     onGestureHistoryCancel={
                       collabActive ? undefined : cancelGestureHistory
+                    }
+                    historyOverlayEpoch={
+                      collabActive ? 0 : (historyOverlayEpoch as number)
                     }
                     markHistorySkipNextPush={
                       collabActive ? undefined : markHistorySkipNextPush

@@ -492,6 +492,7 @@ function EditorPageContent({
     redo,
     isUndoDisabled: stageUndoDisabledFromHistory,
     isRedoDisabled: stageRedoDisabledFromHistory,
+    historyOverlayEpoch,
   } = history;
 
   const setPhotoParseOpenWrapped = useCallback(
@@ -2867,6 +2868,7 @@ function EditorPageContent({
     importCrewCsvFromStageToolbar,
     isPlaying,
     jumpToPagerSlot,
+    historyOverlayEpoch,
     markHistorySkipNextPush,
     me,
     memberRosterSheetOpen,
