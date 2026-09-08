@@ -7,7 +7,7 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { shell } from "../theme/choreoShell";
 import { editorGlass, glassPillStyle } from "../theme/editorGlass";
-import { flushEditorAutoSaveBeforeLeave } from "../lib/editorLeaveFlush";
+import { flushEditorAutoSaveBeforeLeave } from "../lib/editorAutoSaveBridge";
 import { useI18n } from "../i18n/I18nContext";
 
 export type EditorFloatingToolsProps = {
