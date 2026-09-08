@@ -31,6 +31,7 @@ function mapDancers(dancers: DancerSpot[]) {
     centerDistanceLabelXPct: d.centerDistanceLabelXPct,
     nameBelowFontPx: d.nameBelowFontPx,
     sizePx: d.sizePx,
+    faceStamp: d.faceStamp,
     color: dancerColorHex(d),
     x: d.xPct / 100,
     y: d.yPct / 100,

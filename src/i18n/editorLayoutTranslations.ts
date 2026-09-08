@@ -164,6 +164,7 @@ const JA: MessageBundle = {
   "editor.layout.shortcuts.space":
     "再生／一時停止（タイムラインにフォーカス不要・入力欄以外）",
   "editor.layout.shortcuts.undoRedo": "元に戻す · やり直し",
+  "editor.layout.shortcuts.save": "クラウドに上書き保存（確認ダイアログなし）",
   "editor.layout.shortcuts.escape": "開いているダイアログを閉じる",
   "editor.layout.shortcuts.waveZoom":
     "波形: 波形上でマウスホイール（またはトラックパッドの縦スクロール）で表示範囲を拡大・縮小",
@@ -352,6 +353,7 @@ const EN: MessageBundle = {
   "editor.layout.partViewing": " part view",
   "editor.layout.shortcuts.space": "Play / pause (no timeline focus needed; except inputs)",
   "editor.layout.shortcuts.undoRedo": "Undo · Redo",
+  "editor.layout.shortcuts.save": "Overwrite save to cloud (no confirm dialog)",
   "editor.layout.shortcuts.escape": "Close open dialogs",
   "editor.layout.shortcuts.waveZoom":
     "Waveform: mouse wheel (or trackpad scroll) on waveform to zoom the view",
@@ -534,6 +536,7 @@ const KO: MessageBundle = {
   "editor.layout.partViewing": " 파트 보기",
   "editor.layout.shortcuts.space": "재생 / 일시정지(타임라인 포커스 불필요, 입력란 제외)",
   "editor.layout.shortcuts.undoRedo": "실행 취소 · 다시 실행",
+  "editor.layout.shortcuts.save": "클라우드에 덮어쓰기 저장(확인 대화상자 없음)",
   "editor.layout.shortcuts.escape": "열린 대화상자 닫기",
   "editor.layout.shortcuts.waveZoom": "파형: 파형 위에서 마우스 휠(또는 트랙패드 스크롤)로 확대/축소",
   "editor.layout.shortcuts.stageNudge": "스테이지 미세 이동: 스냅이 켜져 있을 때 Shift+드래그로 그리드에 맞춤",
@@ -709,6 +712,7 @@ const ZH: MessageBundle = {
   "editor.layout.partViewing": " 角色查看",
   "editor.layout.shortcuts.space": "播放 / 暂停（无需聚焦时间轴；输入框除外）",
   "editor.layout.shortcuts.undoRedo": "撤销 · 重做",
+  "editor.layout.shortcuts.save": "覆盖保存到云端（无确认对话框）",
   "editor.layout.shortcuts.escape": "关闭打开的对话框",
   "editor.layout.shortcuts.waveZoom": "波形：在波形上滚轮（或触控板滚动）缩放",
   "editor.layout.shortcuts.stageNudge": "舞台微调：开启吸附时 Shift+拖动按网格对齐",

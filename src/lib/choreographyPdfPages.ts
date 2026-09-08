@@ -58,6 +58,7 @@ function mapDancers(dancers: DancerSpot[]) {
     centerDistanceLabelXPct: d.centerDistanceLabelXPct,
     nameBelowFontPx: d.nameBelowFontPx,
     sizePx: d.sizePx,
+    faceStamp: d.faceStamp,
     color: DANCER_COLOR_PALETTE_HEX[modDancerColorIndex(d.colorIndex ?? 0)],
     x: d.xPct / 100,
     y: d.yPct / 100,

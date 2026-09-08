@@ -16,6 +16,8 @@ import {
   dockSectionHint,
   dockSectionTitle,
 } from "./stageDockPanelStyles";
+import { DancerFaceStampPicker } from "./DancerFaceStampPicker";
+import type { DancerFaceStampId } from "../lib/dancerFaceStamp";
 
 const PRIMARY_COLOR_COUNT = 8;
 
@@ -103,6 +105,10 @@ export type StageSelectionDisplayPanelProps = {
   applyBulkMarkerSequence: (ids: string[], start: number) => void;
   applyBulkMarkerSame: (ids: string[], badgeRaw: string) => void;
   applyBulkMarkerCenterDistance: (ids: string[]) => void;
+  applyBulkFaceStamp?: (
+    ids: string[],
+    stamp: import("../lib/dancerFaceStamp").DancerFaceStampId | null
+  ) => void;
   selectedDancerIds: readonly string[];
   markerPx: number;
   nameFontPx: number;
@@ -123,6 +129,7 @@ export function StageSelectionDisplayPanel({
   applyBulkMarkerSequence,
   applyBulkMarkerSame,
   applyBulkMarkerCenterDistance,
+  applyBulkFaceStamp,
   selectedDancerIds,
   markerPx,
   nameFontPx,
@@ -138,6 +145,21 @@ export function StageSelectionDisplayPanel({
 
   return (
     <div data-selection-display-panel>
+      <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
+        <div style={{ ...dockSectionTitle, marginBottom: 6 }}>表情スタンプ</div>
+        <p style={{ ...dockSectionHint, margin: "0 0 8px" }}>
+          選択中の丸に LINE 風の表情を付けます（名前は丸の下に出ます）。
+        </p>
+        <DancerFaceStampPicker
+          value={null}
+          compact
+          disabled={busy || !applyBulkFaceStamp}
+          onChange={(stamp: DancerFaceStampId | null) =>
+            applyBulkFaceStamp?.(ids, stamp)
+          }
+        />
+      </div>
+
       <div style={{ ...dockCard, padding: "8px 8px 10px", marginBottom: 8 }}>
         <div style={{ ...dockSectionTitle, marginBottom: 8 }}>名前の表示</div>
         <div style={{ display: "flex", gap: 8, marginBottom: dancerLabelBelow ? 8 : 0 }}>

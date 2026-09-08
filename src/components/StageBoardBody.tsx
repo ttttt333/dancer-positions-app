@@ -4012,8 +4012,10 @@ export function StageBoardBody({
             dancers: f.dancers.map((x) => {
               if (!matches(x)) return x;
               const slicedBadge = sliceMarkerBadgeForStorage(patch.markerBadge);
+              const nextFace = patch.faceStamp;
+              const { faceStamp: _dropFace, ...restSpot } = x;
               return {
-                ...x,
+                ...restSpot,
                 label: patch.label.slice(0, 120),
                 colorIndex: modDancerColorIndex(patch.colorIndex),
                 note: patch.note,
@@ -4023,6 +4025,7 @@ export function StageBoardBody({
                 skillRankLabel: patch.skillRankLabel,
                 markerBadge: slicedBadge,
                 ...(slicedBadge ? { markerBadgeSource: undefined } : {}),
+                ...(nextFace ? { faceStamp: nextFace } : {}),
               };
             }),
           })),
@@ -4593,6 +4596,43 @@ export function StageBoardBody({
       formationIdForWrites,
       setProject,
       dancerLabelBelow,
+      viewMode,
+      stageInteractionsEnabled,
+      playbackOrPreview,
+    ],
+  );
+
+  /** 選択メンバーに表情スタンプを一括設定（null でクリア） */
+  const applyBulkFaceStamp = useCallback(
+    (
+      targetIds: string[],
+      stamp: import("../lib/dancerFaceStamp").DancerFaceStampId | null
+    ) => {
+      if (!formationIdForWrites || targetIds.length === 0) return;
+      if (viewMode === "view" || !stageInteractionsEnabled || playbackOrPreview)
+        return;
+      const idSet = new Set(targetIds);
+      setProject((p) => ({
+        ...p,
+        formations: p.formations.map((f) => {
+          if (f.id !== formationIdForWrites) return f;
+          return {
+            ...f,
+            dancers: f.dancers.map((d) => {
+              if (!idSet.has(d.id)) return d;
+              if (!stamp) {
+                const { faceStamp: _removed, ...rest } = d;
+                return rest;
+              }
+              return { ...d, faceStamp: stamp };
+            }),
+          };
+        }),
+      }));
+    },
+    [
+      formationIdForWrites,
+      setProject,
       viewMode,
       stageInteractionsEnabled,
       playbackOrPreview,
@@ -5182,6 +5222,7 @@ export function StageBoardBody({
       applyBulkMarkerSequence={applyBulkMarkerSequence}
       applyBulkMarkerSame={applyBulkMarkerSame}
       applyBulkMarkerCenterDistance={applyBulkMarkerCenterDistance}
+      applyBulkFaceStamp={applyBulkFaceStamp}
       shapePreviewActive={Boolean(
         shapePreviewById && shapePreviewById.size > 0
       )}

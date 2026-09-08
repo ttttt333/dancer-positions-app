@@ -33,6 +33,7 @@ import {
 } from "./dancerSpacing";
 import { modDancerColorIndex, normalizeDancerFacingDeg } from "./dancerColorPalette";
 import { sliceMarkerBadgeForStorage } from "./markerBadge";
+import { normalizeDancerFaceStamp } from "./dancerFaceStamp";
 
 function randomId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 11)}`;
@@ -311,6 +312,7 @@ function normalizeDancerSpot(raw: unknown, index: number): DancerSpot {
     const m = normalizeDancerFacingDeg(fdRaw);
     if (m !== 0) facingDeg = m;
   }
+  const faceStamp = normalizeDancerFaceStamp(d.faceStamp);
   return {
     id: typeof d.id === "string" && d.id ? d.id : randomId("d"),
     label: typeof d.label === "string" ? d.label : String(index + 1),
@@ -345,6 +347,7 @@ function normalizeDancerSpot(raw: unknown, index: number): DancerSpot {
     ...(markerBadge !== undefined ? { markerBadge } : {}),
     ...(markerBadgeSource ? { markerBadgeSource } : {}),
     ...(facingDeg != null ? { facingDeg } : {}),
+    ...(faceStamp ? { faceStamp } : {}),
   };
 }
 

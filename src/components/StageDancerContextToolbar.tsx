@@ -99,6 +99,10 @@ export type StageDancerContextToolbarProps = {
   applyBulkMarkerSequence?: (ids: string[], start: number) => void;
   applyBulkMarkerSame?: (ids: string[], badgeRaw: string) => void;
   applyBulkMarkerCenterDistance?: (ids: string[]) => void;
+  applyBulkFaceStamp?: (
+    ids: string[],
+    stamp: import("../lib/dancerFaceStamp").DancerFaceStampId | null
+  ) => void;
   shapePreviewActive?: boolean;
   depthPreviewActive?: boolean;
   rotationPreviewActive?: boolean;
@@ -228,6 +232,7 @@ export function StageDancerContextToolbar({
   applyBulkMarkerSequence,
   applyBulkMarkerSame,
   applyBulkMarkerCenterDistance,
+  applyBulkFaceStamp,
   shapePreviewActive = false,
   depthPreviewActive: _depthPreviewActive = false,
   rotationPreviewActive = false,
@@ -1082,6 +1087,7 @@ export function StageDancerContextToolbar({
               applyBulkMarkerCenterDistance={
                 applyBulkMarkerCenterDistance ?? (() => {})
               }
+              applyBulkFaceStamp={applyBulkFaceStamp}
               markerPx={markerPx}
               nameFontPx={nameFontPx}
               onMarkerSizeChange={onMarkerSizeChange}

@@ -9,6 +9,11 @@ import {
 } from "./stageNameBelowFontSizing";
 import { computeCenterFieldGuideLineMarks } from "./stageGuideLineMarks";
 import type { StageExportAppearance } from "./stageExportAppearance";
+import {
+  dancerFaceStampMeta,
+  normalizeDancerFaceStamp,
+  type DancerFaceStampId,
+} from "./dancerFaceStamp";
 
 export type ExportDancerFrame = {
   name: string;
@@ -17,6 +22,7 @@ export type ExportDancerFrame = {
   centerDistanceLabelXPct?: number;
   nameBelowFontPx?: number;
   sizePx?: number;
+  faceStamp?: DancerFaceStampId;
   color: string;
   x: number;
   y: number;
@@ -366,17 +372,29 @@ function drawDancers(
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    const inner = resolveExportCircleLabel(dancer, di, appearance);
-    if (inner) {
+    const stamp = normalizeDancerFaceStamp(dancer.faceStamp);
+    if (stamp) {
+      const emoji = dancerFaceStampMeta(stamp).emoji;
       ctx.fillStyle = "#0f172a";
-      const fontPx = markerCircleLabelFontPx(markerPx, inner);
-      ctx.font = `bold ${fontPx}px system-ui,sans-serif`;
+      const fontPx = Math.max(12, Math.round(markerPx * 0.55));
+      ctx.font = `${fontPx}px "Apple Color Emoji","Segoe UI Emoji",sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(inner, x, y);
+      ctx.fillText(emoji, x, y);
+    } else {
+      const inner = resolveExportCircleLabel(dancer, di, appearance);
+      if (inner) {
+        ctx.fillStyle = "#0f172a";
+        const fontPx = markerCircleLabelFontPx(markerPx, inner);
+        ctx.font = `bold ${fontPx}px system-ui,sans-serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(inner, x, y);
+      }
     }
 
-    if (appearance.dancerLabelBelow) {
+    const showNameBelow = appearance.dancerLabelBelow || Boolean(stamp);
+    if (showNameBelow) {
       const belowName = dancer.name.trim();
       if (belowName) {
         ctx.fillStyle = "rgba(255,255,255,0.8)";

@@ -9,13 +9,9 @@ import {
   modDancerColorIndex,
   normalizeDancerFacingDeg,
 } from "../lib/dancerColorPalette";
-import {
-  dancerCircleInnerBelowLabel,
-  layoutMarkerCircleInnerLabel,
-} from "../lib/stageBoardModelHelpers";
-import {
-  dancerNameBelowLabelOffsetPx,
-} from "../lib/stageNameBelowFontSizing";
+import { dancerNameBelowLabelOffsetPx } from "../lib/stageNameBelowFontSizing";
+import { dancerCircleInnerBelowLabel } from "../lib/stageBoardModelHelpers";
+import { resolveMarkerCircleContent } from "../lib/resolveMarkerCircleContent";
 import { dancerMatchesStudentViewerPick } from "../lib/viewRoster";
 import {
   poseLevelLabelJa,
@@ -115,11 +111,15 @@ export function useStageDancerMarkerElements(
           markerLabelWmm > 0
             ? { effXPct: labelXPct, stageWidthMm: markerLabelWmm }
             : undefined;
-        const circleLabel = dancerLabelBelow
-          ? dancerCircleInnerBelowLabel(d, di, circleInnerOptsMarker)
-          : d.label || "?";
+        const circleContent = resolveMarkerCircleContent(d, di, {
+          markerPx: dMarkerPx,
+          dancerLabelBelow,
+          screenUnrotateDeg,
+          circleInnerOpts: circleInnerOptsMarker,
+        });
+        const circleLabel = circleContent.circleLabel;
         const centerDistanceAboveLabel =
-          showCenterDistanceAbove && markerLabelWmm > 0
+          showCenterDistanceAbove && markerLabelWmm > 0 && !circleContent.faceStamp
             ? {
                 text: dancerCircleInnerBelowLabel(d, di, {
                   effXPct: d.xPct,
@@ -132,12 +132,8 @@ export function useStageDancerMarkerElements(
                 screenUnrotateDeg,
               }
             : undefined;
-        const circleInnerLabelLayout = layoutMarkerCircleInnerLabel(
-          dMarkerPx,
-          circleLabel,
-          screenUnrotateDeg
-        );
-        const dLabelFontPx = circleInnerLabelLayout.fontSizePx;
+        const dLabelFontPx = circleContent.fontSizePx;
+        const circleInnerLabelLayout = { spanStyle: circleContent.spanStyle };
         const labelOffsetPx = dancerNameBelowLabelOffsetPx(
           dMarkerPx,
           nameBelowClearanceExtraPx
@@ -249,7 +245,7 @@ export function useStageDancerMarkerElements(
             circleInnerLabelSpanStyle={circleInnerLabelLayout.spanStyle}
             centerDistanceAboveLabel={centerDistanceAboveLabel}
             screenUnrotateDeg={screenUnrotateDeg}
-            showNameBelow={dancerLabelBelow && !hideGlyph}
+            showNameBelow={circleContent.showNameBelow && !hideGlyph}
             labelOffsetPx={labelOffsetPx}
             belowLabelOriginYpx={belowLabelOriginYpx}
             belowNameFontPx={belowNameFontPx}

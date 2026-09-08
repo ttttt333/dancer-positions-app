@@ -1070,6 +1070,10 @@ export function EditorStageRowOverlays(props: EditorLayoutProps) {
                 <strong style={{ color: "#e2e8f0" }}>⌘⇧Z / Ctrl+⇧Z</strong> やり直し
               </li>
               <li>
+                <strong style={{ color: "#e2e8f0" }}>⌘S / Ctrl+S</strong>{" "}
+                クラウドに上書き保存（確認ダイアログなし）
+              </li>
+              <li>
                 <strong style={{ color: "#e2e8f0" }}>Escape</strong>{" "}
                 開いているダイアログを閉じる
               </li>

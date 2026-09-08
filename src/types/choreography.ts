@@ -1,3 +1,7 @@
+import type { DancerFaceStampId } from "../lib/dancerFaceStamp";
+
+export type { DancerFaceStampId };
+
 /** 客席は画面の上辺または下辺のみ（旧 JSON の left/right は読み込み時に正規化される） */
 export type AudienceEdge = "top" | "bottom";
 
@@ -64,6 +68,11 @@ export type DancerSpot = {
    * 未指定時は○直径に連動した既定サイズ。
    */
   nameBelowFontPx?: number;
+  /**
+   * ○の中に出す LINE スタンプ風の表情。未指定／不正値はなし。
+   * 設定時は○内の名前・番号の代わりに表情を描き、名前は○の下に出す。
+   */
+  faceStamp?: DancerFaceStampId;
 };
 
 /** 大道具（ChoreoCore §9）。バウンディングボックス内の図形。 */

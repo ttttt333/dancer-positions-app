@@ -14,6 +14,8 @@ export type UseEditorKeyboardShortcutsArgs = {
   setStageZenFullscreen: (next: boolean) => void;
   cloudSaveDialogOpen: boolean;
   setCloudSaveDialogOpen: (open: boolean) => void;
+  /** ⌘S / Ctrl+S: クラウドへ上書き保存（未ログイン等では no-op） */
+  onCloudSave?: () => void;
   stageAreaSettingsOpen: boolean;
   onCloseStageAreaSettings: () => void;
   stageSettingsOpen: boolean;
@@ -42,12 +44,13 @@ export type UseEditorKeyboardShortcutsArgs = {
   } | null;
 };
 
-/** Escape で各種モーダルを閉じ、Space で再生、←/→ でシークまたはキュー送り、⌘Z/⌘⇧Z で Undo/Redo。 */
+/** Escape で各種モーダルを閉じ、Space で再生、←/→ でシークまたはキュー送り、⌘Z/⌘⇧Z で Undo/Redo、⌘S で保存。 */
 export function useEditorKeyboardShortcuts({
   stageZenFullscreen,
   setStageZenFullscreen,
   cloudSaveDialogOpen,
   setCloudSaveDialogOpen,
+  onCloudSave,
   stageAreaSettingsOpen,
   onCloseStageAreaSettings,
   stageSettingsOpen,
@@ -83,6 +86,17 @@ export function useEditorKeyboardShortcuts({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // ブラウザの「ページを保存」を止め、入力中でもクラウド保存できるように先に処理する
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        !e.altKey &&
+        e.key.toLowerCase() === "s"
+      ) {
+        e.preventDefault();
+        if (!e.shiftKey) onCloudSave?.();
+        return;
+      }
+
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
@@ -169,6 +183,7 @@ export function useEditorKeyboardShortcuts({
     getTrimStartSec,
     cloudSaveDialogOpen,
     setCloudSaveDialogOpen,
+    onCloudSave,
     stageAreaSettingsOpen,
     onCloseStageAreaSettings,
     stageSettingsOpen,

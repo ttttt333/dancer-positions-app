@@ -10,7 +10,12 @@ import {
   modDancerColorIndex,
 } from "../lib/dancerColorPalette";
 import { sliceMarkerBadgeForStorage } from "../lib/markerBadge";
+import {
+  normalizeDancerFaceStamp,
+  type DancerFaceStampId,
+} from "../lib/dancerFaceStamp";
 import { EditorSideSheet } from "./EditorSideSheet";
+import { DancerFaceStampPicker } from "./DancerFaceStampPicker";
 
 const LABEL_MAX = 120;
 const NOTE_MAX = 2000;
@@ -28,6 +33,8 @@ export type DancerQuickEditApply = {
   genderLabel: string | undefined;
   skillRankLabel: string | undefined;
   note: string | undefined;
+  /** null で表情クリア */
+  faceStamp: DancerFaceStampId | null;
 };
 
 type Props = {
@@ -40,7 +47,7 @@ type Props = {
 
 /**
  * 立ち位置の丸をダブルクリックしたときの編集窓。
- * 名前・身長・学年・性別・スキル・備考・印の色。名簿紐付け時は名簿側も更新。
+ * 名前・身長・学年・性別・スキル・備考・印の色・表情スタンプ。名簿紐付け時は名簿側も更新。
  */
 export function DancerQuickEditDialog({
   open,
@@ -52,6 +59,7 @@ export function DancerQuickEditDialog({
   const [label, setLabel] = useState("");
   const [markerBadge, setMarkerBadge] = useState("");
   const [colorIndex, setColorIndex] = useState(0);
+  const [faceStamp, setFaceStamp] = useState<DancerFaceStampId | null>(null);
   const [heightStr, setHeightStr] = useState("");
   const [gradeLabel, setGradeLabel] = useState("");
   const [genderLabel, setGenderLabel] = useState("");
@@ -63,6 +71,7 @@ export function DancerQuickEditDialog({
     setLabel((dancer.label ?? "").slice(0, LABEL_MAX));
     setMarkerBadge(sliceMarkerBadgeForStorage(dancer.markerBadge) ?? "");
     setColorIndex(modDancerColorIndex(dancer.colorIndex));
+    setFaceStamp(normalizeDancerFaceStamp(dancer.faceStamp) ?? null);
     setHeightStr(
       typeof dancer.heightCm === "number" && Number.isFinite(dancer.heightCm)
         ? String(dancer.heightCm)
@@ -114,6 +123,7 @@ export function DancerQuickEditDialog({
       genderLabel: gen ? gen : undefined,
       skillRankLabel: sk ? sk : undefined,
       note: noteOut,
+      faceStamp,
     });
     onClose();
   };
@@ -287,6 +297,25 @@ export function DancerQuickEditDialog({
             />
           </>
         ))}
+
+        <div style={{ marginBottom: "14px" }}>
+          <span style={labelStyle}>表情スタンプ（丸の中）</span>
+          <p
+            style={{
+              margin: "0 0 8px",
+              fontSize: 11,
+              color: "#64748b",
+              lineHeight: 1.4,
+            }}
+          >
+            LINEスタンプ風の表情。付けると名前は丸の下に出ます。
+          </p>
+          <DancerFaceStampPicker
+            value={faceStamp}
+            disabled={disabled}
+            onChange={setFaceStamp}
+          />
+        </div>
 
         <div style={{ marginBottom: "14px" }}>
           <span style={labelStyle}>印の色</span>

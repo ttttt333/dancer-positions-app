@@ -2395,11 +2395,20 @@ function EditorPageContent({
     [project, mobileStackEditor, applyStageAreaSettingsDraft]
   );
 
+  const handleKeyboardCloudSave = useCallback(() => {
+    if (choreoPublicView) return;
+    if (!me) return;
+    if (!project || project.viewMode === "view") return;
+    if (saving) return;
+    void performCloudSave();
+  }, [choreoPublicView, me, project, saving, performCloudSave]);
+
   useEditorKeyboardShortcuts({
     stageZenFullscreen,
     setStageZenFullscreen,
     cloudSaveDialogOpen,
     setCloudSaveDialogOpen,
+    onCloudSave: handleKeyboardCloudSave,
     stageAreaSettingsOpen,
     onCloseStageAreaSettings: () => closeStageAreaSettings(),
     stageSettingsOpen,
@@ -2804,8 +2813,8 @@ function EditorPageContent({
           cloudSaveRailLine1: t("editor.cloudSaveRailLine1"),
           cloudSaveRailLine2: serverId ? t("editor.saveOverwrite") : t("editor.save"),
           cloudSaveRailTitle: serverId
-            ? t("editor.saveTitleOverwrite")
-            : t("editor.saveTitleNew"),
+            ? `${t("editor.saveTitleOverwrite")}（⌘S / Ctrl+S）`
+            : `${t("editor.saveTitleNew")}（⌘S / Ctrl+S）`,
         }
       : {}),
   };
