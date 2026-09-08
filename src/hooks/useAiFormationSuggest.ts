@@ -50,11 +50,7 @@ import type {
 } from "../types/choreography";
 import { useWavePeaksStore } from "../store/wavePeaksStore";
 import { useMusicSectionOverlayStore } from "../store/musicSectionOverlayStore";
-import {
-  segmentsFromChangePoints,
-  segmentsFromMusicSections,
-  segmentsFromStructureV2Sections,
-} from "../lib/musicSectionOverlay";
+import { publishSnappedOverlayFromSources } from "../lib/audioAnalysis/publishOverlay";
 import {
   appChangePointsFromStructureV2,
 } from "../lib/choreocore/lightingSync/productionChangePointAdapter";
@@ -303,25 +299,16 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
         duration: number,
         evalSections?: Array<{ type: string; startTime: number; endTime: number }>
       ) => {
-        const fromV2 = cache.structureV2
-          ? segmentsFromStructureV2Sections(
-              cache.structureV2.sections,
-              duration
-            )
-          : [];
-        const fromEval =
-          evalSections && evalSections.length > 0
-            ? segmentsFromMusicSections(evalSections, duration)
-            : [];
-        const segments =
-          fromV2.length > 0
-            ? fromV2
-            : fromEval.length > 0
-              ? fromEval
-              : segmentsFromChangePoints(changePoints, duration);
-        useMusicSectionOverlayStore
-          .getState()
-          .setSegments(segments, duration, cache.sourceLabel);
+        publishSnappedOverlayFromSources({
+          duration,
+          sourceLabel: cache.sourceLabel,
+          structureV2: cache.structureV2,
+          changePoints,
+          evalSections,
+          eightTimes: cache.structureV2?.eight_times,
+          bpm: cache.bpm,
+          force: true,
+        });
       };
 
       try {
@@ -454,6 +441,9 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
 
       setStatus("analyzing");
       setError(null);
+      useMusicSectionOverlayStore
+        .getState()
+        .setAnalyzing(true, "AIがBPMとビートを展開解析中…");
 
       try {
         if (controller.signal.aborted) return;
@@ -574,6 +564,17 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
         };
         cacheRef.current = cache;
 
+        // フォーメーション生成前に、スナップ済みセクションを波形へ反映
+        publishSnappedOverlayFromSources({
+          duration,
+          sourceLabel,
+          structureV2: remote?.structure_v2,
+          changePoints,
+          eightTimes: remote?.structure_v2?.eight_times,
+          bpm,
+          force: true,
+        });
+
         const hasFb = !!audioOpts?.feedback;
         const hasReject = (audioOpts?.rejectedLayoutIds?.length ?? 0) > 0;
         if (!hasFb && !hasReject) {
@@ -595,6 +596,7 @@ export function useAiFormationSuggest(project: ChoreographyProjectJson) {
         );
       } catch (e: unknown) {
         if (e instanceof Error && e.name === "AbortError") return;
+        useMusicSectionOverlayStore.getState().setAnalyzing(false);
         setError(e instanceof Error ? e.message : "提案に失敗しました");
         setStatus("error");
       }

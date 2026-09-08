@@ -616,6 +616,7 @@ function EditorPageContent({
     audioAssetId: project?.audioAssetId ?? null,
     audioSupabasePath: project?.audioSupabasePath,
     flowLocalAudioKey: project?.flowLocalAudioKey ?? null,
+    pieceTitle: project?.pieceTitle?.trim() || projectName,
     publicShareView: choreoPublicView,
     persistProjectToCloudAfterAudioImport: me
       ? async (audioPatch) => {

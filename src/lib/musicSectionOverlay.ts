@@ -1,9 +1,14 @@
 /**
  * AI が認識した楽曲セクションを波形上に薄く重ねるための共通型・色。
+ * パレットは `audioAnalysis/sectionMeta`（指示書）に揃える。
  */
 
 import type { MusicSectionType } from "./choreocore/engine/types/MusicTypes";
 import type { ChangePoint } from "./choreocore/types";
+import {
+  mapEngineTypeToSectionType,
+  sectionDisplayMeta,
+} from "./audioAnalysis/sectionMeta";
 
 export type MusicSectionOverlaySegment = {
   startSec: number;
@@ -13,24 +18,33 @@ export type MusicSectionOverlaySegment = {
   color: string;
 };
 
-const SECTION_META: Record<
-  string,
-  { label: string; color: string }
-> = {
-  INTRO: { label: "導入", color: "rgba(148, 163, 184, 0.45)" },
-  VERSE: { label: "Aメロ", color: "rgba(56, 189, 248, 0.42)" },
-  PRE_CHORUS: { label: "Bメロ", color: "rgba(250, 204, 21, 0.5)" },
-  CHORUS: { label: "サビ", color: "rgba(248, 113, 113, 0.48)" },
-  FINAL_CHORUS: { label: "大サビ", color: "rgba(239, 68, 68, 0.55)" },
-  DROP: { label: "ドロップ", color: "rgba(244, 63, 94, 0.5)" },
-  BREAK: { label: "ブレイク", color: "rgba(167, 139, 250, 0.4)" },
-  BRIDGE: { label: "ブリッジ", color: "rgba(129, 140, 248, 0.42)" },
-  OUTRO: { label: "アウトロ", color: "rgba(148, 163, 184, 0.4)" },
-  UNKNOWN: { label: "—", color: "rgba(120, 113, 108, 0.35)" },
+const SECTION_META: Record<string, { label: string; color: string }> = {
+  INTRO: sectionDisplayMeta("intro"),
+  VERSE: sectionDisplayMeta("verse"),
+  PRE_CHORUS: sectionDisplayMeta("pre_chorus"),
+  CHORUS: sectionDisplayMeta("chorus"),
+  FINAL_CHORUS: {
+    label: "大サビ",
+    color: "rgba(239, 68, 68, 0.58)",
+  },
+  DROP: {
+    label: "ドロップ",
+    color: "rgba(244, 63, 94, 0.5)",
+  },
+  BREAK: sectionDisplayMeta("bridge"),
+  BRIDGE: {
+    label: "Cメロ",
+    color: sectionDisplayMeta("bridge").color,
+  },
+  OUTRO: sectionDisplayMeta("outro"),
+  UNKNOWN: sectionDisplayMeta("unknown"),
 };
 
 export function sectionOverlayStyle(type: string): { label: string; color: string } {
-  return SECTION_META[type] ?? SECTION_META.UNKNOWN!;
+  const mapped = mapEngineTypeToSectionType(type);
+  if (SECTION_META[type]) return SECTION_META[type]!;
+  const meta = sectionDisplayMeta(mapped);
+  return { label: meta.label, color: meta.color };
 }
 
 function normalizeCpType(

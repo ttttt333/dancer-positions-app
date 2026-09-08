@@ -1,6 +1,7 @@
 import { Component, Fragment, lazy, Suspense, type ReactNode, type ErrorInfo, useState, useEffect, useCallback } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
+import { AppToastHost } from "./components/AppToastHost";
 import { AuthProvider } from "./context/AuthContext";
 import { DashboardPage } from "./pages/DashboardPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -266,6 +267,7 @@ function AppShell() {
   return (
     <Fragment>
       {!hideFloatingLocale ? <LanguageSwitcher variant="floating" /> : null}
+      <AppToastHost />
       <div className="app-shell">
         <AuthProvider>
           <Routes>

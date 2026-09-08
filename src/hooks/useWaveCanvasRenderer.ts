@@ -16,8 +16,10 @@ import {
 import { publishWaveDrawRange } from "../lib/waveDrawRangeSync";
 import { resolveActiveWaveCanvas } from "../lib/activeWaveCanvas";
 import { drawWavePeaksColumns } from "../lib/drawWavePeaksColumns";
+import { drawEightCountGrid } from "../lib/audioAnalysis/drawEightCountGrid";
 import { WAVE_CANVAS_BITMAP_HEIGHT_SCALE } from "../lib/waveDockMetrics";
 import { useWavePeaksStore } from "../store/wavePeaksStore";
+import { useMusicSectionOverlayStore } from "../store/musicSectionOverlayStore";
 import { useTimelineWaveBridgeStore } from "../store/timelineWaveBridgeStore";
 import type { WaveSeekSnapLatch } from "../lib/waveSeekSnapLatch";
 import {
@@ -222,6 +224,16 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
         h,
         waveAmpRef.current
       );
+      const gridBeats = useMusicSectionOverlayStore.getState().beats;
+      if (gridBeats.length > 0) {
+        drawEightCountGrid(g, {
+          beats: gridBeats,
+          viewStart,
+          viewSpan,
+          canvasWidth: w,
+          canvasHeight: h,
+        });
+      }
       const cueList = cuesRef.current;
       if (d > 0 && viewSpan > 0 && cueList.length >= 2) {
         const sortedWave = sortCuesByStart(cueList);
@@ -540,6 +552,15 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
     waveformAmplitudeScale,
     waveCanvasCssH,
   ]);
+
+  // 自動解析完了で beats が入ったら、停止中でもグリッドを即再描画
+  useEffect(() => {
+    return useMusicSectionOverlayStore.subscribe((state, prev) => {
+      if (state.beats === prev.beats) return;
+      if (isPlayingForWaveRef.current) return;
+      drawWaveformAt(resolvePlayheadPaintTime());
+    });
+  }, [drawWaveformAt, resolvePlayheadPaintTime, isPlayingForWaveRef]);
 
   useEffect(() => {
     if (!isPlaying || !peaks) return;

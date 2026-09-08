@@ -10,6 +10,7 @@ import { useTimelineAudioImport } from "./useTimelineAudioImport";
 import { useTimelineRemoteAudio } from "./useTimelineRemoteAudio";
 import { useTimelineWaveDecode } from "./useTimelineWaveDecode";
 import { useAudioReconnector } from "./useAudioReconnector";
+import { useAutoAudioAnalysis } from "./useAutoAudioAnalysis";
 import { usePlaybackAudioStore } from "../store/playbackAudioStore";
 
 type Params = {
@@ -20,6 +21,7 @@ type Params = {
   audioAssetId: number | null;
   audioSupabasePath: string | null | undefined;
   flowLocalAudioKey: string | null | undefined;
+  pieceTitle?: string | null;
   publicShareView?: boolean;
   /** 音源取り込み直後に作品 JSON をクラウドへ保存（audioSupabasePath を共有 URL に載せる） */
   persistProjectToCloudAfterAudioImport?: (
@@ -48,6 +50,7 @@ export function useEditorAudioSession({
   audioAssetId,
   audioSupabasePath,
   flowLocalAudioKey,
+  pieceTitle,
   publicShareView = false,
   persistProjectToCloudAfterAudioImport,
 }: Params) {
@@ -112,6 +115,13 @@ export function useEditorAudioSession({
     blobUrlRef,
     getRestoreContext,
     onNeedsRemoteReload: requestRemoteAudioReload,
+  });
+
+  useAutoAudioAnalysis({
+    enabled: true,
+    audioSupabasePath,
+    trackTitle: pieceTitle,
+    publicShareView,
   });
 
   const resyncPlayback = useCallback(
