@@ -550,7 +550,7 @@ const BASE_TRANSLATIONS: Record<AppLocale, MessageBundle> = {
     "dashboard.demoSessionBanner":
       "デモ表示中: 本ログイン前のためクラウド一覧は使えません。「ログアウト」で通常のログイン画面に戻れます。",
     "landing.heroAria": "ChoreoCore の紹介",
-    "landing.headline": "TURN MUSIC\nINTO MOVEMENT.",
+    "landing.headline": "音楽を、\n動きへ。",
     "landing.support":
       "曲の構造から舞台のフォーメーションまで。音楽とともに動く隊形を設計するツールです。",
     "landing.brand.tagline": "DESIGN THE CORE OF DANCE.",
