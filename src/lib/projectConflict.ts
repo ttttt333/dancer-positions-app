@@ -31,3 +31,34 @@ export function projectJsonDiffers(a: unknown, b: unknown): boolean {
     return true;
   }
 }
+
+/**
+ * クラウド保存成功後にローカル草稿を消してよいか。
+ * 保存開始時スナップショットより新しい編集が残っていれば消さない。
+ */
+export function shouldClearEditorDraftAfterCloudSave(
+  savedJsonSnapshot: string,
+  liveJson: string | null | undefined
+): boolean {
+  if (liveJson == null || liveJson === "") return true;
+  return liveJson === savedJsonSnapshot;
+}
+
+/**
+ * クラウド保存用に、最新の作品 JSON へ音源パスだけを載せる。
+ * 開始時スナップショット全体で上書きしない（編集消失防止）。
+ */
+export function patchProjectAudioCloudFields<
+  T extends {
+    audioSupabasePath?: string | null;
+    audioAssetId?: string | null;
+    flowLocalAudioKey?: string | null;
+  },
+>(project: T, audioSupabasePath: string): T {
+  return {
+    ...project,
+    audioSupabasePath,
+    audioAssetId: null,
+    flowLocalAudioKey: null,
+  };
+}

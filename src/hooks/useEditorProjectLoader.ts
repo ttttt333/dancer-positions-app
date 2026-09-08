@@ -85,6 +85,10 @@ export function useEditorProjectLoader({
   const [pendingLoadConflict, setPendingLoadConflict] =
     useState<PendingLoadConflict | null>(null);
   const skipNextProjectFetchRef = useRef<number | null>(null);
+  /** すでに開いている作品 ID。auth me オブジェクト再生成での再フェッチを抑止する */
+  const loadedEditorProjectIdRef = useRef<number | null>(null);
+  const meUserId = me?.user?.id ?? null;
+  const lastMeUserIdRef = useRef<string | null>(meUserId);
 
   const projectSaveRef = useRef<ChoreographyProjectJson | null>(null);
   if (plainProject) {
@@ -94,6 +98,12 @@ export function useEditorProjectLoader({
   }
 
   useEffect(() => {
+    // アカウント切替時は必ず再読込（同一 projectId でも所有者チェックのため）
+    if (lastMeUserIdRef.current !== meUserId) {
+      lastMeUserIdRef.current = meUserId;
+      loadedEditorProjectIdRef.current = null;
+    }
+
     if (choreoPublicView && shareTokenParam) {
       let cancelled = false;
       setLoadError(null);
@@ -125,6 +135,7 @@ export function useEditorProjectLoader({
     }
 
     if (projectId === "new" || !projectId) {
+      loadedEditorProjectIdRef.current = null;
       const search = new URLSearchParams(location.search);
       const flowId = search.get("flow")?.trim();
       if (flowId) {
@@ -184,26 +195,32 @@ export function useEditorProjectLoader({
 
     const id = Number(projectId);
     if (!Number.isFinite(id)) {
+      loadedEditorProjectIdRef.current = null;
       setPlainProject(null);
       setLoadError("無効な ID");
       return;
     }
 
     if (!authReady) {
-      setPlainProject(null);
+      // 認証待ち中に編集中内容を消さない（既に同 ID を開いている場合）
+      if (loadedEditorProjectIdRef.current !== id) {
+        setPlainProject(null);
+      }
       setLoadError(null);
       return;
     }
 
     if (collabParam) {
-      if (!me) {
+      if (!meUserId) {
+        loadedEditorProjectIdRef.current = null;
         setPlainProject(null);
         setLoadError("共同編集にはログインが必要です");
         return;
       }
     }
 
-    if (isSupabaseBackend() && !me && !choreoPublicView) {
+    if (isSupabaseBackend() && !meUserId && !choreoPublicView) {
+      loadedEditorProjectIdRef.current = null;
       setPlainProject(null);
       setLoadError("ログインが必要です");
       return;
@@ -211,21 +228,36 @@ export function useEditorProjectLoader({
 
     if (skipNextProjectFetchRef.current === id) {
       skipNextProjectFetchRef.current = null;
+      loadedEditorProjectIdRef.current = id;
+      return;
+    }
+
+    // 同一作品を編集中に me オブジェクト再生成などで effect が再入しても、
+    // メモリ上の最新編集をサーバの古い JSON で潰さない。
+    if (
+      loadedEditorProjectIdRef.current === id &&
+      projectSaveRef.current != null
+    ) {
       return;
     }
 
     type NavSeed = {
       editorSeed?: ChoreographyProjectJson;
       editorSeedProjectId?: number;
+      editorSeedUpdatedAt?: string;
     };
     const nav = (location.state ?? null) as NavSeed | null;
     if (!collabParam && nav?.editorSeed && nav.editorSeedProjectId === id) {
       const seeded = normalizeProject(nav.editorSeed);
       setPlainProject(seeded);
       setServerId(id);
+      if (nav.editorSeedUpdatedAt) {
+        setKnownServerUpdatedAt(nav.editorSeedUpdatedAt);
+      }
       const title = seeded.pieceTitle?.trim() || "無題の作品";
       setProjectName(title);
       setLoadError(null);
+      loadedEditorProjectIdRef.current = id;
       skipNextProjectFetchRef.current = id;
       navigate(
         { pathname: location.pathname, search: location.search },
@@ -236,6 +268,7 @@ export function useEditorProjectLoader({
 
     let cancelled = false;
     (async () => {
+      // 初回オープン時のみクリア。再フェッチ抑止後はここまで来ない。
       setPlainProject(null);
       setLoadError(null);
       try {
@@ -250,7 +283,6 @@ export function useEditorProjectLoader({
         let loadedJson = baseJson;
         let deferredConflict: PendingLoadConflict | null = null;
 
-        // 下書きがあり内容が違う場合は無言適用せず、ユーザーに選択させる
         if (
           !choreoPublicView &&
           draft &&
@@ -258,20 +290,34 @@ export function useEditorProjectLoader({
           draft.project &&
           projectJsonDiffers(draft.project, baseJson)
         ) {
-          deferredConflict = {
-            kind: "load-draft",
-            serverUpdatedAt: row.updated_at,
-            localSavedAt: draft.savedAt,
-            serverJson: baseJson,
-            draftJson: normalizeProject(draft.project),
-            draftName:
-              draft.projectName?.trim() ||
-              draft.project.pieceTitle?.trim() ||
-              row.name,
-            serverName: row.name,
-          };
-          // 暫定でクラウドを表示し、ダイアログで切替可能にする
-          loadedJson = baseJson;
+          const draftMs = Date.parse(draft.savedAt);
+          const serverMs = Date.parse(row.updated_at);
+          const draftProject = normalizeProject(draft.project);
+          const draftName =
+            draft.projectName?.trim() ||
+            draft.project.pieceTitle?.trim() ||
+            row.name;
+          // 草稿の方が新しい（またはサーバ時刻不明）→ 草稿を採用して作業消失を防ぐ
+          if (
+            Number.isFinite(draftMs) &&
+            (!Number.isFinite(serverMs) || draftMs > serverMs + 500)
+          ) {
+            loadedJson = draftProject;
+            setProjectName(draftName);
+          } else {
+            deferredConflict = {
+              kind: "load-draft",
+              serverUpdatedAt: row.updated_at,
+              localSavedAt: draft.savedAt,
+              serverJson: baseJson,
+              draftJson: draftProject,
+              draftName,
+              serverName: row.name,
+            };
+            // 曖昧なときは草稿を仮表示（サーバで上書きして消えるのを防ぐ）
+            loadedJson = draftProject;
+            setProjectName(draftName);
+          }
         }
 
         // 無料復帰後: 超過があるときはライブラリで削減してから開く
@@ -306,6 +352,7 @@ export function useEditorProjectLoader({
             choreoPublicView ? { ...loadedJson, viewMode: "view" } : loadedJson
           );
         }
+        loadedEditorProjectIdRef.current = id;
         setPendingLoadConflict(deferredConflict);
         setLoadError(null);
         onHistoryReset();
@@ -322,6 +369,7 @@ export function useEditorProjectLoader({
     projectId,
     shareTokenParam,
     collabParam,
+    meUserId,
     me,
     authReady,
     location.state,

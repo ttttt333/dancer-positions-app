@@ -23,6 +23,7 @@ type Params = {
   durationRef: MutableRefObject<number>;
   currentTime: number;
   onSelectedCueIdsChange: Dispatch<SetStateAction<string[]>>;
+  /** @deprecated 再生中のキュー操作では呼ばない（赤バー停止の原因だった） */
   onFormationChosenFromCueList?: () => void;
   formationIdForNewCue: string;
   trimStartSec: number;
@@ -41,7 +42,6 @@ export function useTimelineCueActions({
   durationRef,
   currentTime,
   onSelectedCueIdsChange,
-  onFormationChosenFromCueList,
   formationIdForNewCue,
   trimStartSec,
   trimEndSec,
@@ -122,14 +122,12 @@ export function useTimelineCueActions({
         trimEndSec,
       });
       onSelectedCueIdsChange([newCueId]);
-      onFormationChosenFromCueList?.();
     },
     [
       project.viewMode,
       setProject,
       trimStartSec,
       trimEndSec,
-      onFormationChosenFromCueList,
       formationIdForNewCue,
       onSelectedCueIdsChange,
       durationRef,
@@ -237,7 +235,6 @@ export function useTimelineCueActions({
         trimEndSec: project.trimEndSec,
       });
       onSelectedCueIdsChange([newCueId]);
-      onFormationChosenFromCueList?.();
     },
     [
       project.viewMode,
@@ -245,7 +242,6 @@ export function useTimelineCueActions({
       project.trimEndSec,
       setProject,
       currentTime,
-      onFormationChosenFromCueList,
       onSelectedCueIdsChange,
       durationRef,
       assertCanAddCue,
@@ -311,12 +307,10 @@ export function useTimelineCueActions({
         };
       });
       onSelectedCueIdsChange([newCueId]);
-      onFormationChosenFromCueList?.();
     },
     [
       project.viewMode,
       setProject,
-      onFormationChosenFromCueList,
       onSelectedCueIdsChange,
       durationRef,
       assertCanAddCue,
@@ -354,14 +348,12 @@ export function useTimelineCueActions({
         });
       }
       onSelectedCueIdsChange([newCueId]);
-      onFormationChosenFromCueList?.();
     },
     [
       project.viewMode,
       project.trimStartSec,
       project.trimEndSec,
       setProject,
-      onFormationChosenFromCueList,
       onSelectedCueIdsChange,
       durationRef,
       trimStartSec,
@@ -447,14 +439,12 @@ export function useTimelineCueActions({
         trimEndSec,
       });
       onSelectedCueIdsChange([newCueId]);
-      onFormationChosenFromCueList?.();
     },
     [
       project.viewMode,
       setProject,
       trimStartSec,
       trimEndSec,
-      onFormationChosenFromCueList,
       onSelectedCueIdsChange,
       durationRef,
       assertCanAddCue,
@@ -557,14 +547,12 @@ export function useTimelineCueActions({
         trimEndSec: project.trimEndSec,
       });
       onSelectedCueIdsChange([cueId]);
-      onFormationChosenFromCueList?.();
     },
     [
       project,
       currentTime,
       setProject,
       onSelectedCueIdsChange,
-      onFormationChosenFromCueList,
       durationRef,
       assertCanAddCue,
     ]

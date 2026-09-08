@@ -7,7 +7,10 @@ import type { ChoreographyProjectJson } from "../types/choreography";
 import type { Me } from "../types/authMe";
 import { useI18n } from "../i18n/I18nContext";
 import { yieldToMain } from "../lib/yieldToMain";
-import { isServerNewerThanKnown } from "../lib/projectConflict";
+import {
+  isServerNewerThanKnown,
+  patchProjectAudioCloudFields,
+} from "../lib/projectConflict";
 
 export type CloudSaveConflict = {
   kind: "save-stale";
@@ -73,8 +76,13 @@ export function useEditorCloudSave({
       if (prepareProjectForCloudSave) {
         const prepared = await prepareProjectForCloudSave();
         if (prepared) {
-          live = prepared;
-          projectSaveRef.current = prepared;
+          const cur = projectSaveRef.current;
+          if (cur && prepared.audioSupabasePath) {
+            live = patchProjectAudioCloudFields(cur, prepared.audioSupabasePath);
+          } else {
+            live = prepared;
+          }
+          projectSaveRef.current = live;
         }
       }
       await yieldToMain();
@@ -134,6 +142,7 @@ export function useEditorCloudSave({
         state: {
           editorSeed: body,
           editorSeedProjectId: row.id,
+          editorSeedUpdatedAt: row.updated_at,
         },
       });
       return { id: row.id, share_token: row.share_token ?? null };
