@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from "react";
 
 type Spot = { x: number; y: number };
 
@@ -13,7 +13,6 @@ const SECTIONS = [
 
 /** Demo formations — illustrative, not product screenshots */
 const FORMATIONS: Spot[][] = [
-  // INTRO — tight center cluster
   [
     { x: 42, y: 48 },
     { x: 50, y: 42 },
@@ -22,7 +21,6 @@ const FORMATIONS: Spot[][] = [
     { x: 54, y: 58 },
     { x: 50, y: 68 },
   ],
-  // VERSE — shallow V
   [
     { x: 22, y: 62 },
     { x: 36, y: 48 },
@@ -31,7 +29,6 @@ const FORMATIONS: Spot[][] = [
     { x: 78, y: 62 },
     { x: 50, y: 58 },
   ],
-  // PRE — wide line
   [
     { x: 18, y: 52 },
     { x: 34, y: 52 },
@@ -40,7 +37,6 @@ const FORMATIONS: Spot[][] = [
     { x: 82, y: 52 },
     { x: 50, y: 70 },
   ],
-  // CHORUS — depth + impact
   [
     { x: 20, y: 70 },
     { x: 35, y: 55 },
@@ -49,7 +45,6 @@ const FORMATIONS: Spot[][] = [
     { x: 80, y: 70 },
     { x: 50, y: 58 },
   ],
-  // BREAK — split wings
   [
     { x: 16, y: 40 },
     { x: 24, y: 58 },
@@ -58,7 +53,6 @@ const FORMATIONS: Spot[][] = [
     { x: 76, y: 58 },
     { x: 84, y: 40 },
   ],
-  // OUTRO — soft arc
   [
     { x: 24, y: 58 },
     { x: 36, y: 44 },
@@ -69,70 +63,140 @@ const FORMATIONS: Spot[][] = [
   ],
 ];
 
+const FALLBACK_SPOTS: Spot[] = FORMATIONS[0] ?? [
+  { x: 40, y: 50 },
+  { x: 50, y: 40 },
+  { x: 60, y: 50 },
+];
+
 function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t;
 }
 
-function interpolateFormation(from: Spot[], to: Spot[], t: number): Spot[] {
-  const n = Math.min(from.length, to.length);
+function clamp01(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  if (n <= 0) return 0;
+  if (n >= 1) return 0.999999;
+  return n;
+}
+
+function clampIndex(i: number, len: number): number {
+  if (!Number.isFinite(i) || len <= 0) return 0;
+  return Math.max(0, Math.min(len - 1, Math.floor(i)));
+}
+
+function interpolateFormation(from: Spot[] | undefined, to: Spot[] | undefined, t: number): Spot[] {
+  const a = from?.length ? from : FALLBACK_SPOTS;
+  const b = to?.length ? to : a;
+  const n = Math.min(a.length, b.length);
   const out: Spot[] = [];
   for (let i = 0; i < n; i++) {
     out.push({
-      x: lerp(from[i].x, to[i].x, t),
-      y: lerp(from[i].y, to[i].y, t),
+      x: lerp(a[i].x, b[i].x, t),
+      y: lerp(a[i].y, b[i].y, t),
     });
   }
-  return out;
+  return out.length > 0 ? out : FALLBACK_SPOTS;
+}
+
+function formationFrame(phase: number) {
+  const safePhase = clamp01(phase);
+  const n = Math.min(SECTIONS.length, FORMATIONS.length) || 1;
+  const raw = safePhase * n;
+  const i = clampIndex(raw, n);
+  const local = raw - i;
+  const next = clampIndex(i + 1, n);
+  const transitioning = i < n - 1 && local > 0.72;
+  const blendT = transitioning ? (local - 0.72) / 0.28 : 0;
+  return {
+    sectionIndex: i,
+    blend: blendT,
+    spots: interpolateFormation(FORMATIONS[i], FORMATIONS[next], blendT),
+    inTransition: transitioning,
+  };
+}
+
+class HeroVisualBoundary extends Component<
+  { children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("[LandingHeroVisual]", error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.failed) {
+      return (
+        <div className="lv2-hero-visual" aria-hidden>
+          <div className="lv2-hero-visual__chrome">
+            <span className="lv2-hero-visual__live">SYNC</span>
+            <span>Music × Formation</span>
+          </div>
+          <div className="lv2-hero-stage">
+            <div className="lv2-hero-stage__grid" />
+            {FALLBACK_SPOTS.map((p, i) => (
+              <div
+                key={i}
+                className="lv2-hero-dot"
+                style={{ left: `${p.x}%`, top: `${p.y}%` }}
+              >
+                {i + 1}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 /**
  * Hero visual: music sections + playhead + morphing formation.
  * Pure CSS/RAF demo — not a product screenshot.
  */
-export function LandingHeroVisual() {
+function LandingHeroVisualInner() {
   const [phase, setPhase] = useState(0);
 
   useEffect(() => {
-    const reduce =
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) {
-      setPhase(0.35);
-      return;
-    }
+    let cancelled = false;
     let raf = 0;
+
+    try {
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        setPhase(0.35);
+        return;
+      }
+    } catch {
+      /* matchMedia unavailable */
+    }
+
     const started = performance.now();
     const cycleMs = 14000;
 
     const tick = (now: number) => {
-      const p = ((now - started) % cycleMs) / cycleMs;
+      if (cancelled) return;
+      const elapsed = Number.isFinite(now) ? now - started : 0;
+      const p = clamp01((elapsed % cycleMs) / cycleMs);
       setPhase(p);
       raf = requestAnimationFrame(tick);
     };
+
     raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+    };
   }, []);
 
-  const { sectionIndex, blend, spots, inTransition } = useMemo(() => {
-    const n = SECTIONS.length;
-    const raw = phase * n;
-    const i = Math.min(n - 1, Math.floor(raw));
-    const local = raw - i;
-    // Last 28% of each section = transition toward next
-    const next = Math.min(n - 1, i + 1);
-    const transitioning = i < n - 1 && local > 0.72;
-    const blendT = transitioning ? (local - 0.72) / 0.28 : 0;
-    const from = FORMATIONS[i];
-    const to = FORMATIONS[next];
-    return {
-      sectionIndex: i,
-      blend: blendT,
-      spots: interpolateFormation(from, to, blendT),
-      inTransition: transitioning,
-    };
-  }, [phase]);
-
-  const playheadPct = phase * 100;
+  const { sectionIndex, blend, spots, inTransition } = formationFrame(phase);
+  const playheadPct = clamp01(phase) * 100;
 
   return (
     <div className="lv2-hero-visual" aria-hidden>
@@ -203,5 +267,13 @@ export function LandingHeroVisual() {
         <span>ARRIVAL</span>
       </div>
     </div>
+  );
+}
+
+export function LandingHeroVisual() {
+  return (
+    <HeroVisualBoundary>
+      <LandingHeroVisualInner />
+    </HeroVisualBoundary>
   );
 }
