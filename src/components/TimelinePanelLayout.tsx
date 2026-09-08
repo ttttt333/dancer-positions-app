@@ -75,6 +75,12 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
           onOpenAudioImport={p.onOpenAudioImport}
           onApplyAiSectionKeyframes={p.onApplyAiSectionKeyframes}
           aiSectionKeyframesAvailable={p.aiSectionKeyframesAvailable}
+          onApplySectionFormationPatterns={p.onApplySectionFormationPatterns}
+          sectionFormationPatternsAvailable={
+            p.sectionFormationPatternsAvailable
+          }
+          playbackRate={p.playbackRate}
+          onPlaybackRateChange={p.onPlaybackRateChange}
           onUndo={p.onUndo}
           onRedo={p.onRedo}
           undoDisabled={p.undoDisabled}

@@ -55,6 +55,11 @@ export type TimelinePanelBodyProps = {
   onOpenAudioImport?: () => void;
   onApplyAiSectionKeyframes?: () => void;
   aiSectionKeyframesAvailable?: boolean;
+  /** セクション種別ごとの隊形一括適用 */
+  onApplySectionFormationPatterns?: () => void;
+  sectionFormationPatternsAvailable?: boolean;
+  playbackRate?: number;
+  onPlaybackRateChange?: (rate: number) => void;
   /** ギャップ右クリックメニューから個人軌道エディタを開くコールバック */
   onOpenPathEditor?: (cueId: string) => void;
   /** 生徒閲覧（/view/s/…）: ログインなしで Supabase 音源を読む */

@@ -60,7 +60,9 @@ import { useEditorPlaybackSync } from "../hooks/useEditorPlaybackSync";
 import { useEditorKeyboardShortcuts } from "../hooks/useEditorKeyboardShortcuts";
 import { useEditorAudioSession } from "../hooks/useEditorAudioSession";
 import { useSectionAutoKeyframes } from "../hooks/useSectionAutoKeyframes";
+import { useSectionFormationPatterns } from "../hooks/useSectionFormationPatterns";
 import { ApplyAiSectionKeyframesDialog } from "../components/ApplyAiSectionKeyframesDialog";
+import { ApplySectionFormationPatternsDialog } from "../components/ApplySectionFormationPatternsDialog";
 import { useMusicSectionOverlayStore } from "../store/musicSectionOverlayStore";
 import { useTimelineMediaHandle } from "../hooks/useTimelineMediaHandle";
 import { RosterTimelineStrip } from "../components/RosterTimelineStrip";
@@ -636,6 +638,12 @@ function EditorPageContent({
   const reloadViewerAudio = editorAudioSession.reloadRemoteAudio;
 
   const sectionAutoKeyframes = useSectionAutoKeyframes({
+    project,
+    setProject: setProjectSafe,
+    enabled: !choreoPublicView,
+    publicShareView: choreoPublicView,
+  });
+  const sectionFormationPatterns = useSectionFormationPatterns({
     project,
     setProject: setProjectSafe,
     enabled: !choreoPublicView,
@@ -1956,6 +1964,15 @@ function EditorPageContent({
     />
   );
 
+  const sectionFormationPatternsDialogEl = (
+    <ApplySectionFormationPatternsDialog
+      open={sectionFormationPatterns.dialogOpen}
+      sections={sectionFormationPatterns.sections}
+      onApply={sectionFormationPatterns.confirmApply}
+      onCancel={sectionFormationPatterns.dismissDialog}
+    />
+  );
+
   const flowLibraryDialogEl = useMemo(
     () =>
       project ? (
@@ -2774,6 +2791,12 @@ function EditorPageContent({
         sectionAutoKeyframes.requestApplyAiSectionKeyframes
       }
       aiSectionKeyframesAvailable={sectionAutoKeyframes.canOffer}
+      onApplySectionFormationPatterns={sectionFormationPatterns.openDialog}
+      sectionFormationPatternsAvailable={sectionFormationPatterns.canOffer}
+      playbackRate={project.playbackRate ?? 1}
+      onPlaybackRateChange={(rate) => {
+        setProjectSafe((p) => ({ ...p, playbackRate: rate }));
+      }}
       audioFileInputRef={editorAudioSession.audioFileInputRef}
       extractProgress={editorAudioSession.extractProgress}
       onPickAudio={editorAudioSession.onPickAudio}
@@ -3118,6 +3141,7 @@ function EditorPageContent({
       ) : null}
       <EditorPageLayout {...editorLayoutProps} />
       {aiSectionKeyframesDialogEl}
+      {sectionFormationPatternsDialogEl}
       {sectionAutoKeyframes.pendingOffer &&
       sectionAutoKeyframes.canOffer &&
       !sectionAutoKeyframes.confirmOpen ? (

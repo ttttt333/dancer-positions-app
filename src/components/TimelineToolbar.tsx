@@ -9,6 +9,11 @@ import { playbackEngine } from "../core/playbackEngine";
 import { btnSecondary } from "./stageButtonStyles";
 import { shell } from "../theme/choreoShell";
 import { useI18n } from "../i18n/I18nContext";
+import {
+  PRACTICE_PLAYBACK_RATES,
+  normalizePracticePlaybackRate,
+  usePracticePlaybackStore,
+} from "../store/practicePlaybackStore";
 
 /* ─── Neon glow helper ─── */
 const neonGlow = (c: string) =>
@@ -195,6 +200,19 @@ function IconSectionKeyframes() {
   );
 }
 
+function IconSectionFormations() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden style={{ display: "block" }}>
+      <circle cx="12" cy="7" r="2.2" fill="#f472b6" />
+      <circle cx="6.5" cy="14" r="2.2" fill="#a78bfa" />
+      <circle cx="17.5" cy="14" r="2.2" fill="#a78bfa" />
+      <circle cx="4.5" cy="19.5" r="1.8" fill="#38bdf8" />
+      <circle cx="12" cy="19.5" r="1.8" fill="#38bdf8" />
+      <circle cx="19.5" cy="19.5" r="1.8" fill="#38bdf8" />
+    </svg>
+  );
+}
+
 /** タイムライン上部ツールバー用（再生・波形周りの縦スペース節約） */
 export const TIMELINE_UI_SCALE = 1.2;
 export function tlPx(n: number): string {
@@ -311,6 +329,102 @@ const timelineToolbarBtn: CSSProperties = {
   borderRadius: tlPx(5),
   lineHeight: 1.2,
 };
+
+function PracticePlaybackControls({
+  viewMode,
+  playbackRate,
+  onPlaybackRateChange,
+  compact,
+}: {
+  viewMode: ChoreographyProjectJson["viewMode"];
+  playbackRate: number;
+  onPlaybackRateChange?: (rate: number) => void;
+  compact?: boolean;
+}) {
+  const countInEnabled = usePracticePlaybackStore((s) => s.countInEnabled);
+  const setCountInEnabled = usePracticePlaybackStore((s) => s.setCountInEnabled);
+  const rate = normalizePracticePlaybackRate(playbackRate);
+  const disabled = viewMode === "view";
+
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: compact ? 4 : 6,
+        flexShrink: 0,
+      }}
+    >
+      <button
+        type="button"
+        disabled={disabled}
+        title={
+          countInEnabled
+            ? "カウントイン ON（再生前に 5-6-7-8）"
+            : "カウントイン OFF"
+        }
+        aria-label="カウントイン"
+        aria-pressed={countInEnabled}
+        onClick={() => setCountInEnabled(!countInEnabled)}
+        style={{
+          ...timelineToolbarBtn,
+          padding: compact ? `${tlPx(2)} ${tlPx(6)}` : `${tlPx(3)} ${tlPx(8)}`,
+          fontSize: compact ? 10 : 11,
+          fontWeight: 700,
+          letterSpacing: "0.02em",
+          color: countInEnabled ? "#0f172a" : "#cbd5e1",
+          background: countInEnabled
+            ? "linear-gradient(180deg, #38bdf8, #0ea5e9)"
+            : "rgba(15,23,42,0.9)",
+          borderColor: countInEnabled ? "#38bdf8" : shell.border,
+          opacity: disabled ? 0.45 : 1,
+        }}
+      >
+        5-6-7-8
+      </button>
+      {onPlaybackRateChange ? (
+        <label
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            fontSize: compact ? 10 : 11,
+            color: "#94a3b8",
+            fontWeight: 600,
+          }}
+          title="ピッチ固定の再生速度"
+        >
+          <span aria-hidden>速度</span>
+          <select
+            value={String(rate)}
+            disabled={disabled}
+            aria-label="再生速度（ピッチ固定）"
+            onChange={(e) => {
+              const next = Number(e.target.value);
+              if (Number.isFinite(next)) onPlaybackRateChange(next);
+            }}
+            style={{
+              borderRadius: 6,
+              border: `1px solid ${shell.border}`,
+              background: "rgba(15,23,42,0.95)",
+              color: "#e2e8f0",
+              fontSize: compact ? 10 : 11,
+              fontWeight: 700,
+              padding: compact ? "2px 4px" : "3px 6px",
+              cursor: disabled ? "not-allowed" : "pointer",
+            }}
+          >
+            {PRACTICE_PLAYBACK_RATES.map((r) => (
+              <option key={r} value={String(r)}>
+                {r === 1 ? "1.0x" : `${r}x`}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+    </span>
+  );
+}
 
 /** 上部ドック用：細い円枠＋白の巻き戻し系矢印（Redo は左右反転） */
 const WAVE_HISTORY_ARROW = "rgba(255, 255, 255, 0.96)";
@@ -605,6 +719,12 @@ export type TimelineToolbarProps = {
   /** AI解析セクション頭へキーフレームを配置 */
   onApplyAiSectionKeyframes?: () => void;
   aiSectionKeyframesAvailable?: boolean;
+  /** セクション種別ごとの隊形一括適用 */
+  onApplySectionFormationPatterns?: () => void;
+  sectionFormationPatternsAvailable?: boolean;
+  /** 練習用再生速度（ピッチ固定） */
+  playbackRate?: number;
+  onPlaybackRateChange?: (rate: number) => void;
   onUndo?: () => void;
   onRedo?: () => void;
   undoDisabled: boolean;
@@ -638,6 +758,10 @@ export function TimelineToolbar({
   onOpenAudioImport,
   onApplyAiSectionKeyframes,
   aiSectionKeyframesAvailable = false,
+  onApplySectionFormationPatterns,
+  sectionFormationPatternsAvailable = false,
+  playbackRate = 1,
+  onPlaybackRateChange,
   onUndo,
   onRedo,
   undoDisabled,
@@ -648,6 +772,7 @@ export function TimelineToolbar({
   onOpenFormationChange,
 }: TimelineToolbarProps) {
   const { t } = useI18n();
+  const isCountingIn = usePracticePlaybackStore((s) => s.isCountingIn);
   const waveZoomDisabled = duration <= 0;
   const waveZoomLabels = {
     zoomInTitle: t("editor.layout.waveZoomIn"),
@@ -866,10 +991,22 @@ export function TimelineToolbar({
                   justifyContent: "center",
                 }}
                 onClick={togglePlay}
-                aria-label={isPlaying ? "一時停止" : "再生"}
-                title={isPlaying ? "一時停止" : "再生"}
+                aria-label={
+                  isCountingIn
+                    ? "カウントインを中止"
+                    : isPlaying
+                      ? "一時停止"
+                      : "再生"
+                }
+                title={
+                  isCountingIn
+                    ? "カウントイン中（再押下で中止）"
+                    : isPlaying
+                      ? "一時停止"
+                      : "再生"
+                }
               >
-                {isPlaying ? <IconPause /> : <IconPlay />}
+                {isPlaying || isCountingIn ? <IconPause /> : <IconPlay />}
               </button>
               <button
                 type="button"
@@ -951,8 +1088,32 @@ export function TimelineToolbar({
                   <IconSectionKeyframes />
                 </button>
               ) : null}
+              {onApplySectionFormationPatterns &&
+              sectionFormationPatternsAvailable ? (
+                <button
+                  type="button"
+                  style={{
+                    ...timelineToolbarBtn,
+                    padding: `${tlPx(4)} ${tlPx(8)}`,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  disabled={viewMode === "view"}
+                  title="セクション隊形を一括適用"
+                  aria-label="セクション隊形を一括適用"
+                  onClick={onApplySectionFormationPatterns}
+                >
+                  <IconSectionFormations />
+                </button>
+              ) : null}
+              <PracticePlaybackControls
+                viewMode={viewMode}
+                playbackRate={playbackRate}
+                onPlaybackRateChange={onPlaybackRateChange}
+              />
               <PlaybackClockReadout
-                isPlaying={isPlaying}
+                isPlaying={isPlaying || isCountingIn}
                 idleTimeSec={currentTime}
                 durationSec={duration}
                 monoFontSizePx={13 * TIMELINE_UI_SCALE}
@@ -1056,10 +1217,22 @@ export function TimelineToolbar({
             }}
             disabled={viewMode === "view"}
             onClick={togglePlay}
-            aria-label={isPlaying ? "一時停止" : "再生"}
-            title={isPlaying ? "一時停止" : "再生"}
+            aria-label={
+              isCountingIn
+                ? "カウントインを中止"
+                : isPlaying
+                  ? "一時停止"
+                  : "再生"
+            }
+            title={
+              isCountingIn
+                ? "カウントイン中（再押下で中止）"
+                : isPlaying
+                  ? "一時停止"
+                  : "再生"
+            }
           >
-            {isPlaying ? <IconPause /> : <IconPlay />}
+            {isPlaying || isCountingIn ? <IconPause /> : <IconPlay />}
           </button>
           <button
             type="button"
@@ -1119,6 +1292,19 @@ export function TimelineToolbar({
               <IconSectionKeyframes />
             </button>
           ) : null}
+          {onApplySectionFormationPatterns &&
+          sectionFormationPatternsAvailable ? (
+            <button
+              type="button"
+              style={{ ...mobileScrollBtn, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+              disabled={viewMode === "view"}
+              title="セクション隊形を一括適用"
+              aria-label="セクション隊形を一括適用"
+              onClick={onApplySectionFormationPatterns}
+            >
+              <IconSectionFormations />
+            </button>
+          ) : null}
           {onUndo ? (
             <button
               type="button"
@@ -1172,9 +1358,15 @@ export function TimelineToolbar({
             </button>
           ) : null}
         </div>
-        <div style={{ flexShrink: 0, marginLeft: tlPx(2) }}>
+        <div style={{ flexShrink: 0, marginLeft: tlPx(2), display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <PracticePlaybackControls
+            viewMode={viewMode}
+            playbackRate={playbackRate}
+            onPlaybackRateChange={onPlaybackRateChange}
+            compact
+          />
           <PlaybackClockReadout
-            isPlaying={isPlaying}
+            isPlaying={isPlaying || isCountingIn}
             idleTimeSec={currentTime}
             durationSec={duration}
             monoFontSizePx={10.5 * TIMELINE_UI_SCALE}
@@ -1293,10 +1485,22 @@ export function TimelineToolbar({
             justifyContent: "center",
           }}
           onClick={togglePlay}
-          aria-label={isPlaying ? "一時停止" : "再生"}
-          title={isPlaying ? "一時停止" : "再生"}
+          aria-label={
+            isCountingIn
+              ? "カウントインを中止"
+              : isPlaying
+                ? "一時停止"
+                : "再生"
+          }
+          title={
+            isCountingIn
+              ? "カウントイン中（再押下で中止）"
+              : isPlaying
+                ? "一時停止"
+                : "再生"
+          }
         >
-          {isPlaying ? <IconPause /> : <IconPlay />}
+          {isPlaying || isCountingIn ? <IconPause /> : <IconPlay />}
         </button>
         <button
           type="button"
@@ -1388,8 +1592,35 @@ export function TimelineToolbar({
             <IconSectionKeyframes />
           </button>
         ) : null}
+        {onApplySectionFormationPatterns &&
+        sectionFormationPatternsAvailable ? (
+          <button
+            type="button"
+            style={{
+              ...timelineToolbarBtn,
+              padding: `${tlPx(4)} ${tlPx(9)}`,
+              minHeight: tlPx(28),
+              flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            disabled={viewMode === "view"}
+            title="セクション隊形を一括適用"
+            aria-label="セクション隊形を一括適用"
+            onClick={onApplySectionFormationPatterns}
+          >
+            <IconSectionFormations />
+          </button>
+        ) : null}
+        <PracticePlaybackControls
+          viewMode={viewMode}
+          playbackRate={playbackRate}
+          onPlaybackRateChange={onPlaybackRateChange}
+          compact
+        />
         <PlaybackClockReadout
-          isPlaying={isPlaying}
+          isPlaying={isPlaying || isCountingIn}
           idleTimeSec={currentTime}
           durationSec={duration}
           monoFontSizePx={12 * TIMELINE_UI_SCALE}
