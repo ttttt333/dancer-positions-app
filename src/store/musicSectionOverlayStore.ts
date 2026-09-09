@@ -34,6 +34,11 @@ type MusicSectionOverlayState = {
     rawTime: number,
     opts?: { realignGrid?: boolean; skipMagnet?: boolean }
   ) => void;
+  /** セクション種別／ラベルを差し替え（AI提案のカテゴリ変更） */
+  updateSegmentCategory: (
+    index: number,
+    next: { sectionType: MusicSectionOverlaySegment["sectionType"]; label: string; color: string }
+  ) => void;
   /** ダウンビート位相を deltaSec ずらす（現場ナッジ） */
   nudgeBeatGrid: (deltaSec: number) => void;
   clear: () => void;
@@ -45,9 +50,26 @@ function segmentsToAnalysisSections(
 ): AudioAnalysisResult["sections"] {
   return segments.map((seg, i) => {
     const prevSec = prev?.sections[i];
+    const mappedType =
+      seg.sectionType === "INTRO"
+        ? "intro"
+        : seg.sectionType === "VERSE"
+          ? "verse"
+          : seg.sectionType === "PRE_CHORUS"
+            ? "pre_chorus"
+            : seg.sectionType === "CHORUS" ||
+                seg.sectionType === "FINAL_CHORUS" ||
+                seg.sectionType === "DROP"
+              ? "chorus"
+              : seg.sectionType === "OUTRO"
+                ? "outro"
+                : seg.sectionType === "BREAK" ||
+                    seg.sectionType === "BRIDGE"
+                  ? "bridge"
+                  : prevSec?.type ?? "unknown";
     return {
       id: prevSec?.id ?? `seg-${i}-${seg.startSec}`,
-      type: prevSec?.type ?? "unknown",
+      type: mappedType as AudioAnalysisResult["sections"][number]["type"],
       label: seg.label,
       startTime: seg.startSec,
       endTime: seg.endSec,
@@ -171,6 +193,37 @@ export const useMusicSectionOverlayStore = create<MusicSectionOverlayState>(
           }
         : null;
       set({ segments: next, analysis, beats, userEdited: true });
+    },
+    updateSegmentCategory: (index, nextMeta) => {
+      const state = get();
+      const seg = state.segments[index];
+      if (!seg) return;
+      const next = state.segments.map((s, i) =>
+        i === index
+          ? {
+              ...s,
+              sectionType: nextMeta.sectionType,
+              label: nextMeta.label,
+              color: nextMeta.color,
+            }
+          : s
+      );
+      const analysis = state.analysis
+        ? {
+            ...state.analysis,
+            sections: segmentsToAnalysisSections(next, state.analysis).map(
+              (sec, i) =>
+                i === index
+                  ? {
+                      ...sec,
+                      label: nextMeta.label,
+                      color: nextMeta.color,
+                    }
+                  : sec
+            ),
+          }
+        : null;
+      set({ segments: next, analysis, userEdited: true });
     },
     nudgeBeatGrid: (deltaSec) => {
       const state = get();

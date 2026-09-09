@@ -640,7 +640,8 @@ function EditorPageContent({
   const sectionAutoKeyframes = useSectionAutoKeyframes({
     project,
     setProject: setProjectSafe,
-    enabled: !choreoPublicView,
+    /** 自動配置はしない。AI提案フロー／手動ボタンからのみ */
+    enabled: false,
     publicShareView: choreoPublicView,
   });
   const sectionFormationPatterns = useSectionFormationPatterns({

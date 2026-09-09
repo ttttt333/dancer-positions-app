@@ -25,6 +25,7 @@ import {
   repairDegenerateSections,
 } from "./cleanseSections";
 import { refineSectionsForEditTrack } from "./editTrackRefine";
+import type { TrackAnalysisMode } from "./cueCategories";
 import {
   inferTempoFromEightTimes,
   logAudioAnalysisEngine,
@@ -32,7 +33,13 @@ import {
 
 export function publishAudioAnalysisOverlay(
   analysis: AudioAnalysisResult,
-  opts?: { applySnap?: boolean; force?: boolean; peaks?: number[] }
+  opts?: {
+    applySnap?: boolean;
+    force?: boolean;
+    peaks?: number[];
+    /** edit のときのみ無音カット等の EDIT 精錬を適用。未指定は peaks があれば適用（後方互換） */
+    trackMode?: TrackAnalysisMode;
+  }
 ): void {
   if (useMusicSectionOverlayStore.getState().userEdited && !opts?.force) {
     useMusicSectionOverlayStore.getState().setAnalyzing(false);
@@ -48,7 +55,12 @@ export function publishAudioAnalysisOverlay(
     duration: final.duration,
     bpm,
   });
-  if (opts?.peaks && opts.peaks.length > 0) {
+  // EDIT 明示、または互換のため trackMode 未指定＋peaks → 精錬。clean はスキップ
+  if (
+    opts?.peaks &&
+    opts.peaks.length > 0 &&
+    opts.trackMode !== "clean"
+  ) {
     sections = refineSectionsForEditTrack({
       sections,
       peaks: opts.peaks,
@@ -131,8 +143,9 @@ export function publishSnappedOverlayFromSources(opts: {
   peaks?: number[];
   /** true のとき手動編集済みでも上書き（AI提案など明示操作） */
   force?: boolean;
+  trackMode?: TrackAnalysisMode;
 }): AudioAnalysisResult | null {
-  const { duration, sourceLabel, force, peaks } = opts;
+  const { duration, sourceLabel, force, peaks, trackMode } = opts;
 
   if (
     useMusicSectionOverlayStore.getState().userEdited &&
@@ -152,6 +165,7 @@ export function publishSnappedOverlayFromSources(opts: {
       applySnap: false,
       force,
       peaks,
+      trackMode,
     });
     return analysis;
   }
@@ -222,6 +236,7 @@ export function publishSnappedOverlayFromSources(opts: {
     applySnap: false,
     force,
     peaks,
+    trackMode,
   });
   return analysis;
 }

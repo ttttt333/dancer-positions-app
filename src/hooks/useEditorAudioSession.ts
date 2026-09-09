@@ -118,7 +118,8 @@ export function useEditorAudioSession({
   });
 
   useAutoAudioAnalysis({
-    enabled: true,
+    /** 通常時は解析しない。AI提案ダイアログからの明示操作のみ */
+    enabled: false,
     audioSupabasePath,
     trackTitle: pieceTitle,
     publicShareView,
