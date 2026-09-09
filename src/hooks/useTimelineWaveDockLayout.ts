@@ -6,6 +6,7 @@ import {
 import {
   estimateWideTopDockToolbarChromePx,
   estimateWideTopDockWaveStripChromePx,
+  PC_WIDE_INLINE_PLAYBACK_CHROME_PX,
   TOP_DOCK_INNER_BOTTOM_INSET_PX,
   TOP_DOCK_WAVE_STAGE_RESIZER_PX,
   WAVE_CANVAS_H_PC_WIDE_DEFAULT,
@@ -57,15 +58,25 @@ export function resolveWaveCanvasHeightInTopDock(
   const waveStripChrome = wideWorkbench
     ? estimateWideTopDockWaveStripChromePx()
     : NARROW_WAVE_STRIP_CHROME_PX;
+  const playbackChrome = wideWorkbench ? PC_WIDE_INLINE_PLAYBACK_CHROME_PX : 0;
   const fitMargin = wideWorkbench ? WAVE_TOP_DOCK_CANVAS_FIT_MARGIN_PX : 0;
   const available = Math.round(
-    innerH - toolbarChrome - waveStripChrome - WAVE_STRIP_BORDER_PX - fitMargin
+    innerH -
+      toolbarChrome -
+      waveStripChrome -
+      WAVE_STRIP_BORDER_PX -
+      fitMargin -
+      playbackChrome
   );
   const preferred = wideWorkbench
     ? WAVE_CANVAS_H_PC_WIDE_DEFAULT
     : WAVE_CANVAS_H_MIN;
-  const canvasH = Math.min(available, preferred);
-  return Math.min(WAVE_CANVAS_H_MAX, Math.max(WAVE_CANVAS_H_MIN, canvasH));
+  // ドックを伸ばした分はキャンバスに渡す（preferred で頭打ちにしない）
+  const canvasH = Math.min(
+    WAVE_CANVAS_H_MAX,
+    Math.max(WAVE_CANVAS_H_MIN, available > 0 ? available : preferred)
+  );
+  return canvasH;
 }
 
 /**

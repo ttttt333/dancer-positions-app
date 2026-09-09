@@ -545,27 +545,31 @@ export function NeonIconPanel({
           <button
             type="button"
             title={t("editor.comp.k034")}
+            aria-label={t("editor.comp.k034")}
             onPointerDown={() => onCollapsePointerDown?.()}
             onClick={onCollapseToggle}
             style={{
-              width: 22,
-              height: 22,
-              borderRadius: 6,
-              background: "rgba(99,102,241,0.10)",
-              border: "1px solid rgba(99,102,241,0.25)",
-              color: "rgba(192,132,252,0.7)",
+              height: 26,
+              minWidth: 26,
+              padding: "0 8px",
+              borderRadius: 8,
+              background: "rgba(212,175,55,0.12)",
+              border: "1px solid rgba(212,175,55,0.4)",
+              color: "#e8d48b",
               cursor: "pointer",
-              display: "flex",
+              display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 13,
+              gap: 4,
+              fontSize: 11,
+              fontWeight: 700,
               lineHeight: 1,
-              padding: 0,
               flexShrink: 0,
               transition: "background 0.15s",
             }}
           >
-            ›
+            <span aria-hidden>›</span>
+            <span>閉じる</span>
           </button>
         </div>
       )}

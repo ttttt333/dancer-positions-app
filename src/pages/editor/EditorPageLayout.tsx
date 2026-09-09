@@ -519,7 +519,7 @@ export function EditorPageLayout(props: EditorLayoutProps) {
             minWidth: 0,
             height: wideBottomDockPx,
             position: "relative",
-            overflow: "visible",
+            overflow: "hidden",
             background: "transparent",
             marginTop: 8,
             marginBottom: "max(10px, env(safe-area-inset-bottom, 0px))",

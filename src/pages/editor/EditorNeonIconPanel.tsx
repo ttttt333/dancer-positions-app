@@ -39,7 +39,17 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
   const t = props.t as (key: string, params?: Record<string, string | number>) => string;
 
   return (
-    <div className="editor-neon-icon-panel-wrapper"><NeonIconPanel
+    <div
+      className="editor-neon-icon-panel-wrapper"
+      style={{
+        display: "flex",
+        flexShrink: 0,
+        height: "100%",
+        minHeight: 0,
+        alignSelf: "stretch",
+      }}
+    >
+      <NeonIconPanel
       {...choreoToolbarSharedProps}
       onOpenStageShapePicker={() => setStageAreaSettingsOpen(true)}
       onUndo={undo}
@@ -76,7 +86,7 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
       onOpenVideoExport={() => useVideoExportUiStore.getState().openSheet()}
       collapsed={rightPaneCollapsed && wideEditorLayout}
       onCollapsePointerDown={
-        wideEditorLayout && !rightPaneCollapsed
+        wideEditorLayout
           ? () => abortTimelineWavePointerGestures()
           : undefined
       }
@@ -84,11 +94,12 @@ export function EditorNeonIconPanel(props: EditorLayoutProps) {
         wideEditorLayout
           ? () =>
               setRightPaneCollapsed((v) => {
-                if (!v) abortTimelineWavePointerGestures();
+                abortTimelineWavePointerGestures();
                 return !v;
               })
           : undefined
       }
-    /></div>
+    />
+    </div>
   );
 }

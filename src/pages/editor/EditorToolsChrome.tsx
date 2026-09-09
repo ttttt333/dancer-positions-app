@@ -65,7 +65,7 @@ export function EditorToolsChrome(props: EditorLayoutProps) {
           onOpenAISuggest={() => setAiSuggestOpen(true)}
           onOpenCueSettings={() => setAddCueDialogOpen(true)}
           onOpenAudioImport={openAudioImport}
-          onOpenMore={() => setRightPaneCollapsed(false)}
+          onOpenMore={() => setRightPaneCollapsed((v) => !v)}
         />
       </>
     );
@@ -82,11 +82,12 @@ export function EditorToolsChrome(props: EditorLayoutProps) {
           onRedo={redo}
           undoDisabled={stageUndoDisabled}
           redoDisabled={stageRedoDisabled}
-          onSave={saveStageToFormationBox}
-          onOpenMore={() => setRightPaneCollapsed(false)}
+          onSave={() => setFlowLibraryOpen(true)}
+          onOpenMore={() => setRightPaneCollapsed((v) => !v)}
+          moreActive={!rightPaneCollapsed}
           showHome
         />
-        {!rightPaneCollapsed ? <EditorNeonIconPanel {...props} /> : null}
+        <EditorNeonIconPanel {...props} />
       </>
     );
   }

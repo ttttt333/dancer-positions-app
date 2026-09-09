@@ -196,23 +196,23 @@ export function useWaveCanvasRenderer(args: UseWaveCanvasRendererArgs) {
       ) {
         waveViewStartOverrideRef.current = viewStart;
       }
-      g.fillStyle = "#0f172a";
+      g.fillStyle = "#0b1224";
       g.fillRect(0, 0, w, h);
       if (d > 0 && trimS > 0) {
         const xTrim = waveTimeToExtentX(trimS, viewStart, viewSpan, w);
         if (xTrim > 0 && xTrim < w) {
-          g.fillStyle = "rgba(15,23,42,0.55)";
+          g.fillStyle = "rgba(11,18,36,0.55)";
           g.fillRect(0, 0, xTrim, h);
         }
       }
       if (d > 0 && trimE != null && trimE < d) {
         const xTrim = waveTimeToExtentX(trimE, viewStart, viewSpan, w);
         if (xTrim > 0 && xTrim < w) {
-          g.fillStyle = "rgba(15,23,42,0.55)";
+          g.fillStyle = "rgba(11,18,36,0.55)";
           g.fillRect(xTrim, 0, w - xTrim, h);
         }
       }
-      g.fillStyle = "#6366f1";
+      g.fillStyle = "#93c5fd";
       const peaksDurationSec =
         useWavePeaksStore.getState().peaksDurationSec ?? d;
       drawWavePeaksColumns(

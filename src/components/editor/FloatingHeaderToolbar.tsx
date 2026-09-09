@@ -19,6 +19,8 @@ export type FloatingHeaderToolbarProps = {
   redoDisabled?: boolean;
   onSave?: () => void;
   onOpenMore?: () => void;
+  /** 「その他」が開いているとき強調 */
+  moreActive?: boolean;
   /** ホームを内蔵するか（false なら別置き） */
   showHome?: boolean;
 };
@@ -46,12 +48,14 @@ function Btn({
   label,
   disabled,
   onClick,
+  active,
   children,
 }: {
   title: string;
   label?: string;
   disabled?: boolean;
   onClick?: () => void;
+  active?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -59,12 +63,17 @@ function Btn({
       type="button"
       title={title}
       aria-label={title}
+      aria-pressed={active ? true : undefined}
       disabled={disabled}
       onClick={onClick}
       style={{
         ...btn,
         opacity: disabled ? 0.42 : 1,
         cursor: disabled ? "not-allowed" : "pointer",
+        background: active
+          ? "rgba(212,175,55,0.22)"
+          : btn.background,
+        border: active ? editorGlass.borderGold : btn.border,
       }}
     >
       {children}
@@ -173,6 +182,7 @@ export function FloatingHeaderToolbar({
   redoDisabled,
   onSave,
   onOpenMore,
+  moreActive = false,
   showHome = true,
 }: FloatingHeaderToolbarProps) {
   const { t } = useI18n();
@@ -239,14 +249,19 @@ export function FloatingHeaderToolbar({
           <IconRedo />
         </Btn>
         <Btn
-          title={t("editor.comp.k096")}
+          title={t("editor.comp.k049")}
           label="保存"
           disabled={disabled}
           onClick={onSave}
         >
           <IconSave />
         </Btn>
-        <Btn title="その他" disabled={disabled} onClick={onOpenMore}>
+        <Btn
+          title={moreActive ? t("editor.comp.k034") : "その他"}
+          disabled={disabled}
+          onClick={onOpenMore}
+          active={moreActive}
+        >
           <IconMore />
         </Btn>
       </div>

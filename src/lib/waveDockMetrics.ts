@@ -66,14 +66,18 @@ export function estimateWideTopDockWaveChromePx(): number {
   );
 }
 
-/** PC ワイド上部ドックの波形キャンバス既定高さ（px） */
-export const WAVE_CANVAS_H_PC_WIDE_DEFAULT = 50;
+/** PC ワイド上部／下部ドックの波形キャンバス既定高さ（px） */
+export const WAVE_CANVAS_H_PC_WIDE_DEFAULT = 88;
+
+/** PC ワイド: ドック内インライン再生バーの高さ目安（px） */
+export const PC_WIDE_INLINE_PLAYBACK_CHROME_PX = 56;
 
 /** PC ワイド上部ドックの既定外枠高さ（px）— 再生行・目盛り・波形・下リサイザー */
 export const TOP_DOCK_HEIGHT_WIDE_PX =
   estimateWideTopDockWaveChromePx() +
   WAVE_CANVAS_H_PC_WIDE_DEFAULT +
-  TOP_DOCK_WAVE_STAGE_RESIZER_PX;
+  TOP_DOCK_WAVE_STAGE_RESIZER_PX +
+  PC_WIDE_INLINE_PLAYBACK_CHROME_PX;
 
 /** リサイズ時に波形が潰れない最小外枠高さ（px） */
 export const TOP_DOCK_ROW_MIN_WIDE_PX = TOP_DOCK_HEIGHT_WIDE_PX;

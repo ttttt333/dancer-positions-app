@@ -33,6 +33,11 @@ type Props = {
    * true のとき bottomOffsetPx は無視。
    */
   anchorAboveParent?: boolean;
+  /**
+   * ドック内インライン配置（ステージに被らない）。
+   * true のとき absolute ではなく relative で中央寄せ。
+   */
+  inlineInDock?: boolean;
 };
 
 const iconBtn: CSSProperties = {
@@ -166,6 +171,7 @@ export function PlaybackFloatingBar({
   onPlaybackRateChange,
   bottomOffsetPx = 0,
   anchorAboveParent = false,
+  inlineInDock = false,
 }: Props) {
   const isCountingIn = usePracticePlaybackStore((s) => s.isCountingIn);
   const countInEnabled = usePracticePlaybackStore((s) => s.countInEnabled);
@@ -178,22 +184,33 @@ export function PlaybackFloatingBar({
     <div
       role="toolbar"
       aria-label="再生コントロール"
-      style={{
-        position: "absolute",
-        left: "50%",
-        ...(anchorAboveParent
+      style={
+        inlineInDock
           ? {
-              bottom: "100%",
-              marginBottom: 12,
+              position: "relative",
+              alignSelf: "center",
+              zIndex: 5,
+              pointerEvents: "auto",
+              maxWidth: "calc(100% - 16px)",
+              flexShrink: 0,
             }
           : {
-              bottom: `calc(${bottomOffsetPx}px + ${editorGlass.safeBottom})`,
-            }),
-        transform: "translateX(-50%)",
-        zIndex: 40,
-        pointerEvents: "auto",
-        maxWidth: "calc(100% - 24px)",
-      }}
+              position: "absolute",
+              left: "50%",
+              ...(anchorAboveParent
+                ? {
+                    bottom: "100%",
+                    marginBottom: 12,
+                  }
+                : {
+                    bottom: `calc(${bottomOffsetPx}px + ${editorGlass.safeBottom})`,
+                  }),
+              transform: "translateX(-50%)",
+              zIndex: 40,
+              pointerEvents: "auto",
+              maxWidth: "calc(100% - 24px)",
+            }
+      }
     >
       <div style={{ ...glassPillStyle, gap: 6 }}>
         <button

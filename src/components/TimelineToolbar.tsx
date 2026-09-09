@@ -1044,8 +1044,8 @@ export function TimelineToolbar({
                     justifyContent: "center",
                   }}
                   disabled={viewMode === "view"}
-                  title={t("editor.comp.k095")}
-                  aria-label={t("editor.comp.k052")}
+                  title={t("editor.comp.k049")}
+                  aria-label={t("editor.comp.k049")}
                   onClick={onSave}
                 >
                   <IconSave />
@@ -1260,8 +1260,8 @@ export function TimelineToolbar({
               type="button"
               style={{ ...mobileScrollBtn, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
               disabled={viewMode === "view"}
-              title={t("editor.comp.k095")}
-              aria-label={t("editor.comp.k052")}
+              title={t("editor.comp.k049")}
+              aria-label={t("editor.comp.k049")}
               onClick={onSave}
             >
               <IconSave />
@@ -1554,8 +1554,8 @@ export function TimelineToolbar({
               justifyContent: "center",
             }}
             disabled={viewMode === "view"}
-            title={t("editor.comp.k095")}
-            aria-label={t("editor.comp.k052")}
+            title={t("editor.comp.k049")}
+            aria-label={t("editor.comp.k049")}
             onClick={onSave}
           >
             <IconSave />

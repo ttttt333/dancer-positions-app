@@ -111,6 +111,30 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
           onOpenFormationChange={p.onOpenFormationChange}
           floatingChrome={floatingChrome}
         />
+        {floatingChrome ? (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              padding: "4px 8px 6px",
+              flexShrink: 0,
+            }}
+          >
+            <PlaybackFloatingBar
+              viewMode={p.viewMode}
+              duration={p.duration}
+              isPlaying={p.isPlaying}
+              currentTime={p.currentTime}
+              togglePlay={p.togglePlay}
+              stopPlayback={p.stopPlayback}
+              seekForward5Sec={p.seekForward5Sec}
+              seekBackward5Sec={p.seekBackward5Sec}
+              playbackRate={p.playbackRate}
+              onPlaybackRateChange={p.onPlaybackRateChange}
+              inlineInDock
+            />
+          </div>
+        ) : null}
         <div
           style={{
             flex: p.compactTopDock ? "1 1 auto" : undefined,
@@ -178,21 +202,6 @@ export function TimelinePanelLayout(p: TimelinePanelLayoutProps) {
         saveCueFormationToBoxList={p.saveCueFormationToBoxList}
         onOpenPathEditor={p.onOpenPathEditor}
       />
-      {floatingChrome ? (
-        <PlaybackFloatingBar
-          viewMode={p.viewMode}
-          duration={p.duration}
-          isPlaying={p.isPlaying}
-          currentTime={p.currentTime}
-          togglePlay={p.togglePlay}
-          stopPlayback={p.stopPlayback}
-          seekForward5Sec={p.seekForward5Sec}
-          seekBackward5Sec={p.seekBackward5Sec}
-          playbackRate={p.playbackRate}
-          onPlaybackRateChange={p.onPlaybackRateChange}
-          anchorAboveParent
-        />
-      ) : null}
     </div>
   );
 }
