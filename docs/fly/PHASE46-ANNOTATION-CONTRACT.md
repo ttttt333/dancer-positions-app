@@ -41,3 +41,15 @@ Raw annotations are never deleted when consensus is formed.
 ## Schema source of truth
 
 `src/lib/fly/realSong/types.ts` + validators in `validation.ts`
+
+## Operational SOP (binding)
+
+**How to annotate** (Beat / Downbeat / Section / 8-count / musical_change HIGH / Human-first):
+
+→ [`PHASE46-ANNOTATION-SOP.md`](./PHASE46-ANNOTATION-SOP.md)
+
+## UI status
+
+FLY Real-Song music GT **UI is not implemented**.  
+Do not use Formation `AnnotationWorkbenchPage` for this GT.  
+Stage A path: local waveform + JSON conforming to `RealSongAnnotation`.

@@ -57,8 +57,18 @@ Selecting the first **20 songs by difficulty matrix** matters more than collecti
 
 See `PHASE46-DATASET.md`.
 
-## Module isolation
+## Human GT sequence (locked — prefer people over code)
 
+1. **Confirm 20 tracks** filling the matrix  
+2. **Local authorized audio** → sha256 → manifest (no audio in git)  
+3. **Human-first annotation** (SOP: `PHASE46-ANNOTATION-SOP.md`)  
+4. **Double-annotate** 002 / 005 / 010 / 013 → agreement → consensus  
+5. **Benchmark** librosa & Essentia vs Human GT  
+6. **Weakness** → Active Expansion (+10) — still **no** madmom / Fusion / Formation  
+
+After Stage A Benchmark: **Phase 4.6 Benchmark Review** before Phase 5.
+
+## Module isolation
 - Code: `src/lib/fly/realSong/` — **not** exported from `src/lib/fly/index.ts`
 - Fixtures: `fixtures/fly/real-song/`
 - Audio: local/private only (`fixtures/fly/real-song/audio/README.md`)
