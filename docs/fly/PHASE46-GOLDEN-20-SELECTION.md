@@ -7,7 +7,7 @@
 **Last Updated:** 2026-09-09  
 
 Local analyze-ready copies: `~/ChoreoCoreDatasets/fly-real-song/` (see `fixtures/fly/real-song/LOCAL_AUDIO.md`).  
-**009** audio was empty at ingest — replace before annotation.
+**20/20** audio hashed + mono WAV ready (009 replaced 2026-09-09).
 
 ---
 
