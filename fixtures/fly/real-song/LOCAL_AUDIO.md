@@ -21,9 +21,9 @@ Authorized Golden 20 files are normalized here:
 | `analysis/NNN.wav` | Stable PCM for listening / future offline analyzers |
 | `catalog.json` | Machine index |
 
-## Blocked
+## Status
 
-- **009 Get Ur Freak On** — Downloads source file was **0 bytes**. Replace the mp3, then re-run normalize script / ask agent to refresh hash + wav.
+- **20/20** ready (009 re-ingested after empty-file replace)
 
 ## Human-first
 
