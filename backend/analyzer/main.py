@@ -27,11 +27,13 @@ from services.all_in_one_structure import (
     AIO_VERSION,
     analyze_structure_aio,
 )
+from fly_music_intelligence.pipeline import attach_fly_meta
+from fly_music_intelligence.versions import version_bundle
 
 app = FastAPI(
-    title="ChoreoCore Song Analyzer",
+    title="ChoreoCore FLY Music Intelligence",
     version=ANALYZER_VERSION,
-    description="楽曲構造解析（All-In-One / chroma-SSM v2 / librosa v1）",
+    description="FLY Dance Music Intelligence（All-In-One / chroma-SSM / librosa）",
 )
 
 app.add_middleware(
@@ -88,6 +90,7 @@ async def health():
         "version": ANALYZER_VERSION,
         "structure_v2_version": STRUCTURE_V2_VERSION,
         "all_in_one_version": AIO_VERSION,
+        "fly": version_bundle(),
         "all_in_one_ready": has_replicate or aio_mock,
         "endpoints": [
             "/analyze",
@@ -145,8 +148,7 @@ async def analyze_structure_aio_route(req: AnalyzeRequest):
 @app.post("/analyze-structure")
 async def analyze_structure_v2(req: AnalyzeRequest):
     """
-    1) All-In-One（Replicate / mock）が使えればそれを返す（beats/downbeats 付き）
-    2) そうでない場合は chroma-SSM v2（ローカル librosa）にフォールバック
+    FLY 司令塔: All-In-One → chroma-SSM。StructureResultV2 互換 + fly メタ。
     """
     if not req.audio_url:
         raise HTTPException(status_code=400, detail="audio_url is required")
@@ -156,17 +158,19 @@ async def analyze_structure_v2(req: AnalyzeRequest):
         duration_hint=req.duration_hint,
     )
     if aio is not None and aio.get("sections"):
+        result = attach_fly_meta(aio, source="all-in-one")
         if req.audio_hash:
-            aio["audio_hash"] = req.audio_hash
-        return aio
+            result["audio_hash"] = req.audio_hash
+        return result
 
     tmp_path: Path | None = None
     try:
         tmp_path = await _download_audio_to_temp(req.audio_url)
-        result = analyze_structure(str(tmp_path))
-        if not result.get("source"):
-            result["source"] = "fly_song_structure_v2"
-        result.setdefault("analyzer_path", "api/v2/analyze-structure")
+        raw = analyze_structure(str(tmp_path))
+        if not raw.get("source"):
+            raw["source"] = "fly_song_structure_v2"
+        raw.setdefault("analyzer_path", "api/v2/analyze-structure")
+        result = attach_fly_meta(raw, source="chroma-ssm")
         if req.audio_hash:
             result["audio_hash"] = req.audio_hash
         return result
