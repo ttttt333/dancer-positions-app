@@ -92,7 +92,7 @@ export function StageDancerMarkerItem({
         height: 0,
         zIndex: zMark,
         pointerEvents: "none",
-        willChange: playbackOrPreview ? "transform" : undefined,
+        willChange: playbackOrPreview ? "left, top, transform" : undefined,
         opacity: pivotOpacityDimmed ? 0.38 : 1,
         transition: "opacity 200ms ease",
       }}

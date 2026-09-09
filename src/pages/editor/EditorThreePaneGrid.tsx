@@ -181,6 +181,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
   const shareLinksUrls = props.shareLinksUrls as never;
   const shortcutsHelpOpen = props.shortcutsHelpOpen as never;
   const showTopWaveDock = props.showTopWaveDock as never;
+  const showMotionArrows = props.showMotionArrows as never;
   const sortedCuesForEditor = props.sortedCuesForEditor as never;
   const stageAreaDraftHasMainFloor = props.stageAreaDraftHasMainFloor as never;
   const stageAreaPresetList = props.stageAreaPresetList as never;
@@ -920,7 +921,7 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                     hideStageFloorTextMarkup={choreoPublicView}
                     audienceEdgeOverride={audienceEdgeOverride}
                     trashDropEdge={mobileStackEditor ? "bottom" : "left"}
-                    showMotionArrows={false}
+                    showMotionArrows={Boolean(showMotionArrows)}
                     enablePinchViewport={
                       Boolean(mobileStackEditor) || Boolean(publicNarrowLayout)
                     }

@@ -652,6 +652,9 @@ function EditorPageContent({
   const analysisSectionCount = useMusicSectionOverlayStore(
     (s) => s.analysis?.sections.length ?? 0
   );
+  const analysisBpm = useMusicSectionOverlayStore((s) =>
+    s.analysis?.bpm && s.analysis.bpm > 0 ? s.analysis.bpm : null
+  );
 
   /** 閲覧共有: 作品データ取得直後から音源を先読み（パート選択を待たない） */
   useEffect(() => {
@@ -1091,9 +1094,10 @@ function EditorPageContent({
       currentTime,
       project.cues,
       project.formations,
-      project.activeFormationId
+      project.activeFormationId,
+      { bpm: analysisBpm }
     );
-  }, [project, currentTime, isPlaying, choreoPublicView]);
+  }, [project, currentTime, isPlaying, choreoPublicView, analysisBpm]);
 
   const interpolatedSetPieces = useMemo(() => {
     if (!project || project.cues.length === 0) return null;
@@ -1374,12 +1378,13 @@ function EditorPageContent({
         currentTime,
         project.cues,
         project.formations,
-        project.activeFormationId
+        project.activeFormationId,
+        { bpm: analysisBpm }
       );
     }
     const f = formationById.get(project.activeFormationId);
     return f?.dancers ?? null;
-  }, [project, isPlaying, stagePreviewDancers, selectedCue, currentTime, formationById]);
+  }, [project, isPlaying, stagePreviewDancers, selectedCue, currentTime, formationById, analysisBpm]);
 
   const browseSetPieces = useMemo(() => {
     if (!project || isPlaying) return null;

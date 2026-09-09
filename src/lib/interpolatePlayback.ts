@@ -6,6 +6,7 @@ import type {
 } from "../types/choreography";
 import { sortCuesByStart } from "../core/timelineController";
 import { lerpDancersAcrossGap } from "./gapDancerInterpolation";
+import { resolveTransitionWindow } from "./formation/interpolation";
 
 function formationById(
   formations: Formation[],
@@ -41,6 +42,7 @@ type InterpCache = {
   cuesRef: Cue[];
   formationsRef: Formation[];
   fallbackId: string;
+  bpm: number | null;
   beforeFirst: DancerSpot[];
   afterLast: DancerSpot[];
   holds: HoldSeg[];
@@ -49,10 +51,16 @@ type InterpCache = {
 
 let cache: InterpCache | null = null;
 
+export type DancersAtTimeOptions = {
+  /** 暗黙遷移の秒数計算に使う BPM（未指定時 120） */
+  bpm?: number | null;
+};
+
 function buildCache(
   cues: Cue[],
   formations: Formation[],
-  fallbackFormationId: string
+  fallbackFormationId: string,
+  bpm: number | null
 ): InterpCache {
   const sorted = sortCuesByStart(cues);
   const fb = formationById(formations, fallbackFormationId);
@@ -60,20 +68,50 @@ function buildCache(
   const gaps: GapSeg[] = [];
 
   for (let i = 0; i < sorted.length; i++) {
-    const cur = sorted[i];
+    const cur = sorted[i]!;
+    const next = sorted[i + 1];
     const f = formationById(formations, cur.formationId);
+    const dancers = roundSpots(f?.dancers ?? []);
+
+    if (!next) {
+      holds.push({
+        t0: cur.tStartSec,
+        t1: cur.tEndSec,
+        dancers,
+      });
+      continue;
+    }
+
+    const win = resolveTransitionWindow({
+      prevStartSec: cur.tStartSec,
+      prevEndSec: cur.tEndSec,
+      nextStartSec: next.tStartSec,
+      moveInSec: next.moveInSec,
+      bpm,
+    });
+
     holds.push({
       t0: cur.tStartSec,
-      t1: cur.tEndSec,
-      dancers: roundSpots(f?.dancers ?? []),
+      t1: win.holdEndSec,
+      dancers,
     });
-    const next = sorted[i + 1];
-    if (next && next.tStartSec > cur.tEndSec) {
-      const f0 = formationById(formations, cur.formationId);
-      const f1 = formationById(formations, next.formationId);
+
+    const f0 = formationById(formations, cur.formationId);
+    const f1 = formationById(formations, next.formationId);
+    if (win.arrivalSec > win.holdEndSec + 1e-4) {
       gaps.push({
-        g0: cur.tEndSec,
-        g1: next.tStartSec,
+        g0: win.holdEndSec,
+        g1: win.arrivalSec,
+        from: f0?.dancers ?? [],
+        to: f1?.dancers ?? [],
+        route: next.gapApproachFromPrev,
+        customPaths: next.dancerCustomPaths,
+      });
+    } else {
+      // 窓が潰れた場合は gaps[i] を空けるためプレースホルダ無し（holds と index 対応は gaps[i] optional）
+      gaps.push({
+        g0: win.holdEndSec,
+        g1: win.holdEndSec,
         from: f0?.dancers ?? [],
         to: f1?.dancers ?? [],
         route: next.gapApproachFromPrev,
@@ -103,6 +141,7 @@ function buildCache(
     cuesRef: cues,
     formationsRef: formations,
     fallbackId: fallbackFormationId,
+    bpm,
     beforeFirst,
     afterLast,
     holds,
@@ -113,17 +152,19 @@ function buildCache(
 function getCache(
   cues: Cue[],
   formations: Formation[],
-  fallbackFormationId: string
+  fallbackFormationId: string,
+  bpm: number | null
 ): InterpCache {
   if (
     cache &&
     cache.cuesRef === cues &&
     cache.formationsRef === formations &&
-    cache.fallbackId === fallbackFormationId
+    cache.fallbackId === fallbackFormationId &&
+    cache.bpm === bpm
   ) {
     return cache;
   }
-  cache = buildCache(cues, formations, fallbackFormationId);
+  cache = buildCache(cues, formations, fallbackFormationId, bpm);
   return cache;
 }
 
@@ -134,32 +175,38 @@ export function clearDancersAtTimeCache(): void {
 
 /**
  * 再生時刻 t（秒）→ ステージに描くダンサー配置。
- * キュー配列参照が同じあいだはソート／hold 配置をキャッシュし、
- * RAF ごとの再計算をギャップ補間だけに抑える（中低価格帯スマホ向け）。
+ * - キュー内ホールドは静止
+ * - 明示ギャップ、または隣接キューの暗黙遷移（ホールド末尾を削った移動）で補間
+ * キュー配列参照が同じあいだはキャッシュし、RAF ごとの再計算をギャップ補間だけに抑える。
  */
 export function dancersAtTime(
   t: number,
   cues: Cue[],
   formations: Formation[],
-  fallbackFormationId: string
+  fallbackFormationId: string,
+  opts?: DancersAtTimeOptions
 ): DancerSpot[] {
-  const c = getCache(cues, formations, fallbackFormationId);
+  const bpm =
+    opts?.bpm != null && Number.isFinite(opts.bpm) && opts.bpm! > 0
+      ? opts.bpm!
+      : null;
+  const c = getCache(cues, formations, fallbackFormationId, bpm);
 
   if (c.holds.length === 0) {
     return c.beforeFirst;
   }
 
-  if (t < c.holds[0].t0) {
+  if (t < c.holds[0]!.t0) {
     return c.beforeFirst;
   }
 
   for (let i = 0; i < c.holds.length; i++) {
-    const hold = c.holds[i];
+    const hold = c.holds[i]!;
     if (t >= hold.t0 && t <= hold.t1) {
       return hold.dancers;
     }
     const gap = c.gaps[i];
-    if (gap && t > gap.g0 && t < gap.g1) {
+    if (gap && gap.g1 > gap.g0 + 1e-6 && t > gap.g0 && t < gap.g1) {
       const span = gap.g1 - gap.g0;
       const alpha = span > 1e-6 ? (t - gap.g0) / span : 1;
       return roundSpots(
@@ -174,7 +221,7 @@ export function dancersAtTime(
     }
   }
 
-  if (t > c.holds[c.holds.length - 1].t1) {
+  if (t > c.holds[c.holds.length - 1]!.t1) {
     return c.afterLast;
   }
 

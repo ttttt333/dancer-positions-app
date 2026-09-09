@@ -70,6 +70,7 @@ import {
   buildPrevCueCompareMarks,
   resolvePreviousCueDancers,
   resolvePreviousCueOrdinal,
+  resolveNextCueDancers,
   summarizePrevCueCompare,
 } from "../lib/stagePrevCueCompare";
 import {
@@ -897,6 +898,10 @@ export function StageBoardBody({
   );
   const prevCueDancers = useMemo(
     () => resolvePreviousCueDancers(project.cues, formations, editCueId),
+    [project.cues, formations, editCueId],
+  );
+  const nextCueDancers = useMemo(
+    () => resolveNextCueDancers(project.cues, formations, editCueId),
     [project.cues, formations, editCueId],
   );
   const stageDancerById = useMemo(
@@ -5140,19 +5145,34 @@ export function StageBoardBody({
       },
     } satisfies BuildStageBoardExportColumnInput);
 
-  // 動線矢印オーバーレイ
-  if (showMotionArrows) {
+  // 移動軌跡: グローバルON、または選択中ダンサー
+  {
     const highlightId =
       studentViewerFocus?.kind === "one"
         ? studentViewerFocus.crewMemberId
         : null;
-    stageBoardExportColumn.mainFloor.motionArrowsOverlay = (
-      <StageMotionArrowsOverlay
-        formations={project.formations}
-        activeFormationId={activeFormationId}
-        highlightCrewMemberId={highlightId}
-      />
-    );
+    const showSelectedTrajectories = selectedDancerIds.length > 0;
+    if ((showMotionArrows || showSelectedTrajectories) && nextCueDancers) {
+      stageBoardExportColumn.mainFloor.motionArrowsOverlay = (
+        <StageMotionArrowsOverlay
+          fromDancers={displayDancers}
+          toDancers={nextCueDancers}
+          selectedDancerIds={selectedDancerIds}
+          showAll={showMotionArrows}
+          highlightCrewMemberId={highlightId}
+        />
+      );
+    } else if (showMotionArrows) {
+      stageBoardExportColumn.mainFloor.motionArrowsOverlay = (
+        <StageMotionArrowsOverlay
+          formations={project.formations}
+          activeFormationId={activeFormationId}
+          selectedDancerIds={selectedDancerIds}
+          showAll
+          highlightCrewMemberId={highlightId}
+        />
+      );
+    }
   }
   if (prevCueCompareMarks.length > 0) {
     const existing = stageBoardExportColumn.mainFloor.motionArrowsOverlay;

@@ -49,7 +49,34 @@ describe("dancersAtTime cache", () => {
     expect(a).toBe(b); // same hold array reference from cache
 
     const mid = dancersAtTime(2.5, cues, formations, "f1");
-    expect(mid[0].xPct).toBeGreaterThan(10);
-    expect(mid[0].xPct).toBeLessThan(50);
+    expect(mid[0]!.xPct).toBeGreaterThan(10);
+    expect(mid[0]!.xPct).toBeLessThan(50);
+  });
+
+  it("smoothly moves across abutting cues (implicit carve)", () => {
+    clearDancersAtTimeCache();
+    const formations: Formation[] = [
+      {
+        id: "f1",
+        name: "A",
+        dancers: [{ id: "d1", label: "1", xPct: 0, yPct: 0, colorIndex: 0 }],
+      },
+      {
+        id: "f2",
+        name: "B",
+        dancers: [{ id: "d1", label: "1", xPct: 100, yPct: 0, colorIndex: 0 }],
+      },
+    ];
+    const cues: Cue[] = [
+      { id: "c1", tStartSec: 0, tEndSec: 10, formationId: "f1" },
+      { id: "c2", tStartSec: 10, tEndSec: 20, formationId: "f2" },
+    ];
+    const early = dancersAtTime(1, cues, formations, "f1", { bpm: 120 });
+    expect(early[0]!.xPct).toBe(0);
+    const moving = dancersAtTime(8, cues, formations, "f1", { bpm: 120 });
+    expect(moving[0]!.xPct).toBeGreaterThan(0);
+    expect(moving[0]!.xPct).toBeLessThan(100);
+    const arrived = dancersAtTime(10, cues, formations, "f1", { bpm: 120 });
+    expect(arrived[0]!.xPct).toBe(100);
   });
 });

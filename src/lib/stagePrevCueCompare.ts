@@ -40,6 +40,33 @@ export function resolvePreviousCueOrdinal(
   return n - 1;
 }
 
+/** 選択中 Cue の次 Cue の dancers。末尾 / 不明なら null。 */
+export function resolveNextCueDancers(
+  cues: Cue[],
+  formations: Formation[],
+  currentCueId: string | null | undefined
+): DancerSpot[] | null {
+  if (!currentCueId) return null;
+  const sorted = sortCuesByStart(cues);
+  const i = sorted.findIndex((c) => c.id === currentCueId);
+  if (i < 0 || i >= sorted.length - 1) return null;
+  const next = sorted[i + 1]!;
+  const f = formations.find((x) => x.id === next.formationId);
+  return f?.dancers ?? null;
+}
+
+/** 次 Cue の 1 始まり番号。末尾 / 不明なら null。 */
+export function resolveNextCueOrdinal(
+  cues: Cue[],
+  currentCueId: string | null | undefined
+): number | null {
+  const n = cueNumberById(cues, currentCueId);
+  if (n == null) return null;
+  const sorted = sortCuesByStart(cues);
+  if (n >= sorted.length) return null;
+  return n + 1;
+}
+
 /**
  * 前 Cue と現 Cue を dancer id で対応付ける。
  * dancers[] の順番は見ない。入力配列は変更しない。
