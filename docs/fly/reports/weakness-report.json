@@ -1,0 +1,665 @@
+{
+  "weaknesses": [
+    {
+      "analyzer": "essentia",
+      "dimension": "8COUNT",
+      "condition": "all",
+      "score": 0,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "WEAK",
+      "note": "weakness_version=1.0.0; metric=phraseAlignment"
+    },
+    {
+      "analyzer": "essentia",
+      "dimension": "8COUNT",
+      "condition": "beatDensity:normal",
+      "score": 0,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "WEAK",
+      "note": "weakness_version=1.0.0; metric=phraseAlignment"
+    },
+    {
+      "analyzer": "essentia",
+      "dimension": "8COUNT",
+      "condition": "complexity:simple",
+      "score": 0,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "WEAK",
+      "note": "weakness_version=1.0.0; metric=phraseAlignment"
+    },
+    {
+      "analyzer": "essentia",
+      "dimension": "8COUNT",
+      "condition": "genre:pilot",
+      "score": 0,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "WEAK",
+      "note": "weakness_version=1.0.0; metric=phraseAlignment"
+    },
+    {
+      "analyzer": "essentia",
+      "dimension": "8COUNT",
+      "condition": "tempo:medium",
+      "score": 0,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "WEAK",
+      "note": "weakness_version=1.0.0; metric=phraseAlignment"
+    },
+    {
+      "analyzer": "essentia",
+      "dimension": "8COUNT",
+      "condition": "vocal:vocal-heavy",
+      "score": 0,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "WEAK",
+      "note": "weakness_version=1.0.0; metric=phraseAlignment"
+    },
+    {
+      "analyzer": "librosa",
+      "dimension": "8COUNT",
+      "condition": "all",
+      "score": 0,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "WEAK",
+      "note": "weakness_version=1.0.0; metric=phraseAlignment"
+    },
+    {
+      "analyzer": "librosa",
+      "dimension": "8COUNT",
+      "condition": "beatDensity:normal",
+      "score": 0,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "WEAK",
+      "note": "weakness_version=1.0.0; metric=phraseAlignment"
+    },
+    {
+      "analyzer": "librosa",
+      "dimension": "8COUNT",
+      "condition": "complexity:simple",
+      "score": 0,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "WEAK",
+      "note": "weakness_version=1.0.0; metric=phraseAlignment"
+    },
+    {
+      "analyzer": "librosa",
+      "dimension": "8COUNT",
+      "condition": "genre:pilot",
+      "score": 0,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "WEAK",
+      "note": "weakness_version=1.0.0; metric=phraseAlignment"
+    },
+    {
+      "analyzer": "librosa",
+      "dimension": "8COUNT",
+      "condition": "tempo:medium",
+      "score": 0,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "WEAK",
+      "note": "weakness_version=1.0.0; metric=phraseAlignment"
+    },
+    {
+      "analyzer": "librosa",
+      "dimension": "8COUNT",
+      "condition": "vocal:vocal-heavy",
+      "score": 0,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "WEAK",
+      "note": "weakness_version=1.0.0; metric=phraseAlignment"
+    },
+    {
+      "analyzer": "essentia",
+      "dimension": "SECTION",
+      "condition": "all",
+      "score": 0.4,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "WEAK",
+      "note": "weakness_version=1.0.0; metric=labelF1"
+    },
+    {
+      "analyzer": "essentia",
+      "dimension": "SECTION",
+      "condition": "beatDensity:normal",
+      "score": 0.4,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "WEAK",
+      "note": "weakness_version=1.0.0; metric=labelF1"
+    },
+    {
+      "analyzer": "essentia",
+      "dimension": "SECTION",
+      "condition": "complexity:simple",
+      "score": 0.4,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "WEAK",
+      "note": "weakness_version=1.0.0; metric=labelF1"
+    },
+    {
+      "analyzer": "essentia",
+      "dimension": "SECTION",
+      "condition": "genre:pilot",
+      "score": 0.4,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "WEAK",
+      "note": "weakness_version=1.0.0; metric=labelF1"
+    },
+    {
+      "analyzer": "essentia",
+      "dimension": "SECTION",
+      "condition": "tempo:medium",
+      "score": 0.4,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "WEAK",
+      "note": "weakness_version=1.0.0; metric=labelF1"
+    },
+    {
+      "analyzer": "essentia",
+      "dimension": "SECTION",
+      "condition": "vocal:vocal-heavy",
+      "score": 0.4,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "WEAK",
+      "note": "weakness_version=1.0.0; metric=labelF1"
+    },
+    {
+      "analyzer": "essentia",
+      "dimension": "BEAT",
+      "condition": "all",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=f1@40ms"
+    },
+    {
+      "analyzer": "essentia",
+      "dimension": "BEAT",
+      "condition": "beatDensity:normal",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=f1@40ms"
+    },
+    {
+      "analyzer": "essentia",
+      "dimension": "BEAT",
+      "condition": "complexity:simple",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=f1@40ms"
+    },
+    {
+      "analyzer": "essentia",
+      "dimension": "BEAT",
+      "condition": "genre:pilot",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=f1@40ms"
+    },
+    {
+      "analyzer": "essentia",
+      "dimension": "BEAT",
+      "condition": "tempo:medium",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=f1@40ms"
+    },
+    {
+      "analyzer": "essentia",
+      "dimension": "BEAT",
+      "condition": "vocal:vocal-heavy",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=f1@40ms"
+    },
+    {
+      "analyzer": "essentia",
+      "dimension": "BPM",
+      "condition": "all",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=classCorrect"
+    },
+    {
+      "analyzer": "essentia",
+      "dimension": "BPM",
+      "condition": "beatDensity:normal",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=classCorrect"
+    },
+    {
+      "analyzer": "essentia",
+      "dimension": "BPM",
+      "condition": "complexity:simple",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=classCorrect"
+    },
+    {
+      "analyzer": "essentia",
+      "dimension": "BPM",
+      "condition": "genre:pilot",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=classCorrect"
+    },
+    {
+      "analyzer": "essentia",
+      "dimension": "BPM",
+      "condition": "tempo:medium",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=classCorrect"
+    },
+    {
+      "analyzer": "essentia",
+      "dimension": "BPM",
+      "condition": "vocal:vocal-heavy",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=classCorrect"
+    },
+    {
+      "analyzer": "librosa",
+      "dimension": "BEAT",
+      "condition": "all",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=f1@40ms"
+    },
+    {
+      "analyzer": "librosa",
+      "dimension": "BEAT",
+      "condition": "beatDensity:normal",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=f1@40ms"
+    },
+    {
+      "analyzer": "librosa",
+      "dimension": "BEAT",
+      "condition": "complexity:simple",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=f1@40ms"
+    },
+    {
+      "analyzer": "librosa",
+      "dimension": "BEAT",
+      "condition": "genre:pilot",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=f1@40ms"
+    },
+    {
+      "analyzer": "librosa",
+      "dimension": "BEAT",
+      "condition": "tempo:medium",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=f1@40ms"
+    },
+    {
+      "analyzer": "librosa",
+      "dimension": "BEAT",
+      "condition": "vocal:vocal-heavy",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=f1@40ms"
+    },
+    {
+      "analyzer": "librosa",
+      "dimension": "SECTION",
+      "condition": "all",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=labelF1"
+    },
+    {
+      "analyzer": "librosa",
+      "dimension": "SECTION",
+      "condition": "beatDensity:normal",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=labelF1"
+    },
+    {
+      "analyzer": "librosa",
+      "dimension": "SECTION",
+      "condition": "complexity:simple",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=labelF1"
+    },
+    {
+      "analyzer": "librosa",
+      "dimension": "SECTION",
+      "condition": "genre:pilot",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=labelF1"
+    },
+    {
+      "analyzer": "librosa",
+      "dimension": "SECTION",
+      "condition": "tempo:medium",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=labelF1"
+    },
+    {
+      "analyzer": "librosa",
+      "dimension": "SECTION",
+      "condition": "vocal:vocal-heavy",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=labelF1"
+    },
+    {
+      "analyzer": "librosa",
+      "dimension": "BPM",
+      "condition": "all",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=classCorrect"
+    },
+    {
+      "analyzer": "librosa",
+      "dimension": "BPM",
+      "condition": "beatDensity:normal",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=classCorrect"
+    },
+    {
+      "analyzer": "librosa",
+      "dimension": "BPM",
+      "condition": "complexity:simple",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=classCorrect"
+    },
+    {
+      "analyzer": "librosa",
+      "dimension": "BPM",
+      "condition": "genre:pilot",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=classCorrect"
+    },
+    {
+      "analyzer": "librosa",
+      "dimension": "BPM",
+      "condition": "tempo:medium",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=classCorrect"
+    },
+    {
+      "analyzer": "librosa",
+      "dimension": "BPM",
+      "condition": "vocal:vocal-heavy",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "severity": "INFO",
+      "note": "weakness_version=1.0.0; metric=classCorrect"
+    }
+  ],
+  "expansion": {
+    "suggestedSongCount": 10,
+    "targetConditions": [
+      "8COUNT@beatDensity:normal",
+      "8COUNT@complexity:simple",
+      "8COUNT@genre:pilot",
+      "8COUNT@tempo:medium",
+      "8COUNT@vocal:vocal-heavy",
+      "SECTION@beatDensity:normal",
+      "SECTION@complexity:simple",
+      "SECTION@genre:pilot",
+      "SECTION@tempo:medium",
+      "SECTION@vocal:vocal-heavy"
+    ],
+    "rationale": [
+      "essentia 8COUNT on beatDensity:normal: score=0.000 n=1 evidence=LOW → WEAK",
+      "essentia 8COUNT on complexity:simple: score=0.000 n=1 evidence=LOW → WEAK",
+      "essentia 8COUNT on genre:pilot: score=0.000 n=1 evidence=LOW → WEAK",
+      "essentia 8COUNT on tempo:medium: score=0.000 n=1 evidence=LOW → WEAK",
+      "essentia 8COUNT on vocal:vocal-heavy: score=0.000 n=1 evidence=LOW → WEAK",
+      "librosa 8COUNT on beatDensity:normal: score=0.000 n=1 evidence=LOW → WEAK",
+      "librosa 8COUNT on complexity:simple: score=0.000 n=1 evidence=LOW → WEAK",
+      "librosa 8COUNT on genre:pilot: score=0.000 n=1 evidence=LOW → WEAK"
+    ],
+    "basedOnFindings": [
+      {
+        "analyzer": "essentia",
+        "dimension": "8COUNT",
+        "condition": "beatDensity:normal",
+        "score": 0,
+        "sampleCount": 1,
+        "evidenceConfidence": "LOW",
+        "severity": "WEAK",
+        "note": "weakness_version=1.0.0; metric=phraseAlignment"
+      },
+      {
+        "analyzer": "essentia",
+        "dimension": "8COUNT",
+        "condition": "complexity:simple",
+        "score": 0,
+        "sampleCount": 1,
+        "evidenceConfidence": "LOW",
+        "severity": "WEAK",
+        "note": "weakness_version=1.0.0; metric=phraseAlignment"
+      },
+      {
+        "analyzer": "essentia",
+        "dimension": "8COUNT",
+        "condition": "genre:pilot",
+        "score": 0,
+        "sampleCount": 1,
+        "evidenceConfidence": "LOW",
+        "severity": "WEAK",
+        "note": "weakness_version=1.0.0; metric=phraseAlignment"
+      },
+      {
+        "analyzer": "essentia",
+        "dimension": "8COUNT",
+        "condition": "tempo:medium",
+        "score": 0,
+        "sampleCount": 1,
+        "evidenceConfidence": "LOW",
+        "severity": "WEAK",
+        "note": "weakness_version=1.0.0; metric=phraseAlignment"
+      },
+      {
+        "analyzer": "essentia",
+        "dimension": "8COUNT",
+        "condition": "vocal:vocal-heavy",
+        "score": 0,
+        "sampleCount": 1,
+        "evidenceConfidence": "LOW",
+        "severity": "WEAK",
+        "note": "weakness_version=1.0.0; metric=phraseAlignment"
+      },
+      {
+        "analyzer": "librosa",
+        "dimension": "8COUNT",
+        "condition": "beatDensity:normal",
+        "score": 0,
+        "sampleCount": 1,
+        "evidenceConfidence": "LOW",
+        "severity": "WEAK",
+        "note": "weakness_version=1.0.0; metric=phraseAlignment"
+      },
+      {
+        "analyzer": "librosa",
+        "dimension": "8COUNT",
+        "condition": "complexity:simple",
+        "score": 0,
+        "sampleCount": 1,
+        "evidenceConfidence": "LOW",
+        "severity": "WEAK",
+        "note": "weakness_version=1.0.0; metric=phraseAlignment"
+      },
+      {
+        "analyzer": "librosa",
+        "dimension": "8COUNT",
+        "condition": "genre:pilot",
+        "score": 0,
+        "sampleCount": 1,
+        "evidenceConfidence": "LOW",
+        "severity": "WEAK",
+        "note": "weakness_version=1.0.0; metric=phraseAlignment"
+      },
+      {
+        "analyzer": "librosa",
+        "dimension": "8COUNT",
+        "condition": "tempo:medium",
+        "score": 0,
+        "sampleCount": 1,
+        "evidenceConfidence": "LOW",
+        "severity": "WEAK",
+        "note": "weakness_version=1.0.0; metric=phraseAlignment"
+      },
+      {
+        "analyzer": "librosa",
+        "dimension": "8COUNT",
+        "condition": "vocal:vocal-heavy",
+        "score": 0,
+        "sampleCount": 1,
+        "evidenceConfidence": "LOW",
+        "severity": "WEAK",
+        "note": "weakness_version=1.0.0; metric=phraseAlignment"
+      },
+      {
+        "analyzer": "essentia",
+        "dimension": "SECTION",
+        "condition": "beatDensity:normal",
+        "score": 0.4,
+        "sampleCount": 1,
+        "evidenceConfidence": "LOW",
+        "severity": "WEAK",
+        "note": "weakness_version=1.0.0; metric=labelF1"
+      },
+      {
+        "analyzer": "essentia",
+        "dimension": "SECTION",
+        "condition": "complexity:simple",
+        "score": 0.4,
+        "sampleCount": 1,
+        "evidenceConfidence": "LOW",
+        "severity": "WEAK",
+        "note": "weakness_version=1.0.0; metric=labelF1"
+      },
+      {
+        "analyzer": "essentia",
+        "dimension": "SECTION",
+        "condition": "genre:pilot",
+        "score": 0.4,
+        "sampleCount": 1,
+        "evidenceConfidence": "LOW",
+        "severity": "WEAK",
+        "note": "weakness_version=1.0.0; metric=labelF1"
+      },
+      {
+        "analyzer": "essentia",
+        "dimension": "SECTION",
+        "condition": "tempo:medium",
+        "score": 0.4,
+        "sampleCount": 1,
+        "evidenceConfidence": "LOW",
+        "severity": "WEAK",
+        "note": "weakness_version=1.0.0; metric=labelF1"
+      },
+      {
+        "analyzer": "essentia",
+        "dimension": "SECTION",
+        "condition": "vocal:vocal-heavy",
+        "score": 0.4,
+        "sampleCount": 1,
+        "evidenceConfidence": "LOW",
+        "severity": "WEAK",
+        "note": "weakness_version=1.0.0; metric=labelF1"
+      }
+    ],
+    "lowSampleSizeWarning": true
+  },
+  "meta": {
+    "version": "1.0.0"
+  }
+}

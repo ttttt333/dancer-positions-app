@@ -18,6 +18,8 @@
     "test": "vitest run",
     "test:fly-benchmark": "vitest run src/lib/fly/benchmark",
     "fly:benchmark": "npx --yes vite-node scripts/write-fly-benchmark-reports.ts",
+    "fly:real-song-reports": "npx --yes vite-node scripts/write-fly-real-song-reports.ts",
+    "test:fly-real-song": "vitest run src/lib/fly/realSong",
     "test:watch": "vitest",
     "test:e2e": "npm run build && playwright test",
     "preview": "vite preview --host --open",

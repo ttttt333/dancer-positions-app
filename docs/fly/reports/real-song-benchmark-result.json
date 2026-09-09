@@ -1,0 +1,1119 @@
+{
+  "note": "pilot_schema_only",
+  "stageAAnnotated": 0,
+  "benchmarkVersion": "1.0.0",
+  "datasetVersion": "1.0.0",
+  "groundTruthVersion": "1.0.0",
+  "metricsVersion": "1.0.0",
+  "songResults": [
+    {
+      "benchmarkVersion": "1.0.0",
+      "datasetVersion": "1.0.0",
+      "groundTruthVersion": "1.0.0",
+      "metricsVersion": "1.0.0",
+      "audioHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "songId": "song-pilot-format",
+      "analyzerId": "essentia",
+      "analyzerVersion": "pilot",
+      "conditions": {
+        "genre": "pilot",
+        "tempoCategory": "medium",
+        "beatDensity": "normal",
+        "structuralComplexity": "simple",
+        "vocalPresence": "vocal-heavy",
+        "flags": [
+          "version:ORIGINAL",
+          "split:DEVELOPMENT"
+        ]
+      },
+      "metrics": {
+        "tempo": {
+          "status": "OK",
+          "humanBpm": 120,
+          "hypBpm": 120,
+          "absoluteErrorBpm": 0,
+          "relativeErrorPercent": 0,
+          "equivalenceRatio": 1,
+          "tempoClassError": false,
+          "sampleCount": 1,
+          "evidenceConfidence": "LOW"
+        },
+        "beat": {
+          "status": "OK",
+          "thresholdsMs": [
+            20,
+            40,
+            60,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 0.890625,
+              "recall": 0.890625,
+              "f1": 0.890625,
+              "meanTimingError": 0.01999999999999958,
+              "medianTimingError": 0.019999999999999574,
+              "matched": 57,
+              "nRef": 64,
+              "nHyp": 64
+            },
+            "40": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.01999999999999963,
+              "medianTimingError": 0.019999999999999574,
+              "matched": 64,
+              "nRef": 64,
+              "nHyp": 64
+            },
+            "60": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.01999999999999963,
+              "medianTimingError": 0.019999999999999574,
+              "matched": 64,
+              "nRef": 64,
+              "nHyp": 64
+            },
+            "100": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.01999999999999963,
+              "medianTimingError": 0.019999999999999574,
+              "matched": 64,
+              "nRef": 64,
+              "nHyp": 64
+            }
+          },
+          "sampleCount": 64,
+          "evidenceConfidence": "HIGH"
+        },
+        "downbeat": {
+          "status": "OK",
+          "thresholdsMs": [
+            20,
+            40,
+            60,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 16,
+              "nHyp": 0
+            },
+            "40": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 16,
+              "nHyp": 0
+            },
+            "60": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 16,
+              "nHyp": 0
+            },
+            "100": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 16,
+              "nHyp": 0
+            }
+          },
+          "sampleCount": 16,
+          "evidenceConfidence": "MEDIUM"
+        },
+        "onset": {
+          "status": "NOT_AVAILABLE",
+          "thresholdsMs": [
+            20,
+            50,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            },
+            "50": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            },
+            "100": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            }
+          },
+          "sampleCount": 0,
+          "evidenceConfidence": "NONE"
+        },
+        "section": {
+          "status": "OK",
+          "labelPrecision": 0.5,
+          "labelRecall": 0.3333333333333333,
+          "labelF1": 0.4,
+          "meanBoundaryError": 2,
+          "meanIoU": 0.8333333333333333,
+          "nRef": 3,
+          "nHyp": 2,
+          "sampleCount": 3,
+          "evidenceConfidence": "LOW"
+        },
+        "eightCount": {
+          "status": "EMPTY",
+          "startTimingError": null,
+          "endTimingError": null,
+          "countBoundaryError": null,
+          "phraseAlignmentScore": 0,
+          "offByOneCountRate": null,
+          "sampleCount": 8,
+          "evidenceConfidence": "LOW"
+        },
+        "event": {
+          "status": "OK",
+          "byType": [
+            {
+              "status": "OK",
+              "thresholdsMs": [
+                20,
+                50,
+                100
+              ],
+              "byThreshold": {
+                "20": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "meanTimingError": null,
+                  "medianTimingError": null,
+                  "matched": 0,
+                  "nRef": 1,
+                  "nHyp": 0
+                },
+                "50": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "meanTimingError": null,
+                  "medianTimingError": null,
+                  "matched": 0,
+                  "nRef": 1,
+                  "nHyp": 0
+                },
+                "100": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "meanTimingError": null,
+                  "medianTimingError": null,
+                  "matched": 0,
+                  "nRef": 1,
+                  "nHyp": 0
+                }
+              },
+              "sampleCount": 1,
+              "evidenceConfidence": "LOW",
+              "eventType": "SECTION_CHANGE"
+            }
+          ],
+          "sampleCount": 1,
+          "evidenceConfidence": "LOW"
+        }
+      },
+      "aggregateScore": 0.7999999999999999,
+      "confidence": "HIGH",
+      "provenance": [
+        {
+          "metric": "tempo",
+          "sources": [
+            {
+              "analyzer": "ground_truth",
+              "value": 120
+            },
+            {
+              "analyzer": "essentia",
+              "value": 120
+            }
+          ]
+        },
+        {
+          "metric": "beat",
+          "sources": [
+            {
+              "analyzer": "ground_truth",
+              "value": 0
+            },
+            {
+              "analyzer": "essentia",
+              "value": 0.02
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "benchmarkVersion": "1.0.0",
+      "datasetVersion": "1.0.0",
+      "groundTruthVersion": "1.0.0",
+      "metricsVersion": "1.0.0",
+      "audioHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "songId": "song-pilot-format",
+      "analyzerId": "librosa",
+      "analyzerVersion": "pilot",
+      "conditions": {
+        "genre": "pilot",
+        "tempoCategory": "medium",
+        "beatDensity": "normal",
+        "structuralComplexity": "simple",
+        "vocalPresence": "vocal-heavy",
+        "flags": [
+          "version:ORIGINAL",
+          "split:DEVELOPMENT"
+        ]
+      },
+      "metrics": {
+        "tempo": {
+          "status": "OK",
+          "humanBpm": 120,
+          "hypBpm": 120,
+          "absoluteErrorBpm": 0,
+          "relativeErrorPercent": 0,
+          "equivalenceRatio": 1,
+          "tempoClassError": false,
+          "sampleCount": 1,
+          "evidenceConfidence": "LOW"
+        },
+        "beat": {
+          "status": "OK",
+          "thresholdsMs": [
+            20,
+            40,
+            60,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0,
+              "medianTimingError": 0,
+              "matched": 64,
+              "nRef": 64,
+              "nHyp": 64
+            },
+            "40": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0,
+              "medianTimingError": 0,
+              "matched": 64,
+              "nRef": 64,
+              "nHyp": 64
+            },
+            "60": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0,
+              "medianTimingError": 0,
+              "matched": 64,
+              "nRef": 64,
+              "nHyp": 64
+            },
+            "100": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0,
+              "medianTimingError": 0,
+              "matched": 64,
+              "nRef": 64,
+              "nHyp": 64
+            }
+          },
+          "sampleCount": 64,
+          "evidenceConfidence": "HIGH"
+        },
+        "downbeat": {
+          "status": "OK",
+          "thresholdsMs": [
+            20,
+            40,
+            60,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 16,
+              "nHyp": 0
+            },
+            "40": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 16,
+              "nHyp": 0
+            },
+            "60": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 16,
+              "nHyp": 0
+            },
+            "100": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 16,
+              "nHyp": 0
+            }
+          },
+          "sampleCount": 16,
+          "evidenceConfidence": "MEDIUM"
+        },
+        "onset": {
+          "status": "NOT_AVAILABLE",
+          "thresholdsMs": [
+            20,
+            50,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            },
+            "50": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            },
+            "100": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            }
+          },
+          "sampleCount": 0,
+          "evidenceConfidence": "NONE"
+        },
+        "section": {
+          "status": "OK",
+          "labelPrecision": 1,
+          "labelRecall": 1,
+          "labelF1": 1,
+          "meanBoundaryError": 0,
+          "meanIoU": 1,
+          "nRef": 3,
+          "nHyp": 3,
+          "sampleCount": 3,
+          "evidenceConfidence": "LOW"
+        },
+        "eightCount": {
+          "status": "EMPTY",
+          "startTimingError": null,
+          "endTimingError": null,
+          "countBoundaryError": null,
+          "phraseAlignmentScore": 0,
+          "offByOneCountRate": null,
+          "sampleCount": 8,
+          "evidenceConfidence": "LOW"
+        },
+        "event": {
+          "status": "OK",
+          "byType": [
+            {
+              "status": "OK",
+              "thresholdsMs": [
+                20,
+                50,
+                100
+              ],
+              "byThreshold": {
+                "20": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "meanTimingError": null,
+                  "medianTimingError": null,
+                  "matched": 0,
+                  "nRef": 1,
+                  "nHyp": 0
+                },
+                "50": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "meanTimingError": null,
+                  "medianTimingError": null,
+                  "matched": 0,
+                  "nRef": 1,
+                  "nHyp": 0
+                },
+                "100": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "meanTimingError": null,
+                  "medianTimingError": null,
+                  "matched": 0,
+                  "nRef": 1,
+                  "nHyp": 0
+                }
+              },
+              "sampleCount": 1,
+              "evidenceConfidence": "LOW",
+              "eventType": "SECTION_CHANGE"
+            }
+          ],
+          "sampleCount": 1,
+          "evidenceConfidence": "LOW"
+        }
+      },
+      "aggregateScore": 1,
+      "confidence": "HIGH",
+      "provenance": [
+        {
+          "metric": "tempo",
+          "sources": [
+            {
+              "analyzer": "ground_truth",
+              "value": 120
+            },
+            {
+              "analyzer": "librosa",
+              "value": 120
+            }
+          ]
+        },
+        {
+          "metric": "beat",
+          "sources": [
+            {
+              "analyzer": "ground_truth",
+              "value": 0
+            },
+            {
+              "analyzer": "librosa",
+              "value": 0
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "agreement": [
+    {
+      "analyzerA": "librosa",
+      "analyzerB": "essentia",
+      "songId": "song-pilot-format",
+      "tempoAgreement": 1,
+      "beatAgreement": 1,
+      "sectionAgreement": 0.4,
+      "note": "agreement_is_not_accuracy"
+    }
+  ],
+  "profiles": [
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "pilot",
+      "signalType": "beat",
+      "condition": "all",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "pilot",
+      "signalType": "beat",
+      "condition": "beatDensity:normal",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "pilot",
+      "signalType": "beat",
+      "condition": "complexity:simple",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "pilot",
+      "signalType": "beat",
+      "condition": "genre:pilot",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "pilot",
+      "signalType": "beat",
+      "condition": "tempo:medium",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "pilot",
+      "signalType": "beat",
+      "condition": "vocal:vocal-heavy",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "pilot",
+      "signalType": "eightCount",
+      "condition": "all",
+      "metric": "phraseAlignment",
+      "score": 0,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "pilot",
+      "signalType": "eightCount",
+      "condition": "beatDensity:normal",
+      "metric": "phraseAlignment",
+      "score": 0,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "pilot",
+      "signalType": "eightCount",
+      "condition": "complexity:simple",
+      "metric": "phraseAlignment",
+      "score": 0,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "pilot",
+      "signalType": "eightCount",
+      "condition": "genre:pilot",
+      "metric": "phraseAlignment",
+      "score": 0,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "pilot",
+      "signalType": "eightCount",
+      "condition": "tempo:medium",
+      "metric": "phraseAlignment",
+      "score": 0,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "pilot",
+      "signalType": "eightCount",
+      "condition": "vocal:vocal-heavy",
+      "metric": "phraseAlignment",
+      "score": 0,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "pilot",
+      "signalType": "section",
+      "condition": "all",
+      "metric": "labelF1",
+      "score": 0.4,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "pilot",
+      "signalType": "section",
+      "condition": "beatDensity:normal",
+      "metric": "labelF1",
+      "score": 0.4,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "pilot",
+      "signalType": "section",
+      "condition": "complexity:simple",
+      "metric": "labelF1",
+      "score": 0.4,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "pilot",
+      "signalType": "section",
+      "condition": "genre:pilot",
+      "metric": "labelF1",
+      "score": 0.4,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "pilot",
+      "signalType": "section",
+      "condition": "tempo:medium",
+      "metric": "labelF1",
+      "score": 0.4,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "pilot",
+      "signalType": "section",
+      "condition": "vocal:vocal-heavy",
+      "metric": "labelF1",
+      "score": 0.4,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "pilot",
+      "signalType": "tempo",
+      "condition": "all",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "pilot",
+      "signalType": "tempo",
+      "condition": "beatDensity:normal",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "pilot",
+      "signalType": "tempo",
+      "condition": "complexity:simple",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "pilot",
+      "signalType": "tempo",
+      "condition": "genre:pilot",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "pilot",
+      "signalType": "tempo",
+      "condition": "tempo:medium",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "pilot",
+      "signalType": "tempo",
+      "condition": "vocal:vocal-heavy",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "pilot",
+      "signalType": "beat",
+      "condition": "all",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "pilot",
+      "signalType": "beat",
+      "condition": "beatDensity:normal",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "pilot",
+      "signalType": "beat",
+      "condition": "complexity:simple",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "pilot",
+      "signalType": "beat",
+      "condition": "genre:pilot",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "pilot",
+      "signalType": "beat",
+      "condition": "tempo:medium",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "pilot",
+      "signalType": "beat",
+      "condition": "vocal:vocal-heavy",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "pilot",
+      "signalType": "eightCount",
+      "condition": "all",
+      "metric": "phraseAlignment",
+      "score": 0,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "pilot",
+      "signalType": "eightCount",
+      "condition": "beatDensity:normal",
+      "metric": "phraseAlignment",
+      "score": 0,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "pilot",
+      "signalType": "eightCount",
+      "condition": "complexity:simple",
+      "metric": "phraseAlignment",
+      "score": 0,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "pilot",
+      "signalType": "eightCount",
+      "condition": "genre:pilot",
+      "metric": "phraseAlignment",
+      "score": 0,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "pilot",
+      "signalType": "eightCount",
+      "condition": "tempo:medium",
+      "metric": "phraseAlignment",
+      "score": 0,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "pilot",
+      "signalType": "eightCount",
+      "condition": "vocal:vocal-heavy",
+      "metric": "phraseAlignment",
+      "score": 0,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "pilot",
+      "signalType": "section",
+      "condition": "all",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "pilot",
+      "signalType": "section",
+      "condition": "beatDensity:normal",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "pilot",
+      "signalType": "section",
+      "condition": "complexity:simple",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "pilot",
+      "signalType": "section",
+      "condition": "genre:pilot",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "pilot",
+      "signalType": "section",
+      "condition": "tempo:medium",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "pilot",
+      "signalType": "section",
+      "condition": "vocal:vocal-heavy",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "pilot",
+      "signalType": "tempo",
+      "condition": "all",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "pilot",
+      "signalType": "tempo",
+      "condition": "beatDensity:normal",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "pilot",
+      "signalType": "tempo",
+      "condition": "complexity:simple",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "pilot",
+      "signalType": "tempo",
+      "condition": "genre:pilot",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "pilot",
+      "signalType": "tempo",
+      "condition": "tempo:medium",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "pilot",
+      "signalType": "tempo",
+      "condition": "vocal:vocal-heavy",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    }
+  ]
+}

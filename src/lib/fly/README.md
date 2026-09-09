@@ -19,7 +19,9 @@ ChoreoCore の楽曲解析を **Dance Music Intelligence Engine** として進�
 | 3 | Fusion 入口（パススルー Ensemble） | ✅ `fusion.ts` / `client.ts` |
 | 4 | Essentia adapter + multi-analyzer Fusion 基盤 | ✅ `adapters/` / `fusionMulti.ts` |
 | **4.5** | **FLY Benchmark / Ground Truth**（条件別信頼度 + 不確実性） | ✅ `src/lib/fly/benchmark/` |
-| 5 | Beat Ensemble (madmom 等) | ⏳ after reviewing 4.5 profiles |
+| **4.6** | **Real-Song GT + Weakness / Active Expansion** | 🔄 Stage A registry + engine (`src/lib/fly/realSong/`) |
+| — | Benchmark Review | ⏳ after Stage A human GT |
+| 5 | Beat Ensemble (madmom 等) | ⏳ only if evidence says so |
 | 6 | Structure Ensemble (MSAF+) | ⏳ |
 | 7 | Energy / Impact | ⏳ |
 | 8 | Music Events 強化 | ⏳ |
@@ -59,6 +61,17 @@ const out = runFlyBenchmark({ dataset: loadFlyBenchmarkGoldenDataset() });
 - Docs: `docs/fly/PHASE45-*.md`
 - Reports: `docs/fly/reports/` via `npm run fly:benchmark`
 - Does **not** auto-update Fusion weights or touch Formation Engine
+
+## Phase 4.6 Real-Song (offline)
+
+```ts
+import { runRealSongBenchmarkPipeline } from "./realSong"; // NOT from public index
+```
+
+- Stage A: 20 difficulty-matrix slots in `fixtures/fly/real-song/manifest.ts`
+- Docs: `docs/fly/PHASE46-*.md`
+- Reports: `npm run fly:real-song-reports`
+- **FREEZE:** no madmom / MSAF / Fusion weights / Formation / `musical_change→formation`
 
 ## 使い方
 

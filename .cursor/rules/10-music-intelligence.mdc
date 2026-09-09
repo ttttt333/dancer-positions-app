@@ -28,7 +28,10 @@ FLY は「単一の librosa 解析」ではなく、**複数解析を統合し�
 
 ## 次 Phase
 
-**Phase 4.5 FLY Benchmark / Ground Truth** ✅ `src/lib/fly/benchmark/`  
-→ 次: Benchmark profile を見て madmom 要否を判断（Phase 5）
+**Phase 4.6 Real-Song GT + Weakness Detection** 🔄  
+Stage A: 20-slot difficulty matrix registered; human annotation pending.  
+**FREEZE:** no madmom / Fusion weights / Formation / musical→formation.
 
-詳細: `src/lib/fly/README.md` / `docs/fly/PHASE4-AUDIT.md` / `docs/fly/PHASE45-BENCHMARK.md`
+→ Benchmark Review → only then Phase 5 madmom (if evidence)
+
+詳細: `docs/fly/PHASE46-OVERVIEW.md`
