@@ -13,9 +13,15 @@ There is **no FLY Real-Song music GT Annotation UI** in the app today.
 | `AnnotationWorkbenchPage` + choreocore annotation | Formation / cue / Top-3 ratings | **No** — different domain |
 | `src/lib/fly/realSong/` + JSON files | Music GT schema + validators | **Yes** — current path |
 
-Until a dedicated Human-first music UI exists, Stage A uses:
+Until a dedicated Human-first music UI exists in the main app, Stage A uses the **local Golden 20 workbench**:
 
-**Local waveform player (Audacity / DAW / simple HTML) + JSON export matching `RealSongAnnotation`.**
+```bash
+npm run fly:annotate          # song 001
+npm run fly:annotate -- 003   # jump to 003
+```
+
+Opens `~/ChoreoCoreDatasets/fly-real-song/workbench/` (no analyzer overlays).  
+Save downloaded JSON to `annotations/song-XXX/annotator-a.json`.
 
 Do **not** repurpose Formation Annotation Workbench for BPM/Beat/Section music GT.
 

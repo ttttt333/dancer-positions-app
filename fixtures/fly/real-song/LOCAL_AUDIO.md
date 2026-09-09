@@ -21,6 +21,17 @@ Authorized Golden 20 files are normalized here:
 | `analysis/NNN.wav` | Stable PCM for listening / future offline analyzers |
 | `catalog.json` | Machine index |
 
+## Per-song annotation
+
+```bash
+npm run fly:annotate          # 001 から
+npm run fly:annotate -- 005   # 指定曲
+```
+
+- UI: `~/ChoreoCoreDatasets/fly-real-song/workbench/`
+- 1曲ガイド: `annotations/song-00N/HOW_TO.md`
+- 保存先: `annotations/song-00N/annotator-a.json`
+
 ## Status
 
 - **20/20** ready (009 re-ingested after empty-file replace)
