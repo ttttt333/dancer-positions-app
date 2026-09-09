@@ -1,10 +1,13 @@
 # FLY Phase 4.6 — Golden 20 Selection
 
-**Status:** DRAFT → FINALIZE  
+**Status:** FINALIZE (titles locked) — audio local normalize in progress  
 **Phase:** FLY Phase 4.6 Real-Song Ground Truth  
 **Purpose:** Human-first Ground Truth Dataset construction  
 **Scope:** Golden 20 songs  
 **Last Updated:** 2026-09-09  
+
+Local analyze-ready copies: `~/ChoreoCoreDatasets/fly-real-song/` (see `fixtures/fly/real-song/LOCAL_AUDIO.md`).  
+**009** audio was empty at ingest — replace before annotation.
 
 ---
 

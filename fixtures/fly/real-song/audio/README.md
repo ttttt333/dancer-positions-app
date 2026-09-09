@@ -1,12 +1,12 @@
 # Audio storage (local / private)
 
-Place authorized audio files **outside git**, e.g.:
+**Canonical local root (Golden 20):**
 
-```
-~/ChoreoCoreDatasets/fly-real-song/<songId>.wav
+```text
+~/ChoreoCoreDatasets/fly-real-song/
 ```
 
-Then record `audioSha256` in `manifest.ts` (replace `PENDING_*`).
+See `../LOCAL_AUDIO.md` for the analysis-ready layout (`NNN_*.mp3` + `analysis/NNN.wav` + `catalog.json`).
 
 ## Allowed sourceType
 
@@ -16,4 +16,4 @@ Then record `audioSha256` in `manifest.ts` (replace `PENDING_*`).
 
 ## Never commit
 
-`.mp3` `.wav` `.flac` `.m4a` `.aac` `.ogg` of copyrighted works.
+`.mp3` `.wav` `.flac` `.m4a` `.aac` `.ogg` of copyrighted works into this `audio/` folder or git.
