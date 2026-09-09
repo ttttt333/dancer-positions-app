@@ -6,8 +6,8 @@
 import { REMOTE_ANALYZER_VERSION } from "../songAnalyzeClient";
 import type { FlyVersionBundle } from "./types";
 
-/** 複数ソース統合ロジック */
-export const FLY_FUSION_VERSION = "fly-fusion-v0.1.0";
+/** 複数ソース統合ロジック（Phase 4: multi-analyzer acceptance） */
+export const FLY_FUSION_VERSION = "fly-fusion-v0.2.0";
 
 /** ダンス知能（Opportunity / Impact / Urgency） */
 export const FLY_DANCE_MODEL_VERSION = "fly-dance-v0.1.0";

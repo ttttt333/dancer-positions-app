@@ -16,22 +16,18 @@ FLY は「単一の librosa 解析」ではなく、**複数解析を統合し�
 3. 外部 API（Cyanite 等）は OPTIONAL / degraded 可
 4. 「構造変化 ≠ 必ず Formation 変更」。KEEP_CURRENT を将来候補に含める
 5. 既存テストを削除しない。Phase ごとに typecheck / test / build
+6. **解析器を Formation Engine に直結しない** — Adapter → FLY normalized → Fusion → StructureResultV2 → Formation
 
-## いまの本番経路（Phase 1–3）
+## いまの本番経路（Phase 4）
 
 - Fly: `algo-v1.5.0` + structure-v2 / All-In-One → `attach_fly_meta`
-- Client: `analyzeSongWithFly` / `fuseToFlyAnalysis` が V2 を FLY 契約へ投影
+- Client: `analyzeSongWithFly` / `fuseToFlyAnalysis` / `fuseAnalyzerResults`
+- Essentia: `src/lib/fly/adapters/essentia/` — Feature Flag `VITE_FLY_ESSENTIA_ENABLED` 既定 OFF
 - Browser fallback: `songStructureAnalysis.ts`（`browser-v1.2.0`）
-- Formation: 引き続き `structureV2` + change points
-
-既存 Phase1/2 エンジン（`engine/audio/*`, `engine/music/*`）は潰さない。FLY Ensemble の入力候補として接続する。
-
-## 単位
-
-Beat / Bar / 8-count / Section / Music Event。固定32拍ブロックは初期仮説でありサビ定義ではない。
+- Formation: 引き続き `structureV2` + change points（Essentia 非直結）
 
 ## 次 Phase
 
-Essentia adapter → Beat Ensemble → Structure Ensemble (MSAF) → Energy/Impact → Dance Intelligence → Analysis Lab → Human Annotation
+**Phase 4.5 FLY Benchmark / Ground Truth**（解析器の得意分野マップ）→ その後 madmom / MSAF 等
 
-詳細: `src/lib/fly/README.md`
+詳細: `src/lib/fly/README.md` / `docs/fly/PHASE4-AUDIT.md`
