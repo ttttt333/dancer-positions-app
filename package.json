@@ -16,6 +16,8 @@
     "start:prod": "node server/index.mjs",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:fly-benchmark": "vitest run src/lib/fly/benchmark",
+    "fly:benchmark": "npx --yes vite-node scripts/write-fly-benchmark-reports.ts",
     "test:watch": "vitest",
     "test:e2e": "npm run build && playwright test",
     "preview": "vite preview --host --open",

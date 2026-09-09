@@ -18,8 +18,8 @@ ChoreoCore の楽曲解析を **Dance Music Intelligence Engine** として進�
 | 2 | 現行結果の FLY 契約投影 | ✅ `fromStructureV2` / `toStructureV2` |
 | 3 | Fusion 入口（パススルー Ensemble） | ✅ `fusion.ts` / `client.ts` |
 | 4 | Essentia adapter + multi-analyzer Fusion 基盤 | ✅ `adapters/` / `fusionMulti.ts` |
-| **4.5** | **FLY Benchmark / Ground Truth**（解析器の得意分野マップ） | ⏳ next |
-| 5 | Beat Ensemble (madmom 等) | ⏳ after 4.5 |
+| **4.5** | **FLY Benchmark / Ground Truth**（条件別信頼度 + 不確実性） | ✅ `src/lib/fly/benchmark/` |
+| 5 | Beat Ensemble (madmom 等) | ⏳ after reviewing 4.5 profiles |
 | 6 | Structure Ensemble (MSAF+) | ⏳ |
 | 7 | Energy / Impact | ⏳ |
 | 8 | Music Events 強化 | ⏳ |
@@ -44,6 +44,21 @@ Formation Engine（既存・非破壊）
 
 Feature flag: `VITE_FLY_ESSENTIA_ENABLED` (default `false`).  
 Docs: `docs/fly/PHASE4-AUDIT.md`, `docs/fly/PHASE4-BENCHMARK.md`.
+
+## Phase 4.5 Benchmark (offline)
+
+```ts
+import { runFlyBenchmark } from "./benchmark"; // NOT from ../fly public index
+import { loadFlyBenchmarkGoldenDataset } from "../../../fixtures/fly/benchmark/dataset";
+
+const out = runFlyBenchmark({ dataset: loadFlyBenchmarkGoldenDataset() });
+// out.profiles = Accuracy × Condition × Evidence (sampleCount)
+```
+
+- Module: `src/lib/fly/benchmark/` — **not** exported from `src/lib/fly/index.ts`
+- Docs: `docs/fly/PHASE45-*.md`
+- Reports: `docs/fly/reports/` via `npm run fly:benchmark`
+- Does **not** auto-update Fusion weights or touch Formation Engine
 
 ## 使い方
 

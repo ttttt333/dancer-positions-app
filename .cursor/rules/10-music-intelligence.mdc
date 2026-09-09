@@ -28,6 +28,7 @@ FLY は「単一の librosa 解析」ではなく、**複数解析を統合し�
 
 ## 次 Phase
 
-**Phase 4.5 FLY Benchmark / Ground Truth**（解析器の得意分野マップ）→ その後 madmom / MSAF 等
+**Phase 4.5 FLY Benchmark / Ground Truth** ✅ `src/lib/fly/benchmark/`  
+→ 次: Benchmark profile を見て madmom 要否を判断（Phase 5）
 
-詳細: `src/lib/fly/README.md` / `docs/fly/PHASE4-AUDIT.md`
+詳細: `src/lib/fly/README.md` / `docs/fly/PHASE4-AUDIT.md` / `docs/fly/PHASE45-BENCHMARK.md`

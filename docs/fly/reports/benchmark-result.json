@@ -1,0 +1,4647 @@
+{
+  "benchmarkVersion": "1.0.0",
+  "datasetVersion": "1.0.0",
+  "groundTruthVersion": "1.0.0",
+  "metricsVersion": "1.0.0",
+  "songResults": [
+    {
+      "benchmarkVersion": "1.0.0",
+      "datasetVersion": "1.0.0",
+      "groundTruthVersion": "1.0.0",
+      "metricsVersion": "1.0.0",
+      "audioHash": "hash-complex-v1",
+      "songId": "gt-complex",
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "conditions": {
+        "genre": "complex",
+        "tempoCategory": "variable",
+        "structuralComplexity": "complex",
+        "vocalPresence": "mixed",
+        "energy": "high",
+        "beatDensity": "dense",
+        "durationBucket": "short",
+        "flags": [
+          "half-time-risk"
+        ]
+      },
+      "metrics": {
+        "tempo": {
+          "status": "OK",
+          "humanBpm": 100,
+          "hypBpm": 100,
+          "absoluteErrorBpm": 0,
+          "relativeErrorPercent": 0,
+          "equivalenceRatio": 1,
+          "tempoClassError": false,
+          "sampleCount": 1,
+          "evidenceConfidence": "LOW"
+        },
+        "beat": {
+          "status": "OK",
+          "thresholdsMs": [
+            20,
+            40,
+            60,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.007999999999999874,
+              "medianTimingError": 0.00799999999999956,
+              "matched": 80,
+              "nRef": 80,
+              "nHyp": 80
+            },
+            "40": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.007999999999999874,
+              "medianTimingError": 0.00799999999999956,
+              "matched": 80,
+              "nRef": 80,
+              "nHyp": 80
+            },
+            "60": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.007999999999999874,
+              "medianTimingError": 0.00799999999999956,
+              "matched": 80,
+              "nRef": 80,
+              "nHyp": 80
+            },
+            "100": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.007999999999999874,
+              "medianTimingError": 0.00799999999999956,
+              "matched": 80,
+              "nRef": 80,
+              "nHyp": 80
+            }
+          },
+          "sampleCount": 80,
+          "evidenceConfidence": "HIGH"
+        },
+        "downbeat": {
+          "status": "OK",
+          "thresholdsMs": [
+            20,
+            40,
+            60,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.007999999999999563,
+              "medianTimingError": 0.007999999999999119,
+              "matched": 20,
+              "nRef": 20,
+              "nHyp": 20
+            },
+            "40": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.007999999999999563,
+              "medianTimingError": 0.007999999999999119,
+              "matched": 20,
+              "nRef": 20,
+              "nHyp": 20
+            },
+            "60": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.007999999999999563,
+              "medianTimingError": 0.007999999999999119,
+              "matched": 20,
+              "nRef": 20,
+              "nHyp": 20
+            },
+            "100": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.007999999999999563,
+              "medianTimingError": 0.007999999999999119,
+              "matched": 20,
+              "nRef": 20,
+              "nHyp": 20
+            }
+          },
+          "sampleCount": 20,
+          "evidenceConfidence": "MEDIUM"
+        },
+        "onset": {
+          "status": "NOT_AVAILABLE",
+          "thresholdsMs": [
+            20,
+            50,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            },
+            "50": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            },
+            "100": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            }
+          },
+          "sampleCount": 0,
+          "evidenceConfidence": "NONE"
+        },
+        "section": {
+          "status": "OK",
+          "labelPrecision": 1,
+          "labelRecall": 1,
+          "labelF1": 1,
+          "meanBoundaryError": 0,
+          "meanIoU": 1,
+          "nRef": 5,
+          "nHyp": 5,
+          "sampleCount": 5,
+          "evidenceConfidence": "LOW"
+        },
+        "eightCount": {
+          "status": "OK",
+          "startTimingError": 0.008000000000000363,
+          "endTimingError": 0.008000000000000628,
+          "countBoundaryError": 0.008000000000000496,
+          "phraseAlignmentScore": 1,
+          "offByOneCountRate": 0,
+          "sampleCount": 10,
+          "evidenceConfidence": "MEDIUM"
+        },
+        "event": {
+          "status": "OK",
+          "byType": [
+            {
+              "status": "OK",
+              "thresholdsMs": [
+                20,
+                50,
+                100
+              ],
+              "byThreshold": {
+                "20": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "meanTimingError": null,
+                  "medianTimingError": null,
+                  "matched": 0,
+                  "nRef": 1,
+                  "nHyp": 0
+                },
+                "50": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "meanTimingError": null,
+                  "medianTimingError": null,
+                  "matched": 0,
+                  "nRef": 1,
+                  "nHyp": 0
+                },
+                "100": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "meanTimingError": null,
+                  "medianTimingError": null,
+                  "matched": 0,
+                  "nRef": 1,
+                  "nHyp": 0
+                }
+              },
+              "sampleCount": 1,
+              "evidenceConfidence": "LOW",
+              "eventType": "IMPACT"
+            }
+          ],
+          "sampleCount": 1,
+          "evidenceConfidence": "LOW"
+        }
+      },
+      "aggregateScore": 1,
+      "confidence": "HIGH",
+      "provenance": [
+        {
+          "metric": "tempo",
+          "sources": [
+            {
+              "analyzer": "ground_truth",
+              "value": 100
+            },
+            {
+              "analyzer": "essentia",
+              "value": 100
+            }
+          ]
+        },
+        {
+          "metric": "beat",
+          "sources": [
+            {
+              "analyzer": "ground_truth",
+              "value": 0
+            },
+            {
+              "analyzer": "essentia",
+              "value": 0.008
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "benchmarkVersion": "1.0.0",
+      "datasetVersion": "1.0.0",
+      "groundTruthVersion": "1.0.0",
+      "metricsVersion": "1.0.0",
+      "audioHash": "hash-complex-v1",
+      "songId": "gt-complex",
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "conditions": {
+        "genre": "complex",
+        "tempoCategory": "variable",
+        "structuralComplexity": "complex",
+        "vocalPresence": "mixed",
+        "energy": "high",
+        "beatDensity": "dense",
+        "durationBucket": "short",
+        "flags": [
+          "half-time-risk"
+        ]
+      },
+      "metrics": {
+        "tempo": {
+          "status": "OK",
+          "humanBpm": 100,
+          "hypBpm": 50,
+          "absoluteErrorBpm": 50,
+          "relativeErrorPercent": 50,
+          "equivalenceRatio": 0.5,
+          "tempoClassError": false,
+          "sampleCount": 1,
+          "evidenceConfidence": "LOW"
+        },
+        "beat": {
+          "status": "OK",
+          "thresholdsMs": [
+            20,
+            40,
+            60,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 0.625,
+              "recall": 0.3125,
+              "f1": 0.4166666666666667,
+              "meanTimingError": 0.01999999999999888,
+              "medianTimingError": 0.019999999999999574,
+              "matched": 25,
+              "nRef": 80,
+              "nHyp": 40
+            },
+            "40": {
+              "precision": 1,
+              "recall": 0.5,
+              "f1": 0.6666666666666666,
+              "meanTimingError": 0.02000000000000013,
+              "medianTimingError": 0.019999999999999574,
+              "matched": 40,
+              "nRef": 80,
+              "nHyp": 40
+            },
+            "60": {
+              "precision": 1,
+              "recall": 0.5,
+              "f1": 0.6666666666666666,
+              "meanTimingError": 0.02000000000000013,
+              "medianTimingError": 0.019999999999999574,
+              "matched": 40,
+              "nRef": 80,
+              "nHyp": 40
+            },
+            "100": {
+              "precision": 1,
+              "recall": 0.5,
+              "f1": 0.6666666666666666,
+              "meanTimingError": 0.02000000000000013,
+              "medianTimingError": 0.019999999999999574,
+              "matched": 40,
+              "nRef": 80,
+              "nHyp": 40
+            }
+          },
+          "sampleCount": 80,
+          "evidenceConfidence": "HIGH"
+        },
+        "downbeat": {
+          "status": "OK",
+          "thresholdsMs": [
+            20,
+            40,
+            60,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 0.8,
+              "recall": 0.4,
+              "f1": 0.5333333333333333,
+              "meanTimingError": 0.01999999999999874,
+              "medianTimingError": 0.019999999999999574,
+              "matched": 8,
+              "nRef": 20,
+              "nHyp": 10
+            },
+            "40": {
+              "precision": 1,
+              "recall": 0.5,
+              "f1": 0.6666666666666666,
+              "meanTimingError": 0.01999999999999935,
+              "medianTimingError": 0.019999999999999574,
+              "matched": 10,
+              "nRef": 20,
+              "nHyp": 10
+            },
+            "60": {
+              "precision": 1,
+              "recall": 0.5,
+              "f1": 0.6666666666666666,
+              "meanTimingError": 0.01999999999999935,
+              "medianTimingError": 0.019999999999999574,
+              "matched": 10,
+              "nRef": 20,
+              "nHyp": 10
+            },
+            "100": {
+              "precision": 1,
+              "recall": 0.5,
+              "f1": 0.6666666666666666,
+              "meanTimingError": 0.01999999999999935,
+              "medianTimingError": 0.019999999999999574,
+              "matched": 10,
+              "nRef": 20,
+              "nHyp": 10
+            }
+          },
+          "sampleCount": 20,
+          "evidenceConfidence": "MEDIUM"
+        },
+        "onset": {
+          "status": "NOT_AVAILABLE",
+          "thresholdsMs": [
+            20,
+            50,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            },
+            "50": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            },
+            "100": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            }
+          },
+          "sampleCount": 0,
+          "evidenceConfidence": "NONE"
+        },
+        "section": {
+          "status": "OK",
+          "labelPrecision": 0.6,
+          "labelRecall": 0.6,
+          "labelF1": 0.6,
+          "meanBoundaryError": 0.13999999999999985,
+          "meanIoU": 0.9716905786704926,
+          "nRef": 5,
+          "nHyp": 5,
+          "sampleCount": 5,
+          "evidenceConfidence": "LOW"
+        },
+        "eightCount": {
+          "status": "OK",
+          "startTimingError": 0.02000000000000037,
+          "endTimingError": 4.819999999999999,
+          "countBoundaryError": 2.42,
+          "phraseAlignmentScore": 0.5,
+          "offByOneCountRate": 0,
+          "sampleCount": 10,
+          "evidenceConfidence": "MEDIUM"
+        },
+        "event": {
+          "status": "OK",
+          "byType": [
+            {
+              "status": "OK",
+              "thresholdsMs": [
+                20,
+                50,
+                100
+              ],
+              "byThreshold": {
+                "20": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "meanTimingError": null,
+                  "medianTimingError": null,
+                  "matched": 0,
+                  "nRef": 1,
+                  "nHyp": 0
+                },
+                "50": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "meanTimingError": null,
+                  "medianTimingError": null,
+                  "matched": 0,
+                  "nRef": 1,
+                  "nHyp": 0
+                },
+                "100": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "meanTimingError": null,
+                  "medianTimingError": null,
+                  "matched": 0,
+                  "nRef": 1,
+                  "nHyp": 0
+                }
+              },
+              "sampleCount": 1,
+              "evidenceConfidence": "LOW",
+              "eventType": "IMPACT"
+            }
+          ],
+          "sampleCount": 1,
+          "evidenceConfidence": "LOW"
+        }
+      },
+      "aggregateScore": 0.6916666666666667,
+      "confidence": "HIGH",
+      "provenance": [
+        {
+          "metric": "tempo",
+          "sources": [
+            {
+              "analyzer": "ground_truth",
+              "value": 100
+            },
+            {
+              "analyzer": "librosa",
+              "value": 50
+            }
+          ]
+        },
+        {
+          "metric": "beat",
+          "sources": [
+            {
+              "analyzer": "ground_truth",
+              "value": 0
+            },
+            {
+              "analyzer": "librosa",
+              "value": 0.02
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "benchmarkVersion": "1.0.0",
+      "datasetVersion": "1.0.0",
+      "groundTruthVersion": "1.0.0",
+      "metricsVersion": "1.0.0",
+      "audioHash": "hash-edm-v1",
+      "songId": "gt-edm",
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "conditions": {
+        "genre": "edm",
+        "tempoCategory": "fast",
+        "structuralComplexity": "moderate",
+        "vocalPresence": "mixed",
+        "energy": "high",
+        "beatDensity": "dense",
+        "durationBucket": "short",
+        "flags": [
+          "drop"
+        ]
+      },
+      "metrics": {
+        "tempo": {
+          "status": "OK",
+          "humanBpm": 128,
+          "hypBpm": 128,
+          "absoluteErrorBpm": 0,
+          "relativeErrorPercent": 0,
+          "equivalenceRatio": 1,
+          "tempoClassError": false,
+          "sampleCount": 1,
+          "evidenceConfidence": "LOW"
+        },
+        "beat": {
+          "status": "OK",
+          "thresholdsMs": [
+            20,
+            40,
+            60,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.006000000000000154,
+              "medianTimingError": 0.006000000000000227,
+              "matched": 69,
+              "nRef": 69,
+              "nHyp": 69
+            },
+            "40": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.006000000000000154,
+              "medianTimingError": 0.006000000000000227,
+              "matched": 69,
+              "nRef": 69,
+              "nHyp": 69
+            },
+            "60": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.006000000000000154,
+              "medianTimingError": 0.006000000000000227,
+              "matched": 69,
+              "nRef": 69,
+              "nHyp": 69
+            },
+            "100": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.006000000000000154,
+              "medianTimingError": 0.006000000000000227,
+              "matched": 69,
+              "nRef": 69,
+              "nHyp": 69
+            }
+          },
+          "sampleCount": 69,
+          "evidenceConfidence": "HIGH"
+        },
+        "downbeat": {
+          "status": "OK",
+          "thresholdsMs": [
+            20,
+            40,
+            60,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.006000000000000178,
+              "medianTimingError": 0.006000000000000227,
+              "matched": 18,
+              "nRef": 18,
+              "nHyp": 18
+            },
+            "40": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.006000000000000178,
+              "medianTimingError": 0.006000000000000227,
+              "matched": 18,
+              "nRef": 18,
+              "nHyp": 18
+            },
+            "60": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.006000000000000178,
+              "medianTimingError": 0.006000000000000227,
+              "matched": 18,
+              "nRef": 18,
+              "nHyp": 18
+            },
+            "100": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.006000000000000178,
+              "medianTimingError": 0.006000000000000227,
+              "matched": 18,
+              "nRef": 18,
+              "nHyp": 18
+            }
+          },
+          "sampleCount": 18,
+          "evidenceConfidence": "MEDIUM"
+        },
+        "onset": {
+          "status": "NOT_AVAILABLE",
+          "thresholdsMs": [
+            20,
+            50,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            },
+            "50": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            },
+            "100": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            }
+          },
+          "sampleCount": 0,
+          "evidenceConfidence": "NONE"
+        },
+        "section": {
+          "status": "OK",
+          "labelPrecision": 1,
+          "labelRecall": 1,
+          "labelF1": 1,
+          "meanBoundaryError": 0,
+          "meanIoU": 1,
+          "nRef": 3,
+          "nHyp": 3,
+          "sampleCount": 3,
+          "evidenceConfidence": "LOW"
+        },
+        "eightCount": {
+          "status": "OK",
+          "startTimingError": 0.006000000000000143,
+          "endTimingError": 0.006000000000000172,
+          "countBoundaryError": 0.006000000000000158,
+          "phraseAlignmentScore": 1,
+          "offByOneCountRate": 0,
+          "sampleCount": 8,
+          "evidenceConfidence": "LOW"
+        },
+        "event": {
+          "status": "OK",
+          "byType": [
+            {
+              "status": "OK",
+              "thresholdsMs": [
+                20,
+                50,
+                100
+              ],
+              "byThreshold": {
+                "20": {
+                  "precision": 1,
+                  "recall": 1,
+                  "f1": 1,
+                  "meanTimingError": 0.019999999999999574,
+                  "medianTimingError": 0.019999999999999574,
+                  "matched": 1,
+                  "nRef": 1,
+                  "nHyp": 1
+                },
+                "50": {
+                  "precision": 1,
+                  "recall": 1,
+                  "f1": 1,
+                  "meanTimingError": 0.019999999999999574,
+                  "medianTimingError": 0.019999999999999574,
+                  "matched": 1,
+                  "nRef": 1,
+                  "nHyp": 1
+                },
+                "100": {
+                  "precision": 1,
+                  "recall": 1,
+                  "f1": 1,
+                  "meanTimingError": 0.019999999999999574,
+                  "medianTimingError": 0.019999999999999574,
+                  "matched": 1,
+                  "nRef": 1,
+                  "nHyp": 1
+                }
+              },
+              "sampleCount": 1,
+              "evidenceConfidence": "LOW",
+              "eventType": "BREAK"
+            },
+            {
+              "status": "OK",
+              "thresholdsMs": [
+                20,
+                50,
+                100
+              ],
+              "byThreshold": {
+                "20": {
+                  "precision": 1,
+                  "recall": 1,
+                  "f1": 1,
+                  "meanTimingError": 0.019999999999999574,
+                  "medianTimingError": 0.019999999999999574,
+                  "matched": 1,
+                  "nRef": 1,
+                  "nHyp": 1
+                },
+                "50": {
+                  "precision": 1,
+                  "recall": 1,
+                  "f1": 1,
+                  "meanTimingError": 0.019999999999999574,
+                  "medianTimingError": 0.019999999999999574,
+                  "matched": 1,
+                  "nRef": 1,
+                  "nHyp": 1
+                },
+                "100": {
+                  "precision": 1,
+                  "recall": 1,
+                  "f1": 1,
+                  "meanTimingError": 0.019999999999999574,
+                  "medianTimingError": 0.019999999999999574,
+                  "matched": 1,
+                  "nRef": 1,
+                  "nHyp": 1
+                }
+              },
+              "sampleCount": 1,
+              "evidenceConfidence": "LOW",
+              "eventType": "DROP"
+            }
+          ],
+          "sampleCount": 2,
+          "evidenceConfidence": "LOW"
+        }
+      },
+      "aggregateScore": 1,
+      "confidence": "HIGH",
+      "provenance": [
+        {
+          "metric": "tempo",
+          "sources": [
+            {
+              "analyzer": "ground_truth",
+              "value": 128
+            },
+            {
+              "analyzer": "essentia",
+              "value": 128
+            }
+          ]
+        },
+        {
+          "metric": "beat",
+          "sources": [
+            {
+              "analyzer": "ground_truth",
+              "value": 0
+            },
+            {
+              "analyzer": "essentia",
+              "value": 0.006
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "benchmarkVersion": "1.0.0",
+      "datasetVersion": "1.0.0",
+      "groundTruthVersion": "1.0.0",
+      "metricsVersion": "1.0.0",
+      "audioHash": "hash-edm-v1",
+      "songId": "gt-edm",
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "conditions": {
+        "genre": "edm",
+        "tempoCategory": "fast",
+        "structuralComplexity": "moderate",
+        "vocalPresence": "mixed",
+        "energy": "high",
+        "beatDensity": "dense",
+        "durationBucket": "short",
+        "flags": [
+          "drop"
+        ]
+      },
+      "metrics": {
+        "tempo": {
+          "status": "OK",
+          "humanBpm": 128,
+          "hypBpm": 128,
+          "absoluteErrorBpm": 0,
+          "relativeErrorPercent": 0,
+          "equivalenceRatio": 1,
+          "tempoClassError": false,
+          "sampleCount": 1,
+          "evidenceConfidence": "LOW"
+        },
+        "beat": {
+          "status": "OK",
+          "thresholdsMs": [
+            20,
+            40,
+            60,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.0120000000000001,
+              "medianTimingError": 0.012000000000000455,
+              "matched": 69,
+              "nRef": 69,
+              "nHyp": 69
+            },
+            "40": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.0120000000000001,
+              "medianTimingError": 0.012000000000000455,
+              "matched": 69,
+              "nRef": 69,
+              "nHyp": 69
+            },
+            "60": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.0120000000000001,
+              "medianTimingError": 0.012000000000000455,
+              "matched": 69,
+              "nRef": 69,
+              "nHyp": 69
+            },
+            "100": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.0120000000000001,
+              "medianTimingError": 0.012000000000000455,
+              "matched": 69,
+              "nRef": 69,
+              "nHyp": 69
+            }
+          },
+          "sampleCount": 69,
+          "evidenceConfidence": "HIGH"
+        },
+        "downbeat": {
+          "status": "OK",
+          "thresholdsMs": [
+            20,
+            40,
+            60,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.012000000000000281,
+              "medianTimingError": 0.012000000000000455,
+              "matched": 18,
+              "nRef": 18,
+              "nHyp": 18
+            },
+            "40": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.012000000000000281,
+              "medianTimingError": 0.012000000000000455,
+              "matched": 18,
+              "nRef": 18,
+              "nHyp": 18
+            },
+            "60": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.012000000000000281,
+              "medianTimingError": 0.012000000000000455,
+              "matched": 18,
+              "nRef": 18,
+              "nHyp": 18
+            },
+            "100": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.012000000000000281,
+              "medianTimingError": 0.012000000000000455,
+              "matched": 18,
+              "nRef": 18,
+              "nHyp": 18
+            }
+          },
+          "sampleCount": 18,
+          "evidenceConfidence": "MEDIUM"
+        },
+        "onset": {
+          "status": "NOT_AVAILABLE",
+          "thresholdsMs": [
+            20,
+            50,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            },
+            "50": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            },
+            "100": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            }
+          },
+          "sampleCount": 0,
+          "evidenceConfidence": "NONE"
+        },
+        "section": {
+          "status": "OK",
+          "labelPrecision": 1,
+          "labelRecall": 1,
+          "labelF1": 1,
+          "meanBoundaryError": 0.10000000000000024,
+          "meanIoU": 0.9817018072289155,
+          "nRef": 3,
+          "nHyp": 3,
+          "sampleCount": 3,
+          "evidenceConfidence": "LOW"
+        },
+        "eightCount": {
+          "status": "OK",
+          "startTimingError": 0.012000000000000231,
+          "endTimingError": 0.012000000000000288,
+          "countBoundaryError": 0.01200000000000026,
+          "phraseAlignmentScore": 1,
+          "offByOneCountRate": 0,
+          "sampleCount": 8,
+          "evidenceConfidence": "LOW"
+        },
+        "event": {
+          "status": "OK",
+          "byType": [
+            {
+              "status": "OK",
+              "thresholdsMs": [
+                20,
+                50,
+                100
+              ],
+              "byThreshold": {
+                "20": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "meanTimingError": null,
+                  "medianTimingError": null,
+                  "matched": 0,
+                  "nRef": 1,
+                  "nHyp": 1
+                },
+                "50": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "meanTimingError": null,
+                  "medianTimingError": null,
+                  "matched": 0,
+                  "nRef": 1,
+                  "nHyp": 1
+                },
+                "100": {
+                  "precision": 1,
+                  "recall": 1,
+                  "f1": 1,
+                  "meanTimingError": 0.05000000000000071,
+                  "medianTimingError": 0.05000000000000071,
+                  "matched": 1,
+                  "nRef": 1,
+                  "nHyp": 1
+                }
+              },
+              "sampleCount": 1,
+              "evidenceConfidence": "LOW",
+              "eventType": "BREAK"
+            },
+            {
+              "status": "OK",
+              "thresholdsMs": [
+                20,
+                50,
+                100
+              ],
+              "byThreshold": {
+                "20": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "meanTimingError": null,
+                  "medianTimingError": null,
+                  "matched": 0,
+                  "nRef": 1,
+                  "nHyp": 1
+                },
+                "50": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "meanTimingError": null,
+                  "medianTimingError": null,
+                  "matched": 0,
+                  "nRef": 1,
+                  "nHyp": 1
+                },
+                "100": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "meanTimingError": null,
+                  "medianTimingError": null,
+                  "matched": 0,
+                  "nRef": 1,
+                  "nHyp": 1
+                }
+              },
+              "sampleCount": 1,
+              "evidenceConfidence": "LOW",
+              "eventType": "DROP"
+            }
+          ],
+          "sampleCount": 2,
+          "evidenceConfidence": "LOW"
+        }
+      },
+      "aggregateScore": 1,
+      "confidence": "HIGH",
+      "provenance": [
+        {
+          "metric": "tempo",
+          "sources": [
+            {
+              "analyzer": "ground_truth",
+              "value": 128
+            },
+            {
+              "analyzer": "librosa",
+              "value": 128
+            }
+          ]
+        },
+        {
+          "metric": "beat",
+          "sources": [
+            {
+              "analyzer": "ground_truth",
+              "value": 0
+            },
+            {
+              "analyzer": "librosa",
+              "value": 0.012
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "benchmarkVersion": "1.0.0",
+      "datasetVersion": "1.0.0",
+      "groundTruthVersion": "1.0.0",
+      "metricsVersion": "1.0.0",
+      "audioHash": "hash-hiphop-v1",
+      "songId": "gt-hiphop",
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "conditions": {
+        "genre": "hip-hop",
+        "tempoCategory": "medium",
+        "structuralComplexity": "moderate",
+        "vocalPresence": "vocal-heavy",
+        "energy": "medium",
+        "beatDensity": "sparse",
+        "durationBucket": "short"
+      },
+      "metrics": {
+        "tempo": {
+          "status": "OK",
+          "humanBpm": 90,
+          "hypBpm": 90,
+          "absoluteErrorBpm": 0,
+          "relativeErrorPercent": 0,
+          "equivalenceRatio": 1,
+          "tempoClassError": false,
+          "sampleCount": 1,
+          "evidenceConfidence": "LOW"
+        },
+        "beat": {
+          "status": "OK",
+          "thresholdsMs": [
+            20,
+            40,
+            60,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.010000000000000106,
+              "medianTimingError": 0.009999999999999787,
+              "matched": 48,
+              "nRef": 48,
+              "nHyp": 48
+            },
+            "40": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.010000000000000106,
+              "medianTimingError": 0.009999999999999787,
+              "matched": 48,
+              "nRef": 48,
+              "nHyp": 48
+            },
+            "60": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.010000000000000106,
+              "medianTimingError": 0.009999999999999787,
+              "matched": 48,
+              "nRef": 48,
+              "nHyp": 48
+            },
+            "100": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.010000000000000106,
+              "medianTimingError": 0.009999999999999787,
+              "matched": 48,
+              "nRef": 48,
+              "nHyp": 48
+            }
+          },
+          "sampleCount": 48,
+          "evidenceConfidence": "HIGH"
+        },
+        "downbeat": {
+          "status": "OK",
+          "thresholdsMs": [
+            20,
+            40,
+            60,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.010000000000000139,
+              "medianTimingError": 0.009999999999999894,
+              "matched": 12,
+              "nRef": 12,
+              "nHyp": 12
+            },
+            "40": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.010000000000000139,
+              "medianTimingError": 0.009999999999999894,
+              "matched": 12,
+              "nRef": 12,
+              "nHyp": 12
+            },
+            "60": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.010000000000000139,
+              "medianTimingError": 0.009999999999999894,
+              "matched": 12,
+              "nRef": 12,
+              "nHyp": 12
+            },
+            "100": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.010000000000000139,
+              "medianTimingError": 0.009999999999999894,
+              "matched": 12,
+              "nRef": 12,
+              "nHyp": 12
+            }
+          },
+          "sampleCount": 12,
+          "evidenceConfidence": "MEDIUM"
+        },
+        "onset": {
+          "status": "NOT_AVAILABLE",
+          "thresholdsMs": [
+            20,
+            50,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            },
+            "50": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            },
+            "100": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            }
+          },
+          "sampleCount": 0,
+          "evidenceConfidence": "NONE"
+        },
+        "section": {
+          "status": "OK",
+          "labelPrecision": 1,
+          "labelRecall": 1,
+          "labelF1": 1,
+          "meanBoundaryError": 0,
+          "meanIoU": 1,
+          "nRef": 2,
+          "nHyp": 2,
+          "sampleCount": 2,
+          "evidenceConfidence": "LOW"
+        },
+        "eightCount": {
+          "status": "OK",
+          "startTimingError": 0.010000000000000711,
+          "endTimingError": 0.010000000000000378,
+          "countBoundaryError": 0.010000000000000545,
+          "phraseAlignmentScore": 1,
+          "offByOneCountRate": 0,
+          "sampleCount": 6,
+          "evidenceConfidence": "LOW"
+        },
+        "event": {
+          "status": "NOT_AVAILABLE",
+          "byType": [],
+          "sampleCount": 0,
+          "evidenceConfidence": "NONE"
+        }
+      },
+      "aggregateScore": 1,
+      "confidence": "HIGH",
+      "provenance": [
+        {
+          "metric": "tempo",
+          "sources": [
+            {
+              "analyzer": "ground_truth",
+              "value": 90
+            },
+            {
+              "analyzer": "essentia",
+              "value": 90
+            }
+          ]
+        },
+        {
+          "metric": "beat",
+          "sources": [
+            {
+              "analyzer": "ground_truth",
+              "value": 0
+            },
+            {
+              "analyzer": "essentia",
+              "value": 0.01
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "benchmarkVersion": "1.0.0",
+      "datasetVersion": "1.0.0",
+      "groundTruthVersion": "1.0.0",
+      "metricsVersion": "1.0.0",
+      "audioHash": "hash-hiphop-v1",
+      "songId": "gt-hiphop",
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "conditions": {
+        "genre": "hip-hop",
+        "tempoCategory": "medium",
+        "structuralComplexity": "moderate",
+        "vocalPresence": "vocal-heavy",
+        "energy": "medium",
+        "beatDensity": "sparse",
+        "durationBucket": "short"
+      },
+      "metrics": {
+        "tempo": {
+          "status": "OK",
+          "humanBpm": 90,
+          "hypBpm": 90,
+          "absoluteErrorBpm": 0,
+          "relativeErrorPercent": 0,
+          "equivalenceRatio": 1,
+          "tempoClassError": false,
+          "sampleCount": 1,
+          "evidenceConfidence": "LOW"
+        },
+        "beat": {
+          "status": "OK",
+          "thresholdsMs": [
+            20,
+            40,
+            60,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.014999999999999833,
+              "medianTimingError": 0.015000000000000568,
+              "matched": 48,
+              "nRef": 48,
+              "nHyp": 48
+            },
+            "40": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.014999999999999833,
+              "medianTimingError": 0.015000000000000568,
+              "matched": 48,
+              "nRef": 48,
+              "nHyp": 48
+            },
+            "60": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.014999999999999833,
+              "medianTimingError": 0.015000000000000568,
+              "matched": 48,
+              "nRef": 48,
+              "nHyp": 48
+            },
+            "100": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.014999999999999833,
+              "medianTimingError": 0.015000000000000568,
+              "matched": 48,
+              "nRef": 48,
+              "nHyp": 48
+            }
+          },
+          "sampleCount": 48,
+          "evidenceConfidence": "HIGH"
+        },
+        "downbeat": {
+          "status": "OK",
+          "thresholdsMs": [
+            20,
+            40,
+            60,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.014999999999999819,
+              "medianTimingError": 0.015000000000000568,
+              "matched": 12,
+              "nRef": 12,
+              "nHyp": 12
+            },
+            "40": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.014999999999999819,
+              "medianTimingError": 0.015000000000000568,
+              "matched": 12,
+              "nRef": 12,
+              "nHyp": 12
+            },
+            "60": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.014999999999999819,
+              "medianTimingError": 0.015000000000000568,
+              "matched": 12,
+              "nRef": 12,
+              "nHyp": 12
+            },
+            "100": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.014999999999999819,
+              "medianTimingError": 0.015000000000000568,
+              "matched": 12,
+              "nRef": 12,
+              "nHyp": 12
+            }
+          },
+          "sampleCount": 12,
+          "evidenceConfidence": "MEDIUM"
+        },
+        "onset": {
+          "status": "NOT_AVAILABLE",
+          "thresholdsMs": [
+            20,
+            50,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            },
+            "50": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            },
+            "100": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            }
+          },
+          "sampleCount": 0,
+          "evidenceConfidence": "NONE"
+        },
+        "section": {
+          "status": "OK",
+          "labelPrecision": 1,
+          "labelRecall": 1,
+          "labelF1": 1,
+          "meanBoundaryError": 0.09999999999999964,
+          "meanIoU": 0.9875771604938273,
+          "nRef": 2,
+          "nHyp": 2,
+          "sampleCount": 2,
+          "evidenceConfidence": "LOW"
+        },
+        "eightCount": {
+          "status": "OK",
+          "startTimingError": 0.015000000000000326,
+          "endTimingError": 0.015000000000000421,
+          "countBoundaryError": 0.015000000000000374,
+          "phraseAlignmentScore": 1,
+          "offByOneCountRate": 0,
+          "sampleCount": 6,
+          "evidenceConfidence": "LOW"
+        },
+        "event": {
+          "status": "NOT_AVAILABLE",
+          "byType": [],
+          "sampleCount": 0,
+          "evidenceConfidence": "NONE"
+        }
+      },
+      "aggregateScore": 1,
+      "confidence": "HIGH",
+      "provenance": [
+        {
+          "metric": "tempo",
+          "sources": [
+            {
+              "analyzer": "ground_truth",
+              "value": 90
+            },
+            {
+              "analyzer": "librosa",
+              "value": 90
+            }
+          ]
+        },
+        {
+          "metric": "beat",
+          "sources": [
+            {
+              "analyzer": "ground_truth",
+              "value": 0
+            },
+            {
+              "analyzer": "librosa",
+              "value": 0.015
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "benchmarkVersion": "1.0.0",
+      "datasetVersion": "1.0.0",
+      "groundTruthVersion": "1.0.0",
+      "metricsVersion": "1.0.0",
+      "audioHash": "hash-simple-pop-v1",
+      "songId": "gt-simple-pop",
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "conditions": {
+        "genre": "pop",
+        "tempoCategory": "medium",
+        "structuralComplexity": "simple",
+        "vocalPresence": "vocal-heavy",
+        "energy": "medium",
+        "beatDensity": "normal",
+        "durationBucket": "short"
+      },
+      "metrics": {
+        "tempo": {
+          "status": "OK",
+          "humanBpm": 120,
+          "hypBpm": 120,
+          "absoluteErrorBpm": 0,
+          "relativeErrorPercent": 0,
+          "equivalenceRatio": 1,
+          "tempoClassError": false,
+          "sampleCount": 1,
+          "evidenceConfidence": "LOW"
+        },
+        "beat": {
+          "status": "OK",
+          "thresholdsMs": [
+            20,
+            40,
+            60,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.004999999999999675,
+              "medianTimingError": 0.004999999999999449,
+              "matched": 64,
+              "nRef": 64,
+              "nHyp": 64
+            },
+            "40": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.004999999999999675,
+              "medianTimingError": 0.004999999999999449,
+              "matched": 64,
+              "nRef": 64,
+              "nHyp": 64
+            },
+            "60": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.004999999999999675,
+              "medianTimingError": 0.004999999999999449,
+              "matched": 64,
+              "nRef": 64,
+              "nHyp": 64
+            },
+            "100": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.004999999999999675,
+              "medianTimingError": 0.004999999999999449,
+              "matched": 64,
+              "nRef": 64,
+              "nHyp": 64
+            }
+          },
+          "sampleCount": 64,
+          "evidenceConfidence": "HIGH"
+        },
+        "downbeat": {
+          "status": "OK",
+          "thresholdsMs": [
+            20,
+            40,
+            60,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.004999999999999678,
+              "medianTimingError": 0.004999999999999449,
+              "matched": 16,
+              "nRef": 16,
+              "nHyp": 16
+            },
+            "40": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.004999999999999678,
+              "medianTimingError": 0.004999999999999449,
+              "matched": 16,
+              "nRef": 16,
+              "nHyp": 16
+            },
+            "60": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.004999999999999678,
+              "medianTimingError": 0.004999999999999449,
+              "matched": 16,
+              "nRef": 16,
+              "nHyp": 16
+            },
+            "100": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.004999999999999678,
+              "medianTimingError": 0.004999999999999449,
+              "matched": 16,
+              "nRef": 16,
+              "nHyp": 16
+            }
+          },
+          "sampleCount": 16,
+          "evidenceConfidence": "MEDIUM"
+        },
+        "onset": {
+          "status": "NOT_AVAILABLE",
+          "thresholdsMs": [
+            20,
+            50,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            },
+            "50": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            },
+            "100": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            }
+          },
+          "sampleCount": 0,
+          "evidenceConfidence": "NONE"
+        },
+        "section": {
+          "status": "OK",
+          "labelPrecision": 1,
+          "labelRecall": 1,
+          "labelF1": 1,
+          "meanBoundaryError": 0.016666666666666902,
+          "meanIoU": 0.9968782450674974,
+          "nRef": 3,
+          "nHyp": 3,
+          "sampleCount": 3,
+          "evidenceConfidence": "LOW"
+        },
+        "eightCount": {
+          "status": "OK",
+          "startTimingError": 0.004999999999999685,
+          "endTimingError": 0.0050000000000000044,
+          "countBoundaryError": 0.004999999999999845,
+          "phraseAlignmentScore": 1,
+          "offByOneCountRate": 0,
+          "sampleCount": 8,
+          "evidenceConfidence": "LOW"
+        },
+        "event": {
+          "status": "OK",
+          "byType": [
+            {
+              "status": "OK",
+              "thresholdsMs": [
+                20,
+                50,
+                100
+              ],
+              "byThreshold": {
+                "20": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "meanTimingError": null,
+                  "medianTimingError": null,
+                  "matched": 0,
+                  "nRef": 1,
+                  "nHyp": 0
+                },
+                "50": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "meanTimingError": null,
+                  "medianTimingError": null,
+                  "matched": 0,
+                  "nRef": 1,
+                  "nHyp": 0
+                },
+                "100": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "meanTimingError": null,
+                  "medianTimingError": null,
+                  "matched": 0,
+                  "nRef": 1,
+                  "nHyp": 0
+                }
+              },
+              "sampleCount": 1,
+              "evidenceConfidence": "LOW",
+              "eventType": "SECTION_CHANGE"
+            }
+          ],
+          "sampleCount": 1,
+          "evidenceConfidence": "LOW"
+        }
+      },
+      "aggregateScore": 1,
+      "confidence": "HIGH",
+      "provenance": [
+        {
+          "metric": "tempo",
+          "sources": [
+            {
+              "analyzer": "ground_truth",
+              "value": 120
+            },
+            {
+              "analyzer": "essentia",
+              "value": 120
+            }
+          ]
+        },
+        {
+          "metric": "beat",
+          "sources": [
+            {
+              "analyzer": "ground_truth",
+              "value": 0
+            },
+            {
+              "analyzer": "essentia",
+              "value": 0.005
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "benchmarkVersion": "1.0.0",
+      "datasetVersion": "1.0.0",
+      "groundTruthVersion": "1.0.0",
+      "metricsVersion": "1.0.0",
+      "audioHash": "hash-simple-pop-v1",
+      "songId": "gt-simple-pop",
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "conditions": {
+        "genre": "pop",
+        "tempoCategory": "medium",
+        "structuralComplexity": "simple",
+        "vocalPresence": "vocal-heavy",
+        "energy": "medium",
+        "beatDensity": "normal",
+        "durationBucket": "short"
+      },
+      "metrics": {
+        "tempo": {
+          "status": "OK",
+          "humanBpm": 120,
+          "hypBpm": 120,
+          "absoluteErrorBpm": 0,
+          "relativeErrorPercent": 0,
+          "equivalenceRatio": 1,
+          "tempoClassError": false,
+          "sampleCount": 1,
+          "evidenceConfidence": "LOW"
+        },
+        "beat": {
+          "status": "OK",
+          "thresholdsMs": [
+            20,
+            40,
+            60,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.007999999999999341,
+              "medianTimingError": 0.007999999999999119,
+              "matched": 64,
+              "nRef": 64,
+              "nHyp": 64
+            },
+            "40": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.007999999999999341,
+              "medianTimingError": 0.007999999999999119,
+              "matched": 64,
+              "nRef": 64,
+              "nHyp": 64
+            },
+            "60": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.007999999999999341,
+              "medianTimingError": 0.007999999999999119,
+              "matched": 64,
+              "nRef": 64,
+              "nHyp": 64
+            },
+            "100": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.007999999999999341,
+              "medianTimingError": 0.007999999999999119,
+              "matched": 64,
+              "nRef": 64,
+              "nHyp": 64
+            }
+          },
+          "sampleCount": 64,
+          "evidenceConfidence": "HIGH"
+        },
+        "downbeat": {
+          "status": "OK",
+          "thresholdsMs": [
+            20,
+            40,
+            60,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.007999999999999341,
+              "medianTimingError": 0.007999999999999119,
+              "matched": 16,
+              "nRef": 16,
+              "nHyp": 16
+            },
+            "40": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.007999999999999341,
+              "medianTimingError": 0.007999999999999119,
+              "matched": 16,
+              "nRef": 16,
+              "nHyp": 16
+            },
+            "60": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.007999999999999341,
+              "medianTimingError": 0.007999999999999119,
+              "matched": 16,
+              "nRef": 16,
+              "nHyp": 16
+            },
+            "100": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.007999999999999341,
+              "medianTimingError": 0.007999999999999119,
+              "matched": 16,
+              "nRef": 16,
+              "nHyp": 16
+            }
+          },
+          "sampleCount": 16,
+          "evidenceConfidence": "MEDIUM"
+        },
+        "onset": {
+          "status": "NOT_AVAILABLE",
+          "thresholdsMs": [
+            20,
+            50,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            },
+            "50": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            },
+            "100": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            }
+          },
+          "sampleCount": 0,
+          "evidenceConfidence": "NONE"
+        },
+        "section": {
+          "status": "OK",
+          "labelPrecision": 1,
+          "labelRecall": 1,
+          "labelF1": 1,
+          "meanBoundaryError": 0.033333333333333215,
+          "meanIoU": 0.993801440329218,
+          "nRef": 3,
+          "nHyp": 3,
+          "sampleCount": 3,
+          "evidenceConfidence": "LOW"
+        },
+        "eightCount": {
+          "status": "OK",
+          "startTimingError": 0.007999999999999341,
+          "endTimingError": 0.007999999999999674,
+          "countBoundaryError": 0.007999999999999508,
+          "phraseAlignmentScore": 1,
+          "offByOneCountRate": 0,
+          "sampleCount": 8,
+          "evidenceConfidence": "LOW"
+        },
+        "event": {
+          "status": "OK",
+          "byType": [
+            {
+              "status": "OK",
+              "thresholdsMs": [
+                20,
+                50,
+                100
+              ],
+              "byThreshold": {
+                "20": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "meanTimingError": null,
+                  "medianTimingError": null,
+                  "matched": 0,
+                  "nRef": 1,
+                  "nHyp": 0
+                },
+                "50": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "meanTimingError": null,
+                  "medianTimingError": null,
+                  "matched": 0,
+                  "nRef": 1,
+                  "nHyp": 0
+                },
+                "100": {
+                  "precision": 0,
+                  "recall": 0,
+                  "f1": 0,
+                  "meanTimingError": null,
+                  "medianTimingError": null,
+                  "matched": 0,
+                  "nRef": 1,
+                  "nHyp": 0
+                }
+              },
+              "sampleCount": 1,
+              "evidenceConfidence": "LOW",
+              "eventType": "SECTION_CHANGE"
+            }
+          ],
+          "sampleCount": 1,
+          "evidenceConfidence": "LOW"
+        }
+      },
+      "aggregateScore": 1,
+      "confidence": "HIGH",
+      "provenance": [
+        {
+          "metric": "tempo",
+          "sources": [
+            {
+              "analyzer": "ground_truth",
+              "value": 120
+            },
+            {
+              "analyzer": "librosa",
+              "value": 120
+            }
+          ]
+        },
+        {
+          "metric": "beat",
+          "sources": [
+            {
+              "analyzer": "ground_truth",
+              "value": 0
+            },
+            {
+              "analyzer": "librosa",
+              "value": 0.008
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "benchmarkVersion": "1.0.0",
+      "datasetVersion": "1.0.0",
+      "groundTruthVersion": "1.0.0",
+      "metricsVersion": "1.0.0",
+      "audioHash": "hash-slow-v1",
+      "songId": "gt-slow-ballad",
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "conditions": {
+        "genre": "ballad",
+        "tempoCategory": "slow",
+        "structuralComplexity": "simple",
+        "vocalPresence": "vocal-heavy",
+        "energy": "low",
+        "beatDensity": "sparse",
+        "durationBucket": "short"
+      },
+      "metrics": {
+        "tempo": {
+          "status": "OK",
+          "humanBpm": 70,
+          "hypBpm": 70,
+          "absoluteErrorBpm": 0,
+          "relativeErrorPercent": 0,
+          "equivalenceRatio": 1,
+          "tempoClassError": false,
+          "sampleCount": 1,
+          "evidenceConfidence": "LOW"
+        },
+        "beat": {
+          "status": "OK",
+          "thresholdsMs": [
+            20,
+            40,
+            60,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.018000000000000006,
+              "medianTimingError": 0.018000000000000682,
+              "matched": 47,
+              "nRef": 47,
+              "nHyp": 47
+            },
+            "40": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.018000000000000006,
+              "medianTimingError": 0.018000000000000682,
+              "matched": 47,
+              "nRef": 47,
+              "nHyp": 47
+            },
+            "60": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.018000000000000006,
+              "medianTimingError": 0.018000000000000682,
+              "matched": 47,
+              "nRef": 47,
+              "nHyp": 47
+            },
+            "100": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.018000000000000006,
+              "medianTimingError": 0.018000000000000682,
+              "matched": 47,
+              "nRef": 47,
+              "nHyp": 47
+            }
+          },
+          "sampleCount": 47,
+          "evidenceConfidence": "HIGH"
+        },
+        "downbeat": {
+          "status": "OK",
+          "thresholdsMs": [
+            20,
+            40,
+            60,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.01800000000000007,
+              "medianTimingError": 0.018000000000000682,
+              "matched": 12,
+              "nRef": 12,
+              "nHyp": 12
+            },
+            "40": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.01800000000000007,
+              "medianTimingError": 0.018000000000000682,
+              "matched": 12,
+              "nRef": 12,
+              "nHyp": 12
+            },
+            "60": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.01800000000000007,
+              "medianTimingError": 0.018000000000000682,
+              "matched": 12,
+              "nRef": 12,
+              "nHyp": 12
+            },
+            "100": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.01800000000000007,
+              "medianTimingError": 0.018000000000000682,
+              "matched": 12,
+              "nRef": 12,
+              "nHyp": 12
+            }
+          },
+          "sampleCount": 12,
+          "evidenceConfidence": "MEDIUM"
+        },
+        "onset": {
+          "status": "NOT_AVAILABLE",
+          "thresholdsMs": [
+            20,
+            50,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            },
+            "50": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            },
+            "100": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            }
+          },
+          "sampleCount": 0,
+          "evidenceConfidence": "NONE"
+        },
+        "section": {
+          "status": "OK",
+          "labelPrecision": 1,
+          "labelRecall": 1,
+          "labelF1": 1,
+          "meanBoundaryError": 0,
+          "meanIoU": 1,
+          "nRef": 2,
+          "nHyp": 2,
+          "sampleCount": 2,
+          "evidenceConfidence": "LOW"
+        },
+        "eightCount": {
+          "status": "OK",
+          "startTimingError": 0.01800000000000037,
+          "endTimingError": 0.018000000000000505,
+          "countBoundaryError": 0.01800000000000044,
+          "phraseAlignmentScore": 1,
+          "offByOneCountRate": 0,
+          "sampleCount": 5,
+          "evidenceConfidence": "LOW"
+        },
+        "event": {
+          "status": "NOT_AVAILABLE",
+          "byType": [],
+          "sampleCount": 0,
+          "evidenceConfidence": "NONE"
+        }
+      },
+      "aggregateScore": 1,
+      "confidence": "HIGH",
+      "provenance": [
+        {
+          "metric": "tempo",
+          "sources": [
+            {
+              "analyzer": "ground_truth",
+              "value": 70
+            },
+            {
+              "analyzer": "essentia",
+              "value": 70
+            }
+          ]
+        },
+        {
+          "metric": "beat",
+          "sources": [
+            {
+              "analyzer": "ground_truth",
+              "value": 0
+            },
+            {
+              "analyzer": "essentia",
+              "value": 0.018
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "benchmarkVersion": "1.0.0",
+      "datasetVersion": "1.0.0",
+      "groundTruthVersion": "1.0.0",
+      "metricsVersion": "1.0.0",
+      "audioHash": "hash-slow-v1",
+      "songId": "gt-slow-ballad",
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "conditions": {
+        "genre": "ballad",
+        "tempoCategory": "slow",
+        "structuralComplexity": "simple",
+        "vocalPresence": "vocal-heavy",
+        "energy": "low",
+        "beatDensity": "sparse",
+        "durationBucket": "short"
+      },
+      "metrics": {
+        "tempo": {
+          "status": "OK",
+          "humanBpm": 70,
+          "hypBpm": 70,
+          "absoluteErrorBpm": 0,
+          "relativeErrorPercent": 0,
+          "equivalenceRatio": 1,
+          "tempoClassError": false,
+          "sampleCount": 1,
+          "evidenceConfidence": "LOW"
+        },
+        "beat": {
+          "status": "OK",
+          "thresholdsMs": [
+            20,
+            40,
+            60,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 47,
+              "nHyp": 47
+            },
+            "40": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.024999999999999797,
+              "medianTimingError": 0.02499999999999991,
+              "matched": 47,
+              "nRef": 47,
+              "nHyp": 47
+            },
+            "60": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.024999999999999797,
+              "medianTimingError": 0.02499999999999991,
+              "matched": 47,
+              "nRef": 47,
+              "nHyp": 47
+            },
+            "100": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.024999999999999797,
+              "medianTimingError": 0.02499999999999991,
+              "matched": 47,
+              "nRef": 47,
+              "nHyp": 47
+            }
+          },
+          "sampleCount": 47,
+          "evidenceConfidence": "HIGH"
+        },
+        "downbeat": {
+          "status": "OK",
+          "thresholdsMs": [
+            20,
+            40,
+            60,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 12,
+              "nHyp": 12
+            },
+            "40": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.02499999999999981,
+              "medianTimingError": 0.024999999999999734,
+              "matched": 12,
+              "nRef": 12,
+              "nHyp": 12
+            },
+            "60": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.02499999999999981,
+              "medianTimingError": 0.024999999999999734,
+              "matched": 12,
+              "nRef": 12,
+              "nHyp": 12
+            },
+            "100": {
+              "precision": 1,
+              "recall": 1,
+              "f1": 1,
+              "meanTimingError": 0.02499999999999981,
+              "medianTimingError": 0.024999999999999734,
+              "matched": 12,
+              "nRef": 12,
+              "nHyp": 12
+            }
+          },
+          "sampleCount": 12,
+          "evidenceConfidence": "MEDIUM"
+        },
+        "onset": {
+          "status": "NOT_AVAILABLE",
+          "thresholdsMs": [
+            20,
+            50,
+            100
+          ],
+          "byThreshold": {
+            "20": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            },
+            "50": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            },
+            "100": {
+              "precision": 0,
+              "recall": 0,
+              "f1": 0,
+              "meanTimingError": null,
+              "medianTimingError": null,
+              "matched": 0,
+              "nRef": 0,
+              "nHyp": 0
+            }
+          },
+          "sampleCount": 0,
+          "evidenceConfidence": "NONE"
+        },
+        "section": {
+          "status": "OK",
+          "labelPrecision": 1,
+          "labelRecall": 1,
+          "labelF1": 1,
+          "meanBoundaryError": 0.1999999999999993,
+          "meanIoU": 0.9794715447154472,
+          "nRef": 2,
+          "nHyp": 2,
+          "sampleCount": 2,
+          "evidenceConfidence": "LOW"
+        },
+        "eightCount": {
+          "status": "OK",
+          "startTimingError": 0.02499999999999957,
+          "endTimingError": 0.02499999999999929,
+          "countBoundaryError": 0.024999999999999432,
+          "phraseAlignmentScore": 1,
+          "offByOneCountRate": 0,
+          "sampleCount": 5,
+          "evidenceConfidence": "LOW"
+        },
+        "event": {
+          "status": "NOT_AVAILABLE",
+          "byType": [],
+          "sampleCount": 0,
+          "evidenceConfidence": "NONE"
+        }
+      },
+      "aggregateScore": 1,
+      "confidence": "HIGH",
+      "provenance": [
+        {
+          "metric": "tempo",
+          "sources": [
+            {
+              "analyzer": "ground_truth",
+              "value": 70
+            },
+            {
+              "analyzer": "librosa",
+              "value": 70
+            }
+          ]
+        },
+        {
+          "metric": "beat",
+          "sources": [
+            {
+              "analyzer": "ground_truth",
+              "value": 0
+            },
+            {
+              "analyzer": "librosa",
+              "value": 0.025
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "agreement": [
+    {
+      "analyzerA": "librosa",
+      "analyzerB": "essentia",
+      "songId": "gt-complex",
+      "tempoAgreement": 1,
+      "beatAgreement": 0.6666666666666666,
+      "sectionAgreement": 0.6,
+      "note": "agreement_is_not_accuracy"
+    },
+    {
+      "analyzerA": "librosa",
+      "analyzerB": "essentia",
+      "songId": "gt-edm",
+      "tempoAgreement": 1,
+      "beatAgreement": 1,
+      "sectionAgreement": 1,
+      "note": "agreement_is_not_accuracy"
+    },
+    {
+      "analyzerA": "librosa",
+      "analyzerB": "essentia",
+      "songId": "gt-hiphop",
+      "tempoAgreement": 1,
+      "beatAgreement": 1,
+      "sectionAgreement": 1,
+      "note": "agreement_is_not_accuracy"
+    },
+    {
+      "analyzerA": "librosa",
+      "analyzerB": "essentia",
+      "songId": "gt-simple-pop",
+      "tempoAgreement": 1,
+      "beatAgreement": 1,
+      "sectionAgreement": 1,
+      "note": "agreement_is_not_accuracy"
+    },
+    {
+      "analyzerA": "librosa",
+      "analyzerB": "essentia",
+      "songId": "gt-slow-ballad",
+      "tempoAgreement": 1,
+      "beatAgreement": 1,
+      "sectionAgreement": 1,
+      "note": "agreement_is_not_accuracy"
+    }
+  ],
+  "profiles": [
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "beat",
+      "condition": "all",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 5,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "beat",
+      "condition": "beatDensity:dense",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "beat",
+      "condition": "beatDensity:normal",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "beat",
+      "condition": "beatDensity:sparse",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "beat",
+      "condition": "complexity:complex",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "beat",
+      "condition": "complexity:moderate",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "beat",
+      "condition": "complexity:simple",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "beat",
+      "condition": "energy:high",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "beat",
+      "condition": "energy:low",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "beat",
+      "condition": "energy:medium",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "beat",
+      "condition": "genre:ballad",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "beat",
+      "condition": "genre:complex",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "beat",
+      "condition": "genre:edm",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "beat",
+      "condition": "genre:hip-hop",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "beat",
+      "condition": "genre:pop",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "beat",
+      "condition": "tempo:fast",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "beat",
+      "condition": "tempo:medium",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "beat",
+      "condition": "tempo:slow",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "beat",
+      "condition": "tempo:variable",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "beat",
+      "condition": "vocal:mixed",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "beat",
+      "condition": "vocal:vocal-heavy",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 3,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "eightCount",
+      "condition": "all",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 5,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "eightCount",
+      "condition": "beatDensity:dense",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "eightCount",
+      "condition": "beatDensity:normal",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "eightCount",
+      "condition": "beatDensity:sparse",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "eightCount",
+      "condition": "complexity:complex",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "eightCount",
+      "condition": "complexity:moderate",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "eightCount",
+      "condition": "complexity:simple",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "eightCount",
+      "condition": "energy:high",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "eightCount",
+      "condition": "energy:low",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "eightCount",
+      "condition": "energy:medium",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "eightCount",
+      "condition": "genre:ballad",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "eightCount",
+      "condition": "genre:complex",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "eightCount",
+      "condition": "genre:edm",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "eightCount",
+      "condition": "genre:hip-hop",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "eightCount",
+      "condition": "genre:pop",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "eightCount",
+      "condition": "tempo:fast",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "eightCount",
+      "condition": "tempo:medium",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "eightCount",
+      "condition": "tempo:slow",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "eightCount",
+      "condition": "tempo:variable",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "eightCount",
+      "condition": "vocal:mixed",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "eightCount",
+      "condition": "vocal:vocal-heavy",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 3,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "section",
+      "condition": "all",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 5,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "section",
+      "condition": "beatDensity:dense",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "section",
+      "condition": "beatDensity:normal",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "section",
+      "condition": "beatDensity:sparse",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "section",
+      "condition": "complexity:complex",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "section",
+      "condition": "complexity:moderate",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "section",
+      "condition": "complexity:simple",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "section",
+      "condition": "energy:high",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "section",
+      "condition": "energy:low",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "section",
+      "condition": "energy:medium",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "section",
+      "condition": "genre:ballad",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "section",
+      "condition": "genre:complex",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "section",
+      "condition": "genre:edm",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "section",
+      "condition": "genre:hip-hop",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "section",
+      "condition": "genre:pop",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "section",
+      "condition": "tempo:fast",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "section",
+      "condition": "tempo:medium",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "section",
+      "condition": "tempo:slow",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "section",
+      "condition": "tempo:variable",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "section",
+      "condition": "vocal:mixed",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "section",
+      "condition": "vocal:vocal-heavy",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 3,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "tempo",
+      "condition": "all",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 5,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "tempo",
+      "condition": "beatDensity:dense",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "tempo",
+      "condition": "beatDensity:normal",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "tempo",
+      "condition": "beatDensity:sparse",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "tempo",
+      "condition": "complexity:complex",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "tempo",
+      "condition": "complexity:moderate",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "tempo",
+      "condition": "complexity:simple",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "tempo",
+      "condition": "energy:high",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "tempo",
+      "condition": "energy:low",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "tempo",
+      "condition": "energy:medium",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "tempo",
+      "condition": "genre:ballad",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "tempo",
+      "condition": "genre:complex",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "tempo",
+      "condition": "genre:edm",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "tempo",
+      "condition": "genre:hip-hop",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "tempo",
+      "condition": "genre:pop",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "tempo",
+      "condition": "tempo:fast",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "tempo",
+      "condition": "tempo:medium",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "tempo",
+      "condition": "tempo:slow",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "tempo",
+      "condition": "tempo:variable",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "tempo",
+      "condition": "vocal:mixed",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "essentia",
+      "analyzerVersion": "fixture-essentia-v1",
+      "signalType": "tempo",
+      "condition": "vocal:vocal-heavy",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 3,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "beat",
+      "condition": "all",
+      "metric": "f1@40ms",
+      "score": 0.9333333333333332,
+      "sampleCount": 5,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "beat",
+      "condition": "beatDensity:dense",
+      "metric": "f1@40ms",
+      "score": 0.8333333333333333,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "beat",
+      "condition": "beatDensity:normal",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "beat",
+      "condition": "beatDensity:sparse",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "beat",
+      "condition": "complexity:complex",
+      "metric": "f1@40ms",
+      "score": 0.6666666666666666,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "beat",
+      "condition": "complexity:moderate",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "beat",
+      "condition": "complexity:simple",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "beat",
+      "condition": "energy:high",
+      "metric": "f1@40ms",
+      "score": 0.8333333333333333,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "beat",
+      "condition": "energy:low",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "beat",
+      "condition": "energy:medium",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "beat",
+      "condition": "genre:ballad",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "beat",
+      "condition": "genre:complex",
+      "metric": "f1@40ms",
+      "score": 0.6666666666666666,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "beat",
+      "condition": "genre:edm",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "beat",
+      "condition": "genre:hip-hop",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "beat",
+      "condition": "genre:pop",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "beat",
+      "condition": "tempo:fast",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "beat",
+      "condition": "tempo:medium",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "beat",
+      "condition": "tempo:slow",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "beat",
+      "condition": "tempo:variable",
+      "metric": "f1@40ms",
+      "score": 0.6666666666666666,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "beat",
+      "condition": "vocal:mixed",
+      "metric": "f1@40ms",
+      "score": 0.8333333333333333,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "beat",
+      "condition": "vocal:vocal-heavy",
+      "metric": "f1@40ms",
+      "score": 1,
+      "sampleCount": 3,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "eightCount",
+      "condition": "all",
+      "metric": "phraseAlignment",
+      "score": 0.9,
+      "sampleCount": 5,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "eightCount",
+      "condition": "beatDensity:dense",
+      "metric": "phraseAlignment",
+      "score": 0.75,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "eightCount",
+      "condition": "beatDensity:normal",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "eightCount",
+      "condition": "beatDensity:sparse",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "eightCount",
+      "condition": "complexity:complex",
+      "metric": "phraseAlignment",
+      "score": 0.5,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "eightCount",
+      "condition": "complexity:moderate",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "eightCount",
+      "condition": "complexity:simple",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "eightCount",
+      "condition": "energy:high",
+      "metric": "phraseAlignment",
+      "score": 0.75,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "eightCount",
+      "condition": "energy:low",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "eightCount",
+      "condition": "energy:medium",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "eightCount",
+      "condition": "genre:ballad",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "eightCount",
+      "condition": "genre:complex",
+      "metric": "phraseAlignment",
+      "score": 0.5,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "eightCount",
+      "condition": "genre:edm",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "eightCount",
+      "condition": "genre:hip-hop",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "eightCount",
+      "condition": "genre:pop",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "eightCount",
+      "condition": "tempo:fast",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "eightCount",
+      "condition": "tempo:medium",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "eightCount",
+      "condition": "tempo:slow",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "eightCount",
+      "condition": "tempo:variable",
+      "metric": "phraseAlignment",
+      "score": 0.5,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "eightCount",
+      "condition": "vocal:mixed",
+      "metric": "phraseAlignment",
+      "score": 0.75,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "eightCount",
+      "condition": "vocal:vocal-heavy",
+      "metric": "phraseAlignment",
+      "score": 1,
+      "sampleCount": 3,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "section",
+      "condition": "all",
+      "metric": "labelF1",
+      "score": 0.9199999999999999,
+      "sampleCount": 5,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "section",
+      "condition": "beatDensity:dense",
+      "metric": "labelF1",
+      "score": 0.8,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "section",
+      "condition": "beatDensity:normal",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "section",
+      "condition": "beatDensity:sparse",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "section",
+      "condition": "complexity:complex",
+      "metric": "labelF1",
+      "score": 0.6,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "section",
+      "condition": "complexity:moderate",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "section",
+      "condition": "complexity:simple",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "section",
+      "condition": "energy:high",
+      "metric": "labelF1",
+      "score": 0.8,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "section",
+      "condition": "energy:low",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "section",
+      "condition": "energy:medium",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "section",
+      "condition": "genre:ballad",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "section",
+      "condition": "genre:complex",
+      "metric": "labelF1",
+      "score": 0.6,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "section",
+      "condition": "genre:edm",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "section",
+      "condition": "genre:hip-hop",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "section",
+      "condition": "genre:pop",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "section",
+      "condition": "tempo:fast",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "section",
+      "condition": "tempo:medium",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "section",
+      "condition": "tempo:slow",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "section",
+      "condition": "tempo:variable",
+      "metric": "labelF1",
+      "score": 0.6,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "section",
+      "condition": "vocal:mixed",
+      "metric": "labelF1",
+      "score": 0.8,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "section",
+      "condition": "vocal:vocal-heavy",
+      "metric": "labelF1",
+      "score": 1,
+      "sampleCount": 3,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "tempo",
+      "condition": "all",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 5,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "tempo",
+      "condition": "beatDensity:dense",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "tempo",
+      "condition": "beatDensity:normal",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "tempo",
+      "condition": "beatDensity:sparse",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "tempo",
+      "condition": "complexity:complex",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "tempo",
+      "condition": "complexity:moderate",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "tempo",
+      "condition": "complexity:simple",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "tempo",
+      "condition": "energy:high",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "tempo",
+      "condition": "energy:low",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "tempo",
+      "condition": "energy:medium",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "tempo",
+      "condition": "genre:ballad",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "tempo",
+      "condition": "genre:complex",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "tempo",
+      "condition": "genre:edm",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "tempo",
+      "condition": "genre:hip-hop",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "tempo",
+      "condition": "genre:pop",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "tempo",
+      "condition": "tempo:fast",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "tempo",
+      "condition": "tempo:medium",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "tempo",
+      "condition": "tempo:slow",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "tempo",
+      "condition": "tempo:variable",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 1,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "tempo",
+      "condition": "vocal:mixed",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 2,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    },
+    {
+      "analyzerId": "librosa",
+      "analyzerVersion": "fixture-librosa-v1",
+      "signalType": "tempo",
+      "condition": "vocal:vocal-heavy",
+      "metric": "classCorrect",
+      "score": 1,
+      "sampleCount": 3,
+      "evidenceConfidence": "LOW",
+      "status": "OK"
+    }
+  ]
+}
