@@ -2786,8 +2786,7 @@ function EditorPageContent({
       showFormationChange={
         wideEditorLayout &&
         !choreoPublicView &&
-        project.viewMode !== "view" &&
-        stageView === "2d"
+        project.viewMode !== "view"
       }
       onOpenFormationChange={() => setFormationPresetPickerOpen(true)}
       onRequestAddCueAtTime={() => setAddCueDialogOpen(true)}

@@ -952,6 +952,46 @@ export function EditorThreePaneGrid(props: EditorLayoutProps) {
                               .dancerMarkerDiameterPx
                           : DEFAULT_DANCER_MARKER_DIAMETER_PX
                       }
+                      stageWidthMm={
+                        typeof project.stageWidthMm === "number"
+                          ? project.stageWidthMm
+                          : null
+                      }
+                      stageDepthMm={
+                        typeof project.stageDepthMm === "number"
+                          ? project.stageDepthMm
+                          : null
+                      }
+                      centerFieldGuideIntervalMm={
+                        typeof project.centerFieldGuideIntervalMm === "number"
+                          ? project.centerFieldGuideIntervalMm
+                          : null
+                      }
+                      stageGridLinesVertical={
+                        project.stageGridLinesVerticalEnabled ??
+                        project.stageGridLinesEnabled ??
+                        false
+                      }
+                      stageGridLinesHorizontal={
+                        project.stageGridLinesHorizontalEnabled ??
+                        project.stageGridLinesEnabled ??
+                        false
+                      }
+                      stageGridSpacingWidthMm={
+                        typeof project.stageGridSpacingWidthMm === "number"
+                          ? project.stageGridSpacingWidthMm
+                          : null
+                      }
+                      stageGridSpacingDepthMm={
+                        typeof project.stageGridSpacingDepthMm === "number"
+                          ? project.stageGridSpacingDepthMm
+                          : null
+                      }
+                      stageGridLineSpacingMm={
+                        typeof project.stageGridLineSpacingMm === "number"
+                          ? project.stageGridLineSpacingMm
+                          : null
+                      }
                     />
                   </Suspense>
                 ) : (
